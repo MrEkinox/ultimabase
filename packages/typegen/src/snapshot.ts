@@ -1,12 +1,16 @@
 import {
 	readFieldTypegenState,
 	type CompiledSchemaRegistry,
+	type CompiledTypegenGraph,
 	type FieldTypegenState,
 	type FrameworkApplication,
 	type GenericField,
+	type JsonValue,
 	type OwnedFieldBuilderMethod,
 	type PluginDefinition,
 	type SchemaDefinition,
+	type TypegenNamedDeclaration,
+	type TypegenPropertyNode,
 } from '@ultimabase/core'
 import {
 	immutableArray,
@@ -16,6 +20,7 @@ import {
 } from '@ultimabase/shared'
 
 import { SchemaTypegenError } from './errors.js'
+import { snapshotTypegenGraph } from './snapshot/plugin-graph.js'
 
 export interface TypegenReference {
 	readonly exportName: string
@@ -69,11 +74,87 @@ export interface TypegenFieldMethodSnapshot {
 	readonly value: TypegenReference
 }
 
+export interface TypegenOwnerSnapshot {
+	readonly instanceId?: string
+	readonly pluginId: string
+	readonly version: string
+}
+
+export interface TypegenOptionSnapshot {
+	readonly contributionId: string
+	readonly name: string
+	readonly owner: TypegenOwnerSnapshot
+	readonly reference: TypegenReference
+	readonly scope: 'field' | 'schema'
+	readonly staticOptions: Readonly<Record<string, JsonValue>>
+}
+
+export interface TypegenOperationSnapshot {
+	readonly input: TypegenReference | undefined
+	readonly name: string
+	readonly owner: TypegenOwnerSnapshot
+	readonly result: TypegenReference | undefined
+	readonly target: 'application' | 'model' | 'schema'
+	readonly transaction: 'forbidden' | 'optional' | 'required'
+	readonly version: string
+}
+
+export interface TypegenCommandSnapshot {
+	readonly contributionId: string
+	readonly name: string
+	readonly operation: string
+	readonly owner: TypegenOwnerSnapshot
+	readonly staticOptions: Readonly<Record<string, JsonValue>>
+}
+
+export interface TypegenQueryExtensionSnapshot {
+	readonly contributionId: string
+	readonly input: TypegenReference | undefined
+	readonly name: string
+	readonly owner: TypegenOwnerSnapshot
+	readonly staticOptions: Readonly<Record<string, JsonValue>>
+	readonly version: string
+}
+
+export interface TypegenSchemaSurfaceSnapshot {
+	readonly className: string
+	readonly modelCommands: readonly TypegenCommandSnapshot[]
+	readonly queryExtensions: readonly TypegenQueryExtensionSnapshot[]
+	readonly schemaCommands: readonly TypegenCommandSnapshot[]
+}
+
+export interface TypegenContributionSnapshot {
+	readonly augmentations: readonly Readonly<{
+		readonly model?: readonly TypegenPropertyNode[]
+		readonly schema?: readonly TypegenPropertyNode[]
+		readonly target: string
+	}>[]
+	readonly contributionId: string
+	readonly declarations: readonly TypegenNamedDeclaration[]
+	readonly owner: TypegenOwnerSnapshot
+	readonly staticOptions: Readonly<Record<string, JsonValue>>
+}
+
+export interface TypegenOutputSnapshot {
+	readonly contributionId: string
+	readonly declarations?: readonly TypegenNamedDeclaration[]
+	readonly kind: 'declaration' | 'metadata'
+	readonly metadata?: JsonValue
+	readonly outputPath: string
+	readonly owner: TypegenOwnerSnapshot
+	readonly staticOptions: Readonly<Record<string, JsonValue>>
+}
+
 export interface TypegenApplicationSnapshot {
 	readonly applicationId: string
+	readonly contributions: readonly TypegenContributionSnapshot[]
 	readonly fieldMethods: readonly TypegenFieldMethodSnapshot[]
+	readonly operations: readonly TypegenOperationSnapshot[]
+	readonly options: readonly TypegenOptionSnapshot[]
+	readonly outputs: readonly TypegenOutputSnapshot[]
 	readonly schemas: readonly TypegenSchemaSnapshot[]
-	readonly version: 1
+	readonly surfaces: readonly TypegenSchemaSurfaceSnapshot[]
+	readonly version: 2
 }
 
 interface PluginValueReference extends TypegenReference {
@@ -328,6 +409,7 @@ const snapshotFields = (
 export interface CompiledTypegenApplication {
 	readonly fieldBuilderMethods: readonly OwnedFieldBuilderMethod[]
 	readonly schemas: CompiledSchemaRegistry
+	readonly typegenGraph?: CompiledTypegenGraph
 }
 
 /** Converts an already compiled application graph into an inert snapshot. */
@@ -375,12 +457,14 @@ export const createCompiledTypegenSnapshot = (
 				}),
 			),
 	)
+	const typegenGraph = snapshotTypegenGraph(application.typegenGraph)
 
 	return immutableRecord({
 		applicationId,
+		...typegenGraph,
 		fieldMethods,
 		schemas,
-		version: 1,
+		version: 2,
 	})
 }
 
@@ -394,5 +478,12 @@ export const createTypegenSnapshot = (
 ): TypegenApplicationSnapshot => {
 	application.compileSchemas()
 
-	return createCompiledTypegenSnapshot(application, applicationId)
+	return createCompiledTypegenSnapshot(
+		{
+			fieldBuilderMethods: application.fieldBuilderMethods,
+			schemas: application.schemas,
+			typegenGraph: application.typegenGraph,
+		},
+		applicationId,
+	)
 }

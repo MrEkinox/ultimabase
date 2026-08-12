@@ -107,6 +107,11 @@ describe('canonical schema compiler IR', () => {
 				operations: immutableArray([]),
 				querySurfaces: immutableArray([]),
 			}),
+			typegen: immutableRecord({
+				contributions: immutableArray([]),
+				outputs: immutableArray([]),
+				references: immutableArray([]),
+			}),
 		})
 		const prepared = immutableArray([
 			prepareSchemaCompilation(Existing),

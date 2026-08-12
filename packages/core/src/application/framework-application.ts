@@ -59,6 +59,7 @@ import type {
 	CompiledApplicationSchemaSurface,
 	CompiledPluginOperation,
 } from '../plugins/application-surface-registry.js'
+import type { CompiledTypegenGraph } from '../plugins/typegen-declarations.js'
 
 /** Captures every static input needed to construct one isolated application. */
 export interface FrameworkApplicationOptions<
@@ -270,6 +271,7 @@ export class FrameworkApplication<
 					)
 				}
 			},
+			() => this.#schemaDeclarations.typegenGraph(),
 		)
 		const capabilityHost = new ApplicationCapabilityHost(
 			graph,
@@ -329,6 +331,12 @@ export class FrameworkApplication<
 	getOperation(name: string): CompiledPluginOperation | undefined {
 		this.compileSchemas()
 		return this.#schemaDeclarations.operation(name)
+	}
+
+	/** Reads the complete callback-free graph used by declaration tooling. */
+	get typegenGraph(): CompiledTypegenGraph {
+		this.compileSchemas()
+		return this.#schemaDeclarations.typegenGraph()
 	}
 
 	/** Completes declaration-only plugin setup before the application is returned. */

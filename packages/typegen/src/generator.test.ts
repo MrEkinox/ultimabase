@@ -1,13 +1,20 @@
 import {
 	addSchemaField,
+	defineOperation,
+	defineOperationValue,
+	defineQueryExtension,
 	defineFieldBuilderMethod,
 	definePlugin,
 	definePluginField,
+	defineSchemaOption,
+	defineTypegenReference,
 	FrameworkApplication,
+	QueryBuilder,
 	replaceSchemaCompiler,
 	Schema,
 	stringField,
 	type FieldBuilder,
+	type SchemaOptions,
 } from '@ultimabase/core'
 import {
 	pgVectorPlugin,
@@ -559,5 +566,180 @@ describe('generateApplicationTypes', () => {
 				reason: 'malformed-plugin-contribution',
 			}),
 		)
+	})
+
+	it('renders exact operations, handles, options, and structured types reproducibly', () => {
+		const inputReference = defineTypegenReference({
+			exportName: 'PublishInput',
+			module: '@fixture/workflow-plugin',
+		})
+		const resultReference = defineTypegenReference({
+			exportName: 'PublishResult',
+			module: '@fixture/workflow-plugin',
+		})
+		const handleReference = defineTypegenReference({
+			exportName: 'ApplicationOperationHandle',
+			module: '@ultimabase/core',
+		})
+		const workflowName = 'Editorial' as const
+		const publish = defineOperation({
+			input: defineOperationValue(
+				(value) => immutableRecord({ value }),
+				inputReference,
+			),
+			name: 'fixture.workflow.publish',
+			result: defineOperationValue(
+				(value) => immutableRecord({ value }),
+				resultReference,
+			),
+			target: 'schema',
+			transaction: 'required',
+			version: '2.3.0',
+		})
+		const byWorkflow = defineQueryExtension({
+			apply: (schema, workflow) =>
+				new QueryBuilder(schema).where({ workflow: { eq: workflow } }),
+			input: defineOperationValue((value, path) => {
+				if (typeof value !== 'string')
+					throw new TypeError(`${path} must be a string`)
+				return value
+			}, inputReference),
+			name: 'fixture.workflow.by-name',
+			version: '1.0.0',
+		})
+		const workflowOption = defineSchemaOption({
+			normalize: (value, path) => {
+				if (typeof value !== 'string')
+					throw new TypeError(`${path} must be a string`)
+				return value
+			},
+			protocolVersion: 1,
+			typegen: {
+				module: '@fixture/workflow-plugin',
+				type: 'WorkflowName',
+			},
+		})
+		const Post = Schema.define({
+			className: 'TypegenWorkflowPost',
+			fields: (field) => ({ title: field.string() }),
+			workflow: 'editorial',
+		} as SchemaOptions<'TypegenWorkflowPost'> & { readonly workflow: string })
+		const plugin = definePlugin({
+			core: '^0.0.0',
+			pluginId: 'fixture.workflow-typegen',
+			version: '4.2.0',
+			privileges: [
+				{ name: 'schema:declare', reason: 'Declares the workflow option.' },
+				{ name: 'operation:declare', reason: 'Declares publish.' },
+				{ name: 'model:extend', reason: 'Adds the publish command.' },
+				{ name: 'query:extend', reason: 'Adds the workflow query.' },
+				{
+					name: 'typegen:reference',
+					reason: 'References public workflow types.',
+				},
+				{
+					name: 'typegen:contribute',
+					reason: 'Adds correlated workflow types.',
+				},
+			],
+			declare: ({
+				models,
+				operations,
+				queries,
+				schemas,
+				typegenContributions,
+				typegenReferences,
+			}) => {
+				typegenReferences.register(inputReference)
+				typegenReferences.register(resultReference)
+				typegenReferences.register(handleReference)
+				schemas.defineOptions({
+					contributionId: 'workflow-options',
+					schema: { workflow: workflowOption },
+				})
+				operations.declare(publish)
+				models.extend(Post, {
+					contributionId: 'workflow-model',
+					schemaCommands: { publish },
+					staticOptions: { workflow: 'editorial' },
+				})
+				queries.extend(Post, {
+					contributionId: 'workflow-query',
+					extensions: { byWorkflow },
+				})
+				typegenContributions.add({
+					contributionId: 'workflow-types',
+					augmentations: [
+						{
+							schema: [
+								{
+									name: 'publish',
+									type: {
+										kind: 'reference',
+										reference: handleReference,
+									},
+								},
+							],
+							target: Post.className,
+						},
+					],
+					declarations: [
+						{
+							kind: 'type',
+							name: `Configured${workflowName}Workflow`,
+							type: {
+								kind: 'object',
+								properties: [
+									{
+										name: 'publish',
+										type: {
+											kind: 'tuple',
+											values: [
+												{ kind: 'reference', reference: inputReference },
+												{ kind: 'reference', reference: resultReference },
+											],
+										},
+									},
+								],
+							},
+						},
+					],
+					staticOptions: { workflow: 'editorial' },
+				})
+			},
+		})
+		const application = new FrameworkApplication({
+			plugins: [plugin],
+			schemas: [Post],
+		})
+
+		const first = generateApplicationTypes({
+			application,
+			applicationId: 'fixture.workflow',
+		})
+		const second = generateApplicationTypes({
+			application,
+			applicationId: 'fixture.workflow',
+		})
+
+		expect(second).toStrictEqual(first)
+		expect(first.snapshot.version).toBe(2)
+		expect(first.contents).toContain('export type ConfiguredEditorialWorkflow')
+		expect(first.contents).toContain('interface UltimaBaseGeneratedOperations')
+		expect(first.contents).toContain('readonly "fixture.workflow.publish"')
+		expect(first.contents).toContain(
+			'interface UltimaBaseGeneratedSchemaSurfaces',
+		)
+		expect(first.contents).toContain(
+			'readonly publish: "fixture.workflow.publish"',
+		)
+		expect(first.contents).toMatch(/readonly schema: \{\s+readonly publish:/u)
+		expect(first.contents).toContain(
+			'readonly byWorkflow: Core.QueryExtensionDefinition',
+		)
+		expect(first.contents).toContain(
+			'interface UltimaBaseGeneratedSchemaOptions',
+		)
+		expect(first.contents).toContain('readonly workflow?:')
 	})
 })

@@ -40,6 +40,7 @@ import {
 	type PluginIdentity,
 	type PluginPrivilege,
 } from './manifest.js'
+import type { CompiledTypegenGraph } from './typegen-declarations.js'
 
 const emptyFieldBuilderMethods: readonly OwnedFieldBuilderMethod[] =
 	immutableArray([])
@@ -47,6 +48,12 @@ const emptyCapabilityReader: PluginCapabilityReader = immutableRecord({
 	get: () => {
 		throw new TypeError('No capability graph is configured')
 	},
+})
+const emptyTypegenGraph: CompiledTypegenGraph = immutableRecord({
+	declarations: immutableArray([]),
+	operations: immutableArray([]),
+	options: immutableArray([]),
+	schemaSurfaces: immutableArray([]),
 })
 
 const toPluginIdentity = (owner: PluginIdentity | string): PluginIdentity => {
@@ -202,6 +209,8 @@ export interface PluginSetupContext {
 	readonly schemas: CompiledSchemaRegistry
 	/** Exposes the compiled application-local FieldBuilder method graph to tooling plugins. */
 	readonly fieldBuilderMethods: readonly OwnedFieldBuilderMethod[]
+	/** Exposes the callback-free final application graph to declaration tooling. */
+	readonly typegenGraph: CompiledTypegenGraph
 	/** Reads only exact capability requirements declared by this plugin. */
 	readonly capabilities: PluginCapabilityReader
 	/** Registers native Access policies with ownership fixed to this plugin. */
@@ -246,6 +255,7 @@ export class PluginSetupRegistries {
 			owner: PluginIdentity,
 			privilege: PluginPrivilege,
 		) => void = () => undefined,
+		readonly typegenGraph: () => CompiledTypegenGraph = () => emptyTypegenGraph,
 	) {
 		this.#constraintCompilerReader = createDatabaseConstraintCompilerReader(
 			() => this.#constraintCompilers.values(),
@@ -347,6 +357,7 @@ export class PluginSetupRegistries {
 		const context = immutableRecord({
 			schemas: this.schemas,
 			fieldBuilderMethods: this.fieldBuilderMethods(),
+			typegenGraph: this.typegenGraph(),
 			capabilities: this.capabilitiesForPlugin(owner),
 			access: createPluginAccessRegistry({
 				assertPrivilege: () => {

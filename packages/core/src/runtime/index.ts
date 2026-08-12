@@ -27,6 +27,8 @@ export {
 } from '../application/application-handles.js'
 export type {
 	ApplicationContributionOwner,
+	ApplicationModelHandleFor,
+	ApplicationOperationHandleForName,
 	ApplicationSchemaHandle,
 	ApplicationSchemaHandleForName,
 	PluginOperationEnvelope,

@@ -222,11 +222,11 @@ exact. Contribution IDs are local to the full `{ pluginId, instanceId? }`
 identity, so two explicit instances may reuse the same local ID.
 
 Direct plugin options use ordinary properties rather than a separate options
-bag. Core validates them without generated files. The installed-option
-autocomplete and declaration augmentation are supplied by Typegen; until that
-generation contract is implemented, TypeScript applications can describe the
-same direct properties through an explicit local option intersection while
-JavaScript already uses the Runtime contract unchanged.
+bag. Core validates them without generated files. Typegen augments `SchemaOptions`
+and `FieldOptions` with the public contracts for option definitions that occur
+in the final application graph. Unused definitions remain absent and therefore
+cannot create application-wide TypeScript conflicts. JavaScript uses the same
+Runtime contract without generated files.
 
 An option contract may also declare a Runtime compiler backed by one exact
 application-lifetime capability requirement. Static compilation only records
@@ -384,20 +384,19 @@ declare({ models, operations, queries, schemas }) {
 ```
 
 Handles expose commands as inert operation handles and query extensions as
-ordinary `QueryBuilder` factories. `prepare()` validates one immutable logical
+ordinary `QueryBuilder` factories, both through their named collections and
+generated direct properties. `prepare()` validates one immutable logical
 envelope but performs no I/O. Runtime handlers and `execute()`, wire
 serialization, and transport exposure remain separate work owned by issue 1416:
 
 ```ts
 const Post = ultimabase.schema('Post')
-const envelope = Post.for(post)
-	.command('publish')
-	.prepare({ reason: 'reviewed' })
-const query = Post.query('byWorkflowState', 'ready')
+const envelope = Post.for(post).publish.prepare({ reason: 'reviewed' })
+const query = Post.byWorkflowState('ready')
 ```
 
 Core preserves stable token input and result precision, stable schema-class
-precision, and safe dynamic JavaScript access. Issue 1408 adds generated
+precision, and safe dynamic JavaScript access. The generated registry adds exact
 autocomplete for application-specific command, query, operation, and dynamic
 schema names without generating executable client state.
 

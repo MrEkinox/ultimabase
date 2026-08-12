@@ -13,6 +13,7 @@ import type { PluginOperationDefinition } from '../../plugins/plugin-operations.
 import {
 	ApplicationOperationHandle,
 	ApplicationSchemaHandleBase,
+	type ApplicationOperationHandleForName,
 	type ApplicationSchemaHandle,
 	type ApplicationSchemaHandleForName,
 } from '../../application/application-handles.js'
@@ -198,7 +199,9 @@ export class UltimaBase<
 		operation: TOperation,
 	): ApplicationOperationHandle<TOperation>
 	/** Resolves one dynamic operation handle by its namespaced JavaScript name. */
-	operation(name: string): ApplicationOperationHandle
+	operation<const TName extends string>(
+		name: TName,
+	): ApplicationOperationHandleForName<TName>
 	operation(
 		tokenOrName: PluginOperationDefinition | string,
 	): ApplicationOperationHandle {

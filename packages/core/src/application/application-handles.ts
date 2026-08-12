@@ -10,15 +10,25 @@ import {
 	isSchemaModelInstance,
 	readSchemaModelRecord,
 } from '../schema/schema/model-state.js'
-import type {
-	CompiledApplicationSchemaSurface,
-	CompiledOperationCommand,
-	CompiledPluginOperation,
+
+import {
+	coreSchemaHandleCommandNames,
+	type CompiledApplicationSchemaSurface,
+	type CompiledOperationCommand,
+	type CompiledPluginOperation,
 } from '../plugins/application-surface-registry.js'
 import type {
 	PluginOperationDefinition,
 	PluginOperationInput,
 } from '../plugins/plugin-operations.js'
+import type {
+	QueryExtensionDefinition,
+	QueryExtensionInput,
+} from '../plugins/application-surface-declarations.js'
+import type {
+	UltimaBaseGeneratedOperations,
+	UltimaBaseGeneratedSchemaSurfaces,
+} from '../schema/type-info.js'
 import type { PluginSchemaContributionOwner } from '../schema/schema/provenance.js'
 import type { PluginLifecycleState } from '../plugins/lifecycle-manager.js'
 /** Exposes safe owner facts without plugin configuration or execution state. */
@@ -143,46 +153,77 @@ export class ApplicationOperationHandle<
 		return envelope
 	}
 }
-const schemaCommandNames = new Set([
-	'count',
-	'createMany',
-	'createOne',
-	'deleteMany',
-	'deleteOne',
-	'exists',
-	'findMany',
-	'findOne',
-	'get',
-	'updateMany',
-	'updateOne',
-	'upsertMany',
-	'upsertOne',
-])
+const schemaCommandNames: ReadonlySet<string> = new Set(
+	coreSchemaHandleCommandNames,
+)
 
-type SchemaCommandName =
-	| 'count'
-	| 'createMany'
-	| 'createOne'
-	| 'deleteMany'
-	| 'deleteOne'
-	| 'exists'
-	| 'findMany'
-	| 'findOne'
-	| 'get'
-	| 'updateMany'
-	| 'updateOne'
-	| 'upsertMany'
-	| 'upsertOne'
+type SchemaCommandName = (typeof coreSchemaHandleCommandNames)[number]
 
 type CoreSchemaHandleCommands<TSchema extends SchemaDefinition> = Pick<
 	TSchema,
 	Extract<keyof TSchema, SchemaCommandName>
 >
 
+type GeneratedOperation<TName extends string> =
+	TName extends keyof UltimaBaseGeneratedOperations
+		? UltimaBaseGeneratedOperations[TName] extends PluginOperationDefinition
+			? UltimaBaseGeneratedOperations[TName]
+			: PluginOperationDefinition
+		: PluginOperationDefinition
+
+type GeneratedSchemaSurface<TSchema extends SchemaDefinition> =
+	TSchema['className'] extends keyof UltimaBaseGeneratedSchemaSurfaces
+		? UltimaBaseGeneratedSchemaSurfaces[TSchema['className']]
+		: never
+
+type SurfacePart<TSchema extends SchemaDefinition, TKey extends PropertyKey> =
+	GeneratedSchemaSurface<TSchema> extends Record<TKey, infer TValue>
+		? TValue
+		: Readonly<Record<never, never>>
+
+type GeneratedSchemaCommands<TSchema extends SchemaDefinition> =
+	SurfacePart<TSchema, 'schemaCommands'> extends infer TCommands extends
+		Readonly<Record<string, string>>
+		? {
+				readonly [TName in keyof TCommands]: ApplicationOperationHandle<
+					GeneratedOperation<TCommands[TName]>
+				>
+			}
+		: Readonly<Record<never, never>>
+
+type GeneratedModelCommands<TSchema extends SchemaDefinition> =
+	SurfacePart<TSchema, 'modelCommands'> extends infer TCommands extends
+		Readonly<Record<string, string>>
+		? {
+				readonly [TName in keyof TCommands]: ApplicationOperationHandle<
+					GeneratedOperation<TCommands[TName]>
+				>
+			}
+		: Readonly<Record<never, never>>
+
+type GeneratedQueries<TSchema extends SchemaDefinition> =
+	SurfacePart<TSchema, 'queries'> extends infer TQueries extends Readonly<
+		Record<string, QueryExtensionDefinition>
+	>
+		? {
+				readonly [TName in keyof TQueries]: (
+					input: QueryExtensionInput<TQueries[TName]>,
+				) => QueryBuilder<TSchema>
+			}
+		: Readonly<Record<never, never>>
+
 /** Represents one schema through an application, without a constructible class. */
 export type ApplicationSchemaHandle<
 	TSchema extends SchemaDefinition = SchemaDefinition,
-> = CoreSchemaHandleCommands<TSchema> & ApplicationSchemaHandleBase<TSchema>
+> = CoreSchemaHandleCommands<TSchema> &
+	ApplicationSchemaHandleBase<TSchema> &
+	SurfacePart<TSchema, 'schema'> &
+	GeneratedSchemaCommands<TSchema> &
+	GeneratedQueries<TSchema> &
+	Readonly<{
+		commands: GeneratedSchemaCommands<TSchema>
+		queries: GeneratedQueries<TSchema>
+	}>
 
 const mergeApplicationOptions = (
 	options: unknown,
@@ -241,6 +282,14 @@ export class ApplicationSchemaHandleBase<
 		Object.freeze(this)
 		return new Proxy(this, {
 			get: (target, property, receiver): unknown => {
+				if (typeof property === 'string') {
+					if (target.surface.schemaCommands.has(property)) {
+						return target.command(property)
+					}
+					if (target.surface.queryExtensions.has(property)) {
+						return (input: unknown) => target.query(property, input)
+					}
+				}
 				if (
 					typeof property === 'string' &&
 					schemaCommandNames.has(property) &&
@@ -267,7 +316,7 @@ export class ApplicationSchemaHandleBase<
 	}
 
 	/** Binds one trusted draft or persisted model without copying its identity. */
-	for(model: object): ApplicationModelHandle<TSchema> {
+	for(model: object): ApplicationModelHandleFor<TSchema> {
 		assertHandleAvailable(this.lifetime)
 		if (!isSchemaModelInstance(this.schema, model)) {
 			throw new TypeError(
@@ -287,7 +336,7 @@ export class ApplicationSchemaHandleBase<
 			record.state,
 			this.surface,
 			this.resolveOperation,
-		)
+		) as ApplicationModelHandleFor<TSchema>
 	}
 
 	/** Applies one validated QueryBuilder extension without entering Runtime. */
@@ -365,6 +414,13 @@ export class ApplicationModelHandle<
 			),
 		)
 		Object.freeze(this)
+		return new Proxy(this, {
+			get: (target, property, receiver): unknown =>
+				typeof property === 'string' &&
+				target.surface.modelCommands.has(property)
+					? target.command(property)
+					: Reflect.get(target, property, receiver),
+		})
 	}
 
 	/** Resolves one model command alias while retaining protected model identity. */
@@ -388,6 +444,17 @@ export class ApplicationModelHandle<
 		})
 	}
 }
+
+/** Resolves exact generated direct methods for one immutable model handle. */
+export type ApplicationModelHandleFor<TSchema extends SchemaDefinition> =
+	ApplicationModelHandle<TSchema> &
+		SurfacePart<TSchema, 'model'> &
+		GeneratedModelCommands<TSchema> &
+		Readonly<{ commands: GeneratedModelCommands<TSchema> }>
+
+/** Resolves one exact generated operation from its stable namespaced name. */
+export type ApplicationOperationHandleForName<TName extends string> =
+	ApplicationOperationHandle<GeneratedOperation<TName>>
 
 /** Resolves an exact schema reference from a generated literal name. */
 export type ApplicationSchemaHandleForName<TClassName extends string> =

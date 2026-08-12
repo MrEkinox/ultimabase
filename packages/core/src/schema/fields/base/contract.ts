@@ -1,4 +1,5 @@
 import type { FieldExtension } from '../../extensions/definition.js'
+import type { UltimaBaseGeneratedFieldOptions } from '../../type-info.js'
 import type { DefaultFactory, FieldDefault } from './defaults.js'
 
 declare const fieldValueMarker: unique symbol
@@ -144,7 +145,10 @@ export interface FieldOptions<
 	TValue,
 	TValidation extends FieldValidationOptions = FieldValidationOptions,
 	TList extends FieldListOption = FieldListOption,
-> extends FieldOptionsBase<TValidation, TList> {
+>
+	extends
+		FieldOptionsBase<TValidation, TList>,
+		UltimaBaseGeneratedFieldOptions {
 	/**
 	 * Provides a static value or a zero-argument factory evaluated for each created object.
 	 *

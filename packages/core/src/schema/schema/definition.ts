@@ -56,9 +56,10 @@ import type {
 	SchemaTypeInfo,
 	SchemaTypeInfoByNameOrBase,
 	RequireGeneratedSchemaEntry,
+	UltimaBaseGeneratedSchemaOptions,
 } from '../type-info.js'
-import type { SchemaAPI } from './schema-api.js'
 import type { SchemaItem } from './values.js'
+import type { SchemaAPI } from './schema-api.js'
 import {
 	isReservedQueryLogicalFieldName,
 	isReservedSchemaModelFieldName,
@@ -72,7 +73,6 @@ import type { SchemaConstraintDefinition } from './constraints.js'
 
 export type { BaseItem } from '../type-info.js'
 export type { SchemaAPI } from './schema-api.js'
-
 /**
  * Collects named field definitions without erasing their concrete literals.
  */
@@ -124,7 +124,7 @@ export interface SchemaOptions<
 	TClassName extends string = string,
 	TFields extends SchemaFields = SchemaFields,
 	TExtensions extends SchemaExtensions = readonly [],
-> {
+> extends UltimaBaseGeneratedSchemaOptions {
 	/**
 	 * Declares the stable logical name used by queries, transports, and adapters.
 	 *

@@ -151,6 +151,32 @@ export type {
 	PluginDeclarationContext,
 } from './plugins/declaration-host.js'
 export {
+	defineTypegenReference,
+	isTypegenReference,
+} from './plugins/typegen-contracts.js'
+export type {
+	TypegenNamedDeclaration,
+	TypegenOutputDeclaration,
+	TypegenOutputDeclarationOptions,
+	TypegenOutputMetadata,
+	TypegenPropertyNode,
+	TypegenReference,
+	TypegenSchemaAugmentation,
+	TypegenStructuredContribution,
+	TypegenTypeNode,
+} from './plugins/typegen-contracts.js'
+export type {
+	CompiledTypegenGraph,
+	CompiledTypegenOption,
+	OwnedTypegenContribution,
+	OwnedTypegenOutput,
+	OwnedTypegenReference,
+	TypegenContributionRegistrar,
+	TypegenDeclarations,
+	TypegenOutputRegistrar,
+	TypegenReferenceRegistrar,
+} from './plugins/typegen-declarations.js'
+export {
 	isSchemaCompilerArtifactReference,
 	canonicalSchemaCompilerTarget,
 	replaceSchemaCompiler,

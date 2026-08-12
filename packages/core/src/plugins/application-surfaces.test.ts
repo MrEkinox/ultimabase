@@ -2,6 +2,7 @@ import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 
 import { UltimaBase } from '../runtime/application/ultima-base.js'
+import type { ApplicationOperationHandle } from '../application/application-handles.js'
 import { beforeOperation } from '../runtime/hooks/definitions.js'
 import { QueryBuilder } from '../query/query/query.js'
 import { materializeSchemaModel } from '../schema/schema/model-materialization.js'
@@ -158,11 +159,21 @@ describe('application-owned plugin surfaces', () => {
 			schema: StablePost.className,
 		})
 		expect(stable.commands.publish?.definition).toBe(schemaOperation)
+		expect(
+			(Reflect.get(stable, 'publish') as ApplicationOperationHandle).definition,
+		).toBe(schemaOperation)
 
 		const query = stable.query('byTitle', 'Hello')
 		expect(query).toBeInstanceOf(QueryBuilder)
 		expect(query.schema).toBe(StablePost)
 		expect(stable.queries.byTitle?.('Other').schema).toBe(StablePost)
+		expect(
+			(
+				Reflect.get(stable, 'byTitle') as (
+					input: string,
+				) => QueryBuilder<typeof StablePost>
+			)('Direct').schema,
+		).toBe(StablePost)
 
 		const draft = new StablePost({ title: 'Draft' })
 		const persisted = materializeSchemaModel(StablePost, {
@@ -191,6 +202,13 @@ describe('application-owned plugin surfaces', () => {
 			schema: StablePost.className,
 			state: 'persisted',
 		})
+		expect(
+			(
+				Reflect.get(draftHandle, 'publish') as ApplicationOperationHandle<
+					typeof modelOperation
+				>
+			).prepare({ message: 'direct' }).target,
+		).toMatchObject({ kind: 'model', state: 'draft' })
 		expect(() => dynamic.for(draft)).toThrow(
 			`Model handle requires an exact ${DynamicSchema.className} model`,
 		)

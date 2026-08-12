@@ -29,6 +29,10 @@ import {
 	type SchemaSelectorOptions,
 } from './schema-patch-contracts.js'
 import type { ApplicationSurfaceDeclarations } from './application-surface-declarations.js'
+import type {
+	MutableTypegenDeclarations,
+	TypegenDeclarations,
+} from './typegen-declarations.js'
 
 export interface PluginSchemaDeclarationRegistrar {
 	add(options: {
@@ -187,6 +191,7 @@ export interface SchemaDeclarationBatch {
 	readonly owner: PluginSchemaContributionOwner
 	readonly patches: readonly OwnedSchemaPatch[]
 	readonly surfaces: ApplicationSurfaceDeclarations
+	readonly typegen: TypegenDeclarations
 }
 
 export interface MutableSchemaDeclarationBatch {
@@ -201,6 +206,7 @@ export interface MutableSchemaDeclarationBatch {
 		readonly operations: ApplicationSurfaceDeclarations['operations'][number][]
 		readonly querySurfaces: ApplicationSurfaceDeclarations['querySurfaces'][number][]
 	}
+	readonly typegen: MutableTypegenDeclarations
 }
 
 /** Maps a terminal schema compilation failure back to its latest plugin owner. */

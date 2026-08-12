@@ -3,9 +3,10 @@
 Deterministic generated application contracts for UltimaBase schemas.
 
 The package compiles only the static application graph, converts it to an
-inert snapshot, emits one compact TypeScript declaration, and can replace that
-file atomically. It never runs plugin setup, connects infrastructure, reads
-database credentials, or serializes Access and hook callbacks.
+inert snapshot, emits one compact TypeScript declaration plus explicitly owned
+inert plugin outputs, and replaces each file atomically. It never connects
+infrastructure, reads database credentials, serializes callbacks, or emits a
+Runtime client.
 
 ## Automatic startup generation
 
@@ -55,6 +56,53 @@ await writeGeneratedTypeFile({
 	outputPath: '.ultimabase/schema.generated.d.ts',
 })
 ```
+
+### Plugin-owned contracts
+
+Plugins request separate privileges for public type references, structured main
+declaration contributions, and separate output:
+
+```ts
+const publicState = defineTypegenReference({
+	module: '@example/workflow-plugin',
+	exportName: 'WorkflowState',
+})
+
+definePlugin({
+	pluginId: '@example/workflow-plugin',
+	version: '1.0.0',
+	core: '^0.0.0',
+	privileges: [
+		{ name: 'typegen:reference', reason: 'References WorkflowState.' },
+		{ name: 'typegen:contribute', reason: 'Adds configured workflow types.' },
+	],
+	declare({ typegenReferences, typegenContributions }) {
+		typegenReferences.register(publicState)
+		typegenContributions.add({
+			contributionId: 'workflow-types',
+			declarations: [
+				{
+					kind: 'type',
+					name: 'ConfiguredWorkflow',
+					type: { kind: 'reference', reference: publicState },
+				},
+			],
+		})
+	},
+})
+```
+
+The closed type-node format supports primitives, JSON literals, arrays, tuples,
+unions, objects, and registered generic references. Raw TypeScript is not
+accepted. `typegen:emit` is limited to structured `.d.ts` declarations and
+deterministic `.json` metadata; JavaScript, binaries, callbacks, credentials,
+connection data, and generated Runtime clients are rejected.
+
+Generic generation reads the final graph and emits plugin-added schemas,
+fields, used direct schema and field options, exact namespaced operations,
+dynamic schema handles, schema/model commands, and query inputs. Plugin owner,
+version, contribution ID, static options, imports, destinations, and contents
+all participate in collision checks and fingerprints.
 
 The TypeScript loader transpiles the application before a previous generated
 registry exists. Static compilation registers configured plugin field methods,
@@ -113,7 +161,8 @@ package.
 
 Every artifact embeds a deterministic SHA-256 fingerprint covering the Core
 generated-contract ABI, generator version, application identity, plugin field
-contracts, and resolved schema snapshot. `writeGeneratedTypeFile()` writes a
+and Typegen contracts, owners, static options, destinations, and resolved schema
+snapshot. `writeGeneratedTypeFile()` writes a
 complete sibling temporary file and atomically renames it over the destination.
 `writeGeneratedTypeFiles()` additionally rejects duplicate resolved output
 paths before writing any file.

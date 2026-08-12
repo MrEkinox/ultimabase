@@ -256,6 +256,11 @@ describe('schema compiler declaration encoding', () => {
 				operations: immutableArray([]),
 				querySurfaces: immutableArray([]),
 			}),
+			typegen: immutableRecord({
+				contributions: immutableArray([]),
+				outputs: immutableArray([]),
+				references: immutableArray([]),
+			}),
 		})
 
 		const encoded = encodeSchemaCompilerInput(prepared, [batch])

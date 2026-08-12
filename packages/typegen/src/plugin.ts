@@ -11,7 +11,7 @@ import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 import { generateApplicationTypesFromSnapshot } from './generator.js'
 import { createCompiledTypegenSnapshot } from './snapshot.js'
-import { writeGeneratedTypeFile } from './writer.js'
+import { writeGeneratedTypeFiles } from './writer.js'
 
 const typegenPluginName = '@ultimabase/typegen' as const
 const defaultApplicationId = 'main'
@@ -98,22 +98,34 @@ const createTypegenPlugin = (
 		capabilities: {
 			provides: [typegenEmitterProvider],
 		},
-		setup: async ({ fieldBuilderMethods, schemas }) => {
+		setup: async ({ fieldBuilderMethods, schemas, typegenGraph }) => {
 			const generated = generateApplicationTypesFromSnapshot(
 				createCompiledTypegenSnapshot(
 					{
 						fieldBuilderMethods,
 						schemas,
+						typegenGraph,
 					},
 					normalized.applicationId,
 				),
 			)
 
-			await writeGeneratedTypeFile({
-				applicationId: normalized.applicationId,
-				contents: generated.contents,
-				outputPath: normalized.outputPath,
-			})
+			await writeGeneratedTypeFiles([
+				{
+					applicationId: normalized.applicationId,
+					contents: generated.contents,
+					outputPath: normalized.outputPath,
+				},
+				...generated.outputs.map((output) => ({
+					applicationId: `${normalized.applicationId}:${output.owner}:${output.contributionId}`,
+					contents: output.contents,
+					kind: output.kind,
+					outputPath: path.resolve(
+						path.dirname(normalized.outputPath),
+						output.outputPath,
+					),
+				})),
+			])
 
 			return immutableRecord({
 				fingerprint: generated.fingerprint,

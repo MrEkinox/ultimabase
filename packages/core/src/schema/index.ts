@@ -301,9 +301,13 @@ export type {
 	RequireGeneratedSchemaEntry,
 	UltimaBaseGeneratedEmbeddedFieldBuilderMethods,
 	UltimaBaseGeneratedFieldBuilderMethods,
+	UltimaBaseGeneratedFieldOptions,
+	UltimaBaseGeneratedOperations,
 	UltimaBaseGeneratedRegistryState,
+	UltimaBaseGeneratedSchemaOptions,
 	UltimaBaseGeneratedSchemaName,
 	UltimaBaseGeneratedSchemas,
+	UltimaBaseGeneratedSchemaSurfaces,
 } from './type-info.js'
 export { generatedApplicationContractVersion } from './type-info.js'
 export type {

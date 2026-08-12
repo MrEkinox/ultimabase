@@ -6,10 +6,7 @@ import {
 	isUnknownArray,
 } from '@ultimabase/shared'
 
-import type {
-	PreparedSchemaCompilation,
-	SchemaDefinition,
-} from '../schema/schema/definition.js'
+import type { SchemaDefinition } from '../schema/schema/definition.js'
 import type { FieldBuilderMethodResolver } from '../schema/schema/field-builder-methods.js'
 import {
 	publishSchemaRegistryCompilation,
@@ -24,26 +21,19 @@ import {
 	type SchemaCompilationProvenance,
 } from '../schema/schema/provenance.js'
 import {
-	attachPluginDeclarationDiagnostic,
 	diagnosePluginDeclarationFailure,
 	type MutableSchemaDeclarationBatch,
-	type OwnedSchemaAddition,
 	type PendingSchemaOptionRuntimeCompilation,
 	pluginDeclarationDiagnostic,
 	PluginDeclarationDiagnosticError,
 	type PluginDeclarationFailureDiagnostic,
 	type PluginSchemaDeclarationRegistrar,
-	type ResolvedFieldOptions,
 	samePluginOwner,
 	type SchemaDeclarationBatch,
 	snapshotStaticOptions,
 } from './schema-declaration-contracts.js'
 
-import { attachInitialContributionProvenance } from './schema-declaration-provenance.js'
-
 import { schemaOptionDefinitions } from './schema-option-definitions.js'
-
-import { resolveCandidateOptions } from './schema-option-resolution.js'
 
 import {
 	type SchemaSelection,
@@ -53,16 +43,8 @@ import {
 } from './schema-patch-contracts.js'
 
 import { normalizeSelector } from './schema-selectors.js'
-import {
-	collectOptionDefinitions,
-	collectRuntimeCompilations,
-	executeRuntimeCompilations,
-} from './schema-runtime-options.js'
-import { decodeSchemaCompilerOutput } from './schema-compiler-ir/decoder.js'
-import { encodeSchemaCompilerInput } from './schema-compiler-ir/input-encoder.js'
+import { executeRuntimeCompilations } from './schema-runtime-options.js'
 import type { SchemaCompilerImplementation } from './schema-compiler-ir/schema-compiler-capability.js'
-import { assertSchemaCompilerOutput } from './schema-compiler-ir/validation.js'
-import type { SchemaCompilerOutput } from './schema-compiler-ir/contracts.js'
 import {
 	createApplicationSurfaceRegistrars,
 	snapshotApplicationSurfaceDeclarations,
@@ -75,6 +57,16 @@ import {
 	type CompiledApplicationSchemaSurface,
 	type CompiledPluginOperation,
 } from './application-surface-registry.js'
+import {
+	createTypegenRegistrars,
+	snapshotTypegenDeclarations,
+	type TypegenContributionRegistrar,
+	type CompiledTypegenGraph,
+	type TypegenOutputRegistrar,
+	type TypegenReferenceRegistrar,
+} from './typegen-declarations.js'
+import { createCompiledTypegenGraph } from './compiled-typegen-graph.js'
+import { compileSchemaDeclarations } from './compiled-schema-declarations.js'
 
 export class SchemaDeclarationRegistry {
 	readonly #batches: SchemaDeclarationBatch[] = []
@@ -88,7 +80,6 @@ export class SchemaDeclarationRegistry {
 	#compiledOperations: ReadonlyMap<string, CompiledPluginOperation> | undefined
 	#compiledSchemaSurfaces:
 		ReadonlyMap<string, CompiledApplicationSchemaSurface> | undefined
-	#compilerOutput: SchemaCompilerOutput | undefined
 
 	beginPluginDeclaration(
 		owner: PluginSchemaContributionOwner,
@@ -99,6 +90,9 @@ export class SchemaDeclarationRegistry {
 			queryExtend: boolean
 			requirements: readonly CapabilityRequirement[]
 			transform: boolean
+			typegenContribute: boolean
+			typegenEmit: boolean
+			typegenReference: boolean
 		}>,
 	): Readonly<{
 		close(): void
@@ -107,6 +101,9 @@ export class SchemaDeclarationRegistry {
 		operations: PluginOperationDeclarationRegistrar
 		queries: PluginQuerySurfaceRegistrar
 		registrar: PluginSchemaDeclarationRegistrar
+		typegenContributions: TypegenContributionRegistrar
+		typegenOutputs: TypegenOutputRegistrar
+		typegenReferences: TypegenReferenceRegistrar
 	}> {
 		if (this.#closed) {
 			throw new TypeError('Schema declaration registry is already closed')
@@ -123,6 +120,11 @@ export class SchemaDeclarationRegistry {
 				modelSurfaces: [],
 				operations: [],
 				querySurfaces: [],
+			},
+			typegen: {
+				contributions: [],
+				outputs: [],
+				references: [],
 			},
 		}
 		let open = true
@@ -156,6 +158,7 @@ export class SchemaDeclarationRegistry {
 			batch.surfaces,
 			createSelection,
 		)
+		const typegen = createTypegenRegistrars(owner, batch.typegen, assertOpen)
 		const registrar: PluginSchemaDeclarationRegistrar = immutableRecord({
 			add: (options): void => {
 				assertDeclare()
@@ -309,6 +312,7 @@ export class SchemaDeclarationRegistry {
 						options: immutableArray(batch.options),
 						patches: immutableArray(batch.patches),
 						surfaces: snapshotApplicationSurfaceDeclarations(batch.surfaces),
+						typegen: snapshotTypegenDeclarations(batch.typegen),
 					}),
 				)
 			},
@@ -316,6 +320,9 @@ export class SchemaDeclarationRegistry {
 			operations: surfaces.operations,
 			queries: surfaces.queries,
 			registrar,
+			typegenContributions: typegen.contributions,
+			typegenOutputs: typegen.outputs,
+			typegenReferences: typegen.references,
 		})
 	}
 
@@ -365,87 +372,26 @@ export class SchemaDeclarationRegistry {
 			this.schemaAdditions(),
 			fieldMethods,
 		)
-		const prepared = this.#compilePrepared(staging.prepared, compile)
-		const output = this.#compilerOutput
-		if (output === undefined) {
-			throw new TypeError('Schema compiler output is unavailable')
-		}
+		const compiled = compileSchemaDeclarations(
+			staging.prepared,
+			this.#batches,
+			compile,
+		)
+		this.#runtimeCompilations = compiled.runtimeCompilations
+		this.#compiledProvenance = compiled.provenance
 		const surfaces = compileApplicationSurfaces(
 			this.#batches.map(({ surfaces: declarations }) => declarations),
-			output,
+			compiled.output,
 			staging.registry,
 		)
 		const targets = publishSchemaRegistryCompilation(
 			registry,
 			staging,
-			prepared,
+			compiled.candidates,
 		)
 		this.#compiledOperations = surfaces.operations
 		this.#compiledSchemaSurfaces = surfaces.schemas
 		return targets
-	}
-
-	#compilePrepared(
-		prepared: readonly PreparedSchemaCompilation[],
-		compile: SchemaCompilerImplementation,
-	): readonly PreparedSchemaCompilation[] {
-		if (!this.#closed) {
-			throw new TypeError('Schema declaration registry is not closed')
-		}
-
-		const optionDefinitions = collectOptionDefinitions(this.#batches)
-		const resolvedFields: ResolvedFieldOptions = new WeakMap()
-		const additionsBySchema = new Map<SchemaDefinition, OwnedSchemaAddition>()
-		for (const batch of this.#batches) {
-			for (const addition of batch.additions) {
-				additionsBySchema.set(addition.schema, addition)
-			}
-		}
-		let candidates = prepared.map((candidate) => {
-			const addition = additionsBySchema.get(candidate.schema)
-			try {
-				const resolved = resolveCandidateOptions(
-					candidate,
-					optionDefinitions,
-					resolvedFields,
-					addition?.owner,
-				)
-				return attachInitialContributionProvenance(
-					resolved,
-					addition,
-					optionDefinitions,
-				)
-			} catch (cause: unknown) {
-				if (addition === undefined) throw cause
-				throw attachPluginDeclarationDiagnostic(
-					cause,
-					addition.owner,
-					candidate.schema.className,
-					addition.contributionId,
-				)
-			}
-		})
-		const encoded = encodeSchemaCompilerInput(candidates, this.#batches, {
-			definitions: optionDefinitions,
-			resolvedFields,
-		})
-		const output = compile(encoded.input)
-		assertSchemaCompilerOutput(encoded.input, output, encoded.session)
-		this.#compilerOutput = output
-		candidates = [...decodeSchemaCompilerOutput(output, encoded.session)]
-
-		this.#runtimeCompilations = collectRuntimeCompilations(
-			this.#batches,
-			candidates,
-		)
-		this.#compiledProvenance = new Map(
-			candidates.map((candidate) => [
-				candidate.schema.className,
-				candidate.definition.provenance,
-			]),
-		)
-
-		return immutableArray(candidates)
 	}
 
 	/** Resolves one final operation declaration after static compilation. */
@@ -454,6 +400,22 @@ export class SchemaDeclarationRegistry {
 			throw new TypeError('Application operations have not been compiled')
 		}
 		return this.#compiledOperations.get(name)
+	}
+
+	/** Reads the complete immutable graph after successful compilation. */
+	typegenGraph(): CompiledTypegenGraph {
+		if (
+			this.#compiledOperations === undefined ||
+			this.#compiledSchemaSurfaces === undefined
+		) {
+			throw new TypeError('Typegen declarations require compiled schemas')
+		}
+		return createCompiledTypegenGraph({
+			batches: this.#batches,
+			operations: this.#compiledOperations,
+			provenance: this.#compiledProvenance,
+			schemaSurfaces: this.#compiledSchemaSurfaces,
+		})
 	}
 
 	/** Resolves one final application schema surface after static compilation. */

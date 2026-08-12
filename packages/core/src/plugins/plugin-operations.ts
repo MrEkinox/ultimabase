@@ -4,6 +4,10 @@ import {
 	isPlainRecord,
 } from '@ultimabase/shared'
 import { valid } from 'semver'
+import {
+	isTypegenReference,
+	type TypegenReference,
+} from './typegen-contracts.js'
 
 /** Names the application identity carried by one custom operation declaration. */
 export type PluginOperationTarget = 'application' | 'model' | 'schema'
@@ -15,6 +19,8 @@ export type PluginOperationTransaction = 'forbidden' | 'optional' | 'required'
 export interface PluginOperationValueContract<TValue> {
 	/** Returns one immutable snapshot or throws with the supplied public path. */
 	snapshot(value: unknown, path: string): TValue
+	/** Names the public TypeScript contract when Typegen is installed. */
+	readonly typegen?: TypegenReference
 }
 
 /** Defines one stable namespaced custom operation token. */
@@ -98,21 +104,36 @@ const assertOperationValueContract: (
 	}
 
 	for (const key of Object.keys(value)) {
-		if (key !== 'snapshot') {
+		if (key !== 'snapshot' && key !== 'typegen') {
 			throw new TypeError(`${path} contains unknown option: ${key}`)
 		}
+	}
+	if (value.typegen !== undefined && !isTypegenReference(value.typegen)) {
+		throw new TypeError(
+			`${path}.typegen must be created by defineTypegenReference`,
+		)
 	}
 }
 
 /** Creates one immutable operation value contract with exact inference. */
 export const defineOperationValue = <TValue>(
 	snapshot: (value: unknown, path: string) => TValue,
+	typegen?: TypegenReference,
 ): PluginOperationValueContract<TValue> => {
 	if (typeof snapshot !== 'function') {
 		throw new TypeError('operation value snapshot must be a function')
 	}
 
-	return immutableRecord({ snapshot })
+	if (typegen !== undefined && !isTypegenReference(typegen)) {
+		throw new TypeError(
+			'operation value typegen must be created by defineTypegenReference',
+		)
+	}
+
+	return immutableRecord({
+		snapshot,
+		...(typegen === undefined ? {} : { typegen }),
+	})
 }
 
 /** Creates one stable declaration token; execution is contributed separately. */

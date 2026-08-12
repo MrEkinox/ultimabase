@@ -22,6 +22,7 @@ describe('PluginSetupRegistries', () => {
 			'pipeline',
 			'runtime',
 			'schemas',
+			'typegenGraph',
 		])
 		expect(context).not.toHaveProperty('registries')
 		expect(context).not.toHaveProperty('services')

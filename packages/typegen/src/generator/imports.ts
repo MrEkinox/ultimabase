@@ -1,4 +1,5 @@
 import { immutableRecord } from '@ultimabase/shared'
+import type { TypegenTypeNode } from '@ultimabase/core'
 
 import type {
 	TypegenApplicationSnapshot,
@@ -33,6 +34,33 @@ export class ReferenceImports {
 		for (const schema of snapshot.schemas) {
 			this.#collectFieldReferences(schema.fields, references)
 		}
+		for (const option of snapshot.options) {
+			this.#addReference(option.reference, references)
+		}
+		for (const operation of snapshot.operations) {
+			if (operation.input !== undefined)
+				this.#addReference(operation.input, references)
+			if (operation.result !== undefined)
+				this.#addReference(operation.result, references)
+		}
+		for (const contribution of snapshot.contributions) {
+			for (const declaration of contribution.declarations) {
+				this.#collectTypeNode(declaration.type, references)
+			}
+			for (const augmentation of contribution.augmentations) {
+				for (const property of [
+					...(augmentation.schema ?? []),
+					...(augmentation.model ?? []),
+				]) {
+					this.#collectTypeNode(property.type, references)
+				}
+			}
+		}
+		for (const output of snapshot.outputs) {
+			for (const declaration of output.declarations ?? []) {
+				this.#collectTypeNode(declaration.type, references)
+			}
+		}
 
 		const modules = [
 			...new Set([...references.values()].map(({ module }) => module)),
@@ -54,6 +82,42 @@ export class ReferenceImports {
 
 				return immutableRecord({ ...reference, alias })
 			})
+	}
+
+	#addReference(
+		reference: TypegenReference,
+		references: Map<string, TypegenReference>,
+	): void {
+		references.set(
+			`${reference.module}\u0000${reference.exportName}`,
+			reference,
+		)
+	}
+
+	#collectTypeNode(
+		node: TypegenTypeNode,
+		references: Map<string, TypegenReference>,
+	): void {
+		if (node.kind === 'reference') {
+			this.#addReference(node.reference, references)
+			for (const argument of node.arguments ?? []) {
+				this.#collectTypeNode(argument, references)
+			}
+			return
+		}
+		if (node.kind === 'array') {
+			this.#collectTypeNode(node.value, references)
+			return
+		}
+		if (node.kind === 'tuple' || node.kind === 'union') {
+			for (const value of node.values) this.#collectTypeNode(value, references)
+			return
+		}
+		if (node.kind === 'object') {
+			for (const property of node.properties) {
+				this.#collectTypeNode(property.type, references)
+			}
+		}
 	}
 
 	#collectFieldReferences(

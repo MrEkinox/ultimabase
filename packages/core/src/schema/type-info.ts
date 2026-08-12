@@ -1,5 +1,5 @@
 /** Invalidates generated fingerprints when Core's shared typegen ABI changes. */
-export const generatedApplicationContractVersion = 10 as const
+export const generatedApplicationContractVersion = 11 as const
 
 /** Minimal identity implemented by every generated persisted item. */
 export interface SchemaItemType {
@@ -26,6 +26,18 @@ export interface UltimaBaseGeneratedFieldBuilderMethods {}
 
 /** Application-generated declarations merge configured embedded builder methods here. */
 export interface UltimaBaseGeneratedEmbeddedFieldBuilderMethods {}
+
+/** Application-generated declarations merge accepted plugin field options here. */
+export interface UltimaBaseGeneratedFieldOptions {}
+
+/** Application-generated declarations merge accepted plugin schema options here. */
+export interface UltimaBaseGeneratedSchemaOptions {}
+
+/** Application-generated declarations merge exact custom operations here. */
+export interface UltimaBaseGeneratedOperations {}
+
+/** Application-generated declarations merge exact application handle surfaces here. */
+export interface UltimaBaseGeneratedSchemaSurfaces {}
 
 /** Marks that one complete generated registry is active in the TypeScript project. */
 export interface UltimaBaseGeneratedRegistryState {}

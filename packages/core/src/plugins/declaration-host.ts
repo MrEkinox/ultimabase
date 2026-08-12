@@ -30,6 +30,11 @@ import type {
 	PluginOperationDeclarationRegistrar,
 	PluginQuerySurfaceRegistrar,
 } from './application-surface-declarations.js'
+import type {
+	TypegenContributionRegistrar,
+	TypegenOutputRegistrar,
+	TypegenReferenceRegistrar,
+} from './typegen-declarations.js'
 
 type RequiredCapability<TCapabilities> =
 	NormalizedPluginCapabilityDeclarations<TCapabilities>['requires'][number]
@@ -155,6 +160,25 @@ type PluginQueryDeclarationContext<TPrivileges> = PrivilegedDeclarationContext<
 	'queries',
 	PluginQuerySurfaceRegistrar
 >
+type PluginTypegenReferenceContext<TPrivileges> = PrivilegedDeclarationContext<
+	TPrivileges,
+	'typegen:reference',
+	'typegenReferences',
+	TypegenReferenceRegistrar
+>
+type PluginTypegenContributionContext<TPrivileges> =
+	PrivilegedDeclarationContext<
+		TPrivileges,
+		'typegen:contribute',
+		'typegenContributions',
+		TypegenContributionRegistrar
+	>
+type PluginTypegenOutputContext<TPrivileges> = PrivilegedDeclarationContext<
+	TPrivileges,
+	'typegen:emit',
+	'typegenOutputs',
+	TypegenOutputRegistrar
+>
 
 /**
  * Supplies only immutable static facades authorized by one plugin manifest.
@@ -175,7 +199,10 @@ export type PluginDeclarationContext<
 	PluginSchemaDeclarationContext<TPrivileges> &
 	PluginModelDeclarationContext<TPrivileges> &
 	PluginOperationDeclarationContext<TPrivileges> &
-	PluginQueryDeclarationContext<TPrivileges>
+	PluginQueryDeclarationContext<TPrivileges> &
+	PluginTypegenReferenceContext<TPrivileges> &
+	PluginTypegenContributionContext<TPrivileges> &
+	PluginTypegenOutputContext<TPrivileges>
 
 /** Declares deterministic application metadata before schemas are compiled. */
 export type PluginDeclaration<
@@ -241,6 +268,15 @@ export class PluginDeclarationHost {
 			const queryPrivilege = definition.manifest.privileges.find(
 				(request) => request.name === 'query:extend',
 			)
+			const typegenReferencePrivilege = definition.manifest.privileges.find(
+				(request) => request.name === 'typegen:reference',
+			)
+			const typegenContributionPrivilege = definition.manifest.privileges.find(
+				(request) => request.name === 'typegen:contribute',
+			)
+			const typegenOutputPrivilege = definition.manifest.privileges.find(
+				(request) => request.name === 'typegen:emit',
+			)
 			const canExtendModels =
 				modelPrivilege !== undefined &&
 				this.graph.capabilities.isPrivilegeActive(owner, modelPrivilege)
@@ -250,6 +286,21 @@ export class PluginDeclarationHost {
 			const canExtendQueries =
 				queryPrivilege !== undefined &&
 				this.graph.capabilities.isPrivilegeActive(owner, queryPrivilege)
+			const canReferenceTypegen =
+				typegenReferencePrivilege !== undefined &&
+				this.graph.capabilities.isPrivilegeActive(
+					owner,
+					typegenReferencePrivilege,
+				)
+			const canContributeTypegen =
+				typegenContributionPrivilege !== undefined &&
+				this.graph.capabilities.isPrivilegeActive(
+					owner,
+					typegenContributionPrivilege,
+				)
+			const canEmitTypegen =
+				typegenOutputPrivilege !== undefined &&
+				this.graph.capabilities.isPrivilegeActive(owner, typegenOutputPrivilege)
 			const fieldSession = canDeclare
 				? this.fieldBuilderMethods.beginPluginDeclaration(
 						formatPluginIdentity(owner),
@@ -268,7 +319,10 @@ export class PluginDeclarationHost {
 				canTransform ||
 				canExtendModels ||
 				canDeclareOperations ||
-				canExtendQueries
+				canExtendQueries ||
+				canReferenceTypegen ||
+				canContributeTypegen ||
+				canEmitTypegen
 					? this.schemaDeclarations.beginPluginDeclaration(
 							schemaOwner,
 							immutableRecord({
@@ -281,6 +335,9 @@ export class PluginDeclarationHost {
 									...definition.manifest.capabilities.optional,
 								]),
 								transform: canTransform,
+								typegenContribute: canContributeTypegen,
+								typegenEmit: canEmitTypegen,
+								typegenReference: canReferenceTypegen,
 							}),
 						)
 					: undefined
@@ -341,6 +398,15 @@ export class PluginDeclarationHost {
 					: {}),
 				...(canExtendQueries && schemaSession !== undefined
 					? { queries: schemaSession.queries }
+					: {}),
+				...(canReferenceTypegen && schemaSession !== undefined
+					? { typegenReferences: schemaSession.typegenReferences }
+					: {}),
+				...(canContributeTypegen && schemaSession !== undefined
+					? { typegenContributions: schemaSession.typegenContributions }
+					: {}),
+				...(canEmitTypegen && schemaSession !== undefined
+					? { typegenOutputs: schemaSession.typegenOutputs }
 					: {}),
 			})
 

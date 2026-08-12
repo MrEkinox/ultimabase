@@ -2,6 +2,8 @@ import type { TypegenApplicationSnapshot } from '../snapshot.js'
 import { hasRelationships } from './schema.js'
 import { propertyName, quote, renderUnion } from './syntax.js'
 import type { RenderContext } from './types.js'
+import { renderGeneratedSurfaces } from './contributions.js'
+import { SchemaTypegenError } from '../errors.js'
 
 export const renderFieldBuilder = (
 	snapshot: TypegenApplicationSnapshot,
@@ -91,6 +93,39 @@ export const renderRegistry = (
 		renderedFieldMethods === ''
 			? ''
 			: `\n\tinterface UltimaBaseGeneratedFieldBuilderMethods {\n${renderedFieldMethods}\n\t}\n\tinterface UltimaBaseGeneratedEmbeddedFieldBuilderMethods {\n${renderedFieldMethods}\n\t}`
+	const optionNames = new Map<string, string>()
+	for (const option of snapshot.options) {
+		const key = `${option.scope}\u0000${option.name}`
+		const prior = optionNames.get(key)
+		const reference = `${option.reference.module}:${option.reference.exportName}`
+		if (prior !== undefined && prior !== reference) {
+			throw new SchemaTypegenError(
+				'generated-identity-conflict',
+				`Generated ${option.scope} option "${option.name}" has conflicting public types`,
+				{ owner: option.owner.pluginId, path: option.name },
+			)
+		}
+		optionNames.set(key, reference)
+	}
+	const renderOptions = (scope: 'field' | 'schema'): string =>
+		snapshot.options
+			.filter(
+				(option, index, values) =>
+					option.scope === scope &&
+					values.findIndex(
+						(candidate) =>
+							candidate.scope === scope && candidate.name === option.name,
+					) === index,
+			)
+			.map(
+				(option) =>
+					`\t\treadonly ${propertyName(option.name)}?: ${context.imports.alias(option.reference)}`,
+			)
+			.join('\n')
+	const fieldOptions = renderOptions('field')
+	const schemaOptions = renderOptions('schema')
+	const optionInterfaces = `${fieldOptions === '' ? '' : `\n\tinterface UltimaBaseGeneratedFieldOptions {\n${fieldOptions}\n\t}`}${schemaOptions === '' ? '' : `\n\tinterface UltimaBaseGeneratedSchemaOptions {\n${schemaOptions}\n\t}`}`
+	const surfaces = renderGeneratedSurfaces(snapshot, context)
 
-	return `declare module '@ultimabase/core' {\n\tinterface UltimaBaseGeneratedRegistryState {\n\t\treadonly application: true\n\t}\n\tinterface UltimaBaseGeneratedSchemas {\n${schemas.join('\n')}\n\t}${builderMethods}\n}`
+	return `declare module '@ultimabase/core' {\n\tinterface UltimaBaseGeneratedRegistryState {\n\t\treadonly application: true\n\t}\n\tinterface UltimaBaseGeneratedSchemas {\n${schemas.join('\n')}\n\t}${builderMethods}${optionInterfaces}\n${surfaces}\n}`
 }

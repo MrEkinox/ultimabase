@@ -42,7 +42,25 @@ export interface CompiledApplicationSchemaSurface {
 	readonly schemaCommands: ReadonlyMap<string, CompiledOperationCommand>
 }
 
+/** Names Core commands that plugin direct schema surfaces cannot shadow. */
+export const coreSchemaHandleCommandNames = [
+	'count',
+	'createMany',
+	'createOne',
+	'deleteMany',
+	'deleteOne',
+	'exists',
+	'findMany',
+	'findOne',
+	'get',
+	'updateMany',
+	'updateOne',
+	'upsertMany',
+	'upsertOne',
+] as const
+
 const reservedSchemaHandleNames = new Set([
+	...coreSchemaHandleCommandNames,
 	'command',
 	'commands',
 	'for',

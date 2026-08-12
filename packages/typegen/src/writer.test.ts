@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises'
+import { chmod, mkdtemp, readFile, readdir, rm } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 
@@ -71,6 +71,27 @@ describe('generated type file writer', () => {
 		])
 	})
 
+	it('replaces stale production artifacts even when the prior file is read-only', async () => {
+		const directory = await createTemporaryDirectory()
+		const outputPath = path.join(directory, 'generated', 'schema.d.ts')
+
+		await writeGeneratedTypeFile({
+			applicationId: 'fixture.application',
+			contents: declaration('production'),
+			outputPath,
+		})
+		await chmod(outputPath, 0o444)
+		await writeGeneratedTypeFile({
+			applicationId: 'fixture.application',
+			contents: declaration('refreshed', replacementFingerprint),
+			outputPath,
+		})
+
+		expect(await readFile(outputPath, 'utf8')).toBe(
+			declaration('refreshed', replacementFingerprint),
+		)
+	})
+
 	it('rejects duplicate destinations before writing any output', async () => {
 		const directory = await createTemporaryDirectory()
 		const outputPath = path.join(directory, 'schema.d.ts')
@@ -98,5 +119,31 @@ describe('generated type file writer', () => {
 		await expect(readFile(outputPath, 'utf8')).rejects.toMatchObject({
 			code: 'ENOENT',
 		})
+	})
+
+	it('writes fingerprinted inert metadata and rejects mismatched executable destinations', async () => {
+		const directory = await createTemporaryDirectory()
+		const outputPath = path.join(directory, 'workflow.json')
+		const metadata = `${JSON.stringify({
+			'@ultimabase/schema-fingerprint': `sha256:${fingerprint}`,
+			metadata: { workflow: 'editorial' },
+		})}\n`
+
+		await writeGeneratedTypeFile({
+			applicationId: 'fixture.metadata',
+			contents: metadata,
+			kind: 'metadata',
+			outputPath,
+		})
+
+		expect(readGeneratedTypeFingerprint(metadata)).toBe(fingerprint)
+		expect(await readFile(outputPath, 'utf8')).toBe(metadata)
+		await expect(
+			writeGeneratedTypeFile({
+				applicationId: 'fixture.javascript',
+				contents: declaration('javascript'),
+				outputPath: path.join(directory, 'client.js'),
+			}),
+		).rejects.toThrow('must end in .d.ts')
 	})
 })
