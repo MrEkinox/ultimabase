@@ -2,6 +2,7 @@ import { immutableArray, immutableRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 
 import { stringField } from '../../schema/fields/builtins/string.js'
+import { snapshotJsonValue } from '../../schema/fields/builtins/json.js'
 import { defineSchemaExtension } from '../../schema/extensions/definition.js'
 import { defineSchemaConstraint } from '../../schema/schema/constraints.js'
 import {
@@ -204,6 +205,11 @@ describe('schema compiler declaration encoding', () => {
 			protocolVersion: 2,
 			typegen: { module: '@fixture/compiler', type: 'WorkflowOption' },
 		})
+		const searchOption = defineSchemaOption({
+			normalize: (value, path) => snapshotJsonValue(value, path),
+			protocolVersion: 1,
+			typegen: { module: '@fixture/compiler', type: 'SearchOption' },
+		})
 		const batch: SchemaDeclarationBatch = immutableRecord({
 			additions: immutableArray([
 				immutableRecord({
@@ -222,6 +228,14 @@ describe('schema compiler declaration encoding', () => {
 					name: 'workflow',
 					owner,
 					scope: 'schema' as const,
+					staticOptions: immutableRecord({ source: 'fixture' }),
+				}),
+				immutableRecord({
+					contributionId: 'search-option:field:search',
+					definition: searchOption,
+					name: 'search',
+					owner,
+					scope: 'field' as const,
 					staticOptions: immutableRecord({ source: 'fixture' }),
 				}),
 			]),

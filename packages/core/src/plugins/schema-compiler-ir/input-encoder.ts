@@ -5,9 +5,12 @@ import type {
 	SchemaDefinition,
 } from '../../schema/schema/definition.js'
 import type {
+	OptionDefinitionIndex,
 	OwnedOptionDefinition,
+	ResolvedFieldOptions,
 	SchemaDeclarationBatch,
 } from '../schema-declaration-contracts.js'
+import { collectOptionDefinitions } from '../schema-runtime-options.js'
 import type { SchemaSelection } from '../schema-patch-contracts.js'
 import type {
 	SchemaCompilerInput,
@@ -28,12 +31,19 @@ export interface PreparedSchemaCompilerInput {
 	readonly session: SchemaCompilerArtifactSession
 }
 
+/** Reuses the exact static normalization state that prepared initial schemas. */
+export interface SchemaCompilerEncodingPreparation {
+	readonly definitions: OptionDefinitionIndex
+	readonly resolvedFields: ResolvedFieldOptions
+}
+
 class SchemaCompilerDeclarationEncoder {
 	readonly #selectionIds = new WeakMap<object, string>()
 	#nextSelectionId: number
 
 	constructor(
 		private readonly encoder: SchemaCompilerIrEncoder,
+		private readonly preparation: SchemaCompilerEncodingPreparation,
 		private readonly schemas: ReadonlyMap<
 			SchemaDefinition,
 			SchemaCompilerSchemaNode
@@ -123,9 +133,11 @@ class SchemaCompilerDeclarationEncoder {
 			operations: immutableArray(
 				patch.operations.map((operation) =>
 					encodeSchemaCompilerPatchOperation(operation, {
+						definitions: this.preparation.definitions,
 						encoder: this.encoder,
 						owner: patch.owner,
 						path,
+						resolvedFields: this.preparation.resolvedFields,
 						staticOptions: patch.staticOptions,
 					}),
 				),
@@ -152,6 +164,10 @@ class SchemaCompilerDeclarationEncoder {
 export const encodeSchemaCompilerInput = (
 	prepared: readonly PreparedSchemaCompilation[],
 	batches: readonly SchemaDeclarationBatch[],
+	preparation: SchemaCompilerEncodingPreparation = {
+		definitions: collectOptionDefinitions(batches),
+		resolvedFields: new WeakMap(),
+	},
 ): PreparedSchemaCompilerInput => {
 	const encoder = new SchemaCompilerIrEncoder()
 	const schemas = immutableArray(
@@ -173,6 +189,7 @@ export const encodeSchemaCompilerInput = (
 	}
 	const declarationEncoder = new SchemaCompilerDeclarationEncoder(
 		encoder,
+		preparation,
 		schemasByDefinition,
 	)
 	const addedSchemas = new Set(

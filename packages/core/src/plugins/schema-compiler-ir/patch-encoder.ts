@@ -1,10 +1,24 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import {
+	coreSchemaContributionOwner,
 	createSchemaContributionProvenance,
 	type PluginSchemaContributionOwner,
+	type SchemaOptionProvenance,
 } from '../../schema/schema/provenance.js'
 import type { JsonValue } from '../../schema/fields/builtins/json.js'
+import type { GenericField } from '../../schema/fields/base/contract.js'
+import { getDeclaredFieldOptionsContract } from '../../schema/fields/base/definition.js'
+import type { SchemaExtensionFields } from '../../schema/extensions/definition.js'
+import type {
+	OptionDefinitionIndex,
+	ResolvedFieldOptions,
+} from '../schema-declaration-contracts.js'
+import { resolveOptionDefinition } from '../schema-declaration-contracts.js'
+import {
+	normalizeOwnedOptionValue,
+	resolveFieldOptions,
+} from '../schema-option-resolution.js'
 import type {
 	ExistingSchemaContributionTarget,
 	SchemaPatchOperation,
@@ -19,9 +33,11 @@ import type {
 import type { SchemaCompilerIrEncoder } from './encoder.js'
 
 interface PatchEncodingContext {
+	readonly definitions: OptionDefinitionIndex
 	readonly encoder: SchemaCompilerIrEncoder
 	readonly owner: PluginSchemaContributionOwner
 	readonly path: string
+	readonly resolvedFields: ResolvedFieldOptions
 	readonly staticOptions: Readonly<Record<string, JsonValue>>
 }
 
@@ -35,6 +51,97 @@ const operationProvenance = (
 		context.staticOptions,
 	)
 
+const normalizedField = (
+	field: GenericField,
+	path: string,
+	context: PatchEncodingContext,
+): GenericField =>
+	resolveFieldOptions(
+		field,
+		context.definitions.field,
+		path,
+		context.resolvedFields,
+		context.owner,
+	)
+
+const fieldOptionProvenance = (
+	field: GenericField,
+	contributionId: string,
+	context: PatchEncodingContext,
+): Readonly<Record<string, SchemaOptionProvenance>> => {
+	const contribution = createSchemaContributionProvenance(
+		context.owner,
+		contributionId,
+		context.staticOptions,
+	)
+	const contract = getDeclaredFieldOptionsContract(field)
+	return immutableRecord(
+		Object.fromEntries(
+			Object.keys(field.options).map((name) => {
+				const definition = resolveOptionDefinition(
+					context.definitions.field,
+					name,
+					`${context.path}.options.${name}`,
+					context.owner,
+				)
+				return [
+					name,
+					immutableRecord({
+						definition:
+							definition === undefined
+								? createSchemaContributionProvenance(
+										contract?.optionKeys.includes(name) === true
+											? coreSchemaContributionOwner
+											: context.owner,
+										`field-option-definition:${field.kind}.${name}`,
+									)
+								: createSchemaContributionProvenance(
+										definition.owner,
+										definition.contributionId,
+										definition.staticOptions,
+										definition.definition.protocolVersion,
+									),
+						value: contribution,
+					}),
+				]
+			}),
+		),
+	)
+}
+
+const normalizedExtensionFields = (
+	fields: SchemaExtensionFields,
+	path: string,
+	context: PatchEncodingContext,
+): SchemaExtensionFields =>
+	immutableRecord(
+		Object.fromEntries(
+			Object.entries(fields).map(([name, field]) => [
+				name,
+				normalizedField(field, `${path}.fields.${name}`, context),
+			]),
+		),
+	)
+
+const normalizedOptionValue = (
+	scope: 'field' | 'schema',
+	name: string,
+	value: unknown,
+	path: string,
+	context: PatchEncodingContext,
+): JsonValue => {
+	const definition = resolveOptionDefinition(
+		context.definitions[scope],
+		name,
+		path,
+		context.owner,
+	)
+	if (definition === undefined) {
+		throw new TypeError(`Unknown ${scope} option: ${name}`)
+	}
+	return normalizeOwnedOptionValue(definition, value, path)
+}
+
 const encodeArtifactTarget = <
 	TExpected,
 	const TKind extends SchemaCompilerArtifactKind,
@@ -45,8 +152,10 @@ const encodeArtifactTarget = <
 ): SchemaCompilerContributionTarget<SchemaCompilerArtifactReference<TKind>> =>
 	immutableRecord({
 		contributionId: target.contributionId,
-		expected: context.encoder.reference(
+		expected: context.encoder.targetReference(
 			artifactKind,
+			target.contributionId,
+			target.owner,
 			target.expected,
 			`${context.path}.target.expected`,
 		),
@@ -97,26 +206,31 @@ export const encodeSchemaCompilerPatchOperation = (
 	const path = `${context.path}.${operation.contributionId}`
 
 	switch (operation.kind) {
-		case 'field:add':
+		case 'field:add': {
+			const field = normalizedField(operation.field, `${path}.field`, context)
 			return immutableRecord({
 				contributionId: operation.contributionId,
 				field: context.encoder.fieldNode(
-					operation.field,
+					field,
 					operation.name,
 					`${path}.field`,
 					provenance,
+					fieldOptionProvenance(field, operation.contributionId, context),
 				),
 				kind: operation.kind,
 				name: operation.name,
 			})
-		case 'field:replace':
+		}
+		case 'field:replace': {
+			const field = normalizedField(operation.field, `${path}.field`, context)
 			return immutableRecord({
 				contributionId: operation.contributionId,
 				field: context.encoder.fieldNode(
-					operation.field,
+					field,
 					operation.name,
 					`${path}.field`,
 					provenance,
+					fieldOptionProvenance(field, operation.contributionId, context),
 				),
 				kind: operation.kind,
 				name: operation.name,
@@ -125,6 +239,7 @@ export const encodeSchemaCompilerPatchOperation = (
 					path,
 				}),
 			})
+		}
 		case 'field:rename':
 			return immutableRecord({
 				contributionId: operation.contributionId,
@@ -173,6 +288,13 @@ export const encodeSchemaCompilerPatchOperation = (
 					operation.extension.name,
 					provenance,
 					`${path}.extension`,
+					undefined,
+					undefined,
+					normalizedExtensionFields(
+						operation.extension.fields,
+						`${path}.extension`,
+						context,
+					),
 				),
 				kind: operation.kind,
 			})
@@ -184,6 +306,13 @@ export const encodeSchemaCompilerPatchOperation = (
 					operation.extension.name,
 					provenance,
 					`${path}.extension`,
+					undefined,
+					undefined,
+					normalizedExtensionFields(
+						operation.extension.fields,
+						`${path}.extension`,
+						context,
+					),
 				),
 				kind: operation.kind,
 				target: encodeArtifactTarget(operation.target, 'extension', {
@@ -246,7 +375,16 @@ export const encodeSchemaCompilerPatchOperation = (
 								path,
 							}),
 						}),
-				value: context.encoder.optionValue(operation.value, `${path}.value`),
+				value: context.encoder.optionValue(
+					normalizedOptionValue(
+						'schema',
+						operation.name,
+						operation.value,
+						`${path}.value`,
+						context,
+					),
+					`${path}.value`,
+				),
 			})
 		case 'schema-option:remove':
 			return immutableRecord({
@@ -269,7 +407,16 @@ export const encodeSchemaCompilerPatchOperation = (
 								path,
 							}),
 						}),
-				value: context.encoder.optionValue(operation.value, `${path}.value`),
+				value: context.encoder.optionValue(
+					normalizedOptionValue(
+						'field',
+						operation.name,
+						operation.value,
+						`${path}.value`,
+						context,
+					),
+					`${path}.value`,
+				),
 			})
 		case 'field-option:remove':
 			return immutableRecord({

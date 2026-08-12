@@ -17,11 +17,6 @@ import {
 } from '../fields/base/definition.js'
 import type { GenericField } from '../fields/base/contract.js'
 
-/** Applies one callback-free application-local contribution plan before validation. */
-export type SchemaCompilationTransformer = (
-	prepared: readonly PreparedSchemaCompilation[],
-) => readonly PreparedSchemaCompilation[]
-
 const coreSchemaMetadataKeys = new Set([
 	'className',
 	'constraints',
@@ -201,10 +196,7 @@ export class SchemaRegistry<
 	}
 
 	/** Compiles every deferred declaration atomically before plugin setup starts. */
-	compileSchemas(
-		fieldMethods?: FieldBuilderMethodResolver,
-		transform?: SchemaCompilationTransformer,
-	): SchemaTargetGraph {
+	compileSchemas(fieldMethods?: FieldBuilderMethodResolver): SchemaTargetGraph {
 		const state = getSchemaRegistryState(this)
 		if (state.schemaTargets !== undefined) {
 			return state.schemaTargets
@@ -215,67 +207,13 @@ export class SchemaRegistry<
 				this.get(className),
 			),
 		)
-		const prepared = immutableArray(
-			transform === undefined
-				? initialPrepared
-				: transform(immutableArray(initialPrepared)),
+		const prepared = immutableArray(initialPrepared)
+		assertNoUnresolvedOptions(prepared)
+		const schemaTargets = compilePreparedSchemaRegistry(
+			this,
+			prepared,
+			prepared,
 		)
-		if (transform === undefined) {
-			assertNoUnresolvedOptions(prepared)
-		}
-
-		if (
-			prepared.length !== initialPrepared.length ||
-			prepared.some(
-				(candidate, index) =>
-					candidate.schema !== initialPrepared[index]?.schema,
-			)
-		) {
-			throw new TypeError(
-				'Schema compilation transformer must preserve registry identities and order',
-			)
-		}
-		const preparedBySchema = new Map<
-			SchemaDefinition,
-			PreparedSchemaCompilation
-		>(prepared.map((candidate) => [candidate.schema, candidate]))
-		const schemaTargets = compileSchemaTargetGraph(this, (schema) => {
-			const candidate = preparedBySchema.get(schema)
-
-			if (candidate === undefined) {
-				throw new TypeError(
-					`Schema compilation candidate is missing: ${schema.className}`,
-				)
-			}
-
-			return candidate.definition.fields
-		})
-		const targetsBySchema = new Map<
-			SchemaDefinition,
-			SchemaCompiledTargetIdentity[]
-		>()
-
-		for (const target of schemaTargets.values()) {
-			const targets = targetsBySchema.get(target.source) ?? []
-
-			targets.push({ fieldPath: target.fieldPath, target: target.target })
-			targetsBySchema.set(target.source, targets)
-		}
-
-		for (const candidate of prepared) {
-			validateSchemaCompilation(
-				candidate,
-				targetsBySchema.get(candidate.schema) ?? [],
-			)
-		}
-
-		for (const candidate of prepared) {
-			finalizeSchemaCompilation(
-				candidate,
-				targetsBySchema.get(candidate.schema) ?? [],
-			)
-		}
-
 		state.schemaTargets = schemaTargets
 
 		return schemaTargets
@@ -297,13 +235,76 @@ export class SchemaRegistry<
 	}
 }
 
-/** @internal Compiles additions in isolation and publishes only a complete graph. */
-export const compileSchemaRegistryAtomically = (
+const compilePreparedSchemaRegistry = (
+	registry: SchemaRegistry,
+	initialPrepared: readonly PreparedSchemaCompilation[],
+	prepared: readonly PreparedSchemaCompilation[],
+): SchemaTargetGraph => {
+	if (
+		prepared.length !== initialPrepared.length ||
+		prepared.some(
+			(candidate, index) => candidate.schema !== initialPrepared[index]?.schema,
+		)
+	) {
+		throw new TypeError(
+			'Schema compiler must preserve registry identities and order',
+		)
+	}
+	const preparedBySchema = new Map<SchemaDefinition, PreparedSchemaCompilation>(
+		prepared.map((candidate) => [candidate.schema, candidate]),
+	)
+	const schemaTargets = compileSchemaTargetGraph(registry, (schema) => {
+		const candidate = preparedBySchema.get(schema)
+
+		if (candidate === undefined) {
+			throw new TypeError(
+				`Schema compilation candidate is missing: ${schema.className}`,
+			)
+		}
+
+		return candidate.definition.fields
+	})
+	const targetsBySchema = new Map<
+		SchemaDefinition,
+		SchemaCompiledTargetIdentity[]
+	>()
+
+	for (const target of schemaTargets.values()) {
+		const targets = targetsBySchema.get(target.source) ?? []
+
+		targets.push({ fieldPath: target.fieldPath, target: target.target })
+		targetsBySchema.set(target.source, targets)
+	}
+
+	for (const candidate of prepared) {
+		validateSchemaCompilation(
+			candidate,
+			targetsBySchema.get(candidate.schema) ?? [],
+		)
+	}
+
+	for (const candidate of prepared) {
+		finalizeSchemaCompilation(
+			candidate,
+			targetsBySchema.get(candidate.schema) ?? [],
+		)
+	}
+
+	return schemaTargets
+}
+
+/** Holds one isolated preparation until its complete decoded graph is validated. */
+export interface StagedSchemaRegistryCompilation {
+	readonly prepared: readonly PreparedSchemaCompilation[]
+	readonly registry: SchemaRegistry
+}
+
+/** @internal Prepares additions in isolation without publishing partial metadata. */
+export const stageSchemaRegistryCompilation = (
 	registry: SchemaRegistry,
 	additions: readonly SchemaDefinition[],
 	fieldMethods: FieldBuilderMethodResolver,
-	transform: SchemaCompilationTransformer,
-): SchemaTargetGraph => {
+): StagedSchemaRegistryCompilation => {
 	if (getSchemaRegistryState(registry).schemaTargets !== undefined) {
 		throw new TypeError('Cannot replace an already compiled schema registry')
 	}
@@ -311,9 +312,32 @@ export const compileSchemaRegistryAtomically = (
 		...registry.values(),
 		...additions,
 	] as readonly SchemaDefinition[])
-	const targets = staged.compileSchemas(fieldMethods, transform)
+	const prepared = immutableArray(
+		staged
+			.values()
+			.map((schema) =>
+				prepareSchemaCompilation(schema, fieldMethods, (className) =>
+					staged.get(className),
+				),
+			),
+	)
+	return { prepared, registry: staged }
+}
 
-	schemaRegistryStates.set(registry, getSchemaRegistryState(staged))
+/** @internal Validates and atomically publishes one decoded compiler result. */
+export const publishSchemaRegistryCompilation = (
+	registry: SchemaRegistry,
+	staging: StagedSchemaRegistryCompilation,
+	prepared: readonly PreparedSchemaCompilation[],
+): SchemaTargetGraph => {
+	const targets = compilePreparedSchemaRegistry(
+		staging.registry,
+		staging.prepared,
+		immutableArray(prepared),
+	)
+	const stagedState = getSchemaRegistryState(staging.registry)
+	stagedState.schemaTargets = targets
+	schemaRegistryStates.set(registry, stagedState)
 
 	return targets
 }

@@ -281,9 +281,11 @@ provenance, portability, and application ownership before decoding any output.
 Schema additions keep their exact contribution identity and static options,
 extension nodes expose the logical fields they contribute, and option nodes
 separately attribute their definition owner and current value contributor.
-The canonical compiler migration and privileged replacement capability are
-delivered independently, so this public IR does not create a generic transform
-callback.
+Core's canonical compiler now consumes this same IR, revalidates its complete
+output through the public contract, and decodes trusted artifacts only through
+the private compilation session. The privileged replacement capability remains
+a separate step, so no generic transform callback or prepared-schema bypass is
+available.
 
 Tooling configured in the plugin graph receives the same compiled schema
 registry plus an immutable application-local FieldBuilder method snapshot during

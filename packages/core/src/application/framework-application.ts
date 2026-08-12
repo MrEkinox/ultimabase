@@ -15,7 +15,6 @@ import { composeDeclarationCapabilities } from '../plugins/capability-inventory.
 import { ApplicationCapabilityHost } from '../plugins/capability-host.js'
 import { PluginDeclarationHost } from '../plugins/declaration-host.js'
 import { SchemaDeclarationRegistry } from '../plugins/schema-declarations.js'
-import { compileSchemaRegistryAtomically } from '../schema/schema/registry.js'
 import { bindApplicationCapabilityHost } from '../plugins/application-capability-access.js'
 import { validateExtensionOwners } from '../plugins/extension-handlers.js'
 import { FrameworkError } from '../errors/framework-error.js'
@@ -337,11 +336,9 @@ export class FrameworkApplication<
 
 		try {
 			this.#declarationHost.run()
-			compileSchemaRegistryAtomically(
+			this.#schemaDeclarations.compileSchemaRegistry(
 				this.schemas,
-				this.#schemaDeclarations.schemaAdditions(),
 				this.#fieldBuilderMethods,
-				(prepared) => this.#schemaDeclarations.compile(prepared),
 			)
 			this.#schemaCompilationState = 'compiled'
 

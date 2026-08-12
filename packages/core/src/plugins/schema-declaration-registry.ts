@@ -10,6 +10,13 @@ import type {
 	PreparedSchemaCompilation,
 	SchemaDefinition,
 } from '../schema/schema/definition.js'
+import type { FieldBuilderMethodResolver } from '../schema/schema/field-builder-methods.js'
+import {
+	publishSchemaRegistryCompilation,
+	type SchemaRegistry,
+	stageSchemaRegistryCompilation,
+} from '../schema/schema/registry.js'
+import type { SchemaTargetGraph } from '../schema/schema/targets.js'
 
 import type { CapabilityRequirement } from './capabilities.js'
 
@@ -18,7 +25,6 @@ import type { ApplicationCapabilityHost } from './capability-host.js'
 import {
 	type PluginSchemaContributionOwner,
 	type SchemaCompilationProvenance,
-	type SchemaContributionOwner,
 } from '../schema/schema/provenance.js'
 
 import {
@@ -44,23 +50,21 @@ import { schemaOptionDefinitions } from './schema-option-definitions.js'
 import { resolveCandidateOptions } from './schema-option-resolution.js'
 
 import {
-	schemaPatchOperations,
 	type SchemaSelection,
+	schemaPatchOperations,
 	schemaSelections,
 } from './schema-patch-contracts.js'
 
-import {
-	applicationOwner,
-	matchesSelector,
-	normalizeSelector,
-} from './schema-selectors.js'
-
-import { applyPatch } from './schema-transformations.js'
+import { normalizeSelector } from './schema-selectors.js'
 import {
 	collectOptionDefinitions,
 	collectRuntimeCompilations,
 	executeRuntimeCompilations,
 } from './schema-runtime-options.js'
+import { compileCanonicalSchemaCompilerIr } from './schema-compiler-ir/canonical-compiler.js'
+import { decodeSchemaCompilerOutput } from './schema-compiler-ir/decoder.js'
+import { encodeSchemaCompilerInput } from './schema-compiler-ir/input-encoder.js'
+import { assertSchemaCompilerOutput } from './schema-compiler-ir/validation.js'
 
 export class SchemaDeclarationRegistry {
 	readonly #batches: SchemaDeclarationBatch[] = []
@@ -308,7 +312,21 @@ export class SchemaDeclarationRegistry {
 		return immutableArray(schemas)
 	}
 
-	compile(
+	/** Compiles declarations through IR and publishes one complete registry atomically. */
+	compileSchemaRegistry(
+		registry: SchemaRegistry,
+		fieldMethods: FieldBuilderMethodResolver,
+	): SchemaTargetGraph {
+		const staging = stageSchemaRegistryCompilation(
+			registry,
+			this.schemaAdditions(),
+			fieldMethods,
+		)
+		const prepared = this.#compilePrepared(staging.prepared)
+		return publishSchemaRegistryCompilation(registry, staging, prepared)
+	}
+
+	#compilePrepared(
 		prepared: readonly PreparedSchemaCompilation[],
 	): readonly PreparedSchemaCompilation[] {
 		if (!this.#closed) {
@@ -347,89 +365,13 @@ export class SchemaDeclarationRegistry {
 				)
 			}
 		})
-		const addedSchemas = new Set(
-			this.#batches.flatMap((batch) =>
-				batch.additions.map(({ schema }) => schema),
-			),
-		)
-		const visibleSchemas = new Set(
-			candidates
-				.filter(({ schema }) => !addedSchemas.has(schema))
-				.map(({ schema }) => schema),
-		)
-		const owners = new Map<SchemaDefinition, SchemaContributionOwner>()
-		for (const candidate of candidates) {
-			if (!addedSchemas.has(candidate.schema)) {
-				owners.set(candidate.schema, applicationOwner)
-			}
-		}
-
-		for (const batch of this.#batches) {
-			const frozenTargets = new Map<
-				SchemaSelection,
-				readonly SchemaDefinition[]
-			>()
-			for (const patch of batch.patches) {
-				if (!frozenTargets.has(patch.targets)) {
-					frozenTargets.set(
-						patch.targets,
-						immutableArray(
-							candidates
-								.filter((candidate) => {
-									if (!visibleSchemas.has(candidate.schema)) return false
-									try {
-										return matchesSelector(
-											candidate,
-											owners.get(candidate.schema) ?? applicationOwner,
-											patch.targets.selector,
-										)
-									} catch (cause: unknown) {
-										throw attachPluginDeclarationDiagnostic(
-											cause,
-											patch.owner,
-											candidate.schema.className,
-											patch.operations.length === 1
-												? patch.operations[0]?.contributionId
-												: undefined,
-										)
-									}
-								})
-								.map(({ schema }) => schema),
-						),
-					)
-				}
-			}
-
-			const additions = new Set(batch.additions.map(({ schema }) => schema))
-			for (const schema of additions) {
-				owners.set(schema, batch.owner)
-				visibleSchemas.add(schema)
-			}
-
-			for (const patch of batch.patches) {
-				const targets = frozenTargets.get(patch.targets) ?? []
-				candidates = candidates.map((candidate) => {
-					if (!targets.includes(candidate.schema)) return candidate
-					try {
-						return applyPatch(
-							candidate,
-							patch,
-							optionDefinitions,
-							resolvedFields,
-						)
-					} catch (cause: unknown) {
-						throw attachPluginDeclarationDiagnostic(
-							cause,
-							patch.owner,
-							candidate.schema.className,
-							patch.operations.length === 1
-								? patch.operations[0]?.contributionId
-								: undefined,
-						)
-					}
-				})
-			}
-		}
+		const encoded = encodeSchemaCompilerInput(candidates, this.#batches, {
+			definitions: optionDefinitions,
+			resolvedFields,
+		})
+		const output = compileCanonicalSchemaCompilerIr(encoded.input)
+		assertSchemaCompilerOutput(encoded.input, output, encoded.session)
+		candidates = [...decodeSchemaCompilerOutput(output, encoded.session)]
 
 		this.#runtimeCompilations = collectRuntimeCompilations(
 			this.#batches,

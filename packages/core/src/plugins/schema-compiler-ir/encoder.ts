@@ -12,8 +12,10 @@ import type {
 	SchemaExtensionFields,
 } from '../../schema/extensions/definition.js'
 import type { PreparedSchemaCompilation } from '../../schema/schema/definition.js'
+import { areSchemaDeclarationValuesCompatible } from '../../schema/schema/definition.js'
 import type {
 	SchemaContributionProvenance,
+	SchemaContributionOwnerReference,
 	SchemaOptionProvenance,
 } from '../../schema/schema/provenance.js'
 import type {
@@ -44,6 +46,20 @@ export class SchemaCompilerIrEncoder {
 	readonly #referencesByArtifact = new WeakMap<
 		object,
 		Map<SchemaCompilerArtifactKind, SchemaCompilerArtifactReference>
+	>()
+	readonly #artifactsByKind = new Map<
+		SchemaCompilerArtifactKind,
+		readonly Readonly<{
+			readonly artifact: unknown
+			readonly reference: SchemaCompilerArtifactReference
+		}>[]
+	>()
+	readonly #referencesByContributionId = new Map<
+		string,
+		readonly Readonly<{
+			readonly owner: SchemaContributionProvenance['owner']
+			readonly reference: SchemaCompilerArtifactReference
+		}>[]
 	>()
 	#nextArtifactId: number
 
@@ -83,7 +99,63 @@ export class SchemaCompilerIrEncoder {
 			nextReferences.set(artifactKind, reference)
 			this.#referencesByArtifact.set(artifactObject, nextReferences)
 		}
+		this.#artifactsByKind.set(artifactKind, [
+			...(this.#artifactsByKind.get(artifactKind) ?? []),
+			{ artifact, reference },
+		])
 		return reference
+	}
+
+	/** Reuses an already encoded logical shape for an exact transform target. */
+	compatibleReference<const TKind extends SchemaCompilerArtifactKind>(
+		artifactKind: TKind,
+		artifact: unknown,
+		path: string,
+	): SchemaCompilerArtifactReference<TKind> {
+		const compatible = this.#artifactsByKind
+			.get(artifactKind)
+			?.find((candidate) =>
+				areSchemaDeclarationValuesCompatible(candidate.artifact, artifact),
+			)
+		if (compatible !== undefined) {
+			return compatible.reference as SchemaCompilerArtifactReference<TKind>
+		}
+		return this.reference(artifactKind, artifact, path)
+	}
+
+	/** Resolves a transform expectation through its exact declared contribution. */
+	targetReference<const TKind extends SchemaCompilerArtifactKind>(
+		artifactKind: TKind,
+		contributionId: string,
+		owner: SchemaContributionOwnerReference,
+		artifact: unknown,
+		path: string,
+	): SchemaCompilerArtifactReference<TKind> {
+		const candidate = this.#referencesByContributionId
+			.get(contributionId)
+			?.find(
+				(entry) =>
+					entry.reference.artifactKind === artifactKind &&
+					entry.owner.kind === owner.kind &&
+					(entry.owner.kind !== 'plugin' ||
+						(owner.kind === 'plugin' &&
+							entry.owner.pluginId === owner.pluginId &&
+							entry.owner.instanceId === owner.instanceId)),
+			)
+		return candidate === undefined
+			? this.compatibleReference(artifactKind, artifact, path)
+			: (candidate.reference as SchemaCompilerArtifactReference<TKind>)
+	}
+
+	private recordContributionReference(
+		reference: SchemaCompilerArtifactReference,
+		provenance: SchemaContributionProvenance,
+	): void {
+		this.#referencesByContributionId.set(provenance.contributionId, [
+			...(this.#referencesByContributionId.get(provenance.contributionId) ??
+				[]),
+			{ owner: provenance.owner, reference },
+		])
 	}
 
 	/** Keeps portable values inspectable and masks every executable or nominal value. */
@@ -135,8 +207,10 @@ export class SchemaCompilerIrEncoder {
 			}),
 		)
 
+		const artifact = this.reference('field', field, path)
+		this.recordContributionReference(artifact, provenance)
 		return immutableRecord({
-			artifact: this.reference('field', field, path),
+			artifact,
 			fields,
 			kind: field.kind,
 			name,
@@ -207,8 +281,10 @@ export class SchemaCompilerIrEncoder {
 		provenance: SchemaContributionProvenance,
 		path: string,
 	): SchemaCompilerConstraintNode {
+		const artifact = this.reference('constraint', definition, path)
+		this.recordContributionReference(artifact, provenance)
 		return immutableRecord({
-			artifact: this.reference('constraint', definition, path),
+			artifact,
 			definition,
 			provenance,
 		})
@@ -225,11 +301,14 @@ export class SchemaCompilerIrEncoder {
 		fieldOptionProvenance: Readonly<
 			Record<string, Readonly<Record<string, SchemaOptionProvenance>>>
 		> = immutableRecord({}),
+		fields: SchemaExtensionFields = extension.fields,
 	): SchemaCompilerExtensionNode {
+		const artifact = this.reference('extension', extension, path)
+		this.recordContributionReference(artifact, provenance)
 		return immutableRecord({
-			artifact: this.reference('extension', extension, path),
+			artifact,
 			fields: immutableArray(
-				Object.entries(extension.fields).map(([fieldName, field]) =>
+				Object.entries(fields).map(([fieldName, field]) =>
 					this.fieldNode(
 						field,
 						fieldName,

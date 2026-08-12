@@ -50,6 +50,8 @@ test('keeps dynamic registry boundaries safe without inventing literals', () => 
 	expectTypeOf(registry.has('User')).toEqualTypeOf<boolean>()
 	expectTypeOf(registry.size).toEqualTypeOf<number>()
 	expectTypeOf(registry.values()).toEqualTypeOf<readonly SchemaDefinition[]>()
+	// @ts-expect-error -- Complete schema compilation no longer accepts a transform callback.
+	registry.compileSchemas(undefined, (prepared: readonly never[]) => prepared)
 })
 
 test('exports a precise duplicate-schema error contract', () => {

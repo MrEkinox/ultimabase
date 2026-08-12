@@ -71,7 +71,7 @@ optional official plugins while keeping Core master authority unchanged.
 9. [x] [1420 — Align capability phases and declaration contracts](issues/1400-open-plugin-kernel/1420-capability-phase-and-contract-alignment.md)
 10. [x] [1421 — Modularize schema declarations and enforce file budgets](issues/1400-open-plugin-kernel/1421-modularize-schema-declarations-and-enforce-file-budgets.md)
 11. [x] [1422 — Define the callback-free schema compiler IR](issues/1400-open-plugin-kernel/1422-callback-free-schema-compiler-ir.md)
-12. [ ] [1423 — Run the canonical schema compiler through the public IR](issues/1400-open-plugin-kernel/1423-canonical-schema-compiler-ir.md)
+12. [x] [1423 — Run the canonical schema compiler through the public IR](issues/1400-open-plugin-kernel/1423-canonical-schema-compiler-ir.md)
 13. [ ] [1418 — Replace the complete schema compiler through a versioned capability](issues/1400-open-plugin-kernel/1418-schema-compiler-replacement-capability.md)
 14. [ ] [1407 — Add dynamic schemas, model extensions, and plugin operations](issues/1400-open-plugin-kernel/1407-dynamic-schemas-models-and-operations.md)
 15. [ ] [1408 — Let plugins contribute exact Typegen contracts](issues/1400-open-plugin-kernel/1408-plugin-typegen-contributions.md)
