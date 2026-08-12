@@ -61,6 +61,17 @@ export interface BuiltInFieldOptionsContract {
 	readonly nestedValidation?: readonly BuiltInNestedValidationOptionsContract[]
 }
 
+const builtInContractsByOptions = new WeakMap<
+	object,
+	BuiltInFieldOptionsContract
+>()
+
+/** Reads the exact Core-owned root keys recorded by a built-in field factory. */
+export const getBuiltInFieldOptionsContract = (
+	options: object,
+): BuiltInFieldOptionsContract | undefined =>
+	builtInContractsByOptions.get(options)
+
 const formatOptionPath = (parent: string, key: PropertyKey): string => {
 	const segment = String(key)
 
@@ -82,12 +93,50 @@ const assertKnownOptionKeys = (
 	}
 }
 
+const assertStringOptionKeys = (
+	value: Readonly<Record<string, unknown>>,
+	contract: BuiltInFieldOptionsContract,
+): void => {
+	for (const key of Reflect.ownKeys(value)) {
+		if (
+			typeof key !== 'string' ||
+			(!contract.optionKeys.includes(key) && coreFieldOptionKeySet.has(key))
+		) {
+			throw new TypeError(
+				`Unknown ${contract.kind} field option: ${String(key)}`,
+			)
+		}
+	}
+}
+
+// Core-owned root names stay reserved even when one field kind does not support them.
+const coreFieldOptionKeySet: ReadonlySet<string> = new Set([
+	...fieldOptionKeys,
+	'access',
+	'autoIncrement',
+	'autoNow',
+	'fields',
+	'hooks',
+	'mappedBy',
+	'onDelete',
+	'target',
+	'timezone',
+	'typeName',
+	'values',
+])
+
+/** Identifies root option names reserved by at least one Core field contract. */
+export const isCoreFieldOptionKey = (name: string): boolean =>
+	coreFieldOptionKeySet.has(name)
+
 /** Rejects metadata that no built-in field normalizer owns. */
 export const assertBuiltInFieldOptions = (
 	options: Readonly<Record<string, unknown>>,
 	contract: BuiltInFieldOptionsContract,
 ): void => {
-	assertKnownOptionKeys(options, contract.optionKeys, contract.kind, '')
+	// Unknown string keys are retained until application compilation can resolve
+	// them against option descriptors declared by installed plugins.
+	assertStringOptionKeys(options, contract)
 
 	if (!isPlainRecord(options.validation)) {
 		return
@@ -298,13 +347,19 @@ export const normalizeFieldOptions = <
 		: undefined
 
 	// Conditional spreads preserve absent options and replace caller-owned nested values.
-	return immutableRecord({
+	const normalized = immutableRecord({
 		...options,
 		...(list === undefined ? {} : { list }),
 		...(validation === undefined ? {} : { validation }),
 		...(extensions === undefined ? {} : { extensions }),
 		...(hasNormalizedDefault ? { default: normalizedDefault } : {}),
 	})
+
+	if (builtInContract !== undefined) {
+		builtInContractsByOptions.set(normalized, builtInContract)
+	}
+
+	return normalized
 }
 
 /** Reads required presence without trusting external metadata. */

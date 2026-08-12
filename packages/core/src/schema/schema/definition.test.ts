@@ -96,9 +96,11 @@ describe('schema definitions', () => {
 		expect(Object.keys(schema)).toStrictEqual([
 			'definition',
 			'className',
+			'constraints',
 			'fields',
 			'indexes',
 			'extensions',
+			'provenance',
 		])
 		expect(Object.isFrozen(schema)).toBe(true)
 		expect(Object.isFrozen(schema.definition)).toBe(true)

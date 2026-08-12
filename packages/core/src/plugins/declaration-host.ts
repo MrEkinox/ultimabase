@@ -1,4 +1,4 @@
-import { immutableRecord } from '@ultimabase/shared'
+import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import { FrameworkError } from '../errors/framework-error.js'
 import type {
@@ -20,6 +20,8 @@ import {
 	type PluginIdentity,
 	type PluginPrivilegeRequest,
 } from './manifest.js'
+import type { SchemaDeclarationRegistry } from './schema-declarations.js'
+import { type PluginSchemaDeclarationRegistrar } from './schema-declarations.js'
 
 type RequiredCapability<TCapabilities> =
 	NormalizedPluginCapabilityDeclarations<TCapabilities>['requires'][number]
@@ -73,6 +75,19 @@ type UnconditionalSchemaDeclareRequest<TPrivileges> =
 			: TRequest
 		: never
 
+type SchemaTransformRequest<TPrivileges> = Extract<
+	PrivilegeUnion<TPrivileges>,
+	Readonly<{ name: 'schema:transform' }>
+>
+type SchemaDeclarationRequest<TPrivileges> =
+	SchemaDeclareRequest<TPrivileges> | SchemaTransformRequest<TPrivileges>
+type UnconditionalSchemaDeclarationRequest<TPrivileges> =
+	SchemaDeclarationRequest<TPrivileges> extends infer TRequest
+		? TRequest extends Readonly<{ when: CapabilityRequirement }>
+			? never
+			: TRequest
+		: never
+
 type PluginFieldDeclarationContext<TPrivileges> = [
 	SchemaDeclareRequest<TPrivileges>,
 ] extends [never]
@@ -80,6 +95,14 @@ type PluginFieldDeclarationContext<TPrivileges> = [
 	: [UnconditionalSchemaDeclareRequest<TPrivileges>] extends [never]
 		? Readonly<{ fields?: FieldBuilderMethodRegistrar }>
 		: Readonly<{ fields: FieldBuilderMethodRegistrar }>
+
+type PluginSchemaDeclarationContext<TPrivileges> = [
+	SchemaDeclarationRequest<TPrivileges>,
+] extends [never]
+	? Readonly<Record<never, never>>
+	: [UnconditionalSchemaDeclarationRequest<TPrivileges>] extends [never]
+		? Readonly<{ schemas?: PluginSchemaDeclarationRegistrar }>
+		: Readonly<{ schemas: PluginSchemaDeclarationRegistrar }>
 
 /**
  * Supplies only immutable static facades authorized by one plugin manifest.
@@ -96,7 +119,8 @@ export type PluginDeclarationContext<
 	/** Reads exact declaration-lifetime requirements declared by this plugin. */
 	capabilities: PluginDeclarationCapabilityReader<TCapabilities>
 }> &
-	PluginFieldDeclarationContext<TPrivileges>
+	PluginFieldDeclarationContext<TPrivileges> &
+	PluginSchemaDeclarationContext<TPrivileges>
 
 /** Declares deterministic application metadata before schemas are compiled. */
 export type PluginDeclaration<
@@ -130,6 +154,7 @@ export class PluginDeclarationHost {
 	constructor(
 		private readonly graph: PluginGraph,
 		private readonly fieldBuilderMethods: FieldBuilderMethodRegistry,
+		private readonly schemaDeclarations: SchemaDeclarationRegistry,
 	) {}
 
 	run(): void {
@@ -143,11 +168,39 @@ export class PluginDeclarationHost {
 			const privilege = definition.manifest.privileges.find(
 				(request) => request.name === 'schema:declare',
 			)
-			const fieldSession =
+			const transformPrivilege = definition.manifest.privileges.find(
+				(request) => request.name === 'schema:transform',
+			)
+			const canDeclare =
 				privilege !== undefined &&
 				this.graph.capabilities.isPrivilegeActive(owner, privilege)
-					? this.fieldBuilderMethods.beginPluginDeclaration(
-							formatPluginIdentity(owner),
+			const canTransform =
+				transformPrivilege !== undefined &&
+				this.graph.capabilities.isPrivilegeActive(owner, transformPrivilege)
+			const fieldSession = canDeclare
+				? this.fieldBuilderMethods.beginPluginDeclaration(
+						formatPluginIdentity(owner),
+					)
+				: undefined
+			const schemaSession =
+				canDeclare || canTransform
+					? this.schemaDeclarations.beginPluginDeclaration(
+							immutableRecord({
+								kind: 'plugin',
+								pluginId: owner.pluginId,
+								...(owner.instanceId === undefined
+									? {}
+									: { instanceId: owner.instanceId }),
+								version: definition.manifest.version,
+							}),
+							immutableRecord({
+								declare: canDeclare,
+								requirements: immutableArray([
+									...definition.manifest.capabilities.requires,
+									...definition.manifest.capabilities.optional,
+								]),
+								transform: canTransform,
+							}),
 						)
 					: undefined
 			let open = true
@@ -196,18 +249,24 @@ export class PluginDeclarationHost {
 			const context = immutableRecord({
 				capabilities,
 				...(fieldSession === undefined ? {} : { fields: fieldSession.fields }),
+				...(schemaSession === undefined
+					? {}
+					: { schemas: schemaSession.registrar }),
 			})
 
 			try {
 				runPluginDeclaration(definition, context)
 				fieldSession?.commit()
+				schemaSession?.commit()
 			} finally {
 				open = false
 				fieldSession?.close()
+				schemaSession?.close()
 			}
 		}
 
 		this.fieldBuilderMethods.close()
+		this.schemaDeclarations.close()
 		this.#completed = true
 	}
 }

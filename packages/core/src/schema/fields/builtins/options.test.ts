@@ -72,14 +72,16 @@ const validationOptionCases = rootOptionCases.filter(
 
 describe('built-in field option contracts', () => {
 	it.each(rootOptionCases)(
-		'rejects an unknown $kind root option with its exact path',
-		({ factory, kind, options }) => {
-			expect(() =>
-				callWithJavaScriptOptions(factory, {
-					...options,
-					unknownRoot: true,
-				}),
-			).toThrow(new TypeError(`Unknown ${kind} field option: unknownRoot`))
+		'preserves an unresolved $kind root option for application compilation',
+		({ factory, options }) => {
+			const field = callWithJavaScriptOptions(factory, {
+				...options,
+				unknownRoot: true,
+			})
+
+			expect(field).toMatchObject({
+				options: { unknownRoot: true },
+			})
 		},
 	)
 

@@ -46,6 +46,7 @@ import {
 	FieldBuilderMethodUnavailableError,
 	FieldBuilderTargetUnavailableError,
 	resolveCapturedFieldMap,
+	snapshotCapturedOptionValue,
 	type FieldBuilderTargetResolver,
 	type SchemaFieldBuilderDeclaration,
 } from './field-builder.js'
@@ -63,6 +64,11 @@ import {
 	isReservedSchemaModelFieldName,
 	type ReservedSchemaFieldCollision,
 } from './reserved-field-names.js'
+import {
+	createInitialSchemaProvenance,
+	type SchemaCompilationProvenance,
+} from './provenance.js'
+import type { SchemaConstraintDefinition } from './constraints.js'
 
 export type { BaseItem } from '../type-info.js'
 export type { SchemaAPI } from './schema-api.js'
@@ -178,6 +184,8 @@ export interface SchemaMetadata<
 > {
 	/** The exact logical class name supplied to `Schema.define()`. */
 	readonly className: TClassName
+	/** The ordered adapter-neutral constraints contributed during compilation. */
+	readonly constraints: readonly SchemaConstraintDefinition[]
 	/** The immutable developer and framework-owned field map. */
 	readonly fields: ResolvedSchemaFields<TFields, TExtensions> &
 		Readonly<SystemFields>
@@ -187,6 +195,8 @@ export interface SchemaMetadata<
 	>[]
 	/** The immutable ordered schema-extension tuple. */
 	readonly extensions: readonly [...TExtensions]
+	/** Explains the exact owner of every logical compiled contribution. */
+	readonly provenance: SchemaCompilationProvenance
 }
 
 /** Carries trusted schema identity plus the neutral metadata used by Core. */
@@ -279,6 +289,7 @@ interface NormalizedSchemaDeclaration {
 	readonly extensions: SchemaExtensions
 	readonly fields: Readonly<Record<string, unknown>>
 	readonly indexes: readonly SchemaIndexOptions[] | undefined
+	readonly options: Readonly<Record<string, unknown>>
 }
 
 interface CompiledSchemaRecord {
@@ -423,11 +434,22 @@ const compileSchemaRecord = (
 		...systemFields,
 	})
 	const indexes = normalizeSchemaIndexes(declaredFields, declaration.indexes)
+	const provenance = createInitialSchemaProvenance(
+		declaration.className,
+		Object.keys(declaredFields),
+		fields,
+		indexes,
+		declaration.extensions.map(({ name }) => name),
+		Object.keys(declaration.options),
+	)
 	const definition = immutableRecord({
+		...declaration.options,
 		className: declaration.className,
+		constraints: immutableArray([]),
 		fields,
 		indexes,
 		extensions: declaration.extensions,
+		provenance,
 	})
 
 	return immutableRecord({
@@ -435,6 +457,34 @@ const compileSchemaRecord = (
 		developerFields,
 		targets: undefined,
 	})
+}
+
+const coreSchemaOptionKeys = new Set([
+	'access',
+	'className',
+	'extensions',
+	'fields',
+	'hooks',
+	'indexes',
+])
+
+/** Detaches direct plugin options while leaving their validation to the application graph. */
+const snapshotUnresolvedSchemaOptions = (
+	options: Readonly<Record<string, unknown>>,
+): Readonly<Record<string, unknown>> => {
+	const unresolved: Record<string, unknown> = {}
+
+	for (const key of Reflect.ownKeys(options)) {
+		if (typeof key !== 'string') {
+			throw new TypeError(`Unknown schema option: ${String(key)}`)
+		}
+
+		if (!coreSchemaOptionKeys.has(key)) {
+			unresolved[key] = snapshotCapturedOptionValue(options[key])
+		}
+	}
+
+	return immutableRecord(unresolved)
 }
 
 const executeSchemaFieldDeclaration = (
@@ -465,7 +515,7 @@ const executeSchemaFieldDeclaration = (
 	}
 }
 
-const areDeclarationValuesCompatible = (
+export const areSchemaDeclarationValuesCompatible = (
 	left: unknown,
 	right: unknown,
 	seen: WeakMap<object, WeakSet<object>> = new WeakMap(),
@@ -537,7 +587,7 @@ const areDeclarationValuesCompatible = (
 			Array.isArray(right) &&
 			left.length === right.length &&
 			left.every((value: unknown, index: number) =>
-				areDeclarationValuesCompatible(value, right[index], seen),
+				areSchemaDeclarationValuesCompatible(value, right[index], seen),
 			)
 		)
 	}
@@ -552,7 +602,7 @@ const areDeclarationValuesCompatible = (
 		leftKeys.every(
 			(key) =>
 				Object.hasOwn(right, key) &&
-				areDeclarationValuesCompatible(
+				areSchemaDeclarationValuesCompatible(
 					Reflect.get(left, key),
 					Reflect.get(right, key),
 					seen,
@@ -577,7 +627,7 @@ const assertCompatibleTargets = (
 
 			return (
 				target.target === candidateTarget.target &&
-				areDeclarationValuesCompatible(
+				areSchemaDeclarationValuesCompatible(
 					target.fieldPath,
 					candidateTarget.fieldPath,
 				)
@@ -605,25 +655,10 @@ export const prepareSchemaCompilation = (
 		throw new TypeError('schema must be a class created by Schema.define')
 	}
 
-	const existingRecord = compiledSchemaRecords.get(schema)
 	const candidate = compileSchemaRecord(
 		declaration,
 		executeSchemaFieldDeclaration(declaration, fieldMethods, resolveTarget),
 	)
-
-	if (
-		existingRecord !== undefined &&
-		!areDeclarationValuesCompatible(
-			existingRecord.definition,
-			candidate.definition,
-		)
-	) {
-		throw new SchemaCompilationError(
-			'incompatible-definition',
-			schema.className,
-			`Schema ${schema.className} compiled differently in another application`,
-		)
-	}
 
 	return immutableRecord({
 		definition: candidate.definition,
@@ -638,6 +673,20 @@ export const validateSchemaCompilation = (
 	targets: readonly SchemaCompiledTargetIdentity[],
 ): void => {
 	const existingRecord = compiledSchemaRecords.get(prepared.schema)
+
+	if (
+		existingRecord?.targets !== undefined &&
+		!areSchemaDeclarationValuesCompatible(
+			existingRecord.definition,
+			prepared.definition,
+		)
+	) {
+		throw new SchemaCompilationError(
+			'incompatible-definition',
+			prepared.schema.className,
+			`Schema ${prepared.schema.className} compiled differently in another application`,
+		)
+	}
 
 	if (existingRecord?.targets !== undefined) {
 		assertCompatibleTargets(
@@ -664,7 +713,7 @@ export const finalizeSchemaCompilation = (
 		),
 	)
 
-	if (existingRecord === undefined) {
+	if (existingRecord?.targets === undefined) {
 		compiledSchemaRecords.set(
 			prepared.schema,
 			immutableRecord({
@@ -674,13 +723,6 @@ export const finalizeSchemaCompilation = (
 			}),
 		)
 		return
-	}
-
-	if (existingRecord.targets === undefined) {
-		compiledSchemaRecords.set(
-			prepared.schema,
-			immutableRecord({ ...existingRecord, targets: immutableTargets }),
-		)
 	}
 }
 
@@ -727,6 +769,7 @@ const defineSchemaModel = <
 		extensions,
 		fields,
 		indexes: snapshotSchemaIndexOptions(options.indexes),
+		options: snapshotUnresolvedSchemaOptions(options),
 	})
 	// Readers close over the final class, which is assigned only after construction.
 	// eslint-disable-next-line prefer-const

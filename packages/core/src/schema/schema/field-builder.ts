@@ -293,7 +293,7 @@ export class FieldBuilderDeclarationExecutionError extends Error {
 }
 
 /** Detaches delayed plugin options from caller-owned plain data. */
-const snapshotCapturedOptionValue = (value: unknown): unknown => {
+export const snapshotCapturedOptionValue = (value: unknown): unknown => {
 	if (isUnknownArray(value)) {
 		return immutableArray(value.map(snapshotCapturedOptionValue))
 	}

@@ -32,9 +32,11 @@ describe('schema Access declarations', () => {
 		expect(Object.keys(schema)).toStrictEqual([
 			'definition',
 			'className',
+			'constraints',
 			'fields',
 			'indexes',
 			'extensions',
+			'provenance',
 		])
 		expect(schema).not.toHaveProperty('access')
 	})

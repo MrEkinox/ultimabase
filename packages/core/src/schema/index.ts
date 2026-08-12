@@ -226,6 +226,8 @@ export type {
 	FloatValidationOptions,
 } from './fields/builtins/float.js'
 export { Schema, SchemaCompilationError } from './schema/definition.js'
+export { defineSchemaConstraint } from './schema/constraints.js'
+export type { SchemaConstraintDefinition } from './schema/constraints.js'
 export type {
 	SchemaCreateData,
 	SchemaItem,
@@ -251,6 +253,20 @@ export type {
 	SchemaStaticCapabilities,
 	SchemaStaticCapabilityFactory,
 } from './schema/definition.js'
+export type {
+	AppliedSchemaPatchProvenance,
+	ApplicationSchemaContributionOwner,
+	CoreSchemaContributionOwner,
+	PluginSchemaContributionOwner,
+	SchemaCompilationProvenance,
+	SchemaConstraintProvenance,
+	SchemaContributionOwner,
+	SchemaContributionOwnerReference,
+	SchemaContributionProvenance,
+	SchemaExtensionProvenance,
+	SchemaIndexProvenance,
+	SchemaOptionProvenance,
+} from './schema/provenance.js'
 export type {
 	EmbeddedFieldBuilder,
 	FieldBuilder,

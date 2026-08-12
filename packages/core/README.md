@@ -73,10 +73,13 @@ validation, defaults, Access, hooks, and adapter metadata keep one implementatio
 Embedded builders deliberately omit pointers, relations, and generated database
 sequences.
 
-Every built-in factory rejects unknown root and nested validation options at
-runtime with the exact field kind and option path, including declarations
-assembled through JavaScript. Plugin-defined fields retain plugin-owned option
-and validation keys; their normalizer remains the owning validation boundary.
+Every built-in factory immediately rejects unknown nested validation options and
+Core-owned root options that the selected field kind does not support. Other
+unknown root properties are detached and retained until application compilation:
+one installed plugin option descriptor validates and normalizes them, no owner
+rejects them, and multiple owners are a deterministic conflict. Plugin-defined
+fields retain their native option and validation keys; their factory remains the
+owning validation boundary.
 
 TypeScript reports invalid option combinations on the primary option contract.
 For example, empty enum domains identify `values`, required pointers using
@@ -136,6 +139,109 @@ synchronously. The generated application declaration emitted by
 `FieldBuilder`; Core's base `FieldBuilder` does
 not expose plugin methods globally. Calling a missing method through untyped or
 stale code fails during static schema compilation before plugin setup.
+
+### Plugin-owned schema compilation
+
+The same owner-bound `schemas` facade lets an authorized plugin add stable
+`Schema.define()` classes, declare direct schema and field option contracts, and
+apply callback-free immutable patches. Every persisted contribution has one
+stable `contributionId`; Core injects the exact plugin ID, optional instance ID,
+package version, protocol version, and normalized static options into the final
+schema provenance:
+
+```ts
+const workflowOption = defineSchemaOption({
+	normalize(value, path) {
+		if (
+			typeof value !== 'object' ||
+			value === null ||
+			!('enabled' in value) ||
+			typeof value.enabled !== 'boolean'
+		) {
+			throw new TypeError(`${path}.enabled must be a boolean`)
+		}
+
+		return { enabled: value.enabled }
+	},
+	protocolVersion: 1,
+	typegen: {
+		module: '@example/workflow-plugin',
+		type: 'WorkflowSchemaOption',
+	},
+})
+
+const workflowPlugin = definePlugin({
+	pluginId: '@example/workflow-plugin',
+	version: '1.0.0',
+	core: '^0.0.0',
+	privileges: [
+		{
+			name: 'schema:declare',
+			reason: 'Declares workflow options and logical schema fields.',
+		},
+	],
+	declare({ schemas }) {
+		schemas.defineOptions({
+			contributionId: 'workflow-options',
+			schema: { workflow: workflowOption },
+		})
+
+		const enabledSchemas = schemas.select({
+			option: { name: 'workflow', path: ['enabled'], equals: true },
+		})
+
+		schemas.patch({
+			targets: enabledSchemas,
+			operations: [
+				addSchemaField({
+					contributionId: 'workflow-state',
+					name: 'workflowState',
+					field: stringField({ validation: { required: true } }),
+				}),
+				addSchemaIndex({
+					contributionId: 'workflow-state-index',
+					fields: ['workflowState', 'createdAt'],
+				}),
+			],
+		})
+	},
+})
+```
+
+A selector is an inert immutable descriptor. Core evaluates every selector once
+against the graph completed by earlier plugins, before applying any patch from
+its current owner. A plugin therefore cannot make its own selection grow by
+adding a matching field or schema first. Additions require `schema:declare`;
+replacement, rename, and removal require `schema:transform` plus the exact prior
+owner, contribution ID, and expected logical shape. Core schema identity and
+system fields remain protected.
+
+Direct plugin options use ordinary properties rather than a separate options
+bag. Core validates them without generated files. The installed-option
+autocomplete and declaration augmentation are supplied by Typegen; until that
+generation contract is implemented, TypeScript applications can describe the
+same direct properties through an explicit local option intersection while
+JavaScript already uses the Runtime contract unchanged.
+
+An option contract may also declare a Runtime compiler backed by one exact
+application-lifetime capability requirement. Static compilation only records
+the final normalized option occurrences, so `application.compileSchemas()` and
+Typegen never materialize infrastructure or invoke the compiler. During real
+application initialization, Core materializes capabilities first, invokes each
+used option compiler in plugin declaration and schema order, then starts plugin
+`setup`. The compiler receives a frozen target context and its owner-bound
+capability, must return `undefined`, and contributes behavior through that
+capability rather than through a generic Core registry. Unused option contracts
+run nothing; a compiler failure aborts initialization and disposes already
+materialized capability resources.
+
+`schema.definition.provenance` explains the final schema, fields, direct options,
+indexes, portable constraints, extensions, and applied patches. Typegen and
+later migration bridges consume this inert logical snapshot; removing a plugin
+never authorizes Core to drop persisted data. Compilation registries are
+application-local. Reusing one stable schema class succeeds only when its whole
+final logical graph is compatible; a different installed plugin surface fails
+without rebinding or cleaning the previously compiled class.
 
 Framework tooling can call `application.compileSchemas()` to run exactly this
 synchronous static phase without plugin setup or infrastructure. The method is

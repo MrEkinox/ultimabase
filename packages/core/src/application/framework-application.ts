@@ -14,6 +14,7 @@ import { type PluginDefinition } from '../plugins/definition.js'
 import { composeDeclarationCapabilities } from '../plugins/capability-inventory.js'
 import { ApplicationCapabilityHost } from '../plugins/capability-host.js'
 import { PluginDeclarationHost } from '../plugins/declaration-host.js'
+import { SchemaDeclarationRegistry } from '../plugins/schema-declarations.js'
 import { bindApplicationCapabilityHost } from '../plugins/application-capability-access.js'
 import { validateExtensionOwners } from '../plugins/extension-handlers.js'
 import { FrameworkError } from '../errors/framework-error.js'
@@ -185,8 +186,10 @@ export class FrameworkApplication<
 	readonly pluginPrivilegeReport: PluginPrivilegeReport
 	readonly #setupRegistries: PluginSetupRegistries
 	readonly #lifecycle: PluginLifecycleManager
+	readonly #capabilityHost: ApplicationCapabilityHost
 	readonly #pluginGraph: PluginGraph
 	readonly #fieldBuilderMethods = new FieldBuilderMethodRegistry()
+	readonly #schemaDeclarations = new SchemaDeclarationRegistry()
 	readonly #declarationHost: PluginDeclarationHost
 	#schemaCompilationState: 'compiled' | 'compiling' | 'failed' | 'idle' = 'idle'
 	#schemaCompilationError: unknown
@@ -214,6 +217,7 @@ export class FrameworkApplication<
 		this.#declarationHost = new PluginDeclarationHost(
 			graph,
 			this.#fieldBuilderMethods,
+			this.#schemaDeclarations,
 		)
 		const capabilityHostReference: {
 			current: ApplicationCapabilityHost | undefined
@@ -258,6 +262,7 @@ export class FrameworkApplication<
 			this.schemas,
 			setupRegistries.getConstraintCompilerReader(),
 		)
+		this.#capabilityHost = capabilityHost
 		capabilityHostReference.current = capabilityHost
 		bindApplicationCapabilityHost(this, capabilityHost)
 		bindApplicationSetupRegistries(this, setupRegistries)
@@ -328,7 +333,10 @@ export class FrameworkApplication<
 
 		try {
 			this.#declarationHost.run()
-			this.schemas.compileSchemas(this.#fieldBuilderMethods)
+			this.#schemaDeclarations.registerSchemas(this.schemas)
+			this.schemas.compileSchemas(this.#fieldBuilderMethods, (prepared) =>
+				this.#schemaDeclarations.compile(prepared),
+			)
 			this.#schemaCompilationState = 'compiled'
 
 			return this
@@ -373,6 +381,8 @@ export class FrameworkApplication<
 	async #performInitialize(): Promise<this> {
 		try {
 			this.compileSchemas()
+			await this.#capabilityHost.materialize()
+			this.#schemaDeclarations.runRuntimeCompilers(this.#capabilityHost)
 			await this.#lifecycle.setup()
 			validateExtensionOwners(this.schemas.values(), this.#pluginGraph)
 			this.#setupRegistries.resolveHookTargets()

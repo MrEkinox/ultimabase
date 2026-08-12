@@ -6,7 +6,12 @@ import {
 
 import { isBuiltInField } from './kinds.js'
 import { assertPluginFieldKind } from './kinds.js'
-import { getFieldListDepth, snapshotListedFieldValue } from './options.js'
+import {
+	getBuiltInFieldOptionsContract,
+	getFieldListDepth,
+	snapshotListedFieldValue,
+	type BuiltInFieldOptionsContract,
+} from './options.js'
 import type { FieldScalarValue, GenericField } from './contract.js'
 import type { FieldHookDeclarations } from '../../hooks/field-declarations.js'
 import type { FieldAccessDeclarations } from '../../access/field-declarations.js'
@@ -35,6 +40,7 @@ interface FieldCapabilities {
 	readonly access: FieldAccessDeclarations | undefined
 	readonly deferRequiredUntilResolveInput: boolean
 	readonly hooks: FieldHookDeclarations | undefined
+	readonly optionsContract: BuiltInFieldOptionsContract | undefined
 	readonly schemaTarget: SchemaTarget | undefined
 	readonly snapshotValue: ScalarValueSnapshot
 	readonly storageCodec: PluginFieldStorageCodec | undefined
@@ -47,6 +53,8 @@ export interface FieldDefinitionCapabilities {
 	readonly schemaTarget?: SchemaTarget
 	/** Lets adapters persist one plugin scalar through a validated JSON representation. */
 	readonly storageCodec?: PluginFieldStorageCodec
+	/** Records Core-owned root option names for specialized factories. */
+	readonly optionsContract?: BuiltInFieldOptionsContract
 }
 
 // Weak ownership proves factory provenance without retaining application schemas.
@@ -75,6 +83,8 @@ export const createFieldDefinition = <
 			deferRequiredUntilResolveInput:
 				capabilities.deferRequiredUntilResolveInput === true,
 			hooks,
+			optionsContract:
+				capabilities.optionsContract ?? getBuiltInFieldOptionsContract(options),
 			schemaTarget: capabilities.schemaTarget,
 			snapshotValue,
 			storageCodec: capabilities.storageCodec,
@@ -82,6 +92,30 @@ export const createFieldDefinition = <
 	)
 
 	return field
+}
+
+/** Reads built-in ownership without exposing private behavioral capabilities. */
+export const getDeclaredFieldOptionsContract = (
+	field: GenericField,
+): BuiltInFieldOptionsContract | undefined =>
+	fieldCapabilities.get(field)?.optionsContract
+
+/** Rebuilds immutable field metadata while retaining its private factory capabilities. */
+export const replaceDeclaredFieldOptions = (
+	field: GenericField,
+	options: Readonly<Record<string, unknown>>,
+): GenericField => {
+	const capabilities = fieldCapabilities.get(field)
+
+	if (capabilities === undefined) {
+		throw new TypeError('field must be created by a field factory')
+	}
+
+	const replacement = immutableRecord({ kind: field.kind, options })
+
+	fieldCapabilities.set(replacement, capabilities)
+
+	return replacement
 }
 
 /** Resolves declaration-only callbacks for Core Runtime without public metadata leaks. */

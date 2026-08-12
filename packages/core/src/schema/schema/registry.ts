@@ -1,4 +1,4 @@
-import { immutableArray } from '@ultimabase/shared'
+import { immutableArray, isPlainRecord } from '@ultimabase/shared'
 
 import {
 	finalizeSchemaCompilation,
@@ -11,6 +11,69 @@ import {
 } from './definition.js'
 import { compileSchemaTargetGraph, type SchemaTargetGraph } from './targets.js'
 import type { FieldBuilderMethodResolver } from './field-builder-methods.js'
+import {
+	assertFieldDefinition,
+	getDeclaredFieldOptionsContract,
+} from '../fields/base/definition.js'
+import type { GenericField } from '../fields/base/contract.js'
+
+/** Applies one callback-free application-local contribution plan before validation. */
+export type SchemaCompilationTransformer = (
+	prepared: readonly PreparedSchemaCompilation[],
+) => readonly PreparedSchemaCompilation[]
+
+const coreSchemaMetadataKeys = new Set([
+	'className',
+	'constraints',
+	'extensions',
+	'fields',
+	'indexes',
+	'provenance',
+])
+
+const assertNoUnresolvedFieldOptions = (
+	field: GenericField,
+	path: string,
+): void => {
+	const contract = getDeclaredFieldOptionsContract(field)
+	if (contract !== undefined) {
+		const unknownKey = Object.keys(field.options).find(
+			(key) => !contract.optionKeys.includes(key),
+		)
+		if (unknownKey !== undefined) {
+			throw new TypeError(`Unknown ${field.kind} field option: ${unknownKey}`)
+		}
+	}
+
+	const nestedFields =
+		'fields' in field.options ? field.options.fields : undefined
+	if (field.kind === 'object' && isPlainRecord(nestedFields)) {
+		for (const [name, nested] of Object.entries(nestedFields)) {
+			assertFieldDefinition(nested, `${path}.fields.${name}`)
+			assertNoUnresolvedFieldOptions(nested, `${path}.fields.${name}`)
+		}
+	}
+}
+
+const assertNoUnresolvedOptions = (
+	prepared: readonly PreparedSchemaCompilation[],
+): void => {
+	for (const candidate of prepared) {
+		const unknownSchemaKey = Object.keys(candidate.definition).find(
+			(key) => !coreSchemaMetadataKeys.has(key),
+		)
+		if (unknownSchemaKey !== undefined) {
+			throw new TypeError(`Unknown schema option: ${unknownSchemaKey}`)
+		}
+
+		for (const [name, field] of Object.entries(candidate.definition.fields)) {
+			assertNoUnresolvedFieldOptions(
+				field,
+				`${candidate.schema.className}.fields.${name}`,
+			)
+		}
+	}
+}
 
 type SchemaMatchingClassName<
 	TSchemas extends readonly SchemaDefinition[],
@@ -118,16 +181,39 @@ export class SchemaRegistry<
 	}
 
 	/** Compiles every deferred declaration atomically before plugin setup starts. */
-	compileSchemas(fieldMethods?: FieldBuilderMethodResolver): SchemaTargetGraph {
+	compileSchemas(
+		fieldMethods?: FieldBuilderMethodResolver,
+		transform?: SchemaCompilationTransformer,
+	): SchemaTargetGraph {
 		if (this.#schemaTargets !== undefined) {
 			return this.#schemaTargets
 		}
 
-		const prepared = this.values().map((schema) =>
+		const initialPrepared = this.values().map((schema) =>
 			prepareSchemaCompilation(schema, fieldMethods, (className) =>
 				this.get(className),
 			),
 		)
+		const prepared = immutableArray(
+			transform === undefined
+				? initialPrepared
+				: transform(immutableArray(initialPrepared)),
+		)
+		if (transform === undefined) {
+			assertNoUnresolvedOptions(prepared)
+		}
+
+		if (
+			prepared.length !== initialPrepared.length ||
+			prepared.some(
+				(candidate, index) =>
+					candidate.schema !== initialPrepared[index]?.schema,
+			)
+		) {
+			throw new TypeError(
+				'Schema compilation transformer must preserve registry identities and order',
+			)
+		}
 		const preparedBySchema = new Map<
 			SchemaDefinition,
 			PreparedSchemaCompilation

@@ -205,13 +205,21 @@ export const relationField = <
 	const { access, metadataOptions } = splitFieldDeclarationOptions<
 		RelationFieldMetadataOptions<TMappedBy>
 	>(declarationOptions, normalizeRelationFieldAccessDeclarations)
+	const normalizedMetadata = normalizeRelationMetadata(metadataOptions)
+	const unresolvedOptions = immutableRecord(
+		Object.fromEntries(
+			Object.entries(declarationOptions).filter(
+				([key]) => !relationFieldOptionsContract.optionKeys.includes(key),
+			),
+		),
+	)
 
 	return createFieldDefinition(
 		'relation',
-		normalizeRelationMetadata(metadataOptions),
+		immutableRecord({ ...normalizedMetadata, ...unresolvedOptions }),
 		snapshotRelationValue,
 		undefined,
 		access,
-		{ schemaTarget: target },
+		{ optionsContract: relationFieldOptionsContract, schemaTarget: target },
 	)
 }

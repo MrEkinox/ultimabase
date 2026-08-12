@@ -3,7 +3,7 @@
 - Status: planned
 - Milestone: 14
 - Packages: `@ultimabase/core`
-- Depends on: 1406
+- Depends on: 1418
 - ADR: ADR-0187, ADR-0188, ADR-0192, ADR-0193
 
 ## Goal

@@ -359,6 +359,14 @@ export const createSchemaModelClass = <
 	Object.defineProperties(DefinedSchemaModel, {
 		definition: { enumerable: true, get: reader.readDefinition },
 		className: { enumerable: true, value: reader.className },
+		constraints: {
+			enumerable: true,
+			get: (): SchemaMetadata<
+				TClassName,
+				TFields,
+				TExtensions
+			>['constraints'] => reader.readDefinition().constraints,
+		},
 		fields: {
 			enumerable: true,
 			get: (): SchemaMetadata<TClassName, TFields, TExtensions>['fields'] =>
@@ -373,6 +381,11 @@ export const createSchemaModelClass = <
 			enumerable: true,
 			get: (): SchemaMetadata<TClassName, TFields, TExtensions>['extensions'] =>
 				reader.readDefinition().extensions,
+		},
+		provenance: {
+			enumerable: true,
+			get: (): SchemaMetadata<TClassName, TFields, TExtensions>['provenance'] =>
+				reader.readDefinition().provenance,
 		},
 	})
 

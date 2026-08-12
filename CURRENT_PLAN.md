@@ -33,7 +33,7 @@ optional official plugins while keeping Core master authority unchanged.
 - Static plugin declarations are synchronous, pure, deterministic, infrastructure-free, and separated from secrets and runtime options.
 - Developer schemas plus plugin additions and immutable patches form one authoritative compiled application graph.
 - Cross-owner changes require explicit transform authority; duplicate or ambiguous changes never use silent last-writer-wins behavior.
-- Selectors observe the graph completed by earlier plugins and freeze targets before the current plugin's patches; Core identity fields require a complete compatible schema-compiler replacement.
+- Selectors observe the graph completed by earlier plugins and freeze targets before the current plugin's patches; Core identity fields require the complete compatible schema-compiler replacement delivered by issue 1418.
 - One schema class cannot bind to two incompatible final plugin surfaces. Dynamic plugin schemas remain reachable through `ultimabase.schema('Name')`.
 - Typegen emits inert declaration contracts only. JavaScript and Runtime never depend on generated files or a generated client.
 - Plugins may contribute Typegen references, structured declarations, or separately owned outputs only through the matching privilege and deterministic fingerprint.
@@ -63,35 +63,36 @@ optional official plugins while keeping Core master authority unchanged.
 ### Phase 2 — Open static application compilation
 
 6. [x] [1405 — Open the static plugin declaration host](issues/1400-open-plugin-kernel/1405-static-plugin-declaration-host.md)
-7. [ ] [1406 — Compile owned schema transformations and provenance](issues/1400-open-plugin-kernel/1406-schema-transformations-and-provenance.md)
-8. [ ] [1407 — Add dynamic schemas, model extensions, and plugin operations](issues/1400-open-plugin-kernel/1407-dynamic-schemas-models-and-operations.md)
-9. [ ] [1408 — Let plugins contribute exact Typegen contracts](issues/1400-open-plugin-kernel/1408-plugin-typegen-contributions.md)
+7. [x] [1406 — Compile owned schema transformations and provenance](issues/1400-open-plugin-kernel/1406-schema-transformations-and-provenance.md)
+8. [ ] [1418 — Replace the complete schema compiler through a versioned capability](issues/1400-open-plugin-kernel/1418-schema-compiler-replacement-capability.md)
+9. [ ] [1407 — Add dynamic schemas, model extensions, and plugin operations](issues/1400-open-plugin-kernel/1407-dynamic-schemas-models-and-operations.md)
+10. [ ] [1408 — Let plugins contribute exact Typegen contracts](issues/1400-open-plugin-kernel/1408-plugin-typegen-contributions.md)
 
 ### Phase 3 — Runtime, persistence, and community toolbox
 
-10. [ ] [1409 — Assemble Runtime through public capability middleware](issues/1400-open-plugin-kernel/1409-runtime-capability-assembly.md)
-11. [ ] [1410 — Separate logical operations from rewritable persistence plans](issues/1400-open-plugin-kernel/1410-rewritable-persistence-plans.md)
-12. [ ] [1416 — Execute plugin operations and explicit transport bindings](issues/1400-open-plugin-kernel/1416-execute-plugin-operations-and-transport-bindings.md)
-13. [ ] [1417 — Add adapter, codec, physical schema, and migration bridges](issues/1400-open-plugin-kernel/1417-adapter-codec-schema-migration-bridges.md)
-14. [ ] [1411 — Publish the plugin authoring toolbox](issues/1400-open-plugin-kernel/1411-plugin-authoring-toolbox.md)
-15. [ ] [1412 — Add plugin conformance testing utilities](issues/1400-open-plugin-kernel/1412-plugin-conformance-testing.md)
-16. [ ] [1413 — Prove workflow, value-codec, and JavaScript plugins](issues/1400-open-plugin-kernel/1413-open-kernel-proof-plugins.md)
-17. [ ] [1414 — Verify the trusted open plugin kernel](issues/1400-open-plugin-kernel/1414-open-plugin-kernel-verification.md)
+11. [ ] [1409 — Assemble Runtime through public capability middleware](issues/1400-open-plugin-kernel/1409-runtime-capability-assembly.md)
+12. [ ] [1410 — Separate logical operations from rewritable persistence plans](issues/1400-open-plugin-kernel/1410-rewritable-persistence-plans.md)
+13. [ ] [1416 — Execute plugin operations and explicit transport bindings](issues/1400-open-plugin-kernel/1416-execute-plugin-operations-and-transport-bindings.md)
+14. [ ] [1417 — Add adapter, codec, physical schema, and migration bridges](issues/1400-open-plugin-kernel/1417-adapter-codec-schema-migration-bridges.md)
+15. [ ] [1411 — Publish the plugin authoring toolbox](issues/1400-open-plugin-kernel/1411-plugin-authoring-toolbox.md)
+16. [ ] [1412 — Add plugin conformance testing utilities](issues/1400-open-plugin-kernel/1412-plugin-conformance-testing.md)
+17. [ ] [1413 — Prove workflow, value-codec, and JavaScript plugins](issues/1400-open-plugin-kernel/1413-open-kernel-proof-plugins.md)
+18. [ ] [1414 — Verify the trusted open plugin kernel](issues/1400-open-plugin-kernel/1414-open-plugin-kernel-verification.md)
 
 ### Phase 4 — Optional Hooks engine
 
-18. [ ] [1501 — Move hook authoring contracts into hooks-plugin](issues/1500-optional-hooks-access/1501-hooks-plugin-authoring-contracts.md)
-19. [ ] [1502 — Move hook execution into hooks-plugin](issues/1500-optional-hooks-access/1502-hooks-plugin-runtime.md)
-20. [ ] [1503 — Prove no-Hooks and alternative-Hooks applications](issues/1500-optional-hooks-access/1503-hooks-optional-alternative-proof.md)
+19. [ ] [1501 — Move hook authoring contracts into hooks-plugin](issues/1500-optional-hooks-access/1501-hooks-plugin-authoring-contracts.md)
+20. [ ] [1502 — Move hook execution into hooks-plugin](issues/1500-optional-hooks-access/1502-hooks-plugin-runtime.md)
+21. [ ] [1503 — Prove no-Hooks and alternative-Hooks applications](issues/1500-optional-hooks-access/1503-hooks-optional-alternative-proof.md)
 
 ### Phase 5 — Optional Access engine
 
-21. [ ] [1504 — Move Access authoring and plans into access-plugin](issues/1500-optional-hooks-access/1504-access-plugin-authoring-plans.md)
-22. [ ] [1505 — Move Access execution into access-plugin](issues/1500-optional-hooks-access/1505-access-plugin-runtime.md)
-23. [ ] [1506 — Adapt ACL, roles, and PostgreSQL policy integrations](issues/1500-optional-hooks-access/1506-policy-provider-migration.md)
-24. [ ] [1507 — Prove no-Access, alternative-Access, and Core Master](issues/1500-optional-hooks-access/1507-access-optional-alternative-proof.md)
-25. [ ] [1508 — Remove superseded native Hooks and Access surfaces](issues/1500-optional-hooks-access/1508-native-hooks-access-removal-audit.md)
-26. [ ] [1509 — Verify optional official capability extraction](issues/1500-optional-hooks-access/1509-optional-capabilities-verification.md)
+22. [ ] [1504 — Move Access authoring and plans into access-plugin](issues/1500-optional-hooks-access/1504-access-plugin-authoring-plans.md)
+23. [ ] [1505 — Move Access execution into access-plugin](issues/1500-optional-hooks-access/1505-access-plugin-runtime.md)
+24. [ ] [1506 — Adapt ACL, roles, and PostgreSQL policy integrations](issues/1500-optional-hooks-access/1506-policy-provider-migration.md)
+25. [ ] [1507 — Prove no-Access, alternative-Access, and Core Master](issues/1500-optional-hooks-access/1507-access-optional-alternative-proof.md)
+26. [ ] [1508 — Remove superseded native Hooks and Access surfaces](issues/1500-optional-hooks-access/1508-native-hooks-access-removal-audit.md)
+27. [ ] [1509 — Verify optional official capability extraction](issues/1500-optional-hooks-access/1509-optional-capabilities-verification.md)
 
 ## Supervision checkpoints
 
@@ -99,6 +100,7 @@ optional official plugins while keeping Core master authority unchanged.
 - After 1404: review capability identity, version compatibility, cardinality, decoration, replacement, and dependency semantics before changing schema compilation.
 - After 1415: verify every public slot, service, and generic setup registry has one privilege-aware replacement before opening schema declarations.
 - During 1406: stop on any silent cross-owner mutation, nondeterministic selector, global schema leak, or automatic destructive removal.
+- During 1418: reject any partial compiler hook, parallel registry, or replacement output that bypasses Core ownership, identity, provenance, or portability validation.
 - After 1408: demonstrate first generation, stale regeneration, plugin-contributed complex types, and JavaScript operation without Typegen; no generated Runtime client is accepted.
 - During 1410: preserve logical operation semantics, protected constraints, automatic transaction behavior, itemized batches, and adapter target restrictions.
 - After 1417: demonstrate direct and fake-transport operation execution, adapter capability negotiation, raw lease safety, upgrade provenance, and no-Typegen JavaScript before publishing convenience helpers.

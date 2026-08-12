@@ -39,9 +39,11 @@ describe('schema hook declarations', () => {
 		expect(Object.keys(schema)).toStrictEqual([
 			'definition',
 			'className',
+			'constraints',
 			'fields',
 			'indexes',
 			'extensions',
+			'provenance',
 		])
 		expect(schema).not.toHaveProperty('hooks')
 	})
