@@ -247,6 +247,13 @@ compatible; otherwise compilation fails. Plugin-created schemas and
 application-specific commands remain reachable through the application-owned
 `ultimabase.schema(nameOrClass)` handle without mutating exported classes.
 
+Complete logical compilation crosses one versioned callback-free IR. Portable
+facts remain visible, while schema classes and Runtime-bearing field, extension,
+and option artifacts use nominal references owned by one private application
+session. The canonical compiler and a compatible privileged replacement consume
+the same request; Core never runs a hidden canonical pass before replacement and
+always revalidates the returned graph before publishing it.
+
 Milestone 14 removed string slots, the plugin service registry, and generic
 named setup contribution registries. Versioned capabilities are the only public
 cross-plugin host; native Hooks, Access, Runtime stages, events, pipelines, and

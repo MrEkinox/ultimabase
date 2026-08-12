@@ -269,6 +269,22 @@ does not reconstruct local field-map inference. Regeneration through
 `@ultimabase/typegen` replaces those bootstrap types with the exact application
 contract.
 
+Complete schema compilers target the exported `SchemaCompilerInput` and
+`SchemaCompilerOutput` protocol instead of Core's private prepared-schema
+objects. The IR is immutable and callback-free. It exposes portable declarations,
+owners, selectors, patches, protocol versions, and normalized static options;
+schema classes, factory-created fields, extensions, option definitions, and
+other Runtime-bearing values cross it only as nominal application-local artifact
+references. Compiler code cannot resolve or forge those references. Core retains
+their private values and validates graph completeness, stable schema identity,
+provenance, portability, and application ownership before decoding any output.
+Schema additions keep their exact contribution identity and static options,
+extension nodes expose the logical fields they contribute, and option nodes
+separately attribute their definition owner and current value contributor.
+The canonical compiler migration and privileged replacement capability are
+delivered independently, so this public IR does not create a generic transform
+callback.
+
 Tooling configured in the plugin graph receives the same compiled schema
 registry plus an immutable application-local FieldBuilder method snapshot during
 setup. This lets `typegenPlugin()` regenerate before infrastructure connects

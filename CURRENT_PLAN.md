@@ -70,20 +70,22 @@ optional official plugins while keeping Core master authority unchanged.
 8. [x] [1419 — Harden schema declaration correctness and atomicity](issues/1400-open-plugin-kernel/1419-schema-declaration-correctness-and-atomicity.md)
 9. [x] [1420 — Align capability phases and declaration contracts](issues/1400-open-plugin-kernel/1420-capability-phase-and-contract-alignment.md)
 10. [x] [1421 — Modularize schema declarations and enforce file budgets](issues/1400-open-plugin-kernel/1421-modularize-schema-declarations-and-enforce-file-budgets.md)
-11. [ ] [1418 — Replace the complete schema compiler through a versioned capability](issues/1400-open-plugin-kernel/1418-schema-compiler-replacement-capability.md)
-12. [ ] [1407 — Add dynamic schemas, model extensions, and plugin operations](issues/1400-open-plugin-kernel/1407-dynamic-schemas-models-and-operations.md)
-13. [ ] [1408 — Let plugins contribute exact Typegen contracts](issues/1400-open-plugin-kernel/1408-plugin-typegen-contributions.md)
+11. [x] [1422 — Define the callback-free schema compiler IR](issues/1400-open-plugin-kernel/1422-callback-free-schema-compiler-ir.md)
+12. [ ] [1423 — Run the canonical schema compiler through the public IR](issues/1400-open-plugin-kernel/1423-canonical-schema-compiler-ir.md)
+13. [ ] [1418 — Replace the complete schema compiler through a versioned capability](issues/1400-open-plugin-kernel/1418-schema-compiler-replacement-capability.md)
+14. [ ] [1407 — Add dynamic schemas, model extensions, and plugin operations](issues/1400-open-plugin-kernel/1407-dynamic-schemas-models-and-operations.md)
+15. [ ] [1408 — Let plugins contribute exact Typegen contracts](issues/1400-open-plugin-kernel/1408-plugin-typegen-contributions.md)
 
 ### Phase 3 — Runtime, persistence, and community toolbox
 
-14. [ ] [1409 — Assemble Runtime through public capability middleware](issues/1400-open-plugin-kernel/1409-runtime-capability-assembly.md)
-15. [ ] [1410 — Separate logical operations from rewritable persistence plans](issues/1400-open-plugin-kernel/1410-rewritable-persistence-plans.md)
-16. [ ] [1416 — Execute plugin operations and explicit transport bindings](issues/1400-open-plugin-kernel/1416-execute-plugin-operations-and-transport-bindings.md)
-17. [ ] [1417 — Add adapter, codec, physical schema, and migration bridges](issues/1400-open-plugin-kernel/1417-adapter-codec-schema-migration-bridges.md)
-18. [ ] [1411 — Publish the plugin authoring toolbox](issues/1400-open-plugin-kernel/1411-plugin-authoring-toolbox.md)
-19. [ ] [1412 — Add plugin conformance testing utilities](issues/1400-open-plugin-kernel/1412-plugin-conformance-testing.md)
-20. [ ] [1413 — Prove workflow, value-codec, and JavaScript plugins](issues/1400-open-plugin-kernel/1413-open-kernel-proof-plugins.md)
-21. [ ] [1414 — Verify the trusted open plugin kernel](issues/1400-open-plugin-kernel/1414-open-plugin-kernel-verification.md)
+16. [ ] [1409 — Assemble Runtime through public capability middleware](issues/1400-open-plugin-kernel/1409-runtime-capability-assembly.md)
+17. [ ] [1410 — Separate logical operations from rewritable persistence plans](issues/1400-open-plugin-kernel/1410-rewritable-persistence-plans.md)
+18. [ ] [1416 — Execute plugin operations and explicit transport bindings](issues/1400-open-plugin-kernel/1416-execute-plugin-operations-and-transport-bindings.md)
+19. [ ] [1417 — Add adapter, codec, physical schema, and migration bridges](issues/1400-open-plugin-kernel/1417-adapter-codec-schema-migration-bridges.md)
+20. [ ] [1411 — Publish the plugin authoring toolbox](issues/1400-open-plugin-kernel/1411-plugin-authoring-toolbox.md)
+21. [ ] [1412 — Add plugin conformance testing utilities](issues/1400-open-plugin-kernel/1412-plugin-conformance-testing.md)
+22. [ ] [1413 — Prove workflow, value-codec, and JavaScript plugins](issues/1400-open-plugin-kernel/1413-open-kernel-proof-plugins.md)
+23. [ ] [1414 — Verify the trusted open plugin kernel](issues/1400-open-plugin-kernel/1414-open-plugin-kernel-verification.md)
 
 ### Phase 4 — Optional Hooks engine
 
@@ -109,7 +111,8 @@ optional official plugins while keeping Core master authority unchanged.
 - During 1419: reject unused-option conflicts, instance-erasing identities, partial schema publication, retryable failed applications, or order-sensitive JSON selectors.
 - During 1420: preserve setup-only peer composition while preventing pre-setup compilers and application factories from reading the wrong requirement phase.
 - During 1421: accept only behavior-neutral module moves, decreasing file-size exceptions, unchanged public exports, and no duplicated compiler invariant.
-- During 1418: reject any partial compiler hook, parallel registry, or replacement output that bypasses Core ownership, identity, provenance, or portability validation.
+- During 1422 and 1423: reject executable IR values, cross-application artifact references, canonical compiler bypasses, or behavior drift before replacement is enabled.
+- During 1418: reject any partial compiler hook, parallel registry, canonical-first transform, or replacement output that bypasses Core ownership, identity, provenance, or portability validation.
 - After 1408: demonstrate first generation, stale regeneration, plugin-contributed complex types, and JavaScript operation without Typegen; no generated Runtime client is accepted.
 - During 1410: preserve logical operation semantics, protected constraints, automatic transaction behavior, itemized batches, and adapter target restrictions.
 - After 1417: demonstrate direct and fake-transport operation execution, adapter capability negotiation, raw lease safety, upgrade provenance, and no-Typegen JavaScript before publishing convenience helpers.

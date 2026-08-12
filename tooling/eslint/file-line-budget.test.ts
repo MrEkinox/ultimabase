@@ -80,9 +80,9 @@ describe('repository file line budget', () => {
 			repositoryRoot,
 			'packages/core/src/plugins',
 		)
-		const files = readdirSync(pluginDirectory).filter((name) =>
-			name.startsWith('schema-'),
-		)
+		const files = readdirSync(pluginDirectory, { withFileTypes: true })
+			.filter((entry) => entry.isFile() && entry.name.startsWith('schema-'))
+			.map(({ name }) => name)
 
 		for (const name of files) {
 			const lines = lineCount(path.join(pluginDirectory, name))

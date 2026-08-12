@@ -162,3 +162,44 @@ Typegen will provide application-specific autocomplete for direct plugin options
 Until that generated declaration is present, a TypeScript application may model
 the same direct property through an explicit local intersection; JavaScript uses
 the identical runtime validation without generated artifacts.
+
+## Complete compiler protocol
+
+Complete compiler implementations use the separately versioned callback-free IR
+rather than receiving `Schema` classes, field callbacks, or Core registries:
+
+```ts
+import {
+	schemaCompilerProtocolVersion,
+	type SchemaCompilerInput,
+	type SchemaCompilerOutput,
+} from '@ultimabase/core'
+
+const preserveDeclaredGraph = (
+	input: SchemaCompilerInput,
+): SchemaCompilerOutput =>
+	Object.freeze({
+		protocolVersion: schemaCompilerProtocolVersion,
+		schemas: Object.freeze([
+			...input.schemas,
+			...input.declarations.flatMap(({ additions }) =>
+				additions.map(({ schema }) => schema),
+			),
+		]),
+	})
+```
+
+The real compiler must also include plugin-added schemas from the ordered
+declaration batches and apply their selectors and patches. Runtime-bearing
+fields, extensions, option definitions, default factories, hooks, Access rules,
+and schema classes appear only as nominal artifact references. A compiler may
+preserve and arrange those declared references but cannot resolve them or invent
+another application's artifacts. Core owns decoding and final invariant
+validation. Installing a replacement compiler remains owned by issue 1418; the
+IR contract alone adds no post-compilation transform or replacement path.
+
+Each addition retains its contribution ID and normalized static options.
+Extension nodes expose their logical field nodes beside the opaque extension
+identity, so a compiler can apply their complete declared effect without a
+resolver. Every option independently attributes its defining contract and its
+current value contributor.
