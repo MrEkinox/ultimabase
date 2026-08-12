@@ -252,8 +252,12 @@ describe('CapabilityInventory', () => {
 		const absent = new PluginGraph(normalizePlugins([consumer]))
 		const [privilege] = consumer.manifest.privileges
 
-		expect(present.capabilities.entries).toHaveLength(1)
-		expect(present.capabilities.entries[0]?.providers).toStrictEqual([
+		expect(present.capabilities.entries).toHaveLength(2)
+		expect(
+			present.capabilities.entries.find(
+				({ token: candidate }) => candidate === declarationToken,
+			)?.providers,
+		).toStrictEqual([
 			{
 				kind: 'provider',
 				owner: { pluginId: 'fixture.audit-provider' },

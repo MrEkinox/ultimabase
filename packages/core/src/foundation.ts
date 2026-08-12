@@ -129,9 +129,13 @@ export type {
 } from './plugins/declaration-host.js'
 export {
 	isSchemaCompilerArtifactReference,
+	canonicalSchemaCompilerTarget,
+	replaceSchemaCompiler,
+	schemaCompilerCapability,
 	schemaCompilerProtocolVersion,
 } from './plugins/schema-compiler-ir/index.js'
 export type {
+	ReplaceSchemaCompilerOptions,
 	SchemaCompilerAddConstraintOperation,
 	SchemaCompilerAddExtensionOperation,
 	SchemaCompilerAddFieldOperation,
@@ -148,6 +152,9 @@ export type {
 	SchemaCompilerOptionNode,
 	SchemaCompilerOptionValue,
 	SchemaCompilerOutput,
+	SchemaCompilerImplementation,
+	SchemaCompilerProvenance,
+	SchemaCompilerProviderDescriptor,
 	SchemaCompilerPatchNode,
 	SchemaCompilerPatchOperation,
 	SchemaCompilerPluginDeclarationNode,

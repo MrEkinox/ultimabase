@@ -22,9 +22,10 @@ import {
 	formatPluginIdentity,
 	isSamePluginIdentity,
 	type PluginIdentity,
-	type PluginPrivilege,
 	type PluginPrivilegeRequest,
 } from './manifest.js'
+import { buildReplacementChains } from './capability-replacement-planning.js'
+import { canonicalSchemaCompilerFoundation } from './schema-compiler-ir/schema-compiler-capability.js'
 
 /** Reports one provider or replacement without exposing its value or factory. */
 export interface CapabilityProviderInspection {
@@ -62,26 +63,27 @@ export interface CapabilityInventoryEntry {
 	readonly requirements: readonly CapabilityRequirementInspection[]
 }
 
-interface OwnedProvider {
+export interface OwnedProvider {
 	readonly kind: 'provider' | 'replacement'
 	readonly owner: PluginIdentity
-	readonly plugin: NormalizedPlugin
+	readonly plugin?: NormalizedPlugin
+	readonly version: string
 	readonly declaration:
 		CapabilityProviderDeclaration | CapabilityReplacementDeclaration
 }
 
-interface OwnedDecorator {
+export interface OwnedDecorator {
 	readonly owner: PluginIdentity
 	readonly plugin: NormalizedPlugin
 	readonly declaration: CapabilityDecoratorDeclaration
 }
 
-interface OwnedRequirement {
+export interface OwnedRequirement {
 	readonly owner: PluginIdentity
 	readonly requirement: CapabilityRequirement
 }
 
-interface MutableCapabilityEntry {
+export interface MutableCapabilityEntry {
 	readonly token: CapabilityToken
 	readonly firstOwner: PluginIdentity
 	readonly providers: OwnedProvider[]
@@ -98,6 +100,14 @@ interface CapabilityPlan {
 interface CapabilityInventoryState {
 	readonly plans: readonly CapabilityPlan[]
 	readonly declarationConsumers: Map<CapabilityToken, unknown>
+}
+
+/** Retains trusted ownership for one final provider selected by the graph. */
+export interface SelectedCapabilityProvider {
+	readonly declaration:
+		CapabilityProviderDeclaration | CapabilityReplacementDeclaration
+	readonly owner: PluginIdentity
+	readonly version: string
 }
 
 const inventoryStates = new WeakMap<
@@ -184,259 +194,6 @@ const registerToken = (
 	return entry
 }
 
-const isSameContribution = (
-	left: OwnedProvider,
-	rightOwner: PluginIdentity,
-	rightContributionId: string,
-): boolean =>
-	left.declaration.contributionId === rightContributionId &&
-	isSamePluginIdentity(left.owner, rightOwner)
-
-const findContribution = (
-	entry: MutableCapabilityEntry,
-	owner: PluginIdentity,
-	contributionId: string,
-): OwnedProvider | undefined =>
-	[...entry.providers, ...entry.replacements].find((contribution) =>
-		isSameContribution(contribution, owner, contributionId),
-	)
-
-const assertUniqueContributionIds = (entry: MutableCapabilityEntry): void => {
-	const contributions = [
-		...entry.providers,
-		...entry.replacements,
-		...entry.decorators,
-	]
-
-	for (const [index, contribution] of contributions.entries()) {
-		const duplicate = contributions
-			.slice(index + 1)
-			.find(
-				(candidate) =>
-					candidate.declaration.contributionId ===
-						contribution.declaration.contributionId &&
-					isSamePluginIdentity(candidate.owner, contribution.owner),
-			)
-		if (duplicate !== undefined) {
-			throwCapabilityConflict(
-				`Plugin "${formatPluginIdentity(contribution.owner)}" declares duplicate contribution "${contribution.declaration.contributionId}" for capability "${entry.token.capabilityId}".`,
-				{
-					kind: 'duplicate-capability-contribution',
-					plugin: formatPluginIdentity(contribution.owner),
-					capabilityId: entry.token.capabilityId,
-					contributionId: contribution.declaration.contributionId,
-				},
-			)
-		}
-	}
-}
-
-const isRequirementActiveInEntries = (
-	entries: readonly MutableCapabilityEntry[],
-	owner: PluginIdentity,
-	requirement: CapabilityRequirement,
-): boolean => {
-	const entry = entries.find(({ token }) => token === requirement.token)
-	return (
-		entry?.requirements.some(
-			(candidate) =>
-				candidate.requirement === requirement &&
-				isSamePluginIdentity(candidate.owner, owner),
-		) === true && entry.providers.length > 0
-	)
-}
-
-const hasActivePrivilege = (
-	entries: readonly MutableCapabilityEntry[],
-	contribution: OwnedProvider | OwnedDecorator,
-	privilege: PluginPrivilege,
-): boolean =>
-	contribution.plugin.definition.manifest.privileges.some(
-		(request) =>
-			request.name === privilege &&
-			(request.when === undefined ||
-				isRequirementActiveInEntries(
-					entries,
-					contribution.owner,
-					request.when,
-				)),
-	)
-
-const assertContributionPrivilege = (
-	entries: readonly MutableCapabilityEntry[],
-	entry: MutableCapabilityEntry,
-	contribution: OwnedProvider | OwnedDecorator,
-	privilege: 'capability:decorate' | 'capability:replace',
-): void => {
-	if (hasActivePrivilege(entries, contribution, privilege)) return
-
-	throwCapabilityConflict(
-		`Plugin "${formatPluginIdentity(contribution.owner)}" must declare active privilege "${privilege}" for capability contribution "${contribution.declaration.contributionId}".`,
-		{
-			kind: 'capability-privilege-missing',
-			plugin: formatPluginIdentity(contribution.owner),
-			capabilityId: entry.token.capabilityId,
-			contributionId: contribution.declaration.contributionId,
-			privilege,
-		},
-	)
-}
-
-const buildReplacementChains = (
-	entries: readonly MutableCapabilityEntry[],
-	entry: MutableCapabilityEntry,
-): readonly (readonly OwnedProvider[])[] => {
-	assertUniqueContributionIds(entry)
-
-	const replacementsByTarget = new Map<OwnedProvider, OwnedProvider>()
-	for (const replacement of entry.replacements) {
-		assertContributionPrivilege(
-			entries,
-			entry,
-			replacement,
-			'capability:replace',
-		)
-		const declaration =
-			replacement.declaration as CapabilityReplacementDeclaration
-		const target = findContribution(
-			entry,
-			declaration.target.owner,
-			declaration.target.contributionId,
-		)
-		if (target === undefined) {
-			const incompatibleTargets = entries
-				.filter((candidate) => candidate !== entry)
-				.flatMap((candidate) => {
-					const contribution = findContribution(
-						candidate,
-						declaration.target.owner,
-						declaration.target.contributionId,
-					)
-					return contribution === undefined
-						? []
-						: [{ entry: candidate, contribution }]
-				})
-
-			if (incompatibleTargets.length > 1) {
-				return throwCapabilityConflict(
-					`Capability replacement "${declaration.contributionId}" has an ambiguous target across incompatible protocol tokens.`,
-					{
-						kind: 'capability-replacement-target-ambiguous',
-						capabilityId: entry.token.capabilityId,
-						replacement: declaration.contributionId,
-						targetOwner: formatPluginIdentity(declaration.target.owner),
-						targetContributionId: declaration.target.contributionId,
-					},
-				)
-			}
-
-			const incompatible = incompatibleTargets[0]
-			if (incompatible !== undefined) {
-				throw new FrameworkError(
-					'PLUGIN_PROTOCOL_INCOMPATIBLE',
-					`Capability replacement "${declaration.contributionId}" uses "${entry.token.capabilityId}@${entry.token.version}" but its target contributes "${incompatible.entry.token.capabilityId}@${incompatible.entry.token.version}".`,
-					{
-						internalDetails: {
-							kind: 'capability-replacement-version',
-							replacement: declaration.contributionId,
-							replacementCapabilityId: entry.token.capabilityId,
-							replacementVersion: entry.token.version,
-							targetCapabilityId: incompatible.entry.token.capabilityId,
-							targetVersion: incompatible.entry.token.version,
-						},
-					},
-				)
-			}
-
-			return throwCapabilityConflict(
-				`Capability replacement "${declaration.contributionId}" targets a missing contribution "${declaration.target.contributionId}" owned by "${formatPluginIdentity(declaration.target.owner)}".`,
-				{
-					kind: 'capability-replacement-target-missing',
-					capabilityId: entry.token.capabilityId,
-					replacement: declaration.contributionId,
-					targetOwner: formatPluginIdentity(declaration.target.owner),
-					targetContributionId: declaration.target.contributionId,
-				},
-			)
-		}
-		if (replacementsByTarget.has(target)) {
-			return throwCapabilityConflict(
-				`Capability contribution "${target.declaration.contributionId}" has more than one direct replacement.`,
-				{
-					kind: 'capability-replacement-branch',
-					capabilityId: entry.token.capabilityId,
-					targetOwner: formatPluginIdentity(target.owner),
-					targetContributionId: target.declaration.contributionId,
-				},
-			)
-		}
-		replacementsByTarget.set(target, replacement)
-	}
-
-	const chains = entry.providers.map((provider) => {
-		const chain: OwnedProvider[] = []
-		const visited = new Set<OwnedProvider>()
-		let contribution: OwnedProvider | undefined = provider
-
-		while (contribution !== undefined) {
-			if (visited.has(contribution)) {
-				throwCapabilityConflict(
-					`Capability "${entry.token.capabilityId}" contains a replacement cycle.`,
-					{
-						kind: 'capability-replacement-cycle',
-						capabilityId: entry.token.capabilityId,
-					},
-				)
-			}
-			visited.add(contribution)
-			chain.push(contribution)
-			contribution = replacementsByTarget.get(contribution)
-		}
-
-		return immutableArray(chain)
-	})
-
-	const reachable = new Set(chains.flat())
-	if (entry.replacements.some((replacement) => !reachable.has(replacement))) {
-		throwCapabilityConflict(
-			`Capability "${entry.token.capabilityId}" contains a replacement cycle detached from any provider.`,
-			{
-				kind: 'capability-replacement-cycle',
-				capabilityId: entry.token.capabilityId,
-			},
-		)
-	}
-
-	if (entry.token.cardinality === 'single' && chains.length > 1) {
-		throwCapabilityConflict(
-			`Single capability "${entry.token.capabilityId}" has ${String(chains.length)} competing providers.`,
-			{
-				kind: 'single-capability-provider-conflict',
-				capabilityId: entry.token.capabilityId,
-				providers: immutableArray(
-					entry.providers.map(({ owner, declaration }) =>
-						immutableRecord({
-							owner: formatPluginIdentity(owner),
-							contributionId: declaration.contributionId,
-						}),
-					),
-				),
-			},
-		)
-	}
-
-	for (const decorator of entry.decorators) {
-		assertContributionPrivilege(
-			entries,
-			entry,
-			decorator,
-			'capability:decorate',
-		)
-	}
-
-	return immutableArray(chains)
-}
-
 const inspectProvider = (
 	contribution: OwnedProvider,
 ): CapabilityProviderInspection =>
@@ -480,8 +237,23 @@ export class CapabilityInventory implements Iterable<CapabilityInventoryEntry> {
 		const entriesById = new Map<string, Map<string, MutableCapabilityEntry>>()
 		const orderedEntries: MutableCapabilityEntry[] = []
 
+		for (const foundation of [canonicalSchemaCompilerFoundation]) {
+			registerToken(
+				entriesById,
+				orderedEntries,
+				foundation.owner,
+				foundation.declaration.token,
+			).providers.push({
+				kind: 'provider',
+				owner: foundation.owner,
+				version: foundation.version,
+				declaration: foundation.declaration,
+			})
+		}
+
 		for (const plugin of plugins) {
 			const owner = plugin.definition.manifest.identity
+			const version = plugin.definition.manifest.version
 			const declarations = plugin.definition.manifest.capabilities
 
 			for (const declaration of declarations.provides) {
@@ -490,7 +262,13 @@ export class CapabilityInventory implements Iterable<CapabilityInventoryEntry> {
 					orderedEntries,
 					owner,
 					declaration.token,
-				).providers.push({ kind: 'provider', owner, plugin, declaration })
+				).providers.push({
+					kind: 'provider',
+					owner,
+					plugin,
+					version,
+					declaration,
+				})
 			}
 			for (const declaration of declarations.replaces) {
 				registerToken(
@@ -502,6 +280,7 @@ export class CapabilityInventory implements Iterable<CapabilityInventoryEntry> {
 					kind: 'replacement',
 					owner,
 					plugin,
+					version,
 					declaration,
 				})
 			}
@@ -650,6 +429,34 @@ export const readDeclarationCapability = (
 	requirement: CapabilityRequirement,
 ): unknown =>
 	getInventoryState(inventory).declarationConsumers.get(requirement.token)
+
+/** Reads one exact final provider without exposing it through public inspection. */
+export const readSelectedCapabilityProvider = (
+	inventory: CapabilityInventory,
+	token: CapabilityToken,
+): SelectedCapabilityProvider => {
+	const plan = getInventoryState(inventory).plans.find(
+		(candidate) => candidate.entry.token === token,
+	)
+	const selected = plan?.chains[0]?.at(-1)
+
+	if (selected === undefined || plan?.chains.length !== 1) {
+		throw new TypeError(
+			`Capability "${token.capabilityId}" has no unique selected provider`,
+		)
+	}
+
+	return immutableRecord({
+		declaration: selected.declaration,
+		owner: immutableRecord({
+			pluginId: selected.owner.pluginId,
+			...(selected.owner.instanceId === undefined
+				? {}
+				: { instanceId: selected.owner.instanceId }),
+		}),
+		version: selected.version,
+	})
+}
 
 /** Supplies application materialization with final static contribution plans. */
 export const readCapabilityPlans = (

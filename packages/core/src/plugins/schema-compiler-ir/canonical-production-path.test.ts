@@ -6,18 +6,22 @@ const readSource = (path: string): Promise<string> =>
 
 describe('canonical schema compiler production path', () => {
 	it('contains no prepared-schema transform callback or legacy patch bypass', async () => {
-		const [application, declarations, registry] = await Promise.all([
+		const [application, declarations, registry, selection] = await Promise.all([
 			readSource('../../application/framework-application.ts'),
 			readSource('../schema-declaration-registry.ts'),
 			readSource('../../schema/schema/registry.ts'),
+			readSource('./schema-compiler-selection.ts'),
 		])
 
 		expect(application).toContain(
 			'this.#schemaDeclarations.compileSchemaRegistry(',
 		)
-		expect(declarations).toContain('compileCanonicalSchemaCompilerIr(')
+		expect(application).toContain('selectSchemaCompiler(')
+		expect(declarations).toContain('const output = compile(encoded.input)')
 		expect(declarations).toContain('assertSchemaCompilerOutput(')
 		expect(declarations).toContain('decodeSchemaCompilerOutput(')
+		expect(selection).toContain('readSchemaCompilerImplementation(')
+		expect(declarations).not.toContain('compileCanonicalSchemaCompilerIr(')
 		expect(declarations).not.toContain('applyPatch(')
 		expect(registry).not.toContain('SchemaCompilationTransformer')
 		expect(registry).not.toContain('transform:')

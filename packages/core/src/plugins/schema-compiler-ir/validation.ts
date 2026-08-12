@@ -5,7 +5,9 @@ import {
 } from '@ultimabase/shared'
 
 import type { SchemaCompilerInput, SchemaCompilerOutput } from './contracts.js'
+import type { SchemaCompilerSchemaNode } from './contracts.js'
 import { schemaCompilerProtocolVersion } from './contracts.js'
+import { areSchemaDeclarationValuesCompatible } from '../../schema/schema/definition.js'
 import type { SchemaCompilerArtifactSession } from './artifacts.js'
 import { assertSchemaCompilerPatchOperation } from './operation-validation.js'
 import { collectSchemaCompilerOwnerIdentities } from './provenance-validation.js'
@@ -22,6 +24,7 @@ import {
 
 const inputKeys = new Set(['declarations', 'protocolVersion', 'schemas'])
 const outputKeys = new Set(['protocolVersion', 'schemas'])
+const coreSystemFieldNames = new Set(['id', 'createdAt', 'updatedAt'])
 const declarationKeys = new Set([
 	'additions',
 	'optionDefinitions',
@@ -189,6 +192,54 @@ const assertDeclaration = (
 	}
 }
 
+const assertProtectedSchemaFacts = (
+	expected: SchemaCompilerSchemaNode,
+	candidate: SchemaCompilerSchemaNode,
+): void => {
+	if (
+		!areSchemaDeclarationValuesCompatible(
+			expected.provenance.schema,
+			candidate.provenance.schema,
+		)
+	) {
+		throw new TypeError(
+			`Schema compiler output changed schema ownership: ${expected.className}`,
+		)
+	}
+
+	for (const name of coreSystemFieldNames) {
+		const expectedField = expected.fields.find((field) => field.name === name)
+		const expectedProvenance = expected.provenance.fields[name]
+		if (
+			expectedField === undefined ||
+			expectedProvenance?.owner.kind !== 'core'
+		) {
+			continue
+		}
+		const candidateField = candidate.fields.find((field) => field.name === name)
+		if (
+			candidateField?.artifact !== expectedField.artifact ||
+			candidateField.kind !== expectedField.kind ||
+			!areSchemaDeclarationValuesCompatible(
+				candidateField.fields,
+				expectedField.fields,
+			) ||
+			!areSchemaDeclarationValuesCompatible(
+				candidateField.options,
+				expectedField.options,
+			) ||
+			!areSchemaDeclarationValuesCompatible(
+				candidateField.provenance,
+				expectedField.provenance,
+			)
+		) {
+			throw new TypeError(
+				`Schema compiler output changed protected Core field: ${expected.className}.${name}`,
+			)
+		}
+	}
+}
+
 /** Protects compiler execution from mutable, executable, or foreign input data. */
 export function assertSchemaCompilerInput(
 	input: unknown,
@@ -269,6 +320,7 @@ export function assertSchemaCompilerOutput(
 		throw new TypeError('schema compiler output.schemas must be a list')
 	}
 
+	const candidateSchemas: SchemaCompilerSchemaNode[] = []
 	for (const [index, schema] of output.schemas.entries()) {
 		assertSchemaCompilerSchemaNode(
 			schema,
@@ -276,6 +328,7 @@ export function assertSchemaCompilerOutput(
 			`schema compiler output.schemas[${String(index)}]`,
 			allowedOwners,
 		)
+		candidateSchemas.push(schema)
 	}
 	assertUniqueSchemaIdentities(
 		output.schemas,
@@ -291,7 +344,7 @@ export function assertSchemaCompilerOutput(
 	const expectedByReference = new Map(
 		expected.map((schema) => [schema.artifact, schema.className]),
 	)
-	for (const candidate of output.schemas) {
+	for (const candidate of candidateSchemas) {
 		if (
 			!isPlainRecord(candidate) ||
 			!session.owns(candidate.artifact, 'schema')
@@ -303,6 +356,12 @@ export function assertSchemaCompilerOutput(
 			throw new TypeError(
 				'Schema compiler output changed stable schema identity',
 			)
+		}
+		const expectedSchema = expected.find(
+			(schema) => schema.artifact === candidate.artifact,
+		)
+		if (expectedSchema !== undefined) {
+			assertProtectedSchemaFacts(expectedSchema, candidate)
 		}
 	}
 }

@@ -29,5 +29,17 @@ describe('packed @ultimabase/core schema compiler IR', () => {
 		expect(languageFixture.readHover('compiler-artifact').display).toContain(
 			'SchemaCompilerArtifactReference<"field">',
 		)
+		expect(languageFixture.readHover('compiler-capability').display).toContain(
+			'CapabilityToken<SchemaCompilerProviderDescriptor',
+		)
+		expect(languageFixture.readHover('compiler-target').display).toContain(
+			'CapabilityContributionTarget',
+		)
+		expect(languageFixture.readHover('compiler-provenance').display).toContain(
+			'SchemaCompilerProvenance',
+		)
+		expect(languageFixture.readHover('compiler-replacement').display).toContain(
+			'CapabilityReplacementDeclaration',
+		)
 	})
 })

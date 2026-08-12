@@ -1,9 +1,12 @@
 import {
+	addSchemaField,
 	defineFieldBuilderMethod,
 	definePlugin,
 	definePluginField,
 	FrameworkApplication,
+	replaceSchemaCompiler,
 	Schema,
+	stringField,
 	type FieldBuilder,
 } from '@ultimabase/core'
 import {
@@ -11,6 +14,7 @@ import {
 	type VectorFieldBuilderMethod,
 } from '@ultimabase/pg-vector-plugin'
 import { describe, expect, it } from 'vitest'
+import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import type { SchemaTypegenError } from './errors.js'
 import { generateApplicationTypes } from './generator.js'
@@ -107,6 +111,69 @@ const createFixture = (reverseOrder = false) => {
 }
 
 describe('generateApplicationTypes', () => {
+	it('uses the same replaced logical graph as the JavaScript application', () => {
+		const Target = Schema.define({
+			className: 'ReplacedTypegenTarget',
+			fields: (field) => ({ title: field.string() }),
+		})
+		const replacement = definePlugin({
+			core: '^0.0.0',
+			pluginId: 'fixture.typegen-schema-compiler',
+			privileges: [
+				{
+					name: 'schema:declare',
+					reason: 'Declares an ignored patch fixture.',
+				},
+				{
+					name: 'schema:replace',
+					reason: 'Selects the complete fixture compiler.',
+				},
+			] as const,
+			version: '1.0.0',
+			capabilities: {
+				replaces: [
+					replaceSchemaCompiler({
+						compile: (input) =>
+							immutableRecord({
+								protocolVersion: input.protocolVersion,
+								schemas: immutableArray(input.schemas),
+							}),
+						contributionId: 'typegen-fixture-compiler',
+					}),
+				],
+			},
+			declare: ({ schemas }) => {
+				schemas.patch({
+					operations: [
+						addSchemaField({
+							contributionId: 'canonical-only',
+							field: stringField(),
+							name: 'canonicalOnly',
+						}),
+					],
+					targets: schemas.select({ className: Target.className }),
+				})
+			},
+		})
+		const application = new FrameworkApplication({
+			pluginPrivileges: { logger: false },
+			plugins: [replacement],
+			schemas: [Target],
+		})
+		const generated = generateApplicationTypes({
+			application,
+			applicationId: 'fixture.replaced-graph',
+		})
+
+		expect(Target.fields).not.toHaveProperty('canonicalOnly')
+		expect(
+			generated.snapshot.schemas[0]?.fields.map(({ name }) => name),
+		).not.toContain('canonicalOnly')
+		expect(application.schemaCompilerProvenance.contributionId).toBe(
+			'typegen-fixture-compiler',
+		)
+	})
+
 	it('emits one deterministic callback-free registry without plugin setup', () => {
 		const firstFixture = createFixture()
 		const secondFixture = createFixture(true)

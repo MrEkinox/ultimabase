@@ -1,7 +1,9 @@
 import { assertNonEmptyString, isPlainRecord } from '@ultimabase/shared'
 
+import { areSchemaDeclarationValuesCompatible } from '../../schema/schema/definition.js'
 import type { SchemaCompilerArtifactSession } from './artifacts.js'
 import { isSchemaCompilerArtifactReference } from './artifacts.js'
+import type { SchemaCompilerSchemaNode } from './contracts.js'
 import {
 	assertSchemaCompilationProvenance,
 	assertSchemaContributionProvenance,
@@ -143,12 +145,12 @@ export const assertSchemaCompilerFieldNode = (
 }
 
 /** Validates one complete logical schema node and its nominal artifacts. */
-export const assertSchemaCompilerSchemaNode = (
+export function assertSchemaCompilerSchemaNode(
 	value: unknown,
 	session: SchemaCompilerArtifactSession,
 	path: string,
 	allowedOwners?: ReadonlySet<string>,
-): void => {
+): asserts value is SchemaCompilerSchemaNode {
 	if (!isPlainRecord(value))
 		throw new TypeError(`${path} must be a schema node`)
 	assertExactKeys(value, schemaKeys, path)
@@ -162,15 +164,18 @@ export const assertSchemaCompilerSchemaNode = (
 		allowedOwners,
 	)
 
-	for (const [index, name] of readList(
-		value,
-		'developerFieldNames',
-		path,
-	).entries()) {
+	const developerFieldNames = readList(value, 'developerFieldNames', path)
+	const developerFields = new Set<string>()
+	for (const [index, name] of developerFieldNames.entries()) {
 		assertNonEmptyString(name, `${path}.developerFieldNames[${String(index)}]`)
+		if (developerFields.has(name)) {
+			throw new TypeError(`${path} contains duplicate developer field: ${name}`)
+		}
+		developerFields.add(name)
 	}
 	const fieldNames = new Set<string>()
-	for (const [index, field] of readList(value, 'fields', path).entries()) {
+	const fields = readList(value, 'fields', path)
+	for (const [index, field] of fields.entries()) {
 		assertFieldNode(
 			field,
 			session,
@@ -184,16 +189,110 @@ export const assertSchemaCompilerSchemaNode = (
 			fieldNames.add(field.name)
 		}
 	}
-	for (const [index, option] of readList(value, 'options', path).entries()) {
+	for (const name of developerFields) {
+		if (!fieldNames.has(name)) {
+			throw new TypeError(`${path} is missing developer field: ${name}`)
+		}
+	}
+	const provenanceFieldNames = Object.keys(value.provenance.fields)
+	if (
+		provenanceFieldNames.length !== fieldNames.size ||
+		provenanceFieldNames.some((name) => !fieldNames.has(name))
+	) {
+		throw new TypeError(`${path}.provenance.fields must match schema fields`)
+	}
+	for (const field of fields) {
+		if (
+			isPlainRecord(field) &&
+			typeof field.name === 'string' &&
+			!areSchemaDeclarationValuesCompatible(
+				field.provenance,
+				value.provenance.fields[field.name],
+			)
+		) {
+			throw new TypeError(
+				`${path}.fields.${field.name} has inconsistent provenance`,
+			)
+		}
+		if (!isPlainRecord(field) || typeof field.name !== 'string') continue
+		const fieldOptions = value.provenance.fieldOptions[field.name]
+		if (!isPlainRecord(fieldOptions)) {
+			throw new TypeError(
+				`${path}.provenance.fieldOptions.${field.name} must be a map`,
+			)
+		}
+		const optionNames = new Set<string>()
+		for (const option of readList(
+			field,
+			'options',
+			`${path}.fields.${field.name}`,
+		)) {
+			if (!isPlainRecord(option) || typeof option.name !== 'string') continue
+			if (optionNames.has(option.name)) {
+				throw new TypeError(
+					`${path}.fields.${field.name} contains duplicate option: ${option.name}`,
+				)
+			}
+			optionNames.add(option.name)
+			if (
+				!areSchemaDeclarationValuesCompatible(
+					option.provenance,
+					fieldOptions[option.name],
+				)
+			) {
+				throw new TypeError(
+					`${path}.fields.${field.name}.options.${option.name} has inconsistent provenance`,
+				)
+			}
+		}
+		if (
+			Object.keys(fieldOptions).length !== optionNames.size ||
+			Object.keys(fieldOptions).some((name) => !optionNames.has(name))
+		) {
+			throw new TypeError(
+				`${path}.provenance.fieldOptions.${field.name} must match field options`,
+			)
+		}
+	}
+	const options = readList(value, 'options', path)
+	const optionNames = new Set<string>()
+	for (const [index, option] of options.entries()) {
 		assertOptionNode(
 			option,
 			session,
 			`${path}.options[${String(index)}]`,
 			allowedOwners,
 		)
+		if (isPlainRecord(option) && typeof option.name === 'string') {
+			if (optionNames.has(option.name)) {
+				throw new TypeError(`${path} contains duplicate option: ${option.name}`)
+			}
+			optionNames.add(option.name)
+			if (
+				!areSchemaDeclarationValuesCompatible(
+					option.provenance,
+					value.provenance.options[option.name],
+				)
+			) {
+				throw new TypeError(
+					`${path}.options.${option.name} has inconsistent provenance`,
+				)
+			}
+		}
+	}
+	if (
+		Object.keys(value.provenance.options).length !== optionNames.size ||
+		Object.keys(value.provenance.options).some((name) => !optionNames.has(name))
+	) {
+		throw new TypeError(`${path}.provenance.options must match schema options`)
 	}
 	for (const key of ['constraints', 'indexes'] as const) {
-		for (const [index, node] of readList(value, key, path).entries()) {
+		const nodes = readList(value, key, path)
+		const provenance = value.provenance[key]
+		if (nodes.length !== provenance.length) {
+			throw new TypeError(`${path}.provenance.${key} must match ${key}`)
+		}
+		for (const [index, node] of nodes.entries()) {
 			if (!isPlainRecord(node)) {
 				throw new TypeError(`${path}.${key}[${String(index)}] must be a node`)
 			}
@@ -207,18 +306,46 @@ export const assertSchemaCompilerSchemaNode = (
 					`${path}.constraints[${String(index)}] has an invalid artifact`,
 				)
 			}
+			if (
+				!areSchemaDeclarationValuesCompatible(
+					node.provenance,
+					provenance[index]?.provenance,
+				) ||
+				!areSchemaDeclarationValuesCompatible(
+					node.definition,
+					provenance[index]?.definition,
+				)
+			) {
+				throw new TypeError(
+					`${path}.${key}[${String(index)}] has inconsistent provenance`,
+				)
+			}
 		}
 	}
-	for (const [index, extension] of readList(
-		value,
-		'extensions',
-		path,
-	).entries()) {
+	const extensions = readList(value, 'extensions', path)
+	if (extensions.length !== value.provenance.extensions.length) {
+		throw new TypeError(`${path}.provenance.extensions must match extensions`)
+	}
+	for (const [index, extension] of extensions.entries()) {
 		assertSchemaCompilerExtensionNode(
 			extension,
 			session,
 			`${path}.extensions[${String(index)}]`,
 			allowedOwners,
 		)
+		if (!isPlainRecord(extension)) continue
+		const extensionProvenance = value.provenance.extensions[index]
+		if (
+			extensionProvenance === undefined ||
+			extension.name !== extensionProvenance.name ||
+			!areSchemaDeclarationValuesCompatible(
+				extension.provenance,
+				extensionProvenance.provenance,
+			)
+		) {
+			throw new TypeError(
+				`${path}.extensions[${String(index)}] has inconsistent provenance`,
+			)
+		}
 	}
 }

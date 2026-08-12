@@ -281,10 +281,16 @@ export class ApplicationCapabilityHost {
 		for (const chain of plan.chains) {
 			const contribution = chain.at(-1)
 			if (contribution === undefined) continue
+			const plugin = contribution.plugin
+			if (plugin === undefined) {
+				throw new TypeError(
+					'Foundation capability providers must have declaration lifetime',
+				)
+			}
 
 			const requirements = [
-				...contribution.plugin.definition.manifest.capabilities.requires,
-				...contribution.plugin.definition.manifest.capabilities.optional,
+				...plugin.definition.manifest.capabilities.requires,
+				...plugin.definition.manifest.capabilities.optional,
 			]
 			for (const requirement of requirements) {
 				if (
@@ -306,7 +312,7 @@ export class ApplicationCapabilityHost {
 					),
 					constraintCompilers: this.#canConsumeAdapter(
 						contribution.owner,
-						contribution.plugin,
+						plugin,
 					)
 						? this.#constraintCompilers
 						: createDeniedConstraintCompilerReader(contribution.owner),

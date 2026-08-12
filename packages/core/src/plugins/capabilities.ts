@@ -10,7 +10,7 @@ import { satisfies, valid, validRange } from 'semver'
 
 import {
 	snapshotJsonValue,
-	type JsonPrimitive,
+	type JsonValue,
 } from '../schema/fields/builtins/json.js'
 import type { CompiledSchemaRegistry } from '../schema/index.js'
 import type { DatabaseConstraintCompilerReader } from './constraint-compilers.js'
@@ -360,7 +360,7 @@ const applicationCapabilityFactories = new WeakMap<
 >()
 
 /** Converts one provider protocol into the immutable facts accepted by JSON snapshots. */
-type CapabilityDeclarationValue<TValue> = TValue extends JsonPrimitive
+type CapabilityDeclarationValue<TValue> = TValue extends JsonValue
 	? TValue
 	: TValue extends (...arguments_: never[]) => unknown
 		? never

@@ -45,3 +45,16 @@ export {
 } from './validation.js'
 
 export { SchemaCompilerArtifactSession } from './artifacts.js'
+
+export {
+	canonicalSchemaCompilerTarget,
+	replaceSchemaCompiler,
+	schemaCompilerCapability,
+} from './schema-compiler-capability.js'
+
+export type {
+	ReplaceSchemaCompilerOptions,
+	SchemaCompilerImplementation,
+	SchemaCompilerProvenance,
+	SchemaCompilerProviderDescriptor,
+} from './schema-compiler-capability.js'

@@ -240,11 +240,11 @@ describe('capability composition', () => {
 		})
 
 		await application.initialize()
-
 		expect(values).toStrictEqual(['replaced-first', 'second'])
 		expect(
-			new PluginGraph(normalizePlugins([consumer, first, replacement, second]))
-				.capabilities.entries[0]?.providerChains,
+			new PluginGraph(
+				normalizePlugins([consumer, first, replacement, second]),
+			).capabilities.entries.at(-1)?.providerChains,
 		).toStrictEqual([
 			{
 				position: 0,

@@ -61,9 +61,9 @@ import {
 	collectRuntimeCompilations,
 	executeRuntimeCompilations,
 } from './schema-runtime-options.js'
-import { compileCanonicalSchemaCompilerIr } from './schema-compiler-ir/canonical-compiler.js'
 import { decodeSchemaCompilerOutput } from './schema-compiler-ir/decoder.js'
 import { encodeSchemaCompilerInput } from './schema-compiler-ir/input-encoder.js'
+import type { SchemaCompilerImplementation } from './schema-compiler-ir/schema-compiler-capability.js'
 import { assertSchemaCompilerOutput } from './schema-compiler-ir/validation.js'
 
 export class SchemaDeclarationRegistry {
@@ -316,18 +316,20 @@ export class SchemaDeclarationRegistry {
 	compileSchemaRegistry(
 		registry: SchemaRegistry,
 		fieldMethods: FieldBuilderMethodResolver,
+		compile: SchemaCompilerImplementation,
 	): SchemaTargetGraph {
 		const staging = stageSchemaRegistryCompilation(
 			registry,
 			this.schemaAdditions(),
 			fieldMethods,
 		)
-		const prepared = this.#compilePrepared(staging.prepared)
+		const prepared = this.#compilePrepared(staging.prepared, compile)
 		return publishSchemaRegistryCompilation(registry, staging, prepared)
 	}
 
 	#compilePrepared(
 		prepared: readonly PreparedSchemaCompilation[],
+		compile: SchemaCompilerImplementation,
 	): readonly PreparedSchemaCompilation[] {
 		if (!this.#closed) {
 			throw new TypeError('Schema declaration registry is not closed')
@@ -369,7 +371,7 @@ export class SchemaDeclarationRegistry {
 			definitions: optionDefinitions,
 			resolvedFields,
 		})
-		const output = compileCanonicalSchemaCompilerIr(encoded.input)
+		const output = compile(encoded.input)
 		assertSchemaCompilerOutput(encoded.input, output, encoded.session)
 		candidates = [...decodeSchemaCompilerOutput(output, encoded.session)]
 

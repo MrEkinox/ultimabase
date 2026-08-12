@@ -1,6 +1,6 @@
 # 1418: Replace the complete schema compiler through a versioned capability
 
-- Status: planned
+- Status: completed
 - Milestone: 14
 - Packages: `@ultimabase/core`
 - Depends on: 1423
@@ -14,19 +14,19 @@ identity, provenance, or portability invariants.
 
 ## Acceptance criteria
 
-- [ ] Core defines one public declaration-lifetime schema-compiler capability with a documented protocol version and its current compiler as the canonical provider.
-- [ ] A plugin requesting `schema:replace` can replace only the complete compatible compiler provider; ordinary `schema:transform` and generic callbacks cannot replace compiler stages or protected identities.
-- [ ] The replacement receives the immutable callback-free schema compiler IR delivered by issue 1422; the canonical compiler does not run first.
-- [ ] The replacement returns one immutable logical graph through a validated public contract rather than mutating schema classes, registries, declarations, or another application's graph.
-- [ ] Core always revalidates application ownership, stable class identity, Core system fields, operation identity, relationship targets, contribution provenance, and the minimum portable schema contract after replacement.
-- [ ] Version mismatch, missing or stale replacement targets, competing replacements, malformed output, partial replacement, and replacement cycles fail deterministically before plugin setup.
-- [ ] Replacement provenance identifies the exact plugin and instance, package version, capability protocol version, contribution identity, target provider, and normalized static options.
-- [ ] Typegen and JavaScript consume the same final replaced logical graph without generated Runtime code or infrastructure during static compilation.
+- [x] Core defines one public declaration-lifetime schema-compiler capability with a documented protocol version and its current compiler as the canonical provider.
+- [x] A plugin requesting `schema:replace` can replace only the complete compatible compiler provider; ordinary `schema:transform` and generic callbacks cannot replace compiler stages or protected identities.
+- [x] The replacement receives the immutable callback-free schema compiler IR delivered by issue 1422; the canonical compiler does not run first.
+- [x] The replacement returns one immutable logical graph through a validated public contract rather than mutating schema classes, registries, declarations, or another application's graph.
+- [x] Core always revalidates application ownership, stable class identity, Core system fields, operation identity, relationship targets, contribution provenance, and the minimum portable schema contract after replacement.
+- [x] Version mismatch, missing or stale replacement targets, competing replacements, malformed output, partial replacement, and replacement cycles fail deterministically before plugin setup.
+- [x] Replacement provenance identifies the exact plugin and instance, package version, capability protocol version, contribution identity, target provider, and normalized static options.
+- [x] Typegen and JavaScript consume the same final replaced logical graph without generated Runtime code or infrastructure during static compilation.
 
 ## Tests
 
-- [ ] Runtime tests cover successful complete replacement, exact replacement chains, two explicit instances, ordering, malformed output, protected-invariant failures, application isolation, and stable repeat compilation.
-- [ ] Type and packed tests prove the public capability contract, exact privilege boundary, version compatibility, and absence of private imports or generic callback escape hatches.
+- [x] Runtime tests cover successful complete replacement, exact replacement chains, two explicit instances, ordering, malformed output, protected-invariant failures, application isolation, and stable repeat compilation.
+- [x] Type and packed tests prove the public capability contract, exact privilege boundary, version compatibility, and absence of private imports or generic callback escape hatches.
 
 ## Out of scope
 

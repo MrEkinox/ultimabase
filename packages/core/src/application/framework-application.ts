@@ -12,6 +12,11 @@ import {
 
 import { type PluginDefinition } from '../plugins/definition.js'
 import { composeDeclarationCapabilities } from '../plugins/capability-inventory.js'
+import {
+	selectSchemaCompiler,
+	type SelectedSchemaCompiler,
+} from '../plugins/schema-compiler-ir/schema-compiler-selection.js'
+import type { SchemaCompilerProvenance } from '../plugins/schema-compiler-ir/schema-compiler-capability.js'
 import { ApplicationCapabilityHost } from '../plugins/capability-host.js'
 import { PluginDeclarationHost } from '../plugins/declaration-host.js'
 import { SchemaDeclarationRegistry } from '../plugins/schema-declarations.js'
@@ -184,6 +189,8 @@ export class FrameworkApplication<
 	readonly accessDefaults: FrameworkAccessDefaultPolicy
 	/** Exposes the detached policy result evaluated before every plugin effect. */
 	readonly pluginPrivilegeReport: PluginPrivilegeReport
+	/** Reports the exact complete schema compiler selected for this application. */
+	readonly schemaCompilerProvenance: SchemaCompilerProvenance
 	readonly #setupRegistries: PluginSetupRegistries
 	readonly #lifecycle: PluginLifecycleManager
 	readonly #capabilityHost: ApplicationCapabilityHost
@@ -191,6 +198,7 @@ export class FrameworkApplication<
 	readonly #fieldBuilderMethods = new FieldBuilderMethodRegistry()
 	readonly #schemaDeclarations = new SchemaDeclarationRegistry()
 	readonly #declarationHost: PluginDeclarationHost
+	readonly #schemaCompiler: SelectedSchemaCompiler
 	#schemaCompilationState: 'compiled' | 'compiling' | 'failed' | 'idle' = 'idle'
 	#schemaCompilationError: FrameworkError | undefined
 	#initializePromise: Promise<this> | undefined
@@ -210,6 +218,8 @@ export class FrameworkApplication<
 		emitPluginPrivilegeReport(privilegePolicy.logger, privilegePolicy.report)
 		assertPluginPrivilegesAllowed(privilegePolicy.report)
 		composeDeclarationCapabilities(graph.capabilities)
+		this.#schemaCompiler = selectSchemaCompiler(graph.capabilities)
+		this.schemaCompilerProvenance = this.#schemaCompiler.provenance
 
 		this.schemas = new SchemaRegistry(options.schemas)
 		this.accessDefaults = normalizeAccessDefaults(options.access)
@@ -339,6 +349,7 @@ export class FrameworkApplication<
 			this.#schemaDeclarations.compileSchemaRegistry(
 				this.schemas,
 				this.#fieldBuilderMethods,
+				this.#schemaCompiler.compile,
 			)
 			this.#schemaCompilationState = 'compiled'
 

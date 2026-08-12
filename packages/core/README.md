@@ -281,11 +281,45 @@ provenance, portability, and application ownership before decoding any output.
 Schema additions keep their exact contribution identity and static options,
 extension nodes expose the logical fields they contribute, and option nodes
 separately attribute their definition owner and current value contributor.
-Core's canonical compiler now consumes this same IR, revalidates its complete
+Core's canonical compiler consumes this same IR, revalidates its complete
 output through the public contract, and decodes trusted artifacts only through
-the private compilation session. The privileged replacement capability remains
-a separate step, so no generic transform callback or prepared-schema bypass is
-available.
+the private compilation session. A plugin with `schema:replace` may use
+`replaceSchemaCompiler(...)` to replace that whole compiler before it runs. The
+ordinary capability replacement helper and `schema:transform` cannot cross this
+boundary, and the schema compiler capability cannot be decorated.
+
+`application.schemaCompilerProvenance` reports the selected capability and IR
+protocol versions, exact contribution target, plugin ID and optional instance,
+package version, and normalized static options. Core derives this record from
+the selected capability chain; compiler output cannot claim or alter it. A
+replacement receives one immutable `SchemaCompilerInput`, returns one complete
+immutable `SchemaCompilerOutput`, and runs once per application compilation.
+Core rejects partial or mutable output, stale artifacts, inconsistent
+provenance, schema identity changes, protected `id`, `createdAt`, or `updatedAt`
+changes, and invalid final relationship graphs before plugin setup.
+
+```ts
+const compiler = definePlugin({
+	pluginId: 'community.schema-compiler',
+	version: '1.0.0',
+	core: '^0.0.0',
+	privileges: [
+		{
+			name: 'schema:replace',
+			reason: 'Selects our complete logical compiler.',
+		},
+	],
+	capabilities: {
+		replaces: [
+			replaceSchemaCompiler({
+				contributionId: 'compiler-v1',
+				compile: (input) => compileCommunitySchemaGraph(input),
+				staticOptions: { dialect: 'portable-v1' },
+			}),
+		],
+	},
+})
+```
 
 Tooling configured in the plugin graph receives the same compiled schema
 registry plus an immutable application-local FieldBuilder method snapshot during
