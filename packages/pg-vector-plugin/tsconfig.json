@@ -8,6 +8,7 @@
 	"references": [
 		{ "path": "../shared" },
 		{ "path": "../core" },
-		{ "path": "../plugin-kit" }
+		{ "path": "../plugin-kit" },
+		{ "path": "../testing" }
 	]
 }

@@ -50,7 +50,7 @@ roles-plugin ─────────→ plugin-kit, core
 acl-permissions-plugin → plugin-kit, core
 postgres-plugin ──────→ plugin-kit, core
 acl-postgres-plugin ──→ acl-permissions-plugin, postgres-plugin, plugin-kit, core
-testing ──────────────→ core, shared
+testing ──────────────→ typegen, core, shared
 ```
 
 Concrete plugins depend on Core's public contracts. Core never depends back on
@@ -85,7 +85,9 @@ references without weakening a Core validation boundary. Destructive
 transformations, capabilities, privileges, ownership, registries, adapters, and
 Master remain direct Core contracts. Core never imports the kit. Official
 plugins use the same toolbox where it removes real duplication, while
-`@ultimabase/testing` owns conformance fixtures and assertions.
+`@ultimabase/testing` owns runner-agnostic conformance fixtures and assertions.
+Its optional generic Typegen check explains the dependency on Typegen; the
+baseline kernel suite remains logical-only and opens no PostgreSQL resource.
 
 `@ultimabase/typegen` is optional development tooling. It snapshots the final
 compiled application graph and accepts owner-scoped plugin contributions as

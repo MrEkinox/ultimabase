@@ -2,6 +2,128 @@
 
 Testing utilities and conformance suites for framework applications and plugin authors.
 
+## Plugin conformance
+
+`definePluginConformanceSuite()` keeps the exact subject, support-plugin, and
+schema tuples inferred from a fresh fixture. `runPluginConformance()` is
+runner-agnostic: use it from Vitest, another test runner, or a plain JavaScript
+script.
+
+```ts
+import {
+	createPluginConformanceFixture,
+	definePluginConformanceSuite,
+	runPluginConformance,
+	withPluginTypegenConformance,
+} from '@ultimabase/testing'
+import { expect, it } from 'vitest'
+
+const suite = definePluginConformanceSuite({
+	createFixture: () =>
+		createPluginConformanceFixture({
+			subject: workflowPlugin(),
+			schemas: [Post],
+		}),
+	expected: {
+		pluginId: 'community.workflow',
+		version: '1.0.0',
+		core: '^1.0.0',
+	},
+})
+
+it('conforms to the public kernel', async () => {
+	const report = await runPluginConformance(withPluginTypegenConformance(suite))
+	expect(report.checks.every(({ status }) => status === 'passed')).toBe(true)
+})
+```
+
+The common suite always verifies the manifest, immutable capability contract,
+static declaration determinism, public provenance, setup/application-capability
+cleanup, and isolation between two applications. It additionally verifies:
+
+- two explicit instances when `instances` supplies a factory and distinct IDs;
+- cumulative denial when the subject requests Core privileges;
+- environmental-claim denial when the subject reports direct Node.js behavior.
+
+Expected privileges and environmental claims can be listed in `expected` when
+their exact order is part of the package contract. The harness never requests a
+privilege for the plugin, changes its manifest, reads private Core state, or
+opens PostgreSQL for a logical-only fixture. It silences the normal startup
+logger inside its own applications while still exercising the public policy
+report and denial behavior.
+
+### Explicit instances and dependencies
+
+Support plugins are ordinary public definitions and precede the subject in the
+application graph. They make named dependencies and capability requirements
+visible instead of introducing a test-only bypass:
+
+```ts
+const suite = definePluginConformanceSuite({
+	createFixture: () =>
+		createPluginConformanceFixture({
+			subject: auditPlugin({ instanceId: 'default' }),
+			supportPlugins: [storagePlugin()],
+			schemas: [],
+		}),
+	expected: {
+		pluginId: 'community.audit',
+		version: '1.0.0',
+		core: '^1.0.0',
+	},
+	instances: {
+		instanceIds: ['primary', 'archive'],
+		create: (instanceId) => auditPlugin({ instanceId }),
+	},
+})
+```
+
+### Optional domain checks
+
+Use immutable `.check(contract, verifier)` calls for behavior specific to the
+plugin. Every verifier gets fresh public `FrameworkApplication` and
+`UltimaBase` factories; every created value is disposed automatically, including
+after a failed assertion.
+
+```ts
+const completeSuite = suite
+	.check('operation', async (context) => {
+		const { ultimabase } = context.createUltimaBase()
+		await ultimabase.start()
+		const result = await ultimabase.operation(runWorkflow).execute(input)
+		expect(result).toStrictEqual(expectedResult)
+	})
+	.check('schema-surface', (context) => {
+		const { application } = context.createApplication()
+		expect(application.getSchemaSurface('Post')).toBeDefined()
+	})
+	.check('middleware', async (context) => {
+		// Execute a request and assert the contributed interceptor/observer trace.
+	})
+	.check('persistence', async (context) => {
+		// Capture the public adapter request and assert the rewritten physical plan.
+	})
+```
+
+The optional contract names are `typegen`, `javascript-operation`, `operation`,
+`schema-surface`, `transport`, `middleware`, `persistence`, `codec`, `migration`,
+and `adapter-failure`. This keeps the report precise while leaving each
+plugin-specific assertion readable. `withPluginTypegenConformance()` implements
+the generic `typegen` check and compares two complete generated outputs before
+running an optional package-specific assertion.
+
+For JavaScript, import the same helpers and select `javascript-operation`; no
+generated declarations or Typegen import is required. Transport checks can use
+`FakePublicOperationTransport`. Migration checks can use
+`FakeAdapterMigrationHistory` to cover upgrades and orphaned contributions;
+adapter checks can deliberately install a failing public capability provider.
+Those fakes remain opt-in, so the common suite has no database or transport
+dependency.
+
+`PluginConformanceError` exposes `pluginId`, the exact failed `contract`, and
+the original error as `cause`. A report contains only completed checks and
+retains no application, plugin resource, or mutable registry.
+
 ## PostgreSQL worker isolation
 
 `PostgresTestWorker` gives every Vitest fork a deterministic PostgreSQL schema
@@ -66,6 +188,3 @@ const next = previous.accept(currentSnapshots)
 
 This fake contains no database driver, DDL renderer, or automatic destructive
 synchronization behavior.
-
-Planned APIs still include `createTestApplication`, `runAs`, concrete transport
-executors, and broader adapter conformance suites.

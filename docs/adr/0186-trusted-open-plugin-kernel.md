@@ -148,3 +148,22 @@ The kit cannot assign an owner, grant a privilege, store a capability, mutate a
 registry, manufacture Master, open an adapter, or hide destructive cross-owner
 schema transformations. Core never imports the kit, and importing the kit
 installs no plugin or Runtime stage.
+
+## Implementation refinement: public conformance harness
+
+Issue 1412 publishes a runner-agnostic `@ultimabase/testing` suite over public
+Core inspection, application, Runtime, and optional Typegen APIs. The common
+suite verifies manifest facts, explicit instance composition, cumulative
+privilege and environmental-claim denial, capability contracts and
+materialization, callback-free static determinism, provenance, lifecycle
+cleanup, and application isolation. Optional named verifiers keep operations,
+schema/model surfaces, transports, middleware, persistence plans, codecs,
+migrations, orphan handling, and adapter failures specific to the plugin under
+test.
+
+The harness creates a fresh fixture for every invariant and disposes every
+application or Runtime facade it creates. It never reads private registries,
+manufactures owner identity, or grants missing privileges. Generic Typegen is
+an explicit optional check; JavaScript operation checks execute without Typegen,
+and the baseline has no PostgreSQL dependency. Official plugins consume the
+same root package exports as community plugins.

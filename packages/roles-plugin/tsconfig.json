@@ -5,5 +5,9 @@
 		"rootDir": "src"
 	},
 	"include": ["src/**/*.ts"],
-	"references": [{ "path": "../core" }, { "path": "../plugin-kit" }]
+	"references": [
+		{ "path": "../core" },
+		{ "path": "../plugin-kit" },
+		{ "path": "../testing" }
+	]
 }

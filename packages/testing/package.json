@@ -25,7 +25,8 @@
 	},
 	"dependencies": {
 		"@ultimabase/core": "workspace:^",
-		"@ultimabase/shared": "workspace:^"
+		"@ultimabase/shared": "workspace:^",
+		"@ultimabase/typegen": "workspace:^"
 	},
 	"devDependencies": {
 		"@testcontainers/postgresql": "^12.0.4",

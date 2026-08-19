@@ -237,6 +237,16 @@ adapter access nor a public endpoint.
 ## Community toolbox boundary
 
 `@ultimabase/plugin-kit` removes repeated immutable declaration and composition
-code. `@ultimabase/testing` supplies public conformance fixtures. Neither
-package owns privileges, owner binding, registries, Master, or capability
-storage; those checks remain in Core.
+code. `@ultimabase/testing` supplies a runner-agnostic public conformance suite
+for manifests, structured instances, denials, capabilities, deterministic
+declarations, provenance, lifecycle cleanup, and application isolation. Optional
+named checks cover Typegen, JavaScript and typed operations, schema/model
+surfaces, transports, middleware, persistence, codecs, migrations, and adapter
+failures. Fresh application factories preserve exact fixture inference and are
+disposed automatically.
+
+The harness reports the exact failed contract and uses only public package
+exports. It does not read Core registries, grant undeclared privileges, or
+impose PostgreSQL on a logical plugin. Neither authoring package owns
+privileges, owner binding, registries, Master, or capability storage; those
+checks remain in Core.

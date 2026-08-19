@@ -16,6 +16,16 @@ describe('packed plugin operation execution', () => {
 		const output: unknown = JSON.parse(stdout)
 
 		expect(output).toStrictEqual({
+			conformanceChecks: [
+				'manifest',
+				'privilege-denial',
+				'capability-contracts',
+				'static-determinism',
+				'provenance',
+				'lifecycle-cleanup',
+				'application-isolation',
+				'javascript-operation',
+			],
 			directResult: { echo: 'direct' },
 			transportErrorResponse: {
 				error: {

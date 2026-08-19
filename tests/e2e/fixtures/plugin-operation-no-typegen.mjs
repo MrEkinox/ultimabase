@@ -16,7 +16,12 @@ import {
 	provideOperationHandler,
 	provideOperationTransportBinding,
 } from '@ultimabase/core'
-import { FakePublicOperationTransport } from '@ultimabase/testing'
+import {
+	FakePublicOperationTransport,
+	createPluginConformanceFixture,
+	definePluginConformanceSuite,
+	runPluginConformance,
+} from '@ultimabase/testing'
 
 const immutable = (value) => Object.freeze(value)
 const input = defineOperationValue((value, path) => {
@@ -75,30 +80,31 @@ const codec = operationWireCodec({
 	transport: protocol,
 })
 const binding = operationTransportBinding({ codec, operation: inspect })
-const operationPlugin = definePlugin({
-	capabilities: {
-		provides: [
-			provideOperationHandler({
-				contributionId: 'handler',
-				create: () => ({ value: handler }),
-			}),
-			provideOperationTransportBinding({
-				contributionId: 'binding',
-				create: () => ({ value: binding }),
-			}),
+const createOperationPlugin = () =>
+	definePlugin({
+		capabilities: {
+			provides: [
+				provideOperationHandler({
+					contributionId: 'handler',
+					create: () => ({ value: handler }),
+				}),
+				provideOperationTransportBinding({
+					contributionId: 'binding',
+					create: () => ({ value: binding }),
+				}),
+			],
+		},
+		core: '^0.0.0',
+		declare: ({ operations }) => {
+			operations.declare(inspect)
+		},
+		pluginId: 'fixture.javascript-operations',
+		privileges: [
+			{ name: 'operation:declare', reason: 'Declares the JavaScript fixture.' },
+			{ name: 'transport:expose', reason: 'Exposes the fake fixture binding.' },
 		],
-	},
-	core: '^0.0.0',
-	declare: ({ operations }) => {
-		operations.declare(inspect)
-	},
-	pluginId: 'fixture.javascript-operations',
-	privileges: [
-		{ name: 'operation:declare', reason: 'Declares the JavaScript fixture.' },
-		{ name: 'transport:expose', reason: 'Exposes the fake fixture binding.' },
-	],
-	version: '1.0.0',
-})
+		version: '1.0.0',
+	})
 const transaction = {
 	kind: 'database-transaction-adapter',
 	execute: () => Promise.reject(new Error('Unexpected database execution')),
@@ -111,22 +117,23 @@ const adapter = {
 	execute: () => Promise.reject(new Error('Unexpected database execution')),
 	beginTransaction: () => Promise.resolve(transaction),
 }
-const databasePlugin = definePlugin({
-	capabilities: {
-		provides: [
-			provideCapability(databaseAdapterCapability, {
-				contributionId: 'adapter',
-				create: () => ({ value: adapter }),
-			}),
-		],
-	},
-	core: '^0.0.0',
-	pluginId: 'fixture.javascript-database',
-	version: '1.0.0',
-})
+const createDatabasePlugin = () =>
+	definePlugin({
+		capabilities: {
+			provides: [
+				provideCapability(databaseAdapterCapability, {
+					contributionId: 'adapter',
+					create: () => ({ value: adapter }),
+				}),
+			],
+		},
+		core: '^0.0.0',
+		pluginId: 'fixture.javascript-database',
+		version: '1.0.0',
+	})
 const ultimabase = new UltimaBase({
 	pluginPrivileges: { logger: false },
-	plugins: [databasePlugin, operationPlugin],
+	plugins: [createDatabasePlugin(), createOperationPlugin()],
 	schemas: [],
 })
 await ultimabase.start()
@@ -158,7 +165,34 @@ export const transportErrorResponse = await fake.request({
 	version: inspect.version,
 })
 
+const conformanceSuite = definePluginConformanceSuite({
+	createFixture: () =>
+		createPluginConformanceFixture({
+			schemas: [],
+			subject: createOperationPlugin(),
+			supportPlugins: [createDatabasePlugin()],
+		}),
+	expected: {
+		core: '^0.0.0',
+		pluginId: 'fixture.javascript-operations',
+		version: '1.0.0',
+	},
+}).check('javascript-operation', async (context) => {
+	const fixture = context.createUltimaBase()
+	await fixture.ultimabase.start()
+	const value = await fixture.ultimabase
+		.operation('fixture.javascript.inspect')
+		.execute({ message: 'conformance' })
+	if (value.echo !== 'conformance') {
+		throw new TypeError('JavaScript operation conformance result mismatch')
+	}
+})
+const conformanceReport = await runPluginConformance(conformanceSuite)
+export const conformanceChecks = conformanceReport.checks.map(
+	({ contract }) => contract,
+)
+
 await ultimabase.dispose()
 process.stdout.write(
-	`${JSON.stringify({ directResult, transportErrorResponse, transportResponse })}\n`,
+	`${JSON.stringify({ conformanceChecks, directResult, transportErrorResponse, transportResponse })}\n`,
 )

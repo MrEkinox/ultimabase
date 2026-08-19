@@ -12,6 +12,7 @@
 		{ "path": "../core" },
 		{ "path": "../plugin-kit" },
 		{ "path": "../acl-permissions-plugin" },
-		{ "path": "../postgres-plugin" }
+		{ "path": "../postgres-plugin" },
+		{ "path": "../testing" }
 	]
 }
