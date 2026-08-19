@@ -2,6 +2,7 @@ import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import { FrameworkError } from '../errors/framework-error.js'
 import type {
+	CapabilityProviderDeclaration,
 	CapabilityReplacementDeclaration,
 	CapabilityRequirement,
 } from './capabilities.js'
@@ -20,6 +21,13 @@ import {
 	isSchemaCompilerCapability,
 	isSchemaCompilerReplacement,
 } from './schema-compiler-ir/schema-compiler-capability.js'
+import {
+	isAuthorizedRuntimeProvider,
+	isRuntimeCapability,
+	isRuntimeReplacement,
+	runtimeExecutorCapability,
+	runtimeProviderPrivilege,
+} from '../runtime/capabilities.js'
 
 const throwCapabilityConflict = (
 	message: string,
@@ -135,8 +143,79 @@ export const buildReplacementChains = (
 ): readonly (readonly OwnedProvider[])[] => {
 	assertUniqueContributionIds(entry)
 
+	const runtimeRequirement = isRuntimeCapability(entry.token)
+		? entry.requirements[0]
+		: undefined
+	if (runtimeRequirement !== undefined) {
+		return throwCapabilityConflict(
+			`Core Runtime capability "${entry.token.capabilityId}" cannot be consumed through a plugin requirement.`,
+			{
+				kind: 'runtime-capability-requirement-forbidden',
+				plugin: formatPluginIdentity(runtimeRequirement.owner),
+				capabilityId: entry.token.capabilityId,
+			},
+		)
+	}
+
+	const runtimeProviderPower = runtimeProviderPrivilege(entry.token)
+	if (runtimeProviderPower !== undefined) {
+		for (const provider of entry.providers) {
+			if (provider.plugin === undefined) continue
+			if (
+				!isAuthorizedRuntimeProvider(
+					provider.declaration as CapabilityProviderDeclaration,
+				)
+			) {
+				return throwCapabilityConflict(
+					`Runtime capability providers for "${entry.token.capabilityId}" must use its exact public helper.`,
+					{
+						kind: 'runtime-capability-provider-factory',
+						plugin: formatPluginIdentity(provider.owner),
+						capabilityId: entry.token.capabilityId,
+						contributionId: provider.declaration.contributionId,
+					},
+				)
+			}
+			assertContributionPrivilege(
+				entries,
+				entry,
+				provider,
+				runtimeProviderPower,
+			)
+		}
+	}
+	if (entry.token === runtimeExecutorCapability) {
+		const pluginProvider = entry.providers.find(
+			(provider) => provider.plugin !== undefined,
+		)
+		if (pluginProvider !== undefined) {
+			return throwCapabilityConflict(
+				'Plugins must replace the canonical Runtime executor through replaceRuntime.',
+				{
+					kind: 'runtime-executor-provider-forbidden',
+					plugin: formatPluginIdentity(pluginProvider.owner),
+					contributionId: pluginProvider.declaration.contributionId,
+				},
+			)
+		}
+	}
+
 	const replacementsByTarget = new Map<OwnedProvider, OwnedProvider>()
 	for (const replacement of entry.replacements) {
+		if (
+			isRuntimeCapability(entry.token) &&
+			entry.token !== runtimeExecutorCapability
+		) {
+			return throwCapabilityConflict(
+				`Core Runtime capability "${entry.token.capabilityId}" cannot be replaced.`,
+				{
+					kind: 'runtime-capability-replacement-forbidden',
+					plugin: formatPluginIdentity(replacement.owner),
+					capabilityId: entry.token.capabilityId,
+					contributionId: replacement.declaration.contributionId,
+				},
+			)
+		}
 		if (
 			isSchemaCompilerCapability(entry.token) &&
 			!isSchemaCompilerReplacement(
@@ -152,13 +231,30 @@ export const buildReplacementChains = (
 				},
 			)
 		}
+		if (
+			entry.token === runtimeExecutorCapability &&
+			!isRuntimeReplacement(
+				replacement.declaration as CapabilityReplacementDeclaration,
+			)
+		) {
+			return throwCapabilityConflict(
+				'Runtime executor replacements must be created by replaceRuntime.',
+				{
+					kind: 'runtime-replacement-factory',
+					plugin: formatPluginIdentity(replacement.owner),
+					contributionId: replacement.declaration.contributionId,
+				},
+			)
+		}
 		assertContributionPrivilege(
 			entries,
 			entry,
 			replacement,
 			isSchemaCompilerCapability(entry.token)
 				? 'schema:replace'
-				: 'capability:replace',
+				: entry.token === runtimeExecutorCapability
+					? 'runtime:replace'
+					: 'capability:replace',
 		)
 		const declaration =
 			replacement.declaration as CapabilityReplacementDeclaration
@@ -296,6 +392,17 @@ export const buildReplacementChains = (
 				{
 					kind: 'schema-compiler-decoration-forbidden',
 					plugin: formatPluginIdentity(decorator.owner),
+					contributionId: decorator.declaration.contributionId,
+				},
+			)
+		}
+		if (isRuntimeCapability(entry.token)) {
+			return throwCapabilityConflict(
+				'Core Runtime capabilities cannot be decorated through the generic capability facade.',
+				{
+					kind: 'runtime-capability-decoration-forbidden',
+					plugin: formatPluginIdentity(decorator.owner),
+					capabilityId: entry.token.capabilityId,
 					contributionId: decorator.declaration.contributionId,
 				},
 			)

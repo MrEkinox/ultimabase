@@ -252,7 +252,7 @@ describe('CapabilityInventory', () => {
 		const absent = new PluginGraph(normalizePlugins([consumer]))
 		const [privilege] = consumer.manifest.privileges
 
-		expect(present.capabilities.entries).toHaveLength(2)
+		expect(present.capabilities.entries).toHaveLength(3)
 		expect(
 			present.capabilities.entries.find(
 				({ token: candidate }) => candidate === declarationToken,

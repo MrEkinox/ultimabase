@@ -28,6 +28,7 @@ import {
 	roleMembershipChangedEvent,
 	rolesPlugin,
 } from '@ultimabase/roles-plugin'
+import { provideTestRuntimeObserver } from './runtime-capabilities.js'
 
 /** Carries a member identity without making authentication a Core feature. */
 export const currentRoleMemberId = new RequestContextValue<string>(
@@ -259,24 +260,22 @@ export const externalRoleReferencePlugin = definePlugin({
 					},
 				}),
 			}),
+			...[
+				roleDeletedEvent,
+				roleHierarchyChangedEvent,
+				roleMembershipChangedEvent,
+			].map((eventName) =>
+				provideTestRuntimeObserver(
+					`fixture.observe:${eventName}`,
+					onEvent({
+						name: eventName,
+						handler: ({ event }) => {
+							committedRoleEvents.push(event.name)
+						},
+					}),
+				),
+			),
 		],
-	},
-	setup: ({ events }) => {
-		for (const eventName of [
-			roleDeletedEvent,
-			roleHierarchyChangedEvent,
-			roleMembershipChangedEvent,
-		]) {
-			events.register(
-				`fixture.observe:${eventName}`,
-				onEvent({
-					name: eventName,
-					handler: ({ event }) => {
-						committedRoleEvents.push(event.name)
-					},
-				}),
-			)
-		}
 	},
 })
 

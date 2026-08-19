@@ -3,6 +3,7 @@ import { beforeOperation } from './definitions.js'
 import { getHookHandlerEntries } from '../../schema/hooks/normalization.js'
 import { objectField, Schema, stringField } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
+import { provideTestRuntimeInterceptor } from '../../../tests/runtime/fixtures/runtime-capabilities.js'
 
 import {
 	compileNativeHookContributionPlan,
@@ -69,7 +70,15 @@ const basePlugin = definePlugin({
 			reason: 'Registers native hook contributions for plan tests.',
 		},
 	],
-	setup: ({ hooks, runtime }) => {
+	capabilities: {
+		provides: [
+			provideTestRuntimeInterceptor(
+				'fixture.plan-low-level',
+				beforeOperation({ handler: () => undefined }),
+			),
+		],
+	},
+	setup: ({ hooks }) => {
 		hooks.schema('schema-first', planSchema, {
 			beforeOperation: { create: baseSchemaHandler },
 		})
@@ -82,12 +91,6 @@ const basePlugin = definePlugin({
 		hooks.field('dotted', planSchema, ['dotted.name'], {
 			resolveInput: baseFieldHandler,
 		})
-
-		// Low-level ADR-0070 hooks remain outside the native declaration plan.
-		runtime.register(
-			'fixture.plan-low-level',
-			beforeOperation({ handler: () => undefined }),
-		)
 	},
 })
 

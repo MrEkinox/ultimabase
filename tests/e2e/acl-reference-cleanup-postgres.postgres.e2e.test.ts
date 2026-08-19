@@ -29,6 +29,7 @@ import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from './postgres-worker-fixture.js'
+import { provideTestRuntimeObserver } from './runtime-capabilities.js'
 
 type ReferencePolicy = 'cascade' | 'fail' | 'preserve'
 
@@ -179,14 +180,18 @@ const principalOwnerPlugin = definePlugin({
 			reason: 'Observes committed ACL changes for the E2E fixture.',
 		},
 	],
-	capabilities: { optional: [optionalReferenceCleanups] },
-	setup: ({ capabilities, events, hooks }) => {
-		events.register(
-			'fixture.observe:acl-change',
-			onACLChange(({ event }) => {
-				committedACLChanges.push(event.payload)
-			}),
-		)
+	capabilities: {
+		optional: [optionalReferenceCleanups],
+		provides: [
+			provideTestRuntimeObserver(
+				'fixture.observe:acl-change',
+				onACLChange(({ event }) => {
+					committedACLChanges.push(event.payload)
+				}),
+			),
+		],
+	},
+	setup: ({ capabilities, hooks }) => {
 		const readCleanups = () =>
 			readPrincipalCleanups(capabilities.get(optionalReferenceCleanups) ?? [])
 

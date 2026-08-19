@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 
 import { RecordingDatabaseAdapter } from '../../../tests/runtime/fixtures/recording-database-adapter.js'
 import { provideTestDatabaseAdapter } from '../../../tests/runtime/fixtures/database-adapter-capability.js'
+import { provideTestRuntimeInterceptor } from '../../../tests/runtime/fixtures/runtime-capabilities.js'
 import { afterOperation, beforeOperation } from '../hooks/definitions.js'
 import { UltimaBase } from '../application/ultima-base.js'
 
@@ -46,35 +47,35 @@ const createAdapterPlugin = (
 			},
 		],
 		capabilities: {
-			provides: [provideTestDatabaseAdapter(adapter)],
-		},
-		setup: ({ runtime }) => {
-			runtime.register(
-				'fixture.observe-business-query',
-				beforeOperation({
-					handler: ({ operation }) => {
-						if ('query' in operation) {
-							observedBusinessFilters.push(operation.query.where)
-						}
+			provides: [
+				provideTestDatabaseAdapter(adapter),
+				provideTestRuntimeInterceptor(
+					'fixture.observe-business-query',
+					beforeOperation({
+						handler: ({ operation }) => {
+							if ('query' in operation) {
+								observedBusinessFilters.push(operation.query.where)
+							}
 
-						return undefined
-					},
-					operations: ['find-many'],
-					schema: securedArticle,
-				}),
-			)
-			runtime.register(
-				'fixture.observe-projected-result',
-				afterOperation({
-					handler: ({ result }) => {
-						observedHookResults.push(result)
+							return undefined
+						},
+						operations: ['find-many'],
+						schema: securedArticle,
+					}),
+				),
+				provideTestRuntimeInterceptor(
+					'fixture.observe-projected-result',
+					afterOperation({
+						handler: ({ result }) => {
+							observedHookResults.push(result)
 
-						return { result }
-					},
-					operations: ['find-many'],
-					schema: securedArticle,
-				}),
-			)
+							return { result }
+						},
+						operations: ['find-many'],
+						schema: securedArticle,
+					}),
+				),
+			],
 		},
 	})
 

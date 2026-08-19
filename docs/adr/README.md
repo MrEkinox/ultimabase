@@ -184,6 +184,7 @@ Accepted records:
 - [ADR-0196: Complete schema compilation uses a callback-free public IR](0196-callback-free-schema-compiler-ir.md)
 - [ADR-0197: Schema handle surfaces are application-local](0197-application-local-schema-handle-surfaces.md)
 - [ADR-0198: Plugin Typegen contracts are structured and application-local](0198-structured-plugin-typegen-contracts.md)
+- [ADR-0199: Runtime capabilities execute behind a Core-owned request shell](0199-runtime-capability-assembly.md)
 
 Superseded records:
 

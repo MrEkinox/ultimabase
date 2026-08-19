@@ -17,6 +17,23 @@ export type { ActiveFrameworkContext } from './context/active-framework-context.
 // Application assembly installs every mandatory stage from plugin-owned declarations.
 export { createFrameworkEngine } from './application/create-framework-engine.js'
 export type { CreateFrameworkEngineOptions } from './application/create-framework-engine.js'
+export {
+	canonicalRuntimeExecutorTarget,
+	provideRuntimeConstraint,
+	provideRuntimeInterceptor,
+	provideRuntimeObserver,
+	replaceRuntime,
+	runtimeConstraintCapability,
+	runtimeExecutorCapability,
+	runtimeInterceptorCapability,
+	runtimeObserverCapability,
+} from './capabilities.js'
+export type {
+	RuntimeConstraintDefinition,
+	RuntimeExecutorFactory,
+	RuntimeInterceptorDefinition,
+	RuntimeObserverDefinition,
+} from './capabilities.js'
 // UltimaBase is the regular class-based facade over Core composition and Runtime execution.
 export { UltimaBase } from './application/ultima-base.js'
 export type { UltimaBaseOptions } from './application/ultima-base.js'

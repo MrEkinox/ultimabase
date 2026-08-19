@@ -10,6 +10,7 @@ import { runWithRequestEngine } from '../context/active-framework-context.js'
 import { MasterAuthority } from '../master/master-authority.js'
 import { type DatabaseAdapter } from '../database/contracts.js'
 import { provideTestDatabaseAdapter } from '../../../tests/runtime/fixtures/database-adapter-capability.js'
+import { provideTestRuntimeObserver } from '../../../tests/runtime/fixtures/runtime-capabilities.js'
 import {
 	RecordingDatabaseAdapter,
 	type QueuedAdapterResult,
@@ -51,10 +52,10 @@ const createEventPlugin = (
 					] as const)
 				: []),
 		],
-		setup: ({ events }) => {
-			for (const [eventName, event] of Object.entries(definitions)) {
-				events.register(eventName, event as HookEventDefinition)
-			}
+		capabilities: {
+			provides: Object.entries(definitions).map(([eventName, event]) =>
+				provideTestRuntimeObserver(eventName, event as HookEventDefinition),
+			),
 		},
 	})
 
@@ -488,18 +489,20 @@ describe('HookContext Runtime capabilities', () => {
 					reason: 'Registers a named event consumer for HookContext tests.',
 				},
 			],
-			setup: ({ events }) => {
-				events.register(
-					'second',
-					onEvent({
-						handler: ({ context, event }) => {
-							trace.push('event:second')
-							expect(context.transactionId).toBe(event.transactionId)
-							expect(event.emittedBy.phase).toBe('beforeCreate')
-						},
-						name: 'post.created',
-					}),
-				)
+			capabilities: {
+				provides: [
+					provideTestRuntimeObserver(
+						'second',
+						onEvent({
+							handler: ({ context, event }) => {
+								trace.push('event:second')
+								expect(context.transactionId).toBe(event.transactionId)
+								expect(event.emittedBy.phase).toBe('beforeCreate')
+							},
+							name: 'post.created',
+						}),
+					),
+				],
 			},
 		})
 		const adapter = new RecordingDatabaseAdapter(

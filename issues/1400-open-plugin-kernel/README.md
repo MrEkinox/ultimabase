@@ -26,7 +26,7 @@ community packages.
 13. [x] [1418 — Replace the complete schema compiler through a versioned capability](1418-schema-compiler-replacement-capability.md)
 14. [x] [1407 — Add dynamic schemas, model extensions, and plugin operations](1407-dynamic-schemas-models-and-operations.md)
 15. [x] [1408 — Let plugins contribute exact Typegen contracts](1408-plugin-typegen-contributions.md)
-16. [ ] [1409 — Assemble Runtime through public capability middleware](1409-runtime-capability-assembly.md)
+16. [x] [1409 — Assemble Runtime through public capability middleware](1409-runtime-capability-assembly.md)
 17. [ ] [1410 — Separate logical operations from rewritable persistence plans](1410-rewritable-persistence-plans.md)
 18. [ ] [1416 — Execute plugin operations and explicit transport bindings](1416-execute-plugin-operations-and-transport-bindings.md)
 19. [ ] [1417 — Add adapter, codec, physical schema, and migration bridges](1417-adapter-codec-schema-migration-bridges.md)

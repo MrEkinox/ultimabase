@@ -294,8 +294,3 @@ export type {
 	PluginPrivilegeSeverity,
 } from './plugins/manifest.js'
 export type { PluginLifecycleState } from './plugins/lifecycle-manager.js'
-export type {
-	PluginEventContributionHost,
-	PluginRuntimeContributionHost,
-	PluginRuntimePipelineHost,
-} from './plugins/runtime-contribution-hosts.js'

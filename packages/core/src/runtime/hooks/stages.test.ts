@@ -6,6 +6,10 @@ import {
 import { QueryBuilder } from '../../query/index.js'
 import { Schema } from '../../schema/index.js'
 import { describe, expect, it, vi } from 'vitest'
+import {
+	provideTestRuntimeInterceptor,
+	provideTestRuntimeObserver,
+} from '../../../tests/runtime/fixtures/runtime-capabilities.js'
 
 import { RequestContext, requestSources } from '../context/request-context.js'
 import type {
@@ -92,8 +96,19 @@ describe('createRuntimeHookStages', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.invalid-hook',
-			setup: ({ runtime }) => {
-				runtime.register('fixture.invalid', (() => undefined) as never)
+			privileges: [
+				{
+					name: 'runtime:intercept',
+					reason: 'Exercises malformed interceptor materialization.',
+				},
+			],
+			capabilities: {
+				provides: [
+					provideTestRuntimeInterceptor(
+						'fixture.invalid',
+						(() => undefined) as never,
+					),
+				],
 			},
 		})
 		await expect(
@@ -103,7 +118,7 @@ describe('createRuntimeHookStages', () => {
 			}),
 		).rejects.toThrow(
 			new TypeError(
-				'Runtime contributions must be created by a Runtime interception or enforcement factory',
+				'runtime interceptor factories must return a definition created by an interceptor factory',
 			),
 		)
 	})
@@ -113,24 +128,40 @@ describe('createRuntimeHookStages', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.event-in-hooks',
-			setup: ({ runtime }) => {
-				runtime.register(
-					'fixture.wrong-event',
-					postCommitEvent({ handler: () => undefined }) as never,
-				)
+			privileges: [
+				{
+					name: 'runtime:intercept',
+					reason: 'Exercises exact interceptor category validation.',
+				},
+			],
+			capabilities: {
+				provides: [
+					provideTestRuntimeInterceptor(
+						'fixture.wrong-event',
+						postCommitEvent({ handler: () => undefined }) as never,
+					),
+				],
 			},
 		})
 		const hookInEvents = definePlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.hook-in-events',
-			setup: ({ events }) => {
-				events.register(
-					'fixture.wrong-hook',
-					beforeOperation({
-						handler: () => undefined,
-					}) as never,
-				)
+			privileges: [
+				{
+					name: 'runtime:observe',
+					reason: 'Exercises exact observer category validation.',
+				},
+			],
+			capabilities: {
+				provides: [
+					provideTestRuntimeObserver(
+						'fixture.wrong-hook',
+						beforeOperation({
+							handler: () => undefined,
+						}) as never,
+					),
+				],
 			},
 		})
 
@@ -140,7 +171,7 @@ describe('createRuntimeHookStages', () => {
 					schemas: [articleSchema],
 					plugins: [plugin],
 				}),
-			).rejects.toThrow(/contributions must be created by/u)
+			).rejects.toThrow(/factories must return a definition created by/u)
 		}
 	})
 
@@ -155,14 +186,16 @@ describe('createRuntimeHookStages', () => {
 					reason: 'Registers low-level Runtime hooks for tests.',
 				},
 			],
-			setup: ({ runtime }) => {
-				runtime.register(
-					'fixture.foreign',
-					beforeOperation({
-						schema: foreignSchema,
-						handler: () => undefined,
-					}),
-				)
+			capabilities: {
+				provides: [
+					provideTestRuntimeInterceptor(
+						'fixture.foreign',
+						beforeOperation({
+							schema: foreignSchema,
+							handler: () => undefined,
+						}),
+					),
+				],
 			},
 		})
 		const application = await createApplication({
@@ -188,25 +221,27 @@ describe('createRuntimeHookStages', () => {
 					reason: 'Registers low-level Runtime hooks for tests.',
 				},
 			],
-			setup: ({ runtime }) => {
-				runtime.register(
-					'fixture.invalid-before-output',
-					beforeOperation({
-						operations: ['create-one'],
-						handler: ((input: RuntimeOperationStageInput<typeof operation>) =>
-							input.operation) as never,
-					}),
-				)
-				runtime.register(
-					'fixture.invalid-after-output',
-					afterOperation({
-						operations: ['create-one'],
-						handler: ((input: RuntimeResultStageInput<typeof operation>) => ({
-							result: input.result,
-							extra: true,
-						})) as never,
-					}),
-				)
+			capabilities: {
+				provides: [
+					provideTestRuntimeInterceptor(
+						'fixture.invalid-before-output',
+						beforeOperation({
+							operations: ['create-one'],
+							handler: ((input: RuntimeOperationStageInput<typeof operation>) =>
+								input.operation) as never,
+						}),
+					),
+					provideTestRuntimeInterceptor(
+						'fixture.invalid-after-output',
+						afterOperation({
+							operations: ['create-one'],
+							handler: ((input: RuntimeResultStageInput<typeof operation>) => ({
+								result: input.result,
+								extra: true,
+							})) as never,
+						}),
+					),
+				],
 			},
 		})
 		const application = await createApplication({
@@ -247,18 +282,20 @@ describe('createRuntimeHookStages', () => {
 					reason: 'Registers low-level Runtime hooks for tests.',
 				},
 			],
-			setup: ({ runtime }) => {
-				runtime.register(
-					'fixture.before-replacement',
-					beforeOperation({
-						operations: ['update-one'],
-						handler: ((
-							input: RuntimeOperationStageInput<typeof updateOperation>,
-						) => ({
-							operation: input.operation,
-						})) as never,
-					}),
-				)
+			capabilities: {
+				provides: [
+					provideTestRuntimeInterceptor(
+						'fixture.before-replacement',
+						beforeOperation({
+							operations: ['update-one'],
+							handler: ((
+								input: RuntimeOperationStageInput<typeof updateOperation>,
+							) => ({
+								operation: input.operation,
+							})) as never,
+						}),
+					),
+				],
 			},
 		})
 		const application = await createApplication({
@@ -286,29 +323,33 @@ describe('createRuntimeHookStages', () => {
 					reason: 'Registers low-level Runtime hooks for tests.',
 				},
 			],
-			setup: ({ runtime }) => {
-				runtime.register(
-					'fixture.prepared-value',
-					preparedOperation({
-						schema: articleSchema,
-						handler: ({ operation: current, target }) => {
-							handler(target)
+			capabilities: {
+				provides: [
+					provideTestRuntimeInterceptor(
+						'fixture.prepared-value',
+						preparedOperation({
+							schema: articleSchema,
+							handler: ({ operation: current, target }) => {
+								handler(target)
 
-							return {
-								operation: {
-									...current,
-									update: {
-										...current.update,
-										operations: current.update.operations.map((candidate) => ({
-											...candidate,
-											value: target.title,
-										})),
+								return {
+									operation: {
+										...current,
+										update: {
+											...current.update,
+											operations: current.update.operations.map(
+												(candidate) => ({
+													...candidate,
+													value: target.title,
+												}),
+											),
+										},
 									},
-								},
-							}
-						},
-					}),
-				)
+								}
+							},
+						}),
+					),
+				],
 			},
 		})
 		const application = await createApplication({
@@ -365,14 +406,16 @@ describe('createRuntimeHookStages', () => {
 						reason: 'Registers low-level Runtime hooks for tests.',
 					},
 				],
-				setup: ({ runtime }) => {
-					runtime.register(
-						'fixture.invalid-prepared',
-						preparedOperation({
-							schema: articleSchema,
-							handler: () => ({ operation: replacement }),
-						}),
-					)
+				capabilities: {
+					provides: [
+						provideTestRuntimeInterceptor(
+							'fixture.invalid-prepared',
+							preparedOperation({
+								schema: articleSchema,
+								handler: () => ({ operation: replacement }),
+							}),
+						),
+					],
 				},
 			})
 			const application = await createApplication({

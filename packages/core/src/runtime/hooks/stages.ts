@@ -2,11 +2,8 @@ import {
 	FrameworkApplication,
 	type PluginDefinition,
 } from '../../foundation.js'
-import {
-	readApplicationEventContributions,
-	readApplicationRuntimeContributions,
-	type OwnedPluginContribution,
-} from '../../plugins/setup-registries.js'
+import type { OwnedPluginContribution } from '../../plugins/setup-registries.js'
+import { readApplicationCapabilityContributions } from '../../plugins/application-capability-access.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import {
 	immutableArray,
@@ -48,6 +45,10 @@ import type { HookExecutionDescriptor } from './execution-descriptor.js'
 import { getApplicationHookExecutionRuntime } from './execution-runtime.js'
 import type { HookExecutionRuntime } from './execution-runtime.js'
 import { getHookEventImplementation } from './events.js'
+import {
+	runtimeInterceptorCapability,
+	runtimeObserverCapability,
+} from '../capabilities.js'
 
 type RuntimeContributionImplementation = NonNullable<
 	ReturnType<typeof getRuntimeContributionImplementation>
@@ -242,10 +243,21 @@ const readContributions = (
 ): readonly OwnedRuntimeContribution[] => {
 	const ownedContributions: OwnedRuntimeContribution[] = []
 
-	const contributions =
+	const contributions = readApplicationCapabilityContributions(
+		application,
 		category === 'events'
-			? readApplicationEventContributions(application)
-			: readApplicationRuntimeContributions(application)
+			? runtimeObserverCapability
+			: runtimeInterceptorCapability,
+	).map(({ contributionId, owner, value }) =>
+		immutableRecord({
+			name: contributionId,
+			ownerPlugin: owner.pluginId,
+			...(owner.instanceId === undefined
+				? {}
+				: { ownerInstanceId: owner.instanceId }),
+			value,
+		}),
+	)
 
 	for (const contribution of contributions) {
 		if (
@@ -253,6 +265,13 @@ const readContributions = (
 			getHookEventImplementation(contribution.value) !== undefined
 		) {
 			// Named HookContext events have a dedicated post-commit dispatcher.
+			continue
+		}
+		if (
+			category === 'hooks' &&
+			getRuntimeContributionImplementation(contribution.value) === undefined
+		) {
+			// Fixed-position pipeline interceptors are assembled separately.
 			continue
 		}
 

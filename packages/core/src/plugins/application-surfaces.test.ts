@@ -1,5 +1,6 @@
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
+import { provideTestRuntimeInterceptor } from '../../tests/runtime/fixtures/runtime-capabilities.js'
 
 import { UltimaBase } from '../runtime/application/ultima-base.js'
 import type { ApplicationOperationHandle } from '../application/application-handles.js'
@@ -368,7 +369,7 @@ describe('application-owned plugin surfaces', () => {
 		expect(setupCalls).toBe(0)
 	})
 
-	it('does not let model or query privileges intercept Runtime implicitly', async () => {
+	it('does not let model or query privileges intercept Runtime implicitly', () => {
 		const LocalSchema = Schema.define({
 			className: 'ApplicationSurfaceNoRuntimePrivilege',
 			fields: (field) => ({ title: field.string() }),
@@ -396,25 +397,27 @@ describe('application-owned plugin surfaces', () => {
 					{ contributionId: 'queries', extensions: { byTitle: titleQuery } },
 				)
 			},
-			setup: ({ runtime }) => {
-				runtime.register(
-					'forged-interceptor',
-					beforeOperation({
-						handler: () => undefined,
-						operations: ['find-many'],
-						schema: LocalSchema,
-					}),
-				)
+			capabilities: {
+				provides: [
+					provideTestRuntimeInterceptor(
+						'forged-interceptor',
+						beforeOperation({
+							handler: () => undefined,
+							operations: ['find-many'],
+							schema: LocalSchema,
+						}),
+					),
+				],
 			},
 		})
-		const ultimabase = new UltimaBase({
-			pluginPrivileges: { logger: false },
-			plugins: [plugin],
-			schemas: [LocalSchema],
-		})
 
-		await expect(ultimabase.application.initialize()).rejects.toMatchObject({
-			code: 'PLUGIN_PRIVILEGE_DENIED',
-		})
+		expect(
+			() =>
+				new UltimaBase({
+					pluginPrivileges: { logger: false },
+					plugins: [plugin],
+					schemas: [LocalSchema],
+				}),
+		).toThrow(expect.objectContaining({ code: 'PLUGIN_CAPABILITY_CONFLICT' }))
 	})
 })

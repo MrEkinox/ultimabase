@@ -4,6 +4,10 @@ import { createApplication } from '../application/framework-application.js'
 import { beforeOperation } from '../runtime/hooks/definitions.js'
 import { createRuntimeHookStages } from '../runtime/hooks/stages.js'
 import {
+	provideRuntimeInterceptor,
+	runtimeInterceptorCapability,
+} from '../runtime/capabilities.js'
+import {
 	defineFieldExtension,
 	definePluginField,
 	defineSchemaExtension,
@@ -19,8 +23,8 @@ import {
 import {
 	PluginSetupRegistries,
 	readApplicationHookContributions,
-	readApplicationRuntimeContributions,
 } from './setup-registries.js'
+import { readApplicationCapabilityContributions } from './application-capability-access.js'
 
 const ownerPlugin = 'fixture.hook-owner'
 const schemaExtension = defineSchemaExtension(
@@ -464,14 +468,20 @@ describe('plugin hook targets', () => {
 					reason: 'Exercises native and low-level hook coexistence.',
 				},
 			],
-			setup: ({ hooks, runtime }) => {
+			capabilities: {
+				provides: [
+					provideRuntimeInterceptor({
+						contributionId: 'fixture.low-level',
+						create: () => ({
+							value: beforeOperation({ handler: () => undefined }),
+						}),
+					}),
+				],
+			},
+			setup: ({ hooks }) => {
 				hooks.global('native', {
 					beforeOperation: { create: ({ item }) => void item },
 				})
-				runtime.register(
-					'fixture.low-level',
-					beforeOperation({ handler: () => undefined }),
-				)
 			},
 		})
 		const first = await createApplication({
@@ -484,11 +494,17 @@ describe('plugin hook targets', () => {
 		})
 		const firstContributions = [
 			...readApplicationHookContributions(first),
-			...readApplicationRuntimeContributions(first),
+			...readApplicationCapabilityContributions(
+				first,
+				runtimeInterceptorCapability,
+			).map(({ contributionId: name, value }) => ({ name, value })),
 		]
 		const secondContributions = [
 			...readApplicationHookContributions(second),
-			...readApplicationRuntimeContributions(second),
+			...readApplicationCapabilityContributions(
+				second,
+				runtimeInterceptorCapability,
+			).map(({ contributionId: name, value }) => ({ name, value })),
 		]
 
 		expect(firstContributions.map(({ name }) => name)).toStrictEqual([

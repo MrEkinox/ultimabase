@@ -3,6 +3,7 @@ import type {
 	CapabilityToken,
 } from './capabilities.js'
 import type { ApplicationCapabilityHost } from './capability-host.js'
+import type { MaterializedCapabilityContribution } from './capability-host.js'
 
 const capabilityHosts = new WeakMap<object, ApplicationCapabilityHost>()
 
@@ -28,4 +29,19 @@ export const readApplicationCapability = <const TToken extends CapabilityToken>(
 	}
 
 	return host.read(token)
+}
+
+/** Reads exact materialized providers with Core-retained ownership metadata. */
+export const readApplicationCapabilityContributions = <
+	const TToken extends CapabilityToken,
+>(
+	application: object,
+	token: TToken,
+): readonly MaterializedCapabilityContribution<TToken>[] => {
+	const host = capabilityHosts.get(application)
+	if (host === undefined) {
+		throw new TypeError('Unknown application capability host')
+	}
+
+	return host.readContributions(token)
 }

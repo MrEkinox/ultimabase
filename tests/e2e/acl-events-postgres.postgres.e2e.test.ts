@@ -19,6 +19,7 @@ import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from './postgres-worker-fixture.js'
+import { provideTestRuntimeObserver } from './runtime-capabilities.js'
 
 let rejectNextUpdate = false
 const Post = Schema.define({
@@ -68,19 +69,21 @@ const eventObserverPlugin = definePlugin({
 			reason: 'Observes committed ACL changes for the E2E fixture.',
 		},
 	],
-	setup: ({ events }) => {
-		events.register(
-			'fixture.capture-acl-change',
-			onACLChange(async ({ event }) => {
-				const row = await getFixture().pool.query<{ readonly id: string }>(
-					'SELECT id FROM acl_change_event_posts WHERE id = $1',
-					[event.payload.target.id],
-				)
+	capabilities: {
+		provides: [
+			provideTestRuntimeObserver(
+				'fixture.capture-acl-change',
+				onACLChange(async ({ event }) => {
+					const row = await getFixture().pool.query<{ readonly id: string }>(
+						'SELECT id FROM acl_change_event_posts WHERE id = $1',
+						[event.payload.target.id],
+					)
 
-				committedChanges.push(event.payload)
-				committedRows.push(...row.rows.map(({ id }) => id))
-			}),
-		)
+					committedChanges.push(event.payload)
+					committedRows.push(...row.rows.map(({ id }) => id))
+				}),
+			),
+		],
 	},
 })
 

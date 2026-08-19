@@ -12,6 +12,7 @@ import { runWithRequestEngine } from '../context/active-framework-context.js'
 import { MasterAuthority } from '../master/master-authority.js'
 import { RecordingDatabaseAdapter } from '../../../tests/runtime/fixtures/recording-database-adapter.js'
 import { provideTestDatabaseAdapter } from '../../../tests/runtime/fixtures/database-adapter-capability.js'
+import { provideTestRuntimeInterceptor } from '../../../tests/runtime/fixtures/runtime-capabilities.js'
 import { UltimaBase } from './ultima-base.js'
 
 const articleSchema = Schema.define({
@@ -53,23 +54,26 @@ const createDatabasePlugin = (
 			},
 		],
 		capabilities: {
-			provides: [provideTestDatabaseAdapter(adapter)],
+			provides: [
+				provideTestDatabaseAdapter(adapter),
+				...(options.onContext === undefined
+					? []
+					: [
+							provideTestRuntimeInterceptor(
+								'fixture.ultimabase-context',
+								beforeOperation({
+									schema: articleSchema,
+									operations: ['find-many'],
+									handler: ({ context }) => {
+										options.onContext?.(context)
+									},
+								}),
+							),
+						]),
+			],
 		},
-		setup: ({ runtime }) => {
+		setup: () => {
 			options.trace?.push('setup')
-
-			if (options.onContext !== undefined) {
-				runtime.register(
-					'fixture.ultimabase-context',
-					beforeOperation({
-						schema: articleSchema,
-						operations: ['find-many'],
-						handler: ({ context }) => {
-							options.onContext?.(context)
-						},
-					}),
-				)
-			}
 		},
 		hooks: {
 			connect: () => {

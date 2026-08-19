@@ -12,6 +12,7 @@ import {
 import { Schema } from '../../schema/index.js'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 import { describe, expect, it, vi } from 'vitest'
+import { createTestRuntimeConstraints } from '../../../tests/runtime/fixtures/runtime-capabilities.js'
 
 import {
 	RequestContext,
@@ -87,8 +88,8 @@ describe('createEnforcementStages', () => {
 			core: '^0.0.0',
 			pluginId: 'fixture.enforcement-master-behavior',
 			privileges: runtimeConstrainPrivileges,
-			setup: ({ runtime }) => {
-				runtime.register(
+			capabilities: createTestRuntimeConstraints((provide) => {
+				provide(
 					'fixture.master-bypassed',
 					guard({
 						handler: () => {
@@ -97,7 +98,7 @@ describe('createEnforcementStages', () => {
 						master: 'bypass',
 					}),
 				)
-				runtime.register(
+				provide(
 					'fixture.master-enforced',
 					guard({
 						handler: () => {
@@ -105,7 +106,7 @@ describe('createEnforcementStages', () => {
 						},
 					}),
 				)
-				runtime.register(
+				provide(
 					'fixture.master-output-bypassed',
 					restrictOutput({
 						handler: () => {
@@ -116,7 +117,7 @@ describe('createEnforcementStages', () => {
 						master: 'bypass',
 					}),
 				)
-				runtime.register(
+				provide(
 					'fixture.master-output-enforced',
 					restrictOutput({
 						handler: () => {
@@ -126,7 +127,7 @@ describe('createEnforcementStages', () => {
 						},
 					}),
 				)
-			},
+			}),
 		})
 		const application = await createApplication({
 			schemas: [articleSchema],
@@ -177,8 +178,8 @@ describe('createEnforcementStages', () => {
 				core: '^0.0.0',
 				pluginId: name,
 				privileges: runtimeConstrainPrivileges,
-				setup: ({ runtime }) => {
-					runtime.register(
+				capabilities: createTestRuntimeConstraints((provide) => {
+					provide(
 						`${name}.constraint`,
 						constraint({
 							handler: () =>
@@ -187,7 +188,7 @@ describe('createEnforcementStages', () => {
 								}),
 						}),
 					)
-				},
+				}),
 			})
 		const application = await createApplication({
 			schemas: [articleSchema],
@@ -232,8 +233,8 @@ describe('createEnforcementStages', () => {
 			core: '^0.0.0',
 			pluginId: 'fixture.monotonic-enforcement',
 			privileges: runtimeConstrainPrivileges,
-			setup: ({ runtime }) => {
-				runtime.register(
+			capabilities: createTestRuntimeConstraints((provide) => {
+				provide(
 					'fixture.guard',
 					guard({
 						schema: articleSchema,
@@ -244,7 +245,7 @@ describe('createEnforcementStages', () => {
 						},
 					}),
 				)
-				runtime.register(
+				provide(
 					'fixture.tenant',
 					constraint({
 						schema: articleSchema,
@@ -257,7 +258,7 @@ describe('createEnforcementStages', () => {
 						},
 					}),
 				)
-				runtime.register(
+				provide(
 					'fixture.visibility',
 					constraint({
 						handler: () => {
@@ -269,23 +270,23 @@ describe('createEnforcementStages', () => {
 						},
 					}),
 				)
-				runtime.register(
+				provide(
 					'fixture.input-broad',
 					restrictInput({ handler: () => ['title', 'secret'] }),
 				)
-				runtime.register(
+				provide(
 					'fixture.input-narrow',
 					restrictInput({ handler: () => ['title'] }),
 				)
-				runtime.register(
+				provide(
 					'fixture.selection-broad',
 					restrictSelection({ handler: () => ['id', 'title', 'secret'] }),
 				)
-				runtime.register(
+				provide(
 					'fixture.selection-narrow',
 					restrictSelection({ handler: () => ['id', 'title'] }),
 				)
-				runtime.register(
+				provide(
 					'fixture.output-broad',
 					restrictOutput({
 						handler: (input) => {
@@ -295,11 +296,11 @@ describe('createEnforcementStages', () => {
 						},
 					}),
 				)
-				runtime.register(
+				provide(
 					'fixture.output-narrow',
 					restrictOutput({ handler: () => ['title'] }),
 				)
-			},
+			}),
 		})
 		const application = await createApplication({
 			schemas: [articleSchema],
@@ -397,12 +398,12 @@ describe('createEnforcementStages', () => {
 			core: '^0.0.0',
 			pluginId: 'fixture.input-enforcement',
 			privileges: runtimeConstrainPrivileges,
-			setup: ({ runtime }) => {
-				runtime.register(
+			capabilities: createTestRuntimeConstraints((provide) => {
+				provide(
 					'fixture.only-title',
 					restrictInput({ handler: () => ['title'] }),
 				)
-			},
+			}),
 		})
 		const application = await createApplication({
 			schemas: [articleSchema],
@@ -435,22 +436,22 @@ describe('createEnforcementStages', () => {
 			core: '^0.0.0',
 			pluginId: 'fixture.selection-enforcement',
 			privileges: runtimeConstrainPrivileges,
-			setup: ({ runtime }) => {
-				runtime.register(
+			capabilities: createTestRuntimeConstraints((provide) => {
+				provide(
 					'fixture.selection-broad',
 					restrictSelection({
 						schema: articleSchema,
 						handler: () => ['id', 'title'],
 					}),
 				)
-				runtime.register(
+				provide(
 					'fixture.selection-narrow',
 					restrictSelection({
 						schema: articleSchema,
 						handler: () => ['title'],
 					}),
 				)
-			},
+			}),
 		})
 		const application = await createApplication({
 			schemas: [articleSchema],
@@ -561,8 +562,8 @@ describe('createEnforcementStages', () => {
 			core: '^0.0.0',
 			pluginId: 'fixture.denied-enforcement',
 			privileges: runtimeConstrainPrivileges,
-			setup: ({ runtime }) => {
-				runtime.register(
+			capabilities: createTestRuntimeConstraints((provide) => {
+				provide(
 					'fixture.denied',
 					guard({
 						handler: () => {
@@ -570,11 +571,8 @@ describe('createEnforcementStages', () => {
 						},
 					}),
 				)
-				runtime.register(
-					'fixture.not-reached',
-					guard({ handler: laterHandler }),
-				)
-			},
+				provide('fixture.not-reached', guard({ handler: laterHandler }))
+			}),
 		})
 		const application = await createApplication({
 			schemas: [articleSchema],
@@ -600,8 +598,8 @@ describe('createEnforcementStages', () => {
 			core: '^0.0.0',
 			pluginId: 'fixture.cancelled-enforcement',
 			privileges: runtimeConstrainPrivileges,
-			setup: ({ runtime }) => {
-				runtime.register(
+			capabilities: createTestRuntimeConstraints((provide) => {
+				provide(
 					'fixture.cancel-request',
 					guard({
 						handler: () => {
@@ -609,11 +607,11 @@ describe('createEnforcementStages', () => {
 						},
 					}),
 				)
-				runtime.register(
+				provide(
 					'fixture.not-reached-after-cancellation',
 					guard({ handler: laterHandler }),
 				)
-			},
+			}),
 		})
 		const application = await createApplication({
 			plugins: [plugin],
@@ -648,8 +646,8 @@ describe('createEnforcementStages', () => {
 			core: '^0.0.0',
 			pluginId: 'fixture.recursive-enforcement',
 			privileges: runtimeConstrainPrivileges,
-			setup: ({ runtime }) => {
-				runtime.register(
+			capabilities: createTestRuntimeConstraints((provide) => {
+				provide(
 					'fixture.recursive-guard',
 					guard({
 						handler: async (input) => {
@@ -661,7 +659,7 @@ describe('createEnforcementStages', () => {
 						},
 					}),
 				)
-			},
+			}),
 		})
 		const application = await createApplication({
 			plugins: [plugin],
@@ -687,8 +685,8 @@ describe('createEnforcementStages', () => {
 			core: '^0.0.0',
 			pluginId: 'fixture.value-derived-enforcement',
 			privileges: runtimeConstrainPrivileges,
-			setup: ({ runtime }) => {
-				runtime.register(
+			capabilities: createTestRuntimeConstraints((provide) => {
+				provide(
 					'fixture.title-constraint',
 					constraint({
 						schema: articleSchema,
@@ -702,7 +700,7 @@ describe('createEnforcementStages', () => {
 						},
 					}),
 				)
-			},
+			}),
 		})
 		const application = await createApplication({
 			schemas: [articleSchema],
@@ -750,15 +748,15 @@ describe('createEnforcementStages', () => {
 			core: '^0.0.0',
 			pluginId: 'fixture.all-mutation-inputs',
 			privileges: runtimeConstrainPrivileges,
-			setup: ({ runtime }) => {
-				runtime.register(
+			capabilities: createTestRuntimeConstraints((provide) => {
+				provide(
 					'fixture.title-only',
 					restrictInput({
 						schema: articleSchema,
 						handler: () => ['title'],
 					}),
 				)
-			},
+			}),
 		})
 		const application = await createApplication({
 			schemas: [articleSchema],
@@ -854,9 +852,9 @@ describe('createEnforcementStages', () => {
 				core: '^0.0.0',
 				pluginId: 'fixture.invalid-enforcement',
 				privileges: runtimeConstrainPrivileges,
-				setup: ({ runtime }) => {
-					runtime.register('fixture.invalid', definition)
-				},
+				capabilities: createTestRuntimeConstraints((provide) => {
+					provide('fixture.invalid', definition)
+				}),
 			})
 			const application = await createApplication({
 				schemas: [articleSchema],
@@ -880,12 +878,12 @@ describe('createEnforcementStages', () => {
 			core: '^0.0.0',
 			pluginId: 'fixture.foreign-enforcement',
 			privileges: runtimeConstrainPrivileges,
-			setup: ({ runtime }) => {
-				runtime.register(
+			capabilities: createTestRuntimeConstraints((provide) => {
+				provide(
 					'fixture.foreign',
 					guard({ schema: foreignSchema, handler: vi.fn() }),
 				)
-			},
+			}),
 		})
 		const application = await createApplication({
 			schemas: [articleSchema],

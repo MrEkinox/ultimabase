@@ -128,7 +128,7 @@ Replacing an existing ACL therefore uses `Schema.updateOne()`; `updateMany()`,
 execution.
 
 Authentication and roles are optional providers. ACL discovers them only
-through neutral Core services and never imports a concrete auth or roles
+through neutral Core capabilities and never imports a concrete auth or roles
 plugin. Provider lookup happens after application setup, so top-level order and
 nested plugin configuration do not change ACL behavior. A static default that
 already contains role grants requires a compatible provider during setup;
@@ -155,7 +155,7 @@ import {
 	aclChangedEvent,
 	onACLChange,
 } from '@ultimabase/acl-permissions-plugin'
-import { definePlugin } from '@ultimabase/core'
+import { definePlugin, provideRuntimeObserver } from '@ultimabase/core'
 
 const aclAuditPlugin = definePlugin({
 	pluginId: 'app.acl-audit',
@@ -167,18 +167,22 @@ const aclAuditPlugin = definePlugin({
 			reason: 'Records committed ACL changes.',
 		},
 	],
-	setup: ({ events }) => {
-		events.register(
-			'record-acl-change',
-			onACLChange(({ event }) => {
-				console.log(
-					event.name === aclChangedEvent,
-					event.payload.actor,
-					event.payload.target,
-					event.payload.diff,
-				)
+	capabilities: {
+		provides: [
+			provideRuntimeObserver({
+				contributionId: 'record-acl-change',
+				create: () => ({
+					value: onACLChange(({ event }) => {
+						console.log(
+							event.name === aclChangedEvent,
+							event.payload.actor,
+							event.payload.target,
+							event.payload.diff,
+						)
+					}),
+				}),
 			}),
-		)
+		],
 	},
 })
 ```

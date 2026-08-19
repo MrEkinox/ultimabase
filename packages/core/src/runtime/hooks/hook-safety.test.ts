@@ -21,6 +21,7 @@ import {
 	type QueuedAdapterResult,
 } from '../../../tests/runtime/fixtures/recording-database-adapter.js'
 import { beforeOperation } from './definitions.js'
+import { provideTestRuntimeInterceptor } from '../../../tests/runtime/fixtures/runtime-capabilities.js'
 import {
 	hookDiagnosticsObserverCapability,
 	type HookDiagnosticEvent,
@@ -298,18 +299,20 @@ describe('hook execution safety', () => {
 						reason: 'Registers a low-level Runtime hook for safety tests.',
 					},
 				],
-				setup: ({ runtime }) => {
-					runtime.register(
-						'fixture.recursive-before-operation',
-						beforeOperation({
-							handler: async () => {
-								trace.push('hook:before-operation')
-								await schema.createOne({ data: { title: 'nested' } })
-							},
-							operations: ['create-one'],
-							schema,
-						}),
-					)
+				capabilities: {
+					provides: [
+						provideTestRuntimeInterceptor(
+							'fixture.recursive-before-operation',
+							beforeOperation({
+								handler: async () => {
+									trace.push('hook:before-operation')
+									await schema.createOne({ data: { title: 'nested' } })
+								},
+								operations: ['create-one'],
+								schema,
+							}),
+						),
+					],
 				},
 			})
 		const adapter = new RecordingDatabaseAdapter([], trace)
@@ -369,14 +372,16 @@ describe('hook execution safety', () => {
 					reason: 'Registers a low-level Runtime hook for safety tests.',
 				},
 			],
-			setup: ({ runtime }) => {
-				runtime.register(
-					'fixture.observed-before',
-					beforeOperation({
-						schema,
-						handler: () => undefined,
-					}),
-				)
+			capabilities: {
+				provides: [
+					provideTestRuntimeInterceptor(
+						'fixture.observed-before',
+						beforeOperation({
+							schema,
+							handler: () => undefined,
+						}),
+					),
+				],
 			},
 		})
 		const ultimabase = new UltimaBase({

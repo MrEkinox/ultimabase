@@ -14,8 +14,10 @@ import {
 	databasePointerCapabilityVersion,
 	type DatabaseAdapter,
 } from '../database/contracts.js'
-import { readApplicationCapability } from '../../plugins/application-capability-access.js'
-import { readApplicationPipelineContributions } from '../../plugins/setup-registries.js'
+import {
+	readApplicationCapability,
+	readApplicationCapabilityContributions,
+} from '../../plugins/application-capability-access.js'
 import { FrameworkEngine } from '../engine/framework-engine.js'
 import { createEnforcementStages } from '../enforcement/dispatcher.js'
 import { createRuntimeHookStages } from '../hooks/stages.js'
@@ -33,6 +35,10 @@ import {
 	type RuntimeValidationOptions,
 } from '../validation/runtime-validation.js'
 import { MasterAuthority } from '../master/master-authority.js'
+import {
+	runtimeExecutorCapability,
+	runtimeInterceptorCapability,
+} from '../capabilities.js'
 
 /** Configures framework-owned assembly without exposing low-level pipeline slots. */
 export interface CreateFrameworkEngineOptions {
@@ -188,18 +194,14 @@ const collectRuntimePipelineStages = (
 	const normalization: RuntimeOperationTransformStage[] = []
 	const commit: RuntimeResultEffectStage[] = []
 
-	for (const contribution of readApplicationPipelineContributions(
+	for (const contribution of readApplicationCapabilityContributions(
 		application,
+		runtimeInterceptorCapability,
 	)) {
 		const implementation = getRuntimePipelineStageImplementation(
 			contribution.value,
 		)
-
-		if (implementation === undefined) {
-			throw new TypeError(
-				`Plugin "${contribution.ownerPlugin}" registered invalid runtime pipeline contribution "${contribution.name}"`,
-			)
-		}
+		if (implementation === undefined) continue
 
 		switch (implementation.stage) {
 			case 'normalization':
@@ -300,7 +302,21 @@ export const createFrameworkEngine = <
 		nativeHooks,
 		...(enforcement === undefined ? {} : { enforcement }),
 	}
-	const pipeline = new RuntimePipeline(stages)
+	const runtimeFactory = readApplicationCapability(
+		application,
+		runtimeExecutorCapability,
+	)
+	if (typeof runtimeFactory !== 'function') {
+		throw new TypeError(
+			'runtimeExecutorCapability must resolve to a Runtime executor factory',
+		)
+	}
+	const pipeline: unknown = runtimeFactory(stages)
+	if (!(pipeline instanceof RuntimePipeline)) {
+		throw new TypeError(
+			'Runtime executor factory must return a RuntimePipeline instance',
+		)
+	}
 	const engineOptions =
 		normalizedOptions.masterAuthority === undefined
 			? { application, pipeline }

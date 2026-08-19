@@ -1369,14 +1369,18 @@ privileges: [{
 	name: 'runtime:observe',
 	reason: 'Delivers committed post events to the search index.',
 }],
-setup: ({ events }) => {
-	events.register(
-		'posts.created',
-		onEvent({
-			name: 'post.created',
-			handler: ({ event }) => searchIndex.add(event.payload),
+capabilities: {
+	provides: [
+		provideRuntimeObserver({
+			contributionId: 'posts.created',
+			create: () => ({
+				value: onEvent({
+					name: 'post.created',
+					handler: ({ event }) => searchIndex.add(event.payload),
+				}),
+			}),
 		}),
-	)
+	],
 }
 ```
 
@@ -1472,9 +1476,9 @@ schema concerns rather than additional field hook phases.
 
 ## Policy-neutral enforcement primitives
 
-Core currently exposes five protected factories without adding policy names to
-Runtime. Definitions are registered through the exact privilege-scoped
-`runtime` facade:
+Core exposes five protected factories without adding policy names to Runtime.
+Definitions are materialized through the exact privilege-scoped
+`provideRuntimeConstraint()` capability facade:
 
 ```ts
 const tenantPlugin = (tenantId: string) =>
@@ -1488,21 +1492,28 @@ const tenantPlugin = (tenantId: string) =>
 				reason: 'Applies tenant row and field restrictions.',
 			},
 		],
-		setup: ({ runtime }) => {
-			runtime.register(
-				'tenant-row-filter',
-				constraint({
-					schema: PostSchema,
-					handler: () => databaseConstraint('example.tenant', 1, { tenantId }),
+		capabilities: {
+			provides: [
+				provideRuntimeConstraint({
+					contributionId: 'tenant-row-filter',
+					create: () => ({
+						value: constraint({
+							schema: PostSchema,
+							handler: () =>
+								databaseConstraint('example.tenant', 1, { tenantId }),
+						}),
+					}),
 				}),
-			)
-			runtime.register(
-				'tenant-visible-fields',
-				restrictSelection({
-					schema: PostSchema,
-					handler: () => ['id', 'title'],
+				provideRuntimeConstraint({
+					contributionId: 'tenant-visible-fields',
+					create: () => ({
+						value: restrictSelection({
+							schema: PostSchema,
+							handler: () => ['id', 'title'],
+						}),
+					}),
 				}),
-			)
+			],
 		},
 	})
 ```
@@ -1806,11 +1817,11 @@ and never executes setup or lifecycle hooks.
 
 ## Setup facades and migration map
 
-Plugin setup exposes only exact Core-owned facades: `hooks`, `access`,
-`runtime`, `events`, `pipeline`, and `constraintCompilers`. Each facade accepts
-only its nominal definition type, records the exact plugin and instance owner,
-checks its dedicated privilege, and closes when setup finishes. Their backing
-stores are private to Core; applications cannot enumerate or mutate them.
+Plugin setup retains only the exact Core-owned `hooks`, `access`, and
+`constraintCompilers` facades. Each accepts only its nominal definition type,
+records the exact plugin and instance owner, checks its dedicated privilege,
+and closes when setup finishes. Their backing stores are private to Core;
+applications cannot enumerate or mutate them.
 
 Milestone 14 maps the removed generic paths as follows:
 
@@ -1818,7 +1829,10 @@ Milestone 14 maps the removed generic paths as follows:
 - public service tokens become application capabilities;
 - native Hooks and Access retain the exact `hooks` and `access` facades;
 - low-level interception, policy enforcement, post-commit events, and fixed
-  pipeline stages use `runtime`, `events`, and `pipeline` respectively;
+  pipeline stages use `provideRuntimeInterceptor()`,
+  `provideRuntimeConstraint()`, and `provideRuntimeObserver()` respectively;
+- Runtime execution is a replaceable `single` application capability behind
+  Core-owned application, authority, cancellation, and transaction boundaries;
 - database constraint compilers retain their exact adapter-authorized facade;
 - cross-plugin commands become domain capabilities, such as
   `accessReferenceCleanupCapability`;

@@ -32,8 +32,10 @@ import { normalizePlugins } from '../plugins/normalization.js'
 import {
 	formatPluginIdentity,
 	type PluginIdentity,
+	type PluginPrivilege,
 } from '../plugins/manifest.js'
 import {
+	bindApplicationPluginPrivilegeAssertion,
 	bindApplicationSetupRegistries,
 	PluginSetupRegistries,
 } from '../plugins/setup-registries.js'
@@ -237,6 +239,33 @@ export class FrameworkApplication<
 		const capabilityHostReference: {
 			current: ApplicationCapabilityHost | undefined
 		} = { current: undefined }
+		const assertPluginPrivilege = (
+			owner: PluginIdentity,
+			privilege: PluginPrivilege,
+		): void => {
+			const plugin = graph.get(owner)
+			const request = plugin?.definition.manifest.privileges.find(
+				(candidate) => candidate.name === privilege,
+			)
+
+			if (
+				plugin === undefined ||
+				request === undefined ||
+				!graph.capabilities.isPrivilegeActive(owner, request)
+			) {
+				throw new FrameworkError(
+					'PLUGIN_PRIVILEGE_DENIED',
+					`Plugin "${formatPluginIdentity(owner)}" requires active privilege "${privilege}" for this Core facade.`,
+					{
+						internalDetails: {
+							kind: 'inactive-plugin-privilege',
+							plugin: formatPluginIdentity(owner),
+							privilege,
+						},
+					},
+				)
+			}
+		}
 		const setupRegistries = new PluginSetupRegistries(
 			this.schemas,
 			() => this.fieldBuilderMethods,
@@ -247,30 +276,7 @@ export class FrameworkApplication<
 				}
 				return host.forPlugin(owner)
 			},
-			(owner, privilege) => {
-				const plugin = graph.get(owner)
-				const request = plugin?.definition.manifest.privileges.find(
-					(candidate) => candidate.name === privilege,
-				)
-
-				if (
-					plugin === undefined ||
-					request === undefined ||
-					!graph.capabilities.isPrivilegeActive(owner, request)
-				) {
-					throw new FrameworkError(
-						'PLUGIN_PRIVILEGE_DENIED',
-						`Plugin "${formatPluginIdentity(owner)}" requires active privilege "${privilege}" for this Core facade.`,
-						{
-							internalDetails: {
-								kind: 'inactive-plugin-privilege',
-								plugin: formatPluginIdentity(owner),
-								privilege,
-							},
-						},
-					)
-				}
-			},
+			assertPluginPrivilege,
 			() => this.#schemaDeclarations.typegenGraph(),
 		)
 		const capabilityHost = new ApplicationCapabilityHost(
@@ -282,6 +288,7 @@ export class FrameworkApplication<
 		capabilityHostReference.current = capabilityHost
 		bindApplicationCapabilityHost(this, capabilityHost)
 		bindApplicationSetupRegistries(this, setupRegistries)
+		bindApplicationPluginPrivilegeAssertion(this, assertPluginPrivilege)
 		this.#setupRegistries = setupRegistries
 
 		this.#lifecycle = new PluginLifecycleManager(

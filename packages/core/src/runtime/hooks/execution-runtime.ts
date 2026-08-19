@@ -13,11 +13,13 @@ import type {
 	SchemaDefinition,
 } from '../../schema/index.js'
 import { runWithQueryExecutionGuard } from '../../query/operations/execution.js'
-import { readApplicationCapability } from '../../plugins/application-capability-access.js'
+import {
+	readApplicationCapability,
+	readApplicationCapabilityContributions,
+} from '../../plugins/application-capability-access.js'
 import type { PluginIdentity } from '../../plugins/manifest.js'
 import {
 	assertApplicationPluginPrivilege,
-	readApplicationEventContributions,
 	type OwnedPluginContribution,
 } from '../../plugins/setup-registries.js'
 import {
@@ -55,6 +57,7 @@ import {
 	createRuntimeHookContext,
 	type HookContextEmission,
 } from './hook-context-runtime.js'
+import { runtimeObserverCapability } from '../capabilities.js'
 
 interface HookExecutionFrame {
 	readonly key: string
@@ -161,7 +164,21 @@ const collectHookEventHandlers = (
 
 	const handlers: OwnedHookEventHandler[] = []
 
-	for (const contribution of readApplicationEventContributions(application)) {
+	const capabilityContributions = readApplicationCapabilityContributions(
+		application,
+		runtimeObserverCapability,
+	).map(({ contributionId, owner, value }) =>
+		immutableRecord({
+			name: contributionId,
+			ownerPlugin: owner.pluginId,
+			...(owner.instanceId === undefined
+				? {}
+				: { ownerInstanceId: owner.instanceId }),
+			value,
+		}),
+	)
+
+	for (const contribution of capabilityContributions) {
 		const implementation = getHookEventImplementation(contribution.value)
 
 		if (implementation !== undefined) {

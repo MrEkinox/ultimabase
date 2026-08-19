@@ -28,14 +28,6 @@ import {
 	type PluginAccessRegistry,
 } from './access-targets.js'
 import {
-	createPluginEventContributionHost,
-	createPluginRuntimeContributionHost,
-	createPluginRuntimePipelineHost,
-	type PluginEventContributionHost,
-	type PluginRuntimeContributionHost,
-	type PluginRuntimePipelineHost,
-} from './runtime-contribution-hosts.js'
-import {
 	formatPluginIdentity,
 	type PluginIdentity,
 	type PluginPrivilege,
@@ -219,20 +211,11 @@ export interface PluginSetupContext {
 	readonly hooks: PluginHookRegistry
 	/** Registers adapter constraint compilers with owner-derived provenance. */
 	readonly constraintCompilers: PluginConstraintCompilerRegistry
-	/** Registers low-level Runtime interception and monotonic enforcement definitions. */
-	readonly runtime: PluginRuntimeContributionHost
-	/** Registers post-commit observers and named event consumers. */
-	readonly events: PluginEventContributionHost
-	/** Registers handlers for the fixed Runtime pipeline positions. */
-	readonly pipeline: PluginRuntimePipelineHost
 }
 
 /** Owns all mutable setup registries for one isolated application instance. */
 export class PluginSetupRegistries {
 	readonly #hooks = new OwnedContributionStore()
-	readonly #runtime = new OwnedContributionStore()
-	readonly #events = new OwnedContributionStore()
-	readonly #pipeline = new OwnedContributionStore()
 	readonly #access = new OwnedContributionStore()
 	readonly #constraintCompilers = new OwnedContributionStore()
 	readonly #contexts = new Map<
@@ -270,21 +253,6 @@ export class PluginSetupRegistries {
 	/** @internal Reads native hook declarations for application compilation. */
 	getHookContributions(): readonly OwnedPluginContribution[] {
 		return this.#hooks.values()
-	}
-
-	/** @internal Reads low-level Runtime and enforcement definitions. */
-	getRuntimeContributions(): readonly OwnedPluginContribution[] {
-		return this.#runtime.values()
-	}
-
-	/** @internal Reads post-commit Runtime and named event definitions. */
-	getEventContributions(): readonly OwnedPluginContribution[] {
-		return this.#events.values()
-	}
-
-	/** @internal Reads fixed-position Runtime pipeline definitions. */
-	getPipelineContributions(): readonly OwnedPluginContribution[] {
-		return this.#pipeline.values()
 	}
 
 	/** @internal Reads native Access declarations for application compilation. */
@@ -396,33 +364,6 @@ export class PluginSetupRegistries {
 					this.#hooks.registerLocal(owner, name, value)
 				},
 			}),
-			runtime: createPluginRuntimeContributionHost({
-				assertPrivilege: (privilege) => {
-					this.assertPrivilegeForPlugin(owner, privilege)
-				},
-				isOpen: (): boolean => this.#setupOpen,
-				register: (name, value): void => {
-					this.#runtime.registerUnique(owner, name, value)
-				},
-			}),
-			events: createPluginEventContributionHost({
-				assertPrivilege: (privilege) => {
-					this.assertPrivilegeForPlugin(owner, privilege)
-				},
-				isOpen: (): boolean => this.#setupOpen,
-				register: (name, value): void => {
-					this.#events.registerUnique(owner, name, value)
-				},
-			}),
-			pipeline: createPluginRuntimePipelineHost({
-				assertPrivilege: (privilege) => {
-					this.assertPrivilegeForPlugin(owner, privilege)
-				},
-				isOpen: (): boolean => this.#setupOpen,
-				register: (name, value): void => {
-					this.#pipeline.registerUnique(owner, name, value)
-				},
-			}),
 		})
 
 		instances.set(owner.instanceId, context)
@@ -435,6 +376,10 @@ const setupRegistriesByApplication = new WeakMap<
 	object,
 	PluginSetupRegistries
 >()
+const pluginPrivilegeAssertionsByApplication = new WeakMap<
+	object,
+	(owner: PluginIdentity, privilege: PluginPrivilege) => void
+>()
 
 /** @internal Binds private Core readers without exposing setup storage publicly. */
 export const bindApplicationSetupRegistries = (
@@ -446,6 +391,20 @@ export const bindApplicationSetupRegistries = (
 	}
 
 	setupRegistriesByApplication.set(application, registries)
+}
+
+/** @internal Binds Runtime privilege checks without retaining setup registries. */
+export const bindApplicationPluginPrivilegeAssertion = (
+	application: object,
+	assertPrivilege: (owner: PluginIdentity, privilege: PluginPrivilege) => void,
+): void => {
+	if (pluginPrivilegeAssertionsByApplication.has(application)) {
+		throw new TypeError(
+			'Application plugin privilege assertion is already bound',
+		)
+	}
+
+	pluginPrivilegeAssertionsByApplication.set(application, assertPrivilege)
 }
 
 const readApplicationSetupRegistries = (
@@ -466,24 +425,6 @@ export const readApplicationHookContributions = (
 ): readonly OwnedPluginContribution[] =>
 	readApplicationSetupRegistries(application).getHookContributions()
 
-/** @internal Reads only low-level Runtime and enforcement definitions. */
-export const readApplicationRuntimeContributions = (
-	application: object,
-): readonly OwnedPluginContribution[] =>
-	readApplicationSetupRegistries(application).getRuntimeContributions()
-
-/** @internal Reads only post-commit Runtime and named event definitions. */
-export const readApplicationEventContributions = (
-	application: object,
-): readonly OwnedPluginContribution[] =>
-	readApplicationSetupRegistries(application).getEventContributions()
-
-/** @internal Reads only fixed-position Runtime pipeline definitions. */
-export const readApplicationPipelineContributions = (
-	application: object,
-): readonly OwnedPluginContribution[] =>
-	readApplicationSetupRegistries(application).getPipelineContributions()
-
 /** @internal Reads only native Access declarations. */
 export const readApplicationAccessContributions = (
 	application: object,
@@ -496,5 +437,12 @@ export const assertApplicationPluginPrivilege = (
 	owner: PluginIdentity,
 	privilege: PluginPrivilege,
 ): void => {
-	readApplicationSetupRegistries(application).assertPrivilege(owner, privilege)
+	const assertPrivilege =
+		pluginPrivilegeAssertionsByApplication.get(application)
+
+	if (assertPrivilege === undefined) {
+		throw new TypeError('Application plugin privilege assertion is unavailable')
+	}
+
+	assertPrivilege(owner, privilege)
 }

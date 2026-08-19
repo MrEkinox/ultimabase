@@ -13,7 +13,7 @@ export interface FileLineBudgetPolicy {
 export const handwrittenFileLineBaseline: Readonly<Record<string, number>> =
 	Object.freeze({
 		'packages/acl-permissions-plugin/src/plugin.test.ts': 1089,
-		'packages/acl-permissions-plugin/src/plugin.ts': 1100,
+		'packages/acl-permissions-plugin/src/plugin.ts': 1033,
 		'packages/core/src/plugins/access-targets.ts': 634,
 		'packages/core/src/plugins/capabilities.ts': 1047,
 		'packages/core/src/plugins/capability-composition.test.ts': 1159,
@@ -23,7 +23,7 @@ export const handwrittenFileLineBaseline: Readonly<Record<string, number>> =
 		'packages/core/src/query/query/input.ts': 828,
 		'packages/core/src/query/query/query.ts': 724,
 		'packages/core/src/runtime/access/dispatcher.test.ts': 1342,
-		'packages/core/src/runtime/enforcement/dispatcher.test.ts': 901,
+		'packages/core/src/runtime/enforcement/dispatcher.test.ts': 899,
 		'packages/core/src/runtime/engine/framework-engine.ts': 804,
 		'packages/core/src/runtime/hooks/boundaries.ts': 1019,
 		'packages/core/src/runtime/pipeline/inclusion-projection.ts': 713,

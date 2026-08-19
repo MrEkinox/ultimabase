@@ -26,6 +26,7 @@ import {
 } from './manifest.js'
 import { buildReplacementChains } from './capability-replacement-planning.js'
 import { canonicalSchemaCompilerFoundation } from './schema-compiler-ir/schema-compiler-capability.js'
+import { canonicalRuntimeExecutorFoundation } from '../runtime/capabilities.js'
 
 /** Reports one provider or replacement without exposing its value or factory. */
 export interface CapabilityProviderInspection {
@@ -237,7 +238,10 @@ export class CapabilityInventory implements Iterable<CapabilityInventoryEntry> {
 		const entriesById = new Map<string, Map<string, MutableCapabilityEntry>>()
 		const orderedEntries: MutableCapabilityEntry[] = []
 
-		for (const foundation of [canonicalSchemaCompilerFoundation]) {
+		for (const foundation of [
+			canonicalSchemaCompilerFoundation,
+			canonicalRuntimeExecutorFoundation,
+		]) {
 			registerToken(
 				entriesById,
 				orderedEntries,

@@ -2,10 +2,8 @@ import type {
 	FrameworkApplication,
 	PluginDefinition,
 } from '../../foundation.js'
-import {
-	readApplicationRuntimeContributions,
-	type OwnedPluginContribution,
-} from '../../plugins/setup-registries.js'
+import type { OwnedPluginContribution } from '../../plugins/setup-registries.js'
+import { readApplicationCapabilityContributions } from '../../plugins/application-capability-access.js'
 import { Schema, type SchemaDefinition } from '../../schema/index.js'
 import {
 	immutableArray,
@@ -38,6 +36,7 @@ import {
 	narrowEnforcementFields,
 	type EnforcementState,
 } from './state.js'
+import { runtimeConstraintCapability } from '../capabilities.js'
 
 /** @internal Associates one protected implementation with its setup owner. */
 export interface OwnedEnforcementContribution {
@@ -90,7 +89,21 @@ export const readEnforcementContributions = (
 ): readonly OwnedEnforcementContribution[] => {
 	const contributions: OwnedEnforcementContribution[] = []
 
-	for (const contribution of readApplicationRuntimeContributions(application)) {
+	const capabilityContributions = readApplicationCapabilityContributions(
+		application,
+		runtimeConstraintCapability,
+	).map(({ contributionId, owner, value }) =>
+		immutableRecord({
+			name: contributionId,
+			ownerPlugin: owner.pluginId,
+			...(owner.instanceId === undefined
+				? {}
+				: { ownerInstanceId: owner.instanceId }),
+			value,
+		}),
+	)
+
+	for (const contribution of capabilityContributions) {
 		const implementation = getEnforcementContributionImplementation(
 			contribution.value,
 		)

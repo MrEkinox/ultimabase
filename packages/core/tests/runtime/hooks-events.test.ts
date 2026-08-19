@@ -18,11 +18,38 @@ import {
 	RuntimePipeline,
 	type DatabaseAdapter,
 	type RuntimePipelineStages,
+	type RuntimeInterceptorDefinition,
+	type RuntimeObserverDefinition,
 } from '../../src/runtime/index.js'
 import {
 	RecordingDatabaseAdapter,
 	type QueuedAdapterResult,
 } from './fixtures/recording-database-adapter.js'
+import {
+	provideTestRuntimeInterceptor,
+	provideTestRuntimeObserver,
+} from './fixtures/runtime-capabilities.js'
+
+const createTestRuntimeContributions = (
+	declare: (
+		intercept: (name: string, definition: RuntimeInterceptorDefinition) => void,
+		observe: (name: string, definition: RuntimeObserverDefinition) => void,
+	) => void,
+) => {
+	const provides: (
+		| ReturnType<typeof provideTestRuntimeInterceptor>
+		| ReturnType<typeof provideTestRuntimeObserver>
+	)[] = []
+	declare(
+		(name, definition) => {
+			provides.push(provideTestRuntimeInterceptor(name, definition))
+		},
+		(name, definition) => {
+			provides.push(provideTestRuntimeObserver(name, definition))
+		},
+	)
+	return { provides }
+}
 
 const articleSchema = Schema.define({
 	className: 'HookArticle',
@@ -61,8 +88,8 @@ const createOrderedPlugins = (trace: string[]) => {
 				reason: 'Registers post-commit observers for tests.',
 			},
 		],
-		setup: ({ events, runtime }) => {
-			runtime.register(
+		capabilities: createTestRuntimeContributions((intercept, observe) => {
+			intercept(
 				'fixture.dependency.global-before',
 				beforeOperation({
 					operations: ['create-one'],
@@ -72,7 +99,7 @@ const createOrderedPlugins = (trace: string[]) => {
 					},
 				}),
 			)
-			runtime.register(
+			intercept(
 				'fixture.dependency.schema-before',
 				beforeOperation({
 					schema: articleSchema,
@@ -82,7 +109,7 @@ const createOrderedPlugins = (trace: string[]) => {
 					},
 				}),
 			)
-			runtime.register(
+			intercept(
 				'fixture.dependency.schema-after',
 				afterOperation({
 					schema: articleSchema,
@@ -99,7 +126,7 @@ const createOrderedPlugins = (trace: string[]) => {
 					},
 				}),
 			)
-			runtime.register(
+			intercept(
 				'fixture.dependency.global-after',
 				afterOperation({
 					operations: ['create-one'],
@@ -111,7 +138,7 @@ const createOrderedPlugins = (trace: string[]) => {
 					},
 				}),
 			)
-			events.register(
+			observe(
 				'fixture.dependency.event',
 				postCommitEvent({
 					schema: articleSchema,
@@ -122,7 +149,7 @@ const createOrderedPlugins = (trace: string[]) => {
 				}),
 			)
 			// These valid contributions prove schema and operation filters skip non-matches.
-			runtime.register(
+			intercept(
 				'fixture.dependency.foreign-before',
 				beforeOperation({
 					schema: foreignSchema,
@@ -132,7 +159,7 @@ const createOrderedPlugins = (trace: string[]) => {
 					},
 				}),
 			)
-			runtime.register(
+			intercept(
 				'fixture.dependency.foreign-after',
 				afterOperation({
 					schema: foreignSchema,
@@ -144,7 +171,7 @@ const createOrderedPlugins = (trace: string[]) => {
 					},
 				}),
 			)
-		},
+		}),
 	})
 	const consumer = definePlugin({
 		version: '0.0.0',
@@ -161,8 +188,8 @@ const createOrderedPlugins = (trace: string[]) => {
 			},
 		],
 		dependencies: [{ pluginId: 'fixture.hooks.dependency', version: '^0.0.0' }],
-		setup: ({ events, runtime }) => {
-			runtime.register(
+		capabilities: createTestRuntimeContributions((intercept, observe) => {
+			intercept(
 				'fixture.consumer.global-before',
 				beforeOperation({
 					operations: ['create-one'],
@@ -171,7 +198,7 @@ const createOrderedPlugins = (trace: string[]) => {
 					},
 				}),
 			)
-			runtime.register(
+			intercept(
 				'fixture.consumer.schema-before',
 				beforeOperation({
 					schema: articleSchema,
@@ -183,7 +210,7 @@ const createOrderedPlugins = (trace: string[]) => {
 					},
 				}),
 			)
-			runtime.register(
+			intercept(
 				'fixture.consumer.schema-after',
 				afterOperation({
 					schema: articleSchema,
@@ -195,7 +222,7 @@ const createOrderedPlugins = (trace: string[]) => {
 					},
 				}),
 			)
-			runtime.register(
+			intercept(
 				'fixture.consumer.global-after',
 				afterOperation({
 					operations: ['create-one'],
@@ -206,7 +233,7 @@ const createOrderedPlugins = (trace: string[]) => {
 					},
 				}),
 			)
-			events.register(
+			observe(
 				'fixture.consumer.event',
 				postCommitEvent({
 					schema: articleSchema,
@@ -216,7 +243,7 @@ const createOrderedPlugins = (trace: string[]) => {
 					},
 				}),
 			)
-			events.register(
+			observe(
 				'fixture.consumer.update-event',
 				postCommitEvent({
 					operations: ['update-one'],
@@ -225,7 +252,7 @@ const createOrderedPlugins = (trace: string[]) => {
 					},
 				}),
 			)
-		},
+		}),
 	})
 
 	// Reversed configuration proves dependency order wins over array position.
@@ -358,8 +385,8 @@ describe('Runtime hooks and post-commit events', () => {
 					reason: 'Registers a post-commit observer for tests.',
 				},
 			],
-			setup: ({ events, runtime }) => {
-				runtime.register(
+			capabilities: createTestRuntimeContributions((intercept, observe) => {
+				intercept(
 					'fixture.abort.after',
 					afterOperation({
 						schema: articleSchema,
@@ -370,7 +397,7 @@ describe('Runtime hooks and post-commit events', () => {
 						},
 					}),
 				)
-				events.register(
+				observe(
 					'fixture.abort.event',
 					postCommitEvent({
 						handler: () => {
@@ -378,7 +405,7 @@ describe('Runtime hooks and post-commit events', () => {
 						},
 					}),
 				)
-			},
+			}),
 		})
 		const { request } = await createRequest(
 			[plugin],

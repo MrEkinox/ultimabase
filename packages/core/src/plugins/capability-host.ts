@@ -1,4 +1,5 @@
 import {
+	immutableArray,
 	immutableRecord,
 	isPlainRecord,
 	type MaybePromise,
@@ -13,6 +14,7 @@ import {
 	runCapabilityDecorator,
 	type ApplicationCapabilityResource,
 	type CapabilityConsumerValue,
+	type CapabilityProviderValue,
 	type CapabilityRequirement,
 	type CapabilityToken,
 	type PluginCapabilityReader,
@@ -33,6 +35,15 @@ import {
 interface MaterializedCapabilityResource {
 	readonly owner: PluginIdentity
 	readonly dispose: () => MaybePromise<void>
+}
+
+/** Retains exact provider ownership after application capability materialization. */
+export interface MaterializedCapabilityContribution<
+	TToken extends CapabilityToken = CapabilityToken,
+> {
+	readonly contributionId: string
+	readonly owner: PluginIdentity
+	readonly value: CapabilityProviderValue<TToken>
 }
 
 const throwCapabilityCycle = (
@@ -140,6 +151,10 @@ export class ApplicationCapabilityHost {
 		Map<string | undefined, PluginCapabilityReader>
 	>()
 	readonly #resolvedConsumers = new Map<CapabilityToken, unknown>()
+	readonly #resolvedContributions = new Map<
+		CapabilityToken,
+		readonly MaterializedCapabilityContribution[]
+	>()
 	readonly #resolvedTokens = new Set<CapabilityToken>()
 	readonly #resources: MaterializedCapabilityResource[] = []
 	#materializationPromise: Promise<void> | undefined
@@ -180,6 +195,25 @@ export class ApplicationCapabilityHost {
 		}
 
 		return this.#resolvedConsumers.get(token)
+	}
+
+	/** Reads Core-owned provider provenance without opening generic plugin lookup. */
+	readContributions<const TToken extends CapabilityToken>(
+		token: TToken,
+	): readonly MaterializedCapabilityContribution<TToken>[] {
+		if (this.#disposed) {
+			throw new TypeError('Application capabilities are no longer available')
+		}
+		if (!this.#materialized) {
+			throw new TypeError(
+				'Application capabilities require completed materialization',
+			)
+		}
+
+		return (this.#resolvedContributions.get(token) ??
+			immutableArray(
+				[],
+			)) as readonly MaterializedCapabilityContribution<TToken>[]
 	}
 
 	/** Returns one stable reader whose requirement objects are fixed to its owner. */
@@ -243,6 +277,7 @@ export class ApplicationCapabilityHost {
 		}
 		this.#resources.length = 0
 		this.#resolvedConsumers.clear()
+		this.#resolvedContributions.clear()
 		this.#resolvedTokens.clear()
 		this.#disposed = true
 		throwCleanupErrors(errors)
@@ -278,20 +313,19 @@ export class ApplicationCapabilityHost {
 
 		const nextStack = [...resolutionStack, token]
 		const providers: unknown[] = []
+		const materializedContributions: MaterializedCapabilityContribution[] = []
 		for (const chain of plan.chains) {
 			const contribution = chain.at(-1)
 			if (contribution === undefined) continue
 			const plugin = contribution.plugin
-			if (plugin === undefined) {
-				throw new TypeError(
-					'Foundation capability providers must have declaration lifetime',
-				)
-			}
 
-			const requirements = [
-				...plugin.definition.manifest.capabilities.requires,
-				...plugin.definition.manifest.capabilities.optional,
-			]
+			const requirements =
+				plugin === undefined
+					? []
+					: [
+							...plugin.definition.manifest.capabilities.requires,
+							...plugin.definition.manifest.capabilities.optional,
+						]
 			for (const requirement of requirements) {
 				if (
 					requirement.phase === 'materialization' &&
@@ -310,17 +344,23 @@ export class ApplicationCapabilityHost {
 						'factory',
 						this.#factoryReaders,
 					),
-					constraintCompilers: this.#canConsumeAdapter(
-						contribution.owner,
-						plugin,
-					)
-						? this.#constraintCompilers
-						: createDeniedConstraintCompilerReader(contribution.owner),
+					constraintCompilers:
+						plugin !== undefined &&
+						this.#canConsumeAdapter(contribution.owner, plugin)
+							? this.#constraintCompilers
+							: createDeniedConstraintCompilerReader(contribution.owner),
 					schemas: this.#schemas,
 				}),
 			)
 			assertApplicationResource(resource, token.capabilityId)
 			providers.push(resource.value)
+			materializedContributions.push(
+				immutableRecord({
+					contributionId: contribution.declaration.contributionId,
+					owner: contribution.owner,
+					value: resource.value,
+				}),
+			)
 			if (resource.dispose !== undefined) {
 				this.#resources.push({
 					owner: contribution.owner,
@@ -333,6 +373,10 @@ export class ApplicationCapabilityHost {
 		for (const decorator of plan.entry.decorators.toReversed()) {
 			consumer = runCapabilityDecorator(decorator.declaration, consumer)
 		}
+		this.#resolvedContributions.set(
+			token,
+			immutableArray(materializedContributions),
+		)
 		this.#resolvedConsumers.set(token, consumer)
 		this.#resolvedTokens.add(token)
 		return consumer

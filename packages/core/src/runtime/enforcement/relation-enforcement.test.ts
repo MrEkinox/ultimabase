@@ -2,6 +2,7 @@ import { createApplication, definePlugin } from '../../foundation.js'
 import { QueryBuilder } from '../../query/index.js'
 import { Schema } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
+import { provideTestRuntimeConstraint } from '../../../tests/runtime/fixtures/runtime-capabilities.js'
 
 import { RequestContext, requestSources } from '../context/request-context.js'
 import type { RuntimeEnforcementStages } from '../pipeline/contracts.js'
@@ -59,21 +60,23 @@ const policyPlugin = definePlugin({
 			reason: 'Registers relation enforcement contributions for Runtime tests.',
 		},
 	],
-	setup: ({ runtime }) => {
-		runtime.register(
-			'target-constraint',
-			constraint({
-				handler: () => databaseConstraint('fixture.target-visibility', 1, {}),
-				schema: targetSchema,
-			}),
-		)
-		runtime.register(
-			'leaf-constraint',
-			constraint({
-				handler: () => databaseConstraint('fixture.leaf-visibility', 1, {}),
-				schema: leafSchema,
-			}),
-		)
+	capabilities: {
+		provides: [
+			provideTestRuntimeConstraint(
+				'target-constraint',
+				constraint({
+					handler: () => databaseConstraint('fixture.target-visibility', 1, {}),
+					schema: targetSchema,
+				}),
+			),
+			provideTestRuntimeConstraint(
+				'leaf-constraint',
+				constraint({
+					handler: () => databaseConstraint('fixture.leaf-visibility', 1, {}),
+					schema: leafSchema,
+				}),
+			),
+		],
 	},
 })
 

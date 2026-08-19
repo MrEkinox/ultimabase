@@ -86,9 +86,9 @@ its exact schema and plugin tuples. A missing or malformed database adapter,
 invalid pipeline or hook contribution, or unusable application state fails
 during assembly, before any operation can execute.
 
-Plugins use `runtimePipelineStage()` only for the general `normalization` and
-`commit` positions. Policies instead register protected enforcement definitions
-through the exact `runtime` facade:
+Plugins materialize `runtimePipelineStage()` only for the general
+`normalization` and `commit` positions. Policies provide protected enforcement
+definitions through the exact `provideRuntimeConstraint()` facade:
 
 ```ts
 const tenantPlugin = (tenantId: string) =>
@@ -102,32 +102,52 @@ const tenantPlugin = (tenantId: string) =>
 				reason: 'Applies tenant row and selection restrictions.',
 			},
 		],
-		setup: ({ runtime }) => {
-			runtime.register(
-				'example.tenant-constraint',
-				constraint({
-					schema: ArticleSchema,
-					operations: ['find-many', 'find-one', 'get'],
-					handler: () => databaseConstraint('example.tenant', 1, { tenantId }),
+		capabilities: {
+			provides: [
+				provideRuntimeConstraint({
+					contributionId: 'example.tenant-constraint',
+					create: () => ({
+						value: constraint({
+							schema: ArticleSchema,
+							operations: ['find-many', 'find-one', 'get'],
+							handler: () =>
+								databaseConstraint('example.tenant', 1, { tenantId }),
+						}),
+					}),
 				}),
-			)
-			runtime.register(
-				'example.tenant-selection',
-				restrictSelection({
-					schema: ArticleSchema,
-					handler: () => ['id', 'title'],
+				provideRuntimeConstraint({
+					contributionId: 'example.tenant-selection',
+					create: () => ({
+						value: restrictSelection({
+							schema: ArticleSchema,
+							handler: () => ['id', 'title'],
+						}),
+					}),
 				}),
-			)
+			],
 		},
 	})
 ```
+
+Runtime uses four versioned application capabilities. Interceptors form an
+ordered pipeline, constraints remain independent monotonic providers,
+observers cannot replace results, and one executor sits behind Core's request
+shell. `provideRuntimeInterceptor()`, `provideRuntimeConstraint()`, and
+`provideRuntimeObserver()` require `runtime:intercept`, `runtime:constrain`, and
+`runtime:observe` respectively. Generic capability providers, requirements,
+replacements, and decorators cannot bypass those exact facades or inspect the
+composed protected state. `replaceRuntime()` requires
+`runtime:replace`; replacement changes the executor while Core retains
+application ownership, request cancellation, trusted master construction, and
+the automatic transaction boundary. Runtime contributions are materialized
+before setup and no `runtime`, `events`, or `pipeline` setup registry exists.
 
 `normalization` and `commit` contributions compose in dependency-first plugin
 order. Enforcement factories are `guard`, `constraint`, `restrictInput`,
 `restrictSelection`, and `restrictOutput`. Their handlers never receive another
 plugin's accumulated state. Runtime appends constraints for adapter-side
-logical `AND`, intersects field restrictions, and creates no enforcement stage
-when the hook registry contains none. An optional `MasterAuthority` may be
+logical `AND`, intersects field restrictions, and creates no provider-specific
+enforcement stage when no constraint capability is present. An optional `MasterAuthority` may be
 supplied to `createFrameworkEngine` without changing the trusted master
 boundary.
 
@@ -156,36 +176,44 @@ update and delete branches receive a persisted `SchemaResult`. Upsert follows
 the same distinction after its create or update mode is known.
 
 ```ts
-setup: ({ runtime }) => {
-	runtime.register(
-		'articles.guard-create',
-		guard({
-			schema: ArticleSchema,
-			operations: ['create-one', 'create-many'],
-			handler: ({ context }) => {
-				if (context.getValue(authenticatedPrincipal) === undefined) {
-					throw new FrameworkError(
-						'PERMISSION_DENIED',
-						'Authentication required',
-					)
-				}
-			},
+capabilities: {
+	provides: [
+		provideRuntimeConstraint({
+			contributionId: 'articles.guard-create',
+			create: () => ({
+				value: guard({
+					schema: ArticleSchema,
+					operations: ['create-one', 'create-many'],
+					handler: ({ context }) => {
+						if (context.getValue(authenticatedPrincipal) === undefined) {
+							throw new FrameworkError(
+								'PERMISSION_DENIED',
+								'Authentication required',
+							)
+						}
+					},
+				}),
+			}),
 		}),
-	)
-	runtime.register(
-		'articles.visible-fields',
-		restrictSelection({
-			schema: ArticleSchema,
-			handler: () => ['id', 'title', 'published'],
+		provideRuntimeConstraint({
+			contributionId: 'articles.visible-fields',
+			create: () => ({
+				value: restrictSelection({
+					schema: ArticleSchema,
+					handler: () => ['id', 'title', 'published'],
+				}),
+			}),
 		}),
-	)
-	runtime.register(
-		'articles.safe-output',
-		restrictOutput({
-			schema: ArticleSchema,
-			handler: () => ['id', 'title'],
+		provideRuntimeConstraint({
+			contributionId: 'articles.safe-output',
+			create: () => ({
+				value: restrictOutput({
+					schema: ArticleSchema,
+					handler: () => ['id', 'title'],
+				}),
+			}),
 		}),
-	)
+	],
 }
 ```
 
@@ -649,17 +677,21 @@ const searchPlugin = definePlugin({
 			reason: 'Updates the search index after commit.',
 		},
 	],
-	setup: ({ events }) => {
-		events.register(
-			'articles.created',
-			onEvent({
-				name: 'article.created',
-				handler: ({ context, event }) => {
-					searchIndex.add(event.payload)
-					console.log(context.requestId, event.transactionId)
-				},
+	capabilities: {
+		provides: [
+			provideRuntimeObserver({
+				contributionId: 'articles.created',
+				create: () => ({
+					value: onEvent({
+						name: 'article.created',
+						handler: ({ context, event }) => {
+							searchIndex.add(event.payload)
+							console.log(context.requestId, event.transactionId)
+						},
+					}),
+				}),
 			}),
-		)
+		],
 	},
 })
 ```
@@ -698,24 +730,29 @@ const articleAutomationPlugin = () =>
 				reason: 'Updates the search index after commit.',
 			},
 		],
-		setup: ({ events, runtime }) => {
-			runtime.register(
-				'articles.audit-create',
-				beforeOperation({
-					schema: ArticleSchema,
-					operations: ['create-one'],
-					handler: ({ operation }) => audit(operation),
+		capabilities: {
+			provides: [
+				provideRuntimeInterceptor({
+					contributionId: 'articles.audit-create',
+					create: () => ({
+						value: beforeOperation({
+							schema: ArticleSchema,
+							operations: ['create-one'],
+							handler: ({ operation }) => audit(operation),
+						}),
+					}),
 				}),
-			)
-
-			events.register(
-				'articles.search-index',
-				postCommitEvent({
-					schema: ArticleSchema,
-					operations: ['create-one', 'update-one'],
-					handler: ({ result }) => searchIndex.upsert(result),
+				provideRuntimeObserver({
+					contributionId: 'articles.search-index',
+					create: () => ({
+						value: postCommitEvent({
+							schema: ArticleSchema,
+							operations: ['create-one', 'update-one'],
+							handler: ({ result }) => searchIndex.upsert(result),
+						}),
+					}),
 				}),
-			)
+			],
 		},
 	})
 ```

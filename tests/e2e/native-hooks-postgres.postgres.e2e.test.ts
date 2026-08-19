@@ -23,6 +23,10 @@ import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from './postgres-worker-fixture.js'
+import {
+	provideTestRuntimeConstraint,
+	provideTestRuntimeObserver,
+} from './runtime-capabilities.js'
 
 const hookTrace: string[] = []
 const committedEvents: string[] = []
@@ -218,63 +222,67 @@ const scopePolicyPlugin = definePlugin({
 			reason: 'Applies the fixture scope guard and narrowing restrictions.',
 		},
 	],
-	setup: ({ constraintCompilers, runtime }) => {
+	capabilities: {
+		provides: [
+			provideTestRuntimeConstraint(
+				'fixture.native-hooks-guard',
+				guard({
+					schema: HookArticleSchema,
+					handler: ({ context, operation }) => {
+						trace(`policy:guard:${operation.kind}`)
+						readScopeId(context.metadata)
+					},
+				}),
+			),
+			provideTestRuntimeConstraint(
+				'fixture.native-hooks-constraint',
+				constraint({
+					handler: ({ context, operation }) => {
+						trace(`policy:constraint:${operation.kind}`)
+
+						return databaseConstraint('fixture.scope', 1, {
+							scopeId: readScopeId(context.metadata),
+						})
+					},
+					operations: [
+						'find-many',
+						'find-one',
+						'get',
+						'count',
+						'exists',
+						'update-one',
+						'update-many',
+						'delete-one',
+						'delete-many',
+					],
+					schema: HookArticleSchema,
+				}),
+			),
+			provideTestRuntimeConstraint(
+				'fixture.native-hooks-selection',
+				restrictSelection({
+					// Selection hides the scope identity before output hooks observe a record.
+					handler: () => ['id', 'title', 'secret', 'profile'],
+					operations: ['find-many', 'find-one', 'get'],
+					schema: HookArticleSchema,
+				}),
+			),
+			provideTestRuntimeConstraint(
+				'fixture.native-hooks-output',
+				restrictOutput({
+					handler: ({ operation }) => {
+						trace(`policy:restrictOutput:${operation.kind}`)
+
+						return ['id', 'title', 'profile']
+					},
+					operations: ['find-many', 'find-one', 'get'],
+					schema: HookArticleSchema,
+				}),
+			),
+		],
+	},
+	setup: ({ constraintCompilers }) => {
 		constraintCompilers.register(scopeConstraintCompiler)
-		runtime.register(
-			'fixture.native-hooks-guard',
-			guard({
-				schema: HookArticleSchema,
-				handler: ({ context, operation }) => {
-					trace(`policy:guard:${operation.kind}`)
-					readScopeId(context.metadata)
-				},
-			}),
-		)
-		runtime.register(
-			'fixture.native-hooks-constraint',
-			constraint({
-				handler: ({ context, operation }) => {
-					trace(`policy:constraint:${operation.kind}`)
-
-					return databaseConstraint('fixture.scope', 1, {
-						scopeId: readScopeId(context.metadata),
-					})
-				},
-				operations: [
-					'find-many',
-					'find-one',
-					'get',
-					'count',
-					'exists',
-					'update-one',
-					'update-many',
-					'delete-one',
-					'delete-many',
-				],
-				schema: HookArticleSchema,
-			}),
-		)
-		runtime.register(
-			'fixture.native-hooks-selection',
-			restrictSelection({
-				// Selection hides the scope identity before output hooks observe a record.
-				handler: () => ['id', 'title', 'secret', 'profile'],
-				operations: ['find-many', 'find-one', 'get'],
-				schema: HookArticleSchema,
-			}),
-		)
-		runtime.register(
-			'fixture.native-hooks-output',
-			restrictOutput({
-				handler: ({ operation }) => {
-					trace(`policy:restrictOutput:${operation.kind}`)
-
-					return ['id', 'title', 'profile']
-				},
-				operations: ['find-many', 'find-one', 'get'],
-				schema: HookArticleSchema,
-			}),
-		)
 	},
 })
 
@@ -295,7 +303,21 @@ const behaviorPlugin = definePlugin({
 			reason: 'Observes committed native-hook events for the E2E fixture.',
 		},
 	],
-	setup: ({ events, hooks }) => {
+	capabilities: {
+		provides: [
+			provideTestRuntimeObserver(
+				'fixture.native-hooks-created-event',
+				onEvent({
+					name: 'native-hooks.article-created',
+					handler: ({ event }) => {
+						committedEvents.push(event.name)
+						trace(`event:${event.name}`)
+					},
+				}),
+			),
+		],
+	},
+	setup: ({ hooks }) => {
 		hooks.schema('article-lifecycle', HookArticleSchema, {
 			afterOperation: {
 				create: () => {
@@ -309,16 +331,6 @@ const behaviorPlugin = definePlugin({
 				},
 			},
 		})
-		events.register(
-			'fixture.native-hooks-created-event',
-			onEvent({
-				name: 'native-hooks.article-created',
-				handler: ({ event }) => {
-					committedEvents.push(event.name)
-					trace(`event:${event.name}`)
-				},
-			}),
-		)
 	},
 })
 
