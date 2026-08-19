@@ -33,6 +33,10 @@ the same runtime payload and result validation. Operation handles contain no
 connection, adapter, or generated code and cannot execute after application
 disposal.
 
+Issue 1416 records each operation's complete public error vocabulary in the
+inert Typegen snapshot. This additive snapshot field advances the snapshot
+format to version 3 so consumers never interpret the older format as complete.
+
 The operation provider owns normalization, input validation, logical execution,
 result validation, safe plugin errors, and transaction policy. Execution enters
 the ordinary RequestEngine and capability middleware. Schema-targeted operations

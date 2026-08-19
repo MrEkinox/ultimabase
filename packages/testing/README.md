@@ -42,5 +42,12 @@ rollback, post-commit delivery, opaque scope constraints, field restrictions,
 and atomic item-oriented collection behavior through built public package
 exports.
 
-Planned APIs still include `createTestApplication`, `runAs`, transport
+## Fake public operation transport
+
+`FakePublicOperationTransport` exercises an application's explicit generic
+operation exposure without installing HTTP or GraphQL. It returns only encoded
+success values, safe `FrameworkError` payloads, or declared public
+`PluginError` payloads; unknown diagnostics collapse to `INTERNAL_ERROR`.
+
+Planned APIs still include `createTestApplication`, `runAs`, concrete transport
 executors, and broader adapter conformance suites.

@@ -28,7 +28,7 @@ community packages.
 15. [x] [1408 — Let plugins contribute exact Typegen contracts](1408-plugin-typegen-contributions.md)
 16. [x] [1409 — Assemble Runtime through public capability middleware](1409-runtime-capability-assembly.md)
 17. [x] [1410 — Separate logical operations from rewritable persistence plans](1410-rewritable-persistence-plans.md)
-18. [ ] [1416 — Execute plugin operations and explicit transport bindings](1416-execute-plugin-operations-and-transport-bindings.md)
+18. [x] [1416 — Execute plugin operations and explicit transport bindings](1416-execute-plugin-operations-and-transport-bindings.md)
 19. [ ] [1417 — Add adapter, codec, physical schema, and migration bridges](1417-adapter-codec-schema-migration-bridges.md)
 20. [ ] [1411 — Publish the plugin authoring toolbox](1411-plugin-authoring-toolbox.md)
 21. [ ] [1412 — Add plugin conformance testing utilities](1412-plugin-conformance-testing.md)

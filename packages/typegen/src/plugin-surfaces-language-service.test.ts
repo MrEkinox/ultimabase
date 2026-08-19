@@ -29,6 +29,7 @@ const createGeneratedRegistry = (): string => {
 		fields: (field) => ({ title: field.string() }),
 	})
 	const publish = defineOperation({
+		errors: ['fixture.semantic.rejected'] as const,
 		input: defineOperationValue(
 			(value) => value as { readonly id: string },
 			inputReference,
@@ -136,28 +137,44 @@ describe('generated plugin surface declarations', () => {
 declare const ultimabase: Core.UltimaBase<readonly [], readonly []>
 const schema = ultimabase.schema('SemanticDynamicPost')
 const envelope = schema.publish.prepare({ id: 'post-1' })
+const schemaExecution: Promise<Core.BaseItem> = schema.publish.execute({ id: 'post-1' })
 const exactId: string = envelope.payload.id
 const query = schema.byId({ id: 'post-1' })
 const operation = ultimabase.operation('fixture.semantic.publish')
 operation.prepare({ id: 'post-2' })
+const operationExecution: Promise<Core.BaseItem> = operation.execute({ id: 'post-2' })
+const operationError: Core.PluginOperationErrorCode<typeof operation.definition> = 'fixture.semantic.rejected'
 // @ts-expect-error -- Generated dynamic handles reject unknown plugin aliases.
 schema.unknownPluginSurface
 // @ts-expect-error -- Exact generated operation input requires id.
 operation.prepare({ missing: true })
+// @ts-expect-error -- Generated execution preserves declared public error codes.
+const unknownError: Core.PluginOperationErrorCode<typeof operation.definition> = 'fixture.semantic.unknown'
 void exactId
 void query
+void operationError
+void operationExecution
+void schemaExecution
+void unknownError
 `
 			const fileName = path.join(
 				import.meta.dirname,
 				`plugin-surfaces-${_}.fixture.ts`,
 			)
-			const diagnostics = createService(
+			const service = createService(fileName, source, corePath)
+			const diagnostics = service.getSemanticDiagnostics(fileName)
+			const executePosition =
+				source.indexOf('operation.execute') + 'operation.'.length
+			const executeInfo = service.getQuickInfoAtPosition(
 				fileName,
-				source,
-				corePath,
-			).getSemanticDiagnostics(fileName)
+				executePosition,
+			)
+			const executeDisplay =
+				executeInfo?.displayParts?.map(({ text }) => text).join('') ?? ''
 
 			expect(diagnostics).toStrictEqual([])
+			expect(executeDisplay).toContain('execute')
+			expect(executeDisplay).toContain('): Promise<Readonly<')
 			expect(source).not.toMatch(/\bany\b/u)
 		},
 	)

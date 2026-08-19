@@ -353,6 +353,7 @@ transaction metadata stay transport-neutral:
 
 ```ts
 const publishPost = defineOperation({
+	errors: ['community.workflow.publish-rejected'],
 	name: 'community.workflow.publish-post',
 	version: '1.0.0',
 	target: 'model',
@@ -383,17 +384,29 @@ declare({ models, operations, queries, schemas }) {
 }
 ```
 
-Handles expose commands as inert operation handles and query extensions as
-ordinary `QueryBuilder` factories, both through their named collections and
-generated direct properties. `prepare()` validates one immutable logical
-envelope but performs no I/O. Runtime handlers and `execute()`, wire
-serialization, and transport exposure remain separate work owned by issue 1416:
+Handles expose commands as application-owned operation handles and query
+extensions as ordinary `QueryBuilder` factories, both through their named
+collections and generated direct properties. `prepare()` validates one
+immutable logical envelope without I/O; `execute()` enters the active
+`RequestEngine`, enforces cancellation and transaction policy, invokes the
+exact owner handler, and validates the result. Handlers are separate application
+capability contributions and may throw only declared namespaced `PluginError`
+codes as public domain failures:
 
 ```ts
 const Post = ultimabase.schema('Post')
-const envelope = Post.for(post).publish.prepare({ reason: 'reviewed' })
+const published = await Post.for(post).publish.execute({ reason: 'reviewed' })
 const query = Post.byWorkflowState('ready')
 ```
+
+Transport exposure is a second explicit boundary. The operation owner requests
+`transport:expose`, provides a nominal wire codec through
+`provideOperationTransportBinding`, and the application selects a non-empty
+allowlist with `ultimabase.exposeOperations({ transport, operations })`.
+Version 1 of this generic protocol binds application-targeted operations; schema
+and model targets remain directly executable through their owned handles. Wire
+requests supply an already validated `RequestContext` and cannot select Master,
+Runtime replacement, or a raw adapter.
 
 Core preserves stable token input and result precision, stable schema-class
 precision, and safe dynamic JavaScript access. The generated registry adds exact

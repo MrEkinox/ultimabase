@@ -10,16 +10,27 @@ import type { SchemaDefinition } from '../../schema/index.js'
 import { Schema } from '../../schema/index.js'
 import { isPlainRecord } from '@ultimabase/shared'
 import type { PluginOperationDefinition } from '../../plugins/plugin-operations.js'
+import type { CompiledPluginOperation } from '../../plugins/application-surface-registry.js'
 import {
 	ApplicationOperationHandle,
 	ApplicationSchemaHandleBase,
+	registerApplicationOperationExecutor,
+	type ApplicationOperationBinding,
 	type ApplicationOperationHandleForName,
 	type ApplicationSchemaHandle,
 	type ApplicationSchemaHandleForName,
+	type PluginOperationEnvelope,
 } from '../../application/application-handles.js'
 
 import { requestSources } from '../context/request-context.js'
+import { getActiveFrameworkContext } from '../context/active-framework-storage.js'
 import type { FrameworkEngine } from '../engine/framework-engine.js'
+import type { OperationTransportProtocol } from '../plugin-operations/contracts.js'
+import type {
+	ApplicationOperationTransport,
+	OperationTransportExposureOptions,
+} from '../plugin-operations/transport.js'
+import { executeRequestPluginOperation } from '../plugin-operations/request-execution.js'
 import {
 	createFrameworkEngine,
 	normalizeCreateFrameworkEngineOptions,
@@ -219,6 +230,11 @@ export class UltimaBase<
 		let handle = this.#operationHandles.get(name)
 		if (handle === undefined) {
 			handle = new ApplicationOperationHandle(this, compiled)
+			registerApplicationOperationExecutor(
+				handle,
+				(compiledOperation, binding, envelope) =>
+					this.#executePluginOperation(compiledOperation, binding, envelope),
+			)
 			this.#operationHandles.set(name, handle)
 		}
 		return handle
@@ -259,12 +275,33 @@ export class UltimaBase<
 							`Operation token is not installed in this application: ${operation.name}`,
 						)
 					}
-					return new ApplicationOperationHandle(this, compiled, binding)
+					const operationHandle = new ApplicationOperationHandle(
+						this,
+						compiled,
+						binding,
+					)
+					registerApplicationOperationExecutor(
+						operationHandle,
+						(compiledOperation, operationBinding, envelope) =>
+							this.#executePluginOperation(
+								compiledOperation,
+								operationBinding,
+								envelope,
+							),
+					)
+					return operationHandle
 				},
 			)
 			this.#schemaHandles.set(className, handle)
 		}
 		return handle
+	}
+
+	/** Selects the exact custom operations one public transport may execute. */
+	exposeOperations<const TTransport extends OperationTransportProtocol>(
+		options: OperationTransportExposureOptions<TTransport>,
+	): ApplicationOperationTransport<TTransport> {
+		return this.engine.exposeOperations(options)
 	}
 
 	/** Initializes plugins, assembles Runtime, and starts infrastructure exactly once. */
@@ -323,5 +360,26 @@ export class UltimaBase<
 
 			throw error
 		}
+	}
+
+	async #executePluginOperation(
+		compiled: CompiledPluginOperation,
+		binding: ApplicationOperationBinding,
+		envelope: PluginOperationEnvelope,
+	): Promise<unknown> {
+		const active = getActiveFrameworkContext()
+		const requestEngine =
+			active?.application === this.application
+				? active.requestEngine
+				: this.engine.anonymous({
+						requestId: randomUUID(),
+						source: requestSources.internal,
+					})
+		return executeRequestPluginOperation(
+			requestEngine,
+			compiled,
+			binding,
+			envelope,
+		)
 	}
 }

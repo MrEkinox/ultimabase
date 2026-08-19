@@ -104,6 +104,12 @@ dynamic schema handles, schema/model commands, and query inputs. Plugin owner,
 version, contribution ID, static options, imports, destinations, and contents
 all participate in collision checks and fingerprints.
 
+Operation declarations retain exact input, result, and declared public
+`PluginError` code unions. Generated application and schema/model handles add
+typing and autocomplete to the same runtime `execute()` method; they never emit
+an executable client. Operation error metadata advances the inert snapshot
+format to version 3.
+
 The TypeScript loader transpiles the application before a previous generated
 registry exists. Static compilation registers configured plugin field methods,
 resolves fields and relationship targets, and then emits exact models,

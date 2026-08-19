@@ -24,7 +24,7 @@ export const handwrittenFileLineBaseline: Readonly<Record<string, number>> =
 		'packages/core/src/query/query/query.ts': 724,
 		'packages/core/src/runtime/access/dispatcher.test.ts': 1342,
 		'packages/core/src/runtime/enforcement/dispatcher.test.ts': 899,
-		'packages/core/src/runtime/engine/framework-engine.ts': 804,
+		'packages/core/src/runtime/engine/framework-engine.ts': 795,
 		'packages/core/src/runtime/hooks/boundaries.ts': 1019,
 		'packages/core/src/runtime/pipeline/inclusion-projection.ts': 713,
 		'packages/core/src/runtime/pipeline/runtime-pipeline.test.ts': 1152,

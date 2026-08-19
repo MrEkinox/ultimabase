@@ -184,7 +184,8 @@ export const renderGeneratedSurfaces = (
 			operation.result === undefined
 				? 'unknown'
 				: context.imports.alias(operation.result)
-		return `\t\treadonly ${quote(operation.name)}: Core.PluginOperationDefinition<${quote(operation.name)}, ${quote(operation.version)}, ${quote(operation.target)}, ${input}, ${result}>`
+		const errors = `readonly [${operation.errors.map(quote).join(', ')}]`
+		return `\t\treadonly ${quote(operation.name)}: Core.PluginOperationDefinition<${quote(operation.name)}, ${quote(operation.version)}, ${quote(operation.target)}, ${input}, ${result}, ${errors}>`
 	})
 	const surfaces = snapshot.surfaces.map((surface) => {
 		const renderCommands = (commands: typeof surface.schemaCommands): string =>

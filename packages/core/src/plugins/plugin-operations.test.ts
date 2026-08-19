@@ -21,6 +21,7 @@ describe('plugin operation declarations', () => {
 		})
 
 		expect(operation).toStrictEqual({
+			errors: [],
 			input: passthrough,
 			kind: 'plugin-operation',
 			name: 'community.workflow.publish',
@@ -35,6 +36,7 @@ describe('plugin operation declarations', () => {
 		expect(operation).not.toHaveProperty('execute')
 		expect(operation).not.toHaveProperty('transport')
 		expect(operation).not.toHaveProperty('serialize')
+		expect(Object.isFrozen(operation.errors)).toBe(true)
 	})
 
 	it('rejects ambiguous identities and malformed envelope metadata', () => {
@@ -59,6 +61,15 @@ describe('plugin operation declarations', () => {
 		expect(() =>
 			defineOperation({ ...base, target: 'database' as never }),
 		).toThrow('operation target must be application, schema, or model')
+		expect(() =>
+			defineOperation({ ...base, errors: ['not-namespaced'] }),
+		).toThrow('operation error code must be namespaced')
+		expect(() =>
+			defineOperation({
+				...base,
+				errors: ['community.workflow.denied', 'community.workflow.denied'],
+			}),
+		).toThrow('operation errors contains duplicate code')
 		expect(() =>
 			defineOperation({ ...base, execute: () => undefined } as never),
 		).toThrow('operation definition contains unknown option: execute')

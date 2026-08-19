@@ -32,6 +32,11 @@ export default defineConfig(
 		],
 	},
 	{
+		...tseslint.configs.disableTypeChecked,
+		// Native JavaScript fixtures still receive syntax and recommended linting.
+		files: ['**/*.cjs', '**/*.js', '**/*.mjs'],
+	},
+	{
 		files: ['**/*.ts'],
 		languageOptions: {
 			parserOptions: {

@@ -4,6 +4,11 @@ import {
 	type PluginDefinition,
 } from '../../foundation.js'
 import type {
+	ApplicationOperationBinding,
+	PluginOperationEnvelope,
+} from '../../application/application-handles.js'
+import type { CompiledPluginOperation } from '../../plugins/application-surface-registry.js'
+import type {
 	AnonymousRequestAccess,
 	MasterRequestAccess,
 	RequestAccess,
@@ -11,7 +16,6 @@ import type {
 import type {
 	ExecutableOperationAst,
 	OperationResult,
-	OperationAstNode,
 } from '../../query/index.js'
 import {
 	registerOperationBatchExecutionHandler,
@@ -30,10 +34,8 @@ import {
 } from '@ultimabase/shared'
 
 import {
-	getRequestContextOwner,
 	isRequestContext,
 	RequestContext,
-	setRequestContextOwner,
 	type RequestContextOptions,
 } from '../context/request-context.js'
 import { runWithRequestEngineScope } from '../context/active-framework-storage.js'
@@ -63,30 +65,29 @@ import {
 import { throwIfOperationCancelled } from '../hooks/cancellation.js'
 import { executeRuntimeRelationMutation } from '../relations/relation-mutation.js'
 import { createProtectedObjectNotFoundError } from '../operations/target-errors.js'
+import {
+	executePluginOperationRequest,
+	exposeFrameworkOperations,
+} from '../plugin-operations/engine-integration.js'
+import { registerRequestPluginOperationExecutor } from '../plugin-operations/request-execution.js'
+import type {
+	ApplicationOperationTransport,
+	OperationTransportExposureOptions,
+} from '../plugin-operations/transport.js'
+import type { OperationTransportProtocol } from '../plugin-operations/contracts.js'
+import {
+	assertApplicationEngineAvailable,
+	bindRequestContextToApplication,
+} from './application-binding.js'
+import {
+	createMasterAuditReason,
+	isNativeAccessDenied,
+	isStrictObjectOperation,
+} from './operation-boundaries.js'
 
 const requestEngineConstructionKey: unique symbol = Symbol(
 	'ultimabase.request-engine-construction',
 )
-
-/** Closes every escaped execution object when its application starts teardown. */
-const assertApplicationEngineAvailable = (
-	application: FrameworkApplication<
-		readonly SchemaDefinition[],
-		readonly PluginDefinition[]
-	>,
-): void => {
-	if (
-		application.state === 'stopping' ||
-		application.state === 'stopped' ||
-		application.state === 'disposing' ||
-		application.state === 'disposed'
-	) {
-		throw new TypeError(
-			`Framework engine cannot be used while application is ${application.state}`,
-		)
-	}
-}
-
 /** Receives one transaction-scoped engine while preserving its exact context type. */
 export type RequestTransactionHandler<
 	TSchemas extends readonly SchemaDefinition[],
@@ -133,49 +134,6 @@ const getFrameworkMasterAuthority = (
 
 	return authority
 }
-
-/** Claims an unbound context or rejects reuse across isolated applications. */
-const bindRequestContextToFramework = (
-	framework: FrameworkEngine,
-	context: RequestContext,
-): void => {
-	const owner = getRequestContextOwner(context)
-
-	if (owner !== undefined && owner !== framework.application) {
-		throw new FrameworkError(
-			'VALIDATION_ERROR',
-			'Explicit request context belongs to another application.',
-			{
-				publicMessage: 'The request context is not available.',
-				internalDetails: {
-					reason: 'operation-context-application-mismatch',
-				},
-			},
-		)
-	}
-
-	if (owner === undefined) {
-		setRequestContextOwner(context, framework.application)
-	}
-}
-
-/** Builds a stable master audit reason from the normalized schema operation. */
-const createMasterAuditReason = (
-	operation: OperationAstNode,
-	schema: SchemaDefinition,
-): string => `Schema command ${operation.kind} on ${schema.className}`
-
-/** Recognizes only Runtime's own Access denial marker at a protected boundary. */
-const isNativeAccessDenied = (error: unknown): boolean =>
-	error instanceof FrameworkError &&
-	error.code === 'PERMISSION_DENIED' &&
-	error.internalDetails?.kind === 'native-access-denied'
-
-/** Identifies operations whose private object identity must never resolve to null. */
-const isStrictObjectOperation = (operation: OperationAstNode): boolean =>
-	operation.kind === 'get' ||
-	operation.kind === 'update-one' ||
-	operation.kind === 'delete-one'
 
 /** Rejects malformed low-level construction before it can bind request state. */
 const assertFrameworkEngineOptions = (
@@ -239,7 +197,6 @@ export class FrameworkEngine<
 	/** Verifies one raw credential without retaining it in framework state. */
 	authorizeMasterKey(rawKey: string): MasterKeyGrant {
 		assertApplicationEngineAvailable(this.application)
-
 		return getFrameworkMasterAuthority(this).authorize(rawKey)
 	}
 
@@ -248,12 +205,11 @@ export class FrameworkEngine<
 		context: RequestContext<TAccess, TSource>,
 	): RequestEngine<TSchemas, TPlugins, RequestContext<TAccess, TSource>> {
 		assertApplicationEngineAvailable(this.application)
-
 		if (!(context instanceof RequestContext)) {
 			throw new TypeError('Framework engine context must be a RequestContext')
 		}
 
-		bindRequestContextToFramework(this, context)
+		bindRequestContextToApplication(this.application, context)
 
 		return new RequestEngine(
 			requestEngineConstructionKey,
@@ -274,10 +230,17 @@ export class FrameworkEngine<
 		return this.withContext(RequestContext.anonymous(options))
 	}
 
+	/** Creates one immutable public-operation allowlist for a transport protocol. */
+	exposeOperations<const TTransport extends OperationTransportProtocol>(
+		options: OperationTransportExposureOptions<TTransport>,
+	): ApplicationOperationTransport<TTransport> {
+		assertApplicationEngineAvailable(this.application)
+		return exposeFrameworkOperations(this, options)
+	}
+
 	/** Keeps schema identity checks centralized for queries and direct operations. */
 	assertOwnsSchema(schema: unknown): asserts schema is TSchemas[number] {
 		assertApplicationEngineAvailable(this.application)
-
 		if (this.application.ownsSchema(schema)) {
 			return
 		}
@@ -328,6 +291,11 @@ export class RequestEngine<
 		this.context = context
 		this.#pipeline = pipeline
 		this.#transactionLifetime = transactionLifetime
+		registerRequestPluginOperationExecutor(
+			this,
+			(compiled, binding, envelope) =>
+				this.#executePluginOperation(compiled, binding, envelope),
+		)
 		registerOperationExecutionHandler(this, (operation, options, scope) =>
 			this.#executeTerminal(operation, options, scope),
 		)
@@ -530,7 +498,10 @@ export class RequestEngine<
 				)
 			}
 
-			bindRequestContextToFramework(this.framework, options.context)
+			bindRequestContextToApplication(
+				this.framework.application,
+				options.context,
+			)
 			context = options.context
 		}
 
@@ -592,6 +563,27 @@ export class RequestEngine<
 		const TOperation extends ExecutableOperationAst<TSchemas[number]>,
 	>(operation: TOperation): Promise<OperationResult<TOperation>> {
 		return this.#executeOperation(operation)
+	}
+
+	async #executePluginOperation(
+		compiled: CompiledPluginOperation,
+		binding: ApplicationOperationBinding,
+		envelope: PluginOperationEnvelope,
+	): Promise<unknown> {
+		assertApplicationEngineAvailable(this.application)
+		return executePluginOperationRequest({
+			binding,
+			compiled,
+			engine: this,
+			envelope,
+			...(this.#transactionLifetime === undefined
+				? {}
+				: { transactionLifetime: this.#transactionLifetime }),
+			runRequiredTransaction: () =>
+				this.transaction((transaction) =>
+					transaction.#executePluginOperation(compiled, binding, envelope),
+				),
+		})
 	}
 
 	/** Executes public and framework-scoped operations through one shared lifecycle. */
@@ -765,7 +757,6 @@ export class RequestEngine<
 		handler: RequestTransactionHandler<TSchemas, TPlugins, TContext, TResult>,
 	): Promise<TResult> {
 		assertApplicationEngineAvailable(this.application)
-
 		if (typeof handler !== 'function') {
 			throw new TypeError(
 				'Request engine transaction handler must be a function',

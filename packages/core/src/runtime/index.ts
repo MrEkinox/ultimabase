@@ -115,6 +115,29 @@ export {
 	providePersistencePlanRewriter,
 	rewriteDeletePersistencePlan,
 } from './persistence/index.js'
+// Custom operations execute through owner-bound handlers and explicit wire bindings.
+export {
+	defineOperationTransport,
+	operationHandler,
+	operationTransportBinding,
+	operationWireCodec,
+	provideOperationHandler,
+	provideOperationTransportBinding,
+} from './plugin-operations/index.js'
+export type {
+	ApplicationOperationTransport,
+	OperationTransportBindingDefinition,
+	OperationTransportExposureOptions,
+	OperationTransportProtocol,
+	OperationTransportRequest,
+	OperationTransportWireInput,
+	OperationTransportWireResult,
+	OperationWireCodec,
+	PluginOperationExecutionTarget,
+	PluginOperationHandler,
+	PluginOperationHandlerDefinition,
+	PluginOperationHandlerInput,
+} from './plugin-operations/index.js'
 export type {
 	DatabasePersistencePlan,
 	DatabasePersistencePlanKind,

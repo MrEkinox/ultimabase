@@ -1,0 +1,34 @@
+import { execFile } from 'node:child_process'
+import path from 'node:path'
+import { promisify } from 'node:util'
+
+import { describe, expect, it } from 'vitest'
+
+const executeFile = promisify(execFile)
+const fixturePath = path.join(
+	import.meta.dirname,
+	'fixtures/plugin-operation-no-typegen.mjs',
+)
+
+describe('packed plugin operation execution', () => {
+	it('executes direct and fake-transport calls from JavaScript without Typegen', async () => {
+		const { stdout } = await executeFile(process.execPath, [fixturePath])
+		const output: unknown = JSON.parse(stdout)
+
+		expect(output).toStrictEqual({
+			directResult: { echo: 'direct' },
+			transportErrorResponse: {
+				error: {
+					code: 'fixture.javascript.rejected',
+					message: 'Rejected by JavaScript fixture.',
+					retryable: false,
+				},
+				ok: false,
+			},
+			transportResponse: {
+				ok: true,
+				result: { text: 'transport' },
+			},
+		})
+	})
+})

@@ -30,6 +30,7 @@ export interface DefinePluginOperationOptions<
 	TTarget extends PluginOperationTarget,
 	TInput,
 	TResult,
+	TErrors extends readonly string[] = readonly [],
 > {
 	/** Stable namespaced name. @example `"community.workflow.publish-post"` */
 	readonly name: TName
@@ -43,6 +44,8 @@ export interface DefinePluginOperationOptions<
 	readonly result: PluginOperationValueContract<TResult>
 	/** Declares the transaction policy observed by Runtime. */
 	readonly transaction: PluginOperationTransaction
+	/** Declares the complete namespaced public error vocabulary for this operation. */
+	readonly errors?: TErrors
 }
 
 declare const pluginOperationDefinitionType: unique symbol
@@ -54,16 +57,20 @@ export interface PluginOperationDefinition<
 	TTarget extends PluginOperationTarget = PluginOperationTarget,
 	TInput = unknown,
 	TResult = unknown,
+	TErrors extends readonly string[] = readonly string[],
 > extends DefinePluginOperationOptions<
 	TName,
 	TVersion,
 	TTarget,
 	TInput,
-	TResult
+	TResult,
+	TErrors
 > {
+	readonly errors: TErrors
 	readonly [pluginOperationDefinitionType]?: Readonly<{
 		readonly input: TInput
 		readonly result: TResult
+		readonly errors: TErrors[number]
 	}>
 	readonly kind: 'plugin-operation'
 }
@@ -89,6 +96,19 @@ export type PluginOperationResult<TOperation> =
 		infer TResult
 	>
 		? TResult
+		: never
+
+/** Reads one operation token's declared public plugin-error codes. */
+export type PluginOperationErrorCode<TOperation> =
+	TOperation extends PluginOperationDefinition<
+		string,
+		string,
+		PluginOperationTarget,
+		unknown,
+		unknown,
+		infer TErrors
+	>
+		? TErrors[number]
 		: never
 
 const operationNames = new WeakSet<object>()
@@ -143,15 +163,24 @@ export const defineOperation = <
 	const TTarget extends PluginOperationTarget,
 	TInput,
 	TResult,
+	const TErrors extends readonly string[] = readonly [],
 >(
 	options: DefinePluginOperationOptions<
 		TName,
 		TVersion,
 		TTarget,
 		TInput,
-		TResult
+		TResult,
+		TErrors
 	>,
-): PluginOperationDefinition<TName, TVersion, TTarget, TInput, TResult> => {
+): PluginOperationDefinition<
+	TName,
+	TVersion,
+	TTarget,
+	TInput,
+	TResult,
+	TErrors
+> => {
 	const untrustedOptions: unknown = options
 	if (!isPlainRecord(untrustedOptions)) {
 		throw new TypeError('operation definition must be a plain object')
@@ -159,6 +188,7 @@ export const defineOperation = <
 
 	for (const key of Object.keys(untrustedOptions)) {
 		if (
+			key !== 'errors' &&
 			key !== 'input' &&
 			key !== 'name' &&
 			key !== 'result' &&
@@ -202,8 +232,24 @@ export const defineOperation = <
 	}
 	assertOperationValueContract(options.input, 'operation input')
 	assertOperationValueContract(options.result, 'operation result')
+	const errors = options.errors ?? ([] as unknown as TErrors)
+	if (!Array.isArray(errors)) {
+		throw new TypeError('operation errors must be an array')
+	}
+	const seenErrors = new Set<string>()
+	for (const [index, code] of errors.entries()) {
+		assertNonEmptyString(code, `operation errors[${String(index)}]`)
+		if (!operationNamePattern.test(code)) {
+			throw new TypeError(`operation error code must be namespaced: ${code}`)
+		}
+		if (seenErrors.has(code)) {
+			throw new TypeError(`operation errors contains duplicate code: ${code}`)
+		}
+		seenErrors.add(code)
+	}
 
 	const definition = immutableRecord({
+		errors: Object.freeze([...errors]) as unknown as TErrors,
 		input: options.input,
 		kind: 'plugin-operation' as const,
 		name: options.name,
@@ -211,7 +257,14 @@ export const defineOperation = <
 		target: options.target,
 		transaction: options.transaction,
 		version: options.version,
-	}) as PluginOperationDefinition<TName, TVersion, TTarget, TInput, TResult>
+	}) as PluginOperationDefinition<
+		TName,
+		TVersion,
+		TTarget,
+		TInput,
+		TResult,
+		TErrors
+	>
 	operationNames.add(definition)
 
 	return definition

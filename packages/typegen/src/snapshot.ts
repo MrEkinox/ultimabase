@@ -90,6 +90,7 @@ export interface TypegenOptionSnapshot {
 }
 
 export interface TypegenOperationSnapshot {
+	readonly errors: readonly string[]
 	readonly input: TypegenReference | undefined
 	readonly name: string
 	readonly owner: TypegenOwnerSnapshot
@@ -154,7 +155,7 @@ export interface TypegenApplicationSnapshot {
 	readonly outputs: readonly TypegenOutputSnapshot[]
 	readonly schemas: readonly TypegenSchemaSnapshot[]
 	readonly surfaces: readonly TypegenSchemaSurfaceSnapshot[]
-	readonly version: 2
+	readonly version: 3
 }
 
 interface PluginValueReference extends TypegenReference {
@@ -464,7 +465,7 @@ export const createCompiledTypegenSnapshot = (
 		...typegenGraph,
 		fieldMethods,
 		schemas,
-		version: 2,
+		version: 3,
 	})
 }
 

@@ -20,7 +20,9 @@ import {
 import type {
 	PluginOperationDefinition,
 	PluginOperationInput,
+	PluginOperationResult,
 } from '../plugins/plugin-operations.js'
+import { assertImmutableOperationValue } from '../plugins/plugin-operation-boundaries.js'
 import type {
 	QueryExtensionDefinition,
 	QueryExtensionInput,
@@ -60,10 +62,21 @@ export interface PluginOperationEnvelope<
 interface ApplicationHandleLifetime {
 	readonly state: PluginLifecycleState
 }
-interface ApplicationOperationBinding {
+/** Retains the exact schema or model selected by an application-owned handle. */
+export interface ApplicationOperationBinding {
 	readonly model?: object
 	readonly schema?: SchemaDefinition
 }
+/** Executes one prepared envelope through the facade's active RequestEngine. */
+export type ApplicationOperationExecutor = (
+	compiled: CompiledPluginOperation,
+	binding: ApplicationOperationBinding,
+	envelope: PluginOperationEnvelope,
+) => Promise<unknown>
+const applicationOperationExecutors = new WeakMap<
+	ApplicationOperationHandle,
+	ApplicationOperationExecutor
+>()
 const snapshotOwner = (
 	owner: PluginSchemaContributionOwner,
 ): ApplicationContributionOwner =>
@@ -77,35 +90,39 @@ const assertHandleAvailable = (lifetime: ApplicationHandleLifetime): void => {
 		throw new TypeError('Application handle cannot be used after disposal')
 	}
 }
-const assertImmutableBoundaryValue = (
-	value: unknown,
-	path: string,
-	seen: WeakSet<object> = new WeakSet(),
-): void => {
-	if (typeof value !== 'object' || value === null || seen.has(value)) return
-	seen.add(value)
-	if (!Object.isFrozen(value)) {
-		throw new TypeError(`${path} snapshot must be immutable`)
-	}
-	for (const key of Reflect.ownKeys(value)) {
-		assertImmutableBoundaryValue(Reflect.get(value, key), path, seen)
-	}
-}
 /** Resolves one declared operation and prepares immutable envelopes only. */
 export class ApplicationOperationHandle<
 	TOperation extends PluginOperationDefinition = PluginOperationDefinition,
 > {
 	readonly definition: TOperation
 	readonly owner: ApplicationContributionOwner
+	readonly #compiled: CompiledPluginOperation
 
 	constructor(
 		private readonly lifetime: ApplicationHandleLifetime,
 		compiled: CompiledPluginOperation,
 		private readonly binding: ApplicationOperationBinding = {},
 	) {
+		this.#compiled = compiled
 		this.definition = compiled.operation as TOperation
 		this.owner = snapshotOwner(compiled.owner)
 		Object.freeze(this)
+	}
+
+	/** Validates input and executes through the current application request shell. */
+	async execute(
+		input: PluginOperationInput<TOperation>,
+	): Promise<PluginOperationResult<TOperation>> {
+		const envelope = this.prepare(input)
+		const executor = applicationOperationExecutors.get(this)
+		if (executor === undefined) {
+			throw new TypeError('Application operation execution is unavailable')
+		}
+		return (await executor(
+			this.#compiled,
+			this.binding,
+			envelope,
+		)) as PluginOperationResult<TOperation>
 	}
 
 	/** Validates and snapshots input without executing Runtime or exposing a transport. */
@@ -117,7 +134,7 @@ export class ApplicationOperationHandle<
 			input,
 			`${this.definition.name}.input`,
 		) as PluginOperationInput<TOperation>
-		assertImmutableBoundaryValue(payload, `${this.definition.name}.input`)
+		assertImmutableOperationValue(payload, `${this.definition.name}.input`)
 		const modelRecord =
 			this.binding.model === undefined
 				? undefined
@@ -152,6 +169,14 @@ export class ApplicationOperationHandle<
 		}) as PluginOperationEnvelope<TOperation>
 		return envelope
 	}
+}
+
+/** Installs the facade-owned executor without making it part of the public handle. */
+export const registerApplicationOperationExecutor = (
+	handle: ApplicationOperationHandle,
+	executor: ApplicationOperationExecutor,
+): void => {
+	applicationOperationExecutors.set(handle, executor)
 }
 const schemaCommandNames: ReadonlySet<string> = new Set(
 	coreSchemaHandleCommandNames,
@@ -352,7 +377,7 @@ export class ApplicationSchemaHandleBase<
 			input,
 			`${query.extension.name}.input`,
 		)
-		assertImmutableBoundaryValue(snapshot, `${query.extension.name}.input`)
+		assertImmutableOperationValue(snapshot, `${query.extension.name}.input`)
 		const result = query.extension.apply(this.schema, snapshot)
 		if (!(result instanceof QueryBuilder) || result.schema !== this.schema) {
 			throw new TypeError(

@@ -32,6 +32,12 @@ import {
 	isAuthorizedPersistencePlanRewriterProvider,
 	persistencePlanRewriterCapability,
 } from '../runtime/persistence/capabilities.js'
+import {
+	isAuthorizedOperationTransportBindingProvider,
+	isAuthorizedPluginOperationProvider,
+	operationTransportBindingCapability,
+	pluginOperationHandlerCapability,
+} from '../runtime/plugin-operations/capabilities.js'
 
 const throwCapabilityConflict = (
 	message: string,
@@ -198,6 +204,60 @@ export const buildReplacementChains = (
 			)
 		}
 	}
+	const isPluginOperationProtocol =
+		entry.token === pluginOperationHandlerCapability ||
+		entry.token === operationTransportBindingCapability
+	if (isPluginOperationProtocol && entry.requirements.length > 0) {
+		const [requirement] = entry.requirements
+		return throwCapabilityConflict(
+			'Plugin operation protocols cannot be consumed through a capability requirement.',
+			{
+				kind: 'plugin-operation-requirement-forbidden',
+				plugin:
+					requirement === undefined
+						? 'unknown'
+						: formatPluginIdentity(requirement.owner),
+				capabilityId: entry.token.capabilityId,
+			},
+		)
+	}
+	if (entry.token === pluginOperationHandlerCapability) {
+		for (const provider of entry.providers) {
+			if (
+				!isAuthorizedPluginOperationProvider(
+					provider.declaration as CapabilityProviderDeclaration,
+				)
+			) {
+				return throwCapabilityConflict(
+					'Plugin operation handlers must use provideOperationHandler.',
+					{
+						kind: 'plugin-operation-provider-factory',
+						plugin: formatPluginIdentity(provider.owner),
+						contributionId: provider.declaration.contributionId,
+					},
+				)
+			}
+		}
+	}
+	if (entry.token === operationTransportBindingCapability) {
+		for (const provider of entry.providers) {
+			if (
+				!isAuthorizedOperationTransportBindingProvider(
+					provider.declaration as CapabilityProviderDeclaration,
+				)
+			) {
+				return throwCapabilityConflict(
+					'Operation transport bindings must use provideOperationTransportBinding.',
+					{
+						kind: 'operation-transport-provider-factory',
+						plugin: formatPluginIdentity(provider.owner),
+						contributionId: provider.declaration.contributionId,
+					},
+				)
+			}
+			assertContributionPrivilege(entries, entry, provider, 'transport:expose')
+		}
+	}
 
 	const runtimeProviderPower = runtimeProviderPrivilege(entry.token)
 	if (runtimeProviderPower !== undefined) {
@@ -244,6 +304,16 @@ export const buildReplacementChains = (
 
 	const replacementsByTarget = new Map<OwnedProvider, OwnedProvider>()
 	for (const replacement of entry.replacements) {
+		if (isPluginOperationProtocol) {
+			return throwCapabilityConflict(
+				'Plugin operation protocols cannot use generic capability replacement.',
+				{
+					kind: 'plugin-operation-replacement-forbidden',
+					plugin: formatPluginIdentity(replacement.owner),
+					contributionId: replacement.declaration.contributionId,
+				},
+			)
+		}
 		if (entry.token === persistencePlanRewriterCapability) {
 			return throwCapabilityConflict(
 				'Persistence plan rewriters cannot be replaced through the generic capability facade.',
@@ -438,6 +508,16 @@ export const buildReplacementChains = (
 	}
 
 	for (const decorator of entry.decorators) {
+		if (isPluginOperationProtocol) {
+			return throwCapabilityConflict(
+				'Plugin operation protocols cannot use generic capability decoration.',
+				{
+					kind: 'plugin-operation-decoration-forbidden',
+					plugin: formatPluginIdentity(decorator.owner),
+					contributionId: decorator.declaration.contributionId,
+				},
+			)
+		}
 		if (entry.token === persistencePlanRewriterCapability) {
 			return throwCapabilityConflict(
 				'Persistence plan rewriters cannot be decorated through the generic capability facade.',

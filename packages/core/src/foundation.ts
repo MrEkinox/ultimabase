@@ -2,6 +2,7 @@ export {
 	FrameworkError,
 	frameworkErrorCodes,
 } from './errors/framework-error.js'
+export { PluginError } from './errors/plugin-error.js'
 export {
 	createApplication,
 	FrameworkApplication,
@@ -34,6 +35,7 @@ export type {
 	FrameworkErrorOptions,
 	FrameworkErrorPayload,
 } from './errors/framework-error.js'
+export type { PluginErrorPayload } from './errors/plugin-error.js'
 export { definePlugin } from './plugins/definition.js'
 export {
 	defineOperation,
@@ -43,6 +45,7 @@ export {
 export type {
 	DefinePluginOperationOptions,
 	PluginOperationDefinition,
+	PluginOperationErrorCode,
 	PluginOperationInput,
 	PluginOperationResult,
 	PluginOperationTarget,

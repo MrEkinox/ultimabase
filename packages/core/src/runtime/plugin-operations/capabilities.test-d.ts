@@ -1,0 +1,98 @@
+import { immutableRecord } from '@ultimabase/shared'
+import { expectTypeOf, test } from 'vitest'
+
+import type { MasterRequestAccess } from '../../access/index.js'
+import {
+	defineOperation,
+	defineOperationValue,
+	type PluginOperationErrorCode,
+} from '../../plugins/plugin-operations.js'
+import type { RequestEngine } from '../engine/framework-engine.js'
+import type { RequestContext } from '../context/request-context.js'
+import {
+	defineOperationTransport,
+	operationHandler,
+	operationTransportBinding,
+	operationWireCodec,
+	provideOperationHandler,
+	provideOperationTransportBinding,
+} from './capabilities.js'
+import type {
+	ApplicationOperationTransport,
+	OperationTransportRequest,
+} from './transport.js'
+import type {
+	OperationTransportWireInput,
+	OperationTransportWireResult,
+} from './contracts.js'
+
+const input = defineOperationValue((value: unknown) => {
+	if (typeof value !== 'string') throw new TypeError('input must be a string')
+	return value
+})
+const result = defineOperationValue((value: unknown) => {
+	if (typeof value !== 'number') throw new TypeError('result must be a number')
+	return value
+})
+const operation = defineOperation({
+	errors: ['fixture.typed.rejected'] as const,
+	input,
+	name: 'fixture.typed.inspect',
+	result,
+	target: 'application',
+	transaction: 'optional',
+	version: '1.0.0',
+})
+declare const exposure: ApplicationOperationTransport
+declare const masterContext: RequestContext<MasterRequestAccess>
+
+test('infers exact handler and wire boundary contracts', () => {
+	const handler = operationHandler({
+		operation,
+		execute: ({ engine, input: value, target }) => {
+			expectTypeOf(engine).toEqualTypeOf<RequestEngine>()
+			expectTypeOf(value).toEqualTypeOf<string>()
+			expectTypeOf(target.kind).toEqualTypeOf<
+				'application' | 'model' | 'schema'
+			>()
+			return value.length
+		},
+	})
+	const transport = defineOperationTransport({
+		name: 'fixture.typed.transport',
+		version: '1.0.0',
+	})
+	const codec = operationWireCodec({
+		decode: (wire: Readonly<{ readonly value: string }>) => wire.value,
+		encode: (value) => immutableRecord({ value }),
+		operation,
+		transport,
+	})
+	const binding = operationTransportBinding({ codec, operation })
+
+	expectTypeOf<OperationTransportWireInput<typeof binding>>().toEqualTypeOf<
+		Readonly<{ readonly value: string }>
+	>()
+	expectTypeOf<OperationTransportWireResult<typeof binding>>().toEqualTypeOf<
+		Readonly<{ readonly value: number }>
+	>()
+	expectTypeOf<
+		PluginOperationErrorCode<typeof operation>
+	>().toEqualTypeOf<'fixture.typed.rejected'>()
+	provideOperationHandler({
+		contributionId: 'handler',
+		create: () => ({ value: handler }),
+	})
+	provideOperationTransportBinding({
+		contributionId: 'binding',
+		create: () => ({ value: binding }),
+	})
+	const invalidRequest: OperationTransportRequest = {
+		// @ts-expect-error -- Public operation transport input cannot carry Master authority.
+		context: masterContext,
+		input: {},
+		operation: operation.name,
+		version: operation.version,
+	}
+	void exposure.execute(invalidRequest)
+})

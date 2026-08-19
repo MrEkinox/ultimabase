@@ -167,6 +167,7 @@ export const snapshotTypegenGraph = (
 			.map(({ operation, owner: rawOwner }) => {
 				const owner = snapshotOwner(rawOwner)
 				return immutableRecord({
+					errors: immutableArray(operation.errors),
 					input: readReference(
 						operation.input.typegen,
 						owner,

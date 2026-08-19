@@ -14,6 +14,7 @@ import { defineQueryExtension } from './application-surface-declarations.js'
 import {
 	defineOperation,
 	defineOperationValue,
+	type PluginOperationErrorCode,
 	type PluginOperationInput,
 	type PluginOperationResult,
 } from './plugin-operations.js'
@@ -27,6 +28,7 @@ const result = defineOperationValue((value: unknown) => {
 	return value
 })
 const inspect = defineOperation({
+	errors: ['fixture.types.denied', 'fixture.types.conflict'] as const,
 	input,
 	name: 'fixture.types.inspect',
 	result,
@@ -95,6 +97,9 @@ test('preserves exact operation descriptors and bootstrap handles', () => {
 	expectTypeOf(inspect.target).toEqualTypeOf<'application'>()
 	expectTypeOf<PluginOperationInput<typeof inspect>>().toEqualTypeOf<string>()
 	expectTypeOf<PluginOperationResult<typeof inspect>>().toEqualTypeOf<number>()
+	expectTypeOf<PluginOperationErrorCode<typeof inspect>>().toEqualTypeOf<
+		'fixture.types.denied' | 'fixture.types.conflict'
+	>()
 
 	const ultimabase = new UltimaBase({
 		pluginPrivileges: { logger: false },
@@ -108,8 +113,11 @@ test('preserves exact operation descriptors and bootstrap handles', () => {
 	expectTypeOf(operation.prepare('value')).toEqualTypeOf<
 		PluginOperationEnvelope<typeof inspect>
 	>()
+	expectTypeOf(operation.execute('value')).toEqualTypeOf<Promise<number>>()
 	// @ts-expect-error -- The stable token retains its exact input contract.
 	operation.prepare(1)
+	// @ts-expect-error -- Execution retains the same exact input contract.
+	void operation.execute(1)
 
 	const post = ultimabase.schema(Post)
 	expectTypeOf(post).toEqualTypeOf<ApplicationSchemaHandle<typeof Post>>()

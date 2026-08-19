@@ -583,6 +583,7 @@ describe('generateApplicationTypes', () => {
 		})
 		const workflowName = 'Editorial' as const
 		const publish = defineOperation({
+			errors: ['fixture.workflow.rejected'] as const,
 			input: defineOperationValue(
 				(value) => immutableRecord({ value }),
 				inputReference,
@@ -723,10 +724,11 @@ describe('generateApplicationTypes', () => {
 		})
 
 		expect(second).toStrictEqual(first)
-		expect(first.snapshot.version).toBe(2)
+		expect(first.snapshot.version).toBe(3)
 		expect(first.contents).toContain('export type ConfiguredEditorialWorkflow')
 		expect(first.contents).toContain('interface UltimaBaseGeneratedOperations')
 		expect(first.contents).toContain('readonly "fixture.workflow.publish"')
+		expect(first.contents).toContain('readonly ["fixture.workflow.rejected"]')
 		expect(first.contents).toContain(
 			'interface UltimaBaseGeneratedSchemaSurfaces',
 		)
