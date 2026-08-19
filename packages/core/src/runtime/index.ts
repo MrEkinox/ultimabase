@@ -65,6 +65,7 @@ export {
 	databaseInclusionCapabilityVersion,
 	databasePointerCapability,
 	databasePointerCapabilityVersion,
+	databasePersistencePlanCapability,
 	databaseRelationCapability,
 	databaseRelationCapabilityVersion,
 	databaseRelationPredicateCapability,
@@ -92,6 +93,7 @@ export type {
 	DatabaseOperationRequest,
 	DatabaseOperationResult,
 	DatabasePointerCapability,
+	DatabasePersistencePlanCapability,
 	DatabaseRelationCapability,
 	DatabaseRelationPredicateCapability,
 	DatabaseRelationPredicateScope,
@@ -104,6 +106,24 @@ export type {
 	PreparedDatabaseOperation,
 	PreparedDatabaseOperationExecution,
 } from './database/contracts.js'
+// Persistence rewriters can change physical delete statements without changing logical semantics.
+export {
+	databasePersistencePlanVersion,
+	createDatabasePersistencePlan,
+	persistencePlanRewriter,
+	persistencePlanRewriterCapability,
+	providePersistencePlanRewriter,
+	rewriteDeletePersistencePlan,
+} from './persistence/index.js'
+export type {
+	DatabasePersistencePlan,
+	DatabasePersistencePlanKind,
+	DatabasePersistenceProvenance,
+	DatabasePersistenceReturning,
+	DatabasePersistenceRewriteInput,
+	DatabasePersistenceTarget,
+	PersistencePlanRewriterDefinition,
+} from './persistence/index.js'
 // Enforcement factories let permission and community plugins share one monotonic boundary.
 export {
 	constraint,

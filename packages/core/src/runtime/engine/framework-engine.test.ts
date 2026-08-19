@@ -19,6 +19,7 @@ import type {
 	DatabaseTransactionAdapter,
 	PreparedDatabaseOperation,
 } from '../database/contracts.js'
+import { databasePersistencePlanCapability } from '../database/contracts.js'
 import { MasterAuthority } from '../master/master-authority.js'
 import type { RuntimePipelineStages } from '../pipeline/contracts.js'
 import { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
@@ -66,6 +67,9 @@ const articleRecord = (title: string) => ({
 /** Returns deterministic fixture data for every generic adapter call. */
 class FixtureDatabaseExecutor implements DatabaseAdapter {
 	readonly kind = 'database-adapter' as const
+	readonly capabilities = {
+		persistencePlans: databasePersistencePlanCapability,
+	}
 	readonly operations: DatabaseOperationAst[] = []
 	commits = 0
 	rollbacks = 0
@@ -86,6 +90,7 @@ class FixtureDatabaseExecutor implements DatabaseAdapter {
 	beginTransaction(): Promise<DatabaseTransactionAdapter> {
 		const transaction: DatabaseTransactionAdapter = {
 			kind: 'database-transaction-adapter',
+			capabilities: this.capabilities,
 			prepare: <const TOperation extends DatabaseMutationOperationAst>(
 				request: DatabaseOperationRequest<TOperation>,
 			): Promise<PreparedDatabaseOperation<TOperation>> =>
@@ -277,6 +282,7 @@ describe('FrameworkEngine', () => {
 		const contexts: RequestContext[] = []
 		const operations: DatabaseOperationAst[] = []
 		const executor: DatabaseOperationExecutor = {
+			capabilities: { persistencePlans: databasePersistencePlanCapability },
 			execute: <const TOperation extends DatabaseOperationAst>(
 				request: DatabaseOperationRequest<TOperation>,
 			): Promise<DatabaseOperationResult<TOperation>> => {

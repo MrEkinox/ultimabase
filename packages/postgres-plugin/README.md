@@ -91,6 +91,15 @@ restrictions outside the developer Query, so business hooks cannot inspect or
 remove it. PostgreSQL compiles both channels and the developer predicate into
 one parameterized `AND` expression.
 
+The adapter also advertises Core persistence-plan protocol version 1. It locks
+mutation targets from the canonical logical plan, then executes the final
+physical plan on the same borrowed client. An authorized delete-to-update
+rewrite therefore issues one constrained tombstone `UPDATE` while Runtime hooks,
+materializations, results, events, and transaction policy retain delete
+semantics. PostgreSQL rejects unsupported versions, statement kinds, target
+schemas, and result correlations before or inside the protected execution
+boundary.
+
 Adapter integration plugins register exact kind-and-version compilers during
 application setup. PostgreSQL combines every resulting predicate with the
 developer query using parameterized logical `AND`:

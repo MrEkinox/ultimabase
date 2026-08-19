@@ -32,6 +32,7 @@ import type {
 	PreparedDatabaseOperation,
 } from '../database/contracts.js'
 import {
+	databasePersistencePlanCapability,
 	databaseRelationCapability,
 	databaseRelationPredicateCapability,
 } from '../database/contracts.js'
@@ -113,7 +114,6 @@ const requestContext = RequestContext.anonymous({
 	source: requestSources.internal,
 })
 
-/** Records one operation-transform phase while proving its input is immutable. */
 const createOperationTransform =
 	(stageName: string, trace: string[]): RuntimeOperationTransformStage =>
 	<const TOperation extends DatabaseOperationAst>(
@@ -121,13 +121,11 @@ const createOperationTransform =
 	): TOperation => {
 		trace.push(stageName)
 		expect(Object.isFrozen(input)).toBe(true)
-		// Private adapter scopes must never become transformable business input.
 		expect(input).not.toHaveProperty('relation')
 
 		return input.operation
 	}
 
-/** Records a policy-neutral guard or validation boundary. */
 const createGuard =
 	(stageName: string, trace: string[]): RuntimeOperationGuardStage =>
 	(input): void => {
@@ -135,7 +133,6 @@ const createGuard =
 		expect(Object.isFrozen(input)).toBe(true)
 	}
 
-/** Records one opaque enforcement envelope without exposing accumulated state. */
 const createEnforcementStages = (
 	trace: string[],
 	finalConstraint?: DatabaseConstraintNode,
@@ -194,7 +191,6 @@ const createEnforcementStages = (
 	}
 }
 
-/** Records an after-hook phase while retaining the operation-specific result. */
 const createResultTransform =
 	(stageName: string, trace: string[]): RuntimeResultTransformStage =>
 	(input) => {
@@ -204,7 +200,6 @@ const createResultTransform =
 		return input.result
 	}
 
-/** Records scalar resolution while retaining the adapter's pointer-shaped result. */
 const createNativeDatabaseResultTransform =
 	(
 		stageName: string,
@@ -217,7 +212,6 @@ const createNativeDatabaseResultTransform =
 		return input.result
 	}
 
-/** Records commit and event effects that deliberately do not alter the result. */
 const createResultEffect =
 	(stageName: string, trace: string[]): RuntimeResultEffectStage =>
 	(input): void => {
@@ -225,7 +219,6 @@ const createResultEffect =
 		expect(Object.isFrozen(input)).toBe(true)
 	}
 
-/** Records the native dispatcher boundary independently from its hook contents. */
 const createNativeHookStages = (trace: string[]): RuntimeNativeHookStages => ({
 	requiresPreparedMutationItems: () => false,
 	resolveInput: createOperationTransform('native:resolveInput', trace),
@@ -251,15 +244,20 @@ const createNativeHookStages = (trace: string[]): RuntimeNativeHookStages => ({
 	schemaAfter: createResultTransform('native:schemaAfter', trace),
 })
 
-/** Supplies deterministic adapter output for every generic operation call. */
 class TraceDatabaseExecutor implements DatabaseOperationExecutor {
 	readonly requests: DatabaseOperationRequest[] = []
+	readonly capabilities: DatabaseAdapterCapabilities
 
 	constructor(
 		private readonly trace: string[],
 		private readonly fixtureResult: unknown,
-		readonly capabilities: DatabaseAdapterCapabilities = {},
-	) {}
+		capabilities: DatabaseAdapterCapabilities = {},
+	) {
+		this.capabilities = immutableRecord({
+			persistencePlans: databasePersistencePlanCapability,
+			...capabilities,
+		})
+	}
 
 	execute<const TOperation extends DatabaseOperationAst>(
 		request: DatabaseOperationRequest<TOperation>,
@@ -268,14 +266,12 @@ class TraceDatabaseExecutor implements DatabaseOperationExecutor {
 		this.requests.push(request)
 		expect(Object.isFrozen(request)).toBe(true)
 
-		// The fixture value is selected by the test's exact operation discriminant.
 		return Promise.resolve(
 			this.fixtureResult as DatabaseOperationResult<TOperation>,
 		)
 	}
 }
 
-/** Builds all mandatory phases while allowing one focused test override. */
 const createStages = (
 	trace: string[],
 	databaseOperation: DatabaseOperationExecutor,
@@ -308,6 +304,7 @@ describe('RuntimePipeline', () => {
 			[second, '0198f090-2a50-7000-8000-000000000092'],
 		])
 		const executor: DatabaseOperationExecutor = {
+			capabilities: { persistencePlans: databasePersistencePlanCapability },
 			execute: <const TOperation extends DatabaseOperationAst>() =>
 				Promise.resolve(
 					immutableArray([
@@ -333,7 +330,6 @@ describe('RuntimePipeline', () => {
 				throw new TypeError('Expected a find result containing two records')
 			}
 
-			// The operation discriminant and structural check establish a find result.
 			return immutableArray([
 				secondResult,
 			]) as unknown as RuntimeOperationResult<TOperation>
@@ -418,7 +414,6 @@ describe('RuntimePipeline', () => {
 			operation: articleOperation,
 		})
 
-		// Runtime transports master authority without manufacturing policy behavior.
 		expect(trace).toStrictEqual([
 			'normalization',
 			'structuralValidation',
@@ -443,6 +438,7 @@ describe('RuntimePipeline', () => {
 		let executedOperation: DatabaseMutationOperationAst | undefined
 		let executedConstraints: readonly DatabaseConstraintNode[] | undefined
 		const transaction: DatabaseTransactionAdapter = {
+			capabilities: { persistencePlans: databasePersistencePlanCapability },
 			kind: 'database-transaction-adapter',
 			prepare: <
 				const TOperation extends DatabaseMutationOperationAst,
@@ -538,6 +534,7 @@ describe('RuntimePipeline', () => {
 			updatedAt: '2026-08-11T00:00:00.000Z',
 		})
 		const transaction: DatabaseTransactionAdapter = {
+			capabilities: { persistencePlans: databasePersistencePlanCapability },
 			kind: 'database-transaction-adapter',
 			prepare: <const TOperation extends DatabaseMutationOperationAst>() => {
 				trace.push('database:prepare')
@@ -624,6 +621,7 @@ describe('RuntimePipeline', () => {
 		const trace: string[] = []
 		let preparedRequest: DatabaseOperationRequest | undefined
 		const transaction: DatabaseTransactionAdapter = {
+			capabilities: { persistencePlans: databasePersistencePlanCapability },
 			kind: 'database-transaction-adapter',
 			prepare: <const TOperation extends DatabaseMutationOperationAst>(
 				request: DatabaseOperationRequest<TOperation>,
@@ -682,6 +680,7 @@ describe('RuntimePipeline', () => {
 		let preparedRequest: DatabaseOperationRequest | undefined
 		let observedTargets: readonly unknown[] | undefined
 		const transaction: DatabaseTransactionAdapter = {
+			capabilities: { persistencePlans: databasePersistencePlanCapability },
 			kind: 'database-transaction-adapter',
 			prepare: <const TOperation extends DatabaseMutationOperationAst>(
 				request: DatabaseOperationRequest<TOperation>,
@@ -1100,6 +1099,7 @@ describe('RuntimePipeline', () => {
 		const trace: string[] = []
 		const executor = new TraceDatabaseExecutor(trace, [])
 		const transaction: DatabaseTransactionAdapter = {
+			capabilities: { persistencePlans: databasePersistencePlanCapability },
 			kind: 'database-transaction-adapter',
 			prepare: <const TOperation extends DatabaseMutationOperationAst>(
 				request: DatabaseOperationRequest<TOperation>,

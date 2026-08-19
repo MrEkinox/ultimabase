@@ -20,6 +20,7 @@ import type {
 import {
 	databasePointerCapability,
 	databaseInclusionCapability,
+	databasePersistencePlanCapability,
 	databaseRelationCapability,
 	RuntimePipeline,
 } from '../../../src/runtime/index.js'
@@ -76,6 +77,7 @@ export interface TransactionFailureOptions {
 /** Lets capability-boundary tests model an older adapter deliberately. */
 export interface RecordingAdapterCapabilityOptions {
 	readonly inclusions?: boolean
+	readonly persistencePlans?: boolean
 	readonly relations?: boolean
 }
 
@@ -85,6 +87,9 @@ const createRecordingCapabilities = (
 ): DatabaseAdapterCapabilities =>
 	immutableRecord({
 		pointers: databasePointerCapability,
+		...(options.persistencePlans === false
+			? {}
+			: { persistencePlans: databasePersistencePlanCapability }),
 		...(options.inclusions === false
 			? {}
 			: { inclusions: databaseInclusionCapability }),

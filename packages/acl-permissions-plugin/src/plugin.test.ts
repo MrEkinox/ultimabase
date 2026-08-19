@@ -9,6 +9,7 @@ import {
 	accessRoleResolverCapability,
 	createApplication,
 	databaseAdapterCapability,
+	databasePersistencePlanCapability as planCapability,
 	definePlugin,
 	defineSchemaExtension,
 	provideCapability,
@@ -73,6 +74,7 @@ const protectedPostNode = new QueryBuilder(ProtectedPost).ast.schema
 
 class ACLReadAdapter implements DatabaseAdapter {
 	readonly kind = 'database-adapter' as const
+	readonly capabilities = { persistencePlans: planCapability }
 	readonly requests: DatabaseOperationRequest[] = []
 
 	constructor(private readonly result: unknown) {}
@@ -82,7 +84,6 @@ class ACLReadAdapter implements DatabaseAdapter {
 	): Promise<DatabaseOperationResult<TOperation>> {
 		this.requests.push(request)
 
-		// The fixture returns the exact logical shape supplied by its test case.
 		return Promise.resolve(this.result as DatabaseOperationResult<TOperation>)
 	}
 
@@ -93,6 +94,7 @@ class ACLReadAdapter implements DatabaseAdapter {
 
 class ACLRejectedWriteTransaction implements DatabaseTransactionAdapter {
 	readonly kind = 'database-transaction-adapter' as const
+	readonly capabilities = { persistencePlans: planCapability }
 	prepareCount = 0
 	commitCount = 0
 	rollbackCount = 0
@@ -130,7 +132,6 @@ class ACLRejectedWriteTransaction implements DatabaseTransactionAdapter {
 				target: this.preparedTarget,
 			}
 
-			// The discriminant above proves the conditional prepared-target contract.
 			return Promise.resolve(
 				prepared as unknown as PreparedDatabaseOperation<TOperation>,
 			)
@@ -156,6 +157,7 @@ class ACLRejectedWriteTransaction implements DatabaseTransactionAdapter {
 
 class ACLRejectedWriteAdapter implements DatabaseAdapter {
 	readonly kind = 'database-adapter' as const
+	readonly capabilities = { persistencePlans: planCapability }
 	readonly transactions: ACLRejectedWriteTransaction[] = []
 
 	constructor(
@@ -182,7 +184,6 @@ class ACLRejectedWriteAdapter implements DatabaseAdapter {
 
 type RoleProviderPlacement = 'after' | 'before' | 'nested'
 
-/** Builds isolated applications that expose provider-order regressions through row constraints. */
 const createRoleProviderFixture = (
 	suffix: string,
 	placement: RoleProviderPlacement,
@@ -333,8 +334,6 @@ describe('aclPlugin create input resolution', () => {
 		try {
 			await ultimabase.start()
 			const result = await ProtectedPost.findMany(undefined, { ultimabase })
-
-			// Non-master callers may use ACL grants without receiving the security document.
 			expect(result[0]?.acl).toBeUndefined()
 			expect(adapter.requests[0]?.constraints).toMatchObject([
 				{

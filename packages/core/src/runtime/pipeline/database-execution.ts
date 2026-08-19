@@ -26,6 +26,12 @@ import {
 	type DatabaseTransactionAdapter,
 	type PreparedDatabaseOperation,
 } from '../database/contracts.js'
+import type { RuntimePersistencePlanRewriteStage } from '../persistence/contracts.js'
+import {
+	assertPersistencePlanCapability,
+	compileDatabasePersistencePlan,
+} from '../persistence/execution.js'
+import { createDatabasePersistencePlan } from '../persistence/plans.js'
 import type { EnforcementState } from '../enforcement/state.js'
 import type { RequestContext } from '../context/request-context.js'
 import { collectDatabaseObjectIdentities } from '../operations/model-metadata.js'
@@ -48,6 +54,7 @@ import {
 	createRuntimePreparedMutationInput,
 	snapshotRuntimeConstraints,
 } from './stage-inputs.js'
+import { isRuntimeMutationOperation } from './operation-kind.js'
 
 export interface RuntimeDatabaseExecution<
 	TOperation extends DatabaseOperationAst,
@@ -59,29 +66,6 @@ export interface RuntimeDatabaseExecution<
 	readonly operation: TOperation
 	readonly outcome?: DatabaseOperationOutcome<DatabaseMutationOperationAst>
 	readonly result: DatabaseOperationResult<TOperation>
-}
-
-/** Narrows the closed terminal union before selecting the adapter protocol. */
-export const isRuntimeMutationOperation = (
-	operation: DatabaseOperationAst,
-): operation is DatabaseMutationOperationAst => {
-	switch (operation.kind) {
-		case 'count':
-		case 'exists':
-		case 'find-many':
-		case 'find-one':
-		case 'get':
-			return false
-		case 'create-many':
-		case 'create-one':
-		case 'delete-many':
-		case 'delete-one':
-		case 'update-many':
-		case 'update-one':
-		case 'upsert-many':
-		case 'upsert-one':
-			return true
-	}
 }
 
 /** Rejects mutation execution that escaped the mandatory transaction scope. */
@@ -285,6 +269,7 @@ export const executeRuntimeDatabaseOperation = async <
 	context: RequestContext,
 	nativeHooks: RuntimeNativeHookStages | undefined,
 	preparedOperationHooks: RuntimePreparedMutationTransformStage | undefined,
+	persistencePlanRewrite: RuntimePersistencePlanRewriteStage | undefined,
 	globalBeforeHooks: RuntimePipelineStages['globalBeforeHooks'],
 	schemaBeforeHooks: RuntimePipelineStages['schemaBeforeHooks'],
 	request: RuntimeDatabaseExecutionRequest<TOperation>,
@@ -292,7 +277,6 @@ export const executeRuntimeDatabaseOperation = async <
 	enforcementState: EnforcementState | undefined,
 ): Promise<RuntimeDatabaseExecution<TOperation>> => {
 	assertDatabaseRequestCapabilities(executor, request)
-
 	if (!isRuntimeMutationOperation(request.operation)) {
 		await globalBeforeHooks(
 			createRuntimeOperationInput(context, request.operation),
@@ -300,7 +284,12 @@ export const executeRuntimeDatabaseOperation = async <
 		await schemaBeforeHooks(
 			createRuntimeOperationInput(context, request.operation),
 		)
-		const result = await executor.execute(request)
+		const plan = await compileDatabasePersistencePlan(
+			executor,
+			request.operation,
+			persistencePlanRewrite,
+		)
+		const result = await executor.execute(immutableRecord({ ...request, plan }))
 
 		return immutableRecord({
 			...(enforcementState === undefined
@@ -323,15 +312,20 @@ export const executeRuntimeDatabaseOperation = async <
 	let finalConstraints = request.constraints
 	const prepareMutationItems =
 		nativeHooks?.requiresPreparedMutationItems(request.operation) === true ||
-		enforcement?.requiresPreparedMutationItems?.(request.operation) === true
-	const prepareMutation = (
+		enforcement?.requiresPreparedMutationItems?.(request.operation) === true ||
+		(persistencePlanRewrite !== undefined &&
+			request.operation.kind === 'delete-many')
+	const prepareMutation = async (
 		operation: TMutationOperation,
 		constraints: readonly DatabaseConstraintNode[],
-	): Promise<PreparedDatabaseOperation<TMutationOperation>> =>
-		executor.prepare(
+	): Promise<PreparedDatabaseOperation<TMutationOperation>> => {
+		const plan = createDatabasePersistencePlan(operation)
+		assertPersistencePlanCapability(executor, plan)
+		return executor.prepare(
 			immutableRecord({
 				constraints,
 				operation,
+				plan,
 				...(prepareMutationItems
 					? { prepareMutationItems: true as const }
 					: {}),
@@ -349,6 +343,7 @@ export const executeRuntimeDatabaseOperation = async <
 					: { rowFilter: request.rowFilter }),
 			}),
 		)
+	}
 	const resolveMutationInput = async (
 		target:
 			DatabaseMutationLogicalRecord<TMutationOperation> | null | undefined,
@@ -548,10 +543,16 @@ export const executeRuntimeDatabaseOperation = async <
 		await resolveMutationInput(target, targets)
 		await runMutationObservers(target, targets)
 	}
+	const persistencePlan = await compileDatabasePersistencePlan(
+		executor,
+		executableOperation,
+		persistencePlanRewrite,
+	)
 	let outcome = await prepared.execute(
 		immutableRecord({
 			constraints: finalConstraints,
 			operation: executableOperation,
+			plan: persistencePlan,
 		}),
 	)
 

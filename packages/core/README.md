@@ -1833,6 +1833,9 @@ Milestone 14 maps the removed generic paths as follows:
   `provideRuntimeConstraint()`, and `provideRuntimeObserver()` respectively;
 - Runtime execution is a replaceable `single` application capability behind
   Core-owned application, authority, cancellation, and transaction boundaries;
+- physical persistence rewrites use the ordered
+  `persistencePlanRewriterCapability` and exact
+  `providePersistencePlanRewriter()` facade under `persistence:rewrite`;
 - database constraint compilers retain their exact adapter-authorized facade;
 - cross-plugin commands become domain capabilities, such as
   `accessReferenceCleanupCapability`;
@@ -1840,6 +1843,16 @@ Milestone 14 maps the removed generic paths as follows:
   provenance; and
 - unused operator, generator, and transport registry categories are removed
   without replacement.
+
+Persistence plan protocol version 1 keeps logical operations immutable while
+allowing only `delete-one` to `update-one` and `delete-many` to `update-many`
+physical rewrites. A rewriter receives the logical operation and an immutable
+target, data, returning, and provenance plan, but never receives protected row
+filters or adapter constraints. Core keeps those restrictions in the adapter
+request envelope and applies them to the final physical statement. Adapters
+must advertise `databasePersistencePlanCapability`; missing versions or plan
+kinds fail before an adapter effect. Rewrites use neither nested Runtime
+operations nor master authority.
 
 Independent subject consumers provide deletion participation without importing
 the provider that resolves that subject:

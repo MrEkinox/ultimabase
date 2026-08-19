@@ -1,11 +1,11 @@
 import {
 	databaseInclusionCapability,
+	databasePersistencePlanCapability,
 	databasePointerCapability,
 	databaseRelationCapability,
 	databaseRelationPredicateCapability,
 	FrameworkError,
 } from '@ultimabase/core'
-import type { ExecutableOperationAst } from '@ultimabase/core'
 import type {
 	DatabaseAdapter,
 	DatabaseMutationOperationAst,
@@ -16,7 +16,7 @@ import type {
 	PreparedDatabaseOperation,
 } from '@ultimabase/core'
 import { and, type SQL } from 'drizzle-orm'
-import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
+import { immutableRecord } from '@ultimabase/shared'
 
 import {
 	compilePostgresConstraints,
@@ -43,12 +43,14 @@ import {
 	readPostgresIncludedValue,
 	readPostgresRelationalObjectIdentity,
 } from './relational-query-executor.js'
+import { readPostgresPersistenceOperation } from './persistence-plan.js'
 
 const postgresDatabaseCapabilities = immutableRecord({
 	pointers: databasePointerCapability,
 	inclusions: databaseInclusionCapability,
 	relations: databaseRelationCapability,
 	relationPredicates: databaseRelationPredicateCapability,
+	persistencePlans: databasePersistencePlanCapability,
 })
 
 const readPostgresObjectIdentity = (
@@ -65,26 +67,8 @@ const isPostgresRelationalRead = (
 	operation.kind === 'find-one' ||
 	operation.kind === 'get'
 
-const readOperationSchema = (operation: DatabaseOperationAst): unknown => {
-	if (
-		'query' in operation &&
-		isPlainRecord(operation.query) &&
-		isPlainRecord(operation.query.schema) &&
-		'definition' in operation.query.schema
-	) {
-		return operation.query.schema.definition
-	}
-
-	if (
-		'schema' in operation &&
-		isPlainRecord(operation.schema) &&
-		'definition' in operation.schema
-	) {
-		return operation.schema.definition
-	}
-
-	return undefined
-}
+const readPlanSchema = (request: DatabaseOperationRequest): unknown =>
+	request.plan.target.schema.definition
 
 /** Prevents a row predicate from being silently ignored by an INSERT path. */
 const assertConstraintOperationSupported = (
@@ -179,14 +163,18 @@ const executePostgresRequest = async <
 	constraintCompilers: PostgresConstraintCompilerRegistry,
 	request: DatabaseOperationRequest<TOperation>,
 ): Promise<DatabaseOperationResult<TOperation>> => {
-	const schema = schemas.get(readOperationSchema(request.operation))
+	const schema = schemas.get(readPlanSchema(request))
 	const relationPredicateCompiler = createPostgresRelationPredicateCompiler(
 		schemas,
 		constraintCompilers,
 		request.relationPredicates ?? [],
 	)
-	assertConstraintOperationSupported(
+	const operation = readPostgresPersistenceOperation(
 		request.operation,
+		request.plan,
+	)
+	assertConstraintOperationSupported(
+		operation,
 		request.constraints.length > 0 || request.rowFilter !== undefined,
 	)
 
@@ -212,7 +200,6 @@ const executePostgresRequest = async <
 	)
 	const effectivePredicate = and(constraintPredicate, relationPredicate)
 	// Runtime guarantees the closed Operation AST union before the adapter boundary.
-	const operation = request.operation as unknown as ExecutableOperationAst
 	const result = await executePostgresOperation(
 		client,
 		schema,
@@ -303,7 +290,7 @@ class DrizzlePostgresTransactionAdapter implements DatabaseTransactionAdapter {
 		request: DatabaseOperationRequest<TOperation>,
 	): Promise<PreparedDatabaseOperation<TOperation>> {
 		this.#assertActive()
-		const schema = this.#schemas.get(readOperationSchema(request.operation))
+		const schema = this.#schemas.get(readPlanSchema(request))
 		const relationPredicateCompiler = createPostgresRelationPredicateCompiler(
 			this.#schemas,
 			this.#constraintCompilers,
@@ -319,8 +306,12 @@ class DrizzlePostgresTransactionAdapter implements DatabaseTransactionAdapter {
 			request.relation === undefined
 				? undefined
 				: this.#schemas.getRelation(request.relation)
-		assertConstraintOperationSupported(
+		const initialPhysicalOperation = readPostgresPersistenceOperation(
 			request.operation,
+			request.plan,
+		)
+		assertConstraintOperationSupported(
+			initialPhysicalOperation,
 			request.constraints.length > 0 || request.rowFilter !== undefined,
 		)
 
@@ -328,13 +319,26 @@ class DrizzlePostgresTransactionAdapter implements DatabaseTransactionAdapter {
 			this.#drizzle,
 			schema,
 			request.operation,
+			request.plan,
 			constraintPredicate,
 			() => {
 				this.#assertActive()
 			},
 			(execution) => {
-				assertConstraintOperationSupported(
+				if (
+					execution.plan.target.schema.definition !==
+					request.plan.target.schema.definition
+				) {
+					throw new TypeError(
+						'PostgreSQL prepared plan changed its target schema',
+					)
+				}
+				const physicalOperation = readPostgresPersistenceOperation(
 					execution.operation,
+					execution.plan,
+				)
+				assertConstraintOperationSupported(
+					physicalOperation,
 					execution.constraints.length > 0 || request.rowFilter !== undefined,
 				)
 
@@ -345,6 +349,7 @@ class DrizzlePostgresTransactionAdapter implements DatabaseTransactionAdapter {
 						...request,
 						constraints: execution.constraints,
 						operation: execution.operation,
+						plan: execution.plan,
 					},
 					relationPredicateCompiler,
 				)

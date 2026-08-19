@@ -60,6 +60,7 @@ import {
 	snapshotRuntimeConstraints,
 } from './stage-inputs.js'
 import type { RuntimePipeline } from './runtime-pipeline.js'
+import { createDatabasePersistenceRequest } from '../persistence/execution.js'
 
 /** Carries one grouped mutation projection without exposing it on RuntimePipeline. */
 export interface RuntimeMutationBatchProjectionRequest {
@@ -186,14 +187,13 @@ export const loadSingularMutationInclusionSource = async <
 
 	if (identity === undefined) return undefined
 
-	// The terminal discriminant proves the exact private read shape omitted by
-	// the broader adapter operation union.
+	// The terminal discriminant proves the private read shape omitted by the adapter union.
 	const executable = operation as unknown as Extract<
 		ExecutableOperationAst,
 		{ readonly kind: 'create-one' | 'update-one' }
 	>
 	const projected: unknown = await executor.execute(
-		immutableRecord({
+		createDatabasePersistenceRequest({
 			constraints: emptyRuntimeConstraints,
 			inclusions,
 			operation: createMutationInclusionRead(executable, identity),
@@ -292,7 +292,7 @@ export class RuntimeInclusionProjector {
 
 		assertDatabaseInclusionCapability(this.#stages.databaseOperation)
 		const rawResult: unknown = await this.#stages.databaseOperation.execute(
-			immutableRecord({
+			createDatabasePersistenceRequest({
 				constraints: emptyRuntimeConstraints,
 				inclusions: immutableArray(inclusions.map(({ database }) => database)),
 				operation,
@@ -423,7 +423,7 @@ export class RuntimeInclusionProjector {
 			} catch (error: unknown) {
 				if (!isRuntimeNativeAccessDenied(error)) throw error
 
-				const request = immutableRecord({
+				const request = createDatabasePersistenceRequest({
 					constraints: emptyRuntimeConstraints,
 					operation,
 				})
@@ -449,7 +449,7 @@ export class RuntimeInclusionProjector {
 			}
 
 			const nested = await this.prepare(context, operation)
-			const request = immutableRecord({
+			const request = createDatabasePersistenceRequest({
 				constraints,
 				operation,
 				...(nested.length === 0

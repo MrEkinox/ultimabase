@@ -43,6 +43,7 @@ export interface MaterializedCapabilityContribution<
 > {
 	readonly contributionId: string
 	readonly owner: PluginIdentity
+	readonly pluginVersion: string
 	readonly value: CapabilityProviderValue<TToken>
 }
 
@@ -358,6 +359,7 @@ export class ApplicationCapabilityHost {
 				immutableRecord({
 					contributionId: contribution.declaration.contributionId,
 					owner: contribution.owner,
+					pluginVersion: contribution.version,
 					value: resource.value,
 				}),
 			)

@@ -28,6 +28,10 @@ import {
 	runtimeExecutorCapability,
 	runtimeProviderPrivilege,
 } from '../runtime/capabilities.js'
+import {
+	isAuthorizedPersistencePlanRewriterProvider,
+	persistencePlanRewriterCapability,
+} from '../runtime/persistence/capabilities.js'
 
 const throwCapabilityConflict = (
 	message: string,
@@ -156,6 +160,44 @@ export const buildReplacementChains = (
 			},
 		)
 	}
+	const persistenceRequirement =
+		entry.token === persistencePlanRewriterCapability
+			? entry.requirements[0]
+			: undefined
+	if (persistenceRequirement !== undefined) {
+		return throwCapabilityConflict(
+			'Persistence plan rewriters cannot be consumed through a plugin requirement.',
+			{
+				kind: 'persistence-rewriter-requirement-forbidden',
+				plugin: formatPluginIdentity(persistenceRequirement.owner),
+				capabilityId: entry.token.capabilityId,
+			},
+		)
+	}
+	if (entry.token === persistencePlanRewriterCapability) {
+		for (const provider of entry.providers) {
+			if (
+				!isAuthorizedPersistencePlanRewriterProvider(
+					provider.declaration as CapabilityProviderDeclaration,
+				)
+			) {
+				return throwCapabilityConflict(
+					'Persistence plan rewriters must use providePersistencePlanRewriter.',
+					{
+						kind: 'persistence-rewriter-provider-factory',
+						plugin: formatPluginIdentity(provider.owner),
+						contributionId: provider.declaration.contributionId,
+					},
+				)
+			}
+			assertContributionPrivilege(
+				entries,
+				entry,
+				provider,
+				'persistence:rewrite',
+			)
+		}
+	}
 
 	const runtimeProviderPower = runtimeProviderPrivilege(entry.token)
 	if (runtimeProviderPower !== undefined) {
@@ -202,6 +244,16 @@ export const buildReplacementChains = (
 
 	const replacementsByTarget = new Map<OwnedProvider, OwnedProvider>()
 	for (const replacement of entry.replacements) {
+		if (entry.token === persistencePlanRewriterCapability) {
+			return throwCapabilityConflict(
+				'Persistence plan rewriters cannot be replaced through the generic capability facade.',
+				{
+					kind: 'persistence-rewriter-replacement-forbidden',
+					plugin: formatPluginIdentity(replacement.owner),
+					contributionId: replacement.declaration.contributionId,
+				},
+			)
+		}
 		if (
 			isRuntimeCapability(entry.token) &&
 			entry.token !== runtimeExecutorCapability
@@ -386,6 +438,16 @@ export const buildReplacementChains = (
 	}
 
 	for (const decorator of entry.decorators) {
+		if (entry.token === persistencePlanRewriterCapability) {
+			return throwCapabilityConflict(
+				'Persistence plan rewriters cannot be decorated through the generic capability facade.',
+				{
+					kind: 'persistence-rewriter-decoration-forbidden',
+					plugin: formatPluginIdentity(decorator.owner),
+					contributionId: decorator.declaration.contributionId,
+				},
+			)
+		}
 		if (isSchemaCompilerCapability(entry.token)) {
 			return throwCapabilityConflict(
 				'Schema compiler capability cannot be decorated.',

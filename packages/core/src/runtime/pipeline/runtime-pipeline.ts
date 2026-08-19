@@ -31,10 +31,8 @@ import type {
 	RuntimePipelineStages,
 	RuntimeResultStageInput,
 } from './contracts.js'
-import {
-	executeRuntimeDatabaseOperation,
-	isRuntimeMutationOperation,
-} from './database-execution.js'
+import { executeRuntimeDatabaseOperation } from './database-execution.js'
+import { isRuntimeMutationOperation } from './operation-kind.js'
 import {
 	isRuntimeNativeAccessDenied,
 	retainRuntimeMutationBatchProjector,
@@ -192,6 +190,15 @@ const assertRuntimePipelineStages = (stages: RuntimePipelineStages): void => {
 	) {
 		throw new TypeError(
 			'Runtime pipeline stage preparedOperationHooks must be a function',
+		)
+	}
+
+	if (
+		untrustedStages.persistencePlanRewrite !== undefined &&
+		typeof untrustedStages.persistencePlanRewrite !== 'function'
+	) {
+		throw new TypeError(
+			'Runtime pipeline stage persistencePlanRewrite must be a function',
 		)
 	}
 }
@@ -391,6 +398,7 @@ export class RuntimePipeline {
 			context,
 			this.#stages.nativeHooks,
 			this.#stages.preparedOperationHooks,
+			this.#stages.persistencePlanRewrite,
 			this.#stages.globalBeforeHooks,
 			this.#stages.schemaBeforeHooks,
 			immutableRecord({

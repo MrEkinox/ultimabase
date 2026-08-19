@@ -13,7 +13,12 @@ import type {
 	QuerySchemaNode,
 } from '../../query/index.js'
 import type { SchemaItem, SchemaDefinition } from '../../schema/index.js'
-import { immutableRecord } from '@ultimabase/shared'
+import { immutableArray, immutableRecord } from '@ultimabase/shared'
+import type {
+	DatabasePersistencePlan,
+	DatabasePersistencePlanKind,
+} from '../persistence/contracts.js'
+import { databasePersistencePlanVersion } from '../persistence/contracts.js'
 
 /** Selects the portable pointer protocol currently understood by Core Runtime. */
 export const databasePointerCapabilityVersion = 1 as const
@@ -51,12 +56,20 @@ export interface DatabaseRelationPredicateCapability {
 	readonly version: typeof databaseRelationPredicateCapabilityVersion
 }
 
+/** Advertises exact physical statement kinds and their portable protocol version. */
+export interface DatabasePersistencePlanCapability {
+	readonly kind: 'persistence-plans'
+	readonly kinds: readonly DatabasePersistencePlanKind[]
+	readonly version: typeof databasePersistencePlanVersion
+}
+
 /** Lets adapters opt into portable features without coupling Core to a database. */
 export interface DatabaseAdapterCapabilities {
 	readonly pointers?: DatabasePointerCapability
 	readonly inclusions?: DatabaseInclusionCapability
 	readonly relations?: DatabaseRelationCapability
 	readonly relationPredicates?: DatabaseRelationPredicateCapability
+	readonly persistencePlans?: DatabasePersistencePlanCapability
 }
 
 /** Reuses one frozen capability declaration across root and transaction adapters. */
@@ -85,6 +98,28 @@ export const databaseRelationPredicateCapability: DatabaseRelationPredicateCapab
 	immutableRecord({
 		kind: 'relation-predicates',
 		version: databaseRelationPredicateCapabilityVersion,
+	})
+
+/** Advertises Core's complete built-in persistence-plan family. */
+export const databasePersistencePlanCapability: DatabasePersistencePlanCapability =
+	immutableRecord({
+		kind: 'persistence-plans',
+		kinds: immutableArray([
+			'count',
+			'create-many',
+			'create-one',
+			'delete-many',
+			'delete-one',
+			'exists',
+			'find-many',
+			'find-one',
+			'get',
+			'update-many',
+			'update-one',
+			'upsert-many',
+			'upsert-one',
+		]),
+		version: databasePersistencePlanVersion,
 	})
 
 /**
@@ -190,7 +225,10 @@ export interface DatabaseOperationRequest<
 	TConstraint extends DatabaseConstraintNode = DatabaseConstraintNode,
 > {
 	readonly constraints: readonly TConstraint[]
+	/** Preserves logical semantics only for result correlation and diagnostics. */
 	readonly operation: TOperation
+	/** Selects the physical adapter statement independently from logical semantics. */
+	readonly plan: DatabasePersistencePlan<TOperation>
 	/** Requests stable complete preimages for item-oriented set-based mutation hooks. */
 	readonly prepareMutationItems?: true
 	/** Carries one Runtime-validated relation edge only to capable adapters. */
@@ -357,6 +395,7 @@ export interface PreparedDatabaseOperationExecution<
 > {
 	readonly constraints: readonly DatabaseConstraintNode[]
 	readonly operation: TOperation
+	readonly plan: DatabasePersistencePlan<TOperation>
 }
 
 /** Adds the stable visible preimage when one directed mutation can have one. */

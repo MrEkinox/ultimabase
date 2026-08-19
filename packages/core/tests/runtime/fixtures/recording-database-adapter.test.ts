@@ -1,4 +1,8 @@
-import { QueryBuilder, Schema } from '../../../src/index.js'
+import {
+	createDatabasePersistencePlan,
+	QueryBuilder,
+	Schema,
+} from '../../../src/index.js'
 import type { DeleteOneOperationAst } from '../../../src/query/index.js'
 import { describe, expect, it } from 'vitest'
 
@@ -26,6 +30,7 @@ const prepareDelete = async (result: QueuedAdapterResult, trace: string[]) => {
 	const prepared = await transaction.prepare({
 		constraints: [],
 		operation: deleteOperation,
+		plan: createDatabasePersistencePlan(deleteOperation),
 	})
 
 	return { adapter, prepared, transaction }

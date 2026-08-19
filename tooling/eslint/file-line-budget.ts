@@ -12,7 +12,7 @@ export interface FileLineBudgetPolicy {
 /** Records only pre-existing handwritten exceptions and must never be increased. */
 export const handwrittenFileLineBaseline: Readonly<Record<string, number>> =
 	Object.freeze({
-		'packages/acl-permissions-plugin/src/plugin.test.ts': 1089,
+		'packages/acl-permissions-plugin/src/plugin.test.ts': 1088,
 		'packages/acl-permissions-plugin/src/plugin.ts': 1033,
 		'packages/core/src/plugins/access-targets.ts': 634,
 		'packages/core/src/plugins/capabilities.ts': 1047,
@@ -36,12 +36,12 @@ export const handwrittenFileLineBaseline: Readonly<Record<string, number>> =
 		'packages/core/tests/runtime/bulk-terminals.test.ts': 898,
 		'packages/postgres-plugin/src/drizzle/adapter.test.ts': 1692,
 		'packages/postgres-plugin/src/drizzle/operation-executor.ts': 666,
-		'packages/postgres-plugin/src/drizzle/prepared-operation.ts': 862,
+		'packages/postgres-plugin/src/drizzle/prepared-operation.ts': 780,
 		'packages/postgres-plugin/src/query/filter-compiler.test.ts': 804,
 		'packages/postgres-plugin/src/query/filter-compiler.ts': 650,
 		'packages/typegen/src/generator-language-service.test.ts': 920,
 		'tests/e2e/relation-postgres.postgres.e2e.test.ts': 953,
-		'tests/e2e/runtime-postgres.postgres.e2e.test.ts': 1147,
+		'tests/e2e/runtime-postgres.postgres.e2e.test.ts': 1139,
 	})
 
 const generatedArtifactPattern =

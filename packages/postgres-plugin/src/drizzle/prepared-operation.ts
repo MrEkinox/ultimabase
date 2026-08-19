@@ -7,21 +7,19 @@ import {
 	type DatabaseMutationMaterialization,
 	type DatabaseMutationOperationAst,
 	type DatabaseOperationOutcome,
+	type DatabasePersistencePlan,
 	type ExecutableOperationAst,
 	type PreparedDatabaseOperation,
 	type PreparedDatabaseOperationExecution,
 } from '@ultimabase/core'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
-import { and, eq, inArray, type SQL } from 'drizzle-orm'
+import type { SQL } from 'drizzle-orm'
 
 import type {
 	CompiledPostgresRelation,
 	CompiledPostgresSchema,
 } from '../schema/contracts.js'
-import {
-	compilePostgresSelection,
-	resolveCompiledPostgresField,
-} from '../schema/field.js'
+import { compilePostgresSelection } from '../schema/field.js'
 import {
 	executeCreateInput,
 	executeCreateMany,
@@ -35,13 +33,19 @@ import {
 import type { PostgresDrizzleClient } from './client.js'
 import { mapPostgresOperationError } from './operation-error.js'
 import { readPostgresRecord } from './record.js'
-import { compilePostgresUpdate } from './update-compiler.js'
 import { executePostgresRelationMutation } from './relation-executor.js'
 import type { PostgresRelationPredicateCompiler } from '../query/filter-compiler.js'
 import {
 	projectPostgresRecord,
 	projectPostgresRecords,
 } from './result-projection.js'
+import { readPostgresPersistenceOperation } from './persistence-plan.js'
+import {
+	createPostgresMutationOutcome,
+	createRetainedMutationTarget,
+	executeRetainedSetBasedMutation,
+	executeRetainedUpdate,
+} from './prepared-persistence.js'
 
 type RuntimeMutationOperation = Extract<
 	ExecutableOperationAst,
@@ -66,6 +70,7 @@ type PreparedMutationExecution<
 	TOperation extends DatabaseMutationOperationAst,
 > = (
 	operation: TOperation,
+	plan: DatabasePersistencePlan,
 	constraint: SQL | undefined,
 ) => Promise<DatabaseOperationOutcome<TOperation>>
 type PreparedMutationConstraintCompiler<
@@ -79,22 +84,11 @@ interface PreparedMutationHandleOptions<
 	readonly compileConstraint: PreparedMutationConstraintCompiler<TOperation>
 	readonly initialConstraint: SQL | undefined
 	readonly operation: TOperation
+	readonly plan: DatabasePersistencePlan
 	readonly target?: DatabaseLogicalRecord | null
 	readonly targets?: readonly DatabaseLogicalRecord[]
 	readonly execute: PreparedMutationExecution<TOperation>
 }
-
-/** Centralizes the adapter's discriminant-safe logical outcome boundary. */
-const createPostgresMutationOutcome = <
-	const TOperation extends DatabaseMutationOperationAst,
->(
-	result: unknown,
-	materializations: readonly DatabaseMutationMaterialization[],
-): DatabaseOperationOutcome<TOperation> =>
-	immutableRecord({
-		materializations: immutableArray(materializations),
-		result,
-	}) as unknown as DatabaseOperationOutcome<TOperation>
 
 /** Creates one transaction-bound handle that consumes its target on first use. */
 const createPreparedMutationHandle = <
@@ -104,6 +98,7 @@ const createPreparedMutationHandle = <
 	compileConstraint,
 	initialConstraint,
 	operation,
+	plan,
 	target,
 	targets,
 	execute,
@@ -124,9 +119,21 @@ const createPreparedMutationHandle = <
 			// Failed and expired attempts consume the retained target as well.
 			attempted = true
 			assertActive()
+			const resolvedOperation = request?.operation ?? operation
+			const resolvedPlan = request?.plan ?? plan
+
+			if (
+				resolvedPlan.target.schema.definition !== plan.target.schema.definition
+			) {
+				throw new TypeError(
+					'PostgreSQL prepared plan changed its target schema',
+				)
+			}
+			readPostgresPersistenceOperation(resolvedOperation, resolvedPlan)
 
 			return execute(
-				request?.operation ?? operation,
+				resolvedOperation,
+				resolvedPlan,
 				request === undefined ? initialConstraint : compileConstraint(request),
 			)
 		},
@@ -150,63 +157,11 @@ const runPreparedMutationStep = async <TResult>(
 	}
 }
 
-const readPreparedRecordId = (
-	schema: CompiledPostgresSchema,
-	record: DatabaseLogicalRecord,
-): unknown => {
-	if (!Object.hasOwn(record, 'id')) {
-		throw new TypeError('PostgreSQL prepared mutation target is missing its id')
-	}
-
-	resolveCompiledPostgresField(schema, 'id')
-	return record.id
-}
-
-/** Reuses one retained identifier while preserving every accumulated constraint. */
-const createRetainedMutationTarget = (
-	schema: CompiledPostgresSchema,
-	previous: DatabaseLogicalRecord,
-	constraint: SQL | undefined,
-): SQL => {
-	const id = resolveCompiledPostgresField(schema, 'id').column
-	const target = and(eq(id, readPreparedRecordId(schema, previous)), constraint)
-
-	if (target === undefined) {
-		throw new TypeError(
-			'PostgreSQL prepared mutation predicate could not be combined',
-		)
-	}
-
-	return target
-}
-
-/** Applies an update to one locked row and returns its complete current state. */
-const executeRetainedUpdate = async (
-	client: PostgresDrizzleClient,
-	schema: CompiledPostgresSchema,
-	update: UpdateExpressionNode,
-	previous: DatabaseLogicalRecord,
-	constraint: SQL | undefined,
-): Promise<DatabaseLogicalRecord> => {
-	const [row] = await client
-		.update(schema.table)
-		.set(compilePostgresUpdate(schema, update))
-		.where(createRetainedMutationTarget(schema, previous, constraint))
-		.returning(compilePostgresSelection(schema))
-
-	if (row === undefined) {
-		throw new TypeError(
-			'PostgreSQL prepared update target disappeared before execution',
-		)
-	}
-
-	return readPostgresRecord(schema, row)
-}
-
 const executeLockedMutation = async (
 	client: PostgresDrizzleClient,
 	schema: CompiledPostgresSchema,
 	operation: RuntimeLockedOperation,
+	plan: DatabasePersistencePlan,
 	previous: DatabaseLogicalRecord,
 	constraint: SQL | undefined,
 	relation: CompiledPostgresRelation | undefined,
@@ -217,6 +172,10 @@ const executeLockedMutation = async (
 	}>
 > => {
 	if (operation.kind === 'update-one') {
+		if (plan.kind !== 'update-one') {
+			throw new TypeError('PostgreSQL update-one requires an update-one plan')
+		}
+
 		if (relation !== undefined) {
 			await executePostgresRelationMutation(
 				client,
@@ -242,6 +201,27 @@ const executeLockedMutation = async (
 			}),
 			record: current,
 		})
+	}
+	if (plan.kind === 'update-one') {
+		await executeRetainedUpdate(
+			client,
+			schema,
+			plan.data.update,
+			previous,
+			constraint,
+		)
+
+		// Logical delete observers and results retain the preimage even when storage tombstones it.
+		return immutableRecord({
+			materialization: immutableRecord({
+				kind: 'delete' as const,
+				previous,
+			}),
+			record: previous,
+		})
+	}
+	if (plan.kind !== 'delete-one') {
+		throw new TypeError('PostgreSQL delete-one received an invalid plan kind')
 	}
 
 	const [row] = await client
@@ -343,6 +323,7 @@ const prepareCreateOne = (
 	client: PostgresDrizzleClient,
 	schema: CompiledPostgresSchema,
 	operation: Extract<RuntimeMutationOperation, { readonly kind: 'create-one' }>,
+	plan: DatabasePersistencePlan,
 	initialConstraint: SQL | undefined,
 	assertActive: () => void,
 	compileConstraint: PreparedMutationConstraintCompiler<
@@ -356,6 +337,7 @@ const prepareCreateOne = (
 		compileConstraint,
 		initialConstraint,
 		operation,
+		plan,
 		execute: async (resolvedOperation) => {
 			const current = await runPreparedMutationStep(
 				resolvedOperation.kind,
@@ -376,6 +358,7 @@ const prepareCreateMany = (
 		RuntimeMutationOperation,
 		{ readonly kind: 'create-many' }
 	>,
+	plan: DatabasePersistencePlan,
 	initialConstraint: SQL | undefined,
 	assertActive: () => void,
 	compileConstraint: PreparedMutationConstraintCompiler<
@@ -389,6 +372,7 @@ const prepareCreateMany = (
 		compileConstraint,
 		initialConstraint,
 		operation,
+		plan,
 		execute: async (resolvedOperation) => {
 			const records = await runPreparedMutationStep(
 				resolvedOperation.kind,
@@ -409,6 +393,7 @@ const prepareLockedSingular = async (
 	client: PostgresDrizzleClient,
 	schema: CompiledPostgresSchema,
 	operation: RuntimeLockedOperation,
+	plan: DatabasePersistencePlan,
 	constraint: SQL | undefined,
 	assertActive: () => void,
 	compileConstraint: PreparedMutationConstraintCompiler<RuntimeLockedOperation>,
@@ -430,8 +415,9 @@ const prepareLockedSingular = async (
 		compileConstraint,
 		initialConstraint: constraint,
 		operation,
+		plan,
 		target: previous,
-		execute: async (resolvedOperation, finalConstraint) => {
+		execute: async (resolvedOperation, resolvedPlan, finalConstraint) => {
 			if (previous === null) {
 				return createPostgresMutationOutcome(null, [])
 			}
@@ -443,6 +429,7 @@ const prepareLockedSingular = async (
 						client,
 						schema,
 						resolvedOperation,
+						resolvedPlan,
 						previous,
 						finalConstraint,
 						relation,
@@ -457,97 +444,6 @@ const prepareLockedSingular = async (
 	})
 }
 
-/** Executes one retained set of ids and restores the stable preparation order. */
-const executeRetainedSetBasedMutation = async (
-	client: PostgresDrizzleClient,
-	schema: CompiledPostgresSchema,
-	operation: Extract<
-		RuntimeMutationOperation,
-		{ readonly kind: 'delete-many' | 'update-many' }
-	>,
-	targets: readonly DatabaseLogicalRecord[],
-	constraint: SQL | undefined,
-): Promise<DatabaseOperationOutcome<typeof operation>> => {
-	if (targets.length === 0) {
-		return createPostgresMutationOutcome([], [])
-	}
-
-	const id = resolveCompiledPostgresField(schema, 'id').column
-	const targetIds = targets.map((target) =>
-		readPreparedRecordId(schema, target),
-	)
-	const where = and(inArray(id, targetIds), constraint)
-
-	if (where === undefined) {
-		throw new TypeError(
-			'PostgreSQL prepared set-based target could not be combined',
-		)
-	}
-
-	const rows =
-		operation.kind === 'update-many'
-			? await client
-					.update(schema.table)
-					.set(compilePostgresUpdate(schema, operation.update))
-					.where(where)
-					.returning(compilePostgresSelection(schema))
-			: await client
-					.delete(schema.table)
-					.where(where)
-					.returning(compilePostgresSelection(schema))
-	const records = rows.map((row) => readPostgresRecord(schema, row))
-
-	if (records.length !== targets.length) {
-		throw new TypeError(
-			'PostgreSQL prepared set-based targets changed before execution',
-		)
-	}
-
-	const recordsById = new Map<unknown, DatabaseLogicalRecord>()
-
-	for (const record of records) {
-		const recordId = readPreparedRecordId(schema, record)
-
-		if (recordsById.has(recordId)) {
-			throw new TypeError(
-				'PostgreSQL prepared set-based mutation returned duplicate identities',
-			)
-		}
-
-		recordsById.set(recordId, record)
-	}
-
-	const orderedRecords = targets.map((target) => {
-		const record = recordsById.get(readPreparedRecordId(schema, target))
-
-		if (record === undefined) {
-			throw new TypeError(
-				'PostgreSQL prepared set-based mutation returned an unknown identity',
-			)
-		}
-
-		return record
-	})
-	const materializations = orderedRecords.map((record, index) => {
-		const previous = targets[index]
-
-		if (previous === undefined) {
-			throw new TypeError(
-				'PostgreSQL prepared set-based mutation lost its preimage order',
-			)
-		}
-
-		return operation.kind === 'update-many'
-			? immutableRecord({ current: record, kind: 'update' as const, previous })
-			: immutableRecord({ kind: 'delete' as const, previous: record })
-	})
-
-	return createPostgresMutationOutcome(
-		projectPostgresRecords(orderedRecords, operation),
-		materializations,
-	)
-}
-
 const prepareSetBasedMutation = async (
 	client: PostgresDrizzleClient,
 	schema: CompiledPostgresSchema,
@@ -555,6 +451,7 @@ const prepareSetBasedMutation = async (
 		RuntimeMutationOperation,
 		{ readonly kind: 'delete-many' | 'update-many' }
 	>,
+	plan: DatabasePersistencePlan,
 	constraint: SQL | undefined,
 	assertActive: () => void,
 	compileConstraint: PreparedMutationConstraintCompiler<
@@ -590,14 +487,16 @@ const prepareSetBasedMutation = async (
 		compileConstraint,
 		initialConstraint: constraint,
 		operation,
+		plan,
 		...(targets === undefined ? {} : { targets }),
-		execute: async (resolvedOperation, finalConstraint) => {
+		execute: async (resolvedOperation, resolvedPlan, finalConstraint) => {
 			if (targets !== undefined) {
 				return runPreparedMutationStep(resolvedOperation.kind, () =>
 					executeRetainedSetBasedMutation(
 						client,
 						schema,
 						resolvedOperation,
+						resolvedPlan,
 						targets,
 						finalConstraint,
 					),
@@ -606,8 +505,14 @@ const prepareSetBasedMutation = async (
 
 			const result = await runPreparedMutationStep(
 				resolvedOperation.kind,
-				() =>
-					resolvedOperation.kind === 'update-many'
+				() => {
+					if (resolvedPlan.kind !== resolvedOperation.kind) {
+						throw new TypeError(
+							'PostgreSQL rewritten set-based mutations require retained targets',
+						)
+					}
+
+					return resolvedOperation.kind === 'update-many'
 						? executeUpdateMany(
 								client,
 								schema,
@@ -621,7 +526,8 @@ const prepareSetBasedMutation = async (
 								resolvedOperation,
 								finalConstraint,
 								relationCompiler,
-							),
+							)
+				},
 			)
 
 			return createPostgresMutationOutcome(result, [])
@@ -633,6 +539,7 @@ const prepareUpsertOne = async (
 	client: PostgresDrizzleClient,
 	schema: CompiledPostgresSchema,
 	operation: Extract<RuntimeMutationOperation, { readonly kind: 'upsert-one' }>,
+	plan: DatabasePersistencePlan,
 	constraint: SQL | undefined,
 	assertActive: () => void,
 	compileConstraint: PreparedMutationConstraintCompiler<
@@ -659,8 +566,9 @@ const prepareUpsertOne = async (
 		compileConstraint,
 		initialConstraint: constraint,
 		operation,
+		plan,
 		target: previous,
-		execute: async (resolvedOperation, finalConstraint) => {
+		execute: async (resolvedOperation, _resolvedPlan, finalConstraint) => {
 			if (previous !== null) {
 				const current = await runPreparedMutationStep(
 					resolvedOperation.kind,
@@ -713,6 +621,7 @@ const prepareUpsertMany = (
 		RuntimeMutationOperation,
 		{ readonly kind: 'upsert-many' }
 	>,
+	plan: DatabasePersistencePlan,
 	initialConstraint: SQL | undefined,
 	assertActive: () => void,
 	compileConstraint: PreparedMutationConstraintCompiler<
@@ -727,7 +636,8 @@ const prepareUpsertMany = (
 		compileConstraint,
 		initialConstraint,
 		operation,
-		execute: async (resolvedOperation, finalConstraint) => {
+		plan,
+		execute: async (resolvedOperation, _resolvedPlan, finalConstraint) => {
 			const items = resolvedOperation.items as readonly RuntimeUpsertItem[]
 
 			const records: DatabaseLogicalRecord[] = []
@@ -768,6 +678,7 @@ export const preparePostgresMutation = async <
 	client: PostgresDrizzleClient,
 	schema: CompiledPostgresSchema,
 	operation: TOperation,
+	plan: DatabasePersistencePlan<TOperation>,
 	constraint: SQL | undefined,
 	assertActive: () => void,
 	compileConstraint: PreparedMutationConstraintCompiler<TOperation>,
@@ -776,6 +687,7 @@ export const preparePostgresMutation = async <
 	relationCompiler?: PostgresRelationPredicateCompiler,
 ): Promise<PreparedDatabaseOperation<TOperation>> => {
 	const runtimeOperation = operation as unknown as RuntimeMutationOperation
+	const runtimePlan = plan as unknown as DatabasePersistencePlan
 	const runtimeCompileConstraint =
 		compileConstraint as unknown as PreparedMutationConstraintCompiler<RuntimeMutationOperation>
 	let prepared: unknown
@@ -786,6 +698,7 @@ export const preparePostgresMutation = async <
 				client,
 				schema,
 				runtimeOperation,
+				runtimePlan,
 				constraint,
 				assertActive,
 				runtimeCompileConstraint,
@@ -796,6 +709,7 @@ export const preparePostgresMutation = async <
 				client,
 				schema,
 				runtimeOperation,
+				runtimePlan,
 				constraint,
 				assertActive,
 				runtimeCompileConstraint,
@@ -813,6 +727,7 @@ export const preparePostgresMutation = async <
 				client,
 				schema,
 				runtimeOperation,
+				runtimePlan,
 				constraint,
 				assertActive,
 				runtimeCompileConstraint,
@@ -826,6 +741,7 @@ export const preparePostgresMutation = async <
 				client,
 				schema,
 				runtimeOperation,
+				runtimePlan,
 				constraint,
 				assertActive,
 				runtimeCompileConstraint,
@@ -838,6 +754,7 @@ export const preparePostgresMutation = async <
 				client,
 				schema,
 				runtimeOperation,
+				runtimePlan,
 				constraint,
 				assertActive,
 				runtimeCompileConstraint,
@@ -849,6 +766,7 @@ export const preparePostgresMutation = async <
 				client,
 				schema,
 				runtimeOperation,
+				runtimePlan,
 				constraint,
 				assertActive,
 				runtimeCompileConstraint,

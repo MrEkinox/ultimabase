@@ -1,0 +1,58 @@
+import { expectTypeOf, test } from 'vitest'
+
+import {
+	definePlugin,
+	normalizeUpdateExpression,
+	persistencePlanRewriter,
+	providePersistencePlanRewriter,
+	QueryBuilder,
+	rewriteDeletePersistencePlan,
+	Schema,
+	type DatabasePersistencePlan,
+} from '../../index.js'
+
+const articleSchema = Schema.define({
+	className: 'PersistenceTypeArticle',
+	fields: (field) => ({ deleted: field.boolean() }),
+})
+
+test('preserves logical delete correlation across one physical update plan', () => {
+	const definition = persistencePlanRewriter({
+		operations: ['delete-one'],
+		schema: articleSchema,
+		rewrite: ({ logicalOperation, plan }) => {
+			expectTypeOf(logicalOperation.kind).toEqualTypeOf<'delete-one'>()
+			expectTypeOf(logicalOperation.query.schema.definition).toEqualTypeOf<
+				typeof articleSchema
+			>()
+			const rewritten = rewriteDeletePersistencePlan(
+				plan,
+				normalizeUpdateExpression(articleSchema, { deleted: true }),
+			)
+
+			expectTypeOf(rewritten).toExtend<
+				DatabasePersistencePlan<typeof logicalOperation>
+			>()
+			return rewritten
+		},
+	})
+	const plugin = definePlugin({
+		core: '^0.0.0',
+		pluginId: 'fixture.persistence-types',
+		version: '0.0.0',
+		privileges: [{ name: 'persistence:rewrite', reason: 'Type fixture.' }],
+		capabilities: {
+			provides: [
+				providePersistencePlanRewriter({
+					contributionId: 'soft-delete',
+					create: () => ({ value: definition }),
+				}),
+			],
+		},
+	})
+
+	expectTypeOf(plugin).not.toBeNever()
+	expectTypeOf(
+		new QueryBuilder(articleSchema).ast.schema.definition,
+	).toEqualTypeOf<typeof articleSchema>()
+})

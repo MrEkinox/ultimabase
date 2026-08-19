@@ -39,6 +39,7 @@ import {
 	runtimeExecutorCapability,
 	runtimeInterceptorCapability,
 } from '../capabilities.js'
+import { createPersistencePlanRewriteStage } from '../persistence/rewriter-stage.js'
 
 /** Configures framework-owned assembly without exposing low-level pipeline slots. */
 export interface CreateFrameworkEngineOptions {
@@ -284,6 +285,7 @@ export const createFrameworkEngine = <
 	const hookStages = createRuntimeHookStages(application)
 	const nativeHooks = createNativeHookStages(application)
 	const enforcement = createEnforcementStages(application)
+	const persistencePlanRewrite = createPersistencePlanRewriteStage(application)
 	const structuralValidation =
 		normalizedOptions.validation === undefined
 			? createRuntimeValidationStage()
@@ -301,6 +303,7 @@ export const createFrameworkEngine = <
 		preparedOperationHooks: hookStages.preparedOperationHooks,
 		nativeHooks,
 		...(enforcement === undefined ? {} : { enforcement }),
+		...(persistencePlanRewrite === undefined ? {} : { persistencePlanRewrite }),
 	}
 	const runtimeFactory = readApplicationCapability(
 		application,

@@ -20,6 +20,7 @@ import type {
 	DatabaseRelationPredicateScope,
 } from '../database/contracts.js'
 import type { EnforcementState } from '../enforcement/state.js'
+import type { RuntimePersistencePlanRewriteStage } from '../persistence/contracts.js'
 
 /** Starts one pipeline execution with trusted request identity and one Operation AST. */
 export interface RuntimePipelineRequest<
@@ -281,6 +282,8 @@ export interface RuntimePipelineStages {
 	readonly globalAfterHooks: RuntimeResultTransformStage
 	readonly commit: RuntimeResultEffectStage
 	readonly postCommitEvents: RuntimeResultEffectStage
+	/** Rewrites only the physical plan after logical semantics and protected policy are fixed. */
+	readonly persistencePlanRewrite?: RuntimePersistencePlanRewriteStage
 	/** Resolves authorized values against one locked singular update target. */
 	readonly preparedOperationHooks?: RuntimePreparedMutationTransformStage
 	/** Installed by application assembly when native declarations are compiled. */

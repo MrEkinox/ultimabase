@@ -1,0 +1,76 @@
+import {
+	immutableRecord,
+	isPlainRecord,
+	isUnknownArray,
+} from '@ultimabase/shared'
+
+import { FrameworkError } from '../../errors/framework-error.js'
+import type {
+	DatabaseOperationAst,
+	DatabaseOperationExecutor,
+	DatabaseOperationRequest,
+} from '../database/contracts.js'
+import {
+	databasePersistencePlanVersion,
+	type DatabasePersistencePlan,
+	type RuntimePersistencePlanRewriteStage,
+} from './contracts.js'
+import { createDatabasePersistencePlan } from './plans.js'
+
+/** Attaches the canonical physical plan to one Core-owned internal request. */
+export const createDatabasePersistenceRequest = <
+	const TOperation extends DatabaseOperationAst,
+>(
+	request: Omit<DatabaseOperationRequest<TOperation>, 'plan'>,
+): DatabaseOperationRequest<TOperation> =>
+	immutableRecord({
+		...request,
+		plan: createDatabasePersistencePlan(request.operation),
+	})
+
+/** Rejects missing protocol or statement support before an adapter effect. */
+export const assertPersistencePlanCapability = (
+	executor: DatabaseOperationExecutor,
+	plan: DatabasePersistencePlan,
+): void => {
+	const capability: unknown = executor.capabilities?.persistencePlans
+
+	if (
+		!isPlainRecord(capability) ||
+		capability.kind !== 'persistence-plans' ||
+		capability.version !== databasePersistencePlanVersion ||
+		!isUnknownArray(capability.kinds) ||
+		!capability.kinds.includes(plan.kind)
+	) {
+		throw new FrameworkError(
+			'PLUGIN_PROTOCOL_INCOMPATIBLE',
+			`Database adapter does not support persistence plan "${plan.kind}" at protocol version ${String(databasePersistencePlanVersion)}.`,
+			{
+				publicMessage: 'The database operation is not available.',
+				internalDetails: {
+					kind: 'persistence-plan-capability-missing',
+					planKind: plan.kind,
+					protocolVersion: databasePersistencePlanVersion,
+				},
+			},
+		)
+	}
+}
+
+/** Compiles and authorizes the final physical plan without exposing constraints. */
+export const compileDatabasePersistencePlan = async <
+	const TOperation extends DatabaseOperationAst,
+>(
+	executor: DatabaseOperationExecutor,
+	logicalOperation: TOperation,
+	rewrite: RuntimePersistencePlanRewriteStage | undefined,
+): Promise<DatabasePersistencePlan<TOperation>> => {
+	const canonical = createDatabasePersistencePlan(logicalOperation)
+	const plan =
+		rewrite === undefined
+			? canonical
+			: await rewrite({ logicalOperation, plan: canonical })
+
+	assertPersistencePlanCapability(executor, plan)
+	return plan
+}

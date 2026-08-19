@@ -5,6 +5,7 @@ import {
 	UltimaBase,
 	accessRoleResolverCapability,
 	databaseAdapterCapability,
+	databasePersistencePlanCapability,
 	definePlugin,
 	provideCapability,
 	type DatabaseAdapter,
@@ -25,6 +26,9 @@ const editor = new AccessSubjectReference('role', 'fixture.editor')
 /** Records complete requests while returning one trusted logical fixture result. */
 class CompositionReadAdapter implements DatabaseAdapter {
 	readonly kind = 'database-adapter' as const
+	readonly capabilities = {
+		persistencePlans: databasePersistencePlanCapability,
+	}
 	readonly requests: DatabaseOperationRequest[] = []
 
 	constructor(private readonly result: unknown) {}
@@ -46,6 +50,9 @@ class CompositionReadAdapter implements DatabaseAdapter {
 /** Proves policy failures happen before a mutation reaches adapter preparation. */
 class CompositionWriteTransaction implements DatabaseTransactionAdapter {
 	readonly kind = 'database-transaction-adapter' as const
+	readonly capabilities = {
+		persistencePlans: databasePersistencePlanCapability,
+	}
 	prepareCount = 0
 	rollbackCount = 0
 
@@ -83,6 +90,9 @@ class CompositionWriteTransaction implements DatabaseTransactionAdapter {
 
 class CompositionWriteAdapter implements DatabaseAdapter {
 	readonly kind = 'database-adapter' as const
+	readonly capabilities = {
+		persistencePlans: databasePersistencePlanCapability,
+	}
 	readonly transactions: CompositionWriteTransaction[] = []
 
 	execute<const TOperation extends DatabaseOperationAst>(

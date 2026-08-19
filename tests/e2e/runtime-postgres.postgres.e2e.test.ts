@@ -23,6 +23,7 @@ import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from './postgres-worker-fixture.js'
+import { prepareCanonical } from './canonical-database-request-fixture.js'
 
 const databaseAdapterRequirement = requireCapability(
 	databaseAdapterCapability,
@@ -1071,21 +1072,15 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			const firstTransaction = await adapter.beginTransaction()
 			const secondTransaction = await adapter.beginTransaction()
 			transactions.push(firstTransaction, secondTransaction)
-			const firstPrepared = await firstTransaction.prepare({
-				constraints: [],
-				operation: {
-					kind: 'update-one',
-					query: updateQuery.ast,
-					update: firstUpdate,
-				},
+			const firstPrepared = await prepareCanonical(firstTransaction, {
+				kind: 'update-one',
+				query: updateQuery.ast,
+				update: firstUpdate,
 			})
-			const secondPreparation = secondTransaction.prepare({
-				constraints: [],
-				operation: {
-					kind: 'update-one',
-					query: updateQuery.ast,
-					update: secondUpdate,
-				},
+			const secondPreparation = prepareCanonical(secondTransaction, {
+				kind: 'update-one',
+				query: updateQuery.ast,
+				update: secondUpdate,
 			})
 
 			await expectPreparationPending(secondPreparation)
@@ -1113,17 +1108,14 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			const deleteTransaction = await adapter.beginTransaction()
 			const competingTransaction = await adapter.beginTransaction()
 			transactions.push(deleteTransaction, competingTransaction)
-			const preparedDelete = await deleteTransaction.prepare({
-				constraints: [],
-				operation: { kind: 'delete-one', query: deleteQuery.ast },
+			const preparedDelete = await prepareCanonical(deleteTransaction, {
+				kind: 'delete-one',
+				query: deleteQuery.ast,
 			})
-			const competingPreparation = competingTransaction.prepare({
-				constraints: [],
-				operation: {
-					kind: 'update-one',
-					query: deleteQuery.ast,
-					update: firstUpdate,
-				},
+			const competingPreparation = prepareCanonical(competingTransaction, {
+				kind: 'update-one',
+				query: deleteQuery.ast,
+				update: firstUpdate,
 			})
 
 			await expectPreparationPending(competingPreparation)

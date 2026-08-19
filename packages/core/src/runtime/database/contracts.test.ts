@@ -12,6 +12,7 @@ import {
 import { Schema } from '../../schema/index.js'
 import { immutableRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
+import { createDatabasePersistencePlan } from '../persistence/plans.js'
 
 import {
 	databaseInclusionCapability,
@@ -177,9 +178,11 @@ describe('database adapter contracts', () => {
 			payload: immutableRecord({ tenantId: 'tenant-1' }),
 		})
 
+		const plan = createDatabasePersistencePlan(operation)
 		const result = await adapter.execute({
 			constraints: [tenantConstraint],
 			operation,
+			plan,
 		})
 
 		expect(result).toBe(returnedArticles)
@@ -187,6 +190,7 @@ describe('database adapter contracts', () => {
 			{
 				constraints: [tenantConstraint],
 				operation,
+				plan,
 			},
 		])
 	})
@@ -204,10 +208,18 @@ describe('database adapter contracts', () => {
 		} satisfies ExistsOperationAst<typeof articleSchema>
 
 		await expect(
-			adapter.execute({ constraints: [], operation: countOperation }),
+			adapter.execute({
+				constraints: [],
+				operation: countOperation,
+				plan: createDatabasePersistencePlan(countOperation),
+			}),
 		).resolves.toBe(3)
 		await expect(
-			adapter.execute({ constraints: [], operation: existsOperation }),
+			adapter.execute({
+				constraints: [],
+				operation: existsOperation,
+				plan: createDatabasePersistencePlan(existsOperation),
+			}),
 		).resolves.toBe(true)
 
 		const transaction = await adapter.beginTransaction()
@@ -243,6 +255,7 @@ describe('database adapter contracts', () => {
 		const prepared = await transaction.prepare({
 			constraints: [],
 			operation,
+			plan: createDatabasePersistencePlan(operation),
 		})
 		const outcome = await prepared.execute()
 

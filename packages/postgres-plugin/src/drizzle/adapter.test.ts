@@ -3,8 +3,14 @@ import {
 	QueryBuilder,
 	Pointer,
 	databaseConstraint,
+	createDatabasePersistencePlan,
+	createRuntimeValidationStage,
 	increment,
 	normalizeUpdateExpression,
+	RequestContext,
+	requestSources,
+	Schema,
+	SchemaRegistry,
 	type CreateOneOperationAst,
 	type DeleteOneOperationAst,
 	type FindManyOperationAst,
@@ -14,16 +20,11 @@ import {
 	type UpdateOneOperationAst,
 	type UpsertOneOperationAst,
 } from '@ultimabase/core'
-import { Schema, SchemaRegistry } from '@ultimabase/core'
 import { isPlainRecord, isUnknownArray } from '@ultimabase/shared'
-import {
-	createRuntimeValidationStage,
-	RequestContext,
-	requestSources,
-} from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
 import { createPostgresDatabaseAdapter } from './adapter.js'
+import { execute, prepare } from './database-request.test-fixture.js'
 import type { PostgresDriverQueryClient } from './client.js'
 import type { PostgresConstraintCompilerRegistry } from '../constraints/compiler.js'
 import {
@@ -256,7 +257,6 @@ const createFixture = (
 	return { adapter, driver, pool, transactionDrivers }
 }
 
-/** Reads one deliberately separate borrowed client without weakening test types. */
 const getTransactionDriver = (
 	fixture: ReturnType<typeof createFixture>,
 	index = 0,
@@ -274,7 +274,6 @@ const firstId = '0198c3d4-1000-7000-8000-000000000001'
 const secondId = '0198c3d4-1000-7000-8000-000000000002'
 const timestamp = '2026-08-01T10:00:00.000Z'
 
-/** Matches the compiled Article column order used by fixture RETURNING clauses. */
 const articleRow = (
 	note: string | null,
 	title: string,
@@ -307,7 +306,7 @@ describe('internal PostgreSQL database adapter', () => {
 		})
 
 		driver.respond([[secondId, firstId, timestamp, timestamp]])
-		const created = await adapter.execute({
+		const created = await execute(adapter, {
 			constraints: [],
 			operation: normalized,
 		})
@@ -321,7 +320,7 @@ describe('internal PostgreSQL database adapter', () => {
 		)
 
 		driver.respond([[secondId, firstId, timestamp, timestamp]])
-		const [found] = await adapter.execute({
+		const [found] = await execute(adapter, {
 			constraints: [],
 			operation: { kind: 'find-many', query: query.ast },
 		})
@@ -353,7 +352,7 @@ describe('internal PostgreSQL database adapter', () => {
 			[secondId, 'Second'],
 		])
 		await expect(
-			adapter.execute({ constraints: [], operation: find }),
+			execute(adapter, { constraints: [], operation: find }),
 		).resolves.toStrictEqual([
 			{ id: firstId, title: 'First' },
 			{ id: secondId, title: 'Second' },
@@ -375,7 +374,7 @@ describe('internal PostgreSQL database adapter', () => {
 		>
 
 		driver.respond([['Private identity', firstId]])
-		const projected = await adapter.execute({
+		const projected = await execute(adapter, {
 			constraints: [],
 			operation: titleOnly,
 		})
@@ -395,7 +394,7 @@ describe('internal PostgreSQL database adapter', () => {
 
 		driver.respond([['Public article', 3, firstId, timestamp, timestamp]])
 		await expect(
-			adapter.execute({
+			execute(adapter, {
 				constraints: [],
 				operation: { kind: 'find-many', query: withoutNote.ast },
 			}),
@@ -411,7 +410,7 @@ describe('internal PostgreSQL database adapter', () => {
 
 		driver.respond([])
 		await expect(
-			adapter.execute({
+			execute(adapter, {
 				constraints: [],
 				operation: { kind: 'find-one', query: query.ast },
 			}),
@@ -419,7 +418,7 @@ describe('internal PostgreSQL database adapter', () => {
 
 		driver.respond([])
 		await expect(
-			adapter.execute({
+			execute(adapter, {
 				constraints: [],
 				operation: { kind: 'get', query: query.ast, id: firstId },
 			}),
@@ -428,7 +427,7 @@ describe('internal PostgreSQL database adapter', () => {
 
 		driver.respond([[2]])
 		await expect(
-			adapter.execute({
+			execute(adapter, {
 				constraints: [],
 				operation: { kind: 'count', query: query.ast },
 			}),
@@ -437,7 +436,7 @@ describe('internal PostgreSQL database adapter', () => {
 
 		driver.respond([[firstId]])
 		await expect(
-			adapter.execute({
+			execute(adapter, {
 				constraints: [],
 				operation: { kind: 'exists', query: query.ast },
 			}),
@@ -466,7 +465,7 @@ describe('internal PostgreSQL database adapter', () => {
 		}
 
 		driver.respond([])
-		await adapter.execute({
+		await execute(adapter, {
 			constraints: [
 				databaseConstraint('fixture.tenant', 1, {
 					tenantId: injectedTenant,
@@ -532,7 +531,7 @@ describe('internal PostgreSQL database adapter', () => {
 
 		driver.respond([[null, 'Created', null, firstId, timestamp, timestamp]])
 		await expect(
-			adapter.execute({ constraints: [], operation: normalized }),
+			execute(adapter, { constraints: [], operation: normalized }),
 		).resolves.toStrictEqual({
 			id: firstId,
 			title: 'Created',
@@ -569,7 +568,7 @@ describe('internal PostgreSQL database adapter', () => {
 
 		driver.respond([[firstId, 'Updated']])
 		await expect(
-			adapter.execute({ constraints: [], operation: updateOperation }),
+			execute(adapter, { constraints: [], operation: updateOperation }),
 		).resolves.toStrictEqual({ id: firstId, title: 'Updated' })
 		expect(driver.calls.at(-1)?.text).toMatch(
 			/update "articles" set .* where "articles"\."id" in \(select/u,
@@ -577,7 +576,7 @@ describe('internal PostgreSQL database adapter', () => {
 
 		driver.respond([[firstId, 'Updated']])
 		await expect(
-			adapter.execute({ constraints: [], operation: deleteOperation }),
+			execute(adapter, { constraints: [], operation: deleteOperation }),
 		).resolves.toStrictEqual({ id: firstId, title: 'Updated' })
 		expect(driver.calls.at(-1)?.text).toMatch(
 			/delete from "articles" where "articles"\."id" in \(select/u,
@@ -585,7 +584,7 @@ describe('internal PostgreSQL database adapter', () => {
 
 		driver.respond([])
 		await expect(
-			adapter.execute({ constraints: [], operation: updateOperation }),
+			execute(adapter, { constraints: [], operation: updateOperation }),
 		).resolves.toBeNull()
 	})
 
@@ -597,7 +596,7 @@ describe('internal PostgreSQL database adapter', () => {
 		} satisfies FindManyOperationAst<typeof articleSchema>
 
 		await expect(
-			adapter.execute({
+			execute(adapter, {
 				constraints: [
 					databaseConstraint('fixture.future-row', 1, {
 						tenantId: 'tenant-1',
@@ -615,7 +614,7 @@ describe('internal PostgreSQL database adapter', () => {
 		expect(driver.calls).toStrictEqual([])
 
 		await expect(
-			adapter.execute({
+			execute(adapter, {
 				constraints: [],
 				operation: {
 					create: { title: 'Pending' },
@@ -639,7 +638,7 @@ describe('internal PostgreSQL database adapter', () => {
 
 		driver.fail(Object.assign(new Error('secret'), { code: '23505' }))
 		await expect(
-			adapter.execute({
+			execute(adapter, {
 				constraints: [],
 				operation: {
 					input: { title: 'Duplicate' },
@@ -682,22 +681,21 @@ describe('internal PostgreSQL database adapter', () => {
 		const secret = 'select private_value from internal_table'
 
 		driver.fail(Object.assign(new Error(secret), { code: '08006' }))
-		const failure: unknown = await adapter
-			.execute({
-				constraints: [],
-				operation: { kind: 'find-many', query: query.ast },
-				inclusions: [
-					{
-						fieldPath: ['author'],
-						kind: 'pointer',
-						request: {
-							constraints: [],
-							operation: targetOperation,
-						},
+		const failure: unknown = await execute(adapter, {
+			constraints: [],
+			operation: { kind: 'find-many', query: query.ast },
+			inclusions: [
+				{
+					fieldPath: ['author'],
+					kind: 'pointer',
+					request: {
+						constraints: [],
+						operation: targetOperation,
+						plan: createDatabasePersistencePlan(targetOperation),
 					},
-				],
-			})
-			.catch((error: unknown) => error)
+				},
+			],
+		}).catch((error: unknown) => error)
 
 		expect(failure).toBeInstanceOf(FrameworkError)
 
@@ -754,7 +752,7 @@ describe('internal PostgreSQL database adapter', () => {
 
 		for (const invalidCase of invalidCases) {
 			await expect(
-				adapter.execute({
+				execute(adapter, {
 					constraints: [invalidCase.constraint],
 					operation,
 				}),
@@ -768,7 +766,7 @@ describe('internal PostgreSQL database adapter', () => {
 		}
 
 		await expect(
-			adapter.execute({
+			execute(adapter, {
 				constraints: [
 					databaseConstraint('fixture.tenant', 1, {
 						tenantId: 'tenant-1',
@@ -797,7 +795,7 @@ describe('internal PostgreSQL database adapter', () => {
 		}
 
 		await expect(
-			adapter.execute({
+			execute(adapter, {
 				constraints: [],
 				operation: {
 					input: { title: 'Never inserted by Access' },
@@ -834,7 +832,7 @@ describe('internal PostgreSQL database adapter', () => {
 
 		driver.respond([[firstId, 'Transactional']])
 		await expect(
-			transaction.execute({ constraints: [], operation }),
+			execute(transaction, { constraints: [], operation }),
 		).resolves.toStrictEqual([{ id: firstId, title: 'Transactional' }])
 		await transaction.commit()
 
@@ -842,7 +840,7 @@ describe('internal PostgreSQL database adapter', () => {
 		expect(rootDriver.calls).toStrictEqual([])
 		expect(driver.transactionCalls).toStrictEqual(['BEGIN', 'COMMIT'])
 		expect(driver.releaseCalls).toBe(1)
-		expect(() => transaction.execute({ constraints: [], operation })).toThrow(
+		expect(() => execute(transaction, { constraints: [], operation })).toThrow(
 			/no longer active/u,
 		)
 		await expect(transaction.rollback()).rejects.toThrow(/no longer active/u)
@@ -867,7 +865,7 @@ describe('internal PostgreSQL database adapter', () => {
 			},
 			schema: new QueryBuilder(articleSchema).ast.schema,
 		}
-		const preparedCreate = await transaction.prepare({
+		const preparedCreate = await prepare(transaction, {
 			constraints: [],
 			operation: createOperation,
 		})
@@ -922,7 +920,7 @@ describe('internal PostgreSQL database adapter', () => {
 		}
 
 		driver.respond([[null, 'Old', 1, firstId, timestamp, timestamp]])
-		const preparedUpdate = await transaction.prepare({
+		const preparedUpdate = await prepare(transaction, {
 			constraints: [],
 			operation: updateOperation,
 		})
@@ -940,6 +938,7 @@ describe('internal PostgreSQL database adapter', () => {
 		const updateOutcome = await preparedUpdate.execute({
 			constraints: [],
 			operation: resolvedUpdateOperation,
+			plan: createDatabasePersistencePlan(resolvedUpdateOperation),
 		})
 
 		expect(updateOutcome).toStrictEqual({
@@ -970,7 +969,7 @@ describe('internal PostgreSQL database adapter', () => {
 		} satisfies DeleteOneOperationAst<typeof articleSchema>
 
 		driver.respond([[null, 'Updated', 2, firstId, timestamp, timestamp]])
-		const preparedDelete = await transaction.prepare({
+		const preparedDelete = await prepare(transaction, {
 			constraints: [],
 			operation: deleteOperation,
 		})
@@ -1007,7 +1006,7 @@ describe('internal PostgreSQL database adapter', () => {
 			updatedAt: timestamp,
 			views: 2,
 		}
-		const prepared = await transaction.prepare({
+		const prepared = await prepare(transaction, {
 			constraints: [],
 			operation: {
 				inputs: [first, second],
@@ -1038,7 +1037,7 @@ describe('internal PostgreSQL database adapter', () => {
 		expect(driver.calls).toHaveLength(1)
 		expect(driver.calls[0]?.text).toMatch(/insert into "articles"/u)
 
-		const empty = await transaction.prepare({
+		const empty = await prepare(transaction, {
 			constraints: [],
 			operation: {
 				inputs: [],
@@ -1066,7 +1065,7 @@ describe('internal PostgreSQL database adapter', () => {
 		const update = normalizeUpdateExpression(articleSchema, {
 			views: increment(1),
 		})
-		const preparedUpdate = await transaction.prepare({
+		const preparedUpdate = await prepare(transaction, {
 			constraints: [],
 			operation: { kind: 'update-many', query: query.ast, update },
 		})
@@ -1087,7 +1086,7 @@ describe('internal PostgreSQL database adapter', () => {
 			/update "articles" set .* returning "id", "title"/u,
 		)
 
-		const preparedDelete = await transaction.prepare({
+		const preparedDelete = await prepare(transaction, {
 			constraints: [],
 			operation: { kind: 'delete-many', query: query.ast },
 		})
@@ -1136,7 +1135,7 @@ describe('internal PostgreSQL database adapter', () => {
 			articleRow(null, 'Second', 2, secondId),
 			articleRow(null, 'First', 1, firstId),
 		])
-		const preparedUpdate = await transaction.prepare({
+		const preparedUpdate = await prepare(transaction, {
 			constraints: [],
 			operation: {
 				kind: 'update-many',
@@ -1184,7 +1183,7 @@ describe('internal PostgreSQL database adapter', () => {
 			articleRow(null, 'Second', 3, secondId),
 			articleRow(null, 'First', 2, firstId),
 		])
-		const preparedDelete = await transaction.prepare({
+		const preparedDelete = await prepare(transaction, {
 			constraints: [],
 			operation: { kind: 'delete-many', query: query.ast },
 			prepareMutationItems: true,
@@ -1240,7 +1239,7 @@ describe('internal PostgreSQL database adapter', () => {
 		driver.respond([])
 		driver.respond([])
 		driver.respond([articleRow(null, 'Created', 0, firstId)])
-		const preparedCreate = await transaction.prepare({
+		const preparedCreate = await prepare(transaction, {
 			constraints: [],
 			operation,
 		})
@@ -1252,7 +1251,7 @@ describe('internal PostgreSQL database adapter', () => {
 		const current = { ...create, title: 'Updated' }
 		driver.respond([articleRow(null, 'Created', 0, firstId)])
 		driver.respond([articleRow(null, 'Updated', 0, firstId)])
-		const preparedUpdate = await transaction.prepare({
+		const preparedUpdate = await prepare(transaction, {
 			constraints: [],
 			operation,
 		})
@@ -1298,7 +1297,7 @@ describe('internal PostgreSQL database adapter', () => {
 			},
 			update,
 		})
-		const prepared = await transaction.prepare({
+		const prepared = await prepare(transaction, {
 			constraints: [],
 			operation: {
 				items: [
@@ -1362,7 +1361,7 @@ describe('internal PostgreSQL database adapter', () => {
 		} satisfies UpdateOneOperationAst<typeof articleSchema>
 
 		driver.respond([['tenant-1', 'Old', 1, firstId, timestamp, timestamp]])
-		const preparedUpdate = await transaction.prepare({
+		const preparedUpdate = await prepare(transaction, {
 			constraints,
 			operation: updateOperation,
 		})
@@ -1375,6 +1374,7 @@ describe('internal PostgreSQL database adapter', () => {
 		await preparedUpdate.execute({
 			constraints: finalConstraints,
 			operation: updateOperation,
+			plan: createDatabasePersistencePlan(updateOperation),
 		})
 		const updateCall = driver.calls.at(-1)
 
@@ -1391,7 +1391,7 @@ describe('internal PostgreSQL database adapter', () => {
 		} satisfies DeleteOneOperationAst<typeof articleSchema>
 
 		driver.respond([['tenant-1', 'Updated', 1, firstId, timestamp, timestamp]])
-		const preparedDelete = await transaction.prepare({
+		const preparedDelete = await prepare(transaction, {
 			constraints,
 			operation: deleteOperation,
 		})
@@ -1407,7 +1407,7 @@ describe('internal PostgreSQL database adapter', () => {
 		expect(deleteCall?.params).toContain(firstId)
 		expect(deleteCall?.params).toContain('tenant-1')
 
-		const preparedMany = await transaction.prepare({
+		const preparedMany = await prepare(transaction, {
 			constraints,
 			operation: {
 				kind: 'update-many',
@@ -1455,7 +1455,7 @@ describe('internal PostgreSQL database adapter', () => {
 		const upsertCallOffset = driver.calls.length
 
 		driver.respond([])
-		const preparedUpsert = await transaction.prepare({
+		const preparedUpsert = await prepare(transaction, {
 			constraints,
 			operation: upsertOperation,
 		})
@@ -1493,7 +1493,7 @@ describe('internal PostgreSQL database adapter', () => {
 		} satisfies DeleteOneOperationAst<typeof articleSchema>
 
 		firstDriver.respond([])
-		const missing = await firstTransaction.prepare({
+		const missing = await prepare(firstTransaction, {
 			constraints: [],
 			operation: deleteOperation,
 		})
@@ -1513,7 +1513,7 @@ describe('internal PostgreSQL database adapter', () => {
 		} satisfies UpdateOneOperationAst<typeof articleSchema>
 
 		firstDriver.respond([])
-		const missingUpdate = await firstTransaction.prepare({
+		const missingUpdate = await prepare(firstTransaction, {
 			constraints: [],
 			operation: missingUpdateOperation,
 		})
@@ -1533,7 +1533,7 @@ describe('internal PostgreSQL database adapter', () => {
 		secondDriver.respond([
 			[null, 'Delete later', 1, firstId, timestamp, timestamp],
 		])
-		const escaped = await secondTransaction.prepare({
+		const escaped = await prepare(secondTransaction, {
 			constraints: [],
 			operation: deleteOperation,
 		})
@@ -1597,7 +1597,7 @@ describe('internal PostgreSQL database adapter', () => {
 		})
 		expect(commitDriver.releaseCalls).toBe(0)
 		expect(() =>
-			commitTransaction.execute({
+			execute(commitTransaction, {
 				constraints: [],
 				operation: {
 					kind: 'find-many',
