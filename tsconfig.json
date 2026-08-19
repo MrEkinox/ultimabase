@@ -17,6 +17,7 @@
 	"references": [
 		{ "path": "./packages/shared" },
 		{ "path": "./packages/core" },
+		{ "path": "./packages/plugin-kit" },
 		{ "path": "./packages/typegen" },
 		{ "path": "./packages/pg-vector-plugin" },
 		{ "path": "./packages/roles-plugin" },

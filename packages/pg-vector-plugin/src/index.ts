@@ -2,7 +2,6 @@ import { immutableArray, immutableRecord } from '@ultimabase/shared'
 import {
 	assertFieldOptions,
 	defineFieldBuilderMethod,
-	definePlugin,
 	definePluginField,
 	type FieldHookDeclaration,
 	type FieldListOption,
@@ -15,6 +14,7 @@ import {
 	type ScalarValidationPlan,
 	type ValidatedFieldOptions,
 } from '@ultimabase/core'
+import { definePluginModule } from '@ultimabase/plugin-kit'
 
 /** Names the immutable logical value shared by generation and runtime. */
 export type VectorValue = readonly number[]
@@ -23,6 +23,11 @@ export type VectorValue = readonly number[]
  * Namespaces the logical kind so independent community packages cannot collide.
  */
 export const vectorFieldKind = 'pg-vector.vector' as const
+const pgVectorPluginModule = definePluginModule({
+	core: '^0.0.0',
+	pluginId: '@ultimabase/pg-vector-plugin',
+	version: '0.0.0',
+})
 
 /**
  * Describes presence rules available to vector fields before vector-specific constraints.
@@ -215,10 +220,7 @@ const pgVectorPluginExports: Readonly<PgVectorPluginExports> = immutableRecord({
 
 /** Declares the vector builder method before returning its validation handler. */
 export const pgVectorPlugin = (): PgVectorPlugin =>
-	definePlugin({
-		version: '0.0.0',
-		core: '^0.0.0',
-		pluginId: '@ultimabase/pg-vector-plugin',
+	pgVectorPluginModule.plugin({
 		privileges: [
 			{
 				name: 'schema:declare',

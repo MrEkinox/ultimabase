@@ -9,8 +9,19 @@ corresponding issues complete.
 A plugin separates static application declarations from resource-backed setup:
 
 ```ts
-import { defineOperation, definePlugin } from '@ultimabase/core'
-import { defineOperationHandler, patchSchemas } from '@ultimabase/plugin-kit'
+import { defineOperation } from '@ultimabase/core'
+import {
+	definePluginModule,
+	patchSchemas,
+	providePluginOperation,
+	schemaPatch,
+} from '@ultimabase/plugin-kit'
+
+const workflow = definePluginModule({
+	pluginId: 'community.workflow',
+	version: '1.0.0',
+	core: '^1.0.0',
+})
 
 export const publishPost = defineOperation({
 	name: 'community.workflow.publish-post',
@@ -21,12 +32,15 @@ export const publishPost = defineOperation({
 	result: publishPostResult,
 })
 
+const publishProvider = providePluginOperation({
+	contributionId: 'publish-post',
+	operation: publishPost,
+	execute: async ({ input, request }) => executePublish(input, request),
+})
+
 export const workflowPlugin = (options: WorkflowPluginOptions) =>
-	definePlugin({
-		pluginId: 'community.workflow',
+	workflow.plugin({
 		instanceId: options.instanceId,
-		version: '1.0.0',
-		core: '^1.0.0',
 		privileges: [
 			{
 				name: 'schema:declare',
@@ -49,28 +63,31 @@ export const workflowPlugin = (options: WorkflowPluginOptions) =>
 				reason: 'Describes the correlated publish operation types.',
 			},
 		],
+		capabilities: { provides: [publishProvider] },
 		declare({ schemas, models, operations }) {
 			schemas.defineOption(workflowOptionNamespace)
 			const contentSchemas = schemas.select({ option: 'workflow.enabled' })
 
-			patchSchemas(contentSchemas, (schema) =>
-				schema
-					.addField('workflowState', workflowStateField)
-					.addIndex('workflow-state', ['workflowState']),
+			schemas.patch(
+				patchSchemas({
+					targets: contentSchemas,
+					patch: schemaPatch()
+						.addField({
+							contributionId: 'workflow-state',
+							name: 'workflowState',
+							field: workflowStateField,
+						})
+						.addIndex({
+							contributionId: 'workflow-state-index',
+							fields: ['workflowState', 'createdAt'],
+						}),
+				}),
 			)
 
 			operations.declare(publishPost)
 			models.extend(contentSchemas, {
 				commands: { publish: publishPost },
 			})
-		},
-		setup({ capabilities }) {
-			capabilities.provide(
-				defineOperationHandler(publishPost),
-				async ({ input, request }) => {
-					return executePublish(input, request)
-				},
-			)
 		},
 	})
 ```
@@ -79,17 +96,10 @@ The exact registrars are privilege-scoped. The static callback cannot read
 secrets, services, adapters, clocks, or network state. Setup may materialize
 application capabilities but cannot register an undeclared or denied power.
 
-The workflow `declare(...)` and operation-handler surface above is the accepted
-milestone target; issues 1405 through 1417 deliver those domain-specific hosts.
-Issue 1405 establishes this single callback with exact declaration-capability
-reads and the `fields` registrar when `schema:declare` is active. Schema,
-patch, model, operation, and Typegen registrars remain target APIs until their
-own follow-up issues deliver their descriptor contracts.
-Issue 1407 implements dynamic schema resolution, immutable operation
-declarations and envelopes, direct or selector-bound model surfaces, and
-ordinary QueryBuilder extensions. The `execute()` and handler calls shown in
-this target document remain issue 1416 work; until then `prepare()` validates an
-inert logical envelope without running Runtime or exposing a transport.
+Issues 1405 through 1417 deliver the owner-bound registrars, immutable operation
+contracts, Runtime execution, and adapter bridges used above. Issue 1411 adds
+the focused authoring helpers while keeping every privilege and contribution
+visible to Core.
 The capability kernel available after issue 1404 declares resource factories
 statically and exposes only exact requirement reads during setup:
 

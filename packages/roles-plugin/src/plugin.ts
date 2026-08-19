@@ -1,5 +1,4 @@
 import {
-	definePlugin,
 	defineEvent,
 	Pointer,
 	accessReferenceCleanupCapability,
@@ -16,6 +15,7 @@ import {
 	type FrameworkPlugin,
 	type SchemaDefinition,
 } from '@ultimabase/core'
+import { definePluginModule } from '@ultimabase/plugin-kit'
 import {
 	immutableArray,
 	immutableRecord,
@@ -33,6 +33,12 @@ import {
 	type NamedRoleReferenceCleanup,
 } from './role-deletion.js'
 import { createStoredRoleResolver } from './role-access.js'
+
+const rolesPluginModule = definePluginModule({
+	core: '^0.0.0',
+	pluginId: rolesPluginName,
+	version: '0.0.0',
+})
 
 const optionalReferenceCleanups = optionalCapability(
 	accessReferenceCleanupCapability,
@@ -235,10 +241,7 @@ export type RolesPlugin = FrameworkPlugin<
  * declarations rather than becoming plugin options.
  */
 export const rolesPlugin = (): RolesPlugin =>
-	definePlugin({
-		version: '0.0.0',
-		core: '^0.0.0',
-		pluginId: rolesPluginName,
+	rolesPluginModule.plugin({
 		privileges: [
 			{
 				name: 'runtime:intercept',

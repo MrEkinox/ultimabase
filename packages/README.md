@@ -53,8 +53,8 @@ developer reads their exports.
 - `typegen`: static application loading, deterministic compact schema
   declarations, plugin contributions, fingerprints, and atomic output
   replacement. It emits no generated Runtime client.
-- `plugin-kit`: planned public plugin-authoring helpers shared by official and
-  community plugins; its workspace begins with issue 1411.
+- `plugin-kit`: public immutable plugin-authoring helpers shared by official and
+  community plugins without moving ownership or privilege enforcement out of Core.
 - `testing`: application test utilities plus planned plugin conformance
   fixtures and assertions.
 

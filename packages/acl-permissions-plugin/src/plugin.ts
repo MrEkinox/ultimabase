@@ -6,7 +6,6 @@ import {
 	applyUpdateExpressionToRecord,
 	constraint,
 	defineFieldKindAccessTarget,
-	definePlugin,
 	FrameworkError,
 	guard,
 	optionalCapability,
@@ -26,6 +25,10 @@ import {
 	type PluginCapabilityReader,
 	type SchemaDefinition,
 } from '@ultimabase/core'
+import {
+	definePluginModule,
+	definePluginOptionsParser,
+} from '@ultimabase/plugin-kit'
 import {
 	immutableArray,
 	immutableRecord,
@@ -66,6 +69,12 @@ import {
 	type ACLSchemaExtensionConfig,
 	type ACLField,
 } from './acl-extension.js'
+
+const aclPluginModule = definePluginModule({
+	core: '^0.0.0',
+	pluginId: aclPluginName,
+	version: '0.0.0',
+})
 
 const optionalPrincipalResolver = optionalCapability(
 	accessPrincipalResolverCapability,
@@ -204,25 +213,19 @@ const snapshotResolvedACL = (value: unknown, path: string): ACL => {
 	return value
 }
 
-const normalizeACLPluginOptions = (
-	options: ACLPluginOptions,
-): Readonly<ACLPluginOptions> => {
-	const untrustedOptions: unknown = options
+const normalizeACLPluginOptions = definePluginOptionsParser({
+	formatUnknownKey: (key) => `Unknown aclPlugin option: ${String(key)}`,
+	keys: ['limits'] as const,
+	name: 'aclPlugin options',
+	normalize: (options): ACLPluginOptions => {
+		const limits = normalizeACLEntryLimits(
+			options.limits as ACLEntryLimits | undefined,
+			'aclPlugin limits',
+		)
 
-	if (!isPlainRecord(untrustedOptions)) {
-		throw new TypeError('aclPlugin options must be a plain object')
-	}
-
-	const unknownKey = Object.keys(options).find((key) => key !== 'limits')
-
-	if (unknownKey !== undefined) {
-		throw new TypeError(`Unknown aclPlugin option: ${unknownKey}`)
-	}
-
-	const limits = normalizeACLEntryLimits(options.limits, 'aclPlugin limits')
-
-	return immutableRecord(limits === undefined ? {} : { limits })
-}
+		return limits === undefined ? {} : { limits }
+	},
+})
 
 /** Keeps ACL-document management behind trusted server authority. */
 const assertMasterACLManagement = (context: HookContext): void => {
@@ -934,10 +937,7 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 		},
 	})
 
-	return definePlugin({
-		version: '0.0.0',
-		core: '^0.0.0',
-		pluginId: aclPluginName,
+	return aclPluginModule.plugin({
 		privileges: [
 			{
 				name: 'runtime:constrain',

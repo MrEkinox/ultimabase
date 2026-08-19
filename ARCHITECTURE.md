@@ -45,11 +45,11 @@ An arrow means “imports or depends on” and always points toward a foundation
 core ─────────────────→ shared
 plugin-kit ───────────→ core, shared
 typegen ──────────────→ core, shared
-pg-vector-plugin ─────→ core, shared
-roles-plugin ─────────→ core
-acl-permissions-plugin → core
-postgres-plugin ──────→ core
-acl-postgres-plugin ──→ acl-permissions-plugin, postgres-plugin, core
+pg-vector-plugin ─────→ plugin-kit, core, shared
+roles-plugin ─────────→ plugin-kit, core
+acl-permissions-plugin → plugin-kit, core
+postgres-plugin ──────→ plugin-kit, core
+acl-postgres-plugin ──→ acl-permissions-plugin, postgres-plugin, plugin-kit, core
 testing ──────────────→ core, shared
 ```
 
@@ -78,12 +78,14 @@ packages. They contain protocol tokens and types only, install no behavior, and
 are not imported by Core. Official implementations and community alternatives
 share those identities without depending on one another.
 
-`@ultimabase/plugin-kit` is the planned public authoring toolbox. It packages
-reusable declaration builders, selectors, capability helpers, provenance-aware
-composition helpers, Typegen descriptors, and diagnostics without weakening a
-Core validation boundary. Core never imports it. Official plugins use the same
-toolbox where it removes real duplication, while `@ultimabase/testing` owns
-conformance fixtures and assertions.
+`@ultimabase/plugin-kit` is the public authoring toolbox. It binds stable package
+manifest facts, parses strict immutable plugin options, builds common additive
+schema patches, flattens operation-provider wrappers, and groups nominal Typegen
+references without weakening a Core validation boundary. Destructive
+transformations, capabilities, privileges, ownership, registries, adapters, and
+Master remain direct Core contracts. Core never imports the kit. Official
+plugins use the same toolbox where it removes real duplication, while
+`@ultimabase/testing` owns conformance fixtures and assertions.
 
 `@ultimabase/typegen` is optional development tooling. It snapshots the final
 compiled application graph and accepts owner-scoped plugin contributions as

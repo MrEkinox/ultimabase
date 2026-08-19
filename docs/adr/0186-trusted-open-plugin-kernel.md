@@ -133,3 +133,18 @@ plugins must use the public kit and conformance contracts whenever applicable.
 - Process, Worker, filesystem, or network sandboxing.
 - Hot reloading a compiled plugin graph.
 - Granting authority through transport input or plugin dependency inheritance.
+
+## Implementation refinement: focused public authoring helpers
+
+Issue 1411 publishes `@ultimabase/plugin-kit` with only helpers justified by
+current official plugins or repeated milestone fixtures. The package binds
+stable module manifest facts, centralizes strict immutable option roots, builds
+common additive schema patches through Core-created operations, flattens the
+application capability wrapper for operation handlers, and groups nominal
+Typegen references by public module.
+
+Every helper delegates its security-sensitive boundary back to public Core APIs.
+The kit cannot assign an owner, grant a privilege, store a capability, mutate a
+registry, manufacture Master, open an adapter, or hide destructive cross-owner
+schema transformations. Core never imports the kit, and importing the kit
+installs no plugin or Runtime stage.

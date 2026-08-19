@@ -1,0 +1,388 @@
+import {
+	FrameworkApplication,
+	Schema,
+	defineOperation,
+	defineOperationValue,
+	defineSchemaConstraint,
+	defineSchemaExtension,
+	stringField,
+} from '@ultimabase/core'
+import { describe, expect, it } from 'vitest'
+
+import {
+	definePluginModule,
+	definePluginOptionsParser,
+	defineTypegenModule,
+	patchSchemas,
+	providePluginOperation,
+	schemaPatch,
+	type ResourcePluginOperationProviderOptions,
+} from './index.js'
+
+const fixtureModule = definePluginModule({
+	core: '^0.0.0',
+	pluginId: 'fixture.plugin-kit',
+	version: '1.2.3',
+})
+
+describe('plugin authoring helpers', () => {
+	it('binds immutable package facts across explicit plugin instances', () => {
+		const first = fixtureModule.plugin({
+			instanceId: 'first',
+			setup: () => ({ ready: true as const }),
+		})
+		const second = fixtureModule.plugin({ instanceId: 'second' })
+
+		expect(fixtureModule).toMatchObject({
+			core: '^0.0.0',
+			pluginId: 'fixture.plugin-kit',
+			version: '1.2.3',
+		})
+		expect(Object.isFrozen(fixtureModule)).toBe(true)
+		expect(first.manifest.identity).toStrictEqual({
+			instanceId: 'first',
+			pluginId: 'fixture.plugin-kit',
+		})
+		expect(second.manifest.identity).toStrictEqual({
+			instanceId: 'second',
+			pluginId: 'fixture.plugin-kit',
+		})
+
+		const mutableFacts = {
+			core: '^0.0.0',
+			pluginId: 'fixture.mutable-module',
+			version: '1.0.0',
+		}
+		const isolatedModule = definePluginModule(mutableFacts)
+		mutableFacts.pluginId = 'fixture.mutated-after-definition'
+		expect(isolatedModule.plugin({}).manifest.identity.pluginId).toBe(
+			'fixture.mutable-module',
+		)
+	})
+
+	it('keeps Core-owned module facts non-overridable at runtime', () => {
+		const untypedPlugin = (options: unknown): unknown =>
+			(fixtureModule.plugin as (input: unknown) => unknown)(options)
+
+		expect(() => definePluginModule(null as never)).toThrow(
+			'plugin module options must be a plain object',
+		)
+		expect(() => untypedPlugin(null)).toThrow(
+			'plugin module definition must be a plain object',
+		)
+		expect(() => untypedPlugin({ pluginId: 'fixture.forged' })).toThrow(
+			'cannot override package-owned pluginId',
+		)
+		expect(() =>
+			definePluginModule({
+				core: '^0.0.0',
+				pluginId: 'fixture.invalid-module-option',
+				version: '1.0.0',
+				// @ts-expect-error -- Runtime validation protects JavaScript callers.
+				extra: true,
+			}),
+		).toThrow('Unknown plugin module option')
+	})
+
+	it('validates option roots once and freezes normalized results', () => {
+		const parse = definePluginOptionsParser({
+			keys: ['enabled', 'label'] as const,
+			name: 'workflow options',
+			normalize: ({ enabled, label }) => {
+				if (enabled !== undefined && typeof enabled !== 'boolean') {
+					throw new TypeError('workflow enabled must be a boolean')
+				}
+				if (label !== undefined && typeof label !== 'string') {
+					throw new TypeError('workflow label must be a string')
+				}
+
+				return { enabled: enabled ?? true, label: label ?? 'review' }
+			},
+		})
+		const input: { enabled?: boolean; label?: string } = { label: 'publish' }
+		const normalized = parse(input)
+		input.label = 'mutated'
+
+		expect(normalized).toStrictEqual({ enabled: true, label: 'publish' })
+		expect(Object.isFrozen(normalized)).toBe(true)
+		expect(() => parse({ unknown: true })).toThrow(
+			'Unknown workflow options key: unknown',
+		)
+		expect(() => parse(null)).toThrow('workflow options must be a plain object')
+
+		const parseWithExistingDiagnostic = definePluginOptionsParser({
+			formatUnknownKey: (key) => `Unsupported workflow option: ${String(key)}`,
+			keys: [] as const,
+			name: 'workflow options',
+			normalize: () => ({}),
+		})
+		expect(() => parseWithExistingDiagnostic({ legacy: true })).toThrow(
+			'Unsupported workflow option: legacy',
+		)
+	})
+
+	it('rejects malformed parser definitions and normalized roots', () => {
+		expect(() => definePluginOptionsParser(null as never)).toThrow(
+			'plugin options parser definition must be a plain object',
+		)
+		expect(() =>
+			definePluginOptionsParser({
+				keys: [],
+				name: 'unknown definition options',
+				normalize: () => ({}),
+				// @ts-expect-error -- Runtime validation protects JavaScript callers.
+				unknown: true,
+			}),
+		).toThrow('Unknown plugin options parser definition option: unknown')
+		expect(() =>
+			definePluginOptionsParser({
+				keys: ['mode', 'mode'],
+				name: 'duplicate options',
+				normalize: () => ({}),
+			}),
+		).toThrow('Duplicate plugin option key: mode')
+		expect(() =>
+			definePluginOptionsParser({
+				keys: [],
+				name: 'invalid result options',
+				normalize: () => null as never,
+			})({}),
+		).toThrow('invalid result options normalizer must return a plain object')
+	})
+
+	it('groups exact nominal Typegen references under one module', () => {
+		const types = defineTypegenModule('@fixture/workflow-plugin')
+		const input = types.reference('PublishInput')
+		const result = types.reference('PublishResult')
+
+		expect(input).toMatchObject({
+			exportName: 'PublishInput',
+			module: '@fixture/workflow-plugin',
+		})
+		expect(result).toMatchObject({
+			exportName: 'PublishResult',
+			module: '@fixture/workflow-plugin',
+		})
+		expect(Object.isFrozen(types)).toBe(true)
+	})
+
+	it('builds immutable additive schema patches accepted by Core', () => {
+		const Target = Schema.define({
+			className: 'PluginKitPatchTarget',
+			fields: (field) => ({ title: field.string() }),
+		})
+		const extension = defineSchemaExtension(
+			'fixture.workflow',
+			{},
+			'fixture.workflow',
+		)
+		const constraint = defineSchemaConstraint({
+			kind: 'fixture.workflow',
+			value: { required: true },
+			version: 1,
+		})
+		const empty = schemaPatch()
+		const patch = empty
+			.addField({
+				contributionId: 'workflow-state',
+				field: stringField(),
+				name: 'workflowState',
+			})
+			.addIndex({
+				contributionId: 'workflow-state-index',
+				fields: ['workflowState', 'createdAt'],
+			})
+			.addExtension({ contributionId: 'workflow-extension', extension })
+			.addConstraint({ contributionId: 'workflow-constraint', constraint })
+			.setSchemaOption({
+				contributionId: 'workflow-option',
+				name: 'workflow',
+				value: { enabled: true },
+			})
+			.setFieldOption({
+				contributionId: 'workflow-field-option',
+				field: 'title',
+				name: 'search',
+				value: { weight: 10 },
+			})
+
+		expect(empty.operations).toStrictEqual([])
+		expect(patch.operations.map(({ kind }) => kind)).toStrictEqual([
+			'field:add',
+			'index:add',
+			'extension:add',
+			'constraint:add',
+			'schema-option:set',
+			'field-option:set',
+		])
+		expect(Object.isFrozen(patch)).toBe(true)
+
+		const plugin = fixtureModule.plugin({
+			declare: ({ schemas }) => {
+				schemas.patch(
+					patchSchemas({
+						patch: schemaPatch()
+							.addField({
+								contributionId: 'state',
+								field: stringField(),
+								name: 'state',
+							})
+							.addIndex({
+								contributionId: 'state-index',
+								fields: ['state', 'createdAt'],
+							}),
+						targets: schemas.select({ className: Target.className }),
+					}),
+				)
+			},
+			privileges: [
+				{ name: 'schema:declare', reason: 'Adds fixture schema metadata.' },
+			] as const,
+		})
+		const application = new FrameworkApplication({
+			pluginPrivileges: { logger: false },
+			plugins: [plugin],
+			schemas: [Target],
+		})
+
+		application.compileSchemas()
+		expect(Target.definition.fields).toHaveProperty('state')
+		expect(Target.definition.indexes).toContainEqual({
+			fields: ['state', 'createdAt'],
+			unique: false,
+		})
+	})
+
+	it('materializes and disposes resource-backed operation handlers', async () => {
+		const text = defineOperationValue((value, path): string => {
+			if (typeof value !== 'string') throw new TypeError(`${path} must be text`)
+			return value
+		})
+		const inspect = defineOperation({
+			input: text,
+			name: 'fixture.plugin-kit.inspect',
+			result: text,
+			target: 'application',
+			transaction: 'forbidden',
+			version: '1.0.0',
+		})
+		const trace: string[] = []
+		const providerOptions: {
+			contributionId: string
+			create: ResourcePluginOperationProviderOptions<typeof inspect>['create']
+			operation: typeof inspect
+		} = {
+			contributionId: 'inspect',
+			create: () => {
+				trace.push('create')
+				return {
+					dispose: () => {
+						trace.push('dispose')
+					},
+					execute: ({ input }) => input,
+				}
+			},
+			operation: inspect,
+		}
+		const provider = providePluginOperation(providerOptions)
+		providerOptions.create = () => {
+			trace.push('mutated-create')
+			return { execute: ({ input }) => input }
+		}
+		const plugin = fixtureModule.plugin({
+			capabilities: { provides: [provider] },
+			declare: ({ operations }) => {
+				operations.declare(inspect)
+			},
+			privileges: [
+				{
+					name: 'operation:declare',
+					reason: 'Declares the fixture operation.',
+				},
+			] as const,
+		})
+		const application = new FrameworkApplication({
+			pluginPrivileges: { logger: false },
+			plugins: [plugin],
+			schemas: [],
+		})
+
+		await application.initialize()
+		expect(trace).toStrictEqual(['create'])
+		await application.dispose()
+		expect(trace).toStrictEqual(['create', 'dispose'])
+	})
+
+	it('materializes direct operation handlers and rejects malformed wrappers', async () => {
+		const text = defineOperationValue((value): string => String(value))
+		const echo = defineOperation({
+			input: text,
+			name: 'fixture.plugin-kit.echo',
+			result: text,
+			target: 'application',
+			transaction: 'forbidden',
+			version: '1.0.0',
+		})
+		const provider = providePluginOperation({
+			contributionId: 'echo',
+			execute: ({ input }) => input,
+			operation: echo,
+		})
+		const plugin = fixtureModule.plugin({
+			capabilities: { provides: [provider] },
+			declare: ({ operations }) => {
+				operations.declare(echo)
+			},
+			privileges: [
+				{ name: 'operation:declare', reason: 'Declares the echo operation.' },
+			] as const,
+		})
+		const application = new FrameworkApplication({
+			pluginPrivileges: { logger: false },
+			plugins: [plugin],
+			schemas: [],
+		})
+
+		await application.initialize()
+		await application.dispose()
+		expect(Object.isFrozen(provider)).toBe(true)
+
+		const callUntyped = providePluginOperation as (options: unknown) => unknown
+		expect(() => callUntyped(null)).toThrow(
+			'plugin operation provider must be a plain object',
+		)
+		expect(() =>
+			callUntyped({ contributionId: 'invalid', operation: echo }),
+		).toThrow(
+			'plugin operation provider requires exactly one of create or execute',
+		)
+		expect(() =>
+			callUntyped({
+				contributionId: 'invalid',
+				execute: () => undefined,
+				operation: {},
+			}),
+		).toThrow('plugin operation provider requires an operation token')
+	})
+
+	it('rejects schema bindings that could bypass the nominal builder', () => {
+		const bindUntyped = patchSchemas as (options: unknown) => unknown
+
+		expect(() => bindUntyped(null)).toThrow(
+			'schema patch binding must be a plain object',
+		)
+		expect(() =>
+			bindUntyped({
+				patch: { operations: [] },
+				targets: { kind: 'all' },
+			}),
+		).toThrow('schema patch must be created by schemaPatch')
+		expect(() =>
+			bindUntyped({
+				extra: true,
+				patch: schemaPatch(),
+				targets: { kind: 'all' },
+			}),
+		).toThrow('Unknown schema patch binding option: extra')
+	})
+})

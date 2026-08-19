@@ -25,6 +25,7 @@
 	},
 	"dependencies": {
 		"@ultimabase/core": "workspace:^",
+		"@ultimabase/plugin-kit": "workspace:^",
 		"@ultimabase/shared": "workspace:^",
 		"drizzle-orm": "1.0.0-rc.4",
 		"inflection": "^3.0.2",

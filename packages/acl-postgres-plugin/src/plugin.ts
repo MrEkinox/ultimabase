@@ -1,5 +1,6 @@
 import { aclPluginName } from '@ultimabase/acl-permissions-plugin'
-import { definePlugin, type FrameworkPlugin } from '@ultimabase/core'
+import { type FrameworkPlugin } from '@ultimabase/core'
+import { definePluginModule } from '@ultimabase/plugin-kit'
 import { postgresPluginName } from '@ultimabase/postgres-plugin'
 
 import {
@@ -9,6 +10,11 @@ import {
 
 /** Identifies the optional PostgreSQL integration for persisted ACL constraints. */
 export const aclPostgresPluginName = 'ultimabase.acl-postgres' as const
+const aclPostgresPluginModule = definePluginModule({
+	core: '^0.0.0',
+	pluginId: aclPostgresPluginName,
+	version: '0.0.0',
+})
 
 /** Represents the stateless ACL/PostgreSQL integration plugin. */
 export type ACLPostgresPlugin = FrameworkPlugin<
@@ -34,14 +40,11 @@ export type ACLPostgresPlugin = FrameworkPlugin<
 
 /** Registers ACL's opaque row constraint with the selected PostgreSQL adapter. */
 export const aclPostgresPlugin = (): ACLPostgresPlugin =>
-	definePlugin({
+	aclPostgresPluginModule.plugin({
 		dependencies: [
 			{ pluginId: aclPluginName, version: '^0.0.0' },
 			{ pluginId: postgresPluginName, version: '^0.0.0' },
 		],
-		version: '0.0.0',
-		core: '^0.0.0',
-		pluginId: aclPostgresPluginName,
 		privileges: [
 			{
 				name: 'adapter:consume',

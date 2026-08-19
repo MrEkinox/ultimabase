@@ -1320,6 +1320,7 @@ __metadata:
   resolution: "@ultimabase/acl-permissions-plugin@workspace:packages/acl-permissions-plugin"
   dependencies:
     "@ultimabase/core": "workspace:^"
+    "@ultimabase/plugin-kit": "workspace:^"
     "@ultimabase/shared": "workspace:^"
     tsdown: "npm:^0.22.14"
     typescript: "npm:^6.0.3"
@@ -1333,6 +1334,7 @@ __metadata:
   dependencies:
     "@ultimabase/acl-permissions-plugin": "workspace:^"
     "@ultimabase/core": "workspace:^"
+    "@ultimabase/plugin-kit": "workspace:^"
     "@ultimabase/postgres-plugin": "workspace:^"
     "@ultimabase/shared": "workspace:^"
     tsdown: "npm:^0.22.14"
@@ -1373,6 +1375,19 @@ __metadata:
   resolution: "@ultimabase/pg-vector-plugin@workspace:packages/pg-vector-plugin"
   dependencies:
     "@ultimabase/core": "workspace:^"
+    "@ultimabase/plugin-kit": "workspace:^"
+    "@ultimabase/shared": "workspace:^"
+    tsdown: "npm:^0.22.14"
+    typescript: "npm:^6.0.3"
+    vitest: "npm:4.1.10"
+  languageName: unknown
+  linkType: soft
+
+"@ultimabase/plugin-kit@workspace:^, @ultimabase/plugin-kit@workspace:packages/plugin-kit":
+  version: 0.0.0-use.local
+  resolution: "@ultimabase/plugin-kit@workspace:packages/plugin-kit"
+  dependencies:
+    "@ultimabase/core": "workspace:^"
     "@ultimabase/shared": "workspace:^"
     tsdown: "npm:^0.22.14"
     typescript: "npm:^6.0.3"
@@ -1386,6 +1401,7 @@ __metadata:
   dependencies:
     "@types/pg": "npm:^8.15.5"
     "@ultimabase/core": "workspace:^"
+    "@ultimabase/plugin-kit": "workspace:^"
     "@ultimabase/shared": "workspace:^"
     drizzle-orm: "npm:1.0.0-rc.4"
     inflection: "npm:^3.0.2"
@@ -1401,6 +1417,7 @@ __metadata:
   resolution: "@ultimabase/roles-plugin@workspace:packages/roles-plugin"
   dependencies:
     "@ultimabase/core": "workspace:^"
+    "@ultimabase/plugin-kit": "workspace:^"
     "@ultimabase/shared": "workspace:^"
     tsdown: "npm:^0.22.14"
     typescript: "npm:^6.0.3"

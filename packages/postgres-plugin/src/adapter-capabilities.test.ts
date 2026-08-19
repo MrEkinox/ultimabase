@@ -2,11 +2,10 @@ import {
 	defineOperation,
 	defineOperationValue,
 	definePlugin,
-	operationHandler,
-	provideOperationHandler,
 	requireCapability,
 	UltimaBase,
 } from '@ultimabase/core'
+import { providePluginOperation } from '@ultimabase/plugin-kit'
 import { immutableRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 
@@ -141,20 +140,16 @@ describe('PostgreSQL adapter capabilities', () => {
 		const operationPlugin = definePlugin({
 			capabilities: {
 				provides: [
-					provideOperationHandler({
+					providePluginOperation({
 						contributionId: 'raw-operation',
-						create: () => ({
-							value: operationHandler({
-								execute: ({ adapters }) =>
-									adapters.withRaw(rawRequirement, async (raw) => {
-										escaped = raw
-										if (raw.scope !== 'transaction') return false
-										const result = await raw.query('SELECT 1')
-										return result.rows.length === 1
-									}),
-								operation: rawOperation,
+						execute: ({ adapters }) =>
+							adapters.withRaw(rawRequirement, async (raw) => {
+								escaped = raw
+								if (raw.scope !== 'transaction') return false
+								const result = await raw.query('SELECT 1')
+								return result.rows.length === 1
 							}),
-						}),
+						operation: rawOperation,
 					}),
 				],
 				requires: [rawRequirement],

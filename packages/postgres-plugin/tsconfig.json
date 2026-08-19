@@ -7,5 +7,9 @@
 		"skipLibCheck": true
 	},
 	"include": ["src/**/*.ts"],
-	"references": [{ "path": "../shared" }, { "path": "../core" }]
+	"references": [
+		{ "path": "../shared" },
+		{ "path": "../core" },
+		{ "path": "../plugin-kit" }
+	]
 }

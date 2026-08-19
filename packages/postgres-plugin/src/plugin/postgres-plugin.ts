@@ -1,6 +1,5 @@
 import {
 	databaseAdapterCapability,
-	definePlugin,
 	optionalCapability,
 	provideAdapterRawCapability,
 	provideCapability,
@@ -9,7 +8,11 @@ import {
 	type CapabilityRequirement,
 	type FrameworkPlugin,
 } from '@ultimabase/core'
-import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
+import {
+	definePluginModule,
+	definePluginOptionsParser,
+} from '@ultimabase/plugin-kit'
+import { immutableRecord } from '@ultimabase/shared'
 import { Pool } from 'pg'
 
 import {
@@ -37,6 +40,12 @@ import {
 	postgresRawAdapterCapability,
 	type PostgresAdapterMetadata,
 } from '../adapter-capabilities.js'
+
+const postgresPluginModule = definePluginModule({
+	core: '^0.0.0',
+	pluginId: postgresPluginName,
+	version: '0.0.0',
+})
 
 /** Configures direct schema behavior when no migration plugin claims preparation. */
 export interface PostgresSchemaPolicyOptions {
@@ -130,7 +139,6 @@ export type PostgresPlugin = FrameworkPlugin<
 	PostgresPluginCapabilities
 >
 
-const postgresPluginOptionKeys = new Set(['pool', 'schemaPolicy', 'url'])
 const postgresSchemaPolicies = [
 	'fail',
 	'ignore',
@@ -183,45 +191,43 @@ const assertPostgresPool: (value: unknown) => asserts value is PostgresPool = (
 	}
 }
 
-const assertPostgresPluginOptions: (
-	options: unknown,
-) => asserts options is PostgresPluginOptions = (options) => {
-	if (!isPlainRecord(options)) {
-		throw new TypeError('postgres plugin options must be a plain object')
-	}
-
-	for (const key of Object.keys(options)) {
-		if (!postgresPluginOptionKeys.has(key)) {
-			throw new TypeError(`postgres plugin contains unknown key: ${key}`)
-		}
-	}
-
-	if (
-		options.schemaPolicy !== undefined &&
-		!isPostgresSchemaPolicy(options.schemaPolicy)
-	) {
-		throw new TypeError(
-			'postgres schemaPolicy must be override, fail, or ignore',
-		)
-	}
-
-	const hasUrl = Object.hasOwn(options, 'url')
-	const hasPool = Object.hasOwn(options, 'pool')
-
-	if (hasUrl === hasPool) {
-		throw new TypeError('postgres plugin requires exactly one of url or pool')
-	}
-
-	if (hasUrl) {
-		if (typeof options.url !== 'string' || options.url.length === 0) {
-			throw new TypeError('postgres url must be a non-empty string')
+const normalizePostgresPluginOptions = definePluginOptionsParser({
+	formatUnknownKey: (key) =>
+		`postgres plugin contains unknown key: ${String(key)}`,
+	keys: ['pool', 'schemaPolicy', 'url'] as const,
+	name: 'postgres plugin options',
+	normalize: (options): PostgresPluginOptions => {
+		const schemaPolicy = options.schemaPolicy
+		if (schemaPolicy !== undefined && !isPostgresSchemaPolicy(schemaPolicy)) {
+			throw new TypeError(
+				'postgres schemaPolicy must be override, fail, or ignore',
+			)
 		}
 
-		return
-	}
+		const hasUrl = Object.hasOwn(options, 'url')
+		const hasPool = Object.hasOwn(options, 'pool')
+		if (hasUrl === hasPool) {
+			throw new TypeError('postgres plugin requires exactly one of url or pool')
+		}
 
-	assertPostgresPool(options.pool)
-}
+		if (hasUrl) {
+			if (typeof options.url !== 'string' || options.url.length === 0) {
+				throw new TypeError('postgres url must be a non-empty string')
+			}
+
+			return {
+				...(schemaPolicy === undefined ? {} : { schemaPolicy }),
+				url: options.url,
+			}
+		}
+
+		assertPostgresPool(options.pool)
+		return {
+			pool: options.pool,
+			...(schemaPolicy === undefined ? {} : { schemaPolicy }),
+		}
+	},
+})
 
 interface PostgresConnectionSource {
 	readonly ownsPool: boolean
@@ -250,11 +256,10 @@ const createConnectionSourceFactory = (
 export const postgresPlugin = (
 	options: PostgresPluginOptions,
 ): PostgresPlugin => {
-	const untrustedOptions: unknown = options
-
-	assertPostgresPluginOptions(untrustedOptions)
-	const createConnectionSource = createConnectionSourceFactory(untrustedOptions)
-	const schemaPolicy = untrustedOptions.schemaPolicy ?? 'override'
+	const normalizedOptions = normalizePostgresPluginOptions(options)
+	const createConnectionSource =
+		createConnectionSourceFactory(normalizedOptions)
+	const schemaPolicy = normalizedOptions.schemaPolicy ?? 'override'
 	const connectionRequirement = requireCapability(
 		postgresConnectionCapability,
 		'^1.0.0',
@@ -316,10 +321,7 @@ export const postgresPlugin = (
 		},
 	)
 
-	return definePlugin({
-		version: '0.0.0',
-		core: '^0.0.0',
-		pluginId: postgresPluginName,
+	return postgresPluginModule.plugin({
 		privileges: [
 			{
 				name: 'adapter:consume',
