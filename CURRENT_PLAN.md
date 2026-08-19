@@ -6,6 +6,7 @@
 - Milestones:
   - [14 — Trusted open plugin kernel](issues/1400-open-plugin-kernel/README.md)
   - [15 — Optional Hooks and Access plugins](issues/1500-optional-hooks-access/README.md)
+- Resume point: [1501 — Move hook authoring contracts into hooks-plugin](issues/1500-optional-hooks-access/1501-hooks-plugin-authoring-contracts.md)
 - Previous completed plan: [Query execution and enforcement consolidation](docs/plans/completed/query-execution-and-enforcement-consolidation.md)
 - Paused objectives:
   - [ACL hardening and developer-experience consolidation](docs/plans/paused/acl-hardening-and-developer-experience-consolidation.md)
@@ -85,22 +86,22 @@ optional official plugins while keeping Core master authority unchanged.
 20. [x] [1411 — Publish the plugin authoring toolbox](issues/1400-open-plugin-kernel/1411-plugin-authoring-toolbox.md)
 21. [x] [1412 — Add plugin conformance testing utilities](issues/1400-open-plugin-kernel/1412-plugin-conformance-testing.md)
 22. [x] [1413 — Prove workflow, value-codec, and JavaScript plugins](issues/1400-open-plugin-kernel/1413-open-kernel-proof-plugins.md)
-23. [ ] [1414 — Verify the trusted open plugin kernel](issues/1400-open-plugin-kernel/1414-open-plugin-kernel-verification.md)
+23. [x] [1414 — Verify the trusted open plugin kernel](issues/1400-open-plugin-kernel/1414-open-plugin-kernel-verification.md)
 
 ### Phase 4 — Optional Hooks engine
 
-22. [ ] [1501 — Move hook authoring contracts into hooks-plugin](issues/1500-optional-hooks-access/1501-hooks-plugin-authoring-contracts.md)
-23. [ ] [1502 — Move hook execution into hooks-plugin](issues/1500-optional-hooks-access/1502-hooks-plugin-runtime.md)
-24. [ ] [1503 — Prove no-Hooks and alternative-Hooks applications](issues/1500-optional-hooks-access/1503-hooks-optional-alternative-proof.md)
+24. [ ] [1501 — Move hook authoring contracts into hooks-plugin](issues/1500-optional-hooks-access/1501-hooks-plugin-authoring-contracts.md)
+25. [ ] [1502 — Move hook execution into hooks-plugin](issues/1500-optional-hooks-access/1502-hooks-plugin-runtime.md)
+26. [ ] [1503 — Prove no-Hooks and alternative-Hooks applications](issues/1500-optional-hooks-access/1503-hooks-optional-alternative-proof.md)
 
 ### Phase 5 — Optional Access engine
 
-25. [ ] [1504 — Move Access authoring and plans into access-plugin](issues/1500-optional-hooks-access/1504-access-plugin-authoring-plans.md)
-26. [ ] [1505 — Move Access execution into access-plugin](issues/1500-optional-hooks-access/1505-access-plugin-runtime.md)
-27. [ ] [1506 — Adapt ACL, roles, and PostgreSQL policy integrations](issues/1500-optional-hooks-access/1506-policy-provider-migration.md)
-28. [ ] [1507 — Prove no-Access, alternative-Access, and Core Master](issues/1500-optional-hooks-access/1507-access-optional-alternative-proof.md)
-29. [ ] [1508 — Remove superseded native Hooks and Access surfaces](issues/1500-optional-hooks-access/1508-native-hooks-access-removal-audit.md)
-30. [ ] [1509 — Verify optional official capability extraction](issues/1500-optional-hooks-access/1509-optional-capabilities-verification.md)
+27. [ ] [1504 — Move Access authoring and plans into access-plugin](issues/1500-optional-hooks-access/1504-access-plugin-authoring-plans.md)
+28. [ ] [1505 — Move Access execution into access-plugin](issues/1500-optional-hooks-access/1505-access-plugin-runtime.md)
+29. [ ] [1506 — Adapt ACL, roles, and PostgreSQL policy integrations](issues/1500-optional-hooks-access/1506-policy-provider-migration.md)
+30. [ ] [1507 — Prove no-Access, alternative-Access, and Core Master](issues/1500-optional-hooks-access/1507-access-optional-alternative-proof.md)
+31. [ ] [1508 — Remove superseded native Hooks and Access surfaces](issues/1500-optional-hooks-access/1508-native-hooks-access-removal-audit.md)
+32. [ ] [1509 — Verify optional official capability extraction](issues/1500-optional-hooks-access/1509-optional-capabilities-verification.md)
 
 ## Supervision checkpoints
 

@@ -115,7 +115,10 @@ export const createValuePlugin = (
 		},
 		instanceId: options.instanceId,
 		privileges: [
-			{ name: 'adapter:consume', reason: 'Requires portable JSON value storage.' },
+			{
+				name: 'adapter:consume',
+				reason: 'Requires portable JSON value storage.',
+			},
 			{ name: 'schema:declare', reason: 'Adds the decimal field and builder.' },
 			{
 				name: 'typegen:reference',

@@ -16,8 +16,9 @@ without adding a product capability. The
 has likewise removed dead internal helpers and focused Query execution plus
 policy-neutral Enforcement ownership without changing public behavior. The
 [trusted open plugin kernel and optional official capabilities plan](CURRENT_PLAN.md)
-is now active. It first opens a privilege-aware public capability kernel, then
-uses that kernel to extract Hooks and Access into optional official plugins.
+is now active. Its trusted open kernel milestone passed the complete audit in
+issue 1414; work resumes at issue 1501 to extract Hooks and Access into optional
+official plugins.
 
 The ACL hardening plan remains paused at issue 432. Generated schema authoring
 and type contracts remain paused at the final DX and performance verification

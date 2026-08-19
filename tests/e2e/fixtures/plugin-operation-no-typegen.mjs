@@ -157,8 +157,14 @@ const createOperationPlugin = () =>
 		},
 		pluginId: 'fixture.javascript-operations',
 		privileges: [
-			{ name: 'schema:declare', reason: 'Declares the dynamic JavaScript schema.' },
-			{ name: 'model:extend', reason: 'Adds JavaScript schema and model commands.' },
+			{
+				name: 'schema:declare',
+				reason: 'Declares the dynamic JavaScript schema.',
+			},
+			{
+				name: 'model:extend',
+				reason: 'Adds JavaScript schema and model commands.',
+			},
 			{ name: 'operation:declare', reason: 'Declares the JavaScript fixture.' },
 			{ name: 'transport:expose', reason: 'Exposes the fake fixture binding.' },
 		],
@@ -219,7 +225,9 @@ export const inspection = {
 	plugins: ultimabase.application.pluginPrivilegeReport.plugins.map(
 		({ identity }) => identity.pluginId,
 	),
-	schemas: ultimabase.application.schemas.values().map(({ className }) => className),
+	schemas: ultimabase.application.schemas
+		.values()
+		.map(({ className }) => className),
 }
 const exposure = ultimabase.exposeOperations({
 	operations: [inspect],
@@ -248,7 +256,7 @@ export const transportErrorResponse = await fake.request({
 const conformanceSuite = definePluginConformanceSuite({
 	createFixture: () =>
 		createPluginConformanceFixture({
-				schemas: [StablePost],
+			schemas: [StablePost],
 			subject: createOperationPlugin(),
 			supportPlugins: [createDatabasePlugin()],
 		}),

@@ -26,7 +26,8 @@ const PortableFilterSchema = Schema.define({
 			{
 				snapshotValue: snapshotPortableCode,
 				storageCodec: {
-					decode: (value) => snapshotPortableCode({ code: value }, 'stored code'),
+					decode: (value) =>
+						snapshotPortableCode({ code: value }, 'stored code'),
 					encode: (value) => value.code,
 					format: 'json',
 					version: 1,

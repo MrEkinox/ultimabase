@@ -12,7 +12,11 @@ import {
 	type PluginDefinition,
 	type SchemaDefinition,
 } from '@ultimabase/core'
-import { definePluginModule, patchSchemas, schemaPatch } from '@ultimabase/plugin-kit'
+import {
+	definePluginModule,
+	patchSchemas,
+	schemaPatch,
+} from '@ultimabase/plugin-kit'
 
 export const softDeleteVisibilityConstraintKind =
 	'fixture.open-kernel.soft-delete-visible' as const

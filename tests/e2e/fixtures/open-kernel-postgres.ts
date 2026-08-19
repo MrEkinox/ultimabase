@@ -139,13 +139,7 @@ export const createSoftDeletePostgresPlugin = (
 					contributionId: 'postgres-purge',
 					create: () => ({
 						execute: ({ adapters, target }) =>
-							changeSoftDeleteState(
-								'purge',
-								adapters,
-								options,
-								table,
-								target,
-							),
+							changeSoftDeleteState('purge', adapters, options, table, target),
 					}),
 					operation: purgeSoftDeletedModel,
 				}),
@@ -168,9 +162,18 @@ export const createSoftDeletePostgresPlugin = (
 		pluginId: 'fixture.open-kernel-soft-delete-postgres',
 		privileges: [
 			{ name: 'adapter:consume', reason: 'Compiles tombstone visibility.' },
-			{ name: 'adapter:raw', reason: 'Restores and purges inside Runtime transactions.' },
-			{ name: 'model:extend', reason: 'Adds PostgreSQL restore and purge commands.' },
-			{ name: 'operation:declare', reason: 'Declares PostgreSQL restore and purge.' },
+			{
+				name: 'adapter:raw',
+				reason: 'Restores and purges inside Runtime transactions.',
+			},
+			{
+				name: 'model:extend',
+				reason: 'Adds PostgreSQL restore and purge commands.',
+			},
+			{
+				name: 'operation:declare',
+				reason: 'Declares PostgreSQL restore and purge.',
+			},
 		] as const,
 		setup: ({ constraintCompilers }) => {
 			constraintCompilers.register(compiler)
@@ -187,9 +190,7 @@ export interface ValuePostgresOptions {
 }
 
 /** Contributes inspectable physical metadata and optional explicit upgrade intent. */
-export const createValuePostgresPlugin = (
-	options: ValuePostgresOptions,
-) => {
+export const createValuePostgresPlugin = (options: ValuePostgresOptions) => {
 	const table = assertIdentifier(options.table, 'value metadata table')
 	const physical = postgresPhysicalColumn({
 		column: { name: 'amount_sort_key', nullable: true, type: 'numeric' },

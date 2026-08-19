@@ -28,9 +28,7 @@ export const renderScalarFilters = (
 	] as const
 
 	if (
-		allFields.some(
-			(field) => field.portableEquality && !isListField(field),
-		)
+		allFields.some((field) => field.portableEquality && !isListField(field))
 	) {
 		definitions.push(
 			renderNamedFilter('PortableEqualityFilter<TValue>', [

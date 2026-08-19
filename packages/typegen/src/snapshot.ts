@@ -404,8 +404,7 @@ const snapshotFields = (
 					kind: field.kind,
 					name,
 					path,
-					portableEquality:
-						getPluginFieldStorageCodec(field) !== undefined,
+					portableEquality: getPluginFieldStorageCodec(field) !== undefined,
 					typegen: readFieldTypegenState(field),
 					value: snapshotValue(field, schema, path, context),
 				})

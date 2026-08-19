@@ -70,12 +70,9 @@ const pluginFieldSchema = Schema.define({
 describe('query filter factories', () => {
 	it('grants portable plugin scalars complete-value equality only', () => {
 		expect(
-			createQueryValueFilter(
-				pluginFieldSchema,
-				'equal',
-				'portableCodeField',
-				{ code: 'stable' },
-			),
+			createQueryValueFilter(pluginFieldSchema, 'equal', 'portableCodeField', {
+				code: 'stable',
+			}),
 		).toStrictEqual({
 			field: 'portableCodeField',
 			kind: 'equal',
@@ -118,15 +115,10 @@ describe('query filter factories', () => {
 			),
 		)
 		expect(() =>
-			createQueryValueFilter(
-				pluginFieldSchema,
-				'equal',
-				'portableCodeField',
-				{ code: 42 },
-			),
-		).toThrow(
-			new TypeError('query filter value must contain a string code'),
-		)
+			createQueryValueFilter(pluginFieldSchema, 'equal', 'portableCodeField', {
+				code: 42,
+			}),
+		).toThrow(new TypeError('query filter value must contain a string code'))
 	})
 
 	it('rejects malformed membership and regex values at the runtime boundary', () => {

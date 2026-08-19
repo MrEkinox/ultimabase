@@ -72,7 +72,10 @@ describe('open-kernel PostgreSQL proof', { concurrent: false }, () => {
 			onCommitted: (payload) => committed.push(payload),
 			stableSchema: WorkflowPost,
 		})
-		const value = createValuePlugin({ instanceId: 'primary', target: LedgerEntry })
+		const value = createValuePlugin({
+			instanceId: 'primary',
+			target: LedgerEntry,
+		})
 		const valuePostgres = createValuePostgresPlugin({
 			instanceId: 'primary',
 			table: 'open_kernel_ledger_entries',
@@ -131,8 +134,8 @@ describe('open-kernel PostgreSQL proof', { concurrent: false }, () => {
 				'@ultimabase/postgres-plugin',
 			) as PostgresPluginExports
 			const physical = postgres.adapterMetadata.physicalSchema.find(
-					({ contributionId }) => contributionId === 'decimal-sort-key',
-				)
+				({ contributionId }) => contributionId === 'decimal-sort-key',
+			)
 			expect(physical).toMatchObject({
 				contributionId: 'decimal-sort-key',
 				instanceId: 'primary',
@@ -153,7 +156,9 @@ describe('open-kernel PostgreSQL proof', { concurrent: false }, () => {
 			})
 			await expect(
 				request.transaction(async () => {
-					await workflow.DynamicAudit.createOne({ data: { action: 'rollback' } })
+					await workflow.DynamicAudit.createOne({
+						data: { action: 'rollback' },
+					})
 					throw new Error('rollback event')
 				}),
 			).rejects.toThrow('rollback event')
@@ -170,7 +175,12 @@ describe('open-kernel PostgreSQL proof', { concurrent: false }, () => {
 				{ ultimabase },
 			)
 			await SoftPost.deleteOne({ id: created.id }, { ultimabase })
-			expect(await SoftPost.findOne({ where: { id: { eq: created.id } } }, { ultimabase })).toBeNull()
+			expect(
+				await SoftPost.findOne(
+					{ where: { id: { eq: created.id } } },
+					{ ultimabase },
+				),
+			).toBeNull()
 			expect(deleteTrace).toStrictEqual([`delete:${created.id}`])
 			const restored = await ultimabase
 				.schema(SoftPost)
@@ -178,7 +188,12 @@ describe('open-kernel PostgreSQL proof', { concurrent: false }, () => {
 				.command('restore')
 				.execute({})
 			expect(restored).toStrictEqual({ changed: true })
-			expect(await SoftPost.findOne({ where: { id: { eq: created.id } } }, { ultimabase })).not.toBeNull()
+			expect(
+				await SoftPost.findOne(
+					{ where: { id: { eq: created.id } } },
+					{ ultimabase },
+				),
+			).not.toBeNull()
 			expect(deleteTrace).not.toContain('update')
 
 			rejectDelete = true
@@ -186,16 +201,19 @@ describe('open-kernel PostgreSQL proof', { concurrent: false }, () => {
 				SoftPost.deleteOne({ id: created.id }, { ultimabase }),
 			).rejects.toThrow('reject tombstone')
 			rejectDelete = false
-			expect(await SoftPost.findOne({ where: { id: { eq: created.id } } }, { ultimabase })).not.toBeNull()
+			expect(
+				await SoftPost.findOne(
+					{ where: { id: { eq: created.id } } },
+					{ ultimabase },
+				),
+			).not.toBeNull()
 			await SoftPost.deleteOne({ id: created.id }, { ultimabase })
 			await expect(
-				ultimabase
-					.schema(SoftPost)
-					.for(created)
-					.command('purge')
-					.execute({}),
+				ultimabase.schema(SoftPost).for(created).command('purge').execute({}),
 			).resolves.toStrictEqual({ changed: true })
-			const remaining = await getFixture().pool.query<{ readonly count: string }>(
+			const remaining = await getFixture().pool.query<{
+				readonly count: string
+			}>(
 				'SELECT count(*)::text AS count FROM open_kernel_soft_posts WHERE id = $1',
 				[created.id],
 			)

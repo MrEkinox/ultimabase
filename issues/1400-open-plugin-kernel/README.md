@@ -1,6 +1,6 @@
 # Milestone 14 — Trusted open plugin kernel
 
-- Status: active
+- Status: completed
 
 Replace the closed setup contribution surface with a trusted, privilege-aware,
 versioned capability kernel. Plugins may declare and transform application
@@ -33,7 +33,11 @@ community packages.
 20. [x] [1411 — Publish the plugin authoring toolbox](1411-plugin-authoring-toolbox.md)
 21. [x] [1412 — Add plugin conformance testing utilities](1412-plugin-conformance-testing.md)
 22. [x] [1413 — Prove workflow, value-codec, and JavaScript plugins](1413-open-kernel-proof-plugins.md)
-23. [ ] [1414 — Verify the trusted open plugin kernel](1414-open-plugin-kernel-verification.md)
+23. [x] [1414 — Verify the trusted open plugin kernel](1414-open-plugin-kernel-verification.md)
 
 The frozen constraints, supervision checkpoints, and cross-milestone resume
 order live in [`CURRENT_PLAN.md`](../../CURRENT_PLAN.md).
+
+The complete public, security, compatibility, packed-package, coverage, and
+PostgreSQL audit passed in issue 1414. Work resumes in milestone 15 at issue
+1501; native Hooks and Access remain only for that explicitly tracked migration.

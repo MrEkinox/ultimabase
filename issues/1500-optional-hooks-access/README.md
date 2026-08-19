@@ -1,6 +1,6 @@
 # Milestone 15 — Optional Hooks and Access plugins
 
-- Status: planned
+- Status: active
 
 Prove the public open kernel by extracting the existing Hooks and Access product
 systems from Core into official `@ultimabase/hooks-plugin` and
@@ -24,3 +24,6 @@ behavior. Core master authority remains unchanged.
 
 Milestone 15 begins only after milestone 14 passes its complete public
 conformance gate.
+
+Milestone 14 passed that gate in issue 1414. The active resume point is issue
+1501; no later extraction issue should begin before its declared dependencies.

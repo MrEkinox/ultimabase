@@ -1,7 +1,15 @@
 import {
 	defineCapability,
+	defineOperation,
+	defineOperationValue,
 	definePlugin,
+	defineQueryExtension,
+	defineTypegenReference,
+	operationHandler,
 	provideCapability,
+	provideOperationHandler,
+	QueryBuilder,
+	Schema,
 } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
@@ -133,6 +141,139 @@ describe('plugin conformance suite', () => {
 		expect(capabilityDisposals).toBe(capabilityCreations)
 		expect(Object.isFrozen(report)).toBe(true)
 		expect(Object.isFrozen(report.checks)).toBe(true)
+	})
+
+	it('snapshots public operation and model surfaces through conformance', async () => {
+		const text = defineOperationValue((value, path): string => {
+			if (typeof value !== 'string') throw new TypeError(`${path} must be text`)
+			return value
+		})
+		const inspect = defineOperation({
+			input: text,
+			name: 'fixture.snapshot.inspect',
+			result: text,
+			target: 'application',
+			transaction: 'forbidden',
+			version: '1.0.0',
+		})
+		const publishSchema = defineOperation({
+			input: text,
+			name: 'fixture.snapshot.publish-schema',
+			result: text,
+			target: 'schema',
+			transaction: 'forbidden',
+			version: '1.0.0',
+		})
+		const publishModel = defineOperation({
+			input: text,
+			name: 'fixture.snapshot.publish-model',
+			result: text,
+			target: 'model',
+			transaction: 'forbidden',
+			version: '1.0.0',
+		})
+		const byTitle = defineQueryExtension({
+			apply: (schema) => new QueryBuilder(schema),
+			input: text,
+			name: 'fixture.snapshot.by-title',
+			version: '1.0.0',
+		})
+		const publicState = defineTypegenReference({
+			exportName: 'PublicState',
+			module: '@fixture/snapshot-surfaces',
+		})
+		const Post = Schema.define({
+			className: 'ConformanceSurfacePost',
+			fields: (field) => ({ title: field.string() }),
+		})
+		const operations = [inspect, publishSchema, publishModel] as const
+		const plugin = definePlugin({
+			capabilities: {
+				provides: operations.map((operation) =>
+					provideOperationHandler({
+						contributionId: operation.name,
+						create: () => ({
+							value: operationHandler({
+								execute: ({ input }) => input,
+								operation,
+							}),
+						}),
+					}),
+				),
+			},
+			core: '^0.0.0',
+			declare: ({
+				models,
+				operations: operationDeclarations,
+				queries,
+				typegenContributions,
+				typegenReferences,
+			}) => {
+				for (const operation of operations) {
+					operationDeclarations.declare(operation)
+				}
+				models.extend(
+					{ className: Post.className },
+					{
+						contributionId: 'publishing',
+						modelCommands: { publish: publishModel },
+						schemaCommands: { publish: publishSchema },
+						staticOptions: { mode: 'review' },
+					},
+				)
+				queries.extend(
+					{ className: Post.className },
+					{
+						contributionId: 'publishing-query',
+						extensions: { byTitle },
+						staticOptions: { mode: 'review' },
+					},
+				)
+				typegenReferences.register(publicState)
+				typegenContributions.add({
+					contributionId: 'public-state',
+					declarations: [
+						{
+							kind: 'type',
+							name: 'ConfiguredPublicState',
+							type: { kind: 'reference', reference: publicState },
+						},
+					],
+				})
+			},
+			instanceId: 'main',
+			pluginId: 'fixture.snapshot-surfaces',
+			privileges: [
+				{ name: 'model:extend', reason: 'Adds public publishing commands.' },
+				{ name: 'operation:declare', reason: 'Declares public operations.' },
+				{ name: 'query:extend', reason: 'Adds one public query extension.' },
+				{ name: 'typegen:reference', reason: 'References one public type.' },
+				{ name: 'typegen:contribute', reason: 'Adds one inert declaration.' },
+			],
+			version: '1.0.0',
+		})
+		const suite = definePluginConformanceSuite({
+			createFixture: () =>
+				createPluginConformanceFixture({ schemas: [Post], subject: plugin }),
+			expected: {
+				core: '^0.0.0',
+				pluginId: 'fixture.snapshot-surfaces',
+				privileges: [
+					'model:extend',
+					'operation:declare',
+					'query:extend',
+					'typegen:reference',
+					'typegen:contribute',
+				],
+				version: '1.0.0',
+			},
+		})
+
+		const report = await runPluginConformance(suite)
+		expect(report.checks).toContainEqual({
+			contract: 'static-determinism',
+			status: 'passed',
+		})
 	})
 
 	it('attributes an optional failure to its exact contract', async () => {

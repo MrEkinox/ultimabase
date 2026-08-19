@@ -40,8 +40,6 @@ import {
 	type QueryStructuralContainmentFilterOperator,
 } from './primitive.js'
 
-const regexFlags: readonly QueryRegexFlag[] = ['case-insensitive', 'dot-matches-newline', 'multiline']
-
 type RuntimeQueryField = FieldDefinition<string, unknown, object>
 
 interface ResolvedQueryTarget<TFieldName extends string = string> {
@@ -439,7 +437,9 @@ const isNullableValueOperator = (
 	operator === 'equal' || operator === 'not-equal'
 
 const isQueryRegexFlag = (value: unknown): value is QueryRegexFlag =>
-	typeof value === 'string' && includesString(regexFlags, value)
+	value === 'case-insensitive' ||
+	value === 'dot-matches-newline' ||
+	value === 'multiline'
 
 /** Creates one immutable scalar value filter after checking runtime capabilities. */
 export const createQueryValueFilter = <const TSchema extends SchemaDefinition>(

@@ -131,7 +131,8 @@ export const workflowFakeTransport = defineOperationTransport({
 })
 const workflowWireCodec = operationWireCodec({
 	decode: (value: Readonly<{ readonly reason: string }>) => value,
-	encode: (value) => immutableRecord({ schema: value.schema, state: value.state }),
+	encode: (value) =>
+		immutableRecord({ schema: value.schema, state: value.state }),
 	operation: inspectWorkflow,
 	transport: workflowFakeTransport,
 })
@@ -156,7 +157,10 @@ const targetResult = (
 	if (target.kind === 'schema') {
 		return immutableRecord({ schema: target.schema.className, state: 'schema' })
 	}
-	return immutableRecord({ schema: target.schema.className, state: target.state })
+	return immutableRecord({
+		schema: target.schema.className,
+		state: target.state,
+	})
 }
 
 export interface WorkflowPluginOptions {
@@ -166,9 +170,7 @@ export interface WorkflowPluginOptions {
 }
 
 /** Builds one complete workflow proof without using a private framework import. */
-export const createWorkflowPlugin = (
-	options: WorkflowPluginOptions,
-) => {
+export const createWorkflowPlugin = (options: WorkflowPluginOptions) => {
 	const dynamicName = `WorkflowAudit${options.instanceId.replace(/[^A-Za-z0-9]/gu, '')}`
 	const DynamicAudit = Schema.define({
 		className: dynamicName,
@@ -262,7 +264,9 @@ export const createWorkflowPlugin = (
 							name: 'workflow',
 							value: { initialState: 'draft' },
 						}),
-					targets: schemas.select({ className: options.stableSchema.className }),
+					targets: schemas.select({
+						className: options.stableSchema.className,
+					}),
 				}),
 			)
 			operations.declare(inspectWorkflow)
@@ -317,8 +321,14 @@ export const createWorkflowPlugin = (
 			{ name: 'schema:declare', reason: 'Adds workflow schema declarations.' },
 			{ name: 'model:extend', reason: 'Adds workflow handle commands.' },
 			{ name: 'operation:declare', reason: 'Declares workflow operations.' },
-			{ name: 'transport:expose', reason: 'Binds the explicit fake transport.' },
-			{ name: 'runtime:observe', reason: 'Consumes committed workflow events.' },
+			{
+				name: 'transport:expose',
+				reason: 'Binds the explicit fake transport.',
+			},
+			{
+				name: 'runtime:observe',
+				reason: 'Consumes committed workflow events.',
+			},
 			{
 				name: 'typegen:reference',
 				reason: 'References workflow public types.',
