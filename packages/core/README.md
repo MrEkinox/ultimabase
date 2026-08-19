@@ -1968,7 +1968,10 @@ storage codec through `definePluginField()`. Core validates and snapshots both
 codec directions without placing executable functions in field metadata.
 Database adapters may consume `getPluginFieldStorageCodec()` generically, while
 plugin kinds without a portable codec still require a specialized adapter
-integration.
+integration. A non-list field with that codec also receives complete-value
+`eq`, `ne`, `in`, and `notIn` filters. Operands pass through the same logical
+snapshot guard; the codec does not imply ordering, string, structural, or
+custom domain operators.
 
 ## Typed plugin hook targets
 

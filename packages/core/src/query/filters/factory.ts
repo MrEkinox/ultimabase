@@ -1,4 +1,5 @@
 import {
+	getPluginFieldStorageCodec,
 	snapshotScalarFieldValue,
 	type FieldDefinition,
 	type GenericField,
@@ -39,11 +40,7 @@ import {
 	type QueryStructuralContainmentFilterOperator,
 } from './primitive.js'
 
-const regexFlags: readonly QueryRegexFlag[] = [
-	'case-insensitive',
-	'dot-matches-newline',
-	'multiline',
-]
+const regexFlags: readonly QueryRegexFlag[] = ['case-insensitive', 'dot-matches-newline', 'multiline']
 
 type RuntimeQueryField = FieldDefinition<string, unknown, object>
 
@@ -267,7 +264,8 @@ const assertOperatorSupport = (
 		operator === 'not-equal' ||
 		operator === 'in' ||
 		operator === 'not-in'
-			? includesString(queryEqualityFieldKinds, field.kind)
+			? includesString(queryEqualityFieldKinds, field.kind) ||
+				getPluginFieldStorageCodec(field) !== undefined
 			: operator === 'greater-than' ||
 				  operator === 'greater-than-or-equal' ||
 				  operator === 'less-than' ||

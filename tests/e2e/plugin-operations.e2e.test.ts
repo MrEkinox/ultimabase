@@ -27,6 +27,25 @@ describe('packed plugin operation execution', () => {
 				'javascript-operation',
 			],
 			directResult: { echo: 'direct' },
+			dynamicSchemaResult: {
+				echo: 'schema:JavaScriptDynamicPost:dynamic',
+			},
+			inspection: {
+				operations: [
+					'fixture.javascript.inspect',
+					'fixture.javascript.inspect-schema',
+					'fixture.javascript.inspect-model',
+				],
+				plugins: [
+					'fixture.javascript-database',
+					'fixture.javascript-operations',
+				],
+				schemas: ['JavaScriptStablePost', 'JavaScriptDynamicPost'],
+			},
+			modelResult: { echo: 'model:draft:draft' },
+			stableSchemaResult: {
+				echo: 'schema:JavaScriptStablePost:stable',
+			},
 			transportErrorResponse: {
 				error: {
 					code: 'fixture.javascript.rejected',

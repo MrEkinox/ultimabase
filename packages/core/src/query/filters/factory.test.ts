@@ -1,4 +1,5 @@
-import { Schema } from '../../schema/index.js'
+import { definePluginField, Schema } from '../../schema/index.js'
+import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -32,7 +33,102 @@ const fixtureSchema = Schema.define({
 	}),
 })
 
+const snapshotCode = (
+	value: unknown,
+	path: string,
+): Readonly<{ code: string }> => {
+	if (!isPlainRecord(value) || typeof value.code !== 'string') {
+		throw new TypeError(`${path} must contain a string code`)
+	}
+
+	return immutableRecord({ code: value.code })
+}
+
+const portableCodeField = definePluginField(
+	'fixture.query.portable-code',
+	{ validation: { required: true } },
+	{
+		snapshotValue: snapshotCode,
+		storageCodec: {
+			decode: (value) => snapshotCode(value, 'stored code'),
+			encode: (value) => immutableRecord(value),
+			format: 'json',
+			version: 1,
+		},
+	},
+)
+const runtimeOnlyCodeField = definePluginField(
+	'fixture.query.runtime-code',
+	{ validation: { required: true } },
+	{ snapshotValue: snapshotCode },
+)
+const pluginFieldSchema = Schema.define({
+	className: 'PluginFilterFixture',
+	fields: () => ({ portableCodeField, runtimeOnlyCodeField }),
+})
+
 describe('query filter factories', () => {
+	it('grants portable plugin scalars complete-value equality only', () => {
+		expect(
+			createQueryValueFilter(
+				pluginFieldSchema,
+				'equal',
+				'portableCodeField',
+				{ code: 'stable' },
+			),
+		).toStrictEqual({
+			field: 'portableCodeField',
+			kind: 'equal',
+			value: { code: 'stable' },
+		})
+		expect(
+			createQueryMembershipFilter(
+				pluginFieldSchema,
+				'not-in',
+				'portableCodeField',
+				[{ code: 'legacy' }],
+			),
+		).toStrictEqual({
+			field: 'portableCodeField',
+			kind: 'not-in',
+			values: [{ code: 'legacy' }],
+		})
+		expect(() =>
+			createQueryValueFilter(
+				pluginFieldSchema,
+				'greater-than',
+				'portableCodeField',
+				{ code: 'stable' },
+			),
+		).toThrow(
+			new TypeError(
+				'query operator greater-than does not support fixture.query.portable-code fields',
+			),
+		)
+		expect(() =>
+			createQueryValueFilter(
+				pluginFieldSchema,
+				'equal',
+				'runtimeOnlyCodeField',
+				{ code: 'stable' },
+			),
+		).toThrow(
+			new TypeError(
+				'query operator equal does not support fixture.query.runtime-code fields',
+			),
+		)
+		expect(() =>
+			createQueryValueFilter(
+				pluginFieldSchema,
+				'equal',
+				'portableCodeField',
+				{ code: 42 },
+			),
+		).toThrow(
+			new TypeError('query filter value must contain a string code'),
+		)
+	})
+
 	it('rejects malformed membership and regex values at the runtime boundary', () => {
 		expect(() => {
 			// @ts-expect-error -- Runtime normalization still protects JavaScript callers.

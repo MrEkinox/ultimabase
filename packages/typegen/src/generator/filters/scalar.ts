@@ -14,6 +14,7 @@ export const renderScalarFilters = (
 	nestedFields: readonly TypegenFieldSnapshot[],
 ): readonly string[] => {
 	const definitions: string[] = []
+	const allFields = [...rootFields, ...nestedFields]
 	const hasRootKind = (kind: string): boolean =>
 		rootFields.some((field) => field.kind === kind && !isListField(field))
 	const hasNestedKind = (kind: string): boolean =>
@@ -25,6 +26,19 @@ export const renderScalarFilters = (
 		{ kind: 'float', name: 'FloatFilter', value: 'number | null' },
 		{ kind: 'int', name: 'IntFilter', value: 'number | null' },
 	] as const
+
+	if (
+		allFields.some(
+			(field) => field.portableEquality && !isListField(field),
+		)
+	) {
+		definitions.push(
+			renderNamedFilter('PortableEqualityFilter<TValue>', [
+				renderEqualityProperties('TValue'),
+				nullProperties,
+			]),
+		)
+	}
 
 	for (const { kind, name, value } of scalarFilters) {
 		if (hasRootKind(kind)) {

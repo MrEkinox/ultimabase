@@ -107,8 +107,11 @@ all participate in collision checks and fingerprints.
 Operation declarations retain exact input, result, and declared public
 `PluginError` code unions. Generated application and schema/model handles add
 typing and autocomplete to the same runtime `execute()` method; they never emit
-an executable client. Operation error metadata advances the inert snapshot
-format to version 3.
+an executable client. Portable plugin scalars receive an exact generic
+complete-value filter containing only `eq`, `ne`, `in`, `notIn`, and null
+predicates; Typegen does not infer ordered or domain-specific operators from a
+JSON codec. Portable equality metadata advances the inert snapshot format to
+version 4.
 
 The TypeScript loader transpiles the application before a previous generated
 registry exists. Static compilation registers configured plugin field methods,

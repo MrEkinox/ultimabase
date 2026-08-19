@@ -141,6 +141,12 @@ plans retain the original immutable field definition by identity; the owning
 plugin claims its namespaced kind and contributes validation and adapter
 behavior without a second plugin-only plan representation.
 
+A plugin scalar with a portable versioned JSON storage codec receives exact
+complete-value equality and membership through the ordinary Query AST. Core
+snapshots operands with the field validator and adapters reuse the storage
+codec. Ordered, string, structural, and domain-specific operators require a
+separate accepted contract; codec availability alone never implies them.
+
 ## Embedded object values
 
 `objectField` composes value fields into one logical structured value. Nested

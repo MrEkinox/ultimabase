@@ -32,7 +32,7 @@ community packages.
 19. [x] [1417 — Add adapter, codec, physical schema, and migration bridges](1417-adapter-codec-schema-migration-bridges.md)
 20. [x] [1411 — Publish the plugin authoring toolbox](1411-plugin-authoring-toolbox.md)
 21. [x] [1412 — Add plugin conformance testing utilities](1412-plugin-conformance-testing.md)
-22. [ ] [1413 — Prove workflow, value-codec, and JavaScript plugins](1413-open-kernel-proof-plugins.md)
+22. [x] [1413 — Prove workflow, value-codec, and JavaScript plugins](1413-open-kernel-proof-plugins.md)
 23. [ ] [1414 — Verify the trusted open plugin kernel](1414-open-plugin-kernel-verification.md)
 
 The frozen constraints, supervision checkpoints, and cross-milestone resume

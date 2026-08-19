@@ -170,5 +170,10 @@ const opaqueTokenField = definePluginField(
 )
 ```
 
+Because this non-list field declares the portable codec, Query and generated
+Typegen contracts expose complete-value `eq`, `ne`, `in`, and `notIn` filters
+for its logical `string` value. The same declaration does not grant range,
+ordering, pattern, structural, or plugin-specific operators.
+
 Specialized physical types such as vectors may omit this capability and remain
 owned by a dedicated adapter plugin.

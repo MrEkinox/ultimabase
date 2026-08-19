@@ -18,7 +18,7 @@ export const handwrittenFileLineBaseline: Readonly<Record<string, number>> =
 		'packages/core/src/plugins/capabilities.ts': 1047,
 		'packages/core/src/plugins/capability-composition.test.ts': 1159,
 		'packages/core/src/plugins/hook-targets.ts': 611,
-		'packages/core/src/query/filters/factory.ts': 809,
+		'packages/core/src/query/filters/factory.ts': 807,
 		'packages/core/src/query/filters/where.ts': 1610,
 		'packages/core/src/query/query/input.ts': 828,
 		'packages/core/src/query/query/query.ts': 724,

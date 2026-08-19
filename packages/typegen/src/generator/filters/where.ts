@@ -4,7 +4,7 @@ import type {
 } from '../../snapshot.js'
 import { propertyName } from '../syntax.js'
 import type { RenderContext } from '../types.js'
-import { isListField } from '../values.js'
+import { isListField, renderFieldValue } from '../values.js'
 import { arrayFilterName } from './arrays.js'
 
 const renderRootWhere = (
@@ -71,6 +71,10 @@ const renderRootWhere = (
 		const descriptor = context.identifiers.object(field)
 
 		return `${descriptor.alias}Filter`
+	}
+
+	if (field.portableEquality) {
+		return `PortableEqualityFilter<${renderFieldValue(field, 'object', context)}>`
 	}
 
 	return (

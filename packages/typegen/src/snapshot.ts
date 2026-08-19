@@ -1,4 +1,5 @@
 import {
+	getPluginFieldStorageCodec,
 	readFieldTypegenState,
 	type CompiledSchemaRegistry,
 	type CompiledTypegenGraph,
@@ -54,10 +55,12 @@ export type TypegenValueNode =
 
 export interface TypegenFieldSnapshot {
 	readonly description: string | undefined
-	readonly typegen: FieldTypegenState
 	readonly kind: string
 	readonly name: string
 	readonly path: readonly string[]
+	/** Grants complete-value equality only through the field's portable JSON codec. */
+	readonly portableEquality: boolean
+	readonly typegen: FieldTypegenState
 	readonly value: TypegenValueNode
 }
 
@@ -155,7 +158,7 @@ export interface TypegenApplicationSnapshot {
 	readonly outputs: readonly TypegenOutputSnapshot[]
 	readonly schemas: readonly TypegenSchemaSnapshot[]
 	readonly surfaces: readonly TypegenSchemaSurfaceSnapshot[]
-	readonly version: 3
+	readonly version: 4
 }
 
 interface PluginValueReference extends TypegenReference {
@@ -398,10 +401,12 @@ const snapshotFields = (
 
 				return immutableRecord({
 					description: readDescription(field),
-					typegen: readFieldTypegenState(field),
 					kind: field.kind,
 					name,
 					path,
+					portableEquality:
+						getPluginFieldStorageCodec(field) !== undefined,
+					typegen: readFieldTypegenState(field),
 					value: snapshotValue(field, schema, path, context),
 				})
 			}),
@@ -465,7 +470,7 @@ export const createCompiledTypegenSnapshot = (
 		...typegenGraph,
 		fieldMethods,
 		schemas,
-		version: 3,
+		version: 4,
 	})
 }
 

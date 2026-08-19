@@ -1,7 +1,7 @@
 import type { TypegenFieldSnapshot } from '../../snapshot.js'
 import { quote } from '../syntax.js'
 import type { RenderContext } from '../types.js'
-import { isListField } from '../values.js'
+import { isListField, renderFieldValue } from '../values.js'
 import {
 	nullProperties,
 	renderEqualityProperties,
@@ -34,6 +34,10 @@ export const renderPathOperators = (
 
 	if (field.value.kind === 'enum') {
 		return `${context.identifiers.enum(field).alias}Filter`
+	}
+
+	if (field.portableEquality) {
+		return `PortableEqualityFilter<${renderFieldValue(field, 'object', context)}>`
 	}
 
 	const pathFilter = new Map([

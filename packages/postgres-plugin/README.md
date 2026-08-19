@@ -415,6 +415,11 @@ non-unique index on JSONB uses GIN; synchronization and introspection preserve
 the method and repair method drift. Plugin fields without a portable codec
 remain unsupported until a specialized adapter compiler handles them.
 
+Scalar equality and membership filters for those fields use the same column
+codec as inserts and updates. Logical operands are therefore encoded before
+parameterized JSONB comparison without teaching PostgreSQL the plugin's kind.
+No ordering or domain-specific operator is inferred from JSONB storage.
+
 ## Index compilation
 
 Field and composite indexes use the storage-neutral Schema API:

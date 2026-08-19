@@ -45,6 +45,7 @@ export const renderSharedTypes = (
 			(field) =>
 				!isListField(field) &&
 				!equalityKinds.has(field.kind) &&
+				!field.portableEquality &&
 				field.value.kind !== 'object' &&
 				field.value.kind !== 'relation',
 		)

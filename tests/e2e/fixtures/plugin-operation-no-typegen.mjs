@@ -3,6 +3,7 @@ import process from 'node:process'
 import {
 	RequestContext,
 	PluginError,
+	Schema,
 	UltimaBase,
 	databaseAdapterCapability,
 	defineOperation,
@@ -53,6 +54,30 @@ const inspect = defineOperation({
 	transaction: 'required',
 	version: '1.0.0',
 })
+const inspectSchema = defineOperation({
+	input,
+	name: 'fixture.javascript.inspect-schema',
+	result,
+	target: 'schema',
+	transaction: 'required',
+	version: '1.0.0',
+})
+const inspectModel = defineOperation({
+	input,
+	name: 'fixture.javascript.inspect-model',
+	result,
+	target: 'model',
+	transaction: 'required',
+	version: '1.0.0',
+})
+const StablePost = Schema.define({
+	className: 'JavaScriptStablePost',
+	fields: (field) => ({ title: field.string() }),
+})
+const DynamicPost = Schema.define({
+	className: 'JavaScriptDynamicPost',
+	fields: (field) => ({ title: field.string() }),
+})
 const protocol = defineOperationTransport({
 	name: 'fixture.javascript.fake',
 	version: '1.0.0',
@@ -73,6 +98,20 @@ const handler = operationHandler({
 		return immutable({ echo: value.message })
 	},
 })
+const schemaHandler = operationHandler({
+	operation: inspectSchema,
+	execute: ({ input: value, target }) =>
+		immutable({
+			echo: `${target.kind}:${target.kind === 'schema' ? target.schema.className : 'invalid'}:${value.message}`,
+		}),
+})
+const modelHandler = operationHandler({
+	operation: inspectModel,
+	execute: ({ input: value, target }) =>
+		immutable({
+			echo: `${target.kind}:${target.kind === 'model' ? target.state : 'invalid'}:${value.message}`,
+		}),
+})
 const codec = operationWireCodec({
 	decode: (wire) => immutable({ message: wire.text }),
 	encode: (value) => immutable({ text: value.echo }),
@@ -88,6 +127,14 @@ const createOperationPlugin = () =>
 					contributionId: 'handler',
 					create: () => ({ value: handler }),
 				}),
+				provideOperationHandler({
+					contributionId: 'schema-handler',
+					create: () => ({ value: schemaHandler }),
+				}),
+				provideOperationHandler({
+					contributionId: 'model-handler',
+					create: () => ({ value: modelHandler }),
+				}),
 				provideOperationTransportBinding({
 					contributionId: 'binding',
 					create: () => ({ value: binding }),
@@ -95,11 +142,23 @@ const createOperationPlugin = () =>
 			],
 		},
 		core: '^0.0.0',
-		declare: ({ operations }) => {
+		declare: ({ models, operations, schemas }) => {
+			schemas.add({ contributionId: 'dynamic-post', schema: DynamicPost })
 			operations.declare(inspect)
+			operations.declare(inspectSchema)
+			operations.declare(inspectModel)
+			for (const target of [StablePost, DynamicPost]) {
+				models.extend(target, {
+					contributionId: `surfaces:${target.className}`,
+					modelCommands: { inspect: inspectModel },
+					schemaCommands: { inspect: inspectSchema },
+				})
+			}
 		},
 		pluginId: 'fixture.javascript-operations',
 		privileges: [
+			{ name: 'schema:declare', reason: 'Declares the dynamic JavaScript schema.' },
+			{ name: 'model:extend', reason: 'Adds JavaScript schema and model commands.' },
 			{ name: 'operation:declare', reason: 'Declares the JavaScript fixture.' },
 			{ name: 'transport:expose', reason: 'Exposes the fake fixture binding.' },
 		],
@@ -134,13 +193,34 @@ const createDatabasePlugin = () =>
 const ultimabase = new UltimaBase({
 	pluginPrivileges: { logger: false },
 	plugins: [createDatabasePlugin(), createOperationPlugin()],
-	schemas: [],
+	schemas: [StablePost],
 })
 await ultimabase.start()
 
 export const directResult = await ultimabase
 	.operation('fixture.javascript.inspect')
 	.execute({ message: 'direct' })
+const stableHandle = ultimabase.schema(StablePost)
+const dynamicHandle = ultimabase.schema('JavaScriptDynamicPost')
+export const stableSchemaResult = await stableHandle.commands.inspect.execute({
+	message: 'stable',
+})
+export const dynamicSchemaResult = await dynamicHandle.inspect.execute({
+	message: 'dynamic',
+})
+export const modelResult = await stableHandle
+	.for(new StablePost({ title: 'Draft' }))
+	.command('inspect')
+	.execute({ message: 'draft' })
+export const inspection = {
+	operations: ultimabase.application.typegenGraph.operations.map(
+		({ operation }) => operation.name,
+	),
+	plugins: ultimabase.application.pluginPrivilegeReport.plugins.map(
+		({ identity }) => identity.pluginId,
+	),
+	schemas: ultimabase.application.schemas.values().map(({ className }) => className),
+}
 const exposure = ultimabase.exposeOperations({
 	operations: [inspect],
 	transport: protocol,
@@ -168,7 +248,7 @@ export const transportErrorResponse = await fake.request({
 const conformanceSuite = definePluginConformanceSuite({
 	createFixture: () =>
 		createPluginConformanceFixture({
-			schemas: [],
+				schemas: [StablePost],
 			subject: createOperationPlugin(),
 			supportPlugins: [createDatabasePlugin()],
 		}),
@@ -194,5 +274,5 @@ export const conformanceChecks = conformanceReport.checks.map(
 
 await ultimabase.dispose()
 process.stdout.write(
-	`${JSON.stringify({ conformanceChecks, directResult, transportErrorResponse, transportResponse })}\n`,
+	`${JSON.stringify({ conformanceChecks, directResult, dynamicSchemaResult, inspection, modelResult, stableSchemaResult, transportErrorResponse, transportResponse })}\n`,
 )

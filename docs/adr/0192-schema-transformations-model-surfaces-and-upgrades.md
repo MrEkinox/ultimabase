@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-08-11
-- Refines: ADR-0109, ADR-0115, ADR-0173, ADR-0187, ADR-0190, ADR-0191
+- Refines: ADR-0053, ADR-0109, ADR-0115, ADR-0124, ADR-0173, ADR-0187, ADR-0190, ADR-0191
 - Depends on: ADR-0187, ADR-0190, ADR-0191
 
 ## Context
@@ -124,3 +124,19 @@ making that schema visible to the plugin's earlier frozen selectors. Both forms
 remain application-local and participate in conflict checks within that compiled
 graph. ADR-0197 supersedes cross-application surface fingerprints because the
 handles never mutate their reusable schema class.
+
+## Implementation refinement: portable plugin scalar equality
+
+Issue 1413 grants a portable plugin scalar complete-value equality when, and
+only when, the field declares ADR-0124's versioned JSON storage codec. Core
+uses the field's existing logical snapshot guard for `eq`, `ne`, `in`, and
+`notIn` operands. Typegen emits those four operators with the plugin's exact
+logical value type, and an adapter encodes operands through the same codec used
+for persisted values. Null predicates retain their existing field-nullability
+rules.
+
+This does not introduce an operator registry. It grants no ordering, string,
+range, structural, or domain-specific operator to a plugin kind, and it does
+not change list-field semantics. Fields without a portable codec retain only
+their previously supported predicates until a separate accepted capability
+contract proves broader semantics.
