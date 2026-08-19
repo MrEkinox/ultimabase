@@ -1628,6 +1628,49 @@ exclusive service maps to a `single` application capability, while behavior
 intended for application developers is exposed through the owning plugin's
 typed setup export.
 
+### Adapter bridge capabilities
+
+Portable plugins negotiate adapter behavior through five independent Core
+tokens: `adapterValueStorageCapability`, `adapterConstraintCapability`,
+`adapterPersistencePlanCapability`, `adapterPhysicalSchemaCapability`, and
+`adapterMigrationCapability`. Requiring one of these capabilities needs
+`adapter:consume` and fails during application assembly when no compatible
+provider exists. A provider must use `provideAdapterCapability()` so a generic
+capability declaration cannot present itself as adapter support.
+
+Database-specific packages define their own physical-schema and migration
+contribution tokens with `defineAdapterContributionCapability()`. Core replaces
+each provider value with an attributed snapshot before composition. The
+snapshot contains the real plugin and instance IDs, package and protocol
+versions, stable contribution ID, adapter family, and normalized static
+options; a provider cannot claim another owner. Physical contributions require
+`adapter:consume`, while upgrade intent independently requires
+`migration:contribute`.
+
+`planAdapterMigrations(previous, current, intents)` separates new, unchanged,
+explicitly upgraded, and orphaned physical contributions. A changed prior
+contribution without a matching versioned intent fails instead of inferring a
+rename, drop, or other destructive operation. Removed metadata remains an
+orphan for a database migration plugin to review.
+
+Raw integration is deliberately adapter-specific. The adapter package exports
+a nominal token created with `defineAdapterRawCapability()`, and the consumer
+must require that exact token plus `adapter:raw`. Setup and operation handlers
+receive only the Core-owned lease callback:
+
+```ts
+const databaseRaw = requireCapability(databaseRawCapability, '^1.0.0')
+
+setup: ({ adapters }) =>
+	adapters.withRaw(databaseRaw, async (database) => {
+		return database.inspectDialect()
+	})
+```
+
+The facade is revoked when the callback settles. Runtime raw access additionally
+requires an active transaction and receives no request authority, Master grant,
+protected-constraint controls, or generic SQL contract from Core.
+
 ## Plugin definitions
 
 `definePlugin(options)` creates immutable metadata without executing setup or
@@ -1830,11 +1873,11 @@ and never executes setup or lifecycle hooks.
 
 ## Setup facades and migration map
 
-Plugin setup retains only the exact Core-owned `hooks`, `access`, and
-`constraintCompilers` facades. Each accepts only its nominal definition type,
-records the exact plugin and instance owner, checks its dedicated privilege,
-and closes when setup finishes. Their backing stores are private to Core;
-applications cannot enumerate or mutate them.
+Plugin setup retains only the exact Core-owned `hooks`, `access`, `adapters`,
+and `constraintCompilers` facades. Each accepts only its nominal definition or
+requirement type, records the exact plugin and instance owner, checks its
+dedicated privilege, and closes when setup finishes. Their backing stores are
+private to Core; applications cannot enumerate or mutate them.
 
 Milestone 14 maps the removed generic paths as follows:
 

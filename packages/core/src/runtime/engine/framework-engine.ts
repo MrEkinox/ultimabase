@@ -79,6 +79,7 @@ import {
 	assertApplicationEngineAvailable,
 	bindRequestContextToApplication,
 } from './application-binding.js'
+import { registerRequestAdapterAccessContext as registerAdapterAccess } from '../adapters/request-access.js'
 import {
 	createMasterAuditReason,
 	isNativeAccessDenied,
@@ -291,6 +292,7 @@ export class RequestEngine<
 		this.context = context
 		this.#pipeline = pipeline
 		this.#transactionLifetime = transactionLifetime
+		registerAdapterAccess(this, pipeline, transactionLifetime)
 		registerRequestPluginOperationExecutor(
 			this,
 			(compiled, binding, envelope) =>
@@ -769,9 +771,7 @@ export class RequestEngine<
 
 		if (this.#transactionLifetime !== undefined) {
 			this.#transactionLifetime.assertActive()
-
-			const error: FrameworkError<'TRANSACTION_ERROR'> =
-				createNestedTransactionError()
+			const error = createNestedTransactionError()
 
 			this.#transactionLifetime.markFailed(error)
 			throw error

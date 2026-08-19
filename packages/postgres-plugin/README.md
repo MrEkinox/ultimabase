@@ -100,6 +100,45 @@ semantics. PostgreSQL rejects unsupported versions, statement kinds, target
 schemas, and result correlations before or inside the protected execution
 boundary.
 
+## Adapter bridge capabilities
+
+`postgresPlugin` advertises PostgreSQL support separately for portable JSON
+value codecs, opaque constraints, persistence-plan kinds, physical schema, and
+migration intent. A logical plugin can require the corresponding neutral Core
+token without importing this package. PostgreSQL remains the package that owns
+Drizzle compilation, physical column types, and database effects.
+
+PostgreSQL-specific bridge packages may contribute columns with
+`postgresPhysicalColumn()` and explicit upgrade intent with
+`postgresUpgrade()`. The first requires `adapter:consume`; the second requires
+the separate `migration:contribute` privilege. The PostgreSQL setup export
+exposes their Core-attributed, immutable metadata at `adapterMetadata` so a
+database migration implementation receives the real plugin ID, optional
+instance ID, package version, protocol version, contribution ID, and normalized
+static options. Direct schema preparation compiles current physical column
+contributions into PostgreSQL desired state; migration intent remains inert
+metadata until a migration owner reviews and applies it.
+
+Adapter-specific queries require the nominal
+`postgresRawAdapterCapability` and `adapter:raw`. The setup lease reports only
+the inert PostgreSQL dialect identity. Inside a transaction-required operation,
+the lease exposes a parameterized `query()` facade backed by the same borrowed
+client as Runtime:
+
+```ts
+const rawPostgres = requireCapability(postgresRawAdapterCapability, '^1.0.0')
+
+execute: ({ adapters }) =>
+	adapters.withRaw(rawPostgres, async (postgres) => {
+		if (postgres.scope !== 'transaction') return
+		await postgres.query('SELECT pg_advisory_xact_lock($1)', [lockId])
+	})
+```
+
+The facade is revoked when the callback settles, commits and rollbacks remain
+owned by Runtime, and neither `pg.Pool`, `PoolClient`, Drizzle, Master authority,
+nor a portable raw SQL API is exposed.
+
 Adapter integration plugins register exact kind-and-version compilers during
 application setup. PostgreSQL combines every resulting predicate with the
 developer query using parameterized logical `AND`:

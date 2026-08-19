@@ -33,6 +33,10 @@ import {
 	type PluginPrivilege,
 } from './manifest.js'
 import type { CompiledTypegenGraph } from './typegen-declarations.js'
+import {
+	createAdapterAccess,
+	type AdapterAccess,
+} from '../runtime/adapters/raw-access.js'
 
 const emptyFieldBuilderMethods: readonly OwnedFieldBuilderMethod[] =
 	immutableArray([])
@@ -205,6 +209,8 @@ export interface PluginSetupContext {
 	readonly typegenGraph: CompiledTypegenGraph
 	/** Reads only exact capability requirements declared by this plugin. */
 	readonly capabilities: PluginCapabilityReader
+	/** Opens adapter-owned raw facades only for the lifetime of one setup callback. */
+	readonly adapters: AdapterAccess
 	/** Registers native Access policies with ownership fixed to this plugin. */
 	readonly access: PluginAccessRegistry
 	/** Registers native hooks with ownership fixed to the current setup plugin. */
@@ -322,11 +328,20 @@ export class PluginSetupRegistries {
 			return existingContext
 		}
 
+		const capabilities = this.capabilitiesForPlugin(owner)
 		const context = immutableRecord({
 			schemas: this.schemas,
 			fieldBuilderMethods: this.fieldBuilderMethods(),
 			typegenGraph: this.typegenGraph(),
-			capabilities: this.capabilitiesForPlugin(owner),
+			capabilities,
+			adapters: createAdapterAccess({
+				assertPrivilege: (privilege) => {
+					this.assertPrivilegeForPlugin(owner, privilege)
+				},
+				capabilities,
+				isOpen: (): boolean => this.#setupOpen,
+				scope: () => immutableRecord({ kind: 'setup' as const }),
+			}),
 			access: createPluginAccessRegistry({
 				assertPrivilege: () => {
 					this.assertPrivilegeForPlugin(owner, 'runtime:constrain')

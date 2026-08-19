@@ -49,5 +49,23 @@ operation exposure without installing HTTP or GraphQL. It returns only encoded
 success values, safe `FrameworkError` payloads, or declared public
 `PluginError` payloads; unknown diagnostics collapse to `INTERNAL_ERROR`.
 
+## Fake adapter migration history
+
+`FakeAdapterMigrationHistory` retains one immutable set of attributed adapter
+contribution snapshots. `plan(current, intents)` uses Core's real migration
+planner, including explicit upgrade requirements and inert orphan reporting;
+`accept(current)` returns a new history so tests do not share mutable state:
+
+```ts
+const previous = new FakeAdapterMigrationHistory(previousSnapshots)
+const plan = previous.plan(currentSnapshots, upgradeIntents)
+
+expect(plan.orphaned).toHaveLength(1)
+const next = previous.accept(currentSnapshots)
+```
+
+This fake contains no database driver, DDL renderer, or automatic destructive
+synchronization behavior.
+
 Planned APIs still include `createTestApplication`, `runAs`, concrete transport
 executors, and broader adapter conformance suites.

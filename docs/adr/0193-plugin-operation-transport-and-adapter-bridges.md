@@ -84,6 +84,22 @@ provenance. Database plugins compile them; Core never emits database-specific
 DDL. A rewritten persistence plan must still carry the protected constraints
 of its logical operation into every physical statement.
 
+Issue 1417 implements these families as separate protocol-1 Core capabilities.
+Adapter-specific contribution tokens compose only after Core has attached the
+real plugin ID, optional instance ID, package version, protocol version, stable
+contribution ID, and normalized static options. Physical metadata uses
+`adapter:consume`; migration metadata uses `migration:contribute` independently.
+Generic capability replacement and decoration cannot impersonate these fixed
+adapter protocols.
+
+Raw capabilities are nominal tokens owned by the concrete adapter package.
+Core exposes their implementation only through a revocable setup or active
+transaction callback, and does not place authority, protected-constraint
+controls, or commit and rollback methods on that facade. Migration planning
+compares previous and current attributed snapshots, requires a matching explicit
+upgrade intent for changed contributions, and retains removed contributions as
+orphaned metadata rather than inferring destructive work.
+
 ### Typegen output remains inert
 
 `typegen:emit` may write separately owned `.d.ts` declarations and deterministic

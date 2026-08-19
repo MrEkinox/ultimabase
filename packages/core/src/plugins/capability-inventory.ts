@@ -27,6 +27,8 @@ import {
 import { buildReplacementChains } from './capability-replacement-planning.js'
 import { canonicalSchemaCompilerFoundation } from './schema-compiler-ir/schema-compiler-capability.js'
 import { canonicalRuntimeExecutorFoundation } from '../runtime/capabilities.js'
+import { isAdapterCapability } from '../runtime/adapters/capabilities.js'
+import { isAdapterContributionCapability } from '../runtime/adapters/contributions.js'
 
 /** Reports one provider or replacement without exposing its value or factory. */
 export interface CapabilityProviderInspection {
@@ -81,6 +83,7 @@ export interface OwnedDecorator {
 
 export interface OwnedRequirement {
 	readonly owner: PluginIdentity
+	readonly plugin: NormalizedPlugin
 	readonly requirement: CapabilityRequirement
 }
 
@@ -147,7 +150,10 @@ const throwMissingCapability = (
 	requirement: CapabilityRequirement,
 ): never => {
 	throw new FrameworkError(
-		'PLUGIN_CAPABILITY_MISSING',
+		isAdapterCapability(requirement.token) ||
+			isAdapterContributionCapability(requirement.token)
+			? 'PLUGIN_ADAPTER_CAPABILITY_MISSING'
+			: 'PLUGIN_CAPABILITY_MISSING',
 		`Plugin "${formatPluginIdentity(owner)}" requires capability "${requirement.token.capabilityId}" version "${requirement.version}", but no compatible provider is installed.`,
 		{
 			internalDetails: {
@@ -305,7 +311,7 @@ export class CapabilityInventory implements Iterable<CapabilityInventoryEntry> {
 					orderedEntries,
 					owner,
 					requirement.token,
-				).requirements.push({ owner, requirement })
+				).requirements.push({ owner, plugin, requirement })
 			}
 		}
 

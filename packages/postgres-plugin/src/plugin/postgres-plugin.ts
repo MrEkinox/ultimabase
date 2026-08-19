@@ -2,6 +2,7 @@ import {
 	databaseAdapterCapability,
 	definePlugin,
 	optionalCapability,
+	provideAdapterRawCapability,
 	provideCapability,
 	requireCapability,
 	type CapabilityProviderDeclaration,
@@ -23,9 +24,19 @@ import {
 import { postgresPluginName } from '../constants.js'
 import { postgresSchemaPreparationCapability } from '../schema-preparation-capability.js'
 import { createPostgresDatabaseAdapter } from '../drizzle/adapter.js'
+import { readPostgresTransactionClient } from '../drizzle/adapter.js'
 import { PostgresSchemaCatalog } from '../schema/catalog.js'
 import type { PostgresSchemaPolicy } from '../synchronization/contracts.js'
 import { prepareDirectPostgresSchema } from '../synchronization/preparer.js'
+import {
+	createPostgresRawSetupFacade,
+	createPostgresRawTransactionFacade,
+	postgresAdapterSupportProviders,
+	postgresMigrationContributionCapability,
+	postgresPhysicalSchemaContributionCapability,
+	postgresRawAdapterCapability,
+	type PostgresAdapterMetadata,
+} from '../adapter-capabilities.js'
 
 /** Configures direct schema behavior when no migration plugin claims preparation. */
 export interface PostgresSchemaPolicyOptions {
@@ -49,6 +60,8 @@ export type PostgresPluginOptions =
 
 /** Exposes safe lifecycle state and control without publishing credentials or the pool. */
 export interface PostgresPluginExports {
+	/** Reports attributed physical and migration metadata without exposing callbacks. */
+	readonly adapterMetadata: PostgresAdapterMetadata
 	readonly connection: PostgresConnectionService
 }
 
@@ -56,6 +69,22 @@ type PostgresPluginCapabilities = Readonly<{
 	readonly provides: readonly [
 		CapabilityProviderDeclaration<typeof postgresConnectionCapability>,
 		CapabilityProviderDeclaration<typeof databaseAdapterCapability>,
+		CapabilityProviderDeclaration<
+			typeof postgresAdapterSupportProviders.valueStorage.token
+		>,
+		CapabilityProviderDeclaration<
+			typeof postgresAdapterSupportProviders.constraint.token
+		>,
+		CapabilityProviderDeclaration<
+			typeof postgresAdapterSupportProviders.persistencePlan.token
+		>,
+		CapabilityProviderDeclaration<
+			typeof postgresAdapterSupportProviders.physicalSchema.token
+		>,
+		CapabilityProviderDeclaration<
+			typeof postgresAdapterSupportProviders.migration.token
+		>,
+		CapabilityProviderDeclaration<typeof postgresRawAdapterCapability>,
 	]
 	readonly requires: readonly [
 		CapabilityRequirement<typeof postgresConnectionCapability, false, '^1.0.0'>,
@@ -65,6 +94,18 @@ type PostgresPluginCapabilities = Readonly<{
 			typeof postgresSchemaPreparationCapability,
 			true,
 			'^1.0.0'
+		>,
+		CapabilityRequirement<
+			typeof postgresPhysicalSchemaContributionCapability,
+			true,
+			'^1.0.0',
+			'setup'
+		>,
+		CapabilityRequirement<
+			typeof postgresMigrationContributionCapability,
+			true,
+			'^1.0.0',
+			'setup'
 		>,
 	]
 }>
@@ -109,6 +150,16 @@ const prepareSchemaByExports = new WeakMap<
 const optionalSchemaPreparation = optionalCapability(
 	postgresSchemaPreparationCapability,
 	'^1.0.0',
+)
+const optionalPhysicalSchemaContributions = optionalCapability(
+	postgresPhysicalSchemaContributionCapability,
+	'^1.0.0',
+	{ phase: 'setup' },
+)
+const optionalMigrationContributions = optionalCapability(
+	postgresMigrationContributionCapability,
+	'^1.0.0',
+	{ phase: 'setup' },
 )
 
 const isObjectLike = (value: unknown): value is object =>
@@ -251,6 +302,19 @@ export const postgresPlugin = (
 			}
 		},
 	})
+	const rawAdapterProvider = provideAdapterRawCapability(
+		postgresRawAdapterCapability,
+		{
+			contributionId: 'postgres-raw-adapter',
+			create: () => ({
+				setup: createPostgresRawSetupFacade,
+				transaction: (adapter) =>
+					createPostgresRawTransactionFacade(
+						readPostgresTransactionClient(adapter),
+					),
+			}),
+		},
+	)
 
 	return definePlugin({
 		version: '0.0.0',
@@ -264,8 +328,21 @@ export const postgresPlugin = (
 			},
 		],
 		capabilities: {
-			optional: [optionalSchemaPreparation],
-			provides: [connectionProvider, adapterProvider],
+			optional: [
+				optionalSchemaPreparation,
+				optionalPhysicalSchemaContributions,
+				optionalMigrationContributions,
+			],
+			provides: [
+				connectionProvider,
+				adapterProvider,
+				postgresAdapterSupportProviders.valueStorage,
+				postgresAdapterSupportProviders.constraint,
+				postgresAdapterSupportProviders.persistencePlan,
+				postgresAdapterSupportProviders.physicalSchema,
+				postgresAdapterSupportProviders.migration,
+				rawAdapterProvider,
+			],
 			requires: [connectionRequirement],
 		},
 		setup: ({ capabilities, schemas }) => {
@@ -281,13 +358,20 @@ export const postgresPlugin = (
 			}
 
 			// Runtime-only preparation stays keyed by this application's public export object.
-			const pluginExports = immutableRecord({ connection })
+			const physicalSchema =
+				capabilities.get(optionalPhysicalSchemaContributions) ?? []
+			const migrations = capabilities.get(optionalMigrationContributions) ?? []
+			const pluginExports = immutableRecord({
+				adapterMetadata: immutableRecord({ migrations, physicalSchema }),
+				connection,
+			})
 
 			prepareSchemaByExports.set(pluginExports, () =>
 				prepareDirectPostgresSchema(
 					managedConnection.getPool(),
 					schemaCatalog,
 					schemaPolicy,
+					physicalSchema,
 				),
 			)
 

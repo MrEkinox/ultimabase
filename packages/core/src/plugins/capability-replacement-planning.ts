@@ -38,6 +38,11 @@ import {
 	operationTransportBindingCapability,
 	pluginOperationHandlerCapability,
 } from '../runtime/plugin-operations/capabilities.js'
+import {
+	assertAdapterDecorationAllowed,
+	assertAdapterReplacementAllowed,
+	validateAdapterCapabilityEntry,
+} from './adapter-capability-planning.js'
 
 const throwCapabilityConflict = (
 	message: string,
@@ -112,7 +117,10 @@ const isRequirementActiveInEntries = (
 
 const hasActivePrivilege = (
 	entries: readonly MutableCapabilityEntry[],
-	contribution: OwnedProvider | OwnedDecorator,
+	contribution:
+		| OwnedProvider
+		| OwnedDecorator
+		| MutableCapabilityEntry['requirements'][number],
 	privilege: PluginPrivilege,
 ): boolean =>
 	contribution.plugin?.definition.manifest.privileges.some(
@@ -152,6 +160,13 @@ export const buildReplacementChains = (
 	entry: MutableCapabilityEntry,
 ): readonly (readonly OwnedProvider[])[] => {
 	assertUniqueContributionIds(entry)
+	validateAdapterCapabilityEntry(entry, {
+		assertProviderPrivilege: (provider, privilege) => {
+			assertContributionPrivilege(entries, entry, provider, privilege)
+		},
+		hasActivePrivilege: (requirement, privilege) =>
+			hasActivePrivilege(entries, requirement, privilege),
+	})
 
 	const runtimeRequirement = isRuntimeCapability(entry.token)
 		? entry.requirements[0]
@@ -304,6 +319,7 @@ export const buildReplacementChains = (
 
 	const replacementsByTarget = new Map<OwnedProvider, OwnedProvider>()
 	for (const replacement of entry.replacements) {
+		assertAdapterReplacementAllowed(entry, replacement)
 		if (isPluginOperationProtocol) {
 			return throwCapabilityConflict(
 				'Plugin operation protocols cannot use generic capability replacement.',
@@ -508,6 +524,7 @@ export const buildReplacementChains = (
 	}
 
 	for (const decorator of entry.decorators) {
+		assertAdapterDecorationAllowed(entry, decorator)
 		if (isPluginOperationProtocol) {
 			return throwCapabilityConflict(
 				'Plugin operation protocols cannot use generic capability decoration.',

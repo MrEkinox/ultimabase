@@ -22,6 +22,7 @@ import {
 	readSchemaModelRecord,
 } from '../../schema/schema/model-state.js'
 import type { RequestEngine } from '../engine/framework-engine.js'
+import { createRequestAdapterAccess } from '../adapters/request-access.js'
 import {
 	getOperationWireCodec,
 	getPluginOperationHandler,
@@ -306,6 +307,7 @@ export class PluginOperationRuntime {
 		try {
 			const candidate = await owned.execute(
 				immutableRecord({
+					adapters: createRequestAdapterAccess(engine, owned.owner),
 					context: engine.context,
 					engine,
 					input: envelope.payload,

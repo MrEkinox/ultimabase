@@ -10,6 +10,7 @@ describe('PluginSetupRegistries', () => {
 
 		expect(Object.keys(context).sort()).toStrictEqual([
 			'access',
+			'adapters',
 			'capabilities',
 			'constraintCompilers',
 			'fieldBuilderMethods',

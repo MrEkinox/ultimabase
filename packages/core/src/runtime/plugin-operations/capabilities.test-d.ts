@@ -9,6 +9,7 @@ import {
 } from '../../plugins/plugin-operations.js'
 import type { RequestEngine } from '../engine/framework-engine.js'
 import type { RequestContext } from '../context/request-context.js'
+import type { AdapterAccess } from '../adapters/raw-access.js'
 import {
 	defineOperationTransport,
 	operationHandler,
@@ -49,7 +50,8 @@ declare const masterContext: RequestContext<MasterRequestAccess>
 test('infers exact handler and wire boundary contracts', () => {
 	const handler = operationHandler({
 		operation,
-		execute: ({ engine, input: value, target }) => {
+		execute: ({ adapters, engine, input: value, target }) => {
+			expectTypeOf(adapters).toEqualTypeOf<AdapterAccess>()
 			expectTypeOf(engine).toEqualTypeOf<RequestEngine>()
 			expectTypeOf(value).toEqualTypeOf<string>()
 			expectTypeOf(target.kind).toEqualTypeOf<

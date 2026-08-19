@@ -5,3 +5,4 @@ export type {
 } from './postgres/worker.js'
 export { FakePublicOperationTransport } from './operations/fake-public-transport.js'
 export type { FakeOperationTransportResponse } from './operations/fake-public-transport.js'
+export { FakeAdapterMigrationHistory } from './adapters/fake-migration-history.js'

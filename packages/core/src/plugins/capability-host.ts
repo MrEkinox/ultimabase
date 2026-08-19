@@ -31,6 +31,7 @@ import {
 	isSamePluginIdentity,
 	type PluginIdentity,
 } from './manifest.js'
+import { materializeAdapterContribution } from '../runtime/adapters/contributions.js'
 
 interface MaterializedCapabilityResource {
 	readonly owner: PluginIdentity
@@ -354,13 +355,22 @@ export class ApplicationCapabilityHost {
 				}),
 			)
 			assertApplicationResource(resource, token.capabilityId)
-			providers.push(resource.value)
+			const providerValue = materializeAdapterContribution(
+				token,
+				resource.value,
+				{
+					contributionId: contribution.declaration.contributionId,
+					owner: contribution.owner,
+					packageVersion: contribution.version,
+				},
+			)
+			providers.push(providerValue)
 			materializedContributions.push(
 				immutableRecord({
 					contributionId: contribution.declaration.contributionId,
 					owner: contribution.owner,
 					pluginVersion: contribution.version,
-					value: resource.value,
+					value: providerValue,
 				}),
 			)
 			if (resource.dispose !== undefined) {

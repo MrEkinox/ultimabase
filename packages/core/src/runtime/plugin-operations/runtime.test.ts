@@ -6,6 +6,7 @@ import { Schema } from '../../schema/schema/definition.js'
 import { PluginError } from '../../errors/plugin-error.js'
 import { MasterAuthority } from '../master/master-authority.js'
 import { definePlugin } from '../../plugins/definition.js'
+import { requireCapability } from '../../plugins/capabilities.js'
 import {
 	defineOperation,
 	defineOperationValue,
@@ -23,6 +24,10 @@ import {
 } from './capabilities.js'
 import { RecordingDatabaseAdapter } from '../../../tests/runtime/fixtures/recording-database-adapter.js'
 import { provideTestDatabaseAdapter } from '../../../tests/runtime/fixtures/database-adapter-capability.js'
+import {
+	defineAdapterRawCapability,
+	provideAdapterRawCapability,
+} from '../adapters/raw-access.js'
 
 const messageValue = defineOperationValue((value, path) => {
 	if (!isPlainRecord(value) || typeof value.message !== 'string') {
@@ -194,6 +199,91 @@ const createFixture = async (options: FixtureOptions = {}) => {
 }
 
 describe('plugin operation Runtime', () => {
+	it('opens raw adapter access only inside the active operation transaction', async () => {
+		interface RawFixture {
+			kind(): string
+		}
+		const rawCapability = defineAdapterRawCapability<RawFixture>()({
+			capabilityId: 'fixture.operation-raw-adapter',
+			version: '1.0.0',
+		})
+		const rawRequirement = requireCapability(rawCapability, '^1.0.0')
+		const adapter = new RecordingDatabaseAdapter([], [])
+		let escaped: RawFixture | undefined
+		const rawOperation = defineOperation({
+			input: messageValue,
+			name: 'fixture.operations.raw-transaction',
+			result: acceptedValue,
+			target: 'application',
+			transaction: 'required',
+			version: '1.0.0',
+		})
+		const database = definePlugin({
+			capabilities: {
+				provides: [
+					provideTestDatabaseAdapter(adapter),
+					provideAdapterRawCapability(rawCapability, {
+						contributionId: 'raw-adapter',
+						create: () => ({
+							transaction: (transaction) => ({
+								kind: () => transaction.kind,
+							}),
+						}),
+					}),
+				],
+			},
+			core: '^0.0.0',
+			pluginId: 'fixture.operation-raw-database',
+			version: '1.0.0',
+		})
+		const operation = definePlugin({
+			capabilities: {
+				provides: [
+					provideOperationHandler({
+						contributionId: 'raw-handler',
+						create: () => ({
+							value: operationHandler({
+								execute: ({ adapters }) =>
+									adapters.withRaw(rawRequirement, (raw) => {
+										escaped = raw
+										return immutableRecord({
+											accepted: raw.kind() === 'database-transaction-adapter',
+										})
+									}),
+								operation: rawOperation,
+							}),
+						}),
+					}),
+				],
+				requires: [rawRequirement],
+			},
+			core: '^0.0.0',
+			declare: ({ operations }) => {
+				operations.declare(rawOperation)
+			},
+			pluginId: 'fixture.operation-raw-consumer',
+			privileges: [
+				{ name: 'adapter:raw', reason: 'Uses an exact transaction facade.' },
+				{ name: 'operation:declare', reason: 'Declares the raw operation.' },
+			] as const,
+			version: '1.0.0',
+		})
+		const ultimabase = new UltimaBase({
+			pluginPrivileges: { logger: false },
+			plugins: [database, operation],
+			schemas: [],
+		})
+
+		await ultimabase.start()
+		await expect(
+			ultimabase.operation(rawOperation).execute({ message: 'lease' }),
+		).resolves.toStrictEqual({ accepted: true })
+		expect(() => escaped?.kind()).toThrow(
+			expect.objectContaining({ code: 'TRANSACTION_ERROR' }),
+		)
+		await ultimabase.dispose()
+	})
+
 	it('executes application, schema, and immutable model targets through handles', async () => {
 		const fixture = await createFixture()
 		await expect(

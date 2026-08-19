@@ -45,6 +45,11 @@ import {
 } from './relational-query-executor.js'
 import { readPostgresPersistenceOperation } from './persistence-plan.js'
 
+const postgresTransactionClients = new WeakMap<
+	DatabaseTransactionAdapter,
+	PostgresPoolClient
+>()
+
 const postgresDatabaseCapabilities = immutableRecord({
 	pointers: databasePointerCapability,
 	inclusions: databaseInclusionCapability,
@@ -236,6 +241,7 @@ class DrizzlePostgresTransactionAdapter implements DatabaseTransactionAdapter {
 		)
 		this.#schemas = schemas
 		this.#constraintCompilers = constraintCompilers
+		postgresTransactionClients.set(this, client)
 	}
 
 	/** Exposes only identity retained for the exact projected adapter record. */
@@ -373,6 +379,7 @@ class DrizzlePostgresTransactionAdapter implements DatabaseTransactionAdapter {
 		}
 
 		this.#state = 'closed'
+		postgresTransactionClients.delete(this)
 		// COMMIT is already confirmed; a custom pool release failure cannot undo it.
 		releasePostgresClient(this.#client, false)
 	}
@@ -389,6 +396,7 @@ class DrizzlePostgresTransactionAdapter implements DatabaseTransactionAdapter {
 		} finally {
 			// A rollback attempt is terminal even when PostgreSQL rejects cleanup.
 			this.#state = 'closed'
+			postgresTransactionClients.delete(this)
 			const releaseFailure = releasePostgresClient(
 				this.#client,
 				failure !== undefined,
@@ -483,3 +491,21 @@ export const createPostgresDatabaseAdapter = (
 	constraintCompilers: PostgresConstraintCompilerRegistry = emptyPostgresConstraintCompilerRegistry,
 ): DatabaseAdapter =>
 	new DrizzlePostgresDatabaseAdapter(pool, schemas, constraintCompilers)
+
+/** @internal Resolves only transaction adapters created by this PostgreSQL package. */
+export const readPostgresTransactionClient = (
+	adapter: DatabaseTransactionAdapter,
+): PostgresPoolClient => {
+	const client = postgresTransactionClients.get(adapter)
+	if (client === undefined) {
+		throw new FrameworkError(
+			'PLUGIN_ADAPTER_CAPABILITY_MISSING',
+			'PostgreSQL raw access received a foreign transaction adapter.',
+			{
+				publicMessage: 'The requested adapter capability is not available.',
+				internalDetails: { reason: 'foreign-postgres-transaction-adapter' },
+			},
+		)
+	}
+	return client
+}

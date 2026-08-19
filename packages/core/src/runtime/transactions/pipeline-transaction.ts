@@ -16,6 +16,10 @@ type TransactionScopeState =
 	'active' | 'committed' | 'flushed' | 'flushing' | 'rolled-back'
 type DeferredPostCommitEffect = () => MaybePromise<void>
 type RuntimePipelineFactory = (stages: RuntimePipelineStages) => RuntimePipeline
+const transactionAdapters = new WeakMap<
+	RuntimePipeline,
+	DatabaseTransactionAdapter
+>()
 
 /** Exposes only the lifecycle operations needed by the RequestEngine runner. */
 export interface RuntimePipelineTransactionScope {
@@ -106,6 +110,7 @@ export const beginPipelineTransaction = async (
 		commit: () => undefined,
 		postCommitEvents: deferPostCommitEvents,
 	})
+	transactionAdapters.set(transactionPipeline, transaction)
 	let state: TransactionScopeState = 'active'
 
 	return immutableRecord({
@@ -117,6 +122,7 @@ export const beginPipelineTransaction = async (
 
 			await transaction.commit()
 			state = 'committed'
+			transactionAdapters.delete(transactionPipeline)
 		},
 		rollback: async (): Promise<void> => {
 			if (state !== 'active') {
@@ -125,8 +131,12 @@ export const beginPipelineTransaction = async (
 
 			postCommitEffects.length = 0
 
-			await transaction.rollback()
-			state = 'rolled-back'
+			try {
+				await transaction.rollback()
+				state = 'rolled-back'
+			} finally {
+				transactionAdapters.delete(transactionPipeline)
+			}
 		},
 		deferPostCommitEffect: (effect): void => {
 			if (state !== 'active' && state !== 'committed') {
@@ -179,3 +189,8 @@ export const beginPipelineTransaction = async (
 		},
 	})
 }
+
+/** @internal Reads the transaction adapter only for a Core-owned active pipeline. */
+export const readPipelineTransactionAdapter = (
+	pipeline: RuntimePipeline,
+): DatabaseTransactionAdapter | undefined => transactionAdapters.get(pipeline)

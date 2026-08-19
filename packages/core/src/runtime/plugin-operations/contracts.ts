@@ -9,6 +9,7 @@ import type {
 import type { SchemaDefinition } from '../../schema/index.js'
 import type { RequestContext } from '../context/request-context.js'
 import type { RequestEngine } from '../engine/framework-engine.js'
+import type { AdapterAccess } from '../adapters/raw-access.js'
 
 /** Supplies a handler with the exact application-owned target selected by its handle. */
 export type PluginOperationExecutionTarget =
@@ -25,6 +26,8 @@ export type PluginOperationExecutionTarget =
 export interface PluginOperationHandlerInput<
 	TOperation extends PluginOperationDefinition = PluginOperationDefinition,
 > {
+	/** Opens an adapter-owned facade only while this operation holds an active transaction. */
+	readonly adapters: AdapterAccess
 	readonly context: RequestContext
 	readonly engine: RequestEngine
 	readonly input: PluginOperationInput<TOperation>
