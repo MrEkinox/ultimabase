@@ -12,6 +12,10 @@ import type {
 } from '../../query/updates/contracts.js'
 import type { Pointer, PointerValue } from '../relations/pointer.js'
 import type {
+	SchemaTypeInfoSource,
+	UltimaBaseGeneratedModelSurface,
+} from '../type-info.js'
+import type {
 	Relation,
 	SchemaRelationFieldName,
 } from '../relations/relation.js'
@@ -67,9 +71,12 @@ type SchemaModelPointerFor<TSource extends SchemaModelPointerCarrier> =
 
 /** Extracts specialized persisted commands without affecting ordinary schemas. */
 export type SchemaResultCapabilitiesOf<TSchema> =
-	TSchema extends SchemaResultCapabilityCarrier<infer TCapabilities>
+	(TSchema extends SchemaResultCapabilityCarrier<infer TCapabilities>
 		? TCapabilities
-		: Readonly<Record<never, never>>
+		: Readonly<Record<never, never>>) &
+		(TSchema extends SchemaTypeInfoSource
+			? UltimaBaseGeneratedModelSurface<TSchema>
+			: Readonly<Record<never, never>>)
 
 /** Identifies a trusted persisted model independently from its visible selection. */
 export type PersistedSchemaReference<TSchema extends SchemaDefinition> =

@@ -28,6 +28,17 @@ export const retainSchemaModelRecord = (
 	schemaModelRecords.set(instance, immutableRecord(record))
 }
 
+/** Retains one model's trusted identity on an immutable application-owned Proxy. */
+export const retainSchemaModelAlias = (alias: object, model: object): void => {
+	const record = schemaModelRecords.get(model)
+
+	if (record === undefined) {
+		throw new TypeError('Schema model alias requires trusted model state')
+	}
+
+	schemaModelRecords.set(alias, record)
+}
+
 /** Registers the exact generated constructor accepted by Runtime materialization. */
 export const registerSchemaModelClass = (schema: SchemaDefinition): void => {
 	schemaModelClasses.add(schema)

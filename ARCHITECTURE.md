@@ -256,7 +256,10 @@ schema class may expose different handle surfaces in independent applications;
 conflicting declarations within one application fail before setup. Plugin-created
 schemas and application-specific commands remain reachable through the
 application-owned `ultimabase.schema(nameOrClass)` handle without mutating
-exported classes or recording process-global compatibility state.
+exported classes or recording process-global compatibility state. Models
+returned through an application are transparent immutable views of the original
+schema instance: generated plugin commands are directly callable on the result,
+while ownership, command lookup, and disposal remain local to that application.
 
 Complete logical compilation crosses one versioned callback-free IR. Portable
 facts remain visible, while schema classes and Runtime-bearing field, extension,

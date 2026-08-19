@@ -369,6 +369,41 @@ describe('application-owned plugin surfaces', () => {
 		expect(setupCalls).toBe(0)
 	})
 
+	it('rejects model commands that would shadow fields or built-in model behavior', () => {
+		const Shared = Schema.define({
+			className: 'ApplicationSurfaceModelCollision',
+			fields: (field) => ({ title: field.string() }),
+		})
+		const collidingPlugin = (name: 'fetch' | 'title') =>
+			definePlugin({
+				core: '^0.0.0',
+				pluginId: `fixture.surface.model-collision-${name}`,
+				privileges: [
+					{ name: 'model:extend', reason: 'Exercises reserved model names.' },
+					{ name: 'operation:declare', reason: 'Declares the model command.' },
+				] as const,
+				version: '1.0.0',
+				declare: ({ models, operations }) => {
+					operations.declare(modelOperation)
+					models.extend(Shared, {
+						contributionId: `collision-${name}`,
+						modelCommands: { [name]: modelOperation },
+					})
+				},
+			})
+
+		for (const name of ['title', 'fetch'] as const) {
+			const application = new UltimaBase({
+				pluginPrivileges: { logger: false },
+				plugins: [collidingPlugin(name)],
+				schemas: [Shared],
+			})
+			expect(() => application.schema(Shared)).toThrow(
+				`uses reserved handle method: ${name}`,
+			)
+		}
+	})
+
 	it('does not let model or query privileges intercept Runtime implicitly', () => {
 		const LocalSchema = Schema.define({
 			className: 'ApplicationSurfaceNoRuntimePrivilege',

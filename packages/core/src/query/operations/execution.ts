@@ -18,6 +18,7 @@ export interface NormalizedOperationOptions {
 
 interface QueryExecutionOwnerRegistration {
 	readonly application: object
+	readonly bindResult: (value: unknown) => unknown
 	readonly createRootExecutor: () => QueryExecutionDispatcher
 }
 
@@ -89,6 +90,10 @@ export interface QueryExecutionGuard {
 
 const activeQueryExecution = new AsyncLocalStorage<ActiveQueryExecution>()
 const queryExecutionOwners = new WeakMap<
+	object,
+	QueryExecutionOwnerRegistration
+>()
+const queryExecutionApplications = new WeakMap<
 	object,
 	QueryExecutionOwnerRegistration
 >()
@@ -176,8 +181,21 @@ export const registerQueryExecutionOwner = (
 	if (queryExecutionOwners.has(owner)) {
 		throw new TypeError('query execution owner is already registered')
 	}
+	if (queryExecutionApplications.has(registration.application)) {
+		throw new TypeError('query execution application is already registered')
+	}
 
-	queryExecutionOwners.set(owner, immutableRecord(registration))
+	const normalized = immutableRecord(registration)
+	queryExecutionOwners.set(owner, normalized)
+	queryExecutionApplications.set(registration.application, normalized)
+}
+
+const bindExecutionResult = async <TResult>(
+	result: Promise<TResult>,
+	registration: QueryExecutionOwnerRegistration | undefined,
+): Promise<TResult> => {
+	const value = await result
+	return (registration?.bindResult(value) ?? value) as TResult
 }
 
 /** Registers one Runtime-owned authority resolver for an erased executor. */
@@ -350,12 +368,18 @@ export const executeOperationBatch = <
 			)
 		}
 
-		return dispatchOperationBatch(
-			active.executor,
-			entries,
-			options,
-			projection,
-		) as Promise<readonly OperationResult<TOperation>[]>
+		return bindExecutionResult(
+			dispatchOperationBatch(
+				active.executor,
+				entries,
+				options,
+				projection,
+			) as Promise<readonly OperationResult<TOperation>[]>,
+			registration ??
+				(active.application === undefined
+					? undefined
+					: queryExecutionApplications.get(active.application)),
+		)
 	}
 
 	if (registration === undefined) {
@@ -371,12 +395,12 @@ export const executeOperationBatch = <
 
 	const executor = registration.createRootExecutor()
 
-	return dispatchOperationBatch(
-		executor,
-		entries,
-		options,
-		projection,
-	) as Promise<readonly OperationResult<TOperation>[]>
+	return bindExecutionResult(
+		dispatchOperationBatch(executor, entries, options, projection) as Promise<
+			readonly OperationResult<TOperation>[]
+		>,
+		registration,
+	)
 }
 
 /** Resolves one terminal at call time without retaining execution in its QueryBuilder AST. */
@@ -408,12 +432,15 @@ export const executeOperation = <const TOperation extends OperationAstNode>(
 			)
 		}
 
-		return dispatchOperation(
-			active.executor,
-			operation,
-			options,
-			scope,
-		) as Promise<OperationResult<TOperation>>
+		return bindExecutionResult(
+			dispatchOperation(active.executor, operation, options, scope) as Promise<
+				OperationResult<TOperation>
+			>,
+			registration ??
+				(active.application === undefined
+					? undefined
+					: queryExecutionApplications.get(active.application)),
+		)
 	}
 
 	if (registration === undefined) {
@@ -427,10 +454,13 @@ export const executeOperation = <const TOperation extends OperationAstNode>(
 		)
 	}
 
-	return dispatchOperation(
-		registration.createRootExecutor(),
-		operation,
-		options,
-		scope,
-	) as Promise<OperationResult<TOperation>>
+	return bindExecutionResult(
+		dispatchOperation(
+			registration.createRootExecutor(),
+			operation,
+			options,
+			scope,
+		) as Promise<OperationResult<TOperation>>,
+		registration,
+	)
 }

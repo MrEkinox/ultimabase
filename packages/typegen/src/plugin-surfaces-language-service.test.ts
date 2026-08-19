@@ -43,6 +43,21 @@ const createGeneratedRegistry = (): string => {
 		transaction: 'required',
 		version: '1.0.0',
 	})
+	const publishModel = defineOperation({
+		errors: ['fixture.semantic.rejected'] as const,
+		input: defineOperationValue(
+			(value) => value as { readonly id: string },
+			inputReference,
+		),
+		name: 'fixture.semantic.publish-model',
+		result: defineOperationValue(
+			(value) => value as Readonly<Record<string, unknown>>,
+			resultReference,
+		),
+		target: 'model',
+		transaction: 'required',
+		version: '1.0.0',
+	})
 	const byId = defineQueryExtension({
 		apply: (schema, input: { readonly id: string }) =>
 			new QueryBuilder(schema).where({ id: { eq: input.id } }),
@@ -69,8 +84,10 @@ const createGeneratedRegistry = (): string => {
 			typegenReferences.register(resultReference)
 			schemas.add({ contributionId: 'dynamic', schema: Dynamic })
 			operations.declare(publish)
+			operations.declare(publishModel)
 			models.extend(Dynamic, {
 				contributionId: 'publish',
+				modelCommands: { publish: publishModel },
 				schemaCommands: { publish },
 			})
 			queries.extend(Dynamic, {
@@ -144,6 +161,21 @@ const operation = ultimabase.operation('fixture.semantic.publish')
 operation.prepare({ id: 'post-2' })
 const operationExecution: Promise<Core.BaseItem> = operation.execute({ id: 'post-2' })
 const operationError: Core.PluginOperationErrorCode<typeof operation.definition> = 'fixture.semantic.rejected'
+const directSchema = schema.schema
+const useModelCommands = async () => {
+	const fromHandle = await schema.findOne()
+	const fromSchema = await directSchema.findOne(undefined, { ultimabase })
+	if (fromHandle !== null) {
+		const handleResult: Promise<Core.BaseItem> = fromHandle.publish({ id: 'post-3' })
+		// @ts-expect-error -- Generated model commands retain their exact input.
+		fromHandle.publish({ missing: true })
+		void handleResult
+	}
+	if (fromSchema !== null) {
+		const schemaResult: Promise<Core.BaseItem> = fromSchema.publish({ id: 'post-4' })
+		void schemaResult
+	}
+}
 // @ts-expect-error -- Generated dynamic handles reject unknown plugin aliases.
 schema.unknownPluginSurface
 // @ts-expect-error -- Exact generated operation input requires id.
@@ -155,6 +187,7 @@ void query
 void operationError
 void operationExecution
 void schemaExecution
+void useModelCommands
 void unknownError
 `
 			const fileName = path.join(

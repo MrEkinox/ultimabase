@@ -1,6 +1,7 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import type { SchemaDefinition } from '../schema/schema/definition.js'
+import { reservedSchemaModelFieldNames } from '../schema/schema/reserved-field-names.js'
 import type { PluginSchemaContributionOwner } from '../schema/schema/provenance.js'
 import type { SchemaRegistry } from '../schema/schema/registry.js'
 import type { JsonValue } from '../schema/fields/builtins/json.js'
@@ -71,8 +72,14 @@ const reservedSchemaHandleNames = new Set([
 const reservedModelHandleNames = new Set([
 	'command',
 	'commands',
+	'equals',
+	'exists',
+	'fetch',
 	'model',
 	'schema',
+	'state',
+	'toPointer',
+	...reservedSchemaModelFieldNames,
 ])
 
 const addCommand = (
@@ -200,7 +207,10 @@ export const compileApplicationSurfaces = (
 								owner: surface.owner,
 								staticOptions: surface.staticOptions,
 							},
-							reservedModelHandleNames,
+							new Set([
+								...reservedModelHandleNames,
+								...Object.keys(target.schema.definition.fields),
+							]),
 							`${className} model surface`,
 						)
 					}

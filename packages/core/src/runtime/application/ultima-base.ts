@@ -8,7 +8,8 @@ import {
 import { registerQueryExecutionOwner } from '../../query/operations/execution.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import { Schema } from '../../schema/index.js'
-import { isPlainRecord } from '@ultimabase/shared'
+import { immutableArray, isPlainRecord } from '@ultimabase/shared'
+import { findSchemaModelRecord } from '../../schema/schema/model-state.js'
 import type { PluginOperationDefinition } from '../../plugins/plugin-operations.js'
 import type { CompiledPluginOperation } from '../../plugins/application-surface-registry.js'
 import {
@@ -21,6 +22,7 @@ import {
 	type ApplicationSchemaHandleForName,
 	type PluginOperationEnvelope,
 } from '../../application/application-handles.js'
+import { bindApplicationSchemaModel } from '../../application/application-model-views.js'
 
 import { requestSources } from '../context/request-context.js'
 import { getActiveFrameworkContext } from '../context/active-framework-storage.js'
@@ -170,6 +172,7 @@ export class UltimaBase<
 		this.#engineOptions = readEngineOptions(options)
 		registerQueryExecutionOwner(this, {
 			application: this.application,
+			bindResult: (value) => this.#bindQueryResult(value),
 			createRootExecutor: () => {
 				const frameworkEngine = this.#frameworkEngine ?? this.engine
 				const requestEngine = frameworkEngine.anonymous({
@@ -240,6 +243,22 @@ export class UltimaBase<
 		return handle
 	}
 
+	/** Reuses one application-owned immutable view for every Runtime model result. */
+	#bindQueryResult(value: unknown): unknown {
+		if (Array.isArray(value)) {
+			return immutableArray(value.map((entry) => this.#bindQueryResult(entry)))
+		}
+		if (typeof value !== 'object' || value === null) {
+			return value
+		}
+		const record = findSchemaModelRecord(value)
+		if (record === undefined) {
+			return value
+		}
+		const handle = this.schema(record.schema)
+		return bindApplicationSchemaModel(handle, value)
+	}
+
 	/** Resolves one exact stable schema class through its application-owned handle. */
 	schema<TSchema extends SchemaDefinition>(
 		schema: TSchema,
@@ -264,7 +283,7 @@ export class UltimaBase<
 		}
 		let handle = this.#schemaHandles.get(className)
 		if (handle === undefined) {
-			handle = new ApplicationSchemaHandleBase(
+			const schemaHandle = new ApplicationSchemaHandleBase(
 				this,
 				this,
 				surface,
@@ -292,6 +311,7 @@ export class UltimaBase<
 					return operationHandle
 				},
 			)
+			handle = schemaHandle
 			this.#schemaHandles.set(className, handle)
 		}
 		return handle

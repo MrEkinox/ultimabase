@@ -384,9 +384,10 @@ declare({ models, operations, queries, schemas }) {
 }
 ```
 
-Handles expose commands as application-owned operation handles and query
-extensions as ordinary `QueryBuilder` factories, both through their named
-collections and generated direct properties. `prepare()` validates one
+Schema commands remain application-owned operation handles, while models
+returned through the application expose their generated commands as direct
+callable methods. Query extensions are ordinary `QueryBuilder` factories.
+`prepare()` validates one
 immutable logical envelope without I/O; `execute()` enters the active
 `RequestEngine`, enforces cancellation and transaction policy, invokes the
 exact owner handler, and validates the result. Handlers are separate application
@@ -395,9 +396,15 @@ codes as public domain failures:
 
 ```ts
 const Post = ultimabase.schema('Post')
-const published = await Post.for(post).publish.execute({ reason: 'reviewed' })
+const post = await Post.findOne({ where: { id: postId } })
+const published = await post.publish({ reason: 'reviewed' })
 const query = Post.byWorkflowState('ready')
 ```
+
+When a command name is only known at runtime, use
+`Post.for(post).command(name).execute(input)`. The transparent model view is
+cached per application, preserves the schema instance and immutable model
+behavior, and never mutates the exported class or prototype.
 
 Transport exposure is a second explicit boundary. The operation owner requests
 `transport:expose`, provides a nominal wire codec through

@@ -26,6 +26,7 @@ describe('packed plugin operation execution', () => {
 				'application-isolation',
 				'javascript-operation',
 			],
+			directModelResult: { echo: 'model:persisted:queried' },
 			directResult: { echo: 'direct' },
 			dynamicSchemaResult: {
 				echo: 'schema:JavaScriptDynamicPost:dynamic',

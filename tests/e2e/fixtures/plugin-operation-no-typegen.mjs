@@ -6,6 +6,7 @@ import {
 	Schema,
 	UltimaBase,
 	databaseAdapterCapability,
+	databasePersistencePlanCapability,
 	defineOperation,
 	defineOperationTransport,
 	defineOperationValue,
@@ -178,8 +179,15 @@ const transaction = {
 	rollback: () => Promise.resolve(),
 }
 const adapter = {
+	capabilities: { persistencePlans: databasePersistencePlanCapability },
 	kind: 'database-adapter',
-	execute: () => Promise.reject(new Error('Unexpected database execution')),
+	execute: () =>
+		Promise.resolve({
+			createdAt: '2026-08-19T00:00:00.000Z',
+			id: '0198c000-0000-7000-8000-000000000020',
+			title: 'JavaScript result',
+			updatedAt: '2026-08-19T00:00:00.000Z',
+		}),
 	beginTransaction: () => Promise.resolve(transaction),
 }
 const createDatabasePlugin = () =>
@@ -208,6 +216,10 @@ export const directResult = await ultimabase
 	.execute({ message: 'direct' })
 const stableHandle = ultimabase.schema(StablePost)
 const dynamicHandle = ultimabase.schema('JavaScriptDynamicPost')
+const queriedPost = await stableHandle.findOne()
+export const directModelResult = await queriedPost.inspect({
+	message: 'queried',
+})
 export const stableSchemaResult = await stableHandle.commands.inspect.execute({
 	message: 'stable',
 })
@@ -282,5 +294,5 @@ export const conformanceChecks = conformanceReport.checks.map(
 
 await ultimabase.dispose()
 process.stdout.write(
-	`${JSON.stringify({ conformanceChecks, directResult, dynamicSchemaResult, inspection, modelResult, stableSchemaResult, transportErrorResponse, transportResponse })}\n`,
+	`${JSON.stringify({ conformanceChecks, directModelResult, directResult, dynamicSchemaResult, inspection, modelResult, stableSchemaResult, transportErrorResponse, transportResponse })}\n`,
 )

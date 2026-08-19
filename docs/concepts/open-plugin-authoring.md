@@ -201,11 +201,13 @@ const Post = ultimabase.schema('Post')
 await Post.publish({ id: postId })
 
 const post = await Post.findOne({ where: { id: postId } })
-await Post.for(post).publish()
+await post.publish()
 ```
 
-Typegen augments these handles with the exact installed plugin surface. It emits
-declarations and inert metadata only, never a Runtime client.
+Typegen augments application handles and returned models with the exact
+installed plugin surface. It emits declarations and inert metadata only, never
+a Runtime client. Dynamic code can still call
+`Post.for(post).command(name).execute(input)`.
 
 ## Use the same plugin from JavaScript
 
@@ -215,7 +217,7 @@ JavaScript uses the same application and Runtime without Typegen:
 const Post = ultimabase.schema('Post')
 const post = await Post.findOne({ where: { id: postId } })
 
-await Post.for(post).publish()
+await post.publish()
 await ultimabase.operation('community.workflow.publish-post').execute({
 	schema: 'Post',
 	id: postId,

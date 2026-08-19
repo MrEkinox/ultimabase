@@ -189,11 +189,16 @@ declare({ models, operations, schemas }) {
 }
 
 const AuditEntry = ultimabase.schema('WorkflowAuditEntry')
-const envelope = AuditEntry.for(entry).command('publish').prepare(input)
+const entry = await AuditEntry.findOne({ where: { id: entryId } })
+const published = await entry.publish(input)
+
+// Dynamic tooling can still inspect or execute an operation handle by name.
+const envelope = AuditEntry.for(entry).command(commandName).prepare(input)
 ```
 
-`prepare()` only validates the immutable logical envelope. Custom operation
-execution and transport exposure are deliberately absent until issue 1416.
+`prepare()` only validates the immutable logical envelope. Direct model methods
+execute through the same operation contract and active `RequestEngine`; neither
+path mutates the dynamic schema class or its prototype.
 
 ## Complete compiler protocol
 

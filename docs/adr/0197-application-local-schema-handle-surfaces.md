@@ -5,6 +5,7 @@
 - Supersedes: ADR-0187 cross-application surface compatibility only
 - Refines: ADR-0192
 - Depends on: ADR-0187, ADR-0192
+- Refined by: ADR-0201
 
 ## Context
 

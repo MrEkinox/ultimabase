@@ -22,7 +22,10 @@ import {
 	provideOperationHandler,
 	provideOperationTransportBinding,
 } from './capabilities.js'
-import { RecordingDatabaseAdapter } from '../../../tests/runtime/fixtures/recording-database-adapter.js'
+import {
+	RecordingDatabaseAdapter,
+	type QueuedAdapterResult,
+} from '../../../tests/runtime/fixtures/recording-database-adapter.js'
 import { provideTestDatabaseAdapter } from '../../../tests/runtime/fixtures/database-adapter-capability.js'
 import {
 	defineAdapterRawCapability,
@@ -96,13 +99,17 @@ const fakeBinding = operationTransportBinding({
 })
 
 interface FixtureOptions {
+	readonly adapterResults?: readonly QueuedAdapterResult[]
 	readonly applicationHandler?: (message: string) => unknown
 	readonly masterAuthority?: MasterAuthority
 }
 
 const createFixture = async (options: FixtureOptions = {}) => {
 	const trace: string[] = []
-	const adapter = new RecordingDatabaseAdapter([], trace)
+	const adapter = new RecordingDatabaseAdapter(
+		options.adapterResults ?? [],
+		trace,
+	)
 	const applicationHandler = operationHandler({
 		operation: applicationOperation,
 		execute: ({ context, input, target }) => {
@@ -199,6 +206,77 @@ const createFixture = async (options: FixtureOptions = {}) => {
 }
 
 describe('plugin operation Runtime', () => {
+	it('binds direct and schema-handle query results to callable model commands', async () => {
+		const row = {
+			createdAt: '2026-08-19T00:00:00.000Z',
+			id: '0198c000-0000-7000-8000-000000000010',
+			title: 'Ready',
+			updatedAt: '2026-08-19T00:00:00.000Z',
+		}
+		const fixture = await createFixture({
+			adapterResults: [
+				{ status: 'fulfilled', value: row },
+				{ status: 'fulfilled', value: row },
+			],
+		})
+
+		const direct = await Post.findOne({}, { ultimabase: fixture.ultimabase })
+		expect(direct).toBeInstanceOf(Post)
+		expect(Object.isFrozen(direct)).toBe(true)
+		expect('publish' in (direct as object)).toBe(true)
+		const directPublish = Reflect.get(direct ?? {}, 'publish') as (
+			input: Readonly<{ readonly message: string }>,
+		) => Promise<Readonly<{ readonly accepted: boolean }>>
+		await expect(directPublish({ message: 'direct' })).resolves.toStrictEqual({
+			accepted: true,
+		})
+
+		const PostHandle = fixture.ultimabase.schema(Post)
+		const fromHandle = await PostHandle.findOne()
+		expect(fromHandle).toBeInstanceOf(Post)
+		const handlePublish = Reflect.get(fromHandle ?? {}, 'publish') as (
+			input: Readonly<{ readonly message: string }>,
+		) => Promise<Readonly<{ readonly accepted: boolean }>>
+		await expect(handlePublish({ message: 'handle' })).resolves.toStrictEqual({
+			accepted: true,
+		})
+		expect(PostHandle.for(fromHandle as object).model).toBe(fromHandle)
+		expect(Reflect.has(new Post({ title: 'Unbound' }), 'publish')).toBe(false)
+		expect(fixture.trace).toEqual(
+			expect.arrayContaining([
+				'model:persisted:direct',
+				'model:persisted:handle',
+			]),
+		)
+
+		const isolatedAdapter = new RecordingDatabaseAdapter(
+			[{ status: 'fulfilled', value: row }],
+			[],
+		)
+		const isolatedDatabase = definePlugin({
+			capabilities: {
+				provides: [provideTestDatabaseAdapter(isolatedAdapter)],
+			},
+			core: '^0.0.0',
+			pluginId: 'fixture.plugin-operation-isolated-database',
+			version: '1.0.0',
+		})
+		const isolatedApplication = new UltimaBase({
+			pluginPrivileges: { logger: false },
+			plugins: [isolatedDatabase],
+			schemas: [Post],
+		})
+		await isolatedApplication.start()
+		const isolated = await Post.findOne({}, { ultimabase: isolatedApplication })
+		expect(Reflect.has(isolated ?? {}, 'publish')).toBe(false)
+		await isolatedApplication.dispose()
+
+		await fixture.ultimabase.dispose()
+		await expect(handlePublish({ message: 'disposed' })).rejects.toThrow(
+			'Application handle cannot be used after disposal',
+		)
+	})
+
 	it('opens raw adapter access only inside the active operation transaction', async () => {
 		interface RawFixture {
 			kind(): string

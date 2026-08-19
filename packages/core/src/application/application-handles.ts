@@ -33,6 +33,10 @@ import type {
 } from '../schema/type-info.js'
 import type { PluginSchemaContributionOwner } from '../schema/schema/provenance.js'
 import type { PluginLifecycleState } from '../plugins/lifecycle-manager.js'
+import {
+	registerApplicationSchemaModelViewHost,
+	type ApplicationSchemaModelViewState,
+} from './application-model-views.js'
 /** Exposes safe owner facts without plugin configuration or execution state. */
 export interface ApplicationContributionOwner {
 	readonly instanceId?: string
@@ -304,8 +308,15 @@ export class ApplicationSchemaHandleBase<
 				]),
 			),
 		)
+		const state: ApplicationSchemaModelViewState = {
+			mergeOptions: (options) => mergeApplicationOptions(options, ultimabase),
+			modelViews: new WeakMap(),
+			resolveOperation,
+			surface,
+		}
+		registerApplicationSchemaModelViewHost(this, state)
 		Object.freeze(this)
-		return new Proxy(this, {
+		const handle = new Proxy(this, {
 			get: (target, property, receiver): unknown => {
 				if (typeof property === 'string') {
 					if (target.surface.schemaCommands.has(property)) {
@@ -326,6 +337,8 @@ export class ApplicationSchemaHandleBase<
 				return Reflect.get(target, property, receiver)
 			},
 		})
+		registerApplicationSchemaModelViewHost(handle, state)
+		return handle
 	}
 
 	/** Resolves one schema command alias to its inert operation handle. */

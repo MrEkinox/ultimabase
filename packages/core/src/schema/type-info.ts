@@ -1,5 +1,5 @@
 /** Invalidates generated fingerprints when Core's shared typegen ABI changes. */
-export const generatedApplicationContractVersion = 11 as const
+export const generatedApplicationContractVersion = 12 as const
 
 /** Minimal identity implemented by every generated persisted item. */
 export interface SchemaItemType {
@@ -42,6 +42,76 @@ export interface UltimaBaseGeneratedSchemaSurfaces {}
 /** Marks that one complete generated registry is active in the TypeScript project. */
 export interface UltimaBaseGeneratedRegistryState {}
 /* eslint-enable @typescript-eslint/no-empty-object-type */
+
+type GeneratedOperationValue<TContract> =
+	TContract extends Readonly<{
+		readonly snapshot: (value: unknown, path: string) => infer TValue
+	}>
+		? TValue
+		: unknown
+
+type GeneratedOperationMethod<TOperation> =
+	TOperation extends Readonly<{
+		readonly input: infer TInput
+		readonly result: infer TResult
+	}>
+		? (
+				input: GeneratedOperationValue<TInput>,
+			) => Promise<GeneratedOperationValue<TResult>>
+		: (input: unknown) => Promise<unknown>
+
+type GeneratedOperationForName<TName extends string> =
+	TName extends keyof UltimaBaseGeneratedOperations
+		? UltimaBaseGeneratedOperations[TName]
+		: unknown
+
+type GeneratedSchemaSurfaceName<TSchema extends SchemaTypeInfoSource> =
+	TSchema extends Readonly<{
+		readonly className: infer TClassName extends string
+	}>
+		? TClassName
+		: TSchema extends SchemaTypeInfo
+			? TSchema['key']
+			: never
+
+type GeneratedSchemaSurfaceFor<TSchema extends SchemaTypeInfoSource> = [
+	GeneratedSchemaSurfaceName<TSchema>,
+] extends [never]
+	? never
+	: GeneratedSchemaSurfaceName<TSchema> extends keyof UltimaBaseGeneratedSchemaSurfaces
+		? UltimaBaseGeneratedSchemaSurfaces[GeneratedSchemaSurfaceName<TSchema>]
+		: never
+
+type GeneratedModelCommandMethods<TSchema extends SchemaTypeInfoSource> = [
+	GeneratedSchemaSurfaceFor<TSchema>,
+] extends [never]
+	? Readonly<Record<never, never>>
+	: GeneratedSchemaSurfaceFor<TSchema> extends Readonly<{
+				readonly modelCommands: infer TCommands extends Readonly<
+					Record<string, string>
+				>
+		  }>
+		? {
+				readonly [TName in keyof TCommands]: GeneratedOperationMethod<
+					GeneratedOperationForName<TCommands[TName]>
+				>
+			}
+		: Readonly<Record<never, never>>
+
+type GeneratedModelAugmentation<TSchema extends SchemaTypeInfoSource> = [
+	GeneratedSchemaSurfaceFor<TSchema>,
+] extends [never]
+	? Readonly<Record<never, never>>
+	: GeneratedSchemaSurfaceFor<TSchema> extends Readonly<{
+				readonly model: infer TModel extends object
+		  }>
+		? TModel
+		: Readonly<Record<never, never>>
+
+/** Adds callable application-local plugin commands to Runtime model results. */
+export type UltimaBaseGeneratedModelSurface<
+	TSchema extends SchemaTypeInfoSource,
+> = GeneratedModelAugmentation<TSchema> & GeneratedModelCommandMethods<TSchema>
 
 /** Groups the public operation inputs generated for one schema. */
 export interface SchemaInputsTypeInfo {

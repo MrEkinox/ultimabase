@@ -186,6 +186,7 @@ Accepted records:
 - [ADR-0198: Plugin Typegen contracts are structured and application-local](0198-structured-plugin-typegen-contracts.md)
 - [ADR-0199: Runtime capabilities execute behind a Core-owned request shell](0199-runtime-capability-assembly.md)
 - [ADR-0200: Persistence rewrites are physical and constraints remain Core-owned](0200-protected-rewritable-persistence-plans.md)
+- [ADR-0201: Application-bound results expose plugin model commands directly](0201-transparent-application-model-surfaces.md)
 
 Superseded records:
 
