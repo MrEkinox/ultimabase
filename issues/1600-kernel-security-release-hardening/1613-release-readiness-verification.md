@@ -4,7 +4,7 @@
 - Milestone: 16
 - Packages: repository-wide
 - Depends on: 1602, 1603, 1604, 1605, 1606, 1607, 1608, 1609, 1610, 1611, 1612
-- ADR: decision produced by 1601, ADR-0191, ADR-0202, ADR-0204, ADR-0205
+- ADR: ADR-0191, ADR-0202, ADR-0204, ADR-0205, ADR-0206
 
 ## Goal
 

@@ -191,6 +191,7 @@ Accepted records:
 - [ADR-0203: Plugin peers validate compatibility without ordering](0203-plugin-peer-requirements-do-not-order.md)
 - [ADR-0204: Access is one vertical plugin](0204-access-is-one-vertical-plugin.md)
 - [ADR-0205: Protected policy contributions remain Core-owned](0205-protected-policy-contributions.md)
+- [ADR-0206: Master contexts have application-owned provenance](0206-application-owned-master-provenance.md)
 
 Superseded records:
 

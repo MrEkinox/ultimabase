@@ -4,7 +4,7 @@
 - Milestone: 16
 - Packages: `@ultimabase/core`, `@ultimabase/typegen`, `@ultimabase/postgres-plugin`, `@ultimabase/testing`
 - Depends on: 1602
-- ADR: ADR-0191, decision produced by 1601
+- ADR: ADR-0191, ADR-0206
 
 ## Goal
 

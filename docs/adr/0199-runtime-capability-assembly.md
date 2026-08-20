@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-08-19
-- Refined by: ADR-0205
+- Refined by: ADR-0205, ADR-0206
 - Refines: ADR-0064, ADR-0186, ADR-0188, ADR-0190, ADR-0191
 - Depends on: ADR-0186, ADR-0190, ADR-0191
 

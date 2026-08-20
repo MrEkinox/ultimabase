@@ -4,7 +4,7 @@
 - Milestone: 16
 - Packages: `@ultimabase/core`, `@ultimabase/testing`
 - Depends on: 1601
-- ADR: decision produced by 1601
+- ADR: ADR-0206
 
 ## Goal
 
