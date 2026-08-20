@@ -28,5 +28,5 @@ Milestone 15 begins only after milestone 14 passes its complete public
 conformance gate.
 
 Milestone 14 passed that gate in issue 1414. Issue 1509 passed the complete
-public, security, coverage, packed-package, and PostgreSQL audit; milestone 16
-may now begin at issue 1601 after explicit user direction.
+public, security, coverage, packed-package, and PostgreSQL audit, completing
+this milestone.

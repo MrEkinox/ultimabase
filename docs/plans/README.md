@@ -7,8 +7,7 @@ priority changes.
 
 ## Active
 
-No cross-milestone plan is active. Milestone 16 is ready at issue 1601 but has
-not been started.
+No cross-milestone plan is active.
 
 ## Paused
 

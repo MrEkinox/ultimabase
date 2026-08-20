@@ -22,8 +22,7 @@ Core-owned Master through the final issue 1509 audit.
 
 The ACL hardening plan remains paused at issue 432. Generated schema authoring
 and type contracts remain paused at the final DX and performance verification
-issue 810. Milestone 16 is ready at issue 1601 but is not active until explicit
-user direction. Neither paused objective is part of an active plan.
+issue 810. Neither paused objective is part of an active plan.
 
 Completed cross-milestone plans are retained under
 [`docs/plans/completed/`](docs/plans/completed/) so their decisions remain

@@ -37,7 +37,6 @@ Agents should update status only when they are actually doing the work. Do not m
 - [`1300-query-enforcement-consolidation/`](1300-query-enforcement-consolidation/README.md)
 - [`1400-open-plugin-kernel/`](1400-open-plugin-kernel/README.md)
 - [`1500-optional-hooks-access/`](1500-optional-hooks-access/README.md)
-- [`1600-plugin-authoring-dx/`](1600-plugin-authoring-dx/README.md)
 
 ## Assignment prompt
 
