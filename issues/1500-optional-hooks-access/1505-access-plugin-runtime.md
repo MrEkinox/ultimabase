@@ -1,10 +1,14 @@
 # 1505: Move Access execution into access-plugin
 
-- Status: planned
+- Status: merged into 1504
 - Milestone: 15
 - Packages: `@ultimabase/access-plugin`, `@ultimabase/core`, `@ultimabase/postgres-plugin`, `@ultimabase/testing`
 - Depends on: 1504
-- ADR: ADR-0117, ADR-0128, ADR-0167 through ADR-0171, ADR-0189, ADR-0194
+- ADR: ADR-0117, ADR-0128, ADR-0167 through ADR-0171, ADR-0189, ADR-0194, ADR-0204
+
+ADR-0204 requires Access authoring, plan compilation, and Runtime enforcement
+to cross the package boundary atomically. This issue's acceptance criteria move
+into issue 1504; it is not a separate implementation or commit.
 
 ## Goal
 

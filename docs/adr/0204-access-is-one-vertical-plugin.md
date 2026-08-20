@@ -22,6 +22,13 @@ use the same model without coupling provider lifecycle order to the engine,
 because ADR-0203 peers validate package compatibility without adding an order
 edge.
 
+The milestone previously split Access authoring and plan compilation from
+Runtime enforcement across issues 1504 and 1505. That split would publish an
+unsafe intermediate state in which declarations appear valid but are not
+enforced. Retaining a native Core executor temporarily would instead require a
+private Access bridge or duplicated product semantics that the final system
+must remove.
+
 ## Decision
 
 ### One official package
@@ -38,6 +45,19 @@ package and declare the engine through ADR-0203's non-ordering `peers` contract
 when their contributions require a configured compatible engine.
 
 There is no `@ultimabase/access-contracts` package.
+
+### Atomic extraction
+
+Access authoring, plan compilation, protected enforcement, and Runtime
+integration cross the Core-to-plugin boundary atomically. The migration never
+publishes a state where an installed official Access declaration compiles
+without enforcement, and it retains no Core dispatcher that recognizes the
+plugin's vocabulary or plan representation.
+
+Issue 1505 is merged into issue 1504 rather than delivered as a separate
+implementation or commit. The combined issue must preserve accepted operation,
+filter, item, field, relationship, persistence-rewrite, Master, transaction,
+and fail-closed semantics through public kernel capabilities.
 
 ### Alternatives are independent engines
 
@@ -68,8 +88,9 @@ transport-forgeable.
   official Access package without manufacturing lifecycle cycles.
 - Independent alternatives remain free to expose a different policy model
   through the generic public kernel.
-- Issue 1504 creates only `@ultimabase/access-plugin`; issues 1506 and 1507
-  validate the compatible-provider and independent-alternative paths.
+- Issue 1504 creates the complete `@ultimabase/access-plugin`; issue 1505 is
+  merged into it, while issues 1506 and 1507 validate the compatible-provider
+  and independent-alternative paths.
 
 ## Non-goals
 

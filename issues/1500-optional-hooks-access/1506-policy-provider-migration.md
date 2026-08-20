@@ -3,7 +3,7 @@
 - Status: planned
 - Milestone: 15
 - Packages: `@ultimabase/access-plugin`, `@ultimabase/acl-permissions-plugin`, `@ultimabase/acl-postgres-plugin`, `@ultimabase/roles-plugin`, `@ultimabase/postgres-plugin`, `@ultimabase/plugin-kit`
-- Depends on: 1505
+- Depends on: 1504
 - ADR: ADR-0117, ADR-0122, ADR-0125, ADR-0189, ADR-0194, ADR-0203, ADR-0204
 
 ## Goal
