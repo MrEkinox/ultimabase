@@ -9,6 +9,11 @@ import { FrameworkError } from '../errors/framework-error.js'
 import type { CompiledSchemaRegistry } from '../schema/index.js'
 import type { DatabaseConstraintCompilerReader } from './constraint-compilers.js'
 import {
+	createApplicationCallbackExecutor,
+	runWithApplicationPluginOwner,
+	type ApplicationCallbackExecutor,
+} from './callback-execution.js'
+import {
 	composeCapability,
 	runApplicationCapabilityFactory,
 	runCapabilityDecorator,
@@ -136,6 +141,8 @@ const createDeniedConstraintCompilerReader = (
 
 /** Materializes application values and creates exact owner-bound consumer readers. */
 export class ApplicationCapabilityHost {
+	readonly #application: object
+	readonly #callbacks: ApplicationCallbackExecutor
 	readonly #graph: PluginGraph
 	readonly #inventory: CapabilityInventory
 	readonly #schemas: CompiledSchemaRegistry
@@ -163,11 +170,30 @@ export class ApplicationCapabilityHost {
 		graph: PluginGraph,
 		schemas: CompiledSchemaRegistry,
 		constraintCompilers: DatabaseConstraintCompilerReader,
+		application?: object,
 	) {
+		this.#application = application ?? this
 		this.#graph = graph
 		this.#inventory = graph.capabilities
 		this.#schemas = schemas
 		this.#constraintCompilers = constraintCompilers
+		this.#callbacks = createApplicationCallbackExecutor(
+			this.#application,
+			(owner) => {
+				if (this.#graph.get(owner) === undefined) {
+					throw new FrameworkError(
+						'PLUGIN_CONFLICT',
+						`Attributed callback owner "${formatPluginIdentity(owner)}" is not installed in this application.`,
+						{
+							internalDetails: {
+								kind: 'callback-owner-unknown',
+								plugin: formatPluginIdentity(owner),
+							},
+						},
+					)
+				}
+			},
+		)
 	}
 
 	#assertPrivilege(owner: PluginIdentity, privilege: PluginPrivilege): void {
@@ -362,26 +388,35 @@ export class ApplicationCapabilityHost {
 				}
 			}
 
-			const resource = await runApplicationCapabilityFactory(
-				contribution.declaration,
-				immutableRecord({
-					assertPrivilege: (privilege: PluginPrivilege): void => {
-						this.#assertPrivilege(contribution.owner, privilege)
-					},
-					capabilities: this.#readerFor(
+			const createResource = () =>
+				runApplicationCapabilityFactory(
+					contribution.declaration,
+					immutableRecord({
+						assertPrivilege: (privilege: PluginPrivilege): void => {
+							this.#assertPrivilege(contribution.owner, privilege)
+						},
+						callbacks: this.#callbacks,
+						capabilities: this.#readerFor(
+							contribution.owner,
+							'factory',
+							this.#factoryReaders,
+						),
+						constraintCompilers:
+							plugin !== undefined &&
+							this.#canConsumeAdapter(contribution.owner, plugin)
+								? this.#constraintCompilers
+								: createDeniedConstraintCompilerReader(contribution.owner),
+						owner: contribution.owner,
+						schemas: this.#schemas,
+					}),
+				)
+			const resource = await (plugin === undefined
+				? createResource()
+				: runWithApplicationPluginOwner(
+						this.#application,
 						contribution.owner,
-						'factory',
-						this.#factoryReaders,
-					),
-					constraintCompilers:
-						plugin !== undefined &&
-						this.#canConsumeAdapter(contribution.owner, plugin)
-							? this.#constraintCompilers
-							: createDeniedConstraintCompilerReader(contribution.owner),
-					owner: contribution.owner,
-					schemas: this.#schemas,
-				}),
-			)
+						createResource,
+					))
 			assertApplicationResource(resource, token.capabilityId)
 			const providerValue = materializeAdapterContribution(
 				token,
@@ -402,16 +437,29 @@ export class ApplicationCapabilityHost {
 				}),
 			)
 			if (resource.dispose !== undefined) {
+				const dispose = resource.dispose
 				this.#resources.push({
 					owner: contribution.owner,
-					dispose: resource.dispose,
+					dispose:
+						plugin === undefined
+							? resource.dispose
+							: () =>
+									runWithApplicationPluginOwner(
+										this.#application,
+										contribution.owner,
+										dispose,
+									),
 				})
 			}
 		}
 
 		let consumer: unknown = composeCapability(token, providers)
 		for (const decorator of plan.entry.decorators.toReversed()) {
-			consumer = runCapabilityDecorator(decorator.declaration, consumer)
+			consumer = runWithApplicationPluginOwner(
+				this.#application,
+				decorator.owner,
+				() => runCapabilityDecorator(decorator.declaration, consumer),
+			)
 		}
 		this.#resolvedContributions.set(
 			token,

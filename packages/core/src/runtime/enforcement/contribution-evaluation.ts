@@ -4,6 +4,8 @@ import type {
 } from '../../foundation.js'
 import type { OwnedPluginContribution } from '../../plugins/setup-registries.js'
 import { readApplicationCapabilityContributions } from '../../plugins/application-capability-access.js'
+import { runWithApplicationPluginOwner } from '../../plugins/callback-execution.js'
+import type { PluginIdentity } from '../../plugins/manifest.js'
 import { Schema, type SchemaDefinition } from '../../schema/index.js'
 import {
 	immutableArray,
@@ -48,6 +50,57 @@ export interface OwnedEnforcementContribution {
 	readonly contribution: OwnedPluginContribution
 	readonly implementation:
 		EnforcementContributionImplementation | ProtectedPolicyImplementation
+}
+
+/** Retains one policy provider owner across every callback Core invokes directly. */
+const attributeProtectedPolicy = (
+	application: object,
+	owner: PluginIdentity,
+	implementation: ProtectedPolicyImplementation,
+): ProtectedPolicyImplementation => {
+	const evaluate = implementation.evaluate
+	const mutationOutcome = implementation.mutationOutcome
+	const preparedMutation = implementation.preparedMutation
+	const reevaluate = implementation.reevaluate
+	const relation = implementation.relation
+	const requiresPreparedMutationItems =
+		implementation.requiresPreparedMutationItems
+	const restrictResult = implementation.restrictResult
+	const run = <TResult>(callback: () => TResult): TResult =>
+		runWithApplicationPluginOwner(application, owner, callback)
+	const attributed: ProtectedPolicyImplementation = {
+		...implementation,
+		evaluate:
+			evaluate === undefined
+				? undefined
+				: (input) => run(() => evaluate(input)),
+		mutationOutcome:
+			mutationOutcome === undefined
+				? undefined
+				: (input) => run(() => mutationOutcome(input)),
+		preparedMutation:
+			preparedMutation === undefined
+				? undefined
+				: (input) => run(() => preparedMutation(input)),
+		reevaluate:
+			reevaluate === undefined
+				? undefined
+				: (input) => run(() => reevaluate(input)),
+		relation:
+			relation === undefined
+				? undefined
+				: (input) => run(() => relation(input)),
+		requiresPreparedMutationItems:
+			requiresPreparedMutationItems === undefined
+				? undefined
+				: (operation) => run(() => requiresPreparedMutationItems(operation)),
+		restrictResult:
+			restrictResult === undefined
+				? undefined
+				: (input) => run(() => restrictResult(input)),
+	}
+
+	return immutableRecord(attributed)
 }
 
 /** Gives policy callbacks one stable product-neutral recursion identity. */
@@ -115,13 +168,26 @@ export const readEnforcementContributions = (
 	)
 
 	for (const contribution of capabilityContributions) {
-		const implementation =
+		const selectedImplementation =
 			getEnforcementContributionImplementation(contribution.value) ??
 			getProtectedPolicyImplementation(contribution.value)
 
-		if (implementation === undefined) {
+		if (selectedImplementation === undefined) {
 			continue
 		}
+		const implementation =
+			selectedImplementation.kind === 'protected-policy'
+				? attributeProtectedPolicy(
+						application,
+						{
+							pluginId: contribution.ownerPlugin,
+							...(contribution.ownerInstanceId === undefined
+								? {}
+								: { instanceId: contribution.ownerInstanceId }),
+						},
+						selectedImplementation,
+					)
+				: selectedImplementation
 
 		if (
 			implementation.schema !== undefined &&

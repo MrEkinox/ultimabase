@@ -90,6 +90,7 @@ export type {
 	PluginCapabilityReader,
 	TypegenEmitterCapability,
 } from './plugins/capabilities.js'
+export type { ApplicationCallbackExecutor } from './plugins/callback-execution.js'
 export { CapabilityInventory } from './plugins/capability-inventory.js'
 export type {
 	CapabilityInventoryEntry,

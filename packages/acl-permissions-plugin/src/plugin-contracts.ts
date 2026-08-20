@@ -39,6 +39,10 @@ export type ACLPlugin = FrameworkPlugin<
 	'^0.0.0',
 	readonly [
 		Readonly<{
+			readonly name: 'authority:elevate'
+			readonly reason: 'Maintains persisted ACL references through audited internal Master queries.'
+		}>,
+		Readonly<{
 			readonly name: 'runtime:constrain'
 			readonly reason: 'Applies deny-only ACL guards and adapter constraints.'
 		}>,

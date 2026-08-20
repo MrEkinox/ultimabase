@@ -6,6 +6,8 @@ import {
 	frameworkErrorCodes,
 	type FrameworkErrorCode,
 	type OperationKind,
+	type ApplicationCallbackExecutor,
+	type PluginIdentity,
 	type RequestContext,
 } from '@ultimabase/core'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
@@ -27,6 +29,13 @@ interface AccessExecutionState {
 }
 
 const emptyStack: readonly AccessExecutionDescriptor[] = immutableArray([])
+const directCallbackExecutor: ApplicationCallbackExecutor = immutableRecord({
+	runApplication: <TResult>(callback: () => TResult): TResult => callback(),
+	runPlugin: <TResult>(
+		_owner: PluginIdentity,
+		callback: () => TResult,
+	): TResult => callback(),
+})
 
 const isSameRule = (
 	left: AccessExecutionDescriptor,
@@ -83,14 +92,19 @@ const createRecursionError = (
 
 /** Keeps official Access callbacks cancellable, observable, and fail-closed. */
 export class AccessExecutionRuntime {
+	readonly #callbacks: ApplicationCallbackExecutor
 	readonly #observer: AccessDiagnosticsObserver | undefined
 	readonly #storage = new AsyncLocalStorage<AccessExecutionState>()
 
-	constructor(observer?: AccessDiagnosticsObserver) {
+	constructor(
+		observer?: AccessDiagnosticsObserver,
+		callbacks: ApplicationCallbackExecutor = directCallbackExecutor,
+	) {
 		if (observer !== undefined && typeof observer !== 'function') {
 			throw new TypeError('Access diagnostics observer must be a function')
 		}
 		this.#observer = observer
+		this.#callbacks = callbacks
 		Object.freeze(this)
 	}
 
@@ -108,7 +122,19 @@ export class AccessExecutionRuntime {
 		const startedAt = this.#observer === undefined ? 0 : performance.now()
 		const nextStack = immutableArray([...parentStack, descriptor])
 		try {
-			const result = await this.#storage.run({ stack: nextStack }, run)
+			const source = descriptor.identity.rule.source
+			const execute = () => this.#storage.run({ stack: nextStack }, run)
+			const result = await (source.kind === 'developer'
+				? this.#callbacks.runApplication(execute)
+				: this.#callbacks.runPlugin(
+						immutableRecord({
+							pluginId: source.ownerPlugin,
+							...(source.ownerInstanceId === undefined
+								? {}
+								: { instanceId: source.ownerInstanceId }),
+						}),
+						execute,
+					))
 			context.signal.throwIfAborted()
 			this.#notify({
 				depth: parentStack.length,

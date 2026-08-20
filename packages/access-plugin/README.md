@@ -110,6 +110,13 @@ All helpers normalize declarations before the official engine consumes them.
 Every provider policy narrows the developer policy; no contribution can
 override an earlier denial.
 
+Contributors do not inherit the Access engine's privileges. Inline Access callbacks execute as
+application callbacks, while contributed rules execute under their exact
+plugin and optional instance identity through Core's application-bound callback
+executor. A rule that initiates a new Master elevation therefore needs its own
+`authority:elevate` request; an already-Master caller remains inherited without
+another elevation.
+
 Independent policy engines should not depend on this package. They can define
 their own authoring vocabulary and contribute Core `protectedPolicy()` values
 directly.

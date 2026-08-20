@@ -1,6 +1,7 @@
 import { immutableRecord } from '@ultimabase/shared'
 
 import { ApplicationCapabilityHost } from './capability-host.js'
+import { runWithApplicationPluginOwner } from './callback-execution.js'
 import type { NormalizedPlugin } from './normalization.js'
 import {
 	runPluginLifecycleHook,
@@ -83,6 +84,7 @@ const throwLifecycleFailure = (
 
 /** Runs one resolved plugin graph and owns its application-scoped cleanup. */
 export class PluginLifecycleManager {
+	readonly #application: object
 	readonly #graph: PluginGraph
 	readonly #registries: PluginSetupRegistries
 	readonly #capabilities: ApplicationCapabilityHost
@@ -98,15 +100,20 @@ export class PluginLifecycleManager {
 	constructor(
 		graph: PluginGraph,
 		registries: PluginSetupRegistries,
-		capabilities: ApplicationCapabilityHost = new ApplicationCapabilityHost(
-			graph,
-			registries.schemas,
-			registries.getConstraintCompilerReader(),
-		),
+		capabilities?: ApplicationCapabilityHost,
+		application?: object,
 	) {
+		this.#application = application ?? this
 		this.#graph = graph
 		this.#registries = registries
-		this.#capabilities = capabilities
+		this.#capabilities =
+			capabilities ??
+			new ApplicationCapabilityHost(
+				graph,
+				registries.schemas,
+				registries.getConstraintCompilerReader(),
+				this.#application,
+			)
 	}
 
 	get state(): PluginLifecycleState {
@@ -193,9 +200,10 @@ export class PluginLifecycleManager {
 				const setupContext = this.#registries.forPlugin(
 					plugin.definition.manifest.identity,
 				)
-				const pluginExports = await runPluginSetup(
-					plugin.definition,
-					setupContext,
+				const pluginExports = await runWithApplicationPluginOwner(
+					this.#application,
+					plugin.definition.manifest.identity,
+					() => runPluginSetup(plugin.definition, setupContext),
 				)
 				const context = immutableRecord({
 					...setupContext,
@@ -225,10 +233,15 @@ export class PluginLifecycleManager {
 
 			for (const phase of startupPhases) {
 				for (const initializedPlugin of this.#initializedPlugins) {
-					await runPluginLifecycleHook(
-						initializedPlugin.plugin.definition,
-						phase,
-						initializedPlugin.context,
+					await runWithApplicationPluginOwner(
+						this.#application,
+						initializedPlugin.plugin.definition.manifest.identity,
+						() =>
+							runPluginLifecycleHook(
+								initializedPlugin.plugin.definition,
+								phase,
+								initializedPlugin.context,
+							),
 					)
 					this.#activePlugins.add(initializedPlugin.plugin.definition)
 				}
@@ -320,10 +333,15 @@ export class PluginLifecycleManager {
 			}
 
 			await collectFailure(async (): Promise<void> => {
-				await runPluginLifecycleHook(
-					initializedPlugin.plugin.definition,
-					'stop',
-					initializedPlugin.context,
+				await runWithApplicationPluginOwner(
+					this.#application,
+					initializedPlugin.plugin.definition.manifest.identity,
+					() =>
+						runPluginLifecycleHook(
+							initializedPlugin.plugin.definition,
+							'stop',
+							initializedPlugin.context,
+						),
 				)
 			}, errors)
 		}
@@ -338,10 +356,15 @@ export class PluginLifecycleManager {
 
 		for (const initializedPlugin of reverse(this.#initializedPlugins)) {
 			await collectFailure(async (): Promise<void> => {
-				await runPluginLifecycleHook(
-					initializedPlugin.plugin.definition,
-					'dispose',
-					initializedPlugin.context,
+				await runWithApplicationPluginOwner(
+					this.#application,
+					initializedPlugin.plugin.definition.manifest.identity,
+					() =>
+						runPluginLifecycleHook(
+							initializedPlugin.plugin.definition,
+							'dispose',
+							initializedPlugin.context,
+						),
 				)
 			}, errors)
 			await collectFailure(

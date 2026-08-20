@@ -37,6 +37,8 @@ export interface OperationOptions {
 	 *
 	 * @example `await Post.findMany(undefined, { useMasterKey: true })`
 	 * @example `await Post.createOne({ data }, { useMasterKey: true })`
+	 * Plugin-owned callbacks initiating this elevation require their exact active
+	 * `authority:elevate` privilege; inherited Master execution does not.
 	 */
 	readonly useMasterKey?: true
 }

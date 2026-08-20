@@ -49,8 +49,19 @@ interface NormalizedMasterKey {
 }
 
 type MasterKeyGrantFactory = (keyId: string) => MasterKeyGrant
+type MasterRequestElevator = <
+	TAccess extends RequestAccess,
+	const TSource extends string,
+>(
+	authority: MasterAuthority,
+	grant: MasterKeyGrant,
+	context: RequestContext<TAccess, TSource>,
+	reason: string,
+	application: object,
+) => Promise<RequestContext<MasterRequestAccess, TSource>>
 
 let createMasterKeyGrant: MasterKeyGrantFactory
+let elevateMasterRequestWithAuthority: MasterRequestElevator
 const trustedTerminalGrants = new WeakMap<MasterAuthority, MasterKeyGrant>()
 
 /** Represents one verified key without exposing a forgeable constructor. */
@@ -137,7 +148,12 @@ const normalizeMasterKeys = (
 	return immutableArray(normalizedKeys)
 }
 
-/** Verifies raw keys, owns opaque grants, and audits every successful use. */
+/**
+ * Verifies raw keys, owns opaque grants, and audits every successful use.
+ *
+ * Master contexts are minted only by an application-owned `RequestEngine` or
+ * trusted terminal option. An authority cannot construct a standalone context.
+ */
 export class MasterAuthority {
 	readonly #clock: () => Date
 	readonly #grants = new WeakSet<MasterKeyGrant>()
@@ -205,11 +221,12 @@ export class MasterAuthority {
 		return grant
 	}
 
-	/** Audits an owned grant before constructing immutable master request state. */
-	async elevate<TAccess extends RequestAccess, const TSource extends string>(
+	/** Audits an owned grant before the application shell constructs Master state. */
+	async #elevate<TAccess extends RequestAccess, const TSource extends string>(
 		grant: MasterKeyGrant,
 		context: RequestContext<TAccess, TSource>,
 		reason: string,
+		application: object,
 	): Promise<RequestContext<MasterRequestAccess, TSource>> {
 		if (!(grant instanceof MasterKeyGrant) || !this.#grants.has(grant)) {
 			throw createPermissionDeniedError()
@@ -236,9 +253,42 @@ export class MasterAuthority {
 		await this.#onUse(event)
 
 		// The trusted factory changes only authority and retains plugin-owned values.
-		return createTrustedMasterRequestContext(reason, grant.keyId, context)
+		return createTrustedMasterRequestContext(reason, grant.keyId, context, {
+			application,
+			authority: this,
+		})
+	}
+
+	static {
+		// Only this module exposes the closure used by the application-owned shell.
+		elevateMasterRequestWithAuthority = (
+			authority,
+			grant,
+			context,
+			reason,
+			application,
+		) => authority.#elevate(grant, context, reason, application)
 	}
 }
+
+/** @internal Audits an opaque grant through the exact configured authority. */
+export const elevateMasterRequest = <
+	TAccess extends RequestAccess,
+	const TSource extends string,
+>(
+	authority: MasterAuthority,
+	grant: MasterKeyGrant,
+	context: RequestContext<TAccess, TSource>,
+	reason: string,
+	application: object,
+): Promise<RequestContext<MasterRequestAccess, TSource>> =>
+	elevateMasterRequestWithAuthority(
+		authority,
+		grant,
+		context,
+		reason,
+		application,
+	)
 
 /**
  * Elevates trusted backend terminal code through the authority's default audit
@@ -253,6 +303,7 @@ export const elevateTrustedMasterRequest = <
 	authority: MasterAuthority,
 	context: RequestContext<TAccess, TSource>,
 	reason: string,
+	application: object,
 ): Promise<RequestContext<MasterRequestAccess, TSource>> => {
 	const grant = trustedTerminalGrants.get(authority)
 
@@ -260,5 +311,5 @@ export const elevateTrustedMasterRequest = <
 		throw createPermissionDeniedError()
 	}
 
-	return authority.elevate(grant, context, reason)
+	return elevateMasterRequest(authority, grant, context, reason, application)
 }

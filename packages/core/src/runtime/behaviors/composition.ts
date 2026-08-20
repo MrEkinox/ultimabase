@@ -5,6 +5,8 @@ import type {
 	PluginDefinition,
 } from '../../foundation.js'
 import { readApplicationCapabilityContributions } from '../../plugins/application-capability-access.js'
+import { runWithApplicationPluginOwner } from '../../plugins/callback-execution.js'
+import type { PluginIdentity } from '../../plugins/manifest.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import { runtimeBehaviorCapability } from '../capabilities.js'
 import { composeRuntimeContributionBehavior } from '../contributions/composition.js'
@@ -20,6 +22,81 @@ import type {
 	RuntimeResultEffectStage,
 } from '../pipeline/contracts.js'
 
+/** Wraps one behavior once so every stage restores its exact provider owner. */
+const attributeRuntimeBehavior = (
+	application: object,
+	owner: PluginIdentity,
+	behavior: RuntimeBehaviorStages,
+): RuntimeBehaviorStages => {
+	const run = <TResult>(callback: () => TResult): TResult =>
+		runWithApplicationPluginOwner(application, owner, callback)
+	const beforeOperation = behavior.beforeOperation
+	const observePreparedMutation = behavior.observePreparedMutation
+	const postCommit = behavior.postCommit
+	const requiresPreparedMutationItems = behavior.requiresPreparedMutationItems
+	const revalidateInput = behavior.revalidateInput
+	const transformDatabaseResult = behavior.transformDatabaseResult
+	const transformInput = behavior.transformInput
+	const transformMutationOutcome = behavior.transformMutationOutcome
+	const transformPreparedInput = behavior.transformPreparedInput
+	const transformPreparedOperation = behavior.transformPreparedOperation
+	const transformResult = behavior.transformResult
+
+	return immutableRecord({
+		...(beforeOperation === undefined
+			? {}
+			: { beforeOperation: (input) => run(() => beforeOperation(input)) }),
+		...(observePreparedMutation === undefined
+			? {}
+			: {
+					observePreparedMutation: (input) =>
+						run(() => observePreparedMutation(input)),
+				}),
+		...(postCommit === undefined
+			? {}
+			: { postCommit: (input) => run(() => postCommit(input)) }),
+		...(requiresPreparedMutationItems === undefined
+			? {}
+			: {
+					requiresPreparedMutationItems: (operation) =>
+						run(() => requiresPreparedMutationItems(operation)),
+				}),
+		...(revalidateInput === undefined
+			? {}
+			: { revalidateInput: (input) => run(() => revalidateInput(input)) }),
+		...(transformDatabaseResult === undefined
+			? {}
+			: {
+					transformDatabaseResult: (input) =>
+						run(() => transformDatabaseResult(input)),
+				}),
+		...(transformInput === undefined
+			? {}
+			: { transformInput: (input) => run(() => transformInput(input)) }),
+		...(transformMutationOutcome === undefined
+			? {}
+			: {
+					transformMutationOutcome: (input) =>
+						run(() => transformMutationOutcome(input)),
+				}),
+		...(transformPreparedInput === undefined
+			? {}
+			: {
+					transformPreparedInput: (input) =>
+						run(() => transformPreparedInput(input)),
+				}),
+		...(transformPreparedOperation === undefined
+			? {}
+			: {
+					transformPreparedOperation: (input) =>
+						run(() => transformPreparedOperation(input)),
+				}),
+		...(transformResult === undefined
+			? {}
+			: { transformResult: (input) => run(() => transformResult(input)) }),
+	})
+}
+
 /** Composes only installed behavior providers in deterministic graph order. */
 export const composeRuntimeBehaviors = (
 	application: FrameworkApplication<
@@ -30,7 +107,9 @@ export const composeRuntimeBehaviors = (
 	const behaviors = readApplicationCapabilityContributions(
 		application,
 		runtimeBehaviorCapability,
-	).map(({ value }) => value)
+	).map(({ owner, value }) =>
+		attributeRuntimeBehavior(application, owner, value),
+	)
 	const contributionBehavior = composeRuntimeContributionBehavior(application)
 
 	if (behaviors.length === 0 && contributionBehavior === undefined)

@@ -1,10 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
 import { Schema } from '../../schema/schema/definition.js'
-import {
-	createTrustedMasterRequestContext,
-	RequestContext,
-} from '../../runtime/context/request-context.js'
+import { RequestContext } from '../../runtime/context/request-context.js'
+import { createFixtureMasterContext } from '../../../tests/fixtures/master-context.js'
 import { RequestContextValue } from '../request/context-value.js'
 import {
 	RequestSubjectReference,
@@ -195,7 +193,7 @@ describe('resolveRequestPrincipal', () => {
 
 	it('passes master authority and plugin-owned values through unchanged', async () => {
 		const base = anonymous.withValue(principalValue, 'operator-id')
-		const master = createTrustedMasterRequestContext(
+		const master = createFixtureMasterContext(
 			'audit ACL repair',
 			'maintenance',
 			base,

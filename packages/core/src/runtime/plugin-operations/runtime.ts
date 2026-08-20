@@ -12,6 +12,7 @@ import type {
 	PluginDefinition,
 } from '../../foundation.js'
 import { readApplicationCapabilityContributions } from '../../plugins/application-capability-access.js'
+import { runWithApplicationPluginOwner } from '../../plugins/callback-execution.js'
 import type { CompiledPluginOperation } from '../../plugins/application-surface-registry.js'
 import { formatPluginIdentity } from '../../plugins/manifest.js'
 import type { PluginOperationDefinition } from '../../plugins/plugin-operations.js'
@@ -305,15 +306,20 @@ export class PluginOperationRuntime {
 		}
 		const target = resolveExecutionTarget(this.application, compiled, binding)
 		try {
-			const candidate = await owned.execute(
-				immutableRecord({
-					adapters: createRequestAdapterAccess(engine, owned.owner),
-					context: engine.context,
-					engine,
-					input: envelope.payload,
-					owner: owned.owner,
-					target,
-				}),
+			const candidate = await runWithApplicationPluginOwner(
+				this.application,
+				owned.owner,
+				() =>
+					owned.execute(
+						immutableRecord({
+							adapters: createRequestAdapterAccess(engine, owned.owner),
+							context: engine.context,
+							engine,
+							input: envelope.payload,
+							owner: owned.owner,
+							target,
+						}),
+					),
 			)
 			const result = compiled.operation.result.snapshot(
 				candidate,
@@ -366,7 +372,9 @@ export class PluginOperationRuntime {
 		if (codec === undefined) {
 			throw new TypeError('Operation transport codec is unavailable')
 		}
-		return codec.decode(value)
+		return runWithApplicationPluginOwner(this.application, binding.owner, () =>
+			codec.decode(value),
+		)
 	}
 
 	encode(binding: OwnedTransportBinding, value: unknown): Promise<unknown> {
@@ -374,6 +382,10 @@ export class PluginOperationRuntime {
 		if (codec === undefined) {
 			throw new TypeError('Operation transport codec is unavailable')
 		}
-		return Promise.resolve(codec.encode(value))
+		return Promise.resolve(
+			runWithApplicationPluginOwner(this.application, binding.owner, () =>
+				codec.encode(value),
+			),
+		)
 	}
 }

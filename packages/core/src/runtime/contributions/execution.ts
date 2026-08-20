@@ -1,6 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
 
 import { FrameworkError } from '../../foundation.js'
+import { runWithApplicationPluginOwner } from '../../plugins/callback-execution.js'
 import type { OperationKind } from '../../query/index.js'
 import {
 	immutableArray,
@@ -58,6 +59,8 @@ export const createRuntimeCallbackDescriptor = (
 export class RuntimeCallbackExecutor {
 	readonly #storage = new AsyncLocalStorage<RuntimeCallbackExecutionState>()
 
+	constructor(private readonly application: object = Object.freeze({})) {}
+
 	async invoke<TResult>(
 		descriptor: RuntimeCallbackDescriptor,
 		context: RequestContext,
@@ -89,9 +92,19 @@ export class RuntimeCallbackExecutor {
 			)
 		}
 
-		const result = await this.#storage.run(
-			{ stack: immutableArray([...stack, descriptor]) },
-			callback,
+		const result = await runWithApplicationPluginOwner(
+			this.application,
+			immutableRecord({
+				pluginId: descriptor.owner.pluginId,
+				...(descriptor.owner.instanceId === undefined
+					? {}
+					: { instanceId: descriptor.owner.instanceId }),
+			}),
+			() =>
+				this.#storage.run(
+					{ stack: immutableArray([...stack, descriptor]) },
+					callback,
+				),
 		)
 
 		if (cancellable) {
@@ -114,7 +127,7 @@ export const getApplicationRuntimeCallbackExecutor = (
 	const existing = executorsByApplication.get(application)
 	if (existing !== undefined) return existing
 
-	const executor = new RuntimeCallbackExecutor()
+	const executor = new RuntimeCallbackExecutor(application)
 	executorsByApplication.set(application, executor)
 	return executor
 }

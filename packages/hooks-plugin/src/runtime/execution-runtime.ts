@@ -9,6 +9,7 @@ import {
 	runOutsideRequestEngineScope,
 	runWithQueryExecutionGuard,
 	type PluginIdentity,
+	type ApplicationCallbackExecutor,
 	type RequestContext,
 } from '@ultimabase/core'
 import type { HookContext } from '../context/hook-context.js'
@@ -83,6 +84,13 @@ const isHookQueryAllowed = (descriptor: HookExecutionDescriptor): boolean =>
 	queryableHookPhases.has(descriptor.identity.phase)
 
 const emptyHookStack: readonly HookExecutionFrame[] = immutableArray([])
+const directCallbackExecutor: ApplicationCallbackExecutor = immutableRecord({
+	runApplication: <TResult>(callback: () => TResult): TResult => callback(),
+	runPlugin: <TResult>(
+		_owner: PluginIdentity,
+		callback: () => TResult,
+	): TResult => callback(),
+})
 const createExecutionCorrelation = (
 	request: RequestContext,
 ): HookExecutionContext =>
@@ -167,6 +175,7 @@ const createRecursionError = (
 
 /** Owns one application's immutable hook stack and safe diagnostic observer. */
 export class HookExecutionRuntime {
+	readonly #callbacks: ApplicationCallbackExecutor
 	readonly #eventHandlers: readonly OwnedHookEventHandler[]
 	readonly #observer: HookDiagnosticsObserver | undefined
 	readonly #storage = new AsyncLocalStorage<HookExecutionState>()
@@ -174,6 +183,7 @@ export class HookExecutionRuntime {
 	constructor(
 		observer: HookDiagnosticsObserver | undefined,
 		eventHandlers: readonly OwnedHookEventHandler[] = immutableArray([]),
+		callbacks: ApplicationCallbackExecutor = directCallbackExecutor,
 	) {
 		if (observer !== undefined && typeof observer !== 'function') {
 			throw new TypeError('Hook diagnostics observer must be a function')
@@ -181,6 +191,7 @@ export class HookExecutionRuntime {
 
 		this.#eventHandlers = immutableArray(eventHandlers)
 		this.#observer = observer
+		this.#callbacks = callbacks
 		Object.freeze(this)
 	}
 
@@ -238,9 +249,21 @@ export class HookExecutionRuntime {
 				let outcome: HookInvocationOutcome<TResult>
 
 				try {
+					const execute = () => callback(contextScope.context)
+					const owner = descriptor.identity.owner
 					outcome = immutableRecord({
 						status: 'fulfilled' as const,
-						value: await callback(contextScope.context),
+						value: await (owner.kind === 'application'
+							? this.#callbacks.runApplication(execute)
+							: this.#callbacks.runPlugin(
+									immutableRecord({
+										pluginId: owner.pluginName,
+										...(owner.pluginInstanceId === undefined
+											? {}
+											: { instanceId: owner.pluginInstanceId }),
+									}),
+									execute,
+								)),
 					})
 				} catch (error: unknown) {
 					outcome = immutableRecord({ error, status: 'rejected' as const })

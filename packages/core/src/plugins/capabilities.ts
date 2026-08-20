@@ -7,12 +7,12 @@ import {
 	type MaybePromise,
 } from '@ultimabase/shared'
 import { satisfies, valid, validRange } from 'semver'
-
 import {
 	snapshotJsonValue,
 	type JsonValue,
 } from '../schema/fields/builtins/json.js'
 import type { CompiledSchemaRegistry } from '../schema/index.js'
+import type { ApplicationCallbackExecutor } from './callback-execution.js'
 import type { DatabaseConstraintCompilerReader } from './constraint-compilers.js'
 import type {
 	PluginCapabilityDeclarationOptions,
@@ -356,11 +356,12 @@ export interface CapabilityProviderContribution<
 	readonly pluginVersion: string
 	readonly value: CapabilityProviderValue<TToken>
 }
-
 /** Supplies an application provider with owner-bound declared capability reads. */
 export interface ApplicationCapabilityFactoryContext {
 	/** Identifies the exact plugin instance whose provider is materializing. */
 	readonly owner: PluginIdentity
+	/** Reattributes nested application or plugin callbacks for Core-owned privilege checks. */
+	readonly callbacks: ApplicationCallbackExecutor
 	/** Verifies one requested active privilege before the provider performs its effect. */
 	readonly assertPrivilege: (privilege: PluginPrivilege) => void
 	readonly capabilities: PluginCapabilityReader<'materialization'>
@@ -369,7 +370,6 @@ export interface ApplicationCapabilityFactoryContext {
 	/** Reads the complete compiled application schema graph without mutating it. */
 	readonly schemas: CompiledSchemaRegistry
 }
-
 /** Creates one application-local provider without exposing it in static metadata. */
 export type ApplicationCapabilityFactory<TProvider> = (
 	context: ApplicationCapabilityFactoryContext,

@@ -14,11 +14,8 @@ import {
 } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 
-import {
-	createTrustedMasterRequestContext,
-	RequestContext,
-	requestSources,
-} from '../context/request-context.js'
+import { RequestContext, requestSources } from '../context/request-context.js'
+import { createFixtureMasterContext } from '../../../tests/fixtures/master-context.js'
 import type {
 	DatabaseAdapter,
 	DatabaseAdapterCapabilities,
@@ -397,7 +394,7 @@ describe('RuntimePipeline', () => {
 		const trace: string[] = []
 		const executor = new TraceDatabaseExecutor(trace, [])
 		const pipeline = new RuntimePipeline(createStages(trace, executor))
-		const masterContext = createTrustedMasterRequestContext(
+		const masterContext = createFixtureMasterContext(
 			'audited maintenance',
 			'maintenance',
 			RequestContext.anonymous({

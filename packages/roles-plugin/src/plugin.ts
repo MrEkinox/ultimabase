@@ -395,6 +395,10 @@ export type RolesPlugin = FrameworkPlugin<
 	'^0.0.0',
 	readonly [
 		Readonly<{
+			readonly name: 'authority:elevate'
+			readonly reason: 'Resolves and maintains persisted role membership through audited internal Master queries.'
+		}>,
+		Readonly<{
 			readonly name: 'runtime:intercept'
 			readonly reason: 'Maintains role invariants through generic Runtime behavior.'
 		}>,
@@ -435,6 +439,11 @@ export type RolesPlugin = FrameworkPlugin<
 export const rolesPlugin = (): RolesPlugin =>
 	rolesPluginModule.plugin({
 		privileges: [
+			{
+				name: 'authority:elevate',
+				reason:
+					'Resolves and maintains persisted role membership through audited internal Master queries.',
+			},
 			{
 				name: 'runtime:intercept',
 				reason: 'Maintains role invariants through generic Runtime behavior.',

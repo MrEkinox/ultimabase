@@ -416,6 +416,165 @@ describe('createFrameworkEngine', () => {
 		await application.dispose()
 	})
 
+	it('checks authority:elevate on the exact Runtime callback owner before audit or adapter effects', async () => {
+		const createElevationPlugin = (
+			pluginId: string,
+			withPrivilege: boolean,
+			requestElevation: boolean,
+		) =>
+			definePlugin({
+				core: '^0.0.0',
+				pluginId,
+				version: '0.0.0',
+				privileges: [
+					{
+						name: 'runtime:intercept',
+						reason: 'Exercises attributed Runtime callbacks.',
+					},
+					...(withPrivilege
+						? [
+								{
+									name: 'authority:elevate' as const,
+									reason: 'Exercises audited nested Master elevation.',
+								},
+							]
+						: []),
+				],
+				capabilities: {
+					provides: [
+						provideTestRuntimeInterceptor(
+							'nested-master-query',
+							beforeOperation({
+								handler: async () => {
+									await articleSchema.count(
+										{},
+										requestElevation ? { useMasterKey: true } : undefined,
+									)
+								},
+								operations: ['find-many'],
+								schema: articleSchema,
+							}),
+						),
+					],
+				},
+			})
+		const deniedAudits: unknown[] = []
+		const deniedAdapter = new RecordingDatabaseAdapter([], [])
+		const deniedAuthority = new MasterAuthority({
+			keys: [{ id: 'denied', value: 'denied-secret' }],
+			onUse: (event) => {
+				deniedAudits.push(event)
+			},
+		})
+		const deniedApplication = await createApplication({
+			plugins: [
+				createElevationPlugin('fixture.runtime-elevation-denied', false, true),
+				databasePlugin(deniedAdapter),
+			],
+			schemas: [articleSchema],
+		})
+		const deniedFramework = createFrameworkEngine(deniedApplication, {
+			masterAuthority: deniedAuthority,
+		})
+		const deniedRequest = deniedFramework.anonymous({
+			requestId: 'runtime-elevation-denied',
+			source: 'internal',
+		})
+
+		await expect(
+			runWithRequestEngine(deniedRequest, () => articleSchema.findMany()),
+		).rejects.toMatchObject({
+			code: 'PLUGIN_PRIVILEGE_DENIED',
+			internalDetails: {
+				plugin: 'fixture.runtime-elevation-denied',
+				privilege: 'authority:elevate',
+			},
+		})
+		expect(deniedAudits).toStrictEqual([])
+		expect(deniedAdapter.rootRequests).toStrictEqual([])
+		await deniedApplication.dispose()
+
+		const allowedAudits: unknown[] = []
+		const allowedAdapter = new RecordingDatabaseAdapter(
+			[
+				{ status: 'fulfilled', value: 0 },
+				{ status: 'fulfilled', value: [] },
+			],
+			[],
+		)
+		const allowedAuthority = new MasterAuthority({
+			keys: [{ id: 'allowed', value: 'allowed-secret' }],
+			onUse: (event) => {
+				allowedAudits.push(event)
+			},
+		})
+		const allowedApplication = await createApplication({
+			plugins: [
+				createElevationPlugin('fixture.runtime-elevation-allowed', true, true),
+				databasePlugin(allowedAdapter),
+			],
+			schemas: [articleSchema],
+		})
+		const allowedFramework = createFrameworkEngine(allowedApplication, {
+			masterAuthority: allowedAuthority,
+		})
+		const allowedRequest = allowedFramework.anonymous({
+			requestId: 'runtime-elevation-allowed',
+			source: 'internal',
+		})
+
+		await expect(
+			runWithRequestEngine(allowedRequest, () => articleSchema.findMany()),
+		).resolves.toStrictEqual([])
+		expect(allowedAudits).toHaveLength(1)
+		expect(allowedAdapter.rootRequests).toHaveLength(2)
+		await allowedApplication.dispose()
+
+		const inheritedAudits: unknown[] = []
+		const inheritedAdapter = new RecordingDatabaseAdapter(
+			[
+				{ status: 'fulfilled', value: 0 },
+				{ status: 'fulfilled', value: [] },
+			],
+			[],
+		)
+		const inheritedAuthority = new MasterAuthority({
+			keys: [{ id: 'inherited', value: 'inherited-secret' }],
+			onUse: (event) => {
+				inheritedAudits.push(event)
+			},
+		})
+		const inheritedApplication = await createApplication({
+			plugins: [
+				createElevationPlugin(
+					'fixture.runtime-master-inheritance',
+					false,
+					false,
+				),
+				databasePlugin(inheritedAdapter),
+			],
+			schemas: [articleSchema],
+		})
+		const inheritedFramework = createFrameworkEngine(inheritedApplication, {
+			masterAuthority: inheritedAuthority,
+		})
+		const anonymous = inheritedFramework.anonymous({
+			requestId: 'runtime-master-inheritance',
+			source: 'internal',
+		})
+		const master = await anonymous.useMasterKey(
+			inheritedFramework.authorizeMasterKey('inherited-secret'),
+			'caller selected Master before Runtime callback',
+		)
+
+		await expect(
+			runWithRequestEngine(master, () => articleSchema.findMany()),
+		).resolves.toStrictEqual([])
+		expect(inheritedAudits).toHaveLength(1)
+		expect(inheritedAdapter.rootRequests).toHaveLength(2)
+		await inheritedApplication.dispose()
+	})
+
 	it('rejects missing, malformed, and conflicting plugin assembly eagerly', async () => {
 		const missingAdapterApplication = await createApplication({
 			schemas: [articleSchema],

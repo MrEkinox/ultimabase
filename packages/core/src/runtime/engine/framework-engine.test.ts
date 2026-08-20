@@ -1,5 +1,8 @@
 import { FrameworkApplication, FrameworkError } from '../../foundation.js'
-import { RequestContextValue } from '../../access/index.js'
+import {
+	RequestContextValue,
+	type MasterRequestAccess,
+} from '../../access/index.js'
 import {
 	QueryBuilder,
 	type CreateOneOperationAst,
@@ -8,7 +11,11 @@ import {
 import { Schema } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
-import { RequestContext, requestSources } from '../context/request-context.js'
+import {
+	RequestContext,
+	requestSources,
+	type RequestContextOptions,
+} from '../context/request-context.js'
 import type {
 	DatabaseAdapter,
 	DatabaseMutationOperationAst,
@@ -20,7 +27,10 @@ import type {
 	PreparedDatabaseOperation,
 } from '../database/contracts.js'
 import { databasePersistencePlanCapability } from '../database/contracts.js'
-import { MasterAuthority } from '../master/master-authority.js'
+import {
+	elevateMasterRequest,
+	MasterAuthority,
+} from '../master/master-authority.js'
 import type { RuntimePipelineStages } from '../pipeline/contracts.js'
 import { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
 import { FrameworkEngine, RequestEngine } from './framework-engine.js'
@@ -441,6 +451,116 @@ describe('FrameworkEngine', () => {
 		await expect(
 			request.useMasterKey({ keyId: 'second' } as never, 'forged grant'),
 		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
+	})
+
+	it('rejects every master context not issued by its exact application authority', async () => {
+		const configuredAuthority = new MasterAuthority({
+			keys: [{ id: 'configured', value: 'configured-secret' }],
+			onUse: () => undefined,
+		})
+		const foreignAuthority = new MasterAuthority({
+			keys: [{ id: 'foreign', value: 'foreign-secret' }],
+			onUse: () => undefined,
+		})
+		const configured = createFixtureFramework(
+			articleSchema,
+			[],
+			[],
+			configuredAuthority,
+		)
+		const source = RequestContext.anonymous({
+			requestId: 'foreign-authority-context',
+			source: requestSources.internal,
+		})
+		configured.withContext(source)
+		const foreignMaster = await elevateMasterRequest(
+			foreignAuthority,
+			foreignAuthority.authorize('foreign-secret'),
+			source,
+			'foreign authority fixture',
+			configured.application,
+		)
+		const ContextConstructor = RequestContext as unknown as new (
+			access: MasterRequestAccess,
+			options: RequestContextOptions,
+		) => RequestContext<MasterRequestAccess>
+		const structuralLookalike = new ContextConstructor(
+			{
+				keyId: 'configured',
+				mode: 'master',
+				reason: 'structural lookalike',
+			},
+			{
+				requestId: 'structural-master-context',
+				source: requestSources.internal,
+			},
+		)
+
+		for (const context of [foreignMaster, structuralLookalike]) {
+			expect(() => configured.withContext(context)).toThrow(
+				expect.objectContaining({
+					code: 'PERMISSION_DENIED',
+					internalDetails: {
+						reason: 'master-context-provenance-mismatch',
+					},
+				}),
+			)
+		}
+	})
+
+	it('isolates master provenance between applications sharing one authority', async () => {
+		const audits: unknown[] = []
+		const sharedAuthority = new MasterAuthority({
+			keys: [{ id: 'shared', value: 'shared-secret' }],
+			onUse: (event) => {
+				audits.push(event)
+			},
+		})
+		const firstContexts: RequestContext[] = []
+		const first = createFixtureFramework(
+			articleSchema,
+			[],
+			firstContexts,
+			sharedAuthority,
+		)
+		const second = createFixtureFramework(
+			articleSchema,
+			[],
+			[],
+			sharedAuthority,
+		)
+		const firstAnonymous = first.anonymous({
+			requestId: 'first-shared-authority',
+			source: requestSources.internal,
+		})
+		const secondAnonymous = second.anonymous({
+			requestId: 'second-shared-authority',
+			source: requestSources.internal,
+		})
+		const firstMaster = await firstAnonymous.useMasterKey(
+			first.authorizeMasterKey('shared-secret'),
+			'first application elevation',
+		)
+		const secondMaster = await secondAnonymous.useMasterKey(
+			second.authorizeMasterKey('shared-secret'),
+			'second application elevation',
+		)
+		const inheritedForeign = secondMaster.context.withValue(
+			principalValue,
+			'second-operator',
+		)
+
+		expect(() => first.withContext(secondMaster.context)).toThrow(
+			expect.objectContaining({ code: 'PERMISSION_DENIED' }),
+		)
+		expect(() => first.withContext(inheritedForeign)).toThrow(
+			expect.objectContaining({ code: 'PERMISSION_DENIED' }),
+		)
+		const rebound = first.withContext(firstMaster.context)
+		await rebound.execute(articleOperation)
+
+		expect(audits).toHaveLength(2)
+		expect(firstContexts).toStrictEqual([firstMaster.context])
 	})
 
 	it.concurrent(

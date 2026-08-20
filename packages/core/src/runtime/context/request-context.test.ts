@@ -2,11 +2,8 @@ import { RequestCapability, RequestContextValue } from '../../access/index.js'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 
-import {
-	createTrustedMasterRequestContext,
-	RequestContext,
-	requestSources,
-} from './request-context.js'
+import { RequestContext, requestSources } from './request-context.js'
+import { createFixtureMasterContext } from '../../../tests/fixtures/master-context.js'
 
 interface FixturePrincipal {
 	readonly id: string
@@ -141,7 +138,7 @@ describe('RequestContext', () => {
 			requestId: 'request-master',
 			source: requestSources.internal,
 		}).withValue(principalValue, { id: 'operator-1' })
-		const context = createTrustedMasterRequestContext(
+		const context = createFixtureMasterContext(
 			'repair tenant data',
 			'maintenance',
 			anonymous,
@@ -256,10 +253,10 @@ describe('RequestContext', () => {
 		})
 
 		expect(() =>
-			createTrustedMasterRequestContext('', 'maintenance', anonymous),
+			createFixtureMasterContext('', 'maintenance', anonymous),
 		).toThrow(new TypeError('Master access reason must be a non-empty string'))
 		expect(() =>
-			createTrustedMasterRequestContext('repair tenant data', '', anonymous),
+			createFixtureMasterContext('repair tenant data', '', anonymous),
 		).toThrow(new TypeError('Master access keyId must be a non-empty string'))
 	})
 })

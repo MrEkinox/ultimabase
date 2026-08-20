@@ -32,6 +32,13 @@ types, selectors, and capability contracts from this package. Independent
 behavior engines should own their vocabulary and use Core's generic Runtime
 behavior capability directly.
 
+The engine retains callback ownership through execution: inline schema Hooks
+run as application callbacks, while capability-contributed Hooks run under the
+exact contributing plugin instance. Nested queries inherit caller-selected
+Master authority, but a contributed Hook that initiates a fresh Master
+elevation must request `authority:elevate`; the Hooks plugin never lends its own
+privileges to that provider.
+
 JavaScript uses the same compiled graph and does not require Typegen. Omitting
 the plugin means ordinary CRUD has no official Hooks lifecycle:
 

@@ -18,6 +18,7 @@ import {
 	readApplicationCapability,
 	readApplicationCapabilityContributions,
 } from '../../plugins/application-capability-access.js'
+import { runWithApplicationPluginOwner } from '../../plugins/callback-execution.js'
 import { FrameworkEngine } from '../engine/framework-engine.js'
 import { createEnforcementStages } from '../enforcement/dispatcher.js'
 import type {
@@ -205,10 +206,18 @@ const collectRuntimePipelineStages = (
 
 		switch (implementation.stage) {
 			case 'normalization':
-				normalization.push(implementation.handler)
+				normalization.push((input) =>
+					runWithApplicationPluginOwner(application, contribution.owner, () =>
+						implementation.handler(input),
+					),
+				)
 				break
 			case 'commit':
-				commit.push(implementation.handler)
+				commit.push((input) =>
+					runWithApplicationPluginOwner(application, contribution.owner, () =>
+						implementation.handler(input),
+					),
+				)
 				break
 		}
 	}
@@ -297,16 +306,27 @@ export const createFrameworkEngine = <
 		...(enforcement === undefined ? {} : { enforcement }),
 		...(persistencePlanRewrite === undefined ? {} : { persistencePlanRewrite }),
 	}
-	const runtimeFactory = readApplicationCapability(
+	const runtimeContribution = readApplicationCapabilityContributions(
 		application,
 		runtimeExecutorCapability,
-	)
-	if (typeof runtimeFactory !== 'function') {
+	)[0]
+	const runtimeFactory = runtimeContribution?.value
+	if (
+		runtimeContribution === undefined ||
+		typeof runtimeFactory !== 'function'
+	) {
 		throw new TypeError(
 			'runtimeExecutorCapability must resolve to a Runtime executor factory',
 		)
 	}
-	const pipeline: unknown = runtimeFactory(stages)
+	const pipeline: unknown =
+		runtimeContribution.owner.pluginId === '@ultimabase/core'
+			? runtimeFactory(stages)
+			: runWithApplicationPluginOwner(
+					application,
+					runtimeContribution.owner,
+					() => runtimeFactory(stages),
+				)
 	if (!(pipeline instanceof RuntimePipeline)) {
 		throw new TypeError(
 			'Runtime executor factory must return a RuntimePipeline instance',

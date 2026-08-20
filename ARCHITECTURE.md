@@ -313,6 +313,14 @@ contributions, not native schema Hooks. Their inputs use immutable
 cancellation and recursion boundary; concrete plugins may add stricter
 lifecycle contexts internally.
 
+Core also owns application-bound callback attribution. Direct setup, lifecycle,
+capability, Runtime, persistence, transport-codec, and operation callbacks run
+under their exact plugin instance. A vertical engine uses the same public
+executor to replace its outer ownership with `application` for inline
+declarations or with the exact contributing plugin for provider callbacks.
+This attribution drives Core privilege checks such as `authority:elevate`; it
+is not a sandbox or a transferable authority token.
+
 Logical operations remain distinct from physical persistence plans. An
 authorized rewriter may change the physical statement, while protected
 constraints stay outside the replaceable plan and business behavior continues

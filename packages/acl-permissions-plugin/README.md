@@ -10,6 +10,11 @@ contributes generic Core protected policies and adapter constraints that
 compile into database filtering rather than post-filtering in memory. It has no
 dependency or peer relationship with `@ultimabase/access-plugin`.
 
+The official provider declares `authority:elevate` only for its persisted ACL
+reference-maintenance queries. Ordinary policy evaluation does not elevate,
+and neither a subject resolver nor another policy plugin inherits this
+privilege through ACL.
+
 PostgreSQL stores the ACL as non-null indexed JSONB on the protected row through
 the field's portable versioned codec. Object and ACL writes are therefore one
 atomic row mutation with no generated ACL table. Logical role names resolve to

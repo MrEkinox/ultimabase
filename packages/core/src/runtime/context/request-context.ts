@@ -85,6 +85,16 @@ const requestContextValues = new WeakMap<
 	StoredRequestContextValues
 >()
 const requestContextOwners = new WeakMap<RequestContext, object>()
+const masterRequestContextProvenance = new WeakMap<
+	RequestContext,
+	MasterRequestContextProvenance
+>()
+
+/** Identifies the exact Core-owned issuer without exposing it on request state. */
+export interface MasterRequestContextProvenance {
+	readonly application: object
+	readonly authority: object
+}
 
 /** Keeps application ownership private while derived contexts retain isolation. */
 const inheritRequestContextOwner = (
@@ -96,6 +106,11 @@ const inheritRequestContextOwner = (
 	if (owner !== undefined) {
 		requestContextOwners.set(target, owner)
 	}
+
+	const provenance = masterRequestContextProvenance.get(source)
+	if (provenance !== undefined) {
+		masterRequestContextProvenance.set(target, provenance)
+	}
 }
 
 type TrustedMasterContextFactory = <
@@ -105,6 +120,7 @@ type TrustedMasterContextFactory = <
 	reason: string,
 	keyId: string,
 	context: RequestContext<TAccess, TSource>,
+	provenance: MasterRequestContextProvenance,
 ) => RequestContext<MasterRequestAccess, TSource>
 
 let trustedMasterContextFactory: TrustedMasterContextFactory
@@ -329,7 +345,14 @@ export class RequestContext<
 			reason: string,
 			keyId: string,
 			context: RequestContext<TAccess, TSource>,
+			provenance: MasterRequestContextProvenance,
 		): RequestContext<MasterRequestAccess, TSource> => {
+			if (requestContextOwners.get(context) !== provenance.application) {
+				throw new TypeError(
+					'Master request context requires an application-owned source context',
+				)
+			}
+
 			const master = new RequestContext(
 				createMasterAccess(reason, keyId),
 				{
@@ -343,6 +366,7 @@ export class RequestContext<
 			)
 
 			inheritRequestContextOwner(context, master)
+			masterRequestContextProvenance.set(master, provenance)
 
 			return master
 		}
@@ -353,6 +377,12 @@ export class RequestContext<
 export const getRequestContextOwner = (
 	context: RequestContext,
 ): object | undefined => requestContextOwners.get(context)
+
+/** @internal Reads the opaque issuer attached only by Core's Master shell. */
+export const getMasterRequestContextProvenance = (
+	context: RequestContext,
+): MasterRequestContextProvenance | undefined =>
+	masterRequestContextProvenance.get(context)
 
 /** @internal Claims an unbound context after Runtime validates exact ownership. */
 export const setRequestContextOwner = (
@@ -377,5 +407,6 @@ export const createTrustedMasterRequestContext = <
 	reason: string,
 	keyId: string,
 	context: RequestContext<TAccess, TSource>,
+	provenance: MasterRequestContextProvenance,
 ): RequestContext<MasterRequestAccess, TSource> =>
-	trustedMasterContextFactory(reason, keyId, context)
+	trustedMasterContextFactory(reason, keyId, context, provenance)

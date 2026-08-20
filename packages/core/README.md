@@ -886,6 +886,15 @@ the first configured key ID labels trusted operation elevations. Contexts and
 authority flags never enter Query or Operation ASTs, and transports must not
 map client input into these server-only options.
 
+Only the application execution shell creates Master contexts. A
+`MasterAuthority` verifies credentials and returns opaque grants, but it has no
+public context-minting method. An explicit Master context is accepted only by
+the exact application and authority that issued it; contexts from another
+application remain invalid even when both applications share one authority
+object. A plugin callback initiating a new elevation must declare the exact
+critical `authority:elevate` privilege. Inheriting a Master context already
+selected by trusted server code does not create another elevation or audit.
+
 ## Automatic mutation transactions
 
 Every root create, update, upsert, and delete operation automatically uses the
@@ -1410,6 +1419,16 @@ must reference the same optional requirement object listed by its manifest.
 Every application capability factory also receives its Core-bound `owner` and
 an `assertPrivilege(...)` function for exact effect-time checks; neither value
 can grant a privilege missing from the plugin's active manifest.
+
+Factories also receive `callbacks`, an application-bound execution-attribution
+helper for vertical engines that host callbacks from several owners. Use
+`callbacks.runApplication(callback)` for an inline application declaration and
+`callbacks.runPlugin(owner, callback)` for a capability contribution retaining
+its exact plugin and optional instance identity. The helper preserves exact
+sync or async result types, validates plugin ownership against the application,
+and exposes no application, authority, credential, or Runtime service. Nested
+attribution replaces the outer engine owner; it never lends the host plugin's
+privileges to a contributor.
 
 When a plugin only requires another plugin's compatible public protocol, use a
 non-ordering peer instead of a dependency:

@@ -1,5 +1,8 @@
-import { FrameworkError } from '@ultimabase/core'
-import { immutableRecord } from '@ultimabase/shared'
+import {
+	FrameworkError,
+	type ApplicationCallbackExecutor,
+} from '@ultimabase/core'
+import { immutableArray, immutableRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 import { setTimeout as delay } from 'node:timers/promises'
 
@@ -14,6 +17,7 @@ import type { HookExecutionDescriptor } from './execution-descriptor.js'
 import {
 	applicationHookOwner,
 	createHookExecutionDescriptor,
+	createPluginHookOwner,
 } from './execution-descriptor.js'
 import { HookExecutionRuntime } from './execution-runtime.js'
 
@@ -49,6 +53,56 @@ const requireHandlerEntry = (
 }
 
 describe('HookExecutionRuntime', () => {
+	it('reattributes application and contributed plugin handlers exactly', async () => {
+		const trace: string[] = []
+		const callbacks: ApplicationCallbackExecutor = {
+			runApplication: (callback) => {
+				trace.push('owner:application')
+				return callback()
+			},
+			runPlugin: (owner, callback) => {
+				trace.push(`owner:${owner.pluginId}:${owner.instanceId ?? 'default'}`)
+				return callback()
+			},
+		}
+		const runtime = new HookExecutionRuntime(
+			undefined,
+			immutableArray([]),
+			callbacks,
+		)
+		const application = createDescriptor('beforeCreate', 'Article')
+		const plugin = createHookExecutionDescriptor({
+			handler: () => undefined,
+			handlerIndex: 0,
+			operationKind: 'create-one',
+			owner: createPluginHookOwner(
+				'fixture.hook-provider',
+				'audit-hook',
+				'worker',
+			),
+			phase: 'beforeCreate',
+			target: immutableRecord({
+				className: 'Article',
+				kind: 'schema' as const,
+			}),
+		})
+
+		await runtime.invoke(application, request, async () => {
+			await Promise.resolve()
+			trace.push('callback:application')
+		})
+		await runtime.invoke(plugin, request, () => {
+			trace.push('callback:plugin')
+		})
+
+		expect(trace).toStrictEqual([
+			'owner:application',
+			'callback:application',
+			'owner:fixture.hook-provider:worker',
+			'callback:plugin',
+		])
+	})
+
 	it('rejects direct and indirect active-hook recursion with a safe stack', async () => {
 		const runtime = new HookExecutionRuntime(undefined)
 		const first = createDescriptor('beforeCreate', 'Article')

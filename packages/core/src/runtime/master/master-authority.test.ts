@@ -3,12 +3,14 @@ import { RequestContextValue } from '../../access/index.js'
 import { describe, expect, it } from 'vitest'
 
 import {
-	createTrustedMasterRequestContext,
 	RequestContext,
 	requestSources,
+	setRequestContextOwner,
 } from '../context/request-context.js'
 import {
+	elevateMasterRequest,
 	MasterAuthority,
+	type MasterKeyGrant,
 	type MasterAuthorityOptions,
 } from './master-authority.js'
 
@@ -35,6 +37,17 @@ const createAuthority = (
 		onUse: () => undefined,
 		...overrides,
 	})
+
+const elevate = (
+	authority: MasterAuthority,
+	grant: MasterKeyGrant,
+	context: RequestContext,
+	reason: string,
+): Promise<RequestContext> => {
+	const application = Object.freeze({ name: 'fixture-application' })
+	setRequestContextOwner(context, application)
+	return elevateMasterRequest(authority, grant, context, reason, application)
+}
 
 describe('MasterAuthority', () => {
 	it('turns matching raw keys into immutable authority-owned grants', () => {
@@ -65,7 +78,8 @@ describe('MasterAuthority', () => {
 			source: requestSources.internal,
 		})
 
-		await authority.elevate(
+		await elevate(
+			authority,
 			authority.authorize('clock-secret'),
 			context,
 			'test default clock',
@@ -88,7 +102,7 @@ describe('MasterAuthority', () => {
 			source: requestSources.job,
 		}).withValue(principalValue, 'operator-1')
 		const grant = authority.authorize('primary-secret')
-		const master = await authority.elevate(grant, context, 'repair indexes')
+		const master = await elevate(authority, grant, context, 'repair indexes')
 
 		expect(master.access).toStrictEqual({
 			keyId: 'primary',
@@ -124,27 +138,24 @@ describe('MasterAuthority', () => {
 		})
 
 		await expect(
-			authority.elevate(
+			elevate(
+				authority,
 				foreignAuthority.authorize('primary-secret'),
 				context,
 				'forged use',
 			),
 		).rejects.toBeInstanceOf(FrameworkError)
 		await expect(
-			authority.elevate({ keyId: 'primary' } as never, context, 'forged use'),
+			elevate(authority, { keyId: 'primary' } as never, context, 'forged use'),
 		).rejects.toBeInstanceOf(FrameworkError)
 		expect(auditCalls).toBe(0)
 	})
 
 	it('requires audit success, a reason, and a valid operation clock', async () => {
-		const context = createTrustedMasterRequestContext(
-			'existing authority',
-			'primary',
-			RequestContext.anonymous({
-				requestId: 'master-request-3',
-				source: requestSources.internal,
-			}),
-		)
+		const context = RequestContext.anonymous({
+			requestId: 'master-request-3',
+			source: requestSources.internal,
+		})
 		const auditError = new Error('audit unavailable')
 		const failingAuthority = createAuthority({
 			onUse: () => {
@@ -156,14 +167,16 @@ describe('MasterAuthority', () => {
 		})
 
 		await expect(
-			failingAuthority.elevate(
+			elevate(
+				failingAuthority,
 				failingAuthority.authorize('primary-secret'),
 				context,
 				'audited use',
 			),
 		).rejects.toBe(auditError)
 		await expect(
-			failingAuthority.elevate(
+			elevate(
+				failingAuthority,
 				failingAuthority.authorize('primary-secret'),
 				context,
 				'',
@@ -172,7 +185,8 @@ describe('MasterAuthority', () => {
 			new TypeError('Master access reason must be a non-empty string'),
 		)
 		await expect(
-			invalidClockAuthority.elevate(
+			elevate(
+				invalidClockAuthority,
 				invalidClockAuthority.authorize('primary-secret'),
 				context,
 				'timed use',

@@ -116,7 +116,7 @@ export const accessPlugin = (
 	const defaults = normalizeDefaults(options)
 	const runtimeProvider = provideRuntimeConstraint({
 		contributionId: 'official-access-runtime',
-		create: ({ capabilities, schemas }) => {
+		create: ({ callbacks, capabilities, schemas }) => {
 			const contributions: OwnedAccessContribution[] = capabilities
 				.contributions(optionalAccessContributions)
 				.flatMap(({ contributionId, owner, pluginVersion, value }) =>
@@ -132,6 +132,7 @@ export const accessPlugin = (
 			const runtime = new AccessRuntime(
 				compileAccessPlan(schemas, defaults, contributions),
 				capabilities.get(optionalAccessDiagnostics),
+				callbacks,
 			)
 
 			return {

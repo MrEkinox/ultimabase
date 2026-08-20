@@ -7,6 +7,11 @@ parallel role repository. Applications keep control of custom fields, indexes,
 optional official Access and Hooks, adapter extensions, and trusted server
 queries.
 
+The official plugin declares `authority:elevate` because persisted membership,
+hierarchy, and deletion maintenance initiate audited internal Master queries.
+Caller-selected Master execution is merely inherited; no dependency, peer, or
+policy consumer receives this privilege from Roles.
+
 ```ts
 import { Schema, UltimaBase } from '@ultimabase/core'
 import { accessPlugin } from '@ultimabase/access-plugin'

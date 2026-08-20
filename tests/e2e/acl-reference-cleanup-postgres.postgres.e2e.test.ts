@@ -186,6 +186,10 @@ const principalOwnerPlugin = definePlugin({
 	pluginId: 'fixture.acl-principal-owner',
 	privileges: [
 		{
+			name: 'authority:elevate',
+			reason: 'Executes ACL reference cleanup as trusted server-side work.',
+		},
+		{
 			name: 'runtime:intercept',
 			reason: 'Enforces principal reference deletion policies in schema hooks.',
 		},

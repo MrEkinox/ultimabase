@@ -44,7 +44,7 @@ const optionalHookDiagnostics = optionalCapability(
 
 const hooksRuntimeProvider = provideRuntimeBehavior({
 	contributionId: 'official-hooks-runtime',
-	create: ({ capabilities, schemas }) => {
+	create: ({ callbacks, capabilities, schemas }) => {
 		const contributions = capabilities
 			.contributions(optionalHookContributions)
 			.flatMap(({ contributionId, owner, pluginVersion, value }) =>
@@ -80,6 +80,7 @@ const hooksRuntimeProvider = provideRuntimeBehavior({
 		const runtime = new HookExecutionRuntime(
 			observer,
 			immutableArray(eventHandlers),
+			callbacks,
 		)
 
 		return immutableRecord({ value: createHookBehavior(plan, runtime) })

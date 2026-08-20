@@ -191,6 +191,7 @@ export class FrameworkApplication<
 			graph,
 			this.schemas,
 			setupRegistries.getConstraintCompilerReader(),
+			this,
 		)
 		this.#capabilityHost = capabilityHost
 		capabilityHostReference.current = capabilityHost
@@ -202,6 +203,7 @@ export class FrameworkApplication<
 			graph,
 			this.#setupRegistries,
 			capabilityHost,
+			this,
 		)
 
 		// Public application identity is stable while private lifecycle state may advance.

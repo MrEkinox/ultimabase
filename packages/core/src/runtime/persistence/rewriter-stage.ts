@@ -5,6 +5,7 @@ import type {
 } from '../../foundation.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import { readApplicationCapabilityContributions } from '../../plugins/application-capability-access.js'
+import { runWithApplicationPluginOwner } from '../../plugins/callback-execution.js'
 import { formatPluginIdentity } from '../../plugins/manifest.js'
 import {
 	getPersistencePlanRewriteHandler,
@@ -63,10 +64,15 @@ export const createPersistencePlanRewriteStage = (
 			}
 
 			try {
-				const candidate: unknown = await contribution.handler({
-					logicalOperation: input.logicalOperation,
-					plan,
-				})
+				const candidate: unknown = await runWithApplicationPluginOwner(
+					application,
+					contribution.owner,
+					() =>
+						contribution.handler({
+							logicalOperation: input.logicalOperation,
+							plan,
+						}),
+				)
 				plan = acceptDatabasePersistenceRewrite(
 					input.logicalOperation,
 					plan,

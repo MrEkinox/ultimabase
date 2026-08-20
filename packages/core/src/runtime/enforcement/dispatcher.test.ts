@@ -14,11 +14,8 @@ import { immutableArray, immutableRecord } from '@ultimabase/shared'
 import { describe, expect, it, vi } from 'vitest'
 import { createTestRuntimeConstraints } from '../../../tests/runtime/fixtures/runtime-capabilities.js'
 
-import {
-	RequestContext,
-	createTrustedMasterRequestContext,
-	requestSources,
-} from '../context/request-context.js'
+import { RequestContext, requestSources } from '../context/request-context.js'
+import { createFixtureMasterContext } from '../../../tests/fixtures/master-context.js'
 import type { RuntimeEnforcementStages } from '../pipeline/contracts.js'
 import {
 	readRuntimeSchemaModelMetadata,
@@ -136,7 +133,7 @@ describe('createEnforcementStages', () => {
 		const stages = requireEnforcementStages(
 			createEnforcementStages(application),
 		)
-		const master = createTrustedMasterRequestContext(
+		const master = createFixtureMasterContext(
 			'policy bypass test',
 			'fixture-key',
 			context,

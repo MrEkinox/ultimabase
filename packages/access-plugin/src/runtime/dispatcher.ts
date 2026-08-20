@@ -1,5 +1,6 @@
 import { immutableRecord } from '@ultimabase/shared'
 import type {
+	ApplicationCallbackExecutor,
 	DatabaseMutationOperationAst,
 	DatabaseOperationAst,
 	DatabaseOperationOutcome,
@@ -38,9 +39,13 @@ export class AccessRuntime {
 	readonly #plan: AccessPlan
 	readonly #runtime: AccessExecutionRuntime
 
-	constructor(plan: AccessPlan, observer?: AccessDiagnosticsObserver) {
+	constructor(
+		plan: AccessPlan,
+		observer?: AccessDiagnosticsObserver,
+		callbacks?: ApplicationCallbackExecutor,
+	) {
 		this.#plan = plan
-		this.#runtime = new AccessExecutionRuntime(observer)
+		this.#runtime = new AccessExecutionRuntime(observer, callbacks)
 		Object.freeze(this)
 	}
 

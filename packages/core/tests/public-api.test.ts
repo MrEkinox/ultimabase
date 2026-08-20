@@ -3,6 +3,15 @@ import { describe, expect, it } from 'vitest'
 import * as publicApi from '../src/index.js'
 
 describe('@ultimabase/core public entry point', () => {
+	it('does not expose direct Master context minting', () => {
+		const authority = new publicApi.MasterAuthority({
+			keys: [{ id: 'public-api', value: 'public-api-secret' }],
+			onUse: () => undefined,
+		})
+
+		expect('elevate' in authority).toBe(false)
+	})
+
 	it('exports the complete implemented framework surface', () => {
 		// One explicit manifest prevents internal helpers and type-only contracts from leaking.
 		expect(Object.keys(publicApi).sort()).toStrictEqual([

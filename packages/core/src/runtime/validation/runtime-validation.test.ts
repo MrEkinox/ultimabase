@@ -21,11 +21,8 @@ import { isPlainRecord, isUnknownArray } from '@ultimabase/shared'
 import { validate as validateUuid, version as readUuidVersion } from 'uuid'
 import { describe, expect, it, vi } from 'vitest'
 
-import {
-	createTrustedMasterRequestContext,
-	RequestContext,
-	requestSources,
-} from '../context/request-context.js'
+import { RequestContext, requestSources } from '../context/request-context.js'
+import { createFixtureMasterContext } from '../../../tests/fixtures/master-context.js'
 import type { DatabaseOperationAst } from '../database/contracts.js'
 import {
 	createRuntimeValidationStage,
@@ -541,7 +538,7 @@ describe('runtime validation', () => {
 				items: [{}],
 			},
 		} as unknown as CreateOneOperationAst<typeof validationSchema>
-		const master = createTrustedMasterRequestContext(
+		const master = createFixtureMasterContext(
 			'audited validation test',
 			'test-key',
 			RequestContext.anonymous({

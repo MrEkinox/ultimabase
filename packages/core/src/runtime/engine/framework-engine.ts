@@ -44,6 +44,7 @@ import type {
 	DatabaseRowFilterNode,
 } from '../database/contracts.js'
 import {
+	elevateMasterRequest,
 	elevateTrustedMasterRequest,
 	MasterAuthority,
 	type MasterKeyGrant,
@@ -85,6 +86,12 @@ import {
 	isProtectedPolicyDenial,
 	isStrictObjectOperation,
 } from './operation-boundaries.js'
+import {
+	assertMasterElevationPrivilege,
+	bindFrameworkMasterAuthority,
+	getFrameworkMasterAuthority,
+	readFrameworkMasterAuthority,
+} from './framework-master-authority.js'
 
 const requestEngineConstructionKey: unique symbol = Symbol(
 	'ultimabase.request-engine-construction',
@@ -113,27 +120,6 @@ export interface FrameworkEngineOptions<
 interface RuntimeTerminalExecution {
 	readonly context: RequestContext
 	readonly result: unknown
-}
-
-const frameworkMasterAuthorities = new WeakMap<
-	FrameworkEngine,
-	MasterAuthority
->()
-
-const getFrameworkMasterAuthority = (
-	framework: FrameworkEngine,
-): MasterAuthority => {
-	const authority = frameworkMasterAuthorities.get(framework)
-
-	if (authority === undefined) {
-		throw new FrameworkError(
-			'PERMISSION_DENIED',
-			'Master authority is not configured for this framework engine.',
-			{ publicMessage: 'Master authority is not available.' },
-		)
-	}
-
-	return authority
 }
 
 /** Rejects malformed low-level construction before it can bind request state. */
@@ -188,7 +174,7 @@ export class FrameworkEngine<
 		this.#pipeline = options.pipeline
 
 		if (options.masterAuthority !== undefined) {
-			frameworkMasterAuthorities.set(this, options.masterAuthority)
+			bindFrameworkMasterAuthority(this, options.masterAuthority)
 		}
 
 		// Application ownership and execution dependencies remain stable for its lifetime.
@@ -210,7 +196,11 @@ export class FrameworkEngine<
 			throw new TypeError('Framework engine context must be a RequestContext')
 		}
 
-		bindRequestContextToApplication(this.application, context)
+		bindRequestContextToApplication(
+			this.application,
+			context,
+			readFrameworkMasterAuthority(this),
+		)
 
 		return new RequestEngine(
 			requestEngineConstructionKey,
@@ -503,15 +493,18 @@ export class RequestEngine<
 			bindRequestContextToApplication(
 				this.framework.application,
 				options.context,
+				readFrameworkMasterAuthority(this.framework),
 			)
 			context = options.context
 		}
 
 		if (options.useMasterKey) {
+			assertMasterElevationPrivilege(this.framework.application)
 			context = await elevateTrustedMasterRequest(
 				getFrameworkMasterAuthority(this.framework),
 				context,
 				createMasterAuditReason(normalizedOperation, schema),
+				this.framework.application,
 			)
 		}
 
@@ -740,10 +733,15 @@ export class RequestEngine<
 	> {
 		assertApplicationEngineAvailable(this.application)
 		this.#transactionLifetime?.assertActive()
+		assertMasterElevationPrivilege(this.application)
 
-		const masterContext = await getFrameworkMasterAuthority(
-			this.framework,
-		).elevate(grant, this.context, reason)
+		const masterContext = await elevateMasterRequest(
+			getFrameworkMasterAuthority(this.framework),
+			grant,
+			this.context,
+			reason,
+			this.framework.application,
+		)
 
 		return new RequestEngine(
 			requestEngineConstructionKey,

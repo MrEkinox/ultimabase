@@ -420,6 +420,25 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 })
 
 describe('@ultimabase/core Runtime declarations', () => {
+	it('ships callback attribution without public Master context minting', async () => {
+		const declarations = await readFile(
+			path.join(packagesDirectory, 'core', 'dist', 'index.d.ts'),
+			'utf8',
+		)
+		const authorityStart = declarations.indexOf('declare class MasterAuthority')
+		const authorityEnd = declarations.indexOf('//#endregion', authorityStart)
+		const authorityDeclaration = declarations.slice(
+			authorityStart,
+			authorityEnd,
+		)
+
+		expect(declarations).toContain('interface ApplicationCallbackExecutor')
+		expect(declarations).toContain(
+			'readonly callbacks: ApplicationCallbackExecutor',
+		)
+		expect(authorityDeclaration).not.toContain('elevate(')
+	})
+
 	it('ships the explicit unprotected-transport acknowledgement contract', async () => {
 		const declarations = await readFile(
 			path.join(packagesDirectory, 'core', 'dist', 'index.d.ts'),

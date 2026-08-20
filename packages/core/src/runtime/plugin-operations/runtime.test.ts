@@ -4,7 +4,10 @@ import { describe, expect, it, vi } from 'vitest'
 import { materializeSchemaModel } from '../../schema/schema/model-materialization.js'
 import { Schema } from '../../schema/schema/definition.js'
 import { PluginError } from '../../errors/plugin-error.js'
-import { MasterAuthority } from '../master/master-authority.js'
+import {
+	elevateMasterRequest,
+	MasterAuthority,
+} from '../master/master-authority.js'
 import { definePlugin } from '../../plugins/definition.js'
 import { requireCapability } from '../../plugins/capabilities.js'
 import {
@@ -14,6 +17,7 @@ import {
 import { UltimaBase } from '../application/ultima-base.js'
 import { RequestContext } from '../context/request-context.js'
 import { runWithRequestEngine } from '../context/active-framework-context.js'
+import type { RequestEngine } from '../engine/framework-engine.js'
 import {
 	defineOperationTransport,
 	operationHandler,
@@ -102,7 +106,10 @@ const fakeBinding = operationTransportBinding({
 
 interface FixtureOptions {
 	readonly adapterResults?: readonly QueuedAdapterResult[]
-	readonly applicationHandler?: (message: string) => unknown
+	readonly applicationHandler?: (
+		message: string,
+		engine: RequestEngine,
+	) => unknown
 	readonly masterAuthority?: MasterAuthority
 	readonly protectedPolicy?: boolean
 }
@@ -115,9 +122,9 @@ const createFixture = async (options: FixtureOptions = {}) => {
 	)
 	const applicationHandler = operationHandler({
 		operation: applicationOperation,
-		execute: ({ context, input, target }) => {
+		execute: ({ context, engine, input, target }) => {
 			trace.push(`application:${context.requestId}:${target.kind}`)
-			return (options.applicationHandler?.(input.message) ??
+			return (options.applicationHandler?.(input.message, engine) ??
 				immutableRecord({ accepted: true })) as Readonly<{
 				readonly accepted: boolean
 			}>
@@ -569,10 +576,48 @@ describe('plugin operation Runtime', () => {
 		await fixture.ultimabase.dispose()
 	})
 
+	it('rejects a foreign Master context substituted by a plugin operation', async () => {
+		const state: { foreignContext?: RequestContext } = {}
+		const fixture = await createFixture({
+			applicationHandler: (_message, engine) => {
+				if (state.foreignContext === undefined)
+					throw new TypeError('Missing foreign context')
+				engine.framework.withContext(state.foreignContext)
+				return immutableRecord({ accepted: true })
+			},
+		})
+		const foreignAuthority = new MasterAuthority({
+			keys: [{ id: 'foreign', value: 'foreign-secret' }],
+			onUse: () => undefined,
+		})
+		const source = RequestContext.anonymous({
+			requestId: 'foreign-plugin-operation-context',
+			source: 'internal',
+		})
+		fixture.ultimabase.engine.withContext(source)
+		state.foreignContext = await elevateMasterRequest(
+			foreignAuthority,
+			foreignAuthority.authorize('foreign-secret'),
+			source,
+			'foreign plugin operation context',
+			fixture.ultimabase.application,
+		)
+		await expect(
+			fixture.ultimabase
+				.operation(applicationOperation)
+				.execute({ message: 'foreign context' }),
+		).rejects.toMatchObject({
+			code: 'PERMISSION_DENIED',
+			internalDetails: { reason: 'master-context-provenance-mismatch' },
+		})
+		await fixture.ultimabase.dispose()
+	})
+
 	it('preserves declared plugin errors and transport compatibility safely', async () => {
+		const onUse = vi.fn()
 		const masterAuthority = new MasterAuthority({
 			keys: [{ id: 'fixture', value: 'transport-master-key' }],
-			onUse: () => undefined,
+			onUse,
 		})
 		const fixture = await createFixture({
 			applicationHandler: () => {
@@ -623,7 +668,12 @@ describe('plugin operation Runtime', () => {
 		await expect(
 			exposure.execute({
 				context,
-				input: { text: 'hello' },
+				input: {
+					context: master.context,
+					grant: { keyId: 'fixture' },
+					text: 'hello',
+					useMasterKey: true,
+				},
 				operation: applicationOperation.name,
 				version: '1.0.0',
 			}),
@@ -631,6 +681,7 @@ describe('plugin operation Runtime', () => {
 			code: 'fixture.operations.rejected',
 			internalDetails: { secret: 'hidden' },
 		})
+		expect(onUse).toHaveBeenCalledOnce()
 		await fixture.ultimabase.dispose()
 	})
 

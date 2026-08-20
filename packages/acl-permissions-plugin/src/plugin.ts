@@ -18,7 +18,6 @@ import {
 	type RequestSubjectContext,
 	type ExecutableOperationAst,
 	type PointerValue,
-	type PluginCapabilityReader,
 	type RuntimeOperationStageInput,
 	type RuntimeOperationTransformStage,
 	type SchemaDefinition,
@@ -40,10 +39,7 @@ import {
 	aclChangedEventContract,
 	optionalACLChangedEvents,
 } from './acl-events.js'
-import {
-	createACLApplicationState,
-	type PersistentRoleResolver,
-} from './application-state.js'
+import type { PersistentRoleResolver } from './application-state.js'
 import {
 	createACLReferenceCleanups,
 	createACLReferenceConstraint,
@@ -73,6 +69,7 @@ import {
 	type ACLSchemaExtensionConfig,
 } from './acl-extension.js'
 import { readOperationSchema } from './runtime-operation.js'
+import { createAttributedACLApplicationStateReader } from './subject-resolver-attribution.js'
 
 const aclPluginModule = definePluginModule({
 	core: '^0.0.0',
@@ -676,34 +673,19 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 		defaultACLEntryLimits,
 		normalizedOptions.limits,
 	)
-	const applicationStates = new WeakMap<
-		object,
-		ReturnType<typeof createACLApplicationState>
-	>()
-	const readApplicationState = (
-		schemas: CompiledSchemaRegistry,
-		capabilities: PluginCapabilityReader,
-	): ReturnType<typeof createACLApplicationState> => {
-		const existing = applicationStates.get(schemas)
-		if (existing !== undefined) return existing
-
-		const state = createACLApplicationState({
-			hasStaticRoleGrant,
-			pluginLimits,
-			principalResolver: capabilities.get(optionalPrincipalResolver),
-			protectedSchemas: readProtectedSchemas(schemas),
-			readMutationItems: readACLMutationItems,
-			roleResolver: capabilities.get(optionalRoleResolver),
-			schemas,
-			snapshotACL: snapshotResolvedACL,
-		})
-		applicationStates.set(schemas, state)
-		return state
-	}
+	const readApplicationState = createAttributedACLApplicationStateReader({
+		hasStaticRoleGrant,
+		pluginLimits,
+		principalRequirement: optionalPrincipalResolver,
+		readMutationItems: readACLMutationItems,
+		readProtectedSchemas,
+		roleRequirement: optionalRoleResolver,
+		snapshotACL: snapshotResolvedACL,
+	})
 	const replacementShapeProvider = provideRuntimeConstraint({
 		contributionId: 'acl-replacement-shape',
-		create: ({ capabilities, schemas }) => {
-			const state = readApplicationState(schemas, capabilities)
+		create: ({ callbacks, capabilities, schemas }) => {
+			const state = readApplicationState(schemas, capabilities, callbacks)
 			return {
 				value: guard({
 					handler: ({ operation }) => {
@@ -721,8 +703,8 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 	})
 	const fieldPolicyProvider = provideRuntimeConstraint({
 		contributionId: 'acl-protected-field',
-		create: ({ capabilities, schemas }) => {
-			const state = readApplicationState(schemas, capabilities)
+		create: ({ callbacks, capabilities, schemas }) => {
+			const state = readApplicationState(schemas, capabilities, callbacks)
 
 			return {
 				value: createACLFieldPolicy(state.protectedSchemaSet),
@@ -731,8 +713,8 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 	})
 	const inputProvider = provideRuntimeInterceptor({
 		contributionId: 'acl-input',
-		create: ({ capabilities, schemas }) => {
-			const state = readApplicationState(schemas, capabilities)
+		create: ({ callbacks, capabilities, schemas }) => {
+			const state = readApplicationState(schemas, capabilities, callbacks)
 			return {
 				value: preparedOperation({
 					handler: async ({ context, operation, target }) => {
@@ -770,8 +752,8 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 	})
 	const referenceRowsProvider = provideRuntimeConstraint({
 		contributionId: 'acl-reference-rows',
-		create: ({ capabilities, schemas }) => {
-			const state = readApplicationState(schemas, capabilities)
+		create: ({ callbacks, capabilities, schemas }) => {
+			const state = readApplicationState(schemas, capabilities, callbacks)
 			return {
 				value: constraint({
 					handler: ({ operation }) => {
@@ -790,8 +772,8 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 	})
 	const rowsProvider = provideRuntimeConstraint({
 		contributionId: 'acl-rows',
-		create: ({ capabilities, schemas }) => {
-			const state = readApplicationState(schemas, capabilities)
+		create: ({ callbacks, capabilities, schemas }) => {
+			const state = readApplicationState(schemas, capabilities, callbacks)
 			return {
 				value: constraint({
 					handler: async ({ operation }) => {
@@ -816,8 +798,8 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 	})
 	const behaviorProvider = provideRuntimeBehavior({
 		contributionId: 'acl-input-and-change-lifecycle',
-		create: ({ assertPrivilege, capabilities, owner, schemas }) => {
-			const state = readApplicationState(schemas, capabilities)
+		create: ({ assertPrivilege, callbacks, capabilities, owner, schemas }) => {
+			const state = readApplicationState(schemas, capabilities, callbacks)
 			const events = createPluginEventDispatcher({
 				assertPrivilege,
 				capabilities,
@@ -890,6 +872,11 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 
 	return aclPluginModule.plugin({
 		privileges: [
+			{
+				name: 'authority:elevate',
+				reason:
+					'Maintains persisted ACL references through audited internal Master queries.',
+			},
 			{
 				name: 'runtime:constrain',
 				reason: 'Applies deny-only ACL guards and adapter constraints.',
