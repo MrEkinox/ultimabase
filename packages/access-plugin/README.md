@@ -147,6 +147,47 @@ Independent policy engines should not depend on this package. They can define
 their own authoring vocabulary and contribute Core `protectedPolicy()` values
 directly.
 
+### Compatible-provider conformance
+
+An official-compatible provider can test its declarations through package-root
+exports by making itself the conformance subject, installing `accessPlugin()`
+as support, and attaching a product-owned `persistence` check:
+
+```ts
+import { accessPlugin } from '@ultimabase/access-plugin'
+import {
+	createPluginConformanceFixture,
+	definePluginConformanceSuite,
+	runPluginConformance,
+} from '@ultimabase/testing'
+
+const suite = definePluginConformanceSuite({
+	createFixture: () =>
+		createPluginConformanceFixture({
+			subject: editorialPolicyPlugin,
+			supportPlugins: [accessPlugin(), databaseFixturePlugin()],
+			schemas: [Post],
+		}),
+	expected: {
+		core: '^0.0.0',
+		pluginId: 'community.editorial-policy',
+		version: '1.0.0',
+	},
+}).check('persistence', async ({ createUltimaBase }) => {
+	const { ultimabase } = createUltimaBase()
+	await ultimabase.start()
+	await Post.findMany(undefined, { ultimabase })
+	// Assert the adapter-visible row filter and monotonic denial here.
+})
+
+await runPluginConformance(suite)
+```
+
+The suite helpers come from `@ultimabase/testing`; the Access engine and
+provider helpers come from this package root. A provider can add focused item,
+field, relation, transition, and Master-mode assertions without asking an
+independent policy engine to adopt this vocabulary.
+
 ACL follows that independent path: `@ultimabase/acl-permissions-plugin` depends
 only on Core's generic protected-policy and adapter-constraint contracts. It
 protects ACL-enabled schemas with no official Access engine installed and

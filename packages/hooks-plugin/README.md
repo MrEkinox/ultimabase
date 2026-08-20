@@ -94,3 +94,43 @@ definePlugin({
 	// privileges and hook contribution capabilities...
 })
 ```
+
+## Compatible-provider conformance
+
+Providers can exercise the public engine without a deep import by making their
+plugin the conformance subject and installing `hooksPlugin()` as support:
+
+```ts
+import { hooksPlugin } from '@ultimabase/hooks-plugin'
+import {
+	createPluginConformanceFixture,
+	definePluginConformanceSuite,
+	runPluginConformance,
+} from '@ultimabase/testing'
+
+const suite = definePluginConformanceSuite({
+	createFixture: () =>
+		createPluginConformanceFixture({
+			subject: workflowHooksPlugin(),
+			supportPlugins: [hooksPlugin()],
+			schemas: [Post],
+		}),
+	expected: {
+		core: '^0.0.0',
+		pluginId: 'community.workflow-hooks',
+		version: '1.0.0',
+	},
+}).check('middleware', async ({ createUltimaBase }) => {
+	const { ultimabase } = createUltimaBase()
+	await ultimabase.start()
+	await Post.createOne({ data: { title: 'Published' } }, { ultimabase })
+	// Assert the provider's observable ordering and rollback contract here.
+})
+
+await runPluginConformance(suite)
+```
+
+`definePluginConformanceSuite`, `createPluginConformanceFixture`, and
+`runPluginConformance` come from `@ultimabase/testing`; every Hooks symbol in
+the example comes from this package root. Independent lifecycle engines are not
+expected to run this official-protocol check.

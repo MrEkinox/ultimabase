@@ -128,6 +128,15 @@ dependency.
 the original error as `cause`. A report contains only completed checks and
 retains no application, plugin resource, or mutable registry.
 
+Product protocols keep their behavior fixtures in their own package or public
+E2E tests. For example, an official-compatible Hooks provider can install
+`hooksPlugin()` as a support plugin and attach a `middleware` check, while an
+official-compatible Access provider can install `accessPlugin()` and attach a
+`persistence` check. Both use only package-root exports and the generic context
+above; `@ultimabase/testing` does not import either product. An independent
+lifecycle or policy engine runs the common kernel suite and its own optional
+checks without implementing the official Hooks or Access vocabulary.
+
 ## PostgreSQL worker isolation
 
 `PostgresTestWorker` gives every Vitest fork a deterministic PostgreSQL schema
