@@ -18,11 +18,6 @@ import {
 	type PluginConstraintCompilerRegistry,
 } from './constraint-compilers.js'
 import {
-	createPluginAccessRegistry,
-	resolvePluginAccessTargets,
-	type PluginAccessRegistry,
-} from './access-targets.js'
-import {
 	formatPluginIdentity,
 	type PluginIdentity,
 	type PluginPrivilege,
@@ -209,22 +204,18 @@ export interface PluginSetupContext {
 	readonly capabilities: PluginCapabilityReader
 	/** Opens adapter-owned raw facades only for the lifetime of one setup callback. */
 	readonly adapters: AdapterAccess
-	/** Registers native Access policies with ownership fixed to this plugin. */
-	readonly access: PluginAccessRegistry
 	/** Registers adapter constraint compilers with owner-derived provenance. */
 	readonly constraintCompilers: PluginConstraintCompilerRegistry
 }
 
 /** Owns all mutable setup registries for one isolated application instance. */
 export class PluginSetupRegistries {
-	readonly #access = new OwnedContributionStore()
 	readonly #constraintCompilers = new OwnedContributionStore()
 	readonly #contexts = new Map<
 		string,
 		Map<string | undefined, PluginSetupContext>
 	>()
 	#setupOpen = true
-	#accessTargetsResolved = false
 	readonly #constraintCompilerReader: DatabaseConstraintCompilerReader
 
 	constructor(
@@ -250,11 +241,6 @@ export class PluginSetupRegistries {
 		return this.#constraintCompilerReader
 	}
 
-	/** @internal Reads native Access declarations for application compilation. */
-	getAccessContributions(): readonly OwnedPluginContribution[] {
-		return this.#access.values()
-	}
-
 	/** @internal Enforces one active privilege for a later Core-owned facade. */
 	assertPrivilege(owner: PluginIdentity, privilege: PluginPrivilege): void {
 		this.assertPrivilegeForPlugin(owner, privilege)
@@ -272,20 +258,6 @@ export class PluginSetupRegistries {
 	/** Closes setup after a plugin failure without masking the original error. */
 	abortSetup(): void {
 		this.#setupOpen = false
-	}
-
-	/** Resolves native Access selectors after every setup declaration is available. */
-	resolveAccessTargets(): void {
-		if (this.#setupOpen) {
-			throw new TypeError('Plugin Access targets require completed setup')
-		}
-
-		if (this.#accessTargetsResolved) {
-			return
-		}
-
-		resolvePluginAccessTargets(this.schemas, this.#access.values())
-		this.#accessTargetsResolved = true
 	}
 
 	/** Returns one stable owner-bound setup context for a structured plugin identity. */
@@ -317,19 +289,6 @@ export class PluginSetupRegistries {
 				isOpen: (): boolean => this.#setupOpen,
 				scope: () => immutableRecord({ kind: 'setup' as const }),
 			}),
-			access: createPluginAccessRegistry({
-				assertPrivilege: () => {
-					this.assertPrivilegeForPlugin(owner, 'runtime:constrain')
-				},
-				isOpen: (): boolean => this.#setupOpen,
-				...(owner.instanceId === undefined
-					? {}
-					: { ownerInstanceId: owner.instanceId }),
-				ownerPlugin: owner.pluginId,
-				register: (name: string, value: unknown): void => {
-					this.#access.registerLocal(owner, name, value)
-				},
-			}),
 			constraintCompilers: createPluginConstraintCompilerRegistry({
 				assertPrivilege: () => {
 					this.assertPrivilegeForPlugin(owner, 'adapter:consume')
@@ -349,26 +308,10 @@ export class PluginSetupRegistries {
 	}
 }
 
-const setupRegistriesByApplication = new WeakMap<
-	object,
-	PluginSetupRegistries
->()
 const pluginPrivilegeAssertionsByApplication = new WeakMap<
 	object,
 	(owner: PluginIdentity, privilege: PluginPrivilege) => void
 >()
-
-/** @internal Binds private Core readers without exposing setup storage publicly. */
-export const bindApplicationSetupRegistries = (
-	application: object,
-	registries: PluginSetupRegistries,
-): void => {
-	if (setupRegistriesByApplication.has(application)) {
-		throw new TypeError('Application setup registries are already bound')
-	}
-
-	setupRegistriesByApplication.set(application, registries)
-}
 
 /** @internal Binds Runtime privilege checks without retaining setup registries. */
 export const bindApplicationPluginPrivilegeAssertion = (
@@ -383,24 +326,6 @@ export const bindApplicationPluginPrivilegeAssertion = (
 
 	pluginPrivilegeAssertionsByApplication.set(application, assertPrivilege)
 }
-
-const readApplicationSetupRegistries = (
-	application: object,
-): PluginSetupRegistries => {
-	const registries = setupRegistriesByApplication.get(application)
-
-	if (registries === undefined) {
-		throw new TypeError('Application setup registries are unavailable')
-	}
-
-	return registries
-}
-
-/** @internal Reads only native Access declarations. */
-export const readApplicationAccessContributions = (
-	application: object,
-): readonly OwnedPluginContribution[] =>
-	readApplicationSetupRegistries(application).getAccessContributions()
 
 /** @internal Enforces one exact plugin-instance privilege during Runtime work. */
 export const assertApplicationPluginPrivilege = (

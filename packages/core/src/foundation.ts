@@ -14,11 +14,7 @@ export type {
 	ConfiguredPluginIdentity,
 	ConfiguredPluginIdentityExports,
 } from './application/configured-plugins.js'
-export type {
-	FrameworkAccessDefaultPolicy,
-	FrameworkAccessOptions,
-	FrameworkApplicationOptions,
-} from './application/framework-application.js'
+export type { FrameworkApplicationOptions } from './application/framework-application.js'
 export type {
 	PluginEnvironmentClaimReport,
 	PluginPrivilegeLogger,
@@ -110,20 +106,6 @@ export type {
 	DefineDatabaseConstraintCompilerOptions,
 	PluginConstraintCompilerRegistry,
 } from './plugins/constraint-compilers.js'
-export { defineFieldKindAccessTarget } from './plugins/access-targets.js'
-export type {
-	FieldExtensionAccessFactory,
-	FieldExtensionAccessTargetContext,
-	FieldKindAccessFactory,
-	FieldKindAccessTarget,
-	FieldKindAccessTargetContext,
-	PluginAccessContributionOptions,
-	PluginAccessMasterBehavior,
-	PluginAccessRegistry,
-	PluginAccessTargetKind,
-	SchemaExtensionAccessFactory,
-	SchemaExtensionAccessTargetContext,
-} from './plugins/access-targets.js'
 export type {
 	DefinePluginOptions,
 	FrameworkPlugin,

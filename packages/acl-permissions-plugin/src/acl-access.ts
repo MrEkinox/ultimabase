@@ -1,11 +1,11 @@
 import {
-	AccessSubjectReference,
+	RequestSubjectReference,
 	databaseConstraint,
-	resolveAccessPrincipal,
-	type AccessContext,
-	type AccessPrincipalResolver,
-	type AccessRoleReference,
-	type AccessRoleResolver,
+	resolveRequestPrincipal,
+	type RequestSubjectContext,
+	type RequestPrincipalResolver,
+	type RequestRoleReference,
+	type RequestRoleResolver,
 	type DatabaseConstraintNode,
 	type DatabaseConstraintPayloadObject,
 	type ExecutableOperationAst,
@@ -44,30 +44,30 @@ export type ACLRowConstraint = DatabaseConstraintNode<
 export interface ACLAccessSubjects {
 	readonly principal: PointerValue | undefined
 	readonly roleResolutionAvailable: boolean
-	readonly roles: readonly AccessRoleReference[]
+	readonly roles: readonly RequestRoleReference[]
 }
 
 /** Resolves the optional identity capabilities used by row and item decisions. */
 export const resolveACLAccessSubjects = async (
-	context: AccessContext,
-	principalResolver: AccessPrincipalResolver | undefined,
-	roleResolver: AccessRoleResolver | undefined,
+	context: RequestSubjectContext,
+	principalResolver: RequestPrincipalResolver | undefined,
+	roleResolver: RequestRoleResolver | undefined,
 	ownsSchema: (schema: SchemaDefinition) => boolean,
 ): Promise<ACLAccessSubjects> => {
-	const principal = await resolveAccessPrincipal({
+	const principal = await resolveRequestPrincipal({
 		context,
 		ownsSchema,
 		resolver: principalResolver,
 	})
 
 	const roles = await roleResolver?.resolveCurrentRoles?.({ context })
-	const normalizedRoles: AccessRoleReference[] = []
+	const normalizedRoles: RequestRoleReference[] = []
 
 	for (const [index, candidate] of (roles ?? []).entries()) {
 		const role: unknown = candidate
 
 		if (
-			!(role instanceof AccessSubjectReference) ||
+			!(role instanceof RequestSubjectReference) ||
 			role.kind !== 'role' ||
 			typeof role.value !== 'string'
 		) {
@@ -78,7 +78,7 @@ export const resolveACLAccessSubjects = async (
 
 		if (!normalizedRoles.some(({ value }) => value === role.value)) {
 			// Reconstructing erases unsafe generic arguments from an untrusted provider.
-			normalizedRoles.push(new AccessSubjectReference('role', role.value))
+			normalizedRoles.push(new RequestSubjectReference('role', role.value))
 		}
 	}
 

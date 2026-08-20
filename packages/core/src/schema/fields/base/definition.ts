@@ -13,7 +13,10 @@ import {
 	type BuiltInFieldOptionsContract,
 } from './options.js'
 import type { FieldScalarValue, GenericField } from './contract.js'
-import type { FieldAccessDeclarations } from '../../access/field-declarations.js'
+import {
+	normalizeFieldAccessDeclarations,
+	type FieldAccessDeclarations,
+} from '../../access/field-declarations.js'
 import type { SchemaTarget } from '../../schema/targets.js'
 
 export type ScalarValueSnapshot = (value: unknown, path: string) => unknown
@@ -36,7 +39,6 @@ interface FieldMetadata<TKind extends string, TOptions extends object> {
 }
 
 interface FieldCapabilities {
-	readonly access: FieldAccessDeclarations | undefined
 	readonly deferRequiredUntilResolveInput: boolean
 	readonly optionsContract: BuiltInFieldOptionsContract | undefined
 	readonly schemaTarget: SchemaTarget | undefined
@@ -68,7 +70,6 @@ export const createFieldDefinition = <
 	kind: TKind,
 	options: Readonly<TOptions>,
 	snapshotValue: ScalarValueSnapshot,
-	access?: FieldAccessDeclarations,
 	capabilities: FieldDefinitionCapabilities = {},
 ): FieldMetadata<TKind, TOptions> => {
 	const field = immutableRecord({ kind, options })
@@ -76,7 +77,6 @@ export const createFieldDefinition = <
 	fieldCapabilities.set(
 		field,
 		immutableRecord({
-			access,
 			deferRequiredUntilResolveInput:
 				capabilities.deferRequiredUntilResolveInput === true,
 			optionsContract:
@@ -114,10 +114,11 @@ export const replaceDeclaredFieldOptions = (
 	return replacement
 }
 
-/** Resolves private Access rules without exposing them as physical metadata. */
+/** @internal Keeps the paused native compiler buildable until its removal audit. */
 export const getFieldAccessDeclarations = (
 	field: GenericField,
-): FieldAccessDeclarations | undefined => fieldCapabilities.get(field)?.access
+): FieldAccessDeclarations | undefined =>
+	normalizeFieldAccessDeclarations(Reflect.get(field.options, 'access'))
 
 /** Resolves one lazy schema target without placing its callback in field metadata. */
 export const getFieldSchemaTarget = (

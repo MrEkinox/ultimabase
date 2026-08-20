@@ -5,6 +5,7 @@ import {
 	UltimaBase,
 	type FieldBuilder,
 } from '@ultimabase/core'
+import { accessPlugin } from '@ultimabase/access-plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -156,7 +157,6 @@ const getUltimaBase = () => {
 	if (ultimabase === undefined) {
 		throw new TypeError('Relation PostgreSQL application has not started')
 	}
-
 	return ultimabase
 }
 
@@ -165,6 +165,7 @@ beforeAll(async () => {
 	ultimabase = new UltimaBase({
 		plugins: [
 			hooksPlugin(),
+			accessPlugin(),
 			postgresPlugin({
 				schemaPolicy: 'override',
 				url: fixture.connectionUri,
@@ -176,7 +177,6 @@ beforeAll(async () => {
 			timezone: 'UTC',
 		},
 	})
-
 	try {
 		await ultimabase.start()
 	} catch (error: unknown) {
@@ -414,7 +414,6 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 				{ ultimabase: app },
 			),
 		).toBe(true)
-
 		const author = await Author.createOne(
 			{ data: { name: 'Predicate author' } },
 			{ ultimabase: app },
@@ -931,6 +930,7 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		const verifier = new UltimaBase({
 			plugins: [
 				hooksPlugin(),
+				accessPlugin(),
 				postgresPlugin({
 					schemaPolicy: 'fail',
 					url: activeFixture.connectionUri,

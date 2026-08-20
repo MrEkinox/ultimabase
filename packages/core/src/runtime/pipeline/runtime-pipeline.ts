@@ -34,10 +34,10 @@ import type {
 import { executeRuntimeDatabaseOperation } from './database-execution.js'
 import { isRuntimeMutationOperation } from './operation-kind.js'
 import {
-	isRuntimeNativeAccessDenied,
 	retainRuntimeMutationBatchProjector,
 	RuntimeInclusionProjector,
 } from './inclusion-projection.js'
+import { isProtectedPolicyDenied } from '../enforcement/protected-denial.js'
 import {
 	createRuntimeEnforcementInput,
 	createRuntimeEnforcementResultInput,
@@ -268,7 +268,7 @@ export class RuntimePipeline {
 		}
 
 		if (
-			request.nativeAccessDeniedAsMissing === true &&
+			request.protectedPolicyDeniedAsMissing === true &&
 			request.operation.kind !== 'find-one' &&
 			request.operation.kind !== 'get' &&
 			request.operation.kind !== 'exists' &&
@@ -276,7 +276,7 @@ export class RuntimePipeline {
 			request.operation.kind !== 'delete-one'
 		) {
 			throw new TypeError(
-				'Runtime nativeAccessDeniedAsMissing requires a singular protected operation',
+				'Runtime protectedPolicyDeniedAsMissing requires a singular protected operation',
 			)
 		}
 
@@ -293,8 +293,8 @@ export class RuntimePipeline {
 			return await this.#executeOperation(request, execution)
 		} catch (error: unknown) {
 			if (
-				request.nativeAccessDeniedAsMissing === true &&
-				isRuntimeNativeAccessDenied(error)
+				request.protectedPolicyDeniedAsMissing === true &&
+				isProtectedPolicyDenied(error)
 			) {
 				if (
 					request.operation.kind !== 'find-one' &&
@@ -391,7 +391,7 @@ export class RuntimePipeline {
 			immutableRecord({
 				constraints,
 				operation,
-				...(request.nativeAccessDeniedAsMissing === true
+				...(request.protectedPolicyDeniedAsMissing === true
 					? { strictTarget: true as const }
 					: {}),
 				...(inclusions.length === 0

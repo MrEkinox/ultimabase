@@ -32,8 +32,6 @@ import type {
 } from '../base/contract.js'
 import type { FieldDefault } from '../base/defaults.js'
 import type { FieldValueMap } from '../base/value-map.js'
-import { splitFieldAccessOptions } from '../../access/field-options.js'
-import type { FieldAccessDeclaration } from '../../access/contracts.js'
 
 /**
  * Names the child fields of one object definition.
@@ -135,15 +133,7 @@ type CompactObjectFieldOptions<
 } & {
 	readonly list?: TList
 	readonly immutable?: TImmutable
-} & FieldAccessDeclaration<
-		ResolvedObjectField<
-			NoInfer<TFields>,
-			NoInfer<TRequired>,
-			NoInfer<TList>,
-			NoInfer<TImmutable>,
-			false
-		>
-	>
+}
 
 export type DefaultedObjectFieldOptions<
 	TFields extends ObjectFields,
@@ -266,16 +256,15 @@ export function objectField(
 ): ObjectField {
 	// The rest parameter exists only to keep invalid generic calls uncallable.
 	void invalidOptions
-	const { access, metadataOptions } = splitFieldAccessOptions(options)
-	assertFieldOptions(metadataOptions)
+	assertFieldOptions(options)
 
-	if (!isPlainRecord(metadataOptions.fields)) {
+	if (!isPlainRecord(options.fields)) {
 		throw new TypeError('fields must be a field map')
 	}
 
-	assertValidTypeName(metadataOptions.typeName)
+	assertValidTypeName(options.typeName)
 
-	for (const [name, field] of Object.entries(metadataOptions.fields)) {
+	for (const [name, field] of Object.entries(options.fields)) {
 		assertNonEmptyString(name, 'object field name')
 		assertFieldDefinition(field, `fields.${name}`)
 
@@ -297,22 +286,19 @@ export function objectField(
 	}
 
 	const normalized = normalizeFieldOptions(
-		metadataOptions,
+		options,
 		normalizeFlatValidation,
-		(value, path) => snapshotObjectValue(value, metadataOptions.fields, path),
+		(value, path) => snapshotObjectValue(value, options.fields, path),
 		objectFieldOptionsContract,
 	)
 
 	// The field map is detached while reusable immutable child definitions keep identity.
 	const fieldOptions = immutableRecord({
 		...normalized,
-		fields: immutableRecord(metadataOptions.fields),
+		fields: immutableRecord(options.fields),
 	})
 
-	return createFieldDefinition(
-		'object',
-		fieldOptions,
-		(value, path) => snapshotObjectValue(value, fieldOptions.fields, path),
-		access,
+	return createFieldDefinition('object', fieldOptions, (value, path) =>
+		snapshotObjectValue(value, fieldOptions.fields, path),
 	)
 }

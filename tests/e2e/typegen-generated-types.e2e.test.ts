@@ -7,6 +7,7 @@ import {
 	Schema,
 	type FieldBuilder,
 } from '@ultimabase/core'
+import { accessPlugin } from '@ultimabase/access-plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { generateApplicationTypes, typegenPlugin } from '@ultimabase/typegen'
 import * as Typegen from '@ultimabase/typegen'
@@ -75,7 +76,7 @@ const Document = Schema.define({
 	},
 })
 const application = new FrameworkApplication({
-	plugins: [hooksPlugin(), pgVectorPlugin()],
+	plugins: [accessPlugin(), hooksPlugin(), pgVectorPlugin()],
 	schemas: [Owner, Document],
 })
 const generated = generateApplicationTypes({

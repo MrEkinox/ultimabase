@@ -1,16 +1,18 @@
 import {
-	AccessSubjectReference,
+	RequestSubjectReference,
 	getCurrentEngine,
 	getCurrentRequest,
 	Pointer,
-	requireCurrentAccessRoleResolver,
-	type AccessContext,
-	type AccessDecisionInput,
-	type AccessRoleReference,
-	type AccessRoleResolver,
+	requireCurrentRequestRoleResolver,
+	type RequestRoleReference,
+	type RequestRoleResolver,
 	type OperationOptions,
 	type SchemaDefinition,
 } from '@ultimabase/core'
+import type {
+	AccessContext,
+	AccessDecisionInput,
+} from '@ultimabase/access-plugin'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import { resolveStoredRoleMembership } from './role-membership.js'
@@ -34,13 +36,13 @@ const masterOptions: OperationOptions = Object.freeze({
 	useMasterKey: true,
 })
 
-/** Represents one compact decision compatible with every native Access level. */
+/** Represents one compact decision compatible with every official Access level. */
 export type RoleAccessDecision = (
 	input: AccessDecisionInput,
 ) => Promise<boolean>
 
 /**
- * Creates one native Access decision backed by `accessRoleResolverCapability`.
+ * Creates one official Access decision backed by `requestRoleResolverCapability`.
  *
  * The helper captures no application or request. At execution it requires the
  * application-local capability, so a missing provider raises
@@ -48,18 +50,18 @@ export type RoleAccessDecision = (
  *
  * @example `update: hasRole(AppRole.role("editor"))`
  */
-export const hasRole = (role: AccessRoleReference): RoleAccessDecision => {
+export const hasRole = (role: RequestRoleReference): RoleAccessDecision => {
 	const candidate: unknown = role
 
 	if (
-		!(candidate instanceof AccessSubjectReference) ||
+		!(candidate instanceof RequestSubjectReference) ||
 		candidate.kind !== 'role'
 	) {
 		throw new TypeError('hasRole requires an Access role reference')
 	}
 
 	return async ({ context }): Promise<boolean> =>
-		requireCurrentAccessRoleResolver().hasRole({ context, role })
+		requireCurrentRequestRoleResolver().hasRole({ context, role })
 }
 
 /** Supplies storage work behind an injectable boundary for deterministic tests. */
@@ -127,7 +129,7 @@ const createDefaultDependencies = (): StoredRoleResolverDependencies => ({
 export const createStoredRoleResolver = (
 	roleSchemas: readonly SchemaDefinition[],
 	dependencies: StoredRoleResolverDependencies = createDefaultDependencies(),
-): AccessRoleResolver => {
+): RequestRoleResolver => {
 	const registeredSchemas = new Set(roleSchemas)
 	const requestCaches = new WeakMap<
 		object,
@@ -182,7 +184,7 @@ export const createStoredRoleResolver = (
 		return domain.membership
 	}
 	const resolveReferenceState = (
-		role: AccessRoleReference,
+		role: RequestRoleReference,
 	): RoleReferenceState | undefined => {
 		const state =
 			getRoleReferenceState(role) ??
@@ -193,7 +195,7 @@ export const createStoredRoleResolver = (
 			: undefined
 	}
 	const resolveReferenceId = (
-		role: AccessRoleReference,
+		role: RequestRoleReference,
 		state: RoleReferenceState,
 		domain: RoleDomainRequestCache,
 	): Promise<string | undefined> => {
@@ -244,7 +246,7 @@ export const createStoredRoleResolver = (
 				: createRoleReference(state.schema, { id })
 		},
 		async resolveCurrentRoles({ context }) {
-			const references: AccessRoleReference[] = []
+			const references: RequestRoleReference[] = []
 
 			for (const schema of roleSchemas) {
 				const domain = getDomain(context, schema)

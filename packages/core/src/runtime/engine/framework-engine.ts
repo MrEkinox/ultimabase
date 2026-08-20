@@ -82,7 +82,7 @@ import {
 import { registerRequestAdapterAccessContext as registerAdapterAccess } from '../adapters/request-access.js'
 import {
 	createMasterAuditReason,
-	isNativeAccessDenied,
+	isProtectedPolicyDenial,
 	isStrictObjectOperation,
 } from './operation-boundaries.js'
 
@@ -530,7 +530,7 @@ export class RequestEngine<
 		const rowFilter = scope?.kind === 'row-filter' ? scope.rowFilter : undefined
 		const deniedAsMissing =
 			scope?.kind === 'row-filter'
-				? scope.nativeAccessDeniedAsMissing
+				? scope.protectedPolicyDeniedAsMissing
 				: undefined
 		const objectId = scope?.kind === 'row-filter' ? scope.objectId : undefined
 
@@ -594,14 +594,14 @@ export class RequestEngine<
 	>(
 		operation: TOperation,
 		rowFilter?: DatabaseRowFilterNode,
-		nativeAccessDeniedAsMissing?: true,
+		protectedPolicyDeniedAsMissing?: true,
 		privateObjectId?: string,
 		relationScope?: DatabaseRelationScope,
 	): Promise<OperationResult<TOperation>> {
 		const result = await this.#executeRuntimeOperation(
 			operation,
 			rowFilter,
-			nativeAccessDeniedAsMissing,
+			protectedPolicyDeniedAsMissing,
 			privateObjectId,
 			relationScope,
 		)
@@ -615,7 +615,7 @@ export class RequestEngine<
 	>(
 		operation: TOperation,
 		rowFilter?: DatabaseRowFilterNode,
-		nativeAccessDeniedAsMissing?: true,
+		protectedPolicyDeniedAsMissing?: true,
 		privateObjectId?: string,
 		relationScope?: DatabaseRelationScope,
 	): Promise<RuntimeOperationResult<TOperation>> {
@@ -637,15 +637,15 @@ export class RequestEngine<
 					result = await transaction.#executeRuntimeOperation(
 						operation,
 						rowFilter,
-						nativeAccessDeniedAsMissing,
+						protectedPolicyDeniedAsMissing,
 						privateObjectId,
 						relationScope,
 					)
 				} catch (error: unknown) {
 					if (
-						nativeAccessDeniedAsMissing === true &&
+						protectedPolicyDeniedAsMissing === true &&
 						isStrictObjectOperation(operation) &&
-						isNativeAccessDenied(error)
+						isProtectedPolicyDenial(error)
 					) {
 						throw createProtectedObjectNotFoundError()
 					}
@@ -654,7 +654,7 @@ export class RequestEngine<
 				}
 
 				if (
-					nativeAccessDeniedAsMissing === true &&
+					protectedPolicyDeniedAsMissing === true &&
 					isStrictObjectOperation(operation) &&
 					result === null
 				) {
@@ -700,9 +700,9 @@ export class RequestEngine<
 						? {}
 						: { relation: databaseRelationScope }),
 					...(rowFilter === undefined ? {} : { rowFilter }),
-					...(nativeAccessDeniedAsMissing === undefined
+					...(protectedPolicyDeniedAsMissing === undefined
 						? {}
-						: { nativeAccessDeniedAsMissing }),
+						: { protectedPolicyDeniedAsMissing }),
 				}),
 			)
 
@@ -714,9 +714,9 @@ export class RequestEngine<
 				: this.#transactionLifetime.run(executeOperation))
 		} catch (error: unknown) {
 			if (
-				nativeAccessDeniedAsMissing === true &&
+				protectedPolicyDeniedAsMissing === true &&
 				isStrictObjectOperation(operation) &&
-				isNativeAccessDenied(error)
+				isProtectedPolicyDenial(error)
 			) {
 				throw createProtectedObjectNotFoundError()
 			}

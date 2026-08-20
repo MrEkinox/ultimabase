@@ -11,7 +11,6 @@ import {
 import { traverseQueryExpression } from '../../query/filters/traversal.js'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
-import type { NativeAccessRuntime } from '../access/dispatcher.js'
 import type { DatabaseOperationAst } from '../database/contracts.js'
 import type { HookExecutionRuntime } from '../hooks/execution-runtime.js'
 import { readOperationQueries } from '../operations/queries.js'
@@ -20,6 +19,7 @@ import {
 	evaluateEnforcementContributions,
 	type OwnedEnforcementContribution,
 } from './contribution-evaluation.js'
+import { enforceProtectedRelation } from './protected-policy-execution.js'
 import {
 	appendEnforcementRelationPredicates,
 	createEnforcementState,
@@ -56,9 +56,8 @@ type RelationPredicateEvaluator = <
 	policyExpressions?: readonly QueryExpressionNode[],
 ) => Promise<EnforcementState>
 
-/** Creates one recursive evaluator bound to an application-local Access plan. */
+/** Creates one recursive evaluator bound to application-local protected policies. */
 export const createRelationPredicateEvaluator = (
-	access: NativeAccessRuntime,
 	contributions: readonly OwnedEnforcementContribution[],
 	runtime: HookExecutionRuntime,
 ): RelationPredicateEvaluator => {
@@ -111,7 +110,18 @@ export const createRelationPredicateEvaluator = (
 				// A policy-owned row filter is already trusted server code. Source field
 				// disclosure applies only to predicates supplied by the operation caller.
 				if (requireSourceFieldAccess) {
-					await access.enforceRelationPredicateRead(input, predicate)
+					await enforceProtectedRelation(
+						contributions,
+						immutableRecord({
+							context: input.context,
+							operation: input.operation,
+							relation: immutableRecord({
+								fieldPath: immutableArray([predicate.field]),
+								source: predicate.source.definition,
+								target: predicate.target.definition,
+							}),
+						}),
+					)
 				}
 
 				const includePredicateInTargetQuery =
@@ -140,16 +150,11 @@ export const createRelationPredicateEvaluator = (
 					context: input.context,
 					operation: targetOperation,
 				})
-				let targetState = await access.evaluate(
-					targetInput,
-					createEnforcementState(),
-				)
-
-				targetState = await evaluateEnforcementContributions(
+				let targetState = await evaluateEnforcementContributions(
 					contributions,
 					runtime,
 					targetInput,
-					targetState,
+					createEnforcementState(),
 				)
 				targetState = await evaluateRelationPredicates(
 					targetInput,

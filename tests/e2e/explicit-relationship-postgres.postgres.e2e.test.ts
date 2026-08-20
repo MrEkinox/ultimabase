@@ -1,4 +1,5 @@
 import { requestSources, Schema, UltimaBase } from '@ultimabase/core'
+import { accessPlugin } from '@ultimabase/access-plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -85,6 +86,7 @@ beforeAll(async () => {
 	ultimabase = new UltimaBase({
 		plugins: [
 			hooksPlugin(),
+			accessPlugin(),
 			postgresPlugin({
 				schemaPolicy: 'override',
 				url: fixture.connectionUri,

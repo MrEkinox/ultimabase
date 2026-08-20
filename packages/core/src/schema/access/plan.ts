@@ -1,11 +1,8 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
-import type {
-	FrameworkAccessDefaultPolicy,
-	FrameworkApplication,
-} from '../../application/framework-application.js'
+import type { FrameworkApplication } from '../../application/framework-application.js'
 import type { PluginDefinition } from '../../plugins/definition.js'
-import { readApplicationAccessContributions } from '../../plugins/setup-registries.js'
+import type { OwnedPluginContribution } from '../../plugins/setup-registries.js'
 import {
 	getResolvedPluginAccessContribution,
 	type PluginAccessMasterBehavior,
@@ -37,6 +34,20 @@ import {
 	schemaItemAccessFamilies,
 } from './declarations.js'
 import type { NormalizedAccessRule } from './normalization.js'
+
+interface FrameworkAccessDefaultPolicy {
+	readonly field: boolean
+	readonly operation: boolean
+}
+
+const emptyPluginAccessContributions: readonly OwnedPluginContribution[] =
+	immutableArray([])
+const readApplicationAccessContributions = (
+	_application: object,
+): readonly OwnedPluginContribution[] => {
+	void _application
+	return emptyPluginAccessContributions
+}
 
 /** Lists every Runtime terminal once for exhaustive Access-plan lookup. */
 export const accessOperationKinds: readonly OperationKind[] = [
@@ -518,7 +529,7 @@ export const compileApplicationAccessPlan = <
 	}
 
 	const plan: AccessPlan = immutableRecord({
-		defaults: application.accessDefaults,
+		defaults: immutableRecord({ field: true, operation: true }),
 		getField: (schema, path) =>
 			lookupsBySchema.get(schema)?.fieldsByPath.get(encodeFieldPath(path)),
 		getFields: (schema, field) =>

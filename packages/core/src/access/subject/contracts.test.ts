@@ -7,11 +7,11 @@ import {
 } from '../../runtime/context/request-context.js'
 import { RequestContextValue } from '../request/context-value.js'
 import {
-	AccessSubjectReference,
-	createAccessPrincipalReference,
-	parseAccessPrincipalReference,
-	resolveAccessPrincipal,
-	resolveAccessRoleReference,
+	RequestSubjectReference,
+	createRequestPrincipalReference,
+	parseRequestPrincipalReference,
+	resolveRequestPrincipal,
+	resolveRequestRoleReference,
 } from './contracts.js'
 
 const Principal = Schema.define({
@@ -34,50 +34,52 @@ const principalValue = new RequestContextValue<string>(
 	},
 )
 
-describe('AccessSubjectReference', () => {
+describe('RequestSubjectReference', () => {
 	it('retains one immutable provider-neutral subject reference', () => {
-		const reference = new AccessSubjectReference('role', 'editor')
+		const reference = new RequestSubjectReference('role', 'editor')
 
 		expect(reference).toEqual({ kind: 'role', value: 'editor' })
 		expect(Object.isFrozen(reference)).toBe(true)
 	})
 
 	it('rejects empty or untrusted subject kinds', () => {
-		expect(() => new AccessSubjectReference('', 'editor')).toThrow(
-			new TypeError('Access subject kind must be a non-empty string'),
+		expect(() => new RequestSubjectReference('', 'editor')).toThrow(
+			new TypeError('Request subject kind must be a non-empty string'),
 		)
 		expect(
 			() =>
-				new AccessSubjectReference(
+				new RequestSubjectReference(
 					// @ts-expect-error -- Runtime validation protects JavaScript callers.
 					42,
 					'editor',
 				),
-		).toThrow(new TypeError('Access subject kind must be a non-empty string'))
+		).toThrow(new TypeError('Request subject kind must be a non-empty string'))
 	})
 })
 
-describe('Access principal references', () => {
+describe('Request principal references', () => {
 	it('round-trips one schema-qualified principal without retaining its schema', () => {
-		const reference = createAccessPrincipalReference(principal)
+		const reference = createRequestPrincipalReference(principal)
 
 		expect(reference.kind).toBe('principal')
-		expect(parseAccessPrincipalReference(reference)).toStrictEqual({
+		expect(parseRequestPrincipalReference(reference)).toStrictEqual({
 			className: Principal.className,
 			id: principal.id,
 		})
-		expect(Object.isFrozen(parseAccessPrincipalReference(reference))).toBe(true)
+		expect(Object.isFrozen(parseRequestPrincipalReference(reference))).toBe(
+			true,
+		)
 	})
 
 	it('rejects forged pointers and malformed neutral values', () => {
-		expect(() => createAccessPrincipalReference({} as never)).toThrow(
-			'Access principal reference requires a Core Pointer',
+		expect(() => createRequestPrincipalReference({} as never)).toThrow(
+			'Request principal reference requires a Core Pointer',
 		)
 		expect(() =>
-			parseAccessPrincipalReference(
-				new AccessSubjectReference('role', 'invalid') as never,
+			parseRequestPrincipalReference(
+				new RequestSubjectReference('role', 'invalid') as never,
 			),
-		).toThrow('Access principal reference is invalid')
+		).toThrow('Request principal reference is invalid')
 	})
 
 	it.each([
@@ -90,49 +92,49 @@ describe('Access principal references', () => {
 		JSON.stringify(['@ultimabase/core', 1, 'Principal', '']),
 	])('rejects malformed neutral principal value %s', (value) => {
 		expect(() =>
-			parseAccessPrincipalReference(
-				new AccessSubjectReference('principal', value),
+			parseRequestPrincipalReference(
+				new RequestSubjectReference('principal', value),
 			),
 		).toThrow()
 	})
 })
 
-describe('resolveAccessRoleReference', () => {
+describe('resolveRequestRoleReference', () => {
 	it('accepts direct references and neutral persisted-value carriers', () => {
-		const reference = new AccessSubjectReference('role', 'editor')
+		const reference = new RequestSubjectReference('role', 'editor')
 
-		expect(resolveAccessRoleReference(reference)).toBe(reference)
+		expect(resolveRequestRoleReference(reference)).toBe(reference)
 		expect(
-			resolveAccessRoleReference({
-				toAccessRoleReference: () => reference,
+			resolveRequestRoleReference({
+				toRequestRoleReference: () => reference,
 			}),
 		).toBe(reference)
 	})
 
 	it('rejects forged carriers and non-string role identities', () => {
 		expect(() =>
-			resolveAccessRoleReference({
-				toAccessRoleReference: () =>
-					new AccessSubjectReference('principal', 'editor') as never,
+			resolveRequestRoleReference({
+				toRequestRoleReference: () =>
+					new RequestSubjectReference('principal', 'editor') as never,
 			}),
 		).toThrow(
 			new TypeError(
-				'Access role subject must provide one string role reference',
+				'Request role subject must provide one string role reference',
 			),
 		)
 		expect(() =>
-			resolveAccessRoleReference(
-				new AccessSubjectReference('role', 42) as never,
+			resolveRequestRoleReference(
+				new RequestSubjectReference('role', 42) as never,
 			),
 		).toThrow(
 			new TypeError(
-				'Access role subject must provide one string role reference',
+				'Request role subject must provide one string role reference',
 			),
 		)
 	})
 })
 
-describe('resolveAccessPrincipal', () => {
+describe('resolveRequestPrincipal', () => {
 	const anonymous = RequestContext.anonymous({
 		requestId: 'access-principal',
 		source: 'unit',
@@ -141,14 +143,14 @@ describe('resolveAccessPrincipal', () => {
 
 	it('keeps absent providers and absent identities fail-closed', async () => {
 		await expect(
-			resolveAccessPrincipal({
+			resolveRequestPrincipal({
 				context: anonymous,
 				ownsSchema: ownsPrincipalSchema,
 				resolver: undefined,
 			}),
 		).resolves.toBeUndefined()
 		await expect(
-			resolveAccessPrincipal({
+			resolveRequestPrincipal({
 				context: anonymous,
 				ownsSchema: ownsPrincipalSchema,
 				resolver: { resolveCurrent: () => Promise.resolve(undefined) },
@@ -158,7 +160,7 @@ describe('resolveAccessPrincipal', () => {
 
 	it('returns one exact application-owned Core Pointer', async () => {
 		await expect(
-			resolveAccessPrincipal({
+			resolveRequestPrincipal({
 				context: anonymous,
 				ownsSchema: ownsPrincipalSchema,
 				resolver: { resolveCurrent: () => principal },
@@ -168,16 +170,16 @@ describe('resolveAccessPrincipal', () => {
 
 	it('rejects malformed and foreign-application Pointer results', async () => {
 		await expect(
-			resolveAccessPrincipal({
+			resolveRequestPrincipal({
 				context: anonymous,
 				ownsSchema: ownsPrincipalSchema,
 				resolver: { resolveCurrent: () => ({ id: 'forged' }) as never },
 			}),
 		).rejects.toThrow(
-			new TypeError('Access principal resolver must return a Core Pointer'),
+			new TypeError('Request principal resolver must return a Core Pointer'),
 		)
 		await expect(
-			resolveAccessPrincipal({
+			resolveRequestPrincipal({
 				context: anonymous,
 				ownsSchema: ownsPrincipalSchema,
 				resolver: {
@@ -186,7 +188,7 @@ describe('resolveAccessPrincipal', () => {
 			}),
 		).rejects.toThrow(
 			new TypeError(
-				'Access principal resolver returned a foreign application schema',
+				'Request principal resolver returned a foreign application schema',
 			),
 		)
 	})
@@ -200,7 +202,7 @@ describe('resolveAccessPrincipal', () => {
 		)
 
 		await expect(
-			resolveAccessPrincipal({
+			resolveRequestPrincipal({
 				context: master,
 				ownsSchema: ownsPrincipalSchema,
 				resolver: {

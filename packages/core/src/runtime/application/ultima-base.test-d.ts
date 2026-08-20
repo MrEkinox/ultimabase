@@ -29,7 +29,6 @@ const databasePlugin = definePlugin({
 
 test('preserves exact schema and plugin tuples behind the concise facade', () => {
 	const ultimabase = new UltimaBase({
-		access: { default: { field: true, operation: false } },
 		schemas: [articleSchema],
 		plugins: [databasePlugin],
 		validation: { timezone: 'Europe/Paris' },
@@ -52,11 +51,6 @@ test('preserves exact schema and plugin tuples behind the concise facade', () =>
 	expectTypeOf(ultimabase.start()).toEqualTypeOf<Promise<void>>()
 	expectTypeOf(ultimabase.stop()).toEqualTypeOf<Promise<void>>()
 	expectTypeOf(ultimabase.dispose()).toEqualTypeOf<Promise<void>>()
-	expectTypeOf(ultimabase.application.accessDefaults).toEqualTypeOf<{
-		readonly field: boolean
-		readonly operation: boolean
-	}>()
-
 	// Ownership remains a Runtime identity check because QueryBuilder stays application-free.
 	void otherSchema.findMany(undefined, { ultimabase })
 	new UltimaBase({

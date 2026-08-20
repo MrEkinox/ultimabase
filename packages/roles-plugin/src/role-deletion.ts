@@ -1,8 +1,8 @@
 import {
 	Relation,
 	Pointer,
-	type AccessContext,
-	type AccessReferenceCleanup,
+	type RequestSubjectContext,
+	type RequestSubjectReferenceCleanup,
 	type OperationOptions,
 	type SchemaClass,
 	type SchemaDefinition,
@@ -37,7 +37,7 @@ export class RoleDeletionError extends Error {
 
 /** Retains registry provenance beside a validated generic cleanup contract. */
 export interface NamedRoleReferenceCleanup {
-	readonly cleanup: AccessReferenceCleanup
+	readonly cleanup: RequestSubjectReferenceCleanup
 	readonly name: string
 }
 
@@ -97,7 +97,7 @@ const readParentRoles = async (
 }
 
 const readExternalReferences = async (
-	context: AccessContext,
+	context: RequestSubjectContext,
 	reference: ReturnType<typeof createRoleReference>,
 	cleanups: readonly NamedRoleReferenceCleanup[],
 ): Promise<readonly string[]> => {
@@ -113,7 +113,7 @@ const readExternalReferences = async (
 }
 
 const assertUnreferenced = async (
-	context: AccessContext,
+	context: RequestSubjectContext,
 	role: object,
 	schema: SchemaDefinition,
 	reference: ReturnType<typeof createRoleReference>,
@@ -148,7 +148,7 @@ const assertUnreferenced = async (
 }
 
 const cascadeReferences = async (
-	context: AccessContext,
+	context: RequestSubjectContext,
 	role: object,
 	schema: SchemaDefinition,
 	reference: ReturnType<typeof createRoleReference>,
@@ -186,7 +186,7 @@ const cascadeReferences = async (
 
 /** Applies one schema-owned policy before the adapter removes the role row. */
 export const applyRoleDeletionPolicy = async (
-	context: AccessContext,
+	context: RequestSubjectContext,
 	schema: SchemaDefinition,
 	roleName: string,
 	declaration: RoleSchemaDeclaration,

@@ -5,7 +5,6 @@ import {
 import type { SchemaDefinition } from '../../schema/index.js'
 import { immutableRecord } from '@ultimabase/shared'
 
-import { NativeAccessRuntime } from '../access/dispatcher.js'
 import { getApplicationHookExecutionRuntime } from '../hooks/execution-runtime.js'
 import type { RuntimeEnforcementStages } from '../pipeline/contracts.js'
 import {
@@ -15,12 +14,20 @@ import {
 import { enforceOperationRestrictions } from './operation-restrictions.js'
 import { createRelationPredicateEvaluator } from './relation-enforcement.js'
 import {
+	enforceProtectedMutationOutcome,
+	enforceProtectedPreparedMutation,
+	enforceProtectedRelation,
+	protectedPoliciesRequirePreparedMutationItems,
+	reevaluateProtectedPolicies,
+	restrictProtectedPolicyResult,
+} from './protected-policy-execution.js'
+import {
 	enforceOutputRestrictions,
 	enforceSelectionResultRestrictions,
 } from './result-restrictions.js'
 import { createEnforcementState } from './state.js'
 
-/** Compiles native Access and optional low-level restrictions into one monotonic boundary. */
+/** Compiles optional product-neutral restrictions into one monotonic boundary. */
 export const createEnforcementStages = <
 	const TSchemas extends readonly SchemaDefinition[],
 	const TPlugins extends readonly PluginDefinition[],
@@ -32,28 +39,36 @@ export const createEnforcementStages = <
 	}
 
 	const contributions = readEnforcementContributions(application)
+	if (contributions.length === 0) {
+		return undefined
+	}
+
 	const runtime = getApplicationHookExecutionRuntime(application)
-	const access = new NativeAccessRuntime(application)
 	const evaluateRelationPredicates = createRelationPredicateEvaluator(
-		access,
 		contributions,
 		runtime,
 	)
-	const enforceAccessSelectionResult: RuntimeEnforcementStages['enforceSelectionResult'] =
+	const enforceSelectionResult: RuntimeEnforcementStages['enforceSelectionResult'] =
 		async (input) =>
-			access.enforceOutput({
-				context: input.context,
-				operation: input.operation,
-				result: enforceSelectionResultRestrictions(input),
-			})
-	const enforceAccessResult: RuntimeEnforcementStages['enforceResult'] = async (
+			await restrictProtectedPolicyResult(
+				contributions,
+				immutableRecord({
+					context: input.context,
+					operation: input.operation,
+					result: enforceSelectionResultRestrictions(input),
+				}) as never,
+			)
+	const enforceResult: RuntimeEnforcementStages['enforceResult'] = async (
 		input,
 	) =>
-		access.enforceOutput({
-			context: input.context,
-			operation: input.operation,
-			result: await enforceOutputRestrictions(contributions, runtime, input),
-		})
+		restrictProtectedPolicyResult(
+			contributions,
+			immutableRecord({
+				context: input.context,
+				operation: input.operation,
+				result: await enforceOutputRestrictions(contributions, runtime, input),
+			}),
+		)
 
 	return immutableRecord({
 		evaluate: async (input) => {
@@ -61,25 +76,30 @@ export const createEnforcementStages = <
 				contributions,
 				runtime,
 				input,
-				await access.evaluate(input, createEnforcementState()),
+				createEnforcementState(),
 			)
 
 			return evaluateRelationPredicates(input, state)
 		},
 		enforceOperation: (input) => enforceOperationRestrictions(input),
-		enforceRelationRead: (input) => access.enforceRelationRead(input),
-		enforcePreparedMutation: (input) => access.enforcePreparedMutation(input),
-		enforceMutationOutcome: (input) => access.enforceMutationOutcome(input),
+		enforceRelationRead: (input) =>
+			enforceProtectedRelation(contributions, input),
+		enforcePreparedMutation: (input) =>
+			enforceProtectedPreparedMutation(contributions, input),
+		enforceMutationOutcome: (input) =>
+			enforceProtectedMutationOutcome(contributions, input),
 		requiresPreparedMutationItems: (operation) =>
-			access.requiresPreparedMutationItems(operation),
-		enforceSelectionResult: enforceAccessSelectionResult,
-		enforceResult: enforceAccessResult,
+			protectedPoliciesRequirePreparedMutationItems(contributions, operation),
+		enforceSelectionResult,
+		enforceResult,
 		reevaluate: async (input) => {
+			await reevaluateProtectedPolicies(contributions, input)
 			const state = await evaluateEnforcementContributions(
 				contributions,
 				runtime,
 				input,
-				await access.reevaluate(input, input.enforcement),
+				input.enforcement,
+				false,
 			)
 
 			return evaluateRelationPredicates(input, state)

@@ -214,7 +214,7 @@ describe('Relation handles', () => {
 		for (const execution of dispatcher.executions) {
 			expect(execution.scope).toMatchObject({
 				kind: 'row-filter',
-				nativeAccessDeniedAsMissing: true,
+				protectedPolicyDeniedAsMissing: true,
 			})
 			expect(JSON.stringify(execution.operation)).not.toContain(articleId)
 			expect(Object.isFrozen(execution.operation)).toBe(true)

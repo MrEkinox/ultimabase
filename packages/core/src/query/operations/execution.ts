@@ -49,8 +49,8 @@ export interface OperationBatchProjection {
 /** @internal Carries one protected object predicate outside the transformable QueryBuilder AST. */
 export interface QueryRowFilterPrivateScope {
 	readonly kind: 'row-filter'
-	/** Makes protected singular object absence and Access denial indistinguishable. */
-	readonly nativeAccessDeniedAsMissing?: true
+	/** Makes protected singular object absence and policy denial indistinguishable. */
+	readonly protectedPolicyDeniedAsMissing?: true
 	/** Retains framework-owned identity for relation mutation orchestration only. */
 	readonly objectId?: string
 	readonly rowFilter: QueryFilterExpression

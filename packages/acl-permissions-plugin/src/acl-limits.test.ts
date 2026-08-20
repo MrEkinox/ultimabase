@@ -1,5 +1,5 @@
 import {
-	AccessSubjectReference,
+	RequestSubjectReference,
 	FrameworkError,
 	Schema,
 } from '@ultimabase/core'
@@ -16,8 +16,8 @@ import {
 const User = Schema.define({ className: 'ACLLimitUser', fields: () => ({}) })
 const alice = User.pointer('alice')
 const bob = User.pointer('bob')
-const editor = new AccessSubjectReference('role', 'role:editor')
-const reviewer = new AccessSubjectReference('role', 'role:reviewer')
+const editor = new RequestSubjectReference('role', 'role:editor')
+const reviewer = new RequestSubjectReference('role', 'role:reviewer')
 
 describe('ACL entry limits', () => {
 	it('inherits omitted values and snapshots explicit overrides', () => {

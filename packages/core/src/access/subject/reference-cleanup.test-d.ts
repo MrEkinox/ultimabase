@@ -1,10 +1,10 @@
 import { expectTypeOf, test } from 'vitest'
 
-import type { AccessSubjectReference } from './contracts.js'
-import { defineAccessReferenceCleanup } from './reference-cleanup.js'
+import type { RequestSubjectReference } from './contracts.js'
+import { defineRequestSubjectReferenceCleanup } from './reference-cleanup.js'
 
 test('preserves the exact neutral subject kind in cleanup callbacks', () => {
-	const cleanup = defineAccessReferenceCleanup({
+	const cleanup = defineRequestSubjectReferenceCleanup({
 		kind: 'role',
 		hasReferences: ({ context, reference }) => {
 			expectTypeOf(context.access.mode).toEqualTypeOf<'anonymous' | 'master'>()
@@ -14,7 +14,7 @@ test('preserves the exact neutral subject kind in cleanup callbacks', () => {
 		},
 		cleanup: ({ reference }) => {
 			expectTypeOf(reference).toEqualTypeOf<
-				AccessSubjectReference<'role', string | number>
+				RequestSubjectReference<'role', string | number>
 			>()
 		},
 	})

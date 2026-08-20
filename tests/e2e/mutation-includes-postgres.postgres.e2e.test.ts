@@ -5,6 +5,7 @@ import {
 	type PostgresQueryResult,
 } from '@ultimabase/postgres-plugin'
 import { Schema, UltimaBase } from '@ultimabase/core'
+import { accessPlugin } from '@ultimabase/access-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import {
@@ -156,7 +157,10 @@ beforeAll(async () => {
 	fixture = await createPostgresWorkerFixture({ prefix: 'mutation_include' })
 	pool = new CountingPostgresPool(fixture.pool)
 	ultimabase = new UltimaBase({
-		plugins: [postgresPlugin({ pool, schemaPolicy: 'override' })],
+		plugins: [
+			accessPlugin(),
+			postgresPlugin({ pool, schemaPolicy: 'override' }),
+		],
 		schemas,
 	})
 

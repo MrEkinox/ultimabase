@@ -36,8 +36,6 @@ import {
 	type ReservedSystemFieldName,
 	type SystemFields,
 } from './system-fields.js'
-import type { SchemaAccess } from '../access/contracts.js'
-import { declareSchemaAccess } from '../access/declarations.js'
 import {
 	captureFieldBuilderCallback,
 	FieldBuilderDeclarationExecutionError,
@@ -156,13 +154,6 @@ export interface SchemaOptions<
 		TExtensions,
 		SchemaExtensionData<NoInfer<TClassName>>
 	>
-	/**
-	 * Groups native allow, row, and prepared-item policies by operation.
-	 * Rules stay private to Runtime and never alter physical schema metadata.
-	 *
-	 * @example `access: { delete: ({ context }) => context.access.mode === "master" }`
-	 */
-	readonly access?: SchemaAccess<SchemaReference<NoInfer<TClassName>>>
 }
 
 /**
@@ -451,7 +442,6 @@ const compileSchemaRecord = (
 }
 
 const coreSchemaOptionKeys = new Set([
-	'access',
 	'className',
 	'extensions',
 	'fields',
@@ -796,9 +786,6 @@ const defineSchemaModel = <
 		value: true,
 		writable: false,
 	})
-	// Behavioral capabilities follow Schema identity without entering metadata.
-	declareSchemaAccess(schema, options.access)
-
 	try {
 		const prepared = prepareSchemaCompilation(schema)
 

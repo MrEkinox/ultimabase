@@ -1,25 +1,25 @@
 import { expectTypeOf, test } from 'vitest'
 
 import {
-	AccessSubjectReference,
+	RequestSubjectReference,
 	RequestContextValue,
 	Schema,
-	accessPrincipalResolverCapability,
-	accessRoleResolverCapability,
-	createAccessPrincipalReference,
-	parseAccessPrincipalReference,
-	resolveAccessPrincipal,
-	resolveAccessRoleReference,
-	type AccessPrincipalResolver,
-	type AccessPrincipalReference,
-	type AccessPrincipalReferenceIdentity,
-	type AccessRoleReference,
-	type AccessRoleReferenceCarrier,
-	type AccessRoleResolver,
-	type AccessSubjectResolver,
-	type AccessSubjectValue,
-	type AccessSubjectValueOf,
-	type ResolvedAccessSubject,
+	requestPrincipalResolverCapability,
+	requestRoleResolverCapability,
+	createRequestPrincipalReference,
+	parseRequestPrincipalReference,
+	resolveRequestPrincipal,
+	resolveRequestRoleReference,
+	type RequestPrincipalResolver,
+	type RequestPrincipalReference,
+	type RequestPrincipalReferenceIdentity,
+	type RequestRoleReference,
+	type RequestRoleReferenceCarrier,
+	type RequestRoleResolver,
+	type RequestSubjectResolver,
+	type RequestSubjectValue,
+	type RequestSubjectValueOf,
+	type ResolvedRequestSubject,
 	type PointerValue,
 	type CapabilityToken,
 } from '../../index.js'
@@ -54,20 +54,20 @@ const principal = new RequestContextValue<FixturePrincipal>(
 		})
 	},
 )
-const editor = new AccessSubjectReference('role', 'editor')
-const editorModel: AccessRoleReferenceCarrier = {
-	toAccessRoleReference: () => editor,
+const editor = new RequestSubjectReference('role', 'editor')
+const editorModel: RequestRoleReferenceCarrier = {
+	toRequestRoleReference: () => editor,
 }
 const PrincipalSchema = Schema.define({
 	className: 'TypedAccessPrincipal',
 	fields: () => ({}),
 })
 const principalPointer = PrincipalSchema.pointer('principal-id')
-const principalResolver: AccessPrincipalResolver<typeof principalPointer> = {
+const principalResolver: RequestPrincipalResolver<typeof principalPointer> = {
 	resolveCurrent: () => principalPointer,
 }
 
-const resolver: AccessSubjectResolver<typeof editor, FixtureRole> = {
+const resolver: RequestSubjectResolver<typeof editor, FixtureRole> = {
 	resolve: ({ context, reference }) => {
 		expectTypeOf(context.getValue(principal)).toEqualTypeOf<
 			FixturePrincipal | undefined
@@ -83,52 +83,54 @@ const resolver: AccessSubjectResolver<typeof editor, FixtureRole> = {
 
 test('infers plugin-owned principals and resolved subjects exactly', () => {
 	void resolver
-	expectTypeOf(principal).toExtend<AccessSubjectValue<FixturePrincipal>>()
+	expectTypeOf(principal).toExtend<RequestSubjectValue<FixturePrincipal>>()
 	expectTypeOf<
-		AccessSubjectValueOf<typeof principal>
+		RequestSubjectValueOf<typeof principal>
 	>().toEqualTypeOf<FixturePrincipal>()
-	expectTypeOf(editor).toEqualTypeOf<AccessSubjectReference<'role', 'editor'>>()
-	expectTypeOf(editor).toExtend<AccessRoleReference<'editor'>>()
+	expectTypeOf(editor).toEqualTypeOf<
+		RequestSubjectReference<'role', 'editor'>
+	>()
+	expectTypeOf(editor).toExtend<RequestRoleReference<'editor'>>()
 	expectTypeOf(
-		resolveAccessRoleReference(editorModel),
-	).toEqualTypeOf<AccessRoleReference>()
+		resolveRequestRoleReference(editorModel),
+	).toEqualTypeOf<RequestRoleReference>()
 	expectTypeOf<
-		ResolvedAccessSubject<typeof resolver>
+		ResolvedRequestSubject<typeof resolver>
 	>().toEqualTypeOf<FixtureRole>()
-	expectTypeOf(accessRoleResolverCapability).toEqualTypeOf<
+	expectTypeOf(requestRoleResolverCapability).toEqualTypeOf<
 		CapabilityToken<
-			AccessRoleResolver,
-			AccessRoleResolver,
-			'ultimabase.access.role-resolver',
+			RequestRoleResolver,
+			RequestRoleResolver,
+			'ultimabase.request-subject.role-resolver',
 			'1.0.0',
 			'single',
 			'application'
 		>
 	>()
-	expectTypeOf(accessPrincipalResolverCapability).toEqualTypeOf<
+	expectTypeOf(requestPrincipalResolverCapability).toEqualTypeOf<
 		CapabilityToken<
-			AccessPrincipalResolver,
-			AccessPrincipalResolver,
-			'ultimabase.access.principal-resolver',
+			RequestPrincipalResolver,
+			RequestPrincipalResolver,
+			'ultimabase.request-subject.principal-resolver',
 			'1.0.0',
 			'single',
 			'application'
 		>
 	>()
-	expectTypeOf<AccessPrincipalResolver['resolveCurrent']>().toBeFunction()
+	expectTypeOf<RequestPrincipalResolver['resolveCurrent']>().toBeFunction()
 	expectTypeOf(
-		createAccessPrincipalReference(principalPointer),
-	).toEqualTypeOf<AccessPrincipalReference>()
+		createRequestPrincipalReference(principalPointer),
+	).toEqualTypeOf<RequestPrincipalReference>()
 	expectTypeOf(
-		parseAccessPrincipalReference(
-			createAccessPrincipalReference(principalPointer),
+		parseRequestPrincipalReference(
+			createRequestPrincipalReference(principalPointer),
 		),
-	).toEqualTypeOf<Readonly<AccessPrincipalReferenceIdentity>>()
+	).toEqualTypeOf<Readonly<RequestPrincipalReferenceIdentity>>()
 	expectTypeOf<
-		NonNullable<AccessRoleResolver['resolvePersistentRole']>
+		NonNullable<RequestRoleResolver['resolvePersistentRole']>
 	>().toBeFunction()
 	expectTypeOf(
-		resolveAccessPrincipal({
+		resolveRequestPrincipal({
 			context: {} as never,
 			ownsSchema: () => true,
 			resolver: principalResolver,
@@ -139,7 +141,7 @@ test('infers plugin-owned principals and resolved subjects exactly', () => {
 	const invalidMode: 'user' = 'anonymous'
 	void invalidMode
 
-	const invalidResolver: AccessPrincipalResolver = {
+	const invalidResolver: RequestPrincipalResolver = {
 		// @ts-expect-error -- Principal providers must return exact Core Pointers.
 		resolveCurrent: () => ({ id: 'principal-id' }),
 	}
@@ -148,7 +150,7 @@ test('infers plugin-owned principals and resolved subjects exactly', () => {
 
 test('keeps nominal subject references distinct from structural values', () => {
 	// @ts-expect-error -- Plain records cannot forge nominal Access references.
-	const forged: AccessRoleReference<'editor'> = {
+	const forged: RequestRoleReference<'editor'> = {
 		kind: 'role',
 		value: 'editor',
 	}

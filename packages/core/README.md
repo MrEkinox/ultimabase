@@ -808,7 +808,7 @@ nominal `RequestContextValue<T>` identities. An authentication provider may
 publish one exact current principal without becoming a Core dependency:
 
 ```ts
-provideCapability(accessPrincipalResolverCapability, {
+provideCapability(requestPrincipalResolverCapability, {
 	contributionId: 'authenticated-principal',
 	create: () => ({
 		value: {
@@ -818,14 +818,14 @@ provideCapability(accessPrincipalResolverCapability, {
 })
 ```
 
-Access providers declare the capability as optional and call
-`resolveAccessPrincipal()`. The helper rejects forged Pointers and schemas not
+Policy providers declare the capability as optional and call
+`resolveRequestPrincipal()`. The helper rejects forged Pointers and schemas not
 owned by the consuming application. An absent provider or absent request-local
 identity returns `undefined`; neither creates authenticated authority.
 
 Role-aware configuration declares an optional or required
-`accessRoleResolverCapability` requirement and captures the returned typed
-resolver in an Access rule. Core validates requirements before capability
+`requestRoleResolverCapability` requirement and captures the returned typed
+resolver in a policy rule. Core validates requirements before capability
 materialization and plugin setup, so provider configuration order is
 irrelevant. Applications with no role-aware policy require no resolver at all.
 
@@ -1032,14 +1032,17 @@ skip their item lifecycle hooks when no row matches.
 Collection reads and writes live on the generated schema class. Models
 deliberately expose no mutable `save()` method.
 
-## Native Access and schema hooks
+## Optional Access and Hooks plugins
 
-Access and hooks are complementary Core capabilities. Access groups each
-security boundary under the operation it protects. Hooks express business
-transformations and effects only after Access has restricted the operation.
+Access and Hooks are optional plugins built on Core's public Runtime kernel.
+Core owns only anonymous/master authority and monotonic protected-policy
+composition. Configure `@ultimabase/access-plugin` for schema and field
+`access` declarations, and `@ultimabase/hooks-plugin` for schema and field
+`hooks` declarations. Importing either package alone installs no behavior.
 
-Schemas accept native declaration-only policies, and every built-in or plugin
-field accepts its own inline policy. A direct rule is the concise `allow`
+Generated declarations emitted for an application that configures the official
+Access plugin add its declaration-only schema and field options. Core-only
+projects do not recognize either `access` option. A direct rule is the concise `allow`
 decision. A detailed declaration colocates `allow`, a private `where` row
 restriction when relevant, and an `item` decision when materialized values are
 available. The declaration key already identifies the operation, so callbacks
@@ -1089,7 +1092,7 @@ indirect disclosure cannot inherit an accidentally broader rule.
 An omitted rule does not create an implicit callback: the compiled application
 fallback decides operation and field access. Runtime executes every matching
 rule sequentially through the same cancellation, recursion, and diagnostic
-boundary as native hooks.
+boundary as other protected Runtime contributions.
 
 Access callbacks are pure decisions and may be evaluated again after input
 transformation, target locking, or final upsert branch resolution. This keeps
@@ -1129,8 +1132,9 @@ parent object.
 An Access `where` rule uses the canonical `WhereInput` contract and normalized
 predicate nodes from `Query.where`, while remaining in private monotonic state.
 Developer query options can add filters, ordering, or limits but cannot inspect,
-replace, or remove Access filters. ACL and community policy plugins register
-contributions to this native system rather than business hooks.
+replace, or remove Access filters. Official-compatible providers contribute
+through `@ultimabase/access-plugin`; ACL and independent community policy
+engines instead use Core's generic protected-policy contract directly.
 
 The callback receives one immutable schema-aware `WhereBuilder` utility and no
 terminal `kind`, so `get`, `findOne`, `findMany`, `count`, and `exists` always
@@ -1167,18 +1171,20 @@ reference relation or target fields whose public field `filter` rule is false,
 while Runtime still applies the target schema's operation Access, row filters,
 plugin constraints, and recursively nested relationship policies.
 
-Application initialization compiles native declarations and owner-bound plugin
-policies once, before infrastructure connects. Plugins contribute through the
-typed `access` setup facade, select exact schema or field targets, and state
-whether audited master requests bypass or enforce their contribution. Omitted
-decisions use the configurable application fallback; it allows both operation
-and field access by default for applications that declare no policy:
+Application initialization compiles official declarations and owner-bound
+provider policies once, before infrastructure connects. Compatible providers
+use typed global, schema, field, extension, or field-kind targets exported by
+the Access plugin and declare it as a non-ordering peer. Omitted decisions use
+the configured plugin instance's fallback; it allows both operation and field
+access by default:
 
 ```ts
 const ultimabase = new UltimaBase({
-	access: { default: { operation: false, field: true } },
 	schemas: [PostSchema],
-	plugins: [visibilityPlugin],
+	plugins: [
+		accessPlugin({ default: { operation: false, field: true } }),
+		visibilityPlugin,
+	],
 })
 ```
 
@@ -1187,7 +1193,9 @@ database request. Business hooks see only the developer Query, while adapters
 combine both predicates with logical `AND`. Singular mutation item checks run
 against the adapter's prepared target before the write; value-dependent field
 output is removed before business output hooks and checked again after their
-transformations. See [Core Access](docs/access.md) for the complete lifecycle.
+transformations. See the
+[`@ultimabase/access-plugin` README](../access-plugin/README.md) for its complete
+authoring and provider surface.
 
 Neutral declaration helpers keep common policies explicit without creating
 Runtime behavior. A read-only schema can deny every mutation concisely:
@@ -1201,7 +1209,7 @@ import {
 	anyOf,
 	denyAll,
 	not,
-} from '@ultimabase/core'
+} from '@ultimabase/access-plugin'
 
 const readOnly = {
 	read: allowAll,
@@ -1225,13 +1233,13 @@ custom merge semantics or permission-provider concepts.
 decision callbacks in deterministic short-circuit order. They simplify
 constants and single callbacks during declaration, check cancellation between
 awaited decisions, and allocate no request-local registry or policy object.
-Composition is local to one rule: separate native and plugin contributions
+Composition is local to one rule: separate developer and provider contributions
 still combine through the Runtime's monotonic `AND` boundary.
 
 ### Schema hooks
 
-Schemas can colocate typed mutation lifecycle declarations without installing a
-plugin. The public surface has three concepts: `resolveInput`,
+Applications configured with `@ultimabase/hooks-plugin` can colocate typed
+mutation lifecycle declarations on schemas. The public surface has three concepts: `resolveInput`,
 `beforeOperation`, and `afterOperation`:
 
 ```ts
@@ -1900,8 +1908,8 @@ and never executes setup or lifecycle hooks.
 
 ## Setup facades and migration map
 
-Plugin setup retains only the exact Core-owned `hooks`, `access`, `adapters`,
-and `constraintCompilers` facades. Each accepts only its nominal definition or
+Plugin setup retains only infrastructure-specific compatibility facades still
+owned by Core. Each accepts only its nominal definition or
 requirement type, records the exact plugin and instance owner, checks its
 dedicated privilege, and closes when setup finishes. Their backing stores are
 private to Core; applications cannot enumerate or mutate them.
@@ -1910,7 +1918,7 @@ Milestone 14 maps the removed generic paths as follows:
 
 - exclusive string slots become canonical `single` capabilities;
 - public service tokens become application capabilities;
-- native Hooks and Access retain the exact `hooks` and `access` facades;
+- optional Hooks and Access use application capabilities owned by their packages;
 - low-level interception, policy enforcement, post-commit events, and fixed
   pipeline stages use `provideRuntimeInterceptor()`,
   `provideRuntimeConstraint()`, and `provideRuntimeObserver()` respectively;
@@ -1921,7 +1929,7 @@ Milestone 14 maps the removed generic paths as follows:
   `providePersistencePlanRewriter()` facade under `persistence:rewrite`;
 - database constraint compilers retain their exact adapter-authorized facade;
 - cross-plugin commands become domain capabilities, such as
-  `accessReferenceCleanupCapability`;
+  `requestSubjectReferenceCleanupCapability`;
 - extension claims disappear because compiled schemas already retain owner
   provenance; and
 - unused operator, generator, and transport registry categories are removed
@@ -1941,12 +1949,12 @@ Independent subject consumers provide deletion participation without importing
 the provider that resolves that subject:
 
 ```ts
-provideCapability(accessReferenceCleanupCapability, {
+provideCapability(requestSubjectReferenceCleanupCapability, {
 	contributionId: 'acl.role-references',
 	create: () => ({
 		value: {
 			name: 'acl.role-references',
-			cleanup: defineAccessReferenceCleanup({
+			cleanup: defineRequestSubjectReferenceCleanup({
 				kind: 'role',
 				hasReferences: ({ reference }) => aclStore.hasSubject(reference.value),
 				cleanup: ({ reference }) => aclStore.removeSubject(reference.value),

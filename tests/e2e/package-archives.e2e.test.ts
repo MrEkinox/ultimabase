@@ -143,19 +143,19 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 		}
 	})
 
-	it('keeps Query-expression traversal implementation private', async () => {
+	it('exports only the guarded Query-expression traversal contract', async () => {
 		const declarations = await readFile(
 			path.join(packagesDirectory, 'core', 'dist', 'index.d.ts'),
 			'utf8',
 		)
 
-		for (const internalName of [
+		for (const publicName of [
 			'GuardedQueryExpressionNode',
 			'QueryExpressionTraversalDirective',
 			'QueryExpressionVisitor',
 			'traverseQueryExpression',
 		]) {
-			expect(declarations).not.toContain(internalName)
+			expect(declarations).toContain(publicName)
 		}
 	})
 

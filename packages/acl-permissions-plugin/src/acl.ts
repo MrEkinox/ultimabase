@@ -1,9 +1,9 @@
 import {
-	AccessSubjectReference,
+	RequestSubjectReference,
 	Pointer,
-	resolveAccessRoleReference,
-	type AccessRoleReference,
-	type AccessRoleSubject,
+	resolveRequestRoleReference,
+	type RequestRoleReference,
+	type RequestRoleSubject,
 } from '@ultimabase/core'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
@@ -29,7 +29,7 @@ interface ACLState {
 	readonly authenticated: readonly ACLPermission[]
 	readonly principals: readonly ACLSubjectEntry<PrincipalIdentity>[]
 	readonly public: readonly ACLPermission[]
-	readonly roles: readonly ACLSubjectEntry<AccessRoleReference>[]
+	readonly roles: readonly ACLSubjectEntry<RequestRoleReference>[]
 }
 
 const aclStates = new WeakMap<object, ACLState>()
@@ -109,10 +109,10 @@ const principalIdentity = (principal: ACLPrincipal): PrincipalIdentity => {
 const principalKey = (identity: PrincipalIdentity): string =>
 	JSON.stringify([identity.className, identity.id])
 
-const roleIdentity = (role: AccessRoleSubject): AccessRoleReference =>
-	resolveAccessRoleReference(role)
+const roleIdentity = (role: RequestRoleSubject): RequestRoleReference =>
+	resolveRequestRoleReference(role)
 
-const roleKey = (reference: AccessRoleReference): string => reference.value
+const roleKey = (reference: RequestRoleReference): string => reference.value
 
 const findPermissions = <TSubject>(
 	entries: readonly ACLSubjectEntry<TSubject>[],
@@ -176,7 +176,7 @@ const updatePrincipalPermissions = (
 /** Reuses neutral role conversion for every role state transition. */
 const updateRolePermissions = (
 	acl: ACL,
-	role: AccessRoleSubject,
+	role: RequestRoleSubject,
 	requested: readonly ACLPermission[],
 	change: PermissionChange,
 ): ACL => {
@@ -238,7 +238,7 @@ export class ACL {
 				public: document.public,
 				roles: immutableArray(
 					document.roles.map((entry) => {
-						const subject = new AccessSubjectReference('role', entry.value)
+						const subject = new RequestSubjectReference('role', entry.value)
 
 						return immutableRecord({
 							key: roleKey(subject),
@@ -398,7 +398,7 @@ export class ACL {
 
 	/** Adds rights for one neutral role reference or persisted role carrier. */
 	grantRole(
-		role: AccessRoleSubject,
+		role: RequestRoleSubject,
 		...permissions: readonly ACLPermission[]
 	): ACL {
 		return updateRolePermissions(this, role, permissions, grantPermissions)
@@ -406,7 +406,7 @@ export class ACL {
 
 	/** Removes only the supplied rights from one neutral role subject. */
 	revokeRole(
-		role: AccessRoleSubject,
+		role: RequestRoleSubject,
 		...permissions: readonly ACLPermission[]
 	): ACL {
 		return updateRolePermissions(this, role, permissions, revokePermissions)
@@ -414,14 +414,14 @@ export class ACL {
 
 	/** Replaces one role's complete right set; no rights removes the entry. */
 	setRolePermissions(
-		role: AccessRoleSubject,
+		role: RequestRoleSubject,
 		...permissions: readonly ACLPermission[]
 	): ACL {
 		return updateRolePermissions(this, role, permissions, setPermissions)
 	}
 
 	/** Returns a detached readonly snapshot of one role's rights. */
-	permissionsForRole(role: AccessRoleSubject): readonly ACLPermission[] {
+	permissionsForRole(role: RequestRoleSubject): readonly ACLPermission[] {
 		const reference = roleIdentity(role)
 
 		return snapshotPermissions(
@@ -431,7 +431,7 @@ export class ACL {
 
 	/** Reports whether one neutral role subject owns one exact right. */
 	hasRolePermission(
-		role: AccessRoleSubject,
+		role: RequestRoleSubject,
 		permission: ACLPermission,
 	): boolean {
 		return this.permissionsForRole(role).includes(permission)

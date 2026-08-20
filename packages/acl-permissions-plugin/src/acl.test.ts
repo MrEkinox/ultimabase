@@ -1,7 +1,7 @@
 import {
-	AccessSubjectReference,
+	RequestSubjectReference,
 	Schema,
-	type AccessRoleReferenceCarrier,
+	type RequestRoleReferenceCarrier,
 } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
@@ -15,8 +15,8 @@ const ServiceAccount = Schema.define({
 })
 const alice = User.pointer('shared-id')
 const service = ServiceAccount.pointer('shared-id')
-const editor = new AccessSubjectReference('role', 'role:editor')
-const moderator = new AccessSubjectReference('role', 'role:moderator')
+const editor = new RequestSubjectReference('role', 'role:editor')
+const moderator = new RequestSubjectReference('role', 'role:moderator')
 
 describe('ACL', () => {
 	it('starts empty and exposes one canonical permission vocabulary', () => {
@@ -84,8 +84,8 @@ describe('ACL', () => {
 	})
 
 	it('supports multiple roles and persisted-value reference carriers', () => {
-		const persistedEditor: AccessRoleReferenceCarrier = {
-			toAccessRoleReference: () => editor,
+		const persistedEditor: RequestRoleReferenceCarrier = {
+			toRequestRoleReference: () => editor,
 		}
 		const acl = new ACL()
 			.grantRole(persistedEditor, 'update', 'read')
@@ -165,14 +165,14 @@ describe('ACL', () => {
 		expect(() =>
 			new ACL().grantRole(
 				{
-					toAccessRoleReference: () =>
-						new AccessSubjectReference('principal', 'alice') as never,
+					toRequestRoleReference: () =>
+						new RequestSubjectReference('principal', 'alice') as never,
 				},
 				'read',
 			),
 		).toThrow(
 			new TypeError(
-				'Access role subject must provide one string role reference',
+				'Request role subject must provide one string role reference',
 			),
 		)
 	})

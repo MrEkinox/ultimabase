@@ -3,6 +3,7 @@
 - Status: accepted
 - Date: 2026-08-20
 - Refines: ADR-0189, ADR-0194, ADR-0202
+- Refined by: ADR-0205
 - Depends on: ADR-0189, ADR-0190, ADR-0191, ADR-0199, ADR-0200, ADR-0203
 
 ## Context
@@ -39,10 +40,11 @@ versioned capability tokens, plan compiler, diagnostics, and Runtime
 integration.
 
 Importing the package installs no behavior. The application must configure its
-exported plugin definition explicitly. ACL and other plugins that intentionally
-contribute to the official Access engine import its public contracts from this
+exported plugin definition explicitly. Plugins that intentionally extend the
+official Access declaration protocol import its public contracts from this
 package and declare the engine through ADR-0203's non-ordering `peers` contract
-when their contributions require a configured compatible engine.
+when their contributions require a configured compatible engine. ADR-0205
+keeps ACL independent on Core's generic protected policy boundary.
 
 There is no `@ultimabase/access-contracts` package.
 
@@ -84,8 +86,9 @@ transport-forgeable.
 
 - Official Access extension authors have one dependency and one documentation
   surface.
-- Official-compatible ACL and policy providers depend on and peer with the
-  official Access package without manufacturing lifecycle cycles.
+- Official-compatible extensions may depend on and peer with the official
+  Access package without manufacturing lifecycle cycles; ACL remains an
+  independent protected policy.
 - Independent alternatives remain free to expose a different policy model
   through the generic public kernel.
 - Issue 1504 creates the complete `@ultimabase/access-plugin`; issue 1505 is

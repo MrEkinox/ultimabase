@@ -3,19 +3,22 @@ import {
 	RequestContextValue,
 	Schema,
 	UltimaBase,
-	accessReferenceCleanupCapability,
-	accessRoleResolverCapability,
+	requestSubjectReferenceCleanupCapability,
+	requestRoleResolverCapability,
+	defineRequestSubjectReferenceCleanup,
+	definePlugin,
+	provideCapability,
+	requireCapability,
+	type RequestRoleResolver,
+} from '@ultimabase/core'
+import {
 	allMutations,
 	allOf,
 	anyOf,
-	defineAccessReferenceCleanup,
-	definePlugin,
 	not,
-	provideCapability,
-	requireCapability,
 	type AccessContext,
-	type AccessRoleResolver,
-} from '@ultimabase/core'
+} from '@ultimabase/access-plugin'
+import { accessPlugin } from '@ultimabase/access-plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import {
 	postgresPlugin,
@@ -205,7 +208,7 @@ export const rejectNextRoleReferenceCleanup = (): void => {
 const readReferenceValue = (value: string | number): string =>
 	typeof value === 'string' ? value : String(value)
 
-const externalRoleReferenceCleanup = defineAccessReferenceCleanup({
+const externalRoleReferenceCleanup = defineRequestSubjectReferenceCleanup({
 	kind: 'role',
 	hasReferences: ({ reference }) =>
 		ExternalRoleReference.exists(
@@ -254,7 +257,7 @@ export const externalRoleReferencePlugin = definePlugin({
 	],
 	capabilities: {
 		provides: [
-			provideCapability(accessReferenceCleanupCapability, {
+			provideCapability(requestSubjectReferenceCleanupCapability, {
 				contributionId: 'external-role-reference-cleanup',
 				create: () => ({
 					value: {
@@ -286,7 +289,7 @@ export const externalRoleReferencePlugin = definePlugin({
 })
 
 const roleResolverRequirement = requireCapability(
-	accessRoleResolverCapability,
+	requestRoleResolverCapability,
 	'^1.0.0',
 )
 export const roleResolverConsumerPluginName =
@@ -296,7 +299,7 @@ const roleResolverConsumerPlugin = definePlugin({
 	core: '^0.0.0',
 	pluginId: roleResolverConsumerPluginName,
 	capabilities: { requires: [roleResolverRequirement] },
-	setup: ({ capabilities }): AccessRoleResolver =>
+	setup: ({ capabilities }): RequestRoleResolver =>
 		capabilities.get(roleResolverRequirement),
 })
 
@@ -324,6 +327,7 @@ export const createRoleApplication = (
 		}),
 		plugins: [
 			hooksPlugin(),
+			accessPlugin(),
 			externalRoleReferencePlugin,
 			rolesPlugin(),
 			roleResolverConsumerPlugin,
@@ -347,7 +351,7 @@ export const createProviderBoundaryApplication = (
 		pluginId: 'fixture.community-role-provider-e2e',
 		capabilities: {
 			provides: [
-				provideCapability(accessRoleResolverCapability, {
+				provideCapability(requestRoleResolverCapability, {
 					contributionId: 'community-role-resolver',
 					create: () => ({ value: { hasRole: () => true } }),
 				}),
@@ -358,6 +362,7 @@ export const createProviderBoundaryApplication = (
 	return new UltimaBase({
 		plugins: [
 			hooksPlugin(),
+			accessPlugin(),
 			...(provider === 'community' ? [communityProvider] : []),
 			postgresPlugin({ schemaPolicy: 'ignore', url: connectionUri }),
 		],

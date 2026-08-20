@@ -266,7 +266,8 @@ const snapshotDatabaseConstraintPayload = (
 	)
 }
 
-const normalizeOperations = (
+/** Normalizes shared operation targeting for protected Runtime definitions. */
+export const normalizeEnforcementOperations = (
 	operations: readonly OperationKind[] | undefined,
 ): readonly OperationKind[] | undefined => {
 	if (operations === undefined) {
@@ -352,7 +353,7 @@ const defineEnforcement = <
 	const untrustedOptions: unknown = options
 	assertOptions(untrustedOptions)
 
-	const operations = normalizeOperations(options.operations)
+	const operations = normalizeEnforcementOperations(options.operations)
 	const definition = immutableRecord({
 		kind,
 		operations,

@@ -112,7 +112,6 @@ const assertStringOptionKeys = (
 // Core-owned root names stay reserved even when one field kind does not support them.
 const coreFieldOptionKeySet: ReadonlySet<string> = new Set([
 	...fieldOptionKeys,
-	'access',
 	'autoIncrement',
 	'autoNow',
 	'fields',

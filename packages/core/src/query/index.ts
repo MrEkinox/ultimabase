@@ -66,6 +66,7 @@ export type {
 	QueryRelationTargetSchema,
 } from './clauses/inclusion.js'
 export { normalizeLogicalFilter } from './filters/logical.js'
+export { traverseQueryExpression } from './filters/traversal.js'
 export { fieldPath } from './filters/factory.js'
 export type {
 	QueryAndFilterNode,
@@ -114,7 +115,11 @@ export type {
 	QueryStructuralContainmentFilterNode,
 	QueryStructuralContainmentFilterOperator,
 } from './filters/primitive.js'
-export { normalizeWhereInput, WhereBuilder } from './filters/where.js'
+export {
+	normalizeWhereInput,
+	resolveWhereInput,
+	WhereBuilder,
+} from './filters/where.js'
 export type {
 	WhereCallback,
 	WhereInput,

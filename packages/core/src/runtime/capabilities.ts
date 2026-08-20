@@ -19,6 +19,10 @@ import type { OperationKind } from '../query/index.js'
 import type { SchemaDefinition } from '../schema/index.js'
 import type { EnforcementContributionKind } from './enforcement/contracts.js'
 import { getEnforcementContributionImplementation } from './enforcement/definitions.js'
+import {
+	getProtectedPolicyImplementation,
+	type ProtectedPolicyDefinition,
+} from './enforcement/protected-policy.js'
 import { getRuntimeContributionImplementation } from './hooks/definitions.js'
 import { getHookEventImplementation } from './hooks/events.js'
 import { RuntimePipeline } from './pipeline/runtime-pipeline.js'
@@ -39,11 +43,13 @@ export type RuntimeInterceptorDefinition =
 	| Readonly<{ stage: RuntimePipelineStageName }>
 
 /** Lists the monotonic definitions that can only narrow protected execution. */
-export type RuntimeConstraintDefinition = Readonly<{
-	kind: EnforcementContributionKind
-	operations: readonly OperationKind[] | undefined
-	schema: SchemaDefinition | undefined
-}>
+export type RuntimeConstraintDefinition =
+	| Readonly<{
+			kind: EnforcementContributionKind
+			operations: readonly OperationKind[] | undefined
+			schema: SchemaDefinition | undefined
+	  }>
+	| ProtectedPolicyDefinition
 
 /** Lists result and committed-event observers that cannot replace execution values. */
 export type RuntimeObserverDefinition =
@@ -224,7 +230,10 @@ const assertRuntimeInterceptorDefinition = (
 const assertRuntimeConstraintDefinition = (
 	definition: unknown,
 ): RuntimeConstraintDefinition => {
-	if (getEnforcementContributionImplementation(definition) !== undefined) {
+	if (
+		getEnforcementContributionImplementation(definition) !== undefined ||
+		getProtectedPolicyImplementation(definition) !== undefined
+	) {
 		return definition as RuntimeConstraintDefinition
 	}
 

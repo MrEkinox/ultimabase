@@ -1,10 +1,7 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 
-import {
-	assertFieldDefinition,
-	getFieldAccessDeclarations,
-} from '../../schema/fields/base/definition.js'
+import { assertFieldDefinition } from '../../schema/fields/base/definition.js'
 import {
 	prepareSchemaCompilation,
 	Schema,
@@ -15,9 +12,8 @@ import { SchemaCompilerIrEncoder } from './encoder.js'
 import { assertSchemaCompilerInput } from './validation.js'
 
 describe('schema compiler IR encoding', () => {
-	it('masks schema classes, default factories, and Access behind artifacts', () => {
+	it('masks schema classes and default factories behind artifacts', () => {
 		const defaultTitle = (): string => 'draft'
-		const canReadTitle = (): boolean => true
 		const Post = Schema.define({
 			className: 'CompilerIrPost',
 			fields: (field) => ({
@@ -25,9 +21,6 @@ describe('schema compiler IR encoding', () => {
 					fields: (nested) => ({ source: nested.string() }),
 				}),
 				title: field.string({
-					access: {
-						read: { orderBy: true, output: canReadTitle, where: true },
-					},
 					default: defaultTitle,
 				}),
 			}),
@@ -46,7 +39,6 @@ describe('schema compiler IR encoding', () => {
 		}).not.toThrow()
 		expect(JSON.stringify(input)).not.toContain('draft')
 		expect(JSON.stringify(input)).not.toContain('defaultTitle')
-		expect(JSON.stringify(input)).not.toContain('canReadTitle')
 
 		const title = schema.fields.find(({ name }) => name === 'title')
 		const defaultValue = title?.options.find(
@@ -66,7 +58,6 @@ describe('schema compiler IR encoding', () => {
 		const decodedTitle = encoder.session.resolve(title.artifact, 'field')
 		assertFieldDefinition(decodedTitle, 'decoded title')
 		expect(decodedTitle).toBe(prepared.definition.fields.title)
-		expect(getFieldAccessDeclarations(decodedTitle)).toBeDefined()
 	})
 
 	it('assigns stable ordered identities and reuses repeated artifacts', () => {

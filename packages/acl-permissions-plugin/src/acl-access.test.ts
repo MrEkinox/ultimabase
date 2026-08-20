@@ -1,11 +1,11 @@
 import {
-	AccessSubjectReference,
+	RequestSubjectReference,
 	Pointer,
 	QueryBuilder,
 	Schema,
-	type AccessContext,
-	type AccessPrincipalResolver,
-	type AccessRoleResolver,
+	type RequestSubjectContext,
+	type RequestPrincipalResolver,
+	type RequestRoleResolver,
 	type SchemaDefinition,
 } from '@ultimabase/core'
 import { describe, expect, it, vi } from 'vitest'
@@ -30,7 +30,7 @@ const ProtectedRecord = Schema.define({
 	fields: (field) => ({ name: field.string() }),
 })
 const principal = new Pointer(Principal, '0198a43e-2431-7000-8000-000000000011')
-const context: AccessContext = {
+const context: RequestSubjectContext = {
 	access: { mode: 'anonymous' },
 	getValue: () => undefined,
 	hasCapability: () => false,
@@ -43,11 +43,11 @@ const ownsPrincipalSchema = (schema: SchemaDefinition): boolean =>
 
 describe('ACL Access contributions', () => {
 	it('normalizes one principal and unique role set into a detached row constraint', async () => {
-		const editor = new AccessSubjectReference('role', 'role:editor')
-		const principalResolver: AccessPrincipalResolver = {
+		const editor = new RequestSubjectReference('role', 'role:editor')
+		const principalResolver: RequestPrincipalResolver = {
 			resolveCurrent: vi.fn(() => principal),
 		}
-		const roleResolver: AccessRoleResolver = {
+		const roleResolver: RequestRoleResolver = {
 			hasRole: () => false,
 			resolveCurrentRoles: vi.fn(() => [editor, editor]),
 		}
@@ -95,7 +95,7 @@ describe('ACL Access contributions', () => {
 				{
 					hasRole: () => false,
 					resolveCurrentRoles: () => [
-						new AccessSubjectReference('group', 'editors') as never,
+						new RequestSubjectReference('group', 'editors') as never,
 					],
 				},
 				ownsPrincipalSchema,

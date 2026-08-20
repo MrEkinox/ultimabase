@@ -319,25 +319,5 @@ describe('FrameworkApplication', () => {
 				plugins: {},
 			})
 		}).toThrow(new TypeError('plugins must be an array'))
-		expect(() => {
-			new FrameworkApplication({
-				// @ts-expect-error -- Runtime validation protects malformed Access options.
-				access: null,
-				schemas: [],
-				plugins: [],
-			})
-		}).toThrow(new TypeError('application access must be a plain object'))
-		expect(() => {
-			new FrameworkApplication({
-				access: {
-					// @ts-expect-error -- Grouped defaults require boolean branches.
-					default: { field: true },
-				},
-				schemas: [],
-				plugins: [],
-			})
-		}).toThrow(
-			new TypeError('application access.default.operation must be a boolean'),
-		)
 	})
 })

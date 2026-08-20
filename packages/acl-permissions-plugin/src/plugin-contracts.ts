@@ -1,7 +1,7 @@
 import type {
-	accessPrincipalResolverCapability,
-	accessReferenceCleanupCapability,
-	accessRoleResolverCapability,
+	requestPrincipalResolverCapability,
+	requestSubjectReferenceCleanupCapability,
+	requestRoleResolverCapability,
 	runtimeConstraintCapability,
 	runtimeBehaviorCapability,
 	runtimeInterceptorCapability,
@@ -55,12 +55,12 @@ export type ACLPlugin = FrameworkPlugin<
 	Readonly<{
 		readonly optional: readonly [
 			CapabilityRequirement<
-				typeof accessPrincipalResolverCapability,
+				typeof requestPrincipalResolverCapability,
 				true,
 				'^1.0.0'
 			>,
 			CapabilityRequirement<
-				typeof accessRoleResolverCapability,
+				typeof requestRoleResolverCapability,
 				true,
 				'^1.0.0'
 			>,
@@ -72,8 +72,13 @@ export type ACLPlugin = FrameworkPlugin<
 			>,
 		]
 		readonly provides: readonly [
-			CapabilityProviderDeclaration<typeof accessReferenceCleanupCapability>,
-			CapabilityProviderDeclaration<typeof accessReferenceCleanupCapability>,
+			CapabilityProviderDeclaration<
+				typeof requestSubjectReferenceCleanupCapability
+			>,
+			CapabilityProviderDeclaration<
+				typeof requestSubjectReferenceCleanupCapability
+			>,
+			CapabilityProviderDeclaration<typeof runtimeConstraintCapability>,
 			CapabilityProviderDeclaration<typeof runtimeConstraintCapability>,
 			CapabilityProviderDeclaration<typeof runtimeInterceptorCapability>,
 			CapabilityProviderDeclaration<typeof runtimeConstraintCapability>,

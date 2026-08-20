@@ -5,7 +5,7 @@ export type {
 	MasterRequestAccess,
 	RequestAccess,
 } from './request/access.js'
-export type { AccessContext } from './request/context.js'
+export type { RequestSubjectContext } from './request/context.js'
 export { RequestCapability } from './request/capability.js'
 export { RequestContextValue } from './request/context-value.js'
 export type {
@@ -13,38 +13,38 @@ export type {
 	RequestContextValueSnapshot,
 } from './request/context-value.js'
 export {
-	AccessSubjectReference,
-	accessPrincipalResolverCapability,
-	accessRoleResolverCapability,
-	createAccessPrincipalReference,
-	parseAccessPrincipalReference,
-	resolveAccessPrincipal,
-	resolveAccessRoleReference,
+	RequestSubjectReference,
+	requestPrincipalResolverCapability,
+	requestRoleResolverCapability,
+	createRequestPrincipalReference,
+	parseRequestPrincipalReference,
+	resolveRequestPrincipal,
+	resolveRequestRoleReference,
 } from './subject/contracts.js'
 export type {
-	AccessRoleReference,
-	AccessPrincipalReference,
-	AccessPrincipalReferenceIdentity,
-	AccessRoleReferenceCarrier,
-	AccessRoleResolutionInput,
-	AccessRoleResolver,
-	AccessRoleSubject,
-	AccessSubjectResolutionInput,
-	AccessSubjectResolver,
-	AccessSubjectValue,
-	AccessPrincipalResolutionInput,
-	AccessPrincipalResolver,
-	AccessSubjectValueOf,
-	ResolvedAccessSubject,
-	ResolveAccessPrincipalOptions,
+	RequestRoleReference,
+	RequestPrincipalReference,
+	RequestPrincipalReferenceIdentity,
+	RequestRoleReferenceCarrier,
+	RequestRoleResolutionInput,
+	RequestRoleResolver,
+	RequestRoleSubject,
+	RequestSubjectResolutionInput,
+	RequestSubjectResolver,
+	RequestSubjectValue,
+	RequestPrincipalResolutionInput,
+	RequestPrincipalResolver,
+	RequestSubjectValueOf,
+	ResolvedRequestSubject,
+	ResolveRequestPrincipalOptions,
 } from './subject/contracts.js'
 export {
-	accessReferenceCleanupCapability,
-	defineAccessReferenceCleanup,
-	isAccessReferenceCleanup,
+	requestSubjectReferenceCleanupCapability,
+	defineRequestSubjectReferenceCleanup,
+	isRequestSubjectReferenceCleanup,
 } from './subject/reference-cleanup.js'
 export type {
-	AccessReferenceCleanup,
-	AccessReferenceCleanupInput,
-	NamedAccessReferenceCleanup,
+	RequestSubjectReferenceCleanup,
+	RequestSubjectReferenceCleanupInput,
+	NamedRequestSubjectReferenceCleanup,
 } from './subject/reference-cleanup.js'

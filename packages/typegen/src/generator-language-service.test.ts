@@ -5,6 +5,7 @@ import {
 	Schema,
 	type FieldBuilder,
 } from '@ultimabase/core'
+import { accessPlugin } from '@ultimabase/access-plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import {
 	pgVectorPlugin,
@@ -84,7 +85,7 @@ const createGeneratedRegistry = (): string => {
 		},
 	})
 	const application = new FrameworkApplication({
-		plugins: [hooksPlugin(), pgVectorPlugin()],
+		plugins: [accessPlugin(), hooksPlugin(), pgVectorPlugin()],
 		schemas: [Author, Article],
 	})
 
@@ -260,8 +261,7 @@ const invalidListFilter: SemanticArticleWhereInput = {
 }
 
 void createInput
-void exactStatus
-void exactVector
+void [exactStatus, exactVector]
 void include
 void invalidEnum
 void invalidOrder
@@ -429,7 +429,7 @@ const SemanticArticle = Schema.define({
           validation: { required: true },
           access: {
             read: {
-              output: ({ value }) => value.length > 0,
+              output: ({ value }) => value !== null && value.length > 0,
               where: true,
               orderBy: true,
             },

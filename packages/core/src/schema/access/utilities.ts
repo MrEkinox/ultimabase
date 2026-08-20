@@ -1,6 +1,6 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
-import type { AccessContext } from '../../access/index.js'
+import type { RequestSubjectContext as AccessContext } from '../../access/index.js'
 import type {
 	AccessDecisionRule,
 	SchemaOperationAccessInput,

@@ -45,7 +45,7 @@ export interface RuntimeRelationMutationExecutor {
 	execute(
 		operation: DatabaseOperationAst,
 		rowFilter?: DatabaseRowFilterNode,
-		nativeAccessDeniedAsMissing?: true,
+		protectedPolicyDeniedAsMissing?: true,
 		privateObjectId?: string,
 	): Promise<unknown>
 	getSchemaTargets(): SchemaTargetGraph

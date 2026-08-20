@@ -1,7 +1,5 @@
 import { immutableRecord } from '@ultimabase/shared'
 
-import type { FieldAccessDeclaration } from '../../access/contracts.js'
-import { splitFieldAccessOptions } from '../../access/field-options.js'
 import { snapshotPointerValue, type Pointer } from '../../relations/pointer.js'
 import {
 	Schema,
@@ -141,13 +139,7 @@ type CompactPointerFieldOptions<
 	 * @example `onDelete: "cascade"`
 	 */
 	readonly onDelete?: TOnDelete
-} & FieldAccessDeclaration<
-		ResolvedPointerField<
-			NoInfer<TTarget>,
-			NoInfer<TRequired>,
-			NoInfer<TImmutable>
-		>
-	>
+}
 
 type CompatiblePointerOptions<
 	TRequired extends boolean,
@@ -315,15 +307,12 @@ export function pointerField<const TTarget extends SchemaDefinition>(
 		throw new TypeError('pointerField does not support default values')
 	}
 	const { target, ...declarationOptions } = options
-	const { access, metadataOptions } =
-		splitFieldAccessOptions<PointerFieldMetadataInput>(declarationOptions)
 	const snapshotValue = createPointerSnapshot(target)
 
 	return createFieldDefinition(
 		'pointer',
-		normalizePointerMetadata(metadataOptions),
+		normalizePointerMetadata(declarationOptions as PointerFieldMetadataInput),
 		snapshotValue,
-		access,
 		{ schemaTarget: target },
 	)
 }

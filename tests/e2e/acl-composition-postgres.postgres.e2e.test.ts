@@ -1,5 +1,6 @@
 import { aclPostgresPlugin } from '@ultimabase/acl-postgres-plugin'
 import { ACL, acl, aclPlugin } from '@ultimabase/acl-permissions-plugin'
+import { accessPlugin } from '@ultimabase/access-plugin'
 import {
 	MasterAuthority,
 	RequestContext,
@@ -159,6 +160,7 @@ beforeAll(async () => {
 		}),
 		plugins: [
 			hooksPlugin(),
+			accessPlugin(),
 			identityPlugin,
 			aclPlugin(),
 			postgresPlugin({

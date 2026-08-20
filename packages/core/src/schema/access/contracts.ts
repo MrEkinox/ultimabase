@@ -1,6 +1,6 @@
 import type { MaybePromise } from '@ultimabase/shared'
 
-import type { AccessContext } from '../../access/index.js'
+import type { RequestSubjectContext as AccessContext } from '../../access/index.js'
 import type { WhereBuilder, WhereInput } from '../../query/index.js'
 import type { GenericField } from '../fields/base/contract.js'
 import type { FieldHookTypes } from '../hooks/field-contracts.js'

@@ -1,7 +1,7 @@
 import {
 	Pointer,
-	accessReferenceCleanupCapability,
-	accessRoleResolverCapability,
+	requestSubjectReferenceCleanupCapability,
+	requestRoleResolverCapability,
 	materializeSchemaModel,
 	optionalCapability,
 	provideCapability,
@@ -57,7 +57,7 @@ const rolesPluginModule = definePluginModule({
 })
 
 const optionalReferenceCleanups = optionalCapability(
-	accessReferenceCleanupCapability,
+	requestSubjectReferenceCleanupCapability,
 	'^1.0.0',
 	{ phase: 'setup' },
 )
@@ -86,7 +86,7 @@ const readRoleSchemas = (
 		.values()
 		.filter((schema) => getRoleSchemaDeclaration(schema) !== undefined)
 
-const roleResolverProvider = provideCapability(accessRoleResolverCapability, {
+const roleResolverProvider = provideCapability(requestRoleResolverCapability, {
 	contributionId: 'stored-roles',
 	create: ({ schemas }) => ({
 		value: createStoredRoleResolver(readRoleSchemas(schemas)),
@@ -406,12 +406,12 @@ export type RolesPlugin = FrameworkPlugin<
 	undefined,
 	Readonly<{
 		readonly provides: readonly [
-			CapabilityProviderDeclaration<typeof accessRoleResolverCapability>,
+			CapabilityProviderDeclaration<typeof requestRoleResolverCapability>,
 			CapabilityProviderDeclaration<typeof runtimeBehaviorCapability>,
 		]
 		readonly optional: readonly [
 			CapabilityRequirement<
-				typeof accessReferenceCleanupCapability,
+				typeof requestSubjectReferenceCleanupCapability,
 				true,
 				'^1.0.0',
 				'setup'

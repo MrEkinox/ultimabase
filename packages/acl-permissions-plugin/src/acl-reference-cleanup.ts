@@ -1,14 +1,14 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
 
 import {
-	AccessSubjectReference,
+	RequestSubjectReference,
 	databaseConstraint,
-	defineAccessReferenceCleanup,
-	parseAccessPrincipalReference,
+	defineRequestSubjectReferenceCleanup,
+	parseRequestPrincipalReference,
 	Schema,
-	type AccessPrincipalReference,
-	type AccessReferenceCleanup,
-	type AccessRoleReference,
+	type RequestPrincipalReference,
+	type RequestSubjectReferenceCleanup,
+	type RequestRoleReference,
 	type DatabaseConstraintNode,
 	type DatabaseConstraintPayloadObject,
 	type SchemaDefinition,
@@ -66,9 +66,9 @@ const referenceScope = new AsyncLocalStorage<ACLReferenceScope>()
 const cleanupPlaceholder = new ACL()
 
 const readPrincipalSubject = (
-	reference: AccessPrincipalReference,
+	reference: RequestPrincipalReference,
 ): ACLReferenceSubject => {
-	const identity = parseAccessPrincipalReference(reference)
+	const identity = parseRequestPrincipalReference(reference)
 
 	return immutableRecord({
 		className: identity.className,
@@ -78,12 +78,12 @@ const readPrincipalSubject = (
 }
 
 const readRoleSubject = (
-	reference: AccessRoleReference,
+	reference: RequestRoleReference,
 ): ACLReferenceSubject => {
 	const candidate: unknown = reference
 
 	if (
-		!(candidate instanceof AccessSubjectReference) ||
+		!(candidate instanceof RequestSubjectReference) ||
 		candidate.kind !== 'role'
 	) {
 		throw new TypeError('ACL role cleanup reference is invalid')
@@ -259,21 +259,21 @@ export const createACLReferenceCleanups = (
 	schemas: readonly SchemaDefinition[],
 ): Readonly<{
 	principal: Readonly<
-		AccessReferenceCleanup<'principal', AccessPrincipalReference>
+		RequestSubjectReferenceCleanup<'principal', RequestPrincipalReference>
 	>
-	role: Readonly<AccessReferenceCleanup<'role', AccessRoleReference>>
+	role: Readonly<RequestSubjectReferenceCleanup<'role', RequestRoleReference>>
 }> => {
 	const ownedSchemas = immutableArray(schemas)
 
 	return immutableRecord({
-		principal: defineAccessReferenceCleanup({
+		principal: defineRequestSubjectReferenceCleanup({
 			kind: 'principal',
 			hasReferences: ({ reference }) =>
 				hasAnyReferences(ownedSchemas, readPrincipalSubject(reference)),
 			cleanup: ({ reference }) =>
 				removeAllReferences(ownedSchemas, readPrincipalSubject(reference)),
 		}),
-		role: defineAccessReferenceCleanup({
+		role: defineRequestSubjectReferenceCleanup({
 			kind: 'role',
 			hasReferences: ({ reference }) =>
 				hasAnyReferences(ownedSchemas, readRoleSubject(reference)),

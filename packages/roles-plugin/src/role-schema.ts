@@ -3,11 +3,9 @@ import {
 	relationField,
 	stringField,
 	defineSchemaExtension,
-	type AccessRoleReferenceCarrier,
-	type AccessContext,
+	type RequestRoleReferenceCarrier,
 	type Pointer,
 	type RelationField,
-	type SchemaAccess,
 	type SchemaReference,
 	type SchemaDefinition,
 	type SchemaExtension,
@@ -21,6 +19,7 @@ import {
 	type StringField,
 	type UltimaBaseGeneratedSchemaOptions,
 } from '@ultimabase/core'
+import type { AccessContext, SchemaAccess } from '@ultimabase/access-plugin'
 
 import {
 	createRoleReference,
@@ -160,7 +159,7 @@ export type RoleSchemaClass<
 > = RoleSchemaBaseClass<TClassName> &
 	RoleSchemaStatics<RoleSchemaSelfDefinition<TClassName>> &
 	SchemaResultCapabilityCarrier<
-		AccessRoleReferenceCarrier &
+		RequestRoleReferenceCarrier &
 			RoleMemberCommands<RoleSchemaSelfDefinition<TClassName>, TMemberSchema> &
 			RoleHierarchyCommands<RoleSchemaSelfDefinition<TClassName>>
 	>
@@ -169,7 +168,7 @@ export type RoleSchemaClass<
 export interface RoleSchemaOptions<
 	TClassName extends string,
 	TMemberSchema extends SchemaDefinition,
-> extends UltimaBaseGeneratedSchemaOptions {
+> extends Omit<UltimaBaseGeneratedSchemaOptions, 'access'> {
 	/** Declares the stable logical name used by queries and adapters. */
 	readonly className: TClassName
 	/** Selects the exact member domain and optional request-local resolver. */
@@ -182,7 +181,7 @@ export interface RoleSchemaOptions<
 	readonly indexes?: readonly SchemaIndexOptions[]
 	/** Attaches ordinary plugin-owned schema metadata before the roles extension. */
 	readonly extensions?: readonly SchemaExtension<string, object>[]
-	/** Protects role administration through native schema Access. */
+	/** Protects role administration when the official Access plugin is installed. */
 	readonly access?: SchemaAccess<RoleSchemaBaseClass<TClassName>>
 }
 
@@ -317,10 +316,10 @@ export class RoleSchema {
 				)
 			}
 
-			const toAccessRoleReference = function (
+			const toRequestRoleReference = function (
 				this: object,
 			): RoleReference<SelfSchema, RoleIdSelector> {
-				exactContext.assertPersisted(this, 'toAccessRoleReference')
+				exactContext.assertPersisted(this, 'toRequestRoleReference')
 
 				if (!('id' in this) || typeof this.id !== 'string') {
 					throw new TypeError(
@@ -331,10 +330,10 @@ export class RoleSchema {
 				// The neutral reference keeps ACL and other consumers independent from roles.
 				return createRoleReference(exactSchema, { id: this.id })
 			}
-			const resultCapabilities: AccessRoleReferenceCarrier &
+			const resultCapabilities: RequestRoleReferenceCarrier &
 				RoleMemberCommands<SelfSchema, TMemberSchema> &
 				RoleHierarchyCommands<SelfSchema> = {
-				toAccessRoleReference,
+				toRequestRoleReference,
 				...createRoleMemberCommands(exactContext, options.members.schema),
 				...createRoleHierarchyCommands<SelfSchema>(exactContext),
 			}

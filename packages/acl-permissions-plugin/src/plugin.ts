@@ -1,11 +1,10 @@
 import {
-	AccessSubjectReference,
-	accessReferenceCleanupCapability,
-	accessPrincipalResolverCapability,
-	accessRoleResolverCapability,
+	RequestSubjectReference,
+	requestSubjectReferenceCleanupCapability,
+	requestPrincipalResolverCapability,
+	requestRoleResolverCapability,
 	applyUpdateExpressionToRecord,
 	constraint,
-	defineFieldKindAccessTarget,
 	FrameworkError,
 	guard,
 	optionalCapability,
@@ -16,7 +15,7 @@ import {
 	provideRuntimeInterceptor,
 	type DatabaseOperationAst,
 	type CompiledSchemaRegistry,
-	type AccessContext,
+	type RequestSubjectContext,
 	type ExecutableOperationAst,
 	type PointerValue,
 	type PluginCapabilityReader,
@@ -62,18 +61,18 @@ import {
 	type ResolvedACLEntryLimits,
 } from './acl-limits.js'
 import { createACLRowConstraint, requiredACLPermissions } from './acl-access.js'
+import { createACLFieldPolicy } from './acl-field-policy.js'
 import type { ACLPlugin, ACLPluginOptions } from './plugin-contracts.js'
 import { readACLMutationItems } from './mutation-items.js'
 import {
 	aclFieldName,
-	aclFieldKind,
 	aclPluginName,
 	aclSchemaExtensionName,
 	type ACLNormalizedUpdateInput,
 	type ACLNormalizedUpdateOperation,
 	type ACLSchemaExtensionConfig,
-	type ACLField,
 } from './acl-extension.js'
+import { readOperationSchema } from './runtime-operation.js'
 
 const aclPluginModule = definePluginModule({
 	core: '^0.0.0',
@@ -82,11 +81,11 @@ const aclPluginModule = definePluginModule({
 })
 
 const optionalPrincipalResolver = optionalCapability(
-	accessPrincipalResolverCapability,
+	requestPrincipalResolverCapability,
 	'^1.0.0',
 )
 const optionalRoleResolver = optionalCapability(
-	accessRoleResolverCapability,
+	requestRoleResolverCapability,
 	'^1.0.0',
 )
 
@@ -102,7 +101,7 @@ const readProtectedSchemas = (
 		)
 
 const principalReferenceCleanupProvider = provideCapability(
-	accessReferenceCleanupCapability,
+	requestSubjectReferenceCleanupCapability,
 	{
 		contributionId: 'principal-references',
 		create: ({ schemas }) => ({
@@ -116,7 +115,7 @@ const principalReferenceCleanupProvider = provideCapability(
 )
 
 const roleReferenceCleanupProvider = provideCapability(
-	accessReferenceCleanupCapability,
+	requestSubjectReferenceCleanupCapability,
 	{
 		contributionId: 'role-references',
 		create: ({ schemas }) => ({
@@ -164,7 +163,7 @@ const normalizeACLPluginOptions = definePluginOptionsParser({
 })
 
 /** Keeps ACL-document management behind trusted server authority. */
-const assertMasterACLManagement = (context: AccessContext): void => {
+const assertMasterACLManagement = (context: RequestSubjectContext): void => {
 	if (context.access.mode === 'master') return
 
 	throw new FrameworkError(
@@ -208,7 +207,7 @@ const resolveDefaultACL = async <
 	config: ACLSchemaExtensionConfig<TData>,
 	data: TData,
 	principal: PointerValue | undefined,
-	context: AccessContext,
+	context: RequestSubjectContext,
 ): Promise<ACL> => {
 	const declaredDefault = config.default
 	const value =
@@ -234,7 +233,7 @@ const assertACLRoleResolution = (
 /** Replaces every logical role selector with its stable provider-owned identity. */
 const resolvePersistentACLRoles = async (
 	value: ACL,
-	context: AccessContext,
+	context: RequestSubjectContext,
 	resolvePersistentRole: PersistentRoleResolver | undefined,
 ): Promise<ACL> => {
 	const document = value.toJSON()
@@ -251,10 +250,10 @@ const resolvePersistentACLRoles = async (
 		document.roles.map(async (entry) => {
 			const resolved = await resolvePersistentRole({
 				context,
-				role: new AccessSubjectReference('role', entry.value),
+				role: new RequestSubjectReference('role', entry.value),
 			})
 
-			if (!(resolved instanceof AccessSubjectReference)) {
+			if (!(resolved instanceof RequestSubjectReference)) {
 				throw new TypeError(`ACL role could not be resolved: ${entry.value}`)
 			}
 
@@ -291,7 +290,7 @@ const validateAcceptedACL = async (
 	value: ACL,
 	roleResolutionAvailable: boolean,
 	limits: ResolvedACLEntryLimits,
-	context: AccessContext,
+	context: RequestSubjectContext,
 	resolvePersistentRole: PersistentRoleResolver | undefined,
 ): Promise<ACL> => {
 	assertACLRoleResolution(value, roleResolutionAvailable)
@@ -316,7 +315,7 @@ const resolveCreateInputACL = async <
 	input: Readonly<Record<string, unknown>>,
 	config: ACLSchemaExtensionConfig<TData>,
 	principal: PointerValue | undefined,
-	context: AccessContext,
+	context: RequestSubjectContext,
 	roleResolutionAvailable: boolean,
 	limits: ResolvedACLEntryLimits,
 	resolvePersistentRole: PersistentRoleResolver | undefined,
@@ -369,7 +368,7 @@ export const resolveCreateOperationACL = async <
 	operation: TOperation,
 	config: ACLSchemaExtensionConfig<TData>,
 	principal: PointerValue | undefined,
-	context: AccessContext,
+	context: RequestSubjectContext,
 	roleResolutionAvailable = false,
 	limits: ResolvedACLEntryLimits = defaultACLEntryLimits,
 	resolvePersistentRole?: PersistentRoleResolver,
@@ -458,7 +457,7 @@ export const resolvePreparedOperationACL = async <
 	target: Readonly<Record<string, unknown>>,
 	config: ACLSchemaExtensionConfig<TData>,
 	principal: PointerValue | undefined,
-	context: AccessContext,
+	context: RequestSubjectContext,
 	roleResolutionAvailable = false,
 	limits: ResolvedACLEntryLimits = defaultACLEntryLimits,
 	resolvePersistentRole?: PersistentRoleResolver,
@@ -562,8 +561,6 @@ export const resolvePreparedOperationACL = async <
 	})
 }
 
-const aclFieldAccessTarget = defineFieldKindAccessTarget<ACLField>(aclFieldKind)
-
 const aclConstraintOperationKinds = Object.freeze([
 	'count',
 	'delete-many',
@@ -661,23 +658,6 @@ export const assertSingularACLReplacement = <TSchema extends SchemaDefinition>(
 	)
 }
 
-const readOperationSchema = (
-	operation: DatabaseOperationAst,
-): SchemaDefinition => {
-	const query: unknown = Reflect.get(operation, 'query')
-	const schemaNode: unknown = isPlainRecord(query)
-		? query.schema
-		: Reflect.get(operation, 'schema')
-	if (!isPlainRecord(schemaNode)) {
-		throw new TypeError('Runtime operation is missing its schema node')
-	}
-	const definition: unknown = schemaNode.definition
-	if (typeof definition !== 'function') {
-		throw new TypeError('Runtime operation schema node is invalid')
-	}
-	return definition as unknown as SchemaDefinition
-}
-
 /**
  * Activates ACL defaults and native Access behavior for schemas using `acl()`.
  *
@@ -736,6 +716,16 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 					},
 					operations: aclReplacementInvariantOperationKinds,
 				}),
+			}
+		},
+	})
+	const fieldPolicyProvider = provideRuntimeConstraint({
+		contributionId: 'acl-protected-field',
+		create: ({ capabilities, schemas }) => {
+			const state = readApplicationState(schemas, capabilities)
+
+			return {
+				value: createACLFieldPolicy(state.protectedSchemaSet),
 			}
 		},
 	})
@@ -923,24 +913,14 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 				principalReferenceCleanupProvider,
 				roleReferenceCleanupProvider,
 				replacementShapeProvider,
+				fieldPolicyProvider,
 				inputProvider,
 				referenceRowsProvider,
 				rowsProvider,
 				behaviorProvider,
 			],
 		},
-		setup: ({ access, schemas }) => {
-			access.fieldKind(
-				'protect-acl-field',
-				aclFieldAccessTarget,
-				() => ({
-					// Generated defaults may fill create candidates, while prepared ACL policy prevents later mutation.
-					read: false,
-					write: { clear: false, fill: true, replace: false },
-				}),
-				{ master: 'bypass' },
-			)
-
+		setup: ({ schemas }) => {
 			return Object.freeze({
 				schemas: Object.freeze(readProtectedSchemas(schemas)),
 			})

@@ -1,4 +1,4 @@
-import { AccessSubjectReference, Schema } from '@ultimabase/core'
+import { RequestSubjectReference, Schema } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -24,7 +24,7 @@ describe('role references', () => {
 	it('retains schema-qualified name state beside a neutral frozen reference', () => {
 		const reference = createRoleReference(RoleFixture, { name: ' Editor ' })
 
-		expect(reference).toBeInstanceOf(AccessSubjectReference)
+		expect(reference).toBeInstanceOf(RequestSubjectReference)
 		expect(reference.kind).toBe('role')
 		expect(Object.isFrozen(reference)).toBe(true)
 		expect(getRoleReferenceState(reference)).toStrictEqual({

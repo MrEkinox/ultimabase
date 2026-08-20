@@ -37,10 +37,11 @@ Before changing code:
   plugins built on the same public kernel as community alternatives. Until
   milestone 15 completes, preserve current native behavior issue by issue and
   do not add new Core-specific Hooks or Access extension paths.
-- ACL providers contribute monotonic policies through the selected Access
-  capability. Roles and authentication provide optional request subjects but
-  grant nothing by themselves. Core Runtime must not name, configure, bypass,
-  or install neutral stages for concrete providers.
+- ACL contributes its independent monotonic policy through Core's generic
+  protected constraint capability and never depends on the official Access
+  package. Roles and authentication provide optional request subjects but grant
+  nothing by themselves. Core Runtime must not name, configure, bypass, or
+  install neutral stages for concrete providers.
 - Core authority modes are `anonymous` and `master`. Authentication, user identity, sessions, and user schemas belong to optional plugins; there is no `user` or `system` Core mode.
 - Master access is trusted server-side authority and must never be forgeable from transport input.
 
@@ -55,6 +56,7 @@ hooks-plugin -> plugin-kit/core/shared
 official Hooks extensions -> hooks-plugin/plugin-kit/core/shared
 access-plugin -> plugin-kit/core/shared
 official Access providers -> access-plugin/plugin-kit/core/shared
+ACL providers -> plugin-kit/core/shared
 other official plugins -> plugin-kit/core/shared
 ```
 
@@ -151,9 +153,11 @@ Run or update `yarn constraints` when dependency constraints exist. If a request
   ordering, typing, transactional, and monotonic security semantics remain
   requirements during extraction, but community alternatives may expose a
   different developer experience through the same public kernel.
-- Policy capabilities use generic deny-only guards, append-only adapter
-  constraints, and narrowing field restrictions. Later middleware must never
-  broaden accumulated enforcement.
+- Policy capabilities use generic deny-only guards, AND-only row filters,
+  append-only adapter constraints, narrowing field restrictions, and
+  Core-validated structural output subsets. Later middleware must never broaden
+  accumulated enforcement. ACL targets this generic boundary directly and does
+  not depend on access-plugin.
 
 ## Runtime order
 

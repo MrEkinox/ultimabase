@@ -1,4 +1,4 @@
-import { AccessSubjectReference, Schema } from '@ultimabase/core'
+import { RequestSubjectReference, Schema } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
 import { ACL } from './acl.js'
@@ -15,8 +15,8 @@ const Principal = Schema.define({
 })
 const alice = Principal.pointer('alice')
 const bob = Principal.pointer('bob')
-const editor = new AccessSubjectReference('role', 'role-editor')
-const reviewer = new AccessSubjectReference('role', 'role-reviewer')
+const editor = new RequestSubjectReference('role', 'role-editor')
+const reviewer = new RequestSubjectReference('role', 'role-reviewer')
 const complete = new ACL()
 	.grantPublic('read')
 	.grantAuthenticated('read')

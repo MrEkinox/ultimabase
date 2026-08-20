@@ -1315,6 +1315,21 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@ultimabase/access-plugin@workspace:^, @ultimabase/access-plugin@workspace:packages/access-plugin":
+  version: 0.0.0-use.local
+  resolution: "@ultimabase/access-plugin@workspace:packages/access-plugin"
+  dependencies:
+    "@types/node": "npm:^24.0.0"
+    "@ultimabase/core": "workspace:^"
+    "@ultimabase/plugin-kit": "workspace:^"
+    "@ultimabase/shared": "workspace:^"
+    "@ultimabase/testing": "workspace:^"
+    tsdown: "npm:^0.22.14"
+    typescript: "npm:^6.0.3"
+    vitest: "npm:4.1.10"
+  languageName: unknown
+  linkType: soft
+
 "@ultimabase/acl-permissions-plugin@workspace:^, @ultimabase/acl-permissions-plugin@workspace:packages/acl-permissions-plugin":
   version: 0.0.0-use.local
   resolution: "@ultimabase/acl-permissions-plugin@workspace:packages/acl-permissions-plugin"
@@ -1435,6 +1450,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ultimabase/roles-plugin@workspace:packages/roles-plugin"
   dependencies:
+    "@ultimabase/access-plugin": "workspace:^"
     "@ultimabase/core": "workspace:^"
     "@ultimabase/plugin-kit": "workspace:^"
     "@ultimabase/shared": "workspace:^"

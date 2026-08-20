@@ -1,4 +1,4 @@
-import { AccessSubjectReference, Schema } from '@ultimabase/core'
+import { RequestSubjectReference, Schema } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
 import { ACL } from './acl.js'
@@ -10,8 +10,8 @@ const Service = Schema.define({
 })
 const user = User.pointer('shared-id')
 const service = Service.pointer('shared-id')
-const editor = new AccessSubjectReference('role', 'role:editor')
-const reviewer = new AccessSubjectReference('role', 'role:reviewer')
+const editor = new RequestSubjectReference('role', 'role:editor')
+const reviewer = new RequestSubjectReference('role', 'role:reviewer')
 
 describe('ACL JSON', () => {
 	it('round-trips every subject without schema or provider lookup', () => {

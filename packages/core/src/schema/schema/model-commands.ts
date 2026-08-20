@@ -179,7 +179,7 @@ const createPersistedModelQuery = (
 	)
 
 	return scopeQueryToObjectId(query, record.objectId, {
-		nativeAccessDeniedAsMissing: true,
+		protectedPolicyDeniedAsMissing: true,
 	})
 }
 

@@ -1,6 +1,6 @@
-import { FrameworkError } from '../../errors/framework-error.js'
 import type { OperationAstNode } from '../../query/index.js'
 import type { SchemaDefinition } from '../../schema/index.js'
+import { isProtectedPolicyDenied } from '../enforcement/protected-denial.js'
 
 /** Builds a stable master audit reason from the normalized schema operation. */
 export const createMasterAuditReason = (
@@ -8,11 +8,9 @@ export const createMasterAuditReason = (
 	schema: SchemaDefinition,
 ): string => `Schema command ${operation.kind} on ${schema.className}`
 
-/** Recognizes only Runtime's own Access denial marker at a protected boundary. */
-export const isNativeAccessDenied = (error: unknown): boolean =>
-	error instanceof FrameworkError &&
-	error.code === 'PERMISSION_DENIED' &&
-	error.internalDetails?.kind === 'native-access-denied'
+/** Recognizes only Runtime's unforgeable protected-policy denial marker. */
+export const isProtectedPolicyDenial: (error: unknown) => boolean =
+	isProtectedPolicyDenied
 
 /** Identifies operations whose private object identity must never resolve to null. */
 export const isStrictObjectOperation = (operation: OperationAstNode): boolean =>

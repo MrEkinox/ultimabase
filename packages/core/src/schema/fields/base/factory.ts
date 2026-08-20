@@ -11,8 +11,6 @@ import {
 	type ScalarValueSnapshot,
 } from './definition.js'
 import { emptyFieldOptions, type EmptyFieldOptions } from './options.js'
-import { splitFieldAccessOptions } from '../../access/field-options.js'
-import type { FieldAccessDeclaration } from '../../access/contracts.js'
 
 type ScalarFieldOptionsNormalizer<TOptions extends object> = <
 	const TDeclaredOptions extends TOptions,
@@ -45,36 +43,18 @@ export type DefaultedCompactScalarFieldOptions<
 > = CompactScalarFieldOptions<TOptions, TRequired, TList, TImmutable> &
 	TInferredOptions & {
 		readonly default: FieldDefault<FieldListValue<TValue, TList>>
-	} & FieldAccessDeclaration<
-		NoInfer<
-			FieldDefinition<
-				'field',
-				TValue,
-				TOptions,
-				ScalarFieldTypegenState<TRequired, TList, TImmutable, true>
-			>
-		>
-	>
+	}
 
 /** Names the default-free input independently from the inferred field state. */
 export type NonDefaultedCompactScalarFieldOptions<
-	TOptions extends object,
+	TOptions extends FieldOptions<TValue>,
 	TValue,
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TInferredOptions extends object = object,
 > = CompactScalarFieldOptions<TOptions, TRequired, TList, TImmutable> &
-	TInferredOptions & { readonly default?: never } & FieldAccessDeclaration<
-		NoInfer<
-			FieldDefinition<
-				'field',
-				TValue,
-				TOptions,
-				ScalarFieldTypegenState<TRequired, TList, TImmutable, false>
-			>
-		>
-	>
+	TInferredOptions & { readonly default?: never }
 
 /** Resolves one scalar field's compact state for field-specific editor aliases. */
 export type CompactScalarFieldDefinition<
@@ -451,17 +431,9 @@ const createCompactScalarFieldImplementation =
 
 			return createFieldDefinition(kind, emptyFieldOptions, snapshotValue)
 		}
-		const { access, metadataOptions } =
-			splitFieldAccessOptions<TOptions>(options)
-		const { normalizeOptions, snapshotValue } =
-			resolveConfiguration(metadataOptions)
+		const { normalizeOptions, snapshotValue } = resolveConfiguration(options)
 
-		return createFieldDefinition(
-			kind,
-			normalizeOptions(metadataOptions),
-			snapshotValue,
-			access,
-		)
+		return createFieldDefinition(kind, normalizeOptions(options), snapshotValue)
 	}
 
 /** Creates the compact scalar contract without changing runtime field metadata. */

@@ -3,12 +3,12 @@ import { describe, expect, it } from 'vitest'
 import {
 	FrameworkError,
 	Schema,
-	accessPrincipalResolverCapability,
+	requestPrincipalResolverCapability,
 	createApplication,
 	definePlugin,
 	optionalCapability,
 	provideCapability,
-	type AccessPrincipalResolver,
+	type RequestPrincipalResolver,
 } from '../index.js'
 
 const Principal = Schema.define({
@@ -18,7 +18,7 @@ const Principal = Schema.define({
 const firstPrincipal = Principal.pointer('first-principal')
 const secondPrincipal = Principal.pointer('second-principal')
 const optionalPrincipalResolver = optionalCapability(
-	accessPrincipalResolverCapability,
+	requestPrincipalResolverCapability,
 	'^1.0.0',
 )
 
@@ -32,7 +32,7 @@ const optionalConsumer = definePlugin({
 
 const createProvider = <const TName extends string>(
 	name: TName,
-	resolver: AccessPrincipalResolver,
+	resolver: RequestPrincipalResolver,
 ) =>
 	definePlugin({
 		version: '0.0.0',
@@ -40,7 +40,7 @@ const createProvider = <const TName extends string>(
 		pluginId: name,
 		capabilities: {
 			provides: [
-				provideCapability(accessPrincipalResolverCapability, {
+				provideCapability(requestPrincipalResolverCapability, {
 					contributionId: 'principal-resolver',
 					create: () => ({ value: resolver }),
 				}),
@@ -67,7 +67,7 @@ describe('optional Access principal providers', () => {
 	] as const)(
 		'accepts one %s provider through the neutral token',
 		async (_label, providerName) => {
-			const resolver: AccessPrincipalResolver<typeof firstPrincipal> = {
+			const resolver: RequestPrincipalResolver<typeof firstPrincipal> = {
 				resolveCurrent: () => Promise.resolve(firstPrincipal),
 			}
 			const provider = createProvider(providerName, resolver)
@@ -84,7 +84,7 @@ describe('optional Access principal providers', () => {
 	)
 
 	it('rejects duplicate providers without replacing the first', async () => {
-		const resolver: AccessPrincipalResolver = {
+		const resolver: RequestPrincipalResolver = {
 			resolveCurrent: () => firstPrincipal,
 		}
 		const first = createProvider('fixture.auth.first', resolver)
@@ -105,10 +105,10 @@ describe('optional Access principal providers', () => {
 	})
 
 	it('keeps resolver instances isolated between applications', async () => {
-		const firstResolver: AccessPrincipalResolver = {
+		const firstResolver: RequestPrincipalResolver = {
 			resolveCurrent: () => firstPrincipal,
 		}
-		const secondResolver: AccessPrincipalResolver = {
+		const secondResolver: RequestPrincipalResolver = {
 			resolveCurrent: () => secondPrincipal,
 		}
 		const first = await createApplication({

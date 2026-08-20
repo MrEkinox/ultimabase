@@ -1,9 +1,14 @@
 import { ACL, acl, aclPlugin } from '@ultimabase/acl-permissions-plugin'
 import {
-	AccessSubjectReference,
+	accessPlugin,
+	provideAccessContributions,
+	schemaAccess,
+} from '@ultimabase/access-plugin'
+import {
+	RequestSubjectReference,
 	Schema,
 	UltimaBase,
-	accessRoleResolverCapability,
+	requestRoleResolverCapability,
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
 	definePlugin,
@@ -22,7 +27,7 @@ import { RoleSchema, hasRole, rolesPlugin } from '@ultimabase/roles-plugin'
 import { describe, expect, it } from 'vitest'
 
 const fixedInstant = '2026-08-04T00:00:00.000Z'
-const editor = new AccessSubjectReference('role', 'fixture.editor')
+const editor = new RequestSubjectReference('role', 'fixture.editor')
 
 /** Records complete requests while returning one trusted logical fixture result. */
 class CompositionReadAdapter implements DatabaseAdapter {
@@ -194,7 +199,7 @@ const createRoleProvider = (allowed: boolean) =>
 		pluginId: 'community.composition.roles',
 		capabilities: {
 			provides: [
-				provideCapability(accessRoleResolverCapability, {
+				provideCapability(requestRoleResolverCapability, {
 					contributionId: 'role-resolver',
 					create: () => ({
 						value: {
@@ -212,23 +217,28 @@ const communityPolicy = definePlugin({
 	version: '0.0.0',
 	core: '^0.0.0',
 	pluginId: 'community.composition.policy',
+	peers: [{ pluginId: '@ultimabase/access-plugin', version: '^0.0.0' }],
 	privileges: [
 		{
 			name: 'runtime:constrain',
 			reason: 'Contributes one monotonic community Access policy.',
 		},
 	],
-	setup: ({ access }) => {
-		access.schema(
-			'community-scope',
-			CombinedPost,
-			{
-				read: {
-					where: ({ where }) => where.eq('communityScope', 'community-allowed'),
-				},
-			},
-			{ master: 'enforce' },
-		)
+	capabilities: {
+		provides: [
+			provideAccessContributions('community-scope', () =>
+				schemaAccess(
+					CombinedPost,
+					{
+						read: {
+							where: ({ where }) =>
+								where.eq('communityScope', 'community-allowed'),
+						},
+					},
+					{ master: 'enforce' },
+				),
+			),
+		],
 	},
 })
 
@@ -262,6 +272,7 @@ const runCombinedComposition = async (
 	const plugins = nested
 		? [
 				hooksPlugin(),
+				accessPlugin(),
 				definePlugin({
 					version: '0.0.0',
 					core: '^0.0.0',
@@ -270,7 +281,14 @@ const runCombinedComposition = async (
 				}),
 				database,
 			]
-		: [hooksPlugin(), roleProvider, communityPolicy, aclProvider, database]
+		: [
+				hooksPlugin(),
+				accessPlugin(),
+				roleProvider,
+				communityPolicy,
+				aclProvider,
+				database,
+			]
 	const ultimabase = new UltimaBase({ plugins, schemas: [CombinedPost] })
 
 	try {
@@ -340,7 +358,7 @@ describe('Access provider composition', () => {
 			},
 		])
 		const ultimabase = new UltimaBase({
-			plugins: [databasePlugin(adapter)],
+			plugins: [accessPlugin(), databasePlugin(adapter)],
 			schemas: [NativeDocument],
 		})
 
@@ -422,7 +440,12 @@ describe('Access provider composition', () => {
 	it('fails closed before business or storage when a configured role capability is absent', async () => {
 		const readAdapter = new CompositionReadAdapter([combinedRow])
 		const readApplication = new UltimaBase({
-			plugins: [hooksPlugin(), aclPlugin(), databasePlugin(readAdapter)],
+			plugins: [
+				hooksPlugin(),
+				accessPlugin(),
+				aclPlugin(),
+				databasePlugin(readAdapter),
+			],
 			schemas: [CombinedPost],
 		})
 		const writeAdapter = new CompositionWriteAdapter()
@@ -465,6 +488,7 @@ describe('Access provider composition', () => {
 		const ultimabase = new UltimaBase({
 			plugins: [
 				hooksPlugin(),
+				accessPlugin(),
 				createRoleProvider(false),
 				communityPolicy,
 				aclPlugin(),

@@ -1,7 +1,7 @@
 import {
-	AccessSubjectReference,
+	RequestSubjectReference,
 	Schema,
-	type AccessRoleReferenceCarrier,
+	type RequestRoleReferenceCarrier,
 } from '@ultimabase/core'
 import { expectTypeOf, test } from 'vitest'
 
@@ -21,9 +21,9 @@ import {
 
 const User = Schema.define({ className: 'TypedACLUser', fields: () => ({}) })
 const principal = User.pointer('principal-id')
-const role = new AccessSubjectReference('role', 'role:editor')
-const persistedRole: AccessRoleReferenceCarrier = {
-	toAccessRoleReference: () => role,
+const role = new RequestSubjectReference('role', 'role:editor')
+const persistedRole: RequestRoleReferenceCarrier = {
+	toRequestRoleReference: () => role,
 }
 
 test('keeps the complete ACL builder surface compact and precise', () => {

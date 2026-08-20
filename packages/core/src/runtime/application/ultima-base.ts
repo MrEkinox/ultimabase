@@ -68,13 +68,6 @@ export interface UltimaBaseOptions<
 	 * @example `plugins: [postgresPlugin(), graphqlYogaPlugin()]`
 	 */
 	readonly plugins: TPlugins
-	/**
-	 * Configures the fallback for undeclared native Access decisions.
-	 * @example `access: { default: { operation: false, field: true } }`
-	 */
-	readonly access?: NonNullable<
-		FrameworkApplicationOptions<TSchemas, TPlugins>['access']
-	>
 	/** Configures plugin privilege policy and startup reporting. */
 	readonly pluginPrivileges?: NonNullable<
 		FrameworkApplicationOptions<TSchemas, TPlugins>['pluginPrivileges']
@@ -162,7 +155,6 @@ export class UltimaBase<
 		assertUltimaBaseOptions(untrustedOptions)
 
 		this.application = new FrameworkApplication({
-			...(options.access === undefined ? {} : { access: options.access }),
 			...(options.pluginPrivileges === undefined
 				? {}
 				: { pluginPrivileges: options.pluginPrivileges }),

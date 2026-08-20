@@ -18,14 +18,15 @@ import type {
 	ResolveFieldTypegenState,
 	ValidatedFieldOptions,
 } from './base/contract.js'
-import { splitFieldAccessOptions } from '../access/field-options.js'
-import type { FieldAccessDeclaration } from '../access/contracts.js'
 import type { PluginFieldStorageCodec } from './base/definition.js'
 
-export type { ReservedFieldKind } from './base/kinds.js'
+export type {
+	AvailablePluginFieldKind,
+	ReservedFieldKind,
+} from './base/kinds.js'
 
-/** Removes Core-owned Access callbacks while retaining plugin-owned metadata. */
-type PluginFieldMetadata<TOptions extends object> = Omit<TOptions, 'access'>
+/** Retains plugin-owned and installed option metadata for application compilation. */
+type PluginFieldMetadata<TOptions extends object> = TOptions
 
 /**
  * Carries a namespaced plugin kind while retaining the regular field contract.
@@ -137,13 +138,6 @@ export const definePluginField = <
 	options: TOptions &
 		FieldOptionsWithoutNullable<
 			ValidatedFieldOptions<NoInfer<TOptions>, TValue>
-		> &
-		FieldAccessDeclaration<
-			PluginFieldDefinition<
-				TKind,
-				TValue,
-				PluginFieldMetadata<NoInfer<TOptions>>
-			>
 		>,
 	normalizers: PluginFieldNormalizers<TValue, TValidation, TDeferred>,
 ): PluginFieldDefinition<
@@ -177,11 +171,8 @@ export const definePluginField = <
 			'Plugin field normalizeValidation must be a function when provided',
 		)
 	}
-	const { access, metadataOptions } = splitFieldAccessOptions<
-		PluginFieldMetadata<TOptions> & FieldOptions<TValue, TValidation>
-	>(options)
 	const normalizedOptions = normalizeFieldOptions(
-		metadataOptions,
+		options,
 		normalizers.normalizeValidation ?? normalizeFlatValidation,
 		normalizers.snapshotValue,
 	)
@@ -190,7 +181,6 @@ export const definePluginField = <
 		kind,
 		normalizedOptions,
 		normalizers.snapshotValue,
-		access,
 		{
 			deferRequiredUntilResolveInput:
 				normalizers.deferRequiredUntilResolveInput === true,

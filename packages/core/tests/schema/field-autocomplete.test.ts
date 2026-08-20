@@ -65,7 +65,6 @@ interface FieldIntelliSenseReader {
 }
 
 const commonFieldOptions = [
-	'access',
 	'default',
 	'description',
 	'extensions',
@@ -194,7 +193,6 @@ const fieldDefaultExpressions: Readonly<Record<FieldFactoryName, string>> = {
 }
 
 const topLevelOptionExpressions: Readonly<Record<string, string>> = {
-	access: '{ read: true }',
 	autoIncrement: 'true',
 	autoNow: 'true',
 	description: "'Developer-facing description'",
@@ -362,7 +360,7 @@ const compactFieldSignatureCases: readonly CompactFieldSignatureCase[] = [
 	{
 		factoryName: 'stringField',
 		expression:
-			"stringField({ default: 'Ada', validation: { required: true, length: { min: 2 }, match: /^[a-z]+$/u }, access: { read: { output: ({ value }) => { void value; void 'ACCESS_BODY_MUST_NOT_LEAK'; return true }, where: false, orderBy: false } }, description: 'runtime-only-hover-marker' })",
+			"stringField({ default: 'Ada', validation: { required: true, length: { min: 2 }, match: /^[a-z]+$/u }, description: 'runtime-only-hover-marker' })",
 		expectedReturn: 'DefaultedStringField<true, false, false>',
 	},
 	{

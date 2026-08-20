@@ -26,7 +26,6 @@ import {
 	type DefaultedCompactScalarFieldOptions,
 	type NonDefaultedCompactScalarFieldOptions,
 } from '../base/factory.js'
-import { splitFieldAccessOptions } from '../../access/field-options.js'
 
 export type EnumValues = readonly string[] | Readonly<Record<string, string>>
 
@@ -313,14 +312,10 @@ export function enumField<
 ): NonDefaultedEnumField<TValues, TRequired, TList, TImmutable>
 
 export function enumField(options: EnumFieldOptions): EnumField {
-	const { access, metadataOptions } = splitFieldAccessOptions(options)
-	const normalized = normalizeEnumFieldOptions(metadataOptions)
+	const normalized = normalizeEnumFieldOptions(options)
 	const values = readEnumValues(normalized.values)
 
-	return createFieldDefinition(
-		'enum',
-		normalized,
-		(value, path) => snapshotEnumValue(values, value, path),
-		access,
+	return createFieldDefinition('enum', normalized, (value, path) =>
+		snapshotEnumValue(values, value, path),
 	)
 }

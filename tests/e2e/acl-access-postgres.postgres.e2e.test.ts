@@ -1,7 +1,7 @@
 import { aclPostgresPlugin } from '@ultimabase/acl-postgres-plugin'
 import { ACL, acl, aclPlugin } from '@ultimabase/acl-permissions-plugin'
 import {
-	AccessSubjectReference,
+	RequestSubjectReference,
 	definePlugin,
 	MasterAuthority,
 	RequestContext,
@@ -71,7 +71,7 @@ const identityPlugin = definePlugin({
 					context.getValue(currentRoleIds)?.includes(role.value) ?? false,
 				resolveCurrentRoles: ({ context }) =>
 					(context.getValue(currentRoleIds) ?? []).map(
-						(role) => new AccessSubjectReference('role', role),
+						(role) => new RequestSubjectReference('role', role),
 					),
 				resolvePersistentRole: ({ role }) => role,
 			}),
@@ -98,8 +98,8 @@ const aliceId = '0198a43e-2431-7000-8000-000000000070'
 const bobId = '0198a43e-2431-7000-8000-000000000071'
 const editorRoleId = 'fixture-role-editor-stable-id'
 const reviewerRoleId = 'fixture-role-reviewer-stable-id'
-const editorRole = new AccessSubjectReference('role', editorRoleId)
-const reviewerRole = new AccessSubjectReference('role', reviewerRoleId)
+const editorRole = new RequestSubjectReference('role', editorRoleId)
+const reviewerRole = new RequestSubjectReference('role', reviewerRoleId)
 
 let fixture: PostgresWorkerFixture | undefined
 let ultimabase:

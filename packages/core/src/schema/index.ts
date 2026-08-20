@@ -37,12 +37,9 @@ export type {
 export { relationField } from './fields/builtins/relation.js'
 export type {
 	RelationField,
-	RelationFieldAccess,
 	RelationFieldTypegenState,
 	RelationFieldMetadataOptions,
 	RelationFieldOptions,
-	RelationFieldReadAccessInput,
-	RelationFieldWriteAccessInput,
 	RelationMappedFieldName,
 } from './fields/builtins/relation.js'
 export { Pointer, snapshotPointerValue } from './relations/pointer.js'
@@ -70,6 +67,7 @@ export { definePluginField } from './fields/plugin.js'
 export type {
 	PluginFieldDefinition,
 	PluginFieldNormalizers,
+	AvailablePluginFieldKind,
 	ReservedFieldKind,
 } from './fields/plugin.js'
 export { dateField } from './fields/builtins/date.js'
@@ -149,48 +147,7 @@ export type {
 	ScalarFieldTypegenState,
 	ValidatedFieldOptions,
 } from './fields/base/contract.js'
-export type {
-	AccessDecisionRule,
-	AccessWhereRule,
-	FieldAccess,
-	FieldAccessDeclaration,
-	FieldAccessInput,
-	FieldClearAccessInput,
-	FieldFillAccessInput,
-	FieldReadAccess,
-	FieldReadAccessDeclaration,
-	FieldReplaceAccessInput,
-	FieldValueAccessInput,
-	FieldWriteAccess,
-	FieldWriteAccessDeclaration,
-	SchemaAccess,
-	SchemaCreateAccess,
-	SchemaDeleteAccess,
-	SchemaItemAccessInput,
-	SchemaOperationAccessDeclaration,
-	SchemaOperationAccessInput,
-	SchemaReadAccess,
-	SchemaReadAllowAccess,
-	SchemaReadAllowAccessDeclaration,
-	SchemaUpdateAccess,
-	SchemaUpsertAccess,
-	SchemaWhereAccessInput,
-} from './access/contracts.js'
-export {
-	allMutations,
-	allOf,
-	allOperations,
-	allowAll,
-	anyOf,
-	denyAll,
-	not,
-} from './access/utilities.js'
-export type {
-	AccessDecisionInput,
-	AllMutationAccess,
-	AllOperationAccess,
-	OperationAccessRule,
-} from './access/utilities.js'
+export type { FieldValueMode } from './fields/base/value-map.js'
 export type { FieldAtPath, SchemaFieldPath } from './hooks/field-paths.js'
 export {
 	assertFieldOptions,

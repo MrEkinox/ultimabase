@@ -31,17 +31,26 @@ import {
 	matchesEnforcementContribution,
 } from './definitions.js'
 import {
+	appendEnforcementRowFilter,
 	appendEnforcementConstraints,
 	createEnforcementState,
 	narrowEnforcementFields,
 	type EnforcementState,
 } from './state.js'
 import { runtimeConstraintCapability } from '../capabilities.js'
+import {
+	getProtectedPolicyImplementation,
+	matchesProtectedPolicy,
+	normalizeProtectedPolicyEffects,
+	type ProtectedPolicyImplementation,
+} from './protected-policy.js'
+import { createProtectedPolicyDeniedError } from './protected-denial.js'
 
 /** @internal Associates one protected implementation with its setup owner. */
 export interface OwnedEnforcementContribution {
 	readonly contribution: OwnedPluginContribution
-	readonly implementation: EnforcementContributionImplementation
+	readonly implementation:
+		EnforcementContributionImplementation | ProtectedPolicyImplementation
 }
 
 /** Gives policy hooks the same recursion and diagnostic identity as business hooks. */
@@ -50,6 +59,11 @@ export const createEnforcementExecutionDescriptor = (
 	operation: DatabaseOperationAst,
 ): HookExecutionDescriptor => {
 	const { contribution, implementation } = owned
+	if (implementation.kind === 'protected-policy') {
+		throw new TypeError(
+			'Protected policies do not expose executable hook descriptors',
+		)
+	}
 	return createHookExecutionDescriptor({
 		handler: (input) => implementation.run(input),
 		handlerIndex: 0,
@@ -104,9 +118,9 @@ export const readEnforcementContributions = (
 	)
 
 	for (const contribution of capabilityContributions) {
-		const implementation = getEnforcementContributionImplementation(
-			contribution.value,
-		)
+		const implementation =
+			getEnforcementContributionImplementation(contribution.value) ??
+			getProtectedPolicyImplementation(contribution.value)
 
 		if (implementation === undefined) {
 			continue
@@ -164,12 +178,66 @@ export const evaluateEnforcementContributions = async <
 	runtime: HookExecutionRuntime,
 	input: RuntimeOperationStageInput<TOperation>,
 	initialState: EnforcementState = createEnforcementState(),
+	includeProtectedPolicies = true,
 ): Promise<EnforcementState> => {
 	const schema = readEnforcementOperationSchema(input.operation)
 	let state = initialState
 
 	for (const owned of contributions) {
 		const { contribution, implementation } = owned
+		if (implementation.kind === 'protected-policy') {
+			if (
+				!includeProtectedPolicies ||
+				(input.context.access.mode === 'master' &&
+					implementation.master === 'bypass') ||
+				!matchesProtectedPolicy(implementation, input.operation, schema) ||
+				implementation.evaluate === undefined
+			) {
+				continue
+			}
+
+			const effects = normalizeProtectedPolicyEffects(
+				(await implementation.evaluate(
+					immutableRecord({
+						context: input.context,
+						operation: input.operation,
+					}),
+				)) ?? {},
+			)
+			if (effects.allowed === false) {
+				throw createProtectedPolicyDeniedError()
+			}
+			if (effects.constraints !== undefined) {
+				state = appendEnforcementConstraints(state, effects.constraints)
+			}
+			if (effects.rowFilter !== undefined) {
+				state = appendEnforcementRowFilter(state, effects.rowFilter)
+			}
+			if (effects.inputFields !== undefined) {
+				state = narrowEnforcementFields(
+					state,
+					'input',
+					normalizeEnforcementRestrictedFields(
+						effects.inputFields,
+						schema,
+						contribution,
+					),
+				)
+			}
+			if (effects.selectionFields !== undefined) {
+				state = narrowEnforcementFields(
+					state,
+					'selection',
+					normalizeEnforcementRestrictedFields(
+						effects.selectionFields,
+						schema,
+						contribution,
+					),
+				)
+			}
+			continue
+		}
+
 		if (
 			implementation.kind === 'restrictOutput' ||
 			(input.context.access.mode === 'master' &&

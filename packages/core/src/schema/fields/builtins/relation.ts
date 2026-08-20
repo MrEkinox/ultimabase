@@ -1,10 +1,5 @@
 import { assertNonEmptyString, immutableRecord } from '@ultimabase/shared'
 
-import type {
-	AccessDecisionRule,
-	FieldAccessInput,
-} from '../../access/contracts.js'
-import { normalizeRelationFieldAccessDeclarations } from '../../access/field-declarations.js'
 import {
 	defineExtensions,
 	type FieldExtension,
@@ -15,9 +10,11 @@ import {
 	assertFieldOptions,
 	type BuiltInFieldOptionsContract,
 } from '../base/options.js'
-import { splitFieldAccessOptions } from '../../access/field-options.js'
-import type { RelationMutationDelta } from '../../relations/mutation.js'
-import type { FieldDefinition, FieldTypegenState } from '../base/contract.js'
+import type {
+	FieldDefinition,
+	FieldOptionValueCarrier,
+	FieldTypegenState,
+} from '../base/contract.js'
 import type { SchemaDefinition } from '../../schema/definition.js'
 import type { SchemaReference } from '../../schema/definition.js'
 import type { SchemaTarget } from '../../schema/targets.js'
@@ -25,6 +22,7 @@ import type {
 	SchemaDeclarationTargetName,
 	SchemaRelationshipFieldName,
 } from '../../type-info.js'
+import type { UltimaBaseGeneratedFieldOptions } from '../../type-info.js'
 
 declare const relationTargetMarker: unique symbol
 
@@ -62,36 +60,16 @@ export interface RelationFieldMetadataOptions<
 	readonly mappedBy?: TMappedBy
 }
 
-/** Supplies the protected source-field decision used by related reads. */
-export type RelationFieldReadAccessInput = FieldAccessInput
-
-/** Supplies one immutable connect, disconnect, set, or clear relation change. */
-export interface RelationFieldWriteAccessInput<
-	TTarget extends SchemaDefinition,
-> extends FieldAccessInput {
-	/** Contains the logical relation change requested by the update. */
-	readonly change: RelationMutationDelta<TTarget>
-}
-
-/** Controls relation traversal and logical edge mutation independently. */
-export interface RelationFieldAccess<TTarget extends SchemaDefinition> {
-	/** Controls whether callers may traverse this related collection. */
-	readonly read?: AccessDecisionRule<RelationFieldReadAccessInput>
-	/** Controls one immutable connect, disconnect, set, or clear delta. */
-	readonly write?: AccessDecisionRule<RelationFieldWriteAccessInput<TTarget>>
-}
-
 /** Declares one transport-neutral to-many relationship. */
 export interface RelationFieldOptions<
 	TTarget extends SchemaDefinition = SchemaDefinition,
 	TMappedBy extends RelationMappedFieldName<TTarget> | undefined =
 		RelationMappedFieldName<TTarget> | undefined,
-> extends RelationFieldMetadataOptions<TMappedBy> {
-	/**
-	 * Declares relation traversal and mutation rules without exposing row values.
-	 * @example `access: { read: true, write: ({ context }) => context.access.mode === "master" }`
-	 */
-	readonly access?: RelationFieldAccess<TTarget>
+>
+	extends
+		RelationFieldMetadataOptions<TMappedBy>,
+		FieldOptionValueCarrier<never>,
+		UltimaBaseGeneratedFieldOptions {
 	/**
 	 * Lazily returns the exact target schema after module declarations exist.
 	 * @example `target: () => Post`
@@ -136,7 +114,7 @@ export type NamedRelationFieldBuilderMethod = <
 
 const relationFieldOptionsContract: BuiltInFieldOptionsContract = {
 	kind: 'relation',
-	optionKeys: ['access', 'description', 'extensions', 'mappedBy', 'target'],
+	optionKeys: ['description', 'extensions', 'mappedBy', 'target'],
 	validationOptionKeys: [],
 }
 
@@ -202,10 +180,7 @@ export const relationField = <
 		throw new TypeError('relationField target must be a function')
 	}
 
-	const { access, metadataOptions } = splitFieldAccessOptions<
-		RelationFieldMetadataOptions<TMappedBy>
-	>(declarationOptions, normalizeRelationFieldAccessDeclarations)
-	const normalizedMetadata = normalizeRelationMetadata(metadataOptions)
+	const normalizedMetadata = normalizeRelationMetadata(declarationOptions)
 	const unresolvedOptions = immutableRecord(
 		Object.fromEntries(
 			Object.entries(declarationOptions).filter(
@@ -218,7 +193,6 @@ export const relationField = <
 		'relation',
 		immutableRecord({ ...normalizedMetadata, ...unresolvedOptions }),
 		snapshotRelationValue,
-		access,
 		{ optionsContract: relationFieldOptionsContract, schemaTarget: target },
 	)
 }

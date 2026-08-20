@@ -55,11 +55,11 @@ provide an alternative Hooks or Access developer experience. Proof applications
 must run with no engine and with a minimal alternative engine before the native
 implementations are removed.
 
-ACL becomes a provider of the versioned Access policy capability instead of
-depending on a Core-native plan. Roles and authentication continue to provide
-neutral typed context capabilities and grant nothing by themselves. PostgreSQL
-integration continues compiling opaque versioned constraints without naming the
-policy engine in Core.
+ADR-0205 refines ACL into an independent protected policy using Core's generic
+constraint capability rather than the official Access protocol. Roles and
+authentication continue to provide neutral typed context capabilities and grant
+nothing by themselves. PostgreSQL integration continues compiling opaque
+versioned constraints without naming the policy engine in Core.
 
 ### Migration and removal
 

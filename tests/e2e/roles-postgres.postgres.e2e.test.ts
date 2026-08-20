@@ -2,7 +2,7 @@ import {
 	RequestContext,
 	requestSources,
 	runWithRequestEngine,
-	type AccessRoleResolver,
+	type RequestRoleResolver,
 } from '@ultimabase/core'
 import {
 	resolveRoleReference,
@@ -38,7 +38,7 @@ import {
 	type PostgresWorkerFixture,
 } from './postgres-worker-fixture.js'
 
-const requireRoleResolver = (value: unknown): AccessRoleResolver => {
+const requireRoleResolver = (value: unknown): RequestRoleResolver => {
 	if (
 		typeof value !== 'object' ||
 		value === null ||
@@ -48,7 +48,7 @@ const requireRoleResolver = (value: unknown): AccessRoleResolver => {
 		throw new TypeError('Role resolver consumer did not expose hasRole')
 	}
 
-	return value as AccessRoleResolver
+	return value as RequestRoleResolver
 }
 
 type RoleApplication = ReturnType<typeof createRoleApplication>

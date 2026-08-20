@@ -34,8 +34,8 @@ export interface RuntimePipelineRequest<
 	readonly rowFilter?: DatabaseRowFilterNode
 	/** Carries target restrictions associated with exact public relation leaves. */
 	readonly relationPredicates?: readonly DatabaseRelationPredicateScope[]
-	/** Treats a protected target's Access denial exactly like an absent target. */
-	readonly nativeAccessDeniedAsMissing?: true
+	/** Treats a protected target's policy denial exactly like an absent target. */
+	readonly protectedPolicyDeniedAsMissing?: true
 }
 
 /** Supplies normalization, validation, guards, and hooks with immutable request state. */

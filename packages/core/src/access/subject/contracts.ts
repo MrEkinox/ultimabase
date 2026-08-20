@@ -6,7 +6,7 @@ import {
 } from '@ultimabase/shared'
 
 import type { RequestContextValue } from '../request/context-value.js'
-import type { AccessContext } from '../request/context.js'
+import type { RequestSubjectContext } from '../request/context.js'
 import {
 	defineCapability,
 	type CapabilityToken,
@@ -15,18 +15,18 @@ import { Pointer, type PointerValue } from '../../schema/relations/pointer.js'
 import type { SchemaDefinition } from '../../schema/schema/definition.js'
 
 /** Gives a plugin-owned context token an explicit Access-domain meaning. */
-export type AccessSubjectValue<
+export type RequestSubjectValue<
 	TSubject,
 	TName extends string = string,
 > = RequestContextValue<TSubject, TName>
 
 /** Extracts the exact subject value carried by a nominal context token. */
-export type AccessSubjectValueOf<TToken extends AccessSubjectValue<unknown>> =
-	TToken extends AccessSubjectValue<infer TSubject> ? TSubject : never
+export type RequestSubjectValueOf<TToken extends RequestSubjectValue<unknown>> =
+	TToken extends RequestSubjectValue<infer TSubject> ? TSubject : never
 
 /** Supplies the immutable request surface to one optional principal provider. */
-export interface AccessPrincipalResolutionInput {
-	readonly context: AccessContext
+export interface RequestPrincipalResolutionInput {
+	readonly context: RequestSubjectContext
 }
 
 /**
@@ -35,18 +35,18 @@ export interface AccessPrincipalResolutionInput {
  * Authentication, credentials, and session behavior remain provider-owned.
  * Returning `undefined` is the fail-closed anonymous result.
  */
-export interface AccessPrincipalResolver<
+export interface RequestPrincipalResolver<
 	TPrincipal extends PointerValue = PointerValue,
 > {
 	resolveCurrent(
-		input: AccessPrincipalResolutionInput,
+		input: RequestPrincipalResolutionInput,
 	): MaybePromise<TPrincipal | undefined>
 }
 
 /** Configures framework validation around one optional principal provider. */
-export interface ResolveAccessPrincipalOptions {
-	readonly context: AccessContext
-	readonly resolver: AccessPrincipalResolver | undefined
+export interface ResolveRequestPrincipalOptions {
+	readonly context: RequestSubjectContext
+	readonly resolver: RequestPrincipalResolver | undefined
 	/** Confirms exact schema ownership inside the consuming application. */
 	readonly ownsSchema: (schema: SchemaDefinition) => boolean
 }
@@ -56,15 +56,15 @@ export interface ResolveAccessPrincipalOptions {
  *
  * @example
  * ```ts
- * const principal = await resolveAccessPrincipal({
+ * const principal = await resolveRequestPrincipal({
  *   context,
  *   resolver: capabilities.get(optionalPrincipalResolver),
  *   ownsSchema: (schema) => schemas.get(schema.className) === schema,
  * })
  * ```
  */
-export const resolveAccessPrincipal = async (
-	options: ResolveAccessPrincipalOptions,
+export const resolveRequestPrincipal = async (
+	options: ResolveRequestPrincipalOptions,
 ): Promise<PointerValue | undefined> => {
 	const principal = await options.resolver?.resolveCurrent({
 		context: options.context,
@@ -75,12 +75,12 @@ export const resolveAccessPrincipal = async (
 	}
 
 	if (!Pointer.is(principal)) {
-		throw new TypeError('Access principal resolver must return a Core Pointer')
+		throw new TypeError('Request principal resolver must return a Core Pointer')
 	}
 
 	if (!options.ownsSchema(principal.schema)) {
 		throw new TypeError(
-			'Access principal resolver returned a foreign application schema',
+			'Request principal resolver returned a foreign application schema',
 		)
 	}
 
@@ -88,15 +88,15 @@ export const resolveAccessPrincipal = async (
 }
 
 /** Identifies the optional principal provider without naming authentication. */
-export const accessPrincipalResolverCapability: CapabilityToken<
-	AccessPrincipalResolver,
-	AccessPrincipalResolver,
-	'ultimabase.access.principal-resolver',
+export const requestPrincipalResolverCapability: CapabilityToken<
+	RequestPrincipalResolver,
+	RequestPrincipalResolver,
+	'ultimabase.request-subject.principal-resolver',
 	'1.0.0',
 	'single',
 	'application'
-> = defineCapability<AccessPrincipalResolver>()({
-	capabilityId: 'ultimabase.access.principal-resolver',
+> = defineCapability<RequestPrincipalResolver>()({
+	capabilityId: 'ultimabase.request-subject.principal-resolver',
 	version: '1.0.0',
 	cardinality: 'single',
 	lifetime: 'application',
@@ -109,14 +109,14 @@ export const accessPrincipalResolverCapability: CapabilityToken<
  * The kind belongs to the permission provider while the value may be a stable
  * key, an object identifier, or another immutable application reference.
  *
- * @example `new AccessSubjectReference('role', 'editor')`
+ * @example `new RequestSubjectReference('role', 'editor')`
  */
-export class AccessSubjectReference<
+export class RequestSubjectReference<
 	const TKind extends string,
 	const TValue extends string | number,
 > {
 	// The private member prevents community integrations from forging plain objects.
-	declare private readonly accessSubjectReferenceIdentity: readonly [
+	declare private readonly requestSubjectReferenceIdentity: readonly [
 		TKind,
 		TValue,
 	]
@@ -126,7 +126,7 @@ export class AccessSubjectReference<
 
 	constructor(kind: TKind, value: TValue) {
 		if (typeof kind !== 'string' || kind.length === 0) {
-			throw new TypeError('Access subject kind must be a non-empty string')
+			throw new TypeError('Request subject kind must be a non-empty string')
 		}
 
 		this.kind = kind
@@ -138,13 +138,13 @@ export class AccessSubjectReference<
 }
 
 /** Describes the neutral reference shape used when a principal object is deleted. */
-export type AccessPrincipalReference = AccessSubjectReference<
+export type RequestPrincipalReference = RequestSubjectReference<
 	'principal',
 	string
 >
 
 /** Retains the exact schema-qualified identity encoded by a principal reference. */
-export interface AccessPrincipalReferenceIdentity {
+export interface RequestPrincipalReferenceIdentity {
 	readonly className: string
 	readonly id: string
 }
@@ -159,16 +159,16 @@ const parseJSON: (value: string) => unknown = JSON.parse
  * Subject-owning plugins pass this value to generic reference-cleanup
  * contributions without importing any ACL implementation.
  *
- * @example `createAccessPrincipalReference(User.pointer(userId))`
+ * @example `createRequestPrincipalReference(User.pointer(userId))`
  */
-export const createAccessPrincipalReference = (
+export const createRequestPrincipalReference = (
 	principal: PointerValue,
-): AccessPrincipalReference => {
+): RequestPrincipalReference => {
 	if (!Pointer.is(principal)) {
-		throw new TypeError('Access principal reference requires a Core Pointer')
+		throw new TypeError('Request principal reference requires a Core Pointer')
 	}
 
-	return new AccessSubjectReference(
+	return new RequestSubjectReference(
 		'principal',
 		JSON.stringify([
 			principalReferenceNamespace,
@@ -182,19 +182,19 @@ export const createAccessPrincipalReference = (
 /**
  * Parses one exact principal identity without resolving its schema or provider.
  *
- * @example `parseAccessPrincipalReference(reference) // { className, id }`
+ * @example `parseRequestPrincipalReference(reference) // { className, id }`
  */
-export const parseAccessPrincipalReference = (
-	reference: AccessPrincipalReference,
-): Readonly<AccessPrincipalReferenceIdentity> => {
+export const parseRequestPrincipalReference = (
+	reference: RequestPrincipalReference,
+): Readonly<RequestPrincipalReferenceIdentity> => {
 	const candidate: unknown = reference
 
 	if (
-		!(candidate instanceof AccessSubjectReference) ||
+		!(candidate instanceof RequestSubjectReference) ||
 		candidate.kind !== 'principal' ||
 		typeof candidate.value !== 'string'
 	) {
-		throw new TypeError('Access principal reference is invalid')
+		throw new TypeError('Request principal reference is invalid')
 	}
 
 	let value: unknown
@@ -202,7 +202,7 @@ export const parseAccessPrincipalReference = (
 	try {
 		value = parseJSON(candidate.value)
 	} catch {
-		throw new TypeError('Access principal reference value is invalid')
+		throw new TypeError('Request principal reference value is invalid')
 	}
 
 	if (
@@ -211,38 +211,41 @@ export const parseAccessPrincipalReference = (
 		value[0] !== principalReferenceNamespace ||
 		value[1] !== principalReferenceVersion
 	) {
-		throw new TypeError('Access principal reference value is invalid')
+		throw new TypeError('Request principal reference value is invalid')
 	}
 
-	assertNonEmptyString(value[2], 'Access principal reference className')
-	assertNonEmptyString(value[3], 'Access principal reference id')
+	assertNonEmptyString(value[2], 'Request principal reference className')
+	assertNonEmptyString(value[3], 'Request principal reference id')
 
 	return immutableRecord({ className: value[2], id: value[3] })
 }
 
 /** Describes the neutral reference shape consumed by role-aware policies. */
-export type AccessRoleReference<TValue extends string | number = string> =
-	AccessSubjectReference<'role', TValue>
+export type RequestRoleReference<TValue extends string | number = string> =
+	RequestSubjectReference<'role', TValue>
 
 /** Lets a persisted provider-owned value expose its neutral role reference. */
-export interface AccessRoleReferenceCarrier {
+export interface RequestRoleReferenceCarrier {
 	/** Returns one stable role reference without performing persistence or lookup. */
-	readonly toAccessRoleReference: () => AccessRoleReference
+	readonly toRequestRoleReference: () => RequestRoleReference
 }
 
 /** Accepts either a lightweight reference or a persisted role value. */
-export type AccessRoleSubject = AccessRoleReference | AccessRoleReferenceCarrier
+export type RequestRoleSubject =
+	RequestRoleReference | RequestRoleReferenceCarrier
 
-const isAccessRoleReferenceCarrier = (
+const isRequestRoleReferenceCarrier = (
 	value: unknown,
-): value is AccessRoleReferenceCarrier =>
+): value is RequestRoleReferenceCarrier =>
 	typeof value === 'object' &&
 	value !== null &&
-	'toAccessRoleReference' in value &&
-	typeof value.toAccessRoleReference === 'function'
+	'toRequestRoleReference' in value &&
+	typeof value.toRequestRoleReference === 'function'
 
-const isAccessRoleReference = (value: unknown): value is AccessRoleReference =>
-	value instanceof AccessSubjectReference &&
+const isRequestRoleReference = (
+	value: unknown,
+): value is RequestRoleReference =>
+	value instanceof RequestSubjectReference &&
 	value.kind === 'role' &&
 	typeof value.value === 'string'
 
@@ -251,20 +254,20 @@ const isAccessRoleReference = (value: unknown): value is AccessRoleReference =>
  *
  * The returned reference remains the only value consumed by Access providers.
  */
-export const resolveAccessRoleReference = (
-	subject: AccessRoleSubject,
-): AccessRoleReference => {
+export const resolveRequestRoleReference = (
+	subject: RequestRoleSubject,
+): RequestRoleReference => {
 	const candidate: unknown = subject
 	const reference: unknown =
-		candidate instanceof AccessSubjectReference
+		candidate instanceof RequestSubjectReference
 			? candidate
-			: isAccessRoleReferenceCarrier(candidate)
-				? candidate.toAccessRoleReference()
+			: isRequestRoleReferenceCarrier(candidate)
+				? candidate.toRequestRoleReference()
 				: undefined
 
-	if (!isAccessRoleReference(reference)) {
+	if (!isRequestRoleReference(reference)) {
 		throw new TypeError(
-			'Access role subject must provide one string role reference',
+			'Request role subject must provide one string role reference',
 		)
 	}
 
@@ -272,8 +275,8 @@ export const resolveAccessRoleReference = (
 }
 
 /** Supplies one request-local subject lookup to a provider-owned resolver. */
-export interface AccessSubjectResolutionInput<TReference> {
-	readonly context: AccessContext
+export interface RequestSubjectResolutionInput<TReference> {
+	readonly context: RequestSubjectContext
 	readonly reference: TReference
 }
 
@@ -282,21 +285,21 @@ export interface AccessSubjectResolutionInput<TReference> {
  *
  * `undefined` is the fail-closed result for unavailable dynamic identity data.
  */
-export interface AccessSubjectResolver<TReference, TSubject> {
+export interface RequestSubjectResolver<TReference, TSubject> {
 	resolve(
-		input: AccessSubjectResolutionInput<TReference>,
+		input: RequestSubjectResolutionInput<TReference>,
 	): MaybePromise<TSubject | undefined>
 }
 
 /** Supplies one role membership lookup without exposing a role plugin identity. */
-export interface AccessRoleResolutionInput {
-	readonly context: AccessContext
-	readonly role: AccessRoleReference
+export interface RequestRoleResolutionInput {
+	readonly context: RequestSubjectContext
+	readonly role: RequestRoleReference
 }
 
 /** Allows official or community providers to resolve request-local role membership. */
-export interface AccessRoleResolver {
-	hasRole(input: AccessRoleResolutionInput): MaybePromise<boolean>
+export interface RequestRoleResolver {
+	hasRole(input: RequestRoleResolutionInput): MaybePromise<boolean>
 	/**
 	 * Converts a logical role selector into its stable schema-qualified storage identity.
 	 *
@@ -304,8 +307,8 @@ export interface AccessRoleResolver {
 	 * value contains role references. `undefined` rejects an unknown role.
 	 */
 	resolvePersistentRole?(
-		input: AccessRoleResolutionInput,
-	): MaybePromise<AccessRoleReference | undefined>
+		input: RequestRoleResolutionInput,
+	): MaybePromise<RequestRoleReference | undefined>
 	/**
 	 * Lists stable role references held by the current request principal.
 	 *
@@ -313,8 +316,8 @@ export interface AccessRoleResolver {
 	 * references live inside persisted rows and are therefore unknown before SQL.
 	 */
 	resolveCurrentRoles?(
-		input: AccessPrincipalResolutionInput,
-	): MaybePromise<readonly AccessRoleReference[] | undefined>
+		input: RequestPrincipalResolutionInput,
+	): MaybePromise<readonly RequestRoleReference[] | undefined>
 }
 
 /**
@@ -323,15 +326,15 @@ export interface AccessRoleResolver {
  * A CLP or ACL plugin requires this capability only when its configured policy
  * contains a role subject.
  */
-export const accessRoleResolverCapability: CapabilityToken<
-	AccessRoleResolver,
-	AccessRoleResolver,
-	'ultimabase.access.role-resolver',
+export const requestRoleResolverCapability: CapabilityToken<
+	RequestRoleResolver,
+	RequestRoleResolver,
+	'ultimabase.request-subject.role-resolver',
 	'1.0.0',
 	'single',
 	'application'
-> = defineCapability<AccessRoleResolver>()({
-	capabilityId: 'ultimabase.access.role-resolver',
+> = defineCapability<RequestRoleResolver>()({
+	capabilityId: 'ultimabase.request-subject.role-resolver',
 	version: '1.0.0',
 	cardinality: 'single',
 	lifetime: 'application',
@@ -339,7 +342,7 @@ export const accessRoleResolverCapability: CapabilityToken<
 })
 
 /** Extracts the exact resolved value supplied by one neutral resolver. */
-export type ResolvedAccessSubject<TResolver> =
-	TResolver extends AccessSubjectResolver<unknown, infer TSubject>
+export type ResolvedRequestSubject<TResolver> =
+	TResolver extends RequestSubjectResolver<unknown, infer TSubject>
 		? TSubject
 		: never

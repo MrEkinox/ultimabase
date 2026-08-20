@@ -70,6 +70,7 @@ hooks-plugin ──────────────→ plugin-kit, core, sha
 official Hooks extensions ─→ hooks-plugin, plugin-kit, core, shared
 access-plugin ─────────────→ plugin-kit, core, shared
 official Access providers ─→ access-plugin, plugin-kit, core, shared
+acl-permissions-plugin ────→ plugin-kit, core, shared
 ```
 
 Official Hooks and Access contracts live in their respective plugin packages.
@@ -454,9 +455,10 @@ roles plugin. Missing identity fails closed while applications using only
 public and audited master behavior require neither provider.
 
 The `acl()` schema extension owns row-aware defaults and shared create/update
-input resolution through public capability middleware. `aclPlugin()` owns
-monotonic Access contributions and declares master bypass. Core Runtime has no
-ACL stage or subject vocabulary. PostgreSQL stores one indexed JSONB ACL document
+input resolution through public capability middleware. `aclPlugin()` owns an
+independent monotonic protected policy and declares master bypass. It does not
+depend on the official Access package. Core Runtime has no ACL stage or subject
+vocabulary. PostgreSQL stores one indexed JSONB ACL document
 on each protected row and combines its opaque containment constraint with every
 other predicate in one statement. This physical representation requires no
 ACL-specific join and remains private to the adapter. The optional
@@ -477,7 +479,8 @@ and is not published by realtime or transport plugins by default.
 
 The official schema Access surface is the generalized class-level permission
 system, and its field Access surface controls field disclosure and mutation.
-ACL is an optional persisted per-object provider. Roles and authentication
+ACL is an optional persisted per-object policy that composes through Core's
+generic protected constraint boundary. Roles and authentication
 supply optional typed subject capabilities and grant nothing by themselves.
 The Access plugin contains no built-in ACL, user, owner, or role rule. Each
 declaration or provider decides whether audited master authority bypasses its

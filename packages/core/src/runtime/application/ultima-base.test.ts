@@ -106,7 +106,6 @@ describe('UltimaBase', () => {
 		let observedContext: HookContext | undefined
 		const validation = { timezone: 'UTC' }
 		const ultimabase = new UltimaBase({
-			access: { default: { field: true, operation: true } },
 			schemas: [articleSchema],
 			plugins: [
 				createDatabasePlugin(adapter, {
@@ -123,10 +122,6 @@ describe('UltimaBase', () => {
 		expect(ultimabase.state).toBe('idle')
 		expect(trace).toStrictEqual([])
 		expect(Object.isFrozen(ultimabase)).toBe(true)
-		expect(ultimabase.application.accessDefaults).toStrictEqual({
-			field: true,
-			operation: true,
-		})
 		expect(() => ultimabase.engine).toThrow(
 			new TypeError('UltimaBase must be started before accessing its engine'),
 		)

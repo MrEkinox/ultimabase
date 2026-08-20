@@ -49,14 +49,14 @@ export const scopeQueryToObjectId = <
 >(
 	query: QueryExecutionInput<TSchema, TSelectedField, TIncludedPointer>,
 	id: OperationObjectId<TSchema>,
-	options: Readonly<{ readonly nativeAccessDeniedAsMissing?: true }> = {},
+	options: Readonly<{ readonly protectedPolicyDeniedAsMissing?: true }> = {},
 ): NormalizedQueryInput<TSchema, TSelectedField, TIncludedPointer> => {
 	const rowFilter = createQueryValueFilter(query.schema, 'equal', 'id', id)
 	const scope: OperationPrivateScope = immutableRecord({
 		kind: 'row-filter',
-		...(options.nativeAccessDeniedAsMissing === undefined
+		...(options.protectedPolicyDeniedAsMissing === undefined
 			? {}
-			: { nativeAccessDeniedAsMissing: true as const }),
+			: { protectedPolicyDeniedAsMissing: true as const }),
 		objectId: id,
 		rowFilter,
 	})

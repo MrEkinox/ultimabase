@@ -6,15 +6,14 @@ import {
 } from '@ultimabase/shared'
 
 import type {
-	FieldAccess,
 	FieldAtPath,
 	FieldExtension,
 	GenericField,
-	SchemaAccess,
 	SchemaDefinition,
 	SchemaExtension,
 	SchemaFieldPath,
 } from '../schema/index.js'
+import type { FieldAccess, SchemaAccess } from '../schema/access/contracts.js'
 import {
 	normalizeFieldAccessDeclarations,
 	type FieldAccessDeclarations,

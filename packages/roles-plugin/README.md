@@ -116,8 +116,8 @@ ordinary `role.delete({}, options)` and
 `AppRole.deleteOne({ where: { id: { eq: id } } })` both execute the
 complete policy.
 
-`hasRole(reference)` is an ordinary native Access decision. It resolves the
-application-local `accessRoleResolverCapability` at execution time, so the
+`hasRole(reference)` is an ordinary official Access decision. It resolves the
+application-local `requestRoleResolverCapability` at execution time, so the
 declaration captures no application or request. A missing provider raises
 Core's typed `PLUGIN_CAPABILITY_MISSING` error before business hooks or database
 execution; an installed provider with no current member or no membership

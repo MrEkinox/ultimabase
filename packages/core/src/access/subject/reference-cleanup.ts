@@ -9,52 +9,54 @@ import {
 	defineCapability,
 	type CapabilityToken,
 } from '../../plugins/capabilities.js'
-import type { AccessContext } from '../request/context.js'
-import type { AccessSubjectReference } from './contracts.js'
+import type { RequestSubjectContext } from '../request/context.js'
+import type { RequestSubjectReference } from './contracts.js'
 
 /** Supplies one transactional reference inspection or cleanup callback. */
-export interface AccessReferenceCleanupInput<
-	TReference extends AccessSubjectReference<string, string | number> =
-		AccessSubjectReference<string, string | number>,
+export interface RequestSubjectReferenceCleanupInput<
+	TReference extends RequestSubjectReference<string, string | number> =
+		RequestSubjectReference<string, string | number>,
 > {
 	/** Carries the current request authority and plugin-owned context values. */
-	readonly context: AccessContext
+	readonly context: RequestSubjectContext
 	/** Identifies the exact subject whose persisted references are being inspected. */
 	readonly reference: TReference
 }
 
 /** Lets an independent plugin participate in subject-reference deletion safely. */
-export interface AccessReferenceCleanup<
+export interface RequestSubjectReferenceCleanup<
 	TKind extends string = string,
-	TReference extends AccessSubjectReference<TKind, string | number> =
-		AccessSubjectReference<TKind, string | number>,
+	TReference extends RequestSubjectReference<TKind, string | number> =
+		RequestSubjectReference<TKind, string | number>,
 > {
 	/** Selects the neutral subject kind handled by this contribution. */
 	readonly kind: TKind
 	/** Reports whether at least one external persisted reference remains. */
 	hasReferences(
-		input: AccessReferenceCleanupInput<TReference>,
+		input: RequestSubjectReferenceCleanupInput<TReference>,
 	): MaybePromise<boolean>
 	/** Removes only references owned by the contributing plugin. */
-	cleanup(input: AccessReferenceCleanupInput<TReference>): MaybePromise<void>
+	cleanup(
+		input: RequestSubjectReferenceCleanupInput<TReference>,
+	): MaybePromise<void>
 }
 
-const accessReferenceCleanups = new WeakSet<object>()
+const requestSubjectReferenceCleanups = new WeakSet<object>()
 
 /**
  * Defines an explicit, provider-neutral reference cleanup contribution.
  *
- * Provide the returned value through `accessReferenceCleanupCapability`; a
+ * Provide the returned value through `requestSubjectReferenceCleanupCapability`; a
  * subject provider can discover it without importing the consumer that owns
  * the persisted data.
  *
  * @example
  * ```ts
- * provideCapability(accessReferenceCleanupCapability, {
+ * provideCapability(requestSubjectReferenceCleanupCapability, {
  *   contributionId: 'acl.role-references',
  *   create: () => ({ value: {
  *     name: 'acl.role-references',
- *     cleanup: defineAccessReferenceCleanup({
+ *     cleanup: defineRequestSubjectReferenceCleanup({
  *       kind: 'role',
  *       hasReferences: ({ reference }) => aclStore.hasSubject(reference.value),
  *       cleanup: ({ reference }) => aclStore.removeSubject(reference.value),
@@ -63,13 +65,13 @@ const accessReferenceCleanups = new WeakSet<object>()
  * })
  * ```
  */
-export const defineAccessReferenceCleanup = <
+export const defineRequestSubjectReferenceCleanup = <
 	const TKind extends string,
-	const TReference extends AccessSubjectReference<TKind, string | number> =
-		AccessSubjectReference<TKind, string | number>,
+	const TReference extends RequestSubjectReference<TKind, string | number> =
+		RequestSubjectReference<TKind, string | number>,
 >(
-	definition: AccessReferenceCleanup<TKind, TReference>,
-): Readonly<AccessReferenceCleanup<TKind, TReference>> => {
+	definition: RequestSubjectReferenceCleanup<TKind, TReference>,
+): Readonly<RequestSubjectReferenceCleanup<TKind, TReference>> => {
 	assertNonEmptyString(definition.kind, 'reference cleanup kind')
 
 	if (typeof definition.hasReferences !== 'function') {
@@ -81,38 +83,38 @@ export const defineAccessReferenceCleanup = <
 	}
 
 	const normalized = immutableRecord(definition)
-	accessReferenceCleanups.add(normalized)
+	requestSubjectReferenceCleanups.add(normalized)
 
 	return normalized
 }
 
 /** Narrows setup contributions to values created by the public factory. */
-export const isAccessReferenceCleanup = (
+export const isRequestSubjectReferenceCleanup = (
 	value: unknown,
-): value is AccessReferenceCleanup =>
+): value is RequestSubjectReferenceCleanup =>
 	typeof value === 'object' &&
 	value !== null &&
-	accessReferenceCleanups.has(value)
+	requestSubjectReferenceCleanups.has(value)
 
 /** Retains one stable local name beside a validated reference cleanup. */
-export interface NamedAccessReferenceCleanup {
-	readonly cleanup: AccessReferenceCleanup
+export interface NamedRequestSubjectReferenceCleanup {
+	readonly cleanup: RequestSubjectReferenceCleanup
 	readonly name: string
 }
 
 /** Composes independent subject-reference cleanup providers in graph order. */
-export const accessReferenceCleanupCapability: CapabilityToken<
-	NamedAccessReferenceCleanup,
-	readonly NamedAccessReferenceCleanup[],
-	'ultimabase.access.reference-cleanup',
+export const requestSubjectReferenceCleanupCapability: CapabilityToken<
+	NamedRequestSubjectReferenceCleanup,
+	readonly NamedRequestSubjectReferenceCleanup[],
+	'ultimabase.request-subject.reference-cleanup',
 	'1.0.0',
 	'multiple',
 	'application'
 > = defineCapability<
-	NamedAccessReferenceCleanup,
-	readonly NamedAccessReferenceCleanup[]
+	NamedRequestSubjectReferenceCleanup,
+	readonly NamedRequestSubjectReferenceCleanup[]
 >()({
-	capabilityId: 'ultimabase.access.reference-cleanup',
+	capabilityId: 'ultimabase.request-subject.reference-cleanup',
 	version: '1.0.0',
 	cardinality: 'multiple',
 	lifetime: 'application',
@@ -120,7 +122,7 @@ export const accessReferenceCleanupCapability: CapabilityToken<
 		immutableArray(
 			providers.map((provider) => {
 				assertNonEmptyString(provider.name, 'reference cleanup name')
-				if (!isAccessReferenceCleanup(provider.cleanup)) {
+				if (!isRequestSubjectReferenceCleanup(provider.cleanup)) {
 					throw new TypeError(
 						'reference cleanup capability requires a factory-created cleanup',
 					)

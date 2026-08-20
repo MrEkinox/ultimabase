@@ -73,12 +73,13 @@ export const appendEnforcementRowFilter = (
 	rowFilter: DatabaseRowFilterNode,
 ): EnforcementState => {
 	const current = readSnapshot(state)
+	const normalized = normalizeLogicalFilter(rowFilter)
 	const combined =
 		current.rowFilter === undefined
-			? rowFilter
+			? normalized
 			: normalizeLogicalFilter<QueryExpressionNode>({
 					kind: 'and',
-					expressions: [current.rowFilter, rowFilter],
+					expressions: [current.rowFilter, normalized],
 				})
 
 	return createState(immutableRecord({ ...current, rowFilter: combined }))

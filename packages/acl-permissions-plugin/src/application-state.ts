@@ -2,12 +2,12 @@ import { isDeepStrictEqual } from 'node:util'
 
 import {
 	FrameworkError,
-	accessRoleResolverCapability,
+	requestRoleResolverCapability,
 	getCurrentEngine,
 	getCurrentRequest,
-	type AccessContext,
-	type AccessPrincipalResolver,
-	type AccessRoleResolver,
+	type RequestSubjectContext,
+	type RequestPrincipalResolver,
+	type RequestRoleResolver,
 	type CompiledSchemaRegistry,
 	type SchemaDefinition,
 } from '@ultimabase/core'
@@ -31,7 +31,7 @@ import {
 import { resolveACLAccessSubjects } from './acl-access.js'
 
 export type PersistentRoleResolver = NonNullable<
-	AccessRoleResolver['resolvePersistentRole']
+	RequestRoleResolver['resolvePersistentRole']
 >
 
 interface ACLMutationItemPair {
@@ -43,8 +43,8 @@ interface CreateACLApplicationStateOptions {
 	readonly schemas: CompiledSchemaRegistry
 	readonly protectedSchemas: readonly SchemaDefinition[]
 	readonly pluginLimits: ResolvedACLEntryLimits
-	readonly principalResolver: AccessPrincipalResolver | undefined
-	readonly roleResolver: AccessRoleResolver | undefined
+	readonly principalResolver: RequestPrincipalResolver | undefined
+	readonly roleResolver: RequestRoleResolver | undefined
 	readonly hasStaticRoleGrant: (config: ACLSchemaExtensionConfig) => boolean
 	readonly readMutationItems: (
 		schema: SchemaDefinition,
@@ -55,7 +55,7 @@ interface CreateACLApplicationStateOptions {
 
 export interface ACLApplicationState {
 	readonly collectACLChanges: (
-		context: AccessContext,
+		context: RequestSubjectContext,
 		schema: SchemaDefinition,
 		kind: ACLChangedOperation,
 		input: unknown,
@@ -101,7 +101,7 @@ export const createACLApplicationState = (
 			'ACL role grants require an active access role resolver capability.',
 			{
 				internalDetails: {
-					capabilityId: accessRoleResolverCapability.capabilityId,
+					capabilityId: requestRoleResolverCapability.capabilityId,
 					kind: 'acl-role-resolver-required',
 				},
 			},
@@ -148,7 +148,7 @@ export const createACLApplicationState = (
 		resolveACLEntryLimits(pluginLimits, config.limits)
 	const emptyACLChangeValue = new ACL()
 	const collectACLChanges = async (
-		context: AccessContext,
+		context: RequestSubjectContext,
 		schema: SchemaDefinition,
 		kind: ACLChangedOperation,
 		input: unknown,

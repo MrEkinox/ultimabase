@@ -54,7 +54,7 @@ export type {
 	PluginOperationEnvelope,
 	PluginOperationEnvelopeTarget,
 } from '../application/application-handles.js'
-export { requireCurrentAccessRoleResolver } from './access/subject-capabilities.js'
+export { requireCurrentRequestRoleResolver } from './access/subject-capabilities.js'
 // Applications create request-bound engines; opaque grants protect master construction.
 export { FrameworkEngine, RequestEngine } from './engine/framework-engine.js'
 export { TrackedExecutionLifetime } from './engine/tracked-execution-lifetime.js'
@@ -188,6 +188,18 @@ export type {
 	EnforcementOutputInput,
 	EnforcementOutputRestrictionHandler,
 } from './enforcement/contracts.js'
+export { protectedPolicy } from './enforcement/protected-policy.js'
+export type {
+	ProtectedPolicyDefinition,
+	ProtectedPolicyEffects,
+	ProtectedPolicyEvaluate,
+	ProtectedPolicyMutationOutcomeGuard,
+	ProtectedPolicyOptions,
+	ProtectedPolicyPreparedMutationGuard,
+	ProtectedPolicyReevaluate,
+	ProtectedPolicyRelationGuard,
+	ProtectedPolicyResultRestriction,
+} from './enforcement/protected-policy.js'
 // Generic operation interceptors retain plugin contribution ownership.
 export {
 	afterOperation,
@@ -256,6 +268,7 @@ export type {
 	RuntimePreparedMutationEffectStage,
 	RuntimePreparedMutationTransformStage,
 	RuntimePreparedMutationStageInput,
+	RuntimeRelationEnforcementStageInput,
 	RuntimeResultEffectStage,
 	RuntimeResultStageInput,
 	RuntimeResultTransformStage,
@@ -263,6 +276,22 @@ export type {
 export { createRuntimeBehaviorBoundaries } from './behaviors/boundaries.js'
 export type { RuntimeBehaviorBoundaries } from './behaviors/boundaries.js'
 export { getOperationSchema } from './operations/schema.js'
+export {
+	collectOperationFieldInputs,
+	collectRecordFieldValues,
+	readRuntimeFieldValuePath,
+} from './hooks/field-inputs.js'
+export type {
+	RuntimeFieldInputValue,
+	RuntimeFieldValue,
+	RuntimeFieldValuePathSegment,
+	RuntimeFieldVisitOrder,
+} from './hooks/field-inputs.js'
+export {
+	readOperationQueries,
+	readOperationResultSelection,
+} from './operations/queries.js'
+export { readRuntimeIncludedPointerValue } from './operations/model-metadata.js'
 export {
 	deferCurrentTransactionEffect,
 	getCurrentTransactionId,

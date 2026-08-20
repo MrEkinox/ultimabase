@@ -29,6 +29,7 @@ import {
 	type DatabaseRowFilterNode,
 } from '../database/contracts.js'
 import type { EnforcementState } from '../enforcement/state.js'
+import { isProtectedPolicyDenied } from '../enforcement/protected-denial.js'
 import type { RuntimeBehaviorBoundaries } from '../behaviors/boundaries.js'
 import {
 	retainRuntimeIncludedPointerValue,
@@ -421,7 +422,7 @@ export class RuntimeInclusionProjector {
 					rowFilter = enforced.rowFilter
 				}
 			} catch (error: unknown) {
-				if (!isRuntimeNativeAccessDenied(error)) throw error
+				if (!isProtectedPolicyDenied(error)) throw error
 
 				const request = createDatabasePersistenceRequest({
 					constraints: emptyRuntimeConstraints,
@@ -705,9 +706,3 @@ export class RuntimeInclusionProjector {
 		)
 	}
 }
-
-/** Identifies only the framework-owned denial that protected scopes may hide. */
-export const isRuntimeNativeAccessDenied = (error: unknown): boolean =>
-	error instanceof FrameworkError &&
-	error.code === 'PERMISSION_DENIED' &&
-	error.internalDetails?.kind === 'native-access-denied'

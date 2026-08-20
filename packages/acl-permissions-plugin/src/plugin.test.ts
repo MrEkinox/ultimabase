@@ -1,12 +1,12 @@
 import type { FrameworkError } from '@ultimabase/core'
 import {
-	AccessSubjectReference,
+	RequestSubjectReference,
 	MasterAuthority,
 	Pointer,
 	QueryBuilder,
 	Schema,
-	accessPrincipalResolverCapability,
-	accessRoleResolverCapability,
+	requestPrincipalResolverCapability,
+	requestRoleResolverCapability,
 	createApplication,
 	databaseAdapterCapability,
 	databasePersistencePlanCapability as planCapability,
@@ -16,8 +16,8 @@ import {
 	stringField,
 	UltimaBase,
 	type DatabaseAdapter,
-	type AccessPrincipalResolver,
-	type AccessRoleResolver,
+	type RequestPrincipalResolver,
+	type RequestRoleResolver,
 	type DatabaseMutationOperationAst,
 	type DatabaseOperationAst,
 	type DatabaseOperationRequest,
@@ -25,7 +25,7 @@ import {
 	type DatabaseTransactionAdapter,
 	type PluginDefinition,
 	type PreparedDatabaseOperation,
-	type AccessContext,
+	type RequestSubjectContext,
 } from '@ultimabase/core'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -42,24 +42,24 @@ const databaseAdapterProvider = (adapter: DatabaseAdapter) =>
 		contributionId: 'database-adapter',
 		create: () => ({ value: adapter }),
 	})
-const principalResolverProvider = (resolver: AccessPrincipalResolver) =>
-	provideCapability(accessPrincipalResolverCapability, {
+const principalResolverProvider = (resolver: RequestPrincipalResolver) =>
+	provideCapability(requestPrincipalResolverCapability, {
 		contributionId: 'principal-resolver',
 		create: () => ({ value: resolver }),
 	})
-const roleResolverProvider = (resolver: AccessRoleResolver) =>
-	provideCapability(accessRoleResolverCapability, {
+const roleResolverProvider = (resolver: RequestRoleResolver) =>
+	provideCapability(requestRoleResolverCapability, {
 		contributionId: 'role-resolver',
 		create: () => ({ value: resolver }),
 	})
 const context = Object.freeze({
 	access: { mode: 'anonymous' },
 	requestId: 'acl-test',
-}) as unknown as AccessContext
+}) as unknown as RequestSubjectContext
 const masterContext = Object.freeze({
 	access: { mode: 'master' },
 	requestId: 'acl-master-test',
-}) as unknown as AccessContext
+}) as unknown as RequestSubjectContext
 const ProtectedPost = Schema.define({
 	className: 'ProtectedPluginPost',
 	fields: (field) => ({
@@ -185,7 +185,7 @@ const createRoleProviderFixture = (
 	suffix: string,
 	placement: RoleProviderPlacement,
 ) => {
-	const role = new AccessSubjectReference('role', `fixture-role-${suffix}`)
+	const role = new RequestSubjectReference('role', `fixture-role-${suffix}`)
 	const adapter = new ACLReadAdapter([
 		{
 			acl: new ACL().grantRole(role, 'read'),
@@ -348,10 +348,7 @@ describe('aclPlugin create input resolution', () => {
 				ProtectedPost.findMany({ select: { acl: true } }, { ultimabase }),
 			).rejects.toMatchObject({
 				code: 'PERMISSION_DENIED',
-				internalDetails: {
-					fieldPath: ['acl'],
-					phase: 'access-field-read',
-				},
+				publicMessage: 'The operation is not permitted.',
 			} satisfies Partial<FrameworkError>)
 			expect(adapter.requests).toHaveLength(1)
 			const masterResult = await ProtectedPost.findMany(undefined, {
@@ -406,7 +403,7 @@ describe('aclPlugin create input resolution', () => {
 			extensions: [
 				acl({
 					default: new ACL().grantRole(
-						new AccessSubjectReference('role', 'fixture-static-role'),
+						new RequestSubjectReference('role', 'fixture-static-role'),
 						'read',
 					),
 				}),
@@ -431,7 +428,7 @@ describe('aclPlugin create input resolution', () => {
 		await expect(ultimabase.start()).rejects.toMatchObject({
 			code: 'PLUGIN_CAPABILITY_MISSING',
 			internalDetails: {
-				capabilityId: 'ultimabase.access.role-resolver',
+				capabilityId: 'ultimabase.request-subject.role-resolver',
 				kind: 'acl-role-resolver-required',
 			},
 		} satisfies Partial<FrameworkError>)
@@ -461,7 +458,7 @@ describe('aclPlugin create input resolution', () => {
 	})
 
 	it('rejects dynamically produced role grants before adapter preparation', async () => {
-		const dynamicRole = new AccessSubjectReference(
+		const dynamicRole = new RequestSubjectReference(
 			'role',
 			'fixture-dynamic-role',
 		)
@@ -741,14 +738,14 @@ describe('aclPlugin create input resolution', () => {
 	})
 
 	it('requires current-role enumeration before accepting role-aware values', async () => {
-		const persistentRole = new AccessSubjectReference(
+		const persistentRole = new RequestSubjectReference(
 			'role',
 			'AppRole:0198a43e-2431-7000-8000-000000000040',
 		)
 		const roleAware = new ACL()
-			.grantRole(new AccessSubjectReference('role', 'AppRole:editor'), 'read')
+			.grantRole(new RequestSubjectReference('role', 'AppRole:editor'), 'read')
 			.grantRole(
-				new AccessSubjectReference('role', 'AppRole:authors'),
+				new RequestSubjectReference('role', 'AppRole:authors'),
 				'update',
 			)
 		const operation = {

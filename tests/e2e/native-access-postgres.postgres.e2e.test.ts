@@ -1,5 +1,10 @@
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import {
+	accessPlugin,
+	provideAccessContributions,
+	schemaAccess,
+} from '@ultimabase/access-plugin'
+import {
 	MasterAuthority,
 	Schema,
 	UltimaBase,
@@ -93,21 +98,25 @@ const pluginVisibility = definePlugin({
 	version: '0.0.0',
 	core: '^0.0.0',
 	pluginId: 'fixture.native-access-visibility',
+	peers: [{ pluginId: '@ultimabase/access-plugin', version: '^0.0.0' }],
 	privileges: [
 		{
 			name: 'runtime:constrain',
 			reason: 'Contributes a monotonic visibility policy for the E2E fixture.',
 		},
 	],
-	setup: ({ access }) => {
-		access.schema(
-			'hide-plugin-rows',
-			AccessArticle,
-			{
-				read: { where: ({ where }) => where.ne('title', 'plugin-hidden') },
-			},
-			{ master: 'enforce' },
-		)
+	capabilities: {
+		provides: [
+			provideAccessContributions('hide-plugin-rows', () =>
+				schemaAccess(
+					AccessArticle,
+					{
+						read: { where: ({ where }) => where.ne('title', 'plugin-hidden') },
+					},
+					{ master: 'enforce' },
+				),
+			),
+		],
 	},
 })
 
@@ -140,6 +149,7 @@ beforeAll(async () => {
 		}),
 		plugins: [
 			hooksPlugin(),
+			accessPlugin(),
 			pluginVisibility,
 			postgresPlugin({ schemaPolicy: 'override', url: fixture.connectionUri }),
 		],

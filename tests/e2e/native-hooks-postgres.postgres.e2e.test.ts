@@ -12,6 +12,7 @@ import {
 	restrictSelection,
 	runWithRequestEngine,
 } from '@ultimabase/core'
+import { accessPlugin } from '@ultimabase/access-plugin'
 import {
 	hooksPlugin,
 	onEvent,
@@ -343,6 +344,7 @@ const createHookApplication = (connectionUri: string) =>
 		plugins: [
 			// Dependency order must place policy setup before its behavior consumer.
 			hooksPlugin(),
+			accessPlugin(),
 			behaviorPlugin,
 			scopePolicyPlugin,
 			postgresPlugin({ schemaPolicy: 'override', url: connectionUri }),

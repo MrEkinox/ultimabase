@@ -6,8 +6,9 @@ optional `aclPlugin()` provider.
 ACL grants object-level `read`, `update`, and `delete` rights to public,
 authenticated, exact-principal, and role subjects. One ACL may contain multiple
 principals and roles within its configured entry limits. The provider
-contributes native Access filters, item checks, and field restrictions that
-compile into database filtering rather than post-filtering in memory.
+contributes generic Core protected policies and adapter constraints that
+compile into database filtering rather than post-filtering in memory. It has no
+dependency or peer relationship with `@ultimabase/access-plugin`.
 
 PostgreSQL stores the ACL as non-null indexed JSONB on the protected row through
 the field's portable versioned codec. Object and ACL writes are therefore one

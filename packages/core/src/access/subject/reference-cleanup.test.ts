@@ -1,14 +1,14 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import type { AccessContext } from '../request/context.js'
-import { AccessSubjectReference } from './contracts.js'
+import type { RequestSubjectContext } from '../request/context.js'
+import { RequestSubjectReference } from './contracts.js'
 import {
-	defineAccessReferenceCleanup,
-	isAccessReferenceCleanup,
+	defineRequestSubjectReferenceCleanup,
+	isRequestSubjectReferenceCleanup,
 } from './reference-cleanup.js'
 
 describe('access reference cleanup contributions', () => {
-	const context: AccessContext = {
+	const context: RequestSubjectContext = {
 		access: { mode: 'anonymous' },
 		getValue: () => undefined,
 		hasCapability: () => false,
@@ -20,22 +20,22 @@ describe('access reference cleanup contributions', () => {
 	it('creates one immutable nominal contribution without executing callbacks', () => {
 		const hasReferences = vi.fn(() => true)
 		const cleanup = vi.fn(() => undefined)
-		const contribution = defineAccessReferenceCleanup({
+		const contribution = defineRequestSubjectReferenceCleanup({
 			kind: 'role',
 			hasReferences,
 			cleanup,
 		})
 
-		expect(isAccessReferenceCleanup(contribution)).toBe(true)
+		expect(isRequestSubjectReferenceCleanup(contribution)).toBe(true)
 		expect(Object.isFrozen(contribution)).toBe(true)
 		expect(hasReferences).not.toHaveBeenCalled()
 		expect(cleanup).not.toHaveBeenCalled()
-		expect(isAccessReferenceCleanup({ kind: 'role' })).toBe(false)
+		expect(isRequestSubjectReferenceCleanup({ kind: 'role' })).toBe(false)
 	})
 
 	it('rejects malformed definitions at the public boundary', () => {
 		expect(() =>
-			defineAccessReferenceCleanup({
+			defineRequestSubjectReferenceCleanup({
 				kind: '',
 				hasReferences: () => false,
 				cleanup: () => undefined,
@@ -45,7 +45,7 @@ describe('access reference cleanup contributions', () => {
 		)
 
 		expect(() =>
-			defineAccessReferenceCleanup({
+			defineRequestSubjectReferenceCleanup({
 				kind: 'role',
 				hasReferences: undefined as unknown as () => boolean,
 				cleanup: () => undefined,
@@ -56,8 +56,8 @@ describe('access reference cleanup contributions', () => {
 	})
 
 	it('retains the exact reference kind for consumer callbacks', () => {
-		const reference = new AccessSubjectReference('role', 'editor')
-		const cleanup = defineAccessReferenceCleanup({
+		const reference = new RequestSubjectReference('role', 'editor')
+		const cleanup = defineRequestSubjectReferenceCleanup({
 			kind: 'role',
 			hasReferences: ({ reference: subject }) => subject === reference,
 			cleanup: () => undefined,

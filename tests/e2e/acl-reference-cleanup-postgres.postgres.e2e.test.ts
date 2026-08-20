@@ -12,13 +12,13 @@ import {
 	Pointer,
 	Schema,
 	UltimaBase,
-	accessReferenceCleanupCapability,
-	createAccessPrincipalReference,
+	requestSubjectReferenceCleanupCapability,
+	createRequestPrincipalReference,
 	definePlugin,
 	optionalCapability,
-	type AccessContext,
-	type AccessReferenceCleanup,
-	type NamedAccessReferenceCleanup,
+	type RequestSubjectContext,
+	type RequestSubjectReferenceCleanup,
+	type NamedRequestSubjectReferenceCleanup,
 	type SchemaDefinition,
 } from '@ultimabase/core'
 import {
@@ -125,36 +125,36 @@ const ProtectedSecondary = Schema.define({
 })
 
 const readPrincipalCleanups = (
-	values: readonly NamedAccessReferenceCleanup[],
-): readonly AccessReferenceCleanup<'principal'>[] =>
+	values: readonly NamedRequestSubjectReferenceCleanup[],
+): readonly RequestSubjectReferenceCleanup<'principal'>[] =>
 	immutableArray(
 		values.flatMap(({ cleanup }) =>
 			cleanup.kind === 'principal'
-				? [cleanup as AccessReferenceCleanup<'principal'>]
+				? [cleanup as RequestSubjectReferenceCleanup<'principal'>]
 				: [],
 		),
 	)
 
 const optionalReferenceCleanups = optionalCapability(
-	accessReferenceCleanupCapability,
+	requestSubjectReferenceCleanupCapability,
 	'^1.0.0',
 	{ phase: 'setup' },
 )
 const principalCleanupsBySchemas = new WeakMap<
 	object,
-	readonly AccessReferenceCleanup<'principal'>[]
+	readonly RequestSubjectReferenceCleanup<'principal'>[]
 >()
 
 const applyPrincipalPolicy = async (
-	context: AccessContext,
+	context: RequestSubjectContext,
 	schema: SchemaDefinition,
 	id: string,
 	policy: ReferencePolicy,
-	cleanups: readonly AccessReferenceCleanup<'principal'>[],
+	cleanups: readonly RequestSubjectReferenceCleanup<'principal'>[],
 ): Promise<void> => {
 	if (policy === 'preserve') return
 
-	const reference = createAccessPrincipalReference(new Pointer(schema, id))
+	const reference = createRequestPrincipalReference(new Pointer(schema, id))
 
 	if (policy === 'fail') {
 		for (const cleanup of cleanups) {

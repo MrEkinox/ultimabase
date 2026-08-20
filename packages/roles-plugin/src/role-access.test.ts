@@ -1,13 +1,13 @@
 import {
-	AccessSubjectReference,
+	RequestSubjectReference,
 	Schema,
-	accessRoleResolverCapability,
+	requestRoleResolverCapability,
 	createApplication,
 	definePlugin,
 	provideCapability,
 	requireCapability,
-	type AccessContext,
 } from '@ultimabase/core'
+import type { AccessContext } from '@ultimabase/access-plugin'
 import { describe, expect, it, vi, type Mock } from 'vitest'
 
 import {
@@ -20,7 +20,7 @@ import { RoleSchema } from './role-schema.js'
 import { rolesPlugin } from './plugin.js'
 
 const roleResolverRequirement = requireCapability(
-	accessRoleResolverCapability,
+	requestRoleResolverCapability,
 	'^1.0.0',
 )
 
@@ -152,7 +152,7 @@ describe('stored role Access integration', () => {
 		const fixture = createDependencies()
 		const resolver = createStoredRoleResolver([AppRole], fixture.dependencies)
 		const original = AppRole.role({ id: editorId })
-		const restored = new AccessSubjectReference('role', original.value)
+		const restored = new RequestSubjectReference('role', original.value)
 
 		await expect(
 			resolver.hasRole({
@@ -250,7 +250,7 @@ describe('stored role Access integration', () => {
 			pluginId: 'fixture.community-role-provider',
 			capabilities: {
 				provides: [
-					provideCapability(accessRoleResolverCapability, {
+					provideCapability(requestRoleResolverCapability, {
 						contributionId: 'community-role-resolver',
 						create: () => ({ value: communityResolver }),
 					}),

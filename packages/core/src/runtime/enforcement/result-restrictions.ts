@@ -100,6 +100,7 @@ export const enforceOutputRestrictions = async <
 	for (const owned of contributions) {
 		const { contribution, implementation } = owned
 		if (
+			implementation.kind === 'protected-policy' ||
 			implementation.kind !== 'restrictOutput' ||
 			(input.context.access.mode === 'master' &&
 				implementation.master === 'bypass') ||

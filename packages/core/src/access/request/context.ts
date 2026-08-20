@@ -9,7 +9,7 @@ import type { RequestContextValue } from './context-value.js'
  * omits metadata, event emission, persistence, and transaction controls so policy
  * decisions can depend only on explicit request authority and typed capabilities.
  */
-export interface AccessContext {
+export interface RequestSubjectContext {
 	/** Exposes the closed anonymous or audited-master Core authority. */
 	readonly access: RequestAccess
 	/** Correlates the decision with the originating request. */

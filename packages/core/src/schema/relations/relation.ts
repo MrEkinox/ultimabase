@@ -92,7 +92,7 @@ const executeRelationMutation = async <
 	const sourceQuery = scopeQueryToObjectId(
 		new QueryBuilder(state.source),
 		state.sourceObjectId as OperationObjectId<TSource>,
-		{ nativeAccessDeniedAsMissing: true },
+		{ protectedPolicyDeniedAsMissing: true },
 	)
 	const update = createRelationUpdateExpression(
 		state.source,

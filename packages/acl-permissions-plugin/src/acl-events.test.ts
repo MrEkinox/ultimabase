@@ -1,4 +1,4 @@
-import { AccessSubjectReference, Schema } from '@ultimabase/core'
+import { RequestSubjectReference, Schema } from '@ultimabase/core'
 import { describe, expect, it, vi } from 'vitest'
 
 import { ACL } from './acl.js'
@@ -13,8 +13,8 @@ import {
 const User = Schema.define({ className: 'ACLChangeUser', fields: () => ({}) })
 const alice = User.pointer('alice')
 const bob = User.pointer('bob')
-const editor = new AccessSubjectReference('role', 'role-editor')
-const reviewer = new AccessSubjectReference('role', 'role-reviewer')
+const editor = new RequestSubjectReference('role', 'role-editor')
+const reviewer = new RequestSubjectReference('role', 'role-reviewer')
 
 describe('ACL change events', () => {
 	it('declares optional delivery without changing the stable public name', () => {

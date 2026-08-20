@@ -1,6 +1,6 @@
 import {
-	AccessSubjectReference,
-	type AccessRoleReference,
+	RequestSubjectReference,
+	type RequestRoleReference,
 	type SchemaDefinition,
 } from '@ultimabase/core'
 import { isPlainRecord, isUnknownArray } from '@ultimabase/shared'
@@ -29,7 +29,7 @@ declare const roleReferenceType: unique symbol
 export type RoleReference<
 	TSchema extends SchemaDefinition = SchemaDefinition,
 	TSelector extends RoleSelector = RoleSelector,
-> = AccessRoleReference & {
+> = RequestRoleReference & {
 	readonly [roleReferenceType]: Readonly<{
 		readonly schema: TSchema
 		readonly selector: TSelector
@@ -90,7 +90,7 @@ export const createRoleReference = <
 		schema.className,
 		normalizedSelector,
 	])
-	const reference = new AccessSubjectReference('role', identity)
+	const reference = new RequestSubjectReference('role', identity)
 
 	roleReferenceStates.set(
 		reference,
@@ -109,10 +109,10 @@ export function getRoleReferenceState<
 	reference: RoleReference<TSchema, TSelector>,
 ): RoleReferenceState<TSchema> | undefined
 export function getRoleReferenceState(
-	reference: AccessRoleReference,
+	reference: RequestRoleReference,
 ): RoleReferenceState | undefined
 export function getRoleReferenceState(
-	reference: AccessRoleReference,
+	reference: RequestRoleReference,
 ): RoleReferenceState | undefined {
 	return roleReferenceStates.get(reference)
 }
@@ -121,7 +121,7 @@ const parseJSON: (value: string) => unknown = JSON.parse
 
 /** Restores official role state from the stable neutral value retained by ACL JSON. */
 export const restoreRoleReferenceState = (
-	reference: AccessRoleReference,
+	reference: RequestRoleReference,
 	registeredSchemas: ReadonlySet<SchemaDefinition>,
 ): RoleReferenceState | undefined => {
 	let value: unknown

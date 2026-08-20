@@ -19,7 +19,7 @@ Core master authority remains non-forgeable in every configuration.
 - [ ] The independent alternative owns its protocol identity and does not import access-plugin.
 - [ ] Installing official and alternative engines together either composes through disjoint public claims or fails deterministically on the concrete namespace, capability, or enforcement claim they both own; Core adds no universal engine conflict.
 - [ ] Core Master works with no Access, official Access, and alternative Access; no transport, provider, Runtime replacement, or persistence rewrite can forge or inherit it.
-- [ ] ACL resolves the configured official Access peer and provider contract or fails before effects with an actionable peer or version diagnostic; the independent alternative does not imply ACL compatibility.
+- [ ] ACL enforces the same persisted policy with no Access engine and composes monotonically with official Access or the independent alternative without importing either.
 
 ## Tests
 
