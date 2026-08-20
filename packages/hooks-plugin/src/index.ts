@@ -1,38 +1,87 @@
+// Application API: plugin installation, generated option contracts, inline
+// callback authoring, request context, and typed event emission.
 export { hooksPlugin } from './plugin.js'
 export type { HooksPlugin } from './plugin.js'
 
-export { fieldHooksOption, schemaHooksOption } from './options.js'
 export type { FieldHooksOption, SchemaHooksOption } from './options.js'
 
-export type * from './authoring/contracts.js'
-export type * from './authoring/field-contracts.js'
-export {
-	fieldHookPhases,
-	normalizeFieldHookDeclarations,
-} from './authoring/field-declarations.js'
 export type {
-	FieldHookDeclarations,
-	FieldHookPhase,
-} from './authoring/field-declarations.js'
-export {
-	normalizeSchemaHookDeclarations,
-	schemaHookPhases,
-} from './authoring/declarations.js'
+	HookHandlerDeclaration,
+	SaveHookFamily,
+	SchemaAfterCreateHook,
+	SchemaAfterDeleteHook,
+	SchemaAfterHook,
+	SchemaAfterMutationHookInput,
+	SchemaAfterOperationHooks,
+	SchemaAfterUpdateHook,
+	SchemaAfterUpsertHook,
+	SchemaBeforeCreateHook,
+	SchemaBeforeCreateHookInput,
+	SchemaBeforeDeleteHook,
+	SchemaBeforeMutationHook,
+	SchemaBeforeMutationHookInput,
+	SchemaBeforeOperationHookKind,
+	SchemaBeforeOperationHooks,
+	SchemaBeforeUpdateHook,
+	SchemaCreateHookKind,
+	SchemaDeleteHookKind,
+	SchemaHookOperation,
+	SchemaHooks,
+	SchemaMutationHookKind,
+	SchemaMutationItemPair,
+	SchemaMutationKind,
+	SchemaMutationKindForOperation,
+	SchemaOperationHookInput,
+	SchemaResolveHook,
+	SchemaResolveInputHook,
+	SchemaResolveInputHookDeclaration,
+	SchemaResolveInputHookInput,
+	SchemaSaveHookKind,
+	SchemaUpdateHookKind,
+	SchemaUpsertHookKind,
+} from './authoring/contracts.js'
 export type {
-	SchemaHookDeclarations,
-	SchemaHookPhase,
-} from './authoring/declarations.js'
-export type { FieldAtPath, SchemaFieldPath } from './authoring/field-paths.js'
+	FieldCreateHookKind,
+	FieldHookDeclaration,
+	FieldHookMode,
+	FieldHooks,
+	FieldHookTypes,
+	FieldInputHookInput,
+	FieldInputHookKind,
+	FieldOutputHookKind,
+	FieldResolveInputFamilyHook,
+	FieldResolveInputHook,
+	FieldResolveInputHookDeclaration,
+	FieldUpdateHookKind,
+	FieldUpdateInputHookKind,
+	FieldUpsertHookKind,
+	FieldValueHookInput,
+	PresentFieldValue,
+} from './authoring/field-contracts.js'
 export { HookContext } from './context/hook-context.js'
 export type {
-	HookContextIdentity,
-	HookContextOwner,
-	HookContextTarget,
 	HookEventContract,
 	HookEventDelivery,
 } from './context/hook-context.js'
 export type { HookExecutionContext } from './context/execution-context.js'
+export { defineEvent } from './runtime/events.js'
+export type {
+	DefineEventFactory,
+	DefineEventOptions,
+} from './runtime/events.js'
 
+// Compatible-extension contract: official phase metadata, contribution
+// selectors, capability tokens, and post-commit event consumers.
+export { fieldHookPhases } from './authoring/field-declarations.js'
+export type { FieldHookPhase } from './authoring/field-declarations.js'
+export { schemaHookPhases } from './authoring/declarations.js'
+export type { SchemaHookPhase } from './authoring/declarations.js'
+export type { FieldAtPath, SchemaFieldPath } from './authoring/field-paths.js'
+export type {
+	HookContextIdentity,
+	HookContextOwner,
+	HookContextTarget,
+} from './context/hook-context.js'
 export {
 	fieldHooks,
 	globalHooks,
@@ -48,20 +97,16 @@ export type {
 	HookContributionFactory,
 	HookContributionFactoryContext,
 	HookContributionTargetKind,
-	OwnedHookContribution,
 	SchemaHookContributionDefinition,
 	SchemaExtensionHookContext,
 } from './contributions.js'
 
 export {
-	defineEvent,
 	hookEventContributionsCapability,
 	onEvent,
 	provideHookEvent,
 } from './runtime/events.js'
 export type {
-	DefineEventFactory,
-	DefineEventOptions,
 	HookEvent,
 	HookEventContributionsCapability,
 	HookEventDefinition,
@@ -69,6 +114,8 @@ export type {
 	HookEventHandlerInput,
 	OnEventOptions,
 } from './runtime/events.js'
+
+// Conformance support: redacted diagnostics and their optional observer token.
 export { hookDiagnosticsObserverCapability } from './runtime/diagnostics.js'
 export type {
 	HookDiagnosticEvent,

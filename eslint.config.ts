@@ -69,6 +69,7 @@ export default defineConfig(
 			'tests/e2e/**/*.ts',
 			'tooling/prototypes/generated-schema-authoring/**/*.ts',
 			'tooling/eslint/**/*.test.ts',
+			'tooling/vitest/optional-product-public-api.ts',
 			'tooling/vitest/typescript-language-service.ts',
 		],
 		languageOptions: {

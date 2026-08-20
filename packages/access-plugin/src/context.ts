@@ -1,7 +1,6 @@
 import type {
 	RequestAccess,
 	RequestCapability,
-	RequestContext,
 	RequestContextValue,
 } from '@ultimabase/core'
 
@@ -14,7 +13,3 @@ export interface AccessContext {
 	getValue<TValue>(token: RequestContextValue<TValue>): TValue | undefined
 	hasCapability(capability: RequestCapability): boolean
 }
-
-/** Narrows Core's richer Runtime context to the effect-free Access contract. */
-export const createAccessContext = (context: RequestContext): AccessContext =>
-	context

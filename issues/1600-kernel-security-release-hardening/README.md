@@ -23,7 +23,7 @@ new concrete product capability to Core.
 
 ### Public contracts and verification
 
-4. [ ] [1604 — Audit and trim optional-product public surfaces](1604-optional-product-public-surface-audit.md)
+4. [x] [1604 — Audit and trim optional-product public surfaces](1604-optional-product-public-surface-audit.md)
 5. [ ] [1605 — Add evidence-backed plugin authoring helpers](1605-evidence-backed-plugin-authoring-dx.md)
 6. [ ] [1606 — Harden Access and Hooks security coverage](1606-optional-product-security-coverage.md)
 7. [ ] [1607 — Strengthen official capability conformance](1607-official-capability-behavior-conformance.md)

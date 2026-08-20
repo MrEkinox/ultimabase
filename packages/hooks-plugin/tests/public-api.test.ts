@@ -9,21 +9,17 @@ describe('@ultimabase/hooks-plugin public entry point', () => {
 			'defineEvent',
 			'fieldHookPhases',
 			'fieldHooks',
-			'fieldHooksOption',
 			'globalHooks',
 			'hookContributionsCapability',
 			'hookDiagnosticsObserverCapability',
 			'hookEventContributionsCapability',
 			'hooksPlugin',
-			'normalizeFieldHookDeclarations',
-			'normalizeSchemaHookDeclarations',
 			'onEvent',
 			'provideHookContributions',
 			'provideHookEvent',
 			'schemaExtensionHooks',
 			'schemaHookPhases',
 			'schemaHooks',
-			'schemaHooksOption',
 		])
 	})
 })

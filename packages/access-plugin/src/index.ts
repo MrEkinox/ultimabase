@@ -1,46 +1,9 @@
+// Application API: plugin installation, generated option contracts, callback
+// authoring types, and policy combinators.
 export { accessPlugin } from './plugin.js'
 export type { AccessPlugin, AccessPluginOptions } from './plugin.js'
-export { fieldAccessOption, schemaAccessOption } from './options.js'
 export type { FieldAccessOption, SchemaAccessOption } from './options.js'
 export type { AccessContext } from './context.js'
-export { accessDiagnosticsObserverCapability } from './runtime/diagnostics.js'
-export type {
-	AccessDiagnosticEvent,
-	AccessDiagnosticIdentity,
-	AccessDiagnosticsObserver,
-	AccessDiagnosticsObserverCapability,
-} from './runtime/diagnostics.js'
-export {
-	accessContributionsCapability,
-	fieldAccess,
-	fieldExtensionAccess,
-	fieldKindAccess,
-	globalAccess,
-	provideAccessContributions,
-	schemaAccess,
-	schemaExtensionAccess,
-} from './contributions.js'
-export { defineFieldKindAccessTarget } from './targets.js'
-export type {
-	AccessContributionDefinition,
-	AccessContributionFactory,
-	AccessContributionFactoryContext,
-	AccessContributionMasterMode,
-	AccessContributionsCapability,
-	FieldAccessContributionDefinition,
-	GlobalAccessContributionDefinition,
-	OwnedAccessContribution,
-	SchemaAccessContributionDefinition,
-} from './contributions.js'
-export type {
-	FieldExtensionAccessContributionDefinition,
-	FieldExtensionAccessTargetContext,
-	FieldKindAccessContributionDefinition,
-	FieldKindAccessTarget,
-	FieldKindAccessTargetContext,
-	SchemaExtensionAccessContributionDefinition,
-	SchemaExtensionAccessTargetContext,
-} from './targets.js'
 export type {
 	AccessDecisionRule,
 	AccessWhereRule,
@@ -88,3 +51,45 @@ export type {
 	AllOperationAccess,
 	OperationAccessRule,
 } from './authoring/utilities.js'
+
+// Compatible-extension contract: official contribution targets, factories,
+// definitions, and the versioned capability token consumed by the engine.
+export {
+	accessContributionsCapability,
+	fieldAccess,
+	fieldExtensionAccess,
+	fieldKindAccess,
+	globalAccess,
+	provideAccessContributions,
+	schemaAccess,
+	schemaExtensionAccess,
+} from './contributions.js'
+export type {
+	AccessContributionDefinition,
+	AccessContributionFactory,
+	AccessContributionFactoryContext,
+	AccessContributionMasterMode,
+	AccessContributionsCapability,
+	FieldAccessContributionDefinition,
+	GlobalAccessContributionDefinition,
+	SchemaAccessContributionDefinition,
+} from './contributions.js'
+export { defineFieldKindAccessTarget } from './targets.js'
+export type {
+	FieldExtensionAccessContributionDefinition,
+	FieldExtensionAccessTargetContext,
+	FieldKindAccessContributionDefinition,
+	FieldKindAccessTarget,
+	FieldKindAccessTargetContext,
+	SchemaExtensionAccessContributionDefinition,
+	SchemaExtensionAccessTargetContext,
+} from './targets.js'
+
+// Conformance support: redacted diagnostics and their optional observer token.
+export { accessDiagnosticsObserverCapability } from './runtime/diagnostics.js'
+export type {
+	AccessDiagnosticEvent,
+	AccessDiagnosticIdentity,
+	AccessDiagnosticsObserver,
+	AccessDiagnosticsObserverCapability,
+} from './runtime/diagnostics.js'

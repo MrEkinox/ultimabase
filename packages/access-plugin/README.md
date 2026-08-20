@@ -26,6 +26,32 @@ const ultimabase = new UltimaBase({
 })
 ```
 
+## Public surface
+
+The root export has three deliberate groups:
+
+- **Application API:** `accessPlugin`, its options, `AccessContext`, generated
+  `SchemaAccessOption` and `FieldAccessOption` contracts, schema and field rule
+  types, and the `allowAll`, `denyAll`, `anyOf`, `allOf`, `not`,
+  `allOperations`, and `allMutations` authoring helpers.
+- **Compatible-extension contract:** `accessContributionsCapability`,
+  `provideAccessContributions`, the direct and extension-target contribution
+  factories, `defineFieldKindAccessTarget`, and their input or definition
+  types.
+- **Conformance support:** `accessDiagnosticsObserverCapability` and the
+  redacted diagnostic identity, event, observer, and capability types.
+
+The capability token remains public so a compatible engine can consume the
+same versioned provider protocol. Community providers should use the public
+factory and target helpers, which normalize declarations before the official
+engine receives them.
+
+Raw schema-option definitions, normalization functions, normalized declaration
+storage, the unused context-narrowing helper, and Core-attributed
+`OwnedAccessContribution` values are implementation details. They are
+intentionally unavailable from the package root. Importing the package still
+performs no registration or Runtime work.
+
 Without `accessPlugin()`, the `access` option is not declared and application
 compilation fails. Typegen emits the corresponding option augmentations only
 for applications that install the plugin.
