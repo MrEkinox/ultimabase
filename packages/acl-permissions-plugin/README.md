@@ -154,13 +154,15 @@ changes, and assigning an equivalent reconstructed ACL emits nothing.
 import {
 	aclChangedEvent,
 	onACLChange,
+	provideACLChangeObserver,
 } from '@ultimabase/acl-permissions-plugin'
-import { definePlugin, provideRuntimeObserver } from '@ultimabase/core'
+import { definePlugin } from '@ultimabase/core'
 
 const aclAuditPlugin = definePlugin({
 	pluginId: 'app.acl-audit',
 	version: '1.0.0',
 	core: '^0.0.0',
+	peers: [{ pluginId: 'ultimabase.acl', version: '^0.0.0' }],
 	privileges: [
 		{
 			name: 'runtime:observe',
@@ -169,19 +171,17 @@ const aclAuditPlugin = definePlugin({
 	],
 	capabilities: {
 		provides: [
-			provideRuntimeObserver({
-				contributionId: 'record-acl-change',
-				create: () => ({
-					value: onACLChange(({ event }) => {
-						console.log(
-							event.name === aclChangedEvent,
-							event.payload.actor,
-							event.payload.target,
-							event.payload.diff,
-						)
-					}),
+			provideACLChangeObserver(
+				'record-acl-change',
+				onACLChange(({ event }) => {
+					console.log(
+						event.name === aclChangedEvent,
+						event.payload.actor,
+						event.payload.target,
+						event.payload.diff,
+					)
 				}),
-			}),
+			),
 		],
 	},
 })

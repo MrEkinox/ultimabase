@@ -1,23 +1,23 @@
-import {
-	FrameworkApplication,
-	type SchemaMutationHookKind,
-} from '../../src/index.js'
+import { FrameworkApplication } from '../../src/index.js'
 import { Schema } from '../../src/index.js'
 import { isPlainRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 
 import {
 	FrameworkEngine,
+	type DatabaseMutationOperationAst,
 	getCurrentEngine,
 	MasterAuthority,
 	requestSources,
 	runWithRequestEngine,
 } from '../../src/runtime/index.js'
+
+type MutationOperationKind = DatabaseMutationOperationAst['kind']
 import {
 	createRecordingPipeline,
 	RecordingDatabaseAdapter,
 	type QueuedAdapterResult,
-	type RecordingPipelineHookStages,
+	type RecordingPipelineBehaviorStages,
 } from './fixtures/recording-database-adapter.js'
 
 const articleSchema = Schema.define({
@@ -58,7 +58,7 @@ const readCreatedTitle = (operation: unknown): string | undefined => {
 const createRequest = (
 	results: readonly QueuedAdapterResult[],
 	trace: string[],
-	hookStages: RecordingPipelineHookStages,
+	behaviorStages: RecordingPipelineBehaviorStages,
 	masterAuthority?: MasterAuthority,
 ) => {
 	const adapter = new RecordingDatabaseAdapter(results, trace)
@@ -68,7 +68,7 @@ const createRequest = (
 			plugins: [],
 		}),
 		...(masterAuthority === undefined ? {} : { masterAuthority }),
-		pipeline: createRecordingPipeline(adapter, trace, hookStages),
+		pipeline: createRecordingPipeline(adapter, trace, behaviorStages),
 	})
 	const request = framework.anonymous({
 		requestId: 'automatic-transaction-1',
@@ -83,13 +83,13 @@ type FixtureRequest = ReturnType<typeof createRequest>['request']
 interface MutationFixture {
 	readonly adapterResult?: unknown
 	readonly execute: (request: FixtureRequest) => Promise<unknown>
-	readonly kind: SchemaMutationHookKind
+	readonly kind: MutationOperationKind
 	readonly result: unknown
 }
 
 /** Supplies the stable preimage required by singular prepared mutations. */
 const createMutationTarget = (
-	kind: SchemaMutationHookKind,
+	kind: MutationOperationKind,
 ): ReturnType<typeof articleRecord> | null | undefined => {
 	if (kind === 'update-one') {
 		return articleRecord('0198f090-2a50-7000-8000-000000000003', 'Before')
@@ -287,8 +287,8 @@ describe('automatic mutation transaction scope', () => {
 			'Primary',
 		)
 		let observedEngine: ReturnType<typeof getCurrentEngine> | undefined
-		const hookStages: RecordingPipelineHookStages = {
-			globalBeforeHooks: async (input) => {
+		const behaviorStages: RecordingPipelineBehaviorStages = {
+			beforeOperation: async (input) => {
 				if (readCreatedTitle(input.operation) === 'Primary') {
 					observedEngine = getCurrentEngine()
 
@@ -308,7 +308,7 @@ describe('automatic mutation transaction scope', () => {
 				{ status: 'fulfilled', value: storedPrimary },
 			],
 			trace,
-			hookStages,
+			behaviorStages,
 		)
 
 		await expect(
@@ -336,8 +336,8 @@ describe('automatic mutation transaction scope', () => {
 	it('rolls back a successful before-stage write when the primary write fails', async () => {
 		const trace: string[] = []
 		const primaryError = new Error('primary write failed')
-		const hookStages: RecordingPipelineHookStages = {
-			globalBeforeHooks: async (input) => {
+		const behaviorStages: RecordingPipelineBehaviorStages = {
+			beforeOperation: async (input) => {
 				if (readCreatedTitle(input.operation) === 'Primary') {
 					await articleSchema.createOne({ data: { title: 'Nested' } })
 				}
@@ -357,7 +357,7 @@ describe('automatic mutation transaction scope', () => {
 				{ status: 'rejected', error: primaryError },
 			],
 			trace,
-			hookStages,
+			behaviorStages,
 		)
 
 		await expect(
@@ -378,8 +378,8 @@ describe('automatic mutation transaction scope', () => {
 	it('rolls back primary and nested writes when an after-stage aborts', async () => {
 		const trace: string[] = []
 		const afterError = new Error('after hook rejected the transaction')
-		const hookStages: RecordingPipelineHookStages = {
-			globalAfterHooks: async (input) => {
+		const behaviorStages: RecordingPipelineBehaviorStages = {
+			transformResult: async (input) => {
 				if (readCreatedTitle(input.operation) === 'Primary') {
 					await articleSchema.createOne({ data: { title: 'Nested after' } })
 					throw afterError
@@ -406,7 +406,7 @@ describe('automatic mutation transaction scope', () => {
 				},
 			],
 			trace,
-			hookStages,
+			behaviorStages,
 		)
 
 		await expect(
@@ -434,8 +434,8 @@ describe('automatic mutation transaction scope', () => {
 			},
 		})
 		let nestedAccessMode: string | undefined
-		const hookStages: RecordingPipelineHookStages = {
-			globalBeforeHooks: async (input) => {
+		const behaviorStages: RecordingPipelineBehaviorStages = {
+			beforeOperation: async (input) => {
 				const title = readCreatedTitle(input.operation)
 
 				if (title === undefined) {
@@ -475,7 +475,7 @@ describe('automatic mutation transaction scope', () => {
 				},
 			],
 			trace,
-			hookStages,
+			behaviorStages,
 			authority,
 		)
 

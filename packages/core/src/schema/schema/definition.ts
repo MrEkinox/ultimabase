@@ -36,8 +36,6 @@ import {
 	type ReservedSystemFieldName,
 	type SystemFields,
 } from './system-fields.js'
-import type { SchemaHooks } from '../hooks/contracts.js'
-import { declareSchemaHooks } from '../hooks/declarations.js'
 import type { SchemaAccess } from '../access/contracts.js'
 import { declareSchemaAccess } from '../access/declarations.js'
 import {
@@ -165,13 +163,6 @@ export interface SchemaOptions<
 	 * @example `access: { delete: ({ context }) => context.access.mode === "master" }`
 	 */
 	readonly access?: SchemaAccess<SchemaReference<NoInfer<TClassName>>>
-	/**
-	 * Declares immutable schema lifecycle behavior without requiring a plugin.
-	 * Hook functions stay outside physical schema metadata and migration plans.
-	 *
-	 * @example `hooks: { beforeOperation: { update: ({ item }) => audit(item) } }`
-	 */
-	readonly hooks?: SchemaHooks<SchemaReference<NoInfer<TClassName>>>
 }
 
 /**
@@ -464,7 +455,6 @@ const coreSchemaOptionKeys = new Set([
 	'className',
 	'extensions',
 	'fields',
-	'hooks',
 	'indexes',
 ])
 
@@ -808,7 +798,6 @@ const defineSchemaModel = <
 	})
 	// Behavioral capabilities follow Schema identity without entering metadata.
 	declareSchemaAccess(schema, options.access)
-	declareSchemaHooks(schema, options.hooks)
 
 	try {
 		const prepared = prepareSchemaCompilation(schema)

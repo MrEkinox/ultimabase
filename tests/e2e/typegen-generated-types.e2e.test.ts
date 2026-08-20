@@ -7,6 +7,7 @@ import {
 	Schema,
 	type FieldBuilder,
 } from '@ultimabase/core'
+import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { generateApplicationTypes, typegenPlugin } from '@ultimabase/typegen'
 import * as Typegen from '@ultimabase/typegen'
 import {
@@ -74,7 +75,7 @@ const Document = Schema.define({
 	},
 })
 const application = new FrameworkApplication({
-	plugins: [pgVectorPlugin()],
+	plugins: [hooksPlugin(), pgVectorPlugin()],
 	schemas: [Owner, Document],
 })
 const generated = generateApplicationTypes({
@@ -84,6 +85,7 @@ const generated = generateApplicationTypes({
 const sourceWithMarkers = `${generated.contents}
 import { generateApplicationTypes as generatePackedApplicationTypes, typegenPlugin as packedTypegenPlugin } from '@ultimabase/typegen'
 import { Schema, definePlugin } from '@ultimabase/core'
+import * as Hooks from '@ultimabase/hooks-plugin'
 import type { FrameworkApplication, PluginDefinition, SchemaDefinition } from '@ultimabase/core'
 import type { GenerateApplicationTypesOptions, TypegenPluginOptions } from '@ultimabase/typegen'
 
@@ -109,7 +111,7 @@ const PackedGeneratedDocument = Schema.define({
     status: field.enum({ values: ['draft', 'published'] }),
     title: field.string({
       hooks: {
-        ${fieldHookMarker}resolveInput: ({ value }) => value.trim(),
+        ${fieldHookMarker}resolveInput: ({ value }) => value?.trim() ?? null,
       },
       validation: { required: true },
     }),
@@ -135,9 +137,14 @@ const packedHookPlugin = definePlugin({
   pluginId: 'fixture.packed-generated-hooks',
   version: '0.0.0',
   core: '^0.0.0',
-  setup: ({ hooks }) => {
-    hooks.${pluginHookRegistryMarker}schema(
-      'document-update',
+  peers: [{ pluginId: '@ultimabase/hooks-plugin', version: '^0.0.0' }],
+  privileges: [{
+    name: 'runtime:intercept',
+    reason: 'Contributes the packed Hook type fixture.',
+  }],
+  capabilities: {
+    provides: [Hooks.provideHookContributions('document-update', () =>
+      Hooks.${pluginHookRegistryMarker}schemaHooks(
       PackedGeneratedDocument,
       {
         beforeOperation: {
@@ -146,7 +153,7 @@ const packedHookPlugin = definePlugin({
           },
         },
       },
-    )
+    ))],
   },
 })
 
@@ -484,14 +491,15 @@ describe('packed @ultimabase/typegen generated contracts', () => {
 				.getCompletionsAtPosition(fileName, pluginHookRegistryPosition, {})
 				?.entries.map(({ name }) => name)
 				.sort(),
-		).toStrictEqual([
-			'field',
-			'fieldExtension',
-			'fieldKind',
-			'global',
-			'schema',
-			'schemaExtension',
-		])
+		).toEqual(
+			expect.arrayContaining([
+				'fieldHooks',
+				'globalHooks',
+				'provideHookContributions',
+				'schemaHooks',
+				'schemaExtensionHooks',
+			]),
+		)
 		expect(
 			service
 				.getCompletionsAtPosition(fileName, pluginHookItemPosition, {})

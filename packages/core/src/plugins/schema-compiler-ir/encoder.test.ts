@@ -4,7 +4,6 @@ import { describe, expect, it } from 'vitest'
 import {
 	assertFieldDefinition,
 	getFieldAccessDeclarations,
-	getFieldHookDeclarations,
 } from '../../schema/fields/base/definition.js'
 import {
 	prepareSchemaCompilation,
@@ -16,9 +15,8 @@ import { SchemaCompilerIrEncoder } from './encoder.js'
 import { assertSchemaCompilerInput } from './validation.js'
 
 describe('schema compiler IR encoding', () => {
-	it('masks schema classes, default factories, hooks, and Access behind artifacts', () => {
+	it('masks schema classes, default factories, and Access behind artifacts', () => {
 		const defaultTitle = (): string => 'draft'
-		const resolveTitle = ({ value }: { readonly value: string | null }) => value
 		const canReadTitle = (): boolean => true
 		const Post = Schema.define({
 			className: 'CompilerIrPost',
@@ -31,7 +29,6 @@ describe('schema compiler IR encoding', () => {
 						read: { orderBy: true, output: canReadTitle, where: true },
 					},
 					default: defaultTitle,
-					hooks: { resolveInput: resolveTitle },
 				}),
 			}),
 		})
@@ -49,7 +46,6 @@ describe('schema compiler IR encoding', () => {
 		}).not.toThrow()
 		expect(JSON.stringify(input)).not.toContain('draft')
 		expect(JSON.stringify(input)).not.toContain('defaultTitle')
-		expect(JSON.stringify(input)).not.toContain('resolveTitle')
 		expect(JSON.stringify(input)).not.toContain('canReadTitle')
 
 		const title = schema.fields.find(({ name }) => name === 'title')
@@ -70,7 +66,6 @@ describe('schema compiler IR encoding', () => {
 		const decodedTitle = encoder.session.resolve(title.artifact, 'field')
 		assertFieldDefinition(decodedTitle, 'decoded title')
 		expect(decodedTitle).toBe(prepared.definition.fields.title)
-		expect(getFieldHookDeclarations(decodedTitle)).toBeDefined()
 		expect(getFieldAccessDeclarations(decodedTitle)).toBeDefined()
 	})
 

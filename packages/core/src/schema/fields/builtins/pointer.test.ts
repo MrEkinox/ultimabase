@@ -115,18 +115,6 @@ describe('pointerField', () => {
 		}).toThrow(new TypeError('validation.nullable is not supported'))
 	})
 
-	it('rejects output hooks that could rewrite a persisted relationship', () => {
-		expect(() =>
-			pointerField({
-				target: () => userSchema,
-				hooks: {
-					// @ts-expect-error -- Runtime validation protects JavaScript callers.
-					resolveOutput: () => undefined,
-				},
-			}),
-		).toThrow(new TypeError('Unknown field hook: hooks.resolveOutput'))
-	})
-
 	it('rejects malformed lazy targets when a value crosses the field', () => {
 		const field = pointerField({
 			// @ts-expect-error -- Runtime snapshots protect JavaScript callers.

@@ -40,6 +40,40 @@ binds the real `{ pluginId, instanceId? }` owner. Keep using Core directly when
 one file contains a single definition and binding the three stable package facts
 would not improve consistency.
 
+`plugin(...)` also forwards Core's structured `peers` option. Use it when an
+extension requires a compatible engine but the engine consumes the extension's
+capability, so no lifecycle edge should be introduced.
+
+## Publish typed post-commit events
+
+The event helpers remove the repeated contract, observer capability, and
+transaction-journal plumbing shared by independent plugins. A producer defines
+one versioned channel and consumes its optional requirement; observers retain
+their own `runtime:observe` privilege and provenance:
+
+```ts
+const published = definePluginEvent<PublishedEvent>()('workflow.published', {
+	delivery: 'optional',
+})
+const workflowEvents = definePluginEventCapability({
+	capabilityId: 'community.workflow-events',
+	version: '1.0.0',
+})
+
+const observer = providePluginEvent(
+	workflowEvents,
+	'audit-published',
+	observePluginEvent(published, ({ event }) => audit.write(event.payload)),
+)
+```
+
+The producer creates its dispatcher from `createPluginEventDispatcher(...)`,
+passing the factory's Core-owned `owner` and `assertPrivilege`, then calls
+`emit(...)` inside an active transaction. Payloads are detached JSON and
+handlers run only after commit in capability contribution order. The helper
+does not install Runtime behavior; the producer still owns its generic Runtime
+provider and requests `event:publish`.
+
 ## Parse plugin options once
 
 `definePluginOptionsParser(...)` validates the root object, rejects unknown

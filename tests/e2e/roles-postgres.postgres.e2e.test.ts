@@ -2,6 +2,7 @@ import {
 	RequestContext,
 	requestSources,
 	runWithRequestEngine,
+	type AccessRoleResolver,
 } from '@ultimabase/core'
 import {
 	resolveRoleReference,
@@ -31,10 +32,24 @@ import {
 	roleResolverConsumerPluginName,
 	roleResolutionTrace,
 } from './roles-postgres.fixture.js'
+
 import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from './postgres-worker-fixture.js'
+
+const requireRoleResolver = (value: unknown): AccessRoleResolver => {
+	if (
+		typeof value !== 'object' ||
+		value === null ||
+		!('hasRole' in value) ||
+		typeof value.hasRole !== 'function'
+	) {
+		throw new TypeError('Role resolver consumer did not expose hasRole')
+	}
+
+	return value as AccessRoleResolver
+}
 
 type RoleApplication = ReturnType<typeof createRoleApplication>
 type PersistedAppRole = Awaited<
@@ -392,7 +407,9 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 			'roles-e2e-stable-reference',
 		)
 		const request = app.engine.withContext(context)
-		const resolver = app.application.getPlugin(roleResolverConsumerPluginName)
+		const resolver = requireRoleResolver(
+			app.application.getPlugin(roleResolverConsumerPluginName),
+		)
 
 		await expect(
 			runWithRequestEngine(request, () =>

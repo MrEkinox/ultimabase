@@ -1807,6 +1807,26 @@ application capability factory and do not establish `connect`, `stop`, or
 `dispose` order. Application resources are isolated per application and
 disposed after their owner's plugin `dispose` hook. A conditional privilege
 must reference the same optional requirement object listed by its manifest.
+Every application capability factory also receives its Core-bound `owner` and
+an `assertPrivilege(...)` function for exact effect-time checks; neither value
+can grant a privilege missing from the plugin's active manifest.
+
+When a plugin only requires another plugin's compatible public protocol, use a
+non-ordering peer instead of a dependency:
+
+```ts
+definePlugin({
+	pluginId: 'community.workflow-extension',
+	version: '1.0.0',
+	core: '^1.0.0',
+	peers: [{ pluginId: 'community.workflow-engine', version: '^2.0.0' }],
+})
+```
+
+Peers are required, versioned, and instance-aware, but add no graph or
+lifecycle edge. They do not grant setup exports or capability reads. Use
+`dependencies` or `optionalDependencies` whenever provider-first order is part
+of the contract.
 
 `pluginPrivileges` evaluates cumulative denials before field declarations,
 schema compilation, Typegen, setup, or infrastructure work. Core-controlled

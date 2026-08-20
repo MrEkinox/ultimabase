@@ -20,7 +20,6 @@ describe('ACL change events', () => {
 	it('declares optional delivery without changing the stable public name', () => {
 		expect(aclChangedEventContract).toStrictEqual({
 			delivery: 'optional',
-			kind: 'hook-event-contract',
 			name: aclChangedEvent,
 		})
 	})
@@ -122,7 +121,7 @@ describe('ACL change events', () => {
 		const handler = vi.fn()
 
 		expect(onACLChange(handler)).toStrictEqual({
-			kind: 'hook-event',
+			kind: 'plugin-event-observer',
 			name: aclChangedEvent,
 		})
 	})

@@ -51,8 +51,9 @@ Dependencies point toward foundations. In the diagram, `A -> B` means that A may
 ```text
 core -> shared
 plugin-kit -> core/shared
-hooks-contracts/access-contracts -> shared
-hooks-plugin -> hooks-contracts/plugin-kit/core
+access-contracts -> shared
+hooks-plugin -> plugin-kit/core/shared
+official Hooks extensions -> hooks-plugin/plugin-kit/core/shared
 access-plugin -> access-contracts/plugin-kit/core
 ACL providers -> access-contracts/core
 other official plugins -> plugin-kit/core/shared
@@ -62,15 +63,16 @@ Schema, Query, application orchestration, protected constraints, persistence
 plans, and Runtime are internal Core domains rather than separate packages.
 Their source folders preserve the same logical direction without creating
 published-package cycles. `plugin-kit` is a public convenience layer for plugin
-authors; Core must never import it. `hooks-contracts` and `access-contracts` are
-behaviorless protocol packages used by implementations and providers; Core must
-never import them, and importing them must install no Runtime stage.
+authors; Core must never import it. `access-contracts` is a behaviorless protocol
+package used by implementations and providers; Core must never import it, and
+importing it must install no Runtime stage. Official Hooks contracts live in
+`hooks-plugin`; independent behavior engines own their contracts.
 
 Key prohibitions:
 
 - `core` must not import a concrete plugin or infrastructure library.
-- `core` must not import `plugin-kit`, `hooks-contracts`, or
-  `access-contracts`; those packages depend toward foundations.
+- `core` must not import `plugin-kit`, `hooks-plugin`, or `access-contracts`;
+  those packages depend toward foundations.
 - Core's Runtime domain must not import Drizzle, PostgreSQL, Hono, Yoga, or GraphQL.
 - transport packages must not issue SQL or bypass the runtime.
 - database-specific migration logic stays in a database-specific migration plugin.
@@ -121,6 +123,9 @@ Run or update `yarn constraints` when dependency constraints exist. If a request
   last-writer-wins. Tokens declare `declaration` or `application` lifetime;
   resource-backed application values are materialized and disposed by Core.
 - Nested plugins are configuration sugar over one global plugin graph.
+- Plugin `peers` validate exact identity and semantic compatibility without
+  adding declaration, lifecycle, materialization, or teardown order. Use a
+  dependency whenever ordering is required.
 - Parent setup precedes child setup; child teardown precedes parent teardown.
 - Dependencies and configuration order determine deterministic plugin and hook ordering.
 - Duplicate plugin IDs without explicit distinct instances are errors.

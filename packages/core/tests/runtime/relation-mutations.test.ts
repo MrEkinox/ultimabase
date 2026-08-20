@@ -57,26 +57,6 @@ const createRelationRuntimeFixture = async (
 				target: 'RelationMutationTarget',
 			}),
 		}),
-		hooks: {
-			beforeOperation: {
-				update: ({ operation }) => {
-					for (const candidate of operation.update.operations) {
-						if (candidate.kind === 'relation') {
-							trace.push(`before:${candidate.value.action}`)
-						}
-					}
-				},
-			},
-			afterOperation: {
-				update: ({ operation }) => {
-					for (const candidate of operation.update.operations) {
-						if (candidate.kind === 'relation') {
-							trace.push(`after:${candidate.value.action}`)
-						}
-					}
-				},
-			},
-		},
 	})
 	const sourceRecord = {
 		createdAt: fixtureInstant,
@@ -198,9 +178,7 @@ describe('relation mutation Runtime execution', () => {
 			'execute:find-one',
 			'access:connect:1',
 			'prepare:update-one',
-			'before:connect',
 			'execute:update-one',
-			'after:connect',
 			'adapter:commit',
 		])
 
@@ -238,13 +216,12 @@ describe('relation mutation Runtime execution', () => {
 				kind: 'relation',
 				value: { action },
 			})
-			expect(fixture.trace).toContain(`after:${action}`)
 			expect(fixture.trace.at(-1)).toBe('adapter:commit')
 			await fixture.ultimabase.dispose()
 		}
 	})
 
-	it('propagates trusted master authority through relation Access and hooks', async () => {
+	it('propagates trusted master authority through relation Access', async () => {
 		const fixture = await createRelationRuntimeFixture({
 			requiredAccessMode: 'master',
 			targetPreflight: false,
@@ -256,12 +233,11 @@ describe('relation mutation Runtime execution', () => {
 		})
 
 		expect(fixture.accessModes).toStrictEqual(['master'])
-		expect(fixture.trace).toContain('after:clear')
 		expect(fixture.trace.at(-1)).toBe('adapter:commit')
 		await fixture.ultimabase.dispose()
 	})
 
-	it('rolls back adapter failures after source Access and before hooks', async () => {
+	it('rolls back adapter failures after source Access', async () => {
 		const adapterError = new Error('relation write failed')
 		const fixture = await createRelationRuntimeFixture({ adapterError })
 
@@ -278,7 +254,6 @@ describe('relation mutation Runtime execution', () => {
 			'execute:find-one',
 			'access:connect:1',
 			'prepare:update-one',
-			'before:connect',
 			'execute:update-one',
 			'adapter:rollback',
 		])

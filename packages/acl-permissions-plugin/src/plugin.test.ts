@@ -23,9 +23,9 @@ import {
 	type DatabaseOperationRequest,
 	type DatabaseOperationResult,
 	type DatabaseTransactionAdapter,
-	type HookContext,
 	type PluginDefinition,
 	type PreparedDatabaseOperation,
+	type AccessContext,
 } from '@ultimabase/core'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -42,27 +42,24 @@ const databaseAdapterProvider = (adapter: DatabaseAdapter) =>
 		contributionId: 'database-adapter',
 		create: () => ({ value: adapter }),
 	})
-
 const principalResolverProvider = (resolver: AccessPrincipalResolver) =>
 	provideCapability(accessPrincipalResolverCapability, {
 		contributionId: 'principal-resolver',
 		create: () => ({ value: resolver }),
 	})
-
 const roleResolverProvider = (resolver: AccessRoleResolver) =>
 	provideCapability(accessRoleResolverCapability, {
 		contributionId: 'role-resolver',
 		create: () => ({ value: resolver }),
 	})
-
 const context = Object.freeze({
 	access: { mode: 'anonymous' },
 	requestId: 'acl-test',
-}) as unknown as HookContext
+}) as unknown as AccessContext
 const masterContext = Object.freeze({
 	access: { mode: 'master' },
 	requestId: 'acl-master-test',
-}) as unknown as HookContext
+}) as unknown as AccessContext
 const ProtectedPost = Schema.define({
 	className: 'ProtectedPluginPost',
 	fields: (field) => ({

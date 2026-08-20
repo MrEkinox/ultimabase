@@ -6,6 +6,7 @@ import {
 	definePlugin,
 	increment,
 } from '@ultimabase/core'
+import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import {
@@ -138,6 +139,7 @@ beforeAll(async () => {
 			onUse: () => undefined,
 		}),
 		plugins: [
+			hooksPlugin(),
 			pluginVisibility,
 			postgresPlugin({ schemaPolicy: 'override', url: fixture.connectionUri }),
 		],

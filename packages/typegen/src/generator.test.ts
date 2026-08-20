@@ -98,13 +98,6 @@ const createFixture = (reverseOrder = false) => {
 				embedding: generatedField.vector({ dimensions: 3 }),
 			}
 		},
-		hooks: {
-			beforeOperation: {
-				create: () => {
-					throw new TypeError('schema-hook-secret-must-not-run')
-				},
-			},
-		},
 	})
 	const schemas = reverseOrder
 		? ([Article, Author] as const)
@@ -210,7 +203,6 @@ describe('generateApplicationTypes', () => {
 			`// @ultimabase/schema-fingerprint sha256:${first.fingerprint}`,
 		)
 		expect(first.fingerprint).toMatch(/^[a-f0-9]{64}$/u)
-		expect(first.contents).not.toContain('schema-hook-secret-must-not-run')
 		expect(first.contents).not.toContain('export type DeepPartial<TValue>')
 		expect(first.contents).not.toContain('export type SchemaAccess<TItem')
 		expect(first.contents).not.toMatch(/^export type \w+(?:Access|Hooks) =/mu)
@@ -724,7 +716,7 @@ describe('generateApplicationTypes', () => {
 		})
 
 		expect(second).toStrictEqual(first)
-		expect(first.snapshot.version).toBe(4)
+		expect(first.snapshot.version).toBe(5)
 		expect(first.contents).toContain('export type ConfiguredEditorialWorkflow')
 		expect(first.contents).toContain('interface UltimaBaseGeneratedOperations')
 		expect(first.contents).toContain('readonly "fixture.workflow.publish"')

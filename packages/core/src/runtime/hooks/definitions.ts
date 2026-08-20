@@ -19,8 +19,8 @@ import type {
 	DatabaseOperationAst,
 } from '../database/contracts.js'
 import type { RuntimeOperationResult } from '../pipeline/contracts.js'
-/** Supplies low-level hooks with safe execution identity and one operation. */
-export interface RuntimeHookOperationInput<
+/** Supplies low-level interceptors with safe execution identity and one operation. */
+export interface RuntimeInterceptorOperationInput<
 	TOperation extends DatabaseOperationAst,
 > {
 	/** Exposes immutable request identity and revocable hook capabilities. */
@@ -29,10 +29,10 @@ export interface RuntimeHookOperationInput<
 	readonly operation: TOperation
 }
 
-/** Supplies low-level after hooks without exposing request authority. */
-export interface RuntimeHookResultInput<
+/** Supplies low-level result interceptors without exposing request authority. */
+export interface RuntimeInterceptorResultInput<
 	TOperation extends DatabaseOperationAst,
-> extends RuntimeHookOperationInput<TOperation> {
+> extends RuntimeInterceptorOperationInput<TOperation> {
 	/** Contains the immutable hydrated result paired with the observed operation. */
 	readonly result: RuntimeOperationResult<TOperation>
 }
@@ -40,7 +40,7 @@ export interface RuntimeHookResultInput<
 /** Supplies one stable singular preimage after Access has authorized its row. */
 export interface RuntimePreparedOperationInput<
 	TOperation extends DatabaseMutationOperationAst,
-> extends RuntimeHookOperationInput<TOperation> {
+> extends RuntimeInterceptorOperationInput<TOperation> {
 	/** Contains the locked logical object that the mutation would update. */
 	readonly target: DatabaseMutationLogicalRecord<TOperation>
 }
@@ -61,7 +61,7 @@ const runtimeOperationKinds = new Set<OperationKind>([
 	'delete-many',
 ])
 
-type RuntimeHookOperation<
+type RuntimeInterceptorOperation<
 	TSchema extends SchemaDefinition,
 	TOperationKind extends OperationKind,
 > = Extract<ExecutableOperationAst<TSchema>, { readonly kind: TOperationKind }>
@@ -76,8 +76,8 @@ export type BeforeOperationHandler<
 	TSchema extends SchemaDefinition,
 	TOperationKind extends OperationKind,
 > = (
-	input: RuntimeHookOperationInput<
-		RuntimeHookOperation<TSchema, TOperationKind>
+	input: RuntimeInterceptorOperationInput<
+		RuntimeInterceptorOperation<TSchema, TOperationKind>
 	>,
 ) => MaybePromise<void>
 
@@ -85,16 +85,20 @@ export type AfterOperationHandler<
 	TSchema extends SchemaDefinition,
 	TOperationKind extends OperationKind,
 > = (
-	input: RuntimeHookResultInput<RuntimeHookOperation<TSchema, TOperationKind>>,
+	input: RuntimeInterceptorResultInput<
+		RuntimeInterceptorOperation<TSchema, TOperationKind>
+	>,
 ) => MaybePromise<
-	AfterOperationResult<RuntimeHookOperation<TSchema, TOperationKind>>
+	AfterOperationResult<RuntimeInterceptorOperation<TSchema, TOperationKind>>
 >
 
 export type PostCommitEventHandler<
 	TSchema extends SchemaDefinition,
 	TOperationKind extends OperationKind,
 > = (
-	input: RuntimeHookResultInput<RuntimeHookOperation<TSchema, TOperationKind>>,
+	input: RuntimeInterceptorResultInput<
+		RuntimeInterceptorOperation<TSchema, TOperationKind>
+	>,
 ) => MaybePromise<void>
 
 /** Resolves one authorized update value against its locked current object. */
@@ -226,9 +230,9 @@ interface RuntimeContributionImplementation {
 }
 
 type RuntimeContributionInput =
-	| RuntimeHookOperationInput<DatabaseOperationAst>
+	| RuntimeInterceptorOperationInput<DatabaseOperationAst>
 	| RuntimePreparedOperationInput<DatabaseMutationOperationAst>
-	| RuntimeHookResultInput<DatabaseOperationAst>
+	| RuntimeInterceptorResultInput<DatabaseOperationAst>
 
 type ErasedRuntimeContributionHandler = (
 	input: RuntimeContributionInput,
@@ -395,7 +399,7 @@ export const createBeforeHookInput = <
 >(
 	context: HookContext,
 	operation: TOperation,
-): RuntimeHookOperationInput<TOperation> =>
+): RuntimeInterceptorOperationInput<TOperation> =>
 	immutableRecord({ context, operation })
 
 /** Creates a fresh immutable envelope for after-hooks and external events. */
@@ -405,7 +409,7 @@ export const createAfterHookInput = <
 	context: HookContext,
 	operation: TOperation,
 	result: RuntimeOperationResult<TOperation>,
-): RuntimeHookResultInput<TOperation> =>
+): RuntimeInterceptorResultInput<TOperation> =>
 	immutableRecord({ context, operation, result })
 
 /** Creates one isolated envelope for an authorized locked-target transformer. */

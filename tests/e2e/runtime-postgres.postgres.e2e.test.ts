@@ -15,16 +15,15 @@ import {
 	type SchemaResult,
 	runWithRequestEngine,
 	MasterAuthority,
+	UltimaBase,
 } from '@ultimabase/core'
-import { UltimaBase } from '@ultimabase/core'
+import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-
 import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from './postgres-worker-fixture.js'
 import { prepareCanonical } from './canonical-database-request-fixture.js'
-
 const databaseAdapterRequirement = requireCapability(
 	databaseAdapterCapability,
 	'^1.0.0',
@@ -37,7 +36,6 @@ const databaseAdapterConsumerPlugin = definePlugin({
 	setup: ({ capabilities }): DatabaseAdapter =>
 		capabilities.get(databaseAdapterRequirement),
 })
-
 const PostSchema = Schema.define({
 	className: 'RuntimePost',
 	fields: (field) => ({
@@ -696,6 +694,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			}),
 			schemas: [AuthorityRecordSchema],
 			plugins: [
+				hooksPlugin(),
 				postgresPlugin({
 					schemaPolicy: 'override',
 					url: getFixture().connectionUri,
@@ -744,6 +743,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 		const ultimabase = new UltimaBase({
 			schemas: [HookPostSchema, HookAuditSchema],
 			plugins: [
+				hooksPlugin(),
 				postgresPlugin({
 					schemaPolicy: 'override',
 					url: getFixture().connectionUri,

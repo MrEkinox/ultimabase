@@ -82,6 +82,7 @@ export type {
 	CapabilityDecoratorDeclaration,
 	CapabilityLifetime,
 	CapabilityProviderDeclaration,
+	CapabilityProviderContribution,
 	CapabilityProviderValue,
 	CapabilityReplacementDeclaration,
 	CapabilityRequirement,
@@ -109,7 +110,6 @@ export type {
 	DefineDatabaseConstraintCompilerOptions,
 	PluginConstraintCompilerRegistry,
 } from './plugins/constraint-compilers.js'
-export { defineFieldKindHookTarget } from './plugins/hook-targets.js'
 export { defineFieldKindAccessTarget } from './plugins/access-targets.js'
 export type {
 	FieldExtensionAccessFactory,
@@ -124,17 +124,6 @@ export type {
 	SchemaExtensionAccessFactory,
 	SchemaExtensionAccessTargetContext,
 } from './plugins/access-targets.js'
-export type {
-	FieldExtensionHookFactory,
-	FieldExtensionHookTargetContext,
-	FieldKindHookFactory,
-	FieldKindHookTarget,
-	FieldKindHookTargetContext,
-	PluginHookRegistry,
-	PluginHookTargetKind,
-	SchemaExtensionHookFactory,
-	SchemaExtensionHookTargetContext,
-} from './plugins/hook-targets.js'
 export type {
 	DefinePluginOptions,
 	FrameworkPlugin,

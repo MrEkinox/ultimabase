@@ -6,7 +6,7 @@
 - Milestones:
   - [14 — Trusted open plugin kernel](issues/1400-open-plugin-kernel/README.md)
   - [15 — Optional Hooks and Access plugins](issues/1500-optional-hooks-access/README.md)
-- Resume point: [1501 — Move hook authoring contracts into hooks-plugin](issues/1500-optional-hooks-access/1501-hooks-plugin-authoring-contracts.md)
+- Resume point: [1503 — Prove no-Hooks and alternative-Hooks applications](issues/1500-optional-hooks-access/1503-hooks-optional-alternative-proof.md)
 - Previous completed plan: [Query execution and enforcement consolidation](docs/plans/completed/query-execution-and-enforcement-consolidation.md)
 - Paused objectives:
   - [ACL hardening and developer-experience consolidation](docs/plans/paused/acl-hardening-and-developer-experience-consolidation.md)
@@ -90,8 +90,8 @@ optional official plugins while keeping Core master authority unchanged.
 
 ### Phase 4 — Optional Hooks engine
 
-24. [ ] [1501 — Move hook authoring contracts into hooks-plugin](issues/1500-optional-hooks-access/1501-hooks-plugin-authoring-contracts.md)
-25. [ ] [1502 — Move hook execution into hooks-plugin](issues/1500-optional-hooks-access/1502-hooks-plugin-runtime.md)
+24. [x] [1501 — Extract the complete Hooks plugin](issues/1500-optional-hooks-access/1501-hooks-plugin-authoring-contracts.md)
+25. [x] [1502 — Merged into issue 1501 by ADR-0202](issues/1500-optional-hooks-access/1502-hooks-plugin-runtime.md)
 26. [ ] [1503 — Prove no-Hooks and alternative-Hooks applications](issues/1500-optional-hooks-access/1503-hooks-optional-alternative-proof.md)
 
 ### Phase 5 — Optional Access engine

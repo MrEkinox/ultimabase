@@ -29,13 +29,8 @@ const createPipeline = (executor: DatabaseOperationExecutor) =>
 	new RuntimePipeline({
 		normalization: (input) => input.operation,
 		structuralValidation: (input) => input.operation,
-		globalBeforeHooks: () => undefined,
-		schemaBeforeHooks: () => undefined,
 		databaseOperation: executor,
-		schemaAfterHooks: (input) => input.result,
-		globalAfterHooks: (input) => input.result,
 		commit: () => undefined,
-		postCommitEvents: () => undefined,
 	} satisfies RuntimePipelineStages)
 
 const unreachableExecute = <const TOperation extends DatabaseOperationAst>(

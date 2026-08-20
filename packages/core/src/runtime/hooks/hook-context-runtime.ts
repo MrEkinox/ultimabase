@@ -3,11 +3,13 @@ import type { QueryExecutionGuard } from '../../query/operations/execution.js'
 import {
 	jsonField,
 	snapshotScalarFieldValue,
-	type HookContext,
-	type HookContextIdentity,
 	type JsonDocument,
 } from '../../schema/index.js'
-import { createTrustedHookContext } from '../../schema/hooks/hook-context.js'
+import {
+	createTrustedHookContext,
+	type HookContext,
+	type HookContextIdentity,
+} from '../../schema/hooks/hook-context.js'
 import { assertNonEmptyString, immutableRecord } from '@ultimabase/shared'
 
 import type { RequestContext } from '../context/request-context.js'

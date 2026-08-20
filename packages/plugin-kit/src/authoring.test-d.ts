@@ -2,12 +2,15 @@ import {
 	defineOperation,
 	defineOperationValue,
 	type FrameworkPlugin,
+	type JsonObject,
 	type TypegenReference,
 } from '@ultimabase/core'
 import { expectTypeOf } from 'vitest'
 
 import {
 	definePluginModule,
+	definePluginEvent,
+	observePluginEvent,
 	definePluginOptionsParser,
 	defineTypegenModule,
 	providePluginOperation,
@@ -15,6 +18,7 @@ import {
 	type PluginModule,
 	type PluginOptionsParser,
 	type SchemaPatchBuilder,
+	type PluginEventObserver,
 } from './index.js'
 
 const module = definePluginModule({
@@ -28,6 +32,7 @@ expectTypeOf(module).toEqualTypeOf<
 
 const plugin = module.plugin({
 	instanceId: 'editorial',
+	peers: [{ pluginId: 'community.protocol', version: '^1.0.0' }] as const,
 	setup: () => ({ ready: true as const }),
 })
 expectTypeOf(plugin).toExtend<
@@ -40,7 +45,16 @@ expectTypeOf(plugin).toExtend<
 		undefined,
 		'editorial',
 		'1.4.0',
-		'^2.0.0'
+		'^2.0.0',
+		undefined,
+		undefined,
+		undefined,
+		readonly [
+			{
+				readonly pluginId: 'community.protocol'
+				readonly version: '^1.0.0'
+			},
+		]
 	>
 >()
 
@@ -65,6 +79,22 @@ expectTypeOf(types.reference('PublishInput')).toEqualTypeOf<
 >()
 
 expectTypeOf(schemaPatch()).toEqualTypeOf<SchemaPatchBuilder>()
+
+interface PublishedEvent extends JsonObject {
+	readonly id: string
+}
+
+const publishedEvent = definePluginEvent<PublishedEvent>()(
+	'community.workflow.published',
+	{ delivery: 'optional' },
+)
+const publishedObserver = observePluginEvent(publishedEvent, ({ event }) => {
+	expectTypeOf(event.name).toEqualTypeOf<'community.workflow.published'>()
+	expectTypeOf(event.payload).toEqualTypeOf<PublishedEvent>()
+})
+expectTypeOf(publishedObserver).toEqualTypeOf<
+	PluginEventObserver<'community.workflow.published', PublishedEvent>
+>()
 expectTypeOf(
 	schemaPatch().addField({
 		contributionId: 'state',

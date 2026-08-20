@@ -76,7 +76,11 @@ export interface CompiledTypegenOption {
 	readonly owner: PluginSchemaContributionOwner
 	readonly scope: 'field' | 'schema'
 	readonly staticOptions: Readonly<Record<string, JsonValue>>
-	readonly typegen: Readonly<{ readonly module: string; readonly type: string }>
+	readonly typegen: Readonly<{
+		readonly generic?: 'self'
+		readonly module: string
+		readonly type: string
+	}>
 }
 
 /** Exposes one immutable final graph to declaration-only tooling. */

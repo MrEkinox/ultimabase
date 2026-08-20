@@ -18,18 +18,14 @@ import type {
 	ResolveFieldTypegenState,
 	ValidatedFieldOptions,
 } from './base/contract.js'
-import type { FieldHookDeclaration } from '../hooks/field-contracts.js'
-import { splitFieldDeclarationOptions } from '../hooks/field-declarations.js'
+import { splitFieldAccessOptions } from '../access/field-options.js'
 import type { FieldAccessDeclaration } from '../access/contracts.js'
 import type { PluginFieldStorageCodec } from './base/definition.js'
 
 export type { ReservedFieldKind } from './base/kinds.js'
 
-/** Removes declaration-only callbacks while retaining plugin-owned metadata. */
-type PluginFieldMetadata<TOptions extends object> = Omit<
-	TOptions,
-	'access' | 'hooks'
->
+/** Removes Core-owned Access callbacks while retaining plugin-owned metadata. */
+type PluginFieldMetadata<TOptions extends object> = Omit<TOptions, 'access'>
 
 /**
  * Carries a namespaced plugin kind while retaining the regular field contract.
@@ -142,13 +138,6 @@ export const definePluginField = <
 		FieldOptionsWithoutNullable<
 			ValidatedFieldOptions<NoInfer<TOptions>, TValue>
 		> &
-		FieldHookDeclaration<
-			PluginFieldDefinition<
-				TKind,
-				TValue,
-				PluginFieldMetadata<NoInfer<TOptions>>
-			>
-		> &
 		FieldAccessDeclaration<
 			PluginFieldDefinition<
 				TKind,
@@ -188,7 +177,7 @@ export const definePluginField = <
 			'Plugin field normalizeValidation must be a function when provided',
 		)
 	}
-	const { access, hooks, metadataOptions } = splitFieldDeclarationOptions<
+	const { access, metadataOptions } = splitFieldAccessOptions<
 		PluginFieldMetadata<TOptions> & FieldOptions<TValue, TValidation>
 	>(options)
 	const normalizedOptions = normalizeFieldOptions(
@@ -201,7 +190,6 @@ export const definePluginField = <
 		kind,
 		normalizedOptions,
 		normalizers.snapshotValue,
-		hooks,
 		access,
 		{
 			deferRequiredUntilResolveInput:

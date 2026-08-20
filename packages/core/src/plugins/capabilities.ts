@@ -14,7 +14,15 @@ import {
 } from '../schema/fields/builtins/json.js'
 import type { CompiledSchemaRegistry } from '../schema/index.js'
 import type { DatabaseConstraintCompilerReader } from './constraint-compilers.js'
-import type { PluginIdentity } from './manifest.js'
+import type {
+	PluginCapabilityDeclarationOptions,
+	PluginCapabilityDeclarations,
+} from './capability-declarations.js'
+import {
+	pluginPrivilegeMetadata,
+	type PluginIdentity,
+	type PluginPrivilege,
+} from './manifest.js'
 
 /** Determines how compatible provider declarations compose in one application. */
 export type CapabilityCardinality = 'single' | 'multiple' | 'pipeline'
@@ -48,6 +56,8 @@ export interface CapabilityToken<
 	readonly version: TVersion
 	readonly cardinality: TCardinality
 	readonly lifetime: TLifetime
+	/** Requires every provider owner to declare this active privilege. */
+	readonly providerPrivilege?: PluginPrivilege
 }
 
 /** Extracts the exact value accepted from a capability provider. */
@@ -92,6 +102,8 @@ export interface DefineCapabilityOptions<
 	readonly lifetime: TLifetime
 	/** Deterministically converts final ordered providers into one consumer view. */
 	readonly compose: CapabilityComposer<TProvider, TConsumer, TCardinality>
+	/** Requires every provider owner before static or application materialization. */
+	readonly providerPrivilege?: PluginPrivilege
 }
 
 /** Creates exact token metadata after the protocol selects its value types. */
@@ -131,6 +143,7 @@ const defineCapabilityOptionKeys = new Set([
 	'cardinality',
 	'lifetime',
 	'compose',
+	'providerPrivilege',
 ])
 
 /** Defines one nominal capability protocol without installing a provider. */
@@ -210,12 +223,24 @@ export const defineCapability =
 			throw new TypeError('capability compose must be a function')
 		}
 
+		if (
+			options.providerPrivilege !== undefined &&
+			!Object.hasOwn(pluginPrivilegeMetadata, options.providerPrivilege)
+		) {
+			throw new TypeError(
+				'capability providerPrivilege must be a known privilege',
+			)
+		}
+
 		const token = immutableRecord({
 			kind: 'capability-token' as const,
 			capabilityId: options.capabilityId,
 			version: options.version,
 			cardinality: options.cardinality,
 			lifetime: options.lifetime,
+			...(options.providerPrivilege === undefined
+				? {}
+				: { providerPrivilege: options.providerPrivilege }),
 		})
 
 		capabilityTokens.add(token)
@@ -300,6 +325,20 @@ export interface ApplicationCapabilityResource<TProvider> {
 export interface PluginCapabilityReader<
 	TPhase extends CapabilityRequirementPhase = CapabilityRequirementPhase,
 > {
+	/** Reads ordered provider provenance only for one declared application requirement. */
+	contributions<
+		TToken extends CapabilityToken<
+			unknown,
+			unknown,
+			string,
+			string,
+			CapabilityCardinality,
+			'application'
+		>,
+		TRange extends string,
+	>(
+		requirement: CapabilityRequirement<TToken, boolean, TRange, TPhase>,
+	): readonly CapabilityProviderContribution<TToken>[]
 	get<TToken extends CapabilityToken, TRange extends string>(
 		requirement: CapabilityRequirement<TToken, false, TRange, TPhase>,
 	): CapabilityConsumerValue<TToken>
@@ -308,8 +347,22 @@ export interface PluginCapabilityReader<
 	): CapabilityConsumerValue<TToken> | undefined
 }
 
+/** Retains one materialized provider's exact application-local ownership. */
+export interface CapabilityProviderContribution<
+	TToken extends CapabilityToken = CapabilityToken,
+> {
+	readonly contributionId: string
+	readonly owner: PluginIdentity
+	readonly pluginVersion: string
+	readonly value: CapabilityProviderValue<TToken>
+}
+
 /** Supplies an application provider with owner-bound declared capability reads. */
 export interface ApplicationCapabilityFactoryContext {
+	/** Identifies the exact plugin instance whose provider is materializing. */
+	readonly owner: PluginIdentity
+	/** Verifies one requested active privilege before the provider performs its effect. */
+	readonly assertPrivilege: (privilege: PluginPrivilege) => void
 	readonly capabilities: PluginCapabilityReader<'materialization'>
 	/** Reads live owner-attributed compilers only with active adapter consumption authority. */
 	readonly constraintCompilers: DatabaseConstraintCompilerReader
@@ -853,86 +906,6 @@ export const assertOptionalCapabilityRequirement: (
 	}
 }
 
-/** Groups one plugin's inert capability declarations. */
-export interface PluginCapabilityDeclarations<
-	TProvides extends readonly CapabilityProviderDeclaration[] =
-		readonly CapabilityProviderDeclaration[],
-	TDecorates extends readonly CapabilityDecoratorDeclaration[] =
-		readonly CapabilityDecoratorDeclaration[],
-	TReplaces extends readonly CapabilityReplacementDeclaration[] =
-		readonly CapabilityReplacementDeclaration[],
-	TRequires extends readonly CapabilityRequirement<CapabilityToken, false>[] =
-		readonly CapabilityRequirement<CapabilityToken, false>[],
-	TOptional extends readonly CapabilityRequirement<CapabilityToken, true>[] =
-		readonly CapabilityRequirement<CapabilityToken, true>[],
-> {
-	readonly provides: TProvides
-	readonly decorates: TDecorates
-	readonly replaces: TReplaces
-	readonly requires: TRequires
-	readonly optional: TOptional
-}
-
-/** Accepts omitted capability groups while preserving exact declaration tuples. */
-export interface PluginCapabilityDeclarationOptions {
-	readonly provides?: readonly CapabilityProviderDeclaration[]
-	readonly decorates?: readonly CapabilityDecoratorDeclaration[]
-	readonly replaces?: readonly CapabilityReplacementDeclaration[]
-	readonly requires?: readonly CapabilityRequirement<CapabilityToken, false>[]
-	readonly optional?: readonly CapabilityRequirement<CapabilityToken, true>[]
-}
-
-type NormalizedProviders<TOptions> =
-	TOptions extends PluginCapabilityDeclarationOptions
-		? TOptions['provides'] extends readonly CapabilityProviderDeclaration[]
-			? readonly [...TOptions['provides']]
-			: readonly []
-		: readonly []
-
-type NormalizedDecorators<TOptions> =
-	TOptions extends PluginCapabilityDeclarationOptions
-		? TOptions['decorates'] extends readonly CapabilityDecoratorDeclaration[]
-			? readonly [...TOptions['decorates']]
-			: readonly []
-		: readonly []
-
-type NormalizedReplacements<TOptions> =
-	TOptions extends PluginCapabilityDeclarationOptions
-		? TOptions['replaces'] extends readonly CapabilityReplacementDeclaration[]
-			? readonly [...TOptions['replaces']]
-			: readonly []
-		: readonly []
-
-type NormalizedRequirements<TOptions> =
-	TOptions extends PluginCapabilityDeclarationOptions
-		? TOptions['requires'] extends readonly CapabilityRequirement<
-				CapabilityToken,
-				false
-			>[]
-			? readonly [...TOptions['requires']]
-			: readonly []
-		: readonly []
-
-type NormalizedOptionalRequirements<TOptions> =
-	TOptions extends PluginCapabilityDeclarationOptions
-		? TOptions['optional'] extends readonly CapabilityRequirement<
-				CapabilityToken,
-				true
-			>[]
-			? readonly [...TOptions['optional']]
-			: readonly []
-		: readonly []
-
-/** Maps omitted declaration groups to exact immutable empty tuples. */
-export type NormalizedPluginCapabilityDeclarations<TOptions> =
-	PluginCapabilityDeclarations<
-		NormalizedProviders<TOptions>,
-		NormalizedDecorators<TOptions>,
-		NormalizedReplacements<TOptions>,
-		NormalizedRequirements<TOptions>,
-		NormalizedOptionalRequirements<TOptions>
-	>
-
 const normalizeCapabilityArray = <TValue>(
 	values: readonly TValue[] | undefined,
 	path: string,
@@ -951,6 +924,12 @@ const normalizeCapabilityArray = <TValue>(
 
 	return immutableArray(values)
 }
+
+export type {
+	NormalizedPluginCapabilityDeclarations,
+	PluginCapabilityDeclarationOptions,
+	PluginCapabilityDeclarations,
+} from './capability-declarations.js'
 
 const assertRequirementOptionality = (
 	requirement: CapabilityRequirement,

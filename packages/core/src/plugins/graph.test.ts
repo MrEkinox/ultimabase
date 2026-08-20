@@ -4,6 +4,11 @@ import { FrameworkError } from '../errors/framework-error.js'
 import { definePlugin, type PluginDefinition } from './definition.js'
 import { PluginGraph } from './graph.js'
 import { normalizePlugins, type NormalizedPlugin } from './normalization.js'
+import {
+	defineCapability,
+	optionalCapability,
+	provideCapability,
+} from './capabilities.js'
 
 const captureFrameworkError = (operation: () => unknown): unknown => {
 	try {
@@ -118,6 +123,108 @@ describe('PluginGraph', () => {
 			'fixture.cache',
 			'fixture.consumer',
 		])
+	})
+
+	it('validates peers without adding an ordering edge', () => {
+		const protocol = definePlugin({
+			pluginId: 'fixture.protocol',
+			version: '1.2.0',
+			core: '^0.0.0',
+		})
+		const extension = definePlugin({
+			pluginId: 'fixture.extension',
+			version: '1.0.0',
+			core: '^0.0.0',
+			peers: [{ pluginId: 'fixture.protocol', version: '^1.0.0' }],
+		})
+
+		const graph = new PluginGraph(normalize([extension, protocol]))
+
+		expect(pluginIds(graph)).toStrictEqual([
+			'fixture.extension',
+			'fixture.protocol',
+		])
+	})
+
+	it('rejects missing or incompatible peers', () => {
+		const missingPeer = definePlugin({
+			pluginId: 'fixture.extension',
+			version: '1.0.0',
+			core: '^0.0.0',
+			peers: [{ pluginId: 'fixture.protocol', version: '^1.0.0' }],
+		})
+		const missingError = expectFrameworkError(
+			captureFrameworkError(() => new PluginGraph(normalize([missingPeer]))),
+		)
+		expect(missingError.code).toBe('PLUGIN_DEPENDENCY_MISSING')
+
+		const incompatibleProtocol = definePlugin({
+			pluginId: 'fixture.protocol',
+			version: '2.0.0',
+			core: '^0.0.0',
+		})
+		const incompatibleError = expectFrameworkError(
+			captureFrameworkError(
+				() => new PluginGraph(normalize([missingPeer, incompatibleProtocol])),
+			),
+		)
+		expect(incompatibleError.code).toBe('PLUGIN_PROTOCOL_INCOMPATIBLE')
+	})
+
+	it('requires exact peer instances and permits reverse capability ordering', () => {
+		const extensionToken = defineCapability<string, readonly string[]>()({
+			capabilityId: 'fixture.peer-extensions',
+			version: '1.0.0',
+			cardinality: 'multiple',
+			lifetime: 'application',
+			compose: (providers) => providers,
+		})
+		const extensions = optionalCapability(extensionToken, '^1.0.0')
+		const engine = definePlugin({
+			pluginId: 'fixture.peer-engine',
+			version: '1.0.0',
+			core: '^0.0.0',
+			capabilities: { optional: [extensions] },
+		})
+		const extension = definePlugin({
+			pluginId: 'fixture.peer-extension',
+			version: '1.0.0',
+			core: '^0.0.0',
+			peers: [{ pluginId: 'fixture.peer-engine', version: '^1.0.0' }],
+			capabilities: {
+				provides: [
+					provideCapability(extensionToken, {
+						contributionId: 'extension',
+						create: () => ({ value: 'extension' }),
+					}),
+				],
+			},
+		})
+
+		expect(
+			pluginIds(new PluginGraph(normalize([engine, extension]))),
+		).toStrictEqual(['fixture.peer-extension', 'fixture.peer-engine'])
+
+		const secondEngine = definePlugin({
+			pluginId: 'fixture.peer-engine',
+			instanceId: 'secondary',
+			version: '1.0.0',
+			core: '^0.0.0',
+		})
+		const exactEngine = definePlugin({
+			pluginId: 'fixture.peer-engine',
+			instanceId: 'primary',
+			version: '1.0.0',
+			core: '^0.0.0',
+			capabilities: { optional: [extensions] },
+		})
+		const error = expectFrameworkError(
+			captureFrameworkError(
+				() =>
+					new PluginGraph(normalize([exactEngine, secondEngine, extension])),
+			),
+		)
+		expect(error.code).toBe('PLUGIN_CONFLICT')
 	})
 
 	it('supports semantic ranges and exact repeated-plugin instances', () => {

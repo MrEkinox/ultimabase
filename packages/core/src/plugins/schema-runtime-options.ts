@@ -1,7 +1,10 @@
-import { immutableArray, immutableRecord } from '@ultimabase/shared'
+import {
+	immutableArray,
+	immutableRecord,
+	isPlainRecord,
+} from '@ultimabase/shared'
 
 import { isCoreFieldOptionKey } from '../schema/fields/base/options.js'
-import type { JsonValue } from '../schema/fields/builtins/json.js'
 import type { PreparedSchemaCompilation } from '../schema/schema/definition.js'
 import type { ApplicationCapabilityHost } from './capability-host.js'
 import {
@@ -13,6 +16,13 @@ import {
 } from './schema-declaration-contracts.js'
 import { coreSchemaKeys } from './schema-option-resolution.js'
 import { readDeclaredRuntimeCapability, sameOwner } from './schema-selectors.js'
+
+const readCompiledOptionValue = (source: unknown, name: string): unknown => {
+	if (!isPlainRecord(source)) {
+		throw new TypeError('Compiled schema options must be a plain object')
+	}
+	return source[name]
+}
 
 /** Executes compiled option behavior only after application capabilities exist. */
 export const executeRuntimeCompilations = (
@@ -29,14 +39,7 @@ export const executeRuntimeCompilations = (
 				...compilation.context,
 				capability,
 			})
-			const compile: (input: typeof context) => unknown =
-				compilation.runtime.compile
-			const result = compile(context)
-			if (result !== undefined) {
-				throw new TypeError(
-					'Schema option Runtime compiler must return undefined',
-				)
-			}
+			compilation.runtime.compile(context)
 		} catch (cause: unknown) {
 			throw attachPluginDeclarationDiagnostic(
 				cause,
@@ -86,11 +89,11 @@ export const collectRuntimeCompilations = (
 								path,
 								provenance,
 								scope: 'schema',
-								// Static normalization already proved and snapshotted JsonValue.
-								value: Reflect.get(
+								// Static normalization already proved the owner-defined value contract.
+								value: readCompiledOptionValue(
 									candidate.definition,
 									option.name,
-								) as JsonValue,
+								),
 							}),
 							owner: option.owner,
 							runtime,
@@ -128,8 +131,8 @@ export const collectRuntimeCompilations = (
 								path,
 								provenance,
 								scope: 'field',
-								// Static normalization already proved and snapshotted JsonValue.
-								value: Reflect.get(field.options, option.name) as JsonValue,
+								// Static normalization already proved the owner-defined value contract.
+								value: readCompiledOptionValue(field.options, option.name),
 							}),
 							owner: option.owner,
 							runtime,

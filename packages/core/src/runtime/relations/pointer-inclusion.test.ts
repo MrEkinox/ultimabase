@@ -673,9 +673,7 @@ describe('pointer Runtime execution', () => {
 		}
 	})
 
-	it('keeps denied mutation targets null without replaying source lifecycle hooks', async () => {
-		let beforeCreates = 0
-		let afterCreates = 0
+	it('keeps denied mutation targets null during result hydration', async () => {
 		const targetSchema = Schema.define({
 			className: 'PointerRuntimeDeniedMutationTarget',
 			fields: (field) => ({ name: field.string() }),
@@ -687,18 +685,6 @@ describe('pointer Runtime execution', () => {
 				target: field.pointer({ target: 'PointerRuntimeDeniedMutationTarget' }),
 				title: field.string(),
 			}),
-			hooks: {
-				afterOperation: {
-					create: () => {
-						afterCreates += 1
-					},
-				},
-				beforeOperation: {
-					create: () => {
-						beforeCreates += 1
-					},
-				},
-			},
 		})
 		const target = targetSchema.pointer('0198a43e-2431-7000-8000-000000000411')
 		const current = {
@@ -738,8 +724,6 @@ describe('pointer Runtime execution', () => {
 			)
 
 			expect(result.target).toBeNull()
-			expect(beforeCreates).toBe(1)
-			expect(afterCreates).toBe(1)
 			expect(trace).toStrictEqual([
 				'adapter:begin',
 				'prepare:create-one',

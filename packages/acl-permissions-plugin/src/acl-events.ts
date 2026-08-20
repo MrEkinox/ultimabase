@@ -1,13 +1,20 @@
-import {
-	defineEvent,
-	onEvent,
-	type HookEventDefinition,
-	type HookEventContract,
-	type HookEventHandler,
-	type JsonObject,
-	type PointerValue,
-	type SchemaMutationKind,
+import type {
+	CapabilityProviderDeclaration,
+	CapabilityRequirement,
+	JsonObject,
+	PointerValue,
 } from '@ultimabase/core'
+import {
+	definePluginEvent,
+	definePluginEventCapability,
+	observePluginEvent,
+	optionalPluginEvents,
+	providePluginEvent,
+	type PluginEventHandler,
+	type PluginEventCapability,
+	type PluginEventContract,
+	type PluginEventObserver,
+} from '@ultimabase/plugin-kit'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import type { ACL } from './acl.js'
@@ -17,10 +24,7 @@ import { aclPermissions, type ACLPermission } from './acl-contracts.js'
 export const aclChangedEvent = 'ultimabase.acl.changed' as const
 
 /** Selects every item-oriented save operation that may persist an ACL value. */
-export type ACLChangedOperation = Extract<
-	SchemaMutationKind,
-	'create' | 'update' | 'upsert'
->
+export type ACLChangedOperation = 'create' | 'update' | 'upsert'
 
 /** Identifies one optional plugin-owned principal without exposing its schema. */
 export interface ACLChangePrincipal extends JsonObject {
@@ -91,14 +95,33 @@ export interface ACLChangedEvent extends JsonObject {
 }
 
 /** Selects optional delivery while preserving the public stable event name. */
-export const aclChangedEventContract: HookEventContract<
+export const aclChangedEventContract: PluginEventContract<
 	typeof aclChangedEvent,
 	ACLChangedEvent,
 	'optional'
-> = defineEvent<ACLChangedEvent>()(aclChangedEvent, { delivery: 'optional' })
+> = definePluginEvent<ACLChangedEvent>()(aclChangedEvent, {
+	delivery: 'optional',
+})
 
-/** Handles one committed ACL transition through Core's named-event registry. */
-export type ACLChangedEventHandler = HookEventHandler<
+/** Carries independently owned ACL change observers into the ACL Runtime provider. */
+export const aclChangedEventsCapability: PluginEventCapability<
+	'ultimabase.acl-change-events',
+	'1.0.0'
+> = definePluginEventCapability({
+	capabilityId: 'ultimabase.acl-change-events',
+	version: '1.0.0',
+})
+
+/** @internal Declares order-independent observer discovery during materialization. */
+export const optionalACLChangedEvents: CapabilityRequirement<
+	typeof aclChangedEventsCapability,
+	true,
+	'^1.0.0',
+	'materialization'
+> = optionalPluginEvents(aclChangedEventsCapability, '^1.0.0')
+
+/** Handles one committed ACL transition through its plugin-owned event channel. */
+export type ACLChangedEventHandler = PluginEventHandler<
 	typeof aclChangedEvent,
 	ACLChangedEvent
 >
@@ -245,5 +268,12 @@ export const createACLChangedEvent = (options: {
  */
 export const onACLChange = (
 	handler: ACLChangedEventHandler,
-): HookEventDefinition<typeof aclChangedEvent, ACLChangedEvent> =>
-	onEvent({ handler, name: aclChangedEvent })
+): PluginEventObserver<typeof aclChangedEvent, ACLChangedEvent> =>
+	observePluginEvent(aclChangedEventContract, handler)
+
+/** Provides one ACL observer with Core-owned provenance and observe privilege. */
+export const provideACLChangeObserver = (
+	contributionId: string,
+	observer: PluginEventObserver<typeof aclChangedEvent, ACLChangedEvent>,
+): CapabilityProviderDeclaration<typeof aclChangedEventsCapability> =>
+	providePluginEvent(aclChangedEventsCapability, contributionId, observer)

@@ -69,7 +69,6 @@ const commonFieldOptions = [
 	'default',
 	'description',
 	'extensions',
-	'hooks',
 	'immutable',
 	'indexed',
 	'list',
@@ -380,20 +379,6 @@ const compactFieldSignatureCases: readonly CompactFieldSignatureCase[] = [
 	},
 ]
 
-const passThroughHookSource =
-	"hooks: { resolveInput: ({ value }) => { void 'HOOK_BODY_MUST_NOT_LEAK'; return value } }"
-
-/** Adds the same declaration-only callback to every compact field signature case. */
-const withPassThroughHook = (expression: string): string => {
-	if (!expression.endsWith('})')) {
-		throw new TypeError(
-			'Compact field expression must end with an option object',
-		)
-	}
-
-	return `${expression.slice(0, -2)}, ${passThroughHookSource} })`
-}
-
 /** Reads the editor signature at one marker without persisting a fixture file. */
 const readMarkedQuickInfoDisplay = (
 	fileName: string,
@@ -646,7 +631,7 @@ describe('field factory IntelliSense', () => {
 				`
 import { ${importedFactories} } from '../../src/schema/index.js'
 
-const field = ${marker}${withPassThroughHook(expression)}
+const field = ${marker}${expression}
 `,
 				marker,
 			)

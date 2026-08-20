@@ -38,10 +38,8 @@ import { collectDatabaseObjectIdentities } from '../operations/model-metadata.js
 import { readOperationQueries } from '../operations/queries.js'
 import { createProtectedObjectNotFoundError } from '../operations/target-errors.js'
 import type {
+	RuntimeBehaviorStages,
 	RuntimeEnforcementStages,
-	RuntimeNativeHookStages,
-	RuntimePipelineStages,
-	RuntimePreparedMutationTransformStage,
 } from './contracts.js'
 import {
 	assertDatabaseInclusionCapability,
@@ -267,23 +265,19 @@ export const executeRuntimeDatabaseOperation = async <
 >(
 	executor: DatabaseOperationExecutor,
 	context: RequestContext,
-	nativeHooks: RuntimeNativeHookStages | undefined,
-	preparedOperationHooks: RuntimePreparedMutationTransformStage | undefined,
+	behaviors: RuntimeBehaviorStages | undefined,
 	persistencePlanRewrite: RuntimePersistencePlanRewriteStage | undefined,
-	globalBeforeHooks: RuntimePipelineStages['globalBeforeHooks'],
-	schemaBeforeHooks: RuntimePipelineStages['schemaBeforeHooks'],
 	request: RuntimeDatabaseExecutionRequest<TOperation>,
 	enforcement: RuntimeEnforcementStages | undefined,
 	enforcementState: EnforcementState | undefined,
 ): Promise<RuntimeDatabaseExecution<TOperation>> => {
 	assertDatabaseRequestCapabilities(executor, request)
 	if (!isRuntimeMutationOperation(request.operation)) {
-		await globalBeforeHooks(
-			createRuntimeOperationInput(context, request.operation),
-		)
-		await schemaBeforeHooks(
-			createRuntimeOperationInput(context, request.operation),
-		)
+		if (behaviors?.beforeOperation !== undefined) {
+			await behaviors.beforeOperation(
+				createRuntimeOperationInput(context, request.operation),
+			)
+		}
 		const plan = await compileDatabasePersistencePlan(
 			executor,
 			request.operation,
@@ -311,7 +305,7 @@ export const executeRuntimeDatabaseOperation = async <
 	let operationTransformed = false
 	let finalConstraints = request.constraints
 	const prepareMutationItems =
-		nativeHooks?.requiresPreparedMutationItems(request.operation) === true ||
+		behaviors?.requiresPreparedMutationItems?.(request.operation) === true ||
 		enforcement?.requiresPreparedMutationItems?.(request.operation) === true ||
 		(persistencePlanRewrite !== undefined &&
 			request.operation.kind === 'delete-many')
@@ -351,26 +345,26 @@ export const executeRuntimeDatabaseOperation = async <
 			readonly DatabaseMutationLogicalRecord<TMutationOperation>[] | undefined,
 	): Promise<void> => {
 		if (
-			nativeHooks !== undefined &&
+			behaviors?.transformInput !== undefined &&
 			executableOperation.kind !== 'delete-one' &&
 			executableOperation.kind !== 'delete-many'
 		) {
 			const operationBeforeResolution = executableOperation
-			executableOperation = await nativeHooks.resolveInput(
+			executableOperation = await behaviors.transformInput(
 				createRuntimeOperationInput(context, executableOperation),
 			)
 			operationTransformed ||= executableOperation !== operationBeforeResolution
 		}
 
 		if (
-			nativeHooks !== undefined &&
+			behaviors?.transformPreparedInput !== undefined &&
 			(executableOperation.kind === 'create-one' ||
 				executableOperation.kind === 'update-one' ||
 				executableOperation.kind === 'upsert-one') &&
 			!(executableOperation.kind === 'update-one' && target === null)
 		) {
 			const operationBeforeResolution = executableOperation
-			executableOperation = await nativeHooks.schemaResolveInput(
+			executableOperation = await behaviors.transformPreparedInput(
 				createRuntimePreparedMutationInput(
 					context,
 					operationBeforeResolution,
@@ -384,10 +378,10 @@ export const executeRuntimeDatabaseOperation = async <
 		if (
 			target !== undefined &&
 			target !== null &&
-			preparedOperationHooks !== undefined
+			behaviors?.transformPreparedOperation !== undefined
 		) {
 			const operationBeforeResolution = executableOperation
-			executableOperation = await preparedOperationHooks(
+			executableOperation = await behaviors.transformPreparedOperation(
 				createRuntimePreparedMutationInput(
 					context,
 					operationBeforeResolution,
@@ -398,8 +392,8 @@ export const executeRuntimeDatabaseOperation = async <
 			operationTransformed ||= executableOperation !== operationBeforeResolution
 		}
 
-		if (operationTransformed && nativeHooks !== undefined) {
-			executableOperation = await nativeHooks.revalidate(
+		if (operationTransformed && behaviors?.revalidateInput !== undefined) {
+			executableOperation = await behaviors.revalidateInput(
 				createRuntimeOperationInput(context, executableOperation),
 			)
 		}
@@ -448,22 +442,21 @@ export const executeRuntimeDatabaseOperation = async <
 		targets:
 			readonly DatabaseMutationLogicalRecord<TMutationOperation>[] | undefined,
 	): Promise<void> => {
-		await globalBeforeHooks(
-			createRuntimeOperationInput(context, executableOperation),
-		)
-		await schemaBeforeHooks(
-			createRuntimeOperationInput(context, executableOperation),
-		)
+		if (behaviors?.beforeOperation !== undefined) {
+			await behaviors.beforeOperation(
+				createRuntimeOperationInput(context, executableOperation),
+			)
+		}
 
 		if (
-			nativeHooks !== undefined &&
+			behaviors?.observePreparedMutation !== undefined &&
 			!(
 				(executableOperation.kind === 'update-one' ||
 					executableOperation.kind === 'delete-one') &&
 				target === null
 			)
 		) {
-			await nativeHooks.schemaPrepared(
+			await behaviors.observePreparedMutation(
 				createRuntimePreparedMutationInput(
 					context,
 					executableOperation,
@@ -565,8 +558,8 @@ export const executeRuntimeDatabaseOperation = async <
 		)
 	}
 
-	if (nativeHooks !== undefined) {
-		outcome = await nativeHooks.mutationOutcome(
+	if (behaviors?.transformMutationOutcome !== undefined) {
+		outcome = await behaviors.transformMutationOutcome(
 			createRuntimeMutationOutcomeInput(context, request.operation, outcome),
 		)
 	}

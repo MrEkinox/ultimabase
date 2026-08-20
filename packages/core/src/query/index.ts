@@ -168,6 +168,8 @@ export type {
 	UniqueUpsertTargetNode,
 } from './operations/contracts.js'
 export type { QueryOperationExecutor } from './operations/executor.js'
+export { runWithQueryExecutionGuard } from './operations/execution.js'
+export type { QueryExecutionGuard } from './operations/execution.js'
 export type { OperationOptions } from './operations/options.js'
 export type {
 	OperationRecordResult,

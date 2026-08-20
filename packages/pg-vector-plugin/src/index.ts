@@ -3,7 +3,6 @@ import {
 	assertFieldOptions,
 	defineFieldBuilderMethod,
 	definePluginField,
-	type FieldHookDeclaration,
 	type FieldListOption,
 	type FieldOptions,
 	type FieldOptionsWithoutNullable,
@@ -58,7 +57,7 @@ export type VectorField<
 type VectorFieldMetadata<
 	TOptions extends VectorFieldOptions,
 	TDimensions extends number,
-> = Omit<TOptions, 'dimensions' | 'hooks'> & {
+> = Omit<TOptions, 'dimensions'> & {
 	readonly dimensions: TDimensions
 }
 
@@ -76,8 +75,7 @@ type VectorFieldDeclarationOptions<
 	TDimensions extends number,
 > = TOptions & {
 	readonly dimensions: TDimensions
-} & FieldHookDeclaration<ResolvedVectorField<NoInfer<TOptions>, TDimensions>> &
-	(FieldOptionsWithoutNullable<
+} & (FieldOptionsWithoutNullable<
 		ValidatedFieldOptions<NoInfer<TOptions>, VectorValue>
 	> extends never
 		? never
@@ -176,13 +174,10 @@ export function vectorField<
 	options: VectorFieldDeclarationOptions<TOptions, TDimensions>,
 ): ResolvedVectorField<TOptions, TDimensions>
 
-export function vectorField(
-	options: VectorFieldOptions & FieldHookDeclaration<VectorField>,
-): VectorField {
+export function vectorField(options: VectorFieldOptions): VectorField {
 	assertFieldOptions(options)
 	// Restore the declared plugin metadata shape after the runtime guard narrows unknown callers.
-	const fieldOptions: VectorFieldOptions & FieldHookDeclaration<VectorField> =
-		options
+	const fieldOptions: VectorFieldOptions = options
 	assertValidDimensions(fieldOptions.dimensions)
 	const { dimensions } = fieldOptions
 

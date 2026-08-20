@@ -5,17 +5,18 @@ import {
 	accessRoleResolverCapability,
 	getCurrentEngine,
 	getCurrentRequest,
+	type AccessContext,
 	type AccessPrincipalResolver,
 	type AccessRoleResolver,
 	type CompiledSchemaRegistry,
-	type HookContext,
 	type SchemaDefinition,
 } from '@ultimabase/core'
+import { immutableArray } from '@ultimabase/shared'
 
 import { ACL } from './acl.js'
 import {
-	aclChangedEventContract,
 	createACLChangedEvent,
+	type ACLChangedEvent,
 	type ACLChangedOperation,
 } from './acl-events.js'
 import {
@@ -53,12 +54,12 @@ interface CreateACLApplicationStateOptions {
 }
 
 export interface ACLApplicationState {
-	readonly emitACLChanges: (
-		context: HookContext,
+	readonly collectACLChanges: (
+		context: AccessContext,
 		schema: SchemaDefinition,
 		kind: ACLChangedOperation,
 		input: unknown,
-	) => Promise<void>
+	) => Promise<readonly ACLChangedEvent[]>
 	readonly protectedSchemas: readonly SchemaDefinition[]
 	readonly protectedSchemaSet: ReadonlySet<SchemaDefinition>
 	readonly readPersistentRoleResolver: () => PersistentRoleResolver | undefined
@@ -146,12 +147,13 @@ export const createACLApplicationState = (
 	): ResolvedACLEntryLimits =>
 		resolveACLEntryLimits(pluginLimits, config.limits)
 	const emptyACLChangeValue = new ACL()
-	const emitACLChanges = async (
-		context: HookContext,
+	const collectACLChanges = async (
+		context: AccessContext,
 		schema: SchemaDefinition,
 		kind: ACLChangedOperation,
 		input: unknown,
-	): Promise<void> => {
+	): Promise<readonly ACLChangedEvent[]> => {
+		const events: ACLChangedEvent[] = []
 		for (const { item, originalItem } of readMutationItems(schema, input)) {
 			if (item === null) continue
 
@@ -168,8 +170,7 @@ export const createACLApplicationState = (
 			}
 
 			const subjects = await resolveSubjects()
-			context.emit(
-				aclChangedEventContract,
+			events.push(
 				createACLChangedEvent({
 					authority: context.access.mode,
 					className: schema.className,
@@ -181,10 +182,11 @@ export const createACLApplicationState = (
 				}),
 			)
 		}
+		return immutableArray(events)
 	}
 
 	return {
-		emitACLChanges,
+		collectACLChanges,
 		protectedSchemas,
 		protectedSchemaSet,
 		readPersistentRoleResolver,

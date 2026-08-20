@@ -14,7 +14,8 @@ declare const field: FieldBuilder & { readonly vector: VectorFieldBuilderMethod 
 declare const validOptions: { readonly dimensions: 3 }
 
 field.${methodMarker}vector({ dimensions: 3 })
-field.${hoverMarker}vector({ ${optionsMarker}...validOptions })
+field.${hoverMarker}vector({ ...validOptions })
+field.vector({ ...validOptions, ${optionsMarker} })
 `
 const markers = [methodMarker, hoverMarker, optionsMarker] as const
 const positions = new Map<string, number>()
@@ -88,12 +89,14 @@ describe('pg-vector FieldBuilder IntelliSense', () => {
 
 		const optionNames =
 			service
-				.getCompletionsAtPosition(fileName, readPosition(optionsMarker), {})
+				.getCompletionsAtPosition(fileName, readPosition(optionsMarker), {
+					includeCompletionsWithInsertText: true,
+				})
 				?.entries.map(({ name }) => name) ?? []
 
 		expect(optionNames).toContain('dimensions')
 		expect(optionNames).toContain('validation')
-		expect(optionNames).toContain('hooks')
+		expect(optionNames).not.toContain('hooks')
 	})
 
 	it('has no semantic diagnostics', () => {

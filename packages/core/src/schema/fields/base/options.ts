@@ -116,7 +116,6 @@ const coreFieldOptionKeySet: ReadonlySet<string> = new Set([
 	'autoIncrement',
 	'autoNow',
 	'fields',
-	'hooks',
 	'mappedBy',
 	'onDelete',
 	'target',

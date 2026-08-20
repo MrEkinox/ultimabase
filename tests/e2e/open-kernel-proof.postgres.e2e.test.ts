@@ -1,4 +1,5 @@
 import { Schema, UltimaBase, requestSources } from '@ultimabase/core'
+import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin, postgresTable } from '@ultimabase/postgres-plugin'
 import type { PostgresPluginExports } from '@ultimabase/postgres-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -94,6 +95,7 @@ describe('open-kernel PostgreSQL proof', { concurrent: false }, () => {
 			pluginPrivileges: { logger: false },
 			plugins: [
 				postgresPlugin({ pool: getFixture().pool, schemaPolicy: 'override' }),
+				hooksPlugin(),
 				workflow.plugin,
 				value,
 				valuePostgres,

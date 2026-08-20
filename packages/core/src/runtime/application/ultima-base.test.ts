@@ -1,10 +1,10 @@
 import { definePlugin } from '../../foundation.js'
 import { RequestContextValue } from '../../access/index.js'
 import { Schema } from '../../schema/index.js'
+import type { HookContext } from '../../schema/hooks/hook-context.js'
 import { describe, expect, it } from 'vitest'
 import { QueryBuilder } from '../../query/query/query.js'
 
-import type { HookContext } from '../../schema/index.js'
 import { type DatabaseAdapter } from '../database/contracts.js'
 import { beforeOperation } from '../hooks/definitions.js'
 import { RequestContext, requestSources } from '../context/request-context.js'

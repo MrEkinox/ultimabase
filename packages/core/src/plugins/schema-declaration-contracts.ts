@@ -161,10 +161,7 @@ export const resolveOptionDefinition = (
 }
 
 export interface PendingSchemaOptionRuntimeCompilation {
-	readonly context: Omit<
-		SchemaOptionRuntimeCompilationContext<JsonValue>,
-		'capability'
-	>
+	readonly context: Omit<SchemaOptionRuntimeCompilationContext, 'capability'>
 	readonly owner: PluginSchemaContributionOwner
 	readonly runtime: SchemaOptionRuntimeCompiler
 }

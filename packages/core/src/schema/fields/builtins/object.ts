@@ -26,13 +26,13 @@ import type {
 	FieldListValue,
 	FieldOptions,
 	FieldOptionsBase,
+	FieldValidationOptions,
 	GenericField,
 	ScalarFieldTypegenState,
 } from '../base/contract.js'
 import type { FieldDefault } from '../base/defaults.js'
 import type { FieldValueMap } from '../base/value-map.js'
-import type { FieldHookDeclaration } from '../../hooks/field-contracts.js'
-import { splitFieldDeclarationOptions } from '../../hooks/field-declarations.js'
+import { splitFieldAccessOptions } from '../../access/field-options.js'
 import type { FieldAccessDeclaration } from '../../access/contracts.js'
 
 /**
@@ -74,7 +74,11 @@ type ObjectFieldCreateValue<TFields extends ObjectFields> = FieldValueMap<
  */
 export interface ObjectFieldOptions<
 	TFields extends ObjectFields = ObjectFields,
-> extends FieldOptionsBase {
+> extends FieldOptionsBase<
+	FieldValidationOptions,
+	FieldListOption,
+	ObjectFieldValue<TFields>
+> {
 	/**
 	 * Provides a static structured value or a factory using the nested create-input shape.
 	 *
@@ -131,16 +135,7 @@ type CompactObjectFieldOptions<
 } & {
 	readonly list?: TList
 	readonly immutable?: TImmutable
-} & FieldHookDeclaration<
-		ResolvedObjectField<
-			NoInfer<TFields>,
-			NoInfer<TRequired>,
-			NoInfer<TList>,
-			NoInfer<TImmutable>,
-			false
-		>
-	> &
-	FieldAccessDeclaration<
+} & FieldAccessDeclaration<
 		ResolvedObjectField<
 			NoInfer<TFields>,
 			NoInfer<TRequired>,
@@ -271,8 +266,7 @@ export function objectField(
 ): ObjectField {
 	// The rest parameter exists only to keep invalid generic calls uncallable.
 	void invalidOptions
-	const { access, hooks, metadataOptions } =
-		splitFieldDeclarationOptions(options)
+	const { access, metadataOptions } = splitFieldAccessOptions(options)
 	assertFieldOptions(metadataOptions)
 
 	if (!isPlainRecord(metadataOptions.fields)) {
@@ -319,7 +313,6 @@ export function objectField(
 		'object',
 		fieldOptions,
 		(value, path) => snapshotObjectValue(value, fieldOptions.fields, path),
-		hooks,
 		access,
 	)
 }

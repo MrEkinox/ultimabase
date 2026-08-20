@@ -11,11 +11,12 @@ import {
 	defineAccessReferenceCleanup,
 	definePlugin,
 	not,
-	onEvent,
 	provideCapability,
 	requireCapability,
 	type AccessContext,
+	type AccessRoleResolver,
 } from '@ultimabase/core'
+import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import {
 	postgresPlugin,
 	type PostgresSchemaPolicy,
@@ -23,12 +24,13 @@ import {
 import {
 	RoleSchema,
 	hasRole,
+	onRoleEvent,
+	provideRoleEventObserver,
 	roleDeletedEvent,
 	roleHierarchyChangedEvent,
 	roleMembershipChangedEvent,
 	rolesPlugin,
 } from '@ultimabase/roles-plugin'
-import { provideTestRuntimeObserver } from './runtime-capabilities.js'
 
 /** Carries a member identity without making authentication a Core feature. */
 export const currentRoleMemberId = new RequestContextValue<string>(
@@ -243,6 +245,7 @@ export const externalRoleReferencePlugin = definePlugin({
 	version: '0.0.0',
 	core: '^0.0.0',
 	pluginId: 'fixture.external-role-references',
+	peers: [{ pluginId: 'ultimabase.roles', version: '^0.0.0' }],
 	privileges: [
 		{
 			name: 'runtime:observe',
@@ -260,20 +263,23 @@ export const externalRoleReferencePlugin = definePlugin({
 					},
 				}),
 			}),
-			...[
-				roleDeletedEvent,
-				roleHierarchyChangedEvent,
-				roleMembershipChangedEvent,
-			].map((eventName) =>
-				provideTestRuntimeObserver(
-					`fixture.observe:${eventName}`,
-					onEvent({
-						name: eventName,
-						handler: ({ event }) => {
-							committedRoleEvents.push(event.name)
-						},
-					}),
-				),
+			provideRoleEventObserver(
+				'fixture.observe:deleted',
+				onRoleEvent(roleDeletedEvent, ({ event }) => {
+					committedRoleEvents.push(event.name)
+				}),
+			),
+			provideRoleEventObserver(
+				'fixture.observe:hierarchy',
+				onRoleEvent(roleHierarchyChangedEvent, ({ event }) => {
+					committedRoleEvents.push(event.name)
+				}),
+			),
+			provideRoleEventObserver(
+				'fixture.observe:membership',
+				onRoleEvent(roleMembershipChangedEvent, ({ event }) => {
+					committedRoleEvents.push(event.name)
+				}),
 			),
 		],
 	},
@@ -290,7 +296,8 @@ const roleResolverConsumerPlugin = definePlugin({
 	core: '^0.0.0',
 	pluginId: roleResolverConsumerPluginName,
 	capabilities: { requires: [roleResolverRequirement] },
-	setup: ({ capabilities }) => capabilities.get(roleResolverRequirement),
+	setup: ({ capabilities }): AccessRoleResolver =>
+		capabilities.get(roleResolverRequirement),
 })
 
 export const roleSchemas = [
@@ -316,6 +323,7 @@ export const createRoleApplication = (
 			},
 		}),
 		plugins: [
+			hooksPlugin(),
 			externalRoleReferencePlugin,
 			rolesPlugin(),
 			roleResolverConsumerPlugin,
@@ -349,6 +357,7 @@ export const createProviderBoundaryApplication = (
 
 	return new UltimaBase({
 		plugins: [
+			hooksPlugin(),
 			...(provider === 'community' ? [communityProvider] : []),
 			postgresPlugin({ schemaPolicy: 'ignore', url: connectionUri }),
 		],

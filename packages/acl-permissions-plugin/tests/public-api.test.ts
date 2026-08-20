@@ -20,6 +20,7 @@ describe('@ultimabase/acl-permissions-plugin public entry point', () => {
 			'aclRowConstraintVersion',
 			'aclSchemaExtensionName',
 			'onACLChange',
+			'provideACLChangeObserver',
 		])
 	})
 })

@@ -11,6 +11,8 @@ describe('@ultimabase/roles-plugin public entry point', () => {
 			'RoleReferenceResolutionError',
 			'RoleSchema',
 			'hasRole',
+			'onRoleEvent',
+			'provideRoleEventObserver',
 			'resolveRoleReference',
 			'resolveRoleReferenceId',
 			'roleDeletedEvent',

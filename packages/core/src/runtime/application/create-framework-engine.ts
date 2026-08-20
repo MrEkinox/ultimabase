@@ -20,8 +20,6 @@ import {
 } from '../../plugins/application-capability-access.js'
 import { FrameworkEngine } from '../engine/framework-engine.js'
 import { createEnforcementStages } from '../enforcement/dispatcher.js'
-import { createRuntimeHookStages } from '../hooks/stages.js'
-import { createNativeHookStages } from '../hooks/dispatcher.js'
 import type {
 	RuntimeOperationTransformStage,
 	RuntimePipelineStages,
@@ -40,6 +38,7 @@ import {
 	runtimeInterceptorCapability,
 } from '../capabilities.js'
 import { createPersistencePlanRewriteStage } from '../persistence/rewriter-stage.js'
+import { composeRuntimeBehaviors } from '../behaviors/composition.js'
 
 /** Configures framework-owned assembly without exposing low-level pipeline slots. */
 export interface CreateFrameworkEngineOptions {
@@ -282,10 +281,9 @@ export const createFrameworkEngine = <
 	assertRequiredAdapterCapabilities(application, databaseAdapter)
 
 	const contributedStages = collectRuntimePipelineStages(application)
-	const hookStages = createRuntimeHookStages(application)
-	const nativeHooks = createNativeHookStages(application)
 	const enforcement = createEnforcementStages(application)
 	const persistencePlanRewrite = createPersistencePlanRewriteStage(application)
+	const behaviors = composeRuntimeBehaviors(application)
 	const structuralValidation =
 		normalizedOptions.validation === undefined
 			? createRuntimeValidationStage()
@@ -293,15 +291,9 @@ export const createFrameworkEngine = <
 	const stages: RuntimePipelineStages = {
 		normalization: composeNormalizationStage(contributedStages.normalization),
 		structuralValidation,
-		globalBeforeHooks: hookStages.globalBeforeHooks,
-		schemaBeforeHooks: hookStages.schemaBeforeHooks,
 		databaseOperation: databaseAdapter,
-		schemaAfterHooks: hookStages.schemaAfterHooks,
-		globalAfterHooks: hookStages.globalAfterHooks,
 		commit: composeCommitStage(contributedStages.commit),
-		postCommitEvents: hookStages.postCommitEvents,
-		preparedOperationHooks: hookStages.preparedOperationHooks,
-		nativeHooks,
+		...(behaviors === undefined ? {} : { behaviors }),
 		...(enforcement === undefined ? {} : { enforcement }),
 		...(persistencePlanRewrite === undefined ? {} : { persistencePlanRewrite }),
 	}

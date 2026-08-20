@@ -130,13 +130,8 @@ const createPipeline = (
 			return input.operation
 		},
 		structuralValidation: (input) => input.operation,
-		globalBeforeHooks: () => undefined,
-		schemaBeforeHooks: () => undefined,
 		databaseOperation,
-		schemaAfterHooks: (input) => input.result,
-		globalAfterHooks: (input) => input.result,
 		commit: () => undefined,
-		postCommitEvents: () => undefined,
 	}
 
 	return new RuntimePipeline(stages)

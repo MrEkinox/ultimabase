@@ -26,7 +26,7 @@ import {
 	postCommitEvent,
 	preparedOperation,
 } from './definitions.js'
-import { createRuntimeHookStages } from './stages.js'
+import { composeRuntimeContributionBehavior } from './stages.js'
 
 const articleSchema = Schema.define({
 	className: 'HookStageArticle',
@@ -72,10 +72,23 @@ const updateTarget = Object.freeze({
 	updatedAt: '2026-08-01T00:00:00.000Z',
 })
 
-describe('createRuntimeHookStages', () => {
+describe('composeRuntimeContributionBehavior', () => {
+	it('returns no behavior when the application has no Runtime contributions', async () => {
+		const application = await createApplication({
+			plugins: [],
+			schemas: [articleSchema],
+		})
+
+		expect(composeRuntimeContributionBehavior(application)).toBeUndefined()
+
+		await application.dispose()
+	})
+
 	it('requires an initialized FrameworkApplication', async () => {
-		expect(() => createRuntimeHookStages({} as never)).toThrow(
-			new TypeError('Runtime hook stages require a FrameworkApplication'),
+		expect(() => composeRuntimeContributionBehavior({} as never)).toThrow(
+			new TypeError(
+				'Runtime contribution composition requires a FrameworkApplication',
+			),
 		)
 
 		const application = new FrameworkApplication({
@@ -83,7 +96,7 @@ describe('createRuntimeHookStages', () => {
 			plugins: [],
 		})
 
-		expect(() => createRuntimeHookStages(application)).toThrow(
+		expect(() => composeRuntimeContributionBehavior(application)).toThrow(
 			new TypeError(
 				'Application capabilities require completed materialization',
 			),
@@ -203,7 +216,7 @@ describe('createRuntimeHookStages', () => {
 			plugins: [plugin],
 		})
 
-		expect(() => createRuntimeHookStages(application)).toThrow(
+		expect(() => composeRuntimeContributionBehavior(application)).toThrow(
 			new TypeError(
 				'Runtime contribution "fixture.foreign" references a schema outside its application',
 			),
@@ -248,15 +261,16 @@ describe('createRuntimeHookStages', () => {
 			schemas: [articleSchema],
 			plugins: [plugin],
 		})
-		const stages = createRuntimeHookStages(application)
+		const stages = composeRuntimeContributionBehavior(application)
+		if (stages === undefined) throw new TypeError('Expected Runtime behavior')
 
 		await expect(
-			stages.globalBeforeHooks({ context, operation }),
+			stages.beforeOperation?.({ context, operation }),
 		).rejects.toThrow(
 			new TypeError('before-operation hook must return undefined'),
 		)
 		await expect(
-			stages.globalAfterHooks({
+			stages.transformResult?.({
 				context,
 				operation,
 				result: {
@@ -302,10 +316,11 @@ describe('createRuntimeHookStages', () => {
 			plugins: [plugin],
 			schemas: [articleSchema],
 		})
-		const stages = createRuntimeHookStages(application)
+		const stages = composeRuntimeContributionBehavior(application)
+		if (stages === undefined) throw new TypeError('Expected Runtime behavior')
 
 		await expect(
-			stages.globalBeforeHooks({ context, operation: updateOperation }),
+			stages.beforeOperation?.({ context, operation: updateOperation }),
 		).rejects.toThrow(
 			new TypeError('before-operation hook must return undefined'),
 		)
@@ -356,8 +371,13 @@ describe('createRuntimeHookStages', () => {
 			plugins: [plugin],
 			schemas: [articleSchema],
 		})
-		const stages = createRuntimeHookStages(application)
-		const resolved = await stages.preparedOperationHooks({
+		const stages = composeRuntimeContributionBehavior(application)
+		if (stages === undefined) throw new TypeError('Expected Runtime behavior')
+		const transformPreparedOperation = stages.transformPreparedOperation
+		if (transformPreparedOperation === undefined) {
+			throw new TypeError('Expected a prepared-operation transform')
+		}
+		const resolved = await transformPreparedOperation({
 			context,
 			operation: updateOperation,
 			target: updateTarget,
@@ -369,7 +389,7 @@ describe('createRuntimeHookStages', () => {
 		expect(resolved.query).toBe(updateOperation.query)
 		expect(handler).toHaveBeenCalledOnce()
 
-		const unchanged = await stages.preparedOperationHooks({
+		const unchanged = await transformPreparedOperation({
 			context,
 			operation: updateOperation,
 			target: null,
@@ -424,7 +444,9 @@ describe('createRuntimeHookStages', () => {
 			})
 
 			await expect(
-				createRuntimeHookStages(application).preparedOperationHooks({
+				composeRuntimeContributionBehavior(
+					application,
+				)?.transformPreparedOperation?.({
 					context,
 					operation: updateOperation,
 					target: updateTarget,

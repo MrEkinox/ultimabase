@@ -5,21 +5,19 @@ import {
 	UltimaBase,
 	type FieldBuilder,
 } from '@ultimabase/core'
+import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-
 import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from './postgres-worker-fixture.js'
-
 const relationTrace: string[] = []
 const rollbackError = new Error('relation mutation rollback fixture')
 let rejectNextRelationUpdate = false
 const tagLabelField = stringField({ validation: { required: true } })
 const tagVisibleField = booleanField({ default: true })
 const articleTitleField = stringField({ validation: { required: true } })
-
 const articleFields = (field: FieldBuilder) => ({
 	tags: field.relation({
 		access: {
@@ -166,6 +164,7 @@ beforeAll(async () => {
 	fixture = await createPostgresWorkerFixture()
 	ultimabase = new UltimaBase({
 		plugins: [
+			hooksPlugin(),
 			postgresPlugin({
 				schemaPolicy: 'override',
 				url: fixture.connectionUri,
@@ -931,6 +930,7 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 
 		const verifier = new UltimaBase({
 			plugins: [
+				hooksPlugin(),
 				postgresPlugin({
 					schemaPolicy: 'fail',
 					url: activeFixture.connectionUri,

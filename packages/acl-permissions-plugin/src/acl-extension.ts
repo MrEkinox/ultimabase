@@ -1,9 +1,9 @@
 import {
 	type ContextualSchemaExtensionFactory,
+	type AccessContext,
 	defineContextualSchemaExtensionFactory,
 	definePluginField,
 	defineSchemaExtension,
-	type HookContext,
 	type PluginFieldDefinition,
 	type PointerValue,
 	type SchemaExtension,
@@ -85,7 +85,7 @@ export interface ACLDefaultInput<
 	/** Exposes the optional principal supplied by a compatible identity provider. */
 	readonly principal: PointerValue | undefined
 	/** Exposes the active transaction-bound hook context. */
-	readonly context: HookContext
+	readonly context: AccessContext
 }
 
 /** Derives one immutable ACL independently for every created object. */
@@ -111,7 +111,7 @@ export interface ACLCreateInputResolution<
 	readonly inputAcl: ACL | undefined
 	readonly currentAcl: undefined
 	readonly principal: PointerValue | undefined
-	readonly context: HookContext
+	readonly context: AccessContext
 }
 
 /** Describes one immutable normalized update operation supplied to ACL resolution. */
@@ -144,7 +144,7 @@ export interface ACLUpdateInputResolution<
 	readonly inputAcl: ACL | undefined
 	readonly currentAcl: ACL
 	readonly principal: PointerValue | undefined
-	readonly context: HookContext
+	readonly context: AccessContext
 }
 
 /** Lets one callback accept or replace ACL values for both mutation families. */

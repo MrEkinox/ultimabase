@@ -317,6 +317,12 @@ const connectGraphNodes = (
 			)
 			if (dependency !== undefined) connectDependency(node, dependency)
 		}
+
+		for (const peer of node.plugin.definition.peers ?? []) {
+			// A peer proves presence and protocol compatibility only. Capability
+			// requirements remain solely responsible for any necessary ordering.
+			resolveNamedDependency(nodesByPluginId, identity, peer, true)
+		}
 	}
 
 	for (const consumer of nodes) {

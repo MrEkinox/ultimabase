@@ -14,7 +14,7 @@ import type {
 	DatabaseRowFilterNode,
 } from '../database/contracts.js'
 import type { EnforcementState } from '../enforcement/state.js'
-import { createRuntimeHookBoundaries } from '../hooks/boundaries.js'
+import { createRuntimeBehaviorBoundaries } from '../behaviors/boundaries.js'
 import { throwIfOperationCancelled } from '../hooks/cancellation.js'
 import { retainRuntimeSchemaModelMetadata } from '../operations/model-metadata.js'
 import { createProtectedObjectNotFoundError } from '../operations/target-errors.js'
@@ -23,9 +23,9 @@ import {
 	type RuntimePipelineTransactionScope,
 } from '../transactions/pipeline-transaction.js'
 import type {
+	RuntimeBehaviorStages,
 	RuntimeEnforcementOperationResult,
 	RuntimeEnforcementStages,
-	RuntimeNativeHookStages,
 	RuntimeOperationResult,
 	RuntimePipelineRequest,
 	RuntimePipelineStages,
@@ -41,8 +41,8 @@ import {
 import {
 	createRuntimeEnforcementInput,
 	createRuntimeEnforcementResultInput,
-	createRuntimeNativeDatabaseResultInput,
-	createRuntimeNativeResultInput,
+	createRuntimeProjectedDatabaseResultInput,
+	createRuntimeMaterializedResultInput,
 	createRuntimeOperationInput,
 	createRuntimeResultInput,
 	emptyRuntimeConstraints,
@@ -57,12 +57,7 @@ export type { RuntimeMutationBatchProjectionRequest } from './inclusion-projecti
 const functionStageNames = [
 	'normalization',
 	'structuralValidation',
-	'globalBeforeHooks',
-	'schemaBeforeHooks',
-	'schemaAfterHooks',
-	'globalAfterHooks',
 	'commit',
-	'postCommitEvents',
 ] as const satisfies readonly (keyof RuntimePipelineStages)[]
 
 const enforcementStageNames = [
@@ -73,16 +68,19 @@ const enforcementStageNames = [
 	'reevaluate',
 ] as const satisfies readonly (keyof RuntimeEnforcementStages)[]
 
-const nativeHookStageNames = [
-	'mutationOutcome',
+const runtimeBehaviorStageNames = [
+	'beforeOperation',
+	'observePreparedMutation',
+	'postCommit',
 	'requiresPreparedMutationItems',
-	'resolveInput',
-	'schemaResolveInput',
-	'resolveOutput',
-	'revalidate',
-	'schemaAfter',
-	'schemaPrepared',
-] as const satisfies readonly (keyof RuntimeNativeHookStages)[]
+	'revalidateInput',
+	'transformDatabaseResult',
+	'transformInput',
+	'transformMutationOutcome',
+	'transformPreparedInput',
+	'transformPreparedOperation',
+	'transformResult',
+] as const satisfies readonly (keyof RuntimeBehaviorStages)[]
 
 /** Combines independent private restrictions without making either transformable. */
 const combineDatabaseRowFilters = (
@@ -124,23 +122,25 @@ const assertRuntimePipelineStages = (stages: RuntimePipelineStages): void => {
 		}
 	}
 
-	const nativeHooks: unknown = untrustedStages.nativeHooks
+	const enforcement: unknown = untrustedStages.enforcement
+	const behaviors: unknown = untrustedStages.behaviors
 
-	if (nativeHooks !== undefined) {
-		if (!isPlainRecord(nativeHooks)) {
-			throw new TypeError('Runtime pipeline nativeHooks must be a plain object')
+	if (behaviors !== undefined) {
+		if (!isPlainRecord(behaviors)) {
+			throw new TypeError('Runtime pipeline behaviors must be a plain object')
 		}
 
-		for (const stageName of nativeHookStageNames) {
-			if (typeof nativeHooks[stageName] !== 'function') {
+		for (const stageName of runtimeBehaviorStageNames) {
+			if (
+				behaviors[stageName] !== undefined &&
+				typeof behaviors[stageName] !== 'function'
+			) {
 				throw new TypeError(
-					`Runtime native hook stage ${stageName} must be a function`,
+					`Runtime behavior stage ${stageName} must be a function`,
 				)
 			}
 		}
 	}
-
-	const enforcement: unknown = untrustedStages.enforcement
 
 	if (enforcement !== undefined) {
 		if (!isPlainRecord(enforcement)) {
@@ -185,15 +185,6 @@ const assertRuntimePipelineStages = (stages: RuntimePipelineStages): void => {
 	}
 
 	if (
-		untrustedStages.preparedOperationHooks !== undefined &&
-		typeof untrustedStages.preparedOperationHooks !== 'function'
-	) {
-		throw new TypeError(
-			'Runtime pipeline stage preparedOperationHooks must be a function',
-		)
-	}
-
-	if (
 		untrustedStages.persistencePlanRewrite !== undefined &&
 		typeof untrustedStages.persistencePlanRewrite !== 'function'
 	) {
@@ -221,24 +212,23 @@ const retainExecutionOperation = <
  */
 export class RuntimePipeline {
 	readonly #stages: Readonly<RuntimePipelineStages>
-	readonly #resultBoundaries = createRuntimeHookBoundaries()
+	readonly #resultBoundaries = createRuntimeBehaviorBoundaries()
 	readonly #inclusionProjector: RuntimeInclusionProjector
 
 	constructor(stages: RuntimePipelineStages) {
 		assertRuntimePipelineStages(stages)
-		const nativeHooks =
-			stages.nativeHooks === undefined
-				? undefined
-				: immutableRecord(stages.nativeHooks)
-
 		const enforcement =
 			stages.enforcement === undefined
 				? undefined
 				: immutableRecord(stages.enforcement)
+		const behaviors =
+			stages.behaviors === undefined
+				? undefined
+				: immutableRecord(stages.behaviors)
 
 		this.#stages = immutableRecord({
 			...stages,
-			...(nativeHooks === undefined ? {} : { nativeHooks }),
+			...(behaviors === undefined ? {} : { behaviors }),
 			...(enforcement === undefined ? {} : { enforcement }),
 		})
 		this.#inclusionProjector = new RuntimeInclusionProjector(
@@ -396,11 +386,8 @@ export class RuntimePipeline {
 		const databaseExecution = await executeRuntimeDatabaseOperation(
 			this.#stages.databaseOperation,
 			context,
-			this.#stages.nativeHooks,
-			this.#stages.preparedOperationHooks,
+			this.#stages.behaviors,
 			this.#stages.persistencePlanRewrite,
-			this.#stages.globalBeforeHooks,
-			this.#stages.schemaBeforeHooks,
 			immutableRecord({
 				constraints,
 				operation,
@@ -454,9 +441,9 @@ export class RuntimePipeline {
 			selectedFieldsOverride,
 		)
 
-		if (this.#stages.nativeHooks !== undefined) {
-			databaseResult = await this.#stages.nativeHooks.resolveOutput(
-				createRuntimeNativeDatabaseResultInput(
+		if (this.#stages.behaviors?.transformDatabaseResult !== undefined) {
+			databaseResult = await this.#stages.behaviors.transformDatabaseResult(
+				createRuntimeProjectedDatabaseResultInput(
 					context,
 					operation,
 					databaseResult,
@@ -482,9 +469,9 @@ export class RuntimePipeline {
 			readRuntimeSchemaModelSelectedFields(operation, selectedFieldsOverride),
 		)
 
-		if (this.#stages.nativeHooks !== undefined) {
-			result = await this.#stages.nativeHooks.schemaAfter(
-				createRuntimeNativeResultInput(
+		if (this.#stages.behaviors?.transformResult !== undefined) {
+			result = await this.#stages.behaviors.transformResult(
+				createRuntimeMaterializedResultInput(
 					context,
 					operation,
 					result,
@@ -494,13 +481,7 @@ export class RuntimePipeline {
 			)
 		}
 
-		result = await this.#stages.schemaAfterHooks(
-			createRuntimeResultInput(context, operation, result),
-		)
-		result = await this.#stages.globalAfterHooks(
-			createRuntimeResultInput(context, operation, result),
-		)
-		// Legacy low-level result hooks share the same strict boundary as native hooks.
+		// Every product behavior shares the same strict result boundary.
 		result = this.#resultBoundaries.snapshotResultReplacement(
 			operation,
 			result,
@@ -525,7 +506,9 @@ export class RuntimePipeline {
 			phase: 'commit',
 		})
 		await this.#stages.commit(completedOperation)
-		await this.#stages.postCommitEvents(completedOperation)
+		if (this.#stages.behaviors?.postCommit !== undefined) {
+			await this.#stages.behaviors.postCommit(completedOperation)
+		}
 		execution.operation = operation
 		return result
 	}

@@ -1,40 +1,18 @@
 import {
-	defineEvent,
 	Relation,
 	Pointer,
 	type AccessContext,
 	type AccessReferenceCleanup,
-	type HookContext,
-	type HookEventContract,
-	type JsonObject,
 	type OperationOptions,
 	type SchemaClass,
 	type SchemaDefinition,
 } from '@ultimabase/core'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
+import type { RoleDeletedEvent } from './role-events.js'
 import { createRoleReference } from './role-reference.js'
 import { resolveRoleReference } from './role-resolution.js'
-import type {
-	RoleReferenceDeletionPolicy,
-	RoleSchemaDeclaration,
-} from './role-schema.js'
-
-/** Names the post-commit audit event emitted for every deleted stored role. */
-export const roleDeletedEvent = 'ultimabase.roles.deleted' as const
-
-/** Describes one committed role deletion without exposing consumer internals. */
-export interface RoleDeletedEvent extends JsonObject {
-	readonly cleanupContributions: readonly string[]
-	readonly policy: RoleReferenceDeletionPolicy
-	readonly roleId: string
-}
-
-const roleDeletedEventContract: HookEventContract<
-	typeof roleDeletedEvent,
-	RoleDeletedEvent,
-	'optional'
-> = defineEvent<RoleDeletedEvent>()(roleDeletedEvent, { delivery: 'optional' })
+import type { RoleSchemaDeclaration } from './role-schema.js'
 
 /** Reports deterministic deletion-policy failures owned by the roles package. */
 export class RoleDeletionError extends Error {
@@ -208,12 +186,12 @@ const cascadeReferences = async (
 
 /** Applies one schema-owned policy before the adapter removes the role row. */
 export const applyRoleDeletionPolicy = async (
-	context: HookContext,
+	context: AccessContext,
 	schema: SchemaDefinition,
 	roleName: string,
 	declaration: RoleSchemaDeclaration,
 	cleanups: readonly NamedRoleReferenceCleanup[],
-): Promise<void> => {
+): Promise<RoleDeletedEvent> => {
 	const role = await resolveRoleReference(
 		createRoleReference(schema, { name: roleName }),
 		masterOptions,
@@ -234,14 +212,11 @@ export const applyRoleDeletionPolicy = async (
 		)
 	}
 
-	const payload: RoleDeletedEvent = immutableRecord({
+	return immutableRecord({
 		cleanupContributions,
 		policy: declaration.deletionPolicy,
 		roleId,
 	})
-
-	// HookContext journals the event and publishes it only after outer commit.
-	context.emit(roleDeletedEventContract, payload)
 }
 
 /** Rejects set-based deletion because it cannot preserve per-role policy hooks. */

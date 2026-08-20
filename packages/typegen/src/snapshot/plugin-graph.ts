@@ -196,6 +196,9 @@ export const snapshotTypegenGraph = (
 			.map((option) =>
 				immutableRecord({
 					contributionId: option.contributionId,
+					...(option.typegen.generic === undefined
+						? {}
+						: { generic: option.typegen.generic }),
 					name: option.name,
 					owner: snapshotOwner(option.owner),
 					reference: immutableRecord({

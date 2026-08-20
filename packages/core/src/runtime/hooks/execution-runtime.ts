@@ -7,11 +7,9 @@ import {
 	type FrameworkApplication,
 	type PluginDefinition,
 } from '../../foundation.js'
-import type {
-	HookContext,
-	HookExecutionContext,
-	SchemaDefinition,
-} from '../../schema/index.js'
+import type { SchemaDefinition } from '../../schema/index.js'
+import type { HookExecutionContext } from '../../schema/hooks/execution-context.js'
+import type { HookContext } from '../../schema/hooks/hook-context.js'
 import { runWithQueryExecutionGuard } from '../../query/operations/execution.js'
 import {
 	readApplicationCapability,

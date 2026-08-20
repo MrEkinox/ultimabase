@@ -40,8 +40,8 @@ import { databaseConstraint } from '../enforcement/definitions.js'
 import { createEnforcementState } from '../enforcement/state.js'
 import type {
 	RuntimeEnforcementStages,
-	RuntimeNativeDatabaseResultTransformStage,
-	RuntimeNativeHookStages,
+	RuntimeBehaviorStages,
+	RuntimeProjectedDatabaseResultTransformStage,
 	RuntimeOperationResult,
 	RuntimeOperationGuardStage,
 	RuntimePreparedMutationTransformStage,
@@ -200,11 +200,11 @@ const createResultTransform =
 		return input.result
 	}
 
-const createNativeDatabaseResultTransform =
+const createProjectedDatabaseResultTransform =
 	(
 		stageName: string,
 		trace: string[],
-	): RuntimeNativeDatabaseResultTransformStage =>
+	): RuntimeProjectedDatabaseResultTransformStage =>
 	(input) => {
 		trace.push(stageName)
 		expect(Object.isFrozen(input)).toBe(true)
@@ -219,29 +219,36 @@ const createResultEffect =
 		expect(Object.isFrozen(input)).toBe(true)
 	}
 
-const createNativeHookStages = (trace: string[]): RuntimeNativeHookStages => ({
+const createBehaviorStages = (trace: string[]): RuntimeBehaviorStages => ({
 	requiresPreparedMutationItems: () => false,
-	resolveInput: createOperationTransform('native:resolveInput', trace),
-	schemaResolveInput: (input) => {
-		trace.push('native:schemaResolveInput')
+	transformInput: createOperationTransform('behavior:transformInput', trace),
+	transformPreparedInput: (input) => {
+		trace.push('behavior:transformPreparedInput')
 
 		return input.operation
 	},
-	revalidate: createOperationTransform('native:revalidate', trace),
-	schemaPrepared: (input) => {
-		trace.push('native:schemaPrepared')
+	transformPreparedOperation: (input) => {
+		trace.push('behavior:transformPreparedOperation')
+
+		return immutableRecord({ ...input.operation })
+	},
+	revalidateInput: createOperationTransform('behavior:revalidateInput', trace),
+	beforeOperation: createGuard('behavior:beforeOperation', trace),
+	observePreparedMutation: (input) => {
+		trace.push('behavior:observePreparedMutation')
 		expect(Object.isFrozen(input)).toBe(true)
 	},
-	mutationOutcome: (input) => {
-		trace.push('native:mutationOutcome')
+	transformMutationOutcome: (input) => {
+		trace.push('behavior:transformMutationOutcome')
 
 		return input.outcome
 	},
-	resolveOutput: createNativeDatabaseResultTransform(
-		'native:resolveOutput',
+	transformDatabaseResult: createProjectedDatabaseResultTransform(
+		'behavior:transformDatabaseResult',
 		trace,
 	),
-	schemaAfter: createResultTransform('native:schemaAfter', trace),
+	transformResult: createResultTransform('behavior:transformResult', trace),
+	postCommit: createResultEffect('behavior:postCommit', trace),
 })
 
 class TraceDatabaseExecutor implements DatabaseOperationExecutor {
@@ -279,13 +286,8 @@ const createStages = (
 ): RuntimePipelineStages => ({
 	normalization: createOperationTransform('normalization', trace),
 	structuralValidation: createOperationTransform('structuralValidation', trace),
-	globalBeforeHooks: createGuard('globalBeforeHooks', trace),
-	schemaBeforeHooks: createGuard('schemaBeforeHooks', trace),
 	databaseOperation,
-	schemaAfterHooks: createResultTransform('schemaAfterHooks', trace),
-	globalAfterHooks: createResultTransform('globalAfterHooks', trace),
 	commit: createResultEffect('commit', trace),
-	postCommitEvents: createResultEffect('postCommitEvents', trace),
 	...overrides,
 })
 
@@ -340,7 +342,7 @@ describe('RuntimePipeline', () => {
 		}) satisfies FindManyOperationAst<typeof articleSchema>
 		const pipeline = new RuntimePipeline(
 			createStages([], executor, {
-				schemaAfterHooks: retainSecondResult,
+				behaviors: { transformResult: retainSecondResult },
 			}),
 		)
 
@@ -384,13 +386,8 @@ describe('RuntimePipeline', () => {
 		expect(trace).toStrictEqual([
 			'normalization',
 			'structuralValidation',
-			'globalBeforeHooks',
-			'schemaBeforeHooks',
 			'databaseOperation',
-			'schemaAfterHooks',
-			'globalAfterHooks',
 			'commit',
-			'postCommitEvents',
 		])
 		expect(executor.requests[0]?.constraints).toStrictEqual([])
 		expect(Object.isFrozen(executor.requests[0]?.constraints)).toBe(true)
@@ -417,13 +414,8 @@ describe('RuntimePipeline', () => {
 		expect(trace).toStrictEqual([
 			'normalization',
 			'structuralValidation',
-			'globalBeforeHooks',
-			'schemaBeforeHooks',
 			'databaseOperation',
-			'schemaAfterHooks',
-			'globalAfterHooks',
 			'commit',
-			'postCommitEvents',
 		])
 	})
 
@@ -467,29 +459,30 @@ describe('RuntimePipeline', () => {
 		})
 		const enforcement = createEnforcementStages(trace, finalConstraint)
 		let schemaResolveTarget: unknown
-		const schemaResolveInput: RuntimePreparedMutationTransformStage = (
+		const transformPreparedInput: RuntimePreparedMutationTransformStage = (
 			input,
 		) => {
-			trace.push('native:schemaResolveInput')
+			trace.push('behavior:transformPreparedInput')
 			schemaResolveTarget = input.target
 
 			return input.operation
 		}
-		const nativeHooks = {
-			...createNativeHookStages(trace),
-			schemaResolveInput,
-		}
 		const pipeline = new RuntimePipeline(
 			createStages(trace, transaction, {
 				enforcement,
-				nativeHooks,
-				preparedOperationHooks: (input) => ({
-					...input.operation,
-					update: {
-						kind: 'update-expression',
-						operations: [{ field: 'title', kind: 'set', value: target.title }],
-					},
-				}),
+				behaviors: {
+					transformPreparedInput,
+					transformPreparedOperation: (input) => ({
+						...input.operation,
+						update: {
+							kind: 'update-expression',
+							operations: [
+								{ field: 'title', kind: 'set', value: target.title },
+							],
+						},
+					}),
+					revalidateInput: (input) => input.operation,
+				},
 			}),
 		)
 
@@ -506,7 +499,7 @@ describe('RuntimePipeline', () => {
 		})
 		expect(schemaResolveTarget).toStrictEqual(target)
 		expect(trace.indexOf('enforcement:prepared')).toBeLessThan(
-			trace.indexOf('native:schemaResolveInput'),
+			trace.indexOf('behavior:transformPreparedInput'),
 		)
 		expect(
 			trace.filter((entry) => entry === 'enforcement:reevaluate'),
@@ -571,13 +564,8 @@ describe('RuntimePipeline', () => {
 		}
 		const pipeline = new RuntimePipeline(
 			createStages(trace, transaction, {
+				behaviors: createBehaviorStages(trace),
 				enforcement,
-				nativeHooks: createNativeHookStages(trace),
-				preparedOperationHooks: (input) => {
-					trace.push('preparedOperation')
-
-					return immutableRecord({ ...input.operation })
-				},
 			}),
 		)
 
@@ -593,31 +581,28 @@ describe('RuntimePipeline', () => {
 			'enforcement:operation',
 			'database:prepare',
 			'enforcement:prepared',
-			'native:resolveInput',
-			'native:schemaResolveInput',
-			'preparedOperation',
-			'native:revalidate',
+			'behavior:transformInput',
+			'behavior:transformPreparedInput',
+			'behavior:transformPreparedOperation',
+			'behavior:revalidateInput',
 			'enforcement:reevaluate',
 			'enforcement:operation',
 			'enforcement:prepared',
-			'globalBeforeHooks',
-			'schemaBeforeHooks',
-			'native:schemaPrepared',
+			'behavior:beforeOperation',
+			'behavior:observePreparedMutation',
 			'database:execute',
 			'enforcement:mutation-outcome',
-			'native:mutationOutcome',
+			'behavior:transformMutationOutcome',
 			'enforcement:selection-result',
-			'native:resolveOutput',
-			'native:schemaAfter',
-			'schemaAfterHooks',
-			'globalAfterHooks',
+			'behavior:transformDatabaseResult',
+			'behavior:transformResult',
 			'enforcement:result',
 			'commit',
-			'postCommitEvents',
+			'behavior:postCommit',
 		])
 	})
 
-	it('forwards the native item-hook target requirement to mutation preparation', async () => {
+	it('forwards a behavior item-target requirement to mutation preparation', async () => {
 		const trace: string[] = []
 		let preparedRequest: DatabaseOperationRequest | undefined
 		const transaction: DatabaseTransactionAdapter = {
@@ -644,12 +629,10 @@ describe('RuntimePipeline', () => {
 			commit: () => Promise.resolve(),
 			rollback: () => Promise.resolve(),
 		}
-		const nativeHooks = {
-			...createNativeHookStages(trace),
-			requiresPreparedMutationItems: () => true,
-		}
 		const pipeline = new RuntimePipeline(
-			createStages(trace, transaction, { nativeHooks }),
+			createStages(trace, transaction, {
+				behaviors: { requiresPreparedMutationItems: () => true },
+			}),
 		)
 
 		await expect(
@@ -730,8 +713,8 @@ describe('RuntimePipeline', () => {
 		const executor = new TraceDatabaseExecutor(trace, [])
 		const pipeline = new RuntimePipeline(
 			createStages(trace, executor, {
+				behaviors: createBehaviorStages(trace),
 				enforcement: createEnforcementStages(trace),
-				nativeHooks: createNativeHookStages(trace),
 			}),
 		)
 
@@ -745,17 +728,14 @@ describe('RuntimePipeline', () => {
 			'structuralValidation',
 			'enforcement:evaluate',
 			'enforcement:operation',
-			'globalBeforeHooks',
-			'schemaBeforeHooks',
+			'behavior:beforeOperation',
 			'databaseOperation',
 			'enforcement:selection-result',
-			'native:resolveOutput',
-			'native:schemaAfter',
-			'schemaAfterHooks',
-			'globalAfterHooks',
+			'behavior:transformDatabaseResult',
+			'behavior:transformResult',
 			'enforcement:result',
 			'commit',
-			'postCommitEvents',
+			'behavior:postCommit',
 		])
 		expect(executor.requests[0]?.constraints).toStrictEqual([
 			{
@@ -908,7 +888,7 @@ describe('RuntimePipeline', () => {
 		expect(executor.requests).toStrictEqual([])
 	})
 
-	it('rejects an invalid replacement from the retained low-level after hooks', async () => {
+	it('rejects an invalid replacement from a product behavior', async () => {
 		const trace: string[] = []
 		const executor = new TraceDatabaseExecutor(trace, [
 			{
@@ -920,11 +900,13 @@ describe('RuntimePipeline', () => {
 		])
 		const pipeline = new RuntimePipeline(
 			createStages(trace, executor, {
-				globalAfterHooks: () =>
-					[
-						// The final shared boundary protects malformed JavaScript hook output.
-						{},
-					] as never,
+				behaviors: {
+					transformResult: () =>
+						[
+							// The final shared boundary protects malformed JavaScript behavior output.
+							{},
+						] as never,
+				},
 			}),
 		)
 
@@ -935,7 +917,6 @@ describe('RuntimePipeline', () => {
 			}),
 		).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
 		expect(trace).not.toContain('commit')
-		expect(trace).not.toContain('postCommitEvents')
 	})
 
 	it('rejects an omitted mandatory stage during JavaScript assembly', () => {

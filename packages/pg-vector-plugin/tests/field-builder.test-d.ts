@@ -17,14 +17,8 @@ test('types the generated vector method with the existing exact options', () => 
 	generatedField.vector({
 		dimensions: 3,
 		validation: { required: true },
-		hooks: {
-			resolveInput: ({ value }) => {
-				expectTypeOf(value).toEqualTypeOf<VectorValue | null>()
-
-				return value
-			},
-		},
 	})
+	expectTypeOf<VectorValue>().toEqualTypeOf<readonly number[]>()
 
 	generatedField.vector({
 		dimensions: 3,

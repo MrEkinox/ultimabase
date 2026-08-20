@@ -12,10 +12,10 @@ export interface FileLineBudgetPolicy {
 /** Records only pre-existing handwritten exceptions and must never be increased. */
 export const handwrittenFileLineBaseline: Readonly<Record<string, number>> =
 	Object.freeze({
-		'packages/acl-permissions-plugin/src/plugin.test.ts': 1088,
-		'packages/acl-permissions-plugin/src/plugin.ts': 1033,
+		'packages/acl-permissions-plugin/src/plugin.test.ts': 1085,
+		'packages/acl-permissions-plugin/src/plugin.ts': 949,
 		'packages/core/src/plugins/access-targets.ts': 634,
-		'packages/core/src/plugins/capabilities.ts': 1047,
+		'packages/core/src/plugins/capabilities.ts': 1026,
 		'packages/core/src/plugins/capability-composition.test.ts': 1159,
 		'packages/core/src/plugins/hook-targets.ts': 611,
 		'packages/core/src/query/filters/factory.ts': 807,
@@ -27,11 +27,11 @@ export const handwrittenFileLineBaseline: Readonly<Record<string, number>> =
 		'packages/core/src/runtime/engine/framework-engine.ts': 795,
 		'packages/core/src/runtime/hooks/boundaries.ts': 1019,
 		'packages/core/src/runtime/pipeline/inclusion-projection.ts': 713,
-		'packages/core/src/runtime/pipeline/runtime-pipeline.test.ts': 1152,
-		'packages/core/src/runtime/relations/pointer-inclusion.test.ts': 775,
+		'packages/core/src/runtime/pipeline/runtime-pipeline.test.ts': 1133,
+		'packages/core/src/runtime/relations/pointer-inclusion.test.ts': 759,
 		'packages/core/src/runtime/validation/runtime-validation.test.ts': 814,
 		'packages/core/src/runtime/validation/runtime-validation.ts': 1343,
-		'packages/core/src/schema/schema/definition.ts': 1052,
+		'packages/core/src/schema/schema/definition.ts': 1041,
 		'packages/core/src/schema/schema/field-builder.ts': 739,
 		'packages/core/tests/runtime/bulk-terminals.test.ts': 898,
 		'packages/postgres-plugin/src/drizzle/adapter.test.ts': 1692,

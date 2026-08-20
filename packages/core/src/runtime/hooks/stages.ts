@@ -2,7 +2,6 @@ import {
 	FrameworkApplication,
 	type PluginDefinition,
 } from '../../foundation.js'
-import type { OwnedPluginContribution } from '../../plugins/setup-registries.js'
 import { readApplicationCapabilityContributions } from '../../plugins/application-capability-access.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import {
@@ -19,13 +18,10 @@ import type {
 import { getOperationSchema } from '../operations/schema.js'
 import type {
 	RuntimePreparedMutationStageInput,
-	RuntimePreparedMutationTransformStage,
-	RuntimeOperationGuardStage,
+	RuntimeBehaviorStages,
 	RuntimeOperationResult,
 	RuntimeOperationStageInput,
-	RuntimeResultEffectStage,
 	RuntimeResultStageInput,
-	RuntimeResultTransformStage,
 } from '../pipeline/contracts.js'
 import {
 	createAfterHookInput,
@@ -33,8 +29,6 @@ import {
 	createPreparedHookInput,
 	getRuntimeContributionImplementation,
 } from './definitions.js'
-import { isPluginHookTargetDefinition } from '../../plugins/hook-targets.js'
-import { getEnforcementContributionImplementation } from '../enforcement/definitions.js'
 import {
 	createHookExecutionDescriptor,
 	createPluginHookOwner,
@@ -55,7 +49,12 @@ type RuntimeContributionImplementation = NonNullable<
 >
 
 interface OwnedRuntimeContribution {
-	readonly contribution: OwnedPluginContribution
+	readonly contribution: Readonly<{
+		readonly name: string
+		readonly ownerInstanceId?: string
+		readonly ownerPlugin: string
+		readonly value: unknown
+	}>
 	readonly implementation: RuntimeContributionImplementation
 }
 
@@ -80,16 +79,6 @@ const createRuntimeContributionDescriptor = (
 				? globalHookTarget
 				: createSchemaHookTarget(implementation.schema.className),
 	})
-}
-
-/** Supplies exactly the five hook and event stages owned by the Runtime pipeline. */
-export interface RuntimeHookStages {
-	readonly globalBeforeHooks: RuntimeOperationGuardStage
-	readonly schemaBeforeHooks: RuntimeOperationGuardStage
-	readonly schemaAfterHooks: RuntimeResultTransformStage
-	readonly globalAfterHooks: RuntimeResultTransformStage
-	readonly postCommitEvents: RuntimeResultEffectStage
-	readonly preparedOperationHooks: RuntimePreparedMutationTransformStage
 }
 
 const assertExactHookOutput = (
@@ -275,16 +264,6 @@ const readContributions = (
 			continue
 		}
 
-		// Native targets and monotonic enforcement use dedicated dispatchers.
-		if (
-			category === 'hooks' &&
-			(isPluginHookTargetDefinition(contribution.value) ||
-				getEnforcementContributionImplementation(contribution.value) !==
-					undefined)
-		) {
-			continue
-		}
-
 		const implementation = getRuntimeContributionImplementation(
 			contribution.value,
 		)
@@ -435,19 +414,23 @@ const runPostCommitContributions = async <
 	}
 }
 
-/** Composes application-owned plugin declarations into deterministic pipeline stages. */
-export const createRuntimeHookStages = <
+/** Composes legacy low-level Runtime definitions into the generic behavior kernel. */
+export const composeRuntimeContributionBehavior = <
 	const TSchemas extends readonly SchemaDefinition[],
 	const TPlugins extends readonly PluginDefinition[],
 >(
 	application: FrameworkApplication<TSchemas, TPlugins>,
-): RuntimeHookStages => {
+): RuntimeBehaviorStages | undefined => {
 	if (!(application instanceof FrameworkApplication)) {
-		throw new TypeError('Runtime hook stages require a FrameworkApplication')
+		throw new TypeError(
+			'Runtime contribution composition requires a FrameworkApplication',
+		)
 	}
 
 	const hooks = readContributions(application, 'hooks')
 	const events = readContributions(application, 'events')
+	if (hooks.length === 0 && events.length === 0) return undefined
+
 	const runtime = getApplicationHookExecutionRuntime(application)
 	const globalBefore = immutableArray(
 		hooks.filter(
@@ -484,17 +467,40 @@ export const createRuntimeHookStages = <
 	)
 
 	return immutableRecord({
-		globalBeforeHooks: (input) =>
-			runBeforeContributions(globalBefore, runtime, input),
-		schemaBeforeHooks: (input) =>
-			runBeforeContributions(schemaBefore, runtime, input),
-		schemaAfterHooks: (input) =>
-			runAfterContributions(schemaAfter, runtime, input),
-		globalAfterHooks: (input) =>
-			runAfterContributions(globalAfter, runtime, input),
-		postCommitEvents: (input) =>
-			runPostCommitContributions(events, runtime, input),
-		preparedOperationHooks: (input) =>
-			runPreparedContributions(prepared, runtime, input),
+		...(globalBefore.length === 0 && schemaBefore.length === 0
+			? {}
+			: {
+					beforeOperation: async (input) => {
+						await runBeforeContributions(globalBefore, runtime, input)
+						await runBeforeContributions(schemaBefore, runtime, input)
+					},
+				}),
+		...(schemaAfter.length === 0 && globalAfter.length === 0
+			? {}
+			: {
+					transformResult: async (input) => {
+						const schemaResult = await runAfterContributions(
+							schemaAfter,
+							runtime,
+							input,
+						)
+						return runAfterContributions(globalAfter, runtime, {
+							...input,
+							result: schemaResult,
+						})
+					},
+				}),
+		...(events.length === 0
+			? {}
+			: {
+					postCommit: (input) =>
+						runPostCommitContributions(events, runtime, input),
+				}),
+		...(prepared.length === 0
+			? {}
+			: {
+					transformPreparedOperation: (input) =>
+						runPreparedContributions(prepared, runtime, input),
+				}),
 	})
 }

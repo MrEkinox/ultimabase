@@ -9,6 +9,7 @@ import {
 	type BaseItem,
 	type OperationOptions,
 } from '@ultimabase/core'
+import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import {
@@ -233,6 +234,7 @@ beforeAll(async () => {
 			onUse: () => undefined,
 		}),
 		plugins: [
+			hooksPlugin(),
 			postgresPlugin({
 				schemaPolicy: 'override',
 				url: fixture.connectionUri,
@@ -689,7 +691,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 		const app = getUltimaBase()
 		const graph = app.application.schemaTargets
 		const independentApp = new UltimaBase({
-			plugins: [],
+			plugins: [hooksPlugin()],
 			schemas: pointerSchemas,
 		})
 

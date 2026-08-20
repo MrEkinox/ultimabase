@@ -1,8 +1,7 @@
 import { immutableRecord } from '@ultimabase/shared'
 
 import type { FieldAccessDeclaration } from '../../access/contracts.js'
-import type { FieldHooks } from '../../hooks/field-contracts.js'
-import { splitFieldDeclarationOptions } from '../../hooks/field-declarations.js'
+import { splitFieldAccessOptions } from '../../access/field-options.js'
 import { snapshotPointerValue, type Pointer } from '../../relations/pointer.js'
 import {
 	Schema,
@@ -48,7 +47,7 @@ export interface PointerFieldMetadataOptions extends FieldOptionsBase<
 /** Describes one typed pointer declaration without physical storage details. */
 export interface PointerFieldOptions<
 	TTarget extends SchemaDefinition = SchemaDefinition,
-> extends FieldOptionsBase<FieldValidationOptions, false> {
+> extends FieldOptionsBase<FieldValidationOptions, false, Pointer<TTarget>> {
 	/**
 	 * Keeps the scalar shape explicit; pointer collections use `relationField` instead.
 	 *
@@ -142,20 +141,6 @@ type CompactPointerFieldOptions<
 	 * @example `onDelete: "cascade"`
 	 */
 	readonly onDelete?: TOnDelete
-} & {
-	/**
-	 * Declares pointer lifecycle hooks without allowing read-time identity rewrites.
-	 * Use field Access to hide a pointer and target scalar hooks to resolve included values.
-	 *
-	 * @example `hooks: { validate: ({ value }) => value.id === "" ? [{ code: "pointer.empty", path: [], message: "Pointer id is required" }] : [] }`
-	 */
-	readonly hooks?: FieldHooks<
-		ResolvedPointerField<
-			NoInfer<TTarget>,
-			NoInfer<TRequired>,
-			NoInfer<TImmutable>
-		>
-	>
 } & FieldAccessDeclaration<
 		ResolvedPointerField<
 			NoInfer<TTarget>,
@@ -330,15 +315,14 @@ export function pointerField<const TTarget extends SchemaDefinition>(
 		throw new TypeError('pointerField does not support default values')
 	}
 	const { target, ...declarationOptions } = options
-	const { access, hooks, metadataOptions } =
-		splitFieldDeclarationOptions<PointerFieldMetadataInput>(declarationOptions)
+	const { access, metadataOptions } =
+		splitFieldAccessOptions<PointerFieldMetadataInput>(declarationOptions)
 	const snapshotValue = createPointerSnapshot(target)
 
 	return createFieldDefinition(
 		'pointer',
 		normalizePointerMetadata(metadataOptions),
 		snapshotValue,
-		hooks,
 		access,
 		{ schemaTarget: target },
 	)

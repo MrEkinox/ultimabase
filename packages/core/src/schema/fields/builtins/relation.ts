@@ -15,7 +15,7 @@ import {
 	assertFieldOptions,
 	type BuiltInFieldOptionsContract,
 } from '../base/options.js'
-import { splitFieldDeclarationOptions } from '../../hooks/field-declarations.js'
+import { splitFieldAccessOptions } from '../../access/field-options.js'
 import type { RelationMutationDelta } from '../../relations/mutation.js'
 import type { FieldDefinition, FieldTypegenState } from '../base/contract.js'
 import type { SchemaDefinition } from '../../schema/definition.js'
@@ -202,7 +202,7 @@ export const relationField = <
 		throw new TypeError('relationField target must be a function')
 	}
 
-	const { access, metadataOptions } = splitFieldDeclarationOptions<
+	const { access, metadataOptions } = splitFieldAccessOptions<
 		RelationFieldMetadataOptions<TMappedBy>
 	>(declarationOptions, normalizeRelationFieldAccessDeclarations)
 	const normalizedMetadata = normalizeRelationMetadata(metadataOptions)
@@ -218,7 +218,6 @@ export const relationField = <
 		'relation',
 		immutableRecord({ ...normalizedMetadata, ...unresolvedOptions }),
 		snapshotRelationValue,
-		undefined,
 		access,
 		{ optionsContract: relationFieldOptionsContract, schemaTarget: target },
 	)

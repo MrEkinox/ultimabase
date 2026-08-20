@@ -17,6 +17,7 @@ import {
 	type FrameworkError,
 	type PreparedDatabaseOperation,
 } from '@ultimabase/core'
+import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { RoleSchema, hasRole, rolesPlugin } from '@ultimabase/roles-plugin'
 import { describe, expect, it } from 'vitest'
 
@@ -260,6 +261,7 @@ const runCombinedComposition = async (
 	const database = databasePlugin(adapter)
 	const plugins = nested
 		? [
+				hooksPlugin(),
 				definePlugin({
 					version: '0.0.0',
 					core: '^0.0.0',
@@ -268,7 +270,7 @@ const runCombinedComposition = async (
 				}),
 				database,
 			]
-		: [roleProvider, communityPolicy, aclProvider, database]
+		: [hooksPlugin(), roleProvider, communityPolicy, aclProvider, database]
 	const ultimabase = new UltimaBase({ plugins, schemas: [CombinedPost] })
 
 	try {
@@ -368,15 +370,16 @@ describe('Access provider composition', () => {
 			},
 		])
 		const rolesOnly = new UltimaBase({
-			plugins: [rolesPlugin(), databasePlugin(adapter)],
+			plugins: [hooksPlugin(), rolesPlugin(), databasePlugin(adapter)],
 			schemas: [Principal, RoleOnly],
 		})
 		const aclOnly = new UltimaBase({
-			plugins: [aclPlugin(), databasePlugin(aclOnlyAdapter)],
+			plugins: [hooksPlugin(), aclPlugin(), databasePlugin(aclOnlyAdapter)],
 			schemas: [PublicACLPost],
 		})
 		const composed = new UltimaBase({
 			plugins: [
+				hooksPlugin(),
 				rolesPlugin(),
 				aclPlugin(),
 				databasePlugin(new CompositionReadAdapter([])),
@@ -419,12 +422,12 @@ describe('Access provider composition', () => {
 	it('fails closed before business or storage when a configured role capability is absent', async () => {
 		const readAdapter = new CompositionReadAdapter([combinedRow])
 		const readApplication = new UltimaBase({
-			plugins: [aclPlugin(), databasePlugin(readAdapter)],
+			plugins: [hooksPlugin(), aclPlugin(), databasePlugin(readAdapter)],
 			schemas: [CombinedPost],
 		})
 		const writeAdapter = new CompositionWriteAdapter()
 		const writeApplication = new UltimaBase({
-			plugins: [aclPlugin(), databasePlugin(writeAdapter)],
+			plugins: [hooksPlugin(), aclPlugin(), databasePlugin(writeAdapter)],
 			schemas: [MissingRolePost],
 		})
 
@@ -461,6 +464,7 @@ describe('Access provider composition', () => {
 		const adapter = new CompositionReadAdapter([combinedRow])
 		const ultimabase = new UltimaBase({
 			plugins: [
+				hooksPlugin(),
 				createRoleProvider(false),
 				communityPolicy,
 				aclPlugin(),

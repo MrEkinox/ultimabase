@@ -1,7 +1,5 @@
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
-import type { JsonValue } from '../schema/fields/builtins/json.js'
-
 import { snapshotJsonValue } from '../schema/fields/builtins/json.js'
 
 import type { GenericField } from '../schema/fields/base/contract.js'
@@ -37,8 +35,8 @@ export const normalizeOwnedOptionValue = (
 	option: OwnedOptionDefinition,
 	value: unknown,
 	path: string,
-): JsonValue => {
-	let normalized: JsonValue
+): unknown => {
+	let normalized: unknown
 
 	try {
 		normalized = option.definition.normalize(value, path)
@@ -54,7 +52,9 @@ export const normalizeOwnedOptionValue = (
 		)
 	}
 
-	return snapshotJsonValue(normalized, path)
+	return option.definition.valueKind === 'opaque'
+		? normalized
+		: snapshotJsonValue(normalized, path)
 }
 
 export const resolveFieldOptions = (

@@ -1,4 +1,5 @@
 import { requestSources, Schema, UltimaBase } from '@ultimabase/core'
+import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
@@ -83,6 +84,7 @@ beforeAll(async () => {
 	fixture = await createPostgresWorkerFixture()
 	ultimabase = new UltimaBase({
 		plugins: [
+			hooksPlugin(),
 			postgresPlugin({
 				schemaPolicy: 'override',
 				url: fixture.connectionUri,

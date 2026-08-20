@@ -14,7 +14,6 @@ describe('PluginSetupRegistries', () => {
 			'capabilities',
 			'constraintCompilers',
 			'fieldBuilderMethods',
-			'hooks',
 			'schemas',
 			'typegenGraph',
 		])
@@ -25,17 +24,5 @@ describe('PluginSetupRegistries', () => {
 		expect(context).not.toHaveProperty('services')
 		expect(Object.isFrozen(context)).toBe(true)
 		expect(registries.forPlugin('fixture.plugin')).toBe(context)
-	})
-
-	it('rejects setup writes after closure', () => {
-		const registries = new PluginSetupRegistries(new SchemaRegistry([]))
-		const context = registries.forPlugin('fixture.plugin')
-
-		registries.closeSetup()
-		expect(() => {
-			context.hooks.global('late', {
-				beforeOperation: { create: ({ item }) => void item },
-			})
-		}).toThrow('Plugin hooks can only be registered during setup')
 	})
 })

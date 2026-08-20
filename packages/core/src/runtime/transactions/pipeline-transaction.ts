@@ -7,8 +7,8 @@ import type {
 	DatabaseTransactionAdapter,
 } from '../database/contracts.js'
 import type {
+	RuntimeBehaviorStages,
 	RuntimePipelineStages,
-	RuntimeResultEffectStage,
 } from '../pipeline/contracts.js'
 import type { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
 
@@ -100,15 +100,24 @@ export const beginPipelineTransaction = async (
 	assertDatabaseTransactionAdapter(transaction)
 
 	const postCommitEffects: DeferredPostCommitEffect[] = []
-	const deferPostCommitEvents: RuntimeResultEffectStage = (input) => {
-		postCommitEffects.push(() => stages.postCommitEvents(input))
-	}
+	const postCommit = stages.behaviors?.postCommit
+	const transactionBehaviors: RuntimeBehaviorStages | undefined =
+		postCommit === undefined
+			? stages.behaviors
+			: immutableRecord({
+					...stages.behaviors,
+					postCommit: (input) => {
+						postCommitEffects.push(() => postCommit(input))
+					},
+				})
 	const transactionPipeline: RuntimePipeline = createPipeline({
 		...stages,
 		databaseOperation: transaction,
 		// The outer scope commits the adapter exactly once after the callback.
 		commit: () => undefined,
-		postCommitEvents: deferPostCommitEvents,
+		...(transactionBehaviors === undefined
+			? {}
+			: { behaviors: transactionBehaviors }),
 	})
 	transactionAdapters.set(transactionPipeline, transaction)
 	let state: TransactionScopeState = 'active'

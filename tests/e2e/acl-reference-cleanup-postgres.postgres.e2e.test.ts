@@ -4,6 +4,7 @@ import {
 	acl,
 	aclPlugin,
 	onACLChange,
+	provideACLChangeObserver,
 	type ACLChangedEvent,
 } from '@ultimabase/acl-permissions-plugin'
 import {
@@ -20,6 +21,11 @@ import {
 	type NamedAccessReferenceCleanup,
 	type SchemaDefinition,
 } from '@ultimabase/core'
+import {
+	hooksPlugin,
+	provideHookContributions,
+	schemaHooks,
+} from '@ultimabase/hooks-plugin'
 import { postgresPlugin, postgresTable } from '@ultimabase/postgres-plugin'
 import { RoleSchema, rolesPlugin } from '@ultimabase/roles-plugin'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
@@ -29,7 +35,6 @@ import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from './postgres-worker-fixture.js'
-import { provideTestRuntimeObserver } from './runtime-capabilities.js'
 
 type ReferencePolicy = 'cascade' | 'fail' | 'preserve'
 
@@ -133,7 +138,12 @@ const readPrincipalCleanups = (
 const optionalReferenceCleanups = optionalCapability(
 	accessReferenceCleanupCapability,
 	'^1.0.0',
+	{ phase: 'setup' },
 )
+const principalCleanupsBySchemas = new WeakMap<
+	object,
+	readonly AccessReferenceCleanup<'principal'>[]
+>()
 
 const applyPrincipalPolicy = async (
 	context: AccessContext,
@@ -169,6 +179,10 @@ const applyPrincipalPolicy = async (
 const principalOwnerPlugin = definePlugin({
 	version: '0.0.0',
 	core: '^0.0.0',
+	peers: [
+		{ pluginId: '@ultimabase/hooks-plugin', version: '^0.0.0' },
+		{ pluginId: 'ultimabase.acl', version: '^0.0.0' },
+	],
 	pluginId: 'fixture.acl-principal-owner',
 	privileges: [
 		{
@@ -183,33 +197,42 @@ const principalOwnerPlugin = definePlugin({
 	capabilities: {
 		optional: [optionalReferenceCleanups],
 		provides: [
-			provideTestRuntimeObserver(
+			provideACLChangeObserver(
 				'fixture.observe:acl-change',
 				onACLChange(({ event }) => {
 					committedACLChanges.push(event.payload)
 				}),
 			),
+			provideHookContributions(
+				'principal-reference-deletion',
+				({ schemas }) => {
+					const readCleanups = () =>
+						principalCleanupsBySchemas.get(schemas) ?? []
+
+					return principalPolicies.map(({ policy, schema }) =>
+						schemaHooks(schema, {
+							beforeOperation: {
+								delete: async (input) => {
+									await applyPrincipalPolicy(
+										input.context,
+										schema,
+										input.originalItem.id,
+										policy,
+										readCleanups(),
+									)
+								},
+							},
+						}),
+					)
+				},
+			),
 		],
 	},
-	setup: ({ capabilities, hooks }) => {
-		const readCleanups = () =>
-			readPrincipalCleanups(capabilities.get(optionalReferenceCleanups) ?? [])
-
-		for (const { policy, schema } of principalPolicies) {
-			hooks.schema(`principal-delete:${schema.className}`, schema, {
-				beforeOperation: {
-					delete: async (input) => {
-						await applyPrincipalPolicy(
-							input.context,
-							schema,
-							input.originalItem.id,
-							policy,
-							readCleanups(),
-						)
-					},
-				},
-			})
-		}
+	setup: ({ capabilities, schemas }) => {
+		principalCleanupsBySchemas.set(
+			schemas,
+			readPrincipalCleanups(capabilities.get(optionalReferenceCleanups) ?? []),
+		)
 	},
 })
 
@@ -234,6 +257,7 @@ const createApplication = (
 			onUse: () => undefined,
 		}),
 		plugins: [
+			hooksPlugin(),
 			principalOwnerPlugin,
 			rolesPlugin(),
 			aclPlugin(),

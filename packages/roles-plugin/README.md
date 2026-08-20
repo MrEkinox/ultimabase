@@ -100,8 +100,10 @@ raw identifiers, and unrelated schema values are rejected.
 
 Role membership, hierarchy, and deletion events are optional committed
 notifications. Without an observer, role writes queue no post-commit delivery;
-registered `onEvent()` consumers still receive each event once in deterministic
-plugin order.
+registered `onRoleEvent()` consumers provided through
+`provideRoleEventObserver()` still receive each event once in deterministic
+plugin order. Observer plugins declare `ultimabase.roles` as a non-ordering
+peer and request `runtime:observe`; Roles itself has no Hooks dependency.
 
 Each role schema owns its external-reference deletion policy. `fail` is the
 safe default and rejects roles that still own members, child roles, parent-role

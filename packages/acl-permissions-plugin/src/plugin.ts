@@ -11,21 +11,21 @@ import {
 	optionalCapability,
 	preparedOperation,
 	provideCapability,
+	provideRuntimeBehavior,
 	provideRuntimeConstraint,
 	provideRuntimeInterceptor,
-	type runtimeConstraintCapability,
-	type runtimeInterceptorCapability,
-	type CapabilityProviderDeclaration,
-	type CapabilityRequirement,
+	type DatabaseOperationAst,
 	type CompiledSchemaRegistry,
+	type AccessContext,
 	type ExecutableOperationAst,
-	type FrameworkPlugin,
-	type HookContext,
 	type PointerValue,
 	type PluginCapabilityReader,
+	type RuntimeOperationStageInput,
+	type RuntimeOperationTransformStage,
 	type SchemaDefinition,
 } from '@ultimabase/core'
 import {
+	createPluginEventDispatcher,
 	definePluginModule,
 	definePluginOptionsParser,
 } from '@ultimabase/plugin-kit'
@@ -37,6 +37,10 @@ import {
 } from '@ultimabase/shared'
 
 import { ACL } from './acl.js'
+import {
+	aclChangedEventContract,
+	optionalACLChangedEvents,
+} from './acl-events.js'
 import {
 	createACLApplicationState,
 	type PersistentRoleResolver,
@@ -58,8 +62,9 @@ import {
 	type ResolvedACLEntryLimits,
 } from './acl-limits.js'
 import { createACLRowConstraint, requiredACLPermissions } from './acl-access.js'
+import type { ACLPlugin, ACLPluginOptions } from './plugin-contracts.js'
+import { readACLMutationItems } from './mutation-items.js'
 import {
-	acl,
 	aclFieldName,
 	aclFieldKind,
 	aclPluginName,
@@ -136,75 +141,6 @@ interface ACLPreparedUpdateOperation {
 	readonly update: unknown
 }
 
-/** Exposes ACL-enabled schemas discovered in one application. */
-export interface ACLPluginExports {
-	readonly schemas: readonly SchemaDefinition[]
-}
-
-/** Configures application-wide defaults for persisted ACL size. */
-export interface ACLPluginOptions {
-	/**
-	 * Sets finite subject-entry limits inherited by every ACL-enabled schema.
-	 *
-	 * Canonical duplicate grants count once. Public and authenticated grants do
-	 * not consume either limit.
-	 *
-	 * @default `{ maxPrincipals: 100, maxRoles: 50 }`
-	 * @example `limits: { maxPrincipals: 100, maxRoles: 50 }`
-	 */
-	readonly limits?: ACLEntryLimits
-}
-
-/** Represents the optional ACL provider configured for one application. */
-export type ACLPlugin = FrameworkPlugin<
-	typeof aclPluginName,
-	ACLPluginExports,
-	undefined,
-	undefined,
-	undefined,
-	undefined,
-	undefined,
-	'0.0.0',
-	'^0.0.0',
-	readonly [
-		Readonly<{
-			readonly name: 'runtime:constrain'
-			readonly reason: 'Applies deny-only ACL guards and adapter constraints.'
-		}>,
-		Readonly<{
-			readonly name: 'runtime:intercept'
-			readonly reason: 'Resolves ACL input and publishes committed ACL changes.'
-		}>,
-		Readonly<{
-			readonly name: 'event:publish'
-			readonly reason: 'Publishes committed ACL change notifications.'
-		}>,
-	],
-	undefined,
-	Readonly<{
-		readonly optional: readonly [
-			CapabilityRequirement<
-				typeof accessPrincipalResolverCapability,
-				true,
-				'^1.0.0'
-			>,
-			CapabilityRequirement<
-				typeof accessRoleResolverCapability,
-				true,
-				'^1.0.0'
-			>,
-		]
-		readonly provides: readonly [
-			CapabilityProviderDeclaration<typeof accessReferenceCleanupCapability>,
-			CapabilityProviderDeclaration<typeof accessReferenceCleanupCapability>,
-			CapabilityProviderDeclaration<typeof runtimeConstraintCapability>,
-			CapabilityProviderDeclaration<typeof runtimeInterceptorCapability>,
-			CapabilityProviderDeclaration<typeof runtimeConstraintCapability>,
-			CapabilityProviderDeclaration<typeof runtimeConstraintCapability>,
-		]
-	}>
->
-
 const snapshotResolvedACL = (value: unknown, path: string): ACL => {
 	if (!(value instanceof ACL)) {
 		throw new TypeError(`${path} must resolve to an ACL`)
@@ -228,7 +164,7 @@ const normalizeACLPluginOptions = definePluginOptionsParser({
 })
 
 /** Keeps ACL-document management behind trusted server authority. */
-const assertMasterACLManagement = (context: HookContext): void => {
+const assertMasterACLManagement = (context: AccessContext): void => {
 	if (context.access.mode === 'master') return
 
 	throw new FrameworkError(
@@ -272,7 +208,7 @@ const resolveDefaultACL = async <
 	config: ACLSchemaExtensionConfig<TData>,
 	data: TData,
 	principal: PointerValue | undefined,
-	context: HookContext,
+	context: AccessContext,
 ): Promise<ACL> => {
 	const declaredDefault = config.default
 	const value =
@@ -298,7 +234,7 @@ const assertACLRoleResolution = (
 /** Replaces every logical role selector with its stable provider-owned identity. */
 const resolvePersistentACLRoles = async (
 	value: ACL,
-	context: HookContext,
+	context: AccessContext,
 	resolvePersistentRole: PersistentRoleResolver | undefined,
 ): Promise<ACL> => {
 	const document = value.toJSON()
@@ -355,7 +291,7 @@ const validateAcceptedACL = async (
 	value: ACL,
 	roleResolutionAvailable: boolean,
 	limits: ResolvedACLEntryLimits,
-	context: HookContext,
+	context: AccessContext,
 	resolvePersistentRole: PersistentRoleResolver | undefined,
 ): Promise<ACL> => {
 	assertACLRoleResolution(value, roleResolutionAvailable)
@@ -380,7 +316,7 @@ const resolveCreateInputACL = async <
 	input: Readonly<Record<string, unknown>>,
 	config: ACLSchemaExtensionConfig<TData>,
 	principal: PointerValue | undefined,
-	context: HookContext,
+	context: AccessContext,
 	roleResolutionAvailable: boolean,
 	limits: ResolvedACLEntryLimits,
 	resolvePersistentRole: PersistentRoleResolver | undefined,
@@ -433,7 +369,7 @@ export const resolveCreateOperationACL = async <
 	operation: TOperation,
 	config: ACLSchemaExtensionConfig<TData>,
 	principal: PointerValue | undefined,
-	context: HookContext,
+	context: AccessContext,
 	roleResolutionAvailable = false,
 	limits: ResolvedACLEntryLimits = defaultACLEntryLimits,
 	resolvePersistentRole?: PersistentRoleResolver,
@@ -522,7 +458,7 @@ export const resolvePreparedOperationACL = async <
 	target: Readonly<Record<string, unknown>>,
 	config: ACLSchemaExtensionConfig<TData>,
 	principal: PointerValue | undefined,
-	context: HookContext,
+	context: AccessContext,
 	roleResolutionAvailable = false,
 	limits: ResolvedACLEntryLimits = defaultACLEntryLimits,
 	resolvePersistentRole?: PersistentRoleResolver,
@@ -626,7 +562,6 @@ export const resolvePreparedOperationACL = async <
 	})
 }
 
-const aclExtensionTarget = acl()
 const aclFieldAccessTarget = defineFieldKindAccessTarget<ACLField>(aclFieldKind)
 
 const aclConstraintOperationKinds = Object.freeze([
@@ -648,63 +583,6 @@ const aclReplacementInvariantOperationKinds = Object.freeze([
 	'upsert-many',
 	'upsert-one',
 ] as const)
-
-interface ACLMutationItemPair {
-	readonly originalItem: Readonly<Record<string, unknown>> | null
-	readonly item: Readonly<Record<string, unknown>> | null
-}
-
-/** Accepts Runtime snapshots and exact generated instances at the hook boundary. */
-const isACLMutationItem = (
-	schema: SchemaDefinition,
-	value: unknown,
-): value is Readonly<Record<string, unknown>> =>
-	isPlainRecord(value) ||
-	(typeof schema === 'function' && value instanceof schema)
-
-const readACLMutationItems = (
-	schema: SchemaDefinition,
-	input: unknown,
-): readonly ACLMutationItemPair[] => {
-	if (!isPlainRecord(input)) {
-		throw new TypeError('ACL schema hook input must be an object')
-	}
-
-	if (isUnknownArray(input.items)) {
-		return immutableArray(
-			input.items.map((candidate) => {
-				if (
-					!isPlainRecord(candidate) ||
-					(candidate.originalItem !== null &&
-						!isACLMutationItem(schema, candidate.originalItem)) ||
-					(candidate.item !== null &&
-						!isACLMutationItem(schema, candidate.item))
-				) {
-					throw new TypeError('ACL schema hook item pair is invalid')
-				}
-
-				return immutableRecord({
-					item: candidate.item,
-					originalItem: candidate.originalItem,
-				})
-			}),
-		)
-	}
-
-	if (
-		!Object.hasOwn(input, 'originalItem') ||
-		!Object.hasOwn(input, 'item') ||
-		(input.originalItem !== null &&
-			!isACLMutationItem(schema, input.originalItem)) ||
-		(input.item !== null && !isACLMutationItem(schema, input.item))
-	) {
-		throw new TypeError('ACL singular schema hook item pair is invalid')
-	}
-
-	return immutableArray([
-		immutableRecord({ item: input.item, originalItem: input.originalItem }),
-	])
-}
 
 const updateTouchesACL = (update: unknown): boolean =>
 	isPlainRecord(update) &&
@@ -784,11 +662,21 @@ export const assertSingularACLReplacement = <TSchema extends SchemaDefinition>(
 }
 
 const readOperationSchema = (
-	operation: ExecutableOperationAst,
-): SchemaDefinition =>
-	'query' in operation
-		? operation.query.schema.definition
-		: operation.schema.definition
+	operation: DatabaseOperationAst,
+): SchemaDefinition => {
+	const query: unknown = Reflect.get(operation, 'query')
+	const schemaNode: unknown = isPlainRecord(query)
+		? query.schema
+		: Reflect.get(operation, 'schema')
+	if (!isPlainRecord(schemaNode)) {
+		throw new TypeError('Runtime operation is missing its schema node')
+	}
+	const definition: unknown = schemaNode.definition
+	if (typeof definition !== 'function') {
+		throw new TypeError('Runtime operation schema node is invalid')
+	}
+	return definition as unknown as SchemaDefinition
+}
 
 /**
  * Activates ACL defaults and native Access behavior for schemas using `acl()`.
@@ -936,6 +824,79 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 			}
 		},
 	})
+	const behaviorProvider = provideRuntimeBehavior({
+		contributionId: 'acl-input-and-change-lifecycle',
+		create: ({ assertPrivilege, capabilities, owner, schemas }) => {
+			const state = readApplicationState(schemas, capabilities)
+			const events = createPluginEventDispatcher({
+				assertPrivilege,
+				capabilities,
+				owner,
+				requirement: optionalACLChangedEvents,
+			})
+			const transformInput: RuntimeOperationTransformStage = async <
+				const TOperation extends DatabaseOperationAst,
+			>({
+				context,
+				operation,
+			}: RuntimeOperationStageInput<TOperation>): Promise<TOperation> => {
+				if (
+					operation.kind !== 'create-one' &&
+					operation.kind !== 'create-many' &&
+					operation.kind !== 'upsert-one' &&
+					operation.kind !== 'upsert-many'
+				) {
+					return operation
+				}
+				const schema = readOperationSchema(operation)
+				if (!state.protectedSchemaSet.has(schema)) return operation
+				const extension = schema.extensions.find(
+					(candidate) => candidate.name === aclSchemaExtensionName,
+				)
+				if (extension === undefined) {
+					throw new TypeError('ACL plugin lost its discovered schema extension')
+				}
+				const config = extension.config as ACLSchemaExtensionConfig
+				const subjects = await state.resolveSubjects()
+				const resolved = await resolveCreateOperationACL(
+					operation as unknown as ACLCreateOperation,
+					config,
+					subjects.principal,
+					context,
+					subjects.roleResolutionAvailable,
+					state.resolveSchemaLimits(config),
+					state.readPersistentRoleResolver(),
+				)
+				return resolved as unknown as TOperation
+			}
+
+			return {
+				value: {
+					transformInput,
+					transformResult: async (input) => {
+						if (input.outcome === undefined) return input.result
+						const schema = readOperationSchema(input.operation)
+						if (!state.protectedSchemaSet.has(schema)) return input.result
+						const kind = input.operation.kind.startsWith('create')
+							? 'create'
+							: input.operation.kind.startsWith('upsert')
+								? 'upsert'
+								: 'update'
+						const changes = await state.collectACLChanges(
+							input.context,
+							schema,
+							kind,
+							input.outcome,
+						)
+						for (const change of changes) {
+							events.emit(input.context, aclChangedEventContract, change)
+						}
+						return input.result
+					},
+				},
+			}
+		},
+	})
 
 	return aclPluginModule.plugin({
 		privileges: [
@@ -953,7 +914,11 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 			},
 		],
 		capabilities: {
-			optional: [optionalPrincipalResolver, optionalRoleResolver],
+			optional: [
+				optionalPrincipalResolver,
+				optionalRoleResolver,
+				optionalACLChangedEvents,
+			],
 			provides: [
 				principalReferenceCleanupProvider,
 				roleReferenceCleanupProvider,
@@ -961,61 +926,10 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 				inputProvider,
 				referenceRowsProvider,
 				rowsProvider,
+				behaviorProvider,
 			],
 		},
-		setup: ({ access, capabilities, hooks, schemas }) => {
-			const {
-				emitACLChanges,
-				protectedSchemas,
-				readPersistentRoleResolver,
-				resolveSchemaLimits,
-				resolveSubjects,
-			} = readApplicationState(schemas, capabilities)
-			hooks.schemaExtension(
-				'acl-input-and-change-lifecycle',
-				aclExtensionTarget,
-				({ extension, schema }) => ({
-					afterOperation: {
-						create: async (input) => {
-							await emitACLChanges(input.context, schema, input.kind, input)
-						},
-						update: async (input) => {
-							await emitACLChanges(input.context, schema, input.kind, input)
-						},
-						upsert: async (input) => {
-							await emitACLChanges(input.context, schema, input.kind, input)
-						},
-					},
-					resolveInput: {
-						create: async ({ context, operation }) => {
-							const subjects = await resolveSubjects()
-
-							return resolveCreateOperationACL(
-								operation,
-								extension.config,
-								subjects.principal,
-								context,
-								subjects.roleResolutionAvailable,
-								resolveSchemaLimits(extension.config),
-								readPersistentRoleResolver(),
-							)
-						},
-						upsert: async ({ context, operation }) => {
-							const subjects = await resolveSubjects()
-
-							return resolveCreateOperationACL(
-								operation,
-								extension.config,
-								subjects.principal,
-								context,
-								subjects.roleResolutionAvailable,
-								resolveSchemaLimits(extension.config),
-								readPersistentRoleResolver(),
-							)
-						},
-					},
-				}),
-			)
+		setup: ({ access, schemas }) => {
 			access.fieldKind(
 				'protect-acl-field',
 				aclFieldAccessTarget,
@@ -1027,7 +941,9 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 				{ master: 'bypass' },
 			)
 
-			return Object.freeze({ schemas: Object.freeze(protectedSchemas) })
+			return Object.freeze({
+				schemas: Object.freeze(readProtectedSchemas(schemas)),
+			})
 		},
 	})
 }

@@ -187,6 +187,8 @@ Accepted records:
 - [ADR-0199: Runtime capabilities execute behind a Core-owned request shell](0199-runtime-capability-assembly.md)
 - [ADR-0200: Persistence rewrites are physical and constraints remain Core-owned](0200-protected-rewritable-persistence-plans.md)
 - [ADR-0201: Application-bound results expose plugin model commands directly](0201-transparent-application-model-surfaces.md)
+- [ADR-0202: Hooks is one vertical plugin](0202-hooks-are-one-vertical-plugin.md)
+- [ADR-0203: Plugin peers validate compatibility without ordering](0203-plugin-peer-requirements-do-not-order.md)
 
 Superseded records:
 

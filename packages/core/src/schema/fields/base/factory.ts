@@ -11,8 +11,7 @@ import {
 	type ScalarValueSnapshot,
 } from './definition.js'
 import { emptyFieldOptions, type EmptyFieldOptions } from './options.js'
-import type { FieldHookDeclaration } from '../../hooks/field-contracts.js'
-import { splitFieldDeclarationOptions } from '../../hooks/field-declarations.js'
+import { splitFieldAccessOptions } from '../../access/field-options.js'
 import type { FieldAccessDeclaration } from '../../access/contracts.js'
 
 type ScalarFieldOptionsNormalizer<TOptions extends object> = <
@@ -46,17 +45,7 @@ export type DefaultedCompactScalarFieldOptions<
 > = CompactScalarFieldOptions<TOptions, TRequired, TList, TImmutable> &
 	TInferredOptions & {
 		readonly default: FieldDefault<FieldListValue<TValue, TList>>
-	} & FieldHookDeclaration<
-		NoInfer<
-			FieldDefinition<
-				'field',
-				TValue,
-				TOptions,
-				ScalarFieldTypegenState<TRequired, TList, TImmutable, true>
-			>
-		>
-	> &
-	FieldAccessDeclaration<
+	} & FieldAccessDeclaration<
 		NoInfer<
 			FieldDefinition<
 				'field',
@@ -76,17 +65,7 @@ export type NonDefaultedCompactScalarFieldOptions<
 	TImmutable extends boolean,
 	TInferredOptions extends object = object,
 > = CompactScalarFieldOptions<TOptions, TRequired, TList, TImmutable> &
-	TInferredOptions & { readonly default?: never } & FieldHookDeclaration<
-		NoInfer<
-			FieldDefinition<
-				'field',
-				TValue,
-				TOptions,
-				ScalarFieldTypegenState<TRequired, TList, TImmutable, false>
-			>
-		>
-	> &
-	FieldAccessDeclaration<
+	TInferredOptions & { readonly default?: never } & FieldAccessDeclaration<
 		NoInfer<
 			FieldDefinition<
 				'field',
@@ -472,8 +451,8 @@ const createCompactScalarFieldImplementation =
 
 			return createFieldDefinition(kind, emptyFieldOptions, snapshotValue)
 		}
-		const { access, hooks, metadataOptions } =
-			splitFieldDeclarationOptions<TOptions>(options)
+		const { access, metadataOptions } =
+			splitFieldAccessOptions<TOptions>(options)
 		const { normalizeOptions, snapshotValue } =
 			resolveConfiguration(metadataOptions)
 
@@ -481,7 +460,6 @@ const createCompactScalarFieldImplementation =
 			kind,
 			normalizeOptions(metadataOptions),
 			snapshotValue,
-			hooks,
 			access,
 		)
 	}

@@ -269,7 +269,11 @@ export interface SchemaCompilerOptionDefinitionNode {
 	}>
 	readonly scope: 'field' | 'schema'
 	readonly staticOptions: Readonly<Record<string, JsonValue>>
-	readonly typegen: Readonly<{ readonly module: string; readonly type: string }>
+	readonly typegen: Readonly<{
+		readonly generic?: 'self'
+		readonly module: string
+		readonly type: string
+	}>
 }
 
 /** Preserves one plugin schema addition and all facts used to attribute it. */

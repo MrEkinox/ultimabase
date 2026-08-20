@@ -13,18 +13,17 @@ import {
 	type SchemaExtension,
 	type SchemaFields,
 	type SchemaFieldBuilderDeclaration,
-	type SchemaHooks,
 	type SchemaIndexOptions,
 	type SchemaModelCapabilityContext,
 	type SchemaOptions,
 	type SchemaResultCapabilityCarrier,
 	type ScalarFieldTypegenState,
 	type StringField,
+	type UltimaBaseGeneratedSchemaOptions,
 } from '@ultimabase/core'
 
 import {
 	createRoleReference,
-	normalizeRoleName,
 	type RoleIdSelector,
 	type RoleNameSelector,
 	type RoleReference,
@@ -69,10 +68,6 @@ const createRoleNameField = (): StringField<
 	stringField({
 		indexed: 'unique',
 		validation: { required: true, length: { min: 1 } },
-		hooks: {
-			// The stored name is itself the canonical identity; no duplicate column can drift.
-			resolveInput: ({ value }) => normalizeRoleName(value),
-		},
 	})
 
 type RoleNameField = ReturnType<typeof createRoleNameField>
@@ -174,7 +169,7 @@ export type RoleSchemaClass<
 export interface RoleSchemaOptions<
 	TClassName extends string,
 	TMemberSchema extends SchemaDefinition,
-> {
+> extends UltimaBaseGeneratedSchemaOptions {
 	/** Declares the stable logical name used by queries and adapters. */
 	readonly className: TClassName
 	/** Selects the exact member domain and optional request-local resolver. */
@@ -189,8 +184,6 @@ export interface RoleSchemaOptions<
 	readonly extensions?: readonly SchemaExtension<string, object>[]
 	/** Protects role administration through native schema Access. */
 	readonly access?: SchemaAccess<RoleSchemaBaseClass<TClassName>>
-	/** Adds ordinary schema lifecycle behavior to role persistence. */
-	readonly hooks?: SchemaHooks<RoleSchemaBaseClass<TClassName>>
 }
 
 /** Retains package-private declaration state without polluting schema metadata. */
@@ -287,6 +280,20 @@ export class RoleSchema {
 			}
 		}
 		const extensions = [...(options.extensions ?? []), roleSchemaExtension]
+		const generatedOptions = Object.fromEntries(
+			Object.entries(options).filter(
+				([name]) =>
+					!new Set([
+						'access',
+						'className',
+						'deletion',
+						'extensions',
+						'fields',
+						'indexes',
+						'members',
+					]).has(name),
+			),
+		)
 		type SelfSchema = RoleSchemaSelfDefinition<TClassName>
 		const createCapabilities = (
 			context: SchemaModelCapabilityContext<SchemaDefinition>,
@@ -338,12 +345,12 @@ export class RoleSchema {
 			}
 		}
 		const commonOptions = {
+			...generatedOptions,
 			className: options.className,
 			fields,
 			extensions,
 			...(options.indexes === undefined ? {} : { indexes: options.indexes }),
 			...(options.access === undefined ? {} : { access: options.access }),
-			...(options.hooks === undefined ? {} : { hooks: options.hooks }),
 		}
 		// Public overloads retain exact map or generated builder types. This internal
 		// specialization deliberately crosses their union only after constructing the

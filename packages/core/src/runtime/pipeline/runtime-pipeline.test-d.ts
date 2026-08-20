@@ -28,13 +28,8 @@ declare const databaseOperation: DatabaseAdapter
 const stages = {
 	normalization: (input) => input.operation,
 	structuralValidation: (input) => input.operation,
-	globalBeforeHooks: () => undefined,
-	schemaBeforeHooks: () => undefined,
 	databaseOperation,
-	schemaAfterHooks: (input) => input.result,
-	globalAfterHooks: (input) => input.result,
 	commit: () => undefined,
-	postCommitEvents: () => undefined,
 } satisfies RuntimePipelineStages
 
 const enforcedStages = {
@@ -69,9 +64,9 @@ test('preserves the exact operation result through every stage', () => {
 })
 
 test('requires every pipeline stage during typed assembly', () => {
-	const { postCommitEvents: omittedStage, ...incompleteStages } = stages
+	const { commit: omittedStage, ...incompleteStages } = stages
 
 	expectTypeOf(omittedStage).toBeFunction()
-	// @ts-expect-error -- Post-commit delivery is a mandatory pipeline boundary.
+	// @ts-expect-error -- Commit remains a mandatory pipeline boundary.
 	new RuntimePipeline(incompleteStages)
 })

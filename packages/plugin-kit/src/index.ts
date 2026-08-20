@@ -1,4 +1,20 @@
 export {
+	createPluginEventDispatcher,
+	definePluginEvent,
+	definePluginEventCapability,
+	observePluginEvent,
+	optionalPluginEvents,
+	providePluginEvent,
+	type PluginEvent,
+	type PluginEventCapability,
+	type PluginEventContract,
+	type PluginEventDelivery,
+	type PluginEventDispatcher,
+	type PluginEventHandler,
+	type PluginEventHandlerInput,
+	type PluginEventObserver,
+} from './plugin-events.js'
+export {
 	definePluginModule,
 	type DefinePluginModuleOptions,
 	type PluginModule,

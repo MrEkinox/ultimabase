@@ -1,21 +1,28 @@
 import {
-	defineEvent,
 	Pointer,
 	accessReferenceCleanupCapability,
 	accessRoleResolverCapability,
+	materializeSchemaModel,
 	optionalCapability,
 	provideCapability,
+	provideRuntimeBehavior,
+	type runtimeBehaviorCapability,
 	type CapabilityProviderDeclaration,
 	type CapabilityRequirement,
 	type CompiledSchemaRegistry,
-	type HookContext,
-	type HookEventContract,
-	type JsonObject,
+	type DatabaseOperationAst,
+	type ExecutableOperationAst,
 	type RelationMutationAction,
 	type FrameworkPlugin,
+	type RequestContext,
+	type RuntimeBehaviorStages,
 	type SchemaDefinition,
 } from '@ultimabase/core'
-import { definePluginModule } from '@ultimabase/plugin-kit'
+import {
+	createPluginEventDispatcher,
+	definePluginModule,
+	type PluginEventDispatcher,
+} from '@ultimabase/plugin-kit'
 import {
 	immutableArray,
 	immutableRecord,
@@ -33,6 +40,15 @@ import {
 	type NamedRoleReferenceCleanup,
 } from './role-deletion.js'
 import { createStoredRoleResolver } from './role-access.js'
+import { normalizeRoleName } from './role-reference.js'
+import {
+	roleDeletedEventContract,
+	roleHierarchyChangedEventContract,
+	roleMembershipChangedEventContract,
+	optionalRoleEvents,
+	type RoleHierarchyChangedEvent,
+	type RoleMembershipChangedEvent,
+} from './role-events.js'
 
 const rolesPluginModule = definePluginModule({
 	core: '^0.0.0',
@@ -45,6 +61,24 @@ const optionalReferenceCleanups = optionalCapability(
 	'^1.0.0',
 	{ phase: 'setup' },
 )
+const referenceCleanupsBySchemas = new WeakMap<
+	object,
+	readonly NamedRoleReferenceCleanup[]
+>()
+
+const collectRoleReferenceCleanups = (
+	contributions: readonly {
+		readonly cleanup: Readonly<{ readonly kind: string }>
+		readonly name: string
+	}[],
+): readonly NamedRoleReferenceCleanup[] =>
+	immutableArray(
+		contributions.flatMap((contribution) =>
+			contribution.cleanup.kind === 'role'
+				? [contribution as NamedRoleReferenceCleanup]
+				: [],
+		),
+	)
 const readRoleSchemas = (
 	schemas: CompiledSchemaRegistry,
 ): readonly SchemaDefinition[] =>
@@ -59,48 +93,36 @@ const roleResolverProvider = provideCapability(accessRoleResolverCapability, {
 	}),
 })
 
+const roleBehaviorProvider: CapabilityProviderDeclaration<
+	typeof runtimeBehaviorCapability
+> = provideRuntimeBehavior({
+	contributionId: 'role-membership-lifecycle',
+	create: ({ assertPrivilege, capabilities, owner, schemas }) => {
+		const readReferenceCleanups = (): readonly NamedRoleReferenceCleanup[] =>
+			referenceCleanupsBySchemas.get(schemas) ?? immutableArray([])
+
+		const roleSchemas = new Set(readRoleSchemas(schemas))
+		const events = createPluginEventDispatcher({
+			assertPrivilege,
+			capabilities,
+			owner,
+			requirement: optionalRoleEvents,
+		})
+
+		return {
+			value: createRoleRuntimeBehavior(
+				roleSchemas,
+				readReferenceCleanups,
+				events,
+			),
+		}
+	},
+})
+
 /** Exposes the application-local role domains discovered during setup. */
 export interface RolesPluginExports {
 	readonly schemas: readonly SchemaDefinition[]
 }
-
-/** Names the post-commit event emitted for every direct member-edge change. */
-export const roleMembershipChangedEvent =
-	'ultimabase.roles.membership.changed' as const
-
-/** Describes one committed change to a generated member relation. */
-export interface RoleMembershipChangedEvent extends JsonObject {
-	readonly action: RelationMutationAction
-	readonly memberIds: readonly string[]
-	readonly roleId: string
-}
-
-const roleMembershipChangedEventContract: HookEventContract<
-	typeof roleMembershipChangedEvent,
-	RoleMembershipChangedEvent,
-	'optional'
-> = defineEvent<RoleMembershipChangedEvent>()(roleMembershipChangedEvent, {
-	delivery: 'optional',
-})
-
-/** Names the post-commit event emitted for every nested-role edge change. */
-export const roleHierarchyChangedEvent =
-	'ultimabase.roles.hierarchy.changed' as const
-
-/** Describes one committed change to a generated child-role relation. */
-export interface RoleHierarchyChangedEvent extends JsonObject {
-	readonly action: RelationMutationAction
-	readonly childRoleIds: readonly string[]
-	readonly roleId: string
-}
-
-const roleHierarchyChangedEventContract: HookEventContract<
-	typeof roleHierarchyChangedEvent,
-	RoleHierarchyChangedEvent,
-	'optional'
-> = defineEvent<RoleHierarchyChangedEvent>()(roleHierarchyChangedEvent, {
-	delivery: 'optional',
-})
 
 interface RoleRelationChange {
 	readonly action: RelationMutationAction
@@ -162,11 +184,113 @@ const readRoleRelationChanges = (
 	return immutableArray(changes)
 }
 
+const readOperationSchema = (
+	operation: DatabaseOperationAst,
+): SchemaDefinition => {
+	const query: unknown = Reflect.get(operation, 'query')
+	const schemaNode: unknown = isPlainRecord(query)
+		? query.schema
+		: Reflect.get(operation, 'schema')
+	if (
+		!isPlainRecord(schemaNode) ||
+		typeof schemaNode.definition !== 'function'
+	) {
+		throw new TypeError('Role Runtime operation is missing its schema')
+	}
+	return schemaNode.definition as unknown as SchemaDefinition
+}
+
+const normalizeRoleNameValue = (value: unknown): string => {
+	if (typeof value !== 'string') {
+		throw new TypeError('Role names must be strings')
+	}
+	return normalizeRoleName(value)
+}
+
+const normalizeRoleRecord = (
+	value: Readonly<Record<string, unknown>>,
+): Readonly<Record<string, unknown>> =>
+	Object.hasOwn(value, 'name')
+		? immutableRecord({ ...value, name: normalizeRoleNameValue(value.name) })
+		: value
+
+const normalizeRoleUpdate = (value: unknown): unknown => {
+	if (!isPlainRecord(value) || !isUnknownArray(value.operations)) return value
+
+	return immutableRecord({
+		...value,
+		operations: immutableArray(
+			value.operations.map((operation) => {
+				if (
+					!isPlainRecord(operation) ||
+					operation.field !== 'name' ||
+					!Object.hasOwn(operation, 'value')
+				) {
+					return operation
+				}
+				return immutableRecord({
+					...operation,
+					value: normalizeRoleNameValue(operation.value),
+				})
+			}),
+		),
+	})
+}
+
+const normalizeRoleOperation = <const TOperation extends DatabaseOperationAst>(
+	operation: TOperation,
+): TOperation => {
+	const executable = operation as unknown as ExecutableOperationAst
+	const normalized: unknown = (() => {
+		switch (executable.kind) {
+			case 'create-one':
+				return immutableRecord({
+					...executable,
+					input: normalizeRoleRecord(executable.input),
+				})
+			case 'create-many':
+				return immutableRecord({
+					...executable,
+					inputs: immutableArray(executable.inputs.map(normalizeRoleRecord)),
+				})
+			case 'update-one':
+			case 'update-many':
+				return immutableRecord({
+					...executable,
+					update: normalizeRoleUpdate(executable.update),
+				})
+			case 'upsert-one':
+				return immutableRecord({
+					...executable,
+					create: normalizeRoleRecord(executable.create),
+					update: normalizeRoleUpdate(executable.update),
+				})
+			case 'upsert-many':
+				return immutableRecord({
+					...executable,
+					items: immutableArray(
+						executable.items.map((item) =>
+							immutableRecord({
+								...item,
+								create: normalizeRoleRecord(item.create),
+								update: normalizeRoleUpdate(item.update),
+							}),
+						),
+					),
+				})
+			default:
+				return executable
+		}
+	})()
+	return normalized as TOperation
+}
+
 /** Queues audit-ready data for delivery only after Runtime confirms the commit. */
 const emitRoleRelationChanges = (
-	context: HookContext,
+	context: RequestContext,
 	operation: unknown,
 	item: unknown,
+	events: PluginEventDispatcher,
 ): void => {
 	const changes = readRoleRelationChanges(operation)
 
@@ -184,7 +308,7 @@ const emitRoleRelationChanges = (
 				roleId,
 			})
 
-			context.emit(roleMembershipChangedEventContract, payload)
+			events.emit(context, roleMembershipChangedEventContract, payload)
 			continue
 		}
 
@@ -194,9 +318,69 @@ const emitRoleRelationChanges = (
 			roleId,
 		})
 
-		context.emit(roleHierarchyChangedEventContract, payload)
+		events.emit(context, roleHierarchyChangedEventContract, payload)
 	}
 }
+
+const createRoleRuntimeBehavior = (
+	roleSchemas: ReadonlySet<SchemaDefinition>,
+	readReferenceCleanups: () => readonly NamedRoleReferenceCleanup[],
+	events: PluginEventDispatcher,
+): RuntimeBehaviorStages =>
+	immutableRecord({
+		transformInput: (input) =>
+			roleSchemas.has(readOperationSchema(input.operation))
+				? normalizeRoleOperation(input.operation)
+				: input.operation,
+		observePreparedMutation: async ({ context, operation, target }) => {
+			if (
+				operation.kind !== 'delete-one' ||
+				!roleSchemas.has(readOperationSchema(operation)) ||
+				target === null ||
+				target === undefined
+			) {
+				return
+			}
+			const schema = readOperationSchema(operation)
+			const declaration = getRoleSchemaDeclaration(schema)
+			if (declaration === undefined) {
+				throw new TypeError('Discovered role schema lost its declaration')
+			}
+			const roleName: unknown = Reflect.get(target, 'name')
+			if (typeof roleName !== 'string') {
+				throw new TypeError('Prepared role deletion requires a role name')
+			}
+			const event = await applyRoleDeletionPolicy(
+				context,
+				schema,
+				roleName,
+				declaration,
+				readReferenceCleanups(),
+			)
+			events.emit(context, roleDeletedEventContract, event)
+		},
+		transformResult: async (input) => {
+			if (
+				input.outcome === undefined ||
+				input.operation.kind !== 'update-one' ||
+				!roleSchemas.has(readOperationSchema(input.operation))
+			) {
+				return input.result
+			}
+			const schema = readOperationSchema(input.operation)
+			const changes = readRoleRelationChanges(input.operation)
+			for (const materialization of input.outcome.materializations) {
+				if (materialization.kind !== 'update') continue
+
+				const item = materializeSchemaModel(schema, materialization.current)
+				if (changes.some(({ field }) => field === 'roles')) {
+					await assertRoleHierarchyAcyclic(item)
+				}
+				emitRoleRelationChanges(input.context, input.operation, item, events)
+			}
+			return input.result
+		},
+	})
 
 /** Represents the option-light official stored-role provider. */
 export type RolesPlugin = FrameworkPlugin<
@@ -212,7 +396,7 @@ export type RolesPlugin = FrameworkPlugin<
 	readonly [
 		Readonly<{
 			readonly name: 'runtime:intercept'
-			readonly reason: 'Maintains role references through native schema hooks.'
+			readonly reason: 'Maintains role invariants through generic Runtime behavior.'
 		}>,
 		Readonly<{
 			readonly name: 'event:publish'
@@ -223,12 +407,20 @@ export type RolesPlugin = FrameworkPlugin<
 	Readonly<{
 		readonly provides: readonly [
 			CapabilityProviderDeclaration<typeof accessRoleResolverCapability>,
+			CapabilityProviderDeclaration<typeof runtimeBehaviorCapability>,
 		]
 		readonly optional: readonly [
 			CapabilityRequirement<
 				typeof accessReferenceCleanupCapability,
 				true,
-				'^1.0.0'
+				'^1.0.0',
+				'setup'
+			>,
+			CapabilityRequirement<
+				typeof optionalRoleEvents.token,
+				true,
+				'^1.0.0',
+				'materialization'
 			>,
 		]
 	}>
@@ -245,7 +437,7 @@ export const rolesPlugin = (): RolesPlugin =>
 		privileges: [
 			{
 				name: 'runtime:intercept',
-				reason: 'Maintains role references through native schema hooks.',
+				reason: 'Maintains role invariants through generic Runtime behavior.',
 			},
 			{
 				name: 'event:publish',
@@ -253,71 +445,17 @@ export const rolesPlugin = (): RolesPlugin =>
 			},
 		],
 		capabilities: {
-			optional: [optionalReferenceCleanups],
-			provides: [roleResolverProvider],
+			optional: [optionalReferenceCleanups, optionalRoleEvents],
+			provides: [roleResolverProvider, roleBehaviorProvider],
 		},
-		setup: ({ capabilities, hooks, schemas }) => {
+		setup: ({ capabilities, schemas }) => {
+			referenceCleanupsBySchemas.set(
+				schemas,
+				collectRoleReferenceCleanups(
+					capabilities.get(optionalReferenceCleanups) ?? [],
+				),
+			)
 			const roleSchemas = readRoleSchemas(schemas)
-			const readReferenceCleanups = (): readonly NamedRoleReferenceCleanup[] =>
-				immutableArray(
-					(capabilities.get(optionalReferenceCleanups) ?? []).flatMap(
-						(contribution) => {
-							if (contribution.cleanup.kind !== 'role') {
-								return []
-							}
-
-							return [
-								immutableRecord({
-									cleanup: contribution.cleanup,
-									name: contribution.name,
-								}),
-							]
-						},
-					),
-				)
-
-			for (const schema of roleSchemas) {
-				const declaration = getRoleSchemaDeclaration(schema)
-
-				if (declaration === undefined) {
-					// Discovery and declaration lookup share one private WeakMap invariant.
-					throw new TypeError('Discovered role schema lost its declaration')
-				}
-
-				hooks.schema(`membership-events:${schema.className}`, schema, {
-					beforeOperation: {
-						delete: async (input) => {
-							const roleName: unknown = Reflect.get(input.originalItem, 'name')
-
-							if (typeof roleName !== 'string') {
-								throw new TypeError(
-									'Prepared role deletion requires a role name',
-								)
-							}
-
-							await applyRoleDeletionPolicy(
-								input.context,
-								schema,
-								roleName,
-								declaration,
-								readReferenceCleanups(),
-							)
-						},
-					},
-					afterOperation: {
-						update: async ({ context, item, operation }) => {
-							const changes = readRoleRelationChanges(operation)
-
-							if (changes.some(({ field }) => field === 'roles')) {
-								await assertRoleHierarchyAcyclic(item)
-							}
-
-							emitRoleRelationChanges(context, operation, item)
-						},
-					},
-				})
-			}
-
 			return Object.freeze({ schemas: Object.freeze(roleSchemas) })
 		},
 	})

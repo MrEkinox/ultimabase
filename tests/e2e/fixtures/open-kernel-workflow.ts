@@ -1,23 +1,27 @@
 import {
 	Schema,
-	defineEvent,
 	defineOperation,
 	defineOperationTransport,
 	defineOperationValue,
 	defineSchemaOption,
 	intField,
-	onEvent,
 	operationTransportBinding,
 	operationWireCodec,
 	optionalCapability,
 	provideOperationTransportBinding,
-	provideRuntimeObserver,
 	stringField,
 	type PluginOperationExecutionTarget,
 	type JsonObject,
 	type SchemaDefinition,
 	typegenEmitterCapability,
 } from '@ultimabase/core'
+import {
+	defineEvent,
+	onEvent,
+	provideHookContributions,
+	provideHookEvent,
+	schemaHooks,
+} from '@ultimabase/hooks-plugin'
 import {
 	definePluginModule,
 	defineTypegenModule,
@@ -177,23 +181,10 @@ export const createWorkflowPlugin = (options: WorkflowPluginOptions) => {
 		fields: (field) => ({
 			action: field.string({ validation: { required: true } }),
 		}),
-		hooks: {
-			afterOperation: {
-				create: ({ context, item }) => {
-					const action = item.action
-					if (typeof action !== 'string') {
-						throw new TypeError('Workflow audit action must be a string')
-					}
-					context.emit(workflowCommittedEvent, {
-						action,
-						auditId: item.id,
-					})
-				},
-			},
-		},
 	})
 	const targetSchemas = [options.stableSchema, DynamicAudit] as const
 	const plugin = workflowModule.plugin({
+		peers: [{ pluginId: '@ultimabase/hooks-plugin', version: '^0.0.0' }],
 		capabilities: {
 			optional: [emitter],
 			provides: [
@@ -216,18 +207,31 @@ export const createWorkflowPlugin = (options: WorkflowPluginOptions) => {
 					contributionId: 'fake-transport',
 					create: () => ({ value: workflowTransportBinding }),
 				}),
-				provideRuntimeObserver({
-					contributionId: 'committed-events',
-					create: () => ({
-						value: onEvent<
-							typeof workflowCommittedEvent.name,
-							WorkflowCommittedPayload
-						>({
+				provideHookContributions('workflow-audit-hooks', () =>
+					schemaHooks(DynamicAudit, {
+						afterOperation: {
+							create: ({ context, item }) => {
+								const action = item.action
+								if (typeof action !== 'string') {
+									throw new TypeError('Workflow audit action must be a string')
+								}
+								context.emit(workflowCommittedEvent, {
+									action,
+									auditId: item.id,
+								})
+							},
+						},
+					}),
+				),
+				provideHookEvent(
+					'committed-events',
+					onEvent<typeof workflowCommittedEvent.name, WorkflowCommittedPayload>(
+						{
 							handler: ({ event }) => options.onCommitted?.(event.payload),
 							name: workflowCommittedEvent.name,
-						}),
-					}),
-				}),
+						},
+					),
+				),
 			],
 		},
 		declare: ({
@@ -324,6 +328,10 @@ export const createWorkflowPlugin = (options: WorkflowPluginOptions) => {
 			{
 				name: 'transport:expose',
 				reason: 'Binds the explicit fake transport.',
+			},
+			{
+				name: 'runtime:intercept',
+				reason: 'Contributes the workflow audit lifecycle.',
 			},
 			{
 				name: 'runtime:observe',

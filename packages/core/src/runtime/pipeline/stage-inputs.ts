@@ -21,8 +21,8 @@ import type { RequestContext } from '../context/request-context.js'
 import type {
 	RuntimeEnforcementStageInput,
 	RuntimeMutationOutcomeStageInput,
-	RuntimeNativeDatabaseResultStageInput,
-	RuntimeNativeResultStageInput,
+	RuntimeProjectedDatabaseResultStageInput,
+	RuntimeMaterializedResultStageInput,
 	RuntimeOperationResult,
 	RuntimeOperationStageInput,
 	RuntimePreparedMutationStageInput,
@@ -124,7 +124,7 @@ export const createRuntimeResultInput = <
 ): RuntimeResultStageInput<TOperation> =>
 	immutableRecord({ context, operation, result })
 
-export const createRuntimeNativeResultInput = <
+export const createRuntimeMaterializedResultInput = <
 	const TOperation extends DatabaseOperationAst,
 >(
 	context: RequestContext,
@@ -132,7 +132,7 @@ export const createRuntimeNativeResultInput = <
 	result: RuntimeOperationResult<TOperation>,
 	selectedFieldsOverride: readonly string[] | undefined,
 	outcome: DatabaseOperationOutcome<DatabaseMutationOperationAst> | undefined,
-): RuntimeNativeResultStageInput<TOperation> =>
+): RuntimeMaterializedResultStageInput<TOperation> =>
 	immutableRecord({
 		context,
 		operation,
@@ -141,14 +141,14 @@ export const createRuntimeNativeResultInput = <
 		...(selectedFieldsOverride === undefined ? {} : { selectedFieldsOverride }),
 	})
 
-export const createRuntimeNativeDatabaseResultInput = <
+export const createRuntimeProjectedDatabaseResultInput = <
 	const TOperation extends DatabaseOperationAst,
 >(
 	context: RequestContext,
 	operation: TOperation,
 	result: DatabaseOperationResult<TOperation>,
 	selectedFieldsOverride: readonly string[] | undefined,
-): RuntimeNativeDatabaseResultStageInput<TOperation> =>
+): RuntimeProjectedDatabaseResultStageInput<TOperation> =>
 	immutableRecord({
 		context,
 		operation,

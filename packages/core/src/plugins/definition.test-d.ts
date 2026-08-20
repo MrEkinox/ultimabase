@@ -82,6 +82,7 @@ test('unwraps asynchronous setup exports and preserves nested tuples', () => {
 		core: '^0.0.0',
 		pluginId: 'fixture.parent',
 		dependencies: [{ pluginId: 'fixture.base', version: '^0.0.0' }] as const,
+		peers: [{ pluginId: 'fixture.protocol', version: '^1.0.0' }] as const,
 		plugins: [child] as const,
 	})
 
@@ -97,6 +98,15 @@ test('unwraps asynchronous setup exports and preserves nested tuples', () => {
 	>()
 	expectTypeOf(parent.plugins).toEqualTypeOf<
 		readonly [typeof child] | undefined
+	>()
+	expectTypeOf(parent.peers).toEqualTypeOf<
+		| readonly [
+				{
+					readonly pluginId: 'fixture.protocol'
+					readonly version: '^1.0.0'
+				},
+		  ]
+		| undefined
 	>()
 })
 

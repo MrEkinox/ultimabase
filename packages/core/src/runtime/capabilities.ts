@@ -1,4 +1,8 @@
-import { immutableArray, immutableRecord } from '@ultimabase/shared'
+import {
+	immutableArray,
+	immutableRecord,
+	isPlainRecord,
+} from '@ultimabase/shared'
 
 import {
 	defineCapability,
@@ -19,6 +23,7 @@ import { getRuntimeContributionImplementation } from './hooks/definitions.js'
 import { getHookEventImplementation } from './hooks/events.js'
 import { RuntimePipeline } from './pipeline/runtime-pipeline.js'
 import type { RuntimePipelineStages } from './pipeline/contracts.js'
+import type { RuntimeBehaviorStages } from './pipeline/contracts.js'
 import {
 	getRuntimePipelineStageImplementation,
 	type RuntimePipelineStageName,
@@ -53,6 +58,25 @@ export type RuntimeObserverDefinition =
 export type RuntimeExecutorFactory = (
 	stages: Readonly<RuntimePipelineStages>,
 ) => RuntimePipeline
+
+/** Composes application-local product behavior without exposing Core internals. */
+export const runtimeBehaviorCapability: CapabilityToken<
+	RuntimeBehaviorStages,
+	readonly RuntimeBehaviorStages[],
+	'ultimabase.runtime-behaviors',
+	'1.0.0',
+	'multiple',
+	'application'
+> = defineCapability<RuntimeBehaviorStages, readonly RuntimeBehaviorStages[]>()(
+	{
+		capabilityId: 'ultimabase.runtime-behaviors',
+		version: '1.0.0',
+		cardinality: 'multiple',
+		lifetime: 'application',
+		compose: (providers) =>
+			immutableArray(providers.map(assertRuntimeBehavior)),
+	},
+)
 
 /** Composes logical interceptors in deterministic plugin graph order. */
 export const runtimeInterceptorCapability: CapabilityToken<
@@ -148,6 +172,38 @@ const interceptorProviders = new WeakSet<object>()
 const constraintProviders = new WeakSet<object>()
 const observerProviders = new WeakSet<object>()
 const runtimeReplacements = new WeakSet<object>()
+const behaviorProviders = new WeakSet<object>()
+
+const runtimeBehaviorKeys: ReadonlySet<string> = new Set([
+	'beforeOperation',
+	'observePreparedMutation',
+	'postCommit',
+	'requiresPreparedMutationItems',
+	'revalidateInput',
+	'transformDatabaseResult',
+	'transformInput',
+	'transformMutationOutcome',
+	'transformPreparedInput',
+	'transformPreparedOperation',
+	'transformResult',
+])
+
+const assertRuntimeBehavior = (value: unknown): RuntimeBehaviorStages => {
+	if (!isPlainRecord(value)) {
+		throw new TypeError('runtime behavior providers must return a plain object')
+	}
+
+	for (const key of Object.keys(value)) {
+		if (!runtimeBehaviorKeys.has(key)) {
+			throw new TypeError(`Unknown runtime behavior stage: ${key}`)
+		}
+		if (typeof value[key] !== 'function') {
+			throw new TypeError(`Runtime behavior stage ${key} must be a function`)
+		}
+	}
+
+	return immutableRecord(value)
+}
 
 const assertRuntimeInterceptorDefinition = (
 	definition: unknown,
@@ -226,6 +282,15 @@ export const provideRuntimeObserver = <
 	return declaration
 }
 
+/** Declares one optional product behavior through `runtime:intercept`. */
+export const provideRuntimeBehavior = (
+	options: RuntimeProviderOptions<RuntimeBehaviorStages>,
+): CapabilityProviderDeclaration<typeof runtimeBehaviorCapability> => {
+	const declaration = provideCapability(runtimeBehaviorCapability, options)
+	behaviorProviders.add(declaration)
+	return declaration
+}
+
 /** Identifies Core's canonical executor when declaring the first replacement. */
 export const canonicalRuntimeExecutorTarget: CapabilityContributionTarget =
 	immutableRecord({
@@ -275,6 +340,7 @@ export const runtimeProviderPrivilege = (
 	if (token === runtimeInterceptorCapability) return 'runtime:intercept'
 	if (token === runtimeConstraintCapability) return 'runtime:constrain'
 	if (token === runtimeObserverCapability) return 'runtime:observe'
+	if (token === runtimeBehaviorCapability) return 'runtime:intercept'
 	return undefined
 }
 
@@ -284,7 +350,8 @@ export const isAuthorizedRuntimeProvider = (
 ): boolean =>
 	interceptorProviders.has(declaration) ||
 	constraintProviders.has(declaration) ||
-	observerProviders.has(declaration)
+	observerProviders.has(declaration) ||
+	behaviorProviders.has(declaration)
 
 /** Identifies only executor replacements created by the critical public helper. */
 export const isRuntimeReplacement = (
@@ -293,6 +360,7 @@ export const isRuntimeReplacement = (
 
 /** Identifies every protected Core Runtime protocol token. */
 export const isRuntimeCapability = (token: CapabilityToken): boolean =>
+	token === runtimeBehaviorCapability ||
 	token === runtimeInterceptorCapability ||
 	token === runtimeConstraintCapability ||
 	token === runtimeObserverCapability ||

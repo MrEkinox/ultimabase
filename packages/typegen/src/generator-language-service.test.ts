@@ -5,6 +5,7 @@ import {
 	Schema,
 	type FieldBuilder,
 } from '@ultimabase/core'
+import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import {
 	pgVectorPlugin,
 	type VectorFieldBuilderMethod,
@@ -12,7 +13,6 @@ import {
 import { RoleSchema, rolesPlugin } from '@ultimabase/roles-plugin'
 import * as ts from 'typescript'
 import { describe, expect, it } from 'vitest'
-
 import { generateApplicationTypes } from './generator.js'
 
 type GeneratedFixtureBuilder = FieldBuilder & {
@@ -84,7 +84,7 @@ const createGeneratedRegistry = (): string => {
 		},
 	})
 	const application = new FrameworkApplication({
-		plugins: [pgVectorPlugin()],
+		plugins: [hooksPlugin(), pgVectorPlugin()],
 		schemas: [Author, Article],
 	})
 
@@ -113,7 +113,7 @@ const createGeneratedRoleRegistry = (): string => {
 	}
 	const Role = roleCandidate
 	const application = new FrameworkApplication({
-		plugins: [rolesPlugin()],
+		plugins: [hooksPlugin(), rolesPlugin()],
 		schemas: [Member, Role],
 	})
 
@@ -435,7 +435,7 @@ const SemanticArticle = Schema.define({
             },
             write: true,
           },
-          hooks: { resolveInput: ({ value }) => value.trim() },
+          hooks: { resolveInput: ({ value }) => value?.trim() ?? null },
         }),
       }),
     }),

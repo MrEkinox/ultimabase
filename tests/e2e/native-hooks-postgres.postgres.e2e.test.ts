@@ -7,12 +7,18 @@ import {
 	definePlugin,
 	definePluginField,
 	guard,
-	onEvent,
 	requestSources,
 	restrictOutput,
 	restrictSelection,
 	runWithRequestEngine,
 } from '@ultimabase/core'
+import {
+	hooksPlugin,
+	onEvent,
+	provideHookContributions,
+	provideHookEvent,
+	schemaHooks,
+} from '@ultimabase/hooks-plugin'
 import {
 	postgresConstraintCompiler,
 	postgresPlugin,
@@ -23,10 +29,7 @@ import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from './postgres-worker-fixture.js'
-import {
-	provideTestRuntimeConstraint,
-	provideTestRuntimeObserver,
-} from './runtime-capabilities.js'
+import { provideTestRuntimeConstraint } from './runtime-capabilities.js'
 
 const hookTrace: string[] = []
 const committedEvents: string[] = []
@@ -103,7 +106,7 @@ const HookArticleSchema = Schema.define({
 			hooks: {
 				resolveInput: ({ value }) => {
 					trace('field:title:developer:resolveInput')
-					return value.trim()
+					return value === null ? null : value.trim()
 				},
 			},
 			validation: { required: true },
@@ -290,7 +293,8 @@ const behaviorPlugin = definePlugin({
 	version: '0.0.0',
 	core: '^0.0.0',
 	pluginId: 'fixture.native-hooks-behavior',
-	dependencies: [
+	peers: [
+		{ pluginId: '@ultimabase/hooks-plugin', version: '^0.0.0' },
 		{ pluginId: 'fixture.native-hooks-scope-policy', version: '^0.0.0' },
 	],
 	privileges: [
@@ -305,7 +309,22 @@ const behaviorPlugin = definePlugin({
 	],
 	capabilities: {
 		provides: [
-			provideTestRuntimeObserver(
+			provideHookContributions('article-lifecycle', () =>
+				schemaHooks(HookArticleSchema, {
+					afterOperation: {
+						create: () => {
+							trace('plugin:schema:afterCreate')
+						},
+					},
+					beforeOperation: {
+						create: ({ item }) => {
+							trace('plugin:schema:beforeCreate')
+							void item
+						},
+					},
+				}),
+			),
+			provideHookEvent(
 				'fixture.native-hooks-created-event',
 				onEvent({
 					name: 'native-hooks.article-created',
@@ -317,27 +336,13 @@ const behaviorPlugin = definePlugin({
 			),
 		],
 	},
-	setup: ({ hooks }) => {
-		hooks.schema('article-lifecycle', HookArticleSchema, {
-			afterOperation: {
-				create: () => {
-					trace('plugin:schema:afterCreate')
-				},
-			},
-			beforeOperation: {
-				create: ({ item }) => {
-					trace('plugin:schema:beforeCreate')
-					void item
-				},
-			},
-		})
-	},
 })
 
 const createHookApplication = (connectionUri: string) =>
 	new UltimaBase({
 		plugins: [
 			// Dependency order must place policy setup before its behavior consumer.
+			hooksPlugin(),
 			behaviorPlugin,
 			scopePolicyPlugin,
 			postgresPlugin({ schemaPolicy: 'override', url: connectionUri }),

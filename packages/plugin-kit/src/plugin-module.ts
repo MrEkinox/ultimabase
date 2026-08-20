@@ -42,6 +42,7 @@ export type PluginModuleDefinitionOptions<
 	TPrivileges extends readonly PluginPrivilegeRequest[] | undefined,
 	TEnvironment extends readonly PluginEnvironmentClaim[] | undefined,
 	TCapabilities extends PluginCapabilityDeclarationOptions | undefined,
+	TPeers extends readonly PluginDependency[] | undefined,
 > = Omit<
 	DefinePluginOptions<
 		TPluginId,
@@ -55,7 +56,8 @@ export type PluginModuleDefinitionOptions<
 		TCoreRange,
 		TPrivileges,
 		TEnvironment,
-		TCapabilities
+		TCapabilities,
+		TPeers
 	>,
 	'core' | 'pluginId' | 'version'
 >
@@ -89,6 +91,7 @@ export interface PluginModule<
 			undefined,
 		const TCapabilities extends PluginCapabilityDeclarationOptions | undefined =
 			undefined,
+		const TPeers extends readonly PluginDependency[] | undefined = undefined,
 	>(
 		options: PluginModuleDefinitionOptions<
 			TPluginId,
@@ -102,7 +105,8 @@ export interface PluginModule<
 			TCoreRange,
 			TPrivileges,
 			TEnvironment,
-			TCapabilities
+			TCapabilities,
+			TPeers
 		>,
 	): FrameworkPlugin<
 		TPluginId,
@@ -116,7 +120,8 @@ export interface PluginModule<
 		TCoreRange,
 		TPrivileges,
 		TEnvironment,
-		TCapabilities
+		TCapabilities,
+		TPeers
 	>
 }
 

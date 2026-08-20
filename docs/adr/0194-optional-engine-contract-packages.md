@@ -2,6 +2,7 @@
 
 - Status: accepted
 - Date: 2026-08-11
+- Refined by: ADR-0202
 - Refines: ADR-0089, ADR-0096, ADR-0101, ADR-0106, ADR-0107, ADR-0116, ADR-0117, ADR-0120, ADR-0128, ADR-0161, ADR-0163, ADR-0167, ADR-0168, ADR-0169, ADR-0170, ADR-0171, ADR-0172, ADR-0189, ADR-0190
 - Depends on: ADR-0189, ADR-0190, ADR-0191
 
@@ -19,10 +20,9 @@ needs an explicit security decision rather than an issue-level assumption.
 
 ### Contract-only packages
 
-UltimaBase publishes two dependency-light non-plugin packages:
+UltimaBase publishes dependency-light non-plugin packages for engines whose
+independent providers require neutral shared protocols. For Access:
 
-- `@ultimabase/hooks-contracts` owns the versioned behavior-engine capability
-  tokens, declaration descriptors, and provider protocol types;
 - `@ultimabase/access-contracts` owns the versioned policy-engine and policy-
   provider capability tokens, protected decision descriptors, and neutral
   subject protocol types.
@@ -31,10 +31,14 @@ These packages contain no setup callback, Runtime implementation, default
 engine, schema mutation, or automatic registration. Importing one never installs
 behavior. Core does not import them.
 
-The official `hooks-plugin` and `access-plugin`, community alternative engines,
-ACL, and compatible providers depend on the appropriate contracts package.
-They depend on protocol identity, not an official plugin name. Adapter bridge
-packages may depend on the contracts needed to compile opaque contributions.
+The official `access-plugin`, ACL, and compatible policy providers depend on
+`access-contracts`. They depend on protocol identity, not an official plugin
+name. Adapter bridge packages may depend on the contracts needed to compile
+opaque policy contributions.
+
+ADR-0202 refines the Hooks half of this decision: the official Hooks contracts
+live in `@ultimabase/hooks-plugin`, while genuinely alternative behavior
+engines own their protocols and use the generic public kernel directly.
 
 ### No-engine behavior
 

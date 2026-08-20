@@ -57,18 +57,6 @@ test('retains vector values through the public snapshot boundary', () => {
 	expectTypeOf(value).toEqualTypeOf<readonly number[]>()
 })
 
-test('contextually types inline hooks without retaining them as vector metadata', () => {
-	const field = vectorField({
-		dimensions: 3,
-		hooks: {
-			resolveInput: ({ value }) => value,
-		},
-	})
-
-	expectTypeOf(field.options.dimensions).toEqualTypeOf<3>()
-	expectTypeOf<'hooks'>().not.toExtend<keyof typeof field.options>()
-})
-
 declare const unknownValue: unknown
 
 test('rejects incompatible vector options', () => {

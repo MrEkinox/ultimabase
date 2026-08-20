@@ -119,7 +119,7 @@ export const renderRegistry = (
 			)
 			.map(
 				(option) =>
-					`\t\treadonly ${propertyName(option.name)}?: ${context.imports.alias(option.reference)}`,
+					`\t\treadonly ${propertyName(option.name)}?: ${context.imports.alias(option.reference)}${option.generic === 'self' ? '<this>' : ''}`,
 			)
 			.join('\n')
 	const fieldOptions = renderOptions('field')

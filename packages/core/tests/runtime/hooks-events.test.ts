@@ -10,7 +10,6 @@ import { describe, expect, it } from 'vitest'
 import {
 	afterOperation,
 	beforeOperation,
-	createRuntimeHookStages,
 	FrameworkEngine,
 	postCommitEvent,
 	requestSources,
@@ -21,6 +20,7 @@ import {
 	type RuntimeInterceptorDefinition,
 	type RuntimeObserverDefinition,
 } from '../../src/runtime/index.js'
+import { composeRuntimeContributionBehavior } from '../../src/runtime/hooks/stages.js'
 import {
 	RecordingDatabaseAdapter,
 	type QueuedAdapterResult,
@@ -267,11 +267,11 @@ const createPipeline = <
 	databaseOperation: DatabaseAdapter,
 	trace: string[],
 ): RuntimePipeline => {
-	const hookStages = createRuntimeHookStages(application)
+	const behavior = composeRuntimeContributionBehavior(application)
 	const stages: RuntimePipelineStages = {
 		normalization: (input) => input.operation,
 		structuralValidation: (input) => input.operation,
-		...hookStages,
+		...(behavior === undefined ? {} : { behaviors: behavior }),
 		databaseOperation,
 		commit: () => {
 			trace.push('pipeline:commit')

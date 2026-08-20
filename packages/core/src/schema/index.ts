@@ -65,6 +65,7 @@ export type {
 	RelationUpdateExpression,
 	RelationUpdateOperationNode,
 } from './relations/mutation.js'
+export { isRelationUpdateExpression } from './relations/mutation.js'
 export { definePluginField } from './fields/plugin.js'
 export type {
 	PluginFieldDefinition,
@@ -95,11 +96,13 @@ export type {
 export { isStaticDefault } from './fields/base/defaults.js'
 export type { DefaultFactory, FieldDefault } from './fields/base/defaults.js'
 export {
+	assertFieldDefinition,
 	getPluginFieldStorageCodec,
 	isFieldRequiredDeferred,
 	snapshotScalarFieldValue,
 } from './fields/base/definition.js'
 export type { PluginFieldStorageCodec } from './fields/base/definition.js'
+export type { FieldValueMap } from './fields/base/value-map.js'
 export { enumField } from './fields/builtins/enum.js'
 export type {
 	EnumField,
@@ -135,6 +138,7 @@ export type {
 	FieldList,
 	FieldListOption,
 	FieldListValue,
+	FieldOptionValueCarrier,
 	FieldOptions,
 	FieldOptionsValue,
 	FieldScalarValue,
@@ -188,17 +192,9 @@ export type {
 	OperationAccessRule,
 } from './access/utilities.js'
 export type { FieldAtPath, SchemaFieldPath } from './hooks/field-paths.js'
-export { HookContext } from './hooks/hook-context.js'
-export type { HookExecutionContext } from './hooks/execution-context.js'
-export type {
-	HookContextIdentity,
-	HookContextOwner,
-	HookContextTarget,
-	HookEventContract,
-	HookEventDelivery,
-} from './hooks/hook-context.js'
 export {
 	assertFieldOptions,
+	getFieldListDepth,
 	readFieldTypegenState,
 } from './fields/base/options.js'
 export { intField } from './fields/builtins/int.js'
@@ -332,55 +328,10 @@ export type {
 	SchemaResultCommands,
 	SchemaResultRelations,
 } from './schema/model.js'
-export type {
-	FieldCreateHookKind,
-	FieldHookDeclaration,
-	FieldHookMode,
-	FieldHooks,
-	FieldHookTypes,
-	FieldInputHookInput,
-	FieldInputHookKind,
-	FieldResolveInputHook,
-	FieldResolveInputFamilyHook,
-	FieldResolveInputHookDeclaration,
-	FieldUpdateInputHookKind,
-	FieldUpsertHookKind,
-	FieldValueHookInput,
-	PresentFieldValue,
-} from './hooks/field-contracts.js'
-export type {
-	SchemaAfterCreateHook,
-	SchemaAfterDeleteHook,
-	SchemaAfterHook,
-	SchemaAfterMutationHookInput,
-	SchemaAfterOperationHooks,
-	SchemaAfterUpdateHook,
-	SchemaAfterUpsertHook,
-	SchemaBeforeCreateHook,
-	SchemaBeforeCreateHookInput,
-	SchemaBeforeDeleteHook,
-	SchemaBeforeMutationHook,
-	SchemaBeforeMutationHookInput,
-	SchemaBeforeOperationHooks,
-	SchemaBeforeUpdateHook,
-	SchemaBeforeOperationHookKind,
-	SchemaCreateHookKind,
-	SchemaDeleteHookKind,
-	SchemaHookOperation,
-	SchemaHooks,
-	SchemaMutationHookKind,
-	SchemaMutationKind,
-	SchemaMutationKindForOperation,
-	SchemaMutationItemPair,
-	SchemaOperationHookInput,
-	SchemaResolveInputHook,
-	SchemaResolveInputHookDeclaration,
-	SchemaSaveHookKind,
-	SchemaUpdateHookKind,
-	SchemaUpsertHookKind,
-	HookHandlerDeclaration,
-	SaveHookFamily,
-} from './hooks/contracts.js'
+export {
+	materializePreparedSchemaDraft,
+	materializeSchemaModel,
+} from './schema/model-materialization.js'
 export type {
 	SchemaFieldName,
 	SchemaIndexDefinition,

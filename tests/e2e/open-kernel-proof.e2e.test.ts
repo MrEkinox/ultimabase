@@ -16,6 +16,7 @@ import {
 	type PluginPrivilege,
 	typegenEmitterCapability,
 } from '@ultimabase/core'
+import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin, postgresTable } from '@ultimabase/postgres-plugin'
 import {
 	FakeAdapterMigrationHistory,
@@ -109,7 +110,7 @@ describe('open-kernel workflow proof', () => {
 				return createPluginConformanceFixture({
 					schemas: [Stable],
 					subject: workflow.plugin,
-					supportPlugins: [createKernelSupportPlugin()],
+					supportPlugins: [hooksPlugin(), createKernelSupportPlugin()],
 				})
 			},
 			expected: {
@@ -120,6 +121,7 @@ describe('open-kernel workflow proof', () => {
 					'model:extend',
 					'operation:declare',
 					'transport:expose',
+					'runtime:intercept',
 					'runtime:observe',
 					'typegen:reference',
 					'typegen:contribute',
@@ -224,6 +226,7 @@ describe('open-kernel workflow proof', () => {
 			'model:extend',
 			'operation:declare',
 			'transport:expose',
+			'runtime:intercept',
 			'runtime:observe',
 			'typegen:reference',
 			'typegen:contribute',
@@ -234,7 +237,11 @@ describe('open-kernel workflow proof', () => {
 				() =>
 					new FrameworkApplication({
 						pluginPrivileges: { deny: [privilege], logger: false },
-						plugins: [createKernelSupportPlugin(), workflow.plugin],
+						plugins: [
+							hooksPlugin(),
+							createKernelSupportPlugin(),
+							workflow.plugin,
+						],
 						schemas: [Stable],
 					}),
 			).toThrow(FrameworkError)
@@ -250,11 +257,11 @@ describe('open-kernel workflow proof', () => {
 		const first = createWorkflowFixture()
 		const second = createWorkflowFixture()
 		const firstApp = new UltimaBase({
-			plugins: [first.workflow.plugin],
+			plugins: [hooksPlugin(), first.workflow.plugin],
 			schemas: [first.Stable],
 		})
 		const secondApp = new UltimaBase({
-			plugins: [second.workflow.plugin],
+			plugins: [hooksPlugin(), second.workflow.plugin],
 			schemas: [second.Stable],
 		})
 		expect(firstApp.schema(first.workflow.DynamicAudit).schema).toBe(
@@ -280,7 +287,7 @@ describe('open-kernel workflow proof', () => {
 		})
 		expect(() =>
 			new FrameworkApplication({
-				plugins: [changed.plugin],
+				plugins: [hooksPlugin(), changed.plugin],
 				schemas: [Shared],
 			}).compileSchemas(),
 		).toThrow(/incompatible|another application/iu)
@@ -400,7 +407,12 @@ describe('open-kernel Typegen and migration proof', () => {
 		})
 		const value = createValuePlugin({ instanceId: 'typed', target: Ledger })
 		const application = new FrameworkApplication({
-			plugins: [createKernelSupportPlugin(), workflow.plugin, value],
+			plugins: [
+				hooksPlugin(),
+				createKernelSupportPlugin(),
+				workflow.plugin,
+				value,
+			],
 			schemas: [Stable, Ledger],
 		})
 		const generated = generateApplicationTypes({

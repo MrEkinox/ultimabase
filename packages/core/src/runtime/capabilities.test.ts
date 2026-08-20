@@ -20,7 +20,7 @@ import { RequestContext, requestSources } from './context/request-context.js'
 import { runWithRequestEngine } from './context/active-framework-context.js'
 import { beforeOperation } from './hooks/definitions.js'
 import { guard } from './enforcement/definitions.js'
-import { createRuntimeHookStages } from './hooks/stages.js'
+import { composeRuntimeContributionBehavior } from './hooks/stages.js'
 import { RuntimePipeline } from './pipeline/runtime-pipeline.js'
 import { createFrameworkEngine } from './application/create-framework-engine.js'
 import {
@@ -335,11 +335,11 @@ describe('public Runtime capabilities', () => {
 			requestId: 'runtime-resource',
 			source: requestSources.internal,
 		})
-		await createRuntimeHookStages(first).globalBeforeHooks({
+		await composeRuntimeContributionBehavior(first)?.beforeOperation?.({
 			context,
 			operation: runtimeOperation,
 		})
-		await createRuntimeHookStages(second).globalBeforeHooks({
+		await composeRuntimeContributionBehavior(second)?.beforeOperation?.({
 			context,
 			operation: runtimeOperation,
 		})

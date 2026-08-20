@@ -9,6 +9,7 @@ import {
 	definePlugin,
 	requestSources,
 } from '@ultimabase/core'
+import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin, postgresTable } from '@ultimabase/postgres-plugin'
 import { RoleSchema, rolesPlugin } from '@ultimabase/roles-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -129,6 +130,7 @@ beforeAll(async () => {
 			onUse: () => undefined,
 		}),
 		plugins: [
+			hooksPlugin(),
 			identityPlugin,
 			aclPlugin(),
 			rolesPlugin(),

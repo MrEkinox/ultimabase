@@ -30,7 +30,6 @@ const articleSchema = Schema.define({
 	className: 'AssembledArticle',
 	fields: (field) => ({
 		title: field.string({
-			hooks: { resolveInput: ({ value }) => value.trim() },
 			validation: { required: true },
 		}),
 	}),
@@ -47,7 +46,7 @@ const databasePlugin = (adapter: DatabaseAdapter) =>
 	})
 
 describe('createFrameworkEngine', () => {
-	it('assembles validation, ordered plugin stages, hooks, and events', async () => {
+	it('assembles validation, ordered middleware, enforcement, and events', async () => {
 		const trace: string[] = []
 		const generatedId = '0198a43e-2431-7000-8000-000000000001'
 		const adapter = new RecordingDatabaseAdapter(
@@ -250,7 +249,7 @@ describe('createFrameworkEngine', () => {
 			source: 'internal',
 		})
 		const result = await runWithRequestEngine(request, () =>
-			articleSchema.createOne({ data: { title: '  assembled  ' } }),
+			articleSchema.createOne({ data: { title: 'assembled' } }),
 		)
 
 		expect(result.title).toBe('assembled')
@@ -291,8 +290,6 @@ describe('createFrameworkEngine', () => {
 			'adapter:begin',
 			'normalization:dependency',
 			'normalization:consumer',
-			'enforcement:guard',
-			'enforcement:constraint',
 			'enforcement:guard',
 			'enforcement:constraint',
 			'hook:before',
@@ -412,119 +409,6 @@ describe('createFrameworkEngine', () => {
 		})
 
 		expect(framework.authorizeMasterKey('fixture-master-secret')).toBeDefined()
-
-		await application.dispose()
-	})
-
-	it('rolls back the automatic transaction when a native business hook fails', async () => {
-		const failure = new Error('Native hook rejected the mutation')
-		const trace: string[] = []
-		const schema = Schema.define({
-			className: 'RejectedNativeHookArticle',
-			fields: (field) => ({
-				title: field.string({ validation: { required: true } }),
-			}),
-			hooks: {
-				beforeOperation: {
-					create: () => {
-						trace.push('hook:beforeCreate')
-
-						throw failure
-					},
-				},
-			},
-		})
-		const adapter = new RecordingDatabaseAdapter([], trace)
-		const application = await createApplication({
-			schemas: [schema],
-			plugins: [databasePlugin(adapter)],
-		})
-		const framework = createFrameworkEngine(application)
-
-		const request = framework.anonymous({
-			requestId: 'native-hook-rollback',
-			source: 'internal',
-		})
-		await expect(
-			runWithRequestEngine(request, () =>
-				schema.createOne({ data: { title: 'Rejected' } }),
-			),
-		).rejects.toBe(failure)
-		expect(trace).toStrictEqual([
-			'adapter:begin',
-			'hook:beforeCreate',
-			'adapter:rollback',
-		])
-		expect(adapter.transactions[0]?.requests).toStrictEqual([])
-
-		await application.dispose()
-	})
-
-	it('reevaluates guards monotonically after business operation transforms', async () => {
-		const denial = new Error('Transformed title is not permitted')
-		const trace: string[] = []
-		const adapter = new RecordingDatabaseAdapter([], trace)
-		const transformedSchema = Schema.define({
-			className: 'SecuritySensitiveTransformArticle',
-			fields: (field) => ({
-				title: field.string({
-					hooks: { resolveInput: () => 'blocked' },
-					validation: { required: true },
-				}),
-			}),
-		})
-		const enforcementPlugin = definePlugin({
-			version: '0.0.0',
-			core: '^0.0.0',
-			pluginId: 'fixture.security-sensitive-guard',
-			privileges: [
-				{
-					name: 'runtime:constrain',
-					reason: 'Exercises value-dependent enforcement.',
-				},
-			],
-			capabilities: {
-				provides: [
-					provideTestRuntimeConstraint(
-						'fixture.guard-title',
-						guard({
-							schema: transformedSchema,
-							operations: ['create-one'],
-							handler: ({ operation }) => {
-								trace.push(`guard:${String(operation.input.title)}`)
-
-								if (operation.input.title === 'blocked') {
-									throw denial
-								}
-							},
-						}),
-					),
-				],
-			},
-		})
-		const application = await createApplication({
-			schemas: [transformedSchema],
-			plugins: [enforcementPlugin, databasePlugin(adapter)],
-		})
-		const framework = createFrameworkEngine(application)
-
-		const request = framework.anonymous({
-			requestId: 'reevaluated-enforcement',
-			source: 'internal',
-		})
-		await expect(
-			runWithRequestEngine(request, () =>
-				transformedSchema.createOne({ data: { title: 'initial' } }),
-			),
-		).rejects.toBe(denial)
-		expect(trace).toStrictEqual([
-			'adapter:begin',
-			'guard:initial',
-			'guard:blocked',
-			'adapter:rollback',
-		])
-		expect(adapter.transactions[0]?.requests).toStrictEqual([])
-		expect(adapter.transactions[0]?.executions).toStrictEqual([])
 
 		await application.dispose()
 	})

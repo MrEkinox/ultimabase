@@ -6,7 +6,10 @@ import {
 	type PluginSchemaContributionOwner,
 	type SchemaOptionProvenance,
 } from '../../schema/schema/provenance.js'
-import type { JsonValue } from '../../schema/fields/builtins/json.js'
+import {
+	snapshotJsonValue,
+	type JsonValue,
+} from '../../schema/fields/builtins/json.js'
 import type { GenericField } from '../../schema/fields/base/contract.js'
 import { getDeclaredFieldOptionsContract } from '../../schema/fields/base/definition.js'
 import type { SchemaExtensionFields } from '../../schema/extensions/definition.js'
@@ -139,7 +142,10 @@ const normalizedOptionValue = (
 	if (definition === undefined) {
 		throw new TypeError(`Unknown ${scope} option: ${name}`)
 	}
-	return normalizeOwnedOptionValue(definition, value, path)
+	return snapshotJsonValue(
+		normalizeOwnedOptionValue(definition, value, path),
+		path,
+	)
 }
 
 const encodeArtifactTarget = <

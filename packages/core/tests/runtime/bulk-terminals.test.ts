@@ -2,13 +2,13 @@ import {
 	FrameworkApplication,
 	increment,
 	type FrameworkError,
-	type SchemaMutationHookKind,
 } from '../../src/index.js'
 import { Schema } from '../../src/index.js'
 import { describe, expect, it } from 'vitest'
 
 import {
 	FrameworkEngine,
+	type DatabaseMutationOperationAst,
 	RequestContext,
 	requestSources,
 	type RuntimeEnforcementStages,
@@ -19,7 +19,7 @@ import {
 	createRecordingPipeline,
 	RecordingDatabaseAdapter,
 	type QueuedAdapterResult,
-	type RecordingPipelineHookStages,
+	type RecordingPipelineBehaviorStages,
 } from './fixtures/recording-database-adapter.js'
 
 const managerSchema = Schema.define({
@@ -57,7 +57,7 @@ const accountRecord = (id: string, email: string, visits: number) => ({
 const createRequest = (
 	results: readonly QueuedAdapterResult[],
 	trace: string[],
-	hookStages: RecordingPipelineHookStages = {},
+	behaviors: RecordingPipelineBehaviorStages = {},
 	enforcement?: RuntimeEnforcementStages,
 ) => {
 	const adapter = new RecordingDatabaseAdapter(results, trace)
@@ -69,7 +69,7 @@ const createRequest = (
 	application.compileSchemas()
 	const framework = new FrameworkEngine({
 		application,
-		pipeline: createRecordingPipeline(adapter, trace, hookStages, enforcement),
+		pipeline: createRecordingPipeline(adapter, trace, behaviors, enforcement),
 	})
 	const request = framework.anonymous({
 		requestId: 'bulk-1',
@@ -83,7 +83,7 @@ const createRequest = (
 const expectCommittedTransaction = (
 	adapter: RecordingDatabaseAdapter,
 	trace: readonly string[],
-	kinds: readonly SchemaMutationHookKind[],
+	kinds: readonly DatabaseMutationOperationAst['kind'][],
 ): void => {
 	expect(adapter.rootRequests).toStrictEqual([])
 	expect(adapter.transactions).toHaveLength(1)
@@ -223,10 +223,10 @@ describe('bulk and upsert terminals', () => {
 				],
 				createTrace,
 				{
-					schemaBeforeHooks: ({ operation }) => {
+					beforeOperation: ({ operation }) => {
 						createHookKinds.push(`before:${operation.kind}`)
 					},
-					schemaAfterHooks: (input) => {
+					transformResult: (input) => {
 						createHookKinds.push(`after:${input.operation.kind}`)
 
 						return input.result
@@ -270,10 +270,10 @@ describe('bulk and upsert terminals', () => {
 			],
 			updateTrace,
 			{
-				schemaBeforeHooks: ({ operation }) => {
+				beforeOperation: ({ operation }) => {
 					updateHookKinds.push(`before:${operation.kind}`)
 				},
-				schemaAfterHooks: (input) => {
+				transformResult: (input) => {
 					updateHookKinds.push(`after:${input.operation.kind}`)
 
 					return input.result
@@ -764,7 +764,7 @@ describe('bulk and upsert terminals', () => {
 			[{ status: 'fulfilled', value: created[0] }],
 			trace,
 			{
-				schemaAfterHooks: () => Promise.reject(hookError),
+				transformResult: () => Promise.reject(hookError),
 			},
 		)
 
@@ -787,13 +787,13 @@ describe('bulk and upsert terminals', () => {
 		const deleteTrace: string[] = []
 		const beforeKinds: string[] = []
 		const afterKinds: string[] = []
-		const hookStages: RecordingPipelineHookStages = {
-			schemaAfterHooks: (input) => {
+		const behaviorStages: RecordingPipelineBehaviorStages = {
+			transformResult: (input) => {
 				afterKinds.push(input.operation.kind)
 
 				return input.result
 			},
-			schemaBeforeHooks: (input) => {
+			beforeOperation: (input) => {
 				beforeKinds.push(input.operation.kind)
 			},
 		}
@@ -812,7 +812,7 @@ describe('bulk and upsert terminals', () => {
 				}
 			}),
 			updateTrace,
-			hookStages,
+			behaviorStages,
 		)
 		const { adapter: deleteAdapter, request: deleteRequest } = createRequest(
 			[3, 4].map((suffix) => {
@@ -825,7 +825,7 @@ describe('bulk and upsert terminals', () => {
 				}
 			}),
 			deleteTrace,
-			hookStages,
+			behaviorStages,
 		)
 
 		const updated = await runWithRequestEngine(updateRequest, () =>

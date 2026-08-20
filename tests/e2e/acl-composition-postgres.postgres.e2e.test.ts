@@ -9,6 +9,7 @@ import {
 	definePlugin,
 	requestSources,
 } from '@ultimabase/core'
+import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin, postgresTable } from '@ultimabase/postgres-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
@@ -76,7 +77,10 @@ const Document = Schema.define({
 		nativeScope: field.string({ default: 'allowed' }),
 		secret: field.string({ access: { read: false } }),
 		title: field.string({
-			hooks: { resolveInput: ({ value }) => value.trim().toLowerCase() },
+			hooks: {
+				resolveInput: ({ value }) =>
+					value === null ? null : value.trim().toLowerCase(),
+			},
 			validation: { required: true },
 		}),
 	}),
@@ -154,6 +158,7 @@ beforeAll(async () => {
 			onUse: () => undefined,
 		}),
 		plugins: [
+			hooksPlugin(),
 			identityPlugin,
 			aclPlugin(),
 			postgresPlugin({

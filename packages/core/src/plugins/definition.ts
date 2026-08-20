@@ -93,6 +93,7 @@ export interface PluginDefinition {
 	readonly manifest: PluginManifest
 	readonly dependencies?: readonly PluginDependency[] | undefined
 	readonly optionalDependencies?: readonly PluginDependency[] | undefined
+	readonly peers?: readonly PluginDependency[] | undefined
 	readonly conflicts?: readonly string[] | undefined
 	readonly plugins?: readonly PluginDefinition[] | undefined
 }
@@ -118,6 +119,8 @@ export interface FrameworkPlugin<
 		readonly PluginEnvironmentClaim[] | undefined,
 	TCapabilities extends PluginCapabilityDeclarationOptions | undefined =
 		PluginCapabilityDeclarationOptions | undefined,
+	TPeers extends readonly PluginDependency[] | undefined =
+		readonly PluginDependency[] | undefined,
 > extends PluginDefinition {
 	readonly [pluginSetupExportsBrand]: Awaited<TSetupResult>
 	readonly manifest: PluginManifest<
@@ -135,6 +138,7 @@ export interface FrameworkPlugin<
 	>
 	readonly dependencies?: TDependencies
 	readonly optionalDependencies?: TOptionalDependencies
+	readonly peers?: TPeers
 	readonly conflicts?: TConflicts
 	readonly plugins?: TPlugins
 }
@@ -157,6 +161,7 @@ export interface DefinePluginOptions<
 	TPrivileges extends readonly PluginPrivilegeRequest[] | undefined,
 	TEnvironment extends readonly PluginEnvironmentClaim[] | undefined,
 	TCapabilities extends PluginCapabilityDeclarationOptions | undefined,
+	TPeers extends readonly PluginDependency[] | undefined,
 > {
 	/** Stable namespaced identity shared by every configured instance. @example "community.workflow" */
 	readonly pluginId: TPluginId
@@ -174,6 +179,8 @@ export interface DefinePluginOptions<
 	readonly capabilities?: TCapabilities
 	readonly dependencies?: TDependencies
 	readonly optionalDependencies?: TOptionalDependencies
+	/** Requires a compatible plugin to be installed without introducing lifecycle or ordering edges. */
+	readonly peers?: TPeers
 	readonly conflicts?: TConflicts
 	/**
 	 * Declares deterministic metadata through privilege-scoped static facades.
@@ -205,6 +212,7 @@ const definePluginOptionKeys = new Set([
 	'hooks',
 	'instanceId',
 	'optionalDependencies',
+	'peers',
 	'pluginId',
 	'plugins',
 	'privileges',
@@ -399,6 +407,7 @@ export const definePlugin = <
 		undefined,
 	const TCapabilities extends PluginCapabilityDeclarationOptions | undefined =
 		undefined,
+	const TPeers extends readonly PluginDependency[] | undefined = undefined,
 >(
 	options: DefinePluginOptions<
 		TPluginId,
@@ -412,7 +421,8 @@ export const definePlugin = <
 		TCoreRange,
 		TPrivileges,
 		TEnvironment,
-		TCapabilities
+		TCapabilities,
+		TPeers
 	>,
 ): FrameworkPlugin<
 	TPluginId,
@@ -426,7 +436,8 @@ export const definePlugin = <
 	TCoreRange,
 	TPrivileges,
 	TEnvironment,
-	TCapabilities
+	TCapabilities,
+	TPeers
 > => {
 	const untrustedOptions: unknown = options
 
@@ -510,6 +521,11 @@ export const definePlugin = <
 						'optionalDependencies',
 					),
 				}),
+		...(options.peers === undefined
+			? {}
+			: {
+					peers: normalizePluginDependencies(options.peers, 'peers'),
+				}),
 		...(options.conflicts === undefined
 			? {}
 			: {
@@ -535,6 +551,7 @@ export const definePlugin = <
 		TCoreRange,
 		TPrivileges,
 		TEnvironment,
-		TCapabilities
+		TCapabilities,
+		TPeers
 	>
 }

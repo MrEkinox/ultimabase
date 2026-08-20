@@ -178,21 +178,21 @@ export type RuntimeResultTransformStage = <
 ) => MaybePromise<RuntimeOperationResult<TOperation>>
 
 /** Carries an exact pre-hydration projection into scalar field resolution. */
-export interface RuntimeNativeDatabaseResultStageInput<
+export interface RuntimeProjectedDatabaseResultStageInput<
 	TOperation extends DatabaseOperationAst,
 > extends RuntimeDatabaseResultStageInput<TOperation> {
 	readonly selectedFieldsOverride?: readonly string[]
 }
 
 /** Resolves scalar output while pointer fields still retain declared values. */
-export type RuntimeNativeDatabaseResultTransformStage = <
+export type RuntimeProjectedDatabaseResultTransformStage = <
 	const TOperation extends DatabaseOperationAst,
 >(
-	input: RuntimeNativeDatabaseResultStageInput<TOperation>,
+	input: RuntimeProjectedDatabaseResultStageInput<TOperation>,
 ) => MaybePromise<DatabaseOperationResult<TOperation>>
 
 /** Carries an exact policy projection when an empty QueryBuilder selection means no fields. */
-export interface RuntimeNativeResultStageInput<
+export interface RuntimeMaterializedResultStageInput<
 	TOperation extends DatabaseOperationAst,
 > extends RuntimeResultStageInput<TOperation> {
 	/** Carries complete mutation snapshots without exposing them through selection. */
@@ -201,10 +201,10 @@ export interface RuntimeNativeResultStageInput<
 }
 
 /** Transforms one native result without losing its effective projection boundary. */
-export type RuntimeNativeResultTransformStage = <
+export type RuntimeMaterializedResultTransformStage = <
 	const TOperation extends DatabaseOperationAst,
 >(
-	input: RuntimeNativeResultStageInput<TOperation>,
+	input: RuntimeMaterializedResultStageInput<TOperation>,
 ) => MaybePromise<RuntimeOperationResult<TOperation>>
 
 /** Performs commit or post-commit work without replacing the developer result. */
@@ -251,21 +251,37 @@ export type RuntimeMutationOutcomeTransformStage = <
 	input: RuntimeMutationOutcomeStageInput<TOperation>,
 ) => MaybePromise<DatabaseOperationOutcome<TOperation>>
 
-/** Groups the native dispatcher without changing low-level ADR-0070 stages. */
-export interface RuntimeNativeHookStages {
-	/** Requests adapter item preparation only when declared hooks consume it. */
-	readonly requiresPreparedMutationItems: (
+/**
+ * Groups optional product behavior at Core-owned logical Runtime boundaries.
+ *
+ * Providers never receive adapters, commit controls, protected enforcement
+ * state, or permission to replace the complete request pipeline.
+ */
+export interface RuntimeBehaviorStages {
+	/** Requests stable mutation preimages only when this behavior consumes them. */
+	readonly requiresPreparedMutationItems?: (
 		operation: DatabaseMutationOperationAst,
 	) => boolean
-	/** Resolves exact field values before Access evaluates mutation input. */
-	readonly resolveInput: RuntimeOperationTransformStage
-	/** Resolves schema-wide mutation input after its visible target is stable. */
-	readonly schemaResolveInput: RuntimePreparedMutationTransformStage
-	readonly revalidate: RuntimeOperationTransformStage
-	readonly schemaPrepared: RuntimePreparedMutationEffectStage
-	readonly mutationOutcome: RuntimeMutationOutcomeTransformStage
-	readonly resolveOutput: RuntimeNativeDatabaseResultTransformStage
-	readonly schemaAfter: RuntimeNativeResultTransformStage
+	/** Transforms normalized create or update input before value-dependent policy checks. */
+	readonly transformInput?: RuntimeOperationTransformStage
+	/** Transforms one singular mutation after its visible target is stable. */
+	readonly transformPreparedInput?: RuntimePreparedMutationTransformStage
+	/** Applies a late target-aware operation transform before final revalidation. */
+	readonly transformPreparedOperation?: RuntimePreparedMutationTransformStage
+	/** Revalidates behavior-produced input without replaying defaults or generators. */
+	readonly revalidateInput?: RuntimeOperationTransformStage
+	/** Observes the final logical operation immediately before persistence. */
+	readonly beforeOperation?: RuntimeOperationGuardStage
+	/** Observes stable mutation targets before the adapter operation executes. */
+	readonly observePreparedMutation?: RuntimePreparedMutationEffectStage
+	/** Transforms complete mutation materializations before result projection. */
+	readonly transformMutationOutcome?: RuntimeMutationOutcomeTransformStage
+	/** Transforms the policy-filtered database result before relationship hydration. */
+	readonly transformDatabaseResult?: RuntimeProjectedDatabaseResultTransformStage
+	/** Transforms the hydrated logical result before final protected restrictions. */
+	readonly transformResult?: RuntimeMaterializedResultTransformStage
+	/** Performs external delivery only after a successful commit. */
+	readonly postCommit?: RuntimeResultEffectStage
 }
 
 /**
@@ -275,19 +291,12 @@ export interface RuntimeNativeHookStages {
 export interface RuntimePipelineStages {
 	readonly normalization: RuntimeOperationTransformStage
 	readonly structuralValidation: RuntimeOperationTransformStage
-	readonly globalBeforeHooks: RuntimeOperationGuardStage
-	readonly schemaBeforeHooks: RuntimeOperationGuardStage
 	readonly databaseOperation: DatabaseOperationExecutor
-	readonly schemaAfterHooks: RuntimeResultTransformStage
-	readonly globalAfterHooks: RuntimeResultTransformStage
 	readonly commit: RuntimeResultEffectStage
-	readonly postCommitEvents: RuntimeResultEffectStage
 	/** Rewrites only the physical plan after logical semantics and protected policy are fixed. */
 	readonly persistencePlanRewrite?: RuntimePersistencePlanRewriteStage
-	/** Resolves authorized values against one locked singular update target. */
-	readonly preparedOperationHooks?: RuntimePreparedMutationTransformStage
-	/** Installed by application assembly when native declarations are compiled. */
-	readonly nativeHooks?: RuntimeNativeHookStages
+	/** Present only when at least one plugin provides product behavior. */
+	readonly behaviors?: RuntimeBehaviorStages
 	/** Present only when at least one plugin contributed monotonic enforcement. */
 	readonly enforcement?: RuntimeEnforcementStages
 }

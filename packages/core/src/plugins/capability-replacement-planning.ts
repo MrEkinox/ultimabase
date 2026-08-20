@@ -160,6 +160,16 @@ export const buildReplacementChains = (
 	entry: MutableCapabilityEntry,
 ): readonly (readonly OwnedProvider[])[] => {
 	assertUniqueContributionIds(entry)
+	if (entry.token.providerPrivilege !== undefined) {
+		for (const provider of [...entry.providers, ...entry.replacements]) {
+			assertContributionPrivilege(
+				entries,
+				entry,
+				provider,
+				entry.token.providerPrivilege,
+			)
+		}
+	}
 	validateAdapterCapabilityEntry(entry, {
 		assertProviderPrivilege: (provider, privilege) => {
 			assertContributionPrivilege(entries, entry, provider, privilege)

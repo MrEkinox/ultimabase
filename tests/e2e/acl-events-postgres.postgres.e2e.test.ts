@@ -4,6 +4,7 @@ import {
 	acl,
 	aclPlugin,
 	onACLChange,
+	provideACLChangeObserver,
 	type ACLChangedEvent,
 } from '@ultimabase/acl-permissions-plugin'
 import {
@@ -12,6 +13,7 @@ import {
 	UltimaBase,
 	definePlugin,
 } from '@ultimabase/core'
+import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin, postgresTable } from '@ultimabase/postgres-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
@@ -19,7 +21,6 @@ import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from './postgres-worker-fixture.js'
-import { provideTestRuntimeObserver } from './runtime-capabilities.js'
 
 let rejectNextUpdate = false
 const Post = Schema.define({
@@ -62,6 +63,7 @@ const getFixture = (): PostgresWorkerFixture => {
 const eventObserverPlugin = definePlugin({
 	version: '0.0.0',
 	core: '^0.0.0',
+	peers: [{ pluginId: 'ultimabase.acl', version: '^0.0.0' }],
 	pluginId: 'fixture.acl-change-events',
 	privileges: [
 		{
@@ -71,7 +73,7 @@ const eventObserverPlugin = definePlugin({
 	],
 	capabilities: {
 		provides: [
-			provideTestRuntimeObserver(
+			provideACLChangeObserver(
 				'fixture.capture-acl-change',
 				onACLChange(async ({ event }) => {
 					const row = await getFixture().pool.query<{ readonly id: string }>(
@@ -91,6 +93,7 @@ let ultimabase:
 	| UltimaBase<
 			readonly [typeof Post],
 			readonly [
+				ReturnType<typeof hooksPlugin>,
 				typeof eventObserverPlugin,
 				ReturnType<typeof aclPlugin>,
 				ReturnType<typeof postgresPlugin>,
@@ -115,6 +118,7 @@ beforeAll(async () => {
 			onUse: () => undefined,
 		}),
 		plugins: [
+			hooksPlugin(),
 			eventObserverPlugin,
 			aclPlugin(),
 			postgresPlugin({

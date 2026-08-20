@@ -66,17 +66,17 @@ server-hono-plugin ────────→ core
 rest-plugin ───────────────→ core
 graphql-plugin ────────────→ core
 graphql-yoga-plugin ───────→ graphql-plugin, core
-hooks-contracts ───────────→ shared
 access-contracts ──────────→ shared
-hooks-plugin ──────────────→ hooks-contracts, plugin-kit, core
+hooks-plugin ──────────────→ plugin-kit, core, shared
+official Hooks extensions ─→ hooks-plugin, plugin-kit, core, shared
 access-plugin ─────────────→ access-contracts, plugin-kit, core
 acl-permissions-plugin ────→ access-contracts, core
 ```
 
-`hooks-contracts` and `access-contracts` are dependency-light non-plugin
-packages. They contain protocol tokens and types only, install no behavior, and
-are not imported by Core. Official implementations and community alternatives
-share those identities without depending on one another.
+`access-contracts` is a dependency-light non-plugin package. It contains policy
+protocol tokens and types only, installs no behavior, and is not imported by
+Core. Official Hooks contracts live in `hooks-plugin`; importing that package
+does not install it, and independent alternatives own their protocols.
 
 `@ultimabase/plugin-kit` is the public authoring toolbox. It binds stable package
 manifest facts, parses strict immutable plugin options, builds common additive
@@ -230,9 +230,10 @@ pure `declaration` values from resource-backed `application` implementations
 materialized during setup.
 
 `PluginGraph` validates the combined normalized configuration again, resolves
-required and present optional dependencies, rejects explicit conflicts and
-cycles, and exposes one stable dependency-first order without initializing
-plugins.
+required and present optional dependencies, validates non-ordering plugin peers,
+rejects explicit conflicts and cycles, and exposes one stable dependency-first
+order without initializing plugins. A peer proves exact identity and semantic
+compatibility only; it grants no capability read or lifecycle guarantee.
 
 Each application owns its capability host and private resource store.
 Plugin-scoped views attach the actual owner and instance to every declaration,
@@ -486,9 +487,9 @@ Access engine may expose different syntax while using the same protected
 constraint contracts.
 
 The official and alternative policy engines share protocol identity from
-`@ultimabase/access-contracts`; Hooks engines use
-`@ultimabase/hooks-contracts`. Importing either contracts package installs no
-engine. A public transport without a compatible policy engine remains supported
+`@ultimabase/access-contracts`. Official-compatible Hook extensions import the
+public contracts from `@ultimabase/hooks-plugin`; independent behavior engines
+use the generic kernel directly. A public transport without a compatible policy engine remains supported
 but emits `UNPROTECTED_PUBLIC_TRANSPORT` unless its configuration explicitly
 acknowledges unprotected exposure.
 

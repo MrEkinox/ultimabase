@@ -110,7 +110,6 @@ describe('RoleSchema IntelliSense', () => {
 				'deletion',
 				'extensions',
 				'fields',
-				'hooks',
 				'indexes',
 				'members',
 			]),

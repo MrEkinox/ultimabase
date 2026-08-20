@@ -4,6 +4,12 @@ import type { DefaultFactory, FieldDefault } from './defaults.js'
 
 declare const fieldValueMarker: unique symbol
 declare const fieldTypegenMarker: unique symbol
+declare const fieldOptionsValueType: unique symbol
+
+/** Carries one field scalar through plugin-owned option inference without Runtime data. */
+export interface FieldOptionValueCarrier<TValue> {
+	readonly [fieldOptionsValueType]?: TValue
+}
 
 /** Describes one homogeneous list wrapper around a field value. */
 export type FieldList = true
@@ -129,7 +135,12 @@ interface FieldMetadataOptions<TValidation extends FieldValidationOptions> {
 export interface FieldOptionsBase<
 	TValidation extends FieldValidationOptions = FieldValidationOptions,
 	TList extends FieldListOption = FieldListOption,
-> extends FieldMetadataOptions<TValidation> {
+	TValue = unknown,
+>
+	extends
+		FieldMetadataOptions<TValidation>,
+		FieldOptionValueCarrier<TValue>,
+		UltimaBaseGeneratedFieldOptions {
 	/**
 	 * Wraps the scalar in one homogeneous list when enabled.
 	 *
@@ -145,10 +156,7 @@ export interface FieldOptions<
 	TValue,
 	TValidation extends FieldValidationOptions = FieldValidationOptions,
 	TList extends FieldListOption = FieldListOption,
->
-	extends
-		FieldOptionsBase<TValidation, TList>,
-		UltimaBaseGeneratedFieldOptions {
+> extends FieldOptionsBase<TValidation, TList, TValue> {
 	/**
 	 * Provides a static value or a zero-argument factory evaluated for each created object.
 	 *

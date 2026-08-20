@@ -14,16 +14,19 @@ export {
 	runWithRequestEngine,
 } from './context/active-framework-context.js'
 export type { ActiveFrameworkContext } from './context/active-framework-context.js'
+export { runOutsideRequestEngineScope } from './context/active-framework-storage.js'
 // Application assembly installs every mandatory stage from plugin-owned declarations.
 export { createFrameworkEngine } from './application/create-framework-engine.js'
 export type { CreateFrameworkEngineOptions } from './application/create-framework-engine.js'
 export {
 	canonicalRuntimeExecutorTarget,
 	provideRuntimeConstraint,
+	provideRuntimeBehavior,
 	provideRuntimeInterceptor,
 	provideRuntimeObserver,
 	replaceRuntime,
 	runtimeConstraintCapability,
+	runtimeBehaviorCapability,
 	runtimeExecutorCapability,
 	runtimeInterceptorCapability,
 	runtimeObserverCapability,
@@ -54,6 +57,7 @@ export type {
 export { requireCurrentAccessRoleResolver } from './access/subject-capabilities.js'
 // Applications create request-bound engines; opaque grants protect master construction.
 export { FrameworkEngine, RequestEngine } from './engine/framework-engine.js'
+export { TrackedExecutionLifetime } from './engine/tracked-execution-lifetime.js'
 export type {
 	FrameworkEngineOptions,
 	RequestTransactionHandler,
@@ -86,6 +90,7 @@ export type {
 	DatabaseLogicalRecord,
 	DatabaseMutationLogicalRecord,
 	DatabaseMutationMaterialization,
+	DatabaseMutationMaterializationSource,
 	DatabaseMutationOperationAst,
 	DatabaseMutationOperationKind,
 	DatabaseObjectRecord,
@@ -183,7 +188,7 @@ export type {
 	EnforcementOutputInput,
 	EnforcementOutputRestrictionHandler,
 } from './enforcement/contracts.js'
-// Hook factories remain functions while Core retains plugin contribution ownership.
+// Generic operation interceptors retain plugin contribution ownership.
 export {
 	afterOperation,
 	beforeOperation,
@@ -205,30 +210,10 @@ export type {
 	PreparedOperationHandler,
 	PreparedOperationOptions,
 	RuntimeContributionDefinitionUnion,
-	RuntimeHookOperationInput,
+	RuntimeInterceptorOperationInput,
 	RuntimePreparedOperationInput,
-	RuntimeHookResultInput,
+	RuntimeInterceptorResultInput,
 } from './hooks/definitions.js'
-export { defineEvent, onEvent } from './hooks/events.js'
-export type {
-	DefineEventFactory,
-	DefineEventOptions,
-	HookEvent,
-	HookEventDefinition,
-	HookEventHandler,
-	HookEventHandlerInput,
-	OnEventOptions,
-} from './hooks/events.js'
-export { hookDiagnosticsObserverCapability } from './hooks/diagnostics.js'
-export type {
-	HookDiagnosticEvent,
-	HookDiagnosticOwner,
-	HookDiagnosticPhase,
-	HookDiagnosticsObserver,
-	HookDiagnosticTarget,
-} from './hooks/diagnostics.js'
-export { createRuntimeHookStages } from './hooks/stages.js'
-export type { RuntimeHookStages } from './hooks/stages.js'
 // Raw keys become framework-owned opaque grants before request elevation.
 export { MasterAuthority, MasterKeyGrant } from './master/master-authority.js'
 export type {
@@ -246,6 +231,7 @@ export type {
 	RuntimePipelineStageOptions,
 } from './pipeline/definitions.js'
 export type {
+	RuntimeBehaviorStages,
 	RuntimeEnforcementEvaluationStage,
 	RuntimeEnforcementOperationResult,
 	RuntimeEnforcementOperationStage,
@@ -257,11 +243,10 @@ export type {
 	RuntimeDatabaseResultStageInput,
 	RuntimeMutationOutcomeTransformStage,
 	RuntimeMutationOutcomeStageInput,
-	RuntimeNativeHookStages,
-	RuntimeNativeDatabaseResultStageInput,
-	RuntimeNativeDatabaseResultTransformStage,
-	RuntimeNativeResultStageInput,
-	RuntimeNativeResultTransformStage,
+	RuntimeProjectedDatabaseResultStageInput,
+	RuntimeProjectedDatabaseResultTransformStage,
+	RuntimeMaterializedResultStageInput,
+	RuntimeMaterializedResultTransformStage,
 	RuntimeOperationGuardStage,
 	RuntimeOperationResult,
 	RuntimeOperationStageInput,
@@ -275,6 +260,13 @@ export type {
 	RuntimeResultStageInput,
 	RuntimeResultTransformStage,
 } from './pipeline/contracts.js'
+export { createRuntimeBehaviorBoundaries } from './behaviors/boundaries.js'
+export type { RuntimeBehaviorBoundaries } from './behaviors/boundaries.js'
+export { getOperationSchema } from './operations/schema.js'
+export {
+	deferCurrentTransactionEffect,
+	getCurrentTransactionId,
+} from './transactions/transaction-execution-storage.js'
 export { createRuntimeValidationStage } from './validation/runtime-validation.js'
 export type { UuidV7Generator } from './validation/identifier-generator.js'
 export type { RuntimeValidationOptions } from './validation/runtime-validation.js'

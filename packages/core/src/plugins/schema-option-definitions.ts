@@ -4,8 +4,6 @@ import {
 	isPlainRecord,
 } from '@ultimabase/shared'
 
-import type { JsonValue } from '../schema/fields/builtins/json.js'
-
 import type {
 	CapabilityConsumerValue,
 	CapabilityRequirement,
@@ -17,6 +15,8 @@ import { assertCapabilityRequirement } from './capabilities.js'
 import { type SchemaOptionProvenance } from '../schema/schema/provenance.js'
 
 export interface SchemaOptionTypegenDescriptor {
+	/** Applies the exported generic to the generated option interface's polymorphic `this`. */
+	readonly generic?: 'self'
 	readonly module: string
 	readonly type: string
 }
@@ -36,7 +36,7 @@ export type SchemaOptionRuntimeRequirement = CapabilityRequirement<
 >
 
 export interface SchemaOptionRuntimeCompilationContext<
-	TValue extends JsonValue,
+	TValue = unknown,
 	TRequirement extends SchemaOptionRuntimeRequirement =
 		SchemaOptionRuntimeRequirement,
 > {
@@ -58,19 +58,26 @@ export interface SchemaOptionRuntimeCompilationContext<
 	readonly value: TValue
 }
 
+type SchemaOptionRuntimeCompile<
+	TValue,
+	TRequirement extends SchemaOptionRuntimeRequirement,
+> = {
+	bivarianceHack(
+		context: SchemaOptionRuntimeCompilationContext<TValue, TRequirement>,
+	): undefined
+}['bivarianceHack']
+
 export interface SchemaOptionRuntimeCompiler<
-	TValue extends JsonValue = JsonValue,
+	TValue = unknown,
 	TRequirement extends SchemaOptionRuntimeRequirement =
 		SchemaOptionRuntimeRequirement,
 > {
 	readonly requirement: TRequirement
-	readonly compile: (
-		context: SchemaOptionRuntimeCompilationContext<TValue, TRequirement>,
-	) => undefined
+	readonly compile: SchemaOptionRuntimeCompile<TValue, TRequirement>
 }
 
 export interface SchemaOptionDefinition<
-	TValue extends JsonValue = JsonValue,
+	TValue = unknown,
 	TRequirement extends SchemaOptionRuntimeRequirement =
 		SchemaOptionRuntimeRequirement,
 > {
@@ -78,6 +85,8 @@ export interface SchemaOptionDefinition<
 	readonly protocolVersion: number
 	readonly runtime?: SchemaOptionRuntimeCompiler<TValue, TRequirement>
 	readonly typegen: SchemaOptionTypegenDescriptor
+	/** Keeps executable or nominal declarations application-local and opaque to the compiler IR. */
+	readonly valueKind?: 'json' | 'opaque'
 }
 
 export const schemaOptionDefinitions: WeakSet<object> = new WeakSet<object>()
@@ -87,11 +96,16 @@ const optionDefinitionKeys = new Set([
 	'protocolVersion',
 	'runtime',
 	'typegen',
+	'valueKind',
 ])
 
-const optionTypegenKeys = new Set(['module', 'type'])
+const optionTypegenKeys = new Set(['generic', 'module', 'type'])
 
 const optionRuntimeKeys = new Set(['compile', 'requirement'])
+
+const isSchemaOptionRuntimeCompile = (
+	value: unknown,
+): value is (context: unknown) => unknown => typeof value === 'function'
 
 export const assertKnownKeys = (
 	value: Readonly<Record<string, unknown>>,
@@ -130,16 +144,24 @@ const normalizeTypegenDescriptor = (
 		)
 	}
 
-	return immutableRecord({ module: value.module, type: value.type })
+	if (value.generic !== undefined && value.generic !== 'self') {
+		throw new TypeError('Schema option typegen.generic must be self')
+	}
+
+	return immutableRecord({
+		...(value.generic === undefined ? {} : { generic: value.generic }),
+		module: value.module,
+		type: value.type,
+	})
 }
 
 export const defineSchemaOption = <
-	const TValue extends JsonValue,
+	const TValue,
 	const TRequirement extends SchemaOptionRuntimeRequirement =
 		SchemaOptionRuntimeRequirement,
 >(
 	definition: SchemaOptionDefinition<TValue, TRequirement>,
-): SchemaOptionDefinition => {
+): SchemaOptionDefinition<TValue, TRequirement> => {
 	if (!isPlainRecord(definition)) {
 		throw new TypeError('Schema option definition must be a plain object')
 	}
@@ -159,15 +181,27 @@ export const defineSchemaOption = <
 		throw new TypeError('Schema option normalize must be a function')
 	}
 
+	const valueKind: unknown = definition.valueKind
+	if (
+		valueKind !== undefined &&
+		valueKind !== 'json' &&
+		valueKind !== 'opaque'
+	) {
+		throw new TypeError('Schema option valueKind must be json or opaque')
+	}
+
 	const runtime = definition.runtime
+	let runtimeCompile: ((context: unknown) => unknown) | undefined
 	if (runtime !== undefined) {
 		if (!isPlainRecord(runtime)) {
 			throw new TypeError('Schema option runtime must be a plain object')
 		}
 		assertKnownKeys(runtime, optionRuntimeKeys, 'schema option runtime')
-		if (typeof runtime.compile !== 'function') {
+		const untrustedCompile: unknown = runtime.compile
+		if (!isSchemaOptionRuntimeCompile(untrustedCompile)) {
 			throw new TypeError('Schema option runtime.compile must be a function')
 		}
+		runtimeCompile = untrustedCompile
 		const untrustedRequirement: unknown = runtime.requirement
 		assertCapabilityRequirement(
 			untrustedRequirement,
@@ -185,37 +219,37 @@ export const defineSchemaOption = <
 		}
 	}
 
-	const normalized: SchemaOptionDefinition = immutableRecord({
-		normalize: definition.normalize,
-		protocolVersion: definition.protocolVersion,
-		...(runtime === undefined
-			? {}
-			: {
-					runtime: immutableRecord({
-						compile: (
-							context: SchemaOptionRuntimeCompilationContext<JsonValue>,
-						): undefined => {
-							const contextSnapshot = immutableRecord({
-								...context,
-								capability:
-									context.capability as RequirementConsumerValue<TRequirement>,
-								value: context.value as TValue,
-							})
-							const compile: (input: typeof contextSnapshot) => unknown =
-								runtime.compile
-							const result = compile(contextSnapshot)
-							if (result !== undefined) {
-								throw new TypeError(
-									'Schema option Runtime compiler must return undefined',
-								)
-							}
-							return undefined
-						},
-						requirement: runtime.requirement,
+	const normalized: SchemaOptionDefinition<TValue, TRequirement> =
+		immutableRecord({
+			normalize: definition.normalize,
+			protocolVersion: definition.protocolVersion,
+			...(runtime === undefined || runtimeCompile === undefined
+				? {}
+				: {
+						runtime: immutableRecord({
+							compile: (
+								context: SchemaOptionRuntimeCompilationContext,
+							): undefined => {
+								const contextSnapshot = immutableRecord({
+									...context,
+									capability:
+										context.capability as RequirementConsumerValue<TRequirement>,
+									value: context.value as TValue,
+								})
+								const result = runtimeCompile(contextSnapshot)
+								if (result !== undefined) {
+									throw new TypeError(
+										'Schema option Runtime compiler must return undefined',
+									)
+								}
+								return undefined
+							},
+							requirement: runtime.requirement,
+						}),
 					}),
-				}),
-		typegen: normalizeTypegenDescriptor(definition.typegen),
-	})
+			typegen: normalizeTypegenDescriptor(definition.typegen),
+			valueKind: valueKind ?? 'json',
+		})
 
 	schemaOptionDefinitions.add(normalized)
 

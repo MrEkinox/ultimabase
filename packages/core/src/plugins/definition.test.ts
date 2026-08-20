@@ -8,6 +8,7 @@ describe('definePlugin', () => {
 		let setupCalls = 0
 		let hookCalls = 0
 		const dependencies = [{ pluginId: 'fixture.services', version: '^0.0.0' }]
+		const peers = [{ pluginId: 'fixture.protocol', version: '^1.0.0' }]
 		const privileges = [
 			{
 				name: 'adapter:consume' as const,
@@ -28,6 +29,7 @@ describe('definePlugin', () => {
 			environment,
 			dependencies,
 			optionalDependencies: [{ pluginId: 'fixture.cache', version: '^0.0.0' }],
+			peers,
 			conflicts: ['fixture.other-database'],
 			declare: () => {
 				declarationCalls += 1
@@ -44,6 +46,7 @@ describe('definePlugin', () => {
 			pluginId: 'fixture.late-dependency',
 			version: '^0.0.0',
 		})
+		peers.push({ pluginId: 'fixture.late-peer', version: '^0.0.0' })
 		privileges[0] = {
 			name: 'adapter:consume',
 			reason: 'Late mutation must not alter the manifest.',
@@ -68,6 +71,7 @@ describe('definePlugin', () => {
 			},
 			dependencies: [{ pluginId: 'fixture.services', version: '^0.0.0' }],
 			optionalDependencies: [{ pluginId: 'fixture.cache', version: '^0.0.0' }],
+			peers: [{ pluginId: 'fixture.protocol', version: '^1.0.0' }],
 			conflicts: ['fixture.other-database'],
 		})
 		expect('setup' in plugin).toBe(false)
@@ -81,6 +85,7 @@ describe('definePlugin', () => {
 		expect(Object.isFrozen(plugin.manifest.environment)).toBe(true)
 		expect(Object.isFrozen(plugin.dependencies)).toBe(true)
 		expect(Object.isFrozen(plugin.optionalDependencies)).toBe(true)
+		expect(Object.isFrozen(plugin.peers)).toBe(true)
 		expect(Object.isFrozen(plugin.conflicts)).toBe(true)
 	})
 

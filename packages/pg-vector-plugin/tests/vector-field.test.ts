@@ -57,16 +57,6 @@ describe('vectorField', () => {
 		expect(Object.isFrozen(field.options.default[0])).toBe(true)
 	})
 
-	it('keeps inline hooks out of public vector metadata', () => {
-		const field = vectorField({
-			dimensions: 2,
-			hooks: { resolveInput: ({ value }) => value },
-		})
-
-		expect(field.options).toStrictEqual({ dimensions: 2 })
-		expect(field.options).not.toHaveProperty('hooks')
-	})
-
 	it.each([0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1] as const)(
 		'rejects the invalid dimension %s',
 		(dimensions) => {

@@ -433,7 +433,6 @@ export class FrameworkApplication<
 			}
 			await this.#lifecycle.setup()
 			validateExtensionOwners(this.schemas.values(), this.#pluginGraph)
-			this.#setupRegistries.resolveHookTargets()
 			this.#setupRegistries.resolveAccessTargets()
 			compileApplicationAccessPlan(this)
 

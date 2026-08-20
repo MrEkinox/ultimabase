@@ -14,6 +14,7 @@ import type {
 	DatabaseUpdateMaterialization,
 	PreparedDatabaseOperation,
 	PreparedDatabaseOperationExecution,
+	RuntimeBehaviorStages,
 	RuntimeEnforcementStages,
 	RuntimePipelineStages,
 } from '../../../src/runtime/index.js'
@@ -127,14 +128,8 @@ const readRecordingIncludedValue = (
 	recordingIncludedValues.get(record)?.get(JSON.stringify(fieldPath))
 
 /** Allows focused transaction tests to replace only effectful pipeline stages. */
-export type RecordingPipelineHookStages = Partial<
-	Pick<
-		RuntimePipelineStages,
-		| 'globalBeforeHooks'
-		| 'schemaBeforeHooks'
-		| 'schemaAfterHooks'
-		| 'globalAfterHooks'
-	>
+export type RecordingPipelineBehaviorStages = Partial<
+	Pick<RuntimeBehaviorStages, 'beforeOperation' | 'transformResult'>
 >
 
 /** Removes exactly one result so prepare and execute cannot consume different fixtures. */
@@ -418,24 +413,22 @@ export class RecordingDatabaseAdapter implements DatabaseAdapter {
 export const createRecordingPipeline = (
 	databaseOperation: DatabaseAdapter,
 	trace: string[],
-	hookStages: RecordingPipelineHookStages = {},
+	behaviorStages: RecordingPipelineBehaviorStages = {},
 	enforcement?: RuntimeEnforcementStages,
 ): RuntimePipeline => {
 	const stages: RuntimePipelineStages = {
 		normalization: (input) => input.operation,
 		structuralValidation: (input) => input.operation,
-		globalBeforeHooks: () => undefined,
-		schemaBeforeHooks: () => undefined,
 		databaseOperation,
-		schemaAfterHooks: (input) => input.result,
-		globalAfterHooks: (input) => input.result,
-		...hookStages,
+		behaviors: {
+			...behaviorStages,
+			postCommit: (input) => {
+				trace.push(`event:${input.operation.kind}`)
+			},
+		},
 		...(enforcement === undefined ? {} : { enforcement }),
 		commit: (input) => {
 			trace.push(`pipeline:commit:${input.operation.kind}`)
-		},
-		postCommitEvents: (input) => {
-			trace.push(`event:${input.operation.kind}`)
 		},
 	}
 

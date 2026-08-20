@@ -29,7 +29,7 @@ import {
 	type DatabaseRowFilterNode,
 } from '../database/contracts.js'
 import type { EnforcementState } from '../enforcement/state.js'
-import type { RuntimeHookBoundaries } from '../hooks/boundaries.js'
+import type { RuntimeBehaviorBoundaries } from '../behaviors/boundaries.js'
 import {
 	retainRuntimeIncludedPointerValue,
 	retainRuntimeSchemaModelMetadata,
@@ -52,7 +52,7 @@ import type {
 } from './contracts.js'
 import {
 	createRuntimeEnforcementInput,
-	createRuntimeNativeDatabaseResultInput,
+	createRuntimeProjectedDatabaseResultInput,
 	createRuntimeOperationInput,
 	emptyRuntimeConstraints,
 	readRuntimeSchemaModelSelectedFields,
@@ -232,11 +232,11 @@ const restoreRuntimeInclusionResult = <
 /** Owns nested Access projection without replaying root Access or lifecycle hooks. */
 export class RuntimeInclusionProjector {
 	readonly #stages: Readonly<RuntimePipelineStages>
-	readonly #resultBoundaries: RuntimeHookBoundaries
+	readonly #resultBoundaries: RuntimeBehaviorBoundaries
 
 	constructor(
 		stages: Readonly<RuntimePipelineStages>,
-		resultBoundaries: RuntimeHookBoundaries,
+		resultBoundaries: RuntimeBehaviorBoundaries,
 	) {
 		this.#stages = stages
 		this.#resultBoundaries = resultBoundaries
@@ -519,9 +519,9 @@ export class RuntimeInclusionProjector {
 			prepared.selectedFieldsOverride,
 		)
 
-		if (this.#stages.nativeHooks !== undefined) {
-			result = await this.#stages.nativeHooks.resolveOutput(
-				createRuntimeNativeDatabaseResultInput(
+		if (this.#stages.behaviors?.transformDatabaseResult !== undefined) {
+			result = await this.#stages.behaviors.transformDatabaseResult(
+				createRuntimeProjectedDatabaseResultInput(
 					context,
 					prepared.operation,
 					result,

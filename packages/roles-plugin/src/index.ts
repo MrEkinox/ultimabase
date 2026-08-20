@@ -1,18 +1,20 @@
 export { hasRole } from './role-access.js'
 export type { RoleAccessDecision } from './role-access.js'
-export { roleDeletedEvent, RoleDeletionError } from './role-deletion.js'
-export type { RoleDeletedEvent } from './role-deletion.js'
+export { RoleDeletionError } from './role-deletion.js'
 export {
+	onRoleEvent,
+	provideRoleEventObserver,
+	roleDeletedEvent,
 	roleHierarchyChangedEvent,
 	roleMembershipChangedEvent,
-	rolesPlugin,
-} from './plugin.js'
+} from './role-events.js'
 export type {
+	RoleDeletedEvent,
 	RoleHierarchyChangedEvent,
 	RoleMembershipChangedEvent,
-	RolesPlugin,
-	RolesPluginExports,
-} from './plugin.js'
+} from './role-events.js'
+export { rolesPlugin } from './plugin.js'
+export type { RolesPlugin, RolesPluginExports } from './plugin.js'
 export type { RoleMemberCommands, RoleMemberTarget } from './role-member.js'
 export {
 	RoleHierarchyError,

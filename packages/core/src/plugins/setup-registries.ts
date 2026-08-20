@@ -18,11 +18,6 @@ import {
 	type PluginConstraintCompilerRegistry,
 } from './constraint-compilers.js'
 import {
-	createPluginHookRegistry,
-	resolvePluginHookTargets,
-	type PluginHookRegistry,
-} from './hook-targets.js'
-import {
 	createPluginAccessRegistry,
 	resolvePluginAccessTargets,
 	type PluginAccessRegistry,
@@ -41,6 +36,9 @@ import {
 const emptyFieldBuilderMethods: readonly OwnedFieldBuilderMethod[] =
 	immutableArray([])
 const emptyCapabilityReader: PluginCapabilityReader = immutableRecord({
+	contributions: () => {
+		throw new TypeError('No capability graph is configured')
+	},
 	get: () => {
 		throw new TypeError('No capability graph is configured')
 	},
@@ -213,15 +211,12 @@ export interface PluginSetupContext {
 	readonly adapters: AdapterAccess
 	/** Registers native Access policies with ownership fixed to this plugin. */
 	readonly access: PluginAccessRegistry
-	/** Registers native hooks with ownership fixed to the current setup plugin. */
-	readonly hooks: PluginHookRegistry
 	/** Registers adapter constraint compilers with owner-derived provenance. */
 	readonly constraintCompilers: PluginConstraintCompilerRegistry
 }
 
 /** Owns all mutable setup registries for one isolated application instance. */
 export class PluginSetupRegistries {
-	readonly #hooks = new OwnedContributionStore()
 	readonly #access = new OwnedContributionStore()
 	readonly #constraintCompilers = new OwnedContributionStore()
 	readonly #contexts = new Map<
@@ -229,7 +224,6 @@ export class PluginSetupRegistries {
 		Map<string | undefined, PluginSetupContext>
 	>()
 	#setupOpen = true
-	#hookTargetsResolved = false
 	#accessTargetsResolved = false
 	readonly #constraintCompilerReader: DatabaseConstraintCompilerReader
 
@@ -256,11 +250,6 @@ export class PluginSetupRegistries {
 		return this.#constraintCompilerReader
 	}
 
-	/** @internal Reads native hook declarations for application compilation. */
-	getHookContributions(): readonly OwnedPluginContribution[] {
-		return this.#hooks.values()
-	}
-
 	/** @internal Reads native Access declarations for application compilation. */
 	getAccessContributions(): readonly OwnedPluginContribution[] {
 		return this.#access.values()
@@ -283,20 +272,6 @@ export class PluginSetupRegistries {
 	/** Closes setup after a plugin failure without masking the original error. */
 	abortSetup(): void {
 		this.#setupOpen = false
-	}
-
-	/** Resolves native hook selectors after every setup declaration is available. */
-	resolveHookTargets(): void {
-		if (this.#setupOpen) {
-			throw new TypeError('Plugin hook targets require completed setup')
-		}
-
-		if (this.#hookTargetsResolved) {
-			return
-		}
-
-		resolvePluginHookTargets(this.schemas, this.#hooks.values())
-		this.#hookTargetsResolved = true
 	}
 
 	/** Resolves native Access selectors after every setup declaration is available. */
@@ -366,19 +341,6 @@ export class PluginSetupRegistries {
 				},
 				values: () => this.#constraintCompilers.values(),
 			}),
-			hooks: createPluginHookRegistry({
-				assertPrivilege: () => {
-					this.assertPrivilegeForPlugin(owner, 'runtime:intercept')
-				},
-				isOpen: (): boolean => this.#setupOpen,
-				...(owner.instanceId === undefined
-					? {}
-					: { ownerInstanceId: owner.instanceId }),
-				ownerPlugin: owner.pluginId,
-				register: (name: string, value: unknown): void => {
-					this.#hooks.registerLocal(owner, name, value)
-				},
-			}),
 		})
 
 		instances.set(owner.instanceId, context)
@@ -433,12 +395,6 @@ const readApplicationSetupRegistries = (
 
 	return registries
 }
-
-/** @internal Reads only native hook declarations. */
-export const readApplicationHookContributions = (
-	application: object,
-): readonly OwnedPluginContribution[] =>
-	readApplicationSetupRegistries(application).getHookContributions()
 
 /** @internal Reads only native Access declarations. */
 export const readApplicationAccessContributions = (

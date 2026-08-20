@@ -1,5 +1,6 @@
 import { ACL, acl, aclPlugin } from '@ultimabase/acl-permissions-plugin'
 import { MasterAuthority, Schema, UltimaBase } from '@ultimabase/core'
+import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin, postgresTable } from '@ultimabase/postgres-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
@@ -62,6 +63,7 @@ describe('ACL JSONB storage', { concurrent: false }, () => {
 				onUse: () => undefined,
 			}),
 			plugins: [
+				hooksPlugin(),
 				aclPlugin(),
 				postgresPlugin({
 					schemaPolicy: 'override',

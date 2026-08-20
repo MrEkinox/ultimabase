@@ -13,7 +13,6 @@ import {
 	type BuiltInFieldOptionsContract,
 } from './options.js'
 import type { FieldScalarValue, GenericField } from './contract.js'
-import type { FieldHookDeclarations } from '../../hooks/field-declarations.js'
 import type { FieldAccessDeclarations } from '../../access/field-declarations.js'
 import type { SchemaTarget } from '../../schema/targets.js'
 
@@ -39,7 +38,6 @@ interface FieldMetadata<TKind extends string, TOptions extends object> {
 interface FieldCapabilities {
 	readonly access: FieldAccessDeclarations | undefined
 	readonly deferRequiredUntilResolveInput: boolean
-	readonly hooks: FieldHookDeclarations | undefined
 	readonly optionsContract: BuiltInFieldOptionsContract | undefined
 	readonly schemaTarget: SchemaTarget | undefined
 	readonly snapshotValue: ScalarValueSnapshot
@@ -70,7 +68,6 @@ export const createFieldDefinition = <
 	kind: TKind,
 	options: Readonly<TOptions>,
 	snapshotValue: ScalarValueSnapshot,
-	hooks?: FieldHookDeclarations,
 	access?: FieldAccessDeclarations,
 	capabilities: FieldDefinitionCapabilities = {},
 ): FieldMetadata<TKind, TOptions> => {
@@ -82,7 +79,6 @@ export const createFieldDefinition = <
 			access,
 			deferRequiredUntilResolveInput:
 				capabilities.deferRequiredUntilResolveInput === true,
-			hooks,
 			optionsContract:
 				capabilities.optionsContract ?? getBuiltInFieldOptionsContract(options),
 			schemaTarget: capabilities.schemaTarget,
@@ -117,11 +113,6 @@ export const replaceDeclaredFieldOptions = (
 
 	return replacement
 }
-
-/** Resolves declaration-only callbacks for Core Runtime without public metadata leaks. */
-export const getFieldHookDeclarations = (
-	field: GenericField,
-): FieldHookDeclarations | undefined => fieldCapabilities.get(field)?.hooks
 
 /** Resolves private Access rules without exposing them as physical metadata. */
 export const getFieldAccessDeclarations = (
