@@ -4,7 +4,8 @@ Connects the database-neutral ACL provider to PostgreSQL's versioned constraint
 compiler registry. The integration compiles public, authenticated, exact
 principal, and resolved-role grants into parameterized JSONB containment
 predicates combined with logical `OR`. PostgreSQL then combines that result with
-the developer query and every other Access constraint through logical `AND`.
+the developer query and every other protected database constraint through
+logical `AND`.
 
 ```ts
 import { aclPostgresPlugin } from '@ultimabase/acl-postgres-plugin'

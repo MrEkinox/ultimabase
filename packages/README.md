@@ -37,7 +37,6 @@ directories until implementation begins:
 - `rest-plugin`
 - `graphql-plugin`
 - `graphql-yoga-plugin`
-- `access-plugin`
 
 The optional Hooks and Access engines each keep their public authoring and
 extension contracts in their single official plugin package. Importing a
@@ -55,8 +54,8 @@ developer reads their exports.
   replacement. It emits no generated Runtime client.
 - `plugin-kit`: public immutable plugin-authoring helpers shared by official and
   community plugins without moving ownership or privilege enforcement out of Core.
-- `testing`: application test utilities plus planned plugin conformance
-  fixtures and assertions.
+- `testing`: application test utilities plus public plugin conformance fixtures
+  and assertions.
 
 No package may import another package through its source directory.
 

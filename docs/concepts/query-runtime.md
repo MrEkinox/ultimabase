@@ -76,8 +76,8 @@ rolls back the complete batch. Results preserve input order and select only
 deleted values for every item.
 
 Every mutation eventually executes inside an automatic adapter transaction.
-Database work started by a native hook through an ordinary schema command
-shares that boundary and rolls back with the primary write. Runtime
+Database work started by an installed official Hook through an ordinary schema
+command shares that boundary and rolls back with the primary write. Runtime
 tracks unawaited nested terminals, preserves caught failures as rollback-only,
 and rejects asynchronous branches whose hook lease has closed. Reads do not
 open a transaction automatically; developers can still use an explicit
@@ -85,7 +85,7 @@ transaction for a read-modify-write workflow.
 
 Terminal operations retain distinct internal AST kinds for singular and
 collection behavior. Create inputs, update expressions, and upsert target
-queries remain separate. Public item-oriented Access and hooks use the short
+queries remain separate. Official item-oriented Access and Hooks use the short
 business kind without cardinality. Trusted backend code may request audited
 master execution through operation options; transports cannot forge that
 authority.
@@ -115,10 +115,9 @@ lower-level `createFrameworkEngine(application)` factory remains available to
 framework packages and explicit transport composition.
 
 Assembly automatically installs `createRuntimeValidationStage()` as the
-structural validation phase and composes the application's hooks and
-post-commit events. Unclaimed access plugins contribute nothing: issue 337
-removes their legacy named neutral stages in favor of policy-neutral monotonic
-hook effects.
+structural validation phase and composes generic Runtime behaviors, protected
+policies, and post-commit events contributed by configured plugins. With no
+behavior or policy provider, Core installs no neutral product stage.
 
 The validation stage applies create or update plans, including both branches of
 an upsert, without changing caller input:
@@ -141,15 +140,18 @@ IDs from one millisecond remain collision-resistant but do not promise a strict
 creation order. Tests may inject a deterministic `uuidV7Generator` through the
 same validation-stage options.
 
-## Native hook lifecycle
+## Optional official Hooks lifecycle
 
-Native schema and inline field declarations complement the low-level plugin
-hook API. Field hooks expose only value-oriented `resolveInput`. Schema hooks
-group input transformation, operation observation, and transaction
+Installing `@ultimabase/hooks-plugin` enables official schema and inline field
+declarations. Field Hooks expose only value-oriented `resolveInput`. Schema
+Hooks group input transformation, operation observation, and transaction
 finalization. Direct and batched items use the same cardinality-free business
 kind:
 
 ```ts
+import { Schema, UltimaBase } from '@ultimabase/core'
+import { hooksPlugin } from '@ultimabase/hooks-plugin'
+
 const UserSchema = Schema.define({
 	className: 'User',
 	fields: (field) => ({
@@ -173,13 +175,18 @@ const UserSchema = Schema.define({
 		},
 	},
 })
+
+const ultimabase = new UltimaBase({
+	plugins: [hooksPlugin()],
+	schemas: [UserSchema],
+})
 ```
 
 Inline field callbacks infer the exact logical value. Cross-field behavior uses
 schema hooks. Plugins append to the same dispatcher with deterministic targets;
-they cannot replace developer hooks. Policy plugins use a final monotonic hook
-boundary: they may deny, append opaque adapter constraints, or narrow fields,
-but later hooks cannot reverse those decisions. Runtime never names concrete
-ACL, role, authentication, ownership, or community-provider behavior. Every
-generated-schema collection entry crosses the same field resolution, item
-Access, and operation-hook lifecycle as its singular counterpart.
+they cannot replace developer Hooks. Policy plugins use Core's protected
+monotonic boundary: they may deny, append opaque adapter constraints, or narrow
+fields, but later behavior cannot reverse those decisions. Runtime never names
+concrete ACL, role, authentication, ownership, or community-provider behavior.
+Every generated-schema collection entry crosses the same field resolution,
+item-policy, and operation-behavior lifecycle as its singular counterpart.

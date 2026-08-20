@@ -159,7 +159,7 @@ The repository's PostgreSQL E2E project starts one Testcontainer globally and
 shares only its connection URI. No mutable application, pool, container,
 schema registry, or plugin instance is shared between Vitest workers.
 
-The native-hook PostgreSQL scenario uses this boundary to verify nested writes,
+The official Hooks PostgreSQL scenario uses this boundary to verify nested writes,
 rollback, post-commit delivery, opaque scope constraints, field restrictions,
 and atomic item-oriented collection behavior through built public package
 exports.

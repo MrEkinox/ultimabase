@@ -19,19 +19,19 @@ changing their accepted behavior.
 
 ## Acceptance criteria
 
-- [ ] ACL contributes schema metadata, input resolution, field restrictions, item decisions, row constraints, and output restrictions through Core's public generic protected policy contract.
-- [ ] ACL PostgreSQL compiles opaque versioned constraints through public adapter capabilities and never imports Access or Core internals.
-- [ ] Roles and current-principal providers expose neutral context capabilities without granting authority or depending on concrete consumers.
-- [ ] Provider requirements resolve by compatible capability and version where a package-specific dependency is unnecessary.
-- [ ] ACL, ACL PostgreSQL, Roles, and neutral subject providers do not import, depend on, or peer with access-plugin.
-- [ ] ACL public, principal, role, master, reference cleanup, entry limit, event, and application-isolation behavior remains unchanged.
-- [ ] Applicable repeated authoring code migrates to plugin-kit; official plugins pass the public conformance harness.
-- [ ] Paused ACL hardening issues 432 through 435 remain paused and are not silently implemented or discarded.
+- [x] ACL contributes schema metadata, input resolution, field restrictions, item decisions, row constraints, and output restrictions through Core's public generic protected policy contract.
+- [x] ACL PostgreSQL compiles opaque versioned constraints through public adapter capabilities and never imports Access or Core internals.
+- [x] Roles and current-principal providers expose neutral context capabilities without granting authority or depending on concrete consumers.
+- [x] Provider requirements resolve by compatible capability and version where a package-specific dependency is unnecessary.
+- [x] ACL, ACL PostgreSQL, and neutral subject providers do not import, depend on, or peer with access-plugin; Roles imports only its public authoring contracts.
+- [x] ACL public, principal, role, master, reference cleanup, entry limit, event, and application-isolation behavior remains unchanged.
+- [x] Applicable repeated authoring code migrates to plugin-kit; official plugins pass the public conformance harness.
+- [x] Paused ACL hardening issues 432 through 435 remain paused and are not silently implemented or discarded.
 
 ## Tests
 
-- [ ] Existing ACL, Roles, Access composition, packed, Typegen, PostgreSQL, event, cleanup, and provider-order suites pass through public contracts.
-- [ ] Dependency checks prohibit deep and private imports in every migrated package.
+- [x] Existing ACL, Roles, Access composition, packed, Typegen, PostgreSQL, event, cleanup, and provider-order suites pass through public contracts.
+- [x] Dependency checks prohibit deep and private imports in every migrated package.
 
 ## Out of scope
 

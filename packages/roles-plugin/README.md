@@ -4,10 +4,12 @@ Developer-defined, schema-backed roles for UltimaBase.
 
 The package specializes the ordinary Core schema model instead of owning a
 parallel role repository. Applications keep control of custom fields, indexes,
-Access, hooks, adapter extensions, and trusted server queries.
+optional official Access and Hooks, adapter extensions, and trusted server
+queries.
 
 ```ts
 import { Schema, UltimaBase } from '@ultimabase/core'
+import { accessPlugin } from '@ultimabase/access-plugin'
 import { RoleSchema, hasRole, rolesPlugin } from '@ultimabase/roles-plugin'
 
 const User = Schema.define({
@@ -47,7 +49,7 @@ const Post = Schema.define({
 
 const ultimabase = new UltimaBase({
 	schemas: [User, AppRole, Post],
-	plugins: [rolesPlugin()],
+	plugins: [accessPlugin(), rolesPlugin()],
 })
 
 const Editor = await new AppRole({
@@ -116,9 +118,10 @@ ordinary `role.delete({}, options)` and
 `AppRole.deleteOne({ where: { id: { eq: id } } })` both execute the
 complete policy.
 
-`hasRole(reference)` is an ordinary official Access decision. It resolves the
-application-local `requestRoleResolverCapability` at execution time, so the
-declaration captures no application or request. A missing provider raises
+`hasRole(reference)` is an ordinary official Access decision. Using it requires
+`accessPlugin()` in the application. It resolves the application-local
+`requestRoleResolverCapability` at execution time, so the declaration captures
+no application or request. A missing provider raises
 Core's typed `PLUGIN_CAPABILITY_MISSING` error before business hooks or database
 execution; an installed provider with no current member or no membership
 returns `false`.

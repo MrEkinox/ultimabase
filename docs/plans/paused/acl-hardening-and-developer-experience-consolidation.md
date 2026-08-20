@@ -2,13 +2,14 @@
 
 - Status: paused
 - Started: 2026-08-04
+- Resume prerequisite: milestone 15 completed; explicit user direction is still required.
 - Objective owner: `@ultimabase/core`, `@ultimabase/acl-permissions-plugin`, `@ultimabase/acl-postgres-plugin`, `@ultimabase/roles-plugin`, `@ultimabase/postgres-plugin`
 - Previous completed objective: [Persisted object ACL](../completed/persisted-object-acl.md)
 
 This plan is not the current execution priority. Work completed after issue 351
-stabilized Query, mutation, relationship, Access, hook, and embedded-object
-contracts instead. Resume this plan at issue 432 only after the user explicitly
-reactivates the ACL objective.
+stabilized Query, mutation, relationship, optional official Access and Hooks,
+and embedded-object contracts instead. Resume this plan at issue 432 only after
+the user explicitly reactivates the ACL objective.
 
 ## Objective
 
@@ -48,7 +49,7 @@ events, or mutation-shape invariants.
 - Optional providers are resolved by neutral token after plugin setup and never by plugin name.
 - The shared create/update input callback receives one documented, non-misleading data contract.
 - ACL management remains master-only and object rights stay `read`, `update`, and `delete`.
-- Cleanup remains singular, hook-aware, and transaction-bound; batching or concurrency hardening must not introduce direct adapter persistence.
+- Cleanup remains singular, Runtime-pipeline-aware, and transaction-bound; batching or concurrency hardening must not introduce direct adapter persistence.
 - Optional committed notifications add no synthetic consumer or post-commit work when unused.
 - Refactoring follows behavior fixes and changes no public ACL value, JSON, plugin, or constraint identity.
 - Every issue receives its own commit and no push occurs without explicit user confirmation.

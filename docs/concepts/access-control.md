@@ -1,6 +1,6 @@
 # Access control
 
-## Native Access
+## Optional official Access
 
 ```text
 schema operation decision
@@ -10,10 +10,10 @@ AND field decisions
 AND optional provider policies
 ```
 
-`schema.access` is the generalized class-level permission API. It protects
-singular and collection reads, counts, existence checks, creates, updates,
-upserts, deletes, row visibility, and prepared items without installing a
-permission plugin.
+`@ultimabase/access-plugin` owns `schema.access`, the generalized class-level
+permission API. With `accessPlugin()` configured, it protects singular and
+collection reads, counts, existence checks, creates, updates, upserts, deletes,
+row visibility, and prepared items.
 
 `field.access.read` controls output, `where`, and `orderBy`. `field.access.write`
 controls supplied create values and the update transitions `fill`, `replace`,
@@ -22,12 +22,15 @@ columns are not selected. Explicit forbidden field use returns a typed error.
 
 Every independent declaration and provider contribution combines monotonically
 through logical `AND`; no later policy can broaden an earlier restriction.
+Without `accessPlugin()`, `access` is an unknown schema or field option and
+ordinary direct CRUD has no official Access policy stage.
 
 ## ACL
 
-ACL is an optional persisted per-object Access provider. It grants object
-operations to anonymous or plugin-provided subjects and contributes row, item,
-and field restrictions without overriding native schema or field Access.
+ACL is an optional independent persisted per-object policy. It grants object
+operations to anonymous or plugin-provided subjects and contributes protected
+row, item, and field restrictions without depending on or overriding official
+Access.
 
 One immutable ACL may grant `read`, `update`, and `delete` to public access,
 any authenticated principal, exact schema-qualified principal Pointers, and
@@ -75,13 +78,13 @@ extension accepts one static or asynchronous default and one shared
 `resolveInput` callback for both operations. A default factory receives the
 field-resolved create candidate, optional current principal, and operation
 context, so it may derive object grants from the data being inserted. The
-complete row is revalidated before Access. Only trusted master execution may
-supply, inspect, or replace an ACL value. An ordinary object `update` grant
-never grants control over its ACL.
+complete row is revalidated before protected policy evaluation. Only trusted
+master execution may supply, inspect, or replace an ACL value. An ordinary
+object `update` grant never grants control over its ACL.
 
 Master is trusted execution authority rather than an ACL subject. It bypasses
-ACL authorization but not validation, default generation, hooks, transactions,
-database constraints, or audit events.
+ACL authorization but not validation, default generation, installed Runtime
+behavior, transactions, database constraints, or audit events.
 
 `aclPlugin()` defaults each ACL to at most 100 exact principals and 50 roles.
 Applications may change those defaults through plugin options, while
@@ -100,6 +103,6 @@ all use the same contract. Equivalent ACL replacements are ignored, and an
 outer transaction rollback discards every queued event.
 
 The event is optional audit infrastructure rather than authorization. ACL
-Access checks happen earlier through the native Access plan, and no realtime or
+checks happen earlier through its generic protected policy, and no realtime or
 transport integration exposes the event unless an application explicitly adds
 a consumer.

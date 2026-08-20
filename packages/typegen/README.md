@@ -117,8 +117,9 @@ The TypeScript loader transpiles the application before a previous generated
 registry exists. Static compilation registers configured plugin field methods,
 resolves fields and relationship targets, and then emits exact models,
 operation inputs, filters, projections, includes, embedded objects, and
-FieldBuilder methods. Those values drive exact contextual Access and hook
-declarations through Core. Compatible object and enum `typeName` identities are
+FieldBuilder methods. Those values drive exact contextual options contributed
+by installed plugins, including official Access and Hooks. Compatible object
+and enum `typeName` identities are
 reused; incompatible identities and normalized TypeScript name collisions
 report both owners.
 
@@ -139,7 +140,7 @@ bottom. It adds only logical field kind, list, and relationship metadata that
 cannot be recovered safely from the public value types.
 
 Access and hook contracts are derived instead of duplicated in that registry.
-They are contextually inferred by Core rather than repeated as standalone
+They are contextually inferred from the compiled option contracts rather than repeated as standalone
 `TodoAccess` or `TodoHooks` wrappers. Extracted code can name the canonical
 generated value or operation input directly.
 

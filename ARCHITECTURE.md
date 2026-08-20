@@ -339,8 +339,8 @@ Query. Query predicates and every Access provider
 constraint combine through logical `AND`; a business hook cannot inspect or
 remove the private Access state.
 
-Persisted object ACL is one optional provider for this plugin lifecycle. Its immutable
-value stores public, authenticated, exact schema-qualified principal, and
+Persisted object ACL is an independent protected policy. Its immutable value
+stores public, authenticated, exact schema-qualified principal, and
 schema-qualified role grants for `read`, `update`, and `delete`. The reserved
 ACL field itself is visible and mutable only under trusted master execution;
 ordinary object update grants never authorize ACL management.

@@ -1,6 +1,6 @@
 # Milestone 16 — Community plugin authoring DX
 
-- Status: planned
+- Status: ready
 - Depends on: 1509
 
 Make the common plugin-authoring path substantially smaller without weakening
@@ -9,9 +9,9 @@ boundaries proven by milestones 14 and 15. Core remains the low-level kernel;
 `@ultimabase/plugin-kit` owns reusable ergonomics backed by concrete official
 and proof-plugin usages.
 
-This milestone starts only after milestone 15 has completed the Hooks and Access
-extraction. Its helpers must be tested against those final public contracts
-rather than the temporary native Core surfaces.
+Milestone 15 completed the Hooks and Access extraction in issue 1509. This
+milestone is ready at issue 1601; its helpers must be tested against those final
+public contracts rather than superseded native Core surfaces.
 
 ## Execution order
 

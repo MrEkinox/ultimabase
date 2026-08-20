@@ -73,8 +73,8 @@ users[0]?.toJSON() // A detached immutable object.
   independent from concrete product and infrastructure implementations.
 - REST and GraphQL use one operation AST and one runtime pipeline.
 - UltimaBase, Schema, Query, ACL, and Role domain objects use immutable classes.
-- Hooks and Access are optional official plugin capabilities in the accepted
-  target architecture. ACL contributes persisted per-object policies directly
+- Hooks and Access are optional official plugin capabilities. ACL contributes
+  persisted per-object policies directly
   through Core's generic protected-policy boundary, while roles and
   authentication provide optional request subjects. Core keeps anonymous and
   trusted master authority.

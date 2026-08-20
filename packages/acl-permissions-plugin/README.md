@@ -135,8 +135,8 @@ nested plugin configuration do not change ACL behavior. A static default that
 already contains role grants requires a compatible provider during setup;
 dynamically produced role grants fail before persistence when the required
 role capabilities are unavailable. Trusted master execution bypasses ACL
-authorization but still runs validation, defaults, hooks, transactions,
-constraints, and audit behavior.
+authorization but still runs validation, defaults, installed Runtime behavior,
+transactions, constraints, and audit behavior.
 
 Subject deletion remains owned by the authentication, role, or community
 provider that owns that subject. `aclPlugin()` registers neutral principal and
@@ -198,8 +198,9 @@ plugin publishes ACL changes by default.
 or `upsert`. It deliberately does not expose Core's normalized operation AST or
 its internal cardinality.
 
-The extension also works on a developer-defined RoleSchema. Native RoleSchema
-Access controls creation, while each persisted role ACL may narrow reads,
+The extension also works on a developer-defined RoleSchema. Official RoleSchema
+Access controls creation when `accessPlugin()` is installed, while each
+persisted role ACL may narrow reads,
 updates, member or nested-role mutations, and deletion. Only master execution
 may inspect or replace the role row's ACL value.
 

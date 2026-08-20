@@ -4,25 +4,26 @@ The issue backlog is the executable roadmap. This document only describes milest
 
 ## Current execution priority
 
-The Runtime-to-PostgreSQL vertical, current native hook lifecycle, fundamental Access,
+The Runtime-to-PostgreSQL vertical, official Hooks lifecycle, official Access,
 transport-neutral relations, developer-defined stored roles, persisted object
 ACL, structured JSONB fields, and the schema-root Query and mutation API are
 complete foundations. The
 [pre-feature codebase consolidation plan](docs/plans/completed/pre-feature-codebase-consolidation.md)
 has also completed its strict Schema and public API boundaries, empty-package
-cleanup, and focused Query, schema-model, Runtime, and native Access splits
+cleanup, and focused Query, schema-model, Runtime, and enforcement splits
 without adding a product capability. The
 [Query execution and enforcement consolidation plan](docs/plans/completed/query-execution-and-enforcement-consolidation.md)
 has likewise removed dead internal helpers and focused Query execution plus
 policy-neutral Enforcement ownership without changing public behavior. The
-[trusted open plugin kernel and optional official capabilities plan](CURRENT_PLAN.md)
-is now active. Its trusted open kernel milestone passed the complete audit in
-issue 1414; work resumes at issue 1501 to extract Hooks and Access into optional
-official plugins.
+[trusted open plugin kernel and optional official capabilities plan](docs/plans/completed/trusted-open-plugin-kernel-and-optional-official-capabilities.md)
+is complete. Milestone 14 delivered the public kernel and milestone 15 proved
+the optional official Hooks and Access plugins, independent alternatives, and
+Core-owned Master through the final issue 1509 audit.
 
 The ACL hardening plan remains paused at issue 432. Generated schema authoring
 and type contracts remain paused at the final DX and performance verification
-issue 810. Neither paused objective is part of the active maintenance milestone.
+issue 810. Milestone 16 is ready at issue 1601 but is not active until explicit
+user direction. Neither paused objective is part of an active plan.
 
 Completed cross-milestone plans are retained under
 [`docs/plans/completed/`](docs/plans/completed/) so their decisions remain
@@ -46,19 +47,17 @@ Service tokens, plugin graph, nested plugins, lifecycle, isolated applications, 
 ## Milestone 3 — Query and runtime foundations
 
 Operation AST, immutable `Query`, CRUD including bulk and upsert, RequestEngine,
-automatic mutation transactions, the currently implemented schema and field
-hook lifecycle, policy-neutral monotonic enforcement, cursor pagination, and
-Core master access. Milestone 15 preserves the accepted behavior while moving
-the optional Hooks product out of Core.
+automatic mutation transactions, generic Runtime behavior composition,
+policy-neutral monotonic enforcement, cursor pagination, and Core master
+access. The optional official Hooks plugin owns the schema and field lifecycle.
 
 ## Milestone 4 — Access foundations and persisted policy providers
 
-Native operation, filter, item, and field Access; compiled provider
-contributions; developer-defined stored roles and role hierarchy; object ACL;
-indexed PostgreSQL JSONB storage; SQL compilation; and audit events.
-Milestone 15 migrates the optional Access product and providers onto the open
-kernel while Core retains only generic protected constraints and master
-authority.
+The optional official Access plugin owns operation, filter, item, and field
+policies plus compatible provider contributions. Developer-defined stored
+roles, independent object ACL, indexed PostgreSQL JSONB storage, SQL
+compilation, and audit events compose through public capabilities. Core retains
+only generic protected constraints and master authority.
 
 ## Milestone 5 — PostgreSQL vertical
 
@@ -94,7 +93,8 @@ database, transport, or runtime responsibilities into Core.
 
 Repository truth, strict built-in field declarations, reserved-name parity,
 actionable field diagnostics, direct pre-release alias removal, and focused
-internal Query, schema-model, Runtime, and native Access responsibility splits.
+internal Query, schema-model, Runtime, and former native Access responsibility
+splits.
 This milestone adds no product capability and leaves ACL hardening and Typegen
 performance verification paused.
 
@@ -118,12 +118,11 @@ run without Typegen or a generated client.
 
 ## Milestone 15 — Optional Hooks and Access plugins
 
-Extract the existing Hooks and Access products into contract-only protocol
-packages plus official `@ultimabase/hooks-plugin` and
-`@ultimabase/access-plugin` implementations, migrate ACL and policy
-integrations, and prove that applications can run without either system or
-install community alternatives. Core keeps anonymous and audited master
-authority.
+Completed extraction of Hooks and Access into the single vertical
+`@ultimabase/hooks-plugin` and `@ultimabase/access-plugin` packages. Applications
+run without either engine or with independent community alternatives; ACL
+remains independent on Core's generic protected-policy boundary. Core keeps
+anonymous and audited master authority.
 
 ## First usable release
 

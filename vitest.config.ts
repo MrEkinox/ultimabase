@@ -1,8 +1,32 @@
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
 import {
 	defineConfig,
 	type TestProjectConfiguration,
 	type ViteUserConfig,
 } from 'vitest/config'
+
+const workspaceRoot = path.dirname(fileURLToPath(import.meta.url))
+const sourcePackageAliases = Object.fromEntries(
+	[
+		'access-plugin',
+		'acl-permissions-plugin',
+		'acl-postgres-plugin',
+		'core',
+		'hooks-plugin',
+		'pg-vector-plugin',
+		'plugin-kit',
+		'postgres-plugin',
+		'roles-plugin',
+		'shared',
+		'testing',
+		'typegen',
+	].map((packageName) => [
+		`@ultimabase/${packageName}`,
+		path.join(workspaceRoot, 'packages', packageName, 'src', 'index.ts'),
+	]),
+)
 
 const testProjects: TestProjectConfiguration[] = [
 	{
@@ -16,6 +40,27 @@ const testProjects: TestProjectConfiguration[] = [
 			name: 'unit',
 			// Language-service fixtures need headroom when coverage instruments Core.
 			testTimeout: 20_000,
+		},
+	},
+	{
+		extends: true,
+		resolve: { alias: sourcePackageAliases },
+		test: {
+			exclude: [
+				'tests/e2e/**/*.postgres.e2e.test.ts',
+				'tests/e2e/package-archives.e2e.test.ts',
+			],
+			include: ['tests/e2e/**/*.e2e.test.ts'],
+			name: 'coverage-e2e',
+		},
+	},
+	{
+		extends: true,
+		resolve: { alias: sourcePackageAliases },
+		test: {
+			globalSetup: ['./tests/e2e/postgres.global-setup.ts'],
+			include: ['tests/e2e/**/*.postgres.e2e.test.ts'],
+			name: 'coverage-postgres-e2e',
 		},
 	},
 	{

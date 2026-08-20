@@ -35,8 +35,8 @@ community packages.
 22. [x] [1413 — Prove workflow, value-codec, and JavaScript plugins](1413-open-kernel-proof-plugins.md)
 23. [x] [1414 — Verify the trusted open plugin kernel](1414-open-plugin-kernel-verification.md)
 
-The frozen constraints, supervision checkpoints, and cross-milestone resume
-order live in [`CURRENT_PLAN.md`](../../CURRENT_PLAN.md).
+The frozen constraints, supervision checkpoints, and delivered cross-milestone
+order live in the [completed implementation plan](../../docs/plans/completed/trusted-open-plugin-kernel-and-optional-official-capabilities.md).
 
 The complete public, security, compatibility, packed-package, coverage, and
 PostgreSQL audit passed in issue 1414. Work resumes in milestone 15 at issue

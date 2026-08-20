@@ -1,6 +1,6 @@
 # 1601: Refine inactive host privileges
 
-- Status: planned
+- Status: ready
 - Milestone: 16
 - Packages: `@ultimabase/core`, `@ultimabase/plugin-kit`, documentation
 - Depends on: 1509

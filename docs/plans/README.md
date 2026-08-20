@@ -7,7 +7,8 @@ priority changes.
 
 ## Active
 
-- [Trusted open plugin kernel and optional official capabilities](../../CURRENT_PLAN.md)
+No cross-milestone plan is active. Milestone 16 is ready at issue 1601 but has
+not been started.
 
 ## Paused
 
@@ -18,6 +19,7 @@ priority changes.
 
 ## Completed
 
+- [Trusted open plugin kernel and optional official capabilities](completed/trusted-open-plugin-kernel-and-optional-official-capabilities.md)
 - [Query execution and enforcement consolidation](completed/query-execution-and-enforcement-consolidation.md)
 - [Pre-feature codebase consolidation](completed/pre-feature-codebase-consolidation.md)
 - [Explicit Typegen package identity](completed/explicit-typegen-package-identity.md)

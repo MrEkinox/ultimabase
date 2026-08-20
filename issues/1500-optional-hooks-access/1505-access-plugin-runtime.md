@@ -17,17 +17,17 @@ adapter capabilities while preserving every accepted security invariant.
 
 ## Acceptance criteria
 
-- [ ] Access plugin evaluates operation, filter, item, and field decisions through public Runtime capabilities with no private Core assembly branch.
-- [ ] Denials remain irreversible, row predicates and opaque constraints accumulate with logical `AND`, and field restrictions intersect before final output.
-- [ ] Initial evaluation, target preparation, value-dependent reevaluation, relationship recursion, and final restriction retain current order and fail-closed behavior.
-- [ ] Rewritten persistence plans carry the logical target's protected restrictions into the actual adapter statement.
-- [ ] Master remains a Core authority observed through the existing audited request context; the plugin explicitly declares bypass or enforcement behavior without creating Master.
-- [ ] No-Access applications allocate no plan, provider snapshot, placeholder handler, or Access-specific request state.
+- [x] Access plugin evaluates operation, filter, item, and field decisions through public Runtime capabilities with no private Core assembly branch.
+- [x] Denials remain irreversible, row predicates and opaque constraints accumulate with logical `AND`, and field restrictions intersect before final output.
+- [x] Initial evaluation, target preparation, value-dependent reevaluation, relationship recursion, and final restriction retain current order and fail-closed behavior.
+- [x] Rewritten persistence plans carry the logical target's protected restrictions into the actual adapter statement.
+- [x] Master remains a Core authority observed through the existing audited request context; the plugin explicitly declares bypass or enforcement behavior without creating Master.
+- [x] No-Access applications allocate no plan, provider snapshot, placeholder handler, or Access-specific request state.
 
 ## Tests
 
-- [ ] Existing Access and enforcement suites migrate or adapt through public plugin APIs and retain focused coverage.
-- [ ] PostgreSQL E2E covers reads, counts, relations, itemized mutations, field transitions, master, persistence rewrites, and application isolation.
+- [x] Existing Access and enforcement suites migrate or adapt through public plugin APIs and retain focused coverage.
+- [x] PostgreSQL E2E covers reads, counts, relations, itemized mutations, field transitions, master, persistence rewrites, and application isolation.
 
 ## Out of scope
 

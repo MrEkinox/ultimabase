@@ -77,7 +77,7 @@ export const createRelationPredicateEvaluator = (
 					: [
 							immutableRecord({
 								expression: query.where.expression,
-								requireSourceFieldAccess: true,
+								requiresSourceFieldRestriction: true,
 							}),
 						],
 			),
@@ -86,18 +86,18 @@ export const createRelationPredicateEvaluator = (
 				: [
 						immutableRecord({
 							expression: policyRowFilter,
-							requireSourceFieldAccess: false,
+							requiresSourceFieldRestriction: false,
 						}),
 					]),
 			...policyExpressions.map((expression) =>
 				immutableRecord({
 					expression,
-					requireSourceFieldAccess: false,
+					requiresSourceFieldRestriction: false,
 				}),
 			),
 		]
 
-		for (const { expression, requireSourceFieldAccess } of expressions) {
+		for (const { expression, requiresSourceFieldRestriction } of expressions) {
 			for (const predicate of collectDirectRelationPredicates(expression)) {
 				if (
 					getEnforcementStateSnapshot(state).relationPredicates.some(
@@ -109,7 +109,7 @@ export const createRelationPredicateEvaluator = (
 
 				// A policy-owned row filter is already trusted server code. Source field
 				// disclosure applies only to predicates supplied by the operation caller.
-				if (requireSourceFieldAccess) {
+				if (requiresSourceFieldRestriction) {
 					await enforceProtectedRelation(
 						contributions,
 						immutableRecord({
@@ -125,7 +125,7 @@ export const createRelationPredicateEvaluator = (
 				}
 
 				const includePredicateInTargetQuery =
-					requireSourceFieldAccess &&
+					requiresSourceFieldRestriction &&
 					!(
 						predicate.kind === 'relation-count' &&
 						predicate.expression.kind === 'constant' &&
@@ -159,7 +159,7 @@ export const createRelationPredicateEvaluator = (
 				targetState = await evaluateRelationPredicates(
 					targetInput,
 					targetState,
-					requireSourceFieldAccess ? [] : [predicate.expression],
+					requiresSourceFieldRestriction ? [] : [predicate.expression],
 				)
 
 				const targetSnapshot = getEnforcementStateSnapshot(targetState)

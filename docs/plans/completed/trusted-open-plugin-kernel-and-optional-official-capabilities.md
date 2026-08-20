@@ -1,16 +1,17 @@
-# Active plan: trusted open plugin kernel and optional official capabilities
+# Completed plan: trusted open plugin kernel and optional official capabilities
 
-- Status: active
+- Status: completed
 - Started: 2026-08-11
+- Completed: 2026-08-20
 - Objective owner: `@ultimabase/core`, `@ultimabase/plugin-kit`, `@ultimabase/typegen`, `@ultimabase/testing`, official plugins
 - Milestones:
-  - [14 — Trusted open plugin kernel](issues/1400-open-plugin-kernel/README.md)
-  - [15 — Optional Hooks and Access plugins](issues/1500-optional-hooks-access/README.md)
-- Resume point: [1509 — Verify optional official capability extraction](issues/1500-optional-hooks-access/1509-optional-capabilities-verification.md)
-- Previous completed plan: [Query execution and enforcement consolidation](docs/plans/completed/query-execution-and-enforcement-consolidation.md)
+  - [14 — Trusted open plugin kernel](../../../issues/1400-open-plugin-kernel/README.md)
+  - [15 — Optional Hooks and Access plugins](../../../issues/1500-optional-hooks-access/README.md)
+- Completed by: [1509 — Verify optional official capability extraction](../../../issues/1500-optional-hooks-access/1509-optional-capabilities-verification.md)
+- Previous completed plan: [Query execution and enforcement consolidation](query-execution-and-enforcement-consolidation.md)
 - Paused objectives:
-  - [ACL hardening and developer-experience consolidation](docs/plans/paused/acl-hardening-and-developer-experience-consolidation.md)
-  - [Generated schema authoring and type contracts](docs/plans/paused/generated-schema-authoring-and-type-contracts.md)
+  - [ACL hardening and developer-experience consolidation](../paused/acl-hardening-and-developer-experience-consolidation.md)
+  - [Generated schema authoring and type contracts](../paused/generated-schema-authoring-and-type-contracts.md)
 
 ## Objective
 
@@ -58,50 +59,50 @@ optional official plugins while keeping Core master authority unchanged.
 
 ### Phase 1 — Manifests, privileges, and capability graph
 
-1. [x] [1401 — Add plugin manifests and declared privileges](issues/1400-open-plugin-kernel/1401-plugin-manifests-and-privileges.md)
-2. [x] [1403 — Add versioned capability tokens and requirements](issues/1400-open-plugin-kernel/1403-versioned-capability-tokens.md)
-3. [x] [1402 — Enforce application privilege policy and startup reporting](issues/1400-open-plugin-kernel/1402-privilege-policy-and-reporting.md)
-4. [x] [1404 — Compose capability providers, decorators, and replacements](issues/1400-open-plugin-kernel/1404-capability-composition.md)
-5. [x] [1415 — Converge legacy services, slots, and setup registries](issues/1400-open-plugin-kernel/1415-converge-legacy-plugin-host.md)
+1. [x] [1401 — Add plugin manifests and declared privileges](../../../issues/1400-open-plugin-kernel/1401-plugin-manifests-and-privileges.md)
+2. [x] [1403 — Add versioned capability tokens and requirements](../../../issues/1400-open-plugin-kernel/1403-versioned-capability-tokens.md)
+3. [x] [1402 — Enforce application privilege policy and startup reporting](../../../issues/1400-open-plugin-kernel/1402-privilege-policy-and-reporting.md)
+4. [x] [1404 — Compose capability providers, decorators, and replacements](../../../issues/1400-open-plugin-kernel/1404-capability-composition.md)
+5. [x] [1415 — Converge legacy services, slots, and setup registries](../../../issues/1400-open-plugin-kernel/1415-converge-legacy-plugin-host.md)
 
 ### Phase 2 — Open static application compilation
 
-6. [x] [1405 — Open the static plugin declaration host](issues/1400-open-plugin-kernel/1405-static-plugin-declaration-host.md)
-7. [x] [1406 — Compile owned schema transformations and provenance](issues/1400-open-plugin-kernel/1406-schema-transformations-and-provenance.md)
-8. [x] [1419 — Harden schema declaration correctness and atomicity](issues/1400-open-plugin-kernel/1419-schema-declaration-correctness-and-atomicity.md)
-9. [x] [1420 — Align capability phases and declaration contracts](issues/1400-open-plugin-kernel/1420-capability-phase-and-contract-alignment.md)
-10. [x] [1421 — Modularize schema declarations and enforce file budgets](issues/1400-open-plugin-kernel/1421-modularize-schema-declarations-and-enforce-file-budgets.md)
-11. [x] [1422 — Define the callback-free schema compiler IR](issues/1400-open-plugin-kernel/1422-callback-free-schema-compiler-ir.md)
-12. [x] [1423 — Run the canonical schema compiler through the public IR](issues/1400-open-plugin-kernel/1423-canonical-schema-compiler-ir.md)
-13. [x] [1418 — Replace the complete schema compiler through a versioned capability](issues/1400-open-plugin-kernel/1418-schema-compiler-replacement-capability.md)
-14. [x] [1407 — Add dynamic schemas, model extensions, and plugin operations](issues/1400-open-plugin-kernel/1407-dynamic-schemas-models-and-operations.md)
-15. [x] [1408 — Let plugins contribute exact Typegen contracts](issues/1400-open-plugin-kernel/1408-plugin-typegen-contributions.md)
+6. [x] [1405 — Open the static plugin declaration host](../../../issues/1400-open-plugin-kernel/1405-static-plugin-declaration-host.md)
+7. [x] [1406 — Compile owned schema transformations and provenance](../../../issues/1400-open-plugin-kernel/1406-schema-transformations-and-provenance.md)
+8. [x] [1419 — Harden schema declaration correctness and atomicity](../../../issues/1400-open-plugin-kernel/1419-schema-declaration-correctness-and-atomicity.md)
+9. [x] [1420 — Align capability phases and declaration contracts](../../../issues/1400-open-plugin-kernel/1420-capability-phase-and-contract-alignment.md)
+10. [x] [1421 — Modularize schema declarations and enforce file budgets](../../../issues/1400-open-plugin-kernel/1421-modularize-schema-declarations-and-enforce-file-budgets.md)
+11. [x] [1422 — Define the callback-free schema compiler IR](../../../issues/1400-open-plugin-kernel/1422-callback-free-schema-compiler-ir.md)
+12. [x] [1423 — Run the canonical schema compiler through the public IR](../../../issues/1400-open-plugin-kernel/1423-canonical-schema-compiler-ir.md)
+13. [x] [1418 — Replace the complete schema compiler through a versioned capability](../../../issues/1400-open-plugin-kernel/1418-schema-compiler-replacement-capability.md)
+14. [x] [1407 — Add dynamic schemas, model extensions, and plugin operations](../../../issues/1400-open-plugin-kernel/1407-dynamic-schemas-models-and-operations.md)
+15. [x] [1408 — Let plugins contribute exact Typegen contracts](../../../issues/1400-open-plugin-kernel/1408-plugin-typegen-contributions.md)
 
 ### Phase 3 — Runtime, persistence, and community toolbox
 
-16. [x] [1409 — Assemble Runtime through public capability middleware](issues/1400-open-plugin-kernel/1409-runtime-capability-assembly.md)
-17. [x] [1410 — Separate logical operations from rewritable persistence plans](issues/1400-open-plugin-kernel/1410-rewritable-persistence-plans.md)
-18. [x] [1416 — Execute plugin operations and explicit transport bindings](issues/1400-open-plugin-kernel/1416-execute-plugin-operations-and-transport-bindings.md)
-19. [x] [1417 — Add adapter, codec, physical schema, and migration bridges](issues/1400-open-plugin-kernel/1417-adapter-codec-schema-migration-bridges.md)
-20. [x] [1411 — Publish the plugin authoring toolbox](issues/1400-open-plugin-kernel/1411-plugin-authoring-toolbox.md)
-21. [x] [1412 — Add plugin conformance testing utilities](issues/1400-open-plugin-kernel/1412-plugin-conformance-testing.md)
-22. [x] [1413 — Prove workflow, value-codec, and JavaScript plugins](issues/1400-open-plugin-kernel/1413-open-kernel-proof-plugins.md)
-23. [x] [1414 — Verify the trusted open plugin kernel](issues/1400-open-plugin-kernel/1414-open-plugin-kernel-verification.md)
+16. [x] [1409 — Assemble Runtime through public capability middleware](../../../issues/1400-open-plugin-kernel/1409-runtime-capability-assembly.md)
+17. [x] [1410 — Separate logical operations from rewritable persistence plans](../../../issues/1400-open-plugin-kernel/1410-rewritable-persistence-plans.md)
+18. [x] [1416 — Execute plugin operations and explicit transport bindings](../../../issues/1400-open-plugin-kernel/1416-execute-plugin-operations-and-transport-bindings.md)
+19. [x] [1417 — Add adapter, codec, physical schema, and migration bridges](../../../issues/1400-open-plugin-kernel/1417-adapter-codec-schema-migration-bridges.md)
+20. [x] [1411 — Publish the plugin authoring toolbox](../../../issues/1400-open-plugin-kernel/1411-plugin-authoring-toolbox.md)
+21. [x] [1412 — Add plugin conformance testing utilities](../../../issues/1400-open-plugin-kernel/1412-plugin-conformance-testing.md)
+22. [x] [1413 — Prove workflow, value-codec, and JavaScript plugins](../../../issues/1400-open-plugin-kernel/1413-open-kernel-proof-plugins.md)
+23. [x] [1414 — Verify the trusted open plugin kernel](../../../issues/1400-open-plugin-kernel/1414-open-plugin-kernel-verification.md)
 
 ### Phase 4 — Optional Hooks engine
 
-24. [x] [1501 — Extract the complete Hooks plugin](issues/1500-optional-hooks-access/1501-hooks-plugin-authoring-contracts.md)
-25. [x] [1502 — Merged into issue 1501 by ADR-0202](issues/1500-optional-hooks-access/1502-hooks-plugin-runtime.md)
-26. [x] [1503 — Prove no-Hooks and alternative-Hooks applications](issues/1500-optional-hooks-access/1503-hooks-optional-alternative-proof.md)
+24. [x] [1501 — Extract the complete Hooks plugin](../../../issues/1500-optional-hooks-access/1501-hooks-plugin-authoring-contracts.md)
+25. [x] [1502 — Merged into issue 1501 by ADR-0202](../../../issues/1500-optional-hooks-access/1502-hooks-plugin-runtime.md)
+26. [x] [1503 — Prove no-Hooks and alternative-Hooks applications](../../../issues/1500-optional-hooks-access/1503-hooks-optional-alternative-proof.md)
 
 ### Phase 5 — Optional Access engine
 
-27. [x] [1504 — Extract the complete Access plugin](issues/1500-optional-hooks-access/1504-access-plugin-authoring-plans.md)
-28. [x] [1505 — Merged into issue 1504 by ADR-0204](issues/1500-optional-hooks-access/1505-access-plugin-runtime.md)
-29. [x] [1506 — Merged into issue 1504 by ADR-0205](issues/1500-optional-hooks-access/1506-policy-provider-migration.md)
-30. [x] [1507 — Prove no-Access, alternative-Access, and Core Master](issues/1500-optional-hooks-access/1507-access-optional-alternative-proof.md)
-31. [x] [1508 — Remove superseded native Hooks and Access surfaces](issues/1500-optional-hooks-access/1508-native-hooks-access-removal-audit.md)
-32. [ ] [1509 — Verify optional official capability extraction](issues/1500-optional-hooks-access/1509-optional-capabilities-verification.md)
+27. [x] [1504 — Extract the complete Access plugin](../../../issues/1500-optional-hooks-access/1504-access-plugin-authoring-plans.md)
+28. [x] [1505 — Merged into issue 1504 by ADR-0204](../../../issues/1500-optional-hooks-access/1505-access-plugin-runtime.md)
+29. [x] [1506 — Merged into issue 1504 by ADR-0205](../../../issues/1500-optional-hooks-access/1506-policy-provider-migration.md)
+30. [x] [1507 — Prove no-Access, alternative-Access, and Core Master](../../../issues/1500-optional-hooks-access/1507-access-optional-alternative-proof.md)
+31. [x] [1508 — Remove superseded native Hooks and Access surfaces](../../../issues/1500-optional-hooks-access/1508-native-hooks-access-removal-audit.md)
+32. [x] [1509 — Verify optional official capability extraction](../../../issues/1500-optional-hooks-access/1509-optional-capabilities-verification.md)
 
 ## Supervision checkpoints
 
@@ -121,7 +122,9 @@ optional official plugins while keeping Core master authority unchanged.
 - After 1414: milestone 15 cannot start until workflow, value-codec, JavaScript, privilege denial, application isolation, packed exports, and complete PostgreSQL proofs pass.
 - During 1501 through 1507: stop on any official-plugin private import, hidden Core dispatcher, neutral placeholder, master relocation, or community-inaccessible capability.
 - Before 1508: prove no-Hooks, alternative-Hooks, no-Access, alternative-Access, ACL, roles, PostgreSQL, and trusted Master behavior through built public package exports.
-- After 1509: archive this plan only when both milestone READMEs, ADR refinement links, documentation, examples, and paused-objective resume points reflect the delivered architecture.
+- After 1509: this plan was archived only after both milestone READMEs, ADR
+  refinement links, documentation, examples, and paused-objective resume points
+  reflected the delivered architecture.
 
 ## Completion gate
 
@@ -135,3 +138,7 @@ optional official plugins while keeping Core master authority unchanged.
 - Hooks and Access are absent from Core's public product vocabulary and exist as optional official plugins with alternative-engine proofs.
 - ACL, roles, authentication-facing context contracts, PostgreSQL constraints, master behavior, automatic transactions, and protected monotonicity retain their accepted guarantees.
 - Repository typecheck, tests, lint, formatting, constraints, build, package archives, coverage, and complete PostgreSQL E2E pass.
+
+Issue 1414 recorded the milestone 14 kernel gate. Issue 1509 recorded the final
+optional-engine matrix, unchanged coverage thresholds, removal and performance
+audits, documentation reconciliation, and milestone 15 completion.

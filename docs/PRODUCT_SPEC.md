@@ -9,7 +9,7 @@ Static TypeScript schemas generate or drive:
 - PostgreSQL structures;
 - validation and inferred types;
 - full CRUD, bulk operations, and upserts;
-- native schema and field Access, object ACL, and roles;
+- optional official schema and field Access, independent object ACL, and roles;
 - REST and GraphQL APIs;
 - migrations and synchronization;
 - SDK and realtime metadata in later milestones.
@@ -27,8 +27,8 @@ The first complete vertical includes:
 - generated REST;
 - generated GraphQL through Yoga;
 - custom `GraphQLSchema` merging;
-- automatic mutation transactions, native typed schema and field hooks,
-  deterministic plugin hook contributions, and post-commit events;
+- automatic mutation transactions, optional official typed schema and field
+  Hooks, deterministic plugin contributions, and post-commit events;
 - parallel Vitest integration tests through Testcontainers.
 
 ## Naming and data conventions
@@ -53,19 +53,19 @@ Classes are preferred for discoverable public domain objects and immutable build
 
 Factories, plugin definitions, hooks, scopes, and rule combinators remain functions.
 
-## Native lifecycle hooks
+## Optional official lifecycle Hooks
 
-Business hooks are a framework primitive and require no plugin. A schema may
-declare operation-family hooks without repeating singular and bulk handlers,
-and a field may declare hooks that infer its exact logical value. Plugins append
-global, schema, typed field-path, extension, or field-kind hooks through the
-same application-owned dispatcher.
+`@ultimabase/hooks-plugin` owns the official business lifecycle. When installed,
+a schema may declare operation-family Hooks without repeating singular and bulk
+handlers, and a field may declare Hooks that infer its exact logical value.
+Compatible plugins contribute global, schema, typed field-path, extension, or
+field-kind behavior through its public contracts. Without it, Core exposes no
+official Hook option or dispatcher.
 
-Native Access declarations and ACL provider contributions compile separately
-from business hooks into one monotonic plan: guards only deny, database
-constraints only accumulate, and field restrictions only narrow. Applications
-without Access declarations or providers do not execute placeholder permission
-behavior.
+The official Access plugin and independent protected-policy plugins compose
+separately from business Hooks: guards only deny, database constraints only
+accumulate, and field restrictions only narrow. Applications without either
+kind of policy execute no placeholder permission behavior.
 
 Every mutation and every database write started by its business hooks shares an
 automatic transaction. Business after-hooks may still abort before commit;
@@ -75,9 +75,9 @@ non-transactional unless the developer explicitly opens a transaction.
 ## Access semantics
 
 - `anonymous` and `master` are Core's only authority modes; authentication adds typed request context without adding another Core mode.
-- native schema Access controls whole-schema operations, row filters, and item decisions.
-- ACL applies to individual objects and never overrides native Access.
-- native field Access controls output, `where`, `orderBy`, create input, and fill, replace, clear, or relation-write transitions.
+- official schema Access controls whole-schema operations, row filters, and item decisions when `accessPlugin()` is installed.
+- ACL applies to individual objects through Core's generic protected-policy boundary and never broadens another policy.
+- official field Access controls output, `where`, `orderBy`, create input, and fill, replace, clear, or relation-write transitions.
 - roles may contain members and other roles without granting an operation by installation alone.
 - master is trusted server-side authority and is audited.
 

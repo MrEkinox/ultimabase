@@ -33,10 +33,9 @@ Before changing code:
   instance ID. Multiple configurations of one plugin are legal only when their
   instance identities and capability contracts make composition unambiguous.
 - REST and GraphQL normalize into the same operation/query AST and execute through the same runtime pipeline.
-- ADR-0189 is the accepted target: Hooks and Access become optional official
-  plugins built on the same public kernel as community alternatives. Until
-  milestone 15 completes, preserve current native behavior issue by issue and
-  do not add new Core-specific Hooks or Access extension paths.
+- ADR-0189 is delivered: Hooks and Access are optional official plugins built
+  on the same public kernel as community alternatives. Do not reintroduce
+  Core-specific Hooks or Access extension paths.
 - ACL contributes its independent monotonic policy through Core's generic
   protected constraint capability and never depends on the official Access
   package. Roles and authentication provide optional request subjects but grant
@@ -149,10 +148,10 @@ Run or update `yarn constraints` when dependency constraints exist. If a request
 - Typegen may consume the compiled graph and owner-scoped plugin contributions,
   but may emit only declarations and deterministic inert metadata. JavaScript
   applications execute the same graph without Typegen or a generated client.
-- Hooks and Access are migrating to optional official plugins. Their existing
-  ordering, typing, transactional, and monotonic security semantics remain
-  requirements during extraction, but community alternatives may expose a
-  different developer experience through the same public kernel.
+- Hooks and Access are optional official plugins. Their ordering, typing,
+  transactional, and monotonic security semantics remain requirements, while
+  community alternatives may expose a different developer experience through
+  the same public kernel.
 - Policy capabilities use generic deny-only guards, AND-only row filters,
   append-only adapter constraints, narrowing field restrictions, and
   Core-validated structural output subsets. Later middleware must never broaden
@@ -161,8 +160,8 @@ Run or update `yarn constraints` when dependency constraints exist. If a request
 
 ## Runtime order
 
-Preserve this current compatibility pipeline while milestones 14 and 15 expose
-and extract it through public capabilities:
+Preserve this logical pipeline through the public capability kernel and the
+optional official engines:
 
 ```text
 normalization
