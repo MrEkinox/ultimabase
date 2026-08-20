@@ -395,10 +395,12 @@ constraint contracts.
 Official-compatible Access providers import public contracts from
 `@ultimabase/access-plugin`; independent policy engines use the generic kernel
 directly and own their protocol identity. Official-compatible Hook extensions
-follow the same model with `@ultimabase/hooks-plugin`. A public transport without
-a compatible policy engine remains supported but emits
-`UNPROTECTED_PUBLIC_TRANSPORT` unless its configuration explicitly acknowledges
-unprotected exposure.
+follow the same model with `@ultimabase/hooks-plugin`. Core cannot prove that an
+arbitrary protected policy covers every operation exposed by a public
+transport. Every unacknowledged exposure therefore emits
+`UNVERIFIED_PUBLIC_TRANSPORT_PROTECTION`; its structured data distinguishes no
+provider from provider-present-but-unverified without naming a concrete policy
+product.
 
 ## Database and migrations
 

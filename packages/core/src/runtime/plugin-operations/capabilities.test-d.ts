@@ -75,13 +75,13 @@ test('infers exact handler and wire boundary contracts', () => {
 	const acknowledgedExposure: OperationTransportExposureOptions<
 		typeof transport
 	> = {
-		acknowledgeUnprotected: true,
+		acknowledgeUnverifiedProtection: true,
 		operations: [operation],
 		transport,
 	}
-	expectTypeOf(acknowledgedExposure.acknowledgeUnprotected).toEqualTypeOf<
-		true | undefined
-	>()
+	expectTypeOf(
+		acknowledgedExposure.acknowledgeUnverifiedProtection,
+	).toEqualTypeOf<true | undefined>()
 
 	expectTypeOf<OperationTransportWireInput<typeof binding>>().toEqualTypeOf<
 		Readonly<{ readonly value: string }>

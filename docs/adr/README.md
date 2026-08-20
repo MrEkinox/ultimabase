@@ -194,6 +194,7 @@ Accepted records:
 - [ADR-0206: Master contexts have application-owned provenance](0206-application-owned-master-provenance.md)
 - [ADR-0207: Nested callbacks use application-bound execution attribution](0207-application-callback-execution-attribution.md)
 - [ADR-0208: Plugin powers report only enforceable boundaries](0208-enforceable-plugin-powers-and-environment-truth.md)
+- [ADR-0209: Public transport protection remains unverified](0209-public-transport-protection-is-unverified.md)
 
 Superseded records:
 

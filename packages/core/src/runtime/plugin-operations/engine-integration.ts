@@ -27,25 +27,27 @@ import {
 	CoreApplicationOperationTransport,
 	type ApplicationOperationTransport,
 	type OperationTransportExposureOptions,
-	type UnprotectedPublicTransportWarning,
+	type PublicTransportProtectionWarning,
 } from './transport.js'
 
 const frameworkPluginOperations = new WeakMap<
 	FrameworkEngine,
 	PluginOperationRuntime
 >()
-const warnedUnprotectedTransports = new WeakMap<
+const warnedUnverifiedProtectionTransports = new WeakMap<
 	FrameworkEngine,
 	WeakSet<OperationTransportProtocol>
 >()
 
 const operationTransportExposureKeys: ReadonlySet<string> = new Set([
-	'acknowledgeUnprotected',
+	'acknowledgeUnverifiedProtection',
 	'operations',
 	'transport',
 ])
 
-const hasProtectedPolicy = (framework: FrameworkEngine): boolean =>
+const protectedPolicyProviderPresence = (
+	framework: FrameworkEngine,
+): 'none' | 'present' =>
 	readApplicationCapabilityContributions(
 		framework.application,
 		runtimeConstraintCapability,
@@ -53,30 +55,39 @@ const hasProtectedPolicy = (framework: FrameworkEngine): boolean =>
 		(contribution) =>
 			getProtectedPolicyImplementation(contribution.value) !== undefined,
 	)
+		? 'present'
+		: 'none'
 
-const warnUnprotectedPublicTransport = (
+const warnUnverifiedPublicTransportProtection = (
 	framework: FrameworkEngine,
 	transport: OperationTransportProtocol,
 ): void => {
-	let warned = warnedUnprotectedTransports.get(framework)
+	let warned = warnedUnverifiedProtectionTransports.get(framework)
 	if (warned === undefined) {
 		warned = new WeakSet()
-		warnedUnprotectedTransports.set(framework, warned)
+		warnedUnverifiedProtectionTransports.set(framework, warned)
 	}
 	if (warned.has(transport)) return
 	warned.add(transport)
 
-	const warning: UnprotectedPublicTransportWarning = immutableRecord({
-		code: 'UNPROTECTED_PUBLIC_TRANSPORT' as const,
+	const providerPresence = protectedPolicyProviderPresence(framework)
+	const warning: PublicTransportProtectionWarning = immutableRecord({
+		code: 'UNVERIFIED_PUBLIC_TRANSPORT_PROTECTION' as const,
 		message:
-			'Public transport started without a protected policy contribution.',
+			providerPresence === 'none'
+				? 'Public transport protection is unverified because no protected policy contribution is installed.'
+				: 'Public transport protection is unverified because protected policy presence does not prove coverage of exposed operations.',
+		policy: immutableRecord({
+			coverage: 'unverified' as const,
+			providerPresence,
+		}),
 		transport: immutableRecord({
 			name: transport.name,
 			version: transport.version,
 		}),
 	})
 
-	console.warn('[UltimaBase] Unprotected public transport', warning)
+	console.warn('[UltimaBase] Unverified public transport protection', warning)
 }
 
 /** Materializes operation capabilities only when an initialized facade uses them. */
@@ -115,10 +126,14 @@ export const exposeFrameworkOperations = <
 			)
 		}
 	}
-	const acknowledgeUnprotected: unknown = options.acknowledgeUnprotected
-	if (acknowledgeUnprotected !== undefined && acknowledgeUnprotected !== true) {
+	const acknowledgeUnverifiedProtection: unknown =
+		options.acknowledgeUnverifiedProtection
+	if (
+		acknowledgeUnverifiedProtection !== undefined &&
+		acknowledgeUnverifiedProtection !== true
+	) {
 		throw new TypeError(
-			'operation transport acknowledgeUnprotected must be true when provided',
+			'operation transport acknowledgeUnverifiedProtection must be true when provided',
 		)
 	}
 	const exposed = new Map<
@@ -159,8 +174,8 @@ export const exposeFrameworkOperations = <
 			}),
 		)
 	}
-	if (acknowledgeUnprotected !== true && !hasProtectedPolicy(framework)) {
-		warnUnprotectedPublicTransport(framework, options.transport)
+	if (acknowledgeUnverifiedProtection !== true) {
+		warnUnverifiedPublicTransportProtection(framework, options.transport)
 	}
 
 	return new CoreApplicationOperationTransport(

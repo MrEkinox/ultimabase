@@ -439,15 +439,18 @@ describe('@ultimabase/core Runtime declarations', () => {
 		expect(authorityDeclaration).not.toContain('elevate(')
 	})
 
-	it('ships the explicit unprotected-transport acknowledgement contract', async () => {
+	it('ships the explicit unverified-transport protection contract', async () => {
 		const declarations = await readFile(
 			path.join(packagesDirectory, 'core', 'dist', 'index.d.ts'),
 			'utf8',
 		)
 
-		expect(declarations).toContain('acknowledgeUnprotected?: true')
-		expect(declarations).toContain('UnprotectedPublicTransportWarning')
-		expect(declarations).toContain('UNPROTECTED_PUBLIC_TRANSPORT')
+		expect(declarations).toContain('acknowledgeUnverifiedProtection?: true')
+		expect(declarations).toContain('PublicTransportProtectionWarning')
+		expect(declarations).toContain('UNVERIFIED_PUBLIC_TRANSPORT_PROTECTION')
+		expect(declarations).toContain('readonly coverage: "unverified"')
+		expect(declarations).not.toContain('acknowledgeUnprotected')
+		expect(declarations).not.toContain('UnprotectedPublicTransportWarning')
 	})
 
 	it('exposes the documented UltimaBase facade and compact QueryBuilder', () => {

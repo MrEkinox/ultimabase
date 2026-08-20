@@ -183,6 +183,11 @@ exports.
 operation exposure without installing HTTP or GraphQL. It returns only encoded
 success values, safe `FrameworkError` payloads, or declared public
 `PluginError` payloads; unknown diagnostics collapse to `INTERNAL_ERROR`.
+The fake does not acknowledge transport protection automatically. Its exposure
+therefore emits Core's product-neutral
+`UNVERIFIED_PUBLIC_TRANSPORT_PROTECTION` warning unless the fixture sets
+`acknowledgeUnverifiedProtection: true`; installing a policy provider alone does
+not silence that diagnostic.
 
 ## Fake adapter migration history
 

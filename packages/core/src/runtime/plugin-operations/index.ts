@@ -21,5 +21,5 @@ export type {
 	ApplicationOperationTransport,
 	OperationTransportExposureOptions,
 	OperationTransportRequest,
-	UnprotectedPublicTransportWarning,
+	PublicTransportProtectionWarning,
 } from './transport.js'

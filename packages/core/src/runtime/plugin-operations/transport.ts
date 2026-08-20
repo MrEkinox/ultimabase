@@ -28,20 +28,27 @@ export interface OperationTransportExposureOptions<
 	TTransport extends OperationTransportProtocol = OperationTransportProtocol,
 > {
 	/**
-	 * Confirms that this public transport intentionally starts without a
-	 * protected policy contribution.
+	 * Confirms that the developer accepts Core cannot prove complete policy
+	 * coverage for this public exposure.
 	 *
-	 * @example `acknowledgeUnprotected: true`
+	 * @example `acknowledgeUnverifiedProtection: true`
 	 */
-	readonly acknowledgeUnprotected?: true
+	readonly acknowledgeUnverifiedProtection?: true
 	readonly operations: readonly (PluginOperationDefinition | string)[]
 	readonly transport: TTransport
 }
 
-/** Describes the stable startup warning for an intentionally public surface. */
-export interface UnprotectedPublicTransportWarning {
-	readonly code: 'UNPROTECTED_PUBLIC_TRANSPORT'
+/** Describes Core's exact knowledge about one public transport exposure. */
+export interface PublicTransportProtectionWarning {
+	readonly code: 'UNVERIFIED_PUBLIC_TRANSPORT_PROTECTION'
 	readonly message: string
+	/** Separates observable provider inventory from unprovable complete coverage. */
+	readonly policy: Readonly<{
+		/** Remains unverified until a future executable coverage contract exists. */
+		readonly coverage: 'unverified'
+		/** Reports only whether Core materialized at least one protected policy. */
+		readonly providerPresence: 'none' | 'present'
+	}>
 	readonly transport: Readonly<{
 		readonly name: string
 		readonly version: string

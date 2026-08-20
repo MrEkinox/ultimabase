@@ -415,22 +415,27 @@ and model targets remain directly executable through their owned handles. Wire
 requests supply an already validated `RequestContext` and cannot select Master,
 Runtime replacement, or a raw adapter.
 
-Starting an exposure in an application with no `protectedPolicy()` contribution
-emits one structured `UNPROTECTED_PUBLIC_TRANSPORT` warning per transport
-protocol. Running this supported mode intentionally requires an explicit
-acknowledgement to silence the default logger:
+Core cannot prove complete transport coverage from arbitrary policy callbacks.
+Every exposure that has not acknowledged that uncertainty emits one structured
+`UNVERIFIED_PUBLIC_TRANSPORT_PROTECTION` warning per transport protocol. Its
+`policy.providerPresence` distinguishes `none` from `present`, while
+`policy.coverage` remains `unverified` in both cases. Official Access, ACL, a
+community engine, an unrelated policy, and a no-op policy therefore never
+silence the warning merely by being installed:
 
 ```ts
 const exposed = ultimabase.exposeOperations({
-	acknowledgeUnprotected: true,
+	acknowledgeUnverifiedProtection: true,
 	operations: [publicStatus],
 	transport: httpProtocol,
 })
 ```
 
-The acknowledgement describes only the absence of a compatible protected
-policy contribution. It never grants, relocates, or exposes Core Master
-authority.
+The acknowledgement accepts only Core's inability to verify complete coverage.
+It never declares policy coverage, installs behavior, grants authority, or
+relocates or exposes Core Master authority. Core intentionally defines no
+self-asserted complete-coverage boolean; such a protocol requires independently
+specified executable proof semantics.
 
 Core preserves stable token input and result precision, stable schema-class
 precision, and safe dynamic JavaScript access. The generated registry adds exact
