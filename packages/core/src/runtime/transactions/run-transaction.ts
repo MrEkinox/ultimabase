@@ -5,7 +5,7 @@ import type { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
 import type { RuntimePipelineTransactionScope } from './pipeline-transaction.js'
 import { TransactionLifetime } from './transaction-lifetime.js'
 import { runWithTransactionExecution } from './transaction-execution-storage.js'
-import { throwIfOperationCancelled } from '../hooks/cancellation.js'
+import { throwIfOperationCancelled } from '../cancellation/operation-cancellation.js'
 
 /** Retains a successful callback value or its exact thrown failure. */
 type TransactionOutcome<TResult> =
@@ -126,7 +126,7 @@ const executeRequestTransaction = async <TEngine, TResult>(
 	)
 }
 
-/** Assigns one opaque identity before adapter work so all nested hooks share it. */
+/** Assigns one opaque identity before adapter work so all nested operations share it. */
 export const runRequestTransaction = <TEngine, TResult>(
 	pipeline: RuntimePipeline,
 	createEngine: (

@@ -86,9 +86,9 @@ as a defensive correlation check for immutable commands and mutation
 lifecycles; it no longer hides the identifier from hooks or serialized models.
 
 Every adapter request carries Core's policy-neutral `constraints` array and an
-optional framework-owned `rowFilter`. The latter contains native Access
-restrictions outside the developer Query, so business hooks cannot inspect or
-remove it. PostgreSQL compiles both channels and the developer predicate into
+optional framework-owned `rowFilter`. The latter contains protected policy
+restrictions outside the developer Query, so product behaviors cannot inspect
+or remove it. PostgreSQL compiles both channels and the developer predicate into
 one parameterized `AND` expression.
 
 The adapter also advertises Core persistence-plan protocol version 1. It locks
@@ -616,16 +616,16 @@ const articles = await Article.findMany({
 ```
 
 PostgreSQL compiles pointer, owning-relation, inverse-relation, and nested
-inclusion branches into one Drizzle RQB `with` tree. Core prepares target Access
+inclusion branches into one Drizzle RQB `with` tree. Core prepares target policy
 and constraints before the adapter receives that tree. No adapter-side
 DataLoader or per-parent query loop is used. A nested `offset` is applied by
 Drizzle independently to each parent collection.
 
 Relation handle scopes stay outside the developer Query AST and are combined with
-developer predicates and native Access using parameterized SQL. Traversal
+developer predicates and protected row filters using parameterized SQL. Traversal
 first checks the source relation field, then runs the target read through its
-ordinary Access and hook lifecycle. Mutations lock and update the source inside
-the same Runtime transaction as their edge changes, so a later hook failure
+ordinary policy and behavior pipeline. Mutations lock and update the source inside
+the same Runtime transaction as their edge changes, so a later behavior failure
 rolls back both. Duplicate connects are idempotent. `cursor: true` enables the
 stable first cursor page; opaque cursor strings retain the same general
 execution limitation documented above.

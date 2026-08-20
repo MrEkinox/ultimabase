@@ -62,7 +62,7 @@ import {
 	createNestedTransactionError,
 	type TransactionLifetime,
 } from '../transactions/transaction-lifetime.js'
-import { throwIfOperationCancelled } from '../hooks/cancellation.js'
+import { throwIfOperationCancelled } from '../cancellation/operation-cancellation.js'
 import { executeRuntimeRelationMutation } from '../relations/relation-mutation.js'
 import { createProtectedObjectNotFoundError } from '../operations/target-errors.js'
 import {

@@ -23,8 +23,7 @@ import {
 	getProtectedPolicyImplementation,
 	type ProtectedPolicyDefinition,
 } from './enforcement/protected-policy.js'
-import { getRuntimeContributionImplementation } from './hooks/definitions.js'
-import { getHookEventImplementation } from './hooks/events.js'
+import { getRuntimeContributionImplementation } from './contributions/definitions.js'
 import { RuntimePipeline } from './pipeline/runtime-pipeline.js'
 import type { RuntimePipelineStages } from './pipeline/contracts.js'
 import type { RuntimeBehaviorStages } from './pipeline/contracts.js'
@@ -52,13 +51,11 @@ export type RuntimeConstraintDefinition =
 	| ProtectedPolicyDefinition
 
 /** Lists result and committed-event observers that cannot replace execution values. */
-export type RuntimeObserverDefinition =
-	| Readonly<{ kind: 'hook-event'; name: string }>
-	| Readonly<{
-			kind: 'post-commit-event'
-			operations: readonly OperationKind[] | undefined
-			schema: SchemaDefinition | undefined
-	  }>
+export type RuntimeObserverDefinition = Readonly<{
+	kind: 'post-commit-event'
+	operations: readonly OperationKind[] | undefined
+	schema: SchemaDefinition | undefined
+}>
 
 /** Constructs one Runtime executor from the complete Core-owned mandatory stage graph. */
 export type RuntimeExecutorFactory = (
@@ -214,10 +211,10 @@ const assertRuntimeBehavior = (value: unknown): RuntimeBehaviorStages => {
 const assertRuntimeInterceptorDefinition = (
 	definition: unknown,
 ): RuntimeInterceptorDefinition => {
-	const hook = getRuntimeContributionImplementation(definition)
+	const contribution = getRuntimeContributionImplementation(definition)
 	if (
 		getRuntimePipelineStageImplementation(definition) !== undefined ||
-		(hook !== undefined && hook.kind !== 'post-commit-event')
+		(contribution !== undefined && contribution.kind !== 'post-commit-event')
 	) {
 		return definition as RuntimeInterceptorDefinition
 	}
@@ -245,11 +242,8 @@ const assertRuntimeConstraintDefinition = (
 const assertRuntimeObserverDefinition = (
 	definition: unknown,
 ): RuntimeObserverDefinition => {
-	const hook = getRuntimeContributionImplementation(definition)
-	if (
-		getHookEventImplementation(definition) !== undefined ||
-		hook?.kind === 'post-commit-event'
-	) {
+	const contribution = getRuntimeContributionImplementation(definition)
+	if (contribution?.kind === 'post-commit-event') {
 		return definition as RuntimeObserverDefinition
 	}
 

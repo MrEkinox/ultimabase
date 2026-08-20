@@ -12,7 +12,7 @@ import {
 	type MaybePromise,
 } from '@ultimabase/shared'
 
-import type { HookContext } from '../../schema/hooks/hook-context.js'
+import type { RequestContext } from '../context/request-context.js'
 import type {
 	DatabaseMutationLogicalRecord,
 	DatabaseMutationOperationAst,
@@ -23,13 +23,13 @@ import type { RuntimeOperationResult } from '../pipeline/contracts.js'
 export interface RuntimeInterceptorOperationInput<
 	TOperation extends DatabaseOperationAst,
 > {
-	/** Exposes immutable request identity and revocable hook capabilities. */
-	readonly context: HookContext
-	/** Contains the immutable operation observed by the low-level hook. */
+	/** Exposes immutable request identity and application-local capabilities. */
+	readonly context: RequestContext
+	/** Contains the immutable operation observed by the low-level interceptor. */
 	readonly operation: TOperation
 }
 
-/** Supplies low-level result interceptors without exposing request authority. */
+/** Supplies low-level result interceptors without exposing mutable request state. */
 export interface RuntimeInterceptorResultInput<
 	TOperation extends DatabaseOperationAst,
 > extends RuntimeInterceptorOperationInput<TOperation> {
@@ -37,7 +37,7 @@ export interface RuntimeInterceptorResultInput<
 	readonly result: RuntimeOperationResult<TOperation>
 }
 
-/** Supplies one stable singular preimage after Access has authorized its row. */
+/** Supplies one stable singular preimage after protected policies authorize its row. */
 export interface RuntimePreparedOperationInput<
 	TOperation extends DatabaseMutationOperationAst,
 > extends RuntimeInterceptorOperationInput<TOperation> {
@@ -66,7 +66,7 @@ type RuntimeInterceptorOperation<
 	TOperationKind extends OperationKind,
 > = Extract<ExecutableOperationAst<TSchema>, { readonly kind: TOperationKind }>
 
-/** Makes every after-hook transformation explicit rather than relying on mutation. */
+/** Makes every result transformation explicit rather than relying on mutation. */
 export interface AfterOperationResult<TOperation extends DatabaseOperationAst> {
 	readonly result: RuntimeOperationResult<TOperation>
 }
@@ -394,29 +394,29 @@ export const getRuntimeContributionImplementation = (
 		: undefined
 
 /** Creates a fresh immutable envelope for every sequential callback. */
-export const createBeforeHookInput = <
+export const createBeforeContributionInput = <
 	const TOperation extends DatabaseOperationAst,
 >(
-	context: HookContext,
+	context: RequestContext,
 	operation: TOperation,
 ): RuntimeInterceptorOperationInput<TOperation> =>
 	immutableRecord({ context, operation })
 
-/** Creates a fresh immutable envelope for after-hooks and external events. */
-export const createAfterHookInput = <
+/** Creates a fresh immutable envelope for result interceptors and observers. */
+export const createAfterContributionInput = <
 	const TOperation extends DatabaseOperationAst,
 >(
-	context: HookContext,
+	context: RequestContext,
 	operation: TOperation,
 	result: RuntimeOperationResult<TOperation>,
 ): RuntimeInterceptorResultInput<TOperation> =>
 	immutableRecord({ context, operation, result })
 
 /** Creates one isolated envelope for an authorized locked-target transformer. */
-export const createPreparedHookInput = <
+export const createPreparedContributionInput = <
 	const TOperation extends DatabaseMutationOperationAst,
 >(
-	context: HookContext,
+	context: RequestContext,
 	operation: TOperation,
 	target: DatabaseMutationLogicalRecord<TOperation>,
 ): RuntimePreparedOperationInput<TOperation> =>

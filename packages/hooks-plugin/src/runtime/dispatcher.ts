@@ -190,7 +190,7 @@ const resolveFieldInputs = async <
 		operation.kind === 'update-many' ||
 		operation.kind === 'upsert-many'
 	) {
-		// Public collection commands are itemized before native hooks reach Runtime.
+		// Public collection commands are itemized before official Hooks reach Runtime.
 		return operation
 	}
 

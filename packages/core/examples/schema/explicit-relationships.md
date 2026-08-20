@@ -39,19 +39,9 @@ export const Membership = Schema.define({
 			validation: { required: true },
 			values: ['editor', 'viewer'] as const,
 		}),
-		internalNote: field.string({ access: { read: false } }),
+		internalNote: field.string(),
 	}),
 	indexes: [{ fields: ['project', 'member'], unique: true }],
-	hooks: {
-		beforeOperation: {
-			create: ({ item }) => {
-				// Cross-field edge invariants stay in the ordinary schema lifecycle.
-				if (item.role === 'viewer' && (item.position ?? 0) === 0) {
-					throw new TypeError('The first project member must be an editor')
-				}
-			},
-		},
-	},
 })
 ```
 
@@ -96,7 +86,8 @@ await request.transaction(async () => {
 
 Choose `relationField` when the edge has no business data and only needs
 connect/disconnect semantics. Choose an explicit schema when the edge needs
-fields, uniqueness beyond the pointer pair, direct queries, hooks, Access, or
-an independent lifecycle. The PostgreSQL plugin stores this pattern as three
+fields, uniqueness beyond the pointer pair, direct queries, or an independent
+lifecycle. Optional behavior and policy plugins can target the schema. The
+PostgreSQL plugin stores this pattern as three
 ordinary tables and two ordinary foreign keys; Core never exposes join-table
 commands.

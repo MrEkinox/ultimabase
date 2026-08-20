@@ -182,6 +182,12 @@ schema.unknownPluginSurface
 operation.prepare({ missing: true })
 // @ts-expect-error -- Generated execution preserves declared public error codes.
 const unknownError: Core.PluginOperationErrorCode<typeof operation.definition> = 'fixture.semantic.unknown'
+// @ts-expect-error -- Core no longer exports the official Hooks callback context.
+type RemovedHookContext = Core.HookContext
+// @ts-expect-error -- Core no longer exports native schema Access contracts.
+type RemovedSchemaAccess = Core.SchemaAccess
+// @ts-expect-error -- Core no longer exports native field Access contracts.
+type RemovedFieldAccess = Core.FieldAccess
 void exactId
 void query
 void operationError
@@ -189,6 +195,9 @@ void operationExecution
 void schemaExecution
 void useModelCommands
 void unknownError
+void (undefined as unknown as RemovedHookContext)
+void (undefined as unknown as RemovedSchemaAccess)
+void (undefined as unknown as RemovedFieldAccess)
 `
 			const fileName = path.join(
 				import.meta.dirname,

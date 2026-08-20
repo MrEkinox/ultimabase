@@ -230,7 +230,7 @@ const restoreRuntimeInclusionResult = <
 	// shape before replacing only declared relationship field values.
 	result as RuntimeOperationResult<TOperation>
 
-/** Owns nested Access projection without replaying root Access or lifecycle hooks. */
+/** Owns nested policy projection without replaying root policy or behavior. */
 export class RuntimeInclusionProjector {
 	readonly #stages: Readonly<RuntimePipelineStages>
 	readonly #resultBoundaries: RuntimeBehaviorBoundaries
@@ -361,7 +361,7 @@ export class RuntimeInclusionProjector {
 		)
 	}
 
-	/** Prepares target security without manufacturing target-schema read hooks. */
+	/** Prepares target security without manufacturing target-schema behavior. */
 	async prepare(
 		context: RequestContext,
 		parentOperation: DatabaseOperationAst,
@@ -488,7 +488,7 @@ export class RuntimeInclusionProjector {
 		return immutableArray(prepared)
 	}
 
-	/** Completes Access and scalar output resolution for one eager target branch. */
+	/** Completes policy and scalar output resolution for one eager target branch. */
 	async #finalizeValue(
 		context: RequestContext,
 		prepared: RuntimePreparedInclusion,

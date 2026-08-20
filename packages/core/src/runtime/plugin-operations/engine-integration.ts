@@ -18,7 +18,7 @@ import type {
 	FrameworkEngine,
 	RequestEngine,
 } from '../engine/framework-engine.js'
-import { throwIfOperationCancelled } from '../hooks/cancellation.js'
+import { throwIfOperationCancelled } from '../cancellation/operation-cancellation.js'
 import type { TransactionLifetime } from '../transactions/transaction-lifetime.js'
 import { isOperationTransportProtocol } from './capabilities.js'
 import type { OperationTransportProtocol } from './contracts.js'

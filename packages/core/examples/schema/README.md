@@ -18,12 +18,8 @@ TypeScript snippets:
   and builds opaque, independently paginated relation queries without embedding
   collections in model records;
 - [`explicit-relationships.md`](explicit-relationships.md) models edges with
-  business data as ordinary schemas with exact pointers, hooks, Access, and
-  composite uniqueness;
-- [`hooks.md`](hooks.md) colocates exact-value field behavior and cross-field
-  schema behavior;
-- [`access.md`](access.md) groups operation, row, item, and field authorization
-  with precise callback inputs;
+  business data as ordinary schemas with exact pointers and composite
+  uniqueness;
 - [`extensions.md`](extensions.md) declares opaque schema and field metadata
   owned by a runtime plugin;
 - [`plugin-transformations.md`](plugin-transformations.md) declares direct plugin
@@ -36,6 +32,11 @@ TypeScript snippets:
 The snippets intentionally use only public package exports. They are reference
 documentation rather than executable fixtures, so the package build and test
 suites do not include this directory.
+
+Concrete option namespaces are documented by their owning packages. See the
+[`hooks-plugin`](../../../hooks-plugin/README.md) and
+[`access-plugin`](../../../access-plugin/README.md) READMEs; Core examples do
+not assume either engine is installed.
 
 ## Maintenance rule
 

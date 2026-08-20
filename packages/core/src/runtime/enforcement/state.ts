@@ -203,7 +203,7 @@ export const narrowEnforcementFields = (
 	)
 }
 
-/** Reads one immutable snapshot only after every contributing hook has finished. */
+/** Reads one immutable snapshot only after every contributing callback has finished. */
 export const getEnforcementStateSnapshot = (
 	state: EnforcementState,
 ): EnforcementStateSnapshot => readSnapshot(state)

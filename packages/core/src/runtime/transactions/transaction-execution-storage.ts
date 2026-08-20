@@ -11,11 +11,11 @@ interface TransactionExecutionState {
 const transactionExecutionStorage =
 	new AsyncLocalStorage<TransactionExecutionState>()
 
-/** Reads the opaque transaction identity inherited by nested hook operations. */
+/** Reads the opaque transaction identity inherited by nested operations. */
 export const getCurrentTransactionId = (): string | undefined =>
 	transactionExecutionStorage.getStore()?.transactionId
 
-/** Queues one effect on the exact transaction inherited by the current hook. */
+/** Queues one effect on the exact transaction inherited by the current callback. */
 export const deferCurrentTransactionEffect = (
 	effect: DeferredTransactionEffect,
 ): void => {

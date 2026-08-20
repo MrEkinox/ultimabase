@@ -18,7 +18,7 @@ import {
 	assertPluginFieldKind,
 	type AvailablePluginFieldKind,
 } from '../schema/fields/base/kinds.js'
-import { resolveSchemaFieldPath } from '../schema/hooks/field-paths.js'
+import { resolveSchemaFieldPath } from '../schema/fields/paths.js'
 import type { SchemaRegistry } from '../schema/schema/registry.js'
 
 /** Supplies the provenance required by every plugin declaration target error. */
@@ -65,7 +65,7 @@ export const readPluginFieldKindTarget = (target: unknown): string => {
 /** Copies one non-empty nested field path for setup-time target ownership. */
 export const normalizePluginFieldPath = (
 	path: unknown,
-	capability: 'Access' | 'hook',
+	capability: string,
 ): readonly [string, ...string[]] => {
 	if (!isUnknownArray(path) || path.length === 0) {
 		throw new TypeError(
@@ -102,7 +102,7 @@ export const assertOwnedPluginExtension: (
 	ownerPlugin: string,
 	extension: unknown,
 	scope: 'field' | 'schema',
-	capability: 'Access' | 'hook',
+	capability: string,
 ) => asserts extension is ExtensionDefinition<
 	'field' | 'schema',
 	string,
@@ -157,7 +157,7 @@ export const resolvePluginTargetSchema = (
 	schemas: SchemaRegistry,
 	schema: SchemaDefinition,
 	registration: PluginDeclarationTargetProvenance,
-	capability: 'Access' | 'hook',
+	capability: string,
 ): SchemaDefinition => {
 	const validSchema = Schema.is(schema)
 	const schemaClassName = validSchema ? schema.className : '<invalid-schema>'
@@ -185,7 +185,7 @@ export const resolvePluginTargetField = (
 	schema: SchemaDefinition,
 	path: readonly [string, ...string[]],
 	registration: PluginDeclarationTargetProvenance,
-	capability: 'Access' | 'hook',
+	capability: string,
 ): GenericField => {
 	try {
 		return resolveSchemaFieldPath(schema, path)
@@ -224,7 +224,7 @@ const isFieldExtension = (
 /** Reads validated field extensions for shared plugin target expansion. */
 export const getPluginTargetFieldExtensions = (
 	field: GenericField,
-	capability: 'Access' | 'hook',
+	capability: string,
 ): readonly FieldExtension<string, object>[] => {
 	const extensions: unknown =
 		'extensions' in field.options ? field.options.extensions : undefined

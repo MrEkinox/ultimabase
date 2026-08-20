@@ -122,7 +122,7 @@ export const readRuntimeRelationMutation = (
 	})
 }
 
-/** Builds one protected target lookup whose object ID stays outside hook-visible AST. */
+/** Builds one protected target lookup whose object ID stays outside behavior-visible AST. */
 export const createRelationTargetLookup = <TSchema extends SchemaDefinition>(
 	pointer: Pointer<TSchema>,
 ): Readonly<{

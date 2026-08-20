@@ -248,7 +248,7 @@ export interface CompactScalarFieldBuilderMethod<
 	 * Declares one scalar field with the existing factory options.
 	 *
 	 * @param name Stable logical field name within its containing schema or object.
-	 * @param options Existing factory options, including validation, Access, and hooks.
+	 * @param options Existing factory options, including validation and plugin namespaces.
 	 * @example `field.string({ default: 'Untitled' })`
 	 */
 	<
@@ -258,7 +258,7 @@ export interface CompactScalarFieldBuilderMethod<
 	>(
 		/** Stable logical field name within its containing schema or object. */
 		name: string,
-		/** Existing factory options, including validation, Access, and hooks. */
+		/** Existing factory options, including validation and plugin namespaces. */
 		options: DefaultedCompactScalarFieldOptions<
 			TOptions,
 			TValue,
@@ -271,7 +271,7 @@ export interface CompactScalarFieldBuilderMethod<
 	 * Declares one scalar field without a default value.
 	 *
 	 * @param name Stable logical field name within its containing schema or object.
-	 * @param options Existing factory options, including validation, Access, and hooks.
+	 * @param options Existing factory options, including validation and plugin namespaces.
 	 * @example `field.string()`
 	 */
 	<
@@ -281,7 +281,7 @@ export interface CompactScalarFieldBuilderMethod<
 	>(
 		/** Stable logical field name within its containing schema or object. */
 		name: string,
-		/** Existing factory options, including validation, Access, and hooks. */
+		/** Existing factory options, including validation and plugin namespaces. */
 		options?: NonDefaultedCompactScalarFieldOptions<
 			TOptions,
 			TValue,
@@ -365,7 +365,7 @@ export interface GeneratedCompactScalarFieldBuilderMethod<
 	 * Declares one generated-capable scalar field with an explicit default.
 	 *
 	 * @param name Stable logical field name within its containing schema or object.
-	 * @param options Existing factory options, including validation, Access, and hooks.
+	 * @param options Existing factory options, including validation and plugin namespaces.
 	 * @example `field.int({ default: 0 })`
 	 */
 	<
@@ -376,7 +376,7 @@ export interface GeneratedCompactScalarFieldBuilderMethod<
 	>(
 		/** Stable logical field name within its containing schema or object. */
 		name: string,
-		/** Existing factory options, including validation, Access, and hooks. */
+		/** Existing factory options, including validation and plugin namespaces. */
 		options: DefaultedGeneratedScalarFieldOptions<
 			TOptions,
 			TValue,
@@ -392,7 +392,7 @@ export interface GeneratedCompactScalarFieldBuilderMethod<
 	 * Declares one generated-capable scalar field without an explicit default.
 	 *
 	 * @param name Stable logical field name within its containing schema or object.
-	 * @param options Existing factory options, including validation, Access, and hooks.
+	 * @param options Existing factory options, including validation and plugin namespaces.
 	 * @example `field.int({ autoIncrement: true })`
 	 */
 	<
@@ -403,7 +403,7 @@ export interface GeneratedCompactScalarFieldBuilderMethod<
 	>(
 		/** Stable logical field name within its containing schema or object. */
 		name: string,
-		/** Existing factory options, including validation, Access, and hooks. */
+		/** Existing factory options, including validation and plugin namespaces. */
 		options?: NonDefaultedGeneratedScalarFieldOptions<
 			TOptions,
 			TValue,

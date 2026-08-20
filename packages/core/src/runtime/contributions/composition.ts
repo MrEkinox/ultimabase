@@ -24,21 +24,17 @@ import type {
 	RuntimeResultStageInput,
 } from '../pipeline/contracts.js'
 import {
-	createAfterHookInput,
-	createBeforeHookInput,
-	createPreparedHookInput,
+	createAfterContributionInput,
+	createBeforeContributionInput,
+	createPreparedContributionInput,
 	getRuntimeContributionImplementation,
 } from './definitions.js'
 import {
-	createHookExecutionDescriptor,
-	createPluginHookOwner,
-	globalHookTarget,
-	createSchemaHookTarget,
-} from './execution-descriptor.js'
-import type { HookExecutionDescriptor } from './execution-descriptor.js'
-import { getApplicationHookExecutionRuntime } from './execution-runtime.js'
-import type { HookExecutionRuntime } from './execution-runtime.js'
-import { getHookEventImplementation } from './events.js'
+	createRuntimeCallbackDescriptor,
+	getApplicationRuntimeCallbackExecutor,
+	type RuntimeCallbackDescriptor,
+	type RuntimeCallbackExecutor,
+} from './execution.js'
 import {
 	runtimeInterceptorCapability,
 	runtimeObserverCapability,
@@ -62,26 +58,26 @@ interface OwnedRuntimeContribution {
 const createRuntimeContributionDescriptor = (
 	owned: OwnedRuntimeContribution,
 	operation: DatabaseOperationAst,
-): HookExecutionDescriptor => {
+): RuntimeCallbackDescriptor => {
 	const { contribution, implementation } = owned
-	return createHookExecutionDescriptor({
-		handler: (input) => implementation.run(input),
-		handlerIndex: 0,
+	return createRuntimeCallbackDescriptor({
 		operationKind: operation.kind,
-		owner: createPluginHookOwner(
-			contribution.ownerPlugin,
-			contribution.name,
-			contribution.ownerInstanceId,
-		),
+		owner: {
+			contributionId: contribution.name,
+			pluginId: contribution.ownerPlugin,
+			...(contribution.ownerInstanceId === undefined
+				? {}
+				: { instanceId: contribution.ownerInstanceId }),
+		},
 		phase: implementation.kind,
 		target:
 			implementation.schema === undefined
-				? globalHookTarget
-				: createSchemaHookTarget(implementation.schema.className),
+				? { kind: 'global' }
+				: { className: implementation.schema.className, kind: 'schema' },
 	})
 }
 
-const assertExactHookOutput = (
+const assertExactContributionOutput = (
 	output: unknown,
 	key: 'operation' | 'result',
 ): Readonly<Record<string, unknown>> => {
@@ -90,7 +86,7 @@ const assertExactHookOutput = (
 		!Object.hasOwn(output, key) ||
 		Object.keys(output).length !== 1
 	) {
-		throw new TypeError(`runtime hook must return exactly { ${key} }`)
+		throw new TypeError(`Runtime contribution must return exactly { ${key} }`)
 	}
 
 	return output
@@ -110,24 +106,28 @@ const haveSameKeys = (
 }
 
 /** Restricts the late prepared boundary to values in an existing update shape. */
-const normalizePreparedHookOutput = <
+const normalizePreparedContributionOutput = <
 	const TOperation extends DatabaseMutationOperationAst,
 >(
 	previousOperation: TOperation,
 	output: unknown,
 ): TOperation => {
-	const result = assertExactHookOutput(output, 'operation')
+	const result = assertExactContributionOutput(output, 'operation')
 
 	if (result.operation === previousOperation) return previousOperation
 
 	const candidate: unknown = result.operation
 
 	if (!isPlainRecord(candidate) || candidate.kind !== previousOperation.kind) {
-		throw new TypeError('prepared-operation hook must preserve operation kind')
+		throw new TypeError(
+			'prepared-operation contribution must preserve operation kind',
+		)
 	}
 
 	if (getOperationSchema(candidate) !== getOperationSchema(previousOperation)) {
-		throw new TypeError('prepared-operation hook must preserve schema identity')
+		throw new TypeError(
+			'prepared-operation contribution must preserve schema identity',
+		)
 	}
 
 	const nextOperation = immutableRecord(candidate) as TOperation
@@ -135,7 +135,9 @@ const normalizePreparedHookOutput = <
 	const nextValue: unknown = nextOperation
 
 	if (!isPlainRecord(previousValue) || !isPlainRecord(nextValue)) {
-		throw new TypeError('prepared-operation hook requires plain operations')
+		throw new TypeError(
+			'prepared-operation contribution requires plain operations',
+		)
 	}
 
 	const previousRecord = previousValue
@@ -143,14 +145,14 @@ const normalizePreparedHookOutput = <
 
 	if (!haveSameKeys(previousRecord, nextRecord)) {
 		throw new TypeError(
-			'prepared-operation hook may only replace update values',
+			'prepared-operation contribution may only replace update values',
 		)
 	}
 
 	for (const key of Object.keys(previousRecord)) {
 		if (key !== 'update' && nextRecord[key] !== previousRecord[key]) {
 			throw new TypeError(
-				'prepared-operation hook may only replace update values',
+				'prepared-operation contribution may only replace update values',
 			)
 		}
 	}
@@ -169,7 +171,7 @@ const normalizePreparedHookOutput = <
 		previousUpdate.operations.length !== nextUpdate.operations.length
 	) {
 		throw new TypeError(
-			'prepared-operation hook must preserve the normalized update shape',
+			'prepared-operation contribution must preserve the normalized update shape',
 		)
 	}
 
@@ -187,14 +189,14 @@ const normalizePreparedHookOutput = <
 			previousCandidate.field !== nextCandidate.field
 		) {
 			throw new TypeError(
-				'prepared-operation hook must preserve every update operation',
+				'prepared-operation contribution must preserve every update operation',
 			)
 		}
 
 		for (const key of Object.keys(previousCandidate)) {
 			if (key !== 'value' && nextCandidate[key] !== previousCandidate[key]) {
 				throw new TypeError(
-					'prepared-operation hook must preserve every update operation',
+					'prepared-operation contribution must preserve every update operation',
 				)
 			}
 		}
@@ -203,12 +205,12 @@ const normalizePreparedHookOutput = <
 	return nextOperation
 }
 
-const normalizeAfterHookOutput = <
+const normalizeAfterContributionOutput = <
 	const TOperation extends DatabaseOperationAst,
 >(
 	output: unknown,
 ): RuntimeOperationResult<TOperation> => {
-	const result = assertExactHookOutput(output, 'result')
+	const result = assertExactContributionOutput(output, 'result')
 
 	// Result validation remains operation-specific; this boundary only enforces explicit replacement.
 	return result.result as RuntimeOperationResult<TOperation>
@@ -228,13 +230,13 @@ const readContributions = (
 		readonly SchemaDefinition[],
 		readonly PluginDefinition[]
 	>,
-	category: 'events' | 'hooks',
+	category: 'interceptors' | 'observers',
 ): readonly OwnedRuntimeContribution[] => {
 	const ownedContributions: OwnedRuntimeContribution[] = []
 
 	const contributions = readApplicationCapabilityContributions(
 		application,
-		category === 'events'
+		category === 'observers'
 			? runtimeObserverCapability
 			: runtimeInterceptorCapability,
 	).map(({ contributionId, owner, value }) =>
@@ -250,14 +252,7 @@ const readContributions = (
 
 	for (const contribution of contributions) {
 		if (
-			category === 'events' &&
-			getHookEventImplementation(contribution.value) !== undefined
-		) {
-			// Named HookContext events have a dedicated post-commit dispatcher.
-			continue
-		}
-		if (
-			category === 'hooks' &&
+			category === 'interceptors' &&
 			getRuntimeContributionImplementation(contribution.value) === undefined
 		) {
 			// Fixed-position pipeline interceptors are assembled separately.
@@ -275,8 +270,9 @@ const readContributions = (
 		}
 
 		if (
-			(category === 'hooks' && implementation.kind === 'post-commit-event') ||
-			(category === 'events' && implementation.kind !== 'post-commit-event')
+			(category === 'interceptors' &&
+				implementation.kind === 'post-commit-event') ||
+			(category === 'observers' && implementation.kind !== 'post-commit-event')
 		) {
 			throw new TypeError(
 				`Runtime contribution "${contribution.name}" uses the wrong registry`,
@@ -302,7 +298,7 @@ const runBeforeContributions = async <
 	const TOperation extends DatabaseOperationAst,
 >(
 	contributions: readonly OwnedRuntimeContribution[],
-	runtime: HookExecutionRuntime,
+	runtime: RuntimeCallbackExecutor,
 	input: RuntimeOperationStageInput<TOperation>,
 ): Promise<void> => {
 	for (const owned of contributions) {
@@ -314,12 +310,14 @@ const runBeforeContributions = async <
 		const output: unknown = await runtime.invoke(
 			createRuntimeContributionDescriptor(owned, input.operation),
 			input.context,
-			(context) =>
-				implementation.run(createBeforeHookInput(context, input.operation)),
+			() =>
+				implementation.run(
+					createBeforeContributionInput(input.context, input.operation),
+				),
 		)
 
 		if (output !== undefined) {
-			throw new TypeError('before-operation hook must return undefined')
+			throw new TypeError('before-operation contribution must return undefined')
 		}
 	}
 }
@@ -328,7 +326,7 @@ const runAfterContributions = async <
 	const TOperation extends DatabaseOperationAst,
 >(
 	contributions: readonly OwnedRuntimeContribution[],
-	runtime: HookExecutionRuntime,
+	runtime: RuntimeCallbackExecutor,
 	input: RuntimeResultStageInput<TOperation>,
 ): Promise<RuntimeOperationResult<TOperation>> => {
 	let result: RuntimeOperationResult<TOperation> = input.result
@@ -342,13 +340,13 @@ const runAfterContributions = async <
 		const output: unknown = await runtime.invoke(
 			createRuntimeContributionDescriptor(owned, input.operation),
 			input.context,
-			(context) =>
+			() =>
 				implementation.run(
-					createAfterHookInput(context, input.operation, result),
+					createAfterContributionInput(input.context, input.operation, result),
 				),
 		)
 
-		result = normalizeAfterHookOutput<TOperation>(output)
+		result = normalizeAfterContributionOutput<TOperation>(output)
 	}
 
 	return result
@@ -359,7 +357,7 @@ const runPreparedContributions = async <
 	const TOperation extends DatabaseMutationOperationAst,
 >(
 	contributions: readonly OwnedRuntimeContribution[],
-	runtime: HookExecutionRuntime,
+	runtime: RuntimeCallbackExecutor,
 	input: RuntimePreparedMutationStageInput<TOperation>,
 ): Promise<TOperation> => {
 	if (
@@ -381,11 +379,13 @@ const runPreparedContributions = async <
 		const output: unknown = await runtime.invoke(
 			createRuntimeContributionDescriptor(owned, operation),
 			input.context,
-			(context) =>
-				implementation.run(createPreparedHookInput(context, operation, target)),
+			() =>
+				implementation.run(
+					createPreparedContributionInput(input.context, operation, target),
+				),
 		)
 
-		operation = normalizePreparedHookOutput(operation, output)
+		operation = normalizePreparedContributionOutput(operation, output)
 	}
 
 	return operation
@@ -395,7 +395,7 @@ const runPostCommitContributions = async <
 	const TOperation extends DatabaseOperationAst,
 >(
 	contributions: readonly OwnedRuntimeContribution[],
-	runtime: HookExecutionRuntime,
+	runtime: RuntimeCallbackExecutor,
 	input: RuntimeResultStageInput<TOperation>,
 ): Promise<void> => {
 	for (const owned of contributions) {
@@ -404,9 +404,13 @@ const runPostCommitContributions = async <
 			await runtime.invoke(
 				createRuntimeContributionDescriptor(owned, input.operation),
 				input.context,
-				(context) =>
+				() =>
 					implementation.run(
-						createAfterHookInput(context, input.operation, input.result),
+						createAfterContributionInput(
+							input.context,
+							input.operation,
+							input.result,
+						),
 					),
 				{ cancellable: false },
 			)
@@ -414,7 +418,7 @@ const runPostCommitContributions = async <
 	}
 }
 
-/** Composes legacy low-level Runtime definitions into the generic behavior kernel. */
+/** Composes low-level Runtime definitions into the generic behavior kernel. */
 export const composeRuntimeContributionBehavior = <
 	const TSchemas extends readonly SchemaDefinition[],
 	const TPlugins extends readonly PluginDefinition[],
@@ -427,41 +431,41 @@ export const composeRuntimeContributionBehavior = <
 		)
 	}
 
-	const hooks = readContributions(application, 'hooks')
-	const events = readContributions(application, 'events')
-	if (hooks.length === 0 && events.length === 0) return undefined
+	const interceptors = readContributions(application, 'interceptors')
+	const observers = readContributions(application, 'observers')
+	if (interceptors.length === 0 && observers.length === 0) return undefined
 
-	const runtime = getApplicationHookExecutionRuntime(application)
+	const runtime = getApplicationRuntimeCallbackExecutor(application)
 	const globalBefore = immutableArray(
-		hooks.filter(
+		interceptors.filter(
 			({ implementation }) =>
 				implementation.kind === 'before-operation' &&
 				implementation.schema === undefined,
 		),
 	)
 	const schemaBefore = immutableArray(
-		hooks.filter(
+		interceptors.filter(
 			({ implementation }) =>
 				implementation.kind === 'before-operation' &&
 				implementation.schema !== undefined,
 		),
 	)
 	const schemaAfter = immutableArray(
-		hooks.filter(
+		interceptors.filter(
 			({ implementation }) =>
 				implementation.kind === 'after-operation' &&
 				implementation.schema !== undefined,
 		),
 	)
 	const globalAfter = immutableArray(
-		hooks.filter(
+		interceptors.filter(
 			({ implementation }) =>
 				implementation.kind === 'after-operation' &&
 				implementation.schema === undefined,
 		),
 	)
 	const prepared = immutableArray(
-		hooks.filter(
+		interceptors.filter(
 			({ implementation }) => implementation.kind === 'prepared-operation',
 		),
 	)
@@ -490,11 +494,11 @@ export const composeRuntimeContributionBehavior = <
 						})
 					},
 				}),
-		...(events.length === 0
+		...(observers.length === 0
 			? {}
 			: {
 					postCommit: (input) =>
-						runPostCommitContributions(events, runtime, input),
+						runPostCommitContributions(observers, runtime, input),
 				}),
 		...(prepared.length === 0
 			? {}

@@ -97,7 +97,7 @@ const BulkDocument = Schema.define({
 const pluginVisibility = definePlugin({
 	version: '0.0.0',
 	core: '^0.0.0',
-	pluginId: 'fixture.native-access-visibility',
+	pluginId: 'fixture.access-plugin-visibility',
 	peers: [{ pluginId: '@ultimabase/access-plugin', version: '^0.0.0' }],
 	privileges: [
 		{
@@ -144,7 +144,7 @@ beforeAll(async () => {
 	fixture = await createPostgresWorkerFixture()
 	ultimabase = new UltimaBase({
 		masterAuthority: new MasterAuthority({
-			keys: [{ id: 'native-access-e2e', value: 'server-only' }],
+			keys: [{ id: 'access-plugin-e2e', value: 'server-only' }],
 			onUse: () => undefined,
 		}),
 		plugins: [
@@ -217,7 +217,7 @@ afterAll(async () => {
 	await fixture?.dispose()
 })
 
-describe('native Access with PostgreSQL', () => {
+describe('Access plugin with PostgreSQL', () => {
 	it('composes native, plugin, and developer predicates in SQL', async () => {
 		const app = getUltimaBase()
 		const rows = await AccessArticle.findMany(

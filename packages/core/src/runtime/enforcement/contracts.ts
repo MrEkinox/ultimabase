@@ -26,7 +26,7 @@ export type EnforcementContributionKind =
 /** Identifies the three field sets that independent policies may only narrow. */
 export type EnforcementFieldBoundary = 'input' | 'output' | 'selection'
 
-/** Supplies an exact operation and trusted request authority to one enforcement hook. */
+/** Supplies an exact operation and trusted request authority to one enforcement callback. */
 export interface EnforcementOperationInput<
 	TOperation extends DatabaseOperationAst,
 > {

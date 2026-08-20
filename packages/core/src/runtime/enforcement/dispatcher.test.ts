@@ -673,7 +673,7 @@ describe('createEnforcementStages', () => {
 				context,
 				operation: createOperation(),
 			}),
-		).rejects.toMatchObject({ code: 'HOOK_RECURSION' })
+		).rejects.toMatchObject({ code: 'RUNTIME_CALLBACK_RECURSION' })
 
 		await application.dispose()
 	})

@@ -20,7 +20,7 @@ import {
 	type RuntimeInterceptorDefinition,
 	type RuntimeObserverDefinition,
 } from '../../src/runtime/index.js'
-import { composeRuntimeContributionBehavior } from '../../src/runtime/hooks/stages.js'
+import { composeRuntimeContributionBehavior } from '../../src/runtime/contributions/composition.js'
 import {
 	RecordingDatabaseAdapter,
 	type QueuedAdapterResult,
@@ -52,20 +52,20 @@ const createTestRuntimeContributions = (
 }
 
 const articleSchema = Schema.define({
-	className: 'HookArticle',
+	className: 'ContributionArticle',
 	fields: (field) => ({
 		title: field.string({ validation: { required: true } }),
 	}),
 })
 
 const foreignSchema = Schema.define({
-	className: 'HookForeign',
+	className: 'ContributionForeign',
 	fields: (field) => ({
 		title: field.string({ validation: { required: true } }),
 	}),
 })
 
-/** Produces the complete persisted shape expected by create-operation hooks. */
+/** Produces the complete persisted shape expected by create-operation contributions. */
 const createStoredArticle = (title: string) => ({
 	id: '0198f090-2a50-7000-8000-000000000031',
 	title,
@@ -77,11 +77,11 @@ const createOrderedPlugins = (trace: string[]) => {
 	const dependency = definePlugin({
 		version: '0.0.0',
 		core: '^0.0.0',
-		pluginId: 'fixture.hooks.dependency',
+		pluginId: 'fixture.contributions.dependency',
 		privileges: [
 			{
 				name: 'runtime:intercept',
-				reason: 'Registers low-level Runtime hooks for tests.',
+				reason: 'Registers low-level Runtime contributions for tests.',
 			},
 			{
 				name: 'runtime:observe',
@@ -176,18 +176,20 @@ const createOrderedPlugins = (trace: string[]) => {
 	const consumer = definePlugin({
 		version: '0.0.0',
 		core: '^0.0.0',
-		pluginId: 'fixture.hooks.consumer',
+		pluginId: 'fixture.contributions.consumer',
 		privileges: [
 			{
 				name: 'runtime:intercept',
-				reason: 'Registers low-level Runtime hooks for tests.',
+				reason: 'Registers low-level Runtime contributions for tests.',
 			},
 			{
 				name: 'runtime:observe',
 				reason: 'Registers post-commit observers for tests.',
 			},
 		],
-		dependencies: [{ pluginId: 'fixture.hooks.dependency', version: '^0.0.0' }],
+		dependencies: [
+			{ pluginId: 'fixture.contributions.dependency', version: '^0.0.0' },
+		],
 		capabilities: createTestRuntimeContributions((intercept, observe) => {
 			intercept(
 				'fixture.consumer.global-before',
@@ -303,7 +305,7 @@ const createRequest = async (
 	return { adapter, application, request }
 }
 
-describe('Runtime hooks and post-commit events', () => {
+describe('Runtime contributions and post-commit events', () => {
 	it('orders plugin observers and delivers events only after commit', async () => {
 		const trace: string[] = []
 		const stored = createStoredArticle('stored')
@@ -374,7 +376,7 @@ describe('Runtime hooks and post-commit events', () => {
 		const plugin = definePlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.hooks.abort',
+			pluginId: 'fixture.contributions.abort',
 			privileges: [
 				{
 					name: 'runtime:intercept',

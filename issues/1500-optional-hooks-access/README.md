@@ -21,7 +21,7 @@ unchanged.
 5. [x] [1505 — Merged into issue 1504 by ADR-0204](1505-access-plugin-runtime.md)
 6. [x] [1506 — Merged into issue 1504 by ADR-0205](1506-policy-provider-migration.md)
 7. [x] [1507 — Prove no-Access, alternative-Access, and Core Master](1507-access-optional-alternative-proof.md)
-8. [ ] [1508 — Remove superseded native Hooks and Access surfaces](1508-native-hooks-access-removal-audit.md)
+8. [x] [1508 — Remove superseded native Hooks and Access surfaces](1508-native-hooks-access-removal-audit.md)
 9. [ ] [1509 — Verify optional official capability extraction](1509-optional-capabilities-verification.md)
 
 Milestone 15 begins only after milestone 14 passes its complete public

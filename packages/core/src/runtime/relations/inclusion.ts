@@ -104,7 +104,7 @@ export const readInclusions = (
 	)
 }
 
-/** Creates the singular target shape used for Access and field output processing. */
+/** Creates the singular target shape used for policy and field output processing. */
 export const createInclusionOperation = (
 	inclusion: RuntimeInclusion,
 ): RuntimeInclusionTargetOperation =>

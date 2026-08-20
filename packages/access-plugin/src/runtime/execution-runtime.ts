@@ -66,9 +66,9 @@ const readErrorCode = (error: unknown): FrameworkErrorCode | undefined =>
 
 const createRecursionError = (
 	descriptor: AccessExecutionDescriptor,
-): FrameworkError<'HOOK_RECURSION'> =>
+): FrameworkError<'RUNTIME_CALLBACK_RECURSION'> =>
 	new FrameworkError(
-		'HOOK_RECURSION',
+		'RUNTIME_CALLBACK_RECURSION',
 		`Recursive Access rule execution detected for ${descriptor.identity.phase}.`,
 		{
 			publicMessage: 'A recursive policy execution was rejected.',

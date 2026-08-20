@@ -13,9 +13,9 @@ Core keeps those responsibilities in separate internal domains while exposing
 one cohesive public package. This avoids cycles between inseparable contracts;
 optional infrastructure and policy behavior remains in plugins.
 
-The currently implemented native Access domain remains in Core only during the
-milestone 15 migration. Its accepted package destination is listed below;
-Hooks has already moved to its official package.
+Hooks and Access live in their official vertical packages. Core declares
+neither product vocabulary and community alternatives use the same generic
+public kernel.
 
 ## Official plugins
 
@@ -25,6 +25,7 @@ Hooks has already moved to its official package.
 - `pg-vector-plugin`
 - `postgres-plugin`
 - `hooks-plugin`
+- `access-plugin`
 
 ## Planned plugin packages
 

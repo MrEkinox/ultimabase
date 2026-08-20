@@ -15,7 +15,7 @@ import type {
 } from '../database/contracts.js'
 import type { EnforcementState } from '../enforcement/state.js'
 import { createRuntimeBehaviorBoundaries } from '../behaviors/boundaries.js'
-import { throwIfOperationCancelled } from '../hooks/cancellation.js'
+import { throwIfOperationCancelled } from '../cancellation/operation-cancellation.js'
 import { retainRuntimeSchemaModelMetadata } from '../operations/model-metadata.js'
 import { createProtectedObjectNotFoundError } from '../operations/target-errors.js'
 import {
@@ -101,7 +101,7 @@ const combineDatabaseRowFilters = (
 	})
 }
 
-/** Carries only mutable orchestration state that never crosses a hook boundary. */
+/** Carries only mutable orchestration state that never crosses a behavior boundary. */
 interface RuntimePipelineExecutionState {
 	operation: DatabaseOperationAst
 }
@@ -244,7 +244,7 @@ export class RuntimePipeline {
 	}
 
 	/**
-	 * Reuses every security and hook stage with one isolated transaction adapter.
+	 * Reuses every enforcement and behavior stage with one isolated transaction adapter.
 	 * Per-operation post-commit effects remain deferred until the outer commit.
 	 */
 	async beginTransaction(): Promise<RuntimePipelineTransactionScope> {
@@ -434,7 +434,7 @@ export class RuntimePipeline {
 			)
 		}
 		// Policy projection precedes validation so over-fetching adapters cannot
-		// expose or invalidate fields that business output hooks may not observe.
+		// expose or invalidate fields that product output behaviors may not observe.
 		databaseResult = this.#resultBoundaries.snapshotDatabaseResultReplacement(
 			operation,
 			databaseResult,
@@ -460,7 +460,7 @@ export class RuntimePipeline {
 				databaseExecution.inclusionSource ?? databaseExecution.result,
 				inclusions,
 			)
-		// Identity follows exact records through result hooks instead of being
+		// Identity follows exact records through result behaviors instead of being
 		// reassociated by an unstable final collection index.
 		retainRuntimeSchemaModelMetadata(
 			operation,

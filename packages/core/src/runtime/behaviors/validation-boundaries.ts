@@ -64,10 +64,10 @@ const collectionResultKinds = new Set<OperationKind>([
 	'upsert-many',
 ])
 
-const hookBoundaryErrorDescription: Readonly<RuntimeValidationErrorDescription> =
+const behaviorBoundaryErrorDescription: Readonly<RuntimeValidationErrorDescription> =
 	immutableRecord({
-		internalMessage: 'Hook boundary validation failed.',
-		publicMessage: 'A hook returned an invalid value.',
+		internalMessage: 'Runtime behavior boundary validation failed.',
+		publicMessage: 'A Runtime behavior returned an invalid value.',
 	})
 
 const adapterBoundaryErrorDescription: Readonly<RuntimeValidationErrorDescription> =
@@ -81,7 +81,7 @@ const createBoundaryIssue = (
 	message: string,
 ): RuntimeValidationIssue =>
 	immutableRecord({
-		code: 'runtime.hook-boundary.invalid',
+		code: 'runtime.behavior-boundary.invalid',
 		message,
 		path: immutableArray(path),
 	})
@@ -89,7 +89,7 @@ const createBoundaryIssue = (
 const throwBoundaryIssue = (
 	path: ValidationIssuePath,
 	message: string,
-	description: Readonly<RuntimeValidationErrorDescription> = hookBoundaryErrorDescription,
+	description: Readonly<RuntimeValidationErrorDescription> = behaviorBoundaryErrorDescription,
 ): never =>
 	throwRuntimeValidationIssues(
 		[createBoundaryIssue(path, message)],
@@ -100,7 +100,7 @@ const assertExactKeys = (
 	value: Readonly<Record<string, unknown>>,
 	keys: readonly string[],
 	path: ValidationIssuePath,
-	description: Readonly<RuntimeValidationErrorDescription> = hookBoundaryErrorDescription,
+	description: Readonly<RuntimeValidationErrorDescription> = behaviorBoundaryErrorDescription,
 	optionalKeys: readonly string[] = immutableArray([]),
 ): void => {
 	const expectedKeys = new Set([...keys, ...optionalKeys])
@@ -126,7 +126,6 @@ const assertExactKeys = (
 	}
 }
 
-/** Lists normalized properties that are valid but absent from older operation shapes. */
 const readOptionalOperationKeys = (kind: OperationKind): readonly string[] =>
 	kind === 'create-one' ? immutableArray(['inclusion']) : immutableArray([])
 
@@ -179,7 +178,6 @@ const readOperationKeys = (kind: OperationKind): readonly string[] => {
 	}
 }
 
-/** Keeps every type-level QueryBuilder projection stable across operation transforms. */
 const assertSameQueryResultShape = (
 	operation: DatabaseOperationAst,
 	replacement: Readonly<Record<string, unknown>>,
@@ -195,7 +193,7 @@ const assertSameQueryResultShape = (
 		if (!isDeepStrictEqual(original.selection, replacement.selection)) {
 			throwBoundaryIssue(
 				['operation', 'selection'],
-				'Hook must retain the exact create selection',
+				'Runtime behavior must retain the exact create selection',
 			)
 		}
 
@@ -205,7 +203,7 @@ const assertSameQueryResultShape = (
 		) {
 			throwBoundaryIssue(
 				['operation', 'inclusion'],
-				'Hook must retain the exact create inclusion',
+				'Runtime behavior must retain the exact create inclusion',
 			)
 		}
 
@@ -225,7 +223,7 @@ const assertSameQueryResultShape = (
 	) {
 		throwBoundaryIssue(
 			['operation', 'query', 'selection'],
-			'Hook must retain the exact query selection',
+			'Runtime behavior must retain the exact query selection',
 		)
 	}
 
@@ -234,7 +232,7 @@ const assertSameQueryResultShape = (
 	) {
 		throwBoundaryIssue(
 			['operation', 'query', 'inclusion'],
-			'Hook must retain the exact query inclusion',
+			'Runtime behavior must retain the exact query inclusion',
 		)
 	}
 }
@@ -350,7 +348,7 @@ const snapshotRecordResult = (
 	value: unknown,
 	path: ValidationIssuePath,
 	selectedFields: readonly string[] | undefined,
-	description: Readonly<RuntimeValidationErrorDescription> = hookBoundaryErrorDescription,
+	description: Readonly<RuntimeValidationErrorDescription> = behaviorBoundaryErrorDescription,
 ): Readonly<Record<string, unknown>> => {
 	const snapshot = snapshotRuntimeResultRecord(
 		plans,
@@ -374,7 +372,7 @@ const snapshotOperationResult = <const TOperation extends DatabaseOperationAst>(
 	plans: SchemaValidationPlans,
 	selectedFields: readonly string[] | undefined,
 	path: ValidationIssuePath,
-	description: Readonly<RuntimeValidationErrorDescription> = hookBoundaryErrorDescription,
+	description: Readonly<RuntimeValidationErrorDescription> = behaviorBoundaryErrorDescription,
 ): DatabaseOperationResult<TOperation> => {
 	if (scalarResultKinds.has(operation.kind)) {
 		if (operation.kind === 'exists') {
@@ -575,7 +573,7 @@ const assertOutcomeCardinality = (
 			break
 		case 'delete-many':
 		case 'update-many':
-			// Adapters keep the fast path empty unless declared item hooks requested snapshots.
+			// Adapters keep the fast path empty unless installed behaviors requested snapshots.
 			if (materializations.length === 0) return
 			expected = isUnknownArray(result) ? result.length : undefined
 			break
@@ -594,8 +592,8 @@ const assertOutcomeCardinality = (
 	}
 }
 
-/** Owns immutable validation boundaries shared by every native hook phase. */
-export interface RuntimeHookBoundaries {
+/** Owns immutable validation boundaries shared by every Runtime behavior. */
+export interface RuntimeBehaviorBoundaries {
 	/** Deeply snapshots trusted Runtime data without applying operation semantics. */
 	snapshotValue<const TValue>(value: TValue): TValue
 
@@ -613,7 +611,7 @@ export interface RuntimeHookBoundaries {
 		replacement: unknown,
 	): TOperation
 
-	/** Validates one hook-transformed result against its terminal and selection. */
+	/** Validates one behavior-transformed result against its terminal and selection. */
 	snapshotResultReplacement<const TOperation extends DatabaseOperationAst>(
 		operation: TOperation,
 		replacement: unknown,
@@ -638,382 +636,384 @@ export interface RuntimeHookBoundaries {
 	): DatabaseOperationOutcome<TOperation>
 }
 
-/** Creates one application-scoped cache for hook boundary validation plans. */
-export const createRuntimeHookBoundaries = (): RuntimeHookBoundaries => {
-	const plansBySchema = new WeakMap<object, SchemaValidationPlans>()
-	const readPlans = (schema: SchemaDefinition): SchemaValidationPlans => {
-		let plans = plansBySchema.get(schema)
+export const createRuntimeBehaviorBoundaries =
+	(): RuntimeBehaviorBoundaries => {
+		const plansBySchema = new WeakMap<object, SchemaValidationPlans>()
+		const readPlans = (schema: SchemaDefinition): SchemaValidationPlans => {
+			let plans = plansBySchema.get(schema)
 
-		if (plans === undefined) {
-			plans = compileValidationPlans(schema)
-			plansBySchema.set(schema, plans)
-		}
-
-		return plans
-	}
-
-	const readBoundaryContext = (
-		operation: DatabaseOperationAst,
-		selectedFieldsOverride?: readonly string[],
-	): Readonly<{
-		readonly plans: SchemaValidationPlans
-		readonly schema: SchemaDefinition
-		readonly selectedFields: readonly string[] | undefined
-	}> => {
-		const schema = readOperationSchema(operation, ['operation', 'schema'])
-		const plans = readPlans(schema)
-
-		return immutableRecord({
-			plans,
-			schema,
-			selectedFields:
-				selectedFieldsOverride ?? readSelectedFields(operation, schema),
-		})
-	}
-
-	const snapshotOperationShape = <
-		const TOperation extends DatabaseOperationAst,
-	>(
-		operation: TOperation,
-		replacement: unknown,
-	): TOperation => {
-		if (!isPlainRecord(replacement)) {
-			return throwBoundaryIssue(
-				['operation'],
-				'Hook operation replacement must be a plain object',
-			)
-		}
-
-		if (replacement.kind !== operation.kind) {
-			return throwBoundaryIssue(
-				['operation', 'kind'],
-				`Hook must retain terminal ${operation.kind}`,
-			)
-		}
-
-		assertExactKeys(
-			replacement,
-			readOperationKeys(operation.kind),
-			['operation'],
-			hookBoundaryErrorDescription,
-			readOptionalOperationKeys(operation.kind),
-		)
-
-		const originalSchema = readOperationSchema(operation, [
-			'operation',
-			'schema',
-		])
-		const replacementSchema = readOperationSchema(replacement, [
-			'operation',
-			'schema',
-		])
-
-		if (replacementSchema !== originalSchema) {
-			return throwBoundaryIssue(
-				['operation', 'schema'],
-				'Hook must retain the exact schema identity',
-			)
-		}
-
-		assertSameQueryResultShape(operation, replacement)
-
-		return snapshotBoundaryValue(
-			replacement,
-			['operation'],
-			new WeakSet<object>(),
-		) as TOperation
-	}
-
-	/** Validates hydrated targets while preserving the pointer field's declared scalar contract. */
-	const snapshotIncludedRecord = (
-		operation: DatabaseOperationAst,
-		value: unknown,
-		path: ValidationIssuePath,
-		selectedFields: readonly string[] | undefined,
-	): Readonly<Record<string, unknown>> => {
-		const schema = readOperationSchema(operation, ['operation', 'schema'])
-		const inclusions = readInclusions(operation)
-
-		if (inclusions.length === 0 || !isPlainRecord(value)) {
-			return snapshotRecordResult(
-				readPlans(schema),
-				value,
-				path,
-				selectedFields,
-			)
-		}
-
-		const parentCandidate: Record<string, unknown> = { ...value }
-		const hydratedTargets = new Map<string, unknown>()
-
-		for (const inclusion of inclusions) {
-			const targetValue: unknown = value[inclusion.field]
-
-			const targetOperation = createInclusionOperation(inclusion)
-			const targetSchema = readOperationSchema(targetOperation, [
-				...path,
-				inclusion.field,
-			])
-
-			let targetSnapshot: unknown
-
-			if (inclusion.kind === 'pointer') {
-				if (targetValue !== null && !isPlainRecord(targetValue)) continue
-
-				targetSnapshot =
-					targetValue === null
-						? null
-						: snapshotIncludedRecord(
-								targetOperation,
-								targetValue,
-								[...path, inclusion.field],
-								readSelectedFields(targetOperation, targetSchema),
-							)
-				// Parent validation still proves that the declared field itself is a pointer.
-				parentCandidate[inclusion.field] = new Pointer(
-					targetSchema,
-					'__ultimabase_hook_boundary__',
-				)
-			} else {
-				if (!isUnknownArray(targetValue)) continue
-
-				targetSnapshot = immutableArray(
-					targetValue.map((targetRecord, index) =>
-						snapshotIncludedRecord(
-							targetOperation,
-							targetRecord,
-							[...path, inclusion.field, index],
-							readSelectedFields(targetOperation, targetSchema),
-						),
-					),
-				)
-				// Relation fields are handle-only unless this exact result included them.
-				Reflect.deleteProperty(parentCandidate, inclusion.field)
+			if (plans === undefined) {
+				plans = compileValidationPlans(schema)
+				plansBySchema.set(schema, plans)
 			}
 
-			hydratedTargets.set(inclusion.field, targetSnapshot)
+			return plans
 		}
 
-		const parent = snapshotRecordResult(
-			readPlans(schema),
-			parentCandidate,
-			path,
-			selectedFields,
-		)
+		const readBoundaryContext = (
+			operation: DatabaseOperationAst,
+			selectedFieldsOverride?: readonly string[],
+		): Readonly<{
+			readonly plans: SchemaValidationPlans
+			readonly schema: SchemaDefinition
+			readonly selectedFields: readonly string[] | undefined
+		}> => {
+			const schema = readOperationSchema(operation, ['operation', 'schema'])
+			const plans = readPlans(schema)
 
-		// The placeholder pointer exists only for structural validation. Restore the
-		// source record's private identity and declared pointer values on its snapshot.
-		transferRuntimeSchemaModelMetadata(value, parent)
-
-		if (hydratedTargets.size === 0) return parent
-
-		const snapshot = immutableRecord({
-			...parent,
-			...Object.fromEntries(hydratedTargets),
-		})
-
-		transferRuntimeSchemaModelMetadata(parent, snapshot)
-
-		return snapshot
-	}
-
-	const snapshotIncludedResult = <
-		const TOperation extends DatabaseOperationAst,
-	>(
-		operation: TOperation,
-		replacement: unknown,
-		selectedFields: readonly string[] | undefined,
-	): DatabaseOperationResult<TOperation> => {
-		if (readInclusions(operation).length === 0) {
-			return snapshotOperationResult(
-				operation,
-				replacement,
-				readPlans(readOperationSchema(operation, ['operation', 'schema'])),
-				selectedFields,
-				['result'],
-			)
+			return immutableRecord({
+				plans,
+				schema,
+				selectedFields:
+					selectedFieldsOverride ?? readSelectedFields(operation, schema),
+			})
 		}
 
-		if (replacement === null) {
-			if (!nullableResultKinds.has(operation.kind)) {
-				return throwBoundaryIssue(
-					['result'],
-					'This terminal cannot return null',
-				)
-			}
-
-			return null as DatabaseOperationResult<TOperation>
-		}
-
-		if (operation.kind === 'find-many') {
-			if (!isUnknownArray(replacement)) {
-				return throwBoundaryIssue(
-					['result'],
-					'This terminal must return an array',
-				)
-			}
-
-			return immutableArray(
-				replacement.map((record, index) =>
-					snapshotIncludedRecord(
-						operation,
-						record,
-						['result', index],
-						selectedFields,
-					),
-				),
-			) as DatabaseOperationResult<TOperation>
-		}
-
-		return snapshotIncludedRecord(
-			operation,
-			replacement,
-			['result'],
-			selectedFields,
-		) as DatabaseOperationResult<TOperation>
-	}
-
-	return immutableRecord({
-		snapshotValue: <const TValue>(value: TValue): TValue =>
-			snapshotBoundaryValue(value, [], new WeakSet<object>()) as TValue,
-		snapshotMutationOutcome: <
-			const TOperation extends DatabaseMutationOperationAst,
+		const snapshotOperationShape = <
+			const TOperation extends DatabaseOperationAst,
 		>(
 			operation: TOperation,
-			outcome: unknown,
-		): DatabaseOperationOutcome<TOperation> => {
-			if (!isPlainRecord(outcome)) {
+			replacement: unknown,
+		): TOperation => {
+			if (!isPlainRecord(replacement)) {
 				return throwBoundaryIssue(
-					['outcome'],
-					'Database outcome must be a plain object',
-					adapterBoundaryErrorDescription,
+					['operation'],
+					'Runtime behavior operation replacement must be a plain object',
+				)
+			}
+
+			if (replacement.kind !== operation.kind) {
+				return throwBoundaryIssue(
+					['operation', 'kind'],
+					`Runtime behavior must retain terminal ${operation.kind}`,
 				)
 			}
 
 			assertExactKeys(
-				outcome,
-				['result', 'materializations'],
-				['outcome'],
-				adapterBoundaryErrorDescription,
+				replacement,
+				readOperationKeys(operation.kind),
+				['operation'],
+				behaviorBoundaryErrorDescription,
+				readOptionalOperationKeys(operation.kind),
 			)
 
-			if (!isUnknownArray(outcome.materializations)) {
+			const originalSchema = readOperationSchema(operation, [
+				'operation',
+				'schema',
+			])
+			const replacementSchema = readOperationSchema(replacement, [
+				'operation',
+				'schema',
+			])
+
+			if (replacementSchema !== originalSchema) {
 				return throwBoundaryIssue(
-					['outcome', 'materializations'],
-					'Outcome materializations must be an array',
-					adapterBoundaryErrorDescription,
+					['operation', 'schema'],
+					'Runtime behavior must retain the exact schema identity',
 				)
 			}
 
-			const { plans, selectedFields } = readBoundaryContext(operation)
-			const result = snapshotOperationResult(
-				operation,
-				outcome.result,
-				plans,
+			assertSameQueryResultShape(operation, replacement)
+
+			return snapshotBoundaryValue(
+				replacement,
+				['operation'],
+				new WeakSet<object>(),
+			) as TOperation
+		}
+
+		/** Validates hydrated targets while preserving the pointer field's declared scalar contract. */
+		const snapshotIncludedRecord = (
+			operation: DatabaseOperationAst,
+			value: unknown,
+			path: ValidationIssuePath,
+			selectedFields: readonly string[] | undefined,
+		): Readonly<Record<string, unknown>> => {
+			const schema = readOperationSchema(operation, ['operation', 'schema'])
+			const inclusions = readInclusions(operation)
+
+			if (inclusions.length === 0 || !isPlainRecord(value)) {
+				return snapshotRecordResult(
+					readPlans(schema),
+					value,
+					path,
+					selectedFields,
+				)
+			}
+
+			const parentCandidate: Record<string, unknown> = { ...value }
+			const hydratedTargets = new Map<string, unknown>()
+
+			for (const inclusion of inclusions) {
+				const targetValue: unknown = value[inclusion.field]
+
+				const targetOperation = createInclusionOperation(inclusion)
+				const targetSchema = readOperationSchema(targetOperation, [
+					...path,
+					inclusion.field,
+				])
+
+				let targetSnapshot: unknown
+
+				if (inclusion.kind === 'pointer') {
+					if (targetValue !== null && !isPlainRecord(targetValue)) continue
+
+					targetSnapshot =
+						targetValue === null
+							? null
+							: snapshotIncludedRecord(
+									targetOperation,
+									targetValue,
+									[...path, inclusion.field],
+									readSelectedFields(targetOperation, targetSchema),
+								)
+					// Parent validation still proves that the declared field itself is a pointer.
+					parentCandidate[inclusion.field] = new Pointer(
+						targetSchema,
+						'__ultimabase_hook_boundary__',
+					)
+				} else {
+					if (!isUnknownArray(targetValue)) continue
+
+					targetSnapshot = immutableArray(
+						targetValue.map((targetRecord, index) =>
+							snapshotIncludedRecord(
+								targetOperation,
+								targetRecord,
+								[...path, inclusion.field, index],
+								readSelectedFields(targetOperation, targetSchema),
+							),
+						),
+					)
+					// Relation fields are handle-only unless this exact result included them.
+					Reflect.deleteProperty(parentCandidate, inclusion.field)
+				}
+
+				hydratedTargets.set(inclusion.field, targetSnapshot)
+			}
+
+			const parent = snapshotRecordResult(
+				readPlans(schema),
+				parentCandidate,
+				path,
 				selectedFields,
-				['outcome', 'result'],
-				adapterBoundaryErrorDescription,
 			)
 
-			assertOutcomeCardinality(operation, result, outcome.materializations)
+			// The placeholder pointer exists only for structural validation. Restore the
+			// source record's private identity and declared pointer values on its snapshot.
+			transferRuntimeSchemaModelMetadata(value, parent)
 
-			const materializations = immutableArray(
-				outcome.materializations.map((materialization, index) =>
-					snapshotMaterialization(operation, materialization, plans, [
-						'outcome',
-						'materializations',
-						index,
-					]),
-				),
-			)
+			if (hydratedTargets.size === 0) return parent
 
-			return immutableRecord({
-				materializations,
-				result,
-			}) as DatabaseOperationOutcome<TOperation>
-		},
-		snapshotOperationReplacement: <
-			const TOperation extends DatabaseOperationAst,
-		>(
-			operation: TOperation,
-			replacement: unknown,
-		): TOperation => {
-			const snapshot = snapshotOperationShape(operation, replacement)
+			const snapshot = immutableRecord({
+				...parent,
+				...Object.fromEntries(hydratedTargets),
+			})
 
-			if (!isMutationOperation(operation) || !isMutationOperation(snapshot)) {
-				return snapshot
-			}
-
-			const { plans } = readBoundaryContext(snapshot)
-
-			return revalidateRuntimeMutationOperation(operation, snapshot, plans)
-		},
-		snapshotPreparedOperationReplacement: <
-			const TOperation extends DatabaseMutationOperationAst,
-		>(
-			operation: TOperation,
-			replacement: unknown,
-		): TOperation => {
-			const snapshot = snapshotOperationShape(operation, replacement)
-			const original: unknown = operation
-			const candidate: unknown = snapshot
-
-			if (
-				isPlainRecord(original) &&
-				isPlainRecord(candidate) &&
-				Object.hasOwn(original, 'query') &&
-				!isDeepStrictEqual(original.query, candidate.query)
-			) {
-				return throwBoundaryIssue(
-					['operation', 'query'],
-					'ResolveInput must retain the prepared mutation target',
-				)
-			}
-
-			if (
-				operation.kind === 'upsert-one' &&
-				isPlainRecord(original) &&
-				isPlainRecord(candidate) &&
-				!isDeepStrictEqual(original.target, candidate.target)
-			) {
-				return throwBoundaryIssue(
-					['operation', 'target'],
-					'ResolveInput must retain the prepared upsert conflict target',
-				)
-			}
+			transferRuntimeSchemaModelMetadata(parent, snapshot)
 
 			return snapshot
-		},
-		snapshotDatabaseResultReplacement: <
+		}
+
+		const snapshotIncludedResult = <
 			const TOperation extends DatabaseOperationAst,
 		>(
 			operation: TOperation,
 			replacement: unknown,
-			selectedFieldsOverride?: readonly string[],
+			selectedFields: readonly string[] | undefined,
 		): DatabaseOperationResult<TOperation> => {
-			const { selectedFields } = readBoundaryContext(
-				operation,
-				selectedFieldsOverride,
-			)
+			if (readInclusions(operation).length === 0) {
+				return snapshotOperationResult(
+					operation,
+					replacement,
+					readPlans(readOperationSchema(operation, ['operation', 'schema'])),
+					selectedFields,
+					['result'],
+				)
+			}
 
-			return snapshotIncludedResult(operation, replacement, selectedFields)
-		},
-		snapshotResultReplacement: <const TOperation extends DatabaseOperationAst>(
-			operation: TOperation,
-			replacement: unknown,
-			selectedFieldsOverride?: readonly string[],
-		): RuntimeOperationResult<TOperation> => {
-			const { selectedFields } = readBoundaryContext(
-				operation,
-				selectedFieldsOverride,
-			)
+			if (replacement === null) {
+				if (!nullableResultKinds.has(operation.kind)) {
+					return throwBoundaryIssue(
+						['result'],
+						'This terminal cannot return null',
+					)
+				}
 
-			// Inclusion-aware validation produces the post-hydration record contract.
-			return snapshotIncludedResult(
+				return null as DatabaseOperationResult<TOperation>
+			}
+
+			if (operation.kind === 'find-many') {
+				if (!isUnknownArray(replacement)) {
+					return throwBoundaryIssue(
+						['result'],
+						'This terminal must return an array',
+					)
+				}
+
+				return immutableArray(
+					replacement.map((record, index) =>
+						snapshotIncludedRecord(
+							operation,
+							record,
+							['result', index],
+							selectedFields,
+						),
+					),
+				) as DatabaseOperationResult<TOperation>
+			}
+
+			return snapshotIncludedRecord(
 				operation,
 				replacement,
+				['result'],
 				selectedFields,
-			) as unknown as RuntimeOperationResult<TOperation>
-		},
-	})
-}
+			) as DatabaseOperationResult<TOperation>
+		}
+
+		return immutableRecord({
+			snapshotValue: <const TValue>(value: TValue): TValue =>
+				snapshotBoundaryValue(value, [], new WeakSet<object>()) as TValue,
+			snapshotMutationOutcome: <
+				const TOperation extends DatabaseMutationOperationAst,
+			>(
+				operation: TOperation,
+				outcome: unknown,
+			): DatabaseOperationOutcome<TOperation> => {
+				if (!isPlainRecord(outcome)) {
+					return throwBoundaryIssue(
+						['outcome'],
+						'Database outcome must be a plain object',
+						adapterBoundaryErrorDescription,
+					)
+				}
+
+				assertExactKeys(
+					outcome,
+					['result', 'materializations'],
+					['outcome'],
+					adapterBoundaryErrorDescription,
+				)
+
+				if (!isUnknownArray(outcome.materializations)) {
+					return throwBoundaryIssue(
+						['outcome', 'materializations'],
+						'Outcome materializations must be an array',
+						adapterBoundaryErrorDescription,
+					)
+				}
+
+				const { plans, selectedFields } = readBoundaryContext(operation)
+				const result = snapshotOperationResult(
+					operation,
+					outcome.result,
+					plans,
+					selectedFields,
+					['outcome', 'result'],
+					adapterBoundaryErrorDescription,
+				)
+
+				assertOutcomeCardinality(operation, result, outcome.materializations)
+
+				const materializations = immutableArray(
+					outcome.materializations.map((materialization, index) =>
+						snapshotMaterialization(operation, materialization, plans, [
+							'outcome',
+							'materializations',
+							index,
+						]),
+					),
+				)
+
+				return immutableRecord({
+					materializations,
+					result,
+				}) as DatabaseOperationOutcome<TOperation>
+			},
+			snapshotOperationReplacement: <
+				const TOperation extends DatabaseOperationAst,
+			>(
+				operation: TOperation,
+				replacement: unknown,
+			): TOperation => {
+				const snapshot = snapshotOperationShape(operation, replacement)
+
+				if (!isMutationOperation(operation) || !isMutationOperation(snapshot)) {
+					return snapshot
+				}
+
+				const { plans } = readBoundaryContext(snapshot)
+
+				return revalidateRuntimeMutationOperation(operation, snapshot, plans)
+			},
+			snapshotPreparedOperationReplacement: <
+				const TOperation extends DatabaseMutationOperationAst,
+			>(
+				operation: TOperation,
+				replacement: unknown,
+			): TOperation => {
+				const snapshot = snapshotOperationShape(operation, replacement)
+				const original: unknown = operation
+				const candidate: unknown = snapshot
+
+				if (
+					isPlainRecord(original) &&
+					isPlainRecord(candidate) &&
+					Object.hasOwn(original, 'query') &&
+					!isDeepStrictEqual(original.query, candidate.query)
+				) {
+					return throwBoundaryIssue(
+						['operation', 'query'],
+						'ResolveInput must retain the prepared mutation target',
+					)
+				}
+
+				if (
+					operation.kind === 'upsert-one' &&
+					isPlainRecord(original) &&
+					isPlainRecord(candidate) &&
+					!isDeepStrictEqual(original.target, candidate.target)
+				) {
+					return throwBoundaryIssue(
+						['operation', 'target'],
+						'ResolveInput must retain the prepared upsert conflict target',
+					)
+				}
+
+				return snapshot
+			},
+			snapshotDatabaseResultReplacement: <
+				const TOperation extends DatabaseOperationAst,
+			>(
+				operation: TOperation,
+				replacement: unknown,
+				selectedFieldsOverride?: readonly string[],
+			): DatabaseOperationResult<TOperation> => {
+				const { selectedFields } = readBoundaryContext(
+					operation,
+					selectedFieldsOverride,
+				)
+
+				return snapshotIncludedResult(operation, replacement, selectedFields)
+			},
+			snapshotResultReplacement: <
+				const TOperation extends DatabaseOperationAst,
+			>(
+				operation: TOperation,
+				replacement: unknown,
+				selectedFieldsOverride?: readonly string[],
+			): RuntimeOperationResult<TOperation> => {
+				const { selectedFields } = readBoundaryContext(
+					operation,
+					selectedFieldsOverride,
+				)
+
+				// Inclusion-aware validation produces the post-hydration record contract.
+				return snapshotIncludedResult(
+					operation,
+					replacement,
+					selectedFields,
+				) as unknown as RuntimeOperationResult<TOperation>
+			},
+		})
+	}

@@ -34,7 +34,7 @@ import { provideTestRuntimeConstraint } from './runtime-capabilities.js'
 
 const hookTrace: string[] = []
 const committedEvents: string[] = []
-const rollbackHookError = new Error('native hook rollback fixture')
+const rollbackHookError = new Error('Hooks plugin rollback fixture')
 
 const trace = (label: string): void => {
 	hookTrace.push(label)
@@ -61,7 +61,7 @@ const readScopeId = (metadata: Readonly<Record<string, unknown>>): string => {
 	if (typeof scopeId !== 'string' || scopeId.length === 0) {
 		throw new FrameworkError(
 			'PERMISSION_DENIED',
-			'The native hook fixture requires an authenticated scope.',
+			'The Hooks plugin fixture requires an authenticated scope.',
 			{ publicMessage: 'This operation is not permitted.' },
 		)
 	}
@@ -166,7 +166,7 @@ const HookArticleSchema = Schema.define({
 						scopeId,
 					},
 				})
-				context.emit('native-hooks.article-created', {
+				context.emit('hooks-plugin.article-created', {
 					scopeId,
 					title,
 				})
@@ -215,7 +215,7 @@ const scopeConstraintCompiler = postgresConstraintCompiler({
 const scopePolicyPlugin = definePlugin({
 	version: '0.0.0',
 	core: '^0.0.0',
-	pluginId: 'fixture.native-hooks-scope-policy',
+	pluginId: 'fixture.hooks-plugin-scope-policy',
 	privileges: [
 		{
 			name: 'adapter:consume',
@@ -229,7 +229,7 @@ const scopePolicyPlugin = definePlugin({
 	capabilities: {
 		provides: [
 			provideTestRuntimeConstraint(
-				'fixture.native-hooks-guard',
+				'fixture.hooks-plugin-guard',
 				guard({
 					schema: HookArticleSchema,
 					handler: ({ context, operation }) => {
@@ -239,7 +239,7 @@ const scopePolicyPlugin = definePlugin({
 				}),
 			),
 			provideTestRuntimeConstraint(
-				'fixture.native-hooks-constraint',
+				'fixture.hooks-plugin-constraint',
 				constraint({
 					handler: ({ context, operation }) => {
 						trace(`policy:constraint:${operation.kind}`)
@@ -263,7 +263,7 @@ const scopePolicyPlugin = definePlugin({
 				}),
 			),
 			provideTestRuntimeConstraint(
-				'fixture.native-hooks-selection',
+				'fixture.hooks-plugin-selection',
 				restrictSelection({
 					// Selection hides the scope identity before output hooks observe a record.
 					handler: () => ['id', 'title', 'secret', 'profile'],
@@ -272,7 +272,7 @@ const scopePolicyPlugin = definePlugin({
 				}),
 			),
 			provideTestRuntimeConstraint(
-				'fixture.native-hooks-output',
+				'fixture.hooks-plugin-output',
 				restrictOutput({
 					handler: ({ operation }) => {
 						trace(`policy:restrictOutput:${operation.kind}`)
@@ -293,10 +293,10 @@ const scopePolicyPlugin = definePlugin({
 const behaviorPlugin = definePlugin({
 	version: '0.0.0',
 	core: '^0.0.0',
-	pluginId: 'fixture.native-hooks-behavior',
+	pluginId: 'fixture.hooks-plugin-behavior',
 	peers: [
 		{ pluginId: '@ultimabase/hooks-plugin', version: '^0.0.0' },
-		{ pluginId: 'fixture.native-hooks-scope-policy', version: '^0.0.0' },
+		{ pluginId: 'fixture.hooks-plugin-scope-policy', version: '^0.0.0' },
 	],
 	privileges: [
 		{
@@ -305,7 +305,7 @@ const behaviorPlugin = definePlugin({
 		},
 		{
 			name: 'runtime:observe',
-			reason: 'Observes committed native-hook events for the E2E fixture.',
+			reason: 'Observes committed hooks-plugin events for the E2E fixture.',
 		},
 	],
 	capabilities: {
@@ -326,9 +326,9 @@ const behaviorPlugin = definePlugin({
 				}),
 			),
 			provideHookEvent(
-				'fixture.native-hooks-created-event',
+				'fixture.hooks-plugin-created-event',
 				onEvent({
-					name: 'native-hooks.article-created',
+					name: 'hooks-plugin.article-created',
 					handler: ({ event }) => {
 						committedEvents.push(event.name)
 						trace(`event:${event.name}`)
@@ -376,7 +376,7 @@ const runWithScope = <TResult>(
 	requestSequence += 1
 	const request = getUltimaBase().engine.anonymous({
 		metadata: { scopeId },
-		requestId: `native-hooks-postgres:${String(requestSequence)}`,
+		requestId: `hooks-plugin-postgres:${String(requestSequence)}`,
 		source: requestSources.internal,
 	})
 
@@ -418,7 +418,7 @@ afterAll(async () => {
 	}
 })
 
-describe('native hooks with PostgreSQL', { concurrent: false }, () => {
+describe('Hooks plugin with PostgreSQL', { concurrent: false }, () => {
 	it('executes create, save, output, finalization, and event phases in order', async () => {
 		hookTrace.length = 0
 		committedEvents.length = 0
@@ -448,7 +448,7 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 				}),
 			),
 		).resolves.toBe(true)
-		expect(committedEvents).toStrictEqual(['native-hooks.article-created'])
+		expect(committedEvents).toStrictEqual(['hooks-plugin.article-created'])
 		expectTraceSubsequence([
 			'field:title:developer:resolveInput',
 			'field:slug:developer:resolveInput',
@@ -460,7 +460,7 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 			'schema:developer:afterCreate',
 			'schema:developer:afterCreate:item:Create lifecycle',
 			'plugin:schema:afterCreate',
-			'event:native-hooks.article-created',
+			'event:hooks-plugin.article-created',
 		])
 	})
 

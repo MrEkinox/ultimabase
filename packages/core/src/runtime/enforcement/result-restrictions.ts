@@ -9,7 +9,7 @@ import type {
 	DatabaseOperationAst,
 	DatabaseOperationResult,
 } from '../database/contracts.js'
-import type { HookExecutionRuntime } from '../hooks/execution-runtime.js'
+import type { RuntimeCallbackExecutor } from '../contributions/execution.js'
 import { transferRuntimeSchemaModelMetadata } from '../operations/model-metadata.js'
 import type {
 	RuntimeDatabaseResultStageInput,
@@ -71,7 +71,7 @@ const restrictResult = <const TResult>(
 	) as TResult
 }
 
-/** Hides selection-restricted fields before any business output hook can observe them. */
+/** Hides selection-restricted fields before any output behavior can observe them. */
 export const enforceSelectionResultRestrictions = <
 	const TOperation extends DatabaseOperationAst,
 >(
@@ -89,7 +89,7 @@ export const enforceOutputRestrictions = async <
 	const TOperation extends DatabaseOperationAst,
 >(
 	contributions: readonly OwnedEnforcementContribution[],
-	runtime: HookExecutionRuntime,
+	runtime: RuntimeCallbackExecutor,
 	input: RuntimeResultStageInput<TOperation> & {
 		readonly enforcement: EnforcementState
 	},
@@ -110,7 +110,7 @@ export const enforceOutputRestrictions = async <
 		}
 
 		const output: unknown = await runtime.invoke(
-			// Output restrictions retain the same hook identity and recursion boundary.
+			// Output restrictions retain the same callback identity and recursion boundary.
 			createEnforcementExecutionDescriptor(owned, input.operation),
 			input.context,
 			() =>

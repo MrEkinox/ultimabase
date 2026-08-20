@@ -16,13 +16,10 @@ import type {
 	DatabaseOperationAst,
 } from '../database/contracts.js'
 import {
-	createHookExecutionDescriptor,
-	createPluginHookOwner,
-	createSchemaHookTarget,
-	globalHookTarget,
-	type HookExecutionDescriptor,
-} from '../hooks/execution-descriptor.js'
-import type { HookExecutionRuntime } from '../hooks/execution-runtime.js'
+	createRuntimeCallbackDescriptor,
+	type RuntimeCallbackDescriptor,
+	type RuntimeCallbackExecutor,
+} from '../contributions/execution.js'
 import { getOperationSchema } from '../operations/schema.js'
 import type { RuntimeOperationStageInput } from '../pipeline/contracts.js'
 import type { EnforcementContributionImplementation } from './definitions.js'
@@ -53,31 +50,31 @@ export interface OwnedEnforcementContribution {
 		EnforcementContributionImplementation | ProtectedPolicyImplementation
 }
 
-/** Gives policy hooks the same recursion and diagnostic identity as business hooks. */
+/** Gives policy callbacks one stable product-neutral recursion identity. */
 export const createEnforcementExecutionDescriptor = (
 	owned: OwnedEnforcementContribution,
 	operation: DatabaseOperationAst,
-): HookExecutionDescriptor => {
+): RuntimeCallbackDescriptor => {
 	const { contribution, implementation } = owned
 	if (implementation.kind === 'protected-policy') {
 		throw new TypeError(
-			'Protected policies do not expose executable hook descriptors',
+			'Protected policies do not expose executable callback descriptors',
 		)
 	}
-	return createHookExecutionDescriptor({
-		handler: (input) => implementation.run(input),
-		handlerIndex: 0,
+	return createRuntimeCallbackDescriptor({
 		operationKind: operation.kind,
-		owner: createPluginHookOwner(
-			contribution.ownerPlugin,
-			contribution.name,
-			contribution.ownerInstanceId,
-		),
+		owner: {
+			contributionId: contribution.name,
+			pluginId: contribution.ownerPlugin,
+			...(contribution.ownerInstanceId === undefined
+				? {}
+				: { instanceId: contribution.ownerInstanceId }),
+		},
 		phase: implementation.kind,
 		target:
 			implementation.schema === undefined
-				? globalHookTarget
-				: createSchemaHookTarget(implementation.schema.className),
+				? { kind: 'global' }
+				: { className: implementation.schema.className, kind: 'schema' },
 	})
 }
 
@@ -94,7 +91,7 @@ export const readEnforcementOperationSchema = (
 	return schema
 }
 
-/** Compiles only protected enforcement definitions from the shared hook registry. */
+/** Compiles only protected enforcement definitions from generic capabilities. */
 export const readEnforcementContributions = (
 	application: FrameworkApplication<
 		readonly SchemaDefinition[],
@@ -175,7 +172,7 @@ export const evaluateEnforcementContributions = async <
 	const TOperation extends DatabaseOperationAst,
 >(
 	contributions: readonly OwnedEnforcementContribution[],
-	runtime: HookExecutionRuntime,
+	runtime: RuntimeCallbackExecutor,
 	input: RuntimeOperationStageInput<TOperation>,
 	initialState: EnforcementState = createEnforcementState(),
 	includeProtectedPolicies = true,

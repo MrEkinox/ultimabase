@@ -60,7 +60,7 @@ export interface PluginFieldNormalizers<
 	TValidation extends FieldValidationOptions,
 	TDeferred extends boolean = false,
 > {
-	/** Defers one required create value until plugin resolveInput hooks have run. */
+	/** Defers one required create value until plugin input behavior has run. */
 	readonly deferRequiredUntilResolveInput?: TDeferred
 	readonly normalizeValidation?: (
 		validation: TValidation,

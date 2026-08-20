@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
+import { resolveWhereInput } from '../../query/index.js'
 import { Schema } from '../../schema/index.js'
-import { normalizeAccessWhereResult } from '../../schema/access/filter.js'
 import { databaseConstraint } from './definitions.js'
 import {
 	appendEnforcementConstraints,
@@ -80,10 +80,10 @@ describe('monotonic enforcement state', () => {
 	})
 
 	it('combines private row restrictions with AND without changing prior states', () => {
-		const published = normalizeAccessWhereResult(rowSchema, {
+		const published = resolveWhereInput(rowSchema, {
 			published: { eq: true },
 		})
-		const hidden = normalizeAccessWhereResult(rowSchema, {
+		const hidden = resolveWhereInput(rowSchema, {
 			published: { eq: false },
 		})
 

@@ -366,149 +366,19 @@ they return a model or throw `NOT_FOUND`, including when Access hides the target
 There is no dirty tracking, implicit batching, `save()`, or instance collection
 operation.
 
-## Native schema hook declarations
+## Plugin-owned schema option namespaces
 
-`Schema.define({ hooks })` accepts the typed mutation lifecycle directly through
-three focused groups: input transformation, before-operation observers, and
-after-operation observers. Collection commands
-are itemized before dispatch. Their public `kind` is the cardinality-free
-business family (`create`, `update`, `upsert`, or `delete`), while an exposed
-`operation.kind` remains the exact singular terminal such as `update-one`.
+Core does not declare `hooks` or `access` schema and field options. Authorized
+plugins contribute namespaced option contracts during static application
+compilation. The official `@ultimabase/hooks-plugin` and
+`@ultimabase/access-plugin` packages own their authoring types, normalization,
+target selectors, and Runtime implementations; omitting either plugin makes its
+option unknown.
 
-```ts
-const ArticleSchema = Schema.define({
-	className: 'Article',
-	fields: (field) => ({
-		title: field.string({ validation: { required: true } }),
-	}),
-	hooks: {
-		resolveInput: {
-			create: ({ operation }) => operation,
-		},
-		beforeOperation: {
-			update: ({ originalItem, item }) => {
-				auditChange(originalItem, item)
-			},
-		},
-		afterOperation: {
-			create: ({ item }) => {
-				auditCreation(item)
-			},
-		},
-	},
-})
-```
-
-`resolveInput` is the only transforming schema hook and may throw to reject an
-input. It receives the existing visible `originalItem` after Access approval
-and target preparation (`null` for a create candidate). Before- and
-after-operation handlers are observers: they may perform
-transactional work or throw, but Runtime ignores their return values. Read
-filtering belongs to Query options for developer choices and schema Access for
-mandatory restrictions; there are no schema read hooks.
-
-Every non-null `originalItem` is materialized as a complete immutable
-`SchemaResult` instance. It retains protected persisted identity and therefore
-supports `get()`, `toJSON()`, and the regular instance commands through the same
-Runtime pipeline.
-
-Before-operation branches cover create, update, and delete. After-operation
-branches additionally cover upsert, whose create or update branch is known only
-after the atomic database operation. Each observer runs once per affected item
-with complete selection-independent values. A non-null `afterOperation.item`
-is a complete persisted `SchemaResult`, independently of the mutation result
-selection; there is no separate `result` hook value. `beforeOperation.create` exposes
-only `context`, `kind: "create"`, and the candidate `item`; there is no constant
-`originalItem` or internal operation AST. The candidate is a
-`SchemaPreparedDraft`: an immutable instance of the generated schema class with
-normalized defaults and system fields, `get()`, and `toJSON()`, but without
-persistence commands in its public type. Its shape is identical for direct and
-batched commands. A missing directed batch target raises `NOT_FOUND` and rolls
-back the complete batch.
-
-The declaration record is copied and frozen outside enumerable schema metadata.
-Changing only hooks cannot alter validation plans, adapter schemas, or
-migrations. Runtime compiles the private declaration once per application.
-
-Each phase accepts one callback or a non-empty ordered callback list. Phases
-covering several logical operation families also accept an `all` plus family
-map:
-
-```ts
-hooks: {
-	resolveInput: {
-		all: ({ operation }) => operation,
-		create: [
-			({ operation }) => operation,
-			({ operation }) => operation,
-		],
-		update: ({ operation }) => operation,
-	},
-}
-```
-
-Only compatible family keys are suggested for a phase. Family handlers cover
-direct and batched items while retaining the same business `kind` discriminant.
-For `resolveInput`, shared `all` handlers run before the matching family.
-Configuration property order never changes this nesting.
-
-## Inline field hook declarations
-
-Common field options accept `hooks` as a declaration-only capability. Each
-handler receives this field's exact logical type without access to sibling
-schema values:
-
-```ts
-const ProfileSchema = Schema.define({
-	className: 'Profile',
-	fields: (field) => ({
-		displayName: field.string({
-			hooks: {
-				resolveInput: [
-					({ value }) => value.trim(),
-					({ value }) => value.toLocaleLowerCase(),
-				],
-			},
-		}),
-	}),
-})
-```
-
-`resolveInput` is the explicit same-type transformation boundary. Every
-transform output becomes the following transform input. It may throw to reject
-one value and supports direct handlers, non-empty lists, and compatible
-`all`/`create`/`update`/`upsert` family maps without widening the field's logical
-value. An omitted optional field runs no value hook. Structured and cross-field
-validation belongs to schema hooks.
-
-Every `updateMany` entry runs input resolution over its supplied update values.
-`deleteMany` has no field input to resolve. Mutation lifecycle and cross-field
-behavior belong to schema hooks, whose callbacks receive complete
-`originalItem` and `item` pairs independently of selection. Post-commit work is
-queued through `context.emit()` from an operation hook.
-Field definitions and transports own output
-representation, while diagnostics and infrastructure plugins own low-level
-failure observation.
-
-Nested fields use one deterministic depth-first order. Siblings retain field
-declaration order, and input resolution visits children before their parent.
-Callback declarations are
-stored in private field capabilities and never appear in field metadata,
-validation plans, indexes, migrations, or physical schema diffs.
-
-Schema reserves three current name families:
-
-- `id`, `createdAt`, and `updatedAt` for framework system fields;
-- `AND`, `OR`, and `NOT` for Query logical operators;
-- `create`, `delete`, `get`, `relation`, `then`, `toJSON`, `update`, and
-  `upsert` for immutable schema-model capabilities.
-
-Exact developer and extension field maps using any of these names fail both
-TypeScript checking and runtime declaration. A plugin may construct a dynamic
-`Record<string, GenericField>` whose keys cannot be proven statically; Schema
-keeps the same runtime rejection for that boundary rather than claiming a false
-compile-time guarantee. The canonical immutable declarations drive the static
-collision type, Query logical keys, and runtime guards together.
+Compiled option values remain owner-scoped static contributions. They do not
+enter portable field metadata, inferred model values, validation plans,
+indexes, migrations, or Core-owned registries. JavaScript executes the same
+compiled application graph without generated declarations.
 
 ## System fields
 
@@ -1029,24 +899,12 @@ iteration order. Registering an existing class name throws
 `DuplicateSchemaError` with the stable `SCHEMA_DUPLICATE_CLASS_NAME` code and
 does not replace the original schema.
 
-## Native hook declarations
+## Optional schema behavior
 
-`Schema.define({ hooks })` and every built-in or plugin-defined field's `hooks`
-option expose native lifecycle declarations as framework primitives rather than
-extensions. Private identity-owned capabilities retain the normalized callbacks
-without placing them in schema definitions, field options, validation plans, or
-physical metadata. Exact field-value inference, compact field hovers, and
-documented autocomplete therefore remain independent from hook literals.
-
-Plugins attach the same declarations through the owner-bound targets documented
-in the [Runtime guide](runtime.md#hooks-and-post-commit-events). Extension
-configuration remains an initialization selector and never enters a native hook
-input. See
-[ADR-0089](../../../docs/adr/0089-native-schema-and-field-hooks.md) and
-[ADR-0097](../../../docs/adr/0097-owner-scoped-typed-plugin-hook-targets.md) for
-the lifecycle and target semantics. Permission extensions remain opaque
-configuration. Under
-[ADR-0116](../../../docs/adr/0116-fundamental-access-system.md), their owning
-plugins will contribute policies to Core's native Access registry rather than
-business hooks; the Access compiler will lower those policies into the existing
-monotonic enforcement primitives.
+Schema and field lifecycle behavior is supplied by plugins rather than native
+Schema declarations. See the
+[`@ultimabase/hooks-plugin` README](../../hooks-plugin/README.md) for the
+official `hooks` namespace and extension targets. Policy declarations likewise
+belong to the
+[`@ultimabase/access-plugin` README](../../access-plugin/README.md), while ACL
+uses Core's generic protected-policy contracts directly.

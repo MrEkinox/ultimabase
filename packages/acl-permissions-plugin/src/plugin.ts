@@ -659,7 +659,7 @@ export const assertSingularACLReplacement = <TSchema extends SchemaDefinition>(
 }
 
 /**
- * Activates ACL defaults and native Access behavior for schemas using `acl()`.
+ * Activates ACL defaults and protected policy behavior for schemas using `acl()`.
  *
  * The plugin discovers compatible identity providers through neutral Core
  * services; applications without authentication remain valid. Entry limits

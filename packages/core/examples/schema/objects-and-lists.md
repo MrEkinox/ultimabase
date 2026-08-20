@@ -19,7 +19,7 @@ const addressFields = (field: EmbeddedFieldBuilder) => ({
 	line1: field.string({ validation: { required: true } }),
 	line2: field.string(),
 	city: field.string({ validation: { required: true } }),
-	internalRoutingCode: field.string({ access: { read: false } }),
+	internalRoutingCode: field.string(),
 	postalCode: field.string({ validation: { required: true } }),
 	countryCode: field.string({
 		validation: {

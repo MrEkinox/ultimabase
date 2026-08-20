@@ -13,10 +13,6 @@ import {
 	type BuiltInFieldOptionsContract,
 } from './options.js'
 import type { FieldScalarValue, GenericField } from './contract.js'
-import {
-	normalizeFieldAccessDeclarations,
-	type FieldAccessDeclarations,
-} from '../../access/field-declarations.js'
 import type { SchemaTarget } from '../../schema/targets.js'
 
 export type ScalarValueSnapshot = (value: unknown, path: string) => unknown
@@ -114,12 +110,6 @@ export const replaceDeclaredFieldOptions = (
 	return replacement
 }
 
-/** @internal Keeps the paused native compiler buildable until its removal audit. */
-export const getFieldAccessDeclarations = (
-	field: GenericField,
-): FieldAccessDeclarations | undefined =>
-	normalizeFieldAccessDeclarations(Reflect.get(field.options, 'access'))
-
 /** Resolves one lazy schema target without placing its callback in field metadata. */
 export const getFieldSchemaTarget = (
 	field: GenericField,
@@ -202,6 +192,6 @@ export const snapshotDeclaredFieldValue = (
 	)
 }
 
-/** Identifies required plugin fields whose value is supplied by resolveInput hooks. */
+/** Identifies required plugin fields whose value is supplied by input behavior. */
 export const isFieldRequiredDeferred = (field: GenericField): boolean =>
 	fieldCapabilities.get(field)?.deferRequiredUntilResolveInput === true

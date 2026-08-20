@@ -14,7 +14,10 @@ import {
 	guard,
 	restrictSelection,
 } from '../enforcement/definitions.js'
-import { beforeOperation, postCommitEvent } from '../hooks/definitions.js'
+import {
+	beforeOperation,
+	postCommitEvent,
+} from '../contributions/definitions.js'
 import { MasterAuthority } from '../master/master-authority.js'
 import { runtimePipelineStage } from '../pipeline/definitions.js'
 import { RecordingDatabaseAdapter } from '../../../tests/runtime/fixtures/recording-database-adapter.js'

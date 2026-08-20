@@ -816,8 +816,9 @@ request.getValue(authenticatedPrincipal)?.id // string | undefined
 
 The token owns validation and snapshotting. Matching token names do not share
 identity, adding the same token twice fails, and neither context derivation nor
-transport data can manufacture master authority. `HookContext.getValue()`
-provides the same typed read boundary without exposing `withValue()`.
+transport data can manufacture master authority. Product plugins may expose
+narrower callback contexts with the same typed read boundary without exposing
+`withValue()`.
 
 Permission providers may also consume optional subject capabilities without
 importing a concrete authentication or role plugin. Dynamic principals use
@@ -1049,475 +1050,49 @@ skip their item lifecycle hooks when no row matches.
 Collection reads and writes live on the generated schema class. Models
 deliberately expose no mutable `save()` method.
 
-## Optional Access and Hooks plugins
+## Optional Hooks and Access engines
 
-Access and Hooks are optional plugins built on Core's public Runtime kernel.
-Core owns only anonymous/master authority and monotonic protected-policy
-composition. Configure `@ultimabase/access-plugin` for schema and field
-`access` declarations, and `@ultimabase/hooks-plugin` for schema and field
-`hooks` declarations. Importing either package alone installs no behavior.
-
-Generated declarations emitted for an application that configures the official
-Access plugin add its declaration-only schema and field options. Core-only
-projects do not recognize either `access` option. A direct rule is the concise `allow`
-decision. A detailed declaration colocates `allow`, a private `where` row
-restriction when relevant, and an `item` decision when materialized values are
-available. The declaration key already identifies the operation, so callbacks
-do not receive a redundant `kind`. Grouped reads distinguish `one`, `many`,
-`count`, and `exists` only when their capabilities intentionally differ:
+Core exposes product-neutral Runtime behavior and protected-policy contracts.
+The official authoring vocabularies live in their vertical packages and are
+enabled only by configuring their plugin definitions:
 
 ```ts
-const PostSchema = Schema.define({
-	className: 'Post',
-	access: {
-		read: {
-			allow: { one: true, many: true, count: false, exists: true },
-			where: { published: { eq: true } },
-		},
-		update: {
-			item: ({ originalItem, item }) => item.authorId === originalItem.authorId,
-		},
-		delete: ({ context }) => context.access.mode === 'master',
-	},
-	fields: (field) => ({
-		authorId: field.string({
-			access: {
-				write: {
-					fill: true,
-					replace: ({ originalValue, value }) => value === originalValue,
-					clear: false,
-				},
-			},
-			validation: { required: true },
-		}),
-		published: field.boolean({
-			access: {
-				read: { output: true, where: false, orderBy: false },
-				write: false,
-			},
-		}),
-		title: field.string({ validation: { required: true } }),
-	}),
-})
-```
+import { UltimaBase } from '@ultimabase/core'
+import { accessPlugin } from '@ultimabase/access-plugin'
+import { hooksPlugin } from '@ultimabase/hooks-plugin'
 
-These declarations are validated and retained privately; they do not enter
-schema metadata, validation plans, migrations, or inferred model values. A
-schema read may instead use one shared rule, and a field `read: false` denies
-output, `where`, and `orderBy` together. Every grouped form is complete so
-indirect disclosure cannot inherit an accidentally broader rule.
-An omitted rule does not create an implicit callback: the compiled application
-fallback decides operation and field access. Runtime executes every matching
-rule sequentially through the same cancellation, recursion, and diagnostic
-boundary as other protected Runtime contributions.
-
-Access callbacks are pure decisions and may be evaluated again after input
-transformation, target locking, or final upsert branch resolution. This keeps
-the decision attached to the value that is actually persisted.
-
-Field write Access traverses normalized objects parent-first. `create` protects
-a supplied value on the actual create branch. Updates are classified from the
-persisted value and final candidate as `fill`, `replace`, or `clear`; a direct
-`null` and `unset()` therefore share the same `clear` decision. Nested fields in
-object lists are evaluated once per concrete entry. Cross-field decisions use
-schema item rules, which receive complete
-materialized candidates.
-
-Field output Access follows the same concrete traversal. A denied parent omits
-its complete property and skips descendant rules; a denied nested occurrence
-omits only that property from its object. Lists retain their elements, order,
-and dimensions. The omission is structural projection rather than persisted
-`null`.
-
-Schema item Access receives operation-specific materializations. Create
-decisions and the create branch of an upsert receive an immutable
-`SchemaPreparedDraft` with no persistence commands. Update receives the
-complete persisted `originalItem` plus an immutable plain `item` containing the
-final candidate after operators such as `increment` have been applied. Delete
-receives only that persisted `originalItem`; upsert exposes the actual branch
-through `mode`. Every contribution for one decision observes the same
-materialized values.
-
-Generic field write Access classifies final values as `fill`, `replace`, or
-`clear`. Replacement receives non-null `originalValue` and `value`; filling
-receives the final non-null `value`; clearing receives the possibly-null
-`originalValue`. Nested object fields are evaluated at their concrete paths,
-including each object-list entry. Relation fields intentionally expose their
-typed `change` delta because to-many relations are not embedded inside the
-parent object.
-
-An Access `where` rule uses the canonical `WhereInput` contract and normalized
-predicate nodes from `Query.where`, while remaining in private monotonic state.
-Developer query options can add filters, ordering, or limits but cannot inspect,
-replace, or remove Access filters. Official-compatible providers contribute
-through `@ultimabase/access-plugin`; ACL and independent community policy
-engines instead use Core's generic protected-policy contract directly.
-
-The callback receives one immutable schema-aware `WhereBuilder` utility and no
-terminal `kind`, so `get`, `findOne`, `findMany`, `count`, and `exists` always
-observe the same protected row universe. It may return `undefined`, a
-`WhereInput` object, or the supplied builder. Complete denial belongs to
-`allow`. Every independent native or plugin contribution is later combined
-through `AND`:
-
-```ts
-read: {
-	where: ({ context }) => {
-		const principal = context.getValue(authenticatedPrincipal)
-
-		return principal === undefined
-			? { published: { eq: true } }
-			: {
-					OR: [
-						{ published: { eq: true } },
-						{ authorId: { eq: principal.id } },
-					],
-				}
-	},
-}
-```
-
-The object form is the source of truth shared with future transports. The
-builder remains an immutable utility for dynamic composition and has no
-selection, ordering, pagination, terminal, or execution method. Its equality,
-comparison, membership, string, regex, relationship, and logical methods build
-the same `WhereInput` contract without exposing the developer Query or its AST.
-
-Relationship predicates declared by Access are trusted server policy. They may
-reference relation or target fields whose public field `filter` rule is false,
-while Runtime still applies the target schema's operation Access, row filters,
-plugin constraints, and recursively nested relationship policies.
-
-Application initialization compiles official declarations and owner-bound
-provider policies once, before infrastructure connects. Compatible providers
-use typed global, schema, field, extension, or field-kind targets exported by
-the Access plugin and declare it as a non-ordering peer. Omitted decisions use
-the configured plugin instance's fallback; it allows both operation and field
-access by default:
-
-```ts
 const ultimabase = new UltimaBase({
-	schemas: [PostSchema],
-	plugins: [
-		accessPlugin({ default: { operation: false, field: true } }),
-		visibilityPlugin,
-	],
+	plugins: [accessPlugin(), hooksPlugin()],
+	schemas: [Post],
 })
 ```
 
-At execution time, Access filters travel beside the operation in the private
-database request. Business hooks see only the developer Query, while adapters
-combine both predicates with logical `AND`. Singular mutation item checks run
-against the adapter's prepared target before the write; value-dependent field
-output is removed before business output hooks and checked again after their
-transformations. See the
-[`@ultimabase/access-plugin` README](../access-plugin/README.md) for its complete
-authoring and provider surface.
+Importing either package installs nothing. Without `hooksPlugin()`, the `hooks`
+schema and field options are unknown. Without `accessPlugin()`, the `access`
+options are unknown and direct CRUD has no Access policy stage. Core still
+applies structural validation, transactions, protected constraints, anonymous
+or audited-master authority, and every behavior contributed by other plugins.
 
-Neutral declaration helpers keep common policies explicit without creating
-Runtime behavior. A read-only schema can deny every mutation concisely:
+JavaScript applications use the same compiled graph without Typegen:
 
-```ts
-import {
-	allMutations,
-	allOf,
-	allOperations,
-	allowAll,
-	anyOf,
-	denyAll,
-	not,
-} from '@ultimabase/access-plugin'
+```js
+import { Schema, UltimaBase } from '@ultimabase/core'
 
-const readOnly = {
-	read: allowAll,
-	...allMutations(denyAll),
-}
-
-const explicitDefaultDeny = {
-	...allOperations(denyAll),
-	read: { one: allowAll, many: allowAll, count: denyAll, exists: allowAll },
-}
-
-const editorOrOwner = anyOf(hasRole(Editor), isOwner('author'))
-const editable = allOf(editorOrOwner, not(isLocked))
-```
-
-Each helper returns a fresh frozen record and retains a supplied callback by
-identity. Ordinary object-spread order controls overrides; the helpers add no
-custom merge semantics or permission-provider concepts.
-
-`anyOf`, `allOf`, and `not` compose booleans plus synchronous or asynchronous
-decision callbacks in deterministic short-circuit order. They simplify
-constants and single callbacks during declaration, check cancellation between
-awaited decisions, and allocate no request-local registry or policy object.
-Composition is local to one rule: separate developer and provider contributions
-still combine through the Runtime's monotonic `AND` boundary.
-
-### Schema hooks
-
-Applications configured with `@ultimabase/hooks-plugin` can colocate typed
-mutation lifecycle declarations on schemas. The public surface has three concepts: `resolveInput`,
-`beforeOperation`, and `afterOperation`:
-
-```ts
-const PostSchema = Schema.define({
-	className: 'Post',
-	fields: (field) => ({
-		title: field.string({ validation: { required: true } }),
-	}),
-	hooks: {
-		resolveInput: {
-			all: ({ operation }) => operation,
-			create: ({ operation }) => operation,
-		},
-		beforeOperation: {
-			update: ({ originalItem, item }) => audit(originalItem, item),
-		},
-		afterOperation: {
-			create: ({ context, item }) => {
-				audit(item)
-				context.emit('post.created', { id: item.id })
-			},
-		},
-	},
-})
-```
-
-Every branch accepts one handler or a non-empty ordered handler list.
-`resolveInput` accepts the `all`, `create`, `update`, and `upsert` families.
-`beforeOperation` exposes `create`, `update`, and `delete`.
-`afterOperation` additionally exposes `upsert`. A collection command is
-itemized before hook dispatch. `beforeOperation.create` exposes the business
-discriminant `kind: "create"` and the complete candidate without leaking its
-internal `create-one` terminal. Its `item` is a `SchemaPreparedDraft`: a real
-immutable instance of the generated schema class with normalized defaults and
-system fields, `get()`, and `toJSON()`, but no persistence command in its public
-type.
-
-Mutation hooks receive complete selection-independent values per affected
-object, using the same shape for direct and batched commands.
-`beforeOperation.create` sees `context`, `kind: "create"`, and `item`;
-`beforeOperation.update` sees `kind: "update"`, `originalItem`, and the
-candidate `item`; `beforeOperation.delete` sees `kind: "delete"`,
-`originalItem`, and `item: null`. Matching
-after-operation hooks receive the persisted pair. Upserts receive their pair
-only after persistence because the database chooses the create or update
-branch atomically. Mutation before-hooks may perform transactional work or
-throw, but their return value is ignored. `resolveInput` receives
-`originalItem`: `null` for create, the visible locked object for update, and
-either for upsert. Every non-null `originalItem` is a complete immutable
-`SchemaResult` instance with protected persisted identity, `get()`, `toJSON()`,
-and the regular instance commands. Access approves the target before developer
-code observes it, then Runtime revalidates transformed values before
-persistence.
-
-The same short business `kind` is used by schema `item` Access, mutation field
-Access, field `resolveInput`, schema `resolveInput`, and operation observers.
-When a callback also receives `operation`, its `operation.kind` remains the
-exact internal terminal for diagnostics and relation mutation metadata. The AST
-is retained temporarily because relation handles cannot yet expose connect,
-disconnect, and replace actions through a materialized item.
-
-The constructor validates every phase, snapshots every list and family map, and
-keeps them in private identity-owned storage. Hooks never appear on
-`SchemaDefinition`, never affect input or object inference, and never enter
-validation plans, indexes, migrations, or physical diffs.
-
-After target-aware input resolution and structural revalidation, Runtime invokes
-the matching `beforeOperation` observer once per prepared item and the matching
-`afterOperation` observer once per persisted item. Both may perform
-transactional work or throw. Their return values are ignored; only
-`resolveInput` transforms data. Every batch shares one transaction, preserves
-declaration order, and rolls back when a target is missing or an item fails.
-
-Reads deliberately have no schema lifecycle hook. Query options define
-developer filtering and projection, while schema Access owns mandatory read
-filters:
-
-```ts
-const ArticleSchema = Schema.define({
-	className: 'Article',
-	fields: (field) => ({
-		title: field.string({
-			validation: { required: true },
-		}),
-		published: field.boolean({ default: false }),
-	}),
-	access: {
-		read: { where: ({ where }) => where.eq('published', true) },
-	},
+const Note = Schema.define({
+	className: 'Note',
+	fields: (field) => ({ body: field.string() }),
 })
 
-const articles = await ArticleSchema.findMany(
-	{ select: { id: true, title: true } },
-	{ ultimabase },
-)
-
-// The exact result is readonly { id: string; title: string }[].
+const ultimabase = new UltimaBase({ schemas: [Note], plugins: [] })
+await ultimabase.start()
+await Note.findMany(undefined, { ultimabase })
 ```
 
-Opaque Access and adapter constraints remain outside the developer Query.
-Runtime projects the adapter result, hydrates requested pointer and relation
-targets, then applies monotonic output restrictions as the final public
-boundary.
-`count` and `exists` retain `number` and `boolean` results and skip value
-resolution. Root reads do not open an automatic transaction; reads inside an
-explicit transaction reuse it.
-
-Runtime compiles declarations once per application. Input resolution runs from
-nested children to parents, and transformed input is structurally revalidated
-without replaying defaults or generators. `resolveInput` may throw for business
-validation. Operation observers run inside the automatic mutation transaction,
-so throwing rolls back database work performed earlier in the same request.
-
-`afterOperation.item` is the complete persisted schema model, independently of
-the mutation command's `select`. It exposes the regular immutable model API;
-there is no separate selection-dependent `result` hook value. For post-commit
-effects, an operation hook calls `context.emit()`. Runtime buffers the event and
-delivers it only after the outer transaction commits.
-
-Every native and low-level business hook receives a safe execution `context`:
-
-```ts
-const PostSchema = Schema.define({
-	className: 'Post',
-	fields: (field) => ({
-		title: field.string(),
-	}),
-	hooks: {
-		beforeOperation: {
-			create: async ({ context, item, kind }) => {
-				await AuditSchema.createOne({ data: { action: kind } })
-				context.emit('post.created', { title: item.title })
-
-				console.log(context.requestId, context.transactionId)
-			},
-		},
-	},
-})
-```
-
-`requestId` correlates the originating request. `transactionId` is defined for
-automatic mutations and explicit transactions and remains identical across
-nested operations. `signal` carries cooperative request cancellation and native
-deadlines such as `AbortSignal.timeout()`. A regular schema read keeps exact
-inference and reuses the current transaction. Unawaited nested work is
-drained before finalization, and a caught nested failure still makes the
-transaction rollback-only. The context intentionally omits request metadata,
-credentials, adapters, commit/rollback controls, and hook bypasses.
-
-`context.emit(name, payload)` snapshots one JSON object or array and queues it
-for delivery only after commit. A plugin registers an explicit consumer:
-
-```ts
-privileges: [{
-	name: 'runtime:observe',
-	reason: 'Delivers committed post events to the search index.',
-}],
-capabilities: {
-	provides: [
-		provideRuntimeObserver({
-			contributionId: 'posts.created',
-			create: () => ({
-				value: onEvent({
-					name: 'post.created',
-					handler: ({ event }) => searchIndex.add(event.payload),
-				}),
-			}),
-		}),
-	],
-}
-```
-
-Emission requires an active transaction and a matching consumer. Rollback
-discards the event. Finalization hooks and event consumers receive the same
-class for correlation and capability checks, but cannot start queries after the
-operation journal has closed.
-
-Runtime rejects direct and indirect re-entry into the same active hook with
-`HOOK_RECURSION`. Other phases, fields, and schemas remain available for finite
-nested work and retain the active transaction. Cancellation produces
-`OPERATION_CANCELLED`, waits for the currently running callback to settle, stops
-later pre-commit hooks, and rolls an active transaction back.
-
-One optional plugin may provide `hookDiagnosticsObserverCapability` to receive
-redacted immutable timing events:
-
-```ts
-provideCapability(hookDiagnosticsObserverCapability, {
-	contributionId: 'metrics',
-	create: () => ({
-		value: (event) => {
-			metrics.observe(event.phase, event.durationMs, event.status)
-		},
-	}),
-})
-```
-
-The observer runs outside request-engine scope and receives no operation input,
-result, raw error, metadata, credential, or adapter value. Its synchronous or
-asynchronous failure never changes hook order, the business result, rollback,
-or the original error identity.
-
-## Inline field hooks
-
-Every built-in and plugin-defined field accepts value-focused hooks without
-placing callbacks in `field.options` or widening its compact return type. The
-callback sees the exact logical value, including enum literals, nullability,
-list dimensions, nested objects, and community field values:
-
-```ts
-const UserSchema = Schema.define({
-	className: 'User',
-	fields: (field) => ({
-		email: field.string({
-			hooks: {
-				resolveInput: [
-					({ value }) => {
-						const normalized = value.trim()
-						if (!normalized.includes('@')) {
-							throw new TypeError('Invalid email')
-						}
-						return normalized
-					},
-					({ value }) => value.toLowerCase(),
-				],
-			},
-		}),
-	}),
-})
-```
-
-Each field exposes only `resolveInput`. A direct handler is the short form; it
-also accepts a non-empty ordered list or a family map with `all`, `create`,
-`update`, and `upsert`:
-
-```ts
-title: stringField({
-	hooks: {
-		resolveInput: ({ value }) => {
-			const normalized = value.trim()
-
-			if (normalized === '') throw new TypeError('Title must not be empty')
-
-			return normalized
-		},
-	},
-})
-```
-
-Inline hooks deliberately cannot access sibling fields. A rule comparing
-`email` with another property belongs in `UserSchema` hooks, where the complete
-operation is available. Omitted input properties do not produce fake
-`undefined` executions. `resolveInput` may throw to reject a value; structured
-or cross-field validation belongs to schema hooks.
-
-Each `updateMany` entry transforms its supplied update values once, while
-`deleteMany` has no field input to resolve. For nested objects, siblings retain
-declaration order and input resolution visits children before their parent.
-Output representation, business validation, mutation lifecycle, transaction
-finalization, and error observation remain field-definition, transport, and
-schema concerns rather than additional field hook phases.
+See the [`hooks-plugin`](../hooks-plugin/README.md) and
+[`access-plugin`](../access-plugin/README.md) READMEs for their declarations,
+provider contracts, diagnostics, and exact Runtime semantics. Community
+alternatives may define different vocabularies through Core's generic public
+kernel; they do not inherit an official engine or a neutral no-op stage.
 
 ## Policy-neutral enforcement primitives
 
@@ -2025,120 +1600,19 @@ integration. A non-list field with that codec also receives complete-value
 snapshot guard; the codec does not imply ordering, string, structural, or
 custom domain operators.
 
-## Typed plugin hook targets
+## Plugin-owned declaration targets
 
-A plugin registers native declarations through the owner-bound `hooks` setup
-facade. Direct targets retain an exact schema or nested field type, while
-extension and field-kind targets expand over every matching declaration during
-application initialization:
+Core provides provenance-checked generic schema, nested-field, extension, and
+field-kind target resolution. Concrete products own the factories and
+declarations they place on those targets. The official Hooks and Access
+packages therefore expose their own typed target helpers without a Core setup
+registry, hidden dispatcher, or private bridge.
 
-```ts
-import {
-	defineFieldExtension,
-	defineFieldKindHookTarget,
-	definePlugin,
-	defineSchemaExtension,
-} from '@ultimabase/core'
-import { type VectorField, vectorFieldKind } from '@ultimabase/pg-vector-plugin'
-
-const audited = defineSchemaExtension(
-	'audited',
-	{ stream: 'security' },
-	'example.behavior',
-)
-const redacted = defineFieldExtension(
-	'redacted',
-	{ replacement: '[redacted]' },
-	'example.behavior',
-)
-const vectorHookTarget = defineFieldKindHookTarget<VectorField>(vectorFieldKind)
-
-const behaviorPlugin = () =>
-	definePlugin({
-		pluginId: 'example.behavior',
-		version: '1.0.0',
-		core: '^0.0.0',
-		setup: ({ hooks }) => {
-			hooks.global('audit-creates', {
-				afterOperation: { create: ({ item }) => void item },
-			})
-			hooks.schema('normalize-posts', PostSchema, {
-				beforeOperation: { create: ({ item }) => void item },
-			})
-			hooks.field('normalize-title', PostSchema, ['title'], {
-				resolveInput: ({ value }) => value.trim(),
-			})
-
-			hooks.schemaExtension('audit', audited, ({ extension }) => ({
-				beforeOperation: {
-					create: () => {
-						audit.route(extension.config.stream)
-					},
-				},
-			}))
-			hooks.fieldExtension('redact', redacted, ({ extension }) => ({
-				resolveInput: ({ value }) => {
-					redactor.use(extension.config.replacement)
-					return value
-				},
-			}))
-			hooks.fieldKind('validate-vectors', vectorHookTarget, ({ field }) => ({
-				resolveInput: ({ value }) => {
-					if (value.length !== field.options.dimensions) {
-						throw new TypeError('Invalid vector dimensions')
-					}
-
-					return value
-				},
-			}))
-		},
-	})
-```
-
-The six scopes are `global`, `schema`, `field`, `schemaExtension`,
-`fieldExtension`, and `fieldKind`. Field paths are non-empty segment tuples, so
-`['profile', 'email']` infers the terminal field without parsing a dot string.
-`defineFieldKindHookTarget<TField>(kind)` creates a reusable typed token for a
-namespaced community field kind.
-
-Indirect target factories run during initialization, once per deterministic
-match. They can read extension configuration or matched field metadata and
-close over it, but that configuration is never added to Runtime hook inputs.
-Application initialization rejects foreign schemas, invalid paths, foreign
-extensions, forged field-kind targets, and registration attempted after setup.
-
-Names are local to their setup owner. Two plugins may both register `audit`,
-while registering it twice from the same plugin fails. Contributions follow
-plugin dependency order, configuration position, registration order, then
-schema and nested-field declaration order. Resolved snapshots are immutable and
-isolated per application.
-
-Runtime composes resolved plugin declarations with developer hooks once during
-application assembly. Before phases run plugins in dependency and configuration
-order before the developer declaration; after phases run the developer first and
-then unwind plugins in reverse order.
-
-The completed
-[native-hook plan](../../docs/plans/completed/native-hooks-and-contextual-execution.md)
-gives Core's Schema domain identity-owned declaration storage and gives its
-Runtime domain interpretation and execution. Native developer hooks require no
-plugin. The completed
-[Access plan](../../docs/plans/completed/fundamental-access-system.md) reuses the
-same private declaration and application-compilation principles while keeping
-Access decisions separate from business hooks.
-
-[ADR-0096](../../docs/adr/0096-native-hook-declaration-capabilities.md)
-keeps callbacks outside `SchemaDefinition`, `FieldDefinition`, field options,
-validation plans, and migration metadata. Private Schema capabilities retain
-immutable declarations by exact identity; Runtime reads them internally and
-creates no neutral handler when a phase is absent.
-
-Schema and field extension factories retain their scope-qualified owner directly
-in the compiled graph. Application initialization checks that every owner is an
-installed plugin after setup and before `connect`; there is no parallel handler
-claim registry. A plugin therefore cannot claim another plugin's extension
-identity, and removing an owner leaves a deterministic orphaned-extension
-configuration error.
+Application compilation expands owner-scoped selectors deterministically and
+rejects foreign schemas, invalid paths, foreign extensions, forged field-kind
+targets, duplicate contribution identities, and orphaned owners before
+infrastructure starts. Removing a concrete plugin removes both its option
+namespace and its target vocabulary from the compiled application graph.
 
 ## Plugin lifecycle
 

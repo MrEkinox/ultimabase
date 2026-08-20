@@ -58,7 +58,9 @@ describe('HookExecutionRuntime', () => {
 			runtime.invoke(first, request, () => undefined),
 		)
 
-		await expect(direct).rejects.toMatchObject({ code: 'HOOK_RECURSION' })
+		await expect(direct).rejects.toMatchObject({
+			code: 'RUNTIME_CALLBACK_RECURSION',
+		})
 
 		try {
 			await runtime.invoke(first, request, () =>
@@ -72,9 +74,9 @@ describe('HookExecutionRuntime', () => {
 				throw error
 			}
 
-			expect(error.code).toBe('HOOK_RECURSION')
+			expect(error.code).toBe('RUNTIME_CALLBACK_RECURSION')
 			expect(error.toJSON()).toStrictEqual({
-				code: 'HOOK_RECURSION',
+				code: 'RUNTIME_CALLBACK_RECURSION',
 				message: 'A recursive hook execution was rejected.',
 				retryable: false,
 			})
@@ -179,7 +181,7 @@ describe('HookExecutionRuntime', () => {
 			runtime.invoke(createShared, request, () =>
 				runtime.invoke(updateShared, request, () => undefined),
 			),
-		).rejects.toMatchObject({ code: 'HOOK_RECURSION' })
+		).rejects.toMatchObject({ code: 'RUNTIME_CALLBACK_RECURSION' })
 	})
 
 	it('reports redacted immutable diagnostics without trusting the observer', async () => {

@@ -28,7 +28,7 @@ export type RelationMutationTargets<TTarget extends SchemaDefinition> =
 			...PointerTarget<TTarget['className']>[],
 	  ]
 
-/** Carries one normalized relationship change to Access, hooks, and adapters. */
+/** Carries one normalized relationship change to installed behaviors and adapters. */
 export interface RelationMutationDelta<
 	TTarget extends SchemaDefinition = SchemaDefinition,
 	TAction extends RelationMutationAction = RelationMutationAction,

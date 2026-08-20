@@ -30,6 +30,27 @@ Without `accessPlugin()`, the `access` option is not declared and application
 compilation fails. Typegen emits the corresponding option augmentations only
 for applications that install the plugin.
 
+JavaScript uses the same compiled graph without generated declarations. This
+application intentionally has no Access engine, so direct CRUD has no official
+Access policy stage:
+
+```js
+import { Schema, UltimaBase } from '@ultimabase/core'
+
+const Post = Schema.define({
+	className: 'Post',
+	fields: (field) => ({ title: field.string() }),
+})
+
+const ultimabase = new UltimaBase({ schemas: [Post], plugins: [] })
+await ultimabase.start()
+await Post.findMany(undefined, { ultimabase })
+```
+
+Core validation, transactions, protected constraints, and anonymous or
+audited-master authority remain active. Importing this package alone installs
+nothing, and declaring `access` without `accessPlugin()` fails compilation.
+
 ## Defaults
 
 The default is permissive when no exact declaration exists. Applications may

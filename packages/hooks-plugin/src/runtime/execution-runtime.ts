@@ -148,9 +148,9 @@ const readErrorCode = (error: unknown): HookDiagnosticEvent['errorCode'] => {
 const createRecursionError = (
 	descriptor: HookExecutionDescriptor,
 	stack: readonly HookExecutionFrame[],
-): FrameworkError<'HOOK_RECURSION'> =>
+): FrameworkError<'RUNTIME_CALLBACK_RECURSION'> =>
 	new FrameworkError(
-		'HOOK_RECURSION',
+		'RUNTIME_CALLBACK_RECURSION',
 		`Recursive hook execution detected for ${descriptor.identity.phase}.`,
 		{
 			publicMessage: 'A recursive hook execution was rejected.',

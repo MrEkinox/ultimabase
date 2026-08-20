@@ -7,7 +7,7 @@ import type {
 import { readApplicationCapabilityContributions } from '../../plugins/application-capability-access.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import { runtimeBehaviorCapability } from '../capabilities.js'
-import { composeRuntimeContributionBehavior } from '../hooks/stages.js'
+import { composeRuntimeContributionBehavior } from '../contributions/composition.js'
 import type {
 	RuntimeBehaviorStages,
 	RuntimeMutationOutcomeTransformStage,

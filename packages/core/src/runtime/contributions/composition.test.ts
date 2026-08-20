@@ -26,24 +26,24 @@ import {
 	postCommitEvent,
 	preparedOperation,
 } from './definitions.js'
-import { composeRuntimeContributionBehavior } from './stages.js'
+import { composeRuntimeContributionBehavior } from './composition.js'
 
 const articleSchema = Schema.define({
-	className: 'HookStageArticle',
+	className: 'ContributionStageArticle',
 	fields: (field) => ({
 		title: field.string({ validation: { required: true } }),
 	}),
 })
 
 const foreignSchema = Schema.define({
-	className: 'HookStageForeign',
+	className: 'ContributionStageForeign',
 	fields: (field) => ({
 		title: field.string({ validation: { required: true } }),
 	}),
 })
 
 const context = RequestContext.anonymous({
-	requestId: 'hook-stage-1',
+	requestId: 'contribution-stage-1',
 	source: requestSources.internal,
 })
 
@@ -108,7 +108,7 @@ describe('composeRuntimeContributionBehavior', () => {
 		const plugin = definePlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.invalid-hook',
+			pluginId: 'fixture.invalid-contribution',
 			privileges: [
 				{
 					name: 'runtime:intercept',
@@ -159,7 +159,7 @@ describe('composeRuntimeContributionBehavior', () => {
 		const hookInEvents = definePlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.hook-in-events',
+			pluginId: 'fixture.interceptor-in-observers',
 			privileges: [
 				{
 					name: 'runtime:observe',
@@ -169,7 +169,7 @@ describe('composeRuntimeContributionBehavior', () => {
 			capabilities: {
 				provides: [
 					provideTestRuntimeObserver(
-						'fixture.wrong-hook',
+						'fixture.wrong-interceptor',
 						beforeOperation({
 							handler: () => undefined,
 						}) as never,
@@ -192,11 +192,11 @@ describe('composeRuntimeContributionBehavior', () => {
 		const plugin = definePlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.foreign-hook',
+			pluginId: 'fixture.foreign-contribution',
 			privileges: [
 				{
 					name: 'runtime:intercept',
-					reason: 'Registers low-level Runtime hooks for tests.',
+					reason: 'Registers low-level Runtime contributions for tests.',
 				},
 			],
 			capabilities: {
@@ -231,7 +231,7 @@ describe('composeRuntimeContributionBehavior', () => {
 			privileges: [
 				{
 					name: 'runtime:intercept',
-					reason: 'Registers low-level Runtime hooks for tests.',
+					reason: 'Registers low-level Runtime contributions for tests.',
 				},
 			],
 			capabilities: {
@@ -267,7 +267,7 @@ describe('composeRuntimeContributionBehavior', () => {
 		await expect(
 			stages.beforeOperation?.({ context, operation }),
 		).rejects.toThrow(
-			new TypeError('before-operation hook must return undefined'),
+			new TypeError('before-operation contribution must return undefined'),
 		)
 		await expect(
 			stages.transformResult?.({
@@ -281,7 +281,7 @@ describe('composeRuntimeContributionBehavior', () => {
 				},
 			}),
 		).rejects.toThrow(
-			new TypeError('runtime hook must return exactly { result }'),
+			new TypeError('Runtime contribution must return exactly { result }'),
 		)
 	})
 
@@ -293,7 +293,7 @@ describe('composeRuntimeContributionBehavior', () => {
 			privileges: [
 				{
 					name: 'runtime:intercept',
-					reason: 'Registers low-level Runtime hooks for tests.',
+					reason: 'Registers low-level Runtime contributions for tests.',
 				},
 			],
 			capabilities: {
@@ -322,7 +322,7 @@ describe('composeRuntimeContributionBehavior', () => {
 		await expect(
 			stages.beforeOperation?.({ context, operation: updateOperation }),
 		).rejects.toThrow(
-			new TypeError('before-operation hook must return undefined'),
+			new TypeError('before-operation contribution must return undefined'),
 		)
 	})
 
@@ -335,7 +335,7 @@ describe('composeRuntimeContributionBehavior', () => {
 			privileges: [
 				{
 					name: 'runtime:intercept',
-					reason: 'Registers low-level Runtime hooks for tests.',
+					reason: 'Registers low-level Runtime contributions for tests.',
 				},
 			],
 			capabilities: {
@@ -423,7 +423,7 @@ describe('composeRuntimeContributionBehavior', () => {
 				privileges: [
 					{
 						name: 'runtime:intercept',
-						reason: 'Registers low-level Runtime hooks for tests.',
+						reason: 'Registers low-level Runtime contributions for tests.',
 					},
 				],
 				capabilities: {
@@ -451,7 +451,7 @@ describe('composeRuntimeContributionBehavior', () => {
 					operation: updateOperation,
 					target: updateTarget,
 				}),
-			).rejects.toThrow(/prepared-operation hook/u)
+			).rejects.toThrow(/prepared-operation contribution/u)
 		}
 	})
 })

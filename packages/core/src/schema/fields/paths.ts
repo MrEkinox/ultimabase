@@ -4,8 +4,8 @@ import {
 	isUnknownArray,
 } from '@ultimabase/shared'
 
-import type { GenericField } from '../fields/base/contract.js'
-import { assertFieldDefinition } from '../fields/base/definition.js'
+import type { GenericField } from './base/contract.js'
+import { assertFieldDefinition } from './base/definition.js'
 import type { SchemaDefinition } from '../schema/definition.js'
 
 type FieldMap = Readonly<Record<string, GenericField>>

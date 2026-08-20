@@ -18,9 +18,9 @@ import { getHookEventContractImplementation } from './events.js'
 
 /** Creates the stable failure shared by contexts and queries used after a hook. */
 const createClosedHookContextError =
-	(): FrameworkError<'HOOK_CONTEXT_CLOSED'> =>
+	(): FrameworkError<'RUNTIME_CALLBACK_CONTEXT_CLOSED'> =>
 		new FrameworkError(
-			'HOOK_CONTEXT_CLOSED',
+			'RUNTIME_CALLBACK_CONTEXT_CLOSED',
 			'Hook context cannot be used after its callback has completed.',
 			{
 				publicMessage: 'The hook context is no longer active.',

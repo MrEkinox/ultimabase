@@ -78,7 +78,7 @@ interface ResolvedValue {
 
 type MissingValueResolution = MissingValue | ResolvedValue
 
-/** Keeps Runtime validation errors compatible with schema and hook issue codes. */
+/** Keeps Runtime validation errors compatible with schema and behavior issue codes. */
 export interface RuntimeValidationIssue {
 	readonly code: string
 	readonly message: string
@@ -693,7 +693,7 @@ const validateUpdateExpression = (
 						execution,
 						'field.forbidden',
 						fieldPath,
-						'Relation mutation delta cannot be replaced by a hook',
+						'Relation mutation delta cannot be replaced by a behavior',
 					)
 					continue
 				}
@@ -725,7 +725,7 @@ const validateUpdateExpression = (
 				continue
 			}
 
-			// A hook may retain framework-generated work but cannot remove or replace it.
+			// A behavior may retain framework-generated work but cannot remove or replace it.
 			observedForbiddenFields.add(candidate.field)
 		}
 
@@ -800,7 +800,7 @@ const assertSchemaDefinition = (value: unknown): SchemaDefinition => {
 	return value
 }
 
-/** Raises one consistent transport-neutral error for structural and hook issues. */
+/** Raises one consistent transport-neutral error for structural and behavior issues. */
 export const throwRuntimeValidationIssues = (
 	issues: readonly RuntimeValidationIssue[],
 	description: Readonly<RuntimeValidationErrorDescription> = {
@@ -1245,7 +1245,7 @@ const createStructuralValidationExecution = (): ValidationExecution => ({
 })
 
 /**
- * Revalidates a hook-transformed mutation without replaying defaults or generators.
+ * Revalidates a behavior-transformed mutation without replaying defaults or generators.
  */
 export const revalidateRuntimeMutationOperation = <
 	const TOperation extends DatabaseOperationAst,

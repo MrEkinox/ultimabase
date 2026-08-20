@@ -236,7 +236,7 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 		}
 	})
 
-	it('keeps native Access dispatch implementation private', async () => {
+	it('keeps removed Core Access dispatch implementation absent', async () => {
 		const declarations = await readFile(
 			path.join(packagesDirectory, 'core', 'dist', 'index.d.ts'),
 			'utf8',

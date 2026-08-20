@@ -36,7 +36,7 @@ export const UserSchema = Schema.define({
 
 The callback runs once during application static compilation. Builder calls
 reuse the existing immutable field factories, so the same validation, defaults,
-Access, hooks, and metadata apply. The embedded builder intentionally has no
+plugin option namespaces, and metadata apply. The embedded builder intentionally has no
 `pointer` or `relation` methods and does not accept `autoIncrement: true`.
 
 Literal field names cannot shadow framework system fields (`id`, `createdAt`,

@@ -145,7 +145,7 @@ export const retainRuntimeIncludedPointerValue = (
 	includedPointerValues.set(record, values)
 }
 
-/** Restores the declared pointer value for final field Access evaluation. */
+/** Restores the declared pointer value for final field policy evaluation. */
 export const readRuntimeIncludedPointerValue = (
 	record: object,
 	fieldPath: readonly string[],
@@ -160,7 +160,7 @@ export const readRuntimeIncludedPointerValue = (
 	return immutableRecord({ present: true as const, value: values.get(key) })
 }
 
-/** Preserves adapter-proven identity when Runtime replaces a record after hooks. */
+/** Preserves adapter-proven identity when Runtime replaces a record after behaviors. */
 export const transferRuntimeSchemaModelMetadata = (
 	source: object,
 	target: object,

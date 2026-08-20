@@ -4,7 +4,7 @@ import { provideTestRuntimeInterceptor } from '../../tests/runtime/fixtures/runt
 
 import { UltimaBase } from '../runtime/application/ultima-base.js'
 import type { ApplicationOperationHandle } from '../application/application-handles.js'
-import { beforeOperation } from '../runtime/hooks/definitions.js'
+import { beforeOperation } from '../runtime/contributions/definitions.js'
 import { QueryBuilder } from '../query/query/query.js'
 import { materializeSchemaModel } from '../schema/schema/model-materialization.js'
 import { Schema } from '../schema/schema/definition.js'

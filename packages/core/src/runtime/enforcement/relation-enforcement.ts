@@ -12,7 +12,7 @@ import { traverseQueryExpression } from '../../query/filters/traversal.js'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import type { DatabaseOperationAst } from '../database/contracts.js'
-import type { HookExecutionRuntime } from '../hooks/execution-runtime.js'
+import type { RuntimeCallbackExecutor } from '../contributions/execution.js'
 import { readOperationQueries } from '../operations/queries.js'
 import type { RuntimeOperationStageInput } from '../pipeline/contracts.js'
 import {
@@ -59,7 +59,7 @@ type RelationPredicateEvaluator = <
 /** Creates one recursive evaluator bound to application-local protected policies. */
 export const createRelationPredicateEvaluator = (
 	contributions: readonly OwnedEnforcementContribution[],
-	runtime: HookExecutionRuntime,
+	runtime: RuntimeCallbackExecutor,
 ): RelationPredicateEvaluator => {
 	const evaluateRelationPredicates: RelationPredicateEvaluator = async (
 		input,

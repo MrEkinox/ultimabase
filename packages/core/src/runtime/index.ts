@@ -54,7 +54,7 @@ export type {
 	PluginOperationEnvelope,
 	PluginOperationEnvelopeTarget,
 } from '../application/application-handles.js'
-export { requireCurrentRequestRoleResolver } from './access/subject-capabilities.js'
+export { requireCurrentRequestRoleResolver } from './context/subject-capabilities.js'
 // Applications create request-bound engines; opaque grants protect master construction.
 export { FrameworkEngine, RequestEngine } from './engine/framework-engine.js'
 export { TrackedExecutionLifetime } from './engine/tracked-execution-lifetime.js'
@@ -207,7 +207,7 @@ export {
 	beforeOperation,
 	postCommitEvent,
 	preparedOperation,
-} from './hooks/definitions.js'
+} from './contributions/definitions.js'
 export type {
 	AfterOperationDefinition,
 	AfterOperationHandler,
@@ -226,7 +226,7 @@ export type {
 	RuntimeInterceptorOperationInput,
 	RuntimePreparedOperationInput,
 	RuntimeInterceptorResultInput,
-} from './hooks/definitions.js'
+} from './contributions/definitions.js'
 // Raw keys become framework-owned opaque grants before request elevation.
 export { MasterAuthority, MasterKeyGrant } from './master/master-authority.js'
 export type {
@@ -281,13 +281,13 @@ export {
 	collectOperationFieldInputs,
 	collectRecordFieldValues,
 	readRuntimeFieldValuePath,
-} from './hooks/field-inputs.js'
+} from './operations/field-values.js'
 export type {
 	RuntimeFieldInputValue,
 	RuntimeFieldValue,
 	RuntimeFieldValuePathSegment,
 	RuntimeFieldVisitOrder,
-} from './hooks/field-inputs.js'
+} from './operations/field-values.js'
 export {
 	readOperationQueries,
 	readOperationResultSelection,

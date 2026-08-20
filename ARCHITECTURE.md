@@ -33,9 +33,7 @@ foundational package:
   migrations, and policy implementations through the same public kernel as
   community plugins.
 
-ADRs 0186 through 0194 define this accepted target. Milestones 14 and 15 are
-active implementation work, so the current source still contains native Hooks
-and Access compatibility domains until their removal audit completes.
+ADRs 0186 through 0205 define this package boundary. Core contains no native Hooks or Access product implementation; the official vertical packages and community alternatives use the same public kernel.
 
 ## Package dependency graph
 
@@ -105,9 +103,9 @@ when no such capability is present.
 ## Schema extensions
 
 Core's Schema domain only knows the generic `SchemaExtension` and
-`FieldExtension` contracts. Plugins contribute typed extension objects. The
-current compatibility example below uses native `access`; after milestone 15
-the same option exists only when `accessPlugin()` contributes its namespace:
+`FieldExtension` contracts. Plugins contribute typed extension objects. For
+example, `access` is recognized only when `accessPlugin()` contributes its
+namespace to the compiled application graph:
 
 ```ts
 Schema.define({
@@ -271,9 +269,9 @@ always revalidates the returned graph before publishing it.
 
 Milestone 14 removed string slots, the plugin service registry, and generic
 named setup contribution registries. Versioned capabilities are the only public
-cross-plugin host; native Hooks, Access, Runtime stages, events, pipelines, and
-constraint compilers retain only exact Core-owned privilege-scoped facades with
-private application storage.
+cross-plugin host; concrete Hooks and Access contracts live in their vertical
+packages, while Core retains exact privilege-scoped facades only for generic
+Runtime, persistence, and constraint mechanisms.
 
 The lifecycle manager first completes every setup callback, leaving a validation
 boundary before infrastructure changes. It then runs connect, schema
@@ -290,138 +288,35 @@ setup export types, including definitions introduced through nested composition.
 
 ## Engines
 
-- `UltimaBase` is the regular application lifecycle and direct-query facade.
-- `FrameworkEngine` belongs to one isolated application.
-- `RequestEngine` carries one immutable request context and delegates every
-  normalized operation to that application's pipeline.
-- `RequestEngine.transaction()` creates a callback-scoped engine backed by one
-  adapter transaction. It commits once, rolls back on failure, cannot escape
-  its callback, and rejects nested transactions until savepoints are explicit.
-- Every root mutation will automatically enter that adapter boundary before
-  business hooks execute. Hook-started writes through the supplied engine share
-  the primary mutation's commit or rollback. Reads remain non-transactional
-  unless the developer opens an explicit transaction.
-- Exact schema identity prevents a request engine from accepting definitions
-  owned by another application, even when class names match.
-- Optional `AsyncLocalStorage` scopes derive every current-context reference
-  from one explicitly injected `RequestEngine`; nested and concurrent requests
-  never share mutable global state.
-- Generated schema classes expose canonical object-input `findOne`, `findMany`,
-  `get`, `count`, and `exists` reads whose execution resolves only when called.
-- `QueryBuilder<TSchema>` and `QueryScope<TSchema>` optionally compose reusable,
-  selection-preserving object inputs without retaining execution state.
-- Generated schema classes own explicit `createOne`/`createMany`,
-  `updateOne`/`updateMany`, `upsertOne`/`upsertMany`, and
-  `deleteOne`/`deleteMany` commands. Their canonical object-shaped `where`
-  inputs normalize into the same
-  Operation AST and Runtime bridge as reads. Reads and writes reuse the exact
-  active request and hook lease, or accept `{ ultimabase }` outside a scope. No
-  process-wide application singleton, request, authority, transaction, or
-  adapter enters the Query AST.
-- `ultimabase.operation(tokenOrName).execute(input)` resolves stable or dynamic
-  custom operations through the same RequestEngine. It works in JavaScript
-  without Typegen; generated declarations narrow known tokens and literal names.
-- `ultimabase.schema(nameOrClass)` returns an application schema handle.
-  Application-conditional schema commands and query extensions live on that
-  handle, while instance-like commands use an immutable model handle. Exported
-  schema classes and prototypes are never mutated per application.
+Core owns the logical operation pipeline, structural validation, generic
+behavior composition, protected monotonic constraints, transactions,
+cancellation, persistence plans, result materialization, and post-commit
+observer boundaries. It installs no concrete behavior or policy engine.
 
-ADR-0109 and issue 339 replace the former schema instance plus plain-result
-split with one class returned by `Schema.define()`. The class is the registered
-schema identity, exposes schema-root reads and writes, constructs immutable drafts, and
-materializes immutable persisted results after Runtime restrictions. Issue 349
-adds instance commands that delegate to Query and Runtime; instances never
-retain adapters, mutate records, or track dirty state. ADR-0132 makes Query
-read-only, moves collection writes to the generated class, and makes every
-singular mutation return a complete model allowed by Access.
+`@ultimabase/hooks-plugin` owns the official schema and field `hooks` option
+namespaces, callback context, lifecycle phases, event delivery, diagnostics,
+ordering, and recursion semantics. It contributes complete product behavior
+through `runtimeBehaviorCapability`. Omitting it allocates no hook dispatcher,
+snapshot, or placeholder stage. A community alternative may own a different
+authoring protocol and use the same generic capability.
 
-The Query AST retains the exact static schema definition and represents
-selection, filtering, ordering, and pagination as immutable discriminated
-nodes. It contains no request, GraphQL, SQL, adapter, or execution state;
-transports normalize into it and adapters compile it behind Runtime contracts.
+`@ultimabase/access-plugin` similarly owns the official `access` namespaces,
+policy compilation, provider protocol, diagnostics, and Runtime behavior. ACL
+does not depend on that product: it contributes Core `protectedPolicy()` values
+and adapter constraints directly. Roles and authentication may supply optional
+request subjects but grant nothing by themselves.
 
-The current source implements Hooks as a native Runtime lifecycle. ADR-0189
-accepts its migration to `@ultimabase/hooks-plugin`, which will own the typed
-schema and field options, dispatcher, phases, diagnostics, and recursion rules
-through public capabilities. Its official implementation preserves the
-existing operation-family typing, deterministic contribution order,
-transaction behavior, and developer hooks; applications may omit it entirely
-or install a community alternative with a different authoring experience.
+The low-level `beforeOperation()`, `afterOperation()`,
+`preparedOperation()`, and `postCommitEvent()` factories are generic Runtime
+contributions, not native schema Hooks. Their inputs use immutable
+`RequestContext`. Core executes such callbacks through a product-neutral
+cancellation and recursion boundary; concrete plugins may add stricter
+lifecycle contexts internally.
 
-Hook callbacks are retained through private Schema-domain capabilities keyed by
-exact declaration identity. They never enter field options, extensions,
-validation plans, schema hashes, or migration metadata. The official Hooks
-capability reads those declarations after extraction; without an installed
-Hooks capability, Core creates no neutral hook stage.
-
-Runtime does not name ACL, roles, authenticated users, ownership, or another
-concrete policy domain. After milestone 15, the official Access plugin compiles
-its schema and field declarations plus provider policies into `operation`,
-`filter`, `item`, and `field` decisions. It lowers those decisions into Core's
-generic protected `guard`, `constraint`, `restrictInput`, `restrictSelection`,
-and `restrictOutput` primitives. Guards may only deny, adapter constraints
-accumulate with logical `AND`, and field restrictions only narrow. Protected
-state remains separate from transformable operations so later middleware cannot
-broaden it. With no Access capability, Core installs no default decision or
-placeholder callback; master authority remains independently available.
-
-During migration, the existing Runtime hook factories remain the compatibility
-implementation beside native declarations and policy-neutral enforcement. The
-official plugins must replace that private coupling with public capability
-middleware before native surfaces are removed. Runtime reads immutable dependency-first
-snapshots and composes them with developer hooks. Schema `resolveInput`
-transforms mutation input; grouped before- and after-operation hooks observe
-complete mutation values and have ignored return values. After-operation items
-are complete persisted models independently of public result selection.
-Business after-hooks may still abort before commit, while `HookContext.emit()`
-buffers externally visible event data until commit succeeds. Schema transaction
-hooks and their duplicate result journal are not part of the public lifecycle.
-
-Mutation transformers complete before one final structural revalidation and
-value-dependent policy reevaluation. Low-level `beforeOperation()` is also an
-observer; only the target-aware `preparedOperation()` boundary may replace
-normalized logical values. Core then derives a separate physical persistence
-plan. A plugin with `persistence:rewrite` may replace that plan—for example,
-soft delete may write tombstone fields—but the logical delete still determines
-Hooks, Access, audit, relationship, and result semantics. Protected constraints
-remain outside the replaceable plan. Prepared adapters lock with the initial
-protected request, then receive the final plan and cumulative constraints for
-the actual write so a later restriction cannot remain only in Runtime memory.
-
-One schema handler may cover a full create, update, upsert, or delete family;
-reads expose Query options and Access rather than schema hooks. Public
-collection commands become ordered singular operations before Runtime invokes
-native hooks, so item-oriented callbacks receive cardinality-free `create`,
-`update`, `upsert`, or `delete` kinds. Early operation Access and callbacks that
-explicitly expose the normalized AST may still observe an exact singular
-terminal such as `update-one`. Update and delete batches declare one unique
-target per item. Missing targets, hook failures, and persistence
-failures reject and roll back the complete outer transaction; partial success
-is not public. Handler lists execute sequentially. Runtime rejects dangerous
-same-hook recursion and offers no general `skipHooks` bypass.
-
-The normalized operation remains temporarily visible to relation-aware schema
-hooks because relation handles do not yet materialize connect, disconnect, and
-replace actions as model values. This exception is transport-neutral and does
-not expose adapters.
-
-Runtime's structural validation stage caches Schema's compact create/update
-plans, traverses structured values, and delegates scalar snapshots and
-constraints back to the declared field contract. Every mutation receives one
-application-timezone clock instant for defaults and automatic timestamps.
-Validation remains mandatory for master requests and precedes permissions and
-business hooks. The framework-owned `id` is generated there as a UUID v7 from
-the same instant before an adapter receives a create branch.
-
-Core authority modes are `anonymous` and `master`. Request sources such as
-`rest`, `graphql`, `job`, or `internal` are metadata, not authority modes.
-`RequestContext` correlates authority with immutable request identity, source,
-safe metadata, identity-based capability tokens, and typed values contributed
-by plugins. Authentication, sessions, and user schemas are optional plugin
-capabilities rather than Core concepts. Public context derivation cannot select
-master mode. Runtime verifies raw master credentials into framework-owned
-opaque grants, audits their use, and creates master engines without retaining
-the credential in request state.
+Logical operations remain distinct from physical persistence plans. An
+authorized rewriter may change the physical statement, while protected
+constraints stay outside the replaceable plan and business behavior continues
+to observe the original logical operation.
 
 ## Optional Access capability
 

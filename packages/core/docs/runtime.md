@@ -280,124 +280,19 @@ targets through their target Access pipeline, then applies monotonic output
 restrictions. `count` and `exists` retain exact `number` and `boolean` results.
 Pointer field Access remains defined over the schema's logical `Pointer` value.
 
-## HookContext capabilities, safety, and diagnostics
+## Runtime callback context and safety
 
-Every business hook input includes one immutable Runtime-owned `HookContext`:
+Generic Runtime stages and low-level contribution factories receive the
+immutable `RequestContext` already owned by the operation. It exposes request
+correlation, cancellation, anonymous or audited-master authority, nominal
+capabilities, and typed plugin values without adapters or transaction controls.
 
-```ts
-beforeOperation: {
-	create: async ({ context, item, kind }) => {
-		await AuditSchema.createOne({ data: { action: kind } })
-		context.emit('article.creating', { title: item.title })
-		logger.debug({
-			requestId: context.requestId,
-			transactionId: context.transactionId,
-		})
-	}
-}
-```
-
-The create candidate is an immutable `SchemaPreparedDraft` instance. It already
-contains normalized defaults and framework system fields and supports `get()`
-and `toJSON()`, while persistence commands remain unavailable before insertion.
-Any non-null `originalItem` exposed by schema input resolution or mutation
-observers is instead a complete persisted `SchemaResult` instance with protected
-identity and the regular instance commands.
-
-Root reads have no `transactionId`. Automatic mutations, explicit transactions,
-nested operations, and master elevation retain one framework-generated opaque
-identifier. Transport cancellation and `AbortSignal.timeout()` use the same
-cooperative path. Runtime checks the signal between sequential pre-commit hooks,
-waits for an active callback to settle rather than detaching it, then rolls an
-active transaction back. Post-commit and confirmed-rollback observers still run
-after the final database outcome is known.
-
-A regular schema read reuses the current application's request
-engine and transaction without forwarding `HookContext`. Runtime waits for
-nested work even when the hook did not await it. The first nested failure keeps
-the transaction rollback-only even if hook code catches that rejection. An
-asynchronous branch that retains the hook's closed scope fails with
-`HOOK_CONTEXT_CLOSED`; a detached input retains no scope and therefore requires
-another ambient request or `{ ultimabase }`. Schema identity is checked
-against the exact application instance.
-
-The class also exposes immutable `access`, `source`, `hook`, request and
-transaction identifiers, the cancellation signal, identity-based
-`hasCapability(token)`, and typed `getValue(token)` lookup. It exposes no value
-derivation, request metadata, raw credentials, master elevation, adapter,
-commit, rollback, hook bypass, or mutable pipeline state.
-
-An immutable asynchronous-local stack detects `A -> A` and `A -> B -> A`
-re-entry by exact declaration, owner, target, phase, and handler position.
-`HOOK_RECURSION` includes only redacted structural details. A nested operation
-that reaches another phase, field, or schema remains supported and shares the
-current transaction engine.
-
-Plugins may provide one application-wide `hookDiagnosticsObserverCapability`.
-Events contain static owner and target identity, phase, operation kind,
-request/transaction identifiers, duration, status, and an optional stable
-framework error code. Delivery runs outside both hook-stack and active-engine
-scope. Runtime deliberately ignores observer throws and rejected promises, so
-telemetry cannot affect ordering, results, transactions, or business errors.
-Operations, field values, results, request metadata, access credentials, raw
-errors, and adapter state never enter these events.
-
-Root reads do not open an automatic transaction. A read inside
-`request.transaction()` reuses that explicit transaction and its request
-engine; otherwise, hooks must not assume read-started database work can roll
-back with the read.
-
-## Post-commit events
-
-Schema operation hooks run inside the active mutation transaction. They may
-perform transactional work or throw to abort it. External work is queued with
-`context.emit()` and delivered only after the adapter confirms the outer
-commit:
-
-```ts
-const ArticleSchema = Schema.define({
-	className: 'Article',
-	fields: (field) => ({
-		title: field.string({ validation: { required: true } }),
-	}),
-	hooks: {
-		afterOperation: {
-			create: ({ context, item }) => {
-				context.emit('article.created', { id: item.id })
-			},
-		},
-	},
-})
-```
-
-If the mutation rolls back, Runtime discards its buffered events. A named-event
-consumer runs after commit and cannot query through the expired transaction
-scope. A consumer failure observes already committed state and never attempts
-rollback. Independent consumers are still offered the event.
-
-The official PostgreSQL adapter verifies the same lifecycle. A mutation started
-from `beforeOperation.create` reuses the primary transaction, so an
-`afterOperation.create` failure rolls back both writes. Named-event consumers
-run only after PostgreSQL confirms the outer commit:
-
-```ts
-const ArticleSchema = Schema.define({
-	className: 'Article',
-	fields: (field) => ({
-		title: field.string({ validation: { required: true } }),
-	}),
-	hooks: {
-		beforeOperation: {
-			create: async (input) => {
-				await AuditSchema.createOne({ data: { action: 'article.create' } })
-				input.context.emit('article.created', { title: input.item.title })
-			},
-		},
-	},
-})
-```
-
-No database handle or explicit transaction is passed through hook code.
+Core executes low-level callbacks through one product-neutral recursion and
+cancellation boundary. Re-entering the same active callback fails with
+`RUNTIME_CALLBACK_RECURSION`; cancellation fails with `OPERATION_CANCELLED`.
+Concrete engines may wrap the request context in stricter lifecycle-bound
+objects. The official Hooks plugin owns `HookContext`, named events, hook
+diagnostics, and their revocation rules entirely inside its package.
 
 ## Structural validation
 
@@ -479,16 +374,16 @@ Root reads do not open a transaction.
 
 Collection mutations are always atomic. Runtime executes their ordered singular
 entries inside one outer transaction; any input, missing target, persistence,
-or item-hook failure rolls back the complete batch.
+or installed behavior failure rolls back the complete batch.
 `updateMany` and `deleteMany` require one unique predicate per entry and return
-only `id` by default. Their item-oriented hook and Access callbacks receive the
-same short business `kind` as direct singular commands. Callbacks that expose
-the AST retain the exact `*-one` value in `operation.kind`.
+only `id` by default. Installed behavior engines may expose a short business
+kind while callbacks that consume the AST retain the exact `*-one` value in
+`operation.kind`.
 
 Automatic mutation transactions install their derived request engine in the
-active asynchronous scope before the operation pipeline runs. Runtime captures
-that exact engine behind each operation hook's revocable `HookContext`; hook
-inputs never expose a raw or temporary request engine property.
+active asynchronous scope before the operation pipeline runs. Generic Runtime
+callbacks receive only the immutable `RequestContext`; concrete plugins own any
+stricter revocable callback facade they create.
 
 `request.transaction(callback)` begins a transaction through the database
 adapter retained by the pipeline. The callback receives a distinct engine with
@@ -569,203 +464,25 @@ capabilities, plugin-owned typed values, transaction lifetime, and application
 identity.
 
 Runtime never bypasses enforcement merely because the context is `master`.
-Each native Access declaration, provider contribution, or advanced low-level
-policy reads the trusted access mode and decides whether its own decision
-applies. Structural validation, business hooks, adapter constraints,
-transactions, commit, and post-commit events remain part of the same pipeline.
+Each installed protected policy reads the trusted access mode and decides
+whether its own decision applies. Structural validation, generic behavior,
+adapter constraints, transactions, commit, and observers remain part of the
+same pipeline.
 
-## Hooks and post-commit events
+## Optional behavior engines and observers
 
-Native schema and inline field declarations require no plugin. Plugin setup uses
-the same declaration contracts through an owner-bound `hooks` facade:
+Core installs no Hooks or Access engine. Plugins contribute complete Runtime
+behavior stages through `provideRuntimeBehavior()`, monotonic restrictions
+through `provideRuntimeConstraint()`, and low-level post-commit observers
+through `provideRuntimeObserver()`. An absent capability contributes no
+dispatcher, snapshot, callback, placeholder, or neutral stage.
 
-```ts
-const auditPlugin = () =>
-	definePlugin({
-		pluginId: 'example.audit',
-		version: '1.0.0',
-		core: '^0.0.0',
-		setup: ({ hooks }) => {
-			hooks.global('measure-creates', {
-				afterOperation: { create: ({ item }) => void item },
-			})
-			hooks.schema('audit-articles', ArticleSchema, {
-				beforeOperation: { create: ({ item }) => void item },
-			})
-			hooks.field('normalize-title', ArticleSchema, ['title'], {
-				resolveInput: ({ value }) => value.trim(),
-			})
-		},
-	})
-```
-
-The other target methods are `schemaExtension`, `fieldExtension`, and
-`fieldKind`. Extension and field-kind selectors accept initialization
-factories rather than declarations directly. Core invokes a factory once for
-each deterministic match after plugin setup, and the returned hook may close
-over the matched configuration. That configuration never becomes a property of
-the Runtime hook input:
-
-```ts
-hooks.schemaExtension('retention', retentionExtension, ({ extension }) => ({
-	beforeOperation: {
-		create: () => {
-			retention.observe(extension.config.policy)
-		},
-	},
-}))
-```
-
-Exact field targets use typed non-empty segment tuples, including nested object
-paths. Community field packages expose a reusable selector with
-`defineFieldKindHookTarget<TField>(kind)`, preserving the field's exact logical
-value in the factory and returned field declarations.
-
-Every target contribution records the setup plugin automatically. Its public
-name is local to that owner, so separate plugins may use the same name while a
-same-owner duplicate fails. Registration closes when setup finishes, target
-resolution completes before `connect`, and the immutable match snapshots remain
-isolated per application. Order follows plugin dependencies, configuration
-position, registration order, schema order, and deterministic field traversal;
-there is no numeric priority.
-
-Issue 328 provides this registration and initialization boundary. The Runtime
-dispatcher in issue 330 appends resolved plugin declarations to developer hooks
-and invokes them. No plugin can replace developer declarations. The contract is
-governed by
-[ADR-0089](../../../docs/adr/0089-native-schema-and-field-hooks.md),
-[ADR-0097](../../../docs/adr/0097-owner-scoped-typed-plugin-hook-targets.md), and
-[ADR-0090](../../../docs/adr/0090-permission-plugins-through-hooks.md).
-
-### Named post-commit events
-
-Operation hooks may emit one explicit portable event through their current
-transaction:
-
-```ts
-interface ArticleCreatedEvent extends JsonObject {
-	readonly kind: 'create'
-	readonly title: string
-}
-
-const articleCreatedEvent = defineEvent<ArticleCreatedEvent>()(
-	'article.created',
-	{ delivery: 'required' },
-)
-
-const ArticleSchema = Schema.define({
-	className: 'Article',
-	fields: (field) => ({
-		title: field.string({ validation: { required: true } }),
-	}),
-	hooks: {
-		beforeOperation: {
-			create: ({ context, item, kind }) => {
-				context.emit(articleCreatedEvent, { title: item.title, kind })
-			},
-		},
-	},
-})
-
-const searchPlugin = definePlugin({
-	pluginId: 'example.search',
-	version: '1.0.0',
-	core: '^0.0.0',
-	privileges: [
-		{
-			name: 'runtime:observe',
-			reason: 'Updates the search index after commit.',
-		},
-	],
-	capabilities: {
-		provides: [
-			provideRuntimeObserver({
-				contributionId: 'articles.created',
-				create: () => ({
-					value: onEvent({
-						name: 'article.created',
-						handler: ({ context, event }) => {
-							searchIndex.add(event.payload)
-							console.log(context.requestId, event.transactionId)
-						},
-					}),
-				}),
-			}),
-		],
-	},
-})
-```
-
-The payload root must be a JSON object or array. Runtime copies and deeply
-freezes it at emission, buffers it on the exact outer transaction, discards it
-on rollback, and delivers it after commit in plugin graph plus registration
-order. Required contracts fail when no matching consumer exists. Optional
-contracts succeed with zero consumers and queue no post-commit effect; strings
-retain required behavior for compatibility. Consumers are non-queryable
-committed observers. Every matching consumer still runs if a sibling fails;
-failures are reported after commit and never trigger rollback. A root read may
-emit only inside an explicit transaction regardless of delivery mode.
-
-### Low-level Runtime definitions
-
-ADR-0070's opaque before/after factories remain the low-level plugin
-foundation while the native dispatcher is completed. Plugins register those
-definitions through exact privilege-scoped facades. A schema is optional for
-global behavior, while `operations` narrows the terminal kinds handled by a
-contribution:
-
-```ts
-const articleAutomationPlugin = () =>
-	definePlugin({
-		pluginId: 'example.article-automation',
-		version: '1.0.0',
-		core: '^0.0.0',
-		privileges: [
-			{
-				name: 'runtime:intercept',
-				reason: 'Audits article mutations.',
-			},
-			{
-				name: 'runtime:observe',
-				reason: 'Updates the search index after commit.',
-			},
-		],
-		capabilities: {
-			provides: [
-				provideRuntimeInterceptor({
-					contributionId: 'articles.audit-create',
-					create: () => ({
-						value: beforeOperation({
-							schema: ArticleSchema,
-							operations: ['create-one'],
-							handler: ({ operation }) => audit(operation),
-						}),
-					}),
-				}),
-				provideRuntimeObserver({
-					contributionId: 'articles.search-index',
-					create: () => ({
-						value: postCommitEvent({
-							schema: ArticleSchema,
-							operations: ['create-one', 'update-one'],
-							handler: ({ result }) => searchIndex.upsert(result),
-						}),
-					}),
-				}),
-			],
-		},
-	})
-```
-
-Before-hooks are observers and return nothing; after-hooks remain result
-transformers and return exactly `{ result }`. Inputs are immutable. General
-input normalization belongs in field or schema `resolveInput`; the restricted
-`preparedOperation()` factory exists for an update value that depends on its
-locked target. `createRuntimeHookStages(application)` composes definitions in
-dependency-first plugin order into the fixed Runtime pipeline positions.
-After-hooks still run before commit and can abort the transaction. Post-commit
-events run only after a successful standalone commit; explicit transactions
-buffer them until the outer commit and discard them on rollback.
+The convenience factories `beforeOperation()`, `afterOperation()`,
+`preparedOperation()`, and `postCommitEvent()` are generic low-level Runtime
+definitions. Their inputs use `RequestContext` and they do not create schema or
+field option namespaces. The official Hooks package implements its richer
+lifecycle, event delivery, diagnostics, and transaction semantics through
+`provideRuntimeBehavior()` and package-owned contracts.
 
 ## Scoped contextual access
 

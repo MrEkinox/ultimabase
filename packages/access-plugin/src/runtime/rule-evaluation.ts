@@ -53,7 +53,7 @@ export const createAccessDeniedError = (
 		publicMessage: 'The operation is not permitted.',
 		internalDetails: {
 			...(field === undefined ? {} : { fieldPath: immutableArray(field.path) }),
-			kind: 'native-access-denied',
+			kind: 'access-rule-denied',
 			operation,
 			phase,
 		},

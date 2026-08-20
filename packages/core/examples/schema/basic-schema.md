@@ -59,7 +59,7 @@ throws `SchemaCompilationError`.
 makes every writable developer field optional.
 
 Singular schema mutations can project their public result without changing the
-complete values available to mutation hooks:
+complete values retained by Runtime for installed behaviors:
 
 ```ts
 const created = await UserSchema.createOne({
@@ -83,8 +83,8 @@ renamed?.toJSON() // { id, displayName }
 deleted?.toJSON() // { id, username }
 ```
 
-Set-based mutations return identifiers by default and can request a wider
-projection without enabling per-object mutation hooks:
+Collection mutations return identifiers by default and can request a wider
+projection without changing itemized execution:
 
 ```ts
 const renamedUsers = await UserSchema.updateMany({

@@ -18,9 +18,9 @@ import {
 } from '../plugins/capabilities.js'
 import { RequestContext, requestSources } from './context/request-context.js'
 import { runWithRequestEngine } from './context/active-framework-context.js'
-import { beforeOperation } from './hooks/definitions.js'
+import { beforeOperation } from './contributions/definitions.js'
 import { guard } from './enforcement/definitions.js'
-import { composeRuntimeContributionBehavior } from './hooks/stages.js'
+import { composeRuntimeContributionBehavior } from './contributions/composition.js'
 import { RuntimePipeline } from './pipeline/runtime-pipeline.js'
 import { createFrameworkEngine } from './application/create-framework-engine.js'
 import {

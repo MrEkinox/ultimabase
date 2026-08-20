@@ -1,12 +1,11 @@
 import { definePlugin } from '../../foundation.js'
 import { RequestContextValue } from '../../access/index.js'
 import { Schema } from '../../schema/index.js'
-import type { HookContext } from '../../schema/hooks/hook-context.js'
 import { describe, expect, it } from 'vitest'
 import { QueryBuilder } from '../../query/query/query.js'
 
 import { type DatabaseAdapter } from '../database/contracts.js'
-import { beforeOperation } from '../hooks/definitions.js'
+import { beforeOperation } from '../contributions/definitions.js'
 import { RequestContext, requestSources } from '../context/request-context.js'
 import { runWithRequestEngine } from '../context/active-framework-context.js'
 import { MasterAuthority } from '../master/master-authority.js'
@@ -39,7 +38,7 @@ const principalValue = new RequestContextValue<string>(
 const createDatabasePlugin = (
 	adapter: DatabaseAdapter,
 	options: {
-		readonly onContext?: (context: HookContext) => void
+		readonly onContext?: (context: RequestContext) => void
 		readonly trace?: string[]
 	} = {},
 ) =>
@@ -103,7 +102,7 @@ describe('UltimaBase', () => {
 			[],
 		)
 		const trace: string[] = []
-		let observedContext: HookContext | undefined
+		let observedContext: RequestContext | undefined
 		const validation = { timezone: 'UTC' }
 		const ultimabase = new UltimaBase({
 			schemas: [articleSchema],
@@ -143,7 +142,6 @@ describe('UltimaBase', () => {
 		expect(result.map((article) => article.toJSON())).toStrictEqual(rows)
 		expect(result).not.toBe(rows)
 		expect(Object.isFrozen(result)).toBe(true)
-		expect(observedContext?.transactionId).toBeUndefined()
 		expect(observedContext?.signal).toBeInstanceOf(AbortSignal)
 		expect(observedContext?.requestId).toMatch(
 			/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u,
@@ -178,7 +176,7 @@ describe('UltimaBase', () => {
 			],
 			[],
 		)
-		const observedAccesses: HookContext['access'][] = []
+		const observedAccesses: RequestContext['access'][] = []
 		const observedPrincipals: (string | undefined)[] = []
 		const auditEvents: unknown[] = []
 		const authority = new MasterAuthority({
@@ -194,7 +192,7 @@ describe('UltimaBase', () => {
 			plugins: [
 				createDatabasePlugin(adapter, {
 					onContext: (context) => {
-						// Hook capabilities are read before their lifecycle lease closes.
+						// Runtime callbacks observe immutable request capabilities.
 						observedAccesses.push(context.access)
 						observedPrincipals.push(context.getValue(principalValue))
 					},

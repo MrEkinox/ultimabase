@@ -235,8 +235,9 @@ const preserveDeclaredGraph = (
 
 The real compiler must also include plugin-added schemas from the ordered
 declaration batches and apply their selectors and patches. Runtime-bearing
-fields, extensions, option definitions, default factories, hooks, Access rules,
-and schema classes appear only as nominal artifact references. A compiler may
+fields, extensions, option definitions, default factories, plugin-owned
+behaviors and policies, and schema classes appear only as nominal artifact
+references. A compiler may
 preserve and arrange those declared references but cannot resolve them or invent
 another application's artifacts. Core owns decoding and final invariant
 validation. Installing a replacement compiler remains owned by issue 1418; the

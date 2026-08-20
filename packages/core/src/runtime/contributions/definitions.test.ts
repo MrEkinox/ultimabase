@@ -10,7 +10,7 @@ import {
 } from './definitions.js'
 
 const articleSchema = Schema.define({
-	className: 'HookDefinitionArticle',
+	className: 'ContributionDefinitionArticle',
 	fields: (field) => ({
 		title: field.string({ validation: { required: true } }),
 	}),
@@ -43,7 +43,7 @@ describe('runtime contribution definitions', () => {
 		})
 	})
 
-	it('distinguishes after-hooks and post-commit event definitions', () => {
+	it('distinguishes result interceptors and post-commit observer definitions', () => {
 		const after = afterOperation({
 			handler: (input) => ({ result: input.result }),
 		})

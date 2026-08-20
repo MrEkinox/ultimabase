@@ -28,9 +28,9 @@ export interface RuntimePipelineRequest<
 > {
 	readonly context: RequestContext
 	readonly operation: TOperation
-	/** Keeps a validated relation edge private from transformable hook inputs. */
+	/** Keeps a validated relation edge private from transformable behavior inputs. */
 	readonly relation?: DatabaseRelationScope
-	/** Carries a framework-owned predicate that business hooks cannot replace. */
+	/** Carries a framework-owned predicate that product behaviors cannot replace. */
 	readonly rowFilter?: DatabaseRowFilterNode
 	/** Carries target restrictions associated with exact public relation leaves. */
 	readonly relationPredicates?: readonly DatabaseRelationPredicateScope[]
@@ -38,7 +38,7 @@ export interface RuntimePipelineRequest<
 	readonly protectedPolicyDeniedAsMissing?: true
 }
 
-/** Supplies normalization, validation, guards, and hooks with immutable request state. */
+/** Supplies normalization, validation, guards, and behaviors with immutable request state. */
 export interface RuntimeOperationStageInput<
 	TOperation extends DatabaseOperationAst,
 > {
@@ -61,11 +61,11 @@ export interface RuntimeEnforcementOperationResult<
 	readonly constraints: readonly DatabaseConstraintNode[]
 	/** Keeps private row restrictions outside business-transformable operation state. */
 	readonly rowFilter?: DatabaseRowFilterNode
-	/** Keeps target restrictions outside the source operation transformed by hooks. */
+	/** Keeps target restrictions outside the source operation transformed by behaviors. */
 	readonly relationPredicates?: readonly DatabaseRelationPredicateScope[]
 }
 
-/** Represents the post-hydration record shape observed by result hooks. */
+/** Represents the post-hydration record shape observed by result behaviors. */
 export type RuntimeOperationResult<TOperation extends OperationAstNode> =
 	OperationRecordResult<TOperation>
 
@@ -76,7 +76,7 @@ export interface RuntimeDatabaseResultStageInput<
 	readonly result: DatabaseOperationResult<TOperation>
 }
 
-/** Supplies business after-hooks, commit, and events with the current result. */
+/** Supplies result behaviors, commit, and observers with the current result. */
 export interface RuntimeResultStageInput<
 	TOperation extends DatabaseOperationAst,
 > extends RuntimeOperationStageInput<TOperation> {
@@ -155,7 +155,7 @@ export interface RuntimeEnforcementStages {
 	readonly evaluate: RuntimeEnforcementEvaluationStage
 	readonly reevaluate: RuntimeEnforcementReevaluationStage
 	readonly enforceOperation: RuntimeEnforcementOperationStage
-	/** Applies retained selection restrictions before business output hooks run. */
+	/** Applies retained selection restrictions before output behaviors run. */
 	readonly enforceSelectionResult: RuntimeEnforcementSelectionResultStage
 	readonly enforceResult: RuntimeEnforcementResultStage
 	/** Enforces the source field that grants one to-many traversal. */
@@ -164,7 +164,7 @@ export interface RuntimeEnforcementStages {
 	readonly enforcePreparedMutation?: RuntimePreparedMutationEffectStage
 	/** Enforces the exact create or update branch materialized by a mutation. */
 	readonly enforceMutationOutcome?: RuntimeMutationOutcomeTransformStage
-	/** Requests stable set-based preimages when Access contains item-aware rules. */
+	/** Requests stable set-based preimages when installed policies need them. */
 	readonly requiresPreparedMutationItems?: (
 		operation: DatabaseMutationOperationAst,
 	) => boolean
@@ -219,7 +219,7 @@ export interface RuntimePreparedMutationStageInput<
 	TOperation extends DatabaseMutationOperationAst,
 > extends RuntimeOperationStageInput<TOperation> {
 	readonly target: DatabaseMutationLogicalRecord<TOperation> | null | undefined
-	/** Contains stable set-based preimages only when item hooks require them. */
+	/** Contains stable set-based preimages only when installed behaviors require them. */
 	readonly targets?: readonly DatabaseMutationLogicalRecord<TOperation>[]
 }
 
@@ -230,7 +230,7 @@ export interface RuntimeMutationOutcomeStageInput<
 	readonly outcome: DatabaseOperationOutcome<TOperation>
 }
 
-/** Executes affected-field before hooks without granting handle ownership. */
+/** Executes affected-field behavior without granting handle ownership. */
 export type RuntimePreparedMutationEffectStage = <
 	const TOperation extends DatabaseMutationOperationAst,
 >(

@@ -32,6 +32,25 @@ types, selectors, and capability contracts from this package. Independent
 behavior engines should own their vocabulary and use Core's generic Runtime
 behavior capability directly.
 
+JavaScript uses the same compiled graph and does not require Typegen. Omitting
+the plugin means ordinary CRUD has no official Hooks lifecycle:
+
+```js
+import { Schema, UltimaBase } from '@ultimabase/core'
+
+const Post = Schema.define({
+	className: 'Post',
+	fields: (field) => ({ title: field.string() }),
+})
+
+const ultimabase = new UltimaBase({ schemas: [Post], plugins: [] })
+await ultimabase.start()
+await Post.findMany(undefined, { ultimabase })
+```
+
+Adding a `hooks` option without `hooksPlugin()` is an unknown-option application
+compilation error; importing this package alone does not change that result.
+
 An extension declares Hooks as a peer rather than a lifecycle dependency,
 because the Hooks engine consumes the extension's contribution capability:
 

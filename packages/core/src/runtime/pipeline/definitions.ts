@@ -5,7 +5,7 @@ import type { RuntimePipelineStages } from './contracts.js'
 /**
  * Names the general low-level pipeline positions that plugins may replace.
  *
- * Policy plugins contribute monotonic hook effects instead of claiming a
+ * Policy plugins contribute monotonic effects instead of claiming a
  * permission-specific pipeline position.
  */
 export type RuntimePipelineStageName = 'commit' | 'normalization'

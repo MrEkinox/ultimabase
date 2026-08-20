@@ -4,7 +4,7 @@ import {
 } from '../../access/index.js'
 import { FrameworkError } from '../../errors/framework-error.js'
 import { readApplicationCapability } from '../../plugins/application-capability-access.js'
-import { getCurrentApplication } from '../context/active-framework-context.js'
+import { getCurrentApplication } from './active-framework-context.js'
 
 /** Resolves the exact role capability for the active application execution. */
 export const requireCurrentRequestRoleResolver = (): RequestRoleResolver => {

@@ -139,7 +139,7 @@ const relationStates = new WeakMap<
  *
  * Persisted models create handles through `model.relation(fieldName)`. The
  * protected source identity and relationship restriction never enter the QueryBuilder
- * AST, so selection and business hooks cannot inspect or discard them.
+ * AST, so selection and product behaviors cannot inspect or discard them.
  *
  * @example `const publishedTags = await post.relation('tags').findMany({ where: { published: { eq: true } } })`
  */

@@ -61,10 +61,10 @@ const users = await UserSchema.findMany({
 // `users[0].posts` is a readonly array of selected Post models.
 ```
 
-Relation inclusion also supports nested `include`. It preserves source and
-target Access without manufacturing target schema read hooks. Direct calls
-through `user.relation('posts')` remain normal target
-reads and therefore retain the target's ordinary read-hook lifecycle.
+Relation inclusion also supports nested `include`. It preserves every installed
+source and target protected policy. Direct calls through
+`user.relation('posts')` remain normal target reads through the same Runtime
+pipeline.
 
 Relation fields contain no join-table, SQL, REST, or GraphQL naming. Relation
 handles keep those choices separate from model values:
@@ -92,8 +92,9 @@ await user.relation('posts').clear()
 ```
 
 Every call inherits the active request or accepts the same operation options as
-a schema read. It runs source update Access and hooks inside one transaction; inverse
-pointer relations also run the target pointer update lifecycle. A database
+a schema read. It runs installed source and target behaviors inside one
+transaction; inverse pointer relations also run the target pointer update
+lifecycle. A database
 adapter must advertise relation support. PostgreSQL implements scoped reads,
 owning join storage, inverse traversal, mutations, and cleanup.
 
@@ -106,4 +107,4 @@ const authorsWithTypedPosts = await UserSchema.findMany({
 ```
 
 Nested `some`, `none`, and `every` inputs retain the exact target schema. They
-remain portable Core Query AST and preserve private target Access constraints.
+remain portable Core Query AST and preserve private target constraints.

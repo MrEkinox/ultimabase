@@ -29,12 +29,12 @@ import {
 	retainRuntimeSchemaModelMetadata,
 } from '../operations/model-metadata.js'
 import { createRuntimeValidationStage } from '../validation/runtime-validation.js'
-import { createRuntimeHookBoundaries } from './boundaries.js'
+import { createRuntimeBehaviorBoundaries } from './validation-boundaries.js'
 
 const fixedInstant = new Date('2026-08-02T12:34:56.000Z')
 const generatedId = '00000000-0000-7000-8000-000000000001'
 const requestContext = RequestContext.anonymous({
-	requestId: 'runtime-hook-boundaries',
+	requestId: 'runtime-behavior-boundaries',
 	source: requestSources.internal,
 })
 
@@ -78,7 +78,7 @@ const readIssues = (
 		(issue): issue is Readonly<Record<string, unknown>> => isPlainRecord(issue),
 	)
 
-describe('runtime hook boundaries', () => {
+describe('runtime behavior boundaries', () => {
 	it('revalidates mutation replacements without replaying generated values', async () => {
 		const defaultTitle = vi.fn(() => 'Generated title')
 		const uuidV7Generator = vi.fn(() => generatedId)
@@ -97,7 +97,7 @@ describe('runtime hook boundaries', () => {
 			context: requestContext,
 			operation: initialOperation,
 		})
-		const boundaries = createRuntimeHookBoundaries()
+		const boundaries = createRuntimeBehaviorBoundaries()
 
 		const replacement = boundaries.snapshotOperationReplacement(
 			normalized,
@@ -120,7 +120,7 @@ describe('runtime hook boundaries', () => {
 			selection: { fields: [], kind: 'selection' },
 			schema: new QueryBuilder(schema).ast.schema,
 		}) satisfies CreateOneOperationAst<typeof schema>
-		const boundaries = createRuntimeHookBoundaries()
+		const boundaries = createRuntimeBehaviorBoundaries()
 
 		try {
 			boundaries.snapshotOperationReplacement(operation, {
@@ -164,7 +164,7 @@ describe('runtime hook boundaries', () => {
 			selection,
 			schema: schemaNode,
 		}) satisfies UpsertManyOperationAst<typeof schema>
-		const boundaries = createRuntimeHookBoundaries()
+		const boundaries = createRuntimeBehaviorBoundaries()
 
 		expect(
 			boundaries.snapshotOperationReplacement(create, create),
@@ -183,7 +183,7 @@ describe('runtime hook boundaries', () => {
 			selection: { fields: [], kind: 'selection' },
 			schema: new QueryBuilder(schema).ast.schema,
 		}) satisfies CreateOneOperationAst<typeof schema>
-		const boundaries = createRuntimeHookBoundaries()
+		const boundaries = createRuntimeBehaviorBoundaries()
 
 		expect(() =>
 			boundaries.snapshotOperationReplacement(operation, {
@@ -220,7 +220,7 @@ describe('runtime hook boundaries', () => {
 			context: requestContext,
 			operation: initialOperation,
 		})
-		const boundaries = createRuntimeHookBoundaries()
+		const boundaries = createRuntimeBehaviorBoundaries()
 
 		const replacement = boundaries.snapshotOperationReplacement(
 			normalized,
@@ -258,7 +258,7 @@ describe('runtime hook boundaries', () => {
 				published: true,
 			}),
 		})
-		const boundaries = createRuntimeHookBoundaries()
+		const boundaries = createRuntimeBehaviorBoundaries()
 		const current = immutableRecord({ ...completeRecord, published: true })
 		const sourceOutcome = {
 			materializations: [{ current, kind: 'update', previous: completeRecord }],
@@ -291,7 +291,7 @@ describe('runtime hook boundaries', () => {
 				published: true,
 			}),
 		})
-		const boundaries = createRuntimeHookBoundaries()
+		const boundaries = createRuntimeBehaviorBoundaries()
 
 		try {
 			boundaries.snapshotResultReplacement(operation, {
@@ -326,7 +326,7 @@ describe('runtime hook boundaries', () => {
 			query,
 		}) satisfies DeleteManyOperationAst<typeof schema>
 		const current = immutableRecord({ ...completeRecord, published: true })
-		const boundaries = createRuntimeHookBoundaries()
+		const boundaries = createRuntimeBehaviorBoundaries()
 
 		expect(
 			boundaries.snapshotMutationOutcome(update, {
@@ -380,7 +380,7 @@ describe('runtime hook boundaries', () => {
 			selection: { fields: [], kind: 'selection' },
 			schema: new QueryBuilder(schema).ast.schema,
 		}) satisfies CreateOneOperationAst<typeof schema>
-		const boundaries = createRuntimeHookBoundaries()
+		const boundaries = createRuntimeBehaviorBoundaries()
 		const found: unknown = boundaries.snapshotResultReplacement(findOperation, [
 			{ id: generatedId },
 		])
@@ -446,15 +446,16 @@ describe('runtime hook boundaries', () => {
 			immutableArray(['name', 'id']),
 		)
 
-		const snapshot = createRuntimeHookBoundaries().snapshotResultReplacement(
-			operation,
-			immutableArray([
-				immutableRecord({
-					id: '00000000-0000-7000-8000-000000000003',
-					target: includedTarget,
-				}),
-			]),
-		)
+		const snapshot =
+			createRuntimeBehaviorBoundaries().snapshotResultReplacement(
+				operation,
+				immutableArray([
+					immutableRecord({
+						id: '00000000-0000-7000-8000-000000000003',
+						target: includedTarget,
+					}),
+				]),
+			)
 		const snapshotTarget: unknown = snapshot[0]?.target
 
 		expect(isPlainRecord(snapshotTarget)).toBe(true)

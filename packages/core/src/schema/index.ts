@@ -148,7 +148,7 @@ export type {
 	ValidatedFieldOptions,
 } from './fields/base/contract.js'
 export type { FieldValueMode } from './fields/base/value-map.js'
-export type { FieldAtPath, SchemaFieldPath } from './hooks/field-paths.js'
+export type { FieldAtPath, SchemaFieldPath } from './fields/paths.js'
 export {
 	assertFieldOptions,
 	getFieldListDepth,

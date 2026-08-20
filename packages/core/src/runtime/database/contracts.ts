@@ -212,7 +212,7 @@ export interface DatabaseInclusionPlan {
 	readonly fieldPath: readonly string[]
 	readonly kind: 'pointer' | 'relation'
 	readonly request: DatabaseOperationRequest
-	/** Prevents loading targets whose operation Access was denied. */
+	/** Prevents loading targets denied by protected operation policy. */
 	readonly unavailable?: true
 }
 
@@ -229,11 +229,11 @@ export interface DatabaseOperationRequest<
 	readonly operation: TOperation
 	/** Selects the physical adapter statement independently from logical semantics. */
 	readonly plan: DatabasePersistencePlan<TOperation>
-	/** Requests stable complete preimages for item-oriented set-based mutation hooks. */
+	/** Requests stable complete preimages for item-oriented mutation behaviors. */
 	readonly prepareMutationItems?: true
 	/** Carries one Runtime-validated relation edge only to capable adapters. */
 	readonly relation?: DatabaseRelationScope
-	/** Keeps target Access monotonic and invisible to source QueryBuilder hooks. */
+	/** Keeps target policy monotonic and invisible to source behavior callbacks. */
 	readonly relationPredicates?: readonly DatabaseRelationPredicateScope[]
 	/** Carries recursively prepared target reads only to eager-inclusion adapters. */
 	readonly inclusions?: readonly DatabaseInclusionPlan[]
@@ -286,7 +286,7 @@ export interface DatabaseCreateMaterialization<
 	readonly current: TRecord
 }
 
-/** Retains both sides of one materialized update for semantic change hooks. */
+/** Retains both sides of one materialized update for semantic change behavior. */
 export interface DatabaseUpdateMaterialization<
 	TRecord extends DatabaseLogicalRecord = DatabaseLogicalRecord,
 > {
@@ -303,7 +303,7 @@ export interface DatabaseDeleteMaterialization<
 	readonly previous: TRecord
 }
 
-/** Enumerates the portable logical changes observable by native field hooks. */
+/** Enumerates the portable logical changes observable by field behavior. */
 export type DatabaseMutationMaterialization<
 	TOperation extends DatabaseMutationOperationAst =
 		DatabaseMutationOperationAst,
@@ -445,7 +445,7 @@ export interface DatabaseAdapter extends DatabaseOperationExecutor {
  */
 export interface DatabaseTransactionAdapter extends DatabaseOperationExecutor {
 	readonly kind: 'database-transaction-adapter'
-	/** Prepares one stable mutation target before affected-field hooks execute. */
+	/** Prepares one stable mutation target before affected-field behavior executes. */
 	prepare<const TOperation extends DatabaseMutationOperationAst>(
 		request: DatabaseOperationRequest<TOperation>,
 	): Promise<PreparedDatabaseOperation<TOperation>>

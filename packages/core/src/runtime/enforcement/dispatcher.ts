@@ -5,7 +5,7 @@ import {
 import type { SchemaDefinition } from '../../schema/index.js'
 import { immutableRecord } from '@ultimabase/shared'
 
-import { getApplicationHookExecutionRuntime } from '../hooks/execution-runtime.js'
+import { getApplicationRuntimeCallbackExecutor } from '../contributions/execution.js'
 import type { RuntimeEnforcementStages } from '../pipeline/contracts.js'
 import {
 	evaluateEnforcementContributions,
@@ -43,7 +43,7 @@ export const createEnforcementStages = <
 		return undefined
 	}
 
-	const runtime = getApplicationHookExecutionRuntime(application)
+	const runtime = getApplicationRuntimeCallbackExecutor(application)
 	const evaluateRelationPredicates = createRelationPredicateEvaluator(
 		contributions,
 		runtime,

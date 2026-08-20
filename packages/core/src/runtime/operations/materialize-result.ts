@@ -86,7 +86,7 @@ const materializeRecord = (
 	)
 }
 
-/** Materializes public model instances only after Runtime finishes every result hook. */
+/** Materializes public model instances only after Runtime finishes result behaviors. */
 export const materializeOperationResult = <
 	const TOperation extends OperationAstNode & { readonly kind: OperationKind },
 >(

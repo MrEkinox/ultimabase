@@ -6,7 +6,7 @@ import {
 	afterOperation,
 	beforeOperation,
 	postCommitEvent,
-} from './hooks/definitions.js'
+} from './contributions/definitions.js'
 import { RuntimePipeline } from './pipeline/runtime-pipeline.js'
 import type { RuntimePipelineStages } from './pipeline/contracts.js'
 import {
