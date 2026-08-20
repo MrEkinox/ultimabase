@@ -112,11 +112,23 @@ const config: ViteUserConfig = defineConfig({
 			provider: 'v8',
 			reporter: ['text', 'json', 'html'],
 			thresholds: {
+				'packages/access-plugin/src/**': {
+					branches: 71,
+					functions: 88,
+					lines: 83,
+					statements: 83,
+				},
 				'packages/core/src/query/filters/relation.ts': {
 					branches: 98,
 					functions: 100,
 					lines: 98,
 					statements: 98,
+				},
+				'packages/hooks-plugin/src/**': {
+					branches: 81,
+					functions: 94,
+					lines: 90,
+					statements: 90,
 				},
 				branches: 80,
 				functions: 90,
