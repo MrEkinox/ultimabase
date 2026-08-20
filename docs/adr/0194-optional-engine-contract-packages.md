@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-08-11
-- Refined by: ADR-0202
+- Refined by: ADR-0202, ADR-0204
 - Refines: ADR-0089, ADR-0096, ADR-0101, ADR-0106, ADR-0107, ADR-0116, ADR-0117, ADR-0120, ADR-0128, ADR-0161, ADR-0163, ADR-0167, ADR-0168, ADR-0169, ADR-0170, ADR-0171, ADR-0172, ADR-0189, ADR-0190
 - Depends on: ADR-0189, ADR-0190, ADR-0191
 
@@ -39,6 +39,11 @@ opaque policy contributions.
 ADR-0202 refines the Hooks half of this decision: the official Hooks contracts
 live in `@ultimabase/hooks-plugin`, while genuinely alternative behavior
 engines own their protocols and use the generic public kernel directly.
+
+ADR-0204 likewise refines the Access half: official Access contracts live in
+`@ultimabase/access-plugin`, official-compatible providers depend on that one
+package, and independent policy engines own their protocols. There is no
+`@ultimabase/access-contracts` package.
 
 ### No-engine behavior
 

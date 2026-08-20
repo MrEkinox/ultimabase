@@ -3,6 +3,7 @@
 - Status: accepted
 - Date: 2026-08-19
 - Refines: ADR-0189, ADR-0194
+- Refined by: ADR-0204
 - Depends on: ADR-0189, ADR-0190, ADR-0191, ADR-0199
 
 ## Context
@@ -97,6 +98,10 @@ capabilities built from public plugin-kit and transaction primitives.
 ADR-0194's decision for `@ultimabase/access-contracts` remains accepted. Access
 has independent policy providers that need neutral shared contracts across the
 selected engine and ACL, roles, adapter constraints, and subject integrations.
+
+ADR-0204 later refines this section by placing official Access contracts in the
+single `@ultimabase/access-plugin` package and leaving independent alternatives
+on the generic kernel.
 
 ## Consequences
 

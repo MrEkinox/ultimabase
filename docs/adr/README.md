@@ -189,6 +189,7 @@ Accepted records:
 - [ADR-0201: Application-bound results expose plugin model commands directly](0201-transparent-application-model-surfaces.md)
 - [ADR-0202: Hooks is one vertical plugin](0202-hooks-are-one-vertical-plugin.md)
 - [ADR-0203: Plugin peers validate compatibility without ordering](0203-plugin-peer-requirements-do-not-order.md)
+- [ADR-0204: Access is one vertical plugin](0204-access-is-one-vertical-plugin.md)
 
 Superseded records:
 

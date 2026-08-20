@@ -2,9 +2,9 @@
 
 - Status: planned
 - Milestone: 15
-- Packages: `@ultimabase/access-contracts`, `@ultimabase/access-plugin`, `@ultimabase/core`, `@ultimabase/typegen`, `@ultimabase/plugin-kit`
+- Packages: `@ultimabase/access-plugin`, `@ultimabase/core`, `@ultimabase/typegen`, `@ultimabase/plugin-kit`
 - Depends on: 1503
-- ADR: ADR-0167 through ADR-0171, ADR-0189, ADR-0194
+- ADR: ADR-0167 through ADR-0171, ADR-0189, ADR-0194, ADR-0204
 
 ## Goal
 
@@ -13,11 +13,11 @@ compiled Access plans out of Core's native product surface.
 
 ## Acceptance criteria
 
-- [ ] Create dependency-light `@ultimabase/access-contracts` and the complete first `@ultimabase/access-plugin` implementation together; importing contracts installs no behavior.
+- [ ] Create one complete `@ultimabase/access-plugin`; it owns its public contracts, importing it installs no behavior, and configuring its exported definition enables the official engine.
 - [ ] The plugin owns schema and field `access` option namespaces, decisions, combinators, filters, targets, defaults, provider contracts, and `AccessPlan` compilation.
 - [ ] Installing the plugin restores the accepted operation, filter, item, and field Access DX through public declarations and Typegen.
 - [ ] Omitting the plugin removes Access options and plan compilation without removing Core master authority.
-- [ ] Access providers and alternative engines target access-contracts tokens and do not import or depend on the official plugin implementation when a compatible protocol is sufficient.
+- [ ] Official-compatible Access providers import the plugin's public contracts and declare a non-ordering peer; independent alternative engines own their protocols and use only the generic public kernel.
 - [ ] The package uses only public Core and plugin-kit contracts and declares exact privileges.
 
 ## Tests

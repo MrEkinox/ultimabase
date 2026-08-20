@@ -13,9 +13,9 @@ Core keeps those responsibilities in separate internal domains while exposing
 one cohesive public package. This avoids cycles between inseparable contracts;
 optional infrastructure and policy behavior remains in plugins.
 
-The currently implemented native Hooks and Access domains remain in Core only
-during the milestone 15 migration. Their accepted package destination is listed
-below.
+The currently implemented native Access domain remains in Core only during the
+milestone 15 migration. Its accepted package destination is listed below;
+Hooks has already moved to its official package.
 
 ## Official plugins
 
@@ -24,6 +24,7 @@ below.
 - `acl-postgres-plugin`
 - `pg-vector-plugin`
 - `postgres-plugin`
+- `hooks-plugin`
 
 ## Planned plugin packages
 
@@ -35,14 +36,12 @@ directories until implementation begins:
 - `rest-plugin`
 - `graphql-plugin`
 - `graphql-yoga-plugin`
-- `hooks-plugin`
 - `access-plugin`
 
-The optional engines use contract-only non-plugin packages that install no
-behavior and are created with their first complete consumer issues:
-
-- `hooks-contracts`
-- `access-contracts`
+The optional Hooks and Access engines each keep their public authoring and
+extension contracts in their single official plugin package. Importing a
+package installs no behavior; application configuration does. Independent
+alternative engines own their protocols and use the generic public kernel.
 
 Every plugin uses the `-plugin` suffix in both its workspace directory and its
 published package name. This makes optional capabilities recognizable before a
@@ -60,9 +59,9 @@ developer reads their exports.
 
 No package may import another package through its source directory.
 
-Core does not import `plugin-kit`, `hooks-contracts`, or `access-contracts`.
-Official and community engines import the appropriate contract package, while
-only application configuration installs a `-plugin` implementation.
+Core does not import `plugin-kit`, `hooks-plugin`, or `access-plugin`.
+Official-compatible extensions import their engine's public plugin contracts;
+independent community engines own their contracts.
 
 ## Local development
 

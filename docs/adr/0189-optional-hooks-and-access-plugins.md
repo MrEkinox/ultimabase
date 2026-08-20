@@ -5,7 +5,7 @@
 - Supersedes: the native mandatory-capability decisions in ADR-0089 and ADR-0116
 - Refines: ADR-0090, ADR-0096, ADR-0097, ADR-0101, ADR-0102, ADR-0113, ADR-0120, ADR-0128, ADR-0161, ADR-0163, ADR-0166, ADR-0172
 - Depends on: ADR-0186, ADR-0187, ADR-0188
-- Refined by: ADR-0194, ADR-0202
+- Refined by: ADR-0194, ADR-0202, ADR-0204
 
 ## Context
 
@@ -38,8 +38,7 @@ The current behavior moves into two publishable official packages:
   restriction composition, and Access denial semantics.
 
 Both packages use only public Core, `@ultimabase/plugin-kit`, and Typegen
-contracts. Access additionally uses its dependency-light protocol package.
-Their former native syntax
+contracts. Their former native syntax
 remains available only when the matching plugin is configured and the
 application's generated contract includes it.
 

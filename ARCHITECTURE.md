@@ -66,17 +66,16 @@ server-hono-plugin ────────→ core
 rest-plugin ───────────────→ core
 graphql-plugin ────────────→ core
 graphql-yoga-plugin ───────→ graphql-plugin, core
-access-contracts ──────────→ shared
 hooks-plugin ──────────────→ plugin-kit, core, shared
 official Hooks extensions ─→ hooks-plugin, plugin-kit, core, shared
-access-plugin ─────────────→ access-contracts, plugin-kit, core
-acl-permissions-plugin ────→ access-contracts, core
+access-plugin ─────────────→ plugin-kit, core, shared
+official Access providers ─→ access-plugin, plugin-kit, core, shared
 ```
 
-`access-contracts` is a dependency-light non-plugin package. It contains policy
-protocol tokens and types only, installs no behavior, and is not imported by
-Core. Official Hooks contracts live in `hooks-plugin`; importing that package
-does not install it, and independent alternatives own their protocols.
+Official Hooks and Access contracts live in their respective plugin packages.
+Importing either package does not install it. Official-compatible extensions
+and providers import those public contracts, while independent alternatives own
+their protocols and use the generic kernel directly.
 
 `@ultimabase/plugin-kit` is the public authoring toolbox. It binds stable package
 manifest facts, parses strict immutable plugin options, builds common additive
@@ -486,12 +485,13 @@ own policy; Core Runtime has no permission-specific bypass branch. A community
 Access engine may expose different syntax while using the same protected
 constraint contracts.
 
-The official and alternative policy engines share protocol identity from
-`@ultimabase/access-contracts`. Official-compatible Hook extensions import the
-public contracts from `@ultimabase/hooks-plugin`; independent behavior engines
-use the generic kernel directly. A public transport without a compatible policy engine remains supported
-but emits `UNPROTECTED_PUBLIC_TRANSPORT` unless its configuration explicitly
-acknowledges unprotected exposure.
+Official-compatible Access providers import public contracts from
+`@ultimabase/access-plugin`; independent policy engines use the generic kernel
+directly and own their protocol identity. Official-compatible Hook extensions
+follow the same model with `@ultimabase/hooks-plugin`. A public transport without
+a compatible policy engine remains supported but emits
+`UNPROTECTED_PUBLIC_TRANSPORT` unless its configuration explicitly acknowledges
+unprotected exposure.
 
 ## Database and migrations
 

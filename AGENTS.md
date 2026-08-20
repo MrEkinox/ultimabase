@@ -51,11 +51,10 @@ Dependencies point toward foundations. In the diagram, `A -> B` means that A may
 ```text
 core -> shared
 plugin-kit -> core/shared
-access-contracts -> shared
 hooks-plugin -> plugin-kit/core/shared
 official Hooks extensions -> hooks-plugin/plugin-kit/core/shared
-access-plugin -> access-contracts/plugin-kit/core
-ACL providers -> access-contracts/core
+access-plugin -> plugin-kit/core/shared
+official Access providers -> access-plugin/plugin-kit/core/shared
 other official plugins -> plugin-kit/core/shared
 ```
 
@@ -63,15 +62,14 @@ Schema, Query, application orchestration, protected constraints, persistence
 plans, and Runtime are internal Core domains rather than separate packages.
 Their source folders preserve the same logical direction without creating
 published-package cycles. `plugin-kit` is a public convenience layer for plugin
-authors; Core must never import it. `access-contracts` is a behaviorless protocol
-package used by implementations and providers; Core must never import it, and
-importing it must install no Runtime stage. Official Hooks contracts live in
-`hooks-plugin`; independent behavior engines own their contracts.
+authors; Core must never import it. Official Hooks and Access contracts live in
+their respective plugin packages; importing either package installs no
+behavior. Independent behavior and policy engines own their contracts.
 
 Key prohibitions:
 
 - `core` must not import a concrete plugin or infrastructure library.
-- `core` must not import `plugin-kit`, `hooks-plugin`, or `access-contracts`;
+- `core` must not import `plugin-kit`, `hooks-plugin`, or `access-plugin`;
   those packages depend toward foundations.
 - Core's Runtime domain must not import Drizzle, PostgreSQL, Hono, Yoga, or GraphQL.
 - transport packages must not issue SQL or bypass the runtime.

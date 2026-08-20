@@ -7,9 +7,10 @@ systems from Core into official `@ultimabase/hooks-plugin` and
 `@ultimabase/access-plugin` packages. Applications must run with neither engine,
 and minimal alternative community-style engines must use the same public
 kernel. Official Hooks contracts live in the single Hooks plugin package;
-independent alternatives own their vocabulary. Access providers share the
-contract-only `@ultimabase/access-contracts` protocol. Core master authority
-remains unchanged.
+independent alternatives own their vocabulary. Official Access contracts and
+provider protocols likewise live in the single Access plugin package, while
+independent policy engines use the generic kernel. Core master authority remains
+unchanged.
 
 ## Execution order
 
