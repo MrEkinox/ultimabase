@@ -129,6 +129,20 @@ describe.each(packageFixtures)('$name archive', ({ directory, name }) => {
 })
 
 describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () => {
+	it('keeps the packed Core archive independent from optional Hooks', async () => {
+		const coreDirectory = path.join(packagesDirectory, 'core')
+		const packedSurfaces = await Promise.all([
+			readFile(path.join(coreDirectory, 'package.json'), 'utf8'),
+			readFile(path.join(coreDirectory, 'dist', 'index.d.ts'), 'utf8'),
+			readFile(path.join(coreDirectory, 'dist', 'index.js'), 'utf8'),
+			readFile(path.join(coreDirectory, 'dist', 'index.js.map'), 'utf8'),
+		])
+
+		for (const surface of packedSurfaces) {
+			expect(surface).not.toContain('@ultimabase/hooks-plugin')
+		}
+	})
+
 	it('keeps Query-expression traversal implementation private', async () => {
 		const declarations = await readFile(
 			path.join(packagesDirectory, 'core', 'dist', 'index.d.ts'),
