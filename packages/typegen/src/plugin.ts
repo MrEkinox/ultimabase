@@ -54,7 +54,7 @@ export type TypegenPlugin = FrameworkPlugin<
 	'0.0.0',
 	'^0.0.0',
 	undefined,
-	undefined,
+	readonly ['environment:filesystem'],
 	Readonly<{ readonly provides: readonly [typeof typegenEmitterProvider] }>
 >
 
@@ -95,6 +95,7 @@ const createTypegenPlugin = (
 		version: '0.0.0',
 		core: '^0.0.0',
 		pluginId: typegenPluginName,
+		environment: ['environment:filesystem'],
 		capabilities: {
 			provides: [typegenEmitterProvider],
 		},

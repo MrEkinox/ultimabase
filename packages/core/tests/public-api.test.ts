@@ -170,6 +170,7 @@ describe('@ultimabase/core public entry point', () => {
 			'persistencePlanRewriter',
 			'persistencePlanRewriterCapability',
 			'planAdapterMigrations',
+			'pluginEnvironmentClaimMetadata',
 			'pluginEnvironmentClaims',
 			'pluginPrivilegeMetadata',
 			'pointerField',

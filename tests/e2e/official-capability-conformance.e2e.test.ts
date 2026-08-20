@@ -25,6 +25,7 @@ describe('official optional capability conformance', () => {
 				}),
 			expected: {
 				core: '^0.0.0',
+				environment: [],
 				pluginId: '@ultimabase/hooks-plugin',
 				privileges: ['schema:declare', 'runtime:intercept'],
 				version: '0.0.0',
@@ -53,6 +54,7 @@ describe('official optional capability conformance', () => {
 				}),
 			expected: {
 				core: '^0.0.0',
+				environment: [],
 				pluginId: '@ultimabase/access-plugin',
 				privileges: ['schema:declare', 'runtime:constrain'],
 				version: '0.0.0',

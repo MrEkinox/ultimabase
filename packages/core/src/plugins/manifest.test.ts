@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { definePlugin, pluginPrivilegeMetadata } from '../index.js'
+import {
+	definePlugin,
+	pluginEnvironmentClaimMetadata,
+	pluginPrivilegeMetadata,
+} from '../index.js'
 
 describe('plugin manifests', () => {
 	it('publishes the complete privilege vocabulary with facade ownership and severity', () => {
@@ -26,10 +30,6 @@ describe('plugin manifests', () => {
 			'typegen:reference',
 			'typegen:contribute',
 			'typegen:emit',
-			'typegen:replace',
-			'filesystem:read',
-			'filesystem:write',
-			'network:access',
 			'authority:elevate',
 		])
 		expect(
@@ -40,7 +40,6 @@ describe('plugin manifests', () => {
 			'schema:replace',
 			'runtime:replace',
 			'adapter:raw',
-			'typegen:replace',
 			'authority:elevate',
 		])
 		for (const metadata of Object.values(pluginPrivilegeMetadata)) {
@@ -49,6 +48,31 @@ describe('plugin manifests', () => {
 			expect(Object.isFrozen(metadata)).toBe(true)
 		}
 		expect(Object.isFrozen(pluginPrivilegeMetadata)).toBe(true)
+	})
+
+	it('publishes review metadata for every informational environment claim', () => {
+		expect(pluginEnvironmentClaimMetadata).toStrictEqual({
+			'environment:filesystem': {
+				reason: 'Declares direct host filesystem behavior.',
+				severity: 'sensitive',
+			},
+			'environment:native-code': {
+				reason: 'Declares direct native-code behavior.',
+				severity: 'critical',
+			},
+			'environment:network': {
+				reason: 'Declares direct host network behavior.',
+				severity: 'sensitive',
+			},
+			'environment:process': {
+				reason: 'Declares direct host process behavior.',
+				severity: 'sensitive',
+			},
+		})
+		for (const metadata of Object.values(pluginEnvironmentClaimMetadata)) {
+			expect(Object.isFrozen(metadata)).toBe(true)
+		}
+		expect(Object.isFrozen(pluginEnvironmentClaimMetadata)).toBe(true)
 	})
 
 	it('keeps nested manifests and privilege requests owner-scoped', () => {

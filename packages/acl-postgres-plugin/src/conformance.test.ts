@@ -44,7 +44,9 @@ it('conforms with its public ACL and PostgreSQL dependencies', async () => {
 				}),
 			expected: {
 				core: '^0.0.0',
+				environment: [],
 				pluginId: 'ultimabase.acl-postgres',
+				privileges: ['adapter:consume'],
 				version: '0.0.0',
 			},
 		}),

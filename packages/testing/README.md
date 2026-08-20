@@ -52,6 +52,10 @@ opens PostgreSQL for a logical-only fixture. It silences the normal startup
 logger inside its own applications while still exercising the public policy
 report and denial behavior.
 
+Official plugins list `expected.environment` even when it is `[]`. This makes a
+deliberate absence of direct filesystem, network, process, and native-code
+behavior as testable as a declared claim.
+
 ### Explicit instances and dependencies
 
 Support plugins are ordinary public definitions and precede the subject in the

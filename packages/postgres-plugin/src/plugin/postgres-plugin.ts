@@ -135,7 +135,7 @@ export type PostgresPlugin = FrameworkPlugin<
 			readonly reason: string
 		}>,
 	],
-	undefined,
+	readonly ['environment:network'],
 	PostgresPluginCapabilities
 >
 
@@ -320,8 +320,8 @@ export const postgresPlugin = (
 			}),
 		},
 	)
-
 	return postgresPluginModule.plugin({
+		environment: ['environment:network'],
 		privileges: [
 			{
 				name: 'adapter:consume',

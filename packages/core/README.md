@@ -1333,7 +1333,12 @@ The manifest snapshots a namespaced stable `pluginId`, an optional explicit
 range, exact requested privileges with reasons, and direct Node.js environment
 claims. Enforceable privileges and informational environment claims are
 separate contracts. The closed privilege vocabulary has documented Core facade
-ownership and severity; wildcard requests are invalid.
+ownership and severity; wildcard requests are invalid. Direct filesystem and
+network behavior is reported only through `environment:filesystem` and
+`environment:network`: Core has no enforceable host-I/O facade or corresponding
+privilege. Typegen contributions retain reference, structured contribution, and
+inert output privileges, but there is no Typegen replacement privilege without
+a replaceable Core-owned engine.
 
 Manifest literals and setup exports retain their exact types for plugin lookup.
 Setup, declaration, and lifecycle callbacks remain private to Core and do not
@@ -1357,8 +1362,8 @@ const consumer = definePlugin({
 	capabilities: { optional: [auditRequirement] },
 	privileges: [
 		{
-			name: 'network:access',
-			reason: 'Forwards audit records when a sink is installed.',
+			name: 'event:publish',
+			reason: 'Publishes audit records when a sink is installed.',
 			when: auditRequirement,
 		},
 	],
@@ -1479,6 +1484,9 @@ JavaScript. Unknown privileges, claims, plugin IDs, and instance IDs are
 configuration errors. Denied active requests and claims produce one aggregate
 `PLUGIN_PRIVILEGE_DENIED` error, while a denied capability-conditioned request
 remains inspectable and harmless when its optional capability is absent.
+Every denial identifies the exact plugin and optional instance, reason, review
+severity, and whether policy blocked execution before static declaration or a
+later Core facade rejected the effect.
 
 The default logger emits one ordered report through `console.info`, or through
 `console.error` when active requests are denied. Set

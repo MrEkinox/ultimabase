@@ -32,6 +32,35 @@ afterEach(async () => {
 })
 
 describe('typegenPlugin', () => {
+	it('declares its direct filesystem behavior in the static manifest', () => {
+		const plugin = typegenPlugin()
+
+		expect(plugin.manifest.environment).toStrictEqual([
+			'environment:filesystem',
+		])
+		expect(plugin.manifest.privileges).toStrictEqual([])
+	})
+
+	it('can be denied before writing a generated artifact', async () => {
+		const directory = await createTemporaryDirectory()
+		const outputPath = path.join(directory, 'denied.generated.d.ts')
+
+		expect(
+			() =>
+				new FrameworkApplication({
+					pluginPrivileges: {
+						denyClaims: ['environment:filesystem'],
+						logger: false,
+					},
+					plugins: [typegenPlugin({ outputPath })],
+					schemas: [],
+				}),
+		).toThrow(expect.objectContaining({ code: 'PLUGIN_PRIVILEGE_DENIED' }))
+		await expect(readFile(outputPath, 'utf8')).rejects.toMatchObject({
+			code: 'ENOENT',
+		})
+	})
+
 	it('regenerates the complete declaration during application startup', async () => {
 		const directory = await createTemporaryDirectory()
 		const outputPath = path.join(

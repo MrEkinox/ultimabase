@@ -217,8 +217,9 @@ Plugins are trusted in-process Node.js code. Privileges govern UltimaBase-owned
 facades and make powers inspectable; separate environmental claims describe
 direct filesystem, network, process, or native-code behavior that Core cannot
 verify. Neither mechanism is an operating-system sandbox. Critical privileges
-include complete schema or Runtime replacement, raw adapter access, Typegen
-replacement, and authority elevation. Master credential verification and grant
+include complete schema or Runtime replacement, raw adapter access, and
+authority elevation. Core exposes no filesystem, network, or Typegen replacement
+privilege without a corresponding enforceable facade. Master credential verification and grant
 creation remain Core-owned and cannot be manufactured by transport input.
 
 Versioned capabilities replace public architectural string slots. A `single`

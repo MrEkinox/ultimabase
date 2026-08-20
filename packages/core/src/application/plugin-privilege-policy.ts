@@ -5,12 +5,10 @@ import {
 	isUnknownArray,
 } from '@ultimabase/shared'
 
-import { FrameworkError } from '../errors/framework-error.js'
 import type { PluginDefinition } from '../plugins/definition.js'
 import type { PluginGraph } from '../plugins/graph.js'
 import {
-	formatPluginIdentity,
-	isSamePluginIdentity,
+	pluginEnvironmentClaimMetadata,
 	pluginEnvironmentClaims,
 	pluginPrivilegeMetadata,
 	type PluginEnvironmentClaim,
@@ -85,6 +83,7 @@ export interface PluginPrivilegePolicy<
 
 /** Reports one requested privilege without retaining its capability condition token. */
 export interface PluginPrivilegeRequestReport {
+	readonly blockedPhase?: 'before-static-declaration'
 	readonly name: PluginPrivilege
 	readonly reason: string
 	readonly severity: PluginPrivilegeSeverity
@@ -94,7 +93,10 @@ export interface PluginPrivilegeRequestReport {
 
 /** Reports one informational direct-environment claim and its policy result. */
 export interface PluginEnvironmentClaimReport {
+	readonly blockedPhase?: 'before-static-declaration'
 	readonly name: PluginEnvironmentClaim
+	readonly reason: string
+	readonly severity: PluginPrivilegeSeverity
 	readonly policyResult: 'allowed' | 'denied'
 }
 
@@ -363,6 +365,9 @@ const createPluginReport = (
 			if (active && denied) allowed = false
 
 			return immutableRecord({
+				...(active && denied
+					? { blockedPhase: 'before-static-declaration' as const }
+					: {}),
 				name: request.name,
 				reason: request.reason,
 				severity: pluginPrivilegeMetadata[request.name].severity,
@@ -371,6 +376,7 @@ const createPluginReport = (
 			})
 		})
 		const environmentReports = manifest.environment.map((name) => {
+			const metadata = pluginEnvironmentClaimMetadata[name]
 			const denied = isDenied(
 				name,
 				policy.denyClaims,
@@ -381,7 +387,12 @@ const createPluginReport = (
 			if (denied) allowed = false
 
 			return immutableRecord({
+				...(denied
+					? { blockedPhase: 'before-static-declaration' as const }
+					: {}),
 				name,
+				reason: metadata.reason,
+				severity: metadata.severity,
 				policyResult: denied ? ('denied' as const) : ('allowed' as const),
 			})
 		})
@@ -417,63 +428,3 @@ export const evaluatePluginPrivilegePolicy = <
 		logger: normalized.logger,
 	})
 }
-
-/** Reports policy once while isolating synchronous and asynchronous logger failures. */
-export const emitPluginPrivilegeReport = (
-	logger: PluginPrivilegeLogger | false,
-	report: PluginPrivilegeReport,
-): void => {
-	if (logger === false) return
-
-	try {
-		const result = report.allowed ? logger.info(report) : logger.error(report)
-		void Promise.resolve(result).catch(() => undefined)
-	} catch {
-		// Diagnostics must never replace the policy result they describe.
-	}
-}
-
-/** Throws one aggregate denial without retaining plugin options or capability values. */
-export const assertPluginPrivilegesAllowed = (
-	report: PluginPrivilegeReport,
-): void => {
-	if (report.allowed) return
-
-	const denials = report.plugins.flatMap((plugin) => [
-		...plugin.privileges
-			.filter(
-				(privilege) => privilege.active && privilege.policyResult === 'denied',
-			)
-			.map((privilege) =>
-				immutableRecord({
-					kind: 'privilege' as const,
-					plugin: formatPluginIdentity(plugin.identity),
-					name: privilege.name,
-				}),
-			),
-		...plugin.environment
-			.filter((claim) => claim.policyResult === 'denied')
-			.map((claim) =>
-				immutableRecord({
-					kind: 'environment-claim' as const,
-					plugin: formatPluginIdentity(plugin.identity),
-					name: claim.name,
-				}),
-			),
-	])
-
-	throw new FrameworkError(
-		'PLUGIN_PRIVILEGE_DENIED',
-		`Plugin privilege policy denied ${String(denials.length)} active request${denials.length === 1 ? '' : 's'}.`,
-		{ internalDetails: { denials: immutableArray(denials) } },
-	)
-}
-
-/** Finds one plugin report by structured owner identity. */
-export const findPluginPrivilegeReport = (
-	report: PluginPrivilegeReport,
-	identity: PluginIdentity,
-): PluginPrivilegePluginReport | undefined =>
-	report.plugins.find((plugin) =>
-		isSamePluginIdentity(plugin.identity, identity),
-	)

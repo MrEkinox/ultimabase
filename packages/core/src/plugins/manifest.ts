@@ -50,10 +50,8 @@ export type PluginPrivilegeFacade =
 	| 'authority'
 	| 'capability'
 	| 'event'
-	| 'filesystem'
 	| 'migration'
 	| 'model'
-	| 'network'
 	| 'operation'
 	| 'persistence'
 	| 'query'
@@ -88,11 +86,8 @@ export type PluginPrivilege =
 	| 'capability:decorate'
 	| 'capability:replace'
 	| 'event:publish'
-	| 'filesystem:read'
-	| 'filesystem:write'
 	| 'migration:contribute'
 	| 'model:extend'
-	| 'network:access'
 	| 'operation:declare'
 	| 'persistence:rewrite'
 	| 'query:extend'
@@ -107,7 +102,6 @@ export type PluginPrivilege =
 	| 'typegen:contribute'
 	| 'typegen:emit'
 	| 'typegen:reference'
-	| 'typegen:replace'
 
 /**
  * Documents the severity and Core-owned facade for every concrete privilege.
@@ -137,10 +131,6 @@ export const pluginPrivilegeMetadata: Readonly<
 	'typegen:reference': privilegeMetadata('typegen', 'standard'),
 	'typegen:contribute': privilegeMetadata('typegen', 'standard'),
 	'typegen:emit': privilegeMetadata('typegen', 'sensitive'),
-	'typegen:replace': privilegeMetadata('typegen', 'critical'),
-	'filesystem:read': privilegeMetadata('filesystem', 'sensitive'),
-	'filesystem:write': privilegeMetadata('filesystem', 'sensitive'),
-	'network:access': privilegeMetadata('network', 'sensitive'),
 	'authority:elevate': privilegeMetadata('authority', 'critical'),
 })
 
@@ -150,6 +140,39 @@ export type PluginEnvironmentClaim =
 	| 'environment:native-code'
 	| 'environment:network'
 	| 'environment:process'
+
+/** Describes why one direct-environment claim is reported and its review severity. */
+export interface PluginEnvironmentClaimMetadata {
+	readonly reason: string
+	readonly severity: PluginPrivilegeSeverity
+}
+
+const environmentClaimMetadata = (
+	reason: string,
+	severity: PluginPrivilegeSeverity,
+): PluginEnvironmentClaimMetadata => immutableRecord({ reason, severity })
+
+/** Documents every informational claim without presenting it as enforceable. */
+export const pluginEnvironmentClaimMetadata: Readonly<
+	Record<PluginEnvironmentClaim, PluginEnvironmentClaimMetadata>
+> = immutableRecord({
+	'environment:filesystem': environmentClaimMetadata(
+		'Declares direct host filesystem behavior.',
+		'sensitive',
+	),
+	'environment:native-code': environmentClaimMetadata(
+		'Declares direct native-code behavior.',
+		'critical',
+	),
+	'environment:network': environmentClaimMetadata(
+		'Declares direct host network behavior.',
+		'sensitive',
+	),
+	'environment:process': environmentClaimMetadata(
+		'Declares direct host process behavior.',
+		'sensitive',
+	),
+})
 
 /** Requests one exact Core-owned power for a documented purpose. */
 export interface PluginPrivilegeRequest<
@@ -204,16 +227,11 @@ export interface PluginManifestOptions {
 
 const pluginIdPattern =
 	/^(?:@[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._-]*|[a-z0-9][a-z0-9-]*(?:\.[a-z0-9][a-z0-9-]*)+)$/
-const declaredPluginEnvironmentClaims = [
-	'environment:filesystem',
-	'environment:native-code',
-	'environment:network',
-	'environment:process',
-] as const satisfies readonly PluginEnvironmentClaim[]
-
 /** Lists every informational direct-environment claim accepted in manifests. */
 export const pluginEnvironmentClaims: readonly PluginEnvironmentClaim[] =
-	immutableArray(declaredPluginEnvironmentClaims)
+	immutableArray(
+		Object.keys(pluginEnvironmentClaimMetadata) as PluginEnvironmentClaim[],
+	)
 
 const environmentClaims = new Set<PluginEnvironmentClaim>(
 	pluginEnvironmentClaims,

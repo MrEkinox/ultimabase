@@ -16,7 +16,9 @@ it('conforms to the public plugin and Typegen contracts', async () => {
 			}),
 		expected: {
 			core: '^0.0.0',
+			environment: [],
 			pluginId: '@ultimabase/pg-vector-plugin',
+			privileges: ['schema:declare'],
 			version: '0.0.0',
 		},
 	})

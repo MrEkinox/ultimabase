@@ -19,7 +19,7 @@ new concrete product capability to Core.
 
 1. [x] [1601 — Decide Master context provenance and plugin trust](1601-master-context-provenance-adr.md)
 2. [x] [1602 — Enforce application-owned Master provenance](1602-master-context-provenance-enforcement.md)
-3. [ ] [1603 — Align enforceable privileges and environmental claims](1603-privilege-and-environment-truth.md)
+3. [x] [1603 — Align enforceable privileges and environmental claims](1603-privilege-and-environment-truth.md)
 
 ### Public contracts and verification
 

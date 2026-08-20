@@ -9,6 +9,12 @@ plugins rather than PostgreSQL Runtime stages.
 
 Without a migration plugin, `schemaPolicy` is `override`, `fail`, or `ignore`. No Drizzle type or builder is exported publicly.
 
+The plugin declares `environment:network` because it creates or drives
+PostgreSQL pools and connections directly. Applications may deny that claim
+before plugin declaration or connection work. It is deliberately not a network
+privilege: Core exposes no network facade and does not claim to sandbox the
+in-process driver.
+
 ## Connection lifecycle
 
 The current implementation accepts either a connection URL or an existing

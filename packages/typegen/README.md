@@ -8,6 +8,13 @@ inert plugin outputs, and replaces each file atomically. It never connects
 infrastructure, reads database credentials, serializes callbacks, or emits a
 Runtime client.
 
+`typegenPlugin()` declares `environment:filesystem` because it directly loads
+application sources and atomically writes generated artifacts. This is an
+inspectable and denyable startup claim, not a Core filesystem privilege or an
+operating-system sandbox. Typegen has no replacement privilege; its public
+plugin powers are the owner-scoped reference, structured contribution, and
+inert output boundaries supplied by Core.
+
 ## Automatic startup generation
 
 Configure the development tooling once in the application plugin graph:

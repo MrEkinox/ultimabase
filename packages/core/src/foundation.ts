@@ -254,11 +254,13 @@ export { PluginGraph } from './plugins/graph.js'
 export {
 	formatPluginIdentity,
 	isSamePluginIdentity,
+	pluginEnvironmentClaimMetadata,
 	pluginEnvironmentClaims,
 	pluginPrivilegeMetadata,
 } from './plugins/manifest.js'
 export type {
 	PluginEnvironmentClaim,
+	PluginEnvironmentClaimMetadata,
 	PluginDependency,
 	PluginIdentity,
 	PluginManifest,

@@ -241,7 +241,7 @@ describe('CapabilityInventory', () => {
 			capabilities: { optional: [optionalAudit] },
 			privileges: [
 				{
-					name: 'network:access',
+					name: 'event:publish',
 					reason: 'Forwards records when the audit sink is installed.',
 					when: optionalAudit,
 				},
@@ -365,7 +365,7 @@ describe('CapabilityInventory', () => {
 				capabilities: { optional: [declared] },
 				privileges: [
 					{
-						name: 'network:access',
+						name: 'event:publish',
 						reason: 'Invalid detached condition.',
 						when: other,
 					},

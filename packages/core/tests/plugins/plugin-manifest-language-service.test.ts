@@ -72,14 +72,31 @@ const readDocumentation = (name: string): string => {
 describe('plugin manifest source language service', () => {
 	it('offers the closed literals and preserves public manifest hovers', () => {
 		expect(service.getSemanticDiagnostics(fixtureFile)).toStrictEqual([])
-		expect(readStringCompletions('privilege')).toEqual(
-			expect.arrayContaining([
-				'authority:elevate',
-				'runtime:observe',
-				'schema:declare',
-				'typegen:replace',
-			]),
-		)
+		const privilegeCompletions = readStringCompletions('privilege')
+		expect(privilegeCompletions).toStrictEqual([
+			'adapter:consume',
+			'adapter:raw',
+			'authority:elevate',
+			'capability:decorate',
+			'capability:replace',
+			'event:publish',
+			'migration:contribute',
+			'model:extend',
+			'operation:declare',
+			'persistence:rewrite',
+			'query:extend',
+			'runtime:constrain',
+			'runtime:intercept',
+			'runtime:observe',
+			'runtime:replace',
+			'schema:declare',
+			'schema:replace',
+			'schema:transform',
+			'transport:expose',
+			'typegen:contribute',
+			'typegen:emit',
+			'typegen:reference',
+		])
 		expect(readStringCompletions('environment')).toStrictEqual([
 			'environment:filesystem',
 			'environment:native-code',

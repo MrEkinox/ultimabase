@@ -14,7 +14,9 @@ it('conforms to the public plugin kernel contracts', async () => {
 				createPluginConformanceFixture({ subject: rolesPlugin() }),
 			expected: {
 				core: '^0.0.0',
+				environment: [],
 				pluginId: 'ultimabase.roles',
+				privileges: ['authority:elevate', 'runtime:intercept', 'event:publish'],
 				version: '0.0.0',
 			},
 		}),

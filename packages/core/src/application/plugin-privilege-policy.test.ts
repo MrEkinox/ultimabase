@@ -7,6 +7,10 @@ import {
 	provideCapability,
 } from '../plugins/capabilities.js'
 import { definePlugin } from '../plugins/definition.js'
+import {
+	pluginPrivilegeMetadata,
+	type PluginPrivilege,
+} from '../plugins/manifest.js'
 import { UltimaBase } from '../runtime/application/ultima-base.js'
 import { FrameworkApplication } from './framework-application.js'
 import type {
@@ -45,6 +49,33 @@ const captureFrameworkError = (
 }
 
 describe('plugin privilege policy', () => {
+	it.each(Object.keys(pluginPrivilegeMetadata) as PluginPrivilege[])(
+		'blocks retained privilege %s before plugin effects',
+		(privilege) => {
+			const declaration = vi.fn()
+			const setup = vi.fn()
+			const plugin = definePlugin({
+				core: '^0.0.0',
+				pluginId: `fixture.denied-${privilege.replace(':', '-')}`,
+				privileges: [{ name: privilege, reason: 'Boundary denial fixture.' }],
+				version: '1.0.0',
+				declare: declaration,
+				setup,
+			})
+
+			expect(
+				() =>
+					new FrameworkApplication({
+						pluginPrivileges: { deny: [privilege], logger: false },
+						plugins: [plugin],
+						schemas: [],
+					}),
+			).toThrow(expect.objectContaining({ code: 'PLUGIN_PRIVILEGE_DENIED' }))
+			expect(declaration).not.toHaveBeenCalled()
+			expect(setup).not.toHaveBeenCalled()
+		},
+	)
+
 	it('forwards the same policy and report through UltimaBase', () => {
 		const plugin = definePlugin({
 			pluginId: 'fixture.ultimabase-policy',
@@ -124,6 +155,8 @@ describe('plugin privilege policy', () => {
 					environment: [
 						{
 							name: 'environment:process',
+							reason: 'Declares direct host process behavior.',
+							severity: 'sensitive',
 							policyResult: 'allowed',
 						},
 					],
@@ -158,7 +191,13 @@ describe('plugin privilege policy', () => {
 	it('accumulates global, plugin, instance, and claim denials into one error', () => {
 		let declarationCalls = 0
 		let setupCalls = 0
-		const logger = { info: vi.fn(), error: vi.fn() }
+		const deniedReports: PluginPrivilegeReport[] = []
+		const logger = {
+			info: vi.fn(),
+			error: vi.fn((report: PluginPrivilegeReport): void => {
+				deniedReports.push(report)
+			}),
+		}
 		const primary = definePlugin({
 			pluginId: 'fixture.policy-database',
 			instanceId: 'primary',
@@ -210,28 +249,63 @@ describe('plugin privilege policy', () => {
 		expect(error.internalDetails).toStrictEqual({
 			denials: [
 				{
+					blockedPhase: 'before-static-declaration',
+					identity: {
+						instanceId: 'primary',
+						pluginId: 'fixture.policy-database',
+					},
 					kind: 'privilege',
 					plugin: 'fixture.policy-database (instance primary)',
 					name: 'runtime:observe',
+					reason: 'Global denial fixture.',
+					severity: 'standard',
 				},
 				{
+					blockedPhase: 'before-static-declaration',
+					identity: {
+						instanceId: 'primary',
+						pluginId: 'fixture.policy-database',
+					},
 					kind: 'privilege',
 					plugin: 'fixture.policy-database (instance primary)',
 					name: 'adapter:raw',
+					reason: 'Instance denial fixture.',
+					severity: 'critical',
 				},
 				{
+					blockedPhase: 'before-static-declaration',
+					identity: {
+						instanceId: 'primary',
+						pluginId: 'fixture.policy-database',
+					},
 					kind: 'environment-claim',
 					plugin: 'fixture.policy-database (instance primary)',
 					name: 'environment:network',
+					reason: 'Declares direct host network behavior.',
+					severity: 'sensitive',
 				},
 				{
+					blockedPhase: 'before-static-declaration',
+					identity: {
+						instanceId: 'secondary',
+						pluginId: 'fixture.policy-database',
+					},
 					kind: 'privilege',
 					plugin: 'fixture.policy-database (instance secondary)',
 					name: 'runtime:observe',
+					reason: 'Second global denial fixture.',
+					severity: 'standard',
 				},
 			],
 		})
 		expect(logger.error).toHaveBeenCalledOnce()
+		expect(deniedReports[0]?.plugins[0]?.environment[0]).toStrictEqual({
+			blockedPhase: 'before-static-declaration',
+			name: 'environment:network',
+			policyResult: 'denied',
+			reason: 'Declares direct host network behavior.',
+			severity: 'sensitive',
+		})
 		expect(logger.info).not.toHaveBeenCalled()
 		expect(declarationCalls).toBe(0)
 		expect(setupCalls).toBe(0)
@@ -358,9 +432,16 @@ describe('plugin privilege policy', () => {
 		expect(error.internalDetails).toStrictEqual({
 			denials: [
 				{
+					blockedPhase: 'before-static-declaration',
+					identity: {
+						instanceId: 'editorial',
+						pluginId: 'fixture.nested-policy',
+					},
 					kind: 'privilege',
 					plugin: 'fixture.nested-policy (instance editorial)',
 					name: 'transport:expose',
+					reason: 'Nested instance fixture.',
+					severity: 'sensitive',
 				},
 			],
 		})

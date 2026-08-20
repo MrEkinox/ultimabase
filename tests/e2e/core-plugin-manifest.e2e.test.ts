@@ -16,14 +16,32 @@ const languageFixture = await createPackedCoreLanguageFixture(
 describe('packed @ultimabase/core plugin manifests', () => {
 	it('exports exact privilege completions and documented manifest types', () => {
 		expect(languageFixture.diagnostics()).toStrictEqual([])
-		expect(languageFixture.readStringCompletions('privilege')).toEqual(
-			expect.arrayContaining([
-				'authority:elevate',
-				'runtime:observe',
-				'schema:declare',
-				'typegen:replace',
-			]),
-		)
+		const privilegeCompletions =
+			languageFixture.readStringCompletions('privilege')
+		expect(privilegeCompletions).toStrictEqual([
+			'adapter:consume',
+			'adapter:raw',
+			'authority:elevate',
+			'capability:decorate',
+			'capability:replace',
+			'event:publish',
+			'migration:contribute',
+			'model:extend',
+			'operation:declare',
+			'persistence:rewrite',
+			'query:extend',
+			'runtime:constrain',
+			'runtime:intercept',
+			'runtime:observe',
+			'runtime:replace',
+			'schema:declare',
+			'schema:replace',
+			'schema:transform',
+			'transport:expose',
+			'typegen:contribute',
+			'typegen:emit',
+			'typegen:reference',
+		])
 		expect(languageFixture.readStringCompletions('environment')).toStrictEqual([
 			'environment:filesystem',
 			'environment:native-code',

@@ -486,8 +486,12 @@ describe('createFrameworkEngine', () => {
 		).rejects.toMatchObject({
 			code: 'PLUGIN_PRIVILEGE_DENIED',
 			internalDetails: {
+				blockedPhase: 'core-facade',
+				identity: { pluginId: 'fixture.runtime-elevation-denied' },
 				plugin: 'fixture.runtime-elevation-denied',
 				privilege: 'authority:elevate',
+				reason: 'Plugin manifest does not request this privilege.',
+				severity: 'critical',
 			},
 		})
 		expect(deniedAudits).toStrictEqual([])

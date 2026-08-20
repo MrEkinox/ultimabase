@@ -118,6 +118,12 @@ const plugin = definePlugin({
 })
 
 const privilege: PluginPrivilege = /* completion:privilege */ 'runtime:observe'
+// @ts-expect-error -- Direct environment behavior is an informational claim.
+const removedFilesystemPrivilege: PluginPrivilege = 'filesystem:read'
+// @ts-expect-error -- Typegen has no replaceable Core-owned facade.
+const removedTypegenReplacementPrivilege: PluginPrivilege = 'typegen:replace'
+void removedFilesystemPrivilege
+void removedTypegenReplacementPrivilege
 const environment: PluginEnvironmentClaim =
 	/* completion:environment */ 'environment:network'
 type InspectedPrivilege = /* hover:privilege */ PluginPrivilege

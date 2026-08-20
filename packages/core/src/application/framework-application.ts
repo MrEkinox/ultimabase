@@ -45,12 +45,11 @@ import type {
 	ConfiguredPluginIdentityExports,
 } from './configured-plugins.js'
 import {
-	assertPluginPrivilegesAllowed,
-	emitPluginPrivilegeReport,
 	evaluatePluginPrivilegePolicy,
 	type PluginPrivilegePolicy,
 	type PluginPrivilegeReport,
 } from './plugin-privilege-policy.js'
+import * as diagnostics from './plugin-privilege-diagnostics.js'
 import type {
 	CompiledApplicationSchemaSurface,
 	CompiledPluginOperation,
@@ -131,8 +130,8 @@ export class FrameworkApplication<
 			options.pluginPrivileges,
 		)
 		this.pluginPrivilegeReport = privilegePolicy.report
-		emitPluginPrivilegeReport(privilegePolicy.logger, privilegePolicy.report)
-		assertPluginPrivilegesAllowed(privilegePolicy.report)
+		diagnostics.emitPolicyReport(privilegePolicy.logger, privilegePolicy.report)
+		diagnostics.assertPolicyAllowed(privilegePolicy.report)
 		composeDeclarationCapabilities(graph.capabilities)
 		this.#schemaCompiler = selectSchemaCompiler(graph.capabilities)
 		this.schemaCompilerProvenance = this.#schemaCompiler.provenance
@@ -165,11 +164,11 @@ export class FrameworkApplication<
 					'PLUGIN_PRIVILEGE_DENIED',
 					`Plugin "${formatPluginIdentity(owner)}" requires active privilege "${privilege}" for this Core facade.`,
 					{
-						internalDetails: {
-							kind: 'inactive-plugin-privilege',
-							plugin: formatPluginIdentity(owner),
+						internalDetails: diagnostics.inactivePrivilegeDetails(
+							owner,
 							privilege,
-						},
+							request?.reason,
+						),
 					},
 				)
 			}
