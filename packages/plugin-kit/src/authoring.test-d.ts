@@ -3,6 +3,7 @@ import {
 	defineOperationValue,
 	type FrameworkPlugin,
 	type JsonObject,
+	type PluginExports,
 	type TypegenReference,
 } from '@ultimabase/core'
 import { expectTypeOf } from 'vitest'
@@ -16,6 +17,7 @@ import {
 	providePluginOperation,
 	schemaPatch,
 	type PluginModule,
+	type PluginModuleInstance,
 	type PluginOptionsParser,
 	type SchemaPatchBuilder,
 	type PluginEventObserver,
@@ -56,6 +58,49 @@ expectTypeOf(plugin).toExtend<
 			},
 		]
 	>
+>()
+
+type WorkflowPluginDefinition = Readonly<{
+	readonly capabilities: Readonly<{
+		readonly provides: readonly []
+	}>
+	readonly instanceId: 'editorial'
+	readonly peers: readonly [
+		Readonly<{
+			readonly pluginId: 'community.protocol'
+			readonly version: '^1.0.0'
+		}>,
+	]
+	readonly privileges: readonly [
+		Readonly<{
+			readonly name: 'runtime:observe'
+			readonly reason: 'Records workflow timing.'
+		}>,
+	]
+	readonly setup: () => Readonly<{ readonly ready: true }>
+}>
+type DerivedWorkflowPlugin = PluginModuleInstance<
+	typeof module,
+	WorkflowPluginDefinition
+>
+const derivedWorkflowPlugin: DerivedWorkflowPlugin = module.plugin({
+	capabilities: { provides: [] },
+	instanceId: 'editorial',
+	peers: [{ pluginId: 'community.protocol', version: '^1.0.0' }],
+	privileges: [{ name: 'runtime:observe', reason: 'Records workflow timing.' }],
+	setup: () => ({ ready: true as const }),
+})
+expectTypeOf(derivedWorkflowPlugin.manifest.identity.instanceId).toEqualTypeOf<
+	'editorial' | undefined
+>()
+expectTypeOf(
+	derivedWorkflowPlugin.manifest.capabilities.provides,
+).toEqualTypeOf<readonly []>()
+expectTypeOf(derivedWorkflowPlugin.peers?.[0]?.pluginId).toEqualTypeOf<
+	'community.protocol' | undefined
+>()
+expectTypeOf<PluginExports<DerivedWorkflowPlugin>>().toEqualTypeOf<
+	Readonly<{ readonly ready: true }>
 >()
 
 const parseOptions = definePluginOptionsParser({

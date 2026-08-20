@@ -8,12 +8,15 @@ import {
 	type FieldOptionsWithoutNullable,
 	type FieldValidationOptions,
 	type FieldValidationPlan,
-	type FrameworkPlugin,
 	type PluginFieldDefinition,
 	type ScalarValidationPlan,
 	type ValidatedFieldOptions,
 } from '@ultimabase/core'
-import { definePluginModule } from '@ultimabase/plugin-kit'
+import {
+	definePluginModule,
+	type PluginModule,
+	type PluginModuleInstance,
+} from '@ultimabase/plugin-kit'
 
 /** Names the immutable logical value shared by generation and runtime. */
 export type VectorValue = readonly number[]
@@ -22,7 +25,11 @@ export type VectorValue = readonly number[]
  * Namespaces the logical kind so independent community packages cannot collide.
  */
 export const vectorFieldKind = 'pg-vector.vector' as const
-const pgVectorPluginModule = definePluginModule({
+const pgVectorPluginModule: PluginModule<
+	'@ultimabase/pg-vector-plugin',
+	'0.0.0',
+	'^0.0.0'
+> = definePluginModule({
 	core: '^0.0.0',
 	pluginId: '@ultimabase/pg-vector-plugin',
 	version: '0.0.0',
@@ -115,17 +122,6 @@ export interface PgVectorPluginExports {
 	) => readonly number[]
 }
 
-/** Names the exact configured plugin contract retained by application lookup. */
-export type PgVectorPlugin = FrameworkPlugin<
-	'@ultimabase/pg-vector-plugin',
-	Readonly<PgVectorPluginExports>,
-	undefined,
-	undefined,
-	undefined,
-	undefined,
-	undefined
->
-
 function assertValidDimensions(
 	dimensions: unknown,
 ): asserts dimensions is number {
@@ -213,15 +209,27 @@ const pgVectorPluginExports: Readonly<PgVectorPluginExports> = immutableRecord({
 		snapshotVector(value, 'value', plan.field.options.dimensions),
 })
 
+const pgVectorPluginPrivileges = [
+	{
+		name: 'schema:declare',
+		reason: 'Declares the vector FieldBuilder method.',
+	},
+] as const
+type PgVectorPluginDefinition = Readonly<{
+	readonly privileges: typeof pgVectorPluginPrivileges
+	readonly setup: () => Readonly<PgVectorPluginExports>
+}>
+
+/** Names the exact configured plugin contract retained by application lookup. */
+export type PgVectorPlugin = PluginModuleInstance<
+	typeof pgVectorPluginModule,
+	PgVectorPluginDefinition
+>
+
 /** Declares the vector builder method before returning its validation handler. */
 export const pgVectorPlugin = (): PgVectorPlugin =>
 	pgVectorPluginModule.plugin({
-		privileges: [
-			{
-				name: 'schema:declare',
-				reason: 'Declares the vector FieldBuilder method.',
-			},
-		],
+		privileges: pgVectorPluginPrivileges,
 		declare: ({ fields }) => {
 			fields.register(vectorFieldBuilderMethod)
 		},

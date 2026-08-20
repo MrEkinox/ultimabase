@@ -13,7 +13,6 @@ import {
 	type DatabaseOperationAst,
 	type ExecutableOperationAst,
 	type RelationMutationAction,
-	type FrameworkPlugin,
 	type RequestContext,
 	type RuntimeBehaviorStages,
 	type SchemaDefinition,
@@ -22,6 +21,8 @@ import {
 	createPluginEventDispatcher,
 	definePluginModule,
 	type PluginEventDispatcher,
+	type PluginModule,
+	type PluginModuleInstance,
 } from '@ultimabase/plugin-kit'
 import {
 	immutableArray,
@@ -50,17 +51,24 @@ import {
 	type RoleMembershipChangedEvent,
 } from './role-events.js'
 
-const rolesPluginModule = definePluginModule({
+const rolesPluginModule: PluginModule<
+	typeof rolesPluginName,
+	'0.0.0',
+	'^0.0.0'
+> = definePluginModule({
 	core: '^0.0.0',
 	pluginId: rolesPluginName,
 	version: '0.0.0',
 })
 
-const optionalReferenceCleanups = optionalCapability(
-	requestSubjectReferenceCleanupCapability,
+const optionalReferenceCleanups: CapabilityRequirement<
+	typeof requestSubjectReferenceCleanupCapability,
+	true,
 	'^1.0.0',
-	{ phase: 'setup' },
-)
+	'setup'
+> = optionalCapability(requestSubjectReferenceCleanupCapability, '^1.0.0', {
+	phase: 'setup',
+})
 const referenceCleanupsBySchemas = new WeakMap<
 	object,
 	readonly NamedRoleReferenceCleanup[]
@@ -86,7 +94,9 @@ const readRoleSchemas = (
 		.values()
 		.filter((schema) => getRoleSchemaDeclaration(schema) !== undefined)
 
-const roleResolverProvider = provideCapability(requestRoleResolverCapability, {
+const roleResolverProvider: CapabilityProviderDeclaration<
+	typeof requestRoleResolverCapability
+> = provideCapability(requestRoleResolverCapability, {
 	contributionId: 'stored-roles',
 	create: ({ schemas }) => ({
 		value: createStoredRoleResolver(readRoleSchemas(schemas)),
@@ -382,52 +392,44 @@ const createRoleRuntimeBehavior = (
 		},
 	})
 
-/** Represents the option-light official stored-role provider. */
-export type RolesPlugin = FrameworkPlugin<
-	typeof rolesPluginName,
-	RolesPluginExports,
-	undefined,
-	undefined,
-	undefined,
-	undefined,
-	undefined,
-	'0.0.0',
-	'^0.0.0',
-	readonly [
-		Readonly<{
-			readonly name: 'authority:elevate'
-			readonly reason: 'Resolves and maintains persisted role membership through audited internal Master queries.'
-		}>,
-		Readonly<{
-			readonly name: 'runtime:intercept'
-			readonly reason: 'Maintains role invariants through generic Runtime behavior.'
-		}>,
-		Readonly<{
-			readonly name: 'event:publish'
-			readonly reason: 'Publishes committed role membership and hierarchy changes.'
-		}>,
-	],
-	undefined,
-	Readonly<{
-		readonly provides: readonly [
-			CapabilityProviderDeclaration<typeof requestRoleResolverCapability>,
-			CapabilityProviderDeclaration<typeof runtimeBehaviorCapability>,
-		]
-		readonly optional: readonly [
-			CapabilityRequirement<
-				typeof requestSubjectReferenceCleanupCapability,
-				true,
-				'^1.0.0',
-				'setup'
-			>,
-			CapabilityRequirement<
-				typeof optionalRoleEvents.token,
-				true,
-				'^1.0.0',
-				'materialization'
-			>,
-		]
-	}>
+const rolesPluginPrivileges = [
+	{
+		name: 'authority:elevate',
+		reason:
+			'Resolves and maintains persisted role membership through audited internal Master queries.',
+	},
+	{
+		name: 'runtime:intercept',
+		reason: 'Maintains role invariants through generic Runtime behavior.',
+	},
+	{
+		name: 'event:publish',
+		reason: 'Publishes committed role membership and hierarchy changes.',
+	},
+] as const
+const rolesPluginCapabilities: Readonly<{
+	readonly optional: readonly [
+		typeof optionalReferenceCleanups,
+		typeof optionalRoleEvents,
+	]
+	readonly provides: readonly [
+		typeof roleResolverProvider,
+		typeof roleBehaviorProvider,
+	]
+}> = {
+	optional: [optionalReferenceCleanups, optionalRoleEvents],
+	provides: [roleResolverProvider, roleBehaviorProvider],
+}
+type RolesPluginDefinition = Readonly<{
+	readonly capabilities: typeof rolesPluginCapabilities
+	readonly privileges: typeof rolesPluginPrivileges
+	readonly setup: () => RolesPluginExports
+}>
+
+/** Represents the exact option-light official stored-role provider. */
+export type RolesPlugin = PluginModuleInstance<
+	typeof rolesPluginModule,
+	RolesPluginDefinition
 >
 
 /**
@@ -438,25 +440,8 @@ export type RolesPlugin = FrameworkPlugin<
  */
 export const rolesPlugin = (): RolesPlugin =>
 	rolesPluginModule.plugin({
-		privileges: [
-			{
-				name: 'authority:elevate',
-				reason:
-					'Resolves and maintains persisted role membership through audited internal Master queries.',
-			},
-			{
-				name: 'runtime:intercept',
-				reason: 'Maintains role invariants through generic Runtime behavior.',
-			},
-			{
-				name: 'event:publish',
-				reason: 'Publishes committed role membership and hierarchy changes.',
-			},
-		],
-		capabilities: {
-			optional: [optionalReferenceCleanups, optionalRoleEvents],
-			provides: [roleResolverProvider, roleBehaviorProvider],
-		},
+		privileges: rolesPluginPrivileges,
+		capabilities: rolesPluginCapabilities,
 		setup: ({ capabilities, schemas }) => {
 			referenceCleanupsBySchemas.set(
 				schemas,

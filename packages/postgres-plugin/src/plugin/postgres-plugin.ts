@@ -6,11 +6,12 @@ import {
 	requireCapability,
 	type CapabilityProviderDeclaration,
 	type CapabilityRequirement,
-	type FrameworkPlugin,
 } from '@ultimabase/core'
 import {
 	definePluginModule,
 	definePluginOptionsParser,
+	type PluginModule,
+	type PluginModuleInstance,
 } from '@ultimabase/plugin-kit'
 import { immutableRecord } from '@ultimabase/shared'
 import { Pool } from 'pg'
@@ -41,7 +42,11 @@ import {
 	type PostgresAdapterMetadata,
 } from '../adapter-capabilities.js'
 
-const postgresPluginModule = definePluginModule({
+const postgresPluginModule: PluginModule<
+	typeof postgresPluginName,
+	'0.0.0',
+	'^0.0.0'
+> = definePluginModule({
 	core: '^0.0.0',
 	pluginId: postgresPluginName,
 	version: '0.0.0',
@@ -74,71 +79,6 @@ export interface PostgresPluginExports {
 	readonly connection: PostgresConnectionService
 }
 
-type PostgresPluginCapabilities = Readonly<{
-	readonly provides: readonly [
-		CapabilityProviderDeclaration<typeof postgresConnectionCapability>,
-		CapabilityProviderDeclaration<typeof databaseAdapterCapability>,
-		CapabilityProviderDeclaration<
-			typeof postgresAdapterSupportProviders.valueStorage.token
-		>,
-		CapabilityProviderDeclaration<
-			typeof postgresAdapterSupportProviders.constraint.token
-		>,
-		CapabilityProviderDeclaration<
-			typeof postgresAdapterSupportProviders.persistencePlan.token
-		>,
-		CapabilityProviderDeclaration<
-			typeof postgresAdapterSupportProviders.physicalSchema.token
-		>,
-		CapabilityProviderDeclaration<
-			typeof postgresAdapterSupportProviders.migration.token
-		>,
-		CapabilityProviderDeclaration<typeof postgresRawAdapterCapability>,
-	]
-	readonly requires: readonly [
-		CapabilityRequirement<typeof postgresConnectionCapability, false, '^1.0.0'>,
-	]
-	readonly optional: readonly [
-		CapabilityRequirement<
-			typeof postgresSchemaPreparationCapability,
-			true,
-			'^1.0.0'
-		>,
-		CapabilityRequirement<
-			typeof postgresPhysicalSchemaContributionCapability,
-			true,
-			'^1.0.0',
-			'setup'
-		>,
-		CapabilityRequirement<
-			typeof postgresMigrationContributionCapability,
-			true,
-			'^1.0.0',
-			'setup'
-		>,
-	]
-}>
-
-export type PostgresPlugin = FrameworkPlugin<
-	typeof postgresPluginName,
-	Readonly<PostgresPluginExports>,
-	undefined,
-	undefined,
-	undefined,
-	undefined,
-	undefined,
-	'0.0.0',
-	'^0.0.0',
-	readonly [
-		Readonly<{
-			readonly name: 'adapter:consume'
-			readonly reason: string
-		}>,
-	],
-	readonly ['environment:network'],
-	PostgresPluginCapabilities
->
-
 const postgresSchemaPolicies = [
 	'fail',
 	'ignore',
@@ -155,20 +95,28 @@ const prepareSchemaByExports = new WeakMap<
 	Readonly<PostgresPluginExports>,
 	PrepareSchema
 >()
-const optionalSchemaPreparation = optionalCapability(
-	postgresSchemaPreparationCapability,
+const optionalSchemaPreparation: CapabilityRequirement<
+	typeof postgresSchemaPreparationCapability,
+	true,
 	'^1.0.0',
-)
-const optionalPhysicalSchemaContributions = optionalCapability(
-	postgresPhysicalSchemaContributionCapability,
+	'materialization'
+> = optionalCapability(postgresSchemaPreparationCapability, '^1.0.0')
+const optionalPhysicalSchemaContributions: CapabilityRequirement<
+	typeof postgresPhysicalSchemaContributionCapability,
+	true,
 	'^1.0.0',
-	{ phase: 'setup' },
-)
-const optionalMigrationContributions = optionalCapability(
-	postgresMigrationContributionCapability,
+	'setup'
+> = optionalCapability(postgresPhysicalSchemaContributionCapability, '^1.0.0', {
+	phase: 'setup',
+})
+const optionalMigrationContributions: CapabilityRequirement<
+	typeof postgresMigrationContributionCapability,
+	true,
 	'^1.0.0',
-	{ phase: 'setup' },
-)
+	'setup'
+> = optionalCapability(postgresMigrationContributionCapability, '^1.0.0', {
+	phase: 'setup',
+})
 
 const isObjectLike = (value: unknown): value is object =>
 	(typeof value === 'object' && value !== null) || typeof value === 'function'
@@ -252,6 +200,51 @@ const createConnectionSourceFactory = (
 	return () => ({ ownsPool: false, pool })
 }
 
+const connectionRequirement: CapabilityRequirement<
+	typeof postgresConnectionCapability,
+	false,
+	'^1.0.0',
+	'materialization'
+> = requireCapability(postgresConnectionCapability, '^1.0.0')
+const postgresPluginEnvironment = ['environment:network'] as const
+const postgresPluginPrivileges = [
+	{
+		name: 'adapter:consume',
+		reason:
+			'Compiles protected database constraints for the PostgreSQL adapter.',
+	},
+] as const
+type PostgresPluginCapabilities = Readonly<{
+	readonly optional: readonly [
+		typeof optionalSchemaPreparation,
+		typeof optionalPhysicalSchemaContributions,
+		typeof optionalMigrationContributions,
+	]
+	readonly provides: readonly [
+		CapabilityProviderDeclaration<typeof postgresConnectionCapability>,
+		CapabilityProviderDeclaration<typeof databaseAdapterCapability>,
+		typeof postgresAdapterSupportProviders.valueStorage,
+		typeof postgresAdapterSupportProviders.constraint,
+		typeof postgresAdapterSupportProviders.persistencePlan,
+		typeof postgresAdapterSupportProviders.physicalSchema,
+		typeof postgresAdapterSupportProviders.migration,
+		CapabilityProviderDeclaration<typeof postgresRawAdapterCapability>,
+	]
+	readonly requires: readonly [typeof connectionRequirement]
+}>
+type PostgresPluginDefinition = Readonly<{
+	readonly capabilities: PostgresPluginCapabilities
+	readonly environment: typeof postgresPluginEnvironment
+	readonly privileges: typeof postgresPluginPrivileges
+	readonly setup: () => Readonly<PostgresPluginExports>
+}>
+
+/** Names the exact official PostgreSQL plugin definition. */
+export type PostgresPlugin = PluginModuleInstance<
+	typeof postgresPluginModule,
+	PostgresPluginDefinition
+>
+
 /** Creates the official database capability provider without opening a connection. */
 export const postgresPlugin = (
 	options: PostgresPluginOptions,
@@ -260,10 +253,6 @@ export const postgresPlugin = (
 	const createConnectionSource =
 		createConnectionSourceFactory(normalizedOptions)
 	const schemaPolicy = normalizedOptions.schemaPolicy ?? 'override'
-	const connectionRequirement = requireCapability(
-		postgresConnectionCapability,
-		'^1.0.0',
-	)
 	const connections = new WeakMap<object, ManagedPostgresConnection>()
 	const catalogs = new WeakMap<object, PostgresSchemaCatalog>()
 	const connectionProvider = provideCapability(postgresConnectionCapability, {
@@ -321,14 +310,8 @@ export const postgresPlugin = (
 		},
 	)
 	return postgresPluginModule.plugin({
-		environment: ['environment:network'],
-		privileges: [
-			{
-				name: 'adapter:consume',
-				reason:
-					'Compiles protected database constraints for the PostgreSQL adapter.',
-			},
-		],
+		environment: postgresPluginEnvironment,
+		privileges: postgresPluginPrivileges,
 		capabilities: {
 			optional: [
 				optionalSchemaPreparation,

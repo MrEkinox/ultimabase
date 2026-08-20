@@ -44,6 +44,52 @@ would not improve consistency.
 extension requires a compatible engine but the engine consumes the extension's
 capability, so no lifecycle edge should be introduced.
 
+### Name an exact public plugin type
+
+Packages compiled with TypeScript `isolatedDeclarations` cannot always publish
+the inferred return type of a plugin factory. `PluginModuleInstance` maps a
+module plus a named, property-based definition contract to the same exact
+`FrameworkPlugin` type without repeating its positional generic tuple:
+
+```ts
+import {
+	definePluginModule,
+	type PluginModuleInstance,
+} from '@ultimabase/plugin-kit'
+
+const workflow = definePluginModule({
+	pluginId: 'community.workflow',
+	version: '1.0.0',
+	core: '^1.0.0',
+})
+const privileges = [
+	{
+		name: 'runtime:observe',
+		reason: 'Records workflow timing.',
+	},
+] as const
+type WorkflowDefinition = Readonly<{
+	readonly instanceId: 'editorial'
+	readonly privileges: typeof privileges
+	readonly setup: () => Readonly<{ readonly ready: true }>
+}>
+
+export type WorkflowPlugin = PluginModuleInstance<
+	typeof workflow,
+	WorkflowDefinition
+>
+export const workflowPlugin = (): WorkflowPlugin =>
+	workflow.plugin({
+		instanceId: 'editorial',
+		privileges,
+		setup: () => ({ ready: true as const }),
+	})
+```
+
+The definition contract names only real Core manifest properties. Privilege
+names and reasons, capability IDs, peers, and instance identity remain visible;
+the utility is type-only and does not install or validate anything itself.
+
 ## Publish typed post-commit events
 
 The event helpers remove the repeated contract, observer capability, and

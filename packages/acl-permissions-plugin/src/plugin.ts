@@ -58,7 +58,11 @@ import {
 } from './acl-limits.js'
 import { createACLRowConstraint, requiredACLPermissions } from './acl-access.js'
 import { createACLFieldPolicy } from './acl-field-policy.js'
-import type { ACLPlugin, ACLPluginOptions } from './plugin-contracts.js'
+import {
+	aclPluginPrivileges,
+	type ACLPlugin,
+	type ACLPluginOptions,
+} from './plugin-contracts.js'
 import { readACLMutationItems } from './mutation-items.js'
 import {
 	aclFieldName,
@@ -871,25 +875,7 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 	})
 
 	return aclPluginModule.plugin({
-		privileges: [
-			{
-				name: 'authority:elevate',
-				reason:
-					'Maintains persisted ACL references through audited internal Master queries.',
-			},
-			{
-				name: 'runtime:constrain',
-				reason: 'Applies deny-only ACL guards and adapter constraints.',
-			},
-			{
-				name: 'runtime:intercept',
-				reason: 'Resolves ACL input and publishes committed ACL changes.',
-			},
-			{
-				name: 'event:publish',
-				reason: 'Publishes committed ACL change notifications.',
-			},
-		],
+		privileges: aclPluginPrivileges,
 		capabilities: {
 			optional: [
 				optionalPrincipalResolver,

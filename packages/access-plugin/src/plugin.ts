@@ -3,9 +3,15 @@ import {
 	optionalCapability,
 	provideRuntimeConstraint,
 	protectedPolicy,
-	type FrameworkPlugin,
+	type CapabilityProviderDeclaration,
+	type CapabilityRequirement,
+	type runtimeConstraintCapability,
 } from '@ultimabase/core'
-import { definePluginModule } from '@ultimabase/plugin-kit'
+import {
+	definePluginModule,
+	type PluginModule,
+	type PluginModuleInstance,
+} from '@ultimabase/plugin-kit'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 import type { AccessDefaultPolicy } from './authoring/plan.js'
@@ -18,19 +24,27 @@ import {
 import { AccessRuntime } from './runtime/dispatcher.js'
 import { accessDiagnosticsObserverCapability } from './runtime/diagnostics.js'
 
-const accessPluginModule = definePluginModule({
+const accessPluginModule: PluginModule<
+	'@ultimabase/access-plugin',
+	'0.0.0',
+	'^0.0.0'
+> = definePluginModule({
 	core: '^0.0.0',
 	pluginId: '@ultimabase/access-plugin',
 	version: '0.0.0',
 })
-const optionalAccessContributions = optionalCapability(
-	accessContributionsCapability,
+const optionalAccessContributions: CapabilityRequirement<
+	typeof accessContributionsCapability,
+	true,
 	'^1.0.0',
-)
-const optionalAccessDiagnostics = optionalCapability(
-	accessDiagnosticsObserverCapability,
+	'materialization'
+> = optionalCapability(accessContributionsCapability, '^1.0.0')
+const optionalAccessDiagnostics: CapabilityRequirement<
+	typeof accessDiagnosticsObserverCapability,
+	true,
 	'^1.0.0',
-)
+	'materialization'
+> = optionalCapability(accessDiagnosticsObserverCapability, '^1.0.0')
 
 /** Configures the fallback used only when no exact Access declaration exists. */
 export interface AccessPluginOptions {
@@ -106,8 +120,35 @@ const evaluatesDenied = async <TResult>(
 	}
 }
 
-/** Names one configured official Access engine. */
-export type AccessPlugin = FrameworkPlugin<'@ultimabase/access-plugin'>
+const accessPluginPrivileges = [
+	{
+		name: 'schema:declare',
+		reason: 'Declares the official schema and field Access options.',
+	},
+	{
+		name: 'runtime:constrain',
+		reason: 'Applies official Access through protected Runtime policy.',
+	},
+] as const
+type AccessPluginCapabilities = Readonly<{
+	readonly optional: readonly [
+		typeof optionalAccessContributions,
+		typeof optionalAccessDiagnostics,
+	]
+	readonly provides: readonly [
+		CapabilityProviderDeclaration<typeof runtimeConstraintCapability>,
+	]
+}>
+type AccessPluginDefinition = Readonly<{
+	readonly capabilities: AccessPluginCapabilities
+	readonly privileges: typeof accessPluginPrivileges
+}>
+
+/** Names the exact configured official Access engine. */
+export type AccessPlugin = PluginModuleInstance<
+	typeof accessPluginModule,
+	AccessPluginDefinition
+>
 
 /** Installs official Access authoring and enforcement through the public kernel. */
 export const accessPlugin = (
@@ -160,16 +201,7 @@ export const accessPlugin = (
 	})
 
 	return accessPluginModule.plugin({
-		privileges: [
-			{
-				name: 'schema:declare',
-				reason: 'Declares the official schema and field Access options.',
-			},
-			{
-				name: 'runtime:constrain',
-				reason: 'Applies official Access through protected Runtime policy.',
-			},
-		],
+		privileges: accessPluginPrivileges,
 		capabilities: {
 			optional: [optionalAccessContributions, optionalAccessDiagnostics],
 			provides: [runtimeProvider],

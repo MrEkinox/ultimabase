@@ -19,6 +19,7 @@ export {
 	type DefinePluginModuleOptions,
 	type PluginModule,
 	type PluginModuleDefinitionOptions,
+	type PluginModuleInstance,
 } from './plugin-module.js'
 export {
 	definePluginOptionsParser,

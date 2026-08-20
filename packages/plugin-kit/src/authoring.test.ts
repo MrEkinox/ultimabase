@@ -3,6 +3,7 @@ import {
 	Schema,
 	defineOperation,
 	defineOperationValue,
+	definePlugin,
 	defineSchemaConstraint,
 	defineSchemaExtension,
 	stringField,
@@ -82,6 +83,31 @@ describe('plugin authoring helpers', () => {
 				extra: true,
 			}),
 		).toThrow('Unknown plugin module option')
+	})
+
+	it('delegates manifest ownership and conflicts to Core unchanged', () => {
+		const definition = {
+			conflicts: ['fixture.legacy-workflow'],
+			instanceId: 'editorial',
+			peers: [{ pluginId: 'fixture.protocol', version: '^1.0.0' }],
+			privileges: [
+				{
+					name: 'runtime:observe' as const,
+					reason: 'Records workflow timing.',
+				},
+			],
+		} as const
+		const fromModule = fixtureModule.plugin(definition)
+		const fromCore = definePlugin({
+			...definition,
+			core: '^0.0.0',
+			pluginId: 'fixture.plugin-kit',
+			version: '1.2.3',
+		})
+
+		expect(fromModule.manifest).toStrictEqual(fromCore.manifest)
+		expect(fromModule.conflicts).toStrictEqual(fromCore.conflicts)
+		expect(fromModule.peers).toStrictEqual(fromCore.peers)
 	})
 
 	it('validates option roots once and freezes normalized results', () => {

@@ -1,9 +1,15 @@
 import {
 	optionalCapability,
 	provideRuntimeBehavior,
-	type FrameworkPlugin,
+	type CapabilityProviderDeclaration,
+	type CapabilityRequirement,
+	type runtimeBehaviorCapability,
 } from '@ultimabase/core'
-import { definePluginModule } from '@ultimabase/plugin-kit'
+import {
+	definePluginModule,
+	type PluginModule,
+	type PluginModuleInstance,
+} from '@ultimabase/plugin-kit'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import { hookContributionsCapability } from './contributions.js'
@@ -23,26 +29,38 @@ import {
 	type OwnedHookEventHandler,
 } from './runtime/execution-runtime.js'
 
-const hooksPluginModule = definePluginModule({
+const hooksPluginModule: PluginModule<
+	'@ultimabase/hooks-plugin',
+	'0.0.0',
+	'^0.0.0'
+> = definePluginModule({
 	core: '^0.0.0',
 	pluginId: '@ultimabase/hooks-plugin',
 	version: '0.0.0',
 })
 
-const optionalHookContributions = optionalCapability(
-	hookContributionsCapability,
+const optionalHookContributions: CapabilityRequirement<
+	typeof hookContributionsCapability,
+	true,
 	'^1.0.0',
-)
-const optionalHookEvents = optionalCapability(
-	hookEventContributionsCapability,
+	'materialization'
+> = optionalCapability(hookContributionsCapability, '^1.0.0')
+const optionalHookEvents: CapabilityRequirement<
+	typeof hookEventContributionsCapability,
+	true,
 	'^1.0.0',
-)
-const optionalHookDiagnostics = optionalCapability(
-	hookDiagnosticsObserverCapability,
+	'materialization'
+> = optionalCapability(hookEventContributionsCapability, '^1.0.0')
+const optionalHookDiagnostics: CapabilityRequirement<
+	typeof hookDiagnosticsObserverCapability,
+	true,
 	'^1.0.0',
-)
+	'materialization'
+> = optionalCapability(hookDiagnosticsObserverCapability, '^1.0.0')
 
-const hooksRuntimeProvider = provideRuntimeBehavior({
+const hooksRuntimeProvider: CapabilityProviderDeclaration<
+	typeof runtimeBehaviorCapability
+> = provideRuntimeBehavior({
 	contributionId: 'official-hooks-runtime',
 	create: ({ callbacks, capabilities, schemas }) => {
 		const contributions = capabilities
@@ -87,8 +105,41 @@ const hooksRuntimeProvider = provideRuntimeBehavior({
 	},
 })
 
-/** Names one configured official Hooks engine. */
-export type HooksPlugin = FrameworkPlugin<'@ultimabase/hooks-plugin'>
+const hooksPluginPrivileges = [
+	{
+		name: 'schema:declare',
+		reason: 'Declares the official schema and field Hooks options.',
+	},
+	{
+		name: 'runtime:intercept',
+		reason: 'Runs official Hooks through the public Runtime behavior kernel.',
+	},
+] as const
+const hooksPluginCapabilities: Readonly<{
+	readonly optional: readonly [
+		typeof optionalHookContributions,
+		typeof optionalHookEvents,
+		typeof optionalHookDiagnostics,
+	]
+	readonly provides: readonly [typeof hooksRuntimeProvider]
+}> = {
+	optional: [
+		optionalHookContributions,
+		optionalHookEvents,
+		optionalHookDiagnostics,
+	],
+	provides: [hooksRuntimeProvider],
+} as const
+type HooksPluginDefinition = Readonly<{
+	readonly capabilities: typeof hooksPluginCapabilities
+	readonly privileges: typeof hooksPluginPrivileges
+}>
+
+/** Names the exact configured official Hooks engine. */
+export type HooksPlugin = PluginModuleInstance<
+	typeof hooksPluginModule,
+	HooksPluginDefinition
+>
 
 /**
  * Installs the official Hook authoring namespaces and Runtime lifecycle.
@@ -97,25 +148,8 @@ export type HooksPlugin = FrameworkPlugin<'@ultimabase/hooks-plugin'>
  */
 export const hooksPlugin = (): HooksPlugin =>
 	hooksPluginModule.plugin({
-		privileges: [
-			{
-				name: 'schema:declare',
-				reason: 'Declares the official schema and field Hooks options.',
-			},
-			{
-				name: 'runtime:intercept',
-				reason:
-					'Runs official Hooks through the public Runtime behavior kernel.',
-			},
-		],
-		capabilities: {
-			optional: [
-				optionalHookContributions,
-				optionalHookEvents,
-				optionalHookDiagnostics,
-			],
-			provides: [hooksRuntimeProvider],
-		},
+		privileges: hooksPluginPrivileges,
+		capabilities: hooksPluginCapabilities,
 		declare: ({ schemas }) => {
 			schemas.defineOptions({
 				contributionId: 'official-hooks-options',

@@ -13,6 +13,7 @@ import {
   definePluginModule,
   definePluginOptionsParser,
   schemaPatch,
+  type PluginModuleInstance,
 } from '../src/index.js'
 
 const workflow = definePluginModule({
@@ -25,6 +26,25 @@ export const plugin = workflow.plugin({
   instanceId: 'editorial',
   setup: () => ({ ready: true as const }),
 })
+
+type WorkflowDefinition = Readonly<{
+  readonly instanceId: 'editorial'
+  readonly peers: readonly [{
+    readonly pluginId: 'community.protocol'
+    readonly version: '^1.0.0'
+  }]
+  readonly setup: () => Readonly<{ readonly ready: true }>
+}>
+type ExactWorkflowPlugin = PluginModuleInstance<
+  typeof workflow,
+  WorkflowDefinition
+>
+export const exactPlugin: ExactWorkflowPlugin = workflow.plugin({
+  instanceId: 'editorial',
+  peers: [{ pluginId: 'community.protocol', version: '^1.0.0' }],
+  setup: () => ({ ready: true as const }),
+})
+export const exactInstance = exactPlugin.manifest.identity.instanceId
 
 const parse = definePluginOptionsParser({
   name: 'workflow options',
@@ -68,6 +88,10 @@ describe('@ultimabase/plugin-kit authoring language service', () => {
 			readQuickInfo('workflow.plugin', 'workflow.'.length).documentation,
 		).toContain('Creates one immutable Core plugin definition')
 		expect(readQuickInfo('options =').display).toContain('enabled: boolean;')
+		expect(readQuickInfo('PluginModuleInstance').documentation).toContain(
+			'Derives one exact plugin type',
+		)
+		expect(readQuickInfo('exactInstance =').display).toContain('"editorial"')
 		expect(readQuickInfo('addField').documentation).toContain(
 			"Core's validated patch factory",
 		)

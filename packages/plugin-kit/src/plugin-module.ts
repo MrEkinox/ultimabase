@@ -128,6 +128,91 @@ export interface PluginModule<
 const moduleOptionKeys = new Set(['core', 'pluginId', 'version'])
 const fixedDefinitionKeys = new Set(['core', 'pluginId', 'version'])
 
+type PluginModuleDefinitionProperty<
+	TDefinition,
+	TKey extends PropertyKey,
+> = TKey extends keyof TDefinition ? TDefinition[TKey] : undefined
+
+type PluginModuleSetupResult<TDefinition> =
+	TDefinition extends Readonly<{
+		readonly setup: (...arguments_: never[]) => infer TResult
+	}>
+		? TResult
+		: undefined
+
+/**
+ * Derives one exact plugin type from its module and visible definition object.
+ *
+ * This avoids repeating `FrameworkPlugin`'s positional generic tuple while the
+ * same definition still flows through `module.plugin()` and Core validation.
+ *
+ * @example
+ * ```ts
+ * const privileges = [
+ *   { name: 'runtime:observe', reason: 'Records timings.' },
+ * ] as const
+ * type AuditDefinition = Readonly<{
+ *   readonly privileges: typeof privileges
+ * }>
+ * type AuditPlugin = PluginModuleInstance<
+ *   typeof auditModule,
+ *   AuditDefinition
+ * >
+ * ```
+ */
+export type PluginModuleInstance<
+	TModule extends PluginModule<string, string, string>,
+	TDefinition,
+> =
+	TModule extends PluginModule<
+		infer TPluginId,
+		infer TVersion,
+		infer TCoreRange
+	>
+		? FrameworkPlugin<
+				TPluginId,
+				PluginModuleSetupResult<TDefinition>,
+				Extract<
+					PluginModuleDefinitionProperty<TDefinition, 'dependencies'>,
+					readonly PluginDependency[] | undefined
+				>,
+				Extract<
+					PluginModuleDefinitionProperty<TDefinition, 'optionalDependencies'>,
+					readonly PluginDependency[] | undefined
+				>,
+				Extract<
+					PluginModuleDefinitionProperty<TDefinition, 'conflicts'>,
+					readonly string[] | undefined
+				>,
+				Extract<
+					PluginModuleDefinitionProperty<TDefinition, 'plugins'>,
+					readonly PluginDefinition[] | undefined
+				>,
+				Extract<
+					PluginModuleDefinitionProperty<TDefinition, 'instanceId'>,
+					string | undefined
+				>,
+				TVersion,
+				TCoreRange,
+				Extract<
+					PluginModuleDefinitionProperty<TDefinition, 'privileges'>,
+					readonly PluginPrivilegeRequest[] | undefined
+				>,
+				Extract<
+					PluginModuleDefinitionProperty<TDefinition, 'environment'>,
+					readonly PluginEnvironmentClaim[] | undefined
+				>,
+				Extract<
+					PluginModuleDefinitionProperty<TDefinition, 'capabilities'>,
+					PluginCapabilityDeclarationOptions | undefined
+				>,
+				Extract<
+					PluginModuleDefinitionProperty<TDefinition, 'peers'>,
+					readonly PluginDependency[] | undefined
+				>
+			>
+		: never
+
 /**
  * Binds package identity once so every exported plugin factory stays consistent.
  * Core still validates the manifest, binds its owner, and enforces its privileges.

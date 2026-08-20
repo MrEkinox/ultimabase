@@ -1,15 +1,15 @@
 import type {
-	requestPrincipalResolverCapability,
-	requestSubjectReferenceCleanupCapability,
-	requestRoleResolverCapability,
-	runtimeConstraintCapability,
-	runtimeBehaviorCapability,
-	runtimeInterceptorCapability,
 	CapabilityProviderDeclaration,
 	CapabilityRequirement,
-	FrameworkPlugin,
+	requestPrincipalResolverCapability,
+	requestRoleResolverCapability,
+	requestSubjectReferenceCleanupCapability,
+	runtimeBehaviorCapability,
+	runtimeConstraintCapability,
+	runtimeInterceptorCapability,
 	SchemaDefinition,
 } from '@ultimabase/core'
+import type { PluginModule, PluginModuleInstance } from '@ultimabase/plugin-kit'
 
 import type { aclChangedEventsCapability } from './acl-events.js'
 import type { ACLEntryLimits } from './acl-limits.js'
@@ -26,47 +26,61 @@ export interface ACLPluginOptions {
 	readonly limits?: ACLEntryLimits
 }
 
-/** Represents the optional ACL provider configured for one application. */
-export type ACLPlugin = FrameworkPlugin<
-	typeof aclPluginName,
-	ACLPluginExports,
-	undefined,
-	undefined,
-	undefined,
-	undefined,
-	undefined,
-	'0.0.0',
-	'^0.0.0',
-	readonly [
-		Readonly<{
-			readonly name: 'authority:elevate'
-			readonly reason: 'Maintains persisted ACL references through audited internal Master queries.'
-		}>,
-		Readonly<{
-			readonly name: 'runtime:constrain'
-			readonly reason: 'Applies deny-only ACL guards and adapter constraints.'
-		}>,
-		Readonly<{
-			readonly name: 'runtime:intercept'
-			readonly reason: 'Resolves ACL input and publishes committed ACL changes.'
-		}>,
-		Readonly<{
-			readonly name: 'event:publish'
-			readonly reason: 'Publishes committed ACL change notifications.'
-		}>,
-	],
-	undefined,
+/** Keeps requested ACL authority explicit in both the factory and public type. */
+export type ACLPluginPrivileges = readonly [
 	Readonly<{
+		readonly name: 'authority:elevate'
+		readonly reason: 'Maintains persisted ACL references through audited internal Master queries.'
+	}>,
+	Readonly<{
+		readonly name: 'runtime:constrain'
+		readonly reason: 'Applies deny-only ACL guards and adapter constraints.'
+	}>,
+	Readonly<{
+		readonly name: 'runtime:intercept'
+		readonly reason: 'Resolves ACL input and publishes committed ACL changes.'
+	}>,
+	Readonly<{
+		readonly name: 'event:publish'
+		readonly reason: 'Publishes committed ACL change notifications.'
+	}>,
+]
+
+/** @internal Shares the reviewed manifest requests with the runtime factory. */
+export const aclPluginPrivileges: ACLPluginPrivileges = [
+	{
+		name: 'authority:elevate',
+		reason:
+			'Maintains persisted ACL references through audited internal Master queries.',
+	},
+	{
+		name: 'runtime:constrain',
+		reason: 'Applies deny-only ACL guards and adapter constraints.',
+	},
+	{
+		name: 'runtime:intercept',
+		reason: 'Resolves ACL input and publishes committed ACL changes.',
+	},
+	{
+		name: 'event:publish',
+		reason: 'Publishes committed ACL change notifications.',
+	},
+]
+
+type ACLPluginDefinition = Readonly<{
+	readonly capabilities: Readonly<{
 		readonly optional: readonly [
 			CapabilityRequirement<
 				typeof requestPrincipalResolverCapability,
 				true,
-				'^1.0.0'
+				'^1.0.0',
+				'materialization'
 			>,
 			CapabilityRequirement<
 				typeof requestRoleResolverCapability,
 				true,
-				'^1.0.0'
+				'^1.0.0',
+				'materialization'
 			>,
 			CapabilityRequirement<
 				typeof aclChangedEventsCapability,
@@ -90,4 +104,12 @@ export type ACLPlugin = FrameworkPlugin<
 			CapabilityProviderDeclaration<typeof runtimeBehaviorCapability>,
 		]
 	}>
+	readonly privileges: ACLPluginPrivileges
+	readonly setup: () => ACLPluginExports
+}>
+
+/** Represents the exact optional ACL provider configured for one application. */
+export type ACLPlugin = PluginModuleInstance<
+	PluginModule<typeof aclPluginName, '0.0.0', '^0.0.0'>,
+	ACLPluginDefinition
 >

@@ -1,6 +1,9 @@
 import { aclPluginName } from '@ultimabase/acl-permissions-plugin'
-import { type FrameworkPlugin } from '@ultimabase/core'
-import { definePluginModule } from '@ultimabase/plugin-kit'
+import {
+	definePluginModule,
+	type PluginModule,
+	type PluginModuleInstance,
+} from '@ultimabase/plugin-kit'
 import { postgresPluginName } from '@ultimabase/postgres-plugin'
 
 import {
@@ -10,47 +13,51 @@ import {
 
 /** Identifies the optional PostgreSQL integration for persisted ACL constraints. */
 export const aclPostgresPluginName = 'ultimabase.acl-postgres' as const
-const aclPostgresPluginModule = definePluginModule({
+const aclPostgresPluginModule: PluginModule<
+	typeof aclPostgresPluginName,
+	'0.0.0',
+	'^0.0.0'
+> = definePluginModule({
 	core: '^0.0.0',
 	pluginId: aclPostgresPluginName,
 	version: '0.0.0',
 })
 
-/** Represents the stateless ACL/PostgreSQL integration plugin. */
-export type ACLPostgresPlugin = FrameworkPlugin<
-	typeof aclPostgresPluginName,
-	undefined,
-	readonly [
-		Readonly<{ pluginId: typeof aclPluginName; version: '^0.0.0' }>,
-		Readonly<{ pluginId: typeof postgresPluginName; version: '^0.0.0' }>,
-	],
-	undefined,
-	undefined,
-	undefined,
-	undefined,
-	'0.0.0',
-	'^0.0.0',
-	readonly [
-		Readonly<{
-			readonly name: 'adapter:consume'
-			readonly reason: 'Compiles ACL constraints for the PostgreSQL adapter.'
-		}>,
-	]
+const aclPostgresDependencies: readonly [
+	Readonly<{
+		readonly pluginId: typeof aclPluginName
+		readonly version: '^0.0.0'
+	}>,
+	Readonly<{
+		readonly pluginId: typeof postgresPluginName
+		readonly version: '^0.0.0'
+	}>,
+] = [
+	{ pluginId: aclPluginName, version: '^0.0.0' },
+	{ pluginId: postgresPluginName, version: '^0.0.0' },
+]
+const aclPostgresPrivileges = [
+	{
+		name: 'adapter:consume',
+		reason: 'Compiles ACL constraints for the PostgreSQL adapter.',
+	},
+] as const
+type ACLPostgresPluginDefinition = Readonly<{
+	readonly dependencies: typeof aclPostgresDependencies
+	readonly privileges: typeof aclPostgresPrivileges
+}>
+
+/** Represents the exact stateless ACL/PostgreSQL integration plugin. */
+export type ACLPostgresPlugin = PluginModuleInstance<
+	typeof aclPostgresPluginModule,
+	ACLPostgresPluginDefinition
 >
 
 /** Registers ACL's opaque row constraint with the selected PostgreSQL adapter. */
 export const aclPostgresPlugin = (): ACLPostgresPlugin =>
 	aclPostgresPluginModule.plugin({
-		dependencies: [
-			{ pluginId: aclPluginName, version: '^0.0.0' },
-			{ pluginId: postgresPluginName, version: '^0.0.0' },
-		],
-		privileges: [
-			{
-				name: 'adapter:consume',
-				reason: 'Compiles ACL constraints for the PostgreSQL adapter.',
-			},
-		],
+		dependencies: aclPostgresDependencies,
+		privileges: aclPostgresPrivileges,
 		setup: ({ constraintCompilers }) => {
 			constraintCompilers.register(aclPostgresConstraintCompiler)
 			constraintCompilers.register(aclReferencePostgresConstraintCompiler)
