@@ -6,7 +6,7 @@
 - Milestones:
   - [14 — Trusted open plugin kernel](issues/1400-open-plugin-kernel/README.md)
   - [15 — Optional Hooks and Access plugins](issues/1500-optional-hooks-access/README.md)
-- Resume point: [1507 — Prove no-Access, alternative-Access, and Core Master](issues/1500-optional-hooks-access/1507-access-optional-alternative-proof.md)
+- Resume point: [1508 — Remove superseded native Hooks and Access surfaces](issues/1500-optional-hooks-access/1508-native-hooks-access-removal-audit.md)
 - Previous completed plan: [Query execution and enforcement consolidation](docs/plans/completed/query-execution-and-enforcement-consolidation.md)
 - Paused objectives:
   - [ACL hardening and developer-experience consolidation](docs/plans/paused/acl-hardening-and-developer-experience-consolidation.md)
@@ -99,7 +99,7 @@ optional official plugins while keeping Core master authority unchanged.
 27. [x] [1504 — Extract the complete Access plugin](issues/1500-optional-hooks-access/1504-access-plugin-authoring-plans.md)
 28. [x] [1505 — Merged into issue 1504 by ADR-0204](issues/1500-optional-hooks-access/1505-access-plugin-runtime.md)
 29. [x] [1506 — Merged into issue 1504 by ADR-0205](issues/1500-optional-hooks-access/1506-policy-provider-migration.md)
-30. [ ] [1507 — Prove no-Access, alternative-Access, and Core Master](issues/1500-optional-hooks-access/1507-access-optional-alternative-proof.md)
+30. [x] [1507 — Prove no-Access, alternative-Access, and Core Master](issues/1500-optional-hooks-access/1507-access-optional-alternative-proof.md)
 31. [ ] [1508 — Remove superseded native Hooks and Access surfaces](issues/1500-optional-hooks-access/1508-native-hooks-access-removal-audit.md)
 32. [ ] [1509 — Verify optional official capability extraction](issues/1500-optional-hooks-access/1509-optional-capabilities-verification.md)
 

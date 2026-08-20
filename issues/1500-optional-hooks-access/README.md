@@ -20,7 +20,7 @@ unchanged.
 4. [x] [1504 — Extract the complete Access plugin](1504-access-plugin-authoring-plans.md)
 5. [x] [1505 — Merged into issue 1504 by ADR-0204](1505-access-plugin-runtime.md)
 6. [x] [1506 — Merged into issue 1504 by ADR-0205](1506-policy-provider-migration.md)
-7. [ ] [1507 — Prove no-Access, alternative-Access, and Core Master](1507-access-optional-alternative-proof.md)
+7. [x] [1507 — Prove no-Access, alternative-Access, and Core Master](1507-access-optional-alternative-proof.md)
 8. [ ] [1508 — Remove superseded native Hooks and Access surfaces](1508-native-hooks-access-removal-audit.md)
 9. [ ] [1509 — Verify optional official capability extraction](1509-optional-capabilities-verification.md)
 
@@ -28,4 +28,4 @@ Milestone 15 begins only after milestone 14 passes its complete public
 conformance gate.
 
 Milestone 14 passed that gate in issue 1414. The active resume point is issue
-1507; no later extraction issue should begin before its declared dependencies.
+1508; no later extraction issue should begin before its declared dependencies.

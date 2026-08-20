@@ -20,6 +20,7 @@ import {
 } from './capabilities.js'
 import type {
 	ApplicationOperationTransport,
+	OperationTransportExposureOptions,
 	OperationTransportRequest,
 } from './transport.js'
 import type {
@@ -71,6 +72,16 @@ test('infers exact handler and wire boundary contracts', () => {
 		transport,
 	})
 	const binding = operationTransportBinding({ codec, operation })
+	const acknowledgedExposure: OperationTransportExposureOptions<
+		typeof transport
+	> = {
+		acknowledgeUnprotected: true,
+		operations: [operation],
+		transport,
+	}
+	expectTypeOf(acknowledgedExposure.acknowledgeUnprotected).toEqualTypeOf<
+		true | undefined
+	>()
 
 	expectTypeOf<OperationTransportWireInput<typeof binding>>().toEqualTypeOf<
 		Readonly<{ readonly value: string }>

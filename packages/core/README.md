@@ -415,6 +415,23 @@ and model targets remain directly executable through their owned handles. Wire
 requests supply an already validated `RequestContext` and cannot select Master,
 Runtime replacement, or a raw adapter.
 
+Starting an exposure in an application with no `protectedPolicy()` contribution
+emits one structured `UNPROTECTED_PUBLIC_TRANSPORT` warning per transport
+protocol. Running this supported mode intentionally requires an explicit
+acknowledgement to silence the default logger:
+
+```ts
+const exposed = ultimabase.exposeOperations({
+	acknowledgeUnprotected: true,
+	operations: [publicStatus],
+	transport: httpProtocol,
+})
+```
+
+The acknowledgement describes only the absence of a compatible protected
+policy contribution. It never grants, relocates, or exposes Core Master
+authority.
+
 Core preserves stable token input and result precision, stable schema-class
 precision, and safe dynamic JavaScript access. The generated registry adds exact
 autocomplete for application-specific command, query, operation, and dynamic

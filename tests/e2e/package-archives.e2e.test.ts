@@ -420,6 +420,17 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 })
 
 describe('@ultimabase/core Runtime declarations', () => {
+	it('ships the explicit unprotected-transport acknowledgement contract', async () => {
+		const declarations = await readFile(
+			path.join(packagesDirectory, 'core', 'dist', 'index.d.ts'),
+			'utf8',
+		)
+
+		expect(declarations).toContain('acknowledgeUnprotected?: true')
+		expect(declarations).toContain('UnprotectedPublicTransportWarning')
+		expect(declarations).toContain('UNPROTECTED_PUBLIC_TRANSPORT')
+	})
+
 	it('exposes the documented UltimaBase facade and compact QueryBuilder', () => {
 		const facade = readFixtureQuickInfo('UltimaBase({')
 		const query = readFixtureQuickInfo(

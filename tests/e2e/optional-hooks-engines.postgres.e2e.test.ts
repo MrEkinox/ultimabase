@@ -44,7 +44,7 @@ afterAll(async () => {
 })
 
 describe('optional Hooks PostgreSQL proof', { concurrent: false }, () => {
-	it('executes TypeScript CRUD and explicit transactions with no lifecycle engine', async () => {
+	it('executes TypeScript CRUD with no lifecycle or policy engine', async () => {
 		const middlewareTrace: string[] = []
 		const Post = Schema.define({
 			className: 'TypeScriptNoEnginePost',
@@ -120,13 +120,18 @@ describe('optional Hooks PostgreSQL proof', { concurrent: false }, () => {
 					({ identity }) => identity.pluginId,
 				),
 			).not.toContain('@ultimabase/hooks-plugin')
+			expect(
+				ultimabase.application.pluginPrivilegeReport.plugins.map(
+					({ identity }) => identity.pluginId,
+				),
+			).not.toContain('@ultimabase/access-plugin')
 			expect(ultimabase.application.typegenGraph.options).toStrictEqual([])
 		} finally {
 			await ultimabase.dispose()
 		}
 	}, 30_000)
 
-	it('executes the same no-engine proof from JavaScript without Typegen', async () => {
+	it('executes the same no-lifecycle and no-policy proof from JavaScript', async () => {
 		const { stdout } = await executeFile(
 			process.execPath,
 			[javascriptFixture],

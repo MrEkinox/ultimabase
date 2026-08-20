@@ -1,5 +1,5 @@
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { materializeSchemaModel } from '../../schema/schema/model-materialization.js'
 import { Schema } from '../../schema/schema/definition.js'
@@ -22,6 +22,8 @@ import {
 	provideOperationHandler,
 	provideOperationTransportBinding,
 } from './capabilities.js'
+import { protectedPolicy } from '../enforcement/protected-policy.js'
+import { provideRuntimeConstraint } from '../capabilities.js'
 import {
 	RecordingDatabaseAdapter,
 	type QueuedAdapterResult,
@@ -102,6 +104,7 @@ interface FixtureOptions {
 	readonly adapterResults?: readonly QueuedAdapterResult[]
 	readonly applicationHandler?: (message: string) => unknown
 	readonly masterAuthority?: MasterAuthority
+	readonly protectedPolicy?: boolean
 }
 
 const createFixture = async (options: FixtureOptions = {}) => {
@@ -193,12 +196,35 @@ const createFixture = async (options: FixtureOptions = {}) => {
 		pluginId: 'fixture.plugin-operation-database',
 		version: '1.0.0',
 	})
+	const policy = definePlugin({
+		capabilities: {
+			provides: [
+				provideRuntimeConstraint({
+					contributionId: 'transport-policy',
+					create: () => ({
+						value: protectedPolicy({ evaluate: () => undefined }),
+					}),
+				}),
+			],
+		},
+		core: '^0.0.0',
+		pluginId: 'fixture.plugin-operation-policy',
+		privileges: [
+			{
+				name: 'runtime:constrain',
+				reason: 'Protects the public transport warning fixture.',
+			},
+		] as const,
+		version: '1.0.0',
+	})
 	const ultimabase = new UltimaBase({
 		...(options.masterAuthority === undefined
 			? {}
 			: { masterAuthority: options.masterAuthority }),
 		pluginPrivileges: { logger: false },
-		plugins: [database, plugin],
+		plugins: options.protectedPolicy
+			? [database, plugin, policy]
+			: [database, plugin],
 		schemas: [Post],
 	})
 	await ultimabase.start()
@@ -206,6 +232,55 @@ const createFixture = async (options: FixtureOptions = {}) => {
 }
 
 describe('plugin operation Runtime', () => {
+	it('warns for an unprotected public transport unless explicitly acknowledged', async () => {
+		const warning = vi
+			.spyOn(console, 'warn')
+			.mockImplementation(() => undefined)
+		const unprotected = await createFixture()
+
+		unprotected.ultimabase.exposeOperations({
+			operations: [applicationOperation],
+			transport: fakeProtocol,
+		})
+		unprotected.ultimabase.exposeOperations({
+			operations: [applicationOperation],
+			transport: fakeProtocol,
+		})
+		expect(warning).toHaveBeenCalledWith(
+			'[UltimaBase] Unprotected public transport',
+			{
+				code: 'UNPROTECTED_PUBLIC_TRANSPORT',
+				message:
+					'Public transport started without a protected policy contribution.',
+				transport: {
+					name: fakeProtocol.name,
+					version: fakeProtocol.version,
+				},
+			},
+		)
+		expect(warning).toHaveBeenCalledOnce()
+		await unprotected.ultimabase.dispose()
+
+		warning.mockClear()
+		const acknowledged = await createFixture()
+		acknowledged.ultimabase.exposeOperations({
+			acknowledgeUnprotected: true,
+			operations: [applicationOperation],
+			transport: fakeProtocol,
+		})
+		expect(warning).not.toHaveBeenCalled()
+		await acknowledged.ultimabase.dispose()
+
+		const protectedFixture = await createFixture({ protectedPolicy: true })
+		protectedFixture.ultimabase.exposeOperations({
+			operations: [applicationOperation],
+			transport: fakeProtocol,
+		})
+		expect(warning).not.toHaveBeenCalled()
+		await protectedFixture.ultimabase.dispose()
+		warning.mockRestore()
+	})
+
 	it('binds direct and schema-handle query results to callable model commands', async () => {
 		const row = {
 			createdAt: '2026-08-19T00:00:00.000Z',
@@ -513,6 +588,7 @@ describe('plugin operation Runtime', () => {
 			masterAuthority,
 		})
 		const exposure = fixture.ultimabase.exposeOperations({
+			acknowledgeUnprotected: true,
 			operations: [applicationOperation],
 			transport: fakeProtocol,
 		})

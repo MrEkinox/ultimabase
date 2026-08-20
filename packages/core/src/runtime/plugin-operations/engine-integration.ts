@@ -10,6 +10,9 @@ import type {
 } from '../../application/application-handles.js'
 import { FrameworkError } from '../../errors/framework-error.js'
 import type { CompiledPluginOperation } from '../../plugins/application-surface-registry.js'
+import { readApplicationCapabilityContributions } from '../../plugins/application-capability-access.js'
+import { runtimeConstraintCapability } from '../capabilities.js'
+import { getProtectedPolicyImplementation } from '../enforcement/protected-policy.js'
 import { runWithRequestEngineScope } from '../context/active-framework-storage.js'
 import type {
 	FrameworkEngine,
@@ -24,12 +27,57 @@ import {
 	CoreApplicationOperationTransport,
 	type ApplicationOperationTransport,
 	type OperationTransportExposureOptions,
+	type UnprotectedPublicTransportWarning,
 } from './transport.js'
 
 const frameworkPluginOperations = new WeakMap<
 	FrameworkEngine,
 	PluginOperationRuntime
 >()
+const warnedUnprotectedTransports = new WeakMap<
+	FrameworkEngine,
+	WeakSet<OperationTransportProtocol>
+>()
+
+const operationTransportExposureKeys: ReadonlySet<string> = new Set([
+	'acknowledgeUnprotected',
+	'operations',
+	'transport',
+])
+
+const hasProtectedPolicy = (framework: FrameworkEngine): boolean =>
+	readApplicationCapabilityContributions(
+		framework.application,
+		runtimeConstraintCapability,
+	).some(
+		(contribution) =>
+			getProtectedPolicyImplementation(contribution.value) !== undefined,
+	)
+
+const warnUnprotectedPublicTransport = (
+	framework: FrameworkEngine,
+	transport: OperationTransportProtocol,
+): void => {
+	let warned = warnedUnprotectedTransports.get(framework)
+	if (warned === undefined) {
+		warned = new WeakSet()
+		warnedUnprotectedTransports.set(framework, warned)
+	}
+	if (warned.has(transport)) return
+	warned.add(transport)
+
+	const warning: UnprotectedPublicTransportWarning = immutableRecord({
+		code: 'UNPROTECTED_PUBLIC_TRANSPORT' as const,
+		message:
+			'Public transport started without a protected policy contribution.',
+		transport: immutableRecord({
+			name: transport.name,
+			version: transport.version,
+		}),
+	})
+
+	console.warn('[UltimaBase] Unprotected public transport', warning)
+}
 
 /** Materializes operation capabilities only when an initialized facade uses them. */
 export const getFrameworkPluginOperations = (
@@ -58,6 +106,19 @@ export const exposeFrameworkOperations = <
 	) {
 		throw new TypeError(
 			'operation transport exposure requires a protocol and non-empty operation list',
+		)
+	}
+	for (const key of Object.keys(options)) {
+		if (!operationTransportExposureKeys.has(key)) {
+			throw new TypeError(
+				`operation transport exposure contains unknown key: ${key}`,
+			)
+		}
+	}
+	const acknowledgeUnprotected: unknown = options.acknowledgeUnprotected
+	if (acknowledgeUnprotected !== undefined && acknowledgeUnprotected !== true) {
+		throw new TypeError(
+			'operation transport acknowledgeUnprotected must be true when provided',
 		)
 	}
 	const exposed = new Map<
@@ -97,6 +158,9 @@ export const exposeFrameworkOperations = <
 				compiled,
 			}),
 		)
+	}
+	if (acknowledgeUnprotected !== true && !hasProtectedPolicy(framework)) {
+		warnUnprotectedPublicTransport(framework, options.transport)
 	}
 
 	return new CoreApplicationOperationTransport(

@@ -27,8 +27,25 @@ const isRequestContext = (value: unknown): value is RequestContext =>
 export interface OperationTransportExposureOptions<
 	TTransport extends OperationTransportProtocol = OperationTransportProtocol,
 > {
+	/**
+	 * Confirms that this public transport intentionally starts without a
+	 * protected policy contribution.
+	 *
+	 * @example `acknowledgeUnprotected: true`
+	 */
+	readonly acknowledgeUnprotected?: true
 	readonly operations: readonly (PluginOperationDefinition | string)[]
 	readonly transport: TTransport
+}
+
+/** Describes the stable startup warning for an intentionally public surface. */
+export interface UnprotectedPublicTransportWarning {
+	readonly code: 'UNPROTECTED_PUBLIC_TRANSPORT'
+	readonly message: string
+	readonly transport: Readonly<{
+		readonly name: string
+		readonly version: string
+	}>
 }
 
 /** Carries untrusted wire input with an already validated anonymous request context. */

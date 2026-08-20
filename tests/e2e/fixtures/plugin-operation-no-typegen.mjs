@@ -242,6 +242,7 @@ export const inspection = {
 		.map(({ className }) => className),
 }
 const exposure = ultimabase.exposeOperations({
+	acknowledgeUnprotected: true,
 	operations: [inspect],
 	transport: protocol,
 })
