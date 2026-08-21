@@ -1,6 +1,7 @@
 import process from 'node:process'
 
 import {
+	addSchemaField,
 	RequestContext,
 	PluginError,
 	Schema,
@@ -11,12 +12,14 @@ import {
 	defineOperationTransport,
 	defineOperationValue,
 	definePlugin,
+	defineSchemaOption,
 	operationHandler,
 	operationTransportBinding,
 	operationWireCodec,
 	provideCapability,
 	provideOperationHandler,
 	provideOperationTransportBinding,
+	stringField,
 } from '@ultimabase/core'
 import {
 	FakePublicOperationTransport,
@@ -71,8 +74,23 @@ const inspectModel = defineOperation({
 	transaction: 'required',
 	version: '1.0.0',
 })
+const opaqueDocumentOption = defineSchemaOption({
+	normalize: (value, path) => {
+		if (typeof value !== 'function') {
+			throw new TypeError(`${path} must be a function`)
+		}
+		return value
+	},
+	protocolVersion: 1,
+	typegen: {
+		module: '@fixture/javascript-document-plugin',
+		type: 'DocumentOption',
+	},
+	valueKind: 'opaque',
+})
 const StablePost = Schema.define({
 	className: 'JavaScriptStablePost',
+	document: (value) => value,
 	fields: (field) => ({ title: field.string() }),
 })
 const DynamicPost = Schema.define({
@@ -144,6 +162,20 @@ const createOperationPlugin = () =>
 		},
 		core: '^0.0.0',
 		declare: ({ models, operations, schemas }) => {
+			schemas.defineOptions({
+				contributionId: 'javascript-document-options',
+				schema: { document: opaqueDocumentOption },
+			})
+			schemas.patch({
+				operations: [
+					addSchemaField({
+						contributionId: 'javascript-document-state',
+						field: stringField(),
+						name: 'documentState',
+					}),
+				],
+				targets: schemas.select({ option: { name: 'document' } }),
+			})
 			schemas.add({ contributionId: 'dynamic-post', schema: DynamicPost })
 			operations.declare(inspect)
 			operations.declare(inspectSchema)
@@ -240,6 +272,7 @@ export const inspection = {
 	schemas: ultimabase.application.schemas
 		.values()
 		.map(({ className }) => className),
+	selectedFields: Object.keys(StablePost.fields),
 }
 const exposure = ultimabase.exposeOperations({
 	acknowledgeUnverifiedProtection: true,

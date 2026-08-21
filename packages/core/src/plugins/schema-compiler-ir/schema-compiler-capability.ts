@@ -37,12 +37,12 @@ export const schemaCompilerCapability: CapabilityToken<
 	SchemaCompilerProviderDescriptor,
 	SchemaCompilerProviderDescriptor,
 	'ultimabase.schema-compiler',
-	'2.0.0',
+	'3.0.0',
 	'single',
 	'declaration'
 > = defineCapability<SchemaCompilerProviderDescriptor>()({
 	capabilityId: 'ultimabase.schema-compiler',
-	version: '2.0.0',
+	version: '3.0.0',
 	cardinality: 'single',
 	lifetime: 'declaration',
 	compose: ([provider]) => provider,

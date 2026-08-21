@@ -4,12 +4,14 @@ import type {
 	PreparedSchemaCompilation,
 	SchemaDefinition,
 } from '../../schema/schema/definition.js'
-import type {
-	OptionDefinitionIndex,
-	OwnedOptionDefinition,
-	ResolvedFieldOptions,
-	SchemaDeclarationBatch,
+import {
+	resolveOptionDefinition,
+	type OptionDefinitionIndex,
+	type OwnedOptionDefinition,
+	type ResolvedFieldOptions,
+	type SchemaDeclarationBatch,
 } from '../schema-declaration-contracts.js'
+import type { SchemaSelection } from '../schema-patch-contracts.js'
 import { collectOptionDefinitions } from '../schema-runtime-options.js'
 import type {
 	SchemaCompilerInput,
@@ -61,6 +63,9 @@ class SchemaCompilerDeclarationEncoder {
 				),
 			].map((selection) => [selection.selectionId, selection]),
 		)
+		for (const selection of selections.values()) {
+			this.assertKnownOptionSelector(selection, batch)
+		}
 
 		return immutableRecord({
 			additions: immutableArray(
@@ -103,6 +108,24 @@ class SchemaCompilerDeclarationEncoder {
 				),
 			),
 		})
+	}
+
+	/** Prevents a replacement compiler from interpreting an unresolved option name. */
+	private assertKnownOptionSelector(
+		selection: SchemaSelection,
+		batch: SchemaDeclarationBatch,
+	): void {
+		const option = selection.selector.option
+		if (option === undefined) return
+		const definition = resolveOptionDefinition(
+			this.preparation.definitions.schema,
+			option.name,
+			`schema selector option.${option.name}`,
+			batch.owner,
+		)
+		if (definition === undefined) {
+			throw new TypeError(`Unknown schema selector option: ${option.name}`)
+		}
 	}
 
 	private optionDefinition(

@@ -1,10 +1,10 @@
 # 1903: Migrate ACL to a direct schema option
 
-- Status: planned
+- Status: ready
 - Milestone: 19
 - Packages: `@ultimabase/acl-permissions-plugin`, `@ultimabase/core`, `@ultimabase/typegen`
 - Depends on: 1902
-- ADR: decision from issue 1901, ADR-0212
+- ADR: ADR-0213
 
 ## Goal
 

@@ -6,7 +6,9 @@ import {
 	definePlugin,
 	defineSchemaConstraint,
 	defineSchemaExtension,
+	defineSchemaOption,
 	stringField,
+	type SchemaOptions,
 } from '@ultimabase/core'
 import type { StandardSchemaV1 } from '@standard-schema/spec'
 import { describe, expect, it } from 'vitest'
@@ -291,9 +293,26 @@ describe('plugin authoring helpers', () => {
 	})
 
 	it('builds immutable additive schema patches accepted by Core', () => {
+		const workflowOption = defineSchemaOption<(value: string) => string>({
+			normalize: (value, path) => {
+				if (typeof value !== 'function') {
+					throw new TypeError(`${path} must be a function`)
+				}
+				return value as (value: string) => string
+			},
+			protocolVersion: 1,
+			typegen: {
+				module: '@fixture/plugin-kit',
+				type: 'WorkflowOption',
+			},
+			valueKind: 'opaque',
+		})
 		const Target = Schema.define({
 			className: 'PluginKitPatchTarget',
 			fields: (field) => ({ title: field.string() }),
+			workflow: (value: string) => value,
+		} as SchemaOptions<'PluginKitPatchTarget'> & {
+			readonly workflow: (value: string) => string
 		})
 		const extension = defineSchemaExtension(
 			'fixture.workflow',
@@ -343,6 +362,10 @@ describe('plugin authoring helpers', () => {
 
 		const plugin = fixtureModule.plugin({
 			declare: ({ schemas }) => {
+				schemas.defineOptions({
+					contributionId: 'workflow-options',
+					schema: { workflow: workflowOption },
+				})
 				schemas.patch(
 					patchSchemas({
 						patch: schemaPatch()
@@ -355,7 +378,9 @@ describe('plugin authoring helpers', () => {
 								contributionId: 'state-index',
 								fields: ['state', 'createdAt'],
 							}),
-						targets: schemas.select({ className: Target.className }),
+						targets: schemas.select({
+							option: { name: 'workflow' },
+						}),
 					}),
 				)
 			},

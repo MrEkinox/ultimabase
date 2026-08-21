@@ -118,6 +118,45 @@ describe('schema compiler IR validation', () => {
 		}).toThrow('schema compiler input.schemas must be immutable')
 	})
 
+	it('rejects protocol 2 and malformed option-presence selectors', () => {
+		const session = new SchemaCompilerArtifactSession()
+		const input = createInput(session)
+		const protocolTwo = immutableRecord({
+			...input,
+			protocolVersion: '2.0.0',
+		})
+		const declaration = input.declarations[0]
+		if (declaration === undefined) {
+			throw new TypeError('Missing fixture declaration')
+		}
+		const malformedSelector = immutableRecord({
+			...input,
+			declarations: immutableArray([
+				immutableRecord({
+					...declaration,
+					selections: immutableArray([
+						immutableRecord({
+							selectionId: 'selection:malformed',
+							selector: immutableRecord({
+								option: immutableRecord({
+									name: 'workflow',
+									path: immutableArray(['enabled']),
+								}),
+							}),
+						}),
+					]),
+				}),
+			]),
+		})
+
+		expect(() => {
+			assertSchemaCompilerInput(protocolTwo, session)
+		}).toThrow('Unsupported schema compiler input protocol version')
+		expect(() => {
+			assertSchemaCompilerInput(malformedSelector, session)
+		}).toThrow('Schema selector option.path requires option.equals')
+	})
+
 	it('rejects schema additions that omit their attribution facts', () => {
 		const session = new SchemaCompilerArtifactSession()
 		const input = createInput(session)

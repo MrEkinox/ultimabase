@@ -32,7 +32,7 @@ the same issue.
 ## Execution order
 
 1. [x] [1901 — Decide the direct replacement and removal boundary](1901-direct-plugin-configuration-adr.md)
-2. [ ] [1902 — Add option-presence schema selection](1902-option-presence-schema-selection.md)
+2. [x] [1902 — Add option-presence schema selection](1902-option-presence-schema-selection.md)
 3. [ ] [1903 — Migrate ACL to a direct schema option](1903-direct-acl-schema-option.md)
 4. [ ] [1904 — Migrate PostgreSQL metadata to direct options](1904-direct-postgres-options.md)
 5. [ ] [1905 — Replace the RoleSchema extension marker](1905-role-schema-identity.md)

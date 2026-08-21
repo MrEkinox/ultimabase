@@ -48,11 +48,14 @@ export const matchesSchemaCompilerSelector = (
 		const option = state.options.find(
 			({ name }) => name === selector.option?.name,
 		)
-		const selected = readOptionPath(option?.value, selector.option.path ?? [])
-		if (
-			!areSchemaDeclarationValuesCompatible(selected, selector.option.equals)
-		) {
-			return false
+		if (option === undefined) return false
+		if (selector.option.equals !== undefined) {
+			const selected = readOptionPath(option.value, selector.option.path ?? [])
+			if (
+				!areSchemaDeclarationValuesCompatible(selected, selector.option.equals)
+			) {
+				return false
+			}
 		}
 	}
 	return true

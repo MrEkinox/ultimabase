@@ -10,6 +10,7 @@ import { schemaCompilerProtocolVersion } from './contracts.js'
 import { areSchemaDeclarationValuesCompatible } from '../../schema/schema/definition.js'
 import type { SchemaCompilerArtifactSession } from './artifacts.js'
 import { assertSchemaCompilerPatchOperation } from './operation-validation.js'
+import { normalizeSelector } from '../schema-selectors.js'
 import { collectSchemaCompilerOwnerIdentities } from './provenance-validation.js'
 import {
 	assertUniqueSchemaIdentities,
@@ -121,6 +122,7 @@ const assertPatch = (
 	if (!isPlainRecord(value.selector) || !isPlainRecord(value.staticOptions)) {
 		throw new TypeError(`${path} must contain selector and static option facts`)
 	}
+	normalizeSelector(value.selector)
 	for (const [index, operation] of readList(
 		value,
 		'operations',
@@ -143,6 +145,7 @@ const assertSelection = (value: unknown, path: string): void => {
 	if (!isPlainRecord(value.selector)) {
 		throw new TypeError(`${path}.selector must be portable selector facts`)
 	}
+	normalizeSelector(value.selector)
 }
 
 const assertDeclaration = (

@@ -188,12 +188,12 @@ const workflowPlugin = definePlugin({
 			schema: { workflow: workflowOption },
 		})
 
-		const enabledSchemas = schemas.select({
-			option: { name: 'workflow', path: ['enabled'], equals: true },
+		const workflowSchemas = schemas.select({
+			option: { name: 'workflow' },
 		})
 
 		schemas.patch({
-			targets: enabledSchemas,
+			targets: workflowSchemas,
 			operations: [
 				addSchemaField({
 					contributionId: 'workflow-state',
@@ -216,10 +216,13 @@ its current owner. A plugin therefore cannot make its own selection grow by
 adding a matching field or schema first. Additions require `schema:declare`;
 replacement, rename, and removal require `schema:transform` plus the exact prior
 owner, contribution ID, and expected logical shape. Core schema identity and
-system fields remain protected. Selector values use structural JSON equality:
-object key order is irrelevant, while array order and primitive identity remain
-exact. Contribution IDs are local to the full `{ pluginId, instanceId? }`
-identity, so two explicit instances may reuse the same local ID.
+system fields remain protected. `{ option: { name } }` checks only that the
+normalized direct option occurs and therefore also supports opaque callback
+values without exposing or invoking them. `{ option: { name, path?, equals } }`
+keeps structural JSON equality: object key order is irrelevant, while array
+order and primitive identity remain exact. Contribution IDs are local to the
+full `{ pluginId, instanceId? }` identity, so two explicit instances may reuse
+the same local ID.
 
 Direct plugin options use ordinary properties rather than a separate options
 bag. Core validates them without generated files. Typegen augments `SchemaOptions`

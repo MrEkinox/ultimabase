@@ -89,7 +89,7 @@ declare: ({
 	})
 
 	const targets = schemas.select({
-		option: { equals: true, name: 'workflow', path: ['enabled'] },
+		option: { name: 'workflow' },
 	})
 	schemas.patch(
 		patchSchemas({

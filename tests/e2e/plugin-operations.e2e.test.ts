@@ -42,6 +42,13 @@ describe('packed plugin operation execution', () => {
 					'fixture.javascript-operations',
 				],
 				schemas: ['JavaScriptStablePost', 'JavaScriptDynamicPost'],
+				selectedFields: [
+					'title',
+					'id',
+					'createdAt',
+					'updatedAt',
+					'documentState',
+				],
 			},
 			modelResult: { echo: 'model:draft:draft' },
 			stableSchemaResult: {

@@ -118,6 +118,22 @@ test('types schema declarations from exact active privileges', () => {
 				owner: { kind: 'application' },
 			})
 			expectTypeOf(selected).toEqualTypeOf<SchemaSelection>()
+			const present = schemas.select({ option: { name: 'workflow' } })
+			expectTypeOf(present).toEqualTypeOf<SchemaSelection>()
+			schemas.select({
+				// @ts-expect-error -- Paths belong only to equality selectors.
+				option: {
+					name: 'workflow',
+					path: ['enabled'],
+				},
+			})
+			schemas.select({
+				option: {
+					// @ts-expect-error -- Equality selector values must be portable JSON.
+					equals: () => true,
+					name: 'workflow',
+				},
+			})
 
 			schemas.patch({
 				operations: [

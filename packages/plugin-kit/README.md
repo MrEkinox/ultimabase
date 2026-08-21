@@ -180,7 +180,7 @@ import { patchSchemas, schemaPatch } from '@ultimabase/plugin-kit'
 
 declare: ({ schemas }) => {
 	const targets = schemas.select({
-		option: { name: 'workflow', path: ['enabled'], equals: true },
+		option: { name: 'workflow' },
 	})
 
 	schemas.patch(
@@ -207,6 +207,10 @@ plugin-owned schema or field option values. These operations require the same
 without the helper. Replacement, rename, removal, and exact cross-owner targets
 stay in Core's explicit factories because their provenance checks should remain
 visible at the call site.
+
+Presence selection never reads the direct option value, so the same ordinary
+patch builder works for JSON configuration and opaque callback-bearing options.
+Use `{ name, path?, equals }` only when structural JSON equality is required.
 
 ## Provide an operation without wrapper nesting
 

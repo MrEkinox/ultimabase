@@ -179,8 +179,8 @@ describe('plugin schema field transformations', () => {
 			declare: ({ schemas }) => {
 				schemas.add({ contributionId: 'addition', schema: SelectorAddition })
 				schemas.select({
+					// @ts-expect-error -- Runtime rejects values outside portable JSON.
 					option: {
-						// @ts-expect-error -- Runtime rejects values outside portable JSON.
 						equals: undefined,
 						name: 'invalid',
 					},

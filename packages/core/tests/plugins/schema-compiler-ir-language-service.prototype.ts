@@ -8,12 +8,17 @@ import {
 	type /* hover:compiler-input */ SchemaCompilerInput,
 	type SchemaCompilerOutput,
 	type SchemaCompilerProvenance,
+	type /* hover:option-equality-selector */ SchemaOptionEqualitySelector,
+	type /* hover:option-presence-selector */ SchemaOptionPresenceSelector,
+	type SchemaSelectorOptions,
 } from '../../src/index.js'
 
 declare const compilerInput: SchemaCompilerInput
 declare const compilerOutput: SchemaCompilerOutput
 declare const artifact: SchemaCompilerArtifactReference<'field'>
 declare const provenance: SchemaCompilerProvenance
+declare const presenceSelector: SchemaOptionPresenceSelector
+declare const equalitySelector: SchemaOptionEqualitySelector
 
 const protocol = /* hover:compiler-protocol */ schemaCompilerProtocolVersion
 const input = compilerInput
@@ -31,6 +36,8 @@ const replacement = /* hover:compiler-replacement */ replaceSchemaCompiler({
 	}),
 	contributionId: 'packed-fixture',
 })
+const presence: SchemaSelectorOptions = { option: presenceSelector }
+const equality: SchemaSelectorOptions = { option: equalitySelector }
 
 void protocol
 void input
@@ -40,3 +47,5 @@ void capability
 void target
 void selected
 void replacement
+void presence
+void equality

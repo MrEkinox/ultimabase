@@ -13,14 +13,33 @@ import { type SchemaConstraintDefinition } from '../schema/schema/constraints.js
 
 import { type SchemaContributionOwnerReference } from '../schema/schema/provenance.js'
 
+/** Selects schemas where one normalized direct option is present. */
+export interface SchemaOptionPresenceSelector {
+	/** Exact direct option name; its value is never read by this selector. */
+	readonly name: string
+	readonly equals?: never
+	readonly path?: never
+}
+
+/** Selects schemas where one direct option value equals portable JSON. */
+export interface SchemaOptionEqualitySelector {
+	/** Portable value compared with structural JSON equality. */
+	readonly equals: JsonValue
+	/** Exact direct option name. */
+	readonly name: string
+	/** Optional path into the normalized portable option value. */
+	readonly path?: readonly string[]
+}
+
+/** Chooses presence-only matching or structural JSON equality explicitly. */
+export type SchemaOptionSelector =
+	SchemaOptionEqualitySelector | SchemaOptionPresenceSelector
+
+/** Selects schemas from the graph frozen before the current plugin's patches. */
 export interface SchemaSelectorOptions {
 	readonly className?: string
 	readonly field?: Readonly<{ readonly kind?: string; readonly name: string }>
-	readonly option?: Readonly<{
-		readonly equals: JsonValue
-		readonly name: string
-		readonly path?: readonly string[]
-	}>
+	readonly option?: SchemaOptionSelector
 	readonly owner?: SchemaContributionOwnerReference
 }
 

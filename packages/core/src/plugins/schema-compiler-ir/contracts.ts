@@ -11,7 +11,7 @@ import type {
 import type { SchemaSelectorOptions } from '../schema-patch-contracts.js'
 
 /** Versions the complete callback-free logical schema compiler protocol. */
-export const schemaCompilerProtocolVersion = '2.0.0' as const
+export const schemaCompilerProtocolVersion = '3.0.0' as const
 
 /** Names every private artifact that may cross the compiler IR as an inert reference. */
 export type SchemaCompilerArtifactKind =

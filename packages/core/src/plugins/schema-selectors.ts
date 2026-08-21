@@ -32,10 +32,8 @@ import {
 
 import { type SchemaSelectorOptions } from './schema-patch-contracts.js'
 
-export const normalizeSelector = (
-	selector: SchemaSelectorOptions,
-): SchemaSelectorOptions => {
-	const untrustedSelector: unknown = selector
+export const normalizeSelector = (selector: unknown): SchemaSelectorOptions => {
+	const untrustedSelector = selector
 	if (!isPlainRecord(untrustedSelector)) {
 		throw new TypeError('Schema selector must be a plain object')
 	}
@@ -84,6 +82,10 @@ export const normalizeSelector = (
 			'schema selector option',
 		)
 		assertNonEmptyString(optionInput.name, 'Schema selector option.name')
+		const hasEquals = Object.hasOwn(optionInput, 'equals')
+		if (!hasEquals && Object.hasOwn(optionInput, 'path')) {
+			throw new TypeError('Schema selector option.path requires option.equals')
+		}
 		if (optionInput.path !== undefined && !isUnknownArray(optionInput.path)) {
 			throw new TypeError('Schema selector option.path must be a list')
 		}
@@ -100,14 +102,16 @@ export const normalizeSelector = (
 							return segment
 						}),
 					)
-		option = immutableRecord({
-			equals: snapshotJsonValue(
-				optionInput.equals,
-				'Schema selector option.equals',
-			),
-			name: optionInput.name,
-			...(normalizedPath === undefined ? {} : { path: normalizedPath }),
-		})
+		option = hasEquals
+			? immutableRecord({
+					equals: snapshotJsonValue(
+						optionInput.equals,
+						'Schema selector option.equals',
+					),
+					name: optionInput.name,
+					...(normalizedPath === undefined ? {} : { path: normalizedPath }),
+				})
+			: immutableRecord({ name: optionInput.name })
 	}
 
 	const ownerInput = untrustedSelector.owner
@@ -247,16 +251,21 @@ export const matchesSelector = (
 	}
 
 	if (selector.option !== undefined) {
-		const value = readPlainRecordValue(
-			candidate.definition,
-			selector.option.name,
-			candidate.schema.className,
-		)
-		const selected = readOptionPath(value, selector.option.path ?? [])
-		if (
-			!areSchemaDeclarationValuesCompatible(selected, selector.option.equals)
-		) {
+		if (!Object.hasOwn(candidate.definition, selector.option.name)) {
 			return false
+		}
+		if (selector.option.equals !== undefined) {
+			const value = readPlainRecordValue(
+				candidate.definition,
+				selector.option.name,
+				candidate.schema.className,
+			)
+			const selected = readOptionPath(value, selector.option.path ?? [])
+			if (
+				!areSchemaDeclarationValuesCompatible(selected, selector.option.equals)
+			) {
+				return false
+			}
 		}
 	}
 
