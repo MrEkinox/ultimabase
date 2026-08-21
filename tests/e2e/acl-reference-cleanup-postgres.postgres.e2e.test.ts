@@ -1,10 +1,10 @@
 import {
 	ACL,
-	acl,
 	aclPlugin,
 	onACLChange,
 	provideACLChangeObserver,
 	type ACLChangedEvent,
+	type aclChangedEvent,
 } from '@ultimabase/acl-permissions-plugin'
 import {
 	MasterAuthority,
@@ -25,6 +25,7 @@ import {
 	provideHookContributions,
 	schemaHooks,
 } from '@ultimabase/hooks-plugin'
+import type { PluginEventHandlerInput } from '@ultimabase/plugin-kit'
 import { postgresPlugin, postgresTable } from '@ultimabase/postgres-plugin'
 import { RoleSchema, rolesPlugin } from '@ultimabase/roles-plugin'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
@@ -36,6 +37,10 @@ import {
 } from './postgres-worker-fixture.js'
 
 type ReferencePolicy = 'cascade' | 'fail' | 'preserve'
+type ACLChangeHandlerInput = PluginEventHandlerInput<
+	typeof aclChangedEvent,
+	ACLChangedEvent
+>
 
 const FailPrincipal = Schema.define({
 	className: 'ACLReferenceFailPrincipal',
@@ -88,28 +93,24 @@ const ProtectedPrimary = Schema.define({
 	fields: (field) => ({
 		title: field.string({ validation: { required: true } }),
 	}),
-	extensions: [
-		acl({
-			default: emptyACL,
-			resolveInput: ({ currentAcl, inputAcl }) =>
-				inputAcl ?? currentAcl ?? emptyACL,
-		}),
-		postgresTable({ name: 'acl_reference_primary' }),
-	],
+	acl: {
+		default: emptyACL,
+		resolveInput: ({ currentAcl, inputAcl }) =>
+			inputAcl ?? currentAcl ?? emptyACL,
+	},
+	extensions: [postgresTable({ name: 'acl_reference_primary' })],
 })
 const ProtectedSecondary = Schema.define({
 	className: 'ACLReferenceProtectedSecondary',
 	fields: (field) => ({
 		title: field.string({ validation: { required: true } }),
 	}),
-	extensions: [
-		acl({
-			default: emptyACL,
-			resolveInput: ({ currentAcl, inputAcl }) =>
-				inputAcl ?? currentAcl ?? emptyACL,
-		}),
-		postgresTable({ name: 'acl_reference_secondary' }),
-	],
+	acl: {
+		default: emptyACL,
+		resolveInput: ({ currentAcl, inputAcl }) =>
+			inputAcl ?? currentAcl ?? emptyACL,
+	},
+	extensions: [postgresTable({ name: 'acl_reference_secondary' })],
 	hooks: {
 		beforeOperation: {
 			update: ({ operation }) => {
@@ -202,7 +203,7 @@ const principalOwnerPlugin = definePlugin({
 		provides: [
 			provideACLChangeObserver(
 				'fixture.observe:acl-change',
-				onACLChange(({ event }) => {
+				onACLChange(({ event }: ACLChangeHandlerInput) => {
 					committedACLChanges.push(event.payload)
 				}),
 			),

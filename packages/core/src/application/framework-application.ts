@@ -38,6 +38,7 @@ import {
 	FieldBuilderMethodRegistry,
 	type OwnedFieldBuilderMethod,
 } from '../schema/schema/field-builder-methods.js'
+import type { OwnedPluginFieldType } from '../schema/schema/plugin-field-types.js'
 import type {
 	ConfiguredPluginExports,
 	ConfiguredPluginId,
@@ -176,6 +177,7 @@ export class FrameworkApplication<
 		const setupRegistries = new PluginSetupRegistries(
 			this.schemas,
 			() => this.fieldBuilderMethods,
+			() => this.pluginFieldTypes,
 			(owner) => {
 				const host = capabilityHostReference.current
 				if (host === undefined) {
@@ -221,6 +223,11 @@ export class FrameworkApplication<
 	/** Reads the immutable plugin method graph after static declaration completes. */
 	get fieldBuilderMethods(): readonly OwnedFieldBuilderMethod[] {
 		return this.#fieldBuilderMethods.values()
+	}
+
+	/** Reads plugin field value contracts without implying a public builder method. */
+	get pluginFieldTypes(): readonly OwnedPluginFieldType[] {
+		return this.#fieldBuilderMethods.fieldTypes()
 	}
 
 	/** Checks exact schema identity so Runtime engines cannot cross applications. */

@@ -19,6 +19,66 @@ import {
 } from '../../tests/plugins/schema-declarations.fixtures.js'
 
 describe('plugin schema field transformations', () => {
+	it('materializes implicit indexes carried by added field options', async () => {
+		const Document = Schema.define({
+			className: 'PatchedFieldIndexDocument',
+			fields: (field) => ({ title: field.string() }),
+		})
+		const plugin = definePlugin({
+			core: '^0.0.0',
+			declare: ({ schemas }) => {
+				schemas.patch({
+					operations: [
+						addSchemaField({
+							contributionId: 'search-token',
+							field: stringField({ indexed: true }),
+							name: 'searchToken',
+						}),
+						addSchemaField({
+							contributionId: 'external-key',
+							field: stringField({ indexed: 'unique' }),
+							name: 'externalKey',
+						}),
+					],
+					targets: schemas.select({
+						className: 'PatchedFieldIndexDocument',
+					}),
+				})
+			},
+			pluginId: 'fixture.patched-field-index-plugin',
+			privileges: [
+				{
+					name: 'schema:declare',
+					reason: 'Adds indexed fixture fields.',
+				},
+			] as const,
+			version: '1.0.0',
+		})
+
+		await createApplication({ plugins: [plugin], schemas: [Document] })
+
+		expect(Document.indexes).toEqual(
+			expect.arrayContaining([
+				{ fields: ['searchToken'], unique: false },
+				{ fields: ['externalKey'], unique: true },
+			]),
+		)
+		expect(Document.provenance.indexes.slice(-2)).toMatchObject([
+			{
+				provenance: {
+					contributionId: 'search-token',
+					owner: { pluginId: 'fixture.patched-field-index-plugin' },
+				},
+			},
+			{
+				provenance: {
+					contributionId: 'external-key',
+					owner: { pluginId: 'fixture.patched-field-index-plugin' },
+				},
+			},
+		])
+	})
+
 	it('keeps the public registry atomic across registration, option, patch, and final validation failures', () => {
 		const Existing = Schema.define({
 			className: 'AtomicRegistrationCollision',

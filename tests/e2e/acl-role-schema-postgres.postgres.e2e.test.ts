@@ -1,4 +1,4 @@
-import { ACL, acl, aclPlugin } from '@ultimabase/acl-permissions-plugin'
+import { ACL, aclPlugin } from '@ultimabase/acl-permissions-plugin'
 import {
 	MasterAuthority,
 	RequestContext,
@@ -18,6 +18,7 @@ import {
 	type PostgresWorkerFixture,
 } from './postgres-worker-fixture.js'
 import { provideTestPrincipalResolver } from './access-capability-fixtures.js'
+import { requireACLValue } from './acl-test-fixtures.js'
 
 const currentMemberId = new RequestContextValue<string>(
 	'fixture.acl-role-schema.member-id',
@@ -65,14 +66,12 @@ const AppRole = RoleSchema.define({
 		},
 		schema: Member,
 	},
-	extensions: [
-		acl({
-			default: emptyACL,
-			resolveInput: ({ currentAcl, inputAcl }) =>
-				inputAcl ?? currentAcl ?? emptyACL,
-		}),
-		postgresTable({ name: 'acl_protected_app_roles' }),
-	],
+	acl: {
+		default: emptyACL,
+		resolveInput: ({ currentAcl, inputAcl }) =>
+			inputAcl ?? currentAcl ?? emptyACL,
+	},
+	extensions: [postgresTable({ name: 'acl_protected_app_roles' })],
 })
 
 type PersistedMember = Awaited<
@@ -224,14 +223,13 @@ describe(
 				{ where: { id: { eq: current.id } }, select: { acl: true } },
 				{ ultimabase: app, useMasterKey: true },
 			)
-			if (!(persistedACL?.acl instanceof ACL)) {
-				throw new TypeError(
-					'Expected the persisted role ACL to be materialized',
-				)
-			}
+			const aclValue = requireACLValue(
+				persistedACL?.acl,
+				'Expected the persisted role ACL to be materialized',
+			)
 
 			expect(
-				persistedACL.acl.permissionsForRole(
+				aclValue.permissionsForRole(
 					AppRole.role({
 						id: requireFixture(editor, 'editor').id,
 					}),

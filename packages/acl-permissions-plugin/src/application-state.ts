@@ -21,9 +21,9 @@ import {
 } from './acl-events.js'
 import {
 	aclFieldName,
-	aclSchemaExtensionName,
-	type ACLSchemaExtensionConfig,
-} from './acl-extension.js'
+	readACLSchemaOption,
+	type NormalizedACLSchemaOption,
+} from './acl-option.js'
 import {
 	resolveACLEntryLimits,
 	type ResolvedACLEntryLimits,
@@ -45,7 +45,7 @@ interface CreateACLApplicationStateOptions {
 	readonly pluginLimits: ResolvedACLEntryLimits
 	readonly principalResolver: RequestPrincipalResolver | undefined
 	readonly roleResolver: RequestRoleResolver | undefined
-	readonly hasStaticRoleGrant: (config: ACLSchemaExtensionConfig) => boolean
+	readonly hasStaticRoleGrant: (config: NormalizedACLSchemaOption) => boolean
 	readonly readMutationItems: (
 		schema: SchemaDefinition,
 		input: unknown,
@@ -64,7 +64,7 @@ export interface ACLApplicationState {
 	readonly protectedSchemaSet: ReadonlySet<SchemaDefinition>
 	readonly readPersistentRoleResolver: () => PersistentRoleResolver | undefined
 	readonly resolveSchemaLimits: (
-		config: ACLSchemaExtensionConfig,
+		config: NormalizedACLSchemaOption,
 	) => ResolvedACLEntryLimits
 	readonly resolveSubjects: () => ReturnType<typeof resolveACLAccessSubjects>
 }
@@ -85,14 +85,9 @@ export const createACLApplicationState = (
 	} = options
 	const protectedSchemaSet = new Set(protectedSchemas)
 	const hasDeclaredRoleGrant = protectedSchemas.some((schema) => {
-		const extension = schema.extensions.find(
-			(candidate) => candidate.name === aclSchemaExtensionName,
-		)
+		const option = readACLSchemaOption(schema)
 
-		return (
-			extension !== undefined &&
-			hasStaticRoleGrant(extension.config as ACLSchemaExtensionConfig)
-		)
+		return option !== undefined && hasStaticRoleGrant(option)
 	})
 
 	if (hasDeclaredRoleGrant && roleResolver === undefined) {
@@ -143,7 +138,7 @@ export const createACLApplicationState = (
 		return resolution
 	}
 	const resolveSchemaLimits = (
-		config: ACLSchemaExtensionConfig,
+		config: NormalizedACLSchemaOption,
 	): ResolvedACLEntryLimits =>
 		resolveACLEntryLimits(pluginLimits, config.limits)
 	const emptyACLChangeValue = new ACL()

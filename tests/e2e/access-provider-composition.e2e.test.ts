@@ -1,4 +1,4 @@
-import { ACL, acl, aclPlugin } from '@ultimabase/acl-permissions-plugin'
+import { ACL, aclPlugin } from '@ultimabase/acl-permissions-plugin'
 import {
 	accessPlugin,
 	provideAccessContributions,
@@ -174,7 +174,7 @@ const ACLRole = RoleSchema.define({
 	className: 'AccessCompositionACLRole',
 	fields: () => ({}),
 	members: { schema: Principal },
-	extensions: [acl()],
+	acl: {},
 })
 
 const publicACL = new ACL().grantPublic('read')
@@ -183,7 +183,7 @@ const PublicACLPost = Schema.define({
 	fields: (field) => ({
 		title: field.string({ validation: { required: true } }),
 	}),
-	extensions: [acl({ default: publicACL })],
+	acl: { default: publicACL },
 })
 
 const roleACL = new ACL().grantRole(editor, 'read')
@@ -206,7 +206,7 @@ const CombinedPost = Schema.define({
 		},
 	},
 	// A callback defers role discovery so this fixture can prove runtime composition.
-	extensions: [acl({ default: () => roleACL })],
+	acl: { default: () => roleACL },
 })
 
 const createRoleProvider = (allowed: boolean) =>
@@ -358,7 +358,7 @@ const MissingRolePost = Schema.define({
 		},
 	},
 	// Dynamic grants validate the absent provider before business or storage hooks.
-	extensions: [acl({ default: () => roleACL })],
+	acl: { default: () => roleACL },
 })
 
 describe('Access provider composition', () => {

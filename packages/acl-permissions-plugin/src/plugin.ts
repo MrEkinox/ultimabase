@@ -67,12 +67,13 @@ import { readACLMutationItems } from './mutation-items.js'
 import {
 	aclFieldName,
 	aclPluginName,
-	aclSchemaExtensionName,
+	readACLSchemaOption,
 	type ACLNormalizedUpdateInput,
 	type ACLNormalizedUpdateOperation,
-	type ACLSchemaExtensionConfig,
-} from './acl-extension.js'
+	type NormalizedACLSchemaOption,
+} from './acl-option.js'
 import { readOperationSchema } from './runtime-operation.js'
+import { declareACLSchema } from './schema-declaration.js'
 import { createAttributedACLApplicationStateReader } from './subject-resolver-attribution.js'
 
 const aclPluginModule = definePluginModule({
@@ -93,13 +94,7 @@ const optionalRoleResolver = optionalCapability(
 const readProtectedSchemas = (
 	schemas: CompiledSchemaRegistry,
 ): readonly SchemaDefinition[] =>
-	schemas
-		.values()
-		.filter((schema) =>
-			schema.extensions.some(
-				(extension) => extension.name === aclSchemaExtensionName,
-			),
-		)
+	schemas.values().filter((schema) => readACLSchemaOption(schema) !== undefined)
 
 const principalReferenceCleanupProvider = provideCapability(
 	requestSubjectReferenceCleanupCapability,
@@ -190,11 +185,11 @@ const projectACLData = (
 		Object.fromEntries(
 			Object.entries(input).filter(([fieldName]) => {
 				if (extensionFieldNames.has(fieldName)) return false
-
 				const field = schema.fields[fieldName]
 
 				return (
 					field !== undefined &&
+					schema.provenance.fields[fieldName]?.owner.kind === 'application' &&
 					!('system' in field.options && field.options.system === true)
 				)
 			}),
@@ -205,7 +200,7 @@ const projectACLData = (
 const resolveDefaultACL = async <
 	TData extends Readonly<Record<string, unknown>>,
 >(
-	config: ACLSchemaExtensionConfig<TData>,
+	config: NormalizedACLSchemaOption<TData>,
 	data: TData,
 	principal: PointerValue | undefined,
 	context: RequestSubjectContext,
@@ -306,7 +301,7 @@ const validateAcceptedACL = async (
 }
 
 /** Detects declarations that cannot become valid without role capabilities. */
-const hasStaticRoleGrant = (config: ACLSchemaExtensionConfig): boolean =>
+const hasStaticRoleGrant = (config: NormalizedACLSchemaOption): boolean =>
 	config.default instanceof ACL && config.default.toJSON().roles.length > 0
 
 const resolveCreateInputACL = async <
@@ -314,7 +309,7 @@ const resolveCreateInputACL = async <
 >(
 	schema: SchemaDefinition,
 	input: Readonly<Record<string, unknown>>,
-	config: ACLSchemaExtensionConfig<TData>,
+	config: NormalizedACLSchemaOption<TData>,
 	principal: PointerValue | undefined,
 	context: RequestSubjectContext,
 	roleResolutionAvailable: boolean,
@@ -331,7 +326,7 @@ const resolveCreateInputACL = async <
 
 	if (explicitACL !== undefined && config.resolveInput === undefined) {
 		throw new TypeError(
-			'Explicit ACL input requires acl({ resolveInput }) configuration',
+			'Explicit ACL input requires an acl.resolveInput declaration',
 		)
 	}
 
@@ -360,14 +355,13 @@ const resolveCreateInputACL = async <
 	return immutableRecord({ ...input, [aclFieldName]: resolvedACL })
 }
 
-/** Applies one schema extension to every create candidate without merging bulk items. */
 /** @internal Applies ACL create semantics before Runtime structural revalidation. */
 export const resolveCreateOperationACL = async <
 	const TOperation extends ACLCreateOperation,
 	TData extends Readonly<Record<string, unknown>>,
 >(
 	operation: TOperation,
-	config: ACLSchemaExtensionConfig<TData>,
+	config: NormalizedACLSchemaOption<TData>,
 	principal: PointerValue | undefined,
 	context: RequestSubjectContext,
 	roleResolutionAvailable = false,
@@ -456,7 +450,7 @@ export const resolvePreparedOperationACL = async <
 >(
 	operation: TOperation,
 	target: Readonly<Record<string, unknown>>,
-	config: ACLSchemaExtensionConfig<TData>,
+	config: NormalizedACLSchemaOption<TData>,
 	principal: PointerValue | undefined,
 	context: RequestSubjectContext,
 	roleResolutionAvailable = false,
@@ -513,7 +507,7 @@ export const resolvePreparedOperationACL = async <
 
 	if (config.resolveInput === undefined) {
 		throw new TypeError(
-			'Explicit ACL input requires acl({ resolveInput }) configuration',
+			'Explicit ACL input requires an acl.resolveInput declaration',
 		)
 	}
 
@@ -660,7 +654,7 @@ export const assertSingularACLReplacement = <TSchema extends SchemaDefinition>(
 }
 
 /**
- * Activates ACL defaults and protected policy behavior for schemas using `acl()`.
+ * Activates ACL defaults and protected policy behavior for schemas with `acl`.
  *
  * The plugin discovers compatible identity providers through neutral Core
  * services; applications without authentication remain valid. Entry limits
@@ -725,15 +719,12 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 						const schema = readOperationSchema(operation)
 						if (!state.protectedSchemaSet.has(schema)) return { operation }
 
-						const extension = schema.extensions.find(
-							(candidate) => candidate.name === aclSchemaExtensionName,
-						)
-						if (extension === undefined) {
+						const schemaConfig = readACLSchemaOption(schema)
+						if (schemaConfig === undefined) {
 							throw new TypeError(
-								'ACL plugin lost its discovered schema extension',
+								'ACL plugin lost its discovered schema option',
 							)
 						}
-						const schemaConfig = extension.config as ACLSchemaExtensionConfig
 						const subjects = await state.resolveSubjects()
 
 						return {
@@ -823,13 +814,10 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 				}
 				const schema = readOperationSchema(operation)
 				if (!state.protectedSchemaSet.has(schema)) return operation
-				const extension = schema.extensions.find(
-					(candidate) => candidate.name === aclSchemaExtensionName,
-				)
-				if (extension === undefined) {
-					throw new TypeError('ACL plugin lost its discovered schema extension')
+				const config = readACLSchemaOption(schema)
+				if (config === undefined) {
+					throw new TypeError('ACL plugin lost its discovered schema option')
 				}
-				const config = extension.config as ACLSchemaExtensionConfig
 				const subjects = await state.resolveSubjects()
 				const resolved = await resolveCreateOperationACL(
 					operation as unknown as ACLCreateOperation,
@@ -890,6 +878,7 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 				behaviorProvider,
 			],
 		},
+		declare: declareACLSchema,
 		setup: ({ schemas }) => {
 			return Object.freeze({
 				schemas: Object.freeze(readProtectedSchemas(schemas)),

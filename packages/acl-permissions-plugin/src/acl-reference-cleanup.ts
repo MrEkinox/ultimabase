@@ -20,7 +20,7 @@ import {
 
 import { ACL } from './acl.js'
 import type { ACLContainmentOperand } from './acl-containment.js'
-import { aclFieldName } from './acl-extension.js'
+import { aclFieldName } from './acl-option.js'
 
 /** Keeps parsed subject identities private from generic cleanup providers. */
 export type ACLReferenceSubject =

@@ -13,6 +13,7 @@ describe('PluginSetupRegistries', () => {
 			'capabilities',
 			'constraintCompilers',
 			'fieldBuilderMethods',
+			'pluginFieldTypes',
 			'schemas',
 			'typegenGraph',
 		])

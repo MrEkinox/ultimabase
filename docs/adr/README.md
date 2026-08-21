@@ -196,6 +196,8 @@ Accepted records:
 - [ADR-0211: Plugin options accept synchronous Standard Schema validators](0211-synchronous-standard-schema-plugin-options.md)
 - [ADR-0212: Field-owned portable plugin containment](0212-field-owned-portable-plugin-containment.md)
 - [ADR-0213: Direct plugin options replace schema and field extensions](0213-direct-plugin-options-replace-schema-field-extensions.md)
+- [ADR-0214: Plugin field types do not require public builders](0214-plugin-field-type-declarations-without-builders.md)
+- [ADR-0215: Patched field options materialize implicit indexes](0215-patched-field-options-materialize-implicit-indexes.md)
 
 Superseded records:
 

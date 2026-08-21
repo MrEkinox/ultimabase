@@ -241,6 +241,12 @@ export type {
 	FieldBuilderMethodTypegen,
 	OwnedFieldBuilderMethod,
 } from './schema/field-builder-methods.js'
+export { definePluginFieldType } from './schema/plugin-field-types.js'
+export type {
+	OwnedPluginFieldType,
+	PluginFieldTypeDefinition,
+	PluginFieldTypegen,
+} from './schema/plugin-field-types.js'
 export type {
 	BaseSchemaTypeInfo,
 	BaseSchemaInputsTypeInfo,

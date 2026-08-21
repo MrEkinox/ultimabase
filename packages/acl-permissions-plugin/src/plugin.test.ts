@@ -31,7 +31,10 @@ import {
 import { describe, expect, it, vi } from 'vitest'
 
 import { ACL } from './acl.js'
-import { acl, type ACLDefaultInput } from './acl-extension.js'
+import {
+	normalizedACL,
+	type ACLDefaultInput,
+} from './acl-option.test-support.js'
 import {
 	aclPlugin,
 	resolveCreateOperationACL,
@@ -66,7 +69,7 @@ const ProtectedPost = Schema.define({
 	fields: (field) => ({
 		title: field.string({ validation: { required: true } }),
 	}),
-	extensions: [acl()],
+	acl: {},
 })
 const protectedPostNode = new QueryBuilder(ProtectedPost).ast.schema
 const aclAdapterCapabilities = {
@@ -268,11 +271,11 @@ describe('aclPlugin create input resolution', () => {
 		)
 	})
 
-	it('requires the owning plugin only when a schema declares acl()', async () => {
+	it('requires the owning plugin only when a schema declares acl', async () => {
 		await expect(
 			createApplication({ schemas: [ProtectedPost], plugins: [] }),
 		).rejects.toMatchObject({
-			code: 'PLUGIN_EXTENSION_HANDLER_MISSING',
+			code: 'PLUGIN_DECLARATION_INVALID',
 		} satisfies Partial<FrameworkError>)
 
 		const application = await createApplication({
@@ -280,9 +283,13 @@ describe('aclPlugin create input resolution', () => {
 			plugins: [aclPlugin()],
 		})
 
-		expect(application.getPlugin('ultimabase.acl').schemas).toStrictEqual([
-			ProtectedPost,
-		])
+		const protectedSchemas = application.getPlugin('ultimabase.acl').schemas
+		expect(protectedSchemas).toStrictEqual([ProtectedPost])
+		expect(protectedSchemas[0]?.fields.acl?.kind).toBe('ultimabase.acl')
+		expect(protectedSchemas[0]?.provenance.fields.acl?.owner).toMatchObject({
+			kind: 'plugin',
+			pluginId: 'ultimabase.acl',
+		})
 	})
 
 	it('adds a private row filter, hides ACL output, and resolves the principal once', async () => {
@@ -395,14 +402,12 @@ describe('aclPlugin create input resolution', () => {
 		const StaticRolePost = Schema.define({
 			className: 'ACLStaticRoleRequirementPost',
 			fields: (field) => ({ title: field.string() }),
-			extensions: [
-				acl({
-					default: new ACL().grantRole(
-						new RequestSubjectReference('role', 'fixture-static-role'),
-						'read',
-					),
-				}),
-			],
+			acl: {
+				default: new ACL().grantRole(
+					new RequestSubjectReference('role', 'fixture-static-role'),
+					'read',
+				),
+			},
 		})
 		let infrastructureStarted = false
 		const infrastructure = definePlugin({
@@ -460,9 +465,9 @@ describe('aclPlugin create input resolution', () => {
 		const DynamicRolePost = Schema.define({
 			className: 'ACLDynamicRoleRequirementPost',
 			fields: (field) => ({ title: field.string() }),
-			extensions: [
-				acl({ default: () => new ACL().grantRole(dynamicRole, 'read') }),
-			],
+			acl: {
+				default: () => new ACL().grantRole(dynamicRole, 'read'),
+			},
 		})
 		const adapter = new ACLRejectedWriteAdapter()
 		const databaseProvider = definePlugin({
@@ -500,12 +505,12 @@ describe('aclPlugin create input resolution', () => {
 
 	it('derives one ACL from resolved row data without exposing the reserved field', async () => {
 		const generated = new ACL().grantPublic('read')
-		const defaultFactory = vi.fn(({ data }) => {
+		const defaultFactory = vi.fn(({ data }: ACLDefaultInput) => {
 			expect(data).toStrictEqual({ title: 'Visible' })
 
 			return generated
 		})
-		const extension = acl({ default: defaultFactory })
+		const config = normalizedACL({ default: defaultFactory })
 		const operation = {
 			input: { title: 'Visible' },
 			kind: 'create-one',
@@ -515,7 +520,7 @@ describe('aclPlugin create input resolution', () => {
 
 		const resolved = await resolveCreateOperationACL(
 			operation,
-			extension.config,
+			config,
 			undefined,
 			context,
 		)
@@ -533,13 +538,13 @@ describe('aclPlugin create input resolution', () => {
 			'fixture.private-contextual-plugin',
 			{ fields: { privateValue: privateField } },
 		)
-		const extension = acl()
 		const PrivatePost = Schema.define({
 			className: 'ACLPrivateContextualPost',
 			fields: (field) => ({
 				title: field.string({ validation: { required: true } }),
 			}),
-			extensions: [privateExtension, extension],
+			extensions: [privateExtension],
+			acl: {},
 		})
 		const defaultFactory = vi.fn(({ data }: ACLDefaultInput) =>
 			Object.keys(data).length === 1 && data.title === 'Visible'
@@ -552,10 +557,9 @@ describe('aclPlugin create input resolution', () => {
 			selection: { fields: [], kind: 'selection' },
 			schema: new QueryBuilder(PrivatePost).ast.schema,
 		} as const
-
 		await resolveCreateOperationACL(
 			operation,
-			acl({ default: defaultFactory }).config,
+			normalizedACL({ default: defaultFactory }),
 			undefined,
 			context,
 		)
@@ -572,7 +576,7 @@ describe('aclPlugin create input resolution', () => {
 					new ACL().grantPublic(data.title === 'First' ? 'read' : 'delete'),
 				),
 		)
-		const extension = acl({ default: defaultFactory })
+		const config = normalizedACL({ default: defaultFactory })
 		const operation = {
 			inputs: [{ title: 'First' }, { title: 'Second' }],
 			kind: 'create-many',
@@ -582,7 +586,7 @@ describe('aclPlugin create input resolution', () => {
 
 		const resolved = await resolveCreateOperationACL(
 			operation,
-			extension.config,
+			config,
 			undefined,
 			context,
 		)
@@ -619,7 +623,7 @@ describe('aclPlugin create input resolution', () => {
 		await expect(
 			resolveCreateOperationACL(
 				operation,
-				acl({ default: oversized }).config,
+				normalizedACL({ default: oversized }),
 				undefined,
 				context,
 				false,
@@ -632,7 +636,7 @@ describe('aclPlugin create input resolution', () => {
 		await expect(
 			resolveCreateOperationACL(
 				operation,
-				acl({ default: () => Promise.resolve(oversized) }).config,
+				normalizedACL({ default: () => Promise.resolve(oversized) }),
 				undefined,
 				context,
 				false,
@@ -654,32 +658,28 @@ describe('aclPlugin create input resolution', () => {
 			fields: (field) => ({
 				title: field.string({ validation: { required: true } }),
 			}),
-			extensions: [
-				acl({
-					default: ({ data }) => {
-						const value = new ACL().grantPrincipal(
-							Principal.pointer('first'),
-							'read',
-						)
+			acl: {
+				default: ({ data }) => {
+					const value = new ACL().grantPrincipal(
+						Principal.pointer('first'),
+						'read',
+					)
 
-						return data.title === 'Oversized'
-							? value.grantPrincipal(Principal.pointer('second'), 'read')
-							: value
-					},
-				}),
-			],
+					return data.title === 'Oversized'
+						? value.grantPrincipal(Principal.pointer('second'), 'read')
+						: value
+				},
+			},
 		})
 		const OverridePost = Schema.define({
 			className: 'ACLSchemaLimitOverridePost',
 			fields: (field) => ({
 				title: field.string({ validation: { required: true } }),
 			}),
-			extensions: [
-				acl({
-					default: twoPrincipals,
-					limits: { maxPrincipals: 2 },
-				}),
-			],
+			acl: {
+				default: twoPrincipals,
+				limits: { maxPrincipals: 2 },
+			},
 		})
 		const adapter = new ACLRejectedWriteAdapter()
 		const databaseProvider = definePlugin({
@@ -753,7 +753,7 @@ describe('aclPlugin create input resolution', () => {
 		await expect(
 			resolveCreateOperationACL(
 				operation,
-				acl({ default: roleAware }).config,
+				normalizedACL({ default: roleAware }),
 				undefined,
 				context,
 			),
@@ -763,7 +763,7 @@ describe('aclPlugin create input resolution', () => {
 		await expect(
 			resolveCreateOperationACL(
 				operation,
-				acl({ default: roleAware }).config,
+				normalizedACL({ default: roleAware }),
 				undefined,
 				context,
 				true,
@@ -773,7 +773,7 @@ describe('aclPlugin create input resolution', () => {
 		)
 		const resolved = await resolveCreateOperationACL(
 			operation,
-			acl({ default: roleAware }).config,
+			normalizedACL({ default: roleAware }),
 			undefined,
 			context,
 			true,
@@ -807,7 +807,7 @@ describe('aclPlugin create input resolution', () => {
 		await expect(
 			resolveCreateOperationACL(
 				operation,
-				acl({ resolveInput: ({ inputAcl }) => inputAcl }).config,
+				normalizedACL({ resolveInput: ({ inputAcl }) => inputAcl }),
 				undefined,
 				context,
 			),
@@ -819,19 +819,19 @@ describe('aclPlugin create input resolution', () => {
 		await expect(
 			resolveCreateOperationACL(
 				operation,
-				acl().config,
+				normalizedACL(),
 				undefined,
 				masterContext,
 			),
 		).rejects.toThrow(
 			new TypeError(
-				'Explicit ACL input requires acl({ resolveInput }) configuration',
+				'Explicit ACL input requires an acl.resolveInput declaration',
 			),
 		)
 
 		const accepted = await resolveCreateOperationACL(
 			operation,
-			acl({ resolveInput: ({ inputAcl }) => inputAcl }).config,
+			normalizedACL({ resolveInput: ({ inputAcl }) => inputAcl }),
 			undefined,
 			masterContext,
 		)
@@ -847,7 +847,7 @@ describe('aclPlugin create input resolution', () => {
 		const oversized = new ACL()
 			.grantPrincipal(Principal.pointer('first'), 'read')
 			.grantPrincipal(Principal.pointer('second'), 'read')
-		const config = acl({ resolveInput: ({ inputAcl }) => inputAcl }).config
+		const config = normalizedACL({ resolveInput: ({ inputAcl }) => inputAcl })
 		const limits = { maxPrincipals: 1, maxRoles: 50 }
 		const createOperation = {
 			input: { title: 'Explicit', acl: oversized },
@@ -936,7 +936,7 @@ describe('aclPlugin create input resolution', () => {
 		const resolved = await resolvePreparedOperationACL(
 			operation,
 			target,
-			acl({ resolveInput: resolver }).config,
+			normalizedACL({ resolveInput: resolver }),
 			undefined,
 			masterContext,
 		)
@@ -951,7 +951,7 @@ describe('aclPlugin create input resolution', () => {
 			resolvePreparedOperationACL(
 				operation,
 				target,
-				acl({ resolveInput: resolver }).config,
+				normalizedACL({ resolveInput: resolver }),
 				undefined,
 				context,
 			),
@@ -1033,7 +1033,7 @@ describe('aclPlugin create input resolution', () => {
 			] as const
 
 			const expectedMessages = [
-				'Explicit ACL input requires acl({ resolveInput }) configuration',
+				'Explicit ACL input requires an acl.resolveInput declaration',
 				'ACL replacement requires an itemized singular update.',
 				'ACL replacement requires an itemized singular update.',
 			] as const

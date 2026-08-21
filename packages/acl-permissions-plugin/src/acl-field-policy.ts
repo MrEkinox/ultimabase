@@ -13,7 +13,7 @@ import {
 	isUnknownArray,
 } from '@ultimabase/shared'
 
-import { aclFieldName } from './acl-extension.js'
+import { aclFieldName } from './acl-option.js'
 import { readOperationSchema } from './runtime-operation.js'
 
 const restrictACLRecord = (

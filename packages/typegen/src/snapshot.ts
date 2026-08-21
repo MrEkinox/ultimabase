@@ -9,6 +9,7 @@ import {
 	type GenericField,
 	type JsonValue,
 	type OwnedFieldBuilderMethod,
+	type OwnedPluginFieldType,
 	type PluginDefinition,
 	type SchemaDefinition,
 	type TypegenNamedDeclaration,
@@ -237,22 +238,22 @@ const readOptionalString = (
 }
 
 const createPluginValueReferences = (
-	fieldBuilderMethods: readonly OwnedFieldBuilderMethod[],
+	pluginFieldTypes: readonly OwnedPluginFieldType[],
 ): ReadonlyMap<string, PluginValueReference> => {
 	const references = new Map<string, PluginValueReference>()
 
-	for (const method of fieldBuilderMethods) {
-		const existing = references.get(method.fieldKind)
+	for (const fieldType of pluginFieldTypes) {
+		const existing = references.get(fieldType.fieldKind)
 		const candidate = immutableRecord({
-			exportName: method.typegen.valueType,
-			module: method.typegen.module,
-			owner: method.owner,
+			exportName: fieldType.typegen.valueType,
+			module: fieldType.typegen.module,
+			owner: fieldType.owner,
 			structuralContains:
-				method.typegen.structuralContainsType === undefined
+				fieldType.typegen.structuralContainsType === undefined
 					? undefined
 					: immutableRecord({
-							exportName: method.typegen.structuralContainsType,
-							module: method.typegen.module,
+							exportName: fieldType.typegen.structuralContainsType,
+							module: fieldType.typegen.module,
 						}),
 		})
 
@@ -267,12 +268,12 @@ const createPluginValueReferences = (
 		) {
 			throw new SchemaTypegenError(
 				'malformed-plugin-contribution',
-				`Field kind "${method.fieldKind}" from "${method.owner}" conflicts with the value type declared by "${existing.owner}"`,
-				{ owner: method.owner },
+				`Field kind "${fieldType.fieldKind}" from "${fieldType.owner}" conflicts with the value type declared by "${existing.owner}"`,
+				{ owner: fieldType.owner },
 			)
 		}
 
-		references.set(method.fieldKind, candidate)
+		references.set(fieldType.fieldKind, candidate)
 	}
 
 	return references
@@ -449,6 +450,7 @@ const snapshotFields = (
 
 export interface CompiledTypegenApplication {
 	readonly fieldBuilderMethods: readonly OwnedFieldBuilderMethod[]
+	readonly pluginFieldTypes: readonly OwnedPluginFieldType[]
 	readonly schemas: CompiledSchemaRegistry
 	readonly typegenGraph?: CompiledTypegenGraph
 }
@@ -462,9 +464,7 @@ export const createCompiledTypegenSnapshot = (
 		throw new TypeError('applicationId must be a non-empty string')
 	}
 
-	const pluginValues = createPluginValueReferences(
-		application.fieldBuilderMethods,
-	)
+	const pluginValues = createPluginValueReferences(application.pluginFieldTypes)
 	const context: SnapshotContext = {
 		pluginValues,
 		schemas: application.schemas,
@@ -529,6 +529,7 @@ export const createTypegenSnapshot = (
 	return createCompiledTypegenSnapshot(
 		{
 			fieldBuilderMethods: application.fieldBuilderMethods,
+			pluginFieldTypes: application.pluginFieldTypes,
 			schemas: application.schemas,
 			typegenGraph: application.typegenGraph,
 		},

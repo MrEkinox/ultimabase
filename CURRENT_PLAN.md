@@ -10,7 +10,7 @@ schema API has no generic extension container or extension-specific helper.
 
 1. Issue 1901 — decide the direct replacement contract and removal boundary (`completed`).
 2. Issue 1902 — add option-presence schema selection over ordinary patches (`completed`).
-3. Issue 1903 — migrate ACL to a direct schema option (`ready`).
+3. Issue 1903 — migrate ACL to a direct schema option (`completed`).
 4. Issue 1904 — migrate PostgreSQL naming metadata to direct options (`planned`).
 5. Issue 1905 — remove the RoleSchema extension marker (`planned`).
 6. Issue 1906 — delete the generic schema and field extension system (`planned`).
@@ -18,7 +18,7 @@ schema API has no generic extension container or extension-specific helper.
 
 ## Resume point
 
-Start issue 1903. Do not implement a compatibility layer: UltimaBase is still
+Start issue 1904. Do not implement a compatibility layer: UltimaBase is still
 in development, and each replacement must remove its superseded public API in
 the same issue. ACL hardening issues 432 through 435 remain deliberately
 deferred until explicit direction.

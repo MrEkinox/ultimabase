@@ -17,6 +17,7 @@ it('conforms to the public plugin kernel contracts', async () => {
 				environment: [],
 				pluginId: 'ultimabase.acl',
 				privileges: [
+					'schema:declare',
 					'authority:elevate',
 					'runtime:constrain',
 					'runtime:intercept',

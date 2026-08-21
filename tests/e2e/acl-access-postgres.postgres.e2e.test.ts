@@ -1,4 +1,4 @@
-import { ACL, acl, aclPlugin } from '@ultimabase/acl-permissions-plugin'
+import { ACL, aclPlugin } from '@ultimabase/acl-permissions-plugin'
 import {
 	RequestSubjectReference,
 	definePlugin,
@@ -84,14 +84,12 @@ const ProtectedPost = Schema.define({
 		marker: field.string({ default: 'original' }),
 		title: field.string({ validation: { required: true } }),
 	}),
-	extensions: [
-		acl({
-			default: emptyACL,
-			resolveInput: ({ currentAcl, inputAcl }) =>
-				inputAcl ?? currentAcl ?? emptyACL,
-		}),
-		postgresTable({ name: 'acl_access_posts' }),
-	],
+	acl: {
+		default: emptyACL,
+		resolveInput: ({ currentAcl, inputAcl }) =>
+			inputAcl ?? currentAcl ?? emptyACL,
+	},
+	extensions: [postgresTable({ name: 'acl_access_posts' })],
 })
 const aliceId = '0198a43e-2431-7000-8000-000000000070'
 const bobId = '0198a43e-2431-7000-8000-000000000071'

@@ -9,8 +9,15 @@ import { createLanguageService } from '../../../tooling/vitest/typescript-langua
 const packageDirectory = path.dirname(fileURLToPath(import.meta.url))
 const fixtureFile = path.join(packageDirectory, 'acl-intellisense.fixture.ts')
 const source = `
-import { ACL, acl as aclExtension, aclPlugin, onACLChange } from '@ultimabase/acl-permissions-plugin'
+import { ACL, aclPlugin, onACLChange } from '@ultimabase/acl-permissions-plugin'
+import type { ACLSchemaOption } from '@ultimabase/acl-permissions-plugin'
 import { Schema, stringField } from '@ultimabase/core'
+
+declare module '@ultimabase/core' {
+  interface UltimaBaseGeneratedSchemaOptions {
+    readonly acl?: ACLSchemaOption<this>
+  }
+}
 
 const acl = new ACL()
 
@@ -22,9 +29,10 @@ void ACL.fromJSON/* from-json-hover */
 acl.grantPublic(/* permission-complete */)
 const /* acl-hover */value = acl.grantPublic('read')
 const /* json-hover */document = acl.toJSON()
-void aclExtension/* extension-hover */
-aclExtension({ /* options-complete */ })
-aclExtension({ limits: { /* schema-limits-complete */ } })
+void ({} as ACLSchemaOption/* option-hover */<unknown>)
+const directACL: ACLSchemaOption<unknown> = { /* options-complete */ }
+void directACL
+Schema.define({ /* schema-option-complete */ })
 void aclPlugin/* plugin-hover */
 aclPlugin({ /* plugin-options-complete */ })
 aclPlugin({ limits: { /* plugin-limits-complete */ } })
@@ -41,8 +49,7 @@ const ContextualPost = Schema.define({
 		title: stringField({ validation: { required: true } }),
 		visibility: stringField(),
 	}),
-	extensions: ({ bind }) => [
-		bind(aclExtension, {
+	acl: {
 			default: ({ data }) => {
 				data./* schema-data-complete */
 				const /* schema-title-hover */title = data.title
@@ -55,8 +62,8 @@ const ContextualPost = Schema.define({
 
 				return input.inputAcl ?? input.currentAcl
 			},
-		}),
-	],
+		limits: { /* schema-limits-complete */ },
+	},
 })
 
 void ContextualPost
@@ -178,8 +185,8 @@ describe('ACL IntelliSense', () => {
 		)
 	})
 
-	it('documents the schema extension and completes its focused options', () => {
-		const hoverMarker = '/* extension-hover */'
+	it('documents the direct schema option and completes its focused options', () => {
+		const hoverMarker = '/* option-hover */'
 		const hover = service.getQuickInfoAtPosition(
 			fixtureFile,
 			markerPosition(hoverMarker) - 1,
@@ -187,16 +194,25 @@ describe('ACL IntelliSense', () => {
 		const optionsMarker = '/* options-complete */'
 		const completions = service.getCompletionsAtPosition(
 			fixtureFile,
-			markerPosition(optionsMarker),
+			markerPosition(optionsMarker) + optionsMarker.length,
 			{},
 		)
 		const names = completions?.entries.map(({ name }) => name) ?? []
+		const schemaMarker = '/* schema-option-complete */'
+		const schemaCompletions = service.getCompletionsAtPosition(
+			fixtureFile,
+			markerPosition(schemaMarker),
+			{},
+		)
 
 		expect(ts.displayPartsToString(hover?.documentation)).toContain(
-			'Enables persisted object ACL for one schema',
+			'Configures ACL generation and accepted input from exact sibling fields',
 		)
 		expect(names).toEqual(
 			expect.arrayContaining(['default', 'limits', 'resolveInput']),
+		)
+		expect(schemaCompletions?.entries.map(({ name }) => name) ?? []).toContain(
+			'acl',
 		)
 
 		const limitsMarker = '/* schema-limits-complete */'

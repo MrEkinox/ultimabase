@@ -1,4 +1,4 @@
-import { ACL, acl, aclPlugin } from '@ultimabase/acl-permissions-plugin'
+import { ACL, aclPlugin } from '@ultimabase/acl-permissions-plugin'
 import { accessPlugin } from '@ultimabase/access-plugin'
 import {
 	MasterAuthority,
@@ -18,6 +18,7 @@ import {
 	type PostgresWorkerFixture,
 } from './postgres-worker-fixture.js'
 import { provideTestPrincipalResolver } from './access-capability-fixtures.js'
+import { requireACLValue } from './acl-test-fixtures.js'
 
 const PrincipalA = Schema.define({
 	className: 'ACLCompositionPrincipalA',
@@ -84,20 +85,18 @@ const Document = Schema.define({
 			validation: { required: true },
 		}),
 	}),
-	extensions: [
-		acl({
-			default: ({ data, principal }) => {
-				const initial =
-					data.title === 'public' ? emptyACL.grantPublic('read') : emptyACL
-				return principal === undefined
-					? initial
-					: initial.grantPrincipal(principal, 'read', 'update', 'delete')
-			},
-			// Returning undefined on create deliberately delegates to the configured default.
-			resolveInput: ({ currentAcl, inputAcl }) => inputAcl ?? currentAcl,
-		}),
-		postgresTable({ name: 'acl_composition_documents' }),
-	],
+	acl: {
+		default: ({ data, principal }) => {
+			const initial =
+				data.title === 'public' ? emptyACL.grantPublic('read') : emptyACL
+			return principal === undefined
+				? initial
+				: initial.grantPrincipal(principal, 'read', 'update', 'delete')
+		},
+		// Returning undefined on create deliberately delegates to the configured default.
+		resolveInput: ({ currentAcl, inputAcl }) => inputAcl ?? currentAcl,
+	},
+	extensions: [postgresTable({ name: 'acl_composition_documents' })],
 	access: {
 		create: true,
 		delete: {
@@ -198,17 +197,21 @@ describe(
 				},
 				{ ultimabase: app, useMasterKey: true },
 			)
-			if (!(persisted?.acl instanceof ACL)) {
+			if (persisted === null) {
 				throw new TypeError(
 					'Expected the persisted document ACL to be materialized',
 				)
 			}
+			const persistedACL = requireACLValue(
+				persisted.acl,
+				'Expected the persisted document ACL to be materialized',
+			)
 
 			expect(owned.title).toBe('owned')
 			expect(owned).not.toHaveProperty('acl')
 			expect(owned).not.toHaveProperty('secret')
 			expect(persisted.title).toBe('owned')
-			expect(persisted.acl.toJSON()).toStrictEqual(
+			expect(persistedACL.toJSON()).toStrictEqual(
 				new ACL()
 					.grantPrincipal(
 						PrincipalA.pointer(sharedPrincipalId),

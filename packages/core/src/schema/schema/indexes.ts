@@ -122,17 +122,22 @@ export const snapshotSchemaIndexOptions = (
 	)
 }
 
-const readFieldIndex = (options: object): boolean | 'unique' => {
-	if (!('indexed' in options) || options.indexed === false) {
+/** @internal Resolves one normalized field-level index option. */
+export const readFieldIndexValue = (value: unknown): boolean | 'unique' => {
+	if (value === undefined || value === false) {
 		return false
 	}
 
-	if (options.indexed === true || options.indexed === 'unique') {
-		return options.indexed
+	if (value === true || value === 'unique') {
+		return value
 	}
 
 	throw new TypeError('indexed must be a boolean or "unique"')
 }
+
+/** @internal Resolves the implicit index carried by one field options contract. */
+export const readFieldIndex = (options: object): boolean | 'unique' =>
+	readFieldIndexValue('indexed' in options ? options.indexed : undefined)
 
 const normalizeCompositeIndex = (
 	index: SchemaIndexOptions,

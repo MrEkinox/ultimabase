@@ -5,6 +5,7 @@ import {
 	type SchemaOptionProvenance,
 } from '../../schema/schema/provenance.js'
 import { reservedSystemFieldNames } from '../../schema/schema/system-fields.js'
+import { readFieldIndexValue } from '../../schema/schema/indexes.js'
 import type {
 	SchemaCompilerFieldNode,
 	SchemaCompilerPatchOperation,
@@ -120,6 +121,19 @@ export const applyCanonicalFieldOperation = (
 			...state.developerFieldNames,
 			operation.name,
 		])
+		const indexed = readFieldIndexValue(
+			field.options.find(({ name }) => name === 'indexed')?.value,
+		)
+		if (indexed !== false) {
+			const definition = immutableRecord({
+				fields: immutableArray([operation.name]),
+				unique: indexed === 'unique',
+			})
+			state.indexes = immutableArray([
+				...state.indexes,
+				immutableRecord({ definition, provenance: field.provenance }),
+			])
+		}
 		state.provenance = immutableRecord({
 			...state.provenance,
 			fieldOptions: immutableRecord({
@@ -130,6 +144,11 @@ export const applyCanonicalFieldOperation = (
 				...state.provenance.fields,
 				[operation.name]: field.provenance,
 			}),
+			indexes: immutableArray(
+				state.indexes.map(({ definition, provenance }) =>
+					immutableRecord({ definition, provenance }),
+				),
+			),
 		})
 		appendCompilerPatchProvenance(state, operation.kind, field.provenance)
 		return true

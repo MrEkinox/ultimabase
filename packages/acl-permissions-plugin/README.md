@@ -1,7 +1,7 @@
 # @ultimabase/acl-permissions-plugin
 
-Provides the immutable `ACL` class, the typed `acl()` schema extension, and the
-optional `aclPlugin()` provider.
+Provides the immutable `ACL` class, the direct typed `acl` schema option, and
+the optional `aclPlugin()` provider.
 
 ACL grants object-level `read`, `update`, and `delete` rights to public,
 authenticated, exact-principal, and role subjects. One ACL may contain multiple
@@ -40,10 +40,11 @@ const restored = ACL.fromJSON(JSON.parse(JSON.stringify(document)))
 versions, subjects, and permissions. Repeated rights and repeated entries are
 combined by union, then serialized in canonical order.
 
-`acl()` injects one reserved, required `acl: ACL` field without requiring a
-manual field declaration. Create input keeps that field optional because
-`aclPlugin()` supplies a static or asynchronous default after ordinary field
-input resolution and before structural revalidation:
+When `aclPlugin()` is installed, the direct `acl` option adds one reserved,
+required `acl: ACL` field without a manual field declaration. Without the
+plugin, the option is unknown and static compilation fails. Create input keeps
+the field optional because the plugin supplies a static or asynchronous default
+after ordinary field input resolution and before structural revalidation:
 
 ```ts
 const Post = Schema.define({
@@ -52,20 +53,16 @@ const Post = Schema.define({
 		title: field.string({ validation: { required: true } }),
 		visibility: field.string(),
 	}),
-	extensions: ({ bind }) => [
-		bind(acl, {
-			default: ({ data, principal }) => {
-				const initial =
-					data.visibility === 'public'
-						? new ACL().grantPublic('read')
-						: new ACL()
+	acl: {
+		default: ({ data, principal }) => {
+			const initial =
+				data.visibility === 'public' ? new ACL().grantPublic('read') : new ACL()
 
-				return principal === undefined
-					? initial
-					: initial.grantPrincipal(principal, 'read', 'update')
-			},
-		}),
-	],
+			return principal === undefined
+				? initial
+				: initial.grantPrincipal(principal, 'read', 'update')
+		},
+	},
 })
 ```
 
@@ -83,17 +80,15 @@ locked `currentData` and the normalized non-ACL `update` operations:
 const deriveACL = (visibility: string | null) =>
 	visibility === 'public' ? new ACL().grantPublic('read') : new ACL()
 
-extensions: ({ bind }) => [
-	bind(acl, {
-		resolveInput: ({ currentAcl, data, inputAcl }) =>
-			inputAcl ?? currentAcl ?? deriveACL(data.visibility),
-	}),
-],
+acl: {
+	resolveInput: ({ currentAcl, data, inputAcl }) =>
+		inputAcl ?? currentAcl ?? deriveACL(data.visibility),
+},
 ```
 
-The contextual declaration is opt-in. Static extensions may keep the shorter
-`extensions: [acl()]` tuple; use `({ bind }) => [...]` when callbacks need exact
-sibling-field autocomplete without a duplicated data interface.
+`ACLSchemaOption<this>` supplies exact sibling-field autocomplete directly;
+there is no binder, duplicated data interface, or generated Runtime client.
+Typegen emits that option contract only for applications that install ACL.
 
 The update candidate includes unchanged fields and applies `set` (including
 `null` clears) and numeric operations before the callback. Framework-generated timestamps remain
@@ -117,12 +112,16 @@ The zero-option defaults are 100 principals and 50 roles. A schema may override
 either value independently while inheriting the other:
 
 ```ts
-acl({
-	limits: { maxPrincipals: 25 },
-	default: ({ principal }) =>
-		principal === undefined
-			? new ACL().grantPublic('read')
-			: new ACL().grantPrincipal(principal, 'read', 'update'),
+const Post = Schema.define({
+	className: 'Post',
+	fields: (field) => ({ title: field.string() }),
+	acl: {
+		limits: { maxPrincipals: 25 },
+		default: ({ principal }) =>
+			principal === undefined
+				? new ACL().grantPublic('read')
+				: new ACL().grantPrincipal(principal, 'read', 'update'),
+	},
 })
 ```
 
@@ -203,7 +202,7 @@ plugin publishes ACL changes by default.
 or `upsert`. It deliberately does not expose Core's normalized operation AST or
 its internal cardinality.
 
-The extension also works on a developer-defined RoleSchema. Official RoleSchema
+The direct option also works on a developer-defined RoleSchema. Official RoleSchema
 Access controls creation when `accessPlugin()` is installed, while each
 persisted role ACL may narrow reads,
 updates, member or nested-role mutations, and deletion. Only master execution

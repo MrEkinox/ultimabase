@@ -12,7 +12,7 @@ import type {
 import { immutableRecord } from '@ultimabase/shared'
 
 import { createACLApplicationState } from './application-state.js'
-import type { ACLSchemaExtensionConfig } from './acl-extension.js'
+import type { NormalizedACLSchemaOption } from './acl-option.js'
 import type { ResolvedACLEntryLimits } from './acl-limits.js'
 
 type PrincipalResolverContribution = CapabilityProviderContribution<
@@ -69,7 +69,7 @@ export const attributeRoleResolver = (
 }
 
 interface ACLApplicationStateReaderOptions {
-	readonly hasStaticRoleGrant: (config: ACLSchemaExtensionConfig) => boolean
+	readonly hasStaticRoleGrant: (config: NormalizedACLSchemaOption) => boolean
 	readonly pluginLimits: ResolvedACLEntryLimits
 	readonly principalRequirement: CapabilityRequirement<
 		typeof requestPrincipalResolverCapability,

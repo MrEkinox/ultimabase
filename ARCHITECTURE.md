@@ -363,7 +363,7 @@ separate neutral role resolver; it never imports a concrete authentication or
 roles plugin. Missing identity fails closed while applications using only
 public and audited master behavior require neither provider.
 
-The `acl()` schema extension owns row-aware defaults and shared create/update
+The direct plugin-owned `acl` schema option owns row-aware defaults and shared create/update
 input resolution through public capability middleware. `aclPlugin()` owns an
 independent monotonic protected policy and declares master bypass. It does not
 depend on the official Access package. Core Runtime has no ACL stage or subject

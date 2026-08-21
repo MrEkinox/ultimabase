@@ -2,6 +2,7 @@ export { aclPermissions } from './acl-contracts.js'
 export type { ACLPermission, ACLPrincipal } from './acl-contracts.js'
 export type { ACLJSON, ACLPrincipalJSON, ACLRoleJSON } from './acl-json.js'
 export { ACL } from './acl.js'
+export type { ACLContainmentOperand } from './acl-containment.js'
 export {
 	aclChangedEvent,
 	onACLChange,
@@ -22,13 +23,7 @@ export type {
 	ACLPublicChangeSubject,
 	ACLRoleChangeSubject,
 } from './acl-events.js'
-export {
-	acl,
-	aclFieldKind,
-	aclFieldName,
-	aclPluginName,
-	aclSchemaExtensionName,
-} from './acl-extension.js'
+export { aclFieldKind, aclFieldName, aclPluginName } from './acl-option.js'
 export { aclPlugin } from './plugin.js'
 export type {
 	ACLPlugin,
@@ -44,9 +39,7 @@ export type {
 	ACLInputResolver,
 	ACLNormalizedUpdateInput,
 	ACLNormalizedUpdateOperation,
-	ACLSchemaExtension,
-	ACLSchemaExtensionConfig,
 	ACLSchemaLimits,
-	ACLSchemaOptions,
+	ACLSchemaOption,
 	ACLUpdateInputResolution,
-} from './acl-extension.js'
+} from './acl-option.js'

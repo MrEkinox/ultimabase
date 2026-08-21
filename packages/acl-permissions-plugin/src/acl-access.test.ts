@@ -11,7 +11,6 @@ import {
 import { describe, expect, it, vi } from 'vitest'
 
 import { ACL } from './acl.js'
-import { acl } from './acl-extension.js'
 import {
 	createACLPermissionRowFilter,
 	requiredACLPermissions,
@@ -24,7 +23,6 @@ const Principal = Schema.define({
 })
 const ProtectedRecord = Schema.define({
 	className: 'ACLAccessProtectedRecord',
-	extensions: [acl()],
 	fields: (field) => ({ name: field.string() }),
 })
 const principal = new Pointer(Principal, '0198a43e-2431-7000-8000-000000000011')

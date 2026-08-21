@@ -1,6 +1,7 @@
 import type {
 	CompiledSchemaRegistry,
 	OwnedFieldBuilderMethod,
+	OwnedPluginFieldType,
 	SchemaRegistry,
 } from '../schema/index.js'
 import {
@@ -30,6 +31,9 @@ import {
 
 const emptyFieldBuilderMethods: readonly OwnedFieldBuilderMethod[] =
 	immutableArray([])
+const emptyPluginFieldTypes: readonly OwnedPluginFieldType[] = immutableArray(
+	[],
+)
 const emptyCapabilityReader: PluginCapabilityReader = immutableRecord({
 	contributions: () => {
 		throw new TypeError('No capability graph is configured')
@@ -198,6 +202,8 @@ export interface PluginSetupContext {
 	readonly schemas: CompiledSchemaRegistry
 	/** Exposes the compiled application-local FieldBuilder method graph to tooling plugins. */
 	readonly fieldBuilderMethods: readonly OwnedFieldBuilderMethod[]
+	/** Exposes generated plugin value contracts independently from builder methods. */
+	readonly pluginFieldTypes: readonly OwnedPluginFieldType[]
 	/** Exposes the callback-free final application graph to declaration tooling. */
 	readonly typegenGraph: CompiledTypegenGraph
 	/** Reads only exact capability requirements declared by this plugin. */
@@ -222,6 +228,8 @@ export class PluginSetupRegistries {
 		readonly schemas: SchemaRegistry,
 		readonly fieldBuilderMethods: () => readonly OwnedFieldBuilderMethod[] = () =>
 			emptyFieldBuilderMethods,
+		readonly pluginFieldTypes: () => readonly OwnedPluginFieldType[] = () =>
+			emptyPluginFieldTypes,
 		readonly capabilitiesForPlugin: (
 			owner: PluginIdentity,
 		) => PluginCapabilityReader = () => emptyCapabilityReader,
@@ -279,6 +287,7 @@ export class PluginSetupRegistries {
 		const context = immutableRecord({
 			schemas: this.schemas,
 			fieldBuilderMethods: this.fieldBuilderMethods(),
+			pluginFieldTypes: this.pluginFieldTypes(),
 			typegenGraph: this.typegenGraph(),
 			capabilities,
 			adapters: createAdapterAccess({

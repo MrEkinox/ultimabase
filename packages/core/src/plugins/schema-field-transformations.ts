@@ -1,6 +1,7 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 import { getDeclaredFieldOptionsContract } from '../schema/fields/base/definition.js'
 import { reservedSystemFieldNames } from '../schema/schema/system-fields.js'
+import { readFieldIndex } from '../schema/schema/indexes.js'
 import {
 	coreSchemaContributionOwner,
 	createSchemaContributionProvenance,
@@ -49,6 +50,25 @@ export const applyFieldOperation = (
 			operation.contributionId,
 			patch.staticOptions,
 		)
+		const indexed = readFieldIndex(field.options)
+		if (indexed !== false) {
+			const index = immutableRecord({
+				fields: immutableArray([operation.name]),
+				unique: indexed === 'unique',
+			})
+			state.indexes = immutableArray([...state.indexes, index])
+			state.provenance = immutableRecord({
+				...state.provenance,
+				indexes: immutableArray([
+					...state.provenance.indexes,
+					immutableRecord({
+						definition: index,
+						// The implicit index is one artifact of the field contribution.
+						provenance: fieldProvenance,
+					}),
+				]),
+			})
+		}
 		const contract = getDeclaredFieldOptionsContract(field)
 		const fieldOptions = immutableRecord(
 			Object.fromEntries(

@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 
 import { accessPlugin } from '@ultimabase/access-plugin'
-import { ACL, acl, aclPlugin } from '@ultimabase/acl-permissions-plugin'
+import { ACL, aclPlugin } from '@ultimabase/acl-permissions-plugin'
 import {
 	FrameworkApplication,
 	MasterAuthority,
@@ -97,8 +97,8 @@ const createAlternativeFixture = (withAcl = false) => {
 				hiddenFields: ['secret'],
 				tenant: 'community',
 			}),
-			...(withAcl ? [acl({ default: publicRead })] : []),
 		],
+		...(withAcl ? { acl: { default: publicRead } } : {}),
 		fields: (field) => ({
 			secret: field.string(),
 			tenant: field.string(),
@@ -274,6 +274,29 @@ describe('independent protected policy engine', () => {
 			)
 		} finally {
 			await composed.dispose()
+		}
+	})
+
+	it('generates the installed direct ACL option and patched field contract', async () => {
+		const { adapter, Document } = createAlternativeFixture(true)
+		const application = new FrameworkApplication({
+			pluginPrivileges: { logger: false },
+			plugins: [aclPlugin(), createSupportPlugin(adapter)],
+			schemas: [Document],
+		})
+		try {
+			const generated = generateApplicationTypes({
+				application,
+				applicationId: 'direct-acl-option',
+			}).contents
+
+			expect(generated).toContain('@ultimabase/acl-permissions-plugin')
+			expect(generated).toContain('ACLSchemaOption<this>')
+			expect(
+				application.schemas.get(Document.className)?.fields.acl?.kind,
+			).toBe('ultimabase.acl')
+		} finally {
+			await application.dispose()
 		}
 	})
 

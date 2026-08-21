@@ -135,6 +135,16 @@ describe('plugin FieldBuilder methods', () => {
 			}),
 		])
 		expect(Object.isFrozen(application.fieldBuilderMethods)).toBe(true)
+		expect(application.pluginFieldTypes).toStrictEqual([
+			expect.objectContaining({
+				fieldKind: 'fixture.alpha',
+				owner: 'fixture.ordered-plugin',
+				typegen: {
+					module: '@fixture/alpha-plugin',
+					valueType: 'AlphaValue',
+				},
+			}),
+		])
 	})
 
 	it('fails precisely when no configured plugin declares a used method', async () => {

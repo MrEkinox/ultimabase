@@ -64,7 +64,7 @@ ACL accepts role UUID or name references, but persistence resolves and stores th
 
 Referenced-role deletion supports `fail`, `preserve`, and `cascade`; the default is `fail`.
 
-`acl()` is valid on a developer-defined RoleSchema. Normal RoleSchema Access
+The direct `acl` option is valid on a developer-defined RoleSchema. Normal RoleSchema Access
 still controls creation, while per-role ACL rights may narrow reads, updates,
 membership or hierarchy mutations, and deletion. Only master may inspect or
 replace the role row's ACL value. Internal role membership resolution uses its
@@ -73,8 +73,8 @@ through the ACL protecting that RoleSchema row.
 
 ## ACL input
 
-Create and update accept the same immutable `ACL` value. The `acl()` schema
-extension accepts one static or asynchronous default and one shared
+Create and update accept the same immutable `ACL` value. The direct `acl` schema
+option accepts one static or asynchronous default and one shared
 `resolveInput` callback for both operations. A default factory receives the
 field-resolved create candidate, optional current principal, and operation
 context, so it may derive object grants from the data being inserted. The
@@ -87,9 +87,9 @@ ACL authorization but not validation, default generation, installed Runtime
 behavior, transactions, database constraints, or audit events.
 
 `aclPlugin()` defaults each ACL to at most 100 exact principals and 50 roles.
-Applications may change those defaults through plugin options, while
-`acl({ limits })` overrides either value for one schema and inherits omitted
-values. Limits count canonical subject entries after duplicate grants are
+Applications may change those defaults through plugin options, while the
+schema-local `acl: { limits }` option overrides either value and inherits
+omitted values. Limits count canonical subject entries after duplicate grants are
 merged. Public and authenticated rights consume no subject entry, and every
 create or update path—including master execution—is checked before persistence.
 

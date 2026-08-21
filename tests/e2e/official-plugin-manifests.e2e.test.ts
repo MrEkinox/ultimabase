@@ -36,7 +36,9 @@ it('publishes the audited privilege and environment contract for every official 
 		manifests.map((manifest) => ({
 			environment: manifest.environment,
 			pluginId: manifest.identity.pluginId,
-			privileges: manifest.privileges.map(({ name }) => name),
+			privileges: manifest.privileges.map(
+				({ name }: { readonly name: string }) => name,
+			),
 		})),
 	).toStrictEqual([
 		{
@@ -63,6 +65,7 @@ it('publishes the audited privilege and environment contract for every official 
 			environment: [],
 			pluginId: 'ultimabase.acl',
 			privileges: [
+				'schema:declare',
 				'authority:elevate',
 				'runtime:constrain',
 				'runtime:intercept',

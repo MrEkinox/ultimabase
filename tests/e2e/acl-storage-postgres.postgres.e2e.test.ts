@@ -1,4 +1,4 @@
-import { ACL, acl, aclPlugin } from '@ultimabase/acl-permissions-plugin'
+import { ACL, aclPlugin } from '@ultimabase/acl-permissions-plugin'
 import { MasterAuthority, Schema, UltimaBase } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin, postgresTable } from '@ultimabase/postgres-plugin'
@@ -8,6 +8,7 @@ import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from './postgres-worker-fixture.js'
+import { requireACLValue } from './acl-test-fixtures.js'
 
 const PrincipalA = Schema.define({
 	className: 'ACLStoragePrincipalA',
@@ -27,14 +28,12 @@ const StoredPost = Schema.define({
 	fields: (field) => ({
 		title: field.string({ validation: { required: true } }),
 	}),
-	extensions: [
-		acl({
-			default: initialACL,
-			resolveInput: ({ currentAcl, inputAcl }) =>
-				inputAcl ?? currentAcl ?? initialACL,
-		}),
-		postgresTable({ name: 'acl_storage_posts' }),
-	],
+	acl: {
+		default: initialACL,
+		resolveInput: ({ currentAcl, inputAcl }) =>
+			inputAcl ?? currentAcl ?? initialACL,
+	},
+	extensions: [postgresTable({ name: 'acl_storage_posts' })],
 })
 
 let fixture: PostgresWorkerFixture | undefined
@@ -80,14 +79,15 @@ describe('ACL JSONB storage', { concurrent: false }, () => {
 				{ data: { title: 'Protected' } },
 				{ ultimabase, useMasterKey: true },
 			)
-			if (!(created.acl instanceof ACL)) {
-				throw new TypeError('Expected the created ACL to be materialized')
-			}
+			const createdACL = requireACLValue(
+				created.acl,
+				'Expected the created ACL to be materialized',
+			)
 			const createdRow = await getFixture().pool.query<{
 				readonly acl: unknown
 			}>('SELECT acl FROM acl_storage_posts WHERE id = $1', [created.id])
 
-			expect(created.acl.toJSON()).toStrictEqual(initialACL.toJSON())
+			expect(createdACL.toJSON()).toStrictEqual(initialACL.toJSON())
 			expect(createdRow.rows[0]?.acl).toStrictEqual(initialACL.toJSON())
 			expect(initialACL.toJSON().principals).toMatchObject([
 				{ className: 'ACLStoragePrincipalA', id: sharedId },
@@ -104,11 +104,12 @@ describe('ACL JSONB storage', { concurrent: false }, () => {
 				},
 				{ ultimabase, useMasterKey: true },
 			)
-			if (!(updated?.acl instanceof ACL)) {
-				throw new TypeError('Expected the updated ACL to be materialized')
-			}
+			const updatedACL = requireACLValue(
+				updated?.acl,
+				'Expected the updated ACL to be materialized',
+			)
 
-			expect(updated.acl.toJSON()).toStrictEqual(replacement.toJSON())
+			expect(updatedACL.toJSON()).toStrictEqual(replacement.toJSON())
 			const indexes = await getFixture().pool.query<{
 				readonly indexdef: string
 				readonly indexname: string

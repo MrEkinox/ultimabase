@@ -1,13 +1,16 @@
 import {
-	type ContextualSchemaExtensionFactory,
-	type RequestSubjectContext,
-	defineContextualSchemaExtensionFactory,
 	definePluginField,
-	defineSchemaExtension,
+	definePluginFieldType,
+	defineSchemaOption,
+	type FieldValueMap,
 	type PluginFieldDefinition,
+	type PluginFieldTypeDefinition,
 	type PointerValue,
-	type SchemaExtension,
-	type SchemaExtensionContextKind,
+	type RequestSubjectContext,
+	type SchemaDefinition,
+	type SchemaFieldBuilderDeclaration,
+	type SchemaFields,
+	type SchemaOptionDefinition,
 } from '@ultimabase/core'
 import {
 	immutableRecord,
@@ -22,9 +25,6 @@ import {
 } from './acl-containment.js'
 import { normalizeACLEntryLimits, type ACLEntryLimits } from './acl-limits.js'
 
-/** Identifies the schema extension owned by the official ACL plugin. */
-export const aclSchemaExtensionName = 'ultimabase.acl.schema' as const
-
 /** Identifies the optional plugin that executes ACL behavior. */
 export const aclPluginName = 'ultimabase.acl' as const
 
@@ -33,6 +33,17 @@ export const aclFieldName = 'acl' as const
 
 /** Identifies the adapter-neutral ACL value field handled by official plugins. */
 export const aclFieldKind = 'ultimabase.acl' as const
+
+/** Declares ACL generation types without exposing a schema FieldBuilder method. */
+export const aclFieldType: PluginFieldTypeDefinition<typeof aclFieldKind> =
+	definePluginFieldType({
+		fieldKind: aclFieldKind,
+		typegen: {
+			module: '@ultimabase/acl-permissions-plugin',
+			structuralContainsType: 'ACLContainmentOperand',
+			valueType: 'ACL',
+		},
+	})
 
 interface ACLFieldOptions {
 	readonly indexed: true
@@ -62,7 +73,8 @@ const snapshotACL = (value: unknown, path: string): ACL => {
 	return value
 }
 
-const aclField = definePluginField(
+/** Defines the unchanged adapter-neutral field added to ACL-enabled schemas. */
+export const aclField = definePluginField(
 	aclFieldKind,
 	{ indexed: true, validation: { required: true } },
 	{
@@ -167,28 +179,34 @@ export type ACLInputResolver<
 /** Overrides application ACL entry limits for one schema. */
 export type ACLSchemaLimits = ACLEntryLimits
 
-/** Configures ACL generation and accepted input for one schema. */
-export interface ACLSchemaOptions<
-	TData extends Readonly<Record<string, unknown>> = Readonly<
-		Record<string, unknown>
-	>,
-> {
+type SchemaFieldsForOptions<TOptions> =
+	TOptions extends Readonly<{
+		readonly fields: SchemaFieldBuilderDeclaration<infer TFields>
+	}>
+		? TFields
+		: SchemaFields
+
+type ACLDataForOptions<TOptions> = FieldValueMap<
+	SchemaFieldsForOptions<TOptions>,
+	'object'
+>
+
+/** Configures ACL generation and accepted input from exact sibling fields. */
+export interface ACLSchemaOption<TOptions = unknown> {
 	/** Supplies one static ACL or derives it from the field-resolved create candidate. */
-	readonly default?: ACL | ACLDefaultFactory<TData>
+	readonly default?: ACL | ACLDefaultFactory<ACLDataForOptions<TOptions>>
 	/** Accepts and resolves explicit ACL input for create and update operations. */
-	readonly resolveInput?: ACLInputResolver<TData>
+	readonly resolveInput?: ACLInputResolver<ACLDataForOptions<TOptions>>
 	/**
 	 * Overrides either plugin-level limit for this schema only.
-	 *
 	 * Omitted values continue to inherit the corresponding plugin limit.
-	 *
 	 * @example `limits: { maxPrincipals: 25, maxRoles: 10 }`
 	 */
 	readonly limits?: ACLSchemaLimits
 }
 
-/** Carries normalized ACL configuration without executable Core behavior. */
-export interface ACLSchemaExtensionConfig<
+/** Carries one trusted normalized direct ACL option. */
+export interface NormalizedACLSchemaOption<
 	TData extends Readonly<Record<string, unknown>> = Readonly<
 		Record<string, unknown>
 	>,
@@ -198,99 +216,78 @@ export interface ACLSchemaExtensionConfig<
 	readonly limits: Readonly<ACLSchemaLimits> | undefined
 }
 
-/** Represents the exact extension returned by `acl()`. */
-export type ACLSchemaExtension<
-	TData extends Readonly<Record<string, unknown>> = Readonly<
-		Record<string, unknown>
-	>,
-> = SchemaExtension<
-	typeof aclSchemaExtensionName,
-	ACLSchemaExtensionConfig<TData>,
-	typeof aclPluginName,
-	Readonly<{ readonly acl: ACLField }>
->
+const aclSchemaOptionKeys = new Set(['default', 'limits', 'resolveInput'])
+const normalizedACLSchemaOptions = new WeakSet<object>()
 
-type ACLContextData<TData> =
-	TData extends Readonly<Record<string, unknown>> ? TData : never
-
-interface ACLSchemaExtensionContextKind extends SchemaExtensionContextKind {
-	readonly options: ACLSchemaOptions<ACLContextData<this['data']>>
-	readonly extension: ACLSchemaExtension<ACLContextData<this['data']>>
-}
-
-/** Carries the ordinary and sibling-field-bound ACL factory call signatures. */
-export interface ACLSchemaExtensionFactory extends ContextualSchemaExtensionFactory<ACLSchemaExtensionContextKind> {
-	<
-		const TData extends Readonly<Record<string, unknown>> = Readonly<
-			Record<string, unknown>
-		>,
-	>(
-		options?: ACLSchemaOptions<TData>,
-	): ACLSchemaExtension<TData>
-}
-
-/** Creates one ACL extension while preserving an optional explicit data contract. */
-const createACL = <
-	const TData extends Readonly<Record<string, unknown>> = Readonly<
-		Record<string, unknown>
-	>,
->(
-	options: ACLSchemaOptions<TData> = {},
-): ACLSchemaExtension<TData> => {
-	const untrustedOptions: unknown = options
-
-	if (!isPlainRecord(untrustedOptions)) {
-		throw new TypeError('acl options must be a plain object')
+/** Normalizes direct ACL declarations without executing application callbacks. */
+export const normalizeACLSchemaOption = (
+	value: unknown,
+	path: string,
+): NormalizedACLSchemaOption => {
+	if (!isPlainRecord(value)) {
+		throw new TypeError(`${path} must be a plain object`)
 	}
-
-	if (
-		options.default !== undefined &&
-		!(options.default instanceof ACL) &&
-		typeof options.default !== 'function'
-	) {
-		throw new TypeError('acl default must be an ACL or a function')
-	}
-
-	if (
-		options.resolveInput !== undefined &&
-		typeof options.resolveInput !== 'function'
-	) {
-		throw new TypeError('acl resolveInput must be a function')
-	}
-
-	const config: ACLSchemaExtensionConfig<TData> = immutableRecord({
-		default: options.default ?? new ACL(),
-		resolveInput: options.resolveInput,
-		limits: normalizeACLEntryLimits(options.limits, 'acl limits'),
-	})
-
-	return defineSchemaExtension(aclSchemaExtensionName, config, aclPluginName, {
-		fields: { acl: aclField },
-	})
-}
-
-/**
- * Enables persisted object ACL for one schema without changing Core Runtime.
- *
- * Omitted ACL input receives the configured default after ordinary field input
- * hooks have resolved. Explicit ACL input is rejected unless `resolveInput` is
- * declared, while `aclPlugin()` owns all executable policy behavior.
- *
- * @example
- * ```ts
- * extensions: ({ bind }) => [
- *   bind(acl, {
- *     default: ({ data, principal }) =>
- *       data.visibility === "public"
- *         ? new ACL().grantPublic('read')
- *         : principal === undefined
- *           ? new ACL()
- *           : new ACL().grantPrincipal(principal, 'read', 'update'),
- *   }),
- * ]
- * ```
- */
-export const acl: ACLSchemaExtensionFactory =
-	defineContextualSchemaExtensionFactory<ACLSchemaExtensionContextKind>()(
-		createACL,
+	const unknownKey = Reflect.ownKeys(value).find(
+		(key) => typeof key !== 'string' || !aclSchemaOptionKeys.has(key),
 	)
+	if (unknownKey !== undefined) {
+		throw new TypeError(`Unknown ${path} option: ${String(unknownKey)}`)
+	}
+
+	const declaredDefault: unknown = value.default
+	if (
+		declaredDefault !== undefined &&
+		!(declaredDefault instanceof ACL) &&
+		typeof declaredDefault !== 'function'
+	) {
+		throw new TypeError(`${path}.default must be an ACL or a function`)
+	}
+	const declaredResolver: unknown = value.resolveInput
+	if (
+		declaredResolver !== undefined &&
+		typeof declaredResolver !== 'function'
+	) {
+		throw new TypeError(`${path}.resolveInput must be a function`)
+	}
+
+	const normalized: NormalizedACLSchemaOption = immutableRecord({
+		default:
+			declaredDefault === undefined
+				? new ACL()
+				: (declaredDefault as ACL | ACLDefaultFactory),
+		resolveInput: declaredResolver as ACLInputResolver | undefined,
+		limits: normalizeACLEntryLimits(
+			value.limits as ACLEntryLimits | undefined,
+			`${path}.limits`,
+		),
+	})
+	normalizedACLSchemaOptions.add(normalized)
+	return normalized
+}
+
+/** Owns the direct `acl` schema namespace as an opaque callback artifact. */
+export const aclSchemaOption: SchemaOptionDefinition<NormalizedACLSchemaOption> =
+	defineSchemaOption({
+		normalize: normalizeACLSchemaOption,
+		protocolVersion: 1,
+		typegen: {
+			generic: 'self',
+			module: '@ultimabase/acl-permissions-plugin',
+			type: 'ACLSchemaOption',
+		},
+		valueKind: 'opaque',
+	})
+
+/** Reads the exact normalized option occurrence from one compiled schema. */
+export const readACLSchemaOption = (
+	schema: SchemaDefinition,
+): NormalizedACLSchemaOption | undefined => {
+	if (!Object.hasOwn(schema.definition, 'acl')) return undefined
+	const value: unknown = Reflect.get(schema.definition, 'acl')
+
+	if (!isPlainRecord(value) || !normalizedACLSchemaOptions.has(value)) {
+		throw new TypeError('ACL plugin received an untrusted schema option')
+	}
+
+	return value as unknown as NormalizedACLSchemaOption
+}

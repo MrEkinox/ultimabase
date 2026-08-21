@@ -142,6 +142,29 @@ synchronously. The generated application declaration emitted by
 not expose plugin methods globally. Calling a missing method through untyped or
 stale code fails during static schema compilation before plugin setup.
 
+A plugin that contributes a reserved field through a schema patch can declare
+its generated value contract without exposing a misleading builder method:
+
+```ts
+const secretType = definePluginFieldType({
+	fieldKind: 'fixture.secret',
+	typegen: {
+		module: '@fixture/secret-plugin',
+		structuralContainsType: 'SecretContainsOperand',
+		valueType: 'SecretValue',
+	},
+})
+
+declare({ fields, schemas }) {
+	fields.declareType(secretType)
+	// The plugin may now patch its `fixture.secret` field through `schemas`.
+}
+```
+
+This metadata is application-local and Typegen-only: it creates no field and no
+Runtime behavior. Registering a regular `FieldBuilder` method automatically
+declares the same value metadata, so builder-based plugins do not repeat it.
+
 ### Plugin-owned schema compilation
 
 The same owner-bound `schemas` facade lets an authorized plugin add stable

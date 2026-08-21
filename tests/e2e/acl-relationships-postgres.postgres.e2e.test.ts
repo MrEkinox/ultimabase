@@ -1,4 +1,4 @@
-import { ACL, acl, aclPlugin } from '@ultimabase/acl-permissions-plugin'
+import { ACL, aclPlugin } from '@ultimabase/acl-permissions-plugin'
 import {
 	MasterAuthority,
 	RequestContext,
@@ -57,28 +57,24 @@ const Author = Schema.define({
 	fields: (field) => ({
 		name: field.string({ validation: { required: true } }),
 	}),
-	extensions: [
-		acl({
-			default: emptyACL,
-			resolveInput: ({ currentAcl, inputAcl }) =>
-				inputAcl ?? currentAcl ?? emptyACL,
-		}),
-		postgresTable({ name: 'acl_relationship_authors' }),
-	],
+	acl: {
+		default: emptyACL,
+		resolveInput: ({ currentAcl, inputAcl }) =>
+			inputAcl ?? currentAcl ?? emptyACL,
+	},
+	extensions: [postgresTable({ name: 'acl_relationship_authors' })],
 })
 const Tag = Schema.define({
 	className: 'ACLRelationshipTag',
 	fields: (field) => ({
 		label: field.string({ validation: { required: true } }),
 	}),
-	extensions: [
-		acl({
-			default: emptyACL,
-			resolveInput: ({ currentAcl, inputAcl }) =>
-				inputAcl ?? currentAcl ?? emptyACL,
-		}),
-		postgresTable({ name: 'acl_relationship_tags' }),
-	],
+	acl: {
+		default: emptyACL,
+		resolveInput: ({ currentAcl, inputAcl }) =>
+			inputAcl ?? currentAcl ?? emptyACL,
+	},
+	extensions: [postgresTable({ name: 'acl_relationship_tags' })],
 })
 const Article = Schema.define({
 	className: 'ACLRelationshipArticle',
@@ -87,14 +83,12 @@ const Article = Schema.define({
 		tags: field.relation({ target: 'ACLRelationshipTag' }),
 		title: field.string({ validation: { required: true } }),
 	}),
-	extensions: [
-		acl({
-			default: emptyACL,
-			resolveInput: ({ currentAcl, inputAcl }) =>
-				inputAcl ?? currentAcl ?? emptyACL,
-		}),
-		postgresTable({ name: 'acl_relationship_articles' }),
-	],
+	acl: {
+		default: emptyACL,
+		resolveInput: ({ currentAcl, inputAcl }) =>
+			inputAcl ?? currentAcl ?? emptyACL,
+	},
+	extensions: [postgresTable({ name: 'acl_relationship_articles' })],
 })
 
 type PersistedMember = Awaited<

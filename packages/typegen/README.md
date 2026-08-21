@@ -124,8 +124,9 @@ callback out of generated artifacts. These contracts advance the inert snapshot
 format to version 6 and the generator format to version 11.
 
 The TypeScript loader transpiles the application before a previous generated
-registry exists. Static compilation registers configured plugin field methods,
-resolves fields and relationship targets, and then emits exact models,
+registry exists. Static compilation registers configured plugin field types and
+the narrower set of public field methods, resolves fields and relationship
+targets, and then emits exact models,
 operation inputs, filters, projections, includes, embedded objects, and
 FieldBuilder methods. Those values drive exact contextual options contributed
 by installed plugins, including official Access and Hooks. Compatible object

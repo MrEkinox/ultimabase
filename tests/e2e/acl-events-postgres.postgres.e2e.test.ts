@@ -1,10 +1,10 @@
 import {
 	ACL,
-	acl,
 	aclPlugin,
 	onACLChange,
 	provideACLChangeObserver,
 	type ACLChangedEvent,
+	type aclChangedEvent,
 } from '@ultimabase/acl-permissions-plugin'
 import {
 	MasterAuthority,
@@ -13,6 +13,7 @@ import {
 	definePlugin,
 } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
+import type { PluginEventHandlerInput } from '@ultimabase/plugin-kit'
 import { postgresPlugin, postgresTable } from '@ultimabase/postgres-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
@@ -20,6 +21,12 @@ import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from './postgres-worker-fixture.js'
+import { requireACLValue } from './acl-test-fixtures.js'
+
+type ACLChangeHandlerInput = PluginEventHandlerInput<
+	typeof aclChangedEvent,
+	ACLChangedEvent
+>
 
 let rejectNextUpdate = false
 const Post = Schema.define({
@@ -37,13 +44,11 @@ const Post = Schema.define({
 			},
 		},
 	},
-	extensions: [
-		acl({
-			default: new ACL().grantPublic('read'),
-			resolveInput: ({ currentAcl, inputAcl }) => inputAcl ?? currentAcl,
-		}),
-		postgresTable({ name: 'acl_change_event_posts' }),
-	],
+	acl: {
+		default: new ACL().grantPublic('read'),
+		resolveInput: ({ currentAcl, inputAcl }) => inputAcl ?? currentAcl,
+	},
+	extensions: [postgresTable({ name: 'acl_change_event_posts' })],
 })
 
 const committedChanges: ACLChangedEvent[] = []
@@ -74,7 +79,7 @@ const eventObserverPlugin = definePlugin({
 		provides: [
 			provideACLChangeObserver(
 				'fixture.capture-acl-change',
-				onACLChange(async ({ event }) => {
+				onACLChange(async ({ event }: ACLChangeHandlerInput) => {
 					const row = await getFixture().pool.query<{ readonly id: string }>(
 						'SELECT id FROM acl_change_event_posts WHERE id = $1',
 						[event.payload.target.id],
@@ -166,10 +171,11 @@ describe('ACL committed events with PostgreSQL', { concurrent: false }, () => {
 			},
 			{ ultimabase: getApplication(), useMasterKey: true },
 		)
-		if (!(created.acl instanceof ACL)) {
-			throw new TypeError('Expected the created ACL to be materialized')
-		}
-		const replacement = created.acl
+		const createdACL = requireACLValue(
+			created.acl,
+			'Expected the created ACL to be materialized',
+		)
+		const replacement = createdACL
 			.revokePublic('read')
 			.grantAuthenticated('update')
 		const start = committedChanges.length
@@ -214,9 +220,10 @@ describe('ACL committed events with PostgreSQL', { concurrent: false }, () => {
 			{ data: { title: 'rollback' } },
 			{ ultimabase: getApplication(), useMasterKey: true },
 		)
-		if (!(created.acl instanceof ACL)) {
-			throw new TypeError('Expected the created ACL to be materialized')
-		}
+		const createdACL = requireACLValue(
+			created.acl,
+			'Expected the created ACL to be materialized',
+		)
 		const start = committedChanges.length
 
 		rejectNextUpdate = true
@@ -224,7 +231,7 @@ describe('ACL committed events with PostgreSQL', { concurrent: false }, () => {
 			Post.updateOne(
 				{
 					where: { id: { eq: created.id } },
-					data: { acl: created.acl.grantAuthenticated('update') },
+					data: { acl: createdACL.grantAuthenticated('update') },
 				},
 				{ ultimabase: getApplication(), useMasterKey: true },
 			),
@@ -235,11 +242,12 @@ describe('ACL committed events with PostgreSQL', { concurrent: false }, () => {
 			{ where: { id: { eq: created.id } }, select: { acl: true } },
 			{ ultimabase: getApplication(), useMasterKey: true },
 		)
-		if (!(persisted?.acl instanceof ACL)) {
-			throw new TypeError('Expected the persisted ACL to be materialized')
-		}
+		const persistedACL = requireACLValue(
+			persisted?.acl,
+			'Expected the persisted ACL to be materialized',
+		)
 
-		expect(persisted.acl.toJSON()).toStrictEqual(created.acl.toJSON())
+		expect(persistedACL.toJSON()).toStrictEqual(createdACL.toJSON())
 	})
 
 	it('emits one deterministic event per create-many item', async () => {

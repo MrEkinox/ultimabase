@@ -1,6 +1,5 @@
 import {
 	ACL,
-	acl,
 	aclPlugin,
 	type ACLNormalizedUpdateInput,
 } from '@ultimabase/acl-permissions-plugin'
@@ -49,40 +48,38 @@ const ResolutionPost = Schema.define({
 		title: field.string({ validation: { required: true } }),
 		views: field.int({ default: 2 }),
 	}),
-	extensions: [
-		acl({
-			default: emptyACL,
-			resolveInput: (input) => {
-				resolutionCount += 1
+	acl: {
+		default: emptyACL,
+		resolveInput: (input) => {
+			resolutionCount += 1
 
-				if (input.operation === 'create') {
-					createResolution = immutableRecord({
-						currentData: input.currentData,
-						data: input.data,
-						update: input.update,
-					})
-
-					return input.inputAcl ?? emptyACL
-				}
-
-				const captured = immutableRecord({
+			if (input.operation === 'create') {
+				createResolution = immutableRecord({
 					currentData: input.currentData,
 					data: input.data,
 					update: input.update,
 				})
 
-				if (input.data.title === 'rollback-candidate') {
-					rollbackResolution = captured
-					throw new Error('ACL resolver requested rollback')
-				}
+				return input.inputAcl ?? emptyACL
+			}
 
-				updateResolution = captured
+			const captured = immutableRecord({
+				currentData: input.currentData,
+				data: input.data,
+				update: input.update,
+			})
 
-				return input.inputAcl ?? input.currentAcl
-			},
-		}),
-		postgresTable({ name: 'acl_input_resolution_posts' }),
-	],
+			if (input.data.title === 'rollback-candidate') {
+				rollbackResolution = captured
+				throw new Error('ACL resolver requested rollback')
+			}
+
+			updateResolution = captured
+
+			return input.inputAcl ?? input.currentAcl
+		},
+	},
+	extensions: [postgresTable({ name: 'acl_input_resolution_posts' })],
 })
 
 let fixture: PostgresWorkerFixture | undefined

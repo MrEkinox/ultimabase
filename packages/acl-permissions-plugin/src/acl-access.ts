@@ -14,7 +14,7 @@ import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import type { ACLPermission } from './acl-contracts.js'
 import type { ACLContainmentOperand } from './acl-containment.js'
-import { aclFieldName } from './acl-extension.js'
+import { aclFieldName } from './acl-option.js'
 
 /** Collects request-local subject resolution once for one ACL evaluation boundary. */
 export interface ACLAccessSubjects {

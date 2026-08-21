@@ -10,6 +10,13 @@ import {
 	assertPluginFieldKind,
 	type AvailablePluginFieldKind,
 } from '../fields/base/kinds.js'
+import {
+	assertPluginFieldTypeDefinition,
+	normalizePluginFieldTypegen,
+	type OwnedPluginFieldType,
+	type PluginFieldTypeDefinition,
+	type PluginFieldTypegen,
+} from './plugin-field-types.js'
 
 /** Names every Core method that a plugin can never replace. */
 export const coreFieldBuilderMethodNames = [
@@ -50,15 +57,9 @@ const fieldBuilderMethodTypegenKeys = new Set([
 const declaredFieldBuilderMethods = new WeakSet<object>()
 
 /** Describes the named public types referenced by deterministic generation. */
-export interface FieldBuilderMethodTypegen {
-	/** Bare package export that owns both named types. */
-	readonly module: string
+export interface FieldBuilderMethodTypegen extends PluginFieldTypegen {
 	/** Exported callable type used to add the method to generated builders. */
 	readonly methodType: string
-	/** Exported partial operand accepted by structural containment when enabled. */
-	readonly structuralContainsType?: string
-	/** Exported logical value type used by generated models and operations. */
-	readonly valueType: string
 }
 
 /** Accepts an existing field factory without erasing its public overloads. */
@@ -89,6 +90,9 @@ export interface FieldBuilderMethodResolver {
 
 /** Gives one plugin an owner-bound write-only registration boundary. */
 export interface FieldBuilderMethodRegistrar {
+	/** Declares a generated value contract without adding a public builder method. */
+	declareType(definition: PluginFieldTypeDefinition): void
+	/** Declares a public builder method and its generated value contract together. */
 	register(definition: FieldBuilderMethodDefinition): void
 }
 
@@ -120,32 +124,23 @@ const normalizeTypegen = (value: unknown): FieldBuilderMethodTypegen => {
 	}
 
 	assertKnownKeys(value, fieldBuilderMethodTypegenKeys, 'typegen')
-	assertNonEmptyString(value.module, 'FieldBuilder method typegen.module')
-
-	if (value.module.trim() !== value.module || /\s/u.test(value.module)) {
-		throw new TypeError(
-			'FieldBuilder method typegen.module must be a stable module specifier',
-		)
-	}
+	const pluginTypegen = normalizePluginFieldTypegen(
+		immutableRecord({
+			module: value.module,
+			...(value.structuralContainsType === undefined
+				? {}
+				: { structuralContainsType: value.structuralContainsType }),
+			valueType: value.valueType,
+		}),
+		'FieldBuilder method typegen',
+	)
 
 	return immutableRecord({
 		methodType: assertTypeExportName(
 			value.methodType,
 			'FieldBuilder method typegen.methodType',
 		),
-		module: value.module,
-		...(value.structuralContainsType === undefined
-			? {}
-			: {
-					structuralContainsType: assertTypeExportName(
-						value.structuralContainsType,
-						'FieldBuilder method typegen.structuralContainsType',
-					),
-				}),
-		valueType: assertTypeExportName(
-			value.valueType,
-			'FieldBuilder method typegen.valueType',
-		),
+		...pluginTypegen,
 	})
 }
 
@@ -224,8 +219,10 @@ const assertFieldBuilderMethodDefinition: (
 /** Owns the plugin method set for exactly one application compilation. */
 export class FieldBuilderMethodRegistry implements FieldBuilderMethodResolver {
 	readonly #methods = new Map<string, OwnedFieldBuilderMethod>()
+	readonly #fieldTypes: OwnedPluginFieldType[] = []
 	#closed = false
 	#snapshot: readonly OwnedFieldBuilderMethod[] | undefined
+	#fieldTypeSnapshot: readonly OwnedPluginFieldType[] | undefined
 
 	/** Opens one transactional owner-bound registration session. */
 	beginPluginDeclaration(pluginName: string): Readonly<{
@@ -239,6 +236,7 @@ export class FieldBuilderMethodRegistry implements FieldBuilderMethodResolver {
 		}
 
 		const stagedMethods = new Map<string, OwnedFieldBuilderMethod>()
+		const stagedFieldTypes: OwnedPluginFieldType[] = []
 		let sessionClosed = false
 		const assertSessionOpen = (): void => {
 			if (sessionClosed || this.#closed) {
@@ -248,7 +246,21 @@ export class FieldBuilderMethodRegistry implements FieldBuilderMethodResolver {
 			}
 		}
 
+		const stageFieldType = (
+			definition: PluginFieldTypeDefinition,
+			path: string,
+		): void => {
+			assertPluginFieldTypeDefinition(definition, path)
+			stagedFieldTypes.push(
+				immutableRecord({ ...definition, owner: pluginName }),
+			)
+		}
+
 		const fields = immutableRecord({
+			declareType: (definition: PluginFieldTypeDefinition): void => {
+				assertSessionOpen()
+				stageFieldType(definition, `Plugin field type from ${pluginName}`)
+			},
 			register: (definition: FieldBuilderMethodDefinition): void => {
 				assertSessionOpen()
 
@@ -273,9 +285,25 @@ export class FieldBuilderMethodRegistry implements FieldBuilderMethodResolver {
 					)
 				}
 
+				const fieldType = immutableRecord({
+					fieldKind: definition.fieldKind,
+					typegen: immutableRecord({
+						module: definition.typegen.module,
+						...(definition.typegen.structuralContainsType === undefined
+							? {}
+							: {
+									structuralContainsType:
+										definition.typegen.structuralContainsType,
+								}),
+						valueType: definition.typegen.valueType,
+					}),
+				})
 				stagedMethods.set(
 					definition.name,
 					immutableRecord({ ...definition, owner: pluginName }),
+				)
+				stagedFieldTypes.push(
+					immutableRecord({ ...fieldType, owner: pluginName }),
 				)
 			},
 		})
@@ -284,14 +312,17 @@ export class FieldBuilderMethodRegistry implements FieldBuilderMethodResolver {
 			fields,
 			commit: (): void => {
 				assertSessionOpen()
+				this.#fieldTypes.push(...stagedFieldTypes)
 				for (const [name, method] of stagedMethods) {
 					this.#methods.set(name, method)
 				}
 				stagedMethods.clear()
+				stagedFieldTypes.length = 0
 			},
 			close: (): void => {
 				sessionClosed = true
 				stagedMethods.clear()
+				stagedFieldTypes.length = 0
 			},
 		})
 	}
@@ -303,6 +334,7 @@ export class FieldBuilderMethodRegistry implements FieldBuilderMethodResolver {
 
 		this.#closed = true
 		this.#snapshot = immutableArray([...this.#methods.values()])
+		this.#fieldTypeSnapshot = immutableArray(this.#fieldTypes)
 	}
 
 	get(name: string): OwnedFieldBuilderMethod | undefined {
@@ -319,5 +351,14 @@ export class FieldBuilderMethodRegistry implements FieldBuilderMethodResolver {
 		}
 
 		return this.#snapshot
+	}
+
+	/** Reads the immutable generated value contracts after declaration closes. */
+	fieldTypes(): readonly OwnedPluginFieldType[] {
+		if (this.#fieldTypeSnapshot === undefined) {
+			throw new TypeError('Plugin field type registration is not closed')
+		}
+
+		return this.#fieldTypeSnapshot
 	}
 }

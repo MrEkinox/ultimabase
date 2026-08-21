@@ -99,11 +99,17 @@ const createTypegenPlugin = (
 		capabilities: {
 			provides: [typegenEmitterProvider],
 		},
-		setup: async ({ fieldBuilderMethods, schemas, typegenGraph }) => {
+		setup: async ({
+			fieldBuilderMethods,
+			pluginFieldTypes,
+			schemas,
+			typegenGraph,
+		}) => {
 			const generated = generateApplicationTypesFromSnapshot(
 				createCompiledTypegenSnapshot(
 					{
 						fieldBuilderMethods,
+						pluginFieldTypes,
 						schemas,
 						typegenGraph,
 					},
