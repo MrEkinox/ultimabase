@@ -121,6 +121,65 @@ describe('adapter migration planning', () => {
 		)
 	})
 
+	it('ignores object property order in adapter JSON snapshots', () => {
+		const previous = {
+			...physical('1.0.0'),
+			normalizedStaticOptions: {
+				mode: 'safe',
+				storage: { indexed: true, nullable: false },
+			},
+			payload: {
+				column: 'workflow_state',
+				definition: { default: 'draft', type: 'text' },
+			},
+		}
+		const current = {
+			...physical('1.0.0'),
+			normalizedStaticOptions: {
+				storage: { nullable: false, indexed: true },
+				mode: 'safe',
+			},
+			payload: {
+				definition: { type: 'text', default: 'draft' },
+				column: 'workflow_state',
+			},
+		}
+
+		expect(planAdapterMigrations([previous], [current], [])).toMatchObject({
+			added: [],
+			orphaned: [],
+			unchanged: [current],
+			upgrades: [],
+		})
+	})
+
+	it.each([
+		{
+			currentPayload: {
+				column: 'workflow_state',
+				values: ['draft', 'published'],
+			},
+			label: 'array order',
+		},
+		{
+			currentPayload: {
+				column: 'renamed_workflow_state',
+				values: ['published', 'draft'],
+			},
+			label: 'a primitive value',
+		},
+	] as const)('keeps changed $label significant', ({ currentPayload }) => {
+		const previous = {
+			...physical('1.0.0'),
+			payload: { column: 'workflow_state', values: ['published', 'draft'] },
+		}
+		const current = { ...physical('1.0.0'), payload: currentPayload }
+
+		expect(() => planAdapterMigrations([previous], [current], [])).toThrow(
+			expect.objectContaining({ code: 'PLUGIN_ADAPTER_CAPABILITY_MISSING' }),
+		)
+	})
+
 	it('retains removed contributions as inert orphaned metadata', () => {
 		const previous = physical('1.0.0', 'removed-column')
 		const plan = planAdapterMigrations([previous], [], [])

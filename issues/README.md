@@ -74,6 +74,7 @@ consistent without rewriting historical issue prose.
 - [`1400-open-plugin-kernel/`](1400-open-plugin-kernel/README.md)
 - [`1500-optional-hooks-access/`](1500-optional-hooks-access/README.md)
 - [`1600-kernel-security-release-hardening/`](1600-kernel-security-release-hardening/README.md)
+- [`1700-validation-interoperability/`](1700-validation-interoperability/README.md)
 
 ## Assignment prompt
 

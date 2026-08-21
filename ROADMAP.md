@@ -140,6 +140,14 @@ reconciles active documentation, and completes focused public-surface,
 diagnostic, performance, and maintainability work without adding a new product
 capability or package.
 
+## Milestone 17 — Validation interoperability
+
+Use established structural equality and validation protocols at two proven
+boundaries: persisted adapter JSON snapshots and public plugin-option parsing.
+The milestone adds no product capability, keeps JSON comparison internal to
+Core, and lets Plugin Kit interoperate with Standard Schema without selecting a
+validation library or making static plugin declarations asynchronous.
+
 ## First usable release
 
 The first release must support full primitive-field CRUD, bulk operations,

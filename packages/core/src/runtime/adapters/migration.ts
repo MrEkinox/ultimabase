@@ -13,6 +13,7 @@ import type {
 } from '../../schema/fields/builtins/json.js'
 import { snapshotJsonValue } from '../../schema/fields/builtins/json.js'
 import type { AdapterContributionSnapshot } from './contributions.js'
+import { equalJsonValues } from './json-equality.js'
 
 /** Selects the exact persisted contribution upgraded by one bridge intent. */
 export interface AdapterUpgradeTarget extends JsonObject {
@@ -123,9 +124,11 @@ const hasSamePhysicalDefinition = (
 ): boolean =>
 	previous.packageVersion === current.packageVersion &&
 	previous.protocolVersion === current.protocolVersion &&
-	JSON.stringify(previous.normalizedStaticOptions) ===
-		JSON.stringify(current.normalizedStaticOptions) &&
-	JSON.stringify(previous.payload) === JSON.stringify(current.payload)
+	equalJsonValues(
+		previous.normalizedStaticOptions,
+		current.normalizedStaticOptions,
+	) &&
+	equalJsonValues(previous.payload, current.payload)
 
 const isUpgradeIntent = (
 	snapshot: AdapterContributionSnapshot,

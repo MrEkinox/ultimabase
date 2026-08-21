@@ -25,6 +25,7 @@
 	},
 	"dependencies": {
 		"@ultimabase/shared": "workspace:^",
+		"fast-equals": "^6.0.2",
 		"semver": "^7.7.3",
 		"uuid": "^14.0.1"
 	},
