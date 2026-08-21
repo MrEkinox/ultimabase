@@ -8,7 +8,7 @@ Responsibilities:
 - anonymous and master authority with plugin-owned typed context values;
 - CRUD, bulk operations, and upserts;
 - deterministic operation pipeline;
-- hooks and post-commit events;
+- optional plugin behavior and post-commit observers;
 - transactions;
 - AsyncLocalStorage helpers;
 - database adapter contracts and execution.
@@ -56,9 +56,9 @@ owned resource.
 
 `createFrameworkEngine(application)` remains the lower-level bridge from Core
 plugin setup to Runtime execution. The ADR-0076 assembly resolves the application-scoped
-`databaseAdapterCapability`, installs structural validation, composes hooks
-and events, and compiles monotonic enforcement only when a plugin contributed
-it:
+`databaseAdapterCapability`, installs structural validation, composes optional
+behavior and observers, and compiles monotonic enforcement only when a plugin
+contributed it:
 
 ```ts
 const application = await createApplication({
@@ -83,7 +83,7 @@ const articles = await runWithRequestEngine(request, () =>
 
 The factory accepts an application in `ready` or `started` state and preserves
 its exact schema and plugin tuples. A missing or malformed database adapter,
-invalid pipeline or hook contribution, or unusable application state fails
+invalid pipeline contribution, or unusable application state fails
 during assembly, before any operation can execute.
 
 Plugins materialize `runtimePipelineStage()` only for the general
@@ -129,12 +129,13 @@ const tenantPlugin = (tenantId: string) =>
 	})
 ```
 
-Runtime uses four versioned application capabilities. Interceptors form an
-ordered pipeline, constraints remain independent monotonic providers,
-observers cannot replace results, and one executor sits behind Core's request
-shell. `provideRuntimeInterceptor()`, `provideRuntimeConstraint()`, and
-`provideRuntimeObserver()` require `runtime:intercept`, `runtime:constrain`, and
-`runtime:observe` respectively. Generic capability providers, requirements,
+Runtime uses versioned application capabilities. Product behavior and logical
+interceptors form ordered pipelines, constraints remain independent monotonic
+providers, observers cannot replace results, and one executor sits behind
+Core's request shell. `provideRuntimeBehavior()`,
+`provideRuntimeInterceptor()`, `provideRuntimeConstraint()`, and
+`provideRuntimeObserver()` require `runtime:intercept`, `runtime:intercept`,
+`runtime:constrain`, and `runtime:observe` respectively. Generic capability providers, requirements,
 replacements, and decorators cannot bypass those exact facades or inspect the
 composed protected state. `replaceRuntime()` requires
 `runtime:replace`; replacement changes the executor while Core retains
@@ -158,10 +159,10 @@ provider queries that would otherwise re-enter the same policy hook.
 
 ## Policy-neutral monotonic enforcement
 
-These factories are the low-level security foundation. Native schema and field
-Access declarations plus provider contributions compile into the same
-monotonic machinery. ACL and community policy providers use the Access registry
-instead of registering business hooks directly.
+These factories are the low-level security foundation. The optional official
+Access plugin compiles its package-owned schema and field declarations into the
+same monotonic machinery. ACL and community policy providers may contribute
+Core protected policies directly and do not depend on Access.
 
 Policy plugins register the same five public factories as any community tenant,
 ownership, moderation, or soft-delete capability. A definition may omit
@@ -170,10 +171,11 @@ terminal union for concise callback inference. In this example,
 `authenticatedPrincipal` is the nominal value token exported by the installed
 authentication plugin:
 
-Native schema `item` Access materializes its object before invoking developer or
-plugin rules. Create branches receive an immutable `SchemaPreparedDraft`;
-update and delete branches receive a persisted `SchemaResult`. Upsert follows
-the same distinction after its create or update mode is known.
+When Access is installed, its schema `item` policy materializes the object
+before invoking developer or provider rules. Create branches receive an
+immutable `SchemaPreparedDraft`; update and delete branches receive a persisted
+`SchemaResult`. Upsert follows the same distinction after its create or update
+mode is known.
 
 ```ts
 capabilities: {
@@ -233,7 +235,7 @@ the factory detaches and deeply freezes them so a retained caller reference
 cannot alter the accumulated plan.
 
 Runtime evaluates guards, constraints, input restrictions, and selection
-restrictions before effectful business hooks and retains the result in private
+restrictions before effectful plugin behavior and retains the result in private
 immutable state. After operation transforms, it reevaluates those contributions
 into the same monotonic state before reapplying input and selection limits. An
 earlier constraint is never replaced; a transformed value therefore cannot use
@@ -245,10 +247,10 @@ decides whether its own handler treats that authority differently.
 
 ## Read pipeline and result shaping
 
-Every read transport shares the same native Runtime path. Reads deliberately do
-not expose schema lifecycle hooks. Developer filters, ordering, pagination,
-selection, and includes belong to the query options; mandatory row restrictions
-belong to schema Access:
+Every read transport shares the same Core Runtime path. Core reads do not
+manufacture schema lifecycle callbacks. Developer filters, ordering,
+pagination, selection, and includes belong to query options; mandatory row
+restrictions come from installed protected-policy providers:
 
 ```ts
 const ArticleSchema = Schema.define({
@@ -257,9 +259,6 @@ const ArticleSchema = Schema.define({
 		title: field.string({ validation: { required: true } }),
 		published: field.boolean({ default: false }),
 	}),
-	access: {
-		read: { where: { published: { eq: true } } },
-	},
 })
 
 const articles = await runWithRequestEngine(request, () =>
@@ -276,9 +275,9 @@ Opaque adapter constraints remain in the private enforcement envelope and
 reach the database separately from Query, so developer code cannot see or
 remove them. For object-producing reads, Runtime validates and projects the
 adapter result to its effective selection, hydrates eager pointer and relation
-targets through their target Access pipeline, then applies monotonic output
+targets through their installed target-policy pipeline, then applies monotonic output
 restrictions. `count` and `exists` retain exact `number` and `boolean` results.
-Pointer field Access remains defined over the schema's logical `Pointer` value.
+An installed field policy evaluates the schema's logical `Pointer` value.
 
 ## Runtime callback context and safety
 
@@ -567,7 +566,7 @@ described above.
 ## Database adapter boundary
 
 Database plugins implement `DatabaseAdapter`; application developers normally
-receive one from a plugin such as the future `postgresPlugin`. The contract
+receive one from a plugin such as `postgresPlugin`. The contract
 receives only a normalized operation and portable opaque constraints. SQL,
 Drizzle sessions, and transport state remain private to concrete plugins.
 
@@ -596,21 +595,16 @@ no-nesting policy on `RequestEngine`.
 
 `RuntimePipeline` is the low-level assembly boundary used by
 `FrameworkEngine`. Application developers execute a bound query; advanced
-engine authors provide the general stages explicitly and may install the native
-or enforcement stage groups compiled by application assembly:
+engine authors provide the mandatory stages explicitly and may install the
+optional behavior or enforcement groups compiled by application assembly:
 
 ```ts
 const pipeline = new RuntimePipeline({
 	normalization,
 	structuralValidation,
-	globalBeforeHooks,
-	schemaBeforeHooks,
 	databaseOperation: adapter,
-	schemaAfterHooks,
-	globalAfterHooks,
 	commit,
-	postCommitEvents,
-	nativeHooks,
+	behaviors,
 	enforcement,
 })
 
@@ -619,17 +613,17 @@ const articles = await pipeline.execute({ context, operation })
 
 The fixed order performs initial validation and enforcement, locks mutation
 targets, runs every input transformer, then crosses one final structural
-revalidation and value-dependent enforcement pass. Business before-hooks only
-observe that final operation. Prepared adapters receive the final operation and
+revalidation and value-dependent enforcement pass. Behavior transforms observe
+that final operation. Prepared adapters receive the final operation and
 cumulative `constraints` for the write. Runtime then runs every business result
 transform, applies final output restrictions, and finalizes the transaction and
-post-commit events. The enforcement group is absent when no plugin contributed
-one; Runtime does not manufacture permission placeholders.
+post-commit observers. The behavior and enforcement groups are absent when no
+plugin contributes them; Runtime does not manufacture optional placeholders.
 
 Stage envelopes and constraint collections are immutable. A
 `FrameworkError` thrown by any stage crosses the pipeline unchanged, while
-later stages do not run. In particular, business after-hooks may prevent a
-commit and post-commit events never observe uncommitted work. Inside an explicit
+later stages do not run. In particular, a behavior result transform may prevent
+a commit and post-commit observers never observe uncommitted work. Inside an explicit
 transaction, the pipeline reuses every stage with the transaction adapter,
 commits only after the callback succeeds, and buffers post-commit effects until
 that outer commit.

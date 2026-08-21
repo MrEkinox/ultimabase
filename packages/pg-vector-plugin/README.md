@@ -17,6 +17,10 @@ Schema's `snapshotValue` contract. Its snapshot is pure, deterministic, and
 idempotent, so declaration-time static defaults own detached vector values.
 
 ```ts
+import { Schema, createApplication } from '@ultimabase/core'
+import { hooksPlugin } from '@ultimabase/hooks-plugin'
+import { pgVectorPlugin } from '@ultimabase/pg-vector-plugin'
+
 const DocumentSchema = Schema.define({
 	className: 'Document',
 	fields: (field) => ({
@@ -33,7 +37,7 @@ const DocumentSchema = Schema.define({
 
 const application = await createApplication({
 	schemas: [DocumentSchema],
-	plugins: [pgVectorPlugin()],
+	plugins: [hooksPlugin(), pgVectorPlugin()],
 })
 ```
 
@@ -43,3 +47,6 @@ to that application's builder; Core deliberately does not expose `vector` when
 the plugin is absent. The PostgreSQL package will later consume the plugin's
 database compiler to produce a real pgvector column. Until that milestone is
 implemented, this package deliberately contains no Drizzle or SQL dependency.
+The combined generated Hooks, Access, and vector editor contract is exercised
+by
+[`generator-language-service.test.ts`](../typegen/src/generator-language-service.test.ts).

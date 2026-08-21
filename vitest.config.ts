@@ -35,6 +35,7 @@ const testProjects: TestProjectConfiguration[] = [
 			include: [
 				'packages/*/src/**/*.test.ts',
 				'packages/*/tests/**/*.test.ts',
+				'tooling/documentation/**/*.test.ts',
 				'tooling/eslint/**/*.test.ts',
 			],
 			name: 'unit',

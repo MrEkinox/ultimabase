@@ -95,6 +95,6 @@ startup. A future CLI will expose manual generation and watch mode.
 
 The same map-returning declaration is used by applications, tests, and
 framework-owned schemas. The generated application registry provides exact
-model, Query, mutation, Access, hook, extension, object-path, pointer, and
-relation contracts for builder-declared schemas without recursive field-map
-inference.
+model, Query, mutation, plugin-owned option, extension, object-path, pointer,
+and relation contracts for builder-declared schemas without recursive
+field-map inference.

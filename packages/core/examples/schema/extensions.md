@@ -132,8 +132,8 @@ dynamic plugin maps retain the equivalent runtime check.
 
 Developer fields, framework fields, and fields contributed by separate
 extensions cannot share a name. A plugin may defer one required contributed
-value until its `resolveInput` hook; structural revalidation then guarantees
-that the field exists before Access and persistence.
+value until an installed behavior resolves the input; structural revalidation
+then guarantees that the field exists before policy enforcement and persistence.
 
 Portable plugin scalar values may provide a private versioned JSON codec for
 database adapters without adding callbacks to public field metadata:

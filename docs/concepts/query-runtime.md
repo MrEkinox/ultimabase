@@ -12,7 +12,7 @@ const activeUsers = new QueryBuilder(UserSchema)
 ```
 
 Every schema read resolves execution only when called. Inside a request,
-transaction, or hook, it uses that exact active Runtime scope:
+transaction, or installed behavior callback, it uses that exact active Runtime scope:
 
 ```ts
 const users = await runWithRequestEngine(requestEngine, () =>
@@ -108,7 +108,7 @@ values normalize to immutable atomic-operation nodes before the shared Runtime
 validation pipeline.
 
 `new UltimaBase(options)` is the regular application boundary. Its `start()`
-method assembles the mandatory pipeline from the application's database service
+method assembles the mandatory pipeline from the application's database capability
 and plugin contributions. Schema classes expose schema-root object reads;
 `new QueryBuilder(Post)` is the equivalent non-executing composition utility. The
 lower-level `createFrameworkEngine(application)` factory remains available to

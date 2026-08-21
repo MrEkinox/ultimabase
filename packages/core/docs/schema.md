@@ -14,7 +14,9 @@ Responsibilities:
 - transport-neutral validation plans;
 - isolated `SchemaRegistry` instances.
 
-This domain must not know ACL, CLP, roles, PostgreSQL, Drizzle, Hono, or GraphQL. Optional capabilities contribute opaque, typed extensions that runtime plugins later claim.
+This domain must not know Hooks, Access, ACL, CLP, roles, PostgreSQL, Drizzle,
+Hono, or GraphQL. Optional capabilities contribute opaque, typed extensions
+that Runtime plugins later claim.
 
 Practical declarations are available in the package's
 [`examples/schema`](../examples/schema/README.md) directory. They are documentation snippets,
@@ -34,7 +36,6 @@ src/
 │   ├── constraints/
 │   └── plugin.ts
 ├── schema/
-├── hooks/
 ├── plans/
 ├── inference/
 └── extensions/
@@ -94,7 +95,7 @@ The root builder exposes every Core field kind. `field.object()` receives a
 path-aware embedded builder that omits `pointer` and `relation` and rejects
 database-generated integer sequences. Methods call the same public field
 factories internally rather than reproducing option normalization, validation,
-hooks, Access, defaults, or inference rules.
+plugin-owned option handling, defaults, or inference rules.
 
 Framework and plugin authors may reuse the immutable low-level field factories
 internally. Normal application code uses named builder methods; Core
@@ -124,11 +125,11 @@ Framework-owned low-level `pointerField` and `relationField` composition may
 still use `SchemaTarget<TSchema>` callbacks. Application code does not need a
 `SchemaReference`, resolver function, or local type annotation.
 
-`pointerField` supports input resolution through its one field hook. Pointer
-disclosure belongs to field Access, while field definitions and transports own
-output representation. Inclusion itself does not run a target schema lifecycle;
-reads expose no schema hooks. `relationField` stores no model value and
-therefore accepts no field hooks.
+When the official Hooks plugin is installed, `pointerField` may receive its
+plugin-owned input resolver. Pointer disclosure can be narrowed by an installed
+policy plugin, while field definitions and transports own output representation.
+Inclusion itself does not manufacture target behavior. `relationField` stores no
+model value and therefore has no Core lifecycle option.
 
 An application compiles every configured schema and resolves field-owned target
 callbacks before plugin setup or infrastructure lifecycle phases. Plugin setup
@@ -224,9 +225,10 @@ reused owners, and nested relation declarations fail before infrastructure
 connects. The logical graph exposes ownership and mapping paths without SQL,
 join-table, REST, or GraphQL names.
 
-Relations accept documentation, field extensions, and `access.read` plus
-`access.update` rules, but no scalar validation, default, list, index, immutable,
-or value-hook options. Update Access receives the exact immutable relation delta.
+Relations accept documentation and field extensions, but no scalar validation,
+default, list, index, immutable, or Core lifecycle options. Installing the
+official Access plugin adds its typed `access.read` and `access.update`
+namespace; update policy rules then receive the exact immutable relation delta.
 Relations remain omitted from `InferObject`, `InferCreateInput`, and
 `InferUpdateInput`.
 
@@ -279,14 +281,15 @@ await user.relation('posts').clear()
 `connect` and `disconnect` require one pointer or a non-empty pointer tuple;
 `set` replaces the complete set and accepts an empty array; `clear` expresses
 that empty replacement directly. Duplicate or foreign pointers fail before a
-transaction starts. Once execution begins, source field write Access, schema
-update hooks, target visibility, nested writes, and adapter execution share one
-automatic or inherited transaction. Missing and inaccessible sources or targets
-both surface as `NOT_FOUND`.
+transaction starts. Once execution begins, installed source-field policy,
+plugin-owned schema behavior, target visibility, nested writes, and adapter
+execution share one automatic or inherited transaction. Missing and inaccessible
+sources or targets both surface as `NOT_FOUND`.
 
-Schema update hooks can narrow `candidate.kind === "relation"` to inspect the
-typed `{ action, targets }` delta. Inverse pointer relations execute ordinary
-target pointer updates, so target validation, Access, and hooks remain active.
+The official Hooks plugin's schema update handlers can narrow
+`candidate.kind === "relation"` to inspect the typed `{ action, targets }`
+delta. Inverse pointer relations execute ordinary target pointer updates, so
+target validation and every installed policy or behavior remain active.
 Owning storage stays adapter-owned and requires the versioned relation
 capability; PostgreSQL implements deterministic joins and inverse-pointer
 updates without exposing physical storage to Core.
@@ -305,8 +308,8 @@ draft.toJSON() // { readonly title: string }
 ```
 
 Draft construction validates declared fields, snapshots mutable values, and
-performs no I/O. Persistence always passes through Runtime. After hooks and
-output restrictions complete, Runtime converts neutral adapter records into the
+performs no I/O. Persistence always passes through Runtime. After installed
+behavior and output restrictions complete, Runtime converts neutral adapter records into the
 exact registered class:
 
 ```ts
@@ -328,7 +331,7 @@ so an instance selected with only `title` can still target itself without
 revealing `id` through properties or serialization. A later `update()` or
 `delete()` applies its own result selection rather than preserving that earlier
 read projection. Without `select`, it returns the complete model allowed by
-Access.
+installed output policy.
 
 Drafts expose only `create` and `upsert`; persisted or queried models expose only
 `update` and `delete`:
@@ -360,9 +363,11 @@ await updated.delete({ select: { id: true } }, { ultimabase })
 
 `where` must build distinct non-null equalities matching `id`, one unique field,
 or one composite unique index. Every command returns a new model and delegates
-to Runtime validation, hooks, policies, cancellation, and transactions.
+to Runtime validation, installed behavior and policies, cancellation, and
+transactions.
 Persisted `fetch`, `update`, and `delete` are strict protected-identity commands:
-they return a model or throw `NOT_FOUND`, including when Access hides the target.
+they return a model or throw `NOT_FOUND`, including when an installed policy
+hides the target.
 There is no dirty tracking, implicit batching, `save()`, or instance collection
 operation.
 
@@ -536,7 +541,7 @@ as required without a default.
 property names and array offsets. Plugins derive namespaced codes such as
 `pg-vector.vector.dimension` with `PluginValidationIssueCode`. Applications may
 combine both through `AnyValidationIssueCode`. Runtime will execute these plans
-before access checks and hooks; Schema does not validate request data itself
+before installed policy and behavior; Schema does not validate request data itself
 and does not depend on a third-party schema language.
 
 Runtime consumers call `validateScalarFieldConstraints(field, value, path)`
@@ -867,9 +872,9 @@ reading plugin-specific properties.
 Validation-plan compilation preserves every logical field through the shared
 `ScalarValidationPlan`. A plugin type guard checks `plan.field.kind` and narrows
 the generic plan to its exact field definition, retaining the complete typed
-configuration without a parallel plugin-only plan. A future Core registry will
-reject unclaimed or conflicting plugin kinds during application setup; Schema
-remains independently usable and does not own that registry.
+configuration without a parallel plugin-only plan. Application compilation
+rejects unclaimed or conflicting plugin kinds; Schema remains independently
+usable and does not own that registry.
 
 Plugin validators report machine-readable failures through
 `PluginValidationIssueCode<TFieldKind>`, which retains field-kind ownership in

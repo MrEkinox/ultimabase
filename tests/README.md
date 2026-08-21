@@ -32,7 +32,7 @@ Access, query, and mutation APIs.
 
 `runtime-postgres.postgres.e2e.test.ts` verifies CRUD, transactions, bulk, and
 upsert persistence. `hooks-plugin-postgres.postgres.e2e.test.ts` adds the live
-native schema, field, plugin, policy, rollback, output, and post-commit vertical.
+optional Hooks schema, field, plugin, policy, rollback, output, and post-commit vertical.
 `pointer-postgres.postgres.e2e.test.ts` proves pointer CRUD, inclusion, Access,
 hooks, atomicity, circular targets, and referential actions against PostgreSQL.
 `relation-postgres.postgres.e2e.test.ts` proves owning and inverse relations,

@@ -2,6 +2,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { describe, expect, it } from 'vitest'
+import * as ts from 'typescript'
 
 import { createLanguageService } from '../../../tooling/vitest/typescript-language-service.js'
 
@@ -40,6 +41,23 @@ Schema.define({
 		expect(completionNames(source, '/* field-options */')).not.toContain(
 			'access',
 		)
+		const invalidSource = `
+import { Schema } from '@ultimabase/core'
+Schema.define({
+  className: 'CoreOnlyAccessFailure',
+  fields: (field) => ({ value: field.string({ access: {} }) }),
+  access: {},
+})
+`
+		const diagnostics = createLanguageService(
+			fixtureFile,
+			invalidSource,
+		).getSemanticDiagnostics(fixtureFile)
+		const messages = diagnostics.map(({ messageText }) =>
+			ts.flattenDiagnosticMessageText(messageText, '\n'),
+		)
+
+		expect(messages.join('\n')).toContain("'access' does not exist")
 	})
 
 	it('adds exact Access options when generated declarations install the plugin contract', () => {

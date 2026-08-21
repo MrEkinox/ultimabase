@@ -33,7 +33,9 @@ foundational package:
   migrations, and policy implementations through the same public kernel as
   community plugins.
 
-ADRs 0186 through 0205 define this package boundary. Core contains no native Hooks or Access product implementation; the official vertical packages and community alternatives use the same public kernel.
+ADRs 0186 through 0205 define this package boundary. Core contains no built-in
+Hooks or Access product implementation; the official vertical packages and
+community alternatives use the same public kernel.
 
 ## Package dependency graph
 
@@ -43,11 +45,13 @@ An arrow means “imports or depends on” and always points toward a foundation
 core ─────────────────→ shared
 plugin-kit ───────────→ core, shared
 typegen ──────────────→ core, shared
+hooks-plugin ─────────→ plugin-kit, core, shared
+access-plugin ────────→ plugin-kit, core, shared
 pg-vector-plugin ─────→ plugin-kit, core, shared
-roles-plugin ─────────→ plugin-kit, core
-acl-permissions-plugin → plugin-kit, core
-postgres-plugin ──────→ plugin-kit, core
-acl-postgres-plugin ──→ acl-permissions-plugin, postgres-plugin, plugin-kit, core
+roles-plugin ─────────→ access-plugin, plugin-kit, core, shared
+acl-permissions-plugin → plugin-kit, core, shared
+postgres-plugin ──────→ plugin-kit, core, shared
+acl-postgres-plugin ──→ acl-permissions-plugin, postgres-plugin, plugin-kit, core, shared
 testing ──────────────→ typegen, core, shared
 ```
 
@@ -64,11 +68,6 @@ server-hono-plugin ────────→ core
 rest-plugin ───────────────→ core
 graphql-plugin ────────────→ core
 graphql-yoga-plugin ───────→ graphql-plugin, core
-hooks-plugin ──────────────→ plugin-kit, core, shared
-official Hooks extensions ─→ hooks-plugin, plugin-kit, core, shared
-access-plugin ─────────────→ plugin-kit, core, shared
-official Access providers ─→ access-plugin, plugin-kit, core, shared
-acl-permissions-plugin ────→ plugin-kit, core, shared
 ```
 
 Official Hooks and Access contracts live in their respective plugin packages.
@@ -108,23 +107,22 @@ example, `access` is recognized only when `accessPlugin()` contributes its
 namespace to the compiled application graph:
 
 ```ts
-Schema.define({
+import { accessPlugin } from '@ultimabase/access-plugin'
+import { Schema, UltimaBase } from '@ultimabase/core'
+
+const Post = Schema.define({
 	className: 'Post',
 	access: {
 		read: true,
 	},
 	fields: (field) => ({
-		title: field.string({
-			access: {
-				write: {
-					fill: isEditor,
-					replace: isEditor,
-					clear: isEditor,
-				},
-			},
-		}),
+		title: field.string(),
 	}),
-	extensions: [auditSchema({ category: 'content' })],
+})
+
+const ultimabase = new UltimaBase({
+	plugins: [accessPlugin()],
+	schemas: [Post],
 })
 ```
 
@@ -309,7 +307,7 @@ request subjects but grant nothing by themselves.
 
 The low-level `beforeOperation()`, `afterOperation()`,
 `preparedOperation()`, and `postCommitEvent()` factories are generic Runtime
-contributions, not native schema Hooks. Their inputs use immutable
+contributions, not built-in schema Hooks. Their inputs use immutable
 `RequestContext`. Core executes such callbacks through a product-neutral
 cancellation and recursion boundary; concrete plugins may add stricter
 lifecycle contexts internally.

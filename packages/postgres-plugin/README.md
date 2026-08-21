@@ -241,39 +241,63 @@ Handles are single-use and expire with their borrowed transaction client.
 
 Generated schema collection commands execute ordered singular prepared
 operations on the same borrowed client. Every collection mutation is atomic,
-so a missing target or any item, hook, persistence, or finalization failure
+so a missing target or any item, behavior, persistence, or finalization failure
 rolls back the complete batch. The adapter retains low-level multi-row and
-set-based AST support for internal capabilities, but native item hooks do not
-expose that path.
+set-based AST support for internal capabilities; the official Hooks plugin does
+not expose that path.
 
-### Native hook transactions
+### Official Hooks plugin transactions
 
-Native schema, inline field, and plugin-contributed hooks use the same borrowed
-PostgreSQL client as the primary mutation. A hook may therefore start another
-typed query without receiving a pool, Drizzle client, or explicit transaction:
+When installed, the official Hooks plugin runs schema, field, and contributed
+behavior on the same borrowed PostgreSQL client as the primary mutation. A
+handler may therefore start another typed query without receiving a pool,
+Drizzle client, or explicit transaction:
 
 ```ts
-hooks: {
-	beforeOperation: {
-		create: async ({ item }) => {
-			await AuditSchema.createOne({
-				data: { action: `create:${item.title}` },
-			})
+import { Schema, UltimaBase } from '@ultimabase/core'
+import { hooksPlugin } from '@ultimabase/hooks-plugin'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
+
+const databaseUrl = process.env.DATABASE_URL
+if (databaseUrl === undefined) throw new TypeError('DATABASE_URL is required')
+
+const AuditSchema = Schema.define({
+	className: 'Audit',
+	fields: (field) => ({
+		action: field.string({ validation: { required: true } }),
+	}),
+})
+
+const ArticleSchema = Schema.define({
+	className: 'Article',
+	fields: (field) => ({
+		title: field.string({ validation: { required: true } }),
+	}),
+	hooks: {
+		beforeOperation: {
+			create: async ({ context, item }) => {
+				await AuditSchema.createOne({
+					data: { action: `create:${item.title}` },
+				})
+				context.emit('audit.created', { title: item.title })
+			},
 		},
 	},
-	afterOperation: {
-		create: ({ context, item }) => {
-			context.emit('audit.created', { id: item.id })
-		},
-	},
-}
+})
+
+const ultimabase = new UltimaBase({
+	schemas: [ArticleSchema, AuditSchema],
+	plugins: [hooksPlugin(), postgresPlugin({ url: databaseUrl })],
+})
 ```
 
-If a later business hook fails, PostgreSQL rolls back the audit row and primary
+If a later business handler fails, PostgreSQL rolls back the audit row and primary
 row together. Named events are released only after a successful outer commit.
-The Docker-backed public-package E2E suite verifies this behavior alongside
-plugin ordering, opaque scope constraints, read restrictions, output
-resolution, and atomic itemized batch semantics.
+The Docker-backed
+[`hooks-plugin-postgres.postgres.e2e.test.ts`](../../tests/e2e/hooks-plugin-postgres.postgres.e2e.test.ts)
+public-package suite verifies this behavior alongside plugin ordering, opaque
+scope constraints, read restrictions, output resolution, and atomic itemized
+batch semantics.
 
 ## CRUD, bulk, and upsert execution
 

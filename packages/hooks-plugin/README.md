@@ -16,7 +16,9 @@ const Post = Schema.define({
 	fields: (field) => ({ title: field.string() }),
 	hooks: {
 		beforeOperation: {
-			create: ({ data }) => ({ data }),
+			create: ({ item }) => {
+				console.log(item.title)
+			},
 		},
 	},
 })
@@ -81,6 +83,9 @@ await Post.findMany(undefined, { ultimabase })
 
 Adding a `hooks` option without `hooksPlugin()` is an unknown-option application
 compilation error; importing this package alone does not change that result.
+The packed PostgreSQL lifecycle is exercised by the
+[`hooks-plugin-postgres.postgres.e2e.test.ts`](../../tests/e2e/hooks-plugin-postgres.postgres.e2e.test.ts)
+public-package suite.
 
 An extension declares Hooks as a peer rather than a lifecycle dependency,
 because the Hooks engine consumes the extension's contribution capability:

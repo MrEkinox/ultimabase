@@ -1,7 +1,7 @@
 # Inference, registry, and validation plans
 
 Schema metadata drives operation-specific TypeScript inputs and the structural
-plans consumed by the future Runtime package.
+plans consumed by Core Runtime.
 
 ```ts
 import {
@@ -29,7 +29,7 @@ export const schemaTargets = schemas.schemaTargets
 
 export const userPlans = compileValidationPlans(UserSchema)
 
-// Runtime will execute the create and update plans before access checks.
+// Runtime executes the plans before any installed policy or behavior.
 const usernamePresence = userPlans.create.fields.username?.presence
 const updateUnknownFieldPolicy = userPlans.update.unknownFields
 ```

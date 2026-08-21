@@ -6,14 +6,14 @@ Responsibilities:
 
 - immutable schemas, built-in and plugin-defined fields, and type inference;
 - canonical object reads plus immutable QueryBuilder and Operation AST builders;
-- native schema and field Access declarations plus policy-neutral enforcement foundations;
+- plugin-owned schema and field option compilation plus policy-neutral enforcement foundations;
 - anonymous and trusted master request authority with plugin-owned typed values;
 - isolated `FrameworkApplication` instances;
 - plugin definitions and global plugin graph;
 - nested plugin normalization;
 - versioned declaration and application capabilities;
 - lifecycle phases;
-- request engines, validation, transactions, hooks, and database contracts;
+- request engines, validation, transactions, generic Runtime behavior, and database contracts;
 - the public `UltimaBase` application facade.
 
 Core must never import a concrete database, server, transport, migration,
@@ -23,7 +23,7 @@ remain plugins above this package.
 ## Internal domains
 
 One package does not mean one monolithic source folder. The implementation keeps
-explicit `schema`, `query`, `access`, and `runtime` domains alongside application
+explicit `schema`, `query`, and `runtime` domains alongside application
 orchestration, plugins, capabilities, and errors. Internal folders are not exported
 as package subpaths; every supported API comes from `@ultimabase/core`.
 
@@ -32,7 +32,7 @@ Detailed guides remain focused by domain:
 - [Schema and fields](docs/schema.md), with practical [schema examples](examples/schema/README.md);
 - [Query and Operation AST](docs/query.md);
 - [request authority](docs/access.md);
-- [Runtime, engines, transactions, and hooks](docs/runtime.md).
+- [Runtime, engines, transactions, and optional behavior](docs/runtime.md).
 
 ## Static schema compilation and relationship targets
 
@@ -69,7 +69,7 @@ callback executes once for an accepted application compilation and its result
 becomes immutable schema metadata. Applications, tests, and framework-owned
 schemas use the same map-returning FieldBuilder declaration.
 Every builder method delegates to the corresponding immutable field factory, so
-validation, defaults, Access, hooks, and adapter metadata keep one implementation.
+validation, defaults, plugin-owned options, and adapter metadata keep one implementation.
 Embedded builders deliberately omit pointers, relations, and generated database
 sequences.
 
@@ -497,7 +497,7 @@ const memberships = await Membership.findMany({
 ```
 
 `eq` compares only the stored pointer identity. `is` and `isNot` query fields
-of the visible target and therefore apply its Access constraints. Pointer
+of the visible target and therefore apply installed target constraints. Pointer
 nullability remains explicit through `isNull` and `isNotNull`. `pointer.findOne()` and
 `pointer.exists()` execute normal reads already scoped by the pointer ID, while
 bounded single-target inclusion is selection-aware:
@@ -516,7 +516,7 @@ const posts = await PostSchema.findMany(
 
 An included pointer accepts only `select` and nested `include`: the pointer
 already identifies at most one target, so inclusion cannot conditionally filter
-it. Target Access still applies and may make an inaccessible pointer `null`.
+it. Installed target policies still apply and may make an inaccessible pointer `null`.
 
 `select` is flat and schema-correlated. Any `true` flag selects only the fields
 marked `true`; an object containing only `false` flags selects every other
@@ -525,19 +525,19 @@ contains `id`, including nested pointer and relation results, so an explicit
 selection adds it implicitly. `id: false` is rejected rather than silently
 ignored. Relationship result shaping stays explicit through `include`.
 
-Runtime evaluates target Access, applies target constraints, and validates
+Runtime evaluates installed target policies, applies target constraints, and validates
 selected targets. Inclusion does not manufacture a target schema lifecycle;
-reads expose no schema hooks. PostgreSQL loads the
+reads expose no official schema Hooks lifecycle. PostgreSQL loads the
 prepared tree through Drizzle relational `with`. Missing or inaccessible
 pointer targets become `null`; a relation contains only its visible targets and
 therefore becomes an empty array when none remain. Nested inclusions use the
-same rules. Pointer Field Access still receives the field's declared `Pointer`
+same rules. When installed, official field Access receives the field's declared `Pointer`
 value; only the result returned to the caller is hydrated.
 
-Pointer field hooks may normalize input. Field Access owns pointer disclosure,
-while field definitions and transports own output representation.
+When installed, official field Hooks may normalize pointer input and official
+field Access owns pointer disclosure. Field definitions and transports own output representation.
 `relationField` remains a handle-only
-declaration and accepts no field hooks.
+declaration and accepts no official field Hooks.
 
 The target ID used by pointer reads and inclusion is a private Runtime row
 filter. It never enters the developer AST, so application query options can
@@ -597,8 +597,9 @@ const users = await UserSchema.findMany({
 Unlike a pointer, an included relation supports `where`, `orderBy`, `offset`,
 `limit`, `select`, and nested `include`. Its offset is applied independently to
 every parent collection. Per-parent cursor pagination is deliberately not part
-of this contract. Source relation Field Access runs once before loading. Target
-Access and output resolution still apply through the target read pipeline.
+of this contract. Installed source-relation field policy runs once before
+loading. Target policy and output resolution still apply through the target
+read pipeline.
 
 Persisted models expose only their declared to-many fields through an immutable
 `Relation<TSource, TTarget>` handle:
@@ -731,8 +732,8 @@ nested `WhereInput` values. `count` compares a visible relation as a non-null
 integer through `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `in`, `notIn`, `between`,
 or `notBetween`; operands must be non-negative safe integers. Its optional
 target-typed `where` filters the related objects before every comparison, and at
-least one comparison is required. Runtime evaluates every target Access filter
-into a private adapter scope that source hooks cannot remove. Predicate depth is
+least one comparison is required. Runtime evaluates every installed target
+policy filter into a private adapter scope that behavior cannot remove. Predicate depth is
 bounded, and adapters must advertise the separate versioned relation predicate
 capability before execution.
 
@@ -914,7 +915,7 @@ const post = await PostSchema.createOne(
 ```
 
 The complete current Runtime mutation pipeline and database work started inside
-it commit or roll back together. Native schema, field, and plugin hooks execute
+it commit or roll back together. Configured schema, field, and plugin behavior executes
 inside this same active boundary. An explicit
 `RequestEngine.transaction()` is reused without nesting, while root reads
 remain non-transactional. Collection mutations are ordered singular item
@@ -933,15 +934,15 @@ const imported = await PostSchema.createMany(
 
 Database plugins prepare each transaction-bound mutation through one opaque,
 single-use handle. Its execution keeps the projected public result separate
-from the complete logical materializations supplied to schema lifecycle hooks.
+from the complete logical materializations supplied to installed schema lifecycle behavior.
 Every model-returning schema mutation accepts the same flat selection contract
 as schema reads. `createOne()`, `createMany()`, `updateOne()`, and `updateMany()`
 also accept the generated `include` contract. Each write completes first, then
 Runtime projects its persisted ID inside the same transaction. Singular
 commands issue one relationship read; collection commands group every persisted
 ID into one read and restore declaration order independently from database
-order. These internal reads do not replay root mutation Access or lifecycle
-hooks, and they are omitted entirely when no relationship is requested:
+order. These internal reads do not replay root mutation policies or lifecycle
+behavior, and they are omitted entirely when no relationship is requested:
 
 ```ts
 const created = await PostSchema.createOne(
@@ -992,7 +993,7 @@ const publishedAuthorNames = published.map((post) => post.author?.name)
 This protocol belongs to database-adapter authors rather than application code.
 The root adapter starts the transaction. For update, delete, and upsert, its
 transaction adapter stabilizes the visible target before schema input
-resolution and item Access complete. Runtime then runs the item lifecycle and
+resolution and installed item policy complete. Runtime then runs optional item behavior and
 consumes the prepared mutation exactly once.
 
 Policy and value-object plugins may register `preparedOperation()` when an
@@ -1000,7 +1001,7 @@ accepted `updateOne()` value depends on that locked target. The handler receives
 the fully typed current object and may replace only values inside the existing
 normalized update shape. Runtime groups this replacement with field and schema
 input resolution, then performs one final structural revalidation,
-value-dependent field Access, and item Access pass. The adapter receives the
+value-dependent installed field and item policy pass. The adapter receives the
 final operation and cumulative constraints for the write. The handler cannot
 change the query, target, fields, operators, schema, or terminal kind. Public
 collection commands are already itemized before this boundary, so each update
@@ -1048,11 +1049,11 @@ await updated.delete({ select: { id: true } }, { ultimabase })
 
 `new PostSchema(input)` creates a typed immutable draft and never performs I/O.
 Runtime queries and mutations return immutable `PostSchema` instances only after
-hooks and field restrictions finish. `get(field)` and `toJSON()` expose only the
+installed behavior and field restrictions finish. `get(field)` and `toJSON()` expose only the
 fields visible in that result, so a selected result cannot recover omitted data.
 Draft `create` and `upsert` plus persisted `update`, `delete`, and `fetch` accept
 the same exact result selections as their static read or mutation equivalents.
-`fetch` and `exists` reuse the normal read pipeline, including Access and hooks.
+`fetch` and `exists` reuse the normal read pipeline, including installed policies and behavior.
 `toPointer` and `equals` operate locally on protected identity, even when `id`
 was not selected. All instance commands remain immutable conveniences: a
 mutation starts without the receiver's read selection and returns a new model.
@@ -1060,7 +1061,7 @@ mutation starts without the receiver's read selection and returns a new model.
 `NOT_FOUND` when it no longer exists. Schema `updateOne` and `deleteOne` accept
 exactly one of `id` or `where`; `id` is only a concise alias for
 `where: { id: { eq: id } }`. They remain nullable conditional mutations and
-skip their item lifecycle hooks when no row matches.
+skip installed item lifecycle behavior when no row matches.
 Collection reads and writes live on the generated schema class. Models
 deliberately expose no mutable `save()` method.
 
@@ -1118,7 +1119,7 @@ repository protects this boundary with the deterministic
 
 ## Policy-neutral enforcement primitives
 
-Core exposes five protected factories without adding policy names to Runtime.
+Core exposes policy-neutral enforcement factories without adding product names to Runtime.
 Definitions are materialized through the exact privilege-scoped
 `provideRuntimeConstraint()` capability facade:
 
@@ -1176,12 +1177,12 @@ Each definition may opt into `master: "bypass"`; omission enforces it for
 master too, so trusted provider-internal queries skip only explicitly bypassable
 policy work before hook-recursion checks.
 
-ADR-0116 retains these guarantees as Access's low-level implementation layer.
-After issues 401 and 416–419, official permission providers register native
-Access contributions and the application compiler lowers them into these
-primitives. Advanced framework plugins may continue using the low-level
-factories when they require a policy-neutral capability outside the public
-Access vocabulary.
+The official Access plugin compiles its package-owned declarations into
+`protectedPolicy()` contributions supplied through this same
+`provideRuntimeConstraint()` boundary. ACL uses the generic boundary directly
+and does not depend on Access. Advanced framework plugins may use either the
+focused factories above or `protectedPolicy()` when they own a policy-neutral
+capability outside the official Access vocabulary.
 
 ## Framework application
 
@@ -1551,8 +1552,8 @@ Milestone 14 maps the removed generic paths as follows:
 - exclusive string slots become canonical `single` capabilities;
 - public service tokens become application capabilities;
 - optional Hooks and Access use application capabilities owned by their packages;
-- low-level interception, policy enforcement, post-commit events, and fixed
-  pipeline stages use `provideRuntimeInterceptor()`,
+- low-level behavior, policy enforcement, post-commit events, and fixed
+  pipeline stages use `provideRuntimeBehavior()`,
   `provideRuntimeConstraint()`, and `provideRuntimeObserver()` respectively;
 - Runtime execution is a replaceable `single` application capability behind
   Core-owned application, authority, cancellation, and transaction boundaries;
@@ -1624,11 +1625,11 @@ const owned = defineSchemaExtension(
 )
 ```
 
-Contributed fields join ordinary validation, inference, hooks, Access, and
-adapter metadata. Core rejects collisions with developer, system, model, or
+Contributed fields join ordinary validation, inference, installed behavior and
+policies, and adapter metadata. Core rejects collisions with developer, system, model, or
 other extension fields. A plugin field may explicitly defer its required
 create value until `resolveInput`; the normal revalidation boundary still
-requires that value before Access and persistence.
+requires that value before installed policies and persistence.
 
 Portable plugin scalars may additionally declare a private, versioned JSON
 storage codec through `definePluginField()`. Core validates and snapshots both

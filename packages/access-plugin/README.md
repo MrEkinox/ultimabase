@@ -12,6 +12,7 @@ import { Schema, UltimaBase } from '@ultimabase/core'
 const Post = Schema.define({
 	className: 'Post',
 	fields: (field) => ({
+		published: field.boolean({ default: false }),
 		secret: field.string({ access: { read: false } }),
 		title: field.string(),
 	}),
@@ -76,6 +77,9 @@ await Post.findMany(undefined, { ultimabase })
 Core validation, transactions, protected constraints, and anonymous or
 audited-master authority remain active. Importing this package alone installs
 nothing, and declaring `access` without `accessPlugin()` fails compilation.
+The packed policy vertical is exercised by the
+[`access-plugin-postgres.postgres.e2e.test.ts`](../../tests/e2e/access-plugin-postgres.postgres.e2e.test.ts)
+public-package suite.
 
 ## Defaults
 

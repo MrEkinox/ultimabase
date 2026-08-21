@@ -107,7 +107,7 @@ const memberships = await Membership.findMany({
 ```
 
 `eq` inspects only the stored pointer identity. `is` and `isNot` query the
-visible target and therefore apply target Access. A null pointer satisfies
+visible target and therefore apply installed target policy. A null pointer satisfies
 `isNot`; combine it with `isNotNull: true` when null pointers must be excluded.
 Pointer nullability uses `isNull` and `isNotNull`, never `eq: null`.
 
@@ -136,8 +136,8 @@ const establishedAuthors = await Author.findMany({
 
 `count` supports `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `in`, `notIn`,
 `between`, and `notBetween`. Operands are non-negative safe integers. The count
-includes only targets visible through target Access and plugin constraints;
-source relation field read Access still applies. Its optional target-typed
+includes only targets visible through installed target policy and plugin
+constraints; installed source-relation field policy still applies. Its optional target-typed
 `where` filters that visible collection before all comparisons are evaluated.
 At least one comparison is required, and several comparisons share one
 cardinality calculation.
@@ -195,7 +195,7 @@ const outsideMidRange = await Post.findMany({
 matches values strictly below the lower bound or strictly above the upper
 bound. Both methods retain one explicit range node in the Query AST, require
 non-null bounds of the field's exact type, and are also available in schema
-command `where`, Access filters, and relation predicates.
+command `where`, installed Access filters, and relation predicates.
 Relation cardinality ranges use the same object bounds under `count`.
 
 ## Schema write commands
@@ -296,13 +296,13 @@ Query construction. Their `where` form and `upsertOne` require an exact unique
 target: `id`, one unique field, or all fields of one declared unique composite
 index. This keeps singular cardinality independent from ordering, pagination,
 or adapter-specific behavior. A schema-root `updateOne` or `deleteOne` returns
-`null` when no target matches and does not run its schema item lifecycle hooks.
+`null` when no target matches and does not invoke optional item behavior.
 
 ## Mutation results and relationships
 
 `createOne`, `updateOne`, and `deleteOne` return complete immutable models by
 default and accept the same flat boolean `select` contract as schema reads. The
-projection changes only the public result; mutation hooks continue to receive
+projection changes only the public result; installed mutation behavior continues to receive
 complete logical materializations. Other singular schema commands still return
 complete models. No mutation accepts `include`, and pointer or relation values
 remain unloaded references:
@@ -338,7 +338,7 @@ result itself to remain narrow.
 order. Without `select`, they request only `id`; an explicit selection returns
 exactly those post-update or pre-delete fields. Every predicate must identify
 one existing target. A missing target raises `NOT_FOUND` and rolls back the
-complete batch together with all earlier item hooks and writes:
+complete batch together with all earlier item behavior and writes:
 
 ```ts
 const updated = await Post.updateMany({
@@ -462,7 +462,7 @@ const imported = await Account.upsertMany(
 )
 ```
 
-The unique equality values seed the create candidate before hooks run. A
+The unique equality values seed the create candidate before installed behavior runs. A
 contradictory create value fails validation instead of targeting one object and
 inserting another.
 
@@ -488,7 +488,7 @@ Read terminals and schema commands normalize into the same discriminated
 Writes distinguish `create-one`/`create-many`, `update-one`/`update-many`,
 `upsert-one`/`upsert-many`, and `delete-one`/`delete-many`. Runtime and adapters
 therefore retain exhaustive internal operation matching. After collection
-itemization, public item Access and hooks use cardinality-free `create`,
-`update`, `upsert`, and `delete` business kinds. The normalized AST retains the
-exact terminal discriminant internally, while early operation Access exposes
-only its named capability and request context.
+itemization, the optional Access and Hooks plugins use cardinality-free
+`create`, `update`, `upsert`, and `delete` business kinds. The normalized AST
+retains the exact terminal discriminant internally, while early installed
+operation policy exposes only its named capability and request context.

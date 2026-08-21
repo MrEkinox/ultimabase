@@ -16,6 +16,7 @@
 		"../../packages/*/tests/**/*.ts",
 		"../../tests/e2e/**/*.ts",
 		"../../tests/performance/**/*.ts",
+		"../documentation/**/*.test.ts",
 		"../eslint/**/*.test.ts",
 		"../prototypes/generated-schema-authoring/**/*.ts",
 		"../vitest/optional-product-public-api.ts",

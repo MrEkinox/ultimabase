@@ -39,13 +39,13 @@ Lifecycle teardown reverses setup order. A nested child implicitly depends on it
 Cross-plugin integration uses only typed capabilities. `single`, `multiple`, and
 `pipeline` tokens have deterministic composition rules and either `declaration`
 or `application` lifetime. Public string slots, service lookup, and generic
-registries are transitional APIs removed by milestone 14.
+registries were removed by milestone 14.
 
 UltimaBase privileges govern framework-owned facades and are reported at
 startup. Environmental claims separately disclose direct filesystem, network,
 process, or native-code behavior; neither mechanism claims to sandbox trusted
 in-process JavaScript.
 
-See [Open plugin authoring](open-plugin-authoring.md) for the accepted target
+See [Open plugin authoring](open-plugin-authoring.md) for the implemented
 developer experience, including schema transformations, operations, Typegen,
 transport bindings, adapter bridges, and JavaScript use without generated code.

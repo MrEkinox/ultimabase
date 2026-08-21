@@ -1,127 +1,193 @@
-# Open plugin authoring target
+# Open plugin authoring
 
-This document records the accepted milestone 14 developer experience. It is a
-target contract, not a claim that the APIs below are implemented before the
-corresponding issues complete.
+UltimaBase exposes one public kernel to official and community plugins. Static
+declarations build the deterministic application graph; resource-backed
+capabilities are materialized later for one application. The complete example
+behind this guide is the executable
+[`open-kernel-workflow.ts`](../../tests/e2e/fixtures/open-kernel-workflow.ts)
+fixture.
 
-## Author one plugin
+## Declare the contract
 
-A plugin separates static application declarations from resource-backed setup:
+Operations carry their input, result, target, transaction, name, and version as
+one immutable token. `defineOperationValue` validates untrusted values, while a
+Typegen reference names the public TypeScript type without copying executable
+code into generated output:
 
 ```ts
-import { defineOperation } from '@ultimabase/core'
-import {
-	definePluginModule,
-	patchSchemas,
-	providePluginOperation,
-	schemaPatch,
-} from '@ultimabase/plugin-kit'
+const workflowTypes = defineTypegenModule('@community/workflow-plugin')
+const transitionInputReference = workflowTypes.reference(
+	'WorkflowTransitionInput',
+)
+const transitionResultReference = workflowTypes.reference(
+	'WorkflowTransitionResult',
+)
 
-const workflow = definePluginModule({
-	pluginId: 'community.workflow',
-	version: '1.0.0',
-	core: '^1.0.0',
-})
+const transitionInput = defineOperationValue(
+	(value, path) => validateTransitionInput(value, path),
+	transitionInputReference,
+)
+const transitionResult = defineOperationValue(
+	(value, path) => validateTransitionResult(value, path),
+	transitionResultReference,
+)
 
 export const publishPost = defineOperation({
+	input: transitionInput,
 	name: 'community.workflow.publish-post',
-	version: '1.0.0',
-	target: 'schema',
+	result: transitionResult,
+	target: 'model',
 	transaction: 'required',
-	input: publishPostInput,
-	result: publishPostResult,
+	version: '1.0.0',
 })
+```
 
+`application`, `schema`, and `model` are the available operation targets. The
+provider receives the validated `input`, resolved `target`, immutable request
+`context`, `engine`, capability `adapters`, and exact contribution `owner`:
+
+```ts
 const publishProvider = providePluginOperation({
 	contributionId: 'publish-post',
 	operation: publishPost,
-	execute: async ({ input, request }) => executePublish(input, request),
+	execute: async ({ adapters, context, engine, input, owner, target }) =>
+		executePublish({ adapters, context, engine, input, owner, target }),
+})
+```
+
+Use the provider's `create` form when its handler owns an application-local
+resource. `create` receives capability readers and returns
+`{ execute, dispose? }`; Core guarantees cleanup and still owns operation
+validation and Runtime execution.
+
+## Declare schema and model surfaces
+
+The declaration callback is pure, synchronous, and privilege-scoped. Its
+registrars use explicit contribution IDs and retain plugin provenance:
+
+```ts
+const workflowOption = defineSchemaOption<WorkflowSchemaOption>({
+	normalize: (value, path) => normalizeWorkflowOption(value, path),
+	protocolVersion: 1,
+	typegen: {
+		module: '@community/workflow-plugin',
+		type: 'WorkflowSchemaOption',
+	},
+})
+
+declare: ({
+	models,
+	operations,
+	schemas,
+	typegenContributions,
+	typegenReferences,
+}) => {
+	const targetSchemas = [PostSchema] as const
+	schemas.defineOptions({
+		contributionId: 'workflow-options',
+		schema: { workflow: workflowOption },
+	})
+
+	const targets = schemas.select({
+		option: { equals: true, name: 'workflow', path: ['enabled'] },
+	})
+	schemas.patch(
+		patchSchemas({
+			patch: schemaPatch().addField({
+				contributionId: 'workflow-state',
+				field: stringField({ default: 'draft' }),
+				name: 'workflowState',
+			}),
+			targets,
+		}),
+	)
+
+	operations.declare(publishPost)
+	for (const target of targetSchemas) {
+		models.extend(target, {
+			contributionId: `workflow-surface:${target.className}`,
+			modelCommands: { publish: publishPost },
+		})
+	}
+
+	typegenReferences?.register(transitionInputReference)
+	typegenReferences?.register(transitionResultReference)
+	typegenContributions?.add({
+		contributionId: 'workflow-contracts',
+		declarations: [workflowHistoryDeclaration],
+	})
+}
+```
+
+`schemas.add`, `schemas.defineOptions`, `schemas.patch`, `schemas.select`,
+`operations.declare`, `models.extend`, `typegenReferences.register`, and
+`typegenContributions.add` are the current registrar names. `models.extend`
+accepts separate `schemaCommands` and `modelCommands`; plugins never mutate an
+exported schema class or prototype. Typegen contributions are structured inert
+declarations, never source strings or Runtime callbacks.
+
+Schema option namespaces, schemas, fields, indexes, and immutable patches use
+`schema:declare`. Application schema/model commands use `model:extend`.
+Operations use `operation:declare`. Typegen references and declarations use
+`typegen:reference` and `typegen:contribute` respectively. Adding fields does
+not request `schema:transform`; that privilege is reserved for rewriting an
+existing field definition.
+
+## Build the plugin
+
+`definePluginModule` keeps the manifest identity stable across configured
+instances. Multiple instances require distinct explicit `instanceId` values:
+
+```ts
+const workflow = definePluginModule({
+	core: '^0.0.0',
+	pluginId: 'community.workflow',
+	version: '1.0.0',
 })
 
 export const workflowPlugin = (options: WorkflowPluginOptions) =>
 	workflow.plugin({
 		instanceId: options.instanceId,
+		capabilities: { provides: [publishProvider] },
+		declare: workflowDeclaration,
 		privileges: [
 			{
 				name: 'schema:declare',
-				reason: 'Declares the workflow option namespace.',
-			},
-			{
-				name: 'schema:transform',
-				reason: 'Adds workflow fields to selected content schemas.',
+				reason: 'Adds workflow options and fields.',
 			},
 			{
 				name: 'model:extend',
-				reason: 'Adds publish commands to application schema handles.',
+				reason: 'Adds the publish model command.',
 			},
 			{
 				name: 'operation:declare',
-				reason: 'Declares the publish-post operation.',
+				reason: 'Declares the publish operation.',
+			},
+			{
+				name: 'typegen:reference',
+				reason: 'References public workflow types.',
 			},
 			{
 				name: 'typegen:contribute',
-				reason: 'Describes the correlated publish operation types.',
+				reason: 'Adds structured workflow declarations.',
 			},
 		],
-		capabilities: { provides: [publishProvider] },
-		declare({ schemas, models, operations }) {
-			schemas.defineOption(workflowOptionNamespace)
-			const contentSchemas = schemas.select({ option: 'workflow.enabled' })
-
-			schemas.patch(
-				patchSchemas({
-					targets: contentSchemas,
-					patch: schemaPatch()
-						.addField({
-							contributionId: 'workflow-state',
-							name: 'workflowState',
-							field: workflowStateField,
-						})
-						.addIndex({
-							contributionId: 'workflow-state-index',
-							fields: ['workflowState', 'createdAt'],
-						}),
-				}),
-			)
-
-			operations.declare(publishPost)
-			models.extend(contentSchemas, {
-				commands: { publish: publishPost },
-			})
-		},
 	})
 ```
 
-The exact registrars are privilege-scoped. The static callback cannot read
-secrets, services, adapters, clocks, or network state. Setup may materialize
-application capabilities but cannot register an undeclared or denied power.
+The static callback cannot read secrets, adapters, clocks, filesystem, network,
+or process state. The manifest announces direct environmental behavior through
+claims such as `environment:filesystem` or `environment:network`; claims are
+inspectable policy because in-process JavaScript is not an operating-system
+sandbox.
 
-Issues 1405 through 1417 deliver the owner-bound registrars, immutable operation
-contracts, Runtime execution, and adapter bridges used above. Issue 1411 adds
-the focused authoring helpers while keeping every privilege and contribution
-visible to Core.
-The capability kernel available after issue 1404 declares resource factories
-statically and exposes only exact requirement reads during setup:
+## Read another plugin capability
+
+Declare requirements statically and read only those exact requirements during
+materialization or setup:
 
 ```ts
 const auditRequirement = requireCapability(auditCapability, '^1.0.0')
-
-definePlugin({
-	pluginId: 'community.audit-provider',
-	version: '1.0.0',
-	core: '^0.0.0',
-	capabilities: {
-		provides: [
-			provideCapability(auditCapability, {
-				contributionId: 'primary',
-				create: () => ({
-					value: createAuditProvider(),
-					dispose: () => closeAuditProvider(),
-				}),
-			}),
-		],
-	},
-})
 
 definePlugin({
 	pluginId: 'community.audit-consumer',
@@ -135,25 +201,16 @@ definePlugin({
 })
 ```
 
-The token's required `compose` function converts final ordered providers into
-the consumer view. Replacements target one structured owner and contribution
-ID; decorators wrap only complete `single` or `pipeline` consumer views.
-
-Complex TypeScript contracts use a structured Typegen contribution. They never
-inject an executable callback into generated output:
-
-```ts
-declare({ typegen }) {
-	typegen.contribute({
-		imports: [workflowPublicTypes],
-		operations: [publishPostTypegenDescriptor],
-	})
-}
-```
+The token's `compose` contract converts ordered providers into the consumer
+view. A resource capability's factory receives the same exact capability
+reader, not a service locator. Replacements target one structured owner and
+contribution ID; decorators wrap a complete `single` or `pipeline` consumer
+view. No public string slots, named setup registries, or generic service lookup
+remain.
 
 ## Configure privileges
 
-Requested privileges are allowed by default but visible and cumulatively
+Requested privileges are allowed by default, reported, and cumulatively
 denyable:
 
 ```ts
@@ -167,9 +224,7 @@ const ultimabase = new UltimaBase({
 			'community.workflow': {
 				deny: ['transport:expose'],
 				instances: {
-					editorial: {
-						deny: ['authority:elevate'],
-					},
+					editorial: { deny: ['authority:elevate'] },
 				},
 			},
 		},
@@ -177,78 +232,45 @@ const ultimabase = new UltimaBase({
 })
 ```
 
-Startup reports the plugin instance, version, requested powers, reasons,
-severity, environmental claims, and policy result. A denied active privilege
-prevents declarations and infrastructure work. `denyClaims` rejects announced
-direct Node.js behavior without pretending to sandbox in-process JavaScript.
-Use `pluginPrivileges.logger: false` for explicit silence or supply an
-`{ info, error }` logger; the same detached result remains available through
+Startup reports identity, version, requested privileges, reasons, severity,
+claims, and policy result. A denied active privilege prevents every later
+declaration, Typegen, setup, connection, Runtime, or transport effect. Supply
+`pluginPrivileges.logger: false` for explicit silence or an `{ info, error }`
+logger; the detached report remains available through
 `ultimabase.application.pluginPrivilegeReport`.
 
-## Use the plugin with TypeScript
+## Use the installed surface
 
-Stable operations can use their exported token. Application-specific model
-surfaces use the application schema handle rather than mutating the exported
-schema class:
+Typegen augments only application-owned handles and their returned models:
 
 ```ts
-await ultimabase.operation(publishPost).execute({
-	schema: 'Post',
-	id: postId,
-})
-
-const Post = ultimabase.schema('Post')
-await Post.publish({ id: postId })
-
-const post = await Post.findOne({ where: { id: postId } })
-await post.publish()
-```
-
-Typegen augments application handles and returned models with the exact
-installed plugin surface. It emits declarations and inert metadata only, never
-a Runtime client. Dynamic code can still call
-`Post.for(post).command(name).execute(input)`.
-
-## Use the same plugin from JavaScript
-
-JavaScript uses the same application and Runtime without Typegen:
-
-```js
-const Post = ultimabase.schema('Post')
+const Post = ultimabase.schema(PostSchema)
 const post = await Post.findOne({ where: { id: postId } })
 
-await post.publish()
-await ultimabase.operation('community.workflow.publish-post').execute({
-	schema: 'Post',
-	id: postId,
-})
+if (post !== null) {
+	await post.publish({ reason: 'Editorial approval' })
+}
 ```
 
-Names, payloads, results, ownership, capability versions, and application
-lifetime are validated at runtime.
+Schema commands appear on `Post`; model commands appear on `post`. Dynamic code
+can use `Post.for(post).command(name).execute(input)`. Stable application,
+schema, or model operations can also use their exported token through
+`ultimabase.operation(token)`. JavaScript executes the same graph without
+Typegen; names, payloads, results, ownership, capability versions, and
+application lifetime are validated at Runtime.
 
-## Adapter and transport bridges
+## Adapter, transport, and community helpers
 
 A portable plugin declares logical values and operations independently. A
-database-specific bridge contributes storage codecs, constraints, persistence
-plans, physical schema metadata, or migrations through that adapter's versioned
-capabilities. A transport-specific bridge contributes an explicit wire codec
-and exposure binding. Installing the logical plugin alone exposes neither raw
-adapter access nor a public endpoint.
-
-## Community toolbox boundary
+database bridge contributes codecs, constraints, persistence plans, physical
+schema metadata, or migrations through versioned adapter capabilities. A
+transport bridge contributes an explicit wire codec and exposure binding.
+Installing the logical plugin alone exposes neither raw adapter access nor a
+public endpoint.
 
 `@ultimabase/plugin-kit` removes repeated immutable declaration and composition
-code. `@ultimabase/testing` supplies a runner-agnostic public conformance suite
-for manifests, structured instances, denials, capabilities, deterministic
-declarations, provenance, lifecycle cleanup, and application isolation. Optional
-named checks cover Typegen, JavaScript and typed operations, schema/model
-surfaces, transports, middleware, persistence, codecs, migrations, and adapter
-failures. Fresh application factories preserve exact fixture inference and are
-disposed automatically.
-
-The harness reports the exact failed contract and uses only public package
-exports. It does not read Core registries, grant undeclared privileges, or
-impose PostgreSQL on a logical plugin. Neither authoring package owns
-privileges, owner binding, registries, Master, or capability storage; those
-checks remain in Core.
+code without bypassing Core ownership or privilege checks. `@ultimabase/testing`
+supplies public conformance suites for manifests, instances, denials,
+capabilities, deterministic declarations, provenance, lifecycle cleanup, and
+application isolation. The helpers do not own registries, Master authority, or
+capability storage.

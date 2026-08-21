@@ -59,6 +59,6 @@ export const CustomerSchema = Schema.define({
 
 `previousAddresses` is a list of structured objects. `scores` is a typed
 one-dimensional number list. A multidimensional `scoreMatrix` uses JSON so its
-nested array shape is explicit. Field output Access is applied to every concrete object occurrence,
+nested array shape is explicit. When installed, field output policy is applied to every concrete object occurrence,
 so `internalRoutingCode` is structurally omitted from both `shippingAddress`
 and every `previousAddresses` entry without removing any address from the list.
