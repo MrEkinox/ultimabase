@@ -70,6 +70,7 @@ export default defineConfig(
 			'tooling/documentation/**/*.test.ts',
 			'tooling/prototypes/generated-schema-authoring/**/*.ts',
 			'tooling/eslint/**/*.test.ts',
+			'tooling/issues/**/*.ts',
 			'tooling/vitest/optional-product-public-api.ts',
 			'tooling/vitest/typescript-language-service.ts',
 		],

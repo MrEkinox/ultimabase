@@ -1,6 +1,7 @@
 # 1502: Move hook execution into hooks-plugin
 
-- Status: merged into 1501
+- Status: merged
+- Merged into: 1501
 - Milestone: 15
 - Packages: `@ultimabase/hooks-plugin`, `@ultimabase/core`, `@ultimabase/postgres-plugin`, `@ultimabase/testing`
 - Depends on: 1501

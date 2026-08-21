@@ -1,6 +1,6 @@
 # 301: Define Query AST
 
-- Status: done
+- Status: completed
 - Milestone: 3
 - Packages: `@ultimabase/query`
 - Depends on: 112

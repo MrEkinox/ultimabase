@@ -1,6 +1,6 @@
 # 901: Decide mutation relationship projection semantics
 
-- Status: done
+- Status: completed
 - Milestone: 9
 - Packages: `@ultimabase/core`, `@ultimabase/postgres-plugin`
 - Depends on: none

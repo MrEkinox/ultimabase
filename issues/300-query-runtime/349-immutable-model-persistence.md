@@ -1,6 +1,6 @@
 # 349: Add immutable model persistence commands
 
-- Status: done
+- Status: completed
 - Milestone: 3
 - Packages: `@ultimabase/core`
 - Depends on: 339, 345, 348

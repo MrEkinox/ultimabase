@@ -37,6 +37,7 @@ const testProjects: TestProjectConfiguration[] = [
 				'packages/*/tests/**/*.test.ts',
 				'tooling/documentation/**/*.test.ts',
 				'tooling/eslint/**/*.test.ts',
+				'tooling/issues/**/*.test.ts',
 			],
 			name: 'unit',
 			// Language-service fixtures need headroom when coverage instruments Core.

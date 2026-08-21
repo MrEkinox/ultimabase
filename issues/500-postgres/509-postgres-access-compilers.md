@@ -1,6 +1,6 @@
 # 509: Compile PostgreSQL ACL constraints
 
-- Status: done
+- Status: completed
 - Milestone: 5
 - Packages: `@ultimabase/acl-postgres-plugin`, `@ultimabase/postgres-plugin`, `@ultimabase/acl-permissions-plugin`
 - Depends on: 338, 411, 505, 506, 510

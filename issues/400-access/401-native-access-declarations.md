@@ -1,6 +1,6 @@
 # 401: Define native Access declarations
 
-- Status: done
+- Status: completed
 - Milestone: 4
 - Packages: `@ultimabase/core`
 - Depends on: 103, 324, 350

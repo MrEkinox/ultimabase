@@ -1,6 +1,6 @@
 # 739: Compile and execute PostgreSQL pointers
 
-- Status: done
+- Status: completed
 - Milestone: 7+
 - Packages: `@ultimabase/postgres-plugin`
 - Depends on: 508, 738

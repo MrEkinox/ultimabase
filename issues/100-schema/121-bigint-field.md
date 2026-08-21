@@ -1,6 +1,6 @@
 # 121: Add exact bigint fields
 
-- Status: done
+- Status: completed
 - Milestone: 1
 - Packages: `@ultimabase/schema`
 - Depends on: 120

@@ -1,6 +1,6 @@
 # 315: Implement singular CRUD terminals
 
-- Status: done
+- Status: completed
 - Milestone: 3
 - Packages: `@ultimabase/runtime`, `@ultimabase/query`
 - Depends on: 309, 312, 313

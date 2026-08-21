@@ -1,6 +1,6 @@
 # 133: Harden runtime plugin and index boundaries
 
-- Status: done
+- Status: completed
 - Milestone: 1
 - Packages: schema, pg-vector-plugin
 - Depends on: 131

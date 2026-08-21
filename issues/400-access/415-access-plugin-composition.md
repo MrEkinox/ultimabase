@@ -1,6 +1,6 @@
 # 415: Verify native Access and policy-provider composition
 
-- Status: done
+- Status: completed
 - Milestone: 4
 - Packages: `@ultimabase/core`, `@ultimabase/roles-plugin`, `@ultimabase/acl-permissions-plugin`
 - Depends on: 407, 411, 419, 423, 425

@@ -1,6 +1,6 @@
 # 005: Finalize lint and formatting
 
-- Status: done
+- Status: completed
 - Milestone: 0
 - Packages: repository
 - Depends on: 001, 002

@@ -1,6 +1,6 @@
 # 903: Group collection mutation projections
 
-- Status: done
+- Status: completed
 - Milestone: 9
 - Packages: `@ultimabase/core`, `@ultimabase/codegen`
 - Depends on: 902

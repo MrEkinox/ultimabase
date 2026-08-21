@@ -1,6 +1,6 @@
 # 801: Prove deferred schema compilation and typegen bootstrap
 
-- Status: done
+- Status: completed
 - Milestone: 8
 - Packages: `@ultimabase/core`, `@ultimabase/pg-vector-plugin`, prototype tooling only
 - Depends on: 125, 145, 207, 728

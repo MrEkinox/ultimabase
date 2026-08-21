@@ -1,6 +1,6 @@
 # 003: Configure tsdown workspace builds
 
-- Status: done
+- Status: completed
 - Milestone: 0
 - Packages: all publishable packages
 - Depends on: 001, 002

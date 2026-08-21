@@ -1,6 +1,6 @@
 # 436: Restructure Access declarations around operations
 
-- Status: done
+- Status: completed
 - Milestone: 4
 - Packages: `@ultimabase/core`, official policy plugins
 - Depends on: 416, 417, 418, 421, 422

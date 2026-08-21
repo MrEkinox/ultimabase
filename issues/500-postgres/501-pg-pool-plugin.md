@@ -1,6 +1,6 @@
 # 501: Implement PostgreSQL connection lifecycle
 
-- Status: done
+- Status: completed
 - Milestone: 5
 - Packages: `@ultimabase/postgres-plugin`
 - Depends on: 208, 311

@@ -1,6 +1,6 @@
 # 318: Implement hooks and post-commit events
 
-- Status: done
+- Status: completed
 - Milestone: 3
 - Packages: `@ultimabase/runtime`, `@ultimabase/core`
 - Depends on: 207, 312, 317

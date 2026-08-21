@@ -1,6 +1,6 @@
 # 335: Verify native hooks against PostgreSQL
 
-- Status: done
+- Status: completed
 - Milestone: 3
 - Packages: `@ultimabase/core`, `@ultimabase/postgres-plugin`, `@ultimabase/testing`
 - Depends on: 508, 518, 331, 332, 333, 334, 337, 338

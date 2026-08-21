@@ -30,3 +30,7 @@ conformance gate.
 Milestone 14 passed that gate in issue 1414. Issue 1509 passed the complete
 public, security, coverage, packed-package, and PostgreSQL audit, completing
 this milestone.
+
+ADR-0202 made Hooks authoring and Runtime extraction atomic in issue 1501.
+ADR-0204 did the same for Access in issue 1504, while ADR-0205 kept ACL
+independent and merged its provider migration into that same delivery.

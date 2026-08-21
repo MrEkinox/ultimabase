@@ -1,6 +1,6 @@
 # 205: Normalize nested plugins
 
-- Status: done
+- Status: completed
 - Milestone: 2
 - Packages: `@ultimabase/core`
 - Depends on: 204

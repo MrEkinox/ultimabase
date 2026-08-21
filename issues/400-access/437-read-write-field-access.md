@@ -1,6 +1,6 @@
 # 437: Organize field Access around read and write capabilities
 
-- Status: done
+- Status: completed
 - Milestone: 4
 - Packages: `@ultimabase/core`, official policy plugins
 - Depends on: 418, 421, 436

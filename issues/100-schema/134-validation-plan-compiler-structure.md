@@ -1,6 +1,6 @@
 # 134: Separate validation plan contracts and compilation
 
-- Status: done
+- Status: completed
 - Milestone: 1
 - Packages: schema
 - Depends on: 132, 133

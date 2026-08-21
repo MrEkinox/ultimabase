@@ -1,6 +1,6 @@
 # 210: Validate plugin-provided extension handlers
 
-- Status: done
+- Status: completed
 - Milestone: 2
 - Packages: `@ultimabase/core`, `@ultimabase/schema`
 - Depends on: 103, 207, 209

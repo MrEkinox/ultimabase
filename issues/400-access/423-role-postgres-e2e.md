@@ -1,6 +1,6 @@
 # 423: Verify the complete stored-role vertical
 
-- Status: done
+- Status: completed
 - Milestone: 4
 - Packages: `@ultimabase/core`, `@ultimabase/roles-plugin`, `@ultimabase/postgres-plugin`
 - Depends on: 406, 518, 747

@@ -1,6 +1,6 @@
 # 311: Define database adapter contract
 
-- Status: done
+- Status: completed
 - Milestone: 3
 - Packages: `@ultimabase/runtime`
 - Depends on: 307, 310, 202

@@ -1,6 +1,6 @@
 # 110: Implement defineSchema
 
-- Status: done
+- Status: completed
 - Milestone: 1
 - Packages: `@ultimabase/schema`
 - Depends on: 103, 104, 105, 106, 107, 108, 109

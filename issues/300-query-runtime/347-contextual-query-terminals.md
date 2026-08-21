@@ -1,6 +1,6 @@
 # 347: Execute Query terminals through the current context
 
-- Status: done
+- Status: completed
 - Milestone: 3
 - Packages: `@ultimabase/core`
 - Depends on: 333, 339, 340, 343

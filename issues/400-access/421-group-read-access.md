@@ -1,6 +1,6 @@
 # 421: Group schema and field read Access
 
-- Status: done
+- Status: completed
 - Milestone: 4
 - Packages: `@ultimabase/core`
 - Depends on: 401

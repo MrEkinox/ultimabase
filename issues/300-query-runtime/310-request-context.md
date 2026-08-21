@@ -1,6 +1,6 @@
 # 310: Define request context and access modes
 
-- Status: done
+- Status: completed
 - Milestone: 3
 - Packages: `@ultimabase/access`, `@ultimabase/runtime`
 - Depends on: 201

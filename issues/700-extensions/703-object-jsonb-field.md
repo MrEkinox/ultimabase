@@ -1,6 +1,6 @@
 # 703: Compile object fields to JSONB
 
-- Status: done
+- Status: completed
 - Milestone: 7+
 - Packages: `@ultimabase/core`, `@ultimabase/postgres-plugin`
 - Depends on: 108, 503

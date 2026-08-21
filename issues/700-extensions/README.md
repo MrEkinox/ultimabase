@@ -1,5 +1,7 @@
 # Milestone 7+ — Relations and planned extensions
 
+- Status: planned
+
 The completed transport-neutral pointer and relation objective created no new
 package: the logical declaration, Query, Access, hook, and Runtime contracts
 belong to `@ultimabase/core`, while physical foreign keys and join storage

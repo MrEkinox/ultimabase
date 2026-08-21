@@ -1,6 +1,6 @@
 # 804: Add the Nexus-style FieldBuilder
 
-- Status: done
+- Status: completed
 - Milestone: 8
 - Packages: `@ultimabase/core`
 - Depends on: 803

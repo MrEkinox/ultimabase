@@ -1,6 +1,6 @@
 # 117: Add optional generated type identities
 
-- Status: done
+- Status: completed
 - Milestone: 1
 - Packages: `@ultimabase/schema`
 - Depends on: 107, 108, 110

@@ -1,6 +1,6 @@
 # 519: Implement the PostgreSQL transaction adapter lifecycle
 
-- Status: done
+- Status: completed
 - Milestone: 5
 - Packages: `@ultimabase/postgres-plugin`
 - Depends on: 317, 504, 507

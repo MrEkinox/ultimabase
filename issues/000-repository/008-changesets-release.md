@@ -1,6 +1,6 @@
 # 008: Configure Changesets and prereleases
 
-- Status: done
+- Status: completed
 - Milestone: 0
 - Packages: repository
 - Depends on: 001, 003, 007

@@ -1,6 +1,6 @@
 # 143: Replace defineSchema with the Schema class
 
-- Status: done
+- Status: completed
 - Milestone: 1
 - Packages: `@ultimabase/schema`
 - Depends on: 110, 126, 130

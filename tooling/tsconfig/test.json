@@ -18,6 +18,7 @@
 		"../../tests/performance/**/*.ts",
 		"../documentation/**/*.test.ts",
 		"../eslint/**/*.test.ts",
+		"../issues/**/*.ts",
 		"../prototypes/generated-schema-authoring/**/*.ts",
 		"../vitest/optional-product-public-api.ts",
 		"../vitest/typescript-language-service.ts"

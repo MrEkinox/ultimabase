@@ -1,6 +1,6 @@
 # 424: Add versioned ACL JSON serialization
 
-- Status: done
+- Status: completed
 - Milestone: 4
 - Packages: `@ultimabase/acl-permissions-plugin`
 - Depends on: 409

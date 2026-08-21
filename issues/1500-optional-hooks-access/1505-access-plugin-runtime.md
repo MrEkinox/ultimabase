@@ -1,6 +1,7 @@
 # 1505: Move Access execution into access-plugin
 
-- Status: merged into 1504
+- Status: merged
+- Merged into: 1504
 - Milestone: 15
 - Packages: `@ultimabase/access-plugin`, `@ultimabase/core`, `@ultimabase/postgres-plugin`, `@ultimabase/testing`
 - Depends on: 1504

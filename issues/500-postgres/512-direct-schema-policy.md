@@ -1,6 +1,6 @@
 # 512: Implement override, fail, and ignore schema policies
 
-- Status: done
+- Status: completed
 - Milestone: 5
 - Packages: `@ultimabase/postgres-plugin`
 - Depends on: 208, 511

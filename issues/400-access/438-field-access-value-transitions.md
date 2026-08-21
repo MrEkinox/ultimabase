@@ -1,6 +1,6 @@
 # 438: Authorize field writes only through value transitions
 
-- Status: done
+- Status: completed
 - Milestone: 4
 - Packages: `@ultimabase/core`, official policy plugins
 - Depends on: 437

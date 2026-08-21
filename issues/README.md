@@ -9,15 +9,51 @@ in a different order without changing package dependency direction.
 
 ## Status
 
+- `planned`: valid work retained in the backlog but not ready to start.
 - `ready`: dependencies are satisfied and work may start.
-- `planned`: valid work, but dependencies are not yet complete.
 - `in-progress`: an agent is actively working on it.
-- `done`: acceptance criteria and tests are complete.
+- `completed`: acceptance criteria and tests were implemented and verified.
+- `merged`: the work and acceptance criteria were deliberately delivered by
+  another issue. A merged issue is historical and is not an independent
+  implementation.
 - `superseded`: a later accepted decision replaced the issue before its
   original acceptance criteria were implemented.
+- `deferred`: valid work was explicitly moved out of the active milestone
+  without being superseded.
 - `blocked`: an external decision or condition prevents progress.
 
-Agents should update status only when they are actually doing the work. Do not mark dependency issues done implicitly.
+Agents should update status only when they are actually doing the work. Do not
+mark dependency issues completed implicitly.
+
+`done`, `complete`, and status strings such as `merged into 1501` are not valid
+aliases. Historical completion uses `completed`. A merged issue uses two
+separate fields so tooling can distinguish state from target:
+
+```md
+- Status: merged
+- Merged into: 1501
+```
+
+The target must be an existing issue and must also appear in `Depends on`.
+Merged and superseded issue bodies remain intact as historical records.
+
+## Metadata contract
+
+Issue IDs come from the numeric filename prefix and are unique repository-wide.
+Every issue declares `Status`, `Milestone`, and `Depends on` near the top of the
+file. Dependencies use `none` or a comma-and-space separated list of existing
+numeric issue IDs. Self-dependencies and malformed lists are invalid.
+
+An issue's numeric milestone must reference an existing milestone `README.md`.
+It may differ from the containing architectural-area directory when an explicit
+cross-milestone objective scheduled that work. Milestone 7 uses the historical
+`7+` label. The sole `future` exception is reserved for an explicitly `deferred`
+issue; it does not create a synthetic milestone.
+
+Milestone READMEs use `planned`, `in-progress`, `completed`, or `blocked`.
+`completed` milestones may contain only terminal `completed`, `merged`, or
+`superseded` issues. This keeps milestone and child completion vocabulary
+consistent without rewriting historical issue prose.
 
 ## Milestones
 

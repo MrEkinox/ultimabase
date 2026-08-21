@@ -1,6 +1,6 @@
 # 350: Make request identity plugin-owned
 
-- Status: done
+- Status: completed
 - Milestone: 3
 - Packages: `@ultimabase/core`
 - Depends on: 319, 335, 340

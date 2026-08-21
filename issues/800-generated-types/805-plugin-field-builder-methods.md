@@ -1,6 +1,6 @@
 # 805: Register plugin-owned FieldBuilder methods
 
-- Status: done
+- Status: completed
 - Milestone: 8
 - Packages: `@ultimabase/core`, `@ultimabase/pg-vector-plugin`
 - Depends on: 804

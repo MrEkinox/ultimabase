@@ -1,6 +1,6 @@
 # 319: Implement trusted master authority
 
-- Status: done
+- Status: completed
 - Milestone: 3
 - Packages: `@ultimabase/access`, `@ultimabase/runtime`
 - Depends on: 310, 313, 318

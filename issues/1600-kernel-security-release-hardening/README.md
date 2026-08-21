@@ -1,6 +1,6 @@
 # Milestone 16 — Kernel security and release hardening
 
-- Status: planned
+- Status: in-progress
 
 Close the release-readiness gaps discovered after milestones 14 and 15. This
 milestone does not reopen the accepted open-kernel or optional-product package
@@ -33,8 +33,8 @@ new concrete product capability to Core.
 8. [x] [1608 — Make public-transport protection diagnostics precise](1608-public-transport-protection-diagnostics.md)
 9. [x] [1609 — Measure the no-Hooks and no-Access Runtime cost](1609-no-product-runtime-cost.md)
 10. [x] [1610 — Split oversized kernel and optional-product modules](1610-kernel-module-maintainability.md)
-11. [ ] [1611 — Reconcile active plugin documentation and executable examples](1611-plugin-documentation-reconciliation.md)
-12. [ ] [1612 — Normalize backlog status and milestone metadata](1612-backlog-metadata-normalization.md)
+11. [x] [1611 — Reconcile active plugin documentation and executable examples](1611-plugin-documentation-reconciliation.md)
+12. [x] [1612 — Normalize backlog status and milestone metadata](1612-backlog-metadata-normalization.md)
 13. [ ] [1613 — Run the milestone 16 release-readiness gate](1613-release-readiness-verification.md)
 
 Issues without a real dependency may progress independently, but the final gate

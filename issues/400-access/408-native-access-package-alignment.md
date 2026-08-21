@@ -1,6 +1,6 @@
 # 408: Align packages and documentation with native Access
 
-- Status: done
+- Status: completed
 - Milestone: 4
 - Packages: repository documentation and workspace metadata
 - Depends on: 419, 421

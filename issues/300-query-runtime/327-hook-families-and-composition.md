@@ -1,6 +1,6 @@
 # 327: Compose hook families and handler lists
 
-- Status: done
+- Status: completed
 - Milestone: 3
 - Packages: `@ultimabase/core`
 - Depends on: 325, 326

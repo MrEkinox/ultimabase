@@ -1,6 +1,6 @@
 # 345: Add concise singular terminal aliases
 
-- Status: done
+- Status: completed
 - Milestone: 3
 - Packages: `@ultimabase/core`
 - Depends on: 315, 343, 347

@@ -1,6 +1,6 @@
 # 426: Integrate ACL subject-reference cleanup
 
-- Status: done
+- Status: completed
 - Milestone: 4
 - Packages: `@ultimabase/acl-permissions-plugin`, `@ultimabase/acl-postgres-plugin`, `@ultimabase/core`
 - Depends on: 405, 409, 509, 510

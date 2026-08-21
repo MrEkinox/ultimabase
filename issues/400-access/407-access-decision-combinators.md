@@ -1,6 +1,6 @@
 # 407: Add composable Access decision helpers
 
-- Status: done
+- Status: completed
 - Milestone: 4
 - Packages: `@ultimabase/core`
 - Depends on: 401, 421, 422

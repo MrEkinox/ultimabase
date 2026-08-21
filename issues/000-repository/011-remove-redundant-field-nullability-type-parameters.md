@@ -1,6 +1,6 @@
 # 011: Remove redundant field nullability type parameters
 
-- Status: done
+- Status: completed
 - Milestone: 0
 - Packages: `@ultimabase/core`, tooling
 - Depends on: 009

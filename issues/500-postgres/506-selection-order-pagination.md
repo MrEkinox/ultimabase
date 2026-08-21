@@ -1,6 +1,6 @@
 # 506: Compile selection, ordering, offset, and cursors
 
-- Status: done
+- Status: completed
 - Milestone: 5
 - Packages: `@ultimabase/postgres-plugin`, `@ultimabase/query`
 - Depends on: 304, 305, 502, 503

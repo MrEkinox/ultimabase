@@ -1,6 +1,6 @@
 # 108: Implement JSON, list, and object fields
 
-- Status: done
+- Status: completed
 - Milestone: 1
 - Packages: `@ultimabase/schema`
 - Depends on: 102, 104, 105, 106, 107

@@ -1,6 +1,6 @@
 # 747: Verify and audit the complete relations vertical
 
-- Status: done
+- Status: completed
 - Milestone: 7+
 - Packages: `@ultimabase/core`, `@ultimabase/postgres-plugin`
 - Depends on: 743, 744, 745, 746

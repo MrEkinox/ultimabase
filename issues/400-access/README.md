@@ -1,5 +1,7 @@
 # Milestone 4 — Fundamental Access and persisted policy providers
 
+- Status: planned
+
 Access is UltimaBase's only authorization lifecycle. Schemas and fields declare
 their policies without installing a plugin. Parse-style CLP maps directly to
 native schema Access, and field permissions map directly to native field

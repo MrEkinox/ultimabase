@@ -1,6 +1,6 @@
 # 320: Execute normalization and validation
 
-- Status: done
+- Status: completed
 - Milestone: 3
 - Packages: `@ultimabase/runtime`, `@ultimabase/schema`
 - Depends on: 115, 307, 312

@@ -1,6 +1,6 @@
 # 012: Reconcile recent public API documentation
 
-- Status: done
+- Status: completed
 - Milestone: 0
 - Packages: repository documentation, `@ultimabase/core`, `@ultimabase/postgres-plugin`
 - Depends on: 011, 352, 353

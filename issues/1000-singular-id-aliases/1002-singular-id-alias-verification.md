@@ -1,6 +1,6 @@
 # 1002: Verify generated and packed identifier alias DX
 
-- Status: done
+- Status: completed
 - Milestone: 10
 - Packages: `@ultimabase/core`, `@ultimabase/codegen`
 - Depends on: 1001

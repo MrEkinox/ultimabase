@@ -1,5 +1,7 @@
 # Milestone 10 — Singular identifier target aliases
 
+- Status: completed
+
 Make the common schema-root identifier mutation path concise without adding a
 second execution model. `updateOne` and `deleteOne` accept `id` as an alias for
 their existing canonical identifier predicate, while every downstream layer

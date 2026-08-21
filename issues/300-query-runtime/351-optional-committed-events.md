@@ -1,6 +1,6 @@
 # 351: Support optional committed events without synthetic consumers
 
-- Status: done
+- Status: completed
 - Milestone: 3
 - Packages: `@ultimabase/core`, `@ultimabase/acl-permissions-plugin`, `@ultimabase/roles-plugin`
 - Depends on: 318, 332, 412

@@ -1,5 +1,7 @@
 # Milestone 5 — PostgreSQL
 
+- Status: planned
+
 Implement the first concrete database vertical and database-specific migrations.
 
 ## Completed access-free vertical

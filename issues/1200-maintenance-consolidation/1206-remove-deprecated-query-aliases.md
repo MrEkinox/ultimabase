@@ -1,6 +1,6 @@
 # 1206: Remove deprecated Query compatibility aliases
 
-- Status: done
+- Status: completed
 - Milestone: 12
 - Packages: `@ultimabase/core`, `@ultimabase/typegen`
 - Depends on: 1205

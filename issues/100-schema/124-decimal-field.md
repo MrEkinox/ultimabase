@@ -1,6 +1,6 @@
 # 124: Add exact decimal fields
 
-- Status: done
+- Status: completed
 - Milestone: 1
 - Packages: `@ultimabase/schema`
 - Depends on: 109, 115, 120

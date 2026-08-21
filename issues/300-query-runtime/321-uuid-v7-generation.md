@@ -1,6 +1,6 @@
 # 321: Generate UUID v7 identifiers
 
-- Status: done
+- Status: completed
 - Milestone: 3
 - Packages: `@ultimabase/runtime`
 - Depends on: 111, 320

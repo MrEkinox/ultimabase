@@ -1,6 +1,6 @@
 # 209: Implement FrameworkApplication
 
-- Status: done
+- Status: completed
 - Milestone: 2
 - Packages: `@ultimabase/core`
 - Depends on: 113, 203, 206, 207, 208

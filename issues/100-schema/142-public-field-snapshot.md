@@ -1,6 +1,6 @@
 # 142: Expose the field snapshot boundary
 
-- Status: done
+- Status: completed
 - Milestone: 1
 - Packages: `@ultimabase/schema`
 - Depends on: 131, 140

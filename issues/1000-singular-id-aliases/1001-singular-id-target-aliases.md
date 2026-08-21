@@ -1,6 +1,6 @@
 # 1001: Add singular identifier target aliases
 
-- Status: done
+- Status: completed
 - Milestone: 10
 - Packages: `@ultimabase/core`
 - Depends on: none

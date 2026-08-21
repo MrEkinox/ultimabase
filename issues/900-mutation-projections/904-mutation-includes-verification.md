@@ -1,6 +1,6 @@
 # 904: Verify generated and PostgreSQL mutation include DX
 
-- Status: done
+- Status: completed
 - Milestone: 9
 - Packages: `@ultimabase/core`, `@ultimabase/codegen`, `@ultimabase/postgres-plugin`
 - Depends on: 903

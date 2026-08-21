@@ -1,6 +1,6 @@
 # 343: Add the Query byId alias
 
-- Status: done
+- Status: completed
 - Milestone: 3
 - Packages: `@ultimabase/query`
 - Depends on: 306, 309

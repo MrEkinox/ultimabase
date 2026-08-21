@@ -1,6 +1,6 @@
 # 352: Add first-class Query range filters
 
-- Status: done
+- Status: completed
 - Milestone: 3
 - Packages: `@ultimabase/core`, `@ultimabase/postgres-plugin`
 - Depends on: 302, 306, 416, 505

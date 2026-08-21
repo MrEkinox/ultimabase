@@ -1,6 +1,6 @@
 # 1208: Separate schema-model contracts from runtime materialization
 
-- Status: done
+- Status: completed
 - Milestone: 12
 - Packages: `@ultimabase/core`
 - Depends on: 1207

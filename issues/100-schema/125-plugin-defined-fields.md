@@ -1,6 +1,6 @@
 # 125: Preserve plugin-defined fields in validation plans
 
-- Status: done
+- Status: completed
 - Milestone: 1
 - Packages: schema
 - Depends on: 115

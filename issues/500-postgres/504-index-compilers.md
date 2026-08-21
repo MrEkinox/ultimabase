@@ -1,6 +1,6 @@
 # 504: Compile indexes
 
-- Status: done
+- Status: completed
 - Milestone: 5
 - Packages: `@ultimabase/postgres-plugin`
 - Depends on: 114, 503

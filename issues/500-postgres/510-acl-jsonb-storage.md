@@ -1,6 +1,6 @@
 # 510: Store ACL in indexed JSONB columns
 
-- Status: done
+- Status: completed
 - Milestone: 5
 - Packages: `@ultimabase/core`, `@ultimabase/postgres-plugin`, `@ultimabase/acl-permissions-plugin`, `@ultimabase/roles-plugin`
 - Depends on: 410, 424, 503

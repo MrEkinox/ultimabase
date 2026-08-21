@@ -1,6 +1,6 @@
 # 406: Integrate stored roles with native Access
 
-- Status: done
+- Status: completed
 - Milestone: 4
 - Packages: `@ultimabase/roles-plugin`
 - Depends on: 204, 207, 404, 405, 407, 417, 420

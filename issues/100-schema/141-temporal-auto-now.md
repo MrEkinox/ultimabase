@@ -1,6 +1,6 @@
 # 141: Generate temporal values with autoNow
 
-- Status: done
+- Status: completed
 - Milestone: 1
 - Packages: `@ultimabase/schema`
 - Depends on: 139, 140

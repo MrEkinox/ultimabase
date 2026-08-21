@@ -1,6 +1,6 @@
 # 1209: Decompose Runtime pipeline orchestration
 
-- Status: done
+- Status: completed
 - Milestone: 12
 - Packages: `@ultimabase/core`
 - Depends on: 1208

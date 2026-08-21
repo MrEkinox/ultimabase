@@ -1,6 +1,6 @@
 # 139: Limit field defaults to values and factories
 
-- Status: done
+- Status: completed
 - Milestone: 1
 - Packages: schema
 - Depends on: 109, 137

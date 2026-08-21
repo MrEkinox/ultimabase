@@ -1,6 +1,6 @@
 # 740: Verify the pointer vertical against PostgreSQL
 
-- Status: done
+- Status: completed
 - Milestone: 7+
 - Packages: `@ultimabase/core`, `@ultimabase/postgres-plugin`
 - Depends on: 739

@@ -1,6 +1,6 @@
 # 1303: Decompose policy-neutral Enforcement dispatch
 
-- Status: done
+- Status: completed
 - Milestone: 13
 - Packages: `@ultimabase/core`
 - Depends on: 1302

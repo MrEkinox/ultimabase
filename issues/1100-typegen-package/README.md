@@ -1,5 +1,7 @@
 # Milestone 11 — Explicit Typegen package identity
 
+- Status: completed
+
 Rename the TypeScript-only generation tooling to `@ultimabase/typegen` without
 changing its generated contracts, startup timing, or output path. The migration
 is intentionally direct because the framework has not been released publicly.

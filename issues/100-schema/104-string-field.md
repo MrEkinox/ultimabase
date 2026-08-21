@@ -1,6 +1,6 @@
 # 104: Implement stringField
 
-- Status: done
+- Status: completed
 - Milestone: 1
 - Packages: `@ultimabase/schema`
 - Depends on: 102

@@ -1,6 +1,6 @@
 # 340: Add the HookContext capability class
 
-- Status: done
+- Status: completed
 - Milestone: 3
 - Packages: `@ultimabase/core`
 - Depends on: 329, 330, 332, 333

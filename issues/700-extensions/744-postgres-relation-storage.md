@@ -1,6 +1,6 @@
 # 744: Compile and execute PostgreSQL relations
 
-- Status: done
+- Status: completed
 - Milestone: 7+
 - Packages: `@ultimabase/postgres-plugin`
 - Depends on: 739, 743

@@ -1,6 +1,6 @@
 # 116: Replace arrayField with field list metadata
 
-- Status: done
+- Status: completed
 - Milestone: 1
 - Packages: `@ultimabase/schema`
 - Depends on: 102, 108, 112, 115

@@ -1,6 +1,6 @@
 # 742: Add immutable Relation handles and scoped queries
 
-- Status: done
+- Status: completed
 - Milestone: 7+
 - Packages: `@ultimabase/core`
 - Depends on: 737, 741

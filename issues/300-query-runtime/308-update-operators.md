@@ -1,6 +1,6 @@
 # 308: Add atomic update operators
 
-- Status: done
+- Status: completed
 - Milestone: 3
 - Packages: `@ultimabase/query`
 - Depends on: 307

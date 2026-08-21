@@ -1,6 +1,6 @@
 # 418: Execute the native Access lifecycle
 
-- Status: done
+- Status: completed
 - Milestone: 4
 - Packages: `@ultimabase/core`
 - Depends on: 329, 330, 331, 334, 337, 344, 417

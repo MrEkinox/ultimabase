@@ -1,6 +1,6 @@
 # 316: Implement bulk operations and upserts
 
-- Status: done
+- Status: completed
 - Milestone: 3
 - Packages: `@ultimabase/runtime`, `@ultimabase/query`
 - Depends on: 308, 315, 317

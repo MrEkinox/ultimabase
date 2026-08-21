@@ -1,6 +1,6 @@
 # Milestone 13 — Query execution and enforcement consolidation
 
-- Status: complete
+- Status: completed
 
 Remove one verified dead internal Query execution surface, separate immutable
 Query authoring from framework-owned execution state, and focus the remaining

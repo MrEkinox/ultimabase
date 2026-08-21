@@ -1,6 +1,6 @@
 # 745: Add portable relation predicates
 
-- Status: done
+- Status: completed
 - Milestone: 7+
 - Packages: `@ultimabase/core`, `@ultimabase/postgres-plugin`
 - Depends on: 742, 744

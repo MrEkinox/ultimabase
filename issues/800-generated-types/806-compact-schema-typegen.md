@@ -1,6 +1,6 @@
 # 806: Generate compact application schema types
 
-- Status: done
+- Status: completed
 - Milestone: 8
 - Packages: `@ultimabase/codegen`, `@ultimabase/core`
 - Depends on: 805

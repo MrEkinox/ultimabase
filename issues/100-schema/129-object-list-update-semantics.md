@@ -1,6 +1,6 @@
 # 129: Define object-list update semantics
 
-- Status: done
+- Status: completed
 - Milestone: 1
 - Packages: schema
 - Depends on: 116

@@ -1,6 +1,6 @@
 # 212: Introduce the UltimaBase public facade
 
-- Status: done
+- Status: completed
 - Milestone: 2
 - Packages: `@ultimabase/core`, `@ultimabase/runtime`
 - Depends on: 209, 323

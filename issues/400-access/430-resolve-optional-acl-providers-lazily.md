@@ -1,6 +1,6 @@
 # 430: Resolve optional ACL subject providers lazily
 
-- Status: done
+- Status: completed
 - Milestone: 4
 - Packages: `@ultimabase/acl-permissions-plugin`, `@ultimabase/core`, `@ultimabase/roles-plugin`
 - Depends on: 415, 425, 427

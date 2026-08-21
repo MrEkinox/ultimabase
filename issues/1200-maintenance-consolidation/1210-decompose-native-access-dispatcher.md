@@ -1,6 +1,6 @@
 # 1210: Decompose native Access dispatch responsibilities
 
-- Status: done
+- Status: completed
 - Milestone: 12
 - Packages: `@ultimabase/core`
 - Depends on: 1209

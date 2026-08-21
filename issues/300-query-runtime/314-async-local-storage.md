@@ -1,6 +1,6 @@
 # 314: Add AsyncLocalStorage context
 
-- Status: done
+- Status: completed
 - Milestone: 3
 - Packages: `@ultimabase/runtime`
 - Depends on: 313

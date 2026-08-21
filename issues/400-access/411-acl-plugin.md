@@ -1,6 +1,6 @@
 # 411: Implement aclPlugin
 
-- Status: done
+- Status: completed
 - Milestone: 4
 - Packages: `@ultimabase/acl-permissions-plugin`
 - Depends on: 210, 410, 417, 418, 424, 425

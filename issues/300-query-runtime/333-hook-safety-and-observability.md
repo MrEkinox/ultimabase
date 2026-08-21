@@ -1,6 +1,6 @@
 # 333: Protect hook execution and expose diagnostics
 
-- Status: done
+- Status: completed
 - Milestone: 3
 - Packages: `@ultimabase/core`
 - Depends on: 330, 332

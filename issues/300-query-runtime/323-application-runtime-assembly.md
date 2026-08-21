@@ -1,6 +1,6 @@
 # 323: Assemble the application Runtime engine
 
-- Status: done
+- Status: completed
 - Milestone: 3
 - Packages: `@ultimabase/runtime`, `@ultimabase/core`
 - Depends on: 211, 311, 312, 318, 319, 320

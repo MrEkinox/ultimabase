@@ -1,6 +1,6 @@
 # 348: Add terminal-only Query authority options
 
-- Status: done
+- Status: completed
 - Milestone: 3
 - Packages: `@ultimabase/core`
 - Depends on: 319, 347, 350

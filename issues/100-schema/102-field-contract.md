@@ -1,6 +1,6 @@
 # 102: Define the generic field contract
 
-- Status: done
+- Status: completed
 - Milestone: 1
 - Packages: `@ultimabase/schema`
 - Depends on: 101

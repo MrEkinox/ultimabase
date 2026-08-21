@@ -1,6 +1,6 @@
 # 326: Declare inline field hooks
 
-- Status: done
+- Status: completed
 - Milestone: 3
 - Packages: `@ultimabase/core`
 - Depends on: 324, 325

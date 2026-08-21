@@ -1,6 +1,6 @@
 # 402: Define extensible role schemas
 
-- Status: done
+- Status: completed
 - Milestone: 4
 - Packages: `@ultimabase/roles-plugin`
 - Depends on: 103, 112, 204, 339, 349, 420, 747

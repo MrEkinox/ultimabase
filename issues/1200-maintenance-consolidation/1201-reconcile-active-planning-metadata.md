@@ -1,6 +1,6 @@
 # 1201: Reconcile active planning metadata
 
-- Status: done
+- Status: completed
 - Milestone: 12
 - Packages: repository documentation
 - Depends on: none

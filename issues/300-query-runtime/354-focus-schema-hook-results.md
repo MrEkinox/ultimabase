@@ -1,6 +1,6 @@
 # 354: Focus schema hook results on persisted items
 
-- Status: done
+- Status: completed
 - Milestone: 3
 - Packages: `@ultimabase/core`, `@ultimabase/roles-plugin`
 - Depends on: 351

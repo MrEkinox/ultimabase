@@ -1,6 +1,6 @@
 # 002: Make workspace typechecking executable
 
-- Status: done
+- Status: completed
 - Milestone: 0
 - Packages: all
 - Depends on: 001

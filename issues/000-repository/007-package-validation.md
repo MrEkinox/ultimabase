@@ -1,6 +1,6 @@
 # 007: Validate public package archives
 
-- Status: done
+- Status: completed
 - Milestone: 0
 - Packages: all publishable packages
 - Depends on: 003

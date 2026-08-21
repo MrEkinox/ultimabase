@@ -1,6 +1,6 @@
 # 006: Add GitHub Actions CI
 
-- Status: done
+- Status: completed
 - Milestone: 0
 - Packages: repository
 - Depends on: 001, 002, 003, 004, 005

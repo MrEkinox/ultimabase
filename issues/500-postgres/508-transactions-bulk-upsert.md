@@ -1,6 +1,6 @@
 # 508: Implement PostgreSQL bulk and upsert execution
 
-- Status: done
+- Status: completed
 - Milestone: 5
 - Packages: `@ultimabase/postgres-plugin`
 - Depends on: 316, 317, 334, 344, 504, 507, 519

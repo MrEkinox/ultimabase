@@ -1,6 +1,6 @@
 # 425: Define the neutral current-principal resolver
 
-- Status: done
+- Status: completed
 - Milestone: 4
 - Packages: `@ultimabase/core`
 - Depends on: 420, 747

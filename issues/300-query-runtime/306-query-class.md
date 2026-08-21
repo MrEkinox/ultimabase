@@ -1,6 +1,6 @@
 # 306: Implement immutable Query class
 
-- Status: done
+- Status: completed
 - Milestone: 3
 - Packages: `@ultimabase/query`
 - Depends on: 302, 303, 304, 305

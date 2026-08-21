@@ -1,6 +1,6 @@
 # 812: Remove redundant generated Access and hook aliases
 
-- Status: done
+- Status: completed
 - Milestone: 8
 - Packages: `@ultimabase/typegen`
 - Depends on: 807

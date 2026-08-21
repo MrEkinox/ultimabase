@@ -16,6 +16,7 @@
 	],
 	"scripts": {
 		"build": "yarn workspaces foreach --all --topological --no-private run build",
+		"check:issues": "vitest run --project unit tooling/issues/backlog-metadata.test.ts",
 		"changeset": "changeset",
 		"format": "prettier . --write",
 		"format:check": "prettier . --check",

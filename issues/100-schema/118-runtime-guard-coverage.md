@@ -1,6 +1,6 @@
 # 118: Complete Schema runtime guard coverage
 
-- Status: done
+- Status: completed
 - Milestone: 1
 - Packages: `@ultimabase/schema`
 - Depends on: 114, 116, 117

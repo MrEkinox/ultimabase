@@ -1,6 +1,6 @@
 # 203: Implement isolated ServiceRegistry
 
-- Status: done
+- Status: completed
 - Milestone: 2
 - Packages: `@ultimabase/core`
 - Depends on: 202

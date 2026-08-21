@@ -1,5 +1,7 @@
 # Milestone 1 — Static schemas
 
+- Status: completed
+
 Implement schema contracts and inference before Core or Runtime behavior.
 
 Issue 144 completed the callback-inference phase of the now

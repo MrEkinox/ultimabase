@@ -1,6 +1,6 @@
 # 410: Implement the ACL schema extension
 
-- Status: done
+- Status: completed
 - Milestone: 4
 - Packages: `@ultimabase/acl-permissions-plugin`
 - Depends on: 103, 409, 424, 425

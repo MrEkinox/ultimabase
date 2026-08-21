@@ -1,6 +1,6 @@
 # 427: Verify the complete ACL PostgreSQL vertical
 
-- Status: done
+- Status: completed
 - Milestone: 4
 - Packages: `@ultimabase/acl-permissions-plugin`, `@ultimabase/core`, `@ultimabase/postgres-plugin`, `@ultimabase/testing`
 - Depends on: 412, 415, 426, 428, 509, 510, 518

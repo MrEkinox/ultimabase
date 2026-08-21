@@ -1,6 +1,6 @@
 # 332: Add transaction finalization hooks
 
-- Status: done
+- Status: completed
 - Milestone: 3
 - Packages: `@ultimabase/core`
 - Depends on: 329, 330

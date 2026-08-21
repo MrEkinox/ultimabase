@@ -1,6 +1,6 @@
 # 330: Execute the native hook lifecycle
 
-- Status: done
+- Status: completed
 - Milestone: 3
 - Packages: `@ultimabase/core`
 - Depends on: 320, 327, 328, 329, 344

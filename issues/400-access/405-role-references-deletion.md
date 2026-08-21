@@ -1,6 +1,6 @@
 # 405: Resolve role references and deletion policies
 
-- Status: done
+- Status: completed
 - Milestone: 4
 - Packages: `@ultimabase/roles-plugin`
 - Depends on: 402, 404

@@ -1,6 +1,6 @@
 # 409: Implement immutable ACL class
 
-- Status: done
+- Status: completed
 - Milestone: 4
 - Packages: `@ultimabase/acl-permissions-plugin`, `@ultimabase/core`, `@ultimabase/roles-plugin`
 - Depends on: 401, 402, 419, 420

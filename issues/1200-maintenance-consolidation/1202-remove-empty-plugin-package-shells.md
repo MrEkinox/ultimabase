@@ -1,6 +1,6 @@
 # 1202: Remove empty publishable plugin shells
 
-- Status: done
+- Status: completed
 - Milestone: 12
 - Packages: repository workspaces
 - Depends on: 1201

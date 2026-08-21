@@ -1,6 +1,6 @@
 # 204: Implement definePlugin
 
-- Status: done
+- Status: completed
 - Milestone: 2
 - Packages: `@ultimabase/core`
 - Depends on: 201, 202

@@ -1,6 +1,6 @@
 # 518: Verify the first Runtime-to-PostgreSQL E2E
 
-- Status: done
+- Status: completed
 - Milestone: 5
 - Packages: `@ultimabase/testing`, `@ultimabase/postgres-plugin`, `@ultimabase/runtime`
 - Depends on: 323, 504, 505, 506, 507, 512, 516

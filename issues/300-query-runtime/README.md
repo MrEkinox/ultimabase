@@ -1,5 +1,7 @@
 # Milestone 3 — Query and Runtime
 
+- Status: planned
+
 Implement transport-neutral operations and the single execution engine.
 
 Issue 323 closed the application assembly seam discovered before the first real

@@ -1,6 +1,6 @@
 # 312: Implement deterministic Runtime pipeline
 
-- Status: done
+- Status: completed
 - Milestone: 3
 - Packages: `@ultimabase/runtime`
 - Depends on: 207, 307, 310, 311

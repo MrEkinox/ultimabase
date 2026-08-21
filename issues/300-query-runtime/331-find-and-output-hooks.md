@@ -1,6 +1,6 @@
 # 331: Add find and output hooks
 
-- Status: done
+- Status: completed
 - Milestone: 3
 - Packages: `@ultimabase/core`
 - Depends on: 306, 315, 326, 330, 337

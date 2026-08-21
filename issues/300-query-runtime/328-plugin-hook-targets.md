@@ -1,6 +1,6 @@
 # 328: Add typed plugin hook targets
 
-- Status: done
+- Status: completed
 - Milestone: 3
 - Packages: `@ultimabase/core`
 - Depends on: 207, 318, 327

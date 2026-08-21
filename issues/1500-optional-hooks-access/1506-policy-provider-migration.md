@@ -1,6 +1,7 @@
 # 1506: Adapt ACL, roles, and PostgreSQL policy integrations
 
-- Status: merged into 1504
+- Status: merged
+- Merged into: 1504
 - Milestone: 15
 - Packages: `@ultimabase/acl-permissions-plugin`, `@ultimabase/acl-postgres-plugin`, `@ultimabase/roles-plugin`, `@ultimabase/postgres-plugin`, `@ultimabase/plugin-kit`, `@ultimabase/core`
 - Depends on: 1504

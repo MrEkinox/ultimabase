@@ -1,6 +1,6 @@
 # 417: Compile Access plans and plugin contributions
 
-- Status: done
+- Status: completed
 - Milestone: 4
 - Packages: `@ultimabase/core`
 - Depends on: 328, 401, 416, 421

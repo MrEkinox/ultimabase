@@ -1,6 +1,6 @@
 # 317: Implement RequestEngine transactions
 
-- Status: done
+- Status: completed
 - Milestone: 3
 - Packages: `@ultimabase/runtime`
 - Depends on: 311, 313

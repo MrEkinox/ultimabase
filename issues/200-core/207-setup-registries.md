@@ -1,6 +1,6 @@
 # 207: Add plugin setup registries
 
-- Status: done
+- Status: completed
 - Milestone: 2
 - Packages: `@ultimabase/core`
 - Depends on: 203, 206, 113

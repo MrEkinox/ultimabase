@@ -1,6 +1,6 @@
 # 1205: Improve invalid field-option diagnostics
 
-- Status: done
+- Status: completed
 - Milestone: 12
 - Packages: `@ultimabase/core`
 - Depends on: 1204

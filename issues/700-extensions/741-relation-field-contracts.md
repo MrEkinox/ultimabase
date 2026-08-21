@@ -1,6 +1,6 @@
 # 741: Add owning and inverse relation fields
 
-- Status: done
+- Status: completed
 - Milestone: 7+
 - Packages: `@ultimabase/core`
 - Depends on: 701, 702, 740

@@ -1,6 +1,6 @@
 # 511: Introspect PostgreSQL schema state
 
-- Status: done
+- Status: completed
 - Milestone: 5
 - Packages: `@ultimabase/postgres-plugin`
 - Depends on: 501, 503, 504

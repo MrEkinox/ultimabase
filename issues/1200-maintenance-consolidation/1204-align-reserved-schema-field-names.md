@@ -1,6 +1,6 @@
 # 1204: Align static and runtime reserved schema field names
 
-- Status: done
+- Status: completed
 - Milestone: 12
 - Packages: `@ultimabase/core`
 - Depends on: 1203

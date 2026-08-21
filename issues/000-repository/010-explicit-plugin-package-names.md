@@ -1,6 +1,6 @@
 # 010: Make plugin package names explicit
 
-- Status: done
+- Status: completed
 - Milestone: 0
 - Packages: all official plugins
 - Depends on: 009

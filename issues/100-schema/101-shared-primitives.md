@@ -1,6 +1,6 @@
 # 101: Add foundational shared primitives
 
-- Status: done
+- Status: completed
 - Milestone: 1
 - Packages: `@ultimabase/shared`
 - Depends on: 002, 004

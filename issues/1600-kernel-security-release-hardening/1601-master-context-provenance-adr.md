@@ -1,6 +1,6 @@
 # 1601: Decide Master context provenance and plugin trust
 
-- Status: done
+- Status: completed
 - Milestone: 16
 - Packages: `@ultimabase/core`, repository documentation
 - Depends on: 1509

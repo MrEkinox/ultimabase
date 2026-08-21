@@ -1,6 +1,6 @@
 # 802: Decide generated schema authoring architecture
 
-- Status: done
+- Status: completed
 - Milestone: 8
 - Packages: documentation
 - Depends on: 801

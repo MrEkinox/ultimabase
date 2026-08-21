@@ -1,6 +1,6 @@
 # 809: Migrate schema declarations to FieldBuilder
 
-- Status: done
+- Status: completed
 - Milestone: 8
 - Packages: public schema examples, documentation, schema specializations
 - Depends on: 807

@@ -1,6 +1,6 @@
 # 428: Enforce configurable ACL entry limits
 
-- Status: done
+- Status: completed
 - Milestone: 4
 - Packages: `@ultimabase/acl-permissions-plugin`
 - Depends on: 409, 410, 411

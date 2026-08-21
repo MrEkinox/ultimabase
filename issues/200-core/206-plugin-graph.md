@@ -1,6 +1,6 @@
 # 206: Resolve plugin dependencies and conflicts
 
-- Status: done
+- Status: completed
 - Milestone: 2
 - Packages: `@ultimabase/core`
 - Depends on: 205

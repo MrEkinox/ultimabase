@@ -1,6 +1,6 @@
 # 803: Compile deferred schema field declarations
 
-- Status: done
+- Status: completed
 - Milestone: 8
 - Packages: `@ultimabase/core`
 - Depends on: 802

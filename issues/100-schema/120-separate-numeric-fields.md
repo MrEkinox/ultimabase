@@ -1,6 +1,6 @@
 # 120: Separate integer and float fields
 
-- Status: done
+- Status: completed
 - Milestone: 1
 - Packages: `@ultimabase/schema`
 - Depends on: 105, 115

@@ -1,5 +1,7 @@
 # Milestone 2 — Core and plugins
 
+- Status: completed
+
 Build application composition without CRUD or infrastructure imports.
 
 Issue 211 added the read-only application service boundary required by the

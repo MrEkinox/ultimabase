@@ -1,6 +1,6 @@
 # 329: Make every mutation automatically transactional
 
-- Status: done
+- Status: completed
 - Milestone: 3
 - Packages: `@ultimabase/core`
 - Depends on: 317, 323, 519

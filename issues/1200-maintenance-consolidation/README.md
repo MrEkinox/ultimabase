@@ -1,6 +1,6 @@
 # Milestone 12 — Pre-feature codebase consolidation
 
-- Status: complete
+- Status: completed
 
 Resolve verified repository, Schema, Query, Runtime, and native Access
 maintenance debt before another product feature begins. This milestone changes

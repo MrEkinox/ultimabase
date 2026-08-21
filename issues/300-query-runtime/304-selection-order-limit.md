@@ -1,6 +1,6 @@
 # 304: Add selection, ordering, limit, and skip
 
-- Status: done
+- Status: completed
 - Milestone: 3
 - Packages: `@ultimabase/query`
 - Depends on: 301

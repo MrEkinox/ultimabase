@@ -1,5 +1,7 @@
 # Milestone 8 — Generated schema authoring and developer tooling
 
+- Status: planned
+
 Replace recursively inferred application schema contracts with deterministic
 generated types and a Nexus-style field declaration builder. This milestone is
 foundational developer tooling rather than an optional transport or database

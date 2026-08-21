@@ -1,6 +1,6 @@
 # 334: Define bulk hook and non-atomic grouping semantics
 
-- Status: done
+- Status: completed
 - Milestone: 3
 - Packages: `@ultimabase/core`
 - Depends on: 316, 329, 330, 332, 340

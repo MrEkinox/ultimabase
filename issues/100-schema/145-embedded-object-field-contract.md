@@ -1,6 +1,6 @@
 # 145: Define the embedded object field contract
 
-- Status: done
+- Status: completed
 - Milestone: 1
 - Packages: `@ultimabase/core`, `@ultimabase/postgres-plugin`
 - Depends on: 108, 126, 326, 416

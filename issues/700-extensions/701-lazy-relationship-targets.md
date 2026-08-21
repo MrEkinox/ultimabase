@@ -1,6 +1,6 @@
 # 701: Resolve lazy relationship schema targets
 
-- Status: done
+- Status: completed
 - Milestone: 7+
 - Packages: `@ultimabase/core`
 - Depends on: 113, 209, 339

@@ -1,6 +1,6 @@
 # 1102: Migrate Typegen terminology and repository documentation
 
-- Status: done
+- Status: completed
 - Milestone: 11
 - Packages: repository documentation and examples
 - Depends on: 1101

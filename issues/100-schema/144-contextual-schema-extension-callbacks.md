@@ -1,6 +1,6 @@
 # 144: Contextualize schema extension callbacks from sibling fields
 
-- Status: done
+- Status: completed
 - Milestone: 1
 - Packages: `@ultimabase/core`, `@ultimabase/acl-permissions-plugin`
 - Depends on: 126, 143, 431

@@ -1,6 +1,6 @@
 # 130: Complete the Schema maintainability audit
 
-- Status: done
+- Status: completed
 - Milestone: 1
 - Packages: schema
 - Depends on: 126, 127, 128, 129

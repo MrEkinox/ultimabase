@@ -1,6 +1,6 @@
 # 743: Execute transactional relation mutations
 
-- Status: done
+- Status: completed
 - Milestone: 7+
 - Packages: `@ultimabase/core`
 - Depends on: 418, 742

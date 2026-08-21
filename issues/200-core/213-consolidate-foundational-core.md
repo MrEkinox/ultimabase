@@ -1,6 +1,6 @@
 # 213: Consolidate the foundational Core package
 
-- Status: done
+- Status: completed
 - Milestone: 3
 - Packages: `@ultimabase/core`, `@ultimabase/shared`, all official plugins
 - Depends on: 212, 323

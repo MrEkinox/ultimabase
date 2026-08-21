@@ -1,6 +1,6 @@
 # 324: Prove the native hook contract boundary
 
-- Status: done
+- Status: completed
 - Milestone: 3
 - Packages: `@ultimabase/core`
 - Depends on: 213, 318, 320, 323

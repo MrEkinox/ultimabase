@@ -1,6 +1,6 @@
 # 1301: Remove unused Query mutation execution helpers
 
-- Status: done
+- Status: completed
 - Milestone: 13
 - Packages: `@ultimabase/core`
 - Depends on: 1211

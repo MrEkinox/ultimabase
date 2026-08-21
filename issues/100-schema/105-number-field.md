@@ -1,6 +1,6 @@
 # 105: Implement numberField
 
-- Status: done
+- Status: completed
 - Milestone: 1
 - Packages: `@ultimabase/schema`
 - Depends on: 102

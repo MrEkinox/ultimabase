@@ -1,6 +1,6 @@
 # 211: Expose application service lookup
 
-- Status: done
+- Status: completed
 - Milestone: 2
 - Packages: `@ultimabase/core`
 - Depends on: 203, 209

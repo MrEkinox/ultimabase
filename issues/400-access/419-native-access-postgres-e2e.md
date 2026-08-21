@@ -1,6 +1,6 @@
 # 419: Verify native Access against PostgreSQL
 
-- Status: done
+- Status: completed
 - Milestone: 4
 - Packages: `@ultimabase/core`, `@ultimabase/postgres-plugin`
 - Depends on: 338, 418, 508

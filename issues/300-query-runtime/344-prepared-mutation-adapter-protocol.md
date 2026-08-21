@@ -1,6 +1,6 @@
 # 344: Define the prepared mutation adapter protocol
 
-- Status: done
+- Status: completed
 - Milestone: 3
 - Packages: `@ultimabase/core`, `@ultimabase/postgres-plugin`
 - Depends on: 311, 329, 507, 519

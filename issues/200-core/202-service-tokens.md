@@ -1,6 +1,6 @@
 # 202: Implement typed service tokens
 
-- Status: done
+- Status: completed
 - Milestone: 2
 - Packages: `@ultimabase/core`
 - Depends on: 201

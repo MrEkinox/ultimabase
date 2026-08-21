@@ -1,6 +1,6 @@
 # 004: Configure Vitest projects
 
-- Status: done
+- Status: completed
 - Milestone: 0
 - Packages: all
 - Depends on: 001

@@ -1,5 +1,7 @@
 # Milestone 9 — Mutation relationship projections
 
+- Status: completed
+
 Allow create and update commands to return the same exact nested relationship
 projections as reads without replaying root Access or hooks. Singular commands
 perform one transaction-bound result read, while itemized collection commands
