@@ -173,10 +173,11 @@ bag remains.
 
 ## Milestone 20 — Standard Schema field validation
 
-Replace nested `validation.required` with the direct `required` field option,
-move adapter-inspected decimal shape metadata to direct options, and accept one
-synchronous Standard Schema validator for the complete canonical non-null field
-value. The validator may narrow through issues but may not transform values,
+Completed the migration from nested `validation.required` to the direct
+`required` field option, moved adapter-inspected decimal shape metadata to
+direct options, and adopted one synchronous Standard Schema validator for the
+complete canonical non-null field value. The validator may narrow through
+issues but may not transform values,
 perform asynchronous work, define field storage, or replace Core's structural
 type snapshots. Built-in and plugin-defined fields share the same protocol
 without selecting Zod, Valibot, ArkType, or another concrete library. Planned

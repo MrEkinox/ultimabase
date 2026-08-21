@@ -18,6 +18,7 @@ No cross-milestone plan is active.
 
 ## Completed
 
+- [Standard Schema field validation](completed/standard-schema-field-validation.md)
 - [Trusted open plugin kernel and optional official capabilities](completed/trusted-open-plugin-kernel-and-optional-official-capabilities.md)
 - [Query execution and enforcement consolidation](completed/query-execution-and-enforcement-consolidation.md)
 - [Pre-feature codebase consolidation](completed/pre-feature-codebase-consolidation.md)

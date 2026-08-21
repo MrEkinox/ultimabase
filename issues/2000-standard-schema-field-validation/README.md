@@ -1,6 +1,6 @@
 # Milestone 20 — Standard Schema field validation
 
-- Status: in-progress
+- Status: completed
 
 Replace Core's closed field-constraint DSL with one validator-neutral Standard
 Schema V1 boundary. Presence remains framework metadata through a direct
@@ -43,7 +43,7 @@ constraints rather than structural validation.
 5. [x] [2005 — Prove validator interoperability and generated DX](2005-validator-interoperability-typegen-dx.md)
 6. [x] [2008 — Validate fields after input resolution](2008-post-resolution-field-validation.md)
 7. [x] [2007 — Remove planned validation-only field extensions](2007-remove-validation-only-field-extensions.md)
-8. [ ] [2006 — Verify the Standard Schema validation vertical](2006-standard-schema-validation-verification.md)
+8. [x] [2006 — Verify the Standard Schema validation vertical](2006-standard-schema-validation-verification.md)
 
 The order first fixes the durable contract, then separates presence and
 adapter-visible shape from application validation. The Standard Schema Runtime
@@ -76,7 +76,26 @@ Standard Schema remain the one documented model.
 
 ## Completion gate
 
-The final issue records exact repository-wide typecheck, unit, lint, format,
-build, packed-package, JavaScript, Typegen, public E2E, and PostgreSQL evidence.
-It also proves that published packages depend on no concrete validator and that
-active source and documentation contain no superseded validation DSL.
+The final audit found no superseded validation DSL in production source, built
+JavaScript, declarations, active documentation, exports, or package archives.
+Zod and Valibot remain test and development dependencies only. PostgreSQL reads
+decimal shape exclusively from direct field options, while Runtime retains the
+mandatory post-resolution Standard Schema boundary.
+
+Exact completion evidence:
+
+- `yarn constraints`
+- `yarn check:issues` — 1 file and 9 tests passed
+- `yarn typecheck`
+- `yarn test` — 340 files and 1,711 tests passed
+- `yarn lint` — zero errors; reviewed line-budget warnings only
+- `yarn format:check`
+- `yarn build` — all packages passed ATTW and publint
+- `yarn test:pack` — 19 files and 93 tests passed
+- `yarn test:e2e:built` — 50 files and 195 tests passed, including PostgreSQL
+  Testcontainers
+- `yarn workspace @ultimabase/example-todo-backend typecheck`
+
+No milestone-20 work is deferred. ACL hardening issues 432 through 435 remain
+in their separate paused objective and were not expanded into this validation
+milestone.

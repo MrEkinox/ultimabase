@@ -22,7 +22,7 @@ The target developer experience is:
 const Post = Schema.define({
 	className: 'Post',
 	fields: {
-		title: stringField({ validation: { required: true } }),
+		title: stringField({ required: true }),
 		visibility: enumField({ values: ['private', 'public'] as const }),
 	},
 	extensions: [

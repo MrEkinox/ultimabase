@@ -23,7 +23,7 @@ The milestone preserves this developer-facing direction:
 const Post = Schema.define({
 	className: 'Post',
 	fields: {
-		title: stringField({ validation: { required: true } }),
+		title: stringField({ required: true }),
 		visibility: stringField(),
 	},
 	extensions: [
