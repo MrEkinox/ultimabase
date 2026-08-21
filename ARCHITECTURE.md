@@ -128,11 +128,12 @@ const ultimabase = new UltimaBase({
 })
 ```
 
-Each extension records its expected plugin without exposing that plugin's
-configuration contract to Schema. During application initialization, Core
-matches `schema:name` and `field:name` handler identities against the setup
-owner. Missing or wrongly owned handlers fail before any infrastructure phase;
-duplicate handlers follow the regular contribution conflict policy.
+Each used direct option resolves against one exact definition contributed by an
+installed plugin without exposing that plugin's implementation to Schema.
+During application initialization, Core validates and normalizes the value
+under its definition owner. Missing, ambiguous, or wrongly owned definitions
+fail before any infrastructure phase; duplicate definitions become an error
+only when an occurrence needs an exact owner.
 
 Plugins may also contribute new logical field kinds. Structural validation
 plans retain the original immutable field definition by identity; the owning
@@ -266,8 +267,8 @@ schema instance: generated plugin commands are directly callable on the result,
 while ownership, command lookup, and disposal remain local to that application.
 
 Complete logical compilation crosses one versioned callback-free IR. Portable
-facts remain visible, while schema classes and Runtime-bearing field, extension,
-and option artifacts use nominal references owned by one private application
+facts remain visible, while schema classes and Runtime-bearing field and option
+artifacts use nominal references owned by one private application
 session. The canonical compiler and a compatible privileged replacement consume
 the same request; Core never runs a hidden canonical pass before replacement and
 always revalidates the returned graph before publishing it.

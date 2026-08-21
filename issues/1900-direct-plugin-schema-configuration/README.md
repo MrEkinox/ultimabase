@@ -1,6 +1,6 @@
 # Milestone 19 — Direct plugin schema configuration
 
-- Status: in-progress
+- Status: completed
 
 Remove the generic `extensions` containers from schemas and fields now that the
 public plugin kernel has more precise contribution mechanisms. Plugin-owned
@@ -35,9 +35,9 @@ the same issue.
 2. [x] [1902 — Add option-presence schema selection](1902-option-presence-schema-selection.md)
 3. [x] [1903 — Migrate ACL to a direct schema option](1903-direct-acl-schema-option.md)
 4. [x] [1904 — Migrate PostgreSQL metadata to direct options](1904-direct-postgres-options.md)
-5. [ ] [1905 — Replace the RoleSchema extension marker](1905-role-schema-identity.md)
-6. [ ] [1906 — Remove schema and field extensions](1906-remove-schema-field-extensions.md)
-7. [ ] [1907 — Verify the extension-free public vertical](1907-extension-free-verification.md)
+5. [x] [1905 — Replace the RoleSchema extension marker](1905-role-schema-identity.md)
+6. [x] [1906 — Remove schema and field extensions](1906-remove-schema-field-extensions.md)
+7. [x] [1907 — Verify the extension-free public vertical](1907-extension-free-verification.md)
 
 Issues are ordered so the one structural behavior currently unique to schema
 extensions—adding reserved ACL storage—reuses an option-presence selector and
@@ -51,3 +51,40 @@ Typegen, Plugin Kit, official authoring helpers, and documentation delete it.
 - Plugin-defined logical fields remain unchanged.
 - The milestone does not introduce a generic metadata bag under another name.
 - Historical ADRs and completed issues retain their original terminology.
+
+## Completion evidence
+
+The final repository-wide verification passed with these exact commands:
+
+- `yarn constraints`
+- `yarn check:issues`
+- `yarn typecheck`
+- `yarn test` — 352 files and 1,857 tests
+- `yarn lint`
+- `yarn format:check`
+- `yarn build`
+- `yarn test:pack` — 18 files and 87 tests
+- `yarn test:e2e:built` — 49 files and 189 tests, including PostgreSQL
+
+Focused evidence confirms that:
+
+- ACL authorization, cleanup, rollback, Master handling, limits, events, and
+  PostgreSQL storage still pass their security suites through the direct `acl`
+  option and generic protected-policy boundary;
+- PostgreSQL table naming and column rename intent pass source, packed,
+  JavaScript, Typegen-free, migration, archive, and Testcontainers coverage
+  through direct `postgres` options;
+- RoleSchema nominal identity, Access, and Hooks retain only their canonical
+  direct contracts;
+- the `fixture.open-kernel-value` community plugin owns direct schema and field
+  options, selects by option presence, adds a plugin field through an ordinary
+  patch, emits exact Typegen contracts, and passes application-isolation
+  conformance; and
+- production sources, built declarations, JavaScript packages, archives,
+  manifests, exports, and deep-import guards expose no removed schema or field
+  extension contract. Historical ADRs and completed issues remain unchanged.
+
+Query surface extension naming remains deliberately out of scope because it
+describes callable application-handle query methods rather than schema metadata.
+ACL hardening issues 432 through 435 remain paused until explicit direction. No
+compatibility decoder, deprecated alias, or migration shim was retained.

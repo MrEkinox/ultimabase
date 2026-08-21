@@ -9,11 +9,11 @@
 ## Goal
 
 Split the ACL implementation by domain responsibility after its behavior is
-stable, without changing the concise public class, extension, or plugin API.
+stable, without changing the concise public class, direct option, or plugin API.
 
 ## Acceptance criteria
 
-- [ ] ACL value, JSON, schema extension, subject resolution, input resolution, Access contributions, cleanup, and events live in focused modules.
+- [ ] ACL value, JSON, direct schema option, subject resolution, input resolution, Access contributions, cleanup, and events live in focused modules.
 - [ ] `plugin.ts` owns composition and registration rather than low-level mutation algorithms.
 - [ ] Focused tests remain colocated with the source responsibility they verify.
 - [ ] Shared invariants reuse small internal helpers without introducing abstractions for coincidental similarities.

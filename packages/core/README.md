@@ -90,7 +90,7 @@ identify the corresponding `Defaulted*FieldOptions` contract. These diagnostics
 never request a synthetic positional argument. Valid zero-argument calls and
 option completion retain their compact factory signatures.
 
-Exact schema and extension field maps also reject names reserved by system
+Exact developer and plugin-contributed field maps also reject names reserved by system
 fields, Query logical operators, or immutable model capabilities in TypeScript.
 Those same canonical name declarations drive runtime checks for dynamic plugin
 maps that cannot provide a sound literal-key guarantee.
@@ -1480,7 +1480,7 @@ non-ordering peer instead of a dependency:
 
 ```ts
 definePlugin({
-	pluginId: 'community.workflow-extension',
+	pluginId: 'community.workflow-addon',
 	version: '1.0.0',
 	core: '^1.0.0',
 	peers: [{ pluginId: 'community.workflow-engine', version: '^2.0.0' }],
@@ -1589,7 +1589,7 @@ Milestone 14 maps the removed generic paths as follows:
 - database constraint compilers retain their exact adapter-authorized facade;
 - cross-plugin commands become domain capabilities, such as
   `requestSubjectReferenceCleanupCapability`;
-- extension claims disappear because compiled schemas already retain owner
+- legacy ownership claims disappear because compiled schemas already retain owner
   provenance; and
 - unused operator, generator, and transport registry categories are removed
   without replacement.

@@ -14,11 +14,10 @@ schema API has no generic extension container or extension-specific helper.
 4. Issue 1904 — migrate PostgreSQL naming metadata to direct options (`completed`).
 5. Issue 1905 — remove the RoleSchema extension marker (`completed`).
 6. Issue 1906 — delete the generic schema and field extension system (`completed`).
-7. Issue 1907 — verify the extension-free public vertical (`planned`).
+7. Issue 1907 — verify the extension-free public vertical (`completed`).
 
 ## Resume point
 
-Start issue 1907 and verify the extension-free public vertical. Do not implement
-a compatibility layer: UltimaBase is still in development, and each replacement
-must remove its superseded public API in the same issue. ACL hardening issues
-432 through 435 remain deliberately deferred until explicit direction.
+Milestone 19 is complete. There is no active implementation issue; wait for
+explicit direction before selecting another objective. ACL hardening issues 432
+through 435 remain deliberately deferred until that direction is given.

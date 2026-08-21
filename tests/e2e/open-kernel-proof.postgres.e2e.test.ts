@@ -1,4 +1,9 @@
-import { Schema, UltimaBase, requestSources } from '@ultimabase/core'
+import {
+	Schema,
+	UltimaBase,
+	requestSources,
+	type SchemaOptions,
+} from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import type { PostgresPluginExports } from '@ultimabase/postgres-plugin'
@@ -9,7 +14,10 @@ import {
 	createValuePostgresPlugin,
 } from './fixtures/open-kernel-postgres.js'
 import { createSoftDeletePlugin } from './fixtures/open-kernel-soft-delete.js'
-import { createValuePlugin } from './fixtures/open-kernel-value.js'
+import {
+	createValuePlugin,
+	type DecimalLedgerOption,
+} from './fixtures/open-kernel-value.js'
 import {
 	createWorkflowPlugin,
 	type WorkflowCommittedPayload,
@@ -47,8 +55,16 @@ describe('open-kernel PostgreSQL proof', { concurrent: false }, () => {
 		})
 		const LedgerEntry = Schema.define({
 			className: 'OpenKernelLedgerEntry',
+			decimalLedger: { defaultScale: 2 },
 			postgres: { table: 'open_kernel_ledger_entries' },
-			fields: (field) => ({ label: field.string() }),
+			fields: (field) => ({
+				label: field.string({
+					// @ts-expect-error -- The generated community contract owns this direct option.
+					decimalLabel: { format: 'accounting' },
+				}),
+			}),
+		} as SchemaOptions<'OpenKernelLedgerEntry'> & {
+			readonly decimalLedger: DecimalLedgerOption
 		})
 		const SoftPost = Schema.define({
 			className: 'OpenKernelSoftPost',

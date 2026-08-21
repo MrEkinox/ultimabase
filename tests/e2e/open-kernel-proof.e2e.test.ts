@@ -14,6 +14,7 @@ import {
 	provideAdapterCapability,
 	provideCapability,
 	type PluginPrivilege,
+	type SchemaOptions,
 	typegenEmitterCapability,
 } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
@@ -32,7 +33,10 @@ import { describe, expect, it } from 'vitest'
 
 import { createValuePostgresPlugin } from './fixtures/open-kernel-postgres.js'
 import { createSoftDeletePlugin } from './fixtures/open-kernel-soft-delete.js'
-import { createValuePlugin } from './fixtures/open-kernel-value.js'
+import {
+	createValuePlugin,
+	type DecimalLedgerOption,
+} from './fixtures/open-kernel-value.js'
 import {
 	createWorkflowPlugin,
 	inspectWorkflow,
@@ -301,7 +305,15 @@ describe('open-kernel Typegen and migration proof', () => {
 		const createValueFixture = () => {
 			const Ledger = Schema.define({
 				className: 'OpenKernelConformanceLedger',
-				fields: (field) => ({ label: field.string() }),
+				decimalLedger: { defaultScale: 2 },
+				fields: (field) => ({
+					label: field.string({
+						// @ts-expect-error -- The generated community contract owns this direct option.
+						decimalLabel: { format: 'plain' },
+					}),
+				}),
+			} as SchemaOptions<'OpenKernelConformanceLedger'> & {
+				readonly decimalLedger: DecimalLedgerOption
 			})
 			return {
 				Ledger,
@@ -327,9 +339,20 @@ describe('open-kernel Typegen and migration proof', () => {
 			const { application } = createApplication()
 			application.compileSchemas()
 			const schema = application.schemas.get('OpenKernelConformanceLedger')
-			const field = schema?.definition.fields.amount
+			if (schema === undefined)
+				throw new TypeError('Missing decimal fixture schema')
+			const field = schema.definition.fields.amount
 			if (field === undefined)
 				throw new TypeError('Missing decimal fixture field')
+			const label = schema.definition.fields.label
+			if (label === undefined)
+				throw new TypeError('Missing decimal fixture label field')
+			expect(Reflect.get(schema.definition, 'decimalLedger')).toStrictEqual({
+				defaultScale: 2,
+			})
+			expect(Reflect.get(label.options, 'decimalLabel')).toStrictEqual({
+				format: 'plain',
+			})
 			const codec = getPluginFieldStorageCodec(field)
 			expect(
 				codec?.decode(codec.encode({ scale: 3, units: '1200' })),
@@ -343,6 +366,8 @@ describe('open-kernel Typegen and migration proof', () => {
 				applicationId: 'open-kernel-value',
 				verify: ({ contents }) => {
 					expect(contents).toContain('readonly amount: Plugin0_DecimalValue')
+					expect(contents).toContain('readonly decimalLabel?:')
+					expect(contents).toContain('readonly decimalLedger?:')
 					expect(contents).toContain(
 						'readonly amount?: PortableEqualityFilter<Plugin0_DecimalValue>',
 					)
@@ -404,7 +429,15 @@ describe('open-kernel Typegen and migration proof', () => {
 		const { Stable, workflow } = createWorkflowFixture()
 		const Ledger = Schema.define({
 			className: 'OpenKernelLanguageServiceLedger',
-			fields: (field) => ({ label: field.string() }),
+			decimalLedger: { defaultScale: 4 },
+			fields: (field) => ({
+				label: field.string({
+					// @ts-expect-error -- The generated community contract owns this direct option.
+					decimalLabel: { format: 'accounting' },
+				}),
+			}),
+		} as SchemaOptions<'OpenKernelLanguageServiceLedger'> & {
+			readonly decimalLedger: DecimalLedgerOption
 		})
 		const value = createValuePlugin({ instanceId: 'typed', target: Ledger })
 		const application = new FrameworkApplication({

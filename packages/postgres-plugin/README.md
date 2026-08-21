@@ -437,8 +437,8 @@ never write Drizzle or SQL themselves.
 Portable enums currently use `text` plus explicit enum metadata. Runtime owns
 membership validation, which keeps enum-value changes independent from native
 PostgreSQL enum migrations. Native Drizzle columns handle compatible values
-such as `bytea`, `time`, and string-mode `timestamp`. One client-level Drizzle
-codec extension normalizes raw PostgreSQL temporal text, while the record
+such as `bytea`, `time`, and string-mode `timestamp`. One client-level custom
+Drizzle codec normalizes raw PostgreSQL temporal text, while the record
 boundary detaches native `bytea` buffers and verifies field-specific scalar
 invariants after Drizzle mapping. Custom columns are reserved for field-dependent
 logical differences such as pointer identity and typed JSONB; nested bigints and

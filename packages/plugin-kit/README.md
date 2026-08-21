@@ -41,7 +41,7 @@ one file contains a single definition and binding the three stable package facts
 would not improve consistency.
 
 `plugin(...)` also forwards Core's structured `peers` option. Use it when an
-extension requires a compatible engine but the engine consumes the extension's
+addon requires a compatible engine but the engine consumes the addon's
 capability, so no lifecycle edge should be introduced.
 
 ### Name an exact public plugin type

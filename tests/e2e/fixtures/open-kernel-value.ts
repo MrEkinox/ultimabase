@@ -2,9 +2,11 @@ import {
 	adapterValueStorageCapability,
 	defineFieldBuilderMethod,
 	definePluginField,
+	defineSchemaOption,
 	optionalCapability,
 	requireCapability,
 	type FieldOptions,
+	type JsonObject,
 	type PluginDefinition,
 	type PluginFieldDefinition,
 	type SchemaDefinition,
@@ -23,6 +25,56 @@ export interface DecimalValue {
 	readonly scale: number
 	readonly units: string
 }
+
+/** Configures the structural decimal contribution on one community schema. */
+export interface DecimalLedgerOption extends JsonObject {
+	readonly defaultScale: number
+}
+
+/** Configures how the community plugin interprets one existing label field. */
+export interface DecimalLabelOption extends JsonObject {
+	readonly format: 'accounting' | 'plain'
+}
+
+const decimalLedgerOption = defineSchemaOption<DecimalLedgerOption>({
+	normalize: (value, path) => {
+		if (
+			!isPlainRecord(value) ||
+			!Number.isSafeInteger(value.defaultScale) ||
+			(value.defaultScale as number) < 0 ||
+			(value.defaultScale as number) > 18
+		) {
+			throw new TypeError(
+				`${path}.defaultScale must be an integer from 0 to 18`,
+			)
+		}
+
+		return immutableRecord({ defaultScale: value.defaultScale as number })
+	},
+	protocolVersion: 1,
+	typegen: {
+		module: '@fixture/open-kernel',
+		type: 'DecimalLedgerOption',
+	},
+})
+
+const decimalLabelOption = defineSchemaOption<DecimalLabelOption>({
+	normalize: (value, path) => {
+		if (
+			!isPlainRecord(value) ||
+			(value.format !== 'accounting' && value.format !== 'plain')
+		) {
+			throw new TypeError(`${path}.format must be accounting or plain`)
+		}
+
+		return immutableRecord({ format: value.format })
+	},
+	protocolVersion: 1,
+	typegen: {
+		module: '@fixture/open-kernel',
+		type: 'DecimalLabelOption',
+	},
+})
 
 export const decimalFieldKind = 'fixture.open-kernel.decimal' as const
 export type DecimalField = PluginFieldDefinition<
@@ -99,6 +151,11 @@ export const createValuePlugin = (
 		capabilities: { optional: [emitter], requires: [storage] },
 		declare: ({ fields, schemas, typegenReferences }) => {
 			fields.register(decimalBuilderMethod)
+			schemas.defineOptions({
+				contributionId: 'decimal-options',
+				field: { decimalLabel: decimalLabelOption },
+				schema: { decimalLedger: decimalLedgerOption },
+			})
 			schemas.patch(
 				patchSchemas({
 					patch: schemaPatch().addField({
@@ -106,7 +163,10 @@ export const createValuePlugin = (
 						field: decimalField(),
 						name: 'amount',
 					}),
-					targets: schemas.select({ className: options.target.className }),
+					targets: schemas.select({
+						className: options.target.className,
+						option: { name: 'decimalLedger' },
+					}),
 				}),
 			)
 			if (typegenReferences !== undefined) {

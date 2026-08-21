@@ -8,7 +8,8 @@
 
 ## Goal
 
-Provide storage-adapter-backed file metadata, upload authorization, and a typed field extension.
+Provide storage-adapter-backed file metadata, upload authorization, and a typed
+plugin-defined field.
 
 ## Acceptance criteria
 

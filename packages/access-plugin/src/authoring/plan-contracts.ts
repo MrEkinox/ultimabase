@@ -46,13 +46,7 @@ export interface PluginAccessSource {
 	readonly master: 'bypass' | 'enforce'
 	readonly ownerPlugin: string
 	readonly ownerInstanceId?: string
-	readonly targetKind:
-		| 'field'
-		| 'field-extension'
-		| 'field-kind'
-		| 'global'
-		| 'schema'
-		| 'schema-extension'
+	readonly targetKind: 'field' | 'field-kind' | 'global' | 'schema'
 }
 
 export type AccessRuleSource = DeveloperAccessSource | PluginAccessSource
