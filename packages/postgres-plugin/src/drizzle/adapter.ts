@@ -1,6 +1,7 @@
 import {
 	databaseInclusionCapability,
 	databasePersistencePlanCapability,
+	databasePluginFieldStructuralContainsCapability,
 	databasePointerCapability,
 	databaseRelationCapability,
 	databaseRelationPredicateCapability,
@@ -55,6 +56,8 @@ const postgresDatabaseCapabilities = immutableRecord({
 	inclusions: databaseInclusionCapability,
 	relations: databaseRelationCapability,
 	relationPredicates: databaseRelationPredicateCapability,
+	pluginFieldStructuralContains:
+		databasePluginFieldStructuralContainsCapability,
 	persistencePlans: databasePersistencePlanCapability,
 })
 

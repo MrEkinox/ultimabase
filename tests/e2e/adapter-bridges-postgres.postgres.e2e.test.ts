@@ -26,7 +26,7 @@ import {
 
 const storedValue = definePluginField(
 	'fixture.adapter-bridge-value',
-	{ validation: { required: true } },
+	{ indexed: true, validation: { required: true } },
 	{
 		snapshotValue: (value: unknown, path: string): string => {
 			if (typeof value !== 'string')
@@ -47,6 +47,18 @@ const storedValue = definePluginField(
 			encode: (value: string) => ({ value, version: 1 }),
 			format: 'json',
 			version: 1,
+		},
+		structuralContains: {
+			snapshotOperand: (
+				value: unknown,
+				path: string,
+			): Readonly<{ value: string }> => {
+				if (!isPlainRecord(value) || typeof value.value !== 'string') {
+					throw new TypeError(`${path} must contain a string value`)
+				}
+
+				return Object.freeze({ value: value.value })
+			},
 		},
 	},
 )
@@ -193,6 +205,22 @@ describe('PostgreSQL adapter bridges', { concurrent: false }, () => {
 				{ ultimabase },
 			)
 			expect(created.value).toBe('logical-value')
+			await BridgeItem.createOne(
+				{ data: { value: 'unrelated-value' } },
+				{ ultimabase },
+			)
+			const contained = await BridgeItem.findMany(
+				{
+					select: { id: true, value: true },
+					where: { value: { contains: { value: 'logical-value' } } },
+				},
+				{ ultimabase },
+			)
+			expect(contained).toHaveLength(1)
+			expect(contained[0]).toMatchObject({
+				id: created.id,
+				value: 'logical-value',
+			})
 			const stored = await worker.pool.query<{
 				readonly value: unknown
 				readonly workflow_state: null
@@ -206,6 +234,14 @@ describe('PostgreSQL adapter bridges', { concurrent: false }, () => {
 					workflow_state: null,
 				},
 			])
+			const indexes = await worker.pool.query<{ readonly indexdef: string }>(
+				`SELECT indexdef FROM pg_indexes
+				 WHERE schemaname = current_schema()
+				   AND tablename = 'adapter_bridge_items'`,
+			)
+			expect(
+				indexes.rows.some(({ indexdef }) => indexdef.includes('USING gin')),
+			).toBe(true)
 			await expect(
 				ultimabase.operation(rollbackOperation).execute('transient'),
 			).rejects.toMatchObject({

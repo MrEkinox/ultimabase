@@ -19,6 +19,12 @@ export const resolveCompiledPostgresField = (
 		)
 	}
 
+	if (schema.definition.definition.fields[fieldName] !== field.plan.field) {
+		throw new TypeError(
+			`PostgreSQL compiled field plan does not match schema field: ${fieldName}`,
+		)
+	}
+
 	return field
 }
 

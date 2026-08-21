@@ -1,5 +1,6 @@
 import type {
 	DatabaseRowFilterNode,
+	FieldValidationPlan,
 	QueryFilterExpression,
 	QueryFilterNode,
 	QueryRelationFilterNode,
@@ -35,7 +36,8 @@ import {
 	createPostgresValueCodec,
 	encodePostgresPartialValue,
 } from '../schema/value-codec.js'
-import type { FieldValidationPlan } from '@ultimabase/core'
+import { compilePostgresPluginFieldContains } from './plugin-field-containment-compiler.js'
+import { stringifyPostgresJsonbParameter } from './jsonb-parameter.js'
 
 interface RuntimeFilterTarget {
 	readonly field: string
@@ -207,16 +209,6 @@ const resolveFilterTarget = (
 	}
 }
 
-const stringifyJsonbParameter = (value: unknown): string => {
-	const serialized: unknown = JSON.stringify(value)
-
-	if (typeof serialized !== 'string') {
-		throw new TypeError('PostgreSQL JSONB filter value must be serializable')
-	}
-
-	return serialized
-}
-
 const encodePathValue = (
 	target: PostgresFilterTarget,
 	value: unknown,
@@ -226,7 +218,7 @@ const encodePathValue = (
 			? value
 			: createPostgresValueCodec(target.plan, true).encode(value)
 
-	return stringifyJsonbParameter(encoded)
+	return stringifyPostgresJsonbParameter(encoded)
 }
 
 const encodeStructuralValue = (
@@ -240,7 +232,7 @@ const encodeStructuralValue = (
 				? encodePostgresPartialValue(target.plan, value)
 				: createPostgresValueCodec(target.plan, true).encode(value)
 
-	return stringifyJsonbParameter(encoded)
+	return stringifyPostgresJsonbParameter(encoded)
 }
 
 const compileEquality = (
@@ -282,7 +274,7 @@ const encodeListValue = (
 		throw new TypeError('PostgreSQL list filters require an array plan')
 	}
 
-	return stringifyJsonbParameter(
+	return stringifyPostgresJsonbParameter(
 		createPostgresValueCodec(target.plan.items, true).encode(value),
 	)
 }
@@ -311,7 +303,7 @@ const compileList = (
 	target: PostgresFilterTarget,
 ): SQL => {
 	if (filter.kind === 'list-empty') {
-		return eq(target.jsonb, sql`${stringifyJsonbParameter([])}::jsonb`)
+		return eq(target.jsonb, sql`${stringifyPostgresJsonbParameter([])}::jsonb`)
 	}
 
 	if (filter.kind === 'list-has') {
@@ -469,7 +461,7 @@ const compileJsonPath = (
 			: sql`${target.jsonb} @@ ${filter.source}::jsonpath`
 	}
 
-	const variables = stringifyJsonbParameter(filter.variables)
+	const variables = stringifyPostgresJsonbParameter(filter.variables)
 
 	// Function forms preserve operator-style error suppression when variables are required.
 	return filter.kind === 'json-path-exists'
@@ -545,10 +537,18 @@ const compilePrimitive = (
 		case 'list-has-some':
 			return compileList(filter, target)
 		case 'contains':
+			{
+				const pluginContains = compilePostgresPluginFieldContains(
+					filter.value,
+					target.jsonb,
+					target.plan,
+					target.field.storage,
+				)
+				if (pluginContains !== undefined) return pluginContains
+			}
 			if (isStructuredTarget(target)) {
 				return compileStructural(filter, target)
 			}
-
 			if (
 				target.plan?.kind !== 'scalar' ||
 				target.plan.field.kind !== 'string'
@@ -575,7 +575,7 @@ const compilePrimitive = (
 			return compileRegex(filter, target.field)
 		case 'null':
 			if (target.path !== undefined) {
-				const jsonNull = sql`${stringifyJsonbParameter(null)}::jsonb`
+				const jsonNull = sql`${stringifyPostgresJsonbParameter(null)}::jsonb`
 
 				return filter.isNull
 					? eq(target.jsonb, jsonNull)

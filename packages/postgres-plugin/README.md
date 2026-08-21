@@ -448,7 +448,12 @@ remain unsupported until a specialized adapter compiler handles them.
 Scalar equality and membership filters for those fields use the same column
 codec as inserts and updates. Logical operands are therefore encoded before
 parameterized JSONB comparison without teaching PostgreSQL the plugin's kind.
-No ordering or domain-specific operator is inferred from JSONB storage.
+When the field owner also declares Core's `structuralContains` protocol,
+PostgreSQL compiles its already-snapshotted partial JSON operand to parameterized
+JSONB `@>`. That operand deliberately bypasses the complete-value storage codec,
+so a community field can expose a narrow containment surface without an
+adapter-specific bridge. No ordering, inverse containment, key, path, JSONPath,
+or domain-specific operator is inferred from JSONB storage.
 
 ## Index compilation
 
