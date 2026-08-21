@@ -8,7 +8,9 @@ import {
 	defineSchemaExtension,
 	stringField,
 } from '@ultimabase/core'
+import type { StandardSchemaV1 } from '@standard-schema/spec'
 import { describe, expect, it } from 'vitest'
+import { z } from 'zod'
 
 import {
 	definePluginModule,
@@ -151,12 +153,14 @@ describe('plugin authoring helpers', () => {
 		expect(() => definePluginOptionsParser(null as never)).toThrow(
 			'plugin options parser definition must be a plain object',
 		)
+		const defineUntypedParser = definePluginOptionsParser as (
+			definition: unknown,
+		) => unknown
 		expect(() =>
-			definePluginOptionsParser({
+			defineUntypedParser({
 				keys: [],
 				name: 'unknown definition options',
 				normalize: () => ({}),
-				// @ts-expect-error -- Runtime validation protects JavaScript callers.
 				unknown: true,
 			}),
 		).toThrow('Unknown plugin options parser definition option: unknown')
@@ -174,6 +178,100 @@ describe('plugin authoring helpers', () => {
 				normalize: () => null as never,
 			})({}),
 		).toThrow('invalid result options normalizer must return a plain object')
+	})
+
+	it('validates and transforms plugin options through Standard Schema', () => {
+		const parse = definePluginOptionsParser({
+			name: 'workflow options',
+			schema: z.strictObject({
+				instanceId: z.string().optional(),
+				label: z.string().transform((value) => value.trim()),
+				mode: z.enum(['review', 'publish']).default('review'),
+			}),
+		})
+		const normalized = parse({ label: ' Editorial ' })
+
+		expect(normalized).toStrictEqual({
+			label: 'Editorial',
+			mode: 'review',
+		})
+		expect(Object.isFrozen(normalized)).toBe(true)
+	})
+
+	it('leaves unknown-key behavior to the Standard Schema', () => {
+		const stripUnknown = definePluginOptionsParser({
+			name: 'permissive workflow options',
+			schema: z.object({ enabled: z.boolean() }),
+		})
+		const rejectUnknown = definePluginOptionsParser({
+			name: 'strict workflow options',
+			schema: z.strictObject({ enabled: z.boolean() }),
+		})
+		const input = { enabled: true, ignored: 'schema-owned' }
+
+		expect(stripUnknown(input)).toStrictEqual({ enabled: true })
+		expect(() => rejectUnknown(input)).toThrow(
+			'strict workflow options validation failed',
+		)
+	})
+
+	it('retains Standard Schema issue paths in one focused error', () => {
+		const parse = definePluginOptionsParser({
+			name: 'workflow options',
+			schema: z.strictObject({
+				settings: z.strictObject({ retries: z.number().int() }),
+			}),
+		}) as (input: unknown) => Readonly<object>
+
+		expect(() => parse({ settings: { retries: 'three' } })).toThrow(
+			/workflow options validation failed: settings\.retries:/,
+		)
+	})
+
+	it('rejects asynchronous schemas and non-object schema outputs', () => {
+		const asyncSchema: StandardSchemaV1<unknown, { enabled: boolean }> = {
+			'~standard': {
+				validate: () => Promise.resolve({ value: { enabled: true } }),
+				vendor: 'fixture',
+				version: 1,
+			},
+		}
+		const parseAsync = definePluginOptionsParser({
+			name: 'async workflow options',
+			schema: asyncSchema,
+		})
+		const defineUntypedParser = definePluginOptionsParser as (
+			definition: unknown,
+		) => (input: unknown) => Readonly<object>
+		const parsePrimitive = defineUntypedParser({
+			name: 'primitive workflow options',
+			schema: z.string(),
+		})
+
+		expect(() => parseAsync({})).toThrow(
+			'async workflow options schema validation must be synchronous',
+		)
+		expect(() => parsePrimitive('review')).toThrow(
+			'primitive workflow options schema must return a plain object',
+		)
+	})
+
+	it('rejects malformed or mixed Standard Schema definitions', () => {
+		const defineUntypedParser = definePluginOptionsParser as (
+			definition: unknown,
+		) => unknown
+
+		expect(() =>
+			defineUntypedParser({ name: 'invalid options', schema: {} }),
+		).toThrow('plugin options parser schema must implement Standard Schema V1')
+		expect(() =>
+			defineUntypedParser({
+				keys: [],
+				name: 'mixed options',
+				normalize: () => ({}),
+				schema: z.object({}),
+			}),
+		).toThrow('Unknown plugin options parser definition option: keys')
 	})
 
 	it('groups exact nominal Typegen references under one module', () => {

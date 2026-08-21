@@ -196,6 +196,7 @@ Accepted records:
 - [ADR-0208: Plugin powers report only enforceable boundaries](0208-enforceable-plugin-powers-and-environment-truth.md)
 - [ADR-0209: Public transport protection remains unverified](0209-public-transport-protection-is-unverified.md)
 - [ADR-0210: Adapter snapshots use structural JSON equality](0210-structural-json-snapshot-equality.md)
+- [ADR-0211: Plugin options accept synchronous Standard Schema validators](0211-synchronous-standard-schema-plugin-options.md)
 
 Superseded records:
 

@@ -10,7 +10,9 @@ const fileName = path.join(
 )
 const source = `
 import { type PluginExports } from '@ultimabase/core'
+import { z } from 'zod'
 import {
+  definePluginOptionsParser,
   definePluginModule,
   type PluginModuleInstance,
 } from '@ultimabase/plugin-kit'
@@ -43,6 +45,14 @@ export const packedCapabilities = plugin.manifest.capabilities.provides
 export const packedPeer = plugin.peers?.[0]?.pluginId
 declare const packedExports: PluginExports<PackedPlugin>
 export const packedReady = packedExports.ready
+
+const parseStandard = definePluginOptionsParser({
+  name: 'packed workflow options',
+  schema: z.strictObject({
+    mode: z.enum(['review', 'publish']).default('review'),
+  }),
+})
+export const packedOptions = parseStandard({})
 `
 const service = createLanguageService(fileName, source)
 
@@ -62,5 +72,8 @@ describe('packed @ultimabase/plugin-kit authoring types', () => {
 		expect(readQuickInfo('packedCapabilities =')).toContain('readonly []')
 		expect(readQuickInfo('packedPeer =')).toContain('"community.protocol"')
 		expect(readQuickInfo('packedReady =')).toContain('true')
+		expect(readQuickInfo('packedOptions =')).toContain(
+			'mode: "review" | "publish";',
+		)
 	})
 })

@@ -24,6 +24,7 @@ export {
 export {
 	definePluginOptionsParser,
 	type DefinePluginOptionsParserOptions,
+	type DefineStandardSchemaPluginOptionsParserOptions,
 	type PluginOptionsParser,
 	type PluginOptionValues,
 } from './plugin-options.js'

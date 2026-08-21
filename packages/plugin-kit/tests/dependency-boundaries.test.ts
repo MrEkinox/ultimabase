@@ -6,7 +6,7 @@ const packageDirectory = path.resolve(import.meta.dirname, '..')
 const repositoryRoot = path.resolve(packageDirectory, '../..')
 
 describe('@ultimabase/plugin-kit dependency boundaries', () => {
-	it('depends only on Core and Shared foundations', async () => {
+	it('depends only on foundations and the types-only Standard Schema protocol', async () => {
 		const manifestSource = await readFile(
 			path.join(packageDirectory, 'package.json'),
 			'utf8',
@@ -17,6 +17,7 @@ describe('@ultimabase/plugin-kit dependency boundaries', () => {
 			dependencies: {
 				'@ultimabase/core': 'workspace:^',
 				'@ultimabase/shared': 'workspace:^',
+				'@standard-schema/spec': '^1.1.0',
 			},
 		})
 		expect(
@@ -24,7 +25,11 @@ describe('@ultimabase/plugin-kit dependency boundaries', () => {
 				(parsed as Readonly<{ dependencies: Readonly<Record<string, string>> }>)
 					.dependencies,
 			).sort(),
-		).toStrictEqual(['@ultimabase/core', '@ultimabase/shared'])
+		).toStrictEqual([
+			'@standard-schema/spec',
+			'@ultimabase/core',
+			'@ultimabase/shared',
+		])
 	})
 
 	it('is never imported by Core', async () => {

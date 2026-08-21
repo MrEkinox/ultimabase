@@ -7,6 +7,7 @@ import {
 	type TypegenReference,
 } from '@ultimabase/core'
 import { expectTypeOf } from 'vitest'
+import { z } from 'zod'
 
 import {
 	definePluginModule,
@@ -117,6 +118,24 @@ expectTypeOf(parseOptions).toEqualTypeOf<
 		mode: 'publish' | 'review'
 	}>
 >()
+
+const standardOptionsSchema = z.strictObject({
+	enabled: z.boolean().default(true),
+	mode: z.enum(['publish', 'review']).optional(),
+})
+const parseStandardOptions = definePluginOptionsParser({
+	name: 'standard workflow options',
+	schema: standardOptionsSchema,
+})
+expectTypeOf(parseStandardOptions)
+	.parameter(0)
+	.toEqualTypeOf<z.input<typeof standardOptionsSchema>>()
+expectTypeOf(parseStandardOptions({})).toEqualTypeOf<
+	Readonly<z.output<typeof standardOptionsSchema>>
+>()
+
+// @ts-expect-error -- Plugin option schemas must produce an object root.
+definePluginOptionsParser({ name: 'primitive options', schema: z.string() })
 
 const types = defineTypegenModule('@example/workflow-plugin')
 expectTypeOf(types.reference('PublishInput')).toEqualTypeOf<

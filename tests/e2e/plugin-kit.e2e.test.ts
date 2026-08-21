@@ -15,6 +15,7 @@ import {
 	schemaPatch,
 } from '@ultimabase/plugin-kit'
 import { describe, expect, it } from 'vitest'
+import { z } from 'zod'
 
 describe('packed @ultimabase/plugin-kit', () => {
 	it('executes every public helper through compiled package exports', async () => {
@@ -24,6 +25,14 @@ describe('packed @ultimabase/plugin-kit', () => {
 			normalize: ({ enabled }) => ({ enabled: enabled === true }),
 		})
 		const normalized = parseOptions({ enabled: true })
+		const parseStandardOptions = definePluginOptionsParser({
+			name: 'packed Standard Schema options',
+			schema: z.strictObject({
+				enabled: z.boolean().default(true),
+				mode: z.enum(['review', 'publish']).optional(),
+			}),
+		})
+		const standardNormalized = parseStandardOptions({ mode: 'publish' })
 		const types = defineTypegenModule('@fixture/packed-plugin')
 		const patch = schemaPatch().addField({
 			contributionId: 'state',
@@ -79,6 +88,11 @@ describe('packed @ultimabase/plugin-kit', () => {
 		await application.initialize()
 
 		expect(normalized).toStrictEqual({ enabled: true })
+		expect(standardNormalized).toStrictEqual({
+			enabled: true,
+			mode: 'publish',
+		})
+		expect(Object.isFrozen(standardNormalized)).toBe(true)
 		expect(patch).toBeInstanceOf(SchemaPatchBuilder)
 		expect(Target.definition.fields).toHaveProperty('state')
 		expect(types.reference('EchoInput')).toMatchObject({

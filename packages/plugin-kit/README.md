@@ -122,38 +122,52 @@ provider and requests `event:publish`.
 
 ## Parse plugin options once
 
-`definePluginOptionsParser(...)` validates the root object, rejects unknown
-string or symbol keys, gives the normalizer only declared keys as `unknown`, and
-freezes the normalized root:
+`definePluginOptionsParser(...)` accepts a synchronous
+[Standard Schema](https://standardschema.dev/) validator directly. The chosen
+library owns input validation, defaults, transformations, and unknown-key
+behavior while Plugin Kit preserves the inferred input/output types and freezes
+the normalized root:
 
 ```ts
 import { definePluginOptionsParser } from '@ultimabase/plugin-kit'
+import { z } from 'zod'
 
 const parseOptions = definePluginOptionsParser({
 	name: 'workflow plugin options',
-	keys: ['instanceId', 'mode'] as const,
-	normalize: ({ instanceId, mode }) => {
-		if (instanceId !== undefined && typeof instanceId !== 'string') {
-			throw new TypeError('workflow instanceId must be a string')
-		}
-		if (mode !== undefined && mode !== 'review' && mode !== 'publish') {
-			throw new TypeError('workflow mode must be review or publish')
-		}
-
-		return {
-			...(instanceId === undefined ? {} : { instanceId }),
-			mode: mode ?? 'review',
-		}
-	},
+	schema: z.strictObject({
+		instanceId: z.string().optional(),
+		mode: z.enum(['review', 'publish']).default('review'),
+	}),
 })
 ```
 
-The helper deliberately does not introduce a second validation language. Use a
-standard schema library inside `normalize` when the plugin already depends on
-one. Nested callbacks, connections, and secrets remain Runtime values owned by
-the plugin; normalize or freeze them according to their own contract.
+Use the strict-object facility from the selected schema library when unknown
+keys must fail. A stripping or passthrough schema keeps its own behavior.
+Validation must complete synchronously; async refinements fail immediately
+because plugin factories and static declarations are synchronous. Successful
+output must be a plain object. Nested callbacks, connections, and secrets remain
+Runtime values owned by the plugin; validate or freeze them according to their
+own contract.
+
+Plugins without a schema dependency can keep using the original strict manual
+contract. It rejects undeclared string or symbol keys and gives the normalizer
+only declared values as `unknown`:
+
+```ts
+const parseOptions = definePluginOptionsParser({
+	name: 'workflow plugin options',
+	keys: ['instanceId', 'mode'] as const,
+	normalize: ({ instanceId, mode }) => ({
+		instanceId: typeof instanceId === 'string' ? instanceId : undefined,
+		mode: mode === 'publish' ? 'publish' : 'review',
+	}),
+})
+```
+
 `formatUnknownKey` may preserve an established plugin-specific diagnostic when
-migrating an existing parser; new plugins normally use the default message.
+migrating an existing manual parser; new plugins normally use the default
+message. Plugin Kit depends only on the types-only `@standard-schema/spec`
+protocol and never installs Zod or another concrete validator for consumers.
 
 ## Build common additive schema patches
 

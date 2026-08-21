@@ -76,7 +76,8 @@ and providers import those public contracts, while independent alternatives own
 their protocols and use the generic kernel directly.
 
 `@ultimabase/plugin-kit` is the public authoring toolbox. It binds stable package
-manifest facts, parses strict immutable plugin options, builds common additive
+manifest facts, parses strict manual or synchronous Standard Schema plugin
+options into immutable objects, builds common additive
 schema patches, flattens operation-provider wrappers, and groups nominal Typegen
 references without weakening a Core validation boundary. Destructive
 transformations, capabilities, privileges, ownership, registries, adapters, and
@@ -85,6 +86,9 @@ plugins use the same toolbox where it removes real duplication, while
 `@ultimabase/testing` owns runner-agnostic conformance fixtures and assertions.
 Its optional generic Typegen check explains the dependency on Typegen; the
 baseline kernel suite remains logical-only and opens no PostgreSQL resource.
+The types-only `@standard-schema/spec` dependency enables validator-neutral
+option inference without selecting a validation library or adding Runtime
+behavior.
 
 `@ultimabase/typegen` is optional development tooling. It snapshots the final
 compiled application graph and accepts owner-scoped plugin contributions as

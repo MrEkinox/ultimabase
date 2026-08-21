@@ -24,12 +24,14 @@
 		"typecheck": "tsc --build"
 	},
 	"dependencies": {
+		"@standard-schema/spec": "^1.1.0",
 		"@ultimabase/core": "workspace:^",
 		"@ultimabase/shared": "workspace:^"
 	},
 	"devDependencies": {
 		"tsdown": "^0.22.14",
 		"typescript": "^6.0.3",
-		"vitest": "4.1.10"
+		"vitest": "4.1.10",
+		"zod": "^4.4.3"
 	}
 }

@@ -9,6 +9,7 @@ const fileName = path.join(
 )
 const source = `
 import { stringField } from '@ultimabase/core'
+import { z } from 'zod'
 import {
   definePluginModule,
   definePluginOptionsParser,
@@ -53,6 +54,15 @@ const parse = definePluginOptionsParser({
 })
 export const options = parse({ enabled: true })
 
+const parseStandard = definePluginOptionsParser({
+  name: 'standard workflow options',
+  schema: z.strictObject({
+    enabled: z.boolean().default(true),
+    mode: z.enum(['review', 'publish']).optional(),
+  }),
+})
+export const standardOptions = parseStandard({})
+
 export const patch = schemaPatch().addField({
   contributionId: 'state',
   name: 'state',
@@ -88,6 +98,12 @@ describe('@ultimabase/plugin-kit authoring language service', () => {
 			readQuickInfo('workflow.plugin', 'workflow.'.length).documentation,
 		).toContain('Creates one immutable Core plugin definition')
 		expect(readQuickInfo('options =').display).toContain('enabled: boolean;')
+		expect(readQuickInfo('standardOptions =').display).toContain(
+			'mode?: "review" | "publish" | undefined;',
+		)
+		expect(readQuickInfo('schema: z.strictObject').documentation).toContain(
+			'Validates, defaults, and transforms options',
+		)
 		expect(readQuickInfo('PluginModuleInstance').documentation).toContain(
 			'Derives one exact plugin type',
 		)
