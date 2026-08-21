@@ -41,7 +41,7 @@ const articleSchema = Schema.define({
 	className: 'Article',
 	fields: (field) => ({
 		note: field.string(),
-		title: field.string({ validation: { required: true } }),
+		title: field.string({ required: true }),
 		views: field.int(),
 	}),
 })

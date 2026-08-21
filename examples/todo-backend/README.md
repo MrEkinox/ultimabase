@@ -20,7 +20,8 @@ export const Todo = Schema.define({
 		title: field.string({
 			hooks: { resolveInput: ({ value }) => value?.trim() ?? null },
 			postgres: { renamedFrom: 'summary' },
-			validation: { length: { max: 200 }, required: true },
+			required: true,
+			validation: { length: { max: 200 } },
 		}),
 		internalNotes: field.string({
 			access: {

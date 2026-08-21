@@ -1,6 +1,5 @@
 import { assertOptionalBoolean, immutableRecord } from '@ultimabase/shared'
 
-import type { FieldValidationOptions } from '../base/contract.js'
 import { normalizeOrderedRange, type OrderedRange } from './range.js'
 
 export type NumericRangeValue = bigint | number
@@ -14,7 +13,7 @@ export type NumericRange<TValue extends NumericRangeValue = number> =
  */
 export interface NumericValidationOptions<
 	TValue extends NumericRangeValue = number,
-> extends FieldValidationOptions {
+> {
 	/**
 	 * Restricts numeric values with inclusive `min` and `max` boundaries.
 	 *

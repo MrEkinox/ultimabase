@@ -82,7 +82,7 @@ const Document = Schema.define({
 				resolveInput: ({ value }) =>
 					value === null ? null : value.trim().toLowerCase(),
 			},
-			validation: { required: true },
+			required: true,
 		}),
 	}),
 	acl: {

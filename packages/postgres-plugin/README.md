@@ -269,14 +269,14 @@ if (databaseUrl === undefined) throw new TypeError('DATABASE_URL is required')
 const AuditSchema = Schema.define({
 	className: 'Audit',
 	fields: (field) => ({
-		action: field.string({ validation: { required: true } }),
+		action: field.string({ required: true }),
 	}),
 })
 
 const ArticleSchema = Schema.define({
 	className: 'Article',
 	fields: (field) => ({
-		title: field.string({ validation: { required: true } }),
+		title: field.string({ required: true }),
 	}),
 	hooks: {
 		beforeOperation: {
@@ -407,7 +407,7 @@ import { Schema } from '@ultimabase/core'
 const EventSchema = Schema.define({
 	className: 'Event',
 	fields: (field) => ({
-		title: field.string({ validation: { required: true } }),
+		title: field.string({ required: true }),
 		attendees: field.bigint({ list: true }),
 		metadata: field.object({
 			fields: (field) => ({
@@ -576,7 +576,7 @@ const Post = Schema.define({
 	fields: (field) => ({
 		author: field.pointer({
 			target: () => User,
-			validation: { required: true },
+			required: true,
 			indexed: true,
 			onDelete: 'cascade',
 		}),
@@ -732,14 +732,14 @@ const Membership = Schema.define({
 		member: field.pointer({
 			onDelete: 'cascade',
 			target: () => Member,
-			validation: { required: true },
+			required: true,
 		}),
 		project: field.pointer({
 			onDelete: 'cascade',
 			target: () => Project,
-			validation: { required: true },
+			required: true,
 		}),
-		role: field.string({ validation: { required: true } }),
+		role: field.string({ required: true }),
 	}),
 	indexes: [{ fields: ['project', 'member'], unique: true }],
 })

@@ -91,7 +91,7 @@ describe('schema compiler declaration encoding', () => {
 			}),
 			replaceSchemaField({
 				contributionId: 'field-replace',
-				field: stringField({ validation: { required: true } }),
+				field: stringField({ required: true }),
 				name: 'title',
 				target: fieldTarget,
 			}),

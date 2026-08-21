@@ -47,7 +47,7 @@ const SetupGuard = definePlugin({
 const Document = Schema.define({
   className: 'LoadedTypegenDocument',
   fields: (field) => ({
-    title: field.string({ validation: { required: true } }),
+    title: field.string({ required: true }),
     embedding: field.vector({ dimensions: 3 }),
   }),
 })

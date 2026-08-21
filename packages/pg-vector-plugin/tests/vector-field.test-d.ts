@@ -15,7 +15,7 @@ import {
 test('infers vector kinds, dimensions, and values', () => {
 	const field = vectorField({
 		dimensions: 3,
-		validation: { required: true },
+		required: true,
 		default: [1, 2, 3],
 	})
 
@@ -66,11 +66,11 @@ test('rejects incompatible vector options', () => {
 	// @ts-expect-error -- Scalar vector defaults must contain numbers.
 	vectorField({ dimensions: 2, default: ['1', '2'] })
 
-	// @ts-expect-error -- Nullability is derived and cannot be configured.
 	vectorField({
 		dimensions: 2,
+		required: true,
 		validation: {
-			required: true,
+			// @ts-expect-error -- Nullability is derived and cannot be configured.
 			nullable: true,
 		},
 	})

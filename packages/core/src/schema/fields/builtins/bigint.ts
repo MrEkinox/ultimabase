@@ -1,7 +1,6 @@
 import {
 	assertFieldOptions,
 	fieldOptionKeys,
-	fieldValidationOptionKeys,
 	normalizeFieldOptions,
 	orderedRangeOptionKeys,
 	type BuiltInFieldOptionsContract,
@@ -35,7 +34,7 @@ import { normalizeBigintValue } from '../base/value.js'
 export type BigintRangeValidationOptions = NumericRange<bigint>
 
 /**
- * Combines common presence rules with exact bigint range constraints.
+ * Defines exact bigint range constraints.
  */
 export type BigintValidationOptions = NumericValidationOptions<bigint>
 
@@ -64,7 +63,7 @@ export type BigintField<
 const bigintFieldOptionsContract: BuiltInFieldOptionsContract = {
 	kind: 'bigint',
 	optionKeys: [...fieldOptionKeys, 'autoIncrement'],
-	validationOptionKeys: [...fieldValidationOptionKeys, 'range'],
+	validationOptionKeys: ['range'],
 	nestedValidation: [{ key: 'range', optionKeys: orderedRangeOptionKeys }],
 }
 

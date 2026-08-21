@@ -10,7 +10,6 @@ import {
 	assertFieldOptions,
 	assertValidTypeName,
 	fieldOptionKeys,
-	fieldValidationOptionKeys,
 	normalizeFieldOptions,
 	normalizeFlatValidation,
 	type BuiltInFieldOptionsContract,
@@ -76,7 +75,7 @@ export type EnumField<
 const enumFieldOptionsContract: BuiltInFieldOptionsContract = {
 	kind: 'enum',
 	optionKeys: [...fieldOptionKeys, 'typeName', 'values'],
-	validationOptionKeys: fieldValidationOptionKeys,
+	validationOptionKeys: [],
 }
 
 type NonEmptyMapping<TValues extends EnumValues> =

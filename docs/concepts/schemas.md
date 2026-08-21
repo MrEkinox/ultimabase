@@ -6,11 +6,7 @@ Schemas are explicit TypeScript classes registered in application configuration.
 const UserSchema = Schema.define({
 	className: 'User',
 	fields: (field) => ({
-		name: field.string({
-			validation: {
-				required: true,
-			},
-		}),
+		name: field.string({ required: true }),
 	}),
 })
 ```

@@ -16,7 +16,7 @@ export const TodoUser = Schema.define({
 			description: 'Name displayed beside assigned tasks.',
 			hooks: { resolveInput: ({ value }) => value?.trim() ?? null },
 			postgres: { renamedFrom: 'name' },
-			validation: { required: true },
+			required: true,
 		}),
 		assignedTodos: field.relation({
 			description: 'Tasks whose assignee pointer references this user.',
@@ -59,7 +59,8 @@ export const Todo = Schema.define({
 			description: 'Short task summary shown in todo lists.',
 			hooks: { resolveInput: ({ value }) => value?.trim() ?? null },
 			postgres: { renamedFrom: 'summary' },
-			validation: { length: { max: 200 }, required: true },
+			required: true,
+			validation: { length: { max: 200 } },
 		}),
 		description: field.string({
 			description: 'Optional details needed to complete the task.',
@@ -72,12 +73,12 @@ export const Todo = Schema.define({
 		completed: field.boolean({
 			default: false,
 			description: 'Whether the task has been completed.',
-			validation: { required: true },
+			required: true,
 		}),
 		archived: field.boolean({
 			default: false,
 			description: 'Hides a task from ordinary public reads.',
-			validation: { required: true },
+			required: true,
 		}),
 		internalNotes: field.string({
 			access: {
@@ -132,7 +133,7 @@ export const Todo = Schema.define({
 			default: 'medium',
 			description: 'Controls the order in which a task should be handled.',
 			typeName: 'TodoPriority',
-			validation: { required: true },
+			required: true,
 			values: ['low', 'medium', 'high'],
 		}),
 		details: field.object({
@@ -182,7 +183,7 @@ export const Todo = Schema.define({
 		}),
 		checklist: field.object({
 			fields: (field) => ({
-				label: field.string({ validation: { required: true } }),
+				label: field.string({ required: true }),
 				done: field.boolean({ default: false }),
 			}),
 			list: true,

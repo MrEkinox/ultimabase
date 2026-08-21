@@ -16,9 +16,9 @@ import {
 const relationTrace: string[] = []
 const rollbackError = new Error('relation mutation rollback fixture')
 let rejectNextRelationUpdate = false
-const tagLabelField = stringField({ validation: { required: true } })
+const tagLabelField = stringField({ required: true })
 const tagVisibleField = booleanField({ default: true })
-const articleTitleField = stringField({ validation: { required: true } })
+const articleTitleField = stringField({ required: true })
 const articleFields = (field: FieldBuilder) => ({
 	tags: field.relation({
 		access: {
@@ -75,9 +75,9 @@ const Tag = Schema.define<'RelationE2ETag', ReturnType<typeof tagFields>>({
 	},
 })
 
-const authorNameField = stringField({ validation: { required: true } })
+const authorNameField = stringField({ required: true })
 const authorVisibleField = booleanField({ default: true })
-const postTitleField = stringField({ validation: { required: true } })
+const postTitleField = stringField({ required: true })
 
 const authorFields = (field: FieldBuilder) => ({
 	name: authorNameField,
@@ -112,7 +112,7 @@ const privateArticleFields = (field: FieldBuilder) => ({
 		access: { read: false, write: true },
 		target: 'RelationE2ETag',
 	}),
-	title: field.string({ validation: { required: true } }),
+	title: field.string({ required: true }),
 })
 
 const PrivateArticle = Schema.define({
@@ -132,7 +132,7 @@ const PrivatePointerPost = Schema.define({
 			},
 			target: 'RelationE2EAuthor',
 		}),
-		title: field.string({ validation: { required: true } }),
+		title: field.string({ required: true }),
 	}),
 })
 

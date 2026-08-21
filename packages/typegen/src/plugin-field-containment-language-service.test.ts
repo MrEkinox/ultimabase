@@ -16,7 +16,7 @@ const createGeneratedRegistry = (): string => {
 	const containedField = () =>
 		definePluginField(
 			'fixture.semantic.contained',
-			{ validation: { required: true } },
+			{ required: true },
 			{
 				snapshotValue: (value: unknown) => value,
 				storageCodec: {

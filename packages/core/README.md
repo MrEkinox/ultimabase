@@ -47,7 +47,7 @@ registry; plugins cannot register late schemas or field methods:
 const PostSchema = Schema.define({
 	className: 'Post',
 	fields: (field) => ({
-		title: field.string({ validation: { required: true } }),
+		title: field.string({ required: true }),
 		published: field.boolean({ default: false }),
 		metadata: field.object({
 			fields: (field) => ({
@@ -221,7 +221,7 @@ const workflowPlugin = definePlugin({
 				addSchemaField({
 					contributionId: 'workflow-state',
 					name: 'workflowState',
-					field: stringField({ validation: { required: true } }),
+					field: stringField({ required: true }),
 				}),
 				addSchemaIndex({
 					contributionId: 'workflow-state-index',
@@ -497,7 +497,7 @@ const PostSchema = Schema.define({
 	fields: (field) => ({
 		author: field.pointer({
 			target: 'User',
-			validation: { required: true },
+			required: true,
 		}),
 	}),
 })
@@ -791,15 +791,15 @@ const Membership = Schema.define({
 	fields: (field) => ({
 		member: field.pointer({
 			target: 'Member',
-			validation: { required: true },
+			required: true,
 		}),
 		project: field.pointer({
 			target: 'Project',
-			validation: { required: true },
+			required: true,
 		}),
 		role: field.enum({
 			values: ['editor', 'viewer'] as const,
-			validation: { required: true },
+			required: true,
 		}),
 	}),
 	indexes: [{ fields: ['project', 'member'], unique: true }],
@@ -1045,7 +1045,7 @@ import { Schema, UltimaBase } from '@ultimabase/core'
 const PostSchema = Schema.define({
 	className: 'Post',
 	fields: (field) => ({
-		title: field.string({ validation: { required: true } }),
+		title: field.string({ required: true }),
 		published: field.boolean({ default: false }),
 	}),
 })

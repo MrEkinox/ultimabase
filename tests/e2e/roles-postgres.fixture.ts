@@ -44,7 +44,7 @@ export const currentRoleMemberId = new RequestContextValue<string>(
 export const RoleMember = Schema.define({
 	className: 'RoleE2EMember',
 	fields: (field) => ({
-		email: field.string({ indexed: 'unique', validation: { required: true } }),
+		email: field.string({ indexed: 'unique', required: true }),
 	}),
 })
 
@@ -131,7 +131,7 @@ export const ProtectedPost = Schema.define({
 			},
 		}),
 		published: field.boolean({ default: false }),
-		title: field.string({ validation: { required: true } }),
+		title: field.string({ required: true }),
 	}),
 	access: {
 		create: false,
@@ -152,7 +152,7 @@ export const ProtectedPost = Schema.define({
 export const ExternalRoleReference = Schema.define({
 	className: 'RoleE2EExternalReference',
 	fields: (field) => ({
-		subject: field.string({ indexed: true, validation: { required: true } }),
+		subject: field.string({ indexed: true, required: true }),
 	}),
 })
 
@@ -165,7 +165,7 @@ export const resetMissingProviderHookCalls = (): void => {
 export const MissingProviderPost = Schema.define({
 	className: 'RoleE2EMissingProviderPost',
 	fields: (field) => ({
-		title: field.string({ validation: { required: true } }),
+		title: field.string({ required: true }),
 	}),
 	access: {
 		create: true,

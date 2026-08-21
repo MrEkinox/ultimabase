@@ -78,17 +78,8 @@ type FieldOptionsDefaultValue<
 	? TValue | readonly TValue[]
 	: FieldListValue<TValue, TList>
 
-/**
- * Describes whether a field must contain a non-null persisted value.
- */
-export interface FieldValidationOptions {
-	/**
-	 * Requires the field to receive a value during creation when enabled.
-	 *
-	 * @example `validation: { required: true }`
-	 */
-	readonly required?: boolean
-}
+/** Describes an intentionally empty value-constraint contract. */
+export type FieldValidationOptions = Readonly<Record<PropertyKey, never>>
 
 /** Rejects legacy validation metadata that attempts to configure derived nullability. */
 export type FieldOptionsWithoutNullable<TOptions extends object> =
@@ -98,11 +89,18 @@ export type FieldOptionsWithoutNullable<TOptions extends object> =
 			: TOptions
 		: TOptions
 
-interface FieldMetadataOptions<TValidation extends FieldValidationOptions> {
+interface FieldMetadataOptions<TValidation extends object> {
 	/**
-	 * Groups presence rules and field-specific constraints validated by Runtime.
+	 * Requires a non-null persisted value and, without a default or generator,
+	 * requires the field in create input.
 	 *
-	 * @example `validation: { required: true }`
+	 * @example `required: true`
+	 */
+	readonly required?: boolean
+	/**
+	 * Groups field-specific value constraints validated by Runtime.
+	 *
+	 * @example `validation: { length: { min: 1 } }`
 	 */
 	readonly validation?: TValidation
 	/**
@@ -127,7 +125,7 @@ interface FieldMetadataOptions<TValidation extends FieldValidationOptions> {
 
 /** Defines shared field metadata without assigning a default-value contract. */
 export interface FieldOptionsBase<
-	TValidation extends FieldValidationOptions = FieldValidationOptions,
+	TValidation extends object = FieldValidationOptions,
 	TList extends FieldListOption = FieldListOption,
 	TValue = unknown,
 >
@@ -148,7 +146,7 @@ export interface FieldOptionsBase<
  */
 export interface FieldOptions<
 	TValue,
-	TValidation extends FieldValidationOptions = FieldValidationOptions,
+	TValidation extends object = FieldValidationOptions,
 	TList extends FieldListOption = FieldListOption,
 > extends FieldOptionsBase<TValidation, TList, TValue> {
 	/**
@@ -203,7 +201,7 @@ type FieldOptionsList<TOptions> = TOptions extends {
 	: false
 
 type FieldOptionsRequired<TOptions> = TOptions extends {
-	readonly validation: { readonly required: true }
+	readonly required: true
 }
 	? true
 	: false
@@ -271,7 +269,7 @@ type ResolveUpdatePresence<TOptions> =
 			? 'forbidden'
 			: 'optional'
 
-/** Converts exact legacy options into the compact field inference contract. */
+/** Converts exact field options into the compact field inference contract. */
 export interface ResolveFieldTypegenState<TOptions extends object> {
 	readonly create: ResolveCreatePresence<TOptions>
 	readonly object: ResolveObjectPresence
@@ -288,7 +286,7 @@ export interface ResolveFieldTypegenState<TOptions extends object> {
 export interface FieldDefinition<
 	TKind extends string,
 	TValue,
-	TOptions extends object = FieldOptions<TValue>,
+	TOptions extends object = FieldOptions<TValue, object>,
 	TTypegen extends FieldTypegenState = ResolveFieldTypegenState<TOptions>,
 	TStructuralContainsOperand = never,
 > {

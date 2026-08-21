@@ -72,7 +72,7 @@ export const workflowPlugin = definePlugin({
 				addSchemaField({
 					contributionId: 'workflow-state',
 					name: 'workflowState',
-					field: stringField({ validation: { required: true } }),
+					field: stringField({ required: true }),
 				}),
 				addSchemaIndex({
 					contributionId: 'workflow-state-index',
@@ -111,7 +111,7 @@ const requiredTitlePlugin = definePlugin({
 				replaceSchemaField({
 					contributionId: 'required-title',
 					name: 'title',
-					field: stringField({ validation: { required: true } }),
+					field: stringField({ required: true }),
 					target: {
 						owner: { kind: 'application' },
 						contributionId: 'field:Article.title',

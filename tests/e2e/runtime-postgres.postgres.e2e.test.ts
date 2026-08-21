@@ -49,14 +49,14 @@ const PostSchema = Schema.define({
 		metadata: field.json(),
 		profile: field.object({
 			fields: (field) => ({
-				displayName: field.string({ validation: { required: true } }),
+				displayName: field.string({ required: true }),
 				level: field.int(),
 			}),
 		}),
 		published: field.boolean({ default: false }),
 		rating: field.float(),
 		status: field.enum({ values: ['draft', 'published'] }),
-		title: field.string({ validation: { required: true } }),
+		title: field.string({ required: true }),
 		views: field.int({ default: 0 }),
 		wakeAt: field.time(),
 	}),
@@ -65,7 +65,7 @@ const PostSchema = Schema.define({
 const HookAuditSchema = Schema.define({
 	className: 'RuntimeHookAudit',
 	fields: (field) => ({
-		action: field.string({ validation: { required: true } }),
+		action: field.string({ required: true }),
 	}),
 })
 
@@ -74,10 +74,10 @@ const BulkAccountSchema = Schema.define({
 	fields: (field) => ({
 		email: field.string({
 			indexed: 'unique',
-			validation: { required: true },
+			required: true,
 		}),
-		handle: field.string({ validation: { required: true } }),
-		tenantId: field.string({ validation: { required: true } }),
+		handle: field.string({ required: true }),
+		tenantId: field.string({ required: true }),
 		visits: field.int({ default: 0 }),
 	}),
 	indexes: [{ fields: ['tenantId', 'handle'], unique: true }],
@@ -86,7 +86,7 @@ const BulkAccountSchema = Schema.define({
 const AfterReadIdentitySchema = Schema.define({
 	className: 'RuntimeAfterReadIdentity',
 	fields: (field) => ({
-		title: field.string({ validation: { required: true } }),
+		title: field.string({ required: true }),
 	}),
 })
 
@@ -107,7 +107,7 @@ const authorityObservations: Readonly<{
 const AuthorityRecordSchema = Schema.define({
 	className: 'RuntimeAuthorityRecord',
 	fields: (field) => ({
-		title: field.string({ validation: { required: true } }),
+		title: field.string({ required: true }),
 	}),
 	hooks: {
 		beforeOperation: {
@@ -128,7 +128,7 @@ const hookRollbackError = new Error('rollback HookContext nested write')
 const HookPostSchema = Schema.define({
 	className: 'RuntimeHookPost',
 	fields: (field) => ({
-		title: field.string({ validation: { required: true } }),
+		title: field.string({ required: true }),
 	}),
 	hooks: {
 		beforeOperation: {

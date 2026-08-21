@@ -14,7 +14,7 @@ const Post: SchemaDefinition = Schema.define({
 			indexed: 'unique',
 			onDelete: 'cascade',
 			target: 'PointerUser',
-			validation: { required: true },
+			required: true,
 		}),
 	}),
 })

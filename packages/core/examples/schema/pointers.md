@@ -22,7 +22,7 @@ export const PostSchema = Schema.define({
 	fields: (field) => ({
 		author: field.pointer({
 			target: 'User',
-			validation: { required: true },
+			required: true,
 			indexed: true,
 			onDelete: 'restrict',
 		}),

@@ -202,9 +202,9 @@ export const createAlternativeBehaviorEngine = (
 	const Audit = Schema.define({
 		className: `AlternativeBehaviorAudit${suffix}`,
 		fields: (field) => ({
-			action: field.string({ validation: { required: true } }),
-			label: field.string({ validation: { required: true } }),
-			schema: field.string({ validation: { required: true } }),
+			action: field.string({ required: true }),
+			label: field.string({ required: true }),
+			schema: field.string({ required: true }),
 		}),
 	})
 	const stateProvider = provideCapability(runtimeStateCapability, {

@@ -7,7 +7,7 @@ import { normalizeUpdateExpression } from './normalize.js'
 const accountSchema = Schema.define({
 	className: 'Account',
 	fields: (field) => ({
-		name: field.string({ validation: { required: true } }),
+		name: field.string({ required: true }),
 		nickname: field.string(),
 		visits: field.int(),
 		rating: field.float(),
@@ -18,8 +18,8 @@ const accountSchema = Schema.define({
 		scores: field.int({ list: true }),
 		operationLike: field.object({
 			fields: (field) => ({
-				kind: field.string({ validation: { required: true } }),
-				value: field.int({ validation: { required: true } }),
+				kind: field.string({ required: true }),
+				value: field.int({ required: true }),
 			}),
 		}),
 		lockedCounter: field.int({ immutable: true }),

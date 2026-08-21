@@ -1,6 +1,5 @@
 import { immutableRecord } from '@ultimabase/shared'
 
-import type { FieldValidationOptions } from '../base/contract.js'
 import type { NumericRange } from './numeric.js'
 import { normalizeOrderedRange } from './range.js'
 
@@ -10,9 +9,9 @@ import { normalizeOrderedRange } from './range.js'
 export type LengthValidationOptions = NumericRange
 
 /**
- * Extends presence rules with an optional length range.
+ * Declares an optional length range.
  */
-export interface LengthConstrainedValidation extends FieldValidationOptions {
+export interface LengthConstrainedValidation {
 	/**
 	 * Restricts string characters or binary bytes with inclusive `min` and `max` boundaries.
 	 *

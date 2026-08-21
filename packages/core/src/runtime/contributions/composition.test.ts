@@ -31,14 +31,14 @@ import { composeRuntimeContributionBehavior } from './composition.js'
 const articleSchema = Schema.define({
 	className: 'ContributionStageArticle',
 	fields: (field) => ({
-		title: field.string({ validation: { required: true } }),
+		title: field.string({ required: true }),
 	}),
 })
 
 const foreignSchema = Schema.define({
 	className: 'ContributionStageForeign',
 	fields: (field) => ({
-		title: field.string({ validation: { required: true } }),
+		title: field.string({ required: true }),
 	}),
 })
 

@@ -33,7 +33,7 @@ const articleSchema = Schema.define({
 	className: 'AssembledArticle',
 	fields: (field) => ({
 		title: field.string({
-			validation: { required: true },
+			required: true,
 		}),
 	}),
 })

@@ -256,7 +256,7 @@ restrictions come from installed protected-policy providers:
 const ArticleSchema = Schema.define({
 	className: 'Article',
 	fields: (field) => ({
-		title: field.string({ validation: { required: true } }),
+		title: field.string({ required: true }),
 		published: field.boolean({ default: false }),
 	}),
 })

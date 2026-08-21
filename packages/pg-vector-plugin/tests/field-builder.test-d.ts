@@ -16,7 +16,7 @@ declare const generatedField: FieldBuilder & {
 test('types the generated vector method with the existing exact options', () => {
 	generatedField.vector({
 		dimensions: 3,
-		validation: { required: true },
+		required: true,
 	})
 	expectTypeOf<VectorValue>().toEqualTypeOf<readonly number[]>()
 

@@ -32,11 +32,11 @@ describe('object fields and list metadata', () => {
 	it('adds immutable list metadata without changing the field kind', () => {
 		const field = stringField({
 			list: true,
+			required: true,
 			validation: {
 				length: {
 					min: 1,
 				},
-				required: true,
 			},
 			indexed: true,
 		})
@@ -45,11 +45,11 @@ describe('object fields and list metadata', () => {
 			kind: 'string',
 			options: {
 				list: true,
+				required: true,
 				validation: {
 					length: {
 						min: 1,
 					},
-					required: true,
 				},
 				indexed: true,
 			},
@@ -271,7 +271,7 @@ describe('object fields and list metadata', () => {
 		expect(() => {
 			objectField({
 				fields: {
-					name: stringField({ validation: { required: true } }),
+					name: stringField({ required: true }),
 				},
 				// @ts-expect-error -- Runtime coverage protects missing required values.
 				default: {},
@@ -281,7 +281,7 @@ describe('object fields and list metadata', () => {
 			objectField({
 				fields: {
 					name: stringField({
-						validation: { required: true },
+						required: true,
 						default: 'anonymous',
 					}),
 				},

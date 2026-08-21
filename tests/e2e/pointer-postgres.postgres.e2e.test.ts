@@ -36,7 +36,7 @@ const generatePointerId = (): string => {
 const User = Schema.define({
 	className: 'PointerE2EUser',
 	fields: (field) => ({
-		name: field.string({ validation: { required: true } }),
+		name: field.string({ required: true }),
 	}),
 })
 
@@ -57,9 +57,9 @@ const Post = Schema.define({
 		author: field.pointer({
 			indexed: true,
 			target: 'PointerE2EUser',
-			validation: { required: true },
+			required: true,
 		}),
-		title: field.string({ validation: { required: true } }),
+		title: field.string({ required: true }),
 	}),
 	hooks: {
 		afterOperation: {
@@ -92,7 +92,7 @@ const Post = Schema.define({
 const UniqueTarget = Schema.define({
 	className: 'PointerE2EUniqueTarget',
 	fields: (field) => ({
-		label: field.string({ validation: { required: true } }),
+		label: field.string({ required: true }),
 	}),
 })
 const UniqueSource = Schema.define({
@@ -101,7 +101,7 @@ const UniqueSource = Schema.define({
 		target: field.pointer({
 			indexed: 'unique',
 			target: 'PointerE2EUniqueTarget',
-			validation: { required: true },
+			required: true,
 		}),
 	}),
 })
@@ -109,7 +109,7 @@ const UniqueSource = Schema.define({
 const RestrictedTarget = Schema.define({
 	className: 'PointerE2ERestrictedTarget',
 	fields: (field) => ({
-		label: field.string({ validation: { required: true } }),
+		label: field.string({ required: true }),
 	}),
 })
 const RestrictedSource = Schema.define({
@@ -118,7 +118,7 @@ const RestrictedSource = Schema.define({
 		target: field.pointer({
 			onDelete: 'restrict',
 			target: 'PointerE2ERestrictedTarget',
-			validation: { required: true },
+			required: true,
 		}),
 	}),
 })
@@ -126,7 +126,7 @@ const RestrictedSource = Schema.define({
 const CascadeTarget = Schema.define({
 	className: 'PointerE2ECascadeTarget',
 	fields: (field) => ({
-		label: field.string({ validation: { required: true } }),
+		label: field.string({ required: true }),
 	}),
 })
 const CascadeSource = Schema.define({
@@ -135,7 +135,7 @@ const CascadeSource = Schema.define({
 		target: field.pointer({
 			onDelete: 'cascade',
 			target: 'PointerE2ECascadeTarget',
-			validation: { required: true },
+			required: true,
 		}),
 	}),
 })
@@ -143,7 +143,7 @@ const CascadeSource = Schema.define({
 const NullableTarget = Schema.define({
 	className: 'PointerE2ENullableTarget',
 	fields: (field) => ({
-		label: field.string({ validation: { required: true } }),
+		label: field.string({ required: true }),
 	}),
 })
 const NullableSource = Schema.define({
@@ -159,7 +159,7 @@ const NullableSource = Schema.define({
 const PrivateTarget = Schema.define({
 	className: 'PointerE2EPrivateTarget',
 	fields: (field) => ({
-		label: field.string({ validation: { required: true } }),
+		label: field.string({ required: true }),
 	}),
 	access: {
 		read: false,
@@ -170,7 +170,7 @@ const PrivateSource = Schema.define({
 	fields: (field) => ({
 		target: field.pointer({
 			target: 'PointerE2EPrivateTarget',
-			validation: { required: true },
+			required: true,
 		}),
 	}),
 })

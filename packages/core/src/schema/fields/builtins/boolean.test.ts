@@ -16,9 +16,7 @@ describe('booleanField', () => {
 
 	it('preserves a static default and common metadata', () => {
 		const field = booleanField({
-			validation: {
-				required: true,
-			},
+			required: true,
 			default: false,
 			immutable: true,
 			indexed: true,
@@ -26,28 +24,22 @@ describe('booleanField', () => {
 		})
 
 		expect(field.options).toStrictEqual({
-			validation: {
-				required: true,
-			},
+			required: true,
 			default: false,
 			immutable: true,
 			indexed: true,
 			description: 'Feature enabled state',
 		})
-		expect(Object.isFrozen(field.options.validation)).toBe(true)
+		expect(Object.isFrozen(field.options)).toBe(true)
 	})
 
-	it('copies caller-owned validation metadata', () => {
-		const source = {
-			validation: {
-				required: false,
-			},
-		}
+	it('copies caller-owned presence metadata', () => {
+		const source: { required: boolean } = { required: false }
 		const field = booleanField(source)
 
-		source.validation.required = true
+		source.required = true
 
 		// Presence metadata remains stable after schema registration.
-		expect(field.options.validation?.required).toBe(false)
+		expect(field.options.required).toBe(false)
 	})
 })

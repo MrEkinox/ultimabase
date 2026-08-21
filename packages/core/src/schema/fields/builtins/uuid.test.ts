@@ -16,8 +16,8 @@ describe('uuidField', () => {
 
 	it('preserves UUID validation and common metadata', () => {
 		const field = uuidField({
+			required: true,
 			validation: {
-				required: true,
 				version: 7,
 			},
 			default: '0198ff5f-51b2-7700-83c6-8f443674bb11',
@@ -28,8 +28,8 @@ describe('uuidField', () => {
 
 		// UUID constraints remain portable metadata for runtime validators.
 		expect(field.options).toStrictEqual({
+			required: true,
 			validation: {
-				required: true,
 				version: 7,
 			},
 			default: '0198ff5f-51b2-7700-83c6-8f443674bb11',

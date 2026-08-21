@@ -12,7 +12,7 @@ import { materializeOperationResult } from './materialize-result.js'
 const ResultSchema = Schema.define({
 	className: 'MaterializedResult',
 	fields: (field) => ({
-		title: field.string({ validation: { required: true } }),
+		title: field.string({ required: true }),
 	}),
 })
 

@@ -47,7 +47,7 @@ export const aclFieldType: PluginFieldTypeDefinition<typeof aclFieldKind> =
 
 interface ACLFieldOptions {
 	readonly indexed: true
-	readonly validation: Readonly<{ readonly required: true }>
+	readonly required: true
 }
 
 /** Carries one non-null immutable ACL through ordinary schema inference. */
@@ -76,7 +76,7 @@ const snapshotACL = (value: unknown, path: string): ACL => {
 /** Defines the unchanged adapter-neutral field added to ACL-enabled schemas. */
 export const aclField = definePluginField(
 	aclFieldKind,
-	{ indexed: true, validation: { required: true } },
+	{ indexed: true, required: true },
 	{
 		// The ACL plugin supplies missing create values after ordinary fields resolve.
 		deferRequiredUntilResolveInput: true,

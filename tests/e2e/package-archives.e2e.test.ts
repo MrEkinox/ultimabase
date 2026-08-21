@@ -318,18 +318,17 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 	})
 
 	it('preserves field option documentation through package exports', () => {
-		const validation = readFixtureQuickInfo('validation: { required: true }')
+		const required = readFixtureQuickInfo('required: true')
 
-		// Compiled declarations expose required presence without a nullable switch.
-		expect(validation.display).toContain('StringValidationOptions & {')
-		expect(validation.display).toContain('readonly required?: true')
-		expect(validation.display).not.toContain('readonly nullable?:')
-		expect(validation.display).not.toContain(
-			'FieldValidationOptions & StringValidationOptions',
+		// Compiled declarations expose direct required presence without a nullable switch.
+		expect(required.display).toContain('(property) required?: true')
+		expect(required.display).not.toContain('StringValidationOptions')
+		expect(required.display).not.toContain('nullable')
+		expect(required.documentation).toContain(
+			'Requires a non-null persisted value',
 		)
-		expect(validation.documentation).toContain('Groups presence rules')
 		expect(readFixtureQuickInfo('required: true }').documentation).toContain(
-			'Requires the field',
+			'requires create input',
 		)
 	})
 

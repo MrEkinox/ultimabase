@@ -21,7 +21,7 @@ import {
 const schema = Schema.define({
 	className: 'MutationItemPairs',
 	fields: (field) => ({
-		title: field.string({ validation: { required: true } }),
+		title: field.string({ required: true }),
 	}),
 })
 const schemaNode = new QueryBuilder(schema).ast.schema

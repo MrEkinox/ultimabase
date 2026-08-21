@@ -104,7 +104,7 @@ const snapshotDecimal = (value: unknown, path: string): DecimalValue => {
 export const decimalField = (): DecimalField =>
 	definePluginField(
 		decimalFieldKind,
-		{ indexed: true, validation: { required: true } },
+		{ indexed: true, required: true },
 		{
 			snapshotValue: snapshotDecimal,
 			storageCodec: {

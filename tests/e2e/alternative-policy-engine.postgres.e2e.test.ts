@@ -39,9 +39,9 @@ describe('alternative policy PostgreSQL proof', { concurrent: false }, () => {
 				tenant: 'community',
 			}),
 			fields: (field) => ({
-				secret: field.string({ validation: { required: true } }),
-				tenant: field.string({ validation: { required: true } }),
-				title: field.string({ validation: { required: true } }),
+				secret: field.string({ required: true }),
+				tenant: field.string({ required: true }),
+				title: field.string({ required: true }),
 			}),
 			postgres: { table: 'alternative_policy_documents' },
 		})

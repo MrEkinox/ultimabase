@@ -12,7 +12,7 @@ const BootstrapTodo = Schema.define({
 	className: 'BootstrapTodo',
 	fields: (field) => ({
 		completed: field.boolean({ default: false }),
-		title: field.string({ validation: { required: true } }),
+		title: field.string({ required: true }),
 	}),
 })
 void BootstrapTodo

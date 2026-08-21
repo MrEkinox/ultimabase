@@ -70,6 +70,7 @@ const commonFieldOptions = [
 	'immutable',
 	'indexed',
 	'list',
+	'required',
 	'validation',
 ] as const
 
@@ -90,7 +91,7 @@ const fieldSpecificOptions: FactoryOptionMap = {
 	uuidField: [],
 }
 
-const commonValidationOptions = ['required'] as const
+const commonValidationOptions = [] as const
 const validationSpecificOptions: FactoryOptionMap = {
 	bigintField: ['range'],
 	binaryField: ['length'],
@@ -200,6 +201,7 @@ const topLevelOptionExpressions: Readonly<Record<string, string>> = {
 	immutable: 'true',
 	indexed: "'unique'",
 	list: 'true',
+	required: 'true',
 	timezone: 'false',
 	typeName: "'ExampleType'",
 	validation: '{}',
@@ -212,7 +214,6 @@ const validationOptionExpressions: Readonly<Record<string, string>> = {
 	match: '/^[a-z]+$/u',
 	precision: '12',
 	range: '{}',
-	required: 'true',
 	scale: '2',
 	version: '7',
 }
@@ -290,87 +291,87 @@ const compactFieldSignatureCases: readonly CompactFieldSignatureCase[] = [
 	{
 		factoryName: 'bigintField',
 		expression:
-			"bigintField({ autoIncrement: true, validation: { required: true, range: { min: 1n } }, description: 'runtime-only-hover-marker' })",
+			"bigintField({ autoIncrement: true, required: true, validation: { range: { min: 1n } }, description: 'runtime-only-hover-marker' })",
 		expectedReturn: 'NonDefaultedBigintField<true, false, false, true>',
 	},
 	{
 		factoryName: 'binaryField',
 		expression:
-			"binaryField({ default: new Uint8Array([1]), validation: { required: true, length: { max: 8 } }, description: 'runtime-only-hover-marker' })",
+			"binaryField({ default: new Uint8Array([1]), required: true, validation: { length: { max: 8 } }, description: 'runtime-only-hover-marker' })",
 		expectedReturn: 'DefaultedBinaryField<true, false, false>',
 	},
 	{
 		factoryName: 'booleanField',
 		expression:
-			"booleanField({ default: true, validation: { required: true }, description: 'runtime-only-hover-marker' })",
+			"booleanField({ default: true, required: true, description: 'runtime-only-hover-marker' })",
 		expectedReturn: 'DefaultedBooleanField<true, false, false>',
 	},
 	{
 		factoryName: 'dateField',
 		expression:
-			"dateField({ autoNow: true, validation: { required: true, range: { min: '2026-01-01' } }, description: 'runtime-only-hover-marker' })",
+			"dateField({ autoNow: true, required: true, validation: { range: { min: '2026-01-01' } }, description: 'runtime-only-hover-marker' })",
 		expectedReturn: 'NonDefaultedDateField<true, false, false, true>',
 	},
 	{
 		factoryName: 'dateTimeField',
 		expression:
-			"dateTimeField({ autoNow: true, timezone: true, validation: { required: true, range: { min: '2026-01-01T00:00:00.000Z' } }, description: 'runtime-only-hover-marker' })",
+			"dateTimeField({ autoNow: true, timezone: true, required: true, validation: { range: { min: '2026-01-01T00:00:00.000Z' } }, description: 'runtime-only-hover-marker' })",
 		expectedReturn: 'NonDefaultedDateTimeField<true, false, false, true>',
 	},
 	{
 		factoryName: 'decimalField',
 		expression:
-			"decimalField({ default: '19.99', validation: { required: true, precision: 12, scale: 2, range: { min: '-9999999999.99' } }, indexed: true, description: 'runtime-only-hover-marker' })",
+			"decimalField({ default: '19.99', required: true, validation: { precision: 12, scale: 2, range: { min: '-9999999999.99' } }, indexed: true, description: 'runtime-only-hover-marker' })",
 		expectedReturn: 'DefaultedDecimalField<true, false, false>',
 	},
 	{
 		factoryName: 'enumField',
 		expression:
-			"enumField({ values: ['draft', 'published'] as const, default: 'draft', validation: { required: true }, typeName: 'StatusHoverMarker', description: 'runtime-only-hover-marker' })",
+			"enumField({ values: ['draft', 'published'] as const, default: 'draft', required: true, typeName: 'StatusHoverMarker', description: 'runtime-only-hover-marker' })",
 		expectedReturn:
 			'DefaultedEnumField<readonly ["draft", "published"], true, false, false>',
 	},
 	{
 		factoryName: 'floatField',
 		expression:
-			"floatField({ default: 1.5, validation: { required: true, finite: true, range: { min: 0 } }, description: 'runtime-only-hover-marker' })",
+			"floatField({ default: 1.5, required: true, validation: { finite: true, range: { min: 0 } }, description: 'runtime-only-hover-marker' })",
 		expectedReturn: 'DefaultedFloatField<true, false, false>',
 	},
 	{
 		factoryName: 'intField',
 		expression:
-			"intField({ autoIncrement: true, validation: { required: true, range: { min: 1 } }, description: 'runtime-only-hover-marker' })",
+			"intField({ autoIncrement: true, required: true, validation: { range: { min: 1 } }, description: 'runtime-only-hover-marker' })",
 		expectedReturn: 'NonDefaultedIntField<true, false, false, true>',
 	},
 	{
 		factoryName: 'jsonField',
 		expression:
-			"jsonField({ default: { active: true }, validation: { required: true }, description: 'runtime-only-hover-marker' })",
+			"jsonField({ default: { active: true }, required: true, description: 'runtime-only-hover-marker' })",
 		expectedReturn: 'DefaultedJsonField<true, false, false>',
 	},
 	{
 		factoryName: 'objectField',
 		imports: ['stringField'],
 		expression:
-			"objectField({ fields: { name: stringField() }, default: { name: 'Ada' }, validation: { required: true }, typeName: 'ProfileHoverMarker', description: 'runtime-only-hover-marker' })",
+			"objectField({ fields: { name: stringField() }, default: { name: 'Ada' }, required: true, typeName: 'ProfileHoverMarker', description: 'runtime-only-hover-marker' })",
 		expectedReturn: 'DefaultedObjectField<',
 	},
 	{
 		factoryName: 'stringField',
 		expression:
-			"stringField({ default: 'Ada', validation: { required: true, length: { min: 2 }, match: /^[a-z]+$/u }, description: 'runtime-only-hover-marker' })",
+			"stringField({ default: 'Ada', required: true, validation: { length: { min: 2 }, match: /^[a-z]+$/u }, description: 'runtime-only-hover-marker' })",
 		expectedReturn: 'DefaultedStringField<true, false, false>',
 	},
 	{
 		factoryName: 'timeField',
 		expression:
-			"timeField({ autoNow: true, timezone: true, validation: { required: true, range: { min: '08:00:00.000Z' } }, description: 'runtime-only-hover-marker' })",
+			"timeField({ autoNow: true, timezone: true, required: true, validation: { range: { min: '08:00:00.000Z' } }, description: 'runtime-only-hover-marker' })",
 		expectedReturn: 'NonDefaultedTimeField<true, false, false, true>',
 	},
 	{
 		factoryName: 'uuidField',
 		expression:
-			"uuidField({ default: '018f3f35-a4b2-7cc1-9dd5-3f706ef18a34', validation: { required: true, version: 7 }, description: 'runtime-only-hover-marker' })",
+			"uuidField({ default: '018f3f35-a4b2-7cc1-9dd5-3f706ef18a34', required: true, validation: { version: 7 }, description: 'runtime-only-hover-marker' })",
 		expectedReturn: 'DefaultedUuidField<true, false, false>',
 	},
 ]

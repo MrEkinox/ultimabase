@@ -46,7 +46,7 @@ const createFixture = (reverseOrder = false) => {
 	const Author = Schema.define({
 		className: 'TypegenAuthor',
 		fields: (field) => ({
-			name: field.string({ validation: { required: true } }),
+			name: field.string({ required: true }),
 			articles: field.relation({ target: 'TypegenArticle' }),
 		}),
 	})
@@ -58,18 +58,18 @@ const createFixture = (reverseOrder = false) => {
 				title: field.string({
 					description: 'The public title.',
 					indexed: true,
-					validation: { required: true },
+					required: true,
 				}),
 				slug: field.string({ default: 'draft', immutable: true }),
 				matrix: field.int({ list: true }),
 				status: field.enum({
 					typeName: 'PublicationStatus',
-					validation: { required: true },
+					required: true,
 					values: ['published', 'draft'],
 				}),
 				billingAddress: field.object({
 					fields: (field) => ({
-						city: field.string({ validation: { required: true } }),
+						city: field.string({ required: true }),
 						country: field.enum({
 							typeName: 'CountryCode',
 							values: ['FR', 'US'],
@@ -79,7 +79,7 @@ const createFixture = (reverseOrder = false) => {
 				}),
 				shippingAddress: field.object({
 					fields: (field) => ({
-						city: field.string({ validation: { required: true } }),
+						city: field.string({ required: true }),
 						country: field.enum({
 							typeName: 'CountryCode',
 							values: ['US', 'FR'],
@@ -90,7 +90,7 @@ const createFixture = (reverseOrder = false) => {
 				metadata: field.json(),
 				author: field.pointer({
 					target: 'TypegenAuthor',
-					validation: { required: true },
+					required: true,
 				}),
 				related: field.relation({
 					target: 'TypegenArticle',

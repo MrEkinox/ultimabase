@@ -24,7 +24,6 @@ import { createFieldDefinition } from '../base/definition.js'
 import {
 	assertFieldOptions,
 	fieldOptionsBaseKeys,
-	fieldValidationOptionKeys,
 	normalizeFieldOptions,
 	normalizeFlatValidation,
 	type BuiltInFieldOptionsContract,
@@ -81,7 +80,7 @@ export type PointerField<
 const pointerFieldOptionsContract: BuiltInFieldOptionsContract = {
 	kind: 'pointer',
 	optionKeys: [...fieldOptionsBaseKeys, 'onDelete'],
-	validationOptionKeys: fieldValidationOptionKeys,
+	validationOptionKeys: [],
 }
 
 /** Selects only top-level pointer fields declared by one exact schema. */
@@ -106,15 +105,6 @@ type ResolvedPointerField<
 	ScalarFieldTypegenState<TRequired, false, TImmutable, false>
 >
 
-/** Keeps presence literals inferable while preserving option-level editor help. */
-interface CompactPointerValidationOptions<TRequired extends boolean> {
-	/**
-	 * Requires an explicit pointer during creation.
-	 * @example `required: true`
-	 */
-	readonly required?: TRequired
-}
-
 type CompactPointerFieldOptions<
 	TTarget extends SchemaDefinition,
 	TRequired extends boolean,
@@ -122,13 +112,13 @@ type CompactPointerFieldOptions<
 	TOnDelete extends PointerReferentialAction,
 > = Omit<
 	PointerFieldOptions<TTarget>,
-	'immutable' | 'onDelete' | 'validation'
+	'immutable' | 'onDelete' | 'required'
 > & {
 	/**
-	 * Groups the pointer's required-presence rule.
-	 * @example `validation: { required: true }`
+	 * Requires an explicit non-null pointer during creation.
+	 * @example `required: true`
 	 */
-	readonly validation?: CompactPointerValidationOptions<TRequired>
+	readonly required?: TRequired
 	/**
 	 * Prevents replacement of the pointer after creation.
 	 * @example `immutable: true`
@@ -239,7 +229,7 @@ const normalizePointerMetadata = (
 		throw new TypeError('onDelete must be "restrict", "cascade", or "setNull"')
 	}
 
-	if (onDelete === 'setNull' && options.validation?.required === true) {
+	if (onDelete === 'setNull' && options.required === true) {
 		throw new TypeError('onDelete "setNull" requires an optional pointer')
 	}
 
@@ -279,7 +269,7 @@ const createPointerSnapshot =
  * ```ts
  * pointerField({
  *   target: () => User,
- *   validation: { required: true },
+ *   required: true,
  *   indexed: true,
  * })
  * ```

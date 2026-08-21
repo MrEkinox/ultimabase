@@ -28,7 +28,7 @@ const createGeneratedRegistry = (): string => {
 	const Author = Schema.define({
 		className: 'SemanticAuthor',
 		fields: (field) => ({
-			name: field.string({ validation: { required: true } }),
+			name: field.string({ required: true }),
 			articles: field.relation({ target: 'SemanticArticle' }),
 		}),
 	})
@@ -37,7 +37,7 @@ const createGeneratedRegistry = (): string => {
 		fields: (field) => {
 			const generatedField = field as GeneratedFixtureBuilder
 			return {
-				title: field.string({ validation: { required: true } }),
+				title: field.string({ required: true }),
 				views: field.int(),
 				scores: field.int({ list: true }),
 				statuses: field.enum({
@@ -47,13 +47,13 @@ const createGeneratedRegistry = (): string => {
 				}),
 				status: field.enum({
 					typeName: 'SemanticStatus',
-					validation: { required: true },
+					required: true,
 					values: ['draft', 'published'],
 				}),
 				profile: field.object({
 					fields: (field) => ({
 						displayName: field.string({
-							validation: { required: true },
+							required: true,
 						}),
 					}),
 					typeName: 'SemanticProfile',
@@ -61,7 +61,7 @@ const createGeneratedRegistry = (): string => {
 				profiles: field.object({
 					fields: (field) => ({
 						displayName: field.string({
-							validation: { required: true },
+							required: true,
 						}),
 					}),
 					list: true,
@@ -69,7 +69,7 @@ const createGeneratedRegistry = (): string => {
 				}),
 				author: field.pointer({
 					target: 'SemanticAuthor',
-					validation: { required: true },
+					required: true,
 				}),
 				related: field.relation({
 					target: 'SemanticArticle',
@@ -99,7 +99,7 @@ const createGeneratedRoleRegistry = (): string => {
 	const Member = Schema.define({
 		className: 'SemanticRoleMember',
 		fields: (field) => ({
-			name: field.string({ validation: { required: true } }),
+			name: field.string({ required: true }),
 		}),
 	})
 	const roleCandidate: unknown = RoleSchema.define({
@@ -334,7 +334,7 @@ import { RoleSchema } from '@ultimabase/roles-plugin'
 const Member = Schema.define({
   className: 'SemanticRoleMember',
   fields: (field) => ({
-    name: field.string({ validation: { required: true } }),
+    name: field.string({ required: true }),
   }),
 })
 const AppRole = RoleSchema.define({
@@ -389,7 +389,7 @@ const SemanticAuthor = Schema.define({
     articles: field.relation({
       target: 'SemanticArticle',
     }),
-    name: field.string({ validation: { required: true } }),
+    name: field.string({ required: true }),
   }),
 })
 
@@ -398,13 +398,13 @@ const SemanticArticle = Schema.define({
   fields: (field) => ({
     author: field.pointer({
       target: 'SemanticAuthor',
-      validation: { required: true },
+      required: true,
     }),
     embedding: field./* public-plugin-method */vector({ dimensions: 3 }),
     profile: field.object({
       fields: (field) => ({
         displayName: field.string({
-          validation: { required: true },
+          required: true,
           access: {
             read: {
               output: ({ value }) => value !== null && value.length > 0,
@@ -422,10 +422,10 @@ const SemanticArticle = Schema.define({
     }),
     scores: field.int({ list: true }),
     status: field.enum({
-      validation: { required: true },
+      required: true,
       values: ['draft', 'published'],
     }),
-    title: field./* public-field-method */string({ validation: { required: true } }),
+    title: field./* public-field-method */string({ required: true }),
     views: field.int(),
   }),
   indexes: [{ fields: ['title', 'status'] }],
@@ -841,7 +841,7 @@ import { Schema } from '@ultimabase/core'
 Schema.define({
   className: 'SemanticAuthor',
   fields: (field) => ({
-    name: field.string({ validation: { required: true } }),
+    name: field.string({ required: true }),
   }),
   indexes: [{ fields: ['name', 'missing'] }],
 })

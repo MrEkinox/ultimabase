@@ -33,7 +33,7 @@ const currentMemberId = new RequestContextValue<string>(
 const Member = Schema.define({
 	className: 'ACLRoleSchemaMember',
 	fields: (field) => ({
-		email: field.string({ validation: { required: true } }),
+		email: field.string({ required: true }),
 	}),
 	postgres: { table: 'acl_role_schema_members' },
 })

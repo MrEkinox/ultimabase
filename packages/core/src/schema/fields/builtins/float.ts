@@ -1,7 +1,6 @@
 import { assertOptionalBoolean } from '@ultimabase/shared'
 import {
 	fieldOptionKeys,
-	fieldValidationOptionKeys,
 	normalizeFieldOptions,
 	orderedRangeOptionKeys,
 	type BuiltInFieldOptionsContract,
@@ -56,7 +55,7 @@ export type FloatField<TTypegen extends FieldTypegenState = FieldTypegenState> =
 const floatFieldOptionsContract: BuiltInFieldOptionsContract = {
 	kind: 'float',
 	optionKeys: fieldOptionKeys,
-	validationOptionKeys: [...fieldValidationOptionKeys, 'finite', 'range'],
+	validationOptionKeys: ['finite', 'range'],
 	nestedValidation: [{ key: 'range', optionKeys: orderedRangeOptionKeys }],
 }
 

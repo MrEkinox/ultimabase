@@ -8,7 +8,7 @@ export const createStoredPluginField = (): PluginFieldDefinition<
 > =>
 	definePluginField(
 		'fixture.stored-json',
-		{ indexed: true, validation: { required: true } },
+		{ indexed: true, required: true },
 		{
 			snapshotValue: (value: unknown, path: string): string => {
 				if (typeof value !== 'string') {

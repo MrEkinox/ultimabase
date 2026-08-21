@@ -17,9 +17,7 @@ export interface SystemFieldOptions<TGeneration extends SystemFieldGeneration> {
 	readonly system: true
 	readonly generatedOn: TGeneration
 	readonly immutable: true
-	readonly validation: {
-		readonly required: true
-	}
+	readonly required: true
 }
 
 /**
@@ -84,9 +82,6 @@ export const reservedSystemFieldNames: readonly [
 
 export type ReservedSystemFieldName = (typeof reservedSystemFieldNames)[number]
 
-const requiredSystemValidation: Readonly<{ readonly required: true }> =
-	immutableRecord({ required: true })
-
 const createSystemOptions = <
 	const TGeneration extends SystemFieldGeneration,
 	const TOptions extends object,
@@ -99,7 +94,7 @@ const createSystemOptions = <
 		system: true,
 		generatedOn,
 		immutable: true,
-		validation: requiredSystemValidation,
+		required: true,
 	})
 
 const id: IdSystemField = createFieldDefinition(

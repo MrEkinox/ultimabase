@@ -6,7 +6,7 @@ import { RoleSchema, hasRole } from './index.js'
 const User = Schema.define({
 	className: 'TypedRoleUser',
 	fields: (field) => ({
-		email: field.string({ validation: { required: true } }),
+		email: field.string({ required: true }),
 	}),
 })
 const AppRole = RoleSchema.define({

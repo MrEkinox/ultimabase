@@ -13,8 +13,8 @@ import {
 test('preserves time options and exact literals', () => {
 	const field = timeField({
 		timezone: true,
+		required: true,
 		validation: {
-			required: true,
 			range: {
 				min: '08:00:00.000Z',
 				max: '18:00:00.000Z',
@@ -57,8 +57,8 @@ test('rejects incompatible time metadata', () => {
 	timeField({ autoNow: true, list: true })
 
 	timeField({
+		required: true,
 		validation: {
-			required: true,
 			// @ts-expect-error -- Nullability is derived and cannot be configured.
 			nullable: true,
 		},

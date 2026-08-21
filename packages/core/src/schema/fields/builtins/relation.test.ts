@@ -100,6 +100,7 @@ describe('relationField', () => {
 		['immutable', { immutable: true, target: () => RelationTag }],
 		['indexed', { indexed: true, target: () => RelationTag }],
 		['list', { list: true, target: () => RelationTag }],
+		['required', { required: true, target: () => RelationTag }],
 		['validation', { target: () => RelationTag, validation: {} }],
 	])('rejects unsupported %s metadata', (key, options) => {
 		expect(() => {

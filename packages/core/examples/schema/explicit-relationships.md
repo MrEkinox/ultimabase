@@ -10,14 +10,14 @@ import { Schema } from '@ultimabase/core'
 export const Member = Schema.define({
 	className: 'Member',
 	fields: (field) => ({
-		name: field.string({ validation: { required: true } }),
+		name: field.string({ required: true }),
 	}),
 })
 
 export const Project = Schema.define({
 	className: 'Project',
 	fields: (field) => ({
-		title: field.string({ validation: { required: true } }),
+		title: field.string({ required: true }),
 	}),
 })
 
@@ -27,16 +27,16 @@ export const Membership = Schema.define({
 		member: field.pointer({
 			onDelete: 'cascade',
 			target: 'Member',
-			validation: { required: true },
+			required: true,
 		}),
 		position: field.int({ default: 0 }),
 		project: field.pointer({
 			onDelete: 'cascade',
 			target: 'Project',
-			validation: { required: true },
+			required: true,
 		}),
 		role: field.enum({
-			validation: { required: true },
+			required: true,
 			values: ['editor', 'viewer'] as const,
 		}),
 		internalNote: field.string(),

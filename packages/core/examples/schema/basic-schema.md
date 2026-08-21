@@ -16,15 +16,15 @@ export const UserSchema = Schema.define({
 	fields: (field) => ({
 		username: field.string({
 			indexed: 'unique',
+			required: true,
 			validation: {
-				required: true,
 				length: { min: 3, max: 32 },
 				match: /^[a-z0-9_]+$/u,
 			},
 		}),
 		displayName: field.string({
+			required: true,
 			validation: {
-				required: true,
 				length: { min: 1, max: 80 },
 			},
 		}),

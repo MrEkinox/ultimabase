@@ -13,8 +13,8 @@ import {
 test('preserves date-time options and exact literals', () => {
 	const field = dateTimeField({
 		timezone: false,
+		required: true,
 		validation: {
-			required: true,
 			range: {
 				min: '2026-01-01T00:00:00.000',
 				max: '2026-12-31T23:59:59.999',
@@ -57,8 +57,8 @@ test('rejects incompatible date-time metadata', () => {
 	dateTimeField({ autoNow: true, list: true })
 
 	dateTimeField({
+		required: true,
 		validation: {
-			required: true,
 			// @ts-expect-error -- Nullability is derived and cannot be configured.
 			nullable: true,
 		},

@@ -72,9 +72,7 @@ test('infers one-dimensional list values', () => {
 test('infers object list values from reusable fields', () => {
 	const fields = {
 		name: stringField({
-			validation: {
-				required: true,
-			},
+			required: true,
 		}),
 		active: booleanField(),
 		createdAt: dateField(),
@@ -142,7 +140,7 @@ test('rejects invalid list declarations and structured defaults', () => {
 	objectField({
 		fields: {
 			optional: stringField(),
-			required: stringField({ validation: { required: true } }),
+			required: stringField({ required: true }),
 		},
 		// @ts-expect-error -- Required create inputs cannot be omitted from defaults.
 		default: {},

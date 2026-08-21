@@ -14,7 +14,7 @@ describe('FieldBuilder', () => {
 	it('compiles the same metadata as the immutable field factories', () => {
 		const reusableSlug = stringField({
 			indexed: 'unique',
-			validation: { required: true },
+			required: true,
 		})
 		const SchemaWithFields = Schema.define({
 			className: 'MetadataFromFieldBuilder',
@@ -29,7 +29,7 @@ describe('FieldBuilder', () => {
 					typeName: 'BuilderMetadataProfile',
 				}),
 				slug: reusableSlug,
-				title: field.string({ validation: { required: true } }),
+				title: field.string({ required: true }),
 			}),
 		})
 
@@ -46,7 +46,7 @@ describe('FieldBuilder', () => {
 			className: 'BuilderTarget',
 			fields: () => ({}),
 		})
-		const reusable = stringField({ validation: { required: true } })
+		const reusable = stringField({ required: true })
 		let rootBuilder: FieldBuilder | undefined
 		let nestedBuilder: EmbeddedFieldBuilder | undefined
 		const Built = Schema.define({
@@ -77,7 +77,7 @@ describe('FieldBuilder', () => {
 					slug: reusable,
 					status: field.enum({ values: ['draft', 'published'] }),
 					targets: field.relation({ target: 'BuilderTarget' }),
-					title: field.string({ validation: { required: true } }),
+					title: field.string({ required: true }),
 					views: field.int({ default: 0 }),
 				}
 			},

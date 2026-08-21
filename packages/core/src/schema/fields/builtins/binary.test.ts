@@ -19,8 +19,8 @@ describe('binaryField', () => {
 
 	it('preserves byte-length validation and common metadata', () => {
 		const field = binaryField({
+			required: true,
 			validation: {
-				required: true,
 				length: {
 					min: 1,
 					max: 1024,
@@ -35,8 +35,8 @@ describe('binaryField', () => {
 		)
 
 		expect(field.options).toStrictEqual({
+			required: true,
 			validation: {
-				required: true,
 				length: {
 					min: 1,
 					max: 1024,

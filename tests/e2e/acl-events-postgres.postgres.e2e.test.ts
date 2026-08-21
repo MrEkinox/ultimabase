@@ -32,7 +32,7 @@ let rejectNextUpdate = false
 const Post = Schema.define({
 	className: 'ACLChangeEventPost',
 	fields: (field) => ({
-		title: field.string({ validation: { required: true } }),
+		title: field.string({ required: true }),
 	}),
 	hooks: {
 		afterOperation: {

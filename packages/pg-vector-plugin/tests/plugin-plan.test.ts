@@ -45,7 +45,7 @@ describe('pgVectorPlugin field plans', () => {
 	it('claims and reads a vector plan preserved by Schema', async () => {
 		const field = vectorField({
 			dimensions: 3,
-			validation: { required: true },
+			required: true,
 		})
 		const schema = Schema.define({
 			className: 'Document',

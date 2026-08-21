@@ -26,7 +26,7 @@ describe('pg-vector FieldBuilder method', () => {
 				return {
 					embedding: vectorBuilder(field).vector({
 						dimensions: 3,
-						validation: { required: true },
+						required: true,
 					}),
 				}
 			},
@@ -43,7 +43,7 @@ describe('pg-vector FieldBuilder method', () => {
 		}
 		const expected = vectorField({
 			dimensions: 3,
-			validation: { required: true },
+			required: true,
 		})
 
 		expect(declarations).toBe(1)

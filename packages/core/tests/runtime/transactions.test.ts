@@ -20,7 +20,7 @@ import {
 const articleSchema = Schema.define({
 	className: 'TransactionArticle',
 	fields: (field) => ({
-		title: field.string({ validation: { required: true } }),
+		title: field.string({ required: true }),
 		views: field.int({ default: 0 }),
 	}),
 })

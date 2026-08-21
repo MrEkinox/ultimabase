@@ -14,14 +14,14 @@ const membershipTrace: string[] = []
 const Member = Schema.define({
 	className: 'ExplicitEdgeMember',
 	fields: (field) => ({
-		name: field.string({ validation: { required: true } }),
+		name: field.string({ required: true }),
 	}),
 })
 
 const Project = Schema.define({
 	className: 'ExplicitEdgeProject',
 	fields: (field) => ({
-		title: field.string({ validation: { required: true } }),
+		title: field.string({ required: true }),
 	}),
 })
 
@@ -32,16 +32,16 @@ const Membership = Schema.define({
 		member: field.pointer({
 			onDelete: 'cascade',
 			target: 'ExplicitEdgeMember',
-			validation: { required: true },
+			required: true,
 		}),
 		position: field.int({ default: 0 }),
 		project: field.pointer({
 			onDelete: 'cascade',
 			target: 'ExplicitEdgeProject',
-			validation: { required: true },
+			required: true,
 		}),
 		role: field.enum({
-			validation: { required: true },
+			required: true,
 			values: ['editor', 'viewer'] as const,
 		}),
 	}),

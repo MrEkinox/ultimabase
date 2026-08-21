@@ -68,7 +68,7 @@ export const createOfficialHooksConformanceFixture = () => {
 						return input.value === null ? null : input.value.trim()
 					},
 				},
-				validation: { required: true },
+				required: true,
 			}),
 		}),
 		hooks: {
@@ -225,7 +225,7 @@ export const createOfficialAccessConformanceFixture = (
 							originalValue === 'visible' && value !== 'denied-transition',
 					},
 				},
-				validation: { required: true },
+				required: true,
 			}),
 			visible: field.boolean(),
 		}),

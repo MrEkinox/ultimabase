@@ -1,6 +1,5 @@
 import {
 	fieldOptionKeys,
-	fieldValidationOptionKeys,
 	normalizeFieldOptions,
 	normalizeFlatValidation,
 	type BuiltInFieldOptionsContract,
@@ -42,7 +41,7 @@ export type JsonField<TTypegen extends FieldTypegenState = FieldTypegenState> =
 const jsonFieldOptionsContract: BuiltInFieldOptionsContract = {
 	kind: 'json',
 	optionKeys: fieldOptionKeys,
-	validationOptionKeys: fieldValidationOptionKeys,
+	validationOptionKeys: [],
 }
 
 /** Provides JSON-specific names for the shared compact scalar contract. */

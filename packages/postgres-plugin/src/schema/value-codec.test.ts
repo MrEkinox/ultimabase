@@ -168,7 +168,7 @@ describe('PostgreSQL Drizzle column value mapping', () => {
 			fields: (field) => ({
 				profile: field.object({
 					fields: (field) => ({
-						count: field.bigint({ validation: { required: true } }),
+						count: field.bigint({ required: true }),
 					}),
 				}),
 			}),

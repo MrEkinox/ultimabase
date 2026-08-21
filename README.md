@@ -17,9 +17,7 @@ export const UserSchema = Schema.define({
 	className: 'User',
 	fields: (field) => ({
 		name: field.string({
-			validation: {
-				required: true,
-			},
+			required: true,
 		}),
 		isActive: field.boolean({
 			default: true,

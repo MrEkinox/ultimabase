@@ -31,7 +31,7 @@ const currentMemberId = new RequestContextValue<string>(
 const Member = Schema.define({
 	className: 'ACLRelationshipMember',
 	fields: (field) => ({
-		name: field.string({ validation: { required: true } }),
+		name: field.string({ required: true }),
 	}),
 	postgres: { table: 'acl_relationship_members' },
 })
@@ -55,7 +55,7 @@ const emptyACL = new ACL()
 const Author = Schema.define({
 	className: 'ACLRelationshipAuthor',
 	fields: (field) => ({
-		name: field.string({ validation: { required: true } }),
+		name: field.string({ required: true }),
 	}),
 	acl: {
 		default: emptyACL,
@@ -67,7 +67,7 @@ const Author = Schema.define({
 const Tag = Schema.define({
 	className: 'ACLRelationshipTag',
 	fields: (field) => ({
-		label: field.string({ validation: { required: true } }),
+		label: field.string({ required: true }),
 	}),
 	acl: {
 		default: emptyACL,
@@ -81,7 +81,7 @@ const Article = Schema.define({
 	fields: (field) => ({
 		author: field.pointer({ target: 'ACLRelationshipAuthor' }),
 		tags: field.relation({ target: 'ACLRelationshipTag' }),
-		title: field.string({ validation: { required: true } }),
+		title: field.string({ required: true }),
 	}),
 	acl: {
 		default: emptyACL,

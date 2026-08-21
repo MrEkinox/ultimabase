@@ -24,9 +24,7 @@ test('infers a literal union from an inline list without as const', () => {
 	const field = enumField({
 		typeName: 'PublicationStatus',
 		values: ['draft', 'published', 'archived'],
-		validation: {
-			required: true,
-		},
+		required: true,
 		default: 'draft',
 		indexed: true,
 	})
@@ -105,8 +103,8 @@ test('rejects invalid enum sources and metadata', () => {
 	})
 	enumField({
 		values: ['draft'],
+		required: true,
 		validation: {
-			required: true,
 			// @ts-expect-error -- Nullability is derived and cannot be configured.
 			nullable: true,
 		},

@@ -281,7 +281,7 @@ describe('plugin schema field transformations', () => {
 		if (originalTitle === undefined || originalDescription === undefined) {
 			throw new TypeError('Expected precompiled fixture fields')
 		}
-		const normalizedTitle = stringField({ validation: { required: true } })
+		const normalizedTitle = stringField({ required: true })
 		const transformer = definePlugin({
 			core: '^0.0.0',
 			pluginId: 'fixture.schema-transformer',
@@ -339,7 +339,7 @@ describe('plugin schema field transformations', () => {
 		expect(Post.fields.title).toBeUndefined()
 		expect(Post.fields.description).toBeUndefined()
 		expect(Post.fields.headline?.options).toMatchObject({
-			validation: { required: true },
+			required: true,
 		})
 		expect(Post.provenance.fields.headline).toMatchObject({
 			contributionId: 'headline-title',

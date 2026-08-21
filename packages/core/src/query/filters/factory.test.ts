@@ -19,7 +19,7 @@ const fixtureSchema = Schema.define({
 	className: 'Fixture',
 	fields: (field) => ({
 		title: field.string(),
-		requiredTitle: field.string({ validation: { required: true } }),
+		requiredTitle: field.string({ required: true }),
 		count: field.int(),
 		tags: field.string({ list: true }),
 		metadata: field.object({
@@ -46,7 +46,7 @@ const snapshotCode = (
 
 const portableCodeField = definePluginField(
 	'fixture.query.portable-code',
-	{ validation: { required: true } },
+	{ required: true },
 	{
 		snapshotValue: snapshotCode,
 		storageCodec: {
@@ -59,7 +59,7 @@ const portableCodeField = definePluginField(
 )
 const containedCodeField = definePluginField(
 	'fixture.query.contained-code',
-	{ validation: { required: true } },
+	{ required: true },
 	{
 		snapshotValue: snapshotCode,
 		storageCodec: {
@@ -81,7 +81,7 @@ const containedCodeField = definePluginField(
 )
 const runtimeOnlyCodeField = definePluginField(
 	'fixture.query.runtime-code',
-	{ validation: { required: true } },
+	{ required: true },
 	{ snapshotValue: snapshotCode },
 )
 const pluginFieldSchema = Schema.define({

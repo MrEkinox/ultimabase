@@ -54,14 +54,14 @@ const createTestRuntimeContributions = (
 const articleSchema = Schema.define({
 	className: 'ContributionArticle',
 	fields: (field) => ({
-		title: field.string({ validation: { required: true } }),
+		title: field.string({ required: true }),
 	}),
 })
 
 const foreignSchema = Schema.define({
 	className: 'ContributionForeign',
 	fields: (field) => ({
-		title: field.string({ validation: { required: true } }),
+		title: field.string({ required: true }),
 	}),
 })
 

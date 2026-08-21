@@ -15,7 +15,6 @@ import type {
 	FieldTypegenState,
 	FieldOptions,
 	FieldOptionsWithoutNullable,
-	FieldValidationOptions,
 	ResolveFieldTypegenState,
 	ValidatedFieldOptions,
 } from './base/contract.js'
@@ -71,7 +70,7 @@ type PluginFieldContainmentOperand<TCapability> = TCapability extends {
  */
 export interface PluginFieldNormalizers<
 	TValue,
-	TValidation extends FieldValidationOptions,
+	TValidation extends object,
 	TDeferred extends boolean = false,
 	TStructuralContainsOperand = never,
 > {
@@ -160,7 +159,7 @@ const normalizePluginFieldStorageCodec = <TValue>(
 export const definePluginField = <
 	TValue,
 	const TKind extends string,
-	TValidation extends FieldValidationOptions,
+	TValidation extends object,
 	const TOptions extends FieldOptions<TValue, TValidation>,
 	const TDeferred extends boolean = false,
 	const TStructuralContains extends

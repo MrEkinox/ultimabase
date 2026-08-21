@@ -15,11 +15,13 @@ export const ProductSchema = Schema.define({
 	fields: (field) => ({
 		externalId: field.uuid({
 			indexed: 'unique',
-			validation: { required: true, version: 7 },
+			required: true,
+			validation: { version: 7 },
 		}),
 		sequence: field.bigint({ autoIncrement: true }),
 		name: field.string({
-			validation: { required: true, length: { min: 1, max: 120 } },
+			required: true,
+			validation: { length: { min: 1, max: 120 } },
 		}),
 		stock: field.int({
 			default: 0,
@@ -32,8 +34,8 @@ export const ProductSchema = Schema.define({
 			},
 		}),
 		price: field.decimal({
+			required: true,
 			validation: {
-				required: true,
 				precision: 12,
 				scale: 2,
 				range: { min: '0.00' },

@@ -14,7 +14,7 @@ describe('portable plugin field filters', () => {
 		const portableField = () =>
 			definePluginField(
 				'fixture.portable-value',
-				{ validation: { required: true } },
+				{ required: true },
 				{
 					snapshotValue: (value: unknown) => value,
 					storageCodec: {

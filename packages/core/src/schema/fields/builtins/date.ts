@@ -1,6 +1,5 @@
 import {
 	fieldOptionKeys,
-	fieldValidationOptionKeys,
 	normalizeFieldOptions,
 	orderedRangeOptionKeys,
 	type BuiltInFieldOptionsContract,
@@ -33,7 +32,7 @@ import {
 export type DateRangeValidationOptions = TemporalRangeValidationOptions
 
 /**
- * Groups presence and calendar-day constraints under one validation boundary.
+ * Groups calendar-day constraints under one validation boundary.
  */
 export type DateValidationOptions = TemporalValidationOptions
 
@@ -51,7 +50,7 @@ export type DateField<TTypegen extends FieldTypegenState = FieldTypegenState> =
 const dateFieldOptionsContract: BuiltInFieldOptionsContract = {
 	kind: 'date',
 	optionKeys: [...fieldOptionKeys, 'autoNow'],
-	validationOptionKeys: [...fieldValidationOptionKeys, 'range'],
+	validationOptionKeys: ['range'],
 	nestedValidation: [{ key: 'range', optionKeys: orderedRangeOptionKeys }],
 }
 

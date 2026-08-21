@@ -23,7 +23,7 @@ test('exports structural operation and field plans', () => {
 	const schema = Schema.define({
 		className: 'User',
 		fields: (field) => ({
-			name: field.string({ validation: { required: true } }),
+			name: field.string({ required: true }),
 			profile: field.object({ fields: (field) => ({ bio: field.string() }) }),
 			tags: field.string({ list: true }),
 		}),

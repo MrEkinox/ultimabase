@@ -1,7 +1,6 @@
 import {
 	assertFieldOptions,
 	fieldOptionKeys,
-	fieldValidationOptionKeys,
 	normalizeFieldOptions,
 	orderedRangeOptionKeys,
 	type BuiltInFieldOptionsContract,
@@ -35,7 +34,7 @@ import { normalizeSafeIntegerValue } from '../base/value.js'
 export type IntRangeValidationOptions = NumericRange
 
 /**
- * Combines common presence rules with safe-integer range constraints.
+ * Defines safe-integer range constraints.
  */
 export type IntValidationOptions = NumericValidationOptions
 
@@ -63,7 +62,7 @@ export type IntField<TTypegen extends FieldTypegenState = FieldTypegenState> =
 const intFieldOptionsContract: BuiltInFieldOptionsContract = {
 	kind: 'int',
 	optionKeys: [...fieldOptionKeys, 'autoIncrement'],
-	validationOptionKeys: [...fieldValidationOptionKeys, 'range'],
+	validationOptionKeys: ['range'],
 	nestedValidation: [{ key: 'range', optionKeys: orderedRangeOptionKeys }],
 }
 

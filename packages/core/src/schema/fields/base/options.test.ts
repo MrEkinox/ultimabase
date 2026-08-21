@@ -11,7 +11,7 @@ import {
 describe('readFieldTypegenState', () => {
 	it('describes required, defaulted, immutable, and listed scalar fields', () => {
 		expect(
-			readFieldTypegenState(stringField({ validation: { required: true } })),
+			readFieldTypegenState(stringField({ required: true })),
 		).toStrictEqual({
 			create: 'required',
 			list: false,
@@ -25,7 +25,7 @@ describe('readFieldTypegenState', () => {
 					default: ['draft'] as const,
 					immutable: true,
 					list: true,
-					validation: { required: true },
+					required: true,
 				}),
 			),
 		).toStrictEqual({

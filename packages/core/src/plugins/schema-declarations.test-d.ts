@@ -179,7 +179,7 @@ test('requires exact transform targets and nominal patch operations', () => {
 	expectTypeOf(
 		replaceSchemaField({
 			contributionId: 'replace-title',
-			field: stringField({ validation: { required: true } }),
+			field: stringField({ required: true }),
 			name: 'title',
 			target,
 		}),

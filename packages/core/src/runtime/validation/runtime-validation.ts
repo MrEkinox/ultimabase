@@ -471,9 +471,7 @@ const validateSchemaInput = (
 }
 
 const isRequiredOutput = (field: GenericField): boolean =>
-	('validation' in field.options &&
-		isPlainRecord(field.options.validation) &&
-		field.options.validation.required === true) ||
+	('required' in field.options && field.options.required === true) ||
 	'default' in field.options ||
 	('autoNow' in field.options && field.options.autoNow === true) ||
 	('autoIncrement' in field.options && field.options.autoIncrement === true) ||

@@ -1,6 +1,5 @@
 import {
 	fieldOptionKeys,
-	fieldValidationOptionKeys,
 	normalizeFieldOptions,
 	normalizeFlatValidation,
 	type BuiltInFieldOptionsContract,
@@ -21,7 +20,7 @@ import {
 import { normalizeBooleanValue } from '../base/value.js'
 
 /**
- * Names the presence-only validation contract exposed by boolean fields.
+ * Names the empty value-constraint contract exposed by boolean fields.
  */
 export type BooleanValidationOptions = FieldValidationOptions
 
@@ -40,7 +39,7 @@ export type BooleanField<
 const booleanFieldOptionsContract: BuiltInFieldOptionsContract = {
 	kind: 'boolean',
 	optionKeys: fieldOptionKeys,
-	validationOptionKeys: fieldValidationOptionKeys,
+	validationOptionKeys: [],
 }
 
 /** Provides boolean-specific names for the shared compact scalar contract. */

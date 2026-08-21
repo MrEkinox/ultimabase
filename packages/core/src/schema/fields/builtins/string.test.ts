@@ -18,8 +18,8 @@ describe('stringField', () => {
 	it('preserves declarative string constraints and common metadata', () => {
 		const pattern = /^[a-z]+$/u
 		const source = {
+			required: true,
 			validation: {
-				required: true,
 				length: {
 					min: 2,
 					max: 40,
@@ -40,8 +40,8 @@ describe('stringField', () => {
 		// Constraints remain metadata so runtime plugins can compile one validation plan.
 		expect(field.options).not.toBe(source)
 		expect(field.options).toStrictEqual({
+			required: true,
 			validation: {
-				required: true,
 				length: {
 					min: 2,
 					max: 40,
@@ -75,9 +75,7 @@ describe('stringField', () => {
 
 	it('freezes validation metadata without a length constraint', () => {
 		const field = stringField({
-			validation: {
-				required: true,
-			},
+			required: true,
 		})
 
 		// Presence-only validation follows the same immutable boundary.

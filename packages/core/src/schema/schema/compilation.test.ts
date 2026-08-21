@@ -18,7 +18,7 @@ describe('deferred schema compilation', () => {
 				callbackCalls += 1
 				events.push('fields')
 				return {
-					title: field.string({ validation: { required: true } }),
+					title: field.string({ required: true }),
 				}
 			},
 			indexes: [{ fields: ['title', 'createdAt'] }],
@@ -179,7 +179,7 @@ describe('deferred schema compilation', () => {
 		const Legacy = Schema.define({
 			className: 'LegacyImmediateSchema',
 			fields: (field) => ({
-				title: field.string({ validation: { required: true } }),
+				title: field.string({ required: true }),
 			}),
 		})
 

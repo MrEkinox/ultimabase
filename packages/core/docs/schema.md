@@ -62,9 +62,7 @@ const PostSchema = Schema.define({
 	className: 'Post',
 	fields: (field) => ({
 		title: field.string({
-			validation: {
-				required: true,
-			},
+			required: true,
 		}),
 		published: field.boolean({ default: false }),
 	}),
@@ -169,7 +167,7 @@ const PostSchema = Schema.define({
 	fields: (field) => ({
 		author: field.pointer({
 			target: 'User',
-			validation: { required: true },
+			required: true,
 			indexed: true,
 			onDelete: 'restrict',
 		}),
@@ -393,7 +391,7 @@ Every schema field map includes three immutable framework-owned definitions:
   `dateTime` field kind.
 
 System options expose `system: true`, `generatedOn`, `immutable: true`, and
-`validation.required: true`. The identifier and both timestamps are generated
+`required: true`. The identifier and both timestamps are generated
 during creation; `updatedAt` is additionally refreshed during persisted
 updates. These markers let input inference exclude generated fields from
 creates and immutable fields from developer updates without checking reserved
@@ -436,8 +434,8 @@ operation-specific presence rules.
 
 ## Generic field contract
 
-- `FieldValidationOptions` exposes `required` plus field-specific constraints. Optional fields persist as `null`; `required: true` makes their persisted value non-null.
-- `FieldOptions<TValue, TValidation>` adds typed defaults, homogeneous lists, field-value immutability, `indexed`, and descriptions without introducing database-specific metadata. `list: true` creates one list level and `false` disables list wrapping explicitly. Nested arrays belong in `jsonField()`. `indexed: true` requests a regular index, `indexed: "unique"` requests a unique index, and `false` disables indexing explicitly.
+- `FieldValidationOptions` is the empty constraint contract used by field kinds without value-specific validation. Concrete and plugin fields supply their own constraint shape.
+- `FieldOptions<TValue, TValidation>` adds direct `required`, typed defaults, homogeneous lists, field-value immutability, `indexed`, and descriptions without introducing database-specific metadata. Optional fields persist as `null`; `required: true` makes their persisted value non-null and requires create input unless a default or generator supplies it. `list: true` creates one list level and `false` disables list wrapping explicitly. Nested arrays belong in `jsonField()`. `indexed: true` requests a regular index, `indexed: "unique"` requests a unique index, and `false` disables indexing explicitly.
 - `FieldDefinition<TKind, TValue, TOptions, TInference>` preserves the literal field kind, its base value type, immutable runtime options, and a type-only operation state for later schema inference.
 
 Concrete field factories construct, validate, and freeze their runtime metadata
@@ -640,7 +638,7 @@ decimal scalar rather than converting through `number`.
 
 ## Boolean fields
 
-`booleanField(options)` creates immutable boolean metadata and preserves literal `true` or `false` defaults. It uses the common presence validation and field options without adding boolean-specific constraints.
+`booleanField(options)` creates immutable boolean metadata and preserves literal `true` or `false` defaults. It uses the direct common `required` option without adding boolean-specific constraints.
 
 ## Binary fields
 
@@ -761,7 +759,7 @@ fields: (field) => ({
 		typeName: 'Profile',
 		fields: (field) => ({
 			displayName: field.string({
-				validation: { required: true },
+				required: true,
 			}),
 			preferences: field.object({
 				fields: (field) => ({
@@ -809,10 +807,10 @@ portable default mapping without adding database metadata to this package.
 `definePluginField(kind, options, normalizers)` lets a plugin introduce a
 logical field kind without teaching Schema about its database representation.
 Kinds must be non-empty, namespaced strings and cannot shadow framework-owned
-field kinds. The factory reuses common validation, defaults, lists, indexes,
-descriptions and immutability while delegating scalar value
-snapshots to `snapshotValue`. A custom validation normalizer is optional;
-common presence validation remains available when it is omitted.
+field kinds. The factory reuses direct presence, defaults, lists, indexes,
+descriptions and immutability while delegating scalar value snapshots to
+`snapshotValue`. A custom validation normalizer is optional; direct `required`
+presence remains available when it is omitted.
 
 `snapshotValue(value, path)` is a declaration-time snapshot boundary, not a
 request validator. It must be pure, deterministic, and idempotent because

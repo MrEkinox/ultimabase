@@ -179,7 +179,7 @@ export const createWorkflowPlugin = (options: WorkflowPluginOptions) => {
 	const DynamicAudit = Schema.define({
 		className: dynamicName,
 		fields: (field) => ({
-			action: field.string({ validation: { required: true } }),
+			action: field.string({ required: true }),
 		}),
 	})
 	const targetSchemas = [options.stableSchema, DynamicAudit] as const

@@ -33,8 +33,8 @@ describe('decimalField', () => {
 
 	it('preserves exact decimal constraints and common metadata', () => {
 		const field = decimalField({
+			required: true,
 			validation: {
-				required: true,
 				precision: 12,
 				scale: 2,
 				range: {
@@ -47,8 +47,8 @@ describe('decimalField', () => {
 		})
 
 		expect(field.options).toStrictEqual({
+			required: true,
 			validation: {
-				required: true,
 				precision: 12,
 				scale: 2,
 				range: {

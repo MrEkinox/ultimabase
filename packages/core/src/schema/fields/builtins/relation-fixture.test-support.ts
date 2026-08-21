@@ -20,7 +20,7 @@ export const RelationPost: RelationPostSchema = Schema.define({
 	fields: (field) => ({
 		author: field.pointer({
 			target: 'RelationAuthor',
-			validation: { required: true },
+			required: true,
 		}),
 	}),
 })

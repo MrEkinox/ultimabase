@@ -1,6 +1,6 @@
 import { assertOptionalBoolean, immutableRecord } from '@ultimabase/shared'
 
-import type { FieldOptions, FieldValidationOptions } from '../base/contract.js'
+import type { FieldOptions } from '../base/contract.js'
 import type { ScalarFieldConfigurationResolver } from '../base/factory.js'
 import {
 	assertFieldOptions,
@@ -19,9 +19,9 @@ import {
 export type TemporalRangeValidationOptions = OrderedRange<string>
 
 /**
- * Groups presence rules with an optional ordered temporal range.
+ * Declares an optional ordered temporal range.
  */
-export interface TemporalValidationOptions extends FieldValidationOptions {
+export interface TemporalValidationOptions {
 	/**
 	 * Restricts temporal strings with inclusive boundaries in the field's representation.
 	 *

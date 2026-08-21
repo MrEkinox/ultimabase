@@ -70,7 +70,7 @@ describe('open-kernel PostgreSQL proof', { concurrent: false }, () => {
 			className: 'OpenKernelSoftPost',
 			postgres: { table: 'open_kernel_soft_posts' },
 			fields: (field) => ({
-				title: field.string({ validation: { required: true } }),
+				title: field.string({ required: true }),
 			}),
 			hooks: {
 				afterOperation: {

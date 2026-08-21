@@ -44,7 +44,7 @@ export const PostgresRelationPost: PostgresRelationPostSchema = Schema.define({
 	fields: (field) => ({
 		author: field.pointer({
 			target: 'PostgresRelationAuthor',
-			validation: { required: true },
+			required: true,
 		}),
 	}),
 })

@@ -26,7 +26,7 @@ const DocumentSchema = Schema.define({
 	fields: (field) => ({
 		embedding: field.vector({
 			dimensions: 1536,
-			validation: { required: true },
+			required: true,
 			hooks: {
 				// The value is inferred as readonly number[].
 				resolveInput: ({ value }) => value,

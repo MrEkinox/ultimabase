@@ -65,7 +65,7 @@ const masterContext = Object.freeze({
 const ProtectedPost = Schema.define({
 	className: 'ProtectedPluginPost',
 	fields: (field) => ({
-		title: field.string({ validation: { required: true } }),
+		title: field.string({ required: true }),
 	}),
 	acl: {},
 })
@@ -615,7 +615,7 @@ describe('aclPlugin create input resolution', () => {
 		const BatchPost = Schema.define({
 			className: 'ACLBatchLimitPost',
 			fields: (field) => ({
-				title: field.string({ validation: { required: true } }),
+				title: field.string({ required: true }),
 			}),
 			acl: {
 				default: ({ data }) => {
@@ -633,7 +633,7 @@ describe('aclPlugin create input resolution', () => {
 		const OverridePost = Schema.define({
 			className: 'ACLSchemaLimitOverridePost',
 			fields: (field) => ({
-				title: field.string({ validation: { required: true } }),
+				title: field.string({ required: true }),
 			}),
 			acl: {
 				default: twoPrincipals,

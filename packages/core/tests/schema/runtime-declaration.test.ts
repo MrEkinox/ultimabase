@@ -19,10 +19,11 @@ import { getFieldListDepth } from '../../src/schema/fields/base/options.js'
 describe('runtime declaration boundaries', () => {
 	it.each([
 		[
-			'required',
-			{ validation: { required: 'yes' } },
-			'validation.required must be a boolean',
+			'nested required',
+			{ validation: { required: true } },
+			'Unknown string field option: validation.required',
 		],
+		['required', { required: 'yes' }, 'required must be a boolean'],
 		[
 			'nullable',
 			{ validation: { nullable: 1 } },
@@ -30,7 +31,7 @@ describe('runtime declaration boundaries', () => {
 		],
 		[
 			'contradictory presence',
-			{ validation: { required: true, nullable: true } },
+			{ required: true, validation: { nullable: true } },
 			'validation.nullable is not supported',
 		],
 		['immutability', { immutable: 'yes' }, 'immutable must be a boolean'],
@@ -199,10 +200,10 @@ describe('runtime declaration boundaries', () => {
 		expect(() => {
 			definePluginField(
 				'fixture.invalid',
+				// @ts-expect-error -- Runtime coverage protects malformed normalizer output.
 				{ validation: {} },
 				{
 					snapshotValue: (value: unknown): unknown => value,
-					// @ts-expect-error -- Runtime coverage protects malformed normalizer output.
 					normalizeValidation: (): readonly unknown[] => [],
 				},
 			)

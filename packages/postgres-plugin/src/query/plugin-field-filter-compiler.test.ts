@@ -35,7 +35,7 @@ const PortableFilterSchema = Schema.define({
 	fields: (field) => ({
 		code: definePluginField(
 			'fixture.postgres.portable-code',
-			{ validation: { required: true } },
+			{ required: true },
 			{
 				snapshotValue: snapshotPortableCode,
 				storageCodec: {

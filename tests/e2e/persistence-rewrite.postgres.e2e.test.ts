@@ -21,7 +21,7 @@ import {
 const SoftDeletePost = Schema.define({
 	className: 'PersistenceRewritePost',
 	fields: (field) => ({
-		title: field.string({ validation: { required: true } }),
+		title: field.string({ required: true }),
 	}),
 })
 

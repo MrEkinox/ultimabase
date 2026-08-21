@@ -26,6 +26,7 @@ const isScalarConstraintValue = (
 
 const uuidPattern =
 	/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu
+const emptyValidation: Readonly<Record<string, unknown>> = immutableRecord({})
 
 const createIssue = (
 	code: ValidationIssueCode,
@@ -218,11 +219,9 @@ export const validateScalarFieldConstraints = (
 	value: unknown,
 	path: ValidationIssuePath,
 ): readonly ValidationIssue[] => {
-	const validation = readValidation(field)
-
-	if (validation === undefined) {
-		return immutableArray([])
-	}
+	// Built-in scalar shape validation must still run when no value constraint
+	// object is declared, notably for generated system UUID values.
+	const validation = readValidation(field) ?? emptyValidation
 
 	const issues: ValidationIssue[] = []
 

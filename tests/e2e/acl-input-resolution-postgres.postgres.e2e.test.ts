@@ -45,7 +45,7 @@ const ResolutionPost = Schema.define({
 		labels: field.string({ default: ['current'], list: true }),
 		note: field.string(),
 		status: field.string({ default: 'unchanged' }),
-		title: field.string({ validation: { required: true } }),
+		title: field.string({ required: true }),
 		views: field.int({ default: 2 }),
 	}),
 	acl: {

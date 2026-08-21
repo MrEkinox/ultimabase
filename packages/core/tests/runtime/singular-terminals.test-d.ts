@@ -12,7 +12,7 @@ import { expectTypeOf, test } from 'vitest'
 const articleSchema = Schema.define({
 	className: 'TypedTerminalArticle',
 	fields: (field) => ({
-		title: field.string({ validation: { required: true } }),
+		title: field.string({ required: true }),
 		views: field.int(),
 	}),
 })

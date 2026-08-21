@@ -82,7 +82,7 @@ const ProtectedPost = Schema.define({
 	className: 'ACLAccessPost',
 	fields: (field) => ({
 		marker: field.string({ default: 'original' }),
-		title: field.string({ validation: { required: true } }),
+		title: field.string({ required: true }),
 	}),
 	acl: {
 		default: emptyACL,

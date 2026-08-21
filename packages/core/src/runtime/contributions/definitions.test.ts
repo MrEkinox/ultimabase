@@ -12,7 +12,7 @@ import {
 const articleSchema = Schema.define({
 	className: 'ContributionDefinitionArticle',
 	fields: (field) => ({
-		title: field.string({ validation: { required: true } }),
+		title: field.string({ required: true }),
 	}),
 })
 

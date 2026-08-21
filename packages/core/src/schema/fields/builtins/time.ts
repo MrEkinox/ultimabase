@@ -5,7 +5,6 @@ import type {
 } from '../base/contract.js'
 import {
 	fieldOptionKeys,
-	fieldValidationOptionKeys,
 	orderedRangeOptionKeys,
 	type BuiltInFieldOptionsContract,
 } from '../base/options.js'
@@ -31,7 +30,7 @@ import {
 export type TimeRangeValidationOptions = TemporalRangeValidationOptions
 
 /**
- * Groups presence and time-of-day constraints under one validation boundary.
+ * Groups time-of-day constraints under one validation boundary.
  */
 export type TimeValidationOptions = TemporalValidationOptions
 
@@ -49,7 +48,7 @@ export type TimeField<TTypegen extends FieldTypegenState = FieldTypegenState> =
 const timeFieldOptionsContract: BuiltInFieldOptionsContract = {
 	kind: 'time',
 	optionKeys: [...fieldOptionKeys, 'autoNow', 'timezone'],
-	validationOptionKeys: [...fieldValidationOptionKeys, 'range'],
+	validationOptionKeys: ['range'],
 	nestedValidation: [{ key: 'range', optionKeys: orderedRangeOptionKeys }],
 }
 

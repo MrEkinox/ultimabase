@@ -11,9 +11,7 @@ import {
 
 test('preserves boolean defaults and common option literals', () => {
 	const field = booleanField({
-		validation: {
-			required: true,
-		},
+		required: true,
 		default: false,
 		immutable: true,
 		indexed: true,
@@ -44,8 +42,8 @@ test('rejects incompatible boolean metadata', () => {
 	// @ts-expect-error -- Boolean defaults cannot use numeric values.
 	booleanField({ default: 0 })
 	booleanField({
+		required: true,
 		validation: {
-			required: true,
 			// @ts-expect-error -- Nullability is derived and cannot be configured.
 			nullable: true,
 		},

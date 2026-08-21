@@ -16,8 +16,8 @@ import {
 test('preserves binary options and native byte values', () => {
 	const bytes = new Uint8Array([1, 2, 3])
 	const field = binaryField({
+		required: true,
 		validation: {
-			required: true,
 			length: {
 				min: 1,
 				max: 1024,
@@ -72,7 +72,7 @@ test('rejects incompatible binary metadata', () => {
 	binaryField({ default: () => 'AQID' })
 
 	// @ts-expect-error -- Required fields cannot also be nullable.
-	binaryField({ validation: { required: true, nullable: true } })
+	binaryField({ required: true, validation: { nullable: true } })
 
 	binaryField({
 		// @ts-expect-error -- Removed generic extension metadata is not a field option.

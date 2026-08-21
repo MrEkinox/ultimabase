@@ -2,7 +2,6 @@ import { immutableRecord } from '@ultimabase/shared'
 
 import {
 	fieldOptionKeys,
-	fieldValidationOptionKeys,
 	normalizeFieldOptions,
 	type BuiltInFieldOptionsContract,
 } from '../base/options.js'
@@ -11,7 +10,6 @@ import type {
 	FieldTypegenState,
 	FieldListOption,
 	FieldOptions,
-	FieldValidationOptions,
 } from '../base/contract.js'
 import {
 	type CompactScalarFieldDefinition,
@@ -27,9 +25,9 @@ import { normalizeStringValue } from '../base/value.js'
 export type UuidVersion = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8
 
 /**
- * Combines presence rules with an optional accepted UUID version.
+ * Defines an optional accepted UUID version.
  */
-export interface UuidValidationOptions extends FieldValidationOptions {
+export interface UuidValidationOptions {
 	/**
 	 * Accepts only UUIDs carrying this standard version nibble.
 	 *
@@ -52,7 +50,7 @@ export type UuidField<TTypegen extends FieldTypegenState = FieldTypegenState> =
 const uuidFieldOptionsContract: BuiltInFieldOptionsContract = {
 	kind: 'uuid',
 	optionKeys: fieldOptionKeys,
-	validationOptionKeys: [...fieldValidationOptionKeys, 'version'],
+	validationOptionKeys: ['version'],
 }
 
 /** Provides UUID-specific names for the shared compact scalar contract. */
@@ -155,7 +153,7 @@ const normalizeUuidFieldOptions = <const TOptions extends UuidFieldOptions>(
  *
  * @example
  * ```ts
- * uuidField({ indexed: "unique", validation: { required: true, version: 7 } })
+ * uuidField({ indexed: "unique", required: true, validation: { version: 7 } })
  * ```
  */
 export const uuidField: UuidFieldFactory = createCompactScalarFieldFactory<

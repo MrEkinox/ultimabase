@@ -17,8 +17,8 @@ describe('timeField', () => {
 
 	it('preserves a local time default and range', () => {
 		const field = timeField({
+			required: true,
 			validation: {
-				required: true,
 				range: {
 					min: '08:00:00.000',
 					max: '18:00:00.000',
@@ -28,8 +28,8 @@ describe('timeField', () => {
 		})
 
 		expect(field.options).toStrictEqual({
+			required: true,
 			validation: {
-				required: true,
 				range: {
 					min: '08:00:00.000',
 					max: '18:00:00.000',

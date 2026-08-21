@@ -84,7 +84,7 @@ const createAlternativeFixture = () => {
 		className: 'AlternativeBehaviorPost',
 		alternativeBehavior: alternativeBehavior({ label: 'editorial' }),
 		fields: (field) => ({
-			title: field.string({ validation: { required: true } }),
+			title: field.string({ required: true }),
 		}),
 	})
 	const engine = createAlternativeBehaviorEngine({ instanceId: 'typed' })

@@ -26,7 +26,7 @@ const initialACL = new ACL()
 const StoredPost = Schema.define({
 	className: 'ACLStoragePost',
 	fields: (field) => ({
-		title: field.string({ validation: { required: true } }),
+		title: field.string({ required: true }),
 	}),
 	acl: {
 		default: initialACL,

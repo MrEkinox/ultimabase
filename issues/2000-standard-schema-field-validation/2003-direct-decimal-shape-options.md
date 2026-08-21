@@ -1,6 +1,6 @@
 # 2003: Move decimal shape metadata to direct field options
 
-- Status: planned
+- Status: ready
 - Milestone: 20
 - Packages: `@ultimabase/core`, `@ultimabase/postgres-plugin`, `@ultimabase/typegen`
 - Depends on: 2002

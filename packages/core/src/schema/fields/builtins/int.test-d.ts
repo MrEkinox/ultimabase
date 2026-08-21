@@ -12,8 +12,8 @@ import {
 
 test('preserves integer options and exact literals', () => {
 	const field = intField({
+		required: true,
 		validation: {
-			required: true,
 			range: {
 				min: -10,
 				max: 10,
@@ -55,8 +55,8 @@ test('rejects incompatible integer metadata', () => {
 	intField({ validation: { range: { min: '0' } } })
 
 	intField({
+		required: true,
 		validation: {
-			required: true,
 			// @ts-expect-error -- Nullability is derived and cannot be configured.
 			nullable: true,
 		},

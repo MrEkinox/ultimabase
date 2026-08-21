@@ -14,7 +14,7 @@ import type { RuntimeOperationTransformStage } from '../pipeline/contracts.js'
 const schema = Schema.define({
 	className: 'TypedRuntimeValidation',
 	fields: (field) => ({
-		title: field.string({ validation: { required: true } }),
+		title: field.string({ required: true }),
 	}),
 })
 const operation: CreateOneOperationAst<typeof schema> = {

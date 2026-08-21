@@ -14,7 +14,7 @@ test('infers exact sibling data for direct ACL callbacks', () => {
 	const Post = Schema.define({
 		className: 'DirectACLTypePost',
 		fields: (field) => ({
-			title: field.string({ validation: { required: true } }),
+			title: field.string({ required: true }),
 			visibility: field.string(),
 		}),
 		acl: {

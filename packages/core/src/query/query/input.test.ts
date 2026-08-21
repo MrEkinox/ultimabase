@@ -12,7 +12,7 @@ import { QueryBuilder } from './query.js'
 const Author = Schema.define({
 	className: 'ReadInputAuthor',
 	fields: (field) => ({
-		name: field.string({ validation: { required: true } }),
+		name: field.string({ required: true }),
 	}),
 })
 
@@ -21,9 +21,9 @@ const Post = Schema.define({
 	fields: (field) => ({
 		author: field.pointer({
 			target: 'ReadInputAuthor',
-			validation: { required: true },
+			required: true,
 		}),
-		title: field.string({ validation: { required: true } }),
+		title: field.string({ required: true }),
 	}),
 })
 

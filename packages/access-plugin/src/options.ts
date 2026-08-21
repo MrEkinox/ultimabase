@@ -34,9 +34,7 @@ type FieldValueForOptions<TOptions> =
 		: unknown
 
 type FieldObjectValueForOptions<TOptions> =
-	FieldOptionInput<TOptions> extends {
-		readonly validation: { readonly required: true }
-	}
+	FieldOptionInput<TOptions> extends { readonly required: true }
 		? FieldValueForOptions<TOptions>
 		: FieldValueForOptions<TOptions> | null
 

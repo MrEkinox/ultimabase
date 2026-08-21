@@ -126,7 +126,7 @@ const Owner = Schema.define({
 	className: 'PackedGeneratedOwner',
 	fields: (field) => ({
 		documents: field.relation({ target: 'PackedGeneratedDocument' }),
-		name: field.string({ validation: { required: true } }),
+		name: field.string({ required: true }),
 	}),
 })
 const Document = Schema.define({
@@ -138,7 +138,7 @@ const Document = Schema.define({
 			embedding: generatedField.vector({ dimensions: 3 }),
 			owner: field.pointer({
 				target: 'PackedGeneratedOwner',
-				validation: { required: true },
+				required: true,
 			}),
 			related: field.relation({
 				target: 'PackedGeneratedDocument',
@@ -147,7 +147,7 @@ const Document = Schema.define({
 				typeName: 'PackedDocumentStatus',
 				values: ['draft', 'published'],
 			}),
-			title: field.string({ validation: { required: true } }),
+			title: field.string({ required: true }),
 		}
 	},
 })
@@ -178,7 +178,7 @@ const PackedGeneratedOwner = Schema.define({
   className: 'PackedGeneratedOwner',
   fields: (field) => ({
     documents: field.relation({ target: 'PackedGeneratedDocument' }),
-    name: field.string({ validation: { required: true } }),
+    name: field.string({ required: true }),
   }),
 })
 const PackedGeneratedDocument = Schema.define({
@@ -188,7 +188,7 @@ const PackedGeneratedDocument = Schema.define({
     embedding: field.vector({ dimensions: 3 }),
     owner: field.pointer({
       target: 'PackedGeneratedOwner',
-      validation: { required: true },
+      required: true,
     }),
     related: field.relation({ target: 'PackedGeneratedDocument' }),
     status: field.enum({ values: ['draft', 'published'] }),
@@ -196,7 +196,7 @@ const PackedGeneratedDocument = Schema.define({
       hooks: {
         ${fieldHookMarker}resolveInput: ({ value }) => value?.trim() ?? null,
       },
-      validation: { required: true },
+      required: true,
     }),
   }),
   access: {

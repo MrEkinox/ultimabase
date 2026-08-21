@@ -24,10 +24,12 @@ type CompactScalarFieldOptions<
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 > = TOptions & {
-	readonly validation?: {
-		readonly required?: TRequired
-	}
-} & {
+	/**
+	 * Requires a non-null persisted value and requires create input unless a
+	 * default or generator supplies it.
+	 * @example `required: true`
+	 */
+	readonly required?: TRequired
 	readonly list?: TList
 	readonly immutable?: TImmutable
 }
@@ -47,7 +49,7 @@ export type DefaultedCompactScalarFieldOptions<
 
 /** Names the default-free input independently from the inferred field state. */
 export type NonDefaultedCompactScalarFieldOptions<
-	TOptions extends FieldOptions<TValue>,
+	TOptions extends FieldOptions<TValue, object>,
 	TValue,
 	TRequired extends boolean,
 	TList extends FieldListOption,
@@ -60,7 +62,7 @@ export type NonDefaultedCompactScalarFieldOptions<
 export type CompactScalarFieldDefinition<
 	TKind extends string,
 	TValue,
-	TOptions extends FieldOptions<TValue>,
+	TOptions extends FieldOptions<TValue, object>,
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
@@ -199,7 +201,7 @@ export type ScalarFieldConfigurationResolver<TOptions extends object> = (
 export interface CompactScalarFieldFactory<
 	TKind extends string,
 	TValue,
-	TOptions extends FieldOptions<TValue>,
+	TOptions extends FieldOptions<TValue, object>,
 > {
 	<
 		const TRequired extends boolean = false,
@@ -242,7 +244,7 @@ export interface CompactScalarFieldFactory<
 /** Reuses compact scalar option inference for one name-first builder method. */
 export interface CompactScalarFieldBuilderMethod<
 	TValue,
-	TOptions extends FieldOptions<TValue>,
+	TOptions extends FieldOptions<TValue, object>,
 > {
 	/**
 	 * Declares one scalar field with the existing factory options.
@@ -296,7 +298,7 @@ export interface CompactScalarFieldBuilderMethod<
 export interface GeneratedCompactScalarFieldFactory<
 	TKind extends string,
 	TValue,
-	TOptions extends FieldOptions<TValue>,
+	TOptions extends FieldOptions<TValue, object>,
 	TGenerationKey extends keyof TOptions & string,
 	TExclusiveGeneration extends boolean,
 > {
@@ -357,7 +359,7 @@ export interface GeneratedCompactScalarFieldFactory<
 /** Reuses generated scalar option inference for one name-first builder method. */
 export interface GeneratedCompactScalarFieldBuilderMethod<
 	TValue,
-	TOptions extends FieldOptions<TValue>,
+	TOptions extends FieldOptions<TValue, object>,
 	TGenerationKey extends keyof TOptions & string,
 	TExclusiveGeneration extends boolean,
 > {
@@ -419,7 +421,11 @@ export interface GeneratedCompactScalarFieldBuilderMethod<
 
 /** Shares compact runtime construction across regular and generated contracts. */
 const createCompactScalarFieldImplementation =
-	<const TKind extends string, TValue, TOptions extends FieldOptions<TValue>>(
+	<
+		const TKind extends string,
+		TValue,
+		TOptions extends FieldOptions<TValue, object>,
+	>(
 		kind: TKind,
 		resolveConfiguration: ScalarFieldConfigurationResolver<TOptions>,
 	): ((
@@ -440,7 +446,7 @@ const createCompactScalarFieldImplementation =
 export const createCompactScalarFieldFactory = <
 	const TKind extends string,
 	TValue,
-	TOptions extends FieldOptions<TValue>,
+	TOptions extends FieldOptions<TValue, object>,
 >(
 	kind: TKind,
 	normalizeOptions: ScalarFieldOptionsNormalizer<TOptions>,
@@ -455,7 +461,7 @@ export const createCompactScalarFieldFactory = <
 export const createGeneratedCompactScalarFieldFactory = <
 	const TKind extends string,
 	TValue,
-	TOptions extends FieldOptions<TValue>,
+	TOptions extends FieldOptions<TValue, object>,
 	TGenerationKey extends keyof TOptions & string,
 	TExclusiveGeneration extends boolean,
 >(
@@ -478,7 +484,7 @@ export const createGeneratedCompactScalarFieldFactory = <
 export const createConfiguredGeneratedCompactScalarFieldFactory = <
 	const TKind extends string,
 	TValue,
-	TOptions extends FieldOptions<TValue>,
+	TOptions extends FieldOptions<TValue, object>,
 	TGenerationKey extends keyof TOptions & string,
 	TExclusiveGeneration extends boolean,
 >(

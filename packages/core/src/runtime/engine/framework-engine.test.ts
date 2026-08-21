@@ -39,14 +39,14 @@ import { createPreparedOperationFixture } from '../../../tests/runtime/fixtures/
 const articleSchema = Schema.define({
 	className: 'Article',
 	fields: (field) => ({
-		title: field.string({ validation: { required: true } }),
+		title: field.string({ required: true }),
 	}),
 })
 
 const matchingClassSchema = Schema.define({
 	className: 'Article',
 	fields: (field) => ({
-		title: field.string({ validation: { required: true } }),
+		title: field.string({ required: true }),
 	}),
 })
 

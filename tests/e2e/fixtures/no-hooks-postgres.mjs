@@ -12,7 +12,7 @@ const Post = Schema.define({
 	className: 'JavaScriptNoEnginePost',
 	postgres: { table: 'optional_hooks_javascript_posts' },
 	fields: (field) => ({
-		title: field.string({ validation: { required: true } }),
+		title: field.string({ required: true }),
 	}),
 })
 const ultimabase = new UltimaBase({

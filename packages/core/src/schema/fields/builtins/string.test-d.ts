@@ -12,8 +12,8 @@ import {
 
 test('retains only string metadata that affects inference', () => {
 	const field = stringField({
+		required: true,
 		validation: {
-			required: true,
 			length: {
 				min: 2,
 				max: 40,
@@ -61,7 +61,7 @@ test('rejects incompatible string metadata', () => {
 	// @ts-expect-error -- String defaults must use the field's base value type.
 	stringField({ default: 42 })
 	// @ts-expect-error -- Nullability is derived and cannot be configured.
-	stringField({ validation: { required: true, nullable: true } })
+	stringField({ required: true, validation: { nullable: true } })
 	// @ts-expect-error -- Patterns use the native RegExp contract.
 	stringField({ validation: { match: '^[a-z]+$' } })
 	// @ts-expect-error -- String constraints belong inside validation.

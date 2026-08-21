@@ -13,7 +13,7 @@ describe('plugin field type declarations', () => {
 	it('generates a patch-only field value without adding a FieldBuilder method', () => {
 		const secretField = definePluginField(
 			'fixture.secret',
-			{ validation: { required: true } },
+			{ required: true },
 			{
 				snapshotValue: (value: unknown) => value,
 				storageCodec: {

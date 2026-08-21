@@ -18,8 +18,8 @@ describe('validation plans', () => {
 			className: 'ScalarPlan',
 			fields: (field) => ({
 				name: field.string({
+					required: true,
 					validation: {
-						required: true,
 						length: { min: 2, max: 40 },
 						match: /^[a-z]+$/u,
 					},
@@ -29,10 +29,10 @@ describe('validation plans', () => {
 				generated: field.string({ default: runtimeDefault }),
 				automaticDate: field.date({
 					autoNow: true,
-					validation: { required: true },
+					required: true,
 				}),
 				immutableCode: field.string({
-					validation: { required: true },
+					required: true,
 					immutable: true,
 				}),
 			}),
@@ -85,10 +85,10 @@ describe('validation plans', () => {
 			className: 'StructuredPlan',
 			fields: (field) => ({
 				profile: field.object({
-					validation: { required: true },
+					required: true,
 					fields: (field) => ({
 						displayName: field.string({
-							validation: { required: true },
+							required: true,
 						}),
 						internalCode: field.string({ immutable: true }),
 					}),
@@ -154,7 +154,7 @@ describe('validation plans', () => {
 	it('defers required plugin values until resolveInput without weakening output', () => {
 		const generated = definePluginField(
 			'fixture.deferred',
-			{ validation: { required: true } },
+			{ required: true },
 			{
 				deferRequiredUntilResolveInput: true,
 				snapshotValue: (value: unknown): string => String(value),
@@ -175,7 +175,7 @@ describe('validation plans', () => {
 		const listedObject = objectField({
 			list: true,
 			fields: {
-				name: stringField({ validation: { required: true } }),
+				name: stringField({ required: true }),
 			},
 		})
 		const schema = Schema.define({

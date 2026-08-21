@@ -50,7 +50,7 @@ after ordinary field input resolution and before structural revalidation:
 const Post = Schema.define({
 	className: 'Post',
 	fields: (field) => ({
-		title: field.string({ validation: { required: true } }),
+		title: field.string({ required: true }),
 		visibility: field.string(),
 	}),
 	acl: {

@@ -20,7 +20,7 @@ import { RoleSchema, hasRole, rolesPlugin } from '@ultimabase/roles-plugin'
 const User = Schema.define({
 	className: 'User',
 	fields: (field) => ({
-		email: field.string({ validation: { required: true } }),
+		email: field.string({ required: true }),
 	}),
 })
 

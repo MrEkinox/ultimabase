@@ -17,8 +17,8 @@ describe('bigintField', () => {
 
 	it('preserves exact bigint constraints and common metadata', () => {
 		const source = {
+			required: true,
 			validation: {
-				required: true,
 				range: {
 					min: -9_000_000_000_000_000_000n,
 					max: 9_000_000_000_000_000_000n,
@@ -74,15 +74,13 @@ describe('bigintField', () => {
 		expect(range.min).toBe(1n)
 	})
 
-	it('freezes validation metadata without a range constraint', () => {
+	it('retains direct required metadata without a range constraint', () => {
 		const field = bigintField({
-			validation: {
-				required: true,
-			},
+			required: true,
 		})
 
-		expect(field.options.validation).toStrictEqual({ required: true })
-		expect(Object.isFrozen(field.options.validation)).toBe(true)
+		expect(field.options).toStrictEqual({ required: true })
+		expect(Object.isFrozen(field.options)).toBe(true)
 	})
 
 	it.each([1, '1', null] as const)(

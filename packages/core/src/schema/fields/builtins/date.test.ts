@@ -17,8 +17,8 @@ describe('dateField', () => {
 
 	it('preserves a calendar-day default and range', () => {
 		const field = dateField({
+			required: true,
 			validation: {
-				required: true,
 				range: {
 					min: '2026-01-01',
 					max: '2026-12-31',
@@ -29,8 +29,8 @@ describe('dateField', () => {
 		})
 
 		expect(field.options).toStrictEqual({
+			required: true,
 			validation: {
-				required: true,
 				range: {
 					min: '2026-01-01',
 					max: '2026-12-31',

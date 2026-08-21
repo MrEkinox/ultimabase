@@ -45,7 +45,8 @@ const createRoleNameField = (): StringField<
 > =>
 	stringField({
 		indexed: 'unique',
-		validation: { required: true, length: { min: 1 } },
+		required: true,
+		validation: { length: { min: 1 } },
 	})
 
 type RoleNameField = ReturnType<typeof createRoleNameField>

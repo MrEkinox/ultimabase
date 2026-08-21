@@ -36,7 +36,7 @@ const pgVectorPluginModule: PluginModule<
 })
 
 /**
- * Describes presence rules available to vector fields before vector-specific constraints.
+ * Reserves the vector field's value-constraint contract while presence remains direct.
  */
 export type VectorValidationOptions = FieldValidationOptions
 

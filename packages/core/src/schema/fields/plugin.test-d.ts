@@ -32,9 +32,9 @@ test('keeps plugin field options on the primary call contract', () => {
 
 	definePluginField(
 		'fixture.invalid-nullability',
+		// @ts-expect-error -- Nullability is derived for plugin fields too.
 		{
 			validation: {
-				// @ts-expect-error -- Nullability is derived for plugin fields too.
 				nullable: true,
 			},
 		},

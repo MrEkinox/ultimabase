@@ -84,7 +84,7 @@ describe('pointerField', () => {
 			options: {
 				target: () => userSchema,
 				onDelete: 'setNull',
-				validation: { required: true },
+				required: true,
 			},
 		},
 	])('rejects invalid metadata: $expected', ({ expected, options }) => {
@@ -106,8 +106,8 @@ describe('pointerField', () => {
 		expect(() => {
 			pointerField({
 				target: () => userSchema,
+				required: true,
 				validation: {
-					required: true,
 					// @ts-expect-error -- Runtime normalization protects JavaScript callers.
 					nullable: true,
 				},

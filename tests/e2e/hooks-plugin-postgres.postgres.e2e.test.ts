@@ -79,7 +79,7 @@ const profileSlugField = definePluginField(
 				return value === null ? null : value.trim().toLowerCase()
 			},
 		},
-		validation: { required: true },
+		required: true,
 	},
 	{
 		snapshotValue: (value: unknown, path: string): string => {
@@ -94,15 +94,15 @@ const profileSlugField = definePluginField(
 const HookAuditSchema = Schema.define({
 	className: 'NativeHookPostgresAudit',
 	fields: (field) => ({
-		action: field.string({ validation: { required: true } }),
-		scopeId: field.string({ validation: { required: true } }),
+		action: field.string({ required: true }),
+		scopeId: field.string({ required: true }),
 	}),
 })
 
 const HookArticleSchema = Schema.define({
 	className: 'NativeHookPostgresArticle',
 	fields: (field) => ({
-		scopeId: field.string({ validation: { required: true } }),
+		scopeId: field.string({ required: true }),
 		title: field.string({
 			hooks: {
 				resolveInput: ({ value }) => {
@@ -110,12 +110,12 @@ const HookArticleSchema = Schema.define({
 					return value === null ? null : value.trim()
 				},
 			},
-			validation: { required: true },
+			required: true,
 		}),
 		secret: field.string(),
 		profile: field.object({
 			fields: () => ({ slug: profileSlugField }),
-			validation: { required: true },
+			required: true,
 		}),
 		published: field.boolean({ default: false }),
 		revision: field.int({ default: 0 }),

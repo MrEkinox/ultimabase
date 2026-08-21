@@ -12,8 +12,8 @@ import {
 
 test('infers calendar-day values and range boundaries', () => {
 	const field = dateField({
+		required: true,
 		validation: {
-			required: true,
 			range: {
 				min: '2026-01-01',
 				max: '2026-12-31',
@@ -57,8 +57,8 @@ test('rejects non-string values and invalid default factories', () => {
 	dateField({ autoNow: true, list: true })
 
 	dateField({
+		required: true,
 		validation: {
-			required: true,
 			// @ts-expect-error -- Nullability is derived and cannot be configured.
 			nullable: true,
 		},

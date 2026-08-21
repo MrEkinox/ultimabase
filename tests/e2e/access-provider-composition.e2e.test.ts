@@ -156,7 +156,7 @@ const NativeDocument = Schema.define({
 	className: 'AccessCompositionNativeDocument',
 	fields: (field) => ({
 		secret: field.string({ access: { read: false } }),
-		title: field.string({ validation: { required: true } }),
+		title: field.string({ required: true }),
 	}),
 	access: { read: true },
 })
@@ -181,7 +181,7 @@ const publicACL = new ACL().grantPublic('read')
 const PublicACLPost = Schema.define({
 	className: 'AccessCompositionPublicACLPost',
 	fields: (field) => ({
-		title: field.string({ validation: { required: true } }),
+		title: field.string({ required: true }),
 	}),
 	acl: { default: publicACL },
 })
@@ -194,7 +194,7 @@ const CombinedPost = Schema.define({
 		communityScope: field.string(),
 		nativeScope: field.string(),
 		secret: field.string({ access: { read: false } }),
-		title: field.string({ validation: { required: true } }),
+		title: field.string({ required: true }),
 	}),
 	access: {
 		read: {
@@ -343,7 +343,7 @@ let roleAwareBusinessHooks = 0
 const MissingRolePost = Schema.define({
 	className: 'AccessCompositionMissingRolePost',
 	fields: (field) => ({
-		title: field.string({ validation: { required: true } }),
+		title: field.string({ required: true }),
 	}),
 	hooks: {
 		beforeOperation: {

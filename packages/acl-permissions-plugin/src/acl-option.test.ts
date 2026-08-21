@@ -12,7 +12,7 @@ import { ACL } from './acl.js'
 describe('acl schema option', () => {
 	it('keeps the unchanged immutable required ACL field definition', () => {
 		expect(aclField.kind).toBe(aclFieldKind)
-		expect(aclField.options.validation.required).toBe(true)
+		expect(aclField.options.required).toBe(true)
 		expect(aclField.options.indexed).toBe(true)
 	})
 

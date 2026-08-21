@@ -2,7 +2,6 @@ import { immutableRecord } from '@ultimabase/shared'
 
 import {
 	fieldOptionKeys,
-	fieldValidationOptionKeys,
 	normalizeFieldOptions,
 	orderedRangeOptionKeys,
 	type BuiltInFieldOptionsContract,
@@ -12,7 +11,6 @@ import type {
 	FieldTypegenState,
 	FieldListOption,
 	FieldOptions,
-	FieldValidationOptions,
 } from '../base/contract.js'
 import {
 	type CompactScalarFieldDefinition,
@@ -31,9 +29,9 @@ import {
 export type DecimalRangeValidationOptions = OrderedRange<string>
 
 /**
- * Groups presence, digit, scale, and exact range constraints.
+ * Groups digit, scale, and exact range constraints.
  */
-export interface DecimalValidationOptions extends FieldValidationOptions {
+export interface DecimalValidationOptions {
 	/**
 	 * Limits the total number of integer and fractional digits.
 	 *
@@ -69,12 +67,7 @@ export type DecimalField<
 const decimalFieldOptionsContract: BuiltInFieldOptionsContract = {
 	kind: 'decimal',
 	optionKeys: fieldOptionKeys,
-	validationOptionKeys: [
-		...fieldValidationOptionKeys,
-		'precision',
-		'range',
-		'scale',
-	],
+	validationOptionKeys: ['precision', 'range', 'scale'],
 	nestedValidation: [{ key: 'range', optionKeys: orderedRangeOptionKeys }],
 }
 

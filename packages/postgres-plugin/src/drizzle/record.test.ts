@@ -17,9 +17,9 @@ const recordSchema = compilePostgresSchema(
 		fields: (field) => ({
 			alias: field.string(),
 			note: field.string(),
-			payload: field.binary({ validation: { required: true } }),
+			payload: field.binary({ required: true }),
 			status: field.enum({ values: ['draft', 'published'] }),
-			title: field.string({ validation: { required: true } }),
+			title: field.string({ required: true }),
 			views: field.int(),
 		}),
 	}),

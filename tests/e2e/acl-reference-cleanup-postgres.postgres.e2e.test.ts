@@ -45,19 +45,19 @@ type ACLChangeHandlerInput = PluginEventHandlerInput<
 const FailPrincipal = Schema.define({
 	className: 'ACLReferenceFailPrincipal',
 	fields: (field) => ({
-		name: field.string({ validation: { required: true } }),
+		name: field.string({ required: true }),
 	}),
 })
 const PreservePrincipal = Schema.define({
 	className: 'ACLReferencePreservePrincipal',
 	fields: (field) => ({
-		name: field.string({ validation: { required: true } }),
+		name: field.string({ required: true }),
 	}),
 })
 const CascadePrincipal = Schema.define({
 	className: 'ACLReferenceCascadePrincipal',
 	fields: (field) => ({
-		name: field.string({ validation: { required: true } }),
+		name: field.string({ required: true }),
 	}),
 })
 const principalPolicies = immutableArray([
@@ -91,7 +91,7 @@ let rejectNextSecondaryCleanup = false
 const ProtectedPrimary = Schema.define({
 	className: 'ACLReferenceProtectedPrimary',
 	fields: (field) => ({
-		title: field.string({ validation: { required: true } }),
+		title: field.string({ required: true }),
 	}),
 	acl: {
 		default: emptyACL,
@@ -103,7 +103,7 @@ const ProtectedPrimary = Schema.define({
 const ProtectedSecondary = Schema.define({
 	className: 'ACLReferenceProtectedSecondary',
 	fields: (field) => ({
-		title: field.string({ validation: { required: true } }),
+		title: field.string({ required: true }),
 	}),
 	acl: {
 		default: emptyACL,

@@ -1,16 +1,10 @@
 import { expectTypeOf, test } from 'vitest'
 
-import type {
-	FieldDefinition,
-	FieldOptions,
-	FieldValidationOptions,
-} from '../../index.js'
+import type { FieldDefinition, FieldOptions } from '../../index.js'
 
 test('represents every common field option without widening literals', () => {
 	const options = {
-		validation: {
-			required: true,
-		},
+		required: true,
 		default: 'anonymous',
 		immutable: true,
 		indexed: 'unique',
@@ -28,12 +22,12 @@ test('represents every common field option without widening literals', () => {
 })
 
 test('represents optional and required presence', () => {
-	const optional = {} as const satisfies FieldValidationOptions
+	const optional = {} as const satisfies FieldOptions<string>
 	const explicitOptional = {
 		required: false,
-	} as const satisfies FieldValidationOptions
+	} as const satisfies FieldOptions<string>
 
-	expectTypeOf(optional).toExtend<FieldValidationOptions>()
+	expectTypeOf(optional).toExtend<FieldOptions<string>>()
 	expectTypeOf(explicitOptional.required).toEqualTypeOf<false>()
 })
 
@@ -50,6 +44,12 @@ test('distinguishes regular, unique, and disabled indexing', () => {
 })
 
 test('rejects nullable and invalid metadata values', () => {
+	const nestedRequired: FieldOptions<string> = {
+		validation: {
+			// @ts-expect-error -- Presence is a direct field option.
+			required: true,
+		},
+	}
 	const invalidPresence: FieldOptions<string> = {
 		validation: {
 			// @ts-expect-error -- Nullability is derived from required presence.
@@ -62,6 +62,7 @@ test('rejects nullable and invalid metadata values', () => {
 	// @ts-expect-error -- Unique indexing uses one explicit literal.
 	const invalidIndex: FieldOptions<string> = { indexed: 'non-unique' }
 
+	expectTypeOf(nestedRequired).toEqualTypeOf<FieldOptions<string>>()
 	expectTypeOf(invalidPresence).toEqualTypeOf<FieldOptions<string>>()
 	expectTypeOf(invalidDefault).toEqualTypeOf<FieldOptions<string>>()
 	expectTypeOf(invalidIndex).toEqualTypeOf<FieldOptions<string>>()
@@ -69,9 +70,7 @@ test('rejects nullable and invalid metadata values', () => {
 
 test('exposes readonly field metadata', () => {
 	const options = {
-		validation: {
-			required: true,
-		},
+		required: true,
 	} as const satisfies FieldOptions<string>
 	const field: FieldDefinition<'string', string, typeof options> = {
 		kind: 'string',
@@ -81,8 +80,8 @@ test('exposes readonly field metadata', () => {
 	// Public field metadata cannot be reassigned after construction.
 	// @ts-expect-error -- Field kinds are immutable.
 	field.kind = 'number'
-	// @ts-expect-error -- Field validation metadata is immutable.
-	field.options.validation.required = false
+	// @ts-expect-error -- Field presence metadata is immutable.
+	field.options.required = false
 
 	expectTypeOf(field.kind).toEqualTypeOf<'string'>()
 })

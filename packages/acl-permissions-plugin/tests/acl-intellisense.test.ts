@@ -46,7 +46,7 @@ onACLChange(({ event }) => {
 const ContextualPost = Schema.define({
 	className: 'ContextualPost',
 	fields: () => ({
-		title: stringField({ validation: { required: true } }),
+		title: stringField({ required: true }),
 		visibility: stringField(),
 	}),
 	acl: {

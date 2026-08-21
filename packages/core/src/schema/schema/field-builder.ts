@@ -136,7 +136,7 @@ interface ObjectFieldBuilderMethod {
 interface ScalarFieldBuilderMethods {
 	/**
 	 * Declares one UTF-16 string.
-	 * @example `field.string({ validation: { required: true } })`
+	 * @example `field.string({ required: true })`
 	 */
 	readonly string: typeof stringField
 	/**

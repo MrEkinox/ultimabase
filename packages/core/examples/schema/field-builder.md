@@ -12,8 +12,8 @@ export const UserSchema = Schema.define({
 	fields: (field) => ({
 		username: field.string({
 			indexed: 'unique',
+			required: true,
 			validation: {
-				required: true,
 				length: { min: 3, max: 32 },
 			},
 		}),
@@ -52,10 +52,10 @@ classes during application compilation:
 const PostSchema = Schema.define({
 	className: 'Post',
 	fields: (field) => ({
-		title: field.string({ validation: { required: true } }),
+		title: field.string({ required: true }),
 		author: field.pointer({
 			target: 'User',
-			validation: { required: true },
+			required: true,
 		}),
 	}),
 })
@@ -72,10 +72,10 @@ Configured plugins may add equally concise methods. For example,
 const DocumentSchema = Schema.define({
 	className: 'Document',
 	fields: (field) => ({
-		title: field.string({ validation: { required: true } }),
+		title: field.string({ required: true }),
 		embedding: field.vector({
 			dimensions: 1536,
-			validation: { required: true },
+			required: true,
 		}),
 	}),
 })

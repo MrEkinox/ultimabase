@@ -17,7 +17,7 @@ describe('system fields', () => {
 					system: true,
 					generatedOn: 'create',
 					immutable: true,
-					validation: { required: true },
+					required: true,
 				},
 			},
 			createdAt: {
@@ -26,7 +26,7 @@ describe('system fields', () => {
 					system: true,
 					generatedOn: 'create',
 					immutable: true,
-					validation: { required: true },
+					required: true,
 				},
 			},
 			updatedAt: {
@@ -35,7 +35,7 @@ describe('system fields', () => {
 					system: true,
 					generatedOn: 'createAndUpdate',
 					immutable: true,
-					validation: { required: true },
+					required: true,
 				},
 			},
 		})

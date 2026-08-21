@@ -17,9 +17,7 @@ describe('enumField', () => {
 		const source = ['draft', 'published']
 		const field = enumField({
 			values: source,
-			validation: {
-				required: true,
-			},
+			required: true,
 			default: 'draft',
 			indexed: true,
 		})
@@ -30,9 +28,7 @@ describe('enumField', () => {
 			kind: 'enum',
 			options: {
 				values: ['draft', 'published'],
-				validation: {
-					required: true,
-				},
+				required: true,
 				default: 'draft',
 				indexed: true,
 			},

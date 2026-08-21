@@ -19,7 +19,7 @@ describe('vectorField', () => {
 		const source = [1, 2, 3]
 		const field = vectorField({
 			dimensions: 3,
-			validation: { required: true },
+			required: true,
 			default: source,
 			indexed: true,
 		})
@@ -30,7 +30,7 @@ describe('vectorField', () => {
 			kind: vectorFieldKind,
 			options: {
 				dimensions: 3,
-				validation: { required: true },
+				required: true,
 				default: [1, 2, 3],
 				indexed: true,
 			},

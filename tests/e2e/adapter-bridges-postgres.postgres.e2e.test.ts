@@ -25,7 +25,7 @@ import {
 
 const storedValue = definePluginField(
 	'fixture.adapter-bridge-value',
-	{ indexed: true, validation: { required: true } },
+	{ indexed: true, required: true },
 	{
 		snapshotValue: (value: unknown, path: string): string => {
 			if (typeof value !== 'string')

@@ -18,8 +18,8 @@ describe('dateTimeField', () => {
 	it('preserves a zoned date-time default and range', () => {
 		const field = dateTimeField({
 			timezone: true,
+			required: true,
 			validation: {
-				required: true,
 				range: {
 					min: '2026-01-01T00:00:00.000Z',
 					max: '2026-12-31T23:59:59.999Z',
@@ -30,8 +30,8 @@ describe('dateTimeField', () => {
 
 		expect(field.options).toStrictEqual({
 			timezone: true,
+			required: true,
 			validation: {
-				required: true,
 				range: {
 					min: '2026-01-01T00:00:00.000Z',
 					max: '2026-12-31T23:59:59.999Z',

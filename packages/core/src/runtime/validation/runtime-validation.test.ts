@@ -28,19 +28,19 @@ import {
 	createRuntimeValidationStage,
 	revalidateRuntimeMutationOperation,
 } from './runtime-validation.js'
-
 const runtimeDefault = vi.fn(() => 42)
 const binaryDefault = new Uint8Array([1, 2, 3])
 const validationSchema = Schema.define({
 	className: 'RuntimeValidation',
 	fields: (field) => ({
 		title: field.string({
-			validation: { required: true, length: { min: 2 } },
+			required: true,
+			validation: { length: { min: 2 } },
 		}),
 		immutableCode: field.string({
 			indexed: 'unique',
 			immutable: true,
-			validation: { required: true },
+			required: true,
 		}),
 		note: field.string(),
 		sequence: field.int({ default: runtimeDefault }),
@@ -49,24 +49,24 @@ const validationSchema = Schema.define({
 		score: field.int({ validation: { range: { min: 0, max: 10 } } }),
 		serial: field.int({
 			autoIncrement: true,
-			validation: { required: true },
+			required: true,
 		}),
-		day: field.date({ autoNow: true, validation: { required: true } }),
+		day: field.date({ autoNow: true, required: true }),
 		localTime: field.time({ autoNow: true }),
 		zonedTime: field.time({ autoNow: true, timezone: true }),
 		localMoment: field.dateTime({ autoNow: true, timezone: false }),
 		zonedMoment: field.dateTime({ autoNow: true }),
 		profile: field.object({
-			validation: { required: true },
+			required: true,
 			fields: (field) => ({
-				name: field.string({ validation: { required: true } }),
+				name: field.string({ required: true }),
 				level: field.int({ default: 1 }),
 			}),
 		}),
 		items: field.object({
 			list: true,
 			fields: (field) => ({
-				label: field.string({ validation: { required: true } }),
+				label: field.string({ required: true }),
 			}),
 		}),
 	}),
@@ -625,7 +625,7 @@ describe('runtime validation', () => {
 				uuid: field.uuid(),
 				custom: customField,
 				nullable: field.string(),
-				nonNullable: field.string({ validation: { required: true } }),
+				nonNullable: field.string({ required: true }),
 				list: field.string({ list: true }),
 				object: field.object({
 					fields: (field) => ({ child: field.string() }),

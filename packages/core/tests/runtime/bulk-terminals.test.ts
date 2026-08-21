@@ -25,7 +25,7 @@ import {
 const managerSchema = Schema.define({
 	className: 'BulkManager',
 	fields: (field) => ({
-		name: field.string({ validation: { required: true } }),
+		name: field.string({ required: true }),
 	}),
 })
 
@@ -34,7 +34,7 @@ const accountSchema = Schema.define({
 	fields: (field) => ({
 		email: field.string({
 			indexed: 'unique',
-			validation: { required: true },
+			required: true,
 		}),
 		manager: field.pointer({ target: 'BulkManager' }),
 		reports: field.relation({ target: 'BulkAccount' }),

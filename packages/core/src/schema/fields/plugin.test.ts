@@ -6,10 +6,9 @@ import {
 	getPluginFieldStructuralContains,
 	getPluginFieldStorageCodec,
 	type FieldOptions,
-	type FieldValidationOptions,
 } from '../index.js'
 
-interface FixtureValidationOptions extends FieldValidationOptions {
+interface FixtureValidationOptions {
 	readonly dimensions?: number
 }
 
@@ -21,8 +20,8 @@ interface FixtureFieldOptions extends FieldOptions<
 }
 
 const normalizeValidation = (
-	validation: FieldValidationOptions,
-): Readonly<FieldValidationOptions> => immutableRecord(validation)
+	validation: FixtureValidationOptions,
+): Readonly<FixtureValidationOptions> => immutableRecord(validation)
 
 const snapshotValue = (value: unknown, path: string): string => {
 	if (typeof value !== 'string') {
@@ -40,7 +39,7 @@ describe('plugin fields', () => {
 			{
 				list: true,
 				default: source,
-				validation: { required: true },
+				required: true,
 			},
 			{ normalizeValidation, snapshotValue },
 		)
@@ -52,25 +51,26 @@ describe('plugin fields', () => {
 			options: {
 				list: true,
 				default: ['first'],
-				validation: { required: true },
+				required: true,
 			},
 		})
 		expect(Object.isFrozen(field)).toBe(true)
 		expect(Object.isFrozen(field.options.default)).toBe(true)
 	})
 
-	it('uses flat validation by default and snapshots plugin normalization output', () => {
-		const validation = { required: true }
+	it('snapshots plugin validation independently from direct presence', () => {
+		const validation = { dimensions: 3 }
 		const field = definePluginField(
 			'fixture.default-normalizer',
-			{ validation },
+			{ required: true, validation },
 			{ snapshotValue },
 		)
 
-		validation.required = false
+		validation.dimensions = 4
 
 		// Schema owns common metadata even when the plugin omits a custom normalizer.
-		expect(field.options.validation.required).toBe(true)
+		expect(field.options.required).toBe(true)
+		expect(field.options.validation.dimensions).toBe(3)
 		expect(Object.isFrozen(field.options.validation)).toBe(true)
 	})
 
@@ -84,7 +84,8 @@ describe('plugin fields', () => {
 			'fixture.owned-options',
 			{
 				storageProfile: 'compact',
-				validation: { dimensions: 3, required: true },
+				required: true,
+				validation: { dimensions: 3 },
 			},
 			{
 				normalizeValidation: (validation) => immutableRecord(validation),
@@ -94,7 +95,8 @@ describe('plugin fields', () => {
 
 		expect(field.options).toStrictEqual({
 			storageProfile: 'compact',
-			validation: { dimensions: 3, required: true },
+			required: true,
+			validation: { dimensions: 3 },
 		})
 	})
 

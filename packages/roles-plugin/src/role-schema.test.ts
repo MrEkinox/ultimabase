@@ -20,7 +20,7 @@ import { roleSchemaIdentityOptionName } from './role-schema-identity.js'
 const User = Schema.define({
 	className: 'RoleUser',
 	fields: (field) => ({
-		email: field.string({ validation: { required: true } }),
+		email: field.string({ required: true }),
 	}),
 })
 

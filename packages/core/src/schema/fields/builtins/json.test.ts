@@ -28,9 +28,7 @@ describe('jsonField', () => {
 		}
 		const field = jsonField({
 			default: source,
-			validation: {
-				required: true,
-			},
+			required: true,
 		})
 		const defaultValue = requireRecord(
 			requireDefined(field.options.default, 'field.options.default'),

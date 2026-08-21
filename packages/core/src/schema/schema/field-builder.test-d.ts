@@ -17,7 +17,7 @@ test('declares circular relationships by schema name without local annotations',
 		fields: (field) => ({
 			author: field.pointer({
 				target: 'NamedCircularUser',
-				validation: { required: true },
+				required: true,
 			}),
 		}),
 	})

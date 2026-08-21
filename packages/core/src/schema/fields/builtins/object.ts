@@ -13,7 +13,6 @@ import {
 	assertFieldOptions,
 	assertValidTypeName,
 	fieldOptionKeys,
-	fieldValidationOptionKeys,
 	normalizeFieldOptions,
 	normalizeFlatValidation,
 	type BuiltInFieldOptionsContract,
@@ -117,7 +116,7 @@ export type ObjectField<
 const objectFieldOptionsContract: BuiltInFieldOptionsContract = {
 	kind: 'object',
 	optionKeys: [...fieldOptionKeys, 'fields', 'typeName'],
-	validationOptionKeys: fieldValidationOptionKeys,
+	validationOptionKeys: [],
 }
 
 /** Keeps nested fields exact while widening runtime-only object metadata. */
@@ -127,10 +126,11 @@ type CompactObjectFieldOptions<
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 > = ObjectFieldOptions<TFields> & {
-	readonly validation?: {
-		readonly required?: TRequired
-	}
-} & {
+	/**
+	 * Requires a non-null persisted object and requires create input unless a default supplies it.
+	 * @example `required: true`
+	 */
+	readonly required?: TRequired
 	readonly list?: TList
 	readonly immutable?: TImmutable
 }
@@ -221,7 +221,7 @@ function snapshotObjectValue(
  * objectField({
  *   typeName: "Profile",
  *   fields: {
- *     displayName: stringField({ validation: { required: true } }),
+ *     displayName: stringField({ required: true }),
  *     active: booleanField({ default: true }),
  *   },
  * })

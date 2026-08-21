@@ -49,7 +49,7 @@ describe('optional Hooks PostgreSQL proof', { concurrent: false }, () => {
 		const Post = Schema.define({
 			className: 'TypeScriptNoEnginePost',
 			fields: (field) => ({
-				title: field.string({ validation: { required: true } }),
+				title: field.string({ required: true }),
 			}),
 			postgres: { table: 'optional_hooks_typescript_posts' },
 		})
@@ -173,7 +173,7 @@ describe('optional Hooks PostgreSQL proof', { concurrent: false }, () => {
 			className: 'AlternativePostgresPost',
 			alternativeBehavior: alternativeBehavior({ label: 'publishing' }),
 			fields: (field) => ({
-				title: field.string({ validation: { required: true } }),
+				title: field.string({ required: true }),
 			}),
 			postgres: { table: 'optional_hooks_alternative_posts' },
 		})

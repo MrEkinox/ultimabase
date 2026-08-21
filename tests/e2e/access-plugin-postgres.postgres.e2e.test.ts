@@ -22,7 +22,7 @@ import {
 const AccessAudit = Schema.define({
 	className: 'NativeAccessAudit',
 	fields: (field) => ({
-		action: field.string({ validation: { required: true } }),
+		action: field.string({ required: true }),
 	}),
 })
 
@@ -40,7 +40,7 @@ const AccessArticle = Schema.define({
 		}),
 		title: field.string({
 			indexed: 'unique',
-			validation: { required: true },
+			required: true,
 		}),
 	}),
 	access: {
@@ -77,7 +77,7 @@ const AccessArticle = Schema.define({
 const BulkDocument = Schema.define({
 	className: 'NativeAccessBulkE2E',
 	fields: (field) => ({
-		key: field.string({ indexed: 'unique', validation: { required: true } }),
+		key: field.string({ indexed: 'unique', required: true }),
 		value: field.int({ default: 0 }),
 		visible: field.boolean({ default: false }),
 	}),

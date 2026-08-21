@@ -71,7 +71,7 @@ describe('typegenPlugin', () => {
 		const Todo = Schema.define({
 			className: 'GeneratedTodo',
 			fields: (field) => ({
-				title: field.string({ validation: { required: true } }),
+				title: field.string({ required: true }),
 				completed: field.boolean({ default: false }),
 			}),
 		})

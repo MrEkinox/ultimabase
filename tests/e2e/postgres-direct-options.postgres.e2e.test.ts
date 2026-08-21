@@ -43,7 +43,7 @@ it('preserves data while applying a direct field rename to an explicit table', a
 	const LegacyArticle = Schema.define({
 		className: 'DirectOptionArticle',
 		fields: (field) => ({
-			headline: field.string({ validation: { required: true } }),
+			headline: field.string({ required: true }),
 		}),
 		postgres: { table: 'direct_option_articles' },
 	})
@@ -69,7 +69,7 @@ it('preserves data while applying a direct field rename to an explicit table', a
 		fields: (field) => ({
 			title: field.string({
 				postgres: { renamedFrom: 'headline' },
-				validation: { required: true },
+				required: true,
 			}),
 		}),
 		postgres: { table: 'direct_option_articles' },

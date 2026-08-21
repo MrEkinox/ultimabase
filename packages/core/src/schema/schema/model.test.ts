@@ -11,11 +11,11 @@ import {
 const Post = Schema.define({
 	className: 'Post',
 	fields: (field) => ({
-		title: field.string({ validation: { required: true } }),
+		title: field.string({ required: true }),
 		summary: field.string(),
 		profile: field.object({
 			fields: (field) => ({
-				displayName: field.string({ validation: { required: true } }),
+				displayName: field.string({ required: true }),
 			}),
 		}),
 	}),

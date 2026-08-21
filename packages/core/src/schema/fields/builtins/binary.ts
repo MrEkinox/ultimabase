@@ -1,6 +1,5 @@
 import {
 	fieldOptionKeys,
-	fieldValidationOptionKeys,
 	normalizeFieldOptions,
 	orderedRangeOptionKeys,
 	type BuiltInFieldOptionsContract,
@@ -29,7 +28,7 @@ import {
 export type BinaryLengthValidationOptions = LengthValidationOptions
 
 /**
- * Groups presence and byte-length constraints under one validation boundary.
+ * Groups byte-length constraints under one validation boundary.
  */
 export type BinaryValidationOptions = LengthConstrainedValidation
 
@@ -51,7 +50,7 @@ export type BinaryField<
 const binaryFieldOptionsContract: BuiltInFieldOptionsContract = {
 	kind: 'binary',
 	optionKeys: fieldOptionKeys,
-	validationOptionKeys: [...fieldValidationOptionKeys, 'length'],
+	validationOptionKeys: ['length'],
 	nestedValidation: [{ key: 'length', optionKeys: orderedRangeOptionKeys }],
 }
 

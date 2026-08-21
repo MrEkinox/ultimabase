@@ -7,11 +7,7 @@ import {
 } from '@ultimabase/shared'
 
 import { isStaticDefault } from './defaults.js'
-import type {
-	FieldOptions,
-	FieldValidationOptions,
-	GenericField,
-} from './contract.js'
+import type { FieldOptions, GenericField } from './contract.js'
 
 /**
  * Reuses one exact empty option shape across zero-argument field factories.
@@ -28,6 +24,7 @@ export const fieldOptionsBaseKeys: readonly string[] = [
 	'immutable',
 	'indexed',
 	'list',
+	'required',
 	'validation',
 ]
 
@@ -36,9 +33,6 @@ export const fieldOptionKeys: readonly string[] = [
 	...fieldOptionsBaseKeys,
 	'default',
 ]
-
-/** Lists the presence key shared by every built-in validation contract. */
-export const fieldValidationOptionKeys: readonly string[] = ['required']
 
 /** Lists the boundaries shared by ordered length, value, and temporal ranges. */
 export const orderedRangeOptionKeys: readonly string[] = ['max', 'min']
@@ -244,15 +238,13 @@ export const snapshotListedFieldValue = (
 }
 
 /**
- * Freezes presence-only validation shared by primitive fields without extra constraints.
+ * Freezes an existing field-specific constraint record without further normalization.
  */
-export const normalizeFlatValidation = <
-	const TValidation extends FieldValidationOptions,
->(
+export const normalizeFlatValidation = <const TValidation extends object>(
 	validation: TValidation,
 ): Readonly<TValidation> => validation
 
-const normalizeCommonValidation = <TValidation extends FieldValidationOptions>(
+const normalizeCommonValidation = <TValidation extends object>(
 	validation: TValidation,
 	normalizeValidation: (validation: TValidation) => Readonly<TValidation>,
 ): Readonly<TValidation> => {
@@ -266,8 +258,6 @@ const normalizeCommonValidation = <TValidation extends FieldValidationOptions>(
 		throw new TypeError('normalized validation must be an object')
 	}
 
-	assertOptionalBoolean(normalized.required, 'validation.required')
-
 	if ('nullable' in normalized) {
 		throw new TypeError('validation.nullable is not supported')
 	}
@@ -277,6 +267,10 @@ const normalizeCommonValidation = <TValidation extends FieldValidationOptions>(
 }
 
 const assertCommonFieldMetadata = (options: object): void => {
+	if ('required' in options) {
+		assertOptionalBoolean(options.required, 'required')
+	}
+
 	if ('immutable' in options) {
 		assertOptionalBoolean(options.immutable, 'immutable')
 	}
@@ -304,7 +298,7 @@ const assertCommonFieldMetadata = (options: object): void => {
  */
 export const normalizeFieldOptions = <
 	TValue,
-	TValidation extends FieldValidationOptions,
+	TValidation extends object,
 	const TOptions extends FieldOptions<TValue, TValidation>,
 >(
 	options: TOptions,
@@ -351,31 +345,20 @@ export const normalizeFieldOptions = <
 	return normalized
 }
 
-/** Reads required presence without trusting external metadata. */
-const hasRequiredValidation = (options: object): boolean => {
-	if (
-		!('validation' in options) ||
-		typeof options.validation !== 'object' ||
-		options.validation === null
-	) {
-		return false
-	}
-
-	return (
-		'required' in options.validation && options.validation.required === true
-	)
-}
+/** Reads direct required presence without trusting external metadata. */
+const hasRequiredOption = (options: object): boolean =>
+	'required' in options && options.required === true
 
 /** Derives whether a selected persisted field may contain logical null. */
 export const isFieldNullable = (field: GenericField): boolean =>
-	!hasRequiredValidation(field.options) &&
+	!hasRequiredOption(field.options) &&
 	!('autoNow' in field.options && field.options.autoNow === true) &&
 	!('autoIncrement' in field.options && field.options.autoIncrement === true) &&
 	!('generatedOn' in field.options)
 
 /** Mirrors create-input omission rules at runtime snapshot boundaries. */
 export const isRequiredOnCreate = (field: GenericField): boolean =>
-	hasRequiredValidation(field.options) &&
+	hasRequiredOption(field.options) &&
 	!('default' in field.options) &&
 	!('autoNow' in field.options && field.options.autoNow === true) &&
 	!('autoIncrement' in field.options && field.options.autoIncrement === true) &&

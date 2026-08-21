@@ -19,7 +19,7 @@ const articleSchema = Schema.define({
 	fields: (field) => ({
 		title: field.string({
 			indexed: 'unique',
-			validation: { required: true },
+			required: true,
 		}),
 	}),
 })

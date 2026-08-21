@@ -53,8 +53,8 @@ test('rejects incompatible float metadata', () => {
 	floatField({ validation: { range: { min: '0' } } })
 
 	floatField({
+		required: true,
 		validation: {
-			required: true,
 			// @ts-expect-error -- Nullability is derived and cannot be configured.
 			nullable: true,
 		},

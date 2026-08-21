@@ -35,7 +35,7 @@ const articleSchema = Schema.define({
 	className: 'EnforcedArticle',
 	fields: (field) => ({
 		secret: field.string(),
-		title: field.string({ validation: { required: true } }),
+		title: field.string({ required: true }),
 	}),
 })
 

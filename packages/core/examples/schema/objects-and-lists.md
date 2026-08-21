@@ -16,14 +16,14 @@ one property inside an embedded value.
 import { Schema, type EmbeddedFieldBuilder } from '@ultimabase/core'
 
 const addressFields = (field: EmbeddedFieldBuilder) => ({
-	line1: field.string({ validation: { required: true } }),
+	line1: field.string({ required: true }),
 	line2: field.string(),
-	city: field.string({ validation: { required: true } }),
+	city: field.string({ required: true }),
 	internalRoutingCode: field.string(),
-	postalCode: field.string({ validation: { required: true } }),
+	postalCode: field.string({ required: true }),
 	countryCode: field.string({
+		required: true,
 		validation: {
-			required: true,
 			length: { min: 2, max: 2 },
 			match: /^[A-Z]{2}$/u,
 		},
@@ -33,11 +33,11 @@ const addressFields = (field: EmbeddedFieldBuilder) => ({
 export const CustomerSchema = Schema.define({
 	className: 'Customer',
 	fields: (field) => ({
-		name: field.string({ validation: { required: true } }),
+		name: field.string({ required: true }),
 		shippingAddress: field.object({
 			typeName: 'Address',
 			fields: addressFields,
-			validation: { required: true },
+			required: true,
 		}),
 		previousAddresses: field.object({
 			typeName: 'PreviousAddress',

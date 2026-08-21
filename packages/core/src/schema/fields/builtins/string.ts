@@ -2,7 +2,6 @@ import { immutableRecord } from '@ultimabase/shared'
 
 import {
 	fieldOptionKeys,
-	fieldValidationOptionKeys,
 	normalizeFieldOptions,
 	orderedRangeOptionKeys,
 	type BuiltInFieldOptionsContract,
@@ -32,7 +31,7 @@ import { normalizeStringValue } from '../base/value.js'
 export type StringLengthValidationOptions = LengthValidationOptions
 
 /**
- * Groups presence and string constraints under one validation boundary.
+ * Groups string constraints under one validation boundary.
  */
 export interface StringValidationOptions extends LengthConstrainedValidation {
 	/**
@@ -58,7 +57,7 @@ export type StringField<
 const stringFieldOptionsContract: BuiltInFieldOptionsContract = {
 	kind: 'string',
 	optionKeys: fieldOptionKeys,
-	validationOptionKeys: [...fieldValidationOptionKeys, 'length', 'match'],
+	validationOptionKeys: ['length', 'match'],
 	nestedValidation: [{ key: 'length', optionKeys: orderedRangeOptionKeys }],
 }
 
@@ -169,7 +168,8 @@ const normalizeStringFieldOptions = <const TOptions extends StringFieldOptions>(
  * @example
  * ```ts
  * stringField({
- *   validation: { required: true, length: { min: 2 }, match: /^[a-z]+$/u },
+ *   required: true,
+ *   validation: { length: { min: 2 }, match: /^[a-z]+$/u },
  * })
  * ```
  */

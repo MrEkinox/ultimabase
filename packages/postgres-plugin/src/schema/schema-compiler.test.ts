@@ -119,7 +119,7 @@ describe('PostgreSQL primitive schema compiler', () => {
 					fields: (field) => ({ name: field.string() }),
 				}),
 				rating: field.float({ default: 4.5 }),
-				required: field.string({ validation: { required: true } }),
+				required: field.string({ required: true }),
 				runtime: field.string({ default: runtimeDefault }),
 				status: field.enum({ values: { Draft: 'draft', Live: 'live' } }),
 				token: field.uuid(),

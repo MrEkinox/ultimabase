@@ -79,12 +79,10 @@ describe('scalar constraint validation', () => {
 			),
 		).toStrictEqual(['decimal.precision', 'decimal.scale', 'decimal.range.max'])
 		// Presence-only validation exercises scalar kinds without optional constraints.
-		expect(
-			issueCodes(stringField({ validation: { required: true } }), 'valid'),
-		).toStrictEqual([])
-		expect(
-			issueCodes(intField({ validation: { required: true } }), 1),
-		).toStrictEqual([])
+		expect(issueCodes(stringField({ required: true }), 'valid')).toStrictEqual(
+			[],
+		)
+		expect(issueCodes(intField({ required: true }), 1)).toStrictEqual([])
 	})
 
 	it('uses each temporal field timezone policy for ordered ranges', () => {

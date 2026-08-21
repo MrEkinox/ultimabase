@@ -21,7 +21,7 @@ let rejectAuthorProjection = false
 const Author = Schema.define({
 	className: 'MutationIncludeAuthor',
 	fields: (field) => ({
-		name: field.string({ validation: { required: true } }),
+		name: field.string({ required: true }),
 		posts: field.relation({
 			mappedBy: 'author',
 			target: 'MutationIncludePost',
@@ -43,16 +43,16 @@ const Post = Schema.define({
 	fields: (field) => ({
 		author: field.pointer({
 			target: 'MutationIncludeAuthor',
-			validation: { required: true },
+			required: true,
 		}),
-		title: field.string({ validation: { required: true } }),
+		title: field.string({ required: true }),
 	}),
 })
 
 const Tag = Schema.define({
 	className: 'MutationIncludeTag',
 	fields: (field) => ({
-		label: field.string({ validation: { required: true } }),
+		label: field.string({ required: true }),
 	}),
 })
 
@@ -60,7 +60,7 @@ const Article = Schema.define({
 	className: 'MutationIncludeArticle',
 	fields: (field) => ({
 		tags: field.relation({ target: 'MutationIncludeTag' }),
-		title: field.string({ validation: { required: true } }),
+		title: field.string({ required: true }),
 	}),
 })
 
