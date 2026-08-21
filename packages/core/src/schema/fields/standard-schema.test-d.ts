@@ -1,5 +1,7 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec'
+import * as v from 'valibot'
 import { expectTypeOf, test } from 'vitest'
+import { z } from 'zod'
 
 import {
 	bigintField,
@@ -122,4 +124,32 @@ test('field validators reject incompatible and unsafe inferred types', () => {
 	stringField({ validation: unsafeInputSchema })
 	// @ts-expect-error An inferred unsafe output cannot leak through the field API.
 	stringField({ validation: unsafeOutputSchema })
+})
+
+test('real Standard Schema libraries retain their inferred protocol types', () => {
+	const zodObject = z.object({ label: z.string().min(1) })
+	const valibotObject = v.object({
+		label: v.pipe(v.string(), v.minLength(1)),
+	})
+
+	expectTypeOf<StandardSchemaV1.InferInput<typeof zodObject>>().toEqualTypeOf<{
+		label: string
+	}>()
+	expectTypeOf<StandardSchemaV1.InferOutput<typeof zodObject>>().toEqualTypeOf<{
+		label: string
+	}>()
+	expectTypeOf<
+		StandardSchemaV1.InferInput<typeof valibotObject>
+	>().toEqualTypeOf<{ label: string }>()
+	expectTypeOf<
+		StandardSchemaV1.InferOutput<typeof valibotObject>
+	>().toEqualTypeOf<{ label: string }>()
+	objectField({
+		fields: { label: stringField({ required: true }) },
+		validation: zodObject,
+	})
+	objectField({
+		fields: { label: stringField({ required: true }) },
+		validation: valibotObject,
+	})
 })

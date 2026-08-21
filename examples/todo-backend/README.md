@@ -24,6 +24,10 @@ export const Todo = Schema.define({
 			required: true,
 			validation: z.string().max(200),
 		}),
+		tags: field.string({
+			list: true,
+			validation: z.array(z.string().min(1)).max(20),
+		}),
 		internalNotes: field.string({
 			access: {
 				read: false,
@@ -55,6 +59,13 @@ const ultimabase = new UltimaBase({
 	schemas: [TodoUser, TodoRole, Todo],
 })
 ```
+
+`required` remains direct presence metadata, while `precision` and `scale` on
+the Todo budget remain direct storage shape. A scalar validator receives one
+canonical title, and the `tags` validator receives the complete canonical list
+once. Zod diagnostics are exposed through UltimaBase's neutral
+`field.validation` issue code; the generated `TodoItem` still contains
+`readonly tags: ReadonlyArray<string> | null` and never embeds the validator.
 
 This demonstrates that the plugins compose monotonically: ordinary readers see
 only non-archived rows allowed by their object ACL, editor ACLs may permit an

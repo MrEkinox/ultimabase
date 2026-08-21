@@ -1357,7 +1357,9 @@ __metadata:
     tsdown: "npm:^0.22.14"
     typescript: "npm:^6.0.3"
     uuid: "npm:^14.0.1"
+    valibot: "npm:^1.4.2"
     vitest: "npm:4.1.10"
+    zod: "npm:^4.4.3"
   languageName: unknown
   linkType: soft
 
@@ -1490,7 +1492,9 @@ __metadata:
     jiti: "npm:^2.6.1"
     tsdown: "npm:^0.22.14"
     typescript: "npm:^6.0.3"
+    valibot: "npm:^1.4.2"
     vitest: "npm:4.1.10"
+    zod: "npm:^4.4.3"
   languageName: unknown
   linkType: soft
 
@@ -4981,7 +4985,9 @@ __metadata:
     tsdown: "npm:^0.22.14"
     typescript: "npm:^6.0.3"
     typescript-eslint: "npm:^8.65.0"
+    valibot: "npm:^1.4.2"
     vitest: "npm:4.1.10"
+    zod: "npm:^4.4.3"
   languageName: unknown
   linkType: soft
 
@@ -5052,6 +5058,18 @@ __metadata:
   bin:
     uuid: dist-node/bin/uuid
   checksum: 10c0/2d961289097cb68c37d93d1da0b5c3aafc1eb9948a455cca8d0ae53a099b2fe583b8933254a84097f700e6bac2e23033364904df0467c22551d5d9611febcaf6
+  languageName: node
+  linkType: hard
+
+"valibot@npm:^1.4.2":
+  version: 1.4.2
+  resolution: "valibot@npm:1.4.2"
+  peerDependencies:
+    typescript: ">=5"
+  peerDependenciesMeta:
+    typescript:
+      optional: true
+  checksum: 10c0/71b861de928fd5533b03fc4d84c619c07602f176d2bc6b12c5c80b2a6e889574c4126c843dd0771ce450bbb29566ca6df13d5b538ce5e4c39c2fccfb7623cf4e
   languageName: node
   linkType: hard
 

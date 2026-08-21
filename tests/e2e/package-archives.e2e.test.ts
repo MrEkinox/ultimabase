@@ -86,6 +86,25 @@ const getResolutionError = (specifier: string): unknown => {
 	throw new Error(`Private package path unexpectedly resolved: ${specifier}`)
 }
 
+/** Reads only the published dependency map from an untrusted package manifest. */
+const readPublishedDependencies = async (
+	directory: string,
+): Promise<Readonly<Record<string, unknown>>> => {
+	const manifest: unknown = JSON.parse(
+		await readFile(path.join(directory, 'package.json'), 'utf8'),
+	)
+	const dependencies: unknown =
+		typeof manifest === 'object' && manifest !== null
+			? Reflect.get(manifest, 'dependencies')
+			: undefined
+
+	if (typeof dependencies !== 'object' || dependencies === null) {
+		return {}
+	}
+
+	return dependencies as Readonly<Record<string, unknown>>
+}
+
 /** Reads editor QuickInfo through the same compiled package exports consumers use. */
 const readFixtureQuickInfo = (propertySource: string): DeclarationQuickInfo => {
 	const position = schemaFixtureSource.indexOf(propertySource)
@@ -136,6 +155,36 @@ describe.each(packageFixtures)('$name archive', ({ directory, name }) => {
 			code: 'ERR_PACKAGE_PATH_NOT_EXPORTED',
 		})
 	})
+})
+
+it('publishes the validator-neutral Standard Schema dependency boundary', async () => {
+	const dependencies = new Map(
+		await Promise.all(
+			packageFixtures.map(
+				async ({ directory, name }) =>
+					[name, await readPublishedDependencies(directory)] as const,
+			),
+		),
+	)
+
+	expect(dependencies.get('@ultimabase/core')).toHaveProperty(
+		'@standard-schema/spec',
+	)
+	expect(dependencies.get('@ultimabase/plugin-kit')).toHaveProperty(
+		'@standard-schema/spec',
+	)
+	expect(dependencies.get('@ultimabase/roles-plugin')).toHaveProperty(
+		'@standard-schema/spec',
+	)
+
+	for (const [name, published] of dependencies) {
+		expect(published, `${name} production dependencies`).not.toHaveProperty(
+			'zod',
+		)
+		expect(published, `${name} production dependencies`).not.toHaveProperty(
+			'valibot',
+		)
+	}
 })
 
 describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () => {

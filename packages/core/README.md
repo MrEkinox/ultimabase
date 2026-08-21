@@ -89,6 +89,12 @@ while a plugin-owned occurrence resolves against its exact plugin and instance.
 Plugin-defined fields retain their native structural option keys and use the
 same Standard Schema validation boundary as built-in fields.
 
+The repository runs the same scalar, complete-list, complete-object, temporal,
+decimal, enum, JSON, binary, pointer, and plugin-field conformance matrix with
+Zod and Valibot. Those libraries are test dependencies only: Core's published
+contract names `@standard-schema/spec`, and Typegen omits validator identities
+and callbacks from generated declarations and fingerprints.
+
 TypeScript reports invalid option combinations on the primary option contract.
 For example, empty enum domains identify `values`, required pointers using
 `onDelete: "setNull"` identify `onDelete`, and temporal generation conflicts

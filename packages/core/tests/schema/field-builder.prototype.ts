@@ -1,4 +1,79 @@
-import { Schema } from '../../src/index.js'
+import * as v from 'valibot'
+import { z } from 'zod'
+
+import {
+	definePluginField,
+	type FieldOptions,
+	type JsonDocument,
+	objectField,
+	Pointer,
+	Schema,
+	stringField,
+} from '../../src/index.js'
+
+class PackedPluginValue {
+	constructor(readonly value: string) {}
+}
+
+const PackedTarget = Schema.define({
+	className: 'PackedValidatorTarget',
+	fields: () => ({}),
+})
+void PackedTarget
+
+const zodPluginValidator = z.custom<PackedPluginValue>(
+	(value) => value instanceof PackedPluginValue,
+)
+const valibotPluginValidator = v.custom<PackedPluginValue>(
+	(value) => value instanceof PackedPluginValue,
+)
+
+definePluginField<
+	PackedPluginValue,
+	'fixture.zod',
+	FieldOptions<PackedPluginValue, typeof zodPluginValidator>
+>(
+	'fixture.zod',
+	{ validation: zodPluginValidator },
+	{
+		snapshotValue: (value) => {
+			if (!(value instanceof PackedPluginValue)) {
+				throw new TypeError('Expected a packed plugin value')
+			}
+
+			return value
+		},
+	},
+)
+
+const zodObjectField = objectField({
+	fields: { label: stringField({ required: true }) },
+	validation: z.object({ label: z.string().min(1) }),
+})
+const valibotObjectField = objectField({
+	fields: { label: stringField({ required: true }) },
+	validation: v.object({
+		label: v.pipe(v.string(), v.minLength(1)),
+	}),
+})
+
+definePluginField<
+	PackedPluginValue,
+	'fixture.valibot',
+	FieldOptions<PackedPluginValue, typeof valibotPluginValidator>
+>(
+	'fixture.valibot',
+	{ validation: valibotPluginValidator },
+	{
+		snapshotValue: (value) => {
+			if (!(value instanceof PackedPluginValue)) {
+				throw new TypeError('Expected a packed plugin value')
+			}
+
+			return value
+		},
+	},
+)
 
 Schema.define({
 	className: 'PackedFieldBuilder',
@@ -10,7 +85,67 @@ Schema.define({
 		budget: field.decimal({/* completion:decimal-options */}),
 		shapedBudget: field.decimal({
 			/* hover:decimal-precision */ precision: 12,
-			scale: 2,
+			/* hover:decimal-scale */ scale: 2,
+		}),
+		requiredTitle: field.string({
+			/* hover:field-required */ required: true,
+			validation: z.string().min(1),
+		}),
+		zodList: field.string({
+			list: true,
+			validation: z.array(z.string().min(1)),
+		}),
+		valibotList: field.string({
+			list: true,
+			validation: v.array(v.pipe(v.string(), v.minLength(1))),
+		}),
+		zodObject: zodObjectField,
+		valibotObject: valibotObjectField,
+		zodTemporal: field.dateTime({ validation: z.iso.datetime() }),
+		valibotTemporal: field.dateTime({
+			validation: v.pipe(v.string(), v.isoTimestamp()),
+		}),
+		zodDecimal: field.decimal({
+			validation: z.string().regex(/^\d+\.\d{2}$/u),
+		}),
+		valibotDecimal: field.decimal({
+			validation: v.pipe(v.string(), v.regex(/^\d+\.\d{2}$/u)),
+		}),
+		zodEnum: field.enum({
+			validation: z.enum(['draft', 'published']),
+			values: ['draft', 'published'],
+		}),
+		valibotEnum: field.enum({
+			validation: v.picklist(['draft', 'published']),
+			values: ['draft', 'published'],
+		}),
+		zodJson: field.json({
+			validation: z.custom<JsonDocument>(
+				(value) => typeof value === 'object' && value !== null,
+			),
+		}),
+		valibotJson: field.json({
+			validation: v.custom<JsonDocument>(
+				(value) => typeof value === 'object' && value !== null,
+			),
+		}),
+		zodBinary: field.binary({
+			validation: z.custom<Uint8Array>((value) => value instanceof Uint8Array),
+		}),
+		valibotBinary: field.binary({
+			validation: v.custom<Uint8Array>((value) => value instanceof Uint8Array),
+		}),
+		zodPointer: field.pointer({
+			target: 'PackedValidatorTarget',
+			validation: z.custom<Pointer<typeof PackedTarget>>(
+				(value) => value instanceof Pointer,
+			),
+		}),
+		valibotPointer: field.pointer({
+			target: 'PackedValidatorTarget',
+			validation: v.custom<Pointer<typeof PackedTarget>>(
+				(value) => value instanceof Pointer,
+			),
 		}),
 		assignee: field.pointer({
 			target: 'PackedFieldBuilder',

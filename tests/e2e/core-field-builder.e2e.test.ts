@@ -18,6 +18,7 @@ declare module '@ultimabase/core' {
 	}
 	interface UltimaBaseGeneratedSchemas {
 		readonly PackedFieldBuilder: import('@ultimabase/core').BaseSchemaTypeInfo<'PackedFieldBuilder'>
+		readonly PackedValidatorTarget: import('@ultimabase/core').BaseSchemaTypeInfo<'PackedValidatorTarget'>
 	}
 }
 `,
@@ -77,10 +78,22 @@ describe('packed @ultimabase/core FieldBuilder contract', () => {
 		).toEqual(expect.arrayContaining(['precision', 'scale', 'validation']))
 
 		const precision = languageFixture.readHover('decimal-precision')
+		const scale = languageFixture.readHover('decimal-scale')
 
 		expect(precision.display).toContain('precision?: number')
 		expect(precision.documentation).toContain('total number')
 		expect(precision.hasExample).toBe(true)
+		expect(scale.display).toContain('scale?: number')
+		expect(scale.documentation).toContain('digits after the decimal')
+		expect(scale.hasExample).toBe(true)
+	})
+
+	it('retains documented direct presence beside real validators', () => {
+		const required = languageFixture.readHover('field-required')
+
+		expect(required.display).toContain('required?: true')
+		expect(required.documentation).toContain('non-null persisted')
+		expect(required.hasExample).toBe(true)
 	})
 
 	it('offers every pointer referential action', () => {

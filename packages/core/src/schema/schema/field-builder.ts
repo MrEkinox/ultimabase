@@ -1,9 +1,7 @@
 import {
 	assertNonEmptyString,
-	immutableArray,
 	immutableRecord,
 	isPlainRecord,
-	isUnknownArray,
 } from '@ultimabase/shared'
 
 import {
@@ -49,6 +47,7 @@ import type {
 	OwnedFieldBuilderMethod,
 } from './field-builder-methods.js'
 import type { ObjectFieldBuilderMethod } from './object-field-builder.js'
+import { snapshotCapturedFieldOptions } from './captured-options.js'
 
 type EmbeddedIntFieldOptions = Omit<IntFieldOptions, 'autoIncrement'> & {
 	readonly autoIncrement?: false
@@ -236,33 +235,6 @@ export class FieldBuilderDeclarationExecutionError extends Error {
 	}
 }
 
-/** Detaches delayed plugin options from caller-owned plain data. */
-export const snapshotCapturedOptionValue = (value: unknown): unknown => {
-	if (isUnknownArray(value)) {
-		return immutableArray(value.map(snapshotCapturedOptionValue))
-	}
-
-	if (value instanceof Date) {
-		return Object.freeze(new Date(value.getTime()))
-	}
-
-	if (value instanceof RegExp) {
-		return Object.freeze(new RegExp(value.source, value.flags))
-	}
-
-	if (!isPlainRecord(value)) {
-		return value
-	}
-
-	const snapshot: Record<string, unknown> = {}
-
-	for (const [key, nestedValue] of Object.entries(value)) {
-		snapshot[key] = snapshotCapturedOptionValue(nestedValue)
-	}
-
-	return immutableRecord(snapshot)
-}
-
 const createCapturedFieldBuilderCall = (
 	methodName: string,
 	options: unknown,
@@ -326,7 +298,7 @@ const createCapturedObjectMethod = (path: string): ObjectFieldBuilderMethod => {
 		return createCapturedFieldBuilderCall(
 			'object',
 			immutableRecord({
-				...(snapshotCapturedOptionValue(options) as Readonly<
+				...(snapshotCapturedFieldOptions(options) as Readonly<
 					Record<string, unknown>
 				>),
 				fields,
@@ -346,7 +318,7 @@ const createCapturedFieldBuilder = (
 		(options) =>
 			createCapturedFieldBuilderCall(
 				methodName,
-				snapshotCapturedOptionValue(options),
+				snapshotCapturedFieldOptions(options),
 			)
 	const scalarMethods: ScalarFieldBuilderMethods = {
 		binary: method('binary') as typeof binaryField,

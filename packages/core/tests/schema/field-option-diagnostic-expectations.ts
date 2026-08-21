@@ -75,6 +75,28 @@ export const fieldOptionDiagnosticExpectations: readonly FieldOptionDiagnosticEx
 			target: 'default',
 		},
 		{
+			fragments: ['ZodNumber', "not assignable to type 'never'"],
+			target: 'validation',
+		},
+		{
+			fragments: [
+				'ZodTransform<number, string>',
+				"not assignable to type 'never'",
+			],
+			target: 'validation',
+		},
+		{
+			fragments: ['NumberSchema<undefined>', "not assignable to type 'never'"],
+			target: 'validation',
+		},
+		{
+			fragments: [
+				'TransformAction<string, number>',
+				"not assignable to type 'never'",
+			],
+			target: 'validation',
+		},
+		{
 			fragments: ['DefaultedDateFieldOptions', "Type 'true'"],
 			target: 'date',
 		},

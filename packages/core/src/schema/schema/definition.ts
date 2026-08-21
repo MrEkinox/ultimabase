@@ -35,10 +35,10 @@ import {
 	FieldBuilderMethodUnavailableError,
 	FieldBuilderTargetUnavailableError,
 	resolveCapturedFieldMap,
-	snapshotCapturedOptionValue,
 	type FieldBuilderTargetResolver,
 	type SchemaFieldBuilderDeclaration,
 } from './field-builder.js'
+import { snapshotCapturedOptionValue } from './captured-options.js'
 import type { FieldBuilderMethodResolver } from './field-builder-methods.js'
 import type {
 	BaseSchemaTypeInfo,

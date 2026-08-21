@@ -33,6 +33,8 @@
 		"@ultimabase/roles-plugin": "workspace:^",
 		"tsdown": "^0.22.14",
 		"typescript": "^6.0.3",
-		"vitest": "4.1.10"
+		"valibot": "^1.4.2",
+		"vitest": "4.1.10",
+		"zod": "^4.4.3"
 	}
 }

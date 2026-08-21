@@ -16,7 +16,7 @@ import { assertFieldDefinition } from '../schema/fields/base/definition.js'
 
 import type { SchemaIndexDefinition } from '../schema/schema/indexes.js'
 
-import { snapshotCapturedOptionValue } from '../schema/schema/field-builder.js'
+import { snapshotCapturedOptionValue } from '../schema/schema/captured-options.js'
 
 import {
 	applicationSchemaContributionOwner,

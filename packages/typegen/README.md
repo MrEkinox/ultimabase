@@ -115,6 +115,9 @@ Core-owned structural metadata that cannot change a TypeScript value shape is
 deliberately omitted. Decimal `precision` and `scale`, for example, affect
 Runtime validation and adapter storage but produce the same generated string
 field contract and fingerprint as an otherwise identical decimal field.
+Opaque Standard Schema field validators are omitted for the same reason. Zod,
+Valibot, and other implementations therefore produce the same declaration and
+fingerprint when every generated field fact is otherwise identical.
 
 Operation declarations retain exact input, result, and declared public
 `PluginError` code unions. Generated application and schema/model handles add

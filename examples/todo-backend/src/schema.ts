@@ -105,7 +105,7 @@ export const Todo = Schema.define({
 		}),
 		progress: field.float({
 			description: 'Floating-point completion ratio.',
-			validation: z.number().finite().min(0).max(1),
+			validation: z.number().min(0).max(1),
 		}),
 		budget: field.decimal({
 			description: 'Exact decimal budget represented without precision loss.',
@@ -170,7 +170,10 @@ export const Todo = Schema.define({
 			}),
 			typeName: 'TodoDetails',
 		}),
-		tags: field.string({ list: true }),
+		tags: field.string({
+			list: true,
+			validation: z.array(z.string().min(1)).max(20),
+		}),
 		completionHistory: field.boolean({ list: true }),
 		estimateHistory: field.int({ list: true }),
 		largeCounterHistory: field.bigint({ list: true }),
