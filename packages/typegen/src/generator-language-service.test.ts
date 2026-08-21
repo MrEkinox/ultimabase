@@ -680,8 +680,8 @@ related.connect(SemanticArticle.pointer('article-2'))
 // @ts-expect-error -- Relation mutations retain their exact target schema.
 related.connect(SemanticAuthor.pointer('author-2'))
 
-// @ts-expect-error -- A loaded registry rejects a stale schema name.
 Schema.define({
+  // @ts-expect-error -- A loaded registry rejects a stale schema name.
   className: 'MissingGeneratedSchema',
   fields: (field) => ({ title: field.string() }),
 })
@@ -832,13 +832,13 @@ Schema.define({
 			'generated-missing-schema.semantic.fixture.ts',
 		)
 		const service = createSourceLanguageService(fileName, source)
-		const diagnostics = service
-			.getSemanticDiagnostics(fileName)
-			.map(({ messageText }) =>
-				ts.flattenDiagnosticMessageText(messageText, '\n'),
-			)
+		const semanticDiagnostics = service.getSemanticDiagnostics(fileName)
+		const diagnostics = semanticDiagnostics.map(({ messageText }) =>
+			ts.flattenDiagnosticMessageText(messageText, '\n'),
+		)
 
 		expect(diagnostics).toHaveLength(1)
+		expect(semanticDiagnostics[0]?.start).toBe(source.lastIndexOf('className'))
 		expect(diagnostics[0]).toContain(
 			'UltimaBase generated schema is missing or stale; regenerate it with @ultimabase/typegen',
 		)
