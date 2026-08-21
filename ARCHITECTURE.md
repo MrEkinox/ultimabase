@@ -135,6 +135,11 @@ under its definition owner. Missing, ambiguous, or wrongly owned definitions
 fail before any infrastructure phase; duplicate definitions become an error
 only when an occurrence needs an exact owner.
 
+Developer-authored options declare structured public Typegen references.
+Factory-owned compiler markers instead declare `typegen: false`: Core retains
+their validation, ownership, provenance, and plugin requirement while generated
+authoring types omit their internal names.
+
 Plugins may also contribute new logical field kinds. Structural validation
 plans retain the original immutable field definition by identity; the owning
 plugin claims its namespaced kind and contributes validation and adapter

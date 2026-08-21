@@ -84,7 +84,11 @@ export interface SchemaOptionDefinition<
 	readonly normalize: (value: unknown, path: string) => TValue
 	readonly protocolVersion: number
 	readonly runtime?: SchemaOptionRuntimeCompiler<TValue, TRequirement>
-	readonly typegen: SchemaOptionTypegenDescriptor
+	/**
+	 * Exposes one public generated authoring type, or keeps a factory-owned
+	 * compiler marker out of generated schema and field option completion.
+	 */
+	readonly typegen: SchemaOptionTypegenDescriptor | false
 	/** Keeps executable or nominal declarations application-local and opaque to the compiler IR. */
 	readonly valueKind?: 'json' | 'opaque'
 }
@@ -123,9 +127,11 @@ export const assertKnownKeys = (
 
 const normalizeTypegenDescriptor = (
 	value: unknown,
-): SchemaOptionTypegenDescriptor => {
+): SchemaOptionTypegenDescriptor | false => {
+	if (value === false) return false
+
 	if (!isPlainRecord(value)) {
-		throw new TypeError('Schema option typegen must be a plain object')
+		throw new TypeError('Schema option typegen must be false or a plain object')
 	}
 
 	assertKnownKeys(value, optionTypegenKeys, 'schema option typegen')

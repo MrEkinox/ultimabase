@@ -95,7 +95,10 @@ const assertOptionDefinition = (
 	if (value.scope !== 'field' && value.scope !== 'schema') {
 		throw new TypeError(`${path}.scope must be field or schema`)
 	}
-	if (!isPlainRecord(value.staticOptions) || !isPlainRecord(value.typegen)) {
+	if (
+		!isPlainRecord(value.staticOptions) ||
+		(value.typegen !== false && !isPlainRecord(value.typegen))
+	) {
 		throw new TypeError(`${path} must contain static options and typegen facts`)
 	}
 }

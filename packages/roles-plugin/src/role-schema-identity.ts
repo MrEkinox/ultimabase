@@ -12,7 +12,7 @@ const roleSchemaClassNames = new WeakMap<object, string>()
  * Application code cannot construct this nominal value. `RoleSchema.define()`
  * creates it so static compilation can require the official Roles plugin.
  */
-export interface RoleSchemaIdentityOption {
+interface RoleSchemaIdentityOption {
 	readonly [roleSchemaIdentityBrand]: true
 }
 
@@ -57,9 +57,6 @@ export const roleSchemaIdentityOption: SchemaOptionDefinition<RoleSchemaIdentity
 	defineSchemaOption({
 		normalize: normalizeRoleSchemaIdentity,
 		protocolVersion: 1,
-		typegen: {
-			module: '@ultimabase/roles-plugin',
-			type: 'RoleSchemaIdentityOption',
-		},
+		typegen: false,
 		valueKind: 'opaque',
 	})

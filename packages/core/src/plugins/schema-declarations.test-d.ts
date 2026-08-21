@@ -36,6 +36,21 @@ const workflowOption = defineSchemaOption({
 	},
 })
 
+test('types compiler-only direct options as one closed authoring choice', () => {
+	defineSchemaOption({
+		normalize: (value) => String(value),
+		protocolVersion: 1,
+		typegen: false,
+	})
+
+	defineSchemaOption({
+		normalize: (value) => String(value),
+		protocolVersion: 1,
+		// @ts-expect-error -- Only false or a structured public reference is accepted.
+		typegen: true,
+	})
+})
+
 test('types Runtime option compilation from the exact capability requirement', () => {
 	interface Registry {
 		register(className: string): void

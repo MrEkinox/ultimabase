@@ -1,3 +1,5 @@
+import path from 'node:path'
+
 import {
 	FrameworkApplication,
 	Schema,
@@ -9,10 +11,12 @@ import {
 } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
+import { createLanguageService } from '../../../tooling/vitest/typescript-language-service.js'
+
 import { generateApplicationTypes } from './generator.js'
 
 describe('option-presence Typegen', () => {
-	it('renders ordinary fields without exposing opaque direct-option values', () => {
+	it('renders public options without exposing values or compiler-only markers', () => {
 		const documentOption = defineSchemaOption<(value: string) => string>({
 			normalize: (value, path) => {
 				if (typeof value !== 'function') {
@@ -25,6 +29,18 @@ describe('option-presence Typegen', () => {
 				module: '@fixture/typegen-document-plugin',
 				type: 'DocumentOption',
 			},
+			valueKind: 'opaque',
+		})
+		const internalOption = defineSchemaOption({
+			normalize: (value, path) => {
+				if (value !== 'factory-owned') {
+					throw new TypeError(`${path} must be factory-owned`)
+				}
+
+				return value
+			},
+			protocolVersion: 1,
+			typegen: false,
 			valueKind: 'opaque',
 		})
 		const plugin = definePlugin({
@@ -40,7 +56,10 @@ describe('option-presence Typegen', () => {
 			declare: ({ schemas }) => {
 				schemas.defineOptions({
 					contributionId: 'document-options',
-					schema: { document: documentOption },
+					schema: {
+						document: documentOption,
+						'fixture.internal-marker': internalOption,
+					},
 				})
 				schemas.patch({
 					operations: [
@@ -58,8 +77,10 @@ describe('option-presence Typegen', () => {
 			className: 'TypegenOptionPresenceDocument',
 			document: (value: string) => value,
 			fields: (field) => ({ title: field.string() }),
+			'fixture.internal-marker': 'factory-owned',
 		} as SchemaOptions<'TypegenOptionPresenceDocument'> & {
 			readonly document: (value: string) => string
+			readonly 'fixture.internal-marker': 'factory-owned'
 		})
 		const application = new FrameworkApplication({
 			pluginPrivileges: { logger: false },
@@ -75,6 +96,31 @@ describe('option-presence Typegen', () => {
 			expect.objectContaining({ name: 'documentState' }),
 		)
 		expect(generated.contents).toContain('documentState')
+		expect(generated.contents).toContain('readonly document?:')
+		expect(generated.contents).not.toContain('fixture.internal-marker')
 		expect(generated.contents).not.toContain('(value: string) => string')
+
+		const marker = '/* schema-option-completion */'
+		const sourceWithMarker = `${generated.contents}
+import { Schema } from '@ultimabase/core'
+Schema.define({
+  className: 'CompletionDocument',
+  ${marker}
+  fields: (field) => ({ title: field.string() }),
+})
+`
+		const position = sourceWithMarker.indexOf(marker)
+		const source = sourceWithMarker.replace(marker, ' '.repeat(marker.length))
+		const fileName = path.join(
+			import.meta.dirname,
+			'compiler-only-option.semantic.fixture.ts',
+		)
+		const completions =
+			createLanguageService(fileName, source)
+				.getCompletionsAtPosition(fileName, position, {})
+				?.entries.map(({ name }) => name) ?? []
+
+		expect(completions).toContain('document')
+		expect(completions).not.toContain('fixture.internal-marker')
 	})
 })

@@ -254,6 +254,12 @@ in the final application graph. Unused definitions remain absent and therefore
 cannot create application-wide TypeScript conflicts. JavaScript uses the same
 Runtime contract without generated files.
 
+A factory-owned compiler marker declares `typegen: false`. Core still resolves,
+normalizes, attributes, and compiles every occurrence, while Typegen deliberately
+omits it from public option augmentation and autocomplete. This is for nominal
+markers inserted by specialized factories, not a way to hide options developers
+are expected to write directly.
+
 An option contract may also declare a Runtime compiler backed by one exact
 application-lifetime capability requirement. Static compilation only records
 the final normalized option occurrences, so `application.compileSchemas()` and

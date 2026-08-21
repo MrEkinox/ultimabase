@@ -327,7 +327,7 @@ void updateInput
 
 	it('drives generated RoleSchema fields and persisted commands', () => {
 		const registry = createGeneratedRoleRegistry()
-		expect(registry).toContain('"ultimabase.roles.identity"?:')
+		expect(registry).not.toContain('ultimabase.roles.identity')
 		const source = `${registry}
 import { Schema } from '@ultimabase/core'
 import { RoleSchema } from '@ultimabase/roles-plugin'

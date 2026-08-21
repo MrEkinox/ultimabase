@@ -21,16 +21,22 @@ export const createCompiledTypegenGraph = (options: {
 		operations: immutableArray([...options.operations.values()]),
 		options: immutableArray(
 			options.batches.flatMap(({ options: definitions }) =>
-				definitions.map((option) =>
-					immutableRecord({
-						contributionId: option.contributionId,
-						name: option.name,
-						owner: option.owner,
-						scope: option.scope,
-						staticOptions: option.staticOptions,
-						typegen: option.definition.typegen,
-					}),
-				),
+				definitions.flatMap((option) => {
+					const typegen = option.definition.typegen
+
+					return typegen === false
+						? []
+						: [
+								immutableRecord({
+									contributionId: option.contributionId,
+									name: option.name,
+									owner: option.owner,
+									scope: option.scope,
+									staticOptions: option.staticOptions,
+									typegen,
+								}),
+							]
+				}),
 			),
 		),
 		schemaSurfaces: immutableArray([...options.schemaSurfaces.values()]),

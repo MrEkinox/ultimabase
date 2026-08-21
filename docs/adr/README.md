@@ -198,6 +198,7 @@ Accepted records:
 - [ADR-0213: Direct plugin options replace schema and field extensions](0213-direct-plugin-options-replace-schema-field-extensions.md)
 - [ADR-0214: Plugin field types do not require public builders](0214-plugin-field-type-declarations-without-builders.md)
 - [ADR-0215: Patched field options materialize implicit indexes](0215-patched-field-options-materialize-implicit-indexes.md)
+- [ADR-0216: Direct plugin options may be compiler-only](0216-compiler-only-direct-plugin-options.md)
 
 Superseded records:
 
