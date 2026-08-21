@@ -1,4 +1,3 @@
-import { aclPostgresPlugin } from '@ultimabase/acl-postgres-plugin'
 import { ACL, acl, aclPlugin } from '@ultimabase/acl-permissions-plugin'
 import { accessPlugin } from '@ultimabase/access-plugin'
 import {
@@ -126,7 +125,6 @@ let ultimabase:
 				typeof identityPlugin,
 				ReturnType<typeof aclPlugin>,
 				ReturnType<typeof postgresPlugin>,
-				ReturnType<typeof aclPostgresPlugin>,
 			]
 	  >
 	| undefined
@@ -167,7 +165,6 @@ beforeAll(async () => {
 				schemaPolicy: 'override',
 				url: fixture.connectionUri,
 			}),
-			aclPostgresPlugin(),
 		],
 		schemas: [PrincipalA, PrincipalB, Document],
 	})

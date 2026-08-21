@@ -1,9 +1,9 @@
 # ADR-0125: Dedicated ACL and PostgreSQL integration plugin
 
-- Status: accepted
+- Status: superseded
 - Date: 2026-08-04
 - Refines: ADR-0103, ADR-0122, ADR-0124
-- Refined by: ADR-0212; remains operative until issue 1804 completes the atomic migration
+- Superseded by: ADR-0212
 
 ## Context
 
@@ -62,3 +62,10 @@ new UltimaBase({
 - Package dependencies make the concrete policy/adapter combination explicit.
 - Future adapter integrations can follow the same package pattern without
   changing Core, Runtime, or the neutral ACL provider.
+
+## Supersession
+
+Issue 1804 completed ADR-0212's atomic migration. ACL authorization and
+reference discovery now use field-owned portable containment leaves in
+ordinary protected row filters, and the dedicated integration package no
+longer exists.

@@ -1,13 +1,11 @@
 import {
 	RequestSubjectReference,
-	databaseConstraint,
 	resolveRequestPrincipal,
 	type RequestSubjectContext,
 	type RequestPrincipalResolver,
 	type RequestRoleReference,
 	type RequestRoleResolver,
-	type DatabaseConstraintNode,
-	type DatabaseConstraintPayloadObject,
+	type DatabaseRowFilterNode,
 	type ExecutableOperationAst,
 	type PointerValue,
 	type SchemaDefinition,
@@ -15,30 +13,8 @@ import {
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import type { ACLPermission } from './acl-contracts.js'
+import type { ACLContainmentOperand } from './acl-containment.js'
 import { aclFieldName } from './acl-extension.js'
-
-/** Names the adapter-neutral row predicate emitted by the ACL provider. */
-export const aclRowConstraintKind = 'ultimabase.acl.row' as const
-
-/** Selects the first stable ACL row-constraint payload contract. */
-export const aclRowConstraintVersion = 1 as const
-
-/** Carries already-resolved subjects to an adapter without exposing request state. */
-export interface ACLRowConstraintPayload extends DatabaseConstraintPayloadObject {
-	readonly field: typeof aclFieldName
-	readonly permission: ACLPermission
-	readonly principalClassName: string | null
-	readonly principalId: string | null
-	readonly roleResolutionAvailable: boolean
-	readonly roles: readonly string[]
-}
-
-/** Represents the exact opaque node understood by ACL-aware adapters. */
-export type ACLRowConstraint = DatabaseConstraintNode<
-	typeof aclRowConstraintKind,
-	typeof aclRowConstraintVersion,
-	ACLRowConstraintPayload
->
 
 /** Collects request-local subject resolution once for one ACL evaluation boundary. */
 export interface ACLAccessSubjects {
@@ -89,20 +65,47 @@ export const resolveACLAccessSubjects = async (
 	})
 }
 
-/** Converts trusted request subjects into one detached database constraint. */
-export const createACLRowConstraint = (
+const createACLContainsLeaf = (
+	value: ACLContainmentOperand,
+): DatabaseRowFilterNode =>
+	immutableRecord({ field: aclFieldName, kind: 'contains' as const, value })
+
+/** Converts one required permission into ordinary portable subject alternatives. */
+export const createACLPermissionRowFilter = (
 	permission: ACLPermission,
 	subjects: ACLAccessSubjects,
-): ACLRowConstraint => {
+): DatabaseRowFilterNode => {
 	const principal = subjects.principal?.toJSON()
+	const alternatives: DatabaseRowFilterNode[] = [
+		createACLContainsLeaf({ public: [permission] }),
+	]
 
-	return databaseConstraint(aclRowConstraintKind, aclRowConstraintVersion, {
-		field: aclFieldName,
-		permission,
-		principalClassName: principal?.className ?? null,
-		principalId: subjects.principal?.id ?? null,
-		roleResolutionAvailable: subjects.roleResolutionAvailable,
-		roles: subjects.roles.map(({ value }) => value),
+	if (principal !== undefined && subjects.principal !== undefined) {
+		alternatives.push(
+			createACLContainsLeaf({ authenticated: [permission] }),
+			createACLContainsLeaf({
+				principals: [
+					{
+						className: principal.className,
+						id: subjects.principal.id,
+						permissions: [permission],
+					},
+				],
+			}),
+		)
+	}
+
+	for (const role of subjects.roles) {
+		alternatives.push(
+			createACLContainsLeaf({
+				roles: [{ kind: 'role', permissions: [permission], value: role.value }],
+			}),
+		)
+	}
+
+	return immutableRecord({
+		expressions: immutableArray(alternatives),
+		kind: 'or' as const,
 	})
 }
 
@@ -131,4 +134,23 @@ export const requiredACLPermissions = <TSchema extends SchemaDefinition>(
 		case 'create-one':
 			return immutableArray([])
 	}
+}
+
+/** Builds ACL's complete protected row predicate for one logical operation. */
+export const createACLRowFilter = <TSchema extends SchemaDefinition>(
+	operation: ExecutableOperationAst<TSchema>,
+	subjects: ACLAccessSubjects,
+): DatabaseRowFilterNode | undefined => {
+	const filters = requiredACLPermissions(operation).map((permission) =>
+		createACLPermissionRowFilter(permission, subjects),
+	)
+	const [first, ...rest] = filters
+
+	if (first === undefined) return undefined
+	if (rest.length === 0) return first
+
+	return immutableRecord({
+		expressions: immutableArray([first, ...rest]),
+		kind: 'and' as const,
+	})
 }

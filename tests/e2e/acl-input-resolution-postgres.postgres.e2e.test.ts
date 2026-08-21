@@ -1,4 +1,3 @@
-import { aclPostgresPlugin } from '@ultimabase/acl-postgres-plugin'
 import {
 	ACL,
 	acl,
@@ -90,11 +89,7 @@ let fixture: PostgresWorkerFixture | undefined
 let ultimabase:
 	| UltimaBase<
 			readonly [typeof ResolutionPost],
-			readonly [
-				ReturnType<typeof aclPlugin>,
-				ReturnType<typeof postgresPlugin>,
-				ReturnType<typeof aclPostgresPlugin>,
-			]
+			readonly [ReturnType<typeof aclPlugin>, ReturnType<typeof postgresPlugin>]
 	  >
 	| undefined
 let postId: string | undefined
@@ -137,7 +132,6 @@ beforeAll(async () => {
 				schemaPolicy: 'override',
 				url: fixture.connectionUri,
 			}),
-			aclPostgresPlugin(),
 		],
 		schemas: [ResolutionPost],
 	})

@@ -1330,28 +1330,12 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ultimabase/acl-permissions-plugin@workspace:^, @ultimabase/acl-permissions-plugin@workspace:packages/acl-permissions-plugin":
+"@ultimabase/acl-permissions-plugin@workspace:packages/acl-permissions-plugin":
   version: 0.0.0-use.local
   resolution: "@ultimabase/acl-permissions-plugin@workspace:packages/acl-permissions-plugin"
   dependencies:
     "@ultimabase/core": "workspace:^"
     "@ultimabase/plugin-kit": "workspace:^"
-    "@ultimabase/shared": "workspace:^"
-    "@ultimabase/testing": "workspace:^"
-    tsdown: "npm:^0.22.14"
-    typescript: "npm:^6.0.3"
-    vitest: "npm:4.1.10"
-  languageName: unknown
-  linkType: soft
-
-"@ultimabase/acl-postgres-plugin@workspace:packages/acl-postgres-plugin":
-  version: 0.0.0-use.local
-  resolution: "@ultimabase/acl-postgres-plugin@workspace:packages/acl-postgres-plugin"
-  dependencies:
-    "@ultimabase/acl-permissions-plugin": "workspace:^"
-    "@ultimabase/core": "workspace:^"
-    "@ultimabase/plugin-kit": "workspace:^"
-    "@ultimabase/postgres-plugin": "workspace:^"
     "@ultimabase/shared": "workspace:^"
     "@ultimabase/testing": "workspace:^"
     tsdown: "npm:^0.22.14"

@@ -1,4 +1,3 @@
-import { aclPostgresPlugin } from '@ultimabase/acl-postgres-plugin'
 import {
 	ACL,
 	acl,
@@ -266,7 +265,6 @@ const createApplication = (
 			rolesPlugin(),
 			aclPlugin(),
 			postgresPlugin({ schemaPolicy, url: connectionUri }),
-			aclPostgresPlugin(),
 		],
 		schemas,
 	})

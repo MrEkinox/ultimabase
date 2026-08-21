@@ -30,6 +30,16 @@ const packageFixtures: PackageFixture[] = packageEntries
 		name: `@ultimabase/${entry.name}`,
 	}))
 	.sort((left, right): number => left.name.localeCompare(right.name))
+
+it('omits the removed ACL PostgreSQL bridge from the packed workspace inventory', () => {
+	expect(packageFixtures.map(({ name }) => name)).not.toContain(
+		'@ultimabase/acl-postgres-plugin',
+	)
+	expect(existsSync(path.join(packagesDirectory, 'acl-postgres-plugin'))).toBe(
+		false,
+	)
+})
+
 const rootLicense = await readFile(path.join(repositoryRoot, 'LICENSE'), 'utf8')
 const consumerRequire = createRequire(import.meta.url)
 const schemaFixtureFile = path.join(

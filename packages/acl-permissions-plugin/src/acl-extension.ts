@@ -16,6 +16,10 @@ import {
 } from '@ultimabase/shared'
 
 import { ACL } from './acl.js'
+import {
+	snapshotACLContainmentOperand,
+	type ACLContainmentOperand,
+} from './acl-containment.js'
 import { normalizeACLEntryLimits, type ACLEntryLimits } from './acl-limits.js'
 
 /** Identifies the schema extension owned by the official ACL plugin. */
@@ -46,7 +50,8 @@ export type ACLField = PluginFieldDefinition<
 		readonly update: 'optional'
 		readonly nullable: false
 		readonly list: false
-	}>
+	}>,
+	ACLContainmentOperand
 >
 
 const snapshotACL = (value: unknown, path: string): ACL => {
@@ -70,6 +75,9 @@ const aclField = definePluginField(
 			encode: (value) => value.toJSON(),
 			format: 'json',
 			version: 1,
+		},
+		structuralContains: {
+			snapshotOperand: snapshotACLContainmentOperand,
 		},
 	},
 ) as ACLField

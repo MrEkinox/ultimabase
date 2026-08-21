@@ -12,7 +12,6 @@ const sourcePackageAliases = Object.fromEntries(
 	[
 		'access-plugin',
 		'acl-permissions-plugin',
-		'acl-postgres-plugin',
 		'core',
 		'hooks-plugin',
 		'pg-vector-plugin',

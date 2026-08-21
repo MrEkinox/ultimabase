@@ -1,6 +1,5 @@
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { aclPlugin } from '@ultimabase/acl-permissions-plugin'
-import { aclPostgresPlugin } from '@ultimabase/acl-postgres-plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { pgVectorPlugin } from '@ultimabase/pg-vector-plugin'
 import {
@@ -30,7 +29,6 @@ it('publishes the audited privilege and environment contract for every official 
 		hooksPlugin().manifest,
 		aclPlugin().manifest,
 		rolesPlugin().manifest,
-		aclPostgresPlugin().manifest,
 		pgVectorPlugin().manifest,
 	]
 
@@ -78,13 +76,11 @@ it('publishes the audited privilege and environment contract for every official 
 		},
 		{
 			environment: [],
-			pluginId: 'ultimabase.acl-postgres',
-			privileges: ['adapter:consume'],
-		},
-		{
-			environment: [],
 			pluginId: '@ultimabase/pg-vector-plugin',
 			privileges: ['schema:declare'],
 		},
 	])
+	expect(manifests.map(({ identity }) => identity.pluginId)).not.toContain(
+		'ultimabase.acl-postgres',
+	)
 })

@@ -21,7 +21,6 @@ public kernel.
 
 - `roles-plugin`
 - `acl-permissions-plugin`
-- `acl-postgres-plugin`
 - `pg-vector-plugin`
 - `postgres-plugin`
 - `hooks-plugin`

@@ -2,15 +2,13 @@ import { AsyncLocalStorage } from 'node:async_hooks'
 
 import {
 	RequestSubjectReference,
-	databaseConstraint,
 	defineRequestSubjectReferenceCleanup,
 	parseRequestPrincipalReference,
 	Schema,
 	type RequestPrincipalReference,
 	type RequestSubjectReferenceCleanup,
 	type RequestRoleReference,
-	type DatabaseConstraintNode,
-	type DatabaseConstraintPayloadObject,
+	type DatabaseRowFilterNode,
 	type SchemaDefinition,
 	type WhereInput,
 } from '@ultimabase/core'
@@ -21,29 +19,8 @@ import {
 } from '@ultimabase/shared'
 
 import { ACL } from './acl.js'
+import type { ACLContainmentOperand } from './acl-containment.js'
 import { aclFieldName } from './acl-extension.js'
-
-/** Names the adapter-neutral predicate used only while maintaining references. */
-export const aclReferenceConstraintKind = 'ultimabase.acl.reference' as const
-
-/** Selects the first stable ACL reference-search payload contract. */
-export const aclReferenceConstraintVersion = 1 as const
-
-/** Carries one exact principal or role identity to an ACL-aware adapter. */
-export interface ACLReferenceConstraintPayload extends DatabaseConstraintPayloadObject {
-	readonly field: typeof aclFieldName
-	readonly subjectKind: 'principal' | 'role'
-	readonly principalClassName: string | null
-	readonly principalId: string | null
-	readonly role: string | null
-}
-
-/** Represents the exact opaque node understood by ACL-aware adapters. */
-export type ACLReferenceConstraint = DatabaseConstraintNode<
-	typeof aclReferenceConstraintKind,
-	typeof aclReferenceConstraintVersion,
-	ACLReferenceConstraintPayload
->
 
 /** Keeps parsed subject identities private from generic cleanup providers. */
 export type ACLReferenceSubject =
@@ -110,29 +87,17 @@ export const getACLReferenceScope = (
 	return active?.schema === schema ? active.subject : undefined
 }
 
-/** Converts one parsed maintenance subject into a portable adapter constraint. */
-export const createACLReferenceConstraint = (
+/** Converts one parsed maintenance subject into a portable protected row filter. */
+export const createACLReferenceRowFilter = (
 	subject: ACLReferenceSubject,
-): ACLReferenceConstraint =>
-	databaseConstraint(
-		aclReferenceConstraintKind,
-		aclReferenceConstraintVersion,
+): DatabaseRowFilterNode => {
+	const value: ACLContainmentOperand =
 		subject.kind === 'principal'
-			? {
-					field: aclFieldName,
-					principalClassName: subject.className,
-					principalId: subject.id,
-					role: null,
-					subjectKind: subject.kind,
-				}
-			: {
-					field: aclFieldName,
-					principalClassName: null,
-					principalId: null,
-					role: subject.value,
-					subjectKind: subject.kind,
-				},
-	)
+			? { principals: [{ className: subject.className, id: subject.id }] }
+			: { roles: [{ kind: 'role', value: subject.value }] }
+
+	return immutableRecord({ field: aclFieldName, kind: 'contains', value })
+}
 
 /** Removes only one exact subject entry from an immutable ACL document. */
 export const removeACLReference = (

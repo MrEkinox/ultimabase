@@ -10,10 +10,12 @@ import {
 	UltimaBase,
 	requestRoleResolverCapability,
 	databaseAdapterCapability,
+	databasePluginFieldStructuralContainsCapability,
 	databasePersistencePlanCapability,
 	definePlugin,
 	provideCapability,
 	type DatabaseAdapter,
+	type DatabaseAdapterCapabilities,
 	type DatabaseMutationOperationAst,
 	type DatabaseOperationAst,
 	type DatabaseOperationRequest,
@@ -32,12 +34,23 @@ const editor = new RequestSubjectReference('role', 'fixture.editor')
 /** Records complete requests while returning one trusted logical fixture result. */
 class CompositionReadAdapter implements DatabaseAdapter {
 	readonly kind = 'database-adapter' as const
-	readonly capabilities = {
-		persistencePlans: databasePersistencePlanCapability,
-	}
+	readonly capabilities: DatabaseAdapterCapabilities
 	readonly requests: DatabaseOperationRequest[] = []
 
-	constructor(private readonly result: unknown) {}
+	constructor(
+		private readonly result: unknown,
+		structuralContains = true,
+	) {
+		this.capabilities = {
+			persistencePlans: databasePersistencePlanCapability,
+			...(structuralContains
+				? {
+						pluginFieldStructuralContains:
+							databasePluginFieldStructuralContainsCapability,
+					}
+				: {}),
+		}
+	}
 
 	execute<const TOperation extends DatabaseOperationAst>(
 		request: DatabaseOperationRequest<TOperation>,
@@ -58,6 +71,8 @@ class CompositionWriteTransaction implements DatabaseTransactionAdapter {
 	readonly kind = 'database-transaction-adapter' as const
 	readonly capabilities = {
 		persistencePlans: databasePersistencePlanCapability,
+		pluginFieldStructuralContains:
+			databasePluginFieldStructuralContainsCapability,
 	}
 	prepareCount = 0
 	rollbackCount = 0
@@ -98,6 +113,8 @@ class CompositionWriteAdapter implements DatabaseAdapter {
 	readonly kind = 'database-adapter' as const
 	readonly capabilities = {
 		persistencePlans: databasePersistencePlanCapability,
+		pluginFieldStructuralContains:
+			databasePluginFieldStructuralContainsCapability,
 	}
 	readonly transactions: CompositionWriteTransaction[] = []
 
@@ -255,7 +272,6 @@ const combinedRow = {
 }
 
 interface CompositionSnapshot {
-	readonly constraintKinds: readonly string[]
 	readonly developerFilter: string
 	readonly resultKeys: readonly string[]
 	readonly rowFilter: string
@@ -318,7 +334,6 @@ const runCombinedComposition = async (
 		expect(firstResult).not.toHaveProperty('secret')
 
 		return {
-			constraintKinds: request.constraints.map(({ kind }) => kind),
 			developerFilter: JSON.stringify(Reflect.get(query, 'where')),
 			resultKeys: Object.keys(firstResult).sort(),
 			rowFilter: JSON.stringify(request.rowFilter),
@@ -422,17 +437,35 @@ describe('Access provider composition', () => {
 		}
 	})
 
+	it('fails before the adapter when plugin-field containment is unavailable', async () => {
+		const adapter = new CompositionReadAdapter([], false)
+		const ultimabase = new UltimaBase({
+			plugins: [aclPlugin(), databasePlugin(adapter)],
+			schemas: [PublicACLPost],
+		})
+
+		try {
+			await ultimabase.start()
+			await expect(
+				PublicACLPost.findMany(undefined, { ultimabase }),
+			).rejects.toMatchObject({ code: 'INTERNAL_ERROR' })
+			expect(adapter.requests).toHaveLength(0)
+		} finally {
+			await ultimabase.dispose()
+		}
+	})
+
 	it('combines native, role, community, ACL, and business filters identically when nested', async () => {
 		const topLevel = await runCombinedComposition(false)
 		const nested = await runCombinedComposition(true)
 
 		expect(nested).toStrictEqual(topLevel)
-		expect(topLevel.constraintKinds).toContain('ultimabase.acl.row')
 		expect(topLevel.developerFilter).toContain('developer-visible')
 		expect(topLevel.developerFilter).not.toContain('business-allowed')
 		expect(topLevel.rowFilter).toContain('native-allowed')
 		expect(topLevel.rowFilter).toContain('business-allowed')
 		expect(topLevel.rowFilter).toContain('community-allowed')
+		expect(topLevel.rowFilter).toContain(editor.value)
 		expect(topLevel.resultKeys).not.toContain('acl')
 		expect(topLevel.resultKeys).not.toContain('secret')
 	})

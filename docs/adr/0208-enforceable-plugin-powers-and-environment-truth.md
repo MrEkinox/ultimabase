@@ -88,7 +88,6 @@ Every current official plugin definition has this deliberate claim set:
 | `@ultimabase/hooks-plugin`     | none                     | In-memory callback execution only                                   |
 | `ultimabase.acl`               | none                     | Uses Core Runtime and adapter capabilities; no direct host I/O      |
 | `ultimabase.roles`             | none                     | Uses Core Runtime and adapter capabilities; no direct host I/O      |
-| `ultimabase.acl-postgres`      | none                     | Registers compilers but opens no PostgreSQL connection itself       |
 | `@ultimabase/pg-vector-plugin` | none                     | Declares and validates logical values only                          |
 
 The PostgreSQL driver's current JavaScript path does not load `pg-native`, and

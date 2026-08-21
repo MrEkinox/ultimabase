@@ -13,9 +13,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { ACL } from './acl.js'
 import { acl } from './acl-extension.js'
 import {
-	aclRowConstraintKind,
-	aclRowConstraintVersion,
-	createACLRowConstraint,
+	createACLPermissionRowFilter,
 	requiredACLPermissions,
 	resolveACLAccessSubjects,
 } from './acl-access.js'
@@ -42,7 +40,7 @@ const ownsPrincipalSchema = (schema: SchemaDefinition): boolean =>
 	schema === Principal
 
 describe('ACL Access contributions', () => {
-	it('normalizes one principal and unique role set into a detached row constraint', async () => {
+	it('normalizes one principal and unique role set into portable row alternatives', async () => {
 		const editor = new RequestSubjectReference('role', 'role:editor')
 		const principalResolver: RequestPrincipalResolver = {
 			resolveCurrent: vi.fn(() => principal),
@@ -63,17 +61,42 @@ describe('ACL Access contributions', () => {
 			roleResolutionAvailable: true,
 			roles: [editor],
 		})
-		expect(createACLRowConstraint('update', subjects)).toStrictEqual({
-			kind: aclRowConstraintKind,
-			payload: {
-				field: 'acl',
-				permission: 'update',
-				principalClassName: Principal.className,
-				principalId: principal.id,
-				roleResolutionAvailable: true,
-				roles: ['role:editor'],
-			},
-			version: aclRowConstraintVersion,
+		expect(createACLPermissionRowFilter('update', subjects)).toStrictEqual({
+			expressions: [
+				{ field: 'acl', kind: 'contains', value: { public: ['update'] } },
+				{
+					field: 'acl',
+					kind: 'contains',
+					value: { authenticated: ['update'] },
+				},
+				{
+					field: 'acl',
+					kind: 'contains',
+					value: {
+						principals: [
+							{
+								className: Principal.className,
+								id: principal.id,
+								permissions: ['update'],
+							},
+						],
+					},
+				},
+				{
+					field: 'acl',
+					kind: 'contains',
+					value: {
+						roles: [
+							{
+								kind: 'role',
+								permissions: ['update'],
+								value: 'role:editor',
+							},
+						],
+					},
+				},
+			],
+			kind: 'or',
 		})
 		expect(Object.isFrozen(subjects.roles)).toBe(true)
 	})

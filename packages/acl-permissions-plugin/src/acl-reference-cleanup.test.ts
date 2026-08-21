@@ -3,9 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 import { ACL } from './acl.js'
 import {
-	aclReferenceConstraintKind,
-	aclReferenceConstraintVersion,
-	createACLReferenceConstraint,
+	createACLReferenceRowFilter,
 	removeACLReference,
 } from './acl-reference-cleanup.js'
 
@@ -58,39 +56,29 @@ describe('ACL reference cleanup', () => {
 		])
 	})
 
-	it('creates detached principal and role lookup constraints', () => {
-		const principal = createACLReferenceConstraint({
+	it('creates detached principal and role lookup row filters', () => {
+		const principal = createACLReferenceRowFilter({
 			className: Principal.className,
 			id: alice.id,
 			kind: 'principal',
 		})
-		const role = createACLReferenceConstraint({
+		const role = createACLReferenceRowFilter({
 			kind: 'role',
 			value: editor.value,
 		})
 
 		expect(principal).toStrictEqual({
-			kind: aclReferenceConstraintKind,
-			payload: {
-				field: 'acl',
-				principalClassName: Principal.className,
-				principalId: alice.id,
-				role: null,
-				subjectKind: 'principal',
+			field: 'acl',
+			kind: 'contains',
+			value: {
+				principals: [{ className: Principal.className, id: alice.id }],
 			},
-			version: aclReferenceConstraintVersion,
 		})
 		expect(role).toStrictEqual({
-			kind: aclReferenceConstraintKind,
-			payload: {
-				field: 'acl',
-				principalClassName: null,
-				principalId: null,
-				role: editor.value,
-				subjectKind: 'role',
-			},
-			version: aclReferenceConstraintVersion,
+			field: 'acl',
+			kind: 'contains',
+			value: { roles: [{ kind: 'role', value: editor.value }] },
 		})
-		expect(Object.isFrozen(principal.payload)).toBe(true)
+		expect(Object.isFrozen(principal)).toBe(true)
 	})
 })

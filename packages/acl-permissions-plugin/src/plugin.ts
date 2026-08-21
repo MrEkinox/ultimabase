@@ -4,11 +4,11 @@ import {
 	requestPrincipalResolverCapability,
 	requestRoleResolverCapability,
 	applyUpdateExpressionToRecord,
-	constraint,
 	FrameworkError,
 	guard,
 	optionalCapability,
 	preparedOperation,
+	protectedPolicy,
 	provideCapability,
 	provideRuntimeBehavior,
 	provideRuntimeConstraint,
@@ -16,7 +16,7 @@ import {
 	type DatabaseOperationAst,
 	type CompiledSchemaRegistry,
 	type RequestSubjectContext,
-	type ExecutableOperationAst,
+	type ExecutableOperationAst as ExecutableAst,
 	type PointerValue,
 	type RuntimeOperationStageInput,
 	type RuntimeOperationTransformStage,
@@ -42,7 +42,7 @@ import {
 import type { PersistentRoleResolver } from './application-state.js'
 import {
 	createACLReferenceCleanups,
-	createACLReferenceConstraint,
+	createACLReferenceRowFilter,
 	getACLReferenceScope,
 	removeACLReference,
 	type ACLReferenceSubject,
@@ -56,7 +56,7 @@ import {
 	type ACLEntryLimits,
 	type ResolvedACLEntryLimits,
 } from './acl-limits.js'
-import { createACLRowConstraint, requiredACLPermissions } from './acl-access.js'
+import { createACLRowFilter } from './acl-access.js'
 import { createACLFieldPolicy } from './acl-field-policy.js'
 import {
 	aclPluginPrivileges,
@@ -129,7 +129,7 @@ const roleReferenceCleanupProvider = provideCapability(
 )
 
 type ACLCreateOperation = Extract<
-	ExecutableOperationAst,
+	ExecutableAst,
 	{ readonly kind: 'create-many' | 'create-one' | 'upsert-many' | 'upsert-one' }
 >
 
@@ -636,7 +636,7 @@ const snapshotACLUpdateInput = (
 
 /** @internal Rejects ACL replacement without one certain itemized update target. */
 export const assertSingularACLReplacement = <TSchema extends SchemaDefinition>(
-	operation: ExecutableOperationAst<TSchema>,
+	operation: ExecutableAst<TSchema>,
 ): void => {
 	const unsupported =
 		operation.kind === 'update-many'
@@ -759,15 +759,15 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 		create: ({ callbacks, capabilities, schemas }) => {
 			const state = readApplicationState(schemas, capabilities, callbacks)
 			return {
-				value: constraint({
-					handler: ({ operation }) => {
+				value: protectedPolicy({
+					evaluate: ({ operation }) => {
 						const schema = readOperationSchema(operation)
-						if (!state.protectedSchemaSet.has(schema)) return immutableArray([])
-
+						if (!state.protectedSchemaSet.has(schema)) return undefined
 						const referenceSubject = getACLReferenceScope(schema)
-						return referenceSubject === undefined
-							? immutableArray([])
-							: createACLReferenceConstraint(referenceSubject)
+						if (referenceSubject === undefined) return undefined
+						return immutableRecord({
+							rowFilter: createACLReferenceRowFilter(referenceSubject),
+						})
 					},
 					operations: aclConstraintOperationKinds,
 				}),
@@ -779,20 +779,17 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 		create: ({ callbacks, capabilities, schemas }) => {
 			const state = readApplicationState(schemas, capabilities, callbacks)
 			return {
-				value: constraint({
-					handler: async ({ operation }) => {
+				value: protectedPolicy({
+					evaluate: async ({ operation }) => {
 						const schema = readOperationSchema(operation)
-						if (
-							!state.protectedSchemaSet.has(schema) ||
-							getACLReferenceScope(schema) !== undefined
-						) {
-							return immutableArray([])
-						}
-
-						const subjects = await state.resolveSubjects()
-						return requiredACLPermissions(operation).map((permission) =>
-							createACLRowConstraint(permission, subjects),
+						if (!state.protectedSchemaSet.has(schema)) return undefined
+						if (getACLReferenceScope(schema) !== undefined) return undefined
+						const rowFilter = createACLRowFilter(
+							operation as unknown as ExecutableAst,
+							await state.resolveSubjects(),
 						)
+						if (rowFilter === undefined) return undefined
+						return immutableRecord({ rowFilter })
 					},
 					master: 'bypass',
 					operations: aclConstraintOperationKinds,

@@ -209,17 +209,14 @@ persisted role ACL may narrow reads,
 updates, member or nested-role mutations, and deletion. Only master execution
 may inspect or replace the role row's ACL value.
 
-With PostgreSQL, install the dedicated integration after both dependency
-plugins. The ACL package itself stays adapter-neutral:
+With PostgreSQL, install only the ACL and database plugins. The ACL package
+stays adapter-neutral:
 
 ```ts
-plugins: [
-	aclPlugin(),
-	postgresPlugin({ url: databaseUrl }),
-	aclPostgresPlugin(),
-]
+plugins: [aclPlugin(), postgresPlugin({ url: databaseUrl })]
 ```
 
-`@ultimabase/acl-postgres-plugin` compiles the opaque ACL row constraint into
-indexed JSONB containment predicates. Missing integration fails closed instead
-of silently ignoring ACL enforcement.
+The ACL field validates its narrow portable containment fragments and the
+generic PostgreSQL plugin-field compiler lowers them to indexed JSONB
+predicates. Adapters that do not advertise structural containment fail before
+database execution instead of silently ignoring ACL enforcement.

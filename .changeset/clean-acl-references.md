@@ -1,6 +1,5 @@
 ---
 '@ultimabase/acl-permissions-plugin': minor
-'@ultimabase/acl-postgres-plugin': minor
 '@ultimabase/core': minor
 ---
 

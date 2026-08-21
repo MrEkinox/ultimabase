@@ -41,12 +41,12 @@ The subject owner remains solely responsible for policy:
   invokes `cleanup()` within its singular deletion transaction.
 
 ACL reference work uses a package-private asynchronous scope tied to the exact
-schema object. While that scope is active, ACL contributes an opaque versioned
-reference constraint before its normal master bypass. Business Query state and
-hooks cannot inspect, replace, or remove this predicate. The dedicated
-PostgreSQL integration validates the payload and lowers exact principal or role
-identity to a parameterized JSONB containment predicate compatible with the
-generated GIN index.
+schema object. While that scope is active, ACL contributes an exact principal
+or role containment leaf through an ordinary protected row filter before its
+normal master bypass. Business Query state and hooks cannot inspect, replace,
+or remove this predicate. The ACL field validates the operand and PostgreSQL's
+generic plugin-field compiler lowers it to a parameterized JSONB containment
+predicate compatible with the generated GIN index.
 
 Cleanup first selects matching IDs, then executes one ordinary master singular
 update per row. The prepared ACL hook ignores the placeholder input and removes

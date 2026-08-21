@@ -12,8 +12,8 @@ export interface FileLineBudgetPolicy {
 /** Records only pre-existing handwritten exceptions and must never be increased. */
 export const handwrittenFileLineBaseline: Readonly<Record<string, number>> =
 	Object.freeze({
-		'packages/acl-permissions-plugin/src/plugin.test.ts': 1082,
-		'packages/acl-permissions-plugin/src/plugin.ts': 902,
+		'packages/acl-permissions-plugin/src/plugin.test.ts': 1077,
+		'packages/acl-permissions-plugin/src/plugin.ts': 899,
 		'packages/core/src/plugins/capability-composition.test.ts': 1159,
 		'packages/core/src/query/filters/factory.ts': 663,
 		'packages/core/src/query/filters/where.ts': 1610,

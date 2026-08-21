@@ -36,16 +36,6 @@ export type {
 	ACLPluginOptions,
 } from './plugin-contracts.js'
 export type { ACLEntryLimits } from './acl-limits.js'
-export { aclRowConstraintKind, aclRowConstraintVersion } from './acl-access.js'
-export type { ACLRowConstraint, ACLRowConstraintPayload } from './acl-access.js'
-export {
-	aclReferenceConstraintKind,
-	aclReferenceConstraintVersion,
-} from './acl-reference-cleanup.js'
-export type {
-	ACLReferenceConstraint,
-	ACLReferenceConstraintPayload,
-} from './acl-reference-cleanup.js'
 export type {
 	ACLCreateInputResolution,
 	ACLDefaultFactory,

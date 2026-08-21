@@ -9,6 +9,7 @@ import {
 	requestRoleResolverCapability,
 	createApplication,
 	databaseAdapterCapability,
+	databasePluginFieldStructuralContainsCapability,
 	databasePersistencePlanCapability as planCapability,
 	definePlugin,
 	defineSchemaExtension,
@@ -68,10 +69,15 @@ const ProtectedPost = Schema.define({
 	extensions: [acl()],
 })
 const protectedPostNode = new QueryBuilder(ProtectedPost).ast.schema
+const aclAdapterCapabilities = {
+	persistencePlans: planCapability,
+	pluginFieldStructuralContains:
+		databasePluginFieldStructuralContainsCapability,
+}
 
 class ACLReadAdapter implements DatabaseAdapter {
 	readonly kind = 'database-adapter' as const
-	readonly capabilities = { persistencePlans: planCapability }
+	readonly capabilities = aclAdapterCapabilities
 	readonly requests: DatabaseOperationRequest[] = []
 
 	constructor(private readonly result: unknown) {}
@@ -91,7 +97,7 @@ class ACLReadAdapter implements DatabaseAdapter {
 
 class ACLRejectedWriteTransaction implements DatabaseTransactionAdapter {
 	readonly kind = 'database-transaction-adapter' as const
-	readonly capabilities = { persistencePlans: planCapability }
+	readonly capabilities = aclAdapterCapabilities
 	prepareCount = 0
 	commitCount = 0
 	rollbackCount = 0
@@ -154,7 +160,7 @@ class ACLRejectedWriteTransaction implements DatabaseTransactionAdapter {
 
 class ACLRejectedWriteAdapter implements DatabaseAdapter {
 	readonly kind = 'database-adapter' as const
-	readonly capabilities = { persistencePlans: planCapability }
+	readonly capabilities = aclAdapterCapabilities
 	readonly transactions: ACLRejectedWriteTransaction[] = []
 
 	constructor(
@@ -279,7 +285,7 @@ describe('aclPlugin create input resolution', () => {
 		])
 	})
 
-	it('adds private row constraints, hides ACL output, and resolves the principal once', async () => {
+	it('adds a private row filter, hides ACL output, and resolves the principal once', async () => {
 		const Principal = Schema.define({
 			className: 'ACLPluginPrincipal',
 			fields: () => ({}),
@@ -332,17 +338,11 @@ describe('aclPlugin create input resolution', () => {
 			await ultimabase.start()
 			const result = await ProtectedPost.findMany(undefined, { ultimabase })
 			expect(result[0]?.acl).toBeUndefined()
-			expect(adapter.requests[0]?.constraints).toMatchObject([
-				{
-					kind: 'ultimabase.acl.row',
-					payload: {
-						permission: 'read',
-						principalClassName: Principal.className,
-						principalId: currentPrincipal.id,
-					},
-					version: 1,
-				},
-			])
+			expect(adapter.requests[0]?.constraints).toStrictEqual([])
+			const rowFilter = JSON.stringify(adapter.requests[0]?.rowFilter)
+			expect(rowFilter).toContain('contains')
+			expect(rowFilter).toContain(Principal.className)
+			expect(rowFilter).toContain(currentPrincipal.id)
 			expect(resolveCurrent).toHaveBeenCalledOnce()
 			await expect(
 				ProtectedPost.findMany({ select: { acl: true } }, { ultimabase }),
@@ -357,6 +357,7 @@ describe('aclPlugin create input resolution', () => {
 			})
 			expect(masterResult[0]?.acl).toBe(storedACL)
 			expect(adapter.requests[1]?.constraints).toStrictEqual([])
+			expect(adapter.requests[1]?.rowFilter).toBeUndefined()
 		} finally {
 			await ultimabase.dispose()
 		}
@@ -380,16 +381,10 @@ describe('aclPlugin create input resolution', () => {
 			)
 
 			for (const { adapter, role } of fixtures) {
-				expect(adapter.requests[0]?.constraints).toMatchObject([
-					{
-						kind: 'ultimabase.acl.row',
-						payload: {
-							roleResolutionAvailable: true,
-							roles: [role.value],
-						},
-						version: 1,
-					},
-				])
+				expect(JSON.stringify(adapter.requests[0]?.rowFilter)).toContain(
+					role.value,
+				)
+				expect(adapter.requests[0]?.constraints).toStrictEqual([])
 			}
 		} finally {
 			await Promise.all(fixtures.map(({ ultimabase }) => ultimabase.dispose()))

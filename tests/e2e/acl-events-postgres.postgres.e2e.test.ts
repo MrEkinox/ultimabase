@@ -1,4 +1,3 @@
-import { aclPostgresPlugin } from '@ultimabase/acl-postgres-plugin'
 import {
 	ACL,
 	acl,
@@ -97,7 +96,6 @@ let ultimabase:
 				typeof eventObserverPlugin,
 				ReturnType<typeof aclPlugin>,
 				ReturnType<typeof postgresPlugin>,
-				ReturnType<typeof aclPostgresPlugin>,
 			]
 	  >
 	| undefined
@@ -125,7 +123,6 @@ beforeAll(async () => {
 				schemaPolicy: 'override',
 				url: fixture.connectionUri,
 			}),
-			aclPostgresPlugin(),
 		],
 		schemas: [Post],
 	})

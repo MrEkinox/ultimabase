@@ -203,10 +203,10 @@ Constraints are applied to reads, mutation targets, `FOR UPDATE` locks, and the
 final prepared update or delete statement. Row constraints on create operations
 fail closed because an insert has no existing target row to restrict.
 
-The official ACL bridge follows this pattern in the separate
-`@ultimabase/acl-postgres-plugin` package. Keeping that compiler outside both
-dependency plugins preserves ACL's adapter neutrality and PostgreSQL's policy
-neutrality.
+Official ACL authorization and reference discovery use the same generic
+plugin-field containment path. PostgreSQL compiles the field-owned operand
+without importing or identifying the ACL plugin, so both packages remain
+independently optional.
 
 ## Transactions
 

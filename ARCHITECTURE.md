@@ -51,7 +51,6 @@ pg-vector-plugin ─────→ plugin-kit, core, shared
 roles-plugin ─────────→ access-plugin, plugin-kit, core, shared
 acl-permissions-plugin → plugin-kit, core, shared
 postgres-plugin ──────→ plugin-kit, core, shared
-acl-postgres-plugin ──→ acl-permissions-plugin, postgres-plugin, plugin-kit, core, shared
 testing ──────────────→ typegen, core, shared
 ```
 
@@ -368,21 +367,17 @@ The `acl()` schema extension owns row-aware defaults and shared create/update
 input resolution through public capability middleware. `aclPlugin()` owns an
 independent monotonic protected policy and declares master bypass. It does not
 depend on the official Access package. Core Runtime has no ACL stage or subject
-vocabulary. PostgreSQL stores one indexed JSONB ACL document
-on each protected row and combines its opaque containment constraint with every
-other predicate in one statement. This physical representation requires no
-ACL-specific join and remains private to the adapter. The optional
-`@ultimabase/acl-postgres-plugin` package owns the concrete compiler bridge so
-neither the database-neutral ACL provider nor PostgreSQL imports the other.
-ADR-0212 accepts the milestone 18 replacement: both ACL constraint families
-move together onto field-owned portable containment, PostgreSQL compiles the
-ordinary Query leaf generically, and the bridge is then deleted atomically. The
-current bridge remains required until that complete migration.
+vocabulary. PostgreSQL stores one indexed JSONB ACL document on each protected
+row. The ACL field owns and validates its narrow structural-containment
+operands, while ACL authorization emits ordinary protected row filters. The
+generic PostgreSQL plugin-field compiler combines those filters with every
+other predicate in one statement without importing or naming ACL. This
+physical representation requires no ACL-specific join or integration package.
 Subject-owning providers independently choose `fail`, `preserve`, or `cascade`
 deletion behavior. ACL publishes neutral principal and role cleanup
 contributions, then uses a private asynchronous maintenance scope to add an
-opaque exact-subject constraint to ordinary read execution. PostgreSQL lowers
-that constraint to indexed JSONB containment. Cascade derives every rewritten
+exact-subject protected row filter to ordinary read execution. PostgreSQL
+lowers its field-owned containment leaf generically. Cascade derives every rewritten
 ACL from the locked current row and performs singular updates inside the
 subject deletion transaction, preserving unrelated grants and rolling all
 schemas back together on failure.
