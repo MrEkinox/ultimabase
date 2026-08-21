@@ -26,7 +26,6 @@ const createPluginSource = (
 	immutableRecord({
 		kind: 'plugin' as const,
 		localName: owned.contributionId,
-		master: owned.definition.master,
 		ownerPlugin: owned.owner.pluginId,
 		...(owned.owner.instanceId === undefined
 			? {}

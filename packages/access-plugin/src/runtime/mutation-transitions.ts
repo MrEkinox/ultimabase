@@ -27,10 +27,7 @@ import {
 
 import type { AccessExecutionRuntime } from './execution-runtime.js'
 import { accessFieldPathsEqual } from './field-paths.js'
-import {
-	assertAccessDecisionRules,
-	getEffectiveAccessRules,
-} from './rule-evaluation.js'
+import { assertAccessDecisionRules } from './rule-evaluation.js'
 
 const readUpdateFieldValues = (
 	operation: ExecutableOperationAst,
@@ -280,15 +277,11 @@ export const evaluateAccessRelationWriteRules = async (
 /** Returns one static decision only when every transition agrees. */
 export const readAccessStaticWriteDecision = (
 	field: FieldAccessPlan,
-	request?: RuntimeOperationStageInput<DatabaseOperationAst>,
 ): boolean | undefined => {
 	const decisions: boolean[] = []
 
 	for (const transition of ['fill', 'replace', 'clear'] as const) {
-		const rules =
-			request === undefined
-				? field.write[transition]
-				: getEffectiveAccessRules(field.write[transition], request.context)
+		const rules = field.write[transition]
 
 		if (rules.some(({ rule }) => typeof rule === 'function')) {
 			return undefined
@@ -358,7 +351,7 @@ export const evaluateAccessMutationFieldRules = async (
 			continue
 		}
 
-		const staticDecision = readAccessStaticWriteDecision(field, request)
+		const staticDecision = readAccessStaticWriteDecision(field)
 
 		if (staticDecision === false) {
 			await assertAccessDecisionRules(

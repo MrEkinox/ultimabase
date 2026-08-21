@@ -430,6 +430,8 @@ const SemanticArticle = Schema.define({
   }),
   indexes: [{ fields: ['title', 'status'] }],
   access: {
+    create: false,
+    delete: false,
     update: {
       where: { status: { eq: 'draft' } },
       item: ({ item, originalItem }) => {
@@ -437,6 +439,7 @@ const SemanticArticle = Schema.define({
         return originalItem.status === 'draft' && item.status === 'published'
       },
     },
+    upsert: false,
   },
   hooks: {
     beforeOperation: {
@@ -826,9 +829,7 @@ Schema.define({
 			'generated-new-schema.semantic.fixture.ts',
 		)
 		const service = createSourceLanguageService(fileName, source)
-
 		expect(service.getSemanticDiagnostics(fileName)).toStrictEqual([])
-
 		service.dispose()
 	})
 
@@ -855,7 +856,6 @@ Schema.define({
 			.map(({ messageText }) =>
 				ts.flattenDiagnosticMessageText(messageText, '\n'),
 			)
-
 		expect(diagnostics).toHaveLength(1)
 		expect(diagnostics[0]).toContain('Type \'"missing"\' is not assignable')
 

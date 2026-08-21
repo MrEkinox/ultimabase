@@ -77,7 +77,8 @@ users[0]?.toJSON() // A detached immutable object.
   persisted per-object policies directly
   through Core's generic protected-policy boundary, while roles and
   authentication provide optional request subjects. Core keeps anonymous and
-  trusted master authority.
+  trusted master authority; master bypasses authorization without bypassing
+  validation, hooks, transactions, or integrity constraints.
 - Typegen may include plugin-owned contracts but generates declarations only;
   JavaScript applications run without Typegen or a generated client.
 - Stable plugin operations and application-specific model surfaces execute

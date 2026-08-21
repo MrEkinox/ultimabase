@@ -1208,6 +1208,9 @@ contribution means no enforcement stage or permission placeholder.
 Each definition may opt into `master: "bypass"`; omission enforces it for
 master too, so trusted provider-internal queries skip only explicitly bypassable
 policy work before hook-recursion checks.
+The official Access policy and ACL authorization use bypass unconditionally;
+their separate integrity-maintenance contributions remain enforceable for
+master.
 
 The official Access plugin compiles its package-owned declarations into
 `protectedPolicy()` contributions supplied through this same

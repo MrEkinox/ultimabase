@@ -11,13 +11,7 @@ import {
 	requireCapability,
 	type RequestRoleResolver,
 } from '@ultimabase/core'
-import {
-	allMutations,
-	allOf,
-	anyOf,
-	not,
-	type AccessContext,
-} from '@ultimabase/access-plugin'
+import { allMutations, allOf, not } from '@ultimabase/access-plugin'
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import {
@@ -54,14 +48,9 @@ export const RoleMember = Schema.define({
 	}),
 })
 
-const masterOnly = ({
-	context,
-}: {
-	readonly context: AccessContext
-}): boolean => context.access.mode === 'master'
 const protectedRoleOperations = {
 	read: true,
-	...allMutations(masterOnly),
+	...allMutations(false),
 }
 
 /** Records principal resolution so request-local membership caching is observable. */
@@ -135,9 +124,9 @@ export const ProtectedPost = Schema.define({
 		internalNote: field.string({
 			access: {
 				read: {
-					orderBy: anyOf(masterOnly, hasRole(AdministratorReference)),
-					output: anyOf(masterOnly, hasRole(AdministratorReference)),
-					where: anyOf(masterOnly, hasRole(AdministratorReference)),
+					orderBy: hasRole(AdministratorReference),
+					output: hasRole(AdministratorReference),
+					where: hasRole(AdministratorReference),
 				},
 			},
 		}),
@@ -145,19 +134,16 @@ export const ProtectedPost = Schema.define({
 		title: field.string({ validation: { required: true } }),
 	}),
 	access: {
-		create: masterOnly,
+		create: false,
 		delete: hasRole(AdministratorReference),
 		read: {
 			allow: true,
 			where: ({ where }) => where.eq('published', true),
 		},
-		update: anyOf(
-			masterOnly,
-			allOf(
-				hasRole(EditorReference),
-				hasRole(AdministratorReference),
-				not(false),
-			),
+		update: allOf(
+			hasRole(EditorReference),
+			hasRole(AdministratorReference),
+			not(false),
 		),
 	},
 })

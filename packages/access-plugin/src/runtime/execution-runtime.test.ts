@@ -46,7 +46,7 @@ describe('AccessExecutionRuntime', () => {
 		const runtime = new AccessExecutionRuntime(undefined, callbacks)
 
 		await runtime.invoke(
-			createDescriptor({ kind: 'developer', master: 'enforce' }),
+			createDescriptor({ kind: 'developer' }),
 			context,
 			async () => {
 				await Promise.resolve()
@@ -57,7 +57,6 @@ describe('AccessExecutionRuntime', () => {
 			createDescriptor({
 				kind: 'plugin',
 				localName: 'role-policy',
-				master: 'enforce',
 				ownerInstanceId: 'worker',
 				ownerPlugin: 'fixture.access-provider',
 				targetKind: 'schema',

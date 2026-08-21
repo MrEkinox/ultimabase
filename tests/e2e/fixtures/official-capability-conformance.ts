@@ -157,7 +157,7 @@ export const getOfficialHooksConformanceEvidence = (
 ): HooksConformanceEvidence =>
 	requireEvidence(hooksEvidence, schema, 'Hooks behavior')
 
-export type AccessCommunityMode = 'allow' | 'bypass-deny' | 'enforce-deny'
+export type AccessCommunityMode = 'allow' | 'deny'
 
 const createAccessProvider = (
 	schema: SchemaDefinition,
@@ -168,11 +168,7 @@ const createAccessProvider = (
 		capabilities: {
 			provides: [
 				provideAccessContributions(`document-policy-${instanceId}`, () =>
-					schemaAccess(
-						schema,
-						{ read: mode === 'allow' },
-						{ master: mode === 'enforce-deny' ? 'enforce' : 'bypass' },
-					),
+					schemaAccess(schema, { read: mode === 'allow' }),
 				),
 			],
 		},

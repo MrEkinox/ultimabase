@@ -162,7 +162,7 @@ const PrivateTarget = Schema.define({
 		label: field.string({ validation: { required: true } }),
 	}),
 	access: {
-		read: ({ context }) => context.access.mode === 'master',
+		read: false,
 	},
 })
 const PrivateSource = Schema.define({

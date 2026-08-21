@@ -35,11 +35,7 @@ const AccessArticle = Schema.define({
 		secret: field.string({
 			access: {
 				read: { orderBy: false, output: false, where: false },
-				write: {
-					fill: ({ context }) => context.access.mode === 'master',
-					replace: false,
-					clear: false,
-				},
+				write: false,
 			},
 		}),
 		title: field.string({
@@ -52,7 +48,7 @@ const AccessArticle = Schema.define({
 			allow: { count: true, exists: true, many: true, one: true },
 			where: ({ where }) => where.eq('published', true).gte('rank', 0),
 		},
-		create: ({ context }) => context.access.mode === 'master',
+		create: false,
 		update: {
 			where: ({ where }) => where.eq('published', true),
 			item: ({ originalItem }) => !originalItem.locked,
@@ -86,7 +82,7 @@ const BulkDocument = Schema.define({
 		visible: field.boolean({ default: false }),
 	}),
 	access: {
-		create: ({ context }) => context.access.mode === 'master',
+		create: false,
 		delete: { allow: true, where: ({ where }) => where.eq('visible', true) },
 		read: { allow: true, where: ({ where }) => where.eq('visible', true) },
 		update: { allow: true, where: ({ where }) => where.eq('visible', true) },
@@ -108,13 +104,11 @@ const pluginVisibility = definePlugin({
 	capabilities: {
 		provides: [
 			provideAccessContributions('hide-plugin-rows', () =>
-				schemaAccess(
-					AccessArticle,
-					{
-						read: { where: ({ where }) => where.ne('title', 'plugin-hidden') },
+				schemaAccess(AccessArticle, {
+					read: {
+						where: ({ where }) => where.ne('title', 'plugin-hidden'),
 					},
-					{ master: 'enforce' },
-				),
+				}),
 			),
 		],
 	},
@@ -282,7 +276,7 @@ describe('Access plugin with PostgreSQL', () => {
 		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 	})
 
-	it('keeps audited master behavior explicit per native and plugin contribution', async () => {
+	it('bypasses every Access declaration for audited master', async () => {
 		const app = getUltimaBase()
 
 		await expect(
@@ -300,6 +294,7 @@ describe('Access plugin with PostgreSQL', () => {
 		const masterCreated = await AccessArticle.createOne(
 			{
 				data: {
+					locked: true,
 					published: true,
 					secret: 'master-secret',
 					title: 'master-created',
@@ -308,13 +303,31 @@ describe('Access plugin with PostgreSQL', () => {
 			{ ultimabase: app, useMasterKey: true },
 		)
 
-		expect(masterCreated).not.toHaveProperty('secret')
+		expect(masterCreated).toMatchObject({ secret: 'master-secret' })
+		await expect(
+			AccessArticle.updateOne(
+				{
+					data: { secret: 'master-updated', title: 'master-updated' },
+					where: { id: { eq: masterCreated.id } },
+				},
+				{ ultimabase: app, useMasterKey: true },
+			),
+		).resolves.toMatchObject({
+			secret: 'master-updated',
+			title: 'master-updated',
+		})
+		await expect(
+			AccessArticle.get(
+				{ id: privateId },
+				{ ultimabase: app, useMasterKey: true },
+			),
+		).resolves.toMatchObject({ secret: 'private-secret', title: 'private' })
 		await expect(
 			AccessArticle.exists(
 				{ where: { title: { eq: 'plugin-hidden' } } },
 				{ ultimabase: app, useMasterKey: true },
 			),
-		).resolves.toBe(false)
+		).resolves.toBe(true)
 	})
 
 	it('filters mutation targets and rolls nested writes back after item denial', async () => {

@@ -164,7 +164,6 @@ export const accessPluginPublicApi = {
 		'AccessContributionDefinition',
 		'AccessContributionFactory',
 		'AccessContributionFactoryContext',
-		'AccessContributionMasterMode',
 		'AccessContributionsCapability',
 		'FieldAccessContributionDefinition',
 		'FieldKindAccessContributionDefinition',
@@ -214,6 +213,7 @@ export const removedHooksPluginPublicApiNames = [
 
 /** Names Access implementation details deliberately removed from the root API. */
 export const removedAccessPluginPublicApiNames = [
+	'AccessContributionMasterMode',
 	'FieldAccessDeclarations',
 	'FieldExtensionAccessContributionDefinition',
 	'FieldExtensionAccessTargetContext',

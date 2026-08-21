@@ -94,6 +94,11 @@ accessPlugin({ default: { field: true, operation: false } })
 Defaults belong to the configured plugin instance and never mutate a schema or
 another application.
 
+Trusted master requests bypass the complete official Access policy. Therefore
+`false`, callback denials, row filters, field restrictions, and configured
+defaults apply only to non-master callers. Validation, hooks, transactions, and
+database constraints still execute.
+
 ## Official-compatible providers
 
 A plugin that intentionally contributes official Access declarations uses the
@@ -141,13 +146,15 @@ schema-declaration plugins. All Access helpers normalize declarations before
 the official engine consumes them.
 Every provider policy narrows the developer policy; no contribution can
 override an earlier denial.
+Compatible-provider policies share the engine's unconditional master bypass;
+the contribution helpers expose no per-policy master mode.
 
 Contributors do not inherit the Access engine's privileges. Inline Access callbacks execute as
 application callbacks, while contributed rules execute under their exact
 plugin and optional instance identity through Core's application-bound callback
 executor. A rule that initiates a new Master elevation therefore needs its own
-`authority:elevate` request; an already-Master caller remains inherited without
-another elevation.
+`authority:elevate` request. Already-master requests bypass the complete Access
+policy before any callback executes.
 
 Independent policy engines should not depend on this package. They can define
 their own authoring vocabulary and contribute Core `protectedPolicy()` values
@@ -191,7 +198,7 @@ await runPluginConformance(suite)
 
 The suite helpers come from `@ultimabase/testing`; the Access engine and
 provider helpers come from this package root. A provider can add focused item,
-field, relation, transition, and Master-mode assertions without asking an
+field, relation, transition, and master-bypass assertions without asking an
 independent policy engine to adopt this vocabulary.
 
 ACL follows that independent path: `@ultimabase/acl-permissions-plugin` depends

@@ -200,6 +200,7 @@ Accepted records:
 - [ADR-0215: Patched field options materialize implicit indexes](0215-patched-field-options-materialize-implicit-indexes.md)
 - [ADR-0216: Direct plugin options may be compiler-only](0216-compiler-only-direct-plugin-options.md)
 - [ADR-0217: Generated registries do not reject schema class declarations](0217-generated-registries-do-not-reject-schema-class-declarations.md)
+- [ADR-0218: Master bypasses authorization policies](0218-master-bypasses-authorization-policies.md)
 
 Superseded records:
 

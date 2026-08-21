@@ -34,9 +34,9 @@ const AppRole = RoleSchema.define({
 	}),
 	access: {
 		read: true,
-		create: ({ context }) => context.access.mode === 'master',
-		update: ({ context }) => context.access.mode === 'master',
-		delete: ({ context }) => context.access.mode === 'master',
+		create: false,
+		update: false,
+		delete: false,
 	},
 })
 

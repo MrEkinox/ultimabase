@@ -42,7 +42,10 @@ Before changing code:
   nothing by themselves. Core Runtime must not name, configure, bypass, or
   install neutral stages for concrete providers.
 - Core authority modes are `anonymous` and `master`. Authentication, user identity, sessions, and user schemas belong to optional plugins; there is no `user` or `system` Core mode.
-- Master access is trusted server-side authority and must never be forgeable from transport input.
+- Master access is trusted server-side authority that bypasses authorization
+  policies while retaining validation, hooks, transactions, database
+  constraints, and integrity maintenance. It must never be forgeable from
+  transport input.
 
 ## Dependency direction
 

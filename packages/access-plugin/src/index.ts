@@ -66,7 +66,6 @@ export type {
 	AccessContributionDefinition,
 	AccessContributionFactory,
 	AccessContributionFactoryContext,
-	AccessContributionMasterMode,
 	AccessContributionsCapability,
 	FieldAccessContributionDefinition,
 	GlobalAccessContributionDefinition,

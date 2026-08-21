@@ -464,9 +464,9 @@ identity.
 
 Runtime never bypasses enforcement merely because the context is `master`.
 Each installed protected policy reads the trusted access mode and decides
-whether its own decision applies. Structural validation, generic behavior,
-adapter constraints, transactions, commit, and observers remain part of the
-same pipeline.
+whether its own decision applies. Official Access and ACL authorization always
+choose bypass. Structural validation, generic behavior, adapter constraints,
+transactions, commit, and observers remain part of the same pipeline.
 
 ## Optional behavior engines and observers
 

@@ -28,10 +28,11 @@ type RequestAccess =
 
 There is no `user` or `system` Core mode. Authentication, sessions, and user
 schemas belong to optional plugins. Master authority identifies the verified
-key without retaining its raw value. Core does not define a policy-specific
-bypass table. Each installed policy plugin observes the trusted mode and owns
-its own master-bypass decision without changing the authority seen by another
-plugin.
+key without retaining its raw value. Official Access and ACL authorization
+always bypass master. Core does not define a policy-specific bypass table;
+independent plugins select bypass on their generic policy contribution without
+changing the authority seen by another plugin. Integrity constraints may remain
+enforced for master.
 
 ## Request capabilities
 

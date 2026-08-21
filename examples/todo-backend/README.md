@@ -24,25 +24,17 @@ export const Todo = Schema.define({
 		}),
 		internalNotes: field.string({
 			access: {
-				read: {
-					output: masterOnly,
-					where: masterOnly,
-					orderBy: masterOnly,
-				},
-				write: {
-					fill: masterOnly,
-					replace: masterOnly,
-					clear: masterOnly,
-				},
+				read: false,
+				write: false,
 			},
 		}),
 	}),
 	access: {
 		read: { where: ({ where }) => where.eq('archived', false) },
-		create: masterOnly,
+		create: false,
 		update: true,
-		upsert: masterOnly,
-		delete: masterOnly,
+		upsert: false,
+		delete: false,
 	},
 	acl: {
 		default: new ACL()
@@ -65,8 +57,9 @@ const ultimabase = new UltimaBase({
 This demonstrates that the plugins compose monotonically: ordinary readers see
 only non-archived rows allowed by their object ACL, editor ACLs may permit an
 update, and the field-level Access declaration still keeps `internalNotes`
-server-only. Master remains a trusted backend authority, never a value accepted
-from transport input.
+server-only. `false` denies ordinary callers while trusted master authority
+bypasses Access and ACL authorization. Master is never a value accepted from
+transport input.
 
 The same file also contains:
 

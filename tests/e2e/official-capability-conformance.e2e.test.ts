@@ -262,37 +262,27 @@ describe('official optional capability conformance', () => {
 		})
 	})
 
-	it('proves Access Master modes and monotonic compatible-provider composition', async () => {
-		for (const [mode, masterAllowed] of [
-			['bypass-deny', true],
-			['enforce-deny', false],
-		] as const) {
-			const fixture = createOfficialAccessConformanceFixture(mode)
-			const document = requireSchema(fixture.schemas[0], `Access ${mode}`)
-			const ultimabase = new UltimaBase({
-				masterAuthority: createMasterAuthority(),
-				plugins: fixture.plugins,
-				schemas: fixture.schemas,
-			})
-			try {
-				await ultimabase.start()
-				await expect(
-					document.findMany(undefined, { ultimabase }),
-				).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
-				const masterRead = document.findMany(undefined, {
+	it('proves master bypass and monotonic compatible-provider composition', async () => {
+		const fixture = createOfficialAccessConformanceFixture('deny')
+		const document = requireSchema(fixture.schemas[0], 'Access deny')
+		const ultimabase = new UltimaBase({
+			masterAuthority: createMasterAuthority(),
+			plugins: fixture.plugins,
+			schemas: fixture.schemas,
+		})
+		try {
+			await ultimabase.start()
+			await expect(
+				document.findMany(undefined, { ultimabase }),
+			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
+			await expect(
+				document.findMany(undefined, {
 					ultimabase,
 					useMasterKey: true,
-				})
-				if (masterAllowed) {
-					await expect(masterRead).resolves.toHaveLength(1)
-				} else {
-					await expect(masterRead).rejects.toMatchObject({
-						code: 'PERMISSION_DENIED',
-					})
-				}
-			} finally {
-				await ultimabase.dispose()
-			}
+				}),
+			).resolves.toHaveLength(1)
+		} finally {
+			await ultimabase.dispose()
 		}
 	})
 

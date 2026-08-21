@@ -21,11 +21,9 @@ import { accessFieldPathsEqual } from './field-paths.js'
 import {
 	assertAccessDecisionRules,
 	createAccessDeniedError,
-	getEffectiveAccessRules,
 } from './rule-evaluation.js'
 
 export const computeAccessStaticSelection = (
-	request: RuntimeOperationStageInput<DatabaseOperationAst>,
 	plan: AccessPlan,
 	schemaPlan: SchemaAccessPlan,
 ): readonly string[] | undefined => {
@@ -42,16 +40,11 @@ export const computeAccessStaticSelection = (
 	const permitted = immutableArray(
 		topLevel
 			.filter((field) => {
-				const effective = getEffectiveAccessRules(
-					field.read.item,
-					request.context,
-				)
-
 				if (field.read.item.length === 0) {
 					return plan.defaults.field
 				}
 
-				return !effective.some(({ rule }) => rule === false)
+				return !field.read.item.some(({ rule }) => rule === false)
 			})
 			.map(({ path }) => path[0])
 			.filter((field): field is string => field !== undefined),

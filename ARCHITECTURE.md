@@ -102,6 +102,12 @@ official Access plugin owns Access vocabulary and compilation; Runtime does not
 install or name Access, ACL, role, authentication, or a community policy engine
 when no such capability is present.
 
+Trusted master authority bypasses the complete official Access and ACL
+authorization policies. Validation, hooks, transactions, database constraints,
+and integrity-maintenance contributions remain active. Core keeps explicit
+per-contribution master behavior on its generic policy-neutral boundary because
+it cannot classify community constraints as authorization or integrity work.
+
 ## Direct plugin options
 
 Core accepts schema and field options only when an installed plugin contributes
@@ -396,11 +402,11 @@ system, and its field Access surface controls field disclosure and mutation.
 ACL is an optional persisted per-object policy that composes through Core's
 generic protected constraint boundary. Roles and authentication
 supply optional typed subject capabilities and grant nothing by themselves.
-The Access plugin contains no built-in ACL, user, owner, or role rule. Each
-declaration or provider decides whether audited master authority bypasses its
-own policy; Core Runtime has no permission-specific bypass branch. A community
-Access engine may expose different syntax while using the same protected
-constraint contracts.
+The Access plugin contains no built-in ACL, user, owner, or role rule. Its
+complete policy and ACL authorization always bypass audited master authority;
+Core Runtime still has no permission-specific bypass branch. A community Access
+engine may expose different syntax while using the same protected constraint
+contracts and must opt into bypass at the generic policy boundary.
 
 Official-compatible Access providers import public contracts from
 `@ultimabase/access-plugin`; independent policy engines use the generic kernel

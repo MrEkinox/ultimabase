@@ -86,11 +86,7 @@ export class AccessRuntime {
 		)
 		await evaluateAccessCreateItems(this.#runtime, request, schemaPlan)
 
-		const permitted = computeAccessStaticSelection(
-			request,
-			this.#plan,
-			schemaPlan,
-		)
+		const permitted = computeAccessStaticSelection(this.#plan, schemaPlan)
 		assertAccessExplicitSelection(request, this.#plan, schemaPlan, permitted)
 		return immutableRecord({
 			...(rowFilter === undefined ? {} : { rowFilter }),

@@ -36,14 +36,12 @@ export const accessOperationKinds: readonly OperationKind[] = [
 /** Attributes one native declaration without inventing plugin provenance. */
 export interface DeveloperAccessSource {
 	readonly kind: 'developer'
-	readonly master: 'enforce'
 }
 
 /** Retains exact plugin ownership for deterministic policy diagnostics. */
 export interface PluginAccessSource {
 	readonly kind: 'plugin'
 	readonly localName: string
-	readonly master: 'bypass' | 'enforce'
 	readonly ownerPlugin: string
 	readonly ownerInstanceId?: string
 	readonly targetKind: 'field' | 'field-kind' | 'global' | 'schema'

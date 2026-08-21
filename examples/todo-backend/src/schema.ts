@@ -1,17 +1,11 @@
 import { ACL } from '@ultimabase/acl-permissions-plugin'
-import { allMutations, type AccessContext } from '@ultimabase/access-plugin'
+import { allMutations } from '@ultimabase/access-plugin'
 import { Schema } from '@ultimabase/core'
 import { RoleSchema } from '@ultimabase/roles-plugin'
 
-const masterOnly = ({
-	context,
-}: {
-	readonly context: AccessContext
-}): boolean => context.access.mode === 'master'
-
 const serverManagedAccess = {
 	read: true,
-	...allMutations(masterOnly),
+	...allMutations(false),
 }
 
 /** Owns tasks assigned to one person and demonstrates inverse relations. */
@@ -87,16 +81,8 @@ export const Todo = Schema.define({
 		}),
 		internalNotes: field.string({
 			access: {
-				read: {
-					orderBy: masterOnly,
-					output: masterOnly,
-					where: masterOnly,
-				},
-				write: {
-					clear: masterOnly,
-					fill: masterOnly,
-					replace: masterOnly,
-				},
+				read: false,
+				write: false,
 			},
 			description: 'Server-only notes omitted from untrusted reads and writes.',
 		}),
@@ -204,11 +190,7 @@ export const Todo = Schema.define({
 		}),
 		assignee: field.pointer({
 			access: {
-				write: {
-					clear: masterOnly,
-					fill: masterOnly,
-					replace: masterOnly,
-				},
+				write: false,
 			},
 			description: 'Optional user currently responsible for the task.',
 			onDelete: 'setNull',
@@ -218,10 +200,10 @@ export const Todo = Schema.define({
 	indexes: [{ fields: ['completed', 'dueAt'] }],
 	access: {
 		read: { where: ({ where }) => where.eq('archived', false) },
-		create: masterOnly,
+		create: false,
 		update: true,
-		upsert: masterOnly,
-		delete: masterOnly,
+		upsert: false,
+		delete: false,
 	},
 	acl: {
 		default: new ACL()

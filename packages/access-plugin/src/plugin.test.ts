@@ -1,5 +1,6 @@
 import {
 	FrameworkApplication,
+	MasterAuthority,
 	Schema,
 	UltimaBase,
 	databaseAdapterCapability,
@@ -88,6 +89,15 @@ const ObservedDocument = Schema.define({
 	access: { read: () => true },
 })
 
+const MasterBypassDocument = Schema.define({
+	className: 'AccessPluginMasterBypassDocument',
+	fields: (field) => ({
+		secret: field.string({ access: { read: false } }),
+		title: field.string(),
+	}),
+	access: { read: false },
+})
+
 const row = {
 	createdAt: '2026-08-20T10:00:00.000Z',
 	id: '019c0000-0000-7000-8000-000000000001',
@@ -128,6 +138,34 @@ describe('accessPlugin', () => {
 			await expect(
 				SecretDocument.findMany({ select: { secret: true } }, { ultimabase }),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
+		} finally {
+			await ultimabase.dispose()
+		}
+	})
+
+	it('bypasses operation and field Access for audited master requests', async () => {
+		const ultimabase = new UltimaBase({
+			masterAuthority: new MasterAuthority({
+				keys: [{ id: 'access-unit-master', value: 'unused-by-terminal' }],
+				onUse: () => undefined,
+			}),
+			plugins: [accessPlugin(), databasePlugin(new StaticReadAdapter([row]))],
+			schemas: [MasterBypassDocument],
+		})
+
+		try {
+			await ultimabase.start()
+			await expect(
+				MasterBypassDocument.findMany(undefined, { ultimabase }),
+			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
+			await expect(
+				MasterBypassDocument.findMany(undefined, {
+					ultimabase,
+					useMasterKey: true,
+				}),
+			).resolves.toEqual([
+				expect.objectContaining({ secret: 'hidden', title: 'visible' }),
+			])
 		} finally {
 			await ultimabase.dispose()
 		}

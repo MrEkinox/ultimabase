@@ -54,13 +54,9 @@ export const readFieldKindAccessTarget = (target: unknown): string => {
 	return kind
 }
 
-interface TargetDefinitionBase {
-	readonly master: 'bypass' | 'enforce'
-}
-
 export interface FieldKindAccessContributionDefinition<
 	TField extends GenericField = GenericField,
-> extends TargetDefinitionBase {
+> {
 	readonly create: (
 		context: FieldKindAccessTargetContext<TField>,
 	) => FieldAccess<TField>
@@ -68,7 +64,7 @@ export interface FieldKindAccessContributionDefinition<
 	readonly targetKind: 'field-kind'
 }
 
-interface ErasedFieldKindAccessContributionDefinition extends TargetDefinitionBase {
+interface ErasedFieldKindAccessContributionDefinition {
 	readonly create: (context: never) => FieldAccess<GenericField>
 	readonly target: FieldKindAccessTarget<GenericField>
 	readonly targetKind: 'field-kind'

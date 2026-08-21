@@ -61,14 +61,11 @@ const requireField = (field: GenericField | undefined): GenericField => {
 const securedTitle = requireField(Secured.fields.title)
 
 describe('compileAccessPlan plugin contributions', () => {
-	it('expands every target kind with exact ownership, order, and Master mode', () => {
+	it('expands every target kind with exact ownership and order', () => {
 		const seen: string[] = []
 		const contributions = [
 			owned('global', globalAccess({ read: true })),
-			owned(
-				'schema',
-				schemaAccess(Secured, { read: true }, { master: 'bypass' }),
-			),
+			owned('schema', schemaAccess(Secured, { read: true })),
 			owned(
 				'field',
 				fieldAccess(Secured, securedTitle, ['title'], { read: false }),
@@ -97,7 +94,6 @@ describe('compileAccessPlan plugin contributions', () => {
 			expect.objectContaining({ localName: 'global', targetKind: 'global' }),
 			expect.objectContaining({
 				localName: 'schema',
-				master: 'bypass',
 				ownerInstanceId: 'primary',
 				targetKind: 'schema',
 			}),

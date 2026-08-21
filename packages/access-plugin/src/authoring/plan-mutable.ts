@@ -35,7 +35,6 @@ import {
 
 const developerAccessSource: DeveloperAccessSource = immutableRecord({
 	kind: 'developer',
-	master: 'enforce',
 })
 
 const createMutableRuleMap = <const TKey extends string>(

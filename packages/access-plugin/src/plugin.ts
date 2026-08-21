@@ -179,7 +179,7 @@ export const accessPlugin = (
 			return {
 				value: protectedPolicy({
 					evaluate: (input) => evaluatesDenied(() => runtime.evaluate(input)),
-					master: 'enforce',
+					master: 'bypass',
 					mutationOutcome: (input) =>
 						returnsDenied(() =>
 							runtime.enforceMutationOutcome(input).then(() => undefined),

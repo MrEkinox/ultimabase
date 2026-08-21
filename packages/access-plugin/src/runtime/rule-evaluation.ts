@@ -18,7 +18,6 @@ import {
 } from '../authoring/filter.js'
 import type {
 	AccessPlan,
-	AccessRuleSource,
 	CompiledAccessRule,
 	FieldAccessPlan,
 	SchemaAccessPlan,
@@ -71,14 +70,6 @@ export const readAccessSchema = (
 	return schema
 }
 
-const shouldBypassMaster = (
-	source: AccessRuleSource,
-	context: RuntimeOperationStageInput<DatabaseOperationAst>['context'],
-): boolean =>
-	source.kind === 'plugin' &&
-	source.master === 'bypass' &&
-	context.access.mode === 'master'
-
 const createRuleDescriptor = (
 	identity: AccessRuleIdentity,
 	operation: OperationKind,
@@ -107,14 +98,6 @@ const evaluateRule = async (
 	)
 }
 
-export const getEffectiveAccessRules = (
-	rules: readonly CompiledAccessRule[],
-	context: RuntimeOperationStageInput<DatabaseOperationAst>['context'],
-): readonly CompiledAccessRule[] =>
-	immutableArray(
-		rules.filter((rule) => !shouldBypassMaster(rule.source, context)),
-	)
-
 export const assertAccessDecisionRules = async (
 	runtime: AccessExecutionRuntime,
 	request: RuntimeOperationStageInput<DatabaseOperationAst>,
@@ -123,8 +106,6 @@ export const assertAccessDecisionRules = async (
 	input: Readonly<Record<string, unknown>>,
 	defaultDecision: boolean,
 ): Promise<void> => {
-	const effective = getEffectiveAccessRules(rules, request.context)
-
 	if (rules.length === 0 && !defaultDecision) {
 		throw createAccessDeniedError(
 			identity.phase,
@@ -133,7 +114,7 @@ export const assertAccessDecisionRules = async (
 		)
 	}
 
-	for (const [ruleIndex, rule] of effective.entries()) {
+	for (const [ruleIndex, rule] of rules.entries()) {
 		const output = await evaluateRule(
 			runtime,
 			request,
@@ -283,10 +264,9 @@ export const evaluateAccessOperationAndFilter = async (
 	}
 
 	const rules = schemaPlan.filter[family]
-	const effective = getEffectiveAccessRules(rules, request.context)
 	const results: unknown[] = []
 
-	for (const [ruleIndex, rule] of effective.entries()) {
+	for (const [ruleIndex, rule] of rules.entries()) {
 		const result = await evaluateRule(
 			runtime,
 			request,

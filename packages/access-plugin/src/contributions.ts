@@ -33,26 +33,19 @@ import type {
 	FieldKindAccessTargetContext,
 } from './targets.js'
 
-/** Controls whether trusted master requests bypass one compatible policy. */
-export type AccessContributionMasterMode = 'bypass' | 'enforce'
-
-interface AccessContributionBase {
-	readonly master: AccessContributionMasterMode
-}
-
-export interface GlobalAccessContributionDefinition extends AccessContributionBase {
+export interface GlobalAccessContributionDefinition {
 	readonly declarations: SchemaAccessDeclarations
 	readonly schema: undefined
 	readonly targetKind: 'global'
 }
 
-export interface SchemaAccessContributionDefinition extends AccessContributionBase {
+export interface SchemaAccessContributionDefinition {
 	readonly declarations: SchemaAccessDeclarations
 	readonly schema: SchemaDefinition
 	readonly targetKind: 'schema'
 }
 
-export interface FieldAccessContributionDefinition extends AccessContributionBase {
+export interface FieldAccessContributionDefinition {
 	readonly declarations: FieldAccessDeclarations
 	readonly field: GenericField
 	readonly path: readonly [string, ...string[]]
@@ -120,18 +113,12 @@ const requireFieldAccess = (
 	return declarations
 }
 
-const readMasterMode = (
-	options: Readonly<{ readonly master?: AccessContributionMasterMode }>,
-): AccessContributionMasterMode => options.master ?? 'enforce'
-
 /** Targets every application schema with one official-compatible policy. */
 export const globalAccess = (
 	access: SchemaAccess<SchemaDefinition>,
-	options: Readonly<{ readonly master?: AccessContributionMasterMode }> = {},
 ): GlobalAccessContributionDefinition =>
 	immutableRecord({
 		declarations: requireSchemaAccess(access, 'global Access'),
-		master: readMasterMode(options),
 		schema: undefined,
 		targetKind: 'global' as const,
 	})
@@ -140,11 +127,9 @@ export const globalAccess = (
 export const schemaAccess = <TSchema extends SchemaDefinition>(
 	schema: TSchema,
 	access: SchemaAccess<NoInfer<TSchema>>,
-	options: Readonly<{ readonly master?: AccessContributionMasterMode }> = {},
 ): SchemaAccessContributionDefinition =>
 	immutableRecord({
 		declarations: requireSchemaAccess(access, 'schema Access'),
-		master: readMasterMode(options),
 		schema,
 		targetKind: 'schema' as const,
 	})
@@ -155,12 +140,10 @@ export const fieldAccess = <TField extends GenericField>(
 	field: TField,
 	path: readonly [string, ...string[]],
 	access: FieldAccess<NoInfer<TField>>,
-	options: Readonly<{ readonly master?: AccessContributionMasterMode }> = {},
 ): FieldAccessContributionDefinition =>
 	immutableRecord({
 		declarations: requireFieldAccess(access, 'field Access'),
 		field,
-		master: readMasterMode(options),
 		path: immutableArray(path),
 		schema,
 		targetKind: 'field' as const,
@@ -172,11 +155,9 @@ export const fieldKindAccess = <TField extends GenericField>(
 	create: (
 		context: FieldKindAccessTargetContext<NoInfer<TField>>,
 	) => FieldAccess<TField>,
-	options: Readonly<{ readonly master?: AccessContributionMasterMode }> = {},
 ): FieldKindAccessContributionDefinition<TField> =>
 	immutableRecord({
 		create,
-		master: readMasterMode(options),
 		target,
 		targetKind: 'field-kind' as const,
 	})

@@ -244,16 +244,12 @@ const communityPolicy = definePlugin({
 	capabilities: {
 		provides: [
 			provideAccessContributions('community-scope', () =>
-				schemaAccess(
-					CombinedPost,
-					{
-						read: {
-							where: ({ where }) =>
-								where.eq('communityScope', 'community-allowed'),
-						},
+				schemaAccess(CombinedPost, {
+					read: {
+						where: ({ where }) =>
+							where.eq('communityScope', 'community-allowed'),
 					},
-					{ master: 'enforce' },
-				),
+				}),
 			),
 		],
 	},
