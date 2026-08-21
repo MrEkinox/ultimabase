@@ -477,6 +477,12 @@ through `provideRuntimeConstraint()`, and low-level post-commit observers
 through `provideRuntimeObserver()`. An absent capability contributes no
 dispatcher, snapshot, callback, placeholder, or neutral stage.
 
+This is a structural cost guarantee, not a literal zero-CPU claim. The
+repository's deterministic Runtime cost fixture requires a no-product graph to
+materialize zero optional behavior or enforcement bundles and to invoke zero
+optional stages across a representative read and mutation. Mandatory Core
+stages and unrelated installed capabilities remain active.
+
 The convenience factories `beforeOperation()`, `afterOperation()`,
 `preparedOperation()`, and `postCommitEvent()` are generic low-level Runtime
 definitions. Their inputs use `RequestContext` and they do not create schema or

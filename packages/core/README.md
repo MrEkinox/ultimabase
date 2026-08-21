@@ -1108,6 +1108,14 @@ provider contracts, diagnostics, and exact Runtime semantics. Community
 alternatives may define different vocabularies through Core's generic public
 kernel; they do not inherit an official engine or a neutral no-op stage.
 
+This absence claim is measurable rather than a promise of literal zero CPU
+time: a no-product application materializes no optional behavior or enforcement
+bundle and invokes no such stage per request. Canonical Runtime assembly,
+validation, database execution, transactions, result materialization, and
+unrelated installed capabilities still perform their normal work. The
+repository protects this boundary with the deterministic
+`yarn test:performance` budget.
+
 ## Policy-neutral enforcement primitives
 
 Core exposes five protected factories without adding policy names to Runtime.

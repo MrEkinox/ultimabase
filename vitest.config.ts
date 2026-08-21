@@ -82,6 +82,15 @@ const testProjects: TestProjectConfiguration[] = [
 	{
 		extends: true,
 		test: {
+			fileParallelism: false,
+			include: ['tests/performance/**/*.performance.test.ts'],
+			name: 'performance',
+		},
+		resolve: { alias: sourcePackageAliases },
+	},
+	{
+		extends: true,
+		test: {
 			include: [],
 			name: 'types',
 			typecheck: {
