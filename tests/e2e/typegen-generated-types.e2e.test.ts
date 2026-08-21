@@ -592,9 +592,13 @@ describe('packed @ultimabase/typegen generated contracts', () => {
 				'globalHooks',
 				'provideHookContributions',
 				'schemaHooks',
-				'schemaExtensionHooks',
 			]),
 		)
+		expect(
+			service
+				.getCompletionsAtPosition(fileName, pluginHookRegistryPosition, {})
+				?.entries.map(({ name }) => name),
+		).not.toContain('schemaExtensionHooks')
 		expect(
 			service
 				.getCompletionsAtPosition(fileName, pluginHookItemPosition, {})

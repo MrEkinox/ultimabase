@@ -33,6 +33,10 @@ import {
 
 import { getRoleSchemaDeclaration, rolesPluginName } from './role-schema.js'
 import {
+	roleSchemaIdentityOption,
+	roleSchemaIdentityOptionName,
+} from './role-schema-identity.js'
+import {
 	assertRoleHierarchyAcyclic,
 	readPersistedRoleId,
 } from './role-hierarchy.js'
@@ -394,6 +398,10 @@ const createRoleRuntimeBehavior = (
 
 const rolesPluginPrivileges = [
 	{
+		name: 'schema:declare',
+		reason: 'Declares the nominal direct option owned by RoleSchema.',
+	},
+	{
 		name: 'authority:elevate',
 		reason:
 			'Resolves and maintains persisted role membership through audited internal Master queries.',
@@ -422,6 +430,7 @@ const rolesPluginCapabilities: Readonly<{
 }
 type RolesPluginDefinition = Readonly<{
 	readonly capabilities: typeof rolesPluginCapabilities
+	readonly declare: () => undefined
 	readonly privileges: typeof rolesPluginPrivileges
 	readonly setup: () => RolesPluginExports
 }>
@@ -433,7 +442,7 @@ export type RolesPlugin = PluginModuleInstance<
 >
 
 /**
- * Discovers every registered `RoleSchema` and claims its private extension.
+ * Discovers every registered `RoleSchema` through exact package-owned identity.
  *
  * Schema fields, hooks, Access, indexes, and transports stay in their native
  * declarations rather than becoming plugin options.
@@ -442,6 +451,14 @@ export const rolesPlugin = (): RolesPlugin =>
 	rolesPluginModule.plugin({
 		privileges: rolesPluginPrivileges,
 		capabilities: rolesPluginCapabilities,
+		declare: ({ schemas }) => {
+			schemas.defineOptions({
+				contributionId: 'role-schema-identity',
+				schema: {
+					[roleSchemaIdentityOptionName]: roleSchemaIdentityOption,
+				},
+			})
+		},
 		setup: ({ capabilities, schemas }) => {
 			referenceCleanupsBySchemas.set(
 				schemas,

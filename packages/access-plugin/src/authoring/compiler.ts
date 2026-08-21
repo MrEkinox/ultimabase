@@ -1,14 +1,8 @@
 import type { CompiledSchemaRegistry } from '@ultimabase/core'
-import {
-	immutableArray,
-	immutableRecord,
-	isPlainRecord,
-	isUnknownArray,
-} from '@ultimabase/shared'
+import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import type { OwnedAccessContribution } from '../contributions.js'
 import { readFieldKindAccessTarget } from '../targets.js'
-import { normalizeSchemaAccessDeclarations } from './declarations.js'
 import { normalizeFieldAccessDeclarations } from './field-declarations.js'
 import {
 	appendDeveloperDeclarations,
@@ -49,73 +43,6 @@ const applyPluginContributions = (
 	for (const owned of ownedContributions) {
 		const definition = owned.definition
 		const source = createPluginSource(owned)
-		if (definition.targetKind === 'schema-extension') {
-			if (definition.extension.pluginName !== owned.owner.pluginId) {
-				throw new TypeError(
-					`Access contribution "${owned.contributionId}" targets a schema extension owned by another plugin`,
-				)
-			}
-			for (const draft of drafts) {
-				for (const extension of draft.schema.extensions) {
-					if (
-						extension.name !== definition.extension.name ||
-						extension.pluginName !== definition.extension.pluginName
-					) {
-						continue
-					}
-					const declarations = normalizeSchemaAccessDeclarations(
-						definition.create({ extension, schema: draft.schema } as never),
-					)
-					if (declarations === undefined) {
-						throw new TypeError(
-							`Access contribution "${owned.contributionId}" must declare a schema rule`,
-						)
-					}
-					appendSchemaDeclarations(draft, declarations, source)
-				}
-			}
-			continue
-		}
-		if (definition.targetKind === 'field-extension') {
-			if (definition.extension.pluginName !== owned.owner.pluginId) {
-				throw new TypeError(
-					`Access contribution "${owned.contributionId}" targets a field extension owned by another plugin`,
-				)
-			}
-			for (const draft of drafts) {
-				for (const fieldPlan of draft.fields) {
-					const extensions: unknown = Reflect.get(
-						fieldPlan.field.options,
-						'extensions',
-					)
-					if (!isUnknownArray(extensions)) continue
-					for (const extension of extensions) {
-						if (
-							!isPlainRecord(extension) ||
-							extension.name !== definition.extension.name ||
-							extension.pluginName !== definition.extension.pluginName
-						) {
-							continue
-						}
-						const declarations = normalizeFieldAccessDeclarations(
-							definition.create({
-								extension: extension as never,
-								field: fieldPlan.field,
-								path: fieldPlan.path,
-								schema: draft.schema,
-							} as never),
-						)
-						if (declarations === undefined) {
-							throw new TypeError(
-								`Access contribution "${owned.contributionId}" must declare a field rule`,
-							)
-						}
-						appendFieldDeclarations(fieldPlan, declarations, source)
-					}
-				}
-			}
-			continue
-		}
 		if (definition.targetKind === 'field-kind') {
 			const kind = readFieldKindAccessTarget(definition.target)
 			for (const draft of drafts) {

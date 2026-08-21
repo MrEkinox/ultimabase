@@ -108,12 +108,13 @@ describe('RoleSchema IntelliSense', () => {
 				'access',
 				'className',
 				'deletion',
-				'extensions',
 				'fields',
 				'indexes',
 				'members',
 			]),
 		)
+		expect(names).not.toContain('extensions')
+		expect(names).not.toContain('ultimabase.roles.identity')
 	})
 
 	it('documents and completes schema-owned deletion policy options', () => {

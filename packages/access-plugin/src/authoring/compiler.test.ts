@@ -1,7 +1,5 @@
 import {
-	defineFieldExtension,
 	definePluginField,
-	defineSchemaExtension,
 	Schema,
 	SchemaRegistry,
 	type GenericField,
@@ -11,11 +9,9 @@ import { describe, expect, it } from 'vitest'
 
 import {
 	fieldAccess,
-	fieldExtensionAccess,
 	fieldKindAccess,
 	globalAccess,
 	schemaAccess,
-	schemaExtensionAccess,
 	type AccessContributionDefinition,
 	type OwnedAccessContribution,
 } from '../contributions.js'
@@ -37,16 +33,6 @@ const owned = (
 
 const defaults = { field: false, operation: false } as const
 
-const schemaExtension = defineSchemaExtension(
-	'protected-schema',
-	{},
-	owner.pluginId,
-)
-const fieldExtension = defineFieldExtension(
-	'protected-field',
-	{},
-	owner.pluginId,
-)
 const secureText = definePluginField(
 	'fixture.secure-text',
 	{},
@@ -58,10 +44,9 @@ const secureTextTarget = defineFieldKindAccessTarget(
 
 const Secured = Schema.define({
 	className: 'CompiledAccessSecurityBoundary',
-	extensions: [schemaExtension],
 	fields: (field) => ({
 		custom: secureText,
-		title: field.string({ extensions: [fieldExtension] }),
+		title: field.string(),
 	}),
 })
 
@@ -85,22 +70,8 @@ describe('compileAccessPlan plugin contributions', () => {
 				schemaAccess(Secured, { read: true }, { master: 'bypass' }),
 			),
 			owned(
-				'schema-extension',
-				schemaExtensionAccess(schemaExtension, ({ extension, schema }) => {
-					seen.push(`${schema.className}:${extension.name}`)
-					return { read: true }
-				}),
-			),
-			owned(
 				'field',
 				fieldAccess(Secured, securedTitle, ['title'], { read: false }),
-			),
-			owned(
-				'field-extension',
-				fieldExtensionAccess(fieldExtension, ({ field, path, schema }) => {
-					seen.push(`${schema.className}:${path.join('.')}:${field.kind}`)
-					return { write: false }
-				}),
 			),
 			owned(
 				'field-kind',
@@ -130,16 +101,8 @@ describe('compileAccessPlan plugin contributions', () => {
 				ownerInstanceId: 'primary',
 				targetKind: 'schema',
 			}),
-			expect.objectContaining({
-				localName: 'schema-extension',
-				targetKind: 'schema-extension',
-			}),
 		])
 		expect(titlePlan?.read.item).toHaveLength(1)
-		expect(titlePlan?.write.fill[0]?.source).toMatchObject({
-			localName: 'field-extension',
-			targetKind: 'field-extension',
-		})
 		expect(customPlan?.read.item[0]?.source).toMatchObject({
 			localName: 'field-kind',
 			targetKind: 'field-kind',
@@ -147,32 +110,8 @@ describe('compileAccessPlan plugin contributions', () => {
 		expect(plan.getFields(Secured, securedTitle)).toEqual([titlePlan])
 		expect(plan.defaults).toBe(defaults)
 		expect(seen).toStrictEqual([
-			'CompiledAccessSecurityBoundary:protected-schema',
-			'CompiledAccessSecurityBoundary:title:string',
 			'CompiledAccessSecurityBoundary:custom:fixture.secure-text',
 		])
-	})
-
-	it('rejects extension selectors attributed to another plugin', () => {
-		expect(() =>
-			compileAccessPlan(registryFor(Secured), defaults, [
-				owned(
-					'foreign-schema-extension',
-					schemaExtensionAccess(schemaExtension, () => ({ read: true })),
-					'fixture.foreign',
-				),
-			]),
-		).toThrow('targets a schema extension owned by another plugin')
-
-		expect(() =>
-			compileAccessPlan(registryFor(Secured), defaults, [
-				owned(
-					'foreign-field-extension',
-					fieldExtensionAccess(fieldExtension, () => ({ read: true })),
-					'fixture.foreign',
-				),
-			]),
-		).toThrow('targets a field extension owned by another plugin')
 	})
 
 	it('rejects empty expanded declarations and unavailable exact targets', () => {
@@ -182,17 +121,14 @@ describe('compileAccessPlan plugin contributions', () => {
 		})
 		const outsideTitle = requireField(Outside.fields.title)
 
-		for (const definition of [
-			schemaExtensionAccess(schemaExtension, () => ({})),
-			fieldExtensionAccess(fieldExtension, () => ({})),
-			fieldKindAccess(secureTextTarget, () => ({})),
-		]) {
-			expect(() =>
-				compileAccessPlan(registryFor(Secured), defaults, [
-					owned('empty-rules', definition),
-				]),
-			).toThrow('must declare')
-		}
+		expect(() =>
+			compileAccessPlan(registryFor(Secured), defaults, [
+				owned(
+					'empty-rules',
+					fieldKindAccess(secureTextTarget, () => ({})),
+				),
+			]),
+		).toThrow('must declare')
 
 		expect(() =>
 			compileAccessPlan(registryFor(Secured), defaults, [

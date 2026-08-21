@@ -75,7 +75,12 @@ it('publishes the audited privilege and environment contract for every official 
 		{
 			environment: [],
 			pluginId: 'ultimabase.roles',
-			privileges: ['authority:elevate', 'runtime:intercept', 'event:publish'],
+			privileges: [
+				'schema:declare',
+				'authority:elevate',
+				'runtime:intercept',
+				'event:publish',
+			],
 		},
 		{
 			environment: [],

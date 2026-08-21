@@ -4,7 +4,7 @@ Developer-defined, schema-backed roles for UltimaBase.
 
 The package specializes the ordinary Core schema model instead of owning a
 parallel role repository. Applications keep control of custom fields, indexes,
-optional official Access and Hooks, adapter extensions, and trusted server
+optional official Access and Hooks, adapter options, and trusted server
 queries.
 
 The official plugin declares `authority:elevate` because persisted membership,
@@ -90,14 +90,15 @@ code needs the stored model. A UUID reference reads the exact object directly;
 a name reference reads at most two matches and rejects absent or ambiguous
 storage. Renaming a role never changes its UUID identity.
 
-`rolesPlugin()` receives no schema options. It discovers registered role
-schemas and claims their private extension. Registering a role schema without
-the plugin fails during application setup. Applications without a role schema
-do not need the plugin.
+`rolesPlugin()` receives no configuration. `RoleSchema.define()` records exact
+package-private class identity and inserts an opaque, package-created direct
+option that requires the plugin during static compilation. Copying the option
+as a plain object or reproducing the generated fields cannot create role
+behavior. Applications without a role schema do not need the plugin.
 
-Role schemas carry hidden-by-default transport metadata. Transport packages
-must require an explicit opt-in before generating administrative role APIs;
-trusted server code can always use schema-root reads such as `AppRole.findMany()`.
+Role schemas carry no generic transport metadata. Trusted server code can use
+schema-root reads such as `AppRole.findMany()`; future generated transport
+exposure must use an explicit contract owned by the relevant transport plugin.
 
 Persisted role results expose `addMember()` and `removeMember()`. Both accept a
 Pointer or persisted result of the exact member schema, delegate to the normal

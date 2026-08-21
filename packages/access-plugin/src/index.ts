@@ -52,17 +52,15 @@ export type {
 	OperationAccessRule,
 } from './authoring/utilities.js'
 
-// Compatible-extension contract: official contribution targets, factories,
+// Compatible-provider contract: official contribution targets, factories,
 // definitions, and the versioned capability token consumed by the engine.
 export {
 	accessContributionsCapability,
 	fieldAccess,
-	fieldExtensionAccess,
 	fieldKindAccess,
 	globalAccess,
 	provideAccessContributions,
 	schemaAccess,
-	schemaExtensionAccess,
 } from './contributions.js'
 export type {
 	AccessContributionDefinition,
@@ -76,13 +74,9 @@ export type {
 } from './contributions.js'
 export { defineFieldKindAccessTarget } from './targets.js'
 export type {
-	FieldExtensionAccessContributionDefinition,
-	FieldExtensionAccessTargetContext,
 	FieldKindAccessContributionDefinition,
 	FieldKindAccessTarget,
 	FieldKindAccessTargetContext,
-	SchemaExtensionAccessContributionDefinition,
-	SchemaExtensionAccessTargetContext,
 } from './targets.js'
 
 // Conformance support: redacted diagnostics and their optional observer token.

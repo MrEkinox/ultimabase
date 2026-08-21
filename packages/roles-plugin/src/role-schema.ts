@@ -2,18 +2,15 @@ import {
 	Schema,
 	relationField,
 	stringField,
-	defineSchemaExtension,
 	type RequestRoleReferenceCarrier,
 	type Pointer,
 	type RelationField,
 	type SchemaReference,
 	type SchemaDefinition,
-	type SchemaExtension,
 	type SchemaFields,
 	type SchemaFieldBuilderDeclaration,
 	type SchemaIndexOptions,
 	type SchemaModelCapabilityContext,
-	type SchemaOptions,
 	type SchemaResultCapabilityCarrier,
 	type ScalarFieldTypegenState,
 	type StringField,
@@ -35,31 +32,13 @@ import {
 	createRoleHierarchyCommands,
 	type RoleHierarchyCommands,
 } from './role-hierarchy.js'
-
-/** Identifies the extension claimed by the official roles plugin. */
-export const roleSchemaExtensionName = 'ultimabase.roles.schema' as const
+import {
+	createRoleSchemaIdentity,
+	roleSchemaIdentityOptionName,
+} from './role-schema-identity.js'
 
 /** Identifies the option-light official provider owning RoleSchema behavior. */
 export const rolesPluginName = 'ultimabase.roles' as const
-
-interface RoleSchemaExtensionConfig {
-	readonly transportVisibility: 'hidden'
-	readonly version: 1
-}
-
-const roleSchemaExtension: SchemaExtension<
-	typeof roleSchemaExtensionName,
-	RoleSchemaExtensionConfig,
-	typeof rolesPluginName
-> = defineSchemaExtension(
-	roleSchemaExtensionName,
-	{
-		// Transport generators treat role administration as opt-in surface area.
-		transportVisibility: 'hidden',
-		version: 1,
-	},
-	rolesPluginName,
-)
 
 const createRoleNameField = (): StringField<
 	ScalarFieldTypegenState<true, false, false, false>
@@ -168,7 +147,10 @@ export type RoleSchemaClass<
 export interface RoleSchemaOptions<
 	TClassName extends string,
 	TMemberSchema extends SchemaDefinition,
-> extends Omit<UltimaBaseGeneratedSchemaOptions, 'access'> {
+> extends Omit<
+	UltimaBaseGeneratedSchemaOptions,
+	'access' | typeof roleSchemaIdentityOptionName
+> {
 	/** Declares the stable logical name used by queries and adapters. */
 	readonly className: TClassName
 	/** Selects the exact member domain and optional request-local resolver. */
@@ -179,8 +161,6 @@ export interface RoleSchemaOptions<
 	readonly deletion?: RoleDeletionOptions
 	/** Declares adapter-neutral composite indexes for custom and generated scalar fields. */
 	readonly indexes?: readonly SchemaIndexOptions[]
-	/** Attaches ordinary plugin-owned schema metadata before the roles extension. */
-	readonly extensions?: readonly SchemaExtension<string, object>[]
 	/** Protects role administration when the official Access plugin is installed. */
 	readonly access?: SchemaAccess<RoleSchemaBaseClass<TClassName>>
 }
@@ -232,6 +212,12 @@ export class RoleSchema {
 		const TClassName extends string,
 		const TMemberSchema extends SchemaDefinition,
 	>(options: RoleSchemaOptions<TClassName, TMemberSchema>): unknown {
+		if (Object.hasOwn(options, 'extensions')) {
+			throw new TypeError(
+				'RoleSchema extensions are not supported; use direct plugin options',
+			)
+		}
+
 		if (!Schema.is(options.members.schema)) {
 			throw new TypeError('members.schema must be created by Schema.define')
 		}
@@ -278,7 +264,6 @@ export class RoleSchema {
 				roles: relationField({ target: selfTarget }),
 			}
 		}
-		const extensions = [...(options.extensions ?? []), roleSchemaExtension]
 		const generatedOptions = Object.fromEntries(
 			Object.entries(options).filter(
 				([name]) =>
@@ -345,9 +330,11 @@ export class RoleSchema {
 		}
 		const commonOptions = {
 			...generatedOptions,
+			[roleSchemaIdentityOptionName]: createRoleSchemaIdentity(
+				options.className,
+			),
 			className: options.className,
 			fields,
-			extensions,
 			...(options.indexes === undefined ? {} : { indexes: options.indexes }),
 			...(options.access === undefined ? {} : { access: options.access }),
 		}
@@ -356,12 +343,12 @@ export class RoleSchema {
 		// corresponding runtime declaration and capability factory together.
 		const schemaDefinition = Schema as unknown as {
 			readonly defineWithCapabilities: (
-				options: SchemaOptions,
+				options: typeof commonOptions,
 				factory: typeof createCapabilities,
 			) => SchemaDefinition
 		}
 		const definedSchema = schemaDefinition.defineWithCapabilities(
-			commonOptions as unknown as SchemaOptions,
+			commonOptions,
 			createCapabilities,
 		)
 

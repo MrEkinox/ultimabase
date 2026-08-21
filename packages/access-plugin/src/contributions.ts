@@ -6,11 +6,9 @@ import {
 	type CapabilityToken,
 	type CompiledSchemaRegistry,
 	type GenericField,
-	type FieldExtension,
 	type PluginCapabilityReader,
 	type PluginIdentity,
 	type SchemaDefinition,
-	type SchemaExtension,
 } from '@ultimabase/core'
 import {
 	immutableArray,
@@ -30,13 +28,9 @@ import {
 } from './authoring/field-declarations.js'
 import type {
 	AccessTargetContributionDefinition,
-	FieldExtensionAccessContributionDefinition,
-	FieldExtensionAccessTargetContext,
 	FieldKindAccessContributionDefinition,
 	FieldKindAccessTarget,
 	FieldKindAccessTargetContext,
-	SchemaExtensionAccessContributionDefinition,
-	SchemaExtensionAccessTargetContext,
 } from './targets.js'
 
 /** Controls whether trusted master requests bypass one compatible policy. */
@@ -170,40 +164,6 @@ export const fieldAccess = <TField extends GenericField>(
 		path: immutableArray(path),
 		schema,
 		targetKind: 'field' as const,
-	})
-
-/** Expands one schema policy over extensions owned by the contributing plugin. */
-export const schemaExtensionAccess = <
-	TExtension extends SchemaExtension<string, object>,
->(
-	extension: TExtension,
-	create: (
-		context: SchemaExtensionAccessTargetContext<NoInfer<TExtension>>,
-	) => SchemaAccess<SchemaDefinition>,
-	options: Readonly<{ readonly master?: AccessContributionMasterMode }> = {},
-): SchemaExtensionAccessContributionDefinition<TExtension> =>
-	immutableRecord({
-		create,
-		extension,
-		master: readMasterMode(options),
-		targetKind: 'schema-extension' as const,
-	})
-
-/** Expands one field policy over extensions owned by the contributing plugin. */
-export const fieldExtensionAccess = <
-	TExtension extends FieldExtension<string, object>,
->(
-	extension: TExtension,
-	create: (
-		context: FieldExtensionAccessTargetContext<NoInfer<TExtension>>,
-	) => FieldAccess<GenericField>,
-	options: Readonly<{ readonly master?: AccessContributionMasterMode }> = {},
-): FieldExtensionAccessContributionDefinition<TExtension> =>
-	immutableRecord({
-		create,
-		extension,
-		master: readMasterMode(options),
-		targetKind: 'field-extension' as const,
 	})
 
 /** Expands one typed policy over a namespaced community field kind. */

@@ -590,7 +590,7 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 		}
 	})
 
-	it('isolates role capabilities between applications and hides transport metadata', async () => {
+	it('isolates role capabilities without retaining unused transport metadata', async () => {
 		const first = getApplication()
 		const second = createRoleApplication(getFixture().connectionUri, 'ignore')
 		await second.start()
@@ -605,15 +605,10 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 					useMasterKey: true,
 				}),
 			).resolves.toBeGreaterThan(0)
-			const [transportExtension] = AppRole.extensions
-			if (transportExtension === undefined) {
-				throw new TypeError('Expected the role transport extension')
-			}
-
-			expect(transportExtension.name).toBe('ultimabase.roles.schema')
-			expect(
-				Reflect.get(transportExtension.config, 'transportVisibility'),
-			).toBe('hidden')
+			expect(AppRole.extensions).toStrictEqual([])
+			expect(JSON.stringify(AppRole.definition)).not.toContain(
+				'transportVisibility',
+			)
 		} finally {
 			await second.dispose()
 		}

@@ -1,31 +1,13 @@
 import type {
 	AvailablePluginFieldKind,
-	FieldExtension,
 	GenericField,
 	SchemaDefinition,
-	SchemaExtension,
 } from '@ultimabase/core'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
-import type { FieldAccess, SchemaAccess } from './authoring/contracts.js'
+import type { FieldAccess } from './authoring/contracts.js'
 import type { FieldAccessDeclarations } from './authoring/field-declarations.js'
 import type { SchemaAccessDeclarations } from './authoring/declarations.js'
-
-export interface SchemaExtensionAccessTargetContext<
-	TExtension extends SchemaExtension<string, object>,
-> {
-	readonly extension: TExtension
-	readonly schema: SchemaDefinition
-}
-
-export interface FieldExtensionAccessTargetContext<
-	TExtension extends FieldExtension<string, object>,
-> {
-	readonly extension: TExtension
-	readonly field: GenericField
-	readonly path: readonly string[]
-	readonly schema: SchemaDefinition
-}
 
 export interface FieldKindAccessTargetContext<TField extends GenericField> {
 	readonly field: TField
@@ -76,32 +58,6 @@ interface TargetDefinitionBase {
 	readonly master: 'bypass' | 'enforce'
 }
 
-export interface SchemaExtensionAccessContributionDefinition<
-	TExtension extends SchemaExtension<string, object> = SchemaExtension<
-		string,
-		object
-	>,
-> extends TargetDefinitionBase {
-	readonly create: (
-		context: SchemaExtensionAccessTargetContext<TExtension>,
-	) => SchemaAccess<SchemaDefinition>
-	readonly extension: TExtension
-	readonly targetKind: 'schema-extension'
-}
-
-export interface FieldExtensionAccessContributionDefinition<
-	TExtension extends FieldExtension<string, object> = FieldExtension<
-		string,
-		object
-	>,
-> extends TargetDefinitionBase {
-	readonly create: (
-		context: FieldExtensionAccessTargetContext<TExtension>,
-	) => FieldAccess<GenericField>
-	readonly extension: TExtension
-	readonly targetKind: 'field-extension'
-}
-
 export interface FieldKindAccessContributionDefinition<
 	TField extends GenericField = GenericField,
 > extends TargetDefinitionBase {
@@ -112,18 +68,6 @@ export interface FieldKindAccessContributionDefinition<
 	readonly targetKind: 'field-kind'
 }
 
-interface ErasedSchemaExtensionAccessContributionDefinition extends TargetDefinitionBase {
-	readonly create: (context: never) => SchemaAccess<SchemaDefinition>
-	readonly extension: SchemaExtension<string, object>
-	readonly targetKind: 'schema-extension'
-}
-
-interface ErasedFieldExtensionAccessContributionDefinition extends TargetDefinitionBase {
-	readonly create: (context: never) => FieldAccess<GenericField>
-	readonly extension: FieldExtension<string, object>
-	readonly targetKind: 'field-extension'
-}
-
 interface ErasedFieldKindAccessContributionDefinition extends TargetDefinitionBase {
 	readonly create: (context: never) => FieldAccess<GenericField>
 	readonly target: FieldKindAccessTarget<GenericField>
@@ -131,9 +75,7 @@ interface ErasedFieldKindAccessContributionDefinition extends TargetDefinitionBa
 }
 
 export type AccessTargetContributionDefinition =
-	| ErasedFieldExtensionAccessContributionDefinition
-	| ErasedFieldKindAccessContributionDefinition
-	| ErasedSchemaExtensionAccessContributionDefinition
+	ErasedFieldKindAccessContributionDefinition
 
 export type ResolvedAccessTargetDeclarations =
 	FieldAccessDeclarations | SchemaAccessDeclarations

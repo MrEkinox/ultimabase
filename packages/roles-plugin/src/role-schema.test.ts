@@ -2,7 +2,9 @@ import {
 	QueryBuilder,
 	Schema,
 	createApplication,
+	definePlugin,
 	stringField,
+	type SchemaOptions,
 } from '@ultimabase/core'
 import type { FrameworkError } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
@@ -11,9 +13,10 @@ import { rolesPlugin } from './plugin.js'
 import {
 	getRoleSchemaDeclaration,
 	RoleSchema,
-	roleSchemaExtensionName,
 	rolesPluginName,
+	type RoleSchemaOptions,
 } from './role-schema.js'
+import { roleSchemaIdentityOptionName } from './role-schema-identity.js'
 
 const User = Schema.define({
 	className: 'RoleUser',
@@ -73,10 +76,13 @@ describe('RoleSchema', () => {
 			fields: ['priority', 'createdAt'],
 			unique: false,
 		})
-		expect(AppRole.extensions.at(-1)?.name).toBe(roleSchemaExtensionName)
-		expect(AppRole.extensions.at(-1)?.config).toMatchObject({
-			transportVisibility: 'hidden',
-		})
+		expect(AppRole.extensions).toStrictEqual([])
+		expect(
+			Object.hasOwn(AppRole.definition, roleSchemaIdentityOptionName),
+		).toBe(true)
+		expect(JSON.stringify(AppRole.definition)).not.toContain(
+			'transportVisibility',
+		)
 		expect(new QueryBuilder(AppRole).ast.schema.definition).toBe(AppRole)
 		expect(new QueryBuilder(AppRole).ast.schema.definition).toBe(AppRole)
 		expect(draft.name).toBe('editor')
@@ -147,15 +153,140 @@ describe('RoleSchema', () => {
 			members: { schema: User },
 			fields: () => ({}),
 		})
+		let infrastructureStarted = false
+		const infrastructure = definePlugin({
+			core: '^0.0.0',
+			pluginId: 'fixture.roles.missing-plugin-infrastructure',
+			setup: () => {
+				infrastructureStarted = true
+			},
+			version: '0.0.0',
+		})
 
 		await expect(
-			createApplication({ schemas: [User, AppRole], plugins: [] }),
+			createApplication({
+				schemas: [User, AppRole],
+				plugins: [infrastructure],
+			}),
 		).rejects.toMatchObject({
-			code: 'PLUGIN_EXTENSION_HANDLER_MISSING',
+			code: 'PLUGIN_DECLARATION_INVALID',
 		} satisfies Partial<FrameworkError>)
+		expect(infrastructureStarted).toBe(false)
+	})
+
+	it('rejects legacy RoleSchema extensions at the declaration boundary', () => {
+		expect(() =>
+			RoleSchema.define({
+				className: 'LegacyExtendedRole',
+				members: { schema: User },
+				fields: () => ({}),
+				extensions: [],
+			} as RoleSchemaOptions<'LegacyExtendedRole', typeof User> & {
+				readonly extensions: readonly []
+			}),
+		).toThrow(
+			'RoleSchema extensions are not supported; use direct plugin options',
+		)
+	})
+
+	it('rejects copied and foreign identity values before setup', async () => {
+		const OwnedRole = RoleSchema.define({
+			className: 'IdentityOwnerRole',
+			members: { schema: User },
+			fields: () => ({}),
+		})
+		const identity: unknown = Reflect.get(
+			OwnedRole.definition,
+			roleSchemaIdentityOptionName,
+		)
+		const copiedIdentity =
+			typeof identity === 'object' && identity !== null
+				? { ...identity }
+				: identity
+		const CopiedRole = Schema.define({
+			className: 'CopiedIdentityRole',
+			fields: () => ({}),
+			[roleSchemaIdentityOptionName]: copiedIdentity,
+		} as SchemaOptions<'CopiedIdentityRole'> &
+			Readonly<Record<typeof roleSchemaIdentityOptionName, unknown>>)
+		const ForeignRole = Schema.define({
+			className: 'ForeignIdentityRole',
+			fields: () => ({}),
+			[roleSchemaIdentityOptionName]: identity,
+		} as SchemaOptions<'ForeignIdentityRole'> &
+			Readonly<Record<typeof roleSchemaIdentityOptionName, unknown>>)
+
+		for (const [index, schema] of [CopiedRole, ForeignRole].entries()) {
+			let infrastructureStarted = false
+			const infrastructure = definePlugin({
+				core: '^0.0.0',
+				pluginId: `fixture.roles.infrastructure-${String(index)}`,
+				setup: () => {
+					infrastructureStarted = true
+				},
+				version: '0.0.0',
+			})
+
+			await expect(
+				createApplication({
+					plugins: [rolesPlugin(), infrastructure],
+					schemas: [schema],
+				}),
+			).rejects.toMatchObject({ code: 'PLUGIN_DECLARATION_INVALID' })
+			expect(infrastructureStarted).toBe(false)
+		}
+	})
+
+	it('ignores similarly shaped schemas and rejects duplicate role domains', async () => {
+		const Similar = Schema.define({
+			className: 'SimilarRoleShape',
+			fields: (field) => ({
+				members: field.relation({ target: 'RoleUser' }),
+				name: field.string(),
+				roles: field.relation({ target: 'RoleUser' }),
+			}),
+		})
+		const application = await createApplication({
+			plugins: [rolesPlugin()],
+			schemas: [User, Similar],
+		})
+		expect(application.getPlugin(rolesPluginName).schemas).toStrictEqual([])
+		await application.dispose()
+
+		const FirstRole = RoleSchema.define({
+			className: 'DuplicateRoleDomain',
+			members: { schema: User },
+			fields: () => ({}),
+		})
+		const SecondRole = RoleSchema.define({
+			className: 'DuplicateRoleDomain',
+			members: { schema: User },
+			fields: () => ({}),
+		})
+		let infrastructureStarted = false
+		const infrastructure = definePlugin({
+			core: '^0.0.0',
+			pluginId: 'fixture.roles.duplicate-infrastructure',
+			setup: () => {
+				infrastructureStarted = true
+			},
+			version: '0.0.0',
+		})
+
+		await expect(
+			createApplication({
+				plugins: [rolesPlugin(), infrastructure],
+				schemas: [User, FirstRole, SecondRole],
+			}),
+		).rejects.toMatchObject({ code: 'SCHEMA_DUPLICATE_CLASS_NAME' })
+		expect(infrastructureStarted).toBe(false)
 	})
 
 	it('discovers role domains independently for each application', async () => {
+		const SecondUser = Schema.define({
+			className: 'SecondRoleUser',
+			fields: (field) => ({ email: field.string() }),
+		})
 		const FirstRole = RoleSchema.define({
 			className: 'FirstRoleDomain',
 			members: { schema: User },
@@ -163,7 +294,7 @@ describe('RoleSchema', () => {
 		})
 		const SecondRole = RoleSchema.define({
 			className: 'SecondRoleDomain',
-			members: { schema: User },
+			members: { schema: SecondUser },
 			fields: () => ({}),
 		})
 		const firstPlugin = rolesPlugin()
@@ -174,7 +305,7 @@ describe('RoleSchema', () => {
 				plugins: [firstPlugin] as const,
 			}),
 			createApplication({
-				schemas: [User, SecondRole],
+				schemas: [SecondUser, SecondRole],
 				plugins: [secondPlugin] as const,
 			}),
 		])
@@ -186,6 +317,8 @@ describe('RoleSchema', () => {
 		expect(first.getPlugin(rolesPluginName).schemas).not.toBe(
 			second.getPlugin(rolesPluginName).schemas,
 		)
+		expect(getRoleSchemaDeclaration(FirstRole)?.memberSchema).toBe(User)
+		expect(getRoleSchemaDeclaration(SecondRole)?.memberSchema).toBe(SecondUser)
 		await Promise.all([first.dispose(), second.dispose()])
 	})
 })

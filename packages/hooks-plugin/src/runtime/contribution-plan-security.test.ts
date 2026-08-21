@@ -1,5 +1,4 @@
 import {
-	defineSchemaExtension,
 	Schema,
 	SchemaRegistry,
 	type GenericField,
@@ -10,7 +9,6 @@ import { describe, expect, it } from 'vitest'
 import {
 	fieldHooks,
 	globalHooks,
-	schemaExtensionHooks,
 	schemaHooks,
 	type HookContributionDefinition,
 	type OwnedHookContribution,
@@ -39,10 +37,8 @@ const owned = (
 	pluginVersion: '1.0.0',
 })
 
-const extension = defineSchemaExtension('audited', {}, 'fixture.lifecycle')
 const Article = Schema.define({
 	className: 'HookContributionSecurityBoundary',
-	extensions: [extension],
 	fields: (field) => ({ title: field.string() }),
 })
 const articleTitle = requireField(Article.fields.title)
@@ -102,33 +98,6 @@ describe('Hook contribution security plan', () => {
 		expect(schemaPlan?.fieldsBefore).toStrictEqual([fieldPlan])
 		expect(schemaPlan?.fieldsAfter).toStrictEqual([fieldPlan])
 		expect(Object.isFrozen(plan.schemas)).toBe(true)
-	})
-
-	it('expands exact schema extensions without matching structural neighbors', () => {
-		const seen: string[] = []
-		const Neighbor = Schema.define({
-			className: 'HookContributionExtensionNeighbor',
-			extensions: [
-				defineSchemaExtension('audited', {}, 'fixture.other-lifecycle'),
-			],
-			fields: (field) => ({ title: field.string() }),
-		})
-		const schemas = registryFor(Article, Neighbor)
-		const contributions = schemaExtensionHooks(
-			schemas,
-			extension,
-			({ extension: matched, schema }) => {
-				seen.push(`${schema.className}:${matched.name}`)
-				return {
-					beforeOperation: { create: () => undefined },
-				}
-			},
-		)
-
-		expect(contributions).toHaveLength(1)
-		expect(contributions[0]?.schema).toBe(Article)
-		expect(seen).toStrictEqual(['HookContributionSecurityBoundary:audited'])
-		expect(Object.isFrozen(contributions)).toBe(true)
 	})
 
 	it('rejects empty declarations and exact targets outside the application', () => {

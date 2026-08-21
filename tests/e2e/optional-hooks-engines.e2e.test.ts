@@ -223,7 +223,7 @@ describe('optional Hooks engine proof', () => {
 		expect(disposed).toStrictEqual(['disposed', 'disposed'])
 	})
 
-	it('separates official-compatible extensions from independent alternatives', async () => {
+	it('separates official-compatible providers from independent alternatives', async () => {
 		const OfficialPost = Schema.define({
 			className: 'OfficialCompatiblePost',
 			fields: (field) => ({ title: field.string() }),

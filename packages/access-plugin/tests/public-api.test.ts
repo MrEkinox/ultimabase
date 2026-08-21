@@ -16,13 +16,11 @@ describe('@ultimabase/access-plugin public entry point', () => {
 			'defineFieldKindAccessTarget',
 			'denyAll',
 			'fieldAccess',
-			'fieldExtensionAccess',
 			'fieldKindAccess',
 			'globalAccess',
 			'not',
 			'provideAccessContributions',
 			'schemaAccess',
-			'schemaExtensionAccess',
 		])
 	})
 })

@@ -9,7 +9,6 @@ import {
 	type PluginIdentity,
 	type PluginCapabilityReader,
 	type SchemaDefinition,
-	type SchemaExtension,
 } from '@ultimabase/core'
 import {
 	immutableArray,
@@ -152,43 +151,6 @@ export type HookContributionFactory = (
 ) => MaybePromise<
 	HookContributionDefinition | readonly HookContributionDefinition[]
 >
-
-/** Supplies one exact schema-extension match to a reusable Hook declaration. */
-export interface SchemaExtensionHookContext<
-	TExtension extends SchemaExtension<string, object>,
-> {
-	readonly extension: TExtension
-	readonly schema: SchemaDefinition
-}
-
-/** Expands one extension selector without requiring a mutable setup registry. */
-export const schemaExtensionHooks = <
-	TExtension extends SchemaExtension<string, object>,
->(
-	schemas: CompiledSchemaRegistry,
-	target: TExtension,
-	create: (
-		context: SchemaExtensionHookContext<NoInfer<TExtension>>,
-	) => SchemaHooks<SchemaDefinition>,
-): readonly SchemaHookContributionDefinition[] =>
-	immutableArray(
-		schemas.values().flatMap((schema) =>
-			schema.extensions.flatMap((extension) =>
-				extension.name === target.name &&
-				extension.pluginName === target.pluginName
-					? [
-							schemaHooks(
-								schema,
-								create({
-									extension: extension as TExtension,
-									schema,
-								}),
-							),
-						]
-					: [],
-			),
-		),
-	)
 
 /** Creates one owner-attributed application provider for official Hook declarations. */
 export const provideHookContributions = (

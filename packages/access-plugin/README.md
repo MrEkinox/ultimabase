@@ -35,8 +35,8 @@ The root export has three deliberate groups:
   `SchemaAccessOption` and `FieldAccessOption` contracts, schema and field rule
   types, and the `allowAll`, `denyAll`, `anyOf`, `allOf`, `not`,
   `allOperations`, and `allMutations` authoring helpers.
-- **Compatible-extension contract:** `accessContributionsCapability`,
-  `provideAccessContributions`, the direct and extension-target contribution
+- **Compatible-provider contract:** `accessContributionsCapability`,
+  `provideAccessContributions`, the direct and field-kind contribution
   factories, `defineFieldKindAccessTarget`, and their input or definition
   types.
 - **Conformance support:** `accessDiagnosticsObserverCapability` and the
@@ -133,10 +133,12 @@ export const editorialPolicyPlugin = definePlugin({
 ```
 
 `globalAccess`, `schemaAccess`, and `fieldAccess` cover direct targets.
-`schemaExtensionAccess`, `fieldExtensionAccess`, and `fieldKindAccess` let a
-provider protect artifacts it owns without enumerating application occurrences;
-`defineFieldKindAccessTarget` creates the exact namespaced field-kind target.
-All helpers normalize declarations before the official engine consumes them.
+`fieldKindAccess` lets a provider protect every occurrence of a field kind it
+owns; `defineFieldKindAccessTarget` creates the exact namespaced target. A
+provider that owns a direct option can compile each occurrence through that
+option's Runtime compiler, while structural selection remains available to
+schema-declaration plugins. All Access helpers normalize declarations before
+the official engine consumes them.
 Every provider policy narrows the developer policy; no contribution can
 override an earlier denial.
 

@@ -70,8 +70,8 @@ graphql-yoga-plugin ───────→ graphql-plugin, core
 ```
 
 Official Hooks and Access contracts live in their respective plugin packages.
-Importing either package does not install it. Official-compatible extensions
-and providers import those public contracts, while independent alternatives own
+Importing either package does not install it. Official-compatible plugins and
+providers import those public contracts, while independent alternatives own
 their protocols and use the generic kernel directly.
 
 `@ultimabase/plugin-kit` is the public authoring toolbox. It binds stable package
@@ -399,7 +399,7 @@ constraint contracts.
 
 Official-compatible Access providers import public contracts from
 `@ultimabase/access-plugin`; independent policy engines use the generic kernel
-directly and own their protocol identity. Official-compatible Hook extensions
+directly and own their protocol identity. Official-compatible Hook providers
 follow the same model with `@ultimabase/hooks-plugin`. Core cannot prove that an
 arbitrary protected policy covers every operation exposed by a public
 transport. Every unacknowledged exposure therefore emits

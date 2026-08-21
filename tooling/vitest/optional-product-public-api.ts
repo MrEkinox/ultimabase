@@ -1,7 +1,7 @@
 /** Classifies every deliberate root export of one optional official product. */
 export interface OptionalProductPublicApi {
 	readonly applicationApi: readonly string[]
-	readonly compatibleExtensionContract: readonly string[]
+	readonly compatibleProviderContract: readonly string[]
 	readonly conformanceSupport: readonly string[]
 }
 
@@ -68,7 +68,7 @@ export const hooksPluginPublicApi = {
 		'defineEvent',
 		'hooksPlugin',
 	],
-	compatibleExtensionContract: [
+	compatibleProviderContract: [
 		'FieldAtPath',
 		'FieldHookContributionDefinition',
 		'FieldHookPhase',
@@ -86,7 +86,6 @@ export const hooksPluginPublicApi = {
 		'HookEventHandler',
 		'HookEventHandlerInput',
 		'OnEventOptions',
-		'SchemaExtensionHookContext',
 		'SchemaFieldPath',
 		'SchemaHookContributionDefinition',
 		'SchemaHookPhase',
@@ -98,7 +97,6 @@ export const hooksPluginPublicApi = {
 		'onEvent',
 		'provideHookContributions',
 		'provideHookEvent',
-		'schemaExtensionHooks',
 		'schemaHookPhases',
 		'schemaHooks',
 	],
@@ -162,31 +160,25 @@ export const accessPluginPublicApi = {
 		'denyAll',
 		'not',
 	],
-	compatibleExtensionContract: [
+	compatibleProviderContract: [
 		'AccessContributionDefinition',
 		'AccessContributionFactory',
 		'AccessContributionFactoryContext',
 		'AccessContributionMasterMode',
 		'AccessContributionsCapability',
 		'FieldAccessContributionDefinition',
-		'FieldExtensionAccessContributionDefinition',
-		'FieldExtensionAccessTargetContext',
 		'FieldKindAccessContributionDefinition',
 		'FieldKindAccessTarget',
 		'FieldKindAccessTargetContext',
 		'GlobalAccessContributionDefinition',
 		'SchemaAccessContributionDefinition',
-		'SchemaExtensionAccessContributionDefinition',
-		'SchemaExtensionAccessTargetContext',
 		'accessContributionsCapability',
 		'defineFieldKindAccessTarget',
 		'fieldAccess',
-		'fieldExtensionAccess',
 		'fieldKindAccess',
 		'globalAccess',
 		'provideAccessContributions',
 		'schemaAccess',
-		'schemaExtensionAccess',
 	],
 	conformanceSupport: [
 		'AccessDiagnosticEvent',
@@ -203,7 +195,7 @@ export const getOptionalProductPublicApiNames = (
 ): readonly string[] =>
 	[
 		...classification.applicationApi,
-		...classification.compatibleExtensionContract,
+		...classification.compatibleProviderContract,
 		...classification.conformanceSupport,
 	].sort()
 
@@ -211,21 +203,29 @@ export const getOptionalProductPublicApiNames = (
 export const removedHooksPluginPublicApiNames = [
 	'FieldHookDeclarations',
 	'OwnedHookContribution',
+	'SchemaExtensionHookContext',
 	'SchemaHookDeclarations',
 	'fieldHooksOption',
 	'normalizeFieldHookDeclarations',
 	'normalizeSchemaHookDeclarations',
+	'schemaExtensionHooks',
 	'schemaHooksOption',
 ] as const
 
 /** Names Access implementation details deliberately removed from the root API. */
 export const removedAccessPluginPublicApiNames = [
 	'FieldAccessDeclarations',
+	'FieldExtensionAccessContributionDefinition',
+	'FieldExtensionAccessTargetContext',
 	'OwnedAccessContribution',
 	'SchemaAccessDeclarations',
+	'SchemaExtensionAccessContributionDefinition',
+	'SchemaExtensionAccessTargetContext',
 	'createAccessContext',
 	'fieldAccessOption',
+	'fieldExtensionAccess',
 	'normalizeFieldAccessDeclarations',
 	'normalizeSchemaAccessDeclarations',
 	'schemaAccessOption',
+	'schemaExtensionAccess',
 ] as const

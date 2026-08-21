@@ -1,7 +1,7 @@
 import { Schema } from '@ultimabase/core'
 import { expectTypeOf, test } from 'vitest'
 
-import { RoleSchema, hasRole } from './index.js'
+import { RoleSchema, hasRole, type RoleSchemaIdentityOption } from './index.js'
 
 const User = Schema.define({
 	className: 'TypedRoleUser',
@@ -29,5 +29,19 @@ test('rejects invalid deletion policies before code generation', () => {
 			// @ts-expect-error -- Deletion behavior is one closed schema-owned policy.
 			references: 'remove',
 		},
+	})
+})
+
+test('keeps the role identity option nominal and out of RoleSchema authoring', () => {
+	// @ts-expect-error -- Only RoleSchema.define() may create the opaque marker.
+	const forged: RoleSchemaIdentityOption = {}
+	void forged
+
+	RoleSchema.define({
+		className: 'TypedLegacyExtendedRole',
+		members: { schema: User },
+		fields: () => ({}),
+		// @ts-expect-error -- Direct plugin options replace RoleSchema extensions.
+		extensions: [],
 	})
 })

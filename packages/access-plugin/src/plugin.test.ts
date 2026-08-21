@@ -4,7 +4,6 @@ import {
 	UltimaBase,
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
-	defineFieldExtension,
 	definePlugin,
 	provideCapability,
 	type DatabaseAdapter,
@@ -18,7 +17,6 @@ import { describe, expect, it } from 'vitest'
 import {
 	accessPlugin,
 	accessDiagnosticsObserverCapability,
-	fieldExtensionAccess,
 	provideAccessContributions,
 	schemaAccess,
 	type FieldAccessOption,
@@ -88,19 +86,6 @@ const ObservedDocument = Schema.define({
 	className: 'AccessPluginObservedDocument',
 	fields: (field) => ({ title: field.string() }),
 	access: { read: () => true },
-})
-
-const privateField = defineFieldExtension(
-	'private-field',
-	{},
-	'fixture.access.extension-provider',
-)
-const ExtendedDocument = Schema.define({
-	className: 'AccessPluginExtendedDocument',
-	fields: (field) => ({
-		secret: field.string({ extensions: [privateField] }),
-		title: field.string(),
-	}),
 })
 
 const row = {
@@ -254,45 +239,6 @@ describe('accessPlugin', () => {
 			await ultimabase.start()
 			await ObservedDocument.findMany(undefined, { ultimabase })
 			expect(events).toContain('fulfilled:access-operation')
-		} finally {
-			await ultimabase.dispose()
-		}
-	})
-
-	it('expands owner-checked extension targets through one provider helper', async () => {
-		const provider = definePlugin({
-			version: '0.0.0',
-			core: '^0.0.0',
-			pluginId: 'fixture.access.extension-provider',
-			peers: [{ pluginId: '@ultimabase/access-plugin', version: '^0.0.0' }],
-			privileges: [
-				{
-					name: 'runtime:constrain',
-					reason: 'Protects fields carrying this plugin extension.',
-				},
-			],
-			capabilities: {
-				provides: [
-					provideAccessContributions('private-fields', () =>
-						fieldExtensionAccess(privateField, () => ({ read: false })),
-					),
-				],
-			},
-		})
-		const ultimabase = new UltimaBase({
-			plugins: [
-				accessPlugin(),
-				provider,
-				databasePlugin(new StaticReadAdapter([row])),
-			],
-			schemas: [ExtendedDocument],
-		})
-
-		try {
-			await ultimabase.start()
-			await expect(
-				ExtendedDocument.findMany(undefined, { ultimabase }),
-			).resolves.toEqual([expect.not.objectContaining({ secret: 'hidden' })])
 		} finally {
 			await ultimabase.dispose()
 		}

@@ -36,16 +36,16 @@ The root export has three deliberate groups:
 - **Application API:** `hooksPlugin`, `HookContext`, `defineEvent`, generated
   `SchemaHooksOption` and `FieldHooksOption` contracts, and the schema or field
   callback types used for explicit annotations.
-- **Compatible-extension contract:** `hookContributionsCapability`,
-  `provideHookContributions`, `globalHooks`, `schemaHooks`, `fieldHooks`,
-  `schemaExtensionHooks`, the typed field-path and phase contracts, plus
+- **Compatible-provider contract:** `hookContributionsCapability`,
+  `provideHookContributions`, `globalHooks`, `schemaHooks`, `fieldHooks`, the
+  typed field-path and phase contracts, plus
   `hookEventContributionsCapability`, `onEvent`, and `provideHookEvent`.
 - **Conformance support:** `hookDiagnosticsObserverCapability` and the redacted
   diagnostic event, owner, target, phase, and observer types.
 
 The capability token is public so a compatible engine can consume the same
 versioned protocol. The provider factory and target helpers are the preferred
-authoring path for community extensions because they validate and normalize the
+authoring path for community plugins because they validate and normalize the
 official declarations before the engine receives them.
 
 Raw schema-option definitions, normalization functions, normalized declaration
@@ -53,8 +53,8 @@ storage, and Core-attributed `OwnedHookContribution` values are implementation
 details. They are intentionally unavailable from the package root. Importing
 the package still performs no registration or Runtime work.
 
-Plugins intentionally extending the official lifecycle may import its callback
-types, selectors, and capability contracts from this package. Independent
+Plugins intentionally contributing to the official lifecycle may import its
+callback types, selectors, and capability contracts from this package. Independent
 behavior engines should own their vocabulary and use Core's generic Runtime
 behavior capability directly.
 
@@ -87,8 +87,8 @@ The packed PostgreSQL lifecycle is exercised by the
 [`hooks-plugin-postgres.postgres.e2e.test.ts`](../../tests/e2e/hooks-plugin-postgres.postgres.e2e.test.ts)
 public-package suite.
 
-An extension declares Hooks as a peer rather than a lifecycle dependency,
-because the Hooks engine consumes the extension's contribution capability:
+A provider declares Hooks as a peer rather than a lifecycle dependency,
+because the Hooks engine consumes the provider's contribution capability:
 
 ```ts
 definePlugin({

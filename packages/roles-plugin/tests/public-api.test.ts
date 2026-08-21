@@ -20,7 +20,6 @@ describe('@ultimabase/roles-plugin public entry point', () => {
 			'roleHierarchyMaxDepth',
 			'roleHierarchyMaxVisitedRoles',
 			'roleMembershipChangedEvent',
-			'roleSchemaExtensionName',
 			'rolesPlugin',
 			'rolesPluginName',
 		])

@@ -70,7 +70,7 @@ export type {
 	DefineEventOptions,
 } from './runtime/events.js'
 
-// Compatible-extension contract: official phase metadata, contribution
+// Compatible-provider contract: official phase metadata, contribution
 // selectors, capability tokens, and post-commit event consumers.
 export { fieldHookPhases } from './authoring/field-declarations.js'
 export type { FieldHookPhase } from './authoring/field-declarations.js'
@@ -87,7 +87,6 @@ export {
 	globalHooks,
 	hookContributionsCapability,
 	provideHookContributions,
-	schemaExtensionHooks,
 	schemaHooks,
 } from './contributions.js'
 export type {
@@ -98,7 +97,6 @@ export type {
 	HookContributionFactoryContext,
 	HookContributionTargetKind,
 	SchemaHookContributionDefinition,
-	SchemaExtensionHookContext,
 } from './contributions.js'
 
 export {

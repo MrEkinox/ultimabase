@@ -38,7 +38,7 @@ directories until implementation begins:
 - `graphql-yoga-plugin`
 
 The optional Hooks and Access engines each keep their public authoring and
-extension contracts in their single official plugin package. Importing a
+contribution contracts in their single official plugin package. Importing a
 package installs no behavior; application configuration does. Independent
 alternative engines own their protocols and use the generic public kernel.
 
@@ -59,7 +59,7 @@ developer reads their exports.
 No package may import another package through its source directory.
 
 Core does not import `plugin-kit`, `hooks-plugin`, or `access-plugin`.
-Official-compatible extensions import their engine's public plugin contracts;
+Official-compatible providers import their engine's public plugin contracts;
 independent community engines own their contracts.
 
 ## Local development
