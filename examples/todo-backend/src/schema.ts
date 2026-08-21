@@ -1,4 +1,18 @@
+import { ACL } from '@ultimabase/acl-permissions-plugin'
+import { allMutations, type AccessContext } from '@ultimabase/access-plugin'
 import { Schema } from '@ultimabase/core'
+import { RoleSchema } from '@ultimabase/roles-plugin'
+
+const masterOnly = ({
+	context,
+}: {
+	readonly context: AccessContext
+}): boolean => context.access.mode === 'master'
+
+const serverManagedAccess = {
+	read: true,
+	...allMutations(masterOnly),
+}
 
 /** Owns tasks assigned to one person and demonstrates inverse relations. */
 export const TodoUser = Schema.define({
@@ -6,6 +20,8 @@ export const TodoUser = Schema.define({
 	fields: (field) => ({
 		displayName: field.string({
 			description: 'Name displayed beside assigned tasks.',
+			hooks: { resolveInput: ({ value }) => value?.trim() ?? null },
+			postgres: { renamedFrom: 'name' },
 			validation: { required: true },
 		}),
 		assignedTodos: field.relation({
@@ -14,7 +30,32 @@ export const TodoUser = Schema.define({
 			target: 'Todo',
 		}),
 	}),
+	access: serverManagedAccess,
+	postgres: { table: 'todo_users' },
 })
+
+/** Stores application roles with ordinary schema fields and model commands. */
+export const TodoRole = RoleSchema.define({
+	className: 'TodoRole',
+	members: { schema: TodoUser },
+	deletion: { references: 'fail' },
+	fields: (field) => ({
+		description: field.string({
+			description: 'Human-readable explanation of the role.',
+			hooks: { resolveInput: ({ value }) => value?.trim() ?? null },
+		}),
+		priority: field.int({
+			default: 0,
+			description: 'Display priority for administrative role lists.',
+		}),
+	}),
+	indexes: [{ fields: ['priority', 'createdAt'] }],
+	access: serverManagedAccess,
+	postgres: { table: 'todo_roles' },
+})
+
+/** Stable role reference used by ACL defaults without loading role storage. */
+export const TodoEditorRole = TodoRole.role('editor')
 
 /** Exercises every built-in field family supported by the Todo application. */
 export const Todo = Schema.define({
@@ -22,6 +63,8 @@ export const Todo = Schema.define({
 	fields: (field) => ({
 		title: field.string({
 			description: 'Short task summary shown in todo lists.',
+			hooks: { resolveInput: ({ value }) => value?.trim() ?? null },
+			postgres: { renamedFrom: 'summary' },
 			validation: { length: { max: 200 }, required: true },
 		}),
 		description: field.string({
@@ -36,6 +79,26 @@ export const Todo = Schema.define({
 			default: false,
 			description: 'Whether the task has been completed.',
 			validation: { required: true },
+		}),
+		archived: field.boolean({
+			default: false,
+			description: 'Hides a task from ordinary public reads.',
+			validation: { required: true },
+		}),
+		internalNotes: field.string({
+			access: {
+				read: {
+					orderBy: masterOnly,
+					output: masterOnly,
+					where: masterOnly,
+				},
+				write: {
+					clear: masterOnly,
+					fill: masterOnly,
+					replace: masterOnly,
+				},
+			},
+			description: 'Server-only notes omitted from untrusted reads and writes.',
 		}),
 		estimatedMinutes: field.int({
 			description: 'Estimated duration represented by a safe integer.',
@@ -140,9 +203,39 @@ export const Todo = Schema.define({
 			typeName: 'TodoChecklistItem',
 		}),
 		assignee: field.pointer({
+			access: {
+				write: {
+					clear: masterOnly,
+					fill: masterOnly,
+					replace: masterOnly,
+				},
+			},
 			description: 'Optional user currently responsible for the task.',
 			onDelete: 'setNull',
 			target: 'TodoUser',
 		}),
 	}),
+	indexes: [{ fields: ['completed', 'dueAt'] }],
+	access: {
+		read: { where: ({ where }) => where.eq('archived', false) },
+		create: masterOnly,
+		update: true,
+		upsert: masterOnly,
+		delete: masterOnly,
+	},
+	acl: {
+		default: new ACL()
+			.grantPublic('read')
+			.grantRole(TodoEditorRole, 'read', 'update'),
+	},
+	hooks: {
+		beforeOperation: {
+			update: ({ item, originalItem }) => {
+				if (originalItem.completed && !item.completed) {
+					throw new TypeError('Completed todos cannot be reopened')
+				}
+			},
+		},
+	},
+	postgres: { table: 'todos' },
 })

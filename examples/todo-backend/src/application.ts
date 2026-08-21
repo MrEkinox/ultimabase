@@ -1,10 +1,4 @@
-import { fileURLToPath } from 'node:url'
-
-import { typegenPlugin } from '@ultimabase/typegen'
-import { UltimaBase } from '@ultimabase/core'
-import { postgresPlugin } from '@ultimabase/postgres-plugin'
-
-import { Todo, TodoUser } from './schema.ts'
+import { createTodoApplication } from './create-application.ts'
 
 const databaseUrl = process.env.DATABASE_URL
 
@@ -12,21 +6,5 @@ if (databaseUrl === undefined || databaseUrl.trim() === '') {
 	throw new TypeError('DATABASE_URL is required to start the Todo backend')
 }
 
-const generatedTypesPath = fileURLToPath(
-	new URL('../.ultimabase/schema.generated.d.ts', import.meta.url),
-)
-
 /** Owns the Todo schema, automatic type generation, and PostgreSQL lifecycle. */
-export const ultimabase = new UltimaBase({
-	plugins: [
-		typegenPlugin({
-			applicationId: 'todo-backend',
-			outputPath: generatedTypesPath,
-		}),
-		postgresPlugin({
-			schemaPolicy: 'override',
-			url: databaseUrl,
-		}),
-	],
-	schemas: [TodoUser, Todo],
-})
+export const ultimabase = createTodoApplication({ databaseUrl })

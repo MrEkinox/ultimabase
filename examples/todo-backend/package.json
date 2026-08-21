@@ -8,8 +8,12 @@
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
+		"@ultimabase/access-plugin": "workspace:^",
+		"@ultimabase/acl-permissions-plugin": "workspace:^",
 		"@ultimabase/core": "workspace:^",
+		"@ultimabase/hooks-plugin": "workspace:^",
 		"@ultimabase/postgres-plugin": "workspace:^",
+		"@ultimabase/roles-plugin": "workspace:^",
 		"@ultimabase/typegen": "workspace:^"
 	},
 	"devDependencies": {

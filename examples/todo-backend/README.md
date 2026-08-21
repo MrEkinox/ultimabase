@@ -1,56 +1,249 @@
 # Todo backend
 
-A backend-only UltimaBase application with a comprehensive `Todo` schema,
-an associated `TodoUser`, PostgreSQL persistence, automatic generated types,
-and typed CRUD helpers.
+A backend-only UltimaBase application designed as a complete developer-experience
+showcase. It combines ordinary schemas and queries with the official Access,
+ACL, Hooks, Roles, PostgreSQL, and Typegen plugins without adapter-specific
+application code.
 
-## Start it
+## What the developer writes
+
+[`src/schema.ts`](src/schema.ts) is the authoritative application declaration.
+Plugin behavior is configured directly beside the schema or field that owns it:
+
+```ts
+import { accessPlugin } from '@ultimabase/access-plugin'
+import { hooksPlugin } from '@ultimabase/hooks-plugin'
+
+export const Todo = Schema.define({
+	className: 'Todo',
+	fields: (field) => ({
+		title: field.string({
+			hooks: { resolveInput: ({ value }) => value?.trim() ?? null },
+			postgres: { renamedFrom: 'summary' },
+			validation: { length: { max: 200 }, required: true },
+		}),
+		internalNotes: field.string({
+			access: {
+				read: {
+					output: masterOnly,
+					where: masterOnly,
+					orderBy: masterOnly,
+				},
+				write: {
+					fill: masterOnly,
+					replace: masterOnly,
+					clear: masterOnly,
+				},
+			},
+		}),
+	}),
+	access: {
+		read: { where: ({ where }) => where.eq('archived', false) },
+		create: masterOnly,
+		update: true,
+		upsert: masterOnly,
+		delete: masterOnly,
+	},
+	acl: {
+		default: new ACL()
+			.grantPublic('read')
+			.grantRole(TodoEditorRole, 'read', 'update'),
+	},
+	postgres: { table: 'todos' },
+})
+
+// Direct options are active only because the application installs their owners.
+const ultimabase = new UltimaBase({
+	plugins: [
+		accessPlugin(),
+		hooksPlugin() /* ACL, Roles, Typegen, PostgreSQL */,
+	],
+	schemas: [TodoUser, TodoRole, Todo],
+})
+```
+
+This demonstrates that the plugins compose monotonically: ordinary readers see
+only non-archived rows allowed by their object ACL, editor ACLs may permit an
+update, and the field-level Access declaration still keeps `internalNotes`
+server-only. Master remains a trusted backend authority, never a value accepted
+from transport input.
+
+The same file also contains:
+
+- every built-in scalar and supported list field;
+- nested typed objects, enums, JSON paths, a pointer, and an inverse relation;
+- a composite index and PostgreSQL table/rename metadata;
+- field `resolveInput` Hooks and a schema business Hook that rejects reopening
+  completed tasks;
+- `TodoRole`, declared through `RoleSchema.define()`, with custom fields,
+  indexes, Access, Hooks, PostgreSQL options, members, and nested roles;
+- an ACL-injected reserved field without declaring `acl` manually.
+
+[`src/create-application.ts`](src/create-application.ts) installs the behavior
+explicitly. Importing a plugin package alone changes nothing:
+
+```ts
+new UltimaBase({
+	plugins: [
+		accessPlugin(),
+		hooksPlugin(),
+		rolesPlugin(),
+		aclPlugin(),
+		typegenPlugin({ applicationId: 'todo-backend', outputPath }),
+		postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
+	],
+	schemas: [TodoUser, TodoRole, Todo],
+})
+```
+
+The `createTodoPlugins()` and `todoSchemas` exports keep the Runtime composition
+in one application-owned place.
+
+## Typed backend code
+
+[`src/todos.ts`](src/todos.ts) shows schema-root query and mutation APIs:
+
+```ts
+export const createTodo = (data: TodoCreateInput) =>
+	Todo.createOne(
+		{
+			data,
+			select: { completed: true, id: true, priority: true, title: true },
+		},
+		{ ultimabase, useMasterKey: true },
+	)
+
+export const listPendingTodos = () =>
+	Todo.findMany(
+		{
+			include: { assignee: { select: { displayName: true } } },
+			orderBy: { dueAt: 'asc', createdAt: 'asc' },
+			where: { completed: { eq: false } },
+		},
+		{ ultimabase },
+	)
+```
+
+Selections and includes narrow the resolved return type. Application code never
+imports PostgreSQL or Drizzle query builders.
+
+[`src/admin.ts`](src/admin.ts) demonstrates plugin-added behavior on ordinary
+models:
+
+```ts
+const editor = await createTodoRole('editor', 'Can update assigned tasks')
+await editor.addMember(TodoUser.pointer(userId), masterOptions)
+await administrator.addRole(editor, masterOptions)
+
+const nextACL = todo.acl.grantPrincipal(
+	TodoUser.pointer(userId),
+	'read',
+	'update',
+)
+```
+
+Role commands are available only on persisted `TodoRole` results. ACL values
+are immutable, so an update replaces the value with a newly granted ACL.
+
+## What Typegen produces
+
+The complete committed output is
+[`schema.generated.d.ts`](.ultimabase/schema.generated.d.ts). It is generated
+from the compiled application graph and is never Runtime truth. Its opening
+imports show which installed plugins contributed types:
+
+```ts
+import type {
+	FieldAccessOption,
+	SchemaAccessOption,
+} from '@ultimabase/access-plugin'
+import type { ACL, ACLSchemaOption } from '@ultimabase/acl-permissions-plugin'
+import type {
+	FieldHooksOption,
+	SchemaHooksOption,
+} from '@ultimabase/hooks-plugin'
+import type {
+	PostgresFieldOption,
+	PostgresSchemaOption,
+} from '@ultimabase/postgres-plugin'
+```
+
+The generated application contracts include exact object and operation shapes:
+
+```ts
+export type TodoItem = {
+	readonly acl: ACL
+	readonly archived: boolean
+	readonly assignee: Core.GeneratedPointerHandle<'TodoUser'> | null
+	readonly completed: boolean
+	readonly internalNotes: string | null
+	readonly priority: TodoPriority
+	readonly title: string
+	// ...all remaining declared and framework fields
+}
+
+export type TodoCreateInput = {
+	readonly acl?: ACL // optional because acl.default resolves it
+	readonly archived?: boolean
+	readonly assignee?: Core.PointerValue | null
+	readonly priority?: TodoPriority
+	readonly title: string
+	// ...
+}
+
+export type TodoRoleWhereInput = {
+	readonly members?: RelationFilter<TodoUserWhereInput>
+	readonly roles?: RelationFilter<TodoRoleWhereInput>
+	// ...scalar filters
+}
+```
+
+It also emits `TodoUpdateInput`, `TodoWhereInput`, `TodoSelect`,
+`TodoOrderByInput`, `TodoInclude`, their `TodoUser` and `TodoRole` equivalents,
+all nested object/path/filter types, and the flat `Schemas` registry. At the
+bottom, module augmentation adds only the options supplied by the installed
+plugins:
+
+```ts
+interface UltimaBaseGeneratedFieldOptions {
+	readonly access?: FieldAccessOption<this>
+	readonly hooks?: FieldHooksOption<this>
+	readonly postgres?: PostgresFieldOption
+}
+
+interface UltimaBaseGeneratedSchemaOptions {
+	readonly access?: SchemaAccessOption<this>
+	readonly acl?: ACLSchemaOption<this>
+	readonly hooks?: SchemaHooksOption<this>
+	readonly postgres?: PostgresSchemaOption
+}
+```
+
+Removing a plugin makes its direct option unknown at application compilation
+and removes its autocomplete contract from the next generated declaration.
+
+## Run and verify it
 
 Build the repository packages once, provide a development PostgreSQL database,
 then start the example from the repository root:
 
 ```sh
-yarn build
+corepack yarn build
 DATABASE_URL=postgres://postgres:postgres@localhost:5432/ultimabase_todo \
-	yarn workspace @ultimabase/example-todo-backend start
+	corepack yarn workspace @ultimabase/example-todo-backend start
 ```
 
-`await ultimabase.start()` compiles the static schema and atomically regenerates
-[`.ultimabase/schema.generated.d.ts`](.ultimabase/schema.generated.d.ts) before
-PostgreSQL connects. The future CLI will expose the same complete generation as
-an explicit manual command; this example does not call the generator itself.
-
-The generated declaration is included by this example's `tsconfig.json`. The
-schema deliberately exercises every built-in scalar field, every supported
-one-dimensional list, nested objects, enums, a pointer, and an inverse
-relation. Its output therefore exposes exact models, create/update data,
-scalar and array filters, selections, includes, and structured path types.
-Access and hook declarations receive those exact values contextually through
-Core rather than through redundant generated wrappers. After startup, verify
-the application source against that declaration with:
+`await ultimabase.start()` compiles the static graph and atomically regenerates
+the declaration before PostgreSQL connects. Verify the application source
+against it with:
 
 ```sh
-yarn workspace @ultimabase/example-todo-backend typecheck
+corepack yarn workspace @ultimabase/example-todo-backend typecheck
 ```
 
-The declaration deliberately reads like an application type file: concrete
-types such as `TodoItem`, `TodoCreateInput`, `TodoWhereInput`, and
-`TodoPriority` come first, followed by the flat `Schemas` registry.
-Framework-only contracts are isolated at the bottom. The CRUD helper
-imports `TodoCreateInput` directly, so the example cannot drift from its schema.
+The packed Typegen E2E suite independently rebuilds this complete official
+plugin graph and fails if the committed declaration drifts.
 
 The PostgreSQL `override` schema policy is intentionally convenient for this
 development example and should not be copied into a production migration
 strategy.
-
-## Backend operations
-
-[`src/todos.ts`](src/todos.ts) exposes four ordinary typed functions:
-
-- `createTodo(data)`
-- `listPendingTodos()`
-- `completeTodo(id)`
-- `deleteTodo(id)`
-
-They use only the schema-owned public Query and mutation APIs; application code
-never imports PostgreSQL or Drizzle query builders.

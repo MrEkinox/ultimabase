@@ -2,4 +2,4 @@
 
 Examples are user-facing, tested applications. They must only import public `@ultimabase/*` exports.
 
-- [`todo-backend`](todo-backend/README.md): backend-only Todo application with PostgreSQL and automatic generated schema types.
+- [`todo-backend`](todo-backend/README.md): complete backend Todo application showing Access, ACL, Hooks, Roles, PostgreSQL, typed operations, and the generated Typegen declaration.

@@ -9,10 +9,16 @@ import { assertPluginFieldKind } from './kinds.js'
 import {
 	getBuiltInFieldOptionsContract,
 	getFieldListDepth,
+	isFieldNullable,
+	isRequiredOnCreate,
 	snapshotListedFieldValue,
 	type BuiltInFieldOptionsContract,
 } from './options.js'
-import type { FieldScalarValue, GenericField } from './contract.js'
+import type {
+	FieldScalarValue,
+	FieldTypegenState,
+	GenericField,
+} from './contract.js'
 import { snapshotJsonValue } from './portable-json.js'
 import type { SchemaTarget } from '../../schema/targets.js'
 
@@ -250,3 +256,37 @@ export const snapshotDeclaredFieldValue = (
 /** Identifies required plugin fields whose value is supplied by input behavior. */
 export const isFieldRequiredDeferred = (field: GenericField): boolean =>
 	fieldCapabilities.get(field)?.deferRequiredUntilResolveInput === true
+
+/**
+ * Reads the compact runtime inference facts used by deterministic type generation.
+ *
+ * The factory-owned deferred-required capability is included here so generated
+ * create inputs match the same validation plan enforced at Runtime.
+ */
+export const readFieldTypegenState = (
+	field: GenericField,
+): FieldTypegenState => {
+	const generated = 'generatedOn' in field.options
+	const relation = field.kind === 'relation'
+
+	return immutableRecord({
+		create: relation
+			? 'forbidden'
+			: generated
+				? 'forbidden'
+				: isFieldRequiredDeferred(field)
+					? 'optional'
+					: isRequiredOnCreate(field)
+						? 'required'
+						: 'optional',
+		list: getFieldListDepth(field.options) > 0,
+		nullable: relation ? false : isFieldNullable(field),
+		object: relation ? 'forbidden' : 'required',
+		update:
+			relation ||
+			generated ||
+			('immutable' in field.options && field.options.immutable === true)
+				? 'forbidden'
+				: 'optional',
+	})
+}

@@ -8,8 +8,6 @@ import {
 
 import { isStaticDefault } from './defaults.js'
 import type {
-	FieldTypegenState,
-	FieldListOption,
 	FieldOptions,
 	FieldValidationOptions,
 	GenericField,
@@ -382,39 +380,3 @@ export const isRequiredOnCreate = (field: GenericField): boolean =>
 	!('autoNow' in field.options && field.options.autoNow === true) &&
 	!('autoIncrement' in field.options && field.options.autoIncrement === true) &&
 	!('generatedOn' in field.options)
-
-/**
- * Reads the compact runtime inference facts used by deterministic type generation.
- *
- * Keeping this derivation in Schema prevents generators from duplicating the
- * required, generated, immutable, nullable, and list-presence rules.
- */
-export const readFieldTypegenState = (
-	field: GenericField,
-): FieldTypegenState => {
-	const normalizedList = normalizeList(
-		'list' in field.options ? field.options.list : undefined,
-	)
-	const list: FieldListOption = normalizedList ?? false
-	const generated = 'generatedOn' in field.options
-	const relation = field.kind === 'relation'
-
-	return immutableRecord({
-		create: relation
-			? 'forbidden'
-			: generated
-				? 'forbidden'
-				: isRequiredOnCreate(field)
-					? 'required'
-					: 'optional',
-		list,
-		nullable: relation ? false : isFieldNullable(field),
-		object: relation ? 'forbidden' : 'required',
-		update:
-			relation ||
-			generated ||
-			('immutable' in field.options && field.options.immutable === true)
-				? 'forbidden'
-				: 'optional',
-	})
-}

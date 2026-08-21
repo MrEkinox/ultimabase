@@ -15,13 +15,16 @@ export const createTodo = (data: TodoCreateInput) =>
 				title: true,
 			},
 		},
-		{ ultimabase },
+		{ ultimabase, useMasterKey: true },
 	)
 
 /** Lists incomplete tasks in deadline order for the application dashboard. */
 export const listPendingTodos = () =>
 	Todo.findMany(
 		{
+			include: {
+				assignee: { select: { displayName: true } },
+			},
 			orderBy: { dueAt: 'asc', createdAt: 'asc' },
 			select: {
 				completed: true,
@@ -43,7 +46,7 @@ export const completeTodo = (id: string) =>
 			select: { completed: true, id: true, updatedAt: true },
 			where: { id: { eq: id } },
 		},
-		{ ultimabase },
+		{ ultimabase, useMasterKey: true },
 	)
 
 /** Deletes exactly one task by its immutable identifier. */
@@ -53,5 +56,5 @@ export const deleteTodo = (id: string) =>
 			select: { id: true, title: true },
 			where: { id: { eq: id } },
 		},
-		{ ultimabase },
+		{ ultimabase, useMasterKey: true },
 	)

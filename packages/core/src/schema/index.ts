@@ -137,11 +137,8 @@ export type {
 } from './fields/base/contract.js'
 export type { FieldValueMode } from './fields/base/value-map.js'
 export type { FieldAtPath, SchemaFieldPath } from './fields/paths.js'
-export {
-	assertFieldOptions,
-	getFieldListDepth,
-	readFieldTypegenState,
-} from './fields/base/options.js'
+export { assertFieldOptions, getFieldListDepth } from './fields/base/options.js'
+export { readFieldTypegenState } from './fields/base/definition.js'
 export { intField } from './fields/builtins/int.js'
 export type {
 	IntField,
