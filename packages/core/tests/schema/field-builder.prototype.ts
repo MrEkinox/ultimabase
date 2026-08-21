@@ -7,6 +7,10 @@ Schema.define({
 		title: field./* hover:string-builder */ string({
 			/* completion:string-options */
 		}),
+		assignee: field.pointer({
+			target: 'PackedFieldBuilder',
+			onDelete: /* completion:pointer-on-delete */ 'restrict',
+		}),
 		signatureName: field.string(),
 		profile: field.object({
 			fields: (field) => ({

@@ -7,14 +7,28 @@ const rootMarker = '/* root-builder */'
 const nestedMarker = '/* nested-builder */'
 const optionMarker = '/* string-options */'
 const hoverMarker = '/* string-hover */'
+const pointerDeleteMarker = '/* pointer-on-delete */'
 const sourceWithMarkers = `
-import { Schema } from '../../src/index.js'
+import { Schema, type BaseSchemaTypeInfo } from '../../src/index.js'
+
+declare module '../../src/index.js' {
+  interface UltimaBaseGeneratedRegistryState {
+    readonly application: true
+  }
+  interface UltimaBaseGeneratedSchemas {
+    readonly FieldBuilderAutocomplete: BaseSchemaTypeInfo<'FieldBuilderAutocomplete'>
+  }
+}
 
 Schema.define({
   className: 'FieldBuilderAutocomplete',
   fields: (field) => ({
 	root: field.${rootMarker}string(),
     title: field.${hoverMarker}string({ ${optionMarker} }),
+	assignee: field.pointer({
+	  target: 'FieldBuilderAutocomplete',
+	  onDelete: ${pointerDeleteMarker} 'restrict',
+	}),
     profile: field.object({
       fields: (nested) => ({
 		nested: nested.${nestedMarker}string(),
@@ -23,7 +37,13 @@ Schema.define({
   }),
 })
 `
-const markers = [rootMarker, nestedMarker, optionMarker, hoverMarker] as const
+const markers = [
+	rootMarker,
+	nestedMarker,
+	optionMarker,
+	hoverMarker,
+	pointerDeleteMarker,
+] as const
 const positions = new Map<string, number>()
 let source = sourceWithMarkers
 
@@ -84,6 +104,20 @@ const readMemberCompletions = (
 	return completions.entries.filter(
 		(entry) => entry.kind === ts.ScriptElementKind.memberVariableElement,
 	)
+}
+
+const readStringCompletions = (marker: string): readonly string[] => {
+	let position = readPosition(marker) + marker.length
+
+	while (/\s/u.test(source[position] ?? '')) position += 1
+
+	return (
+		service.getCompletionsAtPosition(fileName, position + 1, {
+			includeCompletionsWithInsertText: true,
+		})?.entries ?? []
+	)
+		.map(({ name }) => name)
+		.sort()
 }
 
 const expectDocumented = (
@@ -192,6 +226,14 @@ describe('FieldBuilder IntelliSense', () => {
 		for (const entry of optionEntries) {
 			expectDocumented(entry, readPosition(optionMarker))
 		}
+	})
+
+	it('offers every pointer referential action', () => {
+		expect(readStringCompletions(pointerDeleteMarker)).toStrictEqual([
+			'cascade',
+			'restrict',
+			'setNull',
+		])
 	})
 
 	it('has no semantic diagnostics', () => {

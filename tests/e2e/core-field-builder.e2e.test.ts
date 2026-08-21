@@ -11,6 +11,16 @@ const sourceFixtureFile = path.join(
 const languageFixture = await createPackedCoreLanguageFixture(
 	sourceFixtureFile,
 	'core-field-builder.packed.fixture.ts',
+	`
+declare module '@ultimabase/core' {
+	interface UltimaBaseGeneratedRegistryState {
+		readonly application: true
+	}
+	interface UltimaBaseGeneratedSchemas {
+		readonly PackedFieldBuilder: import('@ultimabase/core').BaseSchemaTypeInfo<'PackedFieldBuilder'>
+	}
+}
+`,
 )
 const rootMethods = [
 	'bigint',
@@ -57,5 +67,11 @@ describe('packed @ultimabase/core FieldBuilder contract', () => {
 				.readMemberCompletions('string-options')
 				.map(({ name }) => name),
 		).toContain('validation')
+	})
+
+	it('offers every pointer referential action', () => {
+		expect(
+			[...languageFixture.readStringCompletions('pointer-on-delete')].sort(),
+		).toStrictEqual(['cascade', 'restrict', 'setNull'])
 	})
 })

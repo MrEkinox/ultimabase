@@ -182,7 +182,7 @@ export type NamedPointerFieldBuilderMethod = <
 	const TTargetName extends SchemaDeclarationTargetName,
 	const TRequired extends boolean = false,
 	const TImmutable extends boolean = false,
-	const TOnDelete extends PointerReferentialAction = 'restrict',
+	const TOnDelete extends PointerReferentialAction = PointerReferentialAction,
 >(
 	options: NamedCompactPointerFieldOptions<
 		TTargetName,
@@ -201,7 +201,7 @@ export type PointerFieldBuilderMethod = <
 	const TTarget extends SchemaDefinition,
 	const TRequired extends boolean = false,
 	const TImmutable extends boolean = false,
-	const TOnDelete extends PointerReferentialAction = 'restrict',
+	const TOnDelete extends PointerReferentialAction = PointerReferentialAction,
 >(
 	/** Stable logical field name within the containing schema. */
 	name: string,
@@ -288,7 +288,7 @@ export function pointerField<
 	const TTarget extends SchemaDefinition,
 	const TRequired extends boolean = false,
 	const TImmutable extends boolean = false,
-	const TOnDelete extends PointerReferentialAction = 'restrict',
+	const TOnDelete extends PointerReferentialAction = PointerReferentialAction,
 >(
 	options: CompatibleCompactPointerFieldOptions<
 		TTarget,

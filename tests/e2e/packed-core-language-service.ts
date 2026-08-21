@@ -35,10 +35,13 @@ const markerPattern = /\/\* (?:completion|hover|signature):[a-z-]+ \*\//gu
 /**
  * Builds one external-consumer language service from a source-level prototype.
  * The import rewrite ensures every assertion reads the built package declaration.
+ * Optional extra source models application-local declaration merging without
+ * adding generated contracts to the repository TypeScript program.
  */
 export const createPackedCoreLanguageFixture = async (
 	sourceFixtureFile: string,
 	packedFixtureName: string,
+	additionalSource = '',
 ): Promise<PackedCoreLanguageFixture> => {
 	const packedFixtureFile = path.join(
 		repositoryRoot,
@@ -46,10 +49,10 @@ export const createPackedCoreLanguageFixture = async (
 		packedFixtureName,
 	)
 	const sourceFixture = await readFile(sourceFixtureFile, 'utf8')
-	const packedFixture = sourceFixture.replaceAll(
+	const packedFixture = `${sourceFixture.replaceAll(
 		"'../../src/index.js'",
 		"'@ultimabase/core'",
-	)
+	)}\n${additionalSource}`
 	const markerPositions = new Map<string, number>()
 
 	for (const match of packedFixture.matchAll(markerPattern)) {
