@@ -28,6 +28,7 @@ import {
 	provideRuntimeConstraint,
 	provideRuntimeInterceptor,
 	replaceRuntime,
+	runtimeBehaviorCapability,
 	runtimeConstraintCapability,
 	runtimeExecutorCapability,
 	runtimeInterceptorCapability,
@@ -79,8 +80,9 @@ describe('public Runtime capabilities', () => {
 			capabilityId: 'ultimabase.runtime-executor',
 			cardinality: 'single',
 			lifetime: 'application',
-			version: '1.0.0',
+			version: '2.0.0',
 		})
+		expect(runtimeBehaviorCapability.version).toBe('2.0.0')
 		expect(runtimeInterceptorCapability.cardinality).toBe('pipeline')
 		expect(runtimeConstraintCapability.cardinality).toBe('multiple')
 		expect(runtimeObserverCapability.cardinality).toBe('multiple')

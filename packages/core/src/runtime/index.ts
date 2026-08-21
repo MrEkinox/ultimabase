@@ -263,6 +263,8 @@ export type {
 	RuntimeProjectedDatabaseResultTransformStage,
 	RuntimeMaterializedResultStageInput,
 	RuntimeMaterializedResultTransformStage,
+	RuntimeMutationRevalidationStage,
+	RuntimeMutationRevalidationStageInput,
 	RuntimeOperationGuardStage,
 	RuntimeOperationResult,
 	RuntimeOperationStageInput,
@@ -301,5 +303,6 @@ export {
 	getCurrentTransactionId,
 } from './transactions/transaction-execution-storage.js'
 export { createRuntimeValidationStage } from './validation/runtime-validation.js'
+export { createFinalMutationValidationStage } from './validation/final-mutation-validation.js'
 export type { UuidV7Generator } from './validation/identifier-generator.js'
 export type { RuntimeValidationOptions } from './validation/runtime-validation.js'

@@ -73,6 +73,7 @@ describe('@ultimabase/core public entry point', () => {
 			'constraint',
 			'createApplication',
 			'createDatabasePersistencePlan',
+			'createFinalMutationValidationStage',
 			'createFrameworkEngine',
 			'createQueryAst',
 			'createQueryCursorPayload',

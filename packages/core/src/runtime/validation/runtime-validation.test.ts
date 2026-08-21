@@ -558,10 +558,6 @@ describe('runtime validation', () => {
 					expect(details.issues).toEqual(
 						expect.arrayContaining([
 							expect.objectContaining({
-								code: 'field.validation',
-								path: ['input', 'title'],
-							}),
-							expect.objectContaining({
 								code: 'field.forbidden',
 								path: ['input', 'id'],
 							}),

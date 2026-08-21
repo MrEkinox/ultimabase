@@ -140,6 +140,7 @@ const createPipeline = (
 			return input.operation
 		},
 		structuralValidation: (input) => input.operation,
+		finalMutationValidation: (input) => input.operation,
 		databaseOperation,
 		commit: () => undefined,
 	}

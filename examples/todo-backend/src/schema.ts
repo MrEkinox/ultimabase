@@ -69,7 +69,12 @@ export const Todo = Schema.define({
 		slug: field.string({
 			description:
 				'Immutable external name used to demonstrate update omission.',
+			hooks: {
+				resolveInput: ({ value }) =>
+					value?.trim().toLowerCase().replace(/\s+/gu, '-') ?? null,
+			},
 			immutable: true,
+			validation: z.string().regex(/^[a-z]+(?:-[a-z]+)*$/u),
 		}),
 		completed: field.boolean({
 			default: false,

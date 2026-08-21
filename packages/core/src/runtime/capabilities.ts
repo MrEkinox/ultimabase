@@ -67,13 +67,13 @@ export const runtimeBehaviorCapability: CapabilityToken<
 	RuntimeBehaviorStages,
 	readonly RuntimeBehaviorStages[],
 	'ultimabase.runtime-behaviors',
-	'1.0.0',
+	'2.0.0',
 	'multiple',
 	'application'
 > = defineCapability<RuntimeBehaviorStages, readonly RuntimeBehaviorStages[]>()(
 	{
 		capabilityId: 'ultimabase.runtime-behaviors',
-		version: '1.0.0',
+		version: '2.0.0',
 		cardinality: 'multiple',
 		lifetime: 'application',
 		compose: (providers) =>
@@ -146,12 +146,12 @@ export const runtimeExecutorCapability: CapabilityToken<
 	RuntimeExecutorFactory,
 	RuntimeExecutorFactory,
 	'ultimabase.runtime-executor',
-	'1.0.0',
+	'2.0.0',
 	'single',
 	'application'
 > = defineCapability<RuntimeExecutorFactory>()({
 	capabilityId: 'ultimabase.runtime-executor',
-	version: '1.0.0',
+	version: '2.0.0',
 	cardinality: 'single',
 	lifetime: 'application',
 	compose: ([provider]) => {
@@ -182,7 +182,6 @@ const runtimeBehaviorKeys: ReadonlySet<string> = new Set([
 	'observePreparedMutation',
 	'postCommit',
 	'requiresPreparedMutationItems',
-	'revalidateInput',
 	'transformDatabaseResult',
 	'transformInput',
 	'transformMutationOutcome',

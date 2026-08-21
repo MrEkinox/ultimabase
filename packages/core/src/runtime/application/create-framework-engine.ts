@@ -33,6 +33,7 @@ import {
 	normalizeRuntimeValidationOptions,
 	type RuntimeValidationOptions,
 } from '../validation/runtime-validation.js'
+import { createFinalMutationValidationStage } from '../validation/final-mutation-validation.js'
 import { MasterAuthority } from '../master/master-authority.js'
 import {
 	runtimeExecutorCapability,
@@ -300,6 +301,7 @@ export const createFrameworkEngine = <
 	const stages: RuntimePipelineStages = {
 		normalization: composeNormalizationStage(contributedStages.normalization),
 		structuralValidation,
+		finalMutationValidation: createFinalMutationValidationStage(),
 		databaseOperation: databaseAdapter,
 		commit: composeCommitStage(contributedStages.commit),
 		...(behaviors === undefined ? {} : { behaviors }),

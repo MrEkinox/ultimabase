@@ -31,6 +31,7 @@ import {
 	retainRuntimeSchemaModelMetadata,
 } from '../operations/model-metadata.js'
 import { createRuntimeValidationStage } from '../validation/runtime-validation.js'
+import { createFinalMutationValidationStage } from '../validation/final-mutation-validation.js'
 import { createRuntimeBehaviorBoundaries } from './validation-boundaries.js'
 
 const fixedInstant = new Date('2026-08-02T12:34:56.000Z')
@@ -113,15 +114,20 @@ describe('runtime behavior boundaries', () => {
 			clock: () => fixedInstant,
 			uuidV7Generator: () => generatedId,
 		})({ context: requestContext, operation: initialOperation })
+		const validated = await createFinalMutationValidationStage()({
+			context: requestContext,
+			operation: normalized,
+			previousOperation: normalized,
+		})
 		const boundaries = createRuntimeBehaviorBoundaries()
 		const invalidReplacement = {
-			...normalized,
-			input: { ...normalized.input, title: 'Changed by behavior' },
+			...validated,
+			input: { ...validated.input, title: 'Changed by behavior' },
 		}
 
 		expect(validateTitle).toHaveBeenCalledWith('Generated title')
 		try {
-			boundaries.snapshotOperationReplacement(normalized, invalidReplacement)
+			boundaries.snapshotOperationReplacement(validated, invalidReplacement)
 			expect.unreachable('Expected behavior replacement validation to fail')
 		} catch (error: unknown) {
 			expect(error).toMatchObject({ code: 'VALIDATION_ERROR' })
@@ -130,19 +136,19 @@ describe('runtime behavior boundaries', () => {
 			)
 		}
 		const preparedReplacement = boundaries.snapshotPreparedOperationReplacement(
-			normalized,
+			validated,
 			invalidReplacement,
 		)
 		expect(() =>
-			boundaries.snapshotOperationReplacement(normalized, preparedReplacement),
+			boundaries.snapshotOperationReplacement(validated, preparedReplacement),
 		).toThrow(expect.objectContaining({ code: 'VALIDATION_ERROR' }))
 
 		const invalidRecord = {
-			...normalized.input,
+			...validated.input,
 			title: 'Changed by adapter',
 		}
 		expect(() =>
-			boundaries.snapshotMutationOutcome(normalized, {
+			boundaries.snapshotMutationOutcome(validated, {
 				materializations: [{ current: invalidRecord, kind: 'create' }],
 				result: invalidRecord,
 			}),

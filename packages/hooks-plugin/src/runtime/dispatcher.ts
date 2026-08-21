@@ -71,8 +71,6 @@ export const createHookBehavior = (
 		transformMutationOutcome: (input) =>
 			boundaries.snapshotMutationOutcome(input.operation, input.outcome),
 		transformInput: (input) => resolveInput(plan, runtime, input),
-		revalidateInput: (input) =>
-			boundaries.snapshotOperationReplacement(input.operation, input.operation),
 		transformResult: (input) =>
 			runSchemaResultPhases(boundaries, plan, runtime, input),
 		observePreparedMutation: (input) =>

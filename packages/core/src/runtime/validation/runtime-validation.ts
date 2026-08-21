@@ -51,6 +51,7 @@ export interface RuntimeValidationOptions {
 }
 
 interface ValidationExecution {
+	readonly applicationValidation: boolean
 	readonly issues: ValidationIssue<AnyValidationIssueCode>[]
 	readonly temporal: OperationTemporalValues
 	readonly timestamp: number
@@ -345,7 +346,7 @@ const validateFieldValue = (
 				)
 		}
 	})()
-	if (!result.valid || !applyValidator) {
+	if (!result.valid || !applyValidator || !execution.applicationValidation) {
 		return result
 	}
 	const issues = validateFieldStandardSchema(plan.field, result.value, path)
@@ -362,7 +363,6 @@ const validateObjectValue = (
 ): ValueValidationResult => {
 	if (!isPlainRecord(value)) {
 		appendIssue(execution, 'object.type', path, 'Value must be a plain object')
-
 		return { valid: false }
 	}
 
@@ -794,7 +794,6 @@ const assertSchemaDefinition = (value: unknown): SchemaDefinition => {
 			{ publicMessage: 'The operation is invalid.' },
 		)
 	}
-
 	return value
 }
 
@@ -1164,7 +1163,6 @@ const normalizeMutationOperation = <
 	if (execution.issues.length > 0) {
 		throwRuntimeValidationIssues(execution.issues)
 	}
-
 	// Every operation discriminant and schema identity is preserved by reconstruction.
 	return normalized as unknown as TOperation
 }
@@ -1229,6 +1227,7 @@ const unavailableGeneratedValue = (): never => {
 }
 
 const createStructuralValidationExecution = (): ValidationExecution => ({
+	applicationValidation: true,
 	issues: [],
 	// These values are deliberately unusable: structural boundaries never resolve omissions.
 	temporal: immutableRecord({
@@ -1294,7 +1293,7 @@ export const snapshotRuntimeResultRecord = (
 	return result
 }
 
-/** Creates the structural validation stage shared by every transport and access mode. */
+/** Creates initial Core structural validation without application field validators. */
 export const createRuntimeValidationStage = (
 	options: RuntimeValidationOptions = emptyValidationOptions,
 ): RuntimeOperationTransformStage => {
@@ -1325,6 +1324,7 @@ export const createRuntimeValidationStage = (
 
 		const instant = clock()
 		const execution: ValidationExecution = {
+			applicationValidation: false,
 			issues: [],
 			temporal: projectOperationTemporalValues(instant, formatter),
 			timestamp: instant.getTime(),

@@ -95,6 +95,14 @@ Zod and Valibot. Those libraries are test dependencies only: Core's published
 contract names `@standard-schema/spec`, and Typegen omits validator identities
 and callbacks from generated declarations and fingerprints.
 
+The first mutation pass resolves defaults and generators and produces a
+structurally trusted immutable operation without invoking the application
+validator. Optional behavior may then normalize that typed input. Core always
+runs one final structural and Standard Schema pass before value-dependent
+enforcement, observers, or persistence, even when no behavior is installed or
+no value changed. A community transformer never supplies its own revalidation
+callback; this invariant belongs to the mandatory Runtime stage graph.
+
 TypeScript reports invalid option combinations on the primary option contract.
 For example, empty enum domains identify `values`, required pointers using
 `onDelete: "setNull"` identify `onDelete`, and temporal generation conflicts
@@ -1044,12 +1052,12 @@ Policy and value-object plugins may register `preparedOperation()` when an
 accepted `updateOne()` value depends on that locked target. The handler receives
 the fully typed current object and may replace only values inside the existing
 normalized update shape. Runtime groups this replacement with field and schema
-input resolution, then performs one final structural revalidation,
-value-dependent installed field and item policy pass. The adapter receives the
-final operation and cumulative constraints for the write. The handler cannot
-change the query, target, fields, operators, schema, or terminal kind. Public
-collection commands are already itemized before this boundary, so each update
-entry uses the same singular lifecycle.
+input resolution, then performs one final structural and Standard Schema
+validation followed by value-dependent installed field and item policy. The
+adapter receives the final operation and cumulative constraints for the write.
+The handler cannot change the query, target, fields, operators, schema, or
+terminal kind. Public collection commands are already itemized before this
+boundary, so each update entry uses the same singular lifecycle.
 
 ```ts
 import { Schema, UltimaBase } from '@ultimabase/core'

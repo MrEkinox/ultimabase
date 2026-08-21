@@ -612,15 +612,19 @@ Validation is rejection-only. The protocol must return synchronously, and a
 successful output must be deeply equal to Core's input; Core discards even an
 equal cloned output. Defaults, coercion, trimming, stripping, and other
 transformations belong in Hooks `resolveInput` or field snapshots rather than
-in validation. A rejected Standard Schema issue becomes `field.validation`,
-and its relative string, number, or symbol path is prefixed with the complete
-Runtime field path.
+in validation. Initial Core validation guarantees structurally typed immutable
+input without invoking Standard Schema. After every optional input transform,
+one mandatory Core pass structurally snapshots the final candidate and invokes
+its validator before value-dependent enforcement, observers, or persistence.
+A rejected Standard Schema issue becomes `field.validation`, and its relative
+string, number, or symbol path is prefixed with the complete Runtime field path.
 
-Runtime may validate the same value at caller input, post-Hooks mutation,
-adapter result, materialization, included-result, and final-result boundaries.
-Validators must therefore be deterministic, synchronous, side-effect-free,
-and safe to repeat. Async uniqueness and database-backed business rules belong
-in Hooks, protected constraints, or dedicated plugins.
+Runtime validates each final mutation candidate after input resolution, then
+may validate the same persisted value again at adapter-result, materialization,
+included-result, and final-result boundaries. Validators must therefore be
+deterministic, synchronous, side-effect-free, and safe to repeat. Async
+uniqueness and database-backed business rules belong in Hooks, protected
+constraints, or dedicated plugins.
 
 Core retains the exact validator by identity. It never clones, freezes,
 serializes, invokes, or fingerprints the validator during declaration, static
@@ -636,6 +640,10 @@ optional string whose persisted absence is represented by `null`.
 
 Additional length, pattern, email, URL, slug, and application-specific string
 rules use a developer-selected Standard Schema implementation.
+
+An explicit `resolveInput` Hook may first trim, rewrite, or canonicalize a
+structurally valid string. Standard Schema then validates the final candidate;
+it does not need to accept both the raw input form and the stored form.
 
 ## Integer fields
 

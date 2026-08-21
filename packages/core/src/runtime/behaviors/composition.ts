@@ -34,7 +34,6 @@ const attributeRuntimeBehavior = (
 	const observePreparedMutation = behavior.observePreparedMutation
 	const postCommit = behavior.postCommit
 	const requiresPreparedMutationItems = behavior.requiresPreparedMutationItems
-	const revalidateInput = behavior.revalidateInput
 	const transformDatabaseResult = behavior.transformDatabaseResult
 	const transformInput = behavior.transformInput
 	const transformMutationOutcome = behavior.transformMutationOutcome
@@ -61,9 +60,6 @@ const attributeRuntimeBehavior = (
 					requiresPreparedMutationItems: (operation) =>
 						run(() => requiresPreparedMutationItems(operation)),
 				}),
-		...(revalidateInput === undefined
-			? {}
-			: { revalidateInput: (input) => run(() => revalidateInput(input)) }),
 		...(transformDatabaseResult === undefined
 			? {}
 			: {
@@ -133,9 +129,6 @@ export const composeRuntimeBehaviors = (
 			contributionBehavior.transformPreparedOperation,
 		)
 	}
-	const revalidators = behaviors.flatMap(({ revalidateInput }) =>
-		revalidateInput === undefined ? [] : [revalidateInput],
-	)
 	const beforeObservers = behaviors.flatMap(({ beforeOperation }) =>
 		beforeOperation === undefined ? [] : [beforeOperation],
 	)
@@ -211,15 +204,6 @@ export const composeRuntimeBehaviors = (
 			}
 			return operation
 		}
-	const revalidateInput: RuntimeOperationTransformStage = async (input) => {
-		let operation = input.operation
-		for (const revalidate of revalidators) {
-			operation = await revalidate(
-				immutableRecord({ context: input.context, operation }),
-			)
-		}
-		return operation
-	}
 	const beforeOperation: RuntimeOperationGuardStage = async (input) => {
 		for (const observe of beforeObservers) await observe(input)
 	}
@@ -289,7 +273,6 @@ export const composeRuntimeBehaviors = (
 		...(preparedOperationTransforms.length === 0
 			? {}
 			: { transformPreparedOperation }),
-		...(revalidators.length === 0 ? {} : { revalidateInput }),
 		...(beforeObservers.length === 0 ? {} : { beforeOperation }),
 		...(preparedObservers.length === 0 ? {} : { observePreparedMutation }),
 		...(outcomeTransforms.length === 0 ? {} : { transformMutationOutcome }),

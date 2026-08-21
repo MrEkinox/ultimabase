@@ -273,6 +273,7 @@ const createPipeline = <
 	const stages: RuntimePipelineStages = {
 		normalization: (input) => input.operation,
 		structuralValidation: (input) => input.operation,
+		finalMutationValidation: (input) => input.operation,
 		...(behavior === undefined ? {} : { behaviors: behavior }),
 		databaseOperation,
 		commit: () => {

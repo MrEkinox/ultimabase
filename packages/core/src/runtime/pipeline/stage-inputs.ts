@@ -23,6 +23,7 @@ import type {
 	RuntimeMutationOutcomeStageInput,
 	RuntimeProjectedDatabaseResultStageInput,
 	RuntimeMaterializedResultStageInput,
+	RuntimeMutationRevalidationStageInput,
 	RuntimeOperationResult,
 	RuntimeOperationStageInput,
 	RuntimePreparedMutationStageInput,
@@ -70,6 +71,15 @@ export const createRuntimeOperationInput = <
 	operation: TOperation,
 ): RuntimeOperationStageInput<TOperation> =>
 	immutableRecord({ context, operation })
+
+export const createRuntimeMutationRevalidationInput = <
+	const TOperation extends DatabaseMutationOperationAst,
+>(
+	context: RequestContext,
+	previousOperation: TOperation,
+	operation: TOperation,
+): RuntimeMutationRevalidationStageInput<TOperation> =>
+	immutableRecord({ context, operation, previousOperation })
 
 export const createRuntimeEnforcementInput = <
 	const TOperation extends DatabaseOperationAst,

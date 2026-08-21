@@ -90,6 +90,20 @@ export type RuntimeOperationTransformStage = <
 	input: RuntimeOperationStageInput<TOperation>,
 ) => MaybePromise<TOperation>
 
+/** Supplies the normalized operation that bounds one final mutation replacement. */
+export interface RuntimeMutationRevalidationStageInput<
+	TOperation extends DatabaseMutationOperationAst,
+> extends RuntimeOperationStageInput<TOperation> {
+	readonly previousOperation: TOperation
+}
+
+/** Revalidates one final mutation without replaying defaults or generators. */
+export type RuntimeMutationRevalidationStage = <
+	const TOperation extends DatabaseMutationOperationAst,
+>(
+	input: RuntimeMutationRevalidationStageInput<TOperation>,
+) => MaybePromise<TOperation>
+
 /** Observes or rejects one operation without replacing its trusted context. */
 export type RuntimeOperationGuardStage = <
 	const TOperation extends DatabaseOperationAst,
@@ -268,8 +282,6 @@ export interface RuntimeBehaviorStages {
 	readonly transformPreparedInput?: RuntimePreparedMutationTransformStage
 	/** Applies a late target-aware operation transform before final revalidation. */
 	readonly transformPreparedOperation?: RuntimePreparedMutationTransformStage
-	/** Revalidates behavior-produced input without replaying defaults or generators. */
-	readonly revalidateInput?: RuntimeOperationTransformStage
 	/** Observes the final logical operation immediately before persistence. */
 	readonly beforeOperation?: RuntimeOperationGuardStage
 	/** Observes stable mutation targets before the adapter operation executes. */
@@ -291,6 +303,8 @@ export interface RuntimeBehaviorStages {
 export interface RuntimePipelineStages {
 	readonly normalization: RuntimeOperationTransformStage
 	readonly structuralValidation: RuntimeOperationTransformStage
+	/** Validates the final mutation candidate after every optional input transform. */
+	readonly finalMutationValidation: RuntimeMutationRevalidationStage
 	readonly databaseOperation: DatabaseOperationExecutor
 	readonly commit: RuntimeResultEffectStage
 	/** Rewrites only the physical plan after logical semantics and protected policy are fixed. */

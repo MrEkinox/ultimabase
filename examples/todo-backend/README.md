@@ -28,6 +28,13 @@ export const Todo = Schema.define({
 			list: true,
 			validation: z.array(z.string().min(1)).max(20),
 		}),
+		slug: field.string({
+			hooks: {
+				resolveInput: ({ value }) =>
+					value?.trim().toLowerCase().replace(/\s+/gu, '-') ?? null,
+			},
+			validation: z.string().regex(/^[a-z]+(?:-[a-z]+)*$/u),
+		}),
 		internalNotes: field.string({
 			access: {
 				read: false,
@@ -66,6 +73,9 @@ canonical title, and the `tags` validator receives the complete canonical list
 once. Zod diagnostics are exposed through UltimaBase's neutral
 `field.validation` issue code; the generated `TodoItem` still contains
 `readonly tags: ReadonlyArray<string> | null` and never embeds the validator.
+The slug demonstrates the transformation boundary: Core first accepts a
+structurally valid string, the field Hook rewrites it, and the mandatory final
+Standard Schema pass accepts only the canonical lowercase hyphenated form.
 
 This demonstrates that the plugins compose monotonically: ordinary readers see
 only non-archived rows allowed by their object ACL, editor ACLs may permit an

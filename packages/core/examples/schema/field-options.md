@@ -80,6 +80,12 @@ not clone, invoke, or serialize it during declaration. Plugin-defined fields
 receive the same validation contract; their direct structural options remain
 owned by their snapshot implementation.
 
+Mutation input first crosses Core's type, presence, nullability, and shape
+checks. Optional Hooks may then normalize that structurally trusted value, and
+one mandatory final Core pass invokes Standard Schema before persistence. This
+lets a strict validator describe the stored canonical form without accepting
+every raw form handled by `resolveInput`.
+
 Invalid combinations are rejected on the option object itself. Editor
 diagnostics identify `values` for an empty enum domain, `onDelete` for a
 required pointer using `setNull`, and the temporal field option contract when

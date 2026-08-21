@@ -50,7 +50,6 @@ const wrapBehaviorStages = (
 	const observePreparedMutation = stages.observePreparedMutation
 	const postCommit = stages.postCommit
 	const requiresPreparedMutationItems = stages.requiresPreparedMutationItems
-	const revalidateInput = stages.revalidateInput
 	const transformDatabaseResult = stages.transformDatabaseResult
 	const transformInput = stages.transformInput
 	const transformMutationOutcome = stages.transformMutationOutcome
@@ -89,14 +88,6 @@ const wrapBehaviorStages = (
 					requiresPreparedMutationItems: (operation) => {
 						onCall()
 						return requiresPreparedMutationItems(operation)
-					},
-				}),
-		...(revalidateInput === undefined
-			? {}
-			: {
-					revalidateInput: (input) => {
-						onCall()
-						return revalidateInput(input)
 					},
 				}),
 		...(transformDatabaseResult === undefined

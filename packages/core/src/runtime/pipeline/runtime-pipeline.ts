@@ -57,6 +57,7 @@ export type { RuntimeMutationBatchProjectionRequest } from './inclusion-projecti
 const functionStageNames = [
 	'normalization',
 	'structuralValidation',
+	'finalMutationValidation',
 	'commit',
 ] as const satisfies readonly (keyof RuntimePipelineStages)[]
 
@@ -73,7 +74,6 @@ const runtimeBehaviorStageNames = [
 	'observePreparedMutation',
 	'postCommit',
 	'requiresPreparedMutationItems',
-	'revalidateInput',
 	'transformDatabaseResult',
 	'transformInput',
 	'transformMutationOutcome',
@@ -405,6 +405,7 @@ export class RuntimePipeline {
 				...(relationPredicates === undefined ? {} : { relationPredicates }),
 				...(rowFilter === undefined ? {} : { rowFilter }),
 			}),
+			this.#stages.finalMutationValidation,
 			this.#stages.enforcement,
 			enforcement,
 		)

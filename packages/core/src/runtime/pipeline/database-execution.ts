@@ -33,12 +33,14 @@ import { createProtectedObjectNotFoundError } from '../operations/target-errors.
 import type {
 	RuntimeBehaviorStages,
 	RuntimeEnforcementStages,
+	RuntimeMutationRevalidationStage,
 } from './contracts.js'
 import { loadSingularMutationInclusionSource } from './inclusion-projection.js'
 import { assertDatabaseRequestCapabilities } from './database-capability-validation.js'
 import {
 	createRuntimeEnforcementInput,
 	createRuntimeMutationOutcomeInput,
+	createRuntimeMutationRevalidationInput,
 	createRuntimeOperationInput,
 	createRuntimePreparedMutationInput,
 	snapshotRuntimeConstraints,
@@ -154,6 +156,7 @@ export const executeRuntimeDatabaseOperation = async <
 	behaviors: RuntimeBehaviorStages | undefined,
 	persistencePlanRewrite: RuntimePersistencePlanRewriteStage | undefined,
 	request: RuntimeDatabaseExecutionRequest<TOperation>,
+	finalMutationValidation: RuntimeMutationRevalidationStage,
 	enforcement: RuntimeEnforcementStages | undefined,
 	enforcementState: EnforcementState | undefined,
 ): Promise<RuntimeDatabaseExecution<TOperation>> => {
@@ -187,7 +190,9 @@ export const executeRuntimeDatabaseOperation = async <
 
 	assertPreparedMutationExecutor(executor)
 	type TMutationOperation = TOperation & DatabaseMutationOperationAst
-	let executableOperation: TMutationOperation = request.operation
+	// The operation-kind guard above narrows the generic request to its mutation branch.
+	const initialOperation: TMutationOperation = request.operation
+	let executableOperation: TMutationOperation = initialOperation
 	let operationTransformed = false
 	let finalConstraints = request.constraints
 	const prepareMutationItems =
@@ -278,11 +283,13 @@ export const executeRuntimeDatabaseOperation = async <
 			operationTransformed ||= executableOperation !== operationBeforeResolution
 		}
 
-		if (operationTransformed && behaviors?.revalidateInput !== undefined) {
-			executableOperation = await behaviors.revalidateInput(
-				createRuntimeOperationInput(context, executableOperation),
-			)
-		}
+		executableOperation = await finalMutationValidation(
+			createRuntimeMutationRevalidationInput(
+				context,
+				initialOperation,
+				executableOperation,
+			),
+		)
 
 		if (
 			operationTransformed &&

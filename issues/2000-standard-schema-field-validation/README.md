@@ -26,12 +26,13 @@ const Task = Schema.define({
 ```
 
 Core still snapshots the field kind, presence, nullability, defaults, generated
-values, and structured shape. A Standard Schema validator receives the complete
-canonical non-null field value after that snapshot, including the array for a
-list field or the complete object for an object field. It may report issues but
-must return a semantically equal value. Missing and null values remain governed
-by Core, asynchronous results fail explicitly, and database-backed business
-checks remain hooks or protected constraints rather than structural validation.
+values, and structured shape before optional input resolution. One mandatory
+final pass then supplies the complete canonical non-null field value to Standard
+Schema, including the array for a list field or the complete object for an
+object field. It may report issues but must return a semantically equal value.
+Missing and null values remain governed by Core, asynchronous results fail
+explicitly, and database-backed business checks remain hooks or protected
+constraints rather than structural validation.
 
 ## Execution order
 
@@ -40,16 +41,18 @@ checks remain hooks or protected constraints rather than structural validation.
 3. [x] [2003 — Move decimal shape metadata to direct field options](2003-direct-decimal-shape-options.md)
 4. [x] [2004 — Replace field constraints with Standard Schema](2004-standard-schema-field-validators.md)
 5. [x] [2005 — Prove validator interoperability and generated DX](2005-validator-interoperability-typegen-dx.md)
-6. [ ] [2007 — Remove planned validation-only field extensions](2007-remove-validation-only-field-extensions.md)
-7. [ ] [2006 — Verify the Standard Schema validation vertical](2006-standard-schema-validation-verification.md)
+6. [x] [2008 — Validate fields after input resolution](2008-post-resolution-field-validation.md)
+7. [ ] [2007 — Remove planned validation-only field extensions](2007-remove-validation-only-field-extensions.md)
+8. [ ] [2006 — Verify the Standard Schema validation vertical](2006-standard-schema-validation-verification.md)
 
 The order first fixes the durable contract, then separates presence and
 adapter-visible shape from application validation. The Standard Schema Runtime
 replacement can therefore remove the old DSL atomically without hiding storage
 metadata inside an opaque validator. Interoperability and final verification
-run only after the canonical public API exists. The milestone then removes the
-planned validation-only derived field package before final verification, so
-native fields composed with Standard Schema remain the one documented model.
+run only after the canonical public API exists. Final application validation is
+then placed after explicit input resolution before the milestone removes the
+planned validation-only derived field package. Native fields composed with
+Standard Schema remain the one documented model.
 
 ## Deliberate boundaries
 
@@ -58,8 +61,9 @@ native fields composed with Standard Schema remain the one documented model.
 - `required`, `precision`, `scale`, enum domains, relationship targets, list
   shape, timezone behavior, and other structural metadata are not delegated to
   an opaque validator.
-- Validation is synchronous, deterministic, validation-only, and may run at
-  multiple structural boundaries. It is not an input transformation lifecycle.
+- Validation is synchronous, deterministic, validation-only, and runs after
+  explicit input resolution plus persisted-result structural boundaries. It is
+  not an input transformation lifecycle.
 - Standard Schema defaults and coercions do not replace Core defaults,
   generators, field snapshots, Hooks `resolveInput`, or adapter constraints.
 - The public replacement retains no compatibility overload, deprecated alias,

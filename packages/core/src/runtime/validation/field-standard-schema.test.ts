@@ -15,6 +15,8 @@ import {
 	stringField,
 } from '../../schema/index.js'
 import { RequestContext, requestSources } from '../context/request-context.js'
+import { createFixtureMasterContext } from '../../../tests/fixtures/master-context.js'
+import { createFinalMutationValidationStage } from './final-mutation-validation.js'
 import {
 	createRuntimeValidationStage,
 	snapshotRuntimeResultRecord,
@@ -97,19 +99,88 @@ describe('Standard Schema field validation', () => {
 			schema: new QueryBuilder(schema).ast.schema,
 		} satisfies CreateOneOperationAst<typeof schema>
 
-		await createRuntimeValidationStage({
+		const context = RequestContext.anonymous({
+			requestId: 'generated-validator-test',
+			source: requestSources.internal,
+		})
+		const normalized = await createRuntimeValidationStage({
 			clock: () => new Date('2026-08-21T12:00:00.000Z'),
 			timezone: 'UTC',
 			uuidV7Generator: () => '0198d1ae-a800-7000-8000-000000000001',
 		})({
-			context: RequestContext.anonymous({
-				requestId: 'generated-validator-test',
-				source: requestSources.internal,
-			}),
+			context,
 			operation,
+		})
+		await createFinalMutationValidationStage()({
+			context,
+			operation: normalized,
+			previousOperation: normalized,
 		})
 
 		expect(validate).toHaveBeenCalledExactlyOnceWith('2026-08-21')
+	})
+
+	it('defers application validation until after explicit input resolution, including for master', async () => {
+		const validate = vi.fn((value: unknown) =>
+			typeof value === 'string' && /^[a-z]+(?:-[a-z]+)*$/u.test(value)
+				? { value }
+				: { issues: [{ message: 'Expected a canonical slug' }] },
+		)
+		const validation: StandardSchemaV1<string> = {
+			'~standard': {
+				validate,
+				vendor: 'post-resolution-test',
+				version: 1,
+			},
+		}
+		const schema = Schema.define({
+			className: 'PostResolutionSlug',
+			fields: (field) => ({
+				slug: field.string({
+					required: true,
+					validation,
+				}),
+			}),
+		})
+		const operation = {
+			input: { slug: 'Hello World' },
+			kind: 'create-one',
+			selection: { fields: [], kind: 'selection' },
+			schema: new QueryBuilder(schema).ast.schema,
+		} satisfies CreateOneOperationAst<typeof schema>
+		const master = createFixtureMasterContext(
+			'validates canonical input',
+			'post-resolution-test',
+			RequestContext.anonymous({
+				requestId: 'post-resolution-master',
+				source: requestSources.internal,
+			}),
+		)
+		const normalized = await createRuntimeValidationStage()({
+			context: master,
+			operation,
+		})
+
+		expect(validate).not.toHaveBeenCalled()
+		expect(() =>
+			createFinalMutationValidationStage()({
+				context: master,
+				operation: normalized,
+				previousOperation: normalized,
+			}),
+		).toThrow(expect.objectContaining({ code: 'VALIDATION_ERROR' }))
+
+		const transformed = {
+			...normalized,
+			input: { ...normalized.input, slug: 'hello-world' },
+		}
+		expect(
+			createFinalMutationValidationStage()({
+				context: master,
+				operation: transformed,
+				previousOperation: normalized,
+			}),
+		).toMatchObject({ input: { slug: 'hello-world' } })
 	})
 
 	it('runs after every built-in and plugin scalar family snapshot', () => {

@@ -419,6 +419,7 @@ export const createRecordingPipeline = (
 	const stages: RuntimePipelineStages = {
 		normalization: (input) => input.operation,
 		structuralValidation: (input) => input.operation,
+		finalMutationValidation: (input) => input.operation,
 		databaseOperation,
 		behaviors: {
 			...behaviorStages,

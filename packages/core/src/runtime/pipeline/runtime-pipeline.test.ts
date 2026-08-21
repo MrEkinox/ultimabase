@@ -229,7 +229,6 @@ const createBehaviorStages = (trace: string[]): RuntimeBehaviorStages => ({
 
 		return immutableRecord({ ...input.operation })
 	},
-	revalidateInput: createOperationTransform('behavior:revalidateInput', trace),
 	beforeOperation: createGuard('behavior:beforeOperation', trace),
 	observePreparedMutation: (input) => {
 		trace.push('behavior:observePreparedMutation')
@@ -283,6 +282,7 @@ const createStages = (
 ): RuntimePipelineStages => ({
 	normalization: createOperationTransform('normalization', trace),
 	structuralValidation: createOperationTransform('structuralValidation', trace),
+	finalMutationValidation: createOperationTransform('final-validation', trace),
 	databaseOperation,
 	commit: createResultEffect('commit', trace),
 	...overrides,
@@ -478,7 +478,6 @@ describe('RuntimePipeline', () => {
 							],
 						},
 					}),
-					revalidateInput: (input) => input.operation,
 				},
 			}),
 		)
@@ -581,7 +580,7 @@ describe('RuntimePipeline', () => {
 			'behavior:transformInput',
 			'behavior:transformPreparedInput',
 			'behavior:transformPreparedOperation',
-			'behavior:revalidateInput',
+			'final-validation',
 			'enforcement:reevaluate',
 			'enforcement:operation',
 			'enforcement:prepared',
@@ -920,18 +919,16 @@ describe('RuntimePipeline', () => {
 		const trace: string[] = []
 		const stages = createStages(trace, new TraceDatabaseExecutor(trace, []))
 
-		expect(
-			() =>
-				new RuntimePipeline({
-					...stages,
-					// @ts-expect-error -- Runtime validation protects JavaScript assembly.
-					structuralValidation: undefined,
-				}),
-		).toThrow(
-			new TypeError(
-				'Runtime pipeline stage structuralValidation must be a function',
-			),
-		)
+		for (const stageName of [
+			'structuralValidation',
+			'finalMutationValidation',
+		] as const) {
+			expect(
+				() => new RuntimePipeline({ ...stages, [stageName]: undefined }),
+			).toThrow(
+				new TypeError(`Runtime pipeline stage ${stageName} must be a function`),
+			)
+		}
 	})
 
 	it('rejects malformed JavaScript pipeline assembly eagerly', () => {

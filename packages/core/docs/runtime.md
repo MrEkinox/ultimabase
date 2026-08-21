@@ -602,6 +602,7 @@ optional behavior or enforcement groups compiled by application assembly:
 const pipeline = new RuntimePipeline({
 	normalization,
 	structuralValidation,
+	finalMutationValidation,
 	databaseOperation: adapter,
 	commit,
 	behaviors,
@@ -611,14 +612,16 @@ const pipeline = new RuntimePipeline({
 const articles = await pipeline.execute({ context, operation })
 ```
 
-The fixed order performs initial validation and enforcement, locks mutation
-targets, runs every input transformer, then crosses one final structural
-revalidation and value-dependent enforcement pass. Behavior transforms observe
-that final operation. Prepared adapters receive the final operation and
-cumulative `constraints` for the write. Runtime then runs every business result
-transform, applies final output restrictions, and finalizes the transaction and
-post-commit observers. The behavior and enforcement groups are absent when no
-plugin contributes them; Runtime does not manufacture optional placeholders.
+The fixed order performs initial Core structural validation without application
+validators, applies initial enforcement, locks mutation targets, and runs every
+input transformer. Every mutation then crosses the mandatory
+`finalMutationValidation` stage, which repeats structural snapshots and invokes
+Standard Schema before value-dependent enforcement. Prepared adapters receive
+the final operation and cumulative `constraints` for the write. Runtime then
+runs every business result transform, applies final output restrictions, and
+finalizes the transaction and post-commit observers. The behavior and
+enforcement groups are absent when no plugin contributes them; Runtime does not
+manufacture optional placeholders.
 
 Stage envelopes and constraint collections are immutable. A
 `FrameworkError` thrown by any stage crosses the pipeline unchanged, while

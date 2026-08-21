@@ -108,6 +108,13 @@ and integrity-maintenance contributions remain active. Core keeps explicit
 per-contribution master behavior on its generic policy-neutral boundary because
 it cannot classify community constraints as authorization or integrity work.
 
+Mutation validation has two Core-owned passes. The initial pass resolves
+defaults and generators and guarantees immutable structural shape before Access
+or developer behavior. After every optional input transform, one mandatory
+final pass repeats structural snapshots and invokes Standard Schema before
+value-dependent enforcement, observers, or persistence. Behavior providers
+cannot omit or replace this revalidation invariant.
+
 ## Direct plugin options
 
 Core accepts schema and field options only when an installed plugin contributes

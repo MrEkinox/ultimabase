@@ -87,6 +87,13 @@ The packed PostgreSQL lifecycle is exercised by the
 [`hooks-plugin-postgres.postgres.e2e.test.ts`](../../tests/e2e/hooks-plugin-postgres.postgres.e2e.test.ts)
 public-package suite.
 
+Field `resolveInput` receives a structurally valid immutable value after Core's
+initial type and presence checks. It may explicitly normalize that value. Once
+all field, schema, and prepared-operation transformations finish, Core runs one
+mandatory structural and Standard Schema validation pass before
+value-dependent enforcement, observers, or persistence. Hooks providers do not
+register or own that revalidation boundary.
+
 A provider declares Hooks as a peer rather than a lifecycle dependency,
 because the Hooks engine consumes the provider's contribution capability:
 

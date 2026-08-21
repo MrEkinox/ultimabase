@@ -25,6 +25,7 @@ import {
 	postgresPlugin,
 } from '@ultimabase/postgres-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { z } from 'zod'
 
 import {
 	createPostgresWorkerFixture,
@@ -76,10 +77,13 @@ const profileSlugField = definePluginField(
 			resolveInput: ({ value }) => {
 				trace('field:slug:developer:resolveInput')
 
-				return value === null ? null : value.trim().toLowerCase()
+				return value === null
+					? null
+					: value.trim().toLowerCase().replace(/\s+/gu, '-')
 			},
 		},
 		required: true,
+		validation: z.string().regex(/^[a-z]+(?:-[a-z]+)*$/u),
 	},
 	{
 		snapshotValue: (value: unknown, path: string): string => {
@@ -426,7 +430,7 @@ describe('Hooks plugin with PostgreSQL', { concurrent: false }, () => {
 		const created = await runWithScope('scope-create', () =>
 			HookArticleSchema.createOne({
 				data: {
-					profile: { slug: '  Public-Profile  ' },
+					profile: { slug: '  Public Profile  ' },
 					published: true,
 					secret: 'private-create-value',
 					scopeId: 'scope-create',

@@ -146,7 +146,9 @@ Installing `@ultimabase/hooks-plugin` enables official schema and inline field
 declarations. Field Hooks expose only value-oriented `resolveInput`. Schema
 Hooks group input transformation, operation observation, and transaction
 finalization. Direct and batched items use the same cardinality-free business
-kind:
+kind. Core structurally validates input before these callbacks, then always
+runs final structural and Standard Schema validation after their combined
+transformations:
 
 ```ts
 import { Schema, UltimaBase } from '@ultimabase/core'

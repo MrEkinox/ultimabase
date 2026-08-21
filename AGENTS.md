@@ -168,14 +168,14 @@ optional official engines:
 
 ```text
 normalization
-→ initial structural validation
+→ initial Core structural validation without application validators
 → initial operation and mutation-field Access
 → load and lock the visible target when one may exist
 → item Access
 → field resolveInput
 → schema resolveInput with originalItem
 → target-aware preparedOperation transforms
-→ structural revalidation without replaying defaults or generators
+→ mandatory structural and Standard Schema validation without replaying defaults or generators
 → value-dependent Access re-evaluation
 → plugin/global before observers
 → schema before observers

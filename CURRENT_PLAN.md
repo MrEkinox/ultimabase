@@ -14,11 +14,13 @@ application validation without transforming canonical values.
 3. Issue 2003 — move inspectable decimal shape metadata to direct options (`completed`).
 4. Issue 2004 — replace the field-constraint DSL with Standard Schema (`completed`).
 5. Issue 2005 — prove validator interoperability and generated DX (`completed`).
-6. Issue 2007 — remove planned validation-only field extensions (`planned`).
-7. Issue 2006 — verify the complete validation vertical (`planned`).
+6. Issue 2008 — validate fields after input resolution (`completed`).
+7. Issue 2007 — remove planned validation-only field extensions (`planned`).
+8. Issue 2006 — verify the complete validation vertical (`planned`).
 
 ## Resume point
 
-Start issue 2007 by removing planned validation-only field extensions now
-replaced by native fields composed with Standard Schema. ACL hardening issues
-432 through 435 remain deliberately deferred until explicit direction.
+Start issue 2007 by removing the planned validation-only field extensions now
+replaced by native fields composed with post-resolution Standard Schema.
+ACL hardening issues 432 through 435 remain deliberately deferred until
+explicit direction.

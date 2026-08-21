@@ -3,7 +3,7 @@
 - Status: planned
 - Milestone: 20
 - Packages: repository planning and documentation
-- Depends on: 2005
+- Depends on: 2008
 - ADR: decision from issue 2001
 
 ## Goal

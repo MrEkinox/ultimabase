@@ -29,6 +29,7 @@ const createPipeline = (executor: DatabaseOperationExecutor) =>
 	new RuntimePipeline({
 		normalization: (input) => input.operation,
 		structuralValidation: (input) => input.operation,
+		finalMutationValidation: (input) => input.operation,
 		databaseOperation: executor,
 		commit: () => undefined,
 	} satisfies RuntimePipelineStages)
