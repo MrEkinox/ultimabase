@@ -26,7 +26,7 @@ export const handwrittenFileLineBaseline: Readonly<Record<string, number>> =
 		'packages/core/src/runtime/pipeline/runtime-pipeline.test.ts': 1130,
 		'packages/core/src/runtime/validation/runtime-validation.test.ts': 811,
 		'packages/core/src/runtime/validation/runtime-validation.ts': 1343,
-		'packages/core/src/schema/schema/definition.ts': 884,
+		'packages/core/src/schema/schema/definition.ts': 882,
 		'packages/core/src/schema/schema/field-builder.ts': 739,
 		'packages/core/tests/runtime/bulk-terminals.test.ts': 898,
 		'packages/postgres-plugin/src/drizzle/adapter.test.ts': 1692,
@@ -34,7 +34,7 @@ export const handwrittenFileLineBaseline: Readonly<Record<string, number>> =
 		'packages/postgres-plugin/src/drizzle/prepared-operation.ts': 780,
 		'packages/postgres-plugin/src/query/filter-compiler.test.ts': 804,
 		'packages/postgres-plugin/src/query/filter-compiler.ts': 650,
-		'packages/typegen/src/generator-language-service.test.ts': 878,
+		'packages/typegen/src/generator-language-service.test.ts': 864,
 		'tests/e2e/relation-postgres.postgres.e2e.test.ts': 953,
 		'tests/e2e/runtime-postgres.postgres.e2e.test.ts': 1139,
 	})

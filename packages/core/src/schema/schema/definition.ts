@@ -44,7 +44,6 @@ import type {
 	BaseSchemaTypeInfo,
 	SchemaTypeInfo,
 	SchemaTypeInfoByNameOrBase,
-	RequireGeneratedSchemaEntry,
 	UltimaBaseGeneratedSchemaOptions,
 } from '../type-info.js'
 import type { SchemaAPI } from './schema-api.js'
@@ -781,7 +780,6 @@ export class Schema {
 		const TFields extends SchemaFields,
 	>(
 		options: SchemaOptions<TClassName, TFields> &
-			RequireGeneratedSchemaEntry<TClassName> &
 			ReservedSchemaFieldCollision<NoInfer<TFields>>,
 	): SchemaReference<NoInfer<TClassName>> {
 		const schema = defineSchemaModel<TClassName, TFields>(options)

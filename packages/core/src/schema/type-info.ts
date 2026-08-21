@@ -288,26 +288,3 @@ export type SchemaTypeValue<
 	TSchema extends SchemaTypeInfoSource,
 	TKey extends SchemaTypeValueKey,
 > = SchemaTypeValueFromTypeInfo<SchemaTypeInfoFor<TSchema>, TKey>
-
-/**
- * Makes a stale generated entry fail on `className` with an actionable editor
- * diagnostic while leaving the no-registry bootstrap path transpileable.
- */
-export type RequireGeneratedSchemaEntry<TClassName extends string> =
-	HasUltimaBaseGeneratedRegistry extends true
-		? TClassName extends UltimaBaseGeneratedSchemaName
-			? UltimaBaseGeneratedSchemas[TClassName] extends SchemaTypeInfo
-				? Readonly<Record<never, never>>
-				: Readonly<{
-						className: TClassName &
-							Readonly<{
-								'UltimaBase generated schema is incompatible or stale; regenerate it with @ultimabase/typegen': never
-							}>
-					}>
-			: Readonly<{
-					className: TClassName &
-						Readonly<{
-							'UltimaBase generated schema is missing or stale; regenerate it with @ultimabase/typegen': never
-						}>
-				}>
-		: Readonly<Record<never, never>>

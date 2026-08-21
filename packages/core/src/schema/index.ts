@@ -236,7 +236,6 @@ export type {
 	SchemaTypeValueKey,
 	SchemaTypeValue,
 	HasUltimaBaseGeneratedRegistry,
-	RequireGeneratedSchemaEntry,
 	UltimaBaseGeneratedEmbeddedFieldBuilderMethods,
 	UltimaBaseGeneratedFieldBuilderMethods,
 	UltimaBaseGeneratedFieldOptions,

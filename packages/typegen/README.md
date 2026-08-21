@@ -176,9 +176,9 @@ schema registry and the configured root and embedded FieldBuilder methods. Keep
 that file included by the application's TypeScript project. Core then resolves
 exact drafts, results, Query and mutation inputs, Access, hooks, direct plugin
 options, indexes, embedded paths, pointers, and relations directly from the
-generated contracts. A loaded registry rejects an unknown builder schema with
-an actionable diagnostic directing the developer to regenerate through this
-package.
+generated contracts. A schema name absent from the loaded registry remains a
+valid source declaration and uses Core's bootstrap contract until the next
+automatic startup generation replaces the artifact.
 
 Every artifact embeds a deterministic SHA-256 fingerprint covering the Core
 generated-contract ABI, generator version, application identity, plugin field

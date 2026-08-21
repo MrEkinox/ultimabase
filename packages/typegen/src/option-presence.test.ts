@@ -122,8 +122,5 @@ Schema.define({
 
 		expect(completions).toContain('document')
 		expect(completions).not.toContain('fixture.internal-marker')
-		expect(completions).not.toContain(
-			'UltimaBase generated schema is missing or stale; regenerate it with @ultimabase/typegen',
-		)
 	})
 })

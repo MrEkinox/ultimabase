@@ -3,7 +3,7 @@
 - Status: accepted
 - Date: 2026-08-09
 - Refines: ADR-0173
-- Refined by: ADR-0177
+- Refined by: ADR-0177, ADR-0217
 
 This ADR supersedes ADR-0173's callback-timing and pre-compilation model
 boundaries. ADR-0173 remains the historical decision that introduced the
