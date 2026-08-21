@@ -67,6 +67,7 @@ export { definePluginField } from './fields/plugin.js'
 export type {
 	PluginFieldDefinition,
 	PluginFieldNormalizers,
+	PluginFieldStructuralContains,
 	AvailablePluginFieldKind,
 	ReservedFieldKind,
 } from './fields/plugin.js'
@@ -95,11 +96,18 @@ export { isStaticDefault } from './fields/base/defaults.js'
 export type { DefaultFactory, FieldDefault } from './fields/base/defaults.js'
 export {
 	assertFieldDefinition,
+	getPluginFieldStructuralContains,
 	getPluginFieldStorageCodec,
 	isFieldRequiredDeferred,
 	snapshotScalarFieldValue,
 } from './fields/base/definition.js'
-export type { PluginFieldStorageCodec } from './fields/base/definition.js'
+export {
+	pluginFieldStructuralContainsProtocolVersion,
+} from './fields/base/definition.js'
+export type {
+	PluginFieldStorageCodec,
+	PluginFieldStructuralContainsMetadata,
+} from './fields/base/definition.js'
 export type { FieldValueMap } from './fields/base/value-map.js'
 export { enumField } from './fields/builtins/enum.js'
 export type {
@@ -140,6 +148,7 @@ export type {
 	FieldOptions,
 	FieldOptionsValue,
 	FieldScalarValue,
+	FieldStructuralContainsOperand,
 	FieldValidationOptions,
 	FieldOptionsWithoutNullable,
 	FieldValue,

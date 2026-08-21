@@ -23,7 +23,13 @@ export class ReferenceImports {
 		const references = new Map<string, TypegenReference>()
 
 		for (const method of snapshot.fieldMethods) {
-			for (const reference of [method.method, method.value]) {
+			for (const reference of [
+				method.method,
+				method.value,
+				...(method.structuralContains === undefined
+					? []
+					: [method.structuralContains]),
+			]) {
 				references.set(
 					`${reference.module}\u0000${reference.exportName}`,
 					reference,
@@ -125,6 +131,10 @@ export class ReferenceImports {
 		references: Map<string, TypegenReference>,
 	): void {
 		for (const field of fields) {
+			if (field.structuralContains !== undefined) {
+				this.#addReference(field.structuralContains, references)
+			}
+
 			if (field.value.kind === 'plugin') {
 				references.set(
 					`${field.value.reference.module}\u0000${field.value.reference.exportName}`,

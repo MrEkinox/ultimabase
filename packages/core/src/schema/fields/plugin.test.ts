@@ -4,6 +4,7 @@ import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 import {
 	definePluginField,
 	defineFieldExtension,
+	getPluginFieldStructuralContains,
 	getPluginFieldStorageCodec,
 	type FieldOptions,
 	type FieldValidationOptions,
@@ -133,6 +134,81 @@ describe('plugin fields', () => {
 		expect(() => codec?.decode({ value: 42 })).toThrow(
 			'Stored fixture value must contain a string',
 		)
+	})
+
+	it('exposes only inert structural containment metadata', () => {
+		const field = definePluginField(
+			'fixture.contained',
+			{},
+			{
+				snapshotValue,
+				storageCodec: {
+					decode: (value) => snapshotValue(value, 'stored value'),
+					encode: String,
+					format: 'json',
+					version: 1,
+				},
+				structuralContains: {
+					snapshotOperand: (value: unknown) => value,
+				},
+			},
+		)
+		const metadata = getPluginFieldStructuralContains(field)
+
+		expect(field).toStrictEqual({ kind: 'fixture.contained', options: {} })
+		expect(metadata).toStrictEqual({ format: 'json', protocolVersion: 1 })
+		expect(Object.isFrozen(metadata)).toBe(true)
+		expect('snapshotOperand' in (metadata ?? {})).toBe(false)
+	})
+
+	it('rejects containment without a codec and on list fields', () => {
+		expect(() =>
+			definePluginField('fixture.no-codec', {}, {
+				snapshotValue,
+				structuralContains: {
+					snapshotOperand: (value: unknown) => value,
+				} as never,
+			}),
+		).toThrow('structuralContains requires a JSON storageCodec')
+
+		expect(() =>
+			definePluginField(
+				'fixture.list-containment',
+				{ list: true },
+				{
+					snapshotValue,
+					storageCodec: {
+						decode: (value) => snapshotValue(value, 'stored value'),
+						encode: String,
+						format: 'json',
+						version: 1,
+					},
+					structuralContains: {
+						snapshotOperand: (value: unknown) => value,
+					} as never,
+				},
+			),
+		).toThrow('structuralContains does not support list fields')
+
+		expect(() =>
+			definePluginField(
+				'fixture.malformed-containment',
+				{},
+				{
+					snapshotValue,
+					storageCodec: {
+						decode: (value) => snapshotValue(value, 'stored value'),
+						encode: String,
+						format: 'json',
+						version: 1,
+					},
+					structuralContains: {
+						unknown: true,
+						snapshotOperand: (value: unknown) => value,
+					},
+				},
+			),
+		).toThrow('Unknown plugin field structuralContains key: unknown')
 	})
 
 	it.each([

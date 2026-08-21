@@ -23,16 +23,20 @@ describe('portable plugin field filters', () => {
 						format: 'json',
 						version: 1,
 					},
+					structuralContains: {
+						snapshotOperand: (value: unknown) => value,
+					},
 				},
 			)
 		const method = defineFieldBuilderMethod({
 			factory: portableField,
 			fieldKind: 'fixture.portable-value',
 			name: 'portableValue',
-			typegen: {
-				methodType: 'PortableFieldBuilderMethod',
-				module: '@fixture/portable-plugin',
-				valueType: 'PortableValue',
+				typegen: {
+					methodType: 'PortableFieldBuilderMethod',
+					module: '@fixture/portable-plugin',
+					structuralContainsType: 'PortableContainsOperand',
+					valueType: 'PortableValue',
 			},
 		})
 		const plugin = definePlugin({
@@ -66,15 +70,23 @@ describe('portable plugin field filters', () => {
 		)
 
 		expect(field?.portableEquality).toBe(true)
+		expect(field?.structuralContains).toStrictEqual({
+			exportName: 'PortableContainsOperand',
+			module: '@fixture/portable-plugin',
+		})
 		expect(generated.contents).toContain(
 			'export type PortableEqualityFilter<TValue>',
 		)
 		expect(generated.contents).toContain(
-			'readonly value?: PortableEqualityFilter<Plugin0_PortableValue>',
+			'export type PortableContainmentFilter<TValue, TOperand>',
 		)
 		expect(generated.contents).toContain(
-			'readonly path: readonly ["value"] } & PortableEqualityFilter<Plugin0_PortableValue>',
+			'readonly value?: PortableContainmentFilter<Plugin0_PortableValue, Plugin0_PortableContainsOperand>',
+		)
+		expect(generated.contents).toContain(
+			'readonly path: readonly ["value"] } & PortableContainmentFilter<Plugin0_PortableValue, Plugin0_PortableContainsOperand>',
 		)
 		expect(generated.contents).not.toContain('readonly value?: NullFilter')
+		expect(JSON.stringify(generated.snapshot)).not.toContain('snapshotOperand')
 	})
 })

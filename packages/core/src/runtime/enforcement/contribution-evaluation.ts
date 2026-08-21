@@ -7,6 +7,11 @@ import { readApplicationCapabilityContributions } from '../../plugins/applicatio
 import { runWithApplicationPluginOwner } from '../../plugins/callback-execution.js'
 import type { PluginIdentity } from '../../plugins/manifest.js'
 import { Schema, type SchemaDefinition } from '../../schema/index.js'
+import type { QueryFilterNode } from '../../query/filters/logical.js'
+import {
+	normalizeWhereInput,
+	whereInputFromQueryFilter,
+} from '../../query/filters/where.js'
 import {
 	immutableArray,
 	immutableRecord,
@@ -274,7 +279,13 @@ export const evaluateEnforcementContributions = async <
 				state = appendEnforcementConstraints(state, effects.constraints)
 			}
 			if (effects.rowFilter !== undefined) {
-				state = appendEnforcementRowFilter(state, effects.rowFilter)
+				const rowFilter = normalizeWhereInput(
+					schema,
+					whereInputFromQueryFilter(
+						effects.rowFilter as QueryFilterNode<typeof schema>,
+					),
+				)
+				state = appendEnforcementRowFilter(state, rowFilter)
 			}
 			if (effects.inputFields !== undefined) {
 				state = narrowEnforcementFields(

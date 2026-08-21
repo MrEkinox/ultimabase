@@ -117,8 +117,11 @@ typing and autocomplete to the same runtime `execute()` method; they never emit
 an executable client. Portable plugin scalars receive an exact generic
 complete-value filter containing only `eq`, `ne`, `in`, `notIn`, and null
 predicates; Typegen does not infer ordered or domain-specific operators from a
-JSON codec. Portable equality metadata advances the inert snapshot format to
-version 4.
+JSON codec. Plugin fields that separately enable Core's portable structural
+containment name their exact partial operand through `structuralContainsType`.
+Typegen emits `contains` only for those fields and keeps the executable snapshot
+callback out of generated artifacts. These contracts advance the inert snapshot
+format to version 6 and the generator format to version 11.
 
 The TypeScript loader transpiles the application before a previous generated
 registry exists. Static compilation registers configured plugin field methods,

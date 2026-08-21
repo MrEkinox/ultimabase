@@ -13,6 +13,7 @@ import {
 	type BuiltInFieldOptionsContract,
 } from './options.js'
 import type { FieldScalarValue, GenericField } from './contract.js'
+import { snapshotJsonValue } from './portable-json.js'
 import type { SchemaTarget } from '../../schema/targets.js'
 
 export type ScalarValueSnapshot = (value: unknown, path: string) => unknown
@@ -29,6 +30,20 @@ export interface PluginFieldStorageCodec<TValue = unknown> {
 	readonly encode: (value: TValue) => unknown
 }
 
+/** Identifies the Core-owned portable containment protocol understood by adapters. */
+export const pluginFieldStructuralContainsProtocolVersion = 1 as const
+
+/** Inert metadata proving that one declared plugin field supports containment. */
+export interface PluginFieldStructuralContainsMetadata {
+	readonly format: 'json'
+	readonly protocolVersion: typeof pluginFieldStructuralContainsProtocolVersion
+}
+
+interface PluginFieldStructuralContainsCapability {
+	readonly metadata: PluginFieldStructuralContainsMetadata
+	readonly snapshotOperand: (value: unknown, path: string) => unknown
+}
+
 interface FieldMetadata<TKind extends string, TOptions extends object> {
 	readonly kind: TKind
 	readonly options: Readonly<TOptions>
@@ -40,6 +55,7 @@ interface FieldCapabilities {
 	readonly schemaTarget: SchemaTarget | undefined
 	readonly snapshotValue: ScalarValueSnapshot
 	readonly storageCodec: PluginFieldStorageCodec | undefined
+	readonly structuralContains: PluginFieldStructuralContainsCapability | undefined
 }
 
 /** Carries non-metadata capabilities used only by specialized field factories. */
@@ -49,6 +65,10 @@ export interface FieldDefinitionCapabilities {
 	readonly schemaTarget?: SchemaTarget
 	/** Lets adapters persist one plugin scalar through a validated JSON representation. */
 	readonly storageCodec?: PluginFieldStorageCodec
+	/** Keeps the author callback private while exposing only inert protocol metadata. */
+	readonly structuralContains?: {
+		readonly snapshotOperand: (value: unknown, path: string) => unknown
+	}
 	/** Records Core-owned root option names for specialized factories. */
 	readonly optionsContract?: BuiltInFieldOptionsContract
 }
@@ -69,6 +89,21 @@ export const createFieldDefinition = <
 	capabilities: FieldDefinitionCapabilities = {},
 ): FieldMetadata<TKind, TOptions> => {
 	const field = immutableRecord({ kind, options })
+	const structuralSnapshot = capabilities.structuralContains?.snapshotOperand
+	const structuralContains =
+		structuralSnapshot === undefined
+			? undefined
+			: immutableRecord({
+					metadata: immutableRecord({
+						format: 'json' as const,
+						protocolVersion: pluginFieldStructuralContainsProtocolVersion,
+					}),
+					snapshotOperand: (value: unknown, path: string): unknown =>
+						snapshotJsonValue(
+							structuralSnapshot(value, path),
+							path,
+						),
+				})
 
 	fieldCapabilities.set(
 		field,
@@ -80,6 +115,7 @@ export const createFieldDefinition = <
 			schemaTarget: capabilities.schemaTarget,
 			snapshotValue,
 			storageCodec: capabilities.storageCodec,
+			structuralContains,
 		}),
 	)
 
@@ -120,6 +156,27 @@ export const getPluginFieldStorageCodec = (
 	field: GenericField,
 ): PluginFieldStorageCodec | undefined =>
 	fieldCapabilities.get(field)?.storageCodec
+
+/** Reads only the inert protocol marker; plugin callbacks never leave Core ownership. */
+export const getPluginFieldStructuralContains = (
+	field: GenericField,
+): PluginFieldStructuralContainsMetadata | undefined =>
+	fieldCapabilities.get(field)?.structuralContains?.metadata
+
+/** Snapshots one plugin containment operand at the trusted query boundary. */
+export const snapshotPluginFieldStructuralContainsOperand = (
+	field: GenericField,
+	value: unknown,
+	path: string,
+): unknown => {
+	const capability = fieldCapabilities.get(field)?.structuralContains
+
+	if (capability === undefined) {
+		throw new TypeError(`${path} requires plugin field structural containment`)
+	}
+
+	return capability.snapshotOperand(value, path)
+}
 
 /** Distinguishes official factories from structurally forged field objects. */
 export const isDeclaredFieldDefinition = (value: object): boolean =>

@@ -44,6 +44,7 @@ const fieldBuilderMethodKeys = new Set([
 const fieldBuilderMethodTypegenKeys = new Set([
 	'methodType',
 	'module',
+	'structuralContainsType',
 	'valueType',
 ])
 const declaredFieldBuilderMethods = new WeakSet<object>()
@@ -54,6 +55,8 @@ export interface FieldBuilderMethodTypegen {
 	readonly module: string
 	/** Exported callable type used to add the method to generated builders. */
 	readonly methodType: string
+	/** Exported partial operand accepted by structural containment when enabled. */
+	readonly structuralContainsType?: string
 	/** Exported logical value type used by generated models and operations. */
 	readonly valueType: string
 }
@@ -131,6 +134,14 @@ const normalizeTypegen = (value: unknown): FieldBuilderMethodTypegen => {
 			'FieldBuilder method typegen.methodType',
 		),
 		module: value.module,
+		...(value.structuralContainsType === undefined
+			? {}
+			: {
+					structuralContainsType: assertTypeExportName(
+						value.structuralContainsType,
+						'FieldBuilder method typegen.structuralContainsType',
+					),
+				}),
 		valueType: assertTypeExportName(
 			value.valueType,
 			'FieldBuilder method typegen.valueType',

@@ -4,6 +4,7 @@ import type { DefaultFactory, FieldDefault } from './defaults.js'
 
 declare const fieldValueMarker: unique symbol
 declare const fieldTypegenMarker: unique symbol
+declare const fieldStructuralContainsOperandMarker: unique symbol
 declare const fieldOptionsValueType: unique symbol
 
 /** Carries one field scalar through plugin-owned option inference without Runtime data. */
@@ -296,11 +297,13 @@ export interface FieldDefinition<
 	TValue,
 	TOptions extends object = FieldOptions<TValue>,
 	TTypegen extends FieldTypegenState = ResolveFieldTypegenState<TOptions>,
+	TStructuralContainsOperand = never,
 > {
 	readonly kind: TKind
 	readonly options: Readonly<TOptions>
 	readonly [fieldValueMarker]?: TValue
 	readonly [fieldTypegenMarker]?: TTypegen
+	readonly [fieldStructuralContainsOperandMarker]?: TStructuralContainsOperand
 }
 
 /**
@@ -320,6 +323,13 @@ export type FieldScalarValue<TField> = TField extends {
 }
 	? TValue
 	: unknown
+
+/** Extracts the exact partial operand accepted by plugin-owned structural containment. */
+export type FieldStructuralContainsOperand<TField> = TField extends {
+	readonly [fieldStructuralContainsOperandMarker]?: infer TOperand
+}
+	? TOperand
+	: never
 
 /** Extracts the compact operation state carried by a declared field. */
 export type FieldTypegenStateOf<TField> = TField extends {

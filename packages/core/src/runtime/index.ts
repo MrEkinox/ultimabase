@@ -76,9 +76,12 @@ export {
 	databaseRelationCapabilityVersion,
 	databaseRelationPredicateCapability,
 	databaseRelationPredicateCapabilityVersion,
+	databasePluginFieldStructuralContainsCapability,
+	databasePluginFieldStructuralContainsCapabilityVersion,
 } from './database/contracts.js'
 export type {
 	DatabaseAdapterCapabilities,
+	DatabasePluginFieldStructuralContainsCapability,
 	DatabaseConstraintNode,
 	DatabaseConstraintPayload,
 	DatabaseConstraintPayloadObject,

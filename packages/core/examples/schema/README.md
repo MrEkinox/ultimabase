@@ -22,6 +22,8 @@ TypeScript snippets:
   uniqueness;
 - [`extensions.md`](extensions.md) declares opaque schema and field metadata
   owned by a runtime plugin;
+- [`plugin-field-containment.md`](plugin-field-containment.md) gives a community
+  scalar field an exact portable structural `contains` operand;
 - [`plugin-transformations.md`](plugin-transformations.md) declares direct plugin
   options, stable and dynamic plugin schemas, application handles, frozen
   selectors, immutable patches, conflicts,

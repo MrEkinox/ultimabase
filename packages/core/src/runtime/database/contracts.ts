@@ -32,6 +32,9 @@ export const databaseRelationCapabilityVersion = 1 as const
 /** Selects the correlated relationship-predicate protocol understood by adapters. */
 export const databaseRelationPredicateCapabilityVersion = 4 as const
 
+/** Selects Core's portable plugin-field structural containment protocol. */
+export const databasePluginFieldStructuralContainsCapabilityVersion = 1 as const
+
 /** Advertises logical pointer storage, predicates, and inclusion source values. */
 export interface DatabasePointerCapability {
 	readonly kind: 'pointers'
@@ -56,6 +59,12 @@ export interface DatabaseRelationPredicateCapability {
 	readonly version: typeof databaseRelationPredicateCapabilityVersion
 }
 
+/** Advertises compilation of validated plugin-field containment leaves. */
+export interface DatabasePluginFieldStructuralContainsCapability {
+	readonly kind: 'plugin-field-structural-contains'
+	readonly version: typeof databasePluginFieldStructuralContainsCapabilityVersion
+}
+
 /** Advertises exact physical statement kinds and their portable protocol version. */
 export interface DatabasePersistencePlanCapability {
 	readonly kind: 'persistence-plans'
@@ -69,6 +78,7 @@ export interface DatabaseAdapterCapabilities {
 	readonly inclusions?: DatabaseInclusionCapability
 	readonly relations?: DatabaseRelationCapability
 	readonly relationPredicates?: DatabaseRelationPredicateCapability
+	readonly pluginFieldStructuralContains?: DatabasePluginFieldStructuralContainsCapability
 	readonly persistencePlans?: DatabasePersistencePlanCapability
 }
 
@@ -98,6 +108,13 @@ export const databaseRelationPredicateCapability: DatabaseRelationPredicateCapab
 	immutableRecord({
 		kind: 'relation-predicates',
 		version: databaseRelationPredicateCapabilityVersion,
+	})
+
+/** Reuses one frozen portable plugin-field containment declaration. */
+export const databasePluginFieldStructuralContainsCapability: DatabasePluginFieldStructuralContainsCapability =
+	immutableRecord({
+		kind: 'plugin-field-structural-contains',
+		version: databasePluginFieldStructuralContainsCapabilityVersion,
 	})
 
 /** Advertises Core's complete built-in persistence-plan family. */

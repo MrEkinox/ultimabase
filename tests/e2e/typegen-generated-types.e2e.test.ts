@@ -3,6 +3,9 @@ import os from 'node:os'
 import path from 'node:path'
 
 import {
+	defineFieldBuilderMethod,
+	definePlugin,
+	definePluginField,
 	FrameworkApplication,
 	Schema,
 	type FieldBuilder,
@@ -14,6 +17,8 @@ import * as Typegen from '@ultimabase/typegen'
 import {
 	pgVectorPlugin,
 	type VectorFieldBuilderMethod,
+	type VectorFieldOptions,
+	type VectorValue,
 } from '@ultimabase/pg-vector-plugin'
 import * as ts from 'typescript'
 import { describe, expect, it } from 'vitest'
@@ -22,6 +27,7 @@ import { Todo, TodoUser } from '../../examples/todo-backend/src/schema.js'
 import { createLanguageService } from '../../tooling/vitest/typescript-language-service.js'
 
 type PackedFieldBuilder = FieldBuilder & {
+	readonly contained: VectorFieldBuilderMethod
 	readonly vector: VectorFieldBuilderMethod
 }
 
@@ -46,6 +52,65 @@ const updateManyOptionsMarker = '/* packed-update-many-options */'
 const updateOneTargetMarker = '/* packed-update-one-target */'
 const deleteOneTargetMarker = '/* packed-delete-one-target */'
 const updateOneHoverMarker = '/* packed-update-one-hover */'
+const containmentMarker = '/* packed-containment-operand */'
+
+const snapshotPackedVector = (value: unknown): VectorValue => {
+	if (!Array.isArray(value)) throw new TypeError('vector must be an array')
+	return Object.freeze(
+		value.map((item) => {
+			if (typeof item !== 'number') {
+				throw new TypeError('vector items must be numbers')
+			}
+			return item
+		}),
+	)
+}
+const containedVectorField = () =>
+	definePluginField('fixture.packed.contained-vector', {}, {
+		snapshotValue: snapshotPackedVector,
+		storageCodec: {
+			decode: snapshotPackedVector,
+			encode: (value) => value,
+			format: 'json',
+			version: 1,
+		},
+		structuralContains: {
+			snapshotOperand: (value: unknown): VectorFieldOptions => {
+				if (
+					typeof value !== 'object' ||
+					value === null ||
+					!('dimensions' in value) ||
+					typeof value.dimensions !== 'number'
+				) {
+					throw new TypeError('operand must contain dimensions')
+				}
+				return { dimensions: value.dimensions }
+			},
+		},
+	})
+const containedVectorMethod = defineFieldBuilderMethod({
+	factory: containedVectorField,
+	fieldKind: 'fixture.packed.contained-vector',
+	name: 'contained',
+	typegen: {
+		methodType: 'VectorFieldBuilderMethod',
+		module: '@ultimabase/pg-vector-plugin',
+		structuralContainsType: 'VectorFieldOptions',
+		valueType: 'VectorValue',
+	},
+})
+const containedVectorPlugin = definePlugin({
+	core: '^0.0.0',
+	declare: ({ fields }) => {
+		fields.register(containedVectorMethod)
+		return undefined
+	},
+	pluginId: 'fixture.packed-contained-vector-plugin',
+	privileges: [
+		{ name: 'schema:declare', reason: 'Declares packed containment types.' },
+	],
+	version: '0.0.0',
+})
 
 const Owner = Schema.define({
 	className: 'PackedGeneratedOwner',
@@ -59,6 +124,7 @@ const Document = Schema.define({
 	fields: (field) => {
 		const generatedField = field as PackedFieldBuilder
 		return {
+			contained: containedVectorField(),
 			embedding: generatedField.vector({ dimensions: 3 }),
 			owner: field.pointer({
 				target: 'PackedGeneratedOwner',
@@ -76,7 +142,12 @@ const Document = Schema.define({
 	},
 })
 const application = new FrameworkApplication({
-	plugins: [accessPlugin(), hooksPlugin(), pgVectorPlugin()],
+	plugins: [
+		accessPlugin(),
+		containedVectorPlugin,
+		hooksPlugin(),
+		pgVectorPlugin(),
+	],
 	schemas: [Owner, Document],
 })
 const generated = generateApplicationTypes({
@@ -103,6 +174,7 @@ const PackedGeneratedOwner = Schema.define({
 const PackedGeneratedDocument = Schema.define({
   className: 'PackedGeneratedDocument',
   fields: (field) => ({
+    contained: field.contained({ dimensions: 3 }),
     embedding: field.vector({ dimensions: 3 }),
     owner: field.pointer({
       target: 'PackedGeneratedOwner',
@@ -172,8 +244,18 @@ const packedPluginOptions: TypegenPluginOptions = {
 }
 const packedTypegen = ${pluginHoverMarker}packedTypegenPlugin(packedPluginOptions)
 const where: ${hoverMarker}PackedGeneratedDocumentWhereInput = {
-  status: { eq: 'draft' },
+  contained: {
+    // @ts-expect-error -- The incomplete operand drives packed completion.
+    contains: { ${containmentMarker} },
+  },
+	status: { eq: 'draft' },
   title: { contains: 'Generated' },
+}
+const invalidContainment: PackedGeneratedDocumentWhereInput = {
+  contained: {
+    // @ts-expect-error -- Packed containment retains the owner operand type.
+    contains: [1, 2, 3],
+  },
 }
 const select: PackedGeneratedDocumentSelect = { ${selectMarker} }
 const create: PackedGeneratedDocumentCreateInput = {
@@ -327,6 +409,7 @@ void packedCompletionOptions
 void packedTypegen
 void invalidStatus
 void invalidIdentifierSelection
+void invalidContainment
 void ownerRead
 void packedHookPlugin
 void publicRead
@@ -366,6 +449,7 @@ const mutationTargetPositions = [
 	deleteOneTargetMarker,
 ].map((marker) => sourceWithMarkers.indexOf(marker))
 const updateOneHoverPosition = sourceWithMarkers.indexOf(updateOneHoverMarker)
+const containmentPosition = sourceWithMarkers.indexOf(containmentMarker)
 const source = sourceWithMarkers
 	.replace(selectMarker, ' '.repeat(selectMarker.length))
 	.replace(publicSelectMarker, ' '.repeat(publicSelectMarker.length))
@@ -391,6 +475,7 @@ const source = sourceWithMarkers
 	.replace(updateOneTargetMarker, ' '.repeat(updateOneTargetMarker.length))
 	.replace(deleteOneTargetMarker, ' '.repeat(deleteOneTargetMarker.length))
 	.replace(updateOneHoverMarker, ' '.repeat(updateOneHoverMarker.length))
+	.replace(containmentMarker, ' '.repeat(containmentMarker.length))
 const fileName = path.join(
 	import.meta.dirname,
 	'typegen-generated-types.packed.fixture.ts',
@@ -458,6 +543,11 @@ describe('packed @ultimabase/typegen generated contracts', () => {
 	})
 
 	it('preserves exact field completions and concise named hovers', () => {
+		expect(
+			service
+				.getCompletionsAtPosition(fileName, containmentPosition, {})
+				?.entries.map(({ name }) => name),
+		).toContain('dimensions')
 		expect(
 			service
 				.getCompletionsAtPosition(

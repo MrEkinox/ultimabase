@@ -15,7 +15,7 @@ export const handwrittenFileLineBaseline: Readonly<Record<string, number>> =
 		'packages/acl-permissions-plugin/src/plugin.test.ts': 1082,
 		'packages/acl-permissions-plugin/src/plugin.ts': 902,
 		'packages/core/src/plugins/capability-composition.test.ts': 1159,
-		'packages/core/src/query/filters/factory.ts': 807,
+		'packages/core/src/query/filters/factory.ts': 663,
 		'packages/core/src/query/filters/where.ts': 1610,
 		'packages/core/src/query/query/input.ts': 828,
 		'packages/core/src/query/query/query.ts': 724,

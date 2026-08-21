@@ -38,6 +38,16 @@ export const renderScalarFilters = (
 		)
 	}
 
+	if (allFields.some((field) => field.structuralContains !== undefined)) {
+		definitions.push(
+			renderNamedFilter('PortableContainmentFilter<TValue, TOperand>', [
+				renderEqualityProperties('TValue'),
+				'\treadonly contains?: TOperand',
+				nullProperties,
+			]),
+		)
+	}
+
 	for (const { kind, name, value } of scalarFilters) {
 		if (hasRootKind(kind)) {
 			definitions.push(

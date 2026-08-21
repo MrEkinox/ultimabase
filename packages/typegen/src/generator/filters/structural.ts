@@ -36,6 +36,10 @@ export const renderPathOperators = (
 		return `${context.identifiers.enum(field).alias}Filter`
 	}
 
+	if (field.structuralContains !== undefined) {
+		return `PortableContainmentFilter<${renderFieldValue(field, 'object', context)}, ${context.imports.alias(field.structuralContains)}>`
+	}
+
 	if (field.portableEquality) {
 		return `PortableEqualityFilter<${renderFieldValue(field, 'object', context)}>`
 	}

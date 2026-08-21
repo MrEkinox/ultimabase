@@ -1,4 +1,5 @@
 import {
+	getPluginFieldStructuralContains,
 	getPluginFieldStorageCodec,
 	readFieldTypegenState,
 	type CompiledSchemaRegistry,
@@ -60,6 +61,8 @@ export interface TypegenFieldSnapshot {
 	readonly path: readonly string[]
 	/** Grants complete-value equality only through the field's portable JSON codec. */
 	readonly portableEquality: boolean
+	/** Names the plugin-owned partial operand without retaining its callback. */
+	readonly structuralContains: TypegenReference | undefined
 	readonly typegen: FieldTypegenState
 	readonly value: TypegenValueNode
 }
@@ -74,6 +77,7 @@ export interface TypegenFieldMethodSnapshot {
 	readonly method: TypegenReference
 	readonly name: string
 	readonly owner: string
+	readonly structuralContains: TypegenReference | undefined
 	readonly value: TypegenReference
 }
 
@@ -159,11 +163,12 @@ export interface TypegenApplicationSnapshot {
 	readonly outputs: readonly TypegenOutputSnapshot[]
 	readonly schemas: readonly TypegenSchemaSnapshot[]
 	readonly surfaces: readonly TypegenSchemaSurfaceSnapshot[]
-	readonly version: 5
+	readonly version: 6
 }
 
 interface PluginValueReference extends TypegenReference {
 	readonly owner: string
+	readonly structuralContains: TypegenReference | undefined
 }
 
 const readDescription = (field: GenericField): string | undefined =>
@@ -242,12 +247,23 @@ const createPluginValueReferences = (
 			exportName: method.typegen.valueType,
 			module: method.typegen.module,
 			owner: method.owner,
+			structuralContains:
+				method.typegen.structuralContainsType === undefined
+					? undefined
+					: immutableRecord({
+							exportName: method.typegen.structuralContainsType,
+							module: method.typegen.module,
+						}),
 		})
 
 		if (
 			existing !== undefined &&
 			(existing.exportName !== candidate.exportName ||
-				existing.module !== candidate.module)
+				existing.module !== candidate.module ||
+				existing.structuralContains?.exportName !==
+					candidate.structuralContains?.exportName ||
+				existing.structuralContains?.module !==
+					candidate.structuralContains?.module)
 		) {
 			throw new SchemaTypegenError(
 				'malformed-plugin-contribution',
@@ -399,6 +415,21 @@ const snapshotFields = (
 
 				const field = candidate as GenericField
 				const path = immutableArray([...parentPath, name])
+				const containment = getPluginFieldStructuralContains(field)
+				const pluginReference = context.pluginValues.get(field.kind)
+
+				if (
+					containment !== undefined &&
+					pluginReference?.structuralContains === undefined
+				) {
+					const displayPath = `${schema.className}.${path.join('.')}`
+
+					throw new SchemaTypegenError(
+						'malformed-plugin-contribution',
+						`Field ${displayPath} enables structural containment without a declared operand type`,
+						{ path: displayPath },
+					)
+				}
 
 				return immutableRecord({
 					description: readDescription(field),
@@ -406,6 +437,10 @@ const snapshotFields = (
 					name,
 					path,
 					portableEquality: getPluginFieldStorageCodec(field) !== undefined,
+					structuralContains:
+						containment === undefined
+							? undefined
+							: pluginReference?.structuralContains,
 					typegen: readFieldTypegenState(field),
 					value: snapshotValue(field, schema, path, context),
 				})
@@ -446,6 +481,13 @@ export const createCompiledTypegenSnapshot = (
 					}),
 					name: method.name,
 					owner: method.owner,
+					structuralContains:
+						method.typegen.structuralContainsType === undefined
+							? undefined
+							: immutableRecord({
+									exportName: method.typegen.structuralContainsType,
+									module: method.typegen.module,
+								}),
 					value: immutableRecord({
 						exportName: method.typegen.valueType,
 						module: method.typegen.module,
@@ -470,7 +512,7 @@ export const createCompiledTypegenSnapshot = (
 		...typegenGraph,
 		fieldMethods,
 		schemas,
-		version: 5,
+		version: 6,
 	})
 }
 

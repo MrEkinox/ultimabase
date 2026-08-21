@@ -1,6 +1,10 @@
 import { expectTypeOf, test } from 'vitest'
 
-import { definePluginField, type FieldDefinition } from '../index.js'
+import {
+	definePluginField,
+	type FieldDefinition,
+	type FieldStructuralContainsOperand,
+} from '../index.js'
 
 const snapshotValue = (value: unknown, path: string): string => {
 	if (typeof value !== 'string') {
@@ -36,4 +40,37 @@ test('keeps plugin field options on the primary call contract', () => {
 		},
 		{ snapshotValue },
 	)
+})
+
+test('carries the exact plugin containment operand at the type level', () => {
+	const field = definePluginField('fixture.containment-type', {}, {
+		snapshotValue,
+		storageCodec: {
+			decode: (value) => snapshotValue(value, 'stored value'),
+			encode: String,
+			format: 'json',
+			version: 1,
+		},
+		structuralContains: {
+			snapshotOperand: (
+				value: unknown,
+			): Readonly<{ readonly prefix: string }> => {
+				if (
+					typeof value !== 'object' ||
+					value === null ||
+					!('prefix' in value) ||
+					typeof value.prefix !== 'string'
+				) {
+					throw new TypeError('operand must contain prefix')
+				}
+
+				return { prefix: value.prefix }
+			},
+		},
+	})
+
+	expectTypeOf(field.kind).toEqualTypeOf<'fixture.containment-type'>()
+	expectTypeOf<FieldStructuralContainsOperand<typeof field>>().toEqualTypeOf<
+		Readonly<{ readonly prefix: string }>
+	>()
 })

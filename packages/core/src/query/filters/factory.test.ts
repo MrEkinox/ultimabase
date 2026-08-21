@@ -57,6 +57,28 @@ const portableCodeField = definePluginField(
 		},
 	},
 )
+const containedCodeField = definePluginField(
+	'fixture.query.contained-code',
+	{ validation: { required: true } },
+	{
+		snapshotValue: snapshotCode,
+		storageCodec: {
+			decode: (value) => snapshotCode(value, 'stored code'),
+			encode: (value) => immutableRecord(value),
+			format: 'json',
+			version: 1,
+		},
+		structuralContains: {
+			snapshotOperand: (value: unknown) => {
+				if (!isPlainRecord(value) || typeof value.prefix !== 'string') {
+					throw new TypeError('query containment must contain a prefix')
+				}
+
+				return value
+			},
+		},
+	},
+)
 const runtimeOnlyCodeField = definePluginField(
 	'fixture.query.runtime-code',
 	{ validation: { required: true } },
@@ -64,10 +86,72 @@ const runtimeOnlyCodeField = definePluginField(
 )
 const pluginFieldSchema = Schema.define({
 	className: 'PluginFilterFixture',
-	fields: () => ({ portableCodeField, runtimeOnlyCodeField }),
+	fields: (field) => ({
+		containedCodeField,
+		nested: field.object({ fields: () => ({ containedCodeField }) }),
+		portableCodeField,
+		runtimeOnlyCodeField,
+	}),
 })
 
 describe('query filter factories', () => {
+	it('snapshots exact plugin containment operands at root and nested paths', () => {
+		const operand = { prefix: 'sta', nested: { enabled: true } }
+		const root = createQueryValueFilter(
+			pluginFieldSchema,
+			'contains',
+			'containedCodeField',
+			operand,
+		)
+		const nested = createQueryValueFilter(
+			pluginFieldSchema,
+			'contains',
+			fieldPath('nested', ['containedCodeField']),
+			{ prefix: 'nes' },
+		)
+
+		operand.prefix = 'changed'
+		operand.nested.enabled = false
+
+		expect(root).toStrictEqual({
+			field: 'containedCodeField',
+			kind: 'contains',
+			value: { prefix: 'sta', nested: { enabled: true } },
+		})
+		expect(Object.isFrozen(root.value)).toBe(true)
+		expect(Object.isFrozen((root.value as { nested: object }).nested)).toBe(true)
+		expect(nested).toStrictEqual({
+			field: 'nested',
+			kind: 'contains',
+			path: ['containedCodeField'],
+			value: { prefix: 'nes' },
+		})
+		expect(() =>
+			createQueryValueFilter(
+				pluginFieldSchema,
+				'contains',
+				'containedCodeField',
+				{ prefix: 42 },
+			),
+		).toThrow('query containment must contain a prefix')
+		expect(() =>
+			createQueryValueFilter(
+				pluginFieldSchema,
+				'contains',
+				'containedCodeField',
+				{ prefix: 'valid', invalid: new Date() },
+			),
+		).toThrow('must contain only plain JSON objects')
+		expect(() =>
+			createQueryStructuralFilter(
+				pluginFieldSchema,
+				'contained-by',
+				'containedCodeField',
+				{ prefix: 'nope' },
+			),
+		).toThrow('does not support fixture.query.contained-code fields')
+	})
+
 	it('grants portable plugin scalars complete-value equality only', () => {
 		expect(
 			createQueryValueFilter(pluginFieldSchema, 'equal', 'portableCodeField', {

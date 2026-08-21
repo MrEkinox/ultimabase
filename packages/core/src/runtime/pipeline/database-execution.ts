@@ -1,17 +1,6 @@
-import {
-	immutableArray,
-	immutableRecord,
-	isPlainRecord,
-	isUnknownArray,
-} from '@ultimabase/shared'
+import { immutableArray, immutableRecord, isPlainRecord, isUnknownArray } from '@ultimabase/shared'
 
-import { FrameworkError } from '../../foundation.js'
-import { collectQueryRelationPredicates } from '../../query/filters/relation.js'
-import type { ExecutableOperationAst } from '../../query/index.js'
-import { isRelationUpdateExpression } from '../../schema/relations/mutation.js'
 import {
-	databaseRelationCapabilityVersion,
-	databaseRelationPredicateCapabilityVersion,
 	type DatabaseConstraintNode,
 	type DatabaseInclusionPlan,
 	type DatabaseMutationLogicalRecord,
@@ -35,16 +24,13 @@ import { createDatabasePersistencePlan } from '../persistence/plans.js'
 import type { EnforcementState } from '../enforcement/state.js'
 import type { RequestContext } from '../context/request-context.js'
 import { collectDatabaseObjectIdentities } from '../operations/model-metadata.js'
-import { readOperationQueries } from '../operations/queries.js'
 import { createProtectedObjectNotFoundError } from '../operations/target-errors.js'
 import type {
 	RuntimeBehaviorStages,
 	RuntimeEnforcementStages,
 } from './contracts.js'
-import {
-	assertDatabaseInclusionCapability,
-	loadSingularMutationInclusionSource,
-} from './inclusion-projection.js'
+import { loadSingularMutationInclusionSource } from './inclusion-projection.js'
+import { assertDatabaseRequestCapabilities } from './database-capability-validation.js'
 import {
 	createRuntimeEnforcementInput,
 	createRuntimeMutationOutcomeInput,
@@ -140,111 +126,6 @@ const readPreparedMutationTargets = <
 	return immutableArray(
 		value,
 	) as readonly DatabaseMutationLogicalRecord<TOperation>[]
-}
-
-/** Rejects relation work unless the active transaction adapter claims it. */
-const assertRelationMutationCapability = (
-	executor: DatabaseOperationExecutor,
-	operation: DatabaseOperationAst,
-): void => {
-	if (
-		operation.kind !== 'update-one' ||
-		!('update' in operation) ||
-		!isRelationUpdateExpression(operation.update)
-	) {
-		return
-	}
-
-	const capability: unknown = executor.capabilities?.relations
-
-	if (
-		!isPlainRecord(capability) ||
-		capability.kind !== 'relations' ||
-		capability.version !== databaseRelationCapabilityVersion
-	) {
-		throw new FrameworkError(
-			'INTERNAL_ERROR',
-			`Database adapter must implement relation capability version ${String(databaseRelationCapabilityVersion)}.`,
-			{ publicMessage: 'Relation mutations are not available.' },
-		)
-	}
-}
-
-const assertDatabaseRequestCapabilities = (
-	executor: DatabaseOperationExecutor,
-	request: {
-		readonly inclusions?: readonly DatabaseInclusionPlan[]
-		readonly operation: DatabaseOperationAst
-		readonly relation?: DatabaseRelationScope
-		readonly relationPredicates?: readonly DatabaseRelationPredicateScope[]
-		readonly rowFilter?: DatabaseRowFilterNode
-	},
-): void => {
-	assertRelationMutationCapability(executor, request.operation)
-
-	if (request.inclusions !== undefined) {
-		assertDatabaseInclusionCapability(executor)
-	}
-
-	if (request.relation !== undefined) {
-		const capability: unknown = executor.capabilities?.relations
-
-		if (
-			!isPlainRecord(capability) ||
-			capability.kind !== 'relations' ||
-			capability.version !== databaseRelationCapabilityVersion
-		) {
-			throw new FrameworkError(
-				'INTERNAL_ERROR',
-				`Database adapter must implement relation capability version ${String(databaseRelationCapabilityVersion)}.`,
-				{ publicMessage: 'Relation queries are not available.' },
-			)
-		}
-	}
-
-	// Structural validation has already narrowed the operation to this closed AST.
-	const executable = request.operation as unknown as ExecutableOperationAst
-	const predicates = [
-		...readOperationQueries(executable).flatMap((query) =>
-			query.where === undefined
-				? []
-				: [...collectQueryRelationPredicates(query.where.expression)],
-		),
-		...(request.rowFilter === undefined
-			? []
-			: [...collectQueryRelationPredicates(request.rowFilter)]),
-	]
-
-	if (predicates.length === 0) return
-
-	const capability: unknown = executor.capabilities?.relationPredicates
-
-	if (
-		!isPlainRecord(capability) ||
-		capability.kind !== 'relation-predicates' ||
-		capability.version !== databaseRelationPredicateCapabilityVersion
-	) {
-		throw new FrameworkError(
-			'INTERNAL_ERROR',
-			`Database adapter must implement relation predicate capability version ${String(databaseRelationPredicateCapabilityVersion)}.`,
-			{ publicMessage: 'Relation filters are not available.' },
-		)
-	}
-
-	if (
-		predicates.some(
-			(predicate) =>
-				!request.relationPredicates?.some(
-					(scope) => scope.predicate === predicate,
-				),
-		)
-	) {
-		throw new FrameworkError(
-			'INTERNAL_ERROR',
-			'Relation predicate target policy was not evaluated.',
-			{ publicMessage: 'Relation filters are not available.' },
-		)
-	}
 }
 
 export interface RuntimeDatabaseExecutionRequest<
