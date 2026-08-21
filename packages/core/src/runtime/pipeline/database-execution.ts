@@ -1,4 +1,9 @@
-import { immutableArray, immutableRecord, isPlainRecord, isUnknownArray } from '@ultimabase/shared'
+import {
+	immutableArray,
+	immutableRecord,
+	isPlainRecord,
+	isUnknownArray,
+} from '@ultimabase/shared'
 
 import {
 	type DatabaseConstraintNode,

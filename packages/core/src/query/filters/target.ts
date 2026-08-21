@@ -82,7 +82,8 @@ export const fieldPath = <
 	path: TPath,
 ): QueryFieldPath<TFieldName, TPath> => {
 	const parsed = parseFieldPath({ kind: 'field-path', field, path })
-	if (parsed === undefined) throw new TypeError('query field path must be an object')
+	if (parsed === undefined)
+		throw new TypeError('query field path must be an object')
 	return parsed as QueryFieldPath<TFieldName, TPath>
 }
 

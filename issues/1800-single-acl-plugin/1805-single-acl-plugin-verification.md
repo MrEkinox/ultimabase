@@ -1,6 +1,6 @@
 # 1805: Verify the single-plugin ACL vertical
 
-- Status: planned
+- Status: completed
 - Milestone: 18
 - Packages: repository-wide
 - Depends on: 1804
@@ -14,19 +14,19 @@ one ACL plugin.
 
 ## Acceptance criteria
 
-- [ ] A fresh dependency audit finds no ACL vocabulary in Core or PostgreSQL and no remaining `acl-postgres-plugin` workspace or active installation instruction.
-- [ ] One community JSON-backed plugin field proves exact authoring inference, immutable containment, generic PostgreSQL compilation, GIN compatibility, and application isolation.
-- [ ] ACL public, authenticated, principal, role, relation, mutation, cleanup, event, Master, rollback, and multi-application paths remain fail-closed.
-- [ ] ACL installs with PostgreSQL as `aclPlugin()` plus `postgresPlugin()` in either valid configuration order and remains adapter-neutral without PostgreSQL.
-- [ ] Public declarations, Typegen, JavaScript, Typegen-free applications, package archives, and official manifest inventories contain no removed bridge surface.
-- [ ] Active documentation and backlog metadata describe one ACL plugin and distinguish portable containment operands from complete logical values.
-- [ ] The milestone README records exact commands, coverage or focused security evidence, and deliberately deferred ACL hardening work.
+- [x] A fresh dependency audit finds no ACL vocabulary in Core or PostgreSQL and no remaining `acl-postgres-plugin` workspace or active installation instruction.
+- [x] One community JSON-backed plugin field proves exact authoring inference, immutable containment, generic PostgreSQL compilation, GIN compatibility, and application isolation.
+- [x] ACL public, authenticated, principal, role, relation, mutation, cleanup, event, Master, rollback, and multi-application paths remain fail-closed.
+- [x] ACL installs with PostgreSQL as `aclPlugin()` plus `postgresPlugin()` in either valid configuration order and remains adapter-neutral without PostgreSQL.
+- [x] Public declarations, Typegen, JavaScript, Typegen-free applications, package archives, and official manifest inventories contain no removed bridge surface.
+- [x] Active documentation and backlog metadata describe one ACL plugin and distinguish portable containment operands from complete logical values.
+- [x] The milestone README records exact commands, coverage or focused security evidence, and deliberately deferred ACL hardening work.
 
 ## Tests
 
-- [ ] `yarn constraints`, `yarn typecheck`, `yarn test`, `yarn lint`, `yarn format:check`, and `yarn build` pass.
-- [ ] Source and packed language-service, package archive, public E2E, conformance, and PostgreSQL Testcontainers gates pass.
-- [ ] Issue and documentation metadata checks pass after removing every active bridge reference.
+- [x] `yarn constraints`, `yarn typecheck`, `yarn test`, `yarn lint`, `yarn format:check`, and `yarn build` pass.
+- [x] Source and packed language-service, package archive, public E2E, conformance, and PostgreSQL Testcontainers gates pass.
+- [x] Issue and documentation metadata checks pass after removing every active bridge reference.
 
 ## Out of scope
 

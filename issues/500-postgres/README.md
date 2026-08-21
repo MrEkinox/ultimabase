@@ -23,15 +23,16 @@ This scheduling decision does not make PostgreSQL a dependency of access
 contracts. It supplies a real adapter vertical against which later native
 Access, persisted ACL policies, and role-aware decisions can be tested.
 
-ACL-specific SQL issues 509 and 510 and migration issues 513–515 remain outside
-that completed E2E objective. Generic constraint compilers are introduced by
-issue 338 before issue 509 registers the ACL-specific PostgreSQL compiler
-through the dedicated `@ultimabase/acl-postgres-plugin` integration package.
-Issue 519 supplies the transaction adapter required by automatic mutation
-transactions. Issue 344 adds its mandatory prepared-mutation protocol and the
-singular PostgreSQL create, update, and delete outcomes. Issue 508 then adds
-bulk and concurrency-resolved upsert execution through the same protocol before
-the final native-hook PostgreSQL verification in issue 335.
+ACL-specific SQL issues 509 and 510 and migration issues 513–515 remained
+outside that completed E2E objective. Their original dedicated compiler bridge
+was later superseded by milestone 18: ACL now emits ordinary field-owned
+containment filters and PostgreSQL compiles the generic plugin-field protocol
+without ACL vocabulary or another integration package. Issue 519 supplies the
+transaction adapter required by automatic mutation transactions. Issue 344
+adds its mandatory prepared-mutation protocol and the singular PostgreSQL
+create, update, and delete outcomes. Issue 508 then adds bulk and
+concurrency-resolved upsert execution through the same protocol before the final
+native-hook PostgreSQL verification in issue 335.
 
 Issue 514 represents generated differences with an immutable `MigrationPlan`
 class. The plan is inspectable and deterministic, while connection ownership,

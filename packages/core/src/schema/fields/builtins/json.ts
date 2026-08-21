@@ -17,10 +17,7 @@ import {
 	type DefaultedCompactScalarFieldOptions,
 	type NonDefaultedCompactScalarFieldOptions,
 } from '../base/factory.js'
-import {
-	snapshotJsonValue,
-	type JsonDocument,
-} from '../base/portable-json.js'
+import { snapshotJsonValue, type JsonDocument } from '../base/portable-json.js'
 
 export { snapshotJsonValue } from '../base/portable-json.js'
 export type {

@@ -79,7 +79,9 @@ describe('database plugin field containment capability validation', () => {
 				assertDatabaseRequestCapabilities(executor, {
 					operation: candidate,
 				})
-			}).toThrow('must implement plugin field structural containment capability')
+			}).toThrow(
+				'must implement plugin field structural containment capability',
+			)
 			expect(execute).not.toHaveBeenCalled()
 		},
 	)

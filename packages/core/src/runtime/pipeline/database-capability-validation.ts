@@ -84,8 +84,7 @@ const containsPluginFieldOperand = (
 	const field = resolveQueryTarget(schema, target).terminalField
 
 	return (
-		field !== undefined &&
-		getPluginFieldStructuralContains(field) !== undefined
+		field !== undefined && getPluginFieldStructuralContains(field) !== undefined
 	)
 }
 
@@ -108,10 +107,7 @@ const assertPluginFieldStructuralContainsCapability = (
 		) ||
 		(request.rowFilter !== undefined &&
 			rootSchema !== undefined &&
-			containsPluginFieldOperand(
-				rootSchema,
-				request.rowFilter,
-			))
+			containsPluginFieldOperand(rootSchema, request.rowFilter))
 
 	if (!requiresCapability) return
 

@@ -1583,14 +1583,14 @@ the provider that resolves that subject:
 
 ```ts
 provideCapability(requestSubjectReferenceCleanupCapability, {
-	contributionId: 'acl.role-references',
+	contributionId: 'documents.subject-references',
 	create: () => ({
 		value: {
-			name: 'acl.role-references',
+			name: 'documents.subject-references',
 			cleanup: defineRequestSubjectReferenceCleanup({
 				kind: 'role',
-				hasReferences: ({ reference }) => aclStore.hasSubject(reference.value),
-				cleanup: ({ reference }) => aclStore.removeSubject(reference.value),
+				hasReferences: ({ reference }) => referenceStore.has(reference.value),
+				cleanup: ({ reference }) => referenceStore.remove(reference.value),
 			}),
 		},
 	}),
@@ -1599,7 +1599,7 @@ provideCapability(requestSubjectReferenceCleanupCapability, {
 
 Both callbacks execute only when the subject provider explicitly discovers the
 contribution. Their database work inherits the active request transaction;
-Core does not name roles, ACL, or a concrete reference store.
+Core does not name a concrete reference store or policy product.
 
 Principal owners can encode an exact Pointer without sharing their schema with
 the cleanup provider:

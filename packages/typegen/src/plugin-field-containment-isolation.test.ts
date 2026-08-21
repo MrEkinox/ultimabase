@@ -13,23 +13,27 @@ import { generateApplicationTypes } from './generator.js'
 
 const createFixture = (suffix: 'Alpha' | 'Beta', operandKey: string) => {
 	const containedField = () =>
-		definePluginField('fixture.isolated.contained', {}, {
-			snapshotValue: (value: unknown) => value,
-			storageCodec: {
-				decode: (value) => value,
-				encode: (value) => value,
-				format: 'json',
-				version: 1,
-			},
-			structuralContains: {
-				snapshotOperand: (value: unknown) => {
-					if (!isPlainRecord(value) || value[operandKey] !== true) {
-						throw new TypeError(`operand must enable ${operandKey}`)
-					}
-					return value
+		definePluginField(
+			'fixture.isolated.contained',
+			{},
+			{
+				snapshotValue: (value: unknown) => value,
+				storageCodec: {
+					decode: (value) => value,
+					encode: (value) => value,
+					format: 'json',
+					version: 1,
+				},
+				structuralContains: {
+					snapshotOperand: (value: unknown) => {
+						if (!isPlainRecord(value) || value[operandKey] !== true) {
+							throw new TypeError(`operand must enable ${operandKey}`)
+						}
+						return value
+					},
 				},
 			},
-		})
+		)
 	const method = defineFieldBuilderMethod({
 		factory: containedField,
 		fieldKind: 'fixture.isolated.contained',

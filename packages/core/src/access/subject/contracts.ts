@@ -157,7 +157,7 @@ const parseJSON: (value: string) => unknown = JSON.parse
  * Creates one stable provider-neutral reference for a persisted principal.
  *
  * Subject-owning plugins pass this value to generic reference-cleanup
- * contributions without importing any ACL implementation.
+ * contributions without importing a persisted-policy implementation.
  *
  * @example `createRequestPrincipalReference(User.pointer(userId))`
  */
@@ -323,8 +323,8 @@ export interface RequestRoleResolver {
 /**
  * Identifies the optional neutral role resolver shared by permission providers.
  *
- * A CLP or ACL plugin requires this capability only when its configured policy
- * contains a role subject.
+ * A persisted row-policy plugin requires this capability only when its
+ * configured policy contains a role subject.
  */
 export const requestRoleResolverCapability: CapabilityToken<
 	RequestRoleResolver,

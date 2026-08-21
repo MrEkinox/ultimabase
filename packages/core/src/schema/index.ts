@@ -101,9 +101,7 @@ export {
 	isFieldRequiredDeferred,
 	snapshotScalarFieldValue,
 } from './fields/base/definition.js'
-export {
-	pluginFieldStructuralContainsProtocolVersion,
-} from './fields/base/definition.js'
+export { pluginFieldStructuralContainsProtocolVersion } from './fields/base/definition.js'
 export type {
 	PluginFieldStorageCodec,
 	PluginFieldStructuralContainsMetadata,

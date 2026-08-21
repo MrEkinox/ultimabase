@@ -56,7 +56,7 @@ afterAll(async () => {
 })
 
 describe('ACL JSONB storage', { concurrent: false }, () => {
-	it('keeps ACL lifecycle atomic in one indexed object row', async () => {
+	it('keeps ACL lifecycle atomic when PostgreSQL precedes ACL', async () => {
 		const ultimabase = new UltimaBase({
 			masterAuthority: new MasterAuthority({
 				keys: [{ id: 'acl-storage-e2e', value: 'server-only' }],
@@ -64,11 +64,11 @@ describe('ACL JSONB storage', { concurrent: false }, () => {
 			}),
 			plugins: [
 				hooksPlugin(),
-				aclPlugin(),
 				postgresPlugin({
 					schemaPolicy: 'override',
 					url: getFixture().connectionUri,
 				}),
+				aclPlugin(),
 			],
 			schemas: [PrincipalA, PrincipalB, StoredPost],
 		})

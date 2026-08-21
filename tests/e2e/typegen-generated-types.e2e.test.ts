@@ -66,28 +66,32 @@ const snapshotPackedVector = (value: unknown): VectorValue => {
 	)
 }
 const containedVectorField = () =>
-	definePluginField('fixture.packed.contained-vector', {}, {
-		snapshotValue: snapshotPackedVector,
-		storageCodec: {
-			decode: snapshotPackedVector,
-			encode: (value) => value,
-			format: 'json',
-			version: 1,
-		},
-		structuralContains: {
-			snapshotOperand: (value: unknown): VectorFieldOptions => {
-				if (
-					typeof value !== 'object' ||
-					value === null ||
-					!('dimensions' in value) ||
-					typeof value.dimensions !== 'number'
-				) {
-					throw new TypeError('operand must contain dimensions')
-				}
-				return { dimensions: value.dimensions }
+	definePluginField(
+		'fixture.packed.contained-vector',
+		{},
+		{
+			snapshotValue: snapshotPackedVector,
+			storageCodec: {
+				decode: snapshotPackedVector,
+				encode: (value) => value,
+				format: 'json',
+				version: 1,
+			},
+			structuralContains: {
+				snapshotOperand: (value: unknown): VectorFieldOptions => {
+					if (
+						typeof value !== 'object' ||
+						value === null ||
+						!('dimensions' in value) ||
+						typeof value.dimensions !== 'number'
+					) {
+						throw new TypeError('operand must contain dimensions')
+					}
+					return { dimensions: value.dimensions }
+				},
 			},
 		},
-	})
+	)
 const containedVectorMethod = defineFieldBuilderMethod({
 	factory: containedVectorField,
 	fieldKind: 'fixture.packed.contained-vector',

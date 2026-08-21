@@ -55,7 +55,8 @@ interface FieldCapabilities {
 	readonly schemaTarget: SchemaTarget | undefined
 	readonly snapshotValue: ScalarValueSnapshot
 	readonly storageCodec: PluginFieldStorageCodec | undefined
-	readonly structuralContains: PluginFieldStructuralContainsCapability | undefined
+	readonly structuralContains:
+		PluginFieldStructuralContainsCapability | undefined
 }
 
 /** Carries non-metadata capabilities used only by specialized field factories. */
@@ -99,10 +100,7 @@ export const createFieldDefinition = <
 						protocolVersion: pluginFieldStructuralContainsProtocolVersion,
 					}),
 					snapshotOperand: (value: unknown, path: string): unknown =>
-						snapshotJsonValue(
-							structuralSnapshot(value, path),
-							path,
-						),
+						snapshotJsonValue(structuralSnapshot(value, path), path),
 				})
 
 	fieldCapabilities.set(

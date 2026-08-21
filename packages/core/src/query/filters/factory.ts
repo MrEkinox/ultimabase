@@ -53,7 +53,6 @@ const hasListShape = (field: RuntimeQueryField): boolean =>
 	field.options.list !== false &&
 	field.options.list !== undefined
 
-
 const assertOperatorSupport = (
 	field: RuntimeQueryField,
 	operator:

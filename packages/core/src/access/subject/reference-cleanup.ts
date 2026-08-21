@@ -53,13 +53,13 @@ const requestSubjectReferenceCleanups = new WeakSet<object>()
  * @example
  * ```ts
  * provideCapability(requestSubjectReferenceCleanupCapability, {
- *   contributionId: 'acl.role-references',
+ *   contributionId: 'documents.subject-references',
  *   create: () => ({ value: {
- *     name: 'acl.role-references',
+ *     name: 'documents.subject-references',
  *     cleanup: defineRequestSubjectReferenceCleanup({
  *       kind: 'role',
- *       hasReferences: ({ reference }) => aclStore.hasSubject(reference.value),
- *       cleanup: ({ reference }) => aclStore.removeSubject(reference.value),
+ *       hasReferences: ({ reference }) => referenceStore.has(reference.value),
+ *       cleanup: ({ reference }) => referenceStore.remove(reference.value),
  *     }),
  *   } }),
  * })

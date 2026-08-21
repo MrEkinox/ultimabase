@@ -28,7 +28,10 @@ const snapshotDocument = (value: unknown, path: string): SearchDocument => {
 	if (!isPlainRecord(value) || typeof value.body !== 'string') {
 		throw new TypeError(`${path} must contain a body`)
 	}
-	if (!Array.isArray(value.tags) || !value.tags.every((tag) => typeof tag === 'string')) {
+	if (
+		!Array.isArray(value.tags) ||
+		!value.tags.every((tag) => typeof tag === 'string')
+	) {
 		throw new TypeError(`${path}.tags must contain only strings`)
 	}
 	return immutableRecord({ body: value.body, tags: value.tags })

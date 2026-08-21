@@ -10,6 +10,7 @@ import {
 	UltimaBase,
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
+	databasePluginFieldStructuralContainsCapability,
 	definePlugin,
 	provideCapability,
 	type DatabaseAdapter,
@@ -48,6 +49,8 @@ class AlternativeReadAdapter implements DatabaseAdapter {
 	readonly kind = 'database-adapter' as const
 	readonly capabilities = {
 		persistencePlans: databasePersistencePlanCapability,
+		pluginFieldStructuralContains:
+			databasePluginFieldStructuralContainsCapability,
 	}
 	readonly requests: DatabaseOperationRequest[] = []
 

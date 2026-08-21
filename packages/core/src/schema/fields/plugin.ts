@@ -61,10 +61,7 @@ type PluginFieldTypegen<
 	: ResolveFieldTypegenState<TOptions>
 
 type PluginFieldContainmentOperand<TCapability> = TCapability extends {
-	readonly snapshotOperand: (
-		value: unknown,
-		path: string,
-	) => infer TOperand
+	readonly snapshotOperand: (value: unknown, path: string) => infer TOperand
 }
 	? TOperand
 	: never
@@ -167,8 +164,7 @@ export const definePluginField = <
 	const TOptions extends FieldOptions<TValue, TValidation>,
 	const TDeferred extends boolean = false,
 	const TStructuralContains extends
-		| PluginFieldStructuralContains<unknown>
-		| undefined = undefined,
+		PluginFieldStructuralContains<unknown> | undefined = undefined,
 >(
 	kind: AvailablePluginFieldKind<TKind>,
 	options: TOptions &
@@ -200,7 +196,9 @@ export const definePluginField = <
 	)
 
 	if (unknownNormalizerKey !== undefined) {
-		throw new TypeError(`Unknown plugin field normalizer key: ${unknownNormalizerKey}`)
+		throw new TypeError(
+			`Unknown plugin field normalizer key: ${unknownNormalizerKey}`,
+		)
 	}
 
 	const storageCodec =
@@ -228,7 +226,9 @@ export const definePluginField = <
 
 	if (structuralContains !== undefined) {
 		if (!isPlainRecord(structuralContains)) {
-			throw new TypeError('Plugin field structuralContains must be a plain object')
+			throw new TypeError(
+				'Plugin field structuralContains must be a plain object',
+			)
 		}
 
 		const unknownStructuralKey = Object.keys(structuralContains).find(

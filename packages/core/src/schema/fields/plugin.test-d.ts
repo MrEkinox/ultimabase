@@ -43,31 +43,35 @@ test('keeps plugin field options on the primary call contract', () => {
 })
 
 test('carries the exact plugin containment operand at the type level', () => {
-	const field = definePluginField('fixture.containment-type', {}, {
-		snapshotValue,
-		storageCodec: {
-			decode: (value) => snapshotValue(value, 'stored value'),
-			encode: String,
-			format: 'json',
-			version: 1,
-		},
-		structuralContains: {
-			snapshotOperand: (
-				value: unknown,
-			): Readonly<{ readonly prefix: string }> => {
-				if (
-					typeof value !== 'object' ||
-					value === null ||
-					!('prefix' in value) ||
-					typeof value.prefix !== 'string'
-				) {
-					throw new TypeError('operand must contain prefix')
-				}
+	const field = definePluginField(
+		'fixture.containment-type',
+		{},
+		{
+			snapshotValue,
+			storageCodec: {
+				decode: (value) => snapshotValue(value, 'stored value'),
+				encode: String,
+				format: 'json',
+				version: 1,
+			},
+			structuralContains: {
+				snapshotOperand: (
+					value: unknown,
+				): Readonly<{ readonly prefix: string }> => {
+					if (
+						typeof value !== 'object' ||
+						value === null ||
+						!('prefix' in value) ||
+						typeof value.prefix !== 'string'
+					) {
+						throw new TypeError('operand must contain prefix')
+					}
 
-				return { prefix: value.prefix }
+					return { prefix: value.prefix }
+				},
 			},
 		},
-	})
+	)
 
 	expectTypeOf(field.kind).toEqualTypeOf<'fixture.containment-type'>()
 	expectTypeOf<FieldStructuralContainsOperand<typeof field>>().toEqualTypeOf<

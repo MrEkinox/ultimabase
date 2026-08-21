@@ -163,12 +163,16 @@ describe('plugin fields', () => {
 
 	it('rejects containment without a codec and on list fields', () => {
 		expect(() =>
-			definePluginField('fixture.no-codec', {}, {
-				snapshotValue,
-				structuralContains: {
-					snapshotOperand: (value: unknown) => value,
-				} as never,
-			}),
+			definePluginField(
+				'fixture.no-codec',
+				{},
+				{
+					snapshotValue,
+					structuralContains: {
+						snapshotOperand: (value: unknown) => value,
+					} as never,
+				},
+			),
 		).toThrow('structuralContains requires a JSON storageCodec')
 
 		expect(() =>

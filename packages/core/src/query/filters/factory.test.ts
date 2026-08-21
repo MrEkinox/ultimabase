@@ -119,7 +119,9 @@ describe('query filter factories', () => {
 			value: { prefix: 'sta', nested: { enabled: true } },
 		})
 		expect(Object.isFrozen(root.value)).toBe(true)
-		expect(Object.isFrozen((root.value as { nested: object }).nested)).toBe(true)
+		expect(Object.isFrozen((root.value as { nested: object }).nested)).toBe(
+			true,
+		)
 		expect(nested).toStrictEqual({
 			field: 'nested',
 			kind: 'contains',
