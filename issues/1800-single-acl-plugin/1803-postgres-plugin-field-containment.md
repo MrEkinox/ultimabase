@@ -13,7 +13,7 @@ JSONB predicates without importing or identifying the field plugin.
 
 ## Acceptance criteria
 
-- [ ] PostgreSQL recognizes the accepted compiled field capability and lowers the existing `contains` leaf to parameterized JSONB `@>`.
+- [ ] PostgreSQL advertises the exact Core protocol version, recognizes the accepted compiled field capability, and lowers the existing `contains` leaf to parameterized JSONB `@>`.
 - [ ] Containment uses the field-owned partial operand representation rather than the complete logical-value codec path.
 - [ ] Unsupported storage, stale versions, malformed operands, and mismatched field plans fail closed.
 - [ ] Generated GIN indexes remain usable and no raw SQL or Drizzle value crosses the public plugin boundary.

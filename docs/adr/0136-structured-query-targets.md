@@ -3,6 +3,7 @@
 - Status: accepted
 - Date: 2026-08-05
 - Extends: ADR-0052, ADR-0053, ADR-0083, ADR-0091
+- Refined by: ADR-0212
 
 ## Context
 

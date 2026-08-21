@@ -3,6 +3,7 @@
 - Status: accepted
 - Date: 2026-08-04
 - Refines: ADR-0103, ADR-0122, ADR-0124
+- Refined by: ADR-0212; remains operative until issue 1804 completes the atomic migration
 
 ## Context
 

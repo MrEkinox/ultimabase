@@ -144,8 +144,12 @@ behavior without a second plugin-only plan representation.
 A plugin scalar with a portable versioned JSON storage codec receives exact
 complete-value equality and membership through the ordinary Query AST. Core
 snapshots operands with the field validator and adapters reuse the storage
-codec. Ordered, string, structural, and domain-specific operators require a
-separate accepted contract; codec availability alone never implies them.
+codec. ADR-0212 additionally lets a non-list plugin scalar explicitly own a
+typed partial JSON snapshot for the existing structural `contains` leaf.
+Adapters advertise that protocol separately from JSON storage and never receive
+the plugin snapshot callback. Ordered, string, inverse containment, and
+domain-specific operators still require a separate accepted contract; codec
+availability alone never implies them.
 
 ## Embedded object values
 
@@ -370,6 +374,10 @@ other predicate in one statement. This physical representation requires no
 ACL-specific join and remains private to the adapter. The optional
 `@ultimabase/acl-postgres-plugin` package owns the concrete compiler bridge so
 neither the database-neutral ACL provider nor PostgreSQL imports the other.
+ADR-0212 accepts the milestone 18 replacement: both ACL constraint families
+move together onto field-owned portable containment, PostgreSQL compiles the
+ordinary Query leaf generically, and the bridge is then deleted atomically. The
+current bridge remains required until that complete migration.
 Subject-owning providers independently choose `fail`, `preserve`, or `cascade`
 deletion behavior. ACL publishes neutral principal and role cleanup
 contributions, then uses a private asynchronous maintenance scope to add an

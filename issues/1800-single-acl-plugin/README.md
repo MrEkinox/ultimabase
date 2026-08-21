@@ -16,7 +16,7 @@ an arbitrary custom-operator registry.
 
 ## Execution order
 
-1. [ ] [1801 — Decide field-owned portable containment](1801-field-owned-portable-containment-adr.md)
+1. [x] [1801 — Decide field-owned portable containment](1801-field-owned-portable-containment-adr.md)
 2. [ ] [1802 — Expose typed containment for JSON-backed plugin fields](1802-plugin-field-containment-contract.md)
 3. [ ] [1803 — Compile portable plugin containment in PostgreSQL](1803-postgres-plugin-field-containment.md)
 4. [ ] [1804 — Migrate ACL and remove its PostgreSQL bridge](1804-single-acl-plugin-migration.md)
