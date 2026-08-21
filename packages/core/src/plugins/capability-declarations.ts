@@ -1,10 +1,10 @@
+import type { CapabilityProviderDeclaration } from './capability-providers.js'
 import type {
 	CapabilityDecoratorDeclaration,
-	CapabilityProviderDeclaration,
 	CapabilityReplacementDeclaration,
-	CapabilityRequirement,
-	CapabilityToken,
-} from './capabilities.js'
+} from './capability-replacements.js'
+import type { CapabilityRequirement } from './capability-requirements.js'
+import type { CapabilityToken } from './capability-token.js'
 
 /** Groups one plugin's inert capability declarations. */
 export interface PluginCapabilityDeclarations<

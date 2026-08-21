@@ -14,7 +14,6 @@ export const handwrittenFileLineBaseline: Readonly<Record<string, number>> =
 	Object.freeze({
 		'packages/acl-permissions-plugin/src/plugin.test.ts': 1082,
 		'packages/acl-permissions-plugin/src/plugin.ts': 902,
-		'packages/core/src/plugins/capabilities.ts': 1026,
 		'packages/core/src/plugins/capability-composition.test.ts': 1159,
 		'packages/core/src/query/filters/factory.ts': 807,
 		'packages/core/src/query/filters/where.ts': 1610,
