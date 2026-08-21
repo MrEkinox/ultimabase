@@ -1,6 +1,6 @@
 # 2002: Move required presence to a direct field option
 
-- Status: planned
+- Status: ready
 - Milestone: 20
 - Packages: `@ultimabase/core`, `@ultimabase/typegen`, official plugins
 - Depends on: 2001

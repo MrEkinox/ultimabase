@@ -9,8 +9,8 @@ application validation without transforming canonical values.
 
 ## Order
 
-1. Issue 2001 — decide the Standard Schema validation boundary (`ready`).
-2. Issue 2002 — move required presence to a direct field option (`planned`).
+1. Issue 2001 — decide the Standard Schema validation boundary (`completed`).
+2. Issue 2002 — move required presence to a direct field option (`ready`).
 3. Issue 2003 — move inspectable decimal shape metadata to direct options (`planned`).
 4. Issue 2004 — replace the field-constraint DSL with Standard Schema (`planned`).
 5. Issue 2005 — prove validator interoperability and generated DX (`planned`).
@@ -18,7 +18,7 @@ application validation without transforming canonical values.
 
 ## Resume point
 
-Start issue 2001. Do not preserve the old nested presence or validation DSL:
+Start issue 2002. Do not preserve the old nested presence or validation DSL:
 UltimaBase is still in development, and every replacement removes its
 superseded API in the same issue. ACL hardening issues 432 through 435 remain
 deliberately deferred until explicit direction.
