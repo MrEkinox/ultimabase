@@ -148,6 +148,15 @@ The milestone adds no product capability, keeps JSON comparison internal to
 Core, and lets Plugin Kit interoperate with Standard Schema without selecting a
 validation library or making static plugin declarations asynchronous.
 
+## Milestone 18 — Portable plugin containment and one ACL plugin
+
+Let JSON-backed plugin fields opt into the existing structural containment
+operator through a typed field-owned contract, then compile that Query AST
+generically in PostgreSQL. ACL migrates authorization and subject-reference
+discovery onto those protected row filters and removes its dedicated PostgreSQL
+bridge, so applications install only `aclPlugin()` and their selected database
+plugin without sacrificing adapter neutrality.
+
 ## First usable release
 
 The first release must support full primitive-field CRUD, bulk operations,

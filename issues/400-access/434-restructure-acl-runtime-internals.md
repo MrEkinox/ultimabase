@@ -2,9 +2,9 @@
 
 - Status: planned
 - Milestone: 4
-- Packages: `@ultimabase/acl-permissions-plugin`, `@ultimabase/acl-postgres-plugin`
+- Packages: `@ultimabase/acl-permissions-plugin`
 - Depends on: 144, 351, 429, 430, 431, 432, 433
-- ADR: ADR-0122, ADR-0125, ADR-0126, ADR-0127, ADR-0128
+- ADR: ADR-0122, ADR-0126, ADR-0127, ADR-0128, milestone 18 containment decision
 
 ## Goal
 
@@ -18,7 +18,7 @@ stable, without changing the concise public class, extension, or plugin API.
 - [ ] Focused tests remain colocated with the source responsibility they verify.
 - [ ] Shared invariants reuse small internal helpers without introducing abstractions for coincidental similarities.
 - [ ] Strict record-boundary validation is reused where practical without adding a large runtime validation dependency.
-- [ ] Public exports, hovers, serialized JSON, plugin names, constraint kinds, and runtime behavior remain unchanged.
+- [ ] Public exports, hovers, serialized JSON, the single ACL plugin identity, and runtime behavior remain unchanged after milestone 18's deliberate constraint removal.
 - [ ] No deep import is introduced between packages.
 
 ## Tests

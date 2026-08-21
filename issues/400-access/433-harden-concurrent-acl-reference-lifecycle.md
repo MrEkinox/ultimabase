@@ -2,7 +2,7 @@
 
 - Status: planned
 - Milestone: 4
-- Packages: `@ultimabase/core`, `@ultimabase/acl-permissions-plugin`, `@ultimabase/acl-postgres-plugin`, `@ultimabase/roles-plugin`
+- Packages: `@ultimabase/core`, `@ultimabase/acl-permissions-plugin`, `@ultimabase/roles-plugin`
 - Depends on: 432
 - ADR: new ADR required
 

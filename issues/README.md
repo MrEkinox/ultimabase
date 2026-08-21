@@ -75,6 +75,7 @@ consistent without rewriting historical issue prose.
 - [`1500-optional-hooks-access/`](1500-optional-hooks-access/README.md)
 - [`1600-kernel-security-release-hardening/`](1600-kernel-security-release-hardening/README.md)
 - [`1700-validation-interoperability/`](1700-validation-interoperability/README.md)
+- [`1800-single-acl-plugin/`](1800-single-acl-plugin/README.md)
 
 ## Assignment prompt
 

@@ -1,9 +1,9 @@
 # 432: Batch ACL reference cleanup with stable cursors
 
-- Status: ready
+- Status: planned
 - Milestone: 4
-- Packages: `@ultimabase/acl-permissions-plugin`, `@ultimabase/core`, `@ultimabase/acl-postgres-plugin`
-- Depends on: 426, 427
+- Packages: `@ultimabase/acl-permissions-plugin`, `@ultimabase/core`, `@ultimabase/postgres-plugin`
+- Depends on: 426, 427, 1804
 - ADR: ADR-0126
 
 ## Goal

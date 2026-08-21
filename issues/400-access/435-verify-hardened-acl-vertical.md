@@ -2,7 +2,7 @@
 
 - Status: planned
 - Milestone: 4
-- Packages: `@ultimabase/core`, `@ultimabase/acl-permissions-plugin`, `@ultimabase/acl-postgres-plugin`, `@ultimabase/roles-plugin`, `@ultimabase/postgres-plugin`, `@ultimabase/testing`
+- Packages: `@ultimabase/core`, `@ultimabase/acl-permissions-plugin`, `@ultimabase/roles-plugin`, `@ultimabase/postgres-plugin`, `@ultimabase/testing`
 - Depends on: 144, 351, 429, 430, 431, 432, 433, 434
 - ADR: all accepted ACL and Access ADRs
 
