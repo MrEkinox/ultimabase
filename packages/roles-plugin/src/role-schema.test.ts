@@ -14,7 +14,6 @@ import {
 	getRoleSchemaDeclaration,
 	RoleSchema,
 	rolesPluginName,
-	type RoleSchemaOptions,
 } from './role-schema.js'
 import { roleSchemaIdentityOptionName } from './role-schema-identity.js'
 
@@ -76,7 +75,6 @@ describe('RoleSchema', () => {
 			fields: ['priority', 'createdAt'],
 			unique: false,
 		})
-		expect(AppRole.extensions).toStrictEqual([])
 		expect(
 			Object.hasOwn(AppRole.definition, roleSchemaIdentityOptionName),
 		).toBe(true)
@@ -172,21 +170,6 @@ describe('RoleSchema', () => {
 			code: 'PLUGIN_DECLARATION_INVALID',
 		} satisfies Partial<FrameworkError>)
 		expect(infrastructureStarted).toBe(false)
-	})
-
-	it('rejects legacy RoleSchema extensions at the declaration boundary', () => {
-		expect(() =>
-			RoleSchema.define({
-				className: 'LegacyExtendedRole',
-				members: { schema: User },
-				fields: () => ({}),
-				extensions: [],
-			} as RoleSchemaOptions<'LegacyExtendedRole', typeof User> & {
-				readonly extensions: readonly []
-			}),
-		).toThrow(
-			'RoleSchema extensions are not supported; use direct plugin options',
-		)
 	})
 
 	it('rejects copied and foreign identity values before setup', async () => {

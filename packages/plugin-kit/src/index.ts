@@ -40,7 +40,6 @@ export {
 	schemaPatch,
 	SchemaPatchBuilder,
 	type AddPatchConstraintOptions,
-	type AddPatchExtensionOptions,
 	type AddPatchFieldOptions,
 	type AddPatchIndexOptions,
 	type PatchSchemasOptions,

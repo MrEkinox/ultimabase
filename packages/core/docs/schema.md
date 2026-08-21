@@ -7,7 +7,7 @@ Responsibilities:
 - `Schema`;
 - primitive field definitions;
 - system-field metadata;
-- schema and field extension contracts;
+- direct plugin option contracts;
 - plugin-defined logical field contracts;
 - normalized index metadata;
 - TypeScript inference;
@@ -15,8 +15,8 @@ Responsibilities:
 - isolated `SchemaRegistry` instances.
 
 This domain must not know Hooks, Access, ACL, CLP, roles, PostgreSQL, Drizzle,
-Hono, or GraphQL. Optional capabilities contribute opaque, typed extensions
-that Runtime plugins later claim.
+Hono, or GraphQL. Optional plugins contribute typed direct options and
+capabilities that Core validates without interpreting their product semantics.
 
 Practical declarations are available in the package's
 [`examples/schema`](../examples/schema/README.md) directory. They are documentation snippets,
@@ -38,7 +38,6 @@ src/
 ├── schema/
 ├── plans/
 ├── inference/
-└── extensions/
 ```
 
 Dependencies flow from Shared runtime guards and `fields/base`, through
@@ -69,14 +68,13 @@ const PostSchema = Schema.define({
 		}),
 		published: field.boolean({ default: false }),
 	}),
-	extensions: [permissionsExtension],
 })
 ```
 
 The returned value is the final schema-specific class. Its `className` is
 available immediately. `createApplication()` executes each configured field
 callback once during an infrastructure-free static compilation phase, then
-freezes `definition`, `fields`, `indexes`, and `extensions`. Before that phase,
+freezes `definition`, `fields`, and `indexes`. Before that phase,
 field-dependent static metadata and model construction throw an actionable
 `SchemaCompilationError`. Infrastructure reads the compiled `definition`,
 while Query and Runtime retain the exact class identity registered by the
@@ -225,7 +223,7 @@ reused owners, and nested relation declarations fail before infrastructure
 connects. The logical graph exposes ownership and mapping paths without SQL,
 join-table, REST, or GraphQL names.
 
-Relations accept documentation and field extensions, but no scalar validation,
+Relations accept documentation, but no scalar validation,
 default, list, index, immutable, or Core lifecycle options. Installing the
 official Access plugin adds its typed `access.read` and `access.update`
 namespace; update policy rules then receive the exact immutable relation delta.
@@ -439,7 +437,7 @@ operation-specific presence rules.
 ## Generic field contract
 
 - `FieldValidationOptions` exposes `required` plus field-specific constraints. Optional fields persist as `null`; `required: true` makes their persisted value non-null.
-- `FieldOptions<TValue, TValidation>` adds typed defaults, homogeneous lists, field-value immutability, `indexed`, descriptions, and field extensions without introducing database-specific metadata. `list: true` creates one list level and `false` disables list wrapping explicitly. Nested arrays belong in `jsonField()`. `indexed: true` requests a regular index, `indexed: "unique"` requests a unique index, and `false` disables indexing explicitly.
+- `FieldOptions<TValue, TValidation>` adds typed defaults, homogeneous lists, field-value immutability, `indexed`, and descriptions without introducing database-specific metadata. `list: true` creates one list level and `false` disables list wrapping explicitly. Nested arrays belong in `jsonField()`. `indexed: true` requests a regular index, `indexed: "unique"` requests a unique index, and `false` disables indexing explicitly.
 - `FieldDefinition<TKind, TValue, TOptions, TInference>` preserves the literal field kind, its base value type, immutable runtime options, and a type-only operation state for later schema inference.
 
 Concrete field factories construct, validate, and freeze their runtime metadata
@@ -465,7 +463,7 @@ Every built-in field uses compact field inference. Return types keep only
 effective create, object, update, nullability, and list state. Default presence
 and automatic value generation are represented as booleans rather than their
 runtime values. Constraints, indexes, descriptions, literal defaults, and
-runtime extensions remain available through each widened field-options
+runtime option values remain available through each widened field-options
 interface without appearing as expanded literals in editor hovers.
 
 Enums still retain their exact value domain and objects retain their exact child
@@ -571,7 +569,7 @@ The callback is stored without being executed during schema declaration. Every
 function supplied as `default` is interpreted as a runtime factory;
 function-valued static defaults are therefore unsupported. Composite fields
 validate the factory return type before considering static object shapes.
-Database-specific expressions belong to typed adapter extensions rather than
+Database-specific expressions belong to typed adapter plugins rather than
 the portable `default` option.
 
 ## Runtime value snapshots
@@ -806,58 +804,13 @@ Schema does not select a physical representation. PostgreSQL storage and
 Drizzle compilation remain adapter concerns; ADR-0021 defines JSONB as the
 portable default mapping without adding database metadata to this package.
 
-## Typed extensions
-
-- `defineSchemaExtension(name, config, pluginName?)` creates plugin-owned schema metadata.
-- `defineFieldExtension(name, config, pluginName?)` creates plugin-owned field metadata.
-- `defineExtensions(extensions)` copies and freezes a list while rejecting duplicate names within the same scope.
-- `defineContextualSchemaExtensionFactory<Kind>()(factory)` lets an extension author expose sibling-field-aware callback options.
-
-Each extension exposes the literal `scope`, `name`, `pluginName`, and typed
-readonly `config` properties. `pluginName` defaults to the extension name; an
-explicit value lets one plugin handle several extension identities. Schema
-transports this opaque configuration without importing or interpreting the
-plugin. Core later verifies that the expected plugin registered the matching
-handler before infrastructure starts.
-
-Callback-bearing extensions can opt into exact sibling-field inference through
-the neutral schema binder:
-
-```ts
-const Post = Schema.define({
-	className: 'Post',
-	fields: (field) => ({
-		title: field.string({ validation: { required: true } }),
-		visibility: field.string(),
-	}),
-	extensions: ({ bind }) => [
-		bind(contentPolicy, {
-			resolve: ({ data }) => data.visibility ?? data.title,
-		}),
-	],
-})
-```
-
-The callback data contains only the exact developer field values. Required,
-optional, nullable, structured, list, pointer, and community plugin field types
-retain their ordinary object inference. Framework system fields and fields
-reserved by extensions stay private. The bound factory still returns the same
-ordinary immutable extension object stored on the schema.
-
-Schema and field names use separate namespaces. The same name may therefore exist once in each scope, while two schema extensions or two field extensions with the same name produce a `TypeError`. Extension values and their configuration objects are shallowly copied and frozen.
-
-Field extensions are runtime-only metadata. They never alter inferred object,
-create-input, or update-input shapes. A plugin that introduces a distinct
-logical value must expose a plugin-defined field so its factory owns the value
-type explicitly.
-
 ## Plugin-defined fields
 
 `definePluginField(kind, options, normalizers)` lets a plugin introduce a
 logical field kind without teaching Schema about its database representation.
 Kinds must be non-empty, namespaced strings and cannot shadow framework-owned
 field kinds. The factory reuses common validation, defaults, lists, indexes,
-descriptions, immutability, and field extensions while delegating scalar value
+descriptions and immutability while delegating scalar value
 snapshots to `snapshotValue`. A custom validation normalizer is optional;
 common presence validation remains available when it is omitted.
 

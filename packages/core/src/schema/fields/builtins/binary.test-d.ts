@@ -4,7 +4,6 @@ import { expectTypeOf, test } from 'vitest'
 
 import {
 	binaryField,
-	defineSchemaExtension,
 	type BinaryField,
 	type BinaryFieldOptions,
 	type BinaryValidationOptions,
@@ -76,8 +75,8 @@ test('rejects incompatible binary metadata', () => {
 	binaryField({ validation: { required: true, nullable: true } })
 
 	binaryField({
-		// @ts-expect-error -- Schema extensions cannot attach to individual fields.
-		extensions: [defineSchemaExtension('fixture.binary', {})],
+		// @ts-expect-error -- Removed generic extension metadata is not a field option.
+		extensions: [],
 	})
 
 	expectTypeOf<BinaryValidationOptions>().toExtend<

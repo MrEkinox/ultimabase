@@ -155,7 +155,7 @@ const normalizePluginFieldStorageCodec = <TValue>(
 }
 
 /**
- * Creates a plugin-owned field while reusing common defaults, lists, and extensions.
+ * Creates a plugin-owned field while reusing common defaults and lists.
  */
 export const definePluginField = <
 	TValue,

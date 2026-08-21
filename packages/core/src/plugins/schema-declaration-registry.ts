@@ -263,8 +263,6 @@ export class SchemaDeclarationRegistry {
 						operation.kind === 'field:remove' ||
 						operation.kind === 'index:replace' ||
 						operation.kind === 'index:remove' ||
-						operation.kind === 'extension:replace' ||
-						operation.kind === 'extension:remove' ||
 						operation.kind === 'constraint:replace' ||
 						operation.kind === 'constraint:remove' ||
 						operation.kind === 'schema-option:remove' ||

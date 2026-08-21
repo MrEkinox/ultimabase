@@ -2,10 +2,7 @@ import { assertNonEmptyString, isPlainRecord } from '@ultimabase/shared'
 
 import type { SchemaCompilerArtifactKind } from './contracts.js'
 import type { SchemaCompilerArtifactSession } from './artifacts.js'
-import {
-	assertSchemaCompilerExtensionNode,
-	assertSchemaCompilerFieldNode,
-} from './node-validation.js'
+import { assertSchemaCompilerFieldNode } from './node-validation.js'
 
 const operationKeys: Readonly<Record<string, ReadonlySet<string>>> = {
 	'constraint:add': new Set(['constraint', 'contributionId', 'kind']),
@@ -13,14 +10,6 @@ const operationKeys: Readonly<Record<string, ReadonlySet<string>>> = {
 	'constraint:replace': new Set([
 		'constraint',
 		'contributionId',
-		'kind',
-		'target',
-	]),
-	'extension:add': new Set(['contributionId', 'extension', 'kind']),
-	'extension:remove': new Set(['contributionId', 'kind', 'target']),
-	'extension:replace': new Set([
-		'contributionId',
-		'extension',
 		'kind',
 		'target',
 	]),
@@ -154,24 +143,6 @@ export const assertSchemaCompilerPatchOperation = (
 		case 'field:rename':
 			assertNamed(operation, path, 'from', 'to')
 			assertTarget(operation.target, 'field', session, `${path}.target`)
-			return
-		case 'extension:add':
-			assertSchemaCompilerExtensionNode(
-				operation.extension,
-				session,
-				`${path}.extension`,
-			)
-			return
-		case 'extension:replace':
-			assertSchemaCompilerExtensionNode(
-				operation.extension,
-				session,
-				`${path}.extension`,
-			)
-			assertTarget(operation.target, 'extension', session, `${path}.target`)
-			return
-		case 'extension:remove':
-			assertTarget(operation.target, 'extension', session, `${path}.target`)
 			return
 		case 'constraint:add':
 			assertArtifactNode(

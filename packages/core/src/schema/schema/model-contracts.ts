@@ -21,7 +21,6 @@ import type {
 } from '../relations/relation.js'
 import type {
 	SchemaDefinition,
-	SchemaExtensions,
 	SchemaFields,
 	SchemaMetadata,
 } from './definition.js'
@@ -584,13 +583,8 @@ export interface SchemaModelMaterialization {
 export interface SchemaModelDefinitionReader<
 	TClassName extends string,
 	TFields extends SchemaFields,
-	TExtensions extends SchemaExtensions,
 > {
 	readonly className: TClassName
-	readonly readDefinition: () => SchemaMetadata<
-		TClassName,
-		TFields,
-		TExtensions
-	>
+	readonly readDefinition: () => SchemaMetadata<TClassName, TFields>
 	readonly readDeveloperFields: () => TFields
 }

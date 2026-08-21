@@ -50,7 +50,6 @@ import { Pointer } from '../relations/pointer.js'
 import type {
 	SchemaClass,
 	SchemaDefinition,
-	SchemaExtensions,
 	SchemaFields,
 	SchemaMetadata,
 	SchemaReference,
@@ -173,9 +172,8 @@ const snapshotSchemaModelMaterialization = (
 export const createSchemaModelClass = <
 	const TClassName extends string,
 	const TFields extends SchemaFields,
-	const TExtensions extends SchemaExtensions,
 >(
-	reader: SchemaModelDefinitionReader<TClassName, TFields, TExtensions>,
+	reader: SchemaModelDefinitionReader<TClassName, TFields>,
 ): SchemaReference<TClassName> => {
 	class DefinedSchemaModel extends SchemaModelPrototype {
 		constructor(
@@ -361,30 +359,22 @@ export const createSchemaModelClass = <
 		className: { enumerable: true, value: reader.className },
 		constraints: {
 			enumerable: true,
-			get: (): SchemaMetadata<
-				TClassName,
-				TFields,
-				TExtensions
-			>['constraints'] => reader.readDefinition().constraints,
+			get: (): SchemaMetadata<TClassName, TFields>['constraints'] =>
+				reader.readDefinition().constraints,
 		},
 		fields: {
 			enumerable: true,
-			get: (): SchemaMetadata<TClassName, TFields, TExtensions>['fields'] =>
+			get: (): SchemaMetadata<TClassName, TFields>['fields'] =>
 				reader.readDefinition().fields,
 		},
 		indexes: {
 			enumerable: true,
-			get: (): SchemaMetadata<TClassName, TFields, TExtensions>['indexes'] =>
+			get: (): SchemaMetadata<TClassName, TFields>['indexes'] =>
 				reader.readDefinition().indexes,
-		},
-		extensions: {
-			enumerable: true,
-			get: (): SchemaMetadata<TClassName, TFields, TExtensions>['extensions'] =>
-				reader.readDefinition().extensions,
 		},
 		provenance: {
 			enumerable: true,
-			get: (): SchemaMetadata<TClassName, TFields, TExtensions>['provenance'] =>
+			get: (): SchemaMetadata<TClassName, TFields>['provenance'] =>
 				reader.readDefinition().provenance,
 		},
 	})

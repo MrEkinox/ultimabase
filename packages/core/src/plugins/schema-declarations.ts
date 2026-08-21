@@ -1,10 +1,7 @@
 export {
 	addSchemaConstraint,
-	addSchemaExtension,
 	removeSchemaConstraint,
-	removeSchemaExtension,
 	replaceSchemaConstraint,
-	replaceSchemaExtension,
 } from './schema-artifact-patch-operations.js'
 
 export { attachPluginDeclarationDiagnostic } from './schema-declaration-contracts.js'
@@ -41,19 +38,16 @@ export type {
 
 export type {
 	AddSchemaConstraintOperation,
-	AddSchemaExtensionOperation,
 	AddSchemaFieldOperation,
 	AddSchemaIndexOperation,
 	ExistingSchemaContributionTarget,
 	RemoveSchemaConstraintOperation,
-	RemoveSchemaExtensionOperation,
 	RemoveSchemaFieldOperation,
 	RemoveSchemaFieldOptionOperation,
 	RemoveSchemaIndexOperation,
 	RemoveSchemaOptionOperation,
 	RenameSchemaFieldOperation,
 	ReplaceSchemaConstraintOperation,
-	ReplaceSchemaExtensionOperation,
 	ReplaceSchemaFieldOperation,
 	ReplaceSchemaIndexOperation,
 	SchemaPatchOperation,

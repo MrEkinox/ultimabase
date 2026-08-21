@@ -212,12 +212,6 @@ export class RoleSchema {
 		const TClassName extends string,
 		const TMemberSchema extends SchemaDefinition,
 	>(options: RoleSchemaOptions<TClassName, TMemberSchema>): unknown {
-		if (Object.hasOwn(options, 'extensions')) {
-			throw new TypeError(
-				'RoleSchema extensions are not supported; use direct plugin options',
-			)
-		}
-
 		if (!Schema.is(options.members.schema)) {
 			throw new TypeError('members.schema must be created by Schema.define')
 		}
@@ -271,7 +265,6 @@ export class RoleSchema {
 						'access',
 						'className',
 						'deletion',
-						'extensions',
 						'fields',
 						'indexes',
 						'members',

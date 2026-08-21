@@ -148,7 +148,7 @@ runs plugin setup. The compiler returns `undefined` and registers through its
 exact owner-bound capability; Core does not retain a generic Runtime result.
 
 The final `schema.definition.provenance` snapshot records the source of schemas,
-fields, options, indexes, portable constraints, extensions, and patches. It is
+fields, options, indexes, portable constraints, and patches. It is
 inert logical metadata: Typegen may render its declarations and migration
 plugins may later compare persisted snapshots, but Core does not infer renames
 or destructive cleanup.
@@ -235,7 +235,7 @@ const preserveDeclaredGraph = (
 
 The real compiler must also include plugin-added schemas from the ordered
 declaration batches and apply their selectors and patches. Runtime-bearing
-fields, extensions, option definitions, default factories, plugin-owned
+fields, option definitions, default factories, plugin-owned
 behaviors and policies, and schema classes appear only as nominal artifact
 references. A compiler may
 preserve and arrange those declared references but cannot resolve them or invent

@@ -12,7 +12,6 @@ const UserSchema = Schema.define({
 			},
 		}),
 	}),
-	extensions: [],
 })
 ```
 
@@ -24,9 +23,11 @@ reads, and Runtime results are `UserSchema` instances whose direct properties
 and `toJSON()` contain only visible fields.
 
 Static schema declarations own runtime metadata. The generated application
-registry owns precise public item, input, query, Access, and hook types. Advanced
-capabilities use schema or field extensions so Core remains independent from
-their implementations.
+registry owns precise public item, input, query, Access, and hook types. Plugins
+add namespaced direct schema options, plugin-defined fields, immutable patches,
+or application capabilities while Core remains independent from their
+implementations. An option is accepted only when its plugin registers the
+corresponding contract.
 
 System fields are reserved and excluded from create/update inputs. Generated
 output, create-input, and update-input contracts remain separate:
@@ -60,7 +61,7 @@ derive deterministic names from the schema and field path. Schema validates
 only that an explicit name is non-empty. GraphQL and other generators own their
 syntax, derived suffixes, and collision detection.
 
-Field extensions remain opaque runtime metadata and never alter generated
+Direct schema options configure plugin behavior without altering generated
 object, create-input, or update-input shapes. Plugins that introduce a distinct
 logical value expose a plugin-defined field with that value type instead.
 

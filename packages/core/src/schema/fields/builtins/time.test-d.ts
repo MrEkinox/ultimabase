@@ -1,7 +1,6 @@
 import { expectTypeOf, test } from 'vitest'
 
 import {
-	defineSchemaExtension,
 	timeField,
 	type FieldDefinition,
 	type FieldTypegenState,
@@ -66,8 +65,8 @@ test('rejects incompatible time metadata', () => {
 	})
 
 	timeField({
-		// @ts-expect-error -- Schema extensions cannot attach to individual fields.
-		extensions: [defineSchemaExtension('fixture.time', {})],
+		// @ts-expect-error -- Removed generic extension metadata is not a field option.
+		extensions: [],
 	})
 
 	expectTypeOf<TimeValidationOptions>().toExtend<

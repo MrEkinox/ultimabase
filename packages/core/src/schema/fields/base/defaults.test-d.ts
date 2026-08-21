@@ -68,7 +68,7 @@ test('checks runtime factory outputs against every field value', () => {
 })
 
 test('rejects adapter-specific descriptors as portable field defaults', () => {
-	// @ts-expect-error -- Database expressions belong to adapter extensions.
+	// @ts-expect-error -- Database expressions belong to adapter plugins.
 	dateTimeField({
 		default: { kind: 'database', expression: 'CURRENT_TIMESTAMP' },
 	})

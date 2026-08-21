@@ -34,12 +34,10 @@ describe('alternative policy PostgreSQL proof', { concurrent: false }, () => {
 		const audit: string[] = []
 		const Document = Schema.define({
 			className: 'AlternativePolicyPostgresDocument',
-			extensions: [
-				alternativeTenantPolicy({
-					hiddenFields: ['secret'],
-					tenant: 'community',
-				}),
-			],
+			alternativePolicy: alternativeTenantPolicy({
+				hiddenFields: ['secret'],
+				tenant: 'community',
+			}),
 			fields: (field) => ({
 				secret: field.string({ validation: { required: true } }),
 				tenant: field.string({ validation: { required: true } }),

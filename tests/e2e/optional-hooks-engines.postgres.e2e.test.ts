@@ -171,7 +171,7 @@ describe('optional Hooks PostgreSQL proof', { concurrent: false }, () => {
 		}>[] = []
 		const Post = Schema.define({
 			className: 'AlternativePostgresPost',
-			extensions: [alternativeBehavior({ label: 'publishing' })],
+			alternativeBehavior: alternativeBehavior({ label: 'publishing' }),
 			fields: (field) => ({
 				title: field.string({ validation: { required: true } }),
 			}),

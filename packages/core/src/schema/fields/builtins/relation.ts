@@ -1,9 +1,5 @@
 import { assertNonEmptyString, immutableRecord } from '@ultimabase/shared'
 
-import {
-	defineExtensions,
-	type FieldExtension,
-} from '../../extensions/definition.js'
 import { createFieldDefinition } from '../base/definition.js'
 import {
 	assertBuiltInFieldOptions,
@@ -48,11 +44,6 @@ export interface RelationFieldMetadataOptions<
 	 * @example `description: "Posts written by this user"`
 	 */
 	readonly description?: string
-	/**
-	 * Attaches immutable plugin-owned metadata without changing relation semantics.
-	 * @example `extensions: [auditRelation]`
-	 */
-	readonly extensions?: readonly FieldExtension<string, object>[]
 	/**
 	 * Names the exact pointer or owning relation field that stores an inverse edge.
 	 * @example `mappedBy: "author"`
@@ -114,7 +105,7 @@ export type NamedRelationFieldBuilderMethod = <
 
 const relationFieldOptionsContract: BuiltInFieldOptionsContract = {
 	kind: 'relation',
-	optionKeys: ['description', 'extensions', 'mappedBy', 'target'],
+	optionKeys: ['description', 'mappedBy', 'target'],
 	validationOptionKeys: [],
 }
 
@@ -138,16 +129,10 @@ const normalizeRelationMetadata = <TMappedBy extends string | undefined>(
 		assertNonEmptyString(options.mappedBy, 'mappedBy')
 	}
 
-	const extensions =
-		options.extensions === undefined
-			? undefined
-			: defineExtensions(options.extensions)
-
 	return immutableRecord({
 		...(options.description === undefined
 			? {}
 			: { description: options.description }),
-		...(extensions === undefined ? {} : { extensions }),
 		...(options.mappedBy === undefined ? {} : { mappedBy: options.mappedBy }),
 	})
 }

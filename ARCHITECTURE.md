@@ -102,12 +102,11 @@ official Access plugin owns Access vocabulary and compilation; Runtime does not
 install or name Access, ACL, role, authentication, or a community policy engine
 when no such capability is present.
 
-## Schema extensions
+## Direct plugin options
 
-Core's Schema domain only knows the generic `SchemaExtension` and
-`FieldExtension` contracts. Plugins contribute typed extension objects. For
-example, `access` is recognized only when `accessPlugin()` contributes its
-namespace to the compiled application graph:
+Core accepts schema and field options only when an installed plugin contributes
+their typed contracts to the compiled application graph. For example, `access`
+is recognized only when `accessPlugin()` contributes its option definitions:
 
 ```ts
 import { accessPlugin } from '@ultimabase/access-plugin'

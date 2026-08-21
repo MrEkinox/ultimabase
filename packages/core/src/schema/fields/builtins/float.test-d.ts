@@ -1,8 +1,6 @@
 import { expectTypeOf, test } from 'vitest'
 
 import {
-	defineFieldExtension,
-	defineSchemaExtension,
 	floatField,
 	type FieldDefinition,
 	type FieldTypegenState,
@@ -13,9 +11,6 @@ import {
 } from '../../index.js'
 
 test('preserves float options and exact literals', () => {
-	const extension = defineFieldExtension('fixture.unit', {
-		name: 'meters',
-	})
 	const field = floatField({
 		validation: {
 			range: {
@@ -24,7 +19,6 @@ test('preserves float options and exact literals', () => {
 			},
 			finite: false,
 		},
-		extensions: [extension],
 	})
 
 	expectTypeOf(field).toExtend<
@@ -67,8 +61,8 @@ test('rejects incompatible float metadata', () => {
 	})
 
 	floatField({
-		// @ts-expect-error -- Schema extensions cannot attach to individual fields.
-		extensions: [defineSchemaExtension('fixture.unit', {})],
+		// @ts-expect-error -- Removed generic extension metadata is not a field option.
+		extensions: [],
 	})
 
 	expectTypeOf<FloatFieldOptions>().toExtend<

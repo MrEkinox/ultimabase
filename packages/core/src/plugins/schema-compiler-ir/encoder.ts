@@ -7,10 +7,6 @@ import {
 import type { GenericField } from '../../schema/fields/base/contract.js'
 import { assertFieldDefinition } from '../../schema/fields/base/definition.js'
 import { snapshotJsonValue } from '../../schema/fields/builtins/json.js'
-import type {
-	SchemaExtension,
-	SchemaExtensionFields,
-} from '../../schema/extensions/definition.js'
 import type { PreparedSchemaCompilation } from '../../schema/schema/definition.js'
 import { areSchemaDeclarationValuesCompatible } from '../../schema/schema/definition.js'
 import type {
@@ -22,7 +18,6 @@ import type {
 	SchemaCompilerArtifactKind,
 	SchemaCompilerArtifactReference,
 	SchemaCompilerConstraintNode,
-	SchemaCompilerExtensionNode,
 	SchemaCompilerFieldNode,
 	SchemaCompilerIndexNode,
 	SchemaCompilerOptionValue,
@@ -33,7 +28,6 @@ import { SchemaCompilerArtifactSession } from './artifacts.js'
 const coreSchemaKeys = new Set([
 	'className',
 	'constraints',
-	'extensions',
 	'fields',
 	'indexes',
 	'provenance',
@@ -268,7 +262,6 @@ export class SchemaCompilerIrEncoder {
 			developerFieldNames: immutableArray(
 				Object.keys(candidate.developerFields),
 			),
-			extensions: this.extensionNodes(candidate, path),
 			fields,
 			indexes: this.indexNodes(candidate),
 			options,
@@ -290,39 +283,6 @@ export class SchemaCompilerIrEncoder {
 		})
 	}
 
-	extensionNode(
-		extension: SchemaExtension<string, object, string, SchemaExtensionFields>,
-		name: string,
-		provenance: SchemaContributionProvenance,
-		path: string,
-		fieldProvenance: Readonly<
-			Record<string, SchemaContributionProvenance>
-		> = immutableRecord({}),
-		fieldOptionProvenance: Readonly<
-			Record<string, Readonly<Record<string, SchemaOptionProvenance>>>
-		> = immutableRecord({}),
-		fields: SchemaExtensionFields = extension.fields,
-	): SchemaCompilerExtensionNode {
-		const artifact = this.reference('extension', extension, path)
-		this.recordContributionReference(artifact, provenance)
-		return immutableRecord({
-			artifact,
-			fields: immutableArray(
-				Object.entries(fields).map(([fieldName, field]) =>
-					this.fieldNode(
-						field,
-						fieldName,
-						`${path}.fields.${fieldName}`,
-						fieldProvenance[fieldName] ?? provenance,
-						fieldOptionProvenance[fieldName],
-					),
-				),
-			),
-			name,
-			provenance,
-		})
-	}
-
 	private constraintNodes(
 		candidate: PreparedSchemaCompilation,
 		path: string,
@@ -339,30 +299,6 @@ export class SchemaCompilerIrEncoder {
 					definition,
 					entry.provenance,
 					`${path}.constraints.${String(index)}`,
-				)
-			}),
-		)
-	}
-
-	private extensionNodes(
-		candidate: PreparedSchemaCompilation,
-		path: string,
-	): readonly SchemaCompilerExtensionNode[] {
-		return immutableArray(
-			candidate.definition.extensions.map((extension, index) => {
-				const entry = candidate.definition.provenance.extensions[index]
-				if (entry === undefined) {
-					throw new TypeError(
-						`Missing extension provenance: ${path}:${String(index)}`,
-					)
-				}
-				return this.extensionNode(
-					extension,
-					entry.name,
-					entry.provenance,
-					`${path}.extensions.${String(index)}`,
-					candidate.definition.provenance.fields,
-					candidate.definition.provenance.fieldOptions,
 				)
 			}),
 		)

@@ -44,7 +44,8 @@ Toolchain, package boundaries, CI, public export validation, release workflow, a
 
 ## Milestone 1 — Static schemas
 
-Primitive fields, schema registry, system fields, defaults, naming, typed schema extensions, and TypeScript inference.
+Primitive fields, schema registry, system fields, defaults, naming, plugin-owned
+schema options, and TypeScript inference.
 
 ## Milestone 2 — Application and plugins
 
@@ -83,7 +84,7 @@ Pointers, relations, and JSONB-backed object fields are complete
 transport-neutral foundations. Authentication, realtime, jobs, cache, gRPC,
 OpenAPI, CLI, code generation, SDKs, audit, observability, soft delete, tenant
 isolation, advanced fields, health, and administration remain issue-tracked
-extensions. New
+capabilities. New
 packages are created only when implementation begins.
 
 ## Milestone 8 — Generated schema authoring and developer tooling

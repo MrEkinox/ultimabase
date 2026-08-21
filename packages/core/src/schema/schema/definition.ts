@@ -5,12 +5,6 @@ import {
 	isPlainRecord,
 } from '@ultimabase/shared'
 
-import {
-	createSchemaExtensionBindingContext,
-	defineExtensions,
-	type SchemaExtensionBindingContext,
-	type SchemaExtension,
-} from '../extensions/definition.js'
 import type { GenericField } from '../fields/base/contract.js'
 import { assertFieldDefinition } from '../fields/base/definition.js'
 import type { Pointer } from '../relations/pointer.js'
@@ -33,7 +27,6 @@ import {
 import {
 	reservedSystemFieldNames,
 	systemFields,
-	type ReservedSystemFieldName,
 	type SystemFields,
 } from './system-fields.js'
 import {
@@ -54,7 +47,6 @@ import type {
 	RequireGeneratedSchemaEntry,
 	UltimaBaseGeneratedSchemaOptions,
 } from '../type-info.js'
-import type { SchemaItem } from './values.js'
 import type { SchemaAPI } from './schema-api.js'
 import {
 	isReservedQueryLogicalFieldName,
@@ -77,49 +69,12 @@ export type SchemaFields = Readonly<Record<string, GenericField>>
 /**
  * Collects schema-scoped plugin metadata in deterministic declaration order.
  */
-export type SchemaExtensions = readonly SchemaExtension<string, object>[]
-
-type UnionToIntersection<TValue> = (
-	TValue extends unknown ? (value: TValue) => void : never
-) extends (value: infer TIntersection) => void
-	? TIntersection
-	: never
-
-/** Resolves every extension-owned field into the ordinary schema field map. */
-export type SchemaExtensionFields<TExtensions extends SchemaExtensions> = [
-	TExtensions[number],
-] extends [never]
-	? Readonly<Record<never, never>>
-	: UnionToIntersection<TExtensions[number]['fields']>
-
-/** Combines developer fields with fields reserved by installed schema extensions. */
-export type ResolvedSchemaFields<
-	TFields extends SchemaFields,
-	TExtensions extends SchemaExtensions,
-> = Readonly<TFields> & Readonly<SchemaExtensionFields<TExtensions>>
-
-/** Reads developer-owned persisted values supplied to contextual extensions. */
-export type SchemaExtensionData<TClassName extends string> = Omit<
-	SchemaItem<SchemaReference<TClassName>>,
-	ReservedSystemFieldName
->
-
-/** Supports ordinary extension tuples and sibling-field-aware declarations. */
-export type SchemaExtensionDeclaration<
-	TExtensions extends SchemaExtensions,
-	TData extends Readonly<Record<string, unknown>> = Readonly<
-		Record<string, unknown>
-	>,
-> =
-	TExtensions | ((context: SchemaExtensionBindingContext<TData>) => TExtensions)
-
 /**
  * Describes the developer input accepted by `Schema.define()`.
  */
 export interface SchemaOptions<
 	TClassName extends string = string,
 	TFields extends SchemaFields = SchemaFields,
-	TExtensions extends SchemaExtensions = readonly [],
 > extends UltimaBaseGeneratedSchemaOptions {
 	/**
 	 * Declares the stable logical name used by queries, transports, and adapters.
@@ -143,17 +98,6 @@ export interface SchemaOptions<
 	readonly indexes?: readonly SchemaIndexOptions<
 		SchemaFieldName<NoInfer<TFields>>
 	>[]
-	/**
-	 * Attaches immutable schema metadata interpreted by installed plugins.
-	 * A callback may bind extension options to the exact sibling-field values.
-	 * Extension order is preserved and duplicate identities are rejected.
-	 *
-	 * @example `extensions: [permissionsExtension]`
-	 */
-	readonly extensions?: SchemaExtensionDeclaration<
-		TExtensions,
-		SchemaExtensionData<NoInfer<TClassName>>
-	>
 }
 
 /**
@@ -162,21 +106,15 @@ export interface SchemaOptions<
 export interface SchemaMetadata<
 	TClassName extends string = string,
 	TFields extends SchemaFields = SchemaFields,
-	TExtensions extends SchemaExtensions = SchemaExtensions,
 > {
 	/** The exact logical class name supplied to `Schema.define()`. */
 	readonly className: TClassName
 	/** The ordered adapter-neutral constraints contributed during compilation. */
 	readonly constraints: readonly SchemaConstraintDefinition[]
 	/** The immutable developer and framework-owned field map. */
-	readonly fields: ResolvedSchemaFields<TFields, TExtensions> &
-		Readonly<SystemFields>
+	readonly fields: Readonly<TFields> & Readonly<SystemFields>
 	/** The immutable normalized field-level and composite index declarations. */
-	readonly indexes: readonly SchemaIndexDefinition<
-		SchemaFieldName<ResolvedSchemaFields<TFields, TExtensions>>
-	>[]
-	/** The immutable ordered schema-extension tuple. */
-	readonly extensions: readonly [...TExtensions]
+	readonly indexes: readonly SchemaIndexDefinition<SchemaFieldName<TFields>>[]
 	/** Explains the exact owner of every logical compiled contribution. */
 	readonly provenance: SchemaCompilationProvenance
 }
@@ -185,10 +123,9 @@ export interface SchemaMetadata<
 export interface SchemaDefinition<
 	TClassName extends string = string,
 	TFields extends SchemaFields = SchemaFields,
-	TExtensions extends SchemaExtensions = SchemaExtensions,
-> extends SchemaMetadata<TClassName, TFields, TExtensions> {
+> extends SchemaMetadata<TClassName, TFields> {
 	/** The immutable transport-neutral metadata consumed by infrastructure. */
-	readonly definition: SchemaMetadata<TClassName, TFields, TExtensions>
+	readonly definition: SchemaMetadata<TClassName, TFields>
 }
 
 /** Represents one public schema class driven by its complete generated contract. */
@@ -237,7 +174,6 @@ export type SchemaClassCapabilityFactory<
 const schemaDefinitionMarker = Symbol.for(
 	'@ultimabase/core/schema-definition/v1',
 )
-const emptySchemaExtensions: readonly [] = immutableArray([])
 
 /** Explains why a deferred schema cannot expose its final runtime definition. */
 export type SchemaCompilationFailureReason =
@@ -268,7 +204,6 @@ export class SchemaCompilationError extends Error {
 
 interface NormalizedSchemaDeclaration {
 	readonly className: string
-	readonly extensions: SchemaExtensions
 	readonly fields: Readonly<Record<string, unknown>>
 	readonly indexes: readonly SchemaIndexOptions[] | undefined
 	readonly options: Readonly<Record<string, unknown>>
@@ -354,29 +289,6 @@ const defineSchemaStaticCapabilities = <
 	return schema as TSchema & TCapabilities
 }
 
-const normalizeSchemaExtensions = <
-	TClassName extends string,
-	TFields extends SchemaFields,
-	TExtensions extends SchemaExtensions,
->(
-	options: Pick<SchemaOptions<TClassName, TFields, TExtensions>, 'extensions'>,
-): readonly [...TExtensions] => {
-	const declaredExtensions =
-		typeof options.extensions === 'function'
-			? options.extensions(
-					createSchemaExtensionBindingContext<
-						SchemaExtensionData<TClassName>
-					>(),
-				)
-			: options.extensions
-
-	return (
-		declaredExtensions === undefined
-			? emptySchemaExtensions
-			: defineExtensions(declaredExtensions)
-	) as readonly [...TExtensions]
-}
-
 const assertSchemaFields: (
 	fields: unknown,
 	className: string,
@@ -403,14 +315,7 @@ const compileSchemaRecord = (
 ): CompiledSchemaRecord => {
 	assertSchemaFields(developerFieldsInput, declaration.className)
 	const developerFields = immutableRecord(developerFieldsInput)
-	const extensionFields = collectSchemaExtensionFields(
-		developerFields,
-		declaration.extensions,
-	)
-	const declaredFields = immutableRecord({
-		...developerFields,
-		...extensionFields,
-	})
+	const declaredFields = developerFields
 	const fields = immutableRecord({
 		...declaredFields,
 		...systemFields,
@@ -421,7 +326,6 @@ const compileSchemaRecord = (
 		Object.keys(declaredFields),
 		fields,
 		indexes,
-		declaration.extensions.map(({ name }) => name),
 		Object.keys(declaration.options),
 	)
 	const definition = immutableRecord({
@@ -430,7 +334,6 @@ const compileSchemaRecord = (
 		constraints: immutableArray([]),
 		fields,
 		indexes,
-		extensions: declaration.extensions,
 		provenance,
 	})
 
@@ -441,12 +344,7 @@ const compileSchemaRecord = (
 	})
 }
 
-const coreSchemaOptionKeys = new Set([
-	'className',
-	'extensions',
-	'fields',
-	'indexes',
-])
+const coreSchemaOptionKeys = new Set(['className', 'fields', 'indexes'])
 
 /** Detaches direct plugin options while leaving their validation to the application graph. */
 const snapshotUnresolvedSchemaOptions = (
@@ -709,9 +607,8 @@ export const finalizeSchemaCompilation = (
 const defineSchemaModel = <
 	const TClassName extends string,
 	const TFields extends SchemaFields,
-	const TExtensions extends SchemaExtensions,
 >(
-	options: SchemaOptions<TClassName, TFields, TExtensions>,
+	options: SchemaOptions<TClassName, TFields>,
 ): SchemaReference<TClassName> => {
 	if (!isPlainRecord(options)) {
 		throw new TypeError('schema options must be an object')
@@ -723,7 +620,6 @@ const defineSchemaModel = <
 		throw new TypeError('fields must be a function')
 	}
 
-	const extensions = normalizeSchemaExtensions(options)
 	let fields: Readonly<Record<string, unknown>>
 
 	try {
@@ -746,7 +642,6 @@ const defineSchemaModel = <
 
 	const declaration: NormalizedSchemaDeclaration = immutableRecord({
 		className: options.className,
-		extensions,
 		fields,
 		indexes: snapshotSchemaIndexOptions(options.indexes),
 		options: snapshotUnresolvedSchemaOptions(options),
@@ -756,8 +651,7 @@ const defineSchemaModel = <
 	let schemaIdentity: SchemaReference<TClassName> | undefined
 	const schema: SchemaReference<TClassName> = createSchemaModelClass<
 		TClassName,
-		TFields,
-		TExtensions
+		TFields
 	>({
 		className: options.className,
 		readDefinition: () => {
@@ -766,7 +660,7 @@ const defineSchemaModel = <
 			}
 
 			return readCompiledSchemaRecord(schemaIdentity)
-				.definition as SchemaMetadata<TClassName, TFields, TExtensions>
+				.definition as SchemaMetadata<TClassName, TFields>
 		},
 		readDeveloperFields: () => {
 			if (schemaIdentity === undefined) {
@@ -810,41 +704,6 @@ const defineSchemaModel = <
 	return schema
 }
 
-/** Validates extension-owned fields at the same trusted boundary as developer fields. */
-const collectSchemaExtensionFields = (
-	developerFields: SchemaFields,
-	extensions: SchemaExtensions,
-): SchemaFields => {
-	const entries: [string, GenericField][] = []
-	const names = new Set(Object.keys(developerFields))
-
-	for (const extension of extensions) {
-		for (const [name, field] of Object.entries(extension.fields)) {
-			assertNonEmptyString(name, `extension ${extension.name} field name`)
-			assertFieldDefinition(field, `extension ${extension.name} fields.${name}`)
-
-			if (names.has(name)) {
-				throw new TypeError(`Reserved schema extension field: ${name}`)
-			}
-
-			if (
-				reservedSystemFieldNames.some(
-					(reservedName) => reservedName === name,
-				) ||
-				isReservedQueryLogicalFieldName(name) ||
-				isReservedSchemaModelFieldName(name)
-			) {
-				throw new TypeError(`Reserved schema extension field: ${name}`)
-			}
-
-			names.add(name)
-			entries.push([name, field])
-		}
-	}
-
-	return immutableRecord(Object.fromEntries(entries))
-}
-
 const assertNoReservedFieldCollision = (
 	fields: Readonly<Record<string, unknown>>,
 ): void => {
@@ -868,7 +727,7 @@ const assertNoReservedFieldCollision = (
 /**
  * Declares immutable schema model classes that become UltimaBase's source of truth.
  *
- * The exact class name, field map, indexes, and extensions remain available to
+ * The exact class name, field map, and indexes remain available to
  * query and input inference. The returned class constructs immutable drafts,
  * while Runtime uses the same class for persisted results.
  *
@@ -920,13 +779,12 @@ export class Schema {
 	static define<
 		const TClassName extends string,
 		const TFields extends SchemaFields,
-		const TExtensions extends SchemaExtensions = readonly [],
 	>(
-		options: SchemaOptions<TClassName, TFields, TExtensions> &
+		options: SchemaOptions<TClassName, TFields> &
 			RequireGeneratedSchemaEntry<TClassName> &
 			ReservedSchemaFieldCollision<NoInfer<TFields>>,
 	): SchemaReference<NoInfer<TClassName>> {
-		const schema = defineSchemaModel<TClassName, TFields, TExtensions>(options)
+		const schema = defineSchemaModel<TClassName, TFields>(options)
 		finalizeSchemaModelClass(schema)
 		Object.freeze(schema)
 
@@ -947,17 +805,16 @@ export class Schema {
 	static defineWithStatics<
 		const TClassName extends string,
 		const TFields extends SchemaFields,
-		const TExtensions extends SchemaExtensions = readonly [],
 		const TCapabilities extends SchemaStaticCapabilities =
 			SchemaStaticCapabilities,
 	>(
-		options: SchemaOptions<TClassName, TFields, TExtensions>,
+		options: SchemaOptions<TClassName, TFields>,
 		createCapabilities: SchemaStaticCapabilityFactory<
 			SchemaReference<TClassName>,
 			TCapabilities
 		>,
 	): SchemaReference<TClassName> & TCapabilities {
-		const schema = defineSchemaModel<TClassName, TFields, TExtensions>(options)
+		const schema = defineSchemaModel<TClassName, TFields>(options)
 		const specializedSchema = defineSchemaStaticCapabilities(
 			schema,
 			createCapabilities,
@@ -978,11 +835,10 @@ export class Schema {
 	static defineWithCapabilities<
 		const TClassName extends string,
 		const TFields extends SchemaFields,
-		const TExtensions extends SchemaExtensions = readonly [],
 		const TStatics extends SchemaStaticCapabilities = SchemaStaticCapabilities,
 		const TResults extends object = object,
 	>(
-		options: SchemaOptions<TClassName, TFields, TExtensions>,
+		options: SchemaOptions<TClassName, TFields>,
 		createCapabilities: SchemaClassCapabilityFactory<
 			SchemaReference<TClassName>,
 			TStatics,
@@ -995,7 +851,7 @@ export class Schema {
 			throw new TypeError('createCapabilities must be a function')
 		}
 
-		const schema = defineSchemaModel<TClassName, TFields, TExtensions>(options)
+		const schema = defineSchemaModel<TClassName, TFields>(options)
 		const capabilities: unknown = createCapabilities(
 			createSchemaModelCapabilityContext(schema),
 		)

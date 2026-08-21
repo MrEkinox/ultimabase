@@ -82,26 +82,17 @@ describe('relationField', () => {
 		)
 	})
 
-	it('copies portable documentation and extension metadata', () => {
-		const extension = Object.freeze({
-			config: Object.freeze({ enabled: true }),
-			name: 'relation-audit',
-			pluginName: 'fixture.relation-audit',
-			scope: 'field' as const,
-		})
+	it('copies portable documentation metadata', () => {
 		const field = relationField({
 			description: 'Tags attached to an article',
-			extensions: [extension],
 			target: () => RelationTag,
 		})
 
 		expect(field.options).toStrictEqual({
 			description: 'Tags attached to an article',
-			extensions: [extension],
 		})
 		expect(Object.isFrozen(field)).toBe(true)
 		expect(Object.isFrozen(field.options)).toBe(true)
-		expect(Object.isFrozen(field.options.extensions)).toBe(true)
 	})
 
 	it.each([

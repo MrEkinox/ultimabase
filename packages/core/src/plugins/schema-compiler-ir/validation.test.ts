@@ -26,7 +26,6 @@ const createSchemaNode = (
 		className,
 		constraints: immutableArray([]),
 		developerFieldNames: immutableArray([]),
-		extensions: immutableArray([]),
 		fields: immutableArray([]),
 		indexes: immutableArray([]),
 		options: immutableArray([]),
@@ -34,7 +33,6 @@ const createSchemaNode = (
 			className,
 			[],
 			immutableRecord({}),
-			[],
 			[],
 			[],
 		),
@@ -118,12 +116,12 @@ describe('schema compiler IR validation', () => {
 		}).toThrow('schema compiler input.schemas must be immutable')
 	})
 
-	it('rejects protocol 2 and malformed option-presence selectors', () => {
+	it('rejects protocol 3 and malformed option-presence selectors', () => {
 		const session = new SchemaCompilerArtifactSession()
 		const input = createInput(session)
-		const protocolTwo = immutableRecord({
+		const protocolThree = immutableRecord({
 			...input,
-			protocolVersion: '2.0.0',
+			protocolVersion: '3.0.0',
 		})
 		const declaration = input.declarations[0]
 		if (declaration === undefined) {
@@ -150,7 +148,7 @@ describe('schema compiler IR validation', () => {
 		})
 
 		expect(() => {
-			assertSchemaCompilerInput(protocolTwo, session)
+			assertSchemaCompilerInput(protocolThree, session)
 		}).toThrow('Unsupported schema compiler input protocol version')
 		expect(() => {
 			assertSchemaCompilerInput(malformedSelector, session)

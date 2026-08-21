@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest'
 
 import { stringField } from '../../schema/fields/builtins/string.js'
 import { snapshotJsonValue } from '../../schema/fields/builtins/json.js'
-import { defineSchemaExtension } from '../../schema/extensions/definition.js'
 import { defineSchemaConstraint } from '../../schema/schema/constraints.js'
 import {
 	prepareSchemaCompilation,
@@ -12,11 +11,8 @@ import {
 import type { SchemaDeclarationBatch } from '../schema-declaration-contracts.js'
 import {
 	addSchemaConstraint,
-	addSchemaExtension,
 	removeSchemaConstraint,
-	removeSchemaExtension,
 	replaceSchemaConstraint,
-	replaceSchemaExtension,
 } from '../schema-artifact-patch-operations.js'
 import {
 	addSchemaField,
@@ -42,18 +38,6 @@ const owner = immutableRecord({
 
 describe('schema compiler declaration encoding', () => {
 	it('encodes additions, options, selectors, and every patch family', () => {
-		const originalExtension = defineSchemaExtension(
-			'fixture.compiler-original',
-			{ version: 1 },
-			'fixture.compiler-original',
-			{ fields: { originalMarker: stringField() } },
-		)
-		const replacementExtension = defineSchemaExtension(
-			'fixture.compiler-replacement',
-			{ version: 2 },
-			'fixture.compiler-replacement',
-			{ fields: { replacementMarker: stringField() } },
-		)
 		const originalConstraint = defineSchemaConstraint({
 			kind: 'fixture.compiler-original',
 			value: { enabled: true },
@@ -66,7 +50,6 @@ describe('schema compiler declaration encoding', () => {
 		})
 		const Post = Schema.define({
 			className: 'CompilerIrDeclarationPost',
-			extensions: [originalExtension],
 			fields: (field) => ({
 				title: field.string({ description: 'Title' }),
 			}),
@@ -88,12 +71,6 @@ describe('schema compiler declaration encoding', () => {
 		const fieldTarget = {
 			contributionId: 'field:CompilerIrDeclarationPost.title',
 			expected: title,
-			owner: { kind: 'application' as const },
-		}
-		const extensionTarget = {
-			contributionId:
-				'extension:CompilerIrDeclarationPost:0:fixture.compiler-original',
-			expected: originalExtension,
 			owner: { kind: 'application' as const },
 		}
 		const constraintTarget = {
@@ -141,19 +118,6 @@ describe('schema compiler declaration encoding', () => {
 			removeSchemaIndex({
 				contributionId: 'index-remove',
 				target: indexTarget,
-			}),
-			addSchemaExtension({
-				contributionId: 'extension-add',
-				extension: replacementExtension,
-			}),
-			replaceSchemaExtension({
-				contributionId: 'extension-replace',
-				extension: replacementExtension,
-				target: extensionTarget,
-			}),
-			removeSchemaExtension({
-				contributionId: 'extension-remove',
-				target: extensionTarget,
 			}),
 			addSchemaConstraint({
 				constraint: originalConstraint,
@@ -284,14 +248,6 @@ describe('schema compiler declaration encoding', () => {
 		expect(patch?.operations.map(({ kind }) => kind)).toEqual(
 			operations.map(({ kind }) => kind),
 		)
-		const extensionReplacement = patch?.operations.find(
-			(operation) => operation.kind === 'extension:replace',
-		)
-		expect(
-			extensionReplacement?.kind === 'extension:replace'
-				? extensionReplacement.extension.fields.map(({ name }) => name)
-				: [],
-		).toEqual(['replacementMarker'])
 		expect(JSON.stringify(encoded.input)).not.toContain('"normalize":')
 		expect(JSON.stringify(encoded.input)).not.toContain('SchemaDefinition')
 	})

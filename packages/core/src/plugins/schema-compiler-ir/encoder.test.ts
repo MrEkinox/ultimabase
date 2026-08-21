@@ -63,18 +63,18 @@ describe('schema compiler IR encoding', () => {
 	it('assigns stable ordered identities and reuses repeated artifacts', () => {
 		const encoder = new SchemaCompilerIrEncoder()
 		const artifact = Object.freeze({ ready: true })
-		const first = encoder.reference('extension', artifact, 'first')
-		const repeated = encoder.reference('extension', artifact, 'second')
+		const first = encoder.reference('field', artifact, 'first')
+		const repeated = encoder.reference('field', artifact, 'second')
 		const distinctKind = encoder.reference('option-value', artifact, 'third')
 		const repeatedCompilation = new SchemaCompilerIrEncoder().reference(
-			'extension',
+			'field',
 			artifact,
 			'first',
 		)
 
 		expect(repeated).toBe(first)
 		expect(distinctKind).not.toBe(first)
-		expect(first.artifactId).toBe('extension:0:first')
+		expect(first.artifactId).toBe('field:0:first')
 		expect(distinctKind.artifactId).toBe('option-value:1:third')
 		expect(repeatedCompilation.artifactId).toBe(first.artifactId)
 	})

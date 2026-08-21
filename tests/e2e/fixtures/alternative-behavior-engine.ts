@@ -1,7 +1,7 @@
 import {
 	Schema,
 	defineCapability,
-	defineSchemaExtension,
+	defineSchemaOption,
 	getOperationSchema,
 	optionalCapability,
 	provideCapability,
@@ -31,12 +31,18 @@ import {
 
 export const alternativeBehaviorPluginId =
 	'fixture.alternative-behavior-engine' as const
-export const alternativeBehaviorExtensionName =
-	'fixture.alternative-behavior' as const
+export const alternativeBehaviorOptionName = 'alternativeBehavior' as const
 
 export interface AlternativeBehaviorOptions {
 	/** Labels audit records and committed diagnostics for this schema. */
 	readonly label: string
+}
+
+declare module '@ultimabase/core' {
+	interface UltimaBaseGeneratedSchemaOptions {
+		/** Configures the independent behavior fixture when its plugin is installed. */
+		readonly alternativeBehavior?: AlternativeBehaviorOptions
+	}
 }
 
 export interface AlternativeBehaviorTrace {
@@ -112,12 +118,19 @@ export const alternativeBehavior = (options: AlternativeBehaviorOptions) => {
 		throw new TypeError('alternative behavior label must be a non-empty string')
 	}
 
-	return defineSchemaExtension(
-		alternativeBehaviorExtensionName,
-		immutableRecord({ label: untrustedOptions.label }),
-		alternativeBehaviorPluginId,
-	)
+	return immutableRecord({ label: untrustedOptions.label })
 }
+
+const alternativeBehaviorSchemaOption = defineSchemaOption({
+	normalize: (value) =>
+		alternativeBehavior(value as AlternativeBehaviorOptions),
+	protocolVersion: 1,
+	typegen: {
+		module: './fixtures/alternative-behavior-engine.js',
+		type: 'AlternativeBehaviorOptions',
+	},
+	valueKind: 'json',
+})
 
 const readOperationIdentity = (
 	operation: Readonly<{ readonly kind: OperationKind }>,
@@ -144,13 +157,12 @@ const compileAlternativeBehaviorPlan = (
 	const plan = new Map<string, AlternativeBehaviorOptions>()
 
 	for (const schema of schemas.values()) {
-		const extension = schema.extensions.find(
-			(candidate) =>
-				candidate.name === alternativeBehaviorExtensionName &&
-				candidate.pluginName === alternativeBehaviorPluginId,
+		if (!Object.hasOwn(schema.definition, alternativeBehaviorOptionName))
+			continue
+		const config: unknown = Reflect.get(
+			schema.definition,
+			alternativeBehaviorOptionName,
 		)
-		if (extension === undefined) continue
-		const config: unknown = extension.config
 		if (
 			!isPlainRecord(config) ||
 			typeof config.label !== 'string' ||
@@ -256,6 +268,10 @@ export const createAlternativeBehaviorEngine = (
 			requires: [runtimeState],
 		},
 		declare: ({ schemas, typegenContributions }) => {
+			schemas.defineOptions({
+				contributionId: 'alternative-behavior-option',
+				schema: { alternativeBehavior: alternativeBehaviorSchemaOption },
+			})
 			schemas.add({
 				contributionId: 'audit-schema',
 				schema: Audit,
@@ -290,7 +306,8 @@ export const createAlternativeBehaviorEngine = (
 		privileges: [
 			{
 				name: 'schema:declare',
-				reason: 'Declares the alternative engine audit schema.',
+				reason:
+					'Declares the alternative behavior schema option and audit schema.',
 			},
 			{
 				name: 'runtime:intercept',

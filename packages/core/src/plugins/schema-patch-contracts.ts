@@ -2,8 +2,6 @@ import type { JsonValue } from '../schema/fields/builtins/json.js'
 
 import type { GenericField } from '../schema/fields/base/contract.js'
 
-import { type SchemaExtension } from '../schema/extensions/definition.js'
-
 import type {
 	SchemaIndexDefinition,
 	SchemaIndexOptions,
@@ -137,29 +135,6 @@ export interface RemoveSchemaIndexOperation {
 	readonly target: ExistingSchemaContributionTarget<SchemaIndexDefinition>
 }
 
-export interface AddSchemaExtensionOperation {
-	readonly contributionId: string
-	readonly extension: SchemaExtension<string, object>
-	readonly kind: 'extension:add'
-}
-
-export interface ReplaceSchemaExtensionOperation {
-	readonly contributionId: string
-	readonly extension: SchemaExtension<string, object>
-	readonly kind: 'extension:replace'
-	readonly target: ExistingSchemaContributionTarget<
-		SchemaExtension<string, object>
-	>
-}
-
-export interface RemoveSchemaExtensionOperation {
-	readonly contributionId: string
-	readonly kind: 'extension:remove'
-	readonly target: ExistingSchemaContributionTarget<
-		SchemaExtension<string, object>
-	>
-}
-
 export interface AddSchemaConstraintOperation {
 	readonly constraint: SchemaConstraintDefinition
 	readonly contributionId: string
@@ -181,19 +156,16 @@ export interface RemoveSchemaConstraintOperation {
 
 export type SchemaPatchOperation =
 	| AddSchemaConstraintOperation
-	| AddSchemaExtensionOperation
 	| AddSchemaFieldOperation
 	| AddSchemaIndexOperation
 	| RemoveSchemaFieldOptionOperation
 	| RemoveSchemaConstraintOperation
 	| RemoveSchemaFieldOperation
-	| RemoveSchemaExtensionOperation
 	| RemoveSchemaIndexOperation
 	| RemoveSchemaOptionOperation
 	| RenameSchemaFieldOperation
 	| ReplaceSchemaFieldOperation
 	| ReplaceSchemaConstraintOperation
-	| ReplaceSchemaExtensionOperation
 	| ReplaceSchemaIndexOperation
 	| SetSchemaFieldOptionOperation
 	| SetSchemaOptionOperation

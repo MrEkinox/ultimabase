@@ -27,44 +27,18 @@ Schema.define({
 	)
 	.join('\n')
 
-const extensionCases = reservedFieldNames
-	.map(
-		(name, index) => `
-const reservedExtension${String(index)} = defineSchemaExtension(
-  'fixture.reserved.${String(index)}',
-  {},
-  'fixture.reserved',
-  // @ts-expect-error -- ${name} is reserved for exact extension field maps.
-  { fields: { ${JSON.stringify(name)}: stringField() } },
-)`,
-	)
-	.join('\n')
-
 const source = `
-import {
-  defineSchemaExtension,
-  Schema,
-  stringField,
-} from '../../src/index.js'
+import { Schema, stringField } from '../../src/index.js'
 
 ${schemaCases}
-${extensionCases}
 
 const dynamicField = stringField()
 const dynamicFields: Record<string, typeof dynamicField> = {
   create: dynamicField,
 }
-const dynamicExtension = defineSchemaExtension(
-  'fixture.dynamic',
-  {},
-  'fixture.dynamic',
-  { fields: dynamicFields },
-)
-
 Schema.define({
   className: 'DynamicReservedFields',
   fields: () => dynamicFields,
-  extensions: [dynamicExtension],
 })
 `
 

@@ -19,7 +19,6 @@ const contributionKeys = new Set([
 ])
 const compilationKeys = new Set([
 	'constraints',
-	'extensions',
 	'fieldOptions',
 	'fields',
 	'indexes',
@@ -202,12 +201,6 @@ export function assertSchemaCompilationProvenance(
 		value.constraints,
 		new Set(['definition', 'provenance']),
 		`${path}.constraints`,
-		allowedOwners,
-	)
-	assertProvenanceList(
-		value.extensions,
-		new Set(['name', 'provenance']),
-		`${path}.extensions`,
 		allowedOwners,
 	)
 	assertProvenanceList(

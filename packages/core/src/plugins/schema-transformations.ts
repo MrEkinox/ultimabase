@@ -8,7 +8,6 @@ import type {
 	ResolvedFieldOptions,
 } from './schema-declaration-contracts.js'
 import { applyConstraintOperation } from './schema-constraint-transformations.js'
-import { applyExtensionOperation } from './schema-extension-transformations.js'
 import { applyFieldOperation } from './schema-field-transformations.js'
 import { applyIndexOperation } from './schema-index-transformations.js'
 import { coreSchemaKeys } from './schema-option-resolution.js'
@@ -20,7 +19,6 @@ import type {
 
 const operationHandlers = [
 	applyConstraintOperation,
-	applyExtensionOperation,
 	applyFieldOperation,
 	applyOptionOperation,
 	applyIndexOperation,
@@ -35,7 +33,6 @@ export const applyPatch = (
 	const state: SchemaTransformationState = {
 		constraints: candidate.definition.constraints,
 		developerFields: candidate.developerFields,
-		extensions: candidate.definition.extensions,
 		fields: candidate.definition.fields,
 		indexes: candidate.definition.indexes,
 		provenance: candidate.definition.provenance,
@@ -60,7 +57,6 @@ export const applyPatch = (
 			...Object.values(state.provenance.fields),
 			...state.provenance.constraints.map(({ provenance }) => provenance),
 			...state.provenance.indexes.map(({ provenance }) => provenance),
-			...state.provenance.extensions.map(({ provenance }) => provenance),
 			...state.provenance.patches.map(({ provenance }) => provenance),
 		]
 
@@ -99,7 +95,6 @@ export const applyPatch = (
 			...state.schemaOptionValues,
 			className: candidate.definition.className,
 			constraints: state.constraints,
-			extensions: state.extensions,
 			fields: state.fields,
 			indexes: state.indexes,
 			provenance: state.provenance,

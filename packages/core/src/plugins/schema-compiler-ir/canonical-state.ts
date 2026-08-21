@@ -10,7 +10,6 @@ import type {
 } from '../../schema/schema/provenance.js'
 import type {
 	SchemaCompilerConstraintNode,
-	SchemaCompilerExtensionNode,
 	SchemaCompilerFieldNode,
 	SchemaCompilerIndexNode,
 	SchemaCompilerOptionNode,
@@ -22,7 +21,6 @@ export interface CanonicalSchemaCompilerState {
 	readonly className: string
 	constraints: readonly SchemaCompilerConstraintNode[]
 	developerFieldNames: readonly string[]
-	extensions: readonly SchemaCompilerExtensionNode[]
 	fields: readonly SchemaCompilerFieldNode[]
 	indexes: readonly SchemaCompilerIndexNode[]
 	options: readonly SchemaCompilerOptionNode[]
@@ -36,7 +34,6 @@ export const createCanonicalSchemaCompilerState = (
 	className: schema.className,
 	constraints: schema.constraints,
 	developerFieldNames: schema.developerFieldNames,
-	extensions: schema.extensions,
 	fields: schema.fields,
 	indexes: schema.indexes,
 	options: schema.options,
@@ -51,7 +48,6 @@ export const snapshotCanonicalSchemaCompilerState = (
 		className: state.className,
 		constraints: immutableArray(state.constraints),
 		developerFieldNames: immutableArray(state.developerFieldNames),
-		extensions: immutableArray(state.extensions),
 		fields: immutableArray(state.fields),
 		indexes: immutableArray(state.indexes),
 		options: immutableArray(state.options),

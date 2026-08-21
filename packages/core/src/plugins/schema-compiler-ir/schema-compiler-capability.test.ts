@@ -117,7 +117,7 @@ describe('schema compiler replacement capability', () => {
 
 		expect(application.schemaCompilerProvenance).toStrictEqual({
 			capabilityId: 'ultimabase.schema-compiler',
-			capabilityVersion: '3.0.0',
+			capabilityVersion: '4.0.0',
 			contributionId: 'complete-compiler',
 			normalizedStaticOptions: { engine: 'fixture', revision: 2 },
 			owner: {
@@ -125,7 +125,7 @@ describe('schema compiler replacement capability', () => {
 				pluginId: 'fixture.schema-compiler',
 				version: '2.3.4',
 			},
-			protocolVersion: '3.0.0',
+			protocolVersion: '4.0.0',
 			target: canonicalSchemaCompilerTarget,
 		})
 		expect(Object.isFrozen(application.schemaCompilerProvenance)).toBe(true)
@@ -145,11 +145,11 @@ describe('schema compiler replacement capability', () => {
 
 		expect(application.schemaCompilerProvenance).toStrictEqual({
 			capabilityId: 'ultimabase.schema-compiler',
-			capabilityVersion: '3.0.0',
+			capabilityVersion: '4.0.0',
 			contributionId: 'canonical-schema-compiler',
 			normalizedStaticOptions: {},
 			owner: { kind: 'core', version: '0.0.0' },
-			protocolVersion: '3.0.0',
+			protocolVersion: '4.0.0',
 		})
 	})
 
@@ -175,7 +175,7 @@ describe('schema compiler replacement capability', () => {
 						target: canonicalSchemaCompilerTarget,
 						value: {
 							kind: 'schema-compiler-provider',
-							protocolVersion: '3.0.0',
+							protocolVersion: '4.0.0',
 							staticOptions: {},
 						},
 					}),
@@ -441,7 +441,7 @@ describe('schema compiler replacement capability', () => {
 					schemas: [],
 				}),
 		).toThrow(
-			'uses "ultimabase.schema-compiler@2.0.0" but its target contributes "ultimabase.schema-compiler@3.0.0"',
+			'uses "ultimabase.schema-compiler@2.0.0" but its target contributes "ultimabase.schema-compiler@4.0.0"',
 		)
 	})
 

@@ -9,8 +9,6 @@ import {
 import { FrameworkError } from '../errors/framework-error.js'
 import {
 	Schema,
-	type ExtensionDefinition,
-	type FieldExtension,
 	type GenericField,
 	type SchemaDefinition,
 } from '../schema/index.js'
@@ -97,61 +95,6 @@ export const runPluginDeclarationFactory = (
 	context: object,
 ): unknown => factory(context as never)
 
-/** Verifies that a plugin only targets an extension it owns. */
-export const assertOwnedPluginExtension: (
-	ownerPlugin: string,
-	extension: unknown,
-	scope: 'field' | 'schema',
-	capability: string,
-) => asserts extension is ExtensionDefinition<
-	'field' | 'schema',
-	string,
-	object
-> = (ownerPlugin, extension, scope, capability) => {
-	if (
-		!isPlainRecord(extension) ||
-		extension.scope !== scope ||
-		typeof extension.name !== 'string' ||
-		typeof extension.pluginName !== 'string' ||
-		!isPlainRecord(extension.config)
-	) {
-		throw new TypeError(
-			`Plugin ${capability} target must be a ${scope} extension`,
-		)
-	}
-
-	assertNonEmptyString(extension.name, `plugin ${capability} extension name`)
-	assertNonEmptyString(
-		extension.pluginName,
-		`plugin ${capability} extension pluginName`,
-	)
-
-	if (extension.pluginName !== ownerPlugin) {
-		throw new FrameworkError(
-			'PLUGIN_CONFLICT',
-			`Plugin "${ownerPlugin}" cannot target extension "${extension.name}" owned by plugin "${extension.pluginName}".`,
-			{
-				internalDetails: {
-					kind: `foreign-${capability.toLowerCase()}-extension`,
-					extensionName: extension.name,
-					extensionScope: scope,
-					ownerPlugin,
-					targetPlugin: extension.pluginName,
-				},
-			},
-		)
-	}
-}
-
-/** Compares extension declarations without relying on object identity. */
-export const pluginExtensionMatches = (
-	actual: ExtensionDefinition<'field' | 'schema', string, object>,
-	target: ExtensionDefinition<'field' | 'schema', string, object>,
-): boolean =>
-	actual.scope === target.scope &&
-	actual.name === target.name &&
-	actual.pluginName === target.pluginName
-
 /** Resolves one exact application-owned schema with attributed diagnostics. */
 export const resolvePluginTargetSchema = (
 	schemas: SchemaRegistry,
@@ -205,45 +148,4 @@ export const resolvePluginTargetField = (
 			},
 		)
 	}
-}
-
-const emptyFieldExtensions: readonly FieldExtension<string, object>[] =
-	immutableArray([])
-
-const isFieldExtension = (
-	value: unknown,
-): value is FieldExtension<string, object> =>
-	isPlainRecord(value) &&
-	value.scope === 'field' &&
-	typeof value.name === 'string' &&
-	value.name.length > 0 &&
-	typeof value.pluginName === 'string' &&
-	value.pluginName.length > 0 &&
-	isPlainRecord(value.config)
-
-/** Reads validated field extensions for shared plugin target expansion. */
-export const getPluginTargetFieldExtensions = (
-	field: GenericField,
-	capability: string,
-): readonly FieldExtension<string, object>[] => {
-	const extensions: unknown =
-		'extensions' in field.options ? field.options.extensions : undefined
-
-	if (!isUnknownArray(extensions)) {
-		return emptyFieldExtensions
-	}
-
-	const normalizedExtensions: FieldExtension<string, object>[] = []
-
-	for (const extension of extensions) {
-		if (!isFieldExtension(extension)) {
-			throw new TypeError(
-				`Invalid field extension in plugin ${capability} target`,
-			)
-		}
-
-		normalizedExtensions.push(extension)
-	}
-
-	return immutableArray(normalizedExtensions)
 }

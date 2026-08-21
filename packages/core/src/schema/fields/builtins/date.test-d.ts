@@ -2,7 +2,6 @@ import { expectTypeOf, test } from 'vitest'
 
 import {
 	dateField,
-	defineSchemaExtension,
 	type DateField,
 	type DateFieldOptions,
 	type DateValidationOptions,
@@ -66,8 +65,8 @@ test('rejects non-string values and invalid default factories', () => {
 	})
 
 	dateField({
-		// @ts-expect-error -- Schema extensions cannot attach to individual fields.
-		extensions: [defineSchemaExtension('fixture.date', {})],
+		// @ts-expect-error -- Removed generic extension metadata is not a field option.
+		extensions: [],
 	})
 
 	expectTypeOf<DateFieldOptions>().toExtend<

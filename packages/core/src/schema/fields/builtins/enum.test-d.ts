@@ -1,7 +1,6 @@
 import { expectTypeOf, test } from 'vitest'
 
 import {
-	defineSchemaExtension,
 	enumField,
 	type EnumField,
 	type EnumFieldOptions,
@@ -114,8 +113,8 @@ test('rejects invalid enum sources and metadata', () => {
 	})
 	enumField({
 		values: ['draft'],
-		// @ts-expect-error -- Schema extensions cannot attach to individual fields.
-		extensions: [defineSchemaExtension('fixture.enum', {})],
+		// @ts-expect-error -- Removed generic extension metadata is not a field option.
+		extensions: [],
 	})
 
 	expectTypeOf<EnumValue<readonly ['first', 'second']>>().toEqualTypeOf<

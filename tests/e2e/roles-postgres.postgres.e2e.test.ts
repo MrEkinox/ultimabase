@@ -605,7 +605,6 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 					useMasterKey: true,
 				}),
 			).resolves.toBeGreaterThan(0)
-			expect(AppRole.extensions).toStrictEqual([])
 			expect(JSON.stringify(AppRole.definition)).not.toContain(
 				'transportVisibility',
 			)

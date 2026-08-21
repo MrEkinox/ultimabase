@@ -162,7 +162,6 @@ describe('normalizeUpdateExpression', () => {
 		// Build the malformed boundary explicitly because spreading a class loses its prototype.
 		const malformedSchema = {
 			className: accountSchema.className,
-			extensions: accountSchema.extensions,
 			fields: { ...accountSchema.fields, visits: undefined },
 			indexes: accountSchema.indexes,
 		} as unknown as typeof accountSchema

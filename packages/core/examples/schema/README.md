@@ -20,8 +20,6 @@ TypeScript snippets:
 - [`explicit-relationships.md`](explicit-relationships.md) models edges with
   business data as ordinary schemas with exact pointers and composite
   uniqueness;
-- [`extensions.md`](extensions.md) declares opaque schema and field metadata
-  owned by a runtime plugin;
 - [`plugin-field-containment.md`](plugin-field-containment.md) gives a community
   scalar field an exact portable structural `contains` operand;
 - [`plugin-transformations.md`](plugin-transformations.md) declares direct plugin

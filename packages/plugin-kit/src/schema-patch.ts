@@ -1,12 +1,10 @@
 import {
 	addSchemaConstraint,
-	addSchemaExtension,
 	addSchemaField,
 	addSchemaIndex,
 	setSchemaFieldOption,
 	setSchemaOption,
 	type AddSchemaConstraintOperation,
-	type AddSchemaExtensionOperation,
 	type AddSchemaFieldOperation,
 	type JsonValue,
 	type SchemaPatchOperation,
@@ -29,9 +27,6 @@ export interface AddPatchIndexOptions {
 	readonly fields: readonly [string, string, ...string[]]
 	readonly unique?: boolean
 }
-
-/** Describes one additive extension in an immutable schema patch. */
-export type AddPatchExtensionOptions = Omit<AddSchemaExtensionOperation, 'kind'>
 
 /** Describes one additive portable constraint in an immutable schema patch. */
 export type AddPatchConstraintOptions = Omit<
@@ -75,11 +70,6 @@ export class SchemaPatchBuilder {
 	/** Adds one composite index through Core's validated patch factory. */
 	addIndex(options: AddPatchIndexOptions): SchemaPatchBuilder {
 		return this.append(addSchemaIndex(options))
-	}
-
-	/** Adds one schema extension through Core's validated patch factory. */
-	addExtension(options: AddPatchExtensionOptions): SchemaPatchBuilder {
-		return this.append(addSchemaExtension(options))
 	}
 
 	/** Adds one portable constraint through Core's validated patch factory. */

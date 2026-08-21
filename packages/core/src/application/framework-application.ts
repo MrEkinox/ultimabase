@@ -17,7 +17,6 @@ import { ApplicationCapabilityHost } from '../plugins/capability-host.js'
 import { PluginDeclarationHost } from '../plugins/declaration-host.js'
 import { SchemaDeclarationRegistry } from '../plugins/schema-declarations.js'
 import { bindApplicationCapabilityHost } from '../plugins/application-capability-access.js'
-import { validateExtensionOwners } from '../plugins/extension-handlers.js'
 import { FrameworkError } from '../errors/framework-error.js'
 import { PluginGraph } from '../plugins/graph.js'
 import {
@@ -110,7 +109,6 @@ export class FrameworkApplication<
 	readonly #setupRegistries: PluginSetupRegistries
 	readonly #lifecycle: PluginLifecycleManager
 	readonly #capabilityHost: ApplicationCapabilityHost
-	readonly #pluginGraph: PluginGraph
 	readonly #fieldBuilderMethods = new FieldBuilderMethodRegistry()
 	readonly #schemaDeclarations = new SchemaDeclarationRegistry()
 	readonly #declarationHost: PluginDeclarationHost
@@ -138,7 +136,6 @@ export class FrameworkApplication<
 		this.schemaCompilerProvenance = this.#schemaCompiler.provenance
 
 		this.schemas = new SchemaRegistry(options.schemas)
-		this.#pluginGraph = graph
 		this.#declarationHost = new PluginDeclarationHost(
 			graph,
 			this.#fieldBuilderMethods,
@@ -347,7 +344,6 @@ export class FrameworkApplication<
 				throw this.#recordSchemaCompilationFailure(error)
 			}
 			await this.#lifecycle.setup()
-			validateExtensionOwners(this.schemas.values(), this.#pluginGraph)
 			return this
 		} catch (error: unknown) {
 			if (this.#lifecycle.state !== 'disposed') {

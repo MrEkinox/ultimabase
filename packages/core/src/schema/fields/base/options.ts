@@ -7,7 +7,6 @@ import {
 } from '@ultimabase/shared'
 
 import { isStaticDefault } from './defaults.js'
-import { defineExtensions } from '../../extensions/definition.js'
 import type {
 	FieldTypegenState,
 	FieldListOption,
@@ -28,7 +27,6 @@ type NormalizeStaticValue = (value: unknown, path: string) => unknown
 /** Lists the portable metadata keys shared by fields without a default contract. */
 export const fieldOptionsBaseKeys: readonly string[] = [
 	'description',
-	'extensions',
 	'immutable',
 	'indexed',
 	'list',
@@ -329,10 +327,6 @@ export const normalizeFieldOptions = <
 		options.validation === undefined
 			? undefined
 			: normalizeCommonValidation(options.validation, normalizeValidation)
-	const extensions =
-		options.extensions === undefined
-			? undefined
-			: defineExtensions(options.extensions)
 	const hasNormalizedDefault =
 		'default' in options && isStaticDefault(options.default)
 	const normalizedDefault = hasNormalizedDefault
@@ -349,7 +343,6 @@ export const normalizeFieldOptions = <
 		...options,
 		...(list === undefined ? {} : { list }),
 		...(validation === undefined ? {} : { validation }),
-		...(extensions === undefined ? {} : { extensions }),
 		...(hasNormalizedDefault ? { default: normalizedDefault } : {}),
 	})
 

@@ -174,8 +174,8 @@ are represented explicitly by `jsonField()`.
 The emitted declaration augments `@ultimabase/core` with one application-owned
 schema registry and the configured root and embedded FieldBuilder methods. Keep
 that file included by the application's TypeScript project. Core then resolves
-exact drafts, results, Query and mutation inputs, Access, hooks, contextual
-extensions, indexes, embedded paths, pointers, and relations directly from the
+exact drafts, results, Query and mutation inputs, Access, hooks, direct plugin
+options, indexes, embedded paths, pointers, and relations directly from the
 generated contracts. A loaded registry rejects an unknown builder schema with
 an actionable diagnostic directing the developer to regenerate through this
 package.

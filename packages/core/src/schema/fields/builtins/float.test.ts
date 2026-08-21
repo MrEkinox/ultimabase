@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import {
-	defineFieldExtension,
-	floatField,
-	type FieldExtension,
-} from '../../index.js'
+import { floatField } from '../../index.js'
 import { requireDefined } from '../../../../tests/schema/test-assertions.js'
 
 describe('floatField', () => {
@@ -59,19 +55,6 @@ describe('floatField', () => {
 
 		expect(field.options.validation).toStrictEqual({ finite: true })
 		expect(Object.isFrozen(field.options.validation)).toBe(true)
-	})
-
-	it('copies and freezes field extensions', () => {
-		const extension = defineFieldExtension('fixture.unit', {
-			name: 'meters',
-		})
-		const source: FieldExtension<string, object>[] = [extension]
-		const field = floatField({ extensions: source })
-
-		source.push(defineFieldExtension('fixture.audit', { enabled: true }))
-
-		expect(field.options.extensions).toStrictEqual([extension])
-		expect(Object.isFrozen(field.options.extensions)).toBe(true)
 	})
 
 	it('rejects auto-increment metadata at runtime', () => {

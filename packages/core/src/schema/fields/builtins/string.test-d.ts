@@ -1,8 +1,6 @@
 import { expectTypeOf, test } from 'vitest'
 
 import {
-	defineFieldExtension,
-	defineSchemaExtension,
 	stringField,
 	type FieldDefinition,
 	type FieldTypegenState,
@@ -59,15 +57,6 @@ test('represents optional, nullable, and defaulted variants independently', () =
 	>().toEqualTypeOf<'required'>()
 })
 
-test('preserves field extension literals', () => {
-	const extension = defineFieldExtension('fixture.visibility', {
-		mode: 'private',
-	})
-	const field = stringField({ extensions: [extension] })
-
-	expectTypeOf(field.options).toEqualTypeOf<Readonly<StringFieldOptions>>()
-})
-
 test('rejects incompatible string metadata', () => {
 	// @ts-expect-error -- String defaults must use the field's base value type.
 	stringField({ default: 42 })
@@ -80,8 +69,8 @@ test('rejects incompatible string metadata', () => {
 	// @ts-expect-error -- Index uniqueness uses the indexed option.
 	stringField({ unique: true })
 	stringField({
-		// @ts-expect-error -- Schema extensions cannot attach to individual fields.
-		extensions: [defineSchemaExtension('fixture.visibility', {})],
+		// @ts-expect-error -- Removed generic extension metadata is not a field option.
+		extensions: [],
 	})
 
 	expectTypeOf<StringFieldOptions>().toExtend<

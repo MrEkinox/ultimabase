@@ -2,7 +2,7 @@ import {
 	Schema,
 	defineCapability,
 	definePlugin,
-	defineSchemaExtension,
+	defineSchemaOption,
 	getOperationSchema,
 	optionalCapability,
 	protectedPolicy,
@@ -23,14 +23,20 @@ import {
 
 export const alternativePolicyPluginId =
 	'fixture.alternative-policy-engine' as const
-export const alternativePolicyExtensionName =
-	'fixture.alternative-tenant-policy' as const
+export const alternativePolicyOptionName = 'alternativePolicy' as const
 
 export interface AlternativeTenantPolicyOptions {
 	/** Removes these fields from every anonymous result. */
 	readonly hiddenFields?: readonly string[]
 	/** Restricts every row to this application-local tenant value. */
 	readonly tenant: string
+}
+
+declare module '@ultimabase/core' {
+	interface UltimaBaseGeneratedSchemaOptions {
+		/** Configures the independent tenant policy fixture when its plugin is installed. */
+		readonly alternativePolicy?: AlternativeTenantPolicyOptions
+	}
 }
 
 export interface AlternativePolicyDiagnostic {
@@ -66,7 +72,7 @@ const isNonEmptyString = (value: unknown): value is string =>
 /** Declares a tenant-centric policy vocabulary unrelated to official Access rules. */
 export const alternativeTenantPolicy = (
 	options: AlternativeTenantPolicyOptions,
-) => {
+): AlternativeTenantPolicyOptions => {
 	const untrustedOptions: unknown = options
 	const hiddenFields: unknown = isPlainRecord(untrustedOptions)
 		? untrustedOptions.hiddenFields
@@ -83,19 +89,26 @@ export const alternativeTenantPolicy = (
 		)
 	}
 
-	return defineSchemaExtension(
-		alternativePolicyExtensionName,
-		immutableRecord({
-			hiddenFields: immutableArray(
-				isUnknownArray(hiddenFields) && hiddenFields.every(isNonEmptyString)
-					? hiddenFields
-					: [],
-			),
-			tenant: untrustedOptions.tenant,
-		}),
-		alternativePolicyPluginId,
-	)
+	return immutableRecord({
+		hiddenFields: immutableArray(
+			isUnknownArray(hiddenFields) && hiddenFields.every(isNonEmptyString)
+				? hiddenFields
+				: [],
+		),
+		tenant: untrustedOptions.tenant,
+	})
 }
+
+const alternativePolicySchemaOption = defineSchemaOption({
+	normalize: (value) =>
+		alternativeTenantPolicy(value as AlternativeTenantPolicyOptions),
+	protocolVersion: 1,
+	typegen: {
+		module: './fixtures/alternative-policy-engine.js',
+		type: 'AlternativeTenantPolicyOptions',
+	},
+	valueKind: 'json',
+})
 
 const compilePolicyPlan = (
 	schemas: CompiledSchemaRegistry,
@@ -103,13 +116,11 @@ const compilePolicyPlan = (
 	const plan = new Map<string, AlternativeTenantPolicyOptions>()
 
 	for (const schema of schemas.values()) {
-		const extension = schema.extensions.find(
-			(candidate) =>
-				candidate.name === alternativePolicyExtensionName &&
-				candidate.pluginName === alternativePolicyPluginId,
+		if (!Object.hasOwn(schema.definition, alternativePolicyOptionName)) continue
+		const config: unknown = Reflect.get(
+			schema.definition,
+			alternativePolicyOptionName,
 		)
-		if (extension === undefined) continue
-		const config: unknown = extension.config
 		const hiddenFields: unknown = isPlainRecord(config)
 			? config.hiddenFields
 			: undefined
@@ -211,7 +222,11 @@ export const createAlternativePolicyEngine = (
 			requires: [alternativePolicyEngine],
 		},
 		core: '^0.0.0',
-		declare: ({ typegenContributions }) => {
+		declare: ({ schemas, typegenContributions }) => {
+			schemas.defineOptions({
+				contributionId: 'alternative-policy-option',
+				schema: { alternativePolicy: alternativePolicySchemaOption },
+			})
 			typegenContributions?.add({
 				contributionId: 'diagnostic-contract',
 				declarations: [
@@ -242,6 +257,10 @@ export const createAlternativePolicyEngine = (
 		},
 		pluginId: alternativePolicyPluginId,
 		privileges: [
+			{
+				name: 'schema:declare',
+				reason: 'Declares the alternative policy schema option.',
+			},
 			{
 				name: 'runtime:constrain',
 				reason: 'Contributes independent tenant and field restrictions.',

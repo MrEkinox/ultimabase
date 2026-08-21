@@ -1,7 +1,6 @@
 import { expectTypeOf, test } from 'vitest'
 
 import {
-	defineSchemaExtension,
 	intField,
 	type FieldDefinition,
 	type FieldTypegenState,
@@ -64,8 +63,8 @@ test('rejects incompatible integer metadata', () => {
 	})
 
 	intField({
-		// @ts-expect-error -- Schema extensions cannot attach to individual fields.
-		extensions: [defineSchemaExtension('fixture.unit', {})],
+		// @ts-expect-error -- Removed generic extension metadata is not a field option.
+		extensions: [],
 	})
 
 	expectTypeOf<IntFieldOptions>().toExtend<

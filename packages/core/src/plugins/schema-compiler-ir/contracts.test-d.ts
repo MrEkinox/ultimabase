@@ -11,13 +11,13 @@ import {
 } from '../../index.js'
 
 test('exports one nominal versioned compiler IR contract', () => {
-	expectTypeOf(schemaCompilerProtocolVersion).toEqualTypeOf<'3.0.0'>()
+	expectTypeOf(schemaCompilerProtocolVersion).toEqualTypeOf<'4.0.0'>()
 	expectTypeOf<
 		SchemaCompilerInput['protocolVersion']
-	>().toEqualTypeOf<'3.0.0'>()
+	>().toEqualTypeOf<'4.0.0'>()
 	expectTypeOf<
 		SchemaCompilerOutput['protocolVersion']
-	>().toEqualTypeOf<'3.0.0'>()
+	>().toEqualTypeOf<'4.0.0'>()
 	expectTypeOf<SchemaCompilerSchemaAdditionNode>().toHaveProperty(
 		'contributionId',
 	)

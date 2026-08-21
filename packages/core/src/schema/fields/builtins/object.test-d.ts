@@ -5,7 +5,6 @@ import {
 	binaryField,
 	booleanField,
 	dateField,
-	defineSchemaExtension,
 	enumField,
 	intField,
 	jsonField,
@@ -150,10 +149,8 @@ test('rejects invalid list declarations and structured defaults', () => {
 	})
 	stringField({
 		list: true,
-		extensions: [
-			// @ts-expect-error -- Schema extensions cannot attach to individual fields.
-			defineSchemaExtension('fixture.list', {}),
-		],
+		// @ts-expect-error -- Removed generic extension metadata is not a field option.
+		extensions: [],
 	})
 })
 

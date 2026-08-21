@@ -11,16 +11,11 @@ import type {
 import type { SchemaSelectorOptions } from '../schema-patch-contracts.js'
 
 /** Versions the complete callback-free logical schema compiler protocol. */
-export const schemaCompilerProtocolVersion = '3.0.0' as const
+export const schemaCompilerProtocolVersion = '4.0.0' as const
 
 /** Names every private artifact that may cross the compiler IR as an inert reference. */
 export type SchemaCompilerArtifactKind =
-	| 'constraint'
-	| 'extension'
-	| 'field'
-	| 'option-definition'
-	| 'option-value'
-	| 'schema'
+	'constraint' | 'field' | 'option-definition' | 'option-value' | 'schema'
 
 declare const schemaCompilerArtifactType: unique symbol
 
@@ -64,14 +59,6 @@ export interface SchemaCompilerIndexNode {
 	readonly provenance: SchemaContributionProvenance
 }
 
-/** Preserves one nominal extension while exposing only its stable logical name. */
-export interface SchemaCompilerExtensionNode {
-	readonly artifact: SchemaCompilerArtifactReference<'extension'>
-	readonly fields: readonly SchemaCompilerFieldNode[]
-	readonly name: string
-	readonly provenance: SchemaContributionProvenance
-}
-
 /** Preserves one nominal portable constraint and its inspectable facts. */
 export interface SchemaCompilerConstraintNode {
 	readonly artifact: SchemaCompilerArtifactReference<'constraint'>
@@ -88,7 +75,6 @@ export interface SchemaCompilerSchemaNode {
 	readonly className: string
 	readonly constraints: readonly SchemaCompilerConstraintNode[]
 	readonly developerFieldNames: readonly string[]
-	readonly extensions: readonly SchemaCompilerExtensionNode[]
 	readonly fields: readonly SchemaCompilerFieldNode[]
 	readonly indexes: readonly SchemaCompilerIndexNode[]
 	readonly options: readonly SchemaCompilerOptionNode[]
@@ -157,29 +143,6 @@ export interface SchemaCompilerRemoveIndexOperation {
 	readonly target: SchemaCompilerContributionTarget<SchemaIndexDefinition>
 }
 
-export interface SchemaCompilerAddExtensionOperation {
-	readonly contributionId: string
-	readonly extension: SchemaCompilerExtensionNode
-	readonly kind: 'extension:add'
-}
-
-export interface SchemaCompilerReplaceExtensionOperation {
-	readonly contributionId: string
-	readonly extension: SchemaCompilerExtensionNode
-	readonly kind: 'extension:replace'
-	readonly target: SchemaCompilerContributionTarget<
-		SchemaCompilerArtifactReference<'extension'>
-	>
-}
-
-export interface SchemaCompilerRemoveExtensionOperation {
-	readonly contributionId: string
-	readonly kind: 'extension:remove'
-	readonly target: SchemaCompilerContributionTarget<
-		SchemaCompilerArtifactReference<'extension'>
-	>
-}
-
 export interface SchemaCompilerAddConstraintOperation {
 	readonly constraint: SchemaCompilerConstraintNode
 	readonly contributionId: string
@@ -238,18 +201,15 @@ export interface SchemaCompilerRemoveFieldOptionOperation {
 /** Lists every immutable patch operation understood by the compiler protocol. */
 export type SchemaCompilerPatchOperation =
 	| SchemaCompilerAddConstraintOperation
-	| SchemaCompilerAddExtensionOperation
 	| SchemaCompilerAddFieldOperation
 	| SchemaCompilerAddIndexOperation
 	| SchemaCompilerRemoveConstraintOperation
-	| SchemaCompilerRemoveExtensionOperation
 	| SchemaCompilerRemoveFieldOperation
 	| SchemaCompilerRemoveFieldOptionOperation
 	| SchemaCompilerRemoveIndexOperation
 	| SchemaCompilerRemoveSchemaOptionOperation
 	| SchemaCompilerRenameFieldOperation
 	| SchemaCompilerReplaceConstraintOperation
-	| SchemaCompilerReplaceExtensionOperation
 	| SchemaCompilerReplaceFieldOperation
 	| SchemaCompilerReplaceIndexOperation
 	| SchemaCompilerSetFieldOptionOperation

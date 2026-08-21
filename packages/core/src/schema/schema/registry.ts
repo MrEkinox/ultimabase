@@ -20,7 +20,6 @@ import type { GenericField } from '../fields/base/contract.js'
 const coreSchemaMetadataKeys = new Set([
 	'className',
 	'constraints',
-	'extensions',
 	'fields',
 	'indexes',
 	'provenance',

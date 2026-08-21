@@ -3,7 +3,6 @@ import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 import {
 	definePluginField,
-	defineFieldExtension,
 	getPluginFieldStructuralContains,
 	getPluginFieldStorageCodec,
 	type FieldOptions,
@@ -35,7 +34,6 @@ const snapshotValue = (value: unknown, path: string): string => {
 
 describe('plugin fields', () => {
 	it('reuses common immutable field metadata for namespaced kinds', () => {
-		const extension = defineFieldExtension('fixture.trace', { enabled: true })
 		const source = ['first']
 		const field = definePluginField(
 			'fixture.custom',
@@ -43,7 +41,6 @@ describe('plugin fields', () => {
 				list: true,
 				default: source,
 				validation: { required: true },
-				extensions: [extension],
 			},
 			{ normalizeValidation, snapshotValue },
 		)
@@ -56,7 +53,6 @@ describe('plugin fields', () => {
 				list: true,
 				default: ['first'],
 				validation: { required: true },
-				extensions: [extension],
 			},
 		})
 		expect(Object.isFrozen(field)).toBe(true)

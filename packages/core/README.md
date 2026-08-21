@@ -275,7 +275,7 @@ permanently closes compilation, initialization, and startup for that application
 instance.
 
 `schema.definition.provenance` explains the final schema, fields, direct options,
-indexes, portable constraints, extensions, and applied patches. Typegen and
+indexes, portable constraints, and applied patches. Typegen and
 later migration bridges consume this inert logical snapshot; removing a plugin
 never authorizes Core to drop persisted data. Compilation registries are
 application-local. Reusing one stable schema class succeeds only when its whole
@@ -288,7 +288,7 @@ idempotent after success and rethrows the original failure after an unsuccessful
 attempt. `@ultimabase/typegen` uses it to emit the application-owned FieldBuilder,
 model, operation, relationship, Access, and hook contracts. When that generated
 declaration is part of the TypeScript project, `Schema.define()` and every public
-read, mutation, Access, hook, extension, pointer, and relation surface resolve
+read, mutation, Access, hook, pointer, and relation surface resolve
 the compact contract by literal `className`. Without that generated entry, Core
 keeps only the safe `BaseItem` bootstrap contract and broad object inputs; it
 does not reconstruct local field-map inference. Regeneration through
@@ -299,14 +299,14 @@ Complete schema compilers target the exported `SchemaCompilerInput` and
 `SchemaCompilerOutput` protocol instead of Core's private prepared-schema
 objects. The IR is immutable and callback-free. It exposes portable declarations,
 owners, selectors, patches, protocol versions, and normalized static options;
-schema classes, factory-created fields, extensions, option definitions, and
+schema classes, factory-created fields, option definitions, and
 other Runtime-bearing values cross it only as nominal application-local artifact
 references. Compiler code cannot resolve or forge those references. Core retains
 their private values and validates graph completeness, stable schema identity,
 provenance, portability, and application ownership before decoding any output.
 Schema additions keep their exact contribution identity and static options,
-extension nodes expose the logical fields they contribute, and option nodes
-separately attribute their definition owner and current value contributor.
+while option nodes separately attribute their definition owner and current
+value contributor.
 Core's canonical compiler consumes this same IR, revalidates its complete
 output through the public contract, and decodes trusted artifacts only through
 the private compilation session. A plugin with `schema:replace` may use
@@ -1639,23 +1639,13 @@ The versioned neutral value preserves only `className` and `id`. Parsing
 validates that boundary without resolving a User schema or importing an
 authentication package.
 
-Schema extensions may contribute reserved fields without teaching Core about
-the plugin domain:
-
-```ts
-const owned = defineSchemaExtension(
-	'fixture.owned',
-	{ version: 1 },
-	'fixture.ownership',
-	{ fields: { ownerKey: stringField({ validation: { required: true } }) } },
-)
-```
-
-Contributed fields join ordinary validation, inference, installed behavior and
-policies, and adapter metadata. Core rejects collisions with developer, system, model, or
-other extension fields. A plugin field may explicitly defer its required
-create value until `resolveInput`; the normal revalidation boundary still
-requires that value before installed policies and persistence.
+Plugin schema patches may contribute fields without teaching Core about the
+plugin domain. Contributed fields join ordinary validation, inference,
+installed behavior, policies, and adapter metadata. Core rejects collisions
+with developer, system, model, or other contributed fields. A plugin field may
+explicitly defer its required create value until `resolveInput`; the normal
+revalidation boundary still requires that value before installed policies and
+persistence.
 
 Portable plugin scalars may additionally declare a private, versioned JSON
 storage codec through `definePluginField()`. Core validates and snapshots both
@@ -1680,14 +1670,14 @@ sends such a leaf. Lists remain unsupported, and the opt-in does not grant
 
 ## Plugin-owned declaration targets
 
-Core provides provenance-checked generic schema, nested-field, extension, and
+Core provides provenance-checked generic schema, nested-field, and
 field-kind target resolution. Concrete products own the factories and
 declarations they place on those targets. The official Hooks and Access
 packages therefore expose their own typed target helpers without a Core setup
 registry, hidden dispatcher, or private bridge.
 
 Application compilation expands owner-scoped selectors deterministically and
-rejects foreign schemas, invalid paths, foreign extensions, forged field-kind
+rejects foreign schemas, invalid paths, forged field-kind
 targets, duplicate contribution identities, and orphaned owners before
 infrastructure starts. Removing a concrete plugin removes both its option
 namespace and its target vocabulary from the compiled application graph.

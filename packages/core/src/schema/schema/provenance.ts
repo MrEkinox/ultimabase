@@ -53,12 +53,6 @@ export interface SchemaIndexProvenance {
 	readonly provenance: SchemaContributionProvenance
 }
 
-/** Associates one ordered extension with its exact contribution source. */
-export interface SchemaExtensionProvenance {
-	readonly name: string
-	readonly provenance: SchemaContributionProvenance
-}
-
 /** Associates one portable constraint with its exact contribution source. */
 export interface SchemaConstraintProvenance {
 	readonly definition: SchemaConstraintDefinition
@@ -81,7 +75,6 @@ export interface AppliedSchemaPatchProvenance {
 /** Explains every component of one final logical schema definition. */
 export interface SchemaCompilationProvenance {
 	readonly constraints: readonly SchemaConstraintProvenance[]
-	readonly extensions: readonly SchemaExtensionProvenance[]
 	readonly fields: Readonly<Record<string, SchemaContributionProvenance>>
 	readonly fieldOptions: Readonly<
 		Record<string, Readonly<Record<string, SchemaOptionProvenance>>>
@@ -122,7 +115,6 @@ export const createInitialSchemaProvenance = (
 	developerFieldNames: readonly string[],
 	declaredFields: Readonly<Record<string, GenericField>>,
 	indexes: readonly SchemaIndexDefinition[],
-	extensionNames: readonly string[],
 	optionNames: readonly string[],
 ): SchemaCompilationProvenance => {
 	const developerFields = new Set(developerFieldNames)
@@ -146,17 +138,6 @@ export const createInitialSchemaProvenance = (
 
 	return immutableRecord({
 		constraints: immutableArray([]),
-		extensions: immutableArray(
-			extensionNames.map((name, index) =>
-				immutableRecord({
-					name,
-					provenance: createSchemaContributionProvenance(
-						applicationSchemaContributionOwner,
-						`extension:${className}:${String(index)}:${name}`,
-					),
-				}),
-			),
-		),
 		fields,
 		fieldOptions: immutableRecord(
 			Object.fromEntries(

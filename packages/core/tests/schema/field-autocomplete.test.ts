@@ -67,7 +67,6 @@ interface FieldIntelliSenseReader {
 const commonFieldOptions = [
 	'default',
 	'description',
-	'extensions',
 	'immutable',
 	'indexed',
 	'list',
@@ -196,7 +195,6 @@ const topLevelOptionExpressions: Readonly<Record<string, string>> = {
 	autoIncrement: 'true',
 	autoNow: 'true',
 	description: "'Developer-facing description'",
-	extensions: '[]',
 	fields: '{ name: stringField() }',
 	hooks: '{}',
 	immutable: 'true',

@@ -3,7 +3,7 @@
 Object fields compose existing field declarations. Reusing one embedded builder
 callback keeps nested contracts consistent without sharing mutable schema state.
 Inline `field.object` options remain contextually typed, so editors suggest
-`fields`, `typeName`, `list`, `validation`, defaults, indexes, and extensions
+`fields`, `typeName`, `list`, `validation`, defaults, and indexes
 without widening the nested field map.
 
 Embedded objects contain stored value fields only. Pointers and relations need

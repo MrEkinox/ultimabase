@@ -1,6 +1,5 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
-import type { SchemaExtension } from '../../schema/extensions/definition.js'
 import type { GenericField } from '../../schema/fields/base/contract.js'
 import {
 	assertFieldDefinition,
@@ -78,22 +77,6 @@ const resolveSchema = (
 	return schema
 }
 
-const resolveExtension = (
-	session: SchemaCompilerArtifactSession,
-	artifact: Parameters<SchemaCompilerArtifactSession['resolve']>[0],
-): SchemaExtension<string, object> => {
-	const extension = session.resolve(artifact, 'extension')
-	if (
-		typeof extension !== 'object' ||
-		extension === null ||
-		!('scope' in extension) ||
-		extension.scope !== 'schema'
-	) {
-		throw new TypeError('Schema compiler extension artifact is invalid')
-	}
-	return extension as SchemaExtension<string, object>
-}
-
 const resolveConstraint = (
 	session: SchemaCompilerArtifactSession,
 	artifact: Parameters<SchemaCompilerArtifactSession['resolve']>[0],
@@ -156,11 +139,6 @@ export const decodeSchemaCompilerOutput = (
 					constraints: immutableArray(
 						node.constraints.map(({ artifact }) =>
 							resolveConstraint(session, artifact),
-						),
-					),
-					extensions: immutableArray(
-						node.extensions.map(({ artifact }) =>
-							resolveExtension(session, artifact),
 						),
 					),
 					fields,

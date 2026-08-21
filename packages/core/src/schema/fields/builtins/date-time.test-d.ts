@@ -2,7 +2,6 @@ import { expectTypeOf, test } from 'vitest'
 
 import {
 	dateTimeField,
-	defineSchemaExtension,
 	type DateTimeField,
 	type DateTimeFieldOptions,
 	type DateTimeValidationOptions,
@@ -66,8 +65,8 @@ test('rejects incompatible date-time metadata', () => {
 	})
 
 	dateTimeField({
-		// @ts-expect-error -- Schema extensions cannot attach to individual fields.
-		extensions: [defineSchemaExtension('fixture.dateTime', {})],
+		// @ts-expect-error -- Removed generic extension metadata is not a field option.
+		extensions: [],
 	})
 
 	expectTypeOf<DateTimeValidationOptions>().toExtend<

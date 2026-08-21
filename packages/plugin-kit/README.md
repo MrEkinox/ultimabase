@@ -201,7 +201,7 @@ declare: ({ schemas }) => {
 }
 ```
 
-The builder covers additive fields, indexes, extensions, constraints, and
+The builder covers additive fields, indexes, constraints, and
 plugin-owned schema or field option values. These operations require the same
 `schema:declare` or `schema:transform` privileges that Core would require
 without the helper. Replacement, rename, removal, and exact cross-owner targets

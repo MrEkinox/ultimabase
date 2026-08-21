@@ -108,9 +108,6 @@ export const createPluginStaticConformanceSnapshot = (
 				immutableRecord({
 					className: schema.className,
 					constraints: schema.definition.constraints,
-					extensions: immutableArray(
-						schema.definition.extensions.map(({ name }) => name),
-					),
 					fields: immutableArray(
 						Object.entries(schema.definition.fields)
 							.sort(([left], [right]) => left.localeCompare(right))
@@ -135,7 +132,6 @@ const readContributionProvenance = (
 		...Object.values(provenance.fields),
 		...provenance.indexes.map(({ provenance: value }) => value),
 		...provenance.constraints.map(({ provenance: value }) => value),
-		...provenance.extensions.map(({ provenance: value }) => value),
 		...provenance.patches.map(({ provenance: value }) => value),
 		...Object.values(provenance.options).flatMap(({ definition, value }) => [
 			definition,

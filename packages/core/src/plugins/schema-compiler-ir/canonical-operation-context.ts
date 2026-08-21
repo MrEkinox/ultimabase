@@ -112,7 +112,6 @@ export const assertUnusedCompilerContributionId = (
 		state.provenance.schema,
 		...Object.values(state.provenance.fields),
 		...state.provenance.constraints.map((entry) => entry.provenance),
-		...state.provenance.extensions.map((entry) => entry.provenance),
 		...state.provenance.indexes.map((entry) => entry.provenance),
 		...state.provenance.patches.map((entry) => entry.provenance),
 	]

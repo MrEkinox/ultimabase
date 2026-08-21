@@ -1,4 +1,3 @@
-import type { FieldExtension } from '../../extensions/definition.js'
 import type { UltimaBaseGeneratedFieldOptions } from '../../type-info.js'
 import type { DefaultFactory, FieldDefault } from './defaults.js'
 
@@ -124,12 +123,6 @@ interface FieldMetadataOptions<TValidation extends FieldValidationOptions> {
 	 * @example `description: "Public display name"`
 	 */
 	readonly description?: string
-	/**
-	 * Attaches immutable metadata owned and interpreted by installed field plugins.
-	 *
-	 * @example `extensions: [myFieldExtension]`
-	 */
-	readonly extensions?: readonly FieldExtension<string, object>[]
 }
 
 /** Defines shared field metadata without assigning a default-value contract. */

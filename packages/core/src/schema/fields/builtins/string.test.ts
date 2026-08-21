@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import {
-	defineFieldExtension,
-	stringField,
-	type FieldExtension,
-} from '../../index.js'
+import { stringField } from '../../index.js'
 import { requireDefined } from '../../../../tests/schema/test-assertions.js'
 
 describe('stringField', () => {
@@ -86,32 +82,6 @@ describe('stringField', () => {
 
 		// Presence-only validation follows the same immutable boundary.
 		expect(Object.isFrozen(field.options.validation)).toBe(true)
-	})
-
-	it('copies and freezes field extensions', () => {
-		const extension = defineFieldExtension('fixture.visibility', {
-			mode: 'private',
-		})
-		const source: FieldExtension<string, object>[] = [extension]
-		const field = stringField({ extensions: source })
-
-		source.push(defineFieldExtension('fixture.audit', { enabled: true }))
-
-		expect(field.options.extensions).toStrictEqual([extension])
-		expect(Object.isFrozen(field.options.extensions)).toBe(true)
-	})
-
-	it('rejects duplicate field extensions', () => {
-		const first = defineFieldExtension('fixture.visibility', {
-			mode: 'private',
-		})
-		const second = defineFieldExtension('fixture.visibility', {
-			mode: 'public',
-		})
-
-		expect(() => stringField({ extensions: [first, second] })).toThrow(
-			new TypeError('Duplicate field extension: fixture.visibility'),
-		)
 	})
 
 	it.each([

@@ -12,8 +12,8 @@ export interface FileLineBudgetPolicy {
 /** Records only pre-existing handwritten exceptions and must never be increased. */
 export const handwrittenFileLineBaseline: Readonly<Record<string, number>> =
 	Object.freeze({
-		'packages/acl-permissions-plugin/src/plugin.test.ts': 1077,
-		'packages/acl-permissions-plugin/src/plugin.ts': 888,
+		'packages/acl-permissions-plugin/src/plugin.test.ts': 1036,
+		'packages/acl-permissions-plugin/src/plugin.ts': 883,
 		'packages/core/src/plugins/capability-composition.test.ts': 1159,
 		'packages/core/src/query/filters/factory.ts': 662,
 		'packages/core/src/query/filters/where.ts': 1610,
@@ -26,7 +26,7 @@ export const handwrittenFileLineBaseline: Readonly<Record<string, number>> =
 		'packages/core/src/runtime/pipeline/runtime-pipeline.test.ts': 1130,
 		'packages/core/src/runtime/validation/runtime-validation.test.ts': 811,
 		'packages/core/src/runtime/validation/runtime-validation.ts': 1343,
-		'packages/core/src/schema/schema/definition.ts': 1028,
+		'packages/core/src/schema/schema/definition.ts': 884,
 		'packages/core/src/schema/schema/field-builder.ts': 739,
 		'packages/core/tests/runtime/bulk-terminals.test.ts': 898,
 		'packages/postgres-plugin/src/drizzle/adapter.test.ts': 1692,
@@ -34,7 +34,7 @@ export const handwrittenFileLineBaseline: Readonly<Record<string, number>> =
 		'packages/postgres-plugin/src/drizzle/prepared-operation.ts': 780,
 		'packages/postgres-plugin/src/query/filter-compiler.test.ts': 804,
 		'packages/postgres-plugin/src/query/filter-compiler.ts': 650,
-		'packages/typegen/src/generator-language-service.test.ts': 920,
+		'packages/typegen/src/generator-language-service.test.ts': 878,
 		'tests/e2e/relation-postgres.postgres.e2e.test.ts': 953,
 		'tests/e2e/runtime-postgres.postgres.e2e.test.ts': 1139,
 	})

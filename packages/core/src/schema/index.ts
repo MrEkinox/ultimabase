@@ -114,25 +114,6 @@ export type {
 	EnumValue,
 	EnumValues,
 } from './fields/builtins/enum.js'
-export {
-	defineContextualSchemaExtensionFactory,
-	defineExtensions,
-	defineFieldExtension,
-	defineSchemaExtension,
-} from './extensions/definition.js'
-export type {
-	ContextualSchemaExtensionFactory,
-	ContextualSchemaExtensionOptions,
-	ContextualSchemaExtensionResult,
-	ExtensionDefinition,
-	ExtensionScope,
-	FieldExtension,
-	SchemaExtensionBindingContext,
-	SchemaExtensionContextKind,
-	SchemaExtension,
-	SchemaExtensionContributions,
-	SchemaExtensionFields,
-} from './extensions/definition.js'
 export type {
 	FieldDefinition,
 	FieldTypegenPresence,
@@ -200,12 +181,7 @@ export type {
 	SchemaClassCapabilities,
 	SchemaClassCapabilityFactory,
 	SchemaDefinition,
-	SchemaExtensionData,
-	SchemaExtensionDeclaration,
 	SchemaReference,
-	ResolvedSchemaFields,
-	SchemaExtensionFields as ResolvedSchemaExtensionFields,
-	SchemaExtensions,
 	SchemaFields,
 	SchemaCompilationFailureReason,
 	SchemaMetadata,
@@ -223,7 +199,6 @@ export type {
 	SchemaContributionOwner,
 	SchemaContributionOwnerReference,
 	SchemaContributionProvenance,
-	SchemaExtensionProvenance,
 	SchemaIndexProvenance,
 	SchemaOptionProvenance,
 } from './schema/provenance.js'

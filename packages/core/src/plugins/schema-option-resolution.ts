@@ -25,7 +25,6 @@ import {
 export const coreSchemaKeys: ReadonlySet<string> = new Set([
 	'className',
 	'constraints',
-	'extensions',
 	'fields',
 	'indexes',
 	'provenance',
@@ -201,7 +200,6 @@ export const resolveCandidateOptions = (
 			constraints: candidate.definition.constraints,
 			fields,
 			indexes: candidate.definition.indexes,
-			extensions: candidate.definition.extensions,
 			provenance: candidate.definition.provenance,
 		}),
 		developerFields,

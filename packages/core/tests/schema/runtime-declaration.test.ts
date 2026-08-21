@@ -4,8 +4,6 @@ import {
 	bigintField,
 	booleanField,
 	dateTimeField,
-	defineExtensions,
-	defineFieldExtension,
 	definePluginField,
 	Schema,
 	enumField,
@@ -168,22 +166,7 @@ describe('runtime declaration boundaries', () => {
 		)
 	})
 
-	it('rejects malformed extensions and plugin identifiers', () => {
-		expect(() => defineFieldExtension('', {})).toThrow(
-			new TypeError('extension name must be a non-empty string'),
-		)
-		expect(() => {
-			// Arrays satisfy the TypeScript object constraint but are not configuration records.
-			defineFieldExtension('fixture.invalid', [])
-		}).toThrow(new TypeError('extension config must be an object'))
-		expect(() => {
-			// @ts-expect-error -- Runtime coverage protects non-list extension input.
-			defineExtensions({})
-		}).toThrow(new TypeError('extensions must be a list'))
-		expect(() => {
-			// @ts-expect-error -- Runtime coverage protects malformed extension entries.
-			defineExtensions([{ scope: 'field' }])
-		}).toThrow(new TypeError('Invalid extension definition'))
+	it('rejects malformed plugin identifiers', () => {
 		expect(() => {
 			definePluginField(
 				// Runtime validation adds identifier syntax that template literals cannot express.

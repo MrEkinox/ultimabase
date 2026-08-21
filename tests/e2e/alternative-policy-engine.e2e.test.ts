@@ -92,12 +92,10 @@ const publicRead = new ACL().grantPublic('read')
 const createAlternativeFixture = (withAcl = false) => {
 	const Document = Schema.define({
 		className: 'AlternativePolicyDocument',
-		extensions: [
-			alternativeTenantPolicy({
-				hiddenFields: ['secret'],
-				tenant: 'community',
-			}),
-		],
+		alternativePolicy: alternativeTenantPolicy({
+			hiddenFields: ['secret'],
+			tenant: 'community',
+		}),
 		...(withAcl ? { acl: { default: publicRead } } : {}),
 		fields: (field) => ({
 			secret: field.string(),
@@ -168,7 +166,11 @@ describe('independent protected policy engine', () => {
 			expected: {
 				core: '^0.0.0',
 				pluginId: alternativePolicyPluginId,
-				privileges: ['runtime:constrain', 'typegen:contribute'],
+				privileges: [
+					'schema:declare',
+					'runtime:constrain',
+					'typegen:contribute',
+				],
 				version: '1.0.0',
 			},
 		}).check('middleware', async ({ createUltimaBase }) => {
@@ -216,7 +218,7 @@ describe('independent protected policy engine', () => {
 		const disposed: string[] = []
 		const Document = Schema.define({
 			className: 'AlternativePolicyIsolationDocument',
-			extensions: [alternativeTenantPolicy({ tenant: 'isolated' })],
+			alternativePolicy: alternativeTenantPolicy({ tenant: 'isolated' }),
 			fields: (field) => ({ tenant: field.string(), title: field.string() }),
 		})
 		const engine = createAlternativePolicyEngine({
@@ -278,10 +280,10 @@ describe('independent protected policy engine', () => {
 	})
 
 	it('generates the installed direct ACL option and patched field contract', async () => {
-		const { adapter, Document } = createAlternativeFixture(true)
+		const { adapter, Document, engine } = createAlternativeFixture(true)
 		const application = new FrameworkApplication({
 			pluginPrivileges: { logger: false },
-			plugins: [aclPlugin(), createSupportPlugin(adapter)],
+			plugins: [aclPlugin(), engine.plugin, createSupportPlugin(adapter)],
 			schemas: [Document],
 		})
 		try {

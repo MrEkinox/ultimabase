@@ -380,30 +380,8 @@ void inspectRole
 		const publicSource = `${registry}
 import {
   Schema,
-  defineContextualSchemaExtensionFactory,
-  defineSchemaExtension,
   increment,
-  type SchemaExtension,
-  type SchemaExtensionContextKind,
 } from '@ultimabase/core'
-
-interface GeneratedExtensionOptions<TData extends Readonly<Record<string, unknown>>> {
-  readonly select: (data: TData) => string
-}
-type GeneratedExtension<TData extends Readonly<Record<string, unknown>>> =
-  SchemaExtension<'fixture.generated', GeneratedExtensionOptions<TData>>
-type GeneratedExtensionData<TData> =
-  TData extends Readonly<Record<string, unknown>> ? TData : never
-interface GeneratedExtensionKind extends SchemaExtensionContextKind {
-  readonly options: GeneratedExtensionOptions<GeneratedExtensionData<this['data']>>
-  readonly extension: GeneratedExtension<GeneratedExtensionData<this['data']>>
-}
-const generatedExtension =
-  defineContextualSchemaExtensionFactory<GeneratedExtensionKind>()(
-    <TData extends Readonly<Record<string, unknown>>>(
-      options: GeneratedExtensionOptions<TData>,
-    ): GeneratedExtension<TData> => defineSchemaExtension('fixture.generated', options),
-  )
 
 const SemanticAuthor = Schema.define({
   className: 'SemanticAuthor',
@@ -451,14 +429,6 @@ const SemanticArticle = Schema.define({
     views: field.int(),
   }),
   indexes: [{ fields: ['title', 'status'] }],
-  extensions: ({ bind }) => [
-    bind(generatedExtension, {
-      select: (data) => {
-        data./* public-extension-data */title
-        return data.title
-      },
-    }),
-  ],
   access: {
     update: {
       where: { status: { eq: 'draft' } },
@@ -782,18 +752,6 @@ void relatedRead
 		)
 		expect(completionNames('/* public-pointer-handle-select */')).toEqual(
 			expect.arrayContaining(['createdAt', 'id', 'updatedAt']),
-		)
-		expect(completionNames('/* public-extension-data */')).toEqual(
-			expect.arrayContaining([
-				'author',
-				'embedding',
-				'profile',
-				'status',
-				'title',
-			]),
-		)
-		expect(completionNames('/* public-extension-data */')).not.toEqual(
-			expect.arrayContaining(['createdAt', 'id', 'related', 'updatedAt']),
 		)
 		expect(completionNames('/* public-relation-where */')).toEqual(
 			expect.arrayContaining(['AND', 'author', 'profile', 'related']),

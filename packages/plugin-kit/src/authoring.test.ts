@@ -5,7 +5,6 @@ import {
 	defineOperationValue,
 	definePlugin,
 	defineSchemaConstraint,
-	defineSchemaExtension,
 	defineSchemaOption,
 	stringField,
 	type SchemaOptions,
@@ -314,11 +313,6 @@ describe('plugin authoring helpers', () => {
 		} as SchemaOptions<'PluginKitPatchTarget'> & {
 			readonly workflow: (value: string) => string
 		})
-		const extension = defineSchemaExtension(
-			'fixture.workflow',
-			{},
-			'fixture.workflow',
-		)
 		const constraint = defineSchemaConstraint({
 			kind: 'fixture.workflow',
 			value: { required: true },
@@ -335,7 +329,6 @@ describe('plugin authoring helpers', () => {
 				contributionId: 'workflow-state-index',
 				fields: ['workflowState', 'createdAt'],
 			})
-			.addExtension({ contributionId: 'workflow-extension', extension })
 			.addConstraint({ contributionId: 'workflow-constraint', constraint })
 			.setSchemaOption({
 				contributionId: 'workflow-option',
@@ -353,7 +346,6 @@ describe('plugin authoring helpers', () => {
 		expect(patch.operations.map(({ kind }) => kind)).toStrictEqual([
 			'field:add',
 			'index:add',
-			'extension:add',
 			'constraint:add',
 			'schema-option:set',
 			'field-option:set',

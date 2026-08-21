@@ -177,14 +177,9 @@ const projectACLData = (
 	schema: SchemaDefinition,
 	input: Readonly<Record<string, unknown>>,
 ): Readonly<Record<string, unknown>> => {
-	const extensionFieldNames = new Set(
-		schema.extensions.flatMap(({ fields }) => Object.keys(fields)),
-	)
-
 	return immutableRecord(
 		Object.fromEntries(
 			Object.entries(input).filter(([fieldName]) => {
-				if (extensionFieldNames.has(fieldName)) return false
 				const field = schema.fields[fieldName]
 
 				return (

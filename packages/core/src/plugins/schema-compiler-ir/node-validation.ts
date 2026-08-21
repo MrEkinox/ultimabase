@@ -16,7 +16,6 @@ const schemaKeys = new Set([
 	'className',
 	'constraints',
 	'developerFieldNames',
-	'extensions',
 	'fields',
 	'indexes',
 	'options',
@@ -43,47 +42,6 @@ const assertOptionNode = (
 		!session.owns(value.value, 'option-value')
 	) {
 		throw new TypeError(`${path}.value must be a portable value artifact`)
-	}
-}
-
-/** Validates one extension node, including the fields needed for IR transforms. */
-export const assertSchemaCompilerExtensionNode = (
-	value: unknown,
-	session: SchemaCompilerArtifactSession,
-	path: string,
-	allowedOwners?: ReadonlySet<string>,
-): void => {
-	if (!isPlainRecord(value)) {
-		throw new TypeError(`${path} must be an extension node`)
-	}
-	assertExactKeys(
-		value,
-		new Set(['artifact', 'fields', 'name', 'provenance']),
-		path,
-	)
-	if (!session.owns(value.artifact, 'extension')) {
-		throw new TypeError(`${path}.artifact must be an extension artifact`)
-	}
-	assertNonEmptyString(value.name, `${path}.name`)
-	assertSchemaContributionProvenance(
-		value.provenance,
-		`${path}.provenance`,
-		allowedOwners,
-	)
-	const fieldNames = new Set<string>()
-	for (const [index, field] of readList(value, 'fields', path).entries()) {
-		assertFieldNode(
-			field,
-			session,
-			`${path}.fields[${String(index)}]`,
-			allowedOwners,
-		)
-		if (isPlainRecord(field) && typeof field.name === 'string') {
-			if (fieldNames.has(field.name)) {
-				throw new TypeError(`${path} contains duplicate field: ${field.name}`)
-			}
-			fieldNames.add(field.name)
-		}
 	}
 }
 
@@ -320,32 +278,6 @@ export function assertSchemaCompilerSchemaNode(
 					`${path}.${key}[${String(index)}] has inconsistent provenance`,
 				)
 			}
-		}
-	}
-	const extensions = readList(value, 'extensions', path)
-	if (extensions.length !== value.provenance.extensions.length) {
-		throw new TypeError(`${path}.provenance.extensions must match extensions`)
-	}
-	for (const [index, extension] of extensions.entries()) {
-		assertSchemaCompilerExtensionNode(
-			extension,
-			session,
-			`${path}.extensions[${String(index)}]`,
-			allowedOwners,
-		)
-		if (!isPlainRecord(extension)) continue
-		const extensionProvenance = value.provenance.extensions[index]
-		if (
-			extensionProvenance === undefined ||
-			extension.name !== extensionProvenance.name ||
-			!areSchemaDeclarationValuesCompatible(
-				extension.provenance,
-				extensionProvenance.provenance,
-			)
-		) {
-			throw new TypeError(
-				`${path}.extensions[${String(index)}] has inconsistent provenance`,
-			)
 		}
 	}
 }

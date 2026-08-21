@@ -2,7 +2,6 @@ import { expectTypeOf, test } from 'vitest'
 
 import {
 	booleanField,
-	defineSchemaExtension,
 	type BooleanField,
 	type BooleanFieldOptions,
 	type FieldDefinition,
@@ -52,8 +51,8 @@ test('rejects incompatible boolean metadata', () => {
 		},
 	})
 	booleanField({
-		// @ts-expect-error -- Schema extensions cannot attach to individual fields.
-		extensions: [defineSchemaExtension('fixture.flag', {})],
+		// @ts-expect-error -- Removed generic extension metadata is not a field option.
+		extensions: [],
 	})
 
 	expectTypeOf<BooleanFieldOptions>().toExtend<

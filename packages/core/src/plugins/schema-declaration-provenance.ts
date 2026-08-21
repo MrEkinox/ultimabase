@@ -229,18 +229,6 @@ export const attachInitialContributionProvenance = (
 				}),
 			),
 		),
-		extensions: immutableArray(
-			candidate.definition.extensions.map(({ name }, index) =>
-				immutableRecord({
-					name,
-					provenance: createSchemaContributionProvenance(
-						sourceOwner,
-						`${sourceId}:extension:${String(index)}:${name}`,
-						sourceStaticOptions,
-					),
-				}),
-			),
-		),
 		fieldOptions,
 		fields,
 		indexes: immutableArray(

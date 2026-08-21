@@ -12,7 +12,6 @@ import {
 } from '../../schema/fields/builtins/json.js'
 import type { GenericField } from '../../schema/fields/base/contract.js'
 import { getDeclaredFieldOptionsContract } from '../../schema/fields/base/definition.js'
-import type { SchemaExtensionFields } from '../../schema/extensions/definition.js'
 import type {
 	OptionDefinitionIndex,
 	ResolvedFieldOptions,
@@ -111,20 +110,6 @@ const fieldOptionProvenance = (
 		),
 	)
 }
-
-const normalizedExtensionFields = (
-	fields: SchemaExtensionFields,
-	path: string,
-	context: PatchEncodingContext,
-): SchemaExtensionFields =>
-	immutableRecord(
-		Object.fromEntries(
-			Object.entries(fields).map(([name, field]) => [
-				name,
-				normalizedField(field, `${path}.fields.${name}`, context),
-			]),
-		),
-	)
 
 const normalizedOptionValue = (
 	scope: 'field' | 'schema',
@@ -285,55 +270,6 @@ export const encodeSchemaCompilerPatchOperation = (
 				contributionId: operation.contributionId,
 				kind: operation.kind,
 				target: encodePortableTarget(operation.target),
-			})
-		case 'extension:add':
-			return immutableRecord({
-				contributionId: operation.contributionId,
-				extension: context.encoder.extensionNode(
-					operation.extension,
-					operation.extension.name,
-					provenance,
-					`${path}.extension`,
-					undefined,
-					undefined,
-					normalizedExtensionFields(
-						operation.extension.fields,
-						`${path}.extension`,
-						context,
-					),
-				),
-				kind: operation.kind,
-			})
-		case 'extension:replace':
-			return immutableRecord({
-				contributionId: operation.contributionId,
-				extension: context.encoder.extensionNode(
-					operation.extension,
-					operation.extension.name,
-					provenance,
-					`${path}.extension`,
-					undefined,
-					undefined,
-					normalizedExtensionFields(
-						operation.extension.fields,
-						`${path}.extension`,
-						context,
-					),
-				),
-				kind: operation.kind,
-				target: encodeArtifactTarget(operation.target, 'extension', {
-					...context,
-					path,
-				}),
-			})
-		case 'extension:remove':
-			return immutableRecord({
-				contributionId: operation.contributionId,
-				kind: operation.kind,
-				target: encodeArtifactTarget(operation.target, 'extension', {
-					...context,
-					path,
-				}),
 			})
 		case 'constraint:add':
 			return immutableRecord({

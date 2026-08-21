@@ -82,7 +82,7 @@ const createBehaviorSupportPlugin = () =>
 const createAlternativeFixture = () => {
 	const Post = Schema.define({
 		className: 'AlternativeBehaviorPost',
-		extensions: [alternativeBehavior({ label: 'editorial' })],
+		alternativeBehavior: alternativeBehavior({ label: 'editorial' }),
 		fields: (field) => ({
 			title: field.string({ validation: { required: true } }),
 		}),
@@ -189,7 +189,7 @@ describe('optional Hooks engine proof', () => {
 		const disposed: string[] = []
 		const Post = Schema.define({
 			className: 'AlternativeBehaviorIsolationPost',
-			extensions: [alternativeBehavior({ label: 'isolated' })],
+			alternativeBehavior: alternativeBehavior({ label: 'isolated' }),
 			fields: (field) => ({ title: field.string() }),
 		})
 		const engine = createAlternativeBehaviorEngine({

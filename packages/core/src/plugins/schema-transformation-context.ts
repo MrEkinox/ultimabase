@@ -29,7 +29,6 @@ export interface SchemaTransformationContext {
 export interface SchemaTransformationState {
 	constraints: PreparedSchemaCompilation['definition']['constraints']
 	developerFields: PreparedSchemaCompilation['developerFields']
-	extensions: PreparedSchemaCompilation['definition']['extensions']
 	fields: PreparedSchemaCompilation['definition']['fields']
 	indexes: readonly SchemaIndexDefinition[]
 	provenance: SchemaCompilationProvenance

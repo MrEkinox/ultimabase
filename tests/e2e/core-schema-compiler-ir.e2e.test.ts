@@ -17,7 +17,7 @@ describe('packed @ultimabase/core schema compiler IR', () => {
 	it('exports the nominal callback-free protocol through package declarations', () => {
 		expect(languageFixture.diagnostics()).toStrictEqual([])
 		expect(languageFixture.readHover('compiler-protocol').display).toContain(
-			'"3.0.0"',
+			'"4.0.0"',
 		)
 		const input = languageFixture.readHover('compiler-input')
 		expect(input.display).toContain('SchemaCompilerInput')
