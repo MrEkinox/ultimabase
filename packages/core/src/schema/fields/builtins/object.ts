@@ -14,7 +14,6 @@ import {
 	assertValidTypeName,
 	fieldOptionKeys,
 	normalizeFieldOptions,
-	normalizeFlatValidation,
 	type BuiltInFieldOptionsContract,
 } from '../base/options.js'
 import { isRequiredOnCreate } from '../base/options.js'
@@ -25,12 +24,16 @@ import type {
 	FieldListValue,
 	FieldOptions,
 	FieldOptionsBase,
-	FieldValidationOptions,
 	GenericField,
 	ScalarFieldTypegenState,
 } from '../base/contract.js'
 import type { FieldDefault } from '../base/defaults.js'
 import type { FieldValueMap } from '../base/value-map.js'
+import type {
+	CompatibleFieldStandardSchema,
+	FieldStandardSchema,
+	MutableFieldContainer,
+} from '../base/standard-schema.js'
 
 /**
  * Names the child fields of one object definition.
@@ -72,7 +75,7 @@ type ObjectFieldCreateValue<TFields extends ObjectFields> = FieldValueMap<
 export interface ObjectFieldOptions<
 	TFields extends ObjectFields = ObjectFields,
 > extends FieldOptionsBase<
-	FieldValidationOptions,
+	FieldStandardSchema,
 	FieldListOption,
 	ObjectFieldValue<TFields>
 > {
@@ -116,7 +119,6 @@ export type ObjectField<
 const objectFieldOptionsContract: BuiltInFieldOptionsContract = {
 	kind: 'object',
 	optionKeys: [...fieldOptionKeys, 'fields', 'typeName'],
-	validationOptionKeys: [],
 }
 
 /** Keeps nested fields exact while widening runtime-only object metadata. */
@@ -125,14 +127,37 @@ type CompactObjectFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = ObjectFieldOptions<TFields> & {
+	TValidation extends FieldStandardSchema,
+> = Omit<
+	ObjectFieldOptions<TFields>,
+	'immutable' | 'list' | 'required' | 'validation'
+> & {
 	/**
 	 * Requires a non-null persisted object and requires create input unless a default supplies it.
 	 * @example `required: true`
 	 */
 	readonly required?: TRequired
+	/**
+	 * Wraps the complete embedded object in one homogeneous list.
+	 * @example `list: true`
+	 */
 	readonly list?: TList
+	/**
+	 * Prevents replacement of the object after creation.
+	 * @example `immutable: true`
+	 */
 	readonly immutable?: TImmutable
+	/**
+	 * Validates the complete canonical object after every child validator succeeds.
+	 * @example `validation: profileSchema`
+	 */
+	readonly validation?: CompatibleFieldStandardSchema<
+		TValidation,
+		FieldListValue<ObjectFieldValue<TFields>, TList>,
+		TList extends true
+			? MutableFieldContainer<ObjectFieldValue<TFields>>[]
+			: MutableFieldContainer<ObjectFieldValue<TFields>>
+	>
 }
 
 export type DefaultedObjectFieldOptions<
@@ -140,7 +165,14 @@ export type DefaultedObjectFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = CompactObjectFieldOptions<TFields, TRequired, TList, TImmutable> & {
+	TValidation extends FieldStandardSchema = FieldStandardSchema,
+> = CompactObjectFieldOptions<
+	TFields,
+	TRequired,
+	TList,
+	TImmutable,
+	TValidation
+> & {
 	readonly default: FieldDefault<
 		FieldListValue<ObjectFieldCreateValue<TFields>, TList>
 	>
@@ -151,7 +183,14 @@ export type NonDefaultedObjectFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = CompactObjectFieldOptions<TFields, TRequired, TList, TImmutable> & {
+	TValidation extends FieldStandardSchema = FieldStandardSchema,
+> = CompactObjectFieldOptions<
+	TFields,
+	TRequired,
+	TList,
+	TImmutable,
+	TValidation
+> & {
 	readonly default?: never
 }
 
@@ -232,8 +271,15 @@ export function objectField<
 	const TRequired extends boolean = false,
 	const TList extends FieldListOption = false,
 	const TImmutable extends boolean = false,
+	const TValidation extends FieldStandardSchema = FieldStandardSchema,
 >(
-	options: DefaultedObjectFieldOptions<TFields, TRequired, TList, TImmutable>,
+	options: DefaultedObjectFieldOptions<
+		TFields,
+		TRequired,
+		TList,
+		TImmutable,
+		TValidation
+	>,
 ): DefaultedObjectField<TFields, TRequired, TList, TImmutable>
 
 export function objectField<
@@ -241,12 +287,14 @@ export function objectField<
 	const TRequired extends boolean = false,
 	const TList extends FieldListOption = false,
 	const TImmutable extends boolean = false,
+	const TValidation extends FieldStandardSchema = FieldStandardSchema,
 >(
 	options: NonDefaultedObjectFieldOptions<
 		TFields,
 		TRequired,
 		TList,
-		TImmutable
+		TImmutable,
+		TValidation
 	>,
 ): NonDefaultedObjectField<TFields, TRequired, TList, TImmutable>
 
@@ -287,7 +335,6 @@ export function objectField(
 
 	const normalized = normalizeFieldOptions(
 		options,
-		normalizeFlatValidation,
 		(value, path) => snapshotObjectValue(value, options.fields, path),
 		objectFieldOptionsContract,
 	)

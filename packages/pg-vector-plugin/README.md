@@ -15,6 +15,10 @@ The package proves the complete custom-field boundary:
 The field validates the options container before reading `dimensions` and uses
 Schema's `snapshotValue` contract. Its snapshot is pure, deterministic, and
 idempotent, so declaration-time static defaults own detached vector values.
+Like every stored field, a vector may also receive one synchronous Standard
+Schema validator through `validation`; the validator observes the complete
+canonical vector after the plugin has enforced its structural dimension and
+finite-number contract.
 
 ```ts
 import { Schema, createApplication } from '@ultimabase/core'

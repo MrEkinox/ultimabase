@@ -5,7 +5,6 @@ import type {
 } from '../base/contract.js'
 import {
 	fieldOptionKeys,
-	orderedRangeOptionKeys,
 	type BuiltInFieldOptionsContract,
 } from '../base/options.js'
 import {
@@ -18,21 +17,9 @@ import {
 } from '../base/factory.js'
 import {
 	createTemporalFieldConfigurationResolver,
-	type TemporalRangeValidationOptions,
-	type TemporalValidationOptions,
-	type TemporalValueComparator,
 	type TimezoneTemporalFieldOptions,
 } from '../constraints/temporal.js'
-
-/**
- * Defines ordered time-of-day boundaries using the field's timezone policy.
- */
-export type TimeRangeValidationOptions = TemporalRangeValidationOptions
-
-/**
- * Groups time-of-day constraints under one validation boundary.
- */
-export type TimeValidationOptions = TemporalValidationOptions
+import type { FieldStandardSchema } from '../base/standard-schema.js'
 
 /**
  * Describes a time of day without timezone support by default.
@@ -48,8 +35,6 @@ export type TimeField<TTypegen extends FieldTypegenState = FieldTypegenState> =
 const timeFieldOptionsContract: BuiltInFieldOptionsContract = {
 	kind: 'time',
 	optionKeys: [...fieldOptionKeys, 'autoNow', 'timezone'],
-	validationOptionKeys: ['range'],
-	nestedValidation: [{ key: 'range', optionKeys: orderedRangeOptionKeys }],
 }
 
 /** Provides time-specific names for compact auto-now inference. */
@@ -58,13 +43,15 @@ type DefaultedTimeFieldOptions<
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoNow extends boolean,
+	TValidation extends FieldStandardSchema,
 > = DefaultedCompactScalarFieldOptions<
 	TimeFieldOptions,
 	string,
 	TRequired,
 	TList,
 	TImmutable,
-	GeneratedScalarOption<'autoNow', TAutoNow>
+	GeneratedScalarOption<'autoNow', TAutoNow>,
+	TValidation
 > &
 	CompatibleGeneratedScalarOptions<'autoNow', TAutoNow, TList, true, true>
 
@@ -73,13 +60,15 @@ type NonDefaultedTimeFieldOptions<
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoNow extends boolean,
+	TValidation extends FieldStandardSchema,
 > = NonDefaultedCompactScalarFieldOptions<
 	TimeFieldOptions,
 	string,
 	TRequired,
 	TList,
 	TImmutable,
-	GeneratedScalarOption<'autoNow', TAutoNow>
+	GeneratedScalarOption<'autoNow', TAutoNow>,
+	TValidation
 > &
 	CompatibleGeneratedScalarOptions<'autoNow', TAutoNow, TList, false, true>
 
@@ -120,20 +109,29 @@ interface TimeFieldFactory {
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const TAutoNow extends boolean = false,
+		const TValidation extends FieldStandardSchema = FieldStandardSchema,
 	>(
-		options: DefaultedTimeFieldOptions<TRequired, TList, TImmutable, TAutoNow>,
+		options: DefaultedTimeFieldOptions<
+			TRequired,
+			TList,
+			TImmutable,
+			TAutoNow,
+			TValidation
+		>,
 	): DefaultedTimeField<TRequired, TList, TImmutable, TAutoNow>
 	<
 		const TRequired extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const TAutoNow extends boolean = false,
+		const TValidation extends FieldStandardSchema = FieldStandardSchema,
 	>(
 		options?: NonDefaultedTimeFieldOptions<
 			TRequired,
 			TList,
 			TImmutable,
-			TAutoNow
+			TAutoNow,
+			TValidation
 		>,
 	): NonDefaultedTimeField<TRequired, TList, TImmutable, TAutoNow>
 }
@@ -166,34 +164,11 @@ export const createTimeNormalizer = (
 	}
 }
 
-const readZonedTimeOffset = (value: string): number => {
-	const hour = Number(value.slice(0, 2))
-	const minute = Number(value.slice(3, 5))
-	const second = Number(value.slice(6, 8))
-	const millisecond = Number(value.slice(9, 12))
-	const timezone = value.slice(12)
-	const offsetHour = timezone === 'Z' ? 0 : Number(timezone.slice(1, 3))
-	const offsetMinute = timezone === 'Z' ? 0 : Number(timezone.slice(4, 6))
-	const offsetDirection = timezone.startsWith('-') ? -1 : 1
-	const localMilliseconds =
-		((hour * 60 + minute) * 60 + second) * 1_000 + millisecond
-	const offsetMilliseconds =
-		(offsetHour * 60 + offsetMinute) * 60_000 * offsetDirection
-
-	// Zoned times compare as their UTC-adjusted time-of-day values.
-	return localMilliseconds - offsetMilliseconds
-}
-
-/** Compares normalized zoned time values by their UTC-adjusted time of day. */
-export const compareZonedTimeValues: TemporalValueComparator = (left, right) =>
-	readZonedTimeOffset(left) - readZonedTimeOffset(right)
-
 const resolveTimeFieldConfiguration =
 	createTemporalFieldConfigurationResolver<TimeFieldOptions>(
 		timeFieldOptionsContract,
 		false,
 		createTimeNormalizer,
-		compareZonedTimeValues,
 	)
 
 /**

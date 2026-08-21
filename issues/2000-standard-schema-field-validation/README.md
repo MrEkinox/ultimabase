@@ -38,7 +38,7 @@ checks remain hooks or protected constraints rather than structural validation.
 1. [x] [2001 — Decide the Standard Schema field-validation boundary](2001-standard-schema-field-validation-adr.md)
 2. [x] [2002 — Move required presence to a direct field option](2002-direct-required-field-option.md)
 3. [x] [2003 — Move decimal shape metadata to direct field options](2003-direct-decimal-shape-options.md)
-4. [ ] [2004 — Replace field constraints with Standard Schema](2004-standard-schema-field-validators.md)
+4. [x] [2004 — Replace field constraints with Standard Schema](2004-standard-schema-field-validators.md)
 5. [ ] [2005 — Prove validator interoperability and generated DX](2005-validator-interoperability-typegen-dx.md)
 6. [ ] [2007 — Remove planned validation-only field extensions](2007-remove-validation-only-field-extensions.md)
 7. [ ] [2006 — Verify the Standard Schema validation vertical](2006-standard-schema-validation-verification.md)

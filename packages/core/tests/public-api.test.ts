@@ -244,7 +244,6 @@ describe('@ultimabase/core public entry point', () => {
 			'unsealQueryCursor',
 			'unset',
 			'uuidField',
-			'validateScalarFieldConstraints',
 		])
 	})
 })

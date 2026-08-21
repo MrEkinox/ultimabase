@@ -1,7 +1,6 @@
 import {
 	fieldOptionKeys,
 	normalizeFieldOptions,
-	normalizeFlatValidation,
 	type BuiltInFieldOptionsContract,
 } from '../base/options.js'
 import type {
@@ -9,7 +8,6 @@ import type {
 	FieldTypegenState,
 	FieldListOption,
 	FieldOptions,
-	FieldValidationOptions,
 } from '../base/contract.js'
 import {
 	type CompactScalarFieldDefinition,
@@ -18,11 +16,7 @@ import {
 	type NonDefaultedCompactScalarFieldOptions,
 } from '../base/factory.js'
 import { normalizeBooleanValue } from '../base/value.js'
-
-/**
- * Names the empty value-constraint contract exposed by boolean fields.
- */
-export type BooleanValidationOptions = FieldValidationOptions
+import type { FieldStandardSchema } from '../base/standard-schema.js'
 
 /**
  * Describes boolean metadata through the common field contract.
@@ -39,7 +33,6 @@ export type BooleanField<
 const booleanFieldOptionsContract: BuiltInFieldOptionsContract = {
 	kind: 'boolean',
 	optionKeys: fieldOptionKeys,
-	validationOptionKeys: [],
 }
 
 /** Provides boolean-specific names for the shared compact scalar contract. */
@@ -47,24 +40,30 @@ type DefaultedBooleanFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
+	TValidation extends FieldStandardSchema,
 > = DefaultedCompactScalarFieldOptions<
 	BooleanFieldOptions,
 	boolean,
 	TRequired,
 	TList,
-	TImmutable
+	TImmutable,
+	object,
+	TValidation
 >
 
 type NonDefaultedBooleanFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
+	TValidation extends FieldStandardSchema,
 > = NonDefaultedCompactScalarFieldOptions<
 	BooleanFieldOptions,
 	boolean,
 	TRequired,
 	TList,
-	TImmutable
+	TImmutable,
+	object,
+	TValidation
 >
 
 type ResolvedBooleanField<
@@ -99,15 +98,27 @@ interface BooleanFieldFactory {
 		const TRequired extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
+		const TValidation extends FieldStandardSchema = FieldStandardSchema,
 	>(
-		options: DefaultedBooleanFieldOptions<TRequired, TList, TImmutable>,
+		options: DefaultedBooleanFieldOptions<
+			TRequired,
+			TList,
+			TImmutable,
+			TValidation
+		>,
 	): DefaultedBooleanField<TRequired, TList, TImmutable>
 	<
 		const TRequired extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
+		const TValidation extends FieldStandardSchema = FieldStandardSchema,
 	>(
-		options?: NonDefaultedBooleanFieldOptions<TRequired, TList, TImmutable>,
+		options?: NonDefaultedBooleanFieldOptions<
+			TRequired,
+			TList,
+			TImmutable,
+			TValidation
+		>,
 	): NonDefaultedBooleanField<TRequired, TList, TImmutable>
 }
 
@@ -118,7 +129,6 @@ const normalizeBooleanFieldOptions = <
 ): Readonly<TOptions> =>
 	normalizeFieldOptions(
 		options,
-		normalizeFlatValidation,
 		normalizeBooleanValue,
 		booleanFieldOptionsContract,
 	)

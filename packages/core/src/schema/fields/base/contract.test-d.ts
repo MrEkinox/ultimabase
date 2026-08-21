@@ -43,16 +43,16 @@ test('distinguishes regular, unique, and disabled indexing', () => {
 	expectTypeOf(disabled.indexed).toEqualTypeOf<false>()
 })
 
-test('rejects nullable and invalid metadata values', () => {
+test('rejects legacy validation objects and invalid metadata values', () => {
 	const nestedRequired: FieldOptions<string> = {
 		validation: {
-			// @ts-expect-error -- Presence is a direct field option.
+			// @ts-expect-error -- Validation must implement Standard Schema V1.
 			required: true,
 		},
 	}
 	const invalidPresence: FieldOptions<string> = {
 		validation: {
-			// @ts-expect-error -- Nullability is derived from required presence.
+			// @ts-expect-error -- Validation must implement Standard Schema V1.
 			nullable: true,
 		},
 	}

@@ -19,10 +19,6 @@ describe('validation plans', () => {
 			fields: (field) => ({
 				name: field.string({
 					required: true,
-					validation: {
-						length: { min: 2, max: 40 },
-						match: /^[a-z]+$/u,
-					},
 				}),
 				nickname: field.string(),
 				active: field.boolean({ default: true }),
@@ -67,13 +63,7 @@ describe('validation plans', () => {
 		expect(plans.create.fields.immutableCode?.presence).toBe('required')
 		expect(plans.update.fields.immutableCode?.presence).toBe('forbidden')
 
-		// Scalar constraints and defaults remain available from one source of truth.
-		expect(schema.fields.name?.options).toMatchObject({
-			validation: {
-				length: { min: 2, max: 40 },
-				match: /^[a-z]+$/u,
-			},
-		})
+		// Scalar defaults remain available from one source of truth.
 		expect(schema.fields.active?.options).toMatchObject({ default: true })
 		expect(schema.fields.generated?.options).toMatchObject({
 			default: runtimeDefault,

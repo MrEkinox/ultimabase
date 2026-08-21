@@ -5,8 +5,7 @@ import {
 	definePluginField,
 	type FieldListOption,
 	type FieldOptions,
-	type FieldOptionsWithoutNullable,
-	type FieldValidationOptions,
+	type FieldStandardSchema,
 	type FieldValidationPlan,
 	type PluginFieldDefinition,
 	type ScalarValidationPlan,
@@ -36,16 +35,11 @@ const pgVectorPluginModule: PluginModule<
 })
 
 /**
- * Reserves the vector field's value-constraint contract while presence remains direct.
- */
-export type VectorValidationOptions = FieldValidationOptions
-
-/**
  * Carries the fixed vector dimension alongside common field metadata.
  */
 export type VectorFieldOptions<
 	TList extends FieldListOption = FieldListOption,
-> = FieldOptions<VectorValue, VectorValidationOptions, TList> & {
+> = FieldOptions<VectorValue, FieldStandardSchema, TList> & {
 	/**
 	 * Fixes the number of finite components accepted by this logical vector.
 	 *
@@ -82,9 +76,7 @@ type VectorFieldDeclarationOptions<
 	TDimensions extends number,
 > = TOptions & {
 	readonly dimensions: TDimensions
-} & (FieldOptionsWithoutNullable<
-		ValidatedFieldOptions<NoInfer<TOptions>, VectorValue>
-	> extends never
+} & (ValidatedFieldOptions<NoInfer<TOptions>, VectorValue> extends never
 		? never
 		: unknown)
 

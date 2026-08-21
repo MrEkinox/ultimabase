@@ -1,5 +1,9 @@
 import type { UltimaBaseGeneratedFieldOptions } from '../../type-info.js'
 import type { DefaultFactory, FieldDefault } from './defaults.js'
+import type {
+	CompatibleFieldStandardSchema,
+	FieldStandardSchema,
+} from './standard-schema.js'
 
 declare const fieldValueMarker: unique symbol
 declare const fieldTypegenMarker: unique symbol
@@ -78,17 +82,6 @@ type FieldOptionsDefaultValue<
 	? TValue | readonly TValue[]
 	: FieldListValue<TValue, TList>
 
-/** Describes an intentionally empty value-constraint contract. */
-export type FieldValidationOptions = Readonly<Record<PropertyKey, never>>
-
-/** Rejects legacy validation metadata that attempts to configure derived nullability. */
-export type FieldOptionsWithoutNullable<TOptions extends object> =
-	TOptions extends { readonly validation: infer TValidation extends object }
-		? 'nullable' extends keyof TValidation
-			? never
-			: TOptions
-		: TOptions
-
 interface FieldMetadataOptions<TValidation extends object> {
 	/**
 	 * Requires a non-null persisted value and, without a default or generator,
@@ -98,9 +91,9 @@ interface FieldMetadataOptions<TValidation extends object> {
 	 */
 	readonly required?: boolean
 	/**
-	 * Groups field-specific value constraints validated by Runtime.
+	 * Applies one synchronous Standard Schema validator to the complete canonical value.
 	 *
-	 * @example `validation: { length: { min: 1 } }`
+	 * @example `validation: z.string().min(1)`
 	 */
 	readonly validation?: TValidation
 	/**
@@ -125,7 +118,7 @@ interface FieldMetadataOptions<TValidation extends object> {
 
 /** Defines shared field metadata without assigning a default-value contract. */
 export interface FieldOptionsBase<
-	TValidation extends object = FieldValidationOptions,
+	TValidation extends object = FieldStandardSchema,
 	TList extends FieldListOption = FieldListOption,
 	TValue = unknown,
 >
@@ -146,7 +139,7 @@ export interface FieldOptionsBase<
  */
 export interface FieldOptions<
 	TValue,
-	TValidation extends object = FieldValidationOptions,
+	TValidation extends object = FieldStandardSchema,
 	TList extends FieldListOption = FieldListOption,
 > extends FieldOptionsBase<TValidation, TList, TValue> {
 	/**
@@ -191,8 +184,27 @@ type FieldOptionsAreCompatible<TOptions extends object, TValue> =
 		? GeneratedValueIsCompatible<TOptions>
 		: false
 
+type FieldValidationIsCompatible<
+	TOptions extends object,
+	TValue,
+> = TOptions extends { readonly validation: infer TValidation }
+	? TValidation extends FieldStandardSchema
+		? TValidation extends CompatibleFieldStandardSchema<
+				TValidation,
+				FieldOptionsValue<TValue, TOptions>,
+				TOptions extends { readonly list: true } ? TValue[] : TValue
+			>
+			? true
+			: false
+		: false
+	: true
+
 export type ValidatedFieldOptions<TOptions extends object, TValue> =
-	FieldOptionsAreCompatible<TOptions, TValue> extends true ? TOptions : never
+	FieldOptionsAreCompatible<TOptions, TValue> extends true
+		? FieldValidationIsCompatible<TOptions, TValue> extends true
+			? TOptions
+			: never
+		: never
 
 type FieldOptionsList<TOptions> = TOptions extends {
 	readonly list: infer TList extends FieldList

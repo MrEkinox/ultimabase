@@ -11,7 +11,6 @@ import {
 	assertValidTypeName,
 	fieldOptionKeys,
 	normalizeFieldOptions,
-	normalizeFlatValidation,
 	type BuiltInFieldOptionsContract,
 } from '../base/options.js'
 import type {
@@ -25,6 +24,7 @@ import {
 	type DefaultedCompactScalarFieldOptions,
 	type NonDefaultedCompactScalarFieldOptions,
 } from '../base/factory.js'
+import type { FieldStandardSchema } from '../base/standard-schema.js'
 
 export type EnumValues = readonly string[] | Readonly<Record<string, string>>
 
@@ -75,7 +75,6 @@ export type EnumField<
 const enumFieldOptionsContract: BuiltInFieldOptionsContract = {
 	kind: 'enum',
 	optionKeys: [...fieldOptionKeys, 'typeName', 'values'],
-	validationOptionKeys: [],
 }
 
 type NonEmptyMapping<TValues extends EnumValues> =
@@ -96,12 +95,15 @@ type DefaultedEnumFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
+	TValidation extends FieldStandardSchema,
 > = DefaultedCompactScalarFieldOptions<
 	EnumFieldOptions<TValues>,
 	EnumValue<TValues>,
 	TRequired,
 	TList,
-	TImmutable
+	TImmutable,
+	object,
+	TValidation
 > &
 	CompatibleEnumFieldOptions<TValues>
 
@@ -110,12 +112,15 @@ type NonDefaultedEnumFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
+	TValidation extends FieldStandardSchema,
 > = NonDefaultedCompactScalarFieldOptions<
 	EnumFieldOptions<TValues>,
 	EnumValue<TValues>,
 	TRequired,
 	TList,
-	TImmutable
+	TImmutable,
+	object,
+	TValidation
 > &
 	CompatibleEnumFieldOptions<TValues>
 
@@ -159,13 +164,26 @@ export type EnumFieldBuilderMethod = <
 	const TRequired extends boolean = false,
 	const TList extends FieldListOption = false,
 	const TImmutable extends boolean = false,
+	const TValidation extends FieldStandardSchema = FieldStandardSchema,
 >(
 	/** Stable logical field name within its containing schema or object. */
 	name: string,
 	/** Declares the exact enum domain and existing field options. */
 	options:
-		| DefaultedEnumFieldOptions<TValues, TRequired, TList, TImmutable>
-		| NonDefaultedEnumFieldOptions<TValues, TRequired, TList, TImmutable>,
+		| DefaultedEnumFieldOptions<
+				TValues,
+				TRequired,
+				TList,
+				TImmutable,
+				TValidation
+		  >
+		| NonDefaultedEnumFieldOptions<
+				TValues,
+				TRequired,
+				TList,
+				TImmutable,
+				TValidation
+		  >,
 ) => void
 
 const isString = (value: unknown): value is string => typeof value === 'string'
@@ -269,7 +287,6 @@ const normalizeEnumFieldOptions = (
 	const enumSource = normalizeEnumValues(options.values)
 	const normalized = normalizeFieldOptions(
 		options,
-		normalizeFlatValidation,
 		(value, path) => snapshotEnumValue(enumSource.values, value, path),
 		enumFieldOptionsContract,
 	)
@@ -297,8 +314,15 @@ export function enumField<
 	const TRequired extends boolean = false,
 	const TList extends FieldListOption = false,
 	const TImmutable extends boolean = false,
+	const TValidation extends FieldStandardSchema = FieldStandardSchema,
 >(
-	options: DefaultedEnumFieldOptions<TValues, TRequired, TList, TImmutable>,
+	options: DefaultedEnumFieldOptions<
+		TValues,
+		TRequired,
+		TList,
+		TImmutable,
+		TValidation
+	>,
 ): DefaultedEnumField<TValues, TRequired, TList, TImmutable>
 
 export function enumField<
@@ -306,8 +330,15 @@ export function enumField<
 	const TRequired extends boolean = false,
 	const TList extends FieldListOption = false,
 	const TImmutable extends boolean = false,
+	const TValidation extends FieldStandardSchema = FieldStandardSchema,
 >(
-	options: NonDefaultedEnumFieldOptions<TValues, TRequired, TList, TImmutable>,
+	options: NonDefaultedEnumFieldOptions<
+		TValues,
+		TRequired,
+		TList,
+		TImmutable,
+		TValidation
+	>,
 ): NonDefaultedEnumField<TValues, TRequired, TList, TImmutable>
 
 export function enumField(options: EnumFieldOptions): EnumField {

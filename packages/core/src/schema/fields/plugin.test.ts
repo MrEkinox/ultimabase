@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
+import { isPlainRecord } from '@ultimabase/shared'
+import type { StandardSchemaV1 } from '@standard-schema/spec'
 
 import {
 	definePluginField,
@@ -8,20 +9,9 @@ import {
 	type FieldOptions,
 } from '../index.js'
 
-interface FixtureValidationOptions {
-	readonly dimensions?: number
-}
-
-interface FixtureFieldOptions extends FieldOptions<
-	string,
-	FixtureValidationOptions
-> {
+interface FixtureFieldOptions extends FieldOptions<string> {
 	readonly storageProfile?: string
 }
-
-const normalizeValidation = (
-	validation: FixtureValidationOptions,
-): Readonly<FixtureValidationOptions> => immutableRecord(validation)
 
 const snapshotValue = (value: unknown, path: string): string => {
 	if (typeof value !== 'string') {
@@ -41,7 +31,7 @@ describe('plugin fields', () => {
 				default: source,
 				required: true,
 			},
-			{ normalizeValidation, snapshotValue },
+			{ snapshotValue },
 		)
 
 		source[0] = 'changed'
@@ -58,45 +48,44 @@ describe('plugin fields', () => {
 		expect(Object.isFrozen(field.options.default)).toBe(true)
 	})
 
-	it('snapshots plugin validation independently from direct presence', () => {
-		const validation = { dimensions: 3 }
+	it('retains opaque plugin validation independently from direct presence', () => {
+		const validation: StandardSchemaV1<string> = {
+			'~standard': {
+				version: 1,
+				vendor: 'fixture',
+				validate: (value) =>
+					typeof value === 'string'
+						? { value }
+						: { issues: [{ message: 'Value must be a string' }] },
+			},
+		}
 		const field = definePluginField(
 			'fixture.default-normalizer',
 			{ required: true, validation },
 			{ snapshotValue },
 		)
 
-		validation.dimensions = 4
-
-		// Schema owns common metadata even when the plugin omits a custom normalizer.
 		expect(field.options.required).toBe(true)
-		expect(field.options.validation.dimensions).toBe(3)
-		expect(Object.isFrozen(field.options.validation)).toBe(true)
+		expect(field.options.validation).toBe(validation)
 	})
 
 	it('leaves plugin-owned option keys to the plugin normalizer', () => {
 		const field = definePluginField<
 			string,
 			'fixture.owned-options',
-			FixtureValidationOptions,
 			FixtureFieldOptions
 		>(
 			'fixture.owned-options',
 			{
 				storageProfile: 'compact',
 				required: true,
-				validation: { dimensions: 3 },
 			},
-			{
-				normalizeValidation: (validation) => immutableRecord(validation),
-				snapshotValue,
-			},
+			{ snapshotValue },
 		)
 
 		expect(field.options).toStrictEqual({
 			storageProfile: 'compact',
 			required: true,
-			validation: { dimensions: 3 },
 		})
 	})
 
@@ -252,7 +241,7 @@ describe('plugin fields', () => {
 		(kind) => {
 			expect(() => {
 				// @ts-expect-error -- Runtime validation protects untyped plugin packages.
-				definePluginField(kind, {}, { normalizeValidation, snapshotValue })
+				definePluginField(kind, {}, { snapshotValue })
 			}).toThrow()
 		},
 	)

@@ -43,7 +43,7 @@ const PostSchema = Schema.define({
 		calendarDay: field.date(),
 		eventAt: field.dateTime(),
 		exactAmount: field.decimal({ precision: 12, scale: 2 }),
-		externalId: field.uuid({ validation: { version: 4 } }),
+		externalId: field.uuid(),
 		hugeCount: field.bigint(),
 		labels: field.string({ list: true }),
 		metadata: field.json(),

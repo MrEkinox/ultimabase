@@ -1,9 +1,6 @@
-import { immutableRecord } from '@ultimabase/shared'
-
 import {
 	fieldOptionKeys,
 	normalizeFieldOptions,
-	orderedRangeOptionKeys,
 	type BuiltInFieldOptionsContract,
 } from '../base/options.js'
 import type {
@@ -18,31 +15,10 @@ import {
 	type DefaultedCompactScalarFieldOptions,
 	type NonDefaultedCompactScalarFieldOptions,
 } from '../base/factory.js'
-import {
-	normalizeOrderedRange,
-	type OrderedRange,
-} from '../constraints/range.js'
-
-/**
- * Defines exact decimal boundaries without floating-point coercion.
- */
-export type DecimalRangeValidationOptions = OrderedRange<string>
-
-/** Groups additional exact decimal value constraints. */
-export interface DecimalValidationOptions {
-	/**
-	 * Restricts exact decimal strings with inclusive boundaries.
-	 *
-	 * @example `range: { min: "0.00", max: "999.99" }`
-	 */
-	readonly range?: DecimalRangeValidationOptions
-}
+import type { FieldStandardSchema } from '../base/standard-schema.js'
 
 /** Describes exact decimal metadata through lossless strings. */
-export interface DecimalFieldOptions extends FieldOptions<
-	string,
-	DecimalValidationOptions
-> {
+export interface DecimalFieldOptions extends FieldOptions<string> {
 	/**
 	 * Limits the total number of integer and fractional digits.
 	 *
@@ -73,8 +49,6 @@ export type DecimalField<
 const decimalFieldOptionsContract: BuiltInFieldOptionsContract = {
 	kind: 'decimal',
 	optionKeys: [...fieldOptionKeys, 'precision', 'scale'],
-	validationOptionKeys: ['range'],
-	nestedValidation: [{ key: 'range', optionKeys: orderedRangeOptionKeys }],
 }
 
 /** Keeps the defaulted decimal input readable in editor signatures. */
@@ -82,12 +56,15 @@ type DefaultedDecimalFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
+	TValidation extends FieldStandardSchema,
 > = DefaultedCompactScalarFieldOptions<
 	DecimalFieldOptions,
 	string,
 	TRequired,
 	TList,
-	TImmutable
+	TImmutable,
+	object,
+	TValidation
 >
 
 /** Keeps the default-free decimal input readable in editor signatures. */
@@ -95,12 +72,15 @@ type NonDefaultedDecimalFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
+	TValidation extends FieldStandardSchema,
 > = NonDefaultedCompactScalarFieldOptions<
 	DecimalFieldOptions,
 	string,
 	TRequired,
 	TList,
-	TImmutable
+	TImmutable,
+	object,
+	TValidation
 >
 
 /** Resolves the common decimal inference state once for both overload branches. */
@@ -139,15 +119,27 @@ interface DecimalFieldFactory {
 		const TRequired extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
+		const TValidation extends FieldStandardSchema = FieldStandardSchema,
 	>(
-		options: DefaultedDecimalFieldOptions<TRequired, TList, TImmutable>,
+		options: DefaultedDecimalFieldOptions<
+			TRequired,
+			TList,
+			TImmutable,
+			TValidation
+		>,
 	): DefaultedDecimalField<TRequired, TList, TImmutable>
 	<
 		const TRequired extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
+		const TValidation extends FieldStandardSchema = FieldStandardSchema,
 	>(
-		options?: NonDefaultedDecimalFieldOptions<TRequired, TList, TImmutable>,
+		options?: NonDefaultedDecimalFieldOptions<
+			TRequired,
+			TList,
+			TImmutable,
+			TValidation
+		>,
 	): NonDefaultedDecimalField<TRequired, TList, TImmutable>
 }
 
@@ -250,26 +242,6 @@ const assertValidScale = (scale: number | undefined): void => {
 	}
 }
 
-const normalizeDecimalValidation = (
-	validation: DecimalValidationOptions,
-): Readonly<DecimalValidationOptions> => {
-	const { range } = validation
-
-	if (range === undefined) {
-		return immutableRecord(validation)
-	}
-
-	return immutableRecord({
-		...validation,
-		range: normalizeOrderedRange(
-			range,
-			'validation.range',
-			normalizeDecimalValue,
-			compareDecimalValues,
-		),
-	})
-}
-
 const normalizeDecimalFieldOptions = <
 	const TOptions extends DecimalFieldOptions,
 >(
@@ -288,7 +260,6 @@ const normalizeDecimalFieldOptions = <
 
 	return normalizeFieldOptions(
 		options,
-		normalizeDecimalValidation,
 		normalizeDecimalValue,
 		decimalFieldOptionsContract,
 	)

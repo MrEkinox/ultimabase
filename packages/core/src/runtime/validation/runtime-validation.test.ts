@@ -28,6 +28,7 @@ import {
 	createRuntimeValidationStage,
 	revalidateRuntimeMutationOperation,
 } from './runtime-validation.js'
+import { minimumTitle, scoreRange } from './field-standard-schema.fixtures.js'
 const runtimeDefault = vi.fn(() => 42)
 const binaryDefault = new Uint8Array([1, 2, 3])
 const validationSchema = Schema.define({
@@ -35,7 +36,7 @@ const validationSchema = Schema.define({
 	fields: (field) => ({
 		title: field.string({
 			required: true,
-			validation: { length: { min: 2 } },
+			validation: minimumTitle,
 		}),
 		immutableCode: field.string({
 			indexed: 'unique',
@@ -46,7 +47,7 @@ const validationSchema = Schema.define({
 		sequence: field.int({ default: runtimeDefault }),
 		state: field.string({ default: 'draft' }),
 		payload: field.binary({ default: binaryDefault }),
-		score: field.int({ validation: { range: { min: 0, max: 10 } } }),
+		score: field.int({ validation: scoreRange }),
 		serial: field.int({
 			autoIncrement: true,
 			required: true,
@@ -71,7 +72,6 @@ const validationSchema = Schema.define({
 		}),
 	}),
 })
-
 const schemaNode = new QueryBuilder(validationSchema).ast.schema
 const relationValidationTarget = Schema.define({
 	className: 'RuntimeRelationValidationTarget',
@@ -258,7 +258,7 @@ describe('runtime validation', () => {
 				value: '2026-05-01T08:00:00.000Z',
 			},
 		])
-		// A delta is type-checked here; its final range remains a database constraint.
+		// A delta is structurally checked here; the complete persisted result is validated later.
 		expect(Object.isFrozen(normalized.update.operations)).toBe(true)
 	})
 
@@ -558,7 +558,7 @@ describe('runtime validation', () => {
 					expect(details.issues).toEqual(
 						expect.arrayContaining([
 							expect.objectContaining({
-								code: 'string.length.min',
+								code: 'field.validation',
 								path: ['input', 'title'],
 							}),
 							expect.objectContaining({

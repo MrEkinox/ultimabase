@@ -434,22 +434,22 @@ operation-specific presence rules.
 
 ## Generic field contract
 
-- `FieldValidationOptions` is the empty constraint contract used by field kinds without value-specific validation. Concrete and plugin fields supply their own constraint shape.
-- `FieldOptions<TValue, TValidation>` adds direct `required`, typed defaults, homogeneous lists, field-value immutability, `indexed`, and descriptions without introducing database-specific metadata. Optional fields persist as `null`; `required: true` makes their persisted value non-null and requires create input unless a default or generator supplies it. `list: true` creates one list level and `false` disables list wrapping explicitly. Nested arrays belong in `jsonField()`. `indexed: true` requests a regular index, `indexed: "unique"` requests a unique index, and `false` disables indexing explicitly.
+- `FieldOptions<TValue>` adds direct `required`, one Standard Schema validator, typed defaults, homogeneous lists, field-value immutability, `indexed`, and descriptions without introducing database-specific metadata. Optional fields persist as `null`; `required: true` makes their persisted value non-null and requires create input unless a default or generator supplies it. `list: true` creates one list level and `false` disables list wrapping explicitly. Nested arrays belong in `jsonField()`. `indexed: true` requests a regular index, `indexed: "unique"` requests a unique index, and `false` disables indexing explicitly.
 - `FieldDefinition<TKind, TValue, TOptions, TInference>` preserves the literal field kind, its base value type, immutable runtime options, and a type-only operation state for later schema inference.
 
 Concrete field factories construct, validate, and freeze their runtime metadata
-in their dedicated implementations. Named option and validation interfaces keep
-the public declarations readable and make future documentation local to the
-property it describes. Inline options remain contextually typed through one
+in their dedicated implementations. Named option interfaces keep the public
+declarations readable and make future documentation local to the property it
+describes. Inline options remain contextually typed through one
 exact-options generic, so editors suggest the complete option set while
 TypeScript preserves literal values and nested object-field inference.
 Built-in factories also validate JavaScript-shaped declarations against an
-explicit option contract for their exact kind. Unknown root and nested
-validation keys fail with the kind and complete option path before metadata is
-snapshotted. The shared Core normalizer deliberately does not impose these
-built-in allowlists on `definePluginField()`: plugin-owned option and validation
-keys remain the responsibility of the plugin normalizer.
+explicit option contract for their exact kind. A malformed Standard Schema
+protocol fails before metadata is snapshotted. The shared Core normalizer
+deliberately does not impose these built-in allowlists on
+`definePluginField()`: plugin-owned structural option keys remain the
+responsibility of the plugin factory, while `validation` always uses the common
+Standard Schema boundary.
 Dependent rules such as `autoNow` with a default or list are checked outside
 the contextual option object. Hover information
 documents every built-in factory and option with a focused declaration example.
@@ -519,11 +519,11 @@ plans.create.fields.name?.presence // "required", "optional", or "forbidden"
 plans.update.unknownFields // "reject"
 ```
 
-Plans retain each original field by identity instead of rebuilding scalar
-constraints, enum domains, defaults, or type-specific options. A scalar node
+Plans retain each original field by identity instead of rebuilding validators,
+enum domains, defaults, or type-specific options. A scalar node
 therefore contains only `kind: "scalar"`, `field`, `presence`, and `nullable`.
 Object and array nodes add only their operation-specific child structure.
-Compilation never invokes a default factory or executes a constraint.
+Compilation never invokes a default factory or executes a validator.
 
 Create plans require only fields without a default or generated value. Update
 plans make mutable fields optional and mark generated or immutable fields as
@@ -540,10 +540,12 @@ combine both through `AnyValidationIssueCode`. Runtime will execute these plans
 before installed policy and behavior; Schema does not validate request data itself
 and does not depend on a third-party schema language.
 
-Runtime consumers call `validateScalarFieldConstraints(field, value, path)`
-after the scalar snapshot boundary. The evaluator reads normalized constraints
-from the retained declared field and returns immutable issues; it does not
-rebuild a second scalar schema or apply structural object/list rules.
+Runtime applies the retained Standard Schema validator after the field-owned
+canonical snapshot succeeds. A scalar validator receives the scalar, a list
+validator receives the complete immutable array once, and an object validator
+runs only after every child snapshot and validator succeeds. Validation issues
+are accumulated by the ordinary Runtime boundary; plans never rebuild a second
+schema or execute validators during compilation.
 
 ## Default values
 
@@ -582,29 +584,70 @@ traverses object and array plan nodes, then calls this boundary at scalar leaves
 This keeps declaration and Runtime scalar normalization on one field-owned
 implementation without confusing object patches with complete values.
 
+## Standard Schema field validators
+
+Every stored value field accepts one optional synchronous Standard Schema V1
+validator through `validation`. Presence remains separate: `required` controls
+create input and nullability, while the validator only observes a present,
+non-null value after Core has produced its canonical snapshot.
+
+```ts
+import { z } from 'zod'
+
+stringField({
+	required: true,
+	validation: z.string().min(1).max(200),
+})
+
+floatField({ validation: z.number().finite().min(0).max(1) })
+```
+
+Core invokes a scalar validator with the canonical scalar. A list validator
+receives the complete immutable array once, not each item separately. An
+embedded-object validator runs after every declared child has been snapshotted
+and its own validator has succeeded. JSON validators receive the complete
+canonical JSON document. Missing and null values bypass validation.
+
+Validation is rejection-only. The protocol must return synchronously, and a
+successful output must be deeply equal to Core's input; Core discards even an
+equal cloned output. Defaults, coercion, trimming, stripping, and other
+transformations belong in Hooks `resolveInput` or field snapshots rather than
+in validation. A rejected Standard Schema issue becomes `field.validation`,
+and its relative string, number, or symbol path is prefixed with the complete
+Runtime field path.
+
+Runtime may validate the same value at caller input, post-Hooks mutation,
+adapter result, materialization, included-result, and final-result boundaries.
+Validators must therefore be deterministic, synchronous, side-effect-free,
+and safe to repeat. Async uniqueness and database-backed business rules belong
+in Hooks, protected constraints, or dedicated plugins.
+
+Core retains the exact validator by identity. It never clones, freezes,
+serializes, invokes, or fingerprints the validator during declaration, static
+compilation, Typegen, or adapter setup. Standard Schema is available equally
+to built-in and plugin-defined stored fields; relation handles are not values
+and do not expose it.
+
 ## String fields
 
-`stringField(options)` creates immutable string metadata while preserving literal options for later schema inference. Calling `stringField()` defines an optional, non-null string.
+`stringField(options)` creates immutable string metadata while preserving
+literal options for later schema inference. Calling `stringField()` defines an
+optional string whose persisted absence is represented by `null`.
 
-String fields add declarative `validation.length.min`, `validation.length.max`,
-and `validation.match` constraints. Lengths must be non-negative safe integers,
-and `min` cannot exceed `max`. Match constraints use native `RegExp` values.
-The field owns a frozen `RegExp` copy. Runtime validators construct or reset
-their own matching state so repeated validation cannot leak `lastIndex` across
-requests.
+Additional length, pattern, email, URL, slug, and application-specific string
+rules use a developer-selected Standard Schema implementation.
 
 ## Integer fields
 
 `intField(options)` represents safe JavaScript integers. It supports
-`validation.range.min/max` with safe-integer boundaries and
 `autoIncrement: true | false` as declarative database-sequence metadata.
+Additional numeric rules use Standard Schema.
 
 ## Bigint fields
 
 `bigintField(options)` represents exact native JavaScript `bigint` values. Its
-defaults and `validation.range.min/max` boundaries use bigint literals such as
-`0n`, and it supports the same declarative `autoIncrement` metadata as integer
-fields.
+defaults use bigint literals such as `0n`, and it supports the same declarative
+`autoIncrement` metadata as integer fields.
 
 Schema does not serialize bigint values. JSON and GraphQL transports must apply
 an explicit string or custom-scalar codec, while PostgreSQL adapters may map
@@ -613,10 +656,9 @@ the field directly to the native `bigint` type.
 ## Float fields
 
 `floatField(options)` represents general JavaScript numbers without promising
-decimal precision. It supports finite `validation.range.min/max` boundaries and
-the declarative `validation.finite` value constraint. Float fields reject
-auto-increment metadata at both the TypeScript and runtime boundaries. Exact
-base-10 values use the separate decimal contract below.
+decimal precision. Float fields reject auto-increment metadata at both the
+TypeScript and runtime boundaries. Finiteness and range rules use Standard
+Schema. Exact base-10 values use the separate decimal contract below.
 
 ## Decimal fields
 
@@ -631,8 +673,7 @@ positive safe integer. The direct `scale` option limits fractional digits,
 must be a non-negative safe integer, and cannot exceed precision when both are
 supplied. They remain inspectable structural shape used by database adapters;
 for example, PostgreSQL compiles them to `numeric(p)` or `numeric(p, s)`.
-`validation.range.min/max` uses exact decimal strings and is ordered without
-floating-point coercion.
+Additional decimal rules validate canonical strings through Standard Schema.
 
 PostgreSQL adapters may map this contract to `numeric` or `decimal`. JSON and
 GraphQL transports must preserve the string representation or use an explicit
@@ -650,10 +691,10 @@ copies preserve their runtime subclass. Static scalar, list, and structured
 defaults are copied so later mutations of caller-owned storage cannot change
 schema metadata.
 
-`validation.length.min/max` constrains the number of bytes with non-negative
-safe-integer boundaries. Transport encodings such as Base64, hexadecimal, and
-multipart data remain transport concerns. Database adapters own physical
-storage decisions such as PostgreSQL `bytea`.
+Byte-length rules use a Standard Schema validator over the complete
+`Uint8Array`. Transport encodings such as Base64, hexadecimal, and multipart
+data remain transport concerns. Database adapters own physical storage
+decisions such as PostgreSQL `bytea`.
 
 JavaScript cannot freeze the indexed contents of a non-empty typed array.
 UltimaBase therefore guarantees binary snapshot isolation by copying byte
@@ -664,7 +705,7 @@ claiming deep object freezing.
 
 `dateField(options)` represents a calendar day as a canonical `YYYY-MM-DD`
 string such as `2026-07-31`. It contains no time or timezone. Static defaults
-and `validation.range.min/max` boundaries use the same format.
+use the same format; additional date rules validate that canonical string.
 
 `autoNow: true` asks Runtime to derive the current calendar day from the
 operation-scoped clock and application timezone when create input omits the
@@ -684,8 +725,7 @@ field.
 `timezone: false` uses the local `YYYY-MM-DDTHH:mm:ss.sss` form.
 
 All temporal fields support `autoNow: true` only for scalar values and never
-alongside `default`. Time-bearing fields also support ordered
-`validation.range.min/max` boundaries. Runtime derives automatic values from
+alongside `default`. Runtime derives automatic values from
 one operation-scoped instant shared with system fields. Application timezone
 configuration, defaulting to UTC, controls calendar and zone-less projections
 without relying on the host machine timezone.
@@ -693,10 +733,8 @@ without relying on the host machine timezone.
 ## UUID fields
 
 `uuidField(options)` represents a UUID through its canonical string value.
-`validation.version` may restrict accepted values to one UUID version from 1
-through 8; omitting it accepts every standard version. The field factory
-validates and freezes this metadata while actual UUID value validation belongs
-to the compiled runtime plan.
+UUID syntax is an unconditional field-shape invariant. Version restrictions
+and other application rules use Standard Schema.
 
 UUID generation uses the common default contract rather than a field-specific
 flag. The framework-owned `id` remains a separately generated UUID v7 system
@@ -811,8 +849,9 @@ logical field kind without teaching Schema about its database representation.
 Kinds must be non-empty, namespaced strings and cannot shadow framework-owned
 field kinds. The factory reuses direct presence, defaults, lists, indexes,
 descriptions and immutability while delegating scalar value snapshots to
-`snapshotValue`. A custom validation normalizer is optional; direct `required`
-presence remains available when it is omitted.
+`snapshotValue`. Plugin fields receive the same opaque Standard Schema
+`validation` option as built-ins; plugins no longer define a parallel
+validation normalizer. Direct `required` presence remains independent.
 
 `snapshotValue(value, path)` is a declaration-time snapshot boundary, not a
 request validator. It must be pure, deterministic, and idempotent because

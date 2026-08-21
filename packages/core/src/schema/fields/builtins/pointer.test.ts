@@ -107,12 +107,11 @@ describe('pointerField', () => {
 			pointerField({
 				target: () => userSchema,
 				required: true,
-				validation: {
-					// @ts-expect-error -- Runtime normalization protects JavaScript callers.
-					nullable: true,
-				},
-			})
-		}).toThrow(new TypeError('validation.nullable is not supported'))
+				validation: { nullable: true },
+			} as never)
+		}).toThrow(
+			new TypeError('validation must be a Standard Schema V1 validator'),
+		)
 	})
 
 	it('rejects malformed lazy targets when a value crosses the field', () => {

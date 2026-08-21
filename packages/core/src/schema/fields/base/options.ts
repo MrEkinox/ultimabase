@@ -8,6 +8,7 @@ import {
 
 import { isStaticDefault } from './defaults.js'
 import type { FieldOptions, GenericField } from './contract.js'
+import { assertFieldStandardSchema } from './standard-schema.js'
 
 /**
  * Reuses one exact empty option shape across zero-argument field factories.
@@ -34,21 +35,10 @@ export const fieldOptionKeys: readonly string[] = [
 	'default',
 ]
 
-/** Lists the boundaries shared by ordered length, value, and temporal ranges. */
-export const orderedRangeOptionKeys: readonly string[] = ['max', 'min']
-
-/** Describes one nested record owned by a built-in validation contract. */
-export interface BuiltInNestedValidationOptionsContract {
-	readonly key: string
-	readonly optionKeys: readonly string[]
-}
-
 /** Describes every metadata key owned by one built-in field kind. */
 export interface BuiltInFieldOptionsContract {
 	readonly kind: string
 	readonly optionKeys: readonly string[]
-	readonly validationOptionKeys: readonly string[]
-	readonly nestedValidation?: readonly BuiltInNestedValidationOptionsContract[]
 }
 
 const builtInContractsByOptions = new WeakMap<
@@ -61,27 +51,6 @@ export const getBuiltInFieldOptionsContract = (
 	options: object,
 ): BuiltInFieldOptionsContract | undefined =>
 	builtInContractsByOptions.get(options)
-
-const formatOptionPath = (parent: string, key: PropertyKey): string => {
-	const segment = String(key)
-
-	return parent === '' ? segment : `${parent}.${segment}`
-}
-
-const assertKnownOptionKeys = (
-	value: Readonly<Record<string, unknown>>,
-	allowedKeys: readonly string[],
-	kind: string,
-	path: string,
-): void => {
-	for (const key of Reflect.ownKeys(value)) {
-		if (typeof key !== 'string' || !allowedKeys.includes(key)) {
-			throw new TypeError(
-				`Unknown ${kind} field option: ${formatOptionPath(path, key)}`,
-			)
-		}
-	}
-}
 
 const assertStringOptionKeys = (
 	value: Readonly<Record<string, unknown>>,
@@ -127,35 +96,6 @@ export const assertBuiltInFieldOptions = (
 	// Unknown string keys are retained until application compilation can resolve
 	// them against option descriptors declared by installed plugins.
 	assertStringOptionKeys(options, contract)
-
-	if (!isPlainRecord(options.validation)) {
-		return
-	}
-
-	// Nullability is an intentionally rejected legacy key, not an accidental typo.
-	if (Object.hasOwn(options.validation, 'nullable')) {
-		throw new TypeError('validation.nullable is not supported')
-	}
-
-	assertKnownOptionKeys(
-		options.validation,
-		contract.validationOptionKeys,
-		contract.kind,
-		'validation',
-	)
-
-	for (const nested of contract.nestedValidation ?? []) {
-		const value = options.validation[nested.key]
-
-		if (isPlainRecord(value)) {
-			assertKnownOptionKeys(
-				value,
-				nested.optionKeys,
-				contract.kind,
-				`validation.${nested.key}`,
-			)
-		}
-	}
 }
 
 /** Ensures field factories and community plugins can safely read options. */
@@ -239,35 +179,6 @@ export const snapshotListedFieldValue = (
 	)
 }
 
-/**
- * Freezes an existing field-specific constraint record without further normalization.
- */
-export const normalizeFlatValidation = <const TValidation extends object>(
-	validation: TValidation,
-): Readonly<TValidation> => validation
-
-const normalizeCommonValidation = <TValidation extends object>(
-	validation: TValidation,
-	normalizeValidation: (validation: TValidation) => Readonly<TValidation>,
-): Readonly<TValidation> => {
-	if (!isPlainRecord(validation)) {
-		throw new TypeError('validation must be an object')
-	}
-
-	const normalized = normalizeValidation(validation)
-
-	if (!isPlainRecord(normalized)) {
-		throw new TypeError('normalized validation must be an object')
-	}
-
-	if ('nullable' in normalized) {
-		throw new TypeError('validation.nullable is not supported')
-	}
-
-	// Schema owns the common shallow snapshot even when a plugin returns caller data.
-	return immutableRecord(normalized)
-}
-
 const assertCommonFieldMetadata = (options: object): void => {
 	if ('required' in options) {
 		assertOptionalBoolean(options.required, 'required')
@@ -300,11 +211,9 @@ const assertCommonFieldMetadata = (options: object): void => {
  */
 export const normalizeFieldOptions = <
 	TValue,
-	TValidation extends object,
-	const TOptions extends FieldOptions<TValue, TValidation>,
+	const TOptions extends FieldOptions<TValue, object>,
 >(
 	options: TOptions,
-	normalizeValidation: (validation: TValidation) => Readonly<TValidation>,
 	normalizeStaticValue: NormalizeStaticValue,
 	builtInContract?: BuiltInFieldOptionsContract,
 ): Readonly<TOptions> => {
@@ -317,10 +226,9 @@ export const normalizeFieldOptions = <
 	assertCommonFieldMetadata(options)
 
 	const list = normalizeList(options.list)
-	const validation =
-		options.validation === undefined
-			? undefined
-			: normalizeCommonValidation(options.validation, normalizeValidation)
+	if (options.validation !== undefined) {
+		assertFieldStandardSchema(options.validation)
+	}
 	const hasNormalizedDefault =
 		'default' in options && isStaticDefault(options.default)
 	const normalizedDefault = hasNormalizedDefault
@@ -336,7 +244,10 @@ export const normalizeFieldOptions = <
 	const normalized = immutableRecord({
 		...options,
 		...(list === undefined ? {} : { list }),
-		...(validation === undefined ? {} : { validation }),
+		// The validator is an opaque executable artifact retained by exact identity.
+		...(options.validation === undefined
+			? {}
+			: { validation: options.validation }),
 		...(hasNormalizedDefault ? { default: normalizedDefault } : {}),
 	})
 

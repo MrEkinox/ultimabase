@@ -1,9 +1,6 @@
-import { immutableRecord } from '@ultimabase/shared'
-
 import {
 	fieldOptionKeys,
 	normalizeFieldOptions,
-	orderedRangeOptionKeys,
 	type BuiltInFieldOptionsContract,
 } from '../base/options.js'
 import type {
@@ -18,34 +15,13 @@ import {
 	type DefaultedCompactScalarFieldOptions,
 	type NonDefaultedCompactScalarFieldOptions,
 } from '../base/factory.js'
-import {
-	normalizeLengthValidation,
-	type LengthConstrainedValidation,
-	type LengthValidationOptions,
-} from '../constraints/length.js'
 import { normalizeStringValue } from '../base/value.js'
-
-/**
- * Defines declarative string length boundaries.
- */
-export type StringLengthValidationOptions = LengthValidationOptions
-
-/**
- * Groups string constraints under one validation boundary.
- */
-export interface StringValidationOptions extends LengthConstrainedValidation {
-	/**
-	 * Requires the complete value to satisfy a native regular expression.
-	 *
-	 * @example `match: /^[a-z0-9-]+$/u`
-	 */
-	readonly match?: RegExp
-}
+import type { FieldStandardSchema } from '../base/standard-schema.js'
 
 /**
  * Describes string metadata without coupling validation to a runtime.
  */
-export type StringFieldOptions = FieldOptions<string, StringValidationOptions>
+export type StringFieldOptions = FieldOptions<string>
 
 /**
  * Carries the string value type and exact options through later schema inference.
@@ -57,8 +33,6 @@ export type StringField<
 const stringFieldOptionsContract: BuiltInFieldOptionsContract = {
 	kind: 'string',
 	optionKeys: fieldOptionKeys,
-	validationOptionKeys: ['length', 'match'],
-	nestedValidation: [{ key: 'length', optionKeys: orderedRangeOptionKeys }],
 }
 
 /** Provides string-specific names for the shared compact scalar contract. */
@@ -66,24 +40,30 @@ type DefaultedStringFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
+	TValidation extends FieldStandardSchema,
 > = DefaultedCompactScalarFieldOptions<
 	StringFieldOptions,
 	string,
 	TRequired,
 	TList,
-	TImmutable
+	TImmutable,
+	object,
+	TValidation
 >
 
 type NonDefaultedStringFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
+	TValidation extends FieldStandardSchema,
 > = NonDefaultedCompactScalarFieldOptions<
 	StringFieldOptions,
 	string,
 	TRequired,
 	TList,
-	TImmutable
+	TImmutable,
+	object,
+	TValidation
 >
 
 type ResolvedStringField<
@@ -118,38 +98,28 @@ interface StringFieldFactory {
 		const TRequired extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
+		const TValidation extends FieldStandardSchema = FieldStandardSchema,
 	>(
-		options: DefaultedStringFieldOptions<TRequired, TList, TImmutable>,
+		options: DefaultedStringFieldOptions<
+			TRequired,
+			TList,
+			TImmutable,
+			TValidation
+		>,
 	): DefaultedStringField<TRequired, TList, TImmutable>
 	<
 		const TRequired extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
+		const TValidation extends FieldStandardSchema = FieldStandardSchema,
 	>(
-		options?: NonDefaultedStringFieldOptions<TRequired, TList, TImmutable>,
+		options?: NonDefaultedStringFieldOptions<
+			TRequired,
+			TList,
+			TImmutable,
+			TValidation
+		>,
 	): NonDefaultedStringField<TRequired, TList, TImmutable>
-}
-
-const normalizeStringValidation = (
-	validation: StringValidationOptions,
-): Readonly<StringValidationOptions> => {
-	const normalized = normalizeLengthValidation(validation)
-
-	if (normalized.match !== undefined && !(normalized.match instanceof RegExp)) {
-		throw new TypeError('validation.match must be a RegExp')
-	}
-
-	if (normalized.match === undefined) {
-		return normalized
-	}
-
-	// A frozen copy prevents caller state and global `lastIndex` mutations from leaking in.
-	return immutableRecord({
-		...normalized,
-		match: Object.freeze(
-			new RegExp(normalized.match.source, normalized.match.flags),
-		),
-	})
 }
 
 const normalizeStringFieldOptions = <const TOptions extends StringFieldOptions>(
@@ -157,19 +127,18 @@ const normalizeStringFieldOptions = <const TOptions extends StringFieldOptions>(
 ): Readonly<TOptions> =>
 	normalizeFieldOptions(
 		options,
-		normalizeStringValidation,
 		normalizeStringValue,
 		stringFieldOptionsContract,
 	)
 
 /**
- * Declares a UTF-16 JavaScript string with optional length and pattern validation.
+ * Declares a UTF-16 JavaScript string with optional Standard Schema validation.
  *
  * @example
  * ```ts
  * stringField({
  *   required: true,
- *   validation: { length: { min: 2 }, match: /^[a-z]+$/u },
+ *   validation: nonEmptyName,
  * })
  * ```
  */

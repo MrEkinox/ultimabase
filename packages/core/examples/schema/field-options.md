@@ -9,6 +9,7 @@ shows its value semantics, important restrictions, and a focused example.
 
 ```ts
 import { Schema } from '@ultimabase/core'
+import { z } from 'zod'
 
 export const ProductSchema = Schema.define({
 	className: 'Product',
@@ -16,30 +17,25 @@ export const ProductSchema = Schema.define({
 		externalId: field.uuid({
 			indexed: 'unique',
 			required: true,
-			validation: { version: 7 },
+			validation: z.uuidv7(),
 		}),
 		sequence: field.bigint({ autoIncrement: true }),
 		name: field.string({
 			required: true,
-			validation: { length: { min: 1, max: 120 } },
+			validation: z.string().min(1).max(120),
 		}),
 		stock: field.int({
 			default: 0,
-			validation: { range: { min: 0 } },
+			validation: z.number().int().nonnegative(),
 		}),
 		rating: field.float({
-			validation: {
-				finite: true,
-				range: { min: 0, max: 5 },
-			},
+			validation: z.number().finite().min(0).max(5),
 		}),
 		price: field.decimal({
 			required: true,
 			precision: 12,
 			scale: 2,
-			validation: {
-				range: { min: '0.00' },
-			},
+			validation: z.string().refine((value) => !value.startsWith('-')),
 		}),
 		status: field.enum({
 			typeName: 'ProductStatus',
@@ -56,7 +52,9 @@ export const ProductSchema = Schema.define({
 		tags: field.string({ list: true, default: [] }),
 		metadata: field.json({ default: {} }),
 		attachment: field.binary({
-			validation: { length: { max: 5000000 } },
+			validation: z
+				.instanceof(Uint8Array)
+				.refine((value) => value.byteLength <= 5_000_000),
 		}),
 		isActive: field.boolean({ default: true }),
 	}),
@@ -76,12 +74,11 @@ also use explicit strings: `dateField` stores a calendar day, `timeField` a
 time of day, and `dateTimeField` a complete date and time.
 
 Built-in factories protect JavaScript and dynamically assembled declarations
-with the same exact option contracts exposed to TypeScript. Unknown root and
-nested validation keys report the field kind and complete path. For example,
-`stringField({ validation: { requred: true } })` throws
-`Unknown string field option: validation.requred` instead of retaining the
-misspelled metadata. Plugin fields retain their own option contracts and
-normalizers; Core does not apply a built-in allowlist to plugin-owned keys.
+with the same exact option contracts exposed to TypeScript. `validation` must
+implement Standard Schema V1. Core retains that validator by identity and does
+not clone, invoke, or serialize it during declaration. Plugin-defined fields
+receive the same validation contract; their direct structural options remain
+owned by their snapshot implementation.
 
 Invalid combinations are rejected on the option object itself. Editor
 diagnostics identify `values` for an empty enum domain, `onDelete` for a

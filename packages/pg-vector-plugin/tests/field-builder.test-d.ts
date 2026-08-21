@@ -35,7 +35,7 @@ test('types the generated vector method with the existing exact options', () => 
 	generatedField.vector({
 		dimensions: 2,
 		validation: {
-			// @ts-expect-error -- Nullability remains derived from required presence.
+			// @ts-expect-error -- Validation must implement Standard Schema V1.
 			nullable: true,
 		},
 	})

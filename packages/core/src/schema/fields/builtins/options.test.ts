@@ -86,37 +86,15 @@ describe('built-in field option contracts', () => {
 	)
 
 	it.each(validationOptionCases)(
-		'rejects an unknown $kind validation option with its exact path',
-		({ factory, kind, options }) => {
+		'rejects a malformed Standard Schema validator on $kind fields',
+		({ factory, options }) => {
 			expect(() =>
 				callWithJavaScriptOptions(factory, {
 					...options,
 					validation: { requred: true },
 				}),
 			).toThrow(
-				new TypeError(`Unknown ${kind} field option: validation.requred`),
-			)
-		},
-	)
-
-	it.each([
-		{
-			factory: stringField,
-			kind: 'string',
-			options: { validation: { length: { minimum: 1 } } },
-			path: 'validation.length.minimum',
-		},
-		{
-			factory: intField,
-			kind: 'int',
-			options: { validation: { range: { maximum: 10 } } },
-			path: 'validation.range.maximum',
-		},
-	] as const)(
-		'rejects an unknown $kind nested constraint option with its exact path',
-		({ factory, kind, options, path }) => {
-			expect(() => callWithJavaScriptOptions(factory, options)).toThrow(
-				new TypeError(`Unknown ${kind} field option: ${path}`),
+				new TypeError('validation must be a Standard Schema V1 validator'),
 			)
 		},
 	)

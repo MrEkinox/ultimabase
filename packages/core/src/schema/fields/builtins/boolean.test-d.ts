@@ -43,8 +43,8 @@ test('rejects incompatible boolean metadata', () => {
 	booleanField({ default: 0 })
 	booleanField({
 		required: true,
+		// @ts-expect-error -- Validation must implement Standard Schema V1.
 		validation: {
-			// @ts-expect-error -- Nullability is derived and cannot be configured.
 			nullable: true,
 		},
 	})

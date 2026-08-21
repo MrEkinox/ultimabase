@@ -5,7 +5,6 @@ import type {
 } from '../base/contract.js'
 import {
 	fieldOptionKeys,
-	orderedRangeOptionKeys,
 	type BuiltInFieldOptionsContract,
 } from '../base/options.js'
 import {
@@ -18,21 +17,9 @@ import {
 } from '../base/factory.js'
 import {
 	createTemporalFieldConfigurationResolver,
-	type TemporalRangeValidationOptions,
-	type TemporalValidationOptions,
-	type TemporalValueComparator,
 	type TimezoneTemporalFieldOptions,
 } from '../constraints/temporal.js'
-
-/**
- * Defines ordered date-time boundaries using the field's timezone policy.
- */
-export type DateTimeRangeValidationOptions = TemporalRangeValidationOptions
-
-/**
- * Groups date-time constraints under one validation boundary.
- */
-export type DateTimeValidationOptions = TemporalValidationOptions
+import type { FieldStandardSchema } from '../base/standard-schema.js'
 
 /**
  * Describes a date and time with timezone support enabled by default.
@@ -49,8 +36,6 @@ export type DateTimeField<
 const dateTimeFieldOptionsContract: BuiltInFieldOptionsContract = {
 	kind: 'dateTime',
 	optionKeys: [...fieldOptionKeys, 'autoNow', 'timezone'],
-	validationOptionKeys: ['range'],
-	nestedValidation: [{ key: 'range', optionKeys: orderedRangeOptionKeys }],
 }
 
 /** Provides date-time-specific names for compact auto-now inference. */
@@ -59,13 +44,15 @@ type DefaultedDateTimeFieldOptions<
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoNow extends boolean,
+	TValidation extends FieldStandardSchema,
 > = DefaultedCompactScalarFieldOptions<
 	DateTimeFieldOptions,
 	string,
 	TRequired,
 	TList,
 	TImmutable,
-	GeneratedScalarOption<'autoNow', TAutoNow>
+	GeneratedScalarOption<'autoNow', TAutoNow>,
+	TValidation
 > &
 	CompatibleGeneratedScalarOptions<'autoNow', TAutoNow, TList, true, true>
 
@@ -74,13 +61,15 @@ type NonDefaultedDateTimeFieldOptions<
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoNow extends boolean,
+	TValidation extends FieldStandardSchema,
 > = NonDefaultedCompactScalarFieldOptions<
 	DateTimeFieldOptions,
 	string,
 	TRequired,
 	TList,
 	TImmutable,
-	GeneratedScalarOption<'autoNow', TAutoNow>
+	GeneratedScalarOption<'autoNow', TAutoNow>,
+	TValidation
 > &
 	CompatibleGeneratedScalarOptions<'autoNow', TAutoNow, TList, false, true>
 
@@ -121,12 +110,14 @@ interface DateTimeFieldFactory {
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const TAutoNow extends boolean = false,
+		const TValidation extends FieldStandardSchema = FieldStandardSchema,
 	>(
 		options: DefaultedDateTimeFieldOptions<
 			TRequired,
 			TList,
 			TImmutable,
-			TAutoNow
+			TAutoNow,
+			TValidation
 		>,
 	): DefaultedDateTimeField<TRequired, TList, TImmutable, TAutoNow>
 	<
@@ -134,12 +125,14 @@ interface DateTimeFieldFactory {
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const TAutoNow extends boolean = false,
+		const TValidation extends FieldStandardSchema = FieldStandardSchema,
 	>(
 		options?: NonDefaultedDateTimeFieldOptions<
 			TRequired,
 			TList,
 			TImmutable,
-			TAutoNow
+			TAutoNow,
+			TValidation
 		>,
 	): NonDefaultedDateTimeField<TRequired, TList, TImmutable, TAutoNow>
 }
@@ -190,18 +183,11 @@ export const createDateTimeNormalizer = (
 	}
 }
 
-/** Compares normalized zoned date-times by their represented instants. */
-export const compareZonedDateTimeValues: TemporalValueComparator = (
-	left,
-	right,
-) => Date.parse(left) - Date.parse(right)
-
 const resolveDateTimeFieldConfiguration =
 	createTemporalFieldConfigurationResolver<DateTimeFieldOptions>(
 		dateTimeFieldOptionsContract,
 		true,
 		createDateTimeNormalizer,
-		compareZonedDateTimeValues,
 	)
 
 /**

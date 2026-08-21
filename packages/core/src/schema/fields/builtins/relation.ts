@@ -106,7 +106,6 @@ export type NamedRelationFieldBuilderMethod = <
 const relationFieldOptionsContract: BuiltInFieldOptionsContract = {
 	kind: 'relation',
 	optionKeys: ['description', 'mappedBy', 'target'],
-	validationOptionKeys: [],
 }
 
 const snapshotRelationValue = (_value: unknown, path: string): never => {

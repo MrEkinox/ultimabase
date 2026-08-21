@@ -12,7 +12,6 @@ import {
 	Pointer,
 	Schema,
 	snapshotScalarFieldValue,
-	validateScalarFieldConstraints,
 	type AnyValidationIssueCode,
 	type FieldValidationPlan,
 	type GenericField,
@@ -22,6 +21,7 @@ import {
 	type ValidationIssue,
 	type ValidationIssuePath,
 } from '../../schema/index.js'
+import { validateScalarFieldShape } from '../../schema/plans/scalar-shape-validation.js'
 import { getFieldSchemaTarget } from '../../schema/fields/base/definition.js'
 import { FrameworkError } from '../../foundation.js'
 import {
@@ -41,6 +41,7 @@ import {
 	type OperationTemporalValues,
 } from './operation-clock.js'
 import { generateUuidV7, type UuidV7Generator } from './identifier-generator.js'
+import { validateFieldStandardSchema } from './field-standard-schema.js'
 
 /** Configures one application-scoped validation stage and operation clock. */
 export interface RuntimeValidationOptions {
@@ -218,9 +219,7 @@ const snapshotScalarValue = (
 		)
 
 		if (constraints) {
-			execution.issues.push(
-				...validateScalarFieldConstraints(field, snapshot, path),
-			)
+			execution.issues.push(...validateScalarFieldShape(field, snapshot, path))
 		}
 
 		return { valid: true, value: snapshot }
@@ -298,59 +297,60 @@ const validateFieldValue = (
 	path: ValidationIssuePath,
 	execution: ValidationExecution,
 	allowDefaults: boolean,
+	applyValidator = true,
 ): ValueValidationResult => {
 	if (value === null) {
 		if (plan.nullable) {
 			return { valid: true, value: null }
 		}
-
 		appendIssue(execution, 'field.null', path, 'Field cannot be null')
-
 		return { valid: false }
 	}
-
-	switch (plan.kind) {
-		case 'scalar':
-			return snapshotScalarValue(plan.field, value, path, execution, true)
-		case 'array': {
-			if (!isUnknownArray(value)) {
-				appendIssue(execution, 'array.type', path, 'Field must be an array')
-
-				return { valid: false }
+	const result: ValueValidationResult = (() => {
+		switch (plan.kind) {
+			case 'scalar':
+				return snapshotScalarValue(plan.field, value, path, execution, true)
+			case 'array': {
+				if (!isUnknownArray(value)) {
+					appendIssue(execution, 'array.type', path, 'Field must be an array')
+					return { valid: false }
+				}
+				const items: unknown[] = []
+				let valid = true
+				for (const [index, item] of value.entries()) {
+					const itemResult = validateFieldValue(
+						plan.items,
+						item,
+						[...path, index],
+						execution,
+						allowDefaults,
+						false,
+					)
+					valid = valid && itemResult.valid
+					if (itemResult.valid) {
+						items.push(itemResult.value)
+					}
+				}
+				return valid
+					? { valid: true, value: immutableArray(items) }
+					: { valid: false }
 			}
-
-			const items: unknown[] = []
-			let valid = true
-
-			for (const [index, item] of value.entries()) {
-				const itemResult = validateFieldValue(
-					plan.items,
-					item,
-					[...path, index],
+			case 'object':
+				return validateObjectValue(
+					plan.fields,
+					value,
+					path,
 					execution,
 					allowDefaults,
 				)
-
-				valid = valid && itemResult.valid
-
-				if (itemResult.valid) {
-					items.push(itemResult.value)
-				}
-			}
-
-			return valid
-				? { valid: true, value: immutableArray(items) }
-				: { valid: false }
 		}
-		case 'object':
-			return validateObjectValue(
-				plan.fields,
-				value,
-				path,
-				execution,
-				allowDefaults,
-			)
+	})()
+	if (!result.valid || !applyValidator) {
+		return result
 	}
+	const issues = validateFieldStandardSchema(plan.field, result.value, path)
+	execution.issues.push(...issues)
+	return issues.length === 0 ? result : { valid: false }
 }
 
 const validateObjectValue = (

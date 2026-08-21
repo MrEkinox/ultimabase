@@ -70,7 +70,7 @@ test('rejects incompatible vector options', () => {
 		dimensions: 2,
 		required: true,
 		validation: {
-			// @ts-expect-error -- Nullability is derived and cannot be configured.
+			// @ts-expect-error -- Validation must implement Standard Schema V1.
 			nullable: true,
 		},
 	})

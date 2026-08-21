@@ -2,7 +2,6 @@ import {
 	assertFieldOptions,
 	fieldOptionKeys,
 	normalizeFieldOptions,
-	orderedRangeOptionKeys,
 	type BuiltInFieldOptionsContract,
 } from '../base/options.js'
 import type {
@@ -20,31 +19,17 @@ import {
 	type GeneratedScalarOption,
 	type NonDefaultedCompactScalarFieldOptions,
 } from '../base/factory.js'
-import {
-	assertAutoIncrementOption,
-	normalizeNumericValidation,
-	type NumericValidationOptions,
-} from '../constraints/numeric.js'
-import type { NumericRange } from '../constraints/numeric.js'
+import { assertAutoIncrementOption } from '../constraints/numeric.js'
 import { normalizeBigintValue } from '../base/value.js'
+import type { FieldStandardSchema } from '../base/standard-schema.js'
 
 /**
  * Defines declarative boundaries for native JavaScript bigint values.
  */
-export type BigintRangeValidationOptions = NumericRange<bigint>
-
-/**
- * Defines exact bigint range constraints.
- */
-export type BigintValidationOptions = NumericValidationOptions<bigint>
-
 /**
  * Adds sequence metadata to the exact bigint field contract.
  */
-export interface BigintFieldOptions extends FieldOptions<
-	bigint,
-	BigintValidationOptions
-> {
+export interface BigintFieldOptions extends FieldOptions<bigint> {
 	/**
 	 * Requests a database-generated sequence value from adapters that support it.
 	 *
@@ -63,8 +48,6 @@ export type BigintField<
 const bigintFieldOptionsContract: BuiltInFieldOptionsContract = {
 	kind: 'bigint',
 	optionKeys: [...fieldOptionKeys, 'autoIncrement'],
-	validationOptionKeys: ['range'],
-	nestedValidation: [{ key: 'range', optionKeys: orderedRangeOptionKeys }],
 }
 
 /** Provides bigint-specific names for compact sequence inference. */
@@ -73,13 +56,15 @@ type DefaultedBigintFieldOptions<
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoIncrement extends boolean,
+	TValidation extends FieldStandardSchema,
 > = DefaultedCompactScalarFieldOptions<
 	BigintFieldOptions,
 	bigint,
 	TRequired,
 	TList,
 	TImmutable,
-	GeneratedScalarOption<'autoIncrement', TAutoIncrement>
+	GeneratedScalarOption<'autoIncrement', TAutoIncrement>,
+	TValidation
 > &
 	CompatibleGeneratedScalarOptions<
 		'autoIncrement',
@@ -94,13 +79,15 @@ type NonDefaultedBigintFieldOptions<
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoIncrement extends boolean,
+	TValidation extends FieldStandardSchema,
 > = NonDefaultedCompactScalarFieldOptions<
 	BigintFieldOptions,
 	bigint,
 	TRequired,
 	TList,
 	TImmutable,
-	GeneratedScalarOption<'autoIncrement', TAutoIncrement>
+	GeneratedScalarOption<'autoIncrement', TAutoIncrement>,
+	TValidation
 > &
 	CompatibleGeneratedScalarOptions<
 		'autoIncrement',
@@ -151,12 +138,14 @@ interface BigintFieldFactory {
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const TAutoIncrement extends boolean = false,
+		const TValidation extends FieldStandardSchema = FieldStandardSchema,
 	>(
 		options: DefaultedBigintFieldOptions<
 			TRequired,
 			TList,
 			TImmutable,
-			TAutoIncrement
+			TAutoIncrement,
+			TValidation
 		>,
 	): DefaultedBigintField<TRequired, TList, TImmutable, TAutoIncrement>
 	<
@@ -164,22 +153,17 @@ interface BigintFieldFactory {
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const TAutoIncrement extends boolean = false,
+		const TValidation extends FieldStandardSchema = FieldStandardSchema,
 	>(
 		options?: NonDefaultedBigintFieldOptions<
 			TRequired,
 			TList,
 			TImmutable,
-			TAutoIncrement
+			TAutoIncrement,
+			TValidation
 		>,
 	): NonDefaultedBigintField<TRequired, TList, TImmutable, TAutoIncrement>
 }
-
-const isBigint = (value: unknown): value is bigint => typeof value === 'bigint'
-
-const normalizeBigintValidation = (
-	validation: BigintValidationOptions,
-): Readonly<BigintValidationOptions> =>
-	normalizeNumericValidation(validation, 'a bigint', isBigint)
 
 const normalizeBigintFieldOptions = <const TOptions extends BigintFieldOptions>(
 	options: TOptions,
@@ -189,7 +173,6 @@ const normalizeBigintFieldOptions = <const TOptions extends BigintFieldOptions>(
 
 	return normalizeFieldOptions(
 		options,
-		normalizeBigintValidation,
 		normalizeBigintValue,
 		bigintFieldOptionsContract,
 	)

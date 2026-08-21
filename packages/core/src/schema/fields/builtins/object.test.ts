@@ -33,11 +33,6 @@ describe('object fields and list metadata', () => {
 		const field = stringField({
 			list: true,
 			required: true,
-			validation: {
-				length: {
-					min: 1,
-				},
-			},
 			indexed: true,
 		})
 
@@ -46,11 +41,6 @@ describe('object fields and list metadata', () => {
 			options: {
 				list: true,
 				required: true,
-				validation: {
-					length: {
-						min: 1,
-					},
-				},
 				indexed: true,
 			},
 		})

@@ -6,6 +6,7 @@ options:
 
 ```ts
 import { Schema } from '@ultimabase/core'
+import { z } from 'zod'
 
 export const UserSchema = Schema.define({
 	className: 'User',
@@ -13,9 +14,7 @@ export const UserSchema = Schema.define({
 		username: field.string({
 			indexed: 'unique',
 			required: true,
-			validation: {
-				length: { min: 3, max: 32 },
-			},
+			validation: z.string().min(3).max(32),
 		}),
 		active: field.boolean({ default: true }),
 		status: field.enum({
@@ -24,9 +23,7 @@ export const UserSchema = Schema.define({
 		}),
 		profile: field.object({
 			fields: (field) => ({
-				displayName: field.string({
-					validation: { length: { max: 80 } },
-				}),
+				displayName: field.string({ validation: z.string().max(80) }),
 				birthday: field.date(),
 			}),
 		}),

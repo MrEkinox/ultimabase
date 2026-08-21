@@ -14,7 +14,8 @@
 		"@ultimabase/hooks-plugin": "workspace:^",
 		"@ultimabase/postgres-plugin": "workspace:^",
 		"@ultimabase/roles-plugin": "workspace:^",
-		"@ultimabase/typegen": "workspace:^"
+		"@ultimabase/typegen": "workspace:^",
+		"zod": "^4.4.3"
 	},
 	"devDependencies": {
 		"@types/node": "^24.0.0",

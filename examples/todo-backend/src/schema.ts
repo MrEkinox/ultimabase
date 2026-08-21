@@ -2,6 +2,7 @@ import { ACL } from '@ultimabase/acl-permissions-plugin'
 import { allMutations } from '@ultimabase/access-plugin'
 import { Schema } from '@ultimabase/core'
 import { RoleSchema } from '@ultimabase/roles-plugin'
+import { z } from 'zod'
 
 const serverManagedAccess = {
 	read: true,
@@ -60,7 +61,7 @@ export const Todo = Schema.define({
 			hooks: { resolveInput: ({ value }) => value?.trim() ?? null },
 			postgres: { renamedFrom: 'summary' },
 			required: true,
-			validation: { length: { max: 200 } },
+			validation: z.string().max(200),
 		}),
 		description: field.string({
 			description: 'Optional details needed to complete the task.',
@@ -89,7 +90,7 @@ export const Todo = Schema.define({
 		}),
 		estimatedMinutes: field.int({
 			description: 'Estimated duration represented by a safe integer.',
-			validation: { range: { min: 0 } },
+			validation: z.number().int().nonnegative(),
 		}),
 		sequence: field.int({
 			autoIncrement: true,
@@ -104,7 +105,7 @@ export const Todo = Schema.define({
 		}),
 		progress: field.float({
 			description: 'Floating-point completion ratio.',
-			validation: { finite: true, range: { max: 1, min: 0 } },
+			validation: z.number().finite().min(0).max(1),
 		}),
 		budget: field.decimal({
 			description: 'Exact decimal budget represented without precision loss.',
@@ -125,7 +126,11 @@ export const Todo = Schema.define({
 		}),
 		attachment: field.binary({
 			description: 'Optional immutable byte sequence attached to the task.',
-			validation: { length: { max: 5_000_000 } },
+			validation: z
+				.custom<Uint8Array>((value) => value instanceof Uint8Array)
+				.refine((value) => value.byteLength <= 5_000_000, {
+					message: 'Attachment must not exceed 5 MB',
+				}),
 		}),
 		metadata: field.json({
 			description: 'Arbitrary JSON metadata supplied by integrations.',

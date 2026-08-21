@@ -6,7 +6,6 @@ import {
 	Schema,
 	type ArrayValidationPlan,
 	type FieldOptions,
-	type FieldValidationOptions,
 	type FieldValidationPlan,
 	type ObjectValidationPlan,
 	type PluginValidationIssueCode,
@@ -58,12 +57,7 @@ test('exports structural operation and field plans', () => {
 test('preserves exact plugin fields through scalar plan generics', () => {
 	type FixtureOptions = FieldOptions<string> & { readonly dimensions: 3 }
 
-	const field = definePluginField<
-		string,
-		'fixture.vector',
-		FieldValidationOptions,
-		FixtureOptions
-	>(
+	const field = definePluginField<string, 'fixture.vector', FixtureOptions>(
 		'fixture.vector',
 		{ dimensions: 3 },
 		{
@@ -82,7 +76,7 @@ test('preserves exact plugin fields through scalar plan generics', () => {
 
 test('defines stable issue codes and nested paths', () => {
 	const issue: ValidationIssue = {
-		code: 'string.length.min',
+		code: 'field.validation',
 		path: ['profile', 'tags', 0],
 		message: 'Value is too short',
 	}

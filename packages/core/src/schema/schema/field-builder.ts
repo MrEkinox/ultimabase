@@ -21,10 +21,6 @@ import { intField, type IntFieldOptions } from '../fields/builtins/int.js'
 import { jsonField } from '../fields/builtins/json.js'
 import {
 	objectField,
-	type DefaultedObjectField,
-	type DefaultedObjectFieldOptions,
-	type NonDefaultedObjectField,
-	type NonDefaultedObjectFieldOptions,
 	type ObjectFieldOptions,
 	type ObjectFields,
 } from '../fields/builtins/object.js'
@@ -39,7 +35,7 @@ import {
 import { stringField } from '../fields/builtins/string.js'
 import { timeField } from '../fields/builtins/time.js'
 import { uuidField } from '../fields/builtins/uuid.js'
-import type { FieldListOption, GenericField } from '../fields/base/contract.js'
+import type { GenericField } from '../fields/base/contract.js'
 import { assertFieldDefinition } from '../fields/base/definition.js'
 import type { CompactScalarFieldFactory } from '../fields/base/factory.js'
 import type { SchemaDefinition, SchemaFields } from './definition.js'
@@ -52,6 +48,7 @@ import type {
 	FieldBuilderMethodResolver,
 	OwnedFieldBuilderMethod,
 } from './field-builder-methods.js'
+import type { ObjectFieldBuilderMethod } from './object-field-builder.js'
 
 type EmbeddedIntFieldOptions = Omit<IntFieldOptions, 'autoIncrement'> & {
 	readonly autoIncrement?: false
@@ -78,59 +75,6 @@ export type ObjectFieldBuilderOptions<
 	TFields extends ObjectFields = ObjectFields,
 > = Omit<ObjectFieldOptions<TFields>, 'fields'> & {
 	readonly fields: (field: EmbeddedFieldBuilder) => TFields
-}
-
-type DefaultedObjectFieldBuilderOptions<
-	TFields extends ObjectFields,
-	TRequired extends boolean,
-	TList extends FieldListOption,
-	TImmutable extends boolean,
-> = Omit<
-	DefaultedObjectFieldOptions<TFields, TRequired, TList, TImmutable>,
-	'fields'
-> & {
-	readonly fields: (field: EmbeddedFieldBuilder) => TFields
-}
-
-type NonDefaultedObjectFieldBuilderOptions<
-	TFields extends ObjectFields,
-	TRequired extends boolean,
-	TList extends FieldListOption,
-	TImmutable extends boolean,
-> = Omit<
-	NonDefaultedObjectFieldOptions<TFields, TRequired, TList, TImmutable>,
-	'fields'
-> & {
-	readonly fields: (field: EmbeddedFieldBuilder) => TFields
-}
-
-interface ObjectFieldBuilderMethod {
-	<
-		const TFields extends ObjectFields,
-		const TRequired extends boolean = false,
-		const TList extends FieldListOption = false,
-		const TImmutable extends boolean = false,
-	>(
-		options: DefaultedObjectFieldBuilderOptions<
-			TFields,
-			TRequired,
-			TList,
-			TImmutable
-		>,
-	): DefaultedObjectField<TFields, TRequired, TList, TImmutable>
-	<
-		const TFields extends ObjectFields,
-		const TRequired extends boolean = false,
-		const TList extends FieldListOption = false,
-		const TImmutable extends boolean = false,
-	>(
-		options: NonDefaultedObjectFieldBuilderOptions<
-			TFields,
-			TRequired,
-			TList,
-			TImmutable
-		>,
-	): NonDefaultedObjectField<TFields, TRequired, TList, TImmutable>
 }
 
 interface ScalarFieldBuilderMethods {

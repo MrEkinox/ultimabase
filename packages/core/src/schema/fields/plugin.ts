@@ -5,16 +5,11 @@ import {
 	assertPluginFieldKind,
 	type AvailablePluginFieldKind,
 } from './base/kinds.js'
-import {
-	getFieldListDepth,
-	normalizeFieldOptions,
-	normalizeFlatValidation,
-} from './base/options.js'
+import { getFieldListDepth, normalizeFieldOptions } from './base/options.js'
 import type {
 	FieldDefinition,
 	FieldTypegenState,
 	FieldOptions,
-	FieldOptionsWithoutNullable,
 	ResolveFieldTypegenState,
 	ValidatedFieldOptions,
 } from './base/contract.js'
@@ -70,15 +65,11 @@ type PluginFieldContainmentOperand<TCapability> = TCapability extends {
  */
 export interface PluginFieldNormalizers<
 	TValue,
-	TValidation extends object,
 	TDeferred extends boolean = false,
 	TStructuralContainsOperand = never,
 > {
 	/** Defers one required create value until plugin input behavior has run. */
 	readonly deferRequiredUntilResolveInput?: TDeferred
-	readonly normalizeValidation?: (
-		validation: TValidation,
-	) => Readonly<TValidation>
 	readonly snapshotValue: (value: unknown, path: string) => TValue
 	/** Serializes one logical scalar through an adapter-neutral versioned JSON value. */
 	readonly storageCodec?: PluginFieldStorageCodec<TValue>
@@ -94,7 +85,6 @@ export interface PluginFieldStructuralContains<TOperand> {
 const storageCodecKeys = new Set(['decode', 'encode', 'format', 'version'])
 const normalizerKeys = new Set([
 	'deferRequiredUntilResolveInput',
-	'normalizeValidation',
 	'snapshotValue',
 	'storageCodec',
 	'structuralContains',
@@ -159,19 +149,15 @@ const normalizePluginFieldStorageCodec = <TValue>(
 export const definePluginField = <
 	TValue,
 	const TKind extends string,
-	TValidation extends object,
-	const TOptions extends FieldOptions<TValue, TValidation>,
+	const TOptions extends FieldOptions<TValue>,
 	const TDeferred extends boolean = false,
 	const TStructuralContains extends
 		PluginFieldStructuralContains<unknown> | undefined = undefined,
 >(
 	kind: AvailablePluginFieldKind<TKind>,
-	options: TOptions &
-		FieldOptionsWithoutNullable<
-			ValidatedFieldOptions<NoInfer<TOptions>, TValue>
-		>,
+	options: TOptions & ValidatedFieldOptions<NoInfer<TOptions>, TValue>,
 	normalizers: Omit<
-		PluginFieldNormalizers<TValue, TValidation, TDeferred, unknown>,
+		PluginFieldNormalizers<TValue, TDeferred, unknown>,
 		'structuralContains'
 	> & { readonly structuralContains?: TStructuralContains },
 ): PluginFieldDefinition<
@@ -208,17 +194,8 @@ export const definePluginField = <
 					normalizers.snapshotValue,
 				)
 
-	if (
-		normalizers.normalizeValidation !== undefined &&
-		typeof normalizers.normalizeValidation !== 'function'
-	) {
-		throw new TypeError(
-			'Plugin field normalizeValidation must be a function when provided',
-		)
-	}
 	const normalizedOptions = normalizeFieldOptions(
 		options,
-		normalizers.normalizeValidation ?? normalizeFlatValidation,
 		normalizers.snapshotValue,
 	)
 	const structuralContains = normalizers.structuralContains

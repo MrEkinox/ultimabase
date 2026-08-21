@@ -91,24 +91,6 @@ const fieldSpecificOptions: FactoryOptionMap = {
 	uuidField: [],
 }
 
-const commonValidationOptions = [] as const
-const validationSpecificOptions: FactoryOptionMap = {
-	bigintField: ['range'],
-	binaryField: ['length'],
-	booleanField: [],
-	dateField: ['range'],
-	dateTimeField: ['range'],
-	decimalField: ['range'],
-	enumField: [],
-	floatField: ['finite', 'range'],
-	intField: ['range'],
-	jsonField: [],
-	objectField: [],
-	stringField: ['length', 'match'],
-	timeField: ['range'],
-	uuidField: ['version'],
-}
-
 /** Reuses one complete factory matrix for each IntelliSense nesting level. */
 const createCompletionCases = (
 	commonOptions: readonly string[],
@@ -133,48 +115,6 @@ const fieldCompletionCases = createCompletionCases(
 	fieldSpecificOptions,
 	() => ({ prefix: '' }),
 )
-const validationCompletionCases = createCompletionCases(
-	commonValidationOptions,
-	validationSpecificOptions,
-	(factoryName) => ({
-		prefix: `${
-			factoryName === 'enumField'
-				? "values: ['draft'], "
-				: factoryName === 'objectField'
-					? 'fields: {}, '
-					: ''
-		}validation: { `,
-		suffix: ' }',
-	}),
-)
-
-const boundaryCompletionCases: readonly FieldCompletionCase[] = [
-	{
-		factoryName: 'dateTimeField',
-		invocationPrefix: 'validation: { range: { ',
-		invocationSuffix: ' } }',
-		options: ['max', 'min'],
-	},
-	{
-		factoryName: 'decimalField',
-		invocationPrefix: 'validation: { range: { ',
-		invocationSuffix: ' } }',
-		options: ['max', 'min'],
-	},
-	{
-		factoryName: 'intField',
-		invocationPrefix: 'validation: { range: { ',
-		invocationSuffix: ' } }',
-		options: ['max', 'min'],
-	},
-	{
-		factoryName: 'stringField',
-		invocationPrefix: 'validation: { length: { ',
-		invocationSuffix: ' } }',
-		options: ['max', 'min'],
-	},
-]
-
 const fieldDefaultExpressions: Readonly<Record<FieldFactoryName, string>> = {
 	bigintField: '1n',
 	binaryField: 'new Uint8Array()',
@@ -206,23 +146,8 @@ const topLevelOptionExpressions: Readonly<Record<string, string>> = {
 	scale: '2',
 	timezone: 'false',
 	typeName: "'ExampleType'",
-	validation: '{}',
+	validation: 'undefined',
 	values: "['draft'] as const",
-}
-
-const validationOptionExpressions: Readonly<Record<string, string>> = {
-	finite: 'true',
-	length: '{}',
-	match: '/^[a-z]+$/u',
-	precision: '12',
-	range: '{}',
-	scale: '2',
-	version: '7',
-}
-
-const boundaryOptionExpressions: Readonly<Record<string, string>> = {
-	max: '1',
-	min: '0',
 }
 
 /** Supplies mandatory options without obscuring the property under inspection. */
@@ -279,27 +204,18 @@ const fieldHoverCases = createHoverCases(
 	fieldCompletionCases,
 	topLevelOptionExpressions,
 )
-const validationHoverCases = createHoverCases(
-	validationCompletionCases,
-	validationOptionExpressions,
-)
-const boundaryHoverCases = createHoverCases(
-	boundaryCompletionCases,
-	boundaryOptionExpressions,
-)
-
 /** Exercises every built-in factory with metadata that must stay runtime-only. */
 const compactFieldSignatureCases: readonly CompactFieldSignatureCase[] = [
 	{
 		factoryName: 'bigintField',
 		expression:
-			"bigintField({ autoIncrement: true, required: true, validation: { range: { min: 1n } }, description: 'runtime-only-hover-marker' })",
+			"bigintField({ autoIncrement: true, required: true, description: 'runtime-only-hover-marker' })",
 		expectedReturn: 'NonDefaultedBigintField<true, false, false, true>',
 	},
 	{
 		factoryName: 'binaryField',
 		expression:
-			"binaryField({ default: new Uint8Array([1]), required: true, validation: { length: { max: 8 } }, description: 'runtime-only-hover-marker' })",
+			"binaryField({ default: new Uint8Array([1]), required: true, description: 'runtime-only-hover-marker' })",
 		expectedReturn: 'DefaultedBinaryField<true, false, false>',
 	},
 	{
@@ -311,19 +227,19 @@ const compactFieldSignatureCases: readonly CompactFieldSignatureCase[] = [
 	{
 		factoryName: 'dateField',
 		expression:
-			"dateField({ autoNow: true, required: true, validation: { range: { min: '2026-01-01' } }, description: 'runtime-only-hover-marker' })",
+			"dateField({ autoNow: true, required: true, description: 'runtime-only-hover-marker' })",
 		expectedReturn: 'NonDefaultedDateField<true, false, false, true>',
 	},
 	{
 		factoryName: 'dateTimeField',
 		expression:
-			"dateTimeField({ autoNow: true, timezone: true, required: true, validation: { range: { min: '2026-01-01T00:00:00.000Z' } }, description: 'runtime-only-hover-marker' })",
+			"dateTimeField({ autoNow: true, timezone: true, required: true, description: 'runtime-only-hover-marker' })",
 		expectedReturn: 'NonDefaultedDateTimeField<true, false, false, true>',
 	},
 	{
 		factoryName: 'decimalField',
 		expression:
-			"decimalField({ default: '19.99', required: true, precision: 12, scale: 2, validation: { range: { min: '-9999999999.99' } }, indexed: true, description: 'runtime-only-hover-marker' })",
+			"decimalField({ default: '19.99', required: true, precision: 12, scale: 2, indexed: true, description: 'runtime-only-hover-marker' })",
 		expectedReturn: 'DefaultedDecimalField<true, false, false>',
 	},
 	{
@@ -336,13 +252,13 @@ const compactFieldSignatureCases: readonly CompactFieldSignatureCase[] = [
 	{
 		factoryName: 'floatField',
 		expression:
-			"floatField({ default: 1.5, required: true, validation: { finite: true, range: { min: 0 } }, description: 'runtime-only-hover-marker' })",
+			"floatField({ default: 1.5, required: true, description: 'runtime-only-hover-marker' })",
 		expectedReturn: 'DefaultedFloatField<true, false, false>',
 	},
 	{
 		factoryName: 'intField',
 		expression:
-			"intField({ autoIncrement: true, required: true, validation: { range: { min: 1 } }, description: 'runtime-only-hover-marker' })",
+			"intField({ autoIncrement: true, required: true, description: 'runtime-only-hover-marker' })",
 		expectedReturn: 'NonDefaultedIntField<true, false, false, true>',
 	},
 	{
@@ -361,19 +277,19 @@ const compactFieldSignatureCases: readonly CompactFieldSignatureCase[] = [
 	{
 		factoryName: 'stringField',
 		expression:
-			"stringField({ default: 'Ada', required: true, validation: { length: { min: 2 }, match: /^[a-z]+$/u }, description: 'runtime-only-hover-marker' })",
+			"stringField({ default: 'Ada', required: true, description: 'runtime-only-hover-marker' })",
 		expectedReturn: 'DefaultedStringField<true, false, false>',
 	},
 	{
 		factoryName: 'timeField',
 		expression:
-			"timeField({ autoNow: true, timezone: true, required: true, validation: { range: { min: '08:00:00.000Z' } }, description: 'runtime-only-hover-marker' })",
+			"timeField({ autoNow: true, timezone: true, required: true, description: 'runtime-only-hover-marker' })",
 		expectedReturn: 'NonDefaultedTimeField<true, false, false, true>',
 	},
 	{
 		factoryName: 'uuidField',
 		expression:
-			"uuidField({ default: '018f3f35-a4b2-7cc1-9dd5-3f706ef18a34', required: true, validation: { version: 7 }, description: 'runtime-only-hover-marker' })",
+			"uuidField({ default: '018f3f35-a4b2-7cc1-9dd5-3f706ef18a34', required: true, description: 'runtime-only-hover-marker' })",
 		expectedReturn: 'DefaultedUuidField<true, false, false>',
 	},
 ]
@@ -656,50 +572,8 @@ const field = ${marker}${expression}
 	)
 })
 
-describe('field validation IntelliSense', () => {
-	const reader = createFieldOptionCompletionReader(validationCompletionCases)
-
-	it.each(validationCompletionCases)(
-		'suggests and documents every $factoryName validation option',
-		({ factoryName, options }) => {
-			expect(reader.readCompletions(factoryName)).toStrictEqual(
-				[...options].sort(),
-			)
-
-			for (const optionName of options) {
-				expectDocumented(
-					reader.readOptionDocumentation(factoryName, optionName),
-				)
-			}
-		},
-	)
-})
-
-describe('field validation boundary IntelliSense', () => {
-	const reader = createFieldOptionCompletionReader(boundaryCompletionCases)
-
-	it.each(boundaryCompletionCases)(
-		'suggests and documents every $factoryName boundary option',
-		({ factoryName, options }) => {
-			expect(reader.readCompletions(factoryName)).toStrictEqual(
-				[...options].sort(),
-			)
-
-			for (const optionName of options) {
-				expectDocumented(
-					reader.readOptionDocumentation(factoryName, optionName),
-				)
-			}
-		},
-	)
-})
-
 describe('inserted field option hover information', () => {
-	const hoverCases = [
-		...fieldHoverCases,
-		...validationHoverCases,
-		...boundaryHoverCases,
-	]
+	const hoverCases = fieldHoverCases
 	const readHoverDocumentation = createFieldOptionHoverReader(hoverCases)
 
 	it.each(hoverCases)(

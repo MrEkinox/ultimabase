@@ -12,12 +12,6 @@ Schema.define({
 			/* hover:decimal-precision */ precision: 12,
 			scale: 2,
 		}),
-		legacyBudget: field.decimal({
-			validation: {
-				// @ts-expect-error -- Packed declarations reject nested decimal shape.
-				precision: 12,
-			},
-		}),
 		assignee: field.pointer({
 			target: 'PackedFieldBuilder',
 			onDelete: /* completion:pointer-on-delete */ 'restrict',

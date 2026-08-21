@@ -1,3 +1,4 @@
+import type { StandardSchemaV1 } from '@standard-schema/spec'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -19,20 +20,20 @@ import { getFieldListDepth } from '../../src/schema/fields/base/options.js'
 describe('runtime declaration boundaries', () => {
 	it.each([
 		[
-			'nested required',
+			'legacy validation',
 			{ validation: { required: true } },
-			'Unknown string field option: validation.required',
+			'validation must be a Standard Schema V1 validator',
 		],
 		['required', { required: 'yes' }, 'required must be a boolean'],
 		[
-			'nullable',
+			'legacy nullable validation',
 			{ validation: { nullable: 1 } },
-			'validation.nullable is not supported',
+			'validation must be a Standard Schema V1 validator',
 		],
 		[
-			'contradictory presence',
+			'legacy contradictory presence',
 			{ required: true, validation: { nullable: true } },
-			'validation.nullable is not supported',
+			'validation must be a Standard Schema V1 validator',
 		],
 		['immutability', { immutable: 'yes' }, 'immutable must be a boolean'],
 		[
@@ -57,13 +58,71 @@ describe('runtime declaration boundaries', () => {
 			stringField(null)
 		}).toThrow(new TypeError('field options must be an object'))
 		expect(() => {
-			// @ts-expect-error -- Validation metadata must retain its named object shape.
+			// @ts-expect-error -- Validation must implement Standard Schema V1.
 			stringField({ validation: [] })
-		}).toThrow(new TypeError('validation must be an object'))
+		}).toThrow(
+			new TypeError('validation must be a Standard Schema V1 validator'),
+		)
 		expect(() => getFieldListDepth({ list: 'invalid' })).toThrow(
 			new TypeError('list must be true or false'),
 		)
 	})
+
+	it('accepts object and callable Standard Schema validators by identity', () => {
+		const objectValidator: StandardSchemaV1<string> = {
+			'~standard': {
+				version: 1 as const,
+				vendor: 'object-fixture',
+				validate: (value: unknown) =>
+					typeof value === 'string'
+						? { value }
+						: { issues: [{ message: 'Expected string' }] },
+			},
+		}
+		const callableValidator = Object.assign(() => undefined, {
+			'~standard': {
+				version: 1 as const,
+				vendor: 'callable-fixture',
+				validate: (value: unknown) =>
+					typeof value === 'string'
+						? { value }
+						: { issues: [{ message: 'Expected string' }] },
+			},
+		}) satisfies StandardSchemaV1<string>
+		const callableFieldValidator: StandardSchemaV1<string> = callableValidator
+
+		expect(
+			stringField({ validation: objectValidator }).options.validation,
+		).toBe(objectValidator)
+		expect(
+			stringField({ validation: callableFieldValidator }).options.validation,
+		).toBe(callableValidator)
+	})
+
+	it.each([
+		[
+			'unsupported version',
+			{ version: 2, vendor: 'fixture', validate: () => ({ value: '' }) },
+			'validation must use Standard Schema version 1',
+		],
+		[
+			'malformed vendor',
+			{ version: 1, vendor: 42, validate: () => ({ value: '' }) },
+			'validation.~standard.vendor must be a string',
+		],
+		[
+			'missing validate',
+			{ version: 1, vendor: 'fixture' },
+			'validation.~standard.validate must be a function',
+		],
+	] as const)(
+		'rejects a Standard Schema protocol with %s',
+		(_name, protocol, message) => {
+			expect(() => {
+				stringField({ validation: { '~standard': protocol } } as never)
+			}).toThrow(new TypeError(message))
+		},
+	)
 
 	it.each([
 		['bigint', bigintField],
@@ -109,9 +168,10 @@ describe('runtime declaration boundaries', () => {
 
 	it('rejects malformed built-in-specific metadata', () => {
 		expect(() => {
-			// @ts-expect-error -- Match metadata must remain a native regular expression.
-			stringField({ validation: { match: 'pattern' } })
-		}).toThrow(new TypeError('validation.match must be a RegExp'))
+			stringField({ validation: { match: 'pattern' } } as never)
+		}).toThrow(
+			new TypeError('validation must be a Standard Schema V1 validator'),
+		)
 		expect(() => {
 			// @ts-expect-error -- Runtime coverage protects integer sequence metadata.
 			intField({ autoIncrement: 'yes' })
@@ -120,10 +180,6 @@ describe('runtime declaration boundaries', () => {
 			// @ts-expect-error -- Runtime coverage protects bigint sequence metadata.
 			bigintField({ autoIncrement: 1 })
 		}).toThrow(new TypeError('autoIncrement must be a boolean'))
-		expect(() => {
-			// @ts-expect-error -- Runtime coverage protects float constraint flags.
-			floatField({ validation: { finite: 'yes' } })
-		}).toThrow(new TypeError('validation.finite must be a boolean'))
 	})
 
 	it('rejects malformed schemas before copying their metadata', () => {
@@ -183,30 +239,12 @@ describe('runtime declaration boundaries', () => {
 			definePluginField('fixture.invalid', {}, {})
 		}).toThrow(new TypeError('Plugin field snapshotValue must be a function'))
 		expect(() => {
-			definePluginField(
-				'fixture.invalid',
-				{ validation: {} },
-				{
-					snapshotValue: (value: unknown): unknown => value,
-					// @ts-expect-error -- A provided validation normalizer must be callable.
-					normalizeValidation: true,
-				},
-			)
+			definePluginField('fixture.invalid', {}, {
+				snapshotValue: (value: unknown): unknown => value,
+				normalizeValidation: true,
+			} as never)
 		}).toThrow(
-			new TypeError(
-				'Plugin field normalizeValidation must be a function when provided',
-			),
+			new TypeError('Unknown plugin field normalizer key: normalizeValidation'),
 		)
-		expect(() => {
-			definePluginField(
-				'fixture.invalid',
-				// @ts-expect-error -- Runtime coverage protects malformed normalizer output.
-				{ validation: {} },
-				{
-					snapshotValue: (value: unknown): unknown => value,
-					normalizeValidation: (): readonly unknown[] => [],
-				},
-			)
-		}).toThrow(new TypeError('normalized validation must be an object'))
 	})
 })

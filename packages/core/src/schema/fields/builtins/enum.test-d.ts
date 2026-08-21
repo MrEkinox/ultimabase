@@ -104,8 +104,8 @@ test('rejects invalid enum sources and metadata', () => {
 	enumField({
 		values: ['draft'],
 		required: true,
+		// @ts-expect-error -- Validation must implement Standard Schema V1.
 		validation: {
-			// @ts-expect-error -- Nullability is derived and cannot be configured.
 			nullable: true,
 		},
 	})

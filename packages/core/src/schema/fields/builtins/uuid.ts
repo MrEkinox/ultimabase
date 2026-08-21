@@ -1,5 +1,3 @@
-import { immutableRecord } from '@ultimabase/shared'
-
 import {
 	fieldOptionKeys,
 	normalizeFieldOptions,
@@ -18,28 +16,12 @@ import {
 	type NonDefaultedCompactScalarFieldOptions,
 } from '../base/factory.js'
 import { normalizeStringValue } from '../base/value.js'
-
-/**
- * Lists the UUID versions identifiable through the standard version nibble.
- */
-export type UuidVersion = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8
-
-/**
- * Defines an optional accepted UUID version.
- */
-export interface UuidValidationOptions {
-	/**
-	 * Accepts only UUIDs carrying this standard version nibble.
-	 *
-	 * @example `version: 7`
-	 */
-	readonly version?: UuidVersion
-}
+import type { FieldStandardSchema } from '../base/standard-schema.js'
 
 /**
  * Describes storage-neutral UUID metadata through its canonical string value.
  */
-export type UuidFieldOptions = FieldOptions<string, UuidValidationOptions>
+export type UuidFieldOptions = FieldOptions<string>
 
 /**
  * Carries the UUID value and exact options through schema inference.
@@ -50,7 +32,6 @@ export type UuidField<TTypegen extends FieldTypegenState = FieldTypegenState> =
 const uuidFieldOptionsContract: BuiltInFieldOptionsContract = {
 	kind: 'uuid',
 	optionKeys: fieldOptionKeys,
-	validationOptionKeys: ['version'],
 }
 
 /** Provides UUID-specific names for the shared compact scalar contract. */
@@ -58,24 +39,30 @@ type DefaultedUuidFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
+	TValidation extends FieldStandardSchema,
 > = DefaultedCompactScalarFieldOptions<
 	UuidFieldOptions,
 	string,
 	TRequired,
 	TList,
-	TImmutable
+	TImmutable,
+	object,
+	TValidation
 >
 
 type NonDefaultedUuidFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
+	TValidation extends FieldStandardSchema,
 > = NonDefaultedCompactScalarFieldOptions<
 	UuidFieldOptions,
 	string,
 	TRequired,
 	TList,
-	TImmutable
+	TImmutable,
+	object,
+	TValidation
 >
 
 type ResolvedUuidField<
@@ -110,50 +97,41 @@ interface UuidFieldFactory {
 		const TRequired extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
+		const TValidation extends FieldStandardSchema = FieldStandardSchema,
 	>(
-		options: DefaultedUuidFieldOptions<TRequired, TList, TImmutable>,
+		options: DefaultedUuidFieldOptions<
+			TRequired,
+			TList,
+			TImmutable,
+			TValidation
+		>,
 	): DefaultedUuidField<TRequired, TList, TImmutable>
 	<
 		const TRequired extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
+		const TValidation extends FieldStandardSchema = FieldStandardSchema,
 	>(
-		options?: NonDefaultedUuidFieldOptions<TRequired, TList, TImmutable>,
+		options?: NonDefaultedUuidFieldOptions<
+			TRequired,
+			TList,
+			TImmutable,
+			TValidation
+		>,
 	): NonDefaultedUuidField<TRequired, TList, TImmutable>
-}
-
-const normalizeUuidValidation = (
-	validation: UuidValidationOptions,
-): Readonly<UuidValidationOptions> => {
-	const { version } = validation
-
-	if (
-		version !== undefined &&
-		(!Number.isInteger(version) || version < 1 || version > 8)
-	) {
-		throw new RangeError('validation.version must be an integer from 1 to 8')
-	}
-
-	// The normalized version remains declarative for every runtime validator.
-	return immutableRecord(validation)
 }
 
 const normalizeUuidFieldOptions = <const TOptions extends UuidFieldOptions>(
 	options: TOptions,
 ): Readonly<TOptions> =>
-	normalizeFieldOptions(
-		options,
-		normalizeUuidValidation,
-		normalizeStringValue,
-		uuidFieldOptionsContract,
-	)
+	normalizeFieldOptions(options, normalizeStringValue, uuidFieldOptionsContract)
 
 /**
- * Declares a canonical UUID string with optional version validation.
+ * Declares a canonical UUID string with optional Standard Schema validation.
  *
  * @example
  * ```ts
- * uuidField({ indexed: "unique", required: true, validation: { version: 7 } })
+ * uuidField({ indexed: "unique", required: true, validation: uuidV7Schema })
  * ```
  */
 export const uuidField: UuidFieldFactory = createCompactScalarFieldFactory<

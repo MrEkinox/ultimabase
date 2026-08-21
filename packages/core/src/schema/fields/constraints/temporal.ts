@@ -1,4 +1,4 @@
-import { assertOptionalBoolean, immutableRecord } from '@ultimabase/shared'
+import { assertOptionalBoolean } from '@ultimabase/shared'
 
 import type { FieldOptions } from '../base/contract.js'
 import type { ScalarFieldConfigurationResolver } from '../base/factory.js'
@@ -7,28 +7,6 @@ import {
 	normalizeFieldOptions,
 	type BuiltInFieldOptionsContract,
 } from '../base/options.js'
-import {
-	normalizeOrderedRange,
-	type OrderedRange,
-	type RangeValueComparator,
-} from './range.js'
-
-/**
- * Defines ordered string boundaries shared by temporal field kinds.
- */
-export type TemporalRangeValidationOptions = OrderedRange<string>
-
-/**
- * Declares an optional ordered temporal range.
- */
-export interface TemporalValidationOptions {
-	/**
-	 * Restricts temporal strings with inclusive boundaries in the field's representation.
-	 *
-	 * @example `range: { min: earliestAllowed, max: latestAllowed }`
-	 */
-	readonly range?: TemporalRangeValidationOptions
-}
 
 interface TemporalAutoNowOption {
 	/**
@@ -40,15 +18,11 @@ interface TemporalAutoNowOption {
 }
 
 /** Keeps operation-clock generation distinct from developer-owned defaults. */
-export interface TemporalFieldOptions<
-	TValidation extends TemporalValidationOptions = TemporalValidationOptions,
->
-	extends FieldOptions<string, TValidation>, TemporalAutoNowOption {}
+export interface TemporalFieldOptions
+	extends FieldOptions<string>, TemporalAutoNowOption {}
 
 /** Adds timezone policy only to time-bearing temporal fields. */
-export interface TimezoneTemporalFieldOptions<
-	TValidation extends TemporalValidationOptions = TemporalValidationOptions,
-> extends TemporalFieldOptions<TValidation> {
+export interface TimezoneTemporalFieldOptions extends TemporalFieldOptions {
 	/**
 	 * Chooses whether values include a timezone offset. `timeField` defaults to `false`; `dateTimeField` defaults to `true`.
 	 *
@@ -58,42 +32,6 @@ export interface TimezoneTemporalFieldOptions<
 }
 
 export type TemporalValueNormalizer = (value: unknown, path: string) => string
-export type TemporalValueComparator = RangeValueComparator<string>
-
-/**
- * Copies temporal validation metadata while validating and ordering its boundaries.
- */
-export const normalizeTemporalValidation = <
-	const TValidation extends TemporalValidationOptions,
->(
-	validation: TValidation,
-	normalizeValue: TemporalValueNormalizer,
-	compareValues: TemporalValueComparator,
-): Readonly<TValidation> => {
-	const { range } = validation
-
-	if (range === undefined) {
-		return immutableRecord(validation)
-	}
-
-	return immutableRecord({
-		...validation,
-		range: normalizeOrderedRange(
-			range,
-			'validation.range',
-			normalizeValue,
-			compareValues,
-		),
-	})
-}
-
-/**
- * Compares fixed-width canonical temporal strings in chronological order.
- */
-export const compareCanonicalTemporalValues: TemporalValueComparator = (
-	left,
-	right,
-) => left.localeCompare(right)
 
 /**
  * Resolves a timezone flag while protecting factories called from untyped code.
@@ -138,7 +76,6 @@ export const createTemporalFieldConfigurationResolver =
 		optionsContract: BuiltInFieldOptionsContract,
 		defaultTimezone: boolean,
 		createNormalizer: (timezone: boolean) => TemporalValueNormalizer,
-		compareZonedValues: TemporalValueComparator,
 	): ScalarFieldConfigurationResolver<TOptions> =>
 	(options) => {
 		assertFieldOptions(options)
@@ -152,18 +89,8 @@ export const createTemporalFieldConfigurationResolver =
 		const normalizeOptions = <const TDeclaredOptions extends TOptions>(
 			declaredOptions: TDeclaredOptions,
 		): Readonly<TDeclaredOptions> =>
-			normalizeFieldOptions(
-				declaredOptions,
-				(validation) =>
-					normalizeTemporalValidation(
-						validation,
-						snapshotValue,
-						timezone ? compareZonedValues : compareCanonicalTemporalValues,
-					),
-				snapshotValue,
-				optionsContract,
-			)
+			normalizeFieldOptions(declaredOptions, snapshotValue, optionsContract)
 
-		// The same normalizer governs defaults, ranges, and later snapshots.
+		// The same normalizer governs defaults and later snapshots.
 		return { normalizeOptions, snapshotValue }
 	}

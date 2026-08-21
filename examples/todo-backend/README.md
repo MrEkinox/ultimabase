@@ -13,6 +13,7 @@ Plugin behavior is configured directly beside the schema or field that owns it:
 ```ts
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
+import { z } from 'zod'
 
 export const Todo = Schema.define({
 	className: 'Todo',
@@ -21,7 +22,7 @@ export const Todo = Schema.define({
 			hooks: { resolveInput: ({ value }) => value?.trim() ?? null },
 			postgres: { renamedFrom: 'summary' },
 			required: true,
-			validation: { length: { max: 200 } },
+			validation: z.string().max(200),
 		}),
 		internalNotes: field.string({
 			access: {

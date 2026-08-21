@@ -2,7 +2,6 @@ import {
 	assertFieldOptions,
 	fieldOptionKeys,
 	normalizeFieldOptions,
-	orderedRangeOptionKeys,
 	type BuiltInFieldOptionsContract,
 } from '../base/options.js'
 import type {
@@ -20,31 +19,17 @@ import {
 	type GeneratedScalarOption,
 	type NonDefaultedCompactScalarFieldOptions,
 } from '../base/factory.js'
-import {
-	assertAutoIncrementOption,
-	normalizeNumericValidation,
-	type NumericValidationOptions,
-} from '../constraints/numeric.js'
-import type { NumericRange } from '../constraints/numeric.js'
+import { assertAutoIncrementOption } from '../constraints/numeric.js'
 import { normalizeSafeIntegerValue } from '../base/value.js'
+import type { FieldStandardSchema } from '../base/standard-schema.js'
 
 /**
  * Defines declarative boundaries for safe JavaScript integers.
  */
-export type IntRangeValidationOptions = NumericRange
-
-/**
- * Defines safe-integer range constraints.
- */
-export type IntValidationOptions = NumericValidationOptions
-
 /**
  * Adds integer-only sequence metadata to the common field contract.
  */
-export interface IntFieldOptions extends FieldOptions<
-	number,
-	IntValidationOptions
-> {
+export interface IntFieldOptions extends FieldOptions<number> {
 	/**
 	 * Requests a database-generated sequence value from adapters that support it.
 	 *
@@ -62,8 +47,6 @@ export type IntField<TTypegen extends FieldTypegenState = FieldTypegenState> =
 const intFieldOptionsContract: BuiltInFieldOptionsContract = {
 	kind: 'int',
 	optionKeys: [...fieldOptionKeys, 'autoIncrement'],
-	validationOptionKeys: ['range'],
-	nestedValidation: [{ key: 'range', optionKeys: orderedRangeOptionKeys }],
 }
 
 /** Provides integer-specific names for compact sequence inference. */
@@ -72,13 +55,15 @@ type DefaultedIntFieldOptions<
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoIncrement extends boolean,
+	TValidation extends FieldStandardSchema,
 > = DefaultedCompactScalarFieldOptions<
 	IntFieldOptions,
 	number,
 	TRequired,
 	TList,
 	TImmutable,
-	GeneratedScalarOption<'autoIncrement', TAutoIncrement>
+	GeneratedScalarOption<'autoIncrement', TAutoIncrement>,
+	TValidation
 > &
 	CompatibleGeneratedScalarOptions<
 		'autoIncrement',
@@ -93,13 +78,15 @@ type NonDefaultedIntFieldOptions<
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoIncrement extends boolean,
+	TValidation extends FieldStandardSchema,
 > = NonDefaultedCompactScalarFieldOptions<
 	IntFieldOptions,
 	number,
 	TRequired,
 	TList,
 	TImmutable,
-	GeneratedScalarOption<'autoIncrement', TAutoIncrement>
+	GeneratedScalarOption<'autoIncrement', TAutoIncrement>,
+	TValidation
 > &
 	CompatibleGeneratedScalarOptions<
 		'autoIncrement',
@@ -146,12 +133,14 @@ interface IntFieldFactory {
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const TAutoIncrement extends boolean = false,
+		const TValidation extends FieldStandardSchema = FieldStandardSchema,
 	>(
 		options: DefaultedIntFieldOptions<
 			TRequired,
 			TList,
 			TImmutable,
-			TAutoIncrement
+			TAutoIncrement,
+			TValidation
 		>,
 	): DefaultedIntField<TRequired, TList, TImmutable, TAutoIncrement>
 	<
@@ -159,20 +148,17 @@ interface IntFieldFactory {
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const TAutoIncrement extends boolean = false,
+		const TValidation extends FieldStandardSchema = FieldStandardSchema,
 	>(
 		options?: NonDefaultedIntFieldOptions<
 			TRequired,
 			TList,
 			TImmutable,
-			TAutoIncrement
+			TAutoIncrement,
+			TValidation
 		>,
 	): NonDefaultedIntField<TRequired, TList, TImmutable, TAutoIncrement>
 }
-
-const normalizeIntValidation = (
-	validation: IntValidationOptions,
-): Readonly<IntValidationOptions> =>
-	normalizeNumericValidation(validation, 'a safe integer', Number.isSafeInteger)
 
 const normalizeIntFieldOptions = <const TOptions extends IntFieldOptions>(
 	options: TOptions,
@@ -182,7 +168,6 @@ const normalizeIntFieldOptions = <const TOptions extends IntFieldOptions>(
 
 	return normalizeFieldOptions(
 		options,
-		normalizeIntValidation,
 		normalizeSafeIntegerValue,
 		intFieldOptionsContract,
 	)
@@ -193,7 +178,7 @@ const normalizeIntFieldOptions = <const TOptions extends IntFieldOptions>(
  *
  * @example
  * ```ts
- * intField({ default: 0, validation: { range: { min: 0 } } })
+ * intField({ default: 0, validation: nonNegativeInteger })
  * ```
  */
 export const intField: IntFieldFactory =

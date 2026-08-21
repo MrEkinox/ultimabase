@@ -1,7 +1,6 @@
 import {
 	fieldOptionKeys,
 	normalizeFieldOptions,
-	orderedRangeOptionKeys,
 	type BuiltInFieldOptionsContract,
 } from '../base/options.js'
 import type {
@@ -18,23 +17,10 @@ import {
 	type NonDefaultedCompactScalarFieldOptions,
 } from '../base/factory.js'
 import {
-	compareCanonicalTemporalValues,
-	normalizeTemporalValidation,
 	assertTemporalAutoNow,
 	type TemporalFieldOptions,
-	type TemporalRangeValidationOptions,
-	type TemporalValidationOptions,
 } from '../constraints/temporal.js'
-
-/**
- * Defines declarative calendar-day boundaries.
- */
-export type DateRangeValidationOptions = TemporalRangeValidationOptions
-
-/**
- * Groups calendar-day constraints under one validation boundary.
- */
-export type DateValidationOptions = TemporalValidationOptions
+import type { FieldStandardSchema } from '../base/standard-schema.js'
 
 /**
  * Describes a calendar day using its canonical ISO date representation.
@@ -50,8 +36,6 @@ export type DateField<TTypegen extends FieldTypegenState = FieldTypegenState> =
 const dateFieldOptionsContract: BuiltInFieldOptionsContract = {
 	kind: 'date',
 	optionKeys: [...fieldOptionKeys, 'autoNow'],
-	validationOptionKeys: ['range'],
-	nestedValidation: [{ key: 'range', optionKeys: orderedRangeOptionKeys }],
 }
 
 /** Provides date-specific names for compact auto-now inference. */
@@ -60,13 +44,15 @@ type DefaultedDateFieldOptions<
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoNow extends boolean,
+	TValidation extends FieldStandardSchema,
 > = DefaultedCompactScalarFieldOptions<
 	DateFieldOptions,
 	string,
 	TRequired,
 	TList,
 	TImmutable,
-	GeneratedScalarOption<'autoNow', TAutoNow>
+	GeneratedScalarOption<'autoNow', TAutoNow>,
+	TValidation
 > &
 	CompatibleGeneratedScalarOptions<'autoNow', TAutoNow, TList, true, true>
 
@@ -75,13 +61,15 @@ type NonDefaultedDateFieldOptions<
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoNow extends boolean,
+	TValidation extends FieldStandardSchema,
 > = NonDefaultedCompactScalarFieldOptions<
 	DateFieldOptions,
 	string,
 	TRequired,
 	TList,
 	TImmutable,
-	GeneratedScalarOption<'autoNow', TAutoNow>
+	GeneratedScalarOption<'autoNow', TAutoNow>,
+	TValidation
 > &
 	CompatibleGeneratedScalarOptions<'autoNow', TAutoNow, TList, false, true>
 
@@ -122,20 +110,29 @@ interface DateFieldFactory {
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const TAutoNow extends boolean = false,
+		const TValidation extends FieldStandardSchema = FieldStandardSchema,
 	>(
-		options: DefaultedDateFieldOptions<TRequired, TList, TImmutable, TAutoNow>,
+		options: DefaultedDateFieldOptions<
+			TRequired,
+			TList,
+			TImmutable,
+			TAutoNow,
+			TValidation
+		>,
 	): DefaultedDateField<TRequired, TList, TImmutable, TAutoNow>
 	<
 		const TRequired extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const TAutoNow extends boolean = false,
+		const TValidation extends FieldStandardSchema = FieldStandardSchema,
 	>(
 		options?: NonDefaultedDateFieldOptions<
 			TRequired,
 			TList,
 			TImmutable,
-			TAutoNow
+			TAutoNow,
+			TValidation
 		>,
 	): NonDefaultedDateField<TRequired, TList, TImmutable, TAutoNow>
 }
@@ -162,15 +159,6 @@ export const normalizeCalendarDate = (value: unknown, path: string): string => {
 	return value
 }
 
-const normalizeDateValidation = (
-	validation: DateValidationOptions,
-): Readonly<DateValidationOptions> =>
-	normalizeTemporalValidation(
-		validation,
-		normalizeCalendarDate,
-		compareCanonicalTemporalValues,
-	)
-
 const normalizeDateFieldOptions = <const TOptions extends DateFieldOptions>(
 	options: TOptions,
 ): Readonly<TOptions> => {
@@ -178,7 +166,6 @@ const normalizeDateFieldOptions = <const TOptions extends DateFieldOptions>(
 
 	return normalizeFieldOptions(
 		options,
-		normalizeDateValidation,
 		normalizeCalendarDate,
 		dateFieldOptionsContract,
 	)

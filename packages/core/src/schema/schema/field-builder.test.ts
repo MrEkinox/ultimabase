@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import type { StandardSchemaV1 } from '@standard-schema/spec'
 
 import {
 	createApplication,
@@ -22,9 +23,7 @@ describe('FieldBuilder', () => {
 				published: field.boolean({ default: false }),
 				profile: field.object({
 					fields: (field) => ({
-						displayName: field.string({
-							validation: { length: { max: 80 } },
-						}),
+						displayName: field.string(),
 					}),
 					typeName: 'BuilderMetadataProfile',
 				}),
@@ -154,7 +153,16 @@ describe('FieldBuilder', () => {
 	})
 
 	it('snapshots caller options once', () => {
-		const validation = { length: { max: 20 } }
+		const validation: StandardSchemaV1<string> = {
+			'~standard': {
+				version: 1,
+				vendor: 'builder-test',
+				validate: (value) =>
+					typeof value === 'string'
+						? { value }
+						: { issues: [{ message: 'Expected a string' }] },
+			},
+		}
 		const Snapshot = Schema.define({
 			className: 'BuilderSnapshot',
 			fields: (field) => ({ title: field.string({ validation }) }),
@@ -162,10 +170,8 @@ describe('FieldBuilder', () => {
 		const registry = new SchemaRegistry([Snapshot])
 
 		registry.compileSchemas()
-		validation.length.max = 1
-
-		expect(Snapshot.fields.title?.options).toMatchObject({
-			validation: { length: { max: 20 } },
+		expect(Snapshot.fields.title).toMatchObject({
+			options: { validation },
 		})
 		expect(Object.isFrozen(Snapshot.fields.title?.options ?? {})).toBe(true)
 	})

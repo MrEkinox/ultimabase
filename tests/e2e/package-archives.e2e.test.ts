@@ -205,6 +205,47 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 		}
 	})
 
+	it('omits the removed field-constraint DSL from packed Core surfaces', async () => {
+		const coreDirectory = path.join(packagesDirectory, 'core', 'dist')
+		const packedSurfaces = await Promise.all([
+			readFile(path.join(coreDirectory, 'index.d.ts'), 'utf8'),
+			readFile(path.join(coreDirectory, 'index.js.map'), 'utf8'),
+		])
+
+		for (const removedName of [
+			'BigintRangeValidationOptions',
+			'BigintValidationOptions',
+			'BinaryLengthValidationOptions',
+			'FieldValidationOptions',
+			'StringValidationOptions',
+			'StringLengthValidationOptions',
+			'BinaryValidationOptions',
+			'BooleanValidationOptions',
+			'DateRangeValidationOptions',
+			'DateValidationOptions',
+			'DateTimeRangeValidationOptions',
+			'DateTimeValidationOptions',
+			'DecimalRangeValidationOptions',
+			'DecimalValidationOptions',
+			'FloatRangeValidationOptions',
+			'FloatValidationOptions',
+			'IntRangeValidationOptions',
+			'IntValidationOptions',
+			'TimeRangeValidationOptions',
+			'TimeValidationOptions',
+			'UuidValidationOptions',
+			'UuidVersion',
+			'normalizeValidation',
+			'validateScalarFieldConstraints',
+		]) {
+			for (const surface of packedSurfaces) {
+				expect(surface).not.toContain(removedName)
+			}
+		}
+
+		expect(packedSurfaces[0]).toContain('FieldStandardSchema')
+	})
+
 	it('keeps Runtime orchestration implementation private', async () => {
 		const declarations = await readFile(
 			path.join(packagesDirectory, 'core', 'dist', 'index.d.ts'),

@@ -1,7 +1,6 @@
 import {
 	fieldOptionKeys,
 	normalizeFieldOptions,
-	normalizeFlatValidation,
 	type BuiltInFieldOptionsContract,
 } from '../base/options.js'
 import type {
@@ -17,6 +16,7 @@ import {
 	type NonDefaultedCompactScalarFieldOptions,
 } from '../base/factory.js'
 import { snapshotJsonValue, type JsonDocument } from '../base/portable-json.js'
+import type { FieldStandardSchema } from '../base/standard-schema.js'
 
 export { snapshotJsonValue } from '../base/portable-json.js'
 export type {
@@ -41,7 +41,6 @@ export type JsonField<TTypegen extends FieldTypegenState = FieldTypegenState> =
 const jsonFieldOptionsContract: BuiltInFieldOptionsContract = {
 	kind: 'json',
 	optionKeys: fieldOptionKeys,
-	validationOptionKeys: [],
 }
 
 /** Provides JSON-specific names for the shared compact scalar contract. */
@@ -49,24 +48,30 @@ type DefaultedJsonFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
+	TValidation extends FieldStandardSchema,
 > = DefaultedCompactScalarFieldOptions<
 	JsonFieldOptions,
 	JsonDocument,
 	TRequired,
 	TList,
-	TImmutable
+	TImmutable,
+	object,
+	TValidation
 >
 
 type NonDefaultedJsonFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
+	TValidation extends FieldStandardSchema,
 > = NonDefaultedCompactScalarFieldOptions<
 	JsonFieldOptions,
 	JsonDocument,
 	TRequired,
 	TList,
-	TImmutable
+	TImmutable,
+	object,
+	TValidation
 >
 
 type ResolvedJsonField<
@@ -101,15 +106,27 @@ interface JsonFieldFactory {
 		const TRequired extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
+		const TValidation extends FieldStandardSchema = FieldStandardSchema,
 	>(
-		options: DefaultedJsonFieldOptions<TRequired, TList, TImmutable>,
+		options: DefaultedJsonFieldOptions<
+			TRequired,
+			TList,
+			TImmutable,
+			TValidation
+		>,
 	): DefaultedJsonField<TRequired, TList, TImmutable>
 	<
 		const TRequired extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
+		const TValidation extends FieldStandardSchema = FieldStandardSchema,
 	>(
-		options?: NonDefaultedJsonFieldOptions<TRequired, TList, TImmutable>,
+		options?: NonDefaultedJsonFieldOptions<
+			TRequired,
+			TList,
+			TImmutable,
+			TValidation
+		>,
 	): NonDefaultedJsonField<TRequired, TList, TImmutable>
 }
 
@@ -127,12 +144,7 @@ const snapshotJsonDocument = (value: unknown, path: string): JsonDocument => {
 const normalizeJsonFieldOptions = <const TOptions extends JsonFieldOptions>(
 	options: TOptions,
 ): Readonly<TOptions> =>
-	normalizeFieldOptions(
-		options,
-		normalizeFlatValidation,
-		snapshotJsonDocument,
-		jsonFieldOptionsContract,
-	)
+	normalizeFieldOptions(options, snapshotJsonDocument, jsonFieldOptionsContract)
 
 /**
  * Declares an unstructured JSON object or array containing portable JSON values.

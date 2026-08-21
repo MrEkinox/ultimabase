@@ -1330,7 +1330,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ultimabase/acl-permissions-plugin@workspace:packages/acl-permissions-plugin":
+"@ultimabase/acl-permissions-plugin@workspace:^, @ultimabase/acl-permissions-plugin@workspace:packages/acl-permissions-plugin":
   version: 0.0.0-use.local
   resolution: "@ultimabase/acl-permissions-plugin@workspace:packages/acl-permissions-plugin"
   dependencies:
@@ -1348,6 +1348,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ultimabase/core@workspace:packages/core"
   dependencies:
+    "@standard-schema/spec": "npm:^1.1.0"
     "@types/node": "npm:^24.0.0"
     "@types/semver": "npm:^7.7.1"
     "@ultimabase/shared": "workspace:^"
@@ -1365,14 +1366,19 @@ __metadata:
   resolution: "@ultimabase/example-todo-backend@workspace:examples/todo-backend"
   dependencies:
     "@types/node": "npm:^24.0.0"
+    "@ultimabase/access-plugin": "workspace:^"
+    "@ultimabase/acl-permissions-plugin": "workspace:^"
     "@ultimabase/core": "workspace:^"
+    "@ultimabase/hooks-plugin": "workspace:^"
     "@ultimabase/postgres-plugin": "workspace:^"
+    "@ultimabase/roles-plugin": "workspace:^"
     "@ultimabase/typegen": "workspace:^"
     typescript: "npm:^6.0.3"
+    zod: "npm:^4.4.3"
   languageName: unknown
   linkType: soft
 
-"@ultimabase/hooks-plugin@workspace:packages/hooks-plugin":
+"@ultimabase/hooks-plugin@workspace:^, @ultimabase/hooks-plugin@workspace:packages/hooks-plugin":
   version: 0.0.0-use.local
   resolution: "@ultimabase/hooks-plugin@workspace:packages/hooks-plugin"
   dependencies:
@@ -1437,6 +1443,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ultimabase/roles-plugin@workspace:packages/roles-plugin"
   dependencies:
+    "@standard-schema/spec": "npm:^1.1.0"
     "@ultimabase/access-plugin": "workspace:^"
     "@ultimabase/core": "workspace:^"
     "@ultimabase/plugin-kit": "workspace:^"

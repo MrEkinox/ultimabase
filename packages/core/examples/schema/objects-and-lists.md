@@ -14,6 +14,7 @@ one property inside an embedded value.
 
 ```ts
 import { Schema, type EmbeddedFieldBuilder } from '@ultimabase/core'
+import { z } from 'zod'
 
 const addressFields = (field: EmbeddedFieldBuilder) => ({
 	line1: field.string({ required: true }),
@@ -23,10 +24,10 @@ const addressFields = (field: EmbeddedFieldBuilder) => ({
 	postalCode: field.string({ required: true }),
 	countryCode: field.string({
 		required: true,
-		validation: {
-			length: { min: 2, max: 2 },
-			match: /^[A-Z]{2}$/u,
-		},
+		validation: z
+			.string()
+			.length(2)
+			.regex(/^[A-Z]{2}$/u),
 	}),
 })
 

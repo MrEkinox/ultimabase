@@ -76,18 +76,18 @@ sequences.
 Exact decimal fields keep storage-relevant shape as direct metadata:
 `field.decimal({ precision: 12, scale: 2 })`. Core validates those options and
 enforces them at Runtime, while adapters may inspect them without reading the
-application `validation` contract. Decimal ranges remain additional value
-constraints under `validation` until Standard Schema replaces that closed DSL.
+application `validation` contract. Additional decimal rules use a synchronous
+Standard Schema validator over the canonical decimal string.
 
-Every built-in factory immediately rejects unknown nested validation options and
-Core-owned root options that the selected field kind does not support. Other
+Every built-in factory immediately rejects malformed Standard Schema validators
+and Core-owned root options that the selected field kind does not support. Other
 unknown root properties are detached and retained until application compilation:
 one exact installed plugin option descriptor validates and normalizes each used
 property. Duplicate descriptor names remain harmless while unused; a developer
 occurrence with no owner or several possible owners fails deterministically,
 while a plugin-owned occurrence resolves against its exact plugin and instance.
-Plugin-defined fields retain their native option and validation keys; their
-factory remains the owning validation boundary.
+Plugin-defined fields retain their native structural option keys and use the
+same Standard Schema validation boundary as built-in fields.
 
 TypeScript reports invalid option combinations on the primary option contract.
 For example, empty enum domains identify `values`, required pointers using

@@ -11,6 +11,11 @@ import {
 	type ScalarValueSnapshot,
 } from './definition.js'
 import { emptyFieldOptions, type EmptyFieldOptions } from './options.js'
+import type {
+	CompatibleFieldStandardSchema,
+	FieldStandardSchema,
+	MutableFieldContainer,
+} from './standard-schema.js'
 
 type ScalarFieldOptionsNormalizer<TOptions extends object> = <
 	const TDeclaredOptions extends TOptions,
@@ -20,18 +25,39 @@ type ScalarFieldOptionsNormalizer<TOptions extends object> = <
 
 type CompactScalarFieldOptions<
 	TOptions extends object,
+	TValue,
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = TOptions & {
+	TValidation extends FieldStandardSchema,
+> = Omit<TOptions, 'immutable' | 'list' | 'required' | 'validation'> & {
 	/**
 	 * Requires a non-null persisted value and requires create input unless a
 	 * default or generator supplies it.
 	 * @example `required: true`
 	 */
 	readonly required?: TRequired
+	/**
+	 * Wraps the scalar in one homogeneous list when enabled.
+	 * @example `list: true`
+	 */
 	readonly list?: TList
+	/**
+	 * Prevents the field from appearing in update inputs after creation.
+	 * @example `immutable: true`
+	 */
 	readonly immutable?: TImmutable
+	/**
+	 * Applies one synchronous Standard Schema validator to the complete canonical value.
+	 * @example `validation: z.string().min(1)`
+	 */
+	readonly validation?: CompatibleFieldStandardSchema<
+		TValidation,
+		FieldListValue<TValue, TList>,
+		TList extends true
+			? MutableFieldContainer<TValue>[]
+			: MutableFieldContainer<TValue>
+	>
 }
 
 /** Names the complete input so editor hovers do not expand its intersections. */
@@ -42,7 +68,15 @@ export type DefaultedCompactScalarFieldOptions<
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TInferredOptions extends object = object,
-> = CompactScalarFieldOptions<TOptions, TRequired, TList, TImmutable> &
+	TValidation extends FieldStandardSchema = FieldStandardSchema,
+> = CompactScalarFieldOptions<
+	TOptions,
+	TValue,
+	TRequired,
+	TList,
+	TImmutable,
+	TValidation
+> &
 	TInferredOptions & {
 		readonly default: FieldDefault<FieldListValue<TValue, TList>>
 	}
@@ -55,7 +89,15 @@ export type NonDefaultedCompactScalarFieldOptions<
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TInferredOptions extends object = object,
-> = CompactScalarFieldOptions<TOptions, TRequired, TList, TImmutable> &
+	TValidation extends FieldStandardSchema = FieldStandardSchema,
+> = CompactScalarFieldOptions<
+	TOptions,
+	TValue,
+	TRequired,
+	TList,
+	TImmutable,
+	TValidation
+> &
 	TInferredOptions & { readonly default?: never }
 
 /** Resolves one scalar field's compact state for field-specific editor aliases. */
@@ -142,13 +184,15 @@ type DefaultedGeneratedScalarFieldOptions<
 	TGenerationKey extends PropertyKey,
 	THasGeneratedValue extends boolean,
 	TExclusiveGeneration extends boolean,
+	TValidation extends FieldStandardSchema = FieldStandardSchema,
 > = DefaultedCompactScalarFieldOptions<
 	TOptions,
 	TValue,
 	TRequired,
 	TList,
 	TImmutable,
-	GeneratedScalarOption<TGenerationKey, THasGeneratedValue>
+	GeneratedScalarOption<TGenerationKey, THasGeneratedValue>,
+	TValidation
 > &
 	CompatibleGeneratedScalarOptions<
 		TGenerationKey,
@@ -168,13 +212,15 @@ type NonDefaultedGeneratedScalarFieldOptions<
 	TGenerationKey extends PropertyKey,
 	THasGeneratedValue extends boolean,
 	TExclusiveGeneration extends boolean,
+	TValidation extends FieldStandardSchema = FieldStandardSchema,
 > = NonDefaultedCompactScalarFieldOptions<
 	TOptions,
 	TValue,
 	TRequired,
 	TList,
 	TImmutable,
-	GeneratedScalarOption<TGenerationKey, THasGeneratedValue>
+	GeneratedScalarOption<TGenerationKey, THasGeneratedValue>,
+	TValidation
 > &
 	CompatibleGeneratedScalarOptions<
 		TGenerationKey,
@@ -207,13 +253,16 @@ export interface CompactScalarFieldFactory<
 		const TRequired extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
+		const TValidation extends FieldStandardSchema = FieldStandardSchema,
 	>(
 		options: DefaultedCompactScalarFieldOptions<
 			TOptions,
 			TValue,
 			TRequired,
 			TList,
-			TImmutable
+			TImmutable,
+			object,
+			TValidation
 		>,
 	): FieldDefinition<
 		TKind,
@@ -225,13 +274,16 @@ export interface CompactScalarFieldFactory<
 		const TRequired extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
+		const TValidation extends FieldStandardSchema = FieldStandardSchema,
 	>(
 		options?: NonDefaultedCompactScalarFieldOptions<
 			TOptions,
 			TValue,
 			TRequired,
 			TList,
-			TImmutable
+			TImmutable,
+			object,
+			TValidation
 		>,
 	): FieldDefinition<
 		TKind,
@@ -307,6 +359,7 @@ export interface GeneratedCompactScalarFieldFactory<
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const THasGeneratedValue extends boolean = false,
+		const TValidation extends FieldStandardSchema = FieldStandardSchema,
 	>(
 		options: DefaultedGeneratedScalarFieldOptions<
 			TOptions,
@@ -316,7 +369,8 @@ export interface GeneratedCompactScalarFieldFactory<
 			TImmutable,
 			TGenerationKey,
 			THasGeneratedValue,
-			TExclusiveGeneration
+			TExclusiveGeneration,
+			TValidation
 		>,
 	): CompactScalarFieldDefinition<
 		TKind,
@@ -333,6 +387,7 @@ export interface GeneratedCompactScalarFieldFactory<
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const THasGeneratedValue extends boolean = false,
+		const TValidation extends FieldStandardSchema = FieldStandardSchema,
 	>(
 		options?: NonDefaultedGeneratedScalarFieldOptions<
 			TOptions,
@@ -342,7 +397,8 @@ export interface GeneratedCompactScalarFieldFactory<
 			TImmutable,
 			TGenerationKey,
 			THasGeneratedValue,
-			TExclusiveGeneration
+			TExclusiveGeneration,
+			TValidation
 		>,
 	): CompactScalarFieldDefinition<
 		TKind,
@@ -375,6 +431,7 @@ export interface GeneratedCompactScalarFieldBuilderMethod<
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const THasGeneratedValue extends boolean = false,
+		const TValidation extends FieldStandardSchema = FieldStandardSchema,
 	>(
 		/** Stable logical field name within its containing schema or object. */
 		name: string,
@@ -387,7 +444,8 @@ export interface GeneratedCompactScalarFieldBuilderMethod<
 			TImmutable,
 			TGenerationKey,
 			THasGeneratedValue,
-			TExclusiveGeneration
+			TExclusiveGeneration,
+			TValidation
 		>,
 	): void
 	/**
@@ -402,6 +460,7 @@ export interface GeneratedCompactScalarFieldBuilderMethod<
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const THasGeneratedValue extends boolean = false,
+		const TValidation extends FieldStandardSchema = FieldStandardSchema,
 	>(
 		/** Stable logical field name within its containing schema or object. */
 		name: string,
@@ -414,7 +473,8 @@ export interface GeneratedCompactScalarFieldBuilderMethod<
 			TImmutable,
 			TGenerationKey,
 			THasGeneratedValue,
-			TExclusiveGeneration
+			TExclusiveGeneration,
+			TValidation
 		>,
 	): void
 }
@@ -428,18 +488,22 @@ const createCompactScalarFieldImplementation =
 	>(
 		kind: TKind,
 		resolveConfiguration: ScalarFieldConfigurationResolver<TOptions>,
-	): ((
-		options?: TOptions,
-	) => FieldDefinition<TKind, TValue, TOptions, never>) =>
-	(options?: TOptions) => {
+	): ((options?: object) => FieldDefinition<TKind, TValue, TOptions, never>) =>
+	(options?: object) => {
 		if (options === undefined) {
 			const { snapshotValue } = resolveConfiguration(emptyFieldOptions)
 
 			return createFieldDefinition(kind, emptyFieldOptions, snapshotValue)
 		}
-		const { normalizeOptions, snapshotValue } = resolveConfiguration(options)
+		const declaredOptions = options as TOptions
+		const { normalizeOptions, snapshotValue } =
+			resolveConfiguration(declaredOptions)
 
-		return createFieldDefinition(kind, normalizeOptions(options), snapshotValue)
+		return createFieldDefinition(
+			kind,
+			normalizeOptions(declaredOptions),
+			snapshotValue,
+		)
 	}
 
 /** Creates the compact scalar contract without changing runtime field metadata. */
