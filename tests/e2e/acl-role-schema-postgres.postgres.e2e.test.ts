@@ -9,7 +9,7 @@ import {
 	requestSources,
 } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
-import { postgresPlugin, postgresTable } from '@ultimabase/postgres-plugin'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { RoleSchema, rolesPlugin } from '@ultimabase/roles-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
@@ -35,7 +35,7 @@ const Member = Schema.define({
 	fields: (field) => ({
 		email: field.string({ validation: { required: true } }),
 	}),
-	extensions: [postgresTable({ name: 'acl_role_schema_members' })],
+	postgres: { table: 'acl_role_schema_members' },
 })
 const identityPlugin = definePlugin({
 	version: '0.0.0',
@@ -71,7 +71,7 @@ const AppRole = RoleSchema.define({
 		resolveInput: ({ currentAcl, inputAcl }) =>
 			inputAcl ?? currentAcl ?? emptyACL,
 	},
-	extensions: [postgresTable({ name: 'acl_protected_app_roles' })],
+	postgres: { table: 'acl_protected_app_roles' },
 })
 
 type PersistedMember = Awaited<

@@ -1,7 +1,7 @@
 import process from 'node:process'
 
 import { Schema, UltimaBase, requestSources } from '@ultimabase/core'
-import { postgresPlugin, postgresTable } from '@ultimabase/postgres-plugin'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
 
 const databaseUrl = process.env.ULTIMABASE_TEST_DATABASE_URL
 if (databaseUrl === undefined) {
@@ -10,7 +10,7 @@ if (databaseUrl === undefined) {
 
 const Post = Schema.define({
 	className: 'JavaScriptNoEnginePost',
-	extensions: [postgresTable({ name: 'optional_hooks_javascript_posts' })],
+	postgres: { table: 'optional_hooks_javascript_posts' },
 	fields: (field) => ({
 		title: field.string({ validation: { required: true } }),
 	}),

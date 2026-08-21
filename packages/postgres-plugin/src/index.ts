@@ -37,11 +37,7 @@ export { postgresPlugin } from './plugin/postgres-plugin.js'
 export { postgresSchemaPreparationCapability } from './schema-preparation-capability.js'
 export type { PostgresSchemaPreparationCapability } from './schema-preparation-capability.js'
 
-export { postgresColumn } from './naming/column.js'
-export type {
-	PostgresColumnExtension,
-	PostgresColumnOptions,
-} from './naming/column.js'
+export type { PostgresFieldOption, PostgresSchemaOption } from './options.js'
 
 export type { PostgresSchemaPolicy } from './synchronization/contracts.js'
 export type { PostgresSchemaPolicyOptions } from './plugin/postgres-plugin.js'
@@ -52,8 +48,3 @@ export type {
 	PostgresPluginOptions,
 	PostgresUrlOptions,
 } from './plugin/postgres-plugin.js'
-export { postgresTable } from './naming/table.js'
-export type {
-	PostgresTableExtension,
-	PostgresTableOptions,
-} from './naming/table.js'

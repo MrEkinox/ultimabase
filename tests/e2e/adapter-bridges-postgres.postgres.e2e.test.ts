@@ -14,7 +14,6 @@ import {
 	postgresPhysicalColumn,
 	postgresPlugin,
 	postgresRawAdapterCapability,
-	postgresTable,
 } from '@ultimabase/postgres-plugin'
 import { isPlainRecord } from '@ultimabase/shared'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -65,7 +64,7 @@ const storedValue = definePluginField(
 
 const BridgeItem = Schema.define({
 	className: 'AdapterBridgeItem',
-	extensions: [postgresTable({ name: 'adapter_bridge_items' })],
+	postgres: { table: 'adapter_bridge_items' },
 	fields: () => ({ value: storedValue }),
 })
 

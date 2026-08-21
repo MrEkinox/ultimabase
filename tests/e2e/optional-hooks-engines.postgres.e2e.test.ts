@@ -4,7 +4,7 @@ import process from 'node:process'
 import { promisify } from 'node:util'
 
 import { Schema, UltimaBase, requestSources } from '@ultimabase/core'
-import { postgresPlugin, postgresTable } from '@ultimabase/postgres-plugin'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import {
@@ -48,10 +48,10 @@ describe('optional Hooks PostgreSQL proof', { concurrent: false }, () => {
 		const middlewareTrace: string[] = []
 		const Post = Schema.define({
 			className: 'TypeScriptNoEnginePost',
-			extensions: [postgresTable({ name: 'optional_hooks_typescript_posts' })],
 			fields: (field) => ({
 				title: field.string({ validation: { required: true } }),
 			}),
+			postgres: { table: 'optional_hooks_typescript_posts' },
 		})
 		const ultimabase = new UltimaBase({
 			pluginPrivileges: { logger: false },
@@ -125,7 +125,11 @@ describe('optional Hooks PostgreSQL proof', { concurrent: false }, () => {
 					({ identity }) => identity.pluginId,
 				),
 			).not.toContain('@ultimabase/access-plugin')
-			expect(ultimabase.application.typegenGraph.options).toStrictEqual([])
+			expect(
+				ultimabase.application.typegenGraph.options.map(
+					({ name, scope }) => `${scope}:${name}`,
+				),
+			).toStrictEqual(['schema:postgres', 'field:postgres'])
 		} finally {
 			await ultimabase.dispose()
 		}
@@ -151,7 +155,7 @@ describe('optional Hooks PostgreSQL proof', { concurrent: false }, () => {
 			existsAfterDelete: false,
 			found: 'JavaScript create',
 			inspection: {
-				options: [],
+				options: ['postgres', 'postgres'],
 				plugins: ['@ultimabase/postgres-plugin'],
 			},
 			rollbackMessage: 'rollback JavaScript transaction',
@@ -167,13 +171,11 @@ describe('optional Hooks PostgreSQL proof', { concurrent: false }, () => {
 		}>[] = []
 		const Post = Schema.define({
 			className: 'AlternativePostgresPost',
-			extensions: [
-				alternativeBehavior({ label: 'publishing' }),
-				postgresTable({ name: 'optional_hooks_alternative_posts' }),
-			],
+			extensions: [alternativeBehavior({ label: 'publishing' })],
 			fields: (field) => ({
 				title: field.string({ validation: { required: true } }),
 			}),
+			postgres: { table: 'optional_hooks_alternative_posts' },
 		})
 		const engine = createAlternativeBehaviorEngine({ instanceId: 'postgres' })
 		const observer = createAlternativeBehaviorDiagnosticObserver(

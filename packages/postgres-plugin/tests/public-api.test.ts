@@ -6,7 +6,6 @@ describe('@ultimabase/postgres-plugin public entry point', () => {
 		// Driver and Drizzle internals must remain absent from runtime exports.
 		expect(Object.keys(publicApi).sort()).toStrictEqual([
 			'postgresAdapterId',
-			'postgresColumn',
 			'postgresConnectionCapability',
 			'postgresConstraintCompiler',
 			'postgresMigrationContributionCapability',
@@ -16,7 +15,6 @@ describe('@ultimabase/postgres-plugin public entry point', () => {
 			'postgresPluginName',
 			'postgresRawAdapterCapability',
 			'postgresSchemaPreparationCapability',
-			'postgresTable',
 			'postgresUpgrade',
 		])
 		expect(publicApi).not.toHaveProperty('Pool')

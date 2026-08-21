@@ -8,7 +8,6 @@ import {
 import { getTableConfig, type PgColumn } from 'drizzle-orm/pg-core'
 import { describe, expect, it, vi } from 'vitest'
 
-import { postgresColumn } from '../naming/column.js'
 import { PostgresSchemaCatalog } from './catalog.js'
 import {
 	mapPostgresColumnFromDriver,
@@ -300,21 +299,15 @@ describe('PostgreSQL primitive schema compiler', () => {
 		const duplicateSource = Schema.define({
 			className: 'DuplicateRenameFixture',
 			fields: (field) => ({
-				first: field.string({
-					extensions: [postgresColumn({ renamedFrom: 'legacy' })],
-				}),
-				second: field.string({
-					extensions: [postgresColumn({ renamedFrom: 'legacy' })],
-				}),
+				first: field.string({ postgres: { renamedFrom: 'legacy' } }),
+				second: field.string({ postgres: { renamedFrom: 'legacy' } }),
 			}),
 		})
 		const declaredSource = Schema.define({
 			className: 'DeclaredRenameFixture',
 			fields: (field) => ({
 				legacy: field.string(),
-				title: field.string({
-					extensions: [postgresColumn({ renamedFrom: 'legacy' })],
-				}),
+				title: field.string({ postgres: { renamedFrom: 'legacy' } }),
 			}),
 		})
 		const nestedRename = Schema.define({
@@ -323,7 +316,7 @@ describe('PostgreSQL primitive schema compiler', () => {
 				profile: field.object({
 					fields: (field) => ({
 						title: field.string({
-							extensions: [postgresColumn({ renamedFrom: 'headline' })],
+							postgres: { renamedFrom: 'headline' },
 						}),
 					}),
 				}),

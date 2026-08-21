@@ -1,0 +1,189 @@
+import { execFile } from 'node:child_process'
+import path from 'node:path'
+import { promisify } from 'node:util'
+
+import { FrameworkApplication, Schema } from '@ultimabase/core'
+import {
+	postgresPlugin,
+	type PostgresFieldOption,
+	type PostgresPool,
+	type PostgresPoolClient,
+	type PostgresSchemaOption,
+} from '@ultimabase/postgres-plugin'
+import { generateApplicationTypes } from '@ultimabase/typegen'
+import ts from 'typescript'
+import { expect, it } from 'vitest'
+
+import { createLanguageService } from '../../tooling/vitest/typescript-language-service.js'
+
+declare module '@ultimabase/core' {
+	interface UltimaBaseGeneratedFieldOptions {
+		readonly postgres?: PostgresFieldOption
+	}
+
+	interface UltimaBaseGeneratedSchemaOptions {
+		readonly postgres?: PostgresSchemaOption
+	}
+}
+
+const pool: PostgresPool = {
+	connect: (): Promise<PostgresPoolClient> =>
+		Promise.reject(new TypeError('Static Typegen fixture does not connect')),
+	end: () => Promise.resolve(),
+	query: () => Promise.resolve({ rows: [] }),
+}
+
+it('generates and packs exact PostgreSQL option autocomplete', async () => {
+	const Post = Schema.define({
+		className: 'GeneratedPostgresOptionPost',
+		fields: (field) => ({
+			title: field.string({ postgres: { renamedFrom: 'headline' } }),
+		}),
+		postgres: { table: 'generated_posts' },
+	})
+	const application = new FrameworkApplication({
+		pluginPrivileges: { logger: false },
+		plugins: [postgresPlugin({ pool })],
+		schemas: [Post],
+	})
+	const generated = generateApplicationTypes({
+		application,
+		applicationId: 'fixture.postgres-options',
+	})
+	const fileName = path.join(
+		import.meta.dirname,
+		'postgres-direct-options.packed.fixture.ts',
+	)
+	const schemaMarker = '/* postgres-schema */'
+	const fieldMarker = '/* postgres-field */'
+	const sourceWithMarkers = `${generated.contents}
+import { Schema } from '@ultimabase/core'
+declare const postgresField: Plugin0_PostgresFieldOption
+declare const postgresSchema: Plugin0_PostgresSchemaOption
+const GeneratedPost = Schema.define({
+  className: 'GeneratedPostgresOptionPost',
+  fields: (field) => ({
+    title: field.string({ postgres: { ${fieldMarker}...postgresField } }),
+  }),
+  postgres: { ${schemaMarker}...postgresSchema },
+})
+void GeneratedPost
+`
+	const positions = new Map(
+		[schemaMarker, fieldMarker].map((marker) => [
+			marker,
+			sourceWithMarkers.indexOf(marker),
+		]),
+	)
+	const source = [schemaMarker, fieldMarker].reduce(
+		(contents, marker) => contents.replace(marker, ' '.repeat(marker.length)),
+		sourceWithMarkers,
+	)
+	const service = createLanguageService(fileName, source)
+	const completions = (marker: string): readonly string[] => {
+		const position = positions.get(marker)
+
+		if (position === undefined || position < 0) {
+			throw new TypeError(`Missing PostgreSQL option marker: ${marker}`)
+		}
+
+		return (
+			service
+				.getCompletionsAtPosition(fileName, position, {})
+				?.entries.map(({ name }) => name) ?? []
+		)
+	}
+
+	expect(generated.contents).toContain('from "@ultimabase/postgres-plugin"')
+	expect(completions(schemaMarker)).toContain('table')
+	expect(completions(fieldMarker)).toContain('renamedFrom')
+	expect(service.getSemanticDiagnostics(fileName)).toStrictEqual([])
+
+	const removedSource = `import {
+  postgresColumn,
+  postgresTable,
+  type PostgresColumnExtension,
+  type PostgresTableExtension,
+} from '@ultimabase/postgres-plugin'`
+	const removedDiagnostics = createLanguageService(
+		fileName.replace('.ts', '.removed.ts'),
+		removedSource,
+	)
+		.getSemanticDiagnostics(fileName.replace('.ts', '.removed.ts'))
+		.map(({ messageText }) => ts.flattenDiagnosticMessageText(messageText, ' '))
+
+	for (const removed of [
+		'postgresColumn',
+		'postgresTable',
+		'PostgresColumnExtension',
+		'PostgresTableExtension',
+	]) {
+		expect(
+			removedDiagnostics.some((message) => message.includes(removed)),
+		).toBe(true)
+	}
+
+	await application.dispose()
+})
+
+it('keeps PostgreSQL options unknown without generated plugin declarations', () => {
+	const fileName = path.join(
+		import.meta.dirname,
+		'postgres-direct-options.missing-plugin.fixture.ts',
+	)
+	const source = `import { Schema } from '@ultimabase/core'
+Schema.define({
+  className: 'MissingPostgresPlugin',
+  fields: (field) => ({
+    title: field.string({ postgres: { renamedFrom: 'headline' } }),
+  }),
+  postgres: { table: 'missing_posts' },
+})`
+	const messages = createLanguageService(fileName, source)
+		.getSemanticDiagnostics(fileName)
+		.map(({ messageText }) => ts.flattenDiagnosticMessageText(messageText, ' '))
+
+	expect(messages.some((message) => message.includes('postgres'))).toBe(true)
+})
+
+it('compiles direct PostgreSQL options from JavaScript without Typegen', async () => {
+	const executeFile = promisify(execFile)
+	const fixture = path.join(
+		import.meta.dirname,
+		'fixtures/postgres-direct-options-no-typegen.mjs',
+	)
+	const { stdout } = await executeFile(process.execPath, [fixture])
+	const output: unknown = JSON.parse(stdout)
+
+	expect(output).toStrictEqual({
+		first: {
+			field: { renamedFrom: 'headline' },
+			fieldOwner: {
+				kind: 'plugin',
+				pluginId: '@ultimabase/postgres-plugin',
+				version: '0.0.0',
+			},
+			schema: { table: 'first_posts' },
+			schemaOwner: {
+				kind: 'plugin',
+				pluginId: '@ultimabase/postgres-plugin',
+				version: '0.0.0',
+			},
+		},
+		missingPluginCode: 'PLUGIN_DECLARATION_INVALID',
+		second: {
+			field: { renamedFrom: 'headline' },
+			fieldOwner: {
+				kind: 'plugin',
+				pluginId: '@ultimabase/postgres-plugin',
+				version: '0.0.0',
+			},
+			schema: { table: 'second_posts' },
+			schemaOwner: {
+				kind: 'plugin',
+				pluginId: '@ultimabase/postgres-plugin',
+				version: '0.0.0',
+			},
+		},
+	})
+})

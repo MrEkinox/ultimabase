@@ -2,7 +2,6 @@ import { Schema } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 import { getTableConfig } from 'drizzle-orm/pg-core'
 
-import { postgresColumn } from '../naming/column.js'
 import { compilePostgresSchema } from '../schema/schema-compiler.js'
 import { createPostgresPointerFixture } from '../schema/pointer-fixture.test-support.js'
 import { compileDesiredPostgresTables } from './desired-schema.js'
@@ -33,7 +32,7 @@ describe('desired PostgreSQL schema', () => {
 					sequence: field.int({ autoIncrement: true }),
 					title: field.string({
 						default: "editor's draft",
-						extensions: [postgresColumn({ renamedFrom: 'headline' })],
+						postgres: { renamedFrom: 'headline' },
 						indexed: 'unique',
 					}),
 				}),

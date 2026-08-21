@@ -15,6 +15,11 @@ before plugin declaration or connection work. It is deliberately not a network
 privilege: Core exposes no network facade and does not claim to sandbox the
 in-process driver.
 
+It requests `schema:declare` to own the direct `postgres` schema and field
+options, and `adapter:consume` to compile protected database constraints. The
+options are recognized only when `postgresPlugin()` is installed; unknown keys
+and empty identifiers fail static application compilation.
+
 ## Connection lifecycle
 
 The current implementation accepts either a connection URL or an existing
@@ -527,14 +532,18 @@ outside the current application catalog because it has no migration history
 with which to prove ownership. Unsupported structures on a managed table stop
 `override` before its transaction rather than being approximated.
 
-Renames are explicit and preserve the existing column data:
+Renames are explicit direct field options and preserve existing column data:
 
 ```ts
-import { postgresColumn } from '@ultimabase/postgres-plugin'
-import { stringField } from '@ultimabase/core'
+import { Schema } from '@ultimabase/core'
 
-const title = stringField({
-	extensions: [postgresColumn({ renamedFrom: 'headline' })],
+const ArticleSchema = Schema.define({
+	className: 'Article',
+	fields: (field) => ({
+		title: field.string({
+			postgres: { renamedFrom: 'headline' },
+		}),
+	}),
 })
 ```
 
@@ -856,10 +865,9 @@ Person   → people
 Category → categories
 ```
 
-Use `postgresTable` when the database needs an exact identifier:
+Use the direct schema option when the database needs an exact identifier:
 
 ```ts
-import { postgresTable } from '@ultimabase/postgres-plugin'
 import { Schema } from '@ultimabase/core'
 
 const ArticleSchema = Schema.define({
@@ -867,11 +875,12 @@ const ArticleSchema = Schema.define({
 	fields: (field) => ({
 		title: field.string(),
 	}),
-	extensions: [postgresTable({ name: 'ContentItems-v2' })],
+	postgres: { table: 'ContentItems-v2' },
 })
 ```
 
 The explicit name is preserved verbatim. It is passed to Drizzle as an
-identifier and escaped there, never interpolated into raw SQL. The generic
-extension keeps `@ultimabase/core` independent from PostgreSQL; configuring
-it without `postgresPlugin` fails application setup.
+identifier and escaped there, never interpolated into raw SQL. The option is
+declared and compiled entirely by `@ultimabase/postgres-plugin`, so Core remains
+independent from PostgreSQL. Configuring it without `postgresPlugin()` fails
+static application compilation.

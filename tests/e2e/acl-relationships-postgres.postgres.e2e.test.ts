@@ -9,7 +9,7 @@ import {
 	requestSources,
 } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
-import { postgresPlugin, postgresTable } from '@ultimabase/postgres-plugin'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import {
@@ -33,7 +33,7 @@ const Member = Schema.define({
 	fields: (field) => ({
 		name: field.string({ validation: { required: true } }),
 	}),
-	extensions: [postgresTable({ name: 'acl_relationship_members' })],
+	postgres: { table: 'acl_relationship_members' },
 })
 const identityPlugin = definePlugin({
 	version: '0.0.0',
@@ -62,7 +62,7 @@ const Author = Schema.define({
 		resolveInput: ({ currentAcl, inputAcl }) =>
 			inputAcl ?? currentAcl ?? emptyACL,
 	},
-	extensions: [postgresTable({ name: 'acl_relationship_authors' })],
+	postgres: { table: 'acl_relationship_authors' },
 })
 const Tag = Schema.define({
 	className: 'ACLRelationshipTag',
@@ -74,7 +74,7 @@ const Tag = Schema.define({
 		resolveInput: ({ currentAcl, inputAcl }) =>
 			inputAcl ?? currentAcl ?? emptyACL,
 	},
-	extensions: [postgresTable({ name: 'acl_relationship_tags' })],
+	postgres: { table: 'acl_relationship_tags' },
 })
 const Article = Schema.define({
 	className: 'ACLRelationshipArticle',
@@ -88,7 +88,7 @@ const Article = Schema.define({
 		resolveInput: ({ currentAcl, inputAcl }) =>
 			inputAcl ?? currentAcl ?? emptyACL,
 	},
-	extensions: [postgresTable({ name: 'acl_relationship_articles' })],
+	postgres: { table: 'acl_relationship_articles' },
 })
 
 type PersistedMember = Awaited<

@@ -1,7 +1,7 @@
 import { ACL, aclPlugin } from '@ultimabase/acl-permissions-plugin'
 import { MasterAuthority, Schema, UltimaBase } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
-import { postgresPlugin, postgresTable } from '@ultimabase/postgres-plugin'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import {
@@ -33,7 +33,7 @@ const StoredPost = Schema.define({
 		resolveInput: ({ currentAcl, inputAcl }) =>
 			inputAcl ?? currentAcl ?? initialACL,
 	},
-	extensions: [postgresTable({ name: 'acl_storage_posts' })],
+	postgres: { table: 'acl_storage_posts' },
 })
 
 let fixture: PostgresWorkerFixture | undefined

@@ -10,7 +10,7 @@ import {
 	requestSources,
 } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
-import { postgresPlugin, postgresTable } from '@ultimabase/postgres-plugin'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import {
@@ -96,7 +96,7 @@ const Document = Schema.define({
 		// Returning undefined on create deliberately delegates to the configured default.
 		resolveInput: ({ currentAcl, inputAcl }) => inputAcl ?? currentAcl,
 	},
-	extensions: [postgresTable({ name: 'acl_composition_documents' })],
+	postgres: { table: 'acl_composition_documents' },
 	access: {
 		create: true,
 		delete: {

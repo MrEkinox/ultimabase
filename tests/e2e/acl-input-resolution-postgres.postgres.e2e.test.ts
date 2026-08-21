@@ -11,7 +11,7 @@ import {
 	UltimaBase,
 } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
-import { postgresPlugin, postgresTable } from '@ultimabase/postgres-plugin'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { immutableRecord } from '@ultimabase/shared'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
@@ -79,7 +79,7 @@ const ResolutionPost = Schema.define({
 			return input.inputAcl ?? input.currentAcl
 		},
 	},
-	extensions: [postgresTable({ name: 'acl_input_resolution_posts' })],
+	postgres: { table: 'acl_input_resolution_posts' },
 })
 
 let fixture: PostgresWorkerFixture | undefined

@@ -14,7 +14,7 @@ import {
 } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import type { PluginEventHandlerInput } from '@ultimabase/plugin-kit'
-import { postgresPlugin, postgresTable } from '@ultimabase/postgres-plugin'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import {
@@ -48,7 +48,7 @@ const Post = Schema.define({
 		default: new ACL().grantPublic('read'),
 		resolveInput: ({ currentAcl, inputAcl }) => inputAcl ?? currentAcl,
 	},
-	extensions: [postgresTable({ name: 'acl_change_event_posts' })],
+	postgres: { table: 'acl_change_event_posts' },
 })
 
 const committedChanges: ACLChangedEvent[] = []

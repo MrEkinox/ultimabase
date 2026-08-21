@@ -10,7 +10,7 @@ import {
 	UltimaBase,
 } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
-import { postgresPlugin, postgresTable } from '@ultimabase/postgres-plugin'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
@@ -89,7 +89,7 @@ const ProtectedPost = Schema.define({
 		resolveInput: ({ currentAcl, inputAcl }) =>
 			inputAcl ?? currentAcl ?? emptyACL,
 	},
-	extensions: [postgresTable({ name: 'acl_access_posts' })],
+	postgres: { table: 'acl_access_posts' },
 })
 const aliceId = '0198a43e-2431-7000-8000-000000000070'
 const bobId = '0198a43e-2431-7000-8000-000000000071'

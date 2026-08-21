@@ -26,7 +26,7 @@ import {
 	schemaHooks,
 } from '@ultimabase/hooks-plugin'
 import type { PluginEventHandlerInput } from '@ultimabase/plugin-kit'
-import { postgresPlugin, postgresTable } from '@ultimabase/postgres-plugin'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { RoleSchema, rolesPlugin } from '@ultimabase/roles-plugin'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -98,7 +98,7 @@ const ProtectedPrimary = Schema.define({
 		resolveInput: ({ currentAcl, inputAcl }) =>
 			inputAcl ?? currentAcl ?? emptyACL,
 	},
-	extensions: [postgresTable({ name: 'acl_reference_primary' })],
+	postgres: { table: 'acl_reference_primary' },
 })
 const ProtectedSecondary = Schema.define({
 	className: 'ACLReferenceProtectedSecondary',
@@ -110,7 +110,7 @@ const ProtectedSecondary = Schema.define({
 		resolveInput: ({ currentAcl, inputAcl }) =>
 			inputAcl ?? currentAcl ?? emptyACL,
 	},
-	extensions: [postgresTable({ name: 'acl_reference_secondary' })],
+	postgres: { table: 'acl_reference_secondary' },
 	hooks: {
 		beforeOperation: {
 			update: ({ operation }) => {

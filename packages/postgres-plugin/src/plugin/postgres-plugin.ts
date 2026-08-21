@@ -26,6 +26,7 @@ import {
 	type ManagedPostgresConnection,
 } from '../connection/managed-connection.js'
 import { postgresPluginName } from '../constants.js'
+import { postgresFieldOption, postgresSchemaOption } from '../options.js'
 import { postgresSchemaPreparationCapability } from '../schema-preparation-capability.js'
 import { createPostgresDatabaseAdapter } from '../drizzle/adapter.js'
 import { readPostgresTransactionClient } from '../drizzle/adapter.js'
@@ -209,6 +210,10 @@ const connectionRequirement: CapabilityRequirement<
 const postgresPluginEnvironment = ['environment:network'] as const
 const postgresPluginPrivileges = [
 	{
+		name: 'schema:declare',
+		reason: 'Declares the official PostgreSQL schema and field options.',
+	},
+	{
 		name: 'adapter:consume',
 		reason:
 			'Compiles protected database constraints for the PostgreSQL adapter.',
@@ -329,6 +334,13 @@ export const postgresPlugin = (
 				rawAdapterProvider,
 			],
 			requires: [connectionRequirement],
+		},
+		declare: ({ schemas }) => {
+			schemas.defineOptions({
+				contributionId: 'postgres-options',
+				field: { postgres: postgresFieldOption },
+				schema: { postgres: postgresSchemaOption },
+			})
 		},
 		setup: ({ capabilities, schemas }) => {
 			const connection: PostgresConnectionService = capabilities.get(

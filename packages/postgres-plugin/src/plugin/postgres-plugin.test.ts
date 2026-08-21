@@ -12,7 +12,6 @@ import type {
 	PostgresPool,
 	PostgresPoolClient,
 } from '../connection/contracts.js'
-import { postgresTable } from '../naming/table.js'
 import { postgresSchemaPreparationCapability } from '../schema-preparation-capability.js'
 import { postgresPlugin } from './postgres-plugin.js'
 
@@ -216,11 +215,11 @@ describe('postgresPlugin', () => {
 		expect(pool.queryCalls).toBe(0)
 	})
 
-	it('claims PostgreSQL table-name extensions during application setup', async () => {
+	it('compiles the direct PostgreSQL schema option during setup', async () => {
 		const schema = Schema.define({
 			className: 'Article',
 			fields: (field) => ({ title: field.string() }),
-			extensions: [postgresTable({ name: 'content.Articles' })],
+			postgres: { table: 'content.Articles' },
 		})
 		const application = await createApplication({
 			schemas: [schema],

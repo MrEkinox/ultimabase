@@ -17,7 +17,7 @@ import {
 	typegenEmitterCapability,
 } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
-import { postgresPlugin, postgresTable } from '@ultimabase/postgres-plugin'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import {
 	FakeAdapterMigrationHistory,
 	FakePublicOperationTransport,
@@ -462,12 +462,12 @@ describe('open-kernel Typegen and migration proof', () => {
 	it('retains two instances, one upgrade, and one orphan without destruction', async () => {
 		const First = Schema.define({
 			className: 'OpenKernelMigrationFirst',
-			extensions: [postgresTable({ name: 'open_kernel_migration_first' })],
+			postgres: { table: 'open_kernel_migration_first' },
 			fields: (field) => ({ title: field.string() }),
 		})
 		const Second = Schema.define({
 			className: 'OpenKernelMigrationSecond',
-			extensions: [postgresTable({ name: 'open_kernel_migration_second' })],
+			postgres: { table: 'open_kernel_migration_second' },
 			fields: (field) => ({ title: field.string() }),
 		})
 		const createMetadata = async (version: '1.0.0' | '2.0.0') => {

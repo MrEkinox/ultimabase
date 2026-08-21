@@ -1,7 +1,6 @@
 import { Schema } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
-import { postgresTable } from '../naming/table.js'
 import { PostgresSchemaCatalog } from './catalog.js'
 
 describe('PostgreSQL schema catalog', () => {
@@ -13,7 +12,7 @@ describe('PostgreSQL schema catalog', () => {
 		const audit = Schema.define({
 			className: 'Audit',
 			fields: () => ({}),
-			extensions: [postgresTable({ name: 'Exact-Audit' })],
+			postgres: { table: 'Exact-Audit' },
 		})
 		const catalog = new PostgresSchemaCatalog([article, audit])
 		const names = catalog.tableNames()

@@ -18,9 +18,11 @@ import {
 	type UpdateDeleteAction,
 } from 'drizzle-orm/pg-core'
 
-import { resolvePostgresRenamedFrom } from '../naming/column.js'
 import { createPostgresForeignKeyName } from '../naming/foreign-key.js'
-import { resolvePostgresTableName } from '../naming/table.js'
+import {
+	resolvePostgresRenamedFrom,
+	resolvePostgresTableName,
+} from '../options.js'
 import type {
 	CompiledPostgresField,
 	CompiledPostgresSchema,
@@ -130,9 +132,9 @@ const resolvePointerMetadata = (
 		)
 	}
 
-	const targetTable = resolvePostgresTableName(targetSchema.definition)
+	const targetTable = resolvePostgresTableName(targetSchema)
 	const onDelete = readPointerReferentialAction(plan, fieldName)
-	const tableName = resolvePostgresTableName(schema.definition)
+	const tableName = resolvePostgresTableName(schema)
 
 	return immutableRecord({
 		constraintName: createPostgresForeignKeyName(
@@ -229,7 +231,7 @@ const preparePostgresSchema = (
 		string,
 		AnyPgColumnBuilder
 	>
-	const tableName = resolvePostgresTableName(definition)
+	const tableName = resolvePostgresTableName(schema)
 	const storageByField = immutableRecord(
 		Object.fromEntries(
 			pendingFields.map(([fieldName, field]) => [fieldName, field.storage]),

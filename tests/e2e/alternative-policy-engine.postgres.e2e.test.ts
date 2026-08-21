@@ -1,5 +1,5 @@
 import { MasterAuthority, Schema, UltimaBase } from '@ultimabase/core'
-import { postgresPlugin, postgresTable } from '@ultimabase/postgres-plugin'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import {
@@ -39,13 +39,13 @@ describe('alternative policy PostgreSQL proof', { concurrent: false }, () => {
 					hiddenFields: ['secret'],
 					tenant: 'community',
 				}),
-				postgresTable({ name: 'alternative_policy_documents' }),
 			],
 			fields: (field) => ({
 				secret: field.string({ validation: { required: true } }),
 				tenant: field.string({ validation: { required: true } }),
 				title: field.string({ validation: { required: true } }),
 			}),
+			postgres: { table: 'alternative_policy_documents' },
 		})
 		const engine = createAlternativePolicyEngine({ instanceId: 'postgres' })
 		const ultimabase = new UltimaBase({
