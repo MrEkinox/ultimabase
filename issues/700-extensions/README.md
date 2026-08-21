@@ -34,6 +34,9 @@ contracts later rather than defining parallel relationship semantics.
 ## Other planned extensions
 
 Issue 703 completed the default JSONB-backed `objectField` vertical. Issues 704
-through 736 preserve future product intent without creating empty
-packages. They are not dependencies of the relations vertical unless an issue
-explicitly says otherwise.
+through 728 preserve future product intent without creating empty packages.
+Issues 729 through 736 are superseded historical proposals: Standard Schema now
+composes validation-only formats with native fields, so no derived-field layer
+or standard-fields plugin remains on the active roadmap. The retained issues
+are not dependencies of the relations vertical unless an issue explicitly says
+otherwise.

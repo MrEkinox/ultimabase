@@ -1,6 +1,6 @@
 # 2006: Verify the Standard Schema validation vertical
 
-- Status: planned
+- Status: ready
 - Milestone: 20
 - Packages: repository-wide
 - Depends on: 2007

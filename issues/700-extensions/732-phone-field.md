@@ -1,10 +1,16 @@
 # 732: Add phone fields
 
-- Status: planned
+- Status: superseded
 - Milestone: 7+
 - Packages: future `@ultimabase/standard-fields-plugin`
 - Depends on: 730
 - ADR: none
+- Superseded by: 2007
+
+Issue 2007 supersedes this unimplemented factory. Phone validation composes
+with a native string, while parsing and E.164 canonicalization belong to an
+explicit input Hook using the application's selected phone library. The
+original proposal remains below as historical context.
 
 ## Goal
 

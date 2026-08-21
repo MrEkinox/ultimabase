@@ -61,6 +61,15 @@ Direct schema options configure plugin behavior without altering generated
 object, create-input, or update-input shapes. Plugins that introduce a distinct
 logical value expose a plugin-defined field with that value type instead.
 
+Validation-only formats stay native fields. Email addresses, URLs, slugs,
+locale identifiers, ports, percentages, coordinates, and similar constrained
+values use the native string or numeric field plus a developer-selected Standard
+Schema validator. Parsing or canonicalization belongs to an explicit input
+Hook. A new plugin-defined field kind is warranted only when it owns a distinct
+canonical value, storage representation, Query semantics, Runtime snapshot,
+relationship behavior, or adapter contract; validation syntax alone is not
+enough.
+
 Built-in field factories retain only the normalized booleans and list state
 needed by runtime metadata and code generation. Runtime constraints and literal defaults remain
 available in immutable field options without being repeated in editor hovers;

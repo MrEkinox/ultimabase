@@ -1,10 +1,18 @@
 # 729: Define derived field contracts
 
-- Status: ready
+- Status: superseded
 - Milestone: 7+
 - Packages: `@ultimabase/core`, official adapter and transport plugins
 - Depends on: 125, 207, 210
 - ADR: required
+- Superseded by: 2007
+
+Issue 2007 supersedes the proposed native-field derivation layer. Validation-only
+formats compose directly with native fields through Standard Schema, while a
+genuinely distinct logical value continues through the existing plugin field,
+codec, Query, Runtime, and adapter contracts. No proven consumer remains for a
+second lowering abstraction. The original proposal remains below as historical
+context.
 
 ## Goal
 

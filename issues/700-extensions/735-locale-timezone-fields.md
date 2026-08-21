@@ -1,10 +1,16 @@
 # 735: Add locale and timezone fields
 
-- Status: planned
+- Status: superseded
 - Milestone: 7+
 - Packages: future `@ultimabase/standard-fields-plugin`
 - Depends on: 730
 - ADR: none
+- Superseded by: 2007
+
+Issue 2007 supersedes these unimplemented factories. Locale and timezone
+identifiers are native strings constrained by Standard Schema; requested locale
+canonicalization remains an explicit input Hook. The original proposal remains
+below as historical context.
 
 ## Goal
 

@@ -76,6 +76,8 @@ once. Zod diagnostics are exposed through UltimaBase's neutral
 The slug demonstrates the transformation boundary: Core first accepts a
 structurally valid string, the field Hook rewrites it, and the mandatory final
 Standard Schema pass accepts only the canonical lowercase hyphenated form.
+It remains an ordinary `field.string()` rather than requiring a `slugField`
+factory or an additional Runtime plugin.
 
 This demonstrates that the plugins compose monotonically: ordinary readers see
 only non-archived rows allowed by their object ACL, editor ACLs may permit an

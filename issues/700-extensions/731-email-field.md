@@ -1,10 +1,16 @@
 # 731: Add email fields
 
-- Status: planned
+- Status: superseded
 - Milestone: 7+
 - Packages: future `@ultimabase/standard-fields-plugin`
 - Depends on: 730
 - ADR: none
+- Superseded by: 2007
+
+Issue 2007 supersedes this unimplemented factory. Email syntax is a constraint
+on a native string and composes with a developer-selected Standard Schema
+validator. Any requested case conversion remains an explicit input Hook. The
+original proposal remains below as historical context.
 
 ## Goal
 

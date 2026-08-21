@@ -1,10 +1,17 @@
 # 730: Create the standard fields package
 
-- Status: planned
+- Status: superseded
 - Milestone: 7+
 - Packages: future `@ultimabase/standard-fields-plugin`
 - Depends on: 729
 - ADR: none
+- Superseded by: 2007
+
+Issue 2007 supersedes this unimplemented package. Applications use native fields
+with their selected Standard Schema validators, and reusable validators can be
+ordinary community packages without installing an UltimaBase Runtime plugin.
+No empty or compatibility package is created. The original proposal remains
+below as historical context.
 
 ## Goal
 

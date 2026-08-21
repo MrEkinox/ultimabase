@@ -15,12 +15,12 @@ application validation without transforming canonical values.
 4. Issue 2004 — replace the field-constraint DSL with Standard Schema (`completed`).
 5. Issue 2005 — prove validator interoperability and generated DX (`completed`).
 6. Issue 2008 — validate fields after input resolution (`completed`).
-7. Issue 2007 — remove planned validation-only field extensions (`planned`).
-8. Issue 2006 — verify the complete validation vertical (`planned`).
+7. Issue 2007 — remove planned validation-only field extensions (`completed`).
+8. Issue 2006 — verify the complete validation vertical (`ready`).
 
 ## Resume point
 
-Start issue 2007 by removing the planned validation-only field extensions now
-replaced by native fields composed with post-resolution Standard Schema.
+Start issue 2006 by auditing and verifying the complete Standard Schema
+validation vertical, including package archives and PostgreSQL Testcontainers.
 ACL hardening issues 432 through 435 remain deliberately deferred until
 explicit direction.

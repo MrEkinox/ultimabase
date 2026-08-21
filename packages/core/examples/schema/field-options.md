@@ -14,6 +14,10 @@ import { z } from 'zod'
 export const ProductSchema = Schema.define({
 	className: 'Product',
 	fields: (field) => ({
+		supportEmail: field.string({
+			required: true,
+			validation: z.string().email(),
+		}),
 		externalId: field.uuid({
 			indexed: 'unique',
 			required: true,
@@ -30,6 +34,9 @@ export const ProductSchema = Schema.define({
 		}),
 		rating: field.float({
 			validation: z.number().finite().min(0).max(5),
+		}),
+		latitude: field.float({
+			validation: z.number().min(-90).max(90),
 		}),
 		price: field.decimal({
 			required: true,
@@ -85,6 +92,11 @@ checks. Optional Hooks may then normalize that structurally trusted value, and
 one mandatory final Core pass invokes Standard Schema before persistence. This
 lets a strict validator describe the stored canonical form without accepting
 every raw form handled by `resolveInput`.
+
+`supportEmail` and `latitude` remain ordinary string and float fields. Their
+format and range rules do not require derived logical kinds or an UltimaBase
+plugin. Community packages may share the validators themselves as ordinary
+Standard Schema values.
 
 Invalid combinations are rejected on the option object itself. Editor
 diagnostics identify `values` for an empty enum domain, `onDelete` for a

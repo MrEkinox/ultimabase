@@ -1,10 +1,16 @@
 # 734: Add portable identifier fields
 
-- Status: planned
+- Status: superseded
 - Milestone: 7+
 - Packages: future `@ultimabase/standard-fields-plugin`
 - Depends on: 730
 - ADR: none
+- Superseded by: 2007
+
+Issue 2007 supersedes these unimplemented factories. Slugs, colors, and
+country, currency, or language codes are native strings constrained by Standard
+Schema. Rewriting, case conversion, and canonicalization remain explicit input
+Hooks. The original proposal remains below as historical context.
 
 ## Goal
 

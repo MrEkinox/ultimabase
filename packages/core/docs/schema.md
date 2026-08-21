@@ -645,6 +645,59 @@ An explicit `resolveInput` Hook may first trim, rewrite, or canonicalize a
 structurally valid string. Standard Schema then validates the final candidate;
 it does not need to accept both the raw input form and the stored form.
 
+### Validation formats are composition, not field kinds
+
+A format or numeric bound does not create a new logical field value. Compose
+the native field that owns the canonical TypeScript and storage value with the
+validator selected by the application:
+
+| Application rule                                          | Native UltimaBase field |
+| --------------------------------------------------------- | ----------------------- |
+| email, phone, URL, hostname, IP address, slug, color      | `field.string()`        |
+| country, currency, language, locale, timezone identifiers | `field.string()`        |
+| port and positive safe integer                            | `field.int()`           |
+| percentage, positive number, latitude, longitude          | `field.float()`         |
+| exact positive decimal or exact percentage                | `field.decimal()`       |
+
+```ts
+const ContactSchema = Schema.define({
+	className: 'Contact',
+	fields: (field) => ({
+		email: field.string({
+			required: true,
+			validation: z.string().email(),
+		}),
+		homepage: field.string({ validation: z.string().url() }),
+		slug: field.string({
+			validation: z.string().regex(/^[a-z]+(?:-[a-z]+)*$/u),
+		}),
+		port: field.int({
+			validation: z.number().int().min(1).max(65_535),
+		}),
+		latitude: field.float({
+			validation: z.number().min(-90).max(90),
+		}),
+	}),
+})
+```
+
+Phone parsing, slug rewriting, case conversion, locale canonicalization, and
+similar value changes are not validation. An installed behavior plugin may
+perform them explicitly through `resolveInput`; Core then validates the final
+canonical value. Standard Schema output is never adopted as a transformation.
+
+A reusable community package may publish Standard Schema validators or
+validator-authoring helpers directly. It needs neither a logical field kind nor
+an UltimaBase Runtime plugin merely to validate a native value. UltimaBase does
+not select or publish an official validation library.
+
+A plugin-defined field kind is justified only when it owns at least one
+distinct semantic boundary: a canonical value type, storage representation,
+Query behavior, Runtime snapshot, relationship behavior, or adapter contract.
+Such fields continue through the public plugin field, codec, Query, Runtime,
+and adapter contracts; they do not lower through a speculative native-field
+derivation layer.
+
 ## Integer fields
 
 `intField(options)` represents safe JavaScript integers. It supports

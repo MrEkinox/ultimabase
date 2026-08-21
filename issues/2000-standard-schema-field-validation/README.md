@@ -1,6 +1,6 @@
 # Milestone 20 — Standard Schema field validation
 
-- Status: planned
+- Status: in-progress
 
 Replace Core's closed field-constraint DSL with one validator-neutral Standard
 Schema V1 boundary. Presence remains framework metadata through a direct
@@ -42,7 +42,7 @@ constraints rather than structural validation.
 4. [x] [2004 — Replace field constraints with Standard Schema](2004-standard-schema-field-validators.md)
 5. [x] [2005 — Prove validator interoperability and generated DX](2005-validator-interoperability-typegen-dx.md)
 6. [x] [2008 — Validate fields after input resolution](2008-post-resolution-field-validation.md)
-7. [ ] [2007 — Remove planned validation-only field extensions](2007-remove-validation-only-field-extensions.md)
+7. [x] [2007 — Remove planned validation-only field extensions](2007-remove-validation-only-field-extensions.md)
 8. [ ] [2006 — Verify the Standard Schema validation vertical](2006-standard-schema-validation-verification.md)
 
 The order first fixes the durable contract, then separates presence and

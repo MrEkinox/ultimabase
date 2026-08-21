@@ -1,10 +1,17 @@
 # 733: Add web and network fields
 
-- Status: planned
+- Status: superseded
 - Milestone: 7+
 - Packages: future `@ultimabase/standard-fields-plugin`
 - Depends on: 730
 - ADR: none
+- Superseded by: 2007
+
+Issue 2007 supersedes these unimplemented factories. URL, hostname, and IP
+syntax compose with native string fields and Standard Schema validators. A
+future field with distinct `inet` or `cidr` storage or Query semantics would
+require its own evidence and plugin-field contract. The original proposal
+remains below as historical context.
 
 ## Goal
 

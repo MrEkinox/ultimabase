@@ -1,10 +1,17 @@
 # 736: Add constrained numeric fields
 
-- Status: planned
+- Status: superseded
 - Milestone: 7+
 - Packages: future `@ultimabase/standard-fields-plugin`
 - Depends on: 730
 - ADR: none
+- Superseded by: 2007
+
+Issue 2007 supersedes these unimplemented presets. Ports, percentages, positive
+numbers, latitude, and longitude remain native numeric values constrained by
+Standard Schema. A future numeric field kind still requires distinct canonical,
+storage, Query, Runtime, or adapter behavior. The original proposal remains
+below as historical context.
 
 ## Goal
 
