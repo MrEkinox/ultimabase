@@ -20,11 +20,12 @@ is complete. Milestone 14 delivered the public kernel and milestone 15 proved
 the optional official Hooks and Access plugins, independent alternatives, and
 Core-owned Master through the final issue 1509 audit.
 
-Milestone 16 is the active release-hardening backlog for those foundations. It
-starts by resolving the exact provenance and trust boundary of Master contexts,
-then makes privilege and environmental reporting truthful, reconciles public
-documentation, strengthens security coverage and conformance, trims accidental
-public surfaces, and verifies the no-product Runtime cost before release.
+Milestone 16 completed the release-hardening backlog for those foundations. It
+resolved the exact provenance and trust boundary of Master contexts, made
+privilege and environmental reporting truthful, reconciled public
+documentation, strengthened security coverage and conformance, trimmed
+accidental public surfaces, and verified the no-product Runtime cost through
+the final issue 1613 gate.
 
 The ACL hardening plan remains paused at issue 432. Generated schema authoring
 and type contracts remain paused at the final DX and performance verification
