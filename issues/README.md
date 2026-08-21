@@ -76,6 +76,7 @@ consistent without rewriting historical issue prose.
 - [`1600-kernel-security-release-hardening/`](1600-kernel-security-release-hardening/README.md)
 - [`1700-validation-interoperability/`](1700-validation-interoperability/README.md)
 - [`1800-single-acl-plugin/`](1800-single-acl-plugin/README.md)
+- [`1900-direct-plugin-schema-configuration/`](1900-direct-plugin-schema-configuration/README.md)
 
 ## Assignment prompt
 
