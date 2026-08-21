@@ -1,8 +1,9 @@
 # ADR-0130: Contextual schema extension binding
 
-- Status: accepted
+- Status: superseded
 - Date: 2026-08-04
 - Refines: ADR-0002, ADR-0088, ADR-0129
+- Superseded by: ADR-0213
 
 ## Context
 

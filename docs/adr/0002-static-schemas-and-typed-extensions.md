@@ -1,7 +1,8 @@
 # ADR-0002: Static schemas and typed extensions
 
-- Status: accepted
+- Status: superseded
 - Date: 2026-07-30
+- Superseded by: ADR-0213
 
 ## Decision
 

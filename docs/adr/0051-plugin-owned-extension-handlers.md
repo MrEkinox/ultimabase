@@ -1,8 +1,9 @@
 # ADR-0051: Plugin-owned extension handlers
 
-- Status: accepted
+- Status: superseded
 - Date: 2026-07-31
 - Refines: ADR-0002, ADR-0048, ADR-0050
+- Superseded by: ADR-0213
 
 ## Decision
 

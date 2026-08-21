@@ -1,6 +1,6 @@
 # Milestone 19 — Direct plugin schema configuration
 
-- Status: planned
+- Status: in-progress
 
 Remove the generic `extensions` containers from schemas and fields now that the
 public plugin kernel has more precise contribution mechanisms. Plugin-owned
@@ -31,8 +31,8 @@ the same issue.
 
 ## Execution order
 
-1. [ ] [1901 — Decide the direct replacement and removal boundary](1901-direct-plugin-configuration-adr.md)
-2. [ ] [1902 — Add option-owned structural schema contributions](1902-option-owned-structural-contributions.md)
+1. [x] [1901 — Decide the direct replacement and removal boundary](1901-direct-plugin-configuration-adr.md)
+2. [ ] [1902 — Add option-presence schema selection](1902-option-presence-schema-selection.md)
 3. [ ] [1903 — Migrate ACL to a direct schema option](1903-direct-acl-schema-option.md)
 4. [ ] [1904 — Migrate PostgreSQL metadata to direct options](1904-direct-postgres-options.md)
 5. [ ] [1905 — Replace the RoleSchema extension marker](1905-role-schema-identity.md)
@@ -40,8 +40,8 @@ the same issue.
 7. [ ] [1907 — Verify the extension-free public vertical](1907-extension-free-verification.md)
 
 Issues are ordered so the one structural behavior currently unique to schema
-extensions—adding reserved ACL storage—has a generic replacement before ACL
-migrates. PostgreSQL and Roles then leave the old representation before Core,
+extensions—adding reserved ACL storage—reuses an option-presence selector and
+ordinary patch before ACL migrates. PostgreSQL and Roles then leave the old representation before Core,
 Typegen, Plugin Kit, official authoring helpers, and documentation delete it.
 
 ## Deliberate boundaries

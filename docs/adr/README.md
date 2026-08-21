@@ -5,7 +5,6 @@ Status values are `proposed`, `accepted`, `deprecated`, and `superseded`.
 Accepted records:
 
 - [ADR-0001: Monorepo and package direction](0001-monorepo-and-package-direction.md)
-- [ADR-0002: Static schemas and typed extensions](0002-static-schemas-and-typed-extensions.md)
 - [ADR-0003: Global plugin graph with nested composition](0003-global-plugin-graph.md)
 - [ADR-0004: One operation engine](0004-one-operation-engine.md)
 - [ADR-0005: Immutable class-based public API](0005-immutable-class-api.md)
@@ -49,7 +48,6 @@ Accepted records:
 - [ADR-0048: Owner-scoped plugin setup registries](0048-owner-scoped-plugin-setup-registries.md)
 - [ADR-0049: Deterministic plugin lifecycle](0049-deterministic-plugin-lifecycle.md)
 - [ADR-0050: Isolated FrameworkApplication boundary](0050-isolated-framework-application.md)
-- [ADR-0051: Plugin-owned extension handlers](0051-plugin-owned-extension-handlers.md)
 - [ADR-0052: Typed transport-neutral Query AST](0052-typed-transport-neutral-query-ast.md)
 - [ADR-0053: Field-kind filter capabilities](0053-field-kind-filter-capabilities.md)
 - [ADR-0054: Deterministic logical filter normalization](0054-logical-filter-normalization.md)
@@ -117,7 +115,6 @@ Accepted records:
 - [ADR-0127: Committed ACL change events](0127-committed-acl-change-events.md)
 - [ADR-0128: Explicit master bypass for policy-neutral enforcement](0128-explicit-master-enforcement-bypass.md)
 - [ADR-0129: Proposed logical data for ACL input resolution](0129-proposed-acl-input-data.md)
-- [ADR-0130: Contextual schema extension binding](0130-contextual-schema-extension-binding.md)
 - [ADR-0131: Optional committed event delivery](0131-optional-committed-event-delivery.md)
 - [ADR-0132: Read-only queries and schema-owned write commands](0132-read-only-queries-and-schema-write-commands.md)
 - [ADR-0133: Canonical null for optional field values](0133-canonical-null-for-optional-fields.md)
@@ -198,14 +195,17 @@ Accepted records:
 - [ADR-0210: Adapter snapshots use structural JSON equality](0210-structural-json-snapshot-equality.md)
 - [ADR-0211: Plugin options accept synchronous Standard Schema validators](0211-synchronous-standard-schema-plugin-options.md)
 - [ADR-0212: Field-owned portable plugin containment](0212-field-owned-portable-plugin-containment.md)
+- [ADR-0213: Direct plugin options replace schema and field extensions](0213-direct-plugin-options-replace-schema-field-extensions.md)
 
 Superseded records:
 
+- [ADR-0002: Static schemas and typed extensions](0002-static-schemas-and-typed-extensions.md), superseded by ADR-0213.
 - [ADR-0013: Access modes and master authority](0013-access-modes-and-master.md), superseded by ADR-0113.
 - [ADR-0017: Composite fields and PostgreSQL storage](0017-composite-fields-and-postgres-storage.md), superseded by ADR-0021.
 - [ADR-0018: Default value boundaries](0018-default-value-boundaries.md), superseded by ADR-0038.
 - [ADR-0020: Compiled validation plans](0020-compiled-validation-plans.md), superseded by ADR-0039.
 - [ADR-0035: Schema domain-oriented internal layout](0035-schema-domain-layout.md), superseded by ADR-0036.
+- [ADR-0051: Plugin-owned extension handlers](0051-plugin-owned-extension-handlers.md), superseded by ADR-0213.
 - [ADR-0061: Neutral BoundQuery facade](0061-neutral-bound-query-facade.md), superseded by ADR-0108.
 - [ADR-0062: Request context security boundary](0062-request-context-security-boundary.md), superseded by ADR-0113.
 - [ADR-0064: Mandatory deterministic Runtime pipeline](0064-mandatory-runtime-pipeline.md), superseded by ADR-0090.
@@ -217,6 +217,7 @@ Superseded records:
 - [ADR-0110: Concise singular Query terminals](0110-concise-singular-query-terminals.md), superseded by ADR-0132.
 - [ADR-0111: Non-atomic bulk hook semantics](0111-non-atomic-bulk-hook-semantics.md), superseded by ADR-0164.
 - [ADR-0114: Terminal-only Query authority resolution](0114-terminal-only-query-authority-resolution.md), superseded by ADR-0153.
+- [ADR-0130: Contextual schema extension binding](0130-contextual-schema-extension-binding.md), superseded by ADR-0213.
 - [ADR-0141: Explicit read hooks and eager pointer inclusion](0141-explicit-read-hooks-and-eager-pointer-inclusion.md), superseded by ADR-0163.
 - [ADR-0142: Explicit schema operation hooks](0142-explicit-schema-operation-hooks.md), superseded by ADR-0163.
 

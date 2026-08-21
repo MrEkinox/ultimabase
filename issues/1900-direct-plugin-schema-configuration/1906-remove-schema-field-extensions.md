@@ -16,6 +16,7 @@ source, compiler, authoring, testing, and public-package boundary.
 - [ ] `SchemaOptions`, schema definitions, common field options, relations, plugin fields, validation plans, and generated declarations expose no `extensions` property.
 - [ ] `ExtensionDefinition`, `SchemaExtension`, `FieldExtension`, contextual binders, factories, list normalizers, target contexts, and extension-specific errors are deleted from Core exports.
 - [ ] Schema compiler IR, canonical operations, validation, encoding, decoding, provenance, fingerprints, transformations, patches, Typegen snapshots, and conformance fixtures carry no extension nodes.
+- [ ] Compiler IR and `schemaCompilerCapability` advance atomically from 3.0.0 to 4.0.0 and reject protocol 3 without a compatibility decoder.
 - [ ] Plugin Kit exposes no extension patch helper, and Access/Hooks expose no extension-target contribution helper.
 - [ ] Unknown direct options still fail when their plugin is absent, while installed plugins retain precise autocomplete and Runtime behavior.
 - [ ] The removal audit covers source barrels, compiled declarations, package archives, manifests, examples, active documentation, dependency constraints, and deep-import guards.
