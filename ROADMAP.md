@@ -27,6 +27,11 @@ documentation, strengthened security coverage and conformance, trimmed
 accidental public surfaces, and verified the no-product Runtime cost through
 the final issue 1613 gate.
 
+Milestone 20 is the active planning target. It replaces Core's closed
+field-constraint DSL with synchronous Standard Schema validators, moves
+presence and inspectable storage metadata to direct field options, and keeps
+Core authoritative for canonical field types and Runtime validation boundaries.
+
 The ACL hardening plan remains paused at issue 432. Generated schema authoring
 and type contracts remain paused at the final DX and performance verification
 issue 810. Neither paused objective is part of an active plan.
@@ -157,6 +162,24 @@ generically in PostgreSQL. ACL migrates authorization and subject-reference
 discovery onto those protected row filters and removes its dedicated PostgreSQL
 bridge, so applications install only `aclPlugin()` and their selected database
 plugin without sacrificing adapter neutrality.
+
+## Milestone 19 — Direct plugin schema configuration
+
+Completed removal of generic schema and field `extensions`. Direct plugin
+options own configuration, plugin fields own distinct logical values, ordinary
+owner-attributed patches own structural changes, and versioned capabilities
+own cross-plugin integration. No compatibility container or renamed metadata
+bag remains.
+
+## Milestone 20 — Standard Schema field validation
+
+Replace nested `validation.required` with the direct `required` field option,
+move adapter-inspected decimal shape metadata to direct options, and accept one
+synchronous Standard Schema validator for the complete canonical non-null field
+value. The validator may narrow through issues but may not transform values,
+perform asynchronous work, define field storage, or replace Core's structural
+type snapshots. Built-in and plugin-defined fields share the same protocol
+without selecting Zod, Valibot, ArkType, or another concrete library.
 
 ## First usable release
 

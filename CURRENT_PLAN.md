@@ -2,22 +2,23 @@
 
 ## Objective
 
-Milestone 19 replaces schema and field `extensions` with the existing direct
-plugin-option, plugin-field, patch, and capability vocabulary. The final public
-schema API has no generic extension container or extension-specific helper.
+Milestone 20 replaces the closed built-in field-validation DSL with one
+validator-neutral Standard Schema boundary. Presence and storage shape remain
+inspectable direct field options, while Standard Schema owns additional
+application validation without transforming canonical values.
 
 ## Order
 
-1. Issue 1901 — decide the direct replacement contract and removal boundary (`completed`).
-2. Issue 1902 — add option-presence schema selection over ordinary patches (`completed`).
-3. Issue 1903 — migrate ACL to a direct schema option (`completed`).
-4. Issue 1904 — migrate PostgreSQL naming metadata to direct options (`completed`).
-5. Issue 1905 — remove the RoleSchema extension marker (`completed`).
-6. Issue 1906 — delete the generic schema and field extension system (`completed`).
-7. Issue 1907 — verify the extension-free public vertical (`completed`).
+1. Issue 2001 — decide the Standard Schema validation boundary (`ready`).
+2. Issue 2002 — move required presence to a direct field option (`planned`).
+3. Issue 2003 — move inspectable decimal shape metadata to direct options (`planned`).
+4. Issue 2004 — replace the field-constraint DSL with Standard Schema (`planned`).
+5. Issue 2005 — prove validator interoperability and generated DX (`planned`).
+6. Issue 2006 — verify the complete validation vertical (`planned`).
 
 ## Resume point
 
-Milestone 19 is complete. There is no active implementation issue; wait for
-explicit direction before selecting another objective. ACL hardening issues 432
-through 435 remain deliberately deferred until that direction is given.
+Start issue 2001. Do not preserve the old nested presence or validation DSL:
+UltimaBase is still in development, and every replacement removes its
+superseded API in the same issue. ACL hardening issues 432 through 435 remain
+deliberately deferred until explicit direction.
