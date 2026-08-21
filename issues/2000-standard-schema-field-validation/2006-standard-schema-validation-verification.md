@@ -3,7 +3,7 @@
 - Status: planned
 - Milestone: 20
 - Packages: repository-wide
-- Depends on: 2005
+- Depends on: 2007
 - ADR: all accepted milestone 20 decisions
 
 ## Goal
@@ -20,6 +20,9 @@ validation model.
 - [ ] PostgreSQL compiles decimal storage exclusively from direct shape metadata and passes Runtime, synchronization, migration, and Testcontainers coverage.
 - [ ] Built-in and plugin-defined fields pass source, generated, JavaScript, Typegen-free, packed-package, public E2E, and application-isolation verification with multiple validators.
 - [ ] Public declarations, archives, manifests, dependency constraints, exports, deep-import guards, active architecture, package READMEs, examples, and contributor guidance expose only the canonical contract.
+- [ ] Active planning and documentation contain no validation-only derived
+      field package or logical field kinds superseded by native fields composed
+      with Standard Schema.
 - [ ] No concrete validator is a production dependency of Core, Typegen, Shared, Plugin Kit, or an official Runtime plugin unless that package independently owns it.
 - [ ] File-size baselines decrease or disappear wherever deleting the old constraint implementation permits.
 - [ ] The milestone README records exact commands, focused interoperability and PostgreSQL evidence, and any deliberately deferred work.

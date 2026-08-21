@@ -14,7 +14,8 @@ application validation without transforming canonical values.
 3. Issue 2003 — move inspectable decimal shape metadata to direct options (`ready`).
 4. Issue 2004 — replace the field-constraint DSL with Standard Schema (`planned`).
 5. Issue 2005 — prove validator interoperability and generated DX (`planned`).
-6. Issue 2006 — verify the complete validation vertical (`planned`).
+6. Issue 2007 — remove planned validation-only field extensions (`planned`).
+7. Issue 2006 — verify the complete validation vertical (`planned`).
 
 ## Resume point
 

@@ -179,7 +179,10 @@ synchronous Standard Schema validator for the complete canonical non-null field
 value. The validator may narrow through issues but may not transform values,
 perform asynchronous work, define field storage, or replace Core's structural
 type snapshots. Built-in and plugin-defined fields share the same protocol
-without selecting Zod, Valibot, ArkType, or another concrete library.
+without selecting Zod, Valibot, ArkType, or another concrete library. Planned
+email, phone, URL, slug, locale, numeric-bound, and similar validation-only
+field extensions are retired in favor of composing native fields with Standard
+Schema; explicit Hooks remain responsible for requested normalization.
 
 ## First usable release
 

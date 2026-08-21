@@ -40,13 +40,16 @@ checks remain hooks or protected constraints rather than structural validation.
 3. [ ] [2003 — Move decimal shape metadata to direct field options](2003-direct-decimal-shape-options.md)
 4. [ ] [2004 — Replace field constraints with Standard Schema](2004-standard-schema-field-validators.md)
 5. [ ] [2005 — Prove validator interoperability and generated DX](2005-validator-interoperability-typegen-dx.md)
-6. [ ] [2006 — Verify the Standard Schema validation vertical](2006-standard-schema-validation-verification.md)
+6. [ ] [2007 — Remove planned validation-only field extensions](2007-remove-validation-only-field-extensions.md)
+7. [ ] [2006 — Verify the Standard Schema validation vertical](2006-standard-schema-validation-verification.md)
 
 The order first fixes the durable contract, then separates presence and
 adapter-visible shape from application validation. The Standard Schema Runtime
 replacement can therefore remove the old DSL atomically without hiding storage
 metadata inside an opaque validator. Interoperability and final verification
-run only after the canonical public API exists.
+run only after the canonical public API exists. The milestone then removes the
+planned validation-only derived field package before final verification, so
+native fields composed with Standard Schema remain the one documented model.
 
 ## Deliberate boundaries
 
@@ -63,6 +66,9 @@ run only after the canonical public API exists.
   dual syntax, or decoder for the removed validation objects.
 - No new package is created and JavaScript applications still run without
   Typegen or a generated client.
+- Email, phone, URL, slug, locale, numeric-bound, and similar formats do not
+  justify separate logical field kinds; native fields compose with Standard
+  Schema, while explicit Hooks own any requested normalization.
 
 ## Completion gate
 
