@@ -138,6 +138,7 @@ const comparePrimitiveValues = (
 
 const appendDecimalIssues = (
 	issues: ValidationIssue[],
+	field: GenericField,
 	validation: Readonly<Record<string, unknown>>,
 	value: string,
 	path: ValidationIssuePath,
@@ -147,27 +148,29 @@ const appendDecimalIssues = (
 	const precision = integer.length + fraction.length
 
 	if (
-		typeof validation.precision === 'number' &&
-		precision > validation.precision
+		'precision' in field.options &&
+		typeof field.options.precision === 'number' &&
+		precision > field.options.precision
 	) {
 		issues.push(
 			createIssue(
 				'decimal.precision',
 				path,
-				`Value precision must not exceed ${String(validation.precision)}`,
+				`Value precision must not exceed ${String(field.options.precision)}`,
 			),
 		)
 	}
 
 	if (
-		typeof validation.scale === 'number' &&
-		fraction.length > validation.scale
+		'scale' in field.options &&
+		typeof field.options.scale === 'number' &&
+		fraction.length > field.options.scale
 	) {
 		issues.push(
 			createIssue(
 				'decimal.scale',
 				path,
-				`Value scale must not exceed ${String(validation.scale)}`,
+				`Value scale must not exceed ${String(field.options.scale)}`,
 			),
 		)
 	}
@@ -288,7 +291,7 @@ export const validateScalarFieldConstraints = (
 			break
 		case 'decimal':
 			if (typeof value === 'string') {
-				appendDecimalIssues(issues, validation, value, path)
+				appendDecimalIssues(issues, field, validation, value, path)
 			}
 			break
 		case 'date':

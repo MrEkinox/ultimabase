@@ -35,9 +35,9 @@ export const ProductSchema = Schema.define({
 		}),
 		price: field.decimal({
 			required: true,
+			precision: 12,
+			scale: 2,
 			validation: {
-				precision: 12,
-				scale: 2,
 				range: { min: '0.00' },
 			},
 		}),

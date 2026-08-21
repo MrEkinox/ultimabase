@@ -11,16 +11,16 @@ application validation without transforming canonical values.
 
 1. Issue 2001 — decide the Standard Schema validation boundary (`completed`).
 2. Issue 2002 — move required presence to a direct field option (`completed`).
-3. Issue 2003 — move inspectable decimal shape metadata to direct options (`ready`).
-4. Issue 2004 — replace the field-constraint DSL with Standard Schema (`planned`).
+3. Issue 2003 — move inspectable decimal shape metadata to direct options (`completed`).
+4. Issue 2004 — replace the field-constraint DSL with Standard Schema (`ready`).
 5. Issue 2005 — prove validator interoperability and generated DX (`planned`).
 6. Issue 2007 — remove planned validation-only field extensions (`planned`).
 7. Issue 2006 — verify the complete validation vertical (`planned`).
 
 ## Resume point
 
-Start issue 2003 by moving decimal precision and scale to direct inspectable
-options. Do not preserve the old nested shape metadata: UltimaBase is still in
-development, and every replacement removes its superseded API in the same
-issue. ACL hardening issues 432 through 435 remain deliberately deferred until
-explicit direction.
+Start issue 2004 by replacing the remaining built-in field-constraint DSL with
+one synchronous Standard Schema validator. Preserve Core's canonical snapshots
+and direct structural metadata, and do not retain compatibility with the closed
+constraint objects. ACL hardening issues 432 through 435 remain deliberately
+deferred until explicit direction.

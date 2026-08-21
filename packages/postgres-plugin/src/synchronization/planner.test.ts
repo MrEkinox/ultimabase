@@ -205,6 +205,45 @@ describe('PostgreSQL schema change planner', () => {
 		expect(Object.isFrozen(changes)).toBe(true)
 	})
 
+	it('plans direct decimal shape changes as physical numeric type changes', () => {
+		const decimalDesired: DesiredPostgresTable = {
+			columns: [
+				{
+					name: 'amount',
+					nullable: true,
+					primary: false,
+					type: 'numeric(18, 4)',
+				},
+			],
+			foreignKeys: [],
+			indexes: [],
+			name: 'accounts',
+		}
+		const changes = planPostgresSchemaChanges([decimalDesired], {
+			namespace: 'public',
+			tables: [
+				{
+					columns: [{ name: 'amount', nullable: true, type: 'numeric(12, 2)' }],
+					constraints: [],
+					indexes: [],
+					managed: true,
+					name: 'accounts',
+				},
+			],
+			unsupported: [],
+		})
+
+		expect(changes).toStrictEqual([
+			{
+				column: 'amount',
+				from: 'numeric(12, 2)',
+				kind: 'alter-column-type',
+				table: 'accounts',
+				to: 'numeric(18, 4)',
+			},
+		])
+	})
+
 	it('creates missing tables and reports unsupported managed structures', () => {
 		expect(
 			planPostgresSchemaChanges([desired], {

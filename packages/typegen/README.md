@@ -111,6 +111,11 @@ dynamic schema handles, schema/model commands, and query inputs. Plugin owner,
 version, contribution ID, static options, imports, destinations, and contents
 all participate in collision checks and fingerprints.
 
+Core-owned structural metadata that cannot change a TypeScript value shape is
+deliberately omitted. Decimal `precision` and `scale`, for example, affect
+Runtime validation and adapter storage but produce the same generated string
+field contract and fingerprint as an otherwise identical decimal field.
+
 Operation declarations retain exact input, result, and declared public
 `PluginError` code unions. Generated application and schema/model handles add
 typing and autocomplete to the same runtime `execute()` method; they never emit

@@ -177,22 +177,13 @@ const readDecimalConfig = (
 	readonly mode: 'string'
 } => {
 	const options = readFieldOptions(field)
-	const validation = hasOption(field, 'validation')
-		? options.validation
-		: undefined
 	const precision =
-		typeof validation === 'object' &&
-		validation !== null &&
-		'precision' in validation &&
-		typeof validation.precision === 'number'
-			? validation.precision
+		Object.hasOwn(options, 'precision') && typeof options.precision === 'number'
+			? options.precision
 			: undefined
 	const scale =
-		typeof validation === 'object' &&
-		validation !== null &&
-		'scale' in validation &&
-		typeof validation.scale === 'number'
-			? validation.scale
+		Object.hasOwn(options, 'scale') && typeof options.scale === 'number'
+			? options.scale
 			: undefined
 
 	return {

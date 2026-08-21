@@ -73,6 +73,12 @@ validation, defaults, plugin-owned options, and adapter metadata keep one implem
 Embedded builders deliberately omit pointers, relations, and generated database
 sequences.
 
+Exact decimal fields keep storage-relevant shape as direct metadata:
+`field.decimal({ precision: 12, scale: 2 })`. Core validates those options and
+enforces them at Runtime, while adapters may inspect them without reading the
+application `validation` contract. Decimal ranges remain additional value
+constraints under `validation` until Standard Schema replaces that closed DSL.
+
 Every built-in factory immediately rejects unknown nested validation options and
 Core-owned root options that the selected field kind does not support. Other
 unknown root properties are detached and retained until application compilation:

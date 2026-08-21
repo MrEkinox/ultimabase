@@ -42,7 +42,7 @@ const PostSchema = Schema.define({
 		attachment: field.binary(),
 		calendarDay: field.date(),
 		eventAt: field.dateTime(),
-		exactAmount: field.decimal({ validation: { precision: 12, scale: 2 } }),
+		exactAmount: field.decimal({ precision: 12, scale: 2 }),
 		externalId: field.uuid({ validation: { version: 4 } }),
 		hugeCount: field.bigint(),
 		labels: field.string({ list: true }),

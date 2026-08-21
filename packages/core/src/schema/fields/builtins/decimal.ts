@@ -28,22 +28,8 @@ import {
  */
 export type DecimalRangeValidationOptions = OrderedRange<string>
 
-/**
- * Groups digit, scale, and exact range constraints.
- */
+/** Groups additional exact decimal value constraints. */
 export interface DecimalValidationOptions {
-	/**
-	 * Limits the total number of integer and fractional digits.
-	 *
-	 * @example `precision: 12`
-	 */
-	readonly precision?: number
-	/**
-	 * Limits the number of digits after the decimal separator.
-	 *
-	 * @example `scale: 2`
-	 */
-	readonly scale?: number
 	/**
 	 * Restricts exact decimal strings with inclusive boundaries.
 	 *
@@ -52,10 +38,30 @@ export interface DecimalValidationOptions {
 	readonly range?: DecimalRangeValidationOptions
 }
 
-/**
- * Describes exact decimal metadata through lossless strings.
- */
-export type DecimalFieldOptions = FieldOptions<string, DecimalValidationOptions>
+/** Describes exact decimal metadata through lossless strings. */
+export interface DecimalFieldOptions extends FieldOptions<
+	string,
+	DecimalValidationOptions
+> {
+	/**
+	 * Limits the total number of integer and fractional digits.
+	 *
+	 * Database adapters may inspect this structural shape when selecting
+	 * fixed-precision storage.
+	 *
+	 * @example `precision: 12`
+	 */
+	readonly precision?: number
+	/**
+	 * Limits the number of digits after the decimal separator.
+	 *
+	 * Database adapters may inspect this structural shape together with
+	 * precision when selecting fixed-scale storage.
+	 *
+	 * @example `scale: 2`
+	 */
+	readonly scale?: number
+}
 
 /**
  * Carries exact decimal strings and their compact operation state.
@@ -66,8 +72,8 @@ export type DecimalField<
 
 const decimalFieldOptionsContract: BuiltInFieldOptionsContract = {
 	kind: 'decimal',
-	optionKeys: fieldOptionKeys,
-	validationOptionKeys: ['precision', 'range', 'scale'],
+	optionKeys: [...fieldOptionKeys, 'precision', 'scale'],
+	validationOptionKeys: ['range'],
 	nestedValidation: [{ key: 'range', optionKeys: orderedRangeOptionKeys }],
 }
 
@@ -234,32 +240,19 @@ const assertValidPrecision = (precision: number | undefined): void => {
 		precision !== undefined &&
 		(!Number.isSafeInteger(precision) || precision < 1)
 	) {
-		throw new RangeError('validation.precision must be a positive safe integer')
+		throw new RangeError('precision must be a positive safe integer')
 	}
 }
 
 const assertValidScale = (scale: number | undefined): void => {
 	if (scale !== undefined && (!Number.isSafeInteger(scale) || scale < 0)) {
-		throw new RangeError('validation.scale must be a non-negative safe integer')
+		throw new RangeError('scale must be a non-negative safe integer')
 	}
 }
 
 const normalizeDecimalValidation = (
 	validation: DecimalValidationOptions,
 ): Readonly<DecimalValidationOptions> => {
-	assertValidPrecision(validation.precision)
-	assertValidScale(validation.scale)
-
-	if (
-		validation.precision !== undefined &&
-		validation.scale !== undefined &&
-		validation.scale > validation.precision
-	) {
-		throw new RangeError(
-			'validation.scale cannot be greater than validation.precision',
-		)
-	}
-
 	const { range } = validation
 
 	if (range === undefined) {
@@ -281,20 +274,32 @@ const normalizeDecimalFieldOptions = <
 	const TOptions extends DecimalFieldOptions,
 >(
 	options: TOptions,
-): Readonly<TOptions> =>
-	normalizeFieldOptions(
+): Readonly<TOptions> => {
+	assertValidPrecision(options.precision)
+	assertValidScale(options.scale)
+
+	if (
+		options.precision !== undefined &&
+		options.scale !== undefined &&
+		options.scale > options.precision
+	) {
+		throw new RangeError('scale cannot be greater than precision')
+	}
+
+	return normalizeFieldOptions(
 		options,
 		normalizeDecimalValidation,
 		normalizeDecimalValue,
 		decimalFieldOptionsContract,
 	)
+}
 
 /**
  * Declares an exact base-10 decimal represented as a string to avoid floating-point loss.
  *
  * @example
  * ```ts
- * decimalField({ validation: { precision: 12, scale: 2 }, default: "0.00" })
+ * decimalField({ precision: 12, scale: 2, default: "0.00" })
  * ```
  */
 export const decimalField: DecimalFieldFactory =

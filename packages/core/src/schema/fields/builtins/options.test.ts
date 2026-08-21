@@ -120,4 +120,13 @@ describe('built-in field option contracts', () => {
 			)
 		},
 	)
+
+	it.each(['precision', 'scale'] as const)(
+		'rejects decimal-only root option %s on another built-in field',
+		(option) => {
+			expect(() =>
+				callWithJavaScriptOptions(stringField, { [option]: 2 }),
+			).toThrow(new TypeError(`Unknown string field option: ${option}`))
+		},
+	)
 })

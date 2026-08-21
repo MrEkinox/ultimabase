@@ -67,11 +67,14 @@ describe('scalar constraint validation', () => {
 			),
 		).toStrictEqual(['bigint.range.max'])
 		expect(
+			issueCodes(decimalField({ precision: 3, scale: 1 }), '12.34'),
+		).toStrictEqual(['decimal.precision', 'decimal.scale'])
+		expect(
 			issueCodes(
 				decimalField({
+					precision: 3,
+					scale: 1,
 					validation: {
-						precision: 3,
-						scale: 1,
 						range: { min: '1.0', max: '9.9' },
 					},
 				}),

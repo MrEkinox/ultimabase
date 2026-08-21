@@ -444,6 +444,13 @@ invariants after Drizzle mapping. Custom columns are reserved for field-dependen
 logical differences such as pointer identity and typed JSONB; nested bigints and
 binary values remain lossless.
 
+Decimal shape is compiled exclusively from Core's direct field metadata:
+`field.decimal()` uses `numeric`, `{ precision: 12 }` uses `numeric(12)`, and
+`{ precision: 12, scale: 2 }` uses `numeric(12, 2)`. PostgreSQL never inspects
+the field's application validator to choose physical storage. Introspection,
+desired-schema synchronization, and change planning preserve the resulting
+numeric type verbatim.
+
 Plugin fields that declare Core's portable versioned JSON storage codec also
 compile to JSONB without coupling this package to the plugin kind. A single
 non-unique index on JSONB uses GIN; synchronization and introspection preserve

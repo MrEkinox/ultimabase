@@ -69,6 +69,20 @@ describe('packed @ultimabase/core FieldBuilder contract', () => {
 		).toContain('validation')
 	})
 
+	it('exposes direct documented decimal shape options', () => {
+		expect(
+			languageFixture
+				.readMemberCompletions('decimal-options')
+				.map(({ name }) => name),
+		).toEqual(expect.arrayContaining(['precision', 'scale', 'validation']))
+
+		const precision = languageFixture.readHover('decimal-precision')
+
+		expect(precision.display).toContain('precision?: number')
+		expect(precision.documentation).toContain('total number')
+		expect(precision.hasExample).toBe(true)
+	})
+
 	it('offers every pointer referential action', () => {
 		expect(
 			[...languageFixture.readStringCompletions('pointer-on-delete')].sort(),

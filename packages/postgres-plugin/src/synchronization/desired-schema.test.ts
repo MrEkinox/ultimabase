@@ -29,6 +29,7 @@ describe('desired PostgreSQL schema', () => {
 			Schema.define({
 				className: 'Article',
 				fields: (field) => ({
+					budget: field.decimal({ precision: 12, scale: 2 }),
 					sequence: field.int({ autoIncrement: true }),
 					title: field.string({
 						default: "editor's draft",
@@ -43,7 +44,8 @@ describe('desired PostgreSQL schema', () => {
 
 		expect(table).toBeDefined()
 		expect(table?.name).toBe('articles')
-		expect(table?.columns.slice(0, 2)).toMatchObject([
+		expect(table?.columns.slice(0, 3)).toMatchObject([
+			{ name: 'budget', type: 'numeric(12, 2)' },
 			{ identity: 'byDefault', name: 'sequence', type: 'bigint' },
 			{
 				defaultExpression: "'editor''s draft'::text",

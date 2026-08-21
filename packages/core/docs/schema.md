@@ -626,9 +626,11 @@ they cannot preserve arbitrary decimal precision. Values use plain decimal
 notation without exponent notation, leading zeroes, a leading plus sign, or
 negative zero representations.
 
-`validation.precision` limits the total digit precision and must be a positive
-safe integer. `validation.scale` limits fractional digits, must be a
-non-negative safe integer, and cannot exceed precision when both are supplied.
+The direct `precision` option limits total digit precision and must be a
+positive safe integer. The direct `scale` option limits fractional digits,
+must be a non-negative safe integer, and cannot exceed precision when both are
+supplied. They remain inspectable structural shape used by database adapters;
+for example, PostgreSQL compiles them to `numeric(p)` or `numeric(p, s)`.
 `validation.range.min/max` uses exact decimal strings and is ordered without
 floating-point coercion.
 

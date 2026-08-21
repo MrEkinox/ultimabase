@@ -1,6 +1,6 @@
 # 2004: Replace field constraints with Standard Schema
 
-- Status: planned
+- Status: ready
 - Milestone: 20
 - Packages: `@ultimabase/core`, `@ultimabase/typegen`, official plugins and examples
 - Depends on: 2003

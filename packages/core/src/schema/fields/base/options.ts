@@ -107,6 +107,8 @@ const coreFieldOptionKeySet: ReadonlySet<string> = new Set([
 	'fields',
 	'mappedBy',
 	'onDelete',
+	'precision',
+	'scale',
 	'target',
 	'timezone',
 	'typeName',

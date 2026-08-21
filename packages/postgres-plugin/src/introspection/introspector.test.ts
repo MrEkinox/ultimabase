@@ -78,6 +78,16 @@ const fixtures: CatalogFixtures = {
 			table_name: 'articles',
 		},
 		{
+			column_name: 'amount',
+			data_type: 'numeric(12,2)',
+			default_expression: null,
+			generated_kind: '',
+			identity_kind: '',
+			nullable: true,
+			table_kind: 'r',
+			table_name: 'articles',
+		},
+		{
 			column_name: 'legacy_range',
 			data_type: 'int4range',
 			default_expression: null,
@@ -221,6 +231,7 @@ describe('PostgreSQL catalog introspection', () => {
 					nullable: false,
 					type: 'bigint',
 				},
+				{ name: 'amount', nullable: true, type: 'numeric(12,2)' },
 			],
 			constraints: [{ kind: 'p', name: 'articles_pkey' }],
 			indexes: [

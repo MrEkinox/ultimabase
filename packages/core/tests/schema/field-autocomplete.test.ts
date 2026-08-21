@@ -80,7 +80,7 @@ const fieldSpecificOptions: FactoryOptionMap = {
 	booleanField: [],
 	dateField: ['autoNow'],
 	dateTimeField: ['autoNow', 'timezone'],
-	decimalField: [],
+	decimalField: ['precision', 'scale'],
 	enumField: ['typeName', 'values'],
 	floatField: [],
 	intField: ['autoIncrement'],
@@ -98,7 +98,7 @@ const validationSpecificOptions: FactoryOptionMap = {
 	booleanField: [],
 	dateField: ['range'],
 	dateTimeField: ['range'],
-	decimalField: ['precision', 'range', 'scale'],
+	decimalField: ['range'],
 	enumField: [],
 	floatField: ['finite', 'range'],
 	intField: ['range'],
@@ -201,7 +201,9 @@ const topLevelOptionExpressions: Readonly<Record<string, string>> = {
 	immutable: 'true',
 	indexed: "'unique'",
 	list: 'true',
+	precision: '12',
 	required: 'true',
+	scale: '2',
 	timezone: 'false',
 	typeName: "'ExampleType'",
 	validation: '{}',
@@ -321,7 +323,7 @@ const compactFieldSignatureCases: readonly CompactFieldSignatureCase[] = [
 	{
 		factoryName: 'decimalField',
 		expression:
-			"decimalField({ default: '19.99', required: true, validation: { precision: 12, scale: 2, range: { min: '-9999999999.99' } }, indexed: true, description: 'runtime-only-hover-marker' })",
+			"decimalField({ default: '19.99', required: true, precision: 12, scale: 2, validation: { range: { min: '-9999999999.99' } }, indexed: true, description: 'runtime-only-hover-marker' })",
 		expectedReturn: 'DefaultedDecimalField<true, false, false>',
 	},
 	{

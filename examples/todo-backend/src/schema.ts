@@ -108,7 +108,8 @@ export const Todo = Schema.define({
 		}),
 		budget: field.decimal({
 			description: 'Exact decimal budget represented without precision loss.',
-			validation: { precision: 12, scale: 2 },
+			precision: 12,
+			scale: 2,
 		}),
 		externalId: field.uuid({
 			description: 'Optional UUID supplied by an external system.',

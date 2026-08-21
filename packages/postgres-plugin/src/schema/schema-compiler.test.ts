@@ -104,7 +104,8 @@ describe('PostgreSQL primitive schema compiler', () => {
 			fields: (field) => ({
 				active: field.boolean({ default: true }),
 				amount: field.decimal({
-					validation: { precision: 12, scale: 4 },
+					precision: 12,
+					scale: 4,
 				}),
 				birthday: field.date(),
 				blob: field.binary({ default: Uint8Array.from([1, 2]) }),
@@ -115,6 +116,7 @@ describe('PostgreSQL primitive schema compiler', () => {
 				huge: field.bigint({ default: 9007199254740993n }),
 				labels: field.string({ list: true, default: ['one', 'two'] }),
 				optional: field.string(),
+				preciseAmount: field.decimal({ precision: 18 }),
 				profile: field.object({
 					fields: (field) => ({ name: field.string() }),
 				}),
@@ -123,6 +125,7 @@ describe('PostgreSQL primitive schema compiler', () => {
 				runtime: field.string({ default: runtimeDefault }),
 				status: field.enum({ values: { Draft: 'draft', Live: 'live' } }),
 				token: field.uuid(),
+				unshapedAmount: field.decimal(),
 				wakeAt: field.time({ timezone: true }),
 			}),
 		})
@@ -147,10 +150,12 @@ describe('PostgreSQL primitive schema compiler', () => {
 			huge: 'bigint',
 			id: 'uuid',
 			labels: 'jsonb',
+			preciseAmount: 'numeric(18)',
 			profile: 'jsonb',
 			rating: 'double precision',
 			status: 'text',
 			token: 'uuid',
+			unshapedAmount: 'numeric',
 			updatedAt: 'timestamp(3) with time zone',
 			wakeAt: 'time(3) with time zone',
 		})

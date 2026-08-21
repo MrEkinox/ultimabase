@@ -34,9 +34,9 @@ describe('decimalField', () => {
 	it('preserves exact decimal constraints and common metadata', () => {
 		const field = decimalField({
 			required: true,
+			precision: 12,
+			scale: 2,
 			validation: {
-				precision: 12,
-				scale: 2,
 				range: {
 					min: '-9999999999.99',
 					max: '9999999999.99',
@@ -48,9 +48,9 @@ describe('decimalField', () => {
 
 		expect(field.options).toStrictEqual({
 			required: true,
+			precision: 12,
+			scale: 2,
 			validation: {
-				precision: 12,
-				scale: 2,
 				range: {
 					min: '-9999999999.99',
 					max: '9999999999.99',
@@ -84,19 +84,17 @@ describe('decimalField', () => {
 		expect(requireValidation(field).range).toStrictEqual(range)
 	})
 
-	it('freezes digit validation without a decimal range', () => {
+	it('preserves frozen direct shape without a decimal range', () => {
 		const field = decimalField({
-			validation: {
-				precision: 10,
-				scale: 4,
-			},
-		})
-
-		expect(field.options.validation).toStrictEqual({
 			precision: 10,
 			scale: 4,
 		})
-		expect(Object.isFrozen(field.options.validation)).toBe(true)
+
+		expect(field.options).toStrictEqual({
+			precision: 10,
+			scale: 4,
+		})
+		expect(Object.isFrozen(field.options)).toBe(true)
 	})
 
 	it('orders values exactly beyond JavaScript number precision', () => {
@@ -168,21 +166,26 @@ describe('decimalField', () => {
 		['fractional precision', { precision: 1.5 }, 'precision', 'positive'],
 		['negative scale', { scale: -1 }, 'scale', 'non-negative'],
 		['fractional scale', { scale: 1.5 }, 'scale', 'non-negative'],
-	] as const)('rejects %s', (_name, validation, path, expectation) => {
-		expect(() => decimalField({ validation })).toThrow(
-			new RangeError(
-				`validation.${path} must be a ${expectation} safe integer`,
-			),
+	] as const)('rejects %s', (_name, options, path, expectation) => {
+		expect(() => decimalField(options)).toThrow(
+			new RangeError(`${path} must be a ${expectation} safe integer`),
 		)
 	})
 
 	it('rejects a scale greater than precision', () => {
+		expect(() => decimalField({ precision: 2, scale: 3 })).toThrow(
+			new RangeError('scale cannot be greater than precision'),
+		)
+	})
+
+	it('rejects removed nested decimal shape metadata', () => {
 		expect(() =>
-			decimalField({ validation: { precision: 2, scale: 3 } }),
+			decimalField({
+				// @ts-expect-error -- Decimal shape is direct structural metadata.
+				validation: { precision: 12 },
+			}),
 		).toThrow(
-			new RangeError(
-				'validation.scale cannot be greater than validation.precision',
-			),
+			new TypeError('Unknown decimal field option: validation.precision'),
 		)
 	})
 
