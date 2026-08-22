@@ -617,11 +617,15 @@ validators, applies initial enforcement, locks mutation targets, and runs every
 input transformer. Every mutation then crosses the mandatory
 `finalMutationValidation` stage, which repeats structural snapshots and invokes
 Standard Schema before value-dependent enforcement. Prepared adapters receive
-the final operation and cumulative `constraints` for the write. Runtime then
-runs every business result transform, applies final output restrictions, and
-finalizes the transaction and post-commit observers. The behavior and
-enforcement groups are absent when no plugin contributes them; Runtime does not
-manufacture optional placeholders.
+the final operation and cumulative `constraints` for the write. For atomic
+numeric updates, the stage projects the complete value from the prepared locked
+target, validates it, and retains the original delta for adapter execution.
+Runtime then runs every business result transform, applies final output
+restrictions, and finalizes the transaction and post-commit observers. Those
+read, adapter-result, materialization, inclusion, and final-result boundaries
+repeat structural snapshots without invoking application field validators. The
+behavior and enforcement groups are absent when no plugin contributes them;
+Runtime does not manufacture optional placeholders.
 
 Stage envelopes and constraint collections are immutable. A
 `FrameworkError` thrown by any stage crosses the pipeline unchanged, while

@@ -1,6 +1,6 @@
 # 2103: Verify exact field-validator invocation
 
-- Status: planned
+- Status: ready
 - Milestone: 21
 - Packages: repository-wide
 - Depends on: 2102

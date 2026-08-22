@@ -207,6 +207,12 @@ validation switch is narrowed or removed once result snapshots become
 structural-only. Typegen continues to omit the opaque validator and the public
 field option remains `validation` exactly as accepted by ADR-0219.
 
+The mandatory final stage now receives the prepared singular target and any
+explicitly prepared bulk targets. This incompatibly changes
+`RuntimePipelineStages`, so `ultimabase.runtime-executor` advances from `2.0.0`
+to `3.0.0`. The behavior protocol remains `2.0.0`: behaviors already receive
+their prepared inputs and gain no new responsibility for validation.
+
 ## Consequences
 
 - Developer validators have one predictable cost and one meaning: accept or

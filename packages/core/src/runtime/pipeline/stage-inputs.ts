@@ -78,8 +78,16 @@ export const createRuntimeMutationRevalidationInput = <
 	context: RequestContext,
 	previousOperation: TOperation,
 	operation: TOperation,
+	target: DatabaseMutationLogicalRecord<TOperation> | null | undefined,
+	targets: readonly DatabaseMutationLogicalRecord<TOperation>[] | undefined,
 ): RuntimeMutationRevalidationStageInput<TOperation> =>
-	immutableRecord({ context, operation, previousOperation })
+	immutableRecord({
+		context,
+		operation,
+		previousOperation,
+		target,
+		...(targets === undefined ? {} : { targets }),
+	})
 
 export const createRuntimeEnforcementInput = <
 	const TOperation extends DatabaseOperationAst,

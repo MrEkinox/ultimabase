@@ -25,7 +25,7 @@ import type { RuntimeOperationResult } from '../pipeline/contracts.js'
 import { getOperationSchema } from '../operations/schema.js'
 import { transferRuntimeSchemaModelMetadata } from '../operations/model-metadata.js'
 import {
-	revalidateRuntimeMutationOperation,
+	snapshotRuntimeMutationOperation,
 	snapshotRuntimeResultRecord,
 	throwRuntimeValidationIssues,
 	type RuntimeValidationErrorDescription,
@@ -944,7 +944,7 @@ export const createRuntimeBehaviorBoundaries =
 
 				const { plans } = readBoundaryContext(snapshot)
 
-				return revalidateRuntimeMutationOperation(operation, snapshot, plans)
+				return snapshotRuntimeMutationOperation(operation, snapshot, plans)
 			},
 			snapshotPreparedOperationReplacement: <
 				const TOperation extends DatabaseMutationOperationAst,

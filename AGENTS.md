@@ -188,6 +188,13 @@ normalization
 → afterCommit and post-commit events
 ```
 
+The Standard Schema field validator runs only in the mandatory final mutation
+stage. Result, materialization, inclusion, and read boundaries repeat Core
+structural snapshots without application validation. Numeric deltas validate
+their complete projected value from prepared locked targets and remain atomic
+adapter operations; a targetless validated arithmetic branch fails before
+persistence.
+
 Keep the logical operation separate from its physical persistence plan. A
 privileged plugin may rewrite the physical plan, but logical Access, hooks,
 audit, result, and relationship semantics still observe the original operation.

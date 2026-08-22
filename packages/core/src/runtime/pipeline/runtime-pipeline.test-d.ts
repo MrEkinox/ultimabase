@@ -1,5 +1,9 @@
-import { QueryBuilder, type FindManyOperationAst } from '../../query/index.js'
-import { Schema } from '../../schema/index.js'
+import {
+	QueryBuilder,
+	type FindManyOperationAst,
+	type UpdateOneOperationAst,
+} from '../../query/index.js'
+import { Schema, type SchemaItem } from '../../schema/index.js'
 import { expectTypeOf, test } from 'vitest'
 
 import { RequestContext, requestSources } from '../context/request-context.js'
@@ -10,6 +14,7 @@ import {
 import { createEnforcementState } from '../enforcement/state.js'
 import type {
 	RuntimeBehaviorStages,
+	RuntimeMutationRevalidationStageInput,
 	RuntimeOperationTransformStage,
 	RuntimePipelineStages,
 } from './contracts.js'
@@ -95,4 +100,15 @@ test('requires every pipeline stage during typed assembly', () => {
 	new RuntimePipeline(incompleteStages)
 	// @ts-expect-error -- Final mutation validation is a mandatory Core boundary.
 	new RuntimePipeline(incompleteFinalStages)
+})
+
+test('types prepared targets on the final mutation boundary', () => {
+	type Update = UpdateOneOperationAst<typeof articleSchema>
+	type Input = RuntimeMutationRevalidationStageInput<Update>
+	type Article = Readonly<SchemaItem<typeof articleSchema>>
+
+	expectTypeOf<Input['target']>().toEqualTypeOf<Article | null | undefined>()
+	expectTypeOf<Input['targets']>().toEqualTypeOf<
+		readonly Article[] | undefined
+	>()
 })

@@ -80,7 +80,7 @@ describe('public Runtime capabilities', () => {
 			capabilityId: 'ultimabase.runtime-executor',
 			cardinality: 'single',
 			lifetime: 'application',
-			version: '2.0.0',
+			version: '3.0.0',
 		})
 		expect(runtimeBehaviorCapability.version).toBe('2.0.0')
 		expect(runtimeInterceptorCapability.cardinality).toBe('pipeline')

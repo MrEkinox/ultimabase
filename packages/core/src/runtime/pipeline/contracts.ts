@@ -95,6 +95,10 @@ export interface RuntimeMutationRevalidationStageInput<
 	TOperation extends DatabaseMutationOperationAst,
 > extends RuntimeOperationStageInput<TOperation> {
 	readonly previousOperation: TOperation
+	/** Carries the stable singular preimage used to validate projected arithmetic. */
+	readonly target: DatabaseMutationLogicalRecord<TOperation> | null | undefined
+	/** Carries complete stable bulk preimages only when the adapter prepared them. */
+	readonly targets?: readonly DatabaseMutationLogicalRecord<TOperation>[]
 }
 
 /** Revalidates one final mutation without replaying defaults or generators. */

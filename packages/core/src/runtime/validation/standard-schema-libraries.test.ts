@@ -5,8 +5,8 @@ import { z } from 'zod'
 
 import { FrameworkApplication } from '../../application/framework-application.js'
 import { FrameworkError } from '../../foundation.js'
+import { QueryBuilder, type CreateOneOperationAst } from '../../query/index.js'
 import {
-	compileValidationPlans,
 	definePluginField,
 	type FieldOptions,
 	type JsonDocument,
@@ -14,9 +14,11 @@ import {
 	Pointer,
 	pointerField,
 	Schema,
+	type SchemaDefinition,
 	stringField,
 } from '../../schema/index.js'
-import { snapshotRuntimeResultRecord } from './runtime-validation.js'
+import { RequestContext, requestSources } from '../context/request-context.js'
+import { createFinalMutationValidationStage } from './final-mutation-validation.js'
 
 const Target = Schema.define({
 	className: 'LibraryValidationTarget',
@@ -110,6 +112,30 @@ const completeRecord = (
 	...value,
 })
 
+const validationContext = RequestContext.anonymous({
+	requestId: 'standard-schema-library-test',
+	source: requestSources.internal,
+})
+
+const validateFinalCreate = <const TSchema extends SchemaDefinition>(
+	schema: TSchema,
+	input: Readonly<Record<string, unknown>>,
+): CreateOneOperationAst<TSchema> => {
+	const operation = {
+		input: completeRecord(input),
+		kind: 'create-one',
+		selection: new QueryBuilder(schema).ast.selection,
+		schema: new QueryBuilder(schema).ast.schema,
+	} as unknown as CreateOneOperationAst<TSchema>
+
+	return createFinalMutationValidationStage()({
+		context: validationContext,
+		operation,
+		previousOperation: operation,
+		target: undefined,
+	}) as CreateOneOperationAst<TSchema>
+}
+
 const readIssues = (error: unknown): readonly unknown[] => {
 	if (!(error instanceof FrameworkError)) {
 		throw error
@@ -184,30 +210,28 @@ describe.each(fixtures)('$name Standard Schema conformance', (fixture) => {
 		const plugin = new LibraryPluginValue('plugin')
 
 		expect(
-			snapshotRuntimeResultRecord(
-				compileValidationPlans(schema),
-				completeRecord({
-					bigint: 1n,
-					binary: new Uint8Array([1]),
-					boolean: true,
-					date: '2026-08-21',
-					dateTime: '2026-08-21T12:00:00.000Z',
-					decimal: '1.25',
-					enum: 'draft',
-					float: 1.5,
-					int: 1,
-					json: { nested: [true] },
-					list: ['first', 'second'],
-					object: { label: 'valid' },
-					plugin,
-					pointer,
-					string: 'value',
-					time: '12:00:00.000',
-					uuid: '0198d1ae-a800-7000-8000-000000000001',
-				}),
-				[],
-			),
-		).toMatchObject({ list: ['first', 'second'], object: { label: 'valid' } })
+			validateFinalCreate(schema, {
+				bigint: 1n,
+				binary: new Uint8Array([1]),
+				boolean: true,
+				date: '2026-08-21',
+				dateTime: '2026-08-21T12:00:00.000Z',
+				decimal: '1.25',
+				enum: 'draft',
+				float: 1.5,
+				int: 1,
+				json: { nested: [true] },
+				list: ['first', 'second'],
+				object: { label: 'valid' },
+				plugin,
+				pointer,
+				string: 'value',
+				time: '12:00:00.000',
+				uuid: '0198d1ae-a800-7000-8000-000000000001',
+			}),
+		).toMatchObject({
+			input: { list: ['first', 'second'], object: { label: 'valid' } },
+		})
 	})
 
 	it('maps vendor diagnostics to the neutral field.validation issue', () => {
@@ -221,16 +245,12 @@ describe.each(fixtures)('$name Standard Schema conformance', (fixture) => {
 		})
 
 		try {
-			snapshotRuntimeResultRecord(
-				compileValidationPlans(schema),
-				completeRecord({ title: 'x' }),
-				[],
-			)
+			validateFinalCreate(schema, { title: 'x' })
 		} catch (error: unknown) {
 			expect(readIssues(error)).toContainEqual({
 				code: 'field.validation',
 				message: 'Value must contain two characters',
-				path: ['title'],
+				path: ['input', 'title'],
 			})
 			return
 		}
@@ -282,18 +302,10 @@ it('keeps validators isolated between applications with the same logical schema'
 	expect(
 		Reflect.get(ValibotSchema.fields.value?.options ?? {}, 'validation'),
 	).toBe(valibotValidator)
-	expect(() =>
-		snapshotRuntimeResultRecord(
-			compileValidationPlans(ZodSchema),
-			completeRecord({ value: 'valibot' }),
-			[],
-		),
-	).toThrow(FrameworkError)
-	expect(() =>
-		snapshotRuntimeResultRecord(
-			compileValidationPlans(ValibotSchema),
-			completeRecord({ value: 'zod' }),
-			[],
-		),
-	).toThrow(FrameworkError)
+	expect(() => validateFinalCreate(ZodSchema, { value: 'valibot' })).toThrow(
+		FrameworkError,
+	)
+	expect(() => validateFinalCreate(ValibotSchema, { value: 'zod' })).toThrow(
+		FrameworkError,
+	)
 })

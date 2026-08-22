@@ -82,7 +82,7 @@ const readIssues = (
 	)
 
 describe('runtime behavior boundaries', () => {
-	it('reapplies field validators to defaults, behavior replacements, and adapter outcomes', async () => {
+	it('runs field validators once after replacements and never on adapter outcomes', async () => {
 		const validateTitle = vi.fn((value: unknown) =>
 			value === 'Generated title'
 				? { value }
@@ -118,6 +118,7 @@ describe('runtime behavior boundaries', () => {
 			context: requestContext,
 			operation: normalized,
 			previousOperation: normalized,
+			target: undefined,
 		})
 		const boundaries = createRuntimeBehaviorBoundaries()
 		const invalidReplacement = {
@@ -126,33 +127,34 @@ describe('runtime behavior boundaries', () => {
 		}
 
 		expect(validateTitle).toHaveBeenCalledWith('Generated title')
-		try {
-			boundaries.snapshotOperationReplacement(validated, invalidReplacement)
-			expect.unreachable('Expected behavior replacement validation to fail')
-		} catch (error: unknown) {
-			expect(error).toMatchObject({ code: 'VALIDATION_ERROR' })
-			expect(readIssues(error)).toContainEqual(
-				expect.objectContaining({ code: 'field.validation' }),
-			)
-		}
-		const preparedReplacement = boundaries.snapshotPreparedOperationReplacement(
+		const replacement = boundaries.snapshotOperationReplacement(
 			validated,
 			invalidReplacement,
 		)
+		const preparedReplacement = boundaries.snapshotPreparedOperationReplacement(
+			validated,
+			replacement,
+		)
 		expect(() =>
-			boundaries.snapshotOperationReplacement(validated, preparedReplacement),
+			createFinalMutationValidationStage()({
+				context: requestContext,
+				operation: preparedReplacement,
+				previousOperation: validated,
+				target: undefined,
+			}),
 		).toThrow(expect.objectContaining({ code: 'VALIDATION_ERROR' }))
 
 		const invalidRecord = {
 			...validated.input,
 			title: 'Changed by adapter',
 		}
-		expect(() =>
+		expect(
 			boundaries.snapshotMutationOutcome(validated, {
 				materializations: [{ current: invalidRecord, kind: 'create' }],
 				result: invalidRecord,
 			}),
-		).toThrow(expect.objectContaining({ code: 'VALIDATION_ERROR' }))
+		).toMatchObject({ result: { title: 'Changed by adapter' } })
+		expect(validateTitle).toHaveBeenCalledTimes(2)
 	})
 
 	it('revalidates mutation replacements without replaying generated values', async () => {
@@ -353,15 +355,17 @@ describe('runtime behavior boundaries', () => {
 		)
 	})
 
-	it('validates the complete persisted outcome of arithmetic updates', () => {
+	it('keeps arithmetic outcome snapshots structural-only', () => {
+		const validate = vi.fn((value: unknown) =>
+			typeof value === 'number' && value >= 0 && value <= 10
+				? { value }
+				: { issues: [{ message: 'Score must be between 0 and 10' }] },
+		)
 		const rangeValidator: StandardSchemaV1<number> = {
 			'~standard': {
 				version: 1,
 				vendor: 'arithmetic-outcome-test',
-				validate: (value: unknown) =>
-					typeof value === 'number' && value >= 0 && value <= 10
-						? { value }
-						: { issues: [{ message: 'Score must be between 0 and 10' }] },
+				validate,
 			},
 		}
 		const schema = Schema.define({
@@ -382,23 +386,20 @@ describe('runtime behavior boundaries', () => {
 			updatedAt: fixedInstant.toISOString(),
 		})
 
-		try {
-			createRuntimeBehaviorBoundaries().snapshotMutationOutcome(operation, {
+		const outcome = createRuntimeBehaviorBoundaries().snapshotMutationOutcome(
+			operation,
+			{
 				materializations: [
 					{ current: { ...previous, score: 12 }, kind: 'update', previous },
 				],
 				result: { id: generatedId },
-			})
-			expect.unreachable('Expected arithmetic outcome validation to fail')
-		} catch (error: unknown) {
-			expect(error).toMatchObject({ code: 'VALIDATION_ERROR' })
-			expect(readIssues(error)).toContainEqual(
-				expect.objectContaining({
-					code: 'field.validation',
-					path: ['outcome', 'materializations', 0, 'current', 'score'],
-				}),
-			)
-		}
+			},
+		)
+
+		expect(outcome.materializations[0]).toMatchObject({
+			current: { score: 12 },
+		})
+		expect(validate).not.toHaveBeenCalled()
 	})
 
 	it('rejects fields omitted by selection and invalid materialization cardinality', () => {

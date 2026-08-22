@@ -113,7 +113,11 @@ defaults and generators and guarantees immutable structural shape before Access
 or developer behavior. After every optional input transform, one mandatory
 final pass repeats structural snapshots and invokes Standard Schema before
 value-dependent enforcement, observers, or persistence. Behavior providers
-cannot omit or replace this revalidation invariant.
+cannot omit or replace this revalidation invariant. Reads, adapter results,
+materializations, includes, and final projections repeat structural snapshots
+without replaying application validators. Atomic numeric updates validate the
+complete value projected from their prepared locked target while retaining the
+adapter's delta operation.
 
 ## Direct plugin options
 

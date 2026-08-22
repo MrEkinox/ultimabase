@@ -146,12 +146,12 @@ export const runtimeExecutorCapability: CapabilityToken<
 	RuntimeExecutorFactory,
 	RuntimeExecutorFactory,
 	'ultimabase.runtime-executor',
-	'2.0.0',
+	'3.0.0',
 	'single',
 	'application'
 > = defineCapability<RuntimeExecutorFactory>()({
 	capabilityId: 'ultimabase.runtime-executor',
-	version: '2.0.0',
+	version: '3.0.0',
 	cardinality: 'single',
 	lifetime: 'application',
 	compose: ([provider]) => {

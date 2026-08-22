@@ -620,11 +620,20 @@ A rejected Standard Schema issue becomes `field.validation`, and its relative
 string, number, or symbol path is prefixed with the complete Runtime field path.
 
 Runtime validates each final mutation candidate after input resolution, then
-may validate the same persisted value again at adapter-result, materialization,
-included-result, and final-result boundaries. Validators must therefore be
-deterministic, synchronous, side-effect-free, and safe to repeat. Async
-uniqueness and database-backed business rules belong in Hooks, protected
-constraints, or dedicated plugins.
+does not replay the application validator while reading adapter results,
+materializations, included records, or final projections. Those boundaries
+still enforce Core structural snapshots and codecs. Tightening an application
+validator therefore does not make an older structurally valid row unreadable;
+schema synchronization, database constraints, and migrations own durable data
+invariants. Validators remain deterministic and synchronous. Async uniqueness
+and database-backed business rules belong in Hooks, protected constraints, or
+dedicated plugins.
+
+An `increment` or `decrement` is only a delta. For a prepared singular target,
+Runtime projects the complete resulting integer, bigint, float, or decimal,
+validates that value once, and still sends the original atomic operation to the
+adapter. Arithmetic over a validated field fails before persistence when an
+upsert or bulk operation has no exact prepared target from which to project.
 
 Core retains the exact validator by identity. It never clones, freezes,
 serializes, invokes, or fingerprints the validator during declaration, static

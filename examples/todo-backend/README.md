@@ -79,6 +79,12 @@ Standard Schema pass accepts only the canonical lowercase hyphenated form.
 It remains an ordinary `field.string()` rather than requiring a `slugField`
 factory or an additional Runtime plugin.
 
+This pass is the only time application field validators execute. Listing or
+including existing todos, snapshotting PostgreSQL results, and materializing
+Hook outcomes retain Core structural checks without replaying Zod. Atomic
+changes to validated numeric fields check the complete value projected from the
+locked todo while preserving the database delta.
+
 This demonstrates that the plugins compose monotonically: ordinary readers see
 only non-archived rows allowed by their object ACL, editor ACLs may permit an
 update, and the field-level Access declaration still keeps `internalNotes`

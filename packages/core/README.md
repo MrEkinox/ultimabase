@@ -101,7 +101,11 @@ validator. Optional behavior may then normalize that typed input. Core always
 runs one final structural and Standard Schema pass before value-dependent
 enforcement, observers, or persistence, even when no behavior is installed or
 no value changed. A community transformer never supplies its own revalidation
-callback; this invariant belongs to the mandatory Runtime stage graph.
+callback; this invariant belongs to the mandatory Runtime stage graph. Reads,
+adapter results, mutation materializations, includes, and final projections
+remain structurally snapshotted but do not replay the application validator.
+Atomic numeric updates validate the complete value projected from their locked
+target and still reach the adapter as `increment` or `decrement` operations.
 
 TypeScript reports invalid option combinations on the primary option contract.
 For example, empty enum domains identify `values`, required pointers using
@@ -1054,7 +1058,9 @@ the fully typed current object and may replace only values inside the existing
 normalized update shape. Runtime groups this replacement with field and schema
 input resolution, then performs one final structural and Standard Schema
 validation followed by value-dependent installed field and item policy. The
-adapter receives the final operation and cumulative constraints for the write.
+pass receives the stable prepared target so atomic numeric operations validate
+their projected complete values without becoming `set` operations. The adapter
+receives the final operation and cumulative constraints for the write.
 The handler cannot change the query, target, fields, operators, schema, or
 terminal kind. Public collection commands are already itemized before this
 boundary, so each update entry uses the same singular lifecycle.

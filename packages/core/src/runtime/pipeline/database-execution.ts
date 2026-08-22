@@ -288,6 +288,8 @@ export const executeRuntimeDatabaseOperation = async <
 				context,
 				initialOperation,
 				executableOperation,
+				target,
+				targets,
 			),
 		)
 

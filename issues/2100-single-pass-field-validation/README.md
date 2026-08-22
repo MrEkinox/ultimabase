@@ -31,7 +31,7 @@ that branch without a projected complete value.
 ## Execution order
 
 1. [x] [2101 — Decide the single-pass mutation-validation boundary](2101-single-pass-field-validation-adr.md)
-2. [ ] [2102 — Execute Standard Schema only on final mutation input](2102-mutation-only-standard-schema-execution.md)
+2. [x] [2102 — Execute Standard Schema only on final mutation input](2102-mutation-only-standard-schema-execution.md)
 3. [ ] [2103 — Verify exact field-validator invocation](2103-single-pass-field-validation-verification.md)
 
 ## Deliberate boundaries

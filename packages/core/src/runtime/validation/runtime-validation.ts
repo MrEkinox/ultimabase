@@ -25,7 +25,6 @@ import { validateScalarFieldShape } from '../../schema/plans/scalar-shape-valida
 import { getFieldSchemaTarget } from '../../schema/fields/base/definition.js'
 import { FrameworkError } from '../../foundation.js'
 import {
-	assertNonEmptyString,
 	immutableArray,
 	immutableRecord,
 	isPlainRecord,
@@ -42,13 +41,16 @@ import {
 } from './operation-clock.js'
 import { generateUuidV7, type UuidV7Generator } from './identifier-generator.js'
 import { validateFieldStandardSchema } from './field-standard-schema.js'
+import {
+	emptyRuntimeValidationOptions,
+	normalizeRuntimeValidationOptions,
+	type RuntimeValidationOptions,
+} from './runtime-validation-options.js'
 
-/** Configures one application-scoped validation stage and operation clock. */
-export interface RuntimeValidationOptions {
-	readonly clock?: () => Date
-	readonly timezone?: string
-	readonly uuidV7Generator?: UuidV7Generator
-}
+export {
+	normalizeRuntimeValidationOptions,
+	type RuntimeValidationOptions,
+} from './runtime-validation-options.js'
 
 interface ValidationExecution {
 	readonly applicationValidation: boolean
@@ -108,48 +110,6 @@ const relationMutationActions = new Set([
 	'disconnect',
 	'set',
 ])
-const validationOptionKeys = new Set(['clock', 'timezone', 'uuidV7Generator'])
-const emptyValidationOptions: RuntimeValidationOptions = immutableRecord({})
-
-/** Validates and snapshots caller-owned validation configuration once. */
-export const normalizeRuntimeValidationOptions = (
-	options: unknown,
-): Readonly<RuntimeValidationOptions> => {
-	if (!isPlainRecord(options)) {
-		throw new TypeError('Runtime validation options must be a plain object')
-	}
-
-	for (const key of Object.keys(options)) {
-		if (!validationOptionKeys.has(key)) {
-			throw new TypeError(`Runtime validation contains unknown option: ${key}`)
-		}
-	}
-
-	const clock: unknown = options.clock
-	const timezone: unknown = options.timezone
-	const uuidV7Generator: unknown = options.uuidV7Generator
-
-	if (clock !== undefined && typeof clock !== 'function') {
-		throw new TypeError('Runtime validation clock must be a function')
-	}
-
-	if (uuidV7Generator !== undefined && typeof uuidV7Generator !== 'function') {
-		throw new TypeError('Runtime UUID v7 generator must be a function')
-	}
-
-	if (timezone !== undefined) {
-		assertNonEmptyString(timezone, 'Runtime validation timezone')
-	}
-
-	// Callable return values remain validated when Runtime invokes their contracts.
-	return immutableRecord({
-		...(clock === undefined ? {} : { clock: clock as () => Date }),
-		...(timezone === undefined ? {} : { timezone }),
-		...(uuidV7Generator === undefined
-			? {}
-			: { uuidV7Generator: uuidV7Generator as UuidV7Generator }),
-	})
-}
 
 const createIssue = (
 	code: AnyValidationIssueCode,
@@ -1227,7 +1187,7 @@ const unavailableGeneratedValue = (): never => {
 }
 
 const createStructuralValidationExecution = (): ValidationExecution => ({
-	applicationValidation: true,
+	applicationValidation: false,
 	issues: [],
 	// These values are deliberately unusable: structural boundaries never resolve omissions.
 	temporal: immutableRecord({
@@ -1241,18 +1201,19 @@ const createStructuralValidationExecution = (): ValidationExecution => ({
 	uuidV7Generator: unavailableGeneratedValue,
 })
 
-/**
- * Revalidates a behavior-transformed mutation without replaying defaults or generators.
- */
-export const revalidateRuntimeMutationOperation = <
+const createApplicationValidationExecution = (): ValidationExecution => ({
+	...createStructuralValidationExecution(),
+	applicationValidation: true,
+})
+
+const normalizeResolvedMutationOperation = <
 	const TOperation extends DatabaseOperationAst,
 >(
 	previousOperation: TOperation,
 	operation: TOperation,
 	plans: SchemaValidationPlans,
+	execution: ValidationExecution,
 ): TOperation => {
-	const execution = createStructuralValidationExecution()
-
 	return normalizeMutationOperation(operation, execution, {
 		allowDefaults: false,
 		appendGeneratedValues: false,
@@ -1261,6 +1222,36 @@ export const revalidateRuntimeMutationOperation = <
 		updatePlan: plans.update,
 	})
 }
+
+/** Structurally snapshots one intermediate behavior replacement. */
+export const snapshotRuntimeMutationOperation = <
+	const TOperation extends DatabaseOperationAst,
+>(
+	previousOperation: TOperation,
+	operation: TOperation,
+	plans: SchemaValidationPlans,
+): TOperation =>
+	normalizeResolvedMutationOperation(
+		previousOperation,
+		operation,
+		plans,
+		createStructuralValidationExecution(),
+	)
+
+/** Revalidates one final mutation without replaying defaults or generators. */
+export const revalidateRuntimeMutationOperation = <
+	const TOperation extends DatabaseOperationAst,
+>(
+	previousOperation: TOperation,
+	operation: TOperation,
+	plans: SchemaValidationPlans,
+): TOperation =>
+	normalizeResolvedMutationOperation(
+		previousOperation,
+		operation,
+		plans,
+		createApplicationValidationExecution(),
+	)
 
 /** Validates and snapshots one complete or selected logical database record. */
 export const snapshotRuntimeResultRecord = (
@@ -1295,7 +1286,7 @@ export const snapshotRuntimeResultRecord = (
 
 /** Creates initial Core structural validation without application field validators. */
 export const createRuntimeValidationStage = (
-	options: RuntimeValidationOptions = emptyValidationOptions,
+	options: RuntimeValidationOptions = emptyRuntimeValidationOptions,
 ): RuntimeOperationTransformStage => {
 	const normalizedOptions = normalizeRuntimeValidationOptions(options)
 	const timezone = normalizedOptions.timezone ?? 'UTC'

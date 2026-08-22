@@ -2,6 +2,7 @@ import { compileValidationPlans, Schema } from '../../schema/index.js'
 
 import { getOperationSchema } from '../operations/schema.js'
 import type { RuntimeMutationRevalidationStage } from '../pipeline/contracts.js'
+import { validateProjectedMutationArithmetic } from './projected-arithmetic-validation.js'
 import { revalidateRuntimeMutationOperation } from './runtime-validation.js'
 
 /** Creates the mandatory post-resolution validation stage for one application. */
@@ -28,10 +29,19 @@ export const createFinalMutationValidationStage =
 				plansBySchema.set(schema, plans)
 			}
 
-			return revalidateRuntimeMutationOperation(
+			const operation = revalidateRuntimeMutationOperation(
 				input.previousOperation,
 				input.operation,
 				plans,
 			)
+
+			validateProjectedMutationArithmetic(
+				operation,
+				plans,
+				input.target,
+				input.targets,
+			)
+
+			return operation
 		}
 	}

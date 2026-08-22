@@ -12,6 +12,7 @@ import {
 	Pointer,
 	pointerField,
 	Schema,
+	type SchemaDefinition,
 	stringField,
 } from '../../schema/index.js'
 import { RequestContext, requestSources } from '../context/request-context.js'
@@ -58,6 +59,31 @@ const completeRecord = (
 	updatedAt: '2026-08-21T12:00:00.000Z',
 	...value,
 })
+
+const validationContext = RequestContext.anonymous({
+	requestId: 'field-standard-schema-test',
+	source: requestSources.internal,
+})
+
+/** Exercises application validation only through the mandatory final mutation stage. */
+const validateFinalCreate = <const TSchema extends SchemaDefinition>(
+	schema: TSchema,
+	input: Readonly<Record<string, unknown>>,
+): CreateOneOperationAst<TSchema> => {
+	const operation = {
+		input: completeRecord(input),
+		kind: 'create-one',
+		selection: new QueryBuilder(schema).ast.selection,
+		schema: new QueryBuilder(schema).ast.schema,
+	} as unknown as CreateOneOperationAst<TSchema>
+
+	return createFinalMutationValidationStage()({
+		context: validationContext,
+		operation,
+		previousOperation: operation,
+		target: undefined,
+	}) as CreateOneOperationAst<TSchema>
+}
 
 const passThrough = <TValue>(
 	validate: (value: unknown) => void,
@@ -115,6 +141,7 @@ describe('Standard Schema field validation', () => {
 			context,
 			operation: normalized,
 			previousOperation: normalized,
+			target: undefined,
 		})
 
 		expect(validate).toHaveBeenCalledExactlyOnceWith('2026-08-21')
@@ -167,6 +194,7 @@ describe('Standard Schema field validation', () => {
 				context: master,
 				operation: normalized,
 				previousOperation: normalized,
+				target: undefined,
 			}),
 		).toThrow(expect.objectContaining({ code: 'VALIDATION_ERROR' }))
 
@@ -179,6 +207,7 @@ describe('Standard Schema field validation', () => {
 				context: master,
 				operation: transformed,
 				previousOperation: normalized,
+				target: undefined,
 			}),
 		).toMatchObject({ input: { slug: 'hello-world' } })
 	})
@@ -246,27 +275,25 @@ describe('Standard Schema field validation', () => {
 			}),
 		})
 
-		snapshotRuntimeResultRecord(
-			compileValidationPlans(schema),
-			completeRecord({
-				bigint: 1n,
-				binary: new Uint8Array([1]),
-				boolean: true,
-				date: '2026-08-21',
-				dateTime: '2026-08-21T12:00:00.000Z',
-				decimal: '1.25',
-				enum: 'draft',
-				float: 1.5,
-				int: 1,
-				json: { nested: [true] },
-				plugin: pluginValue,
-				pointer,
-				string: 'value',
-				time: '12:00:00.000',
-				uuid: '0198d1ae-a800-7000-8000-000000000001',
-			}),
-			[],
-		)
+		const values = {
+			bigint: 1n,
+			binary: new Uint8Array([1]),
+			boolean: true,
+			date: '2026-08-21',
+			dateTime: '2026-08-21T12:00:00.000Z',
+			decimal: '1.25',
+			enum: 'draft',
+			float: 1.5,
+			int: 1,
+			json: { nested: [true] },
+			plugin: pluginValue,
+			pointer,
+			string: 'value',
+			time: '12:00:00.000',
+			uuid: '0198d1ae-a800-7000-8000-000000000001',
+		} as const
+
+		validateFinalCreate(schema, values)
 
 		expect([...calls.keys()].sort()).toStrictEqual(
 			[
@@ -286,6 +313,13 @@ describe('Standard Schema field validation', () => {
 				'time',
 				'uuid',
 			].sort(),
+		)
+		expect([...calls.values()].every((count) => count === 1)).toBe(true)
+
+		snapshotRuntimeResultRecord(
+			compileValidationPlans(schema),
+			completeRecord(values),
+			['result'],
 		)
 		expect([...calls.values()].every((count) => count === 1)).toBe(true)
 	})
@@ -313,11 +347,7 @@ describe('Standard Schema field validation', () => {
 		})
 
 		try {
-			snapshotRuntimeResultRecord(
-				compileValidationPlans(schema),
-				completeRecord({ tags: ['first', 'second'] }),
-				['result'],
-			)
+			validateFinalCreate(schema, { tags: ['first', 'second'] })
 			expect.unreachable('Expected list validation to fail')
 		} catch (error: unknown) {
 			expect(error).toMatchObject({ code: 'VALIDATION_ERROR' })
@@ -325,7 +355,7 @@ describe('Standard Schema field validation', () => {
 				expect.objectContaining({
 					code: 'field.validation',
 					message: 'Second tag is invalid',
-					path: ['result', 'tags', 1, 'name', 'Symbol(leaf)'],
+					path: ['input', 'tags', 1, 'name', 'Symbol(leaf)'],
 				}),
 			)
 		}
@@ -371,11 +401,7 @@ describe('Standard Schema field validation', () => {
 			}),
 		})
 
-		snapshotRuntimeResultRecord(
-			compileValidationPlans(schema),
-			completeRecord({ profile: { name: 'Ada' } }),
-			[],
-		)
+		validateFinalCreate(schema, { profile: { name: 'Ada' } })
 
 		expect(order).toStrictEqual(['child', 'parent'])
 	})
@@ -410,15 +436,11 @@ describe('Standard Schema field validation', () => {
 			}),
 		})
 
-		const result = snapshotRuntimeResultRecord(
-			compileValidationPlans(schema),
-			completeRecord({ profile: { name: 'Ada' } }),
-			[],
-		)
+		const result = validateFinalCreate(schema, { profile: { name: 'Ada' } })
 
-		expect(result.profile).toStrictEqual({ name: 'Ada' })
-		expect(result.profile).not.toBe(vendorOutput)
-		expect(Object.isFrozen(result.profile)).toBe(true)
+		expect(result.input.profile).toStrictEqual({ name: 'Ada' })
+		expect(result.input.profile).not.toBe(vendorOutput)
+		expect(Object.isFrozen(result.input.profile)).toBe(true)
 	})
 
 	it('does not run an object validator after a child rejection', () => {
@@ -446,11 +468,7 @@ describe('Standard Schema field validation', () => {
 		})
 
 		expect(() =>
-			snapshotRuntimeResultRecord(
-				compileValidationPlans(schema),
-				completeRecord({ profile: { name: '' } }),
-				[],
-			),
+			validateFinalCreate(schema, { profile: { name: '' } }),
 		).toThrow(FrameworkError)
 		expect(parentValidate).not.toHaveBeenCalled()
 	})
@@ -510,19 +528,11 @@ describe('Standard Schema field validation', () => {
 			}),
 		})
 
-		snapshotRuntimeResultRecord(
-			compileValidationPlans(firstSchema),
-			completeRecord({ value: 'first' }),
-			[],
-		)
+		validateFinalCreate(firstSchema, { value: 'first' })
 		expect(firstValidate).toHaveBeenCalledTimes(1)
 		expect(secondValidate).not.toHaveBeenCalled()
 
-		snapshotRuntimeResultRecord(
-			compileValidationPlans(secondSchema),
-			completeRecord({ value: 'second' }),
-			[],
-		)
+		validateFinalCreate(secondSchema, { value: 'second' })
 		expect(firstValidate).toHaveBeenCalledTimes(1)
 		expect(secondValidate).toHaveBeenCalledTimes(1)
 	})
@@ -565,13 +575,7 @@ describe('Standard Schema field validation', () => {
 			}),
 		})
 
-		expect(() =>
-			snapshotRuntimeResultRecord(
-				compileValidationPlans(schema),
-				completeRecord({ value: ' value ' }),
-				[],
-			),
-		).toThrow(
+		expect(() => validateFinalCreate(schema, { value: ' value ' })).toThrow(
 			expect.objectContaining<Partial<FrameworkError>>({
 				code: 'INTERNAL_ERROR',
 			}),
@@ -618,11 +622,9 @@ describe('Standard Schema field validation', () => {
 		})
 
 		expect(() =>
-			snapshotRuntimeResultRecord(
-				compileValidationPlans(schema),
-				completeRecord({ profile: { name: 'Ada', role: 'admin' } }),
-				[],
-			),
+			validateFinalCreate(schema, {
+				profile: { name: 'Ada', role: 'admin' },
+			}),
 		).toThrow(
 			expect.objectContaining<Partial<FrameworkError>>({
 				code: 'INTERNAL_ERROR',
@@ -648,11 +650,7 @@ describe('Standard Schema field validation', () => {
 		})
 
 		try {
-			snapshotRuntimeResultRecord(
-				compileValidationPlans(schema),
-				completeRecord({ value: 'value' }),
-				[],
-			)
+			validateFinalCreate(schema, { value: 'value' })
 			expect.unreachable('validation should fail')
 		} catch (error: unknown) {
 			expect(error).toBeInstanceOf(FrameworkError)
