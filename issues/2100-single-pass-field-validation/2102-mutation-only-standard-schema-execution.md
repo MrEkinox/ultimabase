@@ -1,6 +1,6 @@
 # 2102: Execute Standard Schema only on final mutation input
 
-- Status: planned
+- Status: ready
 - Milestone: 21
 - Packages: `@ultimabase/core`, official examples and documentation
 - Depends on: 2101
@@ -27,9 +27,15 @@ while retaining one mandatory Standard Schema pass on final mutation input.
 - [ ] Arithmetic projection reuses Core's exact integer, bigint, float, and
       decimal update semantics, detects structural overflow or invalid decimal
       results before persistence, and adds no adapter query.
+- [ ] `update-many` and `upsert-many` arithmetic over validated fields project
+      every complete result only when exact prepared targets are available and
+      otherwise fail before persistence without implicitly loading items.
 - [ ] The database adapter still receives the original atomic delta rather than
       a projected set operation, and the locked target prevents a concurrent
       write from invalidating the checked result.
+- [ ] A targetless upsert rejects arithmetic over a validated field before
+      persistence because a concurrent unique conflict could still select its
+      unprojected update branch.
 - [ ] Read normalization, adapter output, behavior result replacement, mutation
       materialization, pointer and relation inclusion, and final selected-result
       validation execute structural snapshots without Standard Schema.
@@ -67,3 +73,4 @@ while retaining one mandatory Standard Schema pass on final mutation input.
 - Validating or migrating existing rows automatically after a validator change.
 - Adding asynchronous or database-backed field validators.
 - Generalizing arithmetic updates to non-numeric or plugin-defined field kinds.
+- Adding a new public bulk-target preparation API.

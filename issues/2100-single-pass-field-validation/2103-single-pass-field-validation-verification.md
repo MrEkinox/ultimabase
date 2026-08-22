@@ -24,6 +24,11 @@ Typegen, published packages, and PostgreSQL.
       match ADR-0221.
 - [ ] Integer, bigint, float, and decimal atomic updates validate the projected
       value from the locked target once and retain the adapter's atomic write.
+- [ ] Bulk arithmetic over validated fields proves both exact validation with
+      prepared targets and deterministic pre-persistence rejection without
+      them; Runtime never validates a delta as a complete value.
+- [ ] Targetless upsert arithmetic over a validated field is rejected before a
+      concurrent conflict can select an unprojected update branch.
 - [ ] Stored values that fail a newly tightened application validator remain
       structurally readable and selectable.
 - [ ] Malformed stored values still fail Core structural snapshots and codecs;

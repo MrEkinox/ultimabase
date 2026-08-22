@@ -1,6 +1,6 @@
 # Milestone 21 — Single-pass field validation
 
-- Status: planned
+- Status: in-progress
 
 Run each field's Standard Schema application validator exactly once for every
 final mutation candidate, after all optional input resolution. The validator
@@ -19,9 +19,18 @@ projects the resulting value from the target already loaded and locked before
 input resolution, validates that projection once, and still sends the original
 atomic operation to the adapter.
 
+Low-level bulk arithmetic over a validated field requires complete prepared
+targets. When they are unavailable, Core rejects the operation before
+persistence instead of forcing implicit item loading onto the set-based path or
+skipping final-value validation.
+
+A targetless upsert follows the same rule for a validated arithmetic update
+branch: Core rejects it because a concurrent unique conflict could still select
+that branch without a projected complete value.
+
 ## Execution order
 
-1. [ ] [2101 — Decide the single-pass mutation-validation boundary](2101-single-pass-field-validation-adr.md)
+1. [x] [2101 — Decide the single-pass mutation-validation boundary](2101-single-pass-field-validation-adr.md)
 2. [ ] [2102 — Execute Standard Schema only on final mutation input](2102-mutation-only-standard-schema-execution.md)
 3. [ ] [2103 — Verify exact field-validator invocation](2103-single-pass-field-validation-verification.md)
 
@@ -33,6 +42,8 @@ atomic operation to the adapter.
   values, and final values returned by mutation input transformers.
 - Arithmetic updates validate the complete projected result against the locked
   target. The logical operation and physical atomic write remain unchanged.
+- Bulk arithmetic never receives an approximate exception: exact prepared
+  targets are required or the operation fails before persistence.
 - Reads and persistence results run Core structural snapshots without executing
   Standard Schema. Tightening a validator therefore does not make existing rows
   unreadable.

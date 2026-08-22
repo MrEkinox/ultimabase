@@ -203,6 +203,7 @@ Accepted records:
 - [ADR-0218: Master bypasses authorization policies](0218-master-bypasses-authorization-policies.md)
 - [ADR-0219: Field constraints use Standard Schema](0219-standard-schema-field-validation.md)
 - [ADR-0220: Field validation follows input resolution](0220-post-resolution-field-validation.md)
+- [ADR-0221: Field validation is a single mutation-input boundary](0221-single-pass-field-validation.md)
 
 Superseded records:
 

@@ -12,18 +12,18 @@ remaining atomic adapter operations.
 
 ## Order
 
-1. Issue 2101 — decide the single-pass mutation validation boundary (`ready`).
-2. Issue 2102 — execute Standard Schema only on final mutation input (`planned`).
+1. Issue 2101 — decide the single-pass mutation validation boundary (`completed`).
+2. Issue 2102 — execute Standard Schema only on final mutation input (`ready`).
 3. Issue 2103 — verify exact invocation and the complete vertical (`planned`).
 
 ## Resume point
 
-Start issue 2101 by accepting ADR-0221. The ADR must state explicitly that
-stored data is not revalidated during reads and that persistence integrity
-remains the responsibility of Core structural snapshots, codecs, adapter
-constraints, database constraints, and migrations. It must also specify how
-`increment` and `decrement` validate their projected final value exactly once
-without replacing the logical atomic operation.
+Start issue 2102 by separating repeatable structural result snapshots from the
+one final application-validation execution. Carry the prepared singular target
+into final validation for exact arithmetic projection. Reject targetless upsert
+and bulk arithmetic over validated fields when complete prepared targets are
+unavailable; never validate a delta as a complete field value or force implicit
+bulk item loading.
 
 ACL hardening issues 432 through 435 remain deliberately deferred until
 explicit direction.
