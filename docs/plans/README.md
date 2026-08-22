@@ -7,8 +7,7 @@ priority changes.
 
 ## Active
 
-- [Single-pass field validation](../../CURRENT_PLAN.md), tracked as milestone 21
-  and starting at issue 2101.
+No cross-milestone plan is active.
 
 ## Paused
 
@@ -19,6 +18,7 @@ priority changes.
 
 ## Completed
 
+- [Single-pass field validation](completed/single-pass-field-validation.md)
 - [Standard Schema field validation](completed/standard-schema-field-validation.md)
 - [Trusted open plugin kernel and optional official capabilities](completed/trusted-open-plugin-kernel-and-optional-official-capabilities.md)
 - [Query execution and enforcement consolidation](completed/query-execution-and-enforcement-consolidation.md)
