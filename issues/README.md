@@ -78,6 +78,7 @@ consistent without rewriting historical issue prose.
 - [`1800-single-acl-plugin/`](1800-single-acl-plugin/README.md)
 - [`1900-direct-plugin-schema-configuration/`](1900-direct-plugin-schema-configuration/README.md)
 - [`2000-standard-schema-field-validation/`](2000-standard-schema-field-validation/README.md)
+- [`2100-single-pass-field-validation/`](2100-single-pass-field-validation/README.md)
 
 ## Assignment prompt
 

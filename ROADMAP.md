@@ -185,6 +185,17 @@ email, phone, URL, slug, locale, numeric-bound, and similar validation-only
 field extensions are retired in favor of composing native fields with Standard
 Schema; explicit Hooks remain responsible for requested normalization.
 
+## Milestone 21 — Single-pass field validation
+
+Execute each field's Standard Schema application validator once on the final
+mutation candidate after optional input resolution. Reads and result boundaries
+retain Core structural snapshots without replaying application validators, so
+tightening an input rule does not make existing persisted rows unreadable. The
+complete result of an arithmetic update is projected from its locked target and
+validated without replacing the adapter's atomic operation. The milestone
+changes no field syntax, validator protocol, storage metadata, or plugin
+boundary.
+
 ## First usable release
 
 The first release must support full primitive-field CRUD, bulk operations,

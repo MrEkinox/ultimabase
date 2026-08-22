@@ -202,6 +202,7 @@ Accepted records:
 - [ADR-0217: Generated registries do not reject schema class declarations](0217-generated-registries-do-not-reject-schema-class-declarations.md)
 - [ADR-0218: Master bypasses authorization policies](0218-master-bypasses-authorization-policies.md)
 - [ADR-0219: Field constraints use Standard Schema](0219-standard-schema-field-validation.md)
+- [ADR-0220: Field validation follows input resolution](0220-post-resolution-field-validation.md)
 
 Superseded records:
 

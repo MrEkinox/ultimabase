@@ -7,7 +7,8 @@ priority changes.
 
 ## Active
 
-No cross-milestone plan is active.
+- [Single-pass field validation](../../CURRENT_PLAN.md), tracked as milestone 21
+  and starting at issue 2101.
 
 ## Paused
 
