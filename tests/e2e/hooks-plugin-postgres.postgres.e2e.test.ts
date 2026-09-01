@@ -348,7 +348,7 @@ const createHookApplication = (connectionUri: string) =>
 		plugins: [
 			// Dependency order must place policy setup before its behavior consumer.
 			hooksPlugin(),
-			accessPlugin(),
+			accessPlugin({ default: true }),
 			behaviorPlugin,
 			scopePolicyPlugin,
 			postgresPlugin({ schemaPolicy: 'override', url: connectionUri }),

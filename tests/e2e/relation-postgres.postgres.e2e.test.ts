@@ -165,7 +165,7 @@ beforeAll(async () => {
 	ultimabase = new UltimaBase({
 		plugins: [
 			hooksPlugin(),
-			accessPlugin(),
+			accessPlugin({ default: true }),
 			postgresPlugin({
 				schemaPolicy: 'override',
 				url: fixture.connectionUri,
@@ -930,7 +930,7 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		const verifier = new UltimaBase({
 			plugins: [
 				hooksPlugin(),
-				accessPlugin(),
+				accessPlugin({ default: true }),
 				postgresPlugin({
 					schemaPolicy: 'fail',
 					url: activeFixture.connectionUri,

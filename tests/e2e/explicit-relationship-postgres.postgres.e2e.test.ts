@@ -86,7 +86,7 @@ beforeAll(async () => {
 	ultimabase = new UltimaBase({
 		plugins: [
 			hooksPlugin(),
-			accessPlugin(),
+			accessPlugin({ default: true }),
 			postgresPlugin({
 				schemaPolicy: 'override',
 				url: fixture.connectionUri,

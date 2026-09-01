@@ -204,6 +204,7 @@ Accepted records:
 - [ADR-0219: Field constraints use Standard Schema](0219-standard-schema-field-validation.md)
 - [ADR-0220: Field validation follows input resolution](0220-post-resolution-field-validation.md)
 - [ADR-0221: Field validation is a single mutation-input boundary](0221-single-pass-field-validation.md)
+- [ADR-0222: Sparse Access resolves granular secure defaults](0222-sparse-read-access-inherits-secure-defaults.md)
 
 Superseded records:
 

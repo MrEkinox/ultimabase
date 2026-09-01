@@ -143,7 +143,7 @@ beforeAll(async () => {
 		}),
 		plugins: [
 			hooksPlugin(),
-			accessPlugin(),
+			accessPlugin({ default: true }),
 			pluginVisibility,
 			postgresPlugin({ schemaPolicy: 'override', url: fixture.connectionUri }),
 		],

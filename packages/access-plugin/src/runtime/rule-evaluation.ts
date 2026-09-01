@@ -22,6 +22,10 @@ import type {
 	FieldAccessPlan,
 	SchemaAccessPlan,
 } from '../authoring/plan.js'
+import {
+	allowUndeclaredFieldAccess,
+	readAccessOperationDefault,
+} from '../authoring/plan.js'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import type { AccessExecutionRuntime } from './execution-runtime.js'
@@ -231,7 +235,7 @@ export const evaluateAccessFieldReferenceRules = async (
 					schema: schemaPlan.schema,
 				},
 				immutableRecord({ context: request.context }),
-				plan.defaults.field,
+				allowUndeclaredFieldAccess,
 			)
 		}
 	}
@@ -244,17 +248,35 @@ export const evaluateAccessOperationAndFilter = async (
 	plan: AccessPlan,
 	schemaPlan: SchemaAccessPlan,
 ): Promise<DatabaseRowFilterNode | undefined> => {
+	const operationRules = schemaPlan.operation[request.operation.kind]
+	const developerRules = operationRules.filter(
+		({ source }) => source.kind === 'developer',
+	)
+	const providerRules = operationRules.filter(
+		({ source }) => source.kind === 'plugin',
+	)
+	const identity = {
+		branch: request.operation.kind,
+		phase: 'access-operation' as const,
+		schema: schemaPlan.schema,
+	}
+	const input = immutableRecord({ context: request.context })
+
 	await assertAccessDecisionRules(
 		runtime,
 		request,
-		schemaPlan.operation[request.operation.kind],
-		{
-			branch: request.operation.kind,
-			phase: 'access-operation',
-			schema: schemaPlan.schema,
-		},
-		immutableRecord({ context: request.context }),
-		plan.defaults.operation,
+		developerRules,
+		identity,
+		input,
+		readAccessOperationDefault(plan.defaults, request.operation.kind),
+	)
+	await assertAccessDecisionRules(
+		runtime,
+		request,
+		providerRules,
+		identity,
+		input,
+		true,
 	)
 
 	const family = operationFilterFamily(request.operation.kind)
@@ -263,10 +285,10 @@ export const evaluateAccessOperationAndFilter = async (
 		return undefined
 	}
 
-	const rules = schemaPlan.filter[family]
+	const filterRules = schemaPlan.filter[family]
 	const results: unknown[] = []
 
-	for (const [ruleIndex, rule] of rules.entries()) {
+	for (const [ruleIndex, rule] of filterRules.entries()) {
 		const result = await evaluateRule(
 			runtime,
 			request,

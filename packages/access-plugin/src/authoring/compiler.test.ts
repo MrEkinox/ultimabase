@@ -17,6 +17,7 @@ import {
 } from '../contributions.js'
 import { defineFieldKindAccessTarget } from '../targets.js'
 import { compileAccessPlan } from './compiler.js'
+import type { AccessDefaultPolicy } from './plan.js'
 
 const owner = { instanceId: 'primary', pluginId: 'fixture.security' } as const
 
@@ -31,7 +32,13 @@ const owned = (
 	pluginVersion: '1.0.0',
 })
 
-const defaults = { field: false, operation: false } as const
+const defaults: AccessDefaultPolicy = {
+	create: false,
+	delete: false,
+	read: { count: false, exists: false, many: false, one: false },
+	update: false,
+	upsert: false,
+}
 
 const secureText = definePluginField(
 	'fixture.secure-text',

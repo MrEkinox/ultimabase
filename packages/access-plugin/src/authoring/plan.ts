@@ -1,7 +1,9 @@
 export {
+	allowUndeclaredFieldAccess,
 	accessOperationKinds,
 	emptyFieldAccessPlans,
 	encodeFieldPath,
+	readAccessOperationDefault,
 } from './plan-contracts.js'
 export type {
 	AccessDefaultPolicy,

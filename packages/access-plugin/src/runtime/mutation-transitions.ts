@@ -18,6 +18,7 @@ import type {
 	FieldAccessPlan,
 	SchemaAccessPlan,
 } from '../authoring/plan.js'
+import { allowUndeclaredFieldAccess } from '../authoring/plan.js'
 import {
 	immutableArray,
 	immutableRecord,
@@ -239,7 +240,7 @@ export const evaluateAccessCreateFillRules = async (
 				context: request.context,
 				value: input.value,
 			}),
-			plan.defaults.field,
+			allowUndeclaredFieldAccess,
 		)
 	}
 }
@@ -247,7 +248,6 @@ export const evaluateAccessCreateFillRules = async (
 export const evaluateAccessRelationWriteRules = async (
 	runtime: AccessExecutionRuntime,
 	request: RuntimeOperationStageInput<DatabaseOperationAst>,
-	plan: AccessPlan,
 	schemaPlan: SchemaAccessPlan,
 	updateFields: ReadonlyMap<string, unknown>,
 ): Promise<void> => {
@@ -268,7 +268,7 @@ export const evaluateAccessRelationWriteRules = async (
 					schema: schemaPlan.schema,
 				},
 				immutableRecord({ change, context: request.context }),
-				field.relationWrite.length === 0 ? plan.defaults.field : true,
+				field.relationWrite.length === 0 ? allowUndeclaredFieldAccess : true,
 			)
 		}
 	}
@@ -346,7 +346,7 @@ export const evaluateAccessMutationFieldRules = async (
 					schema: schemaPlan.schema,
 				},
 				immutableRecord({ context: request.context }),
-				plan.defaults.field,
+				allowUndeclaredFieldAccess,
 			)
 			continue
 		}
@@ -373,7 +373,6 @@ export const evaluateAccessMutationFieldRules = async (
 	await evaluateAccessRelationWriteRules(
 		runtime,
 		request,
-		plan,
 		schemaPlan,
 		readUpdateFieldValues(operation),
 	)

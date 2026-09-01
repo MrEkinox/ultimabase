@@ -313,7 +313,7 @@ export const createRoleApplication = (
 		}),
 		plugins: [
 			hooksPlugin(),
-			accessPlugin(),
+			accessPlugin({ default: true }),
 			externalRoleReferencePlugin,
 			rolesPlugin(),
 			roleResolverConsumerPlugin,
@@ -348,7 +348,7 @@ export const createProviderBoundaryApplication = (
 	return new UltimaBase({
 		plugins: [
 			hooksPlugin(),
-			accessPlugin(),
+			accessPlugin({ default: true }),
 			...(provider === 'community' ? [communityProvider] : []),
 			postgresPlugin({ schemaPolicy: 'ignore', url: connectionUri }),
 		],

@@ -82,4 +82,29 @@ Schema.define({
 		expect(completionNames(source, '/* schema-options */')).toContain('access')
 		expect(completionNames(source, '/* field-options */')).toContain('access')
 	})
+
+	it('offers granular plugin defaults with sparse read capabilities', () => {
+		const source = `
+import { accessPlugin } from '@ultimabase/access-plugin'
+accessPlugin({
+  default: {
+    /* operation-defaults */
+	read: { count: false, /* read-defaults */ },
+  },
+})
+`
+
+		expect(completionNames(source, '/* operation-defaults */')).toEqual(
+			expect.arrayContaining(['create', 'delete', 'update', 'upsert']),
+		)
+		expect(completionNames(source, '/* read-defaults */')).toEqual(
+			expect.arrayContaining(['exists', 'many', 'one']),
+		)
+		const diagnostics = createLanguageService(
+			fixtureFile,
+			source,
+		).getSemanticDiagnostics(fixtureFile)
+
+		expect(diagnostics).toStrictEqual([])
+	})
 })

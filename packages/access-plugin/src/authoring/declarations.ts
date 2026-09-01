@@ -8,11 +8,10 @@ import type { SchemaDefinition } from '@ultimabase/core'
 import type { SchemaAccess } from './contracts.js'
 import {
 	normalizeAccessRule,
-	normalizeAccessRuleOrRequiredMap,
+	normalizeAccessRuleOrMap,
 	type ErasedAccessRule,
 	type NormalizedAccessRule,
 	type NormalizedAccessRuleMap,
-	type NormalizedRequiredAccessRuleMap,
 } from './normalization.js'
 
 /** Lists public operation families once so validation stays exhaustive. */
@@ -52,8 +51,7 @@ export type SchemaItemAccessFamily = (typeof schemaItemAccessFamilies)[number]
 /** Retains operation rules in the private stage-oriented compiler format. */
 export interface SchemaOperationAccessDeclarations {
 	readonly read?:
-		| NormalizedAccessRule
-		| NormalizedRequiredAccessRuleMap<SchemaReadAccessBranch>
+		NormalizedAccessRule | NormalizedAccessRuleMap<SchemaReadAccessBranch>
 	readonly create?: NormalizedAccessRule
 	readonly update?: NormalizedAccessRule
 	readonly upsert?: NormalizedAccessRule
@@ -167,7 +165,7 @@ const normalizeSchemaAccessFamily = (
 
 	if (Object.hasOwn(value, 'allow')) {
 		if (family === 'read') {
-			declarations.operation.read = normalizeAccessRuleOrRequiredMap(
+			declarations.operation.read = normalizeAccessRuleOrMap(
 				value.allow,
 				schemaReadAccessBranches,
 				'access.read.allow',

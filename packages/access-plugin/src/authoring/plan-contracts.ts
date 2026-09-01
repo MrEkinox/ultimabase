@@ -13,6 +13,7 @@ import type {
 import type {
 	SchemaFilterAccessFamily,
 	SchemaItemAccessFamily,
+	SchemaReadAccessBranch,
 } from './declarations.js'
 import type { NormalizedAccessRule } from './normalization.js'
 
@@ -89,8 +90,44 @@ export interface AccessPlan {
 }
 
 export interface AccessDefaultPolicy {
-	readonly field: boolean
-	readonly operation: boolean
+	readonly create: boolean
+	readonly delete: boolean
+	readonly read: Readonly<Record<SchemaReadAccessBranch, boolean>>
+	readonly update: boolean
+	readonly upsert: boolean
+}
+
+/** Fields stay available until one exact field declaration narrows them. */
+export const allowUndeclaredFieldAccess = true as const
+
+/** Resolves one terminal through the public operation-family defaults. */
+export const readAccessOperationDefault = (
+	defaults: AccessDefaultPolicy,
+	kind: OperationKind,
+): boolean => {
+	switch (kind) {
+		case 'get':
+		case 'find-one':
+			return defaults.read.one
+		case 'find-many':
+			return defaults.read.many
+		case 'count':
+			return defaults.read.count
+		case 'exists':
+			return defaults.read.exists
+		case 'create-one':
+		case 'create-many':
+			return defaults.create
+		case 'update-one':
+		case 'update-many':
+			return defaults.update
+		case 'upsert-one':
+		case 'upsert-many':
+			return defaults.upsert
+		case 'delete-one':
+		case 'delete-many':
+			return defaults.delete
+	}
 }
 
 export type MutableAccessRuleMap<TKey extends string> = Record<

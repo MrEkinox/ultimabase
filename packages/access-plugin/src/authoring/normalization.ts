@@ -93,12 +93,12 @@ export const normalizeRequiredAccessRuleMap = <TKey extends string>(
 	return rules as NormalizedRequiredAccessRuleMap<TKey>
 }
 
-/** Normalizes one concise rule or one complete grouped declaration. */
-export const normalizeAccessRuleOrRequiredMap = <TKey extends string>(
+/** Normalizes one concise rule or one sparse grouped declaration. */
+export const normalizeAccessRuleOrMap = <TKey extends string>(
 	value: unknown,
 	keys: readonly TKey[],
 	path: string,
-): NormalizedAccessRule | NormalizedRequiredAccessRuleMap<TKey> =>
+): NormalizedAccessRule | NormalizedAccessRuleMap<TKey> =>
 	isAccessRule(value)
 		? value
-		: normalizeRequiredAccessRuleMap(value, keys, path)
+		: (normalizeAccessRuleMap(value, keys, path) ?? immutableRecord({}))

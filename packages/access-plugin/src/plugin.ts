@@ -15,6 +15,10 @@ import {
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 import type { AccessDefaultPolicy } from './authoring/plan.js'
+import {
+	schemaAccessFamilies,
+	schemaReadAccessBranches,
+} from './authoring/declarations.js'
 import { compileAccessPlan } from './authoring/compiler.js'
 import { fieldAccessOption, schemaAccessOption } from './options.js'
 import {
@@ -46,15 +50,74 @@ const optionalAccessDiagnostics: CapabilityRequirement<
 	'materialization'
 > = optionalCapability(accessDiagnosticsObserverCapability, '^1.0.0')
 
-/** Configures the fallback used only when no exact Access declaration exists. */
-export interface AccessPluginOptions {
-	readonly default?: boolean | AccessDefaultPolicy
+/** Configures static read-capability fallbacks for every application schema. */
+export interface SchemaReadAccessDefaults {
+	readonly one?: boolean
+	readonly many?: boolean
+	readonly count?: boolean
+	readonly exists?: boolean
 }
 
-const allowByDefault: AccessDefaultPolicy = immutableRecord({
-	field: true,
-	operation: true,
+/**
+ * Configures static operation fallbacks without schema-specific row or item rules.
+ * Every omitted family or read capability denies.
+ */
+export interface SchemaAccessDefaults {
+	readonly read?: boolean | SchemaReadAccessDefaults
+	readonly create?: boolean
+	readonly update?: boolean
+	readonly upsert?: boolean
+	readonly delete?: boolean
+}
+
+/** Configures the fallback used only when no exact schema decision exists. */
+export interface AccessPluginOptions {
+	readonly default?: boolean | SchemaAccessDefaults
+}
+
+const denyByDefault: AccessDefaultPolicy = immutableRecord({
+	create: false,
+	delete: false,
+	read: immutableRecord({
+		count: false,
+		exists: false,
+		many: false,
+		one: false,
+	}),
+	update: false,
+	upsert: false,
 })
+
+const normalizeReadDefaults = (value: unknown): AccessDefaultPolicy['read'] => {
+	if (typeof value === 'boolean') {
+		return immutableRecord({
+			count: value,
+			exists: value,
+			many: value,
+			one: value,
+		})
+	}
+	if (!isPlainRecord(value)) {
+		throw new TypeError('Access read default must be a boolean or plain object')
+	}
+
+	const allowedKeys = new Set<string>(schemaReadAccessBranches)
+	for (const key of Reflect.ownKeys(value)) {
+		if (typeof key !== 'string' || !allowedKeys.has(key)) {
+			throw new TypeError(`Unknown Access read default: ${String(key)}`)
+		}
+		if (typeof value[key] !== 'boolean') {
+			throw new TypeError(`Access read default ${key} must be a boolean`)
+		}
+	}
+
+	return immutableRecord({
+		count: value.count === true,
+		exists: value.exists === true,
+		many: value.many === true,
+		one: value.one === true,
+	})
+}
 
 const normalizeDefaults = (
 	options: AccessPluginOptions,
@@ -67,31 +130,38 @@ const normalizeDefaults = (
 			throw new TypeError(`Unknown Access plugin option: ${String(key)}`)
 		}
 	}
-	if (options.default === undefined) return allowByDefault
+	if (options.default === undefined) return denyByDefault
 	if (typeof options.default === 'boolean') {
 		return immutableRecord({
-			field: options.default,
-			operation: options.default,
+			create: options.default,
+			delete: options.default,
+			read: normalizeReadDefaults(options.default),
+			update: options.default,
+			upsert: options.default,
 		})
 	}
-	if (
-		!isPlainRecord(options.default) ||
-		typeof options.default.field !== 'boolean' ||
-		typeof options.default.operation !== 'boolean'
-	) {
-		throw new TypeError(
-			'Access default must be a boolean or a complete field/operation object',
-		)
+	if (!isPlainRecord(options.default)) {
+		throw new TypeError('Access default must be a boolean or plain object')
 	}
+	const allowedFamilies = new Set<string>(schemaAccessFamilies)
 	for (const key of Reflect.ownKeys(options.default)) {
-		if (key !== 'field' && key !== 'operation') {
+		if (typeof key !== 'string' || !allowedFamilies.has(key)) {
 			throw new TypeError(`Unknown Access default: ${String(key)}`)
+		}
+		if (key !== 'read' && typeof options.default[key] !== 'boolean') {
+			throw new TypeError(`Access ${key} default must be a boolean`)
 		}
 	}
 
 	return immutableRecord({
-		field: options.default.field,
-		operation: options.default.operation,
+		create: options.default.create === true,
+		delete: options.default.delete === true,
+		read:
+			options.default.read === undefined
+				? denyByDefault.read
+				: normalizeReadDefaults(options.default.read),
+		update: options.default.update === true,
+		upsert: options.default.upsert === true,
 	})
 }
 

@@ -1,7 +1,12 @@
 // Application API: plugin installation, generated option contracts, callback
 // authoring types, and policy combinators.
 export { accessPlugin } from './plugin.js'
-export type { AccessPlugin, AccessPluginOptions } from './plugin.js'
+export type {
+	AccessPlugin,
+	AccessPluginOptions,
+	SchemaAccessDefaults,
+	SchemaReadAccessDefaults,
+} from './plugin.js'
 export type { FieldAccessOption, SchemaAccessOption } from './options.js'
 export type { AccessContext } from './context.js'
 export type {

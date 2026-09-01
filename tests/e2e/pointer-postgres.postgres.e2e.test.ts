@@ -236,7 +236,7 @@ beforeAll(async () => {
 		}),
 		plugins: [
 			hooksPlugin(),
-			accessPlugin(),
+			accessPlugin({ default: true }),
 			postgresPlugin({
 				schemaPolicy: 'override',
 				url: fixture.connectionUri,
@@ -693,7 +693,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 		const app = getUltimaBase()
 		const graph = app.application.schemaTargets
 		const independentApp = new UltimaBase({
-			plugins: [hooksPlugin(), accessPlugin()],
+			plugins: [hooksPlugin(), accessPlugin({ default: true })],
 			schemas: pointerSchemas,
 		})
 

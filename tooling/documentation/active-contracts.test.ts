@@ -113,7 +113,7 @@ describe('active documentation contracts', () => {
 				if (/^\s*access\s*:/mu.test(fence)) {
 					if (
 						!fence.includes("from '@ultimabase/access-plugin'") ||
-						!fence.includes('accessPlugin()')
+						!fence.includes('accessPlugin(')
 					) {
 						violations.push(`${document}: Access option without accessPlugin()`)
 					}

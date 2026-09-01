@@ -67,9 +67,9 @@ const optionalPlugins = (
 		case 'hooks':
 			return [hooksPlugin()]
 		case 'access':
-			return [accessPlugin()]
+			return [accessPlugin({ default: true })]
 		case 'hooks-and-access':
-			return [hooksPlugin(), accessPlugin()]
+			return [hooksPlugin(), accessPlugin({ default: true })]
 		case 'neutral-behavior':
 			return [neutralBehaviorPlugin()]
 	}

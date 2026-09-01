@@ -8,6 +8,7 @@ import {
 	type ExecutableOperationAst,
 	type RuntimeOperationStageInput,
 } from '@ultimabase/core'
+import { allowUndeclaredFieldAccess } from '../authoring/plan.js'
 import type { AccessPlan, SchemaAccessPlan } from '../authoring/plan.js'
 import {
 	immutableArray,
@@ -24,7 +25,6 @@ import {
 } from './rule-evaluation.js'
 
 export const computeAccessStaticSelection = (
-	plan: AccessPlan,
 	schemaPlan: SchemaAccessPlan,
 ): readonly string[] | undefined => {
 	const topLevel = schemaPlan.fields.filter((field) => {
@@ -41,7 +41,7 @@ export const computeAccessStaticSelection = (
 		topLevel
 			.filter((field) => {
 				if (field.read.item.length === 0) {
-					return plan.defaults.field
+					return allowUndeclaredFieldAccess
 				}
 
 				return !field.read.item.some(({ rule }) => rule === false)
@@ -182,7 +182,7 @@ const enforceRecordOutput = async (
 					context: request.context,
 					value: accessValue,
 				}),
-				plan.defaults.field,
+				allowUndeclaredFieldAccess,
 			)
 		} catch (error: unknown) {
 			if (

@@ -158,7 +158,7 @@ beforeAll(async () => {
 	pool = new CountingPostgresPool(fixture.pool)
 	ultimabase = new UltimaBase({
 		plugins: [
-			accessPlugin(),
+			accessPlugin({ default: true }),
 			postgresPlugin({ pool, schemaPolicy: 'override' }),
 		],
 		schemas,

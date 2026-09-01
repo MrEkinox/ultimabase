@@ -13,6 +13,7 @@ import {
 	materializePreparedSchemaDraft,
 	materializeSchemaModel,
 } from '@ultimabase/core'
+import { allowUndeclaredFieldAccess } from '../authoring/plan.js'
 import type { AccessPlan, SchemaAccessPlan } from '../authoring/plan.js'
 import { immutableRecord } from '@ultimabase/shared'
 import type { AccessExecutionRuntime } from './execution-runtime.js'
@@ -219,7 +220,7 @@ export const enforceAccessPreparedMutation = async <
 				runtime,
 				request,
 				schemaPlan,
-				plan.defaults.field,
+				allowUndeclaredFieldAccess,
 				target,
 				candidate,
 			)
@@ -297,7 +298,6 @@ export const enforceAccessPreparedMutation = async <
 				await evaluateAccessRelationWriteRules(
 					runtime,
 					request,
-					plan,
 					schemaPlan,
 					readAccessExpressionUpdateFieldValues(operation.update),
 				)
@@ -306,7 +306,7 @@ export const enforceAccessPreparedMutation = async <
 				runtime,
 				request,
 				schemaPlan,
-				plan.defaults.field,
+				allowUndeclaredFieldAccess,
 				request.target,
 				candidate,
 			)
@@ -407,7 +407,6 @@ export const enforceAccessMutationOutcome = async <
 			await evaluateAccessRelationWriteRules(
 				runtime,
 				request,
-				plan,
 				schemaPlan,
 				readAccessExpressionUpdateFieldValues(item.update),
 			)
@@ -415,7 +414,7 @@ export const enforceAccessMutationOutcome = async <
 				runtime,
 				request,
 				schemaPlan,
-				plan.defaults.field,
+				allowUndeclaredFieldAccess,
 				materialization.previous,
 				materialization.current,
 				readAccessExpressionUpdateFieldValues(item.update),

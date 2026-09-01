@@ -91,31 +91,34 @@ export type SchemaItemAccessInput<
 					originalItem: SchemaResult<TSchema>
 				}>
 
-/** Declares read capabilities without exposing Runtime terminal names. */
+/**
+ * Declares selected read capabilities without exposing Runtime terminal names.
+ * Omitted capabilities inherit the configured Access operation default.
+ */
 export interface SchemaReadAllowAccess {
 	/**
 	 * Controls singular object reads through `get` and `findOne`.
 	 * @example `one: true`
 	 */
-	readonly one: AccessDecisionRule<SchemaOperationAccessInput>
+	readonly one?: AccessDecisionRule<SchemaOperationAccessInput>
 	/**
 	 * Controls collection reads through `findMany`.
 	 * @example `many: true`
 	 */
-	readonly many: AccessDecisionRule<SchemaOperationAccessInput>
+	readonly many?: AccessDecisionRule<SchemaOperationAccessInput>
 	/**
 	 * Controls exact row counts without enabling other reads.
 	 * @example `count: false`
 	 */
-	readonly count: AccessDecisionRule<SchemaOperationAccessInput>
+	readonly count?: AccessDecisionRule<SchemaOperationAccessInput>
 	/**
 	 * Controls existence checks without enabling object output.
 	 * @example `exists: true`
 	 */
-	readonly exists: AccessDecisionRule<SchemaOperationAccessInput>
+	readonly exists?: AccessDecisionRule<SchemaOperationAccessInput>
 }
 
-/** Allows one shared read decision or one complete capability declaration. */
+/** Allows one shared read decision or a sparse capability declaration. */
 export type SchemaReadAllowAccessDeclaration =
 	AccessDecisionRule<SchemaOperationAccessInput> | SchemaReadAllowAccess
 
@@ -123,7 +126,8 @@ export type SchemaReadAllowAccessDeclaration =
 export interface SchemaReadAccess<TSchema extends SchemaDefinition> {
 	/**
 	 * Makes the early read decision, optionally by public read capability.
-	 * @example `allow: { one: true, many: true, count: false, exists: true }`
+	 * Omitted capabilities inherit the Access plugin's operation default.
+	 * @example `allow: { count: true }`
 	 */
 	readonly allow?: SchemaReadAllowAccessDeclaration
 	/**

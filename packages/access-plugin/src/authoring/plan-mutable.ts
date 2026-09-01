@@ -110,7 +110,10 @@ const appendSchemaOperationDeclarations = (
 			for (const branch of Object.keys(
 				schemaReadKinds,
 			) as SchemaReadAccessBranch[]) {
-				appendRuleToKinds(rules, schemaReadKinds[branch], read[branch], source)
+				const rule = read[branch]
+				if (rule !== undefined) {
+					appendRuleToKinds(rules, schemaReadKinds[branch], rule, source)
+				}
 			}
 		}
 	}

@@ -281,10 +281,13 @@ const runCombinedComposition = async (
 	const roleProvider = createRoleProvider(true)
 	const aclProvider = aclPlugin()
 	const database = databasePlugin(adapter)
+	const access = accessPlugin({
+		default: false,
+	})
 	const plugins = nested
 		? [
 				hooksPlugin(),
-				accessPlugin(),
+				access,
 				definePlugin({
 					version: '0.0.0',
 					core: '^0.0.0',
@@ -295,7 +298,7 @@ const runCombinedComposition = async (
 			]
 		: [
 				hooksPlugin(),
-				accessPlugin(),
+				access,
 				roleProvider,
 				communityPolicy,
 				aclProvider,
@@ -369,7 +372,7 @@ describe('Access provider composition', () => {
 			},
 		])
 		const ultimabase = new UltimaBase({
-			plugins: [accessPlugin(), databasePlugin(adapter)],
+			plugins: [accessPlugin({ default: false }), databasePlugin(adapter)],
 			schemas: [NativeDocument],
 		})
 

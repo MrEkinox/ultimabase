@@ -157,7 +157,7 @@ beforeAll(async () => {
 		}),
 		plugins: [
 			hooksPlugin(),
-			accessPlugin(),
+			accessPlugin({ default: true }),
 			identityPlugin,
 			aclPlugin(),
 			postgresPlugin({

@@ -89,6 +89,12 @@ const ObservedDocument = Schema.define({
 	access: { read: () => true },
 })
 
+const CountOnlyDocument = Schema.define({
+	className: 'AccessPluginCountOnlyDocument',
+	fields: (field) => ({ title: field.string() }),
+	access: { read: { allow: { count: true } } },
+})
+
 const MasterBypassDocument = Schema.define({
 	className: 'AccessPluginMasterBypassDocument',
 	fields: (field) => ({
@@ -126,7 +132,10 @@ describe('accessPlugin', () => {
 
 	it('enforces official declarations through the protected Core policy kernel', async () => {
 		const ultimabase = new UltimaBase({
-			plugins: [accessPlugin(), databasePlugin(new StaticReadAdapter([row]))],
+			plugins: [
+				accessPlugin({ default: true }),
+				databasePlugin(new StaticReadAdapter([row])),
+			],
 			schemas: [SecretDocument],
 		})
 
@@ -171,7 +180,7 @@ describe('accessPlugin', () => {
 		}
 	})
 
-	it('isolates defaults between applications that share one schema', async () => {
+	it('denies by default and isolates explicit defaults between applications', async () => {
 		const allowed = new UltimaBase({
 			plugins: [
 				accessPlugin({ default: true }),
@@ -181,7 +190,7 @@ describe('accessPlugin', () => {
 		})
 		const denied = new UltimaBase({
 			plugins: [
-				accessPlugin({ default: false }),
+				accessPlugin(),
 				databasePlugin(new StaticReadAdapter([plainRow])),
 			],
 			schemas: [PlainDocument],
@@ -200,7 +209,86 @@ describe('accessPlugin', () => {
 		}
 	})
 
-	it('consumes official-compatible peer contributions without setup ordering', async () => {
+	it('supports granular defaults that allow reads except count', async () => {
+		const ultimabase = new UltimaBase({
+			plugins: [
+				accessPlugin({
+					default: {
+						create: true,
+						delete: true,
+						read: {
+							count: false,
+							exists: true,
+							many: true,
+							one: true,
+						},
+						update: true,
+						upsert: true,
+					},
+				}),
+				databasePlugin(new StaticReadAdapter([plainRow])),
+			],
+			schemas: [PlainDocument],
+		})
+
+		try {
+			await ultimabase.start()
+			await expect(
+				PlainDocument.findMany(undefined, { ultimabase }),
+			).resolves.toHaveLength(1)
+			await expect(
+				PlainDocument.count({}, { ultimabase }),
+			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
+		} finally {
+			await ultimabase.dispose()
+		}
+	})
+
+	it('prefers exact schema decisions and lets omissions inherit the default', async () => {
+		const deniedByDefault = new UltimaBase({
+			plugins: [
+				accessPlugin({
+					default: { read: { count: false } },
+				}),
+				databasePlugin(new StaticReadAdapter(1)),
+			],
+			schemas: [CountOnlyDocument],
+		})
+		const allowedByConfiguredDefault = new UltimaBase({
+			plugins: [
+				accessPlugin({ default: true }),
+				databasePlugin(new StaticReadAdapter([plainRow])),
+			],
+			schemas: [CountOnlyDocument],
+		})
+
+		try {
+			await Promise.all([
+				deniedByDefault.start(),
+				allowedByConfiguredDefault.start(),
+			])
+			await expect(
+				CountOnlyDocument.count({}, { ultimabase: deniedByDefault }),
+			).resolves.toBe(1)
+			await expect(
+				CountOnlyDocument.findMany(undefined, {
+					ultimabase: deniedByDefault,
+				}),
+			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
+			await expect(
+				CountOnlyDocument.findMany(undefined, {
+					ultimabase: allowedByConfiguredDefault,
+				}),
+			).resolves.toHaveLength(1)
+		} finally {
+			await Promise.all([
+				deniedByDefault.dispose(),
+				allowedByConfiguredDefault.dispose(),
+			])
+		}
+	})
+
+	it('keeps provider contributions deny-only after schema and default decisions', async () => {
 		const peer = definePlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
@@ -214,9 +302,14 @@ describe('accessPlugin', () => {
 			],
 			capabilities: {
 				provides: [
-					provideAccessContributions('deny-plain-reads', () =>
-						schemaAccess(PlainDocument, { read: false }),
-					),
+					provideAccessContributions('monotonic-read-policies', () => [
+						schemaAccess(CountOnlyDocument, {
+							read: { allow: { count: false } },
+						}),
+						schemaAccess(PlainDocument, {
+							read: { allow: { many: true } },
+						}),
+					]),
 				],
 			},
 		})
@@ -226,13 +319,16 @@ describe('accessPlugin', () => {
 				accessPlugin(),
 				databasePlugin(new StaticReadAdapter([row])),
 			],
-			schemas: [PlainDocument],
+			schemas: [CountOnlyDocument, PlainDocument],
 		})
 
 		try {
 			await ultimabase.start()
 			await expect(
 				PlainDocument.findMany(undefined, { ultimabase }),
+			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
+			await expect(
+				CountOnlyDocument.count({}, { ultimabase }),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 		} finally {
 			await ultimabase.dispose()

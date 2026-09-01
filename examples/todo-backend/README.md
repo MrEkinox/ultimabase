@@ -60,7 +60,7 @@ export const Todo = Schema.define({
 // Direct options are active only because the application installs their owners.
 const ultimabase = new UltimaBase({
 	plugins: [
-		accessPlugin(),
+		accessPlugin({ default: true }),
 		hooksPlugin() /* ACL, Roles, Typegen, PostgreSQL */,
 	],
 	schemas: [TodoUser, TodoRole, Todo],
@@ -109,7 +109,7 @@ explicitly. Importing a plugin package alone changes nothing:
 ```ts
 new UltimaBase({
 	plugins: [
-		accessPlugin(),
+		accessPlugin({ default: true }),
 		hooksPlugin(),
 		rolesPlugin(),
 		aclPlugin(),

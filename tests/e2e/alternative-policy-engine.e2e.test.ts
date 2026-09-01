@@ -257,7 +257,7 @@ describe('independent protected policy engine', () => {
 		const composed = new UltimaBase({
 			pluginPrivileges: { logger: false },
 			plugins: [
-				accessPlugin(),
+				accessPlugin({ default: true }),
 				engine.plugin,
 				aclPlugin(),
 				createSupportPlugin(adapter),

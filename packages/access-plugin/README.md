@@ -22,7 +22,7 @@ const Post = Schema.define({
 })
 
 const ultimabase = new UltimaBase({
-	plugins: [accessPlugin()],
+	plugins: [accessPlugin({ default: true })],
 	schemas: [Post],
 })
 ```
@@ -83,16 +83,68 @@ public-package suite.
 
 ## Defaults
 
-The default is permissive when no exact declaration exists. Applications may
-choose one complete application-local fallback:
+The operation fallback denies when no exact schema declaration exists. Fields
+stay available until an exact field declaration or compatible provider narrows
+them, so applications do not need a second field-wide default.
+
+Applications may configure every operation with one boolean or use the granular
+operation-family form:
 
 ```ts
-accessPlugin({ default: false })
-accessPlugin({ default: { field: true, operation: false } })
+accessPlugin({ default: true })
+accessPlugin({
+	default: {
+		read: {
+			one: true,
+			many: true,
+			count: false,
+			exists: true,
+		},
+		create: true,
+		update: true,
+		upsert: true,
+		delete: true,
+	},
+})
 ```
 
 Defaults belong to the configured plugin instance and never mutate a schema or
-another application.
+another application. Every omitted operation family or read capability denies.
+Dynamic `where`, `item`, or callback policies remain schema declarations and
+cannot be configured as defaults.
+
+A detailed schema read decision may name only the capabilities it overrides.
+Every omitted capability inherits the operation default:
+
+```ts
+import { accessPlugin } from '@ultimabase/access-plugin'
+import { Schema, UltimaBase } from '@ultimabase/core'
+
+const CountOnlyPost = Schema.define({
+	className: 'CountOnlyPost',
+	fields: (field) => ({ title: field.string() }),
+	access: {
+		read: {
+			allow: { count: true },
+		},
+	},
+})
+
+const ultimabase = new UltimaBase({
+	plugins: [accessPlugin()],
+	schemas: [CountOnlyPost],
+})
+```
+
+With plain `accessPlugin()`, this authorizes `count` while `one`, `many`, and
+`exists` remain denied. An exact schema rule takes precedence over a conflicting
+plugin default, so this `count: true` also wins over
+`default.read.count: false`. Omitted capabilities inherit their exact
+configured defaults instead.
+
+Compatible provider contributions run after that base decision and combine
+through logical `AND`. They may narrow an allowed operation, but cannot grant an
+operation denied by the schema/default resolution.
 
 Trusted master requests bypass the complete official Access policy. Therefore
 `false`, callback denials, row filters, field restrictions, and configured
@@ -178,7 +230,10 @@ const suite = definePluginConformanceSuite({
 	createFixture: () =>
 		createPluginConformanceFixture({
 			subject: editorialPolicyPlugin,
-			supportPlugins: [accessPlugin(), databaseFixturePlugin()],
+			supportPlugins: [
+				accessPlugin({ default: true }),
+				databaseFixturePlugin(),
+			],
 			schemas: [Post],
 		}),
 	expected: {

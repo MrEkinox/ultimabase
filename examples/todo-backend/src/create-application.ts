@@ -29,7 +29,7 @@ export const createTodoPlugins = ({
 	generatedTypesPath = defaultGeneratedTypesPath,
 }: TodoApplicationOptions) =>
 	[
-		accessPlugin(),
+		accessPlugin({ default: true }),
 		hooksPlugin(),
 		rolesPlugin(),
 		aclPlugin(),

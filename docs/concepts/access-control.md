@@ -25,6 +25,21 @@ through logical `AND`; no later policy can broaden an earlier restriction.
 Without `accessPlugin()`, `access` is an unknown schema or field option and
 ordinary direct CRUD has no official Access policy stage.
 
+With `accessPlugin()` installed, a missing operation decision denies. An exact
+schema operation decision takes precedence over the corresponding
+application-local `default`; when both are absent, the operation denies. Fields
+instead stay available until an exact field declaration or provider policy
+narrows them. The detailed `read.allow` object may be sparse: present `one`,
+`many`, `count`, and `exists` rules override their exact capabilities, while
+omitted capabilities inherit their configured defaults.
+
+The plugin `default` accepts one boolean or a static operation-family object
+containing `read`, `create`, `update`, `upsert`, and `delete` booleans. Its
+`read` branch directly accepts sparse `one`, `many`, `count`, and `exists`
+booleans. Omitted families deny. Provider contributions are evaluated afterward
+and remain deny-only: they can narrow an allowed base decision but never grant a
+denied one.
+
 ## ACL
 
 ACL is an optional independent persisted per-object policy. It grants object
