@@ -205,6 +205,7 @@ Accepted records:
 - [ADR-0220: Field validation follows input resolution](0220-post-resolution-field-validation.md)
 - [ADR-0221: Field validation is a single mutation-input boundary](0221-single-pass-field-validation.md)
 - [ADR-0222: Sparse Access resolves granular secure defaults](0222-sparse-read-access-inherits-secure-defaults.md)
+- [ADR-0223: Application field validation is an optional plugin](0223-optional-field-validation-plugin.md)
 
 Superseded records:
 

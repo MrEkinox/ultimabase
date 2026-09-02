@@ -27,10 +27,11 @@ documentation, strengthened security coverage and conformance, trimmed
 accidental public surfaces, and verified the no-product Runtime cost through
 the final issue 1613 gate.
 
-Milestone 20 is the active planning target. It replaces Core's closed
-field-constraint DSL with synchronous Standard Schema validators, moves
-presence and inspectable storage metadata to direct field options, and keeps
-Core authoritative for canonical field types and Runtime validation boundaries.
+Milestones 20 and 21 completed the Standard Schema field contract and its
+single-pass mutation semantics. Milestone 22 is the active target. It extracts
+only the direct `validation` option and application validator into an optional
+official plugin while Core retains required presence and every structural field
+and Runtime invariant.
 
 The ACL hardening plan remains paused at issue 432. Generated schema authoring
 and type contracts remain paused at the final DX and performance verification
@@ -195,6 +196,21 @@ complete result of an arithmetic update is projected from its locked target and
 validated without replacing the adapter's atomic operation. The milestone
 changes no field syntax, validator protocol, storage metadata, or plugin
 boundary.
+
+## Milestone 22 — Optional field validation plugin
+
+Move the direct `validation` option, Standard Schema compatibility types,
+application-local compiler, issue mapping, and final mutation execution into
+`@ultimabase/validation-plugin`. Core keeps `required`, nullability, canonical
+types and containers, defaults, generators, immutable and generated rules,
+decimal shape, structural plans and snapshots, and Runtime orchestration.
+
+The extraction first adds one generic rejection-only Runtime behavior boundary
+after final structural mutation validation and before value-dependent
+enforcement. Without `validationPlugin()` the option is absent from generated
+types, untyped use fails application compilation, and Runtime installs no
+application-validation behavior. With it installed, ADR-0221's exact-once,
+read-free, atomic-arithmetic, and Master non-bypass semantics remain unchanged.
 
 ## First usable release
 

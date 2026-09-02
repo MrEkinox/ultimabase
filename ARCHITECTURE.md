@@ -67,6 +67,7 @@ server-hono-plugin ────────→ core
 rest-plugin ───────────────→ core
 graphql-plugin ────────────→ core
 graphql-yoga-plugin ───────→ graphql-plugin, core
+validation-plugin ─────────→ plugin-kit, core, shared
 ```
 
 Official Hooks and Access contracts live in their respective plugin packages.
@@ -118,6 +119,14 @@ materializations, includes, and final projections repeat structural snapshots
 without replaying application validators. Atomic numeric updates validate the
 complete value projected from their prepared locked target while retaining the
 adapter's delta operation.
+
+This paragraph describes the currently shipped milestone-21 implementation.
+[ADR-0223](docs/adr/0223-optional-field-validation-plugin.md) accepts the next
+ownership step: Core keeps both mandatory structural passes, while the direct
+`validation` option and its single-pass Standard Schema behavior move into the
+optional `@ultimabase/validation-plugin`. Milestone 22 performs that extraction
+only after a generic rejection-only Runtime boundary exists; the package is not
+a current workspace yet.
 
 ## Direct plugin options
 

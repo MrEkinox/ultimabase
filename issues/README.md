@@ -79,6 +79,7 @@ consistent without rewriting historical issue prose.
 - [`1900-direct-plugin-schema-configuration/`](1900-direct-plugin-schema-configuration/README.md)
 - [`2000-standard-schema-field-validation/`](2000-standard-schema-field-validation/README.md)
 - [`2100-single-pass-field-validation/`](2100-single-pass-field-validation/README.md)
+- [`2200-optional-validation-plugin/`](2200-optional-validation-plugin/README.md)
 
 ## Assignment prompt
 

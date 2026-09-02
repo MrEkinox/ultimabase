@@ -7,7 +7,8 @@ priority changes.
 
 ## Active
 
-No cross-milestone plan is active.
+- [Optional field validation plugin](../../CURRENT_PLAN.md), tracked as milestone
+  22 and resumable at issue 2202.
 
 ## Paused
 

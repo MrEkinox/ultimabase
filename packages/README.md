@@ -36,11 +36,15 @@ directories until implementation begins:
 - `rest-plugin`
 - `graphql-plugin`
 - `graphql-yoga-plugin`
+- `validation-plugin`
 
 The optional Hooks and Access engines each keep their public authoring and
-contribution contracts in their single official plugin package. Importing a
-package installs no behavior; application configuration does. Independent
-alternative engines own their protocols and use the generic public kernel.
+contribution contracts in their single official plugin package. The accepted
+Validation package owns only the direct `validation` field option and its
+Standard Schema application behavior; Core keeps structural field validation.
+Importing a package installs no behavior; application configuration does.
+Independent alternative engines own their protocols and use the generic public
+kernel.
 
 Every plugin uses the `-plugin` suffix in both its workspace directory and its
 published package name. This makes optional capabilities recognizable before a
