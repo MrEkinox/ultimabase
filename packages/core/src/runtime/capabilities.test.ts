@@ -25,6 +25,7 @@ import { RuntimePipeline } from './pipeline/runtime-pipeline.js'
 import { createFrameworkEngine } from './application/create-framework-engine.js'
 import {
 	canonicalRuntimeExecutorTarget,
+	provideRuntimeBehavior,
 	provideRuntimeConstraint,
 	provideRuntimeInterceptor,
 	replaceRuntime,
@@ -82,7 +83,7 @@ describe('public Runtime capabilities', () => {
 			lifetime: 'application',
 			version: '3.0.0',
 		})
-		expect(runtimeBehaviorCapability.version).toBe('2.0.0')
+		expect(runtimeBehaviorCapability.version).toBe('3.0.0')
 		expect(runtimeInterceptorCapability.cardinality).toBe('pipeline')
 		expect(runtimeConstraintCapability.cardinality).toBe('multiple')
 		expect(runtimeObserverCapability.cardinality).toBe('multiple')
@@ -220,6 +221,65 @@ describe('public Runtime capabilities', () => {
 		})
 	})
 
+	it('requires Runtime interception privilege and validates mutation guards', async () => {
+		const missingPrivilege = definePlugin({
+			core: '^0.0.0',
+			pluginId: 'fixture.runtime-guard-no-privilege',
+			version: '0.0.0',
+			capabilities: {
+				provides: [
+					provideRuntimeBehavior({
+						contributionId: 'final-mutation-guard',
+						create: () => ({
+							value: { guardMutationInput: () => undefined },
+						}),
+					}),
+				],
+			},
+		})
+		expect(
+			captureFrameworkError(() => createPluginApplication(missingPrivilege))
+				.internalDetails,
+		).toMatchObject({
+			kind: 'capability-privilege-missing',
+			privilege: 'runtime:intercept',
+		})
+
+		const malformed = definePlugin({
+			core: '^0.0.0',
+			pluginId: 'fixture.runtime-guard-malformed',
+			version: '0.0.0',
+			privileges: [
+				{
+					name: 'runtime:intercept',
+					reason: 'Exercises Runtime behavior validation.',
+				},
+			],
+			capabilities: {
+				provides: [
+					provideRuntimeBehavior({
+						contributionId: 'malformed-final-mutation-guard',
+						create: () => ({
+							value: { guardMutationInput: true } as never,
+						}),
+					}),
+				],
+			},
+		})
+
+		await expect(
+			createApplication({
+				pluginPrivileges: { logger: false },
+				plugins: [malformed],
+				schemas: [runtimeSchema],
+			}),
+		).rejects.toThrow(
+			new TypeError(
+				'Runtime behavior stage guardMutationInput must be a function',
+			),
+		)
+	})
+
 	it('forbids generic decoration of protected Runtime protocols', () => {
 		const plugin = definePlugin({
 			core: '^0.0.0',
@@ -355,6 +415,7 @@ describe('public Runtime capabilities', () => {
 
 	it('runs a replacement behind cancellation and automatic transaction boundaries', async () => {
 		let replacementCalls = 0
+		let replacementReceivedMutationGuard = false
 		const adapter = new RecordingDatabaseAdapter([], [])
 		const replacement = definePlugin({
 			core: '^0.0.0',
@@ -370,8 +431,31 @@ describe('public Runtime capabilities', () => {
 						create: () => ({
 							value: (stages) => {
 								replacementCalls += 1
+								replacementReceivedMutationGuard =
+									typeof stages.behaviors?.guardMutationInput === 'function'
 								return new RuntimePipeline(stages)
 							},
+						}),
+					}),
+				],
+			},
+		})
+		const behavior = definePlugin({
+			core: '^0.0.0',
+			pluginId: 'fixture.runtime-replacement-guard',
+			version: '0.0.0',
+			privileges: [
+				{
+					name: 'runtime:intercept',
+					reason: 'Proves replacements receive the composed guard.',
+				},
+			],
+			capabilities: {
+				provides: [
+					provideRuntimeBehavior({
+						contributionId: 'final-mutation-guard',
+						create: () => ({
+							value: { guardMutationInput: () => undefined },
 						}),
 					}),
 				],
@@ -385,7 +469,7 @@ describe('public Runtime capabilities', () => {
 		})
 		const application = await createApplication({
 			pluginPrivileges: { logger: false },
-			plugins: [replacement, database],
+			plugins: [replacement, behavior, database],
 			schemas: [runtimeSchema],
 		})
 		const framework = createFrameworkEngine(application)
@@ -403,6 +487,7 @@ describe('public Runtime capabilities', () => {
 			),
 		).rejects.toMatchObject({ code: 'OPERATION_CANCELLED' })
 		expect(replacementCalls).toBe(1)
+		expect(replacementReceivedMutationGuard).toBe(true)
 		expect(adapter.transactions).toStrictEqual([])
 
 		await application.dispose()

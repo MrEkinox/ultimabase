@@ -192,3 +192,10 @@ fields, but later behavior cannot reverse those decisions. Runtime never names
 concrete ACL, role, authentication, ownership, or community-provider behavior.
 Every generated-schema collection entry crosses the same field resolution,
 item-policy, and operation-behavior lifecycle as its singular counterpart.
+
+After mandatory final validation, an authorized Runtime behavior may contribute
+`guardMutationInput`. This generic stage receives the final immutable mutation
+operation and any stable prepared singular or bulk targets. It returns `void`,
+so it can only continue or reject; it runs before value-dependent enforcement
+reevaluation and before every observer or persistence effect. With no provider,
+Runtime composes no guard callback.

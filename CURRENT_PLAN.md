@@ -17,18 +17,17 @@ value-dependent enforcement. Master never bypasses that behavior.
 ## Order
 
 1. Issue 2201 — decide the optional field-validation plugin boundary (`completed`).
-2. Issue 2202 — add the generic final mutation-input guard boundary (`ready`).
-3. Issue 2203 — extract the complete Standard Schema validation vertical (`planned`).
+2. Issue 2202 — add the generic final mutation-input guard boundary (`completed`).
+3. Issue 2203 — extract the complete Standard Schema validation vertical (`ready`).
 4. Issue 2204 — verify optional installation and the complete vertical (`planned`).
 
 ## Resume point
 
-Start issue 2202 by adding one rejection-only, target-aware Runtime behavior
-stage after Core's final structural mutation pass and before value-dependent
-enforcement reevaluation. Prove the stage is absent when no provider uses it,
-composes in deterministic plugin order, retains cancellation and callback
-attribution, and cannot transform the operation.
+Start issue 2203 by extracting the direct `validation` field option, Standard
+Schema normalization, and final-value traversal into the complete optional
+`@ultimabase/validation-plugin` package. Perform the ownership transfer
+atomically: Core must keep every structural invariant while applications
+without the plugin must reject the option and allocate no validation behavior.
 
-Do not move the `validation` option or Standard Schema implementation until
-issue 2203 can perform the ownership transfer atomically. ACL hardening issues
-432 through 435 and generated-schema issue 810 remain deliberately paused.
+ACL hardening issues 432 through 435 and generated-schema issue 810 remain
+deliberately paused.

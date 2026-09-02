@@ -14,7 +14,9 @@ import {
 import { createEnforcementState } from '../enforcement/state.js'
 import type {
 	RuntimeBehaviorStages,
+	RuntimeFinalMutationGuardStage,
 	RuntimeMutationRevalidationStageInput,
+	RuntimePreparedMutationStageInput,
 	RuntimeOperationTransformStage,
 	RuntimePipelineStages,
 } from './contracts.js'
@@ -60,7 +62,13 @@ const communityTransform = {
 	transformInput: (input) => input.operation,
 } satisfies RuntimeBehaviorStages
 
+const finalMutationGuard: RuntimeFinalMutationGuardStage = () => undefined
+const communityGuard = {
+	guardMutationInput: finalMutationGuard,
+} satisfies RuntimeBehaviorStages
+
 expectTypeOf(communityTransform).toExtend<RuntimeBehaviorStages>()
+expectTypeOf(communityGuard).toExtend<RuntimeBehaviorStages>()
 
 const oldRevalidation: RuntimeOperationTransformStage = (input) =>
 	input.operation
@@ -111,4 +119,21 @@ test('types prepared targets on the final mutation boundary', () => {
 	expectTypeOf<Input['targets']>().toEqualTypeOf<
 		readonly Article[] | undefined
 	>()
+})
+
+test('types final mutation guards without exposing operation replacement', () => {
+	type Update = UpdateOneOperationAst<typeof articleSchema>
+	type Input = RuntimePreparedMutationStageInput<Update>
+	type Article = Readonly<SchemaItem<typeof articleSchema>>
+
+	expectTypeOf<Input['operation']>().toEqualTypeOf<Update>()
+	expectTypeOf<Input['target']>().toEqualTypeOf<Article | null | undefined>()
+	expectTypeOf<Input['targets']>().toEqualTypeOf<
+		readonly Article[] | undefined
+	>()
+
+	const invalidGuard: RuntimeFinalMutationGuardStage =
+		// @ts-expect-error -- A guard cannot return an operation replacement.
+		(input) => input.operation
+	void invalidGuard
 })

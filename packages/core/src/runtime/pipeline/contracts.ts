@@ -255,6 +255,13 @@ export type RuntimePreparedMutationEffectStage = <
 	input: RuntimePreparedMutationStageInput<TOperation>,
 ) => MaybePromise<void>
 
+/** Rejects one final structurally valid mutation without replacing it. */
+export type RuntimeFinalMutationGuardStage = <
+	const TOperation extends DatabaseMutationOperationAst,
+>(
+	input: RuntimePreparedMutationStageInput<TOperation>,
+) => MaybePromise<void>
+
 /** Replaces values for one locked singular mutation without changing its target. */
 export type RuntimePreparedMutationTransformStage = <
 	const TOperation extends DatabaseMutationOperationAst,
@@ -286,6 +293,8 @@ export interface RuntimeBehaviorStages {
 	readonly transformPreparedInput?: RuntimePreparedMutationTransformStage
 	/** Applies a late target-aware operation transform before final revalidation. */
 	readonly transformPreparedOperation?: RuntimePreparedMutationTransformStage
+	/** Guards final mutation input after structural validation and before reevaluation. */
+	readonly guardMutationInput?: RuntimeFinalMutationGuardStage
 	/** Observes the final logical operation immediately before persistence. */
 	readonly beforeOperation?: RuntimeOperationGuardStage
 	/** Observes stable mutation targets before the adapter operation executes. */

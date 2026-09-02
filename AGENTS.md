@@ -176,6 +176,7 @@ normalization
 → schema resolveInput with originalItem
 → target-aware preparedOperation transforms
 → mandatory structural and Standard Schema validation without replaying defaults or generators
+→ optional rejection-only final mutation-input guards
 → value-dependent Access re-evaluation
 → plugin/global before observers
 → schema before observers

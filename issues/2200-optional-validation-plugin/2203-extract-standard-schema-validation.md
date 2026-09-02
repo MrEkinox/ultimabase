@@ -1,6 +1,6 @@
 # 2203: Extract the Standard Schema validation vertical
 
-- Status: planned
+- Status: ready
 - Milestone: 22
 - Packages: `@ultimabase/core`, `@ultimabase/plugin-kit`, `@ultimabase/typegen`, `@ultimabase/validation-plugin`
 - Depends on: 2202

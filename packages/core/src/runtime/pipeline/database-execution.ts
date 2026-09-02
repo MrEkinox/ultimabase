@@ -28,6 +28,7 @@ import {
 import { createDatabasePersistencePlan } from '../persistence/plans.js'
 import type { EnforcementState } from '../enforcement/state.js'
 import type { RequestContext } from '../context/request-context.js'
+import { throwIfOperationCancelled } from '../cancellation/operation-cancellation.js'
 import { collectDatabaseObjectIdentities } from '../operations/model-metadata.js'
 import { createProtectedObjectNotFoundError } from '../operations/target-errors.js'
 import type {
@@ -292,6 +293,25 @@ export const executeRuntimeDatabaseOperation = async <
 				targets,
 			),
 		)
+
+		if (behaviors?.guardMutationInput !== undefined) {
+			throwIfOperationCancelled(context.signal, {
+				operationKind: executableOperation.kind,
+				phase: 'final-mutation-input-guard',
+			})
+			await behaviors.guardMutationInput(
+				createRuntimePreparedMutationInput(
+					context,
+					executableOperation,
+					target,
+					targets,
+				),
+			)
+			throwIfOperationCancelled(context.signal, {
+				operationKind: executableOperation.kind,
+				phase: 'final-mutation-input-guard',
+			})
+		}
 
 		if (
 			operationTransformed &&

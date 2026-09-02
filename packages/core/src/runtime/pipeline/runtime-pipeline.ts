@@ -71,6 +71,7 @@ const enforcementStageNames = [
 
 const runtimeBehaviorStageNames = [
 	'beforeOperation',
+	'guardMutationInput',
 	'observePreparedMutation',
 	'postCommit',
 	'requiresPreparedMutationItems',

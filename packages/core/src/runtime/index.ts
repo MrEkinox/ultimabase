@@ -256,6 +256,7 @@ export type {
 	RuntimeEnforcementSelectionResultStage,
 	RuntimeEnforcementStageInput,
 	RuntimeEnforcementStages,
+	RuntimeFinalMutationGuardStage,
 	RuntimeDatabaseResultStageInput,
 	RuntimeMutationOutcomeTransformStage,
 	RuntimeMutationOutcomeStageInput,

@@ -1167,6 +1167,13 @@ provider contracts, diagnostics, and exact Runtime semantics. Community
 alternatives may define different vocabularies through Core's generic public
 kernel; they do not inherit an official engine or a neutral no-op stage.
 
+An authorized behavior provider may use `guardMutationInput` for a final
+mutation-only rejection boundary. The handler receives the structurally
+validated immutable operation plus stable prepared targets, returns no
+replacement value, and runs before value-dependent enforcement reevaluation.
+Providers compose in plugin graph order. Applications with no such provider
+materialize no guard callback.
+
 This absence claim is measurable rather than a promise of literal zero CPU
 time: a no-product application materializes no optional behavior or enforcement
 bundle and invokes no such stage per request. Canonical Runtime assembly,

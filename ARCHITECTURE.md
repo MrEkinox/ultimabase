@@ -114,11 +114,13 @@ defaults and generators and guarantees immutable structural shape before Access
 or developer behavior. After every optional input transform, one mandatory
 final pass repeats structural snapshots and invokes Standard Schema before
 value-dependent enforcement, observers, or persistence. Behavior providers
-cannot omit or replace this revalidation invariant. Reads, adapter results,
-materializations, includes, and final projections repeat structural snapshots
-without replaying application validators. Atomic numeric updates validate the
-complete value projected from their prepared locked target while retaining the
-adapter's delta operation.
+cannot omit or replace this revalidation invariant. Authorized providers may
+then run a generic rejection-only final mutation-input guard with stable
+prepared targets before enforcement reevaluation; the guard cannot replace the
+operation. Reads, adapter results, materializations, includes, and final
+projections repeat structural snapshots without replaying application
+validators. Atomic numeric updates validate the complete value projected from
+their prepared locked target while retaining the adapter's delta operation.
 
 This paragraph describes the currently shipped milestone-21 implementation.
 [ADR-0223](docs/adr/0223-optional-field-validation-plugin.md) accepts the next

@@ -4,6 +4,7 @@ import {
 	definePlugin,
 	guard,
 	postCommitEvent,
+	provideRuntimeBehavior,
 	provideRuntimeConstraint,
 	provideRuntimeInterceptor,
 	provideRuntimeObserver,
@@ -11,6 +12,7 @@ import {
 	RuntimePipeline,
 	Schema,
 	type RuntimeExecutorFactory,
+	type RuntimeFinalMutationGuardStage,
 } from '../../src/index.js'
 
 const schema = Schema.define({
@@ -67,6 +69,24 @@ const observer = provideRuntimeObserver({
 	}),
 })
 
+const finalMutationGuard: RuntimeFinalMutationGuardStage = ({ operation }) => {
+	const mutationKind:
+		| 'create-many'
+		| 'create-one'
+		| 'delete-many'
+		| 'delete-one'
+		| 'update-many'
+		| 'update-one'
+		| 'upsert-many'
+		| 'upsert-one' = operation.kind
+	void mutationKind
+}
+
+const behavior = provideRuntimeBehavior({
+	contributionId: 'typed-final-mutation-guard',
+	create: () => ({ value: { guardMutationInput: finalMutationGuard } }),
+})
+
 const replacement = replaceRuntime({
 	contributionId: 'typed-replacement',
 	create: () => ({
@@ -85,7 +105,7 @@ definePlugin({
 		{ name: 'runtime:replace', reason: 'Exercises the packed facade.' },
 	],
 	capabilities: {
-		provides: [interceptor, constraint, observer],
+		provides: [behavior, interceptor, constraint, observer],
 		replaces: [replacement],
 	},
 })
@@ -93,5 +113,8 @@ definePlugin({
 beforeOperation({ handler: () => undefined })
 type InspectedExecutorFactory =
 	/* hover:runtime-executor */ RuntimeExecutorFactory
+type InspectedFinalMutationGuard =
+	/* hover:runtime-final-mutation-guard */ RuntimeFinalMutationGuardStage
 
 void (undefined as unknown as InspectedExecutorFactory)
+void (undefined as unknown as InspectedFinalMutationGuard)

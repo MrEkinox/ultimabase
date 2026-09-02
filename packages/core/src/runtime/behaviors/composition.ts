@@ -12,6 +12,7 @@ import { runtimeBehaviorCapability } from '../capabilities.js'
 import { composeRuntimeContributionBehavior } from '../contributions/composition.js'
 import type {
 	RuntimeBehaviorStages,
+	RuntimeFinalMutationGuardStage,
 	RuntimeMutationOutcomeTransformStage,
 	RuntimeProjectedDatabaseResultTransformStage,
 	RuntimeMaterializedResultTransformStage,
@@ -31,6 +32,7 @@ const attributeRuntimeBehavior = (
 	const run = <TResult>(callback: () => TResult): TResult =>
 		runWithApplicationPluginOwner(application, owner, callback)
 	const beforeOperation = behavior.beforeOperation
+	const guardMutationInput = behavior.guardMutationInput
 	const observePreparedMutation = behavior.observePreparedMutation
 	const postCommit = behavior.postCommit
 	const requiresPreparedMutationItems = behavior.requiresPreparedMutationItems
@@ -45,6 +47,11 @@ const attributeRuntimeBehavior = (
 		...(beforeOperation === undefined
 			? {}
 			: { beforeOperation: (input) => run(() => beforeOperation(input)) }),
+		...(guardMutationInput === undefined
+			? {}
+			: {
+					guardMutationInput: (input) => run(() => guardMutationInput(input)),
+				}),
 		...(observePreparedMutation === undefined
 			? {}
 			: {
@@ -132,6 +139,9 @@ export const composeRuntimeBehaviors = (
 	const beforeObservers = behaviors.flatMap(({ beforeOperation }) =>
 		beforeOperation === undefined ? [] : [beforeOperation],
 	)
+	const mutationInputGuards = behaviors.flatMap(({ guardMutationInput }) =>
+		guardMutationInput === undefined ? [] : [guardMutationInput],
+	)
 	if (contributionBehavior?.beforeOperation !== undefined) {
 		beforeObservers.unshift(contributionBehavior.beforeOperation)
 	}
@@ -207,6 +217,9 @@ export const composeRuntimeBehaviors = (
 	const beforeOperation: RuntimeOperationGuardStage = async (input) => {
 		for (const observe of beforeObservers) await observe(input)
 	}
+	const guardMutationInput: RuntimeFinalMutationGuardStage = async (input) => {
+		for (const guard of mutationInputGuards) await guard(input)
+	}
 	const observePreparedMutation: RuntimePreparedMutationEffectStage = async (
 		input,
 	) => {
@@ -274,6 +287,7 @@ export const composeRuntimeBehaviors = (
 			? {}
 			: { transformPreparedOperation }),
 		...(beforeObservers.length === 0 ? {} : { beforeOperation }),
+		...(mutationInputGuards.length === 0 ? {} : { guardMutationInput }),
 		...(preparedObservers.length === 0 ? {} : { observePreparedMutation }),
 		...(outcomeTransforms.length === 0 ? {} : { transformMutationOutcome }),
 		...(databaseResultTransforms.length === 0

@@ -67,13 +67,13 @@ export const runtimeBehaviorCapability: CapabilityToken<
 	RuntimeBehaviorStages,
 	readonly RuntimeBehaviorStages[],
 	'ultimabase.runtime-behaviors',
-	'2.0.0',
+	'3.0.0',
 	'multiple',
 	'application'
 > = defineCapability<RuntimeBehaviorStages, readonly RuntimeBehaviorStages[]>()(
 	{
 		capabilityId: 'ultimabase.runtime-behaviors',
-		version: '2.0.0',
+		version: '3.0.0',
 		cardinality: 'multiple',
 		lifetime: 'application',
 		compose: (providers) =>
@@ -179,6 +179,7 @@ const behaviorProviders = new WeakSet<object>()
 
 const runtimeBehaviorKeys: ReadonlySet<string> = new Set([
 	'beforeOperation',
+	'guardMutationInput',
 	'observePreparedMutation',
 	'postCommit',
 	'requiresPreparedMutationItems',
