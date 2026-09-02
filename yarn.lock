@@ -1374,6 +1374,7 @@ __metadata:
     "@ultimabase/postgres-plugin": "workspace:^"
     "@ultimabase/roles-plugin": "workspace:^"
     "@ultimabase/typegen": "workspace:^"
+    "@ultimabase/validation-plugin": "workspace:^"
     typescript: "npm:^6.0.3"
     zod: "npm:^4.4.3"
   languageName: unknown
@@ -1444,7 +1445,6 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ultimabase/roles-plugin@workspace:packages/roles-plugin"
   dependencies:
-    "@standard-schema/spec": "npm:^1.1.0"
     "@ultimabase/access-plugin": "workspace:^"
     "@ultimabase/core": "workspace:^"
     "@ultimabase/plugin-kit": "workspace:^"
@@ -1488,6 +1488,7 @@ __metadata:
     "@ultimabase/pg-vector-plugin": "workspace:^"
     "@ultimabase/roles-plugin": "workspace:^"
     "@ultimabase/shared": "workspace:^"
+    "@ultimabase/validation-plugin": "workspace:^"
     jiti: "npm:^2.6.1"
     tsdown: "npm:^0.22.14"
     typescript: "npm:^6.0.3"
@@ -1497,7 +1498,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ultimabase/validation-plugin@workspace:packages/validation-plugin":
+"@ultimabase/validation-plugin@workspace:^, @ultimabase/validation-plugin@workspace:packages/validation-plugin":
   version: 0.0.0-use.local
   resolution: "@ultimabase/validation-plugin@workspace:packages/validation-plugin"
   dependencies:
