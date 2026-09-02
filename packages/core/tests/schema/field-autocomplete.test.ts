@@ -71,7 +71,6 @@ const commonFieldOptions = [
 	'indexed',
 	'list',
 	'required',
-	'validation',
 ] as const
 
 const fieldSpecificOptions: FactoryOptionMap = {
@@ -146,7 +145,6 @@ const topLevelOptionExpressions: Readonly<Record<string, string>> = {
 	scale: '2',
 	timezone: 'false',
 	typeName: "'ExampleType'",
-	validation: 'undefined',
 	values: "['draft'] as const",
 }
 

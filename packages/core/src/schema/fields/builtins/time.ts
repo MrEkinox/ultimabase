@@ -1,4 +1,5 @@
 import type {
+	CompatibleFieldOptionsExtension,
 	FieldDefinition,
 	FieldTypegenState,
 	FieldListOption,
@@ -19,7 +20,6 @@ import {
 	createTemporalFieldConfigurationResolver,
 	type TimezoneTemporalFieldOptions,
 } from '../constraints/temporal.js'
-import type { FieldStandardSchema } from '../base/standard-schema.js'
 
 /**
  * Describes a time of day without timezone support by default.
@@ -43,15 +43,13 @@ type DefaultedTimeFieldOptions<
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoNow extends boolean,
-	TValidation extends FieldStandardSchema,
 > = DefaultedCompactScalarFieldOptions<
 	TimeFieldOptions,
 	string,
 	TRequired,
 	TList,
 	TImmutable,
-	GeneratedScalarOption<'autoNow', TAutoNow>,
-	TValidation
+	GeneratedScalarOption<'autoNow', TAutoNow>
 > &
 	CompatibleGeneratedScalarOptions<'autoNow', TAutoNow, TList, true, true>
 
@@ -60,15 +58,13 @@ type NonDefaultedTimeFieldOptions<
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoNow extends boolean,
-	TValidation extends FieldStandardSchema,
 > = NonDefaultedCompactScalarFieldOptions<
 	TimeFieldOptions,
 	string,
 	TRequired,
 	TList,
 	TImmutable,
-	GeneratedScalarOption<'autoNow', TAutoNow>,
-	TValidation
+	GeneratedScalarOption<'autoNow', TAutoNow>
 > &
 	CompatibleGeneratedScalarOptions<'autoNow', TAutoNow, TList, false, true>
 
@@ -109,14 +105,12 @@ interface TimeFieldFactory {
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const TAutoNow extends boolean = false,
-		const TValidation extends FieldStandardSchema = FieldStandardSchema,
+		const TExtensionOptions extends object = object,
 	>(
-		options: DefaultedTimeFieldOptions<
-			TRequired,
-			TList,
-			TImmutable,
-			TAutoNow,
-			TValidation
+		options: CompatibleFieldOptionsExtension<
+			DefaultedTimeFieldOptions<TRequired, TList, TImmutable, TAutoNow>,
+			TExtensionOptions,
+			string
 		>,
 	): DefaultedTimeField<TRequired, TList, TImmutable, TAutoNow>
 	<
@@ -124,14 +118,12 @@ interface TimeFieldFactory {
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const TAutoNow extends boolean = false,
-		const TValidation extends FieldStandardSchema = FieldStandardSchema,
+		const TExtensionOptions extends object = object,
 	>(
-		options?: NonDefaultedTimeFieldOptions<
-			TRequired,
-			TList,
-			TImmutable,
-			TAutoNow,
-			TValidation
+		options?: CompatibleFieldOptionsExtension<
+			NonDefaultedTimeFieldOptions<TRequired, TList, TImmutable, TAutoNow>,
+			TExtensionOptions,
+			string
 		>,
 	): NonDefaultedTimeField<TRequired, TList, TImmutable, TAutoNow>
 }

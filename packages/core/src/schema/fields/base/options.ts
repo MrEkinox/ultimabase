@@ -8,7 +8,6 @@ import {
 
 import { isStaticDefault } from './defaults.js'
 import type { FieldOptions, GenericField } from './contract.js'
-import { assertFieldStandardSchema } from './standard-schema.js'
 
 /**
  * Reuses one exact empty option shape across zero-argument field factories.
@@ -26,7 +25,6 @@ export const fieldOptionsBaseKeys: readonly string[] = [
 	'indexed',
 	'list',
 	'required',
-	'validation',
 ]
 
 /** Lists the portable metadata keys shared by regular value fields. */
@@ -211,7 +209,7 @@ const assertCommonFieldMetadata = (options: object): void => {
  */
 export const normalizeFieldOptions = <
 	TValue,
-	const TOptions extends FieldOptions<TValue, object>,
+	const TOptions extends FieldOptions<TValue>,
 >(
 	options: TOptions,
 	normalizeStaticValue: NormalizeStaticValue,
@@ -226,9 +224,6 @@ export const normalizeFieldOptions = <
 	assertCommonFieldMetadata(options)
 
 	const list = normalizeList(options.list)
-	if (options.validation !== undefined) {
-		assertFieldStandardSchema(options.validation)
-	}
 	const hasNormalizedDefault =
 		'default' in options && isStaticDefault(options.default)
 	const normalizedDefault = hasNormalizedDefault
@@ -244,10 +239,6 @@ export const normalizeFieldOptions = <
 	const normalized = immutableRecord({
 		...options,
 		...(list === undefined ? {} : { list }),
-		// The validator is an opaque executable artifact retained by exact identity.
-		...(options.validation === undefined
-			? {}
-			: { validation: options.validation }),
 		...(hasNormalizedDefault ? { default: normalizedDefault } : {}),
 	})
 

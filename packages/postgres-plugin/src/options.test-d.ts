@@ -48,10 +48,8 @@ test('types the direct PostgreSQL schema and field options exactly', () => {
 	Schema.define({
 		className: 'PostgresUnknownFieldOption',
 		fields: (field) => ({
-			title: field.string({
-				// @ts-expect-error -- Unknown PostgreSQL field keys are rejected.
-				postgres: { column: 'title', renamedFrom: 'headline' },
-			}),
+			// @ts-expect-error -- Unknown PostgreSQL field keys are rejected.
+			title: field.string({ postgres: { column: 'title' } }),
 		}),
 	})
 })

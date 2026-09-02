@@ -9,7 +9,7 @@ import {
 	Pointer,
 	Schema,
 	stringField,
-} from '../../src/index.js'
+} from '@ultimabase/core'
 
 class PackedPluginValue {
 	constructor(readonly value: string) {}
@@ -31,7 +31,9 @@ const valibotPluginValidator = v.custom<PackedPluginValue>(
 definePluginField<
 	PackedPluginValue,
 	'fixture.zod',
-	FieldOptions<PackedPluginValue, typeof zodPluginValidator>
+	FieldOptions<PackedPluginValue> & {
+		readonly validation: typeof zodPluginValidator
+	}
 >(
 	'fixture.zod',
 	{ validation: zodPluginValidator },
@@ -60,7 +62,9 @@ const valibotObjectField = objectField({
 definePluginField<
 	PackedPluginValue,
 	'fixture.valibot',
-	FieldOptions<PackedPluginValue, typeof valibotPluginValidator>
+	FieldOptions<PackedPluginValue> & {
+		readonly validation: typeof valibotPluginValidator
+	}
 >(
 	'fixture.valibot',
 	{ validation: valibotPluginValidator },

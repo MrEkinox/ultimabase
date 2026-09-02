@@ -40,7 +40,6 @@ import {
 	type OperationTemporalValues,
 } from './operation-clock.js'
 import { generateUuidV7, type UuidV7Generator } from './identifier-generator.js'
-import { validateFieldStandardSchema } from './field-standard-schema.js'
 import {
 	emptyRuntimeValidationOptions,
 	normalizeRuntimeValidationOptions,
@@ -53,7 +52,6 @@ export {
 } from './runtime-validation-options.js'
 
 interface ValidationExecution {
-	readonly applicationValidation: boolean
 	readonly issues: ValidationIssue<AnyValidationIssueCode>[]
 	readonly temporal: OperationTemporalValues
 	readonly timestamp: number
@@ -258,7 +256,6 @@ const validateFieldValue = (
 	path: ValidationIssuePath,
 	execution: ValidationExecution,
 	allowDefaults: boolean,
-	applyValidator = true,
 ): ValueValidationResult => {
 	if (value === null) {
 		if (plan.nullable) {
@@ -285,7 +282,6 @@ const validateFieldValue = (
 						[...path, index],
 						execution,
 						allowDefaults,
-						false,
 					)
 					valid = valid && itemResult.valid
 					if (itemResult.valid) {
@@ -306,12 +302,7 @@ const validateFieldValue = (
 				)
 		}
 	})()
-	if (!result.valid || !applyValidator || !execution.applicationValidation) {
-		return result
-	}
-	const issues = validateFieldStandardSchema(plan.field, result.value, path)
-	execution.issues.push(...issues)
-	return issues.length === 0 ? result : { valid: false }
+	return result
 }
 
 const validateObjectValue = (
@@ -1187,7 +1178,6 @@ const unavailableGeneratedValue = (): never => {
 }
 
 const createStructuralValidationExecution = (): ValidationExecution => ({
-	applicationValidation: false,
 	issues: [],
 	// These values are deliberately unusable: structural boundaries never resolve omissions.
 	temporal: immutableRecord({
@@ -1199,11 +1189,6 @@ const createStructuralValidationExecution = (): ValidationExecution => ({
 	}),
 	timestamp: Number.NaN,
 	uuidV7Generator: unavailableGeneratedValue,
-})
-
-const createApplicationValidationExecution = (): ValidationExecution => ({
-	...createStructuralValidationExecution(),
-	applicationValidation: true,
 })
 
 const normalizeResolvedMutationOperation = <
@@ -1250,7 +1235,7 @@ export const revalidateRuntimeMutationOperation = <
 		previousOperation,
 		operation,
 		plans,
-		createApplicationValidationExecution(),
+		createStructuralValidationExecution(),
 	)
 
 /** Validates and snapshots one complete or selected logical database record. */
@@ -1315,7 +1300,6 @@ export const createRuntimeValidationStage = (
 
 		const instant = clock()
 		const execution: ValidationExecution = {
-			applicationValidation: false,
 			issues: [],
 			temporal: projectOperationTemporalValues(instant, formatter),
 			timestamp: instant.getTime(),

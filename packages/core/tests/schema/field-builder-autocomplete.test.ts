@@ -222,7 +222,7 @@ describe('FieldBuilder IntelliSense', () => {
 
 		const optionEntries = readMemberCompletions(optionMarker)
 
-		expect(optionEntries.map(({ name }) => name)).toContain('validation')
+		expect(optionEntries.map(({ name }) => name)).not.toContain('validation')
 		for (const entry of optionEntries) {
 			expectDocumented(entry, readPosition(optionMarker))
 		}

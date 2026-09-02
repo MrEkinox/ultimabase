@@ -1,4 +1,3 @@
-import type { StandardSchemaV1 } from '@standard-schema/spec'
 import {
 	increment,
 	normalizeUpdateExpression,
@@ -31,7 +30,6 @@ import {
 	retainRuntimeSchemaModelMetadata,
 } from '../operations/model-metadata.js'
 import { createRuntimeValidationStage } from '../validation/runtime-validation.js'
-import { createFinalMutationValidationStage } from '../validation/final-mutation-validation.js'
 import { createRuntimeBehaviorBoundaries } from './validation-boundaries.js'
 
 const fixedInstant = new Date('2026-08-02T12:34:56.000Z')
@@ -82,81 +80,6 @@ const readIssues = (
 	)
 
 describe('runtime behavior boundaries', () => {
-	it('runs field validators once after replacements and never on adapter outcomes', async () => {
-		const validateTitle = vi.fn((value: unknown) =>
-			value === 'Generated title'
-				? { value }
-				: { issues: [{ message: 'Title is not canonical' }] },
-		)
-		const titleValidator: StandardSchemaV1<string> = {
-			'~standard': {
-				version: 1,
-				vendor: 'boundary-test',
-				validate: validateTitle,
-			},
-		}
-		const schema = Schema.define({
-			className: 'ValidatedBoundaryArticle',
-			fields: (field) => ({
-				title: field.string({
-					default: () => 'Generated title',
-					validation: titleValidator,
-				}),
-			}),
-		})
-		const initialOperation = immutableRecord({
-			input: {},
-			kind: 'create-one',
-			selection: { fields: [], kind: 'selection' },
-			schema: new QueryBuilder(schema).ast.schema,
-		}) satisfies CreateOneOperationAst<typeof schema>
-		const normalized = await createRuntimeValidationStage({
-			clock: () => fixedInstant,
-			uuidV7Generator: () => generatedId,
-		})({ context: requestContext, operation: initialOperation })
-		const validated = await createFinalMutationValidationStage()({
-			context: requestContext,
-			operation: normalized,
-			previousOperation: normalized,
-			target: undefined,
-		})
-		const boundaries = createRuntimeBehaviorBoundaries()
-		const invalidReplacement = {
-			...validated,
-			input: { ...validated.input, title: 'Changed by behavior' },
-		}
-
-		expect(validateTitle).toHaveBeenCalledWith('Generated title')
-		const replacement = boundaries.snapshotOperationReplacement(
-			validated,
-			invalidReplacement,
-		)
-		const preparedReplacement = boundaries.snapshotPreparedOperationReplacement(
-			validated,
-			replacement,
-		)
-		expect(() =>
-			createFinalMutationValidationStage()({
-				context: requestContext,
-				operation: preparedReplacement,
-				previousOperation: validated,
-				target: undefined,
-			}),
-		).toThrow(expect.objectContaining({ code: 'VALIDATION_ERROR' }))
-
-		const invalidRecord = {
-			...validated.input,
-			title: 'Changed by adapter',
-		}
-		expect(
-			boundaries.snapshotMutationOutcome(validated, {
-				materializations: [{ current: invalidRecord, kind: 'create' }],
-				result: invalidRecord,
-			}),
-		).toMatchObject({ result: { title: 'Changed by adapter' } })
-		expect(validateTitle).toHaveBeenCalledTimes(2)
-	})
-
 	it('revalidates mutation replacements without replaying generated values', async () => {
 		const defaultTitle = vi.fn(() => 'Generated title')
 		const uuidV7Generator = vi.fn(() => generatedId)
@@ -356,22 +279,10 @@ describe('runtime behavior boundaries', () => {
 	})
 
 	it('keeps arithmetic outcome snapshots structural-only', () => {
-		const validate = vi.fn((value: unknown) =>
-			typeof value === 'number' && value >= 0 && value <= 10
-				? { value }
-				: { issues: [{ message: 'Score must be between 0 and 10' }] },
-		)
-		const rangeValidator: StandardSchemaV1<number> = {
-			'~standard': {
-				version: 1,
-				vendor: 'arithmetic-outcome-test',
-				validate,
-			},
-		}
 		const schema = Schema.define({
-			className: 'ValidatedArithmeticOutcome',
+			className: 'ArithmeticOutcome',
 			fields: (field) => ({
-				score: field.int({ required: true, validation: rangeValidator }),
+				score: field.int({ required: true }),
 			}),
 		})
 		const operation = immutableRecord({
@@ -399,7 +310,6 @@ describe('runtime behavior boundaries', () => {
 		expect(outcome.materializations[0]).toMatchObject({
 			current: { score: 12 },
 		})
-		expect(validate).not.toHaveBeenCalled()
 	})
 
 	it('rejects fields omitted by selection and invalid materialization cardinality', () => {

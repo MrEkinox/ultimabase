@@ -7,6 +7,7 @@ import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { rolesPlugin } from '@ultimabase/roles-plugin'
 import { typegenPlugin } from '@ultimabase/typegen'
+import { validationPlugin } from '@ultimabase/validation-plugin'
 
 import { Todo, TodoRole, TodoUser } from './schema.ts'
 
@@ -31,6 +32,7 @@ export const createTodoPlugins = ({
 	[
 		accessPlugin({ default: true }),
 		hooksPlugin(),
+		validationPlugin(),
 		rolesPlugin(),
 		aclPlugin(),
 		typegenPlugin({

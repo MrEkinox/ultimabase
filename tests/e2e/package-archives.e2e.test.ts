@@ -157,7 +157,7 @@ describe.each(packageFixtures)('$name archive', ({ directory, name }) => {
 	})
 })
 
-it('publishes the validator-neutral Standard Schema dependency boundary', async () => {
+it('publishes Standard Schema only from validator-owning packages', async () => {
 	const dependencies = new Map(
 		await Promise.all(
 			packageFixtures.map(
@@ -167,13 +167,16 @@ it('publishes the validator-neutral Standard Schema dependency boundary', async 
 		),
 	)
 
-	expect(dependencies.get('@ultimabase/core')).toHaveProperty(
+	expect(dependencies.get('@ultimabase/core')).not.toHaveProperty(
 		'@standard-schema/spec',
 	)
 	expect(dependencies.get('@ultimabase/plugin-kit')).toHaveProperty(
 		'@standard-schema/spec',
 	)
-	expect(dependencies.get('@ultimabase/roles-plugin')).toHaveProperty(
+	expect(dependencies.get('@ultimabase/validation-plugin')).toHaveProperty(
+		'@standard-schema/spec',
+	)
+	expect(dependencies.get('@ultimabase/roles-plugin')).not.toHaveProperty(
 		'@standard-schema/spec',
 	)
 

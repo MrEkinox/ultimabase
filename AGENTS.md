@@ -175,7 +175,7 @@ normalization
 → field resolveInput
 → schema resolveInput with originalItem
 → target-aware preparedOperation transforms
-→ mandatory structural and Standard Schema validation without replaying defaults or generators
+→ mandatory Core structural validation without replaying defaults or generators
 → optional rejection-only final mutation-input guards
 → value-dependent Access re-evaluation
 → plugin/global before observers
@@ -189,12 +189,12 @@ normalization
 → afterCommit and post-commit events
 ```
 
-The Standard Schema field validator runs only in the mandatory final mutation
-stage. Result, materialization, inclusion, and read boundaries repeat Core
-structural snapshots without application validation. Numeric deltas validate
-their complete projected value from prepared locked targets and remain atomic
-adapter operations; a targetless validated arithmetic branch fails before
-persistence.
+The optional Validation plugin runs Standard Schema field validators only through
+the final mutation-input guard. Result, materialization, inclusion, and read
+boundaries repeat Core structural snapshots without application validation.
+Numeric deltas validate their complete projected value from prepared locked
+targets and remain atomic adapter operations; a targetless validated arithmetic
+branch fails before persistence.
 
 Keep the logical operation separate from its physical persistence plan. A
 privileged plugin may rewrite the physical plan, but logical Access, hooks,

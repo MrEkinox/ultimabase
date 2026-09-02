@@ -47,6 +47,7 @@ plugin-kit ───────────→ core, shared
 typegen ──────────────→ core, shared
 hooks-plugin ─────────→ plugin-kit, core, shared
 access-plugin ────────→ plugin-kit, core, shared
+validation-plugin ────→ plugin-kit, core, shared
 pg-vector-plugin ─────→ plugin-kit, core, shared
 roles-plugin ─────────→ access-plugin, plugin-kit, core, shared
 acl-permissions-plugin → plugin-kit, core, shared
@@ -67,11 +68,10 @@ server-hono-plugin ────────→ core
 rest-plugin ───────────────→ core
 graphql-plugin ────────────→ core
 graphql-yoga-plugin ───────→ graphql-plugin, core
-validation-plugin ─────────→ plugin-kit, core, shared
 ```
 
-Official Hooks and Access contracts live in their respective plugin packages.
-Importing either package does not install it. Official-compatible plugins and
+Official Hooks, Access, and Validation contracts live in their respective plugin
+packages. Importing a package does not install it. Official-compatible plugins and
 providers import those public contracts, while independent alternatives own
 their protocols and use the generic kernel directly.
 
@@ -86,9 +86,9 @@ plugins use the same toolbox where it removes real duplication, while
 `@ultimabase/testing` owns runner-agnostic conformance fixtures and assertions.
 Its optional generic Typegen check explains the dependency on Typegen; the
 baseline kernel suite remains logical-only and opens no PostgreSQL resource.
-The types-only `@standard-schema/spec` dependency enables validator-neutral
-option inference without selecting a validation library or adding Runtime
-behavior.
+The types-only `@standard-schema/spec` dependency is owned only by packages that
+parse Standard Schema contracts, including Plugin Kit and the optional Validation
+plugin. Core has no direct dependency on it.
 
 `@ultimabase/typegen` is optional development tooling. It snapshots the final
 compiled application graph and accepts owner-scoped plugin contributions as
@@ -109,26 +109,20 @@ and integrity-maintenance contributions remain active. Core keeps explicit
 per-contribution master behavior on its generic policy-neutral boundary because
 it cannot classify community constraints as authorization or integrity work.
 
-Mutation validation has two Core-owned passes. The initial pass resolves
+Structural mutation validation has two Core-owned passes. The initial pass resolves
 defaults and generators and guarantees immutable structural shape before Access
 or developer behavior. After every optional input transform, one mandatory
-final pass repeats structural snapshots and invokes Standard Schema before
-value-dependent enforcement, observers, or persistence. Behavior providers
-cannot omit or replace this revalidation invariant. Authorized providers may
-then run a generic rejection-only final mutation-input guard with stable
-prepared targets before enforcement reevaluation; the guard cannot replace the
-operation. Reads, adapter results, materializations, includes, and final
-projections repeat structural snapshots without replaying application
-validators. Atomic numeric updates validate the complete value projected from
-their prepared locked target while retaining the adapter's delta operation.
+final pass repeats structural snapshots before value-dependent enforcement,
+observers, or persistence. Behavior providers cannot omit or replace this
+revalidation invariant. Authorized providers may run a generic rejection-only
+final mutation-input guard with stable prepared targets before enforcement
+reevaluation; the guard cannot replace the operation.
 
-This paragraph describes the currently shipped milestone-21 implementation.
-[ADR-0223](docs/adr/0223-optional-field-validation-plugin.md) accepts the next
-ownership step: Core keeps both mandatory structural passes, while the direct
-`validation` option and its single-pass Standard Schema behavior move into the
-optional `@ultimabase/validation-plugin`. Milestone 22 performs that extraction
-only after a generic rejection-only Runtime boundary exists; the package is not
-a current workspace yet.
+The optional `@ultimabase/validation-plugin` owns the direct `validation` option,
+Standard Schema execution, issue mapping, and projected arithmetic checks at
+that guard boundary. Reads, adapter results, materializations, includes, and
+final projections repeat only Core structural snapshots. An application without
+the plugin has no application field validator or placeholder Runtime behavior.
 
 ## Direct plugin options
 

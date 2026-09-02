@@ -1,18 +1,22 @@
-import { deepEqual } from 'fast-equals'
+import { FrameworkError, Pointer } from '@ultimabase/core'
 import {
 	immutableArray,
 	immutableRecord,
 	isPlainRecord,
 	isUnknownArray,
 } from '@ultimabase/shared'
+import { deepEqual } from 'fast-equals'
 
-import { FrameworkError } from '../../foundation.js'
-import type {
-	GenericField,
-	ValidationIssue,
-	ValidationIssuePath,
-} from '../../schema/index.js'
-import { Pointer } from '../../schema/index.js'
+import type { FieldStandardSchema } from './standard-schema.js'
+
+export type FieldValidationIssueCode = 'field.validation'
+
+/** Describes one stable application-validation failure exposed to transports. */
+export interface FieldValidationIssue {
+	readonly code: FieldValidationIssueCode
+	readonly message: string
+	readonly path: readonly (number | string)[]
+}
 
 const isObjectOrFunction = (value: unknown): value is object =>
 	(typeof value === 'object' && value !== null) || typeof value === 'function'
@@ -29,7 +33,7 @@ const equalCanonicalValues = (left: unknown, right: unknown): boolean => {
 }
 
 const contractFailure = (
-	path: ValidationIssuePath,
+	path: readonly (number | string)[],
 	message: string,
 	cause?: unknown,
 ): never => {
@@ -47,28 +51,23 @@ const contractFailure = (
 
 const readPathKey = (
 	segment: unknown,
-	fieldPath: ValidationIssuePath,
+	fieldPath: readonly (number | string)[],
 ): number | string => {
 	const key =
 		isPlainRecord(segment) && Object.hasOwn(segment, 'key')
 			? segment.key
 			: segment
 
-	if (typeof key === 'number' || typeof key === 'string') {
-		return key
-	}
-
-	if (typeof key === 'symbol') {
-		return String(key)
-	}
+	if (typeof key === 'number' || typeof key === 'string') return key
+	if (typeof key === 'symbol') return String(key)
 
 	return contractFailure(fieldPath, 'an issue path contains an invalid segment')
 }
 
 const snapshotIssues = (
 	issues: unknown,
-	fieldPath: ValidationIssuePath,
-): readonly ValidationIssue<'field.validation'>[] => {
+	fieldPath: readonly (number | string)[],
+): readonly FieldValidationIssue[] => {
 	if (!isUnknownArray(issues)) {
 		return contractFailure(fieldPath, 'the failure result has no issue array')
 	}
@@ -111,28 +110,12 @@ const snapshotIssues = (
 	)
 }
 
-/** Runs one opaque validator as a synchronous, rejection-only Standard Schema boundary. */
+/** Runs one opaque validator as a synchronous, rejection-only boundary. */
 export const validateFieldStandardSchema = (
-	field: GenericField,
+	validator: FieldStandardSchema,
 	value: unknown,
-	path: ValidationIssuePath,
-): readonly ValidationIssue<'field.validation'>[] => {
-	if (
-		!('validation' in field.options) ||
-		field.options.validation === undefined
-	) {
-		return immutableArray([])
-	}
-
-	const validator: unknown = field.options.validation
-
-	if (!isObjectOrFunction(validator)) {
-		return contractFailure(
-			path,
-			'the retained validator is not an object or function',
-		)
-	}
-
+	path: readonly (number | string)[],
+): readonly FieldValidationIssue[] => {
 	const protocol: unknown = Reflect.get(validator, '~standard')
 
 	if (
@@ -147,7 +130,6 @@ export const validateFieldStandardSchema = (
 	}
 
 	const validate: unknown = Reflect.get(protocol, 'validate')
-
 	if (typeof validate !== 'function') {
 		return contractFailure(
 			path,
@@ -156,7 +138,6 @@ export const validateFieldStandardSchema = (
 	}
 
 	let result: unknown
-
 	try {
 		result = Reflect.apply(validate, protocol, [value])
 	} catch (error: unknown) {
@@ -166,19 +147,13 @@ export const validateFieldStandardSchema = (
 	if (isPromiseLike(result)) {
 		return contractFailure(path, 'async validation is not supported')
 	}
-
 	if (!isPlainRecord(result)) {
 		return contractFailure(path, 'validate returned a malformed result')
 	}
-
-	if (result.issues !== undefined) {
-		return snapshotIssues(result.issues, path)
-	}
-
+	if (result.issues !== undefined) return snapshotIssues(result.issues, path)
 	if (!Object.hasOwn(result, 'value')) {
 		return contractFailure(path, 'the success result has no value')
 	}
-
 	if (!equalCanonicalValues(value, result.value)) {
 		return contractFailure(path, 'field validators cannot transform values')
 	}

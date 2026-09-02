@@ -4,9 +4,10 @@ import {
 	type BuiltInFieldOptionsContract,
 } from '../base/options.js'
 import type {
+	CompatibleFieldOptionsExtension,
 	FieldDefinition,
-	FieldTypegenState,
 	FieldListOption,
+	FieldTypegenState,
 	FieldOptions,
 } from '../base/contract.js'
 import {
@@ -16,7 +17,6 @@ import {
 	type NonDefaultedCompactScalarFieldOptions,
 } from '../base/factory.js'
 import { normalizeBooleanValue } from '../base/value.js'
-import type { FieldStandardSchema } from '../base/standard-schema.js'
 
 /**
  * Describes boolean metadata through the common field contract.
@@ -35,35 +35,28 @@ const booleanFieldOptionsContract: BuiltInFieldOptionsContract = {
 	optionKeys: fieldOptionKeys,
 }
 
-/** Provides boolean-specific names for the shared compact scalar contract. */
 type DefaultedBooleanFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-	TValidation extends FieldStandardSchema,
 > = DefaultedCompactScalarFieldOptions<
 	BooleanFieldOptions,
 	boolean,
 	TRequired,
 	TList,
-	TImmutable,
-	object,
-	TValidation
+	TImmutable
 >
 
 type NonDefaultedBooleanFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-	TValidation extends FieldStandardSchema,
 > = NonDefaultedCompactScalarFieldOptions<
 	BooleanFieldOptions,
 	boolean,
 	TRequired,
 	TList,
-	TImmutable,
-	object,
-	TValidation
+	TImmutable
 >
 
 type ResolvedBooleanField<
@@ -98,26 +91,24 @@ interface BooleanFieldFactory {
 		const TRequired extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
-		const TValidation extends FieldStandardSchema = FieldStandardSchema,
+		const TExtensionOptions extends object = object,
 	>(
-		options: DefaultedBooleanFieldOptions<
-			TRequired,
-			TList,
-			TImmutable,
-			TValidation
+		options: CompatibleFieldOptionsExtension<
+			DefaultedBooleanFieldOptions<TRequired, TList, TImmutable>,
+			TExtensionOptions,
+			boolean
 		>,
 	): DefaultedBooleanField<TRequired, TList, TImmutable>
 	<
 		const TRequired extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
-		const TValidation extends FieldStandardSchema = FieldStandardSchema,
+		const TExtensionOptions extends object = object,
 	>(
-		options?: NonDefaultedBooleanFieldOptions<
-			TRequired,
-			TList,
-			TImmutable,
-			TValidation
+		options?: CompatibleFieldOptionsExtension<
+			NonDefaultedBooleanFieldOptions<TRequired, TList, TImmutable>,
+			TExtensionOptions,
+			boolean
 		>,
 	): NonDefaultedBooleanField<TRequired, TList, TImmutable>
 }

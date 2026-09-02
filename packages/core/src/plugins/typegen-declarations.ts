@@ -77,6 +77,7 @@ export interface CompiledTypegenOption {
 	readonly scope: 'field' | 'schema'
 	readonly staticOptions: Readonly<Record<string, JsonValue>>
 	readonly typegen: Readonly<{
+		readonly compatibilityType?: string
 		readonly generic?: 'self'
 		readonly module: string
 		readonly type: string

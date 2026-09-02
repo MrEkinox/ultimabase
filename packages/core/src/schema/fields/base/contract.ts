@@ -1,9 +1,8 @@
-import type { UltimaBaseGeneratedFieldOptions } from '../../type-info.js'
-import type { DefaultFactory, FieldDefault } from './defaults.js'
 import type {
-	CompatibleFieldStandardSchema,
-	FieldStandardSchema,
-} from './standard-schema.js'
+	UltimaBaseGeneratedFieldOptionCompatibility,
+	UltimaBaseGeneratedFieldOptions,
+} from '../../type-info.js'
+import type { DefaultFactory, FieldDefault } from './defaults.js'
 
 declare const fieldValueMarker: unique symbol
 declare const fieldTypegenMarker: unique symbol
@@ -82,7 +81,7 @@ type FieldOptionsDefaultValue<
 	? TValue | readonly TValue[]
 	: FieldListValue<TValue, TList>
 
-interface FieldMetadataOptions<TValidation extends object> {
+interface FieldMetadataOptions {
 	/**
 	 * Requires a non-null persisted value and, without a default or generator,
 	 * requires the field in create input.
@@ -90,12 +89,6 @@ interface FieldMetadataOptions<TValidation extends object> {
 	 * @example `required: true`
 	 */
 	readonly required?: boolean
-	/**
-	 * Applies one synchronous Standard Schema validator to the complete canonical value.
-	 *
-	 * @example `validation: z.string().min(1)`
-	 */
-	readonly validation?: TValidation
 	/**
 	 * Prevents the field from appearing in update inputs after it is created.
 	 *
@@ -118,12 +111,11 @@ interface FieldMetadataOptions<TValidation extends object> {
 
 /** Defines shared field metadata without assigning a default-value contract. */
 export interface FieldOptionsBase<
-	TValidation extends object = FieldStandardSchema,
 	TList extends FieldListOption = FieldListOption,
 	TValue = unknown,
 >
 	extends
-		FieldMetadataOptions<TValidation>,
+		FieldMetadataOptions,
 		FieldOptionValueCarrier<TValue>,
 		UltimaBaseGeneratedFieldOptions {
 	/**
@@ -139,9 +131,8 @@ export interface FieldOptionsBase<
  */
 export interface FieldOptions<
 	TValue,
-	TValidation extends object = FieldStandardSchema,
 	TList extends FieldListOption = FieldListOption,
-> extends FieldOptionsBase<TValidation, TList, TValue> {
+> extends FieldOptionsBase<TList, TValue> {
 	/**
 	 * Provides a static value or a zero-argument factory evaluated for each created object.
 	 *
@@ -173,38 +164,129 @@ type GeneratedValueIsCompatible<TOptions> = TOptions extends {
 			: true
 	: true
 
+type GeneratedFieldOptionCompatibility<
+	TOptions extends object,
+	TValue,
+> = UltimaBaseGeneratedFieldOptionCompatibility<
+	TOptions,
+	TValue
+>[keyof UltimaBaseGeneratedFieldOptionCompatibility<TOptions, TValue>]
+
+type GeneratedFieldOptionsAreCompatible<TOptions extends object, TValue> =
+	false extends GeneratedFieldOptionCompatibility<TOptions, TValue>
+		? false
+		: true
+
+type GeneratedCompatibilityOptionKeys<
+	TOptions extends object,
+	TValue,
+> = Extract<
+	keyof UltimaBaseGeneratedFieldOptionCompatibility<TOptions, TValue>,
+	keyof UltimaBaseGeneratedFieldOptions
+>
+
+type GeneratedNonCompatibilityOptionKeys<
+	TExtensionOptions extends object,
+	TOptions extends object,
+	TValue,
+> = Exclude<
+	Extract<keyof TExtensionOptions, keyof UltimaBaseGeneratedFieldOptions>,
+	GeneratedCompatibilityOptionKeys<TOptions, TValue>
+>
+
+type OptionObjectKeysAreCompatible<TDeclared, TAllowed> =
+	NonNullable<TDeclared> extends object
+		? NonNullable<TAllowed> extends object
+			? Exclude<
+					keyof NonNullable<TDeclared>,
+					keyof NonNullable<TAllowed>
+				> extends never
+				? true
+				: false
+			: false
+		: true
+
+type GeneratedNonCompatibilityOptionsAreExact<
+	TExtensionOptions extends object,
+	TOptions extends object,
+	TValue,
+> = false extends {
+	readonly [
+		TKey in GeneratedNonCompatibilityOptionKeys<
+			TExtensionOptions,
+			TOptions,
+			TValue
+		>
+	]: OptionObjectKeysAreCompatible<
+		TExtensionOptions[TKey],
+		TKey extends keyof TOptions ? TOptions[TKey] : never
+	>
+}[GeneratedNonCompatibilityOptionKeys<TExtensionOptions, TOptions, TValue>]
+	? false
+	: true
+
 /**
- * Validates a factory's exact options against its scalar value and validation contract.
+ * Validates a factory's exact options against its scalar value and generated checks.
  */
 type FieldOptionsAreCompatible<TOptions extends object, TValue> =
 	DefaultIsCompatible<
 		TOptions,
 		FieldOptionsValue<TValue, TOptions>
 	> extends true
-		? GeneratedValueIsCompatible<TOptions>
-		: false
-
-type FieldValidationIsCompatible<
-	TOptions extends object,
-	TValue,
-> = TOptions extends { readonly validation: infer TValidation }
-	? TValidation extends FieldStandardSchema
-		? TValidation extends CompatibleFieldStandardSchema<
-				TValidation,
-				FieldOptionsValue<TValue, TOptions>,
-				TOptions extends { readonly list: true } ? TValue[] : TValue
-			>
-			? true
+		? GeneratedValueIsCompatible<TOptions> extends true
+			? GeneratedFieldOptionsAreCompatible<TOptions, TValue>
 			: false
 		: false
-	: true
 
 export type ValidatedFieldOptions<TOptions extends object, TValue> =
-	FieldOptionsAreCompatible<TOptions, TValue> extends true
-		? FieldValidationIsCompatible<TOptions, TValue> extends true
-			? TOptions
-			: never
-		: never
+	FieldOptionsAreCompatible<TOptions, TValue> extends true ? TOptions : never
+
+/** Narrows an exact factory input only when every installed type-only check accepts it. */
+export type CompatibleFieldOptions<
+	TOptions extends object,
+	TValue,
+> = 0 extends 1 & TOptions
+	? unknown
+	: ValidatedFieldOptions<TOptions, TValue> extends never
+		? never
+		: unknown
+
+/** Retains an exact inferred input while applying every installed type-only check. */
+export type CompatibleFieldOptionsInput<
+	TOptions extends object,
+	TValue,
+	TAllowedOptions extends object = TOptions,
+> = TOptions &
+	(Exclude<keyof TOptions, keyof TAllowedOptions> extends never
+		? unknown
+		: never) &
+	CompatibleFieldOptions<TOptions, TValue>
+
+/** Infers exact plugin-option values while rejecting keys absent from the generated contract. */
+export type CompatibleFieldOptionsExtension<
+	TBaseOptions extends object,
+	TExtensionOptions extends object,
+	TValue,
+> = [GeneratedCompatibilityOptionKeys<TBaseOptions, TValue>] extends [never]
+	? TBaseOptions
+	: TBaseOptions &
+			TExtensionOptions &
+			(Exclude<keyof TExtensionOptions, keyof TBaseOptions> extends never
+				? unknown
+				: never) &
+			(GeneratedNonCompatibilityOptionsAreExact<
+				TExtensionOptions,
+				TBaseOptions,
+				TValue
+			> extends true
+				? unknown
+				: never) &
+			(GeneratedFieldOptionsAreCompatible<
+				TBaseOptions & TExtensionOptions,
+				TValue
+			> extends true
+				? Readonly<Record<never, never>>
+				: never)
 
 type FieldOptionsList<TOptions> = TOptions extends {
 	readonly list: infer TList extends FieldList
@@ -298,7 +380,7 @@ export interface ResolveFieldTypegenState<TOptions extends object> {
 export interface FieldDefinition<
 	TKind extends string,
 	TValue,
-	TOptions extends object = FieldOptions<TValue, object>,
+	TOptions extends object = FieldOptions<TValue>,
 	TTypegen extends FieldTypegenState = ResolveFieldTypegenState<TOptions>,
 	TStructuralContainsOperand = never,
 > {

@@ -21,6 +21,7 @@ const sourcePackageAliases = Object.fromEntries(
 		'shared',
 		'testing',
 		'typegen',
+		'validation-plugin',
 	].map((packageName) => [
 		`@ultimabase/${packageName}`,
 		path.join(workspaceRoot, 'packages', packageName, 'src', 'index.ts'),

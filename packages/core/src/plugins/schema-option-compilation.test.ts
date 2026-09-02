@@ -19,6 +19,37 @@ import {
 } from '../../tests/plugins/schema-declarations.fixtures.js'
 
 describe('plugin schema option compilation', () => {
+	it('validates plugin-owned type-only compatibility references', () => {
+		const option = defineSchemaOption({
+			normalize: (value) => value,
+			protocolVersion: 1,
+			typegen: {
+				compatibilityType: 'FixtureOptionCompatibility',
+				module: '@fixture/schema-option-compatibility',
+				type: 'FixtureOption',
+			},
+		})
+
+		expect(option.typegen).toEqual({
+			compatibilityType: 'FixtureOptionCompatibility',
+			module: '@fixture/schema-option-compatibility',
+			type: 'FixtureOption',
+		})
+		expect(() =>
+			defineSchemaOption({
+				normalize: (value) => value,
+				protocolVersion: 1,
+				typegen: {
+					compatibilityType: 'not valid',
+					module: '@fixture/schema-option-compatibility',
+					type: 'FixtureOption',
+				},
+			}),
+		).toThrow(
+			'Schema option typegen.compatibilityType must be a TypeScript export identifier',
+		)
+	})
+
 	it('rejects setup-phase requirements for pre-setup Runtime option compilers', () => {
 		const token = defineCapability<{ readonly register: () => void }>()({
 			capabilityId: 'fixture.schema-option-setup-phase',
@@ -148,8 +179,8 @@ describe('plugin schema option compilation', () => {
 		const Post = Schema.define({
 			className: 'RuntimeOptionPost',
 			fields: (field) => ({
+				// @ts-expect-error -- Typegen owns the installed direct option type.
 				title: field.string({
-					// @ts-expect-error -- Issue 1408 will generate the direct option type.
 					runtimeTag: 'field',
 				}),
 			}),
@@ -296,8 +327,8 @@ describe('plugin schema option compilation', () => {
 		const Post = Schema.define({
 			className: 'OwnedOptionPost',
 			fields: (field) => ({
+				// @ts-expect-error -- Typegen owns the installed direct option type.
 				title: field.string({
-					// @ts-expect-error -- Issue 1408 will generate the direct option type.
 					search,
 				}),
 			}),
@@ -347,8 +378,8 @@ describe('plugin schema option compilation', () => {
 		const UnknownFieldOption = Schema.define({
 			className: 'UnknownFieldOption',
 			fields: (field) => ({
+				// @ts-expect-error -- Typegen owns installed option types.
 				title: field.string({
-					// @ts-expect-error -- Issue 1408 will generate installed option types.
 					search: { weight: 10 },
 				}),
 			}),
@@ -479,8 +510,8 @@ describe('plugin schema option compilation', () => {
 	})
 
 	it('does not reuse an owner-specific field normalization across plugin schemas', async () => {
+		// @ts-expect-error -- Typegen owns the installed direct option type.
 		const sharedField = stringField({
-			// @ts-expect-error -- Issue 1408 will generate the direct option type.
 			shared: 'value',
 		})
 		const First = Schema.define({
@@ -594,7 +625,7 @@ describe('plugin schema option compilation', () => {
 			declare: ({ schemas }) => {
 				schemas.defineOptions({
 					contributionId: 'collision',
-					field: { validation: jsonObjectOption },
+					field: { required: jsonObjectOption },
 				})
 			},
 		})
@@ -607,7 +638,7 @@ describe('plugin schema option compilation', () => {
 		await expect(
 			createApplication({ plugins: [fieldCollision], schemas: [] }),
 		).rejects.toThrow(
-			'Plugin option collides with Core-owned field option: validation',
+			'Plugin option collides with Core-owned field option: required',
 		)
 	})
 })

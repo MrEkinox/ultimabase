@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import { isPlainRecord } from '@ultimabase/shared'
-import type { StandardSchemaV1 } from '@standard-schema/spec'
 
 import {
 	definePluginField,
@@ -46,27 +45,6 @@ describe('plugin fields', () => {
 		})
 		expect(Object.isFrozen(field)).toBe(true)
 		expect(Object.isFrozen(field.options.default)).toBe(true)
-	})
-
-	it('retains opaque plugin validation independently from direct presence', () => {
-		const validation: StandardSchemaV1<string> = {
-			'~standard': {
-				version: 1,
-				vendor: 'fixture',
-				validate: (value) =>
-					typeof value === 'string'
-						? { value }
-						: { issues: [{ message: 'Value must be a string' }] },
-			},
-		}
-		const field = definePluginField(
-			'fixture.default-normalizer',
-			{ required: true, validation },
-			{ snapshotValue },
-		)
-
-		expect(field.options.required).toBe(true)
-		expect(field.options.validation).toBe(validation)
 	})
 
 	it('leaves plugin-owned option keys to the plugin normalizer', () => {

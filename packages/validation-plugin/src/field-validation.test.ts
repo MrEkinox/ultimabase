@@ -1,27 +1,59 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec'
 import { describe, expect, it, vi } from 'vitest'
 
-import { FrameworkError } from '../../foundation.js'
-import { QueryBuilder, type CreateOneOperationAst } from '../../query/index.js'
 import {
+	createFinalMutationValidationStage as createCoreFinalMutationValidationStage,
+	createRuntimeValidationStage,
 	compileValidationPlans,
 	definePluginField,
+	FrameworkError,
 	type FieldOptions,
 	type JsonDocument,
 	objectField,
 	Pointer,
 	pointerField,
+	QueryBuilder,
+	RequestContext,
+	requestSources,
 	Schema,
+	type ApplicationCallbackExecutor,
+	type CreateOneOperationAst,
+	type RuntimeMutationRevalidationStage,
 	type SchemaDefinition,
 	stringField,
-} from '../../schema/index.js'
-import { RequestContext, requestSources } from '../context/request-context.js'
-import { createFixtureMasterContext } from '../../../tests/fixtures/master-context.js'
-import { createFinalMutationValidationStage } from './final-mutation-validation.js'
-import {
-	createRuntimeValidationStage,
 	snapshotRuntimeResultRecord,
-} from './runtime-validation.js'
+} from '@ultimabase/core'
+import {
+	createValidationPlanCache,
+	validateMutationInput,
+} from './operation-validation.js'
+
+const callbacks: ApplicationCallbackExecutor = {
+	runApplication: (callback) => callback(),
+	runPlugin: (_owner, callback) => callback(),
+}
+
+const isPromiseLike = (value: unknown): value is PromiseLike<unknown> =>
+	((typeof value === 'object' && value !== null) ||
+		typeof value === 'function') &&
+	typeof Reflect.get(value, 'then') === 'function'
+
+const createFinalMutationValidationStage =
+	(): RuntimeMutationRevalidationStage => {
+		const validateStructure = createCoreFinalMutationValidationStage()
+		const readPlans = createValidationPlanCache()
+		return (input) => {
+			const operation = validateStructure(input)
+			if (isPromiseLike(operation)) {
+				throw new TypeError(
+					'Core final mutation validation must be synchronous',
+				)
+			}
+			const plans = readPlans(operation)
+			validateMutationInput({ ...input, operation }, plans, callbacks)
+			return operation
+		}
+	}
 
 const rejectingString = (
 	message: string,
@@ -147,7 +179,7 @@ describe('Standard Schema field validation', () => {
 		expect(validate).toHaveBeenCalledExactlyOnceWith('2026-08-21')
 	})
 
-	it('defers application validation until after explicit input resolution, including for master', async () => {
+	it('defers application validation until after explicit input resolution', async () => {
 		const validate = vi.fn((value: unknown) =>
 			typeof value === 'string' && /^[a-z]+(?:-[a-z]+)*$/u.test(value)
 				? { value }
@@ -175,23 +207,19 @@ describe('Standard Schema field validation', () => {
 			selection: { fields: [], kind: 'selection' },
 			schema: new QueryBuilder(schema).ast.schema,
 		} satisfies CreateOneOperationAst<typeof schema>
-		const master = createFixtureMasterContext(
-			'validates canonical input',
-			'post-resolution-test',
-			RequestContext.anonymous({
-				requestId: 'post-resolution-master',
-				source: requestSources.internal,
-			}),
-		)
+		const context = RequestContext.anonymous({
+			requestId: 'post-resolution-test',
+			source: requestSources.internal,
+		})
 		const normalized = await createRuntimeValidationStage()({
-			context: master,
+			context,
 			operation,
 		})
 
 		expect(validate).not.toHaveBeenCalled()
 		expect(() =>
 			createFinalMutationValidationStage()({
-				context: master,
+				context,
 				operation: normalized,
 				previousOperation: normalized,
 				target: undefined,
@@ -204,7 +232,7 @@ describe('Standard Schema field validation', () => {
 		}
 		expect(
 			createFinalMutationValidationStage()({
-				context: master,
+				context,
 				operation: transformed,
 				previousOperation: normalized,
 				target: undefined,
@@ -230,7 +258,9 @@ describe('Standard Schema field validation', () => {
 		const pluginField = definePluginField<
 			PluginValue,
 			'fixture.validated',
-			FieldOptions<PluginValue, ReturnType<typeof observe<PluginValue>>>
+			FieldOptions<PluginValue> & {
+				readonly validation: ReturnType<typeof observe<PluginValue>>
+			}
 		>(
 			'fixture.validated',
 			{ validation: observe<PluginValue>('plugin') },

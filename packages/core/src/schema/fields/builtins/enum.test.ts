@@ -36,7 +36,6 @@ describe('enumField', () => {
 		expect(Object.isFrozen(field)).toBe(true)
 		expect(Object.isFrozen(field.options)).toBe(true)
 		expect(Object.isFrozen(field.options.values)).toBe(true)
-		expect(Object.isFrozen(field.options.validation)).toBe(true)
 	})
 
 	it('preserves symbolic keys from a mapping', () => {

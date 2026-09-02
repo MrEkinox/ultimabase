@@ -14,6 +14,7 @@ import type {
 	SchemaTypeInfoSource,
 } from '../../type-info.js'
 import type {
+	CompatibleFieldOptionsExtension,
 	FieldDefinition,
 	FieldTypegenState,
 	FieldOptionsBase,
@@ -26,18 +27,14 @@ import {
 	normalizeFieldOptions,
 	type BuiltInFieldOptionsContract,
 } from '../base/options.js'
-import type {
-	CompatibleFieldStandardSchema,
-	FieldStandardSchema,
-} from '../base/standard-schema.js'
 
 /** Defines portable behavior when a referenced target object is deleted. */
 export type PointerReferentialAction = 'restrict' | 'cascade' | 'setNull'
 
 /** Keeps only stable logical pointer metadata visible to adapters. */
 export interface PointerFieldMetadataOptions extends FieldOptionsBase<
-	FieldStandardSchema,
-	false
+	false,
+	Pointer
 > {
 	/** Applies the declared logical action when the target object is deleted. */
 	readonly onDelete: PointerReferentialAction
@@ -46,8 +43,7 @@ export interface PointerFieldMetadataOptions extends FieldOptionsBase<
 /** Describes one typed pointer declaration without physical storage details. */
 export interface PointerFieldOptions<
 	TTarget extends SchemaDefinition = SchemaDefinition,
-	TValidation extends FieldStandardSchema = FieldStandardSchema,
-> extends FieldOptionsBase<TValidation, false, Pointer<TTarget>> {
+> extends FieldOptionsBase<false, Pointer<TTarget>> {
 	/**
 	 * Keeps the scalar shape explicit; pointer collections use `relationField` instead.
 	 *
@@ -112,10 +108,9 @@ type CompactPointerFieldOptions<
 	TRequired extends boolean,
 	TImmutable extends boolean,
 	TOnDelete extends PointerReferentialAction,
-	TValidation extends FieldStandardSchema,
 > = Omit<
-	PointerFieldOptions<TTarget, TValidation>,
-	'immutable' | 'onDelete' | 'required' | 'validation'
+	PointerFieldOptions<TTarget>,
+	'immutable' | 'onDelete' | 'required'
 > & {
 	/**
 	 * Requires an explicit non-null pointer during creation.
@@ -132,14 +127,6 @@ type CompactPointerFieldOptions<
 	 * @example `onDelete: "cascade"`
 	 */
 	readonly onDelete?: TOnDelete
-	/**
-	 * Validates the complete canonical pointer without changing its identity.
-	 * @example `validation: ownedPointerSchema`
-	 */
-	readonly validation?: CompatibleFieldStandardSchema<
-		TValidation,
-		Pointer<TTarget>
-	>
 }
 
 type CompatiblePointerOptions<
@@ -157,14 +144,7 @@ type CompatibleCompactPointerFieldOptions<
 	TRequired extends boolean,
 	TImmutable extends boolean,
 	TOnDelete extends PointerReferentialAction,
-	TValidation extends FieldStandardSchema,
-> = CompactPointerFieldOptions<
-	TTarget,
-	TRequired,
-	TImmutable,
-	TOnDelete,
-	TValidation
-> &
+> = CompactPointerFieldOptions<TTarget, TRequired, TImmutable, TOnDelete> &
 	CompatiblePointerOptions<TRequired, TOnDelete>
 
 type NamedCompactPointerFieldOptions<
@@ -172,14 +152,12 @@ type NamedCompactPointerFieldOptions<
 	TRequired extends boolean,
 	TImmutable extends boolean,
 	TOnDelete extends PointerReferentialAction,
-	TValidation extends FieldStandardSchema,
 > = Omit<
 	CompatibleCompactPointerFieldOptions<
 		SchemaReference<TTargetName>,
 		TRequired,
 		TImmutable,
-		TOnDelete,
-		TValidation
+		TOnDelete
 	>,
 	'target'
 > & {
@@ -193,14 +171,17 @@ export type NamedPointerFieldBuilderMethod = <
 	const TRequired extends boolean = false,
 	const TImmutable extends boolean = false,
 	const TOnDelete extends PointerReferentialAction = PointerReferentialAction,
-	const TValidation extends FieldStandardSchema = FieldStandardSchema,
+	const TExtensionOptions extends object = object,
 >(
-	options: NamedCompactPointerFieldOptions<
-		TTargetName,
-		TRequired,
-		TImmutable,
-		TOnDelete,
-		TValidation
+	options: CompatibleFieldOptionsExtension<
+		NamedCompactPointerFieldOptions<
+			TTargetName,
+			TRequired,
+			TImmutable,
+			TOnDelete
+		>,
+		TExtensionOptions,
+		Pointer<SchemaReference<TTargetName>>
 	>,
 ) => ResolvedPointerField<SchemaReference<TTargetName>, TRequired, TImmutable>
 
@@ -214,24 +195,24 @@ export type PointerFieldBuilderMethod = <
 	const TRequired extends boolean = false,
 	const TImmutable extends boolean = false,
 	const TOnDelete extends PointerReferentialAction = PointerReferentialAction,
-	const TValidation extends FieldStandardSchema = FieldStandardSchema,
+	const TExtensionOptions extends object = object,
 >(
 	/** Stable logical field name within the containing schema. */
 	name: string,
 	/** Declares the exact lazy target and pointer behavior. */
-	options: CompatibleCompactPointerFieldOptions<
-		TTarget,
-		TRequired,
-		TImmutable,
-		TOnDelete,
-		TValidation
+	options: CompatibleFieldOptionsExtension<
+		CompatibleCompactPointerFieldOptions<
+			TTarget,
+			TRequired,
+			TImmutable,
+			TOnDelete
+		>,
+		TExtensionOptions,
+		Pointer<TTarget>
 	>,
 ) => void
 
-interface PointerFieldMetadataInput extends FieldOptionsBase<
-	FieldStandardSchema,
-	false
-> {
+interface PointerFieldMetadataInput extends FieldOptionsBase<false, Pointer> {
 	readonly onDelete?: PointerReferentialAction
 }
 
@@ -302,14 +283,17 @@ export function pointerField<
 	const TRequired extends boolean = false,
 	const TImmutable extends boolean = false,
 	const TOnDelete extends PointerReferentialAction = PointerReferentialAction,
-	const TValidation extends FieldStandardSchema = FieldStandardSchema,
+	const TExtensionOptions extends object = object,
 >(
-	options: CompatibleCompactPointerFieldOptions<
-		TTarget,
-		TRequired,
-		TImmutable,
-		TOnDelete,
-		TValidation
+	options: CompatibleFieldOptionsExtension<
+		CompatibleCompactPointerFieldOptions<
+			TTarget,
+			TRequired,
+			TImmutable,
+			TOnDelete
+		>,
+		TExtensionOptions,
+		Pointer<TTarget>
 	>,
 ): ResolvedPointerField<TTarget, TRequired, TImmutable>
 

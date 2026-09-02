@@ -226,8 +226,8 @@ test('does not claim issue 1408 direct option augmentation', () => {
 	Schema.define({
 		className: 'UngeneratedOptionSchema',
 		fields: (field) => ({
+			// @ts-expect-error -- Typegen owns installed direct option autocomplete.
 			title: field.string({
-				// @ts-expect-error -- Typegen owns installed direct option autocomplete.
 				search: { weight: 10 },
 			}),
 		}),

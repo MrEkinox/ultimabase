@@ -24,7 +24,6 @@
 		"typecheck": "tsc --build"
 	},
 	"dependencies": {
-		"@standard-schema/spec": "^1.1.0",
 		"@ultimabase/shared": "workspace:^",
 		"fast-equals": "^6.0.2",
 		"semver": "^7.7.3",

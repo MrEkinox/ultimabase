@@ -307,8 +307,8 @@ describe('open-kernel Typegen and migration proof', () => {
 				className: 'OpenKernelConformanceLedger',
 				decimalLedger: { defaultScale: 2 },
 				fields: (field) => ({
+					// @ts-expect-error -- The generated community contract owns this direct option.
 					label: field.string({
-						// @ts-expect-error -- The generated community contract owns this direct option.
 						decimalLabel: { format: 'plain' },
 					}),
 				}),
@@ -431,8 +431,8 @@ describe('open-kernel Typegen and migration proof', () => {
 			className: 'OpenKernelLanguageServiceLedger',
 			decimalLedger: { defaultScale: 4 },
 			fields: (field) => ({
+				// @ts-expect-error -- The generated community contract owns this direct option.
 				label: field.string({
-					// @ts-expect-error -- The generated community contract owns this direct option.
 					decimalLabel: { format: 'accounting' },
 				}),
 			}),

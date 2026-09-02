@@ -195,6 +195,14 @@ export const snapshotTypegenGraph = (
 			)
 			.map((option) =>
 				immutableRecord({
+					...(option.typegen.compatibilityType === undefined
+						? {}
+						: {
+								compatibility: immutableRecord({
+									exportName: option.typegen.compatibilityType,
+									module: option.typegen.module,
+								}),
+							}),
 					contributionId: option.contributionId,
 					...(option.typegen.generic === undefined
 						? {}

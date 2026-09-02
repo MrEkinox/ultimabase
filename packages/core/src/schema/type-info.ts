@@ -1,5 +1,5 @@
 /** Invalidates generated fingerprints when Core's shared typegen ABI changes. */
-export const generatedApplicationContractVersion = 12 as const
+export const generatedApplicationContractVersion = 13 as const
 
 /** Minimal identity implemented by every generated persisted item. */
 export interface SchemaItemType {
@@ -29,6 +29,19 @@ export interface UltimaBaseGeneratedEmbeddedFieldBuilderMethods {}
 
 /** Application-generated declarations merge accepted plugin field options here. */
 export interface UltimaBaseGeneratedFieldOptions {}
+
+declare const generatedFieldOptionCompatibilityType: unique symbol
+
+/** Application-generated declarations merge plugin-owned exact option checks here. */
+export interface UltimaBaseGeneratedFieldOptionCompatibility<
+	TOptions extends object,
+	TValue,
+> {
+	readonly [generatedFieldOptionCompatibilityType]?: Readonly<{
+		readonly options: TOptions
+		readonly value: TValue
+	}>
+}
 
 /** Application-generated declarations merge accepted plugin schema options here. */
 export interface UltimaBaseGeneratedSchemaOptions {}

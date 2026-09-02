@@ -1,36 +1,46 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec'
 import { describe, expect, it, vi } from 'vitest'
 
-import { FrameworkError } from '../../foundation.js'
 import {
 	decrement,
+	FrameworkError,
 	increment,
 	normalizeUpdateExpression,
 	QueryBuilder,
+	RequestContext,
+	requestSources,
+	Schema,
+	type ApplicationCallbackExecutor,
+	type RuntimeMutationRevalidationStage,
 	type UpdateManyOperationAst,
 	type UpdateOneOperationAst,
 	type UpsertManyOperationAst,
 	type UpsertOneOperationAst,
-} from '../../query/index.js'
-import { Schema } from '../../schema/index.js'
+} from '@ultimabase/core'
 import {
 	immutableRecord,
 	isPlainRecord,
 	isUnknownArray,
 } from '@ultimabase/shared'
 
-import { RequestContext, requestSources } from '../context/request-context.js'
-import type {
-	DatabaseMutationOperationAst,
-	DatabaseOperationAst,
-	DatabaseOperationResult,
-	DatabaseTransactionAdapter,
-	PreparedDatabaseOperation,
-} from '../database/contracts.js'
-import { databasePersistencePlanCapability } from '../database/contracts.js'
-import { executeRuntimeDatabaseOperation } from '../pipeline/database-execution.js'
-import { createFinalMutationValidationStage } from './final-mutation-validation.js'
-import { createPreparedOperationFixture } from '../../../tests/runtime/fixtures/recording-database-adapter.js'
+import {
+	createValidationPlanCache,
+	validateMutationInput,
+} from './operation-validation.js'
+
+const callbacks: ApplicationCallbackExecutor = {
+	runApplication: (callback) => callback(),
+	runPlugin: (_owner, callback) => callback(),
+}
+
+const createFinalMutationValidationStage =
+	(): RuntimeMutationRevalidationStage => {
+		const readPlans = createValidationPlanCache()
+		return (input) => {
+			validateMutationInput(input, readPlans(input.operation), callbacks)
+			return input.operation
+		}
+	}
 
 const instant = '2026-08-22T10:00:00.000Z'
 const objectId = '0198d70e-e400-7000-8000-000000000001'
@@ -222,93 +232,6 @@ describe('projected arithmetic field validation', () => {
 			kind: 'increment',
 			value: 1,
 		})
-	})
-
-	it('forwards accepted deltas unchanged and rejects invalid projections before adapter execution', async () => {
-		const validate = vi.fn((value: unknown) =>
-			typeof value === 'number' && value <= 5
-				? { value }
-				: { issues: [{ message: 'Score cannot exceed five' }] },
-		)
-		const validator: StandardSchemaV1<number> = {
-			'~standard': {
-				validate,
-				vendor: 'adapter-arithmetic-test',
-				version: 1,
-			},
-		}
-		const schema = Schema.define({
-			className: 'AdapterProjectedValue',
-			fields: (field) => ({
-				score: field.int({ required: true, validation: validator }),
-			}),
-		})
-		const createOperation = (delta: number) =>
-			immutableRecord({
-				kind: 'update-one' as const,
-				query: new QueryBuilder(schema).ast,
-				update: normalizeUpdateExpression(schema, { score: increment(delta) }),
-			}) satisfies UpdateOneOperationAst<typeof schema>
-		const execute = (delta: number, current: number) => {
-			let executedOperation: DatabaseMutationOperationAst | undefined
-			const target = completeRecord({ score: current })
-			const transaction: DatabaseTransactionAdapter = {
-				capabilities: {
-					persistencePlans: databasePersistencePlanCapability,
-				},
-				commit: () => Promise.resolve(),
-				execute: <const TOperation extends DatabaseOperationAst>() =>
-					Promise.reject<DatabaseOperationResult<TOperation>>(
-						new TypeError('Unexpected direct execution'),
-					),
-				kind: 'database-transaction-adapter',
-				prepare: <const TOperation extends DatabaseMutationOperationAst>() =>
-					Promise.resolve(
-						createPreparedOperationFixture<TOperation>({
-							execute: () =>
-								Promise.resolve(
-									completeRecord({
-										score: current + delta,
-									}) as unknown as DatabaseOperationResult<TOperation>,
-								),
-							onExecute: (request) => {
-								executedOperation = request?.operation
-							},
-							target,
-						}),
-					) as Promise<PreparedDatabaseOperation<TOperation>>,
-				rollback: () => Promise.resolve(),
-			}
-			const operation = createOperation(delta)
-			const result = executeRuntimeDatabaseOperation(
-				transaction,
-				context,
-				undefined,
-				undefined,
-				{ constraints: [], operation },
-				createFinalMutationValidationStage(),
-				undefined,
-				undefined,
-			)
-
-			return { executedOperation: () => executedOperation, operation, result }
-		}
-
-		const accepted = execute(1, 4)
-		await expect(accepted.result).resolves.toMatchObject({
-			result: { score: 5 },
-		})
-		expect(accepted.executedOperation()).toMatchObject({
-			update: {
-				operations: [expect.objectContaining({ kind: 'increment', value: 1 })],
-			},
-		})
-
-		const rejected = execute(1, 5)
-		await expect(rejected.result).rejects.toMatchObject({
-			code: 'VALIDATION_ERROR',
-		})
-		expect(rejected.executedOperation()).toBeUndefined()
 	})
 
 	it('rejects unsafe integer and decimal projections structurally before the validator', () => {

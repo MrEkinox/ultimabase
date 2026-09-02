@@ -29,17 +29,6 @@ test('keeps plugin field options on the primary call contract', () => {
 		{ list: true, default: 'first' },
 		{ snapshotValue },
 	)
-
-	definePluginField(
-		'fixture.invalid-nullability',
-		{
-			validation: {
-				// @ts-expect-error -- Validation must implement Standard Schema V1.
-				nullable: true,
-			},
-		},
-		{ snapshotValue },
-	)
 })
 
 test('carries the exact plugin containment operand at the type level', () => {

@@ -612,14 +612,14 @@ const pipeline = new RuntimePipeline({
 const articles = await pipeline.execute({ context, operation })
 ```
 
-The fixed order performs initial Core structural validation without application
-validators, applies initial enforcement, locks mutation targets, and runs every
-input transformer. Every mutation then crosses the mandatory
-`finalMutationValidation` stage, which repeats structural snapshots and invokes
-Standard Schema before value-dependent enforcement. Prepared adapters receive
-the final operation and cumulative `constraints` for the write. For atomic
-numeric updates, the stage projects the complete value from the prepared locked
-target, validates it, and retains the original delta for adapter execution.
+The fixed order performs initial Core structural validation, applies initial
+enforcement, locks mutation targets, and runs every input transformer. Every
+mutation then crosses the mandatory `finalMutationValidation` stage, which
+repeats structural snapshots before optional rejection-only mutation guards and
+value-dependent enforcement. Prepared adapters receive the final operation and
+cumulative `constraints` for the write. A guard may inspect the complete value
+projected from a prepared locked target while retaining the original atomic
+delta for adapter execution.
 Runtime then runs every business result transform, applies final output
 restrictions, and finalizes the transaction and post-commit observers. Those
 read, adapter-result, materialization, inclusion, and final-result boundaries

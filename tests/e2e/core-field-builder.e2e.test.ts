@@ -6,7 +6,7 @@ import { createPackedCoreLanguageFixture } from './packed-core-language-service.
 const repositoryRoot = path.resolve(import.meta.dirname, '../..')
 const sourceFixtureFile = path.join(
 	repositoryRoot,
-	'packages/core/tests/schema/field-builder.prototype.ts',
+	'tests/e2e/fixtures/validation-field-builder.prototype.ts',
 )
 const languageFixture = await createPackedCoreLanguageFixture(
 	sourceFixtureFile,
@@ -19,6 +19,12 @@ declare module '@ultimabase/core' {
 	interface UltimaBaseGeneratedSchemas {
 		readonly PackedFieldBuilder: import('@ultimabase/core').BaseSchemaTypeInfo<'PackedFieldBuilder'>
 		readonly PackedValidatorTarget: import('@ultimabase/core').BaseSchemaTypeInfo<'PackedValidatorTarget'>
+	}
+	interface UltimaBaseGeneratedFieldOptions {
+		readonly validation?: import('@ultimabase/validation-plugin').FieldValidationOption<this>
+	}
+	interface UltimaBaseGeneratedFieldOptionCompatibility<TOptions extends object, TValue> {
+		readonly validation: import('@ultimabase/validation-plugin').FieldValidationCompatibility<TOptions, TValue>
 	}
 }
 `,
@@ -80,10 +86,10 @@ describe('packed @ultimabase/core FieldBuilder contract', () => {
 		const precision = languageFixture.readHover('decimal-precision')
 		const scale = languageFixture.readHover('decimal-scale')
 
-		expect(precision.display).toContain('precision?: number')
+		expect(precision.display).toContain('precision: 12')
 		expect(precision.documentation).toContain('total number')
 		expect(precision.hasExample).toBe(true)
-		expect(scale.display).toContain('scale?: number')
+		expect(scale.display).toContain('scale: 2')
 		expect(scale.documentation).toContain('digits after the decimal')
 		expect(scale.hasExample).toBe(true)
 	})
@@ -91,7 +97,7 @@ describe('packed @ultimabase/core FieldBuilder contract', () => {
 	it('retains documented direct presence beside real validators', () => {
 		const required = languageFixture.readHover('field-required')
 
-		expect(required.display).toContain('required?: true')
+		expect(required.display).toContain('required: true')
 		expect(required.documentation).toContain('non-null persisted')
 		expect(required.hasExample).toBe(true)
 	})

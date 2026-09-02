@@ -15,6 +15,7 @@
 		"@ultimabase/postgres-plugin": "workspace:^",
 		"@ultimabase/roles-plugin": "workspace:^",
 		"@ultimabase/typegen": "workspace:^",
+		"@ultimabase/validation-plugin": "workspace:^",
 		"zod": "^4.4.3"
 	},
 	"devDependencies": {

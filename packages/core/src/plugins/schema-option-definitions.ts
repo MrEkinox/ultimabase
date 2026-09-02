@@ -17,6 +17,8 @@ import { type SchemaOptionProvenance } from '../schema/schema/provenance.js'
 export interface SchemaOptionTypegenDescriptor {
 	/** Applies the exported generic to the generated option interface's polymorphic `this`. */
 	readonly generic?: 'self'
+	/** Applies one plugin-owned type-only compatibility check to exact declared field options. */
+	readonly compatibilityType?: string
 	readonly module: string
 	readonly type: string
 }
@@ -103,7 +105,12 @@ const optionDefinitionKeys = new Set([
 	'valueKind',
 ])
 
-const optionTypegenKeys = new Set(['generic', 'module', 'type'])
+const optionTypegenKeys = new Set([
+	'compatibilityType',
+	'generic',
+	'module',
+	'type',
+])
 
 const optionRuntimeKeys = new Set(['compile', 'requirement'])
 
@@ -150,11 +157,26 @@ const normalizeTypegenDescriptor = (
 		)
 	}
 
+	if (value.compatibilityType !== undefined) {
+		assertNonEmptyString(
+			value.compatibilityType,
+			'Schema option typegen.compatibilityType',
+		)
+		if (!/^[$A-Z_a-z][$\w]*$/u.test(value.compatibilityType)) {
+			throw new TypeError(
+				'Schema option typegen.compatibilityType must be a TypeScript export identifier',
+			)
+		}
+	}
+
 	if (value.generic !== undefined && value.generic !== 'self') {
 		throw new TypeError('Schema option typegen.generic must be self')
 	}
 
 	return immutableRecord({
+		...(value.compatibilityType === undefined
+			? {}
+			: { compatibilityType: value.compatibilityType }),
 		...(value.generic === undefined ? {} : { generic: value.generic }),
 		module: value.module,
 		type: value.type,

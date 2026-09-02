@@ -115,9 +115,9 @@ Core-owned structural metadata that cannot change a TypeScript value shape is
 deliberately omitted. Decimal `precision` and `scale`, for example, affect
 Runtime validation and adapter storage but produce the same generated string
 field contract and fingerprint as an otherwise identical decimal field.
-Opaque Standard Schema field validators are omitted for the same reason. Zod,
-Valibot, and other implementations therefore produce the same declaration and
-fingerprint when every generated field fact is otherwise identical.
+Opaque application artifacts are omitted for the same reason. When the optional
+Validation plugin is installed, Typegen emits its direct option and type-only
+compatibility reference while omitting validator identities and callbacks.
 
 Operation declarations retain exact input, result, and declared public
 `PluginError` code unions. Generated application and schema/model handles add
@@ -129,7 +129,7 @@ JSON codec. Plugin fields that separately enable Core's portable structural
 containment name their exact partial operand through `structuralContainsType`.
 Typegen emits `contains` only for those fields and keeps the executable snapshot
 callback out of generated artifacts. These contracts advance the inert snapshot
-format to version 6 and the generator format to version 11.
+format to version 6 and the generator format to version 12.
 
 The TypeScript loader transpiles the application before a previous generated
 registry exists. Static compilation registers configured plugin field types and
@@ -137,7 +137,7 @@ the narrower set of public field methods, resolves fields and relationship
 targets, and then emits exact models,
 operation inputs, filters, projections, includes, embedded objects, and
 FieldBuilder methods. Those values drive exact contextual options contributed
-by installed plugins, including official Access and Hooks. Compatible object
+by installed plugins, including official Access, Hooks, and Validation. Compatible object
 and enum `typeName` identities are
 reused; incompatible identities and normalized TypeScript name collisions
 report both owners.

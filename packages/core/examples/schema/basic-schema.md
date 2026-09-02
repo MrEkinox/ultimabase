@@ -10,7 +10,6 @@ import {
 	type InferObject,
 	type InferUpdateInput,
 } from '@ultimabase/core'
-import { z } from 'zod'
 
 export const UserSchema = Schema.define({
 	className: 'User',
@@ -18,19 +17,11 @@ export const UserSchema = Schema.define({
 		username: field.string({
 			indexed: 'unique',
 			required: true,
-			validation: z
-				.string()
-				.min(3)
-				.max(32)
-				.regex(/^[a-z0-9_]+$/u),
 		}),
 		displayName: field.string({
 			required: true,
-			validation: z.string().min(1).max(80),
 		}),
-		bio: field.string({
-			validation: z.string().max(500),
-		}),
+		bio: field.string(),
 		isActive: field.boolean({ default: true }),
 	}),
 })

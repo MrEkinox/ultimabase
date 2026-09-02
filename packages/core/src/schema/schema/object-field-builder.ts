@@ -1,11 +1,14 @@
-import type { FieldListOption } from '../fields/base/contract.js'
-import type { FieldStandardSchema } from '../fields/base/standard-schema.js'
+import type {
+	CompatibleFieldOptionsExtension,
+	FieldListOption,
+} from '../fields/base/contract.js'
 import type {
 	DefaultedObjectField,
 	DefaultedObjectFieldOptions,
 	NonDefaultedObjectField,
 	NonDefaultedObjectFieldOptions,
 	ObjectFields,
+	ObjectFieldValue,
 } from '../fields/builtins/object.js'
 import type { EmbeddedFieldBuilder } from './field-builder.js'
 
@@ -14,15 +17,8 @@ type DefaultedObjectFieldBuilderOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-	TValidation extends FieldStandardSchema,
 > = Omit<
-	DefaultedObjectFieldOptions<
-		TFields,
-		TRequired,
-		TList,
-		TImmutable,
-		TValidation
-	>,
+	DefaultedObjectFieldOptions<TFields, TRequired, TList, TImmutable>,
 	'fields'
 > & {
 	readonly fields: (field: EmbeddedFieldBuilder) => TFields
@@ -33,35 +29,26 @@ type NonDefaultedObjectFieldBuilderOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-	TValidation extends FieldStandardSchema,
 > = Omit<
-	NonDefaultedObjectFieldOptions<
-		TFields,
-		TRequired,
-		TList,
-		TImmutable,
-		TValidation
-	>,
+	NonDefaultedObjectFieldOptions<TFields, TRequired, TList, TImmutable>,
 	'fields'
 > & {
 	readonly fields: (field: EmbeddedFieldBuilder) => TFields
 }
 
-/** Preserves exact embedded fields and validator inference for FieldBuilder.object. */
+/** Preserves exact embedded fields and generated options for FieldBuilder.object. */
 export interface ObjectFieldBuilderMethod {
 	<
 		const TFields extends ObjectFields,
 		const TRequired extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
-		const TValidation extends FieldStandardSchema = FieldStandardSchema,
+		const TExtensionOptions extends object = object,
 	>(
-		options: DefaultedObjectFieldBuilderOptions<
-			TFields,
-			TRequired,
-			TList,
-			TImmutable,
-			TValidation
+		options: CompatibleFieldOptionsExtension<
+			DefaultedObjectFieldBuilderOptions<TFields, TRequired, TList, TImmutable>,
+			TExtensionOptions,
+			ObjectFieldValue<TFields>
 		>,
 	): DefaultedObjectField<TFields, TRequired, TList, TImmutable>
 	<
@@ -69,14 +56,17 @@ export interface ObjectFieldBuilderMethod {
 		const TRequired extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
-		const TValidation extends FieldStandardSchema = FieldStandardSchema,
+		const TExtensionOptions extends object = object,
 	>(
-		options: NonDefaultedObjectFieldBuilderOptions<
-			TFields,
-			TRequired,
-			TList,
-			TImmutable,
-			TValidation
+		options: CompatibleFieldOptionsExtension<
+			NonDefaultedObjectFieldBuilderOptions<
+				TFields,
+				TRequired,
+				TList,
+				TImmutable
+			>,
+			TExtensionOptions,
+			ObjectFieldValue<TFields>
 		>,
 	): NonDefaultedObjectField<TFields, TRequired, TList, TImmutable>
 }

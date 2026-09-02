@@ -9,8 +9,6 @@ import {
 	stringField,
 	timeField,
 } from '../../src/index.js'
-import * as v from 'valibot'
-import { z } from 'zod'
 
 const targetSchema = Schema.define({
 	className: 'FieldOptionDiagnosticTarget',
@@ -36,16 +34,6 @@ bigintField({ autoIncrement: 1 })
 intField({ list: true, default: 1 })
 bigintField({ list: true, default: 1n })
 stringField({ list: true, default: 'one' })
-
-stringField({ validation: z.number() })
-stringField({ validation: z.string().transform(() => 1) })
-stringField({ validation: v.number() })
-stringField({
-	validation: v.pipe(
-		v.string(),
-		v.transform(() => 1),
-	),
-})
 
 Schema.define({
 	className: 'FieldBuilderOptionDiagnostics',

@@ -13,9 +13,9 @@ Core keeps those responsibilities in separate internal domains while exposing
 one cohesive public package. This avoids cycles between inseparable contracts;
 optional infrastructure and policy behavior remains in plugins.
 
-Hooks and Access live in their official vertical packages. Core declares
-neither product vocabulary and community alternatives use the same generic
-public kernel.
+Hooks, Access, and application field validation live in their official vertical
+packages. Core declares none of their product vocabulary, and community
+alternatives use the same generic public kernel.
 
 ## Official plugins
 
@@ -25,6 +25,7 @@ public kernel.
 - `postgres-plugin`
 - `hooks-plugin`
 - `access-plugin`
+- `validation-plugin`
 
 ## Planned plugin packages
 
@@ -36,11 +37,10 @@ directories until implementation begins:
 - `rest-plugin`
 - `graphql-plugin`
 - `graphql-yoga-plugin`
-- `validation-plugin`
 
 The optional Hooks and Access engines each keep their public authoring and
-contribution contracts in their single official plugin package. The accepted
-Validation package owns only the direct `validation` field option and its
+contribution contracts in their single official plugin package. The Validation
+package owns only the direct `validation` field option and its
 Standard Schema application behavior; Core keeps structural field validation.
 Importing a package installs no behavior; application configuration does.
 Independent alternative engines own their protocols and use the generic public
@@ -62,7 +62,8 @@ developer reads their exports.
 
 No package may import another package through its source directory.
 
-Core does not import `plugin-kit`, `hooks-plugin`, or `access-plugin`.
+Core does not import `plugin-kit`, `hooks-plugin`, `access-plugin`, or
+`validation-plugin`.
 Official-compatible providers import their engine's public plugin contracts;
 independent community engines own their contracts.
 

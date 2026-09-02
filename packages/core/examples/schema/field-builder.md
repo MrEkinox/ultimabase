@@ -6,7 +6,6 @@ options:
 
 ```ts
 import { Schema } from '@ultimabase/core'
-import { z } from 'zod'
 
 export const UserSchema = Schema.define({
 	className: 'User',
@@ -14,7 +13,6 @@ export const UserSchema = Schema.define({
 		username: field.string({
 			indexed: 'unique',
 			required: true,
-			validation: z.string().min(3).max(32),
 		}),
 		active: field.boolean({ default: true }),
 		status: field.enum({
@@ -23,7 +21,7 @@ export const UserSchema = Schema.define({
 		}),
 		profile: field.object({
 			fields: (field) => ({
-				displayName: field.string({ validation: z.string().max(80) }),
+				displayName: field.string(),
 				birthday: field.date(),
 			}),
 		}),
@@ -32,7 +30,7 @@ export const UserSchema = Schema.define({
 ```
 
 The callback runs once during application static compilation. Builder calls
-reuse the existing immutable field factories, so the same validation, defaults,
+reuse the existing immutable field factories, so the same defaults,
 plugin option namespaces, and metadata apply. The embedded builder intentionally has no
 `pointer` or `relation` methods and does not accept `autoIncrement: true`.
 

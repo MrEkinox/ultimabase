@@ -237,6 +237,7 @@ describe('@ultimabase/core public entry point', () => {
 			'setSchemaFieldOption',
 			'setSchemaOption',
 			'snapshotPointerValue',
+			'snapshotRuntimeResultRecord',
 			'snapshotScalarFieldValue',
 			'stringField',
 			'timeField',

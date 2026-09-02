@@ -17,7 +17,6 @@ import {
 	type UltimaBaseGeneratedSchemaOptions,
 } from '@ultimabase/core'
 import type { AccessContext, SchemaAccess } from '@ultimabase/access-plugin'
-import type { StandardSchemaV1 } from '@standard-schema/spec'
 
 import {
 	createRoleReference,
@@ -41,24 +40,12 @@ import {
 /** Identifies the option-light official provider owning RoleSchema behavior. */
 export const rolesPluginName = 'ultimabase.roles' as const
 
-const roleNameValidator: StandardSchemaV1<string> = {
-	'~standard': {
-		version: 1,
-		vendor: '@ultimabase/roles-plugin',
-		validate: (value) =>
-			typeof value === 'string' && value.length > 0
-				? { value }
-				: { issues: [{ message: 'Role name must not be empty' }] },
-	},
-}
-
 const createRoleNameField = (): StringField<
 	ScalarFieldTypegenState<true, false, false, false>
 > =>
 	stringField({
 		indexed: 'unique',
 		required: true,
-		validation: roleNameValidator,
 	})
 
 type RoleNameField = ReturnType<typeof createRoleNameField>

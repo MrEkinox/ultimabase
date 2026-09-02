@@ -69,43 +69,33 @@ callback executes once for an accepted application compilation and its result
 becomes immutable schema metadata. Applications, tests, and framework-owned
 schemas use the same map-returning FieldBuilder declaration.
 Every builder method delegates to the corresponding immutable field factory, so
-validation, defaults, plugin-owned options, and adapter metadata keep one implementation.
+structural validation, defaults, plugin-owned options, and adapter metadata keep one implementation.
 Embedded builders deliberately omit pointers, relations, and generated database
 sequences.
 
 Exact decimal fields keep storage-relevant shape as direct metadata:
 `field.decimal({ precision: 12, scale: 2 })`. Core validates those options and
-enforces them at Runtime, while adapters may inspect them without reading the
-application `validation` contract. Additional decimal rules use a synchronous
-Standard Schema validator over the canonical decimal string.
+enforces them at Runtime, while adapters may inspect them without depending on
+application policy.
 
-Every built-in factory immediately rejects malformed Standard Schema validators
-and Core-owned root options that the selected field kind does not support. Other
-unknown root properties are detached and retained until application compilation:
+Every built-in factory immediately rejects Core-owned root options that the
+selected field kind does not support. Other unknown root properties are detached and retained until application compilation:
 one exact installed plugin option descriptor validates and normalizes each used
 property. Duplicate descriptor names remain harmless while unused; a developer
 occurrence with no owner or several possible owners fails deterministically,
 while a plugin-owned occurrence resolves against its exact plugin and instance.
-Plugin-defined fields retain their native structural option keys and use the
-same Standard Schema validation boundary as built-in fields.
-
-The repository runs the same scalar, complete-list, complete-object, temporal,
-decimal, enum, JSON, binary, pointer, and plugin-field conformance matrix with
-Zod and Valibot. Those libraries are test dependencies only: Core's published
-contract names `@standard-schema/spec`, and Typegen omits validator identities
-and callbacks from generated declarations and fingerprints.
+Plugin-defined fields retain their native structural option keys.
 
 The first mutation pass resolves defaults and generators and produces a
-structurally trusted immutable operation without invoking the application
-validator. Optional behavior may then normalize that typed input. Core always
-runs one final structural and Standard Schema pass before value-dependent
-enforcement, observers, or persistence, even when no behavior is installed or
-no value changed. A community transformer never supplies its own revalidation
-callback; this invariant belongs to the mandatory Runtime stage graph. Reads,
-adapter results, mutation materializations, includes, and final projections
-remain structurally snapshotted but do not replay the application validator.
-Atomic numeric updates validate the complete value projected from their locked
-target and still reach the adapter as `increment` or `decrement` operations.
+structurally trusted immutable operation. Optional behavior may then normalize
+that typed input, after which Core always repeats structural snapshots before
+value-dependent enforcement, observers, or persistence. Reads, adapter results,
+mutation materializations, includes, and final projections retain the same Core
+structural boundary.
+
+Install [`@ultimabase/validation-plugin`](../validation-plugin/README.md) to add
+the direct `validation` option and synchronous Standard Schema application rules.
+Core neither publishes Standard Schema types nor allocates that optional behavior.
 
 TypeScript reports invalid option combinations on the primary option contract.
 For example, empty enum domains identify `values`, required pointers using
@@ -1056,10 +1046,11 @@ Policy and value-object plugins may register `preparedOperation()` when an
 accepted `updateOne()` value depends on that locked target. The handler receives
 the fully typed current object and may replace only values inside the existing
 normalized update shape. Runtime groups this replacement with field and schema
-input resolution, then performs one final structural and Standard Schema
-validation followed by value-dependent installed field and item policy. The
-pass receives the stable prepared target so atomic numeric operations validate
-their projected complete values without becoming `set` operations. The adapter
+input resolution, then performs one final structural validation followed by
+optional rejection-only mutation guards and value-dependent installed field and
+item policy. A guard may receive the stable prepared target so an installed
+plugin can inspect projected atomic numeric values without converting them to
+`set` operations. The adapter
 receives the final operation and cumulative constraints for the write.
 The handler cannot change the query, target, fields, operators, schema, or
 terminal kind. Public collection commands are already itemized before this

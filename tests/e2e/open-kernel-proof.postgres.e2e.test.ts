@@ -58,8 +58,8 @@ describe('open-kernel PostgreSQL proof', { concurrent: false }, () => {
 			decimalLedger: { defaultScale: 2 },
 			postgres: { table: 'open_kernel_ledger_entries' },
 			fields: (field) => ({
+				// @ts-expect-error -- The generated community contract owns this direct option.
 				label: field.string({
-					// @ts-expect-error -- The generated community contract owns this direct option.
 					decimalLabel: { format: 'accounting' },
 				}),
 			}),

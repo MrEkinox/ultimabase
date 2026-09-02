@@ -9,6 +9,7 @@ import {
 } from '@ultimabase/postgres-plugin'
 import { rolesPlugin } from '@ultimabase/roles-plugin'
 import { typegenPlugin } from '@ultimabase/typegen'
+import { validationPlugin } from '@ultimabase/validation-plugin'
 import { expect, it } from 'vitest'
 
 const pool: PostgresPool = {
@@ -27,6 +28,7 @@ it('publishes the audited privilege and environment contract for every official 
 		postgresPlugin({ pool }).manifest,
 		accessPlugin().manifest,
 		hooksPlugin().manifest,
+		validationPlugin().manifest,
 		aclPlugin().manifest,
 		rolesPlugin().manifest,
 		pgVectorPlugin().manifest,
@@ -59,6 +61,11 @@ it('publishes the audited privilege and environment contract for every official 
 		{
 			environment: [],
 			pluginId: '@ultimabase/hooks-plugin',
+			privileges: ['schema:declare', 'runtime:intercept'],
+		},
+		{
+			environment: [],
+			pluginId: '@ultimabase/validation-plugin',
 			privileges: ['schema:declare', 'runtime:intercept'],
 		},
 		{

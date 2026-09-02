@@ -4,9 +4,10 @@ import {
 	type BuiltInFieldOptionsContract,
 } from '../base/options.js'
 import type {
+	CompatibleFieldOptionsExtension,
 	FieldDefinition,
-	FieldTypegenState,
 	FieldListOption,
+	FieldTypegenState,
 	FieldOptions,
 } from '../base/contract.js'
 import {
@@ -16,7 +17,6 @@ import {
 	type NonDefaultedCompactScalarFieldOptions,
 } from '../base/factory.js'
 import { normalizeNumberValue } from '../base/value.js'
-import type { FieldStandardSchema } from '../base/standard-schema.js'
 
 /**
  * Defines declarative boundaries for floating-point values.
@@ -37,35 +37,28 @@ const floatFieldOptionsContract: BuiltInFieldOptionsContract = {
 	optionKeys: fieldOptionKeys,
 }
 
-/** Provides float-specific names for the shared compact scalar contract. */
 type DefaultedFloatFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-	TValidation extends FieldStandardSchema,
 > = DefaultedCompactScalarFieldOptions<
 	FloatFieldOptions,
 	number,
 	TRequired,
 	TList,
-	TImmutable,
-	object,
-	TValidation
+	TImmutable
 >
 
 type NonDefaultedFloatFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-	TValidation extends FieldStandardSchema,
 > = NonDefaultedCompactScalarFieldOptions<
 	FloatFieldOptions,
 	number,
 	TRequired,
 	TList,
-	TImmutable,
-	object,
-	TValidation
+	TImmutable
 >
 
 type ResolvedFloatField<
@@ -100,26 +93,24 @@ interface FloatFieldFactory {
 		const TRequired extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
-		const TValidation extends FieldStandardSchema = FieldStandardSchema,
+		const TExtensionOptions extends object = object,
 	>(
-		options: DefaultedFloatFieldOptions<
-			TRequired,
-			TList,
-			TImmutable,
-			TValidation
+		options: CompatibleFieldOptionsExtension<
+			DefaultedFloatFieldOptions<TRequired, TList, TImmutable>,
+			TExtensionOptions,
+			number
 		>,
 	): DefaultedFloatField<TRequired, TList, TImmutable>
 	<
 		const TRequired extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
-		const TValidation extends FieldStandardSchema = FieldStandardSchema,
+		const TExtensionOptions extends object = object,
 	>(
-		options?: NonDefaultedFloatFieldOptions<
-			TRequired,
-			TList,
-			TImmutable,
-			TValidation
+		options?: CompatibleFieldOptionsExtension<
+			NonDefaultedFloatFieldOptions<TRequired, TList, TImmutable>,
+			TExtensionOptions,
+			number
 		>,
 	): NonDefaultedFloatField<TRequired, TList, TImmutable>
 }
@@ -139,7 +130,7 @@ const normalizeFloatFieldOptions = <const TOptions extends FloatFieldOptions>(
  *
  * @example
  * ```ts
- * floatField({ validation: progressSchema })
+ * floatField({ default: 0 })
  * ```
  */
 export const floatField: FloatFieldFactory = createCompactScalarFieldFactory<

@@ -46,7 +46,6 @@ describe('object fields and list metadata', () => {
 		})
 		expect(Object.isFrozen(field)).toBe(true)
 		expect(Object.isFrozen(field.options)).toBe(true)
-		expect(Object.isFrozen(field.options.validation)).toBe(true)
 	})
 
 	it('copies the field map of a structured object', () => {
@@ -248,22 +247,21 @@ describe('object fields and list metadata', () => {
 
 	it('uses create-input presence rules for object defaults', () => {
 		expect(() => {
-			// @ts-expect-error -- Runtime coverage protects undeclared object keys.
 			objectField({
 				fields: { name: stringField() },
 				default: { name: 'Ada', extra: true },
-			})
+			} as never)
 		}).toThrow(new TypeError('default.extra is not a declared field'))
 		expect(
 			objectField({ fields: { name: stringField() }, default: {} }).options
 				.default,
 		).toStrictEqual({})
 		expect(() => {
+			// @ts-expect-error -- Runtime coverage protects missing required values.
 			objectField({
 				fields: {
 					name: stringField({ required: true }),
 				},
-				// @ts-expect-error -- Runtime coverage protects missing required values.
 				default: {},
 			})
 		}).toThrow(new TypeError('default.name is required in an object default'))
@@ -331,8 +329,8 @@ describe('object fields and list metadata', () => {
 		)
 		expect(() => {
 			objectField({
+				// @ts-expect-error -- Runtime coverage intentionally crosses the field boundary.
 				fields: {
-					// @ts-expect-error -- Runtime coverage intentionally crosses the field boundary.
 					name: 'string',
 				},
 			})

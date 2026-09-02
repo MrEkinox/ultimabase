@@ -5,6 +5,7 @@ import {
 	Schema,
 	UltimaBase,
 } from '@ultimabase/core'
+import { validationPlugin } from '@ultimabase/validation-plugin'
 import process from 'node:process'
 import * as v from 'valibot'
 import { z } from 'zod'
@@ -69,7 +70,7 @@ for (const fixture of fixtures) {
 	})
 	const ultimabase = new UltimaBase({
 		pluginPrivileges: { logger: false },
-		plugins: [databasePlugin],
+		plugins: [validationPlugin(), databasePlugin],
 		schemas: [Note],
 	})
 

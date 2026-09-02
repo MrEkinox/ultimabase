@@ -4,9 +4,10 @@ import {
 	type BuiltInFieldOptionsContract,
 } from '../base/options.js'
 import type {
+	CompatibleFieldOptionsExtension,
 	FieldDefinition,
-	FieldTypegenState,
 	FieldListOption,
+	FieldTypegenState,
 	FieldOptions,
 } from '../base/contract.js'
 import {
@@ -15,7 +16,6 @@ import {
 	type DefaultedCompactScalarFieldOptions,
 	type NonDefaultedCompactScalarFieldOptions,
 } from '../base/factory.js'
-import type { FieldStandardSchema } from '../base/standard-schema.js'
 /**
  * Describes storage-neutral binary metadata through native byte sequences.
  */
@@ -33,35 +33,28 @@ const binaryFieldOptionsContract: BuiltInFieldOptionsContract = {
 	optionKeys: fieldOptionKeys,
 }
 
-/** Provides binary-specific names for the shared compact scalar contract. */
 type DefaultedBinaryFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-	TValidation extends FieldStandardSchema,
 > = DefaultedCompactScalarFieldOptions<
 	BinaryFieldOptions,
 	Uint8Array,
 	TRequired,
 	TList,
-	TImmutable,
-	object,
-	TValidation
+	TImmutable
 >
 
 type NonDefaultedBinaryFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-	TValidation extends FieldStandardSchema,
 > = NonDefaultedCompactScalarFieldOptions<
 	BinaryFieldOptions,
 	Uint8Array,
 	TRequired,
 	TList,
-	TImmutable,
-	object,
-	TValidation
+	TImmutable
 >
 
 type ResolvedBinaryField<
@@ -96,26 +89,24 @@ interface BinaryFieldFactory {
 		const TRequired extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
-		const TValidation extends FieldStandardSchema = FieldStandardSchema,
+		const TExtensionOptions extends object = object,
 	>(
-		options: DefaultedBinaryFieldOptions<
-			TRequired,
-			TList,
-			TImmutable,
-			TValidation
+		options: CompatibleFieldOptionsExtension<
+			DefaultedBinaryFieldOptions<TRequired, TList, TImmutable>,
+			TExtensionOptions,
+			Uint8Array
 		>,
 	): DefaultedBinaryField<TRequired, TList, TImmutable>
 	<
 		const TRequired extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
-		const TValidation extends FieldStandardSchema = FieldStandardSchema,
+		const TExtensionOptions extends object = object,
 	>(
-		options?: NonDefaultedBinaryFieldOptions<
-			TRequired,
-			TList,
-			TImmutable,
-			TValidation
+		options?: CompatibleFieldOptionsExtension<
+			NonDefaultedBinaryFieldOptions<TRequired, TList, TImmutable>,
+			TExtensionOptions,
+			Uint8Array
 		>,
 	): NonDefaultedBinaryField<TRequired, TList, TImmutable>
 }
@@ -149,7 +140,7 @@ const normalizeBinaryFieldOptions = <const TOptions extends BinaryFieldOptions>(
  *
  * @example
  * ```ts
- * binaryField({ validation: uploadSizeSchema })
+ * binaryField({ required: true })
  * ```
  */
 export const binaryField: BinaryFieldFactory = createCompactScalarFieldFactory<

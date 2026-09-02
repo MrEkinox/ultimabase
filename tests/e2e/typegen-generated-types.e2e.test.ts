@@ -16,6 +16,7 @@ import { generateApplicationTypes, typegenPlugin } from '@ultimabase/typegen'
 import * as Typegen from '@ultimabase/typegen'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { rolesPlugin } from '@ultimabase/roles-plugin'
+import { validationPlugin } from '@ultimabase/validation-plugin'
 import {
 	pgVectorPlugin,
 	type VectorFieldBuilderMethod,
@@ -508,6 +509,7 @@ describe('packed @ultimabase/typegen generated contracts', () => {
 			plugins: [
 				accessPlugin(),
 				hooksPlugin(),
+				validationPlugin(),
 				rolesPlugin(),
 				aclPlugin(),
 				typegenPlugin({ applicationId: 'todo-backend', outputPath }),

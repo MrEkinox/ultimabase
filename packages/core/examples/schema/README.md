@@ -8,8 +8,8 @@ TypeScript snippets:
   `fields: (field) => ({ ... })` declaration and restricted embedded builders;
 - object-shaped field maps are reserved for internal tests and framework-owned
   composition that require local inference;
-- [`field-options.md`](field-options.md) covers built-in fields, validation
-  metadata, defaults, generation, and indexes;
+- [`field-options.md`](field-options.md) covers built-in fields, structural
+  options, defaults, generation, indexes, and optional plugin-owned validation;
 - [`objects-and-lists.md`](objects-and-lists.md) composes reusable nested fields,
   typed one-dimensional lists, and explicit JSON matrices;
 - [`pointers.md`](pointers.md) declares exact single-object references and
@@ -33,10 +33,12 @@ The snippets intentionally use only public package exports. They are reference
 documentation rather than executable fixtures, so the package build and test
 suites do not include this directory.
 
-Concrete option namespaces are documented by their owning packages. See the
-[`hooks-plugin`](../../../hooks-plugin/README.md) and
-[`access-plugin`](../../../access-plugin/README.md) READMEs; Core examples do
-not assume either engine is installed.
+Concrete option namespaces and direct plugin-owned options are documented by
+their owning packages. See the
+[`hooks-plugin`](../../../hooks-plugin/README.md),
+[`access-plugin`](../../../access-plugin/README.md), and
+[`validation-plugin`](../../../validation-plugin/README.md) READMEs; Core
+examples do not assume any of these engines are installed.
 
 ## Maintenance rule
 

@@ -18,7 +18,7 @@ it may not transform it or redefine Core shape.
 
 1. [x] [2201 — Decide the optional field-validation plugin boundary](2201-optional-field-validation-plugin-adr.md)
 2. [x] [2202 — Add a final mutation-input guard boundary](2202-final-mutation-input-guard.md)
-3. [ ] [2203 — Extract the Standard Schema validation vertical](2203-extract-standard-schema-validation.md)
+3. [x] [2203 — Extract the Standard Schema validation vertical](2203-extract-standard-schema-validation.md)
 4. [ ] [2204 — Verify optional field validation](2204-optional-validation-verification.md)
 
 ## Deliberate boundaries

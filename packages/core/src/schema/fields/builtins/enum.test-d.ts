@@ -96,22 +96,14 @@ test('rejects invalid enum sources and metadata', () => {
 	enumField({ values: ['draft', 'published'], default: 'archived' })
 	// @ts-expect-error -- Enum values must be strings.
 	enumField({ values: ['draft', 1] })
+	// @ts-expect-error -- Neutral type identities must use strings.
 	enumField({
-		// @ts-expect-error -- Neutral type identities must use strings.
 		typeName: 42,
 		values: ['draft'],
 	})
+	// @ts-expect-error -- Removed generic extension metadata is not a field option.
 	enumField({
 		values: ['draft'],
-		required: true,
-		// @ts-expect-error -- Validation must implement Standard Schema V1.
-		validation: {
-			nullable: true,
-		},
-	})
-	enumField({
-		values: ['draft'],
-		// @ts-expect-error -- Removed generic extension metadata is not a field option.
 		extensions: [],
 	})
 

@@ -94,24 +94,14 @@ describe('pointerField', () => {
 		}).toThrow(new TypeError(expected))
 	})
 
-	it('rejects defaults and contradictory presence metadata at runtime', () => {
+	it('rejects defaults at runtime', () => {
 		expect(() => {
+			// @ts-expect-error -- Pointer identity must always be explicit.
 			pointerField({
 				target: () => userSchema,
-				// @ts-expect-error -- Pointer identity must always be explicit.
 				default: userSchema.pointer('user-1'),
 			})
 		}).toThrow(new TypeError('pointerField does not support default values'))
-
-		expect(() => {
-			pointerField({
-				target: () => userSchema,
-				required: true,
-				validation: { nullable: true },
-			} as never)
-		}).toThrow(
-			new TypeError('validation must be a Standard Schema V1 validator'),
-		)
 	})
 
 	it('rejects malformed lazy targets when a value crosses the field', () => {

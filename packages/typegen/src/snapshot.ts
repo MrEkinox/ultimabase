@@ -89,6 +89,7 @@ export interface TypegenOwnerSnapshot {
 }
 
 export interface TypegenOptionSnapshot {
+	readonly compatibility?: TypegenReference
 	readonly contributionId: string
 	readonly name: string
 	readonly owner: TypegenOwnerSnapshot

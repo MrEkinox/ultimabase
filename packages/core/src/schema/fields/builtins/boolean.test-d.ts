@@ -41,15 +41,8 @@ test('creates an exact empty option contract by default', () => {
 test('rejects incompatible boolean metadata', () => {
 	// @ts-expect-error -- Boolean defaults cannot use numeric values.
 	booleanField({ default: 0 })
+	// @ts-expect-error -- Removed generic extension metadata is not a field option.
 	booleanField({
-		required: true,
-		// @ts-expect-error -- Validation must implement Standard Schema V1.
-		validation: {
-			nullable: true,
-		},
-	})
-	booleanField({
-		// @ts-expect-error -- Removed generic extension metadata is not a field option.
 		extensions: [],
 	})
 

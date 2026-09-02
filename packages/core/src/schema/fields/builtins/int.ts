@@ -5,6 +5,7 @@ import {
 	type BuiltInFieldOptionsContract,
 } from '../base/options.js'
 import type {
+	CompatibleFieldOptionsExtension,
 	FieldDefinition,
 	FieldTypegenState,
 	FieldListOption,
@@ -21,7 +22,6 @@ import {
 } from '../base/factory.js'
 import { assertAutoIncrementOption } from '../constraints/numeric.js'
 import { normalizeSafeIntegerValue } from '../base/value.js'
-import type { FieldStandardSchema } from '../base/standard-schema.js'
 
 /**
  * Defines declarative boundaries for safe JavaScript integers.
@@ -55,15 +55,13 @@ type DefaultedIntFieldOptions<
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoIncrement extends boolean,
-	TValidation extends FieldStandardSchema,
 > = DefaultedCompactScalarFieldOptions<
 	IntFieldOptions,
 	number,
 	TRequired,
 	TList,
 	TImmutable,
-	GeneratedScalarOption<'autoIncrement', TAutoIncrement>,
-	TValidation
+	GeneratedScalarOption<'autoIncrement', TAutoIncrement>
 > &
 	CompatibleGeneratedScalarOptions<
 		'autoIncrement',
@@ -78,15 +76,13 @@ type NonDefaultedIntFieldOptions<
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoIncrement extends boolean,
-	TValidation extends FieldStandardSchema,
 > = NonDefaultedCompactScalarFieldOptions<
 	IntFieldOptions,
 	number,
 	TRequired,
 	TList,
 	TImmutable,
-	GeneratedScalarOption<'autoIncrement', TAutoIncrement>,
-	TValidation
+	GeneratedScalarOption<'autoIncrement', TAutoIncrement>
 > &
 	CompatibleGeneratedScalarOptions<
 		'autoIncrement',
@@ -133,14 +129,12 @@ interface IntFieldFactory {
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const TAutoIncrement extends boolean = false,
-		const TValidation extends FieldStandardSchema = FieldStandardSchema,
+		const TExtensionOptions extends object = object,
 	>(
-		options: DefaultedIntFieldOptions<
-			TRequired,
-			TList,
-			TImmutable,
-			TAutoIncrement,
-			TValidation
+		options: CompatibleFieldOptionsExtension<
+			DefaultedIntFieldOptions<TRequired, TList, TImmutable, TAutoIncrement>,
+			TExtensionOptions,
+			number
 		>,
 	): DefaultedIntField<TRequired, TList, TImmutable, TAutoIncrement>
 	<
@@ -148,14 +142,12 @@ interface IntFieldFactory {
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const TAutoIncrement extends boolean = false,
-		const TValidation extends FieldStandardSchema = FieldStandardSchema,
+		const TExtensionOptions extends object = object,
 	>(
-		options?: NonDefaultedIntFieldOptions<
-			TRequired,
-			TList,
-			TImmutable,
-			TAutoIncrement,
-			TValidation
+		options?: CompatibleFieldOptionsExtension<
+			NonDefaultedIntFieldOptions<TRequired, TList, TImmutable, TAutoIncrement>,
+			TExtensionOptions,
+			number
 		>,
 	): NonDefaultedIntField<TRequired, TList, TImmutable, TAutoIncrement>
 }
@@ -178,7 +170,7 @@ const normalizeIntFieldOptions = <const TOptions extends IntFieldOptions>(
  *
  * @example
  * ```ts
- * intField({ default: 0, validation: nonNegativeInteger })
+ * intField({ default: 0, indexed: true })
  * ```
  */
 export const intField: IntFieldFactory =

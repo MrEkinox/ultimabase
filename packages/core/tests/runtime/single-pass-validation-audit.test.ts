@@ -24,48 +24,29 @@ const readProductionSources = (
 		return [{ file, source: readFileSync(file, 'utf8') }]
 	})
 
-const relativeFile = (file: string): string => path.relative(runtimeRoot, file)
-
-const countMatches = (source: string, expression: RegExp): number =>
-	[...source.matchAll(expression)].length
-
-describe('single-pass field-validation responsibility audit', () => {
+describe('Core structural-validation responsibility audit', () => {
 	const sources = readProductionSources(runtimeRoot)
 
-	it('confines application validation to the mandatory final mutation path', () => {
-		const applicationExecutions = sources.flatMap(({ file, source }) =>
-			countMatches(source, /applicationValidation:\s*true/gu) === 0
-				? []
-				: [relativeFile(file)],
-		)
-		const directValidatorCallers = sources.flatMap(({ file, source }) => {
-			if (file.endsWith('field-standard-schema.ts')) return []
-
-			return countMatches(source, /validateFieldStandardSchema\(/gu) === 0
-				? []
-				: [relativeFile(file)]
-		})
-
-		expect(applicationExecutions).toStrictEqual([
-			'validation/runtime-validation.ts',
-		])
-		expect(directValidatorCallers.sort()).toStrictEqual([
-			'validation/projected-arithmetic-validation.ts',
-			'validation/runtime-validation.ts',
-		])
-	})
-
-	it('gives only finalMutationValidation ownership of both complete-value paths', () => {
-		const completeValueImport =
-			/import\s*\{[^}]*\b(?:revalidateRuntimeMutationOperation|validateProjectedMutationArithmetic)\b[^}]*\}\s*from/su
-		const importers = sources.flatMap(({ file, source }) =>
-			completeValueImport.test(source) ? [relativeFile(file)] : [],
+	it('contains no application field-validation product vocabulary', () => {
+		const prohibited = [
+			'@standard-schema/spec',
+			'FieldStandardSchema',
+			'applicationValidation',
+			'field.validation',
+			'validateFieldStandardSchema',
+		]
+		const violations = sources.flatMap(({ file, source }) =>
+			prohibited.flatMap((term) =>
+				source.includes(term)
+					? [`${path.relative(runtimeRoot, file)}:${term}`]
+					: [],
+			),
 		)
 
-		expect(importers).toStrictEqual(['validation/final-mutation-validation.ts'])
+		expect(violations).toStrictEqual([])
 	})
 
-	it('keeps intermediate mutation replacements and results structural-only', () => {
+	it('keeps final mutations, intermediate replacements, and results structural', () => {
 		const boundaries = readFileSync(
 			path.join(runtimeRoot, 'behaviors/validation-boundaries.ts'),
 			'utf8',
@@ -74,9 +55,16 @@ describe('single-pass field-validation responsibility audit', () => {
 			path.join(runtimeRoot, 'validation/runtime-validation.ts'),
 			'utf8',
 		)
+		const finalMutationValidation = readFileSync(
+			path.join(runtimeRoot, 'validation/final-mutation-validation.ts'),
+			'utf8',
+		)
 
 		expect(boundaries).toContain('snapshotRuntimeMutationOperation')
 		expect(boundaries).not.toContain('revalidateRuntimeMutationOperation')
+		expect(finalMutationValidation).toContain(
+			'revalidateRuntimeMutationOperation',
+		)
 		expect(runtimeValidation).toMatch(
 			/export const snapshotRuntimeResultRecord[\s\S]*?createStructuralValidationExecution\(\)/u,
 		)

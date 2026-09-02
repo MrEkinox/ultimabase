@@ -66,10 +66,6 @@ const rootOptionCases = [
 	readonly options: Readonly<Record<string, unknown>>
 }[]
 
-const validationOptionCases = rootOptionCases.filter(
-	(testCase) => testCase.kind !== 'relation',
-)
-
 describe('built-in field option contracts', () => {
 	it.each(rootOptionCases)(
 		'preserves an unresolved $kind root option for application compilation',
@@ -82,20 +78,6 @@ describe('built-in field option contracts', () => {
 			expect(field).toMatchObject({
 				options: { unknownRoot: true },
 			})
-		},
-	)
-
-	it.each(validationOptionCases)(
-		'rejects a malformed Standard Schema validator on $kind fields',
-		({ factory, options }) => {
-			expect(() =>
-				callWithJavaScriptOptions(factory, {
-					...options,
-					validation: { requred: true },
-				}),
-			).toThrow(
-				new TypeError('validation must be a Standard Schema V1 validator'),
-			)
 		},
 	)
 

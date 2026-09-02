@@ -13,6 +13,7 @@ import {
 import {
 	definePluginField,
 	compileValidationPlans,
+	type FieldOptions,
 	Schema,
 	SchemaRegistry,
 } from '../../schema/index.js'
@@ -20,7 +21,6 @@ import { createRelationUpdateExpression } from '../../schema/relations/mutation.
 import { isPlainRecord, isUnknownArray } from '@ultimabase/shared'
 import { validate as validateUuid, version as readUuidVersion } from 'uuid'
 import { describe, expect, it, vi } from 'vitest'
-
 import { RequestContext, requestSources } from '../context/request-context.js'
 import { createFixtureMasterContext } from '../../../tests/fixtures/master-context.js'
 import type { DatabaseOperationAst } from '../database/contracts.js'
@@ -28,16 +28,12 @@ import {
 	createRuntimeValidationStage,
 	revalidateRuntimeMutationOperation,
 } from './runtime-validation.js'
-import { minimumTitle, scoreRange } from './field-standard-schema.fixtures.js'
 const runtimeDefault = vi.fn(() => 42)
 const binaryDefault = new Uint8Array([1, 2, 3])
 const validationSchema = Schema.define({
 	className: 'RuntimeValidation',
 	fields: (field) => ({
-		title: field.string({
-			required: true,
-			validation: minimumTitle,
-		}),
+		title: field.string({ required: true }),
 		immutableCode: field.string({
 			indexed: 'unique',
 			immutable: true,
@@ -47,7 +43,7 @@ const validationSchema = Schema.define({
 		sequence: field.int({ default: runtimeDefault }),
 		state: field.string({ default: 'draft' }),
 		payload: field.binary({ default: binaryDefault }),
-		score: field.int({ validation: scoreRange }),
+		score: field.int(),
 		serial: field.int({
 			autoIncrement: true,
 			required: true,
@@ -594,7 +590,11 @@ describe('runtime validation', () => {
 			className: 'InvalidScalarPointerTarget',
 			fields: () => ({}),
 		})
-		const customField = definePluginField(
+		const customField = definePluginField<
+			string,
+			'fixture.rejecting',
+			FieldOptions<string>
+		>(
 			'fixture.rejecting',
 			{},
 			{

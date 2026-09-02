@@ -24,6 +24,7 @@ import {
 	postgresConstraintCompiler,
 	postgresPlugin,
 } from '@ultimabase/postgres-plugin'
+import { validationPlugin } from '@ultimabase/validation-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { z } from 'zod'
 
@@ -348,6 +349,7 @@ const createHookApplication = (connectionUri: string) =>
 		plugins: [
 			// Dependency order must place policy setup before its behavior consumer.
 			hooksPlugin(),
+			validationPlugin(),
 			accessPlugin({ default: true }),
 			behaviorPlugin,
 			scopePolicyPlugin,

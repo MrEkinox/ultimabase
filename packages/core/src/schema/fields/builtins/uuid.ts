@@ -4,9 +4,10 @@ import {
 	type BuiltInFieldOptionsContract,
 } from '../base/options.js'
 import type {
+	CompatibleFieldOptionsExtension,
 	FieldDefinition,
-	FieldTypegenState,
 	FieldListOption,
+	FieldTypegenState,
 	FieldOptions,
 } from '../base/contract.js'
 import {
@@ -16,7 +17,6 @@ import {
 	type NonDefaultedCompactScalarFieldOptions,
 } from '../base/factory.js'
 import { normalizeStringValue } from '../base/value.js'
-import type { FieldStandardSchema } from '../base/standard-schema.js'
 
 /**
  * Describes storage-neutral UUID metadata through its canonical string value.
@@ -34,35 +34,28 @@ const uuidFieldOptionsContract: BuiltInFieldOptionsContract = {
 	optionKeys: fieldOptionKeys,
 }
 
-/** Provides UUID-specific names for the shared compact scalar contract. */
 type DefaultedUuidFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-	TValidation extends FieldStandardSchema,
 > = DefaultedCompactScalarFieldOptions<
 	UuidFieldOptions,
 	string,
 	TRequired,
 	TList,
-	TImmutable,
-	object,
-	TValidation
+	TImmutable
 >
 
 type NonDefaultedUuidFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-	TValidation extends FieldStandardSchema,
 > = NonDefaultedCompactScalarFieldOptions<
 	UuidFieldOptions,
 	string,
 	TRequired,
 	TList,
-	TImmutable,
-	object,
-	TValidation
+	TImmutable
 >
 
 type ResolvedUuidField<
@@ -97,26 +90,24 @@ interface UuidFieldFactory {
 		const TRequired extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
-		const TValidation extends FieldStandardSchema = FieldStandardSchema,
+		const TExtensionOptions extends object = object,
 	>(
-		options: DefaultedUuidFieldOptions<
-			TRequired,
-			TList,
-			TImmutable,
-			TValidation
+		options: CompatibleFieldOptionsExtension<
+			DefaultedUuidFieldOptions<TRequired, TList, TImmutable>,
+			TExtensionOptions,
+			string
 		>,
 	): DefaultedUuidField<TRequired, TList, TImmutable>
 	<
 		const TRequired extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
-		const TValidation extends FieldStandardSchema = FieldStandardSchema,
+		const TExtensionOptions extends object = object,
 	>(
-		options?: NonDefaultedUuidFieldOptions<
-			TRequired,
-			TList,
-			TImmutable,
-			TValidation
+		options?: CompatibleFieldOptionsExtension<
+			NonDefaultedUuidFieldOptions<TRequired, TList, TImmutable>,
+			TExtensionOptions,
+			string
 		>,
 	): NonDefaultedUuidField<TRequired, TList, TImmutable>
 }
@@ -127,11 +118,11 @@ const normalizeUuidFieldOptions = <const TOptions extends UuidFieldOptions>(
 	normalizeFieldOptions(options, normalizeStringValue, uuidFieldOptionsContract)
 
 /**
- * Declares a canonical UUID string with optional Standard Schema validation.
+ * Declares a canonical UUID string with portable field metadata.
  *
  * @example
  * ```ts
- * uuidField({ indexed: "unique", required: true, validation: uuidV7Schema })
+ * uuidField({ indexed: "unique", required: true })
  * ```
  */
 export const uuidField: UuidFieldFactory = createCompactScalarFieldFactory<

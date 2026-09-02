@@ -1,15 +1,14 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 import {
 	assertFieldOptions,
+	type CompatibleFieldOptionsInput,
 	defineFieldBuilderMethod,
 	definePluginField,
 	type FieldListOption,
 	type FieldOptions,
-	type FieldStandardSchema,
 	type FieldValidationPlan,
 	type PluginFieldDefinition,
 	type ScalarValidationPlan,
-	type ValidatedFieldOptions,
 } from '@ultimabase/core'
 import {
 	definePluginModule,
@@ -39,7 +38,7 @@ const pgVectorPluginModule: PluginModule<
  */
 export type VectorFieldOptions<
 	TList extends FieldListOption = FieldListOption,
-> = FieldOptions<VectorValue, FieldStandardSchema, TList> & {
+> = FieldOptions<VectorValue, TList> & {
 	/**
 	 * Fixes the number of finite components accepted by this logical vector.
 	 *
@@ -74,11 +73,11 @@ type ResolvedVectorField<
 type VectorFieldDeclarationOptions<
 	TOptions extends VectorFieldOptions,
 	TDimensions extends number,
-> = TOptions & {
-	readonly dimensions: TDimensions
-} & (ValidatedFieldOptions<NoInfer<TOptions>, VectorValue> extends never
-		? never
-		: unknown)
+> = CompatibleFieldOptionsInput<
+	TOptions & { readonly dimensions: TDimensions },
+	VectorValue,
+	VectorFieldOptions
+>
 
 /** Adds the exact vector factory contract to a generated FieldBuilder. */
 export interface VectorFieldBuilderMethod {

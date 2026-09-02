@@ -102,6 +102,9 @@ export type {
 } from './fields/builtins/enum.js'
 export type {
 	FieldDefinition,
+	CompatibleFieldOptions,
+	CompatibleFieldOptionsExtension,
+	CompatibleFieldOptionsInput,
 	FieldTypegenPresence,
 	FieldTypegenState,
 	FieldTypegenStateOf,
@@ -120,7 +123,6 @@ export type {
 	ValidatedFieldOptions,
 } from './fields/base/contract.js'
 export type { FieldValueMode } from './fields/base/value-map.js'
-export type { FieldStandardSchema } from './fields/base/standard-schema.js'
 export type { FieldAtPath, SchemaFieldPath } from './fields/paths.js'
 export { assertFieldOptions, getFieldListDepth } from './fields/base/options.js'
 export { readFieldTypegenState } from './fields/base/definition.js'
@@ -213,6 +215,7 @@ export type {
 	HasUltimaBaseGeneratedRegistry,
 	UltimaBaseGeneratedEmbeddedFieldBuilderMethods,
 	UltimaBaseGeneratedFieldBuilderMethods,
+	UltimaBaseGeneratedFieldOptionCompatibility,
 	UltimaBaseGeneratedFieldOptions,
 	UltimaBaseGeneratedOperations,
 	UltimaBaseGeneratedRegistryState,

@@ -26,7 +26,6 @@ export type ValidationIssueCode =
 	| 'field.null'
 	| 'field.required'
 	| 'field.unknown'
-	| 'field.validation'
 	| 'json.type'
 	| 'float.type'
 	| 'int.type'
@@ -38,9 +37,8 @@ export type ValidationIssueCode =
 	| 'uuid.type'
 
 /** Reserves namespaced issue identifiers for plugin-owned validation behavior. */
-export type PluginValidationIssueCode<
-	TFieldKind extends `${string}.${string}` = `${string}.${string}`,
-> = `${TFieldKind}.${string}`
+export type PluginValidationIssueCode<TNamespace extends string = string> =
+	`${TNamespace}.${string}`
 
 export type AnyValidationIssueCode =
 	PluginValidationIssueCode | ValidationIssueCode

@@ -1348,7 +1348,6 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ultimabase/core@workspace:packages/core"
   dependencies:
-    "@standard-schema/spec": "npm:^1.1.0"
     "@types/node": "npm:^24.0.0"
     "@types/semver": "npm:^7.7.1"
     "@ultimabase/shared": "workspace:^"
@@ -1490,6 +1489,24 @@ __metadata:
     "@ultimabase/roles-plugin": "workspace:^"
     "@ultimabase/shared": "workspace:^"
     jiti: "npm:^2.6.1"
+    tsdown: "npm:^0.22.14"
+    typescript: "npm:^6.0.3"
+    valibot: "npm:^1.4.2"
+    vitest: "npm:4.1.10"
+    zod: "npm:^4.4.3"
+  languageName: unknown
+  linkType: soft
+
+"@ultimabase/validation-plugin@workspace:packages/validation-plugin":
+  version: 0.0.0-use.local
+  resolution: "@ultimabase/validation-plugin@workspace:packages/validation-plugin"
+  dependencies:
+    "@standard-schema/spec": "npm:^1.1.0"
+    "@ultimabase/core": "workspace:^"
+    "@ultimabase/plugin-kit": "workspace:^"
+    "@ultimabase/shared": "workspace:^"
+    "@ultimabase/testing": "workspace:^"
+    fast-equals: "npm:^6.0.2"
     tsdown: "npm:^0.22.14"
     typescript: "npm:^6.0.3"
     valibot: "npm:^1.4.2"

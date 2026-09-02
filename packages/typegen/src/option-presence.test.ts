@@ -17,6 +17,20 @@ import { generateApplicationTypes } from './generator.js'
 
 describe('option-presence Typegen', () => {
 	it('renders public options without exposing values or compiler-only markers', () => {
+		const checkedFieldOption = defineSchemaOption<string>({
+			normalize: (value, path) => {
+				if (typeof value !== 'string') {
+					throw new TypeError(`${path} must be a string`)
+				}
+				return value
+			},
+			protocolVersion: 1,
+			typegen: {
+				compatibilityType: 'CheckedFieldOptionCompatibility',
+				module: '@fixture/typegen-document-plugin',
+				type: 'CheckedFieldOption',
+			},
+		})
 		const documentOption = defineSchemaOption<(value: string) => string>({
 			normalize: (value, path) => {
 				if (typeof value !== 'function') {
@@ -56,6 +70,7 @@ describe('option-presence Typegen', () => {
 			declare: ({ schemas }) => {
 				schemas.defineOptions({
 					contributionId: 'document-options',
+					field: { checked: checkedFieldOption },
 					schema: {
 						document: documentOption,
 						'fixture.internal-marker': internalOption,
@@ -76,7 +91,10 @@ describe('option-presence Typegen', () => {
 		const Document = Schema.define({
 			className: 'TypegenOptionPresenceDocument',
 			document: (value: string) => value,
-			fields: (field) => ({ title: field.string() }),
+			fields: (field) => ({
+				// @ts-expect-error -- Typegen owns this application-local field option.
+				title: field.string({ checked: 'enabled' }),
+			}),
 			'fixture.internal-marker': 'factory-owned',
 		} as SchemaOptions<'TypegenOptionPresenceDocument'> & {
 			readonly document: (value: string) => string
@@ -97,6 +115,11 @@ describe('option-presence Typegen', () => {
 		)
 		expect(generated.contents).toContain('documentState')
 		expect(generated.contents).toContain('readonly document?:')
+		expect(generated.contents).toContain('readonly checked?:')
+		expect(generated.contents).toContain(
+			'interface UltimaBaseGeneratedFieldOptionCompatibility<TOptions extends object, TValue>',
+		)
+		expect(generated.contents).toContain('CheckedFieldOptionCompatibility<')
 		expect(generated.contents).not.toContain('fixture.internal-marker')
 		expect(generated.contents).not.toContain('(value: string) => string')
 

@@ -101,10 +101,9 @@ describe('relationField', () => {
 		['indexed', { indexed: true, target: () => RelationTag }],
 		['list', { list: true, target: () => RelationTag }],
 		['required', { required: true, target: () => RelationTag }],
-		['validation', { target: () => RelationTag, validation: {} }],
 	])('rejects unsupported %s metadata', (key, options) => {
 		expect(() => {
-			relationField(options)
+			relationField(options as never)
 		}).toThrow(new TypeError(`Unknown relation field option: ${key}`))
 	})
 

@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import type { StandardSchemaV1 } from '@standard-schema/spec'
 
 import {
 	createApplication,
@@ -150,30 +149,6 @@ describe('FieldBuilder', () => {
 		).toThrow(
 			new TypeError('MissingBuilderReturn.fields must return a field map'),
 		)
-	})
-
-	it('snapshots caller options once', () => {
-		const validation: StandardSchemaV1<string> = {
-			'~standard': {
-				version: 1,
-				vendor: 'builder-test',
-				validate: (value) =>
-					typeof value === 'string'
-						? { value }
-						: { issues: [{ message: 'Expected a string' }] },
-			},
-		}
-		const Snapshot = Schema.define({
-			className: 'BuilderSnapshot',
-			fields: (field) => ({ title: field.string({ validation }) }),
-		})
-		const registry = new SchemaRegistry([Snapshot])
-
-		registry.compileSchemas()
-		expect(Snapshot.fields.title).toMatchObject({
-			options: { validation },
-		})
-		expect(Object.isFrozen(Snapshot.fields.title?.options ?? {})).toBe(true)
 	})
 
 	it('supports package-owned schema specialization callbacks', () => {

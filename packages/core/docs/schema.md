@@ -434,7 +434,7 @@ operation-specific presence rules.
 
 ## Generic field contract
 
-- `FieldOptions<TValue>` adds direct `required`, one Standard Schema validator, typed defaults, homogeneous lists, field-value immutability, `indexed`, and descriptions without introducing database-specific metadata. Optional fields persist as `null`; `required: true` makes their persisted value non-null and requires create input unless a default or generator supplies it. `list: true` creates one list level and `false` disables list wrapping explicitly. Nested arrays belong in `jsonField()`. `indexed: true` requests a regular index, `indexed: "unique"` requests a unique index, and `false` disables indexing explicitly.
+- `FieldOptions<TValue>` adds direct `required`, typed defaults, homogeneous lists, field-value immutability, `indexed`, and descriptions without introducing database-specific metadata. Optional fields persist as `null`; `required: true` makes their persisted value non-null and requires create input unless a default or generator supplies it. `list: true` creates one list level and `false` disables list wrapping explicitly. Nested arrays belong in `jsonField()`. `indexed: true` requests a regular index, `indexed: "unique"` requests a unique index, and `false` disables indexing explicitly.
 - `FieldDefinition<TKind, TValue, TOptions, TInference>` preserves the literal field kind, its base value type, immutable runtime options, and a type-only operation state for later schema inference.
 
 Concrete field factories construct, validate, and freeze their runtime metadata
@@ -444,12 +444,10 @@ describes. Inline options remain contextually typed through one
 exact-options generic, so editors suggest the complete option set while
 TypeScript preserves literal values and nested object-field inference.
 Built-in factories also validate JavaScript-shaped declarations against an
-explicit option contract for their exact kind. A malformed Standard Schema
-protocol fails before metadata is snapshotted. The shared Core normalizer
+explicit option contract for their exact kind. The shared Core normalizer
 deliberately does not impose these built-in allowlists on
 `definePluginField()`: plugin-owned structural option keys remain the
-responsibility of the plugin factory, while `validation` always uses the common
-Standard Schema boundary.
+responsibility of the plugin factory.
 Dependent rules such as `autoNow` with a default or list are checked outside
 the contextual option object. Hover information
 documents every built-in factory and option with a focused declaration example.
@@ -540,12 +538,9 @@ combine both through `AnyValidationIssueCode`. Runtime will execute these plans
 before installed policy and behavior; Schema does not validate request data itself
 and does not depend on a third-party schema language.
 
-Runtime applies the retained Standard Schema validator after the field-owned
-canonical snapshot succeeds. A scalar validator receives the scalar, a list
-validator receives the complete immutable array once, and an object validator
-runs only after every child snapshot and validator succeeds. Validation issues
-are accumulated by the ordinary Runtime boundary; plans never rebuild a second
-schema or execute validators during compilation.
+Runtime applies these structural plans before optional mutation guards and
+installed policy. Plans never rebuild a second schema or execute application
+callbacks during compilation.
 
 ## Default values
 
@@ -584,62 +579,19 @@ traverses object and array plan nodes, then calls this boundary at scalar leaves
 This keeps declaration and Runtime scalar normalization on one field-owned
 implementation without confusing object patches with complete values.
 
-## Standard Schema field validators
+## Optional application field validation
 
-Every stored value field accepts one optional synchronous Standard Schema V1
-validator through `validation`. Presence remains separate: `required` controls
-create input and nullability, while the validator only observes a present,
-non-null value after Core has produced its canonical snapshot.
+Core deliberately exposes no application validator. It always enforces required
+presence, nullability, canonical scalar and object shapes, lists, enum domains,
+pointers, relations, defaults, generators, immutable fields, decimal shape,
+and repeatable structural snapshots.
 
-```ts
-import { z } from 'zod'
-
-stringField({
-	required: true,
-	validation: z.string().min(1).max(200),
-})
-
-floatField({ validation: z.number().finite().min(0).max(1) })
-```
-
-Core invokes a scalar validator with the canonical scalar. A list validator
-receives the complete immutable array once, not each item separately. An
-embedded-object validator runs after every declared child has been snapshotted
-and its own validator has succeeded. JSON validators receive the complete
-canonical JSON document. Missing and null values bypass validation.
-
-Validation is rejection-only. The protocol must return synchronously, and a
-successful output must be deeply equal to Core's input; Core discards even an
-equal cloned output. Defaults, coercion, trimming, stripping, and other
-transformations belong in Hooks `resolveInput` or field snapshots rather than
-in validation. Initial Core validation guarantees structurally typed immutable
-input without invoking Standard Schema. After every optional input transform,
-one mandatory Core pass structurally snapshots the final candidate and invokes
-its validator before value-dependent enforcement, observers, or persistence.
-A rejected Standard Schema issue becomes `field.validation`, and its relative
-string, number, or symbol path is prefixed with the complete Runtime field path.
-
-Runtime validates each final mutation candidate after input resolution, then
-does not replay the application validator while reading adapter results,
-materializations, included records, or final projections. Those boundaries
-still enforce Core structural snapshots and codecs. Tightening an application
-validator therefore does not make an older structurally valid row unreadable;
-schema synchronization, database constraints, and migrations own durable data
-invariants. Validators remain deterministic and synchronous. Async uniqueness
-and database-backed business rules belong in Hooks, protected constraints, or
-dedicated plugins.
-
-An `increment` or `decrement` is only a delta. For a prepared singular target,
-Runtime projects the complete resulting integer, bigint, float, or decimal,
-validates that value once, and still sends the original atomic operation to the
-adapter. Arithmetic over a validated field fails before persistence when an
-upsert or bulk operation has no exact prepared target from which to project.
-
-Core retains the exact validator by identity. It never clones, freezes,
-serializes, invokes, or fingerprints the validator during declaration, static
-compilation, Typegen, or adapter setup. Standard Schema is available equally
-to built-in and plugin-defined stored fields; relation handles are not values
-and do not expose it.
+Install [`@ultimabase/validation-plugin`](../../validation-plugin/README.md) to
+add the direct `validation` option and synchronous Standard Schema V1 rules.
+That plugin owns validator typing, execution, diagnostics, projected arithmetic,
+and the stable `field.validation` issue code. Without it, Typegen omits the
+option and application compilation rejects a stale or untyped declaration that
+uses it.
 
 ## String fields
 
@@ -648,17 +600,13 @@ literal options for later schema inference. Calling `stringField()` defines an
 optional string whose persisted absence is represented by `null`.
 
 Additional length, pattern, email, URL, slug, and application-specific string
-rules use a developer-selected Standard Schema implementation.
+rules can be supplied by an installed application plugin.
 
-An explicit `resolveInput` Hook may first trim, rewrite, or canonicalize a
-structurally valid string. Standard Schema then validates the final candidate;
-it does not need to accept both the raw input form and the stored form.
+### Application formats are composition, not field kinds
 
-### Validation formats are composition, not field kinds
-
-A format or numeric bound does not create a new logical field value. Compose
-the native field that owns the canonical TypeScript and storage value with the
-validator selected by the application:
+A format or numeric bound does not create a new logical field value. Keep the
+native field that owns the canonical TypeScript and storage value, then apply
+the optional application policy selected by the developer:
 
 | Application rule                                          | Native UltimaBase field |
 | --------------------------------------------------------- | ----------------------- |
@@ -668,37 +616,9 @@ validator selected by the application:
 | percentage, positive number, latitude, longitude          | `field.float()`         |
 | exact positive decimal or exact percentage                | `field.decimal()`       |
 
-```ts
-const ContactSchema = Schema.define({
-	className: 'Contact',
-	fields: (field) => ({
-		email: field.string({
-			required: true,
-			validation: z.string().email(),
-		}),
-		homepage: field.string({ validation: z.string().url() }),
-		slug: field.string({
-			validation: z.string().regex(/^[a-z]+(?:-[a-z]+)*$/u),
-		}),
-		port: field.int({
-			validation: z.number().int().min(1).max(65_535),
-		}),
-		latitude: field.float({
-			validation: z.number().min(-90).max(90),
-		}),
-	}),
-})
-```
-
 Phone parsing, slug rewriting, case conversion, locale canonicalization, and
-similar value changes are not validation. An installed behavior plugin may
-perform them explicitly through `resolveInput`; Core then validates the final
-canonical value. Standard Schema output is never adopted as a transformation.
-
-A reusable community package may publish Standard Schema validators or
-validator-authoring helpers directly. It needs neither a logical field kind nor
-an UltimaBase Runtime plugin merely to validate a native value. UltimaBase does
-not select or publish an official validation library.
+similar value changes remain explicit input transformations rather than Core
+field-shape behavior. UltimaBase does not select or publish a validator library.
 
 A plugin-defined field kind is justified only when it owns at least one
 distinct semantic boundary: a canonical value type, storage representation,
@@ -711,7 +631,7 @@ derivation layer.
 
 `intField(options)` represents safe JavaScript integers. It supports
 `autoIncrement: true | false` as declarative database-sequence metadata.
-Additional numeric rules use Standard Schema.
+Additional numeric rules may be supplied by an installed application plugin.
 
 ## Bigint fields
 
@@ -743,7 +663,7 @@ positive safe integer. The direct `scale` option limits fractional digits,
 must be a non-negative safe integer, and cannot exceed precision when both are
 supplied. They remain inspectable structural shape used by database adapters;
 for example, PostgreSQL compiles them to `numeric(p)` or `numeric(p, s)`.
-Additional decimal rules validate canonical strings through Standard Schema.
+Additional decimal rules may be supplied by an installed application plugin.
 
 PostgreSQL adapters may map this contract to `numeric` or `decimal`. JSON and
 GraphQL transports must preserve the string representation or use an explicit
@@ -761,8 +681,8 @@ copies preserve their runtime subclass. Static scalar, list, and structured
 defaults are copied so later mutations of caller-owned storage cannot change
 schema metadata.
 
-Byte-length rules use a Standard Schema validator over the complete
-`Uint8Array`. Transport encodings such as Base64, hexadecimal, and multipart
+Byte-length rules may be supplied by an installed application plugin over the
+complete `Uint8Array`. Transport encodings such as Base64, hexadecimal, and multipart
 data remain transport concerns. Database adapters own physical storage
 decisions such as PostgreSQL `bytea`.
 
@@ -804,7 +724,7 @@ without relying on the host machine timezone.
 
 `uuidField(options)` represents a UUID through its canonical string value.
 UUID syntax is an unconditional field-shape invariant. Version restrictions
-and other application rules use Standard Schema.
+and other application rules may be supplied by an installed application plugin.
 
 UUID generation uses the common default contract rather than a field-specific
 flag. The framework-owned `id` remains a separately generated UUID v7 system
@@ -919,9 +839,8 @@ logical field kind without teaching Schema about its database representation.
 Kinds must be non-empty, namespaced strings and cannot shadow framework-owned
 field kinds. The factory reuses direct presence, defaults, lists, indexes,
 descriptions and immutability while delegating scalar value snapshots to
-`snapshotValue`. Plugin fields receive the same opaque Standard Schema
-`validation` option as built-ins; plugins no longer define a parallel
-validation normalizer. Direct `required` presence remains independent.
+`snapshotValue`. Installed direct field-option plugins may augment both built-in
+and plugin-defined stored values. Direct `required` presence remains independent.
 
 `snapshotValue(value, path)` is a declaration-time snapshot boundary, not a
 request validator. It must be pure, deterministic, and idempotent because

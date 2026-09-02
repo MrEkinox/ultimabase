@@ -43,27 +43,13 @@ test('distinguishes regular, unique, and disabled indexing', () => {
 	expectTypeOf(disabled.indexed).toEqualTypeOf<false>()
 })
 
-test('rejects legacy validation objects and invalid metadata values', () => {
-	const nestedRequired: FieldOptions<string> = {
-		validation: {
-			// @ts-expect-error -- Validation must implement Standard Schema V1.
-			required: true,
-		},
-	}
-	const invalidPresence: FieldOptions<string> = {
-		validation: {
-			// @ts-expect-error -- Validation must implement Standard Schema V1.
-			nullable: true,
-		},
-	}
+test('rejects invalid metadata values', () => {
 	// Static defaults must match the field's base value type.
 	// @ts-expect-error -- A string field cannot use a numeric default.
 	const invalidDefault: FieldOptions<string> = { default: 42 }
 	// @ts-expect-error -- Unique indexing uses one explicit literal.
 	const invalidIndex: FieldOptions<string> = { indexed: 'non-unique' }
 
-	expectTypeOf(nestedRequired).toEqualTypeOf<FieldOptions<string>>()
-	expectTypeOf(invalidPresence).toEqualTypeOf<FieldOptions<string>>()
 	expectTypeOf(invalidDefault).toEqualTypeOf<FieldOptions<string>>()
 	expectTypeOf(invalidIndex).toEqualTypeOf<FieldOptions<string>>()
 })

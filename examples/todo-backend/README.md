@@ -2,7 +2,7 @@
 
 A backend-only UltimaBase application designed as a complete developer-experience
 showcase. It combines ordinary schemas and queries with the official Access,
-ACL, Hooks, Roles, PostgreSQL, and Typegen plugins without adapter-specific
+ACL, Hooks, Roles, Validation, PostgreSQL, and Typegen plugins without adapter-specific
 application code.
 
 ## What the developer writes
@@ -13,6 +13,7 @@ Plugin behavior is configured directly beside the schema or field that owns it:
 ```ts
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
+import { validationPlugin } from '@ultimabase/validation-plugin'
 import { z } from 'zod'
 
 export const Todo = Schema.define({
@@ -61,7 +62,8 @@ export const Todo = Schema.define({
 const ultimabase = new UltimaBase({
 	plugins: [
 		accessPlugin({ default: true }),
-		hooksPlugin() /* ACL, Roles, Typegen, PostgreSQL */,
+		hooksPlugin(),
+		validationPlugin() /* ACL, Roles, Typegen, PostgreSQL */,
 	],
 	schemas: [TodoUser, TodoRole, Todo],
 })
@@ -74,8 +76,8 @@ once. Zod diagnostics are exposed through UltimaBase's neutral
 `field.validation` issue code; the generated `TodoItem` still contains
 `readonly tags: ReadonlyArray<string> | null` and never embeds the validator.
 The slug demonstrates the transformation boundary: Core first accepts a
-structurally valid string, the field Hook rewrites it, and the mandatory final
-Standard Schema pass accepts only the canonical lowercase hyphenated form.
+structurally valid string, the field Hook rewrites it, and the Validation
+plugin's final mutation guard accepts only the canonical lowercase hyphenated form.
 It remains an ordinary `field.string()` rather than requiring a `slugField`
 factory or an additional Runtime plugin.
 
@@ -111,6 +113,7 @@ new UltimaBase({
 	plugins: [
 		accessPlugin({ default: true }),
 		hooksPlugin(),
+		validationPlugin(),
 		rolesPlugin(),
 		aclPlugin(),
 		typegenPlugin({ applicationId: 'todo-backend', outputPath }),
@@ -190,6 +193,10 @@ import type {
 	PostgresFieldOption,
 	PostgresSchemaOption,
 } from '@ultimabase/postgres-plugin'
+import type {
+	FieldValidationCompatibility,
+	FieldValidationOption,
+} from '@ultimabase/validation-plugin'
 ```
 
 The generated application contracts include exact object and operation shapes:

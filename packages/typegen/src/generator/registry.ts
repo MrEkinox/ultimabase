@@ -97,7 +97,7 @@ export const renderRegistry = (
 	for (const option of snapshot.options) {
 		const key = `${option.scope}\u0000${option.name}`
 		const prior = optionNames.get(key)
-		const reference = `${option.reference.module}:${option.reference.exportName}`
+		const reference = `${option.reference.module}:${option.reference.exportName}:${option.compatibility?.module ?? ''}:${option.compatibility?.exportName ?? ''}`
 		if (prior !== undefined && prior !== reference) {
 			throw new SchemaTypegenError(
 				'generated-identity-conflict',
@@ -124,7 +124,25 @@ export const renderRegistry = (
 			.join('\n')
 	const fieldOptions = renderOptions('field')
 	const schemaOptions = renderOptions('schema')
-	const optionInterfaces = `${fieldOptions === '' ? '' : `\n\tinterface UltimaBaseGeneratedFieldOptions {\n${fieldOptions}\n\t}`}${schemaOptions === '' ? '' : `\n\tinterface UltimaBaseGeneratedSchemaOptions {\n${schemaOptions}\n\t}`}`
+	const fieldCompatibility = snapshot.options
+		.filter(
+			(option, index, values) =>
+				option.scope === 'field' &&
+				option.compatibility !== undefined &&
+				values.findIndex(
+					(candidate) =>
+						candidate.scope === 'field' && candidate.name === option.name,
+				) === index,
+		)
+		.flatMap((option) =>
+			option.compatibility === undefined
+				? []
+				: [
+						`\t\treadonly ${propertyName(option.name)}: ${context.imports.alias(option.compatibility)}<TOptions, TValue>`,
+					],
+		)
+		.join('\n')
+	const optionInterfaces = `${fieldOptions === '' ? '' : `\n\tinterface UltimaBaseGeneratedFieldOptions {\n${fieldOptions}\n\t}`}${fieldCompatibility === '' ? '' : `\n\tinterface UltimaBaseGeneratedFieldOptionCompatibility<TOptions extends object, TValue> {\n${fieldCompatibility}\n\t}`}${schemaOptions === '' ? '' : `\n\tinterface UltimaBaseGeneratedSchemaOptions {\n${schemaOptions}\n\t}`}`
 	const surfaces = renderGeneratedSurfaces(snapshot, context)
 
 	return `declare module '@ultimabase/core' {\n\tinterface UltimaBaseGeneratedRegistryState {\n\t\treadonly application: true\n\t}\n\tinterface UltimaBaseGeneratedSchemas {\n${schemas.join('\n')}\n\t}${builderMethods}${optionInterfaces}\n${surfaces}\n}`

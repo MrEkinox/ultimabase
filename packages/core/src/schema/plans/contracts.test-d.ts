@@ -76,7 +76,7 @@ test('preserves exact plugin fields through scalar plan generics', () => {
 
 test('defines stable issue codes and nested paths', () => {
 	const issue: ValidationIssue = {
-		code: 'field.validation',
+		code: 'string.type',
 		path: ['profile', 'tags', 0],
 		message: 'Value is too short',
 	}

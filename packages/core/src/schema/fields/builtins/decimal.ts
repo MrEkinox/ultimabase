@@ -4,9 +4,10 @@ import {
 	type BuiltInFieldOptionsContract,
 } from '../base/options.js'
 import type {
+	CompatibleFieldOptionsExtension,
 	FieldDefinition,
-	FieldTypegenState,
 	FieldListOption,
+	FieldTypegenState,
 	FieldOptions,
 } from '../base/contract.js'
 import {
@@ -15,7 +16,6 @@ import {
 	type DefaultedCompactScalarFieldOptions,
 	type NonDefaultedCompactScalarFieldOptions,
 } from '../base/factory.js'
-import type { FieldStandardSchema } from '../base/standard-schema.js'
 
 /** Describes exact decimal metadata through lossless strings. */
 export interface DecimalFieldOptions extends FieldOptions<string> {
@@ -51,39 +51,30 @@ const decimalFieldOptionsContract: BuiltInFieldOptionsContract = {
 	optionKeys: [...fieldOptionKeys, 'precision', 'scale'],
 }
 
-/** Keeps the defaulted decimal input readable in editor signatures. */
 type DefaultedDecimalFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-	TValidation extends FieldStandardSchema,
 > = DefaultedCompactScalarFieldOptions<
 	DecimalFieldOptions,
 	string,
 	TRequired,
 	TList,
-	TImmutable,
-	object,
-	TValidation
+	TImmutable
 >
 
-/** Keeps the default-free decimal input readable in editor signatures. */
 type NonDefaultedDecimalFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-	TValidation extends FieldStandardSchema,
 > = NonDefaultedCompactScalarFieldOptions<
 	DecimalFieldOptions,
 	string,
 	TRequired,
 	TList,
-	TImmutable,
-	object,
-	TValidation
+	TImmutable
 >
 
-/** Resolves the common decimal inference state once for both overload branches. */
 type ResolvedDecimalField<
 	TRequired extends boolean,
 	TList extends FieldListOption,
@@ -99,46 +90,41 @@ type ResolvedDecimalField<
 	THasDefault
 >
 
-/** Names a decimal field whose value is supplied by a declared default. */
 type DefaultedDecimalField<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 > = ResolvedDecimalField<TRequired, TList, TImmutable, true>
 
-/** Names a decimal field without a declared default value. */
 type NonDefaultedDecimalField<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 > = ResolvedDecimalField<TRequired, TList, TImmutable, false>
 
-/** Exposes concise overloads while the shared factory owns runtime behavior. */
 interface DecimalFieldFactory {
 	<
 		const TRequired extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
-		const TValidation extends FieldStandardSchema = FieldStandardSchema,
+		const TExtensionOptions extends object = object,
 	>(
-		options: DefaultedDecimalFieldOptions<
-			TRequired,
-			TList,
-			TImmutable,
-			TValidation
+		options: CompatibleFieldOptionsExtension<
+			DefaultedDecimalFieldOptions<TRequired, TList, TImmutable>,
+			TExtensionOptions,
+			string
 		>,
 	): DefaultedDecimalField<TRequired, TList, TImmutable>
 	<
 		const TRequired extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
-		const TValidation extends FieldStandardSchema = FieldStandardSchema,
+		const TExtensionOptions extends object = object,
 	>(
-		options?: NonDefaultedDecimalFieldOptions<
-			TRequired,
-			TList,
-			TImmutable,
-			TValidation
+		options?: CompatibleFieldOptionsExtension<
+			NonDefaultedDecimalFieldOptions<TRequired, TList, TImmutable>,
+			TExtensionOptions,
+			string
 		>,
 	): NonDefaultedDecimalField<TRequired, TList, TImmutable>
 }

@@ -18,6 +18,7 @@ import {
 } from '../base/options.js'
 import { isRequiredOnCreate } from '../base/options.js'
 import type {
+	CompatibleFieldOptionsExtension,
 	FieldDefinition,
 	FieldTypegenState,
 	FieldListOption,
@@ -29,11 +30,6 @@ import type {
 } from '../base/contract.js'
 import type { FieldDefault } from '../base/defaults.js'
 import type { FieldValueMap } from '../base/value-map.js'
-import type {
-	CompatibleFieldStandardSchema,
-	FieldStandardSchema,
-	MutableFieldContainer,
-} from '../base/standard-schema.js'
 
 /**
  * Names the child fields of one object definition.
@@ -74,11 +70,7 @@ type ObjectFieldCreateValue<TFields extends ObjectFields> = FieldValueMap<
  */
 export interface ObjectFieldOptions<
 	TFields extends ObjectFields = ObjectFields,
-> extends FieldOptionsBase<
-	FieldStandardSchema,
-	FieldListOption,
-	ObjectFieldValue<TFields>
-> {
+> extends FieldOptionsBase<FieldListOption, ObjectFieldValue<TFields>> {
 	/**
 	 * Provides a static structured value or a factory using the nested create-input shape.
 	 *
@@ -127,11 +119,7 @@ type CompactObjectFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-	TValidation extends FieldStandardSchema,
-> = Omit<
-	ObjectFieldOptions<TFields>,
-	'immutable' | 'list' | 'required' | 'validation'
-> & {
+> = Omit<ObjectFieldOptions<TFields>, 'immutable' | 'list' | 'required'> & {
 	/**
 	 * Requires a non-null persisted object and requires create input unless a default supplies it.
 	 * @example `required: true`
@@ -147,17 +135,6 @@ type CompactObjectFieldOptions<
 	 * @example `immutable: true`
 	 */
 	readonly immutable?: TImmutable
-	/**
-	 * Validates the complete canonical object after every child validator succeeds.
-	 * @example `validation: profileSchema`
-	 */
-	readonly validation?: CompatibleFieldStandardSchema<
-		TValidation,
-		FieldListValue<ObjectFieldValue<TFields>, TList>,
-		TList extends true
-			? MutableFieldContainer<ObjectFieldValue<TFields>>[]
-			: MutableFieldContainer<ObjectFieldValue<TFields>>
-	>
 }
 
 export type DefaultedObjectFieldOptions<
@@ -165,16 +142,9 @@ export type DefaultedObjectFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-	TValidation extends FieldStandardSchema = FieldStandardSchema,
-> = CompactObjectFieldOptions<
-	TFields,
-	TRequired,
-	TList,
-	TImmutable,
-	TValidation
-> & {
+> = CompactObjectFieldOptions<TFields, TRequired, TList, TImmutable> & {
 	readonly default: FieldDefault<
-		FieldListValue<ObjectFieldCreateValue<TFields>, TList>
+		FieldListValue<ObjectFieldCreateValue<NoInfer<TFields>>, TList>
 	>
 }
 
@@ -183,14 +153,7 @@ export type NonDefaultedObjectFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-	TValidation extends FieldStandardSchema = FieldStandardSchema,
-> = CompactObjectFieldOptions<
-	TFields,
-	TRequired,
-	TList,
-	TImmutable,
-	TValidation
-> & {
+> = CompactObjectFieldOptions<TFields, TRequired, TList, TImmutable> & {
 	readonly default?: never
 }
 
@@ -271,14 +234,12 @@ export function objectField<
 	const TRequired extends boolean = false,
 	const TList extends FieldListOption = false,
 	const TImmutable extends boolean = false,
-	const TValidation extends FieldStandardSchema = FieldStandardSchema,
+	const TExtensionOptions extends object = object,
 >(
-	options: DefaultedObjectFieldOptions<
-		TFields,
-		TRequired,
-		TList,
-		TImmutable,
-		TValidation
+	options: CompatibleFieldOptionsExtension<
+		DefaultedObjectFieldOptions<TFields, TRequired, TList, TImmutable>,
+		TExtensionOptions,
+		ObjectFieldValue<TFields>
 	>,
 ): DefaultedObjectField<TFields, TRequired, TList, TImmutable>
 
@@ -287,14 +248,12 @@ export function objectField<
 	const TRequired extends boolean = false,
 	const TList extends FieldListOption = false,
 	const TImmutable extends boolean = false,
-	const TValidation extends FieldStandardSchema = FieldStandardSchema,
+	const TExtensionOptions extends object = object,
 >(
-	options: NonDefaultedObjectFieldOptions<
-		TFields,
-		TRequired,
-		TList,
-		TImmutable,
-		TValidation
+	options: CompatibleFieldOptionsExtension<
+		NonDefaultedObjectFieldOptions<TFields, TRequired, TList, TImmutable>,
+		TExtensionOptions,
+		ObjectFieldValue<TFields>
 	>,
 ): NonDefaultedObjectField<TFields, TRequired, TList, TImmutable>
 

@@ -1,4 +1,5 @@
 import type {
+	CompatibleFieldOptionsExtension,
 	FieldDefinition,
 	FieldTypegenState,
 	FieldListOption,
@@ -19,7 +20,6 @@ import {
 	createTemporalFieldConfigurationResolver,
 	type TimezoneTemporalFieldOptions,
 } from '../constraints/temporal.js'
-import type { FieldStandardSchema } from '../base/standard-schema.js'
 
 /**
  * Describes a date and time with timezone support enabled by default.
@@ -44,15 +44,13 @@ type DefaultedDateTimeFieldOptions<
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoNow extends boolean,
-	TValidation extends FieldStandardSchema,
 > = DefaultedCompactScalarFieldOptions<
 	DateTimeFieldOptions,
 	string,
 	TRequired,
 	TList,
 	TImmutable,
-	GeneratedScalarOption<'autoNow', TAutoNow>,
-	TValidation
+	GeneratedScalarOption<'autoNow', TAutoNow>
 > &
 	CompatibleGeneratedScalarOptions<'autoNow', TAutoNow, TList, true, true>
 
@@ -61,15 +59,13 @@ type NonDefaultedDateTimeFieldOptions<
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoNow extends boolean,
-	TValidation extends FieldStandardSchema,
 > = NonDefaultedCompactScalarFieldOptions<
 	DateTimeFieldOptions,
 	string,
 	TRequired,
 	TList,
 	TImmutable,
-	GeneratedScalarOption<'autoNow', TAutoNow>,
-	TValidation
+	GeneratedScalarOption<'autoNow', TAutoNow>
 > &
 	CompatibleGeneratedScalarOptions<'autoNow', TAutoNow, TList, false, true>
 
@@ -110,14 +106,12 @@ interface DateTimeFieldFactory {
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const TAutoNow extends boolean = false,
-		const TValidation extends FieldStandardSchema = FieldStandardSchema,
+		const TExtensionOptions extends object = object,
 	>(
-		options: DefaultedDateTimeFieldOptions<
-			TRequired,
-			TList,
-			TImmutable,
-			TAutoNow,
-			TValidation
+		options: CompatibleFieldOptionsExtension<
+			DefaultedDateTimeFieldOptions<TRequired, TList, TImmutable, TAutoNow>,
+			TExtensionOptions,
+			string
 		>,
 	): DefaultedDateTimeField<TRequired, TList, TImmutable, TAutoNow>
 	<
@@ -125,14 +119,12 @@ interface DateTimeFieldFactory {
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const TAutoNow extends boolean = false,
-		const TValidation extends FieldStandardSchema = FieldStandardSchema,
+		const TExtensionOptions extends object = object,
 	>(
-		options?: NonDefaultedDateTimeFieldOptions<
-			TRequired,
-			TList,
-			TImmutable,
-			TAutoNow,
-			TValidation
+		options?: CompatibleFieldOptionsExtension<
+			NonDefaultedDateTimeFieldOptions<TRequired, TList, TImmutable, TAutoNow>,
+			TExtensionOptions,
+			string
 		>,
 	): NonDefaultedDateTimeField<TRequired, TList, TImmutable, TAutoNow>
 }

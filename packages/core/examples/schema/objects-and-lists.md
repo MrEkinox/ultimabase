@@ -3,7 +3,7 @@
 Object fields compose existing field declarations. Reusing one embedded builder
 callback keeps nested contracts consistent without sharing mutable schema state.
 Inline `field.object` options remain contextually typed, so editors suggest
-`fields`, `typeName`, `list`, `validation`, defaults, and indexes
+`fields`, `typeName`, `list`, defaults, and indexes
 without widening the nested field map.
 
 Embedded objects contain stored value fields only. Pointers and relations need
@@ -14,7 +14,6 @@ one property inside an embedded value.
 
 ```ts
 import { Schema, type EmbeddedFieldBuilder } from '@ultimabase/core'
-import { z } from 'zod'
 
 const addressFields = (field: EmbeddedFieldBuilder) => ({
 	line1: field.string({ required: true }),
@@ -24,10 +23,6 @@ const addressFields = (field: EmbeddedFieldBuilder) => ({
 	postalCode: field.string({ required: true }),
 	countryCode: field.string({
 		required: true,
-		validation: z
-			.string()
-			.length(2)
-			.regex(/^[A-Z]{2}$/u),
 	}),
 })
 

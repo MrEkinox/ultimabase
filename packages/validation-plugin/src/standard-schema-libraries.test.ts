@@ -3,22 +3,45 @@ import * as v from 'valibot'
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
 
-import { FrameworkApplication } from '../../application/framework-application.js'
-import { FrameworkError } from '../../foundation.js'
-import { QueryBuilder, type CreateOneOperationAst } from '../../query/index.js'
 import {
 	definePluginField,
+	FrameworkApplication,
+	FrameworkError,
 	type FieldOptions,
 	type JsonDocument,
 	objectField,
 	Pointer,
 	pointerField,
+	QueryBuilder,
+	RequestContext,
+	requestSources,
 	Schema,
+	type ApplicationCallbackExecutor,
+	type CreateOneOperationAst,
+	type RuntimeMutationRevalidationStage,
 	type SchemaDefinition,
 	stringField,
-} from '../../schema/index.js'
-import { RequestContext, requestSources } from '../context/request-context.js'
-import { createFinalMutationValidationStage } from './final-mutation-validation.js'
+} from '@ultimabase/core'
+
+import { validationPlugin } from './plugin.js'
+import {
+	createValidationPlanCache,
+	validateMutationInput,
+} from './operation-validation.js'
+
+const callbacks: ApplicationCallbackExecutor = {
+	runApplication: (callback) => callback(),
+	runPlugin: (_owner, callback) => callback(),
+}
+
+const createFinalMutationValidationStage =
+	(): RuntimeMutationRevalidationStage => {
+		const readPlans = createValidationPlanCache()
+		return (input) => {
+			validateMutationInput(input, readPlans(input.operation), callbacks)
+			return input.operation
+		}
+	}
 
 const Target = Schema.define({
 	className: 'LibraryValidationTarget',
@@ -155,7 +178,9 @@ const createSchema = ({ name, validators }: LibraryFixture) => {
 	const pluginField = definePluginField<
 		LibraryPluginValue,
 		`fixture.${string}`,
-		FieldOptions<LibraryPluginValue, typeof validators.plugin>
+		FieldOptions<LibraryPluginValue> & {
+			readonly validation: typeof validators.plugin
+		}
 	>(
 		`fixture.${name.toLowerCase()}`,
 		{ validation: validators.plugin },
@@ -284,12 +309,12 @@ it('keeps validators isolated between applications with the same logical schema'
 	})
 	const zodApplication = new FrameworkApplication({
 		pluginPrivileges: { logger: false },
-		plugins: [],
+		plugins: [validationPlugin()],
 		schemas: [ZodSchema],
 	})
 	const valibotApplication = new FrameworkApplication({
 		pluginPrivileges: { logger: false },
-		plugins: [],
+		plugins: [validationPlugin()],
 		schemas: [ValibotSchema],
 	})
 

@@ -71,12 +71,15 @@ users[0]?.toJSON() // A detached immutable object.
   independent from concrete product and infrastructure implementations.
 - REST and GraphQL use one operation AST and one runtime pipeline.
 - UltimaBase, Schema, Query, ACL, and Role domain objects use immutable classes.
-- Hooks and Access are optional official plugin capabilities. ACL contributes
+- Hooks, Access, and application field validation are optional official plugin
+  capabilities. The Validation plugin owns Standard Schema rules while Core
+  always retains structural validation. ACL contributes
   persisted per-object policies directly
   through Core's generic protected-policy boundary, while roles and
   authentication provide optional request subjects. Core keeps anonymous and
   trusted master authority; master bypasses authorization without bypassing
-  validation, hooks, transactions, or integrity constraints.
+  structural or installed application validation, hooks, transactions, or
+  integrity constraints.
 - Typegen may include plugin-owned contracts but generates declarations only;
   JavaScript applications run without Typegen or a generated client.
 - Stable plugin operations and application-specific model surfaces execute

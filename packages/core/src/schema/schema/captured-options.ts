@@ -32,21 +32,41 @@ export const snapshotCapturedOptionValue = (value: unknown): unknown => {
 	return immutableRecord(snapshot)
 }
 
-/** Detaches field options while retaining the validator as one opaque artifact. */
+const containsExecutableArtifact = (
+	value: unknown,
+	seen: WeakSet<object>,
+): boolean => {
+	if (typeof value === 'function') {
+		return true
+	}
+
+	if (!isPlainRecord(value) && !isUnknownArray(value)) {
+		return false
+	}
+
+	if (seen.has(value)) {
+		return false
+	}
+
+	seen.add(value)
+	return Object.values(value).some((nestedValue) =>
+		containsExecutableArtifact(nestedValue, seen),
+	)
+}
+
+/** Detaches field options while retaining callback-bearing values as opaque artifacts. */
 export const snapshotCapturedFieldOptions = (value: unknown): unknown => {
 	if (!isPlainRecord(value)) {
 		return snapshotCapturedOptionValue(value)
 	}
 
 	const snapshot: Record<string, unknown> = {}
+	const seen = new WeakSet<object>()
 
 	for (const [key, nestedValue] of Object.entries(value)) {
-		// Standard Schema implementations may be plain records. Their identity and
-		// executable protocol must never be cloned as ordinary option data.
-		snapshot[key] =
-			key === 'validation'
-				? nestedValue
-				: snapshotCapturedOptionValue(nestedValue)
+		snapshot[key] = containsExecutableArtifact(nestedValue, seen)
+			? nestedValue
+			: snapshotCapturedOptionValue(nestedValue)
 	}
 
 	return immutableRecord(snapshot)

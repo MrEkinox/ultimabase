@@ -8,14 +8,18 @@ import {
 	hooksPluginPublicApi,
 	removedAccessPluginPublicApiNames,
 	removedHooksPluginPublicApiNames,
+	removedValidationPluginPublicApiNames,
 	type OptionalProductPublicApi,
+	validationPluginPublicApi,
 } from '../../tooling/vitest/optional-product-public-api.js'
 import { createLanguageService } from '../../tooling/vitest/typescript-language-service.js'
 
 interface OptionalProductFixture {
 	readonly classification: OptionalProductPublicApi
 	readonly moduleSpecifier:
-		'@ultimabase/access-plugin' | '@ultimabase/hooks-plugin'
+		| '@ultimabase/access-plugin'
+		| '@ultimabase/hooks-plugin'
+		| '@ultimabase/validation-plugin'
 	readonly removedNames: readonly string[]
 }
 
@@ -29,6 +33,11 @@ const fixtures: readonly OptionalProductFixture[] = [
 		classification: hooksPluginPublicApi,
 		moduleSpecifier: '@ultimabase/hooks-plugin',
 		removedNames: removedHooksPluginPublicApiNames,
+	},
+	{
+		classification: validationPluginPublicApi,
+		moduleSpecifier: '@ultimabase/validation-plugin',
+		removedNames: removedValidationPluginPublicApiNames,
 	},
 ]
 

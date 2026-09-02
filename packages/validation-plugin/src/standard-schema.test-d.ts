@@ -24,7 +24,7 @@ import {
 	stringField,
 	timeField,
 	uuidField,
-} from '../index.js'
+} from '@ultimabase/core'
 
 declare const stringSchema: StandardSchemaV1<string>
 declare const callableStringSchema: StandardSchemaV1<string> & (() => void)
@@ -64,7 +64,9 @@ class PluginScalar {
 declare const pluginSchema: StandardSchemaV1<PluginScalar> & {
 	readonly nullable: () => unknown
 }
-type PluginScalarOptions = FieldOptions<PluginScalar, typeof pluginSchema>
+type PluginScalarOptions = FieldOptions<PluginScalar> & {
+	readonly validation: typeof pluginSchema
+}
 
 test('built-in scalar families accept exact Standard Schema values', () => {
 	expectTypeOf(

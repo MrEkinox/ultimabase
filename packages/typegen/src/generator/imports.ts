@@ -42,6 +42,9 @@ export class ReferenceImports {
 		}
 		for (const option of snapshot.options) {
 			this.#addReference(option.reference, references)
+			if (option.compatibility !== undefined) {
+				this.#addReference(option.compatibility, references)
+			}
 		}
 		for (const operation of snapshot.operations) {
 			if (operation.input !== undefined)

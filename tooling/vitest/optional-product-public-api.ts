@@ -190,6 +190,22 @@ export const accessPluginPublicApi = {
 	],
 } as const satisfies OptionalProductPublicApi
 
+export const validationPluginPublicApi = {
+	applicationApi: [
+		'CompatibleFieldStandardSchema',
+		'FieldStandardSchema',
+		'FieldValidationCompatibility',
+		'FieldValidationIssue',
+		'FieldValidationIssueCode',
+		'FieldValidationOption',
+		'MutableFieldContainer',
+		'ValidationPlugin',
+		'validationPlugin',
+	],
+	compatibleProviderContract: [],
+	conformanceSupport: [],
+} as const satisfies OptionalProductPublicApi
+
 /** Produces the exact sorted root export set shared by source and packed tests. */
 export const getOptionalProductPublicApiNames = (
 	classification: OptionalProductPublicApi,
@@ -230,4 +246,12 @@ export const removedAccessPluginPublicApiNames = [
 	'normalizeSchemaAccessDeclarations',
 	'schemaAccessOption',
 	'schemaExtensionAccess',
+] as const
+
+/** Names validation implementation details deliberately kept private. */
+export const removedValidationPluginPublicApiNames = [
+	'createValidationPlanCache',
+	'fieldValidationOption',
+	'requiresValidationTargets',
+	'validateMutationInput',
 ] as const

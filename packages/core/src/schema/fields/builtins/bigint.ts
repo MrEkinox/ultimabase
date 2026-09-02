@@ -5,6 +5,7 @@ import {
 	type BuiltInFieldOptionsContract,
 } from '../base/options.js'
 import type {
+	CompatibleFieldOptionsExtension,
 	FieldDefinition,
 	FieldTypegenState,
 	FieldListOption,
@@ -21,7 +22,6 @@ import {
 } from '../base/factory.js'
 import { assertAutoIncrementOption } from '../constraints/numeric.js'
 import { normalizeBigintValue } from '../base/value.js'
-import type { FieldStandardSchema } from '../base/standard-schema.js'
 
 /**
  * Defines declarative boundaries for native JavaScript bigint values.
@@ -56,15 +56,13 @@ type DefaultedBigintFieldOptions<
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoIncrement extends boolean,
-	TValidation extends FieldStandardSchema,
 > = DefaultedCompactScalarFieldOptions<
 	BigintFieldOptions,
 	bigint,
 	TRequired,
 	TList,
 	TImmutable,
-	GeneratedScalarOption<'autoIncrement', TAutoIncrement>,
-	TValidation
+	GeneratedScalarOption<'autoIncrement', TAutoIncrement>
 > &
 	CompatibleGeneratedScalarOptions<
 		'autoIncrement',
@@ -79,15 +77,13 @@ type NonDefaultedBigintFieldOptions<
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoIncrement extends boolean,
-	TValidation extends FieldStandardSchema,
 > = NonDefaultedCompactScalarFieldOptions<
 	BigintFieldOptions,
 	bigint,
 	TRequired,
 	TList,
 	TImmutable,
-	GeneratedScalarOption<'autoIncrement', TAutoIncrement>,
-	TValidation
+	GeneratedScalarOption<'autoIncrement', TAutoIncrement>
 > &
 	CompatibleGeneratedScalarOptions<
 		'autoIncrement',
@@ -138,14 +134,12 @@ interface BigintFieldFactory {
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const TAutoIncrement extends boolean = false,
-		const TValidation extends FieldStandardSchema = FieldStandardSchema,
+		const TExtensionOptions extends object = object,
 	>(
-		options: DefaultedBigintFieldOptions<
-			TRequired,
-			TList,
-			TImmutable,
-			TAutoIncrement,
-			TValidation
+		options: CompatibleFieldOptionsExtension<
+			DefaultedBigintFieldOptions<TRequired, TList, TImmutable, TAutoIncrement>,
+			TExtensionOptions,
+			bigint
 		>,
 	): DefaultedBigintField<TRequired, TList, TImmutable, TAutoIncrement>
 	<
@@ -153,14 +147,17 @@ interface BigintFieldFactory {
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const TAutoIncrement extends boolean = false,
-		const TValidation extends FieldStandardSchema = FieldStandardSchema,
+		const TExtensionOptions extends object = object,
 	>(
-		options?: NonDefaultedBigintFieldOptions<
-			TRequired,
-			TList,
-			TImmutable,
-			TAutoIncrement,
-			TValidation
+		options?: CompatibleFieldOptionsExtension<
+			NonDefaultedBigintFieldOptions<
+				TRequired,
+				TList,
+				TImmutable,
+				TAutoIncrement
+			>,
+			TExtensionOptions,
+			bigint
 		>,
 	): NonDefaultedBigintField<TRequired, TList, TImmutable, TAutoIncrement>
 }

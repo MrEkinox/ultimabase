@@ -95,7 +95,7 @@ describe('pg-vector FieldBuilder IntelliSense', () => {
 				?.entries.map(({ name }) => name) ?? []
 
 		expect(optionNames).toContain('dimensions')
-		expect(optionNames).toContain('validation')
+		expect(optionNames).not.toContain('validation')
 		expect(optionNames).not.toContain('hooks')
 	})
 

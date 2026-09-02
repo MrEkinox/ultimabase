@@ -87,6 +87,16 @@ accepts and its output remains assignable to the field's complete canonical
 non-null value. The existing readonly-container relaxation and `any` rejection
 move with that type. Relation handles continue to reject the option.
 
+Direct option completion and exact declaration compatibility are separate
+type-only concerns. A schema-option Typegen descriptor may therefore name one
+plugin-owned compatibility type in the same module as its public option type.
+Typegen connects that inert reference to Core's generic declaration-merging
+target, and field factories evaluate the resulting boolean checks against the
+exact inferred options and scalar value. The validation plugin uses this hook
+to reject incompatible or `any`-based Standard Schema contracts. Core neither
+names `validation` nor imports Standard Schema, and the hook cannot retain or
+execute a callback at Runtime.
+
 Typegen emits the option only for an application graph containing
 `validationPlugin()`. A Typegen-free JavaScript application may still declare
 the option, but application compilation recognizes it only when the plugin is
