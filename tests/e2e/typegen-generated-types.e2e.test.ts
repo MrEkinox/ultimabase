@@ -60,6 +60,7 @@ const updateOneTargetMarker = '/* packed-update-one-target */'
 const deleteOneTargetMarker = '/* packed-delete-one-target */'
 const updateOneHoverMarker = '/* packed-update-one-hover */'
 const containmentMarker = '/* packed-containment-operand */'
+const validationMarker = '/* packed-validation-option */'
 
 const snapshotPackedVector = (value: unknown): VectorValue => {
 	if (!Array.isArray(value)) throw new TypeError('vector must be an array')
@@ -148,6 +149,7 @@ const Document = Schema.define({
 				typeName: 'PackedDocumentStatus',
 				values: ['draft', 'published'],
 			}),
+			summary: field.string(),
 			title: field.string({ required: true }),
 		}
 	},
@@ -158,6 +160,7 @@ const application = new FrameworkApplication({
 		containedVectorPlugin,
 		hooksPlugin(),
 		pgVectorPlugin(),
+		validationPlugin(),
 	],
 	schemas: [Owner, Document],
 })
@@ -174,6 +177,7 @@ import type { GenerateApplicationTypesOptions, TypegenPluginOptions } from '@ult
 
 declare const packedApplication: FrameworkApplication<readonly SchemaDefinition[], readonly PluginDefinition[]>
 declare const packedOwner: Core.PointerValue
+declare const packedTitleValidator: import('@standard-schema/spec').StandardSchemaV1<string>
 
 const PackedGeneratedOwner = Schema.define({
   className: 'PackedGeneratedOwner',
@@ -193,11 +197,13 @@ const PackedGeneratedDocument = Schema.define({
     }),
     related: field.relation({ target: 'PackedGeneratedDocument' }),
     status: field.enum({ values: ['draft', 'published'] }),
+		summary: field.string({ ${validationMarker} }),
     title: field.string({
       hooks: {
         ${fieldHookMarker}resolveInput: ({ value }) => value?.trim() ?? null,
       },
       required: true,
+      validation: packedTitleValidator,
     }),
   }),
   access: {
@@ -461,6 +467,7 @@ const mutationTargetPositions = [
 ].map((marker) => sourceWithMarkers.indexOf(marker))
 const updateOneHoverPosition = sourceWithMarkers.indexOf(updateOneHoverMarker)
 const containmentPosition = sourceWithMarkers.indexOf(containmentMarker)
+const validationPosition = sourceWithMarkers.indexOf(validationMarker)
 const source = sourceWithMarkers
 	.replace(selectMarker, ' '.repeat(selectMarker.length))
 	.replace(publicSelectMarker, ' '.repeat(publicSelectMarker.length))
@@ -487,6 +494,7 @@ const source = sourceWithMarkers
 	.replace(deleteOneTargetMarker, ' '.repeat(deleteOneTargetMarker.length))
 	.replace(updateOneHoverMarker, ' '.repeat(updateOneHoverMarker.length))
 	.replace(containmentMarker, ' '.repeat(containmentMarker.length))
+	.replace(validationMarker, ' '.repeat(validationMarker.length))
 const fileName = path.join(
 	import.meta.dirname,
 	'typegen-generated-types.packed.fixture.ts',
@@ -552,6 +560,13 @@ describe('packed @ultimabase/typegen generated contracts', () => {
 	}, 20_000)
 
 	it('preserves exact field completions and concise named hovers', () => {
+		expect(
+			service
+				.getCompletionsAtPosition(fileName, validationPosition, {})
+				?.entries.map(({ name }) => name),
+		).toEqual(
+			expect.arrayContaining(['access', 'hooks', 'required', 'validation']),
+		)
 		expect(
 			service
 				.getCompletionsAtPosition(fileName, containmentPosition, {})

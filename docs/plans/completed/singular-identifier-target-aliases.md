@@ -4,7 +4,7 @@
 - Started: 2026-08-10
 - Objective owner: `@ultimabase/core`, `@ultimabase/codegen`
 - Governing decision: [ADR-0182](../../adr/0182-singular-id-target-aliases.md)
-- Paused objective: [Generated schema authoring and type contracts](../paused/generated-schema-authoring-and-type-contracts.md)
+- Paused objective: [Generated schema authoring and type contracts](generated-schema-authoring-and-type-contracts.md)
 
 ## Objective
 

@@ -4,7 +4,7 @@
 - Started: 2026-08-10
 - Objective owner: `@ultimabase/core`, `@ultimabase/codegen`, `@ultimabase/postgres-plugin`
 - Governing decision: [ADR-0180](../../adr/0180-mutation-relationship-projections.md)
-- Paused objective: [Generated schema authoring and type contracts](../paused/generated-schema-authoring-and-type-contracts.md)
+- Paused objective: [Generated schema authoring and type contracts](generated-schema-authoring-and-type-contracts.md)
 
 ## Objective
 

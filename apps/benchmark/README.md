@@ -4,6 +4,36 @@ Repeatable benchmarks for schema compilation, query compilation, CRUD
 throughput, GraphQL execution, and optional Runtime overhead. Benchmarks never
 replace correctness tests.
 
+## Typegen editor measurements
+
+`tests/performance/typegen-editor.performance.test.ts` compares two isolated
+Node.js processes over the same synthetic application with 48 schemas and 12
+scalar fields per schema. The recursive scenario models the former
+field-map-driven public type expansion. The generated scenario uses one named
+item, create, update, where, select, include, Access, and Hooks contract per
+schema, matching Typegen's current output strategy. Both scenarios also exercise
+schema handles, one exact plugin operation, the installed-only field option
+shapes used by Access, Hooks, and Validation, and independent alternative policy
+and behavior contracts.
+
+The probe records TypeScript semantic-check duration, first completion latency,
+first hover latency and output, V8 heap use, and resident process memory. Five
+alternating samples per scenario run in fresh processes with explicit garbage
+collection before each memory snapshot, and the report uses the median. The
+suite verifies correct diagnostics, field completions, and compact generated
+hover output, but deliberately has no timing or memory threshold: those
+observations vary by CPU, operating system, and TypeScript release.
+
+Run the probe with the other deterministic performance checks:
+
+```sh
+yarn test:performance
+```
+
+The final issue 810 measurements and their environment are recorded in the
+issue itself. They are evidence for this representative fixture, not a promise
+of a fixed improvement for every application.
+
 ## Optional Runtime cost
 
 Run the deterministic no-product comparison from the repository root:

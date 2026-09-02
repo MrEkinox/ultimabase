@@ -7,7 +7,7 @@
 - Milestone: [13 — Query execution and enforcement consolidation](../../../issues/1300-query-enforcement-consolidation/README.md)
 - Paused objectives:
   - [ACL hardening and developer-experience consolidation](../paused/acl-hardening-and-developer-experience-consolidation.md)
-  - [Generated schema authoring and type contracts](../paused/generated-schema-authoring-and-type-contracts.md)
+  - [Generated schema authoring and type contracts](generated-schema-authoring-and-type-contracts.md)
 
 ## Objective
 

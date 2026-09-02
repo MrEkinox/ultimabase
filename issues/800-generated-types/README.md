@@ -1,6 +1,6 @@
 # Milestone 8 — Generated schema authoring and developer tooling
 
-- Status: planned
+- Status: completed
 
 Replace recursively inferred application schema contracts with deterministic
 generated types and a Nexus-style field declaration builder. This milestone is
@@ -32,7 +32,7 @@ declaration, static-compilation, isolation, and generated-cache boundaries.
 [808 — Add schema generation commands and watch mode](808-typegen-cli-watch-start.md)
 is deferred and no longer blocks this milestone.
 
-The remaining verification sequence, frozen constraints, and supervision
-checkpoints live in the
-[paused generated-schema plan](../../docs/plans/paused/generated-schema-authoring-and-type-contracts.md),
-which resumes at issue 810 only after explicit user direction.
+Issue 810 completed the final generated-schema DX, package-consumption,
+isolation, determinism, and editor-performance verification. The completed
+execution record is retained in the
+[generated-schema plan](../../docs/plans/completed/generated-schema-authoring-and-type-contracts.md).

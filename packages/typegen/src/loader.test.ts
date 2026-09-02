@@ -89,4 +89,35 @@ export const ultimabase = new UltimaBase({
 			loadTypegenApplication({ exportName: 'invalid', sourcePath }),
 		).rejects.toMatchObject(expected)
 	})
+
+	it('generates path-independent output from separate clean source trees', async () => {
+		const source = `
+import { Schema, UltimaBase } from '@ultimabase/core'
+const Document = Schema.define({
+  className: 'PathIndependentDocument',
+  fields: (field) => ({ title: field.string({ required: true }) }),
+})
+export const ultimabase = new UltimaBase({ plugins: [], schemas: [Document] })
+`
+		const firstPath = await createTypeScriptModule(source)
+		const secondPath = await createTypeScriptModule(source)
+		const first = generateApplicationTypes({
+			application: await loadTypegenApplication({
+				exportName: 'ultimabase',
+				sourcePath: firstPath,
+			}),
+			applicationId: 'fixture.path-independent',
+		})
+		const second = generateApplicationTypes({
+			application: await loadTypegenApplication({
+				exportName: 'ultimabase',
+				sourcePath: secondPath,
+			}),
+			applicationId: 'fixture.path-independent',
+		})
+
+		expect(second).toStrictEqual(first)
+		expect(first.contents).not.toContain(path.dirname(firstPath))
+		expect(second.contents).not.toContain(path.dirname(secondPath))
+	})
 })

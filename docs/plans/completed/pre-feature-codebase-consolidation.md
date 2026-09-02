@@ -7,7 +7,7 @@
 - Milestone: [12 — Pre-feature codebase consolidation](../../../issues/1200-maintenance-consolidation/README.md)
 - Paused objectives:
   - [ACL hardening and developer-experience consolidation](../paused/acl-hardening-and-developer-experience-consolidation.md)
-  - [Generated schema authoring and type contracts](../paused/generated-schema-authoring-and-type-contracts.md)
+  - [Generated schema authoring and type contracts](generated-schema-authoring-and-type-contracts.md)
 
 ## Objective
 

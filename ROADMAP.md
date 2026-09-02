@@ -31,11 +31,12 @@ Milestones 20 and 21 completed the Standard Schema field contract and its
 single-pass mutation semantics. Milestone 22 completed the extraction of only
 the direct `validation` option and application validator into an optional
 official plugin while Core retained required presence and every structural
-field and Runtime invariant. No milestone is currently active.
+field and Runtime invariant. Milestone 8 then closed its remaining Typegen DX
+and performance audit with measured generated-contract evidence. No milestone
+is currently active.
 
-The ACL hardening plan remains paused at issue 432. Generated schema authoring
-and type contracts remain paused at the final DX and performance verification
-issue 810. Neither paused objective is part of an active plan.
+The ACL hardening plan remains paused at issue 432. It is not part of an active
+plan.
 
 Completed cross-milestone plans are retained under
 [`docs/plans/completed/`](docs/plans/completed/) so their decisions remain
@@ -95,12 +96,13 @@ packages are created only when implementation begins.
 
 ## Milestone 8 — Generated schema authoring and developer tooling
 
-Deferred schema field compilation, plugin-contributed FieldBuilder methods,
-Nexus-style declarations, compact generated application contracts, deterministic
-typegen commands, watch mode, startup regeneration, and measured TypeScript
-editor performance. [ADR-0173](docs/adr/0173-generated-schema-authoring.md)
-governs this milestone. It changes developer tooling without moving plugin,
-database, transport, or runtime responsibilities into Core.
+Completed deferred schema field compilation, plugin-contributed FieldBuilder
+methods, Nexus-style declarations, compact generated application contracts,
+automatic startup regeneration, and measured TypeScript editor performance.
+Manual commands and watch mode remain deferred to issue 808.
+[ADR-0173](docs/adr/0173-generated-schema-authoring.md) governs this milestone.
+It changes developer tooling without moving plugin, database, transport, or
+runtime responsibilities into Core.
 
 ## Milestone 12 — Pre-feature codebase consolidation
 

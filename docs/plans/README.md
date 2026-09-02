@@ -7,18 +7,17 @@ priority changes.
 
 ## Active
 
-- [Optional field validation plugin](../../CURRENT_PLAN.md), tracked as milestone
-  22 and resumable at issue 2202.
+- None.
 
 ## Paused
 
-- [Generated schema authoring and type contracts](paused/generated-schema-authoring-and-type-contracts.md),
-  resumable at issue 810 after explicit user direction.
 - [ACL hardening and developer-experience consolidation](paused/acl-hardening-and-developer-experience-consolidation.md),
   resumable at issue 432 only after explicit user direction.
 
 ## Completed
 
+- [Generated schema authoring and type contracts](completed/generated-schema-authoring-and-type-contracts.md)
+- [Optional field validation plugin](completed/optional-field-validation-plugin.md)
 - [Single-pass field validation](completed/single-pass-field-validation.md)
 - [Standard Schema field validation](completed/standard-schema-field-validation.md)
 - [Trusted open plugin kernel and optional official capabilities](completed/trusted-open-plugin-kernel-and-optional-official-capabilities.md)

@@ -4,7 +4,7 @@
 - Started: 2026-08-10
 - Objective owner: `@ultimabase/typegen`, `@ultimabase/core`
 - Governing decision: [ADR-0184](../../adr/0184-typegen-package-identity.md)
-- Paused objective: [Generated schema authoring and type contracts](../paused/generated-schema-authoring-and-type-contracts.md)
+- Paused objective: [Generated schema authoring and type contracts](generated-schema-authoring-and-type-contracts.md)
 
 ## Objective
 
