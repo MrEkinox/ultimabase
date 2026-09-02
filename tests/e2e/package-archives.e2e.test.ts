@@ -257,7 +257,7 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 		}
 	})
 
-	it('omits the removed field-constraint DSL from packed Core surfaces', async () => {
+	it('omits application field validation from packed Core surfaces', async () => {
 		const coreDirectory = path.join(packagesDirectory, 'core', 'dist')
 		const packedSurfaces = await Promise.all([
 			readFile(path.join(coreDirectory, 'index.d.ts'), 'utf8'),
@@ -295,7 +295,14 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 			}
 		}
 
-		expect(packedSurfaces[0]).toContain('FieldStandardSchema')
+		for (const surface of packedSurfaces) {
+			expect(surface).not.toContain('FieldStandardSchema')
+		}
+		const validationDeclarations = await readFile(
+			path.join(packagesDirectory, 'validation-plugin', 'dist', 'index.d.ts'),
+			'utf8',
+		)
+		expect(validationDeclarations).toContain('FieldStandardSchema')
 	})
 
 	it('keeps Runtime orchestration implementation private', async () => {

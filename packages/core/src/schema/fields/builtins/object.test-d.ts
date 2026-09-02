@@ -119,8 +119,8 @@ test('rejects invalid list declarations and structured defaults', () => {
 	// @ts-expect-error -- List defaults must preserve the scalar field type.
 	booleanField({ list: true, default: [true, 'false'] })
 	objectField({
-		// @ts-expect-error -- Object properties must be field definitions.
 		fields: {
+			// @ts-expect-error -- Object properties must be field definitions.
 			name: 'string',
 		},
 	})
@@ -137,17 +137,17 @@ test('rejects invalid list declarations and structured defaults', () => {
 			active: 'yes',
 		},
 	})
-	// @ts-expect-error -- Required create inputs cannot be omitted from defaults.
 	objectField({
 		fields: {
 			optional: stringField(),
 			required: stringField({ required: true }),
 		},
+		// @ts-expect-error -- Required create inputs cannot be omitted from defaults.
 		default: {},
 	})
-	// @ts-expect-error -- Removed generic extension metadata is not a field option.
 	stringField({
 		list: true,
+		// @ts-expect-error -- Removed generic extension metadata is not a field option.
 		extensions: [],
 	})
 })

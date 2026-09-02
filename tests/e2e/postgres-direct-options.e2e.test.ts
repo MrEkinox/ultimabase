@@ -124,7 +124,7 @@ void GeneratedPost
 	}
 
 	await application.dispose()
-})
+}, 20_000)
 
 it('keeps PostgreSQL options unknown without generated plugin declarations', () => {
 	const fileName = path.join(

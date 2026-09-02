@@ -229,8 +229,8 @@ describe('plugin schema declaration registry', () => {
 			className: 'OptionAndIndexTransformPost',
 			fields: (field) => ({
 				summary: field.string(),
-				// @ts-expect-error -- Typegen owns the installed direct option type.
 				title: field.string({
+					// @ts-expect-error -- Typegen owns the installed direct option type.
 					search,
 				}),
 			}),
@@ -272,8 +272,8 @@ describe('plugin schema declaration registry', () => {
 					operations: [
 						addSchemaField({
 							contributionId: 'plugin-field',
-							// @ts-expect-error -- Typegen owns the installed direct option type.
 							field: stringField({
+								// @ts-expect-error -- Typegen owns the installed direct option type.
 								search: { weight: 40 },
 							}),
 							name: 'pluginField',

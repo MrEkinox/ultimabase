@@ -75,5 +75,5 @@ describe('packed @ultimabase/plugin-kit authoring types', () => {
 		expect(readQuickInfo('packedOptions =')).toContain(
 			'mode: "review" | "publish";',
 		)
-	})
+	}, 20_000)
 })

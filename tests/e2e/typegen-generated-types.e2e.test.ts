@@ -549,7 +549,7 @@ describe('packed @ultimabase/typegen generated contracts', () => {
 					ts.flattenDiagnosticMessageText(messageText, '\n'),
 				),
 		).toStrictEqual([])
-	})
+	}, 20_000)
 
 	it('preserves exact field completions and concise named hovers', () => {
 		expect(

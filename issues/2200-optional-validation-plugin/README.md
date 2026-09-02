@@ -1,6 +1,6 @@
 # Milestone 22 — Optional field validation plugin
 
-- Status: in-progress
+- Status: completed
 
 Extract only application-owned field validation into the optional official
 `@ultimabase/validation-plugin` package. The direct `validation` option keeps
@@ -19,7 +19,7 @@ it may not transform it or redefine Core shape.
 1. [x] [2201 — Decide the optional field-validation plugin boundary](2201-optional-field-validation-plugin-adr.md)
 2. [x] [2202 — Add a final mutation-input guard boundary](2202-final-mutation-input-guard.md)
 3. [x] [2203 — Extract the Standard Schema validation vertical](2203-extract-standard-schema-validation.md)
-4. [ ] [2204 — Verify optional field validation](2204-optional-validation-verification.md)
+4. [x] [2204 — Verify optional field validation](2204-optional-validation-verification.md)
 
 ## Deliberate boundaries
 
@@ -45,5 +45,14 @@ it may not transform it or redefine Core shape.
 
 ## Completion evidence
 
-Not implemented yet. Issue 2201 accepted ADR-0223 and fixed the implementation
-order. Issues 2202 through 2204 own code, migration, and release evidence.
+ADR-0223 fixed the boundary, Core gained one generic final mutation-input guard,
+and `@ultimabase/validation-plugin` now owns the direct `validation` option,
+Standard Schema interoperability, application-local plans, issue mapping, and
+projected arithmetic validation. Core no longer depends on Standard Schema and
+applications that omit the plugin allocate no validation behavior.
+
+The final gate passed constraints, issue validation, typecheck, unit and type
+tests, lint, formatting, build, packed archives, public E2E, PostgreSQL
+Testcontainers, and coverage. The complete coverage run passed 400 files and
+1,856 tests with no type errors; package archives passed 19 files and 98 tests.
+No milestone work was deferred.

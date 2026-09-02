@@ -85,8 +85,8 @@ describe('canonical schema compiler IR', () => {
 					operations: immutableArray([
 						addSchemaField({
 							contributionId: 'portable-field',
-							// @ts-expect-error -- Typegen owns installed option augmentation.
 							field: stringField({
+								// @ts-expect-error -- Typegen owns installed option augmentation.
 								portable: { enabled: true },
 							}),
 							name: 'portableField',

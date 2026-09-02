@@ -96,9 +96,9 @@ describe('pointerField', () => {
 
 	it('rejects defaults at runtime', () => {
 		expect(() => {
-			// @ts-expect-error -- Pointer identity must always be explicit.
 			pointerField({
 				target: () => userSchema,
+				// @ts-expect-error -- Pointer identity must always be explicit.
 				default: userSchema.pointer('user-1'),
 			})
 		}).toThrow(new TypeError('pointerField does not support default values'))

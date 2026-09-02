@@ -28,10 +28,10 @@ accidental public surfaces, and verified the no-product Runtime cost through
 the final issue 1613 gate.
 
 Milestones 20 and 21 completed the Standard Schema field contract and its
-single-pass mutation semantics. Milestone 22 is the active target. It extracts
-only the direct `validation` option and application validator into an optional
-official plugin while Core retains required presence and every structural field
-and Runtime invariant.
+single-pass mutation semantics. Milestone 22 completed the extraction of only
+the direct `validation` option and application validator into an optional
+official plugin while Core retained required presence and every structural
+field and Runtime invariant. No milestone is currently active.
 
 The ACL hardening plan remains paused at issue 432. Generated schema authoring
 and type contracts remain paused at the final DX and performance verification
@@ -199,11 +199,11 @@ boundary.
 
 ## Milestone 22 — Optional field validation plugin
 
-Move the direct `validation` option, Standard Schema compatibility types,
-application-local compiler, issue mapping, and final mutation execution into
-`@ultimabase/validation-plugin`. Core keeps `required`, nullability, canonical
-types and containers, defaults, generators, immutable and generated rules,
-decimal shape, structural plans and snapshots, and Runtime orchestration.
+Milestone 22 moved the direct `validation` option, Standard Schema compatibility
+types, application-local compiler, issue mapping, and final mutation execution
+into `@ultimabase/validation-plugin`. Core keeps `required`, nullability,
+canonical types and containers, defaults, generators, immutable and generated
+rules, decimal shape, structural plans and snapshots, and Runtime orchestration.
 
 The extraction first adds one generic rejection-only Runtime behavior boundary
 after final structural mutation validation and before value-dependent

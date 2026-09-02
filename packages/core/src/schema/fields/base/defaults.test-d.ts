@@ -48,14 +48,14 @@ test('checks runtime factory outputs against every field value', () => {
 	booleanField({ default: () => 'true' })
 	// @ts-expect-error -- Date-time factories cannot return Date objects.
 	dateTimeField({ default: () => new Date() })
-	// @ts-expect-error -- Enum factories must return one persisted enum value.
 	enumField({
 		values: ['draft', 'published'],
+		// @ts-expect-error -- Enum factories must return one persisted enum value.
 		default: () => 'archived',
 	})
-	// @ts-expect-error -- List factories must preserve the field's scalar type.
 	stringField({
 		list: true,
+		// @ts-expect-error -- List factories must preserve the field's scalar type.
 		default: () => [1],
 	})
 	const invalidName = stringField()

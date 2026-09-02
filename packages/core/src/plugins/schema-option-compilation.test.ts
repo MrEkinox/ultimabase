@@ -179,8 +179,8 @@ describe('plugin schema option compilation', () => {
 		const Post = Schema.define({
 			className: 'RuntimeOptionPost',
 			fields: (field) => ({
-				// @ts-expect-error -- Typegen owns the installed direct option type.
 				title: field.string({
+					// @ts-expect-error -- Typegen owns the installed direct option type.
 					runtimeTag: 'field',
 				}),
 			}),
@@ -327,8 +327,8 @@ describe('plugin schema option compilation', () => {
 		const Post = Schema.define({
 			className: 'OwnedOptionPost',
 			fields: (field) => ({
-				// @ts-expect-error -- Typegen owns the installed direct option type.
 				title: field.string({
+					// @ts-expect-error -- Typegen owns the installed direct option type.
 					search,
 				}),
 			}),
@@ -378,8 +378,8 @@ describe('plugin schema option compilation', () => {
 		const UnknownFieldOption = Schema.define({
 			className: 'UnknownFieldOption',
 			fields: (field) => ({
-				// @ts-expect-error -- Typegen owns installed option types.
 				title: field.string({
+					// @ts-expect-error -- Typegen owns installed option types.
 					search: { weight: 10 },
 				}),
 			}),
@@ -510,8 +510,8 @@ describe('plugin schema option compilation', () => {
 	})
 
 	it('does not reuse an owner-specific field normalization across plugin schemas', async () => {
-		// @ts-expect-error -- Typegen owns the installed direct option type.
 		const sharedField = stringField({
+			// @ts-expect-error -- Typegen owns the installed direct option type.
 			shared: 'value',
 		})
 		const First = Schema.define({

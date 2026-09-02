@@ -257,11 +257,11 @@ describe('object fields and list metadata', () => {
 				.default,
 		).toStrictEqual({})
 		expect(() => {
-			// @ts-expect-error -- Runtime coverage protects missing required values.
 			objectField({
 				fields: {
 					name: stringField({ required: true }),
 				},
+				// @ts-expect-error -- Runtime coverage protects missing required values.
 				default: {},
 			})
 		}).toThrow(new TypeError('default.name is required in an object default'))
@@ -329,8 +329,8 @@ describe('object fields and list metadata', () => {
 		)
 		expect(() => {
 			objectField({
-				// @ts-expect-error -- Runtime coverage intentionally crosses the field boundary.
 				fields: {
+					// @ts-expect-error -- Runtime coverage intentionally crosses the field boundary.
 					name: 'string',
 				},
 			})

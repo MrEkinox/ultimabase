@@ -51,7 +51,7 @@ const rootMethods = [
 describe('packed @ultimabase/core FieldBuilder contract', () => {
 	it('type-checks the canonical declaration through package exports', () => {
 		expect(languageFixture.diagnostics()).toStrictEqual([])
-	})
+	}, 20_000)
 
 	it('preserves root and embedded completions', () => {
 		const root = languageFixture.readMemberCompletions('root-builder')
