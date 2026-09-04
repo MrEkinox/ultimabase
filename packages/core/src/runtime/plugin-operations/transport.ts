@@ -1,6 +1,5 @@
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
-import type { AnonymousRequestAccess } from '../../access/index.js'
 import type { ApplicationOperationBinding } from '../../application/application-handles.js'
 import { FrameworkError } from '../../errors/framework-error.js'
 import type { CompiledPluginOperation } from '../../plugins/application-surface-registry.js'
@@ -26,6 +25,13 @@ const isRequestContext = (value: unknown): value is RequestContext =>
 /** Explicitly selects which operation tokens one transport may invoke. */
 export interface OperationTransportExposureOptions<
 	TTransport extends OperationTransportProtocol = OperationTransportProtocol,
+> extends PublicTransportProtectionOptions<TTransport> {
+	readonly operations: readonly (PluginOperationDefinition | string)[]
+}
+
+/** Reports the public-protection state for one transport protocol. */
+export interface PublicTransportProtectionOptions<
+	TTransport extends OperationTransportProtocol = OperationTransportProtocol,
 > {
 	/**
 	 * Confirms that the developer accepts Core cannot prove complete policy
@@ -34,7 +40,6 @@ export interface OperationTransportExposureOptions<
 	 * @example `acknowledgeUnverifiedProtection: true`
 	 */
 	readonly acknowledgeUnverifiedProtection?: true
-	readonly operations: readonly (PluginOperationDefinition | string)[]
 	readonly transport: TTransport
 }
 
@@ -55,9 +60,9 @@ export interface PublicTransportProtectionWarning {
 	}>
 }
 
-/** Carries untrusted wire input with an already validated anonymous request context. */
+/** Carries untrusted wire input with an application-validated request context. */
 export interface OperationTransportRequest {
-	readonly context: RequestContext<AnonymousRequestAccess>
+	readonly context: RequestContext
 	readonly input: unknown
 	readonly operation: string
 	readonly version: string
@@ -97,13 +102,8 @@ export class CoreApplicationOperationTransport<
 				'operation transport request context must be a RequestContext',
 			)
 		}
-		if (context.access.mode !== 'anonymous') {
-			throw new FrameworkError(
-				'PERMISSION_DENIED',
-				'Public operation transports accept anonymous Core authority only.',
-				{ publicMessage: 'The request authority is not available.' },
-			)
-		}
+		// Application lifecycle and context provenance must pass before codecs run.
+		const engine = this.createEngine(context)
 		const exposed = this.operations.get(request.operation)
 		if (exposed === undefined) {
 			throw new FrameworkError(
@@ -138,7 +138,7 @@ export class CoreApplicationOperationTransport<
 		})
 		const binding: ApplicationOperationBinding = immutableRecord({})
 		const result = await executeRequestPluginOperation(
-			this.createEngine(context),
+			engine,
 			exposed.compiled,
 			binding,
 			envelope,

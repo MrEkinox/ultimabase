@@ -101,7 +101,6 @@ const fakeBinding = operationTransportBinding({
 	codec: fakeCodec,
 	operation: applicationOperation,
 })
-
 interface FixtureOptions {
 	readonly adapterResults?: readonly QueuedAdapterResult[]
 	readonly applicationHandler?: (
@@ -584,12 +583,12 @@ describe('plugin operation Runtime', () => {
 		)
 		await expect(
 			exposure.execute({
-				context: master.context as never,
+				context: master.context,
 				input: { text: 'hello' },
 				operation: applicationOperation.name,
 				version: '1.0.0',
 			}),
-		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
+		).rejects.toMatchObject({ code: 'fixture.operations.rejected' })
 		await expect(
 			exposure.execute({
 				context,

@@ -30,6 +30,17 @@ export const assertApplicationEngineAvailable = (
 	}
 }
 
+/** Prevents public request work until every startup phase completed successfully. */
+export const assertApplicationRequestExecutionAvailable = (
+	application: EngineApplication,
+): void => {
+	if (application.state !== 'started') {
+		throw new TypeError(
+			`Application request execution requires a started application; received ${application.state}`,
+		)
+	}
+}
+
 /** Claims an unbound context or rejects reuse across isolated applications. */
 export const bindRequestContextToApplication = (
 	application: EngineApplication,

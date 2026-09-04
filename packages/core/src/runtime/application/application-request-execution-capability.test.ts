@@ -1,0 +1,122 @@
+import {
+	decorateCapability,
+	definePlugin,
+	FrameworkApplication,
+	provideCapability,
+	replaceCapability,
+	requireCapability,
+} from '../../foundation.js'
+import { describe, expect, it } from 'vitest'
+
+import { CapabilityInventory } from '../../plugins/capability-inventory.js'
+import { normalizePlugins } from '../../plugins/normalization.js'
+import {
+	applicationRequestExecutionCapability,
+	type ApplicationRequestExecutor,
+} from './application-request-execution.js'
+
+const requestExecutionRequirement = requireCapability(
+	applicationRequestExecutionCapability,
+	'^1.0.0',
+)
+const consumer = definePlugin({
+	core: '^0.0.0',
+	pluginId: 'fixture.application-request-consumer',
+	version: '0.0.0',
+	capabilities: { requires: [requestExecutionRequirement] },
+})
+
+describe('application request execution capability ownership', () => {
+	it('installs one Core-owned provider only when a plugin consumes it', () => {
+		const withoutConsumer = new CapabilityInventory(normalizePlugins([]))
+		expect(
+			withoutConsumer.entries.some(
+				({ token }) => token === applicationRequestExecutionCapability,
+			),
+		).toBe(false)
+
+		const withConsumer = new CapabilityInventory(normalizePlugins([consumer]))
+		const entry = withConsumer.entries.find(
+			({ token }) => token === applicationRequestExecutionCapability,
+		)
+		expect(entry).toMatchObject({
+			providers: [
+				{
+					contributionId: 'application-request-executor',
+					owner: { pluginId: '@ultimabase/core' },
+				},
+			],
+			requirements: [
+				{
+					active: true,
+					owner: { pluginId: 'fixture.application-request-consumer' },
+				},
+			],
+		})
+		expect(applicationRequestExecutionCapability).toMatchObject({
+			capabilityId: 'ultimabase.application-request-execution',
+			cardinality: 'single',
+			lifetime: 'application',
+			version: '1.0.0',
+		})
+	})
+
+	it('cannot be provided, replaced, or decorated by plugins', () => {
+		const fakeExecutor = {} as ApplicationRequestExecutor
+		const declarations = [
+			provideCapability(applicationRequestExecutionCapability, {
+				contributionId: 'forged-provider',
+				create: () => ({ value: fakeExecutor }),
+			}),
+			replaceCapability(applicationRequestExecutionCapability, {
+				contributionId: 'forged-replacement',
+				target: {
+					owner: { pluginId: '@ultimabase/core' },
+					contributionId: 'application-request-executor',
+				},
+				create: () => ({ value: fakeExecutor }),
+			}),
+			decorateCapability(applicationRequestExecutionCapability, {
+				contributionId: 'forged-decorator',
+				decorate: (executor) => executor,
+			}),
+		] as const
+
+		for (const declaration of declarations) {
+			expect(
+				() =>
+					new FrameworkApplication({
+						schemas: [],
+						plugins: [
+							definePlugin({
+								core: '^0.0.0',
+								pluginId: `fixture.${declaration.contributionId}`,
+								version: '0.0.0',
+								privileges: [
+									{
+										name: 'capability:replace',
+										reason: 'Exercises a forbidden Core protocol mutation.',
+									},
+								],
+								capabilities: {
+									requires: [requestExecutionRequirement],
+									provides:
+										declaration.kind === 'capability-provider'
+											? [declaration]
+											: [],
+									replaces:
+										declaration.kind === 'capability-replacement'
+											? [declaration]
+											: [],
+									decorates:
+										declaration.kind === 'capability-decorator'
+											? [declaration]
+											: [],
+								},
+							}),
+						],
+					}),
+			).toThrow(/Application request execution/u)
+		}
+	})
+})

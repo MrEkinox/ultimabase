@@ -18,6 +18,11 @@ export { runOutsideRequestEngineScope } from './context/active-framework-storage
 // Application assembly installs every mandatory stage from plugin-owned declarations.
 export { createFrameworkEngine } from './application/create-framework-engine.js'
 export type { CreateFrameworkEngineOptions } from './application/create-framework-engine.js'
+export { applicationRequestExecutionCapability } from './application/application-request-execution.js'
+export type {
+	ApplicationMasterKeyVerificationOptions,
+	ApplicationRequestExecutor,
+} from './application/application-request-execution.js'
 export {
 	canonicalRuntimeExecutorTarget,
 	provideRuntimeConstraint,
@@ -147,6 +152,7 @@ export type {
 	PluginOperationHandler,
 	PluginOperationHandlerDefinition,
 	PluginOperationHandlerInput,
+	PublicTransportProtectionOptions,
 	PublicTransportProtectionWarning,
 } from './plugin-operations/index.js'
 export type {

@@ -100,12 +100,11 @@ test('infers exact handler and wire boundary contracts', () => {
 		contributionId: 'binding',
 		create: () => ({ value: binding }),
 	})
-	const invalidRequest: OperationTransportRequest = {
-		// @ts-expect-error -- Public operation transport input cannot carry Master authority.
+	const masterRequest: OperationTransportRequest = {
 		context: masterContext,
 		input: {},
 		operation: operation.name,
 		version: operation.version,
 	}
-	void exposure.execute(invalidRequest)
+	void exposure.execute(masterRequest)
 })

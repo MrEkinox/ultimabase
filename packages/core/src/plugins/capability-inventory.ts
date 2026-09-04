@@ -29,6 +29,10 @@ import { canonicalSchemaCompilerFoundation } from './schema-compiler-ir/schema-c
 import { canonicalRuntimeExecutorFoundation } from '../runtime/capabilities.js'
 import { isAdapterCapability } from '../runtime/adapters/capabilities.js'
 import { isAdapterContributionCapability } from '../runtime/adapters/contributions.js'
+import {
+	applicationRequestExecutionCapability,
+	canonicalApplicationRequestExecutionFoundation,
+} from '../runtime/application/application-request-execution.js'
 
 /** Reports one provider or replacement without exposing its value or factory. */
 export interface CapabilityProviderInspection {
@@ -244,9 +248,19 @@ export class CapabilityInventory implements Iterable<CapabilityInventoryEntry> {
 		const entriesById = new Map<string, Map<string, MutableCapabilityEntry>>()
 		const orderedEntries: MutableCapabilityEntry[] = []
 
+		const consumesApplicationRequests = plugins.some((plugin) => {
+			const capabilities = plugin.definition.manifest.capabilities
+			return [...capabilities.requires, ...capabilities.optional].some(
+				(requirement) =>
+					requirement.token === applicationRequestExecutionCapability,
+			)
+		})
 		for (const foundation of [
 			canonicalSchemaCompilerFoundation,
 			canonicalRuntimeExecutorFoundation,
+			...(consumesApplicationRequests
+				? [canonicalApplicationRequestExecutionFoundation]
+				: []),
 		]) {
 			registerToken(
 				entriesById,

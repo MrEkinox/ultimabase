@@ -1,9 +1,11 @@
 import {
 	afterOperation,
+	applicationRequestExecutionCapability,
 	beforeOperation,
 	definePlugin,
 	guard,
 	postCommitEvent,
+	requireCapability,
 	provideRuntimeBehavior,
 	provideRuntimeConstraint,
 	provideRuntimeInterceptor,
@@ -13,6 +15,7 @@ import {
 	Schema,
 	type RuntimeExecutorFactory,
 	type RuntimeFinalMutationGuardStage,
+	type ApplicationRequestExecutor,
 } from '../../src/index.js'
 
 const schema = Schema.define({
@@ -94,6 +97,11 @@ const replacement = replaceRuntime({
 	}),
 })
 
+const requestExecution = requireCapability(
+	applicationRequestExecutionCapability,
+	'^1.0.0',
+)
+
 definePlugin({
 	pluginId: 'fixture.packed-runtime-capabilities',
 	version: '0.0.0',
@@ -105,6 +113,7 @@ definePlugin({
 		{ name: 'runtime:replace', reason: 'Exercises the packed facade.' },
 	],
 	capabilities: {
+		requires: [requestExecution],
 		provides: [behavior, interceptor, constraint, observer],
 		replaces: [replacement],
 	},
@@ -115,6 +124,9 @@ type InspectedExecutorFactory =
 	/* hover:runtime-executor */ RuntimeExecutorFactory
 type InspectedFinalMutationGuard =
 	/* hover:runtime-final-mutation-guard */ RuntimeFinalMutationGuardStage
+type InspectedApplicationRequestExecutor =
+	/* hover:application-request-executor */ ApplicationRequestExecutor
 
 void (undefined as unknown as InspectedExecutorFactory)
 void (undefined as unknown as InspectedFinalMutationGuard)
+void (undefined as unknown as InspectedApplicationRequestExecutor)

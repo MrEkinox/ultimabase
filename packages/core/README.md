@@ -477,6 +477,59 @@ const exposed = ultimabase.exposeOperations({
 })
 ```
 
+### Enter application requests from a transport plugin
+
+Transport plugins require Core's `applicationRequestExecutionCapability` and
+read it only from an application capability factory. Core materializes the
+facade only when a plugin declares that requirement, then privately binds it
+after engine construction. A factory retains its exact owner and callback
+executor so later asynchronous route callbacks cannot inherit another plugin's
+authority:
+
+```ts
+const requestExecution = requireCapability(
+	applicationRequestExecutionCapability,
+	'^1.0.0',
+)
+
+provideCapability(httpApplicationCapability, {
+	contributionId: 'http-application',
+	create: ({ callbacks, capabilities, owner }) => {
+		const requests = capabilities.get(requestExecution)
+
+		return {
+			value: {
+				handle: (requestId: string) =>
+					callbacks.runPlugin(owner, () => {
+						const context = requests.createAnonymousContext({
+							requestId,
+							source: 'community-http',
+						})
+
+						return requests.runWithContext(context, routeApplicationRequest)
+					}),
+			},
+		}
+	},
+})
+```
+
+`verifyMasterKey({ context, rawKey, reason })` is the only credential exchange
+on this facade. It requires the exact active plugin instance to declare
+`authority:elevate`, verifies and audits against the selected application, and
+returns only its derived Master context. The raw key, authority, grant, engine,
+adapter, and lifecycle controls never escape. Already verified owning Master
+contexts may enter `runWithContext` and explicit operation exposures; foreign,
+forged, stale, or wrong-authority contexts fail before request work.
+
+Generated schema transports call
+`reportPublicTransportProtection({ transport })` to share the same
+`UNVERIFIED_PUBLIC_TRANSPORT_PROTECTION` diagnostic as operation exposures.
+Passing `acknowledgeUnverifiedProtection: true` records the developer's explicit
+acceptance without claiming that installed policy providers cover every route.
+Execution is available only after the whole application has started and expires
+on stop or disposal.
+
 The acknowledgement accepts only Core's inability to verify complete coverage.
 It never declares policy coverage, installs behavior, grants authority, or
 relocates or exposes Core Master authority. Core intentionally defines no

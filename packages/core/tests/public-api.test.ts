@@ -56,6 +56,7 @@ describe('@ultimabase/core public entry point', () => {
 			'addSchemaField',
 			'addSchemaIndex',
 			'afterOperation',
+			'applicationRequestExecutionCapability',
 			'applyUpdateExpressionToRecord',
 			'assertFieldDefinition',
 			'assertFieldOptions',

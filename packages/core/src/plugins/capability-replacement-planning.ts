@@ -39,6 +39,11 @@ import {
 	pluginOperationHandlerCapability,
 } from '../runtime/plugin-operations/capabilities.js'
 import {
+	assertCoreCapabilityDecorationAllowed,
+	assertCoreCapabilityProviders,
+	assertCoreCapabilityReplacementAllowed,
+} from './core-capability-planning.js'
+import {
 	assertAdapterDecorationAllowed,
 	assertAdapterReplacementAllowed,
 	validateAdapterCapabilityEntry,
@@ -177,6 +182,8 @@ export const buildReplacementChains = (
 		hasActivePrivilege: (requirement, privilege) =>
 			hasActivePrivilege(entries, requirement, privilege),
 	})
+
+	assertCoreCapabilityProviders(entry)
 
 	const runtimeRequirement = isRuntimeCapability(entry.token)
 		? entry.requirements[0]
@@ -330,6 +337,7 @@ export const buildReplacementChains = (
 	const replacementsByTarget = new Map<OwnedProvider, OwnedProvider>()
 	for (const replacement of entry.replacements) {
 		assertAdapterReplacementAllowed(entry, replacement)
+		assertCoreCapabilityReplacementAllowed(entry, replacement)
 		if (isPluginOperationProtocol) {
 			return throwCapabilityConflict(
 				'Plugin operation protocols cannot use generic capability replacement.',
@@ -535,6 +543,7 @@ export const buildReplacementChains = (
 
 	for (const decorator of entry.decorators) {
 		assertAdapterDecorationAllowed(entry, decorator)
+		assertCoreCapabilityDecorationAllowed(entry, decorator)
 		if (isPluginOperationProtocol) {
 			return throwCapabilityConflict(
 				'Plugin operation protocols cannot use generic capability decoration.',

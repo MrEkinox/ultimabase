@@ -18,6 +18,7 @@ import type {
 	FrameworkEngine,
 	RequestEngine,
 } from '../engine/framework-engine.js'
+import { assertApplicationRequestExecutionAvailable } from '../engine/application-binding.js'
 import { throwIfOperationCancelled } from '../cancellation/operation-cancellation.js'
 import type { TransactionLifetime } from '../transactions/transaction-lifetime.js'
 import { isOperationTransportProtocol } from './capabilities.js'
@@ -27,6 +28,7 @@ import {
 	CoreApplicationOperationTransport,
 	type ApplicationOperationTransport,
 	type OperationTransportExposureOptions,
+	type PublicTransportProtectionOptions,
 	type PublicTransportProtectionWarning,
 } from './transport.js'
 
@@ -42,6 +44,10 @@ const warnedUnverifiedProtectionTransports = new WeakMap<
 const operationTransportExposureKeys: ReadonlySet<string> = new Set([
 	'acknowledgeUnverifiedProtection',
 	'operations',
+	'transport',
+])
+const publicTransportProtectionKeys: ReadonlySet<string> = new Set([
+	'acknowledgeUnverifiedProtection',
 	'transport',
 ])
 
@@ -88,6 +94,39 @@ const warnUnverifiedPublicTransportProtection = (
 	})
 
 	console.warn('[UltimaBase] Unverified public transport protection', warning)
+}
+
+/** Reports Core's exact policy knowledge without claiming complete coverage. */
+export const reportFrameworkPublicTransportProtection = <
+	const TTransport extends OperationTransportProtocol,
+>(
+	framework: FrameworkEngine,
+	options: PublicTransportProtectionOptions<TTransport>,
+): void => {
+	if (
+		!isPlainRecord(options) ||
+		!isOperationTransportProtocol(options.transport)
+	) {
+		throw new TypeError(
+			'public transport protection requires a transport protocol',
+		)
+	}
+	for (const key of Object.keys(options)) {
+		if (!publicTransportProtectionKeys.has(key)) {
+			throw new TypeError(
+				`public transport protection contains unknown key: ${key}`,
+			)
+		}
+	}
+	const acknowledgment: unknown = options.acknowledgeUnverifiedProtection
+	if (acknowledgment !== undefined && acknowledgment !== true) {
+		throw new TypeError(
+			'public transport acknowledgeUnverifiedProtection must be true when provided',
+		)
+	}
+	if (acknowledgment !== true) {
+		warnUnverifiedPublicTransportProtection(framework, options.transport)
+	}
 }
 
 /** Materializes operation capabilities only when an initialized facade uses them. */
@@ -174,15 +213,21 @@ export const exposeFrameworkOperations = <
 			}),
 		)
 	}
-	if (acknowledgeUnverifiedProtection !== true) {
-		warnUnverifiedPublicTransportProtection(framework, options.transport)
-	}
+	reportFrameworkPublicTransportProtection(framework, {
+		...(acknowledgeUnverifiedProtection === true
+			? { acknowledgeUnverifiedProtection }
+			: {}),
+		transport: options.transport,
+	})
 
 	return new CoreApplicationOperationTransport(
 		options.transport,
 		new Map(exposed),
 		runtime,
-		(context) => framework.withContext(context),
+		(context) => {
+			assertApplicationRequestExecutionAvailable(framework.application)
+			return framework.withContext(context)
+		},
 	)
 }
 

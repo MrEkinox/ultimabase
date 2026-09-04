@@ -40,6 +40,13 @@ binds the real `{ pluginId, instanceId? }` owner. Keep using Core directly when
 one file contains a single definition and binding the three stable package facts
 would not improve consistency.
 
+Transport authors also use Core directly for
+`applicationRequestExecutionCapability`. Declare its exact requirement, then
+capture the resulting facade, application callback executor, and owner inside
+the transport's own application capability factory. Plugin Kit intentionally
+adds no wrapper that could obscure request attribution, Master elevation, or
+the Core-owned lifecycle boundary.
+
 `plugin(...)` also forwards Core's structured `peers` option. Use it when an
 addon requires a compatible engine but the engine consumes the addon's
 capability, so no lifecycle edge should be introduced.

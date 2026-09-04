@@ -223,6 +223,12 @@ therefore emits Core's product-neutral
 `acknowledgeUnverifiedProtection: true`; installing a policy provider alone does
 not silence that diagnostic.
 
+Requests may carry either an anonymous context or an application-verified
+Master context. The fake forwards that real context unchanged; Core still
+rejects foreign, forged, stale, and wrong-authority Master contexts before the
+operation codec or handler runs. The fake never parses credentials or creates
+authority from wire-shaped input.
+
 ## Fake adapter migration history
 
 `FakeAdapterMigrationHistory` retains one immutable set of attributed adapter

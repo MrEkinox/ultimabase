@@ -41,6 +41,10 @@ import {
 } from '../capabilities.js'
 import { createPersistencePlanRewriteStage } from '../persistence/rewriter-stage.js'
 import { composeRuntimeBehaviors } from '../behaviors/composition.js'
+import {
+	applicationRequestExecutionCapability,
+	bindApplicationRequestExecutor,
+} from './application-request-execution.js'
 
 /** Configures framework-owned assembly without exposing low-level pipeline slots. */
 export interface CreateFrameworkEngineOptions {
@@ -343,5 +347,14 @@ export const createFrameworkEngine = <
 					masterAuthority: normalizedOptions.masterAuthority,
 				}
 
-	return new FrameworkEngine(engineOptions)
+	const framework = new FrameworkEngine(engineOptions)
+	bindApplicationRequestExecutor(
+		readApplicationCapability(
+			application,
+			applicationRequestExecutionCapability,
+		),
+		framework,
+	)
+
+	return framework
 }
