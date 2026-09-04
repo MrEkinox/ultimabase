@@ -2,9 +2,15 @@
 
 Transports translate requests and responses. They do not contain SQL or business-policy shortcuts.
 
+The HTTP and REST sections below describe the accepted milestone 23 target;
+those packages are not shipped yet.
+
 ## REST
 
-REST mounts generated CRUD and query routes through an HTTP-server service. The initial server implementation is Hono on Node.js, with port `1337` by default.
+REST contributes generated CRUD, query, and explicitly selected plugin-operation
+routes through the optional HTTP application capability. The initial concrete
+server implementation is Hono on Node.js, with port `1337` by default. REST does
+not import Hono, GraphQL, authentication, Access, or a database adapter.
 
 ## GraphQL
 
@@ -23,7 +29,18 @@ always `unverified`: installing a policy provider never silences the warning or
 proves that every exposed operation is protected.
 
 An explicit transport acknowledgement accepts only that uncertainty. It does
-not grant access, prove policy coverage, bypass policy, or create master
-authority. Transports still normalize into the shared Runtime pipeline, and
-master access must come from trusted server-side configuration rather than
-request input.
+not grant access, prove policy coverage, bypass policy, or create Master
+authority. Transports still normalize into the shared Runtime pipeline.
+
+Every public HTTP application request identifies one mounted application. When
+the developer explicitly enables Master transport, the HTTP plugin may exchange
+that application's raw Master key through Core's narrow request executor. Core
+verifies and audits the credential before producing private application-owned
+provenance; flags, shaped contexts, serialized grants, foreign credentials, and
+other request structure never create Master.
+
+Cross-origin browser access is disabled by default. Applications sharing one
+server provider use one identical effective policy, and infrastructure-only
+preflight never selects an application or invokes Runtime behavior. The HTTP
+plugin owns safe errors before route dispatch; REST or GraphQL owns later
+protocol errors.

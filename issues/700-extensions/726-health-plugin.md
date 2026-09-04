@@ -3,7 +3,7 @@
 - Status: planned
 - Milestone: 7+
 - Packages: future `@ultimabase/health-plugin`
-- Depends on: 208, 601
+- Depends on: 208, 2303
 - ADR: none
 
 ## Goal

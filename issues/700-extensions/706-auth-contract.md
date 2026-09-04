@@ -1,6 +1,7 @@
 # 706: Define authentication plugin contract
 
-- Status: planned
+- Status: superseded
+- Superseded by: 2318
 - Milestone: 7+
 - Packages: future `@ultimabase/auth-plugin`
 - Depends on: 350, 617

@@ -1,6 +1,7 @@
 # 602: Implement honoServerPlugin
 
-- Status: planned
+- Status: superseded
+- Superseded by: 2305
 - Milestone: 6
 - Packages: `@ultimabase/server-hono-plugin`
 - Depends on: 601

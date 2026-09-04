@@ -36,10 +36,6 @@ const ultimabase = new UltimaBase({
 		postgresPlugin({
 			url: env.DATABASE_URL,
 		}),
-		honoServerPlugin({
-			port: 1337,
-		}),
-		restPlugin(),
 		graphqlYogaPlugin(),
 	],
 })
@@ -85,6 +81,15 @@ users[0]?.toJSON() // A detached immutable object.
 - Stable plugin operations and application-specific model surfaces execute
   through application-owned handles rather than mutating exported schema classes.
 - PostgreSQL synchronization and PostgreSQL migrations are separate capabilities.
+- The accepted milestone 23 target puts HTTP application identity,
+  Fetch-compatible route composition, and request context resolution in an
+  optional HTTP plugin. Hono only provides the server, REST and GraphQL remain
+  sibling transports, and Password Auth adds identity without granting
+  authorization.
+- That target enters Runtime through a narrow Core request-execution capability
+  rather than giving HTTP the application engine. Cross-origin access is
+  explicit, disabled by default, and consistent across applications sharing one
+  server.
 - The framework targets Node.js 24+, ESM, TypeScript, and an Apache-2.0 license.
 
 ## Repository map

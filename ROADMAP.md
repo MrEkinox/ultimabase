@@ -32,8 +32,13 @@ single-pass mutation semantics. Milestone 22 completed the extraction of only
 the direct `validation` option and application validator into an optional
 official plugin while Core retained required presence and every structural
 field and Runtime invariant. Milestone 8 then closed its remaining Typegen DX
-and performance audit with measured generated-contract evidence. No milestone
-is currently active.
+and performance audit with measured generated-contract evidence.
+
+Milestone 23 is now active. It delivers the first public client-to-PostgreSQL
+vertical in product order: a shared optional HTTP capability, Hono provider,
+experimental REST v1, audited application-ID and Master-key requests, then
+local Password Auth with opaque sessions. GraphQL remains independent and
+follows the verified authenticated REST vertical rather than blocking it.
 
 The ACL hardening plan remains paused at issue 432. It is not part of an active
 plan.
@@ -79,20 +84,22 @@ Drizzle-backed adapter, schema compilation, introspection, direct schema synchro
 The migration package remains planned and gains a workspace only when issue 513
 starts implementation.
 
-## Milestone 6 — REST and GraphQL vertical
+## Milestone 6 — GraphQL vertical and cross-transport parity
 
-Hono server, generated REST endpoints, GraphQL schema generation, cursor connections, Yoga integration, custom schema merging, and developer explorers.
-These transport packages remain planned and gain workspaces only when their
-implementation issues start.
+Network-independent GraphQL schema generation, cursor connections, mutations,
+custom schema merging, HTTP mounting through Yoga, developer explorers, and
+final REST/GraphQL parity. The original pre-kernel REST issues are superseded
+by milestone 23. GraphQL packages remain planned and gain workspaces only when
+their implementation issues start.
 
 ## Milestone 7+ — Optional ecosystem
 
 Pointers, relations, and JSONB-backed object fields are complete
-transport-neutral foundations. Authentication, realtime, jobs, cache, gRPC,
-OpenAPI, CLI, code generation, SDKs, audit, observability, soft delete, tenant
-isolation, advanced fields, health, and administration remain issue-tracked
-capabilities. New
-packages are created only when implementation begins.
+transport-neutral foundations. Local Password Auth is active in milestone 23;
+other authentication integrations, realtime, jobs, cache, gRPC, OpenAPI, CLI,
+code generation, SDKs, audit, observability, soft delete, tenant isolation,
+advanced fields, health, and administration remain issue-tracked capabilities.
+New packages are created only when implementation begins.
 
 ## Milestone 8 — Generated schema authoring and developer tooling
 
@@ -213,6 +220,28 @@ enforcement. Without `validationPlugin()` the option is absent from generated
 types, untyped use fails application compilation, and Runtime installs no
 application-validation behavior. With it installed, ADR-0221's exact-once,
 read-free, atomic-arithmetic, and Master non-bypass semantics remain unchanged.
+
+## Milestone 23 — HTTP, REST, and password authentication
+
+Deliver a public application boundary through `@ultimabase/http-plugin`, a Hono
+server provider, an experimental REST v1 protocol, and local Password Auth.
+Every HTTP application request identifies one application; explicitly
+configured infrastructure-only browser preflight is the sole exception. An
+explicitly enabled Master header is verified and audited only by that
+application's Core authority; Bearer or secure-cookie sessions add typed
+identity without adding a Core user mode or granting authorization.
+
+Core first supplies a narrow application request execution capability so HTTP
+can enter Runtime without receiving an engine or application object. One
+effective browser policy applies to every application sharing a server,
+preflight performs no application work, and HTTP owns safe failures that happen
+before a REST or GraphQL handler begins.
+
+The milestone proves anonymous, authenticated, and Master reads, mutations, and
+explicit plugin operations through the same Query and Operation AST, Runtime,
+Access, Hooks, Validation, transaction, and PostgreSQL pipeline. GraphQL
+remains a sibling transport and resumes after this vertical without depending
+on REST. HTTP Basic and Better Auth remain separate deferred integrations.
 
 ## First usable release
 

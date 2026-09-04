@@ -1,6 +1,7 @@
 # 604: Create REST request contexts
 
-- Status: planned
+- Status: superseded
+- Superseded by: 2304
 - Milestone: 6
 - Packages: `@ultimabase/rest-plugin`
 - Depends on: 314, 350, 601

@@ -27,16 +27,24 @@ alternatives use the same generic public kernel.
 - `access-plugin`
 - `validation-plugin`
 
+The next active milestone creates these official packages only when their first
+complete implementation issues begin:
+
+- `http-plugin`
+- `server-hono-plugin`
+- `rest-plugin`
+- `password-auth-plugin`
+
 ## Planned plugin packages
 
 The accepted names below remain issue-tracked but do not have workspace
 directories until implementation begins:
 
 - `postgres-migrations-plugin`
-- `server-hono-plugin`
-- `rest-plugin`
 - `graphql-plugin`
 - `graphql-yoga-plugin`
+- `http-basic-auth-plugin`
+- `better-auth-plugin`
 
 The optional Hooks and Access engines each keep their public authoring and
 contribution contracts in their single official plugin package. The Validation

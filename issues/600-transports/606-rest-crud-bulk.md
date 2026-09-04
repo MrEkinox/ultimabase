@@ -1,6 +1,7 @@
 # 606: Execute REST CRUD, bulk, and upsert routes
 
-- Status: planned
+- Status: superseded
+- Superseded by: 2308
 - Milestone: 6
 - Packages: `@ultimabase/rest-plugin`
 - Depends on: 315, 316, 603, 604, 605

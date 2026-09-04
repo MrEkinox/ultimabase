@@ -1,6 +1,7 @@
 # 605: Normalize REST queries to Query AST
 
-- Status: planned
+- Status: superseded
+- Superseded by: 2307
 - Milestone: 6
 - Packages: `@ultimabase/rest-plugin`
 - Depends on: 301, 302, 303, 304, 305, 603

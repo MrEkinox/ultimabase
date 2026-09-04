@@ -35,6 +35,11 @@ contracts later rather than defining parallel relationship semantics.
 
 Issue 703 completed the default JSONB-backed `objectField` vertical. Issues 704
 through 728 preserve future product intent without creating empty packages.
+The former generic authentication issue 706 is superseded by milestone 23's
+local Password Auth vertical. Better Auth issue 707 remains an independent
+future integration over the shared HTTP and Core capabilities. Deferred issue
+748 separately preserves HTTP Basic for explicit internal or legacy use rather
+than treating it as the default User authentication product.
 Issues 729 through 736 are superseded historical proposals: Standard Schema now
 composes validation-only formats with native fields, so no derived-field layer
 or standard-fields plugin remains on the active roadmap. The retained issues

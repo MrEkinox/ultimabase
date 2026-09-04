@@ -3,7 +3,7 @@
 - Status: planned
 - Milestone: 6
 - Packages: future explorer packages
-- Depends on: 205, 601, 615
+- Depends on: 205, 615
 - ADR: ADR-0003, ADR-0010
 
 ## Goal

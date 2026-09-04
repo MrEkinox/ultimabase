@@ -16,7 +16,7 @@ Static TypeScript schemas generate or drive:
 
 ## First release scope
 
-The first complete vertical includes:
+The first release scope includes:
 
 - primitive fields: string, integer/float number, boolean, date, enum, JSON, and array;
 - UUID v7 identifiers plus `createdAt` and `updatedAt`;
@@ -24,7 +24,12 @@ The first complete vertical includes:
 - immutable Query classes and cursor pagination;
 - PostgreSQL through Drizzle internally;
 - direct schema synchronization and an optional PostgreSQL migration plugin;
+- an optional Fetch-compatible HTTP application plugin with one required public
+  application ID, explicit cross-origin browser policy, and Hono as the first
+  server provider;
 - generated REST;
+- local username/password authentication with opaque Bearer sessions and an
+  optional secure-cookie transport;
 - generated GraphQL through Yoga;
 - custom `GraphQLSchema` merging;
 - automatic mutation transactions, optional official typed schema and field
@@ -79,7 +84,10 @@ non-transactional unless the developer explicitly opens a transaction.
 - ACL applies to individual objects through Core's generic protected-policy boundary and never broadens another policy.
 - official field Access controls output, `where`, `orderBy`, create input, and fill, replace, clear, or relation-write transitions.
 - roles may contain members and other roles without granting an operation by installation alone.
-- master is trusted server-side authority and is audited.
+- master is trusted authority and is audited. An explicitly configured HTTP
+  boundary may verify the selected application's raw Master key before Core
+  creates application-owned provenance; request structure alone never creates
+  authority.
 
 ## Compatibility
 

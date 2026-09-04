@@ -206,6 +206,9 @@ Accepted records:
 - [ADR-0221: Field validation is a single mutation-input boundary](0221-single-pass-field-validation.md)
 - [ADR-0222: Sparse Access resolves granular secure defaults](0222-sparse-read-access-inherits-secure-defaults.md)
 - [ADR-0223: Application field validation is an optional plugin](0223-optional-field-validation-plugin.md)
+- [ADR-0224: HTTP application, REST, and password authentication boundaries](0224-http-application-rest-and-password-auth-boundaries.md)
+- [ADR-0225: Core provides a narrow application request execution capability](0225-core-application-request-execution-capability.md)
+- [ADR-0226: HTTP browser and pre-dispatch boundaries are server-consistent](0226-http-browser-and-predispatch-boundaries.md)
 
 Superseded records:
 

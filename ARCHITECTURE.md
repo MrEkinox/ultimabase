@@ -64,11 +64,36 @@ implementation issue starts:
 
 ```text
 postgres-migrations-plugin → postgres-plugin, core
-server-hono-plugin ────────→ core
-rest-plugin ───────────────→ core
-graphql-plugin ────────────→ core
-graphql-yoga-plugin ───────→ graphql-plugin, core
+http-plugin ───────────────→ plugin-kit, core, shared
+server-hono-plugin ────────→ http-plugin, plugin-kit, core, shared
+rest-plugin ───────────────→ http-plugin, plugin-kit, core, shared
+password-auth-plugin ──────→ http-plugin, plugin-kit, core, shared
+graphql-plugin ────────────→ plugin-kit, core, shared
+graphql-yoga-plugin ───────→ http-plugin, graphql-plugin, plugin-kit, core, shared
+http-basic-auth-plugin ────→ http-plugin, plugin-kit, core, shared
+better-auth-plugin ────────→ http-plugin, plugin-kit, core, shared
 ```
+
+The HTTP, Hono, REST, and Password Auth package identities are accepted by
+ADR-0224 but remain future workspaces until milestone 23 creates each complete
+implementation. `graphql-plugin` remains network-independent. Yoga, REST,
+Hono, and HTTP authentication integrations meet through the HTTP plugin rather
+than importing one another.
+
+Core provides one narrow versioned application request execution capability as
+accepted by ADR-0225. Its stable facade is privately bound after engine
+construction and before Runtime or transport lifecycle hooks. Transport
+plugins may create and bind contexts, enter request execution, exchange one raw
+Master credential through the audited application authority, expose selected
+plugin operations, and report public-protection uncertainty. They never receive
+the application, engine, adapter, pipeline, authority, grant, transaction, or
+lifecycle controls themselves.
+
+ADR-0226 keeps browser preflight outside application selection. One HTTP server
+provider has one effective browser policy, and applications sharing that
+provider must request structurally identical policies. The HTTP plugin owns
+safe failures before route dispatch; REST, GraphQL, and other protocols own
+only failures raised after their handler begins.
 
 Official Hooks, Access, and Validation contracts live in their respective plugin
 packages. Importing a package does not install it. Official-compatible plugins and
@@ -251,8 +276,13 @@ direct filesystem, network, process, or native-code behavior that Core cannot
 verify. Neither mechanism is an operating-system sandbox. Critical privileges
 include complete schema or Runtime replacement, raw adapter access, and
 authority elevation. Core exposes no filesystem, network, or Typegen replacement
-privilege without a corresponding enforceable facade. Master credential verification and grant
-creation remain Core-owned and cannot be manufactured by transport input.
+privilege without a corresponding enforceable facade. Master credential
+verification and grant creation remain Core-owned. An explicitly configured
+HTTP plugin may pass one raw key to the exact application authority selected by
+the mandatory public application ID, but transport structure, flags, contexts,
+grants, and foreign credentials cannot manufacture authority. Successful
+verification and audit create the same private application-owned provenance as
+trusted server execution.
 
 Versioned capabilities replace public architectural string slots. A `single`
 capability accepts one provider, a `multiple` capability accepts independent

@@ -1,6 +1,7 @@
 # 603: Generate REST route metadata
 
-- Status: planned
+- Status: superseded
+- Superseded by: 2306
 - Milestone: 6
 - Packages: `@ultimabase/rest-plugin`
 - Depends on: 113, 601

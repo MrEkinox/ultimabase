@@ -1,6 +1,7 @@
 # 607: Define experimental REST response and error contract
 
-- Status: planned
+- Status: superseded
+- Superseded by: 2310
 - Milestone: 6
 - Packages: `@ultimabase/rest-plugin`
 - Depends on: 201, 606

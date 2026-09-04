@@ -7,7 +7,8 @@ priority changes.
 
 ## Active
 
-- None.
+- [HTTP, REST, and password authentication](../../CURRENT_PLAN.md), tracked as
+  milestone 23 and resumable at issue 2302.
 
 ## Paused
 

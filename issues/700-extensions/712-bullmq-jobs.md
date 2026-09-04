@@ -3,7 +3,7 @@
 - Status: planned
 - Milestone: 7+
 - Packages: future `@ultimabase/jobs-bullmq-plugin`
-- Depends on: 706, 617
+- Depends on: 2313, 617
 - ADR: new ADR required
 
 ## Goal
