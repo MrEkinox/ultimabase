@@ -2,8 +2,19 @@
 
 Transports translate requests and responses. They do not contain SQL or business-policy shortcuts.
 
-The HTTP and REST sections below describe the accepted milestone 23 target;
-those packages are not shipped yet.
+The optional HTTP package now provides application identity, immutable route
+composition, and the provider-facing Fetch boundary without opening a socket.
+The REST and concrete server sections below describe the remaining accepted
+milestone 23 target; those packages are not shipped yet.
+
+## HTTP
+
+`httpPlugin({ appId })` materializes one application-local route graph. Route
+owners contribute standard `Request` to `Response` handlers through the public
+HTTP capability, while server providers select a mounted application from the
+ordered original `X-UltimaBase-Application-Id` header evidence. External and
+framework-owned providers consume the same graph; request contexts, Master
+verification, browser policy, and sockets remain later issue-owned layers.
 
 ## REST
 

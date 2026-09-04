@@ -55,7 +55,7 @@ graphql-yoga-plugin later ─────────┘         │
 2. [x] Issue 2321 — accept browser-policy and pre-dispatch HTTP boundaries.
 3. [x] Issue 2302 — decide the exact experimental HTTP and REST v1 wire contract.
 4. [x] Issue 2319 — implement the Core application request execution capability.
-5. [ ] Issue 2303 — implement the HTTP application capability.
+5. [x] Issue 2303 — implement the HTTP application capability.
 6. [ ] Issue 2304 — implement HTTP contexts and audited Master verification.
 7. [ ] Issue 2305 — implement the Hono server provider.
 8. [ ] Issue 2317 — implement the explicit HTTP browser boundary.

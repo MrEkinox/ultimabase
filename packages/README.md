@@ -26,11 +26,11 @@ alternatives use the same generic public kernel.
 - `hooks-plugin`
 - `access-plugin`
 - `validation-plugin`
+- `http-plugin`
 
 The next active milestone creates these official packages only when their first
 complete implementation issues begin:
 
-- `http-plugin`
 - `server-hono-plugin`
 - `rest-plugin`
 - `password-auth-plugin`

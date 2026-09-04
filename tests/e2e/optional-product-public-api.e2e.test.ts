@@ -6,8 +6,10 @@ import {
 	accessPluginPublicApi,
 	getOptionalProductPublicApiNames,
 	hooksPluginPublicApi,
+	httpPluginPublicApi,
 	removedAccessPluginPublicApiNames,
 	removedHooksPluginPublicApiNames,
+	removedHttpPluginPublicApiNames,
 	removedValidationPluginPublicApiNames,
 	type OptionalProductPublicApi,
 	validationPluginPublicApi,
@@ -19,6 +21,7 @@ interface OptionalProductFixture {
 	readonly moduleSpecifier:
 		| '@ultimabase/access-plugin'
 		| '@ultimabase/hooks-plugin'
+		| '@ultimabase/http-plugin'
 		| '@ultimabase/validation-plugin'
 	readonly removedNames: readonly string[]
 }
@@ -33,6 +36,11 @@ const fixtures: readonly OptionalProductFixture[] = [
 		classification: hooksPluginPublicApi,
 		moduleSpecifier: '@ultimabase/hooks-plugin',
 		removedNames: removedHooksPluginPublicApiNames,
+	},
+	{
+		classification: httpPluginPublicApi,
+		moduleSpecifier: '@ultimabase/http-plugin',
+		removedNames: removedHttpPluginPublicApiNames,
 	},
 	{
 		classification: validationPluginPublicApi,

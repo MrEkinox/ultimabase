@@ -206,6 +206,49 @@ export const validationPluginPublicApi = {
 	conformanceSupport: [],
 } as const satisfies OptionalProductPublicApi
 
+export const httpPluginPublicApi = {
+	applicationApi: [
+		'HttpEndpointDefinition',
+		'HttpEndpointProtocol',
+		'HttpMethod',
+		'HttpMountDefinition',
+		'HttpMountOptions',
+		'HttpPlugin',
+		'HttpPluginExports',
+		'HttpPluginOptions',
+		'HttpRequestHandler',
+		'HttpRouteDefinition',
+		'HttpRouteOptions',
+		'ProvideHttpEndpointsOptions',
+		'httpMount',
+		'httpPlugin',
+		'httpRoute',
+		'provideHttpEndpoints',
+	],
+	compatibleProviderContract: [
+		'HttpApplication',
+		'HttpApplicationMountTable',
+		'HttpEndpointContributionFactory',
+		'HttpEndpointContributionFactoryContext',
+		'HttpEndpointContributionsCapability',
+		'HttpEndpointProvenance',
+		'HttpOriginalHeader',
+		'HttpRouteGraph',
+		'HttpServerOwnership',
+		'HttpServerProviderCompatibility',
+		'HttpServerRequest',
+		'OwnedHttpEndpoint',
+		'OwnedHttpMount',
+		'OwnedHttpRoute',
+		'httpApplicationCapability',
+		'httpApplicationIdHeader',
+		'httpApplicationProtocolVersion',
+		'httpEndpointContributionsCapability',
+		'httpOriginalHeaderMode',
+	],
+	conformanceSupport: [],
+} as const satisfies OptionalProductPublicApi
+
 /** Produces the exact sorted root export set shared by source and packed tests. */
 export const getOptionalProductPublicApiNames = (
 	classification: OptionalProductPublicApi,
@@ -254,4 +297,12 @@ export const removedValidationPluginPublicApiNames = [
 	'fieldValidationOption',
 	'requiresValidationTargets',
 	'validateMutationInput',
+] as const
+
+/** Names HTTP assembly internals deliberately kept out of the root API. */
+export const removedHttpPluginPublicApiNames = [
+	'assertHttpEndpointDefinitions',
+	'assertHttpServerRequest',
+	'createHttpApplicationResource',
+	'readHttpApplicationId',
 ] as const

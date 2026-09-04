@@ -13,7 +13,7 @@ and transport-independent GraphQL.
 2. [x] [2321 — Decide HTTP browser and pre-dispatch boundaries](2321-http-browser-predispatch-decision.md)
 3. [x] [2302 — Decide the experimental HTTP and REST v1 wire contract](2302-rest-v1-wire-contract.md)
 4. [x] [2319 — Implement the Core application request execution capability](2319-core-request-execution-capability.md)
-5. [ ] [2303 — Implement the HTTP application capability](2303-http-application-capability.md)
+5. [x] [2303 — Implement the HTTP application capability](2303-http-application-capability.md)
 6. [ ] [2304 — Add HTTP request contexts and Master verification](2304-http-context-and-master.md)
 7. [ ] [2305 — Implement the Hono server provider](2305-hono-server-provider.md)
 8. [ ] [2317 — Implement the HTTP browser boundary](2317-http-browser-boundary.md)

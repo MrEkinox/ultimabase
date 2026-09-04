@@ -1,0 +1,152 @@
+import { describe, expect, it, vi } from 'vitest'
+
+import {
+	httpApplicationProtocolVersion,
+	httpOriginalHeaderMode,
+} from './constants.js'
+import {
+	HttpApplicationMountTable,
+	type HttpServerProviderCompatibility,
+} from './mount-table.js'
+import type {
+	HttpApplication,
+	HttpOriginalHeader,
+	HttpServerRequest,
+} from './application.js'
+
+const compatibility = (
+	ownership: 'external' | 'framework',
+): HttpServerProviderCompatibility => ({
+	applicationProtocolVersion: httpApplicationProtocolVersion,
+	originalHeaderMode: httpOriginalHeaderMode,
+	ownership,
+})
+
+const fakeApplication = (
+	appId: string,
+	handle: (input: HttpServerRequest) => Promise<Response | undefined> = () =>
+		Promise.resolve(new Response(appId)),
+): HttpApplication => ({
+	appId,
+	protocolVersion: httpApplicationProtocolVersion,
+	originalHeaderMode: httpOriginalHeaderMode,
+	routeGraph: { endpoints: [], mounts: [], routes: [] },
+	fetch: handle,
+})
+
+const request = (
+	originalHeaders: readonly HttpOriginalHeader[],
+): HttpServerRequest => ({
+	originalHeaders,
+	request: new Request('http://localhost/status'),
+})
+
+describe('HttpApplicationMountTable', () => {
+	it('lets external and framework-owned providers mount the same exact graph', async () => {
+		const application = fakeApplication('shared')
+		const external = new HttpApplicationMountTable(
+			compatibility('external'),
+		).mount(application)
+		const framework = new HttpApplicationMountTable(
+			compatibility('framework'),
+		).mount(application)
+		const input = request([['x-ultimabase-application-id', 'shared']])
+
+		expect(external.values()[0]?.routeGraph).toBe(application.routeGraph)
+		expect(framework.values()[0]?.routeGraph).toBe(application.routeGraph)
+		expect(await (await external.fetch(input))?.text()).toBe('shared')
+		expect(await (await framework.fetch(input))?.text()).toBe('shared')
+	})
+
+	it('commits immutable replacements and preserves prior tables on conflicts', () => {
+		const first = fakeApplication('blog')
+		const conflicting = fakeApplication('blog')
+		const empty = new HttpApplicationMountTable(compatibility('external'))
+		const mounted = empty.mount(first)
+
+		expect(empty.size).toBe(0)
+		expect(mounted.size).toBe(1)
+		expect(mounted.mount(first)).toBe(mounted)
+		expect(() => mounted.mount(conflicting)).toThrow(
+			'HTTP application ID is already mounted',
+		)
+		expect(mounted.values()).toStrictEqual([first])
+		expect(mounted.unmount(conflicting)).toBe(mounted)
+		expect(mounted.unmount(first).size).toBe(0)
+	})
+
+	it.each([
+		{ headers: [], label: 'missing' },
+		{
+			headers: [
+				['X-UltimaBase-Application-Id', 'blog'],
+				['x-ultimabase-application-id', 'blog'],
+			],
+			label: 'duplicate',
+		},
+		{
+			headers: [['X-UltimaBase-Application-Id', 'unknown']],
+			label: 'unknown',
+		},
+	] as const)(
+		'rejects $label application selection uniformly',
+		({ headers }) => {
+			const table = new HttpApplicationMountTable(
+				compatibility('external'),
+			).mount(fakeApplication('blog'))
+
+			expect(() => table.select(request(headers))).toThrow(
+				new TypeError('HTTP application request was rejected'),
+			)
+		},
+	)
+
+	it('preserves comma-bearing values instead of splitting normalized headers', () => {
+		const table = new HttpApplicationMountTable(
+			compatibility('external'),
+		).mount(fakeApplication('blog'))
+
+		expect(() =>
+			table.select(
+				request([['X-UltimaBase-Application-Id', 'blog, secondary']]),
+			),
+		).toThrow('HTTP application request was rejected')
+	})
+
+	it('rejects unsupported provider and application protocols before mutation', () => {
+		expect(
+			() =>
+				new HttpApplicationMountTable({
+					...compatibility('external'),
+					applicationProtocolVersion: '2.0.0',
+				} as never),
+		).toThrow('Unsupported HTTP application protocol version')
+		expect(
+			() =>
+				new HttpApplicationMountTable({
+					...compatibility('external'),
+					originalHeaderMode: 'normalized',
+				} as never),
+		).toThrow('preserve ordered original header pairs')
+
+		const table = new HttpApplicationMountTable(compatibility('external'))
+		expect(() =>
+			table.mount({
+				...fakeApplication('future'),
+				protocolVersion: '2.0.0',
+			} as never),
+		).toThrow('incompatible application')
+		expect(table.size).toBe(0)
+	})
+
+	it('selects before invoking the fake server application', async () => {
+		const handler = vi.fn(() => Promise.resolve(new Response('selected')))
+		const table = new HttpApplicationMountTable(
+			compatibility('framework'),
+		).mount(fakeApplication('selected', handler))
+		const input = request([['X-UltimaBase-Application-Id', 'selected']])
+
+		expect(await (await table.fetch(input))?.text()).toBe('selected')
+		expect(handler).toHaveBeenCalledExactlyOnceWith(input)
+	})
+})

@@ -52,6 +52,7 @@ pg-vector-plugin ─────→ plugin-kit, core, shared
 roles-plugin ─────────→ access-plugin, plugin-kit, core, shared
 acl-permissions-plugin → plugin-kit, core, shared
 postgres-plugin ──────→ plugin-kit, core, shared
+http-plugin ──────────→ plugin-kit, core, shared
 testing ──────────────→ typegen, core, shared
 ```
 
@@ -64,7 +65,6 @@ implementation issue starts:
 
 ```text
 postgres-migrations-plugin → postgres-plugin, core
-http-plugin ───────────────→ plugin-kit, core, shared
 server-hono-plugin ────────→ http-plugin, plugin-kit, core, shared
 rest-plugin ───────────────→ http-plugin, plugin-kit, core, shared
 password-auth-plugin ──────→ http-plugin, plugin-kit, core, shared
@@ -74,11 +74,12 @@ http-basic-auth-plugin ────→ http-plugin, plugin-kit, core, shared
 better-auth-plugin ────────→ http-plugin, plugin-kit, core, shared
 ```
 
-The HTTP, Hono, REST, and Password Auth package identities are accepted by
-ADR-0224 but remain future workspaces until milestone 23 creates each complete
-implementation. `graphql-plugin` remains network-independent. Yoga, REST,
-Hono, and HTTP authentication integrations meet through the HTTP plugin rather
-than importing one another.
+The HTTP package is the first milestone 23 workspace accepted by ADR-0224. It
+owns application IDs and an application-lifetime Fetch route graph without
+opening a socket. The Hono, REST, and Password Auth packages remain future
+workspaces until their implementation issues begin. `graphql-plugin` remains
+network-independent. Yoga, REST, Hono, and HTTP authentication integrations
+meet through the HTTP plugin rather than importing one another.
 
 Core provides one narrow versioned application request execution capability as
 accepted by ADR-0225. Its stable facade is privately bound after engine

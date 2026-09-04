@@ -1,6 +1,7 @@
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { aclPlugin } from '@ultimabase/acl-permissions-plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
+import { httpPlugin } from '@ultimabase/http-plugin'
 import { pgVectorPlugin } from '@ultimabase/pg-vector-plugin'
 import {
 	postgresPlugin,
@@ -29,6 +30,7 @@ it('publishes the audited privilege and environment contract for every official 
 		accessPlugin().manifest,
 		hooksPlugin().manifest,
 		validationPlugin().manifest,
+		httpPlugin({ appId: 'manifest-fixture' }).manifest,
 		aclPlugin().manifest,
 		rolesPlugin().manifest,
 		pgVectorPlugin().manifest,
@@ -67,6 +69,11 @@ it('publishes the audited privilege and environment contract for every official 
 			environment: [],
 			pluginId: '@ultimabase/validation-plugin',
 			privileges: ['schema:declare', 'runtime:intercept'],
+		},
+		{
+			environment: [],
+			pluginId: '@ultimabase/http-plugin',
+			privileges: [],
 		},
 		{
 			environment: [],

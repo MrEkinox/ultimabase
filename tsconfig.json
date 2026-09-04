@@ -24,6 +24,7 @@
 		{ "path": "./packages/pg-vector-plugin" },
 		{ "path": "./packages/roles-plugin" },
 		{ "path": "./packages/validation-plugin" },
+		{ "path": "./packages/http-plugin" },
 		{ "path": "./packages/acl-permissions-plugin" },
 		{ "path": "./packages/postgres-plugin" },
 		{ "path": "./packages/testing" }
