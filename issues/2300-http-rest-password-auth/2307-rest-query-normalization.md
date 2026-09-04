@@ -16,14 +16,14 @@ AST without adding transport nodes or executing it during normalization.
 - [ ] Collection find, singular get, and count requests normalize through one
       shared schema-aware boundary.
 - [ ] Accepted simple GET and complex request forms produce equivalent canonical
-      filters, selections, inclusions, ordering, limits, offsets, and cursors.
+      filters, selections, inclusions, ordering, limits, and offsets.
 - [ ] Field-kind operators, pointer identity and target predicates, relation
       predicates, embedded object targets, null, and list values use existing
       Core normalization rather than parallel REST semantics.
 - [ ] Count remains its exact logical read operation so Access can authorize it
       independently from item reads.
 - [ ] Unknown fields, malformed operators, invalid scalar representations,
-      unsupported combinations, excessive limits, and invalid cursors fail
+      unsupported combinations, excessive limits, and invalid pagination fail
       before Runtime with stable safe issues.
 - [ ] Complex read bodies enforce the accepted media type and streaming size
       limit before JSON parsing and never trust `Content-Length` alone.

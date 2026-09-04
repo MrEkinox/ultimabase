@@ -4,6 +4,7 @@
 - Date: 2026-09-03
 - Refines: ADR-0009, ADR-0209, ADR-0224
 - Depends on: ADR-0009, ADR-0209, ADR-0224
+- Refined by: ADR-0228
 
 ## Context
 

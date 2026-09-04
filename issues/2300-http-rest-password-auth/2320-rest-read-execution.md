@@ -35,7 +35,7 @@ Runtime and return its logical result to the shared REST response encoder.
 ## Tests
 
 - [ ] Direct-Query equivalence covers every accepted read, selection,
-      inclusion, cursor, relation, pointer, Access, ACL, and failure shape.
+      inclusion, offset, relation, pointer, Access, ACL, and failure shape.
 - [ ] Anonymous, session-valued anonymous, Master, cancellation, deadline,
       application-isolation, packed-package, and PostgreSQL Testcontainers
       tests pass.

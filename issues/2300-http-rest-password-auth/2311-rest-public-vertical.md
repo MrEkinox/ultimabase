@@ -15,7 +15,7 @@ Master requests before authentication or GraphQL work begins.
 
 - [ ] A public example starts Hono on port `1337`, requires an application ID,
       and exposes configured REST schema and plugin-operation routes.
-- [ ] Anonymous CRUD, find, get, count, upsert, itemized bulk, cursors,
+- [ ] Anonymous CRUD, find, get, count, upsert, itemized bulk, offsets,
       selections, inclusions, pointers, relations, Access, ACL, Hooks, and
       Validation match direct Runtime behavior.
 - [ ] The accepted `first` and `exists` behavior is implemented or rejected

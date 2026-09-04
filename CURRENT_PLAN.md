@@ -3,8 +3,8 @@
 - Status: active
 - Milestone: 23
 - Started: 2026-09-03
-- Governing decisions: [ADR-0224](docs/adr/0224-http-application-rest-and-password-auth-boundaries.md), [ADR-0225](docs/adr/0225-core-application-request-execution-capability.md), [ADR-0226](docs/adr/0226-http-browser-and-predispatch-boundaries.md), and [ADR-0227](docs/adr/0227-core-query-exposes-offset-not-cursors.md)
-- Resume point: [issue 2302](issues/2300-http-rest-password-auth/2302-rest-v1-wire-contract.md)
+- Governing decisions: [ADR-0224](docs/adr/0224-http-application-rest-and-password-auth-boundaries.md), [ADR-0225](docs/adr/0225-core-application-request-execution-capability.md), [ADR-0226](docs/adr/0226-http-browser-and-predispatch-boundaries.md), [ADR-0227](docs/adr/0227-core-query-exposes-offset-not-cursors.md), and [ADR-0228](docs/adr/0228-experimental-http-rest-v1-wire-contract.md)
+- Resume point: [issue 2319](issues/2300-http-rest-password-auth/2319-core-request-execution-capability.md)
 
 ## Objective
 
@@ -53,7 +53,7 @@ graphql-yoga-plugin later ─────────┘         │
 
 1. [x] Issue 2301 — accept package, identity, Master, auth, and sequencing boundaries.
 2. [x] Issue 2321 — accept browser-policy and pre-dispatch HTTP boundaries.
-3. [ ] Issue 2302 — decide the exact experimental HTTP and REST v1 wire contract.
+3. [x] Issue 2302 — decide the exact experimental HTTP and REST v1 wire contract.
 4. [ ] Issue 2319 — implement the Core application request execution capability.
 5. [ ] Issue 2303 — implement the HTTP application capability.
 6. [ ] Issue 2304 — implement HTTP contexts and audited Master verification.

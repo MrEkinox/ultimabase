@@ -95,6 +95,15 @@ provider must request structurally identical policies. The HTTP plugin owns
 safe failures before route dispatch; REST, GraphQL, and other protocols own
 only failures raised after their handler begins.
 
+ADR-0228 fixes the experimental REST v1 surface under `/api/v1`. Application-owned
+schemas may declare the direct `rest` option, sparse declarations inherit the
+REST plugin default, and plugin-owned schemas remain private from generated CRUD
+routes. Short class paths normalize simple GET parameters or explicit complex
+POST bodies into the existing Query and Operation AST. REST returns stable
+`result`, `results`, `count`, `exists`, and error envelopes, uses limit and
+offset pagination without response metadata, and preserves atomic itemized bulk
+execution.
+
 Official Hooks, Access, and Validation contracts live in their respective plugin
 packages. Importing a package does not install it. Official-compatible plugins and
 providers import those public contracts, while independent alternatives own
