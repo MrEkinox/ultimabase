@@ -14,7 +14,13 @@ import { UltimaBase } from '@ultimabase/core'
 import { httpPlugin } from '@ultimabase/http-plugin'
 
 const ultimabase = new UltimaBase({
-	plugins: [httpPlugin({ appId: 'blog' })],
+	plugins: [
+		httpPlugin({
+			appId: 'blog',
+			master: { enabled: true },
+			requestTimeoutMs: 15_000,
+		}),
+	],
 	schemas: [],
 })
 ```
@@ -27,9 +33,73 @@ carry exactly one original occurrence of:
 X-UltimaBase-Application-Id: blog
 ```
 
-The browser-preflight exception and Master verification are deliberately added
-by later milestone-23 issues. This package currently accepts no corresponding
-options or shortcuts.
+Every accepted route begins with a new anonymous, application-bound Core
+context. `requestTimeoutMs` optionally composes one deadline with the Fetch
+signal; the resulting signal is shared by resolvers, handlers, Runtime work,
+transactions, and response completion.
+
+`master: { enabled: true }` enables only the canonical
+`X-UltimaBase-Master-Key` header. The plugin then requests
+`authority:elevate`, passes that raw value directly to the selected
+application's configured `MasterAuthority`, and continues only after its audit
+succeeds. A missing header remains anonymous. Invalid, duplicate, disabled,
+foreign, unaudited, or authority-less Master attempts fail before route
+behavior. Query parameters, body fields, alternative headers, grants, contexts,
+privileges, and `useMasterKey` never select Master.
+
+The browser-preflight exception is deliberately added by a later milestone-23
+issue.
+
+## Contribute request context
+
+Credential plugins contribute ordered resolvers without introducing a new Core
+authority mode. A resolver receives the current anonymous context and a
+credential-only request view, then returns an immutable derivative made with
+`withValue()`:
+
+```ts
+import { RequestContextValue, definePlugin } from '@ultimabase/core'
+import {
+	httpContextResolver,
+	provideHttpContextResolvers,
+} from '@ultimabase/http-plugin'
+
+const principal = new RequestContextValue('example.principal', (value) => {
+	if (typeof value !== 'object' || value === null) {
+		throw new TypeError('Principal must be an object')
+	}
+	return Object.freeze(value)
+})
+
+const credentials = definePlugin({
+	pluginId: 'example.credentials',
+	version: '1.0.0',
+	core: '^0.0.0',
+	capabilities: {
+		provides: [
+			provideHttpContextResolvers({
+				contributionId: 'bearer',
+				create: () =>
+					httpContextResolver({
+						resolve: async ({ context, request }) => {
+							const value = await verifyBearer(
+								request.headers.get('Authorization'),
+							)
+							return context.withValue(principal, value)
+						},
+					}),
+			}),
+		],
+	},
+})
+```
+
+Resolvers run in plugin graph and registration order under their exact owners.
+They may add their own validated values, but cannot replace request identity,
+source, signal, metadata, capabilities, application lineage, or anonymous Core
+authority. Master verification runs after resolvers so a valid Master context
+retains those safe derived values. Master credentials are hidden from resolvers;
+all credential headers are hidden from route handlers.
 
 ## Contribute routes and mounts
 
@@ -89,9 +159,10 @@ one protocol cannot borrow the HTTP plugin's privileges.
 ## Implement a server provider
 
 Server plugins require `httpApplicationCapability`. The value contains the
-public `appId`, protocol and original-header requirements, immutable route
-graph, and one Fetch-compatible dispatcher. It never exposes an UltimaBase
-application, Runtime engine, adapter, authority, grant, or lifecycle control.
+public `appId`, safe Master-enabled and deadline configuration, protocol and
+original-header requirements, immutable route graph, and one Fetch-compatible
+dispatcher. It never exposes an UltimaBase application, Runtime engine,
+adapter, `MasterAuthority`, grant, or lifecycle control.
 
 Providers keep their current table in their own explicit instance and replace
 it only after `mount()` succeeds:
@@ -128,8 +199,14 @@ const response = await table.fetch({
 ```
 
 A normalized `Headers` object alone cannot prove that a sensitive header did
-not occur twice. Missing evidence, duplicate application IDs, an unknown app
-ID, and malformed pairs therefore fail before route dispatch.
+not occur twice. Duplicate application ID, Master, Authorization, Cookie,
+Content-Length, or request-ID evidence therefore returns `HTTP_BAD_REQUEST`
+before application behavior. Missing or unknown application identity returns
+`HTTP_APPLICATION_REJECTED`; unknown routes return `HTTP_NOT_FOUND`; deadlines
+return `HTTP_REQUEST_TIMEOUT`; and other pre-dispatch failures return
+`HTTP_INTERNAL_ERROR`. Every early response uses the stable JSON envelope,
+`Cache-Control: private, no-store`, and a validated or generated
+`X-UltimaBase-Request-Id`.
 
 ## Lifecycle and isolation
 

@@ -9,12 +9,22 @@ milestone 23 target; those packages are not shipped yet.
 
 ## HTTP
 
-`httpPlugin({ appId })` materializes one application-local route graph. Route
+`httpPlugin({ appId, master, requestTimeoutMs })` materializes one
+application-local route graph. Route
 owners contribute standard `Request` to `Response` handlers through the public
 HTTP capability, while server providers select a mounted application from the
 ordered original `X-UltimaBase-Application-Id` header evidence. External and
-framework-owned providers consume the same graph; request contexts, Master
-verification, browser policy, and sockets remain later issue-owned layers.
+framework-owned providers consume the same graph.
+
+Every selected route starts with one anonymous application-bound Core context.
+Optional credential plugins contribute ordered resolvers that add typed
+immutable values without changing authority. An explicitly enabled canonical
+Master header is verified and audited by the selected application's
+`MasterAuthority` after those resolvers; successful elevation retains their
+values. Fetch cancellation and the optional deadline share the same context
+signal through handlers, Runtime, transactions, and response completion.
+Ambiguous sensitive headers and all other pre-dispatch failures use the safe
+HTTP envelope. Browser policy and sockets remain later issue-owned layers.
 
 ## REST
 

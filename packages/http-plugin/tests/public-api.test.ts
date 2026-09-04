@@ -9,11 +9,17 @@ describe('@ultimabase/http-plugin public entry point', () => {
 			'httpApplicationCapability',
 			'httpApplicationIdHeader',
 			'httpApplicationProtocolVersion',
+			'httpContextResolver',
+			'httpContextResolverContributionsCapability',
 			'httpEndpointContributionsCapability',
+			'httpMasterKeyHeader',
 			'httpMount',
 			'httpOriginalHeaderMode',
 			'httpPlugin',
+			'httpPreDispatchErrorCodes',
+			'httpRequestIdHeader',
 			'httpRoute',
+			'provideHttpContextResolvers',
 			'provideHttpEndpoints',
 		])
 	})

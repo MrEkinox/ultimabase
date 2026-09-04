@@ -3,8 +3,10 @@
 import process from 'node:process'
 
 import {
-	FrameworkApplication,
+	UltimaBase,
+	databaseAdapterCapability,
 	definePlugin,
+	provideCapability,
 	requireCapability,
 } from '@ultimabase/core'
 import {
@@ -53,15 +55,43 @@ const server = definePlugin({
 	capabilities: { requires: [requirement] },
 	setup: ({ capabilities }) => ({ http: capabilities.get(requirement) }),
 })
-const application = new FrameworkApplication({
+const database = definePlugin({
+	pluginId: 'fixture.javascript-http-database',
+	version: '1.0.0',
+	core: '^0.0.0',
+	capabilities: {
+		provides: [
+			provideCapability(databaseAdapterCapability, {
+				contributionId: 'javascript-http-adapter',
+				create: () => ({
+					value: {
+						kind: 'database-adapter',
+						execute: async () => [],
+						beginTransaction: async () => {
+							throw new TypeError('Fixture does not execute mutations')
+						},
+					},
+				}),
+			}),
+		],
+	},
+})
+const ultimabase = new UltimaBase({
 	pluginPrivileges: { logger: false },
-	plugins: [routeOwner, httpPlugin({ appId: 'javascript-app' }), server],
+	plugins: [
+		database,
+		routeOwner,
+		httpPlugin({ appId: 'javascript-app' }),
+		server,
+	],
 	schemas: [],
 })
 
 try {
-	await application.initialize()
-	const http = application.getPlugin('fixture.javascript-http-server').http
+	await ultimabase.start()
+	const http = ultimabase.application.getPlugin(
+		'fixture.javascript-http-server',
+	).http
 	const response = await http.fetch({
 		originalHeaders: [['X-UltimaBase-Application-Id', 'javascript-app']],
 		request: new Request('http://localhost/javascript'),
@@ -74,5 +104,5 @@ try {
 		}),
 	)
 } finally {
-	await application.dispose()
+	await ultimabase.dispose()
 }

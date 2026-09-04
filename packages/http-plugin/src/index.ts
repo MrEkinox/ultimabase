@@ -1,10 +1,9 @@
 export { httpApplicationCapability } from './application.js'
 export type {
 	HttpApplication,
+	HttpApplicationAuthority,
 	HttpEndpointProvenance,
-	HttpOriginalHeader,
 	HttpRouteGraph,
-	HttpServerRequest,
 	OwnedHttpEndpoint,
 	OwnedHttpMount,
 	OwnedHttpRoute,
@@ -12,8 +11,25 @@ export type {
 export {
 	httpApplicationIdHeader,
 	httpApplicationProtocolVersion,
+	httpMasterKeyHeader,
 	httpOriginalHeaderMode,
+	httpRequestIdHeader,
 } from './constants.js'
+export {
+	httpContextResolver,
+	httpContextResolverContributionsCapability,
+	provideHttpContextResolvers,
+} from './context.js'
+export type {
+	HttpContextResolver,
+	HttpContextResolverContributionsCapability,
+	HttpContextResolverDefinition,
+	HttpContextResolverFactory,
+	HttpContextResolverFactoryContext,
+	HttpContextResolverInput,
+	HttpContextResolverOptions,
+	ProvideHttpContextResolversOptions,
+} from './context.js'
 export {
 	httpEndpointContributionsCapability,
 	httpMount,
@@ -41,7 +57,15 @@ export type {
 } from './mount-table.js'
 export { httpPlugin } from './plugin.js'
 export type {
+	HttpMasterTransportOptions,
 	HttpPlugin,
 	HttpPluginExports,
 	HttpPluginOptions,
 } from './plugin.js'
+export { httpPreDispatchErrorCodes } from './request-boundary.js'
+export type {
+	HttpOriginalHeader,
+	HttpPreDispatchErrorCode,
+	HttpPreDispatchErrorEnvelope,
+	HttpServerRequest,
+} from './request-boundary.js'

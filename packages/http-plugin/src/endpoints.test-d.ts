@@ -4,10 +4,13 @@ import {
 	HttpApplicationMountTable,
 	httpApplicationProtocolVersion,
 	httpMount,
+	httpContextResolver,
 	httpOriginalHeaderMode,
 	httpPlugin,
 	httpRoute,
 	provideHttpEndpoints,
+	provideHttpContextResolvers,
+	type HttpContextResolverDefinition,
 	type HttpEndpointDefinition,
 	type HttpPlugin,
 	type HttpRouteDefinition,
@@ -35,14 +38,33 @@ test('preserves exact route and plugin input types', () => {
 
 	// @ts-expect-error -- appId is mandatory public routing identity.
 	httpPlugin({})
-	// @ts-expect-error -- the HTTP package does not accept future Master options yet.
 	httpPlugin({ appId: 'typed-app', master: { enabled: true } })
+	httpPlugin({ appId: 'typed-app', requestTimeoutMs: 1_000 })
 	httpRoute({
 		method: 'GET',
 		path: '/invalid-result',
 		protocol: { name: 'fixture.typed', version: '1' },
 		// @ts-expect-error -- handlers must return a Fetch Response.
 		handle: () => 'invalid',
+	})
+})
+
+test('types immutable HTTP context resolver contributions', () => {
+	const resolver = httpContextResolver({
+		resolve: ({ context }) => context,
+	})
+	expectTypeOf(resolver).toEqualTypeOf<HttpContextResolverDefinition>()
+	const provider = provideHttpContextResolvers({
+		contributionId: 'typed-context',
+		create: () => resolver,
+	})
+	expectTypeOf(
+		provider.token.capabilityId,
+	).toEqualTypeOf<'ultimabase.http.context-resolvers'>()
+
+	httpContextResolver({
+		// @ts-expect-error -- a resolver cannot return non-context credential data.
+		resolve: () => ({ principal: 'forged' }),
 	})
 })
 

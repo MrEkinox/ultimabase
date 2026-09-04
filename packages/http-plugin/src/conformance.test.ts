@@ -12,6 +12,7 @@ import {
 } from './application.js'
 import { httpRoute, provideHttpEndpoints } from './endpoints.js'
 import { httpPlugin } from './plugin.js'
+import { httpTestDatabasePlugin } from './test-database.test-support.js'
 
 const applicationRequirement = requireCapability(
 	httpApplicationCapability,
@@ -54,7 +55,7 @@ const createFixture = () => {
 
 	return createPluginConformanceFixture({
 		subject: httpPlugin({ appId: 'conformance-app' }),
-		supportPlugins: [routes, server],
+		supportPlugins: [httpTestDatabasePlugin(), routes, server],
 	})
 }
 
@@ -69,17 +70,18 @@ describe('@ultimabase/http-plugin conformance', () => {
 				privileges: [],
 				version: '0.0.0',
 			},
-		}).check('transport', async ({ createApplication }) => {
-			const { application } = createApplication()
-			await application.initialize()
-			const http: HttpApplication = application.getPlugin(
+		}).check('transport', async ({ createUltimaBase }) => {
+			const { ultimabase } = createUltimaBase()
+			await ultimabase.start()
+			const serverExports = ultimabase.application.getPlugin(
 				'fixture.http-conformance-server',
-			).http
+			) as Readonly<{ readonly http: HttpApplication }>
+			const http = serverExports.http
 			const response = await http.fetch({
 				originalHeaders: [['X-UltimaBase-Application-Id', 'conformance-app']],
 				request: new Request('http://localhost/conformance'),
 			})
-			expect(await response?.text()).toBe('conformant')
+			expect(await response.text()).toBe('conformant')
 		})
 		const report = await runPluginConformance(suite)
 

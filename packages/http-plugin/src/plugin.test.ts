@@ -45,6 +45,8 @@ describe('httpPlugin', () => {
 		await application.initialize()
 		expect(application.getPlugin('@ultimabase/http-plugin')).toStrictEqual({
 			appId: 'blog',
+			master: { enabled: false },
+			requestTimeoutMs: undefined,
 		})
 		expect(
 			application.getPlugin('fixture.http-consumer').application,
@@ -55,9 +57,33 @@ describe('httpPlugin', () => {
 	it.each([
 		[{} as never, 'appId'],
 		[{ appId: '' }, 'non-empty'],
+		[{ appId: 'blog', master: { enabled: false } } as never, 'exactly'],
+		[
+			{ appId: 'blog', master: { enabled: true, extra: true } } as never,
+			'exactly',
+		],
+		[{ appId: 'blog', requestTimeoutMs: 0 }, 'positive safe integer'],
+		[{ appId: 'blog', requestTimeoutMs: 1.5 }, 'positive safe integer'],
 		[{ appId: 'blog', extra: true } as never, 'Unknown'],
 	])('rejects invalid options %#', (options, message) => {
 		expect(() => httpPlugin(options)).toThrow(message)
+	})
+
+	it('requests elevation only for the explicitly enabled Master boundary', () => {
+		const disabled = httpPlugin({ appId: 'disabled' })
+		const enabled = httpPlugin({
+			appId: 'enabled',
+			master: { enabled: true },
+			requestTimeoutMs: 2_000,
+		})
+
+		expect(disabled.manifest.privileges).toStrictEqual([])
+		expect(enabled.manifest.privileges).toStrictEqual([
+			{
+				name: 'authority:elevate',
+				reason: 'Verifies explicitly enabled HTTP Master credentials.',
+			},
+		])
 	})
 
 	it('keeps imports inert when the plugin is omitted', async () => {

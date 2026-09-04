@@ -1,5 +1,7 @@
 import {
 	FrameworkApplication,
+	RequestContext,
+	UltimaBase,
 	definePlugin,
 	provideCapability,
 	replaceCapability,
@@ -8,6 +10,7 @@ import {
 	type ApplicationRequestExecutor,
 	type CapabilityProviderContribution,
 	type PluginIdentity,
+	type PluginDefinition,
 } from '@ultimabase/core'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -25,6 +28,7 @@ import {
 	type HttpEndpointContributionsCapability,
 } from './endpoints.js'
 import { httpPlugin } from './plugin.js'
+import { httpTestDatabasePlugin } from './test-database.test-support.js'
 
 const protocol = { name: 'fixture.http', version: '1' } as const
 const applicationRequirement = requireCapability(
@@ -82,16 +86,18 @@ const serverPlugin = (capture?: (application: HttpApplication) => void) =>
 		},
 	})
 
-const initialize = async (
-	plugins: ConstructorParameters<typeof FrameworkApplication>[0]['plugins'],
-) => {
+const initialize = async (plugins: readonly PluginDefinition[]) => {
 	let http: HttpApplication | undefined
-	const application = new FrameworkApplication({
+	const application = new UltimaBase({
 		pluginPrivileges: { logger: false },
-		plugins: [...plugins, serverPlugin((value) => (http = value))],
+		plugins: [
+			httpTestDatabasePlugin(),
+			...plugins,
+			serverPlugin((value) => (http = value)),
+		],
 		schemas: [],
 	})
-	await application.initialize()
+	await application.start()
 	if (http === undefined)
 		throw new TypeError('HTTP fixture was not materialized')
 	return { application, http }
@@ -142,16 +148,18 @@ describe('HTTP application graph', () => {
 			},
 		])
 		expect(
-			await (await fixture.http.fetch(serverRequest('blog', '/first')))?.text(),
+			await (await fixture.http.fetch(serverRequest('blog', '/first'))).text(),
 		).toBe('first')
 		expect(
 			await (
 				await fixture.http.fetch(serverRequest('blog', '/second', 'POST'))
-			)?.text(),
+			).text(),
 		).toBe('second')
-		expect(
-			await fixture.http.fetch(serverRequest('blog', '/missing')),
-		).toBeUndefined()
+		const missing = await fixture.http.fetch(serverRequest('blog', '/missing'))
+		expect(missing.status).toBe(404)
+		expect(await missing.json()).toMatchObject({
+			error: { code: 'HTTP_NOT_FOUND' },
+		})
 		await fixture.application.dispose()
 	})
 
@@ -161,7 +169,6 @@ describe('HTTP application graph', () => {
 			protocol,
 			handle: (request) => new Response(new URL(request.url).pathname),
 		})
-		let http: HttpApplication | undefined
 		const mountOwner = definePlugin({
 			pluginId: 'fixture.mount',
 			version: '1.0.0',
@@ -178,23 +185,15 @@ describe('HTTP application graph', () => {
 				],
 			},
 		})
-		const application = new FrameworkApplication({
-			pluginPrivileges: { logger: false },
-			plugins: [
-				mountOwner,
-				httpPlugin({ appId: 'graph' }),
-				serverPlugin((value) => (http = value)),
-			],
-			schemas: [],
-		})
-		await application.initialize()
-		if (http === undefined) throw new TypeError('Missing HTTP application')
+		const { application, http } = await initialize([
+			mountOwner,
+			httpPlugin({ appId: 'graph' }),
+		])
 		expect(
-			await (await http.fetch(serverRequest('graph', '/graphql/a')))?.text(),
+			await (await http.fetch(serverRequest('graph', '/graphql/a'))).text(),
 		).toBe('/graphql/a')
-		expect(
-			await http.fetch(serverRequest('graph', '/graphqlish')),
-		).toBeUndefined()
+		const missing = await http.fetch(serverRequest('graph', '/graphqlish'))
+		expect(missing.status).toBe(404)
 		await application.dispose()
 	})
 
@@ -341,7 +340,7 @@ describe('HTTP application graph', () => {
 				await fixture.http.fetch(
 					serverRequest('replacement-app', '/replacement'),
 				)
-			)?.text(),
+			).text(),
 		).toBe('replacement')
 		await fixture.application.dispose()
 	})
@@ -359,10 +358,12 @@ describe('HTTP application graph', () => {
 						create: () => ({
 							value: {
 								appId: 'competing',
+								authority: { master: { enabled: false } },
 								protocolVersion: '1.0.0',
 								originalHeaderMode: 'ordered-pairs',
+								requestTimeoutMs: undefined,
 								routeGraph: { endpoints: [], mounts: [], routes: [] },
-								fetch: () => Promise.resolve(undefined),
+								fetch: () => Promise.resolve(new Response()),
 							},
 						}),
 					}),
@@ -403,11 +404,15 @@ describe('HTTP application graph', () => {
 		])
 
 		await first.application.dispose()
-		await expect(
-			first.http.fetch(serverRequest('one', '/shared')),
-		).rejects.toThrow('no longer available')
+		const disposedResponse = await first.http.fetch(
+			serverRequest('one', '/shared'),
+		)
+		expect(disposedResponse.status).toBe(500)
+		expect(await disposedResponse.json()).toMatchObject({
+			error: { code: 'HTTP_INTERNAL_ERROR' },
+		})
 		expect(
-			await (await second.http.fetch(serverRequest('two', '/shared')))?.text(),
+			await (await second.http.fetch(serverRequest('two', '/shared'))).text(),
 		).toBe('shared')
 		await second.application.dispose()
 	})
@@ -448,17 +453,34 @@ describe('HTTP callback attribution', () => {
 				pluginVersion: '1.0.0',
 				value: [route],
 			}
-		const resource = createHttpApplicationResource(
-			'owner-app',
-			[contribution],
-			{} as ApplicationRequestExecutor,
+		const requestExecution = {
+			createAnonymousContext: (options: {
+				readonly requestId: string
+				readonly signal: AbortSignal
+				readonly source: string
+			}) => RequestContext.anonymous(options),
+			runWithContext: <TContext extends RequestContext, TResult>(
+				context: TContext,
+				callback: (context: TContext) => TResult,
+			) => callback(context),
+			verifyMasterKey: () =>
+				Promise.reject(new TypeError('Master is not used by this fixture')),
+		} as unknown as ApplicationRequestExecutor
+		const resource = createHttpApplicationResource({
+			appId: 'owner-app',
 			callbacks,
-		)
+			contextContributions: [],
+			endpointContributions: [contribution],
+			masterEnabled: false,
+			owner: { pluginId: '@ultimabase/http-plugin' },
+			requestExecution,
+			requestTimeoutMs: undefined,
+		})
 
 		expect(
 			await (
 				await resource.value.fetch(serverRequest('owner-app', '/owner'))
-			)?.text(),
+			).text(),
 		).toBe('owned')
 		expect(observedOwner).toBe(owner)
 		resource.dispose()

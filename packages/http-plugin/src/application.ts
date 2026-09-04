@@ -1,67 +1,60 @@
 import {
-	defineCapability,
+	type AnonymousRequestAccess,
 	type ApplicationCallbackExecutor,
 	type ApplicationRequestExecutor,
 	type CapabilityProviderContribution,
-	type CapabilityToken,
+	type MasterRequestAccess,
 	type PluginIdentity,
+	type RequestContext,
 } from '@ultimabase/core'
-import {
-	assertNonEmptyString,
-	immutableArray,
-	immutableRecord,
-	isPlainRecord,
-	isUnknownArray,
-} from '@ultimabase/shared'
+import { immutableRecord } from '@ultimabase/shared'
 
 import {
-	httpApplicationIdHeader,
 	httpApplicationProtocolVersion,
+	httpMasterKeyHeader,
 	httpOriginalHeaderMode,
 } from './constants.js'
-import type {
-	HttpEndpointContributionsCapability,
-	HttpEndpointDefinition,
-	HttpMountDefinition,
-	HttpRequestHandler,
-	HttpRouteDefinition,
-} from './endpoints.js'
-import { assertHttpEndpointDefinitions } from './endpoints.js'
+import {
+	compileHttpContextResolvers,
+	resolveHttpContext,
+	type HttpContextResolverContributionsCapability,
+} from './context.js'
+import type { HttpEndpointContributionsCapability } from './endpoints.js'
+import {
+	HttpPreDispatchFailure,
+	createHttpPreDispatchErrorResponse,
+	createHttpRequestId,
+	finalizeHttpResponse,
+	httpPreDispatchErrorCodes,
+	prepareHttpServerRequest,
+	readPreparedApplicationId,
+	readPreparedHeader,
+	withoutHttpCredentialHeaders,
+	type HttpOriginalHeader,
+	type HttpServerRequest,
+	type PreparedHttpServerRequest,
+} from './request-boundary.js'
+import {
+	compileHttpRouteGraph,
+	selectHttpEndpoint,
+	type HttpRouteGraph,
+	type OwnedHttpEndpoint,
+} from './route-graph.js'
 
-/** Retains the exact plugin owner of one callable endpoint. */
-export interface HttpEndpointProvenance {
-	readonly contributionId: string
-	readonly owner: PluginIdentity
-	readonly pluginVersion: string
-	readonly registrationIndex: number
-}
+export { httpApplicationCapability } from './application-capability.js'
 
-/** Exposes one validated route together with immutable ownership evidence. */
-export interface OwnedHttpRoute extends HttpRouteDefinition {
-	readonly provenance: HttpEndpointProvenance
-}
+export type { HttpOriginalHeader, HttpServerRequest }
+export type {
+	HttpEndpointProvenance,
+	HttpRouteGraph,
+	OwnedHttpEndpoint,
+	OwnedHttpMount,
+	OwnedHttpRoute,
+} from './route-graph.js'
 
-/** Exposes one validated mount together with immutable ownership evidence. */
-export interface OwnedHttpMount extends HttpMountDefinition {
-	readonly provenance: HttpEndpointProvenance
-}
-
-export type OwnedHttpEndpoint = OwnedHttpMount | OwnedHttpRoute
-
-/** Gives every provider the same immutable application-local endpoint graph. */
-export interface HttpRouteGraph {
-	readonly endpoints: readonly OwnedHttpEndpoint[]
-	readonly mounts: readonly OwnedHttpMount[]
-	readonly routes: readonly OwnedHttpRoute[]
-}
-
-/** Carries original header evidence captured before Fetch normalization. */
-export type HttpOriginalHeader = readonly [name: string, value: string]
-
-/** Supplies one normalized Fetch request plus its ordered original headers. */
-export interface HttpServerRequest {
-	readonly request: Request
-	readonly originalHeaders: readonly HttpOriginalHeader[]
+/** Reports immutable application-owned HTTP authority configuration. */
+export interface HttpApplicationAuthority {
+	readonly master: Readonly<{ readonly enabled: boolean }>
 }
 
 /** Names the immutable application graph consumed by an HTTP server provider. */
@@ -70,231 +63,307 @@ export interface HttpApplication {
 	readonly protocolVersion: typeof httpApplicationProtocolVersion
 	readonly originalHeaderMode: typeof httpOriginalHeaderMode
 	readonly routeGraph: HttpRouteGraph
-	/** Validates application selection before dispatching one Fetch request. */
-	fetch(input: HttpServerRequest): Promise<Response | undefined>
+	readonly authority: HttpApplicationAuthority
+	readonly requestTimeoutMs: number | undefined
+	/** Resolves one application-bound context before dispatching a Fetch request. */
+	fetch(input: HttpServerRequest): Promise<Response>
 }
 
 interface HttpApplicationState {
+	readonly callbacks: ApplicationCallbackExecutor
+	readonly contextResolvers: ReturnType<typeof compileHttpContextResolvers>
 	disposed: boolean
+	readonly masterEnabled: boolean
+	readonly owner: PluginIdentity
 	requestExecution: ApplicationRequestExecutor | undefined
+	readonly requestTimeoutMs: number | undefined
 }
 
 const httpApplicationStates = new WeakMap<
 	HttpApplication,
 	HttpApplicationState
 >()
+const preparedApplicationFetch = new WeakMap<
+	HttpApplication,
+	(prepared: PreparedHttpServerRequest) => Promise<Response>
+>()
 
-const pathsOverlap = (left: string, right: string): boolean =>
-	left === '/' ||
-	right === '/' ||
-	left === right ||
-	left.startsWith(`${right}/`) ||
-	right.startsWith(`${left}/`)
+interface HttpRequestSignals {
+	readonly deadline: AbortSignal | undefined
+	readonly signal: AbortSignal
+}
 
-const throwEndpointCollision = (
-	left: HttpEndpointDefinition,
-	right: HttpEndpointDefinition,
-): never => {
-	throw new TypeError(
-		`HTTP endpoint collision between ${left.kind} "${left.path}" and ${right.kind} "${right.path}"`,
+const createRequestSignals = (
+	request: Request,
+	requestTimeoutMs: number | undefined,
+): HttpRequestSignals => {
+	if (requestTimeoutMs === undefined) {
+		return { deadline: undefined, signal: request.signal }
+	}
+	const deadline = AbortSignal.timeout(requestTimeoutMs)
+	return {
+		deadline,
+		signal: AbortSignal.any([request.signal, deadline]),
+	}
+}
+
+const respondToContextFailure = (
+	request: Request,
+	deadline: AbortSignal | undefined,
+	requestId: string,
+	fallbackCode:
+		| typeof httpPreDispatchErrorCodes.applicationRejected
+		| typeof httpPreDispatchErrorCodes.internalError,
+): Response => {
+	if (deadline?.aborted === true) {
+		return createHttpPreDispatchErrorResponse(
+			httpPreDispatchErrorCodes.requestTimeout,
+			requestId,
+		)
+	}
+	if (request.signal.aborted) {
+		throw request.signal.reason
+	}
+	return createHttpPreDispatchErrorResponse(fallbackCode, requestId)
+}
+
+const createAnonymousHttpContext = <TSource extends string>(
+	source: TSource,
+	requestId: string,
+	signal: AbortSignal,
+	state: HttpApplicationState,
+): RequestContext<AnonymousRequestAccess, TSource> => {
+	const requestExecution = state.requestExecution
+	if (requestExecution === undefined) {
+		throw new TypeError('HTTP application request execution is unavailable')
+	}
+	return state.callbacks.runPlugin(state.owner, () =>
+		requestExecution.createAnonymousContext({ requestId, signal, source }),
 	)
 }
 
-const assertNoEndpointCollision = (
-	accepted: readonly OwnedHttpEndpoint[],
-	candidate: HttpEndpointDefinition,
-): void => {
-	for (const endpoint of accepted) {
-		if (
-			candidate.kind === 'route' &&
-			endpoint.kind === 'route' &&
-			candidate.method === endpoint.method &&
-			candidate.path === endpoint.path
-		) {
-			throwEndpointCollision(endpoint, candidate)
-		}
-		if (
-			(candidate.kind === 'mount' || endpoint.kind === 'mount') &&
-			pathsOverlap(candidate.path, endpoint.path)
-		) {
-			throwEndpointCollision(endpoint, candidate)
-		}
+const resolveApplicationContext = async <TSource extends string>(
+	initial: RequestContext<AnonymousRequestAccess, TSource>,
+	resolverRequest: Request,
+	masterKey: string | undefined,
+	state: HttpApplicationState,
+): Promise<
+	RequestContext<AnonymousRequestAccess | MasterRequestAccess, TSource>
+> => {
+	const requestExecution = state.requestExecution
+	if (requestExecution === undefined) {
+		throw new TypeError('HTTP application request execution is unavailable')
 	}
+	const resolved = await resolveHttpContext(
+		initial,
+		resolverRequest,
+		state.contextResolvers,
+		requestExecution,
+		state.callbacks,
+	)
+	if (masterKey === undefined) return resolved
+	return state.callbacks.runPlugin(state.owner, () =>
+		requestExecution.verifyMasterKey({
+			context: resolved,
+			rawKey: masterKey,
+			reason: 'HTTP Master key verification',
+		}),
+	)
 }
 
-const invokeHandler = async (
-	handle: HttpRequestHandler,
+const invokeSelectedEndpoint = async (
+	endpoint: OwnedHttpEndpoint,
 	request: Request,
-	owner: PluginIdentity,
-	callbacks: ApplicationCallbackExecutor,
+	context: RequestContext,
+	state: HttpApplicationState,
 ): Promise<Response> => {
-	const response = await callbacks.runPlugin(owner, () => handle(request))
-	if (!(response instanceof Response)) {
-		throw new TypeError('HTTP endpoint handlers must return a Response')
+	const requestExecution = state.requestExecution
+	if (requestExecution === undefined) {
+		throw new TypeError('HTTP application request execution is unavailable')
 	}
-	return response
+	return state.callbacks.runPlugin(endpoint.provenance.owner, () =>
+		requestExecution.runWithContext(context, () => endpoint.handle(request)),
+	)
 }
 
-const ownEndpoint = (
-	definition: HttpEndpointDefinition,
-	contribution: CapabilityProviderContribution<HttpEndpointContributionsCapability>,
-	registrationIndex: number,
-	callbacks: ApplicationCallbackExecutor,
-): OwnedHttpEndpoint => {
-	const provenance = immutableRecord({
-		contributionId: contribution.contributionId,
-		owner: immutableRecord(contribution.owner),
-		pluginVersion: contribution.pluginVersion,
-		registrationIndex,
-	})
-	const handle: HttpRequestHandler = (request) =>
-		invokeHandler(definition.handle, request, contribution.owner, callbacks)
-
-	return definition.kind === 'route'
-		? immutableRecord({ ...definition, handle, provenance })
-		: immutableRecord({ ...definition, handle, provenance })
-}
-
-const compileRouteGraph = (
-	contributions: readonly CapabilityProviderContribution<HttpEndpointContributionsCapability>[],
-	callbacks: ApplicationCallbackExecutor,
-): HttpRouteGraph => {
-	const endpoints: OwnedHttpEndpoint[] = []
-	let registrationIndex = 0
-
-	for (const contribution of contributions) {
-		assertHttpEndpointDefinitions(
-			contribution.value,
-			`HTTP endpoint capability ${contribution.owner.pluginId}/${contribution.contributionId}`,
-		)
-		for (const definition of contribution.value) {
-			assertNoEndpointCollision(endpoints, definition)
-			endpoints.push(
-				ownEndpoint(definition, contribution, registrationIndex, callbacks),
-			)
-			registrationIndex += 1
-		}
-	}
-
-	return immutableRecord({
-		endpoints: immutableArray(endpoints),
-		mounts: immutableArray(
-			endpoints.filter(
-				(endpoint): endpoint is OwnedHttpMount => endpoint.kind === 'mount',
-			),
-		),
-		routes: immutableArray(
-			endpoints.filter(
-				(endpoint): endpoint is OwnedHttpRoute => endpoint.kind === 'route',
-			),
-		),
-	})
-}
-
-const matchesMount = (pathname: string, mountPath: string): boolean =>
-	mountPath === '/' ||
-	pathname === mountPath ||
-	pathname.startsWith(`${mountPath}/`)
-
-const assertFetchRequest: (request: unknown) => asserts request is Request = (
-	request,
-) => {
-	if (!(request instanceof Request)) {
-		throw new TypeError('HTTP application fetch expects a Request')
-	}
-}
-
-/** @internal Validates the provider boundary without trusting Fetch Headers. */
-export const assertHttpServerRequest: (
-	input: unknown,
-) => asserts input is HttpServerRequest = (input) => {
-	if (!isPlainRecord(input) || !(input.request instanceof Request)) {
-		throw new TypeError(
-			'HTTP server request must contain a Fetch Request and original headers',
+const dispatchPreparedRequest = async (
+	application: HttpApplication,
+	prepared: PreparedHttpServerRequest,
+): Promise<Response> => {
+	const state = httpApplicationStates.get(application)
+	if (state === undefined || state.disposed) {
+		return createHttpPreDispatchErrorResponse(
+			httpPreDispatchErrorCodes.internalError,
+			prepared.requestId,
 		)
 	}
-	if (!isUnknownArray(input.originalHeaders)) {
-		throw new TypeError('HTTP server request must preserve original headers')
-	}
-	for (const [index, header] of input.originalHeaders.entries()) {
-		if (
-			!isUnknownArray(header) ||
-			header.length !== 2 ||
-			typeof header[0] !== 'string' ||
-			typeof header[1] !== 'string'
-		) {
-			throw new TypeError(
-				`HTTP original header[${String(index)}] must be a name and value pair`,
+
+	try {
+		if (readPreparedApplicationId(prepared) !== application.appId) {
+			throw new HttpPreDispatchFailure(
+				httpPreDispatchErrorCodes.applicationRejected,
 			)
 		}
+	} catch {
+		return createHttpPreDispatchErrorResponse(
+			httpPreDispatchErrorCodes.applicationRejected,
+			prepared.requestId,
+		)
 	}
-}
 
-/** @internal Selects from original evidence and never splits comma-bearing values. */
-export const readHttpApplicationId = (input: HttpServerRequest): string => {
-	assertHttpServerRequest(input)
-	const normalizedName = httpApplicationIdHeader.toLowerCase()
-	const values = input.originalHeaders
-		.filter(([name]) => name.toLowerCase() === normalizedName)
-		.map(([, value]) => value)
-
-	if (values.length !== 1) {
-		throw new TypeError('HTTP application request was rejected')
+	const endpoint = selectHttpEndpoint(
+		application.routeGraph,
+		prepared.input.request,
+	)
+	if (endpoint === undefined) {
+		return createHttpPreDispatchErrorResponse(
+			httpPreDispatchErrorCodes.notFound,
+			prepared.requestId,
+		)
 	}
-	const value = values[0]
-	assertNonEmptyString(value, 'HTTP application ID')
-	return value
+	const masterKey = readPreparedHeader(
+		prepared.originalHeaders,
+		httpMasterKeyHeader,
+	)
+	if (masterKey !== undefined && !state.masterEnabled) {
+		return createHttpPreDispatchErrorResponse(
+			httpPreDispatchErrorCodes.applicationRejected,
+			prepared.requestId,
+		)
+	}
+
+	const signals = createRequestSignals(
+		prepared.input.request,
+		state.requestTimeoutMs,
+	)
+	const resolverRequest = withoutHttpCredentialHeaders(
+		prepared.input.request,
+		[httpMasterKeyHeader],
+		signals.signal,
+	)
+	let anonymous: RequestContext<AnonymousRequestAccess>
+	try {
+		anonymous = createAnonymousHttpContext(
+			endpoint.protocol.name,
+			prepared.requestId,
+			signals.signal,
+			state,
+		)
+	} catch {
+		return respondToContextFailure(
+			prepared.input.request,
+			signals.deadline,
+			prepared.requestId,
+			httpPreDispatchErrorCodes.internalError,
+		)
+	}
+
+	let context: RequestContext<AnonymousRequestAccess | MasterRequestAccess>
+	try {
+		context = await resolveApplicationContext(
+			anonymous,
+			resolverRequest,
+			masterKey,
+			state,
+		)
+	} catch {
+		return respondToContextFailure(
+			prepared.input.request,
+			signals.deadline,
+			prepared.requestId,
+			httpPreDispatchErrorCodes.applicationRejected,
+		)
+	}
+
+	const handlerRequest = withoutHttpCredentialHeaders(
+		resolverRequest,
+		['Authorization', 'Cookie'],
+		signals.signal,
+	)
+	try {
+		const response = await invokeSelectedEndpoint(
+			endpoint,
+			handlerRequest,
+			context,
+			state,
+		)
+		if (signals.deadline?.aborted === true) {
+			return createHttpPreDispatchErrorResponse(
+				httpPreDispatchErrorCodes.requestTimeout,
+				prepared.requestId,
+			)
+		}
+		return finalizeHttpResponse(response, prepared.requestId)
+	} catch (error: unknown) {
+		if (signals.deadline?.aborted === true) {
+			return createHttpPreDispatchErrorResponse(
+				httpPreDispatchErrorCodes.requestTimeout,
+				prepared.requestId,
+			)
+		}
+		throw error
+	}
 }
 
 /** @internal Materializes one application graph while keeping Core execution private. */
 export const createHttpApplicationResource = (
-	appId: string,
-	contributions: readonly CapabilityProviderContribution<HttpEndpointContributionsCapability>[],
-	requestExecution: ApplicationRequestExecutor,
-	callbacks: ApplicationCallbackExecutor,
+	options: Readonly<{
+		readonly appId: string
+		readonly callbacks: ApplicationCallbackExecutor
+		readonly contextContributions: readonly CapabilityProviderContribution<HttpContextResolverContributionsCapability>[]
+		readonly endpointContributions: readonly CapabilityProviderContribution<HttpEndpointContributionsCapability>[]
+		readonly masterEnabled: boolean
+		readonly owner: PluginIdentity
+		readonly requestExecution: ApplicationRequestExecutor
+		readonly requestTimeoutMs: number | undefined
+	}>,
 ): Readonly<{
 	readonly value: HttpApplication
 	readonly dispose: () => void
 }> => {
-	const routeGraph = compileRouteGraph(contributions, callbacks)
+	const routeGraph = compileHttpRouteGraph(
+		options.endpointContributions,
+		options.callbacks,
+	)
+	const contextResolvers = compileHttpContextResolvers(
+		options.contextContributions,
+	)
 	const application: HttpApplication = immutableRecord({
-		appId,
+		appId: options.appId,
+		authority: immutableRecord({
+			master: immutableRecord({ enabled: options.masterEnabled }),
+		}),
 		protocolVersion: httpApplicationProtocolVersion,
 		originalHeaderMode: httpOriginalHeaderMode,
+		requestTimeoutMs: options.requestTimeoutMs,
 		routeGraph,
-		fetch: async (input: HttpServerRequest): Promise<Response | undefined> => {
-			assertHttpServerRequest(input)
-			if (readHttpApplicationId(input) !== appId) {
-				throw new TypeError('HTTP application request was rejected')
+		fetch: async (input: HttpServerRequest): Promise<Response> => {
+			const fallbackRequestId = createHttpRequestId()
+			let prepared: PreparedHttpServerRequest
+			try {
+				prepared = prepareHttpServerRequest(input)
+			} catch (error: unknown) {
+				const code =
+					error instanceof HttpPreDispatchFailure
+						? error.code
+						: httpPreDispatchErrorCodes.internalError
+				return createHttpPreDispatchErrorResponse(code, fallbackRequestId)
 			}
-			const { request } = input
-			assertFetchRequest(request)
-			const state = httpApplicationStates.get(application)
-			if (
-				state === undefined ||
-				state.disposed ||
-				state.requestExecution === undefined
-			) {
-				throw new TypeError('HTTP application is no longer available')
-			}
-			const url = new URL(request.url)
-			const route = routeGraph.routes.find(
-				(candidate) =>
-					candidate.method === request.method &&
-					candidate.path === url.pathname,
-			)
-			if (route !== undefined) return route.handle(request)
-
-			const mount = routeGraph.mounts.find((candidate) =>
-				matchesMount(url.pathname, candidate.path),
-			)
-			return mount?.handle(request)
+			return dispatchPreparedRequest(application, prepared)
 		},
 	})
 	httpApplicationStates.set(application, {
+		callbacks: options.callbacks,
+		contextResolvers,
 		disposed: false,
-		requestExecution,
+		masterEnabled: options.masterEnabled,
+		owner: immutableRecord(options.owner),
+		requestExecution: options.requestExecution,
+		requestTimeoutMs: options.requestTimeoutMs,
 	})
+	preparedApplicationFetch.set(application, (prepared) =>
+		dispatchPreparedRequest(application, prepared),
+	)
 
 	return immutableRecord({
 		value: application,
@@ -307,48 +376,10 @@ export const createHttpApplicationResource = (
 	})
 }
 
-const assertHttpApplication: (
-	application: unknown,
-) => asserts application is HttpApplication = (application) => {
-	if (!isPlainRecord(application)) {
-		throw new TypeError('HTTP application capability must be a plain object')
-	}
-	if (application.protocolVersion !== httpApplicationProtocolVersion) {
-		throw new TypeError(
-			`Unsupported HTTP application protocol version: ${String(application.protocolVersion)}`,
-		)
-	}
-	if (application.originalHeaderMode !== httpOriginalHeaderMode) {
-		throw new TypeError(
-			'HTTP application requires ordered original header pairs',
-		)
-	}
-	if (typeof application.appId !== 'string' || application.appId.length === 0) {
-		throw new TypeError('HTTP application appId must be a non-empty string')
-	}
-	if (
-		!isPlainRecord(application.routeGraph) ||
-		typeof application.fetch !== 'function'
-	) {
-		throw new TypeError('HTTP application capability is malformed')
-	}
-}
-
-/** Carries one versioned HTTP application from httpPlugin() to server providers. */
-export const httpApplicationCapability: CapabilityToken<
-	HttpApplication,
-	HttpApplication,
-	'ultimabase.http.application',
-	'1.0.0',
-	'single',
-	'application'
-> = defineCapability<HttpApplication>()({
-	capabilityId: 'ultimabase.http.application',
-	version: '1.0.0',
-	cardinality: 'single',
-	lifetime: 'application',
-	compose: ([application]) => {
-		assertHttpApplication(application)
-		return application
-	},
-})
+/** @internal Lets a mount table preserve one prepared request ID during selection. */
+export const fetchPreparedHttpApplication = (
+	application: HttpApplication,
+	prepared: PreparedHttpServerRequest,
+): Promise<Response> =>
+	preparedApplicationFetch.get(application)?.(prepared) ??
+	application.fetch(prepared.input)

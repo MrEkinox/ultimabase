@@ -9,11 +9,18 @@ import {
 	httpOriginalHeaderMode,
 } from './constants.js'
 import {
-	assertHttpServerRequest,
-	readHttpApplicationId,
+	fetchPreparedHttpApplication,
 	type HttpApplication,
-	type HttpServerRequest,
 } from './application.js'
+import {
+	HttpPreDispatchFailure,
+	createHttpPreDispatchErrorResponse,
+	createHttpRequestId,
+	httpPreDispatchErrorCodes,
+	prepareHttpServerRequest,
+	readPreparedApplicationId,
+	type HttpServerRequest,
+} from './request-boundary.js'
 
 /** Distinguishes lifecycle ownership without changing the mounted graph. */
 export type HttpServerOwnership = 'external' | 'framework'
@@ -103,6 +110,13 @@ const assertApplication: (
 		application.protocolVersion !== httpApplicationProtocolVersion ||
 		application.originalHeaderMode !== httpOriginalHeaderMode ||
 		!isPlainRecord(application.routeGraph) ||
+		!isPlainRecord(application.authority) ||
+		!isPlainRecord(application.authority.master) ||
+		typeof application.authority.master.enabled !== 'boolean' ||
+		(application.requestTimeoutMs !== undefined &&
+			(typeof application.requestTimeoutMs !== 'number' ||
+				!Number.isSafeInteger(application.requestTimeoutMs) ||
+				application.requestTimeoutMs <= 0)) ||
 		typeof application.fetch !== 'function'
 	) {
 		throw new TypeError(
@@ -174,8 +188,12 @@ export class HttpApplicationMountTable {
 
 	/** Selects one exact application from uncombined original header evidence. */
 	select(input: HttpServerRequest): HttpApplication {
-		assertHttpServerRequest(input)
-		const appId = readHttpApplicationId(input)
+		let appId: string
+		try {
+			appId = readPreparedApplicationId(prepareHttpServerRequest(input))
+		} catch {
+			throw new TypeError('HTTP application request was rejected')
+		}
 		const application = readState(this).applications.find(
 			(candidate) => candidate.appId === appId,
 		)
@@ -186,7 +204,37 @@ export class HttpApplicationMountTable {
 	}
 
 	/** Selects the application first, then delegates one Fetch request. */
-	fetch(input: HttpServerRequest): Promise<Response | undefined> {
-		return this.select(input).fetch(input)
+	async fetch(input: HttpServerRequest): Promise<Response> {
+		const fallbackRequestId = createHttpRequestId()
+		let prepared: ReturnType<typeof prepareHttpServerRequest>
+		try {
+			prepared = prepareHttpServerRequest(input)
+		} catch (error: unknown) {
+			const code =
+				error instanceof HttpPreDispatchFailure
+					? error.code
+					: httpPreDispatchErrorCodes.internalError
+			return createHttpPreDispatchErrorResponse(code, fallbackRequestId)
+		}
+
+		let application: HttpApplication | undefined
+		try {
+			const appId = readPreparedApplicationId(prepared)
+			application = readState(this).applications.find(
+				(candidate) => candidate.appId === appId,
+			)
+		} catch {
+			return createHttpPreDispatchErrorResponse(
+				httpPreDispatchErrorCodes.applicationRejected,
+				prepared.requestId,
+			)
+		}
+		if (application === undefined) {
+			return createHttpPreDispatchErrorResponse(
+				httpPreDispatchErrorCodes.applicationRejected,
+				prepared.requestId,
+			)
+		}
+		return fetchPreparedHttpApplication(application, prepared)
 	}
 }

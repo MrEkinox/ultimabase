@@ -1,6 +1,6 @@
 # 2304: Add HTTP request contexts and Master verification
 
-- Status: planned
+- Status: completed
 - Milestone: 23
 - Packages: `@ultimabase/http-plugin`, `@ultimabase/core`
 - Depends on: 2303, 2319
@@ -14,42 +14,54 @@ without making transport structure authoritative.
 
 ## Acceptance criteria
 
-- [ ] Every accepted request begins with the exact application selected by
+- [x] Every accepted request begins with the exact application selected by
       `X-UltimaBase-Application-Id` and one new anonymous Core context.
-- [ ] Ordered HTTP context resolvers may validate credentials and add their own
+- [x] Ordered HTTP context resolvers may validate credentials and add their own
       typed immutable values but cannot broaden Core authority.
-- [ ] Initial binding, resolver execution, and final route execution use only
+- [x] Initial binding, resolver execution, and final route execution use only
       the application request executor and retain exact callback attribution.
-- [ ] When Master transport is enabled, only
+- [x] When Master transport is enabled, only
       `X-UltimaBase-Master-Key` is passed to the selected application's
       `MasterAuthority` verification boundary.
-- [ ] The HTTP plugin requests active `authority:elevate`; a denied privilege,
+- [x] The HTTP plugin requests active `authority:elevate`; a denied privilege,
       absent authority, disabled boundary, invalid key, missing application ID,
       foreign key, or audit failure prevents every downstream effect.
-- [ ] Successful verification creates one audited application-provenanced
+- [x] Successful verification creates one audited application-provenanced
       Master context while retaining safe values already derived by credential
       resolvers.
-- [ ] A present invalid key never falls back to anonymous or session authority.
-- [ ] Raw credentials never enter metadata, capabilities, ASTs, hooks,
+- [x] A present invalid key never falls back to anonymous or session authority.
+- [x] Raw credentials never enter metadata, capabilities, ASTs, hooks,
       diagnostics, errors, logs, or persistence plans.
-- [ ] Body fields, query parameters, alternative headers, serialized grants,
+- [x] Body fields, query parameters, alternative headers, serialized grants,
       contexts, privileges, and `useMasterKey` cannot select Master.
-- [ ] Duplicate application-ID, Master, Authorization, cookie, and correlation
+- [x] Duplicate application-ID, Master, Authorization, cookie, and correlation
       headers fail from provider-preserved cardinality evidence before
       application behavior or credential verification.
-- [ ] Pre-dispatch failures use only ADR-0226's safe HTTP error boundary.
-- [ ] Async request storage spans resolver, handler, Runtime, transaction, and
+- [x] Pre-dispatch failures use only ADR-0226's safe HTTP error boundary.
+- [x] Async request storage spans resolver, handler, Runtime, transaction, and
       response completion and is isolated across applications and concurrent
       requests.
-- [ ] The Fetch request signal and any configured deadline compose into the
+- [x] The Fetch request signal and any configured deadline compose into the
       single request-context `AbortSignal` used by every downstream path.
 
 ## Tests
 
-- [ ] Missing, valid, invalid, disabled, cross-application, duplicate, audited,
+- [x] Missing, valid, invalid, disabled, cross-application, duplicate, audited,
       audit-failure, session-plus-Master, and forged-authority matrices.
-- [ ] Raw-secret absence assertions cover logs, hooks, errors, metadata, plans,
+- [x] Raw-secret absence assertions cover logs, hooks, errors, metadata, plans,
       and observer payloads.
+
+## Completion evidence
+
+- `yarn typecheck` passed.
+- `yarn test` — 361 files and 1,758 tests passed with no type errors.
+- `yarn lint` passed with existing repository line-count warnings and no errors;
+  every changed HTTP source and test file remains within its hard budget.
+- `yarn build` passed for every workspace, including ATTW and publint checks.
+- `yarn vitest run --project e2e --passWithNoTests` — 27 files and 128 tests
+  passed.
+- `yarn test:pack:built` — 20 files and 104 packed-consumer tests passed.
+- `yarn constraints`, formatting, issue metadata, and `git diff --check` passed.
 
 ## Out of scope
 

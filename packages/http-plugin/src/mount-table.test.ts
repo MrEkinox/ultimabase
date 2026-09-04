@@ -24,12 +24,14 @@ const compatibility = (
 
 const fakeApplication = (
 	appId: string,
-	handle: (input: HttpServerRequest) => Promise<Response | undefined> = () =>
+	handle: (input: HttpServerRequest) => Promise<Response> = () =>
 		Promise.resolve(new Response(appId)),
 ): HttpApplication => ({
 	appId,
+	authority: { master: { enabled: false } },
 	protocolVersion: httpApplicationProtocolVersion,
 	originalHeaderMode: httpOriginalHeaderMode,
+	requestTimeoutMs: undefined,
 	routeGraph: { endpoints: [], mounts: [], routes: [] },
 	fetch: handle,
 })
@@ -54,8 +56,8 @@ describe('HttpApplicationMountTable', () => {
 
 		expect(external.values()[0]?.routeGraph).toBe(application.routeGraph)
 		expect(framework.values()[0]?.routeGraph).toBe(application.routeGraph)
-		expect(await (await external.fetch(input))?.text()).toBe('shared')
-		expect(await (await framework.fetch(input))?.text()).toBe('shared')
+		expect(await (await external.fetch(input)).text()).toBe('shared')
+		expect(await (await framework.fetch(input)).text()).toBe('shared')
 	})
 
 	it('commits immutable replacements and preserves prior tables on conflicts', () => {
@@ -146,7 +148,68 @@ describe('HttpApplicationMountTable', () => {
 		).mount(fakeApplication('selected', handler))
 		const input = request([['X-UltimaBase-Application-Id', 'selected']])
 
-		expect(await (await table.fetch(input))?.text()).toBe('selected')
+		expect(await (await table.fetch(input)).text()).toBe('selected')
 		expect(handler).toHaveBeenCalledExactlyOnceWith(input)
+	})
+
+	it.each([
+		'X-UltimaBase-Application-Id',
+		'X-UltimaBase-Master-Key',
+		'Authorization',
+		'Cookie',
+		'Content-Length',
+		'X-UltimaBase-Request-Id',
+	])(
+		'rejects duplicate %s evidence before application behavior',
+		async (name) => {
+			const handler = vi.fn(() => Promise.resolve(new Response('unexpected')))
+			const table = new HttpApplicationMountTable(
+				compatibility('external'),
+			).mount(fakeApplication('selected', handler))
+			const headers: readonly HttpOriginalHeader[] =
+				name === 'X-UltimaBase-Application-Id'
+					? [
+							[name, 'selected'],
+							[name.toLowerCase(), 'selected'],
+						]
+					: [
+							['X-UltimaBase-Application-Id', 'selected'],
+							[name, 'one'],
+							[name.toLowerCase(), 'two'],
+						]
+
+			const response = await table.fetch(request(headers))
+			expect(response.status).toBe(400)
+			expect(await response.json()).toMatchObject({
+				error: { code: 'HTTP_BAD_REQUEST', retryable: false },
+			})
+			expect(response.headers.get('Cache-Control')).toBe('private, no-store')
+			expect(response.headers.get('X-UltimaBase-Request-Id')).toBeTruthy()
+			expect(handler).not.toHaveBeenCalled()
+		},
+	)
+
+	it('sanitizes malformed and unknown application failures', async () => {
+		const handler = vi.fn(() => Promise.resolve(new Response('unexpected')))
+		const table = new HttpApplicationMountTable(
+			compatibility('external'),
+		).mount(fakeApplication('selected', handler))
+
+		const malformed = await table.fetch({
+			originalHeaders: [['invalid']] as never,
+			request: new Request('http://localhost'),
+		})
+		const unknown = await table.fetch(
+			request([['X-UltimaBase-Application-Id', 'unknown']]),
+		)
+		expect(malformed.status).toBe(400)
+		expect(await malformed.json()).toMatchObject({
+			error: { code: 'HTTP_BAD_REQUEST' },
+		})
+		expect(unknown.status).toBe(401)
+		expect(await unknown.json()).toMatchObject({
+			error: { code: 'HTTP_APPLICATION_REJECTED' },
+		})
+		expect(handler).not.toHaveBeenCalled()
 	})
 })
