@@ -25,7 +25,6 @@ import type {
 } from '../clauses/inclusion.js'
 import { normalizeQueryInclusion } from '../clauses/inclusion.js'
 import {
-	normalizeQueryCursorPagination,
 	normalizeQueryLimit,
 	normalizeQueryOffsetPagination,
 } from '../clauses/pagination.js'
@@ -512,46 +511,26 @@ export class QueryBuilder<
 		return this.#order('descending', fields)
 	}
 
-	/** Defines the single page-size clause shared by all pagination strategies. */
+	/** Defines an optional maximum result count for the query. */
 	limit(
 		value: number,
 	): QueryBuilder<TSchema, TSelectedField, TIncludedPointer> {
 		return this.#with({ limit: normalizeQueryLimit(value) })
 	}
 
-	/** Selects offset pagination and rejects an existing cursor position. */
+	/** Selects offset pagination without mutating earlier query branches. */
 	offset(
 		value: number,
 	): QueryBuilder<TSchema, TSelectedField, TIncludedPointer> {
 		const pagination = normalizeQueryOffsetPagination({ offset: value })
 
 		if (pagination === undefined) {
-			// Zero removes an existing offset while leaving an unrelated cursor branch intact.
-			return this.ast.pagination?.kind === 'offset-pagination'
-				? this.#with({ pagination: undefined })
-				: this.#with({})
-		}
-
-		if (this.ast.pagination?.kind === 'cursor-pagination') {
-			throw new TypeError('query cannot combine offset and after pagination')
+			return this.ast.pagination === undefined
+				? this.#with({})
+				: this.#with({ pagination: undefined })
 		}
 
 		return this.#with({ pagination })
-	}
-
-	/** Selects the first or a resumed cursor page and rejects an existing offset. */
-	after(
-		cursor?: string,
-	): QueryBuilder<TSchema, TSelectedField, TIncludedPointer> {
-		if (this.ast.pagination?.kind === 'offset-pagination') {
-			throw new TypeError('query cannot combine offset and after pagination')
-		}
-
-		return this.#with({
-			pagination: normalizeQueryCursorPagination(
-				cursor === undefined ? {} : { after: cursor },
-			),
-		})
 	}
 
 	/**
@@ -631,9 +610,6 @@ export class QueryBuilder<
 			...(this.ast.limit === undefined ? {} : { limit: this.ast.limit }),
 			...(this.ast.pagination?.kind === 'offset-pagination'
 				? { offset: this.ast.pagination.offset }
-				: {}),
-			...(this.ast.pagination?.kind === 'cursor-pagination'
-				? { cursor: this.ast.pagination.after ?? true }
 				: {}),
 		})
 

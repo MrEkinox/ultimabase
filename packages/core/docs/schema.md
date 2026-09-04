@@ -244,7 +244,6 @@ const recentPosts = await posts.findMany({
 	select: { id: true, title: true },
 	orderBy: { createdAt: 'desc' },
 	limit: 20,
-	cursor: true,
 })
 ```
 
@@ -255,7 +254,7 @@ because Runtime retains the validated source identity separately; an adapter
 that did not provide protected identity fails before a handle can be created.
 
 `Relation` is a frozen opaque class. `query()` returns the ordinary target
-`Query`, so selection, filtering, ordering, offset or cursor pagination, count,
+`Query`, so selection, filtering, ordering, offset pagination, count,
 exists, ambient request reuse, and terminal-only execution options stay
 consistent. The relationship edge is carried beside the AST in private Runtime
 state. It is neither enumerable nor serializable, and every Query branch,

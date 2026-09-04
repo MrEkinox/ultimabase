@@ -94,12 +94,7 @@ const executeFindMany = async (
 	relationCompiler?: PostgresRelationPredicateCompiler,
 ): Promise<readonly Readonly<Record<string, unknown>>[]> => {
 	const query = readBuiltInQuery(operation.query)
-	const clauses = compilePostgresQueryClauses(
-		query,
-		schema,
-		undefined,
-		relationCompiler,
-	)
+	const clauses = compilePostgresQueryClauses(query, schema, relationCompiler)
 	const rows = await buildSelect(client, schema, clauses.selection, clauses, {
 		constraint,
 	})
@@ -115,12 +110,7 @@ const executeFindOne = async (
 	relationCompiler?: PostgresRelationPredicateCompiler,
 ): Promise<Readonly<Record<string, unknown>> | null> => {
 	const query = readBuiltInQuery(operation.query)
-	const clauses = compilePostgresQueryClauses(
-		query,
-		schema,
-		undefined,
-		relationCompiler,
-	)
+	const clauses = compilePostgresQueryClauses(query, schema, relationCompiler)
 	const [row] = await buildSelect(client, schema, clauses.selection, clauses, {
 		constraint,
 		limit: 1,
@@ -137,12 +127,7 @@ const executeGet = async (
 	relationCompiler?: PostgresRelationPredicateCompiler,
 ): Promise<Readonly<Record<string, unknown>> | null> => {
 	const query = readBuiltInQuery(operation.query)
-	const clauses = compilePostgresQueryClauses(
-		query,
-		schema,
-		undefined,
-		relationCompiler,
-	)
+	const clauses = compilePostgresQueryClauses(query, schema, relationCompiler)
 	const id = resolveCompiledPostgresField(schema, 'id')
 	const [row] = await buildSelect(client, schema, clauses.selection, clauses, {
 		constraint,
@@ -162,12 +147,7 @@ const executeCount = async (
 ): Promise<number> => {
 	const query = readBuiltInQuery(operation.query)
 	const id = resolveCompiledPostgresField(schema, 'id').column
-	const clauses = compilePostgresQueryClauses(
-		query,
-		schema,
-		undefined,
-		relationCompiler,
-	)
+	const clauses = compilePostgresQueryClauses(query, schema, relationCompiler)
 	const target = buildSelect(client, schema, { id }, clauses, {
 		constraint,
 	}).as('ultimabase_count_target')
@@ -189,12 +169,7 @@ const executeExists = async (
 ): Promise<boolean> => {
 	const query = readBuiltInQuery(operation.query)
 	const id = resolveCompiledPostgresField(schema, 'id').column
-	const clauses = compilePostgresQueryClauses(
-		query,
-		schema,
-		undefined,
-		relationCompiler,
-	)
+	const clauses = compilePostgresQueryClauses(query, schema, relationCompiler)
 	const rows = await buildSelect(client, schema, { id }, clauses, {
 		constraint,
 		limit: 1,
@@ -322,12 +297,7 @@ const executeUpdateOne = async (
 	relationCompiler?: PostgresRelationPredicateCompiler,
 ): Promise<Readonly<Record<string, unknown>> | null> => {
 	const query = readBuiltInQuery(operation.query)
-	const clauses = compilePostgresQueryClauses(
-		query,
-		schema,
-		undefined,
-		relationCompiler,
-	)
+	const clauses = compilePostgresQueryClauses(query, schema, relationCompiler)
 	const id = resolveCompiledPostgresField(schema, 'id').column
 	const target = buildSingularTarget(client, schema, clauses, constraint)
 	const [row] = await client
@@ -347,12 +317,7 @@ const executeDeleteOne = async (
 	relationCompiler?: PostgresRelationPredicateCompiler,
 ): Promise<Readonly<Record<string, unknown>> | null> => {
 	const query = readBuiltInQuery(operation.query)
-	const clauses = compilePostgresQueryClauses(
-		query,
-		schema,
-		undefined,
-		relationCompiler,
-	)
+	const clauses = compilePostgresQueryClauses(query, schema, relationCompiler)
 	const id = resolveCompiledPostgresField(schema, 'id').column
 	const target = buildSingularTarget(client, schema, clauses, constraint)
 	const [row] = await client
@@ -374,7 +339,6 @@ export const executeUpdateMany = async (
 	const clauses = compilePostgresQueryClauses(
 		readBuiltInQuery(operation.query),
 		schema,
-		undefined,
 		relationCompiler,
 	)
 	const id = resolveCompiledPostgresField(schema, 'id').column
@@ -405,7 +369,6 @@ export const executeDeleteMany = async (
 	const clauses = compilePostgresQueryClauses(
 		readBuiltInQuery(operation.query),
 		schema,
-		undefined,
 		relationCompiler,
 	)
 	const id = resolveCompiledPostgresField(schema, 'id').column
@@ -435,7 +398,6 @@ export const lockPostgresUpsertTarget = async (
 	const clauses = compilePostgresQueryClauses(
 		readBuiltInQuery(query),
 		schema,
-		undefined,
 		relationCompiler,
 	)
 	const [row] = await buildSelect(
@@ -510,12 +472,7 @@ export const lockPostgresSingularMutationTarget = async (
 	relationCompiler?: PostgresRelationPredicateCompiler,
 ): Promise<Readonly<Record<string, unknown>> | null> => {
 	const query = readBuiltInQuery(operation.query)
-	const clauses = compilePostgresQueryClauses(
-		query,
-		schema,
-		undefined,
-		relationCompiler,
-	)
+	const clauses = compilePostgresQueryClauses(query, schema, relationCompiler)
 	const [row] = await buildSelect(
 		client,
 		schema,
@@ -541,7 +498,6 @@ export const lockPostgresSetBasedMutationTargets = async (
 	const clauses = compilePostgresQueryClauses(
 		readBuiltInQuery(operation.query),
 		schema,
-		undefined,
 		relationCompiler,
 	)
 	const rows = await buildSelect(

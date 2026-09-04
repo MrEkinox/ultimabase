@@ -1,6 +1,6 @@
 # 2302: Decide the experimental HTTP and REST v1 wire contract
 
-- Status: ready
+- Status: in-progress
 - Milestone: 23
 - Packages: `@ultimabase/http-plugin`, `@ultimabase/server-hono-plugin`, `@ultimabase/rest-plugin`, architecture documentation
 - Depends on: 2301, 2321
@@ -21,7 +21,7 @@ generation or wire parsing creates a compatibility surface.
       rejection.
 - [ ] Simple GET parameters and the complex query form map unambiguously to the
       existing Query AST, including filters, selections, inclusions, ordering,
-      limits, offsets, and cursors.
+      limits, and offsets. REST v1 exposes no cursor per ADR-0227.
 - [ ] Route enablement defaults and per-schema or per-operation overrides are
       explicit and remain separate from Access authorization.
 - [ ] Defaults distinguish application-owned from plugin-owned schemas;

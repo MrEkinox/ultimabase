@@ -1,6 +1,7 @@
 # 341: Add the QueryCursor value class
 
-- Status: ready
+- Status: superseded
+- Superseded by: 355
 - Milestone: 3
 - Packages: `@ultimabase/core`
 - Depends on: 305

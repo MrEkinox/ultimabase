@@ -1,6 +1,7 @@
 # ADR-0056: Protected opaque Query cursors
 
-- Status: accepted
+- Status: superseded
+- Superseded by: ADR-0227
 - Date: 2026-07-31
 - Refines: ADR-0004, ADR-0052, ADR-0055
 

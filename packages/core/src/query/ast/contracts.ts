@@ -4,8 +4,6 @@ import type {
 	SchemaTypeInfoSource,
 } from '../../schema/type-info.js'
 
-import type { QueryCursor } from '../cursor/contracts.js'
-
 /** Extracts every developer and framework-owned field name from one schema. */
 export type QueryFieldName<TSchema extends SchemaTypeInfoSource> = Extract<
 	SchemaTypeInfoFor<TSchema>['fields'],
@@ -105,15 +103,8 @@ export interface QueryOffsetPaginationNode {
 	readonly offset: number
 }
 
-/** Represents forward keyset pagination from an optional opaque cursor. */
-export interface QueryCursorPaginationNode {
-	readonly kind: 'cursor-pagination'
-	readonly after: QueryCursor | undefined
-}
-
-/** Leaves pagination extensible without exposing adapter-specific values. */
-export type QueryPaginationNode =
-	QueryOffsetPaginationNode | QueryCursorPaginationNode
+/** Leaves pagination named independently from the query page-size clause. */
+export type QueryPaginationNode = QueryOffsetPaginationNode
 
 /** Carries the complete transport-neutral state consumed by later operations. */
 export interface QueryAst<

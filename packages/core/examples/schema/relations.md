@@ -76,7 +76,6 @@ const recentPosts = await user.relation('posts').findMany({
 	select: { id: true, title: true },
 	orderBy: { createdAt: 'desc' },
 	limit: 20,
-	cursor: true,
 })
 ```
 

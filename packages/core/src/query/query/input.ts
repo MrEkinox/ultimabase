@@ -37,7 +37,6 @@ import type {
 } from '../clauses/inclusion.js'
 import { normalizeQueryInclusion } from '../clauses/inclusion.js'
 import {
-	normalizeQueryCursorPagination,
 	normalizeQueryLimit,
 	normalizeQueryOffsetPagination,
 } from '../clauses/pagination.js'
@@ -108,25 +107,15 @@ interface FindManyBaseInput<TSchema extends SchemaTypeInfoSource>
 	extends QueryFilteredInput<TSchema>, QueryProjectionInput<TSchema> {
 	/** Limits the number of returned models. */
 	readonly limit?: number
+	/** Applies offset pagination. */
+	readonly offset?: number
 	/** Applies deterministic priority ordering from left to right. */
 	readonly orderBy?: QueryOrderByInput<TSchema>
 }
 
-type QueryPaginationInput =
-	| Readonly<{
-			/** Starts cursor pagination or resumes it from one opaque cursor. */
-			readonly cursor: true | string
-			readonly offset?: never
-	  }>
-	| Readonly<{
-			readonly cursor?: never
-			/** Applies offset pagination. */
-			readonly offset?: number
-	  }>
-
 /** Describes one complete collection read without retaining execution state. */
 export type FindManyInput<TSchema extends SchemaTypeInfoSource> =
-	FindManyBaseInput<TSchema> & QueryPaginationInput
+	FindManyBaseInput<TSchema>
 
 /** Describes one first-match read with optional deterministic ordering. */
 export interface FindOneInput<TSchema extends SchemaTypeInfoSource>
@@ -346,21 +335,13 @@ export type ExactGeneratedGetInput<
 	ExactReadSelectionInput<TContract, TSelection> &
 	ExactReadInclusionInput<TContract, TInclude>
 
-/** Describes one exact collection read using cursor pagination. */
-export type ExactCursorFindManyInput<
-	TContract extends SchemaTypeInfo,
-	TSelection extends TContract['inputs']['select'] | undefined = undefined,
-	TInclude extends TContract['inputs']['include'] | undefined = undefined,
-> = ExactFindManyProjectionInput<TContract, TSelection, TInclude> &
-	Readonly<{ readonly cursor: true | string; readonly offset?: never }>
-
 /** Describes one exact collection read using optional offset pagination. */
-export type ExactOffsetFindManyInput<
+export type ExactGeneratedFindManyInput<
 	TContract extends SchemaTypeInfo,
 	TSelection extends TContract['inputs']['select'] | undefined = undefined,
 	TInclude extends TContract['inputs']['include'] | undefined = undefined,
 > = ExactFindManyProjectionInput<TContract, TSelection, TInclude> &
-	Readonly<{ readonly cursor?: never; readonly offset?: number }>
+	Readonly<{ readonly offset?: number }>
 
 type SelectedFieldFromInput<
 	TSchema extends SchemaTypeInfoSource,
@@ -506,7 +487,6 @@ const queryInputKeys: Readonly<Record<QueryInputKind, ReadonlySet<string>>> =
 		count: new Set(['where']),
 		exists: new Set(['where']),
 		'find-many': new Set([
-			'cursor',
 			'include',
 			'limit',
 			'orderBy',
@@ -692,9 +672,6 @@ const createInputQuery = <const TSchema extends SchemaDefinition>(
 	}
 
 	assertQueryInput(input, kind)
-	if (input.offset !== undefined && input.cursor !== undefined) {
-		throw new TypeError('query cannot combine offset and cursor pagination')
-	}
 
 	let ast = createQueryAst(schema) as QueryInputAst<TSchema>
 
@@ -718,19 +695,6 @@ const createInputQuery = <const TSchema extends SchemaDefinition>(
 			pagination: normalizeQueryOffsetPagination({
 				offset: input.offset as number,
 			}),
-		})
-	}
-
-	if (input.cursor !== undefined) {
-		if (input.cursor !== true && typeof input.cursor !== 'string') {
-			throw new TypeError('query.cursor must be true or an opaque string')
-		}
-
-		ast = immutableRecord({
-			...ast,
-			pagination: normalizeQueryCursorPagination(
-				input.cursor === true ? {} : { after: input.cursor },
-			),
 		})
 	}
 

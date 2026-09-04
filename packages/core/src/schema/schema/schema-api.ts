@@ -12,10 +12,9 @@ import type {
 } from '../../query/operations/schema-commands.js'
 import type { OperationOptions } from '../../query/operations/options.js'
 import type {
-	ExactCursorFindManyInput,
+	ExactGeneratedFindManyInput,
 	ExactGeneratedFindOneInput,
 	ExactGeneratedGetInput,
-	ExactOffsetFindManyInput,
 	QueryBuilderInput,
 	QueryIncludedFieldFromInput,
 	QuerySelectedFieldFromInput,
@@ -141,17 +140,6 @@ export interface SchemaAPI<TContract extends SchemaTypeInfo>
 		options?: OperationOptions,
 	): Promise<boolean>
 
-	/** Reads matching rows through cursor pagination. */
-	findMany<
-		const TSelection extends TContract['inputs']['select'] | undefined =
-			undefined,
-		const TInclude extends TContract['inputs']['include'] | undefined =
-			undefined,
-	>(
-		input: ExactCursorFindManyInput<TContract, TSelection, TInclude>,
-		options?: OperationOptions,
-	): Promise<readonly SchemaReadResult<TContract, this, TSelection, TInclude>[]>
-
 	/** Reads matching rows through optional offset pagination. */
 	findMany<
 		const TSelection extends TContract['inputs']['select'] | undefined =
@@ -159,7 +147,7 @@ export interface SchemaAPI<TContract extends SchemaTypeInfo>
 		const TInclude extends TContract['inputs']['include'] | undefined =
 			undefined,
 	>(
-		input?: ExactOffsetFindManyInput<TContract, TSelection, TInclude>,
+		input?: ExactGeneratedFindManyInput<TContract, TSelection, TInclude>,
 		options?: OperationOptions,
 	): Promise<readonly SchemaReadResult<TContract, this, TSelection, TInclude>[]>
 

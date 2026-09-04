@@ -1,4 +1,3 @@
-import { normalizeQueryCursorOrdering } from '@ultimabase/core'
 import type {
 	DatabaseInclusionPlan,
 	DatabaseLogicalRecord,
@@ -120,7 +119,6 @@ const compileRequestPredicate = (
 	const clauses = compilePostgresQueryClauses(
 		readBuiltInQuery(operationQuery),
 		schema,
-		undefined,
 		relationCompiler,
 	)
 	const contributed = compilePostgresConstraints(
@@ -262,19 +260,11 @@ const compileRelationalConfig = (
 			: {}),
 	}
 
-	const ordering =
-		query.pagination?.kind === 'cursor-pagination'
-			? normalizeQueryCursorOrdering(
-					query.schema.definition,
-					query.ordering.orders,
-				)
-			: query.ordering
-
-	if (ordering.orders.length > 0) {
+	if (query.ordering.orders.length > 0) {
 		config.orderBy = (table, operators) => {
 			const columns = getColumns(table as PgTable)
 
-			return ordering.orders.map(({ direction, field }) => {
+			return query.ordering.orders.map(({ direction, field }) => {
 				const column = columns[field]
 
 				if (column === undefined) {

@@ -472,7 +472,7 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 		expect(select.display).toContain('title: true')
 		// Schema reads use the deliberate minimal contract before code generation.
 		expect(find.display).toContain(
-			'ExactOffsetFindManyInput<BaseSchemaTypeInfo<"RuntimePost">',
+			'ExactGeneratedFindManyInput<BaseSchemaTypeInfo<"RuntimePost">',
 		)
 		expect(deletion.display).toContain('.deleteOne<')
 		expect(deletion.display).toContain('input: SchemaDeleteOneInput<')

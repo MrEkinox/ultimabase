@@ -286,7 +286,6 @@ describe(
 										: 'principal-a',
 							},
 						},
-						cursor: true,
 						limit: 10,
 						select: { title: true },
 					},

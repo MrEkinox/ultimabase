@@ -3,7 +3,6 @@ export type {
 	InitialQueryAst,
 	QueryAst,
 	QueryAstNode,
-	QueryCursorPaginationNode,
 	QueryExpressionNode,
 	QueryFieldName,
 	QueryIncludedFieldNode,
@@ -20,33 +19,13 @@ export type {
 	QuerySelectionNode,
 	QueryWhereNode,
 } from './ast/contracts.js'
-export { queryCursorVersion } from './cursor/contracts.js'
-export type {
-	QueryCursor,
-	QueryCursorCodec,
-	QueryCursorOrderValue,
-	QueryCursorPayload,
-} from './cursor/contracts.js'
-export { QueryCursorError } from './cursor/error.js'
-export type { QueryCursorErrorCode } from './cursor/error.js'
-export { normalizeQueryCursorOrdering } from './cursor/ordering.js'
-export {
-	createQueryCursorPayload,
-	sealQueryCursor,
-	unsealQueryCursor,
-} from './cursor/payload.js'
-export type { QueryCursorValues } from './cursor/payload.js'
 export { normalizeQueryOrdering } from './clauses/ordering.js'
 export type { QueryOrderInput } from './clauses/ordering.js'
 export {
-	normalizeQueryCursorPagination,
 	normalizeQueryLimit,
 	normalizeQueryOffsetPagination,
 } from './clauses/pagination.js'
-export type {
-	QueryCursorPaginationInput,
-	QueryOffsetPaginationInput,
-} from './clauses/pagination.js'
+export type { QueryOffsetPaginationInput } from './clauses/pagination.js'
 export { normalizeQuerySelection } from './clauses/selection.js'
 export type { QuerySelectedField, QuerySelection } from './clauses/selection.js'
 export { normalizeQueryInclusion } from './clauses/inclusion.js'

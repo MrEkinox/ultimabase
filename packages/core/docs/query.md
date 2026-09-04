@@ -1,7 +1,7 @@
 # Core Query domain
 
-Transport-neutral Query and Operation AST contracts, normalization, cursor
-contracts, operators, and immutable read definitions.
+Transport-neutral Query and Operation AST contracts, normalization, operators,
+and immutable read definitions.
 
 Generated schema classes expose object-input read commands. These objects are
 the canonical, serializable contract shared with future transports. The
@@ -21,21 +21,16 @@ const feed = await Post.findMany(
 		select: { id: true, title: true, createdAt: true },
 		orderBy: { createdAt: 'desc' },
 		limit: 25,
-		cursor: true,
+		offset: 50,
 	},
-	{ ultimabase },
-)
-
-const nextPage = await Post.findMany({ limit: 25, cursor }, { ultimabase })
-const offsetPage = await Post.findMany(
-	{ limit: 25, offset: 50 },
 	{ ultimabase },
 )
 ```
 
-`limit` defines the page size. `cursor: true` starts cursor pagination and
-`cursor: string` resumes from an opaque cursor. `offset` selects offset
-pagination and cannot be combined with `cursor`.
+`limit` defines the maximum page size and `offset` skips a validated
+non-negative number of matching rows. Core exposes no cursor token or cursor
+codec. A transport may own its protocol-specific pagination contract and
+normalize it into ordinary Query clauses.
 
 `orderBy` is one schema-correlated object. Every direction is optional and may
 be `asc`, `desc`, or `null`; `null` is ignored like an absent property. When
@@ -48,8 +43,7 @@ const stableFeed = await Post.findMany({
 ```
 
 Relation inclusions accept the same `offset` name. The adapter applies it
-independently to every parent collection; relation inclusion does not accept a
-cursor.
+independently to every parent collection.
 
 `select` receives one flat boolean object correlated with the schema. As soon
 as one field is `true`, only fields marked `true` remain visible. With only

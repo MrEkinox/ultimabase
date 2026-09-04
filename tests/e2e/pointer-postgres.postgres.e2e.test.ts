@@ -267,7 +267,7 @@ afterAll(async () => {
 })
 
 describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
-	it('stabilizes an eager first cursor page by id without explicit ordering', async () => {
+	it('honors explicit id ordering on an eager bounded page', async () => {
 		const app = getUltimaBase()
 		const author = await User.createOne(
 			{ data: { name: 'Cursor author' } },
@@ -303,7 +303,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 				select: { id: true },
 				include: { author: { select: { name: true } } },
 				limit: 2,
-				cursor: true,
+				orderBy: { id: 'asc' },
 			},
 			{ ultimabase: app },
 		)

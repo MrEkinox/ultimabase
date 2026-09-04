@@ -642,10 +642,9 @@ const users = await UserSchema.findMany({
 
 Unlike a pointer, an included relation supports `where`, `orderBy`, `offset`,
 `limit`, `select`, and nested `include`. Its offset is applied independently to
-every parent collection. Per-parent cursor pagination is deliberately not part
-of this contract. Installed source-relation field policy runs once before
-loading. Target policy and output resolution still apply through the target
-read pipeline.
+every parent collection. Installed source-relation field policy runs once
+before loading. Target policy and output resolution still apply through the
+target read pipeline.
 
 Persisted models expose only their declared to-many fields through an immutable
 `Relation<TSource, TTarget>` handle:
@@ -656,7 +655,6 @@ const recentPosts = await posts.findMany({
 	select: { id: true, title: true },
 	orderBy: { createdAt: 'desc' },
 	limit: 20,
-	cursor: true,
 })
 ```
 

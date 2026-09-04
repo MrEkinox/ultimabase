@@ -287,7 +287,7 @@ describe(
 
 			await expect(
 				tags.findMany(
-					{ cursor: true, limit: 10, select: { label: true } },
+					{ limit: 10, select: { label: true } },
 					{ context, ultimabase: app },
 				),
 			).resolves.toEqual([expect.objectContaining({ label: 'visible' })])

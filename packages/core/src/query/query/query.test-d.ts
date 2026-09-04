@@ -1,4 +1,9 @@
 import { expectTypeOf, test } from 'vitest'
+import { QueryBuilder, Schema, type FindManyInput } from '../../index.js'
+
+// @ts-expect-error -- Core no longer exposes transport cursor contracts.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- The invalid import protects the removed public API.
+import type { QueryCursor } from '../../index.js'
 
 // @ts-expect-error -- Trusted hydration is not part of Core's public authoring surface.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- The invalid import proves the source export stays absent.
@@ -34,4 +39,21 @@ import { executeQueryDeleteMany } from './query.js'
 
 test('keeps Query execution and scope internals absent from source exports', () => {
 	expectTypeOf<true>().toEqualTypeOf<true>()
+})
+
+test('keeps cursor pagination outside the Core Query API', () => {
+	const Page = Schema.define({
+		className: 'CursorFreePage',
+		fields: (field) => ({ title: field.string() }),
+	})
+	const query = new QueryBuilder(Page)
+	const input = { limit: 20, offset: 40 } satisfies FindManyInput<typeof Page>
+
+	expectTypeOf(input.offset).toEqualTypeOf<number>()
+	// @ts-expect-error -- Transport cursors are not a Core QueryBuilder method.
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-call -- The unresolved call proves the method stays absent.
+	query.after('opaque-cursor')
+	// @ts-expect-error -- Canonical Core reads expose offset, not cursor pagination.
+	const invalidInput: FindManyInput<typeof Page> = { cursor: true }
+	void invalidInput
 })

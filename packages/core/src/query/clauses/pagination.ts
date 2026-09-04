@@ -1,15 +1,6 @@
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
-import type {
-	QueryCursorPaginationNode,
-	QueryOffsetPaginationNode,
-} from '../ast/contracts.js'
-import type { QueryCursor } from '../cursor/contracts.js'
-
-/** Describes forward keyset pagination before its token is authenticated. */
-export interface QueryCursorPaginationInput {
-	readonly after?: string
-}
+import type { QueryOffsetPaginationNode } from '../ast/contracts.js'
 
 /** Describes an optional offset without duplicating the independent limit. */
 export interface QueryOffsetPaginationInput {
@@ -41,7 +32,7 @@ const parseOptionalPaginationInteger = (
 ): number | undefined =>
 	value === undefined ? undefined : parsePaginationInteger(value, path, minimum)
 
-/** Validates the only page-size value shared by offset and cursor strategies. */
+/** Validates the optional page-size value independently from offset position. */
 export const normalizeQueryLimit = (limit?: number): number | undefined =>
 	parseOptionalPaginationInteger(limit, 'query.limit', 1)
 
@@ -74,30 +65,5 @@ export const normalizeQueryOffsetPagination = (
 	return immutableRecord({
 		kind: 'offset-pagination',
 		offset: normalizedOffset,
-	})
-}
-
-/** Validates a forward cursor page while keeping the token opaque to the AST. */
-export const normalizeQueryCursorPagination = (
-	input: QueryCursorPaginationInput = {},
-): QueryCursorPaginationNode => {
-	const untrustedInput: unknown = input
-
-	if (!isPlainRecord(untrustedInput)) {
-		throw new TypeError('cursor pagination must be an object')
-	}
-
-	const after = untrustedInput.after
-
-	if (
-		after !== undefined &&
-		(typeof after !== 'string' || after.length === 0)
-	) {
-		throw new TypeError('pagination.after must be a non-empty string')
-	}
-
-	return immutableRecord({
-		kind: 'cursor-pagination',
-		after: after as QueryCursor | undefined,
 	})
 }

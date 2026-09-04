@@ -1,12 +1,10 @@
 import { expect, expectTypeOf, test } from 'vitest'
 
 import {
-	normalizeQueryCursorPagination,
 	normalizeQueryLimit,
 	normalizeQueryOffsetPagination,
-	type QueryCursor,
-	type QueryCursorPaginationNode,
 	type QueryOffsetPaginationInput,
+	type QueryPaginationNode,
 } from '../index.js'
 
 test('keeps offset pagination input and output precise and readonly', () => {
@@ -28,23 +26,8 @@ test('keeps offset pagination input and output precise and readonly', () => {
 	// @ts-expect-error -- Offset pagination cannot redefine the query limit.
 	normalizeQueryOffsetPagination({ limit: 25 })
 	if (pagination !== undefined) {
+		expectTypeOf(pagination).toEqualTypeOf<QueryPaginationNode>()
 		// @ts-expect-error -- Normalized pagination nodes are immutable.
 		pagination.offset = 0
 	}
-})
-
-test('brands normalized cursor tokens without burdening caller input', () => {
-	const pagination = normalizeQueryCursorPagination({
-		after: 'opaque.cursor',
-	})
-
-	expect(pagination.kind).toBe('cursor-pagination')
-	expectTypeOf(pagination).toEqualTypeOf<QueryCursorPaginationNode>()
-	expectTypeOf(pagination.after).toEqualTypeOf<QueryCursor | undefined>()
-	expectTypeOf<'plain cursor'>().not.toExtend<QueryCursor>()
-
-	// @ts-expect-error -- Cursor position cannot redefine the query limit.
-	normalizeQueryCursorPagination({ after: 'opaque.cursor', limit: 25 })
-	// @ts-expect-error -- Normalized cursor positions are immutable.
-	pagination.after = undefined
 })

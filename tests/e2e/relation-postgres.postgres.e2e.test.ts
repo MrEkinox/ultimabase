@@ -589,7 +589,6 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 						where: { label: { eq: 'alpha' } },
 						orderBy: { label: 'asc' },
 						limit: 1,
-						cursor: true,
 						select: { label: true },
 					},
 					{ ultimabase: app },

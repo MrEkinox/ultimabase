@@ -40,13 +40,13 @@ new SchemaRegistry([Author, Post, Feed]).resolveSchemaTargets()
 describe('canonical read inputs', () => {
 	it('normalizes one complete object directly into an immutable Query AST', () => {
 		const query = queryFromFindManyInput(Post, {
-			cursor: 'cursor',
 			include: {
 				author: {
 					select: { id: true, name: true },
 				},
 			},
 			limit: 20,
+			offset: 10,
 			orderBy: { createdAt: 'desc', id: 'asc' },
 			select: { id: true, title: true },
 			where: { title: { contains: 'TypeScript' } },
@@ -62,7 +62,7 @@ describe('canonical read inputs', () => {
 					{ direction: 'ascending', field: 'id' },
 				],
 			},
-			pagination: { after: 'cursor', kind: 'cursor-pagination' },
+			pagination: { kind: 'offset-pagination', offset: 10 },
 			selection: {
 				fields: [
 					{ field: 'id', kind: 'selected-field' },
@@ -160,7 +160,7 @@ describe('canonical read inputs', () => {
 		)
 	})
 
-	it('normalizes object ordering and rejects invalid values and pagination', () => {
+	it('normalizes object ordering and rejects invalid values and clauses', () => {
 		expect(
 			queryFromFindManyInput(Post, {
 				orderBy: { createdAt: 'desc', id: null, title: 'asc' },
@@ -181,18 +181,8 @@ describe('canonical read inputs', () => {
 		).toThrow('query.orderBy.createdAt must be asc, desc, or null')
 		expect(() =>
 			queryFromFindManyInput(Post, {
-				cursor: 'cursor',
-				offset: 10,
+				cursor: true,
 			} as never),
-		).toThrow('query cannot combine offset and cursor pagination')
-		expect(
-			queryFromFindManyInput(Post, { cursor: true }).ast.pagination,
-		).toEqual({
-			after: undefined,
-			kind: 'cursor-pagination',
-		})
-		expect(() =>
-			queryFromFindManyInput(Post, { cursor: false } as never),
-		).toThrow('query.cursor must be true or an opaque string')
+		).toThrow('find-many input contains an unknown clause: cursor')
 	})
 })

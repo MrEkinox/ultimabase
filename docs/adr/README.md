@@ -52,7 +52,6 @@ Accepted records:
 - [ADR-0053: Field-kind filter capabilities](0053-field-kind-filter-capabilities.md)
 - [ADR-0054: Deterministic logical filter normalization](0054-logical-filter-normalization.md)
 - [ADR-0055: Deterministic query clause normalization](0055-deterministic-query-clause-normalization.md)
-- [ADR-0056: Protected opaque Query cursors](0056-protected-opaque-query-cursors.md)
 - [ADR-0057: Independent Query limit and pagination position](0057-independent-query-limit.md)
 - [ADR-0058: Immutable unbound Query builder](0058-immutable-unbound-query-builder.md)
 - [ADR-0059: Terminal Operation AST](0059-terminal-operation-ast.md)
@@ -209,6 +208,7 @@ Accepted records:
 - [ADR-0224: HTTP application, REST, and password authentication boundaries](0224-http-application-rest-and-password-auth-boundaries.md)
 - [ADR-0225: Core provides a narrow application request execution capability](0225-core-application-request-execution-capability.md)
 - [ADR-0226: HTTP browser and pre-dispatch boundaries are server-consistent](0226-http-browser-and-predispatch-boundaries.md)
+- [ADR-0227: Core Query exposes offset, not cursors](0227-core-query-exposes-offset-not-cursors.md)
 
 Superseded records:
 
@@ -219,6 +219,7 @@ Superseded records:
 - [ADR-0020: Compiled validation plans](0020-compiled-validation-plans.md), superseded by ADR-0039.
 - [ADR-0035: Schema domain-oriented internal layout](0035-schema-domain-layout.md), superseded by ADR-0036.
 - [ADR-0051: Plugin-owned extension handlers](0051-plugin-owned-extension-handlers.md), superseded by ADR-0213.
+- [ADR-0056: Protected opaque Query cursors](0056-protected-opaque-query-cursors.md), superseded by ADR-0227.
 - [ADR-0061: Neutral BoundQuery facade](0061-neutral-bound-query-facade.md), superseded by ADR-0108.
 - [ADR-0062: Request context security boundary](0062-request-context-security-boundary.md), superseded by ADR-0113.
 - [ADR-0064: Mandatory deterministic Runtime pipeline](0064-mandatory-runtime-pipeline.md), superseded by ADR-0090.

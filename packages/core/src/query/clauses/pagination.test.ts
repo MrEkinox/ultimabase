@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-	normalizeQueryCursorPagination,
 	normalizeQueryLimit,
 	normalizeQueryOffsetPagination,
 } from './pagination.js'
@@ -64,39 +63,5 @@ describe('normalizeQueryOffsetPagination', () => {
 		expect(() => normalizeQueryOffsetPagination({ offset: 0.5 })).toThrow(
 			RangeError,
 		)
-	})
-})
-
-describe('normalizeQueryCursorPagination', () => {
-	it('creates immutable first and subsequent forward pages', () => {
-		const firstPage = normalizeQueryCursorPagination()
-		const nextPage = normalizeQueryCursorPagination({
-			after: 'opaque.cursor',
-		})
-
-		expect(firstPage).toStrictEqual({
-			kind: 'cursor-pagination',
-			after: undefined,
-		})
-		expect(nextPage).toStrictEqual({
-			kind: 'cursor-pagination',
-			after: 'opaque.cursor',
-		})
-		expect(Object.isFrozen(firstPage)).toBe(true)
-		expect(Object.isFrozen(nextPage)).toBe(true)
-	})
-
-	it('rejects malformed cursor pagination at runtime', () => {
-		expect(() => {
-			// @ts-expect-error -- Runtime normalization protects JavaScript callers.
-			normalizeQueryCursorPagination(null)
-		}).toThrow(new TypeError('cursor pagination must be an object'))
-		expect(() => normalizeQueryCursorPagination({ after: '' })).toThrow(
-			new TypeError('pagination.after must be a non-empty string'),
-		)
-		expect(() => {
-			// @ts-expect-error -- Runtime normalization validates cursor strings.
-			normalizeQueryCursorPagination({ after: 42 })
-		}).toThrow(new TypeError('pagination.after must be a non-empty string'))
 	})
 })

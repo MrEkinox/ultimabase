@@ -1,30 +1,14 @@
 import {
-	normalizeQueryCursorOrdering,
 	type QueryAst,
-	type QueryCursorPayload,
 	type QueryFilterNode,
 	type QueryOrderNode,
 } from '@ultimabase/core'
 import type { SchemaDefinition } from '@ultimabase/core'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
-import {
-	and,
-	asc,
-	desc,
-	eq,
-	gt,
-	isNull,
-	lt,
-	or,
-	sql,
-	type SQL,
-} from 'drizzle-orm'
+import { asc, desc, sql, type SQL } from 'drizzle-orm'
 import type { PgColumn } from 'drizzle-orm/pg-core'
 
-import type {
-	CompiledPostgresField,
-	CompiledPostgresSchema,
-} from '../schema/contracts.js'
+import type { CompiledPostgresSchema } from '../schema/contracts.js'
 import {
 	compilePostgresSelection,
 	resolveCompiledPostgresField,
@@ -67,182 +51,31 @@ const compileOrderBy = (
 		orders.map((order) => {
 			const column = resolveCompiledPostgresField(schema, order.field).column
 
-			// Explicit null placement makes cursor predicates independent from defaults.
+			// Explicit null placement keeps ordering stable across directions.
 			return order.direction === 'ascending'
 				? sql`${asc(column)} NULLS LAST`
 				: sql`${desc(column)} NULLS LAST`
 		}),
 	)
 
-const compileEqualCursorValue = (
-	field: CompiledPostgresField,
-	value: unknown,
-): SQL => {
-	if (value === null) {
-		if (!field.plan.nullable) {
-			throw new TypeError('PostgreSQL cursor value cannot be null')
-		}
-
-		return isNull(field.column)
-	}
-
-	return eq(field.column, value)
-}
-
-const compileAfterCursorValue = (
-	field: CompiledPostgresField,
-	direction: QueryOrderNode['direction'],
-	value: unknown,
-): SQL => {
-	if (value === null) {
-		if (!field.plan.nullable) {
-			throw new TypeError('PostgreSQL cursor value cannot be null')
-		}
-
-		// NULLS LAST makes a null cursor terminal in either direction.
-		return sql<boolean>`false`
-	}
-
-	const comparison =
-		direction === 'descending'
-			? lt(field.column, value)
-			: gt(field.column, value)
-
-	if (!field.plan.nullable) {
-		return comparison
-	}
-
-	const expression = or(comparison, isNull(field.column))
-
-	if (expression === undefined) {
-		throw new TypeError('PostgreSQL cursor comparison could not be combined')
-	}
-
-	return expression
-}
-
-const assertCursorCompatibility = (
-	payload: QueryCursorPayload,
-	className: string,
-	orders: readonly QueryOrderNode[],
-): void => {
-	if (payload.className !== className) {
-		throw new TypeError(
-			'PostgreSQL cursor payload does not match the query schema',
-		)
-	}
-
-	if (
-		payload.ordering.length !== orders.length ||
-		payload.ordering.some((value, index) => {
-			const order = orders.at(index)
-
-			return value.field !== order?.field || value.direction !== order.direction
-		})
-	) {
-		throw new TypeError(
-			'PostgreSQL cursor payload does not match query ordering',
-		)
-	}
-}
-
-const compileCursorPredicate = (
-	payload: QueryCursorPayload,
-	orders: readonly QueryOrderNode[],
-	schema: CompiledPostgresSchema,
-): SQL => {
-	const branches: SQL[] = []
-	const equalPrefix: SQL[] = []
-
-	for (const [index, order] of orders.entries()) {
-		const cursorValue = payload.ordering[index]
-
-		if (cursorValue === undefined) {
-			throw new TypeError('PostgreSQL cursor payload is missing an order value')
-		}
-
-		const field = resolveCompiledPostgresField(schema, order.field)
-		const comparison = compileAfterCursorValue(
-			field,
-			order.direction,
-			cursorValue.value,
-		)
-		const branch = and(...equalPrefix, comparison)
-
-		if (branch === undefined) {
-			throw new TypeError('PostgreSQL cursor branch could not be combined')
-		}
-
-		branches.push(branch)
-		equalPrefix.push(compileEqualCursorValue(field, cursorValue.value))
-	}
-
-	const predicate = or(...branches)
-
-	if (predicate === undefined) {
-		throw new TypeError('PostgreSQL cursor predicate requires stable ordering')
-	}
-
-	return predicate
-}
-
-/** Compiles projection, ordering, limit, offset, and an authenticated cursor payload. */
+/** Compiles projection, ordering, limit, offset, and portable filters. */
 export const compilePostgresQueryClauses = <TSchema extends SchemaDefinition>(
 	query: QueryAst<TSchema, QueryFilterNode<TSchema>>,
 	schema: CompiledPostgresSchema,
-	cursorPayload?: QueryCursorPayload,
 	relationCompiler?: PostgresRelationPredicateCompiler,
 ): CompiledPostgresQueryClauses => {
-	const cursorPagination = query.pagination?.kind === 'cursor-pagination'
-	const stableOrdering = cursorPagination
-		? normalizeQueryCursorOrdering(
-				query.schema.definition,
-				query.ordering.orders,
-			)
-		: query.ordering
-	const cursorRequested =
-		cursorPagination && query.pagination.after !== undefined
-
-	if (cursorRequested !== (cursorPayload !== undefined)) {
-		throw new TypeError(
-			'PostgreSQL cursor payload must accompany an after cursor only',
-		)
-	}
-
-	if (cursorPayload !== undefined) {
-		assertCursorCompatibility(
-			cursorPayload,
-			query.schema.definition.className,
-			stableOrdering.orders,
-		)
-	}
-
 	const filter =
 		query.where === undefined
 			? undefined
 			: compilePostgresFilter(query.where.expression, schema, relationCompiler)
-	const cursor =
-		cursorPayload === undefined
-			? undefined
-			: compileCursorPredicate(cursorPayload, stableOrdering.orders, schema)
-	const where =
-		filter === undefined
-			? cursor
-			: cursor === undefined
-				? filter
-				: and(filter, cursor)
-
-	if (filter !== undefined && cursor !== undefined && where === undefined) {
-		throw new TypeError('PostgreSQL query predicates could not be combined')
-	}
 
 	return immutableRecord({
 		...(query.limit === undefined ? {} : { limit: query.limit }),
 		...(query.pagination?.kind === 'offset-pagination'
 			? { offset: query.pagination.offset }
 			: {}),
-		orderBy: compileOrderBy(stableOrdering.orders, schema),
+		orderBy: compileOrderBy(query.ordering.orders, schema),
 		selection: compileSelection(query, schema),
-		...(where === undefined ? {} : { where }),
+		...(filter === undefined ? {} : { where: filter }),
 	})
 }

@@ -80,7 +80,7 @@ describe('QueryBuilder', () => {
 		expect(branch.ast.where).toBe(source.ast.where)
 	})
 
-	it('builds immutable selection, ordering, limit, and pagination branches', () => {
+	it('builds immutable selection, ordering, limit, and offset branches', () => {
 		const base = new QueryBuilder(postSchema)
 		const selected = base.select({ title: true, id: true })
 		const excluded = base.select({ published: false, updatedAt: false })
@@ -89,9 +89,6 @@ describe('QueryBuilder', () => {
 		const limited = ordered.limit(25)
 		const offset = limited.offset(50)
 		const clearedOffset = offset.offset(0)
-		const cursor = limited.after('opaque.cursor')
-		const firstCursorPage = limited.after()
-		const unchangedCursor = cursor.offset(0)
 
 		expect(base.ast.selection.fields).toStrictEqual([])
 		expect(selected.ast.selection.fields).toStrictEqual([
@@ -126,24 +123,13 @@ describe('QueryBuilder', () => {
 			offset: 50,
 		})
 		expect(clearedOffset.ast.pagination).toBeUndefined()
-		expect(cursor.ast.pagination).toStrictEqual({
-			kind: 'cursor-pagination',
-			after: 'opaque.cursor',
-		})
-		expect(firstCursorPage.ast.pagination).toStrictEqual({
-			after: undefined,
-			kind: 'cursor-pagination',
-		})
-		expect(cursor.build()).toMatchObject({ cursor: 'opaque.cursor', limit: 25 })
-		expect(firstCursorPage.build()).toMatchObject({ cursor: true, limit: 25 })
-		expect(unchangedCursor.ast.pagination).toBe(cursor.ast.pagination)
+		expect(offset.build()).toMatchObject({ offset: 50, limit: 25 })
 		expect(base).not.toBe(selected)
 		expect(base).not.toBe(excluded)
 		expect(selected).not.toBe(replacedSelection)
 		expect(selected).not.toBe(ordered)
 		expect(ordered).not.toBe(limited)
 		expect(limited).not.toBe(offset)
-		expect(limited).not.toBe(cursor)
 	})
 
 	it('shares every unchanged immutable AST branch', () => {
@@ -567,19 +553,13 @@ describe('QueryBuilder', () => {
 		)
 	})
 
-	it('rejects incompatible pagination, schemas, fields, operators, and values', () => {
+	it('rejects incompatible schemas, fields, operators, and values', () => {
 		// The same shape but a different definition proves that identity is enforced.
 		const otherPostSchema = Schema.define({
 			className: 'Post',
 			fields: () => postFields,
 		})
 
-		expect(() =>
-			new QueryBuilder(postSchema).offset(5).after('cursor'),
-		).toThrow(new TypeError('query cannot combine offset and after pagination'))
-		expect(() =>
-			new QueryBuilder(postSchema).after('cursor').offset(5),
-		).toThrow(new TypeError('query cannot combine offset and after pagination'))
 		expect(() =>
 			new QueryBuilder(postSchema)
 				.where((where) => where.eq('published', true))

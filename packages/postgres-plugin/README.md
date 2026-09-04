@@ -360,8 +360,7 @@ developer input order. Update-many and delete-many schema commands prepare one
 unique target at a time, expose the locked visible object to Access and
 `resolveInput`, and use Drizzle writes with `returning()` for the requested
 columns. Their default projection contains only `id`; a missing target aborts
-the shared transaction with `NOT_FOUND`. Resumed opaque cursor tokens are not
-yet executable.
+the shared transaction with `NOT_FOUND`.
 
 When `createOne`, `createMany`, `updateOne`, or `updateMany` requests an
 `include`, PostgreSQL performs the scalar write first and reuses Drizzle's
@@ -638,7 +637,6 @@ const selected = await tags.findMany(
 		select: { id: true, label: true },
 		orderBy: { label: 'asc' },
 		limit: 20,
-		cursor: true,
 	},
 	{ ultimabase },
 )
@@ -672,14 +670,12 @@ and constraints before the adapter receives that tree. No adapter-side
 DataLoader or per-parent query loop is used. A nested `offset` is applied by
 Drizzle independently to each parent collection.
 
-Relation handle scopes stay outside the developer Query AST and are combined with
-developer predicates and protected row filters using parameterized SQL. Traversal
-first checks the source relation field, then runs the target read through its
-ordinary policy and behavior pipeline. Mutations lock and update the source inside
-the same Runtime transaction as their edge changes, so a later behavior failure
-rolls back both. Duplicate connects are idempotent. `cursor: true` enables the
-stable first cursor page; opaque cursor strings retain the same general
-execution limitation documented above.
+Relation handle scopes stay outside the developer Query AST and are combined
+with developer predicates and protected row filters using parameterized SQL.
+Traversal first checks the source relation field, then runs the target read
+through its ordinary policy and behavior pipeline. Mutations lock and update
+the source inside the same Runtime transaction as their edge changes, so a
+later behavior failure rolls back both. Duplicate connects are idempotent.
 
 Source relation quantifiers compile to correlated `EXISTS` expressions without
 loading target rows:
@@ -835,10 +831,10 @@ filter only through canonical `where` objects or `QueryBuilder.where`.
 
 ## Query selection and pagination compilation
 
-The internal adapter also compiles projections, ordering, limits, offsets, and
-forward cursor positions. Explicit selections load only their columns. Cursor
-pages always append `id` as a deterministic UUID tie-breaker and use explicit
-null placement, so equal developer sort values remain stable:
+The internal adapter also compiles projections, ordering, limits, and offsets.
+Explicit selections load only their columns. PostgreSQL preserves the exact
+developer ordering and uses explicit null placement; it does not append an
+implicit tie-breaker:
 
 ```ts
 const orderedPage = new QueryBuilder(ArticleSchema)
@@ -846,17 +842,13 @@ const orderedPage = new QueryBuilder(ArticleSchema)
 	.descending('createdAt')
 	.limit(25)
 
-const firstPage = orderedPage.after()
-const nextPage = firstPage.after(cursor)
 const offsetPage = orderedPage.offset(50)
 ```
 
-`.after()` selects cursor pagination for the first page; `.after(cursor)`
-resumes a later page. `.offset()` selects offset pagination and cannot be
-combined with `.after()`. The opaque token is authenticated and checked through
-Query's cursor contract before PostgreSQL receives its payload. Ordered values
-then stay logical until their Drizzle column maps the parameter, rather than
-being interpolated into SQL or encoded by the cursor compiler.
+`.offset()` selects offset pagination. Applications that need deterministic
+ordering across equal values declare an additional unique term such as `id`.
+Transport-specific cursors must be normalized before PostgreSQL receives the
+ordinary Query AST.
 
 The builder remains a non-executing utility. Schema-root read commands normalize
 their canonical objects to the same AST before this compiler runs.

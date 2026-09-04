@@ -3,7 +3,7 @@
 - Status: active
 - Milestone: 23
 - Started: 2026-09-03
-- Governing decisions: [ADR-0224](docs/adr/0224-http-application-rest-and-password-auth-boundaries.md), [ADR-0225](docs/adr/0225-core-application-request-execution-capability.md), and [ADR-0226](docs/adr/0226-http-browser-and-predispatch-boundaries.md)
+- Governing decisions: [ADR-0224](docs/adr/0224-http-application-rest-and-password-auth-boundaries.md), [ADR-0225](docs/adr/0225-core-application-request-execution-capability.md), [ADR-0226](docs/adr/0226-http-browser-and-predispatch-boundaries.md), and [ADR-0227](docs/adr/0227-core-query-exposes-offset-not-cursors.md)
 - Resume point: [issue 2302](issues/2300-http-rest-password-auth/2302-rest-v1-wire-contract.md)
 
 ## Objective
@@ -35,6 +35,8 @@ graphql-yoga-plugin later ─────────┘         │
   application's Core `MasterAuthority`, audited, and exchanged for private
   application-owned provenance before transport execution.
 - REST and GraphQL are siblings and may be installed together or separately.
+- REST v1 uses limit and offset pagination. Core exposes no cursor contract;
+  GraphQL owns any future Relay cursor and response metadata.
 - REST ships before authentication; Password Auth then proves the first
   authenticated public vertical; GraphQL follows without becoming a dependency.
 - Password Auth uses username/password operations to establish opaque sessions,

@@ -38,10 +38,11 @@ ACL, tenancy, or soft-delete constraint kinds belong to their owning plugins.
 Issue 339 replaces the generic `UltimaObject` proposal with constructible
 schema-specific classes from `Schema.define()`. Issue 349 adds immutable
 instance persistence commands only after contextual Query terminals and
-authority options exist. `HookContext` and the future server-side `QueryCursor`
-remain Runtime-owned capabilities. All model commands preserve plain adapter
-boundaries and delegate through the same RequestEngine pipeline rather than
-implementing mutable Active Record state.
+authority options exist. `HookContext` remains a Runtime-owned capability.
+Issue 355 removes the incomplete Core cursor contract; Relay cursors belong to
+GraphQL, while future SDK iteration helpers compose ordinary Query clauses. All
+model commands preserve plain adapter boundaries and delegate through the same
+RequestEngine pipeline rather than implementing mutable Active Record state.
 
 Issue 342 retains the deferred schema-aware Query JSON round trip for transport
 plugins. Its concise input must remain validation-only builder state, preserve
