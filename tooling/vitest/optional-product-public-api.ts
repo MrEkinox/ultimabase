@@ -208,6 +208,7 @@ export const validationPluginPublicApi = {
 
 export const httpPluginPublicApi = {
 	applicationApi: [
+		'HttpBrowserPolicyOptions',
 		'HttpContextResolver',
 		'HttpContextResolverContributionsCapability',
 		'HttpContextResolverDefinition',
@@ -237,9 +238,12 @@ export const httpPluginPublicApi = {
 		'provideHttpEndpoints',
 	],
 	compatibleProviderContract: [
+		'DisabledHttpBrowserPolicy',
+		'EnabledHttpBrowserPolicy',
 		'HttpApplication',
 		'HttpApplicationAuthority',
 		'HttpApplicationMountTable',
+		'HttpBrowserPolicy',
 		'HttpEndpointContributionFactory',
 		'HttpEndpointContributionFactoryContext',
 		'HttpEndpointContributionsCapability',
@@ -254,9 +258,11 @@ export const httpPluginPublicApi = {
 		'OwnedHttpEndpoint',
 		'OwnedHttpMount',
 		'OwnedHttpRoute',
+		'dispatchHttpBrowserRequest',
 		'httpApplicationCapability',
 		'httpApplicationIdHeader',
 		'httpApplicationProtocolVersion',
+		'httpBrowserPolicyCapability',
 		'httpContextResolverContributionsCapability',
 		'httpEndpointContributionsCapability',
 		'httpMasterKeyHeader',

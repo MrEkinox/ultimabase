@@ -57,11 +57,14 @@ export interface PreparedHttpServerRequest {
 const requestIdPattern = /^[A-Za-z0-9._:-]{1,128}$/u
 const sensitiveHeaderNames = new Set(
 	[
+		'Access-Control-Request-Headers',
+		'Access-Control-Request-Method',
 		httpApplicationIdHeader,
 		httpMasterKeyHeader,
 		'Authorization',
 		'Cookie',
 		'Content-Length',
+		'Origin',
 		httpRequestIdHeader,
 	].map((name) => name.toLowerCase()),
 )

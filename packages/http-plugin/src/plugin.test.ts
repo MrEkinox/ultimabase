@@ -31,7 +31,10 @@ describe('httpPlugin', () => {
 		expect(plugin.manifest).toMatchObject({
 			identity: { pluginId: '@ultimabase/http-plugin' },
 			capabilities: {
-				provides: [{ contributionId: 'official-http-application' }],
+				provides: [
+					{ contributionId: 'official-http-application' },
+					{ contributionId: 'official-http-browser-policy' },
+				],
 			},
 			environment: [],
 			privileges: [],
@@ -45,6 +48,7 @@ describe('httpPlugin', () => {
 		await application.initialize()
 		expect(application.getPlugin('@ultimabase/http-plugin')).toStrictEqual({
 			appId: 'blog',
+			browser: { enabled: false },
 			master: { enabled: false },
 			requestTimeoutMs: undefined,
 		})
@@ -64,6 +68,19 @@ describe('httpPlugin', () => {
 		],
 		[{ appId: 'blog', requestTimeoutMs: 0 }, 'positive safe integer'],
 		[{ appId: 'blog', requestTimeoutMs: 1.5 }, 'positive safe integer'],
+		[
+			{
+				appId: 'blog',
+				browser: {
+					allowedHeaders: [],
+					allowedMethods: ['GET'],
+					allowedOrigins: ['https://console.example'],
+					credentials: false,
+					maxAgeSeconds: 0,
+				},
+			} as never,
+			'non-empty array',
+		],
 		[{ appId: 'blog', extra: true } as never, 'Unknown'],
 	])('rejects invalid options %#', (options, message) => {
 		expect(() => httpPlugin(options)).toThrow(message)

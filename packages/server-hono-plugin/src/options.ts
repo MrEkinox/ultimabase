@@ -8,7 +8,11 @@ export interface ManagedHonoServerPluginOptions {
 	/** TCP port passed to the Node listener. Port zero requests an ephemeral port. @default 1337 */
 	readonly port?: number
 	readonly app?: never
+	readonly browserPolicyOwner?: never
 }
+
+/** Identifies which layer owns every CORS header on an existing Hono app. */
+export type HonoBrowserPolicyOwner = 'external' | 'ultimabase'
 
 /** Mounts UltimaBase into an existing Hono application without owning it. */
 export interface ExistingHonoServerPluginOptions<
@@ -18,6 +22,8 @@ export interface ExistingHonoServerPluginOptions<
 > {
 	/** Existing Hono application whose listener remains developer-owned. */
 	readonly app: Hono<TEnvironment, TSchema, TBasePath>
+	/** Explicitly assigns CORS ownership to UltimaBase or existing middleware. */
+	readonly browserPolicyOwner: HonoBrowserPolicyOwner
 	readonly host?: never
 	readonly port?: never
 }
@@ -33,11 +39,12 @@ export type HonoServerPluginOptions<
 
 export interface NormalizedHonoServerPluginOptions {
 	readonly app: Hono | undefined
+	readonly browserPolicyOwner: HonoBrowserPolicyOwner
 	readonly host: string | undefined
 	readonly port: number
 }
 
-const optionKeys = new Set(['app', 'host', 'port'])
+const optionKeys = new Set(['app', 'browserPolicyOwner', 'host', 'port'])
 
 const isHonoApplication = (value: unknown): value is Hono =>
 	(typeof value === 'object' || typeof value === 'function') &&
@@ -60,6 +67,7 @@ export const normalizeHonoServerPluginOptions = (
 	}
 
 	const app = untrustedOptions.app
+	const browserPolicyOwner = untrustedOptions.browserPolicyOwner
 	const host = untrustedOptions.host
 	const port = untrustedOptions.port
 	if (app !== undefined) {
@@ -71,7 +79,25 @@ export const normalizeHonoServerPluginOptions = (
 				'Hono server plugin host and port cannot configure an external app',
 			)
 		}
-		return { app, host: undefined, port: 1337 }
+		if (
+			browserPolicyOwner !== 'external' &&
+			browserPolicyOwner !== 'ultimabase'
+		) {
+			throw new TypeError(
+				'Hono server plugin browserPolicyOwner must be external or ultimabase',
+			)
+		}
+		return {
+			app,
+			browserPolicyOwner,
+			host: undefined,
+			port: 1337,
+		}
+	}
+	if (browserPolicyOwner !== undefined) {
+		throw new TypeError(
+			'Hono server plugin browserPolicyOwner requires an external app',
+		)
 	}
 
 	if (host !== undefined) {
@@ -89,5 +115,10 @@ export const normalizeHonoServerPluginOptions = (
 		)
 	}
 
-	return { app: undefined, host, port: port ?? 1337 }
+	return {
+		app: undefined,
+		browserPolicyOwner: 'ultimabase',
+		host,
+		port: port ?? 1337,
+	}
 }

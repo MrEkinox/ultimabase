@@ -1,7 +1,9 @@
 import { requireCapability, type CapabilityRequirement } from '@ultimabase/core'
 import {
 	httpApplicationCapability,
+	httpBrowserPolicyCapability,
 	type HttpApplication,
+	type HttpBrowserPolicy,
 } from '@ultimabase/http-plugin'
 import {
 	definePluginModule,
@@ -32,10 +34,21 @@ const applicationRequirement: CapabilityRequirement<
 	'^1.0.0',
 	'setup'
 > = requireCapability(httpApplicationCapability, '^1.0.0', { phase: 'setup' })
+const browserPolicyRequirement: CapabilityRequirement<
+	typeof httpBrowserPolicyCapability,
+	false,
+	'^1.0.0',
+	'setup'
+> = requireCapability(httpBrowserPolicyCapability, '^1.0.0', {
+	phase: 'setup',
+})
 
 type HonoServerPluginDefinition = Readonly<{
 	readonly capabilities: Readonly<{
-		readonly requires: readonly [typeof applicationRequirement]
+		readonly requires: readonly [
+			typeof applicationRequirement,
+			typeof browserPolicyRequirement,
+		]
 	}>
 	readonly environment: readonly ['environment:network']
 	readonly hooks: Readonly<{
@@ -50,6 +63,7 @@ type HonoServerPluginDefinition = Readonly<{
 interface HonoServerLifecycleContext {
 	readonly capabilities: Readonly<{
 		get(requirement: typeof applicationRequirement): HttpApplication
+		get(requirement: typeof browserPolicyRequirement): HttpBrowserPolicy
 	}>
 }
 
@@ -74,12 +88,18 @@ export const honoServerPlugin = <
 	const readApplication = (
 		context: HonoServerLifecycleContext,
 	): HttpApplication => context.capabilities.get(applicationRequirement)
+	const readBrowserPolicy = (
+		context: HonoServerLifecycleContext,
+	): HttpBrowserPolicy => context.capabilities.get(browserPolicyRequirement)
 
 	return honoServerPluginModule.plugin({
-		capabilities: { requires: [applicationRequirement] },
+		capabilities: {
+			requires: [applicationRequirement, browserPolicyRequirement],
+		},
 		environment: ['environment:network'],
 		hooks: {
-			startTransports: (context) => provider.start(readApplication(context)),
+			startTransports: (context) =>
+				provider.start(readApplication(context), readBrowserPolicy(context)),
 			stop: (context) => provider.stop(readApplication(context)),
 			dispose: (context) => provider.dispose(readApplication(context)),
 		},

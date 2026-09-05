@@ -8,6 +8,14 @@ export type {
 	OwnedHttpMount,
 	OwnedHttpRoute,
 } from './application.js'
+export { httpBrowserPolicyCapability } from './browser-policy-capability.js'
+export { dispatchHttpBrowserRequest } from './browser-policy.js'
+export type {
+	DisabledHttpBrowserPolicy,
+	EnabledHttpBrowserPolicy,
+	HttpBrowserPolicy,
+	HttpBrowserPolicyOptions,
+} from './browser-policy.js'
 export {
 	httpApplicationIdHeader,
 	httpApplicationProtocolVersion,

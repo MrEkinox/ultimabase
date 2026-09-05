@@ -3,6 +3,7 @@ import {
 	httpApplicationProtocolVersion,
 	httpOriginalHeaderMode,
 	type HttpApplication,
+	type HttpBrowserPolicy,
 } from '@ultimabase/http-plugin'
 import { Hono } from 'hono'
 import { createServer, request as nodeRequest } from 'node:http'
@@ -31,6 +32,22 @@ const createHttpApplication = (
 
 const listenerUrl = (address: AddressInfo, path: string): string =>
 	`http://127.0.0.1:${String(address.port)}${path}`
+
+const browserPolicy = (
+	origins: readonly string[] = ['https://console.example'],
+): HttpBrowserPolicy => ({
+	allowedHeaders: [
+		'X-UltimaBase-Application-Id',
+		'Authorization',
+		'Content-Type',
+		'X-UltimaBase-Request-Id',
+	],
+	allowedMethods: ['GET', 'POST'],
+	allowedOrigins: origins,
+	credentials: true,
+	enabled: true,
+	maxAgeSeconds: 300,
+})
 
 const closeServer = (server: ServerType): Promise<void> =>
 	new Promise((resolve, reject) => {
@@ -176,6 +193,131 @@ describe('HonoServerProvider', () => {
 		} finally {
 			await provider.dispose(application)
 		}
+	})
+
+	it('handles browser preflight before application selection on a real listener', async () => {
+		const onFetch = vi.fn<(request: Request) => void>()
+		const provider = new HonoServerProvider({
+			app: undefined,
+			host: '127.0.0.1',
+			port: 0,
+		})
+		const application = createHttpApplication('browser', onFetch)
+		await provider.start(application, browserPolicy())
+		const address = provider.address
+		if (address === undefined) throw new TypeError('Missing listener address')
+
+		try {
+			const response = await fetch(listenerUrl(address, '/classes/Post'), {
+				headers: {
+					'Access-Control-Request-Headers':
+						'X-UltimaBase-Application-Id, Authorization, Content-Type, X-UltimaBase-Request-Id',
+					'Access-Control-Request-Method': 'POST',
+					Origin: 'https://console.example',
+				},
+				method: 'OPTIONS',
+			})
+			expect(response.status).toBe(204)
+			expect(response.headers.get('Access-Control-Allow-Origin')).toBe(
+				'https://console.example',
+			)
+			expect(response.headers.get('Access-Control-Max-Age')).toBe('300')
+			expect(onFetch).not.toHaveBeenCalled()
+
+			const simple = await fetch(listenerUrl(address, '/classes/Post'), {
+				headers: {
+					Cookie: 'session=opaque',
+					Origin: 'https://console.example',
+					'X-UltimaBase-Application-Id': 'browser',
+				},
+			})
+			expect(simple.status).toBe(200)
+			expect(simple.headers.get('Access-Control-Allow-Origin')).toBe(
+				'https://console.example',
+			)
+			expect(simple.headers.get('Access-Control-Allow-Credentials')).toBe(
+				'true',
+			)
+
+			const rejected = await fetch(listenerUrl(address, '/classes/Post'), {
+				headers: {
+					Origin: 'https://rejected.example',
+					'X-UltimaBase-Application-Id': 'browser',
+				},
+			})
+			expect(rejected.status).toBe(200)
+			expect(rejected.headers.has('Access-Control-Allow-Origin')).toBe(false)
+			expect(onFetch).toHaveBeenCalledTimes(2)
+		} finally {
+			await provider.dispose(application)
+		}
+	})
+
+	it('rejects mismatched shared browser policy without changing the listener', async () => {
+		const provider = new HonoServerProvider({
+			app: undefined,
+			host: '127.0.0.1',
+			port: 0,
+		})
+		const accepted = createHttpApplication('accepted')
+		const rejected = createHttpApplication('rejected')
+		await provider.start(accepted, browserPolicy())
+		const address = provider.address
+		if (address === undefined) throw new TypeError('Missing listener address')
+
+		try {
+			await expect(
+				provider.start(rejected, browserPolicy(['https://other.example'])),
+			).rejects.toThrow('identical HTTP browser policy')
+			const response = await fetch(listenerUrl(address, '/stable'), {
+				headers: { 'X-UltimaBase-Application-Id': 'accepted' },
+			})
+			expect(await response.text()).toBe('accepted:/stable')
+		} finally {
+			await provider.dispose(accepted)
+		}
+	})
+
+	it('permits one explicitly external CORS owner without emitting headers', async () => {
+		const app = new Hono()
+		app.use('*', async (context, next) => {
+			await next()
+			context.header('Access-Control-Allow-Origin', 'https://owner.example')
+		})
+		const provider = new HonoServerProvider({
+			app,
+			browserPolicyOwner: 'external',
+			host: undefined,
+			port: 1337,
+		})
+		const application = createHttpApplication('external-cors')
+		await expect(provider.start(application, browserPolicy())).rejects.toThrow(
+			'requires HTTP browser policy to be disabled',
+		)
+		await provider.start(application)
+
+		const response = await app.fetch(
+			new Request('http://localhost/value', {
+				headers: {
+					Origin: 'https://owner.example',
+					'X-UltimaBase-Application-Id': 'external-cors',
+				},
+			}),
+			{
+				incoming: {
+					rawHeaders: [
+						'Origin',
+						'https://owner.example',
+						'X-UltimaBase-Application-Id',
+						'external-cors',
+					],
+				},
+			},
+		)
+		expect(response.headers.get('Access-Control-Allow-Origin')).toBe(
+			'https://owner.example',
+		)
+		await provider.dispose(application)
 	})
 
 	it('atomically shares one listener while retaining exact application mounts', async () => {

@@ -22,6 +22,12 @@ import {
 	createHttpApplicationResource,
 	httpApplicationCapability,
 } from './application.js'
+import { httpBrowserPolicyCapability } from './browser-policy-capability.js'
+import {
+	normalizeHttpBrowserPolicy,
+	type HttpBrowserPolicy,
+	type HttpBrowserPolicyOptions,
+} from './browser-policy.js'
 import { httpContextResolverContributionsCapability } from './context.js'
 import { httpEndpointContributionsCapability } from './endpoints.js'
 
@@ -63,6 +69,8 @@ export interface HttpMasterTransportOptions {
 export interface HttpPluginOptions {
 	/** Public routing identity; this value is not a credential or authorization. */
 	readonly appId: string
+	/** Enables one explicit server-owned cross-origin browser policy. */
+	readonly browser?: HttpBrowserPolicyOptions
 	/** Enables only the canonical Master header and configured MasterAuthority. */
 	readonly master?: HttpMasterTransportOptions
 	/** Applies one deadline signal across context resolution and route handling. */
@@ -72,14 +80,15 @@ export interface HttpPluginOptions {
 /** Exposes only safe immutable HTTP configuration to application code. */
 export interface HttpPluginExports {
 	readonly appId: string
+	readonly browser: HttpBrowserPolicy
 	readonly master: Readonly<{ readonly enabled: boolean }>
 	readonly requestTimeoutMs: number | undefined
 }
 
 const parseHttpPluginOptions = definePluginOptionsParser({
 	name: 'HTTP plugin options',
-	keys: ['appId', 'master', 'requestTimeoutMs'] as const,
-	normalize: ({ appId, master, requestTimeoutMs }) => {
+	keys: ['appId', 'browser', 'master', 'requestTimeoutMs'] as const,
+	normalize: ({ appId, browser, master, requestTimeoutMs }) => {
 		assertNonEmptyString(appId, 'HTTP plugin appId')
 		if (master !== undefined) {
 			if (
@@ -104,6 +113,7 @@ const parseHttpPluginOptions = definePluginOptionsParser({
 		}
 		return {
 			appId,
+			browser: normalizeHttpBrowserPolicy(browser, master !== undefined),
 			masterEnabled: master !== undefined,
 			requestTimeoutMs,
 		}
@@ -125,6 +135,7 @@ type HttpPluginCapabilities = Readonly<{
 	]
 	readonly provides: readonly [
 		CapabilityProviderDeclaration<typeof httpApplicationCapability>,
+		CapabilityProviderDeclaration<typeof httpBrowserPolicyCapability>,
 	]
 	readonly requires: readonly [typeof requestExecutionRequirement]
 }>
@@ -162,12 +173,16 @@ export const httpPlugin = (options: HttpPluginOptions): HttpPlugin => {
 				requestTimeoutMs: normalized.requestTimeoutMs,
 			}),
 	})
+	const browserPolicyProvider = provideCapability(httpBrowserPolicyCapability, {
+		contributionId: 'official-http-browser-policy',
+		create: () => ({ value: normalized.browser }),
+	})
 	const capabilities: HttpPluginCapabilities = {
 		optional: [
 			optionalContextResolverContributions,
 			optionalEndpointContributions,
 		],
-		provides: [applicationProvider],
+		provides: [applicationProvider, browserPolicyProvider],
 		requires: [requestExecutionRequirement],
 	}
 	const privileges: HttpPluginPrivileges = normalized.masterEnabled
@@ -180,6 +195,7 @@ export const httpPlugin = (options: HttpPluginOptions): HttpPlugin => {
 		setup: () =>
 			immutableRecord({
 				appId: normalized.appId,
+				browser: normalized.browser,
 				master: immutableRecord({ enabled: normalized.masterEnabled }),
 				requestTimeoutMs: normalized.requestTimeoutMs,
 			}),

@@ -1,6 +1,6 @@
 # 2317: Implement the HTTP browser boundary
 
-- Status: planned
+- Status: completed
 - Milestone: 23
 - Packages: `@ultimabase/http-plugin`, `@ultimabase/server-hono-plugin`
 - Depends on: 2305, 2321
@@ -13,42 +13,42 @@ weakening application selection, credential verification, or Runtime policy.
 
 ## Acceptance criteria
 
-- [ ] Cross-origin access is disabled by default and enabled only through an
+- [x] Cross-origin access is disabled by default and enabled only through an
       explicit immutable origin, method, header, credential, and cache policy.
-- [ ] Each server provider resolves one effective policy; applications sharing
+- [x] Each server provider resolves one effective policy; applications sharing
       it must declare structurally identical policies, and a mismatch rejects
       the conflicting application before its route or listener effects while
       leaving already mounted applications unchanged.
-- [ ] Wildcard origins cannot compose with credential-enabled requests,
+- [x] Wildcard origins cannot compose with credential-enabled requests,
       session cookies, Authorization, or Master-key transport.
-- [ ] Preflight recognizes the canonical application ID, Master key,
+- [x] Preflight recognizes the canonical application ID, Master key,
       Authorization, content, and correlation header names needed by installed
       HTTP routes without receiving their future values.
-- [ ] Preflight is infrastructure-only: it selects no application, resolves no
+- [x] Preflight is infrastructure-only: it selects no application, resolves no
       request context or credential, performs no Master audit, and invokes no
       route handler, Runtime stage, hook, policy, or adapter.
-- [ ] Every real request following preflight still requires the canonical
+- [x] Every real request following preflight still requires the canonical
       application ID and passes through normal application and authority
       resolution.
-- [ ] Origin reflection, preflight caching, and `Vary` behavior are safe for
+- [x] Origin reflection, preflight caching, and `Vary` behavior are safe for
       shared caches and multiple mounted applications.
-- [ ] Rejections expose no registered application ID, route inventory,
+- [x] Rejections expose no registered application ID, route inventory,
       credential, or secret information.
-- [ ] Supplying an existing Hono application has one documented CORS owner and
+- [x] Supplying an existing Hono application has one documented CORS owner and
       cannot silently produce duplicate or contradictory headers.
-- [ ] Externally managed browser policy causes UltimaBase to emit no CORS
+- [x] Externally managed browser policy causes UltimaBase to emit no CORS
       headers; mixing external and UltimaBase ownership fails explicitly where
       ownership can be validated.
-- [ ] Documentation states that CORS is neither authentication,
+- [x] Documentation states that CORS is neither authentication,
       authorization, CSRF protection, nor a defense against non-browser
       clients.
 
 ## Tests
 
-- [ ] Real browser tests cover allowed and rejected origins, simple requests,
+- [x] Real browser tests cover allowed and rejected origins, simple requests,
       preflight, Bearer headers, cookie credentials, Master headers, cache
       variation, and an existing Hono application.
-- [ ] Tests prove preflight never reaches application context, audit, Runtime,
+- [x] Tests prove preflight never reaches application context, audit, Runtime,
       hooks, policies, or persistence.
 
 ## Out of scope

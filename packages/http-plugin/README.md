@@ -17,6 +17,18 @@ const ultimabase = new UltimaBase({
 	plugins: [
 		httpPlugin({
 			appId: 'blog',
+			browser: {
+				allowedOrigins: ['https://console.example'],
+				allowedMethods: ['GET', 'POST'],
+				allowedHeaders: [
+					'X-UltimaBase-Application-Id',
+					'Authorization',
+					'Content-Type',
+					'X-UltimaBase-Request-Id',
+				],
+				credentials: true,
+				maxAgeSeconds: 600,
+			},
 			master: { enabled: true },
 			requestTimeoutMs: 15_000,
 		}),
@@ -47,8 +59,32 @@ foreign, unaudited, or authority-less Master attempts fail before route
 behavior. Query parameters, body fields, alternative headers, grants, contexts,
 privileges, and `useMasterKey` never select Master.
 
-The browser-preflight exception is deliberately added by a later milestone-23
-issue.
+## Configure browser origins
+
+Browser-origin behavior is disabled unless `browser` supplies all five policy
+fields. Origins are exact serialized origins, methods use the supported
+uppercase HTTP methods, header names are compared case-insensitively, and
+`maxAgeSeconds` controls the browser preflight cache. Because every real public
+request still selects an application, `allowedHeaders` must include
+`X-UltimaBase-Application-Id`. Add `Authorization`, `Content-Type`,
+`X-UltimaBase-Request-Id`, or `X-UltimaBase-Master-Key` only when browser
+clients actually send those headers.
+
+An accepted browser preflight carries no application ID. The server evaluates
+only the configured origin, requested method, requested header names, and cache
+lifetime, then returns without application selection, context resolution,
+credential verification, Master audit, route dispatch, Runtime, hooks, policy,
+or persistence. The following real request must still include its exact
+application ID and pass the normal credential and Runtime boundaries.
+
+`allowedOrigins: '*'` is permitted only without credentials, cookies,
+Authorization, or enabled Master transport. Exact origins are reflected only
+after matching, preflight and origin-dependent responses emit the appropriate
+`Vary` fields, and one layer must own all CORS headers. A route response that
+also emits CORS while UltimaBase owns the browser policy fails safely.
+
+CORS is a browser response policy. It is not authentication, authorization,
+CSRF protection, or a defense against non-browser clients.
 
 ## Contribute request context
 
@@ -158,7 +194,8 @@ one protocol cannot borrow the HTTP plugin's privileges.
 
 ## Implement a server provider
 
-Server plugins require `httpApplicationCapability`. The value contains the
+Server plugins require `httpApplicationCapability` and
+`httpBrowserPolicyCapability`. The application value contains the
 public `appId`, safe Master-enabled and deadline configuration, protocol and
 original-header requirements, immutable route graph, and one Fetch-compatible
 dispatcher. It never exposes an UltimaBase application, Runtime engine,

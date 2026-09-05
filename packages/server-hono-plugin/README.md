@@ -54,6 +54,11 @@ const adminApi = new UltimaBase({
 await Promise.all([publicApi.start(), adminApi.start()])
 ```
 
+Every application sharing this provider must configure a structurally identical
+HTTP `browser` policy. A mismatch rejects the candidate before the provider
+changes its route table or listener, leaving already mounted applications
+unchanged.
+
 Stopping one application removes only its exact mount. The listener remains
 open while another application is attached. Separate `honoServerPlugin()`
 calls always create separate providers and never communicate through a global
@@ -73,7 +78,10 @@ import { Hono } from 'hono'
 const app = new Hono()
 app.get('/health', (context) => context.text('ok'))
 
-const server = honoServerPlugin({ app })
+const server = honoServerPlugin({
+	app,
+	browserPolicyOwner: 'ultimabase',
+})
 const application = new UltimaBase({
 	plugins: [httpPlugin({ appId: 'blog' }), server],
 	schemas: [],
@@ -83,11 +91,38 @@ await application.start()
 const listener = serve({ fetch: app.fetch, port: 1337 })
 ```
 
+An existing app must name exactly one CORS owner. With
+`browserPolicyOwner: 'ultimabase'`, the provider enforces the `browser` policy
+from `httpPlugin()`. If existing middleware already owns CORS, declare external
+ownership and leave the HTTP browser policy disabled:
+
+```ts
+const server = honoServerPlugin({
+	app,
+	browserPolicyOwner: 'external',
+})
+
+const application = new UltimaBase({
+	plugins: [httpPlugin({ appId: 'blog' }), server],
+	schemas: [],
+})
+```
+
+In external ownership mode UltimaBase emits no CORS headers. Combining that
+mode with an enabled UltimaBase browser policy is rejected. Conversely, when
+UltimaBase owns CORS, a downstream response that already contains CORS headers
+fails safely instead of producing contradictory policy.
+
 The Node adapter's ordered `rawHeaders` are passed beside the normalized Fetch
 request. Duplicate application ID, Master key, authorization, cookie, content
 length, or request ID lines therefore fail before application selection. An
 external app must be served by a Node integration that supplies the standard
 Hono `incoming.rawHeaders` binding; requests without that evidence fail closed.
 
-TLS, proxy trust, CORS, compression, rate limiting, REST, GraphQL, and
-authentication are intentionally outside this package.
+Browser preflight is infrastructure-only and never selects an application.
+Real requests still require `X-UltimaBase-Application-Id` and follow normal
+credential and Runtime handling. CORS is not authentication, authorization,
+CSRF protection, or protection from non-browser clients.
+
+TLS, proxy trust, compression, rate limiting, REST, GraphQL, and authentication
+are intentionally outside this package.

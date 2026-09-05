@@ -6,9 +6,11 @@ describe('@ultimabase/http-plugin public entry point', () => {
 	it('exports only HTTP authoring and compatible-provider contracts', () => {
 		expect(Object.keys(publicApi).sort()).toStrictEqual([
 			'HttpApplicationMountTable',
+			'dispatchHttpBrowserRequest',
 			'httpApplicationCapability',
 			'httpApplicationIdHeader',
 			'httpApplicationProtocolVersion',
+			'httpBrowserPolicyCapability',
 			'httpContextResolver',
 			'httpContextResolverContributionsCapability',
 			'httpEndpointContributionsCapability',

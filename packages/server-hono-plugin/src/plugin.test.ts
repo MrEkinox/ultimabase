@@ -7,6 +7,7 @@ import {
 import {
 	httpApplicationCapability,
 	httpApplicationProtocolVersion,
+	httpBrowserPolicyCapability,
 	httpOriginalHeaderMode,
 	type HttpApplication,
 } from '@ultimabase/http-plugin'
@@ -42,6 +43,10 @@ const applicationProvider = (
 						} satisfies HttpApplication,
 					}),
 				}),
+				provideCapability(httpBrowserPolicyCapability, {
+					contributionId: 'fixture-http-browser-policy',
+					create: () => ({ value: { enabled: false as const } }),
+				}),
 			],
 		},
 	})
@@ -56,6 +61,10 @@ describe('honoServerPlugin', () => {
 						phase: 'setup',
 						version: '^1.0.0',
 					},
+					{
+						phase: 'setup',
+						version: '^1.0.0',
+					},
 				],
 			},
 			environment: ['environment:network'],
@@ -66,7 +75,10 @@ describe('honoServerPlugin', () => {
 
 	it('mounts only during transport startup and unmounts exact shared apps', async () => {
 		const app = new Hono()
-		const server = honoServerPlugin({ app })
+		const server = honoServerPlugin({
+			app,
+			browserPolicyOwner: 'ultimabase',
+		})
 		const first = new FrameworkApplication({
 			pluginPrivileges: { logger: false },
 			plugins: [applicationProvider('fixture.first-http', 'first'), server],
@@ -127,7 +139,12 @@ describe('honoServerPlugin', () => {
 			() =>
 				new FrameworkApplication({
 					pluginPrivileges: { logger: false },
-					plugins: [honoServerPlugin({ app: new Hono() })],
+					plugins: [
+						honoServerPlugin({
+							app: new Hono(),
+							browserPolicyOwner: 'ultimabase',
+						}),
+					],
 					schemas: [],
 				}),
 		).toThrow(expect.objectContaining({ code: 'PLUGIN_CAPABILITY_MISSING' }))

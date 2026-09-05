@@ -21,11 +21,15 @@ test('preserves managed and application-specific Hono option types', () => {
 	const app = new Hono<{ Bindings: { traceId: string } }>()
 	const external: ExistingHonoServerPluginOptions<{
 		Bindings: { traceId: string }
-	}> = { app }
+	}> = { app, browserPolicyOwner: 'external' }
 	expectTypeOf(honoServerPlugin(external)).toEqualTypeOf<HonoServerPlugin>()
 
 	// @ts-expect-error -- an external app owns its listener address.
 	honoServerPlugin({ app, port: 1337 })
 	// @ts-expect-error -- only Hono applications satisfy the external contract.
 	honoServerPlugin({ app: { fetch: () => new Response() } })
+	// @ts-expect-error -- existing applications require one explicit CORS owner.
+	honoServerPlugin({ app })
+	// @ts-expect-error -- managed listeners always use UltimaBase browser policy ownership.
+	honoServerPlugin({ browserPolicyOwner: 'external' })
 })

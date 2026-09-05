@@ -64,4 +64,8 @@ Cross-origin browser access is disabled by default. Applications sharing one
 server provider use one identical effective policy, and infrastructure-only
 preflight never selects an application or invokes Runtime behavior. The HTTP
 plugin owns safe errors before route dispatch; REST or GraphQL owns later
-protocol errors.
+protocol errors. A real cross-origin request still supplies its public
+application ID and passes normal credentials, authorization, hooks, and
+persistence. CORS controls browser response visibility; it does not provide
+authentication, authorization, CSRF protection, or protection from non-browser
+clients.

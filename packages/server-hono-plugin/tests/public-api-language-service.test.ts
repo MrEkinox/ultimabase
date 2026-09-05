@@ -23,6 +23,7 @@ describe('@ultimabase/server-hono-plugin source declarations', () => {
 
 		expect(completions).toStrictEqual([
 			'ExistingHonoServerPluginOptions',
+			'HonoBrowserPolicyOwner',
 			'HonoServerPlugin',
 			'HonoServerPluginOptions',
 			'ManagedHonoServerPluginOptions',
