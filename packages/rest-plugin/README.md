@@ -8,6 +8,10 @@ Core's existing Query and schema-command contracts, and delegates them through
 Core's narrow application request executor. It does not import Hono, start
 listeners, access an adapter, or retain request data in an AST.
 
+The repository includes a [runnable Hono and PostgreSQL example](../../examples/minimal/README.md)
+with anonymous REST, audited Master access, and an explicitly exposed plugin
+operation.
+
 ## Installation
 
 ```ts

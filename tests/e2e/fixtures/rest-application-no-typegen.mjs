@@ -1,0 +1,109 @@
+/* global Request, process */
+
+import {
+	Schema,
+	UltimaBase,
+	databaseAdapterCapability,
+	databasePersistencePlanCapability,
+	definePlugin,
+	provideCapability,
+	requireCapability,
+} from '@ultimabase/core'
+import { httpApplicationCapability, httpPlugin } from '@ultimabase/http-plugin'
+import { restPlugin } from '@ultimabase/rest-plugin'
+
+const Note = Schema.define({
+	className: 'JavaScriptRestNote',
+	fields: (field) => ({ title: field.string() }),
+	rest: { find: true },
+})
+
+const adapter = {
+	capabilities: { persistencePlans: databasePersistencePlanCapability },
+	kind: 'database-adapter',
+	beginTransaction: () => {
+		throw new TypeError('JavaScript REST fixture does not mutate')
+	},
+	execute: (request) =>
+		Promise.resolve(
+			request.operation.kind === 'find-many'
+				? [
+						{
+							createdAt: '2026-09-05T12:00:00.000Z',
+							id: '01991f00-0000-7000-8000-000000000301',
+							title: 'Typegen-free',
+							updatedAt: '2026-09-05T12:00:00.000Z',
+						},
+					]
+				: null,
+		),
+}
+
+const databasePlugin = definePlugin({
+	capabilities: {
+		provides: [
+			provideCapability(databaseAdapterCapability, {
+				contributionId: 'database',
+				create: () => ({ value: adapter }),
+			}),
+		],
+	},
+	core: '^0.0.0',
+	pluginId: 'fixture.javascript-rest-database',
+	version: '1.0.0',
+})
+
+const httpRequirement = requireCapability(httpApplicationCapability, '^1.0.0', {
+	phase: 'setup',
+})
+let httpApplication
+const capturePlugin = definePlugin({
+	capabilities: { requires: [httpRequirement] },
+	core: '^0.0.0',
+	pluginId: 'fixture.javascript-rest-capture',
+	setup: ({ capabilities }) => {
+		httpApplication = capabilities.get(httpRequirement)
+	},
+	version: '1.0.0',
+})
+
+const ultimabase = new UltimaBase({
+	pluginPrivileges: { logger: false },
+	plugins: [
+		databasePlugin,
+		restPlugin({ acknowledgeUnverifiedProtection: true }),
+		httpPlugin({ appId: 'javascript-rest' }),
+		capturePlugin,
+	],
+	schemas: [Note],
+})
+
+await ultimabase.start()
+if (httpApplication === undefined) {
+	throw new TypeError('JavaScript REST application is unavailable')
+}
+const response = await httpApplication.fetch({
+	originalHeaders: [
+		['X-UltimaBase-Application-Id', 'javascript-rest'],
+		['X-UltimaBase-Request-Id', 'javascript-rest-request'],
+	],
+	request: new Request(
+		'https://example.test/api/v1/classes/JavaScriptRestNote',
+		{
+			headers: {
+				'X-UltimaBase-Application-Id': 'javascript-rest',
+				'X-UltimaBase-Request-Id': 'javascript-rest-request',
+			},
+		},
+	),
+})
+
+process.stdout.write(
+	JSON.stringify({
+		body: await response.json(),
+		cache: response.headers.get('cache-control'),
+		requestId: response.headers.get('x-ultimabase-request-id'),
+		status: response.status,
+	}),
+)
+await ultimabase.dispose()

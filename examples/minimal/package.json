@@ -1,0 +1,29 @@
+{
+	"name": "@ultimabase/example-minimal-rest",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"check-generated-types": "node src/check-generated-types.ts",
+		"generate-types": "node src/generate-types.ts",
+		"start": "node src/main.ts",
+		"typecheck": "tsc --noEmit"
+	},
+	"dependencies": {
+		"@ultimabase/access-plugin": "workspace:^",
+		"@ultimabase/acl-permissions-plugin": "workspace:^",
+		"@ultimabase/core": "workspace:^",
+		"@ultimabase/hooks-plugin": "workspace:^",
+		"@ultimabase/http-plugin": "workspace:^",
+		"@ultimabase/postgres-plugin": "workspace:^",
+		"@ultimabase/rest-plugin": "workspace:^",
+		"@ultimabase/server-hono-plugin": "workspace:^",
+		"@ultimabase/typegen": "workspace:^",
+		"@ultimabase/validation-plugin": "workspace:^",
+		"zod": "^4.4.3"
+	},
+	"devDependencies": {
+		"@types/node": "^24.0.0",
+		"typescript": "^6.0.3"
+	}
+}

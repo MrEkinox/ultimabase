@@ -159,6 +159,43 @@ describe('REST mutation normalization', () => {
 			kind: 'delete-one',
 			input: { id: recordId, select: { id: true, title: true } },
 		})
+		const streamedDeleteRequest = new Request(
+			'https://example.test/records/item',
+			{ method: 'DELETE' },
+		)
+		Object.defineProperty(streamedDeleteRequest, 'body', {
+			value: new ReadableStream<Uint8Array>({
+				start: (controller) => {
+					controller.close()
+				},
+			}),
+		})
+		await expect(
+			normalizeRestMutationRequest(RecordSchema, {
+				id: recordId,
+				operation: 'delete',
+				request: streamedDeleteRequest,
+			}),
+		).resolves.toMatchObject({ kind: 'delete-one' })
+		const streamedDeleteWithContent = new Request(
+			'https://example.test/records/item',
+			{ method: 'DELETE' },
+		)
+		Object.defineProperty(streamedDeleteWithContent, 'body', {
+			value: new ReadableStream<Uint8Array>({
+				start: (controller) => {
+					controller.enqueue(new Uint8Array([1]))
+					controller.close()
+				},
+			}),
+		})
+		await expect(
+			normalizeRestMutationRequest(RecordSchema, {
+				id: recordId,
+				operation: 'delete',
+				request: streamedDeleteWithContent,
+			}),
+		).rejects.toMatchObject({ code: restMutationErrorCodes.invalidInput })
 
 		const upsert = await normalizeRestMutationRequest(RecordSchema, {
 			operation: 'upsert',

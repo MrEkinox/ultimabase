@@ -264,15 +264,28 @@ const decodeBulk = (
 	})
 }
 
-const assertBodylessDelete = (request: Request): void => {
+const assertBodylessDelete = async (request: Request): Promise<void> => {
 	if (
-		request.body !== null ||
 		request.headers.has('content-type') ||
 		request.headers.has('transfer-encoding') ||
 		(request.headers.get('content-length') !== null &&
 			request.headers.get('content-length') !== '0')
 	) {
 		throw invalidRestMutation()
+	}
+
+	const reader = request.body?.getReader()
+	if (reader === undefined) return
+	for (
+		let result = await reader.read();
+		!result.done;
+		result = await reader.read()
+	) {
+		request.signal.throwIfAborted()
+		if (result.value.byteLength > 0) {
+			await reader.cancel()
+			throw invalidRestMutation()
+		}
 	}
 }
 
@@ -306,7 +319,7 @@ export const normalizeRestMutationRequest = async <
 
 		let commandInput: unknown
 		if (input.operation === 'delete') {
-			assertBodylessDelete(input.request)
+			await assertBodylessDelete(input.request)
 			commandInput = immutableRecord({ id: input.id, ...projection })
 		} else {
 			const body = await readRestJsonBody(

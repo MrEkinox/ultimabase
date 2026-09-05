@@ -4,7 +4,7 @@
 - Milestone: 23
 - Started: 2026-09-03
 - Governing decisions: [ADR-0224](docs/adr/0224-http-application-rest-and-password-auth-boundaries.md), [ADR-0225](docs/adr/0225-core-application-request-execution-capability.md), [ADR-0226](docs/adr/0226-http-browser-and-predispatch-boundaries.md), [ADR-0227](docs/adr/0227-core-query-exposes-offset-not-cursors.md), [ADR-0228](docs/adr/0228-experimental-http-rest-v1-wire-contract.md), [ADR-0229](docs/adr/0229-field-owned-rest-wire-codecs.md), [ADR-0230](docs/adr/0230-canonical-plugin-field-wire-protocols.md), [ADR-0231](docs/adr/0231-core-application-request-read-execution.md), [ADR-0232](docs/adr/0232-core-application-request-schema-mutations.md), and [ADR-0233](docs/adr/0233-canonical-operation-transport-bindings.md)
-- Resume point: [issue 2311](issues/2300-http-rest-password-auth/2311-rest-public-vertical.md)
+- Resume point: [issue 2318](issues/2300-http-rest-password-auth/2318-password-auth-contract.md)
 
 ## Objective
 
@@ -65,7 +65,7 @@ graphql-yoga-plugin later ─────────┘         │
 12. [x] Issue 2308 — execute REST schema mutations.
 13. [x] Issue 2309 — expose selected plugin operations through REST.
 14. [x] Issue 2310 — stabilize REST responses and errors.
-15. [ ] Issue 2311 — prove the anonymous and Master REST vertical.
+15. [x] Issue 2311 — prove the anonymous and Master REST vertical.
 16. [ ] Issue 2318 — decide the exact Password Auth v1 contract.
 17. [ ] Issue 2312 — implement local password identities.
 18. [ ] Issue 2313 — implement opaque sessions and auth operations.
