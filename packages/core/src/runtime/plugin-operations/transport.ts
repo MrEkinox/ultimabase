@@ -5,6 +5,7 @@ import { FrameworkError } from '../../errors/framework-error.js'
 import type { CompiledPluginOperation } from '../../plugins/application-surface-registry.js'
 import type { PluginOperationDefinition } from '../../plugins/plugin-operations.js'
 import { assertImmutableOperationValue } from '../../plugins/plugin-operation-boundaries.js'
+import type { JsonValue } from '../../schema/index.js'
 import { RequestContext } from '../context/request-context.js'
 import type { RequestEngine } from '../engine/framework-engine.js'
 import { executeRequestPluginOperation } from './request-execution.js'
@@ -68,10 +69,24 @@ export interface OperationTransportRequest {
 	readonly version: string
 }
 
+/** Describes one exact operation and its inert binding facts after exposure. */
+export interface ExposedOperationTransportBinding {
+	readonly errors: readonly string[]
+	readonly metadata: JsonValue
+	readonly name: string
+	readonly owner: Readonly<{
+		readonly instanceId?: string
+		readonly pluginId: string
+		readonly version: string
+	}>
+	readonly version: string
+}
+
 /** Executes only the fixed allowlist selected when this exposure was created. */
 export interface ApplicationOperationTransport<
 	TTransport extends OperationTransportProtocol = OperationTransportProtocol,
 > {
+	readonly operations: readonly ExposedOperationTransportBinding[]
 	readonly transport: TTransport
 	/** Decodes, executes, validates, and encodes one explicitly exposed operation. */
 	execute(request: OperationTransportRequest): Promise<unknown>
@@ -81,14 +96,32 @@ export interface ApplicationOperationTransport<
 export class CoreApplicationOperationTransport<
 	TTransport extends OperationTransportProtocol,
 > implements ApplicationOperationTransport<TTransport> {
+	readonly operations: readonly ExposedOperationTransportBinding[]
 	readonly transport: TTransport
 	constructor(
 		transport: TTransport,
-		private readonly operations: ReadonlyMap<string, ExposedOperation>,
+		private readonly exposed: ReadonlyMap<string, ExposedOperation>,
 		private readonly runtime: PluginOperationRuntime,
 		private readonly createEngine: (context: RequestContext) => RequestEngine,
 	) {
 		this.transport = transport
+		this.operations = Object.freeze(
+			[...this.exposed.values()].map(({ binding, compiled }) =>
+				immutableRecord({
+					errors: compiled.operation.errors,
+					metadata: binding.binding.metadata,
+					name: compiled.operation.name,
+					owner: immutableRecord({
+						...(compiled.owner.instanceId === undefined
+							? {}
+							: { instanceId: compiled.owner.instanceId }),
+						pluginId: compiled.owner.pluginId,
+						version: compiled.owner.version,
+					}),
+					version: compiled.operation.version,
+				}),
+			),
+		)
 		Object.freeze(this)
 	}
 
@@ -104,7 +137,7 @@ export class CoreApplicationOperationTransport<
 		}
 		// Application lifecycle and context provenance must pass before codecs run.
 		const engine = this.createEngine(context)
-		const exposed = this.operations.get(request.operation)
+		const exposed = this.exposed.get(request.operation)
 		if (exposed === undefined) {
 			throw new FrameworkError(
 				'PLUGIN_OPERATION_INVALID',

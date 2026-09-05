@@ -57,6 +57,36 @@ Two explicit instances use `instanceId`. Distinct base paths compose into one
 graph, while matching methods and paths fail with a deterministic collision
 diagnostic.
 
+## Plugin operations
+
+Operation declarations remain private unless the application selects their
+exact tokens explicitly:
+
+```ts
+restPlugin({
+	acknowledgeUnverifiedProtection: true,
+	operations: [loginOperation],
+})
+```
+
+Each selected application operation receives
+`POST /api/v1/operations/{namespacedOperation}` and accepts exactly
+`{ "input": value }`. The owner contributes its logical-to-wire codec and a
+REST v1 binding through Core. It can independently name the canonical
+`ultimabase.rest@1.0.0` protocol without importing this package, which keeps
+REST and future Password Auth as siblings.
+
+The binding metadata must be exactly
+`{ errors: { [declaredPublicErrorCode]: httpStatus } }`, including an empty
+object when the operation declares no public plugin errors. REST validates the
+complete mapping before transport startup and accepts only integer error
+statuses from 400 through 599. The `RestOperationTransport` setup export then
+executes only its own route objects through Core's existing operation Runtime.
+It preserves anonymous contexts, plugin-owned values, verified Master
+provenance, transactions, middleware, protected constraints, cancellation,
+and application isolation. Wire input cannot select authority, adapters,
+plans, privileges, or another operation.
+
 Generated routes are public exposure, not authorization. Access, ACL,
 authentication, and Master authority are configured independently. Unless the
 developer passes `acknowledgeUnverifiedProtection: true`, starting an

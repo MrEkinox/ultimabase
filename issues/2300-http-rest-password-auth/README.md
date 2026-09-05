@@ -21,7 +21,7 @@ and transport-independent GraphQL.
 10. [x] [2307 — Normalize REST reads and queries](2307-rest-query-normalization.md)
 11. [x] [2320 — Execute REST schema reads](2320-rest-read-execution.md)
 12. [x] [2308 — Execute REST schema mutations](2308-rest-mutation-execution.md)
-13. [ ] [2309 — Expose plugin operations through REST](2309-rest-plugin-operations.md)
+13. [x] [2309 — Expose plugin operations through REST](2309-rest-plugin-operations.md)
 14. [ ] [2310 — Stabilize REST responses and errors](2310-rest-response-error-contract.md)
 15. [ ] [2311 — Verify the anonymous and Master REST vertical](2311-rest-public-vertical.md)
 16. [ ] [2318 — Decide the Password Auth v1 contract](2318-password-auth-contract.md)

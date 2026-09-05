@@ -6,7 +6,7 @@ import type {
 	PluginOperationInput,
 	PluginOperationResult,
 } from '../../plugins/plugin-operations.js'
-import type { SchemaDefinition } from '../../schema/index.js'
+import type { JsonValue, SchemaDefinition } from '../../schema/index.js'
 import type { RequestContext } from '../context/request-context.js'
 import type { RequestEngine } from '../engine/framework-engine.js'
 import type { AdapterAccess } from '../adapters/raw-access.js'
@@ -83,6 +83,7 @@ export interface OperationTransportBindingDefinition<
 	TTransport extends OperationTransportProtocol = OperationTransportProtocol,
 	TWireInput = unknown,
 	TWireResult = unknown,
+	TMetadata extends JsonValue = JsonValue,
 > {
 	readonly codec: OperationWireCodec<
 		TOperation,
@@ -91,6 +92,8 @@ export interface OperationTransportBindingDefinition<
 		TWireResult
 	>
 	readonly kind: 'operation-transport-binding'
+	/** Retains transport-specific inert facts without teaching Core their meaning. */
+	readonly metadata: TMetadata
 	readonly operation: TOperation
 	readonly transport: TTransport
 }
@@ -114,4 +117,16 @@ export type OperationTransportWireResult<TBinding> =
 		infer TResult
 	>
 		? TResult
+		: never
+
+/** Reads the inert transport metadata retained by one binding. */
+export type OperationTransportBindingMetadata<TBinding> =
+	TBinding extends OperationTransportBindingDefinition<
+		PluginOperationDefinition,
+		OperationTransportProtocol,
+		unknown,
+		unknown,
+		infer TMetadata
+	>
+		? TMetadata
 		: never

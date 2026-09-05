@@ -4,6 +4,7 @@ import {
 	executeRestReadRequest,
 	restPlugin,
 	type RestPlugin,
+	type RestOperationTransport,
 	type RestReadOperationAst,
 	type RestRouteDefinition,
 	type RestSchemaRoutes,
@@ -11,6 +12,7 @@ import {
 import type {
 	ApplicationRequestExecutor,
 	OperationResult,
+	PluginOperationDefinition,
 	RequestContext,
 	SchemaDefinition,
 } from '@ultimabase/core'
@@ -20,6 +22,7 @@ type IsAny<TValue> = 0 extends 1 & TValue ? true : false
 declare const executor: ApplicationRequestExecutor
 declare const context: RequestContext
 declare const schema: SchemaDefinition
+declare const operation: PluginOperationDefinition
 
 test('preserves exact immutable REST public types', () => {
 	const plugin = restPlugin({
@@ -27,6 +30,7 @@ test('preserves exact immutable REST public types', () => {
 		basePath: '/public',
 		default: { bulk: { create: true }, count: true },
 		instanceId: 'public',
+		operations: [operation],
 	})
 
 	expectTypeOf(plugin).toEqualTypeOf<RestPlugin>()
@@ -35,6 +39,9 @@ test('preserves exact immutable REST public types', () => {
 		readonly find?: boolean
 	}>()
 	expectTypeOf<RestRouteDefinition['method']>().toExtend<string>()
+	expectTypeOf<
+		RestOperationTransport['operations'][number]['kind']
+	>().toEqualTypeOf<'rest-plugin-operation-route'>()
 	const count = executeRestReadRequest(executor, context, schema, {
 		operation: 'count',
 		request: new Request('https://example.test/count'),
@@ -52,5 +59,9 @@ test('preserves exact immutable REST public types', () => {
 			// @ts-expect-error -- set-based arbitrary batches are not REST routes.
 			batch: true,
 		},
+	})
+	restPlugin({
+		// @ts-expect-error -- operation exposure requires exact Core tokens.
+		operations: ['fixture.operation'],
 	})
 })

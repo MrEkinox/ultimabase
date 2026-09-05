@@ -8,6 +8,7 @@ export {
 } from './capabilities.js'
 export type {
 	OperationTransportBindingDefinition,
+	OperationTransportBindingMetadata,
 	OperationTransportProtocol,
 	OperationTransportWireInput,
 	OperationTransportWireResult,
@@ -19,6 +20,7 @@ export type {
 } from './contracts.js'
 export type {
 	ApplicationOperationTransport,
+	ExposedOperationTransportBinding,
 	OperationTransportExposureOptions,
 	OperationTransportRequest,
 	PublicTransportProtectionOptions,

@@ -5,6 +5,7 @@ import * as publicApi from '../src/index.js'
 it('exports only the deliberate REST schema and route surface', () => {
 	expect(Object.keys(publicApi).sort()).toStrictEqual([
 		'RestMutationNormalizationError',
+		'RestOperationNormalizationError',
 		'RestReadNormalizationError',
 		'defaultRestMutationLimits',
 		'defaultRestReadLimits',
@@ -14,6 +15,7 @@ it('exports only the deliberate REST schema and route surface', () => {
 		'normalizeRestReadRequest',
 		'restFieldCodec',
 		'restMutationErrorCodes',
+		'restOperationErrorCodes',
 		'restPlugin',
 		'restReadErrorCodes',
 	])

@@ -8,6 +8,12 @@ export { restFieldCodec } from './field-codecs.js'
 export { executeRestReadRequest } from './read-execution.js'
 export { executeRestMutationRequest } from './mutation-execution.js'
 export {
+	restOperationErrorCodes,
+	RestOperationNormalizationError,
+} from './operation-errors.js'
+export type { RestOperationErrorCode } from './operation-errors.js'
+export type { RestOperationTransport } from './operation-execution.js'
+export {
 	defaultRestMutationLimits,
 	normalizeRestMutationRequest,
 } from './mutations.js'
@@ -37,6 +43,8 @@ export type {
 } from './plugin.js'
 export type {
 	RestApplicationProvenance,
+	RestPluginOperationRouteDefinition,
+	RestPluginOperationRouteProvenance,
 	RestRouteDefinition,
 	RestRouteGraph,
 	RestRouteProvenance,

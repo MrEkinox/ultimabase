@@ -2,6 +2,7 @@ import { immutableRecord } from '@ultimabase/shared'
 import { expectTypeOf, test } from 'vitest'
 
 import type { MasterRequestAccess } from '../../access/index.js'
+import type { JsonValue } from '../../schema/index.js'
 import {
 	defineOperation,
 	defineOperationValue,
@@ -25,6 +26,7 @@ import type {
 } from './transport.js'
 import type {
 	OperationTransportWireInput,
+	OperationTransportBindingMetadata,
 	OperationTransportWireResult,
 } from './contracts.js'
 
@@ -71,7 +73,11 @@ test('infers exact handler and wire boundary contracts', () => {
 		operation,
 		transport,
 	})
-	const binding = operationTransportBinding({ codec, operation })
+	const binding = operationTransportBinding({
+		codec,
+		metadata: { errors: { 'fixture.typed.rejected': 409 } } as const,
+		operation,
+	})
 	const acknowledgedExposure: OperationTransportExposureOptions<
 		typeof transport
 	> = {
@@ -88,6 +94,14 @@ test('infers exact handler and wire boundary contracts', () => {
 	>()
 	expectTypeOf<OperationTransportWireResult<typeof binding>>().toEqualTypeOf<
 		Readonly<{ readonly value: number }>
+	>()
+	expectTypeOf<
+		OperationTransportBindingMetadata<typeof binding>
+	>().toEqualTypeOf<{
+		readonly errors: { readonly 'fixture.typed.rejected': 409 }
+	}>()
+	expectTypeOf(exposure.operations[0]?.metadata).toEqualTypeOf<
+		JsonValue | undefined
 	>()
 	expectTypeOf<
 		PluginOperationErrorCode<typeof operation>

@@ -146,7 +146,9 @@ export {
 } from './plugin-operations/index.js'
 export type {
 	ApplicationOperationTransport,
+	ExposedOperationTransportBinding,
 	OperationTransportBindingDefinition,
+	OperationTransportBindingMetadata,
 	OperationTransportExposureOptions,
 	OperationTransportProtocol,
 	OperationTransportRequest,

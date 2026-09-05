@@ -19,6 +19,10 @@ import {
 	type PluginOperationInput,
 	type PluginOperationResult,
 } from '../../plugins/plugin-operations.js'
+import {
+	snapshotJsonValue,
+	type JsonValue,
+} from '../../schema/fields/builtins/json.js'
 import type {
 	OperationTransportBindingDefinition,
 	OperationTransportProtocol,
@@ -37,7 +41,8 @@ const wireCodecImplementations = new WeakMap<
 		encode(value: unknown): MaybePromise<unknown>
 	}>
 >()
-const transportProtocols = new WeakSet<object>()
+const transportProtocols = new Map<string, OperationTransportProtocol>()
+const transportProtocolIdentities = new WeakSet<object>()
 const transportBindings = new WeakSet<object>()
 const handlerProviders = new WeakSet<object>()
 const transportBindingProviders = new WeakSet<object>()
@@ -86,12 +91,18 @@ export const defineOperationTransport = <
 	if (valid(options.version) !== options.version) {
 		throw new TypeError('operation transport version must be exact SemVer')
 	}
+	const key = `${options.name}\0${options.version}`
+	const existing = transportProtocols.get(key)
+	if (existing !== undefined) {
+		return existing as OperationTransportProtocol<TName, TVersion>
+	}
 	const transport = immutableRecord({
 		kind: 'operation-transport-protocol' as const,
 		name: options.name,
 		version: options.version,
 	})
-	transportProtocols.add(transport)
+	transportProtocols.set(key, transport)
+	transportProtocolIdentities.add(transport)
 	return transport
 }
 
@@ -113,7 +124,7 @@ export const operationWireCodec = <
 	if (!isPluginOperationDefinition(options.operation)) {
 		throw new TypeError('operation wire codec requires an operation token')
 	}
-	if (!transportProtocols.has(options.transport)) {
+	if (!transportProtocolIdentities.has(options.transport)) {
 		throw new TypeError('operation wire codec requires a transport protocol')
 	}
 	if (
@@ -143,6 +154,7 @@ export const operationTransportBinding = <
 	const TTransport extends OperationTransportProtocol,
 	TWireInput,
 	TWireResult,
+	const TMetadata extends JsonValue = null,
 >(options: {
 	readonly operation: TOperation
 	readonly codec: OperationWireCodec<
@@ -151,11 +163,13 @@ export const operationTransportBinding = <
 		TWireInput,
 		TWireResult
 	>
+	readonly metadata?: TMetadata
 }): OperationTransportBindingDefinition<
 	TOperation,
 	TTransport,
 	TWireInput,
-	TWireResult
+	TWireResult,
+	TMetadata
 > => {
 	if (
 		!isPlainRecord(options) ||
@@ -176,6 +190,10 @@ export const operationTransportBinding = <
 	const binding = immutableRecord({
 		codec: options.codec,
 		kind: 'operation-transport-binding' as const,
+		metadata: snapshotJsonValue(
+			options.metadata ?? null,
+			'operation transport binding metadata',
+		) as TMetadata,
 		operation: options.operation,
 		transport: options.codec.transport,
 	})
@@ -275,7 +293,9 @@ export const getOperationWireCodec = (
 export const isOperationTransportProtocol = (
 	value: unknown,
 ): value is OperationTransportProtocol =>
-	typeof value === 'object' && value !== null && transportProtocols.has(value)
+	typeof value === 'object' &&
+	value !== null &&
+	transportProtocolIdentities.has(value)
 
 export const isOperationTransportBinding = (
 	value: unknown,

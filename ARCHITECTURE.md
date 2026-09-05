@@ -106,6 +106,11 @@ class API, so bulk remains ordered, itemized, and atomic without exposing its
 transaction machinery. Plugin-field wire protocols use Core-canonical
 name-and-version identities so a field owner and transport can declare an exact
 codec without importing one another.
+Operation transport identities follow the same exact canonical rule. Their
+bindings may carry immutable transport-owned JSON metadata, while Core's
+allowlist facade reveals only inert operation descriptors. REST uses that
+boundary to validate complete public-error status mappings before startup and
+never imports an operation owner such as Password Auth.
 
 ADR-0226 keeps browser preflight outside application selection. One HTTP server
 provider has one effective browser policy, and applications sharing that

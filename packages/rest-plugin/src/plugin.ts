@@ -1,10 +1,12 @@
 import {
 	applicationRequestExecutionCapability,
+	isPluginOperationDefinition,
 	provideCapability,
 	requireCapability,
 	type ApplicationRequestExecutor,
 	type CapabilityProviderDeclaration,
 	type CapabilityRequirement,
+	type PluginOperationDefinition,
 } from '@ultimabase/core'
 import {
 	definePluginModule,
@@ -12,7 +14,11 @@ import {
 	type PluginModule,
 	type PluginModuleInstance,
 } from '@ultimabase/plugin-kit'
-import { immutableRecord } from '@ultimabase/shared'
+import {
+	immutableArray,
+	immutableRecord,
+	isUnknownArray,
+} from '@ultimabase/shared'
 
 import {
 	normalizeRestSchemaRoutes,
@@ -20,11 +26,18 @@ import {
 	type RestSchemaRoutesOption,
 } from './options.js'
 import {
-	compileRestRouteFragment,
+	bindRestOperationTransport,
+	createRestOperationTransport,
+	type RestOperationTransport,
+} from './operation-execution.js'
+import { compileRestOperationRouteFragment } from './operation-routes.js'
+import {
 	restProtocol,
 	restRouteGraphCapability,
+	type RestPluginOperationRouteDefinition,
 	type RestRouteGraph,
 } from './routes.js'
+import { compileRestRouteFragment } from './schema-routes.js'
 import { defaultRestReadLimits, type RestReadLimits } from './reads.js'
 
 const restPluginModule: PluginModule<
@@ -66,13 +79,46 @@ export interface RestPluginOptions {
 	readonly instanceId?: string
 	/** Maximum accepted collection limit. @default 1000 */
 	readonly maxLimit?: number
+	/** Explicitly exposes these exact application operation tokens through REST. */
+	readonly operations?: readonly PluginOperationDefinition[]
 }
 
-/** Exposes only the inert route graph and normalized configuration. */
+/** Exposes normalized routes plus the optional narrow operation executor. */
 export interface RestPluginExports {
 	readonly basePath: string
 	readonly readLimits: RestReadLimits
 	readonly routeGraph: RestRouteGraph
+	/** Exists only when this REST instance explicitly exposes operations. */
+	readonly operationTransport?: RestOperationTransport
+}
+
+const normalizeOperations = (
+	value: unknown,
+): readonly PluginOperationDefinition[] => {
+	if (value === undefined) return immutableArray([])
+	if (!isUnknownArray(value)) {
+		throw new TypeError('REST plugin operations must be an array')
+	}
+	const names = new Set<string>()
+	const operations: PluginOperationDefinition[] = []
+	for (const [index, operation] of value.entries()) {
+		if (!isPluginOperationDefinition(operation)) {
+			throw new TypeError(
+				`REST plugin operations[${String(index)}] must be an operation token`,
+			)
+		}
+		if (operation.target !== 'application') {
+			throw new TypeError(
+				`REST plugin operation ${operation.name} must target the application`,
+			)
+		}
+		if (names.has(operation.name)) {
+			throw new TypeError(`REST plugin operations repeats ${operation.name}`)
+		}
+		names.add(operation.name)
+		operations.push(operation)
+	}
+	return immutableArray(operations)
 }
 
 const normalizeBasePath = (value: unknown): string => {
@@ -129,6 +175,7 @@ const parseRestPluginOptions = definePluginOptionsParser({
 		'default',
 		'instanceId',
 		'maxLimit',
+		'operations',
 	] as const,
 	normalize: ({
 		acknowledgeUnverifiedProtection,
@@ -137,6 +184,7 @@ const parseRestPluginOptions = definePluginOptionsParser({
 		default: defaultRoutes,
 		instanceId,
 		maxLimit,
+		operations,
 	}) => {
 		if (
 			acknowledgeUnverifiedProtection !== undefined &&
@@ -170,6 +218,7 @@ const parseRestPluginOptions = definePluginOptionsParser({
 				'maxLimit',
 				defaultRestReadLimits.maximumResults,
 			),
+			operations: normalizeOperations(operations),
 		}
 	},
 })
@@ -187,6 +236,7 @@ const restPluginPrivileges = [
 
 type RestPluginCapabilities = Readonly<{
 	readonly provides: readonly [
+		CapabilityProviderDeclaration<typeof restRouteGraphCapability>,
 		CapabilityProviderDeclaration<typeof restRouteGraphCapability>,
 	]
 	readonly requires: readonly [
@@ -236,8 +286,19 @@ export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 			}),
 		}),
 	})
+	const operationRouteProvider = provideCapability(restRouteGraphCapability, {
+		contributionId: 'official-rest-operation-routes',
+		create: ({ owner }) => ({
+			value: compileRestOperationRouteFragment({
+				basePath: normalized.basePath,
+				operations: normalized.operations,
+				owner,
+				pluginVersion: restPluginModule.version,
+			}),
+		}),
+	})
 	const capabilities: RestPluginCapabilities = {
-		provides: [routeProvider],
+		provides: [routeProvider, operationRouteProvider],
 		requires: [routeGraphRequirement, requestExecutionRequirement],
 	}
 
@@ -253,17 +314,43 @@ export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 				schema: { rest: restSchemaOption },
 			})
 		},
-		setup: ({ capabilities: reader }) =>
-			immutableRecord({
+		setup: ({ capabilities: reader }) => {
+			const routeGraph = reader.get(routeGraphRequirement)
+			const readLimits = immutableRecord({
+				bodyBytes: normalized.bodyLimit,
+				maximumResults: normalized.maxLimit,
+			})
+			const operationRoutes = routeGraph.routes.filter(
+				(route): route is RestPluginOperationRouteDefinition =>
+					route.kind === 'rest-plugin-operation-route' &&
+					route.provenance.plugin.pluginId === restPluginModule.pluginId &&
+					route.provenance.plugin.instanceId === normalized.instanceId,
+			)
+			const operationTransport =
+				operationRoutes.length === 0
+					? undefined
+					: createRestOperationTransport(operationRoutes)
+			return immutableRecord({
 				basePath: normalized.basePath,
-				readLimits: immutableRecord({
-					bodyBytes: normalized.bodyLimit,
-					maximumResults: normalized.maxLimit,
-				}),
-				routeGraph: reader.get(routeGraphRequirement),
-			}),
+				readLimits,
+				routeGraph,
+				...(operationTransport === undefined ? {} : { operationTransport }),
+			})
+		},
 		hooks: {
 			startTransports: ({ capabilities: reader, pluginExports }) => {
+				if (pluginExports.operationTransport !== undefined) {
+					bindRestOperationTransport(
+						pluginExports.operationTransport,
+						reader.get(requestExecutionRequirement).exposeOperations({
+							...(normalized.acknowledgeUnverifiedProtection === true
+								? { acknowledgeUnverifiedProtection: true as const }
+								: {}),
+							operations: normalized.operations,
+							transport: restProtocol,
+						}),
+					)
+				}
 				if (pluginExports.routeGraph.routes.length === 0) return
 				reader
 					.get(requestExecutionRequirement)

@@ -461,6 +461,14 @@ and model targets remain directly executable through their owned handles. Wire
 requests supply an already validated `RequestContext` and cannot select Master,
 Runtime replacement, or a raw adapter.
 
+Protocol identities are canonical by exact name and version, so an operation
+owner and transport package can contribute compatible bindings without
+importing one another. A binding may attach deeply snapshotted inert JSON
+metadata whose meaning belongs solely to that transport. The fixed exposure
+facade lists only each selected operation's name, version, declared public
+errors, owner, and metadata; executable callbacks and protected Runtime state
+remain private.
+
 Core cannot prove complete transport coverage from arbitrary policy callbacks.
 Every exposure that has not acknowledged that uncertainty emits one structured
 `UNVERIFIED_PUBLIC_TRANSPORT_PROTECTION` warning per transport protocol. Its

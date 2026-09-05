@@ -214,6 +214,7 @@ Accepted records:
 - [ADR-0230: Plugin-field wire protocols have canonical identities](0230-canonical-plugin-field-wire-protocols.md)
 - [ADR-0231: Core request executors accept normalized schema reads](0231-core-application-request-read-execution.md)
 - [ADR-0232: Core request executors accept schema mutation commands](0232-core-application-request-schema-mutations.md)
+- [ADR-0233: Operation transport identities are canonical and bindings carry inert metadata](0233-canonical-operation-transport-bindings.md)
 
 Superseded records:
 

@@ -561,6 +561,20 @@ describe('plugin operation Runtime', () => {
 			operations: [applicationOperation],
 			transport: fakeProtocol,
 		})
+		expect(exposure.operations).toStrictEqual([
+			{
+				errors: ['fixture.operations.rejected'],
+				metadata: null,
+				name: applicationOperation.name,
+				owner: {
+					pluginId: 'fixture.plugin-operations',
+					version: '1.0.0',
+				},
+				version: applicationOperation.version,
+			},
+		])
+		expect(Object.isFrozen(exposure.operations)).toBe(true)
+		expect(Object.isFrozen(exposure.operations[0])).toBe(true)
 		const context = RequestContext.anonymous({
 			requestId: 'fake-request',
 			source: 'fixture',

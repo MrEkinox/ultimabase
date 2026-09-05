@@ -162,6 +162,42 @@ afterEach(() => {
 })
 
 describe('public transport protection diagnostics', () => {
+	it('canonicalizes protocol identity and snapshots inert binding metadata', () => {
+		const canonical = defineOperationTransport({
+			name: primaryTransport.name,
+			version: primaryTransport.version,
+		})
+		expect(canonical).toBe(primaryTransport)
+
+		const metadata = { errors: { 'fixture.rejected': 409 } }
+		const codec = operationWireCodec({
+			decode: (value: null) => value,
+			encode: (value) => value,
+			operation: diagnosticOperation,
+			transport: canonical,
+		})
+		const binding = operationTransportBinding({
+			codec,
+			metadata,
+			operation: diagnosticOperation,
+		})
+		metadata.errors['fixture.rejected'] = 500
+		expect(binding.metadata).toStrictEqual({
+			errors: { 'fixture.rejected': 409 },
+		})
+		expect(Object.isFrozen(binding.metadata)).toBe(true)
+
+		const circular: Record<string, null> = {}
+		Reflect.set(circular, 'self', circular)
+		expect(() =>
+			operationTransportBinding({
+				codec,
+				metadata: circular,
+				operation: diagnosticOperation,
+			}),
+		).toThrow('operation transport binding metadata')
+	})
+
 	it('reports absent providers once per protocol and isolates applications', async () => {
 		const warning = vi
 			.spyOn(console, 'warn')

@@ -30,11 +30,11 @@ const readRest = (
 }
 
 const summarize = (exports: RestPluginExports) =>
-	exports.routeGraph.routes.map(({ method, operation, path, schema }) => ({
-		method,
-		operation,
-		path,
-		schema,
+	exports.routeGraph.routes.map((route) => ({
+		method: route.method,
+		operation: route.operation,
+		path: route.path,
+		schema: route.kind === 'rest-schema-route' ? route.schema : undefined,
 	}))
 
 const hasErrorCauseMessage = (error: unknown, message: string): boolean => {
@@ -199,7 +199,9 @@ describe('REST route metadata', () => {
 			plugins: [restPlugin({ default: false })],
 			schemas: [Enabled, Disabled],
 		})
-		const routes = readRest(application).routeGraph.routes
+		const routes = readRest(application).routeGraph.routes.filter(
+			(route) => route.kind === 'rest-schema-route',
+		)
 
 		expect(routes).toHaveLength(17)
 		expect(new Set(routes.map(({ schema }) => schema))).toStrictEqual(
