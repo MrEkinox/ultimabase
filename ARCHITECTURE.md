@@ -53,6 +53,8 @@ roles-plugin ─────────→ access-plugin, plugin-kit, core, sha
 acl-permissions-plugin → plugin-kit, core, shared
 postgres-plugin ──────→ plugin-kit, core, shared
 http-plugin ──────────→ plugin-kit, core, shared
+server-hono-plugin ───→ http-plugin, plugin-kit, core, shared
+rest-plugin ──────────→ http-plugin, plugin-kit, core, shared
 testing ──────────────→ typegen, core, shared
 ```
 
@@ -65,8 +67,6 @@ implementation issue starts:
 
 ```text
 postgres-migrations-plugin → postgres-plugin, core
-server-hono-plugin ────────→ http-plugin, plugin-kit, core, shared
-rest-plugin ───────────────→ http-plugin, plugin-kit, core, shared
 password-auth-plugin ──────→ http-plugin, plugin-kit, core, shared
 graphql-plugin ────────────→ plugin-kit, core, shared
 graphql-yoga-plugin ───────→ http-plugin, graphql-plugin, plugin-kit, core, shared
@@ -77,9 +77,12 @@ better-auth-plugin ────────→ http-plugin, plugin-kit, core, sh
 The HTTP package is the first milestone 23 workspace accepted by ADR-0224. It
 owns application IDs, an application-lifetime Fetch route graph, anonymous
 request-context resolution, safe pre-dispatch failures, and the explicitly
-enabled audited Master header boundary without opening a socket. The Hono,
-REST, and Password Auth packages remain future workspaces until their
-implementation issues begin. `graphql-plugin` remains network-independent.
+enabled audited Master header boundary without opening a socket. The Hono
+package supplies the optional server lifecycle. The REST package currently
+owns deterministic application-local REST v1 route metadata and the direct
+schema option without parsing requests or executing Runtime. Password Auth
+remains a future workspace until its implementation issue begins.
+`graphql-plugin` remains network-independent.
 Yoga, REST, Hono, and HTTP authentication integrations meet through the HTTP
 plugin rather than importing one another.
 

@@ -9,6 +9,7 @@ import {
 	type PostgresPoolClient,
 } from '@ultimabase/postgres-plugin'
 import { rolesPlugin } from '@ultimabase/roles-plugin'
+import { restPlugin } from '@ultimabase/rest-plugin'
 import { honoServerPlugin } from '@ultimabase/server-hono-plugin'
 import { typegenPlugin } from '@ultimabase/typegen'
 import { validationPlugin } from '@ultimabase/validation-plugin'
@@ -32,6 +33,7 @@ it('publishes the audited privilege and environment contract for every official 
 		hooksPlugin().manifest,
 		validationPlugin().manifest,
 		httpPlugin({ appId: 'manifest-fixture' }).manifest,
+		restPlugin().manifest,
 		aclPlugin().manifest,
 		rolesPlugin().manifest,
 		pgVectorPlugin().manifest,
@@ -76,6 +78,11 @@ it('publishes the audited privilege and environment contract for every official 
 			environment: [],
 			pluginId: '@ultimabase/http-plugin',
 			privileges: [],
+		},
+		{
+			environment: [],
+			pluginId: '@ultimabase/rest-plugin',
+			privileges: ['schema:declare', 'transport:expose'],
 		},
 		{
 			environment: [],

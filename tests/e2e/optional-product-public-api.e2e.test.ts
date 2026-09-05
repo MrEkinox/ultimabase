@@ -10,7 +10,9 @@ import {
 	removedAccessPluginPublicApiNames,
 	removedHooksPluginPublicApiNames,
 	removedHttpPluginPublicApiNames,
+	removedRestPluginPublicApiNames,
 	removedValidationPluginPublicApiNames,
+	restPluginPublicApi,
 	type OptionalProductPublicApi,
 	validationPluginPublicApi,
 } from '../../tooling/vitest/optional-product-public-api.js'
@@ -22,6 +24,7 @@ interface OptionalProductFixture {
 		| '@ultimabase/access-plugin'
 		| '@ultimabase/hooks-plugin'
 		| '@ultimabase/http-plugin'
+		| '@ultimabase/rest-plugin'
 		| '@ultimabase/validation-plugin'
 	readonly removedNames: readonly string[]
 }
@@ -41,6 +44,11 @@ const fixtures: readonly OptionalProductFixture[] = [
 		classification: httpPluginPublicApi,
 		moduleSpecifier: '@ultimabase/http-plugin',
 		removedNames: removedHttpPluginPublicApiNames,
+	},
+	{
+		classification: restPluginPublicApi,
+		moduleSpecifier: '@ultimabase/rest-plugin',
+		removedNames: removedRestPluginPublicApiNames,
 	},
 	{
 		classification: validationPluginPublicApi,

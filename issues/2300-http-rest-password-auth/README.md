@@ -17,7 +17,7 @@ and transport-independent GraphQL.
 6. [x] [2304 — Add HTTP request contexts and Master verification](2304-http-context-and-master.md)
 7. [x] [2305 — Implement the Hono server provider](2305-hono-server-provider.md)
 8. [x] [2317 — Implement the HTTP browser boundary](2317-http-browser-boundary.md)
-9. [ ] [2306 — Generate REST route metadata](2306-rest-route-metadata.md)
+9. [x] [2306 — Generate REST route metadata](2306-rest-route-metadata.md)
 10. [ ] [2307 — Normalize REST reads and queries](2307-rest-query-normalization.md)
 11. [ ] [2320 — Execute REST schema reads](2320-rest-read-execution.md)
 12. [ ] [2308 — Execute REST schema mutations](2308-rest-mutation-execution.md)

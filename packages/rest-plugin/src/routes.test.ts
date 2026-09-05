@@ -1,0 +1,398 @@
+import { Schema, createApplication, definePlugin } from '@ultimabase/core'
+import { describe, expect, it } from 'vitest'
+
+import { restPlugin, type RestPluginExports } from './index.js'
+
+const defineRestSchema = (className: string, rest?: unknown) =>
+	Schema.define({
+		className,
+		...(rest === undefined ? {} : { rest }),
+		fields: () => ({}),
+	})
+
+const readRest = (
+	application: Awaited<ReturnType<typeof createApplication>>,
+	instanceId?: string,
+): RestPluginExports => {
+	const exports =
+		instanceId === undefined
+			? application.getPlugin('@ultimabase/rest-plugin')
+			: application.getPlugin({
+					instanceId,
+					pluginId: '@ultimabase/rest-plugin',
+				})
+	return exports as RestPluginExports
+}
+
+const summarize = (exports: RestPluginExports) =>
+	exports.routeGraph.routes.map(({ method, operation, path, schema }) => ({
+		method,
+		operation,
+		path,
+		schema,
+	}))
+
+const hasErrorCauseMessage = (error: unknown, message: string): boolean => {
+	let candidate = error
+	while (candidate instanceof Error) {
+		if (candidate.message.includes(message)) return true
+		candidate = candidate.cause
+	}
+	return false
+}
+
+describe('REST route metadata', () => {
+	it('generates the accepted provenance-aware defaults in deterministic order', async () => {
+		const Post = defineRestSchema('Post')
+		const application = await createApplication({
+			pluginPrivileges: { logger: false },
+			plugins: [restPlugin()],
+			schemas: [Post],
+		})
+		const rest = readRest(application)
+
+		expect(summarize(rest)).toMatchInlineSnapshot(`
+			[
+			  {
+			    "method": "GET",
+			    "operation": "find",
+			    "path": "/api/v1/classes/Post",
+			    "schema": "Post",
+			  },
+			  {
+			    "method": "POST",
+			    "operation": "create",
+			    "path": "/api/v1/classes/Post",
+			    "schema": "Post",
+			  },
+			  {
+			    "method": "POST",
+			    "operation": "find",
+			    "path": "/api/v1/classes/Post/query",
+			    "schema": "Post",
+			  },
+			  {
+			    "method": "GET",
+			    "operation": "first",
+			    "path": "/api/v1/classes/Post/first",
+			    "schema": "Post",
+			  },
+			  {
+			    "method": "POST",
+			    "operation": "first",
+			    "path": "/api/v1/classes/Post/first",
+			    "schema": "Post",
+			  },
+			  {
+			    "method": "GET",
+			    "operation": "exists",
+			    "path": "/api/v1/classes/Post/exists",
+			    "schema": "Post",
+			  },
+			  {
+			    "method": "POST",
+			    "operation": "exists",
+			    "path": "/api/v1/classes/Post/exists",
+			    "schema": "Post",
+			  },
+			  {
+			    "method": "GET",
+			    "operation": "get",
+			    "path": "/api/v1/classes/Post/{id}",
+			    "schema": "Post",
+			  },
+			  {
+			    "method": "PATCH",
+			    "operation": "update",
+			    "path": "/api/v1/classes/Post/{id}",
+			    "schema": "Post",
+			  },
+			  {
+			    "method": "DELETE",
+			    "operation": "delete",
+			    "path": "/api/v1/classes/Post/{id}",
+			    "schema": "Post",
+			  },
+			]
+		`)
+		expect(rest.basePath).toBe('/api/v1')
+		expect(rest.routeGraph.protocol).toMatchObject({
+			kind: 'operation-transport-protocol',
+			name: 'ultimabase.rest',
+			version: '1.0.0',
+		})
+		expect(Object.isFrozen(rest.routeGraph.routes)).toBe(true)
+		for (const route of rest.routeGraph.routes) {
+			expect(route.provenance).toMatchObject({
+				method: route.method,
+				operation: route.operation,
+				path: route.path,
+				plugin: {
+					pluginId: '@ultimabase/rest-plugin',
+					version: '0.0.0',
+				},
+				protocolVersion: '1.0.0',
+				schema: {
+					contributionId: 'schema:Post',
+					owner: { kind: 'application' },
+				},
+			})
+			expect(route.provenance.application).toBe(
+				rest.routeGraph.routes[0]?.provenance.application,
+			)
+		}
+
+		await application.dispose()
+	})
+
+	it('resolves schema operations over sparse plugin defaults and built-ins', async () => {
+		const Post = defineRestSchema('Configured Post', {
+			bulk: { create: false, update: true },
+			count: true,
+			find: false,
+		})
+		const application = await createApplication({
+			pluginPrivileges: { logger: false },
+			plugins: [
+				restPlugin({
+					basePath: '/public',
+					default: { bulk: true, get: false, upsert: true },
+				}),
+			],
+			schemas: [Post],
+		})
+		const routes = summarize(readRest(application))
+
+		expect(routes.map(({ operation }) => operation)).toStrictEqual([
+			'create',
+			'first',
+			'first',
+			'count',
+			'count',
+			'exists',
+			'exists',
+			'upsert',
+			'bulkUpdate',
+			'bulkDelete',
+			'bulkUpsert',
+			'update',
+			'delete',
+		])
+		expect(routes.every(({ path }) => path.startsWith('/public/v1/'))).toBe(
+			true,
+		)
+		expect(routes[0]?.path).toContain('Configured%20Post')
+
+		await application.dispose()
+	})
+
+	it('supports explicit all-on and all-off selections', async () => {
+		const Enabled = defineRestSchema('Enabled', true)
+		const Disabled = defineRestSchema('Disabled', false)
+		const application = await createApplication({
+			pluginPrivileges: { logger: false },
+			plugins: [restPlugin({ default: false })],
+			schemas: [Enabled, Disabled],
+		})
+		const routes = readRest(application).routeGraph.routes
+
+		expect(routes).toHaveLength(17)
+		expect(new Set(routes.map(({ schema }) => schema))).toStrictEqual(
+			new Set(['Enabled']),
+		)
+
+		await application.dispose()
+	})
+
+	it('snapshots plugin and schema configuration without retaining mutable input', async () => {
+		const defaults: { count: boolean } = { count: true }
+		const schemaRoutes: { find: boolean } = { find: false }
+		const plugin = restPlugin({ default: defaults })
+		const Post = defineRestSchema('ImmutableRoutes', schemaRoutes)
+
+		defaults.count = false
+		const application = await createApplication({
+			pluginPrivileges: { logger: false },
+			plugins: [plugin],
+			schemas: [Post],
+		})
+		const routes = readRest(application).routeGraph.routes
+
+		expect(routes.some(({ operation }) => operation === 'count')).toBe(true)
+		expect(routes.some(({ operation }) => operation === 'find')).toBe(false)
+		expect(Object.isFrozen(Reflect.get(Post.definition, 'rest'))).toBe(true)
+		await application.dispose()
+	})
+
+	it.each([
+		[{ bulk: { arbitrary: true } }, 'rest.bulk contains unknown option'],
+		[{ count: 'yes' }, 'rest.count must be a boolean'],
+		[{ query: true }, 'rest contains unknown option'],
+	])('rejects malformed direct schema routes %#', async (rest, message) => {
+		await expect(
+			createApplication({
+				pluginPrivileges: { logger: false },
+				plugins: [restPlugin()],
+				schemas: [defineRestSchema('MalformedRestRoutes', rest)],
+			}),
+		).rejects.toSatisfy((error: unknown) =>
+			hasErrorCauseMessage(error, message),
+		)
+	})
+
+	it('keeps plugin-owned storage private and rejects misleading route options', async () => {
+		const Internal = defineRestSchema('CredentialStore')
+		const storagePlugin = (withRest: boolean) =>
+			definePlugin({
+				core: '^0.0.0',
+				pluginId: 'fixture.credentials',
+				version: '1.0.0',
+				privileges: [
+					{
+						name: 'schema:declare',
+						reason: 'Declares fixture credential storage.',
+					},
+				] as const,
+				declare: ({ schemas }) => {
+					schemas.add({
+						contributionId: 'credential-storage',
+						schema: withRest
+							? defineRestSchema('CredentialStoreWithRest', true)
+							: Internal,
+					})
+				},
+			})
+		const privateApplication = await createApplication({
+			pluginPrivileges: { logger: false },
+			plugins: [storagePlugin(false), restPlugin({ default: true })],
+			schemas: [],
+		})
+
+		expect(readRest(privateApplication).routeGraph.routes).toStrictEqual([])
+		await privateApplication.dispose()
+
+		await expect(
+			createApplication({
+				pluginPrivileges: { logger: false },
+				plugins: [storagePlugin(true), restPlugin()],
+				schemas: [],
+			}),
+		).rejects.toThrow(
+			'Plugin-owned schema "CredentialStoreWithRest" cannot declare REST schema routes',
+		)
+	})
+
+	it('rebuilds from each complete graph without stale dynamic schemas', async () => {
+		const pluginWithSchema = (enabled: boolean) =>
+			definePlugin({
+				core: '^0.0.0',
+				pluginId: 'fixture.dynamic-schema',
+				version: '1.0.0',
+				privileges: [
+					{
+						name: 'schema:declare',
+						reason: 'Conditionally declares one storage schema.',
+					},
+				] as const,
+				declare: ({ schemas }) => {
+					if (enabled) {
+						schemas.add({
+							contributionId: 'dynamic',
+							schema: defineRestSchema('DynamicStorage'),
+						})
+					}
+				},
+			})
+		const Visible = defineRestSchema('Visible')
+		const compile = (withDynamicSchema: boolean) =>
+			createApplication({
+				pluginPrivileges: { logger: false },
+				plugins: [pluginWithSchema(withDynamicSchema), restPlugin()],
+				schemas: [Visible],
+			})
+		const first = await compile(true)
+		const second = await compile(false)
+
+		expect(summarize(readRest(first))).toStrictEqual(
+			summarize(readRest(second)),
+		)
+		expect(first.schemas.has('DynamicStorage')).toBe(true)
+		expect(second.schemas.has('DynamicStorage')).toBe(false)
+		await first.dispose()
+		await second.dispose()
+	})
+
+	it('composes explicit instances and reports deterministic route conflicts', async () => {
+		const Post = defineRestSchema('Post')
+		const application = await createApplication({
+			pluginPrivileges: { logger: false },
+			plugins: [
+				restPlugin({ basePath: '/public', instanceId: 'public' }),
+				restPlugin({ basePath: '/admin', instanceId: 'admin' }),
+			],
+			schemas: [Post],
+		})
+		const publicRest = readRest(application, 'public')
+		const adminRest = readRest(application, 'admin')
+
+		expect(publicRest.routeGraph).toBe(adminRest.routeGraph)
+		expect(publicRest.routeGraph.routes).toHaveLength(20)
+		expect(
+			new Set(
+				publicRest.routeGraph.routes.map(
+					({ provenance }) => provenance.plugin.instanceId,
+				),
+			),
+		).toStrictEqual(new Set(['public', 'admin']))
+		await application.dispose()
+
+		await expect(
+			createApplication({
+				pluginPrivileges: { logger: false },
+				plugins: [
+					restPlugin({ instanceId: 'first' }),
+					restPlugin({ instanceId: 'second' }),
+				],
+				schemas: [Post],
+			}),
+		).rejects.toThrow(
+			'REST route collision for GET "/api/v1/classes/Post" between @ultimabase/rest-plugin#first and @ultimabase/rest-plugin#second',
+		)
+	})
+
+	it('keeps application provenance isolated while route snapshots repeat', async () => {
+		const Post = defineRestSchema('Post')
+		const create = () =>
+			createApplication({
+				pluginPrivileges: { logger: false },
+				plugins: [restPlugin()],
+				schemas: [Post],
+			})
+		const first = await create()
+		const second = await create()
+		const firstRest = readRest(first)
+		const secondRest = readRest(second)
+
+		expect(summarize(firstRest)).toStrictEqual(summarize(secondRest))
+		expect(firstRest.routeGraph.routes[0]?.provenance.application).not.toBe(
+			secondRest.routeGraph.routes[0]?.provenance.application,
+		)
+		await first.dispose()
+		await second.dispose()
+	})
+
+	it.each([
+		[
+			{ default: { unknown: true } },
+			'REST plugin default contains unknown option',
+		],
+		[{ basePath: 'api' }, 'REST plugin basePath must be an absolute path'],
+		[{ basePath: '/api/v1' }, 'cannot contain dot or protocol-version'],
+		[
+			{ acknowledgeUnverifiedProtection: false },
+			'acknowledgeUnverifiedProtection must be true',
+		],
+	])('rejects malformed plugin options %#', (options, message) => {
+		expect(() => restPlugin(options as never)).toThrow(message)
+	})
+})

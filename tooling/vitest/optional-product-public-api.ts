@@ -273,6 +273,25 @@ export const httpPluginPublicApi = {
 	conformanceSupport: [],
 } as const satisfies OptionalProductPublicApi
 
+export const restPluginPublicApi = {
+	applicationApi: [
+		'RestApplicationProvenance',
+		'RestBulkRoutes',
+		'RestPlugin',
+		'RestPluginExports',
+		'RestPluginOptions',
+		'RestRouteDefinition',
+		'RestRouteGraph',
+		'RestRouteProvenance',
+		'RestSchemaOperation',
+		'RestSchemaRoutes',
+		'RestSchemaRoutesOption',
+		'restPlugin',
+	],
+	compatibleProviderContract: [],
+	conformanceSupport: [],
+} as const satisfies OptionalProductPublicApi
+
 /** Produces the exact sorted root export set shared by source and packed tests. */
 export const getOptionalProductPublicApiNames = (
 	classification: OptionalProductPublicApi,
@@ -329,4 +348,15 @@ export const removedHttpPluginPublicApiNames = [
 	'assertHttpServerRequest',
 	'createHttpApplicationResource',
 	'readHttpApplicationId',
+] as const
+
+/** Names REST compiler details deliberately kept out of the root API. */
+export const removedRestPluginPublicApiNames = [
+	'compileRestRouteFragment',
+	'isRestApplicationProvenance',
+	'normalizeRestSchemaRoutes',
+	'readRestSchemaRoutes',
+	'restProtocol',
+	'restRouteGraphCapability',
+	'restSchemaOption',
 ] as const

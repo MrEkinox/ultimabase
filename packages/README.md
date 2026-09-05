@@ -28,11 +28,11 @@ alternatives use the same generic public kernel.
 - `validation-plugin`
 - `http-plugin`
 - `server-hono-plugin`
+- `rest-plugin`
 
 The next active milestone creates these official packages only when their first
 complete implementation issues begin:
 
-- `rest-plugin`
 - `password-auth-plugin`
 
 ## Planned plugin packages

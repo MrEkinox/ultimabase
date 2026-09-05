@@ -1464,6 +1464,21 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@ultimabase/rest-plugin@workspace:packages/rest-plugin":
+  version: 0.0.0-use.local
+  resolution: "@ultimabase/rest-plugin@workspace:packages/rest-plugin"
+  dependencies:
+    "@ultimabase/core": "workspace:^"
+    "@ultimabase/http-plugin": "workspace:^"
+    "@ultimabase/plugin-kit": "workspace:^"
+    "@ultimabase/shared": "workspace:^"
+    "@ultimabase/typegen": "workspace:^"
+    tsdown: "npm:^0.22.14"
+    typescript: "npm:^6.0.3"
+    vitest: "npm:4.1.10"
+  languageName: unknown
+  linkType: soft
+
 "@ultimabase/roles-plugin@workspace:^, @ultimabase/roles-plugin@workspace:packages/roles-plugin":
   version: 0.0.0-use.local
   resolution: "@ultimabase/roles-plugin@workspace:packages/roles-plugin"
