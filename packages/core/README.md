@@ -1741,6 +1741,12 @@ integration. A non-list field with that codec also receives complete-value
 snapshot guard; the codec does not imply ordering, string, structural, or
 custom domain operators.
 
+Plugin fields may independently attach private JSON wire codecs to exact
+nominal protocol objects. `getPluginFieldWireCodec(field, protocol)` resolves
+only an identity-matching codec. Core reapplies the logical scalar snapshot in
+both directions and validates encoded JSON without placing callbacks in field
+metadata. Storage and wire codecs are never interchangeable by default.
+
 A scalar plugin field may separately opt into `structuralContains` when it has
 that JSON codec. Its pure `snapshotOperand` validates the plugin-owned partial
 input; Core then independently validates, detaches, and freezes the returned

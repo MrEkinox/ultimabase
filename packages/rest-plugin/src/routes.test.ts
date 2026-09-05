@@ -1,7 +1,12 @@
-import { Schema, createApplication, definePlugin } from '@ultimabase/core'
+import {
+	Schema,
+	createApplication,
+	definePlugin,
+	definePluginField,
+} from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
-import { restPlugin, type RestPluginExports } from './index.js'
+import { restFieldCodec, restPlugin, type RestPluginExports } from './index.js'
 
 const defineRestSchema = (className: string, rest?: unknown) =>
 	Schema.define({
@@ -381,6 +386,56 @@ describe('REST route metadata', () => {
 		await second.dispose()
 	})
 
+	it('requires an owner-attached REST codec for every exposed plugin field', async () => {
+		const field = (withCodec: boolean) =>
+			definePluginField(
+				'fixture.route-code',
+				{},
+				{
+					snapshotValue: (value): string => {
+						if (typeof value !== 'string')
+							throw new TypeError('code must be a string')
+						return value
+					},
+					...(withCodec
+						? {
+								wireCodecs: [
+									restFieldCodec({
+										decode: (value) => String(value),
+										encode: (value) => value,
+									}),
+								],
+							}
+						: {}),
+				},
+			)
+		const define = (withCodec: boolean) =>
+			Schema.define({
+				className: 'PluginFieldRoute',
+				fields: (builder) => ({
+					embedded: builder.object({
+						fields: () => ({ code: field(withCodec) }),
+					}),
+				}),
+			})
+
+		await expect(
+			createApplication({
+				pluginPrivileges: { logger: false },
+				plugins: [restPlugin()],
+				schemas: [define(false)],
+			}),
+		).rejects.toThrow('requires an exact REST v1 field codec')
+
+		const application = await createApplication({
+			pluginPrivileges: { logger: false },
+			plugins: [restPlugin()],
+			schemas: [define(true)],
+		})
+		expect(readRest(application).routeGraph.routes.length).toBeGreaterThan(0)
+		await application.dispose()
+	})
+
 	it.each([
 		[
 			{ default: { unknown: true } },
@@ -388,6 +443,8 @@ describe('REST route metadata', () => {
 		],
 		[{ basePath: 'api' }, 'REST plugin basePath must be an absolute path'],
 		[{ basePath: '/api/v1' }, 'cannot contain dot or protocol-version'],
+		[{ bodyLimit: 0 }, 'bodyLimit must be a positive safe integer'],
+		[{ maxLimit: 1.5 }, 'maxLimit must be a positive safe integer'],
 		[
 			{ acknowledgeUnverifiedProtection: false },
 			'acknowledgeUnverifiedProtection must be true',

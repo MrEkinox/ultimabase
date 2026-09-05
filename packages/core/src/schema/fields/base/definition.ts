@@ -36,6 +36,16 @@ export interface PluginFieldStorageCodec<TValue = unknown> {
 	readonly encode: (value: TValue) => unknown
 }
 
+/** Describes one owner-attached JSON wire codec for an exact nominal protocol. */
+export interface PluginFieldWireCodec<TValue = unknown> {
+	readonly format: 'json'
+	readonly protocol: object
+	/** Strictly restores one logical scalar from untrusted wire data. */
+	readonly decode: (value: unknown) => TValue
+	/** Produces one JSON-compatible wire value from a validated logical scalar. */
+	readonly encode: (value: TValue) => unknown
+}
+
 /** Identifies the Core-owned portable containment protocol understood by adapters. */
 export const pluginFieldStructuralContainsProtocolVersion = 1 as const
 
@@ -61,6 +71,7 @@ interface FieldCapabilities {
 	readonly schemaTarget: SchemaTarget | undefined
 	readonly snapshotValue: ScalarValueSnapshot
 	readonly storageCodec: PluginFieldStorageCodec | undefined
+	readonly wireCodecs: readonly PluginFieldWireCodec[]
 	readonly structuralContains:
 		PluginFieldStructuralContainsCapability | undefined
 }
@@ -72,6 +83,8 @@ export interface FieldDefinitionCapabilities {
 	readonly schemaTarget?: SchemaTarget
 	/** Lets adapters persist one plugin scalar through a validated JSON representation. */
 	readonly storageCodec?: PluginFieldStorageCodec
+	/** Attaches exact transport codecs without exposing callbacks in field metadata. */
+	readonly wireCodecs?: readonly PluginFieldWireCodec[]
 	/** Keeps the author callback private while exposing only inert protocol metadata. */
 	readonly structuralContains?: {
 		readonly snapshotOperand: (value: unknown, path: string) => unknown
@@ -119,6 +132,7 @@ export const createFieldDefinition = <
 			schemaTarget: capabilities.schemaTarget,
 			snapshotValue,
 			storageCodec: capabilities.storageCodec,
+			wireCodecs: capabilities.wireCodecs ?? [],
 			structuralContains,
 		}),
 	)
@@ -160,6 +174,15 @@ export const getPluginFieldStorageCodec = (
 	field: GenericField,
 ): PluginFieldStorageCodec | undefined =>
 	fieldCapabilities.get(field)?.storageCodec
+
+/** Resolves an owner-attached codec only for the exact nominal protocol object. */
+export const getPluginFieldWireCodec = (
+	field: GenericField,
+	protocol: object,
+): PluginFieldWireCodec | undefined =>
+	fieldCapabilities
+		.get(field)
+		?.wireCodecs.find((codec) => codec.protocol === protocol)
 
 /** Reads only the inert protocol marker; plugin callbacks never leave Core ownership. */
 export const getPluginFieldStructuralContains = (

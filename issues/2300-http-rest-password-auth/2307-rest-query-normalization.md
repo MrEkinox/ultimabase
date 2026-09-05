@@ -1,10 +1,10 @@
 # 2307: Normalize REST reads and queries
 
-- Status: planned
+- Status: completed
 - Milestone: 23
 - Packages: `@ultimabase/rest-plugin`, `@ultimabase/core`
 - Depends on: 2306
-- ADR: ADR-0004 and the issue 2302 REST contract
+- ADR: ADR-0004, ADR-0229, and the issue 2302 REST contract
 
 ## Goal
 
@@ -13,30 +13,30 @@ AST without adding transport nodes or executing it during normalization.
 
 ## Acceptance criteria
 
-- [ ] Collection find, singular get, and count requests normalize through one
+- [x] Collection find, singular get, and count requests normalize through one
       shared schema-aware boundary.
-- [ ] Accepted simple GET and complex request forms produce equivalent canonical
+- [x] Accepted simple GET and complex request forms produce equivalent canonical
       filters, selections, inclusions, ordering, limits, and offsets.
-- [ ] Field-kind operators, pointer identity and target predicates, relation
+- [x] Field-kind operators, pointer identity and target predicates, relation
       predicates, embedded object targets, null, and list values use existing
       Core normalization rather than parallel REST semantics.
-- [ ] Count remains its exact logical read operation so Access can authorize it
+- [x] Count remains its exact logical read operation so Access can authorize it
       independently from item reads.
-- [ ] Unknown fields, malformed operators, invalid scalar representations,
+- [x] Unknown fields, malformed operators, invalid scalar representations,
       unsupported combinations, excessive limits, and invalid pagination fail
       before Runtime with stable safe issues.
-- [ ] Complex read bodies enforce the accepted media type and streaming size
+- [x] Complex read bodies enforce the accepted media type and streaming size
       limit before JSON parsing and never trust `Content-Length` alone.
-- [ ] The normalized AST contains no URL, header, HTTP method, request object,
+- [x] The normalized AST contains no URL, header, HTTP method, request object,
       server value, raw credential, or transport-only node.
-- [ ] Normalization does not load targets, call hooks, evaluate Access, or issue
+- [x] Normalization does not load targets, call hooks, evaluate Access, or issue
       adapter work.
 
 ## Tests
 
-- [ ] Parser matrix and class-API AST-equivalence tests cover every built-in and
+- [x] Parser matrix and class-API AST-equivalence tests cover every built-in and
       plugin-defined portable field capability.
-- [ ] Fuzzed malformed wire values cannot bypass Core normalization.
+- [x] Fuzzed malformed wire values cannot bypass Core normalization.
 
 ## Out of scope
 

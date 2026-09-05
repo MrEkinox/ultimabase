@@ -5,6 +5,7 @@ import {
 	definePluginField,
 	getPluginFieldStructuralContains,
 	getPluginFieldStorageCodec,
+	getPluginFieldWireCodec,
 	type FieldOptions,
 } from '../index.js'
 
@@ -98,6 +99,37 @@ describe('plugin fields', () => {
 		)
 		expect(() => codec?.decode({ value: 42 })).toThrow(
 			'Stored fixture value must contain a string',
+		)
+	})
+
+	it('keeps nominal wire codecs private and separated by protocol identity', () => {
+		const protocol = Object.freeze({
+			name: 'fixture.transport',
+			version: '1.0.0',
+		})
+		const field = definePluginField(
+			'fixture.wired',
+			{},
+			{
+				snapshotValue,
+				wireCodecs: [
+					{
+						decode: (value) => String(value),
+						encode: (value) => ({ value }),
+						format: 'json',
+						protocol,
+					},
+				],
+			},
+		)
+		const codec = getPluginFieldWireCodec(field, protocol)
+
+		expect(field).toStrictEqual({ kind: 'fixture.wired', options: {} })
+		expect(codec?.decode('value')).toBe('value')
+		expect(codec?.encode('value')).toStrictEqual({ value: 'value' })
+		expect(getPluginFieldWireCodec(field, { ...protocol })).toBeUndefined()
+		expect(() => codec?.encode(42)).toThrow(
+			'Encoded plugin field wire value must be a string',
 		)
 	})
 

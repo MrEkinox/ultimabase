@@ -1,4 +1,8 @@
-import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
+import {
+	immutableRecord,
+	isPlainRecord,
+	isUnknownArray,
+} from '@ultimabase/shared'
 
 import { createFieldDefinition } from './base/definition.js'
 import {
@@ -13,7 +17,11 @@ import type {
 	ResolveFieldTypegenState,
 	ValidatedFieldOptions,
 } from './base/contract.js'
-import type { PluginFieldStorageCodec } from './base/definition.js'
+import type {
+	PluginFieldStorageCodec,
+	PluginFieldWireCodec,
+} from './base/definition.js'
+import { snapshotJsonValue } from './base/portable-json.js'
 
 export type {
 	AvailablePluginFieldKind,
@@ -73,6 +81,8 @@ export interface PluginFieldNormalizers<
 	readonly snapshotValue: (value: unknown, path: string) => TValue
 	/** Serializes one logical scalar through an adapter-neutral versioned JSON value. */
 	readonly storageCodec?: PluginFieldStorageCodec<TValue>
+	/** Attaches owner-defined codecs for exact nominal transport protocols. */
+	readonly wireCodecs?: readonly PluginFieldWireCodec<TValue>[]
 	/** Enables a portable partial JSON containment operand for non-list fields. */
 	readonly structuralContains?: PluginFieldStructuralContains<TStructuralContainsOperand>
 }
@@ -87,9 +97,62 @@ const normalizerKeys = new Set([
 	'deferRequiredUntilResolveInput',
 	'snapshotValue',
 	'storageCodec',
+	'wireCodecs',
 	'structuralContains',
 ])
 const structuralContainsKeys = new Set(['snapshotOperand'])
+const isWireCodecFunction = (
+	value: unknown,
+): value is (value: unknown) => unknown => typeof value === 'function'
+
+const normalizePluginFieldWireCodecs = <TValue>(
+	codecs: readonly PluginFieldWireCodec<TValue>[] | undefined,
+	snapshotValue: (value: unknown, path: string) => TValue,
+): readonly PluginFieldWireCodec[] => {
+	if (codecs === undefined) return []
+	const candidate: unknown = codecs
+	if (!isUnknownArray(candidate)) {
+		throw new TypeError('Plugin field wireCodecs must be an array')
+	}
+
+	const protocols = new Set<object>()
+	return Object.freeze(
+		candidate.map((codec, index) => {
+			if (!isPlainRecord(codec)) {
+				throw new TypeError(
+					`Plugin field wireCodecs[${String(index)}] must be a JSON codec`,
+				)
+			}
+			const decode: unknown = codec.decode
+			const encode: unknown = codec.encode
+			if (
+				codec.format !== 'json' ||
+				!isPlainRecord(codec.protocol) ||
+				!isWireCodecFunction(decode) ||
+				!isWireCodecFunction(encode)
+			) {
+				throw new TypeError(
+					`Plugin field wireCodecs[${String(index)}] must be a JSON codec`,
+				)
+			}
+			if (protocols.has(codec.protocol)) {
+				throw new TypeError('Plugin field wireCodecs must use unique protocols')
+			}
+			protocols.add(codec.protocol)
+			return immutableRecord({
+				decode: (value: unknown): unknown =>
+					snapshotValue(decode(value), 'Decoded plugin field wire value'),
+				encode: (value: unknown): unknown =>
+					snapshotJsonValue(
+						encode(snapshotValue(value, 'Encoded plugin field wire value')),
+						'Encoded plugin field wire representation',
+					),
+				format: 'json' as const,
+				protocol: codec.protocol,
+			})
+		}),
+	)
+}
 
 /** Erases the logical generic only after wrapping both directions in its snapshot guard. */
 const normalizePluginFieldStorageCodec = <TValue>(
@@ -198,6 +261,10 @@ export const definePluginField = <
 		options,
 		normalizers.snapshotValue,
 	)
+	const wireCodecs = normalizePluginFieldWireCodecs(
+		normalizers.wireCodecs,
+		normalizers.snapshotValue,
+	)
 	const structuralContains = normalizers.structuralContains
 
 	if (structuralContains !== undefined) {
@@ -244,6 +311,7 @@ export const definePluginField = <
 			deferRequiredUntilResolveInput:
 				normalizers.deferRequiredUntilResolveInput === true,
 			...(storageCodec === undefined ? {} : { storageCodec }),
+			...(wireCodecs.length === 0 ? {} : { wireCodecs }),
 			...(structuralContains === undefined ? {} : { structuralContains }),
 		},
 	)

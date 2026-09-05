@@ -38,8 +38,8 @@ describe('REST option IntelliSense', () => {
 		const routeMarker = '/* route-options */'
 		const hoverMarker = '/* count-hover */'
 		const sourceWithMarkers = `${generated.contents.replaceAll(
-			"'@ultimabase/rest-plugin'",
-			"'../src/index.js'",
+			'"@ultimabase/rest-plugin"',
+			'"../src/index.js"',
 		)}
 import { Schema } from '@ultimabase/core'
 Schema.define({

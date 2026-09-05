@@ -1,8 +1,10 @@
 import {
 	defineCapability,
 	defineOperationTransport,
+	getPluginFieldWireCodec,
 	type CapabilityToken,
 	type CompiledSchemaRegistry,
+	type GenericField,
 	type OperationTransportProtocol,
 	type PluginIdentity,
 	type SchemaContributionProvenance,
@@ -294,6 +296,38 @@ const routeTemplates: readonly Readonly<{
 	{ method: 'DELETE', operation: 'delete', suffix: '/{id}' },
 ])
 
+const assertRestFieldCodecs = (
+	fields: Readonly<Record<string, GenericField>>,
+	path: string,
+): void => {
+	for (const [name, field] of Object.entries(fields)) {
+		const fieldPath = `${path}.${name}`
+		if (field.kind === 'object') {
+			const fieldOptions: unknown = field.options
+			if (!isPlainRecord(fieldOptions)) {
+				throw new TypeError(`${fieldPath} requires embedded field metadata`)
+			}
+			const children = fieldOptions.fields
+			if (!isPlainRecord(children)) {
+				throw new TypeError(`${fieldPath} requires embedded field metadata`)
+			}
+			assertRestFieldCodecs(
+				children as Readonly<Record<string, GenericField>>,
+				fieldPath,
+			)
+			continue
+		}
+		if (
+			field.kind.includes('.') &&
+			getPluginFieldWireCodec(field, restProtocol) === undefined
+		) {
+			throw new TypeError(
+				`${fieldPath} requires an exact REST v1 field codec before route exposure`,
+			)
+		}
+	}
+}
+
 /** Compiles one instance fragment from the complete application schema graph. */
 export const compileRestRouteFragment = (
 	options: Readonly<{
@@ -324,6 +358,13 @@ export const compileRestRouteFragment = (
 			continue
 		}
 		if (schema.provenance.schema.owner.kind !== 'application') continue
+		if (
+			routeTemplates.some((template) =>
+				isEnabled(configuredRoutes, options.defaultRoutes, template.operation),
+			)
+		) {
+			assertRestFieldCodecs(schema.fields, `${schema.className}.fields`)
+		}
 
 		const classPath = `${options.basePath}/classes/${encodePathSegment(schema.className, `REST schema className ${schema.className}`)}`
 		for (const template of routeTemplates) {

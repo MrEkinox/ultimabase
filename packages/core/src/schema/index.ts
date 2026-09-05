@@ -84,12 +84,15 @@ export {
 	assertFieldDefinition,
 	getPluginFieldStructuralContains,
 	getPluginFieldStorageCodec,
+	getPluginFieldWireCodec,
+	getFieldSchemaTarget,
 	isFieldRequiredDeferred,
 	snapshotScalarFieldValue,
 } from './fields/base/definition.js'
 export { pluginFieldStructuralContainsProtocolVersion } from './fields/base/definition.js'
 export type {
 	PluginFieldStorageCodec,
+	PluginFieldWireCodec,
 	PluginFieldStructuralContainsMetadata,
 } from './fields/base/definition.js'
 export type { FieldValueMap } from './fields/base/value-map.js'

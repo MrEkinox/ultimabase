@@ -210,6 +210,7 @@ Accepted records:
 - [ADR-0226: HTTP browser and pre-dispatch boundaries are server-consistent](0226-http-browser-and-predispatch-boundaries.md)
 - [ADR-0227: Core Query exposes offset, not cursors](0227-core-query-exposes-offset-not-cursors.md)
 - [ADR-0228: Experimental HTTP and REST v1 wire contract](0228-experimental-http-rest-v1-wire-contract.md)
+- [ADR-0229: Plugin fields own nominal REST wire codecs](0229-field-owned-rest-wire-codecs.md)
 
 Superseded records:
 

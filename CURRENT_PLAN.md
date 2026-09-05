@@ -3,8 +3,8 @@
 - Status: active
 - Milestone: 23
 - Started: 2026-09-03
-- Governing decisions: [ADR-0224](docs/adr/0224-http-application-rest-and-password-auth-boundaries.md), [ADR-0225](docs/adr/0225-core-application-request-execution-capability.md), [ADR-0226](docs/adr/0226-http-browser-and-predispatch-boundaries.md), [ADR-0227](docs/adr/0227-core-query-exposes-offset-not-cursors.md), and [ADR-0228](docs/adr/0228-experimental-http-rest-v1-wire-contract.md)
-- Resume point: [issue 2307](issues/2300-http-rest-password-auth/2307-rest-query-normalization.md)
+- Governing decisions: [ADR-0224](docs/adr/0224-http-application-rest-and-password-auth-boundaries.md), [ADR-0225](docs/adr/0225-core-application-request-execution-capability.md), [ADR-0226](docs/adr/0226-http-browser-and-predispatch-boundaries.md), [ADR-0227](docs/adr/0227-core-query-exposes-offset-not-cursors.md), [ADR-0228](docs/adr/0228-experimental-http-rest-v1-wire-contract.md), and [ADR-0229](docs/adr/0229-field-owned-rest-wire-codecs.md)
+- Resume point: [issue 2320](issues/2300-http-rest-password-auth/2320-rest-read-execution.md)
 
 ## Objective
 
@@ -60,7 +60,7 @@ graphql-yoga-plugin later ─────────┘         │
 7. [x] Issue 2305 — implement the Hono server provider.
 8. [x] Issue 2317 — implement the explicit HTTP browser boundary.
 9. [x] Issue 2306 — generate REST route metadata.
-10. [ ] Issue 2307 — normalize REST reads and queries.
+10. [x] Issue 2307 — normalize REST reads and queries.
 11. [ ] Issue 2320 — execute REST schema reads.
 12. [ ] Issue 2308 — execute REST schema mutations.
 13. [ ] Issue 2309 — expose selected plugin operations through REST.

@@ -25,6 +25,7 @@ import {
 	restRouteGraphCapability,
 	type RestRouteGraph,
 } from './routes.js'
+import { defaultRestReadLimits, type RestReadLimits } from './reads.js'
 
 const restPluginModule: PluginModule<
 	'@ultimabase/rest-plugin',
@@ -57,15 +58,20 @@ export interface RestPluginOptions {
 	readonly acknowledgeUnverifiedProtection?: true
 	/** Absolute normalized prefix; REST always appends `/v1`. @default "/api" */
 	readonly basePath?: string
+	/** Maximum streamed JSON request size in bytes. @default 1048576 */
+	readonly bodyLimit?: number
 	/** Supplies sparse route defaults inherited by application schemas. */
 	readonly default?: RestSchemaRoutesOption
 	/** Distinguishes two explicit REST configurations in one application. */
 	readonly instanceId?: string
+	/** Maximum accepted collection limit. @default 1000 */
+	readonly maxLimit?: number
 }
 
 /** Exposes only the inert route graph and normalized configuration. */
 export interface RestPluginExports {
 	readonly basePath: string
+	readonly readLimits: RestReadLimits
 	readonly routeGraph: RestRouteGraph
 }
 
@@ -102,19 +108,35 @@ const normalizeBasePath = (value: unknown): string => {
 	return value === '/' ? '/v1' : `${value}/v1`
 }
 
+const normalizePositiveSafeInteger = (
+	value: unknown,
+	name: string,
+	fallback: number,
+): number => {
+	if (value === undefined) return fallback
+	if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 1) {
+		throw new TypeError(`REST plugin ${name} must be a positive safe integer`)
+	}
+	return value
+}
+
 const parseRestPluginOptions = definePluginOptionsParser({
 	name: 'REST plugin options',
 	keys: [
 		'acknowledgeUnverifiedProtection',
 		'basePath',
+		'bodyLimit',
 		'default',
 		'instanceId',
+		'maxLimit',
 	] as const,
 	normalize: ({
 		acknowledgeUnverifiedProtection,
 		basePath,
+		bodyLimit,
 		default: defaultRoutes,
 		instanceId,
+		maxLimit,
 	}) => {
 		if (
 			acknowledgeUnverifiedProtection !== undefined &&
@@ -133,11 +155,21 @@ const parseRestPluginOptions = definePluginOptionsParser({
 		return {
 			acknowledgeUnverifiedProtection,
 			basePath: normalizeBasePath(basePath),
+			bodyLimit: normalizePositiveSafeInteger(
+				bodyLimit,
+				'bodyLimit',
+				defaultRestReadLimits.bodyBytes,
+			),
 			defaultRoutes:
 				defaultRoutes === undefined
 					? undefined
 					: normalizeRestSchemaRoutes(defaultRoutes, 'REST plugin default'),
 			instanceId,
+			maxLimit: normalizePositiveSafeInteger(
+				maxLimit,
+				'maxLimit',
+				defaultRestReadLimits.maximumResults,
+			),
 		}
 	},
 })
@@ -224,6 +256,10 @@ export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 		setup: ({ capabilities: reader }) =>
 			immutableRecord({
 				basePath: normalized.basePath,
+				readLimits: immutableRecord({
+					bodyBytes: normalized.bodyLimit,
+					maximumResults: normalized.maxLimit,
+				}),
 				routeGraph: reader.get(routeGraphRequirement),
 			}),
 		hooks: {

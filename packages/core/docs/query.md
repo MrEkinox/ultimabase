@@ -10,6 +10,12 @@ retains only transport-neutral AST state and `build()` returns the same object
 input without executing it. Neither form retains a database, adapter,
 transaction, request, authority, or transport.
 
+Transport packages use `normalizeReadOperation(schema, kind, input)` to reach
+the same immutable native read AST without receiving an executor. The function
+accepts untrusted object input, delegates every clause and field operand to the
+canonical Query normalizers, and performs no Runtime, hook, Access, adapter, or
+target-loading work.
+
 ## Canonical object reads
 
 ```ts
