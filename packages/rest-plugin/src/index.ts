@@ -6,6 +6,21 @@ export type {
 export { restPlugin } from './plugin.js'
 export { restFieldCodec } from './field-codecs.js'
 export { executeRestReadRequest } from './read-execution.js'
+export { executeRestMutationRequest } from './mutation-execution.js'
+export {
+	defaultRestMutationLimits,
+	normalizeRestMutationRequest,
+} from './mutations.js'
+export type {
+	RestMutationCommand,
+	RestMutationOperation,
+	RestMutationRequest,
+} from './mutations.js'
+export {
+	restMutationErrorCodes,
+	RestMutationNormalizationError,
+} from './mutation-errors.js'
+export type { RestMutationErrorCode } from './mutation-errors.js'
 export { defaultRestReadLimits, normalizeRestReadRequest } from './reads.js'
 export type {
 	RestReadLimits,

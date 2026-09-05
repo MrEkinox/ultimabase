@@ -1,12 +1,4 @@
-import {
-	defineCapability,
-	definePlugin,
-	FrameworkApplication,
-	provideCapability,
-	requireCapability,
-	type ApplicationCallbackExecutor,
-	type PluginIdentity,
-} from '../../foundation.js'
+import { FrameworkApplication } from '../../foundation.js'
 import { RequestContextValue } from '../../access/index.js'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -14,127 +6,14 @@ import { getCurrentRequest } from '../context/active-framework-context.js'
 import { RequestContext } from '../context/request-context.js'
 import { MasterAuthority } from '../master/master-authority.js'
 import { defineOperationTransport } from '../plugin-operations/capabilities.js'
-import { RecordingDatabaseAdapter } from '../../../tests/runtime/fixtures/recording-database-adapter.js'
-import { provideTestDatabaseAdapter } from '../../../tests/runtime/fixtures/database-adapter-capability.js'
-import { UltimaBase } from './ultima-base.js'
 import {
-	applicationRequestExecutionCapability,
-	type ApplicationRequestExecutor,
-} from './application-request-execution.js'
-
-interface RequestExecutionHarness {
-	callbacks?: ApplicationCallbackExecutor
-	executor?: ApplicationRequestExecutor
-	owner?: PluginIdentity
-}
-
-const requestExecutionRequirement = requireCapability(
-	applicationRequestExecutionCapability,
-	'^1.0.0',
-)
-
-const harnessCapability = defineCapability<
-	Readonly<{ ready: true }>,
-	readonly Readonly<{ ready: true }>[]
->()({
-	capabilityId: 'fixture.application-request-harness',
-	version: '1.0.0',
-	cardinality: 'multiple',
-	lifetime: 'application',
-	compose: (providers) => providers,
-})
-
-const createHarnessPlugin = (
-	harness: RequestExecutionHarness,
-	options: Readonly<{
-		failStart?: boolean
-		instanceId?: string
-		pluginId?: string
-		withElevation?: boolean
-	}> = {},
-) =>
-	definePlugin({
-		core: '^0.0.0',
-		pluginId: options.pluginId ?? 'fixture.application-request-consumer',
-		...(options.instanceId === undefined
-			? {}
-			: { instanceId: options.instanceId }),
-		version: '0.0.0',
-		privileges: options.withElevation
-			? [
-					{
-						name: 'authority:elevate',
-						reason: 'Verifies transport Master credentials in the fixture.',
-					},
-				]
-			: [],
-		capabilities: {
-			requires: [requestExecutionRequirement],
-			provides: [
-				provideCapability(harnessCapability, {
-					contributionId: 'request-execution-harness',
-					create: ({ callbacks, capabilities, owner }) => {
-						harness.callbacks = callbacks
-						harness.executor = capabilities.get(requestExecutionRequirement)
-						harness.owner = owner
-						return { value: { ready: true } }
-					},
-				}),
-			],
-		},
-		hooks: options.failStart
-			? {
-					startRuntime: () => {
-						runAsHarness(harness, (executor) =>
-							executor.createAnonymousContext({
-								requestId: 'during-startup',
-								source: 'fixture',
-							}),
-						)
-					},
-				}
-			: {},
-	})
-
-const createDatabasePlugin = (adapter = new RecordingDatabaseAdapter([], [])) =>
-	definePlugin({
-		core: '^0.0.0',
-		pluginId: 'fixture.application-request-database',
-		version: '0.0.0',
-		capabilities: {
-			provides: [provideTestDatabaseAdapter(adapter)],
-		},
-	})
-
-const readHarness = (
-	harness: RequestExecutionHarness,
-): Readonly<{
-	callbacks: ApplicationCallbackExecutor
-	executor: ApplicationRequestExecutor
-	owner: PluginIdentity
-}> => {
-	if (
-		harness.callbacks === undefined ||
-		harness.executor === undefined ||
-		harness.owner === undefined
-	) {
-		throw new TypeError('Request execution harness is not ready')
-	}
-	return {
-		callbacks: harness.callbacks,
-		executor: harness.executor,
-		owner: harness.owner,
-	}
-}
-
-const runAsHarness = <TResult>(
-	harness: RequestExecutionHarness,
-	callback: (executor: ApplicationRequestExecutor) => TResult,
-): TResult => {
-	const ready = readHarness(harness)
-	return ready.callbacks.runPlugin(ready.owner, () => callback(ready.executor))
-}
-
+	createRequestExecutionDatabasePlugin as createDatabasePlugin,
+	createRequestExecutionHarnessPlugin as createHarnessPlugin,
+	readRequestExecutionHarness as readHarness,
+	runAsRequestExecutionHarness as runAsHarness,
+	type RequestExecutionHarness,
+} from '../../../tests/runtime/fixtures/application-request-execution-harness.js'
+import { UltimaBase } from './ultima-base.js'
 describe('applicationRequestExecutionCapability', () => {
 	it('late-binds once, requires completed startup, and expires with the application', async () => {
 		const unboundHarness: RequestExecutionHarness = {}

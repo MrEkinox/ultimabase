@@ -20,7 +20,7 @@ and transport-independent GraphQL.
 9. [x] [2306 — Generate REST route metadata](2306-rest-route-metadata.md)
 10. [x] [2307 — Normalize REST reads and queries](2307-rest-query-normalization.md)
 11. [x] [2320 — Execute REST schema reads](2320-rest-read-execution.md)
-12. [ ] [2308 — Execute REST schema mutations](2308-rest-mutation-execution.md)
+12. [x] [2308 — Execute REST schema mutations](2308-rest-mutation-execution.md)
 13. [ ] [2309 — Expose plugin operations through REST](2309-rest-plugin-operations.md)
 14. [ ] [2310 — Stabilize REST responses and errors](2310-rest-response-error-contract.md)
 15. [ ] [2311 — Verify the anonymous and Master REST vertical](2311-rest-public-vertical.md)

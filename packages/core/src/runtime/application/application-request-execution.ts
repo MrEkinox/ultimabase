@@ -10,6 +10,7 @@ import {
 import type { OperationAstNode } from '../../query/operations/contracts.js'
 import type { ReadOperationKind } from '../../query/operations/read-normalization.js'
 import type { OperationResult } from '../../query/operations/results.js'
+import type { SchemaDefinition } from '../../schema/index.js'
 import {
 	defineCapability,
 	type CapabilityToken,
@@ -45,6 +46,11 @@ import type {
 	OperationTransportExposureOptions,
 	PublicTransportProtectionOptions,
 } from '../plugin-operations/transport.js'
+import {
+	executeApplicationSchemaMutation,
+	type ApplicationSchemaMutationRequest,
+	type ApplicationSchemaMutationResult,
+} from './application-schema-mutation-execution.js'
 
 /** Carries one raw credential only for immediate application-owned verification. */
 export interface ApplicationMasterKeyVerificationOptions<
@@ -76,6 +82,15 @@ export interface ApplicationRequestExecutor {
 		operation: TOperation &
 			(TOperation['kind'] extends ReadOperationKind ? unknown : never),
 	): Promise<OperationResult<TOperation>>
+	/** Executes one schema mutation through the canonical schema-command boundary. */
+	executeMutation<
+		const TSchema extends SchemaDefinition,
+		const TRequest extends ApplicationSchemaMutationRequest<TSchema>,
+	>(
+		context: RequestContext,
+		schema: TSchema,
+		request: TRequest,
+	): Promise<ApplicationSchemaMutationResult<TRequest>>
 	/** Verifies, audits, and derives Master authority without exposing its grant. */
 	verifyMasterKey<const TSource extends string>(
 		options: ApplicationMasterKeyVerificationOptions<TSource>,
@@ -204,6 +219,26 @@ class CoreApplicationRequestExecutor implements ApplicationRequestExecutor {
 		})
 		return runWithRequestEngineScope(request, () =>
 			executeOperation(operation, normalizeOperationOptions(undefined)),
+		)
+	}
+
+	executeMutation<
+		const TSchema extends SchemaDefinition,
+		const TRequest extends ApplicationSchemaMutationRequest<TSchema>,
+	>(
+		context: RequestContext,
+		schema: TSchema,
+		request: TRequest,
+	): Promise<ApplicationSchemaMutationResult<TRequest>> {
+		const framework = readBoundFramework(this, true)
+		requireAttributedOwner(framework)
+		const scoped = framework.withContext(context)
+		throwIfOperationCancelled(scoped.context.signal, {
+			phase: 'application-request-mutation-execution',
+		})
+
+		return runWithRequestEngineScope(scoped, () =>
+			executeApplicationSchemaMutation(schema, request),
 		)
 	}
 

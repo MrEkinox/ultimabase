@@ -77,7 +77,9 @@ const decodeQueryComponent = (value: string): string => {
 	}
 }
 
-const parseQueryEntries = (request: Request): readonly [string, string][] => {
+export const parseRestQueryEntries = (
+	request: Request,
+): readonly [string, string][] => {
 	let url: URL
 	try {
 		url = new URL(request.url)
@@ -123,7 +125,9 @@ const parseCommaList = (value: string): readonly string[] => {
 	return entries
 }
 
-const parseSelection = (value: string): Readonly<Record<string, true>> =>
+export const parseRestSelectionParameter = (
+	value: string,
+): Readonly<Record<string, true>> =>
 	immutableRecord(
 		Object.fromEntries(parseCommaList(value).map((name) => [name, true])),
 	)
@@ -182,7 +186,7 @@ const parseIncludePaths = (
 	return immutableRecord(root)
 }
 
-const parseInclude = (value: string): unknown =>
+export const parseRestIncludeParameter = (value: string): unknown =>
 	value.trimStart().startsWith('{')
 		? parseJson(value)
 		: parseIncludePaths(value)
@@ -193,7 +197,7 @@ const parseGetInput = (
 ): Readonly<Record<string, unknown>> => {
 	const allowed = getQueryKeys[operation]
 	const result: Record<string, unknown> = {}
-	for (const [name, value] of parseQueryEntries(request)) {
+	for (const [name, value] of parseRestQueryEntries(request)) {
 		if (!allowed.has(name) || Object.hasOwn(result, name))
 			throw invalidRestRead()
 		switch (name) {
@@ -201,10 +205,10 @@ const parseGetInput = (
 				result.where = parseJson(value)
 				break
 			case 'select':
-				result.select = parseSelection(value)
+				result.select = parseRestSelectionParameter(value)
 				break
 			case 'include':
-				result.include = parseInclude(value)
+				result.include = parseRestIncludeParameter(value)
 				break
 			case 'orderBy':
 				result.orderBy = parseOrdering(value)
@@ -229,7 +233,7 @@ const normalizeLimits = (limits: RestReadLimits): RestReadLimits => {
 	return immutableRecord(limits)
 }
 
-const decodeInclude = (
+export const decodeRestInclude = (
 	schema: SchemaDefinition,
 	value: unknown,
 	limits: RestReadLimits,
@@ -268,7 +272,7 @@ const decodeInput = (
 	if (Object.hasOwn(value, 'where'))
 		decoded.where = decodeRestWhere(schema, value.where)
 	if (Object.hasOwn(value, 'include')) {
-		decoded.include = decodeInclude(schema, value.include, limits)
+		decoded.include = decodeRestInclude(schema, value.include, limits)
 	}
 	if (Object.hasOwn(value, 'limit')) {
 		if (
@@ -305,7 +309,7 @@ export const normalizeRestReadRequest = async <
 		assertMethod(input.request, input.operation)
 		if (
 			input.request.method === 'POST' &&
-			parseQueryEntries(input.request).length > 0
+			parseRestQueryEntries(input.request).length > 0
 		) {
 			throw invalidRestRead()
 		}

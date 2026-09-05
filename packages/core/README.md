@@ -526,8 +526,13 @@ forged, stale, or wrong-authority contexts fail before request work.
 AST and returns its exact logical result through the same Runtime pipeline as a
 direct Query. It preserves the bound context, cancellation, policy, inclusion,
 materialization, and strict-target behavior without exposing a request engine,
-application, adapter, or transaction facade. Mutation execution is a separate
-transport capability decision.
+application, adapter, or transaction facade.
+
+`executeMutation(context, schema, request)` accepts only the closed set of
+schema create, update, delete, upsert, and homogeneous bulk commands. It
+delegates to the same schema-command normalizers as direct class calls. The
+facade therefore cannot execute an arbitrary AST or control transactions, while
+bulk commands retain their ordered itemized all-or-nothing semantics.
 
 Generated schema transports call
 `reportPublicTransportProtection({ transport })` to share the same

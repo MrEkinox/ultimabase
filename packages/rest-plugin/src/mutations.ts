@@ -1,0 +1,350 @@
+import {
+	decrement,
+	getFieldListDepth,
+	increment,
+	type ApplicationSchemaMutationRequest,
+	type GenericField,
+	type SchemaDefinition,
+} from '@ultimabase/core'
+import {
+	immutableArray,
+	immutableRecord,
+	isPlainRecord,
+	isUnknownArray,
+} from '@ultimabase/shared'
+
+import {
+	RestMutationNormalizationError,
+	invalidRestMutation,
+	restMutationErrorCodes,
+} from './mutation-errors.js'
+import { decodeRestFieldValue } from './field-values.js'
+import { readRestJsonBody, type RestJsonBodyErrors } from './read-body.js'
+import { decodeRestWhere, isUuidV7 } from './read-values.js'
+import {
+	decodeRestInclude,
+	defaultRestReadLimits,
+	parseRestIncludeParameter,
+	parseRestQueryEntries,
+	parseRestSelectionParameter,
+	type RestReadLimits,
+} from './reads.js'
+
+export type RestMutationOperation =
+	| 'bulk-create'
+	| 'bulk-delete'
+	| 'bulk-update'
+	| 'bulk-upsert'
+	| 'create'
+	| 'delete'
+	| 'update'
+	| 'upsert'
+
+export type RestMutationRequest =
+	| Readonly<{
+			operation: Exclude<RestMutationOperation, 'delete' | 'update'>
+			request: Request
+	  }>
+	| Readonly<{
+			id: string
+			operation: 'delete' | 'update'
+			request: Request
+	  }>
+
+export const defaultRestMutationLimits: RestReadLimits = defaultRestReadLimits
+
+type CoreMutationKindFor<TOperation extends RestMutationOperation> =
+	TOperation extends `bulk-${infer TKind}`
+		? `${TKind & ('create' | 'delete' | 'update' | 'upsert')}-many`
+		: `${TOperation}-one`
+
+/** Resolves the exact Core schema mutation request produced by REST v1. */
+export type RestMutationCommand<
+	TSchema extends SchemaDefinition,
+	TOperation extends RestMutationOperation,
+> = Extract<
+	ApplicationSchemaMutationRequest<TSchema>,
+	{ readonly kind: CoreMutationKindFor<TOperation> }
+>
+
+const mutationKinds: Readonly<
+	Record<RestMutationOperation, ApplicationSchemaMutationRequest['kind']>
+> = immutableRecord({
+	'bulk-create': 'create-many',
+	'bulk-delete': 'delete-many',
+	'bulk-update': 'update-many',
+	'bulk-upsert': 'upsert-many',
+	create: 'create-one',
+	delete: 'delete-one',
+	update: 'update-one',
+	upsert: 'upsert-one',
+})
+
+const mutationMethods: Readonly<Record<RestMutationOperation, string>> =
+	immutableRecord({
+		'bulk-create': 'POST',
+		'bulk-delete': 'POST',
+		'bulk-update': 'POST',
+		'bulk-upsert': 'POST',
+		create: 'POST',
+		delete: 'DELETE',
+		update: 'PATCH',
+		upsert: 'POST',
+	})
+
+const mutationBodyErrors: RestJsonBodyErrors = immutableRecord({
+	bodyTooLarge: () =>
+		new RestMutationNormalizationError(restMutationErrorCodes.bodyTooLarge),
+	invalidInput: invalidRestMutation,
+	unsupportedMediaType: () =>
+		new RestMutationNormalizationError(
+			restMutationErrorCodes.unsupportedMediaType,
+		),
+})
+
+const numericKinds = new Set(['bigint', 'decimal', 'float', 'int'])
+
+const normalizeLimits = (limits: RestReadLimits): RestReadLimits => {
+	if (
+		!Number.isSafeInteger(limits.bodyBytes) ||
+		limits.bodyBytes < 1 ||
+		!Number.isSafeInteger(limits.maximumResults) ||
+		limits.maximumResults < 1
+	) {
+		throw new TypeError('REST mutation limits must be positive safe integers')
+	}
+	return immutableRecord(limits)
+}
+
+const decodeData = (
+	schema: SchemaDefinition,
+	value: unknown,
+	mode: 'create' | 'update',
+): unknown => {
+	if (!isPlainRecord(value)) return value
+
+	return immutableRecord(
+		Object.fromEntries(
+			Object.entries(value).map(([name, item]) => {
+				const field: GenericField | undefined = schema.fields[name]
+				if (field === undefined) return [name, item]
+
+				if (
+					mode === 'update' &&
+					getFieldListDepth(field.options) === 0 &&
+					numericKinds.has(field.kind) &&
+					isPlainRecord(item) &&
+					Object.keys(item).length === 2 &&
+					Object.hasOwn(item, 'type') &&
+					Object.hasOwn(item, 'value') &&
+					(item.type === 'increment' || item.type === 'decrement')
+				) {
+					const operand = decodeRestFieldValue(
+						field,
+						item.value,
+						invalidRestMutation,
+					)
+					return [
+						name,
+						item.type === 'increment'
+							? increment(operand as bigint | number | string)
+							: decrement(operand as bigint | number | string),
+					]
+				}
+
+				return [
+					name,
+					decodeRestFieldValue(
+						field,
+						item,
+						invalidRestMutation,
+						false,
+						'value',
+					),
+				]
+			}),
+		),
+	)
+}
+
+const decodeProjection = (
+	schema: SchemaDefinition,
+	value: Readonly<Record<string, unknown>>,
+	limits: RestReadLimits,
+): Readonly<Record<string, unknown>> =>
+	immutableRecord({
+		...value,
+		...(Object.hasOwn(value, 'include')
+			? { include: decodeRestInclude(schema, value.include, limits) }
+			: {}),
+	})
+
+const parseProjectionQuery = (
+	schema: SchemaDefinition,
+	request: Request,
+	operation: RestMutationOperation,
+	limits: RestReadLimits,
+): Readonly<Record<string, unknown>> => {
+	const allowed =
+		operation === 'create' || operation === 'update'
+			? new Set(['include', 'select'])
+			: operation === 'delete'
+				? new Set(['select'])
+				: new Set<string>()
+	const projection: Record<string, unknown> = {}
+
+	for (const [name, value] of parseRestQueryEntries(request)) {
+		if (!allowed.has(name) || Object.hasOwn(projection, name)) {
+			throw invalidRestMutation()
+		}
+		projection[name] =
+			name === 'select'
+				? parseRestSelectionParameter(value)
+				: parseRestIncludeParameter(value)
+	}
+
+	return decodeProjection(schema, projection, limits)
+}
+
+const decodeUpsert = (schema: SchemaDefinition, value: unknown): unknown => {
+	if (!isPlainRecord(value)) return value
+	return immutableRecord({
+		...value,
+		...(Object.hasOwn(value, 'where')
+			? { where: decodeRestWhere(schema, value.where) }
+			: {}),
+		...(Object.hasOwn(value, 'create')
+			? { create: decodeData(schema, value.create, 'create') }
+			: {}),
+		...(Object.hasOwn(value, 'update')
+			? { update: decodeData(schema, value.update, 'update') }
+			: {}),
+	})
+}
+
+const decodeBulk = (
+	schema: SchemaDefinition,
+	operation: RestMutationOperation,
+	value: unknown,
+	limits: RestReadLimits,
+): unknown => {
+	if (!isPlainRecord(value)) return value
+	const decoded = decodeProjection(schema, value, limits)
+
+	if (operation === 'bulk-delete' && isUnknownArray(value.where)) {
+		return immutableRecord({
+			...decoded,
+			where: immutableArray(
+				value.where.map((where) => decodeRestWhere(schema, where)),
+			),
+		})
+	}
+	if (!isUnknownArray(value.data)) return decoded
+
+	return immutableRecord({
+		...decoded,
+		data: immutableArray(
+			value.data.map((item) => {
+				if (operation === 'bulk-create') {
+					return decodeData(schema, item, 'create')
+				}
+				if (operation === 'bulk-upsert') return decodeUpsert(schema, item)
+				if (!isPlainRecord(item)) return item
+				return immutableRecord({
+					...item,
+					...(Object.hasOwn(item, 'where')
+						? { where: decodeRestWhere(schema, item.where) }
+						: {}),
+					...(Object.hasOwn(item, 'data')
+						? { data: decodeData(schema, item.data, 'update') }
+						: {}),
+				})
+			}),
+		),
+	})
+}
+
+const assertBodylessDelete = (request: Request): void => {
+	if (
+		request.body !== null ||
+		request.headers.has('content-type') ||
+		request.headers.has('transfer-encoding') ||
+		(request.headers.get('content-length') !== null &&
+			request.headers.get('content-length') !== '0')
+	) {
+		throw invalidRestMutation()
+	}
+}
+
+/** Decodes one REST mutation into a Core schema-command request. */
+export const normalizeRestMutationRequest = async <
+	const TSchema extends SchemaDefinition,
+	const TInput extends RestMutationRequest,
+>(
+	schema: TSchema,
+	input: TInput,
+	limits: RestReadLimits = defaultRestReadLimits,
+): Promise<RestMutationCommand<TSchema, TInput['operation']>> => {
+	try {
+		input.request.signal.throwIfAborted()
+		const normalizedLimits = normalizeLimits(limits)
+		if (input.request.method !== mutationMethods[input.operation]) {
+			throw invalidRestMutation()
+		}
+		const projection = parseProjectionQuery(
+			schema,
+			input.request,
+			input.operation,
+			normalizedLimits,
+		)
+		if (
+			(input.operation === 'delete' || input.operation === 'update') &&
+			!isUuidV7(input.id)
+		) {
+			throw invalidRestMutation()
+		}
+
+		let commandInput: unknown
+		if (input.operation === 'delete') {
+			assertBodylessDelete(input.request)
+			commandInput = immutableRecord({ id: input.id, ...projection })
+		} else {
+			const body = await readRestJsonBody(
+				input.request,
+				normalizedLimits.bodyBytes,
+				mutationBodyErrors,
+			)
+			if (input.operation === 'create') {
+				commandInput = immutableRecord({
+					data: decodeData(schema, body, 'create'),
+					...projection,
+				})
+			} else if (input.operation === 'update') {
+				commandInput = immutableRecord({
+					data: decodeData(schema, body, 'update'),
+					id: input.id,
+					...projection,
+				})
+			} else if (input.operation === 'upsert') {
+				commandInput = decodeUpsert(schema, body)
+			} else {
+				commandInput = decodeBulk(
+					schema,
+					input.operation,
+					body,
+					normalizedLimits,
+				)
+			}
+		}
+		input.request.signal.throwIfAborted()
+
+		return immutableRecord({
+			kind: mutationKinds[input.operation],
+			input: commandInput,
+		}) as RestMutationCommand<TSchema, TInput['operation']>
+	} catch (error) {
+		if (error instanceof RestMutationNormalizationError) throw error
+		if (input.request.signal.aborted) throw error
+		throw invalidRestMutation()
+	}
+}

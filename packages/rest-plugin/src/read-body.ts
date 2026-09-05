@@ -4,45 +4,57 @@ import {
 	invalidRestRead,
 } from './errors.js'
 
+export interface RestJsonBodyErrors {
+	readonly bodyTooLarge: () => Error
+	readonly invalidInput: () => Error
+	readonly unsupportedMediaType: () => Error
+}
+
+const readBodyErrors: RestJsonBodyErrors = {
+	bodyTooLarge: () =>
+		new RestReadNormalizationError(restReadErrorCodes.bodyTooLarge),
+	invalidInput: invalidRestRead,
+	unsupportedMediaType: () =>
+		new RestReadNormalizationError(restReadErrorCodes.unsupportedMediaType),
+}
+
 const contentLengthPattern = /^(?:0|[1-9]\d*)$/u
 
-const assertJsonContentType = (value: string | null): void => {
+const assertJsonContentType = (
+	value: string | null,
+	errors: RestJsonBodyErrors,
+): void => {
 	if (value === null) {
-		throw new RestReadNormalizationError(
-			restReadErrorCodes.unsupportedMediaType,
-		)
+		throw errors.unsupportedMediaType()
 	}
 
 	const [mediaType, ...parameters] = value
 		.split(';')
 		.map((part) => part.trim().toLowerCase())
 	if (mediaType !== 'application/json' || parameters.length > 1) {
-		throw new RestReadNormalizationError(
-			restReadErrorCodes.unsupportedMediaType,
-		)
+		throw errors.unsupportedMediaType()
 	}
 	if (
 		parameters.length === 1 &&
 		parameters[0] !== 'charset=utf-8' &&
 		parameters[0] !== 'charset="utf-8"'
 	) {
-		throw new RestReadNormalizationError(
-			restReadErrorCodes.unsupportedMediaType,
-		)
+		throw errors.unsupportedMediaType()
 	}
 }
 
 const readContentLength = (
 	request: Request,
 	maximum: number,
+	errors: RestJsonBodyErrors,
 ): number | undefined => {
 	const value = request.headers.get('content-length')
 	if (value === null) return undefined
-	if (!contentLengthPattern.test(value)) throw invalidRestRead()
+	if (!contentLengthPattern.test(value)) throw errors.invalidInput()
 	const parsed = Number(value)
-	if (!Number.isSafeInteger(parsed)) throw invalidRestRead()
+	if (!Number.isSafeInteger(parsed)) throw errors.invalidInput()
 	if (parsed > maximum) {
-		throw new RestReadNormalizationError(restReadErrorCodes.bodyTooLarge)
+		throw errors.bodyTooLarge()
 	}
 	return parsed
 }
@@ -64,15 +76,16 @@ const concatenate = (
 export const readRestJsonBody = async (
 	request: Request,
 	maximum: number,
+	errors: RestJsonBodyErrors = readBodyErrors,
 ): Promise<unknown> => {
 	request.signal.throwIfAborted()
-	assertJsonContentType(request.headers.get('content-type'))
-	const declaredLength = readContentLength(request, maximum)
+	assertJsonContentType(request.headers.get('content-type'), errors)
+	const declaredLength = readContentLength(request, maximum, errors)
 	if (
 		declaredLength !== undefined &&
 		request.headers.has('transfer-encoding')
 	) {
-		throw invalidRestRead()
+		throw errors.invalidInput()
 	}
 
 	const chunks: Uint8Array[] = []
@@ -88,7 +101,7 @@ export const readRestJsonBody = async (
 			length += result.value.byteLength
 			if (length > maximum) {
 				await reader.cancel()
-				throw new RestReadNormalizationError(restReadErrorCodes.bodyTooLarge)
+				throw errors.bodyTooLarge()
 			}
 			chunks.push(result.value)
 		}
@@ -96,7 +109,7 @@ export const readRestJsonBody = async (
 	request.signal.throwIfAborted()
 
 	if (declaredLength !== undefined && declaredLength !== length) {
-		throw invalidRestRead()
+		throw errors.invalidInput()
 	}
 
 	let source: string
@@ -105,13 +118,13 @@ export const readRestJsonBody = async (
 			concatenate(chunks, length),
 		)
 	} catch {
-		throw invalidRestRead()
+		throw errors.invalidInput()
 	}
-	if (source.length === 0) throw invalidRestRead()
+	if (source.length === 0) throw errors.invalidInput()
 
 	try {
 		return JSON.parse(source) as unknown
 	} catch {
-		throw invalidRestRead()
+		throw errors.invalidInput()
 	}
 }

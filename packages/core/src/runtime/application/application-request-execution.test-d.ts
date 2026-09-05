@@ -10,7 +10,7 @@ import type {
 	FindManyOperationAst,
 } from '../../query/operations/contracts.js'
 import type { OperationResult } from '../../query/operations/results.js'
-import type { SchemaDefinition } from '../../schema/index.js'
+import { Schema, type SchemaDefinition } from '../../schema/index.js'
 import type { RequestContext } from '../context/request-context.js'
 import {
 	applicationRequestExecutionCapability,
@@ -20,6 +20,13 @@ import {
 declare const executor: ApplicationRequestExecutor
 declare const read: FindManyOperationAst<SchemaDefinition>
 declare const mutation: CreateOneOperationAst<SchemaDefinition>
+
+const MutationSchema = Schema.define({
+	className: 'ApplicationRequestMutationType',
+	fields: (field) => ({
+		title: field.string({ required: true }),
+	}),
+})
 
 test('retains exact request sources, contexts, and callback results', async () => {
 	const anonymous = executor.createAnonymousContext({
@@ -51,6 +58,30 @@ test('retains exact request sources, contexts, and callback results', async () =
 	>()
 	// @ts-expect-error -- the transport facade executes only normalized schema reads.
 	void executor.executeRead(anonymous, mutation)
+
+	const created = executor.executeMutation(anonymous, MutationSchema, {
+		kind: 'create-one',
+		input: { data: { title: 'Created' } },
+	})
+	expectTypeOf(created).toEqualTypeOf<Promise<object>>()
+	const updated = executor.executeMutation(anonymous, MutationSchema, {
+		kind: 'update-one',
+		input: {
+			id: '01991f00-0000-7000-8000-000000000001',
+			data: { title: 'Updated' },
+		},
+	})
+	expectTypeOf(updated).toEqualTypeOf<Promise<object | null>>()
+	const bulk = executor.executeMutation(anonymous, MutationSchema, {
+		kind: 'create-many',
+		input: { data: [{ title: 'First' }, { title: 'Second' }] },
+	})
+	expectTypeOf(bulk).toEqualTypeOf<Promise<readonly object[]>>()
+	// @ts-expect-error -- singular updates require one exact target.
+	void executor.executeMutation(anonymous, MutationSchema, {
+		kind: 'update-one',
+		input: { data: { title: 'Missing target' } },
+	})
 
 	const master = await executor.verifyMasterKey({
 		context: anonymous,

@@ -1,9 +1,9 @@
 # `@ultimabase/rest-plugin`
 
 `@ultimabase/rest-plugin` owns the experimental REST v1 route graph and schema
-read boundary. It generates immutable application-local metadata under `/api/v1`
-by default, decodes accepted GET or JSON reads into Core's existing Query and
-Operation AST, and delegates those normalized reads through Core's narrow
+request boundary. It generates immutable application-local metadata under
+`/api/v1` by default, decodes accepted reads and mutations into Core's existing
+Query and schema-command contracts, and delegates them through Core's narrow
 application request executor. It does not import Hono, start listeners, access
 an adapter, or retain request data in an AST.
 
@@ -94,6 +94,34 @@ encoding, route dispatch, and post-dispatch error mapping remain separate later
 boundaries. The Fetch request and application context must originate from the
 same HTTP request lifetime so normalization and Runtime observe its composed
 cancellation/deadline signal.
+
+## Mutation normalization and execution
+
+`normalizeRestMutationRequest(schema, input, limits)` accepts create, update,
+delete, upsert, and their homogeneous bulk forms. Create and update retain the
+concise REST bodies fixed by ADR-0228; upsert and bulk retain the corresponding
+schema-command wrappers. Item update and delete require the route-captured UUID
+v7 identifier. Only create and update accept `select` and `include` query
+parameters, delete accepts `select`, and upsert or bulk projections remain in
+their JSON bodies.
+
+Schema-aware decoding converts bigint strings, binary tags, pointer tags,
+embedded values, lists, plugin-field codecs, and numeric increment/decrement
+tags into their exact Core values. Relation handles remain non-writable, while
+Core continues to enforce system, generated, immutable, required, and unknown
+field rules. Every non-empty mutation body requires JSON, is counted before
+parsing, and treats `Content-Length` only as a checked hint. Item delete carries
+no body.
+
+`executeRestMutationRequest(executor, context, schema, input, limits)` delegates
+the decoded command to `ApplicationRequestExecutor.executeMutation`. Direct and
+REST callers therefore share mutation normalization, Access, ACL, Hooks,
+Validation, protected constraints, persistence rewrites, transactions, results,
+and events. Verified Master preserves validation and integrity work. Bulk stays
+ordered, itemized, and atomic with no partial-success mode.
+
+The function returns Core's logical model result. Response serialization,
+envelopes, and transport error mapping remain the later response boundary.
 
 ## Plugin field codecs
 

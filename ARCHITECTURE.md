@@ -80,10 +80,10 @@ request-context resolution, safe pre-dispatch failures, and the explicitly
 enabled audited Master header boundary without opening a socket. The Hono
 package supplies the optional server lifecycle. The REST package owns
 deterministic application-local REST v1 route metadata, the direct schema
-option, read normalization, and logical read delegation through Core's narrow
-application request executor. Response encoding and route dispatch remain
-later milestone boundaries. Password Auth remains a future workspace until its
-implementation issue begins.
+option, schema-aware read and mutation normalization, and logical delegation
+through Core's narrow application request executor. Response encoding and
+route dispatch remain later milestone boundaries. Password Auth remains a
+future workspace until its implementation issue begins.
 `graphql-plugin` remains network-independent.
 Yoga, REST, Hono, and HTTP authentication integrations meet through the HTTP
 plugin rather than importing one another.
@@ -99,9 +99,13 @@ lifecycle controls themselves.
 
 Normalized schema reads enter that facade through `executeRead`; the method is
 read-discriminant-only and returns the ordinary logical Runtime result. It does
-not add a generic operation executor or expose application state. Plugin-field
-wire protocols use Core-canonical name-and-version identities so a field owner
-and transport can declare an exact codec without importing one another.
+not add a generic operation executor or expose application state. Schema
+mutations enter through `executeMutation` as one closed schema-command union.
+Core delegates each discriminant to the same canonical command boundary as the
+class API, so bulk remains ordered, itemized, and atomic without exposing its
+transaction machinery. Plugin-field wire protocols use Core-canonical
+name-and-version identities so a field owner and transport can declare an exact
+codec without importing one another.
 
 ADR-0226 keeps browser preflight outside application selection. One HTTP server
 provider has one effective browser policy, and applications sharing that

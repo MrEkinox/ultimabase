@@ -23,6 +23,11 @@ export type {
 	ApplicationMasterKeyVerificationOptions,
 	ApplicationRequestExecutor,
 } from './application/application-request-execution.js'
+export type {
+	ApplicationSchemaMutationKind,
+	ApplicationSchemaMutationRequest,
+	ApplicationSchemaMutationResult,
+} from './application/application-schema-mutation-execution.js'
 export {
 	canonicalRuntimeExecutorTarget,
 	provideRuntimeConstraint,
