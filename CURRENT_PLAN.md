@@ -4,7 +4,7 @@
 - Milestone: 23
 - Started: 2026-09-03
 - Governing decisions: [ADR-0224](docs/adr/0224-http-application-rest-and-password-auth-boundaries.md), [ADR-0225](docs/adr/0225-core-application-request-execution-capability.md), [ADR-0226](docs/adr/0226-http-browser-and-predispatch-boundaries.md), [ADR-0227](docs/adr/0227-core-query-exposes-offset-not-cursors.md), and [ADR-0228](docs/adr/0228-experimental-http-rest-v1-wire-contract.md)
-- Resume point: [issue 2305](issues/2300-http-rest-password-auth/2305-hono-server-provider.md)
+- Resume point: [issue 2317](issues/2300-http-rest-password-auth/2317-http-browser-boundary.md)
 
 ## Objective
 
@@ -57,7 +57,7 @@ graphql-yoga-plugin later ─────────┘         │
 4. [x] Issue 2319 — implement the Core application request execution capability.
 5. [x] Issue 2303 — implement the HTTP application capability.
 6. [x] Issue 2304 — implement HTTP contexts and audited Master verification.
-7. [ ] Issue 2305 — implement the Hono server provider.
+7. [x] Issue 2305 — implement the Hono server provider.
 8. [ ] Issue 2317 — implement the explicit HTTP browser boundary.
 9. [ ] Issue 2306 — generate REST route metadata.
 10. [ ] Issue 2307 — normalize REST reads and queries.

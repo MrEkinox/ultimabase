@@ -19,6 +19,7 @@ const sourcePackageAliases = Object.fromEntries(
 		'plugin-kit',
 		'postgres-plugin',
 		'roles-plugin',
+		'server-hono-plugin',
 		'shared',
 		'testing',
 		'typegen',

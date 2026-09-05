@@ -494,6 +494,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@hono/node-server@npm:^2.1.1":
+  version: 2.1.1
+  resolution: "@hono/node-server@npm:2.1.1"
+  peerDependencies:
+    hono: ^4
+  checksum: 10c0/7ef810ca647c56d8d9386fd81609e18443b3a5634aa5ecabdf357e7ca724613c535e863c15ded9b7ae89b935a073040fb11e6d59041f3b1c3e153d8ecb699880
+  languageName: node
+  linkType: hard
+
 "@humanfs/core@npm:^0.19.2":
   version: 0.19.2
   resolution: "@humanfs/core@npm:0.19.2"
@@ -1395,7 +1404,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ultimabase/http-plugin@workspace:packages/http-plugin":
+"@ultimabase/http-plugin@workspace:^, @ultimabase/http-plugin@workspace:packages/http-plugin":
   version: 0.0.0-use.local
   resolution: "@ultimabase/http-plugin@workspace:packages/http-plugin"
   dependencies:
@@ -1464,6 +1473,23 @@ __metadata:
     "@ultimabase/plugin-kit": "workspace:^"
     "@ultimabase/shared": "workspace:^"
     "@ultimabase/testing": "workspace:^"
+    tsdown: "npm:^0.22.14"
+    typescript: "npm:^6.0.3"
+    vitest: "npm:4.1.10"
+  languageName: unknown
+  linkType: soft
+
+"@ultimabase/server-hono-plugin@workspace:packages/server-hono-plugin":
+  version: 0.0.0-use.local
+  resolution: "@ultimabase/server-hono-plugin@workspace:packages/server-hono-plugin"
+  dependencies:
+    "@hono/node-server": "npm:^2.1.1"
+    "@ultimabase/core": "workspace:^"
+    "@ultimabase/http-plugin": "workspace:^"
+    "@ultimabase/plugin-kit": "workspace:^"
+    "@ultimabase/shared": "workspace:^"
+    "@ultimabase/testing": "workspace:^"
+    hono: "npm:^4.13.7"
     tsdown: "npm:^0.22.14"
     typescript: "npm:^6.0.3"
     vitest: "npm:4.1.10"
@@ -3085,6 +3111,13 @@ __metadata:
   version: 4.0.0
   resolution: "has-flag@npm:4.0.0"
   checksum: 10c0/2e789c61b7888d66993e14e8331449e525ef42aac53c627cc53d1c3334e768bcb6abdc4f5f0de1478a25beec6f0bd62c7549058b7ac53e924040d4f301f02fd1
+  languageName: node
+  linkType: hard
+
+"hono@npm:^4.13.7":
+  version: 4.13.7
+  resolution: "hono@npm:4.13.7"
+  checksum: 10c0/29672a94a4f2be7f3f4d959ad69808dd3bbc220909ca4f9660997022ff45d48ae71e42a460e417d808809d68110196f19359aaab2b14ae6a750331d789601b5a
   languageName: node
   linkType: hard
 

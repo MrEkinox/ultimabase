@@ -9,6 +9,7 @@ import {
 	type PostgresPoolClient,
 } from '@ultimabase/postgres-plugin'
 import { rolesPlugin } from '@ultimabase/roles-plugin'
+import { honoServerPlugin } from '@ultimabase/server-hono-plugin'
 import { typegenPlugin } from '@ultimabase/typegen'
 import { validationPlugin } from '@ultimabase/validation-plugin'
 import { expect, it } from 'vitest'
@@ -34,6 +35,7 @@ it('publishes the audited privilege and environment contract for every official 
 		aclPlugin().manifest,
 		rolesPlugin().manifest,
 		pgVectorPlugin().manifest,
+		honoServerPlugin().manifest,
 	]
 
 	expect(
@@ -100,6 +102,11 @@ it('publishes the audited privilege and environment contract for every official 
 			environment: [],
 			pluginId: '@ultimabase/pg-vector-plugin',
 			privileges: ['schema:declare'],
+		},
+		{
+			environment: ['environment:network'],
+			pluginId: '@ultimabase/server-hono-plugin',
+			privileges: [],
 		},
 	])
 	expect(manifests.map(({ identity }) => identity.pluginId)).not.toContain(

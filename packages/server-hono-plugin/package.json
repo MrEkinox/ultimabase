@@ -1,0 +1,40 @@
+{
+	"name": "@ultimabase/server-hono-plugin",
+	"version": "0.0.0",
+	"type": "module",
+	"license": "Apache-2.0",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/MrEkinox/ultimadatabase.git",
+		"directory": "packages/server-hono-plugin"
+	},
+	"sideEffects": false,
+	"files": [
+		"dist"
+	],
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
+	},
+	"scripts": {
+		"build": "tsdown",
+		"test": "vitest run --passWithNoTests",
+		"typecheck": "tsc --build"
+	},
+	"dependencies": {
+		"@hono/node-server": "^2.1.1",
+		"@ultimabase/core": "workspace:^",
+		"@ultimabase/http-plugin": "workspace:^",
+		"@ultimabase/plugin-kit": "workspace:^",
+		"@ultimabase/shared": "workspace:^",
+		"hono": "^4.13.7"
+	},
+	"devDependencies": {
+		"@ultimabase/testing": "workspace:^",
+		"tsdown": "^0.22.14",
+		"typescript": "^6.0.3",
+		"vitest": "4.1.10"
+	}
+}

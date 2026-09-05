@@ -1,0 +1,346 @@
+import { serve, type ServerType } from '@hono/node-server'
+import {
+	httpApplicationProtocolVersion,
+	httpOriginalHeaderMode,
+	type HttpApplication,
+} from '@ultimabase/http-plugin'
+import { Hono } from 'hono'
+import { createServer, request as nodeRequest } from 'node:http'
+import type { AddressInfo } from 'node:net'
+import { describe, expect, it, vi } from 'vitest'
+
+import { HonoServerProvider } from './provider.js'
+
+const createHttpApplication = (
+	appId: string,
+	onFetch = vi.fn<(request: Request) => void>(),
+): HttpApplication => ({
+	appId,
+	authority: { master: { enabled: false } },
+	protocolVersion: httpApplicationProtocolVersion,
+	originalHeaderMode: httpOriginalHeaderMode,
+	requestTimeoutMs: undefined,
+	routeGraph: { endpoints: [], mounts: [], routes: [] },
+	fetch: ({ request }) => {
+		onFetch(request)
+		return Promise.resolve(
+			new Response(`${appId}:${new URL(request.url).pathname}`),
+		)
+	},
+})
+
+const listenerUrl = (address: AddressInfo, path: string): string =>
+	`http://127.0.0.1:${String(address.port)}${path}`
+
+const closeServer = (server: ServerType): Promise<void> =>
+	new Promise((resolve, reject) => {
+		server.close((error?: Error) => {
+			if (error === undefined) resolve()
+			else reject(error)
+		})
+	})
+
+const startExternalServer = (app: Hono): Promise<ServerType> =>
+	new Promise((resolve, reject) => {
+		const server = serve(
+			{
+				fetch: app.fetch,
+				hostname: '127.0.0.1',
+				overrideGlobalObjects: false,
+				port: 0,
+			},
+			() => {
+				server.removeListener('error', reject)
+				resolve(server)
+			},
+		)
+		server.once('error', reject)
+	})
+
+const requestWithRawHeaders = (
+	address: AddressInfo,
+	headers: readonly string[],
+): Promise<Readonly<{ readonly body: string; readonly status: number }>> =>
+	new Promise((resolve, reject) => {
+		const request = nodeRequest(
+			{
+				headers,
+				host: '127.0.0.1',
+				method: 'GET',
+				path: '/raw',
+				port: address.port,
+			},
+			(response) => {
+				const chunks: Buffer[] = []
+				response.on('data', (chunk: Buffer) => {
+					chunks.push(chunk)
+				})
+				response.on('end', () => {
+					resolve({
+						body: Buffer.concat(chunks).toString('utf8'),
+						status: response.statusCode ?? 0,
+					})
+				})
+			},
+		)
+		request.once('error', reject)
+		request.end()
+	})
+
+describe('HonoServerProvider', () => {
+	it('opens the configured managed listener and closes its exact resource', async () => {
+		const provider = new HonoServerProvider({
+			app: undefined,
+			host: '127.0.0.1',
+			port: 0,
+		})
+		const application = createHttpApplication('managed')
+
+		await provider.start(application)
+		const address = provider.address
+		expect(address).toBeDefined()
+		if (address === undefined) throw new TypeError('Missing listener address')
+		const response = await fetch(listenerUrl(address, '/hello'), {
+			headers: { 'X-UltimaBase-Application-Id': 'managed' },
+		})
+		expect(await response.text()).toBe('managed:/hello')
+
+		await provider.stop(application)
+		expect(provider.address).toBeUndefined()
+		await expect(fetch(listenerUrl(address, '/hello'))).rejects.toThrow()
+	})
+
+	it('waits for an in-flight response during graceful shutdown', async () => {
+		const provider = new HonoServerProvider({
+			app: undefined,
+			host: '127.0.0.1',
+			port: 0,
+		})
+		const entered = Promise.withResolvers<undefined>()
+		const pendingResponse = Promise.withResolvers<Response>()
+		const baseApplication = createHttpApplication('graceful')
+		const application: HttpApplication = {
+			...baseApplication,
+			fetch: () => {
+				entered.resolve(undefined)
+				return pendingResponse.promise
+			},
+		}
+		await provider.start(application)
+		const address = provider.address
+		if (address === undefined) throw new TypeError('Missing listener address')
+		const responsePromise = fetch(listenerUrl(address, '/slow'), {
+			headers: { 'X-UltimaBase-Application-Id': 'graceful' },
+		})
+		await entered.promise
+		let stopped = false
+		const stopPromise = provider.stop(application).then(() => {
+			stopped = true
+		})
+		await Promise.resolve()
+		expect(stopped).toBe(false)
+
+		pendingResponse.resolve(new Response('complete'))
+		expect(await (await responsePromise).text()).toBe('complete')
+		await stopPromise
+		expect(stopped).toBe(true)
+		expect(provider.address).toBeUndefined()
+	})
+
+	it('preserves duplicate sensitive headers before application selection', async () => {
+		const onFetch = vi.fn<(request: Request) => void>()
+		const provider = new HonoServerProvider({
+			app: undefined,
+			host: '127.0.0.1',
+			port: 0,
+		})
+		const application = createHttpApplication('raw', onFetch)
+		await provider.start(application)
+		const address = provider.address
+		if (address === undefined) throw new TypeError('Missing listener address')
+
+		try {
+			const response = await requestWithRawHeaders(address, [
+				'Host',
+				`127.0.0.1:${String(address.port)}`,
+				'X-UltimaBase-Application-Id',
+				'raw',
+				'x-ultimabase-application-id',
+				'raw',
+			])
+			expect(response.status).toBe(400)
+			expect(JSON.parse(response.body)).toMatchObject({
+				error: { code: 'HTTP_BAD_REQUEST' },
+			})
+			expect(onFetch).not.toHaveBeenCalled()
+		} finally {
+			await provider.dispose(application)
+		}
+	})
+
+	it('atomically shares one listener while retaining exact application mounts', async () => {
+		const provider = new HonoServerProvider({
+			app: undefined,
+			host: '127.0.0.1',
+			port: 0,
+		})
+		const first = createHttpApplication('first')
+		const second = createHttpApplication('second')
+		await Promise.all([provider.start(first), provider.start(second)])
+		const address = provider.address
+		if (address === undefined) throw new TypeError('Missing listener address')
+
+		const firstResponse = await fetch(listenerUrl(address, '/shared'), {
+			headers: { 'X-UltimaBase-Application-Id': 'first' },
+		})
+		const secondResponse = await fetch(listenerUrl(address, '/shared'), {
+			headers: { 'X-UltimaBase-Application-Id': 'second' },
+		})
+		expect(await firstResponse.text()).toBe('first:/shared')
+		expect(await secondResponse.text()).toBe('second:/shared')
+
+		await provider.stop(first)
+		expect(provider.address).toStrictEqual(address)
+		const removed = await fetch(listenerUrl(address, '/shared'), {
+			headers: { 'X-UltimaBase-Application-Id': 'first' },
+		})
+		expect(removed.status).toBe(401)
+		await provider.stop(second)
+		expect(provider.address).toBeUndefined()
+	})
+
+	it('rejects an app ID collision without changing the running table', async () => {
+		const provider = new HonoServerProvider({
+			app: undefined,
+			host: '127.0.0.1',
+			port: 0,
+		})
+		const accepted = createHttpApplication('duplicate')
+		const rejected = createHttpApplication('duplicate')
+		await provider.start(accepted)
+		const address = provider.address
+		if (address === undefined) throw new TypeError('Missing listener address')
+
+		try {
+			await expect(provider.start(rejected)).rejects.toThrow(
+				'HTTP application ID is already mounted',
+			)
+			const response = await fetch(listenerUrl(address, '/stable'), {
+				headers: { 'X-UltimaBase-Application-Id': 'duplicate' },
+			})
+			expect(await response.text()).toBe('duplicate:/stable')
+		} finally {
+			await provider.dispose(accepted)
+		}
+	})
+
+	it('mounts into an existing app without closing its listener', async () => {
+		const app = new Hono()
+		app.get('/health', (context) => context.text('healthy'))
+		const provider = new HonoServerProvider({
+			app,
+			host: 'unused',
+			port: 0,
+		})
+		const application = createHttpApplication('external')
+		await provider.start(application)
+		const server = await startExternalServer(app)
+		const address = server.address()
+		if (typeof address !== 'object' || address === null) {
+			throw new TypeError('Missing external listener address')
+		}
+
+		try {
+			expect(await (await fetch(listenerUrl(address, '/health'))).text()).toBe(
+				'healthy',
+			)
+			const mounted = await fetch(listenerUrl(address, '/external'), {
+				headers: { 'X-UltimaBase-Application-Id': 'external' },
+			})
+			expect(await mounted.text()).toBe('external:/external')
+
+			await provider.dispose(application)
+			expect(server.listening).toBe(true)
+			expect(await (await fetch(listenerUrl(address, '/health'))).text()).toBe(
+				'healthy',
+			)
+		} finally {
+			await closeServer(server)
+		}
+	})
+
+	it('rolls back address conflicts and permits a clean retry', async () => {
+		const blocker = createServer()
+		await new Promise<void>((resolve) =>
+			blocker.listen(0, '127.0.0.1', resolve),
+		)
+		const blockerAddress = blocker.address()
+		if (typeof blockerAddress !== 'object' || blockerAddress === null) {
+			throw new TypeError('Missing blocker address')
+		}
+		const provider = new HonoServerProvider({
+			app: undefined,
+			host: '127.0.0.1',
+			port: blockerAddress.port,
+		})
+		const application = createHttpApplication('retry')
+
+		await expect(provider.start(application)).rejects.toMatchObject({
+			code: 'EADDRINUSE',
+		})
+		expect(provider.address).toBeUndefined()
+		await new Promise<void>((resolve, reject) => {
+			blocker.close((error) => {
+				if (error === undefined) resolve()
+				else reject(error)
+			})
+		})
+
+		await provider.start(application)
+		expect(provider.address?.port).toBe(blockerAddress.port)
+		await provider.dispose(application)
+	})
+
+	it('serializes repeated and aborted lifecycle operations', async () => {
+		const provider = new HonoServerProvider({
+			app: undefined,
+			host: '127.0.0.1',
+			port: 0,
+		})
+		const application = createHttpApplication('lifecycle')
+		await Promise.all([
+			provider.start(application),
+			provider.start(application),
+			provider.stop(application),
+		])
+		expect(provider.address).toBeUndefined()
+		await provider.stop(application)
+		await provider.dispose(application)
+	})
+
+	it('supports parallel independent providers on ephemeral ports', async () => {
+		const providers = Array.from(
+			{ length: 4 },
+			() =>
+				new HonoServerProvider({
+					app: undefined,
+					host: '127.0.0.1',
+					port: 0,
+				}),
+		)
+		const fixtures = providers.map((provider, index) => ({
+			application: createHttpApplication(`parallel-${String(index)}`),
+			provider,
+		}))
+		await Promise.all(
+			fixtures.map(({ application, provider }) => provider.start(application)),
+		)
+		const ports = providers.map((provider) => provider.address?.port)
+		expect(new Set(ports).size).toBe(providers.length)
+		await Promise.all(
+			fixtures.map(({ application, provider }) =>
+				provider.dispose(application),
+			),
+		)
+	})
+})
