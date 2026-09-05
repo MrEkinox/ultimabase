@@ -3,6 +3,7 @@ import {
 	immutableRecord,
 	isPlainRecord,
 } from '@ultimabase/shared'
+import { valid } from 'semver'
 
 import { isBuiltInField } from './kinds.js'
 import { assertPluginFieldKind } from './kinds.js'
@@ -36,10 +37,77 @@ export interface PluginFieldStorageCodec<TValue = unknown> {
 	readonly encode: (value: TValue) => unknown
 }
 
+/** Names one canonical plugin-field wire protocol without importing its transport. */
+export interface PluginFieldWireProtocol<
+	TName extends string = string,
+	TVersion extends string = string,
+> {
+	readonly kind: 'plugin-field-wire-protocol'
+	readonly name: TName
+	readonly version: TVersion
+}
+
+const pluginFieldWireProtocolNamePattern =
+	/^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?\.[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$/u
+const pluginFieldWireProtocols = new Map<string, PluginFieldWireProtocol>()
+const pluginFieldWireProtocolIdentities = new WeakSet<object>()
+
+/**
+ * Returns one process-canonical field protocol identity for an exact name and
+ * version, so field owners can declare compatibility without importing a
+ * concrete transport package.
+ */
+export const definePluginFieldWireProtocol = <
+	const TName extends string,
+	const TVersion extends string,
+>(options: {
+	readonly name: TName
+	readonly version: TVersion
+}): PluginFieldWireProtocol<TName, TVersion> => {
+	if (!isPlainRecord(options)) {
+		throw new TypeError(
+			'Plugin field wire protocol options must be a plain object',
+		)
+	}
+	if (
+		typeof options.name !== 'string' ||
+		!pluginFieldWireProtocolNamePattern.test(options.name)
+	) {
+		throw new TypeError('Plugin field wire protocol name must be namespaced')
+	}
+	if (valid(options.version) !== options.version) {
+		throw new TypeError(
+			'Plugin field wire protocol version must be exact SemVer',
+		)
+	}
+
+	const key = `${options.name}\0${options.version}`
+	const existing = pluginFieldWireProtocols.get(key)
+	if (existing !== undefined) {
+		return existing as PluginFieldWireProtocol<TName, TVersion>
+	}
+	const protocol = immutableRecord({
+		kind: 'plugin-field-wire-protocol' as const,
+		name: options.name,
+		version: options.version,
+	})
+	pluginFieldWireProtocols.set(key, protocol)
+	pluginFieldWireProtocolIdentities.add(protocol)
+	return protocol
+}
+
+/** @internal Verifies protocol provenance before retaining a private codec. */
+export const isPluginFieldWireProtocol = (
+	value: unknown,
+): value is PluginFieldWireProtocol =>
+	typeof value === 'object' &&
+	value !== null &&
+	pluginFieldWireProtocolIdentities.has(value)
+
 /** Describes one owner-attached JSON wire codec for an exact nominal protocol. */
 export interface PluginFieldWireCodec<TValue = unknown> {
 	readonly format: 'json'
-	readonly protocol: object
+	readonly protocol: PluginFieldWireProtocol
 	/** Strictly restores one logical scalar from untrusted wire data. */
 	readonly decode: (value: unknown) => TValue
 	/** Produces one JSON-compatible wire value from a validated logical scalar. */
@@ -178,7 +246,7 @@ export const getPluginFieldStorageCodec = (
 /** Resolves an owner-attached codec only for the exact nominal protocol object. */
 export const getPluginFieldWireCodec = (
 	field: GenericField,
-	protocol: object,
+	protocol: PluginFieldWireProtocol,
 ): PluginFieldWireCodec | undefined =>
 	fieldCapabilities
 		.get(field)

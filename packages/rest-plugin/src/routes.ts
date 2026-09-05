@@ -23,7 +23,7 @@ import {
 	type RestSchemaRoutes,
 	type RestSchemaRoutesOption,
 } from './options.js'
-
+import { restFieldProtocol } from './field-codecs.js'
 /** Names the fixed REST protocol represented by generated route metadata. */
 export const restProtocol: OperationTransportProtocol<
 	'ultimabase.rest',
@@ -319,7 +319,7 @@ const assertRestFieldCodecs = (
 		}
 		if (
 			field.kind.includes('.') &&
-			getPluginFieldWireCodec(field, restProtocol) === undefined
+			getPluginFieldWireCodec(field, restFieldProtocol) === undefined
 		) {
 			throw new TypeError(
 				`${fieldPath} requires an exact REST v1 field codec before route exposure`,

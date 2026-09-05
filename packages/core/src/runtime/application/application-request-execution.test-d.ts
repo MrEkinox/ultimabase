@@ -5,6 +5,12 @@ import type {
 	MasterRequestAccess,
 } from '../../access/index.js'
 import type { CapabilityToken } from '../../plugins/capabilities.js'
+import type {
+	CreateOneOperationAst,
+	FindManyOperationAst,
+} from '../../query/operations/contracts.js'
+import type { OperationResult } from '../../query/operations/results.js'
+import type { SchemaDefinition } from '../../schema/index.js'
 import type { RequestContext } from '../context/request-context.js'
 import {
 	applicationRequestExecutionCapability,
@@ -12,6 +18,8 @@ import {
 } from './application-request-execution.js'
 
 declare const executor: ApplicationRequestExecutor
+declare const read: FindManyOperationAst<SchemaDefinition>
+declare const mutation: CreateOneOperationAst<SchemaDefinition>
 
 test('retains exact request sources, contexts, and callback results', async () => {
 	const anonymous = executor.createAnonymousContext({
@@ -36,6 +44,13 @@ test('retains exact request sources, contexts, and callback results', async () =
 		return 1 as const
 	})
 	expectTypeOf(asynchronous).toEqualTypeOf<Promise<1>>()
+
+	const readResult = executor.executeRead(anonymous, read)
+	expectTypeOf(readResult).toEqualTypeOf<
+		Promise<OperationResult<typeof read>>
+	>()
+	// @ts-expect-error -- the transport facade executes only normalized schema reads.
+	void executor.executeRead(anonymous, mutation)
 
 	const master = await executor.verifyMasterKey({
 		context: anonymous,

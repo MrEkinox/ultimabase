@@ -9,8 +9,10 @@ import type {
 	DatabaseOperationAst,
 	DatabaseOperationResult,
 } from '../database/contracts.js'
+import type { ExecutableOperationAst } from '../../query/index.js'
 import type { RuntimeCallbackExecutor } from '../contributions/execution.js'
 import { transferRuntimeSchemaModelMetadata } from '../operations/model-metadata.js'
+import { readOperationResultInclusion } from '../operations/queries.js'
 import type {
 	RuntimeDatabaseResultStageInput,
 	RuntimeOperationResult,
@@ -138,6 +140,23 @@ export const enforceOutputRestrictions = async <
 				: snapshot.outputFields.filter((field) =>
 						snapshot.selectionFields?.includes(field),
 					)
+	if (permittedFields === undefined) return input.result
 
-	return restrictResult(input.result, permittedFields)
+	// Relationship inclusions are a separately validated output projection and
+	// never enter the physical scalar selection narrowed by policy providers.
+	const inclusionFields = readOperationResultInclusion(
+		input.operation as unknown as ExecutableOperationAst,
+	)
+		.fields.map(({ field }) => field)
+		.filter(
+			(field) =>
+				snapshot.outputFields === undefined ||
+				snapshot.outputFields.includes(field),
+		)
+	const permittedResultFields = immutableArray([
+		...permittedFields,
+		...inclusionFields.filter((field) => !permittedFields.includes(field)),
+	])
+
+	return restrictResult(input.result, permittedResultFields)
 }

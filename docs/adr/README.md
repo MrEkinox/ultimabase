@@ -211,6 +211,8 @@ Accepted records:
 - [ADR-0227: Core Query exposes offset, not cursors](0227-core-query-exposes-offset-not-cursors.md)
 - [ADR-0228: Experimental HTTP and REST v1 wire contract](0228-experimental-http-rest-v1-wire-contract.md)
 - [ADR-0229: Plugin fields own nominal REST wire codecs](0229-field-owned-rest-wire-codecs.md)
+- [ADR-0230: Plugin-field wire protocols have canonical identities](0230-canonical-plugin-field-wire-protocols.md)
+- [ADR-0231: Core request executors accept normalized schema reads](0231-core-application-request-read-execution.md)
 
 Superseded records:
 

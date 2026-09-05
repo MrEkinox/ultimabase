@@ -522,6 +522,13 @@ adapter, and lifecycle controls never escape. Already verified owning Master
 contexts may enter `runWithContext` and explicit operation exposures; foreign,
 forged, stale, or wrong-authority contexts fail before request work.
 
+`executeRead(context, operation)` accepts only a normalized Core schema-read
+AST and returns its exact logical result through the same Runtime pipeline as a
+direct Query. It preserves the bound context, cancellation, policy, inclusion,
+materialization, and strict-target behavior without exposing a request engine,
+application, adapter, or transaction facade. Mutation execution is a separate
+transport capability decision.
+
 Generated schema transports call
 `reportPublicTransportProtection({ transport })` to share the same
 `UNVERIFIED_PUBLIC_TRANSPORT_PROTECTION` diagnostic as operation exposures.
@@ -1742,8 +1749,11 @@ snapshot guard; the codec does not imply ordering, string, structural, or
 custom domain operators.
 
 Plugin fields may independently attach private JSON wire codecs to exact
-nominal protocol objects. `getPluginFieldWireCodec(field, protocol)` resolves
-only an identity-matching codec. Core reapplies the logical scalar snapshot in
+nominal protocol objects. `definePluginFieldWireProtocol({ name, version })`
+returns the process-canonical identity for one namespaced protocol and exact
+semantic version, allowing a field owner and transport to agree without
+importing each other. `getPluginFieldWireCodec(field, protocol)` resolves only
+that identity-matching codec. Core reapplies the logical scalar snapshot in
 both directions and validates encoded JSON without placing callbacks in field
 metadata. Storage and wire codecs are never interchangeable by default.
 

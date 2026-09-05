@@ -4,6 +4,13 @@ import type {
 } from '../../access/index.js'
 import { FrameworkError } from '../../errors/framework-error.js'
 import {
+	executeOperation,
+	normalizeOperationOptions,
+} from '../../query/operations/execution.js'
+import type { OperationAstNode } from '../../query/operations/contracts.js'
+import type { ReadOperationKind } from '../../query/operations/read-normalization.js'
+import type { OperationResult } from '../../query/operations/results.js'
+import {
 	defineCapability,
 	type CapabilityToken,
 } from '../../plugins/capability-token.js'
@@ -63,6 +70,12 @@ export interface ApplicationRequestExecutor {
 		context: TContext,
 		callback: (context: TContext) => TResult,
 	): TResult
+	/** Executes one normalized schema read with the exact application context. */
+	executeRead<const TOperation extends OperationAstNode>(
+		context: RequestContext,
+		operation: TOperation &
+			(TOperation['kind'] extends ReadOperationKind ? unknown : never),
+	): Promise<OperationResult<TOperation>>
 	/** Verifies, audits, and derives Master authority without exposing its grant. */
 	verifyMasterKey<const TSource extends string>(
 		options: ApplicationMasterKeyVerificationOptions<TSource>,
@@ -176,6 +189,22 @@ class CoreApplicationRequestExecutor implements ApplicationRequestExecutor {
 			phase: 'application-request-execution',
 		})
 		return runWithRequestEngineScope(request, () => callback(context))
+	}
+
+	executeRead<const TOperation extends OperationAstNode>(
+		context: RequestContext,
+		operation: TOperation &
+			(TOperation['kind'] extends ReadOperationKind ? unknown : never),
+	): Promise<OperationResult<TOperation>> {
+		const framework = readBoundFramework(this, true)
+		requireAttributedOwner(framework)
+		const request = framework.withContext(context)
+		throwIfOperationCancelled(request.context.signal, {
+			phase: 'application-request-read-execution',
+		})
+		return runWithRequestEngineScope(request, () =>
+			executeOperation(operation, normalizeOperationOptions(undefined)),
+		)
 	}
 
 	async verifyMasterKey<const TSource extends string>(

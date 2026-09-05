@@ -82,6 +82,7 @@ export { isStaticDefault } from './fields/base/defaults.js'
 export type { DefaultFactory, FieldDefault } from './fields/base/defaults.js'
 export {
 	assertFieldDefinition,
+	definePluginFieldWireProtocol,
 	getPluginFieldStructuralContains,
 	getPluginFieldStorageCodec,
 	getPluginFieldWireCodec,
@@ -93,6 +94,7 @@ export { pluginFieldStructuralContainsProtocolVersion } from './fields/base/defi
 export type {
 	PluginFieldStorageCodec,
 	PluginFieldWireCodec,
+	PluginFieldWireProtocol,
 	PluginFieldStructuralContainsMetadata,
 } from './fields/base/definition.js'
 export type { FieldValueMap } from './fields/base/value-map.js'

@@ -284,6 +284,7 @@ export const restPluginPublicApi = {
 		'RestReadLimits',
 		'RestReadNormalizationError',
 		'RestReadOperation',
+		'RestReadOperationAst',
 		'RestReadRequest',
 		'RestRouteDefinition',
 		'RestRouteGraph',
@@ -292,6 +293,7 @@ export const restPluginPublicApi = {
 		'RestSchemaRoutes',
 		'RestSchemaRoutesOption',
 		'defaultRestReadLimits',
+		'executeRestReadRequest',
 		'normalizeRestReadRequest',
 		'restPlugin',
 		'restReadErrorCodes',
@@ -365,6 +367,7 @@ export const removedRestPluginPublicApiNames = [
 	'normalizeRestSchemaRoutes',
 	'readRestSchemaRoutes',
 	'restProtocol',
+	'restFieldProtocol',
 	'restRouteGraphCapability',
 	'restSchemaOption',
 ] as const

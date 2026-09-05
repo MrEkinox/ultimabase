@@ -6,6 +6,7 @@ it('exports only the deliberate REST read and route surface', () => {
 	expect(Object.keys(publicApi).sort()).toStrictEqual([
 		'RestReadNormalizationError',
 		'defaultRestReadLimits',
+		'executeRestReadRequest',
 		'normalizeRestReadRequest',
 		'restFieldCodec',
 		'restPlugin',

@@ -1,7 +1,18 @@
-import type { PluginFieldWireCodec } from '@ultimabase/core'
+import {
+	definePluginFieldWireProtocol,
+	type PluginFieldWireCodec,
+	type PluginFieldWireProtocol,
+} from '@ultimabase/core'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
-import { restProtocol } from './routes.js'
+/** @internal Shares REST v1 field compatibility without exporting Runtime behavior. */
+export const restFieldProtocol: PluginFieldWireProtocol<
+	'ultimabase.rest',
+	'1.0.0'
+> = definePluginFieldWireProtocol({
+	name: 'ultimabase.rest',
+	version: '1.0.0',
+})
 
 /** Defines one plugin field's exact logical-to-REST-v1 JSON boundary. */
 export const restFieldCodec = <TValue>(options: {
@@ -20,6 +31,6 @@ export const restFieldCodec = <TValue>(options: {
 		decode: options.decode,
 		encode: options.encode,
 		format: 'json' as const,
-		protocol: restProtocol,
+		protocol: restFieldProtocol,
 	})
 }

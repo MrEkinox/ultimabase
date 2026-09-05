@@ -16,6 +16,11 @@ accepts untrusted object input, delegates every clause and field operand to the
 canonical Query normalizers, and performs no Runtime, hook, Access, adapter, or
 target-loading work.
 
+After normalization, an attributed transport may pass that read AST and its
+application-bound `RequestContext` to `ApplicationRequestExecutor.executeRead`.
+Core then uses the ordinary Runtime pipeline; the transport still receives no
+application, engine, adapter, authority, transaction, or lifecycle control.
+
 ## Canonical object reads
 
 ```ts

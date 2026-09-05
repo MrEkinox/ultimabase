@@ -13,7 +13,7 @@ import {
 } from '@ultimabase/shared'
 
 import { invalidRestRead } from './errors.js'
-import { restProtocol } from './routes.js'
+import { restFieldProtocol } from './field-codecs.js'
 
 const bigintPattern = /^(?:0|-?[1-9]\d*)$/u
 const uuidV7Pattern =
@@ -111,7 +111,7 @@ const decodeScalar = (
 	if (field.kind === 'object') return decodeObject(field, value, partial)
 	if (field.kind === 'relation') throw invalidRestRead()
 	if (field.kind.includes('.')) {
-		const codec = getPluginFieldWireCodec(field, restProtocol)
+		const codec = getPluginFieldWireCodec(field, restFieldProtocol)
 		if (codec === undefined) throw invalidRestRead()
 		try {
 			return codec.decode(value)

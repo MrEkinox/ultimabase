@@ -65,6 +65,7 @@ export const readRestJsonBody = async (
 	request: Request,
 	maximum: number,
 ): Promise<unknown> => {
+	request.signal.throwIfAborted()
 	assertJsonContentType(request.headers.get('content-type'))
 	const declaredLength = readContentLength(request, maximum)
 	if (
@@ -83,6 +84,7 @@ export const readRestJsonBody = async (
 			!result.done;
 			result = await reader.read()
 		) {
+			request.signal.throwIfAborted()
 			length += result.value.byteLength
 			if (length > maximum) {
 				await reader.cancel()
@@ -91,6 +93,7 @@ export const readRestJsonBody = async (
 			chunks.push(result.value)
 		}
 	}
+	request.signal.throwIfAborted()
 
 	if (declaredLength !== undefined && declaredLength !== length) {
 		throw invalidRestRead()

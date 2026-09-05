@@ -110,6 +110,7 @@ describe('@ultimabase/core public entry point', () => {
 			'definePlugin',
 			'definePluginField',
 			'definePluginFieldType',
+			'definePluginFieldWireProtocol',
 			'defineQueryExtension',
 			'defineRequestSubjectReferenceCleanup',
 			'defineSchemaConstraint',

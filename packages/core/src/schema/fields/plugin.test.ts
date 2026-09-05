@@ -3,6 +3,7 @@ import { isPlainRecord } from '@ultimabase/shared'
 
 import {
 	definePluginField,
+	definePluginFieldWireProtocol,
 	getPluginFieldStructuralContains,
 	getPluginFieldStorageCodec,
 	getPluginFieldWireCodec,
@@ -103,9 +104,17 @@ describe('plugin fields', () => {
 	})
 
 	it('keeps nominal wire codecs private and separated by protocol identity', () => {
-		const protocol = Object.freeze({
+		const protocol = definePluginFieldWireProtocol({
 			name: 'fixture.transport',
 			version: '1.0.0',
+		})
+		const equivalentProtocol = definePluginFieldWireProtocol({
+			name: 'fixture.transport',
+			version: '1.0.0',
+		})
+		const otherProtocol = definePluginFieldWireProtocol({
+			name: 'fixture.transport',
+			version: '2.0.0',
 		})
 		const field = definePluginField(
 			'fixture.wired',
@@ -127,10 +136,19 @@ describe('plugin fields', () => {
 		expect(field).toStrictEqual({ kind: 'fixture.wired', options: {} })
 		expect(codec?.decode('value')).toBe('value')
 		expect(codec?.encode('value')).toStrictEqual({ value: 'value' })
-		expect(getPluginFieldWireCodec(field, { ...protocol })).toBeUndefined()
+		expect(equivalentProtocol).toBe(protocol)
+		expect(getPluginFieldWireCodec(field, equivalentProtocol)).toBe(codec)
+		expect(getPluginFieldWireCodec(field, otherProtocol)).toBeUndefined()
 		expect(() => codec?.encode(42)).toThrow(
 			'Encoded plugin field wire value must be a string',
 		)
+	})
+
+	it.each([
+		[{ name: 'transport', version: '1.0.0' }, 'name must be namespaced'],
+		[{ name: 'fixture.transport', version: '^1.0.0' }, 'exact SemVer'],
+	])('rejects invalid field wire protocol options %#', (options, message) => {
+		expect(() => definePluginFieldWireProtocol(options)).toThrow(message)
 	})
 
 	it('exposes only inert structural containment metadata', () => {

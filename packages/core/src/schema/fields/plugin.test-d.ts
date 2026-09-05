@@ -2,8 +2,10 @@ import { expectTypeOf, test } from 'vitest'
 
 import {
 	definePluginField,
+	definePluginFieldWireProtocol,
 	type FieldDefinition,
 	type FieldStructuralContainsOperand,
+	type PluginFieldWireProtocol,
 } from '../index.js'
 
 const snapshotValue = (value: unknown, path: string): string => {
@@ -65,5 +67,16 @@ test('carries the exact plugin containment operand at the type level', () => {
 	expectTypeOf(field.kind).toEqualTypeOf<'fixture.containment-type'>()
 	expectTypeOf<FieldStructuralContainsOperand<typeof field>>().toEqualTypeOf<
 		Readonly<{ readonly prefix: string }>
+	>()
+})
+
+test('retains exact canonical field wire protocol names and versions', () => {
+	const protocol = definePluginFieldWireProtocol({
+		name: 'fixture.transport',
+		version: '1.2.3',
+	})
+
+	expectTypeOf(protocol).toEqualTypeOf<
+		PluginFieldWireProtocol<'fixture.transport', '1.2.3'>
 	>()
 })

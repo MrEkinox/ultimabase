@@ -5,10 +5,12 @@ export type {
 } from './options.js'
 export { restPlugin } from './plugin.js'
 export { restFieldCodec } from './field-codecs.js'
+export { executeRestReadRequest } from './read-execution.js'
 export { defaultRestReadLimits, normalizeRestReadRequest } from './reads.js'
 export type {
 	RestReadLimits,
 	RestReadOperation,
+	RestReadOperationAst,
 	RestReadRequest,
 } from './reads.js'
 export { restReadErrorCodes, RestReadNormalizationError } from './errors.js'

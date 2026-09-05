@@ -78,10 +78,12 @@ The HTTP package is the first milestone 23 workspace accepted by ADR-0224. It
 owns application IDs, an application-lifetime Fetch route graph, anonymous
 request-context resolution, safe pre-dispatch failures, and the explicitly
 enabled audited Master header boundary without opening a socket. The Hono
-package supplies the optional server lifecycle. The REST package currently
-owns deterministic application-local REST v1 route metadata and the direct
-schema option without parsing requests or executing Runtime. Password Auth
-remains a future workspace until its implementation issue begins.
+package supplies the optional server lifecycle. The REST package owns
+deterministic application-local REST v1 route metadata, the direct schema
+option, read normalization, and logical read delegation through Core's narrow
+application request executor. Response encoding and route dispatch remain
+later milestone boundaries. Password Auth remains a future workspace until its
+implementation issue begins.
 `graphql-plugin` remains network-independent.
 Yoga, REST, Hono, and HTTP authentication integrations meet through the HTTP
 plugin rather than importing one another.
@@ -94,6 +96,12 @@ Master credential through the audited application authority, expose selected
 plugin operations, and report public-protection uncertainty. They never receive
 the application, engine, adapter, pipeline, authority, grant, transaction, or
 lifecycle controls themselves.
+
+Normalized schema reads enter that facade through `executeRead`; the method is
+read-discriminant-only and returns the ordinary logical Runtime result. It does
+not add a generic operation executor or expose application state. Plugin-field
+wire protocols use Core-canonical name-and-version identities so a field owner
+and transport can declare an exact codec without importing one another.
 
 ADR-0226 keeps browser preflight outside application selection. One HTTP server
 provider has one effective browser policy, and applications sharing that

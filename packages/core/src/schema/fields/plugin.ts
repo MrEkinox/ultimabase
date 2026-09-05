@@ -4,7 +4,10 @@ import {
 	isUnknownArray,
 } from '@ultimabase/shared'
 
-import { createFieldDefinition } from './base/definition.js'
+import {
+	createFieldDefinition,
+	isPluginFieldWireProtocol,
+} from './base/definition.js'
 import {
 	assertPluginFieldKind,
 	type AvailablePluginFieldKind,
@@ -127,7 +130,7 @@ const normalizePluginFieldWireCodecs = <TValue>(
 			const encode: unknown = codec.encode
 			if (
 				codec.format !== 'json' ||
-				!isPlainRecord(codec.protocol) ||
+				!isPluginFieldWireProtocol(codec.protocol) ||
 				!isWireCodecFunction(decode) ||
 				!isWireCodecFunction(encode)
 			) {

@@ -1,5 +1,6 @@
 import {
 	definePluginField,
+	definePluginFieldWireProtocol,
 	definePluginFieldType,
 	defineSchemaOption,
 	type FieldValueMap,
@@ -73,6 +74,13 @@ const snapshotACL = (value: unknown, path: string): ACL => {
 	return value
 }
 
+const restV1FieldProtocol = definePluginFieldWireProtocol({
+	name: 'ultimabase.rest',
+	version: '1.0.0',
+})
+const decodeACLJson = (value: unknown): ACL => ACL.fromJSON(value)
+const encodeACLJson = (value: ACL): unknown => value.toJSON()
+
 /** Defines the unchanged adapter-neutral field added to ACL-enabled schemas. */
 export const aclField = definePluginField(
 	aclFieldKind,
@@ -83,11 +91,19 @@ export const aclField = definePluginField(
 		snapshotValue: snapshotACL,
 		// Public ACL JSON is already versioned and strictly validated in both directions.
 		storageCodec: {
-			decode: (value) => ACL.fromJSON(value),
-			encode: (value) => value.toJSON(),
+			decode: decodeACLJson,
+			encode: encodeACLJson,
 			format: 'json',
 			version: 1,
 		},
+		wireCodecs: [
+			{
+				decode: decodeACLJson,
+				encode: encodeACLJson,
+				format: 'json',
+				protocol: restV1FieldProtocol,
+			},
+		],
 		structuralContains: {
 			snapshotOperand: snapshotACLContainmentOperand,
 		},

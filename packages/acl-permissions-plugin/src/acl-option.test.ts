@@ -1,4 +1,8 @@
-import { getPluginFieldStorageCodec } from '@ultimabase/core'
+import {
+	definePluginFieldWireProtocol,
+	getPluginFieldStorageCodec,
+	getPluginFieldWireCodec,
+} from '@ultimabase/core'
 import { describe, expect, it, vi } from 'vitest'
 
 import {
@@ -29,6 +33,23 @@ describe('acl schema option', () => {
 		}
 		expect(decoded.toJSON()).toStrictEqual(source.toJSON())
 		expect(() => codec?.decode({ version: 2 })).toThrow()
+	})
+
+	it('shares its strict JSON boundary with the canonical REST v1 protocol', () => {
+		const protocol = definePluginFieldWireProtocol({
+			name: 'ultimabase.rest',
+			version: '1.0.0',
+		})
+		const codec = getPluginFieldWireCodec(aclField, protocol)
+		const source = new ACL().grantPublic('read')
+		const encoded = codec?.encode(source)
+		const decoded = codec?.decode(encoded)
+
+		expect(encoded).toStrictEqual(source.toJSON())
+		expect(decoded).toBeInstanceOf(ACL)
+		expect(decoded instanceof ACL ? decoded.toJSON() : undefined).toStrictEqual(
+			source.toJSON(),
+		)
 	})
 
 	it('retains static and asynchronous defaults without executing callbacks', () => {

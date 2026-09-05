@@ -1,10 +1,11 @@
 # `@ultimabase/rest-plugin`
 
-`@ultimabase/rest-plugin` owns the experimental REST v1 route graph and read
-normalization boundary. It generates immutable application-local metadata under
-`/api/v1` by default and decodes accepted GET or JSON read requests into Core's
-existing Query and Operation AST. Normalization does not execute Runtime, import
-Hono, start listeners, load targets, or retain request data in an AST.
+`@ultimabase/rest-plugin` owns the experimental REST v1 route graph and schema
+read boundary. It generates immutable application-local metadata under `/api/v1`
+by default, decodes accepted GET or JSON reads into Core's existing Query and
+Operation AST, and delegates those normalized reads through Core's narrow
+application request executor. It does not import Hono, start listeners, access
+an adapter, or retain request data in an AST.
 
 ## Installation
 
@@ -79,6 +80,21 @@ enforcement boundary. The default maximum is 1 MiB and `bodyLimit` changes it.
 Malformed requests throw `RestReadNormalizationError` with a stable safe code;
 raw parser or Core diagnostics are not retained.
 
+## Read execution
+
+`executeRestReadRequest(executor, context, schema, input, limits)` composes that
+normalization boundary with `ApplicationRequestExecutor.executeRead`. Find,
+first, get, count, and exists therefore retain the same Access, ACL, protected
+not-found, inclusion, projection, materialization, Master, and cancellation
+semantics as direct Query execution. Count and exists remain their exact Core
+operations rather than being emulated through item reads.
+
+The function returns a logical Core result. REST response envelopes, field
+encoding, route dispatch, and post-dispatch error mapping remain separate later
+boundaries. The Fetch request and application context must originate from the
+same HTTP request lifetime so normalization and Runtime observe its composed
+cancellation/deadline signal.
+
 ## Plugin field codecs
 
 A plugin-defined scalar must attach an exact REST v1 codec before a schema that
@@ -103,3 +119,7 @@ const color = definePluginField(
 The codec is nominally bound to REST v1, remains outside field metadata, and is
 revalidated through the field's logical snapshot. REST never substitutes the
 field's storage codec.
+
+Protocol identity is canonical by exact name and version. Official ACL can
+therefore attach its strict JSON REST codec without depending on this package;
+installing REST and ACL together keeps both packages pointed toward Core.

@@ -1,7 +1,7 @@
 import {
 	getFieldSchemaTarget,
 	normalizeReadOperation,
-	type ReadOperationAst,
+	type ReadOperationAstForKind,
 	type ReadOperationKind,
 	type SchemaDefinition,
 } from '@ultimabase/core'
@@ -25,6 +25,19 @@ export interface RestReadLimits {
 }
 
 export type RestReadOperation = 'count' | 'exists' | 'find' | 'first' | 'get'
+
+type CoreReadKindFor<TOperation extends RestReadOperation> =
+	TOperation extends 'find'
+		? 'find-many'
+		: TOperation extends 'first'
+			? 'find-one'
+			: TOperation
+
+/** Resolves the exact Core AST produced by one REST read operation. */
+export type RestReadOperationAst<
+	TSchema extends SchemaDefinition,
+	TOperation extends RestReadOperation,
+> = ReadOperationAstForKind<TSchema, CoreReadKindFor<TOperation>>
 
 export type RestReadRequest =
 	| Readonly<{
@@ -280,12 +293,14 @@ const assertMethod = (request: Request, operation: RestReadOperation): void => {
 /** Decodes one REST read into a transport-free immutable Core operation AST. */
 export const normalizeRestReadRequest = async <
 	const TSchema extends SchemaDefinition,
+	const TInput extends RestReadRequest,
 >(
 	schema: TSchema,
-	input: RestReadRequest,
+	input: TInput,
 	limits: RestReadLimits = defaultRestReadLimits,
-): Promise<ReadOperationAst<TSchema>> => {
+): Promise<RestReadOperationAst<TSchema, TInput['operation']>> => {
 	try {
+		input.request.signal.throwIfAborted()
 		const normalizedLimits = normalizeLimits(limits)
 		assertMethod(input.request, input.operation)
 		if (
@@ -313,11 +328,12 @@ export const normalizeRestReadRequest = async <
 			normalizedLimits,
 			input.operation === 'find',
 		)
+		input.request.signal.throwIfAborted()
 		return normalizeReadOperation(
 			schema,
 			readOperationKinds[input.operation],
 			decoded,
-		)
+		) as RestReadOperationAst<TSchema, TInput['operation']>
 	} catch (error) {
 		if (error instanceof RestReadNormalizationError) throw error
 		if (input.request.signal.aborted) throw error
