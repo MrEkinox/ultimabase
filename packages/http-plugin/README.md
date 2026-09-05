@@ -192,6 +192,13 @@ Handlers receive a standard `Request` and return a standard `Response`. The
 HTTP application re-enters every handler under the contribution's exact owner;
 one protocol cannot borrow the HTTP plugin's privileges.
 
+After a handler begins, that protocol owns its success and error body. HTTP
+only applies the final correlation and privacy metadata: it replaces
+`X-UltimaBase-Request-Id` with the validated request ID and enforces
+`Cache-Control: private, no-store`. A configured deadline that expires before
+completion still replaces the handler outcome with the protocol-neutral
+`HTTP_REQUEST_TIMEOUT` response.
+
 ## Implement a server provider
 
 Server plugins require `httpApplicationCapability` and

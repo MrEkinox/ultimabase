@@ -1,11 +1,12 @@
 # `@ultimabase/rest-plugin`
 
-`@ultimabase/rest-plugin` owns the experimental REST v1 route graph and schema
-request boundary. It generates immutable application-local metadata under
-`/api/v1` by default, decodes accepted reads and mutations into Core's existing
-Query and schema-command contracts, and delegates them through Core's narrow
-application request executor. It does not import Hono, start listeners, access
-an adapter, or retain request data in an AST.
+`@ultimabase/rest-plugin` owns the experimental REST v1 route graph, schema
+request boundary, and Fetch response contract. It generates immutable
+application-local metadata under `/api/v1` by default, contributes an owned
+mount to `@ultimabase/http-plugin`, decodes accepted reads and mutations into
+Core's existing Query and schema-command contracts, and delegates them through
+Core's narrow application request executor. It does not import Hono, start
+listeners, access an adapter, or retain request data in an AST.
 
 ## Installation
 
@@ -82,6 +83,8 @@ object when the operation declares no public plugin errors. REST validates the
 complete mapping before transport startup and accepts only integer error
 statuses from 400 through 599. The `RestOperationTransport` setup export then
 executes only its own route objects through Core's existing operation Runtime.
+An HTTP success returns `200` with `{ result }`; a declared `PluginError` uses
+the exact configured status from that operation's static binding.
 It preserves anonymous contexts, plugin-owned values, verified Master
 provenance, transactions, middleware, protected constraints, cancellation,
 and application isolation. Wire input cannot select authority, adapters,
@@ -119,11 +122,11 @@ not-found, inclusion, projection, materialization, Master, and cancellation
 semantics as direct Query execution. Count and exists remain their exact Core
 operations rather than being emulated through item reads.
 
-The function returns a logical Core result. REST response envelopes, field
-encoding, route dispatch, and post-dispatch error mapping remain separate later
-boundaries. The Fetch request and application context must originate from the
-same HTTP request lifetime so normalization and Runtime observe its composed
-cancellation/deadline signal.
+The function returns a logical Core result. The plugin's HTTP dispatcher wraps
+collections in `{ results }`, singular values in `{ result }`, counts in
+`{ count }`, and existence checks in `{ exists }`. The Fetch request and
+application context originate from the same HTTP request lifetime so
+normalization and Runtime observe its composed cancellation/deadline signal.
 
 ## Mutation normalization and execution
 
@@ -150,8 +153,49 @@ Validation, protected constraints, persistence rewrites, transactions, results,
 and events. Verified Master preserves validation and integrity work. Bulk stays
 ordered, itemized, and atomic with no partial-success mode.
 
-The function returns Core's logical model result. Response serialization,
-envelopes, and transport error mapping remain the later response boundary.
+The function returns Core's logical model result. The HTTP dispatcher returns
+`201` for create and bulk create, `200` for every other success, and preserves
+the selected pre-delete model in `{ result }`.
+
+## HTTP responses and safe errors
+
+REST contributes one dispatcher at the configured base path when at least one
+schema or plugin-operation route exists. HTTP still selects the exact
+application, validates sensitive-header cardinality, resolves credentials, and
+creates the request context before that dispatcher begins. Those earlier
+failures keep the protocol-neutral `HTTP_*` envelope. Once selected, REST owns
+path versioning, route matching, content negotiation, normalization, Runtime,
+field encoding, and its `REST_*` failures.
+
+Every response is JSON with `Content-Type: application/json; charset=utf-8`.
+The HTTP application adds the final `X-UltimaBase-Request-Id` and
+`Cache-Control: private, no-store` headers. Errors use
+`{ error: { code, message, retryable, requestId, details? } }`. Only a
+`FrameworkError` public payload or a declared operation `PluginError` may retain
+its safe message, details, and retryability. Unknown exceptions, internal
+details, unrepresentable output, and undeclared or unmapped plugin errors become
+the fixed non-retryable `REST_INTERNAL_ERROR` response.
+
+Malformed input and unsupported versions return `400`; permission and Master
+denials return `403`; missing routes and targets return `404`; unacceptable
+representations return `406`; oversized bodies return `413`; unsupported media
+returns `415`; validation returns `422`; and unexpected failures return `500`.
+HTTP-owned application or credential rejection remains `401`, while its
+deadline boundary remains `408`.
+
+`Accept` may be absent or select `application/json` through its exact media type
+or a wildcard. An explicit quality of zero rejects the representation with
+`REST_NOT_ACCEPTABLE`. Requests below the configured base path must select the
+literal `v1` segment; another version returns `REST_UNSUPPORTED_VERSION`
+instead of being guessed as a class route.
+
+Schema values are encoded by declared field kind. Temporal, UUID, and decimal
+values remain canonical strings; bigint becomes a base-10 string; binary uses
+the tagged base64 object; unloaded pointers use their tagged identity; included
+pointers and relations use recursively encoded selected models. Embedded
+objects and lists recurse through the same codecs, explicit `null` survives,
+and an absent model field stays absent. `undefined`, non-finite numbers, unsafe
+integer output, cycles, and invalid plugin codec output are not representable.
 
 ## Plugin field codecs
 

@@ -5,7 +5,9 @@ import {
 	restPlugin,
 	type RestPlugin,
 	type RestOperationTransport,
+	type RestErrorEnvelope,
 	type RestReadOperationAst,
+	type RestResponseErrorCode,
 	type RestRouteDefinition,
 	type RestSchemaRoutes,
 } from './index.js'
@@ -39,6 +41,10 @@ test('preserves exact immutable REST public types', () => {
 		readonly find?: boolean
 	}>()
 	expectTypeOf<RestRouteDefinition['method']>().toExtend<string>()
+	expectTypeOf<RestResponseErrorCode>().toExtend<string>()
+	expectTypeOf<
+		RestErrorEnvelope['error']['requestId']
+	>().toEqualTypeOf<string>()
 	expectTypeOf<
 		RestOperationTransport['operations'][number]['kind']
 	>().toEqualTypeOf<'rest-plugin-operation-route'>()

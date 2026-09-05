@@ -18,5 +18,6 @@ it('exports only the deliberate REST schema and route surface', () => {
 		'restOperationErrorCodes',
 		'restPlugin',
 		'restReadErrorCodes',
+		'restResponseErrorCodes',
 	])
 })

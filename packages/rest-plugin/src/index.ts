@@ -36,6 +36,8 @@ export type {
 } from './reads.js'
 export { restReadErrorCodes, RestReadNormalizationError } from './errors.js'
 export type { RestReadErrorCode } from './errors.js'
+export { restResponseErrorCodes } from './responses.js'
+export type { RestErrorEnvelope, RestResponseErrorCode } from './responses.js'
 export type {
 	RestPlugin,
 	RestPluginExports,

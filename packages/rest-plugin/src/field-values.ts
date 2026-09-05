@@ -28,7 +28,8 @@ export type InvalidRestValue = () => Error
 export const isUuidV7 = (value: unknown): value is string =>
 	typeof value === 'string' && uuidV7Pattern.test(value)
 
-const objectChildFields = (
+/** @internal Resolves embedded field metadata for both REST codec directions. */
+export const readRestObjectFields = (
 	field: GenericField,
 	invalid: InvalidRestValue,
 ): Readonly<Record<string, GenericField>> => {
@@ -90,7 +91,7 @@ const decodeObject = (
 	pointerMode: 'identity' | 'value',
 ): Readonly<Record<string, unknown>> => {
 	if (!isPlainRecord(value)) throw invalid()
-	const fields = objectChildFields(field, invalid)
+	const fields = readRestObjectFields(field, invalid)
 	const decoded: Record<string, unknown> = {}
 	for (const [name, item] of Object.entries(value)) {
 		const child = fields[name]
@@ -214,7 +215,7 @@ export const resolveRestObjectPathField = (
 		if (typeof segment !== 'string' || current?.kind !== 'object') {
 			return undefined
 		}
-		current = objectChildFields(current, invalid)[segment]
+		current = readRestObjectFields(current, invalid)[segment]
 	}
 	return current
 }
