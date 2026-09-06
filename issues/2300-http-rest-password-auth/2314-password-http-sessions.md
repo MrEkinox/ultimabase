@@ -4,7 +4,7 @@
 - Milestone: 23
 - Packages: `@ultimabase/password-auth-plugin`, `@ultimabase/http-plugin`
 - Depends on: 2304, 2313
-- ADR: ADR-0113, ADR-0224, ADR-0226 and the issue 2318 Password Auth contract
+- ADR: ADR-0113, ADR-0224, ADR-0226, ADR-0235
 
 ## Goal
 
@@ -20,7 +20,7 @@ Bearer tokens by default and an explicitly configured secure cookie option.
       SameSite, path, domain, expiration, and cross-site request protections.
 - [ ] Cookie and cross-origin operation requires the exact effective server
       browser policy accepted by ADR-0226 and the CSRF contract accepted by
-      issue 2318.
+      ADR-0235.
 - [ ] A missing session credential preserves the anonymous context; a present
       malformed, expired, revoked, or invalid credential fails before the
       handler and never falls back to anonymous execution.

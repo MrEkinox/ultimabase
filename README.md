@@ -80,6 +80,9 @@ users[0]?.toJSON() // A detached immutable object.
   JavaScript applications run without Typegen or a generated client.
 - Stable plugin operations and application-specific model surfaces execute
   through application-owned handles rather than mutating exported schema classes.
+- Owner-private plugin records retain typed transactional persistence and
+  migration provenance without becoming application schemas, Query or Typegen
+  surfaces, generated transport routes, or application behavior inputs.
 - PostgreSQL synchronization and PostgreSQL migrations are separate capabilities.
 - The accepted milestone 23 target puts HTTP application identity,
   Fetch-compatible route composition, and request context resolution in an

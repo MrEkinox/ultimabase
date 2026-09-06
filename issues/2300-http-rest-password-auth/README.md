@@ -24,12 +24,13 @@ and transport-independent GraphQL.
 13. [x] [2309 — Expose plugin operations through REST](2309-rest-plugin-operations.md)
 14. [x] [2310 — Stabilize REST responses and errors](2310-rest-response-error-contract.md)
 15. [x] [2311 — Verify the anonymous and Master REST vertical](2311-rest-public-vertical.md)
-16. [ ] [2318 — Decide the Password Auth v1 contract](2318-password-auth-contract.md)
-17. [ ] [2312 — Implement local password identities](2312-password-identities.md)
-18. [ ] [2313 — Add password sessions and authentication operations](2313-password-sessions-operations.md)
-19. [ ] [2314 — Resolve Password Auth sessions over HTTP](2314-password-http-sessions.md)
-20. [ ] [2315 — Verify the authenticated REST vertical](2315-authenticated-rest-vertical.md)
-21. [ ] [2316 — Audit and close the HTTP and REST milestone](2316-http-rest-final-audit.md)
+16. [x] [2318 — Decide the Password Auth v1 contract](2318-password-auth-contract.md)
+17. [ ] [2322 — Implement owner-private plugin storage](2322-owner-private-plugin-storage.md)
+18. [ ] [2312 — Implement local password identities](2312-password-identities.md)
+19. [ ] [2313 — Add password sessions and authentication operations](2313-password-sessions-operations.md)
+20. [ ] [2314 — Resolve Password Auth sessions over HTTP](2314-password-http-sessions.md)
+21. [ ] [2315 — Verify the authenticated REST vertical](2315-authenticated-rest-vertical.md)
+22. [ ] [2316 — Audit and close the HTTP and REST milestone](2316-http-rest-final-audit.md)
 
 ## Accepted boundaries
 
@@ -52,6 +53,9 @@ and transport-independent GraphQL.
   audited.
 - Password Auth uses Bearer sessions by default and may enable a secure cookie.
   HTTP Basic and Better Auth remain separate deferred plugins.
+- Password Auth User data is an ordinary typed plugin-owned schema, while
+  credentials and sessions use ADR-0234's exact owner-private storage. Issue
+  2322 implements that generic Core boundary before the auth package starts.
 - One server provider has one effective browser policy. Cross-origin access is
   disabled by default; a mismatch rejects the conflicting application before
   its route or listener effects and leaves existing mounts unchanged.

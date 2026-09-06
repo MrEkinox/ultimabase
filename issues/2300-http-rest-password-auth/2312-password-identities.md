@@ -3,8 +3,8 @@
 - Status: planned
 - Milestone: 23
 - Packages: `@ultimabase/password-auth-plugin`, `@ultimabase/core`, `@ultimabase/typegen`
-- Depends on: 2318
-- ADR: ADR-0113, ADR-0224 and the issue 2318 Password Auth contract
+- Depends on: 2318, 2322
+- ADR: ADR-0113, ADR-0224, ADR-0234, ADR-0235
 
 ## Goal
 
@@ -17,7 +17,7 @@ material as ordinary schema data.
 - [ ] Create a complete publishable `packages/password-auth-plugin` workspace
       exporting `passwordAuthPlugin()`.
 - [ ] The plugin contributes the accepted default typed User schema and only
-      the extension or composition boundary approved by issue 2318.
+      the extension or composition boundary approved by ADR-0235.
 - [ ] The accepted username identifier has deterministic normalization,
       uniqueness, lookup, and enumeration-resistant failure behavior; email is
       not an authentication identifier in v1.
@@ -28,7 +28,7 @@ material as ordinary schema data.
       schema route or operation binding.
 - [ ] Ordinary application Query and operation handles cannot read or mutate
       credential storage; only the exact Password Auth callbacks authorized by
-      the issue 2318 contract can execute its internal persistence path.
+      ADR-0234 and ADR-0235 can execute its internal persistence path.
 - [ ] Internal credential work uses only the approved audited authority or
       protected storage boundary and never a hidden flag, raw adapter, public
       schema name, transport secret, or policy bypass invented by this plugin.

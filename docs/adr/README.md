@@ -215,6 +215,8 @@ Accepted records:
 - [ADR-0231: Core request executors accept normalized schema reads](0231-core-application-request-read-execution.md)
 - [ADR-0232: Core request executors accept schema mutation commands](0232-core-application-request-schema-mutations.md)
 - [ADR-0233: Operation transport identities are canonical and bindings carry inert metadata](0233-canonical-operation-transport-bindings.md)
+- [ADR-0234: Plugin-owned private records stay outside application schemas](0234-owner-private-plugin-storage.md)
+- [ADR-0235: Password Auth v1 owns one local User and opaque sessions](0235-password-auth-v1-contract.md)
 
 Superseded records:
 

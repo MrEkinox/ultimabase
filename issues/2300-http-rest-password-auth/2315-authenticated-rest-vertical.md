@@ -4,7 +4,7 @@
 - Milestone: 23
 - Packages: all HTTP, REST, Password Auth, policy, and PostgreSQL packages
 - Depends on: 2311, 2314
-- ADR: ADR-0113, ADR-0224 and the issue 2302 REST and 2318 Password Auth contracts
+- ADR: ADR-0113, ADR-0224, ADR-0228, ADR-0234, ADR-0235
 
 ## Goal
 

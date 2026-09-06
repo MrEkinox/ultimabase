@@ -3,8 +3,8 @@
 - Status: active
 - Milestone: 23
 - Started: 2026-09-03
-- Governing decisions: [ADR-0224](docs/adr/0224-http-application-rest-and-password-auth-boundaries.md), [ADR-0225](docs/adr/0225-core-application-request-execution-capability.md), [ADR-0226](docs/adr/0226-http-browser-and-predispatch-boundaries.md), [ADR-0227](docs/adr/0227-core-query-exposes-offset-not-cursors.md), [ADR-0228](docs/adr/0228-experimental-http-rest-v1-wire-contract.md), [ADR-0229](docs/adr/0229-field-owned-rest-wire-codecs.md), [ADR-0230](docs/adr/0230-canonical-plugin-field-wire-protocols.md), [ADR-0231](docs/adr/0231-core-application-request-read-execution.md), [ADR-0232](docs/adr/0232-core-application-request-schema-mutations.md), and [ADR-0233](docs/adr/0233-canonical-operation-transport-bindings.md)
-- Resume point: [issue 2318](issues/2300-http-rest-password-auth/2318-password-auth-contract.md)
+- Governing decisions: [ADR-0224](docs/adr/0224-http-application-rest-and-password-auth-boundaries.md), [ADR-0225](docs/adr/0225-core-application-request-execution-capability.md), [ADR-0226](docs/adr/0226-http-browser-and-predispatch-boundaries.md), [ADR-0227](docs/adr/0227-core-query-exposes-offset-not-cursors.md), [ADR-0228](docs/adr/0228-experimental-http-rest-v1-wire-contract.md), [ADR-0229](docs/adr/0229-field-owned-rest-wire-codecs.md), [ADR-0230](docs/adr/0230-canonical-plugin-field-wire-protocols.md), [ADR-0231](docs/adr/0231-core-application-request-read-execution.md), [ADR-0232](docs/adr/0232-core-application-request-schema-mutations.md), [ADR-0233](docs/adr/0233-canonical-operation-transport-bindings.md), [ADR-0234](docs/adr/0234-owner-private-plugin-storage.md), and [ADR-0235](docs/adr/0235-password-auth-v1-contract.md)
+- Resume point: [issue 2322](issues/2300-http-rest-password-auth/2322-owner-private-plugin-storage.md)
 
 ## Objective
 
@@ -41,6 +41,9 @@ graphql-yoga-plugin later ─────────┘         │
   authenticated public vertical; GraphQL follows without becoming a dependency.
 - Password Auth uses username/password operations to establish opaque sessions,
   Bearer by default, and an explicit secure-cookie option.
+- Password Auth keeps its User as typed plugin-owned application data, while
+  credential and session verifiers use Core's exact owner-private record
+  boundary and never enter Query, Typegen, transports, or application behavior.
 - Cross-origin browser access is disabled by default and preflight never
   selects an application, resolves credentials, or invokes Runtime behavior.
 - Applications sharing one server must use one structurally identical browser
@@ -66,12 +69,13 @@ graphql-yoga-plugin later ─────────┘         │
 13. [x] Issue 2309 — expose selected plugin operations through REST.
 14. [x] Issue 2310 — stabilize REST responses and errors.
 15. [x] Issue 2311 — prove the anonymous and Master REST vertical.
-16. [ ] Issue 2318 — decide the exact Password Auth v1 contract.
-17. [ ] Issue 2312 — implement local password identities.
-18. [ ] Issue 2313 — implement opaque sessions and auth operations.
-19. [ ] Issue 2314 — bind Bearer and optional cookie sessions to HTTP contexts.
-20. [ ] Issue 2315 — prove the authenticated REST vertical.
-21. [ ] Issue 2316 — run the final audit and close the milestone.
+16. [x] Issue 2318 — decide the exact Password Auth v1 contract.
+17. [ ] Issue 2322 — implement owner-private plugin storage.
+18. [ ] Issue 2312 — implement local password identities.
+19. [ ] Issue 2313 — implement opaque sessions and auth operations.
+20. [ ] Issue 2314 — bind Bearer and optional cookie sessions to HTTP contexts.
+21. [ ] Issue 2315 — prove the authenticated REST vertical.
+22. [ ] Issue 2316 — run the final audit and close the milestone.
 
 The authoritative acceptance criteria and dependency metadata live in
 [`issues/2300-http-rest-password-auth/`](issues/2300-http-rest-password-auth/).

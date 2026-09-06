@@ -4,7 +4,7 @@
 - Milestone: 23
 - Packages: `@ultimabase/password-auth-plugin`, `@ultimabase/core`, `@ultimabase/typegen`
 - Depends on: 2312
-- ADR: ADR-0113, ADR-0193, ADR-0224 and the issue 2318 Password Auth contract
+- ADR: ADR-0113, ADR-0193, ADR-0224, ADR-0234, ADR-0235
 
 ## Goal
 
@@ -24,7 +24,7 @@ boundaries.
       schema route, Typegen field, event, hook payload, or serialization path.
 - [ ] Ordinary application Query and operation handles cannot inspect or mutate
       session storage; only the exact Password Auth callbacks authorized by the
-      issue 2318 contract can execute its internal persistence path.
+      ADR-0234 and ADR-0235 can execute its internal persistence path.
 - [ ] Sessions have explicit creation, idle or absolute expiration, revocation,
       rotation, User ownership, and application isolation semantics.
 - [ ] Login verifies the configured password hash, upgrades stale parameters

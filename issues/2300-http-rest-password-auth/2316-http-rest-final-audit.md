@@ -4,7 +4,7 @@
 - Milestone: 23
 - Packages: repository-wide verification
 - Depends on: 2315
-- ADR: ADR-0224, ADR-0225, ADR-0226 and the issue 2302 REST and 2318 Password Auth contracts
+- ADR: ADR-0224, ADR-0225, ADR-0226, ADR-0228, ADR-0234, ADR-0235
 
 ## Goal
 

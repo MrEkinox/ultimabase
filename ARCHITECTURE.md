@@ -112,6 +112,15 @@ allowlist facade reveals only inert operation descriptors. REST uses that
 boundary to validate complete public-error status mappings before startup and
 never imports an operation owner such as Password Auth.
 
+ADR-0234 adds exact owner-private plugin records for data such as password and
+session verifiers that must participate in typed transactions and migrations
+without becoming application schemas. Private collections remain outside
+Query, Typegen, generated transports, Hooks, Access, application validators,
+Runtime observers, and events. The critical `storage:private` privilege grants
+one plugin instance access only to its own declarations and never exposes a raw
+adapter or another authority mode. ADR-0235 applies that boundary to Password
+Auth while keeping its public User as an ordinary typed plugin-owned schema.
+
 ADR-0226 keeps browser preflight outside application selection. One HTTP server
 provider has one effective browser policy, and applications sharing that
 provider must request structurally identical policies. The HTTP plugin owns
