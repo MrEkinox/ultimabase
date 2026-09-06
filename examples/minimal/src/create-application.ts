@@ -4,6 +4,10 @@ import {
 	type MasterAccessEvent,
 } from '@ultimabase/core'
 import { httpPlugin } from '@ultimabase/http-plugin'
+import {
+	passwordAuthOperations,
+	passwordAuthPlugin,
+} from '@ultimabase/password-auth-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { restPlugin } from '@ultimabase/rest-plugin'
 import {
@@ -16,6 +20,7 @@ import { exampleStatusOperation, exampleStatusPlugin } from './status-plugin.ts'
 
 export interface MinimalRestApplicationOptions {
 	readonly applicationId?: string
+	readonly browserOrigin?: string
 	readonly databaseUrl: string
 	readonly masterKey: string
 	readonly masterTransport?: boolean
@@ -26,6 +31,7 @@ export interface MinimalRestApplicationOptions {
 /** Builds the complete public REST graph without starting its resources. */
 export const createMinimalRestApplication = ({
 	applicationId = 'minimal-rest',
+	browserOrigin = 'http://localhost:5173',
 	databaseUrl,
 	masterKey,
 	masterTransport = true,
@@ -43,22 +49,37 @@ export const createMinimalRestApplication = ({
 		}),
 		plugins: [
 			...minimalBehaviorPlugins,
+			passwordAuthPlugin({
+				http: {
+					cookie: {
+						name: '__Host-minimal-session',
+						sameSite: 'lax',
+					},
+				},
+			}),
 			exampleStatusPlugin,
 			restPlugin({
 				acknowledgeUnverifiedProtection: true,
-				operations: [exampleStatusOperation],
+				operations: [
+					exampleStatusOperation,
+					passwordAuthOperations.signUp,
+					passwordAuthOperations.login,
+					passwordAuthOperations.logout,
+					passwordAuthOperations.refresh,
+				],
 			}),
 			httpPlugin({
 				appId: applicationId,
 				browser: {
 					allowedHeaders: [
+						'Authorization',
 						'Content-Type',
 						'X-UltimaBase-Application-Id',
 						'X-UltimaBase-Master-Key',
 						'X-UltimaBase-Request-Id',
 					],
 					allowedMethods: ['DELETE', 'GET', 'PATCH', 'POST'],
-					allowedOrigins: ['http://localhost:5173'],
+					allowedOrigins: [browserOrigin],
 					credentials: true,
 					maxAgeSeconds: 600,
 				},

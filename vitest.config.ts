@@ -15,6 +15,7 @@ const sourcePackageAliases = Object.fromEntries(
 		'core',
 		'hooks-plugin',
 		'http-plugin',
+		'password-auth-plugin',
 		'pg-vector-plugin',
 		'plugin-kit',
 		'postgres-plugin',

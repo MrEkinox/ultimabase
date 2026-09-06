@@ -14,8 +14,12 @@ export interface MinimalRestClient {
 export interface MinimalExampleModule {
 	readonly ExampleArticle: object
 	readonly ExampleAuthor: object
+	readonly ExamplePrivateNote: object
+	readonly ExampleRole: object
+	readonly ExampleUser: object
 	readonly createMinimalRestApplication: (options: {
 		readonly applicationId: string
+		readonly browserOrigin?: string
 		readonly databaseUrl: string
 		readonly masterKey: string
 		readonly masterTransport?: boolean
@@ -26,6 +30,7 @@ export interface MinimalExampleModule {
 		readonly applicationId: string
 		readonly baseUrl: string
 		readonly masterKey?: string
+		readonly sessionToken?: string
 	}) => MinimalRestClient
 }
 
@@ -54,6 +59,12 @@ export const loadMinimalExample = async (): Promise<MinimalExampleModule> => {
 		!isObjectLike(schemaModule.ExampleArticle) ||
 		!('ExampleAuthor' in schemaModule) ||
 		!isObjectLike(schemaModule.ExampleAuthor) ||
+		!('ExamplePrivateNote' in schemaModule) ||
+		!isObjectLike(schemaModule.ExamplePrivateNote) ||
+		!('ExampleRole' in schemaModule) ||
+		!isObjectLike(schemaModule.ExampleRole) ||
+		!('ExampleUser' in schemaModule) ||
+		!isObjectLike(schemaModule.ExampleUser) ||
 		typeof clientModule !== 'object' ||
 		clientModule === null ||
 		!('createMinimalRestClient' in clientModule) ||
@@ -64,6 +75,9 @@ export const loadMinimalExample = async (): Promise<MinimalExampleModule> => {
 	return {
 		ExampleArticle: schemaModule.ExampleArticle,
 		ExampleAuthor: schemaModule.ExampleAuthor,
+		ExamplePrivateNote: schemaModule.ExamplePrivateNote,
+		ExampleRole: schemaModule.ExampleRole,
+		ExampleUser: schemaModule.ExampleUser,
 		createMinimalRestApplication:
 			applicationModule.createMinimalRestApplication,
 		createMinimalRestClient: clientModule.createMinimalRestClient,

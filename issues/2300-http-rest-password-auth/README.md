@@ -29,7 +29,7 @@ and transport-independent GraphQL.
 18. [x] [2312 — Implement local password identities](2312-password-identities.md)
 19. [x] [2313 — Add password sessions and authentication operations](2313-password-sessions-operations.md)
 20. [x] [2314 — Resolve Password Auth sessions over HTTP](2314-password-http-sessions.md)
-21. [ ] [2315 — Verify the authenticated REST vertical](2315-authenticated-rest-vertical.md)
+21. [x] [2315 — Verify the authenticated REST vertical](2315-authenticated-rest-vertical.md)
 22. [ ] [2316 — Audit and close the HTTP and REST milestone](2316-http-rest-final-audit.md)
 
 ## Accepted boundaries

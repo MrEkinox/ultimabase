@@ -9,6 +9,7 @@ import {
 	provideOperationHandler,
 	provideOperationTransportBinding,
 } from '@ultimabase/core'
+import { passwordPrincipal } from '@ultimabase/password-auth-plugin'
 
 const statusInput = defineOperationValue((value, path): null => {
 	if (value !== null) throw new TypeError(`${path} must be null`)
@@ -16,16 +17,29 @@ const statusInput = defineOperationValue((value, path): null => {
 })
 
 const statusResult = defineOperationValue(
-	(value, path): Readonly<{ readonly authority: 'anonymous' | 'master' }> => {
+	(
+		value,
+		path,
+	): Readonly<{
+		readonly authority: 'anonymous' | 'master'
+		readonly principalId: string | null
+	}> => {
 		if (
 			typeof value !== 'object' ||
 			value === null ||
 			!('authority' in value) ||
-			(value.authority !== 'anonymous' && value.authority !== 'master')
+			(value.authority !== 'anonymous' && value.authority !== 'master') ||
+			!('principalId' in value) ||
+			(value.principalId !== null && typeof value.principalId !== 'string')
 		) {
-			throw new TypeError(`${path}.authority must name a Core authority mode`)
+			throw new TypeError(
+				`${path} must contain safe authority and principal data`,
+			)
 		}
-		return Object.freeze({ authority: value.authority })
+		return Object.freeze({
+			authority: value.authority,
+			principalId: value.principalId,
+		})
 	},
 )
 
@@ -49,7 +63,11 @@ const statusCodec = operationWireCodec({
 		if (value !== null) throw new TypeError('REST status input must be null')
 		return null
 	},
-	encode: (value) => Object.freeze({ authority: value.authority }),
+	encode: (value) =>
+		Object.freeze({
+			authority: value.authority,
+			principalId: value.principalId,
+		}),
 	operation: exampleStatusOperation,
 	transport: restProtocol,
 })
@@ -63,7 +81,11 @@ export const exampleStatusPlugin = definePlugin({
 				create: () => ({
 					value: operationHandler({
 						execute: ({ context }) =>
-							Object.freeze({ authority: context.access.mode }),
+							Object.freeze({
+								authority: context.access.mode,
+								principalId:
+									context.getValue(passwordPrincipal)?.user.id ?? null,
+							}),
 						operation: exampleStatusOperation,
 					}),
 				}),

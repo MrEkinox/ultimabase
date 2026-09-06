@@ -461,7 +461,7 @@ describe(
 				{ input: null },
 			)
 			expect(await responseJson(anonymousOperation)).toStrictEqual({
-				result: { authority: 'anonymous' },
+				result: { authority: 'anonymous', principalId: null },
 			})
 			const masterOperation = await jsonRequest(
 				firstMaster,
@@ -470,7 +470,7 @@ describe(
 				{ input: null },
 			)
 			expect(await responseJson(masterOperation)).toStrictEqual({
-				result: { authority: 'master' },
+				result: { authority: 'master', principalId: null },
 			})
 
 			const secondCreated = await jsonRequest(second, articlePath, 'POST', {
