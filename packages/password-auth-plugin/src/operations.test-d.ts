@@ -5,7 +5,11 @@ import {
 } from '@ultimabase/core'
 import { expectTypeOf, test } from 'vitest'
 
-import { passwordAuthPlugin, type PasswordCredentialsInput } from './index.js'
+import {
+	passwordAuthPlugin,
+	type PasswordAuthHttpOptions,
+	type PasswordCredentialsInput,
+} from './index.js'
 import type { passwordAuthOperations } from './index.js'
 import type {
 	PasswordAuthenticationResult,
@@ -38,4 +42,20 @@ test('exposes one typed application-bound runWithSession helper', async () => {
 	// @ts-expect-error -- the helper accepts only raw strings at its credential edge.
 	void auth.runWithSession(42, () => undefined)
 	await Promise.resolve()
+})
+
+test('types the explicit secure-cookie HTTP option', () => {
+	const http = {
+		cookie: { name: '__Host-session', sameSite: 'strict' },
+	} as const satisfies PasswordAuthHttpOptions
+	passwordAuthPlugin({ http })
+	passwordAuthPlugin({
+		http: {
+			cookie: {
+				name: '__Host-session',
+				// @ts-expect-error -- only the three supported SameSite modes compile.
+				sameSite: 'invalid',
+			},
+		},
+	})
 })

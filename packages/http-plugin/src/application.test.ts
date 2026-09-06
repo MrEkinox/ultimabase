@@ -468,6 +468,7 @@ describe('HTTP callback attribution', () => {
 		} as unknown as ApplicationRequestExecutor
 		const resource = createHttpApplicationResource({
 			appId: 'owner-app',
+			browserPolicy: { enabled: false },
 			callbacks,
 			contextContributions: [],
 			endpointContributions: [contribution],

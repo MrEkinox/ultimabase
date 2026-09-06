@@ -209,6 +209,9 @@ export const validationPluginPublicApi = {
 export const passwordAuthPluginPublicApi = {
 	applicationApi: [
 		'IssuedPasswordSession',
+		'PasswordAuthCookieOptions',
+		'PasswordAuthCookieSameSite',
+		'PasswordAuthHttpOptions',
 		'PasswordAuthPlugin',
 		'PasswordAuthPluginExports',
 		'PasswordAuthPluginOptions',
@@ -242,6 +245,7 @@ export const httpPluginPublicApi = {
 	applicationApi: [
 		'HttpBrowserPolicyOptions',
 		'HttpContextResolver',
+		'HttpContextResolverBrowserPolicyValidator',
 		'HttpContextResolverContributionsCapability',
 		'HttpContextResolverDefinition',
 		'HttpContextResolverFactory',

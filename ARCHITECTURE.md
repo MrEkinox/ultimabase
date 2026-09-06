@@ -55,12 +55,15 @@ postgres-plugin ──────→ plugin-kit, core, shared
 http-plugin ──────────→ plugin-kit, core, shared
 server-hono-plugin ───→ http-plugin, plugin-kit, core, shared
 rest-plugin ──────────→ http-plugin, plugin-kit, core, shared
-password-auth-plugin ─→ plugin-kit, core, shared
+password-auth-plugin ─→ http-plugin, plugin-kit, core, shared
 testing ──────────────→ typegen, core, shared
 ```
 
 Concrete plugins depend on Core's public contracts. Core never depends back on
-concrete plugins.
+concrete plugins. HTTP supplies its immutable effective browser policy to each
+generic context resolver and validates resolver policy requirements while
+materializing the application, avoiding reverse capability dependencies from
+credential plugins back to the HTTP provider.
 
 The accepted future package identities below are issue-tracked architecture,
 not current workspaces. Each package is created only when its first
@@ -82,9 +85,10 @@ package supplies the optional server lifecycle. The REST package owns
 deterministic application-local REST v1 route metadata, the direct schema
 option, schema-aware read and mutation normalization, and logical delegation
 through Core's narrow application request executor. Response encoding and
-route dispatch remain later milestone boundaries. Password Auth now owns its
-typed User identity and owner-private Argon2id credential records; its session,
-operation, and HTTP integration remain later milestone boundaries.
+route dispatch remain later milestone boundaries. Password Auth owns its typed
+User identity, owner-private credential and session records, authentication
+operations, and HTTP session integration through the HTTP package's public
+resolver and endpoint capabilities.
 `graphql-plugin` remains network-independent.
 Yoga, REST, Hono, and HTTP authentication integrations meet through the HTTP
 plugin rather than importing one another.

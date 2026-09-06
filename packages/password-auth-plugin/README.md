@@ -112,3 +112,51 @@ The four operations remain private until explicitly included in a transport.
 For REST v1, pass the exact operation tokens to `restPlugin({ operations })`.
 Password Auth contributes the compatible codecs and maps its three public
 errors to status 400 or 401 without importing REST.
+
+## Resolve sessions over HTTP
+
+Installing Password Auth contributes the default HTTP credential resolver.
+Send exactly one opaque session through `Authorization: Bearer <token>`.
+Missing credentials preserve the anonymous context; malformed, expired,
+revoked, unknown, or foreign tokens fail before route dispatch. A validated
+session adds `passwordPrincipal` and `passwordSession` while Core authority
+remains `anonymous`. A separately valid HTTP Master key may coexist and elevate
+authority without removing the authenticated identity. Credential headers are
+never passed to route handlers.
+
+Secure browser cookies are an explicit opt-in:
+
+```ts
+passwordAuthPlugin({
+	http: {
+		cookie: {
+			name: '__Host-notes-session',
+			sameSite: 'lax',
+		},
+	},
+})
+```
+
+Cookie mode exposes `POST /auth/v1/sign-up`, `/auth/v1/login`,
+`/auth/v1/logout`, and `/auth/v1/refresh`. These routes execute the same four
+transport-neutral operations. Successful sign-up, login, and refresh responses
+set a `Secure`, `HttpOnly`, `Path=/`, host-only cookie whose expiration matches
+the rolling session; their JSON omits the raw token. Logout revokes the current
+session and expires the cookie.
+
+The application's HTTP browser policy must enable credentials for explicit
+origins and allow `POST`, `Content-Type`, and
+`X-UltimaBase-Application-Id`. Every cookie route requires exact
+`application/json` and a non-null matching `Origin`; unsafe application routes
+authenticated by the cookie apply the same proof. Cookie mode rejects startup
+when the effective policy is incompatible. A request containing both Bearer
+and the configured cookie is always rejected as ambiguous.
+
+The configured cookie is ignored only by sign-up and login so a stale
+`HttpOnly` cookie cannot permanently prevent credential recovery. Bearer stays
+strict on those routes, while logout, refresh, and all application routes still
+reject every present invalid cookie.
+
+Configuring cookie mode also declares `@ultimabase/http-plugin` as a required
+compatible peer. Bearer-only Password Auth remains usable without an HTTP
+consumer for direct server operations.

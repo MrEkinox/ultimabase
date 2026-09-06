@@ -3,8 +3,8 @@
 - Status: active
 - Milestone: 23
 - Started: 2026-09-03
-- Governing decisions: [ADR-0224](docs/adr/0224-http-application-rest-and-password-auth-boundaries.md), [ADR-0225](docs/adr/0225-core-application-request-execution-capability.md), [ADR-0226](docs/adr/0226-http-browser-and-predispatch-boundaries.md), [ADR-0227](docs/adr/0227-core-query-exposes-offset-not-cursors.md), [ADR-0228](docs/adr/0228-experimental-http-rest-v1-wire-contract.md), [ADR-0229](docs/adr/0229-field-owned-rest-wire-codecs.md), [ADR-0230](docs/adr/0230-canonical-plugin-field-wire-protocols.md), [ADR-0231](docs/adr/0231-core-application-request-read-execution.md), [ADR-0232](docs/adr/0232-core-application-request-schema-mutations.md), [ADR-0233](docs/adr/0233-canonical-operation-transport-bindings.md), [ADR-0234](docs/adr/0234-owner-private-plugin-storage.md), and [ADR-0235](docs/adr/0235-password-auth-v1-contract.md)
-- Resume point: [issue 2314](issues/2300-http-rest-password-auth/2314-password-http-sessions.md)
+- Governing decisions: [ADR-0224](docs/adr/0224-http-application-rest-and-password-auth-boundaries.md), [ADR-0225](docs/adr/0225-core-application-request-execution-capability.md), [ADR-0226](docs/adr/0226-http-browser-and-predispatch-boundaries.md), [ADR-0227](docs/adr/0227-core-query-exposes-offset-not-cursors.md), [ADR-0228](docs/adr/0228-experimental-http-rest-v1-wire-contract.md), [ADR-0229](docs/adr/0229-field-owned-rest-wire-codecs.md), [ADR-0230](docs/adr/0230-canonical-plugin-field-wire-protocols.md), [ADR-0231](docs/adr/0231-core-application-request-read-execution.md), [ADR-0232](docs/adr/0232-core-application-request-schema-mutations.md), [ADR-0233](docs/adr/0233-canonical-operation-transport-bindings.md), [ADR-0234](docs/adr/0234-owner-private-plugin-storage.md), [ADR-0235](docs/adr/0235-password-auth-v1-contract.md), [ADR-0236](docs/adr/0236-cookie-session-recovery-routes.md), and [ADR-0237](docs/adr/0237-http-resolvers-receive-effective-browser-policy.md)
+- Resume point: [issue 2315](issues/2300-http-rest-password-auth/2315-authenticated-rest-vertical.md)
 
 ## Objective
 
@@ -73,7 +73,7 @@ graphql-yoga-plugin later ─────────┘         │
 17. [x] Issue 2322 — implement owner-private plugin storage.
 18. [x] Issue 2312 — implement local password identities.
 19. [x] Issue 2313 — implement opaque sessions and auth operations.
-20. [ ] Issue 2314 — bind Bearer and optional cookie sessions to HTTP contexts.
+20. [x] Issue 2314 — bind Bearer and optional cookie sessions to HTTP contexts.
 21. [ ] Issue 2315 — prove the authenticated REST vertical.
 22. [ ] Issue 2316 — run the final audit and close the milestone.
 

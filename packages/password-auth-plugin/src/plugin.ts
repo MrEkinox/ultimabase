@@ -28,6 +28,12 @@ import {
 import { isPlainRecord } from '@ultimabase/shared'
 
 import { createPasswordCredentialCollection } from './credentials.js'
+import { createPasswordHttpCookieIntegration } from './http-cookie-routes.js'
+import {
+	resolvePasswordAuthHttpOptions,
+	type PasswordAuthHttpOptions,
+} from './http-options.js'
+import { providePasswordHttpSessionResolver } from './http-session-resolver.js'
 import {
 	createPasswordAuthPluginExports,
 	type PasswordAuthPluginExports,
@@ -67,6 +73,9 @@ const passwordAuthPluginModule: PluginModule<
 })
 
 const passwordAuthPluginEnvironment = ['environment:native-code'] as const
+const passwordAuthHttpPeers = [
+	{ pluginId: '@ultimabase/http-plugin', version: '^0.0.0' },
+] as const
 const passwordAuthPluginPrivileges = [
 	{
 		name: 'schema:declare',
@@ -83,7 +92,8 @@ const passwordAuthPluginPrivileges = [
 	},
 	{
 		name: 'transport:expose',
-		reason: 'Binds explicitly selected Password Auth operations to REST v1.',
+		reason:
+			'Binds Password Auth operations to REST v1 and optional owned cookie routes.',
 	},
 	{
 		name: 'typegen:reference',
@@ -110,6 +120,7 @@ type PasswordAuthPluginDefinition = Readonly<{
 		readonly requires: readonly CapabilityRequirement[]
 	}>
 	readonly environment: typeof passwordAuthPluginEnvironment
+	readonly peers: readonly [] | typeof passwordAuthHttpPeers
 	readonly privileges: typeof passwordAuthPluginPrivileges
 	readonly setup: () => PasswordAuthPluginExports
 }>
@@ -131,6 +142,8 @@ export interface PasswordAuthPluginOptions<
 	readonly password?: PasswordHashPolicyOptions
 	/** Selects bounded rolling and absolute session lifetimes. */
 	readonly session?: PasswordSessionPolicyOptions
+	/** Keeps Bearer enabled and optionally adds strict secure-cookie routes. */
+	readonly http?: PasswordAuthHttpOptions
 }
 
 const assertPluginOptions: (
@@ -140,7 +153,12 @@ const assertPluginOptions: (
 		throw new TypeError('passwordAuthPlugin options must be a plain object')
 	}
 	for (const key of Object.keys(value)) {
-		if (key !== 'password' && key !== 'session' && key !== 'user') {
+		if (
+			key !== 'http' &&
+			key !== 'password' &&
+			key !== 'session' &&
+			key !== 'user'
+		) {
 			throw new TypeError(`passwordAuthPlugin contains unknown option: ${key}`)
 		}
 	}
@@ -247,8 +265,13 @@ export const passwordAuthPlugin = <
 	}
 	const passwordPolicy = resolvePasswordHashPolicy(untrusted.password)
 	const sessionPolicy = resolvePasswordSessionPolicy(untrusted.session)
+	const cookie = resolvePasswordAuthHttpOptions(untrusted.http)
 	const credentials = createPasswordCredentialCollection(user, passwordPolicy)
 	const sessions = createPasswordSessionCollection(user, sessionPolicy)
+	const httpCookieIntegration =
+		cookie === undefined
+			? undefined
+			: createPasswordHttpCookieIntegration(cookie)
 	const handlers = createPasswordOperationHandlers({
 		credentials,
 		passwordPolicy,
@@ -282,6 +305,11 @@ export const passwordAuthPlugin = <
 			}),
 		},
 	)
+	const httpSessionResolver = providePasswordHttpSessionResolver({
+		cookie,
+		sessions,
+		user,
+	})
 	const handlerProviders = handlers.map((handler, index) =>
 		provideOperationHandler({
 			contributionId: `password-operation-${String(index)}`,
@@ -301,12 +329,15 @@ export const passwordAuthPlugin = <
 			provides: [
 				usernameInvariant,
 				principalResolver,
+				httpSessionResolver,
 				...handlerProviders,
 				...bindingProviders,
+				...(httpCookieIntegration?.providers ?? []),
 			],
 			requires: [requestExecutionRequirement],
 		},
 		environment: passwordAuthPluginEnvironment,
+		peers: cookie === undefined ? [] : passwordAuthHttpPeers,
 		privileges: passwordAuthPluginPrivileges,
 		declare: ({ operations, privateStorage, schemas, typegenReferences }) => {
 			schemas.add({
@@ -332,6 +363,13 @@ export const passwordAuthPlugin = <
 				throw new TypeError('Password Auth application exports are unavailable')
 			}
 			return pluginExports
+		},
+		hooks: {
+			startTransports: ({ capabilities }) => {
+				httpCookieIntegration?.start(
+					capabilities.get(requestExecutionRequirement),
+				)
+			},
 		},
 	})
 }

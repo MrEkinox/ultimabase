@@ -137,6 +137,29 @@ authority. Master verification runs after resolvers so a valid Master context
 retains those safe derived values. Master credentials are hidden from resolvers;
 all credential headers are hidden from route handlers.
 
+The resolver input also carries the exact immutable effective `browserPolicy`.
+A resolver with browser-specific safety requirements can validate that policy
+once, before the HTTP application is materialized, and use the same value for
+request proofs:
+
+```ts
+httpContextResolver({
+	validateBrowserPolicy: (policy) => {
+		if (!policy.enabled || policy.allowedOrigins === '*') {
+			throw new TypeError('Exact browser origins are required')
+		}
+	},
+	resolve: ({ browserPolicy, context, request }) => {
+		// Check concrete credential proofs against browserPolicy, then derive context.
+		return context
+	},
+})
+```
+
+This keeps the effective HTTP policy as the only source of truth. A credential
+plugin does not require the browser-policy capability back from HTTP and cannot
+create a capability cycle.
+
 ## Contribute routes and mounts
 
 Protocol plugins provide endpoints through the versioned application

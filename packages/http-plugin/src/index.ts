@@ -30,6 +30,7 @@ export {
 } from './context.js'
 export type {
 	HttpContextResolver,
+	HttpContextResolverBrowserPolicyValidator,
 	HttpContextResolverContributionsCapability,
 	HttpContextResolverDefinition,
 	HttpContextResolverFactory,

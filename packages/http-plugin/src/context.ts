@@ -23,8 +23,12 @@ import {
 	type MaybePromise,
 } from '@ultimabase/shared'
 
+import type { HttpBrowserPolicy } from './browser-policy.js'
+
 /** Supplies one resolver with the current safe context and credential request view. */
 export interface HttpContextResolverInput<TSource extends string = string> {
+	/** Carries the exact immutable browser policy owned by this HTTP application. */
+	readonly browserPolicy: HttpBrowserPolicy
 	readonly context: RequestContext<AnonymousRequestAccess, TSource>
 	readonly request: Request
 }
@@ -37,15 +41,23 @@ export type HttpContextResolver<TSource extends string = string> = (
 /** Declares one immutable ordered request-context resolver. */
 export interface HttpContextResolverDefinition {
 	readonly resolve: HttpContextResolver
+	readonly validateBrowserPolicy?: HttpContextResolverBrowserPolicyValidator
 }
+
+/** Validates one resolver's requirements against the effective HTTP policy. */
+export type HttpContextResolverBrowserPolicyValidator = (
+	policy: HttpBrowserPolicy,
+) => void
 
 /** Configures one resolver that must preserve HTTP-owned context invariants. */
 export interface HttpContextResolverOptions {
 	readonly resolve: HttpContextResolver
+	/** Rejects application materialization when the effective policy is unsafe. */
+	readonly validateBrowserPolicy?: HttpContextResolverBrowserPolicyValidator
 }
 
 const contextResolverDefinitions = new WeakSet<object>()
-const resolverOptionKeys = new Set(['resolve'])
+const resolverOptionKeys = new Set(['resolve', 'validateBrowserPolicy'])
 
 /** Creates one context resolver without registering global transport behavior. */
 export const httpContextResolver = (
@@ -65,8 +77,21 @@ export const httpContextResolver = (
 	if (typeof untrustedOptions.resolve !== 'function') {
 		throw new TypeError('HTTP context resolver must be a function')
 	}
+	if (
+		untrustedOptions.validateBrowserPolicy !== undefined &&
+		typeof untrustedOptions.validateBrowserPolicy !== 'function'
+	) {
+		throw new TypeError(
+			'HTTP context resolver validateBrowserPolicy must be a function',
+		)
+	}
 
-	const definition = immutableRecord({ resolve: options.resolve })
+	const definition = immutableRecord({
+		resolve: options.resolve,
+		...(options.validateBrowserPolicy === undefined
+			? {}
+			: { validateBrowserPolicy: options.validateBrowserPolicy }),
+	})
 	contextResolverDefinitions.add(definition)
 	return definition
 }
@@ -207,6 +232,8 @@ const httpContextLineage = new RequestContextValue<HttpContextLineage>(
 /** @internal Retains exact owners across replacements and resolver ordering. */
 export const compileHttpContextResolvers = (
 	contributions: readonly CapabilityProviderContribution<HttpContextResolverContributionsCapability>[],
+	browserPolicy: HttpBrowserPolicy,
+	callbacks: ApplicationCallbackExecutor,
 ): readonly OwnedHttpContextResolver[] => {
 	const resolvers: OwnedHttpContextResolver[] = []
 	for (const contribution of contributions) {
@@ -215,6 +242,14 @@ export const compileHttpContextResolvers = (
 			`HTTP context resolver capability ${contribution.owner.pluginId}/${contribution.contributionId}`,
 		)
 		for (const definition of contribution.value) {
+			const validationResult = callbacks.runPlugin(contribution.owner, () =>
+				definition.validateBrowserPolicy?.(browserPolicy),
+			)
+			if (validationResult !== undefined) {
+				throw new TypeError(
+					'HTTP context resolver browser policy validation must be synchronous and return undefined',
+				)
+			}
 			resolvers.push(
 				immutableRecord({
 					owner: immutableRecord(contribution.owner),
@@ -271,6 +306,7 @@ const assertDerivedAnonymousContext: <TSource extends string>(
 export const resolveHttpContext = async <TSource extends string>(
 	initial: RequestContext<AnonymousRequestAccess, TSource>,
 	request: Request,
+	browserPolicy: HttpBrowserPolicy,
 	resolvers: readonly OwnedHttpContextResolver[],
 	requestExecution: ApplicationRequestExecutor,
 	callbacks: ApplicationCallbackExecutor,
@@ -280,7 +316,7 @@ export const resolveHttpContext = async <TSource extends string>(
 	for (const resolver of resolvers) {
 		const resolved = await callbacks.runPlugin(resolver.owner, () =>
 			requestExecution.runWithContext(context, (activeContext) =>
-				resolver.resolve({ context: activeContext, request }),
+				resolver.resolve({ browserPolicy, context: activeContext, request }),
 			),
 		)
 		assertDerivedAnonymousContext(context, resolved, lineage)

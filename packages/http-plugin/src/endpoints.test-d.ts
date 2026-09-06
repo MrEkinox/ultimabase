@@ -10,6 +10,8 @@ import {
 	httpRoute,
 	provideHttpEndpoints,
 	provideHttpContextResolvers,
+	type HttpBrowserPolicy,
+	type HttpContextResolverBrowserPolicyValidator,
 	type HttpContextResolverDefinition,
 	type HttpEndpointDefinition,
 	type HttpPlugin,
@@ -50,8 +52,17 @@ test('preserves exact route and plugin input types', () => {
 })
 
 test('types immutable HTTP context resolver contributions', () => {
+	const validateBrowserPolicy: HttpContextResolverBrowserPolicyValidator = (
+		policy,
+	) => {
+		expectTypeOf(policy).toEqualTypeOf<HttpBrowserPolicy>()
+	}
 	const resolver = httpContextResolver({
-		resolve: ({ context }) => context,
+		validateBrowserPolicy,
+		resolve: ({ browserPolicy, context }) => {
+			expectTypeOf(browserPolicy).toEqualTypeOf<HttpBrowserPolicy>()
+			return context
+		},
 	})
 	expectTypeOf(resolver).toEqualTypeOf<HttpContextResolverDefinition>()
 	const provider = provideHttpContextResolvers({
@@ -65,6 +76,11 @@ test('types immutable HTTP context resolver contributions', () => {
 	httpContextResolver({
 		// @ts-expect-error -- a resolver cannot return non-context credential data.
 		resolve: () => ({ principal: 'forged' }),
+	})
+	httpContextResolver({
+		// @ts-expect-error -- policy validation must be callable.
+		validateBrowserPolicy: 'invalid',
+		resolve: ({ context }) => context,
 	})
 })
 

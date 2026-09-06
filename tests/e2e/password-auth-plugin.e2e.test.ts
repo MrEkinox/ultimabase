@@ -20,7 +20,10 @@ it('publishes the reviewed Password Auth native hashing implementation', async (
 		readFile(path.join(packageDirectory, 'dist', 'index.js.map'), 'utf8'),
 	])
 
-	expect(dependencies).toMatchObject({ argon2: '0.45.1' })
+	expect(dependencies).toMatchObject({
+		'@ultimabase/http-plugin': 'workspace:^',
+		argon2: '0.45.1',
+	})
 	expect(implementation.some((surface) => surface.includes('argon2'))).toBe(
 		true,
 	)
@@ -37,4 +40,10 @@ it('publishes the reviewed Password Auth native hashing implementation', async (
 			surface.includes('PASSWORD_AUTH_INVALID_SESSION'),
 		),
 	).toBe(true)
+	expect(
+		implementation.some((surface) => surface.includes('/auth/v1/refresh')),
+	).toBe(true)
+	expect(implementation.some((surface) => surface.includes('Set-Cookie'))).toBe(
+		true,
+	)
 })

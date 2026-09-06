@@ -19,6 +19,7 @@ import {
 	resolveHttpContext,
 	type HttpContextResolverContributionsCapability,
 } from './context.js'
+import type { HttpBrowserPolicy } from './browser-policy.js'
 import type { HttpEndpointContributionsCapability } from './endpoints.js'
 import {
 	HttpPreDispatchFailure,
@@ -70,6 +71,7 @@ export interface HttpApplication {
 }
 
 interface HttpApplicationState {
+	readonly browserPolicy: HttpBrowserPolicy
 	readonly callbacks: ApplicationCallbackExecutor
 	readonly contextResolvers: ReturnType<typeof compileHttpContextResolvers>
 	disposed: boolean
@@ -157,6 +159,7 @@ const resolveApplicationContext = async <TSource extends string>(
 	const resolved = await resolveHttpContext(
 		initial,
 		resolverRequest,
+		state.browserPolicy,
 		state.contextResolvers,
 		requestExecution,
 		state.callbacks,
@@ -309,6 +312,7 @@ const dispatchPreparedRequest = async (
 export const createHttpApplicationResource = (
 	options: Readonly<{
 		readonly appId: string
+		readonly browserPolicy: HttpBrowserPolicy
 		readonly callbacks: ApplicationCallbackExecutor
 		readonly contextContributions: readonly CapabilityProviderContribution<HttpContextResolverContributionsCapability>[]
 		readonly endpointContributions: readonly CapabilityProviderContribution<HttpEndpointContributionsCapability>[]
@@ -327,6 +331,8 @@ export const createHttpApplicationResource = (
 	)
 	const contextResolvers = compileHttpContextResolvers(
 		options.contextContributions,
+		options.browserPolicy,
+		options.callbacks,
 	)
 	const application: HttpApplication = immutableRecord({
 		appId: options.appId,
@@ -353,6 +359,7 @@ export const createHttpApplicationResource = (
 		},
 	})
 	httpApplicationStates.set(application, {
+		browserPolicy: options.browserPolicy,
 		callbacks: options.callbacks,
 		contextResolvers,
 		disposed: false,

@@ -217,6 +217,8 @@ Accepted records:
 - [ADR-0233: Operation transport identities are canonical and bindings carry inert metadata](0233-canonical-operation-transport-bindings.md)
 - [ADR-0234: Plugin-owned private records stay outside application schemas](0234-owner-private-plugin-storage.md)
 - [ADR-0235: Password Auth v1 owns one local User and opaque sessions](0235-password-auth-v1-contract.md)
+- [ADR-0236: Cookie credential issuance ignores one stale session cookie](0236-cookie-session-recovery-routes.md)
+- [ADR-0237: HTTP resolvers receive the effective browser policy](0237-http-resolvers-receive-effective-browser-policy.md)
 
 Superseded records:
 

@@ -144,4 +144,22 @@ describe('passwordAuthPlugin identity declaration', () => {
 				}),
 		).toThrow()
 	})
+
+	it('requires an HTTP peer only when secure-cookie mode is configured', () => {
+		expect(passwordAuthPlugin().peers).toStrictEqual([])
+		const cookiePlugin = passwordAuthPlugin({
+			http: { cookie: { name: '__Host-session' } },
+		})
+		expect(cookiePlugin.peers).toStrictEqual([
+			{ pluginId: '@ultimabase/http-plugin', version: '^0.0.0' },
+		])
+		expect(
+			() =>
+				new FrameworkApplication({
+					pluginPrivileges: { logger: false },
+					plugins: [cookiePlugin],
+					schemas: [],
+				}),
+		).toThrow()
+	})
 })

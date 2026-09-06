@@ -160,6 +160,7 @@ export const httpPlugin = (options: HttpPluginOptions): HttpPlugin => {
 		create: ({ callbacks, capabilities, owner }) =>
 			createHttpApplicationResource({
 				appId: normalized.appId,
+				browserPolicy: normalized.browser,
 				callbacks,
 				contextContributions: capabilities.contributions(
 					optionalContextResolverContributions,

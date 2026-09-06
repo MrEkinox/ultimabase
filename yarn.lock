@@ -1457,6 +1457,7 @@ __metadata:
   resolution: "@ultimabase/password-auth-plugin@workspace:packages/password-auth-plugin"
   dependencies:
     "@ultimabase/core": "workspace:^"
+    "@ultimabase/http-plugin": "workspace:^"
     "@ultimabase/plugin-kit": "workspace:^"
     "@ultimabase/shared": "workspace:^"
     "@ultimabase/testing": "workspace:^"
