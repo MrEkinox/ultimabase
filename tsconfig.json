@@ -27,6 +27,7 @@
 		{ "path": "./packages/http-plugin" },
 		{ "path": "./packages/rest-plugin" },
 		{ "path": "./packages/server-hono-plugin" },
+		{ "path": "./packages/password-auth-plugin" },
 		{ "path": "./packages/acl-permissions-plugin" },
 		{ "path": "./packages/postgres-plugin" },
 		{ "path": "./packages/testing" }

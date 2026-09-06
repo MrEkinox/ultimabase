@@ -206,6 +206,25 @@ export const validationPluginPublicApi = {
 	conformanceSupport: [],
 } as const satisfies OptionalProductPublicApi
 
+export const passwordAuthPluginPublicApi = {
+	applicationApi: [
+		'PasswordAuthPlugin',
+		'PasswordAuthPluginOptions',
+		'PasswordHashPolicyOptions',
+		'PasswordPrincipal',
+		'PasswordUser',
+		'PasswordUserDefinition',
+		'PasswordUserSchema',
+		'PasswordUserSchemaOptions',
+		'ReservedPasswordUserFieldName',
+		'ResolvedPasswordHashPolicy',
+		'defaultPasswordHashPolicy',
+		'passwordAuthPlugin',
+	],
+	compatibleProviderContract: [],
+	conformanceSupport: [],
+} as const satisfies OptionalProductPublicApi
+
 export const httpPluginPublicApi = {
 	applicationApi: [
 		'HttpBrowserPolicyOptions',
@@ -393,4 +412,22 @@ export const removedRestPluginPublicApiNames = [
 	'restFieldProtocol',
 	'restRouteGraphCapability',
 	'restSchemaOption',
+] as const
+
+/** Names credential implementation details deliberately kept owner-private. */
+export const removedPasswordAuthPluginPublicApiNames = [
+	'assertPasswordHashEngineAvailable',
+	'createPasswordCredentialCollection',
+	'createPasswordPrincipal',
+	'createPasswordVerifier',
+	'findPasswordCredentialByUsername',
+	'insertPasswordCredential',
+	'isPasswordPrincipal',
+	'isPasswordUserDefinition',
+	'normalizePasswordInput',
+	'normalizePasswordUsername',
+	'resolvePasswordHashPolicy',
+	'upgradePasswordCredential',
+	'verifyPassword',
+	'verifyPasswordOrDummy',
 ] as const

@@ -7,9 +7,11 @@ import {
 	getOptionalProductPublicApiNames,
 	hooksPluginPublicApi,
 	httpPluginPublicApi,
+	passwordAuthPluginPublicApi,
 	removedAccessPluginPublicApiNames,
 	removedHooksPluginPublicApiNames,
 	removedHttpPluginPublicApiNames,
+	removedPasswordAuthPluginPublicApiNames,
 	removedRestPluginPublicApiNames,
 	removedValidationPluginPublicApiNames,
 	restPluginPublicApi,
@@ -24,6 +26,7 @@ interface OptionalProductFixture {
 		| '@ultimabase/access-plugin'
 		| '@ultimabase/hooks-plugin'
 		| '@ultimabase/http-plugin'
+		| '@ultimabase/password-auth-plugin'
 		| '@ultimabase/rest-plugin'
 		| '@ultimabase/validation-plugin'
 	readonly removedNames: readonly string[]
@@ -44,6 +47,11 @@ const fixtures: readonly OptionalProductFixture[] = [
 		classification: httpPluginPublicApi,
 		moduleSpecifier: '@ultimabase/http-plugin',
 		removedNames: removedHttpPluginPublicApiNames,
+	},
+	{
+		classification: passwordAuthPluginPublicApi,
+		moduleSpecifier: '@ultimabase/password-auth-plugin',
+		removedNames: removedPasswordAuthPluginPublicApiNames,
 	},
 	{
 		classification: restPluginPublicApi,

@@ -1,0 +1,137 @@
+import { FrameworkApplication, Schema, stringField } from '@ultimabase/core'
+import { generateApplicationTypes } from '@ultimabase/typegen'
+import { describe, expect, it } from 'vitest'
+
+import { passwordAuthPlugin } from './plugin.js'
+import { PasswordUser, PasswordUserSchema } from './user-schema.js'
+
+describe('passwordAuthPlugin identity declaration', () => {
+	it('contributes the default User and private credential fingerprint', () => {
+		const plugin = passwordAuthPlugin()
+		const application = new FrameworkApplication({
+			pluginPrivileges: { logger: false },
+			plugins: [plugin],
+			schemas: [],
+		}).compileSchemas()
+
+		expect(application.schemas.get('User')).toBe(PasswordUser)
+		expect(PasswordUser.fields.username).toMatchObject({
+			kind: 'string',
+			options: { immutable: true, indexed: 'unique', required: true },
+		})
+		expect(PasswordUser.indexes).toContainEqual({
+			fields: ['username'],
+			unique: true,
+		})
+		expect(PasswordUser.provenance.schema.owner).toMatchObject({
+			kind: 'plugin',
+			pluginId: '@ultimabase/password-auth-plugin',
+		})
+		expect(application.privateStorageFingerprint).toMatch(/^[a-f0-9]{64}$/u)
+		expect(plugin.manifest).toMatchObject({
+			environment: ['environment:native-code'],
+			identity: { pluginId: '@ultimabase/password-auth-plugin' },
+			privileges: [
+				{ name: 'schema:declare' },
+				{ name: 'storage:private' },
+				{ name: 'runtime:intercept' },
+			],
+		})
+	})
+
+	it('contributes one exact custom User without mutating the default', () => {
+		const AppUser = PasswordUserSchema.define({
+			className: 'User',
+			fields: (field) => ({ displayName: field.string({ required: true }) }),
+			indexes: [{ fields: ['displayName', 'username'] }],
+		})
+		const application = new FrameworkApplication({
+			pluginPrivileges: { logger: false },
+			plugins: [passwordAuthPlugin({ user: AppUser })],
+			schemas: [],
+		}).compileSchemas()
+
+		expect(application.schemas.get('User')).toBe(AppUser)
+		expect(AppUser.fields).toHaveProperty('displayName')
+		expect(AppUser.fields).toHaveProperty('username')
+		expect(AppUser.indexes).toContainEqual({
+			fields: ['displayName', 'username'],
+			unique: false,
+		})
+		expect(PasswordUser.fields).not.toHaveProperty('displayName')
+	})
+
+	it('rejects arbitrary User schemas and reserved custom fields', () => {
+		const ForeignUser = Schema.define({
+			className: 'User',
+			fields: () => ({}),
+		})
+		expect(() => passwordAuthPlugin({ user: ForeignUser as never })).toThrow(
+			'PasswordUserSchema.define()',
+		)
+		expect(() =>
+			PasswordUserSchema.define({
+				className: 'Account',
+				fields: () => ({}),
+			} as never),
+		).toThrow('className must be User')
+
+		const dynamicFields: Record<string, ReturnType<typeof stringField>> = {
+			passwordHash: stringField(),
+		}
+		expect(() =>
+			PasswordUserSchema.define({
+				className: 'User',
+				fields: () => dynamicFields,
+			}),
+		).toThrow(
+			expect.objectContaining({
+				cause: new TypeError('Reserved Password User field: passwordHash'),
+			}),
+		)
+	})
+
+	it('keeps credentials absent from Typegen and from zero-consumer apps', () => {
+		const withAuth = generateApplicationTypes({
+			application: new FrameworkApplication({
+				pluginPrivileges: { logger: false },
+				plugins: [passwordAuthPlugin()],
+				schemas: [],
+			}),
+			applicationId: 'password-auth',
+		})
+		const withoutAuth = generateApplicationTypes({
+			application: new FrameworkApplication({ plugins: [], schemas: [] }),
+			applicationId: 'without-password-auth',
+		})
+
+		expect(withAuth.snapshot.schemas.map(({ className }) => className)).toEqual(
+			['User'],
+		)
+		expect(withAuth.contents).toContain('username')
+		for (const secretName of [
+			'credentials',
+			'passwordVerifier',
+			'policyVersion',
+		]) {
+			expect(withAuth.contents).not.toContain(secretName)
+		}
+		expect(withoutAuth.snapshot.schemas).toStrictEqual([])
+		expect(withoutAuth.snapshot.privateStorageFingerprint).toBeUndefined()
+	})
+
+	it('validates plugin options and relies on Core duplicate-owner rejection', () => {
+		expect(() => passwordAuthPlugin(null as never)).toThrow('plain object')
+		expect(() => passwordAuthPlugin({ unknown: true } as never)).toThrow(
+			'unknown option: unknown',
+		)
+		expect(
+			() =>
+				new FrameworkApplication({
+					pluginPrivileges: { logger: false },
+					plugins: [passwordAuthPlugin(), passwordAuthPlugin()],
+					schemas: [],
+				}),
+		).toThrow()
+	})
+})

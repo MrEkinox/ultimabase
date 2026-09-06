@@ -3,6 +3,7 @@ import { aclPlugin } from '@ultimabase/acl-permissions-plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { httpPlugin } from '@ultimabase/http-plugin'
 import { pgVectorPlugin } from '@ultimabase/pg-vector-plugin'
+import { passwordAuthPlugin } from '@ultimabase/password-auth-plugin'
 import {
 	postgresPlugin,
 	type PostgresPool,
@@ -37,6 +38,7 @@ it('publishes the audited privilege and environment contract for every official 
 		aclPlugin().manifest,
 		rolesPlugin().manifest,
 		pgVectorPlugin().manifest,
+		passwordAuthPlugin().manifest,
 		honoServerPlugin().manifest,
 	]
 
@@ -109,6 +111,11 @@ it('publishes the audited privilege and environment contract for every official 
 			environment: [],
 			pluginId: '@ultimabase/pg-vector-plugin',
 			privileges: ['schema:declare'],
+		},
+		{
+			environment: ['environment:native-code'],
+			pluginId: '@ultimabase/password-auth-plugin',
+			privileges: ['schema:declare', 'storage:private', 'runtime:intercept'],
 		},
 		{
 			environment: ['environment:network'],

@@ -55,6 +55,7 @@ postgres-plugin ──────→ plugin-kit, core, shared
 http-plugin ──────────→ plugin-kit, core, shared
 server-hono-plugin ───→ http-plugin, plugin-kit, core, shared
 rest-plugin ──────────→ http-plugin, plugin-kit, core, shared
+password-auth-plugin ─→ plugin-kit, core, shared
 testing ──────────────→ typegen, core, shared
 ```
 
@@ -67,7 +68,6 @@ implementation issue starts:
 
 ```text
 postgres-migrations-plugin → postgres-plugin, core
-password-auth-plugin ──────→ http-plugin, plugin-kit, core, shared
 graphql-plugin ────────────→ plugin-kit, core, shared
 graphql-yoga-plugin ───────→ http-plugin, graphql-plugin, plugin-kit, core, shared
 http-basic-auth-plugin ────→ http-plugin, plugin-kit, core, shared
@@ -82,8 +82,9 @@ package supplies the optional server lifecycle. The REST package owns
 deterministic application-local REST v1 route metadata, the direct schema
 option, schema-aware read and mutation normalization, and logical delegation
 through Core's narrow application request executor. Response encoding and
-route dispatch remain later milestone boundaries. Password Auth remains a
-future workspace until its implementation issue begins.
+route dispatch remain later milestone boundaries. Password Auth now owns its
+typed User identity and owner-private Argon2id credential records; its session,
+operation, and HTTP integration remain later milestone boundaries.
 `graphql-plugin` remains network-independent.
 Yoga, REST, Hono, and HTTP authentication integrations meet through the HTTP
 plugin rather than importing one another.
