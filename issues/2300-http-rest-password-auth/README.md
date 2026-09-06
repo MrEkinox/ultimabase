@@ -25,7 +25,7 @@ and transport-independent GraphQL.
 14. [x] [2310 — Stabilize REST responses and errors](2310-rest-response-error-contract.md)
 15. [x] [2311 — Verify the anonymous and Master REST vertical](2311-rest-public-vertical.md)
 16. [x] [2318 — Decide the Password Auth v1 contract](2318-password-auth-contract.md)
-17. [ ] [2322 — Implement owner-private plugin storage](2322-owner-private-plugin-storage.md)
+17. [x] [2322 — Implement owner-private plugin storage](2322-owner-private-plugin-storage.md)
 18. [ ] [2312 — Implement local password identities](2312-password-identities.md)
 19. [ ] [2313 — Add password sessions and authentication operations](2313-password-sessions-operations.md)
 20. [ ] [2314 — Resolve Password Auth sessions over HTTP](2314-password-http-sessions.md)

@@ -35,6 +35,8 @@ import type {
 	TypegenOutputRegistrar,
 	TypegenReferenceRegistrar,
 } from './typegen-declarations.js'
+import type { PrivateStorageDeclarationRegistrar } from '../private-storage/contracts.js'
+import type { PrivateStorageRegistry } from '../private-storage/registry.js'
 
 type RequiredCapability<TCapabilities> =
 	NormalizedPluginCapabilityDeclarations<TCapabilities>['requires'][number]
@@ -179,6 +181,13 @@ type PluginTypegenOutputContext<TPrivileges> = PrivilegedDeclarationContext<
 	'typegenOutputs',
 	TypegenOutputRegistrar
 >
+type PluginPrivateStorageDeclarationContext<TPrivileges> =
+	PrivilegedDeclarationContext<
+		TPrivileges,
+		'storage:private',
+		'privateStorage',
+		PrivateStorageDeclarationRegistrar
+	>
 
 /**
  * Supplies only immutable static facades authorized by one plugin manifest.
@@ -202,7 +211,8 @@ export type PluginDeclarationContext<
 	PluginQueryDeclarationContext<TPrivileges> &
 	PluginTypegenReferenceContext<TPrivileges> &
 	PluginTypegenContributionContext<TPrivileges> &
-	PluginTypegenOutputContext<TPrivileges>
+	PluginTypegenOutputContext<TPrivileges> &
+	PluginPrivateStorageDeclarationContext<TPrivileges>
 
 /** Declares deterministic application metadata before schemas are compiled. */
 export type PluginDeclaration<
@@ -237,6 +247,7 @@ export class PluginDeclarationHost {
 		private readonly graph: PluginGraph,
 		private readonly fieldBuilderMethods: FieldBuilderMethodRegistry,
 		private readonly schemaDeclarations: SchemaDeclarationRegistry,
+		private readonly privateStorage: PrivateStorageRegistry,
 	) {}
 
 	run(): void {
@@ -277,6 +288,9 @@ export class PluginDeclarationHost {
 			const typegenOutputPrivilege = definition.manifest.privileges.find(
 				(request) => request.name === 'typegen:emit',
 			)
+			const privateStoragePrivilege = definition.manifest.privileges.find(
+				(request) => request.name === 'storage:private',
+			)
 			const canExtendModels =
 				modelPrivilege !== undefined &&
 				this.graph.capabilities.isPrivilegeActive(owner, modelPrivilege)
@@ -301,6 +315,12 @@ export class PluginDeclarationHost {
 			const canEmitTypegen =
 				typegenOutputPrivilege !== undefined &&
 				this.graph.capabilities.isPrivilegeActive(owner, typegenOutputPrivilege)
+			const canUsePrivateStorage =
+				privateStoragePrivilege !== undefined &&
+				this.graph.capabilities.isPrivilegeActive(
+					owner,
+					privateStoragePrivilege,
+				)
 			const fieldSession = canDeclare
 				? this.fieldBuilderMethods.beginPluginDeclaration(
 						formatPluginIdentity(owner),
@@ -341,6 +361,12 @@ export class PluginDeclarationHost {
 							}),
 						)
 					: undefined
+			const privateStorageSession = canUsePrivateStorage
+				? this.privateStorage.beginDeclaration(
+						owner,
+						definition.manifest.version,
+					)
+				: undefined
 			let open = true
 			const capabilities = immutableRecord({
 				get: (requirement: CapabilityRequirement): unknown => {
@@ -408,6 +434,9 @@ export class PluginDeclarationHost {
 				...(canEmitTypegen && schemaSession !== undefined
 					? { typegenOutputs: schemaSession.typegenOutputs }
 					: {}),
+				...(privateStorageSession === undefined
+					? {}
+					: { privateStorage: privateStorageSession.registrar }),
 			})
 
 			try {
@@ -426,6 +455,7 @@ export class PluginDeclarationHost {
 				open = false
 				fieldSession?.close()
 				schemaSession?.close()
+				privateStorageSession?.close()
 			}
 		}
 

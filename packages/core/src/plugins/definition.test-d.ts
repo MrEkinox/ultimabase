@@ -61,6 +61,7 @@ test('preserves literal manifests and synchronous setup exports', () => {
 		plugin.manifest.privileges[0].name,
 	).toEqualTypeOf<'adapter:consume'>()
 	expectTypeOf<'adapter:consume'>().toExtend<PluginPrivilege>()
+	expectTypeOf<'storage:private'>().toExtend<PluginPrivilege>()
 	expectTypeOf(plugin).not.toHaveProperty('slot')
 	expectTypeOf(plugin).not.toHaveProperty('declare')
 	expectTypeOf(plugin).not.toHaveProperty('setup')

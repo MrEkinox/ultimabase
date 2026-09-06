@@ -132,7 +132,10 @@ export const prepareDirectPostgresSchema = async (
 
 	const namespace = await readCurrentNamespace(pool)
 	const desired = applyPostgresPhysicalContributions(
-		compileDesiredPostgresTables(catalog.values(), catalog.relationValues()),
+		compileDesiredPostgresTables(
+			[...catalog.values(), ...catalog.privateValues()],
+			catalog.relationValues(),
+		),
 		physicalContributions,
 	)
 	const live = await introspectPostgresDatabase(

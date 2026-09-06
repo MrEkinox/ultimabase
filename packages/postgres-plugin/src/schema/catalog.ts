@@ -19,6 +19,9 @@ import {
 } from './drizzle-relations.js'
 import { compilePostgresRelations } from './relation-compiler.js'
 import { compilePostgresSchemas } from './schema-compiler.js'
+import type { PrivateStorageAdapterCollection } from '@ultimabase/core'
+import type { CompiledPostgresPrivateCollection } from '../private-storage/contracts.js'
+import { compilePostgresPrivateCollection } from '../private-storage/compiler.js'
 
 /** Owns application-scoped compiled tables without exposing mutable map operations. */
 export class PostgresSchemaCatalog {
@@ -30,6 +33,11 @@ export class PostgresSchemaCatalog {
 		object,
 		Map<string, CompiledPostgresPointerRelation>
 	>()
+	readonly #privateCollections = new Map<
+		PrivateStorageAdapterCollection,
+		CompiledPostgresPrivateCollection
+	>()
+	#privateConfigured = false
 
 	constructor(
 		schemas: readonly SchemaDefinition[],
@@ -112,6 +120,43 @@ export class PostgresSchemaCatalog {
 			sourceRelations.set(JSON.stringify(relation.relation.fieldPath), relation)
 			this.#relations.set(relation.relation.source, sourceRelations)
 		}
+	}
+
+	/** Compiles owner-private tables once before PostgreSQL setup begins. */
+	configurePrivateStorage(
+		collections: readonly PrivateStorageAdapterCollection[],
+	): void {
+		if (this.#privateConfigured) {
+			throw new TypeError('PostgreSQL private storage is already configured')
+		}
+		const tableNames = new Set(this.tableNames())
+		for (const collection of collections) {
+			const compiled = compilePostgresPrivateCollection(collection, this)
+			if (tableNames.has(compiled.tableName)) {
+				throw new TypeError(
+					`Duplicate PostgreSQL private table: ${compiled.tableName}`,
+				)
+			}
+			tableNames.add(compiled.tableName)
+			this.#privateCollections.set(collection, compiled)
+		}
+		this.#privateConfigured = true
+	}
+
+	/** Resolves one exact Core-attributed private collection identity. */
+	getPrivateCollection(
+		collection: PrivateStorageAdapterCollection,
+	): CompiledPostgresPrivateCollection {
+		const compiled = this.#privateCollections.get(collection)
+		if (compiled === undefined) {
+			throw new TypeError('PostgreSQL private collection is not registered')
+		}
+		return compiled
+	}
+
+	/** Lists private tables only for adapter-owned preparation. */
+	privateValues(): readonly CompiledPostgresPrivateCollection[] {
+		return immutableArray([...this.#privateCollections.values()])
 	}
 
 	/** Supplies generated RQB v2 metadata to every Drizzle client lifetime. */
@@ -197,9 +242,11 @@ export class PostgresSchemaCatalog {
 	/** Lists exact managed table identifiers for catalog ownership classification. */
 	tableNames(): readonly string[] {
 		return immutableArray(
-			[...this.#schemas.values(), ...this.#joins].map(
-				({ tableName }) => tableName,
-			),
+			[
+				...this.#schemas.values(),
+				...this.#joins,
+				...this.#privateCollections.values(),
+			].map(({ tableName }) => tableName),
 		)
 	}
 

@@ -1431,6 +1431,48 @@ The facade is revoked when the callback settles. Runtime raw access additionally
 requires an active transaction and receives no request authority, Master grant,
 protected-constraint controls, or generic SQL contract from Core.
 
+### Owner-private plugin storage
+
+Plugins that persist verifier-like records without creating application models
+request the critical `storage:private` privilege and declare nominal,
+callback-free collections during static compilation:
+
+```ts
+const sessions = definePrivateCollection({
+	contributionId: 'sessions',
+	fields: {
+		secret: stringField({ immutable: true, required: true }),
+		version: stringField({ required: true }),
+	},
+	indexes: [{ fields: ['secret'] }] as const,
+})
+
+definePlugin({
+	pluginId: 'example.sessions',
+	version: '1.0.0',
+	core: '^1.0.0',
+	privileges: [
+		{ name: 'storage:private', reason: 'Stores revocable session verifiers.' },
+	] as const,
+	declare: ({ privateStorage }) => {
+		privateStorage.register(sessions)
+	},
+})
+```
+
+Inside an attributed callback owned by that exact plugin instance,
+`privateStore(sessions)` exposes only `findUnique`, `insert`, `update`, `delete`,
+and `compareAndSwap`. Reads reuse the current request; writes reuse its active
+transaction or open one automatic transaction. A retained handle is bound to
+the application and owner that created it and is rechecked on every operation.
+
+Private collections compile through the selected database adapter but never
+enter the application schema registry, Query/model handles, Typegen schema
+declarations, transports, Hooks, Access, validators, policies, observers, or
+events. References may target an exact public schema with `fail` or `cascade`
+deletion behavior without making the private row traversable. Applications with
+no declaration perform no private adapter configuration.
+
 ## Plugin definitions
 
 `definePlugin(options)` creates immutable metadata without executing setup or

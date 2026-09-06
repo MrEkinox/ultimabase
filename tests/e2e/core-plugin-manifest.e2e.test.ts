@@ -37,6 +37,7 @@ describe('packed @ultimabase/core plugin manifests', () => {
 			'schema:declare',
 			'schema:replace',
 			'schema:transform',
+			'storage:private',
 			'transport:expose',
 			'typegen:contribute',
 			'typegen:emit',

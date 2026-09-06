@@ -55,6 +55,11 @@ import type {
 	CompiledPluginOperation,
 } from '../plugins/application-surface-registry.js'
 import type { CompiledTypegenGraph } from '../plugins/typegen-declarations.js'
+import {
+	bindPrivateStorageRegistry,
+	PrivateStorageRegistry,
+} from '../private-storage/registry.js'
+import { configureApplicationPrivateStorage } from '../private-storage/runtime.js'
 
 /** Captures every static input needed to construct one isolated application. */
 export interface FrameworkApplicationOptions<
@@ -113,6 +118,7 @@ export class FrameworkApplication<
 	readonly #schemaDeclarations = new SchemaDeclarationRegistry()
 	readonly #declarationHost: PluginDeclarationHost
 	readonly #schemaCompiler: SelectedSchemaCompiler
+	readonly #privateStorage = new PrivateStorageRegistry()
 	#schemaCompilationState: 'compiled' | 'compiling' | 'failed' | 'idle' = 'idle'
 	#schemaCompilationError: FrameworkError | undefined
 	#initializePromise: Promise<this> | undefined
@@ -140,7 +146,9 @@ export class FrameworkApplication<
 			graph,
 			this.#fieldBuilderMethods,
 			this.#schemaDeclarations,
+			this.#privateStorage,
 		)
+		bindPrivateStorageRegistry(this, this.#privateStorage)
 		const capabilityHostReference: {
 			current: ApplicationCapabilityHost | undefined
 		} = { current: undefined }
@@ -258,6 +266,12 @@ export class FrameworkApplication<
 		return this.#schemaDeclarations.typegenGraph()
 	}
 
+	/** Adds private storage identity to fingerprints without exposing descriptors. */
+	get privateStorageFingerprint(): string | undefined {
+		this.compileSchemas()
+		return this.#privateStorage.fingerprint()
+	}
+
 	/** Completes declaration-only plugin setup before the application is returned. */
 	initialize(): Promise<this> {
 		this.#initializePromise ??= this.#performInitialize()
@@ -296,6 +310,7 @@ export class FrameworkApplication<
 				this.#fieldBuilderMethods,
 				this.#schemaCompiler.compile,
 			)
+			this.#privateStorage.close(this.schemas)
 			this.#schemaCompilationState = 'compiled'
 
 			return this
@@ -338,6 +353,7 @@ export class FrameworkApplication<
 		try {
 			this.compileSchemas()
 			await this.#capabilityHost.materialize()
+			await configureApplicationPrivateStorage(this, this.#privateStorage)
 			try {
 				this.#schemaDeclarations.runRuntimeCompilers(this.#capabilityHost)
 			} catch (error: unknown) {

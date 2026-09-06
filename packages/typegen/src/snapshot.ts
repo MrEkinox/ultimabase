@@ -163,9 +163,11 @@ export interface TypegenApplicationSnapshot {
 	readonly operations: readonly TypegenOperationSnapshot[]
 	readonly options: readonly TypegenOptionSnapshot[]
 	readonly outputs: readonly TypegenOutputSnapshot[]
+	/** Changes fingerprints for private storage without revealing its descriptors. */
+	readonly privateStorageFingerprint?: string
 	readonly schemas: readonly TypegenSchemaSnapshot[]
 	readonly surfaces: readonly TypegenSchemaSurfaceSnapshot[]
-	readonly version: 6
+	readonly version: 7
 }
 
 interface PluginValueReference extends TypegenReference {
@@ -453,6 +455,7 @@ export interface CompiledTypegenApplication {
 	readonly fieldBuilderMethods: readonly OwnedFieldBuilderMethod[]
 	readonly pluginFieldTypes: readonly OwnedPluginFieldType[]
 	readonly schemas: CompiledSchemaRegistry
+	readonly privateStorageFingerprint?: string
 	readonly typegenGraph?: CompiledTypegenGraph
 }
 
@@ -512,8 +515,11 @@ export const createCompiledTypegenSnapshot = (
 		applicationId,
 		...typegenGraph,
 		fieldMethods,
+		...(application.privateStorageFingerprint === undefined
+			? {}
+			: { privateStorageFingerprint: application.privateStorageFingerprint }),
 		schemas,
-		version: 6,
+		version: 7,
 	})
 }
 
@@ -531,6 +537,9 @@ export const createTypegenSnapshot = (
 		{
 			fieldBuilderMethods: application.fieldBuilderMethods,
 			pluginFieldTypes: application.pluginFieldTypes,
+			...(application.privateStorageFingerprint === undefined
+				? {}
+				: { privateStorageFingerprint: application.privateStorageFingerprint }),
 			schemas: application.schemas,
 			typegenGraph: application.typegenGraph,
 		},

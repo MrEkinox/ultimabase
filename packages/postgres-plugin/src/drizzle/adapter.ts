@@ -6,6 +6,7 @@ import {
 	databaseRelationCapability,
 	databaseRelationPredicateCapability,
 	FrameworkError,
+	registerPrivateStorageAdapter,
 } from '@ultimabase/core'
 import type {
 	DatabaseAdapter,
@@ -15,6 +16,7 @@ import type {
 	DatabaseOperationResult,
 	DatabaseTransactionAdapter,
 	PreparedDatabaseOperation,
+	PrivateStorageAdapterCollection,
 } from '@ultimabase/core'
 import { and, type SQL } from 'drizzle-orm'
 import { immutableRecord } from '@ultimabase/shared'
@@ -45,6 +47,7 @@ import {
 	readPostgresRelationalObjectIdentity,
 } from './relational-query-executor.js'
 import { readPostgresPersistenceOperation } from './persistence-plan.js'
+import { executePostgresPrivateStorage } from '../private-storage/executor.js'
 
 const postgresTransactionClients = new WeakMap<
 	DatabaseTransactionAdapter,
@@ -244,6 +247,19 @@ class DrizzlePostgresTransactionAdapter implements DatabaseTransactionAdapter {
 		)
 		this.#schemas = schemas
 		this.#constraintCompilers = constraintCompilers
+		registerPrivateStorageAdapter(
+			this,
+			immutableRecord({
+				executePrivateStorage: (request) => {
+					this.#assertActive()
+					return executePostgresPrivateStorage(
+						this.#drizzle,
+						this.#schemas,
+						request,
+					)
+				},
+			}),
+		)
 		postgresTransactionClients.set(this, client)
 	}
 
@@ -437,6 +453,18 @@ class DrizzlePostgresDatabaseAdapter implements DatabaseAdapter {
 		this.#pool = pool
 		this.#schemas = schemas
 		this.#constraintCompilers = constraintCompilers
+		registerPrivateStorageAdapter(
+			this,
+			immutableRecord({
+				configurePrivateStorage: (
+					collections: readonly PrivateStorageAdapterCollection[],
+				) => {
+					this.#schemas.configurePrivateStorage(collections)
+				},
+				executePrivateStorage: (request) =>
+					executePostgresPrivateStorage(this.#client, this.#schemas, request),
+			}),
+		)
 	}
 
 	/** Exposes only identity retained for the exact projected adapter record. */

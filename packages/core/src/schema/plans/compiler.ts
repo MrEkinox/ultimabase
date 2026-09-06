@@ -134,6 +134,12 @@ const compileField = (
 	return plan
 }
 
+/** Compiles one standalone field for protected adapter-owned record protocols. */
+export const compileFieldValidationPlan = (
+	field: GenericField,
+	operation: ValidationOperation,
+): FieldValidationPlan => compileField(field, operation)
+
 const compileOperationPlan = (
 	schema: SchemaMetadata,
 	operation: ValidationOperation,

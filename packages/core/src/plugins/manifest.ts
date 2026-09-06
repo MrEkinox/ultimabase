@@ -98,6 +98,7 @@ export type PluginPrivilege =
 	| 'schema:declare'
 	| 'schema:replace'
 	| 'schema:transform'
+	| 'storage:private'
 	| 'transport:expose'
 	| 'typegen:contribute'
 	| 'typegen:emit'
@@ -113,6 +114,7 @@ export const pluginPrivilegeMetadata: Readonly<
 	'schema:declare': privilegeMetadata('schema', 'standard'),
 	'schema:transform': privilegeMetadata('schema', 'sensitive'),
 	'schema:replace': privilegeMetadata('schema', 'critical'),
+	'storage:private': privilegeMetadata('persistence', 'critical'),
 	'model:extend': privilegeMetadata('model', 'standard'),
 	'query:extend': privilegeMetadata('query', 'standard'),
 	'operation:declare': privilegeMetadata('operation', 'standard'),

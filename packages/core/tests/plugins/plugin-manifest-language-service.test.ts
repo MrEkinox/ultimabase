@@ -92,6 +92,7 @@ describe('plugin manifest source language service', () => {
 			'schema:declare',
 			'schema:replace',
 			'schema:transform',
+			'storage:private',
 			'transport:expose',
 			'typegen:contribute',
 			'typegen:emit',

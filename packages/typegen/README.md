@@ -129,7 +129,11 @@ JSON codec. Plugin fields that separately enable Core's portable structural
 containment name their exact partial operand through `structuralContainsType`.
 Typegen emits `contains` only for those fields and keeps the executable snapshot
 callback out of generated artifacts. These contracts advance the inert snapshot
-format to version 6 and the generator format to version 12.
+format to version 7 and the generator format to version 13. Owner-private
+collections contribute only an opaque application fingerprint input; their
+owners, collection names, fields, indexes, references, options, and records
+never enter the snapshot or emitted declarations. An application without
+private storage retains no private Typegen field.
 
 The TypeScript loader transpiles the application before a previous generated
 registry exists. Static compilation registers configured plugin field types and

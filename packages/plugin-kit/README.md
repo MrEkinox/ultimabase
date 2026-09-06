@@ -47,6 +47,13 @@ the transport's own application capability factory. Plugin Kit intentionally
 adds no wrapper that could obscure request attribution, Master elevation, or
 the Core-owned lifecycle boundary.
 
+Owner-private collections likewise use Core's `definePrivateCollection()` and
+`privateStore()` directly. Plugin Kit deliberately adds no repository wrapper:
+the visible collection token and Core's attributed callback preserve exact
+application and plugin-instance ownership. `definePluginModule()` may still
+remove repeated package identity fields from plugins requesting the critical
+`storage:private` privilege.
+
 `plugin(...)` also forwards Core's structured `peers` option. Use it when an
 addon requires a compatible engine but the engine consumes the addon's
 capability, so no lifecycle edge should be introduced.

@@ -8,7 +8,7 @@ import { getTableConfig } from 'drizzle-orm/pg-core'
 
 import type {
 	CompiledPostgresJoinRelation,
-	CompiledPostgresSchema,
+	CompiledPostgresField,
 } from '../schema/contracts.js'
 import {
 	readDrizzleIndexColumns,
@@ -181,7 +181,9 @@ const compileDesiredTable = (
 }
 
 const readRenamedColumns = (
-	schema: CompiledPostgresSchema,
+	schema: Readonly<{
+		readonly fields: Readonly<Record<string, CompiledPostgresField>>
+	}>,
 ): ReadonlyMap<string, string> =>
 	new Map(
 		Object.values(schema.fields).flatMap((field) =>
@@ -193,7 +195,10 @@ const readRenamedColumns = (
 
 /** Normalizes Drizzle table metadata while overlaying UltimaBase rename intent. */
 export const compileDesiredPostgresTables = (
-	schemas: readonly CompiledPostgresSchema[],
+	schemas: readonly Readonly<{
+		readonly fields: Readonly<Record<string, CompiledPostgresField>>
+		readonly table: PgTable
+	}>[],
 	relations: readonly CompiledPostgresJoinRelation[] = [],
 ): readonly DesiredPostgresTable[] =>
 	immutableArray([

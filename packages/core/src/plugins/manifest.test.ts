@@ -12,6 +12,7 @@ describe('plugin manifests', () => {
 			'schema:declare',
 			'schema:transform',
 			'schema:replace',
+			'storage:private',
 			'model:extend',
 			'query:extend',
 			'operation:declare',
@@ -38,6 +39,7 @@ describe('plugin manifests', () => {
 				.map(([name]) => name),
 		).toStrictEqual([
 			'schema:replace',
+			'storage:private',
 			'runtime:replace',
 			'adapter:raw',
 			'authority:elevate',

@@ -90,6 +90,16 @@ Singular CRUD, bulk operations, upserts, and explicit Runtime transactions
 execute through this adapter. Every mutation uses Runtime's transaction-bound
 prepared-operation protocol; no bulk item opens a side transaction.
 
+The adapter also compiles Core owner-private collection descriptors into hashed,
+owner-and-instance-stable tables. They participate in desired schema preparation
+and use PostgreSQL unique indexes plus `RESTRICT` or `CASCADE` foreign keys
+toward public schema IDs, but remain absent from the public schema catalog and
+Drizzle relational query surface. Private reads execute on the active request
+client; mutations use the same borrowed client and transaction as ordinary
+Runtime writes. Package upgrades retain physical table identity, while removed
+collections remain inert orphaned storage for explicit migration review rather
+than being dropped implicitly.
+
 Core's canonical projection always selects `id`, even when application code
 does not mention it. PostgreSQL therefore returns one visible stable identifier
 on every root and nested model. Adapter-private identity metadata remains only

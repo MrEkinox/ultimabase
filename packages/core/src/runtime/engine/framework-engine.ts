@@ -92,6 +92,7 @@ import {
 	getFrameworkMasterAuthority,
 	readFrameworkMasterAuthority,
 } from './framework-master-authority.js'
+import { registerRequestPrivateStorageContext } from '../../private-storage/runtime.js'
 
 const requestEngineConstructionKey: unique symbol = Symbol(
 	'ultimabase.request-engine-construction',
@@ -177,7 +178,6 @@ export class FrameworkEngine<
 			bindFrameworkMasterAuthority(this, options.masterAuthority)
 		}
 
-		// Application ownership and execution dependencies remain stable for its lifetime.
 		Object.freeze(this)
 	}
 
@@ -283,6 +283,7 @@ export class RequestEngine<
 		this.#pipeline = pipeline
 		this.#transactionLifetime = transactionLifetime
 		registerAdapterAccess(this, pipeline, transactionLifetime)
+		registerRequestPrivateStorageContext(this, pipeline, transactionLifetime)
 		registerRequestPluginOperationExecutor(
 			this,
 			(compiled, binding, envelope) =>
@@ -297,7 +298,6 @@ export class RequestEngine<
 				this.#executeTerminalBatch(entries, options, projection),
 		)
 
-		// A request engine cannot change application or authority after binding.
 		Object.freeze(this)
 	}
 
