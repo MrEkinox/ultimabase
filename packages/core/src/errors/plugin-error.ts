@@ -22,7 +22,7 @@ export interface PluginErrorPayload<
 }
 
 const pluginErrorCodePattern =
-	/^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?\.[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$/u
+	/^(?:[A-Z][A-Z0-9_]*|[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?\.[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?)$/u
 
 const snapshotDetails = <const TDetails extends FrameworkErrorDetails>(
 	details: TDetails | undefined,
@@ -63,7 +63,9 @@ export class PluginError<
 		super(message, { cause: options.cause })
 		assertNonEmptyString(code, 'plugin error code')
 		if (!pluginErrorCodePattern.test(code)) {
-			throw new TypeError(`plugin error code must be namespaced: ${code}`)
+			throw new TypeError(
+				`plugin error code must be namespaced or a constant identifier: ${code}`,
+			)
 		}
 		assertNonEmptyString(message, 'message')
 		assertOptionalBoolean(options.retryable, 'retryable')

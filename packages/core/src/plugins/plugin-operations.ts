@@ -114,6 +114,8 @@ export type PluginOperationErrorCode<TOperation> =
 const operationNames = new WeakSet<object>()
 const operationNamePattern =
 	/^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?\.[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$/u
+const operationErrorCodePattern =
+	/^(?:[A-Z][A-Z0-9_]*|[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?\.[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?)$/u
 
 const assertOperationValueContract: (
 	value: unknown,
@@ -239,8 +241,10 @@ export const defineOperation = <
 	const seenErrors = new Set<string>()
 	for (const [index, code] of errors.entries()) {
 		assertNonEmptyString(code, `operation errors[${String(index)}]`)
-		if (!operationNamePattern.test(code)) {
-			throw new TypeError(`operation error code must be namespaced: ${code}`)
+		if (!operationErrorCodePattern.test(code)) {
+			throw new TypeError(
+				`operation error code must be namespaced or a constant identifier: ${code}`,
+			)
 		}
 		if (seenErrors.has(code)) {
 			throw new TypeError(`operation errors contains duplicate code: ${code}`)

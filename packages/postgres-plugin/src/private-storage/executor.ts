@@ -1,7 +1,7 @@
 import { FrameworkError } from '@ultimabase/core'
 import type { PrivateStorageOperationRequest } from '@ultimabase/core'
 import { immutableRecord } from '@ultimabase/shared'
-import { and, eq, type SQL } from 'drizzle-orm'
+import { and, eq, isNull, type SQL } from 'drizzle-orm'
 
 import { readPostgresDriverCode } from '../connection/driver-error.js'
 import type { PostgresDrizzleClient } from '../drizzle/client.js'
@@ -32,7 +32,7 @@ const predicate = (
 			const field = collection.fields[name]
 			if (field === undefined)
 				throw new TypeError(`PostgreSQL private field is unavailable: ${name}`)
-			return eq(field.column, value)
+			return value === null ? isNull(field.column) : eq(field.column, value)
 		}),
 	)
 

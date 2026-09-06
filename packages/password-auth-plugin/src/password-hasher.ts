@@ -28,7 +28,14 @@ const withPasswordBytes = async <TResult>(
 	use: (bytes: Buffer) => Promise<TResult>,
 ): Promise<TResult> => {
 	const normalized = normalizePasswordInput(password)
-	const bytes = Buffer.from(normalized, 'utf8')
+	return withNormalizedPasswordBytes(normalized, use)
+}
+
+const withNormalizedPasswordBytes = async <TResult>(
+	password: string,
+	use: (bytes: Buffer) => Promise<TResult>,
+): Promise<TResult> => {
+	const bytes = Buffer.from(password, 'utf8')
 	try {
 		return await use(bytes)
 	} finally {
@@ -68,16 +75,27 @@ export const createPasswordVerifier = (
 		}),
 	)
 
-/** Verifies one PHC credential and reports a monotonic policy upgrade. */
-export const verifyPassword = async (
-	password: unknown,
+/** Hashes a password already normalized by the operation boundary. */
+export const createNormalizedPasswordVerifier = (
+	password: string,
+	policy: ResolvedPasswordHashPolicy,
+): Promise<PasswordVerifier> =>
+	withNormalizedPasswordBytes(password, async (bytes) =>
+		immutableRecord({
+			encoded: await hash(bytes, toArgon2Options(policy)),
+			policyVersion: policy.policyVersion,
+		}),
+	)
+
+const verifyNormalizedPassword = async (
+	password: string,
 	verifier: PasswordVerifier,
 	policy: ResolvedPasswordHashPolicy,
 ): Promise<PasswordVerification> => {
 	if (!verifier.encoded.startsWith(argon2idV19Prefix)) {
 		throw new TypeError('Password Auth verifier must use Argon2id version 19')
 	}
-	const matches = await withPasswordBytes(password, (bytes) =>
+	const matches = await withNormalizedPasswordBytes(password, (bytes) =>
 		verify(verifier.encoded, bytes),
 	)
 	const parametersChanged = needsRehash(
@@ -99,6 +117,16 @@ export const verifyPassword = async (
 	})
 }
 
+/** Verifies one PHC credential and reports a monotonic policy upgrade. */
+export const verifyPassword = async (
+	password: unknown,
+	verifier: PasswordVerifier,
+	policy: ResolvedPasswordHashPolicy,
+): Promise<PasswordVerification> => {
+	const normalized = normalizePasswordInput(password)
+	return verifyNormalizedPassword(normalized, verifier, policy)
+}
+
 /** Equalizes an absent credential with one real Argon2id verification attempt. */
 export const verifyPasswordOrDummy = async (
 	password: unknown,
@@ -106,6 +134,22 @@ export const verifyPasswordOrDummy = async (
 	policy: ResolvedPasswordHashPolicy,
 ): Promise<PasswordVerification> => {
 	const result = await verifyPassword(
+		password,
+		verifier ?? dummyPasswordVerifier,
+		policy,
+	)
+	return verifier === null
+		? immutableRecord({ matches: false, requiresUpgrade: false })
+		: result
+}
+
+/** Verifies an operation-normalized password and preserves the dummy path. */
+export const verifyNormalizedPasswordOrDummy = async (
+	password: string,
+	verifier: PasswordVerifier | null,
+	policy: ResolvedPasswordHashPolicy,
+): Promise<PasswordVerification> => {
+	const result = await verifyNormalizedPassword(
 		password,
 		verifier ?? dummyPasswordVerifier,
 		policy,

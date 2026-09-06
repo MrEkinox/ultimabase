@@ -433,12 +433,13 @@ declare({ models, operations, queries, schemas }) {
 Schema commands remain application-owned operation handles, while models
 returned through the application expose their generated commands as direct
 callable methods. Query extensions are ordinary `QueryBuilder` factories.
-`prepare()` validates one
-immutable logical envelope without I/O; `execute()` enters the active
-`RequestEngine`, enforces cancellation and transaction policy, invokes the
-exact owner handler, and validates the result. Handlers are separate application
-capability contributions and may throw only declared namespaced `PluginError`
-codes as public domain failures:
+`prepare()` validates one immutable logical envelope without I/O; `execute()`
+enters the active `RequestEngine`, enforces cancellation and transaction policy,
+invokes the exact owner handler, and validates the result. Handlers are separate
+application capability contributions and may throw only declared `PluginError`
+codes as public domain failures. Codes use either a namespaced lowercase form
+such as `community.workflow.rejected` or a stable constant identifier such as
+`PASSWORD_AUTH_INVALID_SESSION`:
 
 ```ts
 const Post = ultimabase.schema('Post')

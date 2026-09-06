@@ -8,7 +8,12 @@ describe('@ultimabase/password-auth-plugin public entry point', () => {
 			'PasswordUser',
 			'PasswordUserSchema',
 			'defaultPasswordHashPolicy',
+			'defaultPasswordSessionPolicy',
+			'passwordAuthErrorCodes',
+			'passwordAuthOperations',
 			'passwordAuthPlugin',
+			'passwordPrincipal',
+			'passwordSession',
 		])
 	})
 })

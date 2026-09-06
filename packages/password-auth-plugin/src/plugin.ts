@@ -1,6 +1,13 @@
 import {
+	applicationRequestExecutionCapability,
+	provideCapability,
+	provideOperationHandler,
+	provideOperationTransportBinding,
 	provideRuntimeBehavior,
+	requestPrincipalResolverCapability,
+	requireCapability,
 	type CapabilityProviderDeclaration,
+	type CapabilityRequirement,
 	type CreateManyOperationAst,
 	type CreateOneOperationAst,
 	type DatabaseMutationOperationAst,
@@ -12,7 +19,6 @@ import {
 	type UpsertOneOperationAst,
 	type DeleteManyOperationAst,
 	type DeleteOneOperationAst,
-	type runtimeBehaviorCapability,
 } from '@ultimabase/core'
 import {
 	definePluginModule,
@@ -22,6 +28,10 @@ import {
 import { isPlainRecord } from '@ultimabase/shared'
 
 import { createPasswordCredentialCollection } from './credentials.js'
+import {
+	createPasswordAuthPluginExports,
+	type PasswordAuthPluginExports,
+} from './application-api.js'
 import {
 	resolvePasswordHashPolicy,
 	type PasswordHashPolicyOptions,
@@ -33,6 +43,18 @@ import {
 } from './user-schema.js'
 import { normalizePasswordUsername } from './normalization.js'
 import { assertPasswordHashEngineAvailable } from './password-hasher.js'
+import {
+	passwordAuthOperations,
+	passwordAuthRestBindings,
+	passwordAuthTypegenReferences,
+} from './operations.js'
+import { createPasswordOperationHandlers } from './operation-handlers.js'
+import {
+	resolvePasswordSessionPolicy,
+	type PasswordSessionPolicyOptions,
+} from './session-policy.js'
+import { passwordPrincipal } from './session.js'
+import { createPasswordSessionCollection } from './sessions.js'
 
 const passwordAuthPluginModule: PluginModule<
 	'@ultimabase/password-auth-plugin',
@@ -52,7 +74,24 @@ const passwordAuthPluginPrivileges = [
 	},
 	{
 		name: 'storage:private',
-		reason: 'Stores password verifiers outside application schema surfaces.',
+		reason:
+			'Stores password verifiers and session digests outside application schema surfaces.',
+	},
+	{
+		name: 'operation:declare',
+		reason: 'Declares the exact Password Auth identity transition operations.',
+	},
+	{
+		name: 'transport:expose',
+		reason: 'Binds explicitly selected Password Auth operations to REST v1.',
+	},
+	{
+		name: 'typegen:reference',
+		reason: 'References public Password Auth operation input and result types.',
+	},
+	{
+		name: 'authority:elevate',
+		reason: 'Creates a public User through one audited sign-up transaction.',
 	},
 	{
 		name: 'runtime:intercept',
@@ -60,20 +99,26 @@ const passwordAuthPluginPrivileges = [
 	},
 ] as const
 
+const requestExecutionRequirement = requireCapability(
+	applicationRequestExecutionCapability,
+	'^1.0.0',
+)
+
 type PasswordAuthPluginDefinition = Readonly<{
 	readonly capabilities: Readonly<{
-		readonly provides: readonly [
-			CapabilityProviderDeclaration<typeof runtimeBehaviorCapability>,
-		]
+		readonly provides: readonly CapabilityProviderDeclaration[]
+		readonly requires: readonly CapabilityRequirement[]
 	}>
 	readonly environment: typeof passwordAuthPluginEnvironment
 	readonly privileges: typeof passwordAuthPluginPrivileges
+	readonly setup: () => PasswordAuthPluginExports
 }>
 
 /** Names the exact official local username and password plugin. */
 export type PasswordAuthPlugin = PluginModuleInstance<
 	typeof passwordAuthPluginModule,
-	PasswordAuthPluginDefinition
+	Omit<PasswordAuthPluginDefinition, 'setup'> &
+		Readonly<{ readonly setup: () => PasswordAuthPluginExports }>
 >
 
 /** Configures the one local User identity domain owned by Password Auth v1. */
@@ -84,6 +129,8 @@ export interface PasswordAuthPluginOptions<
 	readonly user?: TUser
 	/** Selects bounded Argon2id parameters and their monotonic policy version. */
 	readonly password?: PasswordHashPolicyOptions
+	/** Selects bounded rolling and absolute session lifetimes. */
+	readonly session?: PasswordSessionPolicyOptions
 }
 
 const assertPluginOptions: (
@@ -93,7 +140,7 @@ const assertPluginOptions: (
 		throw new TypeError('passwordAuthPlugin options must be a plain object')
 	}
 	for (const key of Object.keys(value)) {
-		if (key !== 'password' && key !== 'user') {
+		if (key !== 'password' && key !== 'session' && key !== 'user') {
 			throw new TypeError(`passwordAuthPlugin contains unknown option: ${key}`)
 		}
 	}
@@ -192,26 +239,76 @@ export const passwordAuthPlugin = <
 ): PasswordAuthPlugin => {
 	const untrusted = normalizePluginOptions(options)
 	assertPasswordHashEngineAvailable()
-	const user: SchemaDefinition = untrusted.user ?? PasswordUser
+	const user = (untrusted.user ?? PasswordUser) as TUser
 	if (!isPasswordUserDefinition(user)) {
 		throw new TypeError(
 			'passwordAuthPlugin user must be created by PasswordUserSchema.define()',
 		)
 	}
 	const passwordPolicy = resolvePasswordHashPolicy(untrusted.password)
+	const sessionPolicy = resolvePasswordSessionPolicy(untrusted.session)
 	const credentials = createPasswordCredentialCollection(user, passwordPolicy)
+	const sessions = createPasswordSessionCollection(user, sessionPolicy)
+	const handlers = createPasswordOperationHandlers({
+		credentials,
+		passwordPolicy,
+		sessionPolicy,
+		sessions,
+		user,
+	})
+	let pluginExports: PasswordAuthPluginExports | undefined
 	const usernameInvariant = provideRuntimeBehavior({
 		contributionId: 'canonical-usernames',
-		create: () => ({
-			value: { guardMutationInput: createUsernameInvariant(user) },
-		}),
+		create: ({ callbacks, capabilities, owner }) => {
+			pluginExports = createPasswordAuthPluginExports({
+				callbacks,
+				executor: capabilities.get(requestExecutionRequirement),
+				owner,
+				sessions,
+				user,
+			})
+			return { value: { guardMutationInput: createUsernameInvariant(user) } }
+		},
 	})
+	const principalResolver = provideCapability(
+		requestPrincipalResolverCapability,
+		{
+			contributionId: 'password-principal-resolver',
+			create: () => ({
+				value: {
+					resolveCurrent: ({ context }) =>
+						context.getValue(passwordPrincipal)?.user,
+				},
+			}),
+		},
+	)
+	const handlerProviders = handlers.map((handler, index) =>
+		provideOperationHandler({
+			contributionId: `password-operation-${String(index)}`,
+			create: () => ({ value: handler }),
+		}),
+	)
+	const bindingProviders = Object.entries(passwordAuthRestBindings).map(
+		([name, binding]) =>
+			provideOperationTransportBinding({
+				contributionId: `password-rest-${name}`,
+				create: () => ({ value: binding }),
+			}),
+	)
 
 	return passwordAuthPluginModule.plugin({
-		capabilities: { provides: [usernameInvariant] },
+		capabilities: {
+			provides: [
+				usernameInvariant,
+				principalResolver,
+				...handlerProviders,
+				...bindingProviders,
+			],
+			requires: [requestExecutionRequirement],
+		},
 		environment: passwordAuthPluginEnvironment,
 		privileges: passwordAuthPluginPrivileges,
-		declare: ({ privateStorage, schemas }) => {
+		declare: ({ operations, privateStorage, schemas, typegenReferences }) => {
 			schemas.add({
 				contributionId: 'password-user',
 				schema: user,
@@ -221,7 +318,20 @@ export const passwordAuthPlugin = <
 				},
 			})
 			privateStorage.register(credentials)
+			privateStorage.register(sessions)
+			for (const operation of Object.values(passwordAuthOperations)) {
+				operations.declare(operation)
+			}
+			for (const reference of passwordAuthTypegenReferences) {
+				typegenReferences.register(reference)
+			}
 			return undefined
+		},
+		setup: () => {
+			if (pluginExports === undefined) {
+				throw new TypeError('Password Auth application exports are unavailable')
+			}
+			return pluginExports
 		},
 	})
 }

@@ -253,9 +253,10 @@ describe('Password identities with PostgreSQL', { concurrent: false }, () => {
 				readonly table_name: string
 			}>(
 				`SELECT table_name
-				 FROM information_schema.tables
+				 FROM information_schema.columns
 				 WHERE table_schema = current_schema()
-				   AND table_name LIKE '_ub_private_%'`,
+				   AND table_name LIKE '_ub_private_%'
+				   AND column_name = 'passwordVerifier'`,
 			)
 			let storedVerifier: string | undefined
 			for (const { table_name: tableName } of privateTables.rows) {

@@ -63,7 +63,13 @@ describe('plugin operation declarations', () => {
 		).toThrow('operation target must be application, schema, or model')
 		expect(() =>
 			defineOperation({ ...base, errors: ['not-namespaced'] }),
-		).toThrow('operation error code must be namespaced')
+		).toThrow(
+			'operation error code must be namespaced or a constant identifier',
+		)
+		expect(
+			defineOperation({ ...base, errors: ['FIXTURE_REJECTED'] as const })
+				.errors,
+		).toStrictEqual(['FIXTURE_REJECTED'])
 		expect(() =>
 			defineOperation({
 				...base,

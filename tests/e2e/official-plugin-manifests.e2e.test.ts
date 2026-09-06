@@ -115,7 +115,15 @@ it('publishes the audited privilege and environment contract for every official 
 		{
 			environment: ['environment:native-code'],
 			pluginId: '@ultimabase/password-auth-plugin',
-			privileges: ['schema:declare', 'storage:private', 'runtime:intercept'],
+			privileges: [
+				'schema:declare',
+				'storage:private',
+				'operation:declare',
+				'transport:expose',
+				'typegen:reference',
+				'authority:elevate',
+				'runtime:intercept',
+			],
 		},
 		{
 			environment: ['environment:network'],

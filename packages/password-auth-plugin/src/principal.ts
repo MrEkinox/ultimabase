@@ -1,13 +1,15 @@
 import { Pointer, type SchemaDefinition } from '@ultimabase/core'
 import { immutableRecord } from '@ultimabase/shared'
 
+import type { PasswordUserDefinition } from './user-schema.js'
+
 declare const passwordPrincipalBrand: unique symbol
 
 const passwordPrincipals = new WeakSet<object>()
 
 /** Carries only the exact typed User pointer established by Password Auth. */
 export interface PasswordPrincipal<
-	TUser extends SchemaDefinition = SchemaDefinition,
+	TUser extends SchemaDefinition = PasswordUserDefinition,
 > {
 	readonly [passwordPrincipalBrand]: TUser
 	readonly user: Pointer<TUser>

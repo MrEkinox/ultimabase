@@ -34,9 +34,10 @@ describe('PluginError', () => {
 		expect(Object.isFrozen(error)).toBe(true)
 	})
 
-	it('rejects non-namespaced codes and malformed public metadata', () => {
-		expect(() => new PluginError('DECLINED', 'Declined')).toThrow(
-			'plugin error code must be namespaced',
+	it('accepts constant codes and rejects malformed public metadata', () => {
+		expect(new PluginError('DECLINED', 'Declined').code).toBe('DECLINED')
+		expect(() => new PluginError('not-namespaced', 'Declined')).toThrow(
+			'plugin error code must be namespaced or a constant identifier',
 		)
 		expect(
 			() =>

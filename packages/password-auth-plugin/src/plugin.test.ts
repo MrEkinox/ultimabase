@@ -34,6 +34,10 @@ describe('passwordAuthPlugin identity declaration', () => {
 			privileges: [
 				{ name: 'schema:declare' },
 				{ name: 'storage:private' },
+				{ name: 'operation:declare' },
+				{ name: 'transport:expose' },
+				{ name: 'typegen:reference' },
+				{ name: 'authority:elevate' },
 				{ name: 'runtime:intercept' },
 			],
 		})
@@ -109,10 +113,16 @@ describe('passwordAuthPlugin identity declaration', () => {
 			['User'],
 		)
 		expect(withAuth.contents).toContain('username')
+		expect(withAuth.contents).toContain('PasswordCredentialsInput')
+		expect(withAuth.contents).toContain('PasswordAuthenticationResult')
+		expect(withAuth.contents).toContain('ultimabase.password-auth.sign-up')
 		for (const secretName of [
 			'credentials',
 			'passwordVerifier',
 			'policyVersion',
+			'sessions',
+			'tokenDigest',
+			'revokedAt',
 		]) {
 			expect(withAuth.contents).not.toContain(secretName)
 		}

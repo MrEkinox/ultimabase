@@ -29,4 +29,12 @@ it('publishes the reviewed Password Auth native hashing implementation', async (
 			surface.includes('createPasswordVerifier'),
 		),
 	).toBe(true)
+	expect(implementation.some((surface) => surface.includes('ub_s1.'))).toBe(
+		true,
+	)
+	expect(
+		implementation.some((surface) =>
+			surface.includes('PASSWORD_AUTH_INVALID_SESSION'),
+		),
+	).toBe(true)
 })
