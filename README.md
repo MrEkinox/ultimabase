@@ -8,6 +8,9 @@ It takes inspiration from the simplicity of Parse Server while deliberately repl
 
 ## Intended developer experience
 
+The schema and Query APIs below are shipped. `graphqlYogaPlugin()` illustrates
+the planned first-release GraphQL layer; it is not a current workspace yet.
+
 ```ts
 import { typegenPlugin } from '@ultimabase/typegen'
 import { Schema, UltimaBase } from '@ultimabase/core'
@@ -84,7 +87,7 @@ users[0]?.toJSON() // A detached immutable object.
   migration provenance without becoming application schemas, Query or Typegen
   surfaces, generated transport routes, or application behavior inputs.
 - PostgreSQL synchronization and PostgreSQL migrations are separate capabilities.
-- The accepted milestone 23 target puts HTTP application identity,
+- Milestone 23 delivers HTTP application identity,
   Fetch-compatible route composition, and request context resolution in an
   optional HTTP plugin. Hono only provides the server, REST and GraphQL remain
   sibling transports, and Password Auth adds identity without granting
@@ -94,6 +97,11 @@ users[0]?.toJSON() // A detached immutable object.
   explicit, disabled by default, and consistent across applications sharing one
   server.
 - The framework targets Node.js 24+, ESM, TypeScript, and an Apache-2.0 license.
+
+The shipped authenticated REST vertical is demonstrated by the
+[`examples/minimal`](examples/minimal/README.md) application. Network-independent
+GraphQL and Yoga remain planned separately, beginning with
+[issue 608](issues/600-transports/608-graphql-core-plugin.md).
 
 ## Repository map
 

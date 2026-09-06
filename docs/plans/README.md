@@ -5,11 +5,6 @@ multi-issue objective. This directory preserves paused and completed plans so
 architectural context and verified developer flows are not lost when execution
 priority changes.
 
-## Active
-
-- [HTTP, REST, and password authentication](../../CURRENT_PLAN.md), tracked as
-  milestone 23 and resumable at issue 2302.
-
 ## Paused
 
 - [ACL hardening and developer-experience consolidation](paused/acl-hardening-and-developer-experience-consolidation.md),
@@ -17,6 +12,7 @@ priority changes.
 
 ## Completed
 
+- [HTTP, REST, and password authentication](completed/http-rest-and-password-auth.md)
 - [Generated schema authoring and type contracts](completed/generated-schema-authoring-and-type-contracts.md)
 - [Optional field validation plugin](completed/optional-field-validation-plugin.md)
 - [Single-pass field validation](completed/single-pass-field-validation.md)

@@ -1,6 +1,6 @@
 # Milestone 23 — HTTP, REST, and password authentication
 
-- Status: in-progress
+- Status: completed
 
 Deliver the first public client-to-PostgreSQL vertical through optional official
 HTTP, Hono, REST, and Password Auth plugins. The milestone preserves one
@@ -30,7 +30,7 @@ and transport-independent GraphQL.
 19. [x] [2313 — Add password sessions and authentication operations](2313-password-sessions-operations.md)
 20. [x] [2314 — Resolve Password Auth sessions over HTTP](2314-password-http-sessions.md)
 21. [x] [2315 — Verify the authenticated REST vertical](2315-authenticated-rest-vertical.md)
-22. [ ] [2316 — Audit and close the HTTP and REST milestone](2316-http-rest-final-audit.md)
+22. [x] [2316 — Audit and close the HTTP and REST milestone](2316-http-rest-final-audit.md)
 
 ## Accepted boundaries
 

@@ -34,11 +34,11 @@ official plugin while Core retained required presence and every structural
 field and Runtime invariant. Milestone 8 then closed its remaining Typegen DX
 and performance audit with measured generated-contract evidence.
 
-Milestone 23 is now active. It delivers the first public client-to-PostgreSQL
-vertical in product order: a shared optional HTTP capability, Hono provider,
-experimental REST v1, audited application-ID and Master-key requests, then
-local Password Auth with opaque sessions. GraphQL remains independent and
-follows the verified authenticated REST vertical rather than blocking it.
+Milestone 23 completed the first public client-to-PostgreSQL vertical: a shared
+optional HTTP capability, Hono provider, experimental REST v1, audited
+application-ID and Master-key requests, and local Password Auth with opaque
+sessions. The next ready transport work is the independent
+[GraphQL Core plugin lifecycle](issues/600-transports/608-graphql-core-plugin.md).
 
 The ACL hardening plan remains paused at issue 432. It is not part of an active
 plan.
@@ -223,7 +223,7 @@ read-free, atomic-arithmetic, and Master non-bypass semantics remain unchanged.
 
 ## Milestone 23 — HTTP, REST, and password authentication
 
-Deliver a public application boundary through `@ultimabase/http-plugin`, a Hono
+Delivered a public application boundary through `@ultimabase/http-plugin`, a Hono
 server provider, an experimental REST v1 protocol, and local Password Auth.
 Every HTTP application request identifies one application; explicitly
 configured infrastructure-only browser preflight is the sole exception. An
@@ -231,7 +231,7 @@ explicitly enabled Master header is verified and audited only by that
 application's Core authority; Bearer or secure-cookie sessions add typed
 identity without adding a Core user mode or granting authorization.
 
-Core first supplies a narrow application request execution capability so HTTP
+Core supplies a narrow application request execution capability so HTTP
 can enter Runtime without receiving an engine or application object. One
 effective browser policy applies to every application sharing a server,
 preflight performs no application work, and HTTP owns safe failures that happen

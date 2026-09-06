@@ -2,10 +2,10 @@
 
 Transports translate requests and responses. They do not contain SQL or business-policy shortcuts.
 
-The optional HTTP package now provides application identity, immutable route
+The optional HTTP package provides application identity, immutable route
 composition, and the provider-facing Fetch boundary without opening a socket.
-The REST and concrete server sections below describe the remaining accepted
-milestone 23 target; those packages are not shipped yet.
+REST, Password Auth, and the first concrete Hono server provider are shipped as
+independent optional packages. GraphQL and Yoga remain planned siblings.
 
 ## HTTP
 
@@ -24,7 +24,8 @@ Master header is verified and audited by the selected application's
 values. Fetch cancellation and the optional deadline share the same context
 signal through handlers, Runtime, transactions, and response completion.
 Ambiguous sensitive headers and all other pre-dispatch failures use the safe
-HTTP envelope. Browser policy and sockets remain later issue-owned layers.
+HTTP envelope. HTTP owns the browser policy, while the optional Hono provider
+owns sockets and shared-server lifecycle.
 
 ## REST
 

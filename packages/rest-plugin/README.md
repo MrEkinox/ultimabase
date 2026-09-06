@@ -9,8 +9,8 @@ Core's narrow application request executor. It does not import Hono, start
 listeners, access an adapter, or retain request data in an AST.
 
 The repository includes a [runnable Hono and PostgreSQL example](../../examples/minimal/README.md)
-with anonymous REST, audited Master access, and an explicitly exposed plugin
-operation.
+with anonymous and Password Auth sessions, role-protected REST, audited Master
+access, and explicitly exposed plugin operations.
 
 ## Installation
 
@@ -79,7 +79,7 @@ Each selected application operation receives
 `{ "input": value }`. The owner contributes its logical-to-wire codec and a
 REST v1 binding through Core. It can independently name the canonical
 `ultimabase.rest@1.0.0` protocol without importing this package, which keeps
-REST and future Password Auth as siblings.
+REST and Password Auth as siblings.
 
 The binding metadata must be exactly
 `{ errors: { [declaredPublicErrorCode]: httpStatus } }`, including an empty

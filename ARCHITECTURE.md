@@ -77,15 +77,15 @@ http-basic-auth-plugin ────→ http-plugin, plugin-kit, core, shared
 better-auth-plugin ────────→ http-plugin, plugin-kit, core, shared
 ```
 
-The HTTP package is the first milestone 23 workspace accepted by ADR-0224. It
-owns application IDs, an application-lifetime Fetch route graph, anonymous
+The HTTP package delivered by milestone 23 owns application IDs, an
+application-lifetime Fetch route graph, anonymous
 request-context resolution, safe pre-dispatch failures, and the explicitly
 enabled audited Master header boundary without opening a socket. The Hono
 package supplies the optional server lifecycle. The REST package owns
 deterministic application-local REST v1 route metadata, the direct schema
-option, schema-aware read and mutation normalization, and logical delegation
-through Core's narrow application request executor. Response encoding and
-route dispatch remain later milestone boundaries. Password Auth owns its typed
+option, schema-aware read and mutation normalization, response encoding, route
+dispatch, and logical delegation through Core's narrow application request
+executor. Password Auth owns its typed
 User identity, owner-private credential and session records, authentication
 operations, and HTTP session integration through the HTTP package's public
 resolver and endpoint capabilities.

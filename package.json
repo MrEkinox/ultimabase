@@ -27,7 +27,7 @@
 		"release:publish": "yarn test:all && changeset publish",
 		"test": "vitest run --project unit --project types --project performance",
 		"test:all": "yarn test && yarn test:e2e",
-		"test:coverage": "vitest run --project unit --project types --project performance --project coverage-e2e --project coverage-postgres-e2e --coverage",
+		"test:coverage": "vitest run --project unit --project types --project performance --project coverage-e2e --project coverage-postgres-e2e --coverage --maxWorkers=4",
 		"test:e2e": "yarn build && yarn test:e2e:built",
 		"test:e2e:built": "vitest run --project e2e --project postgres-e2e --passWithNoTests",
 		"test:pack": "yarn build && yarn test:pack:built",
