@@ -56,6 +56,10 @@ jobs:
 
       - name: Lint
         run: yarn lint
+        env:
+          # Type-aware ESLint loads every workspace program and exceeds Node's
+          # default heap limit on the hosted runner.
+          NODE_OPTIONS: --max-old-space-size=4096
 
       - name: Run unit and type tests with coverage
         run: yarn test:coverage
