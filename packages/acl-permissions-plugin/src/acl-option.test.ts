@@ -52,6 +52,18 @@ describe('acl schema option', () => {
 		)
 	})
 
+	it('owns the canonical GraphQL field JSON boundary', () => {
+		const protocol = definePluginFieldWireProtocol({
+			name: 'ultimabase.graphql.field',
+			version: '1.0.0',
+		})
+		const codec = getPluginFieldWireCodec(aclField, protocol)
+		const source = new ACL().grantPublic('read')
+
+		expect(codec?.encode(source)).toStrictEqual(source.toJSON())
+		expect(codec?.decode(source.toJSON())).toBeInstanceOf(ACL)
+	})
+
 	it('retains static and asynchronous defaults without executing callbacks', () => {
 		const value = new ACL().grantPublic('read')
 		const staticOption = normalizeACLSchemaOption(

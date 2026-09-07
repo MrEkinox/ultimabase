@@ -12,6 +12,10 @@ The package proves the complete custom-field boundary:
   exact vector field without Schema understanding vector configuration;
 - `VectorValue` remains an immutable `readonly number[]` snapshot.
 
+The field also owns the canonical `ultimabase.graphql.field@1.0.0` JSON codec.
+GraphQL can therefore expose vectors without importing this package or guessing
+from storage metadata.
+
 The field validates the options container before reading `dimensions` and uses
 Schema's `snapshotValue` contract. Its snapshot is pure, deterministic, and
 idempotent, so declaration-time static defaults own detached vector values.

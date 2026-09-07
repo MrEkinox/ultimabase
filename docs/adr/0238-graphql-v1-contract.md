@@ -181,6 +181,14 @@ Master. Enabled fields always execute through the ordinary Runtime pipeline and
 whatever independent policy plugins are installed. GraphQL neither checks for
 nor names those plugins.
 
+The final schema must expose at least one query root field. GraphQL requires a
+query root object and an empty object is not a valid schema, so compilation
+fails with a provenance-aware startup diagnostic when generated and contributed
+surfaces produce no query field. The plugin does not manufacture a placeholder
+query because that would create an undocumented public operation. In
+particular, an application exposing only mutation contributions must add an
+explicit query contribution before its GraphQL schema can compile.
+
 An exposed schema type defaults to its exact `className`. `typeName` may replace
 only that GraphQL representation name. Generated type names must match
 `^[A-Z][_0-9A-Za-z]*$`; field names must match

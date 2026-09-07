@@ -21,10 +21,12 @@ atomic row mutation with no generated ACL table. Logical role names resolve to
 schema-qualified stable UUID references before persistence.
 
 The same strictly validated public ACL JSON is explicitly attached to the
-canonical `ultimabase.rest@1.0.0` field-wire protocol. This lets REST expose an
-ACL-enabled application schema without making ACL depend on the REST package or
-silently reusing its storage declaration as a wire contract. Runtime ACL field
-policy still rejects anonymous selection of the reserved field.
+canonical `ultimabase.rest@1.0.0` and
+`ultimabase.graphql.field@1.0.0` field-wire protocols. This lets REST and
+GraphQL expose an ACL-enabled application schema without making ACL depend on
+either transport package or silently reusing its storage declaration as a wire
+contract. Runtime ACL field policy still rejects anonymous selection of the
+reserved field.
 
 The immutable ACL value currently supports this API:
 

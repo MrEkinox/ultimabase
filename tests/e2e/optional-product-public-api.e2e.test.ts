@@ -5,11 +5,13 @@ import { describe, expect, it } from 'vitest'
 import {
 	accessPluginPublicApi,
 	getOptionalProductPublicApiNames,
+	graphqlPluginPublicApi,
 	hooksPluginPublicApi,
 	httpPluginPublicApi,
 	passwordAuthPluginPublicApi,
 	removedAccessPluginPublicApiNames,
 	removedHooksPluginPublicApiNames,
+	removedGraphqlPluginPublicApiNames,
 	removedHttpPluginPublicApiNames,
 	removedPasswordAuthPluginPublicApiNames,
 	removedRestPluginPublicApiNames,
@@ -25,6 +27,7 @@ interface OptionalProductFixture {
 	readonly moduleSpecifier:
 		| '@ultimabase/access-plugin'
 		| '@ultimabase/hooks-plugin'
+		| '@ultimabase/graphql-plugin'
 		| '@ultimabase/http-plugin'
 		| '@ultimabase/password-auth-plugin'
 		| '@ultimabase/rest-plugin'
@@ -42,6 +45,11 @@ const fixtures: readonly OptionalProductFixture[] = [
 		classification: hooksPluginPublicApi,
 		moduleSpecifier: '@ultimabase/hooks-plugin',
 		removedNames: removedHooksPluginPublicApiNames,
+	},
+	{
+		classification: graphqlPluginPublicApi,
+		moduleSpecifier: '@ultimabase/graphql-plugin',
+		removedNames: removedGraphqlPluginPublicApiNames,
 	},
 	{
 		classification: httpPluginPublicApi,

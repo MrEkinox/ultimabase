@@ -4,6 +4,7 @@ import {
 	type CompatibleFieldOptionsInput,
 	defineFieldBuilderMethod,
 	definePluginField,
+	definePluginFieldWireProtocol,
 	type FieldListOption,
 	type FieldOptions,
 	type FieldValidationPlan,
@@ -31,6 +32,10 @@ const pgVectorPluginModule: PluginModule<
 	core: '^0.0.0',
 	pluginId: '@ultimabase/pg-vector-plugin',
 	version: '0.0.0',
+})
+const graphqlV1FieldProtocol = definePluginFieldWireProtocol({
+	name: 'ultimabase.graphql.field',
+	version: '1.0.0',
 })
 
 /**
@@ -171,6 +176,15 @@ export function vectorField(options: VectorFieldOptions): VectorField {
 	return definePluginField(vectorFieldKind, fieldOptions, {
 		snapshotValue: (value: unknown, path: string) =>
 			snapshotVector(value, path, dimensions),
+		wireCodecs: [
+			{
+				decode: (value: unknown) =>
+					snapshotVector(value, 'GraphQL vector field', dimensions),
+				encode: (value: VectorValue) => immutableArray(value),
+				format: 'json',
+				protocol: graphqlV1FieldProtocol,
+			},
+		],
 	})
 }
 

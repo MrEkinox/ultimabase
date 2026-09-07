@@ -78,6 +78,10 @@ const restV1FieldProtocol = definePluginFieldWireProtocol({
 	name: 'ultimabase.rest',
 	version: '1.0.0',
 })
+const graphqlV1FieldProtocol = definePluginFieldWireProtocol({
+	name: 'ultimabase.graphql.field',
+	version: '1.0.0',
+})
 const decodeACLJson = (value: unknown): ACL => ACL.fromJSON(value)
 const encodeACLJson = (value: ACL): unknown => value.toJSON()
 
@@ -102,6 +106,12 @@ export const aclField = definePluginField(
 				encode: encodeACLJson,
 				format: 'json',
 				protocol: restV1FieldProtocol,
+			},
+			{
+				decode: decodeACLJson,
+				encode: encodeACLJson,
+				format: 'json',
+				protocol: graphqlV1FieldProtocol,
 			},
 		],
 		structuralContains: {

@@ -26,6 +26,7 @@
 		{ "path": "./packages/validation-plugin" },
 		{ "path": "./packages/http-plugin" },
 		{ "path": "./packages/rest-plugin" },
+		{ "path": "./packages/graphql-plugin" },
 		{ "path": "./packages/server-hono-plugin" },
 		{ "path": "./packages/password-auth-plugin" },
 		{ "path": "./packages/acl-permissions-plugin" },

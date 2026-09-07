@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { snapshotScalarFieldValue } from '@ultimabase/core'
+import {
+	definePluginFieldWireProtocol,
+	getPluginFieldWireCodec,
+	snapshotScalarFieldValue,
+} from '@ultimabase/core'
 
 import { vectorField, vectorFieldKind } from '../src/index.js'
 
@@ -55,6 +59,23 @@ describe('vectorField', () => {
 			[3, 4],
 		])
 		expect(Object.isFrozen(field.options.default[0])).toBe(true)
+	})
+
+	it('owns the canonical GraphQL field JSON boundary', () => {
+		const field = vectorField({ dimensions: 2 })
+		const protocol = definePluginFieldWireProtocol({
+			name: 'ultimabase.graphql.field',
+			version: '1.0.0',
+		})
+		const codec = getPluginFieldWireCodec(field, protocol)
+		const decoded = codec?.decode([1, 2])
+
+		expect(decoded).toStrictEqual([1, 2])
+		expect(Object.isFrozen(decoded)).toBe(true)
+		expect(codec?.encode(decoded)).toStrictEqual([1, 2])
+		expect(() => codec?.decode([1])).toThrow(
+			'GraphQL vector field must contain exactly 2 values',
+		)
 	})
 
 	it.each([0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1] as const)(

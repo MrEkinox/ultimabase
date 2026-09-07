@@ -356,6 +356,36 @@ export const restPluginPublicApi = {
 	conformanceSupport: [],
 } as const satisfies OptionalProductPublicApi
 
+export const graphqlPluginPublicApi = {
+	applicationApi: [
+		'GraphqlApplication',
+		'GraphqlBase64',
+		'GraphqlBigInt',
+		'GraphqlBulkOperations',
+		'GraphqlDate',
+		'GraphqlDateTime',
+		'GraphqlDecimal',
+		'GraphqlJSON',
+		'GraphqlPlugin',
+		'GraphqlPluginExports',
+		'GraphqlPluginOptions',
+		'GraphqlSafeInt',
+		'GraphqlSchemaCompilationError',
+		'GraphqlSchemaCompilationFailureReason',
+		'GraphqlSchemaExposure',
+		'GraphqlSchemaExposureOption',
+		'GraphqlSchemaOperations',
+		'GraphqlTime',
+		'GraphqlUUID',
+		'graphqlPlugin',
+	],
+	compatibleProviderContract: [
+		'graphqlApplicationCapability',
+		'graphqlFieldProtocol',
+	],
+	conformanceSupport: [],
+} as const satisfies OptionalProductPublicApi
+
 /** Produces the exact sorted root export set shared by source and packed tests. */
 export const getOptionalProductPublicApiNames = (
 	classification: OptionalProductPublicApi,
@@ -429,6 +459,19 @@ export const removedRestPluginPublicApiNames = [
 	'restFieldProtocol',
 	'restRouteGraphCapability',
 	'restSchemaOption',
+] as const
+
+/** Names GraphQL compilation details deliberately kept out of the root API. */
+export const removedGraphqlPluginPublicApiNames = [
+	'GraphqlFieldTypeCompiler',
+	'collectGraphqlSchemaSurfaces',
+	'compileGraphqlSchema',
+	'graphqlSchemaOption',
+	'normalizeGraphqlSchemaExposure',
+	'normalizeGraphqlSchemaOperations',
+	'readGraphqlSchemaExposure',
+	'resolveGraphqlBulkOperation',
+	'resolveGraphqlSchemaOperation',
 ] as const
 
 /** Names credential implementation details deliberately kept owner-private. */

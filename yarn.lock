@@ -1425,6 +1425,21 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@ultimabase/graphql-plugin@workspace:packages/graphql-plugin":
+  version: 0.0.0-use.local
+  resolution: "@ultimabase/graphql-plugin@workspace:packages/graphql-plugin"
+  dependencies:
+    "@ultimabase/core": "workspace:^"
+    "@ultimabase/plugin-kit": "workspace:^"
+    "@ultimabase/shared": "workspace:^"
+    "@ultimabase/typegen": "workspace:^"
+    graphql: "npm:^17.0.2"
+    tsdown: "npm:^0.22.14"
+    typescript: "npm:^6.0.3"
+    vitest: "npm:4.1.10"
+  languageName: unknown
+  linkType: soft
+
 "@ultimabase/hooks-plugin@workspace:^, @ultimabase/hooks-plugin@workspace:packages/hooks-plugin":
   version: 0.0.0-use.local
   resolution: "@ultimabase/hooks-plugin@workspace:packages/hooks-plugin"
@@ -3198,6 +3213,13 @@ __metadata:
   version: 4.2.11
   resolution: "graceful-fs@npm:4.2.11"
   checksum: 10c0/386d011a553e02bc594ac2ca0bd6d9e4c22d7fa8cfbfc448a6d148c59ea881b092db9dbe3547ae4b88e55f1b01f7c4a2ecc53b310c042793e63aa44cf6c257f2
+  languageName: node
+  linkType: hard
+
+"graphql@npm:^17.0.2":
+  version: 17.0.2
+  resolution: "graphql@npm:17.0.2"
+  checksum: 10c0/766546216b891439ed09fd8584963df2013e26f2f79f096036eaaa2788c38964e049c8a142d68e3afdabdd8bbe70042639e83f0f4b82edbc7c6850421f072bb6
   languageName: node
   linkType: hard
 
