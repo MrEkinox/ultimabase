@@ -2,9 +2,9 @@
 
 - Status: planned
 - Milestone: 6
-- Packages: `@ultimabase/graphql-plugin`
+- Packages: `@ultimabase/graphql-plugin`, `@ultimabase/acl-permissions-plugin`, `@ultimabase/pg-vector-plugin`
 - Depends on: 608
-- ADR: ADR-0010 and the issue 608 GraphQL v1 contract
+- ADR: ADR-0010 and ADR-0238
 
 ## Goal
 
@@ -36,6 +36,9 @@ structural object and input schema from the complete application graph.
 - [ ] Plugin-defined fields compile only when their exact canonical GraphQL wire
       protocol and owner codecs are available; storage and REST codecs are never
       reused implicitly.
+- [ ] ACL and pg-vector attach exact canonical GraphQL JSON codecs without
+      importing the GraphQL package, proving the owner-side protocol boundary
+      for the two shipped plugin-defined fields.
 - [ ] Static compilation performs no Runtime execution, request work, network
       access, schema-global mutation, or infrastructure materialization.
 - [ ] Typegen contributes only inert application-specific GraphQL option and
@@ -44,8 +47,8 @@ structural object and input schema from the complete application graph.
 ## Tests
 
 - [ ] Schema snapshots cover every built-in field, dynamic plugin-owned schemas,
-      two explicit plugin instances, repeated compilation, collisions, missing
-      codecs, application isolation, and lifecycle cleanup.
+      duplicate GraphQL plugin rejection, repeated compilation, collisions,
+      missing codecs, application isolation, and lifecycle cleanup.
 - [ ] Source, built, JavaScript, Typegen-free, generated TypeScript, and packed
       consumers use only public package exports.
 

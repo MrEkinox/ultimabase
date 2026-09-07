@@ -4,7 +4,7 @@
 - Milestone: 6
 - Packages: `@ultimabase/graphql-plugin`
 - Depends on: 610, 611, 2319
-- ADR: ADR-0004, ADR-0225, ADR-0231, ADR-0232 and the issue 608 GraphQL v1 contract
+- ADR: ADR-0004, ADR-0225, ADR-0231, ADR-0232 and ADR-0238
 
 ## Goal
 
@@ -51,5 +51,5 @@ Core's narrow application request capability and the canonical Runtime pipeline.
 
 ## Out of scope
 
-- Explicit plugin operations, custom schema resolvers, DataLoader, Yoga, and
-  HTTP request handling.
+- Explicit plugin operations, custom schema resolvers, Yoga, and HTTP request
+  handling.

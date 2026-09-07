@@ -14,7 +14,9 @@ the planned first-release GraphQL layer; it is not a current workspace yet.
 ```ts
 import { typegenPlugin } from '@ultimabase/typegen'
 import { Schema, UltimaBase } from '@ultimabase/core'
+import { httpPlugin } from '@ultimabase/http-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
+import { honoServerPlugin } from '@ultimabase/server-hono-plugin'
 
 export const UserSchema = Schema.define({
 	className: 'User',
@@ -39,7 +41,10 @@ const ultimabase = new UltimaBase({
 		postgresPlugin({
 			url: env.DATABASE_URL,
 		}),
+		httpPlugin({ appId: 'main' }),
+		graphqlPlugin(),
 		graphqlYogaPlugin(),
+		honoServerPlugin(),
 	],
 })
 

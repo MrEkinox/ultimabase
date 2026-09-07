@@ -4,7 +4,7 @@
 - Milestone: 6
 - Packages: `@ultimabase/graphiql-plugin`, `@ultimabase/apollo-sandbox-plugin`
 - Depends on: 615
-- ADR: ADR-0010 and the issue 608 GraphQL v1 contract
+- ADR: ADR-0010 and ADR-0238
 
 ## Goal
 

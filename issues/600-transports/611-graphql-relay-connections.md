@@ -4,7 +4,7 @@
 - Milestone: 6
 - Packages: `@ultimabase/graphql-plugin`
 - Depends on: 610
-- ADR: ADR-0010, ADR-0227 and the issue 608 GraphQL v1 contract
+- ADR: ADR-0010, ADR-0227 and ADR-0238
 
 ## Goal
 

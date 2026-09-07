@@ -530,9 +530,18 @@ be reviewed after the plugin package is absent.
 
 - HTTP servers are plugins. The first implementation is Hono on Node.js.
 - REST converts requests to Operation AST and never queries PostgreSQL directly.
-- `graphqlCorePlugin` generates and executes a `GraphQLSchema` without a network server.
-- `graphqlYogaPlugin` mounts GraphQL over HTTP and installs GraphQL Core automatically if needed.
-- Custom Nexus, Pothos, or other schemas are accepted as `GraphQLSchema` instances and merged with the generated schema.
+- ADR-0238 names the network-independent package
+  `@ultimabase/graphql-plugin`; `graphqlPlugin()` generates, composes, and
+  executes one application-local `GraphQLSchema` through Core's narrow request
+  capability.
+- `graphqlYogaPlugin()` is an explicit sibling that depends on GraphQL and the
+  shared HTTP plugin. It never installs either dependency automatically and
+  never receives an application engine.
+- Completed Nexus, Pothos, GraphQL Tools, or other compatible schemas compose
+  through GraphQL-owned application-local inputs and capabilities, not a Core
+  registry.
+- Generated relationship selections use Core's eager inclusion contract. V1
+  adds no framework-owned DataLoader or second policy-aware loading path.
 
 ## Further reading
 

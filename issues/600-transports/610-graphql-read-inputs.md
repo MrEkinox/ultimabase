@@ -4,7 +4,7 @@
 - Milestone: 6
 - Packages: `@ultimabase/graphql-plugin`
 - Depends on: 609
-- ADR: ADR-0004, ADR-0143 and the issue 608 GraphQL v1 contract
+- ADR: ADR-0004, ADR-0143 and ADR-0238
 
 ## Goal
 
@@ -13,7 +13,7 @@ immutable Query and Operation AST without transport-specific Runtime semantics.
 
 ## Acceptance criteria
 
-- [ ] Root get, find, first, count, and exists inputs expose exactly the
+- [ ] Root get, findOne, findMany, count, and exists inputs expose exactly the
       operations enabled by the accepted GraphQL schema surface.
 - [ ] Filter operators derive from Core field capabilities and cover logical
       nesting, null, lists, embedded objects, pointers, relations, and portable

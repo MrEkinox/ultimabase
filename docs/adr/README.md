@@ -219,6 +219,7 @@ Accepted records:
 - [ADR-0235: Password Auth v1 owns one local User and opaque sessions](0235-password-auth-v1-contract.md)
 - [ADR-0236: Cookie credential issuance ignores one stale session cookie](0236-cookie-session-recovery-routes.md)
 - [ADR-0237: HTTP resolvers receive the effective browser policy](0237-http-resolvers-receive-effective-browser-policy.md)
+- [ADR-0238: GraphQL v1 uses the application request kernel](0238-graphql-v1-contract.md)
 
 Superseded records:
 

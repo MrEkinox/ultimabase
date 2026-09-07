@@ -1,6 +1,6 @@
 # Milestone 6 — GraphQL and cross-transport parity
 
-- Status: planned
+- Status: in-progress
 
 Rebase the GraphQL backlog on the trusted capability kernel and the completed
 HTTP, REST, and Password Auth vertical, then expose the same application Runtime
@@ -14,7 +14,7 @@ plugin and GraphQL Core, never on REST.
 
 ## Execution order
 
-1. [ ] [608 — Decide the GraphQL v1 contract and kernel boundaries](608-graphql-v1-contract.md)
+1. [x] [608 — Decide the GraphQL v1 contract and kernel boundaries](608-graphql-v1-contract.md)
 2. [ ] [609 — Implement the GraphQL plugin lifecycle and structural schema](609-graphql-plugin-schema.md)
 3. [ ] [610 — Generate and normalize GraphQL read inputs](610-graphql-read-inputs.md)
 4. [ ] [611 — Implement GraphQL-owned Relay connections](611-graphql-relay-connections.md)
@@ -59,9 +59,11 @@ plugin and GraphQL Core, never on REST.
 - Plugin fields and plugin operations require exact owner-supplied GraphQL wire
   compatibility. GraphQL never guesses from storage codecs or imports their
   owners.
-- Importing a GraphQL package installs no behavior. Any convenience nesting
-  accepted by issue 608 remains ordinary explicit plugin configuration sugar
-  over one validated global graph.
+- Importing a GraphQL package installs no behavior. GraphQL, Yoga, and HTTP are
+  explicit sibling plugins; Yoga never installs either dependency.
+- Generated relationship selections reuse Core's eager inclusion contract. V1
+  adds no framework DataLoader; custom resolvers own any request-local batching
+  they choose to implement through ordinary application APIs.
 
 ## Stop boundaries
 

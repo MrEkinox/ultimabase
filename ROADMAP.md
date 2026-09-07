@@ -93,9 +93,11 @@ Core's narrow application request executor, canonical field and operation wire
 protocols, and milestone 23's HTTP and authentication boundaries. Then deliver
 network-independent schema generation and execution, GraphQL-owned Relay
 connections, explicit plugin operations, custom schema composition,
-request-scoped batching, Yoga mounting, optional developer explorers, and a
-final direct TypeScript/REST/GraphQL parity audit. GraphQL packages remain
-planned and gain workspaces only when their implementation issues start.
+Yoga mounting, optional developer explorers, and a final direct
+TypeScript/REST/GraphQL parity audit. Generated relationships reuse Core's
+existing eager inclusion boundary; custom resolvers own any request-local
+batching they elect to add. GraphQL packages remain planned and gain workspaces
+only when their implementation issues start.
 
 ## Milestone 7+ — Optional ecosystem
 

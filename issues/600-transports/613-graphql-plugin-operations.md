@@ -4,7 +4,7 @@
 - Milestone: 6
 - Packages: `@ultimabase/graphql-plugin`, `@ultimabase/password-auth-plugin`
 - Depends on: 612
-- ADR: ADR-0193, ADR-0209, ADR-0225, ADR-0233 and the issue 608 GraphQL v1 contract
+- ADR: ADR-0193, ADR-0209, ADR-0225, ADR-0233 and ADR-0238
 
 ## Goal
 

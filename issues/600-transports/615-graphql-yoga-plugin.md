@@ -4,7 +4,7 @@
 - Milestone: 6
 - Packages: `@ultimabase/graphql-yoga-plugin`
 - Depends on: 614, 2317
-- ADR: ADR-0010, ADR-0224, ADR-0225, ADR-0226 and the issue 608 GraphQL v1 contract
+- ADR: ADR-0010, ADR-0224, ADR-0225, ADR-0226 and ADR-0238
 
 ## Goal
 
@@ -14,8 +14,8 @@ capability without giving Yoga or GraphQL an application engine.
 ## Acceptance criteria
 
 - [ ] A complete publishable `packages/graphql-yoga-plugin` workspace exports
-      the accepted `graphqlYogaPlugin()` API; installation or nested-plugin
-      composition follows issue 608 without hidden duplicates or ambiguous
+      the accepted `graphqlYogaPlugin()` API and requires explicit sibling
+      GraphQL and HTTP plugins without hidden installation or ambiguous
       instance selection.
 - [ ] Yoga contributes the accepted `/graphql` mount through
       `@ultimabase/http-plugin` with deterministic route collision, rollback,
@@ -39,7 +39,7 @@ capability without giving Yoga or GraphQL an application engine.
 - [ ] Yoga’s built-in GraphiQL is disabled.
 - [ ] Error masking is production-safe.
 - [ ] Multiple applications may share one Hono provider while retaining exact
-      application IDs, browser policy, routes, schemas, contexts, loaders,
+      application IDs, browser policy, routes, schemas, contexts,
       credentials, authorities, and cleanup.
 
 ## Tests
