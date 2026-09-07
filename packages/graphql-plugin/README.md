@@ -46,7 +46,37 @@ Ordering is an explicit ordered list. Model selections, fragments, directives,
 pointers, and relation selections normalize into Core's immutable Query and
 Operation AST without retaining GraphQL or HTTP objects.
 
-Cursor signing, connection-page execution, Runtime dispatch, mutations,
-explicit plugin operations, custom schema composition, and Yoga are supplied
-by later milestone issues. Importing or compiling this package still performs
-no application request.
+## Relay connections
+
+Root collections and relations expose `edges`, `nodes`, and `pageInfo` without
+`totalCount`. `first` accepts zero, defaults to 25, and is capped at 100. An
+application may narrow these values explicitly:
+
+```ts
+graphqlPlugin({ limits: { defaultPageSize: 10, maxPageSize: 50 } })
+```
+
+GraphQL appends `id ASC` as the final order unless the request already orders
+by `id`, fetches `first + 1` ordinary Core rows, and uses only the extra row to
+derive `hasNextPage`. Every edge cursor carries the offset immediately after
+that edge. Empty and exact-boundary pages therefore have deterministic page
+information without a count query.
+
+Cursors are opaque, signed with a random application-lifetime key, and bound to
+the generated model type, relationship path, normalized GraphQL wire filter,
+and effective order. A malformed, altered, foreign-application,
+restarted-application, or context-shifted cursor is rejected as
+`GRAPHQL_INVALID_CURSOR` before Runtime.
+The key is cleared when the application is disposed. Relationship cursors are
+not bound to a parent ID because one eager Core inclusion may page the same
+relationship across several parents; target Access and ACL remain enforced by
+the ordinary Runtime inclusion.
+
+The cursor contains an offset rather than a database identity or snapshot.
+Concurrent insertions and deletions can consequently shift later pages, which
+may repeat or skip an item. GraphQL translates the page to existing Core
+`where`, `orderBy`, `limit`, and `offset` clauses; Core has no cursor concept.
+
+Runtime dispatch, mutations, explicit plugin operations, custom schema
+composition, and Yoga are supplied by later milestone issues. Importing or
+compiling this package still performs no application request.

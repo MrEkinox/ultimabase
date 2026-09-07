@@ -86,12 +86,18 @@ describe('GraphQL structural schema compilation', () => {
 		const update = schema.getType('PostUpdateInput')
 		const status = schema.getType('PostStatus')
 		const stockUpdate = schema.getType('PostStockUpdate')
+		const connection = schema.getType('PostConnection')
+		const edge = schema.getType('PostEdge')
+		const pageInfo = schema.getType('PageInfo')
 
 		expect(isObjectType(post)).toBe(true)
 		expect(isObjectType(author)).toBe(true)
 		expect(isInputObjectType(create)).toBe(true)
 		expect(isInputObjectType(update)).toBe(true)
 		expect(isEnumType(status)).toBe(true)
+		expect(isObjectType(connection)).toBe(true)
+		expect(isObjectType(edge)).toBe(true)
+		expect(isObjectType(pageInfo)).toBe(true)
 		if (!isObjectType(post) || !isObjectType(author)) {
 			throw new TypeError('Expected generated model object types')
 		}
@@ -120,6 +126,25 @@ describe('GraphQL structural schema compilation', () => {
 			schema.getQueryType()?.getFields().getPost?.args[0]?.type.toString(),
 		).toBe('ID!')
 		expect(printSchema(schema)).toContain('type PostConnection')
+		if (
+			!isObjectType(connection) ||
+			!isObjectType(edge) ||
+			!isObjectType(pageInfo)
+		) {
+			throw new TypeError('Expected generated Relay connection types')
+		}
+		expect(Object.keys(connection.getFields())).toStrictEqual([
+			'edges',
+			'nodes',
+			'pageInfo',
+		])
+		expect(Object.keys(edge.getFields())).toStrictEqual(['cursor', 'node'])
+		expect(Object.keys(pageInfo.getFields()).sort()).toStrictEqual([
+			'endCursor',
+			'hasNextPage',
+			'hasPreviousPage',
+			'startCursor',
+		])
 		await application.dispose()
 	})
 

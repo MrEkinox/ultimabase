@@ -25,6 +25,9 @@ test('preserves plugin and generated schema option types', async () => {
 		},
 	})
 	const configured = graphqlPlugin({ default: { count: true } })
+	const limited = graphqlPlugin({
+		limits: { defaultPageSize: 10, maxPageSize: 50 },
+	})
 	const application = await createApplication({
 		plugins: [configured],
 		schemas: [Post],
@@ -32,6 +35,22 @@ test('preserves plugin and generated schema option types', async () => {
 	const exports = application.getPlugin('@ultimabase/graphql-plugin')
 
 	expectTypeOf(configured).toEqualTypeOf<GraphqlPlugin>()
+	expectTypeOf(limited).toEqualTypeOf<GraphqlPlugin>()
 	expectTypeOf(exports).toEqualTypeOf<Readonly<GraphqlPluginExports>>()
 	expectTypeOf(exports.schema).toEqualTypeOf<GraphQLSchema>()
+})
+
+test('rejects invalid connection limit types', () => {
+	graphqlPlugin({
+		limits: {
+			// @ts-expect-error page sizes are numeric
+			defaultPageSize: 'ten',
+		},
+	})
+	graphqlPlugin({
+		limits: {
+			// @ts-expect-error unknown limit keys are rejected
+			unknown: 10,
+		},
+	})
 })

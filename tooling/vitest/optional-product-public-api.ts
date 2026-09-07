@@ -365,6 +365,8 @@ export const graphqlPluginPublicApi = {
 		'GraphqlDate',
 		'GraphqlDateTime',
 		'GraphqlDecimal',
+		'GraphqlExecutionLimits',
+		'GraphqlInvalidCursorError',
 		'GraphqlJSON',
 		'GraphqlPlugin',
 		'GraphqlPluginExports',

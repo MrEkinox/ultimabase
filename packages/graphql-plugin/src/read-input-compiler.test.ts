@@ -12,10 +12,11 @@ declare module '@ultimabase/core' {
 
 const readSchema = async (
 	schemas: readonly ReturnType<typeof Schema.define>[],
+	plugin = graphqlPlugin(),
 ) => {
 	const application = await createApplication({
 		pluginPrivileges: { logger: false },
-		plugins: [graphqlPlugin()],
+		plugins: [plugin],
 		schemas,
 	})
 	return {
@@ -62,6 +63,10 @@ describe('GraphQL read input compilation', () => {
 			'orderBy',
 			'where',
 		])
+		expect(
+			query?.findManyReadInputPost?.args.find(({ name }) => name === 'first')
+				?.default?.value,
+		).toBe(25)
 
 		const where = schema.getType('ReadInputPostWhere')
 		const title = schema.getType('ReadInputPostTitleWhere')
@@ -129,6 +134,38 @@ describe('GraphQL read input compilation', () => {
 			'orderBy',
 			'where',
 		])
+		await application.dispose()
+	})
+
+	it('uses the configured default page size on roots and relations', async () => {
+		const Child = Schema.define({
+			className: 'ConfiguredReadChild',
+			fields: (field) => ({ value: field.string() }),
+		})
+		const Parent = Schema.define({
+			className: 'ConfiguredReadParent',
+			fields: (field) => ({
+				children: field.relation({ target: 'ConfiguredReadChild' }),
+			}),
+			graphql: true,
+		})
+		const { application, schema } = await readSchema(
+			[Child, Parent],
+			graphqlPlugin({ limits: { defaultPageSize: 7, maxPageSize: 20 } }),
+		)
+		const root = schema.getQueryType()?.getFields().findManyConfiguredReadParent
+		const parent = schema.getType('ConfiguredReadParent')
+		if (!isObjectType(parent)) {
+			throw new TypeError('Expected configured parent type')
+		}
+
+		expect(
+			root?.args.find(({ name }) => name === 'first')?.default?.value,
+		).toBe(7)
+		expect(
+			parent.getFields().children?.args.find(({ name }) => name === 'first')
+				?.default?.value,
+		).toBe(7)
 		await application.dispose()
 	})
 

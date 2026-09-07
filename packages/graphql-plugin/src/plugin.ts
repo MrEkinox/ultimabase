@@ -19,6 +19,12 @@ import {
 } from './application.js'
 import { compileGraphqlSchema } from './compiler.js'
 import {
+	defaultGraphqlExecutionLimits,
+	normalizeGraphqlExecutionLimits,
+	type GraphqlExecutionLimits,
+} from './connection-limits.js'
+import { GraphqlConnectionRuntime } from './connection-runtime.js'
+import {
 	graphqlSchemaOption,
 	normalizeGraphqlSchemaOperations,
 	type GraphqlSchemaOperations,
@@ -40,6 +46,8 @@ export interface GraphqlPluginOptions {
 	readonly acknowledgeUnverifiedProtection?: true
 	/** Supplies sparse generated-operation defaults for application schemas. */
 	readonly default?: boolean | GraphqlSchemaOperations
+	/** Configures the forward Relay page window. */
+	readonly limits?: GraphqlExecutionLimits
 }
 
 /** Exposes the application-local network-independent GraphQL schema. */
@@ -47,10 +55,11 @@ export type GraphqlPluginExports = GraphqlApplication
 
 const parseGraphqlPluginOptions = definePluginOptionsParser({
 	name: 'GraphQL plugin options',
-	keys: ['acknowledgeUnverifiedProtection', 'default'] as const,
+	keys: ['acknowledgeUnverifiedProtection', 'default', 'limits'] as const,
 	normalize: ({
 		acknowledgeUnverifiedProtection,
 		default: defaultOperations,
+		limits,
 	}) => {
 		if (
 			acknowledgeUnverifiedProtection !== undefined &&
@@ -69,6 +78,10 @@ const parseGraphqlPluginOptions = definePluginOptionsParser({
 							defaultOperations,
 							'GraphQL plugin default',
 						),
+			limits:
+				limits === undefined
+					? defaultGraphqlExecutionLimits
+					: normalizeGraphqlExecutionLimits(limits),
 		}
 	},
 })
@@ -136,15 +149,24 @@ export const graphqlPlugin = (
 	const normalized = parseGraphqlPluginOptions(options)
 	const applicationProvider = provideCapability(graphqlApplicationCapability, {
 		contributionId: 'official-graphql-application',
-		create: ({ schemas }) =>
-			createGraphqlApplicationResource(
-				compileGraphqlSchema({
-					...(normalized.defaultOperations === undefined
-						? {}
-						: { defaultOperations: normalized.defaultOperations }),
-					schemas,
-				}),
-			),
+		create: ({ schemas }) => {
+			const connections = new GraphqlConnectionRuntime(normalized.limits)
+			try {
+				return createGraphqlApplicationResource(
+					compileGraphqlSchema({
+						connectionLimits: normalized.limits,
+						...(normalized.defaultOperations === undefined
+							? {}
+							: { defaultOperations: normalized.defaultOperations }),
+						schemas,
+					}),
+					connections,
+				)
+			} catch (error: unknown) {
+				connections.dispose()
+				throw error
+			}
+		},
 	})
 	const capabilities: GraphqlPluginCapabilities = {
 		provides: [applicationProvider],

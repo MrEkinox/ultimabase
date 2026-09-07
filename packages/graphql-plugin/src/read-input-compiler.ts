@@ -24,15 +24,18 @@ import type { GraphqlSchemaSurface } from './surfaces.js'
 export class GraphqlReadInputCompiler {
 	readonly #fields: GraphqlFieldTypeCompiler
 	readonly #filters: GraphqlFilterInputCompiler
+	readonly #defaultPageSize: number
 	readonly #surfaces: ReadonlyMap<SchemaDefinition, GraphqlSchemaSurface>
 
 	constructor(
 		options: Readonly<{
+			readonly defaultPageSize: number
 			readonly fields: GraphqlFieldTypeCompiler
 			readonly filters: GraphqlFilterInputCompiler
 			readonly surfaces: ReadonlyMap<SchemaDefinition, GraphqlSchemaSurface>
 		}>,
 	) {
+		this.#defaultPageSize = options.defaultPageSize
 		this.#fields = options.fields
 		this.#filters = options.filters
 		this.#surfaces = options.surfaces
@@ -53,7 +56,7 @@ export class GraphqlReadInputCompiler {
 	collectionArguments(schema: SchemaDefinition): GraphQLFieldConfigArgumentMap {
 		return {
 			after: { type: GraphQLString },
-			first: { type: GraphQLInt },
+			first: { default: { value: this.#defaultPageSize }, type: GraphQLInt },
 			orderBy: { type: this.#orderList(schema) },
 			where: { type: this.#filters.where(schema) },
 		}

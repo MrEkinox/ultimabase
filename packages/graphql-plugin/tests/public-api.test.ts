@@ -9,6 +9,7 @@ it('exports only the deliberate GraphQL application surface', () => {
 		'GraphqlDate',
 		'GraphqlDateTime',
 		'GraphqlDecimal',
+		'GraphqlInvalidCursorError',
 		'GraphqlJSON',
 		'GraphqlSafeInt',
 		'GraphqlSchemaCompilationError',

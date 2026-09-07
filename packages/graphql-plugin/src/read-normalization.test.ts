@@ -15,7 +15,11 @@ import {
 	graphqlPlugin,
 	type GraphqlSchemaExposureOption,
 } from './index.js'
-import { normalizeGraphqlReadOperation } from './read-normalization.js'
+import { readGraphqlConnectionRuntime } from './application.js'
+import {
+	normalizeGraphqlCollectionArguments,
+	normalizeGraphqlReadOperation,
+} from './read-normalization.js'
 
 declare module '@ultimabase/core' {
 	interface UltimaBaseGeneratedSchemaOptions {
@@ -116,13 +120,17 @@ const createFixture = async () => {
 		plugins: [fieldOwner, graphqlPlugin()],
 		schemas: [Author, RecordSchema],
 	})
-	const schema = application.getPlugin('@ultimabase/graphql-plugin').schema
-	return { application, schema }
+	const graphqlApplication = application.getPlugin('@ultimabase/graphql-plugin')
+	return {
+		application,
+		connections: readGraphqlConnectionRuntime(graphqlApplication),
+		schema: graphqlApplication.schema,
+	}
 }
 
 describe('GraphQL read normalization', () => {
 	it('matches direct Core ASTs across wire values, fragments, directives, aliases, and inclusions', async () => {
-		const { application, schema } = await createFixture()
+		const { application, connections, schema } = await createFixture()
 		let normalized: ReadOperationAst | undefined
 		const result = await graphql({
 			schema,
@@ -171,6 +179,7 @@ describe('GraphQL read normalization', () => {
 						'findMany',
 						args,
 						info,
+						{ connections },
 					)
 					return {
 						edges: [],
@@ -189,13 +198,14 @@ describe('GraphQL read normalization', () => {
 			include: {
 				author: { select: { name: true } },
 				related: {
-					limit: 5,
+					limit: 6,
+					orderBy: { id: 'asc' },
 					select: { name: true },
 					where: { name: { startsWith: 'R' } },
 				},
 			},
-			limit: 20,
-			orderBy: { createdAt: 'desc', name: 'asc' },
+			limit: 21,
+			orderBy: { createdAt: 'desc', name: 'asc', id: 'asc' },
 			select: { name: true, huge: true, portableCode: true },
 			where: {
 				author: { eq: authorId },
@@ -219,14 +229,16 @@ describe('GraphQL read normalization', () => {
 	})
 
 	it('normalizes every singular and aggregate read into its Core operation', async () => {
-		const { application, schema } = await createFixture()
+		const { application, connections, schema } = await createFixture()
 		const normalized = new Map<string, ReadOperationAst>()
 		const capture =
 			(operation: 'count' | 'exists' | 'findOne' | 'get', result: unknown) =>
 			(args: unknown, _context: unknown, info: GraphQLResolveInfo): unknown => {
 				normalized.set(
 					operation,
-					normalizeGraphqlReadOperation(RecordSchema, operation, args, info),
+					normalizeGraphqlReadOperation(RecordSchema, operation, args, info, {
+						connections,
+					}),
 				)
 				return result
 			}
@@ -303,10 +315,10 @@ describe('GraphQL read normalization', () => {
 	})
 
 	it('rejects malformed and excessive inputs through deterministic pre-Runtime boundaries', async () => {
-		const { application } = await createFixture()
-		const malformedCollections: readonly unknown[] = [
+		const { application, connections } = await createFixture()
+		const malformedCollections: readonly Readonly<Record<string, unknown>>[] = [
 			{ unknown: true },
-			{ first: 0 },
+			{ first: -1 },
 			{ first: 101 },
 			{
 				orderBy: [
@@ -318,12 +330,10 @@ describe('GraphQL read normalization', () => {
 
 		for (const input of malformedCollections) {
 			expect(() =>
-				normalizeGraphqlReadOperation(
-					RecordSchema,
-					'findMany',
-					input,
-					undefined,
-				),
+				normalizeGraphqlCollectionArguments(RecordSchema, input, connections, {
+					relationPath: [],
+					typeName: 'GraphqlReadRecord',
+				}),
 			).toThrow()
 		}
 		for (const where of [
@@ -332,22 +342,32 @@ describe('GraphQL read normalization', () => {
 			{ portableCode: { eq: { invalid: true } } },
 		]) {
 			expect(() =>
-				normalizeGraphqlReadOperation(RecordSchema, 'count', { where }),
+				normalizeGraphqlReadOperation(
+					RecordSchema,
+					'count',
+					{ where },
+					undefined,
+					{ connections },
+				),
 			).toThrow()
 		}
 
 		for (let index = 0; index < 32; index += 1) {
 			expect(() =>
-				normalizeGraphqlReadOperation(RecordSchema, 'count', {
-					where: { [`unknown_${String(index)}`]: { eq: index } },
-				}),
+				normalizeGraphqlReadOperation(
+					RecordSchema,
+					'count',
+					{ where: { [`unknown_${String(index)}`]: { eq: index } } },
+					undefined,
+					{ connections },
+				),
 			).toThrow()
 		}
 		await application.dispose()
 	})
 
 	it('rejects relationship aliases that cannot share one Core inclusion', async () => {
-		const { application, schema } = await createFixture()
+		const { application, connections, schema } = await createFixture()
 		const result = await graphql({
 			schema,
 			source: `
@@ -366,7 +386,9 @@ describe('GraphQL read normalization', () => {
 					_context: unknown,
 					info: GraphQLResolveInfo,
 				) =>
-					normalizeGraphqlReadOperation(RecordSchema, 'findMany', args, info),
+					normalizeGraphqlReadOperation(RecordSchema, 'findMany', args, info, {
+						connections,
+					}),
 			},
 		})
 

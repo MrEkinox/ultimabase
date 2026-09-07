@@ -5,6 +5,8 @@ import {
 } from '@ultimabase/core'
 import { GraphQLSchema } from 'graphql'
 
+import type { GraphqlConnectionRuntime } from './connection-runtime.js'
+
 /** Exposes one application-local GraphQL schema without a network transport. */
 export interface GraphqlApplication {
 	/** The immutable schema compiled from this application's final Core graph. */
@@ -12,6 +14,7 @@ export interface GraphqlApplication {
 }
 
 interface GraphqlApplicationState {
+	connections: GraphqlConnectionRuntime | undefined
 	disposed: boolean
 	schema: GraphQLSchema | undefined
 }
@@ -19,8 +22,12 @@ interface GraphqlApplicationState {
 const graphqlApplicationStates = new WeakMap<object, GraphqlApplicationState>()
 
 class GraphqlApplicationResource implements GraphqlApplication {
-	constructor(schema: GraphQLSchema) {
-		graphqlApplicationStates.set(this, { disposed: false, schema })
+	constructor(schema: GraphQLSchema, connections: GraphqlConnectionRuntime) {
+		graphqlApplicationStates.set(this, {
+			connections,
+			disposed: false,
+			schema,
+		})
 		Object.freeze(this)
 	}
 
@@ -68,16 +75,30 @@ export const graphqlApplicationCapability: CapabilityToken<
 /** @internal Binds schema lifetime to the owning application capability. */
 export const createGraphqlApplicationResource = (
 	schema: GraphQLSchema,
+	connections: GraphqlConnectionRuntime,
 ): ApplicationCapabilityResource<GraphqlApplication> => {
-	const value = new GraphqlApplicationResource(schema)
+	const value = new GraphqlApplicationResource(schema, connections)
 	return {
 		value,
 		dispose: (): void => {
 			const state = graphqlApplicationStates.get(value)
 			if (state !== undefined) {
+				state.connections?.dispose()
+				state.connections = undefined
 				state.disposed = true
 				state.schema = undefined
 			}
 		},
 	}
+}
+
+/** @internal Resolves the private cursor owner retained by a live capability. */
+export const readGraphqlConnectionRuntime = (
+	application: GraphqlApplication,
+): GraphqlConnectionRuntime => {
+	const state = graphqlApplicationStates.get(application)
+	if (state?.disposed !== false || state.connections === undefined) {
+		throw new TypeError('GraphQL application has been disposed')
+	}
+	return state.connections
 }

@@ -1,6 +1,6 @@
 # 611: Implement GraphQL-owned Relay connections
 
-- Status: planned
+- Status: completed
 - Milestone: 6
 - Packages: `@ultimabase/graphql-plugin`
 - Depends on: 610
@@ -13,26 +13,26 @@ GraphQL package and translate pages into ordinary Core Query clauses.
 
 ## Acceptance criteria
 
-- [ ] Connection fields expose the exact accepted edges, nodes, cursor,
+- [x] Connection fields expose the exact accepted edges, nodes, cursor,
       `pageInfo`, and count behavior without adding pagination metadata to Core.
-- [ ] Cursor payloads, ordering, tie-breaking, integrity checks, expiry or
+- [x] Cursor payloads, ordering, tie-breaking, integrity checks, expiry or
       invalidation behavior, and forward arguments match the issue 608 contract.
-- [ ] A cursor is opaque on the wire, schema- and ordering-bound where required,
+- [x] A cursor is opaque on the wire, schema- and ordering-bound where required,
       and cannot select another application, schema, policy context, authority,
       or arbitrary Query clause.
-- [ ] Every page normalizes into existing filters, ordering, limit, and offset
+- [x] Every page normalizes into existing filters, ordering, limit, and offset
       clauses; Core gains no cursor token, codec, AST node, implicit ordering,
       or adapter-specific keyset API.
-- [ ] Empty pages, exact boundaries, null ordering, deletions or insertions
+- [x] Empty pages, exact boundaries, null ordering, deletions or insertions
       between pages, malformed cursors, and unsupported reverse pagination have
       the documented deterministic behavior.
-- [ ] Relationship connections reuse the same protocol and preserve target
+- [x] Relationship connections reuse the same protocol and preserve target
       Access, ACL, selection, and inclusion semantics through Runtime rather
       than evaluating policy in GraphQL.
 
 ## Tests
 
-- [ ] Multi-page networkless fixtures cover custom ordering, duplicate ordered
+- [x] Multi-page networkless fixtures cover custom ordering, duplicate ordered
       values, boundary pages, malformed and foreign cursors, relationships,
       parallel applications, and PostgreSQL execution.
 

@@ -4,14 +4,12 @@ import {
 	type ReadOperationKind,
 	type SchemaDefinition,
 } from '@ultimabase/core'
-import {
-	immutableRecord,
-	isPlainRecord,
-	isUnknownArray,
-} from '@ultimabase/shared'
-import type { GraphQLResolveInfo } from 'graphql'
+import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
+import { getNamedType, isObjectType, type GraphQLResolveInfo } from 'graphql'
 
+import type { GraphqlConnectionRuntime } from './connection-runtime.js'
 import { decodeGraphqlWhere } from './read-values.js'
+import { normalizeGraphqlOrdering } from './read-ordering.js'
 import {
 	normalizeGraphqlSelection,
 	type GraphqlReadProjection,
@@ -70,64 +68,34 @@ const assertArguments = (
 	return value
 }
 
-const normalizeOrdering = (
-	value: unknown,
-): Readonly<Record<string, unknown>> => {
-	if (!isUnknownArray(value)) {
-		throw new TypeError('GraphQL orderBy must be a list')
-	}
-	const order: Record<string, 'asc' | 'desc'> = {}
-	for (const [index, item] of value.entries()) {
-		if (
-			!isPlainRecord(item) ||
-			typeof item.field !== 'string' ||
-			(item.direction !== 'asc' && item.direction !== 'desc')
-		) {
-			throw new TypeError(
-				`GraphQL orderBy[${String(index)}] must contain a field and direction`,
-			)
-		}
-		if (Object.hasOwn(order, item.field)) {
-			throw new TypeError(`GraphQL orderBy repeats field ${item.field}`)
-		}
-		order[item.field] = item.direction
-	}
-	return immutableRecord(order)
+export interface GraphqlReadNormalizationContext {
+	readonly connections: GraphqlConnectionRuntime
+}
+
+export interface GraphqlConnectionScope {
+	readonly relationPath: readonly string[]
+	readonly typeName: string
 }
 
 /** Converts collection arguments into existing Core query clauses. */
 export const normalizeGraphqlCollectionArguments = (
-	_schema: SchemaDefinition,
+	schema: SchemaDefinition,
 	args: Readonly<Record<string, unknown>>,
-): Readonly<Record<string, unknown>> => {
-	const input: Record<string, unknown> = {}
-	if (Object.hasOwn(args, 'after') && args.after !== undefined) {
-		throw new TypeError('GraphQL cursor normalization is not available')
-	}
-	if (Object.hasOwn(args, 'first') && args.first !== undefined) {
-		if (
-			typeof args.first !== 'number' ||
-			!Number.isSafeInteger(args.first) ||
-			args.first < 1 ||
-			args.first > 100
-		) {
-			throw new RangeError('GraphQL first must be a safe integer from 1 to 100')
-		}
-		input.limit = args.first
-	}
-	if (Object.hasOwn(args, 'orderBy')) {
-		input.orderBy = normalizeOrdering(args.orderBy)
-	}
-	if (Object.hasOwn(args, 'where')) {
-		input.where = decodeGraphqlWhere(_schema, args.where)
-	}
-	return immutableRecord(input)
-}
+	connections: GraphqlConnectionRuntime,
+	scope: GraphqlConnectionScope,
+): Readonly<Record<string, unknown>> =>
+	connections.prepare({
+		arguments: args,
+		relationPath: scope.relationPath,
+		schema,
+		typeName: scope.typeName,
+	}).clauses
 
 const projectionFor = (
 	schema: SchemaDefinition,
 	operation: GraphqlReadOperation,
 	info: GraphQLResolveInfo | undefined,
+	context: GraphqlReadNormalizationContext,
 ): GraphqlReadProjection | undefined => {
 	if (operation === 'count' || operation === 'exists') return undefined
 	if (info === undefined) {
@@ -139,8 +107,26 @@ const projectionFor = (
 		schema,
 		info,
 		operation === 'findMany',
-		normalizeGraphqlCollectionArguments,
+		(relationSchema, args, scope) =>
+			normalizeGraphqlCollectionArguments(
+				relationSchema,
+				args,
+				context.connections,
+				scope,
+			),
 	)
+}
+
+const connectionTypeName = (info: GraphQLResolveInfo): string => {
+	const connection = getNamedType(info.returnType)
+	if (!isObjectType(connection)) {
+		throw new TypeError('GraphQL connection result must be an object type')
+	}
+	const model = getNamedType(connection.getFields().nodes?.type)
+	if (!model || !isObjectType(model)) {
+		throw new TypeError('GraphQL connection model type is malformed')
+	}
+	return model.name
 }
 
 /** Normalizes GraphQL arguments and selections into a transport-free Core AST. */
@@ -151,23 +137,35 @@ export const normalizeGraphqlReadOperation = <
 	schema: TSchema,
 	operation: TOperation,
 	args: unknown,
-	info?: GraphQLResolveInfo,
+	info: GraphQLResolveInfo | undefined,
+	context: GraphqlReadNormalizationContext,
 ): GraphqlReadOperationAst<TSchema, TOperation> => {
 	const source = assertArguments(args, operation)
 	const input: Record<string, unknown> = {}
 	if (operation === 'get') {
 		input.id = source.id
 	} else if (operation === 'findMany') {
-		Object.assign(input, normalizeGraphqlCollectionArguments(schema, source))
+		if (info === undefined) {
+			throw new TypeError(
+				'GraphQL findMany normalization requires selection info',
+			)
+		}
+		Object.assign(
+			input,
+			normalizeGraphqlCollectionArguments(schema, source, context.connections, {
+				relationPath: [],
+				typeName: connectionTypeName(info),
+			}),
+		)
 	} else {
-		if (Object.hasOwn(source, 'where')) {
+		if (source.where !== undefined && source.where !== null) {
 			input.where = decodeGraphqlWhere(schema, source.where)
 		}
-		if (Object.hasOwn(source, 'orderBy')) {
-			input.orderBy = normalizeOrdering(source.orderBy)
+		if (source.orderBy !== undefined && source.orderBy !== null) {
+			input.orderBy = normalizeGraphqlOrdering(source.orderBy)
 		}
 	}
-	const projection = projectionFor(schema, operation, info)
+	const projection = projectionFor(schema, operation, info, context)
 	if (projection !== undefined) Object.assign(input, projection)
 	return normalizeReadOperation(
 		schema,

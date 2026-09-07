@@ -36,6 +36,10 @@ export interface GraphqlReadProjection {
 export type GraphqlRelationArgumentNormalizer = (
 	schema: SchemaDefinition,
 	args: Readonly<Record<string, unknown>>,
+	scope: Readonly<{
+		readonly relationPath: readonly string[]
+		readonly typeName: string
+	}>,
 ) => Readonly<Record<string, unknown>>
 
 const shouldInclude = (
@@ -174,6 +178,7 @@ const modelProjection = (
 	selectionSets: readonly SelectionSetNode[],
 	context: SelectionContext,
 	normalizeRelationArguments: GraphqlRelationArgumentNormalizer,
+	relationPath: readonly string[],
 ): GraphqlReadProjection => {
 	const select: Record<string, true> = {}
 	const include: Record<string, unknown> = {}
@@ -224,18 +229,24 @@ const modelProjection = (
 			field.kind === 'relation'
 				? relationNodeSelectionSets(selected, outputType, context)
 				: childSelectionSets(selected)
+		const targetRelationPath = [...relationPath, selected.name]
 		const projection = modelProjection(
 			target,
 			modelType,
 			targetSelectionSets,
 			context,
 			normalizeRelationArguments,
+			targetRelationPath,
 		)
 		include[selected.name] = immutableRecord({
 			...(field.kind === 'relation'
 				? normalizeRelationArguments(
 						target,
 						fieldArguments(selected, definition, context),
+						{
+							relationPath: targetRelationPath,
+							typeName: modelType.name,
+						},
 					)
 				: {}),
 			...projection,
@@ -272,6 +283,7 @@ export const normalizeGraphqlSelection = (
 			rootSelectionSets,
 			context,
 			normalizeRelationArguments,
+			[],
 		)
 	}
 	const model = getNamedType(root.getFields().nodes?.type)
@@ -289,5 +301,6 @@ export const normalizeGraphqlSelection = (
 		relationNodeSelectionSets(synthetic, root, context),
 		context,
 		normalizeRelationArguments,
+		[],
 	)
 }

@@ -398,8 +398,16 @@ segments. The payload contains only:
 - cursor protocol version `1`;
 - the next zero-based Core offset;
 - the generated schema type and relationship path;
-- a SHA-256 fingerprint of the normalized where expression and effective
-  ordered field/direction list, plus the exact source object ID for a relation.
+- a SHA-256 fingerprint of the normalized GraphQL wire where expression and
+  effective ordered field/direction list.
+
+Relation cursors additionally retain the exact generated relationship path but
+not a source object ID. One eager Core inclusion plan may page the same
+relationship across several parent results whose IDs do not exist before
+Runtime. Binding a cursor to one parent would therefore require a per-parent
+resolver query or a transport cursor in Core. The signed path prevents a cursor
+from selecting another relationship, while ordinary relation membership,
+Access, ACL, and protected constraints remain enforced independently by Runtime.
 
 An application-lifetime 32-byte random key signs cursors. The key is never
 exported or logged. Consequently a cursor is valid only for the exact running

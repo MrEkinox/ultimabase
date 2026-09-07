@@ -3,6 +3,7 @@ import { GraphQLObjectType, GraphQLSchema, validateSchema } from 'graphql'
 import type { GraphQLFieldConfigArgumentMap } from 'graphql'
 
 import { GraphqlFieldTypeCompiler } from './field-compiler.js'
+import type { NormalizedGraphqlExecutionLimits } from './connection-limits.js'
 import { GraphqlFilterInputCompiler } from './filter-input-compiler.js'
 import { GraphqlMutationInputCompiler } from './mutation-input-compiler.js'
 import { GraphqlNameRegistry } from './names.js'
@@ -36,6 +37,7 @@ const reserveGraphqlNames = (names: GraphqlNameRegistry): void => {
 /** Compiles one isolated GraphQL structural schema from the final Core graph. */
 export const compileGraphqlSchema = (
 	options: Readonly<{
+		readonly connectionLimits: NormalizedGraphqlExecutionLimits
 		readonly defaultOperations?: boolean | GraphqlSchemaOperations
 		readonly schemas: CompiledSchemaRegistry
 	}>,
@@ -61,6 +63,7 @@ export const compileGraphqlSchema = (
 		surfaces,
 	})
 	const reads: GraphqlReadInputCompiler = new GraphqlReadInputCompiler({
+		defaultPageSize: options.connectionLimits.defaultPageSize,
 		fields,
 		filters,
 		surfaces,
