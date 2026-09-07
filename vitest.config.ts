@@ -58,6 +58,9 @@ const testProjects: TestProjectConfiguration[] = [
 			],
 			include: ['tests/e2e/**/*.e2e.test.ts'],
 			name: 'coverage-e2e',
+			// Source instrumentation amplifies packed language-service checks on
+			// resource-constrained hosted runners.
+			testTimeout: 20_000,
 		},
 	},
 	{
@@ -67,6 +70,7 @@ const testProjects: TestProjectConfiguration[] = [
 			globalSetup: ['./tests/e2e/postgres.global-setup.ts'],
 			include: ['tests/e2e/**/*.postgres.e2e.test.ts'],
 			name: 'coverage-postgres-e2e',
+			testTimeout: 20_000,
 		},
 	},
 	{
