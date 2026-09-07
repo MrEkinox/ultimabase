@@ -16,7 +16,7 @@ plugin and GraphQL Core, never on REST.
 
 1. [x] [608 — Decide the GraphQL v1 contract and kernel boundaries](608-graphql-v1-contract.md)
 2. [x] [609 — Implement the GraphQL plugin lifecycle and structural schema](609-graphql-plugin-schema.md)
-3. [ ] [610 — Generate and normalize GraphQL read inputs](610-graphql-read-inputs.md)
+3. [x] [610 — Generate and normalize GraphQL read inputs](610-graphql-read-inputs.md)
 4. [ ] [611 — Implement GraphQL-owned Relay connections](611-graphql-relay-connections.md)
 5. [ ] [612 — Execute generated GraphQL schema operations](612-graphql-schema-execution.md)
 6. [ ] [613 — Expose explicit plugin operations through GraphQL](613-graphql-plugin-operations.md)

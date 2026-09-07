@@ -11,10 +11,10 @@ import {
 import {
 	GraphQLEnumType,
 	GraphQLInputObjectType,
-	GraphQLList,
 	GraphQLNonNull,
 	GraphQLObjectType,
 	type GraphQLFieldConfigMap,
+	type GraphQLFieldConfigArgumentMap,
 	type GraphQLInputFieldConfigMap,
 	type GraphQLNamedType,
 	type GraphQLNullableInputType,
@@ -41,6 +41,7 @@ import { GraphqlJSON } from './scalars.js'
 import {
 	readGraphqlScalarInputType,
 	readGraphqlScalarOutputType,
+	wrapGraphqlFieldList,
 } from './scalar-types.js'
 import {
 	graphqlSourceDescription,
@@ -52,6 +53,9 @@ export class GraphqlFieldTypeCompiler {
 	readonly #schemas: CompiledSchemaRegistry
 	readonly #names: GraphqlNameRegistry
 	readonly #surfaces: ReadonlyMap<SchemaDefinition, GraphqlSchemaSurface>
+	readonly #relationArguments: (
+		target: SchemaDefinition,
+	) => GraphQLFieldConfigArgumentMap
 	readonly #models = new Map<SchemaDefinition, GraphQLObjectType>()
 	readonly #connectionTypes: GraphqlConnectionTypeCompiler
 	readonly #enums = new Map<string, GraphQLEnumType>()
@@ -64,22 +68,28 @@ export class GraphqlFieldTypeCompiler {
 			readonly names: GraphqlNameRegistry
 			readonly schemas: CompiledSchemaRegistry
 			readonly surfaces: ReadonlyMap<SchemaDefinition, GraphqlSchemaSurface>
+			readonly relationArguments: (
+				target: SchemaDefinition,
+			) => GraphQLFieldConfigArgumentMap
 		}>,
 	) {
 		this.#names = options.names
 		this.#schemas = options.schemas
 		this.#surfaces = options.surfaces
+		this.#relationArguments = options.relationArguments
 		this.#connectionTypes = new GraphqlConnectionTypeCompiler({
 			model: (schema) => this.model(schema),
 			names: options.names,
 			surfaces: options.surfaces,
 		})
 	}
-
 	get types(): readonly GraphQLNamedType[] {
 		return [...this.#namedTypes, ...this.#connectionTypes.types]
 	}
 
+	connectionType(schema: SchemaDefinition): GraphQLObjectType {
+		return this.#connectionTypes.connection(schema)
+	}
 	#surface(schema: SchemaDefinition): GraphqlSchemaSurface {
 		const surface = this.#surfaces.get(schema)
 		if (surface === undefined) {
@@ -128,6 +138,9 @@ export class GraphqlFieldTypeCompiler {
 			compiled[name] = {
 				description: readGraphqlFieldDescription(field),
 				type: this.#outputType(field, schema, path),
+				...(field.kind === 'relation'
+					? { args: this.#relationArguments(this.#target(schema, path)) }
+					: {}),
 				...(codec === undefined
 					? {}
 					: {
@@ -178,30 +191,12 @@ export class GraphqlFieldTypeCompiler {
 		return `${schema.className}\0${path.join('\0')}`
 	}
 
-	#wrapList(
-		type: GraphQLNullableOutputType,
-		field: GenericField,
-	): GraphQLNullableOutputType {
-		return getFieldListDepth(field.options) === 0
-			? type
-			: new GraphQLList(new GraphQLNonNull(type))
-	}
-
-	#wrapInputList(
-		type: GraphQLNullableInputType,
-		field: GenericField,
-	): GraphQLNullableInputType {
-		return getFieldListDepth(field.options) === 0
-			? type
-			: new GraphQLList(new GraphQLNonNull(type))
-	}
-
 	#outputType(
 		field: GenericField,
 		schema: SchemaDefinition,
 		path: readonly string[],
 	): GraphQLNullableOutputType {
-		return this.#wrapList(this.#outputScalar(field, schema, path), field)
+		return wrapGraphqlFieldList(this.#outputScalar(field, schema, path), field)
 	}
 
 	#outputScalar(
@@ -229,7 +224,7 @@ export class GraphqlFieldTypeCompiler {
 		}
 	}
 
-	#inputScalar(
+	inputElementType(
 		field: GenericField,
 		schema: SchemaDefinition,
 		path: readonly string[],
@@ -252,7 +247,10 @@ export class GraphqlFieldTypeCompiler {
 		schema: SchemaDefinition,
 		path: readonly string[],
 	): GraphQLNullableInputType {
-		return this.#wrapInputList(this.#inputScalar(field, schema, path), field)
+		return wrapGraphqlFieldList(
+			this.inputElementType(field, schema, path),
+			field,
+		)
 	}
 
 	#enum(

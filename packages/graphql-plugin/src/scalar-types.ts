@@ -1,8 +1,10 @@
-import type { GenericField } from '@ultimabase/core'
+import { getFieldListDepth, type GenericField } from '@ultimabase/core'
 import {
 	GraphQLBoolean,
 	GraphQLFloat,
 	GraphQLID,
+	GraphQLList,
+	GraphQLNonNull,
 	GraphQLString,
 	type GraphQLNullableInputType,
 	type GraphQLNullableOutputType,
@@ -19,6 +21,17 @@ import {
 	GraphqlTime,
 	GraphqlUUID,
 } from './scalars.js'
+
+/** Applies the one-dimensional Core list shape to an input or output type. */
+export const wrapGraphqlFieldList = <
+	TType extends GraphQLNullableInputType | GraphQLNullableOutputType,
+>(
+	type: TType,
+	field: GenericField,
+): TType | GraphQLList<GraphQLNonNull<TType>> =>
+	getFieldListDepth(field.options) === 0
+		? type
+		: new GraphQLList(new GraphQLNonNull(type))
 
 /** Resolves built-in scalar output kinds without guessing complex field shapes. */
 export const readGraphqlScalarOutputType = (

@@ -38,7 +38,15 @@ option, invalid or colliding names, plugin fields without the canonical
 `ultimabase.graphql.field@1.0.0` JSON codec, and final schemas without a query
 root field. No synthetic health or placeholder query is added.
 
-Issue 609 supplies structural model, create, update, enum, scalar, embedded
-object, pointer, relation-connection, and `get<Type>` declarations. Later
-milestone issues add read filters and normalization, cursor behavior, Runtime
-execution, explicit plugin operations, custom schema composition, and Yoga.
+The generated read surface includes the enabled `get<Type>`, `findOne<Type>`,
+`findMany<Type>`, `count<Type>`, and `exists<Type>` fields. Schema-aware filter
+inputs expose only the operators supported by each Core field capability,
+including portable plugin fields through their canonical GraphQL wire codec.
+Ordering is an explicit ordered list. Model selections, fragments, directives,
+pointers, and relation selections normalize into Core's immutable Query and
+Operation AST without retaining GraphQL or HTTP objects.
+
+Cursor signing, connection-page execution, Runtime dispatch, mutations,
+explicit plugin operations, custom schema composition, and Yoga are supplied
+by later milestone issues. Importing or compiling this package still performs
+no application request.

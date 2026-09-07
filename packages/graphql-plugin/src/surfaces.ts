@@ -20,6 +20,10 @@ export interface GraphqlSchemaSurface {
 	readonly schema: SchemaDefinition
 	readonly typeName: string
 	readonly owner: SchemaContributionOwner
+	readonly count: boolean
+	readonly exists: boolean
+	readonly findMany: boolean
+	readonly findOne: boolean
 	readonly get: boolean
 }
 
@@ -110,6 +114,18 @@ export const collectGraphqlSchemaSurfaces = (
 			owner,
 		})
 		surfaces.set(schema, {
+			count:
+				owner.kind === 'application' &&
+				resolveGraphqlSchemaOperation(direct, pluginDefault, 'count'),
+			exists:
+				owner.kind === 'application' &&
+				resolveGraphqlSchemaOperation(direct, pluginDefault, 'exists'),
+			findMany:
+				owner.kind === 'application' &&
+				resolveGraphqlSchemaOperation(direct, pluginDefault, 'findMany'),
+			findOne:
+				owner.kind === 'application' &&
+				resolveGraphqlSchemaOperation(direct, pluginDefault, 'findOne'),
 			get:
 				owner.kind === 'application' &&
 				resolveGraphqlSchemaOperation(direct, pluginDefault, 'get'),

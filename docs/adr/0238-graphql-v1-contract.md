@@ -291,12 +291,12 @@ second unrestricted representation.
 capability. Logical fields retain Core's `AND`, `OR`, and `NOT` names. Portable
 operator names are the existing generated Query names: `eq`, `ne`, `gt`,
 `gte`, `lt`, `lte`, `between`, `notBetween`, `in`, `notIn`, `isNull`,
-`contains`, `startsWith`, `endsWith`, `regex`, `listHas`, `listHasEvery`,
-`listHasSome`, `listEmpty`, `containedBy`, `hasKey`, `hasAllKeys`,
+`isNotNull`, `contains`, `startsWith`, `endsWith`, `matches`, `has`,
+`hasEvery`, `hasSome`, `isEmpty`, `containedBy`, `hasKey`, `hasAllKeys`,
 `hasAnyKeys`, `jsonPathExists`, and `jsonPathMatches`. A field receives only
 its legal subset. Embedded-object paths, pointer `is`/`isNot`, relation
-`some`/`none`/`every`, and relation `count` use nested generated inputs and
-retain Core's maximum relation-predicate depth.
+`some`/`none`/`every`, `isEmpty`/`isNotEmpty`, and relation `count` use nested
+generated inputs and retain Core's maximum relation-predicate depth.
 
 `PostOrder` is an input object with required `field: PostOrderField!` and
 `direction: GraphqlOrderDirection!`; direction values are `ASC` and `DESC`.

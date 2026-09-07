@@ -1,22 +1,14 @@
-import type { CompiledSchemaRegistry, SchemaDefinition } from '@ultimabase/core'
-import {
-	GraphQLID,
-	GraphQLNonNull,
-	GraphQLObjectType,
-	GraphQLSchema,
-	validateSchema,
-	type GraphQLFieldConfigMap,
-} from 'graphql'
+import type { CompiledSchemaRegistry } from '@ultimabase/core'
+import { GraphQLObjectType, GraphQLSchema, validateSchema } from 'graphql'
+import type { GraphQLFieldConfigArgumentMap } from 'graphql'
 
-import { GraphqlSchemaCompilationError } from './errors.js'
 import { GraphqlFieldTypeCompiler } from './field-compiler.js'
+import { GraphqlFilterInputCompiler } from './filter-input-compiler.js'
 import { GraphqlMutationInputCompiler } from './mutation-input-compiler.js'
-import { assertGraphqlFieldName, GraphqlNameRegistry } from './names.js'
+import { GraphqlNameRegistry } from './names.js'
 import type { GraphqlSchemaOperations } from './options.js'
-import {
-	collectGraphqlSchemaSurfaces,
-	type GraphqlSchemaSurface,
-} from './surfaces.js'
+import { GraphqlReadInputCompiler } from './read-input-compiler.js'
+import { collectGraphqlSchemaSurfaces } from './surfaces.js'
 
 const reserveGraphqlNames = (names: GraphqlNameRegistry): void => {
 	for (const name of [
@@ -41,33 +33,6 @@ const reserveGraphqlNames = (names: GraphqlNameRegistry): void => {
 	}
 }
 
-const compileQueryFields = (
-	surfaces: ReadonlyMap<SchemaDefinition, GraphqlSchemaSurface>,
-	fields: GraphqlFieldTypeCompiler,
-): GraphQLFieldConfigMap<unknown, unknown> => {
-	const queryFields: GraphQLFieldConfigMap<unknown, unknown> = {}
-	for (const surface of surfaces.values()) {
-		if (!surface.get) continue
-		const fieldName = `get${surface.typeName}`
-		assertGraphqlFieldName(
-			fieldName,
-			`generated get operation for ${surface.schema.className}`,
-			surface.owner,
-		)
-		queryFields[fieldName] = {
-			args: { id: { type: new GraphQLNonNull(GraphQLID) } },
-			type: fields.model(surface.schema),
-		}
-	}
-	if (Object.keys(queryFields).length === 0) {
-		throw new GraphqlSchemaCompilationError(
-			'missing-query-root',
-			'GraphQL schema compilation requires at least one public query field',
-		)
-	}
-	return queryFields
-}
-
 /** Compiles one isolated GraphQL structural schema from the final Core graph. */
 export const compileGraphqlSchema = (
 	options: Readonly<{
@@ -82,9 +47,22 @@ export const compileGraphqlSchema = (
 		options.defaultOperations,
 		names,
 	)
-	const fields = new GraphqlFieldTypeCompiler({
+	const fields: GraphqlFieldTypeCompiler = new GraphqlFieldTypeCompiler({
 		names,
 		schemas: options.schemas,
+		surfaces,
+		relationArguments: (target): GraphQLFieldConfigArgumentMap =>
+			reads.collectionArguments(target),
+	})
+	const filters = new GraphqlFilterInputCompiler({
+		fieldTypes: fields,
+		names,
+		schemas: options.schemas,
+		surfaces,
+	})
+	const reads: GraphqlReadInputCompiler = new GraphqlReadInputCompiler({
+		fields,
+		filters,
 		surfaces,
 	})
 	const mutations = new GraphqlMutationInputCompiler({
@@ -101,13 +79,14 @@ export const compileGraphqlSchema = (
 	}
 	const query = new GraphQLObjectType({
 		name: 'Query',
-		fields: compileQueryFields(surfaces, fields),
+		fields: reads.queryFields(),
 	})
+	reads.materialize()
 	mutations.materialize()
 	fields.materialize()
 	const schema = new GraphQLSchema({
 		query,
-		types: [...fields.types, ...mutations.types],
+		types: [...fields.types, ...mutations.types, ...reads.types],
 	})
 	const errors = validateSchema(schema)
 	if (errors.length > 0) {
