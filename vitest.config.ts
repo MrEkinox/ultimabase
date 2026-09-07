@@ -44,8 +44,9 @@ const testProjects: TestProjectConfiguration[] = [
 				'tooling/issues/**/*.test.ts',
 			],
 			name: 'unit',
-			// Language-service fixtures need headroom when coverage instruments Core.
-			testTimeout: 20_000,
+			// Language-service fixtures need headroom when coverage instruments Core,
+			// especially on resource-constrained hosted runners.
+			testTimeout: 30_000,
 		},
 	},
 	{
@@ -55,6 +56,9 @@ const testProjects: TestProjectConfiguration[] = [
 			exclude: [
 				'tests/e2e/**/*.postgres.e2e.test.ts',
 				'tests/e2e/package-archives.e2e.test.ts',
+				// This artifact audit reads build-only source maps and remains covered by
+				// the post-build e2e project.
+				'tests/e2e/password-auth-plugin.e2e.test.ts',
 			],
 			include: ['tests/e2e/**/*.e2e.test.ts'],
 			name: 'coverage-e2e',
