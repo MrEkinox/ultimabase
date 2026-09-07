@@ -16,6 +16,7 @@ import type {
 import { GraphqlSchemaCompilationError } from './errors.js'
 import type { GraphqlFieldTypeCompiler } from './field-compiler.js'
 import type { GraphqlFilterInputCompiler } from './filter-input-compiler.js'
+import type { GraphqlGeneratedExecution } from './generated-execution.js'
 import { assertGraphqlFieldName } from './names.js'
 import { GraphqlSafeInt } from './scalars.js'
 import type { GraphqlSchemaSurface } from './surfaces.js'
@@ -25,6 +26,7 @@ export class GraphqlReadInputCompiler {
 	readonly #fields: GraphqlFieldTypeCompiler
 	readonly #filters: GraphqlFilterInputCompiler
 	readonly #defaultPageSize: number
+	readonly #execution: GraphqlGeneratedExecution
 	readonly #surfaces: ReadonlyMap<SchemaDefinition, GraphqlSchemaSurface>
 
 	constructor(
@@ -32,10 +34,12 @@ export class GraphqlReadInputCompiler {
 			readonly defaultPageSize: number
 			readonly fields: GraphqlFieldTypeCompiler
 			readonly filters: GraphqlFilterInputCompiler
+			readonly execution: GraphqlGeneratedExecution
 			readonly surfaces: ReadonlyMap<SchemaDefinition, GraphqlSchemaSurface>
 		}>,
 	) {
 		this.#defaultPageSize = options.defaultPageSize
+		this.#execution = options.execution
 		this.#fields = options.fields
 		this.#filters = options.filters
 		this.#surfaces = options.surfaces
@@ -85,6 +89,7 @@ export class GraphqlReadInputCompiler {
 			const where = { where: { type: this.#filters.where(schema) } }
 			this.#root(fields, surface, 'get', {
 				args: { id: { type: new GraphQLNonNull(GraphQLID) } },
+				resolve: this.#execution.read(schema, 'get'),
 				type: this.#fields.model(schema),
 			})
 			this.#root(fields, surface, 'findOne', {
@@ -92,18 +97,22 @@ export class GraphqlReadInputCompiler {
 					orderBy: { type: this.#orderList(schema) },
 					...where,
 				},
+				resolve: this.#execution.read(schema, 'findOne'),
 				type: this.#fields.model(schema),
 			})
 			this.#root(fields, surface, 'findMany', {
 				args: this.collectionArguments(schema),
+				resolve: this.#execution.read(schema, 'findMany'),
 				type: new GraphQLNonNull(this.#fields.connectionType(schema)),
 			})
 			this.#root(fields, surface, 'count', {
 				args: where,
+				resolve: this.#execution.read(schema, 'count'),
 				type: new GraphQLNonNull(GraphqlSafeInt),
 			})
 			this.#root(fields, surface, 'exists', {
 				args: where,
+				resolve: this.#execution.read(schema, 'exists'),
 				type: new GraphQLNonNull(GraphQLBoolean),
 			})
 		}

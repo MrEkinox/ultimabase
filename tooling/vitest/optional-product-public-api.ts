@@ -384,6 +384,7 @@ export const graphqlPluginPublicApi = {
 	compatibleProviderContract: [
 		'graphqlApplicationCapability',
 		'graphqlFieldProtocol',
+		'graphqlProtocol',
 	],
 	conformanceSupport: [],
 } as const satisfies OptionalProductPublicApi

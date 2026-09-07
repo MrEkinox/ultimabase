@@ -21,9 +21,10 @@ const graphql = application.getPlugin('@ultimabase/graphql-plugin')
 graphql.schema
 ```
 
-The plugin compiles one application-local `GraphQLSchema` after the complete
-Core schema graph exists. Importing the package installs no behavior. It does
-not import HTTP, Yoga, REST, authentication, policy, or database providers.
+The plugin compiles one application-local executable `GraphQLSchema` after the
+complete Core schema graph exists. Importing the package installs no behavior.
+It does not import HTTP, Yoga, REST, authentication, policy, or database
+providers.
 
 ## Schema exposure
 
@@ -45,6 +46,30 @@ including portable plugin fields through their canonical GraphQL wire codec.
 Ordering is an explicit ordered list. Model selections, fragments, directives,
 pointers, and relation selections normalize into Core's immutable Query and
 Operation AST without retaining GraphQL or HTTP objects.
+
+The generated mutation surface includes enabled singular and ordered itemized
+bulk create, update, delete, and upsert commands. GraphQL input wrappers are
+decoded into the same schema commands used by direct TypeScript and REST.
+Create and update may eagerly include selected relationships. Delete and upsert
+retain Core's flat result contract: relation hydration and pointer expansion
+beyond `id` are rejected before Runtime instead of issuing a second read.
+
+Generated resolvers accept only the application-owned context shape
+`{ request: RequestContext }`. They validate that context through Core before
+decoding input, then call only the narrow application request executor. Access,
+ACL, validation, hooks, middleware, transactions, protected constraints, and
+Master behavior therefore remain properties of the single Runtime pipeline.
+Unknown failures are masked as `INTERNAL_SERVER_ERROR`; explicitly public Core
+failures retain only their safe message, code, retryability, request ID, and
+optional JSON details.
+
+Every public generated schema reports Core's shared
+`UNVERIFIED_PUBLIC_TRANSPORT_PROTECTION` diagnostic. Applications that have
+reviewed their complete policy coverage may acknowledge it explicitly:
+
+```ts
+graphqlPlugin({ acknowledgeUnverifiedProtection: true })
+```
 
 ## Relay connections
 
@@ -77,6 +102,7 @@ Concurrent insertions and deletions can consequently shift later pages, which
 may repeat or skip an item. GraphQL translates the page to existing Core
 `where`, `orderBy`, `limit`, and `offset` clauses; Core has no cursor concept.
 
-Runtime dispatch, mutations, explicit plugin operations, custom schema
-composition, and Yoga are supplied by later milestone issues. Importing or
-compiling this package still performs no application request.
+Explicit plugin operations, custom schema composition, the public networkless
+`execute()` convenience method, and Yoga are supplied by later milestone
+issues. Compiling the package performs no application request; executing one of
+the generated schema fields enters Runtime.

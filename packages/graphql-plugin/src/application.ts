@@ -9,7 +9,7 @@ import type { GraphqlConnectionRuntime } from './connection-runtime.js'
 
 /** Exposes one application-local GraphQL schema without a network transport. */
 export interface GraphqlApplication {
-	/** The immutable schema compiled from this application's final Core graph. */
+	/** The immutable executable schema compiled from this application's final Core graph. */
 	readonly schema: GraphQLSchema
 }
 

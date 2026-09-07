@@ -14,12 +14,10 @@ import {
 import type { GraphqlSchemaExposureOption } from '@ultimabase/graphql-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { isPlainRecord } from '@ultimabase/shared'
-import { graphql, type GraphQLResolveInfo } from 'graphql'
+import { graphql } from 'graphql'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { readGraphqlConnectionRuntime } from '../../packages/graphql-plugin/src/application.js'
 import { graphqlPlugin } from '../../packages/graphql-plugin/src/plugin.js'
-import { normalizeGraphqlReadOperation } from '../../packages/graphql-plugin/src/read-normalization.js'
 import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
@@ -187,9 +185,9 @@ describe(
 			const graphqlApplication = application.application.getPlugin(
 				'@ultimabase/graphql-plugin',
 			)
-			const connections = readGraphqlConnectionRuntime(graphqlApplication)
 			const executePage = async (after?: string) =>
 				graphql({
+					contextValue: { request: requestContext },
 					schema: graphqlApplication.schema,
 					source: `
 					query Page($after: String) {
@@ -203,33 +201,8 @@ describe(
 							pageInfo { endCursor hasNextPage hasPreviousPage startCursor }
 						}
 					}
-				`,
+					`,
 					variableValues: after === undefined ? {} : { after },
-					rootValue: {
-						findManyGraphqlRelayPostgresRecord: async (
-							args: Readonly<Record<string, unknown>>,
-							_context: unknown,
-							info: GraphQLResolveInfo,
-						) => {
-							const operation = normalizeGraphqlReadOperation(
-								RelayRecord,
-								'findMany',
-								args,
-								info,
-								{ connections },
-							)
-							const rows = await runAsHarness(harness, (executor) =>
-								executor.executeRead(requestContext, operation),
-							)
-							const prepared = connections.prepare({
-								arguments: args,
-								relationPath: [],
-								schema: RelayRecord,
-								typeName: 'GraphqlRelayPostgresRecord',
-							})
-							return connections.page(prepared.page, rows)
-						},
-					},
 				})
 
 			const firstResult = await executePage()

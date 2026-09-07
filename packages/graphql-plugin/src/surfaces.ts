@@ -20,11 +20,19 @@ export interface GraphqlSchemaSurface {
 	readonly schema: SchemaDefinition
 	readonly typeName: string
 	readonly owner: SchemaContributionOwner
+	readonly bulkCreate: boolean
+	readonly bulkDelete: boolean
+	readonly bulkUpdate: boolean
+	readonly bulkUpsert: boolean
 	readonly count: boolean
+	readonly create: boolean
+	readonly delete: boolean
 	readonly exists: boolean
 	readonly findMany: boolean
 	readonly findOne: boolean
 	readonly get: boolean
+	readonly update: boolean
+	readonly upsert: boolean
 }
 
 const builtInOperationDefaults: Readonly<Record<GeneratedOperation, boolean>> =
@@ -114,9 +122,27 @@ export const collectGraphqlSchemaSurfaces = (
 			owner,
 		})
 		surfaces.set(schema, {
+			bulkCreate:
+				owner.kind === 'application' &&
+				resolveGraphqlBulkOperation(direct, pluginDefault, 'create'),
+			bulkDelete:
+				owner.kind === 'application' &&
+				resolveGraphqlBulkOperation(direct, pluginDefault, 'delete'),
+			bulkUpdate:
+				owner.kind === 'application' &&
+				resolveGraphqlBulkOperation(direct, pluginDefault, 'update'),
+			bulkUpsert:
+				owner.kind === 'application' &&
+				resolveGraphqlBulkOperation(direct, pluginDefault, 'upsert'),
 			count:
 				owner.kind === 'application' &&
 				resolveGraphqlSchemaOperation(direct, pluginDefault, 'count'),
+			create:
+				owner.kind === 'application' &&
+				resolveGraphqlSchemaOperation(direct, pluginDefault, 'create'),
+			delete:
+				owner.kind === 'application' &&
+				resolveGraphqlSchemaOperation(direct, pluginDefault, 'delete'),
 			exists:
 				owner.kind === 'application' &&
 				resolveGraphqlSchemaOperation(direct, pluginDefault, 'exists'),
@@ -132,6 +158,12 @@ export const collectGraphqlSchemaSurfaces = (
 			owner,
 			schema,
 			typeName,
+			update:
+				owner.kind === 'application' &&
+				resolveGraphqlSchemaOperation(direct, pluginDefault, 'update'),
+			upsert:
+				owner.kind === 'application' &&
+				resolveGraphqlSchemaOperation(direct, pluginDefault, 'upsert'),
 		})
 	}
 	return surfaces

@@ -18,5 +18,6 @@ it('exports only the deliberate GraphQL application surface', () => {
 		'graphqlApplicationCapability',
 		'graphqlFieldProtocol',
 		'graphqlPlugin',
+		'graphqlProtocol',
 	])
 })

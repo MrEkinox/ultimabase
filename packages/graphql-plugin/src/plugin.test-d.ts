@@ -4,6 +4,7 @@ import { expectTypeOf, test } from 'vitest'
 
 import {
 	graphqlPlugin,
+	graphqlProtocol,
 	type GraphqlPlugin,
 	type GraphqlPluginExports,
 	type GraphqlSchemaExposureOption,
@@ -38,6 +39,8 @@ test('preserves plugin and generated schema option types', async () => {
 	expectTypeOf(limited).toEqualTypeOf<GraphqlPlugin>()
 	expectTypeOf(exports).toEqualTypeOf<Readonly<GraphqlPluginExports>>()
 	expectTypeOf(exports.schema).toEqualTypeOf<GraphQLSchema>()
+	expectTypeOf(graphqlProtocol.name).toEqualTypeOf<'ultimabase.graphql'>()
+	expectTypeOf(graphqlProtocol.version).toEqualTypeOf<'1.0.0'>()
 })
 
 test('rejects invalid connection limit types', () => {

@@ -22,6 +22,7 @@ import {
 } from 'graphql'
 
 import { GraphqlSchemaCompilationError } from './errors.js'
+import type { GraphqlGeneratedExecution } from './generated-execution.js'
 import { GraphqlConnectionTypeCompiler } from './connection-types.js'
 import {
 	isGraphqlBuiltInFieldKind,
@@ -48,14 +49,17 @@ import {
 	type GraphqlSchemaSurface,
 } from './surfaces.js'
 
+type GraphqlRelationArguments = (
+	target: SchemaDefinition,
+) => GraphQLFieldConfigArgumentMap
+
 /** Compiles schema fields into reusable application-local GraphQL named types. */
 export class GraphqlFieldTypeCompiler {
 	readonly #schemas: CompiledSchemaRegistry
 	readonly #names: GraphqlNameRegistry
 	readonly #surfaces: ReadonlyMap<SchemaDefinition, GraphqlSchemaSurface>
-	readonly #relationArguments: (
-		target: SchemaDefinition,
-	) => GraphQLFieldConfigArgumentMap
+	readonly #relationArguments: GraphqlRelationArguments
+	readonly #relationResolver: GraphqlGeneratedExecution['relation']
 	readonly #models = new Map<SchemaDefinition, GraphQLObjectType>()
 	readonly #connectionTypes: GraphqlConnectionTypeCompiler
 	readonly #enums = new Map<string, GraphQLEnumType>()
@@ -68,15 +72,15 @@ export class GraphqlFieldTypeCompiler {
 			readonly names: GraphqlNameRegistry
 			readonly schemas: CompiledSchemaRegistry
 			readonly surfaces: ReadonlyMap<SchemaDefinition, GraphqlSchemaSurface>
-			readonly relationArguments: (
-				target: SchemaDefinition,
-			) => GraphQLFieldConfigArgumentMap
+			readonly relationArguments: GraphqlRelationArguments
+			readonly relationResolver: GraphqlGeneratedExecution['relation']
 		}>,
 	) {
 		this.#names = options.names
 		this.#schemas = options.schemas
 		this.#surfaces = options.surfaces
 		this.#relationArguments = options.relationArguments
+		this.#relationResolver = options.relationResolver
 		this.#connectionTypes = new GraphqlConnectionTypeCompiler({
 			model: (schema) => this.model(schema),
 			names: options.names,
@@ -120,7 +124,6 @@ export class GraphqlFieldTypeCompiler {
 		this.#namedTypes.push(model)
 		return model
 	}
-
 	#outputFields(
 		schema: SchemaDefinition,
 		fields: SchemaFields,
@@ -135,12 +138,22 @@ export class GraphqlFieldTypeCompiler {
 				readGraphqlFieldOwner(schema, path),
 			)
 			const codec = this.#pluginCodec(field, schema, path)
+			const target =
+				field.kind === 'relation' ? this.#target(schema, path) : undefined
 			compiled[name] = {
 				description: readGraphqlFieldDescription(field),
 				type: this.#outputType(field, schema, path),
-				...(field.kind === 'relation'
-					? { args: this.#relationArguments(this.#target(schema, path)) }
-					: {}),
+				...(target === undefined
+					? {}
+					: {
+							args: this.#relationArguments(target),
+							resolve: this.#relationResolver(
+								schema,
+								name,
+								target,
+								this.#surface(target).typeName,
+							),
+						}),
 				...(codec === undefined
 					? {}
 					: {
@@ -151,7 +164,6 @@ export class GraphqlFieldTypeCompiler {
 		}
 		return compiled
 	}
-
 	#encodePluginValue(
 		source: unknown,
 		name: string,
@@ -166,7 +178,6 @@ export class GraphqlFieldTypeCompiler {
 			? value.map((entry) => codec.encode(entry))
 			: value
 	}
-
 	#pluginCodec(
 		field: GenericField,
 		schema: SchemaDefinition,
@@ -186,7 +197,6 @@ export class GraphqlFieldTypeCompiler {
 		}
 		return codec
 	}
-
 	#fieldPathKey(schema: SchemaDefinition, path: readonly string[]): string {
 		return `${schema.className}\0${path.join('\0')}`
 	}
@@ -198,7 +208,6 @@ export class GraphqlFieldTypeCompiler {
 	): GraphQLNullableOutputType {
 		return wrapGraphqlFieldList(this.#outputScalar(field, schema, path), field)
 	}
-
 	#outputScalar(
 		field: GenericField,
 		schema: SchemaDefinition,
@@ -223,7 +232,6 @@ export class GraphqlFieldTypeCompiler {
 				return GraphqlJSON
 		}
 	}
-
 	inputElementType(
 		field: GenericField,
 		schema: SchemaDefinition,
@@ -241,7 +249,6 @@ export class GraphqlFieldTypeCompiler {
 				return GraphqlJSON
 		}
 	}
-
 	inputType(
 		field: GenericField,
 		schema: SchemaDefinition,
@@ -252,7 +259,6 @@ export class GraphqlFieldTypeCompiler {
 			field,
 		)
 	}
-
 	#enum(
 		field: GenericField,
 		schema: SchemaDefinition,
@@ -288,7 +294,6 @@ export class GraphqlFieldTypeCompiler {
 		this.#namedTypes.push(result)
 		return result
 	}
-
 	#embeddedName(
 		field: GenericField,
 		schema: SchemaDefinition,

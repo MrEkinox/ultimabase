@@ -7,7 +7,10 @@ import {
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 import { getNamedType, isObjectType, type GraphQLResolveInfo } from 'graphql'
 
-import type { GraphqlConnectionRuntime } from './connection-runtime.js'
+import type {
+	GraphqlConnectionPagePlan,
+	GraphqlConnectionRuntime,
+} from './connection-runtime.js'
 import { decodeGraphqlWhere } from './read-values.js'
 import { normalizeGraphqlOrdering } from './read-ordering.js'
 import {
@@ -77,6 +80,15 @@ export interface GraphqlConnectionScope {
 	readonly typeName: string
 }
 
+/** Retains transport page metadata beside, never inside, the Core read AST. */
+export interface GraphqlPreparedReadOperation<
+	TSchema extends SchemaDefinition,
+	TOperation extends GraphqlReadOperation,
+> {
+	readonly operation: GraphqlReadOperationAst<TSchema, TOperation>
+	readonly page?: GraphqlConnectionPagePlan
+}
+
 /** Converts collection arguments into existing Core query clauses. */
 export const normalizeGraphqlCollectionArguments = (
 	schema: SchemaDefinition,
@@ -129,8 +141,8 @@ const connectionTypeName = (info: GraphQLResolveInfo): string => {
 	return model.name
 }
 
-/** Normalizes GraphQL arguments and selections into a transport-free Core AST. */
-export const normalizeGraphqlReadOperation = <
+/** Prepares one read while retaining Relay metadata outside the Core request. */
+export const prepareGraphqlReadOperation = <
 	const TSchema extends SchemaDefinition,
 	const TOperation extends GraphqlReadOperation,
 >(
@@ -139,9 +151,10 @@ export const normalizeGraphqlReadOperation = <
 	args: unknown,
 	info: GraphQLResolveInfo | undefined,
 	context: GraphqlReadNormalizationContext,
-): GraphqlReadOperationAst<TSchema, TOperation> => {
+): GraphqlPreparedReadOperation<TSchema, TOperation> => {
 	const source = assertArguments(args, operation)
 	const input: Record<string, unknown> = {}
+	let page: GraphqlConnectionPagePlan | undefined
 	if (operation === 'get') {
 		input.id = source.id
 	} else if (operation === 'findMany') {
@@ -150,13 +163,14 @@ export const normalizeGraphqlReadOperation = <
 				'GraphQL findMany normalization requires selection info',
 			)
 		}
-		Object.assign(
-			input,
-			normalizeGraphqlCollectionArguments(schema, source, context.connections, {
-				relationPath: [],
-				typeName: connectionTypeName(info),
-			}),
-		)
+		const prepared = context.connections.prepare({
+			arguments: source,
+			relationPath: [],
+			schema,
+			typeName: connectionTypeName(info),
+		})
+		Object.assign(input, prepared.clauses)
+		page = prepared.page
 	} else {
 		if (source.where !== undefined && source.where !== null) {
 			input.where = decodeGraphqlWhere(schema, source.where)
@@ -167,9 +181,26 @@ export const normalizeGraphqlReadOperation = <
 	}
 	const projection = projectionFor(schema, operation, info, context)
 	if (projection !== undefined) Object.assign(input, projection)
-	return normalizeReadOperation(
+	const normalized = normalizeReadOperation(
 		schema,
 		coreReadKinds[operation],
 		immutableRecord(input),
-	)
+	) as GraphqlReadOperationAst<TSchema, TOperation>
+	return immutableRecord({
+		operation: normalized,
+		...(page === undefined ? {} : { page }),
+	})
 }
+
+/** Normalizes GraphQL arguments and selections into a transport-free Core AST. */
+export const normalizeGraphqlReadOperation = <
+	const TSchema extends SchemaDefinition,
+	const TOperation extends GraphqlReadOperation,
+>(
+	schema: TSchema,
+	operation: TOperation,
+	args: unknown,
+	info: GraphQLResolveInfo | undefined,
+	context: GraphqlReadNormalizationContext,
+): GraphqlReadOperationAst<TSchema, TOperation> =>
+	prepareGraphqlReadOperation(schema, operation, args, info, context).operation

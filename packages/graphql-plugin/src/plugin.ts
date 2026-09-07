@@ -24,11 +24,13 @@ import {
 	type GraphqlExecutionLimits,
 } from './connection-limits.js'
 import { GraphqlConnectionRuntime } from './connection-runtime.js'
+import { GraphqlGeneratedExecution } from './generated-execution.js'
 import {
 	graphqlSchemaOption,
 	normalizeGraphqlSchemaOperations,
 	type GraphqlSchemaOperations,
 } from './options.js'
+import { graphqlProtocol } from './protocol.js'
 
 const graphqlPluginModule: PluginModule<
 	'@ultimabase/graphql-plugin',
@@ -142,22 +144,29 @@ export type GraphqlPlugin = PluginModuleInstance<
 	GraphqlPluginDefinition
 >
 
-/** Installs structural GraphQL generation without HTTP or Runtime execution. */
+/** Installs generated GraphQL schema execution without selecting an HTTP adapter. */
 export const graphqlPlugin = (
 	options: GraphqlPluginOptions = {},
 ): GraphqlPlugin => {
 	const normalized = parseGraphqlPluginOptions(options)
 	const applicationProvider = provideCapability(graphqlApplicationCapability, {
 		contributionId: 'official-graphql-application',
-		create: ({ schemas }) => {
+		create: ({ callbacks, capabilities: reader, owner, schemas }) => {
 			const connections = new GraphqlConnectionRuntime(normalized.limits)
 			try {
+				const execution = new GraphqlGeneratedExecution({
+					callbacks,
+					connections,
+					executor: reader.get(requestExecutionRequirement),
+					owner,
+				})
 				return createGraphqlApplicationResource(
 					compileGraphqlSchema({
 						connectionLimits: normalized.limits,
 						...(normalized.defaultOperations === undefined
 							? {}
 							: { defaultOperations: normalized.defaultOperations }),
+						execution,
 						schemas,
 					}),
 					connections,
@@ -184,5 +193,17 @@ export const graphqlPlugin = (
 		},
 		setup: ({ capabilities: reader }) =>
 			reader.get(graphqlApplicationRequirement),
+		hooks: {
+			startTransports: ({ capabilities: reader }) => {
+				reader
+					.get(requestExecutionRequirement)
+					.reportPublicTransportProtection({
+						...(normalized.acknowledgeUnverifiedProtection === true
+							? { acknowledgeUnverifiedProtection: true as const }
+							: {}),
+						transport: graphqlProtocol,
+					})
+			},
+		},
 	})
 }

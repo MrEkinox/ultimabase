@@ -42,6 +42,8 @@ export type GraphqlRelationArgumentNormalizer = (
 	}>,
 ) => Readonly<Record<string, unknown>>
 
+export type GraphqlRelationshipSelectionMode = 'include' | 'stored-pointer-only'
+
 const shouldInclude = (
 	node: SelectionNode | FragmentDefinitionNode,
 	info: GraphQLResolveInfo,
@@ -178,7 +180,7 @@ const modelProjection = (
 	selectionSets: readonly SelectionSetNode[],
 	context: SelectionContext,
 	normalizeRelationArguments: GraphqlRelationArgumentNormalizer,
-	relationPath: readonly string[],
+	relationshipMode: GraphqlRelationshipSelectionMode,
 ): GraphqlReadProjection => {
 	const select: Record<string, true> = {}
 	const include: Record<string, unknown> = {}
@@ -193,6 +195,26 @@ const modelProjection = (
 			)
 		}
 		if (field.kind !== 'pointer' && field.kind !== 'relation') {
+			select[selected.name] = true
+			continue
+		}
+		if (relationshipMode === 'stored-pointer-only') {
+			if (field.kind === 'relation') {
+				throw new TypeError(
+					`GraphQL ${schema.className}.${selected.name} cannot be selected from delete or upsert results`,
+				)
+			}
+			const pointerFields = collectFields(childSelectionSets(selected), context)
+			if (
+				pointerFields.some(
+					(pointerField) =>
+						pointerField.name !== 'id' && pointerField.name !== '__typename',
+				)
+			) {
+				throw new TypeError(
+					`GraphQL ${schema.className}.${selected.name} can expose only pointer id from delete or upsert results`,
+				)
+			}
 			select[selected.name] = true
 			continue
 		}
@@ -229,14 +251,16 @@ const modelProjection = (
 			field.kind === 'relation'
 				? relationNodeSelectionSets(selected, outputType, context)
 				: childSelectionSets(selected)
-		const targetRelationPath = [...relationPath, selected.name]
+		// A cursor identifies the declared relationship itself, independently of
+		// which root or pointer traversal reached this model type.
+		const targetRelationPath = [schema.className, selected.name]
 		const projection = modelProjection(
 			target,
 			modelType,
 			targetSelectionSets,
 			context,
 			normalizeRelationArguments,
-			targetRelationPath,
+			relationshipMode,
 		)
 		include[selected.name] = immutableRecord({
 			...(field.kind === 'relation'
@@ -267,6 +291,7 @@ export const normalizeGraphqlSelection = (
 	info: GraphQLResolveInfo,
 	connectionRoot: boolean,
 	normalizeRelationArguments: GraphqlRelationArgumentNormalizer,
+	relationshipMode: GraphqlRelationshipSelectionMode = 'include',
 ): GraphqlReadProjection => {
 	const context: SelectionContext = { fragments: info.fragments, info }
 	const root = getNamedType(info.returnType)
@@ -283,7 +308,7 @@ export const normalizeGraphqlSelection = (
 			rootSelectionSets,
 			context,
 			normalizeRelationArguments,
-			[],
+			relationshipMode,
 		)
 	}
 	const model = getNamedType(root.getFields().nodes?.type)
@@ -301,6 +326,6 @@ export const normalizeGraphqlSelection = (
 		relationNodeSelectionSets(synthetic, root, context),
 		context,
 		normalizeRelationArguments,
-		[],
+		relationshipMode,
 	)
 }

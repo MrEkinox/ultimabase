@@ -125,6 +125,34 @@ describe('GraphQL structural schema compilation', () => {
 		expect(
 			schema.getQueryType()?.getFields().getPost?.args[0]?.type.toString(),
 		).toBe('ID!')
+		expect(
+			Object.fromEntries(
+				Object.entries(schema.getMutationType()?.getFields() ?? {})
+					.filter(([name]) => name.endsWith('Post'))
+					.map(([name, field]) => [
+						name,
+						{
+							argument: field.args[0]?.type.toString(),
+							result: field.type.toString(),
+						},
+					]),
+			),
+		).toStrictEqual({
+			createPost: { argument: 'PostCreateInput!', result: 'Post!' },
+			createManyPost: { argument: 'PostCreateManyInput!', result: '[Post!]!' },
+			updatePost: { argument: 'PostUpdateOneInput!', result: 'Post' },
+			updateManyPost: { argument: 'PostUpdateManyInput!', result: '[Post!]!' },
+			deletePost: { argument: 'PostDeleteOneInput!', result: 'Post' },
+			deleteManyPost: { argument: 'PostDeleteManyInput!', result: '[Post!]!' },
+			upsertPost: { argument: 'PostUpsertOneInput!', result: 'Post!' },
+			upsertManyPost: { argument: 'PostUpsertManyInput!', result: '[Post!]!' },
+		})
+		expect(printSchema(schema)).toContain(
+			'input PostUpdateOneInput {\n  data: PostUpdateInput!\n  id: ID\n  where: PostWhere\n}',
+		)
+		expect(printSchema(schema)).toContain(
+			'input PostUpsertManyInput {\n  data: [PostUpsertOneInput!]!\n}',
+		)
 		expect(printSchema(schema)).toContain('type PostConnection')
 		if (
 			!isObjectType(connection) ||

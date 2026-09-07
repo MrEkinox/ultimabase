@@ -121,6 +121,13 @@ const createFixture = async () => {
 		schemas: [Author, RecordSchema],
 	})
 	const graphqlApplication = application.getPlugin('@ultimabase/graphql-plugin')
+	// These tests inject capture functions through rootValue to isolate the
+	// normalizer from the generated execution boundary covered separately.
+	for (const field of Object.values(
+		graphqlApplication.schema.getQueryType()?.getFields() ?? {},
+	)) {
+		field.resolve = undefined
+	}
 	return {
 		application,
 		connections: readGraphqlConnectionRuntime(graphqlApplication),

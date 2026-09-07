@@ -18,7 +18,7 @@ plugin and GraphQL Core, never on REST.
 2. [x] [609 — Implement the GraphQL plugin lifecycle and structural schema](609-graphql-plugin-schema.md)
 3. [x] [610 — Generate and normalize GraphQL read inputs](610-graphql-read-inputs.md)
 4. [x] [611 — Implement GraphQL-owned Relay connections](611-graphql-relay-connections.md)
-5. [ ] [612 — Execute generated GraphQL schema operations](612-graphql-schema-execution.md)
+5. [x] [612 — Execute generated GraphQL schema operations](612-graphql-schema-execution.md)
 6. [ ] [613 — Expose explicit plugin operations through GraphQL](613-graphql-plugin-operations.md)
 7. [ ] [614 — Add custom schema composition and networkless execution](614-graphql-schema-composition-executor.md)
 8. [ ] [615 — Mount GraphQL through Yoga and the HTTP capability](615-graphql-yoga-plugin.md)

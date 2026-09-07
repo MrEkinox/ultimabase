@@ -3,9 +3,11 @@ import { GraphQLObjectType, GraphQLSchema, validateSchema } from 'graphql'
 import type { GraphQLFieldConfigArgumentMap } from 'graphql'
 
 import { GraphqlFieldTypeCompiler } from './field-compiler.js'
+import type { GraphqlGeneratedExecution } from './generated-execution.js'
 import type { NormalizedGraphqlExecutionLimits } from './connection-limits.js'
 import { GraphqlFilterInputCompiler } from './filter-input-compiler.js'
 import { GraphqlMutationInputCompiler } from './mutation-input-compiler.js'
+import { GraphqlMutationOperationCompiler } from './mutation-operation-compiler.js'
 import { GraphqlNameRegistry } from './names.js'
 import type { GraphqlSchemaOperations } from './options.js'
 import { GraphqlReadInputCompiler } from './read-input-compiler.js'
@@ -39,6 +41,7 @@ export const compileGraphqlSchema = (
 	options: Readonly<{
 		readonly connectionLimits: NormalizedGraphqlExecutionLimits
 		readonly defaultOperations?: boolean | GraphqlSchemaOperations
+		readonly execution: GraphqlGeneratedExecution
 		readonly schemas: CompiledSchemaRegistry
 	}>,
 ): GraphQLSchema => {
@@ -55,6 +58,8 @@ export const compileGraphqlSchema = (
 		surfaces,
 		relationArguments: (target): GraphQLFieldConfigArgumentMap =>
 			reads.collectionArguments(target),
+		relationResolver: (source, fieldName, target, targetTypeName) =>
+			options.execution.relation(source, fieldName, target, targetTypeName),
 	})
 	const filters = new GraphqlFilterInputCompiler({
 		fieldTypes: fields,
@@ -64,12 +69,21 @@ export const compileGraphqlSchema = (
 	})
 	const reads: GraphqlReadInputCompiler = new GraphqlReadInputCompiler({
 		defaultPageSize: options.connectionLimits.defaultPageSize,
+		execution: options.execution,
 		fields,
 		filters,
 		surfaces,
 	})
 	const mutations = new GraphqlMutationInputCompiler({
 		fieldTypes: fields,
+		names,
+		surfaces,
+	})
+	const mutationOperations = new GraphqlMutationOperationCompiler({
+		execution: options.execution,
+		fields,
+		filters,
+		inputs: mutations,
 		names,
 		surfaces,
 	})
@@ -84,12 +98,20 @@ export const compileGraphqlSchema = (
 		name: 'Query',
 		fields: reads.queryFields(),
 	})
+	const mutation = mutationOperations.mutationType()
 	reads.materialize()
 	mutations.materialize()
+	mutationOperations.materialize()
 	fields.materialize()
 	const schema = new GraphQLSchema({
+		...(mutation === undefined ? {} : { mutation }),
 		query,
-		types: [...fields.types, ...mutations.types, ...reads.types],
+		types: [
+			...fields.types,
+			...mutations.types,
+			...mutationOperations.types,
+			...reads.types,
+		],
 	})
 	const errors = validateSchema(schema)
 	if (errors.length > 0) {

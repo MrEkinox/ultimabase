@@ -54,7 +54,9 @@ const decodeObject = (
 				const field = fields[name]
 				return [
 					name,
-					field === undefined ? item : decodeFieldValue(field, item, fromJson),
+					field === undefined
+						? item
+						: decodeGraphqlFieldValue(field, item, fromJson),
 				]
 			}),
 		),
@@ -70,7 +72,8 @@ const decodeElement = (
 		? decodeObject(readGraphqlObjectFields(field), value, fromJson)
 		: decodeScalar(field, value, fromJson)
 
-const decodeFieldValue = (
+/** Decodes one GraphQL field value through its canonical scalar or plugin codec. */
+export const decodeGraphqlFieldValue = (
 	field: GenericField,
 	value: unknown,
 	fromJson: boolean,
@@ -124,7 +127,7 @@ const decodeOperator = (
 		)
 	}
 	if (operator === 'eq' || operator === 'ne') {
-		return decodeFieldValue(field, value, fromJson)
+		return decodeGraphqlFieldValue(field, value, fromJson)
 	}
 	if (operator === 'contains' || operator === 'containedBy') {
 		return field.kind === 'object'
