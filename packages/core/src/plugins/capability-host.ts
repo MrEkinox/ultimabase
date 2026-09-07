@@ -30,6 +30,7 @@ import {
 	type CapabilityInventory,
 } from './capability-inventory.js'
 import type { PluginGraph } from './graph.js'
+import type { CompiledPluginOperation } from './application-surface-registry.js'
 import type { NormalizedPlugin } from './normalization.js'
 import {
 	formatPluginIdentity,
@@ -38,6 +39,11 @@ import {
 	type PluginPrivilege,
 } from './manifest.js'
 import { materializeAdapterContribution } from '../runtime/adapters/contributions.js'
+import {
+	bindApplicationOperationTransportPlanner,
+	isApplicationOperationTransportPlanningCapability,
+} from '../runtime/application/application-operation-transport-planning.js'
+import { operationTransportBindingCapability } from '../runtime/plugin-operations/capabilities.js'
 
 interface MaterializedCapabilityResource {
 	readonly owner: PluginIdentity
@@ -147,6 +153,9 @@ export class ApplicationCapabilityHost {
 	readonly #inventory: CapabilityInventory
 	readonly #schemas: CompiledSchemaRegistry
 	readonly #constraintCompilers: DatabaseConstraintCompilerReader
+	readonly #resolveOperation: (
+		name: string,
+	) => CompiledPluginOperation | undefined
 	readonly #readers = new Map<
 		string,
 		Map<string | undefined, PluginCapabilityReader>
@@ -171,12 +180,14 @@ export class ApplicationCapabilityHost {
 		schemas: CompiledSchemaRegistry,
 		constraintCompilers: DatabaseConstraintCompilerReader,
 		application?: object,
+		resolveOperation?: (name: string) => CompiledPluginOperation | undefined,
 	) {
 		this.#application = application ?? this
 		this.#graph = graph
 		this.#inventory = graph.capabilities
 		this.#schemas = schemas
 		this.#constraintCompilers = constraintCompilers
+		this.#resolveOperation = resolveOperation ?? (() => undefined)
 		this.#callbacks = createApplicationCallbackExecutor(
 			this.#application,
 			(owner) => {
@@ -364,6 +375,9 @@ export class ApplicationCapabilityHost {
 		}
 
 		const nextStack = [...resolutionStack, token]
+		if (isApplicationOperationTransportPlanningCapability(token)) {
+			await this.#resolve(operationTransportBindingCapability, nextStack)
+		}
 		const providers: unknown[] = []
 		const materializedContributions: MaterializedCapabilityContribution[] = []
 		for (const chain of plan.chains) {
@@ -460,6 +474,16 @@ export class ApplicationCapabilityHost {
 				decorator.owner,
 				() => runCapabilityDecorator(decorator.declaration, consumer),
 			)
+		}
+		if (isApplicationOperationTransportPlanningCapability(token)) {
+			bindApplicationOperationTransportPlanner(consumer, {
+				application: this.#application,
+				bindings:
+					this.#resolvedContributions.get(
+						operationTransportBindingCapability,
+					) ?? [],
+				resolveOperation: this.#resolveOperation,
+			})
 		}
 		this.#resolvedContributions.set(
 			token,

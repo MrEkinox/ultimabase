@@ -3,6 +3,8 @@ import {
 	UltimaBase,
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
+	defineOperation,
+	defineOperationValue,
 	definePlugin,
 	provideCapability,
 	type DatabaseAdapter,
@@ -15,6 +17,27 @@ import { describe, expect, it, vi } from 'vitest'
 import { graphql } from 'graphql'
 
 import { graphqlPlugin } from './plugin.js'
+
+const nullValue = defineOperationValue((value: unknown): null => {
+	if (value !== null) throw new TypeError('Expected null')
+	return null
+})
+const optionOperation = defineOperation({
+	input: nullValue,
+	name: 'fixture.graphql-option.operation',
+	result: nullValue,
+	target: 'application',
+	transaction: 'forbidden',
+	version: '1.0.0',
+})
+const schemaOptionOperation = defineOperation({
+	input: nullValue,
+	name: 'fixture.graphql-option.schema-operation',
+	result: nullValue,
+	target: 'schema',
+	transaction: 'forbidden',
+	version: '1.0.0',
+})
 
 class ProtectionDatabase implements DatabaseAdapter {
 	readonly kind = 'database-adapter' as const
@@ -70,6 +93,10 @@ describe('graphqlPlugin', () => {
 		[{ limits: { maxPageSize: 0 } }, 'greater than or equal to 1'],
 		[{ limits: { defaultPageSize: 10, maxPageSize: 5 } }, 'must not exceed'],
 		[{ limits: { unknown: 1 } }, 'unknown option'],
+		[{ operations: null }, 'must be an array'],
+		[{ operations: [{}] }, 'must be an operation token'],
+		[{ operations: [optionOperation, optionOperation] }, 'repeats'],
+		[{ operations: [schemaOptionOperation] }, 'must target the application'],
 		[{ instanceId: 'secondary' }, 'Unknown'],
 	])('rejects malformed options %#', (options, message) => {
 		expect(() => graphqlPlugin(options as never)).toThrow(message)

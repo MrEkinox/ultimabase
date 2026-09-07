@@ -1,11 +1,13 @@
 import {
 	defineCapability,
+	type ApplicationOperationTransport,
 	type ApplicationCapabilityResource,
 	type CapabilityToken,
 } from '@ultimabase/core'
 import { GraphQLSchema } from 'graphql'
 
 import type { GraphqlConnectionRuntime } from './connection-runtime.js'
+import type { GraphqlOperationExecution } from './operation-execution.js'
 
 /** Exposes one application-local GraphQL schema without a network transport. */
 export interface GraphqlApplication {
@@ -16,16 +18,22 @@ export interface GraphqlApplication {
 interface GraphqlApplicationState {
 	connections: GraphqlConnectionRuntime | undefined
 	disposed: boolean
+	operations: GraphqlOperationExecution | undefined
 	schema: GraphQLSchema | undefined
 }
 
 const graphqlApplicationStates = new WeakMap<object, GraphqlApplicationState>()
 
 class GraphqlApplicationResource implements GraphqlApplication {
-	constructor(schema: GraphQLSchema, connections: GraphqlConnectionRuntime) {
+	constructor(
+		schema: GraphQLSchema,
+		connections: GraphqlConnectionRuntime,
+		operations: GraphqlOperationExecution,
+	) {
 		graphqlApplicationStates.set(this, {
 			connections,
 			disposed: false,
+			operations,
 			schema,
 		})
 		Object.freeze(this)
@@ -76,20 +84,35 @@ export const graphqlApplicationCapability: CapabilityToken<
 export const createGraphqlApplicationResource = (
 	schema: GraphQLSchema,
 	connections: GraphqlConnectionRuntime,
+	operations: GraphqlOperationExecution,
 ): ApplicationCapabilityResource<GraphqlApplication> => {
-	const value = new GraphqlApplicationResource(schema, connections)
+	const value = new GraphqlApplicationResource(schema, connections, operations)
 	return {
 		value,
 		dispose: (): void => {
 			const state = graphqlApplicationStates.get(value)
 			if (state !== undefined) {
 				state.connections?.dispose()
+				state.operations?.dispose()
 				state.connections = undefined
+				state.operations = undefined
 				state.disposed = true
 				state.schema = undefined
 			}
 		},
 	}
+}
+
+/** @internal Late-binds Core's exact operation facade after engine construction. */
+export const bindGraphqlOperationTransport = (
+	application: GraphqlApplication,
+	transport: ApplicationOperationTransport,
+): void => {
+	const state = graphqlApplicationStates.get(application)
+	if (state?.disposed !== false || state.operations === undefined) {
+		throw new TypeError('GraphQL application has been disposed')
+	}
+	state.operations.bind(transport)
 }
 
 /** @internal Resolves the private cursor owner retained by a live capability. */

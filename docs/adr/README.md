@@ -221,6 +221,7 @@ Accepted records:
 - [ADR-0237: HTTP resolvers receive the effective browser policy](0237-http-resolvers-receive-effective-browser-policy.md)
 - [ADR-0238: GraphQL v1 uses the application request kernel](0238-graphql-v1-contract.md)
 - [ADR-0239: GraphQL delete and upsert results keep Core projections](0239-graphql-delete-upsert-projections.md)
+- [ADR-0240: Core plans static operation transport descriptors](0240-static-operation-transport-planning.md)
 
 Superseded records:
 

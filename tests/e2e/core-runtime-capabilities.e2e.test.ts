@@ -36,6 +36,10 @@ describe('packed @ultimabase/core Runtime capabilities', () => {
 		expect(
 			languageFixture.readHover('application-request-executor').display,
 		).toContain('interface ApplicationRequestExecutor')
+		expect(
+			languageFixture.readHover('application-operation-transport-planner')
+				.display,
+		).toContain('interface ApplicationOperationTransportPlanner')
 	})
 
 	it('executes a final mutation guard from JavaScript without Typegen', async () => {

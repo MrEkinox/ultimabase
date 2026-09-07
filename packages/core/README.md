@@ -470,6 +470,16 @@ facade lists only each selected operation's name, version, declared public
 errors, owner, and metadata; executable callbacks and protected Runtime state
 remain private.
 
+Transports that must compile a public shape before the engine exists require
+`applicationOperationTransportPlanningCapability` during application
+materialization. Its `plan({ transport, operations })` method applies the same
+exact-token, canonical-protocol, binding-owner, and `transport:expose` checks,
+but returns only immutable inert descriptors. The planner is demand-installed,
+Core-owned, non-replaceable, and invalid after application disposal. Actual
+requests must still use the separately late-bound
+`ApplicationRequestExecutor.exposeOperations()` facade; the planner cannot
+decode, execute, or authorize anything.
+
 Core cannot prove complete transport coverage from arbitrary policy callbacks.
 Every exposure that has not acknowledged that uncertainty emits one structured
 `UNVERIFIED_PUBLIC_TRANSPORT_PROTECTION` warning per transport protocol. Its

@@ -1,4 +1,7 @@
-import type { CompiledSchemaRegistry } from '@ultimabase/core'
+import type {
+	ApplicationOperationTransportPlan,
+	CompiledSchemaRegistry,
+} from '@ultimabase/core'
 import { GraphQLObjectType, GraphQLSchema, validateSchema } from 'graphql'
 import type { GraphQLFieldConfigArgumentMap } from 'graphql'
 
@@ -9,6 +12,7 @@ import { GraphqlFilterInputCompiler } from './filter-input-compiler.js'
 import { GraphqlMutationInputCompiler } from './mutation-input-compiler.js'
 import { GraphqlMutationOperationCompiler } from './mutation-operation-compiler.js'
 import { GraphqlNameRegistry } from './names.js'
+import { GraphqlOperationSchemaCompiler } from './operation-schema-compiler.js'
 import type { GraphqlSchemaOperations } from './options.js'
 import { GraphqlReadInputCompiler } from './read-input-compiler.js'
 import { collectGraphqlSchemaSurfaces } from './surfaces.js'
@@ -42,6 +46,7 @@ export const compileGraphqlSchema = (
 		readonly connectionLimits: NormalizedGraphqlExecutionLimits
 		readonly defaultOperations?: boolean | GraphqlSchemaOperations
 		readonly execution: GraphqlGeneratedExecution
+		readonly operationPlan: ApplicationOperationTransportPlan
 		readonly schemas: CompiledSchemaRegistry
 	}>,
 ): GraphQLSchema => {
@@ -94,11 +99,24 @@ export const compileGraphqlSchema = (
 			mutations.updateInput(surface.schema)
 		}
 	}
+	const operationCompiler = new GraphqlOperationSchemaCompiler({
+		execution: options.execution,
+		fields,
+		names,
+		plan: options.operationPlan,
+		surfaces,
+	})
+	const queryFields = reads.queryFields()
+	const mutationFields = mutationOperations.mutationFields()
+	operationCompiler.addRootFields(queryFields, mutationFields)
 	const query = new GraphQLObjectType({
 		name: 'Query',
-		fields: reads.queryFields(),
+		fields: queryFields,
 	})
-	const mutation = mutationOperations.mutationType()
+	const mutation =
+		Object.keys(mutationFields).length === 0
+			? undefined
+			: new GraphQLObjectType({ name: 'Mutation', fields: mutationFields })
 	reads.materialize()
 	mutations.materialize()
 	mutationOperations.materialize()
@@ -110,6 +128,7 @@ export const compileGraphqlSchema = (
 			...fields.types,
 			...mutations.types,
 			...mutationOperations.types,
+			...operationCompiler.types,
 			...reads.types,
 		],
 	})

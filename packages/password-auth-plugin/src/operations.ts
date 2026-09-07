@@ -6,10 +6,10 @@ import {
 	defineTypegenReference,
 	operationTransportBinding,
 	operationWireCodec,
+	type OperationTransportBindingDefinition,
 	type PluginOperationDefinition,
 	type PluginOperationInput,
 	type PluginOperationResult,
-	type OperationTransportBindingDefinition,
 	type TypegenReference,
 } from '@ultimabase/core'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'

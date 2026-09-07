@@ -71,6 +71,40 @@ reviewed their complete policy coverage may acknowledge it explicitly:
 graphqlPlugin({ acknowledgeUnverifiedProtection: true })
 ```
 
+## Explicit plugin operations
+
+An installed operation stays private. Add its exact application-operation token
+to `graphqlPlugin({ operations })`, and its owner must also contribute a binding
+for the canonical `ultimabase.graphql.operation@1.0.0` protocol while holding
+active `transport:expose` privilege:
+
+```ts
+import { passwordAuthOperations } from '@ultimabase/password-auth-plugin'
+
+graphqlPlugin({
+	operations: [passwordAuthOperations.signUp, passwordAuthOperations.login],
+})
+```
+
+GraphQL validates the complete callback-free binding metadata during startup.
+It may describe one `query` or `mutation` field, an optional argument named
+`input`, its result, and closed supporting object, input-object, or enum types.
+Invalid references, unreachable definitions, incompatible protocol versions,
+owner mismatches, duplicate names, and collisions fail startup. Installed but
+unselected operations do not appear in the schema.
+
+Resolvers pass the selected `RequestContext` only to Core's existing operation
+transport. Core owns codec execution, operation input/result validation, exact
+callback attribution, Runtime middleware, transaction policy, cancellation,
+and lifecycle checks. GraphQL never receives a handler, adapter, authority, or
+authentication integration. Declared public plugin failures use the same safe
+GraphQL error extensions as generated schema operations.
+
+Password Auth supplies compatible `signUp`, `login`, `refresh`, and `logout`
+bindings without GraphQL importing or identifying that package. Its successful
+payload exposes `principal.userId` and the one-time session token; passwords,
+verifiers, custom User fields, and private session records are never serialized.
+
 ## Relay connections
 
 Root collections and relations expose `edges`, `nodes`, and `pageInfo` without
@@ -102,7 +136,7 @@ Concurrent insertions and deletions can consequently shift later pages, which
 may repeat or skip an item. GraphQL translates the page to existing Core
 `where`, `orderBy`, `limit`, and `offset` clauses; Core has no cursor concept.
 
-Explicit plugin operations, custom schema composition, the public networkless
-`execute()` convenience method, and Yoga are supplied by later milestone
-issues. Compiling the package performs no application request; executing one of
-the generated schema fields enters Runtime.
+Custom schema composition, the public networkless `execute()` convenience
+method, and Yoga are supplied by later milestone issues. Compiling the package
+performs no application request; executing a generated field or selected plugin
+operation enters Runtime.

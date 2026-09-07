@@ -16,7 +16,11 @@ export type {
 	GraphqlPluginExports,
 	GraphqlPluginOptions,
 } from './plugin.js'
-export { graphqlFieldProtocol, graphqlProtocol } from './protocol.js'
+export {
+	graphqlFieldProtocol,
+	graphqlOperationProtocol,
+	graphqlProtocol,
+} from './protocol.js'
 export {
 	GraphqlBase64,
 	GraphqlBigInt,

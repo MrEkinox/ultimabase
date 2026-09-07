@@ -1,14 +1,41 @@
-import { Schema, createApplication } from '@ultimabase/core'
+import {
+	Schema,
+	createApplication,
+	defineOperation,
+	defineOperationValue,
+} from '@ultimabase/core'
 import type { GraphQLSchema } from 'graphql'
 import { expectTypeOf, test } from 'vitest'
 
 import {
 	graphqlPlugin,
+	graphqlOperationProtocol,
 	graphqlProtocol,
 	type GraphqlPlugin,
 	type GraphqlPluginExports,
 	type GraphqlSchemaExposureOption,
 } from './index.js'
+
+const operationValue = defineOperationValue((value: unknown): null => {
+	if (value !== null) throw new TypeError('Expected null')
+	return null
+})
+const applicationOperation = defineOperation({
+	input: operationValue,
+	name: 'fixture.graphql.typed-operation',
+	result: operationValue,
+	target: 'application',
+	transaction: 'forbidden',
+	version: '1.0.0',
+})
+const schemaOperation = defineOperation({
+	input: operationValue,
+	name: 'fixture.graphql.typed-schema-operation',
+	result: operationValue,
+	target: 'schema',
+	transaction: 'forbidden',
+	version: '1.0.0',
+})
 
 declare module '@ultimabase/core' {
 	interface UltimaBaseGeneratedSchemaOptions {
@@ -29,6 +56,7 @@ test('preserves plugin and generated schema option types', async () => {
 	const limited = graphqlPlugin({
 		limits: { defaultPageSize: 10, maxPageSize: 50 },
 	})
+	const withOperation = graphqlPlugin({ operations: [applicationOperation] })
 	const application = await createApplication({
 		plugins: [configured],
 		schemas: [Post],
@@ -37,10 +65,15 @@ test('preserves plugin and generated schema option types', async () => {
 
 	expectTypeOf(configured).toEqualTypeOf<GraphqlPlugin>()
 	expectTypeOf(limited).toEqualTypeOf<GraphqlPlugin>()
+	expectTypeOf(withOperation).toEqualTypeOf<GraphqlPlugin>()
 	expectTypeOf(exports).toEqualTypeOf<Readonly<GraphqlPluginExports>>()
 	expectTypeOf(exports.schema).toEqualTypeOf<GraphQLSchema>()
 	expectTypeOf(graphqlProtocol.name).toEqualTypeOf<'ultimabase.graphql'>()
 	expectTypeOf(graphqlProtocol.version).toEqualTypeOf<'1.0.0'>()
+	expectTypeOf(
+		graphqlOperationProtocol.name,
+	).toEqualTypeOf<'ultimabase.graphql.operation'>()
+	expectTypeOf(graphqlOperationProtocol.version).toEqualTypeOf<'1.0.0'>()
 })
 
 test('rejects invalid connection limit types', () => {
@@ -55,5 +88,9 @@ test('rejects invalid connection limit types', () => {
 			// @ts-expect-error unknown limit keys are rejected
 			unknown: 10,
 		},
+	})
+	graphqlPlugin({
+		// @ts-expect-error GraphQL custom roots accept application operations only
+		operations: [schemaOperation],
 	})
 })

@@ -8,6 +8,7 @@ import {
 	rejectPasswordSession,
 	rejectPasswordSignUp,
 } from './operations.js'
+import { passwordAuthGraphqlBindings } from './graphql-operation-bindings.js'
 import {
 	createPasswordSessionToken,
 	digestPasswordSessionToken,
@@ -71,6 +72,43 @@ describe('Password Auth operation contracts', () => {
 				expect(error).toBeInstanceOf(PluginError)
 				expect(error).toMatchObject({ code, internalDetails: undefined })
 			}
+		}
+	})
+
+	it('owns deterministic callback-free GraphQL bindings for every operation', () => {
+		expect(Object.keys(passwordAuthGraphqlBindings).sort()).toStrictEqual([
+			'login',
+			'logout',
+			'refresh',
+			'signUp',
+		])
+		expect(passwordAuthGraphqlBindings.signUp).toMatchObject({
+			metadata: {
+				field: 'signUp',
+				input: {
+					kind: 'non-null',
+					ofType: { kind: 'named', name: 'PasswordAuthCredentialsInput' },
+				},
+				kind: 'graphql-operation-binding',
+				result: {
+					kind: 'non-null',
+					ofType: { kind: 'named', name: 'PasswordAuthPayload' },
+				},
+				root: 'mutation',
+			},
+			operation: passwordAuthOperations.signUp,
+			transport: {
+				name: 'ultimabase.graphql.operation',
+				version: '1.0.0',
+			},
+		})
+		expect(passwordAuthGraphqlBindings.logout.metadata).not.toHaveProperty(
+			'input',
+		)
+		for (const binding of Object.values(passwordAuthGraphqlBindings)) {
+			expect(Object.isFrozen(binding.metadata)).toBe(true)
+			expect(binding.metadata).not.toHaveProperty('decode')
+			expect(binding.metadata).not.toHaveProperty('encode')
 		}
 	})
 })

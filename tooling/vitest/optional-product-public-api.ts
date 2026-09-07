@@ -384,6 +384,7 @@ export const graphqlPluginPublicApi = {
 	compatibleProviderContract: [
 		'graphqlApplicationCapability',
 		'graphqlFieldProtocol',
+		'graphqlOperationProtocol',
 		'graphqlProtocol',
 	],
 	conformanceSupport: [],
@@ -467,9 +468,13 @@ export const removedRestPluginPublicApiNames = [
 /** Names GraphQL compilation details deliberately kept out of the root API. */
 export const removedGraphqlPluginPublicApiNames = [
 	'GraphqlFieldTypeCompiler',
+	'GraphqlOperationExecution',
+	'GraphqlOperationSchemaCompiler',
 	'collectGraphqlSchemaSurfaces',
 	'compileGraphqlSchema',
 	'graphqlSchemaOption',
+	'normalizeGraphqlOperationBindingMetadata',
+	'normalizeGraphqlPluginOperations',
 	'normalizeGraphqlSchemaExposure',
 	'normalizeGraphqlSchemaOperations',
 	'readGraphqlSchemaExposure',

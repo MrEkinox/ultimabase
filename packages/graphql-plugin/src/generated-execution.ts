@@ -2,6 +2,7 @@ import {
 	RequestContext,
 	type ApplicationCallbackExecutor,
 	type ApplicationRequestExecutor,
+	type ExposedOperationTransportBinding,
 	type PluginIdentity,
 	type SchemaDefinition,
 } from '@ultimabase/core'
@@ -18,6 +19,7 @@ import {
 	prepareGraphqlReadOperation,
 	type GraphqlReadOperation,
 } from './read-normalization.js'
+import type { GraphqlOperationExecution } from './operation-execution.js'
 
 type GeneratedResolver = GraphQLFieldResolver<unknown, unknown>
 
@@ -52,6 +54,7 @@ export class GraphqlGeneratedExecution {
 	readonly #callbacks: ApplicationCallbackExecutor
 	readonly #connections: GraphqlConnectionRuntime
 	readonly #executor: ApplicationRequestExecutor
+	readonly #operations: GraphqlOperationExecution
 	readonly #owner: PluginIdentity
 
 	constructor(
@@ -59,12 +62,14 @@ export class GraphqlGeneratedExecution {
 			readonly callbacks: ApplicationCallbackExecutor
 			readonly connections: GraphqlConnectionRuntime
 			readonly executor: ApplicationRequestExecutor
+			readonly operations: GraphqlOperationExecution
 			readonly owner: PluginIdentity
 		}>,
 	) {
 		this.#callbacks = options.callbacks
 		this.#connections = options.connections
 		this.#executor = options.executor
+		this.#operations = options.operations
 		this.#owner = options.owner
 	}
 
@@ -122,6 +127,16 @@ export class GraphqlGeneratedExecution {
 				)
 				return this.#executor.executeMutation(context, schema, request)
 			})
+	}
+
+	operation(
+		operation: ExposedOperationTransportBinding,
+		input: unknown,
+		contextValue: unknown,
+	): Promise<unknown> {
+		return this.#run(contextValue, (context) =>
+			this.#operations.execute(context, operation, input),
+		)
 	}
 
 	relation(

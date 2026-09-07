@@ -113,6 +113,14 @@ For REST v1, pass the exact operation tokens to `restPlugin({ operations })`.
 Password Auth contributes the compatible codecs and maps its three public
 errors to status 400 or 401 without importing REST.
 
+The same explicit tokens may be passed to `graphqlPlugin({ operations })`.
+Password Auth contributes canonical GraphQL metadata and codecs for `signUp`,
+`login`, `refresh`, and `logout` without importing the GraphQL package. The
+GraphQL payload exposes only `principal.userId` plus the public session result;
+it never serializes the User model, custom User fields, a password, or a stored
+verifier. Authentication still adds request identity only and grants no schema
+access by itself.
+
 ## Resolve sessions over HTTP
 
 Installing Password Auth contributes the default HTTP credential resolver.

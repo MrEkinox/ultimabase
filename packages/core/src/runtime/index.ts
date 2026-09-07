@@ -23,6 +23,12 @@ export type {
 	ApplicationMasterKeyVerificationOptions,
 	ApplicationRequestExecutor,
 } from './application/application-request-execution.js'
+export { applicationOperationTransportPlanningCapability } from './application/application-operation-transport-planning.js'
+export type {
+	ApplicationOperationTransportPlan,
+	ApplicationOperationTransportPlanner,
+	OperationTransportPlanningOptions,
+} from './application/application-operation-transport-planning.js'
 export type {
 	ApplicationSchemaMutationKind,
 	ApplicationSchemaMutationRequest,

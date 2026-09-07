@@ -198,14 +198,19 @@ export class GraphqlMutationOperationCompiler {
 	}
 
 	mutationType(): GraphQLObjectType | undefined {
+		const fields = this.mutationFields()
+		if (Object.keys(fields).length === 0) return undefined
+		return new GraphQLObjectType({ name: 'Mutation', fields })
+	}
+
+	mutationFields(): GraphQLFieldConfigMap<unknown, unknown> {
 		const fields: GraphQLFieldConfigMap<unknown, unknown> = {}
 		for (const surface of this.#surfaces.values()) {
 			if (surface.owner.kind === 'application') {
 				this.#surfaceFields(fields, surface)
 			}
 		}
-		if (Object.keys(fields).length === 0) return undefined
-		return new GraphQLObjectType({ name: 'Mutation', fields })
+		return fields
 	}
 
 	materialize(): void {

@@ -14,6 +14,15 @@ export const graphqlProtocol: OperationTransportProtocol<
 	version: '1.0.0',
 })
 
+/** Identifies explicit plugin-operation bindings compiled into GraphQL roots. */
+export const graphqlOperationProtocol: OperationTransportProtocol<
+	'ultimabase.graphql.operation',
+	'1.0.0'
+> = defineOperationTransport({
+	name: 'ultimabase.graphql.operation',
+	version: '1.0.0',
+})
+
 /** Identifies the canonical owner-supplied GraphQL v1 plugin-field codec. */
 export const graphqlFieldProtocol: PluginFieldWireProtocol<
 	'ultimabase.graphql.field',

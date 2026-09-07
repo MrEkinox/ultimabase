@@ -1,9 +1,11 @@
 import {
+	applicationOperationTransportPlanningCapability,
 	applicationRequestExecutionCapability,
 	provideCapability,
 	requireCapability,
 	type CapabilityProviderDeclaration,
 	type CapabilityRequirement,
+	type PluginOperationDefinition,
 } from '@ultimabase/core'
 import {
 	definePluginModule,
@@ -14,6 +16,7 @@ import {
 
 import {
 	createGraphqlApplicationResource,
+	bindGraphqlOperationTransport,
 	graphqlApplicationCapability,
 	type GraphqlApplication,
 } from './application.js'
@@ -25,12 +28,14 @@ import {
 } from './connection-limits.js'
 import { GraphqlConnectionRuntime } from './connection-runtime.js'
 import { GraphqlGeneratedExecution } from './generated-execution.js'
+import { GraphqlOperationExecution } from './operation-execution.js'
 import {
 	graphqlSchemaOption,
 	normalizeGraphqlSchemaOperations,
+	normalizeGraphqlPluginOperations,
 	type GraphqlSchemaOperations,
 } from './options.js'
-import { graphqlProtocol } from './protocol.js'
+import { graphqlOperationProtocol, graphqlProtocol } from './protocol.js'
 
 const graphqlPluginModule: PluginModule<
 	'@ultimabase/graphql-plugin',
@@ -50,6 +55,12 @@ export interface GraphqlPluginOptions {
 	readonly default?: boolean | GraphqlSchemaOperations
 	/** Configures the forward Relay page window. */
 	readonly limits?: GraphqlExecutionLimits
+	/** Explicitly exposes exact application operations through owner bindings. */
+	readonly operations?: readonly PluginOperationDefinition<
+		string,
+		string,
+		'application'
+	>[]
 }
 
 /** Exposes the application-local network-independent GraphQL schema. */
@@ -57,11 +68,17 @@ export type GraphqlPluginExports = GraphqlApplication
 
 const parseGraphqlPluginOptions = definePluginOptionsParser({
 	name: 'GraphQL plugin options',
-	keys: ['acknowledgeUnverifiedProtection', 'default', 'limits'] as const,
+	keys: [
+		'acknowledgeUnverifiedProtection',
+		'default',
+		'limits',
+		'operations',
+	] as const,
 	normalize: ({
 		acknowledgeUnverifiedProtection,
 		default: defaultOperations,
 		limits,
+		operations,
 	}) => {
 		if (
 			acknowledgeUnverifiedProtection !== undefined &&
@@ -84,6 +101,7 @@ const parseGraphqlPluginOptions = definePluginOptionsParser({
 				limits === undefined
 					? defaultGraphqlExecutionLimits
 					: normalizeGraphqlExecutionLimits(limits),
+			operations: normalizeGraphqlPluginOperations(operations),
 		}
 	},
 })
@@ -96,6 +114,16 @@ const requestExecutionRequirement: CapabilityRequirement<
 > = requireCapability(applicationRequestExecutionCapability, '^1.0.0', {
 	phase: 'materialization',
 })
+const operationPlanningRequirement: CapabilityRequirement<
+	typeof applicationOperationTransportPlanningCapability,
+	false,
+	'^1.0.0',
+	'materialization'
+> = requireCapability(
+	applicationOperationTransportPlanningCapability,
+	'^1.0.0',
+	{ phase: 'materialization' },
+)
 const graphqlApplicationRequirement: CapabilityRequirement<
 	typeof graphqlApplicationCapability,
 	false,
@@ -127,6 +155,7 @@ type GraphqlPluginCapabilities = Readonly<{
 			'^1.0.0',
 			'materialization'
 		>,
+		typeof operationPlanningRequirement,
 		typeof graphqlApplicationRequirement,
 	]
 }>
@@ -153,11 +182,17 @@ export const graphqlPlugin = (
 		contributionId: 'official-graphql-application',
 		create: ({ callbacks, capabilities: reader, owner, schemas }) => {
 			const connections = new GraphqlConnectionRuntime(normalized.limits)
+			const operationPlan = reader.get(operationPlanningRequirement).plan({
+				operations: normalized.operations,
+				transport: graphqlOperationProtocol,
+			})
+			const operations = new GraphqlOperationExecution(operationPlan)
 			try {
 				const execution = new GraphqlGeneratedExecution({
 					callbacks,
 					connections,
 					executor: reader.get(requestExecutionRequirement),
+					operations,
 					owner,
 				})
 				return createGraphqlApplicationResource(
@@ -167,19 +202,26 @@ export const graphqlPlugin = (
 							? {}
 							: { defaultOperations: normalized.defaultOperations }),
 						execution,
+						operationPlan,
 						schemas,
 					}),
 					connections,
+					operations,
 				)
 			} catch (error: unknown) {
 				connections.dispose()
+				operations.dispose()
 				throw error
 			}
 		},
 	})
 	const capabilities: GraphqlPluginCapabilities = {
 		provides: [applicationProvider],
-		requires: [requestExecutionRequirement, graphqlApplicationRequirement],
+		requires: [
+			requestExecutionRequirement,
+			operationPlanningRequirement,
+			graphqlApplicationRequirement,
+		],
 	}
 
 	return graphqlPluginModule.plugin({
@@ -194,7 +236,19 @@ export const graphqlPlugin = (
 		setup: ({ capabilities: reader }) =>
 			reader.get(graphqlApplicationRequirement),
 		hooks: {
-			startTransports: ({ capabilities: reader }) => {
+			startTransports: ({ capabilities: reader, pluginExports }) => {
+				if (normalized.operations.length > 0) {
+					bindGraphqlOperationTransport(
+						pluginExports,
+						reader.get(requestExecutionRequirement).exposeOperations({
+							// The GraphQL surface reports once below; this private bridge is not
+							// a second independently reachable public transport.
+							acknowledgeUnverifiedProtection: true,
+							operations: normalized.operations,
+							transport: graphqlOperationProtocol,
+						}),
+					)
+				}
 				reader
 					.get(requestExecutionRequirement)
 					.reportPublicTransportProtection({

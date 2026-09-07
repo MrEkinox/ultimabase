@@ -116,6 +116,12 @@ bindings may carry immutable transport-owned JSON metadata, while Core's
 allowlist facade reveals only inert operation descriptors. REST uses that
 boundary to validate complete public-error status mappings before startup and
 never imports an operation owner such as Password Auth.
+ADR-0240 adds a separate Core-owned materialization-time planner for transports
+whose public shape must compile before the application engine exists. It
+returns the same inert descriptors after exact token, protocol, owner, and
+privilege validation, but never exposes codecs or execution. GraphQL compiles
+selected operation roots from that plan and later binds the matching executable
+allowlist through the ordinary request executor.
 
 ADR-0234 adds exact owner-private plugin records for data such as password and
 session verifiers that must participate in typed transactions and migrations
@@ -542,6 +548,9 @@ be reviewed after the plugin package is absent.
   registry.
 - Generated relationship selections use Core's eager inclusion contract. V1
   adds no framework-owned DataLoader or second policy-aware loading path.
+- Explicit plugin operations enter GraphQL only through the canonical
+  `ultimabase.graphql.operation@1.0.0` binding and Core's operation transport;
+  installed declarations are never exposed automatically.
 
 ## Further reading
 

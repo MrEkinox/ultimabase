@@ -1,9 +1,16 @@
 import {
 	defineSchemaOption,
+	isPluginOperationDefinition,
+	type PluginOperationDefinition,
 	type SchemaDefinition,
 	type SchemaOptionDefinition,
 } from '@ultimabase/core'
-import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
+import {
+	immutableArray,
+	immutableRecord,
+	isPlainRecord,
+	isUnknownArray,
+} from '@ultimabase/shared'
 
 /** Selects itemized bulk mutation fields for one generated GraphQL type. */
 export interface GraphqlBulkOperations {
@@ -164,3 +171,39 @@ export const readGraphqlSchemaExposure = (
 		? (Reflect.get(schema.definition, 'graphql') as
 				GraphqlSchemaExposureOption | undefined)
 		: undefined
+
+const isApplicationOperation = (
+	operation: PluginOperationDefinition,
+): operation is PluginOperationDefinition<string, string, 'application'> =>
+	operation.target === 'application'
+
+/** Validates the exact application operation tokens selected for GraphQL. */
+export const normalizeGraphqlPluginOperations = (
+	value: unknown,
+): readonly PluginOperationDefinition<string, string, 'application'>[] => {
+	if (value === undefined) return immutableArray([])
+	if (!isUnknownArray(value)) {
+		throw new TypeError('GraphQL plugin operations must be an array')
+	}
+	const names = new Set<string>()
+	const operations: PluginOperationDefinition<string, string, 'application'>[] =
+		[]
+	for (const [index, operation] of value.entries()) {
+		if (!isPluginOperationDefinition(operation)) {
+			throw new TypeError(
+				`GraphQL plugin operations[${String(index)}] must be an operation token`,
+			)
+		}
+		if (!isApplicationOperation(operation)) {
+			throw new TypeError(
+				`GraphQL plugin operation ${operation.name} must target the application`,
+			)
+		}
+		if (names.has(operation.name)) {
+			throw new TypeError(`GraphQL plugin operations repeats ${operation.name}`)
+		}
+		names.add(operation.name)
+		operations.push(operation)
+	}
+	return immutableArray(operations)
+}

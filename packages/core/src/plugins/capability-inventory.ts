@@ -33,6 +33,10 @@ import {
 	applicationRequestExecutionCapability,
 	canonicalApplicationRequestExecutionFoundation,
 } from '../runtime/application/application-request-execution.js'
+import {
+	applicationOperationTransportPlanningCapability,
+	canonicalApplicationOperationTransportPlanningFoundation,
+} from '../runtime/application/application-operation-transport-planning.js'
 
 /** Reports one provider or replacement without exposing its value or factory. */
 export interface CapabilityProviderInspection {
@@ -255,11 +259,21 @@ export class CapabilityInventory implements Iterable<CapabilityInventoryEntry> {
 					requirement.token === applicationRequestExecutionCapability,
 			)
 		})
+		const consumesOperationTransportPlanning = plugins.some((plugin) => {
+			const capabilities = plugin.definition.manifest.capabilities
+			return [...capabilities.requires, ...capabilities.optional].some(
+				(requirement) =>
+					requirement.token === applicationOperationTransportPlanningCapability,
+			)
+		})
 		for (const foundation of [
 			canonicalSchemaCompilerFoundation,
 			canonicalRuntimeExecutorFoundation,
 			...(consumesApplicationRequests
 				? [canonicalApplicationRequestExecutionFoundation]
+				: []),
+			...(consumesOperationTransportPlanning
+				? [canonicalApplicationOperationTransportPlanningFoundation]
 				: []),
 		]) {
 			registerToken(

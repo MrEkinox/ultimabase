@@ -49,6 +49,7 @@ import {
 } from './user-schema.js'
 import { normalizePasswordUsername } from './normalization.js'
 import { assertPasswordHashEngineAvailable } from './password-hasher.js'
+import { passwordAuthGraphqlBindings } from './graphql-operation-bindings.js'
 import {
 	passwordAuthOperations,
 	passwordAuthRestBindings,
@@ -93,7 +94,7 @@ const passwordAuthPluginPrivileges = [
 	{
 		name: 'transport:expose',
 		reason:
-			'Binds Password Auth operations to REST v1 and optional owned cookie routes.',
+			'Binds Password Auth operations to REST v1, GraphQL v1, and optional owned cookie routes.',
 	},
 	{
 		name: 'typegen:reference',
@@ -316,13 +317,20 @@ export const passwordAuthPlugin = <
 			create: () => ({ value: handler }),
 		}),
 	)
-	const bindingProviders = Object.entries(passwordAuthRestBindings).map(
-		([name, binding]) =>
+	const bindingProviders = [
+		...Object.entries(passwordAuthRestBindings).map(([name, binding]) =>
 			provideOperationTransportBinding({
 				contributionId: `password-rest-${name}`,
 				create: () => ({ value: binding }),
 			}),
-	)
+		),
+		...Object.entries(passwordAuthGraphqlBindings).map(([name, binding]) =>
+			provideOperationTransportBinding({
+				contributionId: `password-graphql-${name}`,
+				create: () => ({ value: binding }),
+			}),
+		),
+	]
 
 	return passwordAuthPluginModule.plugin({
 		capabilities: {
