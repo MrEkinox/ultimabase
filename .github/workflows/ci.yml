@@ -16,7 +16,9 @@ jobs:
   quality:
     name: Quality
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    # Type-aware linting, exhaustive coverage, and Docker-backed E2E tests run
+    # sequentially so the full quality gate needs more than fifteen minutes.
+    timeout-minutes: 30
 
     steps:
       - name: Check out repository
