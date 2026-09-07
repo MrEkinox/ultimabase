@@ -37,8 +37,10 @@ and performance audit with measured generated-contract evidence.
 Milestone 23 completed the first public client-to-PostgreSQL vertical: a shared
 optional HTTP capability, Hono provider, experimental REST v1, audited
 application-ID and Master-key requests, and local Password Auth with opaque
-sessions. The next ready transport work is the independent
-[GraphQL Core plugin lifecycle](issues/600-transports/608-graphql-core-plugin.md).
+sessions. The GraphQL backlog has now been rebased on those delivered contracts.
+The next ready transport work is the architecture gate for the
+[GraphQL v1 contract and kernel boundaries](issues/600-transports/608-graphql-v1-contract.md),
+which must be approved before its packages are implemented.
 
 The ACL hardening plan remains paused at issue 432. It is not part of an active
 plan.
@@ -67,7 +69,7 @@ Service tokens, plugin graph, nested plugins, lifecycle, isolated applications, 
 
 Operation AST, immutable `Query`, CRUD including bulk and upsert, RequestEngine,
 automatic mutation transactions, generic Runtime behavior composition,
-policy-neutral monotonic enforcement, cursor pagination, and Core master
+policy-neutral monotonic enforcement, offset pagination, and Core master
 access. The optional official Hooks plugin owns the schema and field lifecycle.
 
 ## Milestone 4 — Access foundations and persisted policy providers
@@ -86,11 +88,14 @@ starts implementation.
 
 ## Milestone 6 — GraphQL vertical and cross-transport parity
 
-Network-independent GraphQL schema generation, cursor connections, mutations,
-custom schema merging, HTTP mounting through Yoga, developer explorers, and
-final REST/GraphQL parity. The original pre-kernel REST issues are superseded
-by milestone 23. GraphQL packages remain planned and gain workspaces only when
-their implementation issues start.
+First accept a GraphQL v1 contract aligned with the open capability kernel,
+Core's narrow application request executor, canonical field and operation wire
+protocols, and milestone 23's HTTP and authentication boundaries. Then deliver
+network-independent schema generation and execution, GraphQL-owned Relay
+connections, explicit plugin operations, custom schema composition,
+request-scoped batching, Yoga mounting, optional developer explorers, and a
+final direct TypeScript/REST/GraphQL parity audit. GraphQL packages remain
+planned and gain workspaces only when their implementation issues start.
 
 ## Milestone 7+ — Optional ecosystem
 
@@ -246,6 +251,6 @@ on REST. HTTP Basic and Better Auth remain separate deferred integrations.
 ## First usable release
 
 The first release must support full primitive-field CRUD, bulk operations,
-upserts, REST, GraphQL, PostgreSQL, cursor pagination, optional official typed
-Hooks and Access plugins, automatic mutation transactions, and parallel
-integration tests.
+upserts, REST, GraphQL, PostgreSQL, GraphQL-owned cursor pagination, optional
+official typed Hooks and Access plugins, automatic mutation transactions, and
+parallel integration tests.

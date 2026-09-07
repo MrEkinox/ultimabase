@@ -86,6 +86,8 @@ Public protection diagnostics cannot infer complete policy coverage. GraphQL,
 Yoga, HTTP Basic, Better Auth, OpenAPI, SDKs, uploads, realtime, and deployment
 automation remain outside this completed milestone.
 
-[Issue 608](../../../issues/600-transports/608-graphql-core-plugin.md) is ready
-and is the next independent transport starting point. It creates the
-network-independent GraphQL lifecycle without HTTP or Yoga dependencies.
+[Issue 608](../../../issues/600-transports/608-graphql-v1-contract.md) is ready
+and is the next independent transport starting point. The GraphQL backlog was
+subsequently rebased on the completed milestone 23 contracts, so this issue now
+accepts the GraphQL v1 architecture before the network-independent package is
+implemented.
