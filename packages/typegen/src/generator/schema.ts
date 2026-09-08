@@ -18,6 +18,7 @@ import type {
 	ObjectDescriptor,
 	RenderContext,
 } from './types.js'
+import { renderNestedWriteInputs } from './nested-writes.js'
 import { renderProperties } from './values.js'
 
 const renderObject = (
@@ -152,6 +153,7 @@ export const renderSchemaPublic = (
 		`export type ${alias}Item = ${renderProperties(schema.fields, 'object', context)}`,
 		`export type ${alias}CreateInput = ${renderProperties(schema.fields, 'create', context)}`,
 		`export type ${alias}UpdateInput = ${renderProperties(schema.fields, 'update', context)}`,
+		...renderNestedWriteInputs(schema, context),
 		renderWhere(schema, alias, context),
 		`export type ${alias}Select = ${renderSelect(schema)}`,
 		`export type ${alias}OrderByInput = ${renderOrderBy(schema)}`,

@@ -526,7 +526,7 @@ SemanticArticle./* public-count-hover */count({
 
 const projectedCreate = SemanticArticle./* public-create-one-hover */createOne({
   data: {
-    author: SemanticAuthor.pointer('author-1'),
+    author: { connect: 'author-1' },
     status: 'draft',
     title: 'Created',
   },
@@ -609,7 +609,7 @@ projectedUpdates.then((articles) => {
 	void authorId
   void authorName
 })
-SemanticArticle.createOne({ data: createInput, /* public-create-one-options */ })
+SemanticArticle.createOne({ data: { author: { connect: 'author-1' }, status: 'draft', title: 'Created' }, /* public-create-one-options */ })
 SemanticArticle.createMany({ data: [createInput], /* public-create-many-options */ })
 SemanticArticle.updateOne({
   where: { id: { eq: 'article-1' } },
@@ -679,9 +679,9 @@ const relatedRead = related.findMany({
   /* public-relation-where-hover */where: { /* public-relation-where */ status: { eq: 'published' } },
   select: { title: true },
 })
+related.connect('article-2')
+// @ts-expect-error -- Field-bound relation mutations accept IDs, not Pointers.
 related.connect(SemanticArticle.pointer('article-2'))
-// @ts-expect-error -- Relation mutations retain their exact target schema.
-related.connect(SemanticAuthor.pointer('author-2'))
 
 void exactStatus
 void exactAuthorName

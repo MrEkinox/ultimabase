@@ -169,7 +169,7 @@ const cascadeReferences = async (
 
 	for (const parentRole of parentRoles) {
 		await readRelation(parentRole, 'roles').disconnect(
-			rolePointer,
+			rolePointer.id,
 			masterOptions,
 		)
 	}

@@ -53,7 +53,6 @@ import {
 	type RelationMutationTargets,
 	type RelationUpdateExpression,
 } from './mutation.js'
-import type { PointerTarget } from './pointer.js'
 
 export type SchemaRelationFieldName<TSchema extends SchemaTypeInfoSource> =
 	SchemaRelationshipFieldName<TSchema, 'relation'>
@@ -84,9 +83,7 @@ const executeRelationMutation = async <
 >(
 	state: RelationState<TSource, TTarget>,
 	action: RelationMutationAction,
-	targets:
-		| PointerTarget<TTarget['className']>
-		| readonly PointerTarget<TTarget['className']>[],
+	targets: string | readonly string[],
 	options: RelationMutationOptions | undefined,
 ): Promise<void> => {
 	const sourceQuery = scopeQueryToObjectId(
@@ -279,27 +276,27 @@ export class Relation<
 	}
 
 	/**
-	 * Adds one or more exact target pointers in a single transaction.
+	 * Adds one or more exact target IDs in a single transaction.
 	 *
-	 * Existing edges remain unchanged. Duplicate pointers in the same call are
+	 * Existing edges remain unchanged. Duplicate IDs in the same call are
 	 * rejected before Runtime starts.
 	 *
-	 * @example `await post.relation('tags').connect(tag.pointer())`
+	 * @example `await post.relation('tags').connect(tagId)`
 	 */
 	connect(
-		targets: RelationMutationTargets<TTarget>,
+		targets: RelationMutationTargets,
 		options?: RelationMutationOptions,
 	): Promise<void> {
 		return executeRelationMutation(this.getState(), 'connect', targets, options)
 	}
 
 	/**
-	 * Removes one or more exact target pointers in a single transaction.
+	 * Removes one or more exact target IDs in a single transaction.
 	 *
-	 * @example `await post.relation('tags').disconnect(tag.pointer())`
+	 * @example `await post.relation('tags').disconnect(tagId)`
 	 */
 	disconnect(
-		targets: RelationMutationTargets<TTarget>,
+		targets: RelationMutationTargets,
 		options?: RelationMutationOptions,
 	): Promise<void> {
 		return executeRelationMutation(
@@ -313,10 +310,10 @@ export class Relation<
 	/**
 	 * Replaces the complete target set atomically, including with an empty set.
 	 *
-	 * @example `await post.relation('tags').set([featured.pointer(), news.pointer()])`
+	 * @example `await post.relation('tags').set([featuredId, newsId])`
 	 */
 	set(
-		targets: readonly PointerTarget<TTarget['className']>[],
+		targets: readonly string[],
 		options?: RelationMutationOptions,
 	): Promise<void> {
 		return executeRelationMutation(this.getState(), 'set', targets, options)

@@ -11,7 +11,7 @@ import type {
 } from '../../query/updates/contracts.js'
 import type { RelationField } from '../fields/builtins/relation.js'
 import type { SchemaDefinition } from '../schema/definition.js'
-import { Pointer, type PointerTarget } from './pointer.js'
+import { Pointer } from './pointer.js'
 import type {
 	SchemaRelationFieldName,
 	SchemaRelationTarget,
@@ -21,12 +21,7 @@ import type {
 export type RelationMutationAction = 'clear' | 'connect' | 'disconnect' | 'set'
 
 /** Requires at least one exact target for additive and subtractive mutations. */
-export type RelationMutationTargets<TTarget extends SchemaDefinition> =
-	| PointerTarget<TTarget['className']>
-	| readonly [
-			PointerTarget<TTarget['className']>,
-			...PointerTarget<TTarget['className']>[],
-	  ]
+export type RelationMutationTargets = string | readonly [string, ...string[]]
 
 /** Carries one normalized relationship change to installed behaviors and adapters. */
 export interface RelationMutationDelta<
@@ -92,39 +87,36 @@ export const isRelationUpdateExpression = (
 	)
 }
 
-/** Snapshots exact pointers and rejects ambiguous duplicate target declarations. */
+/** Converts exact IDs to pointers and rejects ambiguous duplicate declarations. */
 const normalizeTargets = <TTarget extends SchemaDefinition>(
 	target: TTarget,
-	value:
-		| PointerTarget<TTarget['className']>
-		| readonly PointerTarget<TTarget['className']>[],
+	value: string | readonly string[],
 	allowEmpty: boolean,
 ): readonly Pointer<TTarget>[] => {
-	const candidates = Pointer.is(value) ? [value] : value
+	const candidates = typeof value === 'string' ? [value] : value
 
 	if (!isUnknownArray(candidates) || (!allowEmpty && candidates.length === 0)) {
-		throw new TypeError('Relation mutation targets must contain a Pointer')
+		throw new TypeError('Relation mutation targets must contain an object ID')
 	}
 
 	const ids = new Set<string>()
 	const targets: Pointer<TTarget>[] = []
 
 	for (const candidate of candidates) {
-		if (!Pointer.is(candidate) || candidate.schema !== target) {
+		if (typeof candidate !== 'string' || candidate.length === 0) {
 			throw new TypeError(
-				`Relation mutation target must point to ${target.className}`,
+				`Relation mutation target for ${target.className} must be a non-empty object ID`,
 			)
 		}
 
-		if (ids.has(candidate.id)) {
+		if (ids.has(candidate)) {
 			throw new TypeError(
-				`Relation mutation contains duplicate target ${JSON.stringify(candidate.id)}`,
+				`Relation mutation contains duplicate target ${JSON.stringify(candidate)}`,
 			)
 		}
 
-		ids.add(candidate.id)
-		// Reconstructing preserves exact generic identity after the runtime schema check.
-		targets.push(new Pointer(target, candidate.id))
+		ids.add(candidate)
+		targets.push(new Pointer(target, candidate))
 	}
 
 	return immutableArray(targets)
@@ -141,9 +133,7 @@ export const createRelationUpdateExpression = <
 	fieldName: TFieldName,
 	target: TTarget,
 	action: TAction,
-	values:
-		| PointerTarget<TTarget['className']>
-		| readonly PointerTarget<TTarget['className']>[],
+	values: string | readonly string[],
 ): RelationUpdateExpression<TSource, TFieldName, TAction, TTarget> => {
 	const field = source.fields[fieldName]
 

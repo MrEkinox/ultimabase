@@ -305,7 +305,7 @@ const relatedRead = packedLoadedDocument.relation('related').findMany({
   where: { ${relationMarker}status: { eq: 'published' } },
 })
 const projectedCreate = PackedGeneratedDocument.createOne({
-  data: { owner: packedOwner, title: 'Created projection' },
+  data: { owner: { connect: 'owner-1' }, title: 'Created projection' },
   select: { title: true },
   include: { owner: { select: { name: true } } },
 })
@@ -378,7 +378,7 @@ projectedUpdates.then((documents) => {
   void ownerName
 })
 PackedGeneratedDocument.createOne({
-  data: { owner: packedOwner, title: 'Create completion' },
+  data: { owner: { connect: 'owner-1' }, title: 'Create completion' },
   ${createOneOptionsMarker}
 })
 PackedGeneratedDocument.createMany({

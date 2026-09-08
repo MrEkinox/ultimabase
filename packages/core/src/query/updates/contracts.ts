@@ -1,4 +1,7 @@
-import type { SchemaUpdateData } from '../../schema/index.js'
+import type {
+	SchemaNestedUpdateData,
+	SchemaUpdateData,
+} from '../../schema/index.js'
 import type {
 	SchemaNumericFieldName,
 	SchemaTypeInfoFor,
@@ -84,6 +87,15 @@ export type UpdateExpressionInput<TSchema extends SchemaTypeInfoSource> =
 		? Readonly<Record<string, unknown>>
 		: CompactUpdateExpressionInput<
 				SimplifyUpdateInput<UpdateSetInput<TSchema>>,
+				SimplifyUpdateInput<NumericUpdateInput<TSchema>>
+			>
+
+/** Adds numeric operators to the generated singular nested-update field map. */
+export type NestedUpdateExpressionInput<TSchema extends SchemaTypeInfoSource> =
+	string extends SchemaTypeInfoFor<TSchema>['key']
+		? Readonly<Record<string, unknown>>
+		: CompactUpdateExpressionInput<
+				SimplifyUpdateInput<SchemaNestedUpdateData<TSchema>>,
 				SimplifyUpdateInput<NumericUpdateInput<TSchema>>
 			>
 

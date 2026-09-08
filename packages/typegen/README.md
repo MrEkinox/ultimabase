@@ -129,7 +129,7 @@ JSON codec. Plugin fields that separately enable Core's portable structural
 containment name their exact partial operand through `structuralContainsType`.
 Typegen emits `contains` only for those fields and keeps the executable snapshot
 callback out of generated artifacts. These contracts advance the inert snapshot
-format to version 7 and the generator format to version 13. Owner-private
+format to version 7 and the generator format to version 14. Owner-private
 collections contribute only an opaque application fingerprint input; their
 owners, collection names, fields, indexes, references, options, and records
 never enter the snapshot or emitted declarations. An application without
@@ -175,6 +175,11 @@ Generated schema commands retain the same named inputs while exposing concise
 singular identifier aliases. `updateOne({ id, data })` and `deleteOne({ id })`
 are typed as mutually exclusive alternatives to their canonical `where` forms;
 Core normalizes the alias to `{ id: { eq: id } }` before Query construction.
+`createOne` and `updateOne` additionally use recursive schema-specific nested
+pointer and relation inputs. The registry retains separate `nestedCreate` and
+`nestedUpdate` declarations, while drafts, bulk commands, and upserts keep
+their flat input aliases. Typegen emits declarations only; Core normalizes the
+same compiled graph for JavaScript applications without loading this file.
 
 Listed fields receive concrete element-aware declarations such as
 `ArrayStringFilter`, `ArrayIntFilter`, and named enum/object variants. These

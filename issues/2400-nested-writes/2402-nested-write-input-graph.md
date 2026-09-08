@@ -1,6 +1,6 @@
 # 2402: Compile typed nested inputs and the Core graph
 
-- Status: ready
+- Status: completed
 - Milestone: 24
 - Packages: `@ultimabase/core`, `@ultimabase/typegen`
 - Depends on: 2401
@@ -13,31 +13,31 @@ one immutable callback-free Core graph without executing effects.
 
 ## Acceptance criteria
 
-- [ ] `createOne` and `updateOne` infer only the nested commands legal for each
+- [x] `createOne` and `updateOne` infer only the nested commands legal for each
       pointer or relation field, target schema, root kind, and nullability.
-- [ ] Nested target `create` and `update` inputs recurse with exact field types,
+- [x] Nested target `create` and `update` inputs recurse with exact field types,
       autocomplete, readable hovers, and no `any` or generated Runtime dependency.
-- [ ] Field-bound relation handles and nested identity commands use canonical
+- [x] Field-bound relation handles and nested identity commands use canonical
       target IDs according to ADR-0243, with a complete superseded-input removal
       audit and no compatibility overload hidden from inference.
-- [ ] One immutable graph records exact schema, field, target, command, input,
+- [x] One immutable graph records exact schema, field, target, command, input,
       source path, declaration order, and provenance without executable
       callbacks, transport values, adapters, or policy objects.
-- [ ] Normalization validates plain records, known keys, command exclusivity,
+- [x] Normalization validates plain records, known keys, command exclusivity,
       duplicate or contradictory IDs, recursive depth, total operation count,
       and foreign or missing schema targets before any effect.
-- [ ] Scalar and embedded-object data remains the existing canonical mutation
+- [x] Scalar and embedded-object data remains the existing canonical mutation
       input; relation command objects never enter stored-value validation as
       logical field values.
-- [ ] JavaScript can normalize the same compiled application graph without a
+- [x] JavaScript can normalize the same compiled application graph without a
       generated declaration file.
 
 ## Tests
 
-- [ ] Runtime normalization, compile-time, TypeScript language-service, source
+- [x] Runtime normalization, compile-time, TypeScript language-service, source
       export, compiled export, and Typegen-free fixtures cover recursive and
       invalid graphs.
-- [ ] Core schema examples and package documentation show the canonical input.
+- [x] Core schema examples and package documentation show the canonical input.
 
 ## Out of scope
 

@@ -6,9 +6,8 @@ import type {
 } from '../../query/clauses/inclusion.js'
 import type {
 	CompactUpdateExpressionInput,
-	NumericUpdateInput,
+	NestedUpdateExpressionInput,
 	UpdateExpressionInput,
-	UpdateSetInput,
 } from '../../query/updates/contracts.js'
 import type { Pointer, PointerValue } from '../relations/pointer.js'
 import type {
@@ -165,10 +164,7 @@ export type CompactSchemaModelUpdateInput<
 
 /** Infers the compact atomic update surface reused by persisted model commands. */
 export type SchemaModelUpdateInput<TSchema extends SchemaDefinition> =
-	CompactSchemaModelUpdateInput<
-		Simplify<UpdateSetInput<TSchema>>,
-		Simplify<NumericUpdateInput<TSchema>>
-	>
+	NestedUpdateExpressionInput<TSchema>
 
 /** Selects the visible result returned after one draft is persisted. */
 export type SchemaModelCreateInput<
@@ -527,10 +523,7 @@ export type SchemaDraft<TSchema extends SchemaDefinition> = Simplify<
 		SchemaDraftCommands<
 			TSchema['className'],
 			SchemaItem<TSchema>,
-			CompactSchemaModelUpdateInput<
-				Simplify<UpdateSetInput<TSchema>>,
-				Simplify<NumericUpdateInput<TSchema>>
-			>,
+			NestedUpdateExpressionInput<TSchema>,
 			SchemaResultRelations<TSchema> & SchemaResultCapabilitiesOf<TSchema>,
 			SchemaDraftUpsertFields<TSchema>,
 			Pointer<TSchema>
@@ -551,10 +544,7 @@ export type SchemaResult<
 	TSchema['className'],
 	TValues,
 	SchemaItem<TSchema>,
-	CompactSchemaModelUpdateInput<
-		Simplify<UpdateSetInput<TSchema>>,
-		Simplify<NumericUpdateInput<TSchema>>
-	>,
+	NestedUpdateExpressionInput<TSchema>,
 	SchemaResultRelations<TSchema> & SchemaResultCapabilitiesOf<TSchema>
 >
 

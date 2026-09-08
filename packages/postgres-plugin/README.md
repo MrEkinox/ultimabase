@@ -600,7 +600,10 @@ const Post = Schema.define({
 })
 
 const author = User.pointer('0198f090-2a50-7000-8000-000000000034')
-const created = await Post.createOne({ data: { author } }, { ultimabase })
+const created = await Post.createOne(
+	{ data: { author: { connect: author.id } } },
+	{ ultimabase },
+)
 const found = await Post.findOne(
 	{
 		where: {
@@ -638,7 +641,7 @@ it never creates duplicate storage.
 ```ts
 const tags = article.relation('tags')
 
-await tags.connect([Tag.pointer(firstTagId), Tag.pointer(secondTagId)], {
+await tags.connect([firstTagId, secondTagId], {
 	ultimabase,
 })
 
@@ -651,8 +654,8 @@ const selected = await tags.findMany(
 	{ ultimabase },
 )
 
-await tags.set([Tag.pointer(featuredTagId)], { ultimabase })
-await tags.disconnect(Tag.pointer(featuredTagId), { ultimabase })
+await tags.set([featuredTagId], { ultimabase })
+await tags.disconnect(featuredTagId, { ultimabase })
 await tags.clear({ ultimabase })
 ```
 

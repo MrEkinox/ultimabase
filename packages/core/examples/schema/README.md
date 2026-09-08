@@ -17,6 +17,8 @@ TypeScript snippets:
 - [`relations.md`](relations.md) declares owning and inverse to-many topology
   and builds opaque, independently paginated relation queries without embedding
   collections in model records;
+- [`nested-writes.md`](nested-writes.md) composes bounded singular pointer and
+  relation commands while keeping bulk and draft inputs flat;
 - [`explicit-relationships.md`](explicit-relationships.md) models edges with
   business data as ordinary schemas with exact pointers and composite
   uniqueness;

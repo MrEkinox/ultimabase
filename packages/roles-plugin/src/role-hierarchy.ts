@@ -20,14 +20,8 @@ interface RoleHierarchyCommandReceiver<
 	TRoleSchema extends SchemaDefinition,
 > extends PersistedSchemaReference<TRoleSchema> {
 	relation(fieldName: 'roles'): {
-		connect(
-			role: Pointer<TRoleSchema>,
-			options?: OperationOptions,
-		): Promise<void>
-		disconnect(
-			role: Pointer<TRoleSchema>,
-			options?: OperationOptions,
-		): Promise<void>
+		connect(roleId: string, options?: OperationOptions): Promise<void>
+		disconnect(roleId: string, options?: OperationOptions): Promise<void>
 	}
 }
 
@@ -70,7 +64,7 @@ export const createRoleHierarchyCommands = <
 			'addRole',
 		)
 
-		return this.relation('roles').connect(pointer, options)
+		return this.relation('roles').connect(pointer.id, options)
 	},
 	removeRole(role, options): Promise<void> {
 		context.assertPersisted(this, 'removeRole')
@@ -80,7 +74,7 @@ export const createRoleHierarchyCommands = <
 			'removeRole',
 		)
 
-		return this.relation('roles').disconnect(pointer, options)
+		return this.relation('roles').disconnect(pointer.id, options)
 	},
 })
 

@@ -82,11 +82,11 @@ const recentPosts = await user.relation('posts').findMany({
 The same handle owns atomic mutation intent without exposing join rows:
 
 ```ts
-const post = PostSchema.pointer('0198f090-2a50-7000-8000-000000000101')
+const postId = '0198f090-2a50-7000-8000-000000000101'
 
-await user.relation('posts').connect(post)
-await user.relation('posts').disconnect(post)
-await user.relation('posts').set([post])
+await user.relation('posts').connect(postId)
+await user.relation('posts').disconnect(postId)
+await user.relation('posts').set([postId])
 await user.relation('posts').clear()
 ```
 

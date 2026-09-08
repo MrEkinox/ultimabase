@@ -523,7 +523,7 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 		expect(inputDisplay).not.toContain('SchemaDefinition<')
 		expect(inputDisplay).not.toContain('NonDefaultedIntField<')
 		expect(update.documentation).toContain(
-			'Applies typed atomic field operations',
+			'Applies scalar operators and nested relationship commands',
 		)
 	})
 })

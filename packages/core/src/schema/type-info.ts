@@ -1,5 +1,5 @@
 /** Invalidates generated fingerprints when Core's shared typegen ABI changes. */
-export const generatedApplicationContractVersion = 13 as const
+export const generatedApplicationContractVersion = 14 as const
 
 /** Minimal identity implemented by every generated persisted item. */
 export interface SchemaItemType {
@@ -130,6 +130,8 @@ export type UltimaBaseGeneratedModelSurface<
 export interface SchemaInputsTypeInfo {
 	readonly create: object
 	readonly include?: object
+	readonly nestedCreate: object
+	readonly nestedUpdate: object
 	readonly orderBy: object
 	readonly select: object
 	readonly update: object
@@ -167,6 +169,8 @@ export type SchemaTypeInfoSource =
 export interface BaseSchemaInputsTypeInfo {
 	readonly create: Readonly<Record<string, unknown>>
 	readonly include: Readonly<Record<string, unknown>>
+	readonly nestedCreate: Readonly<Record<string, unknown>>
+	readonly nestedUpdate: Readonly<Record<string, unknown>>
 	readonly orderBy: Readonly<Record<string, 'asc' | 'desc' | null>>
 	readonly select: Readonly<Record<string, boolean>> &
 		Readonly<{ readonly id?: true }>

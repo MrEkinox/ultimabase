@@ -12,17 +12,10 @@ export type RoleMemberTarget<TMemberSchema extends SchemaDefinition> =
 
 interface RoleMemberCommandReceiver<
 	TRoleSchema extends SchemaDefinition,
-	TMemberSchema extends SchemaDefinition,
 > extends PersistedSchemaReference<TRoleSchema> {
 	relation(fieldName: 'members'): {
-		connect(
-			member: Pointer<TMemberSchema>,
-			options?: OperationOptions,
-		): Promise<void>
-		disconnect(
-			member: Pointer<TMemberSchema>,
-			options?: OperationOptions,
-		): Promise<void>
+		connect(memberId: string, options?: OperationOptions): Promise<void>
+		disconnect(memberId: string, options?: OperationOptions): Promise<void>
 	}
 }
 
@@ -36,7 +29,7 @@ export interface RoleMemberCommands<
 	 * Existing membership remains unchanged, making repeated addition idempotent.
 	 */
 	addMember(
-		this: RoleMemberCommandReceiver<TRoleSchema, TMemberSchema>,
+		this: RoleMemberCommandReceiver<TRoleSchema>,
 		member: RoleMemberTarget<TMemberSchema>,
 		options?: OperationOptions,
 	): Promise<void>
@@ -45,7 +38,7 @@ export interface RoleMemberCommands<
 	 * Removing an absent membership succeeds without changing stored edges.
 	 */
 	removeMember(
-		this: RoleMemberCommandReceiver<TRoleSchema, TMemberSchema>,
+		this: RoleMemberCommandReceiver<TRoleSchema>,
 		member: RoleMemberTarget<TMemberSchema>,
 		options?: OperationOptions,
 	): Promise<void>
@@ -63,12 +56,12 @@ export const createRoleMemberCommands = <
 		context.assertPersisted(this, 'addMember')
 		const pointer = context.toPointer(memberSchema, member, 'addMember')
 
-		return this.relation('members').connect(pointer, options)
+		return this.relation('members').connect(pointer.id, options)
 	},
 	removeMember(member, options): Promise<void> {
 		context.assertPersisted(this, 'removeMember')
 		const pointer = context.toPointer(memberSchema, member, 'removeMember')
 
-		return this.relation('members').disconnect(pointer, options)
+		return this.relation('members').disconnect(pointer.id, options)
 	},
 })

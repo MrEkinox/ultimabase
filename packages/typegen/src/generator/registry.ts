@@ -62,7 +62,9 @@ export const renderSchemas = (
 \t\treadonly numericFields: ${numericFields}
 ${relationshipMap}\t\treadonly inputs: {
 \t\t\treadonly create: ${alias}CreateInput
-${include}\t\t\treadonly orderBy: ${alias}OrderByInput
+${include}\t\t\treadonly nestedCreate: ${alias}NestedCreateInput
+			readonly nestedUpdate: ${alias}NestedUpdateData
+			readonly orderBy: ${alias}OrderByInput
 \t\t\treadonly select: ${alias}Select
 \t\t\treadonly update: ${alias}UpdateInput
 \t\t\treadonly where: ${alias}WhereInput

@@ -822,9 +822,9 @@ storage codecs such as bigint strings.
 Relation handles expose atomic logical mutations without join-row commands:
 
 ```ts
-await post.relation('tags').connect(Tag.pointer(tagId))
-await post.relation('tags').disconnect([oldTag, archivedTag])
-await post.relation('tags').set([featuredTag, newsTag])
+await post.relation('tags').connect(tagId)
+await post.relation('tags').disconnect([oldTagId, archivedTagId])
+await post.relation('tags').set([featuredTagId, newsTagId])
 await post.relation('tags').clear()
 ```
 
@@ -1075,7 +1075,7 @@ behavior, and they are omitted entirely when no relationship is requested:
 ```ts
 const created = await PostSchema.createOne(
 	{
-		data: { author: authorPointer, title: 'Created' },
+		data: { author: { connect: authorId }, title: 'Created' },
 		select: { title: true },
 		include: { author: { select: { name: true } } },
 	},
@@ -1117,6 +1117,30 @@ const published = await PostSchema.updateMany(
 const authorName = updated?.author?.name
 const publishedAuthorNames = published.map((post) => post.author?.name)
 ```
+
+Singular creates and updates accept schema-aware nested pointer and relation
+commands inside `data`. A pointer command is exclusive, while relation
+`create`, `connect`, `update`, and `disconnect` commands may compose in that
+fixed order. Field-bound identities are plain target IDs:
+
+```ts
+await PostSchema.createOne({
+	data: {
+		author: { connect: authorId },
+		comments: {
+			create: [{ body: 'First' }],
+			connect: [existingCommentId],
+		},
+		title: 'Nested',
+	},
+})
+```
+
+Core separates scalar candidates from relationship commands in one immutable,
+application-owned graph before effects. The default ceiling is five nested
+target levels and 100 statically declared operations; applications can set
+`validation.nestedWrites.maxDepth` and `maxOperations`. Bulk mutations,
+upserts, and draft construction retain their existing flat inputs.
 
 This protocol belongs to database-adapter authors rather than application code.
 The root adapter starts the transaction. For update, delete, and upsert, its

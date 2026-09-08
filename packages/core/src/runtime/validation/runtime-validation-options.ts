@@ -5,15 +5,24 @@ import {
 } from '@ultimabase/shared'
 
 import type { UuidV7Generator } from './identifier-generator.js'
+import type { NestedWriteLimits } from '../../schema/nested-writes/contracts.js'
+import { normalizeNestedWriteLimits } from '../../schema/nested-writes/limits.js'
 
 /** Configures one application-scoped validation stage and operation clock. */
 export interface RuntimeValidationOptions {
 	readonly clock?: () => Date
+	/** Bounds recursive nested object depth and statically declared graph work. */
+	readonly nestedWrites?: Partial<NestedWriteLimits>
 	readonly timezone?: string
 	readonly uuidV7Generator?: UuidV7Generator
 }
 
-const validationOptionKeys = new Set(['clock', 'timezone', 'uuidV7Generator'])
+const validationOptionKeys = new Set([
+	'clock',
+	'nestedWrites',
+	'timezone',
+	'uuidV7Generator',
+])
 
 export const emptyRuntimeValidationOptions: RuntimeValidationOptions =
 	immutableRecord({})
@@ -33,6 +42,7 @@ export const normalizeRuntimeValidationOptions = (
 	}
 
 	const clock: unknown = options.clock
+	const nestedWrites: unknown = options.nestedWrites
 	const timezone: unknown = options.timezone
 	const uuidV7Generator: unknown = options.uuidV7Generator
 
@@ -51,6 +61,9 @@ export const normalizeRuntimeValidationOptions = (
 	// Callable return values remain validated when Runtime invokes their contracts.
 	return immutableRecord({
 		...(clock === undefined ? {} : { clock: clock as () => Date }),
+		...(nestedWrites === undefined
+			? {}
+			: { nestedWrites: normalizeNestedWriteLimits(nestedWrites) }),
 		...(timezone === undefined ? {} : { timezone }),
 		...(uuidV7Generator === undefined
 			? {}

@@ -267,9 +267,9 @@ instead of running the public target AST without its relationship restriction.
 The handle also exposes transactional edge mutations:
 
 ```ts
-await user.relation('posts').connect(PostSchema.pointer(postId))
-await user.relation('posts').disconnect([oldPost, archivedPost])
-await user.relation('posts').set([firstPost, secondPost])
+await user.relation('posts').connect(postId)
+await user.relation('posts').disconnect([oldPostId, archivedPostId])
+await user.relation('posts').set([firstPostId, secondPostId])
 await user.relation('posts').clear()
 ```
 

@@ -1,4 +1,8 @@
-import type { SchemaCreateData, SchemaDefinition } from '../../schema/index.js'
+import type {
+	SchemaCreateData,
+	SchemaDefinition,
+	SchemaNestedCreateData,
+} from '../../schema/index.js'
 import type {
 	SchemaTypeInfoFor,
 	SchemaTypeInfoSource,
@@ -10,7 +14,10 @@ import type {
 	QuerySelection,
 } from '../clauses/selection.js'
 import type { WhereBuilder, WhereInput } from '../filters/where.js'
-import type { UpdateExpressionInput } from '../updates/contracts.js'
+import type {
+	NestedUpdateExpressionInput,
+	UpdateExpressionInput,
+} from '../updates/contracts.js'
 import type { ExactGeneratedInclusionInput } from '../query/input.js'
 import type { OperationObjectId } from './contracts.js'
 
@@ -28,7 +35,7 @@ export type SchemaWhereInput<TSchema extends SchemaTypeInfoSource> =
 
 interface SchemaCreateOneFields<TSchema extends SchemaTypeInfoSource> {
 	/** Supplies the schema-derived values for the new row. */
-	readonly data: SchemaCreateData<TSchema>
+	readonly data: SchemaNestedCreateData<TSchema>
 }
 
 interface SchemaCreateManyFields<TSchema extends SchemaTypeInfoSource> {
@@ -125,8 +132,13 @@ interface SchemaUpdateFields<TSchema extends SchemaTypeInfoSource> {
 	readonly data: UpdateExpressionInput<TSchema> & {}
 }
 
+interface SchemaNestedUpdateFields<TSchema extends SchemaTypeInfoSource> {
+	/** Applies scalar operators and nested relationship commands to one target. */
+	readonly data: NestedUpdateExpressionInput<TSchema> & {}
+}
+
 type SchemaUpdateOneFields<TSchema extends SchemaTypeInfoSource> =
-	SchemaUpdateFields<TSchema> & SchemaSingularTarget<TSchema>
+	SchemaNestedUpdateFields<TSchema> & SchemaSingularTarget<TSchema>
 
 /** Updates one uniquely identified row with an optional exact result projection. */
 export type SchemaUpdateOneInput<

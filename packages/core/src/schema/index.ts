@@ -154,6 +154,33 @@ export type {
 	SchemaUpdateData,
 } from './schema/values.js'
 export type {
+	NestedPointerCreateInput,
+	NestedPointerUpdateInput,
+	NestedRelationCreateInput,
+	NestedRelationUpdateInput,
+	NestedRelationUpdateItemInput,
+	NestedWriteNonEmptyArray,
+	SchemaNestedCreateData,
+	SchemaNestedUpdateData,
+} from './nested-writes/inputs.js'
+export { normalizeNestedWriteGraph } from './nested-writes/normalization.js'
+export {
+	defaultNestedWriteLimits,
+	normalizeNestedWriteLimits,
+} from './nested-writes/limits.js'
+export type {
+	NestedWriteGraph,
+	NestedWriteInputPath,
+	NestedWriteLimits,
+	NestedWriteNodeProvenance,
+	NestedWriteObjectNode,
+	NestedWritePointerNode,
+	NestedWriteRelationNode,
+	NestedWriteRelationshipCommand,
+	NestedWriteRelationshipNode,
+	NestedWriteRootCommand,
+} from './nested-writes/contracts.js'
+export type {
 	BaseItem,
 	SchemaAPI,
 	SchemaClass,

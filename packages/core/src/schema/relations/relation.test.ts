@@ -176,16 +176,16 @@ describe('Relation handles', () => {
 
 	it('emits immutable relation deltas through protected source updates', async () => {
 		const article = materializeSchemaModel(RelationArticle, { id: articleId })
-		const firstTag = RelationTag.pointer('0198f090-2a50-7000-8000-000000000083')
-		const secondTag = RelationTag.pointer(
-			'0198f090-2a50-7000-8000-000000000084',
-		)
+		const firstTagId = '0198f090-2a50-7000-8000-000000000083'
+		const secondTagId = '0198f090-2a50-7000-8000-000000000084'
 		const relation = article.relation('tags')
 		const dispatcher = new RelationScopeDispatcher()
 
 		await runWithQueryExecution({}, dispatcher, async () => {
-			await relation.connect(firstTag)
-			await relation.disconnect([firstTag, secondTag], { useMasterKey: true })
+			await relation.connect(firstTagId)
+			await relation.disconnect([firstTagId, secondTagId], {
+				useMasterKey: true,
+			})
 			await relation.set([])
 			await relation.clear()
 		})
@@ -204,7 +204,10 @@ describe('Relation handles', () => {
 					{
 						field: 'tags',
 						kind: 'relation',
-						value: { action: 'connect', targets: [firstTag] },
+						value: {
+							action: 'connect',
+							targets: [RelationTag.pointer(firstTagId)],
+						},
 					},
 				],
 			},
@@ -224,17 +227,16 @@ describe('Relation handles', () => {
 	it('rejects empty, duplicate, and incompatible mutation targets', async () => {
 		const article = materializeSchemaModel(RelationArticle, { id: articleId })
 		const relation = article.relation('tags')
-		const tag = RelationTag.pointer('0198f090-2a50-7000-8000-000000000085')
-		const incompatible = RelationArticle.pointer(articleId)
+		const tagId = '0198f090-2a50-7000-8000-000000000085'
 
-		await expect(
-			relation.connect([] as unknown as [typeof tag]),
-		).rejects.toThrow('Relation mutation targets must contain a Pointer')
-		await expect(relation.connect([tag, tag])).rejects.toThrow(
+		await expect(relation.connect([] as unknown as [string])).rejects.toThrow(
+			'Relation mutation targets must contain an object ID',
+		)
+		await expect(relation.connect([tagId, tagId])).rejects.toThrow(
 			'Relation mutation contains duplicate target',
 		)
-		await expect(
-			relation.connect(incompatible as unknown as typeof tag),
-		).rejects.toThrow('Relation mutation target must point to RelationTag')
+		await expect(relation.connect(42 as unknown as string)).rejects.toThrow(
+			'Relation mutation targets must contain an object ID',
+		)
 	})
 })

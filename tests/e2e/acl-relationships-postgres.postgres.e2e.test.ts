@@ -217,8 +217,8 @@ beforeAll(async () => {
 		.relation('tags')
 		.connect(
 			[
-				Tag.pointer(requireFixture(visibleTag, 'visible tag').id),
-				Tag.pointer(requireFixture(hiddenTag, 'hidden tag').id),
+				requireFixture(visibleTag, 'visible tag').id,
+				requireFixture(hiddenTag, 'hidden tag').id,
 			],
 			{ ultimabase: app, useMasterKey: true },
 		)
@@ -306,7 +306,7 @@ describe(
 					.findMany(undefined, { context, ultimabase: app }),
 			).resolves.toStrictEqual([])
 			await expect(
-				tags.connect(Tag.pointer(requireFixture(hiddenTag, 'hidden tag').id), {
+				tags.connect(requireFixture(hiddenTag, 'hidden tag').id, {
 					context,
 					ultimabase: app,
 				}),

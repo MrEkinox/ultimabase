@@ -12,6 +12,7 @@ import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from './postgres-worker-fixture.js'
+import { stagedFlatPointerInput } from './fixtures/nested-write-staging.js'
 
 const projectionAccessError = new Error(
 	'mutation inclusion target Access rejected the projection',
@@ -192,7 +193,7 @@ describe('mutation relationship projections with PostgreSQL', () => {
 		const created = await Post.createOne(
 			{
 				data: {
-					author: Author.pointer(author.id),
+					author: stagedFlatPointerInput(Author.pointer(author.id)),
 					title: 'Singular post',
 				},
 				select: { title: true },
@@ -242,9 +243,7 @@ describe('mutation relationship projections with PostgreSQL', () => {
 			{ data: { title: 'Before update' } },
 			{ ultimabase: app },
 		)
-		await article
-			.relation('tags')
-			.connect(Tag.pointer(tag.id), { ultimabase: app })
+		await article.relation('tags').connect(tag.id, { ultimabase: app })
 
 		countingPool.reset()
 		const updated = await Article.updateOne(

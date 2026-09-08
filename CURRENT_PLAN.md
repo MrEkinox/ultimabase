@@ -4,7 +4,7 @@
 - Milestone: 24
 - Started: 2026-09-08
 - Governing decision: [ADR-0243](docs/adr/0243-bounded-singular-nested-writes.md)
-- Resume point: [issue 2402](issues/2400-nested-writes/2402-nested-write-input-graph.md)
+- Resume point: [issue 2403](issues/2400-nested-writes/2403-nested-create-connect.md)
 
 ## Objective
 
@@ -51,7 +51,7 @@ Both transports delegate only through the narrow application request executor.
 ## Execution order
 
 1. [x] Issue 2401 — accept the nested-write contract and execution semantics.
-2. [ ] Issue 2402 — compile exact nested input types and the immutable Core graph.
+2. [x] Issue 2402 — compile exact nested input types and the immutable Core graph.
 3. [ ] Issue 2403 — execute nested `create` and `connect` atomically.
 4. [ ] Issue 2404 — execute nested `update`, `disconnect`, `set`, and `clear`.
 5. [ ] Issue 2405 — decode and execute nested writes through REST v1.

@@ -9,7 +9,7 @@ semantics as separately issued commands.
 ## Execution order
 
 1. [x] [2401 — Decide the nested-write contract](2401-nested-write-contract.md)
-2. [ ] [2402 — Compile typed nested inputs and the Core graph](2402-nested-write-input-graph.md)
+2. [x] [2402 — Compile typed nested inputs and the Core graph](2402-nested-write-input-graph.md)
 3. [ ] [2403 — Execute nested create and connect](2403-nested-create-connect.md)
 4. [ ] [2404 — Execute nested update and relation changes](2404-nested-update-relation-changes.md)
 5. [ ] [2405 — Expose nested writes through REST](2405-rest-nested-writes.md)

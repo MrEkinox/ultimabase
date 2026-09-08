@@ -466,7 +466,7 @@ describe('runtime validation', () => {
 			'targets',
 			relationValidationTarget,
 			'connect',
-			originalPointer,
+			originalPointer.id,
 		)
 		const operation: UpdateOneOperationAst<
 			typeof relationValidationSource,
@@ -482,7 +482,7 @@ describe('runtime validation', () => {
 			'targets',
 			relationValidationTarget,
 			'connect',
-			replacementPointer,
+			replacementPointer.id,
 		)
 		const [, ...generatedOperations] = normalized.update.operations
 		// Replacing the normalized expression models a hook changing its authorized target.

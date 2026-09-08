@@ -13,6 +13,7 @@ import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from './postgres-worker-fixture.js'
+import { stagedFlatPointerInput } from './fixtures/nested-write-staging.js'
 const relationTrace: string[] = []
 const rollbackError = new Error('relation mutation rollback fixture')
 let rejectNextRelationUpdate = false
@@ -233,13 +234,8 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		}
 		await mixed
 			.relation('tags')
-			.connect(
-				[Tag.pointer(alpha.id), Tag.pointer(beta.id), Tag.pointer(hidden.id)],
-				{ ultimabase: app },
-			)
-		await gammaOnly
-			.relation('tags')
-			.connect(Tag.pointer(gamma.id), { ultimabase: app })
+			.connect([alpha.id, beta.id, hidden.id], { ultimabase: app })
+		await gammaOnly.relation('tags').connect(gamma.id, { ultimabase: app })
 		await Tag.updateOne(
 			{
 				where: { id: { eq: hidden.id } },
@@ -421,7 +417,7 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		const post = await Post.createOne(
 			{
 				data: {
-					author: Author.pointer(author.id),
+					author: stagedFlatPointerInput(Author.pointer(author.id)),
 					title: 'Predicate post',
 				},
 			},
@@ -434,7 +430,7 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		const hiddenPost = await Post.createOne(
 			{
 				data: {
-					author: Author.pointer(hiddenAuthor.id),
+					author: stagedFlatPointerInput(Author.pointer(hiddenAuthor.id)),
 					title: 'Hidden predicate post',
 				},
 			},
@@ -575,10 +571,10 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 
 		const tags = article.relation('tags')
 
-		await tags.connect([Tag.pointer(alpha.id), Tag.pointer(beta.id)], {
+		await tags.connect([alpha.id, beta.id], {
 			ultimabase: app,
 		})
-		await tags.connect(Tag.pointer(alpha.id), { ultimabase: app })
+		await tags.connect(alpha.id, { ultimabase: app })
 
 		expect(await tags.count(undefined, { ultimabase: app })).toBe(2)
 		expect(await tags.exists(undefined, { ultimabase: app })).toBe(true)
@@ -600,13 +596,13 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		).toBe(1)
 		expect(relationTrace).toEqual(expect.arrayContaining(['article:tags:read']))
 
-		await tags.set([Tag.pointer(beta.id), Tag.pointer(gamma.id)], {
+		await tags.set([beta.id, gamma.id], {
 			ultimabase: app,
 		})
 		expect(
 			await alpha.relation('articles').count(undefined, { ultimabase: app }),
 		).toBe(0)
-		await tags.disconnect(Tag.pointer(beta.id), { ultimabase: app })
+		await tags.disconnect(beta.id, { ultimabase: app })
 		expect(
 			(await tags.findMany(undefined, { ultimabase: app })).map(
 				({ label }) => label,
@@ -614,9 +610,9 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		).toStrictEqual(['gamma'])
 
 		rejectNextRelationUpdate = true
-		await expect(
-			tags.connect(Tag.pointer(alpha.id), { ultimabase: app }),
-		).rejects.toBe(rollbackError)
+		await expect(tags.connect(alpha.id, { ultimabase: app })).rejects.toBe(
+			rollbackError,
+		)
 		expect(await tags.count(undefined, { ultimabase: app })).toBe(1)
 
 		await tags.clear({ ultimabase: app })
@@ -628,16 +624,16 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		)
 		const inverseArticles = inverseTag.relation('articles')
 
-		await inverseArticles.connect(Article.pointer(article.id), {
+		await inverseArticles.connect(article.id, {
 			ultimabase: app,
 		})
 		expect(await tags.count(undefined, { ultimabase: app })).toBe(1)
-		await inverseArticles.disconnect(Article.pointer(article.id), {
+		await inverseArticles.disconnect(article.id, {
 			ultimabase: app,
 		})
 		expect(await tags.count(undefined, { ultimabase: app })).toBe(0)
 
-		await tags.connect(Tag.pointer(gamma.id), { ultimabase: app })
+		await tags.connect(gamma.id, { ultimabase: app })
 		await gamma.delete({}, { ultimabase: app })
 		expect(await tags.count(undefined, { ultimabase: app })).toBe(0)
 
@@ -645,7 +641,7 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 			{ data: { label: 'cleanup' } },
 			{ ultimabase: app },
 		)
-		await tags.connect(Tag.pointer(cleanupTag.id), {
+		await tags.connect(cleanupTag.id, {
 			ultimabase: app,
 		})
 		await article.delete({}, { ultimabase: app })
@@ -687,10 +683,7 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 
 		await article
 			.relation('tags')
-			.connect(
-				[Tag.pointer(alpha.id), Tag.pointer(zeta.id), Tag.pointer(hidden.id)],
-				{ ultimabase: app },
-			)
+			.connect([alpha.id, zeta.id, hidden.id], { ultimabase: app })
 		await Tag.updateOne(
 			{
 				where: { id: { eq: hidden.id } },
@@ -816,7 +809,7 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		const post = await Post.createOne(
 			{
 				data: {
-					author: Author.pointer(author.id),
+					author: stagedFlatPointerInput(Author.pointer(author.id)),
 					title: 'Pointers',
 				},
 			},
@@ -840,11 +833,11 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 			id: author.id,
 			name: 'Ada',
 		})
-		await posts.disconnect(Post.pointer(post.id), {
+		await posts.disconnect(post.id, {
 			ultimabase: app,
 		})
 		expect(await posts.count(undefined, { ultimabase: app })).toBe(0)
-		await posts.connect(Post.pointer(post.id), { ultimabase: app })
+		await posts.connect(post.id, { ultimabase: app })
 		expect(await posts.count(undefined, { ultimabase: app })).toBe(1)
 	})
 
@@ -859,9 +852,7 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 			{ ultimabase: app },
 		)
 
-		await article
-			.relation('tags')
-			.connect(Tag.pointer(tag.id), { ultimabase: app })
+		await article.relation('tags').connect(tag.id, { ultimabase: app })
 		expect(
 			await PrivateArticle.findMany(
 				{ select: { id: true, title: true } },
@@ -894,7 +885,7 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		await PrivatePointerPost.createOne(
 			{
 				data: {
-					author: Author.pointer(author.id),
+					author: stagedFlatPointerInput(Author.pointer(author.id)),
 					title: 'Private pointer source',
 				},
 			},

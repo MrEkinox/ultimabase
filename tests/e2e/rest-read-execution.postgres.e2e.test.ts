@@ -285,13 +285,10 @@ beforeAll(async () => {
 	hiddenByAclId = hiddenByAcl.id
 	await visible
 		.relation('contributors')
-		.connect(
-			[
-				RestAuthor.pointer(visibleAuthor.id),
-				RestAuthor.pointer(hiddenAuthor.id),
-			],
-			{ context: master, ultimabase: application },
-		)
+		.connect([visibleAuthor.id, hiddenAuthor.id], {
+			context: master,
+			ultimabase: application,
+		})
 }, 30_000)
 
 afterAll(async () => {

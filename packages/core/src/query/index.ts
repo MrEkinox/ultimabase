@@ -222,6 +222,7 @@ export type {
 export type {
 	DecrementUpdateOperationNode,
 	IncrementUpdateOperationNode,
+	NestedUpdateExpressionInput,
 	NumericUpdateFieldName,
 	NumericUpdateInput,
 	SetUpdateOperationNode,
