@@ -1,7 +1,12 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import { createQueryAst } from '../../query/ast/factory.js'
-import type { CreateOneOperationAst } from '../../query/operations/contracts.js'
+import type {
+	CreateOneOperationAst,
+	UpdateOneOperationAst,
+} from '../../query/operations/contracts.js'
+import type { UpdateExpression } from '../../query/updates/contracts.js'
+import { normalizeUpdateExpression } from '../../query/updates/normalize.js'
 import { Pointer } from '../../schema/relations/pointer.js'
 import type { SchemaDefinition } from '../../schema/schema/definition.js'
 import type {
@@ -10,6 +15,7 @@ import type {
 	NestedWriteRelationshipNode,
 } from '../../schema/nested-writes/contracts.js'
 import { normalizeNestedWriteGraph } from '../../schema/nested-writes/normalization.js'
+import type { NestedWriteRootOperationMarker } from '../../schema/nested-writes/operation-markers.js'
 import type { RuntimeNestedWriteBinding } from './binding.js'
 import { retainReservedCreateId } from './reserved-create.js'
 
@@ -44,26 +50,118 @@ const prepareObjectNode = (
 	return immutableRecord({
 		...node,
 		relationships: immutableArray(relationships),
-		reservedId: reserveId(),
+		...(node.command === 'create' ? { reservedId: reserveId() } : {}),
 	})
 }
 
 /** Reserves every create identity before the first nested Runtime effect. */
 export const prepareRuntimeNestedWriteGraph = (
-	operation: CreateOneOperationAst<SchemaDefinition>,
+	operation:
+		| CreateOneOperationAst<SchemaDefinition>
+		| UpdateOneOperationAst<SchemaDefinition>,
+	marker: NestedWriteRootOperationMarker,
 	binding: RuntimeNestedWriteBinding,
 ): NestedWriteGraph => {
+	const schema =
+		operation.kind === 'create-one'
+			? operation.schema.definition
+			: operation.query.schema.definition
 	const normalized = normalizeNestedWriteGraph(
 		binding.schemas,
-		operation.schema.definition,
-		'create',
-		operation.input,
+		schema,
+		marker.command,
+		marker.input,
 		binding.limits,
 	)
 
 	return immutableRecord({
 		...normalized,
 		root: prepareObjectNode(normalized.root, binding.reserveId),
+	})
+}
+
+const createEmptyUpdateExpression = (): UpdateExpression<SchemaDefinition> =>
+	immutableRecord({
+		kind: 'update-expression' as const,
+		operations: immutableArray([]),
+	})
+
+/** Converts one update node into the scalar and pointer work owned by its row. */
+export const createRuntimeNestedUpdateExpression = (
+	node: NestedWriteObjectNode,
+	current?: Readonly<Record<string, unknown>>,
+	base?: UpdateExpression<SchemaDefinition>,
+): UpdateExpression<SchemaDefinition> => {
+	if (node.command !== 'update') {
+		throw new TypeError('Nested-write update expression requires an update node')
+	}
+
+	const scalar =
+		base ??
+		(Object.keys(node.data).length === 0
+			? createEmptyUpdateExpression()
+			: normalizeUpdateExpression(node.schema, node.data))
+	const pointerFields = new Set(
+		node.relationships
+			.filter((relationship) => relationship.kind === 'pointer')
+			.map((relationship) => relationship.fieldName),
+	)
+	const operations = scalar.operations.filter(
+		(operation) => !pointerFields.has(operation.field),
+	)
+
+	for (const relationship of node.relationships) {
+		if (relationship.kind !== 'pointer') continue
+
+		let value: unknown
+		if (relationship.command === 'connect' && relationship.id !== undefined) {
+			value = new Pointer(relationship.target, relationship.id)
+		} else if (
+			relationship.command === 'create' &&
+			relationship.child?.reservedId !== undefined
+		) {
+			value = new Pointer(
+				relationship.target,
+				relationship.child.reservedId,
+			)
+		} else if (relationship.command === 'disconnect') {
+			value = null
+		} else if (relationship.command === 'update' && current !== undefined) {
+			value = current[relationship.fieldName]
+			if (!Pointer.is(value) || value.schema !== relationship.target) {
+				throw new TypeError(
+					`Nested pointer update target is not available: ${node.schema.className}.${relationship.fieldName}`,
+				)
+			}
+		} else if (relationship.command === 'update') {
+			continue
+		} else {
+			throw new TypeError(
+				`Nested update contains unsupported pointer command: ${relationship.command}`,
+			)
+		}
+
+		operations.push(
+			immutableRecord({
+				field: relationship.fieldName,
+				kind: 'set' as const,
+				value,
+			}),
+		)
+	}
+
+	const fieldOrder = new Map(
+		Object.keys(node.schema.fields).map((fieldName, index) => [fieldName, index]),
+	)
+	operations.sort(
+		(left, right) =>
+			(fieldOrder.get(left.field) ?? Number.MAX_SAFE_INTEGER) -
+			(fieldOrder.get(right.field) ?? Number.MAX_SAFE_INTEGER),
+	)
+
+	return immutableRecord({
+		kind: 'update-expression' as const,
+		operations: immutableArray(operations),
 	})
 }
 
@@ -122,4 +220,30 @@ export const createRuntimeNestedCreateOperation = (
 		}),
 		node.reservedId,
 	)
+}
+
+/** Creates one root or child update while retaining its exact query envelope. */
+export const createRuntimeNestedUpdateOperation = (
+	operation: UpdateOneOperationAst<SchemaDefinition>,
+	node: NestedWriteObjectNode,
+	current?: Readonly<Record<string, unknown>>,
+): UpdateOneOperationAst<SchemaDefinition> => {
+	if (node.command !== 'update') {
+		throw new TypeError('Nested-write child must be an update node')
+	}
+
+	return immutableRecord({
+		...operation,
+		query: immutableRecord({
+			...operation.query,
+			schema: createQueryAst(node.schema).schema,
+		}),
+		update: createRuntimeNestedUpdateExpression(
+			node,
+			current,
+			current === undefined
+				? undefined
+				: operation.update,
+		),
+	})
 }

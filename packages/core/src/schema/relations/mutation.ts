@@ -19,7 +19,7 @@ import type {
 
 /** Names every atomic change supported by an immutable Relation handle. */
 export type RelationMutationAction =
-	'clear' | 'connect' | 'create' | 'disconnect' | 'set'
+	'clear' | 'connect' | 'create' | 'disconnect' | 'set' | 'update'
 
 /** Requires at least one exact target for additive and subtractive mutations. */
 export type RelationMutationTargets = string | readonly [string, ...string[]]

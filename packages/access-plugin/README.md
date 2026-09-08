@@ -81,12 +81,15 @@ The packed policy vertical is exercised by the
 [`access-plugin-postgres.postgres.e2e.test.ts`](../../tests/e2e/access-plugin-postgres.postgres.e2e.test.ts)
 public-package suite.
 
-For nested `createOne`, source relation `access.write` runs during initial
-enforcement before any child Hook or write. It receives one immutable change
-per normalized command in deterministic order; `create` carries the
-framework-reserved target Pointers and `connect` carries the verified target
-Pointers. Each child then evaluates its own complete Access policy as an
-ordinary `createOne`. Master bypass remains uniform across the whole graph.
+For nested singular writes, source relation `access.write` runs during initial
+enforcement before any child Hook or write. It receives immutable `create`,
+`connect`, `update`, `disconnect`, `set`, and `clear` changes in deterministic
+command order. `create` carries framework-reserved target Pointers, identity
+commands carry their declared targets, and `clear` carries an empty target
+collection. Each child then evaluates its own complete Access policy as an
+ordinary `createOne` or `updateOne`; relation updates additionally prove exact
+visible source membership. Master bypass remains uniform across the whole
+graph.
 
 ## Defaults
 

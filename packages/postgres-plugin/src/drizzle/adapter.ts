@@ -6,6 +6,7 @@ import {
 	databaseRelationCapability,
 	databaseRelationPredicateCapability,
 	FrameworkError,
+	isRelationUpdateExpression,
 	registerPrivateStorageAdapter,
 } from '@ultimabase/core'
 import type {
@@ -327,10 +328,26 @@ class DrizzlePostgresTransactionAdapter implements DatabaseTransactionAdapter {
 			request,
 			relationPredicateCompiler,
 		)
+		const relationScope = request.relation
 		const relation =
-			request.relation === undefined
+			relationScope === undefined
 				? undefined
-				: this.#schemas.getRelation(request.relation)
+				: this.#schemas.getRelation(relationScope)
+		// A scalar nested target update uses the edge as a lock predicate; a
+		// relation delta instead uses the same scope to select physical edge storage.
+		const scopedTargetPredicate =
+			relation !== undefined &&
+			relationScope !== undefined &&
+			request.operation.kind === 'update-one' &&
+			'update' in request.operation &&
+			!isRelationUpdateExpression(request.operation.update)
+				? compilePostgresRelationPredicate(
+						this.#schemas,
+						relation,
+						relationScope.sourceObjectId,
+						schema.table,
+					)
+				: undefined
 		const initialPhysicalOperation = readPostgresPersistenceOperation(
 			request.operation,
 			request.plan,
@@ -345,7 +362,7 @@ class DrizzlePostgresTransactionAdapter implements DatabaseTransactionAdapter {
 			schema,
 			request.operation,
 			request.plan,
-			constraintPredicate,
+			and(constraintPredicate, scopedTargetPredicate),
 			() => {
 				this.#assertActive()
 			},
@@ -367,16 +384,19 @@ class DrizzlePostgresTransactionAdapter implements DatabaseTransactionAdapter {
 					execution.constraints.length > 0 || request.rowFilter !== undefined,
 				)
 
-				return compilePostgresRequestConstraint(
-					this.#constraintCompilers,
-					schema,
-					{
-						...request,
-						constraints: execution.constraints,
-						operation: execution.operation,
-						plan: execution.plan,
-					},
-					relationPredicateCompiler,
+				return and(
+					compilePostgresRequestConstraint(
+						this.#constraintCompilers,
+						schema,
+						{
+							...request,
+							constraints: execution.constraints,
+							operation: execution.operation,
+							plan: execution.plan,
+						},
+						relationPredicateCompiler,
+					),
+					scopedTargetPredicate,
 				)
 			},
 			request.prepareMutationItems === true,

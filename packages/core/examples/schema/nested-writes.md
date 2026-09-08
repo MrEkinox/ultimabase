@@ -17,7 +17,7 @@ const post = await PostSchema.createOne({
 })
 
 await PostSchema.updateOne({
-	id: post.id,
+	where: { id: { eq: post.id } },
 	data: {
 		author: { update: { displayName: 'Ada' } },
 		comments: {
@@ -49,12 +49,13 @@ const ultimabase = new UltimaBase({
 })
 ```
 
-`createOne` executes nested `create` and `connect` today. Existing targets are
-verified before the first write, pointer children precede their source, and
-relation children follow it. Every object uses its normal Runtime lifecycle on
-the same transaction, then the root projection runs after all descendants and
-edges exist. Nested `update`, `disconnect`, `set`, and `clear` remain compiled
-graph commands until the next milestone issue adds their executor branches.
+Every existing target and exact relation membership is verified before the
+first business Hook or write. Pointer children precede their source; relation
+children and membership changes follow it in fixed command order. `set` and
+`clear` replace only request-visible membership, so hidden edges remain intact.
+Every object uses its normal Runtime lifecycle on the same transaction, then
+the root projection runs after all descendants and edges exist. A failure at
+any boundary rolls the complete graph back.
 
 Nested commands are intentionally limited to singular schema commands and a
 persisted model's `update()`. `createMany`, `updateMany`, upserts, draft

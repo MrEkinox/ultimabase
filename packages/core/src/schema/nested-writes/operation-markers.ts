@@ -1,18 +1,29 @@
 import type { OperationAstNode } from '../../query/operations/contracts.js'
+import type { NestedWriteRootCommand } from './contracts.js'
 
-const nestedWriteRootOperations = new WeakSet<object>()
+/** Retains developer syntax outside the executable operation AST. */
+export interface NestedWriteRootOperationMarker {
+	readonly command: NestedWriteRootCommand
+	readonly input: Readonly<Record<string, unknown>>
+}
+
+const nestedWriteRootOperations = new WeakMap<
+	object,
+	NestedWriteRootOperationMarker
+>()
 
 /** Marks only schema-owned singular commands whose public data uses nested syntax. */
 export const markNestedWriteRootOperation = <
 	const TOperation extends OperationAstNode,
 >(
 	operation: TOperation,
+	marker: NestedWriteRootOperationMarker,
 ): TOperation => {
-	nestedWriteRootOperations.add(operation)
+	nestedWriteRootOperations.set(operation, Object.freeze({ ...marker }))
 	return operation
 }
 
-/** Keeps transport and bulk-created operation ASTs on their existing flat contract. */
-export const isNestedWriteRootOperation = (
+export const readNestedWriteRootOperation = (
 	operation: OperationAstNode,
-): boolean => nestedWriteRootOperations.has(operation)
+): NestedWriteRootOperationMarker | undefined =>
+	nestedWriteRootOperations.get(operation)

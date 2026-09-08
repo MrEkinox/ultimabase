@@ -4,7 +4,7 @@
 - Milestone: 24
 - Started: 2026-09-08
 - Governing decision: [ADR-0243](docs/adr/0243-bounded-singular-nested-writes.md)
-- Resume point: [issue 2404](issues/2400-nested-writes/2404-nested-update-relation-changes.md)
+- Resume point: [issue 2405](issues/2400-nested-writes/2405-rest-nested-writes.md)
 
 ## Objective
 
@@ -53,7 +53,7 @@ Both transports delegate only through the narrow application request executor.
 1. [x] Issue 2401 — accept the nested-write contract and execution semantics.
 2. [x] Issue 2402 — compile exact nested input types and the immutable Core graph.
 3. [x] Issue 2403 — execute nested `create` and `connect` atomically.
-4. [ ] Issue 2404 — execute nested `update`, `disconnect`, `set`, and `clear`.
+4. [x] Issue 2404 — execute nested `update`, `disconnect`, `set`, and `clear`.
 5. [ ] Issue 2405 — decode and execute nested writes through REST v1.
 6. [ ] Issue 2406 — generate and execute nested writes through GraphQL v1.
 7. [ ] Issue 2407 — prove the public cross-transport PostgreSQL vertical.

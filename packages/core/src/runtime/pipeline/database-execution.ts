@@ -152,7 +152,10 @@ export interface RuntimeDatabaseExecutionRequest<
 export interface RuntimeMutationExecutionLifecycle {
 	afterMutationOutcome(outcome: unknown): Promise<void>
 	afterMutationResolution(operation: DatabaseMutationOperationAst): void
-	beforeMutationResolution(): Promise<void>
+	beforeMutationResolution(
+		operation: DatabaseMutationOperationAst,
+		target: Readonly<Record<string, unknown>> | null | undefined,
+	): Promise<DatabaseMutationOperationAst>
 }
 
 /** Owns adapter reads and prepared writes behind one immutable result envelope. */
@@ -398,9 +401,15 @@ export const executeRuntimeDatabaseOperation = async <
 	let targets:
 		readonly DatabaseMutationLogicalRecord<TMutationOperation>[] | undefined
 
-	await nestedLifecycle?.beforeMutationResolution()
-
 	if (preparesAfterResolution) {
+		if (nestedLifecycle !== undefined) {
+			const operationBeforeNested = executableOperation
+			executableOperation = (await nestedLifecycle.beforeMutationResolution(
+				executableOperation,
+				undefined,
+			)) as TMutationOperation
+			operationTransformed ||= executableOperation !== operationBeforeNested
+		}
 		await resolveMutationInput(undefined, undefined)
 		nestedLifecycle?.afterMutationResolution(executableOperation)
 		await runMutationObservers(undefined, undefined)
@@ -457,6 +466,15 @@ export const executeRuntimeDatabaseOperation = async <
 					targets,
 				),
 			)
+		}
+
+		if (nestedLifecycle !== undefined) {
+			const operationBeforeNested = executableOperation
+			executableOperation = (await nestedLifecycle.beforeMutationResolution(
+				executableOperation,
+				target,
+			)) as TMutationOperation
+			operationTransformed ||= executableOperation !== operationBeforeNested
 		}
 
 		await resolveMutationInput(target, targets)

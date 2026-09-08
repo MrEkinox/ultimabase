@@ -1,27 +1,33 @@
 import { isPlainRecord, isUnknownArray } from '@ultimabase/shared'
+import type { NestedWriteRootCommand } from '../../schema/nested-writes/contracts.js'
 
 /** Reads the adapter-proven identity before descendant relation work begins. */
-export const readNestedCreateOutcomeId = (outcome: unknown): string => {
+export const readNestedMutationOutcomeId = (
+	outcome: unknown,
+	command: NestedWriteRootCommand,
+): string | undefined => {
 	if (!isPlainRecord(outcome) || !isUnknownArray(outcome.materializations)) {
-		throw new TypeError('Nested create returned an invalid mutation outcome')
+		throw new TypeError('Nested write returned an invalid mutation outcome')
 	}
-	const creates = outcome.materializations.filter(
+	const materializations = outcome.materializations.filter(
 		(materialization) =>
-			isPlainRecord(materialization) && materialization.kind === 'create',
+			isPlainRecord(materialization) && materialization.kind === command,
 	)
 
-	if (creates.length !== 1) {
+	if (command === 'update' && materializations.length === 0) return undefined
+
+	if (materializations.length !== 1) {
 		throw new TypeError(
-			'Nested create must produce one create materialization before relation work',
+			'Nested write must produce one matching materialization before relation work',
 		)
 	}
 
-	const create = creates[0]
-	const current = isPlainRecord(create) ? create.current : undefined
+	const materialization = materializations[0]
+	const current = isPlainRecord(materialization)
+		? materialization.current
+		: undefined
 	if (!isPlainRecord(current) || typeof current.id !== 'string') {
-		throw new TypeError(
-			'Nested create materialization is missing its object ID',
-		)
+		throw new TypeError('Nested write materialization is missing its object ID')
 	}
 
 	return current.id

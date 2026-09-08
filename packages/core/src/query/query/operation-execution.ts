@@ -188,7 +188,10 @@ export const executeSchemaCreateOne = <const TSchema extends SchemaDefinition>(
 
 	return executeOperation(
 		inputMode === 'nested' && hasNestedWriteRelationships(schema, input.data)
-			? markNestedWriteRootOperation(operation)
+			? markNestedWriteRootOperation(operation, {
+					command: 'create',
+					input: input.data,
+				})
 			: operation,
 		normalizeOperationOptions(options),
 	)
@@ -203,6 +206,7 @@ export const executeQueryUpdateOne = <
 	query: QueryExecutionInput<TSchema, TSelectedField, TIncludedPointer>,
 	input: UpdateExpressionInput<TSchema> & {},
 	options?: OperationOptions,
+	inputMode: 'flat' | 'nested' = 'nested',
 ): Promise<QueryResult<TSchema, TSelectedField, TIncludedPointer> | null> => {
 	const operation: UpdateOneOperationAst<
 		TSchema,
@@ -216,7 +220,18 @@ export const executeQueryUpdateOne = <
 		update: normalizeUpdateExpression(query.schema, input),
 	})
 
-	return executeQueryWithPrivateScope(query, operation, options)
+	const nestedInput = input as Readonly<Record<string, unknown>>
+	return executeQueryWithPrivateScope(
+		query,
+		inputMode === 'nested' &&
+			hasNestedWriteRelationships(query.schema, nestedInput)
+			? markNestedWriteRootOperation(operation, {
+					command: 'update',
+					input: nestedInput,
+				})
+			: operation,
+		options,
+	)
 }
 
 /** Executes one unique-target upsert while retaining private QueryBuilder restrictions. */

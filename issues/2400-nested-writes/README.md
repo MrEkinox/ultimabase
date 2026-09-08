@@ -11,7 +11,7 @@ semantics as separately issued commands.
 1. [x] [2401 — Decide the nested-write contract](2401-nested-write-contract.md)
 2. [x] [2402 — Compile typed nested inputs and the Core graph](2402-nested-write-input-graph.md)
 3. [x] [2403 — Execute nested create and connect](2403-nested-create-connect.md)
-4. [ ] [2404 — Execute nested update and relation changes](2404-nested-update-relation-changes.md)
+4. [x] [2404 — Execute nested update and relation changes](2404-nested-update-relation-changes.md)
 5. [ ] [2405 — Expose nested writes through REST](2405-rest-nested-writes.md)
 6. [ ] [2406 — Expose nested writes through GraphQL](2406-graphql-nested-writes.md)
 7. [ ] [2407 — Prove the public nested-write vertical](2407-nested-write-public-vertical.md)

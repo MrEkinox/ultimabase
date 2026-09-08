@@ -1149,9 +1149,17 @@ creates relation targets after their source, and adds an owning edge only after
 both identities have been persisted. Every object still crosses its ordinary
 Runtime, Validation, Access, ACL, Hooks, constraints, persistence-rewrite, and
 materialization lifecycle. Any descendant, edge, projection, cancellation, or
-finalization failure rolls the complete graph back. The remaining nested
-update commands are compiled by the same graph contract and are implemented by
-the following nested-write milestone issue.
+finalization failure rolls the complete graph back.
+
+For `updateOne`, pointer `update` keeps the currently linked visible identity
+and `disconnect` stores `null` only on optional pointers. Relation `update` is
+limited to exact visible current membership, while `disconnect`, `set`, and
+`clear` change membership without deleting target objects. Replacement changes
+only the membership visible to the request, so a policy-hidden edge is never
+silently removed. Owning, inverse-relation, and inverse-pointer mappings all
+reuse ordinary object lifecycles and relation deltas in the same transaction.
+The root result is projected with `select` and `include` only after the complete
+graph has finished.
 
 This protocol belongs to database-adapter authors rather than application code.
 The root adapter starts the transaction. For update, delete, and upsert, its

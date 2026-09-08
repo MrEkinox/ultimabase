@@ -22,12 +22,11 @@ export const executePostgresScopedRelationMutation = async (
 	update: UpdateExpressionNode,
 	previous: DatabaseLogicalRecord,
 ): Promise<PostgresRelationMutationResult | undefined> => {
+	if (!isRelationUpdateExpression(update)) return undefined
+
 	await executePostgresRelationMutation(client, relation, update, previous.id)
 
-	if (
-		!isRelationUpdateExpression(update) ||
-		update.operations.some((operation) => operation.kind !== 'relation')
-	) {
+	if (update.operations.some((operation) => operation.kind !== 'relation')) {
 		return undefined
 	}
 

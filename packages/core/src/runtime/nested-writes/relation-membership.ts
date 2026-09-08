@@ -10,11 +10,12 @@ import { emptyRuntimeConstraints } from '../pipeline/stage-inputs.js'
 import { executeRuntimeDatabaseOperation } from '../pipeline/database-execution.js'
 
 /** Applies an owning membership delta without starting a second source lifecycle. */
-export const executeNestedOwningRelationConnect = async (
+export const executeNestedOwningRelationMutation = async (
 	stages: Readonly<RuntimePipelineStages>,
 	context: RequestContext,
 	relation: NestedWriteRelationNode,
 	sourceId: string,
+	action: 'connect' | 'disconnect',
 	targetIds: readonly string[],
 ): Promise<void> => {
 	if (targetIds.length === 0) return
@@ -29,7 +30,7 @@ export const executeNestedOwningRelationConnect = async (
 				field: relation.fieldName,
 				kind: 'relation' as const,
 				value: immutableRecord({
-					action: 'connect' as const,
+					action,
 					targets,
 				}),
 			}),

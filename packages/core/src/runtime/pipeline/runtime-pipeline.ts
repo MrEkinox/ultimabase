@@ -5,8 +5,11 @@ import {
 } from '@ultimabase/shared'
 
 import { normalizeLogicalFilter } from '../../query/filters/logical.js'
-import type { CreateOneOperationAst } from '../../query/operations/contracts.js'
-import { isNestedWriteRootOperation } from '../../schema/nested-writes/operation-markers.js'
+import type {
+	CreateOneOperationAst,
+	UpdateOneOperationAst,
+} from '../../query/operations/contracts.js'
+import { readNestedWriteRootOperation } from '../../schema/nested-writes/operation-markers.js'
 import type {
 	NestedWriteGraph,
 	NestedWriteObjectNode,
@@ -34,9 +37,10 @@ import {
 	runWithRuntimeNestedWriteStageContext,
 } from '../nested-writes/execution-context.js'
 import { RuntimeNestedWriteCoordinator } from '../nested-writes/execution.js'
-import { readNestedCreateOutcomeId } from '../nested-writes/outcome.js'
+import { readNestedMutationOutcomeId } from '../nested-writes/outcome.js'
 import {
 	createRuntimeNestedCreateOperation,
+	createRuntimeNestedUpdateOperation,
 	prepareRuntimeNestedWriteGraph,
 } from '../nested-writes/preparation.js'
 import {
@@ -207,29 +211,46 @@ export class RuntimePipeline {
 		}
 
 		try {
-			if (
-				isNestedWriteRootOperation(request.operation) &&
-				request.operation.kind === 'create-one'
-			) {
+			const nestedMarker = readNestedWriteRootOperation(request.operation)
+			if (nestedMarker !== undefined) {
+				if (
+					(request.operation.kind !== 'create-one' ||
+						nestedMarker.command !== 'create') &&
+					(request.operation.kind !== 'update-one' ||
+						nestedMarker.command !== 'update')
+				) {
+					throw new TypeError(
+						'Runtime nested-write marker does not match its root operation',
+					)
+				}
 				const binding = readRuntimeNestedWrites(this)
 				if (binding === undefined) {
 					throw new TypeError('Runtime nested writes are not application-bound')
 				}
 				const graph = prepareRuntimeNestedWriteGraph(
-					request.operation as unknown as CreateOneOperationAst<SchemaDefinition>,
+					request.operation as unknown as
+						| CreateOneOperationAst<SchemaDefinition>
+						| UpdateOneOperationAst<SchemaDefinition>,
+					nestedMarker,
 					binding,
 				)
-				const rootOperation = createRuntimeNestedCreateOperation(
-					request.operation as unknown as CreateOneOperationAst<SchemaDefinition>,
-					graph.root,
-				)
+				const rootOperation =
+					request.operation.kind === 'create-one'
+						? createRuntimeNestedCreateOperation(
+								request.operation as unknown as CreateOneOperationAst<SchemaDefinition>,
+								graph.root,
+							)
+						: createRuntimeNestedUpdateOperation(
+								request.operation as unknown as UpdateOneOperationAst<SchemaDefinition>,
+								graph.root,
+							)
 				const host = createRuntimeNestedWriteHost(
 					binding,
 					context,
 					graph,
 					this.#stages,
 					{
-						execute: async (operation, rowFilter, denied, nested) => {
+						execute: async (operation, rowFilter, denied, nested, relation) => {
 							try {
 								return await this.#executeOperation(
 									immutableRecord({
@@ -239,6 +260,7 @@ export class RuntimePipeline {
 										...(denied === undefined
 											? {}
 											: { protectedPolicyDeniedAsMissing: denied }),
+										...(relation === undefined ? {} : { relation }),
 									}),
 									{ operation },
 									nested,
@@ -401,8 +423,12 @@ export class RuntimePipeline {
 			nested === undefined
 				? undefined
 				: {
-						beforeMutationResolution: () =>
-							nested.coordinator.beforeMutation(nested.node),
+						beforeMutationResolution: (resolvedOperation, target) =>
+							nested.coordinator.beforeMutation(
+								nested.node,
+								resolvedOperation,
+								target,
+							),
 						afterMutationResolution: (resolvedOperation) => {
 							nested.coordinator.assertResolvedMutation(
 								nested.node,
@@ -412,7 +438,7 @@ export class RuntimePipeline {
 						afterMutationOutcome: (outcome) =>
 							nested.coordinator.afterMutation(
 								nested.node,
-								readNestedCreateOutcomeId(outcome),
+								readNestedMutationOutcomeId(outcome, nested.node.command),
 							),
 					},
 		)

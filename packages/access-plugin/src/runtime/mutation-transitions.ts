@@ -380,19 +380,10 @@ export const evaluateAccessMutationFieldRules = async (
 
 	for (const relationship of request.nestedWrite?.node.relationships ?? []) {
 		if (relationship.kind !== 'relation') continue
-		if (
-			relationship.command !== 'create' &&
-			relationship.command !== 'connect'
-		) {
-			throw new TypeError(
-				`Access received unsupported nested relation command: ${relationship.command}`,
-			)
-		}
 
 		const targets =
-			relationship.command === 'connect'
-				? relationship.ids.map((id) => new Pointer(relationship.target, id))
-				: relationship.children.map((child) => {
+			relationship.command === 'create'
+				? relationship.children.map((child) => {
 						if (child.reservedId === undefined) {
 							throw new TypeError(
 								'Access nested relation create is missing its reserved identity',
@@ -400,6 +391,7 @@ export const evaluateAccessMutationFieldRules = async (
 						}
 						return new Pointer(relationship.target, child.reservedId)
 					})
+				: relationship.ids.map((id) => new Pointer(relationship.target, id))
 		await evaluateAccessRelationWriteRules(
 			runtime,
 			request,
