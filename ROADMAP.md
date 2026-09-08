@@ -41,6 +41,14 @@ sessions. Milestone 6 then completed the network-independent GraphQL vertical,
 Yoga HTTP adapter, optional explorers, and the final direct TypeScript, REST,
 GraphQL, authentication, and PostgreSQL parity audit.
 
+[Milestone 24](issues/2400-nested-writes/README.md) is now the active pre-release
+objective. It adds typed nested
+pointer and relation writes inside singular mutation `data`, normalizes every
+transport into one Core graph, and preserves independent per-object policy and
+Hook execution inside one automatic transaction.
+[Issue 2401](issues/2400-nested-writes/2401-nested-write-contract.md) is the
+mandatory architecture gate before implementation.
+
 The ACL hardening plan remains paused at issue 432. It is not part of an active
 plan.
 
@@ -248,9 +256,20 @@ Access, Hooks, Validation, transaction, and PostgreSQL pipeline. GraphQL
 remains a sibling transport and resumes after this vertical without depending
 on REST. HTTP Basic and Better Auth remain separate deferred integrations.
 
+## Milestone 24 — Nested writes before the first release
+
+Add schema-aware pointer and relation commands inside `createOne` and
+`updateOne` data. Field-bound connect, disconnect, and set operations use target
+IDs because the schema field already owns target identity. Core normalizes one
+immutable bounded graph and executes every object and relation node through the
+ordinary Runtime, policy, Hook, transaction, and persistence boundaries. REST
+and GraphQL retain only their wire representations. Nested target delete/upsert,
+bulk roots, provisional references, arbitrary unique-filter connect, and
+partial success remain outside the initial contract.
+
 ## First usable release
 
 The first release must support full primitive-field CRUD, bulk operations,
-upserts, REST, GraphQL, PostgreSQL, GraphQL-owned cursor pagination, optional
-official typed Hooks and Access plugins, automatic mutation transactions, and
-parallel integration tests.
+upserts, REST, GraphQL, PostgreSQL, GraphQL-owned cursor pagination, singular
+nested pointer and relation writes, optional official typed Hooks and Access
+plugins, automatic mutation transactions, and parallel integration tests.

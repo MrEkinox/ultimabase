@@ -81,6 +81,7 @@ consistent without rewriting historical issue prose.
 - [`2100-single-pass-field-validation/`](2100-single-pass-field-validation/README.md)
 - [`2200-optional-validation-plugin/`](2200-optional-validation-plugin/README.md)
 - [`2300-http-rest-password-auth/`](2300-http-rest-password-auth/README.md)
+- [`2400-nested-writes/`](2400-nested-writes/README.md)
 
 ## Assignment prompt
 

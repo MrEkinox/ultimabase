@@ -5,6 +5,11 @@ multi-issue objective. This directory preserves paused and completed plans so
 architectural context and verified developer flows are not lost when execution
 priority changes.
 
+## Active
+
+- [Nested writes before the first release](../../CURRENT_PLAN.md), resumable at
+  issue 2401 and gated by the proposed ADR-0243 contract.
+
 ## Paused
 
 - [ACL hardening and developer-experience consolidation](paused/acl-hardening-and-developer-experience-consolidation.md),
