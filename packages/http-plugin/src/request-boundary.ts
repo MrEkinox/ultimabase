@@ -252,5 +252,21 @@ export const withoutHttpCredentialHeaders = (
 ): Request => {
 	const headers = new Headers(request.headers)
 	for (const name of names) headers.delete(name)
-	return new Request(request, { headers, signal })
+	// Hono's Node adapter may supply a Fetch-compatible Request from another
+	// implementation. Reconstruct from public fields instead of relying on
+	// native Request private slots shared by same-realm clones.
+	return new Request(request.url, {
+		...(request.body === null ? {} : { body: request.body, duplex: 'half' }),
+		cache: request.cache,
+		credentials: request.credentials,
+		headers,
+		integrity: request.integrity,
+		keepalive: request.keepalive,
+		method: request.method,
+		mode: request.mode,
+		redirect: request.redirect,
+		referrer: request.referrer,
+		referrerPolicy: request.referrerPolicy,
+		signal,
+	})
 }

@@ -30,6 +30,7 @@ alternatives use the same generic public kernel.
 - `server-hono-plugin`
 - `rest-plugin`
 - `graphql-plugin`
+- `graphql-yoga-plugin`
 - `password-auth-plugin`
 
 ## Planned plugin packages
@@ -38,7 +39,6 @@ The accepted names below remain issue-tracked but do not have workspace
 directories until implementation begins:
 
 - `postgres-migrations-plugin`
-- `graphql-yoga-plugin`
 - `http-basic-auth-plugin`
 - `better-auth-plugin`
 

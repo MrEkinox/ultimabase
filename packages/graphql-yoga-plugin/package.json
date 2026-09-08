@@ -1,0 +1,45 @@
+{
+	"name": "@ultimabase/graphql-yoga-plugin",
+	"version": "0.0.0",
+	"type": "module",
+	"license": "Apache-2.0",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/MrEkinox/ultimadatabase.git",
+		"directory": "packages/graphql-yoga-plugin"
+	},
+	"sideEffects": false,
+	"files": [
+		"dist"
+	],
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
+	},
+	"scripts": {
+		"build": "tsdown",
+		"test": "vitest run --passWithNoTests",
+		"typecheck": "tsc --build"
+	},
+	"dependencies": {
+		"@ultimabase/core": "workspace:^",
+		"@ultimabase/graphql-plugin": "workspace:^",
+		"@ultimabase/http-plugin": "workspace:^",
+		"@ultimabase/plugin-kit": "workspace:^",
+		"@ultimabase/shared": "workspace:^",
+		"graphql": "^17.0.2",
+		"graphql-yoga": "^5.22.0"
+	},
+	"devDependencies": {
+		"@hono/node-server": "^2.1.1",
+		"@ultimabase/server-hono-plugin": "workspace:^",
+		"@ultimabase/typegen": "workspace:^",
+		"hono": "^4.13.7",
+		"playwright": "^1.63.0",
+		"tsdown": "^0.22.14",
+		"typescript": "^6.0.3",
+		"vitest": "4.1.10"
+	}
+}

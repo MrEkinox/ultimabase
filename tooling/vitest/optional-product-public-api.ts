@@ -397,6 +397,17 @@ export const graphqlPluginPublicApi = {
 	conformanceSupport: [],
 } as const satisfies OptionalProductPublicApi
 
+export const graphqlYogaPluginPublicApi = {
+	applicationApi: [
+		'GraphqlYogaPlugin',
+		'GraphqlYogaPluginExports',
+		'GraphqlYogaPluginOptions',
+		'graphqlYogaPlugin',
+	],
+	compatibleProviderContract: [],
+	conformanceSupport: [],
+} as const satisfies OptionalProductPublicApi
+
 /** Produces the exact sorted root export set shared by source and packed tests. */
 export const getOptionalProductPublicApiNames = (
 	classification: OptionalProductPublicApi,
@@ -487,6 +498,15 @@ export const removedGraphqlPluginPublicApiNames = [
 	'readGraphqlSchemaExposure',
 	'resolveGraphqlBulkOperation',
 	'resolveGraphqlSchemaOperation',
+] as const
+
+/** Names GraphQL Yoga protocol internals deliberately kept private. */
+export const removedGraphqlYogaPluginPublicApiNames = [
+	'createGraphqlYogaMountResource',
+	'normalizeGraphqlYogaPluginOptions',
+	'parseGraphqlRequestBody',
+	'sanitizeGraphqlExecutionResult',
+	'selectGraphqlResponseMediaType',
 ] as const
 
 /** Names credential implementation details deliberately kept owner-private. */

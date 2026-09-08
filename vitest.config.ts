@@ -8,11 +8,20 @@ import {
 } from 'vitest/config'
 
 const workspaceRoot = path.dirname(fileURLToPath(import.meta.url))
+const graphqlRuntimeDependencies: (string | RegExp)[] = [
+	'graphql',
+	'graphql-yoga',
+	/^@envelop\//u,
+	/^@graphql-tools\//u,
+	/^@graphql-yoga\//u,
+]
 const sourcePackageAliases = Object.fromEntries(
 	[
 		'access-plugin',
 		'acl-permissions-plugin',
 		'core',
+		'graphql-plugin',
+		'graphql-yoga-plugin',
 		'hooks-plugin',
 		'http-plugin',
 		'password-auth-plugin',
@@ -56,6 +65,8 @@ const testProjects: TestProjectConfiguration[] = [
 			exclude: [
 				'tests/e2e/**/*.postgres.e2e.test.ts',
 				'tests/e2e/package-archives.e2e.test.ts',
+				// The managed listener validates compiled Fetch realms, not source coverage.
+				'tests/e2e/graphql-yoga-application.e2e.test.ts',
 				// This artifact audit reads build-only source maps and remains covered by
 				// the post-build e2e project.
 				'tests/e2e/password-auth-plugin.e2e.test.ts',
@@ -161,6 +172,8 @@ const config: ViteUserConfig = defineConfig({
 		},
 		fileParallelism: true,
 		pool: 'forks',
+		// Yoga and application schemas must share one transformed GraphQL realm.
+		server: { deps: { inline: graphqlRuntimeDependencies } },
 		// Root projects separate package ownership from cross-package behavior.
 		projects: testProjects,
 	},

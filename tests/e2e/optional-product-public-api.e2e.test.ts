@@ -6,12 +6,14 @@ import {
 	accessPluginPublicApi,
 	getOptionalProductPublicApiNames,
 	graphqlPluginPublicApi,
+	graphqlYogaPluginPublicApi,
 	hooksPluginPublicApi,
 	httpPluginPublicApi,
 	passwordAuthPluginPublicApi,
 	removedAccessPluginPublicApiNames,
 	removedHooksPluginPublicApiNames,
 	removedGraphqlPluginPublicApiNames,
+	removedGraphqlYogaPluginPublicApiNames,
 	removedHttpPluginPublicApiNames,
 	removedPasswordAuthPluginPublicApiNames,
 	removedRestPluginPublicApiNames,
@@ -28,6 +30,7 @@ interface OptionalProductFixture {
 		| '@ultimabase/access-plugin'
 		| '@ultimabase/hooks-plugin'
 		| '@ultimabase/graphql-plugin'
+		| '@ultimabase/graphql-yoga-plugin'
 		| '@ultimabase/http-plugin'
 		| '@ultimabase/password-auth-plugin'
 		| '@ultimabase/rest-plugin'
@@ -50,6 +53,11 @@ const fixtures: readonly OptionalProductFixture[] = [
 		classification: graphqlPluginPublicApi,
 		moduleSpecifier: '@ultimabase/graphql-plugin',
 		removedNames: removedGraphqlPluginPublicApiNames,
+	},
+	{
+		classification: graphqlYogaPluginPublicApi,
+		moduleSpecifier: '@ultimabase/graphql-yoga-plugin',
+		removedNames: removedGraphqlYogaPluginPublicApiNames,
 	},
 	{
 		classification: httpPluginPublicApi,

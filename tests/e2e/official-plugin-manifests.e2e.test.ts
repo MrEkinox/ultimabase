@@ -1,6 +1,8 @@
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { aclPlugin } from '@ultimabase/acl-permissions-plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
+import { graphqlPlugin } from '@ultimabase/graphql-plugin'
+import { graphqlYogaPlugin } from '@ultimabase/graphql-yoga-plugin'
 import { httpPlugin } from '@ultimabase/http-plugin'
 import { pgVectorPlugin } from '@ultimabase/pg-vector-plugin'
 import { passwordAuthPlugin } from '@ultimabase/password-auth-plugin'
@@ -35,6 +37,8 @@ it('publishes the audited privilege and environment contract for every official 
 		validationPlugin().manifest,
 		httpPlugin({ appId: 'manifest-fixture' }).manifest,
 		restPlugin().manifest,
+		graphqlPlugin().manifest,
+		graphqlYogaPlugin().manifest,
 		aclPlugin().manifest,
 		rolesPlugin().manifest,
 		pgVectorPlugin().manifest,
@@ -85,6 +89,16 @@ it('publishes the audited privilege and environment contract for every official 
 			environment: [],
 			pluginId: '@ultimabase/rest-plugin',
 			privileges: ['schema:declare', 'transport:expose'],
+		},
+		{
+			environment: [],
+			pluginId: '@ultimabase/graphql-plugin',
+			privileges: ['schema:declare', 'transport:expose'],
+		},
+		{
+			environment: [],
+			pluginId: '@ultimabase/graphql-yoga-plugin',
+			privileges: ['transport:expose'],
 		},
 		{
 			environment: [],

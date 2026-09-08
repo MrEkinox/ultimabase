@@ -8,12 +8,14 @@ It takes inspiration from the simplicity of Parse Server while deliberately repl
 
 ## Intended developer experience
 
-The schema and Query APIs below are shipped. `graphqlYogaPlugin()` illustrates
-the planned first-release GraphQL layer; it is not a current workspace yet.
+The schema, Query, network-independent GraphQL, and Yoga HTTP APIs below are
+shipped.
 
 ```ts
 import { typegenPlugin } from '@ultimabase/typegen'
 import { Schema, UltimaBase } from '@ultimabase/core'
+import { graphqlPlugin } from '@ultimabase/graphql-plugin'
+import { graphqlYogaPlugin } from '@ultimabase/graphql-yoga-plugin'
 import { httpPlugin } from '@ultimabase/http-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { honoServerPlugin } from '@ultimabase/server-hono-plugin'
@@ -106,8 +108,7 @@ users[0]?.toJSON() // A detached immutable object.
 The shipped authenticated REST vertical is demonstrated by the
 [`examples/minimal`](examples/minimal/README.md) application. Network-independent
 GraphQL schema generation, plugin operations, custom composition, and direct
-execution are also shipped. The optional Yoga HTTP adapter remains planned in
-[issue 615](issues/600-transports/615-graphql-yoga-plugin.md).
+execution are also shipped together with the optional Yoga HTTP adapter.
 
 ## Repository map
 
