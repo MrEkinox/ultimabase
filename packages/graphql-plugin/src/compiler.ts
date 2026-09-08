@@ -133,7 +133,8 @@ export const compileGraphqlSchema = (
 		],
 	})
 	const errors = validateSchema(schema)
-	if (errors.length > 0) {
+	const hasQuery = Object.keys(queryFields).length > 0
+	if (hasQuery && errors.length > 0) {
 		throw new TypeError(
 			`Invalid generated GraphQL schema: ${errors[0]?.message ?? 'unknown validation failure'}`,
 		)

@@ -4,20 +4,32 @@ import {
 	type ApplicationCapabilityResource,
 	type CapabilityToken,
 } from '@ultimabase/core'
-import { GraphQLSchema } from 'graphql'
+import {
+	GraphQLSchema,
+	lexicographicSortSchema,
+	printSchema,
+	type ExecutionResult,
+} from 'graphql'
 
 import type { GraphqlConnectionRuntime } from './connection-runtime.js'
 import type { GraphqlOperationExecution } from './operation-execution.js'
+import type { GraphqlExecuteOptions } from './networkless-execution.js'
+import type { GraphqlNetworklessExecution } from './networkless-execution.js'
 
 /** Exposes one application-local GraphQL schema without a network transport. */
 export interface GraphqlApplication {
 	/** The immutable executable schema compiled from this application's final Core graph. */
 	readonly schema: GraphQLSchema
+	/** Executes one bounded document with a real context from the same application. */
+	execute(options: GraphqlExecuteOptions): Promise<ExecutionResult>
+	/** Prints a deterministic SDL snapshot without executable resolver details. */
+	printSchema(): string
 }
 
 interface GraphqlApplicationState {
 	connections: GraphqlConnectionRuntime | undefined
 	disposed: boolean
+	networkless: GraphqlNetworklessExecution | undefined
 	operations: GraphqlOperationExecution | undefined
 	schema: GraphQLSchema | undefined
 }
@@ -29,10 +41,12 @@ class GraphqlApplicationResource implements GraphqlApplication {
 		schema: GraphQLSchema,
 		connections: GraphqlConnectionRuntime,
 		operations: GraphqlOperationExecution,
+		networkless: GraphqlNetworklessExecution,
 	) {
 		graphqlApplicationStates.set(this, {
 			connections,
 			disposed: false,
+			networkless,
 			operations,
 			schema,
 		})
@@ -46,6 +60,20 @@ class GraphqlApplicationResource implements GraphqlApplication {
 		}
 		return state.schema
 	}
+
+	execute(options: GraphqlExecuteOptions): Promise<ExecutionResult> {
+		const state = graphqlApplicationStates.get(this)
+		if (state?.disposed !== false || state.networkless === undefined) {
+			return Promise.reject(
+				new TypeError('GraphQL application has been disposed'),
+			)
+		}
+		return state.networkless.execute(options)
+	}
+
+	printSchema(): string {
+		return printSchema(lexicographicSortSchema(this.schema))
+	}
 }
 
 const assertGraphqlApplication: (
@@ -57,6 +85,12 @@ const assertGraphqlApplication: (
 	const schema: unknown = Reflect.get(value, 'schema')
 	if (!(schema instanceof GraphQLSchema)) {
 		throw new TypeError('GraphQL application capability schema is malformed')
+	}
+	if (
+		typeof Reflect.get(value, 'execute') !== 'function' ||
+		typeof Reflect.get(value, 'printSchema') !== 'function'
+	) {
+		throw new TypeError('GraphQL application capability executor is malformed')
 	}
 }
 
@@ -85,8 +119,14 @@ export const createGraphqlApplicationResource = (
 	schema: GraphQLSchema,
 	connections: GraphqlConnectionRuntime,
 	operations: GraphqlOperationExecution,
+	networkless: GraphqlNetworklessExecution,
 ): ApplicationCapabilityResource<GraphqlApplication> => {
-	const value = new GraphqlApplicationResource(schema, connections, operations)
+	const value = new GraphqlApplicationResource(
+		schema,
+		connections,
+		operations,
+		networkless,
+	)
 	return {
 		value,
 		dispose: (): void => {
@@ -95,6 +135,7 @@ export const createGraphqlApplicationResource = (
 				state.connections?.dispose()
 				state.operations?.dispose()
 				state.connections = undefined
+				state.networkless = undefined
 				state.operations = undefined
 				state.disposed = true
 				state.schema = undefined

@@ -15,7 +15,6 @@ import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { isPlainRecord } from '@ultimabase/shared'
 import { validationPlugin } from '@ultimabase/validation-plugin'
-import { graphql } from 'graphql'
 import { z } from 'zod'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
@@ -144,11 +143,10 @@ const execute = (
 	const graphqlApplication = app().application.getPlugin(
 		'@ultimabase/graphql-plugin',
 	)
-	return graphql({
-		contextValue: { request },
-		schema: graphqlApplication.schema,
-		source,
-		...(variables === undefined ? {} : { variableValues: variables }),
+	return graphqlApplication.execute({
+		context: request,
+		document: source,
+		...(variables === undefined ? {} : { variables }),
 	})
 }
 
@@ -382,21 +380,9 @@ describe('GraphQL generated schema execution with PostgreSQL', () => {
 			}),
 		)
 		controller.abort('client disconnected')
-		const cancelledRead = await execute(
-			'{ countGraphqlExecutionPost }',
-			cancelled,
-		)
-		expect(cancelledRead).toMatchObject({
-			data: null,
-			errors: [
-				{
-					extensions: {
-						code: 'OPERATION_CANCELLED',
-						requestId: 'graphql-execution-cancelled',
-					},
-				},
-			],
-		})
+		await expect(
+			execute('{ countGraphqlExecutionPost }', cancelled),
+		).rejects.toMatchObject({ code: 'OPERATION_CANCELLED' })
 
 		if (fixture === undefined) {
 			throw new TypeError('GraphQL PostgreSQL fixture is unavailable')
@@ -416,19 +402,9 @@ describe('GraphQL generated schema execution with PostgreSQL', () => {
 			requestId: 'graphql-execution-forged',
 			source: 'ultimabase.graphql',
 		}).context
-		const forgedRead = await execute('{ countGraphqlExecutionPost }', foreign)
-		expect(forgedRead).toMatchObject({
-			data: null,
-			errors: [
-				{
-					extensions: {
-						code: 'VALIDATION_ERROR',
-						requestId: 'graphql-execution-forged',
-					},
-					message: 'The request context is not available.',
-				},
-			],
-		})
+		await expect(
+			execute('{ countGraphqlExecutionPost }', foreign),
+		).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
 		await foreignApplication.dispose()
 	}, 30_000)
 })

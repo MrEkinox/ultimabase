@@ -4,13 +4,17 @@ import {
 	defineOperation,
 	defineOperationValue,
 } from '@ultimabase/core'
-import type { GraphQLSchema } from 'graphql'
+import type { ExecutionResult } from 'graphql'
+import { GraphQLObjectType, GraphQLSchema, GraphQLString } from 'graphql'
 import { expectTypeOf, test } from 'vitest'
 
 import {
 	graphqlPlugin,
 	graphqlOperationProtocol,
 	graphqlProtocol,
+	graphqlSchemaContributionsCapability,
+	provideGraphqlSchemas,
+	type GraphqlExecuteOptions,
 	type GraphqlPlugin,
 	type GraphqlPluginExports,
 	type GraphqlSchemaExposureOption,
@@ -57,6 +61,20 @@ test('preserves plugin and generated schema option types', async () => {
 		limits: { defaultPageSize: 10, maxPageSize: 50 },
 	})
 	const withOperation = graphqlPlugin({ operations: [applicationOperation] })
+	const customSchema = new GraphQLSchema({
+		query: new GraphQLObjectType({
+			name: 'Query',
+			fields: { health: { type: GraphQLString } },
+		}),
+	})
+	const withSchema = graphqlPlugin({ schemas: [customSchema] })
+	const schemaProvider = provideGraphqlSchemas({
+		contributionId: 'typed-schema',
+		create: ({ schemas }) => {
+			expectTypeOf(schemas).not.toBeAny()
+			return customSchema
+		},
+	})
 	const application = await createApplication({
 		plugins: [configured],
 		schemas: [Post],
@@ -66,8 +84,18 @@ test('preserves plugin and generated schema option types', async () => {
 	expectTypeOf(configured).toEqualTypeOf<GraphqlPlugin>()
 	expectTypeOf(limited).toEqualTypeOf<GraphqlPlugin>()
 	expectTypeOf(withOperation).toEqualTypeOf<GraphqlPlugin>()
-	expectTypeOf(exports).toEqualTypeOf<Readonly<GraphqlPluginExports>>()
+	expectTypeOf(withSchema).toEqualTypeOf<GraphqlPlugin>()
+	expectTypeOf(schemaProvider.token).toEqualTypeOf(
+		graphqlSchemaContributionsCapability,
+	)
+	expectTypeOf(exports).toExtend<Readonly<GraphqlPluginExports>>()
 	expectTypeOf(exports.schema).toEqualTypeOf<GraphQLSchema>()
+	expectTypeOf<
+		Parameters<typeof exports.execute>[0]
+	>().toEqualTypeOf<GraphqlExecuteOptions>()
+	expectTypeOf<ReturnType<typeof exports.execute>>().toEqualTypeOf<
+		Promise<ExecutionResult>
+	>()
 	expectTypeOf(graphqlProtocol.name).toEqualTypeOf<'ultimabase.graphql'>()
 	expectTypeOf(graphqlProtocol.version).toEqualTypeOf<'1.0.0'>()
 	expectTypeOf(

@@ -6,14 +6,16 @@ import {
 	type FrameworkEngine,
 	type RequestContext,
 } from '@ultimabase/core'
-import { graphqlPlugin } from '@ultimabase/graphql-plugin'
+import {
+	graphqlPlugin,
+	type GraphqlApplication,
+} from '@ultimabase/graphql-plugin'
 import {
 	passwordAuthOperations,
 	passwordAuthPlugin,
 } from '@ultimabase/password-auth-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { isPlainRecord } from '@ultimabase/shared'
-import { graphql, type GraphQLSchema } from 'graphql'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import {
@@ -45,22 +47,21 @@ afterAll(async () => {
 
 const executeAnonymous = (
 	engine: FrameworkEngine,
-	schema: GraphQLSchema,
+	graphql: GraphqlApplication,
 	source: string,
 	requestId: string,
 	variables?: Readonly<Record<string, unknown>>,
-) =>
-	graphql({
-		contextValue: {
-			request: engine.anonymous({
-				requestId,
-				source: 'ultimabase.graphql',
-			}).context,
-		},
-		schema,
-		source,
-		...(variables === undefined ? {} : { variableValues: variables }),
+) => {
+	const context = engine.anonymous({
+		requestId,
+		source: 'ultimabase.graphql',
+	}).context
+	return graphql.execute({
+		context,
+		document: source,
+		...(variables === undefined ? {} : { variables }),
 	})
+}
 
 const authMutation = (field: 'login' | 'signUp') =>
 	`mutation Auth($input: PasswordAuthCredentialsInput!) {
@@ -111,12 +112,12 @@ describe('Password Auth GraphQL operations with PostgreSQL', () => {
 		})
 		await ultimabase.start()
 		try {
-			const schema = ultimabase.application.getPlugin(
+			const graphql = ultimabase.application.getPlugin(
 				'@ultimabase/graphql-plugin',
-			).schema
+			)
 			const signedUp = await executeAnonymous(
 				ultimabase.engine,
-				schema,
+				graphql,
 				authMutation('signUp'),
 				'password-graphql-sign-up',
 				{ input: { password, username: 'graphql-user' } },
@@ -127,7 +128,7 @@ describe('Password Auth GraphQL operations with PostgreSQL', () => {
 
 			const rejected = await executeAnonymous(
 				ultimabase.engine,
-				schema,
+				graphql,
 				authMutation('login'),
 				'password-graphql-rejected',
 				{ input: { password: 'wrong password', username: 'graphql-user' } },
@@ -143,7 +144,7 @@ describe('Password Auth GraphQL operations with PostgreSQL', () => {
 
 			const loggedIn = await executeAnonymous(
 				ultimabase.engine,
-				schema,
+				graphql,
 				authMutation('login'),
 				'password-graphql-login',
 				{ input: { password, username: 'GRAPHQL-USER' } },
@@ -155,10 +156,9 @@ describe('Password Auth GraphQL operations with PostgreSQL', () => {
 			let loginContext: RequestContext | undefined
 			const refreshed = await auth.runWithSession(loginToken, () => {
 				loginContext = getCurrentRequest()
-				return graphql({
-					contextValue: { request: loginContext },
-					schema,
-					source:
+				return graphql.execute({
+					context: loginContext,
+					document:
 						'mutation { refresh { principal { userId } session { token } } }',
 				})
 			})
@@ -168,10 +168,9 @@ describe('Password Auth GraphQL operations with PostgreSQL', () => {
 			if (loginContext === undefined) {
 				throw new TypeError('GraphQL login context was not captured')
 			}
-			const reused = await graphql({
-				contextValue: { request: loginContext },
-				schema,
-				source: 'mutation { refresh { session { token } } }',
+			const reused = await graphql.execute({
+				context: loginContext,
+				document: 'mutation { refresh { session { token } } }',
 			})
 			expect(reused.errors?.[0]).toMatchObject({
 				extensions: { code: 'PASSWORD_AUTH_INVALID_SESSION' },
@@ -179,10 +178,9 @@ describe('Password Auth GraphQL operations with PostgreSQL', () => {
 			})
 
 			const loggedOut = await auth.runWithSession(refreshToken, () =>
-				graphql({
-					contextValue: { request: getCurrentRequest() },
-					schema,
-					source: 'mutation { logout { revoked } }',
+				graphql.execute({
+					context: getCurrentRequest(),
+					document: 'mutation { logout { revoked } }',
 				}),
 			)
 			expect(loggedOut.data?.logout).toMatchObject({ revoked: true })

@@ -13,7 +13,6 @@ import type {
 	GraphQLNamedType,
 } from 'graphql'
 
-import { GraphqlSchemaCompilationError } from './errors.js'
 import type { GraphqlFieldTypeCompiler } from './field-compiler.js'
 import type { GraphqlFilterInputCompiler } from './filter-input-compiler.js'
 import type { GraphqlGeneratedExecution } from './generated-execution.js'
@@ -115,12 +114,6 @@ export class GraphqlReadInputCompiler {
 				resolve: this.#execution.read(schema, 'exists'),
 				type: new GraphQLNonNull(GraphQLBoolean),
 			})
-		}
-		if (Object.keys(fields).length === 0) {
-			throw new GraphqlSchemaCompilationError(
-				'missing-query-root',
-				'GraphQL schema compilation requires at least one public query field',
-			)
 		}
 		return fields
 	}

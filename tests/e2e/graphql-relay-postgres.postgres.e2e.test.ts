@@ -14,7 +14,6 @@ import {
 import type { GraphqlSchemaExposureOption } from '@ultimabase/graphql-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { isPlainRecord } from '@ultimabase/shared'
-import { graphql } from 'graphql'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { graphqlPlugin } from '../../packages/graphql-plugin/src/plugin.js'
@@ -186,10 +185,9 @@ describe(
 				'@ultimabase/graphql-plugin',
 			)
 			const executePage = async (after?: string) =>
-				graphql({
-					contextValue: { request: requestContext },
-					schema: graphqlApplication.schema,
-					source: `
+				graphqlApplication.execute({
+					context: requestContext,
+					document: `
 					query Page($after: String) {
 						findManyGraphqlRelayPostgresRecord(
 							after: $after
@@ -202,7 +200,7 @@ describe(
 						}
 					}
 					`,
-					variableValues: after === undefined ? {} : { after },
+					variables: after === undefined ? {} : { after },
 				})
 
 			const firstResult = await executePage()

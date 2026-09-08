@@ -105,8 +105,9 @@ users[0]?.toJSON() // A detached immutable object.
 
 The shipped authenticated REST vertical is demonstrated by the
 [`examples/minimal`](examples/minimal/README.md) application. Network-independent
-GraphQL and Yoga remain planned separately, beginning with
-[issue 608](issues/600-transports/608-graphql-v1-contract.md).
+GraphQL schema generation, plugin operations, custom composition, and direct
+execution are also shipped. The optional Yoga HTTP adapter remains planned in
+[issue 615](issues/600-transports/615-graphql-yoga-plugin.md).
 
 ## Repository map
 

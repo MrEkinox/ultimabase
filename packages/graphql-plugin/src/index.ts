@@ -1,5 +1,6 @@
 export { graphqlApplicationCapability } from './application.js'
 export type { GraphqlApplication } from './application.js'
+export type { GraphqlExecuteOptions } from './networkless-execution.js'
 export { GraphqlSchemaCompilationError } from './errors.js'
 export type { GraphqlSchemaCompilationFailureReason } from './errors.js'
 export { GraphqlInvalidCursorError } from './connection-errors.js'
@@ -16,6 +17,16 @@ export type {
 	GraphqlPluginExports,
 	GraphqlPluginOptions,
 } from './plugin.js'
+export {
+	graphqlSchemaContributionsCapability,
+	provideGraphqlSchemas,
+} from './schema-contributions.js'
+export type {
+	GraphqlSchemaContributionFactory,
+	GraphqlSchemaContributionFactoryContext,
+	GraphqlSchemaContributionsCapability,
+	ProvideGraphqlSchemasOptions,
+} from './schema-contributions.js'
 export {
 	graphqlFieldProtocol,
 	graphqlOperationProtocol,

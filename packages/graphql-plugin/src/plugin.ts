@@ -1,11 +1,13 @@
 import {
 	applicationOperationTransportPlanningCapability,
 	applicationRequestExecutionCapability,
+	optionalCapability,
 	provideCapability,
 	requireCapability,
 	type CapabilityProviderDeclaration,
 	type CapabilityRequirement,
 	type PluginOperationDefinition,
+	type CapabilityProviderContribution,
 } from '@ultimabase/core'
 import {
 	definePluginModule,
@@ -13,6 +15,8 @@ import {
 	type PluginModule,
 	type PluginModuleInstance,
 } from '@ultimabase/plugin-kit'
+import { immutableArray, isUnknownArray } from '@ultimabase/shared'
+import { GraphQLSchema } from 'graphql'
 
 import {
 	createGraphqlApplicationResource,
@@ -29,6 +33,7 @@ import {
 import { GraphqlConnectionRuntime } from './connection-runtime.js'
 import { GraphqlGeneratedExecution } from './generated-execution.js'
 import { GraphqlOperationExecution } from './operation-execution.js'
+import { GraphqlNetworklessExecution } from './networkless-execution.js'
 import {
 	graphqlSchemaOption,
 	normalizeGraphqlSchemaOperations,
@@ -36,6 +41,9 @@ import {
 	type GraphqlSchemaOperations,
 } from './options.js'
 import { graphqlOperationProtocol, graphqlProtocol } from './protocol.js'
+import { composeGraphqlSchemas } from './schema-composition.js'
+import type { OwnedGraphqlSchema } from './schema-composition-types.js'
+import { graphqlSchemaContributionsCapability } from './schema-contributions.js'
 
 const graphqlPluginModule: PluginModule<
 	'@ultimabase/graphql-plugin',
@@ -61,6 +69,8 @@ export interface GraphqlPluginOptions {
 		string,
 		'application'
 	>[]
+	/** Adds completed application-owned schemas after the generated surface. */
+	readonly schemas?: readonly GraphQLSchema[]
 }
 
 /** Exposes the application-local network-independent GraphQL schema. */
@@ -73,12 +83,14 @@ const parseGraphqlPluginOptions = definePluginOptionsParser({
 		'default',
 		'limits',
 		'operations',
+		'schemas',
 	] as const,
 	normalize: ({
 		acknowledgeUnverifiedProtection,
 		default: defaultOperations,
 		limits,
 		operations,
+		schemas,
 	}) => {
 		if (
 			acknowledgeUnverifiedProtection !== undefined &&
@@ -102,9 +114,27 @@ const parseGraphqlPluginOptions = definePluginOptionsParser({
 					? defaultGraphqlExecutionLimits
 					: normalizeGraphqlExecutionLimits(limits),
 			operations: normalizeGraphqlPluginOperations(operations),
+			schemas: normalizeCustomSchemas(schemas),
 		}
 	},
 })
+
+const normalizeCustomSchemas = (value: unknown): readonly GraphQLSchema[] => {
+	if (value === undefined) return immutableArray([])
+	if (!isUnknownArray(value)) {
+		throw new TypeError('GraphQL plugin schemas must be an array')
+	}
+	const schemas: GraphQLSchema[] = []
+	for (const [index, schema] of value.entries()) {
+		if (!(schema instanceof GraphQLSchema)) {
+			throw new TypeError(
+				`GraphQL plugin schemas[${String(index)}] must be a completed GraphQLSchema`,
+			)
+		}
+		schemas.push(schema)
+	}
+	return immutableArray(schemas)
+}
 
 const requestExecutionRequirement: CapabilityRequirement<
 	typeof applicationRequestExecutionCapability,
@@ -132,6 +162,12 @@ const graphqlApplicationRequirement: CapabilityRequirement<
 > = requireCapability(graphqlApplicationCapability, '^1.0.0', {
 	phase: 'setup',
 })
+const optionalSchemaContributions: CapabilityRequirement<
+	typeof graphqlSchemaContributionsCapability,
+	true,
+	'^1.0.0',
+	'materialization'
+> = optionalCapability(graphqlSchemaContributionsCapability, '^1.0.0')
 
 const graphqlPluginPrivileges = [
 	{
@@ -145,6 +181,7 @@ const graphqlPluginPrivileges = [
 ] as const
 
 type GraphqlPluginCapabilities = Readonly<{
+	readonly optional: readonly [typeof optionalSchemaContributions]
 	readonly provides: readonly [
 		CapabilityProviderDeclaration<typeof graphqlApplicationCapability>,
 	]
@@ -159,6 +196,25 @@ type GraphqlPluginCapabilities = Readonly<{
 		typeof graphqlApplicationRequirement,
 	]
 }>
+
+const pluginSchemaSources = (
+	contributions: readonly CapabilityProviderContribution<
+		typeof graphqlSchemaContributionsCapability
+	>[],
+): readonly OwnedGraphqlSchema[] =>
+	immutableArray(
+		contributions.flatMap((contribution) =>
+			contribution.value.map((schema, index) => ({
+				attribution: {
+					kind: 'plugin' as const,
+					owner: contribution.owner,
+					pluginVersion: contribution.pluginVersion,
+				},
+				description: `plugin ${contribution.owner.pluginId}${contribution.owner.instanceId === undefined ? '' : `#${contribution.owner.instanceId}`} contribution ${contribution.contributionId}[${String(index)}]`,
+				schema,
+			})),
+		),
+	)
 
 type GraphqlPluginDefinition = Readonly<{
 	readonly capabilities: GraphqlPluginCapabilities
@@ -195,18 +251,49 @@ export const graphqlPlugin = (
 					operations,
 					owner,
 				})
+				const generated = compileGraphqlSchema({
+					connectionLimits: normalized.limits,
+					...(normalized.defaultOperations === undefined
+						? {}
+						: { defaultOperations: normalized.defaultOperations }),
+					execution,
+					operationPlan,
+					schemas,
+				})
+				const schema = composeGraphqlSchemas({
+					callbacks,
+					schemas: [
+						{
+							attribution: {
+								kind: 'generated',
+								owner,
+								pluginVersion: '0.0.0',
+							},
+							description: 'generated GraphQL schema',
+							schema: generated,
+						},
+						...normalized.schemas.map((custom, index) => ({
+							attribution: { kind: 'application' as const },
+							description: `application schema[${String(index)}]`,
+							schema: custom,
+						})),
+						...pluginSchemaSources(
+							reader.contributions(optionalSchemaContributions),
+						),
+					],
+				})
+				const networkless = new GraphqlNetworklessExecution({
+					callbacks,
+					executor: reader.get(requestExecutionRequirement),
+					limits: normalized.limits,
+					owner,
+					schema,
+				})
 				return createGraphqlApplicationResource(
-					compileGraphqlSchema({
-						connectionLimits: normalized.limits,
-						...(normalized.defaultOperations === undefined
-							? {}
-							: { defaultOperations: normalized.defaultOperations }),
-						execution,
-						operationPlan,
-						schemas,
-					}),
+					schema,
 					connections,
 					operations,
+					networkless,
 				)
 			} catch (error: unknown) {
 				connections.dispose()
@@ -216,6 +303,7 @@ export const graphqlPlugin = (
 		},
 	})
 	const capabilities: GraphqlPluginCapabilities = {
+		optional: [optionalSchemaContributions],
 		provides: [applicationProvider],
 		requires: [
 			requestExecutionRequirement,

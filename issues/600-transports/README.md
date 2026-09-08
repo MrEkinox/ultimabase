@@ -20,7 +20,7 @@ plugin and GraphQL Core, never on REST.
 4. [x] [611 — Implement GraphQL-owned Relay connections](611-graphql-relay-connections.md)
 5. [x] [612 — Execute generated GraphQL schema operations](612-graphql-schema-execution.md)
 6. [x] [613 — Expose explicit plugin operations through GraphQL](613-graphql-plugin-operations.md)
-7. [ ] [614 — Add custom schema composition and networkless execution](614-graphql-schema-composition-executor.md)
+7. [x] [614 — Add custom schema composition and networkless execution](614-graphql-schema-composition-executor.md)
 8. [ ] [615 — Mount GraphQL through Yoga and the HTTP capability](615-graphql-yoga-plugin.md)
 9. [ ] [616 — Add optional GraphQL explorer plugins](616-graphql-explorer-plugins.md)
 10. [ ] [617 — Verify and audit GraphQL cross-transport parity](617-graphql-cross-transport-audit.md)

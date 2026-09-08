@@ -3,7 +3,7 @@
 Network-independent GraphQL schema generation for UltimaBase applications.
 
 ```ts
-import { Schema, createApplication } from '@ultimabase/core'
+import { Schema, UltimaBase } from '@ultimabase/core'
 import { graphqlPlugin } from '@ultimabase/graphql-plugin'
 
 const Post = Schema.define({
@@ -12,19 +12,100 @@ const Post = Schema.define({
 	graphql: true,
 })
 
-const application = await createApplication({
+const application = new UltimaBase({
 	schemas: [Post],
 	plugins: [graphqlPlugin()],
 })
+await application.start()
 
-const graphql = application.getPlugin('@ultimabase/graphql-plugin')
-graphql.schema
+const graphql = application.application.getPlugin('@ultimabase/graphql-plugin')
+const context = application.engine.anonymous({
+	requestId: crypto.randomUUID(),
+	source: 'internal',
+}).context
+
+await graphql.execute({
+	context,
+	document: '{ findManyPost(first: 10) { nodes { id title } } }',
+})
 ```
 
 The plugin compiles one application-local executable `GraphQLSchema` after the
 complete Core schema graph exists. Importing the package installs no behavior.
 It does not import HTTP, Yoga, REST, authentication, policy, or database
 providers.
+
+## Custom schema composition
+
+Pass completed `GraphQLSchema` values from Nexus, Pothos, GraphQL Tools, or the
+reference `graphql` package through `graphqlPlugin({ schemas })`. The generated
+schema is composed first, direct application schemas retain array order, and
+plugin contributions follow deterministic plugin and registration order.
+
+```ts
+import { GraphQLObjectType, GraphQLSchema, GraphQLString } from 'graphql'
+
+const custom = new GraphQLSchema({
+	query: new GraphQLObjectType({
+		name: 'Query',
+		fields: {
+			health: { type: GraphQLString, resolve: () => 'ok' },
+		},
+	}),
+})
+
+graphqlPlugin({ schemas: [custom] })
+```
+
+Plugins that intentionally depend on this package contribute through
+`provideGraphqlSchemas()`. Each provider must declare `transport:expose`; its
+resolvers run under that exact plugin and optional instance identity:
+
+```ts
+import { provideGraphqlSchemas } from '@ultimabase/graphql-plugin'
+
+capabilities: {
+	provides: [
+		provideGraphqlSchemas({
+			contributionId: 'admin-graphql',
+			create: () => adminSchema,
+		}),
+	],
+}
+```
+
+Composition clones every contributed type and resolver into one final schema.
+Distinct object, interface, input, enum, and union additions may extend the
+graph. Duplicate root or type fields, enum values, union members, custom
+scalars, directives, type-kind mismatches, and resolver overwrites fail startup
+with provenance instead of using last-writer-wins behavior. Mutating an input
+schema after startup cannot change the application schema.
+
+Custom resolver context is exactly `{ request: RequestContext }`. Application
+schemas run under application attribution, while plugin schemas retain their
+provider attribution. Neither receives an application object, executor,
+adapter, authority, grant, transaction, privilege host, HTTP request, or
+lifecycle control. Custom batching remains resolver-owned and request-local.
+
+## Networkless execution
+
+The setup export provides `schema`, `execute()`, and `printSchema()`.
+`execute()` accepts a string or parsed `DocumentNode`, optional variables and
+operation name, plus a real context already bound to the same started
+application. Foreign, forged, stale, cancelled, and disposed contexts fail
+before resolver work. Parsing, validation, variables, and resolver work all run
+inside the same Core request scope.
+
+`printSchema()` returns a deterministic lexicographically sorted SDL snapshot.
+It contains no resolver code, credentials, cursor secrets, private records, or
+provenance internals.
+
+Request limits default to 100 KiB of source, 10,000 tokens or parsed AST nodes,
+depth 20, 100 aliases, 20 root response fields, 1 MiB of JSON-compatible
+variables, page size 25, and maximum page size 100. Every limit can be narrowed
+or raised explicitly through `graphqlPlugin({ limits })`. Subscriptions,
+`@defer`, `@stream`, cyclic or non-JSON variables, and over-budget requests are
+rejected before Runtime.
 
 ## Schema exposure
 
@@ -136,7 +217,6 @@ Concurrent insertions and deletions can consequently shift later pages, which
 may repeat or skip an item. GraphQL translates the page to existing Core
 `where`, `orderBy`, `limit`, and `offset` clauses; Core has no cursor concept.
 
-Custom schema composition, the public networkless `execute()` convenience
-method, and Yoga are supplied by later milestone issues. Compiling the package
-performs no application request; executing a generated field or selected plugin
-operation enters Runtime.
+Yoga remains an optional later adapter. Compiling the package performs no
+application request; networkless execution, generated fields, and selected
+plugin operations enter the same Runtime boundary without opening a socket.

@@ -7,6 +7,7 @@ export type GraphqlSchemaCompilationFailureReason =
 	| 'missing-query-root'
 	| 'name-collision'
 	| 'plugin-schema-option'
+	| 'unsupported-feature'
 
 /** Reports deterministic GraphQL compilation failures before request work begins. */
 export class GraphqlSchemaCompilationError extends Error {

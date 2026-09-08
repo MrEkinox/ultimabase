@@ -97,6 +97,8 @@ describe('graphqlPlugin', () => {
 		[{ operations: [{}] }, 'must be an operation token'],
 		[{ operations: [optionOperation, optionOperation] }, 'repeats'],
 		[{ operations: [schemaOptionOperation] }, 'must target the application'],
+		[{ schemas: null }, 'must be an array'],
+		[{ schemas: [{}] }, 'completed GraphQLSchema'],
 		[{ instanceId: 'secondary' }, 'Unknown'],
 	])('rejects malformed options %#', (options, message) => {
 		expect(() => graphqlPlugin(options as never)).toThrow(message)
