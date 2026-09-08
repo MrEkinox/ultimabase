@@ -5,6 +5,7 @@ import {
 	type CapabilityRequirement,
 } from '@ultimabase/core'
 import { graphqlApplicationCapability } from '@ultimabase/graphql-plugin'
+import { graphqlHttpEndpointCapability } from '@ultimabase/graphql-http'
 import { httpEndpointContributionsCapability } from '@ultimabase/http-plugin'
 import {
 	definePluginModule,
@@ -52,6 +53,7 @@ type GraphqlYogaPluginDefinition = Readonly<{
 	readonly capabilities: Readonly<{
 		readonly provides: readonly [
 			CapabilityProviderDeclaration<typeof httpEndpointContributionsCapability>,
+			CapabilityProviderDeclaration<typeof graphqlHttpEndpointCapability>,
 		]
 		readonly requires: readonly [typeof graphqlApplicationRequirement]
 	}>
@@ -94,9 +96,18 @@ export const graphqlYogaPlugin = (
 			},
 		},
 	)
+	const endpointDescriptionProvider = provideCapability(
+		graphqlHttpEndpointCapability,
+		{
+			contributionId: 'official-graphql-yoga-http-endpoint',
+			create: () => ({
+				value: immutableRecord({ path: normalized.path }),
+			}),
+		},
+	)
 	return graphqlYogaPluginModule.plugin({
 		capabilities: {
-			provides: [endpointProvider],
+			provides: [endpointProvider, endpointDescriptionProvider],
 			requires: [graphqlApplicationRequirement],
 		},
 		peers: graphqlYogaPeers,

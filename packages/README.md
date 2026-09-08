@@ -30,7 +30,10 @@ alternatives use the same generic public kernel.
 - `server-hono-plugin`
 - `rest-plugin`
 - `graphql-plugin`
+- `graphql-http` (provider-neutral contract; not a plugin)
 - `graphql-yoga-plugin`
+- `graphiql-plugin`
+- `apollo-sandbox-plugin`
 - `password-auth-plugin`
 
 ## Planned plugin packages

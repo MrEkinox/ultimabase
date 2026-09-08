@@ -1522,6 +1522,21 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@ultimabase/apollo-sandbox-plugin@workspace:packages/apollo-sandbox-plugin":
+  version: 0.0.0-use.local
+  resolution: "@ultimabase/apollo-sandbox-plugin@workspace:packages/apollo-sandbox-plugin"
+  dependencies:
+    "@ultimabase/core": "workspace:^"
+    "@ultimabase/graphql-http": "workspace:^"
+    "@ultimabase/http-plugin": "workspace:^"
+    "@ultimabase/plugin-kit": "workspace:^"
+    "@ultimabase/shared": "workspace:^"
+    tsdown: "npm:^0.22.14"
+    typescript: "npm:^6.0.3"
+    vitest: "npm:4.1.10"
+  languageName: unknown
+  linkType: soft
+
 "@ultimabase/core@workspace:^, @ultimabase/core@workspace:packages/core":
   version: 0.0.0-use.local
   resolution: "@ultimabase/core@workspace:packages/core"
@@ -1580,6 +1595,33 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@ultimabase/graphiql-plugin@workspace:packages/graphiql-plugin":
+  version: 0.0.0-use.local
+  resolution: "@ultimabase/graphiql-plugin@workspace:packages/graphiql-plugin"
+  dependencies:
+    "@ultimabase/core": "workspace:^"
+    "@ultimabase/graphql-http": "workspace:^"
+    "@ultimabase/http-plugin": "workspace:^"
+    "@ultimabase/plugin-kit": "workspace:^"
+    "@ultimabase/shared": "workspace:^"
+    tsdown: "npm:^0.22.14"
+    typescript: "npm:^6.0.3"
+    vitest: "npm:4.1.10"
+  languageName: unknown
+  linkType: soft
+
+"@ultimabase/graphql-http@workspace:^, @ultimabase/graphql-http@workspace:packages/graphql-http":
+  version: 0.0.0-use.local
+  resolution: "@ultimabase/graphql-http@workspace:packages/graphql-http"
+  dependencies:
+    "@ultimabase/core": "workspace:^"
+    "@ultimabase/shared": "workspace:^"
+    tsdown: "npm:^0.22.14"
+    typescript: "npm:^6.0.3"
+    vitest: "npm:4.1.10"
+  languageName: unknown
+  linkType: soft
+
 "@ultimabase/graphql-plugin@workspace:^, @ultimabase/graphql-plugin@workspace:packages/graphql-plugin":
   version: 0.0.0-use.local
   resolution: "@ultimabase/graphql-plugin@workspace:packages/graphql-plugin"
@@ -1601,6 +1643,7 @@ __metadata:
   dependencies:
     "@hono/node-server": "npm:^2.1.1"
     "@ultimabase/core": "workspace:^"
+    "@ultimabase/graphql-http": "workspace:^"
     "@ultimabase/graphql-plugin": "workspace:^"
     "@ultimabase/http-plugin": "workspace:^"
     "@ultimabase/plugin-kit": "workspace:^"

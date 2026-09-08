@@ -4,6 +4,10 @@ The official GraphQL-over-HTTP adapter for UltimaBase. It mounts the final
 application-local schema from `@ultimabase/graphql-plugin` through the shared
 Fetch application from `@ultimabase/http-plugin`.
 
+It also provides `graphqlHttpEndpointCapability` from
+`@ultimabase/graphql-http`. Provider-neutral developer tools can discover the
+configured path without importing Yoga or choosing among endpoints.
+
 The package does not install GraphQL, HTTP, authentication, or a server. The
 application must configure those sibling plugins explicitly:
 

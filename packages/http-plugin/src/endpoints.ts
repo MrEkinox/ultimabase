@@ -45,6 +45,18 @@ export interface HttpRouteDefinition<
 	readonly handle: HttpRequestHandler
 }
 
+/** Declares one exact GET page that a browser may open without custom headers. */
+export interface HttpBrowserBootstrapRouteDefinition<
+	TPath extends string = string,
+	TProtocol extends HttpEndpointProtocol = HttpEndpointProtocol,
+> {
+	readonly kind: 'browser-bootstrap'
+	readonly method: 'GET'
+	readonly path: TPath
+	readonly protocol: TProtocol
+	readonly handle: HttpRequestHandler
+}
+
 /** Declares one path subtree handled by a contributing Fetch application. */
 export interface HttpMountDefinition<
 	TPath extends string = string,
@@ -56,8 +68,11 @@ export interface HttpMountDefinition<
 	readonly handle: HttpRequestHandler
 }
 
-/** Groups the two non-ambiguous endpoint forms accepted by the HTTP engine. */
-export type HttpEndpointDefinition = HttpMountDefinition | HttpRouteDefinition
+/** Groups the three non-ambiguous endpoint forms accepted by the HTTP engine. */
+export type HttpEndpointDefinition =
+	| HttpBrowserBootstrapRouteDefinition
+	| HttpMountDefinition
+	| HttpRouteDefinition
 
 /** Configures one exact owned route. */
 export interface HttpRouteOptions<
@@ -81,6 +96,16 @@ export interface HttpMountOptions<
 	readonly handle: HttpRequestHandler
 }
 
+/** Configures one exact browser bootstrap route suffix. */
+export interface HttpBrowserBootstrapRouteOptions<
+	TPath extends string,
+	TProtocol extends HttpEndpointProtocol,
+> {
+	readonly path: TPath
+	readonly protocol: TProtocol
+	readonly handle: HttpRequestHandler
+}
+
 const httpMethods = new Set<HttpMethod>([
 	'DELETE',
 	'GET',
@@ -93,6 +118,7 @@ const httpMethods = new Set<HttpMethod>([
 const endpointDefinitions = new WeakSet<object>()
 const routeOptionKeys = new Set(['handle', 'method', 'path', 'protocol'])
 const mountOptionKeys = new Set(['handle', 'path', 'protocol'])
+const browserBootstrapOptionKeys = new Set(['handle', 'path', 'protocol'])
 
 const assertExactOptions: (
 	value: unknown,
@@ -146,6 +172,14 @@ const assertAbsolutePath: (
 	}
 }
 
+const assertUnreservedPath = (path: string, label: string): void => {
+	if (path === '/__ultimabase/apps' || path.startsWith('/__ultimabase/apps/')) {
+		throw new TypeError(
+			`${label} cannot use the reserved browser bootstrap namespace`,
+		)
+	}
+}
+
 /** Creates one immutable exact route without registering it globally. */
 export const httpRoute = <
 	const TMethod extends HttpMethod,
@@ -161,6 +195,7 @@ export const httpRoute = <
 		)
 	}
 	assertAbsolutePath(options.path, 'HTTP route path')
+	assertUnreservedPath(options.path, 'HTTP route path')
 	if (typeof options.handle !== 'function') {
 		throw new TypeError('HTTP route handle must be a function')
 	}
@@ -185,6 +220,7 @@ export const httpMount = <
 ): HttpMountDefinition<TPath, TProtocol> => {
 	assertExactOptions(options, mountOptionKeys, 'HTTP mount options')
 	assertAbsolutePath(options.path, 'HTTP mount path')
+	assertUnreservedPath(options.path, 'HTTP mount path')
 	if (typeof options.handle !== 'function') {
 		throw new TypeError('HTTP mount handle must be a function')
 	}
@@ -199,12 +235,50 @@ export const httpMount = <
 	return definition
 }
 
+/** Creates one immutable browser bootstrap route without selecting an app. */
+export const httpBrowserBootstrapRoute = <
+	const TPath extends string,
+	const TProtocol extends HttpEndpointProtocol,
+>(
+	options: HttpBrowserBootstrapRouteOptions<TPath, TProtocol>,
+): HttpBrowserBootstrapRouteDefinition<TPath, TProtocol> => {
+	assertExactOptions(
+		options,
+		browserBootstrapOptionKeys,
+		'HTTP browser bootstrap route options',
+	)
+	assertAbsolutePath(options.path, 'HTTP browser bootstrap route path')
+	assertUnreservedPath(options.path, 'HTTP browser bootstrap route path')
+	if (options.path === '/') {
+		throw new TypeError(
+			'HTTP browser bootstrap route path must have at least one segment',
+		)
+	}
+	if (typeof options.handle !== 'function') {
+		throw new TypeError(
+			'HTTP browser bootstrap route handle must be a function',
+		)
+	}
+
+	const definition = immutableRecord({
+		handle: options.handle,
+		kind: 'browser-bootstrap' as const,
+		method: 'GET' as const,
+		path: options.path,
+		protocol: snapshotProtocol(options.protocol),
+	})
+	endpointDefinitions.add(definition)
+	return definition
+}
+
 const assertEndpointDefinition: (
 	definition: unknown,
 	path: string,
 ) => asserts definition is HttpEndpointDefinition = (definition, path) => {
 	if (!isPlainRecord(definition) || !endpointDefinitions.has(definition)) {
-		throw new TypeError(`${path} must be created by httpRoute or httpMount`)
+		throw new TypeError(
+			`${path} must be created by httpRoute, httpMount, or httpBrowserBootstrapRoute`,
+		)
 	}
 }
 
@@ -224,7 +298,7 @@ export const assertHttpEndpointDefinitions: (
 	}
 }
 
-/** Composes route and mount declarations in plugin graph and registration order. */
+/** Composes every endpoint declaration in plugin graph and registration order. */
 export type HttpEndpointContributionsCapability = CapabilityToken<
 	readonly HttpEndpointDefinition[],
 	readonly HttpEndpointDefinition[],

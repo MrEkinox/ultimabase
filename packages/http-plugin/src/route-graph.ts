@@ -9,6 +9,7 @@ import {
 	assertHttpEndpointDefinitions,
 	type HttpEndpointContributionsCapability,
 	type HttpEndpointDefinition,
+	type HttpBrowserBootstrapRouteDefinition,
 	type HttpMountDefinition,
 	type HttpRequestHandler,
 	type HttpRouteDefinition,
@@ -27,15 +28,22 @@ export interface OwnedHttpRoute extends HttpRouteDefinition {
 	readonly provenance: HttpEndpointProvenance
 }
 
+/** Exposes one browser bootstrap route with immutable ownership evidence. */
+export interface OwnedHttpBrowserBootstrapRoute extends HttpBrowserBootstrapRouteDefinition {
+	readonly provenance: HttpEndpointProvenance
+}
+
 /** Exposes one validated mount together with immutable ownership evidence. */
 export interface OwnedHttpMount extends HttpMountDefinition {
 	readonly provenance: HttpEndpointProvenance
 }
 
-export type OwnedHttpEndpoint = OwnedHttpMount | OwnedHttpRoute
+export type OwnedHttpEndpoint =
+	OwnedHttpBrowserBootstrapRoute | OwnedHttpMount | OwnedHttpRoute
 
 /** Gives every provider the same immutable application-local endpoint graph. */
 export interface HttpRouteGraph {
+	readonly browserBootstraps: readonly OwnedHttpBrowserBootstrapRoute[]
 	readonly endpoints: readonly OwnedHttpEndpoint[]
 	readonly mounts: readonly OwnedHttpMount[]
 	readonly routes: readonly OwnedHttpRoute[]
@@ -63,8 +71,8 @@ const assertNoEndpointCollision = (
 ): void => {
 	for (const endpoint of accepted) {
 		if (
-			candidate.kind === 'route' &&
-			endpoint.kind === 'route' &&
+			candidate.kind !== 'mount' &&
+			endpoint.kind !== 'mount' &&
 			candidate.method === endpoint.method &&
 			candidate.path === endpoint.path
 		) {
@@ -135,6 +143,12 @@ export const compileHttpRouteGraph = (
 	}
 
 	return immutableRecord({
+		browserBootstraps: immutableArray(
+			endpoints.filter(
+				(endpoint): endpoint is OwnedHttpBrowserBootstrapRoute =>
+					endpoint.kind === 'browser-bootstrap',
+			),
+		),
 		endpoints: immutableArray(endpoints),
 		mounts: immutableArray(
 			endpoints.filter(
@@ -165,6 +179,11 @@ export const selectHttpEndpoint = (
 			candidate.method === request.method && candidate.path === pathname,
 	)
 	if (route !== undefined) return route
+	const browserBootstrap = graph.browserBootstraps.find(
+		(candidate) =>
+			candidate.method === request.method && candidate.path === pathname,
+	)
+	if (browserBootstrap !== undefined) return browserBootstrap
 	return graph.mounts.find((candidate) =>
 		matchesMount(pathname, candidate.path),
 	)

@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
-import { httpMount, httpRoute, provideHttpEndpoints } from './endpoints.js'
+import {
+	httpBrowserBootstrapRoute,
+	httpMount,
+	httpRoute,
+	provideHttpEndpoints,
+} from './endpoints.js'
 
 const protocol = { name: 'fixture.http', version: '1' } as const
 
@@ -27,6 +32,51 @@ describe('HTTP endpoint declarations', () => {
 		expect(Object.isFrozen(route)).toBe(true)
 		expect(Object.isFrozen(route.protocol)).toBe(true)
 		expect(Object.isFrozen(mount)).toBe(true)
+	})
+
+	it('creates an immutable GET-only browser bootstrap route', () => {
+		const route = httpBrowserBootstrapRoute({
+			path: '/graphiql',
+			protocol,
+			handle: () => new Response('explorer'),
+		})
+
+		expect(route).toMatchObject({
+			kind: 'browser-bootstrap',
+			method: 'GET',
+			path: '/graphiql',
+		})
+		expect(Object.isFrozen(route)).toBe(true)
+	})
+
+	it('reserves the browser bootstrap namespace from ordinary endpoints', () => {
+		expect(() =>
+			httpRoute({
+				method: 'GET',
+				path: '/__ultimabase/apps/example',
+				protocol,
+				handle: () => new Response(),
+			}),
+		).toThrow('reserved browser bootstrap namespace')
+		expect(() =>
+			httpMount({
+				path: '/__ultimabase/apps/example',
+				protocol,
+				handle: () => new Response(),
+			}),
+		).toThrow('reserved browser bootstrap namespace')
+	})
+
+	it('rejects root and reserved browser bootstrap suffixes', () => {
+		for (const path of ['/', '/__ultimabase/apps/example']) {
+			expect(() =>
+				httpBrowserBootstrapRoute({
+					path,
+					protocol,
+					handle: () => new Response(),
+				}),
+			).toThrow()
+		}
 	})
 
 	it.each([

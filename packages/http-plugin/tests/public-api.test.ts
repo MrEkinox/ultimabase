@@ -10,6 +10,8 @@ describe('@ultimabase/http-plugin public entry point', () => {
 			'httpApplicationCapability',
 			'httpApplicationIdHeader',
 			'httpApplicationProtocolVersion',
+			'httpBrowserBootstrapPathPrefix',
+			'httpBrowserBootstrapRoute',
 			'httpBrowserPolicyCapability',
 			'httpContextResolver',
 			'httpContextResolverContributionsCapability',

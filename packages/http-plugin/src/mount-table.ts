@@ -5,7 +5,9 @@ import {
 } from '@ultimabase/shared'
 
 import {
+	httpApplicationIdHeader,
 	httpApplicationProtocolVersion,
+	httpBrowserBootstrapPathPrefix,
 	httpOriginalHeaderMode,
 } from './constants.js'
 import {
@@ -19,6 +21,8 @@ import {
 	httpPreDispatchErrorCodes,
 	prepareHttpServerRequest,
 	readPreparedApplicationId,
+	readPreparedHeader,
+	type PreparedHttpServerRequest,
 	type HttpServerRequest,
 } from './request-boundary.js'
 
@@ -125,6 +129,72 @@ const assertApplication: (
 	}
 }
 
+interface HttpBrowserBootstrapSelection {
+	readonly appId: string
+	readonly routePath: string
+}
+
+const readBrowserBootstrapSelection = (
+	prepared: PreparedHttpServerRequest,
+): HttpBrowserBootstrapSelection | undefined => {
+	if (
+		prepared.input.request.method !== 'GET' ||
+		readPreparedHeader(prepared.originalHeaders, httpApplicationIdHeader) !==
+			undefined
+	) {
+		return undefined
+	}
+	const pathname = new URL(prepared.input.request.url).pathname
+	const prefix = `${httpBrowserBootstrapPathPrefix}/`
+	if (!pathname.startsWith(prefix)) return undefined
+
+	const remainder = pathname.slice(prefix.length)
+	const separator = remainder.indexOf('/')
+	if (separator < 1) return undefined
+
+	let appId: string
+	try {
+		appId = decodeURIComponent(remainder.slice(0, separator))
+	} catch {
+		return undefined
+	}
+	if (appId.length === 0) return undefined
+	return { appId, routePath: remainder.slice(separator) }
+}
+
+const prepareBrowserBootstrapRequest = (
+	prepared: PreparedHttpServerRequest,
+	selection: HttpBrowserBootstrapSelection,
+): PreparedHttpServerRequest => {
+	const originalHeaders = immutableArray([
+		...prepared.originalHeaders,
+		immutableArray([httpApplicationIdHeader, selection.appId] as const),
+	])
+	const source = prepared.input.request
+	const url = new URL(source.url)
+	url.pathname = selection.routePath
+	const headers = new Headers(source.headers)
+	headers.set(httpApplicationIdHeader, selection.appId)
+	const request = new Request(url, {
+		cache: source.cache,
+		credentials: source.credentials,
+		headers,
+		integrity: source.integrity,
+		keepalive: source.keepalive,
+		method: source.method,
+		mode: source.mode,
+		redirect: source.redirect,
+		referrer: source.referrer,
+		referrerPolicy: source.referrerPolicy,
+		signal: source.signal,
+	})
+	return immutableRecord({
+		input: immutableRecord({ originalHeaders, request }),
+		originalHeaders,
+		requestId: prepared.requestId,
+	})
+}
+
 /**
  * Builds immutable mount-table replacements so a provider can commit one
  * validated application without exposing partial registration state.
@@ -224,10 +294,22 @@ export class HttpApplicationMountTable {
 				(candidate) => candidate.appId === appId,
 			)
 		} catch {
-			return createHttpPreDispatchErrorResponse(
-				httpPreDispatchErrorCodes.applicationRejected,
-				prepared.requestId,
+			const selection = readBrowserBootstrapSelection(prepared)
+			application = readState(this).applications.find(
+				(candidate) => candidate.appId === selection?.appId,
 			)
+			if (
+				selection === undefined ||
+				!application?.routeGraph.browserBootstraps.some(
+					(route) => route.path === selection.routePath,
+				)
+			) {
+				return createHttpPreDispatchErrorResponse(
+					httpPreDispatchErrorCodes.applicationRejected,
+					prepared.requestId,
+				)
+			}
+			prepared = prepareBrowserBootstrapRequest(prepared, selection)
 		}
 		if (application === undefined) {
 			return createHttpPreDispatchErrorResponse(

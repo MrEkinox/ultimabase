@@ -22,7 +22,7 @@ plugin and GraphQL Core, never on REST.
 6. [x] [613 — Expose explicit plugin operations through GraphQL](613-graphql-plugin-operations.md)
 7. [x] [614 — Add custom schema composition and networkless execution](614-graphql-schema-composition-executor.md)
 8. [x] [615 — Mount GraphQL through Yoga and the HTTP capability](615-graphql-yoga-plugin.md)
-9. [ ] [616 — Add optional GraphQL explorer plugins](616-graphql-explorer-plugins.md)
+9. [x] [616 — Add optional GraphQL explorer plugins](616-graphql-explorer-plugins.md)
 10. [ ] [617 — Verify and audit GraphQL cross-transport parity](617-graphql-cross-transport-audit.md)
 
 ## Existing foundations
@@ -49,6 +49,9 @@ plugin and GraphQL Core, never on REST.
 - `@ultimabase/graphql-yoga-plugin` owns Yoga and contributes an HTTP mount
   through `@ultimabase/http-plugin`. It receives the already selected
   application and resolved request context through that public boundary.
+- `@ultimabase/graphql-http` owns the provider-neutral selected endpoint
+  capability. GraphiQL and Apollo Sandbox consume it without importing Yoga and
+  use only HTTP's exact browser-bootstrap route boundary.
 - GraphQL enters Runtime only through Core's narrow
   `ApplicationRequestExecutor`. It never receives a `FrameworkEngine`,
   `RequestEngine`, `FrameworkApplication`, `UltimaBase`, adapter, authority,

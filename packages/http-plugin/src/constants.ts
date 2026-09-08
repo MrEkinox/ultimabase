@@ -1,5 +1,7 @@
 /** Selects one exact public HTTP application without granting authority. */
 export const httpApplicationIdHeader = 'X-UltimaBase-Application-Id'
+/** Reserves the only path namespace allowed to bootstrap one browser UI. */
+export const httpBrowserBootstrapPathPrefix = '/__ultimabase/apps'
 
 /** Selects audited Master verification only when explicitly enabled. */
 export const httpMasterKeyHeader = 'X-UltimaBase-Master-Key'

@@ -19,7 +19,10 @@ describe('graphqlYogaPlugin options', () => {
 			{ pluginId: '@ultimabase/http-plugin', version: '^0.0.0' },
 		])
 		expect(plugin.manifest.capabilities).toMatchObject({
-			provides: [{ contributionId: 'official-graphql-yoga-http-mount' }],
+			provides: [
+				{ contributionId: 'official-graphql-yoga-http-mount' },
+				{ contributionId: 'official-graphql-yoga-http-endpoint' },
+			],
 			requires: [
 				{
 					phase: 'materialization',

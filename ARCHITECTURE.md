@@ -57,6 +57,10 @@ server-hono-plugin ───→ http-plugin, plugin-kit, core, shared
 rest-plugin ──────────→ http-plugin, plugin-kit, core, shared
 password-auth-plugin ─→ http-plugin, plugin-kit, core, shared
 graphql-plugin ───────→ plugin-kit, core, shared
+graphql-http ─────────→ core, shared
+graphql-yoga-plugin ──→ graphql-http, http-plugin, graphql-plugin, plugin-kit, core, shared
+graphiql-plugin ──────→ graphql-http, http-plugin, plugin-kit, core, shared
+apollo-sandbox-plugin → graphql-http, http-plugin, plugin-kit, core, shared
 testing ──────────────→ typegen, core, shared
 ```
 
@@ -72,7 +76,6 @@ implementation issue starts:
 
 ```text
 postgres-migrations-plugin → postgres-plugin, core
-graphql-yoga-plugin ───────→ http-plugin, graphql-plugin, plugin-kit, core, shared
 http-basic-auth-plugin ────→ http-plugin, plugin-kit, core, shared
 better-auth-plugin ────────→ http-plugin, plugin-kit, core, shared
 ```
@@ -93,8 +96,13 @@ resolver and endpoint capabilities.
 accepts ordered plugin-owned schemas through its own multiple capability, and
 executes bounded documents with an exact application-bound `RequestContext`.
 It remains network-independent.
-Yoga, REST, Hono, and HTTP authentication integrations meet through the HTTP
-plugin rather than importing one another.
+`graphql-http` publishes one provider-neutral application capability containing
+the selected GraphQL HTTP path. Yoga provides it, while the optional GraphiQL
+and Apollo Sandbox plugins consume it without depending on Yoga. Explorer
+bootstrap pages use only HTTP's reserved application path; every non-explorer
+application request remains header-selected. Yoga, REST, Hono, and HTTP
+authentication integrations meet through the HTTP plugin rather than importing
+one another.
 
 Core provides one narrow versioned application request execution capability as
 accepted by ADR-0225. Its stable facade is privately bound after engine

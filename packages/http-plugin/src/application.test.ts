@@ -280,7 +280,7 @@ describe('HTTP application graph', () => {
 		})
 
 		await expect(application.initialize()).rejects.toThrow(
-			'must be created by httpRoute or httpMount',
+			'must be created by httpRoute, httpMount, or httpBrowserBootstrapRoute',
 		)
 		expect(seen).not.toHaveBeenCalled()
 		await application.dispose()
@@ -362,7 +362,12 @@ describe('HTTP application graph', () => {
 								protocolVersion: '1.0.0',
 								originalHeaderMode: 'ordered-pairs',
 								requestTimeoutMs: undefined,
-								routeGraph: { endpoints: [], mounts: [], routes: [] },
+								routeGraph: {
+									browserBootstraps: [],
+									endpoints: [],
+									mounts: [],
+									routes: [],
+								},
 								fetch: () => Promise.resolve(new Response()),
 							},
 						}),

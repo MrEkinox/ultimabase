@@ -21,7 +21,7 @@ const createHttpApplication = (
 	protocolVersion: httpApplicationProtocolVersion,
 	originalHeaderMode: httpOriginalHeaderMode,
 	requestTimeoutMs: undefined,
-	routeGraph: { endpoints: [], mounts: [], routes: [] },
+	routeGraph: { browserBootstraps: [], endpoints: [], mounts: [], routes: [] },
 	fetch: ({ request }) => {
 		onFetch(request)
 		return Promise.resolve(

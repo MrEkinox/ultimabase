@@ -1,5 +1,6 @@
-import { UltimaBase, definePlugin } from '@ultimabase/core'
+import { UltimaBase, definePlugin, requireCapability } from '@ultimabase/core'
 import { graphqlPlugin } from '@ultimabase/graphql-plugin'
+import { graphqlHttpEndpointCapability } from '@ultimabase/graphql-http'
 import {
 	httpMount,
 	httpPlugin,
@@ -17,6 +18,12 @@ const schema = new GraphQLSchema({
 		fields: { value: { resolve: () => 'value', type: GraphQLString } },
 	}),
 })
+
+const endpointRequirement = requireCapability(
+	graphqlHttpEndpointCapability,
+	'^1.0.0',
+	{ phase: 'setup' },
+)
 
 describe('GraphQL Yoga plugin graph', () => {
 	it('requires explicit GraphQL and HTTP sibling plugins', () => {
@@ -62,6 +69,35 @@ describe('GraphQL Yoga plugin graph', () => {
 					schemas: [],
 				}),
 		).toThrow(expect.objectContaining({ code: 'PLUGIN_CAPABILITY_MISSING' }))
+	})
+
+	it('provides the configured path through the provider-neutral capability', async () => {
+		const consumer = definePlugin({
+			core: '^0.0.0',
+			pluginId: 'fixture.graphql-http-endpoint-consumer',
+			version: '1.0.0',
+			capabilities: { requires: [endpointRequirement] },
+			setup: ({ capabilities }) => capabilities.get(endpointRequirement),
+		})
+		const application = new UltimaBase({
+			pluginPrivileges: { logger: false },
+			plugins: [
+				graphqlYogaFixtureDatabasePlugin,
+				httpPlugin({ appId: 'endpoint-capability' }),
+				graphqlPlugin({ default: false, schemas: [schema] }),
+				graphqlYogaPlugin({ path: '/api/graphql' }),
+				consumer,
+			],
+			schemas: [],
+		})
+
+		await application.start()
+		expect(
+			application.application.getPlugin(
+				'fixture.graphql-http-endpoint-consumer',
+			),
+		).toEqual({ path: '/api/graphql' })
+		await application.dispose()
 	})
 
 	it('participates in deterministic HTTP mount collision detection', async () => {

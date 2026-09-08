@@ -35,7 +35,12 @@ const applicationProvider = (
 							protocolVersion: httpApplicationProtocolVersion,
 							originalHeaderMode: httpOriginalHeaderMode,
 							requestTimeoutMs: undefined,
-							routeGraph: { endpoints: [], mounts: [], routes: [] },
+							routeGraph: {
+								browserBootstraps: [],
+								endpoints: [],
+								mounts: [],
+								routes: [],
+							},
 							fetch: ({ request }) =>
 								Promise.resolve(
 									new Response(`${appId}:${new URL(request.url).pathname}`),

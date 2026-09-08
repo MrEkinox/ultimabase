@@ -65,7 +65,10 @@ server-hono-plugin -> http-plugin/plugin-kit/core/shared
 rest-plugin -> http-plugin/plugin-kit/core/shared
 password-auth-plugin -> http-plugin/plugin-kit/core/shared
 graphql-plugin -> plugin-kit/core/shared
-graphql-yoga-plugin -> http-plugin/graphql-plugin/plugin-kit/core/shared
+graphql-http -> core/shared
+graphql-yoga-plugin -> graphql-http/http-plugin/graphql-plugin/plugin-kit/core/shared
+graphiql-plugin -> graphql-http/http-plugin/plugin-kit/core/shared
+apollo-sandbox-plugin -> graphql-http/http-plugin/plugin-kit/core/shared
 ```
 
 Schema, Query, application orchestration, protected constraints, persistence

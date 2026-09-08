@@ -25,6 +25,7 @@
 	},
 	"dependencies": {
 		"@ultimabase/core": "workspace:^",
+		"@ultimabase/graphql-http": "workspace:^",
 		"@ultimabase/graphql-plugin": "workspace:^",
 		"@ultimabase/http-plugin": "workspace:^",
 		"@ultimabase/plugin-kit": "workspace:^",

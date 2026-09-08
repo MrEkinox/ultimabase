@@ -2,6 +2,7 @@ export { httpApplicationCapability } from './application.js'
 export type {
 	HttpApplication,
 	HttpApplicationAuthority,
+	OwnedHttpBrowserBootstrapRoute,
 	HttpEndpointProvenance,
 	HttpRouteGraph,
 	OwnedHttpEndpoint,
@@ -19,6 +20,7 @@ export type {
 export {
 	httpApplicationIdHeader,
 	httpApplicationProtocolVersion,
+	httpBrowserBootstrapPathPrefix,
 	httpMasterKeyHeader,
 	httpOriginalHeaderMode,
 	httpRequestIdHeader,
@@ -40,12 +42,15 @@ export type {
 	ProvideHttpContextResolversOptions,
 } from './context.js'
 export {
+	httpBrowserBootstrapRoute,
 	httpEndpointContributionsCapability,
 	httpMount,
 	httpRoute,
 	provideHttpEndpoints,
 } from './endpoints.js'
 export type {
+	HttpBrowserBootstrapRouteDefinition,
+	HttpBrowserBootstrapRouteOptions,
 	HttpEndpointContributionFactory,
 	HttpEndpointContributionFactoryContext,
 	HttpEndpointContributionsCapability,

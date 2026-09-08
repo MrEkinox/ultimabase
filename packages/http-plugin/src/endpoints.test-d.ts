@@ -3,6 +3,7 @@ import { expectTypeOf, test } from 'vitest'
 import {
 	HttpApplicationMountTable,
 	httpApplicationProtocolVersion,
+	httpBrowserBootstrapRoute,
 	httpMount,
 	httpContextResolver,
 	httpOriginalHeaderMode,
@@ -11,6 +12,7 @@ import {
 	provideHttpEndpoints,
 	provideHttpContextResolvers,
 	type HttpBrowserPolicy,
+	type HttpBrowserBootstrapRouteDefinition,
 	type HttpContextResolverBrowserPolicyValidator,
 	type HttpContextResolverDefinition,
 	type HttpEndpointDefinition,
@@ -37,6 +39,17 @@ test('preserves exact route and plugin input types', () => {
 	>()
 	expectTypeOf(httpPlugin({ appId: 'typed-app' })).toEqualTypeOf<HttpPlugin>()
 	expectTypeOf<IsAny<typeof route>>().toEqualTypeOf<false>()
+	const browserRoute = httpBrowserBootstrapRoute({
+		path: '/explorer',
+		protocol: { name: 'fixture.explorer', version: '1' },
+		handle: () => new Response('explorer'),
+	})
+	expectTypeOf(browserRoute).toEqualTypeOf<
+		HttpBrowserBootstrapRouteDefinition<
+			'/explorer',
+			Readonly<{ readonly name: 'fixture.explorer'; readonly version: '1' }>
+		>
+	>()
 
 	// @ts-expect-error -- appId is mandatory public routing identity.
 	httpPlugin({})

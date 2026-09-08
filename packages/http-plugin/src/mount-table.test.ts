@@ -11,6 +11,7 @@ import {
 import type {
 	HttpApplication,
 	HttpOriginalHeader,
+	HttpRouteGraph,
 	HttpServerRequest,
 } from './application.js'
 
@@ -26,15 +27,43 @@ const fakeApplication = (
 	appId: string,
 	handle: (input: HttpServerRequest) => Promise<Response> = () =>
 		Promise.resolve(new Response(appId)),
+	routeGraph: HttpRouteGraph = {
+		browserBootstraps: [],
+		endpoints: [],
+		mounts: [],
+		routes: [],
+	},
 ): HttpApplication => ({
 	appId,
 	authority: { master: { enabled: false } },
 	protocolVersion: httpApplicationProtocolVersion,
 	originalHeaderMode: httpOriginalHeaderMode,
 	requestTimeoutMs: undefined,
-	routeGraph: { endpoints: [], mounts: [], routes: [] },
+	routeGraph,
 	fetch: handle,
 })
+
+const browserRouteGraph = (path: string): HttpRouteGraph => {
+	const bootstrap = {
+		handle: () => new Response(),
+		kind: 'browser-bootstrap' as const,
+		method: 'GET' as const,
+		path,
+		protocol: { name: 'fixture.explorer', version: '1' },
+		provenance: {
+			contributionId: 'fixture',
+			owner: { pluginId: 'fixture.explorer' },
+			pluginVersion: '1.0.0',
+			registrationIndex: 0,
+		},
+	}
+	return {
+		browserBootstraps: [bootstrap],
+		endpoints: [bootstrap],
+		mounts: [],
+		routes: [],
+	}
+}
 
 const request = (
 	originalHeaders: readonly HttpOriginalHeader[],
@@ -150,6 +179,62 @@ describe('HttpApplicationMountTable', () => {
 
 		expect(await (await table.fetch(input)).text()).toBe('selected')
 		expect(handler).toHaveBeenCalledExactlyOnceWith(input)
+	})
+
+	it('selects only an owned browser bootstrap from its encoded application path', async () => {
+		const handler = vi.fn((input: HttpServerRequest) =>
+			Promise.resolve(new Response(new URL(input.request.url).pathname)),
+		)
+		const application = fakeApplication(
+			'notes/team',
+			handler,
+			browserRouteGraph('/graphiql'),
+		)
+		const table = new HttpApplicationMountTable(
+			compatibility('external'),
+		).mount(application)
+		const response = await table.fetch({
+			originalHeaders: [],
+			request: new Request(
+				'http://localhost/__ultimabase/apps/notes%2Fteam/graphiql?theme=dark',
+			),
+		})
+
+		expect(response.status).toBe(200)
+		expect(await response.text()).toBe('/graphiql')
+		expect(handler).toHaveBeenCalledOnce()
+		const selected = handler.mock.calls[0]?.[0]
+		expect(selected?.originalHeaders).toContainEqual([
+			'X-UltimaBase-Application-Id',
+			'notes/team',
+		])
+		expect(selected?.request.headers.get('X-UltimaBase-Application-Id')).toBe(
+			'notes/team',
+		)
+	})
+
+	it.each([
+		['POST', '/__ultimabase/apps/selected/graphiql'],
+		['GET', '/__ultimabase/apps/unknown/graphiql'],
+		['GET', '/__ultimabase/apps/selected/ordinary'],
+		['GET', '/__ultimabase/apps/selected'],
+	])('rejects non-bootstrap selection for %s %s', async (method, pathname) => {
+		const handler = vi.fn(() => Promise.resolve(new Response('unexpected')))
+		const application = fakeApplication(
+			'selected',
+			handler,
+			browserRouteGraph('/graphiql'),
+		)
+		const table = new HttpApplicationMountTable(
+			compatibility('external'),
+		).mount(application)
+
+		const response = await table.fetch({
+			originalHeaders: [],
+			request: new Request(`http://localhost${pathname}`, { method }),
+		})
+		expect(response.status).toBe(401)
+		expect(handler).not.toHaveBeenCalled()
 	})
 
 	it.each([

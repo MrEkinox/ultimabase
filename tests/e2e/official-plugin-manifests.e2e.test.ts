@@ -1,5 +1,7 @@
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { aclPlugin } from '@ultimabase/acl-permissions-plugin'
+import { apolloSandboxPlugin } from '@ultimabase/apollo-sandbox-plugin'
+import { graphiqlPlugin } from '@ultimabase/graphiql-plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { graphqlPlugin } from '@ultimabase/graphql-plugin'
 import { graphqlYogaPlugin } from '@ultimabase/graphql-yoga-plugin'
@@ -39,6 +41,8 @@ it('publishes the audited privilege and environment contract for every official 
 		restPlugin().manifest,
 		graphqlPlugin().manifest,
 		graphqlYogaPlugin().manifest,
+		graphiqlPlugin({ environment: 'development' }).manifest,
+		apolloSandboxPlugin({ environment: 'development' }).manifest,
 		aclPlugin().manifest,
 		rolesPlugin().manifest,
 		pgVectorPlugin().manifest,
@@ -98,6 +102,16 @@ it('publishes the audited privilege and environment contract for every official 
 		{
 			environment: [],
 			pluginId: '@ultimabase/graphql-yoga-plugin',
+			privileges: ['transport:expose'],
+		},
+		{
+			environment: ['environment:network'],
+			pluginId: '@ultimabase/graphiql-plugin',
+			privileges: ['transport:expose'],
+		},
+		{
+			environment: ['environment:network'],
+			pluginId: '@ultimabase/apollo-sandbox-plugin',
 			privileges: ['transport:expose'],
 		},
 		{

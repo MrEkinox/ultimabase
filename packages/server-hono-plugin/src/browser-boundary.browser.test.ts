@@ -108,7 +108,7 @@ const createBrowserApplication = (
 	protocolVersion: httpApplicationProtocolVersion,
 	originalHeaderMode: httpOriginalHeaderMode,
 	requestTimeoutMs: undefined,
-	routeGraph: { endpoints: [], mounts: [], routes: [] },
+	routeGraph: { browserBootstraps: [], endpoints: [], mounts: [], routes: [] },
 	fetch: ({ request }) => {
 		// Crossing this boundary represents all application-owned behavior below it.
 		observations.applicationEffects += 1

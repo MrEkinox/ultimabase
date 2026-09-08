@@ -243,6 +243,8 @@ export const passwordAuthPluginPublicApi = {
 
 export const httpPluginPublicApi = {
 	applicationApi: [
+		'HttpBrowserBootstrapRouteDefinition',
+		'HttpBrowserBootstrapRouteOptions',
 		'HttpBrowserPolicyOptions',
 		'HttpContextResolver',
 		'HttpContextResolverBrowserPolicyValidator',
@@ -267,6 +269,7 @@ export const httpPluginPublicApi = {
 		'ProvideHttpEndpointsOptions',
 		'ProvideHttpContextResolversOptions',
 		'httpContextResolver',
+		'httpBrowserBootstrapRoute',
 		'httpMount',
 		'httpPlugin',
 		'httpRoute',
@@ -292,12 +295,14 @@ export const httpPluginPublicApi = {
 		'HttpServerProviderCompatibility',
 		'HttpServerRequest',
 		'OwnedHttpEndpoint',
+		'OwnedHttpBrowserBootstrapRoute',
 		'OwnedHttpMount',
 		'OwnedHttpRoute',
 		'dispatchHttpBrowserRequest',
 		'httpApplicationCapability',
 		'httpApplicationIdHeader',
 		'httpApplicationProtocolVersion',
+		'httpBrowserBootstrapPathPrefix',
 		'httpBrowserPolicyCapability',
 		'httpContextResolverContributionsCapability',
 		'httpEndpointContributionsCapability',
@@ -408,6 +413,40 @@ export const graphqlYogaPluginPublicApi = {
 	conformanceSupport: [],
 } as const satisfies OptionalProductPublicApi
 
+export const graphqlHttpPublicApi = {
+	applicationApi: [],
+	compatibleProviderContract: [
+		'GraphqlHttpEndpoint',
+		'GraphqlHttpEndpointCapability',
+		'graphqlHttpEndpointCapability',
+	],
+	conformanceSupport: [],
+} as const satisfies OptionalProductPublicApi
+
+export const graphiqlPluginPublicApi = {
+	applicationApi: [
+		'GraphiqlEnvironment',
+		'GraphiqlPlugin',
+		'GraphiqlPluginExports',
+		'GraphiqlPluginOptions',
+		'graphiqlPlugin',
+	],
+	compatibleProviderContract: [],
+	conformanceSupport: [],
+} as const satisfies OptionalProductPublicApi
+
+export const apolloSandboxPluginPublicApi = {
+	applicationApi: [
+		'ApolloSandboxEnvironment',
+		'ApolloSandboxPlugin',
+		'ApolloSandboxPluginExports',
+		'ApolloSandboxPluginOptions',
+		'apolloSandboxPlugin',
+	],
+	compatibleProviderContract: [],
+	conformanceSupport: [],
+} as const satisfies OptionalProductPublicApi
+
 /** Produces the exact sorted root export set shared by source and packed tests. */
 export const getOptionalProductPublicApiNames = (
 	classification: OptionalProductPublicApi,
@@ -507,6 +546,23 @@ export const removedGraphqlYogaPluginPublicApiNames = [
 	'parseGraphqlRequestBody',
 	'sanitizeGraphqlExecutionResult',
 	'selectGraphqlResponseMediaType',
+] as const
+
+/** Names provider-neutral GraphQL HTTP validation internals. */
+export const removedGraphqlHttpPublicApiNames = [
+	'assertNormalizedPath',
+] as const
+
+/** Names GraphiQL browser implementation details kept private. */
+export const removedGraphiqlPluginPublicApiNames = [
+	'createGraphiqlPageResponse',
+	'normalizeGraphiqlPluginOptions',
+] as const
+
+/** Names Apollo Sandbox browser implementation details kept private. */
+export const removedApolloSandboxPluginPublicApiNames = [
+	'createApolloSandboxPageResponse',
+	'normalizeApolloSandboxPluginOptions',
 ] as const
 
 /** Names credential implementation details deliberately kept owner-private. */

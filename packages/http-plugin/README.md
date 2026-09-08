@@ -45,6 +45,14 @@ carry exactly one original occurrence of:
 X-UltimaBase-Application-Id: blog
 ```
 
+The only application-behavior exception is an exact `GET` route created with
+`httpBrowserBootstrapRoute()`. A browser may open it at
+`/__ultimabase/apps/{encodeURIComponent(appId)}{routePath}`. The mount table
+accepts the path-carried ID only after confirming that exact application owns
+that exact bootstrap route, then resumes the complete normal context,
+credential, timeout, attribution, and response boundary. The reserved
+`/__ultimabase/apps` namespace cannot be used by ordinary routes or mounts.
+
 Every accepted route begins with a new anonymous, application-bound Core
 context. `requestTimeoutMs` optionally composes one deadline with the Fetch
 signal; the resulting signal is shared by resolvers, handlers, Runtime work,

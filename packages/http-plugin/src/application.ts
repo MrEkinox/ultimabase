@@ -49,6 +49,7 @@ export type {
 	HttpEndpointProvenance,
 	HttpRouteGraph,
 	OwnedHttpEndpoint,
+	OwnedHttpBrowserBootstrapRoute,
 	OwnedHttpMount,
 	OwnedHttpRoute,
 } from './route-graph.js'
