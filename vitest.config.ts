@@ -19,7 +19,10 @@ const sourcePackageAliases = Object.fromEntries(
 	[
 		'access-plugin',
 		'acl-permissions-plugin',
+		'apollo-sandbox-plugin',
 		'core',
+		'graphiql-plugin',
+		'graphql-http',
 		'graphql-plugin',
 		'graphql-yoga-plugin',
 		'hooks-plugin',

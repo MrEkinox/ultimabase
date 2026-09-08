@@ -37,10 +37,9 @@ and performance audit with measured generated-contract evidence.
 Milestone 23 completed the first public client-to-PostgreSQL vertical: a shared
 optional HTTP capability, Hono provider, experimental REST v1, audited
 application-ID and Master-key requests, and local Password Auth with opaque
-sessions. The GraphQL backlog has now been rebased on those delivered contracts.
-The next ready transport work is the architecture gate for the
-[GraphQL v1 contract and kernel boundaries](issues/600-transports/608-graphql-v1-contract.md),
-which must be approved before its packages are implemented.
+sessions. Milestone 6 then completed the network-independent GraphQL vertical,
+Yoga HTTP adapter, optional explorers, and the final direct TypeScript, REST,
+GraphQL, authentication, and PostgreSQL parity audit.
 
 The ACL hardening plan remains paused at issue 432. It is not part of an active
 plan.
@@ -88,16 +87,15 @@ starts implementation.
 
 ## Milestone 6 — GraphQL vertical and cross-transport parity
 
-First accept a GraphQL v1 contract aligned with the open capability kernel,
+Completed with a GraphQL v1 contract aligned with the open capability kernel,
 Core's narrow application request executor, canonical field and operation wire
-protocols, and milestone 23's HTTP and authentication boundaries. Then deliver
-network-independent schema generation and execution, GraphQL-owned Relay
-connections, explicit plugin operations, custom schema composition,
-Yoga mounting, optional developer explorers, and a final direct
-TypeScript/REST/GraphQL parity audit. Generated relationships reuse Core's
-existing eager inclusion boundary; custom resolvers own any request-local
-batching they elect to add. GraphQL packages remain planned and gain workspaces
-only when their implementation issues start.
+protocols, and milestone 23's HTTP and authentication boundaries. The shipped
+vertical includes network-independent schema generation and execution,
+GraphQL-owned Relay connections, explicit plugin operations, custom schema
+composition, Yoga mounting, optional developer explorers, and verified direct
+TypeScript/REST/GraphQL parity. Generated relationships reuse Core's existing
+eager inclusion boundary; custom resolvers own any request-local batching they
+elect to add.
 
 ## Milestone 7+ — Optional ecosystem
 

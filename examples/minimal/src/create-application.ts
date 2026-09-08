@@ -3,6 +3,8 @@ import {
 	UltimaBase,
 	type MasterAccessEvent,
 } from '@ultimabase/core'
+import { graphqlPlugin } from '@ultimabase/graphql-plugin'
+import { graphqlYogaPlugin } from '@ultimabase/graphql-yoga-plugin'
 import { httpPlugin } from '@ultimabase/http-plugin'
 import {
 	passwordAuthOperations,
@@ -18,7 +20,7 @@ import {
 import { minimalBehaviorPlugins, minimalSchemas } from './schema.ts'
 import { exampleStatusOperation, exampleStatusPlugin } from './status-plugin.ts'
 
-export interface MinimalRestApplicationOptions {
+export interface MinimalApplicationOptions {
 	readonly applicationId?: string
 	readonly browserOrigin?: string
 	readonly databaseUrl: string
@@ -28,9 +30,9 @@ export interface MinimalRestApplicationOptions {
 	readonly server?: HonoServerPlugin
 }
 
-/** Builds the complete public REST graph without starting its resources. */
-export const createMinimalRestApplication = ({
-	applicationId = 'minimal-rest',
+/** Builds the complete public REST and GraphQL graph without starting it. */
+export const createMinimalApplication = ({
+	applicationId = 'minimal',
 	browserOrigin = 'http://localhost:5173',
 	databaseUrl,
 	masterKey,
@@ -41,7 +43,7 @@ export const createMinimalRestApplication = ({
 		)
 	},
 	server = honoServerPlugin({ host: '127.0.0.1', port: 1337 }),
-}: MinimalRestApplicationOptions) =>
+}: MinimalApplicationOptions) =>
 	new UltimaBase({
 		masterAuthority: new MasterAuthority({
 			keys: [{ id: applicationId, value: masterKey }],
@@ -59,6 +61,16 @@ export const createMinimalRestApplication = ({
 			}),
 			exampleStatusPlugin,
 			restPlugin({
+				acknowledgeUnverifiedProtection: true,
+				operations: [
+					exampleStatusOperation,
+					passwordAuthOperations.signUp,
+					passwordAuthOperations.login,
+					passwordAuthOperations.logout,
+					passwordAuthOperations.refresh,
+				],
+			}),
+			graphqlPlugin({
 				acknowledgeUnverifiedProtection: true,
 				operations: [
 					exampleStatusOperation,
@@ -86,6 +98,7 @@ export const createMinimalRestApplication = ({
 				...(masterTransport ? { master: { enabled: true as const } } : {}),
 				requestTimeoutMs: 15_000,
 			}),
+			graphqlYogaPlugin({ introspection: true }),
 			server,
 			postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
 		],

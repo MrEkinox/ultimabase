@@ -1555,14 +1555,16 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ultimabase/example-minimal-rest@workspace:examples/minimal":
+"@ultimabase/example-minimal@workspace:examples/minimal":
   version: 0.0.0-use.local
-  resolution: "@ultimabase/example-minimal-rest@workspace:examples/minimal"
+  resolution: "@ultimabase/example-minimal@workspace:examples/minimal"
   dependencies:
     "@types/node": "npm:^24.0.0"
     "@ultimabase/access-plugin": "workspace:^"
     "@ultimabase/acl-permissions-plugin": "workspace:^"
     "@ultimabase/core": "workspace:^"
+    "@ultimabase/graphql-plugin": "workspace:^"
+    "@ultimabase/graphql-yoga-plugin": "workspace:^"
     "@ultimabase/hooks-plugin": "workspace:^"
     "@ultimabase/http-plugin": "workspace:^"
     "@ultimabase/password-auth-plugin": "workspace:^"
@@ -1637,7 +1639,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ultimabase/graphql-yoga-plugin@workspace:packages/graphql-yoga-plugin":
+"@ultimabase/graphql-yoga-plugin@workspace:^, @ultimabase/graphql-yoga-plugin@workspace:packages/graphql-yoga-plugin":
   version: 0.0.0-use.local
   resolution: "@ultimabase/graphql-yoga-plugin@workspace:packages/graphql-yoga-plugin"
   dependencies:

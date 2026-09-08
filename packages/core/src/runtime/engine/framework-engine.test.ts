@@ -174,11 +174,11 @@ describe('FrameworkEngine', () => {
 		const framework = createFixtureFramework(articleSchema)
 		const anonymous = framework.anonymous({
 			requestId: 'anonymous-1',
-			source: requestSources.rest,
+			source: 'fixture.anonymous',
 		})
 		const scopedContext = RequestContext.anonymous({
 			requestId: 'user-1',
-			source: requestSources.graphql,
+			source: 'fixture.scoped',
 		}).withValue(principalValue, 'user-1')
 		const scoped = framework.withContext(scopedContext)
 
@@ -434,7 +434,7 @@ describe('FrameworkEngine', () => {
 		)
 		const request = secondFramework.anonymous({
 			requestId: 'master-forgery',
-			source: requestSources.rest,
+			source: 'fixture.foreign',
 		})
 
 		expect(() => unconfiguredFramework.authorizeMasterKey('raw-input')).toThrow(
@@ -581,11 +581,11 @@ describe('FrameworkEngine', () => {
 			)
 			const firstRequest = firstFramework.anonymous({
 				requestId: 'parallel-1',
-				source: requestSources.rest,
+				source: 'fixture.first',
 			})
 			const secondRequest = secondFramework.anonymous({
 				requestId: 'parallel-2',
-				source: requestSources.graphql,
+				source: 'fixture.second',
 			})
 			const secondOperation = {
 				kind: 'find-many',

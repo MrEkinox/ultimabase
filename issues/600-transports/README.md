@@ -1,6 +1,6 @@
 # Milestone 6 — GraphQL and cross-transport parity
 
-- Status: in-progress
+- Status: completed
 
 Rebase the GraphQL backlog on the trusted capability kernel and the completed
 HTTP, REST, and Password Auth vertical, then expose the same application Runtime
@@ -23,7 +23,7 @@ plugin and GraphQL Core, never on REST.
 7. [x] [614 — Add custom schema composition and networkless execution](614-graphql-schema-composition-executor.md)
 8. [x] [615 — Mount GraphQL through Yoga and the HTTP capability](615-graphql-yoga-plugin.md)
 9. [x] [616 — Add optional GraphQL explorer plugins](616-graphql-explorer-plugins.md)
-10. [ ] [617 — Verify and audit GraphQL cross-transport parity](617-graphql-cross-transport-audit.md)
+10. [x] [617 — Verify and audit GraphQL cross-transport parity](617-graphql-cross-transport-audit.md)
 
 ## Existing foundations
 

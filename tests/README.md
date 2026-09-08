@@ -39,6 +39,10 @@ hooks, atomicity, circular targets, and referential actions against PostgreSQL.
 all edge mutations, predicates, target Access, hooks, rollback, and cleanup.
 `explicit-relationship-postgres.postgres.e2e.test.ts` proves that business-data
 edges remain ordinary schemas with composite uniqueness and transactions.
+`graphql-cross-transport-parity.postgres.e2e.test.ts` runs the public minimal
+application through direct TypeScript, REST, networkless GraphQL, and Yoga. It
+proves shared Runtime semantics plus Password Auth, HTTP session, Master
+provenance, exposure, and safe application-selection boundaries.
 These suites use only built public package exports and worker-isolated schemas
 without transport plugins.
 
@@ -53,6 +57,7 @@ Docker.
 - `yarn test:e2e`: build every package, then run ordinary and PostgreSQL E2E tests.
 - `yarn test:pack`: build and validate every publishable package archive.
 - `yarn test:performance`: run deterministic performance regression budgets.
-- `yarn test:coverage`: run package unit tests with V8 coverage.
+- `yarn test:coverage`: run unit, type, performance, ordinary E2E, and PostgreSQL
+  E2E projects with V8 coverage.
 - `yarn test:types`: run compile-time type tests only.
 - `yarn test:watch [path]`: watch package-local unit tests, optionally filtered by path.

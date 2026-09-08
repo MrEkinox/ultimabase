@@ -65,7 +65,7 @@ export interface UltimaBaseOptions<
 	/**
 	 * Declares top-level plugins; nested plugins join the same global graph.
 	 *
-	 * @example `plugins: [postgresPlugin(), graphqlYogaPlugin()]`
+	 * @example `plugins: [databasePlugin(), transportPlugin()]`
 	 */
 	readonly plugins: TPlugins
 	/** Configures plugin privilege policy and startup reporting. */

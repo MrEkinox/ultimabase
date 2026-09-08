@@ -106,11 +106,11 @@ describe('active framework context', () => {
 		const framework = createFramework()
 		const parent = framework.anonymous({
 			requestId: 'parent-1',
-			source: requestSources.rest,
+			source: 'fixture.parent',
 		})
 		const child = framework.anonymous({
 			requestId: 'child-1',
-			source: requestSources.graphql,
+			source: 'fixture.child',
 		})
 		const callbackError = new Error('nested failure')
 
@@ -140,11 +140,11 @@ describe('active framework context', () => {
 			const secondFramework = createFramework()
 			const firstEngine = firstFramework.anonymous({
 				requestId: 'parallel-1',
-				source: requestSources.rest,
+				source: 'fixture.first',
 			})
 			const secondEngine = secondFramework.anonymous({
 				requestId: 'parallel-2',
-				source: requestSources.graphql,
+				source: 'fixture.second',
 			})
 			const firstEntered = Promise.withResolvers<undefined>()
 			const secondEntered = Promise.withResolvers<undefined>()

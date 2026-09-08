@@ -217,6 +217,6 @@ Concurrent insertions and deletions can consequently shift later pages, which
 may repeat or skip an item. GraphQL translates the page to existing Core
 `where`, `orderBy`, `limit`, and `offset` clauses; Core has no cursor concept.
 
-Yoga remains an optional later adapter. Compiling the package performs no
-application request; networkless execution, generated fields, and selected
+Yoga is shipped as a separate optional adapter. Compiling this package performs
+no application request; networkless execution, generated fields, and selected
 plugin operations enter the same Runtime boundary without opening a socket.

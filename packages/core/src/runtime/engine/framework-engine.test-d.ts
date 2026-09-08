@@ -66,11 +66,11 @@ const principalValue = new RequestContextValue<string>(
 test('preserves application, context, query, and operation result types', () => {
 	const anonymous = framework.anonymous({
 		requestId: 'anonymous-1',
-		source: 'rest',
+		source: 'fixture.anonymous',
 	})
 	const scopedContext = RequestContext.anonymous({
 		requestId: 'user-1',
-		source: 'graphql',
+		source: 'fixture.scoped',
 	}).withValue(principalValue, 'user-1')
 	const scoped = framework.withContext(scopedContext)
 	const query = new QueryBuilder(schema)
@@ -81,7 +81,7 @@ test('preserves application, context, query, and operation result types', () => 
 
 	expectTypeOf(framework.application).toEqualTypeOf<typeof application>()
 	expectTypeOf(anonymous.context.access).toEqualTypeOf<AnonymousRequestAccess>()
-	expectTypeOf(anonymous.context.source).toEqualTypeOf<'rest'>()
+	expectTypeOf(anonymous.context.source).toEqualTypeOf<'fixture.anonymous'>()
 	expectTypeOf(scoped.context.access).toEqualTypeOf<AnonymousRequestAccess>()
 	expectTypeOf(scoped.context.getValue(principalValue)).toEqualTypeOf<
 		string | undefined
@@ -102,7 +102,7 @@ test('preserves application, context, query, and operation result types', () => 
 test('keeps bound terminal types exact in multi-schema applications', () => {
 	const request = multiSchemaFramework.anonymous({
 		requestId: 'multi-schema-1',
-		source: 'graphql',
+		source: 'fixture.transport',
 	})
 
 	expectTypeOf(

@@ -223,6 +223,7 @@ Accepted records:
 - [ADR-0239: GraphQL delete and upsert results keep Core projections](0239-graphql-delete-upsert-projections.md)
 - [ADR-0240: Core plans static operation transport descriptors](0240-static-operation-transport-planning.md)
 - [ADR-0241: GraphQL HTTP explorers use a provider-neutral endpoint contract](0241-provider-neutral-graphql-http-explorers.md)
+- [ADR-0242: Request source names belong to their producers](0242-request-source-ownership.md)
 
 Superseded records:
 

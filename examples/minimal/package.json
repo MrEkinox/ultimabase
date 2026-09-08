@@ -1,5 +1,5 @@
 {
-	"name": "@ultimabase/example-minimal-rest",
+	"name": "@ultimabase/example-minimal",
 	"version": "0.0.0",
 	"private": true,
 	"type": "module",
@@ -13,6 +13,8 @@
 		"@ultimabase/access-plugin": "workspace:^",
 		"@ultimabase/acl-permissions-plugin": "workspace:^",
 		"@ultimabase/core": "workspace:^",
+		"@ultimabase/graphql-plugin": "workspace:^",
+		"@ultimabase/graphql-yoga-plugin": "workspace:^",
 		"@ultimabase/hooks-plugin": "workspace:^",
 		"@ultimabase/http-plugin": "workspace:^",
 		"@ultimabase/password-auth-plugin": "workspace:^",

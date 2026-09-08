@@ -1,109 +1,174 @@
-# Minimal REST application
+# Minimal REST and GraphQL application
 
-This runnable example is the smallest complete authenticated UltimaBase REST
-vertical.
-It starts a framework-owned Hono listener on port `1337`, stores data in
-PostgreSQL, requires `X-UltimaBase-Application-Id: minimal-rest`, and exposes
-only the configured `ExampleAuthor`, `ExampleArticle`, and
-`ExamplePrivateNote` schema routes plus the explicit `example.status` and four
-Password Auth operations.
+This runnable example is the smallest complete authenticated UltimaBase
+multi-transport vertical. It starts a framework-owned Hono listener on port
+`1337`, stores data in PostgreSQL, and mounts REST and Yoga GraphQL as sibling
+transports over one HTTP application.
 
-The application installs Password Auth, Roles, Access, ACL, Hooks, and
-Validation independently. Anonymous requests receive only published,
-public-ACL articles. Authenticated members of the `editor` role can manage
-private notes through both Access and ACL. A valid Master header is verified by
-this exact application and audited before it bypasses authorization;
-validation, hooks, transactions, and database integrity still run.
+Every public request requires
+`X-UltimaBase-Application-Id: minimal`. REST is mounted under `/api/v1` and
+GraphQL accepts `POST /graphql`. The application exposes only
+`ExampleAuthor`, `ExampleArticle`, and `ExamplePrivateNote` CRUD plus the
+explicit `example.status` and four Password Auth operations. `ExampleRole` has
+no generated GraphQL roots, and Password Auth credentials and session storage
+never enter either public schema.
+
+Access, ACL, Hooks, Validation, Roles, Password Auth, REST, GraphQL, Yoga,
+HTTP, Hono, and PostgreSQL remain explicit independently removable plugins.
+REST and GraphQL normalize requests into the same Core operation pipeline;
+their offset envelopes and Relay connections remain intentionally different
+wire representations.
 
 ## Run it
 
 From the repository root, build the packages and supply a development database
-and a server-only Master key:
+plus a server-only Master key:
 
 ```sh
 corepack yarn build
 DATABASE_URL=postgres://postgres:postgres@localhost:5432/ultimabase_minimal \
 ULTIMABASE_MASTER_KEY=development-only-secret \
-  corepack yarn workspace @ultimabase/example-minimal-rest start
+  corepack yarn workspace @ultimabase/example-minimal start
 ```
 
-The server listens at `http://127.0.0.1:1337`. Create an article anonymously:
+The server listens at `http://127.0.0.1:1337`.
+
+## REST and GraphQL use the same Runtime
+
+Create an article through REST:
 
 ```sh
 curl http://127.0.0.1:1337/api/v1/classes/ExampleArticle \
   --request POST \
   --header 'Content-Type: application/json' \
-  --header 'X-UltimaBase-Application-Id: minimal-rest' \
-  --data '{"slug":"hello","title":"Hello"}'
+  --header 'X-UltimaBase-Application-Id: minimal' \
+  --data '{"slug":"hello-rest","title":"  Hello REST  "}'
 ```
 
-Call the explicitly exposed operation:
+Create another through Yoga GraphQL:
 
 ```sh
-curl http://127.0.0.1:1337/api/v1/operations/example.status \
+curl http://127.0.0.1:1337/graphql \
   --request POST \
   --header 'Content-Type: application/json' \
-  --header 'X-UltimaBase-Application-Id: minimal-rest' \
-  --data '{"input":null}'
+  --header 'X-UltimaBase-Application-Id: minimal' \
+  --data '{"query":"mutation Create($input: ExampleArticleCreateInput!) { createExampleArticle(input: $input) { id slug title } }","variables":{"input":{"slug":"hello-graphql","title":"  Hello GraphQL  "}}}'
 ```
 
-Sign up through the generic REST operation bridge:
+Both titles are trimmed by the same Hook, validated by the same Validation
+plugin, authorized by the same Access and ACL policies, and persisted in the
+same automatic mutation transaction.
 
-```sh
-curl http://127.0.0.1:1337/api/v1/operations/ultimabase.password-auth.sign-up \
-  --request POST \
-  --header 'Content-Type: application/json' \
-  --header 'X-UltimaBase-Application-Id: minimal-rest' \
-  --data '{"input":{"username":"ada","password":"correct horse battery staple"}}'
+Trusted server code can execute the identical GraphQL application without
+Yoga or HTTP:
+
+```ts
+const graphql = ultimabase.application.getPlugin('@ultimabase/graphql-plugin')
+const context = ultimabase.engine.anonymous({
+	requestId: crypto.randomUUID(),
+	source: 'internal',
+}).context
+
+await graphql.execute({
+	context,
+	document: `{
+		findManyExampleArticle(first: 10) {
+			nodes { id slug title }
+			pageInfo { hasNextPage endCursor }
+		}
+	}`,
+})
 ```
 
-The response contains a one-time opaque `ub_s1.*` session token. Send it as a
-Bearer credential; the application ID still selects the application and grants
-nothing by itself:
+## Session flow
+
+Sign up through the explicit GraphQL operation binding:
 
 ```sh
-curl http://127.0.0.1:1337/api/v1/operations/example.status \
+curl http://127.0.0.1:1337/graphql \
   --request POST \
   --header 'Content-Type: application/json' \
-  --header 'X-UltimaBase-Application-Id: minimal-rest' \
+  --header 'X-UltimaBase-Application-Id: minimal' \
+  --data '{"query":"mutation SignUp($input: PasswordAuthCredentialsInput!) { signUp(input: $input) { principal { userId } session { token expiresAt } } }","variables":{"input":{"username":"ada","password":"correct horse battery staple"}}}'
+```
+
+The response contains a one-time opaque `ub_s1.*` token. Send it with the
+standard Bearer scheme to REST or GraphQL; authentication adds a request
+principal while Core authority remains `anonymous`:
+
+```sh
+curl http://127.0.0.1:1337/graphql \
+  --request POST \
+  --header 'Content-Type: application/json' \
+  --header 'X-UltimaBase-Application-Id: minimal' \
   --header 'Authorization: Bearer ub_s1.REPLACE_WITH_THE_SESSION_TOKEN' \
-  --data '{"input":null}'
+  --data '{"query":"{ status { authority principalId } }"}'
 ```
 
-`example.status` returns Core authority separately from the safe authenticated
-principal ID. Authentication therefore keeps authority `anonymous`; a valid
-server-side Master header may coexist and changes only authority to `master`.
-Trusted server code creates the `editor` role and adds a `PasswordUser` pointer
-with ordinary immutable Role model commands before that user can access
-`ExamplePrivateNote`.
+`login`, `refresh`, and `logout` are mutations on the same `/graphql` endpoint.
+They are available only because their exact operation tokens were selected by
+`graphqlPlugin({ operations })`; installing Password Auth alone publishes
+nothing.
 
-Browser cookie mode is also enabled for the exact configured origin. Its
-`/auth/v1/*` routes require credentialed CORS, matching `Origin`, and JSON.
-Cookies are host-only, `Secure`, `HttpOnly`, `Path=/`, and `SameSite=Lax`; their
-JSON responses never expose the raw token. Bearer and the transport-neutral
-operations remain available unchanged.
-
-`createMinimalRestClient()` shows how a Fetch client injects the public
-application ID plus an optional opaque `sessionToken`. Its `masterKey` option is
-for trusted integration tests only. Never put the Master key in a browser
-bundle or treat the application ID as a secret.
-
-## Current boundary
-
-This example exercises REST v1 CRUD, query routes, explicit authentication
-operations, Bearer and cookie sessions, stable public errors, browser CORS,
-application selection, policy composition, and audited Master execution.
-GraphQL, a generated SDK, OpenAPI, uploads, and production deployment remain
-intentionally absent.
-
-The committed `.ultimabase/schema.generated.d.ts` gives the source exact editor
-types. Regenerate and verify it with:
+Browser cookie mode is also enabled for `http://localhost:5173`. Cookie-changing
+routes require the configured origin as CSRF proof and never return the raw
+token in JSON:
 
 ```sh
-corepack yarn workspace @ultimabase/example-minimal-rest generate-types
-corepack yarn workspace @ultimabase/example-minimal-rest check-generated-types
-corepack yarn workspace @ultimabase/example-minimal-rest typecheck
+curl http://127.0.0.1:1337/auth/v1/login \
+  --request POST \
+  --header 'Content-Type: application/json' \
+  --header 'Origin: http://localhost:5173' \
+  --header 'X-UltimaBase-Application-Id: minimal' \
+  --cookie-jar /tmp/ultimabase-minimal-cookies.txt \
+  --data '{"username":"ada","password":"correct horse battery staple"}'
+
+curl http://127.0.0.1:1337/graphql \
+  --request POST \
+  --header 'Content-Type: application/json' \
+  --header 'Origin: http://localhost:5173' \
+  --header 'X-UltimaBase-Application-Id: minimal' \
+  --cookie /tmp/ultimabase-minimal-cookies.txt \
+  --data '{"query":"{ status { authority principalId } }"}'
 ```
 
-The application still executes the compiled declaration graph directly;
-generated declarations are replaceable tooling and never become Runtime truth.
+## Audited Master flow
+
+A Master key is trusted server-side authority, not a user session. The HTTP
+plugin accepts it only because this example explicitly enables the Master
+transport. The selected application verifies and audits it before GraphQL runs:
+
+```sh
+curl http://127.0.0.1:1337/graphql \
+  --request POST \
+  --header 'Content-Type: application/json' \
+  --header 'X-UltimaBase-Application-Id: minimal' \
+  --header 'X-UltimaBase-Request-Id: trusted-maintenance-1' \
+  --header 'X-UltimaBase-Master-Key: development-only-secret' \
+  --data '{"query":"{ status { authority principalId } }"}'
+```
+
+The response reports authority `master`; the default audit callback records the
+key ID and request ID without logging the raw key. Never place a Master key in a
+browser bundle. Master bypasses authorization policies but not validation,
+hooks, transactions, constraints, or integrity maintenance.
+
+`createMinimalClient()` demonstrates the shared Fetch header handling. Its
+`masterKey` option exists for trusted integration code only.
+
+## Generated declarations and current boundary
+
+The committed `.ultimabase/schema.generated.d.ts` provides exact editor types
+for both REST and GraphQL schema options. Regenerate and verify it with:
+
+```sh
+corepack yarn workspace @ultimabase/example-minimal generate-types
+corepack yarn workspace @ultimabase/example-minimal check-generated-types
+corepack yarn workspace @ultimabase/example-minimal typecheck
+```
+
+The application executes the compiled declaration graph directly; generated
+declarations are replaceable tooling and never Runtime truth. Subscriptions,
+live queries, federation, uploads, persisted queries, `@defer`, `@stream`,
+OpenAPI, generated clients, realtime, and administration remain intentionally
+outside this example.

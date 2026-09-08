@@ -5,7 +5,8 @@ Transports translate requests and responses. They do not contain SQL or business
 The optional HTTP package provides application identity, immutable route
 composition, and the provider-facing Fetch boundary without opening a socket.
 REST, Password Auth, and the first concrete Hono server provider are shipped as
-independent optional packages. GraphQL and Yoga remain planned siblings.
+independent optional packages. Network-independent GraphQL, the Yoga adapter,
+and separate GraphiQL and Apollo Sandbox plugins are shipped siblings.
 
 ## HTTP
 
@@ -36,11 +37,37 @@ not import Hono, GraphQL, authentication, Access, or a database adapter.
 
 ## GraphQL
 
-GraphQL Core generates and executes a network-independent `GraphQLSchema`. Yoga provides GraphQL over HTTP.
+`@ultimabase/graphql-plugin` generates and executes one application-local,
+network-independent `GraphQLSchema`. It uses Core's narrow request executor and
+does not import HTTP, Yoga, REST, authentication, policy, or a database adapter.
+Generated reads and mutations normalize into the same logical Runtime operations
+as direct TypeScript and REST. Relay connections and signed cursors are a
+GraphQL-owned wire representation; Core continues to receive ordinary offset
+queries.
 
-Custom schemas from Nexus, Pothos, GraphQL Tools, or another builder are merged as completed `GraphQLSchema` instances. Non-overlapping fields may extend generated types; conflicting fields fail startup.
+`@ultimabase/graphql-yoga-plugin` is an explicit sibling adapter. It requires
+the GraphQL application and shared HTTP capabilities, mounts `POST /graphql` by
+default, and delegates to the same networkless executor. It also provides the
+provider-neutral `graphqlHttpEndpointCapability`; developer tools can consume
+the selected path without importing or naming Yoga.
 
-Conditional field visibility makes affected GraphQL fields nullable.
+Custom schemas from Nexus, Pothos, GraphQL Tools, or another builder are merged
+as completed `GraphQLSchema` instances. Non-overlapping fields may extend
+generated types; conflicting fields fail startup with owner provenance.
+
+Plugin operations remain private unless their exact tokens are selected and
+their owners provide canonical GraphQL wire bindings. This lets Password Auth
+expose sign-up, login, refresh, and logout without either package importing the
+other.
+
+GraphiQL and Apollo Sandbox are separate optional plugins. Their browser routes
+are development-only unless production use is explicitly enabled. Each uses
+the fixed provider-neutral endpoint for the already selected application; it
+does not embed credentials, authority, or an application switcher.
+
+Conditional field visibility makes affected GraphQL fields nullable. Dynamic
+Access and ACL enforcement remains in Runtime rather than changing the schema
+per request.
 
 ## Public protection warning
 

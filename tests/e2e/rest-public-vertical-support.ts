@@ -3,11 +3,13 @@ import type { HonoServerPlugin } from '@ultimabase/server-hono-plugin'
 import { vi } from 'vitest'
 
 export interface MinimalApplication {
+	readonly application: object
+	readonly engine: object
 	dispose(): Promise<void>
 	start(): Promise<void>
 }
 
-export interface MinimalRestClient {
+export interface MinimalClient {
 	fetch(path: string, init?: RequestInit): Promise<Response>
 }
 
@@ -17,7 +19,7 @@ export interface MinimalExampleModule {
 	readonly ExamplePrivateNote: object
 	readonly ExampleRole: object
 	readonly ExampleUser: object
-	readonly createMinimalRestApplication: (options: {
+	readonly createMinimalApplication: (options: {
 		readonly applicationId: string
 		readonly browserOrigin?: string
 		readonly databaseUrl: string
@@ -26,12 +28,12 @@ export interface MinimalExampleModule {
 		readonly onMasterUse: (event: MasterAccessEvent) => void
 		readonly server: HonoServerPlugin
 	}) => MinimalApplication
-	readonly createMinimalRestClient: (options: {
+	readonly createMinimalClient: (options: {
 		readonly applicationId: string
 		readonly baseUrl: string
 		readonly masterKey?: string
 		readonly sessionToken?: string
-	}) => MinimalRestClient
+	}) => MinimalClient
 }
 
 const isObjectLike = (value: unknown): value is object =>
@@ -51,8 +53,8 @@ export const loadMinimalExample = async (): Promise<MinimalExampleModule> => {
 	if (
 		typeof applicationModule !== 'object' ||
 		applicationModule === null ||
-		!('createMinimalRestApplication' in applicationModule) ||
-		typeof applicationModule.createMinimalRestApplication !== 'function' ||
+		!('createMinimalApplication' in applicationModule) ||
+		typeof applicationModule.createMinimalApplication !== 'function' ||
 		typeof schemaModule !== 'object' ||
 		schemaModule === null ||
 		!('ExampleArticle' in schemaModule) ||
@@ -67,10 +69,10 @@ export const loadMinimalExample = async (): Promise<MinimalExampleModule> => {
 		!isObjectLike(schemaModule.ExampleUser) ||
 		typeof clientModule !== 'object' ||
 		clientModule === null ||
-		!('createMinimalRestClient' in clientModule) ||
-		typeof clientModule.createMinimalRestClient !== 'function'
+		!('createMinimalClient' in clientModule) ||
+		typeof clientModule.createMinimalClient !== 'function'
 	) {
-		throw new TypeError('Minimal REST example exports are invalid')
+		throw new TypeError('Minimal example exports are invalid')
 	}
 	return {
 		ExampleArticle: schemaModule.ExampleArticle,
@@ -78,9 +80,8 @@ export const loadMinimalExample = async (): Promise<MinimalExampleModule> => {
 		ExamplePrivateNote: schemaModule.ExamplePrivateNote,
 		ExampleRole: schemaModule.ExampleRole,
 		ExampleUser: schemaModule.ExampleUser,
-		createMinimalRestApplication:
-			applicationModule.createMinimalRestApplication,
-		createMinimalRestClient: clientModule.createMinimalRestClient,
+		createMinimalApplication: applicationModule.createMinimalApplication,
+		createMinimalClient: clientModule.createMinimalClient,
 	} as MinimalExampleModule
 }
 
@@ -114,3 +115,29 @@ export const readString = (value: object, key: string): string => {
 
 export const modelJson = async (value: unknown): Promise<unknown> =>
 	invoke(readObject(value, 'model'), 'toJSON', [])
+
+/** Executes the example's GraphQL application without crossing an HTTP boundary. */
+export const executeMinimalGraphql = async (
+	application: MinimalApplication,
+	document: string,
+	requestId: string,
+	variables?: Readonly<Record<string, unknown>>,
+): Promise<unknown> => {
+	const anonymous = await invoke(application.engine, 'anonymous', [
+		{ requestId, source: 'internal' },
+	])
+	const context: unknown = Reflect.get(
+		readObject(anonymous, 'anonymous context'),
+		'context',
+	)
+	const graphql = await invoke(application.application, 'getPlugin', [
+		'@ultimabase/graphql-plugin',
+	])
+	return invoke(readObject(graphql, 'GraphQL application'), 'execute', [
+		{
+			context,
+			document,
+			...(variables === undefined ? {} : { variables }),
+		},
+	])
+}

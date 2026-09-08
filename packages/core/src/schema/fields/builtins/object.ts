@@ -88,7 +88,7 @@ export interface ObjectFieldOptions<
 	 */
 	readonly fields: EmbeddableObjectFields<TFields>
 	/**
-	 * Overrides the stable generated type name used by GraphQL and other schema generators.
+	 * Overrides the stable generated type name used by schema generators.
 	 *
 	 * @example `typeName: "Profile"`
 	 */

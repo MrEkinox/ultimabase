@@ -910,7 +910,7 @@ the relationship has fields or its own lifecycle; keep an implicit owning
 
 Invalid, throwing, unregistered, and foreign targets fail before infrastructure
 connects with the source class and field path. The graph contains logical class
-identities only and no PostgreSQL, REST, or GraphQL metadata.
+identities only and no database or transport metadata.
 
 ## Plugin-owned request identity
 
@@ -1381,8 +1381,8 @@ const error = new FrameworkError('NOT_FOUND', 'User row was absent', {
 The regular error message, stack, cause, and `internalDetails` remain diagnostic
 state. `JSON.stringify(error)` uses the error's immutable public payload and
 includes only its code, retryability, `publicMessage`, and `publicDetails`.
-Transports map that payload to HTTP, GraphQL, or other protocol-specific error
-formats without adding transport metadata to Core.
+Transports map that payload to their protocol-specific error formats without
+adding transport metadata to Core.
 
 ## Cross-plugin integration
 

@@ -14,9 +14,9 @@ Responsibilities:
 - transport-neutral validation plans;
 - isolated `SchemaRegistry` instances.
 
-This domain must not know Hooks, Access, ACL, CLP, roles, PostgreSQL, Drizzle,
-Hono, or GraphQL. Optional plugins contribute typed direct options and
-capabilities that Core validates without interpreting their product semantics.
+This domain must not know Hooks, Access, ACL, CLP, roles, database engines,
+servers, or transport products. Optional plugins contribute typed direct options
+and capabilities that Core validates without interpreting their product semantics.
 
 Practical declarations are available in the package's
 [`examples/schema`](../examples/schema/README.md) directory. They are documentation snippets,
@@ -219,7 +219,7 @@ validated again against exact application-owned schema identities during setup.
 Missing fields, wrong targets, inverse-to-inverse cycles, duplicate inverses,
 reused owners, and nested relation declarations fail before infrastructure
 connects. The logical graph exposes ownership and mapping paths without SQL,
-join-table, REST, or GraphQL names.
+join-table or transport names.
 
 Relations accept documentation, but no scalar validation,
 default, list, index, immutable, or Core lifecycle options. Installing the
@@ -638,8 +638,8 @@ Additional numeric rules may be supplied by an installed application plugin.
 defaults use bigint literals such as `0n`, and it supports the same declarative
 `autoIncrement` metadata as integer fields.
 
-Schema does not serialize bigint values. JSON and GraphQL transports must apply
-an explicit string or custom-scalar codec, while PostgreSQL adapters may map
+Schema does not serialize bigint values. Transport plugins must apply an
+explicit string or protocol-specific codec, while PostgreSQL adapters may map
 the field directly to the native `bigint` type.
 
 ## Float fields
@@ -664,9 +664,9 @@ supplied. They remain inspectable structural shape used by database adapters;
 for example, PostgreSQL compiles them to `numeric(p)` or `numeric(p, s)`.
 Additional decimal rules may be supplied by an installed application plugin.
 
-PostgreSQL adapters may map this contract to `numeric` or `decimal`. JSON and
-GraphQL transports must preserve the string representation or use an explicit
-decimal scalar rather than converting through `number`.
+PostgreSQL adapters may map this contract to `numeric` or `decimal`. Transport
+plugins must preserve the string representation or use an explicit decimal
+codec rather than converting through `number`.
 
 ## Boolean fields
 
@@ -744,7 +744,7 @@ enumField({
 })
 ```
 
-Persisted values form the exact inferred string union, while mapping keys remain available to future GraphQL and SDK generators. Sources must be non-empty, persisted values must be unique, and static defaults must belong to the inferred domain. Numeric TypeScript enums are rejected because their runtime reverse mappings do not represent a string domain.
+Persisted values form the exact inferred string union, while mapping keys remain available to future schema and SDK generators. Sources must be non-empty, persisted values must be unique, and static defaults must belong to the inferred domain. Numeric TypeScript enums are rejected because their runtime reverse mappings do not represent a string domain.
 
 `typeName` optionally gives an enum a stable, generator-neutral identity:
 

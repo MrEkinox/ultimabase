@@ -27,7 +27,7 @@ test('correlates access, source, and immutable request values', () => {
 	const capability = new RequestCapability('tenant:read')
 	const anonymous = RequestContext.anonymous({
 		requestId: 'request-1',
-		source: requestSources.rest,
+		source: 'fixture.transport',
 	})
 	const scoped = RequestContext.anonymous({
 		capabilities: [capability],
@@ -37,7 +37,8 @@ test('correlates access, source, and immutable request values', () => {
 	}).withValue(principalValue, { id: 'user-1' })
 
 	expectTypeOf(anonymous.access.mode).toEqualTypeOf<'anonymous'>()
-	expectTypeOf(anonymous.source).toEqualTypeOf<'rest'>()
+	expectTypeOf(anonymous.source).toEqualTypeOf<'fixture.transport'>()
+	expectTypeOf(requestSources.internal).toEqualTypeOf<'internal'>()
 	expectTypeOf(scoped.access.mode).toEqualTypeOf<'anonymous'>()
 	expectTypeOf(scoped.source).toEqualTypeOf<'grpc'>()
 	expectTypeOf(scoped.getValue(principalValue)).toEqualTypeOf<

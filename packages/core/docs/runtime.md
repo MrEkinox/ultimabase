@@ -13,7 +13,7 @@ Responsibilities:
 - AsyncLocalStorage helpers;
 - database adapter contracts and execution.
 
-Runtime does not import Drizzle, PostgreSQL, Hono, GraphQL, Yoga, or concrete permission plugins.
+Runtime does not import database engines, servers, transport products, or concrete permission plugins.
 
 Generated schema classes expose canonical object-input reads. Their commands
 resolve the exact active request context at call time through a neutral bridge.
@@ -344,7 +344,7 @@ const framework = new FrameworkEngine({
 
 const context = RequestContext.anonymous({
 	requestId: 'request-01',
-	source: requestSources.graphql,
+	source: 'acme.transport',
 }).withValue(authenticatedPrincipal, { id: 'user-1' })
 
 const request = framework.withContext(context)
@@ -534,7 +534,7 @@ const authenticatedPrincipal = new RequestContextValue<
 
 const anonymous = RequestContext.anonymous({
 	requestId: 'request-01',
-	source: requestSources.graphql,
+	source: 'acme.transport',
 	capabilities: [tenantRead],
 	metadata: { traceId: 'trace-01' },
 })

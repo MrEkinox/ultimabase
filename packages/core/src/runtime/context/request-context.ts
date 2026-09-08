@@ -14,17 +14,14 @@ import {
 } from '@ultimabase/shared'
 
 const declaredRequestSources = {
-	graphql: 'graphql',
 	internal: 'internal',
-	job: 'job',
-	rest: 'rest',
 } as const
 
-/** Lists built-in sources while allowing plugins to retain custom literals. */
+/** Names Core's own source while plugins retain their transport-owned literals. */
 export const requestSources: Readonly<typeof declaredRequestSources> =
 	immutableRecord(declaredRequestSources)
 
-/** Extracts the transport and internal sources provided by the framework. */
+/** Extracts the internal source provided by the framework. */
 export type BuiltInRequestSource =
 	(typeof requestSources)[keyof typeof requestSources]
 

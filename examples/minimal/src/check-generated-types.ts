@@ -3,12 +3,12 @@ import { fileURLToPath } from 'node:url'
 
 import { generateApplicationTypes } from '@ultimabase/typegen'
 
-import { createMinimalRestApplication } from './create-application.ts'
+import { createMinimalApplication } from './create-application.ts'
 
 const outputPath = fileURLToPath(
 	new URL('../.ultimabase/schema.generated.d.ts', import.meta.url),
 )
-const ultimabase = createMinimalRestApplication({
+const ultimabase = createMinimalApplication({
 	databaseUrl: 'postgres://typegen.invalid/ultimabase',
 	masterKey: 'typegen-static-key',
 	onMasterUse: () => undefined,
@@ -17,11 +17,11 @@ const ultimabase = createMinimalRestApplication({
 try {
 	const generated = generateApplicationTypes({
 		application: ultimabase.application,
-		applicationId: 'minimal-rest',
+		applicationId: 'minimal',
 	}).contents
 	const committed = await readFile(outputPath, 'utf8')
 	if (generated !== committed) {
-		throw new TypeError('Minimal REST generated declarations are stale')
+		throw new TypeError('Minimal generated declarations are stale')
 	}
 } finally {
 	await ultimabase.dispose()

@@ -1,4 +1,4 @@
-export interface MinimalRestClientOptions {
+export interface MinimalClientOptions {
 	readonly applicationId?: string
 	readonly baseUrl?: string
 	/** Trusted integration tests only; never compile a Master key into a browser. */
@@ -7,13 +7,13 @@ export interface MinimalRestClientOptions {
 	readonly sessionToken?: string
 }
 
-/** Creates a small Fetch client that injects the canonical application pair. */
-export const createMinimalRestClient = ({
-	applicationId = 'minimal-rest',
+/** Creates a Fetch client shared by the example's REST and GraphQL routes. */
+export const createMinimalClient = ({
+	applicationId = 'minimal',
 	baseUrl = 'http://127.0.0.1:1337',
 	masterKey,
 	sessionToken,
-}: MinimalRestClientOptions) => ({
+}: MinimalClientOptions) => ({
 	fetch: (path: string, init: RequestInit = {}): Promise<Response> => {
 		const headers = new Headers(init.headers)
 		headers.set('X-UltimaBase-Application-Id', applicationId)

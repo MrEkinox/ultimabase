@@ -58,6 +58,10 @@ const restProtocol = defineOperationTransport({
 	name: 'ultimabase.rest',
 	version: '1.0.0',
 })
+const graphqlProtocol = defineOperationTransport({
+	name: 'ultimabase.graphql.operation',
+	version: '1.0.0',
+})
 const statusCodec = operationWireCodec({
 	decode: (value): null => {
 		if (value !== null) throw new TypeError('REST status input must be null')
@@ -70,6 +74,51 @@ const statusCodec = operationWireCodec({
 		}),
 	operation: exampleStatusOperation,
 	transport: restProtocol,
+})
+const statusGraphqlCodec = operationWireCodec({
+	decode: (value): null => {
+		if (value !== null) throw new TypeError('GraphQL status input must be null')
+		return null
+	},
+	encode: (value) =>
+		Object.freeze({
+			authority: value.authority,
+			principalId: value.principalId,
+		}),
+	operation: exampleStatusOperation,
+	transport: graphqlProtocol,
+})
+const statusGraphqlBinding = operationTransportBinding({
+	codec: statusGraphqlCodec,
+	metadata: {
+		field: 'status',
+		kind: 'graphql-operation-binding',
+		result: {
+			kind: 'non-null',
+			ofType: { kind: 'named', name: 'ExampleStatusPayload' },
+		},
+		root: 'query',
+		types: [
+			{
+				fields: [
+					{
+						name: 'authority',
+						type: {
+							kind: 'non-null',
+							ofType: { kind: 'named', name: 'String' },
+						},
+					},
+					{
+						name: 'principalId',
+						type: { kind: 'named', name: 'ID' },
+					},
+				],
+				kind: 'object',
+				name: 'ExampleStatusPayload',
+			},
+		],
+	},
+	operation: exampleStatusOperation,
 })
 
 /** Owns the operation handler and its explicit REST v1 binding. */
@@ -100,6 +149,10 @@ export const exampleStatusPlugin = definePlugin({
 					}),
 				}),
 			}),
+			provideOperationTransportBinding({
+				contributionId: 'graphql-v1',
+				create: () => ({ value: statusGraphqlBinding }),
+			}),
 		],
 	},
 	core: '^0.0.0',
@@ -110,7 +163,11 @@ export const exampleStatusPlugin = definePlugin({
 	pluginId: 'example.status-plugin',
 	privileges: [
 		{ name: 'operation:declare', reason: 'Declares the status operation.' },
-		{ name: 'transport:expose', reason: 'Exposes status through REST v1.' },
+		{
+			name: 'transport:expose',
+			reason:
+				'Exposes status through the selected REST and GraphQL transports.',
+		},
 	],
 	version: '1.0.0',
 })

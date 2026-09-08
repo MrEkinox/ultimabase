@@ -99,7 +99,7 @@ describe('MasterAuthority', () => {
 		const context = RequestContext.anonymous({
 			metadata: { traceId: 'trace-1' },
 			requestId: 'master-request-1',
-			source: requestSources.job,
+			source: 'fixture.worker',
 		}).withValue(principalValue, 'operator-1')
 		const grant = authority.authorize('primary-secret')
 		const master = await elevate(authority, grant, context, 'repair indexes')
@@ -119,7 +119,7 @@ describe('MasterAuthority', () => {
 				previousAccess: { mode: 'anonymous' },
 				reason: 'repair indexes',
 				requestId: 'master-request-1',
-				source: 'job',
+				source: 'fixture.worker',
 			},
 		])
 	})

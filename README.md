@@ -105,11 +105,10 @@ users[0]?.toJSON() // A detached immutable object.
   server.
 - The framework targets Node.js 24+, ESM, TypeScript, and an Apache-2.0 license.
 
-The shipped authenticated REST vertical is demonstrated by the
-[`examples/minimal`](examples/minimal/README.md) application. Network-independent
-GraphQL schema generation, plugin operations, custom composition, and direct
-execution are also shipped together with the optional Yoga HTTP adapter and
-separate GraphiQL and Apollo Sandbox development plugins.
+The shipped authenticated REST and GraphQL vertical is demonstrated by the
+[`examples/minimal`](examples/minimal/README.md) application. It exercises
+network-independent GraphQL execution and the optional Yoga HTTP adapter beside
+REST, while GraphiQL and Apollo Sandbox remain separate development plugins.
 
 ## Repository map
 

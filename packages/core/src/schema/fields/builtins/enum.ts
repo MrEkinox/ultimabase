@@ -52,7 +52,7 @@ interface EnumValuesOption<TValues extends EnumValues> {
 export interface EnumFieldOptions<TValues extends EnumValues = EnumValues>
 	extends FieldOptions<EnumValue<TValues>>, EnumValuesOption<TValues> {
 	/**
-	 * Overrides the stable generated type name used by GraphQL and other schema generators.
+	 * Overrides the stable generated type name used by schema generators.
 	 *
 	 * @example `typeName: "ProductStatus"`
 	 */
@@ -234,7 +234,7 @@ const normalizeEnumValues = (source: unknown): NormalizedEnumSource => {
 
 	assertUniqueValues(values)
 
-	// Mapping keys remain available to future GraphQL and SDK generators.
+	// Mapping keys remain available to future schema and SDK generators.
 	return immutableRecord({
 		metadata: immutableRecord(mapping),
 		values: immutableArray(values),

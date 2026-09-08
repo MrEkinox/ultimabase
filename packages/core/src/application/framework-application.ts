@@ -75,7 +75,7 @@ export interface FrameworkApplicationOptions<
 	/**
 	 * Declares top-level plugins; nested plugins join the same global graph.
 	 *
-	 * @example `plugins: [postgresPlugin(), graphqlYogaPlugin()]`
+	 * @example `plugins: [databasePlugin(), transportPlugin()]`
 	 */
 	readonly plugins: TPlugins
 	/** Configures cumulative plugin privilege and environment-claim denials. */

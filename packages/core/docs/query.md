@@ -474,8 +474,8 @@ inserting another.
 ## Query and Operation ASTs
 
 `createQueryAst()` creates the initial immutable read state. Its root separates
-schema, selection, filtering, ordering, limit, and pagination without HTTP,
-GraphQL, or SQL data:
+schema, selection, filtering, ordering, limit, and pagination without transport
+or SQL data:
 
 ```ts
 import { createQueryAst } from '@ultimabase/core'

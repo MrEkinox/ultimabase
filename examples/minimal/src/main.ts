@@ -1,6 +1,6 @@
 import process from 'node:process'
 
-import { createMinimalRestApplication } from './create-application.ts'
+import { createMinimalApplication } from './create-application.ts'
 
 const databaseUrl = process.env.DATABASE_URL
 const masterKey = process.env.ULTIMABASE_MASTER_KEY
@@ -10,9 +10,11 @@ if (masterKey === undefined) {
 	throw new TypeError('ULTIMABASE_MASTER_KEY is required')
 }
 
-const ultimabase = createMinimalRestApplication({ databaseUrl, masterKey })
+const ultimabase = createMinimalApplication({ databaseUrl, masterKey })
 await ultimabase.start()
-process.stdout.write('Minimal REST application listening on 127.0.0.1:1337.\n')
+process.stdout.write(
+	'Minimal REST and GraphQL application listening on 127.0.0.1:1337.\n',
+)
 
 const shutdown = async (): Promise<void> => {
 	await ultimabase.dispose()

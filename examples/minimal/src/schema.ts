@@ -34,6 +34,7 @@ export const ExampleRole = RoleSchema.define({
 		read: true,
 		update: false,
 	},
+	graphql: false,
 })
 
 export const ExampleEditorRole = ExampleRole.role('editor')
@@ -45,13 +46,14 @@ const editorACL = new ACL().grantRole(
 	'update',
 )
 
-/** Authors can be selected and included through the public REST graph. */
+/** Authors can be selected and included through both public transports. */
 export const ExampleAuthor = Schema.define({
 	className: 'ExampleAuthor',
 	fields: (field) => ({
 		name: field.string({ required: true, validation: z.string().min(1) }),
 	}),
 	acl: { default: publicArticleACL },
+	graphql: true,
 	rest: true,
 })
 
@@ -79,6 +81,7 @@ export const ExampleArticle = Schema.define({
 		update: true,
 		upsert: true,
 	},
+	graphql: true,
 	acl: {
 		default: publicArticleACL,
 		resolveInput: ({ currentAcl, inputAcl }) =>
@@ -87,7 +90,7 @@ export const ExampleArticle = Schema.define({
 	rest: true,
 })
 
-/** Notes prove authenticated role-based Access and ACL through public REST CRUD. */
+/** Notes prove authenticated role-based Access and ACL through public CRUD. */
 export const ExamplePrivateNote = Schema.define({
 	className: 'ExamplePrivateNote',
 	fields: (field) => ({
@@ -100,6 +103,7 @@ export const ExamplePrivateNote = Schema.define({
 		update: editorAccess,
 	},
 	acl: { default: editorACL },
+	graphql: true,
 	rest: true,
 })
 

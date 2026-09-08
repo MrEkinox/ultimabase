@@ -50,7 +50,7 @@ export interface PluginOperationHandlerDefinition<
 	readonly operation: TOperation
 }
 
-/** Names one public transport protocol without coupling it to HTTP or GraphQL. */
+/** Names one public protocol without coupling Core to a concrete transport. */
 export interface OperationTransportProtocol<
 	TName extends string = string,
 	TVersion extends string = string,

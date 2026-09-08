@@ -42,7 +42,7 @@ describe('RequestContext', () => {
 			capabilities,
 			metadata,
 			requestId: 'request-1',
-			source: requestSources.graphql,
+			source: 'fixture.transport',
 		})
 		const authenticated = anonymous.withValue(principalValue, principal)
 
@@ -163,7 +163,7 @@ describe('RequestContext', () => {
 		expect(() =>
 			RequestContext.anonymous({
 				requestId: '',
-				source: requestSources.rest,
+				source: 'fixture.transport',
 			}),
 		).toThrow(
 			new TypeError('Request context requestId must be a non-empty string'),
@@ -179,7 +179,7 @@ describe('RequestContext', () => {
 		expect(() =>
 			RequestContext.anonymous({
 				requestId: 'request-1',
-				source: requestSources.rest,
+				source: 'fixture.transport',
 				// @ts-expect-error -- Raw master keys are not context options.
 				masterKey: 'secret',
 			}),
@@ -189,7 +189,7 @@ describe('RequestContext', () => {
 				// @ts-expect-error -- Runtime validation rejects forged cancellation values.
 				signal: {},
 				requestId: 'request-1',
-				source: requestSources.rest,
+				source: 'fixture.transport',
 			}),
 		).toThrow(new TypeError('Request context signal must be an AbortSignal'))
 		expect(() =>
@@ -197,7 +197,7 @@ describe('RequestContext', () => {
 				// @ts-expect-error -- Runtime validation rejects non-record metadata.
 				metadata: [],
 				requestId: 'request-1',
-				source: requestSources.rest,
+				source: 'fixture.transport',
 			}),
 		).toThrow(new TypeError('Request context metadata must be a plain object'))
 		expect(() =>
@@ -205,7 +205,7 @@ describe('RequestContext', () => {
 				// @ts-expect-error -- Runtime validation rejects non-array capabilities.
 				capabilities: {},
 				requestId: 'request-1',
-				source: requestSources.rest,
+				source: 'fixture.transport',
 			}),
 		).toThrow(new TypeError('Request context capabilities must be an array'))
 		expect(() =>
@@ -214,7 +214,7 @@ describe('RequestContext', () => {
 					master_key: 'secret',
 				},
 				requestId: 'request-1',
-				source: requestSources.rest,
+				source: 'fixture.transport',
 			}),
 		).toThrow(
 			new TypeError('Request context metadata cannot contain a master key'),
@@ -226,7 +226,7 @@ describe('RequestContext', () => {
 					sessionToken: 'secret',
 				},
 				requestId: 'request-1',
-				source: requestSources.rest,
+				source: 'fixture.transport',
 			}),
 		).toThrow(
 			new TypeError(
@@ -240,7 +240,7 @@ describe('RequestContext', () => {
 					{ name: 'tenant:read' },
 				],
 				requestId: 'request-1',
-				source: requestSources.rest,
+				source: 'fixture.transport',
 			}),
 		).toThrow(
 			new TypeError(

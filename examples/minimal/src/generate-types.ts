@@ -5,12 +5,12 @@ import {
 	writeGeneratedTypeFile,
 } from '@ultimabase/typegen'
 
-import { createMinimalRestApplication } from './create-application.ts'
+import { createMinimalApplication } from './create-application.ts'
 
 const outputPath = fileURLToPath(
 	new URL('../.ultimabase/schema.generated.d.ts', import.meta.url),
 )
-const ultimabase = createMinimalRestApplication({
+const ultimabase = createMinimalApplication({
 	databaseUrl: 'postgres://typegen.invalid/ultimabase',
 	masterKey: 'typegen-static-key',
 	onMasterUse: () => undefined,
@@ -19,10 +19,10 @@ const ultimabase = createMinimalRestApplication({
 try {
 	const generated = generateApplicationTypes({
 		application: ultimabase.application,
-		applicationId: 'minimal-rest',
+		applicationId: 'minimal',
 	})
 	await writeGeneratedTypeFile({
-		applicationId: 'minimal-rest',
+		applicationId: 'minimal',
 		contents: generated.contents,
 		outputPath,
 	})

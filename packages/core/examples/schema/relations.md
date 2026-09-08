@@ -66,7 +66,7 @@ source and target protected policy. Direct calls through
 `user.relation('posts')` remain normal target reads through the same Runtime
 pipeline.
 
-Relation fields contain no join-table, SQL, REST, or GraphQL naming. Relation
+Relation fields contain no join-table, SQL, or transport naming. Relation
 handles keep those choices separate from model values:
 
 ```ts

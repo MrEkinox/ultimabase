@@ -194,7 +194,7 @@ beforeAll(async () => {
 		browserPolicyOwner: 'ultimabase',
 	})
 	const minimal = requireExample()
-	firstApplication = minimal.createMinimalRestApplication({
+	firstApplication = minimal.createMinimalApplication({
 		applicationId: firstAppId,
 		browserOrigin,
 		databaseUrl: createdFirstFixture.connectionUri,
@@ -202,7 +202,7 @@ beforeAll(async () => {
 		onMasterUse: (event) => firstAudits.push(event),
 		server: sharedServer,
 	})
-	secondApplication = minimal.createMinimalRestApplication({
+	secondApplication = minimal.createMinimalApplication({
 		applicationId: secondAppId,
 		browserOrigin,
 		databaseUrl: createdSecondFixture.connectionUri,

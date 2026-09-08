@@ -17,7 +17,7 @@ import {
 	readString,
 	type MinimalApplication,
 	type MinimalExampleModule,
-	type MinimalRestClient,
+	type MinimalClient,
 } from './rest-public-vertical-support.js'
 
 const firstAppId = 'rest-public-first'
@@ -81,7 +81,7 @@ const responseJson = async (response: Response): Promise<unknown> =>
 	response.json()
 
 const jsonRequest = (
-	client: MinimalRestClient,
+	client: MinimalClient,
 	path: string,
 	method: 'PATCH' | 'POST',
 	body: unknown,
@@ -113,7 +113,7 @@ beforeAll(async () => {
 		app: hono,
 		browserPolicyOwner: 'ultimabase',
 	})
-	firstApplication = minimal.createMinimalRestApplication({
+	firstApplication = minimal.createMinimalApplication({
 		applicationId: firstAppId,
 		databaseUrl: createdFirstFixture.connectionUri,
 		masterKey: firstMasterKey,
@@ -122,7 +122,7 @@ beforeAll(async () => {
 		},
 		server: sharedServer,
 	})
-	secondApplication = minimal.createMinimalRestApplication({
+	secondApplication = minimal.createMinimalApplication({
 		applicationId: secondAppId,
 		databaseUrl: createdSecondFixture.connectionUri,
 		masterKey: secondMasterKey,
@@ -131,7 +131,7 @@ beforeAll(async () => {
 		},
 		server: sharedServer,
 	})
-	auditFailureApplication = minimal.createMinimalRestApplication({
+	auditFailureApplication = minimal.createMinimalApplication({
 		applicationId: auditFailureAppId,
 		databaseUrl: createdSecondFixture.connectionUri,
 		masterKey: 'audit-failure-secret',
@@ -140,7 +140,7 @@ beforeAll(async () => {
 		},
 		server: sharedServer,
 	})
-	disabledMasterApplication = minimal.createMinimalRestApplication({
+	disabledMasterApplication = minimal.createMinimalApplication({
 		applicationId: disabledMasterAppId,
 		databaseUrl: createdSecondFixture.connectionUri,
 		masterKey: 'disabled-master-secret',
@@ -178,7 +178,7 @@ describe(
 		it('matches direct Runtime across CRUD, query, relationships, and bulk', async () => {
 			const application = requireApplication(firstApplication, 'first')
 			const minimal = requireExample()
-			const anonymous = minimal.createMinimalRestClient({
+			const anonymous = minimal.createMinimalClient({
 				applicationId: firstAppId,
 				baseUrl,
 			})
@@ -386,16 +386,16 @@ describe(
 
 		it('binds browser, application, Master, operation, and isolation boundaries', async () => {
 			const minimal = requireExample()
-			const first = minimal.createMinimalRestClient({
+			const first = minimal.createMinimalClient({
 				applicationId: firstAppId,
 				baseUrl,
 			})
-			const firstMaster = minimal.createMinimalRestClient({
+			const firstMaster = minimal.createMinimalClient({
 				applicationId: firstAppId,
 				baseUrl,
 				masterKey: firstMasterKey,
 			})
-			const second = minimal.createMinimalRestClient({
+			const second = minimal.createMinimalClient({
 				applicationId: secondAppId,
 				baseUrl,
 			})
@@ -493,14 +493,14 @@ describe(
 					headers: { 'X-UltimaBase-Application-Id': 'missing-app' },
 				}),
 				minimal
-					.createMinimalRestClient({
+					.createMinimalClient({
 						applicationId: firstAppId,
 						baseUrl,
 						masterKey: 'invalid-master-secret',
 					})
 					.fetch(articlePath),
 				minimal
-					.createMinimalRestClient({
+					.createMinimalClient({
 						applicationId: secondAppId,
 						baseUrl,
 						masterKey: firstMasterKey,
@@ -511,14 +511,14 @@ describe(
 						method: 'POST',
 					}),
 				minimal
-					.createMinimalRestClient({
+					.createMinimalClient({
 						applicationId: auditFailureAppId,
 						baseUrl,
 						masterKey: 'audit-failure-secret',
 					})
 					.fetch(articlePath),
 				minimal
-					.createMinimalRestClient({
+					.createMinimalClient({
 						applicationId: disabledMasterAppId,
 						baseUrl,
 						masterKey: 'disabled-master-secret',
