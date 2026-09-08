@@ -5,6 +5,13 @@ import {
 } from '@ultimabase/shared'
 
 import { normalizeLogicalFilter } from '../../query/filters/logical.js'
+import type { CreateOneOperationAst } from '../../query/operations/contracts.js'
+import { isNestedWriteRootOperation } from '../../schema/nested-writes/operation-markers.js'
+import type {
+	NestedWriteGraph,
+	NestedWriteObjectNode,
+} from '../../schema/nested-writes/contracts.js'
+import type { SchemaDefinition } from '../../schema/schema/definition.js'
 import { RequestContext } from '../context/request-context.js'
 import type {
 	DatabaseConstraintNode,
@@ -19,13 +26,30 @@ import { throwIfOperationCancelled } from '../cancellation/operation-cancellatio
 import { retainRuntimeSchemaModelMetadata } from '../operations/model-metadata.js'
 import { createProtectedObjectNotFoundError } from '../operations/target-errors.js'
 import {
+	inheritRuntimeNestedWrites,
+	readRuntimeNestedWrites,
+} from '../nested-writes/binding.js'
+import {
+	createRuntimeNestedWriteStageContext,
+	runWithRuntimeNestedWriteStageContext,
+} from '../nested-writes/execution-context.js'
+import { RuntimeNestedWriteCoordinator } from '../nested-writes/execution.js'
+import { readNestedCreateOutcomeId } from '../nested-writes/outcome.js'
+import {
+	createRuntimeNestedCreateOperation,
+	prepareRuntimeNestedWriteGraph,
+} from '../nested-writes/preparation.js'
+import {
+	readReservedCreateId,
+	retainReservedCreateId,
+} from '../nested-writes/reserved-create.js'
+import { createRuntimeNestedWriteHost } from '../nested-writes/runtime-host.js'
+import {
 	beginPipelineTransaction,
 	type RuntimePipelineTransactionScope,
 } from '../transactions/pipeline-transaction.js'
 import type {
-	RuntimeBehaviorStages,
 	RuntimeEnforcementOperationResult,
-	RuntimeEnforcementStages,
 	RuntimeOperationResult,
 	RuntimePipelineRequest,
 	RuntimePipelineStages,
@@ -38,6 +62,7 @@ import {
 	RuntimeInclusionProjector,
 } from './inclusion-projection.js'
 import { isProtectedPolicyDenied } from '../enforcement/protected-denial.js'
+import { assertRuntimePipelineStages } from './stage-validation.js'
 import {
 	createRuntimeEnforcementInput,
 	createRuntimeEnforcementResultInput,
@@ -53,35 +78,6 @@ import {
 
 export { projectRuntimeMutationBatch } from './inclusion-projection.js'
 export type { RuntimeMutationBatchProjectionRequest } from './inclusion-projection.js'
-
-const functionStageNames = [
-	'normalization',
-	'structuralValidation',
-	'finalMutationValidation',
-	'commit',
-] as const satisfies readonly (keyof RuntimePipelineStages)[]
-
-const enforcementStageNames = [
-	'enforceOperation',
-	'enforceResult',
-	'enforceSelectionResult',
-	'evaluate',
-	'reevaluate',
-] as const satisfies readonly (keyof RuntimeEnforcementStages)[]
-
-const runtimeBehaviorStageNames = [
-	'beforeOperation',
-	'guardMutationInput',
-	'observePreparedMutation',
-	'postCommit',
-	'requiresPreparedMutationItems',
-	'transformDatabaseResult',
-	'transformInput',
-	'transformMutationOutcome',
-	'transformPreparedInput',
-	'transformPreparedOperation',
-	'transformResult',
-] as const satisfies readonly (keyof RuntimeBehaviorStages)[]
 
 /** Combines independent private restrictions without making either transformable. */
 const combineDatabaseRowFilters = (
@@ -107,92 +103,10 @@ interface RuntimePipelineExecutionState {
 	operation: DatabaseOperationAst
 }
 
-/** Rejects incomplete JavaScript assembly before an operation can start. */
-const assertRuntimePipelineStages = (stages: RuntimePipelineStages): void => {
-	const untrustedStages: unknown = stages
-
-	if (!isPlainRecord(untrustedStages)) {
-		throw new TypeError('Runtime pipeline stages must be a plain object')
-	}
-
-	for (const stageName of functionStageNames) {
-		if (typeof untrustedStages[stageName] !== 'function') {
-			throw new TypeError(
-				`Runtime pipeline stage ${stageName} must be a function`,
-			)
-		}
-	}
-
-	const enforcement: unknown = untrustedStages.enforcement
-	const behaviors: unknown = untrustedStages.behaviors
-
-	if (behaviors !== undefined) {
-		if (!isPlainRecord(behaviors)) {
-			throw new TypeError('Runtime pipeline behaviors must be a plain object')
-		}
-
-		for (const stageName of runtimeBehaviorStageNames) {
-			if (
-				behaviors[stageName] !== undefined &&
-				typeof behaviors[stageName] !== 'function'
-			) {
-				throw new TypeError(
-					`Runtime behavior stage ${stageName} must be a function`,
-				)
-			}
-		}
-	}
-
-	if (enforcement !== undefined) {
-		if (!isPlainRecord(enforcement)) {
-			throw new TypeError('Runtime pipeline enforcement must be a plain object')
-		}
-
-		for (const stageName of enforcementStageNames) {
-			if (typeof enforcement[stageName] !== 'function') {
-				throw new TypeError(
-					`Runtime enforcement stage ${stageName} must be a function`,
-				)
-			}
-		}
-
-		for (const stageName of [
-			'enforceMutationOutcome',
-			'enforcePreparedMutation',
-			'enforceRelationRead',
-		] as const) {
-			if (
-				enforcement[stageName] !== undefined &&
-				typeof enforcement[stageName] !== 'function'
-			) {
-				throw new TypeError(
-					`Runtime enforcement stage ${stageName} must be a function`,
-				)
-			}
-		}
-	}
-
-	const databaseOperation: unknown = untrustedStages.databaseOperation
-
-	if (
-		typeof databaseOperation !== 'object' ||
-		databaseOperation === null ||
-		!('execute' in databaseOperation) ||
-		typeof databaseOperation.execute !== 'function'
-	) {
-		throw new TypeError(
-			'Runtime pipeline databaseOperation must be an operation executor',
-		)
-	}
-
-	if (
-		untrustedStages.persistencePlanRewrite !== undefined &&
-		typeof untrustedStages.persistencePlanRewrite !== 'function'
-	) {
-		throw new TypeError(
-			'Runtime pipeline stage persistencePlanRewrite must be a function',
-		)
-	}
+interface ActiveNestedWrite {
+	readonly coordinator: RuntimeNestedWriteCoordinator
+	readonly graph: NestedWriteGraph
+	readonly node: NestedWriteObjectNode
 }
 
 /** Retains the latest immutable AST for transaction error attribution. */
@@ -249,10 +163,12 @@ export class RuntimePipeline {
 	 * Per-operation post-commit effects remain deferred until the outer commit.
 	 */
 	async beginTransaction(): Promise<RuntimePipelineTransactionScope> {
-		return beginPipelineTransaction(
+		const scope = await beginPipelineTransaction(
 			this.#stages,
 			(stages) => new RuntimePipeline(stages),
 		)
+		inheritRuntimeNestedWrites(this, scope.pipeline)
+		return scope
 	}
 
 	async execute<const TOperation extends DatabaseOperationAst>(
@@ -291,7 +207,75 @@ export class RuntimePipeline {
 		}
 
 		try {
-			return await this.#executeOperation(request, execution)
+			if (
+				isNestedWriteRootOperation(request.operation) &&
+				request.operation.kind === 'create-one'
+			) {
+				const binding = readRuntimeNestedWrites(this)
+				if (binding === undefined) {
+					throw new TypeError('Runtime nested writes are not application-bound')
+				}
+				const graph = prepareRuntimeNestedWriteGraph(
+					request.operation as unknown as CreateOneOperationAst<SchemaDefinition>,
+					binding,
+				)
+				const rootOperation = createRuntimeNestedCreateOperation(
+					request.operation as unknown as CreateOneOperationAst<SchemaDefinition>,
+					graph.root,
+				)
+				const host = createRuntimeNestedWriteHost(
+					binding,
+					context,
+					graph,
+					this.#stages,
+					{
+						execute: async (operation, rowFilter, denied, nested) => {
+							try {
+								return await this.#executeOperation(
+									immutableRecord({
+										context,
+										operation,
+										...(rowFilter === undefined ? {} : { rowFilter }),
+										...(denied === undefined
+											? {}
+											: { protectedPolicyDeniedAsMissing: denied }),
+									}),
+									{ operation },
+									nested,
+								)
+							} catch (error: unknown) {
+								if (denied === true && isProtectedPolicyDenied(error)) {
+									throw createProtectedObjectNotFoundError()
+								}
+								throw error
+							}
+						},
+					},
+					() => coordinator,
+				)
+				const coordinator = new RuntimeNestedWriteCoordinator(graph, host)
+				const nested = immutableRecord({
+					coordinator,
+					graph,
+					node: graph.root,
+				})
+
+				const result = await runWithRuntimeNestedWriteStageContext(
+					createRuntimeNestedWriteStageContext(graph, graph.root),
+					() =>
+						this.#executeOperation(
+							immutableRecord({ ...request, operation: rootOperation }),
+							execution,
+							nested,
+						),
+				)
+
+				return result as unknown as RuntimeOperationResult<TOperation>
+			}
+
+			return await runWithRuntimeNestedWriteStageContext(undefined, () =>
+				this.#executeOperation(request, execution),
+			)
 		} catch (error: unknown) {
 			if (
 				request.protectedPolicyDeniedAsMissing === true &&
@@ -317,6 +301,7 @@ export class RuntimePipeline {
 	async #executeOperation<const TOperation extends DatabaseOperationAst>(
 		request: RuntimePipelineRequest<TOperation>,
 		execution: RuntimePipelineExecutionState,
+		nested?: ActiveNestedWrite,
 	): Promise<RuntimeOperationResult<TOperation>> {
 		const context: RequestContext = request.context
 		const privateRowFilter =
@@ -326,9 +311,13 @@ export class RuntimePipeline {
 		const privateRelation = request.relation
 		let operation: TOperation = request.operation
 
+		const reservedCreateId = readReservedCreateId(operation)
 		operation = await this.#stages.normalization(
 			createRuntimeOperationInput(context, operation),
 		)
+		if (reservedCreateId !== undefined) {
+			operation = retainReservedCreateId(operation, reservedCreateId)
+		}
 		operation = retainExecutionOperation(
 			execution,
 			await this.#stages.structuralValidation(
@@ -409,6 +398,23 @@ export class RuntimePipeline {
 			this.#stages.finalMutationValidation,
 			this.#stages.enforcement,
 			enforcement,
+			nested === undefined
+				? undefined
+				: {
+						beforeMutationResolution: () =>
+							nested.coordinator.beforeMutation(nested.node),
+						afterMutationResolution: (resolvedOperation) => {
+							nested.coordinator.assertResolvedMutation(
+								nested.node,
+								resolvedOperation,
+							)
+						},
+						afterMutationOutcome: (outcome) =>
+							nested.coordinator.afterMutation(
+								nested.node,
+								readNestedCreateOutcomeId(outcome),
+							),
+					},
 		)
 		enforcement = databaseExecution.enforcement ?? enforcement
 		operation = retainExecutionOperation(execution, databaseExecution.operation)

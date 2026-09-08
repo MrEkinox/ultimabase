@@ -148,6 +148,13 @@ export interface RuntimeDatabaseExecutionRequest<
 	readonly rowFilter?: DatabaseRowFilterNode
 }
 
+/** Interleaves Core-owned graph work without storing callbacks in the graph. */
+export interface RuntimeMutationExecutionLifecycle {
+	afterMutationOutcome(outcome: unknown): Promise<void>
+	afterMutationResolution(operation: DatabaseMutationOperationAst): void
+	beforeMutationResolution(): Promise<void>
+}
+
 /** Owns adapter reads and prepared writes behind one immutable result envelope. */
 export const executeRuntimeDatabaseOperation = async <
 	const TOperation extends DatabaseOperationAst,
@@ -160,6 +167,7 @@ export const executeRuntimeDatabaseOperation = async <
 	finalMutationValidation: RuntimeMutationRevalidationStage,
 	enforcement: RuntimeEnforcementStages | undefined,
 	enforcementState: EnforcementState | undefined,
+	nestedLifecycle?: RuntimeMutationExecutionLifecycle,
 ): Promise<RuntimeDatabaseExecution<TOperation>> => {
 	assertDatabaseRequestCapabilities(executor, request)
 	if (!isRuntimeMutationOperation(request.operation)) {
@@ -390,8 +398,11 @@ export const executeRuntimeDatabaseOperation = async <
 	let targets:
 		readonly DatabaseMutationLogicalRecord<TMutationOperation>[] | undefined
 
+	await nestedLifecycle?.beforeMutationResolution()
+
 	if (preparesAfterResolution) {
 		await resolveMutationInput(undefined, undefined)
+		nestedLifecycle?.afterMutationResolution(executableOperation)
 		await runMutationObservers(undefined, undefined)
 		prepared = await prepareMutation(executableOperation, finalConstraints)
 		target = readPreparedMutationTarget(prepared)
@@ -449,6 +460,7 @@ export const executeRuntimeDatabaseOperation = async <
 		}
 
 		await resolveMutationInput(target, targets)
+		nestedLifecycle?.afterMutationResolution(executableOperation)
 		await runMutationObservers(target, targets)
 	}
 	const persistencePlan = await compileDatabasePersistencePlan(
@@ -478,6 +490,7 @@ export const executeRuntimeDatabaseOperation = async <
 			createRuntimeMutationOutcomeInput(context, request.operation, outcome),
 		)
 	}
+	await nestedLifecycle?.afterMutationOutcome(outcome)
 	const inclusionSource = await loadSingularMutationInclusionSource(
 		executor,
 		executableOperation,

@@ -49,6 +49,13 @@ const ultimabase = new UltimaBase({
 })
 ```
 
+`createOne` executes nested `create` and `connect` today. Existing targets are
+verified before the first write, pointer children precede their source, and
+relation children follow it. Every object uses its normal Runtime lifecycle on
+the same transaction, then the root projection runs after all descendants and
+edges exist. Nested `update`, `disconnect`, `set`, and `clear` remain compiled
+graph commands until the next milestone issue adds their executor branches.
+
 Nested commands are intentionally limited to singular schema commands and a
 persisted model's `update()`. `createMany`, `updateMany`, upserts, draft
 construction, and a draft's `create()` keep their flat logical pointer values.

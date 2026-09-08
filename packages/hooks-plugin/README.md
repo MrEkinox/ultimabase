@@ -65,6 +65,14 @@ Master authority, but a contributed Hook that initiates a fresh Master
 elevation must request `authority:elevate`; the Hooks plugin never lends its own
 privileges to that provider.
 
+Schema mutation Hooks receive an optional `nestedWrite` value when their
+ordinary lifecycle belongs to a nested mutation. It is the same immutable,
+selection-independent Core graph for the root and every created child; it is
+absent for standalone mutations. Root `afterOperation` runs only after all
+descendant objects and relation memberships are complete, so a Hook-started
+query observes the transaction-final graph without receiving hydrated relation
+results through the Hook input.
+
 JavaScript uses the same compiled graph and does not require Typegen. Omitting
 the plugin means ordinary CRUD has no official Hooks lifecycle:
 

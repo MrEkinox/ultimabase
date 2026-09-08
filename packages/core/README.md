@@ -1142,6 +1142,17 @@ target levels and 100 statically declared operations; applications can set
 `validation.nestedWrites.maxDepth` and `maxOperations`. Bulk mutations,
 upserts, and draft construction retain their existing flat inputs.
 
+For `createOne`, `create` and `connect` now execute recursively inside the
+root's automatic transaction. Core verifies every existing target before the
+first business Hook or write, creates pointer targets before their source,
+creates relation targets after their source, and adds an owning edge only after
+both identities have been persisted. Every object still crosses its ordinary
+Runtime, Validation, Access, ACL, Hooks, constraints, persistence-rewrite, and
+materialization lifecycle. Any descendant, edge, projection, cancellation, or
+finalization failure rolls the complete graph back. The remaining nested
+update commands are compiled by the same graph contract and are implemented by
+the following nested-write milestone issue.
+
 This protocol belongs to database-adapter authors rather than application code.
 The root adapter starts the transaction. For update, delete, and upsert, its
 transaction adapter stabilizes the visible target before schema input

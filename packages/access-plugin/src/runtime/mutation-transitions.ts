@@ -11,6 +11,7 @@ import {
 	collectOperationFieldInputs,
 	collectRecordFieldValues,
 	isRelationUpdateExpression,
+	Pointer,
 } from '@ultimabase/core'
 import type { FieldWriteAccessTransition } from '../authoring/field-declarations.js'
 import type {
@@ -376,4 +377,42 @@ export const evaluateAccessMutationFieldRules = async (
 		schemaPlan,
 		readUpdateFieldValues(operation),
 	)
+
+	for (const relationship of request.nestedWrite?.node.relationships ?? []) {
+		if (relationship.kind !== 'relation') continue
+		if (
+			relationship.command !== 'create' &&
+			relationship.command !== 'connect'
+		) {
+			throw new TypeError(
+				`Access received unsupported nested relation command: ${relationship.command}`,
+			)
+		}
+
+		const targets =
+			relationship.command === 'connect'
+				? relationship.ids.map((id) => new Pointer(relationship.target, id))
+				: relationship.children.map((child) => {
+						if (child.reservedId === undefined) {
+							throw new TypeError(
+								'Access nested relation create is missing its reserved identity',
+							)
+						}
+						return new Pointer(relationship.target, child.reservedId)
+					})
+		await evaluateAccessRelationWriteRules(
+			runtime,
+			request,
+			schemaPlan,
+			new Map([
+				[
+					relationship.fieldName,
+					immutableRecord({
+						action: relationship.command,
+						targets: immutableArray(targets),
+					}),
+				],
+			]),
+		)
+	}
 }

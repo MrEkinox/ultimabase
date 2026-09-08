@@ -4,6 +4,7 @@ import type {
 	OperationAst,
 	OperationAstNode,
 	OperationKind,
+	NestedWriteGraph,
 	QueryFieldName,
 	QueryFilterNode,
 	RelationUpdateExpression,
@@ -112,6 +113,8 @@ export type SchemaOperationHookInput<
 			kind: SchemaMutationKindForOperation<TOperation['kind']>
 			/** The immutable normalized operation being processed. */
 			operation: TOperation
+			/** Exposes the complete Core-owned graph only during a nested write. */
+			readonly nestedWrite?: NestedWriteGraph
 		}>
 	: never
 
@@ -174,6 +177,8 @@ export interface SchemaBeforeCreateHookInput<TSchema extends SchemaDefinition> {
 	readonly kind: 'create'
 	/** Contains the complete normalized candidate as an immutable schema draft. */
 	readonly item: SchemaPreparedDraft<TSchema>
+	/** Exposes the complete Core-owned graph only during a nested write. */
+	readonly nestedWrite?: NestedWriteGraph
 }
 
 type SchemaBeforeMutationItemsForKind<

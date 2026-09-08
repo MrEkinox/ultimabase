@@ -24,6 +24,8 @@ import {
 import type { OperationOptions } from '../operations/options.js'
 import type { OperationResult } from '../operations/results.js'
 import type { SchemaCreateOneExecutionInput } from '../operations/schema-commands.js'
+import { markNestedWriteRootOperation } from '../../schema/nested-writes/operation-markers.js'
+import { Pointer } from '../../schema/relations/pointer.js'
 import {
 	normalizeUniqueUpsertTarget,
 	normalizeUpsertInput,
@@ -41,6 +43,18 @@ import {
 } from './private-scope.js'
 import type { QueryBuilder } from './query.js'
 import type { QueryResult } from './result.js'
+
+/** Distinguishes nested command objects from already normalized Pointer values. */
+const hasNestedWriteRelationships = (
+	schema: SchemaDefinition,
+	data: Readonly<Record<string, unknown>>,
+): boolean =>
+	Object.entries(schema.fields).some(
+		([fieldName, field]) =>
+			(field.kind === 'pointer' || field.kind === 'relation') &&
+			Object.hasOwn(data, fieldName) &&
+			!Pointer.is(data[fieldName]),
+	)
 
 /**
  * Executes an internal operation with the protected scope retained by a QueryBuilder.
@@ -155,6 +169,7 @@ export const executeSchemaCreateOne = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
 	input: SchemaCreateOneExecutionInput<TSchema>,
 	options?: OperationOptions,
+	inputMode: 'flat' | 'nested' = 'nested',
 ): Promise<object> => {
 	const projection = queryFromFindOneInput(schema, {
 		...(input.include === undefined ? {} : { include: input.include }),
@@ -171,7 +186,12 @@ export const executeSchemaCreateOne = <const TSchema extends SchemaDefinition>(
 		selection: projection.ast.selection,
 	})
 
-	return executeOperation(operation, normalizeOperationOptions(options))
+	return executeOperation(
+		inputMode === 'nested' && hasNestedWriteRelationships(schema, input.data)
+			? markNestedWriteRootOperation(operation)
+			: operation,
+		normalizeOperationOptions(options),
+	)
 }
 
 /** Executes one singular update while retaining private QueryBuilder restrictions. */

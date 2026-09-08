@@ -628,6 +628,13 @@ enforced without manufacturing target schema read hooks. Direct
 schema synchronization creates every table before foreign keys, which also
 supports circular schema graphs.
 
+Nested `createOne` reuses these same pointer columns, ordinary create
+statements, and protected target reads. PostgreSQL receives no opaque graph or
+adapter-specific nested command: Core schedules each operation on the one
+borrowed transaction client. Owning relation membership reuses the relation
+executor without issuing a redundant source-row update when the internal
+operation contains only the edge delta.
+
 ## Relation storage
 
 An owning `relationField` compiles to one deterministic hidden join table with

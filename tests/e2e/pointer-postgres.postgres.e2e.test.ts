@@ -280,7 +280,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 		await Post.createOne(
 			{
 				data: {
-					author: User.pointer(author.id),
+					author: { connect: author.id },
 					title: 'Cursor order fixture',
 				},
 			},
@@ -290,7 +290,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 		await Post.createOne(
 			{
 				data: {
-					author: User.pointer(author.id),
+					author: { connect: author.id },
 					title: 'Cursor order fixture',
 				},
 			},
@@ -444,12 +444,12 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 		const targetPointer = UniqueTarget.pointer(target.id)
 
 		await UniqueSource.createOne(
-			{ data: { target: targetPointer } },
+			{ data: { target: { connect: targetPointer.id } } },
 			{ ultimabase: app },
 		)
 		await expect(
 			UniqueSource.createOne(
-				{ data: { target: targetPointer } },
+				{ data: { target: { connect: targetPointer.id } } },
 				{ ultimabase: app },
 			),
 		).rejects.toMatchObject({
@@ -460,17 +460,14 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 			UniqueSource.createOne(
 				{
 					data: {
-						target: UniqueTarget.pointer(
-							'0198a43e-2431-7000-8000-000000000999',
-						),
+						target: {
+							connect: '0198a43e-2431-7000-8000-000000000999',
+						},
 					},
 				},
 				{ ultimabase: app },
 			),
-		).rejects.toMatchObject({
-			code: 'VALIDATION_ERROR',
-			internalDetails: { driverCode: '23503' },
-		})
+		).rejects.toMatchObject({ code: 'NOT_FOUND' })
 	})
 
 	it('keeps explicit pointer transactions atomic', async () => {
@@ -487,7 +484,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 
 			return Post.createOne({
 				data: {
-					author: User.pointer(author.id),
+					author: { connect: author.id },
 					title: 'Committed post',
 				},
 			})
@@ -503,7 +500,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 
 				await Post.createOne({
 					data: {
-						author: User.pointer(author.id),
+						author: { connect: author.id },
 						title: 'Rolled back post',
 					},
 				})
@@ -532,7 +529,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 		const restrictedSource = await RestrictedSource.createOne(
 			{
 				data: {
-					target: RestrictedTarget.pointer(restrictedTarget.id),
+					target: { connect: restrictedTarget.id },
 				},
 			},
 			{ ultimabase: app },
@@ -559,7 +556,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 			{ ultimabase: app },
 		)
 		const cascadeSource = await CascadeSource.createOne(
-			{ data: { target: CascadeTarget.pointer(cascadeTarget.id) } },
+			{ data: { target: { connect: cascadeTarget.id } } },
 			{ ultimabase: app },
 		)
 
@@ -580,7 +577,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 		)
 		const nullableSource = await NullableSource.createOne(
 			{
-				data: { target: NullableTarget.pointer(nullableTarget.id) },
+				data: { target: { connect: nullableTarget.id } },
 			},
 			{ ultimabase: app },
 		)
@@ -608,8 +605,8 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 			{ ultimabase: app },
 		)
 		const source = await PrivateSource.createOne(
-			{ data: { target: PrivateTarget.pointer(target.id) } },
-			{ ultimabase: app },
+			{ data: { target: { connect: target.id } } },
+			{ ultimabase: app, useMasterKey: true },
 		)
 		const query = {
 			where: { id: { eq: source.id } },
@@ -626,7 +623,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 			{ ultimabase: app },
 		)
 		const detachedSource = await NullableSource.createOne(
-			{ data: { target: NullableTarget.pointer(deletedTarget.id) } },
+			{ data: { target: { connect: deletedTarget.id } } },
 			{ ultimabase: app },
 		)
 
@@ -657,7 +654,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 		const app = getUltimaBase()
 		const left = await CircularLeft.createOne({ data: {} }, { ultimabase: app })
 		const right = await CircularRight.createOne(
-			{ data: { left: CircularLeft.pointer(left.id) } },
+			{ data: { left: { connect: left.id } } },
 			{ ultimabase: app },
 		)
 		const updatedLeft = await CircularLeft.updateOne(

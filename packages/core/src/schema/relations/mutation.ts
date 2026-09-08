@@ -18,7 +18,8 @@ import type {
 } from './relation.js'
 
 /** Names every atomic change supported by an immutable Relation handle. */
-export type RelationMutationAction = 'clear' | 'connect' | 'disconnect' | 'set'
+export type RelationMutationAction =
+	'clear' | 'connect' | 'create' | 'disconnect' | 'set'
 
 /** Requires at least one exact target for additive and subtractive mutations. */
 export type RelationMutationTargets = string | readonly [string, ...string[]]

@@ -1,5 +1,6 @@
 import {
 	booleanField,
+	Pointer,
 	Schema,
 	stringField,
 	UltimaBase,
@@ -13,7 +14,6 @@ import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from './postgres-worker-fixture.js'
-import { stagedFlatPointerInput } from './fixtures/nested-write-staging.js'
 const relationTrace: string[] = []
 const rollbackError = new Error('relation mutation rollback fixture')
 let rejectNextRelationUpdate = false
@@ -417,25 +417,25 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		const post = await Post.createOne(
 			{
 				data: {
-					author: stagedFlatPointerInput(Author.pointer(author.id)),
+					author: { connect: author.id },
 					title: 'Predicate post',
 				},
 			},
 			{ ultimabase: app },
 		)
-		const hiddenAuthor = await Author.createOne(
-			{ data: { name: 'Hidden predicate author', visible: false } },
-			{ ultimabase: app },
-		)
 		const hiddenPost = await Post.createOne(
 			{
 				data: {
-					author: stagedFlatPointerInput(Author.pointer(hiddenAuthor.id)),
+					author: {
+						create: { name: 'Hidden predicate author', visible: false },
+					},
 					title: 'Hidden predicate post',
 				},
 			},
 			{ ultimabase: app },
 		)
+		expect(hiddenPost.author).toBeInstanceOf(Pointer)
+		const hiddenAuthorId = (hiddenPost.author as Pointer).id
 		const unassignedPost = await Post.createOne(
 			{ data: { title: 'Unassigned predicate post' } },
 			{ ultimabase: app },
@@ -474,7 +474,7 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 				{
 					where: {
 						id: { eq: hiddenPost.id },
-						author: { eq: hiddenAuthor.id },
+						author: { eq: hiddenAuthorId },
 					},
 				},
 				{ ultimabase: app },
@@ -809,7 +809,7 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		const post = await Post.createOne(
 			{
 				data: {
-					author: stagedFlatPointerInput(Author.pointer(author.id)),
+					author: { connect: author.id },
 					title: 'Pointers',
 				},
 			},
@@ -885,7 +885,7 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		await PrivatePointerPost.createOne(
 			{
 				data: {
-					author: stagedFlatPointerInput(Author.pointer(author.id)),
+					author: { connect: author.id },
 					title: 'Private pointer source',
 				},
 			},

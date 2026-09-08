@@ -226,11 +226,8 @@ describe(
 				'relation',
 				['contributors'],
 			)
-			const authorPointer = await invoke(minimal.ExampleAuthor, 'pointer', [
-				authorId,
-			])
 			await invoke(readObject(relation, 'contributors relation'), 'connect', [
-				authorPointer,
+				authorId,
 				{ ultimabase: application, useMasterKey: true },
 			])
 

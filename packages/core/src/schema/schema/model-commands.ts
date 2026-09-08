@@ -322,6 +322,7 @@ export class SchemaModelPrototype {
 			record.schema,
 			{ data: record.values, ...normalized },
 			options,
+			'flat',
 		)
 	}
 

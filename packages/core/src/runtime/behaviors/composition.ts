@@ -178,7 +178,13 @@ export const composeRuntimeBehaviors = (
 		let operation = input.operation
 		for (const transform of inputTransforms) {
 			operation = await transform(
-				immutableRecord({ context: input.context, operation }),
+				immutableRecord({
+					context: input.context,
+					...(input.nestedWrite === undefined
+						? {}
+						: { nestedWrite: input.nestedWrite }),
+					operation,
+				}),
 			)
 		}
 		return operation
@@ -191,6 +197,9 @@ export const composeRuntimeBehaviors = (
 			operation = await transform(
 				immutableRecord({
 					context: input.context,
+					...(input.nestedWrite === undefined
+						? {}
+						: { nestedWrite: input.nestedWrite }),
 					operation,
 					target: input.target,
 					...(input.targets === undefined ? {} : { targets: input.targets }),
@@ -206,6 +215,9 @@ export const composeRuntimeBehaviors = (
 				operation = await transform(
 					immutableRecord({
 						context: input.context,
+						...(input.nestedWrite === undefined
+							? {}
+							: { nestedWrite: input.nestedWrite }),
 						operation,
 						target: input.target,
 						...(input.targets === undefined ? {} : { targets: input.targets }),
@@ -233,6 +245,9 @@ export const composeRuntimeBehaviors = (
 			outcome = await transform(
 				immutableRecord({
 					context: input.context,
+					...(input.nestedWrite === undefined
+						? {}
+						: { nestedWrite: input.nestedWrite }),
 					operation: input.operation,
 					outcome,
 				}),
@@ -247,6 +262,9 @@ export const composeRuntimeBehaviors = (
 				result = await transform(
 					immutableRecord({
 						context: input.context,
+						...(input.nestedWrite === undefined
+							? {}
+							: { nestedWrite: input.nestedWrite }),
 						operation: input.operation,
 						result,
 						...(input.selectedFieldsOverride === undefined
@@ -265,6 +283,9 @@ export const composeRuntimeBehaviors = (
 			result = await transform(
 				immutableRecord({
 					context: input.context,
+					...(input.nestedWrite === undefined
+						? {}
+						: { nestedWrite: input.nestedWrite }),
 					operation: input.operation,
 					result,
 					...(input.outcome === undefined ? {} : { outcome: input.outcome }),

@@ -21,6 +21,7 @@ import type {
 } from '../database/contracts.js'
 import type { EnforcementState } from '../enforcement/state.js'
 import type { RuntimePersistencePlanRewriteStage } from '../persistence/contracts.js'
+import type { RuntimeNestedWriteStageContext } from '../nested-writes/execution-context.js'
 
 /** Starts one pipeline execution with trusted request identity and one Operation AST. */
 export interface RuntimePipelineRequest<
@@ -43,6 +44,8 @@ export interface RuntimeOperationStageInput<
 	TOperation extends DatabaseOperationAst,
 > {
 	readonly context: RequestContext
+	/** Identifies the Core-owned nested node currently using this ordinary lifecycle. */
+	readonly nestedWrite?: RuntimeNestedWriteStageContext
 	readonly operation: TOperation
 }
 

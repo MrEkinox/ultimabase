@@ -42,6 +42,10 @@ import {
 import { createPersistencePlanRewriteStage } from '../persistence/rewriter-stage.js'
 import { composeRuntimeBehaviors } from '../behaviors/composition.js'
 import {
+	bindRuntimeNestedWrites,
+	createRuntimeNestedWriteBinding,
+} from '../nested-writes/binding.js'
+import {
 	applicationRequestExecutionCapability,
 	bindApplicationRequestExecutor,
 } from './application-request-execution.js'
@@ -245,7 +249,13 @@ const composeNormalizationStage = (
 
 		for (const handler of handlers) {
 			operation = await handler(
-				immutableRecord({ context: input.context, operation }),
+				immutableRecord({
+					context: input.context,
+					...(input.nestedWrite === undefined
+						? {}
+						: { nestedWrite: input.nestedWrite }),
+					operation,
+				}),
 			)
 		}
 
@@ -338,6 +348,13 @@ export const createFrameworkEngine = <
 			'Runtime executor factory must return a RuntimePipeline instance',
 		)
 	}
+	bindRuntimeNestedWrites(
+		pipeline,
+		createRuntimeNestedWriteBinding(
+			application.schemas,
+			normalizedOptions.validation,
+		),
+	)
 	const engineOptions =
 		normalizedOptions.masterAuthority === undefined
 			? { application, pipeline }

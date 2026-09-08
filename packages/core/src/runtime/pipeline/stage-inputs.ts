@@ -18,6 +18,10 @@ import type {
 import { getEnforcementStateSnapshot } from '../enforcement/state.js'
 import type { EnforcementState } from '../enforcement/state.js'
 import type { RequestContext } from '../context/request-context.js'
+import {
+	readRuntimeNestedWriteStageContext,
+	type RuntimeNestedWriteStageContext,
+} from '../nested-writes/execution-context.js'
 import type {
 	RuntimeEnforcementStageInput,
 	RuntimeMutationOutcomeStageInput,
@@ -32,6 +36,20 @@ import type {
 
 export const emptyRuntimeConstraints: readonly DatabaseConstraintNode[] =
 	immutableArray([])
+
+const createRuntimeStageInput = <const TInput extends object>(
+	input: TInput,
+): TInput &
+	Readonly<{
+		nestedWrite?: RuntimeNestedWriteStageContext
+	}> => {
+	const nestedWrite = readRuntimeNestedWriteStageContext()
+
+	return immutableRecord({
+		...input,
+		...(nestedWrite === undefined ? {} : { nestedWrite }),
+	})
+}
 
 /** Copies constraint collections so plugins cannot mutate later adapter input. */
 export const snapshotRuntimeConstraints = (
@@ -70,7 +88,7 @@ export const createRuntimeOperationInput = <
 	context: RequestContext,
 	operation: TOperation,
 ): RuntimeOperationStageInput<TOperation> =>
-	immutableRecord({ context, operation })
+	createRuntimeStageInput({ context, operation })
 
 export const createRuntimeMutationRevalidationInput = <
 	const TOperation extends DatabaseMutationOperationAst,
@@ -81,7 +99,7 @@ export const createRuntimeMutationRevalidationInput = <
 	target: DatabaseMutationLogicalRecord<TOperation> | null | undefined,
 	targets: readonly DatabaseMutationLogicalRecord<TOperation>[] | undefined,
 ): RuntimeMutationRevalidationStageInput<TOperation> =>
-	immutableRecord({
+	createRuntimeStageInput({
 		context,
 		operation,
 		previousOperation,
@@ -96,7 +114,7 @@ export const createRuntimeEnforcementInput = <
 	operation: TOperation,
 	enforcement: EnforcementState,
 ): RuntimeEnforcementStageInput<TOperation> =>
-	immutableRecord({ context, enforcement, operation })
+	createRuntimeStageInput({ context, enforcement, operation })
 
 export const createRuntimePreparedMutationInput = <
 	const TOperation extends DatabaseMutationOperationAst,
@@ -106,7 +124,7 @@ export const createRuntimePreparedMutationInput = <
 	target: DatabaseMutationLogicalRecord<TOperation> | null | undefined,
 	targets: readonly DatabaseMutationLogicalRecord<TOperation>[] | undefined,
 ): RuntimePreparedMutationStageInput<TOperation> =>
-	immutableRecord({
+	createRuntimeStageInput({
 		context,
 		operation,
 		target,
@@ -120,7 +138,7 @@ export const createRuntimeMutationOutcomeInput = <
 	operation: TOperation,
 	outcome: DatabaseOperationOutcome<TOperation>,
 ): RuntimeMutationOutcomeStageInput<TOperation> =>
-	immutableRecord({ context, operation, outcome })
+	createRuntimeStageInput({ context, operation, outcome })
 
 export const createRuntimeEnforcementResultInput = <
 	const TOperation extends DatabaseOperationAst,
@@ -131,7 +149,7 @@ export const createRuntimeEnforcementResultInput = <
 	enforcement: EnforcementState,
 ): RuntimeResultStageInput<TOperation> & {
 	readonly enforcement: EnforcementState
-} => immutableRecord({ context, enforcement, operation, result })
+} => createRuntimeStageInput({ context, enforcement, operation, result })
 
 export const createRuntimeResultInput = <
 	const TOperation extends DatabaseOperationAst,
@@ -140,7 +158,7 @@ export const createRuntimeResultInput = <
 	operation: TOperation,
 	result: RuntimeOperationResult<TOperation>,
 ): RuntimeResultStageInput<TOperation> =>
-	immutableRecord({ context, operation, result })
+	createRuntimeStageInput({ context, operation, result })
 
 export const createRuntimeMaterializedResultInput = <
 	const TOperation extends DatabaseOperationAst,
@@ -151,7 +169,7 @@ export const createRuntimeMaterializedResultInput = <
 	selectedFieldsOverride: readonly string[] | undefined,
 	outcome: DatabaseOperationOutcome<DatabaseMutationOperationAst> | undefined,
 ): RuntimeMaterializedResultStageInput<TOperation> =>
-	immutableRecord({
+	createRuntimeStageInput({
 		context,
 		operation,
 		...(outcome === undefined ? {} : { outcome }),
@@ -167,7 +185,7 @@ export const createRuntimeProjectedDatabaseResultInput = <
 	result: DatabaseOperationResult<TOperation>,
 	selectedFieldsOverride: readonly string[] | undefined,
 ): RuntimeProjectedDatabaseResultStageInput<TOperation> =>
-	immutableRecord({
+	createRuntimeStageInput({
 		context,
 		operation,
 		result,

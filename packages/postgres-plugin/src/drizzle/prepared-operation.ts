@@ -33,7 +33,7 @@ import {
 import type { PostgresDrizzleClient } from './client.js'
 import { mapPostgresOperationError } from './operation-error.js'
 import { readPostgresRecord } from './record.js'
-import { executePostgresRelationMutation } from './relation-executor.js'
+import { executePostgresScopedRelationMutation } from './scoped-relation-mutation.js'
 import type { PostgresRelationPredicateCompiler } from '../query/filter-compiler.js'
 import {
 	projectPostgresRecord,
@@ -61,7 +61,6 @@ interface RuntimeUpsertItem {
 	readonly target: UniqueUpsertTargetNode
 	readonly update: UpdateExpressionNode
 }
-
 interface PersistedMutationItem {
 	readonly materialization: DatabaseMutationMaterialization
 	readonly record: DatabaseLogicalRecord
@@ -177,12 +176,13 @@ const executeLockedMutation = async (
 		}
 
 		if (relation !== undefined) {
-			await executePostgresRelationMutation(
+			const relationResult = await executePostgresScopedRelationMutation(
 				client,
 				relation,
 				operation.update,
-				previous.id,
+				previous,
 			)
+			if (relationResult !== undefined) return relationResult
 		}
 
 		const current = await executeRetainedUpdate(

@@ -220,6 +220,7 @@ export const createSchemaRecord = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
 	input: SchemaCreateOneExecutionInput<TSchema>,
 	options?: OperationOptions,
+	inputMode: 'flat' | 'nested' = 'nested',
 ): Promise<object> => {
 	assertExactCommandKeys(
 		input,
@@ -228,7 +229,7 @@ export const createSchemaRecord = <const TSchema extends SchemaDefinition>(
 		createOneOptionalCommandKeys,
 	)
 
-	return executeSchemaCreateOne(schema, input, options)
+	return executeSchemaCreateOne(schema, input, options, inputMode)
 }
 
 /** Creates ordered rows through the schema class. */

@@ -78,4 +78,23 @@ Schema.define({
 		expect(completionNames(source, '/* schema-options */')).toContain('hooks')
 		expect(completionNames(source, '/* field-options */')).toContain('hooks')
 	})
+
+	it('exposes the optional nested graph on schema mutation hooks', () => {
+		const source = `
+import { Schema } from '@ultimabase/core'
+import type { SchemaHooksOption } from '@ultimabase/hooks-plugin'
+declare module '@ultimabase/core' {
+  interface UltimaBaseGeneratedSchemaOptions {
+    readonly hooks?: SchemaHooksOption<this>
+  }
+}
+Schema.define({
+  className: 'NestedHookInput',
+  fields: (field) => ({ title: field.string() }),
+  hooks: { afterOperation: { create: (input) => input./* hook-input */ } },
+})
+`
+
+		expect(completionNames(source, '/* hook-input */')).toContain('nestedWrite')
+	})
 })

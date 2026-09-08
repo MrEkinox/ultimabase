@@ -268,6 +268,9 @@ export const evaluateEnforcementContributions = async <
 				(await implementation.evaluate(
 					immutableRecord({
 						context: input.context,
+						...(input.nestedWrite === undefined
+							? {}
+							: { nestedWrite: input.nestedWrite }),
 						operation: input.operation,
 					}),
 				)) ?? {},
@@ -328,6 +331,9 @@ export const evaluateEnforcementContributions = async <
 				implementation.run(
 					immutableRecord({
 						context: input.context,
+						...(input.nestedWrite === undefined
+							? {}
+							: { nestedWrite: input.nestedWrite }),
 						operation: input.operation,
 					}) as never,
 				),

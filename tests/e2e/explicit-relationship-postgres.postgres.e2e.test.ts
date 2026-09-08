@@ -129,8 +129,8 @@ describe(
 				{
 					data: {
 						internalNote: 'private edge data',
-						member: Member.pointer(member.id),
-						project: Project.pointer(project.id),
+						member: { connect: member.id },
+						project: { connect: project.id },
 						role: 'editor',
 					},
 				},
@@ -180,9 +180,9 @@ describe(
 				Membership.createOne(
 					{
 						data: {
-							member: Member.pointer(member.id),
+							member: { connect: member.id },
 							position: 1,
-							project: Project.pointer(project.id),
+							project: { connect: project.id },
 							role: 'viewer',
 						},
 					},
@@ -196,8 +196,8 @@ describe(
 				Membership.createOne(
 					{
 						data: {
-							member: Member.pointer(member.id),
-							project: Project.pointer(project.id),
+							member: { connect: member.id },
+							project: { connect: project.id },
 							role: 'viewer',
 						},
 					},
@@ -225,8 +225,8 @@ describe(
 			await Membership.createOne(
 				{
 					data: {
-						member: Member.pointer(member.id),
-						project: Project.pointer(project.id),
+						member: { connect: member.id },
+						project: { connect: project.id },
 						role: 'editor',
 					},
 				},
@@ -268,8 +268,8 @@ describe(
 
 					await Membership.createOne({
 						data: {
-							member: Member.pointer(rolledBackMember.id),
-							project: Project.pointer(rolledBackProject.id),
+							member: { connect: rolledBackMember.id },
+							project: { connect: rolledBackProject.id },
 							role: 'editor',
 						},
 					})

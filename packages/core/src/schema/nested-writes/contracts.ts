@@ -34,6 +34,8 @@ export interface NestedWriteObjectNode {
 	readonly kind: 'object'
 	readonly operationIndex: number
 	readonly provenance: NestedWriteNodeProvenance
+	/** Exists only on the application-private graph prepared for Runtime execution. */
+	readonly reservedId?: string
 	readonly relationships: readonly NestedWriteRelationshipNode[]
 	readonly schema: SchemaDefinition
 }

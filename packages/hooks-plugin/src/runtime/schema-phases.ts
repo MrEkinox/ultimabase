@@ -76,7 +76,13 @@ export const runSchemaTransformPhases = async <
 					runtime,
 					handler,
 					input.context,
-					(context) => createSchemaResolveInput(current, context, originalItem),
+					(context) =>
+						createSchemaResolveInput(
+							current,
+							context,
+							originalItem,
+							input.nestedWrite?.graph,
+						),
 				)
 
 				return replacement === undefined
@@ -163,6 +169,7 @@ export const runSchemaPreparedPhases = async <
 							item,
 							preparedCreateItem,
 							materializedOriginalItem,
+							input.nestedWrite?.graph,
 						),
 				),
 			)
@@ -239,6 +246,7 @@ export const runSchemaResultPhases = async <
 							context,
 							materializedOriginalItem,
 							materializedItem,
+							input.nestedWrite?.graph,
 						),
 				),
 			)

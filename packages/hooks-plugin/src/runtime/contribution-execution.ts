@@ -9,6 +9,7 @@ import {
 	Schema,
 	type DatabaseOperationAst,
 	type OperationKind,
+	type NestedWriteGraph,
 	type RequestContext,
 	type SchemaDefinition,
 } from '@ultimabase/core'
@@ -155,8 +156,16 @@ export const createSchemaOperationHookInput = <
 	operation: TOperation,
 	context: HookContext,
 	kind: TKind,
+	nestedWrite?: NestedWriteGraph,
 ): Readonly<{
 	readonly context: HookContext
 	readonly kind: TKind
+	readonly nestedWrite?: NestedWriteGraph
 	readonly operation: TOperation
-}> => immutableRecord({ context, kind, operation })
+}> =>
+	immutableRecord({
+		context,
+		kind,
+		...(nestedWrite === undefined ? {} : { nestedWrite }),
+		operation,
+	})

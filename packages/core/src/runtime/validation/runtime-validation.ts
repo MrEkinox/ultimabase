@@ -1,5 +1,4 @@
 import type {
-	OperationKind,
 	QueryAst,
 	UniqueUpsertTargetNode,
 	UpdateExpressionNode,
@@ -40,6 +39,12 @@ import {
 	type OperationTemporalValues,
 } from './operation-clock.js'
 import { generateUuidV7, type UuidV7Generator } from './identifier-generator.js'
+import { readReservedCreateId } from '../nested-writes/reserved-create.js'
+import {
+	mutationKinds,
+	relationMutationActions,
+	updateKinds,
+} from './operation-kinds.js'
 import {
 	emptyRuntimeValidationOptions,
 	normalizeRuntimeValidationOptions,
@@ -92,22 +97,6 @@ export interface RuntimeValidationErrorDescription {
 	readonly internalMessage: string
 	readonly publicMessage: string
 }
-
-const mutationKinds = new Set<OperationKind>([
-	'create-one',
-	'create-many',
-	'update-one',
-	'update-many',
-	'upsert-one',
-	'upsert-many',
-])
-const updateKinds = new Set(['decrement', 'increment', 'set'])
-const relationMutationActions = new Set([
-	'clear',
-	'connect',
-	'disconnect',
-	'set',
-])
 
 const createIssue = (
 	code: AnyValidationIssueCode,
@@ -311,6 +300,7 @@ const validateObjectValue = (
 	path: ValidationIssuePath,
 	execution: ValidationExecution,
 	allowDefaults: boolean,
+	resolvedValues?: Readonly<Record<string, unknown>>,
 ): ValueValidationResult => {
 	if (!isPlainRecord(value)) {
 		appendIssue(execution, 'object.type', path, 'Value must be a plain object')
@@ -365,9 +355,11 @@ const validateObjectValue = (
 			continue
 		}
 
-		const resolved = allowDefaults
-			? resolveMissingValue(plan.field, execution)
-			: { found: false as const }
+		const resolved = Object.hasOwn(resolvedValues ?? {}, fieldName)
+			? { found: true as const, value: resolvedValues?.[fieldName] }
+			: allowDefaults
+				? resolveMissingValue(plan.field, execution)
+				: { found: false as const }
 
 		if (resolved.found) {
 			const fieldResult = validateFieldValue(
@@ -407,6 +399,7 @@ const validateSchemaInput = (
 	path: ValidationIssuePath,
 	execution: ValidationExecution,
 	allowDefaults: boolean,
+	resolvedValues?: Readonly<Record<string, unknown>>,
 ): Readonly<Record<string, unknown>> | undefined => {
 	const result = validateObjectValue(
 		plan.fields,
@@ -414,6 +407,7 @@ const validateSchemaInput = (
 		path,
 		execution,
 		allowDefaults,
+		resolvedValues,
 	)
 
 	return result.valid
@@ -972,12 +966,16 @@ const normalizeMutationOperation = <
 
 	switch (untrustedOperation.kind) {
 		case 'create-one': {
+			const reservedId = readReservedCreateId(operation)
 			const input = validateSchemaInput(
 				options.createPlan,
 				untrustedOperation.input,
 				['input'],
 				execution,
 				options.allowDefaults,
+				reservedId === undefined
+					? undefined
+					: immutableRecord({ id: reservedId }),
 			)
 
 			if (input !== undefined) {

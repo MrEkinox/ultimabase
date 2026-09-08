@@ -6,6 +6,7 @@ import {
 	type DatabaseOperationAst,
 	type RuntimeOperationStageInput,
 	type RuntimePreparedMutationStageInput,
+	type NestedWriteGraph,
 	type SchemaDefinition,
 } from '@ultimabase/core'
 
@@ -31,10 +32,12 @@ export const createSchemaAfterInput = <
 	context: HookContext,
 	materializedOriginalItem: object | null,
 	materializedItem: object | null,
+	nestedWrite?: NestedWriteGraph,
 ): Readonly<{
 	readonly context: HookContext
 	readonly item: object | null
 	readonly kind: ReturnType<typeof getMutationHookKind>
+	readonly nestedWrite?: NestedWriteGraph
 	readonly operation: TOperation
 	readonly originalItem: object | null
 }> =>
@@ -43,6 +46,7 @@ export const createSchemaAfterInput = <
 		item: materializedItem,
 		originalItem: materializedOriginalItem,
 		kind: getMutationHookKind(operation.kind),
+		...(nestedWrite === undefined ? {} : { nestedWrite }),
 		operation,
 	})
 
@@ -52,6 +56,7 @@ export const createSchemaPreparedInput = (
 	item: RuntimeMutationItemPair,
 	preparedCreateItem?: object,
 	materializedOriginalItem?: object | null,
+	nestedWrite?: NestedWriteGraph,
 ): unknown => {
 	if (operation.kind === 'create-one') {
 		if (preparedCreateItem === undefined) {
@@ -62,6 +67,7 @@ export const createSchemaPreparedInput = (
 			context,
 			item: preparedCreateItem,
 			kind: 'create' as const,
+			...(nestedWrite === undefined ? {} : { nestedWrite }),
 		})
 	}
 
@@ -69,6 +75,7 @@ export const createSchemaPreparedInput = (
 		operation,
 		context,
 		getMutationHookKind(operation.kind),
+		nestedWrite,
 	)
 
 	if (materializedOriginalItem === undefined) {
@@ -129,12 +136,14 @@ export const createSchemaResolveInput = (
 	operation: DatabaseMutationOperationAst,
 	context: HookContext,
 	originalItem: object | null,
+	nestedWrite?: NestedWriteGraph,
 ): unknown =>
 	immutableRecord({
 		...createSchemaOperationHookInput(
 			operation,
 			context,
 			getMutationHookKind(operation.kind),
+			nestedWrite,
 		),
 		originalItem,
 	})
