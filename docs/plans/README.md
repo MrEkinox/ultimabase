@@ -8,7 +8,7 @@ priority changes.
 ## Active
 
 - [Nested writes before the first release](../../CURRENT_PLAN.md), resumable at
-  issue 2401 and gated by the proposed ADR-0243 contract.
+  issue 2402 under the accepted ADR-0243 contract.
 
 ## Paused
 

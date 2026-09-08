@@ -1,6 +1,6 @@
 # Milestone 24 — Nested writes before the first release
 
-- Status: planned
+- Status: in-progress
 
 Let one singular schema mutation describe a typed recursive pointer and relation
 write graph inside `data`, while preserving the same Runtime and transaction
@@ -8,7 +8,7 @@ semantics as separately issued commands.
 
 ## Execution order
 
-1. [ ] [2401 — Decide the nested-write contract](2401-nested-write-contract.md)
+1. [x] [2401 — Decide the nested-write contract](2401-nested-write-contract.md)
 2. [ ] [2402 — Compile typed nested inputs and the Core graph](2402-nested-write-input-graph.md)
 3. [ ] [2403 — Execute nested create and connect](2403-nested-create-connect.md)
 4. [ ] [2404 — Execute nested update and relation changes](2404-nested-update-relation-changes.md)
@@ -30,7 +30,7 @@ semantics as separately issued commands.
 - REST already decodes schema-aware create and update bodies. GraphQL already
   generates schema-aware create inputs and field-oriented update wrappers.
 
-## Candidate boundaries pending issue 2401
+## Accepted contract
 
 - Nested commands appear inside `data`, but normalize into a distinct immutable
   Core graph before Runtime effects.
@@ -47,8 +47,8 @@ semantics as separately issued commands.
 
 ## Stop boundaries
 
-- Issue 2401 must produce an accepted ADR and explicit approval before public
-  types or Runtime behavior change.
+- ADR-0243 and its public syntax, limits, security, lifecycle, and transport
+  replacements were explicitly approved before implementation began.
 - A root mutation cannot lend authorization to a child or weaken target
   visibility, requiredness, referential actions, or protected relation deltas.
 - No transport, database adapter, generated client, or persistence-plan rewrite

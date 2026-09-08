@@ -3,8 +3,8 @@
 - Status: active
 - Milestone: 24
 - Started: 2026-09-08
-- Governing decision: pending issue 2401 and ADR-0243
-- Resume point: [issue 2401](issues/2400-nested-writes/2401-nested-write-contract.md)
+- Governing decision: [ADR-0243](docs/adr/0243-bounded-singular-nested-writes.md)
+- Resume point: [issue 2402](issues/2400-nested-writes/2402-nested-write-input-graph.md)
 
 ## Objective
 
@@ -50,7 +50,7 @@ Both transports delegate only through the narrow application request executor.
 
 ## Execution order
 
-1. [ ] Issue 2401 — accept the nested-write contract and execution semantics.
+1. [x] Issue 2401 — accept the nested-write contract and execution semantics.
 2. [ ] Issue 2402 — compile exact nested input types and the immutable Core graph.
 3. [ ] Issue 2403 — execute nested `create` and `connect` atomically.
 4. [ ] Issue 2404 — execute nested `update`, `disconnect`, `set`, and `clear`.
@@ -62,7 +62,7 @@ Both transports delegate only through the narrow application request executor.
 The authoritative acceptance criteria and dependencies live in
 [`issues/2400-nested-writes/`](issues/2400-nested-writes/).
 
-## Decisions issue 2401 must settle
+## Decisions accepted by ADR-0243
 
 - The exact create and update command matrix for pointer and relation fields.
 - Whether one relation input may combine non-conflicting incremental commands,
@@ -120,9 +120,9 @@ On every resumed task:
 
 ## Mandatory stop boundaries
 
-- Stop in issue 2401 and obtain explicit approval for the complete public
+- ADR-0243 was accepted only after explicit approval of the complete public
   syntax, graph ordering, Hook timing, Access behavior, conflict rules, limits,
-  replacement removals, and REST/GraphQL contracts before accepting ADR-0243.
+  replacement removals, and REST/GraphQL contracts.
 - Stop if nested execution would bypass the application request executor, open
   a second transaction, issue raw adapter work, or add transport vocabulary to
   Core.

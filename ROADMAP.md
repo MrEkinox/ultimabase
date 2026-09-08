@@ -46,8 +46,9 @@ objective. It adds typed nested
 pointer and relation writes inside singular mutation `data`, normalizes every
 transport into one Core graph, and preserves independent per-object policy and
 Hook execution inside one automatic transaction.
-[Issue 2401](issues/2400-nested-writes/2401-nested-write-contract.md) is the
-mandatory architecture gate before implementation.
+[ADR-0243](docs/adr/0243-bounded-singular-nested-writes.md) passed the mandatory
+architecture gate. Implementation resumes at
+[issue 2402](issues/2400-nested-writes/2402-nested-write-input-graph.md).
 
 The ACL hardening plan remains paused at issue 432. It is not part of an active
 plan.

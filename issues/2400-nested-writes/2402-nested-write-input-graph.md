@@ -1,6 +1,6 @@
 # 2402: Compile typed nested inputs and the Core graph
 
-- Status: planned
+- Status: ready
 - Milestone: 24
 - Packages: `@ultimabase/core`, `@ultimabase/typegen`
 - Depends on: 2401
