@@ -12,6 +12,8 @@ TypeScript snippets:
   options, defaults, generation, indexes, and optional plugin-owned validation;
 - [`objects-and-lists.md`](objects-and-lists.md) composes reusable nested fields,
   typed one-dimensional lists, and explicit JSON matrices;
+- [`output-values.md`](output-values.md) declares exact recursive returned values
+  without exposing stored-field or mutation-input behavior;
 - [`pointers.md`](pointers.md) declares exact single-object references and
   immutable logical pointer values;
 - [`relations.md`](relations.md) declares owning and inverse to-many topology

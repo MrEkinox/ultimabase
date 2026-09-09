@@ -8,7 +8,7 @@ priority changes.
 ## Active
 
 - [Contextual fields and virtual results](../../CURRENT_PLAN.md), resumable at
-  issue 2503 after completing the embedded-field contract.
+  issue 2504 after completing the output-only value descriptor contract.
 
 ## Paused
 

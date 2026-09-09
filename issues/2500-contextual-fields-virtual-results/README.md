@@ -10,7 +10,7 @@ virtual fields without inventing persistence or mutation behavior.
 
 1. [x] [2501 — Decide contextual fields and virtual results](2501-contextual-field-virtual-contract.md)
 2. [x] [2502 — Restrict embedded built-in field declarations](2502-embedded-field-contracts.md)
-3. [ ] [2503 — Add output-only value descriptors](2503-output-value-descriptors.md)
+3. [x] [2503 — Add output-only value descriptors](2503-output-value-descriptors.md)
 4. [ ] [2504 — Contextualize plugin field declarations and Typegen](2504-contextual-plugin-field-typegen.md)
 5. [ ] [2505 — Compile virtual schema fields](2505-virtual-field-schema-typegen.md)
 6. [ ] [2506 — Resolve asynchronous virtual fields](2506-virtual-field-runtime.md)

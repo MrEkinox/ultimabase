@@ -75,6 +75,16 @@ They omit pointers, relations, portable `indexed`, system generation, and
 database sequences while retaining defaults, immutability, lists, structural
 normalization, and temporal `autoNow` behavior.
 
+Returned values use a third, independent `OutputBuilder` contract. It exposes
+the same value vocabulary where representation is meaningful, but only accepts
+`description`, complete-value `nullable`, one-dimensional `list`, and the
+representation options owned by a kind. It has no defaults, input requiredness,
+immutability, indexes, generators, validation hooks, relationships, or storage
+metadata. `output.object({ fields })` recursively preserves an exact readonly
+object shape; each property is present, while its own descriptor decides whether
+its value may be `null`. Output declarations become directly usable by schema
+virtual fields in issue 2505 rather than acting as standalone operations.
+
 Exact decimal fields keep storage-relevant shape as direct metadata:
 `field.decimal({ precision: 12, scale: 2 })`. Core validates those options and
 enforces them at Runtime, while adapters may inspect them without depending on

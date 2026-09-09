@@ -233,6 +233,26 @@ export type {
 	EmbeddedObjectFieldBuilderMethod,
 	EmbeddedObjectFieldBuilderOptions,
 } from './schema/object-field-builder.js'
+export {
+	assertOutputDescriptor,
+	snapshotOutputValue,
+} from './output/descriptor.js'
+export type {
+	DecimalOutputRepresentationOptions,
+	EnumOutputOptions,
+	GenericOutputDescriptor,
+	NormalizedOutputValueOptions,
+	ObjectOutputOptions,
+	OutputBuilder,
+	OutputDescriptor,
+	OutputFields,
+	OutputKind,
+	OutputObjectValue,
+	OutputValue,
+	OutputValueOptions,
+	OutputValueShape,
+	TemporalOutputRepresentationOptions,
+} from './output/contracts.js'
 export { defineFieldBuilderMethod } from './schema/field-builder-methods.js'
 export type {
 	FieldBuilderMethodDefinition,

@@ -101,6 +101,30 @@ Framework and plugin authors may reuse the immutable low-level field factories
 internally. Normal application code uses named builder methods; Core
 intentionally does not expose `field.custom()` as ordinary schema DX.
 
+## Output-only value declarations
+
+`OutputBuilder` describes returned values without manufacturing stored schema
+fields. Its built-in factories cover strings, booleans, integers, floats,
+bigints, decimals, UUIDs, dates, times, date-times, binary values, JSON, closed
+enums, lists, and recursive objects. Every factory accepts `description`,
+`nullable`, and `list`; decimal, temporal, enum, and object declarations retain
+only their relevant representation metadata.
+
+Output nullability applies to the complete scalar or list container and defaults
+to `true`. A list element is always non-null. Every declared object property is
+required in the resolved object, though a child descriptor may allow that
+property's value to be `null`. Core snapshots output values through the same
+transport-neutral descriptor regardless of whether REST or GraphQL eventually
+represents the result.
+
+Unlike root and embedded field builders, `OutputBuilder` deliberately has no
+input defaults, `required`, `immutable`, indexes, generators, mutation
+validation, hooks, pointers, relations, columns, or other persistence options.
+Unsupported properties are absent from autocomplete, rejected by TypeScript,
+and rejected again when an untyped declaration is resolved. Issue 2503 exposes
+this declaration contract; virtual schema fields become its first owning public
+API in issue 2505 rather than exposing standalone output operations.
+
 The public constructor and field factories also protect JavaScript callers at
 runtime. Schema names, field maps, field definitions, common option flags,
 extension definitions, and static defaults are validated before their
