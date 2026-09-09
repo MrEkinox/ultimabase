@@ -6,8 +6,8 @@ Every publishable workspace uses the `@ultimabase/*` scope and exposes only deli
 
 - `shared`: dependency-light primitives.
 - `core`: schema and query contracts, request authority, privilege and
-  capability orchestration, protected CRUD Runtime, persistence plans, and
-  transactions.
+  capability orchestration, protected CRUD and nested-write Runtime,
+  persistence plans, and transactions.
 
 Core keeps those responsibilities in separate internal domains while exposing
 one cohesive public package. This avoids cycles between inseparable contracts;

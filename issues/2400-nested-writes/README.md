@@ -1,6 +1,6 @@
 # Milestone 24 — Nested writes before the first release
 
-- Status: in-progress
+- Status: completed
 
 Let one singular schema mutation describe a typed recursive pointer and relation
 write graph inside `data`, while preserving the same Runtime and transaction
@@ -15,7 +15,7 @@ semantics as separately issued commands.
 5. [x] [2405 — Expose nested writes through REST](2405-rest-nested-writes.md)
 6. [x] [2406 — Expose nested writes through GraphQL](2406-graphql-nested-writes.md)
 7. [x] [2407 — Prove the public nested-write vertical](2407-nested-write-public-vertical.md)
-8. [ ] [2408 — Audit and close nested writes](2408-nested-write-final-audit.md)
+8. [x] [2408 — Audit and close nested writes](2408-nested-write-final-audit.md)
 
 ## Existing foundations
 
@@ -65,3 +65,10 @@ prove identical atomic graph semantics. The final audit covers recursive type
 DX, limits, conflicts, application isolation, authority, Access, ACL,
 Validation, Hooks, rollback, cancellation, safe errors, documentation,
 coverage, and complete repository validation.
+
+## Outcome
+
+All eight issues are complete. The public minimal application and its focused
+PostgreSQL vertical prove equivalent nested create and update graphs through
+direct TypeScript, REST, networkless GraphQL, and Yoga. The completed plan and
+issue 2408 retain the full release evidence and explicitly deferred operations.

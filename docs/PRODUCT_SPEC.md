@@ -21,6 +21,8 @@ The first release scope includes:
 - primitive fields: string, integer/float number, boolean, date, enum, JSON, and array;
 - UUID v7 identifiers plus `createdAt` and `updatedAt`;
 - `create`/`createOne`, `update`/`updateOne`, `upsert`/`upsertOne`, and `delete`/`deleteOne` for singular mutations, explicit `*Many` collection terminals, plus `find`, `first`, `get`, `count`, and `exists`;
+- schema-aware nested pointer and relation commands inside singular create and
+  update data, executed as one bounded atomic graph;
 - immutable Query classes and cursor pagination;
 - PostgreSQL through Drizzle internally;
 - direct schema synchronization and an optional PostgreSQL migration plugin;

@@ -122,6 +122,17 @@ class API, so bulk remains ordered, itemized, and atomic without exposing its
 transaction machinery. Plugin-field wire protocols use Core-canonical
 name-and-version identities so a field owner and transport can declare an exact
 codec without importing one another.
+
+ADR-0243 extends only singular create and update data with schema-aware pointer
+and relation commands. Core normalizes those commands into one immutable,
+bounded, transport-neutral graph before effects, then executes every child
+object and membership change through the ordinary Runtime and the root's one
+automatic transaction. REST and GraphQL own only recursive wire decoding and
+result representation; PostgreSQL receives ordinary object operations,
+protected relation deltas, and the borrowed transaction rather than a public or
+adapter-specific nested-write API. Bulk roots, upserts, nested delete/upsert,
+provisional references, and partial success remain outside this contract.
+
 Operation transport identities follow the same exact canonical rule. Their
 bindings may carry immutable transport-owned JSON metadata, while Core's
 allowlist facade reveals only inert operation descriptors. REST uses that

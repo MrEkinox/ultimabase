@@ -1,10 +1,10 @@
-# Current plan: nested writes before the first release
+# Nested writes before the first release
 
-- Status: active
+- Status: completed
 - Milestone: 24
 - Started: 2026-09-08
-- Governing decision: [ADR-0243](docs/adr/0243-bounded-singular-nested-writes.md)
-- Resume point: [issue 2408](issues/2400-nested-writes/2408-nested-write-final-audit.md)
+- Completed: 2026-09-09
+- Governing decision: [ADR-0243](../../adr/0243-bounded-singular-nested-writes.md)
 
 ## Objective
 
@@ -14,7 +14,7 @@ work inside `data`. Direct TypeScript, REST, and GraphQL must normalize into one
 Core-owned graph whose every object and relation mutation uses the ordinary
 Runtime, Access, ACL, Validation, Hooks, transaction, and persistence pipeline.
 
-## Candidate developer contract
+## Developer contract
 
 The public mutation input keeps nested commands beside scalar update commands:
 
@@ -57,10 +57,10 @@ Both transports delegate only through the narrow application request executor.
 5. [x] Issue 2405 — decode and execute nested writes through REST v1.
 6. [x] Issue 2406 — generate and execute nested writes through GraphQL v1.
 7. [x] Issue 2407 — prove the public cross-transport PostgreSQL vertical.
-8. [ ] Issue 2408 — audit and close the pre-release nested-write milestone.
+8. [x] Issue 2408 — audit and close the pre-release nested-write milestone.
 
 The authoritative acceptance criteria and dependencies live in
-[`issues/2400-nested-writes/`](issues/2400-nested-writes/).
+[`issues/2400-nested-writes/`](../../../issues/2400-nested-writes/).
 
 ## Decisions accepted by ADR-0243
 
@@ -103,9 +103,9 @@ The authoritative acceptance criteria and dependencies live in
   object references, arbitrary unique-filter connect, and database-specific
   nested syntax are outside this milestone.
 
-## Resume protocol
+## Verification protocol
 
-On every resumed task:
+Every issue followed the same verification protocol:
 
 1. Read `AGENTS.md`, this plan, the milestone README, the current issue, and its
    referenced ADRs completely.
@@ -134,9 +134,16 @@ On every resumed task:
 - Stop if exact recursive input typing would require `any`, generated Runtime
   code, a mutable registry, a deep import, or a file-size baseline increase.
 
-## Completion and handoff
+## Completion evidence
 
-After issue 2408 passes the full repository, built-package, Typegen-free,
-archive, browser, performance, coverage, multi-application, and PostgreSQL
-gates, archive this file under `docs/plans/completed/`, mark milestone 24
-completed, and reconcile the release checklist and roadmap.
+- Direct TypeScript, Typegen-free JavaScript, REST, networkless GraphQL, and
+  Yoga execute one Core-owned nested mutation graph through public APIs.
+- Focused tests cover the complete command matrix, recursive limits, conflicts,
+  policy, authority, provenance, lifecycle, rollback, cancellation,
+  multi-application isolation, PostgreSQL worker isolation, and final
+  projections.
+- The final repository gate passed 2,151 ordinary tests, 2,383 coverage tests,
+  145 packed-package tests, 300 built E2E tests, and all performance budgets.
+- Coverage completed at 88.6% statements, 81.46% branches, 94.33% functions,
+  and 89.15% lines. Constraints, issue metadata, typecheck, lint, formatting,
+  build, package publication checks, and the removal audit also passed.

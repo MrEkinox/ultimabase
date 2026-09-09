@@ -41,14 +41,14 @@ sessions. Milestone 6 then completed the network-independent GraphQL vertical,
 Yoga HTTP adapter, optional explorers, and the final direct TypeScript, REST,
 GraphQL, authentication, and PostgreSQL parity audit.
 
-[Milestone 24](issues/2400-nested-writes/README.md) is now the active pre-release
-objective. It adds typed nested
-pointer and relation writes inside singular mutation `data`, normalizes every
-transport into one Core graph, and preserves independent per-object policy and
-Hook execution inside one automatic transaction.
-[ADR-0243](docs/adr/0243-bounded-singular-nested-writes.md) passed the mandatory
-architecture gate. Implementation resumes at
-[issue 2402](issues/2400-nested-writes/2402-nested-write-input-graph.md).
+[Milestone 24](issues/2400-nested-writes/README.md) completed typed nested pointer
+and relation writes inside singular mutation `data`. Direct TypeScript, REST,
+networkless GraphQL, and Yoga normalize into one Core graph with independent
+per-object policy and Hook execution inside one automatic transaction. The
+[completed plan](docs/plans/completed/nested-writes-before-first-release.md)
+retains its contract and final evidence.
+
+No multi-issue objective is currently active.
 
 The ACL hardening plan remains paused at issue 432. It is not part of an active
 plan.
@@ -259,7 +259,7 @@ on REST. HTTP Basic and Better Auth remain separate deferred integrations.
 
 ## Milestone 24 — Nested writes before the first release
 
-Add schema-aware pointer and relation commands inside `createOne` and
+Completed schema-aware pointer and relation commands inside `createOne` and
 `updateOne` data. Field-bound connect, disconnect, and set operations use target
 IDs because the schema field already owns target identity. Core normalizes one
 immutable bounded graph and executes every object and relation node through the

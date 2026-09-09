@@ -7,8 +7,7 @@ priority changes.
 
 ## Active
 
-- [Nested writes before the first release](../../CURRENT_PLAN.md), resumable at
-  issue 2402 under the accepted ADR-0243 contract.
+- None.
 
 ## Paused
 
@@ -17,6 +16,7 @@ priority changes.
 
 ## Completed
 
+- [Nested writes before the first release](completed/nested-writes-before-first-release.md)
 - [HTTP, REST, and password authentication](completed/http-rest-and-password-auth.md)
 - [Generated schema authoring and type contracts](completed/generated-schema-authoring-and-type-contracts.md)
 - [Optional field validation plugin](completed/optional-field-validation-plugin.md)
