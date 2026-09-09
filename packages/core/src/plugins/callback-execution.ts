@@ -39,6 +39,16 @@ export const runWithApplicationPluginOwner = <TResult>(
 		callback,
 	)
 
+/** @internal Attributes one callback to application code rather than an active plugin. */
+export const runWithApplicationOwner = <TResult>(
+	application: object,
+	callback: () => TResult,
+): TResult =>
+	callbackExecutionStorage.run(
+		immutableRecord({ application, owner: undefined }),
+		callback,
+	)
+
 /** @internal Reads only the owner attributed to this exact application. */
 export const readApplicationPluginOwner = (
 	application: object,
@@ -56,10 +66,7 @@ export const createApplicationCallbackExecutor = (
 	immutableRecord({
 		runApplication: <TResult>(callback: () => TResult): TResult => {
 			assertCallback(callback)
-			return callbackExecutionStorage.run(
-				immutableRecord({ application, owner: undefined }),
-				callback,
-			)
+			return runWithApplicationOwner(application, callback)
 		},
 		runPlugin: <TResult>(
 			owner: PluginIdentity,

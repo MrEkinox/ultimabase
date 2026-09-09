@@ -123,6 +123,7 @@ export const createEnforcementExecutionDescriptor = (
 		operationKind: operation.kind,
 		owner: {
 			contributionId: contribution.name,
+			kind: 'plugin',
 			pluginId: contribution.ownerPlugin,
 			...(contribution.ownerInstanceId === undefined
 				? {}

@@ -1,7 +1,10 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
 
 import { FrameworkError } from '../../foundation.js'
-import { runWithApplicationPluginOwner } from '../../plugins/callback-execution.js'
+import {
+	runWithApplicationOwner,
+	runWithApplicationPluginOwner,
+} from '../../plugins/callback-execution.js'
 import type { OperationKind } from '../../query/index.js'
 import {
 	immutableArray,
@@ -16,11 +19,18 @@ import { throwIfOperationCancelled } from '../cancellation/operation-cancellatio
 export interface RuntimeCallbackDescriptor {
 	readonly key: string
 	readonly operationKind: OperationKind
-	readonly owner: Readonly<{
-		readonly contributionId: string
-		readonly instanceId?: string
-		readonly pluginId: string
-	}>
+	readonly owner: Readonly<
+		| {
+				readonly contributionId: string
+				readonly kind: 'application'
+		  }
+		| {
+				readonly contributionId: string
+				readonly instanceId?: string
+				readonly kind: 'plugin'
+				readonly pluginId: string
+		  }
+	>
 	readonly phase: string
 	readonly target: Readonly<
 		| { readonly kind: 'global' }
@@ -92,20 +102,23 @@ export class RuntimeCallbackExecutor {
 			)
 		}
 
-		const result = await runWithApplicationPluginOwner(
-			this.application,
-			immutableRecord({
-				pluginId: descriptor.owner.pluginId,
-				...(descriptor.owner.instanceId === undefined
-					? {}
-					: { instanceId: descriptor.owner.instanceId }),
-			}),
-			() =>
-				this.#storage.run(
-					{ stack: immutableArray([...stack, descriptor]) },
-					callback,
-				),
-		)
+		const execute = () =>
+			this.#storage.run(
+				{ stack: immutableArray([...stack, descriptor]) },
+				callback,
+			)
+		const result = await (descriptor.owner.kind === 'application'
+			? runWithApplicationOwner(this.application, execute)
+			: runWithApplicationPluginOwner(
+					this.application,
+					immutableRecord({
+						pluginId: descriptor.owner.pluginId,
+						...(descriptor.owner.instanceId === undefined
+							? {}
+							: { instanceId: descriptor.owner.instanceId }),
+					}),
+					execute,
+				))
 
 		if (cancellable) {
 			throwIfOperationCancelled(context.signal, {

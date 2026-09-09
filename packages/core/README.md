@@ -87,7 +87,14 @@ its value may be `null`. Schema declarations consume these descriptors through
 selectable result shape but not to persisted `SchemaItem`, mutation inputs,
 filters, ordering, indexes, migrations, or adapter fields. Its flat `select`
 names the persisted scalar, object, or pointer values required by its synchronous
-or asynchronous resolver; Core always retains `id`. See the
+or asynchronous resolver; Core always retains `id`. Runtime authorizes the
+logical field before deriving a private persisted dependency projection, so
+dependency-only values never reach result behaviors or transports. Resolvers
+receive the exact request context and an immutable dependency item, execute in
+deterministic batches of at most 16, and have their returned value structurally
+validated before exposure. Mutation virtuals resolve before commit, while eager
+pointer and relation targets use the same operation-local scheduler under their
+own target policy. See the
 [virtual-field examples](examples/schema/virtual-fields.md) for primitive,
 object, nullable, list, request-context, and asynchronous declarations.
 

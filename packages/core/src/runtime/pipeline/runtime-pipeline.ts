@@ -52,6 +52,15 @@ import {
 	beginPipelineTransaction,
 	type RuntimePipelineTransactionScope,
 } from '../transactions/pipeline-transaction.js'
+import {
+	createRuntimeVirtualFieldScheduler,
+	inheritRuntimeVirtualFields,
+} from '../virtual-fields/binding.js'
+import type { RuntimeVirtualFieldScheduler } from '../virtual-fields/execution.js'
+import {
+	prepareBoundRuntimeVirtualFieldProjection,
+	prepareRuntimeVirtualDatabaseResult,
+} from '../virtual-fields/pipeline.js'
 import type {
 	RuntimeEnforcementOperationResult,
 	RuntimeOperationResult,
@@ -155,7 +164,10 @@ export class RuntimePipeline {
 			this.#resultBoundaries,
 		)
 		retainRuntimeMutationBatchProjector(this, (request) =>
-			this.#inclusionProjector.projectMutationBatch(request),
+			this.#inclusionProjector.projectMutationBatch(
+				request,
+				createRuntimeVirtualFieldScheduler(this),
+			),
 		)
 
 		// Pipeline configuration cannot change after application initialization.
@@ -172,6 +184,7 @@ export class RuntimePipeline {
 			(stages) => new RuntimePipeline(stages),
 		)
 		inheritRuntimeNestedWrites(this, scope.pipeline)
+		inheritRuntimeVirtualFields(this, scope.pipeline)
 		return scope
 	}
 
@@ -209,6 +222,7 @@ export class RuntimePipeline {
 		const execution: RuntimePipelineExecutionState = {
 			operation: request.operation,
 		}
+		const virtualScheduler = createRuntimeVirtualFieldScheduler(this)
 
 		try {
 			const nestedMarker = readNestedWriteRootOperation(request.operation)
@@ -264,6 +278,7 @@ export class RuntimePipeline {
 									}),
 									{ operation },
 									nested,
+									virtualScheduler,
 								)
 							} catch (error: unknown) {
 								if (denied === true && isProtectedPolicyDenied(error)) {
@@ -289,6 +304,7 @@ export class RuntimePipeline {
 							immutableRecord({ ...request, operation: rootOperation }),
 							execution,
 							nested,
+							virtualScheduler,
 						),
 				)
 
@@ -296,7 +312,7 @@ export class RuntimePipeline {
 			}
 
 			return await runWithRuntimeNestedWriteStageContext(undefined, () =>
-				this.#executeOperation(request, execution),
+				this.#executeOperation(request, execution, undefined, virtualScheduler),
 			)
 		} catch (error: unknown) {
 			if (
@@ -324,6 +340,7 @@ export class RuntimePipeline {
 		request: RuntimePipelineRequest<TOperation>,
 		execution: RuntimePipelineExecutionState,
 		nested?: ActiveNestedWrite,
+		virtualScheduler?: RuntimeVirtualFieldScheduler,
 	): Promise<RuntimeOperationResult<TOperation>> {
 		const context: RequestContext = request.context
 		const privateRowFilter =
@@ -385,6 +402,10 @@ export class RuntimePipeline {
 			relationPredicates = enforced.relationPredicates
 		}
 
+		const virtualProjection = prepareBoundRuntimeVirtualFieldProjection(
+			operation,
+			virtualScheduler,
+		)
 		const inclusions = await this.#inclusionProjector.prepare(
 			context,
 			operation,
@@ -416,6 +437,9 @@ export class RuntimePipeline {
 				...(privateRelation === undefined ? {} : { relation: privateRelation }),
 				...(relationPredicates === undefined ? {} : { relationPredicates }),
 				...(rowFilter === undefined ? {} : { rowFilter }),
+				...(virtualProjection === undefined
+					? {}
+					: { returningSelection: virtualProjection.persistedSelection }),
 			}),
 			this.#stages.finalMutationValidation,
 			this.#stages.enforcement,
@@ -451,8 +475,15 @@ export class RuntimePipeline {
 			operationKind: operation.kind,
 			phase: 'database-operation',
 		})
+		const virtualResults = prepareRuntimeVirtualDatabaseResult(
+			this.#resultBoundaries,
+			operation,
+			virtualProjection,
+			databaseExecution.result,
+		)
+		const privateDatabaseResult = virtualResults.privateResult
 		let databaseResult: DatabaseOperationResult<TOperation> =
-			databaseExecution.result
+			virtualResults.publicResult
 		const selectedFieldsOverride = readRuntimeSelectedFieldsOverride(
 			operation,
 			enforcement,
@@ -493,6 +524,7 @@ export class RuntimePipeline {
 				databaseResult,
 				databaseExecution.inclusionSource ?? databaseExecution.result,
 				inclusions,
+				virtualScheduler,
 			)
 		// Identity follows exact records through result behaviors instead of being
 		// reassociated by an unstable final collection index.
@@ -502,6 +534,15 @@ export class RuntimePipeline {
 			result,
 			readRuntimeSchemaModelSelectedFields(operation, selectedFieldsOverride),
 		)
+		if (virtualProjection !== undefined && virtualScheduler !== undefined) {
+			result = await virtualScheduler.resolve(
+				context,
+				operation,
+				virtualProjection,
+				result,
+				privateDatabaseResult,
+			)
+		}
 
 		if (this.#stages.behaviors?.transformResult !== undefined) {
 			result = await this.#stages.behaviors.transformResult(

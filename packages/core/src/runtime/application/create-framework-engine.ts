@@ -49,6 +49,7 @@ import {
 	applicationRequestExecutionCapability,
 	bindApplicationRequestExecutor,
 } from './application-request-execution.js'
+import { bindRuntimeVirtualFields } from '../virtual-fields/binding.js'
 
 /** Configures framework-owned assembly without exposing low-level pipeline slots. */
 export interface CreateFrameworkEngineOptions {
@@ -350,6 +351,7 @@ export const createFrameworkEngine = <
 			'Runtime executor factory must return a RuntimePipeline instance',
 		)
 	}
+	bindRuntimeVirtualFields(pipeline, application)
 	bindRuntimeNestedWrites(
 		pipeline,
 		createRuntimeNestedWriteBinding(

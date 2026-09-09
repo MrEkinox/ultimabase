@@ -26,7 +26,6 @@ import { getOperationSchema } from '../operations/schema.js'
 import * as modelMetadata from '../operations/model-metadata.js'
 import {
 	snapshotRuntimeMutationOperation,
-	snapshotRuntimeResultRecord,
 	throwRuntimeValidationIssues,
 	type RuntimeValidationErrorDescription,
 	type RuntimeValidationIssue,
@@ -35,6 +34,10 @@ import {
 	createInclusionOperation,
 	readInclusions,
 } from '../relations/inclusion.js'
+import {
+	snapshotRuntimeBoundaryRecord,
+	snapshotRuntimeBoundaryResult,
+} from './result-snapshot.js'
 
 const mutationKinds = new Set<OperationKind>([
 	'create-many',
@@ -47,21 +50,11 @@ const mutationKinds = new Set<OperationKind>([
 	'upsert-one',
 ])
 
-const scalarResultKinds = new Set<OperationKind>(['count', 'exists'])
-
 const nullableResultKinds = new Set<OperationKind>([
 	'delete-one',
 	'find-one',
 	'get',
 	'update-one',
-])
-
-const collectionResultKinds = new Set<OperationKind>([
-	'create-many',
-	'delete-many',
-	'find-many',
-	'update-many',
-	'upsert-many',
 ])
 
 const behaviorBoundaryErrorDescription: Readonly<RuntimeValidationErrorDescription> =
@@ -343,103 +336,6 @@ const readSelectedFields = (
 		: immutableArray(selectedFields)
 }
 
-const snapshotRecordResult = (
-	plans: SchemaValidationPlans,
-	value: unknown,
-	path: ValidationIssuePath,
-	selectedFields: readonly string[] | undefined,
-	description: Readonly<RuntimeValidationErrorDescription> = behaviorBoundaryErrorDescription,
-): Readonly<Record<string, unknown>> => {
-	const snapshot = snapshotRuntimeResultRecord(
-		plans,
-		value,
-		path,
-		selectedFields,
-		description,
-	)
-
-	if (isPlainRecord(value)) {
-		// Protected model identity follows immutable snapshots without becoming data.
-		modelMetadata.transferRuntimeSchemaModelMetadata(value, snapshot)
-	}
-	return snapshot
-}
-
-const snapshotOperationResult = <const TOperation extends DatabaseOperationAst>(
-	operation: TOperation,
-	value: unknown,
-	plans: SchemaValidationPlans,
-	selectedFields: readonly string[] | undefined,
-	path: ValidationIssuePath,
-	description: Readonly<RuntimeValidationErrorDescription> = behaviorBoundaryErrorDescription,
-): DatabaseOperationResult<TOperation> => {
-	if (scalarResultKinds.has(operation.kind)) {
-		if (operation.kind === 'exists') {
-			if (typeof value !== 'boolean') {
-				return throwBoundaryIssue(
-					path,
-					'Exists result must be a boolean',
-					description,
-				)
-			}
-		} else if (
-			typeof value !== 'number' ||
-			!Number.isSafeInteger(value) ||
-			value < 0
-		) {
-			return throwBoundaryIssue(
-				path,
-				'Count result must be a non-negative safe integer',
-				description,
-			)
-		}
-
-		return value as DatabaseOperationResult<TOperation>
-	}
-
-	if (value === null) {
-		if (!nullableResultKinds.has(operation.kind)) {
-			return throwBoundaryIssue(
-				path,
-				'This terminal cannot return null',
-				description,
-			)
-		}
-
-		return null as DatabaseOperationResult<TOperation>
-	}
-
-	if (collectionResultKinds.has(operation.kind)) {
-		if (!isUnknownArray(value)) {
-			return throwBoundaryIssue(
-				path,
-				'This terminal must return an array',
-				description,
-			)
-		}
-
-		return immutableArray(
-			value.map((item, index) =>
-				snapshotRecordResult(
-					plans,
-					item,
-					[...path, index],
-					selectedFields,
-					description,
-				),
-			),
-		) as DatabaseOperationResult<TOperation>
-	}
-
-	return snapshotRecordResult(
-		plans,
-		value,
-		path,
-		selectedFields,
-		description,
-	) as DatabaseOperationResult<TOperation>
-}
-
 type MaterializationKind = 'create' | 'delete' | 'update'
 
 const allowedMaterializationKinds = (
@@ -497,12 +393,14 @@ const snapshotMaterialization = (
 		)
 
 		return immutableRecord({
-			current: snapshotRecordResult(
+			current: snapshotRuntimeBoundaryRecord(
+				readOperationSchema(operation, ['operation', 'schema']),
 				plans,
 				value.current,
 				[...path, 'current'],
 				undefined,
 				adapterBoundaryErrorDescription,
+				false,
 			),
 			kind: 'create',
 		})
@@ -518,12 +416,14 @@ const snapshotMaterialization = (
 
 		return immutableRecord({
 			kind: 'delete',
-			previous: snapshotRecordResult(
+			previous: snapshotRuntimeBoundaryRecord(
+				readOperationSchema(operation, ['operation', 'schema']),
 				plans,
 				value.previous,
 				[...path, 'previous'],
 				undefined,
 				adapterBoundaryErrorDescription,
+				false,
 			),
 		})
 	}
@@ -536,20 +436,24 @@ const snapshotMaterialization = (
 	)
 
 	return immutableRecord({
-		current: snapshotRecordResult(
+		current: snapshotRuntimeBoundaryRecord(
+			readOperationSchema(operation, ['operation', 'schema']),
 			plans,
 			value.current,
 			[...path, 'current'],
 			undefined,
 			adapterBoundaryErrorDescription,
+			false,
 		),
 		kind: 'update',
-		previous: snapshotRecordResult(
+		previous: snapshotRuntimeBoundaryRecord(
+			readOperationSchema(operation, ['operation', 'schema']),
 			plans,
 			value.previous,
 			[...path, 'previous'],
 			undefined,
 			adapterBoundaryErrorDescription,
+			false,
 		),
 	})
 }
@@ -726,6 +630,7 @@ export const createRuntimeBehaviorBoundaries =
 			value: unknown,
 			path: ValidationIssuePath,
 			selectedFields: readonly string[] | undefined,
+			includeVirtuals: boolean,
 		): Readonly<Record<string, unknown>> => {
 			const schema = readOperationSchema(operation, ['operation', 'schema'])
 			const inclusions = readInclusions(operation)
@@ -734,11 +639,14 @@ export const createRuntimeBehaviorBoundaries =
 				selectedFields,
 			)
 			if (inclusions.length === 0 || !isPlainRecord(value)) {
-				return snapshotRecordResult(
+				return snapshotRuntimeBoundaryRecord(
+					schema,
 					readPlans(schema),
 					value,
 					path,
 					effectiveSelectedFields,
+					behaviorBoundaryErrorDescription,
+					includeVirtuals,
 				)
 			}
 
@@ -767,6 +675,7 @@ export const createRuntimeBehaviorBoundaries =
 									targetValue,
 									[...path, inclusion.field],
 									readSelectedFields(targetOperation, targetSchema),
+									includeVirtuals,
 								)
 					// Parent validation still proves that the declared field itself is a pointer.
 					parentCandidate[inclusion.field] = new Pointer(
@@ -783,6 +692,7 @@ export const createRuntimeBehaviorBoundaries =
 								targetRecord,
 								[...path, inclusion.field, index],
 								readSelectedFields(targetOperation, targetSchema),
+								includeVirtuals,
 							),
 						),
 					)
@@ -793,11 +703,14 @@ export const createRuntimeBehaviorBoundaries =
 				hydratedTargets.set(inclusion.field, targetSnapshot)
 			}
 
-			const parent = snapshotRecordResult(
+			const parent = snapshotRuntimeBoundaryRecord(
+				schema,
 				readPlans(schema),
 				parentCandidate,
 				path,
 				effectiveSelectedFields,
+				behaviorBoundaryErrorDescription,
+				includeVirtuals,
 			)
 
 			// The placeholder pointer exists only for structural validation. Restore the
@@ -822,14 +735,20 @@ export const createRuntimeBehaviorBoundaries =
 			operation: TOperation,
 			replacement: unknown,
 			selectedFields: readonly string[] | undefined,
+			includeVirtuals: boolean,
 		): DatabaseOperationResult<TOperation> => {
 			if (readInclusions(operation).length === 0) {
-				return snapshotOperationResult(
+				const schema = readOperationSchema(operation, ['operation', 'schema'])
+				return snapshotRuntimeBoundaryResult(
 					operation,
+					schema,
 					replacement,
-					readPlans(readOperationSchema(operation, ['operation', 'schema'])),
+					readPlans(schema),
 					selectedFields,
 					['result'],
+					behaviorBoundaryErrorDescription,
+					includeVirtuals,
+					throwBoundaryIssue,
 				)
 			}
 
@@ -859,6 +778,7 @@ export const createRuntimeBehaviorBoundaries =
 							record,
 							['result', index],
 							selectedFields,
+							includeVirtuals,
 						),
 					),
 				) as DatabaseOperationResult<TOperation>
@@ -869,6 +789,7 @@ export const createRuntimeBehaviorBoundaries =
 				replacement,
 				['result'],
 				selectedFields,
+				includeVirtuals,
 			) as DatabaseOperationResult<TOperation>
 		}
 
@@ -905,13 +826,16 @@ export const createRuntimeBehaviorBoundaries =
 				}
 
 				const { plans, selectedFields } = readBoundaryContext(operation)
-				const result = snapshotOperationResult(
+				const result = snapshotRuntimeBoundaryResult(
 					operation,
+					readOperationSchema(operation, ['operation', 'schema']),
 					outcome.result,
 					plans,
 					selectedFields,
 					['outcome', 'result'],
 					adapterBoundaryErrorDescription,
+					false,
+					throwBoundaryIssue,
 				)
 
 				assertOutcomeCardinality(operation, result, outcome.materializations)
@@ -995,7 +919,12 @@ export const createRuntimeBehaviorBoundaries =
 					selectedFieldsOverride,
 				)
 
-				return snapshotIncludedResult(operation, replacement, selectedFields)
+				return snapshotIncludedResult(
+					operation,
+					replacement,
+					selectedFields,
+					false,
+				)
 			},
 			snapshotResultReplacement: <
 				const TOperation extends DatabaseOperationAst,
@@ -1013,6 +942,7 @@ export const createRuntimeBehaviorBoundaries =
 					operation,
 					replacement,
 					selectedFields,
+					true,
 				) as unknown as RuntimeOperationResult<TOperation>
 			},
 		})

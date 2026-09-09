@@ -20,16 +20,21 @@ import {
 	type DatabaseTransactionAdapter,
 	type PreparedDatabaseOperation,
 } from '../database/contracts.js'
+import type {
+	ExecutableOperationAst,
+	QuerySelectionNode,
+} from '../../query/index.js'
 import type { RuntimePersistencePlanRewriteStage } from '../persistence/contracts.js'
 import {
 	assertPersistencePlanCapability,
 	compileDatabasePersistencePlan,
 } from '../persistence/execution.js'
-import { createDatabasePersistencePlan } from '../persistence/plans.js'
+import { createDatabasePersistencePlanWithSelection } from '../persistence/plans.js'
 import type { EnforcementState } from '../enforcement/state.js'
 import type { RequestContext } from '../context/request-context.js'
 import { throwIfOperationCancelled } from '../cancellation/operation-cancellation.js'
 import { collectDatabaseObjectIdentities } from '../operations/model-metadata.js'
+import { readOperationResultSelection } from '../operations/queries.js'
 import { createProtectedObjectNotFoundError } from '../operations/target-errors.js'
 import type {
 	RuntimeBehaviorStages,
@@ -146,6 +151,8 @@ export interface RuntimeDatabaseExecutionRequest<
 	readonly relation?: DatabaseRelationScope
 	readonly relationPredicates?: readonly DatabaseRelationPredicateScope[]
 	readonly rowFilter?: DatabaseRowFilterNode
+	/** Supplies the private persisted result projection without changing logical behavior input. */
+	readonly returningSelection?: QuerySelectionNode
 }
 
 /** Interleaves Core-owned graph work without storing callbacks in the graph. */
@@ -183,8 +190,14 @@ export const executeRuntimeDatabaseOperation = async <
 			executor,
 			request.operation,
 			persistencePlanRewrite,
+			request.returningSelection,
 		)
-		const result = await executor.execute(immutableRecord({ ...request, plan }))
+		const { returningSelection: _returningSelection, ...databaseRequest } =
+			request
+		void _returningSelection
+		const result = await executor.execute(
+			immutableRecord({ ...databaseRequest, plan }),
+		)
 
 		return immutableRecord({
 			...(enforcementState === undefined
@@ -216,7 +229,13 @@ export const executeRuntimeDatabaseOperation = async <
 		operation: TMutationOperation,
 		constraints: readonly DatabaseConstraintNode[],
 	): Promise<PreparedDatabaseOperation<TMutationOperation>> => {
-		const plan = createDatabasePersistencePlan(operation)
+		const plan = createDatabasePersistencePlanWithSelection(
+			operation,
+			request.returningSelection ??
+				readOperationResultSelection(
+					operation as unknown as ExecutableOperationAst,
+				),
+		)
 		assertPersistencePlanCapability(executor, plan)
 		return executor.prepare(
 			immutableRecord({
@@ -485,6 +504,7 @@ export const executeRuntimeDatabaseOperation = async <
 		executor,
 		executableOperation,
 		persistencePlanRewrite,
+		request.returningSelection,
 	)
 	let outcome = await prepared.execute(
 		immutableRecord({
@@ -514,6 +534,7 @@ export const executeRuntimeDatabaseOperation = async <
 		executableOperation,
 		outcome,
 		request.inclusions,
+		request.returningSelection,
 	)
 
 	return immutableRecord({

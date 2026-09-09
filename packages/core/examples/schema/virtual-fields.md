@@ -106,6 +106,19 @@ const Account = Schema.define({
 The output callback is captured exactly once during schema declaration. The
 compiled schema and Typegen snapshot retain only immutable output and dependency
 metadata; the resolver remains a Core-private binding and is never serialized.
-At this milestone stage the declaration and generated contracts are available;
-resolver execution and adapter dependency projection are introduced by the
-following runtime and persistence issues.
+
+When a query requests a virtual field, Core keeps that logical selection for
+Access and result shaping while giving the adapter a private union of the
+caller-visible persisted fields and the virtual dependencies. Dependency-only
+values are removed before database-result behaviors and transports can observe
+the record. The resolver receives exactly its own immutable dependency view plus
+`id`, even when the caller or another virtual field selects more stored values.
+
+Collection resolvers run in deterministic item and declaration order through
+fixed batches of at most 16 callbacks. Core waits for a started batch to settle,
+reports its lowest-ordinal failure, and starts no later batch after failure or
+cancellation. Returned values are structurally snapshotted through `output`.
+Mutation resolvers complete before commit, so rejection or invalid output rolls
+back the automatic transaction. Virtual fields selected below eager pointers or
+relations use the same operation-local scheduler after independent target
+Access.

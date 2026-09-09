@@ -13,6 +13,7 @@ import {
 	type FindManyOperationAst,
 	type GetOperationAst,
 	type QueryMembershipFilterNode,
+	type QuerySelectionNode,
 } from '../../query/index.js'
 import { Pointer, Schema, type SchemaDefinition } from '../../schema/index.js'
 import type { RequestContext } from '../context/request-context.js'
@@ -33,7 +34,6 @@ import { isProtectedPolicyDenied } from '../enforcement/protected-denial.js'
 import type { RuntimeBehaviorBoundaries } from '../behaviors/boundaries.js'
 import {
 	retainRuntimeIncludedPointerValue,
-	retainRuntimeSchemaModelMetadata,
 	transferRuntimeSchemaModelMetadata,
 } from '../operations/model-metadata.js'
 import {
@@ -53,15 +53,19 @@ import type {
 } from './contracts.js'
 import {
 	createRuntimeEnforcementInput,
-	createRuntimeProjectedDatabaseResultInput,
 	createRuntimeOperationInput,
 	emptyRuntimeConstraints,
-	readRuntimeSchemaModelSelectedFields,
 	readRuntimeSelectedFieldsOverride,
 	snapshotRuntimeConstraints,
 } from './stage-inputs.js'
 import type { RuntimePipeline } from './runtime-pipeline.js'
 import { createDatabasePersistenceRequest } from '../persistence/execution.js'
+import type { RuntimeVirtualFieldScheduler } from '../virtual-fields/execution.js'
+import {
+	prepareRuntimeVirtualFieldProjection,
+	type RuntimeVirtualFieldProjection,
+} from '../virtual-fields/projection.js'
+import { finalizeRuntimeInclusionValue } from './inclusion-finalization.js'
 
 /** Carries one grouped mutation projection without exposing it on RuntimePipeline. */
 export interface RuntimeMutationBatchProjectionRequest {
@@ -176,6 +180,7 @@ export const loadSingularMutationInclusionSource = async <
 	operation: TOperation,
 	outcome: DatabaseOperationOutcome<DatabaseMutationOperationAst>,
 	inclusions: readonly DatabaseInclusionPlan[] | undefined,
+	returningSelection?: QuerySelectionNode,
 ): Promise<DatabaseOperationResult<TOperation> | undefined> => {
 	if (
 		inclusions === undefined ||
@@ -194,11 +199,14 @@ export const loadSingularMutationInclusionSource = async <
 		{ readonly kind: 'create-one' | 'update-one' }
 	>
 	const projected: unknown = await executor.execute(
-		createDatabasePersistenceRequest({
-			constraints: emptyRuntimeConstraints,
-			inclusions,
-			operation: createMutationInclusionRead(executable, identity),
-		}),
+		createDatabasePersistenceRequest(
+			{
+				constraints: emptyRuntimeConstraints,
+				inclusions,
+				operation: createMutationInclusionRead(executable, identity),
+			},
+			returningSelection,
+		),
 	)
 
 	if (!isPlainRecord(projected)) {
@@ -218,6 +226,7 @@ export interface RuntimePreparedInclusion {
 	readonly operation: RuntimeInclusionTargetOperation
 	readonly selectedFieldsOverride: readonly string[] | undefined
 	readonly unavailable: boolean
+	readonly virtualProjection: RuntimeVirtualFieldProjection | undefined
 }
 
 /** Restores the operation result after inclusion hydration preserves cardinality. */
@@ -246,6 +255,7 @@ export class RuntimeInclusionProjector {
 	/** Loads all included source values once and restores original batch ordering. */
 	async projectMutationBatch(
 		request: RuntimeMutationBatchProjectionRequest,
+		virtualScheduler?: RuntimeVirtualFieldScheduler,
 	): Promise<readonly Readonly<Record<string, unknown>>[]> {
 		if (request.objectIds.length !== request.results.length) {
 			throw new TypeError(
@@ -292,12 +302,19 @@ export class RuntimeInclusionProjector {
 		if (inclusions.length === 0) return immutableArray(request.results)
 
 		assertDatabaseInclusionCapability(this.#stages.databaseOperation)
+		const rootVirtualProjection =
+			prepareRuntimeVirtualFieldProjection(operation)
 		const rawResult: unknown = await this.#stages.databaseOperation.execute(
-			createDatabasePersistenceRequest({
-				constraints: emptyRuntimeConstraints,
-				inclusions: immutableArray(inclusions.map(({ database }) => database)),
-				operation,
-			}),
+			createDatabasePersistenceRequest(
+				{
+					constraints: emptyRuntimeConstraints,
+					inclusions: immutableArray(
+						inclusions.map(({ database }) => database),
+					),
+					operation,
+				},
+				rootVirtualProjection?.persistedSelection,
+			),
 		)
 
 		if (!isUnknownArray(rawResult)) {
@@ -338,27 +355,28 @@ export class RuntimeInclusionProjector {
 			)
 		}
 
-		return immutableArray(
-			await Promise.all(
-				request.results.map((result, index) => {
-					const id = request.objectIds[index]
-					const source = id === undefined ? undefined : sources.get(id)
+		const projected: Readonly<Record<string, unknown>>[] = []
+		for (const [index, result] of request.results.entries()) {
+			const id = request.objectIds[index]
+			const source = id === undefined ? undefined : sources.get(id)
 
-					if (source === undefined) {
-						throw new TypeError(
-							'Mutation batch projection could not restore result order',
-						)
-					}
+			if (source === undefined) {
+				throw new TypeError(
+					'Mutation batch projection could not restore result order',
+				)
+			}
+			projected.push(
+				await this.#hydrateRecord(
+					request.context,
+					result,
+					source,
+					inclusions,
+					virtualScheduler,
+				),
+			)
+		}
 
-					return this.#hydrateRecord(
-						request.context,
-						result,
-						source,
-						inclusions,
-					)
-				}),
-			),
-		)
+		return immutableArray(projected)
 	}
 
 	/** Prepares target security without manufacturing target-schema behavior. */
@@ -444,25 +462,30 @@ export class RuntimeInclusionProjector {
 						operation,
 						selectedFieldsOverride: undefined,
 						unavailable: true,
+						virtualProjection: undefined,
 					}),
 				)
 				continue
 			}
 
+			const virtualProjection = prepareRuntimeVirtualFieldProjection(operation)
 			const nested = await this.prepare(context, operation)
-			const request = createDatabasePersistenceRequest({
-				constraints,
-				operation,
-				...(nested.length === 0
-					? {}
-					: {
-							inclusions: immutableArray(
-								nested.map(({ database }) => database),
-							),
-						}),
-				...(relationPredicates === undefined ? {} : { relationPredicates }),
-				...(rowFilter === undefined ? {} : { rowFilter }),
-			})
+			const request = createDatabasePersistenceRequest(
+				{
+					constraints,
+					operation,
+					...(nested.length === 0
+						? {}
+						: {
+								inclusions: immutableArray(
+									nested.map(({ database }) => database),
+								),
+							}),
+					...(relationPredicates === undefined ? {} : { relationPredicates }),
+					...(rowFilter === undefined ? {} : { rowFilter }),
+				},
+				virtualProjection?.persistedSelection,
+			)
 			const database = immutableRecord({
 				fieldPath: immutableArray([descriptor.field]),
 				kind: descriptor.kind,
@@ -481,105 +504,12 @@ export class RuntimeInclusionProjector {
 						enforcement,
 					),
 					unavailable: false,
+					virtualProjection,
 				}),
 			)
 		}
 
 		return immutableArray(prepared)
-	}
-
-	/** Completes policy and scalar output resolution for one eager target branch. */
-	async #finalizeValue(
-		context: RequestContext,
-		prepared: RuntimePreparedInclusion,
-		rawTarget:
-			| Readonly<Record<string, unknown>>
-			| readonly Readonly<Record<string, unknown>>[],
-	): Promise<unknown> {
-		// Inclusion descriptors fix this raw target's operation-specific cardinality.
-		let result =
-			rawTarget as DatabaseOperationResult<RuntimeInclusionTargetOperation>
-
-		if (
-			this.#stages.enforcement !== undefined &&
-			prepared.enforcement !== undefined
-		) {
-			result = await this.#stages.enforcement.enforceSelectionResult(
-				immutableRecord({
-					context,
-					enforcement: prepared.enforcement,
-					operation: prepared.operation,
-					result,
-				}),
-			)
-		}
-
-		result = this.#resultBoundaries.snapshotDatabaseResultReplacement(
-			prepared.operation,
-			result,
-			prepared.selectedFieldsOverride,
-		)
-
-		if (this.#stages.behaviors?.transformDatabaseResult !== undefined) {
-			result = await this.#stages.behaviors.transformDatabaseResult(
-				createRuntimeProjectedDatabaseResultInput(
-					context,
-					prepared.operation,
-					result,
-					prepared.selectedFieldsOverride,
-				),
-			)
-		}
-
-		const hydrated = await this.hydrate(
-			context,
-			prepared.operation,
-			result,
-			rawTarget,
-			prepared.nested,
-		)
-		const rawRecords = isUnknownArray(rawTarget) ? rawTarget : [rawTarget]
-		const identities = immutableArray(
-			rawRecords.map((record) =>
-				isPlainRecord(record)
-					? this.#stages.databaseOperation.readObjectIdentity?.(record)
-					: undefined,
-			),
-		)
-
-		retainRuntimeSchemaModelMetadata(
-			prepared.operation,
-			identities,
-			hydrated,
-			readRuntimeSchemaModelSelectedFields(
-				prepared.operation,
-				prepared.selectedFieldsOverride,
-			),
-		)
-		let finalized = hydrated
-
-		if (
-			this.#stages.enforcement !== undefined &&
-			prepared.enforcement !== undefined
-		) {
-			finalized = await this.#stages.enforcement.enforceResult(
-				immutableRecord({
-					context,
-					enforcement: prepared.enforcement,
-					operation: prepared.operation,
-					result: finalized,
-				}),
-			)
-		}
-
-		if (prepared.descriptor.kind === 'pointer' && !isPlainRecord(finalized)) {
-			throw new TypeError('Runtime included pointer target must be a record')
-		}
-		if (prepared.descriptor.kind === 'relation' && !isUnknownArray(finalized)) {
-			throw new TypeError('Runtime included relation target must be an array')
-		}
-
-		return finalized
 	}
 
 	/** Replaces relationship fields with their adapter-retained target values. */
@@ -588,6 +518,7 @@ export class RuntimeInclusionProjector {
 		record: Readonly<Record<string, unknown>>,
 		rawRecord: Readonly<Record<string, unknown>>,
 		inclusions: readonly RuntimePreparedInclusion[],
+		virtualScheduler?: RuntimeVirtualFieldScheduler,
 	): Promise<Readonly<Record<string, unknown>>> {
 		let hydrated = record
 
@@ -639,12 +570,24 @@ export class RuntimeInclusionProjector {
 			const replacement =
 				target === null
 					? null
-					: await this.#finalizeValue(
+					: await finalizeRuntimeInclusionValue(
 							context,
 							inclusion,
 							target as
 								| Readonly<Record<string, unknown>>
 								| readonly Readonly<Record<string, unknown>>[],
+							this.#stages,
+							this.#resultBoundaries,
+							(result, rawResult, nested, scheduler) =>
+								this.hydrate(
+									context,
+									inclusion.operation,
+									result,
+									rawResult,
+									nested,
+									scheduler,
+								),
+							virtualScheduler,
 						)
 			const next = immutableRecord({ ...hydrated, [field]: replacement })
 
@@ -665,6 +608,7 @@ export class RuntimeInclusionProjector {
 		result: DatabaseOperationResult<TOperation>,
 		rawResult: DatabaseOperationResult<TOperation>,
 		inclusions: readonly RuntimePreparedInclusion[],
+		virtualScheduler?: RuntimeVirtualFieldScheduler,
 	): Promise<RuntimeOperationResult<TOperation>> {
 		if (inclusions.length === 0 || result === null) {
 			return restoreRuntimeInclusionResult<TOperation>(result)
@@ -680,21 +624,23 @@ export class RuntimeInclusionProjector {
 				)
 			}
 
-			return restoreRuntimeInclusionResult<TOperation>(
-				immutableArray(
-					await Promise.all(
-						result.map((record, index) => {
-							const rawRecord: unknown = rawResult[index]
-
-							if (!isPlainRecord(record) || !isPlainRecord(rawRecord)) {
-								throw new TypeError('Runtime included source must be a record')
-							}
-
-							return this.#hydrateRecord(context, record, rawRecord, inclusions)
-						}),
+			const hydrated: Readonly<Record<string, unknown>>[] = []
+			for (const [index, record] of result.entries()) {
+				const rawRecord: unknown = rawResult[index]
+				if (!isPlainRecord(record) || !isPlainRecord(rawRecord)) {
+					throw new TypeError('Runtime included source must be a record')
+				}
+				hydrated.push(
+					await this.#hydrateRecord(
+						context,
+						record,
+						rawRecord,
+						inclusions,
+						virtualScheduler,
 					),
-				),
-			)
+				)
+			}
+			return restoreRuntimeInclusionResult<TOperation>(immutableArray(hydrated))
 		}
 
 		if (!isPlainRecord(result) || !isPlainRecord(rawResult)) {
@@ -702,7 +648,13 @@ export class RuntimeInclusionProjector {
 		}
 
 		return restoreRuntimeInclusionResult<TOperation>(
-			await this.#hydrateRecord(context, result, rawResult, inclusions),
+			await this.#hydrateRecord(
+				context,
+				result,
+				rawResult,
+				inclusions,
+				virtualScheduler,
+			),
 		)
 	}
 }

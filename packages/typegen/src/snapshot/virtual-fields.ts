@@ -65,7 +65,7 @@ const snapshotOutputValue = (
 		case 'uuid':
 			return immutableRecord({ kind: 'string' })
 		case 'enum': {
-			const values = Reflect.get(options, 'values')
+			const values: unknown = Reflect.get(options, 'values')
 			if (
 				!isUnknownArray(values) ||
 				!values.every((value) => typeof value === 'string')
@@ -91,7 +91,7 @@ const snapshotOutputValue = (
 		case 'json':
 			return immutableRecord({ kind: 'json' })
 		case 'object': {
-			const fields = Reflect.get(options, 'fields')
+			const fields: unknown = Reflect.get(options, 'fields')
 			if (!isPlainRecord(fields)) {
 				throw new SchemaTypegenError(
 					'unsupported-field-kind',

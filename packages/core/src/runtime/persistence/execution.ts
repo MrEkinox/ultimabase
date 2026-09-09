@@ -15,17 +15,28 @@ import {
 	type DatabasePersistencePlan,
 	type RuntimePersistencePlanRewriteStage,
 } from './contracts.js'
-import { createDatabasePersistencePlan } from './plans.js'
+import {
+	createDatabasePersistencePlan,
+	createDatabasePersistencePlanWithSelection,
+} from './plans.js'
+import type { QuerySelectionNode } from '../../query/index.js'
 
 /** Attaches the canonical physical plan to one Core-owned internal request. */
 export const createDatabasePersistenceRequest = <
 	const TOperation extends DatabaseOperationAst,
 >(
 	request: Omit<DatabaseOperationRequest<TOperation>, 'plan'>,
+	returningSelection?: QuerySelectionNode,
 ): DatabaseOperationRequest<TOperation> =>
 	immutableRecord({
 		...request,
-		plan: createDatabasePersistencePlan(request.operation),
+		plan:
+			returningSelection === undefined
+				? createDatabasePersistencePlan(request.operation)
+				: createDatabasePersistencePlanWithSelection(
+						request.operation,
+						returningSelection,
+					),
 	})
 
 /** Rejects missing protocol or statement support before an adapter effect. */
@@ -64,8 +75,15 @@ export const compileDatabasePersistencePlan = async <
 	executor: DatabaseOperationExecutor,
 	logicalOperation: TOperation,
 	rewrite: RuntimePersistencePlanRewriteStage | undefined,
+	returningSelection?: QuerySelectionNode,
 ): Promise<DatabasePersistencePlan<TOperation>> => {
-	const canonical = createDatabasePersistencePlan(logicalOperation)
+	const canonical =
+		returningSelection === undefined
+			? createDatabasePersistencePlan(logicalOperation)
+			: createDatabasePersistencePlanWithSelection(
+					logicalOperation,
+					returningSelection,
+				)
 	const plan =
 		rewrite === undefined
 			? canonical

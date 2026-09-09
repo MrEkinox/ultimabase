@@ -13,7 +13,7 @@ virtual fields without inventing persistence or mutation behavior.
 3. [x] [2503 — Add output-only value descriptors](2503-output-value-descriptors.md)
 4. [x] [2504 — Contextualize plugin field declarations and Typegen](2504-contextual-plugin-field-typegen.md)
 5. [x] [2505 — Compile virtual schema fields](2505-virtual-field-schema-typegen.md)
-6. [ ] [2506 — Resolve asynchronous virtual fields](2506-virtual-field-runtime.md)
+6. [x] [2506 — Resolve asynchronous virtual fields](2506-virtual-field-runtime.md)
 7. [ ] [2507 — Integrate virtual projections with PostgreSQL](2507-postgres-virtual-projections.md)
 8. [ ] [2508 — Expose virtual fields through REST](2508-rest-virtual-fields.md)
 9. [ ] [2509 — Expose virtual fields through GraphQL](2509-graphql-virtual-fields.md)

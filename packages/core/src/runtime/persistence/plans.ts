@@ -40,11 +40,11 @@ const readLogicalOperationSchema = (operation: ExecutableOperationAst) => {
 	}
 }
 
-/** Compiles one immutable physical statement without exposing protected constraints. */
-export const createDatabasePersistencePlan = <
+const createDatabasePersistencePlanInternal = <
 	const TOperation extends DatabaseOperationAst,
 >(
 	operation: TOperation,
+	returningSelection?: ReturnType<typeof readOperationResultSelection>,
 ): DatabasePersistencePlan<TOperation> => {
 	const executable = operation as unknown as ExecutableOperationAst
 	const base = {
@@ -52,7 +52,7 @@ export const createDatabasePersistencePlan = <
 		returning: immutableRecord({
 			inclusion: readOperationResultInclusion(executable),
 			operationKind: operation.kind,
-			selection: readOperationResultSelection(executable),
+			selection: returningSelection ?? readOperationResultSelection(executable),
 		}),
 		target: immutableRecord({ schema: readLogicalOperationSchema(executable) }),
 		version: databasePersistencePlanVersion,
@@ -138,6 +138,23 @@ export const createDatabasePersistencePlan = <
 
 	return plan as DatabasePersistencePlan<TOperation>
 }
+
+/** Compiles one immutable physical statement without exposing protected constraints. */
+export const createDatabasePersistencePlan = <
+	const TOperation extends DatabaseOperationAst,
+>(
+	operation: TOperation,
+): DatabasePersistencePlan<TOperation> =>
+	createDatabasePersistencePlanInternal(operation)
+
+/** Compiles Core's private result projection without widening the public plan factory. */
+export const createDatabasePersistencePlanWithSelection = <
+	const TOperation extends DatabaseOperationAst,
+>(
+	operation: TOperation,
+	returningSelection: ReturnType<typeof readOperationResultSelection>,
+): DatabasePersistencePlan<TOperation> =>
+	createDatabasePersistencePlanInternal(operation, returningSelection)
 
 /** Replaces one logical delete with an update while retaining target and result identity. */
 export const rewriteDeletePersistencePlan = <

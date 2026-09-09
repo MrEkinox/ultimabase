@@ -279,6 +279,18 @@ targets through their installed target-policy pipeline, then applies monotonic o
 restrictions. `count` and `exists` retain exact `number` and `boolean` results.
 An installed field policy evaluates the schema's logical `Pointer` value.
 
+Selected virtual fields remain part of the logical selection seen by protected
+policy, Hooks, persistence rewriters, and transports. After selection Access,
+Runtime derives a separate private adapter projection from visible persisted
+fields plus each permitted virtual field's declared dependencies. It snapshots
+that superset, removes dependency-only values before public result behaviors,
+then resolves and validates virtual outputs. One operation-local scheduler
+orders occurrences by result item and schema declaration, runs fixed batches of
+at most 16, settles a started batch before reporting its lowest-ordinal failure,
+and starts no later batch after failure or cancellation. Eager target virtuals
+share this scheduler but retain their own target Access evaluation. Mutation
+resolution remains inside the automatic transaction and precedes commit.
+
 ## Runtime callback context and safety
 
 Generic Runtime stages and low-level contribution factories receive the

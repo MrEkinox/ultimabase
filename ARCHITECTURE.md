@@ -133,6 +133,16 @@ protected relation deltas, and the borrowed transaction rather than a public or
 adapter-specific nested-write API. Bulk roots, upserts, nested delete/upsert,
 provisional references, and partial success remain outside this contract.
 
+ADR-0244 adds output-only virtual schema fields without making them persisted
+data. Selection policy authorizes the logical field first; Core then derives a
+private adapter projection containing its stored dependencies, strips
+dependency-only values before public result behavior, and resolves the field
+through an application-bound callback executor. The exact request context,
+owner attribution, structural output validation, fixed concurrency batches, and
+operation-local scheduler also apply to eager targets and nested-write
+transactions. Virtual failure precedes mutation commit and cannot bypass target
+Access, protected output restrictions, or application isolation.
+
 Operation transport identities follow the same exact canonical rule. Their
 bindings may carry immutable transport-owned JSON metadata, while Core's
 allowlist facade reveals only inert operation descriptors. REST uses that
