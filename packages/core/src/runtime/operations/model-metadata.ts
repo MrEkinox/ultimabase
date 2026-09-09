@@ -133,6 +133,16 @@ export const readRuntimeSchemaModelMetadata = (
 	record: object,
 ): RuntimeSchemaModelMetadata | undefined => modelMetadata.get(record)
 
+/** Uses a protected model's effective projection when one has been retained. */
+export const resolveSelectedFields = (
+	value: unknown,
+	fallback: readonly string[] | undefined,
+): readonly string[] | undefined => {
+	if (!isPlainRecord(value)) return fallback
+	const metadata = modelMetadata.get(value)
+	return metadata === undefined ? fallback : metadata.selectedFields
+}
+
 /** Retains the declared pointer value after its public field becomes hydrated. */
 export const retainRuntimeIncludedPointerValue = (
 	record: object,
@@ -174,4 +184,30 @@ export const transferRuntimeSchemaModelMetadata = (
 	if (pointerValues !== undefined) {
 		includedPointerValues.set(target, pointerValues)
 	}
+}
+
+/** Preserves identity while recording a protected narrowing of visible fields. */
+export const narrowRuntimeSchemaModelMetadata = (
+	source: object,
+	target: object,
+	permittedFields: readonly string[],
+): void => {
+	transferRuntimeSchemaModelMetadata(source, target)
+
+	const metadata = modelMetadata.get(source)
+	if (metadata === undefined) return
+
+	const selectedFields =
+		metadata.selectedFields === undefined
+			? permittedFields
+			: metadata.selectedFields.filter((field) =>
+					permittedFields.includes(field),
+				)
+	modelMetadata.set(
+		target,
+		immutableRecord({
+			objectId: metadata.objectId,
+			selectedFields: immutableArray(selectedFields),
+		}),
+	)
 }

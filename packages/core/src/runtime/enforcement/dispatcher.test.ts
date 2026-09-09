@@ -356,7 +356,7 @@ describe('createEnforcementStages', () => {
 		expect(result).toStrictEqual({ title: 'Allowed' })
 		expect(readRuntimeSchemaModelMetadata(result)).toStrictEqual({
 			objectId: 'article-1',
-			selectedFields: undefined,
+			selectedFields: ['title'],
 		})
 		expect(trace).toStrictEqual([
 			'guard',

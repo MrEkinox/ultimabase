@@ -448,11 +448,14 @@ describe('runtime behavior boundaries', () => {
 		).toThrow(expect.objectContaining({ code: 'VALIDATION_ERROR' }))
 	})
 
-	it('preserves protected target identity across included-result snapshots', () => {
+	it('preserves the effective protected target projection across included-result snapshots', () => {
 		const targetId = '00000000-0000-7000-8000-000000000002'
 		const target = Schema.define({
 			className: 'BoundaryIncludedTarget',
-			fields: (field) => ({ name: field.string() }),
+			fields: (field) => ({
+				name: field.string(),
+				secret: field.string({ required: true }),
+			}),
 		})
 		const source = Schema.define({
 			className: 'BoundaryIncludedSource',
@@ -461,12 +464,12 @@ describe('runtime behavior boundaries', () => {
 			}),
 		})
 		new SchemaRegistry([target, source]).resolveSchemaTargets()
-		const targetQuery = new QueryBuilder(target).select({ name: true })
+		const targetQuery = new QueryBuilder(target)
 		const operation = immutableRecord({
 			kind: 'find-many',
 			query: new QueryBuilder(source)
 				.select({ target: true })
-				.include('target', (query) => query.select({ name: true })).ast,
+				.include('target', (query) => query).ast,
 		}) satisfies FindManyOperationAst<typeof source>
 		const targetOperation = immutableRecord({
 			kind: 'find-one',

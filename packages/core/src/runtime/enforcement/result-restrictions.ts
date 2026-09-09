@@ -11,7 +11,7 @@ import type {
 } from '../database/contracts.js'
 import type { ExecutableOperationAst } from '../../query/index.js'
 import type { RuntimeCallbackExecutor } from '../contributions/execution.js'
-import { transferRuntimeSchemaModelMetadata } from '../operations/model-metadata.js'
+import { narrowRuntimeSchemaModelMetadata } from '../operations/model-metadata.js'
 import { readOperationResultInclusion } from '../operations/queries.js'
 import type {
 	RuntimeDatabaseResultStageInput,
@@ -41,7 +41,7 @@ const restrictResultRecord = (
 	)
 	const restricted = immutableRecord(Object.fromEntries(entries))
 
-	transferRuntimeSchemaModelMetadata(result, restricted)
+	narrowRuntimeSchemaModelMetadata(result, restricted, permittedFields)
 
 	return restricted
 }

@@ -43,6 +43,11 @@ edges remain ordinary schemas with composite uniqueness and transactions.
 application through direct TypeScript, REST, networkless GraphQL, and Yoga. It
 proves shared Runtime semantics plus Password Auth, HTTP session, Master
 provenance, exposure, and safe application-selection boundaries.
+`nested-write-public-vertical.postgres.e2e.test.ts` uses that same public
+application to create, include, update, and disconnect one recursive aggregate
+through all four entry points, then compares their persisted PostgreSQL graphs.
+The focused nested-write suites retain the policy, lifecycle, limits, rollback,
+cancellation, application-isolation, and transport-safe failure matrix.
 These suites use only built public package exports and worker-isolated schemas
 without transport plugins.
 

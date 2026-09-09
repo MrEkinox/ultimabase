@@ -59,6 +59,89 @@ Both titles are trimmed by the same Hook, validated by the same Validation
 plugin, authorized by the same Access and ACL policies, and persisted in the
 same automatic mutation transaction.
 
+## Atomic nested writes
+
+One singular mutation can connect an existing pointer, create relation targets,
+connect existing relation targets, and return the final included graph. The
+field already identifies `ExampleAuthor`, so relationship commands need only
+canonical object IDs:
+
+```ts
+const article = await ExampleArticle.createOne(
+	{
+		data: {
+			author: { connect: existingAuthorId },
+			contributors: {
+				create: [{ name: 'Grace' }],
+				connect: [existingContributorId],
+			},
+			slug: 'nested-writes',
+			title: 'Nested writes',
+		},
+		include: {
+			author: { select: { name: true } },
+			contributors: { select: { id: true, name: true } },
+		},
+	},
+	{ ultimabase },
+)
+
+const createdContributor = article.contributors.find(
+	(contributor) => contributor.name === 'Grace',
+)
+if (createdContributor === undefined) throw new Error('Missing contributor')
+
+const updated = await ExampleArticle.updateOne(
+	{
+		id: article.id,
+		data: {
+			contributors: {
+				update: [
+					{
+						id: createdContributor.id,
+						data: { name: 'Grace Hopper' },
+					},
+				],
+				disconnect: [existingContributorId],
+			},
+		},
+		include: {
+			author: { select: { name: true } },
+			contributors: { select: { id: true, name: true } },
+		},
+	},
+	{ ultimabase },
+)
+```
+
+REST sends the same command object as its concise JSON body. GraphQL uses the
+generated source-field-specific nested inputs; scalar values inside a nested
+update retain GraphQL's existing update wrappers:
+
+```json
+{
+	"input": {
+		"id": "ARTICLE_ID",
+		"data": {
+			"contributors": {
+				"update": [
+					{
+						"id": "CREATED_CONTRIBUTOR_ID",
+						"data": { "name": { "set": "Grace Hopper" } }
+					}
+				],
+				"disconnect": ["EXISTING_CONTRIBUTOR_ID"]
+			}
+		}
+	}
+}
+```
+
+Every child object and relation change independently crosses Validation, Hooks,
+Access, ACL, and the ordinary Runtime lifecycle. The root, children, relation
+edges, final inclusion, and buffered post-commit work share one transaction, so
+any late failure rolls the entire graph back.
+
 Trusted server code can execute the identical GraphQL application without
 Yoga or HTTP:
 

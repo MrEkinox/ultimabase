@@ -23,7 +23,7 @@ import type {
 } from '../database/contracts.js'
 import type { RuntimeOperationResult } from '../pipeline/contracts.js'
 import { getOperationSchema } from '../operations/schema.js'
-import { transferRuntimeSchemaModelMetadata } from '../operations/model-metadata.js'
+import * as modelMetadata from '../operations/model-metadata.js'
 import {
 	snapshotRuntimeMutationOperation,
 	snapshotRuntimeResultRecord,
@@ -360,9 +360,8 @@ const snapshotRecordResult = (
 
 	if (isPlainRecord(value)) {
 		// Protected model identity follows immutable snapshots without becoming data.
-		transferRuntimeSchemaModelMetadata(value, snapshot)
+		modelMetadata.transferRuntimeSchemaModelMetadata(value, snapshot)
 	}
-
 	return snapshot
 }
 
@@ -573,7 +572,6 @@ const assertOutcomeCardinality = (
 			break
 		case 'delete-many':
 		case 'update-many':
-			// Adapters keep the fast path empty unless installed behaviors requested snapshots.
 			if (materializations.length === 0) return
 			expected = isUnknownArray(result) ? result.length : undefined
 			break
@@ -731,13 +729,16 @@ export const createRuntimeBehaviorBoundaries =
 		): Readonly<Record<string, unknown>> => {
 			const schema = readOperationSchema(operation, ['operation', 'schema'])
 			const inclusions = readInclusions(operation)
-
+			const effectiveSelectedFields = modelMetadata.resolveSelectedFields(
+				value,
+				selectedFields,
+			)
 			if (inclusions.length === 0 || !isPlainRecord(value)) {
 				return snapshotRecordResult(
 					readPlans(schema),
 					value,
 					path,
-					selectedFields,
+					effectiveSelectedFields,
 				)
 			}
 
@@ -796,12 +797,12 @@ export const createRuntimeBehaviorBoundaries =
 				readPlans(schema),
 				parentCandidate,
 				path,
-				selectedFields,
+				effectiveSelectedFields,
 			)
 
 			// The placeholder pointer exists only for structural validation. Restore the
 			// source record's private identity and declared pointer values on its snapshot.
-			transferRuntimeSchemaModelMetadata(value, parent)
+			modelMetadata.transferRuntimeSchemaModelMetadata(value, parent)
 
 			if (hydratedTargets.size === 0) return parent
 
@@ -810,7 +811,7 @@ export const createRuntimeBehaviorBoundaries =
 				...Object.fromEntries(hydratedTargets),
 			})
 
-			transferRuntimeSchemaModelMetadata(parent, snapshot)
+			modelMetadata.transferRuntimeSchemaModelMetadata(parent, snapshot)
 
 			return snapshot
 		}
@@ -1008,7 +1009,6 @@ export const createRuntimeBehaviorBoundaries =
 					selectedFieldsOverride,
 				)
 
-				// Inclusion-aware validation produces the post-hydration record contract.
 				return snapshotIncludedResult(
 					operation,
 					replacement,
