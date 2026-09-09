@@ -147,7 +147,7 @@ const compileOperationPlan = (
 	immutableRecord({
 		operation,
 		unknownFields: 'reject',
-		fields: compileFields(schema.fields, operation),
+		fields: compileFields(schema.persistedFields, operation),
 	})
 
 /**

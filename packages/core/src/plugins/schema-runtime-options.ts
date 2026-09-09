@@ -103,7 +103,7 @@ export const collectRuntimeCompilations = (
 				}
 
 				for (const [fieldName, field] of Object.entries(
-					candidate.definition.fields,
+					candidate.definition.persistedFields,
 				)) {
 					if (!Object.hasOwn(field.options, option.name)) continue
 					const provenance =

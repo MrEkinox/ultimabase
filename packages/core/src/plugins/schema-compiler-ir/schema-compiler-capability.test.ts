@@ -125,7 +125,7 @@ describe('schema compiler replacement capability', () => {
 				pluginId: 'fixture.schema-compiler',
 				version: '2.3.4',
 			},
-			protocolVersion: '5.0.0',
+			protocolVersion: '6.0.0',
 			target: canonicalSchemaCompilerTarget,
 		})
 		expect(Object.isFrozen(application.schemaCompilerProvenance)).toBe(true)
@@ -149,7 +149,7 @@ describe('schema compiler replacement capability', () => {
 			contributionId: 'canonical-schema-compiler',
 			normalizedStaticOptions: {},
 			owner: { kind: 'core', version: '0.0.0' },
-			protocolVersion: '5.0.0',
+			protocolVersion: '6.0.0',
 		})
 	})
 
@@ -175,7 +175,7 @@ describe('schema compiler replacement capability', () => {
 						target: canonicalSchemaCompilerTarget,
 						value: {
 							kind: 'schema-compiler-provider',
-							protocolVersion: '5.0.0',
+							protocolVersion: '6.0.0',
 							staticOptions: {},
 						},
 					}),

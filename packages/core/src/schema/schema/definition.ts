@@ -7,6 +7,12 @@ import {
 
 import type { GenericField } from '../fields/base/contract.js'
 import { assertFieldDefinition } from '../fields/base/definition.js'
+import {
+	assertVirtualFieldDefinition,
+	getVirtualFieldResolver,
+	type GenericVirtualField,
+} from './virtual-field.js'
+import { OutputBuilderMethodUnavailableError } from '../output/builder.js'
 import type { Pointer } from '../relations/pointer.js'
 import {
 	createSchemaModelCapabilityContext,
@@ -39,6 +45,7 @@ import {
 	type SchemaFieldBuilderDeclaration,
 } from './field-builder.js'
 import { snapshotCapturedOptionValue } from './captured-options.js'
+import { areSchemaDeclarationValuesCompatible } from './declaration-compatibility.js'
 import type { FieldBuilderMethodResolver } from './field-builder-methods.js'
 import type {
 	BaseSchemaTypeInfo,
@@ -60,10 +67,19 @@ import type { SchemaConstraintDefinition } from './constraints.js'
 
 export type { BaseItem } from '../type-info.js'
 export type { SchemaAPI } from './schema-api.js'
+export { areSchemaDeclarationValuesCompatible } from './declaration-compatibility.js'
 /**
  * Collects named field definitions without erasing their concrete literals.
  */
 export type SchemaFields = Readonly<Record<string, GenericField>>
+
+/** Collects stored and output-only declarations in the canonical schema map. */
+export type SchemaDeclaredFields = Readonly<
+	Record<string, GenericField | GenericVirtualField>
+>
+
+/** Collects the output-only declarations compiled for one schema. */
+export type SchemaVirtualFields = Readonly<Record<string, GenericVirtualField>>
 
 /**
  * Collects schema-scoped plugin metadata in deterministic declaration order.
@@ -73,7 +89,7 @@ export type SchemaFields = Readonly<Record<string, GenericField>>
  */
 export interface SchemaOptions<
 	TClassName extends string = string,
-	TFields extends SchemaFields = SchemaFields,
+	TFields extends SchemaDeclaredFields = SchemaDeclaredFields,
 > extends UltimaBaseGeneratedSchemaOptions {
 	/**
 	 * Declares the stable logical name used by queries, transports, and adapters.
@@ -87,7 +103,7 @@ export interface SchemaOptions<
 	 *
 	 * @example `fields: (field) => ({ title: field.string(), published: field.boolean() })`
 	 */
-	readonly fields: SchemaFieldBuilderDeclaration<TFields>
+	readonly fields: SchemaFieldBuilderDeclaration<TFields, TClassName>
 	/**
 	 * Declares adapter-neutral composite indexes containing at least two fields.
 	 * Single-field indexes belong on the corresponding field through `indexed`.
@@ -104,7 +120,7 @@ export interface SchemaOptions<
  */
 export interface SchemaMetadata<
 	TClassName extends string = string,
-	TFields extends SchemaFields = SchemaFields,
+	TFields extends SchemaDeclaredFields = SchemaDeclaredFields,
 > {
 	/** The exact logical class name supplied to `Schema.define()`. */
 	readonly className: TClassName
@@ -116,12 +132,16 @@ export interface SchemaMetadata<
 	readonly indexes: readonly SchemaIndexDefinition<SchemaFieldName<TFields>>[]
 	/** Explains the exact owner of every logical compiled contribution. */
 	readonly provenance: SchemaCompilationProvenance
+	/** The immutable field map visible to persistence and mutation behavior. */
+	readonly persistedFields: SchemaFields & Readonly<SystemFields>
+	/** The immutable output-only field map hidden from persistence. */
+	readonly virtualFields: SchemaVirtualFields
 }
 
 /** Carries trusted schema identity plus the neutral metadata used by Core. */
 export interface SchemaDefinition<
 	TClassName extends string = string,
-	TFields extends SchemaFields = SchemaFields,
+	TFields extends SchemaDeclaredFields = SchemaDeclaredFields,
 > extends SchemaMetadata<TClassName, TFields> {
 	/** The immutable transport-neutral metadata consumed by infrastructure. */
 	readonly definition: SchemaMetadata<TClassName, TFields>
@@ -291,7 +311,7 @@ const defineSchemaStaticCapabilities = <
 const assertSchemaFields: (
 	fields: unknown,
 	className: string,
-) => asserts fields is SchemaFields = (fields, className) => {
+) => asserts fields is SchemaDeclaredFields = (fields, className) => {
 	if (!isPlainRecord(fields)) {
 		throw new SchemaCompilationError(
 			'invalid-result',
@@ -304,7 +324,16 @@ const assertSchemaFields: (
 
 	for (const [name, field] of Object.entries(fields)) {
 		assertNonEmptyString(name, `${className} schema field name`)
-		assertFieldDefinition(field, `${className}.fields.${name}`)
+		if (
+			typeof field === 'object' &&
+			field !== null &&
+			'kind' in field &&
+			field.kind === 'virtual'
+		) {
+			assertVirtualFieldDefinition(field, `${className}.fields.${name}`)
+		} else {
+			assertFieldDefinition(field, `${className}.fields.${name}`)
+		}
 	}
 }
 
@@ -315,11 +344,32 @@ const compileSchemaRecord = (
 	assertSchemaFields(developerFieldsInput, declaration.className)
 	const developerFields = immutableRecord(developerFieldsInput)
 	const declaredFields = developerFields
+	const persistedDeveloperFields = immutableRecord(
+		Object.fromEntries(
+			Object.entries(developerFields).filter(
+				([, field]) => field.kind !== 'virtual',
+			),
+		),
+	) as SchemaFields
+	const virtualFields = immutableRecord(
+		Object.fromEntries(
+			Object.entries(developerFields).filter(
+				([, field]) => field.kind === 'virtual',
+			),
+		),
+	) as SchemaVirtualFields
 	const fields = immutableRecord({
 		...declaredFields,
 		...systemFields,
 	})
-	const indexes = normalizeSchemaIndexes(declaredFields, declaration.indexes)
+	const persistedFields = immutableRecord({
+		...persistedDeveloperFields,
+		...systemFields,
+	})
+	const indexes = normalizeSchemaIndexes(
+		persistedDeveloperFields,
+		declaration.indexes,
+	)
 	const provenance = createInitialSchemaProvenance(
 		declaration.className,
 		Object.keys(declaredFields),
@@ -333,12 +383,14 @@ const compileSchemaRecord = (
 		constraints: immutableArray([]),
 		fields,
 		indexes,
+		persistedFields,
 		provenance,
+		virtualFields,
 	})
 
 	return immutableRecord({
 		definition,
-		developerFields,
+		developerFields: persistedDeveloperFields,
 		targets: undefined,
 	})
 }
@@ -390,102 +442,6 @@ const executeSchemaFieldDeclaration = (
 			},
 		)
 	}
-}
-
-export const areSchemaDeclarationValuesCompatible = (
-	left: unknown,
-	right: unknown,
-	seen: WeakMap<object, WeakSet<object>> = new WeakMap(),
-): boolean => {
-	if (Object.is(left, right)) return true
-
-	if (typeof left === 'function' || typeof right === 'function') {
-		return typeof left === 'function' && typeof right === 'function'
-	}
-
-	if (
-		typeof left !== 'object' ||
-		left === null ||
-		typeof right !== 'object' ||
-		right === null
-	) {
-		return false
-	}
-
-	const seenRights = seen.get(left)
-
-	if (seenRights?.has(right) === true) return true
-	if (seenRights === undefined) {
-		seen.set(left, new WeakSet([right]))
-	} else {
-		seenRights.add(right)
-	}
-
-	if (left instanceof Date || right instanceof Date) {
-		return (
-			left instanceof Date &&
-			right instanceof Date &&
-			left.getTime() === right.getTime()
-		)
-	}
-
-	if (left instanceof RegExp || right instanceof RegExp) {
-		return (
-			left instanceof RegExp &&
-			right instanceof RegExp &&
-			left.source === right.source &&
-			left.flags === right.flags
-		)
-	}
-
-	if (ArrayBuffer.isView(left) || ArrayBuffer.isView(right)) {
-		if (!ArrayBuffer.isView(left) || !ArrayBuffer.isView(right)) return false
-
-		const leftBytes = new Uint8Array(
-			left.buffer,
-			left.byteOffset,
-			left.byteLength,
-		)
-		const rightBytes = new Uint8Array(
-			right.buffer,
-			right.byteOffset,
-			right.byteLength,
-		)
-
-		return (
-			leftBytes.length === rightBytes.length &&
-			leftBytes.every((value, index) => value === rightBytes[index])
-		)
-	}
-
-	if (Array.isArray(left) || Array.isArray(right)) {
-		return (
-			Array.isArray(left) &&
-			Array.isArray(right) &&
-			left.length === right.length &&
-			left.every((value: unknown, index: number) =>
-				areSchemaDeclarationValuesCompatible(value, right[index], seen),
-			)
-		)
-	}
-
-	if (Object.getPrototypeOf(left) !== Object.getPrototypeOf(right)) return false
-
-	const leftKeys = Reflect.ownKeys(left)
-	const rightKeys = Reflect.ownKeys(right)
-
-	return (
-		leftKeys.length === rightKeys.length &&
-		leftKeys.every(
-			(key) =>
-				Object.hasOwn(right, key) &&
-				areSchemaDeclarationValuesCompatible(
-					Reflect.get(left, key),
-					Reflect.get(right, key),
-					seen,
-				),
-		)
-	)
 }
 
 const assertCompatibleTargets = (
@@ -550,13 +506,25 @@ export const validateSchemaCompilation = (
 	targets: readonly SchemaCompiledTargetIdentity[],
 ): void => {
 	const existingRecord = compiledSchemaRecords.get(prepared.schema)
+	const resolverCompatible =
+		existingRecord?.targets === undefined ||
+		Object.entries(existingRecord.definition.virtualFields).every(
+			([name, field]) => {
+				const candidate = prepared.definition.virtualFields[name]
+				return (
+					candidate !== undefined &&
+					getVirtualFieldResolver(candidate) === getVirtualFieldResolver(field)
+				)
+			},
+		)
 
 	if (
 		existingRecord?.targets !== undefined &&
-		!areSchemaDeclarationValuesCompatible(
-			existingRecord.definition,
-			prepared.definition,
-		)
+		(!resolverCompatible ||
+			!areSchemaDeclarationValuesCompatible(
+				existingRecord.definition,
+				prepared.definition,
+			))
 	) {
 		throw new SchemaCompilationError(
 			'incompatible-definition',
@@ -605,7 +573,7 @@ export const finalizeSchemaCompilation = (
 
 const defineSchemaModel = <
 	const TClassName extends string,
-	const TFields extends SchemaFields,
+	const TFields extends SchemaDeclaredFields,
 >(
 	options: SchemaOptions<TClassName, TFields>,
 ): SchemaReference<TClassName> => {
@@ -650,7 +618,7 @@ const defineSchemaModel = <
 	let schemaIdentity: SchemaReference<TClassName> | undefined
 	const schema: SchemaReference<TClassName> = createSchemaModelClass<
 		TClassName,
-		TFields
+		SchemaFields
 	>({
 		className: options.className,
 		readDefinition: () => {
@@ -659,14 +627,14 @@ const defineSchemaModel = <
 			}
 
 			return readCompiledSchemaRecord(schemaIdentity)
-				.definition as SchemaMetadata<TClassName, TFields>
+				.definition as SchemaMetadata<TClassName, SchemaFields>
 		},
 		readDeveloperFields: () => {
 			if (schemaIdentity === undefined) {
 				throw new TypeError('Schema identity is not available')
 			}
 
-			return readCompiledSchemaRecord(schemaIdentity).developerFields as TFields
+			return readCompiledSchemaRecord(schemaIdentity).developerFields
 		},
 	})
 	schemaIdentity = schema
@@ -694,7 +662,8 @@ const defineSchemaModel = <
 		if (!(
 			error instanceof SchemaCompilationError &&
 			(error.cause instanceof FieldBuilderMethodUnavailableError ||
-				error.cause instanceof FieldBuilderTargetUnavailableError)
+				error.cause instanceof FieldBuilderTargetUnavailableError ||
+				error.cause instanceof OutputBuilderMethodUnavailableError)
 		)) {
 			throw error
 		}

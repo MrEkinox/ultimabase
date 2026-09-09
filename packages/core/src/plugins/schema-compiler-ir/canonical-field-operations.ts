@@ -102,7 +102,10 @@ export const applyCanonicalFieldOperation = (
 ): boolean => {
 	const { state } = context
 	if (operation.kind === 'field:add') {
-		if (state.fields.some(({ name }) => name === operation.name)) {
+		if (
+			state.fields.some(({ name }) => name === operation.name) ||
+			state.virtualFields.some(({ name }) => name === operation.name)
+		) {
 			throw new TypeError(
 				`Duplicate schema field: ${state.className}.${operation.name}`,
 			)
@@ -215,7 +218,8 @@ export const applyCanonicalFieldOperation = (
 		operation.kind === 'field:rename' ? operation.to : operation.name
 	if (
 		operation.kind === 'field:rename' &&
-		state.fields.some(({ name }) => name === targetName)
+		(state.fields.some(({ name }) => name === targetName) ||
+			state.virtualFields.some(({ name }) => name === targetName))
 	) {
 		throw new TypeError(
 			`Duplicate schema field: ${state.className}.${targetName}`,

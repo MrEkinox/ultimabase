@@ -49,7 +49,7 @@ const hasNestedWriteRelationships = (
 	schema: SchemaDefinition,
 	data: Readonly<Record<string, unknown>>,
 ): boolean =>
-	Object.entries(schema.fields).some(
+	Object.entries(schema.persistedFields).some(
 		([fieldName, field]) =>
 			(field.kind === 'pointer' || field.kind === 'relation') &&
 			Object.hasOwn(data, fieldName) &&

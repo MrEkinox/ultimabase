@@ -77,7 +77,7 @@ export const getRuntimeOperationFields = (
 		throw new TypeError('Runtime field traversal requires a declared schema')
 	}
 
-	return schema.fields
+	return schema.persistedFields
 }
 
 /** Adds one immutable visit descriptor at the requested traversal position. */

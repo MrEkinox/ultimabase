@@ -310,7 +310,7 @@ const resolveTarget = (
 export const compileSchemaTargetGraph = (
 	registry: SchemaRegistry,
 	readFields: (schema: SchemaDefinition) => SchemaFields = (schema) =>
-		schema.fields,
+		schema.persistedFields,
 ): SchemaTargetGraph => {
 	const entries: ResolvedSchemaTarget[] = []
 	const pendingRelations: PendingSchemaRelation[] = []

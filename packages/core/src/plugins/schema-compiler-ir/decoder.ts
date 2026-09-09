@@ -1,6 +1,11 @@
-import { immutableArray, immutableRecord } from '@ultimabase/shared'
+import {
+	immutableArray,
+	immutableRecord,
+	isPlainRecord,
+} from '@ultimabase/shared'
 
 import type { GenericField } from '../../schema/fields/base/contract.js'
+import { assertOutputDescriptor } from '../../schema/output/descriptor.js'
 import {
 	assertFieldDefinition,
 	replaceDeclaredFieldOptions,
@@ -14,11 +19,17 @@ import {
 	type SchemaDefinition,
 	type SchemaMetadata,
 } from '../../schema/schema/definition.js'
+import {
+	assertVirtualFieldDefinition,
+	type GenericVirtualField,
+} from '../../schema/schema/virtual-field.js'
 import type { SchemaCompilerArtifactSession } from './artifacts.js'
 import type {
 	SchemaCompilerFieldNode,
 	SchemaCompilerOptionValue,
+	SchemaCompilerOutputNode,
 	SchemaCompilerOutput,
+	SchemaCompilerVirtualFieldNode,
 } from './contracts.js'
 import { isSchemaCompilerArtifactReference } from './artifacts.js'
 
@@ -66,6 +77,84 @@ const decodeField = (
 		: replaceDeclaredFieldOptions(artifact, decodedOptions)
 }
 
+const assertOutputNodeMatchesArtifact = (
+	node: SchemaCompilerOutputNode,
+	session: SchemaCompilerArtifactSession,
+	path: string,
+): void => {
+	const descriptor = session.resolve(node.artifact, 'output')
+	assertOutputDescriptor(descriptor, path)
+	const options = immutableRecord(
+		Object.fromEntries(
+			node.options.map(({ name, value }) => [
+				name,
+				decodeOptionValue(value, session),
+			]),
+		),
+	)
+	const nestedFields: Readonly<Record<string, unknown>> | undefined =
+		descriptor.kind === 'object' &&
+		'fields' in descriptor.options &&
+		isPlainRecord(descriptor.options.fields)
+			? descriptor.options.fields
+			: undefined
+
+	if (
+		descriptor.kind !== node.kind ||
+		!areSchemaDeclarationValuesCompatible(
+			Object.fromEntries(
+				Object.entries(descriptor.options).filter(
+					([name]) => name !== 'fields',
+				),
+			),
+			options,
+		) ||
+		Object.keys(nestedFields ?? {}).length !== node.fields.length
+	) {
+		throw new TypeError(`Schema compiler changed virtual output: ${path}`)
+	}
+	for (const child of node.fields) {
+		if (
+			nestedFields?.[child.name] === undefined ||
+			session.resolve(child.output.artifact, 'output') !==
+				nestedFields[child.name]
+		) {
+			throw new TypeError(`Schema compiler changed virtual output: ${path}`)
+		}
+		assertOutputNodeMatchesArtifact(
+			child.output,
+			session,
+			`${path}.${child.name}`,
+		)
+	}
+}
+
+const decodeVirtualField = (
+	node: SchemaCompilerVirtualFieldNode,
+	session: SchemaCompilerArtifactSession,
+	path: string,
+): GenericVirtualField => {
+	const field = session.resolve(node.artifact, 'virtual-field')
+	assertVirtualFieldDefinition(field, path)
+	assertOutputNodeMatchesArtifact(node.output, session, `${path}.output`)
+	const options = immutableRecord(
+		Object.fromEntries(
+			node.options.map(({ name, value }) => [
+				name,
+				decodeOptionValue(value, session),
+			]),
+		),
+	)
+	if (
+		session.resolve(node.output.artifact, 'output') !== field.output ||
+		!areSchemaDeclarationValuesCompatible(node.select, field.select) ||
+		!areSchemaDeclarationValuesCompatible(options, field.options)
+	) {
+		throw new TypeError(`Schema compiler changed virtual field: ${path}`)
+	}
+	return field
+}
+
 const resolveSchema = (
 	session: SchemaCompilerArtifactSession,
 	artifact: Parameters<SchemaCompilerArtifactSession['resolve']>[0],
@@ -100,7 +189,7 @@ export const decodeSchemaCompilerOutput = (
 	immutableArray(
 		output.schemas.map((node) => {
 			const schema = resolveSchema(session, node.artifact)
-			const fields = immutableRecord(
+			const persistedFields = immutableRecord(
 				Object.fromEntries(
 					node.fields.map((field) => [
 						field.name,
@@ -111,7 +200,20 @@ export const decodeSchemaCompilerOutput = (
 						),
 					]),
 				),
-			) as SchemaMetadata['fields']
+			) as SchemaMetadata['persistedFields']
+			const virtualFields = immutableRecord(
+				Object.fromEntries(
+					node.virtualFields.map((field) => [
+						field.name,
+						decodeVirtualField(
+							field,
+							session,
+							`${node.className}.fields.${field.name}`,
+						),
+					]),
+				),
+			)
+			const fields = immutableRecord({ ...persistedFields, ...virtualFields })
 			const developerFields = immutableRecord(
 				Object.fromEntries(
 					node.developerFieldNames.map((name) => {
@@ -145,7 +247,9 @@ export const decodeSchemaCompilerOutput = (
 					indexes: immutableArray(
 						node.indexes.map(({ definition }) => definition),
 					),
+					persistedFields,
 					provenance: node.provenance,
+					virtualFields,
 				}),
 				developerFields,
 				schema,

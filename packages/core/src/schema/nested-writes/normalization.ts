@@ -132,7 +132,8 @@ const relationCanDisconnect = (
 	const mappedBy = relation?.mappedBy
 	if (mappedBy?.kind !== 'pointer') return true
 
-	const mappedField = mappedBy.schema.fields[mappedBy.fieldPath[0] ?? '']
+	const mappedField =
+		mappedBy.schema.persistedFields[mappedBy.fieldPath[0] ?? '']
 	return mappedField === undefined || isFieldNullable(mappedField)
 }
 
@@ -185,7 +186,7 @@ const normalizeObjectNode = (
 
 	try {
 		const operationIndex = allocateOperation(state)
-		const fieldEntries = Object.entries(schema.fields)
+		const fieldEntries = Object.entries(schema.persistedFields)
 		const knownFields = new Set(fieldEntries.map(([fieldName]) => fieldName))
 		for (const key of Object.keys(input)) {
 			if (!knownFields.has(key)) {

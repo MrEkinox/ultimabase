@@ -2,8 +2,7 @@
 
 An `OutputBuilder` callback declares the shape of a returned value without
 declaring a stored field or mutation input. Keeping the callback reusable also
-preserves its exact inferred value for the virtual-field API delivered by a
-later schema issue:
+preserves its exact inferred value for `field.virtual`:
 
 ```ts
 import type { OutputBuilder, OutputValue } from '@ultimabase/core'

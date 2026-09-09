@@ -21,7 +21,7 @@ import { readEnforcementOperationSchema } from './contribution-evaluation.js'
 import { getEnforcementStateSnapshot, type EnforcementState } from './state.js'
 
 const isSystemField = (schema: SchemaDefinition, field: string): boolean => {
-	const definition: unknown = schema.fields[field]
+	const definition: unknown = schema.persistedFields[field]
 
 	return (
 		isPlainRecord(definition) &&

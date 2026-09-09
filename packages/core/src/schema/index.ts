@@ -151,6 +151,7 @@ export type { SchemaConstraintDefinition } from './schema/constraints.js'
 export type {
 	SchemaCreateData,
 	SchemaItem,
+	SchemaOutput,
 	SchemaUpdateData,
 } from './schema/values.js'
 export type {
@@ -187,8 +188,10 @@ export type {
 	SchemaClassCapabilities,
 	SchemaClassCapabilityFactory,
 	SchemaDefinition,
+	SchemaDeclaredFields,
 	SchemaReference,
 	SchemaFields,
+	SchemaVirtualFields,
 	SchemaCompilationFailureReason,
 	SchemaMetadata,
 	SchemaOptions,
@@ -254,6 +257,15 @@ export type {
 	OutputValueShape,
 	TemporalOutputRepresentationOptions,
 } from './output/contracts.js'
+export type {
+	GenericVirtualField,
+	VirtualFieldBuilderMethod,
+	VirtualFieldDefinition,
+	VirtualFieldDependencySelection,
+	VirtualFieldOptions,
+	VirtualFieldResolver,
+	VirtualFieldResolverItem,
+} from './schema/virtual-field.js'
 export { defineFieldBuilderMethod } from './schema/field-builder-methods.js'
 export type {
 	FieldBuilderMethodDefinition,

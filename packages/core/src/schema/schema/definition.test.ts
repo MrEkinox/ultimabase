@@ -42,7 +42,9 @@ describe('schema definitions', () => {
 			'constraints',
 			'fields',
 			'indexes',
+			'persistedFields',
 			'provenance',
+			'virtualFields',
 		])
 		expect(Object.isFrozen(schema)).toBe(true)
 		expect(Object.isFrozen(schema.definition)).toBe(true)

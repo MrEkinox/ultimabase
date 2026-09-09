@@ -23,7 +23,7 @@ import type {
 	SchemaFields,
 	SchemaMetadata,
 } from './definition.js'
-import type { SchemaCreateData, SchemaItem } from './values.js'
+import type { SchemaCreateData, SchemaItem, SchemaOutput } from './values.js'
 
 /** Distinguishes caller input, prepared candidates, and persisted values. */
 export type SchemaModelState = 'draft' | 'prepared-draft' | 'persisted'
@@ -151,10 +151,10 @@ export interface SchemaDraftUpsertFields<TSchema extends SchemaDefinition> {
 /** Combines a draft's create values with one unique target, update, and projection. */
 export type SchemaDraftUpsertInput<
 	TSchema extends SchemaDefinition,
-	TSelection extends SchemaModelSelection<SchemaItem<TSchema>> | undefined =
+	TSelection extends SchemaModelSelection<SchemaOutput<TSchema>> | undefined =
 		undefined,
 > = SchemaDraftUpsertFields<TSchema> &
-	SchemaModelResultSelection<SchemaItem<TSchema>, TSelection>
+	SchemaModelResultSelection<SchemaOutput<TSchema>, TSelection>
 
 /** Names one exact field-oriented update without retaining field definitions in hovers. */
 export type CompactSchemaModelUpdateInput<
@@ -522,7 +522,7 @@ export type SchemaDraft<TSchema extends SchemaDefinition> = Simplify<
 	SchemaModelInstance<TSchema, 'draft', SchemaCreateData<TSchema>> &
 		SchemaDraftCommands<
 			TSchema['className'],
-			SchemaItem<TSchema>,
+			SchemaOutput<TSchema>,
 			NestedUpdateExpressionInput<TSchema>,
 			SchemaResultRelations<TSchema> & SchemaResultCapabilitiesOf<TSchema>,
 			SchemaDraftUpsertFields<TSchema>,
@@ -538,12 +538,12 @@ export type SchemaPreparedDraft<TSchema extends SchemaDefinition> = Simplify<
 /** Infers one persisted schema-class instance with an exact visible shape. */
 export type SchemaResult<
 	TSchema extends SchemaDefinition,
-	TValues extends object = SchemaItem<TSchema>,
+	TValues extends object = SchemaOutput<TSchema>,
 > = PersistedSchemaModelWithPointer<
 	SchemaModelPointerIdentity<Pointer<TSchema>>,
 	TSchema['className'],
 	TValues,
-	SchemaItem<TSchema>,
+	SchemaOutput<TSchema>,
 	NestedUpdateExpressionInput<TSchema>,
 	SchemaResultRelations<TSchema> & SchemaResultCapabilitiesOf<TSchema>
 >

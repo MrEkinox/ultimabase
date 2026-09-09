@@ -13,7 +13,10 @@ import {
 } from '@ultimabase/shared'
 
 import type { QueryFieldName } from '../ast/contracts.js'
-import { parseQueryFieldName } from '../ast/schema.js'
+import {
+	parsePersistedQueryFieldName,
+	readPersistedQueryFields,
+} from '../ast/schema.js'
 import type { QueryFieldPath } from './primitive.js'
 
 export type RuntimeQueryField = FieldDefinition<string, unknown, object>
@@ -93,13 +96,13 @@ export const resolveQueryTarget = <const TSchema extends SchemaDefinition>(
 	target: unknown,
 ): ResolvedQueryTarget<QueryFieldName<TSchema>> => {
 	const parsedPath = parseFieldPath(target)
-	const normalizedFieldName = parseQueryFieldName(
+	const normalizedFieldName = parsePersistedQueryFieldName(
 		schema,
 		parsedPath?.field ?? target,
 		'query filter field',
 	)
 	const field: RuntimeQueryField | undefined =
-		schema.fields[normalizedFieldName]
+		readPersistedQueryFields(schema)[normalizedFieldName]
 
 	if (field === undefined) {
 		throw new TypeError('query filter field must reference a field definition')

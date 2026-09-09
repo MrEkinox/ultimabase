@@ -40,6 +40,7 @@ export const coreFieldBuilderMethodNames = [
 	'string',
 	'time',
 	'uuid',
+	'virtual',
 ] as const
 
 const coreFieldBuilderMethodNameSet: ReadonlySet<string> = new Set(

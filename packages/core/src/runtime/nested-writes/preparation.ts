@@ -165,7 +165,7 @@ export const createRuntimeNestedUpdateExpression = (
 	}
 
 	const fieldOrder = new Map(
-		Object.keys(node.schema.fields).map((fieldName, index) => [
+		Object.keys(node.schema.persistedFields).map((fieldName, index) => [
 			fieldName,
 			index,
 		]),

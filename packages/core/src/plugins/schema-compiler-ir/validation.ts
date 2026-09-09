@@ -290,6 +290,21 @@ const assertProtectedSchemaFacts = (
 			)
 		}
 	}
+
+	if (
+		expected.virtualFields.length !== candidate.virtualFields.length ||
+		expected.virtualFields.some((field, index) => {
+			const replacement = candidate.virtualFields[index]
+			return (
+				replacement?.artifact !== field.artifact ||
+				!areSchemaDeclarationValuesCompatible(replacement, field)
+			)
+		})
+	) {
+		throw new TypeError(
+			`Schema compiler output changed a protected virtual field: ${expected.className}`,
+		)
+	}
 }
 
 /** Protects compiler execution from mutable, executable, or foreign input data. */

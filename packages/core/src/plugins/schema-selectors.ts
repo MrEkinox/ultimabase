@@ -241,7 +241,7 @@ export const matchesSelector = (
 	}
 
 	if (selector.field !== undefined) {
-		const field = candidate.definition.fields[selector.field.name]
+		const field = candidate.definition.persistedFields[selector.field.name]
 		if (
 			field === undefined ||
 			(selector.field.kind !== undefined && field.kind !== selector.field.kind)

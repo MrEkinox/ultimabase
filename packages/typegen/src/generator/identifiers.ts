@@ -37,10 +37,12 @@ export class GeneratedIdentifiers {
 			for (const suffix of [
 				'Access',
 				'CreateInput',
+				'DependencySelect',
 				'Hooks',
 				'Include',
 				'Item',
 				'OrderByInput',
+				'Output',
 				'Select',
 				'UpdateInput',
 				'WhereInput',
@@ -60,6 +62,7 @@ export class GeneratedIdentifiers {
 
 			this.#schemas.set(schema, alias)
 			this.#collectNamedFields(schema, schema.fields, alias)
+			this.#collectNamedFields(schema, schema.virtualFields, alias)
 		}
 	}
 

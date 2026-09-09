@@ -6,6 +6,10 @@ export type SchemaItem<TSchema extends SchemaTypeInfoSource> = SchemaTypeValue<
 	'Item'
 >
 
+/** Reads the complete caller-visible result shape owned by one schema contract. */
+export type SchemaOutput<TSchema extends SchemaTypeInfoSource> =
+	SchemaTypeValue<TSchema, 'Output'>
+
 /** Reads create data owned by one generated schema contract. */
 export type SchemaCreateData<TSchema extends SchemaTypeInfoSource> =
 	SchemaTypeValue<TSchema, 'Create'>

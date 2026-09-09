@@ -2,6 +2,7 @@ import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import type { JsonValue } from '../fields/builtins/json.js'
 import type { GenericField } from '../fields/base/contract.js'
+import type { GenericVirtualField } from './virtual-field.js'
 import type { SchemaIndexDefinition } from './indexes.js'
 import type { SchemaConstraintDefinition } from './constraints.js'
 
@@ -113,7 +114,7 @@ export const createSchemaContributionProvenance = (
 export const createInitialSchemaProvenance = (
 	className: string,
 	developerFieldNames: readonly string[],
-	declaredFields: Readonly<Record<string, GenericField>>,
+	declaredFields: Readonly<Record<string, GenericField | GenericVirtualField>>,
 	indexes: readonly SchemaIndexDefinition[],
 	optionNames: readonly string[],
 ): SchemaCompilationProvenance => {

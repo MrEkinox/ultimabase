@@ -18,6 +18,7 @@ import {
 	type UpdateFieldName,
 	type UpdateOperationNode,
 } from './contracts.js'
+import { readPersistedQueryFields } from '../ast/schema.js'
 import { isNumericUpdateOperationValue } from './operators.js'
 
 type RuntimeUpdateField = FieldDefinition<string, unknown, object>
@@ -40,11 +41,12 @@ const resolveMutableField = <const TSchema extends SchemaDefinition>(
 ): readonly [UpdateFieldName<TSchema>, RuntimeUpdateField] => {
 	assertNonEmptyString(fieldName, path)
 
-	if (!Object.hasOwn(schema.fields, fieldName)) {
+	const fields = readPersistedQueryFields(schema)
+	if (!Object.hasOwn(fields, fieldName)) {
 		throw new TypeError(`${path} must reference a schema field`)
 	}
 
-	const field: RuntimeUpdateField | undefined = schema.fields[fieldName]
+	const field: RuntimeUpdateField | undefined = fields[fieldName]
 
 	if (field === undefined) {
 		throw new TypeError(`${path} must reference a field definition`)

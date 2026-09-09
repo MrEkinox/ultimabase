@@ -10,6 +10,7 @@ import type {
 	FieldBuilderMethodResolver,
 	OwnedFieldBuilderMethod,
 } from '../schema/field-builder-methods.js'
+import { snapshotCapturedFieldOptions } from '../schema/captured-options.js'
 import { snapshotScalarFieldValue } from '../fields/base/definition.js'
 import { bigintField } from '../fields/builtins/bigint.js'
 import { binaryField } from '../fields/builtins/binary.js'
@@ -39,6 +40,109 @@ import {
 } from './descriptor.js'
 
 const commonOptionNames = ['description', 'list', 'nullable'] as const
+
+interface CapturedOutputBuilderCall {
+	readonly methodName: string
+	readonly options: unknown
+}
+
+const capturedOutputBuilderCalls = new WeakSet<object>()
+
+/** Identifies a delayed output method whose owning plugin is not installed. */
+export class OutputBuilderMethodUnavailableError extends TypeError {}
+
+const createCapturedOutputBuilderCall = (
+	methodName: string,
+	options: unknown,
+): GenericOutputDescriptor => {
+	const call = immutableRecord({ methodName, options })
+	capturedOutputBuilderCalls.add(call)
+
+	return call as unknown as GenericOutputDescriptor
+}
+
+const isCapturedOutputBuilderCall = (
+	value: unknown,
+): value is CapturedOutputBuilderCall =>
+	typeof value === 'object' &&
+	value !== null &&
+	capturedOutputBuilderCalls.has(value)
+
+const createCapturedOutputBuilder = (path: string): OutputBuilder => {
+	const method =
+		(methodName: string) =>
+		(options?: unknown): GenericOutputDescriptor =>
+			createCapturedOutputBuilderCall(
+				methodName,
+				snapshotCapturedFieldOptions(options),
+			)
+	const object = (optionsValue: unknown): GenericOutputDescriptor => {
+		if (!isPlainRecord(optionsValue)) {
+			throw new TypeError(`${path}.object options must be a plain object`)
+		}
+
+		const { fields: declaration, ...options } = optionsValue
+		const fields = captureOutputFields(declaration, `${path}.object.fields`)
+
+		return createCapturedOutputBuilderCall(
+			'object',
+			immutableRecord({
+				...(snapshotCapturedFieldOptions(options) as Readonly<
+					Record<string, unknown>
+				>),
+				fields,
+			}),
+		)
+	}
+	const known = immutableRecord({
+		bigint: method('bigint'),
+		binary: method('binary'),
+		boolean: method('boolean'),
+		date: method('date'),
+		dateTime: method('dateTime'),
+		decimal: method('decimal'),
+		enum: method('enum'),
+		float: method('float'),
+		int: method('int'),
+		json: method('json'),
+		object,
+		string: method('string'),
+		time: method('time'),
+		uuid: method('uuid'),
+	})
+
+	return new Proxy(known, {
+		get: (record, property, receiver): unknown =>
+			typeof property !== 'string' || Reflect.has(record, property)
+				? Reflect.get(record, property, receiver)
+				: method(property),
+	}) as unknown as OutputBuilder
+}
+
+const captureOutputFields = (
+	declaration: unknown,
+	path: string,
+): Readonly<Record<string, unknown>> => {
+	if (typeof declaration !== 'function') {
+		throw new TypeError(`${path} must be a function`)
+	}
+
+	const returned: unknown = (declaration as (output: OutputBuilder) => unknown)(
+		createCapturedOutputBuilder(path),
+	)
+	if (!isPlainRecord(returned)) {
+		throw new TypeError(`${path} must return an output descriptor map`)
+	}
+
+	for (const [name, descriptor] of Object.entries(returned)) {
+		assertNonEmptyString(name, `${path} property name`)
+		if (!isCapturedOutputBuilderCall(descriptor)) {
+			assertOutputDescriptor(descriptor, `${path}.${name}`)
+		}
+	}
+
+	return immutableRecord(returned)
+}
 
 interface NormalizedOutputOptionsInput {
 	readonly options: Readonly<Record<string, unknown>>
@@ -360,6 +464,90 @@ const createOutputBuilder = (
 	}) as unknown as OutputBuilder
 }
 
+const resolveCapturedOutputFields = (
+	captured: unknown,
+	path: string,
+	fieldMethods?: FieldBuilderMethodResolver,
+): OutputFields => {
+	if (!isPlainRecord(captured)) {
+		throw new TypeError(`${path} must be an output descriptor map`)
+	}
+
+	const entries: [string, GenericOutputDescriptor][] = []
+	for (const [name, descriptor] of Object.entries(captured)) {
+		assertNonEmptyString(name, `${path} property name`)
+		entries.push([
+			name,
+			resolveCapturedOutputDescriptor(
+				descriptor,
+				`${path}.${name}`,
+				fieldMethods,
+			),
+		])
+	}
+
+	return immutableRecord(Object.fromEntries(entries))
+}
+
+/** Resolves one callback-free captured output declaration for an application. */
+export const resolveCapturedOutputDescriptor = (
+	captured: unknown,
+	path: string,
+	fieldMethods?: FieldBuilderMethodResolver,
+): GenericOutputDescriptor => {
+	if (!isCapturedOutputBuilderCall(captured)) {
+		assertOutputDescriptor(captured, path)
+		return captured
+	}
+
+	let options = captured.options
+	if (captured.methodName === 'object') {
+		if (!isPlainRecord(options)) {
+			throw new TypeError(`${path}.object options must be a plain object`)
+		}
+		const { fields, ...rest } = options
+		options = immutableRecord({
+			...rest,
+			fields: () =>
+				resolveCapturedOutputFields(fields, `${path}.fields`, fieldMethods),
+		})
+	}
+
+	const builder = createOutputBuilder(path, fieldMethods)
+	const factory: unknown = Reflect.get(builder, captured.methodName)
+	if (typeof factory !== 'function') {
+		throw new OutputBuilderMethodUnavailableError(
+			`${path} OutputBuilder method "${captured.methodName}" is unavailable`,
+		)
+	}
+
+	try {
+		return (factory as (value: unknown) => GenericOutputDescriptor)(options)
+	} catch (cause: unknown) {
+		if (
+			cause instanceof TypeError &&
+			cause.message.includes('is unavailable; configure the plugin')
+		) {
+			throw new OutputBuilderMethodUnavailableError(cause.message, { cause })
+		}
+		throw cause
+	}
+}
+
+/** Executes an output callback exactly once and retains only captured declarations. */
+export const captureOutputBuilderCallback = (
+	declaration: unknown,
+	path: string,
+): unknown => {
+	if (typeof declaration !== 'function') {
+		throw new TypeError(`${path} must be an output callback`)
+	}
+
+	return (declaration as (output: OutputBuilder) => unknown)(
+		createCapturedOutputBuilder(path),
+	)
+}
+
 /** @internal Resolves one output callback exactly once for virtual compilation. */
 export const resolveOutputBuilder = <
 	const TOutput extends GenericOutputDescriptor,
@@ -372,8 +560,9 @@ export const resolveOutputBuilder = <
 		throw new TypeError(`${path} must be an output callback`)
 	}
 
-	const descriptor = declaration(createOutputBuilder(path, fieldMethods))
-	assertOutputDescriptor(descriptor, path)
-
-	return descriptor
+	return resolveCapturedOutputDescriptor(
+		captureOutputBuilderCallback(declaration, path),
+		path,
+		fieldMethods,
+	) as TOutput
 }

@@ -372,10 +372,20 @@ export const createSchemaModelClass = <
 			get: (): SchemaMetadata<TClassName, TFields>['indexes'] =>
 				reader.readDefinition().indexes,
 		},
+		persistedFields: {
+			enumerable: true,
+			get: (): SchemaMetadata<TClassName, TFields>['persistedFields'] =>
+				reader.readDefinition().persistedFields,
+		},
 		provenance: {
 			enumerable: true,
 			get: (): SchemaMetadata<TClassName, TFields>['provenance'] =>
 				reader.readDefinition().provenance,
+		},
+		virtualFields: {
+			enumerable: true,
+			get: (): SchemaMetadata<TClassName, TFields>['virtualFields'] =>
+				reader.readDefinition().virtualFields,
 		},
 	})
 

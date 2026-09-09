@@ -12,11 +12,17 @@ import type { SchemaSelectorOptions } from '../schema-patch-contracts.js'
 import type { FieldDeclarationContext } from '../../schema/schema/field-contexts.js'
 
 /** Versions the complete callback-free logical schema compiler protocol. */
-export const schemaCompilerProtocolVersion = '5.0.0' as const
+export const schemaCompilerProtocolVersion = '6.0.0' as const
 
 /** Names every private artifact that may cross the compiler IR as an inert reference. */
 export type SchemaCompilerArtifactKind =
-	'constraint' | 'field' | 'option-definition' | 'option-value' | 'schema'
+	| 'constraint'
+	| 'field'
+	| 'option-definition'
+	| 'option-value'
+	| 'output'
+	| 'schema'
+	| 'virtual-field'
 
 declare const schemaCompilerArtifactType: unique symbol
 
@@ -45,6 +51,30 @@ export interface SchemaCompilerFieldNode {
 	readonly name: string
 	readonly options: readonly SchemaCompilerOptionNode[]
 	readonly provenance: SchemaContributionProvenance
+}
+
+/** Describes one callback-free output value and its recursive object shape. */
+export interface SchemaCompilerOutputNode {
+	readonly artifact: SchemaCompilerArtifactReference<'output'>
+	readonly fields: readonly Readonly<{
+		readonly name: string
+		readonly output: SchemaCompilerOutputNode
+	}>[]
+	readonly kind: string
+	readonly options: readonly Readonly<{
+		readonly name: string
+		readonly value: SchemaCompilerOptionValue
+	}>[]
+}
+
+/** Retains one logical virtual field while its resolver stays artifact-private. */
+export interface SchemaCompilerVirtualFieldNode {
+	readonly artifact: SchemaCompilerArtifactReference<'virtual-field'>
+	readonly name: string
+	readonly options: readonly SchemaCompilerOptionNode[]
+	readonly output: SchemaCompilerOutputNode
+	readonly provenance: SchemaContributionProvenance
+	readonly select: readonly string[]
 }
 
 /** Records one direct option without exposing an executable normalizer. */
@@ -80,6 +110,7 @@ export interface SchemaCompilerSchemaNode {
 	readonly indexes: readonly SchemaCompilerIndexNode[]
 	readonly options: readonly SchemaCompilerOptionNode[]
 	readonly provenance: SchemaCompilationProvenance
+	readonly virtualFields: readonly SchemaCompilerVirtualFieldNode[]
 }
 
 /** Identifies one previously declared contribution expected by a patch. */

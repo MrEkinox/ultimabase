@@ -56,7 +56,14 @@ export const renderSchemas = (
 ): string => {
 	const schemas = snapshot.schemas.map((schema) => {
 		const alias = context.identifiers.schema(schema)
-		const fields = renderUnion(schema.fields.map(({ name }) => quote(name)))
+		const persistedFields = renderUnion(
+			schema.fields.map(({ name }) => quote(name)),
+		)
+		const selectableFields = renderUnion(
+			[...schema.fields, ...schema.virtualFields].map(({ name }) =>
+				quote(name),
+			),
+		)
 		const numericFields = renderUnion(
 			schema.fields
 				.filter(
@@ -83,11 +90,15 @@ export const renderSchemas = (
 
 		return `\texport type ${alias} = {
 \t\treadonly key: ${quote(schema.className)}
-\t\treadonly fields: ${fields}
+\t\treadonly fields: ${selectableFields}
 \t\treadonly item: ${alias}Item
 \t\treadonly numericFields: ${numericFields}
+\t\treadonly output: ${alias}Output
+\t\treadonly persistedFields: ${persistedFields}
+\t\treadonly selectableFields: ${selectableFields}
 ${relationshipMap}\t\treadonly inputs: {
 \t\t\treadonly create: ${alias}CreateInput
+\t\t\treadonly dependencySelect: ${alias}DependencySelect
 ${include}\t\t\treadonly nestedCreate: ${alias}NestedCreateInput
 			readonly nestedUpdate: ${alias}NestedUpdateData
 			readonly orderBy: ${alias}OrderByInput

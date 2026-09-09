@@ -16,6 +16,7 @@ export type {
 	SchemaCompilerOptionDefinitionNode,
 	SchemaCompilerOptionNode,
 	SchemaCompilerOptionValue,
+	SchemaCompilerOutputNode,
 	SchemaCompilerOutput,
 	SchemaCompilerPatchNode,
 	SchemaCompilerPatchOperation,
@@ -35,6 +36,7 @@ export type {
 	SchemaCompilerSelectionResultNode,
 	SchemaCompilerSetFieldOptionOperation,
 	SchemaCompilerSetSchemaOptionOperation,
+	SchemaCompilerVirtualFieldNode,
 } from './contracts.js'
 
 export {

@@ -205,7 +205,7 @@ export const createInversePointerUpdate = <
 		mappedFieldName as QueryFieldName<TTarget>,
 		source,
 	) as DatabaseRowFilterNode
-	const field = target.schema.fields[mappedFieldName]
+	const field = target.schema.persistedFields[mappedFieldName]
 	const nullable = field !== undefined && isFieldNullable(field)
 	const fieldOperation =
 		action === 'connect'

@@ -416,7 +416,7 @@ export class QueryBuilder<
 			>
 		>
 	> {
-		const field = this.schema.fields[fieldName]
+		const field = this.schema.persistedFields[fieldName]
 		const target = field === undefined ? undefined : getFieldQueryTarget(field)
 
 		if (target === undefined) {

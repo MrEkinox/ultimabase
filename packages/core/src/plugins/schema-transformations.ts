@@ -33,7 +33,7 @@ export const applyPatch = (
 	const state: SchemaTransformationState = {
 		constraints: candidate.definition.constraints,
 		developerFields: candidate.developerFields,
-		fields: candidate.definition.fields,
+		fields: candidate.definition.persistedFields,
 		indexes: candidate.definition.indexes,
 		provenance: candidate.definition.provenance,
 		schemaOptionValues: immutableRecord(
@@ -95,9 +95,14 @@ export const applyPatch = (
 			...state.schemaOptionValues,
 			className: candidate.definition.className,
 			constraints: state.constraints,
-			fields: state.fields,
+			fields: immutableRecord({
+				...state.fields,
+				...candidate.definition.virtualFields,
+			}),
 			indexes: state.indexes,
+			persistedFields: state.fields,
 			provenance: state.provenance,
+			virtualFields: candidate.definition.virtualFields,
 		}),
 		developerFields: state.developerFields,
 		schema: candidate.schema,

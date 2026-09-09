@@ -86,12 +86,12 @@ export const applyUpdateExpressionToRecord = <
 	for (const operation of readOperations(update)) {
 		if (
 			typeof operation.field !== 'string' ||
-			!Object.hasOwn(schema.fields, operation.field)
+			!Object.hasOwn(schema.persistedFields, operation.field)
 		) {
 			throw new TypeError('Update application references an unknown field')
 		}
 
-		const field = schema.fields[operation.field]
+		const field = schema.persistedFields[operation.field]
 
 		if (field === undefined) {
 			throw new TypeError('Update application references a missing field')

@@ -78,4 +78,48 @@ describe('schema compiler IR encoding', () => {
 		expect(distinctKind.artifactId).toBe('option-value:1:third')
 		expect(repeatedCompilation.artifactId).toBe(first.artifactId)
 	})
+
+	it('retains inert virtual metadata while masking resolver identity', () => {
+		const resolverSecret = 'compiler-private-resolver'
+		const User = Schema.define({
+			className: 'CompilerIrVirtualUser',
+			fields: (field) => ({
+				name: field.string(),
+				summary: field.virtual({
+					output: (output) =>
+						output.object({
+							fields: (output) => ({ label: output.string() }),
+							nullable: false,
+						}),
+					resolve: ({ item }) => ({
+						label: `${String(item.name)}${resolverSecret.slice(0, 0)}`,
+					}),
+					select: { name: true },
+				}),
+			}),
+		})
+		const prepared = prepareSchemaCompilation(User)
+		const encoder = new SchemaCompilerIrEncoder()
+		const schema = encoder.schemaNode(prepared, 'schemas.CompilerIrVirtualUser')
+		const input = immutableRecord({
+			declarations: immutableArray([]),
+			protocolVersion: schemaCompilerProtocolVersion,
+			schemas: immutableArray([schema]),
+		})
+
+		expect(() => {
+			assertSchemaCompilerInput(input, encoder.session)
+		}).not.toThrow()
+		expect(schema.virtualFields).toMatchObject([
+			{
+				name: 'summary',
+				output: {
+					fields: [{ name: 'label', output: { kind: 'string' } }],
+					kind: 'object',
+				},
+				select: ['id', 'name'],
+			},
+		])
+		expect(JSON.stringify(input)).not.toContain(resolverSecret)
+	})
 })

@@ -16,6 +16,9 @@ TypeScript snippets:
 - [`output-values.md`](output-values.md) declares exact recursive returned values
   plus plugin-owned output descriptors without exposing stored-field or
   mutation-input behavior;
+- [`virtual-fields.md`](virtual-fields.md) attaches output-only values to schemas,
+  declares their private persisted dependencies, and separates persisted items
+  from selectable results;
 - [`pointers.md`](pointers.md) declares exact single-object references and
   immutable logical pointer values;
 - [`relations.md`](relations.md) declares owning and inverse to-many topology

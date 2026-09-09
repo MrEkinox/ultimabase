@@ -18,10 +18,13 @@ import type { stringField } from '../fields/builtins/string.js'
 import type { timeField } from '../fields/builtins/time.js'
 import type { uuidField } from '../fields/builtins/uuid.js'
 import type {
+	SchemaTypeInfo,
+	SchemaTypeInfoByNameOrBase,
+	SchemaTypeInfoSource,
 	UltimaBaseGeneratedEmbeddedFieldBuilderMethods,
 	UltimaBaseGeneratedFieldBuilderMethods,
 } from '../type-info.js'
-import type { SchemaFields } from './definition.js'
+import type { SchemaDeclaredFields } from './definition.js'
 import type {
 	EmbeddedBigintFieldFactory,
 	EmbeddedBinaryFieldFactory,
@@ -41,6 +44,7 @@ import type {
 	EmbeddedObjectFieldBuilderMethod,
 	ObjectFieldBuilderMethod,
 } from './object-field-builder.js'
+import type { VirtualFieldBuilderMethod } from './virtual-field.js'
 
 /** Declares nested fields through the same map-returning shape as a schema. */
 export type ObjectFieldBuilderOptions<
@@ -78,7 +82,9 @@ export interface ScalarFieldBuilderMethods {
 }
 
 /** Provides top-level factories while the returned object owns field names. */
-export interface FieldBuilder
+export interface FieldBuilder<
+	TSchema extends SchemaTypeInfoSource = SchemaTypeInfo,
+>
 	extends ScalarFieldBuilderMethods, UltimaBaseGeneratedFieldBuilderMethods {
 	/** Declares one integer number. @example `field.int({ default: 0 })` */
 	readonly int: typeof intField
@@ -88,6 +94,8 @@ export interface FieldBuilder
 	readonly pointer: NamedPointerFieldBuilderMethod
 	/** Declares one to-many relationship. @example `field.relation({ target: "Post" })` */
 	readonly relation: NamedRelationFieldBuilderMethod
+	/** Declares one output-only field resolved from persisted dependencies. @example `field.virtual({ output, select: { id: true }, resolve })` */
+	readonly virtual: VirtualFieldBuilderMethod<TSchema>
 }
 
 /** Provides only value-field factories accepted inside an embedded object. */
@@ -124,5 +132,6 @@ export interface EmbeddedFieldBuilder extends UltimaBaseGeneratedEmbeddedFieldBu
 
 /** Names the canonical map-returning schema field declaration. */
 export type SchemaFieldBuilderDeclaration<
-	TFields extends SchemaFields = SchemaFields,
-> = (field: FieldBuilder) => TFields
+	TFields extends SchemaDeclaredFields = SchemaDeclaredFields,
+	TClassName extends string = string,
+> = (field: FieldBuilder<SchemaTypeInfoByNameOrBase<TClassName>>) => TFields

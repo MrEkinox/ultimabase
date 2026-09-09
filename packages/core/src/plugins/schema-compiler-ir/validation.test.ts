@@ -36,6 +36,7 @@ const createSchemaNode = (
 			[],
 			[],
 		),
+		virtualFields: immutableArray([]),
 	})
 
 const createInput = (

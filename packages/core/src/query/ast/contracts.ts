@@ -6,7 +6,7 @@ import type {
 
 /** Extracts every developer and framework-owned field name from one schema. */
 export type QueryFieldName<TSchema extends SchemaTypeInfoSource> = Extract<
-	SchemaTypeInfoFor<TSchema>['fields'],
+	SchemaTypeInfoFor<TSchema>['selectableFields'],
 	string
 >
 

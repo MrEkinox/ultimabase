@@ -30,6 +30,9 @@ const renderObject = (
 			`Generated object ${descriptor.ownerPath} is not an object`,
 		)
 	}
+	if (descriptor.field.outputOnly === true) {
+		return `export type ${descriptor.alias} = ${renderProperties(descriptor.field.value.fields, 'object', context)}`
+	}
 
 	const paths = collectObjectPathTypes(
 		descriptor.field.value.fields,
@@ -63,6 +66,11 @@ const renderObject = (
 const renderEnum = (descriptor: EnumDescriptor): string => {
 	if (descriptor.field.value.kind !== 'enum') {
 		throw new TypeError(`Generated enum ${descriptor.ownerPath} is not an enum`)
+	}
+	if (descriptor.field.outputOnly === true) {
+		return `export type ${descriptor.alias} = ${renderUnion(
+			descriptor.field.value.values.map(quote),
+		)}`
 	}
 
 	return `export type ${descriptor.alias} = ${renderUnion(
@@ -116,8 +124,21 @@ const renderInclude = (
 }
 
 const renderSelect = (schema: TypegenSchemaSnapshot): string => {
+	const properties = [...schema.fields, ...schema.virtualFields].flatMap(
+		(field) =>
+			field.typegen.object === 'forbidden'
+				? []
+				: [
+						`${renderDocumentation(field.description)}\treadonly ${propertyName(field.name)}?: ${field.name === 'id' ? 'true' : 'boolean'}`,
+					],
+	)
+
+	return `{\n${properties.join('\n')}\n}`
+}
+
+const renderDependencySelect = (schema: TypegenSchemaSnapshot): string => {
 	const properties = schema.fields.flatMap((field) =>
-		field.typegen.object === 'forbidden'
+		field.value.kind === 'relation'
 			? []
 			: [
 					`${renderDocumentation(field.description)}\treadonly ${propertyName(field.name)}?: ${field.name === 'id' ? 'true' : 'boolean'}`,
@@ -151,11 +172,13 @@ export const renderSchemaPublic = (
 
 	sections.push(
 		`export type ${alias}Item = ${renderProperties(schema.fields, 'object', context)}`,
+		`export type ${alias}Output = ${renderProperties([...schema.fields, ...schema.virtualFields], 'object', context)}`,
 		`export type ${alias}CreateInput = ${renderProperties(schema.fields, 'create', context)}`,
 		`export type ${alias}UpdateInput = ${renderProperties(schema.fields, 'update', context)}`,
 		...renderNestedWriteInputs(schema, context),
 		renderWhere(schema, alias, context),
 		`export type ${alias}Select = ${renderSelect(schema)}`,
+		`export type ${alias}DependencySelect = ${renderDependencySelect(schema)}`,
 		`export type ${alias}OrderByInput = ${renderOrderBy(schema)}`,
 	)
 

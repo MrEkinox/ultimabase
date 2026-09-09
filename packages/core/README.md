@@ -82,8 +82,14 @@ representation options owned by a kind. It has no defaults, input requiredness,
 immutability, indexes, generators, validation hooks, relationships, or storage
 metadata. `output.object({ fields })` recursively preserves an exact readonly
 object shape; each property is present, while its own descriptor decides whether
-its value may be `null`. Output declarations become directly usable by schema
-virtual fields in issue 2505 rather than acting as standalone operations.
+its value may be `null`. Schema declarations consume these descriptors through
+`field.virtual({ output, select, resolve })`. A virtual field belongs to the
+selectable result shape but not to persisted `SchemaItem`, mutation inputs,
+filters, ordering, indexes, migrations, or adapter fields. Its flat `select`
+names the persisted scalar, object, or pointer values required by its synchronous
+or asynchronous resolver; Core always retains `id`. See the
+[virtual-field examples](examples/schema/virtual-fields.md) for primitive,
+object, nullable, list, request-context, and asynchronous declarations.
 
 Exact decimal fields keep storage-relevant shape as direct metadata:
 `field.decimal({ precision: 12, scale: 2 })`. Core validates those options and

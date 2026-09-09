@@ -1,5 +1,5 @@
 import type {
-	SchemaItem,
+	SchemaOutput,
 	SchemaDefinition,
 	SchemaResult,
 } from '../../schema/index.js'
@@ -115,15 +115,15 @@ type SelectedQueryRecord<
 	TSchema extends SchemaDefinition,
 	TSelectedField extends QueryFieldName<TSchema>,
 > = [TSelectedField] extends [never]
-	? SchemaItem<TSchema>
+	? SchemaOutput<TSchema>
 	: Simplify<
 			Pick<
-				SchemaItem<TSchema>,
-				Extract<TSelectedField | 'id', keyof SchemaItem<TSchema>>
+				SchemaOutput<TSchema>,
+				Extract<TSelectedField | 'id', keyof SchemaOutput<TSchema>>
 			>
 		>
 
-/** Infers one neutral persisted record or its exact selected projection. */
+/** Infers one neutral public output record or its exact selected projection. */
 export type QueryRecord<
 	TSchema extends SchemaDefinition,
 	TSelectedField extends QueryFieldName<TSchema> = never,
@@ -145,7 +145,7 @@ export type QueryResult<
 	TIncludedPointer = never,
 > =
 	string extends QueryFieldName<TSchema>
-		? Simplify<SchemaResult<TSchema, SchemaItem<TSchema>>>
+		? Simplify<SchemaResult<TSchema, SchemaOutput<TSchema>>>
 		: Simplify<
 				SchemaResult<
 					TSchema,

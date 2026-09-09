@@ -39,6 +39,7 @@ export class ReferenceImports {
 
 		for (const schema of snapshot.schemas) {
 			this.#collectFieldReferences(schema.fields, references)
+			this.#collectFieldReferences(schema.virtualFields, references)
 		}
 		for (const option of snapshot.options) {
 			this.#addReference(option.reference, references)

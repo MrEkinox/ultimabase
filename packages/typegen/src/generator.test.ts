@@ -112,6 +112,44 @@ const createFixture = (reverseOrder = false) => {
 }
 
 describe('generateApplicationTypes', () => {
+	it('fingerprints inert virtual metadata without retaining resolver code', () => {
+		const secretResolverText = 'private-virtual-resolver-body'
+		const Virtual = Schema.define({
+			className: 'TypegenVirtual',
+			fields: (field) => ({
+				name: field.string({ required: true }),
+				displayName: field.virtual({
+					output: (output) => output.string({ nullable: false }),
+					resolve: ({ item }) =>
+						`${String(item.name)}${secretResolverText.slice(0, 0)}`,
+					select: { name: true },
+				}),
+			}),
+		})
+		const generated = generateApplicationTypes({
+			application: new FrameworkApplication({
+				plugins: [],
+				schemas: [Virtual],
+			}),
+			applicationId: 'fixture.virtual',
+		})
+
+		expect(generated.snapshot.schemas[0]?.virtualFields).toMatchObject([
+			{
+				kind: 'string',
+				name: 'displayName',
+				select: ['id', 'name'],
+				typegen: { list: false, nullable: false },
+			},
+		])
+		expect(JSON.stringify(generated.snapshot)).not.toContain(secretResolverText)
+		expect(generated.contents).toContain('export type TypegenVirtualOutput = {')
+		expect(generated.contents).toContain('readonly displayName: string')
+		expect(generated.contents).not.toMatch(
+			/export type TypegenVirtualCreateInput = \{[^}]*displayName/u,
+		)
+	})
+
 	it('uses the same replaced logical graph as the JavaScript application', () => {
 		const Target = Schema.define({
 			className: 'ReplacedTypegenTarget',
@@ -871,7 +909,7 @@ describe('generateApplicationTypes', () => {
 		})
 
 		expect(second).toStrictEqual(first)
-		expect(first.snapshot.version).toBe(8)
+		expect(first.snapshot.version).toBe(9)
 		expect(first.contents).toContain('export type ConfiguredEditorialWorkflow')
 		expect(first.contents).toContain('interface UltimaBaseGeneratedOperations')
 		expect(first.contents).toContain('readonly "fixture.workflow.publish"')

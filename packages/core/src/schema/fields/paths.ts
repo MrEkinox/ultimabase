@@ -109,7 +109,7 @@ export const resolveSchemaFieldPath = (
 		throw new TypeError('field path must be a non-empty segment list')
 	}
 
-	let fields: FieldMap = schema.fields
+	let fields: FieldMap = schema.persistedFields
 
 	for (const [index, segment] of runtimePath.entries()) {
 		assertNonEmptyString(segment, `field path[${String(index)}]`)

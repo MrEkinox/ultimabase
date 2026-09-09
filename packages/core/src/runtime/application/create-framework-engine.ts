@@ -166,7 +166,9 @@ const applicationUsesPointers = (
 	application.schemas
 		.values()
 		.some((schema) =>
-			Object.values(schema.fields).some((field) => field.kind === 'pointer'),
+			Object.values(schema.persistedFields).some(
+				(field) => field.kind === 'pointer',
+			),
 		)
 
 /** Fails during assembly instead of letting a database mis-store logical pointers. */

@@ -25,7 +25,10 @@ export const applyFieldOperation = (
 ): boolean => {
 	const { candidate, definitions, patch, resolvedFields } = context
 	if (operation.kind === 'field:add') {
-		if (Object.hasOwn(state.fields, operation.name)) {
+		if (
+			Object.hasOwn(state.fields, operation.name) ||
+			Object.hasOwn(candidate.definition.virtualFields, operation.name)
+		) {
 			throw new TypeError(
 				`Duplicate schema field: ${candidate.schema.className}.${operation.name}`,
 			)
@@ -208,7 +211,8 @@ export const applyFieldOperation = (
 			operation.kind === 'field:rename' ? operation.to : operation.name
 		if (
 			operation.kind === 'field:rename' &&
-			Object.hasOwn(state.fields, targetName)
+			(Object.hasOwn(state.fields, targetName) ||
+				Object.hasOwn(candidate.definition.virtualFields, targetName))
 		) {
 			throw new TypeError(
 				`Duplicate schema field: ${candidate.schema.className}.${targetName}`,

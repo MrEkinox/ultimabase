@@ -14,7 +14,7 @@ import type {
 } from '../ast/contracts.js'
 import {
 	assertQuerySchemaReference,
-	parseQueryFieldName,
+	parsePersistedQueryFieldName,
 } from '../ast/schema.js'
 
 /** Describes one caller-owned order request before AST normalization. */
@@ -64,7 +64,7 @@ export const normalizeQueryOrdering = <const TSchema extends SchemaDefinition>(
 			throw new TypeError(`query.orders[${String(index)}] must be an object`)
 		}
 
-		const fieldName = parseQueryFieldName(
+		const fieldName = parsePersistedQueryFieldName(
 			schema,
 			order.field,
 			`query.orders[${String(index)}].field`,

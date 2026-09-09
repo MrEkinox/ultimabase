@@ -25,6 +25,7 @@ import {
 
 import { SchemaTypegenError } from './errors.js'
 import { snapshotTypegenGraph } from './snapshot/plugin-graph.js'
+import { snapshotVirtualFields } from './snapshot/virtual-fields.js'
 
 export interface TypegenReference {
 	readonly exportName: string
@@ -60,6 +61,7 @@ export interface TypegenFieldSnapshot {
 	readonly description: string | undefined
 	readonly kind: string
 	readonly name: string
+	readonly outputOnly?: true
 	readonly path: readonly string[]
 	/** Grants complete-value equality only through the field's portable JSON codec. */
 	readonly portableEquality: boolean
@@ -72,6 +74,11 @@ export interface TypegenFieldSnapshot {
 export interface TypegenSchemaSnapshot {
 	readonly className: string
 	readonly fields: readonly TypegenFieldSnapshot[]
+	readonly virtualFields: readonly TypegenVirtualFieldSnapshot[]
+}
+
+export interface TypegenVirtualFieldSnapshot extends TypegenFieldSnapshot {
+	readonly select: readonly string[]
 }
 
 export interface TypegenFieldMethodSnapshot {
@@ -170,7 +177,7 @@ export interface TypegenApplicationSnapshot {
 	readonly privateStorageFingerprint?: string
 	readonly schemas: readonly TypegenSchemaSnapshot[]
 	readonly surfaces: readonly TypegenSchemaSurfaceSnapshot[]
-	readonly version: 8
+	readonly version: 9
 }
 
 interface PluginValueReference extends TypegenReference {
@@ -520,7 +527,12 @@ export const createCompiledTypegenSnapshot = (
 			.map((schema) =>
 				immutableRecord({
 					className: schema.className,
-					fields: snapshotFields(schema.fields, schema, [], context),
+					fields: snapshotFields(schema.persistedFields, schema, [], context),
+					virtualFields: snapshotVirtualFields(
+						schema.virtualFields,
+						schema,
+						context,
+					),
 				}),
 			),
 	)
@@ -534,7 +546,7 @@ export const createCompiledTypegenSnapshot = (
 			? {}
 			: { privateStorageFingerprint: application.privateStorageFingerprint }),
 		schemas,
-		version: 8,
+		version: 9,
 	})
 }
 

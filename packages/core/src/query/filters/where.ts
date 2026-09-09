@@ -25,7 +25,7 @@ import {
 
 import { createQueryAst } from '../ast/factory.js'
 import type { QueryFieldName } from '../ast/contracts.js'
-import { parseQueryFieldName } from '../ast/schema.js'
+import { parsePersistedQueryFieldName as parseQueryFieldName } from '../ast/schema.js'
 import {
 	createQueryJsonPathFilter,
 	createQueryKeyFilter,
@@ -245,7 +245,7 @@ const normalizeWhereRelationship = <TSchema extends SchemaDefinition>(
 		throw createQueryRelationDepthError()
 	}
 
-	const field = schema.fields[fieldName]
+	const field = schema.persistedFields[fieldName]
 	const target =
 		field === undefined ? undefined : getFieldSchemaTarget(field)?.()
 
@@ -286,7 +286,7 @@ const normalizeWhereRelationCount = <TSchema extends SchemaDefinition>(
 		throw new TypeError(`where.${fieldName}.count must be an object`)
 	}
 
-	const field = schema.fields[fieldName]
+	const field = schema.persistedFields[fieldName]
 	const target =
 		field === undefined ? undefined : getFieldSchemaTarget(field)?.()
 
@@ -383,11 +383,11 @@ const normalizePointerIdentityOperand = <TSchema extends SchemaDefinition>(
 	operand: unknown,
 	path: string,
 ): unknown => {
-	if (typeof target !== 'string' || schema.fields[target]?.kind !== 'pointer') {
-		return operand
-	}
+	if (typeof target !== 'string') return operand
+	const pointer = schema.persistedFields[target]
+	if (pointer?.kind !== 'pointer') return operand
 
-	const targetSchema = getFieldSchemaTarget(schema.fields[target])?.()
+	const targetSchema = getFieldSchemaTarget(pointer)?.()
 
 	if (!Schema.is(targetSchema)) {
 		throw new TypeError(`${path} requires a registered pointer target`)
@@ -574,7 +574,7 @@ const normalizeWhereFieldOperators = <TSchema extends SchemaDefinition>(
 	for (const [operator, operand] of Object.entries(input)) {
 		if (
 			(operator === 'isEmpty' || operator === 'isNotEmpty') &&
-			schema.fields[fieldName]?.kind === 'relation'
+			schema.persistedFields[fieldName]?.kind === 'relation'
 		) {
 			assertEnabledWhereFlag(operand, `where.${fieldName}.${operator}`)
 			expression = combineWhereExpressions(
@@ -1551,7 +1551,7 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		input: WhereSource<SchemaRelationTarget<TSchema, TFieldName>>,
 	): WhereBuilder<TSchema> {
 		const state = readWhereBuilderState(this)
-		const field = state.schema.fields[fieldName]
+		const field = state.schema.persistedFields[fieldName]
 		const target =
 			field === undefined ? undefined : getFieldSchemaTarget(field)?.()
 
@@ -1580,7 +1580,7 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		input: WhereSource<SchemaPointerTarget<TSchema, TFieldName>>,
 	): WhereBuilder<TSchema> {
 		const state = readWhereBuilderState(this)
-		const field = state.schema.fields[fieldName]
+		const field = state.schema.persistedFields[fieldName]
 		const target =
 			field === undefined ? undefined : getFieldSchemaTarget(field)?.()
 

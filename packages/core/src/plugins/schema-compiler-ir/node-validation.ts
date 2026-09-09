@@ -20,6 +20,17 @@ const schemaKeys = new Set([
 	'indexes',
 	'options',
 	'provenance',
+	'virtualFields',
+])
+
+const outputKeys = new Set(['artifact', 'fields', 'kind', 'options'])
+const virtualFieldKeys = new Set([
+	'artifact',
+	'name',
+	'options',
+	'output',
+	'provenance',
+	'select',
 ])
 
 const assertOptionNode = (
@@ -92,6 +103,101 @@ const assertFieldNode = (
 	}
 }
 
+const assertOutputNode = (
+	value: unknown,
+	session: SchemaCompilerArtifactSession,
+	path: string,
+): void => {
+	if (!isPlainRecord(value))
+		throw new TypeError(`${path} must be an output node`)
+	assertExactKeys(value, outputKeys, path)
+	if (!session.owns(value.artifact, 'output')) {
+		throw new TypeError(`${path}.artifact must be an output artifact`)
+	}
+	assertNonEmptyString(value.kind, `${path}.kind`)
+	const names = new Set<string>()
+	for (const [index, field] of readList(value, 'fields', path).entries()) {
+		const fieldPath = `${path}.fields[${String(index)}]`
+		if (!isPlainRecord(field))
+			throw new TypeError(`${fieldPath} must be a node`)
+		assertExactKeys(field, new Set(['name', 'output']), fieldPath)
+		assertNonEmptyString(field.name, `${fieldPath}.name`)
+		if (names.has(field.name)) {
+			throw new TypeError(
+				`${path} contains duplicate output field: ${field.name}`,
+			)
+		}
+		names.add(field.name)
+		assertOutputNode(field.output, session, `${fieldPath}.output`)
+	}
+	const optionNames = new Set<string>()
+	for (const [index, option] of readList(value, 'options', path).entries()) {
+		const optionPath = `${path}.options[${String(index)}]`
+		if (!isPlainRecord(option)) {
+			throw new TypeError(`${optionPath} must be an output option`)
+		}
+		assertExactKeys(option, new Set(['name', 'value']), optionPath)
+		assertNonEmptyString(option.name, `${optionPath}.name`)
+		if (optionNames.has(option.name)) {
+			throw new TypeError(
+				`${path} contains duplicate output option: ${option.name}`,
+			)
+		}
+		optionNames.add(option.name)
+		if (
+			isSchemaCompilerArtifactReference(option.value) &&
+			!session.owns(option.value, 'option-value')
+		) {
+			throw new TypeError(
+				`${optionPath}.value must be a portable value artifact`,
+			)
+		}
+	}
+}
+
+const assertVirtualFieldNode = (
+	value: unknown,
+	session: SchemaCompilerArtifactSession,
+	path: string,
+	allowedOwners?: ReadonlySet<string>,
+): void => {
+	if (!isPlainRecord(value)) {
+		throw new TypeError(`${path} must be a virtual field node`)
+	}
+	assertExactKeys(value, virtualFieldKeys, path)
+	if (!session.owns(value.artifact, 'virtual-field')) {
+		throw new TypeError(`${path}.artifact must be a virtual field artifact`)
+	}
+	assertNonEmptyString(value.name, `${path}.name`)
+	assertSchemaContributionProvenance(
+		value.provenance,
+		`${path}.provenance`,
+		allowedOwners,
+	)
+	assertOutputNode(value.output, session, `${path}.output`)
+	for (const [index, option] of readList(value, 'options', path).entries()) {
+		assertOptionNode(
+			option,
+			session,
+			`${path}.options[${String(index)}]`,
+			allowedOwners,
+		)
+	}
+	const dependencies = new Set<string>()
+	for (const [index, dependency] of readList(value, 'select', path).entries()) {
+		assertNonEmptyString(dependency, `${path}.select[${String(index)}]`)
+		if (dependencies.has(dependency)) {
+			throw new TypeError(
+				`${path} contains duplicate dependency: ${dependency}`,
+			)
+		}
+		dependencies.add(dependency)
+	}
+	if (!dependencies.has('id')) {
+		throw new TypeError(`${path}.select must retain id`)
+	}
+}
+
 /** Validates one field node used either by a schema or a patch operation. */
 export const assertSchemaCompilerFieldNode = (
 	value: unknown,
@@ -132,6 +238,7 @@ export function assertSchemaCompilerSchemaNode(
 		developerFields.add(name)
 	}
 	const fieldNames = new Set<string>()
+	const persistedKinds = new Map<string, string>()
 	const fields = readList(value, 'fields', path)
 	for (const [index, field] of fields.entries()) {
 		assertFieldNode(
@@ -145,6 +252,39 @@ export function assertSchemaCompilerSchemaNode(
 				throw new TypeError(`${path} contains duplicate field: ${field.name}`)
 			}
 			fieldNames.add(field.name)
+			if (typeof field.kind === 'string') {
+				persistedKinds.set(field.name, field.kind)
+			}
+		}
+	}
+	const virtualFields = readList(value, 'virtualFields', path)
+	for (const [index, field] of virtualFields.entries()) {
+		assertVirtualFieldNode(
+			field,
+			session,
+			`${path}.virtualFields[${String(index)}]`,
+			allowedOwners,
+		)
+		if (isPlainRecord(field) && typeof field.name === 'string') {
+			if (fieldNames.has(field.name)) {
+				throw new TypeError(`${path} contains duplicate field: ${field.name}`)
+			}
+			fieldNames.add(field.name)
+			for (const dependency of readList(
+				field,
+				'select',
+				`${path}.virtualFields.${field.name}`,
+			)) {
+				if (
+					typeof dependency === 'string' &&
+					(!persistedKinds.has(dependency) ||
+						persistedKinds.get(dependency) === 'relation')
+				) {
+					throw new TypeError(
+						`${path}.virtualFields.${field.name}.select must reference persisted non-relation fields`,
+					)
+				}
+			}
 		}
 	}
 	for (const name of developerFields) {
@@ -200,6 +340,52 @@ export function assertSchemaCompilerSchemaNode(
 			) {
 				throw new TypeError(
 					`${path}.fields.${field.name}.options.${option.name} has inconsistent provenance`,
+				)
+			}
+		}
+		if (
+			Object.keys(fieldOptions).length !== optionNames.size ||
+			Object.keys(fieldOptions).some((name) => !optionNames.has(name))
+		) {
+			throw new TypeError(
+				`${path}.provenance.fieldOptions.${field.name} must match field options`,
+			)
+		}
+	}
+	for (const field of virtualFields) {
+		if (!isPlainRecord(field) || typeof field.name !== 'string') continue
+		if (
+			!areSchemaDeclarationValuesCompatible(
+				field.provenance,
+				value.provenance.fields[field.name],
+			)
+		) {
+			throw new TypeError(
+				`${path}.virtualFields.${field.name} has inconsistent provenance`,
+			)
+		}
+		const fieldOptions = value.provenance.fieldOptions[field.name]
+		if (!isPlainRecord(fieldOptions)) {
+			throw new TypeError(
+				`${path}.provenance.fieldOptions.${field.name} must be a map`,
+			)
+		}
+		const optionNames = new Set<string>()
+		for (const option of readList(
+			field,
+			'options',
+			`${path}.virtualFields.${field.name}`,
+		)) {
+			if (!isPlainRecord(option) || typeof option.name !== 'string') continue
+			optionNames.add(option.name)
+			if (
+				!areSchemaDeclarationValuesCompatible(
+					option.provenance,
+					fieldOptions[option.name],
+				)
+			) {
+				throw new TypeError(
+					`${path}.virtualFields.${field.name}.options.${option.name} has inconsistent provenance`,
 				)
 			}
 		}

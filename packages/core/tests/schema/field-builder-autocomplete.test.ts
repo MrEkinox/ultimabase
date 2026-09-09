@@ -257,6 +257,7 @@ const rootMethodNames = [
 	'string',
 	'time',
 	'uuid',
+	'virtual',
 ] as const
 
 describe('FieldBuilder IntelliSense', () => {
@@ -305,7 +306,8 @@ describe('FieldBuilder IntelliSense', () => {
 
 		expect(names).toStrictEqual(
 			rootMethodNames.filter(
-				(name) => name !== 'pointer' && name !== 'relation',
+				(name) =>
+					name !== 'pointer' && name !== 'relation' && name !== 'virtual',
 			),
 		)
 	})

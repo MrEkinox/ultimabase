@@ -224,7 +224,10 @@ export const normalizeEnforcementRestrictedFields = (
 	const normalized: string[] = []
 
 	for (const field of fields) {
-		if (typeof field !== 'string' || !Object.hasOwn(schema.fields, field)) {
+		if (
+			typeof field !== 'string' ||
+			!Object.hasOwn(schema.persistedFields, field)
+		) {
 			throw new TypeError(
 				`Enforcement contribution "${contribution.name}" returned an unknown schema field`,
 			)

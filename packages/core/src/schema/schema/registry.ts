@@ -20,7 +20,9 @@ const coreSchemaMetadataKeys = new Set([
 	'constraints',
 	'fields',
 	'indexes',
+	'persistedFields',
 	'provenance',
+	'virtualFields',
 ])
 
 const assertNoUnresolvedFieldOptions = (
@@ -59,7 +61,9 @@ const assertNoUnresolvedOptions = (
 			throw new TypeError(`Unknown schema option: ${unknownSchemaKey}`)
 		}
 
-		for (const [name, field] of Object.entries(candidate.definition.fields)) {
+		for (const [name, field] of Object.entries(
+			candidate.definition.persistedFields,
+		)) {
 			assertNoUnresolvedFieldOptions(
 				field,
 				`${candidate.schema.className}.fields.${name}`,
@@ -73,7 +77,7 @@ const assertValidEmbeddedFields = (
 ): void => {
 	for (const candidate of prepared) {
 		for (const [fieldName, field] of Object.entries(
-			candidate.definition.fields,
+			candidate.definition.persistedFields,
 		)) {
 			if (field.kind !== 'object') continue
 
@@ -283,7 +287,7 @@ const compilePreparedSchemaRegistry = (
 			)
 		}
 
-		return candidate.definition.fields
+		return candidate.definition.persistedFields
 	})
 	const targetsBySchema = new Map<
 		SchemaDefinition,

@@ -15,7 +15,7 @@ import type {
 	QueryWhereNode,
 } from '../ast/contracts.js'
 import { createQueryAst } from '../ast/factory.js'
-import { parseQueryFieldName } from '../ast/schema.js'
+import { parsePersistedQueryFieldName as parseQueryFieldName } from '../ast/schema.js'
 import type {
 	ExactQuerySelection,
 	LiteralQuerySelection,
@@ -566,7 +566,7 @@ const applyQueryProjection = <const TSchema extends SchemaDefinition>(
 	input: Readonly<Record<string, unknown>>,
 ): QueryInputAst<TSchema> => {
 	let selection = ast.selection
-
+	const fields = schema.persistedFields
 	if (input.select !== undefined) {
 		selection = normalizeQuerySelection(
 			schema,
@@ -589,7 +589,7 @@ const applyQueryProjection = <const TSchema extends SchemaDefinition>(
 			throw new TypeError(`query.include.${fieldName} must be an object`)
 		}
 
-		const field = schema.fields[fieldName]
+		const field = fields[fieldName]
 
 		if (field?.kind !== 'pointer' && field?.kind !== 'relation') {
 			throw new TypeError(
@@ -627,7 +627,7 @@ const applyQueryProjection = <const TSchema extends SchemaDefinition>(
 			: normalizeQuerySelectedFields(schema, [
 					...selectionFields,
 					...inclusions
-						.filter(({ field }) => schema.fields[field].kind === 'pointer')
+						.filter(({ field }) => fields[field].kind === 'pointer')
 						.map(({ field }) => field),
 				])
 

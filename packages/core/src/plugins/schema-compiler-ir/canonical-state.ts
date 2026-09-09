@@ -14,6 +14,7 @@ import type {
 	SchemaCompilerIndexNode,
 	SchemaCompilerOptionNode,
 	SchemaCompilerSchemaNode,
+	SchemaCompilerVirtualFieldNode,
 } from './contracts.js'
 
 export interface CanonicalSchemaCompilerState {
@@ -25,6 +26,7 @@ export interface CanonicalSchemaCompilerState {
 	indexes: readonly SchemaCompilerIndexNode[]
 	options: readonly SchemaCompilerOptionNode[]
 	provenance: SchemaCompilationProvenance
+	virtualFields: readonly SchemaCompilerVirtualFieldNode[]
 }
 
 export const createCanonicalSchemaCompilerState = (
@@ -38,6 +40,7 @@ export const createCanonicalSchemaCompilerState = (
 	indexes: schema.indexes,
 	options: schema.options,
 	provenance: schema.provenance,
+	virtualFields: schema.virtualFields,
 })
 
 export const snapshotCanonicalSchemaCompilerState = (
@@ -52,6 +55,7 @@ export const snapshotCanonicalSchemaCompilerState = (
 		indexes: immutableArray(state.indexes),
 		options: immutableArray(state.options),
 		provenance: state.provenance,
+		virtualFields: immutableArray(state.virtualFields),
 	})
 
 export const sameCompilerOwner = (

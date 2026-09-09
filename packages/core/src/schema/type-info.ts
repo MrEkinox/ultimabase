@@ -1,5 +1,5 @@
 /** Invalidates generated fingerprints when Core's shared typegen ABI changes. */
-export const generatedApplicationContractVersion = 15 as const
+export const generatedApplicationContractVersion = 16 as const
 
 /** Minimal identity implemented by every generated persisted item. */
 export interface SchemaItemType {
@@ -144,6 +144,7 @@ export type UltimaBaseGeneratedModelSurface<
 /** Groups the public operation inputs generated for one schema. */
 export interface SchemaInputsTypeInfo {
 	readonly create: object
+	readonly dependencySelect: object
 	readonly include?: object
 	readonly nestedCreate: object
 	readonly nestedUpdate: object
@@ -166,7 +167,10 @@ export interface SchemaTypeInfo {
 	readonly item: SchemaItemType
 	readonly key: string
 	readonly numericFields: string
+	readonly output: SchemaItemType
+	readonly persistedFields: string
 	readonly relationships?: Readonly<Record<string, SchemaRelationshipTypeInfo>>
+	readonly selectableFields: string
 }
 
 declare const schemaTypeInfoType: unique symbol
@@ -183,6 +187,8 @@ export type SchemaTypeInfoSource =
 /** Minimal operation inputs exposed before code generation has run. */
 export interface BaseSchemaInputsTypeInfo {
 	readonly create: Readonly<Record<string, unknown>>
+	readonly dependencySelect: Readonly<Record<string, boolean>> &
+		Readonly<{ readonly id?: true }>
 	readonly include: Readonly<Record<string, unknown>>
 	readonly nestedCreate: Readonly<Record<string, unknown>>
 	readonly nestedUpdate: Readonly<Record<string, unknown>>
@@ -202,29 +208,41 @@ export interface BaseSchemaTypeInfo<
 	readonly item: BaseItem
 	readonly key: TClassName
 	readonly numericFields: string
+	readonly output: BaseItem
+	readonly persistedFields: string
 	readonly relationships: Readonly<Record<string, SchemaRelationshipTypeInfo>>
+	readonly selectableFields: string
 }
 
 /** Names the public value projections Core reads from generated type information. */
 export type SchemaTypeValueKey =
-	'Create' | 'Include' | 'Item' | 'OrderBy' | 'Select' | 'Update' | 'Where'
+	| 'Create'
+	| 'Include'
+	| 'Item'
+	| 'OrderBy'
+	| 'Output'
+	| 'Select'
+	| 'Update'
+	| 'Where'
 
 type SchemaTypeValueFromTypeInfo<
 	TContract extends SchemaTypeInfo,
 	TKey extends SchemaTypeValueKey,
 > = TKey extends 'Item'
 	? TContract['item']
-	: TKey extends 'Create'
-		? TContract['inputs']['create']
-		: TKey extends 'Include'
-			? NonNullable<TContract['inputs']['include']>
-			: TKey extends 'OrderBy'
-				? TContract['inputs']['orderBy']
-				: TKey extends 'Select'
-					? TContract['inputs']['select']
-					: TKey extends 'Update'
-						? TContract['inputs']['update']
-						: TContract['inputs']['where']
+	: TKey extends 'Output'
+		? TContract['output']
+		: TKey extends 'Create'
+			? TContract['inputs']['create']
+			: TKey extends 'Include'
+				? NonNullable<TContract['inputs']['include']>
+				: TKey extends 'OrderBy'
+					? TContract['inputs']['orderBy']
+					: TKey extends 'Select'
+						? TContract['inputs']['select']
+						: TKey extends 'Update'
+							? TContract['inputs']['update']
+							: TContract['inputs']['where']
 
 /** Reports whether the current TypeScript project loaded a generated registry. */
 export type HasUltimaBaseGeneratedRegistry =

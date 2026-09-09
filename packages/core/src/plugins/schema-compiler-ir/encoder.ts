@@ -5,6 +5,8 @@ import {
 } from '@ultimabase/shared'
 
 import type { GenericField } from '../../schema/fields/base/contract.js'
+import type { GenericOutputDescriptor } from '../../schema/output/contracts.js'
+import { assertOutputDescriptor } from '../../schema/output/descriptor.js'
 import { assertFieldDefinition } from '../../schema/fields/base/definition.js'
 import { snapshotJsonValue } from '../../schema/fields/builtins/json.js'
 import type { PreparedSchemaCompilation } from '../../schema/schema/definition.js'
@@ -21,7 +23,9 @@ import type {
 	SchemaCompilerFieldNode,
 	SchemaCompilerIndexNode,
 	SchemaCompilerOptionValue,
+	SchemaCompilerOutputNode,
 	SchemaCompilerSchemaNode,
+	SchemaCompilerVirtualFieldNode,
 } from './contracts.js'
 import { SchemaCompilerArtifactSession } from './artifacts.js'
 
@@ -30,7 +34,9 @@ const coreSchemaKeys = new Set([
 	'constraints',
 	'fields',
 	'indexes',
+	'persistedFields',
 	'provenance',
+	'virtualFields',
 ])
 
 /** Encodes trusted artifacts into one deterministic application-local IR session. */
@@ -213,6 +219,76 @@ export class SchemaCompilerIrEncoder {
 		})
 	}
 
+	/** Encodes one recursive output descriptor without exposing its snapshot callback. */
+	outputNode(
+		descriptor: GenericOutputDescriptor,
+		path: string,
+	): SchemaCompilerOutputNode {
+		assertOutputDescriptor(descriptor, path)
+		const nested =
+			descriptor.kind === 'object' &&
+			'fields' in descriptor.options &&
+			isPlainRecord(descriptor.options.fields)
+				? descriptor.options.fields
+				: undefined
+		const fields = immutableArray(
+			Object.entries(nested ?? {}).map(([name, output]) => {
+				assertOutputDescriptor(output, `${path}.fields.${name}`)
+				return immutableRecord({
+					name,
+					output: this.outputNode(output, `${path}.fields.${name}`),
+				})
+			}),
+		)
+		const options = immutableArray(
+			Object.entries(descriptor.options)
+				.filter(([name]) => name !== 'fields')
+				.map(([name, value]) =>
+					immutableRecord({
+						name,
+						value: this.optionValue(value, `${path}.options.${name}`),
+					}),
+				),
+		)
+
+		return immutableRecord({
+			artifact: this.reference('output', descriptor, path),
+			fields,
+			kind: descriptor.kind,
+			options,
+		})
+	}
+
+	/** Encodes one virtual field while retaining its resolver only as an artifact. */
+	virtualFieldNode(
+		field: PreparedSchemaCompilation['definition']['virtualFields'][string],
+		name: string,
+		path: string,
+		provenance: SchemaContributionProvenance,
+		optionProvenance: Readonly<Record<string, SchemaOptionProvenance>>,
+	): SchemaCompilerVirtualFieldNode {
+		const artifact = this.reference('virtual-field', field, path)
+		this.recordContributionReference(artifact, provenance)
+		return immutableRecord({
+			artifact,
+			name,
+			options: immutableArray(
+				Object.entries(field.options).map(([optionName, value]) =>
+					immutableRecord({
+						name: optionName,
+						provenance:
+							optionProvenance[optionName] ??
+							immutableRecord({ definition: provenance, value: provenance }),
+						value: this.optionValue(value, `${path}.options.${optionName}`),
+					}),
+				),
+			),
+			output: this.outputNode(field.output, `${path}.output`),
+			provenance,
+			select: immutableArray(field.select),
+		})
+	}
+
 	/** Encodes one prepared schema without leaking its constructor identity. */
 	schemaNode(
 		candidate: PreparedSchemaCompilation,
@@ -221,7 +297,7 @@ export class SchemaCompilerIrEncoder {
 		const definition = candidate.definition
 		const provenance = definition.provenance
 		const fields = immutableArray(
-			Object.entries(definition.fields).map(([name, field]) => {
+			Object.entries(definition.persistedFields).map(([name, field]) => {
 				const fieldProvenance = provenance.fields[name]
 				if (fieldProvenance === undefined) {
 					throw new TypeError(
@@ -254,6 +330,23 @@ export class SchemaCompilerIrEncoder {
 					})
 				}),
 		)
+		const virtualFields = immutableArray(
+			Object.entries(definition.virtualFields).map(([name, field]) => {
+				const fieldProvenance = provenance.fields[name]
+				if (fieldProvenance === undefined) {
+					throw new TypeError(
+						`Missing schema compiler virtual field provenance: ${path}.${name}`,
+					)
+				}
+				return this.virtualFieldNode(
+					field,
+					name,
+					`${path}.virtualFields.${name}`,
+					fieldProvenance,
+					provenance.fieldOptions[name] ?? immutableRecord({}),
+				)
+			}),
+		)
 
 		return immutableRecord({
 			artifact: this.reference('schema', candidate.schema, path),
@@ -266,6 +359,7 @@ export class SchemaCompilerIrEncoder {
 			indexes: this.indexNodes(candidate),
 			options,
 			provenance,
+			virtualFields,
 		})
 	}
 

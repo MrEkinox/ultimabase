@@ -14,7 +14,7 @@ import type {
 	QueryIncludedRelationNode,
 	QueryInclusionNode,
 } from '../ast/contracts.js'
-import { parseQueryFieldName } from '../ast/schema.js'
+import { parsePersistedQueryFieldName } from '../ast/schema.js'
 
 export type QueryPointerFieldName<TSchema extends SchemaTypeInfoSource> =
 	SchemaRelationshipFieldName<TSchema, 'pointer'>
@@ -125,12 +125,12 @@ const resolveInclusionTarget = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
 	fieldName: QueryIncludableFieldName<TSchema>,
 ): SchemaDefinition => {
-	const normalizedFieldName = parseQueryFieldName(
+	const normalizedFieldName = parsePersistedQueryFieldName(
 		schema,
 		fieldName,
 		'query inclusion field',
 	)
-	const field = schema.fields[normalizedFieldName]
+	const field = schema.persistedFields[normalizedFieldName]
 
 	if (field?.kind !== 'pointer' && field?.kind !== 'relation') {
 		throw new TypeError(
@@ -174,7 +174,7 @@ export const normalizeQueryInclusion = <const TSchema extends SchemaDefinition>(
 			)
 		}
 
-		const field = schema.fields[input.field]
+		const field = schema.persistedFields[input.field]
 		const node = immutableRecord({
 			kind:
 				field.kind === 'pointer'

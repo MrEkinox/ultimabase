@@ -93,7 +93,7 @@ export const compileSchemaRelations = (
 	pendingRelations: readonly PendingSchemaRelation[],
 	targets: readonly ResolvedSchemaTarget[],
 	readFields: (schema: SchemaDefinition) => SchemaFields = (schema) =>
-		schema.fields,
+		schema.persistedFields,
 ): readonly ResolvedSchemaRelation[] => {
 	const targetByLocation = new Map<string, SchemaDefinition>()
 	const owningFieldLocations = new Map<GenericField, string>()

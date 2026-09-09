@@ -4,38 +4,39 @@ import {
 	isPlainRecord,
 } from '@ultimabase/shared'
 
-import { bigintField } from '../fields/builtins/bigint.js'
-import { binaryField } from '../fields/builtins/binary.js'
-import { booleanField } from '../fields/builtins/boolean.js'
-import { dateField } from '../fields/builtins/date.js'
-import { dateTimeField } from '../fields/builtins/date-time.js'
-import { decimalField } from '../fields/builtins/decimal.js'
-import { enumField } from '../fields/builtins/enum.js'
-import { floatField } from '../fields/builtins/float.js'
-import { intField } from '../fields/builtins/int.js'
-import { jsonField } from '../fields/builtins/json.js'
+import type { bigintField } from '../fields/builtins/bigint.js'
+import type { binaryField } from '../fields/builtins/binary.js'
+import type { booleanField } from '../fields/builtins/boolean.js'
+import type { dateField } from '../fields/builtins/date.js'
+import type { dateTimeField } from '../fields/builtins/date-time.js'
+import type { decimalField } from '../fields/builtins/decimal.js'
+import type { enumField } from '../fields/builtins/enum.js'
+import type { floatField } from '../fields/builtins/float.js'
+import type { intField } from '../fields/builtins/int.js'
+import type { jsonField } from '../fields/builtins/json.js'
 import { objectField } from '../fields/builtins/object.js'
-import {
-	pointerField,
-	type NamedPointerFieldBuilderMethod,
-} from '../fields/builtins/pointer.js'
-import {
-	relationField,
-	type NamedRelationFieldBuilderMethod,
-} from '../fields/builtins/relation.js'
-import { stringField } from '../fields/builtins/string.js'
-import { timeField } from '../fields/builtins/time.js'
-import { uuidField } from '../fields/builtins/uuid.js'
+import type { NamedPointerFieldBuilderMethod } from '../fields/builtins/pointer.js'
+import type { NamedRelationFieldBuilderMethod } from '../fields/builtins/relation.js'
+import type { stringField } from '../fields/builtins/string.js'
+import type { timeField } from '../fields/builtins/time.js'
+import type { uuidField } from '../fields/builtins/uuid.js'
 import type { GenericField } from '../fields/base/contract.js'
 import { assertFieldDefinition } from '../fields/base/definition.js'
-import type { SchemaDefinition, SchemaFields } from './definition.js'
-import { createNamedSchemaTarget } from './targets.js'
-import type {
-	FieldBuilderMethodResolver,
-	FieldBuilderMethodContextDefinition,
-	OwnedFieldBuilderMethod,
-} from './field-builder-methods.js'
-import type { FieldDeclarationContext } from './field-contexts.js'
+import type { RequestContext } from '../../runtime/context/request-context.js'
+import {
+	captureOutputBuilderCallback,
+	resolveCapturedOutputDescriptor,
+} from '../output/builder.js'
+import type { SchemaDeclaredFields, SchemaFields } from './definition.js'
+import {
+	assertVirtualFieldDefinition,
+	createVirtualFieldDefinition,
+	normalizeVirtualFieldSelection,
+	type GenericVirtualField,
+	type VirtualFieldBuilderMethod,
+} from './virtual-field.js'
+import { systemFields } from './system-fields.js'
+import type { FieldBuilderMethodResolver } from './field-builder-methods.js'
 import { snapshotCapturedFieldOptions } from './captured-options.js'
 import {
 	assertEmbeddedBuiltInFieldOptions,
@@ -48,6 +49,13 @@ import type {
 	ScalarFieldBuilderMethods,
 } from './field-builder-contract.js'
 import type { ObjectFieldBuilderMethod } from './object-field-builder.js'
+import {
+	createRuntimeFieldBuilder,
+	FieldBuilderMethodUnavailableError,
+	FieldBuilderTargetUnavailableError,
+	invokeFieldFactory,
+	type FieldBuilderTargetResolver,
+} from './runtime-field-builder.js'
 
 export type {
 	EmbeddedFieldBuilder,
@@ -55,27 +63,16 @@ export type {
 	ObjectFieldBuilderOptions,
 	SchemaFieldBuilderDeclaration,
 } from './field-builder-contract.js'
+export {
+	FieldBuilderMethodUnavailableError,
+	FieldBuilderTargetUnavailableError,
+}
+export type { FieldBuilderTargetResolver }
 
 type UnknownCallable = (...arguments_: readonly unknown[]) => unknown
 
 const isUnknownCallable = (value: unknown): value is UnknownCallable =>
 	typeof value === 'function'
-
-const invokeFieldFactory = (
-	factory: unknown,
-	options: unknown,
-	path: string,
-): GenericField => {
-	if (!isUnknownCallable(factory)) {
-		throw new TypeError(`${path} field factory must be a function`)
-	}
-
-	const field = factory(options)
-
-	assertFieldDefinition(field, path)
-
-	return field
-}
 
 type RuntimeFieldBuilderMethod = (options?: unknown) => GenericField
 
@@ -85,17 +82,6 @@ interface CapturedFieldBuilderCall {
 }
 
 const capturedFieldBuilderCalls = new WeakSet<object>()
-
-/** Identifies the one expected failure when an application omitted a used field plugin. */
-export class FieldBuilderMethodUnavailableError extends TypeError {}
-
-/** Defers named relationship materialization until an application registry exists. */
-export class FieldBuilderTargetUnavailableError extends TypeError {}
-
-/** Resolves one declared target name against the current application registry. */
-export type FieldBuilderTargetResolver = (
-	className: string,
-) => SchemaDefinition | undefined
 
 /** Separates developer callback failures from validation of its returned map. */
 export class FieldBuilderDeclarationExecutionError extends Error {
@@ -108,14 +94,14 @@ export class FieldBuilderDeclarationExecutionError extends Error {
 const createCapturedFieldBuilderCall = (
 	methodName: string,
 	options: unknown,
-): GenericField => {
+): GenericField | GenericVirtualField => {
 	const call = immutableRecord({ methodName, options })
 
 	capturedFieldBuilderCalls.add(call)
 
 	// The public builder method retains its concrete return type while compilation
 	// privately replaces this opaque declaration with the plugin's real field.
-	return call as unknown as GenericField
+	return call as unknown as GenericField | GenericVirtualField
 }
 
 const isCapturedFieldBuilderCall = (
@@ -124,33 +110,6 @@ const isCapturedFieldBuilderCall = (
 	typeof value === 'object' &&
 	value !== null &&
 	capturedFieldBuilderCalls.has(value)
-
-const createRuntimeBuilder = <TBuilder extends object>(
-	builder: TBuilder,
-	pluginMethods: Readonly<Record<string, RuntimeFieldBuilderMethod>>,
-	path: string,
-	embedded: boolean,
-): TBuilder => {
-	const target = immutableRecord({ ...builder, ...pluginMethods })
-
-	return new Proxy(target, {
-		get: (record, property, receiver): unknown => {
-			if (typeof property !== 'string' || Reflect.has(record, property)) {
-				return Reflect.get(record, property, receiver)
-			}
-
-			if (embedded && (property === 'pointer' || property === 'relation')) {
-				return undefined
-			}
-
-			return (): never => {
-				throw new FieldBuilderMethodUnavailableError(
-					`${path} FieldBuilder method "${property}" is unavailable; configure the plugin that declares it`,
-				)
-			}
-		},
-	})
-}
 
 const createCapturedObjectMethod = (path: string): ObjectFieldBuilderMethod => {
 	const method = (optionsValue: unknown): GenericField => {
@@ -177,6 +136,29 @@ const createCapturedObjectMethod = (path: string): ObjectFieldBuilderMethod => {
 	}
 
 	return method as ObjectFieldBuilderMethod
+}
+
+const createCapturedVirtualMethod = (
+	path: string,
+): VirtualFieldBuilderMethod => {
+	const method = (optionsValue: unknown): GenericVirtualField => {
+		if (!isPlainRecord(optionsValue)) {
+			throw new TypeError(`${path}.virtual options must be a plain object`)
+		}
+
+		const { output, ...options } = optionsValue
+		return createCapturedFieldBuilderCall(
+			'virtual',
+			immutableRecord({
+				...(snapshotCapturedFieldOptions(options) as Readonly<
+					Record<string, unknown>
+				>),
+				output: captureOutputBuilderCallback(output, `${path}.virtual.output`),
+			}),
+		) as GenericVirtualField
+	}
+
+	return method as VirtualFieldBuilderMethod
 }
 
 const createCapturedFieldBuilder = (
@@ -216,6 +198,7 @@ const createCapturedFieldBuilder = (
 				int: method('int') as typeof intField,
 				pointer: method('pointer') as NamedPointerFieldBuilderMethod,
 				relation: method('relation') as NamedRelationFieldBuilderMethod,
+				virtual: createCapturedVirtualMethod(path),
 			}
 
 	return new Proxy(immutableRecord(known), {
@@ -233,152 +216,6 @@ const createCapturedFieldBuilder = (
 	})
 }
 
-const createPluginMethods = (
-	path: string,
-	context: Exclude<FieldDeclarationContext, 'output'>,
-	fieldMethods?: FieldBuilderMethodResolver,
-): Readonly<Record<string, RuntimeFieldBuilderMethod>> => {
-	const methods: Record<string, RuntimeFieldBuilderMethod> = {}
-
-	for (const method of fieldMethods?.values() ?? []) {
-		const implementation = method.contexts[context]
-		if (implementation === undefined) continue
-		methods[method.name] = (options): GenericField =>
-			invokePluginFieldFactory(method, implementation, options, path)
-	}
-
-	return immutableRecord(methods)
-}
-
-const invokePluginFieldFactory = (
-	method: OwnedFieldBuilderMethod,
-	implementation: FieldBuilderMethodContextDefinition,
-	options: unknown,
-	path: string,
-): GenericField => {
-	const field = invokeFieldFactory(
-		implementation.factory,
-		options,
-		`${path}.${method.name}`,
-	)
-
-	if (field.kind !== implementation.fieldKind) {
-		throw new TypeError(
-			`${path} FieldBuilder method "${method.name}" from "${method.owner}" returned kind "${field.kind}" instead of "${implementation.fieldKind}"`,
-		)
-	}
-
-	return field
-}
-
-const createObjectMethod = (
-	path: string,
-	fieldMethods?: FieldBuilderMethodResolver,
-): ObjectFieldBuilderMethod => {
-	const method = (optionsValue: unknown): GenericField => {
-		if (!isPlainRecord(optionsValue)) {
-			throw new TypeError(`${path}.object options must be a plain object`)
-		}
-
-		const { fields: declaration, ...options } = optionsValue
-		const fields = executeFieldBuilderCallback(
-			declaration,
-			`${path}.object.fields`,
-			true,
-			fieldMethods,
-		)
-
-		return objectField({ ...options, fields })
-	}
-
-	return method as ObjectFieldBuilderMethod
-}
-
-const createFieldBuilder = (
-	path: string,
-	embedded: boolean,
-	fieldMethods?: FieldBuilderMethodResolver,
-	resolveTarget?: FieldBuilderTargetResolver,
-): FieldBuilder | EmbeddedFieldBuilder => {
-	const scalarMethods: ScalarFieldBuilderMethods = {
-		binary: binaryField,
-		boolean: booleanField,
-		date: dateField,
-		dateTime: dateTimeField,
-		decimal: decimalField,
-		enum: enumField,
-		float: floatField,
-		json: jsonField,
-		object: createObjectMethod(path, fieldMethods),
-		string: stringField,
-		time: timeField,
-		uuid: uuidField,
-	}
-	const context = embedded ? 'embedded' : 'stored'
-	const pluginMethods = createPluginMethods(path, context, fieldMethods)
-
-	if (embedded) {
-		return createRuntimeBuilder<EmbeddedFieldBuilder>(
-			{
-				...scalarMethods,
-				bigint: bigintField,
-				int: intField,
-			},
-			pluginMethods,
-			path,
-			true,
-		)
-	}
-
-	const namedTargetOptions = (
-		options: unknown,
-	): Readonly<Record<string, unknown>> => {
-		if (!isPlainRecord(options)) {
-			throw new TypeError(`${path} relationship options must be a plain object`)
-		}
-
-		const { target, ...rest } = options
-
-		assertNonEmptyString(target, `${path} target`)
-
-		if (resolveTarget === undefined) {
-			throw new FieldBuilderTargetUnavailableError(
-				`${path} target requires an application schema registry`,
-			)
-		}
-
-		return immutableRecord({
-			...rest,
-			target: createNamedSchemaTarget(target, resolveTarget(target)),
-		})
-	}
-	const namedPointer = ((options: unknown): GenericField =>
-		invokeFieldFactory(
-			pointerField,
-			namedTargetOptions(options),
-			`${path}.pointer`,
-		)) as NamedPointerFieldBuilderMethod
-	const namedRelation = ((options: unknown): GenericField =>
-		invokeFieldFactory(
-			relationField,
-			namedTargetOptions(options),
-			`${path}.relation`,
-		)) as NamedRelationFieldBuilderMethod
-
-	return createRuntimeBuilder<FieldBuilder>(
-		{
-			...scalarMethods,
-			bigint: bigintField,
-			int: intField,
-			pointer: namedPointer,
-			relation: namedRelation,
-		},
-		pluginMethods,
-		path,
-		false,
-	)
-}
-
 const assertCapturedFieldMap: (
 	value: unknown,
 	path: string,
@@ -391,7 +228,16 @@ const assertCapturedFieldMap: (
 		assertNonEmptyString(name, `${path} field name`)
 
 		if (!isCapturedFieldBuilderCall(field)) {
-			assertFieldDefinition(field, `${path}.${name}`)
+			if (
+				typeof field === 'object' &&
+				field !== null &&
+				'kind' in field &&
+				field.kind === 'virtual'
+			) {
+				assertVirtualFieldDefinition(field, `${path}.${name}`)
+			} else {
+				assertFieldDefinition(field, `${path}.${name}`)
+			}
 		}
 	}
 }
@@ -461,11 +307,12 @@ const resolveCapturedFieldBuilderCall = (
 		)
 	}
 
-	const builder = createFieldBuilder(
+	const builder = createRuntimeFieldBuilder(
 		fieldPath,
 		embedded,
 		fieldMethods,
 		resolveTarget,
+		executeFieldBuilderCallback,
 	)
 	const factory = Reflect.get(builder, call.methodName) as unknown
 
@@ -483,12 +330,17 @@ export const resolveCapturedFieldMap = (
 	embedded = false,
 	fieldMethods?: FieldBuilderMethodResolver,
 	resolveTarget?: FieldBuilderTargetResolver,
-): SchemaFields => {
+): SchemaDeclaredFields => {
 	assertCapturedFieldMap(captured, path)
-	const fields: Record<string, GenericField> = {}
+	const fields: Record<string, GenericField | GenericVirtualField> = {}
+	const virtualCalls: [string, CapturedFieldBuilderCall][] = []
 
 	for (const [name, field] of Object.entries(captured)) {
 		if (isCapturedFieldBuilderCall(field)) {
+			if (!embedded && field.methodName === 'virtual') {
+				virtualCalls.push([name, field])
+				continue
+			}
 			if (
 				embedded &&
 				(field.methodName === 'pointer' || field.methodName === 'relation')
@@ -508,7 +360,42 @@ export const resolveCapturedFieldMap = (
 			continue
 		}
 
-		fields[name] = field as GenericField
+		fields[name] = field as GenericField | GenericVirtualField
+	}
+
+	const persistedFields = immutableRecord({
+		...Object.fromEntries(
+			Object.entries(fields).filter(([, field]) => field.kind !== 'virtual'),
+		),
+		...systemFields,
+	}) as SchemaFields
+	for (const [name, call] of virtualCalls) {
+		if (!isPlainRecord(call.options)) {
+			throw new TypeError(
+				`${path}.${name}.virtual options must be a plain object`,
+			)
+		}
+		const { output, resolve, select, ...options } = call.options
+		if (typeof resolve !== 'function') {
+			throw new TypeError(`${path}.${name}.virtual.resolve must be a function`)
+		}
+		fields[name] = createVirtualFieldDefinition(
+			resolveCapturedOutputDescriptor(
+				output,
+				`${path}.${name}.virtual.output`,
+				fieldMethods,
+			),
+			normalizeVirtualFieldSelection(
+				select,
+				persistedFields,
+				`${path}.${name}.virtual.select`,
+			),
+			resolve as (input: {
+				readonly context: RequestContext
+				readonly item: Readonly<object>
+			}) => unknown,
+			immutableRecord(options),
+		)
 	}
 
 	return immutableRecord(fields)
@@ -521,7 +408,7 @@ export const executeFieldBuilderCallback = (
 	embedded = false,
 	fieldMethods?: FieldBuilderMethodResolver,
 	resolveTarget?: FieldBuilderTargetResolver,
-): SchemaFields =>
+): SchemaDeclaredFields =>
 	resolveCapturedFieldMap(
 		captureFieldBuilderCallback(declaration, path, embedded),
 		path,
@@ -536,7 +423,7 @@ export const executeSchemaFieldsCallback = (
 	path: string,
 	fieldMethods?: FieldBuilderMethodResolver,
 	resolveTarget?: FieldBuilderTargetResolver,
-): SchemaFields =>
+): SchemaDeclaredFields =>
 	executeFieldBuilderCallback(
 		declaration,
 		path,

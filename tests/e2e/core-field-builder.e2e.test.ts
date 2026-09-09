@@ -49,6 +49,7 @@ const rootMethods = [
 	'string',
 	'time',
 	'uuid',
+	'virtual',
 ] as const
 const embeddedFactories = [
 	'bigint',
@@ -96,7 +97,10 @@ describe('packed @ultimabase/core FieldBuilder contract', () => {
 		const nested = languageFixture.readMemberCompletions('nested-builder')
 
 		expect(nested.map(({ name }) => name).sort()).toStrictEqual(
-			rootMethods.filter((name) => name !== 'pointer' && name !== 'relation'),
+			rootMethods.filter(
+				(name) =>
+					name !== 'pointer' && name !== 'relation' && name !== 'virtual',
+			),
 		)
 	})
 
