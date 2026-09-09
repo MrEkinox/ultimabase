@@ -8,7 +8,8 @@
 
 ## Goal
 
-Plan independent money, encrypted, hashed, geo, vector, virtual, and computed field plugins.
+Plan independent money, encrypted, hashed, geo, vector, and other advanced
+stored-field plugins.
 
 ## Acceptance criteria
 
@@ -23,3 +24,9 @@ Validation-only formats do not require field-plugin follow-ups. Issue 2007
 replaces the former derived-field plan with native fields composed with
 developer-selected Standard Schema validators and explicit input Hooks when
 normalization is required.
+
+Core-owned output-only virtual fields moved to
+[milestone 25](../2500-contextual-fields-virtual-results/README.md). They are
+not a concrete field plugin because they change canonical schema result,
+selection, Runtime, Typegen, and transport behavior while deliberately owning
+no storage contract.

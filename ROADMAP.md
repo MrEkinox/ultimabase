@@ -48,7 +48,12 @@ per-object policy and Hook execution inside one automatic transaction. The
 [completed plan](docs/plans/completed/nested-writes-before-first-release.md)
 retains its contract and final evidence.
 
-No multi-issue objective is currently active.
+[Milestone 25](issues/2500-contextual-fields-virtual-results/README.md) is the
+active objective. It first makes stored, embedded, virtual, and output field
+builders advertise only executable capabilities, then adds Core-owned virtual
+result fields with private persisted dependency selections and request-aware
+synchronous or asynchronous resolution. Issue 2501 is the mandatory ADR gate
+before implementation.
 
 The ACL hardening plan remains paused at issue 432. It is not part of an active
 plan.
@@ -267,6 +272,16 @@ ordinary Runtime, policy, Hook, transaction, and persistence boundaries. REST
 and GraphQL retain only their wire representations. Nested target delete/upsert,
 bulk roots, provisional references, arbitrary unique-filter connect, and
 partial success remain outside the initial contract.
+
+## Milestone 25 — Contextual fields and virtual results
+
+Give stored root fields, embedded object properties, virtual declarations, and
+output-only value descriptors separate truthful builder contracts. On that
+foundation, add `field.virtual({ output, select, resolve })`: a selectable Core
+result field that privately loads persisted dependencies, may resolve
+asynchronously from the exact request context, and never enters storage,
+migrations, mutation inputs, filters, or ordering. Direct TypeScript, REST, and
+GraphQL share one Runtime resolver and structural output contract.
 
 ## First usable release
 

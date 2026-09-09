@@ -7,7 +7,8 @@ priority changes.
 
 ## Active
 
-- None.
+- [Contextual fields and virtual results](../../CURRENT_PLAN.md), resumable at
+  issue 2501 and gated by the proposed ADR-0244 contract.
 
 ## Paused
 
