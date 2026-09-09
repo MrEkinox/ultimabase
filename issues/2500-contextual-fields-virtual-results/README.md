@@ -1,6 +1,6 @@
 # Milestone 25 — Contextual fields and virtual results
 
-- Status: planned
+- Status: in-progress
 
 Make field declaration autocomplete truthful for stored roots, embedded object
 properties, and output-only values, then deliver selectable request-aware
@@ -8,7 +8,7 @@ virtual fields without inventing persistence or mutation behavior.
 
 ## Execution order
 
-1. [ ] [2501 — Decide contextual fields and virtual results](2501-contextual-field-virtual-contract.md)
+1. [x] [2501 — Decide contextual fields and virtual results](2501-contextual-field-virtual-contract.md)
 2. [ ] [2502 — Restrict embedded built-in field declarations](2502-embedded-field-contracts.md)
 3. [ ] [2503 — Add output-only value descriptors](2503-output-value-descriptors.md)
 4. [ ] [2504 — Contextualize plugin field declarations and Typegen](2504-contextual-plugin-field-typegen.md)

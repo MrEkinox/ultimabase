@@ -4,7 +4,7 @@
 - Milestone: 25
 - Packages: `@ultimabase/graphql-plugin`, `@ultimabase/graphql-yoga-plugin`
 - Depends on: 2507
-- ADR: proposed ADR-0244
+- ADR: [ADR-0244](../../docs/adr/0244-contextual-fields-and-virtual-results.md)
 
 ## Goal
 

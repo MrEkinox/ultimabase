@@ -3,8 +3,8 @@
 - Status: active
 - Milestone: 25
 - Started: 2026-09-09
-- Governing decision: ADR-0244, to be authored by issue 2501
-- Resume point: [issue 2501](issues/2500-contextual-fields-virtual-results/2501-contextual-field-virtual-contract.md)
+- Governing decision: [ADR-0244](docs/adr/0244-contextual-fields-and-virtual-results.md)
+- Resume point: [issue 2502](issues/2500-contextual-fields-virtual-results/2502-embedded-field-contracts.md)
 
 ## Objective
 
@@ -30,8 +30,8 @@ profile: field.object({
 ```
 
 The embedded builder must not advertise a relationship, dedicated-column,
-index, generator, plugin option, or other behavior that cannot execute for one
-property of the parent stored value.
+portable index, unsupported generator, plugin option, or other behavior that
+cannot execute for one property of the parent stored value.
 
 Virtual fields stay in the canonical schema field map but describe their
 result through a separate output-only builder:
@@ -57,7 +57,7 @@ semantics.
 
 ## Execution order
 
-1. [ ] Issue 2501 — accept the contextual-field and virtual-result contract.
+1. [x] Issue 2501 — accept the contextual-field and virtual-result contract.
 2. [ ] Issue 2502 — make embedded built-in field declarations truthful.
 3. [ ] Issue 2503 — add output-only value descriptors and `OutputBuilder`.
 4. [ ] Issue 2504 — contextualize plugin field methods, options, and Typegen.

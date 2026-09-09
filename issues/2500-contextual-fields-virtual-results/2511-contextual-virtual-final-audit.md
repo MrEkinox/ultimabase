@@ -4,7 +4,7 @@
 - Milestone: 25
 - Packages: all first-release packages
 - Depends on: 2510
-- ADR: proposed ADR-0244
+- ADR: [ADR-0244](../../docs/adr/0244-contextual-fields-and-virtual-results.md)
 
 ## Goal
 

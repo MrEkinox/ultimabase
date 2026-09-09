@@ -4,7 +4,7 @@
 - Milestone: 25
 - Packages: `@ultimabase/core`, `@ultimabase/typegen`
 - Depends on: 2504
-- ADR: proposed ADR-0244
+- ADR: [ADR-0244](../../docs/adr/0244-contextual-fields-and-virtual-results.md)
 
 ## Goal
 
@@ -21,7 +21,8 @@ declarations and generated public contracts without adding a stored field.
       callback identity before infrastructure effects.
 - [ ] Callback-free public compiler IR and deterministic schema fingerprints
       retain inert virtual metadata without exposing or serializing the resolver.
-- [ ] Schema item, model result, complete result, and literal `select` types
+- [ ] The generated contract separates persisted `SchemaItem` from public
+      `SchemaOutput`; model results, complete results, and literal `select`
       include virtual fields with the declared output value.
 - [ ] Create, update, upsert, nested-write, where, orderBy, index, constraint,
       migration, and adapter field types exclude virtual fields.

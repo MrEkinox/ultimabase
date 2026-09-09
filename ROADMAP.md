@@ -52,8 +52,8 @@ retains its contract and final evidence.
 active objective. It first makes stored, embedded, virtual, and output field
 builders advertise only executable capabilities, then adds Core-owned virtual
 result fields with private persisted dependency selections and request-aware
-synchronous or asynchronous resolution. Issue 2501 is the mandatory ADR gate
-before implementation.
+synchronous or asynchronous resolution. Issue 2501 completed the mandatory ADR
+gate; ADR-0244 now governs implementation beginning with issue 2502.
 
 The ACL hardening plan remains paused at issue 432. It is not part of an active
 plan.

@@ -4,7 +4,7 @@
 - Milestone: 25
 - Packages: `@ultimabase/core`, `@ultimabase/plugin-kit`, `@ultimabase/typegen`, official field and field-option plugins
 - Depends on: 2503
-- ADR: proposed ADR-0244
+- ADR: [ADR-0244](../../docs/adr/0244-contextual-fields-and-virtual-results.md)
 
 ## Goal
 

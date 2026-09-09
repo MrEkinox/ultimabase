@@ -225,6 +225,7 @@ Accepted records:
 - [ADR-0241: GraphQL HTTP explorers use a provider-neutral endpoint contract](0241-provider-neutral-graphql-http-explorers.md)
 - [ADR-0242: Request source names belong to their producers](0242-request-source-ownership.md)
 - [ADR-0243: Singular nested writes use one bounded Core mutation graph](0243-bounded-singular-nested-writes.md)
+- [ADR-0244: Contextual field builders and virtual results](0244-contextual-fields-and-virtual-results.md)
 
 Superseded records:
 

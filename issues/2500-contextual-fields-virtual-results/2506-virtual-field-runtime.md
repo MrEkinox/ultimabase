@@ -4,7 +4,7 @@
 - Milestone: 25
 - Packages: `@ultimabase/core`
 - Depends on: 2505
-- ADR: proposed ADR-0244
+- ADR: [ADR-0244](../../docs/adr/0244-contextual-fields-and-virtual-results.md)
 
 ## Goal
 
@@ -31,6 +31,9 @@ projections through request-aware synchronous or asynchronous resolvers.
       policies or final output restrictions.
 - [ ] Mutation projections resolve before commit so resolver failure rolls back
       the automatic transaction; reads retain their ordinary transaction policy.
+- [ ] Eager pointer and relation target projections resolve their selected
+      virtual fields through the same operation-local scheduler and independent
+      target Access without lending parent dependencies or authority.
 - [ ] Callback attribution, nested application execution, cancellation,
       multi-application isolation, and complete-selection/exclusion semantics
       remain exact.
