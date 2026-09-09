@@ -209,11 +209,30 @@ export type {
 	SchemaOptionProvenance,
 } from './schema/provenance.js'
 export type {
+	EmbeddedBigintFieldOptions,
+	EmbeddedBinaryFieldOptions,
+	EmbeddedBooleanFieldOptions,
+	EmbeddedDateFieldOptions,
+	EmbeddedDateTimeFieldOptions,
+	EmbeddedDecimalFieldOptions,
+	EmbeddedEnumFieldOptions,
+	EmbeddedFloatFieldOptions,
+	EmbeddedIntFieldOptions,
+	EmbeddedJsonFieldOptions,
+	EmbeddedStringFieldOptions,
+	EmbeddedTimeFieldOptions,
+	EmbeddedUuidFieldOptions,
+} from './schema/embedded-field-options.js'
+export type {
 	EmbeddedFieldBuilder,
 	FieldBuilder,
 	ObjectFieldBuilderOptions,
 	SchemaFieldBuilderDeclaration,
 } from './schema/field-builder.js'
+export type {
+	EmbeddedObjectFieldBuilderMethod,
+	EmbeddedObjectFieldBuilderOptions,
+} from './schema/object-field-builder.js'
 export { defineFieldBuilderMethod } from './schema/field-builder-methods.js'
 export type {
 	FieldBuilderMethodDefinition,

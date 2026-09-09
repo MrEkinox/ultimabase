@@ -4,7 +4,7 @@
 - Milestone: 25
 - Started: 2026-09-09
 - Governing decision: [ADR-0244](docs/adr/0244-contextual-fields-and-virtual-results.md)
-- Resume point: [issue 2502](issues/2500-contextual-fields-virtual-results/2502-embedded-field-contracts.md)
+- Resume point: [issue 2503](issues/2500-contextual-fields-virtual-results/2503-output-value-descriptors.md)
 
 ## Objective
 
@@ -58,7 +58,7 @@ semantics.
 ## Execution order
 
 1. [x] Issue 2501 — accept the contextual-field and virtual-result contract.
-2. [ ] Issue 2502 — make embedded built-in field declarations truthful.
+2. [x] Issue 2502 — make embedded built-in field declarations truthful.
 3. [ ] Issue 2503 — add output-only value descriptors and `OutputBuilder`.
 4. [ ] Issue 2504 — contextualize plugin field methods, options, and Typegen.
 5. [ ] Issue 2505 — compile virtual schema fields and generated contracts.

@@ -250,15 +250,7 @@ describe('PostgreSQL primitive schema compiler', () => {
 		})
 	})
 
-	it('rejects nested indexes, unsupported plugin fields, and invalid sequence combinations', () => {
-		const nestedIndexSchema = Schema.define({
-			className: 'NestedIndexFixture',
-			fields: (field) => ({
-				profile: field.object({
-					fields: (field) => ({ email: field.string({ indexed: true }) }),
-				}),
-			}),
-		})
+	it('rejects unsupported plugin fields and invalid sequence combinations', () => {
 		const pluginField = definePluginField(
 			'fixture.custom',
 			{},
@@ -283,11 +275,6 @@ describe('PostgreSQL primitive schema compiler', () => {
 			}),
 		})
 
-		expect(() => compilePostgresSchema(nestedIndexSchema)).toThrow(
-			new TypeError(
-				'PostgreSQL cannot compile nested index without an extension: profile.email',
-			),
-		)
 		expect(() => compilePostgresSchema(pluginSchema)).toThrow(
 			new TypeError(
 				'No PostgreSQL field compiler is registered for kind: fixture.custom',

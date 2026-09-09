@@ -3,6 +3,7 @@ import { z } from 'zod'
 
 import {
 	definePluginField,
+	type EmbeddedFieldBuilder,
 	type FieldOptions,
 	type JsonDocument,
 	objectField,
@@ -163,6 +164,30 @@ Schema.define({
 		}),
 	}),
 })
+
+declare const packedEmbedded: EmbeddedFieldBuilder
+
+packedEmbedded.bigint({/* completion:embedded-bigint-options */})
+packedEmbedded.binary({/* completion:embedded-binary-options */})
+packedEmbedded.boolean({/* completion:embedded-boolean-options */})
+packedEmbedded.date({/* completion:embedded-date-options */})
+packedEmbedded.dateTime({/* completion:embedded-date-time-options */})
+packedEmbedded.decimal({/* completion:embedded-decimal-options */})
+// @ts-expect-error -- Completion intentionally omits the required enum domain.
+packedEmbedded.enum({/* completion:embedded-enum-options */})
+packedEmbedded.float({/* completion:embedded-float-options */})
+packedEmbedded.int({/* completion:embedded-int-options */})
+packedEmbedded.json({/* completion:embedded-json-options */})
+// @ts-expect-error -- Completion intentionally omits the required object fields.
+packedEmbedded.object({/* completion:embedded-object-options */})
+packedEmbedded.string({/* completion:embedded-string-options */})
+packedEmbedded.time({/* completion:embedded-time-options */})
+packedEmbedded.uuid({/* completion:embedded-uuid-options */})
+
+// @ts-expect-error -- Portable indexes require a stored root field.
+packedEmbedded.string({ indexed: true })
+// @ts-expect-error -- Embedded integers cannot declare a sequence option.
+packedEmbedded.int({ autoIncrement: false })
 
 // @ts-expect-error -- Packed declarations reject framework system fields.
 Schema.define({

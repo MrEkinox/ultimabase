@@ -30,9 +30,11 @@ export const UserSchema = Schema.define({
 ```
 
 The callback runs once during application static compilation. Builder calls
-reuse the existing immutable field factories, so the same defaults,
-plugin option namespaces, and metadata apply. The embedded builder intentionally has no
-`pointer` or `relation` methods and does not accept `autoIncrement: true`.
+reuse the existing immutable field factories. The embedded builder has its own
+context-specific option types: it keeps value behavior such as `required`,
+`default`, `list`, `immutable`, and temporal `autoNow`, but has no `pointer` or
+`relation` method and does not expose portable `indexed`, system generation, or
+integer `autoIncrement` options.
 
 Literal field names cannot shadow framework system fields (`id`, `createdAt`,
 `updatedAt`), Query logical keys (`AND`, `OR`, `NOT`), or model capabilities

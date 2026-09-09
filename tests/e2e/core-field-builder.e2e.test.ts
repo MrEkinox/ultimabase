@@ -47,6 +47,38 @@ const rootMethods = [
 	'time',
 	'uuid',
 ] as const
+const embeddedFactories = [
+	'bigint',
+	'binary',
+	'boolean',
+	'date',
+	'date-time',
+	'decimal',
+	'enum',
+	'float',
+	'int',
+	'json',
+	'object',
+	'string',
+	'time',
+	'uuid',
+] as const
+const embeddedSpecificOptions: Readonly<Record<string, readonly string[]>> = {
+	bigint: [],
+	binary: [],
+	boolean: [],
+	date: ['autoNow'],
+	'date-time': ['autoNow', 'timezone'],
+	decimal: ['precision', 'scale'],
+	enum: ['typeName', 'values'],
+	float: [],
+	int: [],
+	json: [],
+	object: ['fields', 'typeName'],
+	string: [],
+	time: ['autoNow', 'timezone'],
+	uuid: [],
+}
 
 describe('packed @ultimabase/core FieldBuilder contract', () => {
 	it('type-checks the canonical declaration through package exports', () => {
@@ -63,6 +95,32 @@ describe('packed @ultimabase/core FieldBuilder contract', () => {
 		expect(nested.map(({ name }) => name).sort()).toStrictEqual(
 			rootMethods.filter((name) => name !== 'pointer' && name !== 'relation'),
 		)
+	})
+
+	it('publishes truthful embedded options for every built-in factory', () => {
+		const commonOptions = [
+			'default',
+			'description',
+			'immutable',
+			'list',
+			'required',
+			'validation',
+		]
+
+		for (const factoryName of embeddedFactories) {
+			expect(
+				languageFixture
+					.readMemberCompletions(`embedded-${factoryName}-options`)
+					.map(({ name }) => name)
+					.sort(),
+				factoryName,
+			).toStrictEqual(
+				[
+					...commonOptions,
+					...(embeddedSpecificOptions[factoryName] ?? []),
+				].sort(),
+			)
+		}
 	})
 
 	it('retains the concise method signature and existing option help', () => {

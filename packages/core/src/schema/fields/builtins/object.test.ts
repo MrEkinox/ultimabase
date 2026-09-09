@@ -22,6 +22,7 @@ import {
 	uuidField,
 	type FieldDefinition,
 } from '../../index.js'
+import { replaceDeclaredFieldOptions } from '../base/definition.js'
 import {
 	requireArray,
 	requireDefined,
@@ -380,6 +381,43 @@ describe('object fields and list metadata', () => {
 		}).toThrow(
 			new TypeError(
 				'fields.sequence cannot use autoIncrement inside objectField',
+			),
+		)
+	})
+
+	it('rejects root-only metadata from low-level and transformed fields', () => {
+		expect(() =>
+			objectField({
+				fields: { email: stringField({ indexed: false }) },
+			}),
+		).toThrow(
+			new TypeError('fields.email cannot use indexed inside objectField'),
+		)
+
+		const nestedEmail = stringField({ indexed: true })
+		const transformedObject = replaceDeclaredFieldOptions(
+			objectField({ fields: {} }),
+			immutableRecord({
+				fields: immutableRecord({ email: nestedEmail }),
+			}),
+		)
+
+		expect(() =>
+			objectField({ fields: { profile: transformedObject } }),
+		).toThrow(
+			new TypeError(
+				'fields.profile.fields.email cannot use indexed inside objectField',
+			),
+		)
+
+		const generatedDate = replaceDeclaredFieldOptions(
+			dateTimeField(),
+			immutableRecord({ generatedOn: 'create' }),
+		)
+
+		expect(() => objectField({ fields: { createdAt: generatedDate } })).toThrow(
+			new TypeError(
+				'fields.createdAt cannot use generatedOn inside objectField',
 			),
 		)
 	})

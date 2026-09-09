@@ -86,7 +86,7 @@ type NonEmptyMapping<TValues extends EnumValues> =
 			? never
 			: TValues
 
-type CompatibleEnumFieldOptions<TValues extends EnumValues> =
+export type CompatibleEnumFieldOptions<TValues extends EnumValues> =
 	NonEmptyMapping<TValues> extends never ? { readonly values: never } : object
 
 /** Preserves the enum domain while naming only operation-relevant options. */

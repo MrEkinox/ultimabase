@@ -88,10 +88,14 @@ emitted by `@ultimabase/typegen`, and Core resolves public schema APIs through
 that registry.
 
 The root builder exposes every Core field kind. `field.object()` receives a
-path-aware embedded builder that omits `pointer` and `relation` and rejects
-database-generated integer sequences. Methods call the same public field
-factories internally rather than reproducing option normalization, validation,
-plugin-owned option handling, defaults, or inference rules.
+path-aware embedded builder with a named option type for every built-in factory.
+It omits `pointer`, `relation`, portable `indexed`, system generation, and
+database-generated integer sequences while retaining value behavior such as
+defaults, immutability, lists, structural normalization, and temporal
+`autoNow`. Methods call the same public field factories internally rather than
+reproducing their normalization or inference rules. Runtime compilation applies
+the same restrictions to untyped calls, low-level object composition, and
+plugin-transformed schemas.
 
 Framework and plugin authors may reuse the immutable low-level field factories
 internally. Normal application code uses named builder methods; Core
@@ -806,9 +810,12 @@ schema record. Its children may therefore be value fields, including nested
 objects and lists, but not `pointerField` or `relationField`. Declare schema
 relationships as top-level fields; use an explicit relationship schema when the
 relationship itself needs additional structured data. Likewise,
+portable `indexed` metadata needs a top-level schema field, while
 `intField({ autoIncrement: true })` and
 `bigintField({ autoIncrement: true })` require a dedicated top-level database
-column and cannot be embedded.
+column and cannot be embedded. These option names are absent from the embedded
+builder even when their value would be `false`; unsupported metadata is rejected
+rather than ignored.
 
 `typeName` follows the same optional identity contract as enum fields. A
 generator may use it as the base for distinct output, create-input,

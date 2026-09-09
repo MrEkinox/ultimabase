@@ -78,6 +78,105 @@ const documentedService = createLanguageService(
 	documentedSource,
 )
 
+const embeddedFactoryNames = [
+	'bigint',
+	'binary',
+	'boolean',
+	'date',
+	'dateTime',
+	'decimal',
+	'enum',
+	'float',
+	'int',
+	'json',
+	'object',
+	'string',
+	'time',
+	'uuid',
+] as const
+type EmbeddedFactoryName = (typeof embeddedFactoryNames)[number]
+const embeddedSpecificOptions: Readonly<
+	Record<EmbeddedFactoryName, readonly string[]>
+> = {
+	bigint: [],
+	binary: [],
+	boolean: [],
+	date: ['autoNow'],
+	dateTime: ['autoNow', 'timezone'],
+	decimal: ['precision', 'scale'],
+	enum: ['typeName', 'values'],
+	float: [],
+	int: [],
+	json: [],
+	object: ['fields', 'typeName'],
+	string: [],
+	time: ['autoNow', 'timezone'],
+	uuid: [],
+}
+const embeddedCommonOptions = [
+	'default',
+	'description',
+	'immutable',
+	'list',
+	'required',
+] as const
+const embeddedOptionMarkers = new Map<EmbeddedFactoryName, string>()
+const embeddedCalls = embeddedFactoryNames.map((factoryName) => {
+	const marker = `/* embedded-options:${factoryName} */`
+	const expectsIncompleteOptions =
+		factoryName === 'enum' || factoryName === 'object'
+
+	embeddedOptionMarkers.set(factoryName, marker)
+	return `${expectsIncompleteOptions ? '// @ts-expect-error -- Completion fixture intentionally omits the required property.\n' : ''}embedded.${factoryName}({ ${marker} })`
+})
+let embeddedSource = `
+import type { EmbeddedFieldBuilder } from '../../src/index.js'
+
+declare const embedded: EmbeddedFieldBuilder
+${embeddedCalls.join('\n')}
+
+// @ts-expect-error -- Portable indexes require a stored root field.
+embedded.string({ indexed: true })
+// @ts-expect-error -- Disabled root metadata is still unavailable when embedded.
+embedded.object({ fields: () => ({}), indexed: false })
+// @ts-expect-error -- An embedded integer cannot own a dedicated sequence option.
+embedded.int({ autoIncrement: false })
+`
+const embeddedPositions = new Map<EmbeddedFactoryName, number>()
+
+for (const [factoryName, marker] of embeddedOptionMarkers) {
+	const position = embeddedSource.indexOf(marker)
+	if (position < 0) {
+		throw new TypeError(`Missing embedded option marker: ${factoryName}`)
+	}
+
+	embeddedPositions.set(factoryName, position)
+	embeddedSource = embeddedSource.replace(marker, ' '.repeat(marker.length))
+}
+
+const embeddedFileName = `${import.meta.dirname}/embedded-field-builder-autocomplete.fixture.ts`
+const embeddedService = createLanguageService(embeddedFileName, embeddedSource)
+
+const readEmbeddedOptionCompletions = (
+	factoryName: EmbeddedFactoryName,
+): readonly string[] => {
+	const position = embeddedPositions.get(factoryName)
+	if (position === undefined) {
+		throw new TypeError(`Unknown embedded field factory: ${factoryName}`)
+	}
+
+	return (
+		embeddedService.getCompletionsAtPosition(embeddedFileName, position, {
+			includeCompletionsWithInsertText: true,
+		})?.entries ?? []
+	)
+		.filter(
+			(entry) => entry.kind === ts.ScriptElementKind.memberVariableElement,
+		)
+		.map(({ name }) => name)
+		.sort()
+}
+
 const readPosition = (marker: string): number => {
 	const position = positions.get(marker)
 
@@ -228,6 +327,20 @@ describe('FieldBuilder IntelliSense', () => {
 		}
 	})
 
+	it('offers only executable options for every embedded built-in factory', () => {
+		for (const factoryName of embeddedFactoryNames) {
+			expect(
+				readEmbeddedOptionCompletions(factoryName),
+				factoryName,
+			).toStrictEqual(
+				[
+					...embeddedCommonOptions,
+					...embeddedSpecificOptions[factoryName],
+				].sort(),
+			)
+		}
+	})
+
 	it('offers every pointer referential action', () => {
 		expect(readStringCompletions(pointerDeleteMarker)).toStrictEqual([
 			'cascade',
@@ -238,5 +351,8 @@ describe('FieldBuilder IntelliSense', () => {
 
 	it('has no semantic diagnostics', () => {
 		expect(service.getSemanticDiagnostics(fileName)).toStrictEqual([])
+		expect(
+			embeddedService.getSemanticDiagnostics(embeddedFileName),
+		).toStrictEqual([])
 	})
 })

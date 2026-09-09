@@ -8,7 +8,7 @@ priority changes.
 ## Active
 
 - [Contextual fields and virtual results](../../CURRENT_PLAN.md), resumable at
-  issue 2502 under the accepted ADR-0244 contract.
+  issue 2503 after completing the embedded-field contract.
 
 ## Paused
 

@@ -2,15 +2,18 @@
 
 Object fields compose existing field declarations. Reusing one embedded builder
 callback keeps nested contracts consistent without sharing mutable schema state.
-Inline `field.object` options remain contextually typed, so editors suggest
-`fields`, `typeName`, `list`, defaults, and indexes
-without widening the nested field map.
+The root `field.object` options remain contextually typed, so editors suggest
+`fields`, `typeName`, `list`, defaults, and a root index without widening the
+nested field map. A recursively embedded `field.object` keeps the same value
+shape options but omits `indexed` because only its stored parent has schema
+index identity.
 
 Embedded objects contain stored value fields only. Pointers and relations need
 top-level schema identity, so declare them directly on the schema or model
-relationship attributes through an explicit relationship schema. Auto-incremented
-integer fields also remain top-level because a database sequence cannot generate
-one property inside an embedded value.
+relationship attributes through an explicit relationship schema. Portable
+indexes and auto-incremented integer fields also remain top-level because one
+embedded property has neither schema index identity nor a dedicated database
+sequence.
 
 ```ts
 import { Schema, type EmbeddedFieldBuilder } from '@ultimabase/core'

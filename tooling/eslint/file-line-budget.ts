@@ -27,7 +27,6 @@ export const handwrittenFileLineBaseline: Readonly<Record<string, number>> =
 		'packages/core/src/runtime/validation/runtime-validation.test.ts': 807,
 		'packages/core/src/runtime/validation/runtime-validation.ts': 1314,
 		'packages/core/src/schema/schema/definition.ts': 882,
-		'packages/core/src/schema/schema/field-builder.ts': 655,
 		'packages/core/tests/runtime/bulk-terminals.test.ts': 898,
 		'packages/postgres-plugin/src/drizzle/adapter.test.ts': 1692,
 		'packages/postgres-plugin/src/drizzle/operation-executor.ts': 622,

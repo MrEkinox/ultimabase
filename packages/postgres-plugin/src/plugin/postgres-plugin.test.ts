@@ -231,28 +231,6 @@ describe('postgresPlugin', () => {
 		await application.dispose()
 	})
 
-	it('fails setup when PostgreSQL cannot compile nested index metadata', async () => {
-		const schema = Schema.define({
-			className: 'NestedIndex',
-			fields: (field) => ({
-				profile: field.object({
-					fields: (field) => ({ email: field.string({ indexed: true }) }),
-				}),
-			}),
-		})
-
-		await expect(
-			createApplication({
-				schemas: [schema],
-				plugins: [postgresPlugin({ pool: new FixturePool() })],
-			}),
-		).rejects.toThrow(
-			new TypeError(
-				'PostgreSQL cannot compile nested index without an extension: profile.email',
-			),
-		)
-	})
-
 	it('rejects ambiguous and malformed JavaScript configuration', () => {
 		const pool = new FixturePool()
 		const invalidCases: readonly {

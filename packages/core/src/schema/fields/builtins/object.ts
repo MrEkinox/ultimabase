@@ -41,12 +41,16 @@ type EmbeddableObjectField<TField extends GenericField> = TField extends {
 	readonly kind: 'pointer' | 'relation'
 }
 	? never
-	: TField extends {
-				readonly kind: 'int' | 'bigint'
-				readonly options: { readonly autoIncrement: true }
-		  }
+	: TField extends { readonly options: { readonly indexed: unknown } }
 		? never
-		: TField
+		: TField extends {
+					readonly kind: 'int' | 'bigint'
+					readonly options: { readonly autoIncrement: unknown }
+			  }
+			? never
+			: TField extends { readonly options: { readonly generatedOn: unknown } }
+				? never
+				: TField
 
 type EmbeddableObjectFields<TFields extends ObjectFields> = {
 	readonly [TName in keyof TFields]: EmbeddableObjectField<TFields[TName]>
@@ -273,23 +277,7 @@ export function objectField(
 
 	for (const [name, field] of Object.entries(options.fields)) {
 		assertNonEmptyString(name, 'object field name')
-		assertFieldDefinition(field, `fields.${name}`)
-
-		if (field.kind === 'pointer' || field.kind === 'relation') {
-			throw new TypeError(
-				`fields.${name} cannot be a pointer or relation inside objectField`,
-			)
-		}
-
-		if (
-			(field.kind === 'int' || field.kind === 'bigint') &&
-			'autoIncrement' in field.options &&
-			field.options.autoIncrement === true
-		) {
-			throw new TypeError(
-				`fields.${name} cannot use autoIncrement inside objectField`,
-			)
-		}
+		assertEmbeddedFieldDefinition(field, `fields.${name}`)
 	}
 
 	const normalized = normalizeFieldOptions(
@@ -307,4 +295,45 @@ export function objectField(
 	return createFieldDefinition('object', fieldOptions, (value, path) =>
 		snapshotObjectValue(value, fieldOptions.fields, path),
 	)
+}
+
+/** Protects low-level and transformed object fields with the embedded contract. */
+export const assertEmbeddedFieldDefinition: (
+	field: unknown,
+	path: string,
+) => asserts field is GenericField = (field, path) => {
+	assertFieldDefinition(field, path)
+
+	if (field.kind === 'pointer' || field.kind === 'relation') {
+		throw new TypeError(
+			`${path} cannot be a pointer or relation inside objectField`,
+		)
+	}
+
+	if (Object.hasOwn(field.options, 'indexed')) {
+		throw new TypeError(`${path} cannot use indexed inside objectField`)
+	}
+
+	if (
+		(field.kind === 'int' || field.kind === 'bigint') &&
+		Object.hasOwn(field.options, 'autoIncrement')
+	) {
+		throw new TypeError(`${path} cannot use autoIncrement inside objectField`)
+	}
+
+	if (Object.hasOwn(field.options, 'generatedOn')) {
+		throw new TypeError(`${path} cannot use generatedOn inside objectField`)
+	}
+
+	if (field.kind !== 'object') return
+
+	const nestedFields: unknown = Reflect.get(field.options, 'fields')
+	if (!isPlainRecord(nestedFields)) {
+		throw new TypeError(`${path}.fields must be a field map`)
+	}
+
+	for (const [name, nestedField] of Object.entries(nestedFields)) {
+		assertNonEmptyString(name, 'object field name')
+		assertEmbeddedFieldDefinition(nestedField, `${path}.fields.${name}`)
+	}
 }

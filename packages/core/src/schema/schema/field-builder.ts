@@ -4,10 +4,7 @@ import {
 	isPlainRecord,
 } from '@ultimabase/shared'
 
-import {
-	bigintField,
-	type BigintFieldOptions,
-} from '../fields/builtins/bigint.js'
+import { bigintField } from '../fields/builtins/bigint.js'
 import { binaryField } from '../fields/builtins/binary.js'
 import { booleanField } from '../fields/builtins/boolean.js'
 import { dateField } from '../fields/builtins/date.js'
@@ -15,13 +12,9 @@ import { dateTimeField } from '../fields/builtins/date-time.js'
 import { decimalField } from '../fields/builtins/decimal.js'
 import { enumField } from '../fields/builtins/enum.js'
 import { floatField } from '../fields/builtins/float.js'
-import { intField, type IntFieldOptions } from '../fields/builtins/int.js'
+import { intField } from '../fields/builtins/int.js'
 import { jsonField } from '../fields/builtins/json.js'
-import {
-	objectField,
-	type ObjectFieldOptions,
-	type ObjectFields,
-} from '../fields/builtins/object.js'
+import { objectField } from '../fields/builtins/object.js'
 import {
 	pointerField,
 	type NamedPointerFieldBuilderMethod,
@@ -35,156 +28,31 @@ import { timeField } from '../fields/builtins/time.js'
 import { uuidField } from '../fields/builtins/uuid.js'
 import type { GenericField } from '../fields/base/contract.js'
 import { assertFieldDefinition } from '../fields/base/definition.js'
-import type { CompactScalarFieldFactory } from '../fields/base/factory.js'
 import type { SchemaDefinition, SchemaFields } from './definition.js'
 import { createNamedSchemaTarget } from './targets.js'
-import type {
-	UltimaBaseGeneratedEmbeddedFieldBuilderMethods,
-	UltimaBaseGeneratedFieldBuilderMethods,
-} from '../type-info.js'
 import type {
 	FieldBuilderMethodResolver,
 	OwnedFieldBuilderMethod,
 } from './field-builder-methods.js'
-import type { ObjectFieldBuilderMethod } from './object-field-builder.js'
 import { snapshotCapturedFieldOptions } from './captured-options.js'
+import {
+	assertEmbeddedBuiltInFieldOptions,
+	type EmbeddedBigintFieldFactory,
+	type EmbeddedIntFieldFactory,
+} from './embedded-field-options.js'
+import type {
+	EmbeddedFieldBuilder,
+	FieldBuilder,
+	ScalarFieldBuilderMethods,
+} from './field-builder-contract.js'
+import type { ObjectFieldBuilderMethod } from './object-field-builder.js'
 
-type EmbeddedIntFieldOptions = Omit<IntFieldOptions, 'autoIncrement'> & {
-	readonly autoIncrement?: false
-}
-
-type EmbeddedBigintFieldOptions = Omit<BigintFieldOptions, 'autoIncrement'> & {
-	readonly autoIncrement?: false
-}
-
-type EmbeddedIntFieldFactory = CompactScalarFieldFactory<
-	'int',
-	number,
-	EmbeddedIntFieldOptions
->
-
-type EmbeddedBigintFieldFactory = CompactScalarFieldFactory<
-	'bigint',
-	bigint,
-	EmbeddedBigintFieldOptions
->
-
-/** Declares nested fields through the same map-returning shape as a schema. */
-export type ObjectFieldBuilderOptions<
-	TFields extends ObjectFields = ObjectFields,
-> = Omit<ObjectFieldOptions<TFields>, 'fields'> & {
-	readonly fields: (field: EmbeddedFieldBuilder) => TFields
-}
-
-interface ScalarFieldBuilderMethods {
-	/**
-	 * Declares one UTF-16 string.
-	 * @example `field.string({ required: true })`
-	 */
-	readonly string: typeof stringField
-	/**
-	 * Declares one boolean.
-	 * @example `field.boolean({ default: false })`
-	 */
-	readonly boolean: typeof booleanField
-	/**
-	 * Declares one floating-point number.
-	 * @example `field.float()`
-	 */
-	readonly float: typeof floatField
-	/**
-	 * Declares one exact decimal string.
-	 * @example `field.decimal()`
-	 */
-	readonly decimal: typeof decimalField
-	/**
-	 * Declares one UUID string.
-	 * @example `field.uuid()`
-	 */
-	readonly uuid: typeof uuidField
-	/**
-	 * Declares one calendar date.
-	 * @example `field.date()`
-	 */
-	readonly date: typeof dateField
-	/**
-	 * Declares one timestamp.
-	 * @example `field.dateTime()`
-	 */
-	readonly dateTime: typeof dateTimeField
-	/**
-	 * Declares one time of day.
-	 * @example `field.time()`
-	 */
-	readonly time: typeof timeField
-	/**
-	 * Declares immutable binary data.
-	 * @example `field.binary()`
-	 */
-	readonly binary: typeof binaryField
-	/**
-	 * Declares one arbitrary JSON document.
-	 * @example `field.json()`
-	 */
-	readonly json: typeof jsonField
-	/**
-	 * Declares one closed string domain.
-	 * @example `field.enum({ values: ['draft', 'published'] })`
-	 */
-	readonly enum: typeof enumField
-	/**
-	 * Declares one embedded structured value.
-	 * @example `field.object({ fields: (nested) => ({ label: nested.string() }) })`
-	 */
-	readonly object: ObjectFieldBuilderMethod
-}
-
-/** Provides top-level factories while the returned object owns field names. */
-export interface FieldBuilder
-	extends ScalarFieldBuilderMethods, UltimaBaseGeneratedFieldBuilderMethods {
-	/**
-	 * Declares one integer number.
-	 * @example `field.int({ default: 0 })`
-	 */
-	readonly int: typeof intField
-	/**
-	 * Declares one arbitrary-precision integer.
-	 * @example `field.bigint()`
-	 */
-	readonly bigint: typeof bigintField
-	/**
-	 * Declares one typed pointer to another schema.
-	 * @example `field.pointer({ target: "User" })`
-	 */
-	readonly pointer: NamedPointerFieldBuilderMethod
-	/**
-	 * Declares one inverse to-many relationship.
-	 * @example `field.relation({ target: "Post", mappedBy: 'author' })`
-	 */
-	readonly relation: NamedRelationFieldBuilderMethod
-}
-
-/** Provides only value-field factories accepted inside an embedded object. */
-export interface EmbeddedFieldBuilder
-	extends
-		ScalarFieldBuilderMethods,
-		UltimaBaseGeneratedEmbeddedFieldBuilderMethods {
-	/**
-	 * Declares one embedded integer number.
-	 * @example `field.int()`
-	 */
-	readonly int: EmbeddedIntFieldFactory
-	/**
-	 * Declares one embedded arbitrary-precision integer.
-	 * @example `field.bigint()`
-	 */
-	readonly bigint: EmbeddedBigintFieldFactory
-}
-
-/** Names the canonical map-returning schema field declaration. */
-export type SchemaFieldBuilderDeclaration<
-	TFields extends SchemaFields = SchemaFields,
-> = (field: FieldBuilder) => TFields
+export type {
+	EmbeddedFieldBuilder,
+	FieldBuilder,
+	ObjectFieldBuilderOptions,
+	SchemaFieldBuilderDeclaration,
+} from './field-builder-contract.js'
 
 type UnknownCallable = (...arguments_: readonly unknown[]) => unknown
 
@@ -446,8 +314,8 @@ const createFieldBuilder = (
 		return createRuntimeBuilder<EmbeddedFieldBuilder>(
 			{
 				...scalarMethods,
-				bigint: bigintField as EmbeddedBigintFieldFactory,
-				int: intField as EmbeddedIntFieldFactory,
+				bigint: bigintField,
+				int: intField,
 			},
 			pluginMethods,
 			path,
@@ -547,9 +415,14 @@ export const captureFieldBuilderCallback = (
 const resolveCapturedFieldBuilderCall = (
 	call: CapturedFieldBuilderCall,
 	fieldPath: string,
+	embedded: boolean,
 	fieldMethods: FieldBuilderMethodResolver | undefined,
 	resolveTarget: FieldBuilderTargetResolver | undefined,
 ): GenericField => {
+	if (embedded) {
+		assertEmbeddedBuiltInFieldOptions(call.methodName, call.options, fieldPath)
+	}
+
 	if (call.methodName === 'object') {
 		if (!isPlainRecord(call.options)) {
 			throw new TypeError(`${fieldPath}.object options must be a plain object`)
@@ -573,7 +446,7 @@ const resolveCapturedFieldBuilderCall = (
 
 	const builder = createFieldBuilder(
 		fieldPath,
-		false,
+		embedded,
 		fieldMethods,
 		resolveTarget,
 	)
@@ -611,6 +484,7 @@ export const resolveCapturedFieldMap = (
 			fields[name] = resolveCapturedFieldBuilderCall(
 				field,
 				`${path}.${name}`,
+				embedded,
 				fieldMethods,
 				resolveTarget,
 			)

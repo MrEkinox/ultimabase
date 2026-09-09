@@ -11,11 +11,9 @@ import {
 } from './definition.js'
 import { compileSchemaTargetGraph, type SchemaTargetGraph } from './targets.js'
 import type { FieldBuilderMethodResolver } from './field-builder-methods.js'
-import {
-	assertFieldDefinition,
-	getDeclaredFieldOptionsContract,
-} from '../fields/base/definition.js'
+import { getDeclaredFieldOptionsContract } from '../fields/base/definition.js'
 import type { GenericField } from '../fields/base/contract.js'
+import { assertEmbeddedFieldDefinition } from '../fields/builtins/object.js'
 
 const coreSchemaMetadataKeys = new Set([
 	'className',
@@ -43,8 +41,9 @@ const assertNoUnresolvedFieldOptions = (
 		'fields' in field.options ? field.options.fields : undefined
 	if (field.kind === 'object' && isPlainRecord(nestedFields)) {
 		for (const [name, nested] of Object.entries(nestedFields)) {
-			assertFieldDefinition(nested, `${path}.fields.${name}`)
-			assertNoUnresolvedFieldOptions(nested, `${path}.fields.${name}`)
+			const nestedPath = `${path}.fields.${name}`
+			assertEmbeddedFieldDefinition(nested, nestedPath)
+			assertNoUnresolvedFieldOptions(nested, nestedPath)
 		}
 	}
 }
@@ -65,6 +64,28 @@ const assertNoUnresolvedOptions = (
 				field,
 				`${candidate.schema.className}.fields.${name}`,
 			)
+		}
+	}
+}
+
+const assertValidEmbeddedFields = (
+	prepared: readonly PreparedSchemaCompilation[],
+): void => {
+	for (const candidate of prepared) {
+		for (const [fieldName, field] of Object.entries(
+			candidate.definition.fields,
+		)) {
+			if (field.kind !== 'object') continue
+
+			const nestedFields: unknown = Reflect.get(field.options, 'fields')
+			if (!isPlainRecord(nestedFields)) continue
+
+			for (const [name, nested] of Object.entries(nestedFields)) {
+				assertEmbeddedFieldDefinition(
+					nested,
+					`${candidate.schema.className}.fields.${fieldName}.fields.${name}`,
+				)
+			}
 		}
 	}
 }
@@ -208,6 +229,7 @@ export class SchemaRegistry<
 		)
 		const prepared = immutableArray(initialPrepared)
 		assertNoUnresolvedOptions(prepared)
+		assertValidEmbeddedFields(prepared)
 		const schemaTargets = compilePreparedSchemaRegistry(
 			this,
 			prepared,
@@ -329,6 +351,7 @@ export const publishSchemaRegistryCompilation = (
 	staging: StagedSchemaRegistryCompilation,
 	prepared: readonly PreparedSchemaCompilation[],
 ): SchemaTargetGraph => {
+	assertValidEmbeddedFields(prepared)
 	const targets = compilePreparedSchemaRegistry(
 		staging.registry,
 		staging.prepared,

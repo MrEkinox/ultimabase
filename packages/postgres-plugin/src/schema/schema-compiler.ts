@@ -30,17 +30,12 @@ import type {
 import { compilePostgresFieldBuilder } from './field-compiler.js'
 import { compilePostgresIndexBuilders } from './index-compiler.js'
 
-const hasIndex = (plan: FieldValidationPlan): boolean =>
-	'indexed' in plan.field.options &&
-	(plan.field.options.indexed === true ||
-		plan.field.options.indexed === 'unique')
-
-const assertNoNestedIndexes = (
+const assertNoNestedRenames = (
 	plan: FieldValidationPlan,
 	path: string,
 ): void => {
 	if (plan.kind === 'array') {
-		assertNoNestedIndexes(plan.items, path)
+		assertNoNestedRenames(plan.items, path)
 		return
 	}
 
@@ -51,19 +46,13 @@ const assertNoNestedIndexes = (
 	for (const [name, child] of Object.entries(plan.fields)) {
 		const childPath = `${path}.${name}`
 
-		if (hasIndex(child)) {
-			throw new TypeError(
-				`PostgreSQL cannot compile nested index without an extension: ${childPath}`,
-			)
-		}
-
 		if (resolvePostgresRenamedFrom(child.field) !== undefined) {
 			throw new TypeError(
 				`PostgreSQL renamedFrom requires a top-level column: ${childPath}`,
 			)
 		}
 
-		assertNoNestedIndexes(child, childPath)
+		assertNoNestedRenames(child, childPath)
 	}
 }
 
@@ -186,7 +175,7 @@ const preparePostgresSchema = (
 		// To-many relations own edge storage and never become row columns.
 		if (plan.field.kind === 'relation') continue
 
-		assertNoNestedIndexes(plan, fieldName)
+		assertNoNestedRenames(plan, fieldName)
 		const pointer = resolvePointerMetadata(schema, fieldName, plan, targets)
 		const compiled = compilePostgresFieldBuilder(
 			fieldName,

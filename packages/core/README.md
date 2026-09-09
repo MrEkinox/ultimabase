@@ -69,9 +69,11 @@ callback executes once for an accepted application compilation and its result
 becomes immutable schema metadata. Applications, tests, and framework-owned
 schemas use the same map-returning FieldBuilder declaration.
 Every builder method delegates to the corresponding immutable field factory, so
-structural validation, defaults, plugin-owned options, and adapter metadata keep one implementation.
-Embedded builders deliberately omit pointers, relations, and generated database
-sequences.
+structural validation, defaults, plugin-owned options, and adapter metadata keep
+one implementation. Embedded builders use named context-specific option types.
+They omit pointers, relations, portable `indexed`, system generation, and
+database sequences while retaining defaults, immutability, lists, structural
+normalization, and temporal `autoNow` behavior.
 
 Exact decimal fields keep storage-relevant shape as direct metadata:
 `field.decimal({ precision: 12, scale: 2 })`. Core validates those options and
