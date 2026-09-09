@@ -2,6 +2,7 @@ import {
 	getPluginFieldWireCodec,
 	type CompiledSchemaRegistry,
 	type GenericField,
+	type GenericOutputDescriptor,
 	type PluginIdentity,
 } from '@ultimabase/core'
 import type { HttpMethod } from '@ultimabase/http-plugin'
@@ -153,6 +154,47 @@ const assertRestFieldCodecs = (
 	}
 }
 
+const builtInOutputKinds = new Set([
+	'bigint',
+	'binary',
+	'boolean',
+	'date',
+	'dateTime',
+	'decimal',
+	'enum',
+	'float',
+	'int',
+	'json',
+	'object',
+	'string',
+	'time',
+	'uuid',
+])
+
+const assertRestOutputDescriptors = (
+	fields: Readonly<Record<string, GenericOutputDescriptor>>,
+	path: string,
+): void => {
+	for (const [name, output] of Object.entries(fields)) {
+		const outputPath = `${path}.${name}`
+		if (!builtInOutputKinds.has(output.kind)) {
+			throw new TypeError(
+				`${outputPath} uses output kind ${output.kind} without an exact REST v1 representation`,
+			)
+		}
+		if (output.kind !== 'object') continue
+		const options: unknown = output.options
+		const children = isPlainRecord(options) ? options.fields : undefined
+		if (!isPlainRecord(children)) {
+			throw new TypeError(`${outputPath} requires output object metadata`)
+		}
+		assertRestOutputDescriptors(
+			children as Readonly<Record<string, GenericOutputDescriptor>>,
+			outputPath,
+		)
+	}
+}
+
 /** Compiles one instance fragment from the complete application schema graph. */
 export const compileRestRouteFragment = (
 	options: Readonly<{
@@ -188,8 +230,28 @@ export const compileRestRouteFragment = (
 				isEnabled(configuredRoutes, options.defaultRoutes, template.operation),
 			)
 		) {
-			assertRestFieldCodecs(schema.fields, `${schema.className}.fields`)
+			assertRestFieldCodecs(
+				schema.persistedFields,
+				`${schema.className}.fields`,
+			)
+			assertRestOutputDescriptors(
+				Object.fromEntries(
+					Object.entries(schema.virtualFields).map(([name, field]) => [
+						name,
+						field.output,
+					]),
+				),
+				`${schema.className}.virtualFields`,
+			)
 		}
+		const virtualFields = immutableRecord(
+			Object.fromEntries(
+				Object.entries(schema.virtualFields).map(([name, field]) => [
+					name,
+					field.output,
+				]),
+			),
+		)
 
 		const classPath = `${options.basePath}/classes/${encodeRestPathSegment(schema.className, `REST schema className ${schema.className}`)}`
 		for (const template of routeTemplates) {
@@ -208,6 +270,7 @@ export const compileRestRouteFragment = (
 					protocol: restProtocol,
 					schema: schema.className,
 					schemaProvenance: schema.provenance.schema,
+					virtualFields,
 				}),
 			)
 		}

@@ -81,6 +81,11 @@ const RecordSchema = Schema.define({
 		moment: field.dateTime(),
 		name: field.string(),
 		nickname: field.string(),
+		displayName: field.virtual({
+			output: (output) => output.string({ nullable: false }),
+			resolve: ({ item }) => String(item.name),
+			select: { name: true },
+		}),
 		payload: field.object({
 			fields: (nested) => ({
 				nestedBlob: nested.binary(),
@@ -146,6 +151,50 @@ const jsonRequest = (
 	})
 
 describe('REST read normalization', () => {
+	it('delegates virtual selections unchanged and rejects virtual query clauses', async () => {
+		const included = await normalizeRestReadRequest(RecordSchema, {
+			operation: 'find',
+			request: new Request(
+				'https://example.test/records?select=id,displayName',
+			),
+		})
+		const excluded = await normalizeRestReadRequest(RecordSchema, {
+			operation: 'find',
+			request: jsonRequest('https://example.test/query', {
+				select: { displayName: false },
+			}),
+		})
+
+		expect(included.query.selection).toStrictEqual({
+			fields: [
+				{ field: 'id', kind: 'selected-field' },
+				{ field: 'displayName', kind: 'selected-field' },
+			],
+			kind: 'selection',
+		})
+		expect(excluded.query.selection.kind).toBe('selection')
+		expect(excluded.query.selection.fields).not.toContainEqual({
+			field: 'displayName',
+			kind: 'selected-field',
+		})
+		await expect(
+			normalizeRestReadRequest(RecordSchema, {
+				operation: 'find',
+				request: jsonRequest('https://example.test/query', {
+					where: { displayName: { eq: 'Ada' } },
+				}),
+			}),
+		).rejects.toMatchObject({ code: restReadErrorCodes.invalidInput })
+		await expect(
+			normalizeRestReadRequest(RecordSchema, {
+				operation: 'find',
+				request: jsonRequest('https://example.test/query', {
+					orderBy: { displayName: 'asc' },
+				}),
+			}),
+		).rejects.toMatchObject({ code: restReadErrorCodes.invalidInput })
+	})
+
 	it('makes simple GET, complex POST, and direct Core inputs produce one AST', async () => {
 		const input = {
 			include: {

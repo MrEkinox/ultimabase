@@ -1,6 +1,7 @@
 import type {
 	DatabaseLogicalRecord,
 	ExecutableOperationAst,
+	QuerySelectionNode,
 } from '@ultimabase/core'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
@@ -19,25 +20,25 @@ type PostgresProjectedMutationOperation = Extract<
 	}
 >
 
-type PostgresProjectedBulkMutationOperation = Extract<
-	PostgresProjectedMutationOperation,
-	{
-		readonly kind: 'create-many' | 'delete-many' | 'update-many' | 'upsert-many'
-	}
->
+/** Reads the public selection only when no private returning plan replaces it. */
+const readPostgresMutationResultSelection = (
+	operation: PostgresProjectedMutationOperation,
+): QuerySelectionNode =>
+	operation.kind === 'create-one' ||
+	operation.kind === 'create-many' ||
+	operation.kind === 'upsert-many'
+		? operation.selection
+		: operation.query.selection
 
-/** Keeps full private records separate from one normalized public projection. */
+/** Keeps full private records separate from one exact returning projection. */
 export const projectPostgresRecord = (
 	record: DatabaseLogicalRecord,
-	operation: PostgresProjectedMutationOperation,
+	source: PostgresProjectedMutationOperation | QuerySelectionNode,
 ): DatabaseLogicalRecord => {
 	const selection =
-		operation.kind === 'create-one' ||
-		operation.kind === 'create-many' ||
-		operation.kind === 'upsert-many'
-			? operation.selection
-			: operation.query.selection
-
+		source.kind === 'selection'
+			? source
+			: readPostgresMutationResultSelection(source)
 	if (selection.fields.length === 0) {
 		return record
 	}
@@ -60,8 +61,8 @@ export const projectPostgresRecord = (
 /** Projects an atomic collection without altering its full private materializations. */
 export const projectPostgresRecords = (
 	records: readonly DatabaseLogicalRecord[],
-	operation: PostgresProjectedBulkMutationOperation,
+	selection: QuerySelectionNode,
 ): readonly DatabaseLogicalRecord[] =>
 	immutableArray(
-		records.map((record) => projectPostgresRecord(record, operation)),
+		records.map((record) => projectPostgresRecord(record, selection)),
 	)

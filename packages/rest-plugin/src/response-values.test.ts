@@ -78,6 +78,55 @@ const ResponseRecord = Schema.define({
 	}),
 })
 
+const VirtualResponseRecord = Schema.define({
+	className: 'RestVirtualResponseRecord',
+	fields: (field) => ({
+		seed: field.string(),
+		virtualValues: field.virtual({
+			output: (output) =>
+				output.object({
+					nullable: false,
+					fields: (nested) => ({
+						active: nested.boolean({ nullable: false }),
+						amount: nested.decimal({ nullable: false }),
+						blob: nested.binary({ nullable: false }),
+						calendar: nested.date({ nullable: false }),
+						clock: nested.time({ nullable: false }),
+						count: nested.int({ nullable: false }),
+						huge: nested.bigint({ nullable: false }),
+						metadata: nested.json({ nullable: false }),
+						moment: nested.dateTime({ nullable: false }),
+						note: nested.string(),
+						score: nested.float({ nullable: false }),
+						status: nested.enum({
+							nullable: false,
+							values: ['ready', 'done'],
+						}),
+						tags: nested.string({ list: true, nullable: false }),
+						uid: nested.uuid({ nullable: false }),
+					}),
+				}),
+			resolve: () => ({
+				active: true,
+				amount: '123.450',
+				blob: Uint8Array.from([1, 2, 3]),
+				calendar: '2026-09-05',
+				clock: '12:34:56.789Z',
+				count: 7,
+				huge: 9_007_199_254_740_993n,
+				metadata: { nested: true },
+				moment: '2026-09-05T12:34:56.789Z',
+				note: null,
+				score: 1.5,
+				status: 'ready',
+				tags: ['one', 'two'],
+				uid: '01890f47-79c7-7a2b-8c09-9b87390b9d45',
+			}),
+			select: { seed: true },
+		}),
+	}),
+})
+
 new SchemaRegistry([ResponseAuthor, ResponseRecord]).resolveSchemaTargets()
 
 describe('REST response values', () => {
@@ -235,6 +284,50 @@ describe('REST response values', () => {
 		expect(
 			encodeRestSchemaResult(ResponseRecord, result, invalid),
 		).not.toHaveProperty('note')
+	})
+
+	it('encodes virtual output descriptors through canonical REST values', () => {
+		const result = materializeSchemaModel(VirtualResponseRecord, {
+			id: recordId,
+			virtualValues: {
+				active: true,
+				amount: '123.450',
+				blob: Uint8Array.from([1, 2, 3]),
+				calendar: '2026-09-05',
+				clock: '12:34:56.789Z',
+				count: 7,
+				huge: 9_007_199_254_740_993n,
+				metadata: { nested: true },
+				moment: '2026-09-05T12:34:56.789Z',
+				note: null,
+				score: 1.5,
+				status: 'ready',
+				tags: ['one', 'two'],
+				uid: '01890f47-79c7-7a2b-8c09-9b87390b9d45',
+			},
+		})
+
+		expect(
+			encodeRestSchemaResult(VirtualResponseRecord, result, invalid),
+		).toStrictEqual({
+			id: recordId,
+			virtualValues: {
+				active: true,
+				amount: '123.450',
+				blob: { data: 'AQID', encoding: 'base64', type: 'binary' },
+				calendar: '2026-09-05',
+				clock: '12:34:56.789Z',
+				count: 7,
+				huge: '9007199254740993',
+				metadata: { nested: true },
+				moment: '2026-09-05T12:34:56.789Z',
+				note: null,
+				score: 1.5,
+				status: 'ready',
+				tags: ['one', 'two'],
+				uid: '01890f47-79c7-7a2b-8c09-9b87390b9d45',
+			},
+		})
 	})
 
 	it('rejects undefined, non-finite, cyclic, and unsafe integer output', () => {

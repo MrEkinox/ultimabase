@@ -4,7 +4,7 @@
 - Milestone: 25
 - Started: 2026-09-09
 - Governing decision: [ADR-0244](docs/adr/0244-contextual-fields-and-virtual-results.md)
-- Resume point: [issue 2508](issues/2500-contextual-fields-virtual-results/2508-rest-virtual-fields.md)
+- Resume point: [issue 2509](issues/2500-contextual-fields-virtual-results/2509-graphql-virtual-fields.md)
 
 ## Objective
 
@@ -64,7 +64,7 @@ semantics.
 5. [x] Issue 2505 — compile virtual schema fields and generated contracts.
 6. [x] Issue 2506 — execute request-aware asynchronous virtual resolvers.
 7. [x] Issue 2507 — keep PostgreSQL storage physical while loading dependencies.
-8. [ ] Issue 2508 — expose virtual result fields through REST.
+8. [x] Issue 2508 — expose virtual result fields through REST.
 9. [ ] Issue 2509 — expose virtual result fields through GraphQL.
 10. [ ] Issue 2510 — prove the public cross-transport virtual-field vertical.
 11. [ ] Issue 2511 — audit and close the milestone.

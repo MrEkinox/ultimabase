@@ -9,6 +9,7 @@ import {
 	type RestReadOperationAst,
 	type RestResponseErrorCode,
 	type RestRouteDefinition,
+	type RestSchemaRouteDefinition,
 	type RestSchemaRoutes,
 } from './index.js'
 import type {
@@ -41,6 +42,9 @@ test('preserves exact immutable REST public types', () => {
 		readonly find?: boolean
 	}>()
 	expectTypeOf<RestRouteDefinition['method']>().toExtend<string>()
+	expectTypeOf<
+		RestSchemaRouteDefinition['virtualFields'][string]['kind']
+	>().toEqualTypeOf<string>()
 	expectTypeOf<RestResponseErrorCode>().toExtend<string>()
 	expectTypeOf<
 		RestErrorEnvelope['error']['requestId']

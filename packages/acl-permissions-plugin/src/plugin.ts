@@ -180,7 +180,7 @@ const projectACLData = (
 	return immutableRecord(
 		Object.fromEntries(
 			Object.entries(input).filter(([fieldName]) => {
-				const field = schema.fields[fieldName]
+				const field = schema.persistedFields[fieldName]
 
 				return (
 					field !== undefined &&

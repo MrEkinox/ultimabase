@@ -45,6 +45,11 @@ const Author = Schema.define({
 		code: portableCode,
 		huge: field.bigint(),
 		name: field.string(),
+		label: field.virtual({
+			output: (output) => output.string({ nullable: false }),
+			resolve: ({ item }) => String(item.name),
+			select: { name: true },
+		}),
 		profile: field.object({
 			fields: (nested) => ({ scores: nested.bigint({ list: true }) }),
 		}),
@@ -67,6 +72,11 @@ const RecordSchema = Schema.define({
 		slug: field.string({ indexed: 'unique' }),
 		title: field.string(),
 		views: field.int(),
+		displayTitle: field.virtual({
+			output: (output) => output.string({ nullable: false }),
+			resolve: ({ item }) => String(item.title),
+			select: { title: true },
+		}),
 	}),
 })
 
@@ -91,6 +101,36 @@ const pointerWire = {
 }
 
 describe('REST mutation normalization', () => {
+	it('selects virtual results and rejects direct and nested virtual inputs', async () => {
+		const selected = await normalizeRestMutationRequest(RecordSchema, {
+			operation: 'create',
+			request: jsonRequest(
+				'POST',
+				{ title: 'Created' },
+				'?select=id,displayTitle',
+			),
+		})
+
+		expect(selected.input.select).toStrictEqual({
+			displayTitle: true,
+			id: true,
+		})
+		await expect(
+			normalizeRestMutationRequest(RecordSchema, {
+				operation: 'create',
+				request: jsonRequest('POST', { displayTitle: 'forged' }),
+			}),
+		).rejects.toMatchObject({ code: restMutationErrorCodes.invalidInput })
+		await expect(
+			normalizeRestMutationRequest(RecordSchema, {
+				operation: 'create',
+				request: jsonRequest('POST', {
+					author: { create: { label: 'forged', name: 'Ada' } },
+				}),
+			}),
+		).rejects.toMatchObject({ code: restMutationErrorCodes.invalidInput })
+	})
+
 	it('decodes concise create and update bodies through schema field contracts', async () => {
 		const create = await normalizeRestMutationRequest(RecordSchema, {
 			operation: 'create',

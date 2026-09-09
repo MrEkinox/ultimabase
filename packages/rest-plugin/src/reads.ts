@@ -242,7 +242,7 @@ export const decodeRestInclude = (
 	return immutableRecord(
 		Object.fromEntries(
 			Object.entries(value).map(([name, targetInput]) => {
-				const field = schema.fields[name]
+				const field = schema.persistedFields[name]
 				const target =
 					field === undefined ? undefined : getFieldSchemaTarget(field)?.()
 				return [

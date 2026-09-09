@@ -338,14 +338,14 @@ const prepareCreateOne = (
 		initialConstraint,
 		operation,
 		plan,
-		execute: async (resolvedOperation) => {
+		execute: async (resolvedOperation, resolvedPlan) => {
 			const current = await runPreparedMutationStep(
 				resolvedOperation.kind,
 				() => executeCreateInput(client, schema, resolvedOperation.input),
 			)
 
 			return createPostgresMutationOutcome(
-				projectPostgresRecord(current, resolvedOperation),
+				projectPostgresRecord(current, resolvedPlan.returning.selection),
 				[immutableRecord({ current, kind: 'create' as const })],
 			)
 		},
@@ -373,7 +373,7 @@ const prepareCreateMany = (
 		initialConstraint,
 		operation,
 		plan,
-		execute: async (resolvedOperation) => {
+		execute: async (resolvedOperation, resolvedPlan) => {
 			const records = await runPreparedMutationStep(
 				resolvedOperation.kind,
 				() => executeCreateMany(client, schema, resolvedOperation),
@@ -383,7 +383,7 @@ const prepareCreateMany = (
 			)
 
 			return createPostgresMutationOutcome(
-				projectPostgresRecords(records, resolvedOperation),
+				projectPostgresRecords(records, resolvedPlan.returning.selection),
 				materializations,
 			)
 		},
@@ -437,7 +437,7 @@ const prepareLockedSingular = async (
 			)
 
 			return createPostgresMutationOutcome(
-				projectPostgresRecord(record, resolvedOperation),
+				projectPostgresRecord(record, resolvedPlan.returning.selection),
 				[materialization],
 			)
 		},
@@ -568,7 +568,7 @@ const prepareUpsertOne = async (
 		operation,
 		plan,
 		target: previous,
-		execute: async (resolvedOperation, _resolvedPlan, finalConstraint) => {
+		execute: async (resolvedOperation, resultPlan, finalConstraint) => {
 			if (previous !== null) {
 				const current = await runPreparedMutationStep(
 					resolvedOperation.kind,
@@ -583,7 +583,7 @@ const prepareUpsertOne = async (
 				)
 
 				return createPostgresMutationOutcome(
-					projectPostgresRecord(current, resolvedOperation),
+					projectPostgresRecord(current, resultPlan.returning.selection),
 					[
 						immutableRecord({
 							current,
@@ -607,7 +607,7 @@ const prepareUpsertOne = async (
 			)
 
 			return createPostgresMutationOutcome(
-				projectPostgresRecord(persisted.record, resolvedOperation),
+				projectPostgresRecord(persisted.record, resultPlan.returning.selection),
 				[persisted.materialization],
 			)
 		},
@@ -637,7 +637,7 @@ const prepareUpsertMany = (
 		initialConstraint,
 		operation,
 		plan,
-		execute: async (resolvedOperation, _resolvedPlan, finalConstraint) => {
+		execute: async (resolvedOperation, resolvedPlan, finalConstraint) => {
 			const items = resolvedOperation.items as readonly RuntimeUpsertItem[]
 
 			const records: DatabaseLogicalRecord[] = []
@@ -660,7 +660,7 @@ const prepareUpsertMany = (
 			}
 
 			return createPostgresMutationOutcome(
-				projectPostgresRecords(records, resolvedOperation),
+				projectPostgresRecords(records, resolvedPlan.returning.selection),
 				materializations,
 			)
 		},

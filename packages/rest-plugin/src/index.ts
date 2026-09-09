@@ -50,5 +50,6 @@ export type {
 	RestRouteDefinition,
 	RestRouteGraph,
 	RestRouteProvenance,
+	RestSchemaRouteDefinition,
 	RestSchemaOperation,
 } from './routes.js'

@@ -343,6 +343,7 @@ export const restPluginPublicApi = {
 		'RestRouteGraph',
 		'RestRouteProvenance',
 		'RestSchemaOperation',
+		'RestSchemaRouteDefinition',
 		'RestSchemaRoutes',
 		'RestSchemaRoutesOption',
 		'defaultRestMutationLimits',

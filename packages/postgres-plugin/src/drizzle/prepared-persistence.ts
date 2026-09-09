@@ -177,7 +177,7 @@ export const executeRetainedSetBasedMutation = async (
 		operation.kind === 'delete-many' ? targets : orderedRecords
 
 	return createPostgresMutationOutcome(
-		projectPostgresRecords(resultRecords, operation),
+		projectPostgresRecords(resultRecords, plan.returning.selection),
 		materializations,
 	)
 }

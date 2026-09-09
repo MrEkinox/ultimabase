@@ -169,7 +169,7 @@ export const decodeRestWhere = (
 					]
 				}
 				if (name === 'NOT') return [name, decodeRestWhere(schema, item)]
-				const field = schema.fields[name]
+				const field = schema.persistedFields[name]
 				return [
 					name,
 					field === undefined ? item : decodeFieldOperators(field, item),

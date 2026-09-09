@@ -2,6 +2,7 @@ import {
 	defineCapability,
 	defineOperationTransport,
 	type CapabilityToken,
+	type GenericOutputDescriptor,
 	type OperationTransportProtocol,
 	type PluginIdentity,
 	type SchemaContributionProvenance,
@@ -80,6 +81,8 @@ export interface RestSchemaRouteDefinition {
 	readonly protocol: typeof restProtocol
 	readonly provenance: RestRouteProvenance
 	readonly schema: string
+	/** Advertises output-only schema values without exposing private dependencies. */
+	readonly virtualFields: Readonly<Record<string, GenericOutputDescriptor>>
 }
 
 /** Declares one explicitly selected application operation route. */
@@ -112,6 +115,7 @@ export interface RestSchemaRouteCandidate {
 	readonly protocol: typeof restProtocol
 	readonly schema: string
 	readonly schemaProvenance: SchemaContributionProvenance
+	readonly virtualFields: Readonly<Record<string, GenericOutputDescriptor>>
 }
 
 export interface RestPluginOperationRouteCandidate {
@@ -189,6 +193,7 @@ const createSchemaRoute = (
 		protocol: restProtocol,
 		provenance,
 		schema: candidate.schema,
+		virtualFields: candidate.virtualFields,
 	})
 }
 

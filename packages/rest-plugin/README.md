@@ -58,6 +58,14 @@ protocol version. Item paths contain inert `{id}` metadata; request matching
 belongs to the later execution boundary, while read normalization validates the
 captured item value as UUID v7.
 
+A schema route also exposes a frozen `virtualFields` map from field name to the
+exact Core output descriptor. This metadata is response-only: it deliberately
+omits resolver functions and their private persisted `select` dependencies.
+Stored fields continue to use the schema metadata already identified by the
+route. A plugin-owned output kind cannot be exposed until REST has an exact
+representation for it, so route compilation rejects such a virtual output
+instead of guessing a JSON encoding.
+
 Two explicit instances use `instanceId`. Distinct base paths compose into one
 graph, while matching methods and paths fail with a deterministic collision
 diagnostic.
@@ -131,6 +139,20 @@ collections in `{ results }`, singular values in `{ result }`, counts in
 `{ count }`, and existence checks in `{ exists }`. The Fetch request and
 application context originate from the same HTTP request lifetime so
 normalization and Runtime observe its composed cancellation/deadline signal.
+
+Virtual fields use the same flat `select` syntax as stored result fields:
+
+```text
+GET /api/v1/classes/Post?select=id,displayTitle
+```
+
+REST passes that logical selection to Core unchanged. Core alone loads the
+private dependencies, resolves the value (including asynchronous resolvers),
+applies policy and structural output validation, and returns the materialized
+model. Omitting `select` includes virtual fields in the complete result;
+`{ "select": { "displayTitle": false } }` excludes one in a POST read.
+Virtual names remain invalid in `where`, `orderBy`, relationship arguments, and
+every direct or nested mutation data object.
 
 ## Mutation normalization and execution
 
@@ -221,6 +243,10 @@ pointers and relations use recursively encoded selected models. Embedded
 objects and lists recurse through the same codecs, explicit `null` survives,
 and an absent model field stays absent. `undefined`, non-finite numbers, unsafe
 integer output, cycles, and invalid plugin codec output are not representable.
+Virtual values are encoded from their output descriptor through these same
+canonical scalar, enum, temporal, decimal, binary, JSON, nullable, list, and
+object representations. REST never executes a resolver or reads its dependency
+selection.
 
 ## Plugin field codecs
 

@@ -219,7 +219,8 @@ export const decodeRestMutationData = (
 	return immutableRecord(
 		Object.fromEntries(
 			Object.entries(value).map(([name, item]) => {
-				const field: GenericField | undefined = schema.fields[name]
+				if (Object.hasOwn(schema.virtualFields, name)) throw invalid()
+				const field: GenericField | undefined = schema.persistedFields[name]
 				if (field === undefined) return [name, item]
 
 				if (relationships === 'nested' && field.kind === 'pointer') {

@@ -57,9 +57,10 @@ export const prepareRuntimeVirtualFieldProjection = (
 		selection.fields.length === 0
 			? new Set(Object.keys(schema.fields))
 			: new Set(selection.fields.map(({ field }) => field))
-	const publicPersistedFields = Object.keys(schema.persistedFields).filter(
-		(name) => requested.has(name),
-	)
+	const publicPersistedFields = Object.entries(schema.persistedFields)
+		.filter(([, field]) => field.kind !== 'relation')
+		.map(([name]) => name)
+		.filter((name) => requested.has(name))
 	const virtualFields = Object.entries(schema.virtualFields)
 		.filter(([name]) => requested.has(name))
 		.map(([name, field]) => {
@@ -79,9 +80,10 @@ export const prepareRuntimeVirtualFieldProjection = (
 	for (const { field } of virtualFields) {
 		for (const dependency of field.select) required.add(dependency)
 	}
-	const persistedFields = Object.keys(schema.persistedFields).filter((name) =>
-		required.has(name),
-	)
+	const persistedFields = Object.entries(schema.persistedFields)
+		.filter(([, field]) => field.kind !== 'relation')
+		.map(([name]) => name)
+		.filter((name) => required.has(name))
 
 	return immutableRecord({
 		persistedSelection: normalizeQuerySelectedFields(schema, persistedFields),

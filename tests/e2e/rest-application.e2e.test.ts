@@ -28,6 +28,11 @@ it('runs packed REST v1 from JavaScript without Typegen', async () => {
 				{
 					createdAt: '2026-09-05T12:00:00.000Z',
 					id: '01991f00-0000-7000-8000-000000000301',
+					summary: {
+						bytes: { data: 'AQID', encoding: 'base64', type: 'binary' },
+						label: 'TYPEGEN-FREE',
+						total: '9007199254740993',
+					},
 					title: 'Typegen-free',
 					updatedAt: '2026-09-05T12:00:00.000Z',
 				},

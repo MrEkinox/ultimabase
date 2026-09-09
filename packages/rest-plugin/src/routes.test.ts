@@ -3,6 +3,7 @@ import {
 	createApplication,
 	definePlugin,
 	definePluginField,
+	definePluginOutputDescriptor,
 } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
@@ -436,6 +437,77 @@ describe('REST route metadata', () => {
 		})
 		expect(readRest(application).routeGraph.routes.length).toBeGreaterThan(0)
 		await application.dispose()
+	})
+
+	it('advertises exact virtual outputs without private resolver dependencies', async () => {
+		const Virtual = Schema.define({
+			className: 'VirtualRoute',
+			fields: (field) => ({
+				name: field.string(),
+				summary: field.virtual({
+					output: (output) =>
+						output.object({
+							fields: (nested) => ({ label: nested.string() }),
+							typeName: 'VirtualRouteSummary',
+						}),
+					resolve: ({ item }) => ({ label: String(item.name) }),
+					select: { name: true },
+				}),
+			}),
+		})
+		const application = await createApplication({
+			pluginPrivileges: { logger: false },
+			plugins: [restPlugin()],
+			schemas: [Virtual],
+		})
+		const route = readRest(application).routeGraph.routes.find(
+			(candidate) => candidate.kind === 'rest-schema-route',
+		)
+		if (route?.kind !== 'rest-schema-route') {
+			throw new TypeError('Virtual REST schema route is unavailable')
+		}
+
+		expect(route.virtualFields).toStrictEqual({
+			summary: Virtual.virtualFields.summary?.output,
+		})
+		expect(route.virtualFields.summary).toBe(
+			Virtual.virtualFields.summary?.output,
+		)
+		expect(Object.isFrozen(route.virtualFields)).toBe(true)
+		expect(route.virtualFields.summary).not.toHaveProperty('resolve')
+		expect(route.virtualFields.summary).not.toHaveProperty('select')
+		await application.dispose()
+	})
+
+	it('rejects a plugin virtual output without an exact REST representation', async () => {
+		const pluginOutput = definePluginOutputDescriptor(
+			'fixture.virtual-output',
+			{ list: false, nullable: false },
+			(value, path): string => {
+				if (typeof value !== 'string')
+					throw new TypeError(`${path} must be text`)
+				return value
+			},
+		)
+		const Virtual = Schema.define({
+			className: 'UnsupportedVirtualRoute',
+			fields: (field) => ({
+				value: field.string(),
+				derived: field.virtual({
+					output: () => pluginOutput,
+					resolve: ({ item }) => String(item.value),
+					select: { value: true },
+				}),
+			}),
+		})
+
+		await expect(
+			createApplication({
+				pluginPrivileges: { logger: false },
+				plugins: [restPlugin()],
+				schemas: [Virtual],
+			}),
+		).rejects.toThrow('without an exact REST v1 representation')
 	})
 
 	it.each([

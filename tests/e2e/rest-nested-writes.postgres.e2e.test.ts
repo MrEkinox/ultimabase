@@ -35,6 +35,14 @@ const Target = Schema.define({
 const Post = Schema.define({
 	className: 'RestNestedPost',
 	fields: (field) => ({
+		headline: field.virtual({
+			output: (output) => output.string({ nullable: false }),
+			resolve: async ({ item }) => {
+				await Promise.resolve()
+				return `Post: ${String(item.title)}`
+			},
+			select: { title: true },
+		}),
 		primary: field.pointer({ target: 'RestNestedTarget' }),
 		targets: field.relation({ target: 'RestNestedTarget' }),
 		title: field.string({ required: true }),
@@ -179,7 +187,7 @@ describe('REST nested writes with PostgreSQL', { concurrent: false }, () => {
 					operation: 'create',
 					request: jsonRequest(
 						'POST',
-						'/posts?select=id,title&include=primary,targets',
+						'/posts?select=id,title,headline&include=primary,targets',
 						{
 							primary: { create: { name: 'Pointer created', score: '1' } },
 							targets: {
@@ -192,6 +200,7 @@ describe('REST nested writes with PostgreSQL', { concurrent: false }, () => {
 				}),
 		)
 		const createdJson = toJson(created)
+		expect(createdJson.headline).toBe('Post: Created')
 		const createdTargets = includedTargets(createdJson.targets)
 		const relationCreated = createdTargets.find(
 			({ name }) => name === 'Relation created',
@@ -217,7 +226,7 @@ describe('REST nested writes with PostgreSQL', { concurrent: false }, () => {
 					operation: 'update',
 					request: jsonRequest(
 						'PATCH',
-						'/posts/item?select=id,title&include=primary,targets',
+						'/posts/item?select=id,title,headline&include=primary,targets',
 						{
 							primary: { update: { name: 'Pointer updated', score: '3' } },
 							targets: {
@@ -239,6 +248,7 @@ describe('REST nested writes with PostgreSQL', { concurrent: false }, () => {
 		if (updated === null)
 			throw new TypeError('REST nested update returned null')
 		const updatedJson = toJson(updated)
+		expect(updatedJson.headline).toBe('Post: Updated')
 		expect(toJson(updatedJson.primary)).toMatchObject({
 			name: 'Pointer updated',
 			score: 3n,

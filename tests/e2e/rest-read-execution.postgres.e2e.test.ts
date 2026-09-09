@@ -26,6 +26,7 @@ import {
 
 const publicAcl = new ACL().grantPublic('read')
 const privateAcl = new ACL()
+const deniedVirtualAccess = { access: { read: false } }
 
 const RestAuthor = Schema.define({
 	className: 'RestReadExecutionAuthor',
@@ -54,6 +55,15 @@ const RestPost = Schema.define({
 		published: field.boolean({ default: false }),
 		secret: field.string({ access: { read: false } }),
 		title: field.string({ required: true }),
+		summary: field.virtual({
+			...deniedVirtualAccess,
+			output: (output) => output.string({ nullable: false }),
+			resolve: async ({ item }) => {
+				await Promise.resolve()
+				return `Summary: ${String(item.title)}`
+			},
+			select: { title: true },
+		}),
 	}),
 	access: {
 		read: {
@@ -366,7 +376,9 @@ describe('REST read execution with PostgreSQL', { concurrent: false }, () => {
 					executeRestReadRequest(executor, context, RestPost, {
 						id,
 						operation: 'get',
-						request: new Request('https://example.test/posts/item'),
+						request: new Request(
+							'https://example.test/posts/item?select=id,title',
+						),
 					}),
 				),
 			).rejects.toMatchObject({ code: 'NOT_FOUND' })
@@ -379,12 +391,20 @@ describe('REST read execution with PostgreSQL', { concurrent: false }, () => {
 				}),
 			),
 		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
+		await expect(
+			runAsHarness(harness, (executor) =>
+				executeRestReadRequest(executor, context, RestPost, {
+					operation: 'find',
+					request: new Request('https://example.test/posts?select=summary'),
+				}),
+			),
+		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 
 		const masterRows = await runAsHarness(harness, (executor) =>
 			executeRestReadRequest(executor, getMaster(), RestPost, {
 				operation: 'find',
 				request: new Request(
-					'https://example.test/posts?orderBy=title&select=title,secret',
+					'https://example.test/posts?orderBy=title&select=title,secret,summary',
 				),
 			}),
 		)
@@ -397,6 +417,11 @@ describe('REST read execution with PostgreSQL', { concurrent: false }, () => {
 			'acl-secret',
 			'access-secret',
 			'visible-secret',
+		])
+		expect(masterRows.map(({ summary }) => summary)).toStrictEqual([
+			'Summary: ACL Hidden',
+			'Summary: Access Hidden',
+			'Summary: Visible Post',
 		])
 	})
 })
