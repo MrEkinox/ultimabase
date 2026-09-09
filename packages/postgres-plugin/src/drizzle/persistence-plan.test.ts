@@ -5,9 +5,16 @@ import {
 	QueryBuilder,
 	rewriteDeletePersistencePlan,
 	Schema,
+	type CreateOneOperationAst,
+	type DatabasePersistencePlan,
 	type DeleteOneOperationAst,
+	type FindOneOperationAst,
 } from '@ultimabase/core'
-import { isPlainRecord, isUnknownArray } from '@ultimabase/shared'
+import {
+	immutableRecord,
+	isPlainRecord,
+	isUnknownArray,
+} from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 
 import type {
@@ -17,6 +24,7 @@ import type {
 import { PostgresSchemaCatalog } from '../schema/catalog.js'
 import { createPostgresDatabaseAdapter } from './adapter.js'
 import type { PostgresDriverQueryClient } from './client.js'
+import { readPostgresPersistenceOperation } from './persistence-plan.js'
 
 interface DriverResult {
 	readonly rowCount: number
@@ -90,8 +98,92 @@ const schema = Schema.define({
 })
 const id = '0198c3d4-1000-7000-8000-000000000001'
 const timestamp = '2026-08-19T10:00:00.000Z'
+const virtualSchema = Schema.define({
+	className: 'PostgresVirtualPersistencePlan',
+	fields: (field) => ({
+		secret: field.string({ required: true }),
+		display: field.virtual({
+			output: (output) => output.string({ nullable: false }),
+			select: { secret: true },
+			resolve: ({ item }) => String(item.secret).toUpperCase(),
+		}),
+	}),
+})
+
+const replaceReturningSelection = <
+	const TOperation extends
+		| FindOneOperationAst<typeof virtualSchema>
+		| CreateOneOperationAst<typeof virtualSchema>,
+>(
+	operation: TOperation,
+): DatabasePersistencePlan<TOperation> => {
+	const plan = createDatabasePersistencePlan(operation)
+	const selection = new QueryBuilder(virtualSchema).select({ secret: true }).ast
+		.selection
+
+	return immutableRecord({
+		...plan,
+		returning: immutableRecord({ ...plan.returning, selection }),
+	})
+}
 
 describe('PostgreSQL persistence plans', () => {
+	it('compiles only Core persisted returning fields into read SQL', async () => {
+		const driver = new PersistenceDriver()
+		const adapter = createPostgresDatabaseAdapter(
+			new PersistencePool(driver),
+			new PostgresSchemaCatalog([virtualSchema]),
+		)
+		const operation = {
+			kind: 'find-one',
+			query: new QueryBuilder(virtualSchema).select({ display: true }).ast,
+		} satisfies FindOneOperationAst<typeof virtualSchema>
+		const plan = replaceReturningSelection(operation)
+		const physical = readPostgresPersistenceOperation(operation, plan)
+
+		expect(physical).toMatchObject({
+			kind: 'find-one',
+			query: { selection: { fields: [{ field: 'secret' }, { field: 'id' }] } },
+		})
+		driver.respond([['private', id]])
+		await expect(
+			adapter.execute({ constraints: [], operation, plan }),
+		).resolves.toStrictEqual({ id, secret: 'private' })
+		expect(driver.calls).toHaveLength(1)
+		expect(driver.calls[0]?.text).toContain('"secret"')
+		expect(driver.calls[0]?.text).toContain('"id"')
+		expect(driver.calls[0]?.text).not.toContain('"display"')
+	})
+
+	it('uses Core persisted returning fields for prepared mutation results', async () => {
+		const driver = new PersistenceDriver()
+		const adapter = createPostgresDatabaseAdapter(
+			new PersistencePool(driver),
+			new PostgresSchemaCatalog([virtualSchema]),
+		)
+		const transaction = await adapter.beginTransaction()
+		const operation = {
+			input: { secret: 'private' },
+			kind: 'create-one',
+			schema: new QueryBuilder(virtualSchema).ast.schema,
+			selection: new QueryBuilder(virtualSchema).select({ display: true }).ast
+				.selection,
+		} satisfies CreateOneOperationAst<typeof virtualSchema>
+		const plan = replaceReturningSelection(operation)
+
+		const prepared = await transaction.prepare({
+			constraints: [],
+			operation,
+			plan,
+		})
+		driver.respond([['private', id, timestamp, timestamp]])
+		const outcome = await prepared.execute()
+
+		expect(outcome.result).toStrictEqual({ id, secret: 'private' })
+		expect(driver.calls.at(-1)?.text).not.toContain('"display"')
+		await transaction.commit()
+	})
+
 	it('updates a tombstone while returning one logical delete preimage', async () => {
 		const driver = new PersistenceDriver()
 		const adapter = createPostgresDatabaseAdapter(

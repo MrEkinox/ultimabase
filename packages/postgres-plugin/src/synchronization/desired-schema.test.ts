@@ -7,6 +7,33 @@ import { createPostgresPointerFixture } from '../schema/pointer-fixture.test-sup
 import { compileDesiredPostgresTables } from './desired-schema.js'
 
 describe('desired PostgreSQL schema', () => {
+	it('keeps schema synchronization unchanged when only virtual fields change', () => {
+		const persisted = Schema.define({
+			className: 'VirtualDesiredFixture',
+			fields: (field) => ({ title: field.string({ required: true }) }),
+		})
+		const withVirtual = Schema.define({
+			className: 'VirtualDesiredFixture',
+			fields: (field) => ({
+				title: field.string({ required: true }),
+				summary: field.virtual({
+					output: (output) => output.string({ nullable: false }),
+					select: { title: true },
+					resolve: async ({ item }) => Promise.resolve(String(item.title)),
+				}),
+			}),
+		})
+		const persistedDesired = compileDesiredPostgresTables([
+			compilePostgresSchema(persisted),
+		])
+		const virtualDesired = compileDesiredPostgresTables([
+			compilePostgresSchema(withVirtual),
+		])
+
+		expect(virtualDesired).toStrictEqual(persistedDesired)
+		expect(JSON.stringify(virtualDesired)).not.toContain('summary')
+	})
+
 	it('detaches managed pointer foreign keys from Drizzle metadata', () => {
 		const { catalog, Post } = createPostgresPointerFixture()
 		const compiled = catalog.get(Post)

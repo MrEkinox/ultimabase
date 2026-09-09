@@ -22,6 +22,40 @@ const indexColumns = (
 	Object.fromEntries(columns.map((column) => [column.name, column]))
 
 describe('PostgreSQL primitive schema compiler', () => {
+	it('omits virtual fields and their resolvers from physical schema metadata', () => {
+		const resolve = vi.fn(
+			({ item }: { readonly item: { readonly title: unknown } }) =>
+				String(item.title),
+		)
+		const schema = Schema.define({
+			className: 'VirtualFieldFixture',
+			fields: (field) => ({
+				title: field.string({ required: true }),
+				summary: field.virtual({
+					output: (output) => output.string({ nullable: false }),
+					select: { title: true },
+					resolve,
+				}),
+			}),
+		})
+		const compiled = compilePostgresSchema(schema)
+		const table = getTableConfig(compiled.table)
+
+		expect(Object.keys(compiled.fields)).toStrictEqual([
+			'title',
+			'id',
+			'createdAt',
+			'updatedAt',
+		])
+		expect(table.columns.map(({ name }) => name)).toStrictEqual([
+			'title',
+			'id',
+			'createdAt',
+			'updatedAt',
+		])
+		expect(resolve).not.toHaveBeenCalled()
+	})
+
 	it('compiles pointers to UUID columns, indexes, and named foreign keys', () => {
 		const { catalog, Post, User } = createPostgresPointerFixture()
 		const compiled = catalog.get(Post)

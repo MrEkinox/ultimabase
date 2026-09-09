@@ -39,7 +39,7 @@ import {
 	projectPostgresRecord,
 	projectPostgresRecords,
 } from './result-projection.js'
-import { readPostgresPersistenceOperation } from './persistence-plan.js'
+import { readPostgresPreparedOperation as readPlan } from './persistence-plan.js'
 import {
 	createPostgresMutationOutcome,
 	createRetainedMutationTarget,
@@ -128,10 +128,10 @@ const createPreparedMutationHandle = <
 					'PostgreSQL prepared plan changed its target schema',
 				)
 			}
-			readPostgresPersistenceOperation(resolvedOperation, resolvedPlan)
+			const physicalOperation = readPlan(resolvedOperation, resolvedPlan)
 
 			return execute(
-				resolvedOperation,
+				physicalOperation as unknown as TOperation,
 				resolvedPlan,
 				request === undefined ? initialConstraint : compileConstraint(request),
 			)
@@ -686,7 +686,7 @@ export const preparePostgresMutation = async <
 	relation?: CompiledPostgresRelation,
 	relationCompiler?: PostgresRelationPredicateCompiler,
 ): Promise<PreparedDatabaseOperation<TOperation>> => {
-	const runtimeOperation = operation as unknown as RuntimeMutationOperation
+	const runtimeOperation = readPlan(operation, plan) as RuntimeMutationOperation
 	const runtimePlan = plan as unknown as DatabasePersistencePlan
 	const runtimeCompileConstraint =
 		compileConstraint as unknown as PreparedMutationConstraintCompiler<RuntimeMutationOperation>

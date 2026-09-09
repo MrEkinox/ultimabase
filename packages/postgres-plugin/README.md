@@ -873,6 +873,19 @@ const orderedPage = new QueryBuilder(ArticleSchema)
 const offsetPage = orderedPage.offset(50)
 ```
 
+When a logical selection contains a Core virtual field, PostgreSQL receives
+only Core's derived persisted returning selection. Overlapping dependencies are
+already deduplicated in stable schema order and include the canonical `id`;
+neither the virtual name nor its resolver or request context reaches Drizzle.
+The same physical projection is used for reads, prepared mutation results, and
+nested pointer or relation inclusions. Core resolves the virtual value and
+removes dependency-only fields before application behavior or transport output.
+
+Virtual declarations also contribute no Drizzle column, index, codec,
+constraint, introspection entry, synchronization change, or migration drift.
+Filtering and ordering remain limited to persisted fields and fail during Core
+normalization before PostgreSQL compiles SQL.
+
 `.offset()` selects offset pagination. Applications that need deterministic
 ordering across equal values declare an additional unique term such as `id`.
 Transport-specific cursors must be normalized before PostgreSQL receives the

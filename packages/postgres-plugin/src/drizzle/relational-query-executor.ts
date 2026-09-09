@@ -44,6 +44,7 @@ import type { PostgresDrizzleClient } from './client.js'
 import { readBuiltInQuery } from './operation-executor.js'
 import { mapPostgresOperationError } from './operation-error.js'
 import { readPostgresRecord } from './record.js'
+import { readPostgresPersistenceOperation } from './persistence-plan.js'
 
 type PostgresRelationsFilter = RelationsFilter<
 	TableRelationalConfig,
@@ -66,6 +67,12 @@ const postgresRelationalObjectIdentities = new WeakMap<object, unknown>()
 
 const inclusionPathKey = (fieldPath: readonly string[]): string =>
 	JSON.stringify(fieldPath)
+
+/** Reads the adapter-facing operation without consulting logical projections. */
+const readRequestOperation = (
+	request: DatabaseOperationRequest,
+): ExecutableOperationAst =>
+	readPostgresPersistenceOperation(request.operation, request.plan)
 
 const readOperationSchema = (
 	operation: DatabaseOperationAst,
@@ -109,7 +116,8 @@ const compileRequestPredicate = (
 	schema: CompiledPostgresSchema,
 	request: DatabaseOperationRequest,
 ): SQL | undefined => {
-	const operationQuery = readOperationQuery(request.operation)
+	const operation = readRequestOperation(request)
+	const operationQuery = readOperationQuery(operation)
 
 	const relationCompiler = createPostgresRelationPredicateCompiler(
 		catalog,
@@ -154,17 +162,7 @@ const compileRequestPredicate = (
 	}
 
 	const objectId =
-		request.operation.kind === 'get'
-			? eq(
-					idField.column,
-					(
-						request.operation as Extract<
-							ExecutableOperationAst,
-							{ readonly kind: 'get' }
-						>
-					).id,
-				)
-			: undefined
+		operation.kind === 'get' ? eq(idField.column, operation.id) : undefined
 
 	return and(clauses.where, contributed, access, relation, objectId)
 }
@@ -201,7 +199,9 @@ const resolveInclusionBranches = (
 	plans: readonly DatabaseInclusionPlan[],
 ): readonly CompiledInclusionBranch[] =>
 	plans.map((plan) => {
-		const target = catalog.get(readOperationSchema(plan.request.operation))
+		const target = catalog.get(
+			readOperationSchema(readRequestOperation(plan.request)),
+		)
 		const relationName =
 			plan.kind === 'pointer'
 				? catalog.getDrizzlePointer(
@@ -232,6 +232,7 @@ const compileRelationalConfig = (
 	schema: CompiledPostgresSchema,
 	request: DatabaseOperationRequest,
 ): AnyDBQueryConfig => {
+	const operation = readRequestOperation(request)
 	const branches = resolveInclusionBranches(
 		catalog,
 		schema,
@@ -250,9 +251,9 @@ const compileRelationalConfig = (
 				),
 			]),
 	)
-	const query = readBuiltInQuery(readOperationQuery(request.operation))
+	const query = readBuiltInQuery(readOperationQuery(operation))
 	const config: AnyDBQueryConfig = {
-		columns: compileColumns(schema, request.operation),
+		columns: compileColumns(schema, operation),
 		where: createRawFilter(catalog, constraintCompilers, schema, request),
 		...(Object.keys(withConfig).length === 0 ? {} : { with: withConfig }),
 		...(query.pagination?.kind === 'offset-pagination'
@@ -281,7 +282,7 @@ const compileRelationalConfig = (
 			})
 		}
 	}
-	if (request.operation.kind === 'find-many' && query.limit !== undefined) {
+	if (operation.kind === 'find-many' && query.limit !== undefined) {
 		config.limit = query.limit
 	}
 
@@ -295,6 +296,7 @@ const decodeRelationalRecord = (
 	request: DatabaseOperationRequest,
 	value: unknown,
 ): DatabaseLogicalRecord => {
+	const operation = readRequestOperation(request)
 	if (!isPlainRecord(value)) {
 		throw new TypeError('PostgreSQL relational result must be a record')
 	}
@@ -357,7 +359,7 @@ const decodeRelationalRecord = (
 	}
 
 	const decoded = readPostgresRecord(schema, row)
-	const query = readOperationQuery(request.operation)
+	const query = readOperationQuery(operation)
 	const selectedFields = query.selection.fields.map(({ field }) => field)
 	let record = decoded
 
@@ -391,7 +393,7 @@ const executePostgresRelationalReadRaw = async (
 	constraintCompilers: PostgresConstraintCompilerRegistry,
 	request: DatabaseOperationRequest,
 ): Promise<unknown> => {
-	const operation = request.operation as ExecutableOperationAst
+	const operation = readRequestOperation(request)
 
 	if (
 		operation.kind !== 'find-many' &&
