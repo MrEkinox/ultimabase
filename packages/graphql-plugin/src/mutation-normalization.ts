@@ -1,11 +1,5 @@
 import {
-	decrement,
-	getFieldListDepth,
-	getFieldSchemaTarget,
-	increment,
-	Pointer,
 	type ApplicationSchemaMutationRequest,
-	type GenericField,
 	type SchemaDefinition,
 } from '@ultimabase/core'
 import {
@@ -17,8 +11,9 @@ import {
 import type { GraphQLResolveInfo } from 'graphql'
 
 import type { GraphqlConnectionRuntime } from './connection-runtime.js'
+import { decodeGraphqlMutationData } from './nested-mutation-values.js'
 import { normalizeGraphqlCollectionArguments } from './read-normalization.js'
-import { decodeGraphqlFieldValue, decodeGraphqlWhere } from './read-values.js'
+import { decodeGraphqlWhere } from './read-values.js'
 import { normalizeGraphqlSelection } from './selection-normalization.js'
 
 /** Names generated mutations independently from their GraphQL root spelling. */
@@ -59,8 +54,6 @@ const mutationKinds: Readonly<
 	upsert: 'upsert-one',
 })
 
-const numericKinds = new Set(['bigint', 'decimal', 'float', 'int'])
-
 const readInput = (args: unknown): Readonly<Record<string, unknown>> => {
 	if (
 		!isPlainRecord(args) ||
@@ -73,62 +66,6 @@ const readInput = (args: unknown): Readonly<Record<string, unknown>> => {
 	return args.input
 }
 
-const decodeData = (
-	schema: SchemaDefinition,
-	value: unknown,
-	mode: 'create' | 'update',
-): unknown => {
-	if (!isPlainRecord(value)) return value
-	return immutableRecord(
-		Object.fromEntries(
-			Object.entries(value).map(([name, item]) => {
-				const field: GenericField | undefined = schema.fields[name]
-				if (field === undefined) return [name, item]
-				if (mode === 'create') {
-					if (field.kind === 'pointer' && typeof item === 'string') {
-						const target = getFieldSchemaTarget(field)?.()
-						return [
-							name,
-							target === undefined ? item : new Pointer(target, item),
-						]
-					}
-					return [name, decodeGraphqlFieldValue(field, item, false)]
-				}
-				if (!isPlainRecord(item) || Object.keys(item).length !== 1) {
-					return [name, item]
-				}
-				const [operator] = Object.keys(item)
-				const operand =
-					operator === undefined
-						? undefined
-						: decodeGraphqlFieldValue(field, item[operator], false)
-				if (operator === 'set') {
-					if (field.kind === 'pointer' && typeof operand === 'string') {
-						const target = getFieldSchemaTarget(field)?.()
-						return [
-							name,
-							target === undefined ? operand : new Pointer(target, operand),
-						]
-					}
-					return [name, operand]
-				}
-				if (
-					getFieldListDepth(field.options) === 0 &&
-					numericKinds.has(field.kind) &&
-					(operator === 'increment' || operator === 'decrement')
-				) {
-					const numeric = operand as bigint | number | string
-					return [
-						name,
-						operator === 'increment' ? increment(numeric) : decrement(numeric),
-					]
-				}
-				return [name, item]
-			}),
-		),
-	)
-}
-
 const decodeUpsert = (schema: SchemaDefinition, value: unknown): unknown => {
 	if (!isPlainRecord(value)) return value
 	return immutableRecord({
@@ -137,10 +74,24 @@ const decodeUpsert = (schema: SchemaDefinition, value: unknown): unknown => {
 			? { where: decodeGraphqlWhere(schema, value.where) }
 			: {}),
 		...(Object.hasOwn(value, 'create')
-			? { create: decodeData(schema, value.create, 'create') }
+			? {
+					create: decodeGraphqlMutationData(
+						schema,
+						value.create,
+						'create',
+						'flat',
+					),
+				}
 			: {}),
 		...(Object.hasOwn(value, 'update')
-			? { update: decodeData(schema, value.update, 'update') }
+			? {
+					update: decodeGraphqlMutationData(
+						schema,
+						value.update,
+						'update',
+						'flat',
+					),
+				}
 			: {}),
 	})
 }
@@ -151,14 +102,16 @@ const mutationInput = (
 	input: Readonly<Record<string, unknown>>,
 ): unknown => {
 	if (operation === 'create')
-		return { data: decodeData(schema, input, 'create') }
+		return {
+			data: decodeGraphqlMutationData(schema, input, 'create', 'nested'),
+		}
 	if (operation === 'update') {
 		return {
 			...input,
 			...(Object.hasOwn(input, 'where')
 				? { where: decodeGraphqlWhere(schema, input.where) }
 				: {}),
-			data: decodeData(schema, input.data, 'update'),
+			data: decodeGraphqlMutationData(schema, input.data, 'update', 'nested'),
 		}
 	}
 	if (operation === 'delete') {
@@ -184,14 +137,14 @@ const mutationInput = (
 		data: immutableArray(
 			input.data.map((item) => {
 				if (operation === 'bulkCreate') {
-					return decodeData(schema, item, 'create')
+					return decodeGraphqlMutationData(schema, item, 'create', 'flat')
 				}
 				if (operation === 'bulkUpsert') return decodeUpsert(schema, item)
 				if (!isPlainRecord(item)) return item
 				return immutableRecord({
 					...item,
 					where: decodeGraphqlWhere(schema, item.where),
-					data: decodeData(schema, item.data, 'update'),
+					data: decodeGraphqlMutationData(schema, item.data, 'update', 'flat'),
 				})
 			}),
 		),

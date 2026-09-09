@@ -15,16 +15,26 @@ it('executes packed GraphQL from JavaScript without Typegen', async () => {
 	const output: unknown = JSON.parse(stdout)
 
 	expect(output).toStrictEqual({
-		data: {
-			findManyJavaScriptGraphqlNote: {
-				nodes: [
-					{
-						id: '01991f00-0000-7000-8000-000000000612',
-						title: 'Typegen-free GraphQL',
-					},
-				],
-				pageInfo: { hasNextPage: false },
+		mutation: {
+			data: {
+				createJavaScriptGraphqlNote: {
+					id: '01991f00-0000-7000-8000-000000000613',
+				},
 			},
 		},
+		query: {
+			data: {
+				findManyJavaScriptGraphqlNote: {
+					nodes: [
+						{
+							id: '01991f00-0000-7000-8000-000000000612',
+							title: 'Typegen-free GraphQL',
+						},
+					],
+					pageInfo: { hasNextPage: false },
+				},
+			},
+		},
+		writes: [{ score: '7' }],
 	})
 })

@@ -82,6 +82,7 @@ export const compileGraphqlSchema = (
 	const mutations = new GraphqlMutationInputCompiler({
 		fieldTypes: fields,
 		names,
+		schemas: options.schemas,
 		surfaces,
 	})
 	const mutationOperations = new GraphqlMutationOperationCompiler({

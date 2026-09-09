@@ -4,6 +4,7 @@ import {
 	Schema,
 	UltimaBase,
 	databaseAdapterCapability,
+	databasePointerCapability,
 	databasePersistencePlanCapability,
 	definePlugin,
 	provideCapability,
@@ -11,9 +12,18 @@ import {
 import { graphqlPlugin } from '@ultimabase/graphql-plugin'
 import { graphql } from 'graphql'
 
+const Target = Schema.define({
+	className: 'JavaScriptGraphqlTarget',
+	fields: (field) => ({ score: field.bigint() }),
+	graphql: true,
+})
+
 const Note = Schema.define({
 	className: 'JavaScriptGraphqlNote',
-	fields: (field) => ({ title: field.string() }),
+	fields: (field) => ({
+		primary: field.pointer({ target: 'JavaScriptGraphqlTarget' }),
+		title: field.string(),
+	}),
 	graphql: true,
 })
 
@@ -21,12 +31,16 @@ const row = {
 	id: '01991f00-0000-7000-8000-000000000612',
 	title: 'Typegen-free GraphQL',
 }
+const writes = []
 
 const adapter = {
-	capabilities: { persistencePlans: databasePersistencePlanCapability },
+	capabilities: {
+		persistencePlans: databasePersistencePlanCapability,
+		pointers: databasePointerCapability,
+	},
 	kind: 'database-adapter',
 	beginTransaction: () => {
-		throw new TypeError('JavaScript GraphQL fixture does not mutate')
+		throw new TypeError('JavaScript GraphQL fixture does not persist mutations')
 	},
 	execute: (request) =>
 		Promise.resolve(request.operation.kind === 'find-many' ? [row] : row),
@@ -52,7 +66,7 @@ const ultimabase = new UltimaBase({
 		databasePlugin,
 		graphqlPlugin({ acknowledgeUnverifiedProtection: true }),
 	],
-	schemas: [Note],
+	schemas: [Target, Note],
 })
 
 await ultimabase.start()
@@ -63,7 +77,13 @@ const context = ultimabase.engine.anonymous({
 const graphqlApplication = ultimabase.application.getPlugin(
 	'@ultimabase/graphql-plugin',
 )
-const result = await graphql({
+graphqlApplication.schema
+	.getMutationType()
+	.getFields().createJavaScriptGraphqlNote.resolve = (_source, args) => {
+	writes.push({ score: String(args.input.primary.create.score) })
+	return { id: '01991f00-0000-7000-8000-000000000613' }
+}
+const query = await graphql({
 	contextValue: { request: context },
 	schema: graphqlApplication.schema,
 	source: `query {
@@ -74,5 +94,16 @@ const result = await graphql({
 	}`,
 })
 
-process.stdout.write(JSON.stringify(result))
+const mutation = await graphql({
+	contextValue: { request: context },
+	schema: graphqlApplication.schema,
+	source: `mutation {
+		createJavaScriptGraphqlNote(input: {
+			primary: { create: { score: "7" } }
+			title: "Nested Typegen-free GraphQL"
+		}) { id }
+	}`,
+})
+
+process.stdout.write(JSON.stringify({ mutation, query, writes }))
 await ultimabase.dispose()

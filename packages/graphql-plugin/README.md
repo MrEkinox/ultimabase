@@ -135,6 +135,44 @@ Create and update may eagerly include selected relationships. Delete and upsert
 retain Core's flat result contract: relation hydration and pointer expansion
 beyond `id` are rejected before Runtime instead of issuing a second read.
 
+Singular create and update inputs expose recursive, source-field-specific
+nested commands. Pointer fields accept `connect` or `create` during create and
+add `update` plus nullable-only `disconnect` during update. Relation fields
+accept incremental `create` and `connect`; updates additionally expose target
+`update` items and, when the mapped relationship can be cleared,
+`disconnect`, `set`, and `clear`:
+
+```graphql
+mutation CreatePost($authorId: ID!) {
+	createPost(
+		input: {
+			author: { connect: $authorId }
+			comments: { create: [{ body: "First" }] }
+			title: "Hello"
+		}
+	) {
+		id
+		author {
+			id
+		}
+		comments(first: 10) {
+			nodes {
+				id
+				body
+			}
+		}
+	}
+}
+```
+
+Nested scalar values reuse the target schema's ordinary create inputs and
+update wrappers. An inverse relation's injected pointer is omitted from its
+source-specific target input. GraphQL coercion provides the structural shape;
+Core then enforces command exclusivity, literal `true` sentinels, duplicate and
+contradictory IDs, recursion depth, operation budgets, authorization, Hooks,
+and the single transaction. Bulk create/update and every upsert input remain
+flat and omit pointer and relation fields.
+
 Generated resolvers accept only the application-owned context shape
 `{ request: RequestContext }`. They validate that context through Core before
 decoding input, then call only the narrow application request executor. Access,

@@ -107,6 +107,16 @@ export class GraphqlMutationOperationCompiler {
 		const model = this.#fields.model(schema)
 		const create = this.#inputs.createInput(schema)
 		const update = this.#inputs.updateInput(schema)
+		const needsFlatCreate =
+			surface.bulkCreate || surface.bulkUpsert || surface.upsert
+		const needsFlatUpdate =
+			surface.bulkUpdate || surface.bulkUpsert || surface.upsert
+		const flatCreate = needsFlatCreate
+			? this.#inputs.flatCreateInput(schema)
+			: undefined
+		const flatUpdate = needsFlatUpdate
+			? this.#inputs.flatUpdateInput(schema)
+			: undefined
 		const where = this.#filters.where(schema)
 		const modelList = new GraphQLNonNull(
 			new GraphQLList(new GraphQLNonNull(model)),
@@ -114,11 +124,11 @@ export class GraphqlMutationOperationCompiler {
 
 		if (create !== undefined) {
 			this.#root(fields, surface, 'create', create, new GraphQLNonNull(model))
-			if (surface.bulkCreate) {
+			if (surface.bulkCreate && flatCreate !== undefined) {
 				const createMany = this.#input(surface, 'CreateManyInput', () => ({
 					data: {
 						type: new GraphQLNonNull(
-							new GraphQLList(new GraphQLNonNull(create)),
+							new GraphQLList(new GraphQLNonNull(flatCreate)),
 						),
 					},
 				}))
@@ -135,9 +145,9 @@ export class GraphqlMutationOperationCompiler {
 				}))
 				this.#root(fields, surface, 'update', updateOne, model)
 			}
-			if (surface.bulkUpdate) {
+			if (surface.bulkUpdate && flatUpdate !== undefined) {
 				const updateItem = this.#input(surface, 'UpdateManyItemInput', () => ({
-					data: { type: new GraphQLNonNull(update) },
+					data: { type: new GraphQLNonNull(flatUpdate) },
 					where: { type: new GraphQLNonNull(where) },
 				}))
 				const updateMany = this.#input(surface, 'UpdateManyInput', () => ({
@@ -167,11 +177,11 @@ export class GraphqlMutationOperationCompiler {
 			this.#root(fields, surface, 'bulkDelete', deleteMany, modelList)
 		}
 
-		if (create !== undefined && update !== undefined) {
+		if (flatCreate !== undefined && flatUpdate !== undefined) {
 			if (surface.upsert || surface.bulkUpsert) {
 				const upsertOne = this.#input(surface, 'UpsertOneInput', () => ({
-					create: { type: new GraphQLNonNull(create) },
-					update: { type: new GraphQLNonNull(update) },
+					create: { type: new GraphQLNonNull(flatCreate) },
+					update: { type: new GraphQLNonNull(flatUpdate) },
 					where: { type: new GraphQLNonNull(where) },
 				}))
 				if (surface.upsert) {

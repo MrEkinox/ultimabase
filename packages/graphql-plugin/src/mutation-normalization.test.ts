@@ -1,5 +1,4 @@
-import { Pointer, Schema, createApplication } from '@ultimabase/core'
-import { isPlainRecord } from '@ultimabase/shared'
+import { Schema, createApplication } from '@ultimabase/core'
 import { graphql, type GraphQLResolveInfo } from 'graphql'
 import { describe, expect, it } from 'vitest'
 
@@ -86,13 +85,16 @@ describe('GraphQL mutation normalization', () => {
 			source: `
 				mutation Execute {
 					createGraphqlMutationRecord(input: {
-						author: "${authorId}", slug: "created", title: "Created", views: 1
+						author: { connect: "${authorId}" }, slug: "created", title: "Created", views: 1
 					}) { title author { id } }
 					createManyGraphqlMutationRecord(input: { data: [
 						{ slug: "bulk-created", title: "Bulk created" }
 					] }) { id }
 					updateGraphqlMutationRecord(input: {
-						id: "${recordId}", data: { title: { set: "Updated" }, views: { increment: 2 } }
+						id: "${recordId}", data: {
+							author: { update: { name: { set: "Renamed" } } }
+							title: { set: "Updated" }, views: { increment: 2 }
+						}
 					}) { title author { id } }
 					updateManyGraphqlMutationRecord(input: { data: [{
 						where: { slug: { eq: "bulk-update" } }, data: { views: { decrement: 1 } }
@@ -127,22 +129,16 @@ describe('GraphQL mutation normalization', () => {
 		expect(commands.get('create')).toMatchObject({
 			kind: 'create-one',
 			input: {
-				data: { slug: 'created', title: 'Created', views: 1 },
+				data: {
+					author: { connect: authorId },
+					slug: 'created',
+					title: 'Created',
+					views: 1,
+				},
 				include: { author: { select: { id: true } } },
 				select: { title: true },
 			},
 		})
-		const createData: unknown = Reflect.get(
-			commands.get('create')?.input ?? {},
-			'data',
-		)
-		const createAuthor = isPlainRecord(createData)
-			? createData.author
-			: undefined
-		expect(Pointer.is(createAuthor)).toBe(true)
-		expect(Pointer.is(createAuthor) ? createAuthor.id : undefined).toBe(
-			authorId,
-		)
 		expect(commands.get('bulkCreate')).toMatchObject({
 			kind: 'create-many',
 			input: { data: [{ slug: 'bulk-created', title: 'Bulk created' }] },
@@ -154,6 +150,7 @@ describe('GraphQL mutation normalization', () => {
 		expect(
 			Reflect.get(commands.get('update')?.input ?? {}, 'data'),
 		).toMatchObject({
+			author: { update: { name: 'Renamed' } },
 			title: 'Updated',
 			views: { kind: 'increment', value: 2 },
 		})

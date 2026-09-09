@@ -302,7 +302,7 @@ describe('GraphQL generated schema execution with PostgreSQL', () => {
 		const linked = await execute(
 			`mutation Linked($author: ID!) {
 			createGraphqlExecutionPost(input: {
-				author: $author, slug: "linked", title: "Linked"
+				author: { connect: $author }, slug: "linked", title: "Linked"
 			}) { id }
 		}`,
 			context('anonymous'),

@@ -84,6 +84,10 @@ describe('GraphQL structural schema compilation', () => {
 		const author = schema.getType('Author')
 		const create = schema.getType('PostCreateInput')
 		const update = schema.getType('PostUpdateInput')
+		const flatCreate = schema.getType('PostFlatCreateInput')
+		const flatUpdate = schema.getType('PostFlatUpdateInput')
+		const authorCreate = schema.getType('PostAuthorNestedCreateInput')
+		const authorUpdate = schema.getType('PostAuthorNestedUpdateInput')
 		const status = schema.getType('PostStatus')
 		const stockUpdate = schema.getType('PostStockUpdate')
 		const connection = schema.getType('PostConnection')
@@ -94,6 +98,10 @@ describe('GraphQL structural schema compilation', () => {
 		expect(isObjectType(author)).toBe(true)
 		expect(isInputObjectType(create)).toBe(true)
 		expect(isInputObjectType(update)).toBe(true)
+		expect(isInputObjectType(flatCreate)).toBe(true)
+		expect(isInputObjectType(flatUpdate)).toBe(true)
+		expect(isInputObjectType(authorCreate)).toBe(true)
+		expect(isInputObjectType(authorUpdate)).toBe(true)
 		expect(isEnumType(status)).toBe(true)
 		expect(isObjectType(connection)).toBe(true)
 		expect(isObjectType(edge)).toBe(true)
@@ -112,10 +120,29 @@ describe('GraphQL structural schema compilation', () => {
 		expect(post.getFields().author?.type.toString()).toBe('Author')
 		expect(author.getFields().posts?.type.toString()).toBe('PostConnection')
 		expect(create.getFields().title?.type.toString()).toBe('String!')
-		expect(create.getFields().author?.type.toString()).toBe('ID')
+		expect(create.getFields().author?.type.toString()).toBe(
+			'PostAuthorNestedCreateInput',
+		)
 		expect(create.getFields().createdAt).toBeUndefined()
 		expect(update.getFields().id).toBeUndefined()
 		expect(update.getFields().title?.type.toString()).toBe('PostTitleUpdate')
+		if (
+			!isInputObjectType(flatCreate) ||
+			!isInputObjectType(flatUpdate) ||
+			!isInputObjectType(authorCreate) ||
+			!isInputObjectType(authorUpdate)
+		) {
+			throw new TypeError('Expected generated nested mutation input types')
+		}
+		expect(flatCreate.getFields().author).toBeUndefined()
+		expect(flatUpdate.getFields().author).toBeUndefined()
+		expect(Object.keys(authorCreate.getFields())).toEqual(['connect', 'create'])
+		expect(Object.keys(authorUpdate.getFields())).toEqual([
+			'connect',
+			'create',
+			'update',
+			'disconnect',
+		])
 		expect(isInputObjectType(stockUpdate)).toBe(true)
 		expect(
 			isInputObjectType(stockUpdate)
@@ -153,6 +180,9 @@ describe('GraphQL structural schema compilation', () => {
 		expect(printSchema(schema)).toContain(
 			'input PostUpsertManyInput {\n  data: [PostUpsertOneInput!]!\n}',
 		)
+		expect(printSchema(schema)).toContain(
+			'input PostCreateManyInput {\n  data: [PostFlatCreateInput!]!\n}',
+		)
 		expect(printSchema(schema)).toContain('type PostConnection')
 		if (
 			!isObjectType(connection) ||
@@ -173,6 +203,64 @@ describe('GraphQL structural schema compilation', () => {
 			'hasPreviousPage',
 			'startCursor',
 		])
+		await application.dispose()
+	})
+
+	it('builds circular nested inputs lazily and omits injected inverse pointers', async () => {
+		const CircularAuthor = Schema.define({
+			className: 'CircularAuthor',
+			fields: (field) => ({
+				name: field.string(),
+				posts: field.relation({ mappedBy: 'author', target: 'CircularPost' }),
+			}),
+			graphql: true,
+		})
+		const CircularPost = Schema.define({
+			className: 'CircularPost',
+			fields: (field) => ({
+				author: field.pointer({ required: true, target: 'CircularAuthor' }),
+				title: field.string(),
+			}),
+			graphql: true,
+		})
+		const application = await createApplication({
+			pluginPrivileges: { logger: false },
+			plugins: [graphqlPlugin()],
+			schemas: [CircularAuthor, CircularPost],
+		})
+		const schema = readGraphql(application).schema
+		const postCreate = schema.getType('CircularPostCreateInput')
+		const pointerUpdate = schema.getType('CircularPostAuthorNestedUpdateInput')
+		const relationCreateTarget = schema.getType(
+			'CircularAuthorPostsNestedCreateTargetInput',
+		)
+		const relationUpdate = schema.getType(
+			'CircularAuthorPostsNestedUpdateInput',
+		)
+
+		expect(isInputObjectType(postCreate)).toBe(true)
+		expect(isInputObjectType(pointerUpdate)).toBe(true)
+		expect(isInputObjectType(relationCreateTarget)).toBe(true)
+		expect(isInputObjectType(relationUpdate)).toBe(true)
+		if (
+			!isInputObjectType(postCreate) ||
+			!isInputObjectType(pointerUpdate) ||
+			!isInputObjectType(relationCreateTarget) ||
+			!isInputObjectType(relationUpdate)
+		) {
+			throw new TypeError('Expected circular nested input types')
+		}
+		expect(postCreate.getFields().author?.type.toString()).toBe(
+			'CircularPostAuthorNestedCreateInput!',
+		)
+		expect(pointerUpdate.getFields().disconnect).toBeUndefined()
+		expect(Object.keys(relationCreateTarget.getFields())).toEqual(['title'])
+		expect(Object.keys(relationUpdate.getFields())).toEqual([
+			'create',
+			'connect',
+			'update',
+		])
+		expect(printSchema(schema)).toContain('create: CircularAuthorCreateInput')
 		await application.dispose()
 	})
 
@@ -199,7 +287,10 @@ describe('GraphQL structural schema compilation', () => {
 	it('keeps plugin-owned schemas as supporting types without generating CRUD roots', async () => {
 		const Post = Schema.define({
 			className: 'Post',
-			fields: (field) => ({ title: field.string() }),
+			fields: (field) => ({
+				audit: field.pointer({ target: 'Audit' }),
+				title: field.string(),
+			}),
 		})
 		const Audit = Schema.define({
 			className: 'Audit',
@@ -226,6 +317,12 @@ describe('GraphQL structural schema compilation', () => {
 		expect(schema.getType('Audit')).toBeDefined()
 		expect(schema.getQueryType()?.getFields().getPost).toBeDefined()
 		expect(schema.getQueryType()?.getFields().getAudit).toBeUndefined()
+		expect(schema.getType('AuditCreateInput')).toBeUndefined()
+		const auditInput = schema.getType('PostAuditNestedCreateInput')
+		expect(isInputObjectType(auditInput)).toBe(true)
+		expect(
+			isInputObjectType(auditInput) ? Object.keys(auditInput.getFields()) : [],
+		).toEqual(['connect'])
 		await application.dispose()
 	})
 
@@ -407,11 +504,17 @@ describe('GraphQL structural schema compilation', () => {
 
 		const Alpha = Schema.define({
 			className: 'Alpha',
-			fields: (field) => ({ value: field.string() }),
+			fields: (field) => ({
+				next: field.pointer({ target: 'Alpha' }),
+				value: field.string(),
+			}),
 		})
 		const Beta = Schema.define({
 			className: 'Beta',
-			fields: (field) => ({ value: field.string() }),
+			fields: (field) => ({
+				next: field.pointer({ target: 'Beta' }),
+				value: field.string(),
+			}),
 		})
 		const [alpha, beta] = await Promise.all([
 			createApplication({
@@ -428,6 +531,18 @@ describe('GraphQL structural schema compilation', () => {
 
 		expect(readGraphql(alpha).schema.getType('Beta')).toBeUndefined()
 		expect(readGraphql(beta).schema.getType('Alpha')).toBeUndefined()
+		expect(
+			readGraphql(alpha).schema.getType('AlphaNextNestedCreateInput'),
+		).toBeDefined()
+		expect(
+			readGraphql(alpha).schema.getType('BetaNextNestedCreateInput'),
+		).toBeUndefined()
+		expect(
+			readGraphql(beta).schema.getType('BetaNextNestedCreateInput'),
+		).toBeDefined()
+		expect(
+			readGraphql(beta).schema.getType('AlphaNextNestedCreateInput'),
+		).toBeUndefined()
 		await Promise.all([alpha.dispose(), beta.dispose()])
 	})
 })
