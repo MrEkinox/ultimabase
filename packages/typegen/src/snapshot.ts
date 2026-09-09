@@ -5,6 +5,7 @@ import {
 	type CompiledSchemaRegistry,
 	type CompiledTypegenGraph,
 	type FieldTypegenState,
+	type FieldDeclarationContext,
 	type FrameworkApplication,
 	type GenericField,
 	type JsonValue,
@@ -74,6 +75,7 @@ export interface TypegenSchemaSnapshot {
 }
 
 export interface TypegenFieldMethodSnapshot {
+	readonly context: FieldDeclarationContext
 	readonly fieldKind: string
 	readonly method: TypegenReference
 	readonly name: string
@@ -91,6 +93,7 @@ export interface TypegenOwnerSnapshot {
 export interface TypegenOptionSnapshot {
 	readonly compatibility?: TypegenReference
 	readonly contributionId: string
+	readonly contexts?: readonly FieldDeclarationContext[]
 	readonly name: string
 	readonly owner: TypegenOwnerSnapshot
 	readonly reference: TypegenReference
@@ -167,7 +170,7 @@ export interface TypegenApplicationSnapshot {
 	readonly privateStorageFingerprint?: string
 	readonly schemas: readonly TypegenSchemaSnapshot[]
 	readonly surfaces: readonly TypegenSchemaSurfaceSnapshot[]
-	readonly version: 7
+	readonly version: 8
 }
 
 interface PluginValueReference extends TypegenReference {
@@ -476,27 +479,39 @@ export const createCompiledTypegenSnapshot = (
 	const fieldMethods = immutableArray(
 		[...application.fieldBuilderMethods]
 			.sort((left, right) => left.name.localeCompare(right.name))
-			.map((method) =>
-				immutableRecord({
-					fieldKind: method.fieldKind,
-					method: immutableRecord({
-						exportName: method.typegen.methodType,
-						module: method.typegen.module,
-					}),
-					name: method.name,
-					owner: method.owner,
-					structuralContains:
-						method.typegen.structuralContainsType === undefined
-							? undefined
-							: immutableRecord({
-									exportName: method.typegen.structuralContainsType,
-									module: method.typegen.module,
-								}),
-					value: immutableRecord({
-						exportName: method.typegen.valueType,
-						module: method.typegen.module,
-					}),
-				}),
+			.flatMap((method) =>
+				(['stored', 'embedded', 'virtual', 'output'] as const).flatMap(
+					(context) => {
+						const implementation = method.contexts[context]
+						return implementation === undefined
+							? []
+							: [
+									immutableRecord({
+										context,
+										fieldKind: implementation.fieldKind,
+										method: immutableRecord({
+											exportName: implementation.typegen.methodType,
+											module: implementation.typegen.module,
+										}),
+										name: method.name,
+										owner: method.owner,
+										structuralContains:
+											implementation.typegen.structuralContainsType ===
+											undefined
+												? undefined
+												: immutableRecord({
+														exportName:
+															implementation.typegen.structuralContainsType,
+														module: implementation.typegen.module,
+													}),
+										value: immutableRecord({
+											exportName: implementation.typegen.valueType,
+											module: implementation.typegen.module,
+										}),
+									}),
+								]
+					},
+				),
 			),
 	)
 	const schemas = immutableArray(
@@ -519,7 +534,7 @@ export const createCompiledTypegenSnapshot = (
 			? {}
 			: { privateStorageFingerprint: application.privateStorageFingerprint }),
 		schemas,
-		version: 7,
+		version: 8,
 	})
 }
 

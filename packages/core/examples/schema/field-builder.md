@@ -86,9 +86,18 @@ const application = await createApplication({
 The method belongs to this application's plugin graph. Another application
 without `pgVectorPlugin()` does not register it. Once the generated declaration
 is included by TypeScript, its module augmentation exposes `field.vector()` on
-this application's FieldBuilder. Core's unaugmented base type remains neutral.
-Applications regenerate that declaration through `typegenPlugin()` during
-startup. A future CLI will expose manual generation and watch mode.
+this application's stored FieldBuilder. The plugin declares `stored` explicitly;
+its storage and wire codecs do not silently make `vector()` valid inside an
+embedded object or an output descriptor.
+
+Plugin methods may implement any non-empty subset of the closed `stored`,
+`embedded`, `virtual`, and `output` contexts. Each supported context supplies
+its own exact factory and Typegen method reference. Direct field options follow
+the same rule through `defineFieldOption({ contexts, ... })`. Core's unaugmented
+base types remain neutral, and stale or untyped use in an unsupported context
+fails during application compilation before setup. Applications regenerate the
+exact contextual declarations through `typegenPlugin()` during startup. A
+future CLI will expose manual generation and watch mode.
 
 The same map-returning declaration is used by applications, tests, and
 framework-owned schemas. The generated application registry provides exact

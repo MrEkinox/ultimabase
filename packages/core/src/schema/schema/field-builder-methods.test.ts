@@ -3,13 +3,17 @@ import { describe, expect, it } from 'vitest'
 import { defineFieldBuilderMethod, stringField } from '../../index.js'
 
 const validDefinition = () => ({
-	factory: stringField,
-	fieldKind: 'fixture.text' as const,
 	name: 'text' as const,
-	typegen: {
-		methodType: 'TextFieldBuilderMethod',
-		module: '@fixture/text-plugin',
-		valueType: 'TextValue',
+	contexts: {
+		stored: {
+			factory: stringField,
+			fieldKind: 'fixture.text' as const,
+			typegen: {
+				methodType: 'TextFieldBuilderMethod',
+				module: '@fixture/text-plugin',
+				valueType: 'TextValue',
+			},
+		},
 	},
 })
 
@@ -18,24 +22,42 @@ describe('defineFieldBuilderMethod', () => {
 		const input = validDefinition()
 		const method = defineFieldBuilderMethod(input)
 
-		input.typegen.methodType = 'MutatedMethod'
+		input.contexts.stored.typegen.methodType = 'MutatedMethod'
 
 		expect(method).toStrictEqual({
-			factory: stringField,
-			fieldKind: 'fixture.text',
-			name: 'text',
-			typegen: {
-				methodType: 'TextFieldBuilderMethod',
-				module: '@fixture/text-plugin',
-				valueType: 'TextValue',
+			contexts: {
+				stored: {
+					factory: stringField,
+					fieldKind: 'fixture.text',
+					typegen: {
+						methodType: 'TextFieldBuilderMethod',
+						module: '@fixture/text-plugin',
+						valueType: 'TextValue',
+					},
+				},
 			},
+			name: 'text',
 		})
-		expect(method.factory).toBe(stringField)
+		expect(method.contexts.stored.factory).toBe(stringField)
 		expect(Object.isFrozen(method)).toBe(true)
-		expect(Object.isFrozen(method.typegen)).toBe(true)
+		expect(Object.isFrozen(method.contexts.stored.typegen)).toBe(true)
 	})
 
 	it('rejects unstable names, kinds, factories, and type references', () => {
+		expect(() =>
+			defineFieldBuilderMethod({ name: 'empty', contexts: {} }),
+		).toThrow('FieldBuilder method contexts must declare at least one context')
+		expect(() =>
+			defineFieldBuilderMethod({
+				name: 'unknown',
+				contexts: {
+					// @ts-expect-error -- Runtime protects declarations loaded from JavaScript.
+					other: validDefinition().contexts.stored,
+				},
+			}),
+		).toThrow(
+			'FieldBuilder method context must be stored, embedded, virtual, or output',
+		)
 		expect(() =>
 			defineFieldBuilderMethod({ ...validDefinition(), name: 'with-dash' }),
 		).toThrow(
@@ -46,27 +68,46 @@ describe('defineFieldBuilderMethod', () => {
 		expect(() =>
 			defineFieldBuilderMethod({
 				...validDefinition(),
-				// @ts-expect-error -- Runtime validation protects JavaScript callers.
-				fieldKind: 'text',
+				contexts: {
+					stored: {
+						...validDefinition().contexts.stored,
+						// @ts-expect-error -- Runtime protects declarations loaded from JavaScript.
+						fieldKind: 'text',
+					},
+				},
 			}),
 		).toThrow(
 			new TypeError(
-				'FieldBuilder method fieldKind must use a namespaced identifier',
+				'FieldBuilder method contexts.stored.fieldKind must use a namespaced identifier',
 			),
 		)
 		expect(() =>
 			defineFieldBuilderMethod({
 				...validDefinition(),
-				// @ts-expect-error -- Runtime validation protects JavaScript callers.
-				factory: true,
+				contexts: {
+					stored: {
+						...validDefinition().contexts.stored,
+						// @ts-expect-error -- Runtime validation protects JavaScript callers.
+						factory: true,
+					},
+				},
 			}),
-		).toThrow(new TypeError('FieldBuilder method factory must be a function'))
+		).toThrow(
+			new TypeError(
+				'FieldBuilder method contexts.stored.factory must be a function',
+			),
+		)
 		expect(() =>
 			defineFieldBuilderMethod({
 				...validDefinition(),
-				typegen: {
-					...validDefinition().typegen,
-					module: ' @fixture/text-plugin',
+				contexts: {
+					stored: {
+						...validDefinition().contexts.stored,
+						typegen: {
+							...validDefinition().contexts.stored.typegen,
+							module: ' @fixture/text-plugin',
+						},
+					},
 				},
 			}),
 		).toThrow(
@@ -77,9 +118,14 @@ describe('defineFieldBuilderMethod', () => {
 		expect(() =>
 			defineFieldBuilderMethod({
 				...validDefinition(),
-				typegen: {
-					...validDefinition().typegen,
-					valueType: 'readonly number[]',
+				contexts: {
+					stored: {
+						...validDefinition().contexts.stored,
+						typegen: {
+							...validDefinition().contexts.stored.typegen,
+							valueType: 'readonly number[]',
+						},
+					},
 				},
 			}),
 		).toThrow(

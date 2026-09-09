@@ -31,14 +31,18 @@ const createGeneratedRegistry = (): string => {
 			},
 		)
 	const method = defineFieldBuilderMethod({
-		factory: containedField,
-		fieldKind: 'fixture.semantic.contained',
 		name: 'contained',
-		typegen: {
-			methodType: 'ContainmentFieldBuilderMethod',
-			module: '@fixture/containment-plugin',
-			structuralContainsType: 'ContainsOperand',
-			valueType: 'ContainedValue',
+		contexts: {
+			stored: {
+				factory: containedField,
+				fieldKind: 'fixture.semantic.contained',
+				typegen: {
+					methodType: 'ContainmentFieldBuilderMethod',
+					module: '@fixture/containment-plugin',
+					structuralContainsType: 'ContainsOperand',
+					valueType: 'ContainedValue',
+				},
+			},
 		},
 	})
 	const plugin = definePlugin({

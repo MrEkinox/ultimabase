@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { isPlainRecord } from '@ultimabase/shared'
 
 import {
 	createApplication,
@@ -39,24 +40,32 @@ const betaField = (options: FixtureFieldOptions = {}) =>
 	})
 
 const alphaMethod = defineFieldBuilderMethod({
-	factory: alphaField,
-	fieldKind: 'fixture.alpha',
 	name: 'alpha',
-	typegen: {
-		methodType: 'AlphaFieldBuilderMethod',
-		module: '@fixture/alpha-plugin',
-		valueType: 'AlphaValue',
+	contexts: {
+		stored: {
+			factory: alphaField,
+			fieldKind: 'fixture.alpha',
+			typegen: {
+				methodType: 'AlphaFieldBuilderMethod',
+				module: '@fixture/alpha-plugin',
+				valueType: 'AlphaValue',
+			},
+		},
 	},
 })
 
 const betaMethod = defineFieldBuilderMethod({
-	factory: betaField,
-	fieldKind: 'fixture.beta',
 	name: 'beta',
-	typegen: {
-		methodType: 'BetaFieldBuilderMethod',
-		module: '@fixture/beta-plugin',
-		valueType: 'BetaValue',
+	contexts: {
+		stored: {
+			factory: betaField,
+			fieldKind: 'fixture.beta',
+			typegen: {
+				methodType: 'BetaFieldBuilderMethod',
+				module: '@fixture/beta-plugin',
+				valueType: 'BetaValue',
+			},
+		},
 	},
 })
 
@@ -88,6 +97,100 @@ const betaPlugin = () =>
 	})
 
 describe('plugin FieldBuilder methods', () => {
+	it('materializes only the factory declared for the active field context', async () => {
+		const contextualMethod = defineFieldBuilderMethod({
+			name: 'contextual',
+			contexts: {
+				embedded: {
+					factory: betaField,
+					fieldKind: 'fixture.beta',
+					typegen: betaMethod.contexts.stored.typegen,
+				},
+				stored: {
+					factory: alphaField,
+					fieldKind: 'fixture.alpha',
+					typegen: alphaMethod.contexts.stored.typegen,
+				},
+			},
+		})
+		const plugin = definePlugin({
+			core: '^0.0.0',
+			declare: ({ fields }) => {
+				fields.register(contextualMethod)
+			},
+			pluginId: 'fixture.contextual-plugin',
+			privileges: [schemaDeclarePrivilege],
+			version: '1.0.0',
+		})
+		const Contextual = Schema.define({
+			className: 'ContextualPluginMethod',
+			fields: (field) => ({
+				root: (
+					field as FixtureFieldBuilder & {
+						readonly contextual: FixtureFieldBuilderMethod
+					}
+				).contextual(),
+				value: field.object({
+					fields: (embedded) => ({
+						nested: (
+							embedded as typeof embedded & {
+								readonly contextual: FixtureFieldBuilderMethod
+							}
+						).contextual(),
+					}),
+				}),
+			}),
+		})
+
+		await createApplication({ plugins: [plugin], schemas: [Contextual] })
+
+		expect(Contextual.fields.root?.kind).toBe('fixture.alpha')
+		const nested = Contextual.fields.value
+		expect(nested?.kind).toBe('object')
+		const nestedFields =
+			nested !== undefined && 'fields' in nested.options
+				? nested.options.fields
+				: undefined
+		expect(
+			isPlainRecord(nestedFields) &&
+				isPlainRecord(nestedFields.nested) &&
+				'kind' in nestedFields.nested
+				? nestedFields.nested.kind
+				: undefined,
+		).toBe('fixture.beta')
+	})
+
+	it('rejects a configured method used outside its declared context', async () => {
+		const InvalidEmbedded = Schema.define({
+			className: 'InvalidEmbeddedPluginMethod',
+			fields: (field) => ({
+				value: field.object({
+					fields: (embedded) => ({
+						alpha: (
+							embedded as typeof embedded & {
+								readonly alpha: FixtureFieldBuilderMethod
+							}
+						).alpha(),
+					}),
+				}),
+			}),
+		})
+
+		await expect(
+			createApplication({
+				plugins: [alphaPlugin()],
+				schemas: [InvalidEmbedded],
+			}),
+		).rejects.toMatchObject({
+			code: 'PLUGIN_DECLARATION_INVALID',
+			cause: {
+				cause: new TypeError(
+					'InvalidEmbeddedPluginMethod.fields.value.object.fields.alpha FieldBuilder method "alpha" from "fixture.alpha-plugin" does not support the embedded context',
+				),
+			},
+		})
+	})
+
 	it('declares owned methods before schema compilation and plugin setup', async () => {
 		const trace: string[] = []
 		const plugin = definePlugin({
@@ -123,16 +226,21 @@ describe('plugin FieldBuilder methods', () => {
 		expect(trace).toStrictEqual(['fields', 'declare', 'setup:fixture.alpha'])
 		expect(Document.fields.value?.options).toMatchObject({ marker: 'ordered' })
 		expect(application.fieldBuilderMethods).toStrictEqual([
-			expect.objectContaining({
-				fieldKind: 'fixture.alpha',
+			{
+				contexts: {
+					stored: {
+						factory: alphaField,
+						fieldKind: 'fixture.alpha',
+						typegen: {
+							methodType: 'AlphaFieldBuilderMethod',
+							module: '@fixture/alpha-plugin',
+							valueType: 'AlphaValue',
+						},
+					},
+				},
 				name: 'alpha',
 				owner: 'fixture.ordered-plugin',
-				typegen: {
-					methodType: 'AlphaFieldBuilderMethod',
-					module: '@fixture/alpha-plugin',
-					valueType: 'AlphaValue',
-				},
-			}),
+			},
 		])
 		expect(Object.isFrozen(application.fieldBuilderMethods)).toBe(true)
 		expect(application.pluginFieldTypes).toStrictEqual([
@@ -271,10 +379,8 @@ describe('plugin FieldBuilder methods', () => {
 			},
 		})
 		const override = defineFieldBuilderMethod({
-			factory: alphaField,
-			fieldKind: 'fixture.alpha',
 			name: 'string',
-			typegen: alphaMethod.typegen,
+			contexts: { stored: alphaMethod.contexts.stored },
 		})
 		const overridePlugin = definePlugin({
 			version: '0.0.0',
@@ -321,10 +427,14 @@ describe('plugin FieldBuilder methods', () => {
 			fields: (field) => ({ value: fixtureBuilder(field).alpha() }),
 		})
 		const incompatibleMethod = defineFieldBuilderMethod({
-			factory: betaField,
-			fieldKind: 'fixture.alpha',
 			name: 'alpha',
-			typegen: alphaMethod.typegen,
+			contexts: {
+				stored: {
+					factory: betaField,
+					fieldKind: 'fixture.alpha',
+					typegen: alphaMethod.contexts.stored.typegen,
+				},
+			},
 		})
 		const incompatiblePlugin = definePlugin({
 			version: '0.0.0',
@@ -378,10 +488,14 @@ describe('plugin FieldBuilder methods', () => {
 			valueType: 'SnapshotValue',
 		}
 		const method = defineFieldBuilderMethod({
-			factory: alphaField,
-			fieldKind: 'fixture.alpha',
 			name: 'snapshot',
-			typegen,
+			contexts: {
+				stored: {
+					factory: alphaField,
+					fieldKind: 'fixture.alpha',
+					typegen,
+				},
+			},
 		})
 
 		typegen.methodType = 'MutatedMethod'
@@ -400,12 +514,14 @@ describe('plugin FieldBuilder methods', () => {
 			schemas: [],
 		})
 
-		expect(application.fieldBuilderMethods[0]?.typegen.methodType).toBe(
-			'SnapshotFieldBuilderMethod',
-		)
-		expect(Object.isFrozen(application.fieldBuilderMethods[0]?.typegen)).toBe(
-			true,
-		)
+		expect(
+			application.fieldBuilderMethods[0]?.contexts.stored?.typegen.methodType,
+		).toBe('SnapshotFieldBuilderMethod')
+		expect(
+			Object.isFrozen(
+				application.fieldBuilderMethods[0]?.contexts.stored?.typegen,
+			),
+		).toBe(true)
 
 		const untrustedPlugin = definePlugin({
 			version: '0.0.0',
@@ -414,10 +530,14 @@ describe('plugin FieldBuilder methods', () => {
 			privileges: [schemaDeclarePrivilege],
 			declare: ({ fields }) => {
 				const untrusted = {
-					factory: alphaField,
-					fieldKind: 'fixture.alpha',
+					contexts: {
+						stored: {
+							factory: alphaField,
+							fieldKind: 'fixture.alpha',
+							typegen,
+						},
+					},
 					name: 'untrusted',
-					typegen,
 				} as FieldBuilderMethodDefinition
 
 				fields.register(untrusted)

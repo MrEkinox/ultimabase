@@ -13,6 +13,7 @@ import {
 import type { PreparedSchemaCompilation } from '../schema/schema/definition.js'
 
 import { type PluginSchemaContributionOwner } from '../schema/schema/provenance.js'
+import type { FieldDeclarationContext } from '../schema/schema/field-contexts.js'
 
 import {
 	attachPluginDeclarationDiagnostic,
@@ -61,9 +62,10 @@ export const resolveFieldOptions = (
 	definitions: ReadonlyMap<string, readonly OwnedOptionDefinition[]>,
 	path: string,
 	resolvedFields: ResolvedFieldOptions,
+	context: FieldDeclarationContext,
 	preferredOwner?: PluginSchemaContributionOwner,
 ): GenericField => {
-	const existing = resolvedFields.get(field)?.get(preferredOwner)
+	const existing = resolvedFields.get(field)?.get(context)?.get(preferredOwner)
 	if (existing !== undefined) return existing
 
 	const contract = getDeclaredFieldOptionsContract(field)
@@ -86,6 +88,15 @@ export const resolveFieldOptions = (
 		}
 
 		if (descriptor !== undefined) {
+			if (
+				descriptor.scope !== 'field' ||
+				!('contexts' in descriptor.definition) ||
+				!descriptor.definition.contexts.includes(context)
+			) {
+				throw new TypeError(
+					`Field option "${key}" from ${descriptor.owner.pluginId} does not support the ${context} context`,
+				)
+			}
 			changed = true
 			options[key] = normalizeOwnedOptionValue(
 				descriptor,
@@ -114,6 +125,7 @@ export const resolveFieldOptions = (
 							definitions,
 							`${path}.options.fields.${name}`,
 							resolvedFields,
+							'embedded',
 							preferredOwner,
 						),
 					]
@@ -133,11 +145,18 @@ export const resolveFieldOptions = (
 	const resolved = changed
 		? replaceDeclaredFieldOptions(field, immutableRecord(options))
 		: field
-	const ownerResolutions =
+	const contextResolutions =
 		resolvedFields.get(field) ??
+		new Map<
+			FieldDeclarationContext,
+			Map<PluginSchemaContributionOwner | undefined, GenericField>
+		>()
+	const ownerResolutions =
+		contextResolutions.get(context) ??
 		new Map<PluginSchemaContributionOwner | undefined, GenericField>()
 	ownerResolutions.set(preferredOwner, resolved)
-	resolvedFields.set(field, ownerResolutions)
+	contextResolutions.set(context, ownerResolutions)
+	resolvedFields.set(field, contextResolutions)
 
 	return resolved
 }
@@ -179,6 +198,7 @@ export const resolveCandidateOptions = (
 					definitions.field,
 					`${candidate.schema.className}.fields.${name}`,
 					resolvedFields,
+					'stored',
 					preferredOwner,
 				),
 			]),

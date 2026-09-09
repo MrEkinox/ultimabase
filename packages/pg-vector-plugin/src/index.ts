@@ -2,7 +2,6 @@ import { immutableArray, immutableRecord } from '@ultimabase/shared'
 import {
 	assertFieldOptions,
 	type CompatibleFieldOptionsInput,
-	defineFieldBuilderMethod,
 	definePluginField,
 	definePluginFieldWireProtocol,
 	type FieldListOption,
@@ -12,6 +11,7 @@ import {
 	type ScalarValidationPlan,
 } from '@ultimabase/core'
 import {
+	definePluginFieldBuilderMethod,
 	definePluginModule,
 	type PluginModule,
 	type PluginModuleInstance,
@@ -196,14 +196,18 @@ export const isVectorFieldValidationPlan = (
 ): plan is VectorFieldValidationPlan =>
 	plan.kind === 'scalar' && plan.field.kind === vectorFieldKind
 
-const vectorFieldBuilderMethod = defineFieldBuilderMethod({
-	factory: vectorField,
-	fieldKind: vectorFieldKind,
+const vectorFieldBuilderMethod = definePluginFieldBuilderMethod({
 	name: 'vector',
-	typegen: {
-		methodType: 'VectorFieldBuilderMethod',
-		module: '@ultimabase/pg-vector-plugin',
-		valueType: 'VectorValue',
+	contexts: {
+		stored: {
+			factory: vectorField,
+			fieldKind: vectorFieldKind,
+			typegen: {
+				methodType: 'VectorFieldBuilderMethod',
+				module: '@ultimabase/pg-vector-plugin',
+				valueType: 'VectorValue',
+			},
+		},
 	},
 })
 

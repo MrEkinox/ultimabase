@@ -8,6 +8,11 @@ Standard Schema V1 implementation. Core continues to enforce required presence,
 nullability, canonical scalar and object shapes, defaults, generators, immutable
 fields, and database integrity without this plugin.
 
+The option is available on stored fields and embedded object properties only.
+Virtual wrappers and output descriptors are result contracts rather than
+mutation candidates, so generated autocomplete does not offer `validation`
+there and Core rejects stale or untyped uses.
+
 ```ts
 import { Schema, UltimaBase } from '@ultimabase/core'
 import { validationPlugin } from '@ultimabase/validation-plugin'

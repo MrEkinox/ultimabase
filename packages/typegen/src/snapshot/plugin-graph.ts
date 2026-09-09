@@ -204,6 +204,9 @@ export const snapshotTypegenGraph = (
 								}),
 							}),
 					contributionId: option.contributionId,
+					...(option.contexts === undefined
+						? {}
+						: { contexts: immutableArray(option.contexts) }),
 					...(option.typegen.generic === undefined
 						? {}
 						: { generic: option.typegen.generic }),

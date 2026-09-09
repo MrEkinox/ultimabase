@@ -4,21 +4,98 @@ import {
 	Schema,
 	createApplication,
 	defineCapability,
+	defineFieldOption,
 	definePlugin,
 	defineSchemaOption,
 	provideCapability,
 	requireCapability,
 	stringField,
+	type SchemaOptionRuntimeCompilationContext,
 	type SchemaOptions,
 } from '../index.js'
 
 import {
 	jsonObjectOption,
+	jsonObjectFieldOption,
 	requireField,
 	optionPlugin,
 } from '../../tests/plugins/schema-declarations.fixtures.js'
 
 describe('plugin schema option compilation', () => {
+	it('normalizes closed field contexts and rejects contextual reuse before setup', async () => {
+		const option = defineFieldOption({
+			contexts: ['output', 'stored'],
+			normalize: (value) => Boolean(value),
+			protocolVersion: 1,
+			typegen: {
+				module: '@fixture/contextual-option-plugin',
+				type: 'ContextualOption',
+			},
+		})
+		expect(option.contexts).toStrictEqual(['stored', 'output'])
+		expect(Object.isFrozen(option.contexts)).toBe(true)
+		expect(() =>
+			defineFieldOption({
+				contexts: [],
+				normalize: (value) => value,
+				protocolVersion: 1,
+				typegen: false,
+			}),
+		).toThrow('Field option contexts must be a non-empty list')
+		expect(() =>
+			defineFieldOption({
+				contexts: ['stored', 'stored'],
+				normalize: (value) => value,
+				protocolVersion: 1,
+				typegen: false,
+			}),
+		).toThrow('Field option contexts contains duplicate context: stored')
+
+		const setup: string[] = []
+		const storedOnly = defineFieldOption({
+			contexts: ['stored'],
+			normalize: (value) => Boolean(value),
+			protocolVersion: 1,
+			typegen: false,
+		})
+		const plugin = definePlugin({
+			core: '^0.0.0',
+			declare: ({ schemas }) => {
+				schemas.defineOptions({
+					contributionId: 'contextual-options',
+					field: { contextual: storedOnly },
+				})
+			},
+			pluginId: 'fixture.contextual-option-plugin',
+			privileges: [
+				{ name: 'schema:declare', reason: 'Declares a contextual option.' },
+			],
+			setup: () => {
+				setup.push('setup')
+			},
+			version: '1.0.0',
+		})
+		const shared = stringField({ contextual: true } as never)
+		const Reused = Schema.define({
+			className: 'ContextualOptionReuse',
+			fields: (field) => ({
+				root: shared,
+				value: field.object({ fields: () => ({ nested: shared }) }),
+			}),
+		})
+
+		await expect(
+			createApplication({ plugins: [plugin], schemas: [Reused] }),
+		).rejects.toMatchObject({
+			code: 'PLUGIN_DECLARATION_INVALID',
+			cause: {
+				message:
+					'Field option "contextual" from fixture.contextual-option-plugin does not support the embedded context',
+			},
+		})
+		expect(setup).toStrictEqual([])
+	})
+
 	it('validates plugin-owned type-only compatibility references', () => {
 		const option = defineSchemaOption({
 			normalize: (value) => value,
@@ -94,8 +171,8 @@ describe('plugin schema option compilation', () => {
 			version: '1.0.0',
 		})
 		const requirement = requireCapability(token, '^1.0.0')
-		const runtimeOption = defineSchemaOption({
-			normalize: (value, path) => {
+		const runtimeOptionDefinition = {
+			normalize: (value: unknown, path: string) => {
 				if (typeof value !== 'string') {
 					throw new TypeError(`${path} must be a string`)
 				}
@@ -103,7 +180,12 @@ describe('plugin schema option compilation', () => {
 			},
 			protocolVersion: 1,
 			runtime: {
-				compile: (context) => {
+				compile: (
+					context: SchemaOptionRuntimeCompilationContext<
+						string,
+						typeof requirement
+					>,
+				) => {
 					context.capability.register(
 						`runtime:${context.scope}:${context.path}:${context.value}:${context.provenance.value.owner.kind}`,
 					)
@@ -115,6 +197,11 @@ describe('plugin schema option compilation', () => {
 				module: '@fixture/schema-option-runtime-plugin',
 				type: 'RuntimeOption',
 			},
+		} as const
+		const runtimeOption = defineSchemaOption(runtimeOptionDefinition)
+		const runtimeFieldOption = defineFieldOption({
+			...runtimeOptionDefinition,
+			contexts: ['stored'],
 		})
 		const provider = definePlugin({
 			capabilities: {
@@ -166,8 +253,8 @@ describe('plugin schema option compilation', () => {
 				schemas.defineOptions({
 					contributionId: 'runtime-options',
 					field: {
-						runtimeTag: runtimeOption,
-						unusedRuntimeTag: runtimeOption,
+						runtimeTag: runtimeFieldOption,
+						unusedRuntimeTag: runtimeFieldOption,
 					},
 					schema: {
 						runtimeTag: runtimeOption,
@@ -405,8 +492,8 @@ describe('plugin schema option compilation', () => {
 
 	it('ignores duplicate unused option descriptors until an occurrence needs an owner', async () => {
 		let normalizations = 0
-		const unusedOption = defineSchemaOption({
-			normalize: (value) => {
+		const unusedOptionDefinition = {
+			normalize: (value: unknown) => {
 				normalizations += 1
 				return String(value)
 			},
@@ -415,6 +502,11 @@ describe('plugin schema option compilation', () => {
 				module: '@fixture/unused-option-plugin',
 				type: 'UnusedOption',
 			},
+		} as const
+		const unusedOption = defineSchemaOption(unusedOptionDefinition)
+		const unusedFieldOption = defineFieldOption({
+			...unusedOptionDefinition,
+			contexts: ['stored'],
 		})
 		const plugin = (pluginId: string) =>
 			definePlugin({
@@ -430,7 +522,7 @@ describe('plugin schema option compilation', () => {
 				declare: ({ schemas }) => {
 					schemas.defineOptions({
 						contributionId: 'shared-options',
-						field: { shared: unusedOption },
+						field: { shared: unusedFieldOption },
 						schema: { shared: unusedOption },
 					})
 				},
@@ -538,7 +630,8 @@ describe('plugin schema option compilation', () => {
 					schemas.defineOptions({
 						contributionId: 'options',
 						field: {
-							shared: defineSchemaOption({
+							shared: defineFieldOption({
+								contexts: ['stored'],
 								normalize: (value) => `${prefix}:${String(value)}`,
 								protocolVersion: 1,
 								typegen: {
@@ -625,7 +718,7 @@ describe('plugin schema option compilation', () => {
 			declare: ({ schemas }) => {
 				schemas.defineOptions({
 					contributionId: 'collision',
-					field: { required: jsonObjectOption },
+					field: { required: jsonObjectFieldOption },
 				})
 			},
 		})

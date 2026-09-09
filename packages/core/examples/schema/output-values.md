@@ -37,3 +37,27 @@ such as `default`, `required`, `immutable`, `indexed`, `autoNow`, validation,
 `pointer`, and `relation` belong to stored or input-capable fields and are not
 available here. The callback itself does not resolve a value; an owning schema
 feature such as a virtual field supplies when and how it executes.
+
+A plugin may add an output-only value kind without turning its stored field into
+an output descriptor. Its output-context factory returns a descriptor through
+Core's provenance boundary:
+
+```ts
+import { definePluginOutputDescriptor } from '@ultimabase/core'
+
+const ratingOutput = () =>
+	definePluginOutputDescriptor(
+		'community.rating',
+		{ list: false, nullable: false },
+		(value, path) => {
+			if (typeof value !== 'number' || !Number.isFinite(value)) {
+				throw new TypeError(`${path} must be a finite rating`)
+			}
+			return value
+		},
+	)
+```
+
+The matching builder method must declare the `output` context explicitly. Core
+checks the namespaced kind, immutable normalized options, descriptor provenance,
+and returned kind before accepting the declaration.

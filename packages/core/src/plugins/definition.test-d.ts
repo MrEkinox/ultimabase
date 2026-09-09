@@ -10,13 +10,17 @@ import {
 
 test('preserves literal manifests and synchronous setup exports', () => {
 	const method = defineFieldBuilderMethod({
-		factory: stringField,
-		fieldKind: 'fixture.text',
 		name: 'text',
-		typegen: {
-			methodType: 'TextFieldBuilderMethod',
-			module: '@fixture/text-plugin',
-			valueType: 'TextValue',
+		contexts: {
+			stored: {
+				factory: stringField,
+				fieldKind: 'fixture.text',
+				typegen: {
+					methodType: 'TextFieldBuilderMethod',
+					module: '@fixture/text-plugin',
+					valueType: 'TextValue',
+				},
+			},
 		},
 	})
 	const plugin = definePlugin({

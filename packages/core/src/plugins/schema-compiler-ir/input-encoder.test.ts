@@ -27,7 +27,10 @@ import {
 	setSchemaFieldOption,
 	setSchemaOption,
 } from '../schema-field-patch-operations.js'
-import { defineSchemaOption } from '../schema-option-definitions.js'
+import {
+	defineFieldOption,
+	defineSchemaOption,
+} from '../schema-option-definitions.js'
 import { encodeSchemaCompilerInput } from './input-encoder.js'
 
 const owner = immutableRecord({
@@ -169,7 +172,8 @@ describe('schema compiler declaration encoding', () => {
 			protocolVersion: 2,
 			typegen: { module: '@fixture/compiler', type: 'WorkflowOption' },
 		})
-		const searchOption = defineSchemaOption({
+		const searchOption = defineFieldOption({
+			contexts: ['stored'],
 			normalize: (value, path) => snapshotJsonValue(value, path),
 			protocolVersion: 1,
 			typegen: { module: '@fixture/compiler', type: 'SearchOption' },
@@ -244,6 +248,10 @@ describe('schema compiler declaration encoding', () => {
 		expect(declaration?.optionDefinitions[0]).toMatchObject({
 			name: 'workflow',
 			protocolVersion: 2,
+		})
+		expect(declaration?.optionDefinitions[1]).toMatchObject({
+			contexts: ['stored'],
+			name: 'search',
 		})
 		expect(patch?.operations.map(({ kind }) => kind)).toEqual(
 			operations.map(({ kind }) => kind),

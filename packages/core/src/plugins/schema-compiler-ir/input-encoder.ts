@@ -141,6 +141,9 @@ class SchemaCompilerDeclarationEncoder {
 				path,
 			),
 			contributionId: option.contributionId,
+			...(option.scope === 'field' && 'contexts' in option.definition
+				? { contexts: option.definition.contexts }
+				: {}),
 			name: option.name,
 			owner: option.owner,
 			protocolVersion: option.definition.protocolVersion,

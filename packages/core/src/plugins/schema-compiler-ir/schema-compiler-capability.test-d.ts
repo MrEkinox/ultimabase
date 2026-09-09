@@ -24,7 +24,7 @@ test('exports the exact complete schema compiler replacement protocol', () => {
 	expectTypeOf(
 		schemaCompilerCapability.capabilityId,
 	).toEqualTypeOf<'ultimabase.schema-compiler'>()
-	expectTypeOf(schemaCompilerCapability.version).toEqualTypeOf<'4.0.0'>()
+	expectTypeOf(schemaCompilerCapability.version).toEqualTypeOf<'5.0.0'>()
 	expectTypeOf(schemaCompilerCapability.cardinality).toEqualTypeOf<'single'>()
 	expectTypeOf(schemaCompilerCapability.lifetime).toEqualTypeOf<'declaration'>()
 	expectTypeOf(replacement).toEqualTypeOf<
@@ -39,7 +39,7 @@ test('exports the exact complete schema compiler replacement protocol', () => {
 	>().toEqualTypeOf<SchemaCompilerOutput>()
 	expectTypeOf<
 		SchemaCompilerProvenance['capabilityVersion']
-	>().toEqualTypeOf<'4.0.0'>()
+	>().toEqualTypeOf<'5.0.0'>()
 })
 
 test('does not expose partial or asynchronous compiler callbacks', () => {

@@ -6,10 +6,8 @@ import {
 } from '@ultimabase/shared'
 
 import type { GenericField } from '../fields/base/contract.js'
-import {
-	assertPluginFieldKind,
-	type AvailablePluginFieldKind,
-} from '../fields/base/kinds.js'
+import type { GenericOutputDescriptor } from '../output/contracts.js'
+import { assertPluginFieldKind } from '../fields/base/kinds.js'
 import {
 	assertPluginFieldTypeDefinition,
 	normalizePluginFieldTypegen,
@@ -17,6 +15,11 @@ import {
 	type PluginFieldTypeDefinition,
 	type PluginFieldTypegen,
 } from './plugin-field-types.js'
+import {
+	fieldDeclarationContexts,
+	assertFieldDeclarationContext,
+	type FieldDeclarationContext,
+} from './field-contexts.js'
 
 /** Names every Core method that a plugin can never replace. */
 export const coreFieldBuilderMethodNames = [
@@ -42,10 +45,10 @@ export const coreFieldBuilderMethodNames = [
 const coreFieldBuilderMethodNameSet: ReadonlySet<string> = new Set(
 	coreFieldBuilderMethodNames,
 )
-const fieldBuilderMethodKeys = new Set([
+const fieldBuilderMethodKeys = new Set(['contexts', 'name'])
+const fieldBuilderMethodContextKeys = new Set([
 	'factory',
 	'fieldKind',
-	'name',
 	'typegen',
 ])
 const fieldBuilderMethodTypegenKeys = new Set([
@@ -63,18 +66,34 @@ export interface FieldBuilderMethodTypegen extends PluginFieldTypegen {
 }
 
 /** Accepts an existing field factory without erasing its public overloads. */
-export type FieldBuilderMethodFactory = (options: never) => GenericField
+export type FieldBuilderMethodFactory = (
+	options: never,
+) => GenericField | GenericOutputDescriptor
+
+type NamespacedPluginFieldKind = `${string}.${string}`
+
+/** Defines one exact implementation for one supported builder context. */
+export interface FieldBuilderMethodContextDefinition<
+	TFieldKind extends NamespacedPluginFieldKind = NamespacedPluginFieldKind,
+	TFactory extends FieldBuilderMethodFactory = FieldBuilderMethodFactory,
+> {
+	readonly factory: TFactory
+	readonly fieldKind: TFieldKind
+	readonly typegen: FieldBuilderMethodTypegen
+}
+
+/** Maps only the builder contexts implemented by one public method name. */
+export type FieldBuilderMethodContexts = Readonly<
+	Partial<Record<FieldDeclarationContext, FieldBuilderMethodContextDefinition>>
+>
 
 /** Defines one plugin-owned name-first method before owner injection. */
 export interface FieldBuilderMethodDefinition<
 	TName extends string = string,
-	TFieldKind extends string = string,
-	TFactory extends FieldBuilderMethodFactory = FieldBuilderMethodFactory,
+	TContexts extends FieldBuilderMethodContexts = FieldBuilderMethodContexts,
 > {
 	readonly name: TName
-	readonly fieldKind: TFieldKind
-	readonly factory: TFactory
-	readonly typegen: FieldBuilderMethodTypegen
+	readonly contexts: TContexts
 }
 
 /** Adds the application-injected owner to one validated method definition. */
@@ -144,6 +163,67 @@ const normalizeTypegen = (value: unknown): FieldBuilderMethodTypegen => {
 	})
 }
 
+const normalizeContextDefinition = (
+	value: unknown,
+	context: FieldDeclarationContext,
+): FieldBuilderMethodContextDefinition => {
+	if (!isPlainRecord(value)) {
+		throw new TypeError(
+			`FieldBuilder method contexts.${context} must be a plain object`,
+		)
+	}
+	assertKnownKeys(
+		value,
+		fieldBuilderMethodContextKeys,
+		`FieldBuilder method contexts.${context}`,
+	)
+	const fieldKind = assertPluginFieldKind(
+		value.fieldKind,
+		`FieldBuilder method contexts.${context}.fieldKind`,
+	)
+	if (typeof value.factory !== 'function') {
+		throw new TypeError(
+			`FieldBuilder method contexts.${context}.factory must be a function`,
+		)
+	}
+
+	return immutableRecord({
+		factory: value.factory as FieldBuilderMethodFactory,
+		fieldKind: fieldKind as NamespacedPluginFieldKind,
+		typegen: normalizeTypegen(value.typegen),
+	})
+}
+
+const normalizeContexts = (value: unknown): FieldBuilderMethodContexts => {
+	if (!isPlainRecord(value)) {
+		throw new TypeError('FieldBuilder method contexts must be a plain object')
+	}
+
+	const keys = Reflect.ownKeys(value)
+	if (keys.length === 0) {
+		throw new TypeError(
+			'FieldBuilder method contexts must declare at least one context',
+		)
+	}
+	const entries: [
+		FieldDeclarationContext,
+		FieldBuilderMethodContextDefinition,
+	][] = []
+	for (const key of keys) {
+		assertFieldDeclarationContext(key, 'FieldBuilder method context')
+		entries.push([key, normalizeContextDefinition(value[key], key)])
+	}
+
+	return immutableRecord(
+		Object.fromEntries(
+			fieldDeclarationContexts.flatMap((context) => {
+				const definition = entries.find(([name]) => name === context)?.[1]
+				return definition === undefined ? [] : [[context, definition]]
+			}),
+		),
+	)
+}
+
 /**
  * Snapshots one reusable plugin method without assigning application ownership.
  *
@@ -151,25 +231,26 @@ const normalizeTypegen = (value: unknown): FieldBuilderMethodTypegen => {
  * ```ts
  * const vectorMethod = defineFieldBuilderMethod({
  *   name: 'vector',
- *   fieldKind: 'pg-vector.vector',
- *   factory: vectorField,
- *   typegen: {
- *     module: '@ultimabase/pg-vector-plugin',
- *     methodType: 'VectorFieldBuilderMethod',
- *     valueType: 'VectorValue',
+ *   contexts: {
+ *     stored: {
+ *       fieldKind: 'pg-vector.vector',
+ *       factory: vectorField,
+ *       typegen: {
+ *         module: '@ultimabase/pg-vector-plugin',
+ *         methodType: 'VectorFieldBuilderMethod',
+ *         valueType: 'VectorValue',
+ *       },
+ *     },
  *   },
  * })
  * ```
  */
 export const defineFieldBuilderMethod = <
 	const TName extends string,
-	const TFieldKind extends string,
-	const TFactory extends FieldBuilderMethodFactory,
+	const TContexts extends FieldBuilderMethodContexts,
 >(
-	definition: FieldBuilderMethodDefinition<TName, TFieldKind, TFactory> & {
-		readonly fieldKind: AvailablePluginFieldKind<TFieldKind>
-	},
-): FieldBuilderMethodDefinition<TName, TFieldKind, TFactory> => {
+	definition: FieldBuilderMethodDefinition<TName, TContexts>,
+): FieldBuilderMethodDefinition<TName, TContexts> => {
 	const untrustedDefinition: unknown = definition
 
 	if (!isPlainRecord(untrustedDefinition)) {
@@ -189,17 +270,9 @@ export const defineFieldBuilderMethod = <
 		)
 	}
 
-	assertPluginFieldKind(definition.fieldKind, 'FieldBuilder method fieldKind')
-
-	if (typeof definition.factory !== 'function') {
-		throw new TypeError('FieldBuilder method factory must be a function')
-	}
-
 	const snapshot = immutableRecord({
-		factory: definition.factory,
-		fieldKind: definition.fieldKind,
+		contexts: normalizeContexts(definition.contexts) as TContexts,
 		name: definition.name,
-		typegen: normalizeTypegen(definition.typegen),
 	})
 
 	declaredFieldBuilderMethods.add(snapshot)
@@ -285,26 +358,30 @@ export class FieldBuilderMethodRegistry implements FieldBuilderMethodResolver {
 					)
 				}
 
-				const fieldType = immutableRecord({
-					fieldKind: definition.fieldKind,
-					typegen: immutableRecord({
-						module: definition.typegen.module,
-						...(definition.typegen.structuralContainsType === undefined
-							? {}
-							: {
-									structuralContainsType:
-										definition.typegen.structuralContainsType,
-								}),
-						valueType: definition.typegen.valueType,
-					}),
-				})
 				stagedMethods.set(
 					definition.name,
 					immutableRecord({ ...definition, owner: pluginName }),
 				)
-				stagedFieldTypes.push(
-					immutableRecord({ ...fieldType, owner: pluginName }),
-				)
+				for (const context of ['stored', 'embedded'] as const) {
+					const implementation = definition.contexts[context]
+					if (implementation === undefined) continue
+					stagedFieldTypes.push(
+						immutableRecord({
+							fieldKind: implementation.fieldKind,
+							owner: pluginName,
+							typegen: immutableRecord({
+								module: implementation.typegen.module,
+								...(implementation.typegen.structuralContainsType === undefined
+									? {}
+									: {
+											structuralContainsType:
+												implementation.typegen.structuralContainsType,
+										}),
+								valueType: implementation.typegen.valueType,
+							}),
+						}),
+					)
+				}
 			},
 		})
 

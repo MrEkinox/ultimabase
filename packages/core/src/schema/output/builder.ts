@@ -5,6 +5,11 @@ import {
 } from '@ultimabase/shared'
 
 import type { GenericField } from '../fields/base/contract.js'
+import type {
+	FieldBuilderMethodContextDefinition,
+	FieldBuilderMethodResolver,
+	OwnedFieldBuilderMethod,
+} from '../schema/field-builder-methods.js'
 import { snapshotScalarFieldValue } from '../fields/base/definition.js'
 import { bigintField } from '../fields/builtins/bigint.js'
 import { binaryField } from '../fields/builtins/binary.js'
@@ -152,13 +157,14 @@ const snapshotObjectElement =
 const resolveOutputFields = (
 	declaration: unknown,
 	path: string,
+	fieldMethods?: FieldBuilderMethodResolver,
 ): OutputFields => {
 	if (typeof declaration !== 'function') {
 		throw new TypeError(`${path} must be a function`)
 	}
 
 	const resolveFields = declaration as (output: OutputBuilder) => unknown
-	const fields: unknown = resolveFields(createOutputBuilder(path))
+	const fields: unknown = resolveFields(createOutputBuilder(path, fieldMethods))
 	if (!isPlainRecord(fields)) {
 		throw new TypeError(`${path} must return an output descriptor map`)
 	}
@@ -173,7 +179,28 @@ const resolveOutputFields = (
 	return immutableRecord(Object.fromEntries(entries))
 }
 
-const createOutputBuilder = (path: string): OutputBuilder => {
+const invokePluginOutputFactory = (
+	method: OwnedFieldBuilderMethod,
+	implementation: FieldBuilderMethodContextDefinition,
+	options: unknown,
+	path: string,
+): GenericOutputDescriptor => {
+	const returned: unknown = (
+		implementation.factory as (options: unknown) => unknown
+	)(options)
+	assertOutputDescriptor(returned, `${path}.${method.name}`)
+	if (returned.kind !== implementation.fieldKind) {
+		throw new TypeError(
+			`${path} OutputBuilder method "${method.name}" from "${method.owner}" returned kind "${returned.kind}" instead of "${implementation.fieldKind}"`,
+		)
+	}
+	return returned
+}
+
+const createOutputBuilder = (
+	path: string,
+	fieldMethods?: FieldBuilderMethodResolver,
+): OutputBuilder => {
 	const decimal = (options?: unknown): GenericOutputDescriptor => {
 		const normalized = normalizeOutputOptions(options, `${path}.decimal`, [
 			'precision',
@@ -268,6 +295,7 @@ const createOutputBuilder = (path: string): OutputBuilder => {
 		const fields = resolveOutputFields(
 			Reflect.get(normalized.options, 'fields'),
 			`${path}.object.fields`,
+			fieldMethods,
 		)
 		const descriptorOptions = immutableRecord({
 			...normalized.common,
@@ -282,6 +310,16 @@ const createOutputBuilder = (path: string): OutputBuilder => {
 		)
 	}
 
+	const pluginMethods: Record<
+		string,
+		(options?: unknown) => GenericOutputDescriptor
+	> = {}
+	for (const method of fieldMethods?.values() ?? []) {
+		const implementation = method.contexts.output
+		if (implementation === undefined) continue
+		pluginMethods[method.name] = (options) =>
+			invokePluginOutputFactory(method, implementation, options, path)
+	}
 	const builder = immutableRecord({
 		bigint: createSimpleScalarMethod('bigint', bigintField(), path),
 		binary: createSimpleScalarMethod('binary', binaryField(), path),
@@ -297,9 +335,29 @@ const createOutputBuilder = (path: string): OutputBuilder => {
 		string: createSimpleScalarMethod('string', stringField(), path),
 		time: (options?: unknown) => temporal('time', options),
 		uuid: createSimpleScalarMethod('uuid', uuidField(), path),
+		...pluginMethods,
 	})
 
-	return builder as unknown as OutputBuilder
+	return new Proxy(builder, {
+		get: (record, property, receiver): unknown => {
+			if (typeof property !== 'string' || Reflect.has(record, property)) {
+				return Reflect.get(record, property, receiver)
+			}
+			const method = fieldMethods?.get(property)
+			if (method !== undefined) {
+				return (): never => {
+					throw new TypeError(
+						`${path} OutputBuilder method "${property}" from "${method.owner}" does not support the output context`,
+					)
+				}
+			}
+			return (): never => {
+				throw new TypeError(
+					`${path} OutputBuilder method "${property}" is unavailable; configure the plugin that declares it`,
+				)
+			}
+		},
+	}) as unknown as OutputBuilder
 }
 
 /** @internal Resolves one output callback exactly once for virtual compilation. */
@@ -308,12 +366,13 @@ export const resolveOutputBuilder = <
 >(
 	declaration: (output: OutputBuilder) => TOutput,
 	path: string,
+	fieldMethods?: FieldBuilderMethodResolver,
 ): TOutput => {
 	if (typeof declaration !== 'function') {
 		throw new TypeError(`${path} must be an output callback`)
 	}
 
-	const descriptor = declaration(createOutputBuilder(path))
+	const descriptor = declaration(createOutputBuilder(path, fieldMethods))
 	assertOutputDescriptor(descriptor, path)
 
 	return descriptor

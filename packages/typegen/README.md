@@ -106,7 +106,7 @@ deterministic `.json` metadata; JavaScript, binaries, callbacks, credentials,
 connection data, and generated Runtime clients are rejected.
 
 Generic generation reads the final graph and emits plugin-added schemas,
-fields, used direct schema and field options, exact namespaced operations,
+fields, used direct schema and contextual field options, exact namespaced operations,
 dynamic schema handles, schema/model commands, and query inputs. Plugin owner,
 version, contribution ID, static options, imports, destinations, and contents
 all participate in collision checks and fingerprints.
@@ -129,7 +129,7 @@ JSON codec. Plugin fields that separately enable Core's portable structural
 containment name their exact partial operand through `structuralContainsType`.
 Typegen emits `contains` only for those fields and keeps the executable snapshot
 callback out of generated artifacts. These contracts advance the inert snapshot
-format to version 7 and the generator format to version 14. Owner-private
+format to version 8 and the generator format to version 14. Owner-private
 collections contribute only an opaque application fingerprint input; their
 owners, collection names, fields, indexes, references, options, and records
 never enter the snapshot or emitted declarations. An application without
@@ -140,7 +140,10 @@ registry exists. Static compilation registers configured plugin field types and
 the narrower set of public field methods, resolves fields and relationship
 targets, and then emits exact models,
 operation inputs, filters, projections, includes, embedded objects, and
-FieldBuilder methods. Those values drive exact contextual options contributed
+context-specific builder methods. A plugin declaration is emitted only into
+the stored, embedded, virtual, or output interfaces it explicitly supports;
+Typegen never copies factories, validators, resolvers, or other executable
+implementation code. Those values drive exact contextual options contributed
 by installed plugins, including official Access, Hooks, and Validation. Compatible object
 and enum `typeName` identities are
 reused; incompatible identities and normalized TypeScript name collisions
@@ -189,8 +192,9 @@ through Core conditionals. Fields are strictly one-dimensional; nested arrays
 are represented explicitly by `jsonField()`.
 
 The emitted declaration augments `@ultimabase/core` with one application-owned
-schema registry and the configured root and embedded FieldBuilder methods. Keep
-that file included by the application's TypeScript project. Core then resolves
+schema registry plus the configured stored, embedded, virtual, and output
+builder methods and direct options. Keep that file included by the application's
+TypeScript project. Core then resolves
 exact drafts, results, Query and mutation inputs, Access, hooks, direct plugin
 options, indexes, embedded paths, pointers, and relations directly from the
 generated contracts. A schema name absent from the loaded registry remains a

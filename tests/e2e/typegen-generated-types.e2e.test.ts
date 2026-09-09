@@ -101,14 +101,18 @@ const containedVectorField = () =>
 		},
 	)
 const containedVectorMethod = defineFieldBuilderMethod({
-	factory: containedVectorField,
-	fieldKind: 'fixture.packed.contained-vector',
 	name: 'contained',
-	typegen: {
-		methodType: 'VectorFieldBuilderMethod',
-		module: '@ultimabase/pg-vector-plugin',
-		structuralContainsType: 'VectorFieldOptions',
-		valueType: 'VectorValue',
+	contexts: {
+		stored: {
+			factory: containedVectorField,
+			fieldKind: 'fixture.packed.contained-vector',
+			typegen: {
+				methodType: 'VectorFieldBuilderMethod',
+				module: '@ultimabase/pg-vector-plugin',
+				structuralContainsType: 'VectorFieldOptions',
+				valueType: 'VectorValue',
+			},
+		},
 	},
 })
 const containedVectorPlugin = definePlugin({

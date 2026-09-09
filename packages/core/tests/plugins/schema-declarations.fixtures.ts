@@ -1,6 +1,8 @@
 import {
 	definePlugin,
+	defineFieldOption,
 	defineSchemaOption,
+	type FieldOptionDefinition,
 	type GenericField,
 	type PluginDefinition,
 	type SchemaOptionDefinition,
@@ -16,6 +18,16 @@ export const jsonObjectOption: SchemaOptionDefinition = defineSchemaOption({
 
 		return snapshotJsonValue(value, path)
 	},
+	protocolVersion: 1,
+	typegen: {
+		module: '@fixture/schema-options-plugin',
+		type: 'FixtureOption',
+	},
+})
+
+export const jsonObjectFieldOption: FieldOptionDefinition = defineFieldOption({
+	contexts: ['stored', 'embedded'],
+	normalize: jsonObjectOption.normalize,
 	protocolVersion: 1,
 	typegen: {
 		module: '@fixture/schema-options-plugin',
@@ -44,7 +56,7 @@ export const optionPlugin = (
 		declare: ({ schemas }) => {
 			schemas.defineOptions({
 				contributionId: 'fixture-options',
-				field: { search: jsonObjectOption },
+				field: { search: jsonObjectFieldOption },
 				schema: { workflow: jsonObjectOption },
 			})
 		},

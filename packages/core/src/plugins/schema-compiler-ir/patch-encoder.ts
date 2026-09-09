@@ -63,6 +63,7 @@ const normalizedField = (
 		context.definitions.field,
 		path,
 		context.resolvedFields,
+		'stored',
 		context.owner,
 	)
 
@@ -126,6 +127,15 @@ const normalizedOptionValue = (
 	)
 	if (definition === undefined) {
 		throw new TypeError(`Unknown ${scope} option: ${name}`)
+	}
+	if (
+		scope === 'field' &&
+		(!('contexts' in definition.definition) ||
+			!definition.definition.contexts.includes('stored'))
+	) {
+		throw new TypeError(
+			`Field option "${name}" from ${definition.owner.pluginId} does not support the stored context`,
+		)
 	}
 	return snapshotJsonValue(
 		normalizeOwnedOptionValue(definition, value, path),

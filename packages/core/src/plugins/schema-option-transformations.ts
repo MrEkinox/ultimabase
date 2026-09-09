@@ -31,6 +31,15 @@ export const applyOptionOperation = (
 		if (descriptor === undefined) {
 			throw new TypeError(`Unknown schema option: ${operation.name}`)
 		}
+		if (
+			descriptor.scope !== 'field' ||
+			!('contexts' in descriptor.definition) ||
+			!descriptor.definition.contexts.includes('stored')
+		) {
+			throw new TypeError(
+				`Field option "${operation.name}" from ${descriptor.owner.pluginId} does not support the stored context`,
+			)
+		}
 		const hasValue = Object.hasOwn(state.schemaOptionValues, operation.name)
 		const currentValue = Reflect.get(state.schemaOptionValues, operation.name)
 		const currentProvenance = state.provenance.options[operation.name]

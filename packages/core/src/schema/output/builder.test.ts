@@ -2,12 +2,129 @@ import { describe, expect, it } from 'vitest'
 
 import {
 	assertOutputDescriptor,
+	definePluginOutputDescriptor,
+	defineFieldBuilderMethod,
 	snapshotOutputValue,
+	stringField,
 	type GenericOutputDescriptor,
 } from '../../index.js'
+import { FieldBuilderMethodRegistry } from '../schema/field-builder-methods.js'
 import { resolveOutputBuilder } from './builder.js'
 
 describe('OutputBuilder', () => {
+	it('uses only output-context plugin methods and validates their descriptors', () => {
+		const outputMethod = defineFieldBuilderMethod({
+			name: 'slug',
+			contexts: {
+				output: {
+					factory: () =>
+						definePluginOutputDescriptor(
+							'fixture.slug',
+							{ list: false, nullable: false },
+							(value, path) => {
+								if (typeof value !== 'string') {
+									throw new TypeError(`${path} must be a string`)
+								}
+								return value.toLowerCase()
+							},
+						),
+					fieldKind: 'fixture.slug',
+					typegen: {
+						methodType: 'SlugOutputBuilderMethod',
+						module: '@fixture/slug-plugin',
+						valueType: 'SlugValue',
+					},
+				},
+			},
+		})
+		const registry = new FieldBuilderMethodRegistry()
+		const declaration = registry.beginPluginDeclaration('fixture.slug-plugin')
+		declaration.fields.register(outputMethod)
+		declaration.commit()
+		declaration.close()
+		registry.close()
+
+		const descriptor = resolveOutputBuilder(
+			(output) =>
+				(
+					output as typeof output & {
+						readonly slug: () => GenericOutputDescriptor
+					}
+				).slug(),
+			'User.slug.output',
+			registry,
+		)
+
+		expect(snapshotOutputValue(descriptor, 'HELLO', 'result')).toBe('hello')
+	})
+
+	it('rejects stored factories and forged outputs in the output context', () => {
+		const storedOnly = defineFieldBuilderMethod({
+			name: 'storedOnly',
+			contexts: {
+				stored: {
+					factory: stringField,
+					fieldKind: 'fixture.stored-only',
+					typegen: {
+						methodType: 'StoredOnlyFieldBuilderMethod',
+						module: '@fixture/stored-only-plugin',
+						valueType: 'StoredOnlyValue',
+					},
+				},
+			},
+		})
+		const invalidOutput = defineFieldBuilderMethod({
+			name: 'invalidOutput',
+			contexts: {
+				output: {
+					factory: stringField,
+					fieldKind: 'fixture.invalid-output',
+					typegen: {
+						methodType: 'InvalidOutputBuilderMethod',
+						module: '@fixture/invalid-output-plugin',
+						valueType: 'InvalidOutputValue',
+					},
+				},
+			},
+		})
+		const registry = new FieldBuilderMethodRegistry()
+		for (const [owner, method] of [
+			['fixture.stored-only-plugin', storedOnly],
+			['fixture.invalid-output-plugin', invalidOutput],
+		] as const) {
+			const declaration = registry.beginPluginDeclaration(owner)
+			declaration.fields.register(method)
+			declaration.commit()
+			declaration.close()
+		}
+		registry.close()
+
+		expect(() =>
+			resolveOutputBuilder(
+				(output) =>
+					(
+						output as typeof output & {
+							readonly storedOnly: () => GenericOutputDescriptor
+						}
+					).storedOnly(),
+				'User.invalid.output',
+				registry,
+			),
+		).toThrow('does not support the output context')
+		expect(() =>
+			resolveOutputBuilder(
+				(output) =>
+					(
+						output as typeof output & {
+							readonly invalidOutput: () => GenericOutputDescriptor
+						}
+					).invalidOutput(),
+				'User.invalid.output',
+				registry,
+			),
+		).toThrow('must be created by OutputBuilder')
+	})
+
 	it('normalizes immutable output-only metadata', () => {
 		let calls = 0
 		const descriptor = resolveOutputBuilder((output) => {

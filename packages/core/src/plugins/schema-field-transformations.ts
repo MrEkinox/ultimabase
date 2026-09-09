@@ -38,6 +38,7 @@ export const applyFieldOperation = (
 			definitions.field,
 			`${candidate.schema.className}.fields.${operation.name}`,
 			resolvedFields,
+			'stored',
 			patch.owner,
 		)
 		state.fields = immutableRecord({ ...state.fields, [operation.name]: field })
@@ -223,6 +224,7 @@ export const applyFieldOperation = (
 						definitions.field,
 						`${candidate.schema.className}.fields.${targetName}`,
 						resolvedFields,
+						'stored',
 						patch.owner,
 					)
 				: actual

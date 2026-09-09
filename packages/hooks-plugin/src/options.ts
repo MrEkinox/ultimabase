@@ -1,6 +1,7 @@
 import {
 	defineSchemaOption,
 	type FieldDefinition,
+	type FieldOptionDefinition,
 	type FieldOptionValueCarrier,
 	type GenericField,
 	type ResolveFieldTypegenState,
@@ -8,6 +9,7 @@ import {
 	type SchemaOptionDefinition,
 	type SchemaReference,
 } from '@ultimabase/core'
+import { definePluginFieldOption } from '@ultimabase/plugin-kit'
 
 import type { SchemaHooks } from './authoring/contracts.js'
 import {
@@ -60,9 +62,10 @@ export const schemaHooksOption: SchemaOptionDefinition<
 })
 
 /** Owns the official field `hooks` namespace as an opaque callback artifact. */
-export const fieldHooksOption: SchemaOptionDefinition<
+export const fieldHooksOption: FieldOptionDefinition<
 	FieldHookDeclarations | undefined
-> = defineSchemaOption({
+> = definePluginFieldOption({
+	contexts: ['stored', 'embedded'],
 	normalize: normalizeFieldHookDeclarations,
 	protocolVersion: 1,
 	typegen: {

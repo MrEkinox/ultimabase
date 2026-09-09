@@ -34,7 +34,7 @@ const readHover = (
 describe('schema compiler IR source language service', () => {
 	it('exposes distinct documented presence and equality selector contracts', () => {
 		expect(service.getSemanticDiagnostics(fixtureFile)).toStrictEqual([])
-		expect(readHover('compiler-protocol').display).toContain('"4.0.0"')
+		expect(readHover('compiler-protocol').display).toContain('"5.0.0"')
 		const presence = readHover('option-presence-selector')
 		expect(presence.display).toContain('SchemaOptionPresenceSelector')
 		expect(presence.documentation).toContain(

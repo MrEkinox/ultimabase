@@ -11,6 +11,7 @@ import { snapshotJsonValue } from '../schema/fields/builtins/json.js'
 import type { GenericField } from '../schema/fields/base/contract.js'
 
 import type { SchemaDefinition } from '../schema/schema/definition.js'
+import type { FieldDeclarationContext } from '../schema/schema/field-contexts.js'
 
 import {
 	type PluginSchemaContributionOwner,
@@ -18,6 +19,7 @@ import {
 } from '../schema/schema/provenance.js'
 
 import {
+	type FieldOptionDefinition,
 	type SchemaOptionDefinition,
 	type SchemaOptionRuntimeCompilationContext,
 	type SchemaOptionRuntimeCompiler,
@@ -42,7 +44,7 @@ export interface PluginSchemaDeclarationRegistrar {
 	}): void
 	defineOptions(options: {
 		readonly contributionId: string
-		readonly field?: Readonly<Record<string, SchemaOptionDefinition>>
+		readonly field?: Readonly<Record<string, FieldOptionDefinition>>
 		readonly schema?: Readonly<Record<string, SchemaOptionDefinition>>
 		readonly staticOptions?: Readonly<Record<string, JsonValue>>
 	}): void
@@ -56,7 +58,7 @@ export interface PluginSchemaDeclarationRegistrar {
 
 export interface OwnedOptionDefinition {
 	readonly contributionId: string
-	readonly definition: SchemaOptionDefinition
+	readonly definition: SchemaOptionDefinition | FieldOptionDefinition
 	readonly name: string
 	readonly owner: PluginSchemaContributionOwner
 	readonly scope: 'field' | 'schema'
@@ -70,7 +72,10 @@ export interface OptionDefinitionIndex {
 
 export type ResolvedFieldOptions = WeakMap<
 	object,
-	Map<PluginSchemaContributionOwner | undefined, GenericField>
+	Map<
+		FieldDeclarationContext,
+		Map<PluginSchemaContributionOwner | undefined, GenericField>
+	>
 >
 
 export interface PluginDeclarationFailureDiagnostic {

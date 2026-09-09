@@ -10,7 +10,9 @@ import { expectTypeOf } from 'vitest'
 import { z } from 'zod'
 
 import {
+	defineOutputDescriptor,
 	definePluginModule,
+	definePluginFieldOption,
 	definePluginEvent,
 	observePluginEvent,
 	definePluginOptionsParser,
@@ -24,11 +26,30 @@ import {
 	type PluginEventObserver,
 } from './index.js'
 
+const ratingOutput = defineOutputDescriptor(
+	'community.rating',
+	{ list: false, nullable: false },
+	(value): number => Number(value),
+)
+expectTypeOf(ratingOutput.kind).toEqualTypeOf<'community.rating'>()
+// @ts-expect-error -- Plugin-owned output descriptor kinds must be namespaced.
+defineOutputDescriptor('rating', { list: false, nullable: false }, Number)
+
 const module = definePluginModule({
 	core: '^2.0.0',
 	pluginId: 'community.workflow',
 	version: '1.4.0',
 })
+
+const contextualOption = definePluginFieldOption({
+	contexts: ['stored', 'embedded'],
+	normalize: (value: unknown) => String(value),
+	protocolVersion: 1,
+	typegen: false,
+})
+expectTypeOf(contextualOption.contexts).toEqualTypeOf<
+	readonly ('stored' | 'embedded' | 'virtual' | 'output')[]
+>()
 expectTypeOf(module).toEqualTypeOf<
 	PluginModule<'community.workflow', '1.4.0', '^2.0.0'>
 >()

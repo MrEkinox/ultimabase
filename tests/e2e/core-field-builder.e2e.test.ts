@@ -23,6 +23,9 @@ declare module '@ultimabase/core' {
 	interface UltimaBaseGeneratedFieldOptions {
 		readonly validation?: import('@ultimabase/validation-plugin').FieldValidationOption<this>
 	}
+	interface UltimaBaseGeneratedEmbeddedFieldOptions {
+		readonly validation?: import('@ultimabase/validation-plugin').FieldValidationOption<this>
+	}
 	interface UltimaBaseGeneratedFieldOptionCompatibility<TOptions extends object, TValue> {
 		readonly validation: import('@ultimabase/validation-plugin').FieldValidationCompatibility<TOptions, TValue>
 	}

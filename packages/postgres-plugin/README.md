@@ -20,6 +20,11 @@ options, and `adapter:consume` to compile protected database constraints. The
 options are recognized only when `postgresPlugin()` is installed; unknown keys
 and empty identifiers fail static application compilation.
 
+The field-level `postgres` option supports stored schema fields only. Embedded
+properties, virtual wrappers, and output descriptors have no independent
+physical column identity, so Typegen omits the option in those contexts and Core
+rejects stale or untyped declarations before connection setup.
+
 ## Connection lifecycle
 
 The current implementation accepts either a connection URL or an existing

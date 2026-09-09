@@ -29,6 +29,10 @@ export const createCompiledTypegenGraph = (options: {
 						: [
 								immutableRecord({
 									contributionId: option.contributionId,
+									...(option.scope === 'field' &&
+									'contexts' in option.definition
+										? { contexts: option.definition.contexts }
+										: {}),
 									name: option.name,
 									owner: option.owner,
 									scope: option.scope,

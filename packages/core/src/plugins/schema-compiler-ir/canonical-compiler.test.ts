@@ -12,7 +12,10 @@ import {
 	addSchemaField,
 	setSchemaOption,
 } from '../schema-field-patch-operations.js'
-import { defineSchemaOption } from '../schema-option-definitions.js'
+import {
+	defineFieldOption,
+	defineSchemaOption,
+} from '../schema-option-definitions.js'
 import { compileCanonicalSchemaCompilerIr } from './canonical-compiler.js'
 import { decodeSchemaCompilerOutput } from './decoder.js'
 import { encodeSchemaCompilerInput } from './input-encoder.js'
@@ -37,6 +40,12 @@ describe('canonical schema compiler IR', () => {
 				module: '@fixture/canonical-schema-compiler',
 				type: 'PortableOption',
 			},
+		})
+		const portableFieldOption = defineFieldOption({
+			contexts: ['stored'],
+			normalize: portableOption.normalize,
+			protocolVersion: 1,
+			typegen: portableOption.typegen,
 		})
 		const Existing = Schema.define({
 			className: 'CanonicalCompilerExisting',
@@ -64,7 +73,7 @@ describe('canonical schema compiler IR', () => {
 			options: immutableArray([
 				immutableRecord({
 					contributionId: 'portable-option:field:portable',
-					definition: portableOption,
+					definition: portableFieldOption,
 					name: 'portable',
 					owner,
 					scope: 'field' as const,

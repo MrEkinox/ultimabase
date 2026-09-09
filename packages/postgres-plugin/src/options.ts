@@ -1,9 +1,11 @@
 import {
 	defineSchemaOption,
+	type FieldOptionDefinition,
 	type GenericField,
 	type SchemaDefinition,
 	type SchemaOptionDefinition,
 } from '@ultimabase/core'
+import { definePluginFieldOption } from '@ultimabase/plugin-kit'
 import {
 	assertNonEmptyString,
 	immutableRecord,
@@ -80,8 +82,9 @@ export const postgresSchemaOption: SchemaOptionDefinition<PostgresSchemaOption> 
 	})
 
 /** Owns the direct field `postgres` namespace as portable migration metadata. */
-export const postgresFieldOption: SchemaOptionDefinition<PostgresFieldOption> =
-	defineSchemaOption({
+export const postgresFieldOption: FieldOptionDefinition<PostgresFieldOption> =
+	definePluginFieldOption({
+		contexts: ['stored'],
 		normalize: normalizePostgresFieldOption,
 		protocolVersion: 1,
 		typegen: {

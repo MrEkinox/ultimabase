@@ -8,6 +8,7 @@ import {
 
 import type { JsonValue } from '../schema/fields/builtins/json.js'
 import type { PluginSchemaContributionOwner } from '../schema/schema/provenance.js'
+import type { FieldDeclarationContext } from '../schema/schema/field-contexts.js'
 import type {
 	CompiledApplicationSchemaSurface,
 	CompiledPluginOperation,
@@ -72,6 +73,7 @@ export interface TypegenDeclarations {
 
 export interface CompiledTypegenOption {
 	readonly contributionId: string
+	readonly contexts?: readonly FieldDeclarationContext[]
 	readonly name: string
 	readonly owner: PluginSchemaContributionOwner
 	readonly scope: 'field' | 'schema'

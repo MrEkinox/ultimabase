@@ -132,12 +132,16 @@ type-generation references:
 ```ts
 const vectorMethod = defineFieldBuilderMethod({
 	name: 'vector',
-	fieldKind: 'pg-vector.vector',
-	factory: vectorField,
-	typegen: {
-		module: '@ultimabase/pg-vector-plugin',
-		methodType: 'VectorFieldBuilderMethod',
-		valueType: 'VectorValue',
+	contexts: {
+		stored: {
+			fieldKind: 'pg-vector.vector',
+			factory: vectorField,
+			typegen: {
+				module: '@ultimabase/pg-vector-plugin',
+				methodType: 'VectorFieldBuilderMethod',
+				valueType: 'VectorValue',
+			},
+		},
 	},
 })
 
@@ -158,15 +162,24 @@ const plugin = definePlugin({
 })
 ```
 
+Every method names a non-empty subset of `stored`, `embedded`, `virtual`, and
+`output`, with one exact factory and Typegen descriptor per supported context.
+Supporting a stored field never implies that the same value is safe inside an
+embedded object or as an output descriptor. Output factories create their
+descriptor with `definePluginOutputDescriptor()`; Core checks descriptor
+provenance and the declared kind before accepting it.
+
 Registrations are isolated per application and reject built-in overrides,
-duplicates, unstable declarations, and factories returning another field kind.
+duplicates, unstable declarations, unsupported contexts, and factories
+returning another field kind.
 `declare` receives only exact capability reads and facades authorized by active
 privileges; it receives no setup services or runtime state and must return
 synchronously. The generated application declaration emitted by
-`@ultimabase/typegen` adds the contributed method to that application's
-`FieldBuilder`; Core's base `FieldBuilder` does
-not expose plugin methods globally. Calling a missing method through untyped or
-stale code fails during static schema compilation before plugin setup.
+`@ultimabase/typegen` adds the contributed method only to that application's
+matching stored, embedded, virtual, or output builder; Core's base builders do
+not expose plugin methods globally. Calling a missing or context-incompatible
+method through untyped or stale code fails during static schema compilation
+before plugin setup.
 
 A plugin that contributes a reserved field through a schema patch can declare
 its generated value contract without exposing a misleading builder method:
@@ -274,11 +287,21 @@ full `{ pluginId, instanceId? }` identity, so two explicit instances may reuse
 the same local ID.
 
 Direct plugin options use ordinary properties rather than a separate options
-bag. Core validates them without generated files. Typegen augments `SchemaOptions`
-and `FieldOptions` with the public contracts for option definitions that occur
-in the final application graph. Unused definitions remain absent and therefore
-cannot create application-wide TypeScript conflicts. JavaScript uses the same
-Runtime contract without generated files.
+bag. Schema-scoped contracts use `defineSchemaOption()`. Field-scoped contracts
+use `defineFieldOption({ contexts, ... })` and must explicitly list every
+`stored`, `embedded`, `virtual`, or `output` location where their behavior can
+execute. Core validates them without generated files. Typegen augments only the
+matching contextual option interfaces for definitions that occur in the final
+application graph. Unused definitions remain absent and therefore cannot create
+application-wide TypeScript conflicts. JavaScript and stale declarations pass
+through the same Runtime context checks.
+
+A field kind's value representation and its field behavior are independent.
+For example, a portable JSON codec can make a plugin value storable or
+transportable, but it does not make an index, mutation validator, input Hook, or
+database column option meaningful for embedded, virtual, or output contexts.
+Plugin authors grant each method and direct option only the contexts backed by
+its current implementation.
 
 A factory-owned compiler marker declares `typegen: false`. Core still resolves,
 normalizes, attributes, and compiles every occurrence, while Typegen deliberately

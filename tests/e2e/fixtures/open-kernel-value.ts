@@ -1,6 +1,7 @@
 import {
 	adapterValueStorageCapability,
 	defineFieldBuilderMethod,
+	defineFieldOption,
 	definePluginField,
 	defineSchemaOption,
 	optionalCapability,
@@ -58,7 +59,8 @@ const decimalLedgerOption = defineSchemaOption<DecimalLedgerOption>({
 	},
 })
 
-const decimalLabelOption = defineSchemaOption<DecimalLabelOption>({
+const decimalLabelOption = defineFieldOption<DecimalLabelOption>({
+	contexts: ['stored'],
 	normalize: (value, path) => {
 		if (
 			!isPlainRecord(value) ||
@@ -121,13 +123,17 @@ export type DecimalFieldBuilderMethod = () => DecimalField
 
 const valueTypes = defineTypegenModule('@fixture/open-kernel')
 const decimalBuilderMethod = defineFieldBuilderMethod({
-	factory: decimalField,
-	fieldKind: decimalFieldKind,
 	name: 'preciseDecimal',
-	typegen: {
-		methodType: 'DecimalFieldBuilderMethod',
-		module: valueTypes.module,
-		valueType: 'DecimalValue',
+	contexts: {
+		stored: {
+			factory: decimalField,
+			fieldKind: decimalFieldKind,
+			typegen: {
+				methodType: 'DecimalFieldBuilderMethod',
+				module: valueTypes.module,
+				valueType: 'DecimalValue',
+			},
+		},
 	},
 })
 const storage = requireCapability(adapterValueStorageCapability, '^1.0.0')

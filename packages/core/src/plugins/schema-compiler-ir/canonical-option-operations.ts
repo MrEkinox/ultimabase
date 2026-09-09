@@ -135,6 +135,11 @@ export const applyCanonicalOptionOperation = (
 			`Unknown plugin field option: ${operation.name}; replace the field to change Core-owned validation or metadata`,
 		)
 	}
+	if (!definition.contexts?.includes('stored')) {
+		throw new TypeError(
+			`Field option "${operation.name}" does not support the stored context`,
+		)
+	}
 	const current = field.options.find(({ name }) => name === operation.name)
 	if (operation.kind === 'field-option:set') {
 		if (operation.target === undefined && current !== undefined) {

@@ -5,6 +5,11 @@ field `access` declarations, deterministic policy compilation, diagnostics, and
 protected Runtime enforcement. Importing it has no effect; an application must
 configure `accessPlugin()` explicitly.
 
+The direct field `access` option is available on stored fields, embedded object
+properties, and the enclosing virtual field. It never appears on properties
+inside an output descriptor: Access protects the virtual field as one logical
+selectable result.
+
 ```ts
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { Schema, UltimaBase } from '@ultimabase/core'

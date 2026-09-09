@@ -226,6 +226,62 @@ Presence selection never reads the direct option value, so the same ordinary
 patch builder works for JSON configuration and opaque callback-bearing options.
 Use `{ name, path?, equals }` only when structural JSON equality is required.
 
+## Declare contextual fields and options
+
+Plugin-owned builder methods and direct field options state exactly where they
+work. Plugin Kit forwards these declarations through Core's nominal factories,
+so the helpers reduce repeated imports without weakening provenance or
+application-local ownership:
+
+```ts
+import {
+	defineOutputDescriptor,
+	definePluginFieldBuilderMethod,
+	definePluginFieldOption,
+} from '@ultimabase/plugin-kit'
+
+const ratingMethod = definePluginFieldBuilderMethod({
+	name: 'rating',
+	contexts: {
+		output: {
+			fieldKind: 'community.rating',
+			factory: () =>
+				defineOutputDescriptor(
+					'community.rating',
+					{ list: false, nullable: false },
+					(value, path) => {
+						if (typeof value !== 'number') {
+							throw new TypeError(`${path} must be a number`)
+						}
+						return value
+					},
+				),
+			typegen: {
+				methodType: 'RatingOutputBuilderMethod',
+				module: '@example/rating-plugin',
+				valueType: 'RatingValue',
+			},
+		},
+	},
+})
+
+const searchableOption = definePluginFieldOption({
+	contexts: ['stored'],
+	normalize: (value) => value === true,
+	protocolVersion: 1,
+	typegen: {
+		module: '@example/rating-plugin',
+		type: 'SearchableFieldOption',
+	},
+})
+```
+
+The closed contexts are `stored`, `embedded`, `virtual`, and `output`. A method
+may provide a different factory and public callable type in each supported
+builder. A stored representation does not automatically grant embedded or
+output behavior, and Core rejects unsupported use before setup even when
+JavaScript or a stale generated declaration bypasses autocomplete.
+
 ## Provide an operation without wrapper nesting
 
 Core keeps operation tokens, capability ownership, Runtime execution, and

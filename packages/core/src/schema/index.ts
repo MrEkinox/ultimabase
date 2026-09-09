@@ -235,6 +235,7 @@ export type {
 } from './schema/object-field-builder.js'
 export {
 	assertOutputDescriptor,
+	definePluginOutputDescriptor,
 	snapshotOutputValue,
 } from './output/descriptor.js'
 export type {
@@ -256,6 +257,8 @@ export type {
 export { defineFieldBuilderMethod } from './schema/field-builder-methods.js'
 export type {
 	FieldBuilderMethodDefinition,
+	FieldBuilderMethodContextDefinition,
+	FieldBuilderMethodContexts,
 	FieldBuilderMethodFactory,
 	FieldBuilderMethodRegistrar,
 	FieldBuilderMethodTypegen,
@@ -285,16 +288,26 @@ export type {
 	SchemaTypeValue,
 	HasUltimaBaseGeneratedRegistry,
 	UltimaBaseGeneratedEmbeddedFieldBuilderMethods,
+	UltimaBaseGeneratedEmbeddedFieldOptions,
 	UltimaBaseGeneratedFieldBuilderMethods,
 	UltimaBaseGeneratedFieldOptionCompatibility,
 	UltimaBaseGeneratedFieldOptions,
+	UltimaBaseGeneratedOutputBuilderMethods,
+	UltimaBaseGeneratedOutputOptions,
 	UltimaBaseGeneratedOperations,
 	UltimaBaseGeneratedRegistryState,
 	UltimaBaseGeneratedSchemaOptions,
 	UltimaBaseGeneratedSchemaName,
 	UltimaBaseGeneratedSchemas,
 	UltimaBaseGeneratedSchemaSurfaces,
+	UltimaBaseGeneratedVirtualFieldBuilderMethods,
+	UltimaBaseGeneratedVirtualFieldOptions,
 } from './type-info.js'
+export {
+	fieldDeclarationContexts,
+	assertFieldDeclarationContext,
+} from './schema/field-contexts.js'
+export type { FieldDeclarationContext } from './schema/field-contexts.js'
 export { generatedApplicationContractVersion } from './type-info.js'
 export type {
 	CompactSchemaModelUpdateInput,

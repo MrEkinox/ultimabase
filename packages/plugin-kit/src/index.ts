@@ -48,3 +48,8 @@ export {
 	type SetPatchSchemaOptionOptions,
 } from './schema-patch.js'
 export { defineTypegenModule, type TypegenModule } from './typegen-module.js'
+export {
+	defineOutputDescriptor,
+	definePluginFieldBuilderMethod,
+	definePluginFieldOption,
+} from './contextual-fields.js'

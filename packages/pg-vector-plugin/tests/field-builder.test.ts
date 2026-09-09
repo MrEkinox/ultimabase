@@ -53,14 +53,18 @@ describe('pg-vector FieldBuilder method', () => {
 		expect(Object.isFrozen(embedding)).toBe(true)
 		expect(application.fieldBuilderMethods).toStrictEqual([
 			expect.objectContaining({
-				fieldKind: vectorFieldKind,
+				contexts: expect.objectContaining({
+					stored: expect.objectContaining({
+						fieldKind: vectorFieldKind,
+						typegen: {
+							methodType: 'VectorFieldBuilderMethod',
+							module: '@ultimabase/pg-vector-plugin',
+							valueType: 'VectorValue',
+						},
+					}),
+				}),
 				name: 'vector',
 				owner: '@ultimabase/pg-vector-plugin',
-				typegen: {
-					methodType: 'VectorFieldBuilderMethod',
-					module: '@ultimabase/pg-vector-plugin',
-					valueType: 'VectorValue',
-				},
 			}),
 		])
 	})

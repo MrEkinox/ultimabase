@@ -78,10 +78,17 @@ export const createPluginStaticConformanceSnapshot = (
 		fieldBuilderMethods: immutableArray(
 			application.fieldBuilderMethods.map((method) =>
 				immutableRecord({
-					fieldKind: method.fieldKind,
+					contexts: Object.fromEntries(
+						Object.entries(method.contexts).map(([context, implementation]) => [
+							context,
+							{
+								fieldKind: implementation.fieldKind,
+								typegen: implementation.typegen,
+							},
+						]),
+					),
 					name: method.name,
 					owner: method.owner,
-					typegen: method.typegen,
 				}),
 			),
 		),

@@ -22,6 +22,7 @@ import {
 	assertFrozenCallbackFreeValue,
 	collectArtifactReferences,
 } from './value-validation.js'
+import { normalizeFieldDeclarationContexts } from '../../schema/schema/field-contexts.js'
 
 const inputKeys = new Set(['declarations', 'protocolVersion', 'schemas'])
 const outputKeys = new Set(['protocolVersion', 'schemas', 'selections'])
@@ -66,6 +67,7 @@ const assertOptionDefinition = (
 		new Set([
 			'artifact',
 			'contributionId',
+			'contexts',
 			'name',
 			'owner',
 			'protocolVersion',
@@ -94,6 +96,11 @@ const assertOptionDefinition = (
 	}
 	if (value.scope !== 'field' && value.scope !== 'schema') {
 		throw new TypeError(`${path}.scope must be field or schema`)
+	}
+	if (value.scope === 'field') {
+		normalizeFieldDeclarationContexts(value.contexts, `${path}.contexts`)
+	} else if (value.contexts !== undefined) {
+		throw new TypeError(`${path}.contexts is valid only for field options`)
 	}
 	if (
 		!isPlainRecord(value.staticOptions) ||

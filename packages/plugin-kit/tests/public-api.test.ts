@@ -6,8 +6,11 @@ describe('@ultimabase/plugin-kit public API', () => {
 		expect(Object.keys(pluginKit).sort()).toStrictEqual([
 			'SchemaPatchBuilder',
 			'createPluginEventDispatcher',
+			'defineOutputDescriptor',
 			'definePluginEvent',
 			'definePluginEventCapability',
+			'definePluginFieldBuilderMethod',
+			'definePluginFieldOption',
 			'definePluginModule',
 			'definePluginOptionsParser',
 			'defineTypegenModule',

@@ -1,10 +1,12 @@
 import {
 	defineSchemaOption,
 	type FieldOptionValueCarrier,
+	type FieldOptionDefinition,
 	type SchemaDefinition,
 	type SchemaOptionDefinition,
 	type SchemaReference,
 } from '@ultimabase/core'
+import { definePluginFieldOption } from '@ultimabase/plugin-kit'
 
 import type { SchemaAccess } from './authoring/contracts.js'
 import { normalizeSchemaAccessDeclarations } from './authoring/declarations.js'
@@ -74,9 +76,10 @@ export const schemaAccessOption: SchemaOptionDefinition<
 })
 
 /** Owns the official field `access` namespace as an opaque policy artifact. */
-export const fieldAccessOption: SchemaOptionDefinition<
+export const fieldAccessOption: FieldOptionDefinition<
 	ReturnType<typeof normalizeFieldAccessDeclarations>
-> = defineSchemaOption({
+> = definePluginFieldOption({
+	contexts: ['stored', 'embedded', 'virtual'],
 	normalize: normalizeFieldAccessDeclarations,
 	protocolVersion: 1,
 	typegen: {

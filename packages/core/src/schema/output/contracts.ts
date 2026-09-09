@@ -1,5 +1,9 @@
 import type { JsonDocument } from '../fields/builtins/json.js'
 import type { EnumValue, EnumValues } from '../fields/builtins/enum.js'
+import type {
+	UltimaBaseGeneratedOutputBuilderMethods,
+	UltimaBaseGeneratedOutputOptions,
+} from '../type-info.js'
 
 declare const outputValueMarker: unique symbol
 
@@ -24,7 +28,7 @@ export type OutputKind =
 export interface OutputValueOptions<
 	TNullable extends boolean = boolean,
 	TList extends boolean = boolean,
-> {
+> extends UltimaBaseGeneratedOutputOptions {
 	/** Supplies human-readable output documentation. @example `description: "Display name"` */
 	readonly description?: string
 	/** Wraps the complete value in one homogeneous list. @example `list: true` */
@@ -54,7 +58,7 @@ export type OutputValueShape<
 
 /** Describes one immutable logical output without creating a stored field. */
 export interface OutputDescriptor<
-	TKind extends OutputKind = OutputKind,
+	TKind extends string = string,
 	TValue = unknown,
 	TOptions extends NormalizedOutputValueOptions = NormalizedOutputValueOptions,
 > {
@@ -271,7 +275,7 @@ interface OutputObjectBuilderMethod {
 }
 
 /** Provides value descriptors without exposing persistence or mutation behavior. */
-export interface OutputBuilder {
+export interface OutputBuilder extends UltimaBaseGeneratedOutputBuilderMethods {
 	/** Describes a string result. @example `output.string({ nullable: false })` */
 	readonly string: OutputScalarBuilderMethod<'string', string>
 	/** Describes a boolean result. @example `output.boolean()` */

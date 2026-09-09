@@ -15,24 +15,32 @@ import {
 import { FieldBuilderMethodRegistry } from '../schema/schema/field-builder-methods.js'
 
 const alphaMethod = defineFieldBuilderMethod({
-	factory: stringField,
-	fieldKind: 'fixture.alpha',
 	name: 'alpha',
-	typegen: {
-		methodType: 'AlphaFieldBuilderMethod',
-		module: '@fixture/alpha-plugin',
-		valueType: 'AlphaValue',
+	contexts: {
+		stored: {
+			factory: stringField,
+			fieldKind: 'fixture.alpha',
+			typegen: {
+				methodType: 'AlphaFieldBuilderMethod',
+				module: '@fixture/alpha-plugin',
+				valueType: 'AlphaValue',
+			},
+		},
 	},
 })
 
 const betaMethod = defineFieldBuilderMethod({
-	factory: stringField,
-	fieldKind: 'fixture.beta',
 	name: 'beta',
-	typegen: {
-		methodType: 'BetaFieldBuilderMethod',
-		module: '@fixture/beta-plugin',
-		valueType: 'BetaValue',
+	contexts: {
+		stored: {
+			factory: stringField,
+			fieldKind: 'fixture.beta',
+			typegen: {
+				methodType: 'BetaFieldBuilderMethod',
+				module: '@fixture/beta-plugin',
+				valueType: 'BetaValue',
+			},
+		},
 	},
 })
 

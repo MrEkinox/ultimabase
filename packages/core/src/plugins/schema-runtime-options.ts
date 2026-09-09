@@ -127,6 +127,7 @@ export const collectRuntimeCompilations = (
 							context: immutableRecord({
 								className: candidate.schema.className,
 								fieldName,
+								fieldContext: 'stored',
 								optionName: option.name,
 								path,
 								provenance,

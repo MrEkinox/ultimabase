@@ -97,6 +97,13 @@ reproducing their normalization or inference rules. Runtime compilation applies
 the same restrictions to untyped calls, low-level object composition, and
 plugin-transformed schemas.
 
+Plugin-owned methods and direct field options declare a non-empty subset of the
+closed `stored`, `embedded`, `virtual`, and `output` contexts. Each supported
+method context has its own factory and Typegen callable reference; one stored
+field factory is never converted into an embedded field or output descriptor.
+Typegen augments only the matching contextual interface, while Core repeats the
+same checks for JavaScript and stale generated declarations before setup.
+
 Framework and plugin authors may reuse the immutable low-level field factories
 internally. Normal application code uses named builder methods; Core
 intentionally does not expose `field.custom()` as ordinary schema DX.
@@ -397,8 +404,10 @@ operation.
 ## Plugin-owned schema option namespaces
 
 Core does not declare `hooks` or `access` schema and field options. Authorized
-plugins contribute namespaced option contracts during static application
-compilation. The official `@ultimabase/hooks-plugin` and
+plugins contribute option contracts during static application compilation.
+Schema options use `defineSchemaOption()`. Direct field options use
+`defineFieldOption()` and state their exact declaration contexts. The official
+`@ultimabase/hooks-plugin` and
 `@ultimabase/access-plugin` packages own their authoring types, normalization,
 target selectors, and Runtime implementations; omitting either plugin makes its
 option unknown.
@@ -407,6 +416,11 @@ Compiled option values remain owner-scoped static contributions. They do not
 enter portable field metadata, inferred model values, validation plans,
 indexes, migrations, or Core-owned registries. JavaScript executes the same
 compiled application graph without generated declarations.
+
+Context support describes executable field behavior rather than value
+representation. A storage or wire codec does not imply that an input Hook,
+validator, Access rule, index, or database column option can execute in every
+context. Unsupported occurrences are rejected instead of silently removed.
 
 ## System fields
 
@@ -869,8 +883,9 @@ logical field kind without teaching Schema about its database representation.
 Kinds must be non-empty, namespaced strings and cannot shadow framework-owned
 field kinds. The factory reuses direct presence, defaults, lists, indexes,
 descriptions and immutability while delegating scalar value snapshots to
-`snapshotValue`. Installed direct field-option plugins may augment both built-in
-and plugin-defined stored values. Direct `required` presence remains independent.
+`snapshotValue`. Installed direct field-option plugins may augment built-in and
+plugin-defined values only in the contexts they explicitly support. Direct
+`required` presence remains independent.
 
 `snapshotValue(value, path)` is a declaration-time snapshot boundary, not a
 request validator. It must be pure, deterministic, and idempotent because

@@ -14,7 +14,10 @@ import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
 
 import {
+	defineOutputDescriptor,
 	definePluginModule,
+	definePluginFieldBuilderMethod,
+	definePluginFieldOption,
 	definePluginOptionsParser,
 	defineTypegenModule,
 	patchSchemas,
@@ -30,6 +33,58 @@ const fixtureModule = definePluginModule({
 })
 
 describe('plugin authoring helpers', () => {
+	it('preserves Core provenance for contextual field helpers', () => {
+		const output = defineOutputDescriptor(
+			'fixture.label-output',
+			{ list: false, nullable: false },
+			(value) => String(value),
+		)
+		const method = definePluginFieldBuilderMethod({
+			name: 'label',
+			contexts: {
+				stored: {
+					factory: stringField,
+					fieldKind: 'fixture.label',
+					typegen: {
+						methodType: 'LabelFieldBuilderMethod',
+						module: '@fixture/plugin-kit',
+						valueType: 'LabelValue',
+					},
+				},
+			},
+		})
+		const option = definePluginFieldOption({
+			contexts: ['stored'],
+			normalize: (value) => String(value),
+			protocolVersion: 1,
+			typegen: false,
+		})
+		const plugin = fixtureModule.plugin({
+			declare: ({ fields, schemas }) => {
+				fields.register(method)
+				schemas.defineOptions({
+					contributionId: 'label-option',
+					field: { label: option },
+				})
+			},
+			privileges: [
+				{ name: 'schema:declare', reason: 'Declares contextual fixtures.' },
+			],
+		})
+
+		expect(() =>
+			new FrameworkApplication({
+				plugins: [plugin],
+				schemas: [],
+			}).compileSchemas(),
+		).not.toThrow()
+		expect(output).toStrictEqual({
+			kind: 'fixture.label-output',
+			options: { list: false, nullable: false },
+		})
+		expect(Object.isFrozen(output.options)).toBe(true)
+	})
+
 	it('binds immutable package facts across explicit plugin instances', () => {
 		const first = fixtureModule.plugin({
 			instanceId: 'first',

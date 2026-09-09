@@ -1,5 +1,5 @@
 /** Invalidates generated fingerprints when Core's shared typegen ABI changes. */
-export const generatedApplicationContractVersion = 14 as const
+export const generatedApplicationContractVersion = 15 as const
 
 /** Minimal identity implemented by every generated persisted item. */
 export interface SchemaItemType {
@@ -27,8 +27,23 @@ export interface UltimaBaseGeneratedFieldBuilderMethods {}
 /** Application-generated declarations merge configured embedded builder methods here. */
 export interface UltimaBaseGeneratedEmbeddedFieldBuilderMethods {}
 
+/** Application-generated declarations merge configured virtual builder methods here. */
+export interface UltimaBaseGeneratedVirtualFieldBuilderMethods {}
+
+/** Application-generated declarations merge configured output builder methods here. */
+export interface UltimaBaseGeneratedOutputBuilderMethods {}
+
 /** Application-generated declarations merge accepted plugin field options here. */
 export interface UltimaBaseGeneratedFieldOptions {}
+
+/** Application-generated declarations merge accepted embedded field options here. */
+export interface UltimaBaseGeneratedEmbeddedFieldOptions {}
+
+/** Application-generated declarations merge accepted virtual field options here. */
+export interface UltimaBaseGeneratedVirtualFieldOptions {}
+
+/** Application-generated declarations merge accepted output descriptor options here. */
+export interface UltimaBaseGeneratedOutputOptions {}
 
 declare const generatedFieldOptionCompatibilityType: unique symbol
 

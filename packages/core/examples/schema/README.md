@@ -5,7 +5,8 @@ TypeScript snippets:
 
 - [`basic-schema.md`](basic-schema.md) introduces a schema and inferred types;
 - [`field-builder.md`](field-builder.md) introduces the canonical
-  `fields: (field) => ({ ... })` declaration and restricted embedded builders;
+  `fields: (field) => ({ ... })` declaration, restricted embedded builders, and
+  contextual plugin methods or options;
 - object-shaped field maps are reserved for internal tests and framework-owned
   composition that require local inference;
 - [`field-options.md`](field-options.md) covers built-in fields, structural
@@ -13,7 +14,8 @@ TypeScript snippets:
 - [`objects-and-lists.md`](objects-and-lists.md) composes reusable nested fields,
   typed one-dimensional lists, and explicit JSON matrices;
 - [`output-values.md`](output-values.md) declares exact recursive returned values
-  without exposing stored-field or mutation-input behavior;
+  plus plugin-owned output descriptors without exposing stored-field or
+  mutation-input behavior;
 - [`pointers.md`](pointers.md) declares exact single-object references and
   immutable logical pointer values;
 - [`relations.md`](relations.md) declares owning and inverse to-many topology

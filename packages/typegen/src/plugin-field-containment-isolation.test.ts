@@ -35,14 +35,18 @@ const createFixture = (suffix: 'Alpha' | 'Beta', operandKey: string) => {
 			},
 		)
 	const method = defineFieldBuilderMethod({
-		factory: containedField,
-		fieldKind: 'fixture.isolated.contained',
 		name: 'contained',
-		typegen: {
-			methodType: `${suffix}FieldBuilderMethod`,
-			module: `@fixture/${suffix.toLowerCase()}-plugin`,
-			structuralContainsType: `${suffix}ContainsOperand`,
-			valueType: `${suffix}Value`,
+		contexts: {
+			stored: {
+				factory: containedField,
+				fieldKind: 'fixture.isolated.contained',
+				typegen: {
+					methodType: `${suffix}FieldBuilderMethod`,
+					module: `@fixture/${suffix.toLowerCase()}-plugin`,
+					structuralContainsType: `${suffix}ContainsOperand`,
+					valueType: `${suffix}Value`,
+				},
+			},
 		},
 	})
 	const plugin = definePlugin({

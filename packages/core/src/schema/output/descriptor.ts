@@ -9,9 +9,13 @@ import type {
 	GenericOutputDescriptor,
 	NormalizedOutputValueOptions,
 	OutputDescriptor,
-	OutputKind,
 	OutputValue,
+	OutputValueShape,
 } from './contracts.js'
+import {
+	assertPluginFieldKind,
+	type AvailablePluginFieldKind,
+} from '../fields/base/kinds.js'
 
 type OutputElementSnapshot = (value: unknown, path: string) => unknown
 
@@ -26,7 +30,7 @@ const outputDescriptorCapabilities = new WeakMap<
 
 /** @internal Creates one provenance-checked immutable output descriptor. */
 export const createOutputDescriptor = <
-	TKind extends OutputKind,
+	TKind extends string,
 	TValue,
 	TOptions extends NormalizedOutputValueOptions,
 >(
@@ -42,6 +46,62 @@ export const createOutputDescriptor = <
 	outputDescriptorCapabilities.set(descriptor, { snapshotElement })
 
 	return descriptor
+}
+
+/**
+ * Creates one plugin-owned output value contract without granting stored-field behavior.
+ *
+ * The kind remains namespaced, the normalized common options are snapshotted, and
+ * the element snapshot is retained behind Core's descriptor provenance boundary.
+ */
+export const definePluginOutputDescriptor = <
+	const TKind extends string,
+	TElement,
+	const TOptions extends NormalizedOutputValueOptions,
+>(
+	kind: AvailablePluginFieldKind<TKind>,
+	options: TOptions,
+	snapshotElement: (value: unknown, path: string) => TElement,
+): OutputDescriptor<
+	TKind,
+	OutputValueShape<TElement, TOptions['nullable'], TOptions['list']>,
+	TOptions
+> => {
+	assertPluginFieldKind(kind, 'Plugin output descriptor kind')
+	if (!isPlainRecord(options)) {
+		throw new TypeError(
+			'Plugin output descriptor options must be a plain object',
+		)
+	}
+	if (typeof options.list !== 'boolean') {
+		throw new TypeError(
+			'Plugin output descriptor options.list must be a boolean',
+		)
+	}
+	if (typeof options.nullable !== 'boolean') {
+		throw new TypeError(
+			'Plugin output descriptor options.nullable must be a boolean',
+		)
+	}
+	if (
+		options.description !== undefined &&
+		typeof options.description !== 'string'
+	) {
+		throw new TypeError(
+			'Plugin output descriptor options.description must be a string',
+		)
+	}
+	if (typeof snapshotElement !== 'function') {
+		throw new TypeError(
+			'Plugin output descriptor snapshotElement must be a function',
+		)
+	}
+
+	return createOutputDescriptor<
+		TKind,
+		OutputValueShape<TElement, TOptions['nullable'], TOptions['list']>,
+		TOptions
+	>(kind, immutableRecord({ ...options }), snapshotElement)
 }
 
 /** Protects virtual declarations and transports from forged descriptor objects. */

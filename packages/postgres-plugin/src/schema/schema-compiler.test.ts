@@ -307,9 +307,10 @@ describe('PostgreSQL primitive schema compiler', () => {
 			fields: (field) => ({
 				profile: field.object({
 					fields: (field) => ({
+						// A stale generated declaration remains protected by Runtime checks.
 						title: field.string({
 							postgres: { renamedFrom: 'headline' },
-						}),
+						} as never),
 					}),
 				}),
 			}),

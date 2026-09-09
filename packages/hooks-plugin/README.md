@@ -7,6 +7,11 @@ Importing it does not install behavior; add `hooksPlugin()` to the application
 plugin list. Applications that omit it expose no official `hooks` schema or
 field option through generated types.
 
+The field-level `hooks` option is available on stored fields and recursively
+embedded object properties. It is intentionally absent from virtual wrappers
+and output descriptors because those values never participate in mutation input
+resolution.
+
 ```ts
 import { Schema, UltimaBase } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'

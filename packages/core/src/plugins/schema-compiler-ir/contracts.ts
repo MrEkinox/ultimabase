@@ -9,9 +9,10 @@ import type {
 	SchemaOptionProvenance,
 } from '../../schema/schema/provenance.js'
 import type { SchemaSelectorOptions } from '../schema-patch-contracts.js'
+import type { FieldDeclarationContext } from '../../schema/schema/field-contexts.js'
 
 /** Versions the complete callback-free logical schema compiler protocol. */
-export const schemaCompilerProtocolVersion = '4.0.0' as const
+export const schemaCompilerProtocolVersion = '5.0.0' as const
 
 /** Names every private artifact that may cross the compiler IR as an inert reference. */
 export type SchemaCompilerArtifactKind =
@@ -219,6 +220,8 @@ export type SchemaCompilerPatchOperation =
 export interface SchemaCompilerOptionDefinitionNode {
 	readonly artifact: SchemaCompilerArtifactReference<'option-definition'>
 	readonly contributionId: string
+	/** Lists supported field locations; absent for schema-scoped options. */
+	readonly contexts?: readonly FieldDeclarationContext[]
 	readonly name: string
 	readonly owner: PluginSchemaContributionOwner
 	readonly protocolVersion: number

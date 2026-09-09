@@ -4,6 +4,7 @@ import {
 	defineOperationValue,
 	defineQueryExtension,
 	defineFieldBuilderMethod,
+	defineFieldOption,
 	definePlugin,
 	definePluginField,
 	defineSchemaOption,
@@ -481,6 +482,152 @@ describe('generateApplicationTypes', () => {
 		)
 	})
 
+	it('emits two plugins only into their declared contextual interfaces', () => {
+		const firstMethod = defineFieldBuilderMethod({
+			name: 'firstContextual',
+			contexts: {
+				output: {
+					factory: stringField,
+					fieldKind: 'fixture.first-output',
+					typegen: {
+						methodType: 'FirstOutputBuilderMethod',
+						module: '@fixture/first-contextual-plugin',
+						valueType: 'FirstOutputValue',
+					},
+				},
+				stored: {
+					factory: stringField,
+					fieldKind: 'fixture.first-stored',
+					typegen: {
+						methodType: 'FirstStoredBuilderMethod',
+						module: '@fixture/first-contextual-plugin',
+						valueType: 'FirstStoredValue',
+					},
+				},
+			},
+		})
+		const secondMethod = defineFieldBuilderMethod({
+			name: 'secondContextual',
+			contexts: {
+				embedded: {
+					factory: stringField,
+					fieldKind: 'fixture.second-embedded',
+					typegen: {
+						methodType: 'SecondEmbeddedBuilderMethod',
+						module: '@fixture/second-contextual-plugin',
+						valueType: 'SecondEmbeddedValue',
+					},
+				},
+				virtual: {
+					factory: stringField,
+					fieldKind: 'fixture.second-virtual',
+					typegen: {
+						methodType: 'SecondVirtualBuilderMethod',
+						module: '@fixture/second-contextual-plugin',
+						valueType: 'SecondVirtualValue',
+					},
+				},
+			},
+		})
+		const firstOption = defineFieldOption({
+			contexts: ['stored', 'output'],
+			normalize: (value) => Boolean(value),
+			protocolVersion: 1,
+			typegen: {
+				module: '@fixture/first-contextual-plugin',
+				type: 'FirstContextualOption',
+			},
+		})
+		const secondOption = defineFieldOption({
+			contexts: ['embedded', 'virtual'],
+			normalize: (value) => Boolean(value),
+			protocolVersion: 1,
+			typegen: {
+				module: '@fixture/second-contextual-plugin',
+				type: 'SecondContextualOption',
+			},
+		})
+		const plugin = (
+			pluginId: string,
+			method: typeof firstMethod | typeof secondMethod,
+			name: 'firstOption' | 'secondOption',
+			option: typeof firstOption | typeof secondOption,
+		) =>
+			definePlugin({
+				core: '^0.0.0',
+				declare: ({ fields, schemas }) => {
+					fields.register(method)
+					schemas.defineOptions({
+						contributionId: `${name}-declaration`,
+						field: { [name]: option },
+					})
+				},
+				pluginId,
+				privileges: [
+					{ name: 'schema:declare', reason: 'Declares contextual fixtures.' },
+				],
+				version: '1.0.0',
+			})
+		const application = new FrameworkApplication({
+			plugins: [
+				plugin(
+					'fixture.first-contextual-plugin',
+					firstMethod,
+					'firstOption',
+					firstOption,
+				),
+				plugin(
+					'fixture.second-contextual-plugin',
+					secondMethod,
+					'secondOption',
+					secondOption,
+				),
+			],
+			schemas: [],
+		})
+
+		const generated = generateApplicationTypes({
+			application,
+			applicationId: 'fixture.contextual',
+		})
+
+		expect(
+			generated.snapshot.fieldMethods.map(({ context, name }) => ({
+				context,
+				name,
+			})),
+		).toStrictEqual([
+			{ context: 'stored', name: 'firstContextual' },
+			{ context: 'output', name: 'firstContextual' },
+			{ context: 'embedded', name: 'secondContextual' },
+			{ context: 'virtual', name: 'secondContextual' },
+		])
+		expect(generated.contents).toMatch(
+			/interface UltimaBaseGeneratedFieldBuilderMethods \{\s+readonly firstContextual:/u,
+		)
+		expect(generated.contents).toMatch(
+			/interface UltimaBaseGeneratedEmbeddedFieldBuilderMethods \{\s+readonly secondContextual:/u,
+		)
+		expect(generated.contents).toMatch(
+			/interface UltimaBaseGeneratedVirtualFieldBuilderMethods \{\s+readonly secondContextual:/u,
+		)
+		expect(generated.contents).toMatch(
+			/interface UltimaBaseGeneratedOutputBuilderMethods \{\s+readonly firstContextual:/u,
+		)
+		expect(generated.contents).toMatch(
+			/interface UltimaBaseGeneratedFieldOptions \{\s+readonly firstOption\?:/u,
+		)
+		expect(generated.contents).toMatch(
+			/interface UltimaBaseGeneratedEmbeddedFieldOptions \{\s+readonly secondOption\?:/u,
+		)
+		expect(generated.contents).toMatch(
+			/interface UltimaBaseGeneratedVirtualFieldOptions \{\s+readonly secondOption\?:/u,
+		)
+		expect(generated.contents).toMatch(
+			/interface UltimaBaseGeneratedOutputOptions \{\s+readonly firstOption\?:/u,
+		)
+	})
+
 	it('reports conflicting plugin value contributions with their owner', () => {
 		const sharedField = () =>
 			definePluginField(
@@ -491,23 +638,31 @@ describe('generateApplicationTypes', () => {
 				},
 			)
 		const firstMethod = defineFieldBuilderMethod({
-			factory: sharedField,
-			fieldKind: 'fixture.shared-kind',
 			name: 'firstShared',
-			typegen: {
-				methodType: 'FirstSharedFieldBuilderMethod',
-				module: '@fixture/first-shared-plugin',
-				valueType: 'FirstSharedValue',
+			contexts: {
+				stored: {
+					factory: sharedField,
+					fieldKind: 'fixture.shared-kind',
+					typegen: {
+						methodType: 'FirstSharedFieldBuilderMethod',
+						module: '@fixture/first-shared-plugin',
+						valueType: 'FirstSharedValue',
+					},
+				},
 			},
 		})
 		const secondMethod = defineFieldBuilderMethod({
-			factory: sharedField,
-			fieldKind: 'fixture.shared-kind',
 			name: 'secondShared',
-			typegen: {
-				methodType: 'SecondSharedFieldBuilderMethod',
-				module: '@fixture/second-shared-plugin',
-				valueType: 'SecondSharedValue',
+			contexts: {
+				stored: {
+					factory: sharedField,
+					fieldKind: 'fixture.shared-kind',
+					typegen: {
+						methodType: 'SecondSharedFieldBuilderMethod',
+						module: '@fixture/second-shared-plugin',
+						valueType: 'SecondSharedValue',
+					},
+				},
 			},
 		})
 		const firstPlugin = definePlugin({
@@ -716,7 +871,7 @@ describe('generateApplicationTypes', () => {
 		})
 
 		expect(second).toStrictEqual(first)
-		expect(first.snapshot.version).toBe(7)
+		expect(first.snapshot.version).toBe(8)
 		expect(first.contents).toContain('export type ConfiguredEditorialWorkflow')
 		expect(first.contents).toContain('interface UltimaBaseGeneratedOperations')
 		expect(first.contents).toContain('readonly "fixture.workflow.publish"')

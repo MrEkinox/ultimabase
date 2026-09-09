@@ -13,6 +13,10 @@ import type {
 import { assertCapabilityRequirement } from './capabilities.js'
 
 import { type SchemaOptionProvenance } from '../schema/schema/provenance.js'
+import {
+	normalizeFieldDeclarationContexts,
+	type FieldDeclarationContext,
+} from '../schema/schema/field-contexts.js'
 
 export interface SchemaOptionTypegenDescriptor {
 	/** Applies the exported generic to the generated option interface's polymorphic `this`. */
@@ -48,6 +52,8 @@ export interface SchemaOptionRuntimeCompilationContext<
 	readonly className: string
 	/** Identifies the field for field-scoped options only. */
 	readonly fieldName?: string
+	/** Identifies the exact semantic field location for field-scoped options only. */
+	readonly fieldContext?: FieldDeclarationContext
 	/** Names the direct schema or field option. */
 	readonly optionName: string
 	/** Gives diagnostics one stable path into the final logical graph. */
@@ -95,7 +101,17 @@ export interface SchemaOptionDefinition<
 	readonly valueKind?: 'json' | 'opaque'
 }
 
+/** Defines one direct field option and every semantic context it can execute. */
+export interface FieldOptionDefinition<
+	TValue = unknown,
+	TRequirement extends SchemaOptionRuntimeRequirement =
+		SchemaOptionRuntimeRequirement,
+> extends SchemaOptionDefinition<TValue, TRequirement> {
+	readonly contexts: readonly FieldDeclarationContext[]
+}
+
 export const schemaOptionDefinitions: WeakSet<object> = new WeakSet<object>()
+export const fieldOptionDefinitions: WeakSet<object> = new WeakSet<object>()
 
 const optionDefinitionKeys = new Set([
 	'normalize',
@@ -104,6 +120,7 @@ const optionDefinitionKeys = new Set([
 	'typegen',
 	'valueKind',
 ])
+const fieldOptionDefinitionKeys = new Set([...optionDefinitionKeys, 'contexts'])
 
 const optionTypegenKeys = new Set([
 	'compatibilityType',
@@ -183,18 +200,27 @@ const normalizeTypegenDescriptor = (
 	})
 }
 
-export const defineSchemaOption = <
+const normalizeOptionDefinition = <
 	const TValue,
 	const TRequirement extends SchemaOptionRuntimeRequirement =
 		SchemaOptionRuntimeRequirement,
 >(
-	definition: SchemaOptionDefinition<TValue, TRequirement>,
-): SchemaOptionDefinition<TValue, TRequirement> => {
+	definition:
+		| SchemaOptionDefinition<TValue, TRequirement>
+		| FieldOptionDefinition<TValue, TRequirement>,
+	field: boolean,
+):
+	| SchemaOptionDefinition<TValue, TRequirement>
+	| FieldOptionDefinition<TValue, TRequirement> => {
 	if (!isPlainRecord(definition)) {
 		throw new TypeError('Schema option definition must be a plain object')
 	}
 
-	assertKnownKeys(definition, optionDefinitionKeys, 'schema option definition')
+	assertKnownKeys(
+		definition,
+		field ? fieldOptionDefinitionKeys : optionDefinitionKeys,
+		field ? 'field option definition' : 'schema option definition',
+	)
 
 	if (
 		!Number.isSafeInteger(definition.protocolVersion) ||
@@ -247,39 +273,69 @@ export const defineSchemaOption = <
 		}
 	}
 
-	const normalized: SchemaOptionDefinition<TValue, TRequirement> =
-		immutableRecord({
-			normalize: definition.normalize,
-			protocolVersion: definition.protocolVersion,
-			...(runtime === undefined || runtimeCompile === undefined
-				? {}
-				: {
-						runtime: immutableRecord({
-							compile: (
-								context: SchemaOptionRuntimeCompilationContext,
-							): undefined => {
-								const contextSnapshot = immutableRecord({
-									...context,
-									capability:
-										context.capability as RequirementConsumerValue<TRequirement>,
-									value: context.value as TValue,
-								})
-								const result = runtimeCompile(contextSnapshot)
-								if (result !== undefined) {
-									throw new TypeError(
-										'Schema option Runtime compiler must return undefined',
-									)
-								}
-								return undefined
-							},
-							requirement: runtime.requirement,
-						}),
+	const contexts = field
+		? normalizeFieldDeclarationContexts(
+				Reflect.get(definition, 'contexts'),
+				'Field option contexts',
+			)
+		: undefined
+	const normalized = immutableRecord({
+		...(contexts === undefined ? {} : { contexts }),
+		normalize: definition.normalize,
+		protocolVersion: definition.protocolVersion,
+		...(runtime === undefined || runtimeCompile === undefined
+			? {}
+			: {
+					runtime: immutableRecord({
+						compile: (
+							context: SchemaOptionRuntimeCompilationContext,
+						): undefined => {
+							const contextSnapshot = immutableRecord({
+								...context,
+								capability:
+									context.capability as RequirementConsumerValue<TRequirement>,
+								value: context.value as TValue,
+							})
+							const result = runtimeCompile(contextSnapshot)
+							if (result !== undefined) {
+								throw new TypeError(
+									'Schema option Runtime compiler must return undefined',
+								)
+							}
+							return undefined
+						},
+						requirement: runtime.requirement,
 					}),
-			typegen: normalizeTypegenDescriptor(definition.typegen),
-			valueKind: valueKind ?? 'json',
-		})
+				}),
+		typegen: normalizeTypegenDescriptor(definition.typegen),
+		valueKind: valueKind ?? 'json',
+	})
 
 	schemaOptionDefinitions.add(normalized)
+	if (field) fieldOptionDefinitions.add(normalized)
 
 	return normalized
 }
+
+/** Defines one schema-scoped option without field-context semantics. */
+export const defineSchemaOption = <
+	const TValue,
+	const TRequirement extends SchemaOptionRuntimeRequirement =
+		SchemaOptionRuntimeRequirement,
+>(
+	definition: SchemaOptionDefinition<TValue, TRequirement>,
+): SchemaOptionDefinition<TValue, TRequirement> =>
+	normalizeOptionDefinition(definition, false)
+
+/** Defines one field-scoped option with an explicit non-empty context set. */
+export const defineFieldOption = <
+	const TValue,
+	const TRequirement extends SchemaOptionRuntimeRequirement =
+		SchemaOptionRuntimeRequirement,
+>(
+	definition: FieldOptionDefinition<TValue, TRequirement>,
+): FieldOptionDefinition<TValue, TRequirement> =>
+	normalizeOptionDefinition(definition, true) as FieldOptionDefinition<
+		TValue,
+		TRequirement
+	>

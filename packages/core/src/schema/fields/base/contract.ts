@@ -1,6 +1,8 @@
 import type {
 	UltimaBaseGeneratedFieldOptionCompatibility,
 	UltimaBaseGeneratedFieldOptions,
+	UltimaBaseGeneratedEmbeddedFieldOptions,
+	UltimaBaseGeneratedVirtualFieldOptions,
 } from '../../type-info.js'
 import type { DefaultFactory, FieldDefault } from './defaults.js'
 
@@ -190,7 +192,12 @@ type GeneratedNonCompatibilityOptionKeys<
 	TOptions extends object,
 	TValue,
 > = Exclude<
-	Extract<keyof TExtensionOptions, keyof UltimaBaseGeneratedFieldOptions>,
+	Extract<
+		keyof TExtensionOptions,
+		keyof (UltimaBaseGeneratedFieldOptions &
+			UltimaBaseGeneratedEmbeddedFieldOptions &
+			UltimaBaseGeneratedVirtualFieldOptions)
+	>,
 	GeneratedCompatibilityOptionKeys<TOptions, TValue>
 >
 

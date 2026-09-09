@@ -29,14 +29,18 @@ describe('portable plugin field filters', () => {
 				},
 			)
 		const method = defineFieldBuilderMethod({
-			factory: portableField,
-			fieldKind: 'fixture.portable-value',
 			name: 'portableValue',
-			typegen: {
-				methodType: 'PortableFieldBuilderMethod',
-				module: '@fixture/portable-plugin',
-				structuralContainsType: 'PortableContainsOperand',
-				valueType: 'PortableValue',
+			contexts: {
+				stored: {
+					factory: portableField,
+					fieldKind: 'fixture.portable-value',
+					typegen: {
+						methodType: 'PortableFieldBuilderMethod',
+						module: '@fixture/portable-plugin',
+						structuralContainsType: 'PortableContainsOperand',
+						valueType: 'PortableValue',
+					},
+				},
 			},
 		})
 		const plugin = definePlugin({

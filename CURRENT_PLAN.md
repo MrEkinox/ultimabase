@@ -4,7 +4,7 @@
 - Milestone: 25
 - Started: 2026-09-09
 - Governing decision: [ADR-0244](docs/adr/0244-contextual-fields-and-virtual-results.md)
-- Resume point: [issue 2504](issues/2500-contextual-fields-virtual-results/2504-contextual-plugin-field-typegen.md)
+- Resume point: [issue 2505](issues/2500-contextual-fields-virtual-results/2505-virtual-field-schema-typegen.md)
 
 ## Objective
 
@@ -60,7 +60,7 @@ semantics.
 1. [x] Issue 2501 — accept the contextual-field and virtual-result contract.
 2. [x] Issue 2502 — make embedded built-in field declarations truthful.
 3. [x] Issue 2503 — add output-only value descriptors and `OutputBuilder`.
-4. [ ] Issue 2504 — contextualize plugin field methods, options, and Typegen.
+4. [x] Issue 2504 — contextualize plugin field methods, options, and Typegen.
 5. [ ] Issue 2505 — compile virtual schema fields and generated contracts.
 6. [ ] Issue 2506 — execute request-aware asynchronous virtual resolvers.
 7. [ ] Issue 2507 — keep PostgreSQL storage physical while loading dependencies.

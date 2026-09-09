@@ -1,9 +1,9 @@
 import {
-	defineSchemaOption,
+	type FieldOptionDefinition,
 	type FieldOptionValueCarrier,
 	type FieldOptionsValue,
-	type SchemaOptionDefinition,
 } from '@ultimabase/core'
+import { definePluginFieldOption } from '@ultimabase/plugin-kit'
 
 import {
 	assertFieldStandardSchema,
@@ -57,8 +57,9 @@ export type FieldValidationCompatibility<TOptions extends object, TValue> = [
 		: true
 
 /** Owns the direct `validation` field option as an opaque executable artifact. */
-export const fieldValidationOption: SchemaOptionDefinition<FieldStandardSchema> =
-	defineSchemaOption({
+export const fieldValidationOption: FieldOptionDefinition<FieldStandardSchema> =
+	definePluginFieldOption({
+		contexts: ['stored', 'embedded'],
 		normalize: (value) => {
 			assertFieldStandardSchema(value)
 			return value

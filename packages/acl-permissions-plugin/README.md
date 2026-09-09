@@ -10,6 +10,11 @@ contributes generic Core protected policies and adapter constraints that
 compile into database filtering rather than post-filtering in memory. It has no
 dependency or peer relationship with `@ultimabase/access-plugin`.
 
+ACL contributes the schema-scoped `acl` option rather than a direct field
+option, so field declaration contexts do not broaden or restrict its contract.
+Its reserved stored field continues to be added through the owner-attributed
+schema patch.
+
 The official provider declares `authority:elevate` only for its persisted ACL
 reference-maintenance queries. Ordinary policy evaluation does not elevate,
 and neither a subject resolver nor another policy plugin inherits this

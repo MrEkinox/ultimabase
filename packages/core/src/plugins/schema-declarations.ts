@@ -27,9 +27,13 @@ export {
 	setSchemaOption,
 } from './schema-field-patch-operations.js'
 
-export { defineSchemaOption } from './schema-option-definitions.js'
+export {
+	defineFieldOption,
+	defineSchemaOption,
+} from './schema-option-definitions.js'
 
 export type {
+	FieldOptionDefinition,
 	SchemaOptionDefinition,
 	SchemaOptionRuntimeCompilationContext,
 	SchemaOptionRuntimeCompiler,

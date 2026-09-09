@@ -33,7 +33,10 @@ import {
 	snapshotStaticOptions,
 } from './schema-declaration-contracts.js'
 
-import { schemaOptionDefinitions } from './schema-option-definitions.js'
+import {
+	fieldOptionDefinitions,
+	schemaOptionDefinitions,
+} from './schema-option-definitions.js'
 
 import {
 	type SchemaSelection,
@@ -204,9 +207,18 @@ export class SchemaDeclarationRegistry {
 					}
 					for (const [name, definition] of Object.entries(definitions)) {
 						assertNonEmptyString(name, `Schema ${scope} option name`)
-						if (!schemaOptionDefinitions.has(definition)) {
+						const expectedDefinitions =
+							scope === 'field'
+								? fieldOptionDefinitions
+								: schemaOptionDefinitions
+						if (!expectedDefinitions.has(definition)) {
 							throw new TypeError(
-								`Schema ${scope} option ${name} must be created by defineSchemaOption`,
+								`Schema ${scope} option ${name} must be created by ${scope === 'field' ? 'defineFieldOption' : 'defineSchemaOption'}`,
+							)
+						}
+						if (scope === 'schema' && fieldOptionDefinitions.has(definition)) {
+							throw new TypeError(
+								`Schema option ${name} cannot use a field option definition`,
 							)
 						}
 						if (

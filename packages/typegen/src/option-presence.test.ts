@@ -4,6 +4,7 @@ import {
 	FrameworkApplication,
 	Schema,
 	addSchemaField,
+	defineFieldOption,
 	definePlugin,
 	defineSchemaOption,
 	stringField,
@@ -17,7 +18,8 @@ import { generateApplicationTypes } from './generator.js'
 
 describe('option-presence Typegen', () => {
 	it('renders public options without exposing values or compiler-only markers', () => {
-		const checkedFieldOption = defineSchemaOption<string>({
+		const checkedFieldOption = defineFieldOption<string>({
+			contexts: ['stored'],
 			normalize: (value, path) => {
 				if (typeof value !== 'string') {
 					throw new TypeError(`${path} must be a string`)

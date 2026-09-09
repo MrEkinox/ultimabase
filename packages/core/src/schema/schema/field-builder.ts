@@ -32,8 +32,10 @@ import type { SchemaDefinition, SchemaFields } from './definition.js'
 import { createNamedSchemaTarget } from './targets.js'
 import type {
 	FieldBuilderMethodResolver,
+	FieldBuilderMethodContextDefinition,
 	OwnedFieldBuilderMethod,
 } from './field-builder-methods.js'
+import type { FieldDeclarationContext } from './field-contexts.js'
 import { snapshotCapturedFieldOptions } from './captured-options.js'
 import {
 	assertEmbeddedBuiltInFieldOptions,
@@ -233,13 +235,16 @@ const createCapturedFieldBuilder = (
 
 const createPluginMethods = (
 	path: string,
+	context: Exclude<FieldDeclarationContext, 'output'>,
 	fieldMethods?: FieldBuilderMethodResolver,
 ): Readonly<Record<string, RuntimeFieldBuilderMethod>> => {
 	const methods: Record<string, RuntimeFieldBuilderMethod> = {}
 
 	for (const method of fieldMethods?.values() ?? []) {
+		const implementation = method.contexts[context]
+		if (implementation === undefined) continue
 		methods[method.name] = (options): GenericField =>
-			invokePluginFieldFactory(method, options, path)
+			invokePluginFieldFactory(method, implementation, options, path)
 	}
 
 	return immutableRecord(methods)
@@ -247,18 +252,19 @@ const createPluginMethods = (
 
 const invokePluginFieldFactory = (
 	method: OwnedFieldBuilderMethod,
+	implementation: FieldBuilderMethodContextDefinition,
 	options: unknown,
 	path: string,
 ): GenericField => {
 	const field = invokeFieldFactory(
-		method.factory,
+		implementation.factory,
 		options,
 		`${path}.${method.name}`,
 	)
 
-	if (field.kind !== method.fieldKind) {
+	if (field.kind !== implementation.fieldKind) {
 		throw new TypeError(
-			`${path} FieldBuilder method "${method.name}" from "${method.owner}" returned kind "${field.kind}" instead of "${method.fieldKind}"`,
+			`${path} FieldBuilder method "${method.name}" from "${method.owner}" returned kind "${field.kind}" instead of "${implementation.fieldKind}"`,
 		)
 	}
 
@@ -308,7 +314,8 @@ const createFieldBuilder = (
 		time: timeField,
 		uuid: uuidField,
 	}
-	const pluginMethods = createPluginMethods(path, fieldMethods)
+	const context = embedded ? 'embedded' : 'stored'
+	const pluginMethods = createPluginMethods(path, context, fieldMethods)
 
 	if (embedded) {
 		return createRuntimeBuilder<EmbeddedFieldBuilder>(
@@ -441,6 +448,16 @@ const resolveCapturedFieldBuilderCall = (
 			objectField,
 			{ ...options, fields },
 			`${fieldPath}.object`,
+		)
+	}
+
+	const pluginMethod = fieldMethods?.get(call.methodName)
+	if (
+		pluginMethod !== undefined &&
+		pluginMethod.contexts[embedded ? 'embedded' : 'stored'] === undefined
+	) {
+		throw new TypeError(
+			`${fieldPath} FieldBuilder method "${call.methodName}" from "${pluginMethod.owner}" does not support the ${embedded ? 'embedded' : 'stored'} context`,
 		)
 	}
 
