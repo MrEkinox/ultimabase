@@ -1,9 +1,4 @@
-import {
-	Pointer,
-	Schema,
-	SchemaRegistry,
-	definePluginField,
-} from '@ultimabase/core'
+import { Schema, SchemaRegistry, definePluginField } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -46,7 +41,14 @@ const portableCode = definePluginField(
 
 const Author = Schema.define({
 	className: 'RestMutationAuthor',
-	fields: (field) => ({ name: field.string() }),
+	fields: (field) => ({
+		code: portableCode,
+		huge: field.bigint(),
+		name: field.string(),
+		profile: field.object({
+			fields: (nested) => ({ scores: nested.bigint({ list: true }) }),
+		}),
+	}),
 })
 
 const RecordSchema = Schema.define({
@@ -95,7 +97,7 @@ describe('REST mutation normalization', () => {
 			request: jsonRequest(
 				'POST',
 				{
-					author: pointerWire,
+					author: { connect: authorId },
 					blob: { data: 'AQID', encoding: 'base64', type: 'binary' },
 					huge: '9007199254740993',
 					payload: { matrix: ['1', '2', '3'] },
@@ -116,9 +118,7 @@ describe('REST mutation normalization', () => {
 			portableCode: 'ABC',
 			title: 'Created',
 		})
-		const createAuthor: unknown = create.input.data.author
-		expect(Pointer.is(createAuthor)).toBe(true)
-		expect(createAuthor).toStrictEqual(new Pointer(Author, authorId))
+		expect(create.input.data.author).toStrictEqual({ connect: authorId })
 
 		const update = await normalizeRestMutationRequest(RecordSchema, {
 			id: recordId,
@@ -144,6 +144,109 @@ describe('REST mutation normalization', () => {
 				select: { huge: true, views: true },
 			},
 		})
+	})
+
+	it('decodes the complete singular nested-write command matrix', async () => {
+		const nestedCreate = {
+			code: { code: 'abc' },
+			huge: '9007199254740993',
+			name: 'Ada',
+			profile: { scores: ['1', '2'] },
+		}
+		const create = await normalizeRestMutationRequest(RecordSchema, {
+			operation: 'create',
+			request: jsonRequest('POST', {
+				author: { create: nestedCreate },
+				related: {
+					connect: [authorId],
+					create: [nestedCreate],
+				},
+			}),
+		})
+
+		expect(create.input.data).toStrictEqual({
+			author: {
+				create: {
+					code: 'ABC',
+					huge: 9_007_199_254_740_993n,
+					name: 'Ada',
+					profile: { scores: [1n, 2n] },
+				},
+			},
+			related: {
+				connect: [authorId],
+				create: [
+					{
+						code: 'ABC',
+						huge: 9_007_199_254_740_993n,
+						name: 'Ada',
+						profile: { scores: [1n, 2n] },
+					},
+				],
+			},
+		})
+
+		const update = await normalizeRestMutationRequest(RecordSchema, {
+			id: recordId,
+			operation: 'update',
+			request: jsonRequest('PATCH', {
+				author: {
+					update: {
+						huge: { type: 'decrement', value: '2' },
+						name: 'Updated',
+					},
+				},
+				related: {
+					connect: [authorId],
+					create: [{ name: 'Created' }],
+					disconnect: [recordId],
+					update: [
+						{
+							data: {
+								code: { code: 'def' },
+								huge: { type: 'increment', value: '3' },
+							},
+							id: recordId,
+						},
+					],
+				},
+			}),
+		})
+
+		expect(update.input.data).toMatchObject({
+			author: {
+				update: { huge: { kind: 'decrement', value: 2n }, name: 'Updated' },
+			},
+			related: {
+				connect: [authorId],
+				create: [{ name: 'Created' }],
+				disconnect: [recordId],
+				update: [
+					{
+						data: {
+							code: 'DEF',
+							huge: { kind: 'increment', value: 3n },
+						},
+						id: recordId,
+					},
+				],
+			},
+		})
+
+		for (const [field, command] of [
+			['author', { connect: authorId }],
+			['author', { create: { name: 'Created' } }],
+			['author', { disconnect: true }],
+			['related', { set: [] }],
+			['related', { clear: true }],
+		] as const) {
+			const normalized = await normalizeRestMutationRequest(RecordSchema, {
+				id: recordId,
+				operation: 'update',
+				request: jsonRequest('PATCH', { [field]: command }),
+			})
+			expect(normalized.input.data[field]).toStrictEqual(command)
+		}
 	})
 
 	it('maps delete, upsert, and every homogeneous bulk body to Core commands', async () => {
@@ -360,12 +463,15 @@ describe('REST mutation normalization', () => {
 		).rejects.toBe('client disconnected')
 	})
 
-	it('rejects relation values, malformed pointers, and invalid plugin wire values', async () => {
+	it('rejects legacy pointer tags and malformed nested wire values', async () => {
 		for (const body of [
 			{ related: [] },
-			{
-				author: { ...pointerWire, className: 'WrongTarget' },
-			},
+			{ author: pointerWire },
+			{ author: { connect: pointerWire } },
+			{ author: { connect: 'not-a-uuid-v7' } },
+			{ author: { create: { huge: '01' } } },
+			{ related: { connect: [authorId, 'not-a-uuid-v7'] } },
+			{ related: { update: [{ data: { huge: '01' }, id: authorId }] } },
 			{ portableCode: { wrong: true } },
 		]) {
 			await expect(
@@ -376,6 +482,25 @@ describe('REST mutation normalization', () => {
 			).rejects.toMatchObject({
 				code: restMutationErrorCodes.invalidInput,
 			})
+		}
+
+		for (const [operation, body] of [
+			[
+				'upsert',
+				{
+					create: { author: pointerWire },
+					update: { title: 'Updated' },
+					where: { slug: { eq: 'one' } },
+				},
+			],
+			['bulk-create', { data: [{ author: pointerWire }] }],
+		] as const) {
+			await expect(
+				normalizeRestMutationRequest(RecordSchema, {
+					operation,
+					request: jsonRequest('POST', body),
+				}),
+			).rejects.toMatchObject({ code: restMutationErrorCodes.invalidInput })
 		}
 	})
 })

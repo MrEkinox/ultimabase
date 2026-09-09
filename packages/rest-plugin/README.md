@@ -142,13 +142,34 @@ v7 identifier. Only create and update accept `select` and `include` query
 parameters, delete accepts `select`, and upsert or bulk projections remain in
 their JSON bodies.
 
-Schema-aware decoding converts bigint strings, binary tags, pointer tags,
-embedded values, lists, plugin-field codecs, and numeric increment/decrement
-tags into their exact Core values. Relation handles remain non-writable, while
-Core continues to enforce system, generated, immutable, required, and unknown
-field rules. Every non-empty mutation body requires JSON, is counted before
-parsing, and treats `Content-Length` only as a checked hint. Item delete carries
-no body.
+Singular create and update bodies accept ADR-0243's nested relationship commands
+directly beside scalar fields. A pointer accepts `connect` or `create` during
+create and additionally `update` or nullable `disconnect` during update. A
+relation accepts `create` and `connect` during create and additionally `update`,
+`disconnect`, `set`, or `clear` during update. Field-bound identities are UUID v7
+strings, so mutation input no longer accepts the former tagged
+`{ type: "pointer", className, id }` representation. Bulk and upsert inputs stay
+flat and cannot carry relationship fields in this version.
+
+```json
+{
+	"author": { "connect": "0199b4f0-5a31-7000-8000-000000000001" },
+	"comments": {
+		"create": [{ "body": "First" }],
+		"connect": ["0199b4f0-5a31-7000-8000-000000000002"]
+	}
+}
+```
+
+Nested target data recursively reuses the target schema's bigint, binary,
+embedded-object, list, and plugin-field codecs. Numeric increment/decrement
+tags remain available in update data. REST preserves the declarative command
+objects and delegates them through the application request executor; Core alone
+normalizes the bounded graph, rejects conflicts and duplicate identities, and
+executes its one transaction. Core also continues to enforce system, generated,
+immutable, required, unknown-field, depth, and operation-count rules. Every
+non-empty mutation body requires JSON, is counted before parsing, and treats
+`Content-Length` only as a checked hint. Item delete carries no body.
 
 `executeRestMutationRequest(executor, context, schema, input, limits)` delegates
 the decoded command to `ApplicationRequestExecutor.executeMutation`. Direct and

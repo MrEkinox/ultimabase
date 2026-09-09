@@ -468,6 +468,53 @@ describe('authenticated public REST vertical', { concurrent: false }, () => {
 			expect(JSON.parse(cookieStatus.body)).toMatchObject({
 				result: { principalId: authenticated.userId },
 			})
+
+			const browserAuthor = await browserFetch(
+				page,
+				'/api/v1/classes/ExampleAuthor',
+				{
+					body: JSON.stringify({ name: 'Browser author' }),
+					credentials: 'include',
+					headers: {
+						'Content-Type': 'application/json',
+						'X-UltimaBase-Application-Id': firstAppId,
+					},
+					method: 'POST',
+				},
+			)
+			expect(browserAuthor.status).toBe(201)
+			const browserAuthorResult = readObject(
+				Reflect.get(
+					readObject(JSON.parse(browserAuthor.body), 'browser author response'),
+					'result',
+				),
+				'browser author result',
+			)
+			const browserArticle = await browserFetch(
+				page,
+				`/api/v1/classes/ExampleArticle?include=${encodeURIComponent(
+					JSON.stringify({ author: { select: { name: true } } }),
+				)}`,
+				{
+					body: JSON.stringify({
+						author: {
+							connect: readString(browserAuthorResult, 'id'),
+						},
+						slug: 'browser-nested-write',
+						title: 'Browser nested write',
+					}),
+					credentials: 'include',
+					headers: {
+						'Content-Type': 'application/json',
+						'X-UltimaBase-Application-Id': firstAppId,
+					},
+					method: 'POST',
+				},
+			)
+			expect(browserArticle.status, browserArticle.body).toBe(201)
+			expect(JSON.parse(browserArticle.body)).toMatchObject({
+				result: { author: { name: 'Browser author' } },
+			})
 		} finally {
 			await context.close()
 			await browser.close()

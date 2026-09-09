@@ -1,5 +1,6 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
+import { FrameworkError } from '../../errors/framework-error.js'
 import { createQueryAst } from '../../query/ast/factory.js'
 import type {
 	CreateOneOperationAst,
@@ -66,13 +67,27 @@ export const prepareRuntimeNestedWriteGraph = (
 		operation.kind === 'create-one'
 			? operation.schema.definition
 			: operation.query.schema.definition
-	const normalized = normalizeNestedWriteGraph(
-		binding.schemas,
-		schema,
-		marker.command,
-		marker.input,
-		binding.limits,
-	)
+	let normalized: NestedWriteGraph
+	try {
+		normalized = normalizeNestedWriteGraph(
+			binding.schemas,
+			schema,
+			marker.command,
+			marker.input,
+			binding.limits,
+		)
+	} catch (error: unknown) {
+		if (!(error instanceof TypeError)) throw error
+		throw new FrameworkError(
+			'VALIDATION_ERROR',
+			'Nested-write input normalization failed.',
+			{
+				cause: error,
+				internalDetails: { message: error.message },
+				publicMessage: 'The operation input is invalid.',
+			},
+		)
+	}
 
 	return immutableRecord({
 		...normalized,
@@ -93,7 +108,9 @@ export const createRuntimeNestedUpdateExpression = (
 	base?: UpdateExpression<SchemaDefinition>,
 ): UpdateExpression<SchemaDefinition> => {
 	if (node.command !== 'update') {
-		throw new TypeError('Nested-write update expression requires an update node')
+		throw new TypeError(
+			'Nested-write update expression requires an update node',
+		)
 	}
 
 	const scalar =
@@ -120,10 +137,7 @@ export const createRuntimeNestedUpdateExpression = (
 			relationship.command === 'create' &&
 			relationship.child?.reservedId !== undefined
 		) {
-			value = new Pointer(
-				relationship.target,
-				relationship.child.reservedId,
-			)
+			value = new Pointer(relationship.target, relationship.child.reservedId)
 		} else if (relationship.command === 'disconnect') {
 			value = null
 		} else if (relationship.command === 'update' && current !== undefined) {
@@ -151,7 +165,10 @@ export const createRuntimeNestedUpdateExpression = (
 	}
 
 	const fieldOrder = new Map(
-		Object.keys(node.schema.fields).map((fieldName, index) => [fieldName, index]),
+		Object.keys(node.schema.fields).map((fieldName, index) => [
+			fieldName,
+			index,
+		]),
 	)
 	operations.sort(
 		(left, right) =>
@@ -241,9 +258,7 @@ export const createRuntimeNestedUpdateOperation = (
 		update: createRuntimeNestedUpdateExpression(
 			node,
 			current,
-			current === undefined
-				? undefined
-				: operation.update,
+			current === undefined ? undefined : operation.update,
 		),
 	})
 }

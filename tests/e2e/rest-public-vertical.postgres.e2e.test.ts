@@ -196,11 +196,7 @@ describe(
 				`${articlePath}?select=id,title`,
 				'POST',
 				{
-					author: {
-						className: 'ExampleAuthor',
-						id: authorId,
-						type: 'pointer',
-					},
+					author: { connect: authorId },
 					slug: 'public-one',
 					title: '  Public one  ',
 				},
@@ -214,6 +210,36 @@ describe(
 			}
 			expect(createdBody.result.title).toBe('Public one')
 			const articleId = createdBody.result.id
+
+			const legacyPointer = await jsonRequest(
+				anonymous,
+				`${articlePath}/${articleId}`,
+				'PATCH',
+				{
+					author: {
+						className: 'ExampleAuthor',
+						id: authorId,
+						type: 'pointer',
+					},
+				},
+			)
+			expect(legacyPointer.status).toBe(400)
+			expect(await responseJson(legacyPointer)).toMatchObject({
+				error: { code: 'REST_MUTATION_INVALID_INPUT' },
+			})
+
+			const duplicateRelation = await jsonRequest(
+				anonymous,
+				`${articlePath}/${articleId}`,
+				'PATCH',
+				{
+					contributors: { connect: [authorId, authorId] },
+				},
+			)
+			expect(duplicateRelation.status).toBe(422)
+			expect(await responseJson(duplicateRelation)).toMatchObject({
+				error: { code: 'VALIDATION_ERROR' },
+			})
 
 			const article = await invoke(minimal.ExampleArticle, 'findOne', [
 				{ where: { id: { eq: articleId } } },

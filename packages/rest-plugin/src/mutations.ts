@@ -1,10 +1,6 @@
-import {
-	decrement,
-	getFieldListDepth,
-	increment,
-	type ApplicationSchemaMutationRequest,
-	type GenericField,
-	type SchemaDefinition,
+import type {
+	ApplicationSchemaMutationRequest,
+	SchemaDefinition,
 } from '@ultimabase/core'
 import {
 	immutableArray,
@@ -18,7 +14,7 @@ import {
 	invalidRestMutation,
 	restMutationErrorCodes,
 } from './mutation-errors.js'
-import { decodeRestFieldValue } from './field-values.js'
+import { decodeRestMutationData } from './nested-mutation-values.js'
 import { readRestJsonBody, type RestJsonBodyErrors } from './read-body.js'
 import { decodeRestWhere, isUuidV7 } from './read-values.js'
 import {
@@ -102,8 +98,6 @@ const mutationBodyErrors: RestJsonBodyErrors = immutableRecord({
 		),
 })
 
-const numericKinds = new Set(['bigint', 'decimal', 'float', 'int'])
-
 const normalizeLimits = (limits: RestReadLimits): RestReadLimits => {
 	if (
 		!Number.isSafeInteger(limits.bodyBytes) ||
@@ -114,57 +108,6 @@ const normalizeLimits = (limits: RestReadLimits): RestReadLimits => {
 		throw new TypeError('REST mutation limits must be positive safe integers')
 	}
 	return immutableRecord(limits)
-}
-
-const decodeData = (
-	schema: SchemaDefinition,
-	value: unknown,
-	mode: 'create' | 'update',
-): unknown => {
-	if (!isPlainRecord(value)) return value
-
-	return immutableRecord(
-		Object.fromEntries(
-			Object.entries(value).map(([name, item]) => {
-				const field: GenericField | undefined = schema.fields[name]
-				if (field === undefined) return [name, item]
-
-				if (
-					mode === 'update' &&
-					getFieldListDepth(field.options) === 0 &&
-					numericKinds.has(field.kind) &&
-					isPlainRecord(item) &&
-					Object.keys(item).length === 2 &&
-					Object.hasOwn(item, 'type') &&
-					Object.hasOwn(item, 'value') &&
-					(item.type === 'increment' || item.type === 'decrement')
-				) {
-					const operand = decodeRestFieldValue(
-						field,
-						item.value,
-						invalidRestMutation,
-					)
-					return [
-						name,
-						item.type === 'increment'
-							? increment(operand as bigint | number | string)
-							: decrement(operand as bigint | number | string),
-					]
-				}
-
-				return [
-					name,
-					decodeRestFieldValue(
-						field,
-						item,
-						invalidRestMutation,
-						false,
-						'value',
-					),
-				]
-			}),
-		),
-	)
 }
 
 const decodeProjection = (
@@ -214,10 +157,26 @@ const decodeUpsert = (schema: SchemaDefinition, value: unknown): unknown => {
 			? { where: decodeRestWhere(schema, value.where) }
 			: {}),
 		...(Object.hasOwn(value, 'create')
-			? { create: decodeData(schema, value.create, 'create') }
+			? {
+					create: decodeRestMutationData(
+						schema,
+						value.create,
+						'create',
+						'flat',
+						invalidRestMutation,
+					),
+				}
 			: {}),
 		...(Object.hasOwn(value, 'update')
-			? { update: decodeData(schema, value.update, 'update') }
+			? {
+					update: decodeRestMutationData(
+						schema,
+						value.update,
+						'update',
+						'flat',
+						invalidRestMutation,
+					),
+				}
 			: {}),
 	})
 }
@@ -246,7 +205,13 @@ const decodeBulk = (
 		data: immutableArray(
 			value.data.map((item) => {
 				if (operation === 'bulk-create') {
-					return decodeData(schema, item, 'create')
+					return decodeRestMutationData(
+						schema,
+						item,
+						'create',
+						'flat',
+						invalidRestMutation,
+					)
 				}
 				if (operation === 'bulk-upsert') return decodeUpsert(schema, item)
 				if (!isPlainRecord(item)) return item
@@ -256,7 +221,15 @@ const decodeBulk = (
 						? { where: decodeRestWhere(schema, item.where) }
 						: {}),
 					...(Object.hasOwn(item, 'data')
-						? { data: decodeData(schema, item.data, 'update') }
+						? {
+								data: decodeRestMutationData(
+									schema,
+									item.data,
+									'update',
+									'flat',
+									invalidRestMutation,
+								),
+							}
 						: {}),
 				})
 			}),
@@ -329,12 +302,24 @@ export const normalizeRestMutationRequest = async <
 			)
 			if (input.operation === 'create') {
 				commandInput = immutableRecord({
-					data: decodeData(schema, body, 'create'),
+					data: decodeRestMutationData(
+						schema,
+						body,
+						'create',
+						'nested',
+						invalidRestMutation,
+					),
 					...projection,
 				})
 			} else if (input.operation === 'update') {
 				commandInput = immutableRecord({
-					data: decodeData(schema, body, 'update'),
+					data: decodeRestMutationData(
+						schema,
+						body,
+						'update',
+						'nested',
+						invalidRestMutation,
+					),
 					id: input.id,
 					...projection,
 				})

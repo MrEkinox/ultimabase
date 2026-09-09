@@ -12,7 +12,7 @@ semantics as separately issued commands.
 2. [x] [2402 — Compile typed nested inputs and the Core graph](2402-nested-write-input-graph.md)
 3. [x] [2403 — Execute nested create and connect](2403-nested-create-connect.md)
 4. [x] [2404 — Execute nested update and relation changes](2404-nested-update-relation-changes.md)
-5. [ ] [2405 — Expose nested writes through REST](2405-rest-nested-writes.md)
+5. [x] [2405 — Expose nested writes through REST](2405-rest-nested-writes.md)
 6. [ ] [2406 — Expose nested writes through GraphQL](2406-graphql-nested-writes.md)
 7. [ ] [2407 — Prove the public nested-write vertical](2407-nested-write-public-vertical.md)
 8. [ ] [2408 — Audit and close nested writes](2408-nested-write-final-audit.md)
