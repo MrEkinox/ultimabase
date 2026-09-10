@@ -293,7 +293,8 @@ GraphQL share one Runtime resolver and structural output contract.
 
 ## Milestone 26 — Plugin-defined schema mutations and official soft delete
 
-Add one generic, versioned schema-mutation contract for plugin-owned logical
+[ADR-0245](docs/adr/0245-plugin-schema-mutations-and-soft-delete.md) accepts one
+generic, versioned schema-mutation contract for plugin-owned logical
 operations. Application schema/model handles, the canonical Runtime pipeline,
 optional official Access and Hooks engines, REST, and GraphQL consume the same
 identity without adding `softDelete` to Core. On that foundation, the official

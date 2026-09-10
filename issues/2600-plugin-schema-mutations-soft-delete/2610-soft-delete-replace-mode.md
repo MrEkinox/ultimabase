@@ -4,7 +4,7 @@
 - Milestone: 26
 - Packages: `@ultimabase/soft-delete-plugin`, `@ultimabase/core`, database adapters
 - Depends on: 2609
-- ADR: ADR-0200, ADR-0245 once accepted
+- ADR: [ADR-0200](../../docs/adr/0200-protected-rewritable-persistence-plans.md), [ADR-0245](../../docs/adr/0245-plugin-schema-mutations-and-soft-delete.md)
 
 ## Goal
 

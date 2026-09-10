@@ -4,7 +4,7 @@
 - Milestone: 26
 - Packages: `@ultimabase/soft-delete-plugin`, official Access, Hooks, REST, GraphQL, and Typegen packages
 - Depends on: 2604, 2605, 2606, 2607, 2609
-- ADR: ADR-0245, once accepted
+- ADR: [ADR-0245](../../docs/adr/0245-plugin-schema-mutations-and-soft-delete.md)
 
 ## Goal
 

@@ -143,6 +143,16 @@ operation-local scheduler also apply to eager targets and nested-write
 transactions. Virtual failure precedes mutation commit and cannot bypass target
 Access, protected output restrictions, or application isolation.
 
+ADR-0245 adds a narrow plugin-defined schema mutation specialization beside
+arbitrary plugin operations and native CRUD. Core retains one product-neutral
+logical discriminant, loads and locks the exact persisted target, validates one
+owner-only update or Master-only delete effect, and compiles its physical plan
+without replaying native update or delete semantics. Application schema and
+model handles, optional official Access and Hooks engines, REST, and GraphQL
+derive exact application-local command keys from the inert compiled mutation
+surface. Static transport planning and late execution remain separate; Core and
+the transports never name `softDelete`, `restore`, or `purge`.
+
 Operation transport identities follow the same exact canonical rule. Their
 bindings may carry immutable transport-owned JSON metadata, while Core's
 allowlist facade reveals only inert operation descriptors. REST uses that

@@ -1,10 +1,10 @@
 # 2602: Declare plugin-owned schema mutations
 
-- Status: planned
+- Status: ready
 - Milestone: 26
 - Packages: `@ultimabase/core`, `@ultimabase/plugin-kit`, `@ultimabase/typegen`
 - Depends on: 2601
-- ADR: ADR-0245, once accepted
+- ADR: [ADR-0245](../../docs/adr/0245-plugin-schema-mutations-and-soft-delete.md)
 
 ## Goal
 

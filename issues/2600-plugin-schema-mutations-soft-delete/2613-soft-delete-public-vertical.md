@@ -4,7 +4,7 @@
 - Milestone: 26
 - Packages: all milestone 26 packages and public examples
 - Depends on: 2612
-- ADR: ADR-0245, once accepted
+- ADR: [ADR-0245](../../docs/adr/0245-plugin-schema-mutations-and-soft-delete.md)
 
 ## Goal
 

@@ -9,7 +9,7 @@ generic foundation to deliver the first supported official soft-delete plugin.
 
 ## Execution order
 
-1. [ ] [2601 — Decide schema mutations and soft delete](2601-schema-mutation-soft-delete-contract.md)
+1. [x] [2601 — Decide schema mutations and soft delete](2601-schema-mutation-soft-delete-contract.md)
 2. [ ] [2602 — Declare plugin-owned schema mutations](2602-schema-mutation-declarations.md)
 3. [ ] [2603 — Execute schema mutations through Runtime](2603-schema-mutation-runtime.md)
 4. [ ] [2604 — Extend Access for schema mutations](2604-schema-mutation-access.md)
@@ -28,7 +28,7 @@ Issues 2604 and 2605 may proceed independently after 2603. Issues 2606 and
 2607 may likewise proceed independently after 2603. Every later issue remains
 single-owner and integrates only after its declared dependencies complete.
 
-## Candidate contract
+## Accepted contract
 
 - `softDeletePlugin({ defaultMode })` accepts `disabled`, `replace-delete`, or
   `explicit`; an omitted schema option inherits that mode.

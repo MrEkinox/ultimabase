@@ -4,7 +4,7 @@
 - Milestone: 26
 - Packages: `@ultimabase/core`, `@ultimabase/testing`, database adapters
 - Depends on: 2602
-- ADR: ADR-0245, once accepted
+- ADR: [ADR-0245](../../docs/adr/0245-plugin-schema-mutations-and-soft-delete.md)
 
 ## Goal
 
@@ -21,9 +21,10 @@ the canonical mutation transaction and persistence-plan pipeline.
       ADR-0245 order.
 - [ ] Every mutation and handler-started database operation uses the root
       automatic transaction; failure or cancellation rolls back all work.
-- [ ] A handler may select only an accepted portable persistence plan and cannot
-      receive an adapter, authority grant, protected constraint, commit method,
-      or another application's engine.
+- [ ] A handler may return only the definition's accepted owner-only update or
+      Master-only delete effect; Core alone compiles the portable persistence
+      plan. The handler cannot receive an adapter, authority grant, protected
+      constraint, commit method, or another application's engine.
 - [ ] The logical custom mutation is never replayed as native create, update,
       upsert, or delete behavior merely because its physical plan uses one of
       those statement families.

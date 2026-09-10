@@ -4,7 +4,7 @@
 - Milestone: 26
 - Packages: `@ultimabase/soft-delete-plugin`, `@ultimabase/core`, database adapters
 - Depends on: 2610, 2611
-- ADR: ADR-0245, once accepted
+- ADR: [ADR-0245](../../docs/adr/0245-plugin-schema-mutations-and-soft-delete.md)
 
 ## Goal
 
@@ -15,8 +15,10 @@ items without creating a public transport administration surface.
 
 - [ ] Enabled schema handles expose exact typed `restore` and `purge` commands
       through the application-owned administrative surface accepted by ADR-0245.
-- [ ] Both commands require an authentic Core Master context and audit the exact
-      operation, schema, target ID, plugin owner, request ID, and outcome.
+- [ ] Both commands require an authentic Core Master context. Trusted
+      `useMasterKey` execution uses the existing mandatory elevation audit with
+      the exact mutation and schema reason; an inherited Master context does not
+      manufacture a second elevation event.
 - [ ] `restore` targets only a tombstoned row, atomically clears the tombstone,
       preserves ID, stored data, and relations, and returns the accepted restored
       result.
@@ -31,6 +33,9 @@ items without creating a public transport administration surface.
 - [ ] Failures, cancellation, Hook-started database work allowed by the accepted
       administrative lifecycle, and audit delivery retain transaction and
       post-commit ordering.
+- [ ] Optional before/after Hooks and generic Runtime observers receive enough
+      attributed operation, target, request, and outcome data for durable
+      operation-level auditing without a Core soft-delete audit sink.
 - [ ] Replace-delete and explicit schemas share the same administrative contract;
       disabled schemas expose neither command.
 

@@ -226,6 +226,7 @@ Accepted records:
 - [ADR-0242: Request source names belong to their producers](0242-request-source-ownership.md)
 - [ADR-0243: Singular nested writes use one bounded Core mutation graph](0243-bounded-singular-nested-writes.md)
 - [ADR-0244: Contextual field builders and virtual results](0244-contextual-fields-and-virtual-results.md)
+- [ADR-0245: Plugin-defined schema mutations preserve logical identity](0245-plugin-schema-mutations-and-soft-delete.md)
 
 Superseded records:
 

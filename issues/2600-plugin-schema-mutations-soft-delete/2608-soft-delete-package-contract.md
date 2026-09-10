@@ -4,7 +4,7 @@
 - Milestone: 26
 - Packages: future `@ultimabase/soft-delete-plugin`, `@ultimabase/typegen`
 - Depends on: 2602
-- ADR: ADR-0245, once accepted
+- ADR: [ADR-0245](../../docs/adr/0245-plugin-schema-mutations-and-soft-delete.md)
 
 ## Goal
 
