@@ -25,7 +25,8 @@
 	},
 	"dependencies": {
 		"@ultimabase/core": "workspace:^",
-		"@ultimabase/plugin-kit": "workspace:^"
+		"@ultimabase/plugin-kit": "workspace:^",
+		"@ultimabase/shared": "workspace:^"
 	},
 	"devDependencies": {
 		"@ultimabase/testing": "workspace:^",

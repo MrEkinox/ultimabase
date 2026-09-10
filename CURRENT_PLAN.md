@@ -4,7 +4,7 @@
 - Milestone: 26
 - Started: 2026-09-10
 - Governing decision: [ADR-0245](docs/adr/0245-plugin-schema-mutations-and-soft-delete.md)
-- Resume point: issue 2609
+- Resume point: issue 2610
 
 ## Objective
 
@@ -69,7 +69,7 @@ visibility invariants when they are absent.
 7. [x] Issue 2607 — expose generic schema mutations in GraphQL.
 8. [x] Issue 2615 — add deterministic direct-option absence selection.
 9. [x] Issue 2608 — create the official soft-delete package and schema contract.
-10. [ ] Issue 2609 — enforce tombstone visibility and write protection.
+10. [x] Issue 2609 — enforce tombstone visibility and write protection.
 11. [ ] Issue 2610 — implement replace-delete mode.
 12. [ ] Issue 2611 — implement the explicit `softDelete` mutation.
 13. [ ] Issue 2612 — add private Master-only restore and purge commands.

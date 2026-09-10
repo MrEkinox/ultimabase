@@ -135,6 +135,7 @@ interface FieldMetadata<TKind extends string, TOptions extends object> {
 
 interface FieldCapabilities {
 	readonly deferRequiredUntilResolveInput: boolean
+	readonly mutationInput: 'forbidden' | undefined
 	readonly optionsContract: BuiltInFieldOptionsContract | undefined
 	readonly schemaTarget: SchemaTarget | undefined
 	readonly snapshotValue: ScalarValueSnapshot
@@ -195,6 +196,7 @@ export const createFieldDefinition = <
 		immutableRecord({
 			deferRequiredUntilResolveInput:
 				capabilities.deferRequiredUntilResolveInput === true,
+			mutationInput: undefined,
 			optionsContract:
 				capabilities.optionsContract ?? getBuiltInFieldOptionsContract(options),
 			schemaTarget: capabilities.schemaTarget,
@@ -231,6 +233,24 @@ export const replaceDeclaredFieldOptions = (
 
 	return replacement
 }
+
+export const forbidFieldMutationInput = (field: GenericField): GenericField => {
+	const capabilities = fieldCapabilities.get(field)
+	if (capabilities === undefined)
+		throw new TypeError('field must be created by a field factory')
+	const replacement = immutableRecord({
+		kind: field.kind,
+		options: field.options,
+	})
+	fieldCapabilities.set(
+		replacement,
+		immutableRecord({ ...capabilities, mutationInput: 'forbidden' as const }),
+	)
+	return replacement
+}
+
+export const hasForbiddenMutationInput = (field: GenericField): boolean =>
+	fieldCapabilities.get(field)?.mutationInput === 'forbidden'
 
 /** Resolves one lazy schema target without placing its callback in field metadata. */
 export const getFieldSchemaTarget = (
@@ -348,33 +368,30 @@ export const snapshotDeclaredFieldValue = (
 export const isFieldRequiredDeferred = (field: GenericField): boolean =>
 	fieldCapabilities.get(field)?.deferRequiredUntilResolveInput === true
 
-/**
- * Reads the compact runtime inference facts used by deterministic type generation.
- *
- * The factory-owned deferred-required capability is included here so generated
- * create inputs match the same validation plan enforced at Runtime.
- */
 export const readFieldTypegenState = (
 	field: GenericField,
 ): FieldTypegenState => {
 	const generated = 'generatedOn' in field.options
 	const relation = field.kind === 'relation'
+	const mutationInputForbidden = hasForbiddenMutationInput(field)
 
 	return immutableRecord({
-		create: relation
-			? 'forbidden'
-			: generated
+		create:
+			relation || mutationInputForbidden
 				? 'forbidden'
-				: isFieldRequiredDeferred(field)
-					? 'optional'
-					: isRequiredOnCreate(field)
-						? 'required'
-						: 'optional',
+				: generated
+					? 'forbidden'
+					: isFieldRequiredDeferred(field)
+						? 'optional'
+						: isRequiredOnCreate(field)
+							? 'required'
+							: 'optional',
 		list: getFieldListDepth(field.options) > 0,
 		nullable: relation ? false : isFieldNullable(field),
 		object: relation ? 'forbidden' : 'required',
 		update:
 			relation ||
+			mutationInputForbidden ||
 			generated ||
 			('immutable' in field.options && field.options.immutable === true)
 				? 'forbidden'

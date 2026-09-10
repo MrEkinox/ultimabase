@@ -5,7 +5,7 @@ import {
 	setSchemaFieldOption,
 	setSchemaOption,
 	type AddSchemaConstraintOperation,
-	type AddSchemaFieldOperation,
+	type AddSchemaFieldOptions,
 	type JsonValue,
 	type SchemaPatchOperation,
 	type SchemaSelection,
@@ -19,7 +19,7 @@ import {
 } from '@ultimabase/shared'
 
 /** Describes one additive field in an immutable schema patch. */
-export type AddPatchFieldOptions = Omit<AddSchemaFieldOperation, 'kind'>
+export type AddPatchFieldOptions = AddSchemaFieldOptions
 
 /** Describes one additive index in an immutable schema patch. */
 export interface AddPatchIndexOptions {

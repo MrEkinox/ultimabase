@@ -27,7 +27,9 @@ stdout.write(
 	`${JSON.stringify({
 		defaultMode: option?.normalizedStaticOptions.defaultMode,
 		explicitMode: explicit?.definition.softDelete,
+		explicitTombstone: explicit?.persistedFields.isDeleted?.options,
 		omissionPreserved: !Object.hasOwn(omitted?.definition ?? {}, 'softDelete'),
+		omittedTombstoneOwner: omitted?.provenance.fields.isDeleted?.owner.pluginId,
 		owner: option?.owner,
 	})}\n`,
 )

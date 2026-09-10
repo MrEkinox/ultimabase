@@ -235,6 +235,7 @@ export {
 export type {
 	AddSchemaConstraintOperation,
 	AddSchemaFieldOperation,
+	AddSchemaFieldOptions,
 	AddSchemaIndexOperation,
 	ExistingSchemaContributionTarget,
 	FieldOptionDefinition,

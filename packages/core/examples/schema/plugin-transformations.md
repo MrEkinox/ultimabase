@@ -72,7 +72,8 @@ export const workflowPlugin = definePlugin({
 				addSchemaField({
 					contributionId: 'workflow-state',
 					name: 'workflowState',
-					field: stringField({ required: true }),
+					field: stringField({ default: 'pending', required: true }),
+					mutationInput: 'forbidden',
 				}),
 				addSchemaIndex({
 					contributionId: 'workflow-state-index',
@@ -83,6 +84,10 @@ export const workflowPlugin = definePlugin({
 	},
 })
 ```
+
+`mutationInput: 'forbidden'` keeps `workflowState` in stored objects, selections,
+filters, snapshots, and migration intent while removing it from every caller
+mutation input. Only a provenance-checked plugin-owned effect may change it.
 
 An ordinary cross-owner replacement additionally names the exact prior owner,
 stable contribution identity, and expected immutable shape:

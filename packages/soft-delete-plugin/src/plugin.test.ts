@@ -1,4 +1,11 @@
-import { FrameworkApplication, Schema, definePlugin } from '@ultimabase/core'
+import {
+	FrameworkApplication,
+	Schema,
+	compileValidationPlans,
+	definePlugin,
+	readFieldTypegenState,
+	type SchemaOptions,
+} from '@ultimabase/core'
 import { generateApplicationTypes } from '@ultimabase/typegen'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -16,17 +23,30 @@ const documentSchema = (
 	})
 
 describe('softDeletePlugin', () => {
-	it('declares only its exact option privilege and no capability or environment power', () => {
+	it('declares only its exact schema and visibility powers', () => {
 		const plugin = softDeletePlugin()
 
 		expect(plugin.manifest).toMatchObject({
-			capabilities: { decorates: [], provides: [], replaces: [], requires: [] },
+			capabilities: {
+				decorates: [],
+				provides: [
+					{
+						contributionId: 'official-soft-delete-visibility',
+					},
+				],
+				replaces: [],
+				requires: [],
+			},
 			environment: [],
 			identity: { pluginId: '@ultimabase/soft-delete-plugin' },
 			privileges: [
 				{
 					name: 'schema:declare',
 					reason: 'Declares the direct soft-delete schema option.',
+				},
+				{
+					name: 'runtime:constrain',
+					reason: 'Keeps tombstoned rows outside ordinary operations.',
 				},
 			],
 		})
@@ -44,13 +64,14 @@ describe('softDeletePlugin', () => {
 		)
 	})
 
-	it('normalizes valid JavaScript schema options without running product behavior', async () => {
+	it('adds the protected tombstone only to enabled application schemas', async () => {
 		const Explicit = documentSchema('ExplicitSoftDeleteDocument', 'explicit')
 		const Disabled = documentSchema('DisabledSoftDeleteDocument', false)
+		const Inherited = documentSchema('InheritedSoftDeleteDocument')
 		const application = new FrameworkApplication({
 			pluginPrivileges: { logger: false },
 			plugins: [softDeletePlugin({ defaultMode: 'replace-delete' })],
-			schemas: [Explicit, Disabled],
+			schemas: [Explicit, Disabled, Inherited],
 		})
 
 		await application.initialize()
@@ -60,8 +81,52 @@ describe('softDeletePlugin', () => {
 		expect(
 			application.schemas.get(Disabled.className)?.definition,
 		).toHaveProperty('softDelete', false)
-		expect(Explicit.fields.isDeleted).toBeUndefined()
+		for (const schema of [Explicit, Inherited]) {
+			expect(schema.persistedFields.isDeleted).toMatchObject({
+				kind: 'boolean',
+				options: { default: false, required: true },
+			})
+			expect(schema.provenance.fields.isDeleted).toMatchObject({
+				contributionId: 'official-soft-delete-tombstone',
+				owner: {
+					kind: 'plugin',
+					pluginId: '@ultimabase/soft-delete-plugin',
+				},
+			})
+			expect(
+				readFieldTypegenState(schema.persistedFields.isDeleted!),
+			).toMatchObject({
+				create: 'forbidden',
+				object: 'required',
+				update: 'forbidden',
+			})
+			const plans = compileValidationPlans(schema)
+			expect(plans.create.fields.isDeleted?.presence).toBe('forbidden')
+			expect(plans.update.fields.isDeleted?.presence).toBe('forbidden')
+		}
+		expect(Disabled.fields.isDeleted).toBeUndefined()
 		await application.dispose()
+	})
+
+	it('rejects an enabled schema tombstone collision deterministically', async () => {
+		const Document = Schema.define({
+			className: 'SoftDeleteCollisionDocument',
+			fields: (field) => ({
+				isDeleted: field.boolean({ default: false, required: true }),
+			}),
+			softDelete: 'explicit',
+		} as SchemaOptions<'SoftDeleteCollisionDocument'> & {
+			readonly softDelete: SoftDeleteSchemaOption
+		})
+		const application = new FrameworkApplication({
+			pluginPrivileges: { logger: false },
+			plugins: [softDeletePlugin()],
+			schemas: [Document],
+		})
+
+		await expect(application.initialize()).rejects.toThrow(
+			'Duplicate schema field: SoftDeleteCollisionDocument.isDeleted',
+		)
 	})
 
 	it('rejects stale invalid schema values before setup effects', async () => {

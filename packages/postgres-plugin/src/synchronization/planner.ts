@@ -268,7 +268,6 @@ const planExistingTable = (
 	const liveColumns = new Map(
 		live.columns.map((column) => [column.name, column]),
 	)
-	const consumedNames = new Set<string>()
 
 	changes.push(...planForeignKeyDrops(desired, live))
 
@@ -289,7 +288,6 @@ const planExistingTable = (
 					table: desired.name,
 					to: column.name,
 				})
-				consumedNames.add(column.renamedFrom)
 			}
 		}
 
@@ -298,23 +296,12 @@ const planExistingTable = (
 			continue
 		}
 
-		consumedNames.add(current.name)
 		changes.push(...planColumnChanges(desired.name, column, current))
 	}
 
 	// Indexes are removed before columns so PostgreSQL never sees stale dependencies.
 	changes.push(...planIndexes(desired, live))
 	changes.push(...planPrimaryKey(desired, live))
-
-	for (const column of live.columns) {
-		if (!consumedNames.has(column.name)) {
-			changes.push({
-				column: column.name,
-				kind: 'drop-column',
-				table: desired.name,
-			})
-		}
-	}
 
 	return changes
 }

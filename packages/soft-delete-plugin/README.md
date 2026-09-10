@@ -2,11 +2,11 @@
 
 Official soft-delete support for UltimaBase application schemas.
 
-This pre-release package currently establishes the immutable configuration and
-direct schema-option contract. The tombstone, protected visibility, persistence
-rewrites, explicit mutation, and Master administration are delivered by the
-following milestone issues; no incomplete Runtime behavior is installed by this
-package contract alone.
+The package establishes the immutable configuration and direct schema-option
+contract. Enabled application schemas receive the protected tombstone and
+ordinary operations see only active rows. Persistence rewrites, the explicit
+mutation, and Master administration are delivered by the following milestone
+issues.
 
 ```ts
 import { Schema, UltimaBase } from '@ultimabase/core'
@@ -55,12 +55,20 @@ the official Access, Hooks, REST, GraphQL, Yoga, PostgreSQL, or audit plugins.
 When installed, those products discover the generic compiled mutation surface
 instead of receiving a soft-delete-specific integration.
 
-Enabled schemas will own the fixed stored boolean `isDeleted`, defaulting to
+Enabled schemas own the fixed stored boolean `isDeleted`, defaulting to
 `false`. Caller-controlled create, update, nested-write, REST, and GraphQL input
 cannot write it. A protected monotonic constraint hides tombstoned items from
 ordinary reads and mutation targets even without Access or Hooks. Restore and
 purge remain audited Master-only schema commands and never become REST or
 GraphQL endpoints.
+
+The same private `isDeleted = false` predicate applies to singular and
+collection reads, counts, existence checks, pointer and relation traversal,
+eager targets, and ordinary update/delete target lookup. It is kept outside the
+developer query AST, composed with PostgreSQL through the generic row-filter
+contract, and remains enforced for Master requests. Selecting `isDeleted` is
+allowed so mutation results can later expose the resulting state; setting it in
+caller input is not.
 
 ## V1 exclusions
 

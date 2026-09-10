@@ -12,7 +12,10 @@ import { snapshotJsonValue } from '../schema/fields/builtins/json.js'
 
 import type { GenericField } from '../schema/fields/base/contract.js'
 
-import { assertFieldDefinition } from '../schema/fields/base/definition.js'
+import {
+	assertFieldDefinition,
+	forbidFieldMutationInput,
+} from '../schema/fields/base/definition.js'
 
 import type { SchemaIndexDefinition } from '../schema/schema/indexes.js'
 
@@ -28,6 +31,7 @@ import { assertKnownKeys } from './schema-option-definitions.js'
 
 import {
 	type AddSchemaFieldOperation,
+	type AddSchemaFieldOptions,
 	type AddSchemaIndexOperation,
 	type ExistingSchemaContributionTarget,
 	type RemoveSchemaFieldOperation,
@@ -43,17 +47,34 @@ import {
 } from './schema-patch-contracts.js'
 
 export const addSchemaField = (
-	options: Omit<AddSchemaFieldOperation, 'kind'>,
+	options: AddSchemaFieldOptions,
 ): AddSchemaFieldOperation => {
 	if (!isPlainRecord(options)) {
 		throw new TypeError('Schema field addition must be a plain object')
 	}
+	assertKnownKeys(
+		options,
+		new Set(['contributionId', 'field', 'mutationInput', 'name']),
+		'Schema field addition',
+	)
 
 	assertNonEmptyString(options.contributionId, 'Schema field contributionId')
 	assertNonEmptyString(options.name, 'Schema field name')
 	assertFieldDefinition(options.field, `Schema field ${options.name}`)
+	const mutationInput: unknown = options.mutationInput
+	if (mutationInput !== undefined && mutationInput !== 'forbidden') {
+		throw new TypeError('Schema field mutationInput must be forbidden')
+	}
 
-	const operation = immutableRecord({ ...options, kind: 'field:add' as const })
+	const operation = immutableRecord({
+		contributionId: options.contributionId,
+		field:
+			mutationInput === 'forbidden'
+				? forbidFieldMutationInput(options.field)
+				: options.field,
+		kind: 'field:add' as const,
+		name: options.name,
+	})
 	schemaPatchOperations.add(operation)
 
 	return operation

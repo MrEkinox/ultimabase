@@ -1974,6 +1974,14 @@ explicitly defer its required create value until `resolveInput`; the normal
 revalidation boundary still requires that value before installed policies and
 persistence.
 
+An additive patch may set `mutationInput: 'forbidden'` when the contributing
+plugin alone owns every write to a stored field. The field remains selectable
+and participates in persistence, filtering, migration intent, and output
+validation, while Core omits it from create, update, bulk, upsert, nested,
+Typegen, and transport mutation inputs. Defaults still materialize on create,
+and plugin-owned schema-mutation effects may write the field through their
+separate provenance-checked effect boundary.
+
 Portable plugin scalars may additionally declare a private, versioned JSON
 storage codec through `definePluginField()`. Core validates and snapshots both
 codec directions without placing executable functions in field metadata.

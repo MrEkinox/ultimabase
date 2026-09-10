@@ -1,7 +1,10 @@
 import { immutableRecord } from '@ultimabase/shared'
 
 import type { GenericField } from '../fields/base/contract.js'
-import { isFieldRequiredDeferred } from '../fields/base/definition.js'
+import {
+	hasForbiddenMutationInput,
+	isFieldRequiredDeferred,
+} from '../fields/base/definition.js'
 import {
 	getFieldListDepth,
 	isFieldNullable,
@@ -35,6 +38,7 @@ const readPresence = (
 ): ValidationPresence => {
 	// Relation collections are addressed through handles and never cross row inputs.
 	if (field.kind === 'relation') return 'forbidden'
+	if (hasForbiddenMutationInput(field)) return 'forbidden'
 
 	const options = field.options
 	const generated = 'generatedOn' in options

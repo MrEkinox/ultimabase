@@ -69,6 +69,15 @@ export interface AddSchemaFieldOperation {
 	readonly name: string
 }
 
+/** Configures one plugin-contributed field before it enters the schema graph. */
+export interface AddSchemaFieldOptions extends Omit<
+	AddSchemaFieldOperation,
+	'kind'
+> {
+	/** Keeps the stored field selectable while rejecting every caller mutation input. */
+	readonly mutationInput?: 'forbidden'
+}
+
 export interface AddSchemaIndexOperation {
 	readonly contributionId: string
 	readonly index: SchemaIndexOptions

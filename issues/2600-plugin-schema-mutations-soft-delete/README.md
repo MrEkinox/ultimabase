@@ -18,7 +18,7 @@ generic foundation to deliver the first supported official soft-delete plugin.
 7. [x] [2607 — Expose schema mutations through GraphQL](2607-schema-mutation-graphql.md)
 8. [x] [2615 — Select absent direct schema options](2615-schema-option-absence-selector.md)
 9. [x] [2608 — Create the official soft-delete package](2608-soft-delete-package-contract.md)
-10. [ ] [2609 — Enforce tombstone visibility and writes](2609-soft-delete-visibility.md)
+10. [x] [2609 — Enforce tombstone visibility and writes](2609-soft-delete-visibility.md)
 11. [ ] [2610 — Implement replace-delete mode](2610-soft-delete-replace-mode.md)
 12. [ ] [2611 — Implement explicit soft delete](2611-soft-delete-explicit-mode.md)
 13. [ ] [2612 — Add restore and purge commands](2612-soft-delete-administration.md)

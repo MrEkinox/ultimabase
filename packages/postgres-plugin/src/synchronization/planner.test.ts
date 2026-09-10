@@ -178,7 +178,7 @@ describe('PostgreSQL schema change planner', () => {
 		})
 	})
 
-	it('plans add, change, rename, and drop operations deterministically', () => {
+	it('plans additive changes without inferring destructive column removal', () => {
 		const changes = planPostgresSchemaChanges([desired], live)
 
 		expect(changes.map(({ kind }) => kind)).toStrictEqual([
@@ -189,8 +189,13 @@ describe('PostgreSQL schema change planner', () => {
 			'add-column',
 			'drop-index',
 			'create-index',
-			'drop-column',
 		])
+		expect(
+			changes.some(
+				(change) =>
+					change.kind === 'drop-column' && change.column === 'obsolete',
+			),
+		).toBe(false)
 		expect(changes[0]).toStrictEqual({
 			from: 'headline',
 			kind: 'rename-column',

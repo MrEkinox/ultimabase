@@ -185,6 +185,7 @@ test('types schema declarations from exact active privileges', () => {
 					addSchemaField({
 						contributionId: 'state',
 						field: stringField(),
+						mutationInput: 'forbidden',
 						name: 'state',
 					}),
 					addSchemaIndex({

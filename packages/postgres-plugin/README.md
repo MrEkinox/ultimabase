@@ -549,8 +549,11 @@ catalog.
 
 Use `fail` to inspect and reject any drift without mutation, or `ignore` to
 skip structural inspection entirely. Direct synchronization preserves tables
-outside the current application catalog because it has no migration history
-with which to prove ownership. Unsupported structures on a managed table stop
+outside the current application catalog and unmatched columns inside managed
+tables because it has no migration history with which to prove ownership.
+Physical removal therefore requires an explicit migration; deleting an
+application field or uninstalling its contributing plugin never infers a
+destructive `DROP COLUMN`. Unsupported structures on a managed table stop
 `override` before its transaction rather than being approximated.
 
 Renames are explicit direct field options and preserve existing column data:

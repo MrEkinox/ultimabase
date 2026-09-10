@@ -5,12 +5,14 @@ import {
 	addSchemaField,
 	addSchemaIndex,
 	createApplication,
+	compileValidationPlans,
 	definePlugin,
 	defineSchemaOption,
 	removeSchemaFieldOption,
 	removeSchemaIndex,
 	removeSchemaOption,
 	replaceSchemaIndex,
+	readFieldTypegenState,
 	pointerField,
 	setSchemaFieldOption,
 	setSchemaOption,
@@ -26,6 +28,54 @@ import {
 } from '../../tests/plugins/schema-declarations.fixtures.js'
 
 describe('plugin schema declaration registry', () => {
+	it('lets a plugin contribute selectable stored fields outside mutation inputs', async () => {
+		const Document = Schema.define({
+			className: 'PluginManagedFieldDocument',
+			fields: (field) => ({ title: field.string() }),
+		})
+		const plugin = definePlugin({
+			core: '^0.0.0',
+			pluginId: 'fixture.plugin-managed-field',
+			privileges: [
+				{
+					name: 'schema:declare',
+					reason: 'Adds one plugin-managed stored field.',
+				},
+			] as const,
+			version: '1.0.0',
+			declare: ({ schemas }) => {
+				schemas.patch({
+					operations: [
+						addSchemaField({
+							contributionId: 'managed-state',
+							field: stringField({ default: 'ready', required: true }),
+							mutationInput: 'forbidden',
+							name: 'managedState',
+						}),
+					],
+					targets: schemas.select({ className: Document.className }),
+				})
+			},
+		})
+
+		await createApplication({ plugins: [plugin], schemas: [Document] })
+
+		const managedState = Document.persistedFields.managedState
+		if (managedState === undefined) {
+			throw new TypeError('Expected the plugin-managed field')
+		}
+		expect(readFieldTypegenState(managedState)).toEqual({
+			create: 'forbidden',
+			list: false,
+			nullable: false,
+			object: 'required',
+			update: 'forbidden',
+		})
+		const plans = compileValidationPlans(Document)
+		expect(plans.create.fields.managedState?.presence).toBe('forbidden')
+		expect(plans.update.fields.managedState?.presence).toBe('forbidden')
+	})
+
 	it('requires declaration authority for additions and rejects duplicate additions', async () => {
 		const Post = Schema.define({
 			className: 'AdditionPrivilegePost',

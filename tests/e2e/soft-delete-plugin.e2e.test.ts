@@ -17,7 +17,9 @@ it('compiles the packed soft-delete option from JavaScript without Typegen', asy
 	expect(output).toStrictEqual({
 		defaultMode: 'replace-delete',
 		explicitMode: 'explicit',
+		explicitTombstone: { default: false, required: true },
 		omissionPreserved: true,
+		omittedTombstoneOwner: '@ultimabase/soft-delete-plugin',
 		owner: {
 			kind: 'plugin',
 			pluginId: '@ultimabase/soft-delete-plugin',

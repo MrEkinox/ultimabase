@@ -43,6 +43,7 @@ export type {
 export type {
 	AddSchemaConstraintOperation,
 	AddSchemaFieldOperation,
+	AddSchemaFieldOptions,
 	AddSchemaIndexOperation,
 	ExistingSchemaContributionTarget,
 	RemoveSchemaConstraintOperation,

@@ -204,7 +204,8 @@ declare: ({ schemas }) => {
 				.addField({
 					contributionId: 'workflow-state',
 					name: 'workflowState',
-					field: stringField(),
+					field: stringField({ default: 'pending', required: true }),
+					mutationInput: 'forbidden',
 				})
 				.addIndex({
 					contributionId: 'workflow-state-index',
@@ -220,7 +221,10 @@ plugin-owned schema or field option values. These operations require the same
 `schema:declare` or `schema:transform` privileges that Core would require
 without the helper. Replacement, rename, removal, and exact cross-owner targets
 stay in Core's explicit factories because their provenance checks should remain
-visible at the call site.
+visible at the call site. `mutationInput: 'forbidden'` reserves an added stored
+field for plugin-owned effects while keeping it selectable and physically
+persisted; Core applies the same omission to Runtime validation, Typegen,
+nested writes, and transport inputs.
 
 Presence selection never reads the direct option value, so the same ordinary
 patch builder works for JSON configuration and opaque callback-bearing options.
