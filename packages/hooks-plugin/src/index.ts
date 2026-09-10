@@ -12,7 +12,6 @@ export type {
 	SchemaAfterDeleteHook,
 	SchemaAfterHook,
 	SchemaAfterMutationHookInput,
-	SchemaAfterOperationHooks,
 	SchemaAfterUpdateHook,
 	SchemaAfterUpsertHook,
 	SchemaBeforeCreateHook,
@@ -21,7 +20,6 @@ export type {
 	SchemaBeforeMutationHook,
 	SchemaBeforeMutationHookInput,
 	SchemaBeforeOperationHookKind,
-	SchemaBeforeOperationHooks,
 	SchemaBeforeUpdateHook,
 	SchemaCreateHookKind,
 	SchemaDeleteHookKind,
@@ -40,6 +38,15 @@ export type {
 	SchemaUpdateHookKind,
 	SchemaUpsertHookKind,
 } from './authoring/contracts.js'
+export type {
+	SchemaAfterOperationHooks,
+	SchemaBeforeOperationHooks,
+	SchemaMutationAfterHook,
+	SchemaMutationAfterHookInput,
+	SchemaMutationBeforeHook,
+	SchemaMutationBeforeHookInput,
+	SchemaMutationHookIdentity,
+} from './authoring/schema-mutation-contracts.js'
 export type {
 	FieldCreateHookKind,
 	FieldHookDeclaration,
@@ -81,6 +88,7 @@ export type {
 	HookContextIdentity,
 	HookContextOwner,
 	HookContextTarget,
+	HookOperationKind,
 } from './context/hook-context.js'
 export {
 	fieldHooks,

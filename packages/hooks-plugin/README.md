@@ -100,6 +100,60 @@ The packed PostgreSQL lifecycle is exercised by the
 [`hooks-plugin-postgres.postgres.e2e.test.ts`](../../tests/e2e/hooks-plugin-postgres.postgres.e2e.test.ts)
 public-package suite.
 
+## Plugin-owned schema mutations
+
+Typegen adds every application-specific schema mutation to the same grouped
+`beforeOperation` and `afterOperation` lifecycle. Both request and Master-only
+commands are present because trusted maintenance operations still retain
+business Hooks:
+
+```ts
+import { Schema, UltimaBase } from '@ultimabase/core'
+import { hooksPlugin } from '@ultimabase/hooks-plugin'
+
+const Post = Schema.define({
+	className: 'Post',
+	fields: (field) => ({ title: field.string() }),
+	hooks: {
+		beforeOperation: {
+			softDelete: ({ context, input, item, originalItem, target }) => {
+				console.log(context.requestId, input, target.id)
+				console.log(originalItem, item)
+			},
+		},
+		afterOperation: {
+			softDelete: ({ item, mutation }) => {
+				console.log(mutation.name, item)
+			},
+		},
+	},
+})
+
+const ultimabase = new UltimaBase({
+	schemas: [Post],
+	plugins: [hooksPlugin()],
+})
+```
+
+The callback input and target are immutable. Before Hooks receive the validated
+payload, locked preimage, and owner-resolved candidate. After Hooks receive the
+adapter-validated persisted pair before commit. Delete effects expose `item` as
+`null`. These callbacks may observe, reject, start transaction-inheriting
+queries, or emit post-commit events; returning a value never replaces the
+payload, effect, result, or persistence plan.
+
+Dispatch uses the custom logical command, never its physical statement. A
+`softDelete` implemented by `update-one` therefore runs only
+`beforeOperation.softDelete` and `afterOperation.softDelete`; it does not run
+native update or delete Hooks. JavaScript declarations are validated against
+the same final application mutation catalog during startup, so stale command
+keys fail before Runtime work begins.
+
+Compatible providers use the existing `schemaHooks()` and
+`provideHookContributions()` factories. Their callbacks retain the provider's
+own plugin identity and `runtime:intercept` privilege; the Hooks engine does not
+lend the mutation owner's privileges.
+
 Field `resolveInput` receives a structurally valid immutable value after Core's
 initial type and presence checks. It may explicitly normalize that value. Once
 all field, schema, and prepared-operation transformations finish, Core runs one

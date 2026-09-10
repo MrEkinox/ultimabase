@@ -1,6 +1,8 @@
 import {
+	applicationSchemaMutationSurfaceCapability,
 	optionalCapability,
 	provideRuntimeBehavior,
+	requireCapability,
 	type CapabilityProviderDeclaration,
 	type CapabilityRequirement,
 	type runtimeBehaviorCapability,
@@ -57,6 +59,14 @@ const optionalHookDiagnostics: CapabilityRequirement<
 	'^1.0.0',
 	'materialization'
 > = optionalCapability(hookDiagnosticsObserverCapability, '^1.0.0')
+const schemaMutationSurfaceRequirement: CapabilityRequirement<
+	typeof applicationSchemaMutationSurfaceCapability,
+	false,
+	'^1.0.0',
+	'materialization'
+> = requireCapability(applicationSchemaMutationSurfaceCapability, '^1.0.0', {
+	phase: 'materialization',
+})
 
 const hooksRuntimeProvider: CapabilityProviderDeclaration<
 	typeof runtimeBehaviorCapability
@@ -94,7 +104,11 @@ const hooksRuntimeProvider: CapabilityProviderDeclaration<
 		const observer: HookDiagnosticsObserver | undefined = capabilities.get(
 			optionalHookDiagnostics,
 		)
-		const plan = compileHookContributionPlan(schemas, contributions)
+		const plan = compileHookContributionPlan(
+			schemas,
+			contributions,
+			capabilities.get(schemaMutationSurfaceRequirement),
+		)
 		const runtime = new HookExecutionRuntime(
 			observer,
 			immutableArray(eventHandlers),
@@ -122,6 +136,7 @@ const hooksPluginCapabilities: Readonly<{
 		typeof optionalHookDiagnostics,
 	]
 	readonly provides: readonly [typeof hooksRuntimeProvider]
+	readonly requires: readonly [typeof schemaMutationSurfaceRequirement]
 }> = {
 	optional: [
 		optionalHookContributions,
@@ -129,6 +144,7 @@ const hooksPluginCapabilities: Readonly<{
 		optionalHookDiagnostics,
 	],
 	provides: [hooksRuntimeProvider],
+	requires: [schemaMutationSurfaceRequirement],
 } as const
 type HooksPluginDefinition = Readonly<{
 	readonly capabilities: typeof hooksPluginCapabilities

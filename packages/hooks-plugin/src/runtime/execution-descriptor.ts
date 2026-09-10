@@ -1,7 +1,7 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
-import type { OperationKind } from '@ultimabase/core'
 import type { ErasedHookHandler } from '../authoring/normalization.js'
+import type { HookOperationKind } from '../context/hook-context.js'
 import type {
 	HookDiagnosticOwner,
 	HookDiagnosticPhase,
@@ -14,7 +14,7 @@ export interface HookExecutionDescriptor {
 	readonly identity: Readonly<{
 		readonly declarationBranch: string
 		readonly handlerIndex: number
-		readonly operationKind: OperationKind
+		readonly operationKind: HookOperationKind
 		readonly owner: HookDiagnosticOwner
 		readonly phase: HookDiagnosticPhase
 		readonly target: HookDiagnosticTarget
@@ -26,7 +26,7 @@ interface CreateHookExecutionDescriptorOptions {
 	readonly declarationBranch?: string
 	readonly handler: ErasedHookHandler
 	readonly handlerIndex: number
-	readonly operationKind: OperationKind
+	readonly operationKind: HookOperationKind
 	readonly owner: HookDiagnosticOwner
 	readonly phase: HookDiagnosticPhase
 	readonly target: HookDiagnosticTarget

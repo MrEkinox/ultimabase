@@ -43,6 +43,9 @@ export type HookContextTarget =
 	  }>
 	| Readonly<{ readonly kind: 'global' }>
 
+/** Identifies native terminals and the generic plugin-owned schema mutation path. */
+export type HookOperationKind = OperationKind | 'plugin-schema-mutation'
+
 /** Describes the exact declaration occurrence currently being executed. */
 export interface HookContextIdentity {
 	/** Identifies the direct or family branch containing the callback. */
@@ -50,7 +53,7 @@ export interface HookContextIdentity {
 	/** Gives the callback position within its original declaration branch. */
 	readonly handlerIndex: number
 	/** Identifies the terminal operation that reached the callback. */
-	readonly operationKind: OperationKind
+	readonly operationKind: HookOperationKind
 	/** Identifies whether application code or one plugin owns the declaration. */
 	readonly owner: HookContextOwner
 	/** Identifies the lifecycle phase without exposing the callback. */

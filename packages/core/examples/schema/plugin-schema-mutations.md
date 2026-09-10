@@ -156,5 +156,35 @@ const securedApplication = new UltimaBase({
 ```
 
 The `archive` branch remains independent from native update and delete policy.
-Core owns only the generic immutable catalog and never imports or installs the
-official Access engine.
+The same identity is available to the optional official Hooks engine:
+
+```ts
+import { hooksPlugin } from '@ultimabase/hooks-plugin'
+
+const ObservedPost = Schema.define({
+	className: 'Post',
+	fields: (field) => ({ title: field.string({ required: true }) }),
+	hooks: {
+		beforeOperation: {
+			archive: ({ input, originalItem, item }) => {
+				console.log(input.reason, originalItem, item)
+			},
+		},
+		afterOperation: {
+			archive: ({ context, item }) => {
+				context.emit('post.archived', { id: item.id })
+			},
+		},
+	},
+})
+
+const observedApplication = new UltimaBase({
+	plugins: [hooksPlugin()],
+	schemas: [ObservedPost],
+})
+```
+
+Custom before and after callbacks retain the root transaction and run for
+Master-only mutations too. A physical update or delete never manufactures the
+corresponding native Hook branch. Core owns only the generic immutable catalog
+and never imports or installs either official engine.

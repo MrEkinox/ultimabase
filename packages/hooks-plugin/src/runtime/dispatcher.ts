@@ -14,6 +14,11 @@ import type { HookExecutionRuntime } from './execution-runtime.js'
 import { resolveFieldInputs } from './input-resolution.js'
 import { getNativeHookPhaseOrder } from './phase-order.js'
 import {
+	isSchemaMutationHookRequest,
+	runSchemaMutationAfterHooks,
+	runSchemaMutationBeforeHooks,
+} from './schema-mutation-phases.js'
+import {
 	runSchemaPreparedPhases,
 	runSchemaResultPhases,
 	runSchemaTransformPhases,
@@ -68,17 +73,27 @@ export const createHookBehavior = (
 ): RuntimeBehaviorStages => {
 	const boundaries = createRuntimeBehaviorBoundaries()
 	return immutableRecord({
+		beforeOperation: (input) =>
+			isSchemaMutationHookRequest(input)
+				? runSchemaMutationBeforeHooks(plan, runtime, input)
+				: undefined,
 		transformMutationOutcome: (input) =>
-			boundaries.snapshotMutationOutcome(
-				input.operation,
-				input.outcome,
-				input.selectedFieldsOverride,
-			),
+			isSchemaMutationHookRequest(input)
+				? input.outcome
+				: boundaries.snapshotMutationOutcome(
+						input.operation,
+						input.outcome,
+						input.selectedFieldsOverride,
+					),
 		transformInput: (input) => resolveInput(plan, runtime, input),
 		transformResult: (input) =>
-			runSchemaResultPhases(boundaries, plan, runtime, input),
+			isSchemaMutationHookRequest(input)
+				? runSchemaMutationAfterHooks(plan, runtime, input)
+				: runSchemaResultPhases(boundaries, plan, runtime, input),
 		observePreparedMutation: (input) =>
-			runSchemaPreparedPhases(plan, runtime, input),
+			isSchemaMutationHookRequest(input)
+				? undefined
+				: runSchemaPreparedPhases(plan, runtime, input),
 		transformPreparedInput: (input) =>
 			resolveSchemaInput(boundaries, plan, runtime, input),
 	})

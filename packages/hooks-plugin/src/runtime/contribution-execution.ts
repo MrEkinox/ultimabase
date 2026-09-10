@@ -3,17 +3,19 @@ import { immutableArray, immutableRecord } from '@ultimabase/shared'
 import {
 	getHookHandlerEntries,
 	type NormalizedHookDeclarations,
+	type NormalizedHookHandler,
 } from '../authoring/normalization.js'
+import type { SchemaHookDeclarations } from '../authoring/declarations.js'
 import {
 	getOperationSchema,
 	Schema,
 	type DatabaseOperationAst,
-	type OperationKind,
 	type NestedWriteGraph,
 	type RequestContext,
 	type SchemaDefinition,
 } from '@ultimabase/core'
 import type { HookContext } from '../context/hook-context.js'
+import type { HookOperationKind } from '../context/hook-context.js'
 import type { SchemaMutationKind } from '../authoring/contracts.js'
 import type {
 	HookContribution,
@@ -50,7 +52,7 @@ const collectContributionHandlers = <TPhase extends string>(
 		NormalizedHookDeclarations<TPhase>
 	>[],
 	phase: TPhase,
-	operationKind: OperationKind,
+	operationKind: HookOperationKind,
 	target: HookDiagnosticTarget,
 	family?: string,
 ): readonly HookExecutionDescriptor[] => {
@@ -98,7 +100,7 @@ export const collectNestedHookHandlers = <TPhase extends string>(
 	nesting: HookContributionNesting<NormalizedHookDeclarations<TPhase>>,
 	direction: 'after' | 'before',
 	phase: TPhase,
-	operationKind: OperationKind,
+	operationKind: HookOperationKind,
 	target: HookDiagnosticTarget,
 	family?: string,
 ): readonly HookExecutionDescriptor[] =>
@@ -108,6 +110,42 @@ export const collectNestedHookHandlers = <TPhase extends string>(
 		operationKind,
 		target,
 		family,
+	)
+
+/** Collects one exact application-specific branch without selecting a native family. */
+export const collectSchemaMutationHookHandlers = (
+	nesting: HookContributionNesting<SchemaHookDeclarations>,
+	direction: 'after' | 'before',
+	phase: 'afterOperation' | 'beforeOperation',
+	command: string,
+	target: HookDiagnosticTarget,
+): readonly HookExecutionDescriptor[] =>
+	immutableArray(
+		nesting[direction].flatMap((contribution) => {
+			const entries: readonly NormalizedHookHandler[] =
+				contribution.declarations.mutations?.[command]?.[phase]?.all ??
+				immutableArray([])
+			const owner =
+				contribution.kind === 'developer'
+					? applicationHookOwner
+					: createPluginHookOwner(
+							contribution.ownerPlugin,
+							contribution.localName,
+							contribution.ownerInstanceId,
+						)
+
+			return entries.map(({ handler, handlerIndex }) =>
+				createHookExecutionDescriptor({
+					declarationBranch: command,
+					handler,
+					handlerIndex,
+					operationKind: 'plugin-schema-mutation',
+					owner,
+					phase,
+					target,
+				}),
+			)
+		}),
 	)
 
 /** Invokes a callback through the single application-owned safety boundary. */

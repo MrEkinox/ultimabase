@@ -1,4 +1,6 @@
 import type {
+	ApplicationSchemaMutationDescriptor,
+	ApplicationSchemaMutationSurface,
 	CompiledSchemaRegistry,
 	GenericField,
 	SchemaContributionOwner,
@@ -51,6 +53,10 @@ export interface SchemaHookContributionPlan {
 	readonly fieldsAfter: readonly FieldHookContributionPlan[]
 	readonly fieldsBefore: readonly FieldHookContributionPlan[]
 	readonly schema: SchemaDefinition
+	readonly schemaMutations: ReadonlyMap<
+		string,
+		ApplicationSchemaMutationDescriptor
+	>
 }
 
 export interface HookContributionPlan {
@@ -74,6 +80,10 @@ interface MutableSchemaPlan {
 	readonly fieldsByPath: ReadonlyMap<string, MutableFieldPlan>
 	readonly plugins: PluginHookContribution<SchemaHookDeclarations>[]
 	readonly schema: SchemaDefinition
+	readonly schemaMutations: ReadonlyMap<
+		string,
+		ApplicationSchemaMutationDescriptor
+	>
 }
 
 interface SchemaPlanLookup {
@@ -184,6 +194,7 @@ const createContributionNesting = <TDeclarations extends object>(
 
 const createMutableSchemaPlan = (
 	schema: SchemaDefinition,
+	mutationDescriptors: readonly ApplicationSchemaMutationDescriptor[] = [],
 ): MutableSchemaPlan => {
 	const fields = Object.entries(schema.fields).flatMap(([name, field]) => {
 		const owner =
@@ -206,6 +217,29 @@ const createMutableSchemaPlan = (
 		),
 		plugins: [],
 		schema,
+		schemaMutations: new Map(
+			mutationDescriptors.map((descriptor) => [descriptor.command, descriptor]),
+		),
+	}
+}
+
+const assertKnownSchemaMutationHooks = (
+	contribution: HookContribution<SchemaHookDeclarations>,
+	schema: SchemaDefinition,
+	mutations: ReadonlyMap<string, ApplicationSchemaMutationDescriptor>,
+): void => {
+	for (const [command, declarations] of Object.entries(
+		contribution.declarations.mutations ?? {},
+	)) {
+		if (mutations.has(command)) continue
+
+		const group =
+			declarations.beforeOperation === undefined
+				? 'afterOperation'
+				: 'beforeOperation'
+		throw new TypeError(
+			`Unknown schema mutation Hook branch: ${schema.className}.hooks.${group}.${command}`,
+		)
 	}
 }
 
@@ -281,14 +315,23 @@ const finalizeSchemaPlan = (draft: MutableSchemaPlan): SchemaPlanLookup => {
 			`${draft.schema.className}.hooks`,
 		)
 	}
+	const nesting = createContributionNesting(draft.plugins, developer)
+	for (const contribution of nesting.before) {
+		assertKnownSchemaMutationHooks(
+			contribution,
+			draft.schema,
+			draft.schemaMutations,
+		)
+	}
 
 	return {
 		fieldsByPath,
 		plan: immutableRecord({
-			contributions: createContributionNesting(draft.plugins, developer),
+			contributions: nesting,
 			fieldsAfter: immutableArray(fieldsBefore.toReversed()),
 			fieldsBefore,
 			schema: draft.schema,
+			schemaMutations: draft.schemaMutations,
 		}),
 	}
 }
@@ -297,8 +340,13 @@ const finalizeSchemaPlan = (draft: MutableSchemaPlan): SchemaPlanLookup => {
 export const compileHookContributionPlan = (
 	schemas: CompiledSchemaRegistry,
 	contributions: readonly OwnedHookContribution[],
+	mutationSurface?: ApplicationSchemaMutationSurface,
 ): HookContributionPlan => {
-	const drafts = schemas.values().map(createMutableSchemaPlan)
+	const drafts = schemas
+		.values()
+		.map((schema) =>
+			createMutableSchemaPlan(schema, mutationSurface?.get(schema)),
+		)
 	applyPluginContributions(drafts, contributions)
 	const lookups = drafts.map(finalizeSchemaPlan)
 	const bySchema = new Map(

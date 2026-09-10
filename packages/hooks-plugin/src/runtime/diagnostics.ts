@@ -1,7 +1,6 @@
 import {
 	defineCapability,
 	type FrameworkErrorCode,
-	type OperationKind,
 	type CapabilityToken,
 } from '@ultimabase/core'
 import type { FieldHookPhase } from '../authoring/field-declarations.js'
@@ -9,6 +8,7 @@ import type { SchemaHookPhase } from '../authoring/declarations.js'
 import type {
 	HookContextOwner,
 	HookContextTarget,
+	HookOperationKind,
 } from '../context/hook-context.js'
 import type { MaybePromise } from '@ultimabase/shared'
 
@@ -22,6 +22,7 @@ export type HookDiagnosticTarget = HookContextTarget
 export type HookDiagnosticPhase =
 	| FieldHookPhase
 	| SchemaHookPhase
+	| 'afterOperation'
 	| 'after-operation'
 	| 'access-field-read'
 	| 'access-field-write'
@@ -29,6 +30,7 @@ export type HookDiagnosticPhase =
 	| 'access-item'
 	| 'access-operation'
 	| 'before-operation'
+	| 'beforeOperation'
 	| 'constraint'
 	| 'guard'
 	| 'event'
@@ -47,7 +49,7 @@ export interface HookDiagnosticEvent {
 	/** Correlates transaction-bound hooks and remains absent for standalone reads. */
 	readonly transactionId: string | undefined
 	/** Identifies the terminal operation observed by this hook invocation. */
-	readonly operationKind: OperationKind
+	readonly operationKind: HookOperationKind
 	/** Identifies the hook lifecycle phase without exposing its callback. */
 	readonly phase: HookDiagnosticPhase
 	/** Identifies application or plugin ownership using static names only. */

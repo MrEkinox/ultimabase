@@ -15,6 +15,10 @@ import type {
 	UpdateExpression,
 } from '@ultimabase/core'
 import type { HookContext } from '../context/hook-context.js'
+import type {
+	SchemaAfterOperationHooks,
+	SchemaBeforeOperationHooks,
+} from './schema-mutation-contracts.js'
 
 /** Groups the terminal kinds that create persisted objects. */
 export type SchemaCreateHookKind = 'create-many' | 'create-one'
@@ -351,31 +355,6 @@ export type SchemaResolveInputHookDeclaration<
 			SchemaResolveHook<TSchema, 'update-one'>,
 			SchemaResolveHook<TSchema, 'upsert-one'>
 	  >
-
-/** Declares one exact phase handler or a non-empty ordered handler list. */
-type SchemaExactHookDeclaration<THandler> = HookHandlerDeclaration<THandler>
-
-/** Groups mutation observers that run after reliable preparation and before persistence. */
-export interface SchemaBeforeOperationHooks<TSchema extends SchemaDefinition> {
-	/** Runs before create persistence with `context`, `kind: "create"`, and `item`. */
-	readonly create?: SchemaExactHookDeclaration<SchemaBeforeCreateHook<TSchema>>
-	/** Runs before update persistence after target preparation. */
-	readonly update?: SchemaExactHookDeclaration<SchemaBeforeUpdateHook<TSchema>>
-	/** Runs before delete persistence after target preparation. */
-	readonly delete?: SchemaExactHookDeclaration<SchemaBeforeDeleteHook<TSchema>>
-}
-
-/** Groups mutation observers that run after persistence and before commit. */
-export interface SchemaAfterOperationHooks<TSchema extends SchemaDefinition> {
-	/** Runs after a create result has been materialized. */
-	readonly create?: SchemaExactHookDeclaration<SchemaAfterCreateHook<TSchema>>
-	/** Runs after an update result has been materialized. */
-	readonly update?: SchemaExactHookDeclaration<SchemaAfterUpdateHook<TSchema>>
-	/** Runs after an upsert result has been materialized. */
-	readonly upsert?: SchemaExactHookDeclaration<SchemaAfterUpsertHook<TSchema>>
-	/** Runs after a delete result has been materialized. */
-	readonly delete?: SchemaExactHookDeclaration<SchemaAfterDeleteHook<TSchema>>
-}
 
 /**
  * Declares schema-owned business behavior without requiring a plugin.

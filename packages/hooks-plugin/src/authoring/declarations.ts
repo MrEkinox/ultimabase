@@ -1,12 +1,14 @@
-import { isPlainRecord } from '@ultimabase/shared'
+import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 import type { SchemaDefinition } from '@ultimabase/core'
 import type { SchemaHooks } from './contracts.js'
 import { saveHookFamilies } from './family-keys.js'
 import {
 	normalizeHookDeclarations,
+	normalizeExactHookDeclaration,
 	type HookPhaseDescriptor,
 	type NormalizedHookDeclarations,
+	type NormalizedHookPhase,
 } from './normalization.js'
 
 /** Lists accepted phases once so runtime validation and public diagnostics cannot drift. */
@@ -47,6 +49,12 @@ const schemaHookGroups = {
 
 type SchemaHookGroup = keyof typeof schemaHookGroups
 
+/** Retains one custom logical mutation's exact observer branches. */
+export interface SchemaMutationHookDeclarations {
+	readonly afterOperation?: NormalizedHookPhase
+	readonly beforeOperation?: NormalizedHookPhase
+}
+
 const schemaHookRootKeys = new Set<string>([
 	'resolveInput',
 	...Object.keys(schemaHookGroups),
@@ -58,6 +66,9 @@ const flattenSchemaHookGroups = (
 ):
 	| Readonly<{
 			readonly hooks: Readonly<Record<string, unknown>>
+			readonly mutations: Readonly<
+				Record<string, Readonly<Partial<Record<SchemaHookGroup, unknown>>>>
+			>
 			readonly paths: Readonly<Partial<Record<SchemaHookPhase, string>>>
 	  }>
 	| undefined => {
@@ -70,6 +81,10 @@ const flattenSchemaHookGroups = (
 	}
 
 	const flattened: Partial<Record<SchemaHookPhase, unknown>> = {}
+	const mutations: Record<
+		string,
+		Partial<Record<SchemaHookGroup, unknown>>
+	> = {}
 	const paths: Partial<Record<SchemaHookPhase, string>> = {}
 
 	for (const key of Reflect.ownKeys(hooks)) {
@@ -109,7 +124,15 @@ const flattenSchemaHookGroups = (
 			}
 
 			if (!Object.hasOwn(group, branch)) {
-				throw new TypeError(`Unknown schema hook: hooks.${groupName}.${branch}`)
+				if (!/^[_A-Za-z][_0-9A-Za-z]*$/u.test(branch)) {
+					throw new TypeError(
+						`Unknown schema hook: hooks.${groupName}.${branch}`,
+					)
+				}
+				const mutation = mutations[branch] ?? {}
+				mutation[groupName] = groupValue[branch]
+				mutations[branch] = mutation
+				continue
 			}
 
 			const phase = group[branch as keyof typeof group] as SchemaHookPhase
@@ -118,11 +141,28 @@ const flattenSchemaHookGroups = (
 		}
 	}
 
-	return { hooks: flattened, paths }
+	return {
+		hooks: flattened,
+		mutations: immutableRecord(
+			Object.fromEntries(
+				Object.entries(mutations).map(([command, declarations]) => [
+					command,
+					immutableRecord(declarations),
+				]),
+			),
+		),
+		paths,
+	}
 }
 
 /** Retains only validated handlers for later internal Runtime composition. */
-export type SchemaHookDeclarations = NormalizedHookDeclarations<SchemaHookPhase>
+export type SchemaHookDeclarations =
+	NormalizedHookDeclarations<SchemaHookPhase> &
+		Readonly<{
+			readonly mutations?: Readonly<
+				Record<string, SchemaMutationHookDeclarations>
+			>
+		}>
 
 const schemaHookDeclarations = new WeakMap<object, SchemaHookDeclarations>()
 
@@ -136,12 +176,48 @@ export const normalizeSchemaHookDeclarations = (
 		return undefined
 	}
 
-	return normalizeHookDeclarations({
+	const native = normalizeHookDeclarations({
 		descriptors: schemaHookPhaseDescriptors,
 		hooks: flattened.hooks,
 		paths: flattened.paths,
 		phases: schemaHookPhases,
 		scope: 'schema',
+	})
+	const mutations: Record<string, SchemaMutationHookDeclarations> = {}
+
+	for (const [command, declarations] of Object.entries(flattened.mutations)) {
+		mutations[command] = immutableRecord({
+			...(declarations.beforeOperation === undefined
+				? {}
+				: {
+						beforeOperation: normalizeExactHookDeclaration(
+							declarations.beforeOperation,
+							`hooks.beforeOperation.${command}`,
+						),
+					}),
+			...(declarations.afterOperation === undefined
+				? {}
+				: {
+						afterOperation: normalizeExactHookDeclaration(
+							declarations.afterOperation,
+							`hooks.afterOperation.${command}`,
+						),
+					}),
+		})
+	}
+
+	const normalizedMutations =
+		Object.keys(mutations).length === 0 ? undefined : immutableRecord(mutations)
+
+	if (native === undefined && normalizedMutations === undefined) {
+		return undefined
+	}
+
+	return immutableRecord({
+		...native,
+		...(normalizedMutations === undefined
+			? {}
+			: { mutations: normalizedMutations }),
 	})
 }
 

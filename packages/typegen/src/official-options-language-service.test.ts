@@ -20,6 +20,8 @@ import { generateApplicationTypes } from './generator.js'
 const fieldOptionsMarker = '/* official-field-options */'
 const schemaOptionsMarker = '/* official-schema-options */'
 const mutationAccessMarker = '/* schema-mutation-access */'
+const mutationBeforeHookMarker = '/* schema-mutation-before-hook */'
+const mutationAfterHookMarker = '/* schema-mutation-after-hook */'
 
 it('composes installed Access, Hooks, and Validation authoring contracts', () => {
 	const Document = Schema.define({
@@ -109,7 +111,25 @@ const TypedDocument = Schema.define({
     // @ts-expect-error -- Master-only mutations are absent from request Access.
     purge: true,
   },
-  hooks: { beforeOperation: { create: ({ item }) => { void item.title } } },
+  hooks: {
+    beforeOperation: {
+      archive: ({ input, item, mutation, originalItem, target }) => {
+        void input.id
+        void item.title
+        void mutation.name
+        void originalItem.title
+        void target.id
+      },
+      create: ({ item }) => { void item.title },
+    },
+    afterOperation: {
+      purge: ({ item, mutation }) => {
+        const deleted: null = item
+        void deleted
+        void mutation.name
+      },
+    },
+  },
   fields: (field) => ({
     summary: field.string({ ${fieldOptionsMarker} }),
     title: field.string({
@@ -133,6 +153,24 @@ const StaleMutationDocument = Schema.define({
   },
   fields: (field) => ({ title: field.string() }),
 })
+const StaleMutationHookDocument = Schema.define({
+  className: 'OfficialOptionDocument',
+  fields: (field) => ({ title: field.string() }),
+  hooks: {
+    beforeOperation: {
+      // @ts-expect-error -- Stale mutation Hook aliases are rejected.
+      stale: () => undefined,
+    },
+  },
+})
+const MutationHookCompletionDocument = Schema.define({
+  className: 'OfficialOptionDocument',
+  fields: (field) => ({ title: field.string() }),
+  hooks: {
+    afterOperation: { ${mutationAfterHookMarker} },
+    beforeOperation: { ${mutationBeforeHookMarker} },
+  },
+})
 const CompletionDocument = Schema.define({
   className: 'OfficialOptionCompletion',
   ${schemaOptionsMarker}
@@ -141,15 +179,31 @@ const CompletionDocument = Schema.define({
 void CompletionDocument
 void MutationAccessCompletionDocument
 void StaleMutationDocument
+void StaleMutationHookDocument
+void MutationHookCompletionDocument
 void TypedDocument
 `
 	const fieldOptionsPosition = sourceWithMarkers.indexOf(fieldOptionsMarker)
 	const schemaOptionsPosition = sourceWithMarkers.indexOf(schemaOptionsMarker)
 	const mutationAccessPosition = sourceWithMarkers.indexOf(mutationAccessMarker)
+	const mutationBeforeHookPosition = sourceWithMarkers.indexOf(
+		mutationBeforeHookMarker,
+	)
+	const mutationAfterHookPosition = sourceWithMarkers.indexOf(
+		mutationAfterHookMarker,
+	)
 	const source = sourceWithMarkers
 		.replace(fieldOptionsMarker, ' '.repeat(fieldOptionsMarker.length))
 		.replace(schemaOptionsMarker, ' '.repeat(schemaOptionsMarker.length))
 		.replace(mutationAccessMarker, ' '.repeat(mutationAccessMarker.length))
+		.replace(
+			mutationBeforeHookMarker,
+			' '.repeat(mutationBeforeHookMarker.length),
+		)
+		.replace(
+			mutationAfterHookMarker,
+			' '.repeat(mutationAfterHookMarker.length),
+		)
 	const fileName = path.join(
 		import.meta.dirname,
 		'official-options.semantic.fixture.ts',
@@ -178,6 +232,19 @@ void TypedDocument
 	)
 	expect(completionNames(mutationAccessPosition)).not.toEqual(
 		expect.arrayContaining(['purge', 'stale']),
+	)
+	expect(completionNames(mutationBeforeHookPosition)).toEqual(
+		expect.arrayContaining(['archive', 'create', 'delete', 'purge', 'update']),
+	)
+	expect(completionNames(mutationAfterHookPosition)).toEqual(
+		expect.arrayContaining([
+			'archive',
+			'create',
+			'delete',
+			'purge',
+			'update',
+			'upsert',
+		]),
 	)
 	expect(inputQuickInfo).toContain('id: string')
 	expect(generated.contents).toContain(

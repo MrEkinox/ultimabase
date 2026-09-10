@@ -156,6 +156,12 @@ const normalizeHookPhase = (
 	})
 }
 
+/** Normalizes one exact callback branch while retaining its public diagnostic path. */
+export const normalizeExactHookDeclaration = (
+	value: unknown,
+	path: string,
+): NormalizedHookPhase => normalizeHookPhase(value, undefined, path)
+
 /**
  * Copies declaration maps without executing callbacks or retaining caller state.
  *

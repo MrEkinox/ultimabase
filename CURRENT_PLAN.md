@@ -4,7 +4,7 @@
 - Milestone: 26
 - Started: 2026-09-10
 - Governing decision: [ADR-0245](docs/adr/0245-plugin-schema-mutations-and-soft-delete.md)
-- Resume point: issue 2605
+- Resume point: issue 2606
 
 ## Objective
 
@@ -64,7 +64,7 @@ visibility invariants when they are absent.
 2. [x] Issue 2602 — declare generic plugin-owned schema mutations.
 3. [x] Issue 2603 — execute schema mutations through Runtime and persistence.
 4. [x] Issue 2604 — integrate optional Access semantics.
-5. [ ] Issue 2605 — integrate optional Hooks semantics.
+5. [x] Issue 2605 — integrate optional Hooks semantics.
 6. [ ] Issues 2606 and 2607 — expose generic schema mutations in REST and GraphQL.
 7. [ ] Issue 2608 — create the official soft-delete package and schema contract.
 8. [ ] Issue 2609 — enforce tombstone visibility and write protection.

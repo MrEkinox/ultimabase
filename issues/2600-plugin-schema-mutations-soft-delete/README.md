@@ -13,7 +13,7 @@ generic foundation to deliver the first supported official soft-delete plugin.
 2. [x] [2602 — Declare plugin-owned schema mutations](2602-schema-mutation-declarations.md)
 3. [x] [2603 — Execute schema mutations through Runtime](2603-schema-mutation-runtime.md)
 4. [x] [2604 — Extend Access for schema mutations](2604-schema-mutation-access.md)
-5. [ ] [2605 — Extend Hooks for schema mutations](2605-schema-mutation-hooks.md)
+5. [x] [2605 — Extend Hooks for schema mutations](2605-schema-mutation-hooks.md)
 6. [ ] [2606 — Expose schema mutations through REST](2606-schema-mutation-rest.md)
 7. [ ] [2607 — Expose schema mutations through GraphQL](2607-schema-mutation-graphql.md)
 8. [ ] [2608 — Create the official soft-delete package](2608-soft-delete-package-contract.md)

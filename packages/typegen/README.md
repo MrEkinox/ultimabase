@@ -134,8 +134,10 @@ model surfaces, omits the target `id` from bound models, omits `input` for an
 and result contracts. The generated schema-surface registry also retains each
 mutation's exact authority, effect, returning mode, dependency selection, and
 payload type. Official option packages use that inert registry to expose only
-application-valid custom Access and Hook keys; a Master-only mutation is not a
-request Access key.
+application-valid custom Access and Hook keys. A Master-only mutation is not a
+request Access key, but it remains an exact before/after Hook key so trusted
+maintenance work can retain transactional auditing. Custom Hook payload,
+candidate, preimage, result, and target types come from that same inert entry.
 Typegen emits `contains` only for those fields and keeps the executable snapshot
 callback out of generated artifacts. These contracts advance the inert snapshot
 format to version 10 and the generator format to version 17. Owner-private
