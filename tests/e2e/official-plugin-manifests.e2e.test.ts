@@ -16,6 +16,7 @@ import {
 import { rolesPlugin } from '@ultimabase/roles-plugin'
 import { restPlugin } from '@ultimabase/rest-plugin'
 import { honoServerPlugin } from '@ultimabase/server-hono-plugin'
+import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
 import { typegenPlugin } from '@ultimabase/typegen'
 import { validationPlugin } from '@ultimabase/validation-plugin'
 import { expect, it } from 'vitest'
@@ -37,6 +38,7 @@ it('publishes the audited privilege and environment contract for every official 
 		accessPlugin().manifest,
 		hooksPlugin().manifest,
 		validationPlugin().manifest,
+		softDeletePlugin().manifest,
 		httpPlugin({ appId: 'manifest-fixture' }).manifest,
 		restPlugin().manifest,
 		graphqlPlugin().manifest,
@@ -83,6 +85,11 @@ it('publishes the audited privilege and environment contract for every official 
 			environment: [],
 			pluginId: '@ultimabase/validation-plugin',
 			privileges: ['schema:declare', 'runtime:intercept'],
+		},
+		{
+			environment: [],
+			pluginId: '@ultimabase/soft-delete-plugin',
+			privileges: ['schema:declare'],
 		},
 		{
 			environment: [],

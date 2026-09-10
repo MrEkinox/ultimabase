@@ -48,6 +48,7 @@ typegen ──────────────→ core, shared
 hooks-plugin ─────────→ plugin-kit, core, shared
 access-plugin ────────→ plugin-kit, core, shared
 validation-plugin ────→ plugin-kit, core, shared
+soft-delete-plugin ───→ plugin-kit, core, shared
 pg-vector-plugin ─────→ plugin-kit, core, shared
 roles-plugin ─────────→ access-plugin, plugin-kit, core, shared
 acl-permissions-plugin → plugin-kit, core, shared
@@ -242,6 +243,12 @@ Standard Schema execution, issue mapping, and projected arithmetic checks at
 that guard boundary. Reads, adapter results, materializations, includes, and
 final projections repeat only Core structural snapshots. An application without
 the plugin has no application field validator or placeholder Runtime behavior.
+
+The official `@ultimabase/soft-delete-plugin` owns the direct `softDelete`
+schema option and its application-local mode inheritance. It depends only on
+public foundations; protected tombstone behavior and generic schema-mutation
+surfaces compose without importing Access, Hooks, REST, GraphQL, Yoga, or a
+database implementation.
 
 ## Direct plugin options
 

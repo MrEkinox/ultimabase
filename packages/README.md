@@ -26,6 +26,7 @@ alternatives use the same generic public kernel.
 - `hooks-plugin`
 - `access-plugin`
 - `validation-plugin`
+- `soft-delete-plugin`
 - `http-plugin`
 - `server-hono-plugin`
 - `rest-plugin`

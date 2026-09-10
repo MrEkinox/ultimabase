@@ -43,6 +43,7 @@ interface OptionalProductFixture {
 		| '@ultimabase/http-plugin'
 		| '@ultimabase/password-auth-plugin'
 		| '@ultimabase/rest-plugin'
+		| '@ultimabase/soft-delete-plugin'
 		| '@ultimabase/validation-plugin'
 	readonly removedNames: readonly string[]
 }
@@ -97,6 +98,25 @@ const fixtures: readonly OptionalProductFixture[] = [
 		classification: restPluginPublicApi,
 		moduleSpecifier: '@ultimabase/rest-plugin',
 		removedNames: removedRestPluginPublicApiNames,
+	},
+	{
+		classification: {
+			applicationApi: [
+				'SoftDeleteMode',
+				'SoftDeletePlugin',
+				'SoftDeletePluginOptions',
+				'SoftDeleteSchemaOption',
+				'softDeletePlugin',
+			],
+			compatibleProviderContract: [],
+			conformanceSupport: [],
+		},
+		moduleSpecifier: '@ultimabase/soft-delete-plugin',
+		removedNames: [
+			'normalizeSoftDeletePluginOptions',
+			'resolveSoftDeleteMode',
+			'softDeleteSchemaOption',
+		],
 	},
 	{
 		classification: validationPluginPublicApi,

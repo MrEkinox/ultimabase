@@ -24,6 +24,7 @@
 		{ "path": "./packages/pg-vector-plugin" },
 		{ "path": "./packages/roles-plugin" },
 		{ "path": "./packages/validation-plugin" },
+		{ "path": "./packages/soft-delete-plugin" },
 		{ "path": "./packages/http-plugin" },
 		{ "path": "./packages/rest-plugin" },
 		{ "path": "./packages/graphql-plugin" },

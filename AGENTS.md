@@ -59,6 +59,7 @@ official Hooks extensions -> hooks-plugin/plugin-kit/core/shared
 access-plugin -> plugin-kit/core/shared
 official Access providers -> access-plugin/plugin-kit/core/shared
 ACL providers -> plugin-kit/core/shared
+soft-delete-plugin -> plugin-kit/core/shared
 other official plugins -> plugin-kit/core/shared
 http-plugin -> plugin-kit/core/shared
 server-hono-plugin -> http-plugin/plugin-kit/core/shared

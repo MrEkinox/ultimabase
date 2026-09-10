@@ -1811,6 +1811,20 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@ultimabase/soft-delete-plugin@workspace:packages/soft-delete-plugin":
+  version: 0.0.0-use.local
+  resolution: "@ultimabase/soft-delete-plugin@workspace:packages/soft-delete-plugin"
+  dependencies:
+    "@ultimabase/core": "workspace:^"
+    "@ultimabase/plugin-kit": "workspace:^"
+    "@ultimabase/testing": "workspace:^"
+    "@ultimabase/typegen": "workspace:^"
+    tsdown: "npm:^0.22.14"
+    typescript: "npm:^6.0.3"
+    vitest: "npm:4.1.10"
+  languageName: unknown
+  linkType: soft
+
 "@ultimabase/testing@workspace:^, @ultimabase/testing@workspace:packages/testing":
   version: 0.0.0-use.local
   resolution: "@ultimabase/testing@workspace:packages/testing"

@@ -1,0 +1,81 @@
+import path from 'node:path'
+
+import {
+	FrameworkApplication,
+	Schema,
+	type SchemaOptions,
+} from '@ultimabase/core'
+import { generateApplicationTypes } from '@ultimabase/typegen'
+import { expect, it } from 'vitest'
+
+import { createLanguageService } from '../../../tooling/vitest/typescript-language-service.js'
+import { softDeletePlugin, type SoftDeleteSchemaOption } from '../src/index.js'
+
+const marker = '/* soft-delete-option */'
+
+it('offers only the generated direct schema option and accepted values', () => {
+	const Document = Schema.define({
+		className: 'SoftDeleteIntellisenseDocument',
+		softDelete: 'explicit',
+		fields: (field) => ({ title: field.string() }),
+	} as SchemaOptions<'SoftDeleteIntellisenseDocument'> & {
+		readonly softDelete: SoftDeleteSchemaOption
+	})
+	const generated = generateApplicationTypes({
+		application: new FrameworkApplication({
+			pluginPrivileges: { logger: false },
+			plugins: [softDeletePlugin()],
+			schemas: [Document],
+		}),
+		applicationId: 'fixture.soft-delete-intellisense',
+	})
+	const sourceWithMarker = `${generated.contents}
+import { Schema } from '@ultimabase/core'
+
+const Completion = Schema.define({
+  className: 'SoftDeleteCompletion',
+  ${marker}
+  fields: (field) => ({ title: field.string() }),
+})
+const Explicit = Schema.define({
+  className: 'SoftDeleteExplicit',
+  softDelete: 'explicit',
+  fields: (field) => ({ title: field.string() }),
+})
+const Disabled = Schema.define({
+  className: 'SoftDeleteDisabled',
+  softDelete: false,
+  fields: (field) => ({ title: field.string() }),
+})
+const Invalid = Schema.define({
+  className: 'SoftDeleteInvalid',
+  // @ts-expect-error -- Schema overrides use false instead of the plugin-only disabled mode.
+  softDelete: 'disabled',
+  fields: (field) => ({ title: field.string() }),
+})
+void Completion
+void Explicit
+void Disabled
+void Invalid
+`
+	const position = sourceWithMarker.indexOf(marker)
+	const source = sourceWithMarker.replace(marker, ' '.repeat(marker.length))
+	const fileName = path.join(import.meta.dirname, 'soft-delete.fixture.ts')
+	const service = createLanguageService(fileName, source)
+	const completions =
+		service
+			.getCompletionsAtPosition(fileName, position, {})
+			?.entries.map(({ name }) => name) ?? []
+
+	expect(service.getSemanticDiagnostics(fileName)).toStrictEqual([])
+	expect(completions).toContain('softDelete')
+	expect(generated.contents).toContain(
+		'SoftDeleteSchemaOption as Plugin0_SoftDeleteSchemaOption',
+	)
+	expect(generated.contents).toContain('from "@ultimabase/soft-delete-plugin"')
+	expect(generated.contents).toContain(
+		'readonly softDelete?: Plugin0_SoftDeleteSchemaOption',
+	)
+	expect(generated.snapshot.surfaces[0]?.schemaMutations).toStrictEqual([])
+	service.dispose()
+})

@@ -35,6 +35,7 @@ const sourcePackageAliases = Object.fromEntries(
 		'rest-plugin',
 		'server-hono-plugin',
 		'shared',
+		'soft-delete-plugin',
 		'testing',
 		'typegen',
 		'validation-plugin',
