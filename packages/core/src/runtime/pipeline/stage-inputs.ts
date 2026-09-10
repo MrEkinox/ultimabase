@@ -137,8 +137,14 @@ export const createRuntimeMutationOutcomeInput = <
 	context: RequestContext,
 	operation: TOperation,
 	outcome: DatabaseOperationOutcome<TOperation>,
+	selectedFieldsOverride?: readonly string[],
 ): RuntimeMutationOutcomeStageInput<TOperation> =>
-	createRuntimeStageInput({ context, operation, outcome })
+	createRuntimeStageInput({
+		context,
+		operation,
+		outcome,
+		...(selectedFieldsOverride === undefined ? {} : { selectedFieldsOverride }),
+	})
 
 export const createRuntimeEnforcementResultInput = <
 	const TOperation extends DatabaseOperationAst,

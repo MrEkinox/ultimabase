@@ -63,12 +63,86 @@ export const ExampleArticle = Schema.define({
 	fields: (field) => ({
 		author: field.pointer({ target: 'ExampleAuthor' }),
 		contributors: field.relation({ target: 'ExampleAuthor' }),
+		presentation: field.object({
+			fields: (embedded) => ({
+				subtitle: embedded.string(),
+				tags: embedded.string({ list: true }),
+			}),
+		}),
 		published: field.boolean({ default: true }),
 		slug: field.string({ indexed: 'unique', required: true }),
 		title: field.string({
 			hooks: { resolveInput: ({ value }) => value?.trim() ?? null },
 			required: true,
 			validation: z.string().min(2).max(200),
+		}),
+		displayTitle: field.virtual({
+			description: 'A display label derived from the persisted title.',
+			output: (output) => output.string({ nullable: false }),
+			select: { title: true },
+			resolve: ({ item }) => {
+				// @ts-expect-error -- Resolver items contain only declared dependencies.
+				void item.slug
+				return `Article: ${item.title}`
+			},
+		}),
+		optionalSubtitle: field.virtual({
+			output: (output) => output.string(),
+			select: { presentation: true },
+			resolve: ({ item }) => item.presentation?.subtitle ?? null,
+		}),
+		labels: field.virtual({
+			output: (output) => output.string({ list: true, nullable: false }),
+			select: { presentation: true },
+			resolve: ({ item }) => item.presentation?.tags ?? [],
+		}),
+		summary: field.virtual({
+			output: (output) =>
+				output.object({
+					fields: (output) => ({
+						labels: output.string({ list: true, nullable: false }),
+						subtitle: output.string(),
+						title: output.string({ nullable: false }),
+					}),
+					nullable: false,
+					typeName: 'ExampleArticleSummary',
+				}),
+			select: { presentation: true, title: true },
+			resolve: async ({ item }) => {
+				await Promise.resolve()
+				return {
+					labels: item.presentation?.tags ?? [],
+					subtitle: item.presentation?.subtitle ?? null,
+					title: item.title,
+				}
+			},
+		}),
+		viewerLabel: field.virtual({
+			description:
+				'A request-aware label that demonstrates context composition.',
+			output: (output) => output.string({ nullable: false }),
+			select: { slug: true },
+			resolve: ({ context, item }) => {
+				if (context.access.mode === 'master') return `master:${item.slug}`
+				return context.getValue(passwordPrincipal) === undefined
+					? `anonymous:${item.slug}`
+					: `authenticated:${item.slug}`
+			},
+		}),
+		authenticatedTitle: field.virtual({
+			access: {
+				read: {
+					orderBy: false,
+					output: ({ context }) =>
+						context.getValue(passwordPrincipal) !== undefined,
+					where: false,
+				},
+			},
+			description:
+				'A virtual field visible to authenticated requests and Master.',
+			output: (output) => output.string({ nullable: false }),
+			select: { title: true },
+			resolve: ({ item }) => item.title,
 		}),
 	}),
 	access: {

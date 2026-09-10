@@ -249,6 +249,8 @@ export interface RuntimeMutationOutcomeStageInput<
 	TOperation extends DatabaseMutationOperationAst,
 > extends RuntimeOperationStageInput<TOperation> {
 	readonly outcome: DatabaseOperationOutcome<TOperation>
+	/** Carries the adapter's exact persisted projection without changing the logical operation. */
+	readonly selectedFieldsOverride?: readonly string[]
 }
 
 /** Executes affected-field behavior without granting handle ownership. */

@@ -98,6 +98,11 @@ own target policy. See the
 [virtual-field examples](examples/schema/virtual-fields.md) for primitive,
 object, nullable, list, request-context, and asynchronous declarations.
 
+When a mutation adapter returns that private persisted superset, the generic
+mutation-outcome behavior input carries `selectedFieldsOverride`. It describes
+only the exact adapter projection needed for structural validation; it never
+changes the logical operation, public selection, Hook item, or final result.
+
 Exact decimal fields keep storage-relevant shape as direct metadata:
 `field.decimal({ precision: 12, scale: 2 })`. Core validates those options and
 enforces them at Runtime, while adapters may inspect them without depending on

@@ -4,7 +4,7 @@
 - Milestone: 25
 - Started: 2026-09-09
 - Governing decision: [ADR-0244](docs/adr/0244-contextual-fields-and-virtual-results.md)
-- Resume point: [issue 2510](issues/2500-contextual-fields-virtual-results/2510-virtual-field-public-vertical.md)
+- Resume point: [issue 2511](issues/2500-contextual-fields-virtual-results/2511-contextual-virtual-final-audit.md)
 
 ## Objective
 
@@ -66,7 +66,7 @@ semantics.
 7. [x] Issue 2507 — keep PostgreSQL storage physical while loading dependencies.
 8. [x] Issue 2508 — expose virtual result fields through REST.
 9. [x] Issue 2509 — expose virtual result fields through GraphQL.
-10. [ ] Issue 2510 — prove the public cross-transport virtual-field vertical.
+10. [x] Issue 2510 — prove the public cross-transport virtual-field vertical.
 11. [ ] Issue 2511 — audit and close the milestone.
 
 The authoritative acceptance criteria and dependencies live in

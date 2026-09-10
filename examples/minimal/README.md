@@ -59,6 +59,43 @@ Both titles are trimmed by the same Hook, validated by the same Validation
 plugin, authorized by the same Access and ACL policies, and persisted in the
 same automatic mutation transaction.
 
+## Virtual result fields
+
+`ExampleArticle` also demonstrates output-only values computed by Core. Its
+stored `presentation` object uses the restricted embedded builder, while its
+virtual fields cover primitive, nullable, list, structured, asynchronous, and
+request-aware results:
+
+```ts
+const article = await ExampleArticle.findOne(
+	{
+		select: {
+			displayTitle: true,
+			labels: true,
+			optionalSubtitle: true,
+			summary: true,
+			viewerLabel: true,
+		},
+		where: { slug: { eq: 'hello-rest' } },
+	},
+	{ ultimabase },
+)
+```
+
+Core privately loads only the persisted dependencies declared by each virtual
+field. Those values do not appear in the returned model unless the caller also
+selects them. `viewerLabel` reads the real request context and distinguishes an
+anonymous request, a Password Auth session, and audited Master authority.
+`authenticatedTitle` is independently protected by Access and is omitted from
+anonymous output while remaining available to an authenticated request or
+Master.
+
+REST selects the same fields with
+`?select=id,displayTitle,labels,optionalSubtitle,summary,viewerLabel`. GraphQL
+selects the corresponding model fields, including the nested
+`ExampleArticleSummary` object. Neither transport exposes a virtual field in
+create or update data, nested-write input, `where`, or `orderBy`.
+
 ## Atomic nested writes
 
 One singular mutation can connect an existing pointer, create relation targets,

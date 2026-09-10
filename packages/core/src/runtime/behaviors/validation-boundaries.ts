@@ -535,6 +535,7 @@ export interface RuntimeBehaviorBoundaries {
 	>(
 		operation: TOperation,
 		outcome: unknown,
+		selectedFieldsOverride?: readonly string[],
 	): DatabaseOperationOutcome<TOperation>
 }
 
@@ -801,6 +802,7 @@ export const createRuntimeBehaviorBoundaries =
 			>(
 				operation: TOperation,
 				outcome: unknown,
+				selectedFieldsOverride?: readonly string[],
 			): DatabaseOperationOutcome<TOperation> => {
 				if (!isPlainRecord(outcome)) {
 					return throwBoundaryIssue(
@@ -816,7 +818,6 @@ export const createRuntimeBehaviorBoundaries =
 					['outcome'],
 					adapterBoundaryErrorDescription,
 				)
-
 				if (!isUnknownArray(outcome.materializations)) {
 					return throwBoundaryIssue(
 						['outcome', 'materializations'],
@@ -825,28 +826,27 @@ export const createRuntimeBehaviorBoundaries =
 					)
 				}
 
-				const { plans, selectedFields } = readBoundaryContext(operation)
+				const boundary = readBoundaryContext(operation, selectedFieldsOverride)
 				const result = snapshotRuntimeBoundaryResult(
 					operation,
 					readOperationSchema(operation, ['operation', 'schema']),
 					outcome.result,
-					plans,
-					selectedFields,
+					boundary.plans,
+					boundary.selectedFields,
 					['outcome', 'result'],
 					adapterBoundaryErrorDescription,
 					false,
 					throwBoundaryIssue,
 				)
-
 				assertOutcomeCardinality(operation, result, outcome.materializations)
-
 				const materializations = immutableArray(
 					outcome.materializations.map((materialization, index) =>
-						snapshotMaterialization(operation, materialization, plans, [
-							'outcome',
-							'materializations',
-							index,
-						]),
+						snapshotMaterialization(
+							operation,
+							materialization,
+							boundary.plans,
+							['outcome', 'materializations', index],
+						),
 					),
 				)
 

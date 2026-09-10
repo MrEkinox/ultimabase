@@ -278,6 +278,36 @@ describe('runtime behavior boundaries', () => {
 		)
 	})
 
+	it('validates mutation results against a private adapter projection override', () => {
+		const schema = createFixtureSchema(() => 'Generated title')
+		const operation: UpdateOneOperationAst<
+			typeof schema,
+			UpdateExpression<typeof schema>,
+			QueryFilterNode<typeof schema>,
+			'id'
+		> = immutableRecord({
+			kind: 'update-one',
+			query: new QueryBuilder(schema).select({ id: true }).ast,
+			update: normalizeUpdateExpression(schema, { published: true }),
+		})
+		const current = immutableRecord({ ...completeRecord, published: true })
+		const sourceOutcome = {
+			materializations: [{ current, kind: 'update', previous: completeRecord }],
+			result: { id: generatedId, title: 'Private dependency' },
+		} satisfies DatabaseOperationOutcome<typeof operation>
+		const boundaries = createRuntimeBehaviorBoundaries()
+
+		expect(() =>
+			boundaries.snapshotMutationOutcome(operation, sourceOutcome),
+		).toThrow(expect.objectContaining({ code: 'VALIDATION_ERROR' }))
+		expect(
+			boundaries.snapshotMutationOutcome(operation, sourceOutcome, [
+				'id',
+				'title',
+			]),
+		).toStrictEqual(sourceOutcome)
+	})
+
 	it('keeps arithmetic outcome snapshots structural-only', () => {
 		const schema = Schema.define({
 			className: 'ArithmeticOutcome',

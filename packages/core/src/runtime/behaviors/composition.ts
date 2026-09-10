@@ -250,6 +250,9 @@ export const composeRuntimeBehaviors = (
 						: { nestedWrite: input.nestedWrite }),
 					operation: input.operation,
 					outcome,
+					...(input.selectedFieldsOverride === undefined
+						? {}
+						: { selectedFieldsOverride: input.selectedFieldsOverride }),
 				}),
 			)
 		}

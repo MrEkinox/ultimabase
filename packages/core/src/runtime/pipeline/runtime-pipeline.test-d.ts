@@ -60,6 +60,12 @@ const enforcedStages = {
 
 const communityTransform = {
 	transformInput: (input) => input.operation,
+	transformMutationOutcome: (input) => {
+		expectTypeOf(input.selectedFieldsOverride).toEqualTypeOf<
+			readonly string[] | undefined
+		>()
+		return input.outcome
+	},
 } satisfies RuntimeBehaviorStages
 
 const finalMutationGuard: RuntimeFinalMutationGuardStage = () => undefined

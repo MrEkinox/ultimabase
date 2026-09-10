@@ -525,7 +525,12 @@ export const executeRuntimeDatabaseOperation = async <
 
 	if (behaviors?.transformMutationOutcome !== undefined) {
 		outcome = await behaviors.transformMutationOutcome(
-			createRuntimeMutationOutcomeInput(context, request.operation, outcome),
+			createRuntimeMutationOutcomeInput(
+				context,
+				request.operation,
+				outcome,
+				request.returningSelection?.fields.map(({ field }) => field),
+			),
 		)
 	}
 	await nestedLifecycle?.afterMutationOutcome(outcome)

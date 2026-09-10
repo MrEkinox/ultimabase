@@ -69,7 +69,11 @@ export const createHookBehavior = (
 	const boundaries = createRuntimeBehaviorBoundaries()
 	return immutableRecord({
 		transformMutationOutcome: (input) =>
-			boundaries.snapshotMutationOutcome(input.operation, input.outcome),
+			boundaries.snapshotMutationOutcome(
+				input.operation,
+				input.outcome,
+				input.selectedFieldsOverride,
+			),
 		transformInput: (input) => resolveInput(plan, runtime, input),
 		transformResult: (input) =>
 			runSchemaResultPhases(boundaries, plan, runtime, input),
