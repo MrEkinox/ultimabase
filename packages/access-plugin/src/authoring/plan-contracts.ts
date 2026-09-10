@@ -1,5 +1,6 @@
 import type {
 	GenericField,
+	ApplicationSchemaMutationDescriptor,
 	OperationKind,
 	SchemaContributionOwner,
 	SchemaDefinition,
@@ -67,11 +68,19 @@ export interface FieldAccessPlan {
 	readonly write: CompiledAccessRuleMap<FieldWriteAccessTransition>
 }
 
+export interface SchemaMutationAccessPlan {
+	readonly descriptor: ApplicationSchemaMutationDescriptor
+	readonly filter: readonly CompiledAccessRule[]
+	readonly item: readonly CompiledAccessRule[]
+	readonly operation: readonly CompiledAccessRule[]
+}
+
 export interface SchemaAccessPlan {
 	readonly fields: readonly FieldAccessPlan[]
 	readonly filter: CompiledAccessRuleMap<SchemaFilterAccessFamily>
 	readonly item: CompiledAccessRuleMap<SchemaItemAccessFamily>
 	readonly operation: CompiledAccessRuleMap<OperationKind>
+	readonly schemaMutations: ReadonlyMap<string, SchemaMutationAccessPlan>
 	readonly schema: SchemaDefinition
 }
 
@@ -95,6 +104,7 @@ export interface AccessDefaultPolicy {
 	readonly read: Readonly<Record<SchemaReadAccessBranch, boolean>>
 	readonly update: boolean
 	readonly upsert: boolean
+	readonly schemaMutations: boolean
 }
 
 /** Fields stay available until one exact field declaration narrows them. */
@@ -150,8 +160,16 @@ export interface MutableSchemaAccessPlan {
 	readonly filter: MutableAccessRuleMap<SchemaFilterAccessFamily>
 	readonly item: MutableAccessRuleMap<SchemaItemAccessFamily>
 	readonly operation: MutableAccessRuleMap<OperationKind>
+	readonly schemaMutations: Map<string, MutableSchemaMutationAccessPlan>
 	readonly schema: SchemaDefinition
 	readonly schemaInlineOwner: SchemaContributionOwner
+}
+
+export interface MutableSchemaMutationAccessPlan {
+	readonly descriptor: ApplicationSchemaMutationDescriptor
+	readonly filter: CompiledAccessRule[]
+	readonly item: CompiledAccessRule[]
+	readonly operation: CompiledAccessRule[]
 }
 
 export interface SchemaAccessPlanLookup {

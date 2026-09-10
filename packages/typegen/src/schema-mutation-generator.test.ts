@@ -90,7 +90,7 @@ describe('schema mutation Typegen', () => {
 			'readonly archive: Core.ApplicationModelSchemaMutationMethod',
 		)
 		expect(first.contents).toContain(
-			'Core.PluginSchemaMutationDefinition<"fixture.workflow.archive", "1.1.0",',
+			'Core.PluginSchemaMutationDefinition<"fixture.workflow.archive", "1.1.0", Plugin0_BaseItem, readonly ["fixture.workflow.archive-rejected"], "request", "update", "after", Readonly<{ readonly workflowState: true }>>',
 		)
 	})
 })

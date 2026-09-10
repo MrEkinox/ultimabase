@@ -4,9 +4,7 @@ import {
 	readOperationResultSelection,
 	readRuntimeFieldValuePath,
 	readRuntimeIncludedPointerValue,
-	type DatabaseOperationAst,
 	type ExecutableOperationAst,
-	type RuntimeOperationStageInput,
 } from '@ultimabase/core'
 import { allowUndeclaredFieldAccess } from '../authoring/plan.js'
 import type { AccessPlan, SchemaAccessPlan } from '../authoring/plan.js'
@@ -22,6 +20,7 @@ import { accessFieldPathsEqual } from './field-paths.js'
 import {
 	assertAccessDecisionRules,
 	createAccessDeniedError,
+	type AccessRuntimeRequest,
 } from './rule-evaluation.js'
 
 export const computeAccessStaticSelection = (
@@ -55,7 +54,7 @@ export const computeAccessStaticSelection = (
 }
 
 export const assertAccessExplicitSelection = (
-	request: RuntimeOperationStageInput<DatabaseOperationAst>,
+	request: AccessRuntimeRequest,
 	plan: AccessPlan,
 	schemaPlan: SchemaAccessPlan,
 	permitted: readonly string[] | undefined,
@@ -128,7 +127,7 @@ const removeConcreteFieldPath = (
 
 const enforceRecordOutput = async (
 	runtime: AccessExecutionRuntime,
-	request: RuntimeOperationStageInput<DatabaseOperationAst>,
+	request: AccessRuntimeRequest,
 	plan: AccessPlan,
 	schemaPlan: SchemaAccessPlan,
 	record: Readonly<Record<string, unknown>>,
@@ -210,12 +209,9 @@ const enforceRecordOutput = async (
 }
 
 /** Applies value-dependent output restrictions without changing result shape. */
-export const enforceAccessOutput = async <
-	const TOperation extends DatabaseOperationAst,
-	const TResult,
->(
+export const enforceAccessOutput = async <const TResult>(
 	runtime: AccessExecutionRuntime,
-	request: RuntimeOperationStageInput<TOperation> & {
+	request: AccessRuntimeRequest & {
 		readonly result: TResult
 	},
 	plan: AccessPlan,

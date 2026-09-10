@@ -29,6 +29,11 @@ export type {
 	ApplicationOperationTransportPlanner,
 	OperationTransportPlanningOptions,
 } from './application/application-operation-transport-planning.js'
+export { applicationSchemaMutationSurfaceCapability } from './application/application-schema-mutation-surface.js'
+export type {
+	ApplicationSchemaMutationDescriptor,
+	ApplicationSchemaMutationSurface,
+} from './application/application-schema-mutation-surface.js'
 export type {
 	ApplicationSchemaMutationKind,
 	ApplicationSchemaMutationRequest,
@@ -167,6 +172,7 @@ export type {
 	PluginSchemaMutationHandler,
 	PluginSchemaMutationHandlerDefinition,
 	PluginSchemaMutationHandlerInput,
+	PluginSchemaMutationOperationAst,
 	PluginSchemaMutationTarget,
 	PluginSchemaMutationUpdateEffect,
 } from './schema-mutations/index.js'

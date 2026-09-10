@@ -199,6 +199,7 @@ export class FrameworkApplication<
 			setupRegistries.getConstraintCompilerReader(),
 			this,
 			(name) => this.getOperation(name),
+			(className) => this.getSchemaSurface(className),
 		)
 		this.#capabilityHost = capabilityHost
 		capabilityHostReference.current = capabilityHost

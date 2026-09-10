@@ -16,9 +16,11 @@ export type {
 	MutableAccessRuleMap,
 	MutableFieldAccessPlan,
 	MutableSchemaAccessPlan,
+	MutableSchemaMutationAccessPlan,
 	PluginAccessSource,
 	SchemaAccessPlan,
 	SchemaAccessPlanLookup,
+	SchemaMutationAccessPlan,
 } from './plan-contracts.js'
 export { finalizeSchemaPlan } from './plan-finalization.js'
 export {

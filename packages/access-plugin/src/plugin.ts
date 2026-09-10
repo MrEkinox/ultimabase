@@ -1,8 +1,10 @@
 import {
 	FrameworkError,
+	applicationSchemaMutationSurfaceCapability,
 	optionalCapability,
 	provideRuntimeConstraint,
 	protectedPolicy,
+	requireCapability,
 	type CapabilityProviderDeclaration,
 	type CapabilityRequirement,
 	type runtimeConstraintCapability,
@@ -49,6 +51,14 @@ const optionalAccessDiagnostics: CapabilityRequirement<
 	'^1.0.0',
 	'materialization'
 > = optionalCapability(accessDiagnosticsObserverCapability, '^1.0.0')
+const schemaMutationSurfaceRequirement: CapabilityRequirement<
+	typeof applicationSchemaMutationSurfaceCapability,
+	false,
+	'^1.0.0',
+	'materialization'
+> = requireCapability(applicationSchemaMutationSurfaceCapability, '^1.0.0', {
+	phase: 'materialization',
+})
 
 /** Configures static read-capability fallbacks for every application schema. */
 export interface SchemaReadAccessDefaults {
@@ -68,6 +78,8 @@ export interface SchemaAccessDefaults {
 	readonly update?: boolean
 	readonly upsert?: boolean
 	readonly delete?: boolean
+	/** Controls every plugin-owned request mutation unless an exact rule overrides it. */
+	readonly schemaMutations?: boolean
 }
 
 /** Configures the fallback used only when no exact schema decision exists. */
@@ -86,6 +98,7 @@ const denyByDefault: AccessDefaultPolicy = immutableRecord({
 	}),
 	update: false,
 	upsert: false,
+	schemaMutations: false,
 })
 
 const normalizeReadDefaults = (value: unknown): AccessDefaultPolicy['read'] => {
@@ -138,12 +151,16 @@ const normalizeDefaults = (
 			read: normalizeReadDefaults(options.default),
 			update: options.default,
 			upsert: options.default,
+			schemaMutations: options.default,
 		})
 	}
 	if (!isPlainRecord(options.default)) {
 		throw new TypeError('Access default must be a boolean or plain object')
 	}
-	const allowedFamilies = new Set<string>(schemaAccessFamilies)
+	const allowedFamilies = new Set<string>([
+		...schemaAccessFamilies,
+		'schemaMutations',
+	])
 	for (const key of Reflect.ownKeys(options.default)) {
 		if (typeof key !== 'string' || !allowedFamilies.has(key)) {
 			throw new TypeError(`Unknown Access default: ${String(key)}`)
@@ -162,6 +179,7 @@ const normalizeDefaults = (
 				: normalizeReadDefaults(options.default.read),
 		update: options.default.update === true,
 		upsert: options.default.upsert === true,
+		schemaMutations: options.default.schemaMutations === true,
 	})
 }
 
@@ -208,6 +226,7 @@ type AccessPluginCapabilities = Readonly<{
 	readonly provides: readonly [
 		CapabilityProviderDeclaration<typeof runtimeConstraintCapability>,
 	]
+	readonly requires: readonly [typeof schemaMutationSurfaceRequirement]
 }>
 type AccessPluginDefinition = Readonly<{
 	readonly capabilities: AccessPluginCapabilities
@@ -241,7 +260,12 @@ export const accessPlugin = (
 					),
 				)
 			const runtime = new AccessRuntime(
-				compileAccessPlan(schemas, defaults, contributions),
+				compileAccessPlan(
+					schemas,
+					defaults,
+					contributions,
+					capabilities.get(schemaMutationSurfaceRequirement),
+				),
 				capabilities.get(optionalAccessDiagnostics),
 				callbacks,
 			)
@@ -275,6 +299,7 @@ export const accessPlugin = (
 		capabilities: {
 			optional: [optionalAccessContributions, optionalAccessDiagnostics],
 			provides: [runtimeProvider],
+			requires: [schemaMutationSurfaceRequirement],
 		},
 		declare: ({ schemas }) => {
 			schemas.defineOptions({

@@ -17,6 +17,7 @@ import {
 	type MutableAccessRuleMap,
 	type MutableSchemaAccessPlan,
 	type SchemaAccessPlan,
+	type SchemaMutationAccessPlan,
 	type SchemaAccessPlanLookup,
 } from './plan-contracts.js'
 
@@ -66,6 +67,19 @@ export const finalizeSchemaPlan = (
 		filter: finalizeRuleMap(schemaFilterAccessFamilies, draft.filter),
 		item: finalizeRuleMap(schemaItemAccessFamilies, draft.item),
 		operation: finalizeRuleMap(accessOperationKinds, draft.operation),
+		schemaMutations: new Map(
+			[...draft.schemaMutations].map(
+				([command, mutation]): readonly [string, SchemaMutationAccessPlan] => [
+					command,
+					immutableRecord({
+						descriptor: mutation.descriptor,
+						filter: immutableArray(mutation.filter),
+						item: immutableArray(mutation.item),
+						operation: immutableArray(mutation.operation),
+					}),
+				],
+			),
+		),
 		schema: draft.schema,
 	})
 

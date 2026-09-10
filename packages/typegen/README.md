@@ -131,10 +131,14 @@ Plugin schema mutations remain a separate callback-free snapshot. Typegen adds
 their direct methods only to the selected application schema and/or persisted
 model surfaces, omits the target `id` from bound models, omits `input` for an
 `undefined` payload type, and reuses each schema's exact `select`, `include`,
-and result contracts.
+and result contracts. The generated schema-surface registry also retains each
+mutation's exact authority, effect, returning mode, dependency selection, and
+payload type. Official option packages use that inert registry to expose only
+application-valid custom Access and Hook keys; a Master-only mutation is not a
+request Access key.
 Typegen emits `contains` only for those fields and keeps the executable snapshot
 callback out of generated artifacts. These contracts advance the inert snapshot
-format to version 10 and the generator format to version 16. Owner-private
+format to version 10 and the generator format to version 17. Owner-private
 collections contribute only an opaque application fingerprint input; their
 owners, collection names, fields, indexes, references, options, and records
 never enter the snapshot or emitted declarations. An application without

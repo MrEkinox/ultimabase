@@ -38,8 +38,8 @@ The root export has three deliberate groups:
 
 - **Application API:** `accessPlugin`, its options, `AccessContext`, generated
   `SchemaAccessOption` and `FieldAccessOption` contracts, schema and field rule
-  types, and the `allowAll`, `denyAll`, `anyOf`, `allOf`, `not`,
-  `allOperations`, and `allMutations` authoring helpers.
+  types, exact plugin schema-mutation rule types, and the `allowAll`, `denyAll`,
+  `anyOf`, `allOf`, `not`, `allOperations`, and `allMutations` authoring helpers.
 - **Compatible-provider contract:** `accessContributionsCapability`,
   `provideAccessContributions`, the direct and field-kind contribution
   factories, `defineFieldKindAccessTarget`, and their input or definition
@@ -119,6 +119,7 @@ accessPlugin({
 		update: true,
 		upsert: true,
 		delete: true,
+		schemaMutations: true,
 	},
 })
 ```
@@ -127,6 +128,11 @@ Defaults belong to the configured plugin instance and never mutate a schema or
 another application. Every omitted operation family or read capability denies.
 Dynamic `where`, `item`, or callback policies remain schema declarations and
 cannot be configured as defaults.
+
+The boolean form applies to native operations and plugin-owned request
+mutations together. In the granular form, `schemaMutations` controls every
+custom request mutation that has no exact schema declaration and defaults to
+`false` when omitted. It does not affect Master-only commands.
 
 A detailed schema read decision may name only the capabilities it overrides.
 Every omitted capability inherits the operation default:
@@ -165,6 +171,56 @@ Trusted master requests bypass the complete official Access policy. Therefore
 `false`, callback denials, row filters, field restrictions, and configured
 defaults apply only to non-master callers. Validation, hooks, transactions, and
 database constraints still execute.
+
+## Plugin-owned schema mutations
+
+Typegen adds one Access key for each plugin-owned schema mutation whose
+authority is `request`. The key is the exact application command name, and its
+callbacks receive the mutation's generated payload and immutable logical
+identity:
+
+```ts
+import { accessPlugin } from '@ultimabase/access-plugin'
+import { Schema, UltimaBase } from '@ultimabase/core'
+
+const Post = Schema.define({
+	className: 'Post',
+	fields: (field) => ({
+		published: field.boolean(),
+		title: field.string(),
+	}),
+	access: {
+		archive: {
+			allow: ({ input, mutation }) =>
+				input.reason.length > 0 &&
+				mutation.name === 'community.workflow.archive',
+			where: ({ where }) => where.eq('published', true),
+			item: ({ item, originalItem }) =>
+				item.published === false && originalItem.published === true,
+		},
+		update: false,
+		delete: false,
+	},
+})
+
+const ultimabase = new UltimaBase({
+	plugins: [accessPlugin()],
+	schemas: [Post],
+})
+```
+
+`archive` is authorized as its own logical operation. Its physical update does
+not invoke or inherit `access.update`, and an update or delete rule cannot grant
+it. `allow` runs before target loading, `where` narrows the target query, and
+`item` observes the locked original plus the owner-resolved candidate. Ordinary
+field output restrictions still shape the final selected result. Compatible
+providers may add the same exact branch through `schemaAccess()`; those rules
+run after the developer decision and can only narrow it.
+
+Unknown, removed, and Master-only command keys fail generated TypeScript and
+are rejected again against the final compiled application graph before setup
+effects. Without `accessPlugin()`, none of these stages exist and a valid schema
+mutation continues through Core normally.
 
 ## Official-compatible providers
 

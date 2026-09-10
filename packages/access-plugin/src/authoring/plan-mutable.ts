@@ -1,5 +1,6 @@
 import type {
 	GenericField,
+	ApplicationSchemaMutationDescriptor,
 	OperationKind,
 	SchemaContributionOwner,
 	SchemaDefinition,
@@ -31,6 +32,7 @@ import {
 	type MutableAccessRuleMap,
 	type MutableFieldAccessPlan,
 	type MutableSchemaAccessPlan,
+	type MutableSchemaMutationAccessPlan,
 } from './plan-contracts.js'
 
 const developerAccessSource: DeveloperAccessSource = immutableRecord({
@@ -148,6 +150,30 @@ export const appendSchemaDeclarations = (
 		const rule = declarations.item?.[family]
 		if (rule !== undefined) appendRule(plan.item, family, rule, source)
 	}
+
+	for (const [command, mutationDeclarations] of Object.entries(
+		declarations.mutations ?? {},
+	)) {
+		const mutation = plan.schemaMutations.get(command)
+		if (mutation?.descriptor.mutation.authority !== 'request') {
+			throw new TypeError(
+				`Unknown request schema mutation Access branch: access.${command}`,
+			)
+		}
+		if (mutationDeclarations.operation !== undefined) {
+			mutation.operation.push(
+				createCompiledRule(mutationDeclarations.operation, source),
+			)
+		}
+		if (mutationDeclarations.filter !== undefined) {
+			mutation.filter.push(
+				createCompiledRule(mutationDeclarations.filter, source),
+			)
+		}
+		if (mutationDeclarations.item !== undefined) {
+			mutation.item.push(createCompiledRule(mutationDeclarations.item, source))
+		}
+	}
 }
 
 export const appendFieldDeclarations = (
@@ -227,6 +253,7 @@ const readFieldDeclarations = (
 
 export const createMutableSchemaPlan = (
 	schema: SchemaDefinition,
+	mutationDescriptors: readonly ApplicationSchemaMutationDescriptor[] = [],
 ): MutableSchemaAccessPlan => {
 	const fields = Object.entries(schema.fields).flatMap(([name, field]) => {
 		const inlineOwner =
@@ -260,6 +287,19 @@ export const createMutableSchemaPlan = (
 		filter: createMutableRuleMap(schemaFilterAccessFamilies),
 		item: createMutableRuleMap(schemaItemAccessFamilies),
 		operation: createMutableRuleMap(accessOperationKinds),
+		schemaMutations: new Map(
+			mutationDescriptors.map(
+				(descriptor): readonly [string, MutableSchemaMutationAccessPlan] => [
+					descriptor.command,
+					{
+						descriptor,
+						filter: [],
+						item: [],
+						operation: [],
+					},
+				],
+			),
+		),
 		schema,
 		schemaInlineOwner:
 			schema.provenance.options.access?.value.owner ??

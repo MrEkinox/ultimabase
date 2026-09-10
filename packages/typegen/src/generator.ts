@@ -27,7 +27,7 @@ import {
 	type TypegenApplicationSnapshot,
 } from './snapshot.js'
 
-const generatorVersion = 16
+const generatorVersion = 17
 
 const fingerprintSnapshot = (snapshot: TypegenApplicationSnapshot): string =>
 	createHash('sha256')

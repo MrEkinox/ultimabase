@@ -58,11 +58,21 @@ export interface SchemaOperationAccessDeclarations {
 	readonly delete?: NormalizedAccessRule
 }
 
+/** Retains one application-specific mutation in the same monotonic stages. */
+export interface SchemaMutationAccessDeclarations {
+	readonly filter?: NormalizedAccessRule
+	readonly item?: NormalizedAccessRule
+	readonly operation?: NormalizedAccessRule
+}
+
 /** Retains normalized rules in the existing private monotonic lifecycle. */
 export interface SchemaAccessDeclarations {
 	readonly operation?: SchemaOperationAccessDeclarations
 	readonly filter?: NormalizedAccessRuleMap<SchemaFilterAccessFamily>
 	readonly item?: NormalizedAccessRuleMap<SchemaItemAccessFamily>
+	readonly mutations?: Readonly<
+		Record<string, SchemaMutationAccessDeclarations>
+	>
 }
 
 const schemaAccessDeclarations = new WeakMap<object, SchemaAccessDeclarations>()
@@ -130,6 +140,56 @@ const detailedKeys = immutableRecord({
 	update: immutableArray(['allow', 'where', 'item'] as const),
 	upsert: immutableArray(['allow', 'where', 'item'] as const),
 })
+const schemaMutationDetailedKeys = new Set(['allow', 'where', 'item'])
+const schemaMutationCommandNamePattern = /^[_A-Za-z][_0-9A-Za-z]*$/u
+
+/** Defers command existence while validating the complete custom rule shape. */
+const normalizeSchemaMutationAccess = (
+	command: string,
+	value: unknown,
+): SchemaMutationAccessDeclarations => {
+	if (typeof value === 'boolean' || typeof value === 'function') {
+		return immutableRecord({
+			operation: normalizeAccessRule(value, `access.${command}`),
+		})
+	}
+	if (!isPlainRecord(value)) {
+		throw new TypeError(
+			`access.${command} must be a boolean, function, or object`,
+		)
+	}
+	for (const key of Reflect.ownKeys(value)) {
+		if (typeof key !== 'string') {
+			throw new TypeError(
+				`access.${command} contains an unsupported symbol key`,
+			)
+		}
+		if (!schemaMutationDetailedKeys.has(key)) {
+			throw new TypeError(`Unknown Access rule: access.${command}.${key}`)
+		}
+	}
+
+	return immutableRecord({
+		...(Object.hasOwn(value, 'allow')
+			? {
+					operation: normalizeAccessRule(
+						value.allow,
+						`access.${command}.allow`,
+					),
+				}
+			: {}),
+		...(Object.hasOwn(value, 'where')
+			? {
+					filter: normalizeWhereRule(value.where, `access.${command}.where`),
+				}
+			: {}),
+		...(Object.hasOwn(value, 'item')
+			? {
+					item: normalizeAccessRule(value.item, `access.${command}.item`),
+				}
+			: {}),
+	})
+}
 
 /** Lowers one operation-oriented public branch into private lifecycle stages. */
 const normalizeSchemaAccessFamily = (
@@ -213,6 +273,7 @@ export const normalizeSchemaAccessDeclarations = (
 	}
 
 	const allowedFamilies = new Set<string>(schemaAccessFamilies)
+	const mutations: Record<string, SchemaMutationAccessDeclarations> = {}
 	const declarations: MutableSchemaAccessDeclarations = {
 		filter: {},
 		item: {},
@@ -225,7 +286,11 @@ export const normalizeSchemaAccessDeclarations = (
 		}
 
 		if (!allowedFamilies.has(key)) {
-			throw new TypeError(`Unknown schema Access family: access.${key}`)
+			if (!schemaMutationCommandNamePattern.test(key)) {
+				throw new TypeError(`Unknown schema Access family: access.${key}`)
+			}
+			mutations[key] = normalizeSchemaMutationAccess(key, access[key])
+			continue
 		}
 
 		normalizeSchemaAccessFamily(
@@ -241,8 +306,15 @@ export const normalizeSchemaAccessDeclarations = (
 			: immutableRecord(declarations.operation)
 	const filter = freezeRuleMap(declarations.filter)
 	const item = freezeRuleMap(declarations.item)
+	const normalizedMutations =
+		Object.keys(mutations).length === 0 ? undefined : immutableRecord(mutations)
 
-	if (operation === undefined && filter === undefined && item === undefined) {
+	if (
+		operation === undefined &&
+		filter === undefined &&
+		item === undefined &&
+		normalizedMutations === undefined
+	) {
 		return undefined
 	}
 
@@ -250,6 +322,9 @@ export const normalizeSchemaAccessDeclarations = (
 		...(operation === undefined ? {} : { operation }),
 		...(filter === undefined ? {} : { filter }),
 		...(item === undefined ? {} : { item }),
+		...(normalizedMutations === undefined
+			? {}
+			: { mutations: normalizedMutations }),
 	})
 }
 

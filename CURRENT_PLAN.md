@@ -4,7 +4,7 @@
 - Milestone: 26
 - Started: 2026-09-10
 - Governing decision: [ADR-0245](docs/adr/0245-plugin-schema-mutations-and-soft-delete.md)
-- Resume point: issue 2604
+- Resume point: issue 2605
 
 ## Objective
 
@@ -63,15 +63,16 @@ visibility invariants when they are absent.
 1. [x] Issue 2601 — accept the schema-mutation and soft-delete contract.
 2. [x] Issue 2602 — declare generic plugin-owned schema mutations.
 3. [x] Issue 2603 — execute schema mutations through Runtime and persistence.
-4. [ ] Issues 2604 and 2605 — integrate optional Access and Hooks semantics.
-5. [ ] Issues 2606 and 2607 — expose generic schema mutations in REST and GraphQL.
-6. [ ] Issue 2608 — create the official soft-delete package and schema contract.
-7. [ ] Issue 2609 — enforce tombstone visibility and write protection.
-8. [ ] Issue 2610 — implement replace-delete mode.
-9. [ ] Issue 2611 — implement the explicit `softDelete` mutation.
-10. [ ] Issue 2612 — add private Master-only restore and purge commands.
-11. [ ] Issue 2613 — prove the public cross-transport PostgreSQL vertical.
-12. [ ] Issue 2614 — audit and close the milestone.
+4. [x] Issue 2604 — integrate optional Access semantics.
+5. [ ] Issue 2605 — integrate optional Hooks semantics.
+6. [ ] Issues 2606 and 2607 — expose generic schema mutations in REST and GraphQL.
+7. [ ] Issue 2608 — create the official soft-delete package and schema contract.
+8. [ ] Issue 2609 — enforce tombstone visibility and write protection.
+9. [ ] Issue 2610 — implement replace-delete mode.
+10. [ ] Issue 2611 — implement the explicit `softDelete` mutation.
+11. [ ] Issue 2612 — add private Master-only restore and purge commands.
+12. [ ] Issue 2613 — prove the public cross-transport PostgreSQL vertical.
+13. [ ] Issue 2614 — audit and close the milestone.
 
 The authoritative acceptance criteria and dependency graph live in
 [`issues/2600-plugin-schema-mutations-soft-delete/`](issues/2600-plugin-schema-mutations-soft-delete/README.md).

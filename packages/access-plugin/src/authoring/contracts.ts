@@ -12,6 +12,7 @@ import type {
 } from '@ultimabase/core'
 
 import type { AccessContext } from '../context.js'
+import type { SchemaMutationAccessMap } from './schema-mutations.js'
 
 type ReadPresentFieldValue<TFields> = TFields extends {
 	readonly value?: infer TValue
@@ -213,7 +214,7 @@ export type SchemaOperationAccessDeclaration<TDetails> =
 	AccessDecisionRule<SchemaOperationAccessInput> | TDetails
 
 /** Groups every schema policy by the operation developers are authorizing. */
-export interface SchemaAccess<TSchema extends SchemaDefinition> {
+interface NativeSchemaAccess<TSchema extends SchemaDefinition> {
 	/**
 	 * Controls read capabilities and their mandatory private row universe.
 	 * @example `read: { allow: true, where: { published: { eq: true } } }`
@@ -248,6 +249,18 @@ export interface SchemaAccess<TSchema extends SchemaDefinition> {
 		SchemaDeleteAccess<TSchema>
 	>
 }
+
+/** Combines native families with this application's exact request mutations. */
+export type SchemaAccess<TSchema extends SchemaDefinition> = Readonly<{
+	[
+		TKey in
+			keyof NativeSchemaAccess<TSchema> | keyof SchemaMutationAccessMap<TSchema>
+	]?: TKey extends keyof NativeSchemaAccess<TSchema>
+		? Exclude<NativeSchemaAccess<TSchema>[TKey], undefined>
+		: TKey extends keyof SchemaMutationAccessMap<TSchema>
+			? Exclude<SchemaMutationAccessMap<TSchema>[TKey], undefined>
+			: never
+}>
 
 /** Supplies immutable request authority to one field decision. */
 export interface FieldAccessInput {

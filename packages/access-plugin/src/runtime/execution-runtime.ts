@@ -5,7 +5,6 @@ import {
 	FrameworkError,
 	frameworkErrorCodes,
 	type FrameworkErrorCode,
-	type OperationKind,
 	type ApplicationCallbackExecutor,
 	type PluginIdentity,
 	type RequestContext,
@@ -13,6 +12,7 @@ import {
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import type { AccessRuleIdentity } from './rule-evaluation.js'
+import type { AccessOperationKind } from './rule-evaluation.js'
 import type {
 	AccessDiagnosticEvent,
 	AccessDiagnosticIdentity,
@@ -21,7 +21,7 @@ import type {
 
 export interface AccessExecutionDescriptor {
 	readonly identity: AccessRuleIdentity
-	readonly operation: OperationKind
+	readonly operation: AccessOperationKind
 }
 
 interface AccessExecutionState {

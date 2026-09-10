@@ -1,4 +1,7 @@
-import type { CompiledSchemaRegistry } from '@ultimabase/core'
+import type {
+	ApplicationSchemaMutationSurface,
+	CompiledSchemaRegistry,
+} from '@ultimabase/core'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import type { OwnedAccessContribution } from '../contributions.js'
@@ -96,8 +99,13 @@ export const compileAccessPlan = (
 	registry: CompiledSchemaRegistry,
 	defaults: AccessDefaultPolicy,
 	contributions: readonly OwnedAccessContribution[] = immutableArray([]),
+	mutationSurface?: ApplicationSchemaMutationSurface,
 ): AccessPlan => {
-	const drafts = registry.values().map(createMutableSchemaPlan)
+	const drafts = registry
+		.values()
+		.map((schema) =>
+			createMutableSchemaPlan(schema, mutationSurface?.get(schema)),
+		)
 	applyPluginContributions(drafts, contributions)
 	appendDeveloperDeclarations(drafts)
 

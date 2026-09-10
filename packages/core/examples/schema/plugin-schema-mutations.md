@@ -125,3 +125,36 @@ inherit the same root request transaction. Core locks the visible target,
 snapshots the declared resolver selection, validates the owner-only effect, and
 materializes the requested before/after projection without replaying native
 update or delete behavior.
+
+Optional policy engines inspect the final callback-free mutation catalog through
+Core's versioned `applicationSchemaMutationSurfaceCapability`. For example, when
+`@ultimabase/access-plugin` is installed, Typegen makes the exact request
+mutation available as a schema option:
+
+```ts
+import { accessPlugin } from '@ultimabase/access-plugin'
+import { Schema, UltimaBase } from '@ultimabase/core'
+
+const SecuredPost = Schema.define({
+	className: 'Post',
+	access: {
+		archive: {
+			allow: ({ input }) => input.reason.length > 0,
+			where: ({ where }) => where.eq('workflowState', 'published'),
+			item: ({ item }) => item.workflowState === 'archived',
+		},
+		update: false,
+		delete: false,
+	},
+	fields: (field) => ({ title: field.string({ required: true }) }),
+})
+
+const securedApplication = new UltimaBase({
+	plugins: [accessPlugin()],
+	schemas: [SecuredPost],
+})
+```
+
+The `archive` branch remains independent from native update and delete policy.
+Core owns only the generic immutable catalog and never imports or installs the
+official Access engine.

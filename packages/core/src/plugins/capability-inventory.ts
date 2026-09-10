@@ -37,6 +37,10 @@ import {
 	applicationOperationTransportPlanningCapability,
 	canonicalApplicationOperationTransportPlanningFoundation,
 } from '../runtime/application/application-operation-transport-planning.js'
+import {
+	applicationSchemaMutationSurfaceCapability,
+	canonicalApplicationSchemaMutationSurfaceFoundation,
+} from '../runtime/application/application-schema-mutation-surface.js'
 
 /** Reports one provider or replacement without exposing its value or factory. */
 export interface CapabilityProviderInspection {
@@ -266,6 +270,13 @@ export class CapabilityInventory implements Iterable<CapabilityInventoryEntry> {
 					requirement.token === applicationOperationTransportPlanningCapability,
 			)
 		})
+		const consumesSchemaMutationSurface = plugins.some((plugin) => {
+			const capabilities = plugin.definition.manifest.capabilities
+			return [...capabilities.requires, ...capabilities.optional].some(
+				(requirement) =>
+					requirement.token === applicationSchemaMutationSurfaceCapability,
+			)
+		})
 		for (const foundation of [
 			canonicalSchemaCompilerFoundation,
 			canonicalRuntimeExecutorFoundation,
@@ -274,6 +285,9 @@ export class CapabilityInventory implements Iterable<CapabilityInventoryEntry> {
 				: []),
 			...(consumesOperationTransportPlanning
 				? [canonicalApplicationOperationTransportPlanningFoundation]
+				: []),
+			...(consumesSchemaMutationSurface
+				? [canonicalApplicationSchemaMutationSurfaceFoundation]
 				: []),
 		]) {
 			registerToken(

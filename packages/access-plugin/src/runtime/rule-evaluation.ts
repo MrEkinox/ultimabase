@@ -8,6 +8,7 @@ import {
 	type DatabaseRowFilterNode,
 	type ExecutableOperationAst,
 	type OperationKind,
+	type PluginSchemaMutationOperationAst,
 	type QueryExpressionNode,
 	type RuntimeOperationStageInput,
 	type SchemaDefinition,
@@ -37,6 +38,14 @@ export type AccessPhase =
 	| 'access-item'
 	| 'access-operation'
 
+export type AccessOperationKind = OperationKind | 'plugin-schema-mutation'
+
+/** Carries native and custom logical operations through one Access callback path. */
+export interface AccessRuntimeRequest {
+	readonly context: RuntimeOperationStageInput<DatabaseOperationAst>['context']
+	readonly operation: DatabaseOperationAst | PluginSchemaMutationOperationAst
+}
+
 export interface AccessRuleIdentity {
 	readonly branch: string
 	readonly field?: FieldAccessPlan
@@ -49,7 +58,7 @@ export interface AccessRuleIdentity {
 /** Keeps public denials stable while diagnostics retain only static identity. */
 export const createAccessDeniedError = (
 	phase: AccessPhase,
-	operation: OperationKind,
+	operation: AccessOperationKind,
 	field?: FieldAccessPlan,
 ): FrameworkError<'PERMISSION_DENIED'> =>
 	new FrameworkError('PERMISSION_DENIED', `Native Access denied ${phase}.`, {
@@ -62,9 +71,7 @@ export const createAccessDeniedError = (
 		},
 	})
 
-export const readAccessSchema = (
-	operation: DatabaseOperationAst,
-): SchemaDefinition => {
+export const readAccessSchema = (operation: unknown): SchemaDefinition => {
 	const schema: unknown = getOperationSchema(operation)
 
 	if (!Schema.is(schema)) {
@@ -76,16 +83,16 @@ export const readAccessSchema = (
 
 const createRuleDescriptor = (
 	identity: AccessRuleIdentity,
-	operation: OperationKind,
+	operation: AccessOperationKind,
 ): Readonly<{
 	readonly identity: AccessRuleIdentity
-	readonly operation: OperationKind
+	readonly operation: AccessOperationKind
 }> => immutableRecord({ identity, operation })
 
 /** Executes callbacks through cancellation, recursion, and diagnostics. */
 const evaluateRule = async (
 	runtime: AccessExecutionRuntime,
-	request: RuntimeOperationStageInput<DatabaseOperationAst>,
+	request: AccessRuntimeRequest,
 	identity: AccessRuleIdentity,
 	input: Readonly<Record<string, unknown>>,
 ): Promise<unknown> => {
@@ -104,7 +111,7 @@ const evaluateRule = async (
 
 export const assertAccessDecisionRules = async (
 	runtime: AccessExecutionRuntime,
-	request: RuntimeOperationStageInput<DatabaseOperationAst>,
+	request: AccessRuntimeRequest,
 	rules: readonly CompiledAccessRule[],
 	identity: Omit<AccessRuleIdentity, 'rule' | 'ruleIndex'>,
 	input: Readonly<Record<string, unknown>>,

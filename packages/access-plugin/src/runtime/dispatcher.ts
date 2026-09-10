@@ -33,7 +33,13 @@ import {
 	evaluateAccessFieldReferenceRules,
 	evaluateAccessOperationAndFilter,
 	readAccessSchema,
+	type AccessRuntimeRequest,
 } from './rule-evaluation.js'
+import {
+	enforceSchemaMutationItemAccess,
+	evaluateSchemaMutationAccess,
+	isSchemaMutationAccessRequest,
+} from './schema-mutation-access.js'
 
 /** Executes one application's immutable official Access plan at Runtime boundaries. */
 export class AccessRuntime {
@@ -50,7 +56,7 @@ export class AccessRuntime {
 		Object.freeze(this)
 	}
 
-	#readSchemaPlan(operation: DatabaseOperationAst): SchemaAccessPlan {
+	#readSchemaPlan(operation: unknown): SchemaAccessPlan {
 		const schemaPlan = this.#plan.getSchema(readAccessSchema(operation))
 
 		if (schemaPlan === undefined) {
@@ -65,7 +71,28 @@ export class AccessRuntime {
 	async evaluate<const TOperation extends DatabaseOperationAst>(
 		request: RuntimeOperationStageInput<TOperation>,
 	): Promise<ProtectedPolicyEffects> {
-		const schemaPlan = this.#readSchemaPlan(request.operation)
+		const accessRequest = request as unknown as AccessRuntimeRequest
+		const schemaPlan = this.#readSchemaPlan(accessRequest.operation)
+
+		if (isSchemaMutationAccessRequest(accessRequest)) {
+			const rowFilter = await evaluateSchemaMutationAccess(
+				this.#runtime,
+				accessRequest,
+				this.#plan,
+				schemaPlan,
+			)
+			const permitted = computeAccessStaticSelection(schemaPlan)
+			assertAccessExplicitSelection(
+				accessRequest,
+				this.#plan,
+				schemaPlan,
+				permitted,
+			)
+			return immutableRecord({
+				...(rowFilter === undefined ? {} : { rowFilter }),
+				...(permitted === undefined ? {} : { selectionFields: permitted }),
+			})
+		}
 
 		const rowFilter = await evaluateAccessOperationAndFilter(
 			this.#runtime,
@@ -98,7 +125,9 @@ export class AccessRuntime {
 	async reevaluate<const TOperation extends DatabaseOperationAst>(
 		request: RuntimeOperationStageInput<TOperation>,
 	): Promise<boolean> {
-		const schemaPlan = this.#readSchemaPlan(request.operation)
+		const accessRequest = request as unknown as AccessRuntimeRequest
+		if (isSchemaMutationAccessRequest(accessRequest)) return true
+		const schemaPlan = this.#readSchemaPlan(accessRequest.operation)
 
 		await evaluateAccessMutationFieldRules(
 			this.#runtime,
@@ -181,6 +210,14 @@ export class AccessRuntime {
 	async enforcePreparedMutation<
 		const TOperation extends DatabaseMutationOperationAst,
 	>(request: RuntimePreparedMutationStageInput<TOperation>): Promise<void> {
+		const accessRequest = request as unknown as AccessRuntimeRequest
+		if (isSchemaMutationAccessRequest(accessRequest)) {
+			return enforceSchemaMutationItemAccess(
+				this.#runtime,
+				accessRequest,
+				this.#readSchemaPlan(accessRequest.operation),
+			)
+		}
 		return enforceAccessPreparedMutation(this.#runtime, this.#plan, request)
 	}
 
@@ -189,6 +226,8 @@ export class AccessRuntime {
 	>(
 		request: RuntimeMutationOutcomeStageInput<TOperation>,
 	): Promise<DatabaseOperationOutcome<TOperation>> {
+		const accessRequest = request as unknown as AccessRuntimeRequest
+		if (isSchemaMutationAccessRequest(accessRequest)) return request.outcome
 		return enforceAccessMutationOutcome(this.#runtime, this.#plan, request)
 	}
 
@@ -200,11 +239,12 @@ export class AccessRuntime {
 			readonly result: TResult
 		},
 	): Promise<TResult> {
+		const accessRequest = request as unknown as AccessRuntimeRequest
 		return enforceAccessOutput(
 			this.#runtime,
-			request,
+			{ ...accessRequest, result: request.result },
 			this.#plan,
-			this.#readSchemaPlan(request.operation),
+			this.#readSchemaPlan(accessRequest.operation),
 		)
 	}
 }

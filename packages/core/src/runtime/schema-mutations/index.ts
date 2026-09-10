@@ -8,6 +8,7 @@ export type {
 	PluginSchemaMutationHandler,
 	PluginSchemaMutationHandlerDefinition,
 	PluginSchemaMutationHandlerInput,
+	PluginSchemaMutationOperationAst,
 	PluginSchemaMutationTarget,
 	PluginSchemaMutationUpdateEffect,
 } from './contracts.js'

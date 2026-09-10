@@ -1,5 +1,5 @@
 /** Invalidates generated fingerprints when Core's shared typegen ABI changes. */
-export const generatedApplicationContractVersion = 17 as const
+export const generatedApplicationContractVersion = 18 as const
 
 /** Minimal identity implemented by every generated persisted item. */
 export interface SchemaItemType {

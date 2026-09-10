@@ -58,6 +58,7 @@ describe('@ultimabase/core public entry point', () => {
 			'afterOperation',
 			'applicationOperationTransportPlanningCapability',
 			'applicationRequestExecutionCapability',
+			'applicationSchemaMutationSurfaceCapability',
 			'applyUpdateExpressionToRecord',
 			'assertFieldDeclarationContext',
 			'assertFieldDefinition',

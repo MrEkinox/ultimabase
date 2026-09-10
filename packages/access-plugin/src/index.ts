@@ -41,6 +41,16 @@ export type {
 	SchemaUpsertAccess,
 	SchemaWhereAccessInput,
 } from './authoring/contracts.js'
+export type {
+	SchemaMutationAccess,
+	SchemaMutationAccessDeclaration,
+	SchemaMutationAccessIdentity,
+	SchemaMutationAccessMap,
+	SchemaMutationItemAccessInput,
+	SchemaMutationOperationAccessInput,
+	SchemaMutationWhereAccessInput,
+	SchemaMutationWhereRule,
+} from './authoring/schema-mutations.js'
 export {
 	allMutations,
 	allOf,

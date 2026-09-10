@@ -38,6 +38,7 @@ const defaults: AccessDefaultPolicy = {
 	read: { count: false, exists: false, many: false, one: false },
 	update: false,
 	upsert: false,
+	schemaMutations: false,
 }
 
 const secureText = definePluginField(

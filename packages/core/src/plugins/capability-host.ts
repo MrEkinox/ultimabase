@@ -4,7 +4,6 @@ import {
 	isPlainRecord,
 	type MaybePromise,
 } from '@ultimabase/shared'
-
 import { FrameworkError } from '../errors/framework-error.js'
 import type { CompiledSchemaRegistry } from '../schema/index.js'
 import type { DatabaseConstraintCompilerReader } from './constraint-compilers.js'
@@ -44,7 +43,7 @@ import {
 	isApplicationOperationTransportPlanningCapability,
 } from '../runtime/application/application-operation-transport-planning.js'
 import { operationTransportBindingCapability } from '../runtime/plugin-operations/capabilities.js'
-
+import * as mutation from '../runtime/application/application-schema-mutation-surface.js'
 interface MaterializedCapabilityResource {
 	readonly owner: PluginIdentity
 	readonly dispose: () => MaybePromise<void>
@@ -156,6 +155,7 @@ export class ApplicationCapabilityHost {
 	readonly #resolveOperation: (
 		name: string,
 	) => CompiledPluginOperation | undefined
+	readonly #resolveSchemaSurface: mutation.SchemaMutationSurfaceResolver
 	readonly #readers = new Map<
 		string,
 		Map<string | undefined, PluginCapabilityReader>
@@ -181,6 +181,7 @@ export class ApplicationCapabilityHost {
 		constraintCompilers: DatabaseConstraintCompilerReader,
 		application?: object,
 		resolveOperation?: (name: string) => CompiledPluginOperation | undefined,
+		resolveSchemaSurface?: mutation.SchemaMutationSurfaceResolver,
 	) {
 		this.#application = application ?? this
 		this.#graph = graph
@@ -188,6 +189,7 @@ export class ApplicationCapabilityHost {
 		this.#schemas = schemas
 		this.#constraintCompilers = constraintCompilers
 		this.#resolveOperation = resolveOperation ?? (() => undefined)
+		this.#resolveSchemaSurface = resolveSchemaSurface ?? (() => undefined)
 		this.#callbacks = createApplicationCallbackExecutor(
 			this.#application,
 			(owner) => {
@@ -484,6 +486,12 @@ export class ApplicationCapabilityHost {
 					) ?? [],
 				resolveOperation: this.#resolveOperation,
 			})
+		}
+		if (mutation.isApplicationSchemaMutationSurfaceCapability(token)) {
+			mutation.bindApplicationSchemaMutationSurface(
+				consumer,
+				this.#resolveSchemaSurface,
+			)
 		}
 		this.#resolvedContributions.set(
 			token,

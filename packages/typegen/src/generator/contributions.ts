@@ -187,7 +187,11 @@ export const renderGeneratedSurfaces = (
 				? 'unknown'
 				: context.imports.alias(mutation.input)
 		const errors = `readonly [${mutation.errors.map(quote).join(', ')}]`
-		return `Core.PluginSchemaMutationDefinition<${quote(mutation.mutation)}, ${quote(mutation.version)}, ${input}, ${errors}>`
+		const select =
+			mutation.select.length === 0
+				? 'Readonly<Record<never, never>>'
+				: `Readonly<{ ${mutation.select.map((field) => `readonly ${propertyName(field)}: true`).join('; ')} }>`
+		return `Core.PluginSchemaMutationDefinition<${quote(mutation.mutation)}, ${quote(mutation.version)}, ${input}, ${errors}, ${quote(mutation.authority)}, ${quote(mutation.effect)}, ${quote(mutation.returning)}, ${select}>`
 	}
 	const renderSurfaceType = (
 		properties: readonly TypegenPropertyNode[],
@@ -245,6 +249,21 @@ ${mutations
 				return `\t\t\treadonly ${propertyName(query.name)}: Core.QueryExtensionDefinition<${quote(query.name)}, ${quote(query.version)}, ${input}>`
 			})
 			.join('\n')
+		const schemaMutations = [
+			...surface.schemaMutations,
+			...surface.modelMutations.filter(
+				(modelMutation) =>
+					!surface.schemaMutations.some(
+						(schemaMutation) => schemaMutation.name === modelMutation.name,
+					),
+			),
+		]
+			.sort((left, right) => left.name.localeCompare(right.name))
+			.map(
+				(mutation) =>
+					`\t\t\treadonly ${propertyName(mutation.name)}: ${renderMutationDefinition(mutation)}`,
+			)
+			.join('\n')
 		return `\t\treadonly ${quote(surface.className)}: {
 \t\t\treadonly model: ${renderSurfaceType(augmentationFor(snapshot, surface.className, 'model'), surface.modelMutations, surface.className, 'ApplicationModelSchemaMutationMethod')}
 \t\t\treadonly modelCommands: {
@@ -256,6 +275,9 @@ ${queries}
 \t\t\treadonly schema: ${renderSurfaceType(augmentationFor(snapshot, surface.className, 'schema'), surface.schemaMutations, surface.className, 'ApplicationSchemaMutationMethod')}
 \t\t\treadonly schemaCommands: {
 ${renderCommands(surface.schemaCommands)}
+\t\t\t}
+\t\t\treadonly schemaMutations: {
+${schemaMutations}
 \t\t\t}
 \t\t}`
 	})

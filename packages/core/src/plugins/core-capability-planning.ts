@@ -1,6 +1,7 @@
 import { FrameworkError } from '../errors/framework-error.js'
 import { isApplicationRequestExecutionCapability } from '../runtime/application/application-request-execution.js'
 import { isApplicationOperationTransportPlanningCapability } from '../runtime/application/application-operation-transport-planning.js'
+import { isApplicationSchemaMutationSurfaceCapability } from '../runtime/application/application-schema-mutation-surface.js'
 import type {
 	MutableCapabilityEntry,
 	OwnedDecorator,
@@ -30,6 +31,12 @@ const coreCapabilityDescription = (
 		return {
 			kind: 'application-operation-transport-planning',
 			name: 'Application operation transport planning',
+		}
+	}
+	if (isApplicationSchemaMutationSurfaceCapability(entry.token)) {
+		return {
+			kind: 'application-schema-mutation-surface',
+			name: 'Application schema mutation surface',
 		}
 	}
 	return undefined

@@ -547,6 +547,12 @@ keeps the logical `plugin-schema-mutation` identity through policy and behavior,
 and compiles the final `update-one` or Master-only `delete-one` plan inside the
 automatic transaction.
 
+Optional engines can require the versioned
+`applicationSchemaMutationSurfaceCapability` to inspect each application's
+immutable callback-free mutation catalog. Core supplies that catalog only on
+demand, prevents plugin replacement or decoration, and contains no Access or
+Hooks vocabulary.
+
 See the focused
 [plugin schema mutation example](examples/schema/plugin-schema-mutations.md).
 
