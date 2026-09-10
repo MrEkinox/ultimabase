@@ -3,10 +3,10 @@
 Official soft-delete support for UltimaBase application schemas.
 
 The package establishes the immutable configuration and direct schema-option
-contract. Enabled application schemas receive the protected tombstone and
-ordinary operations see only active rows. Persistence rewrites, the explicit
-mutation, and Master administration are delivered by the following milestone
-issues.
+contract. Enabled application schemas receive the protected tombstone,
+ordinary operations see only active rows, and `replace-delete` schemas persist
+native deletes as tombstone updates. The explicit mutation and Master
+administration are delivered by the following milestone issues.
 
 ```ts
 import { Schema, UltimaBase } from '@ultimabase/core'
@@ -47,6 +47,22 @@ Replace mode keeps the logical delete operation—including its Access, Hooks,
 audit, result, and transaction semantics—while only the physical persistence
 plan writes the tombstone. Explicit mode retains hard delete and adds a distinct
 logical `softDelete` mutation with its own Access and Hooks identity.
+
+## Replace-delete execution
+
+For an effective `replace-delete` schema, `deleteOne` and every item in the
+ordered `deleteMany` schema command remain native logical deletes. REST and
+GraphQL therefore retain their existing delete names, inputs, results, Access,
+Hooks, observers, cancellation, and error behavior. Only the protected physical
+plan becomes one atomic update that sets the plugin-owned `isDeleted` field.
+Native update policy, Hooks, validators, defaults, and generators are not run.
+
+The update receives the same Core-owned target restrictions as the logical
+delete and returns its pre-delete record. A second delete cannot distinguish the
+now-hidden row from an absent row. Itemized batches remain one transaction, so
+one rejected item rolls back every earlier tombstone written by that batch.
+Schemas in `explicit` or `disabled` mode do not enter the rewriter target plan
+and retain physical hard-delete persistence.
 
 ## Optional integrations and protected storage
 

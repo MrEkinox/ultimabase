@@ -1931,6 +1931,11 @@ must advertise `databasePersistencePlanCapability`; missing versions or plan
 kinds fail before an adapter effect. Rewrites use neither nested Runtime
 operations nor master authority.
 
+A rewriter may target one `schema`, an immutable `schemas` collection compiled
+for the current application, or omit both to target every matching logical
+operation. An empty `schemas` collection is an inert application-local plan:
+the callback is not invoked and no rewrite provenance is appended.
+
 Independent subject consumers provide deletion participation without importing
 the provider that resolves that subject:
 

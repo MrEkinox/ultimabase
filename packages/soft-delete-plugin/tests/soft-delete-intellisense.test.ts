@@ -80,17 +80,16 @@ void Invalid
 	const generatedDocument = generated.snapshot.schemas.find(
 		({ className }) => className === Document.className,
 	)
-	expect(generatedDocument?.fields).toEqual(
-		expect.arrayContaining([
-			expect.objectContaining({
-				name: 'isDeleted',
-				typegen: expect.objectContaining({
-					create: 'forbidden',
-					object: 'required',
-					update: 'forbidden',
-				}),
-			}),
-		]),
+	const tombstone = generatedDocument?.fields.find(
+		({ name }) => name === 'isDeleted',
 	)
+	expect(tombstone).toMatchObject({
+		name: 'isDeleted',
+		typegen: {
+			create: 'forbidden',
+			object: 'required',
+			update: 'forbidden',
+		},
+	})
 	service.dispose()
 })

@@ -16,6 +16,10 @@ const articleSchema = Schema.define({
 	className: 'PersistenceTypeArticle',
 	fields: (field) => ({ deleted: field.boolean() }),
 })
+const noteSchema = Schema.define({
+	className: 'PersistenceTypeNote',
+	fields: (field) => ({ deleted: field.boolean() }),
+})
 
 test('preserves logical delete correlation across one physical update plan', () => {
 	const definition = persistencePlanRewriter({
@@ -74,4 +78,17 @@ test('exposes schema-mutation identity while retaining a Core-owned physical pla
 	expectTypeOf(definition.operations).toEqualTypeOf<
 		readonly PersistencePlanOperationKind[]
 	>()
+})
+
+test('infers every schema in one immutable rewriter target collection', () => {
+	persistencePlanRewriter({
+		operations: ['delete-one'],
+		rewrite: ({ logicalOperation, plan }) => {
+			expectTypeOf(logicalOperation.query.schema.definition).toEqualTypeOf<
+				typeof articleSchema | typeof noteSchema
+			>()
+			return plan
+		},
+		schemas: [articleSchema, noteSchema],
+	})
 })

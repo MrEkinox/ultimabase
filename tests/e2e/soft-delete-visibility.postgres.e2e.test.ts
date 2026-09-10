@@ -1,12 +1,15 @@
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
 import { accessPlugin } from '@ultimabase/access-plugin'
+import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import {
 	MasterAuthority,
 	Schema,
 	UltimaBase,
 	definePlugin,
+	postCommitEvent,
 	preparedOperation,
+	provideRuntimeObserver,
 	provideRuntimeInterceptor,
 	type SchemaOptions,
 } from '@ultimabase/core'
@@ -31,6 +34,73 @@ const PlainRecord = Schema.define({
 	softDelete: false,
 } as SchemaOptions<'SoftDeletePlainRecord'> & {
 	readonly softDelete: false
+})
+
+const replaceDeleteTrace: string[] = []
+let rejectedDeleteTitle: string | undefined
+
+const ReplaceRecord = Schema.define({
+	access: {
+		create: true,
+		delete: true,
+		read: true,
+		update: false,
+	},
+	className: 'SoftDeleteReplaceRecord',
+	fields: (field) => ({ title: field.string({ required: true }) }),
+	hooks: {
+		afterOperation: {
+			delete: ({ originalItem }) => {
+				replaceDeleteTrace.push(`after:delete:${String(originalItem.title)}`)
+			},
+			update: () => {
+				replaceDeleteTrace.push('after:update')
+			},
+		},
+		beforeOperation: {
+			delete: ({ originalItem }) => {
+				const title = String(originalItem.title)
+				replaceDeleteTrace.push(`before:delete:${title}`)
+				if (title === rejectedDeleteTitle) {
+					throw new Error('replace-delete batch rejected')
+				}
+			},
+			update: () => {
+				replaceDeleteTrace.push('before:update')
+			},
+		},
+	},
+	softDelete: 'replace-delete',
+} as SchemaOptions<'SoftDeleteReplaceRecord'> & {
+	readonly softDelete: 'replace-delete'
+})
+
+const replaceDeleteObserver = definePlugin({
+	capabilities: {
+		provides: [
+			provideRuntimeObserver({
+				contributionId: 'replace-delete-logical-observer',
+				create: () => ({
+					value: postCommitEvent({
+						handler: ({ operation }) => {
+							replaceDeleteTrace.push(`committed:${operation.kind}`)
+						},
+						operations: ['delete-one', 'update-one'],
+						schema: ReplaceRecord,
+					}),
+				}),
+			}),
+		],
+	},
+	core: '^0.0.0',
+	pluginId: 'fixture.soft-delete-logical-observer',
+	privileges: [
+		{
+			name: 'runtime:observe',
+			reason: 'Proves post-commit observers retain logical delete identity.',
+		},
+	] as const,
+	version: '1.0.0',
 })
 
 const staleTombstoneWriter = definePlugin({
@@ -102,13 +172,22 @@ const Article = Schema.define({
 	readonly softDelete: 'explicit'
 })
 
-const schemas = [VisibleRecord, PlainRecord, Author, Tag, Article] as const
+const schemas = [
+	VisibleRecord,
+	PlainRecord,
+	ReplaceRecord,
+	Author,
+	Tag,
+	Article,
+] as const
 type SoftDeleteApplication = UltimaBase<
 	typeof schemas,
 	readonly [
 		ReturnType<typeof softDeletePlugin>,
+		ReturnType<typeof hooksPlugin>,
 		ReturnType<typeof accessPlugin>,
 		typeof staleTombstoneWriter,
+		typeof replaceDeleteObserver,
 		ReturnType<typeof postgresPlugin>,
 	]
 >
@@ -135,8 +214,10 @@ beforeAll(async () => {
 		pluginPrivileges: { logger: false },
 		plugins: [
 			softDeletePlugin(),
+			hooksPlugin(),
 			accessPlugin({ default: true }),
 			staleTombstoneWriter,
+			replaceDeleteObserver,
 			postgresPlugin({ pool: fixture.pool, schemaPolicy: 'override' }),
 		],
 		schemas,
@@ -188,7 +269,7 @@ describe('official soft-delete visibility with PostgreSQL', () => {
 
 		await expect(
 			VisibleRecord.createOne(
-				{ data: { isDeleted: true, title: 'forbidden' } } as never,
+				{ data: { isDeleted: true, title: 'forbidden' } },
 				{ ultimabase: app },
 			),
 		).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
@@ -259,6 +340,130 @@ describe('official soft-delete visibility with PostgreSQL', () => {
 			[row.id],
 		)
 		expect(stored.rows).toStrictEqual([{ isDeleted: true, title: 'target' }])
+	})
+
+	it('rewrites native delete while preserving logical Access, Hooks, results, and Master visibility', async () => {
+		const { database, ultimabase: app } = getFixture()
+		replaceDeleteTrace.length = 0
+		rejectedDeleteTitle = undefined
+		const row = await ReplaceRecord.createOne(
+			{
+				data: { title: 'logical delete' },
+				select: { isDeleted: true, title: true },
+			},
+			{ ultimabase: app },
+		)
+
+		const deleted = await ReplaceRecord.deleteOne(
+			{ id: row.id, select: { id: true, isDeleted: true, title: true } },
+			{ ultimabase: app },
+		)
+
+		expect(deleted?.toJSON()).toStrictEqual({
+			id: row.id,
+			isDeleted: false,
+			title: 'logical delete',
+		})
+		expect(replaceDeleteTrace).toStrictEqual([
+			'before:delete:logical delete',
+			'after:delete:logical delete',
+			'committed:delete-one',
+		])
+		const stored = await database.pool.query<{
+			isDeleted: boolean
+			title: string
+		}>(
+			`select "isDeleted", title from soft_delete_replace_records where id = $1`,
+			[row.id],
+		)
+		expect(stored.rows).toStrictEqual([
+			{ isDeleted: true, title: 'logical delete' },
+		])
+		await expect(
+			ReplaceRecord.findOne(
+				{ where: { id: { eq: row.id } } },
+				{ ultimabase: app, useMasterKey: true },
+			),
+		).resolves.toBeNull()
+		await expect(
+			ReplaceRecord.deleteOne({ id: row.id }, { ultimabase: app }),
+		).resolves.toBeNull()
+
+		const masterRow = await ReplaceRecord.createOne(
+			{ data: { title: 'master logical delete' } },
+			{ ultimabase: app, useMasterKey: true },
+		)
+		await masterRow.delete({}, { ultimabase: app, useMasterKey: true })
+		const masterStored = await database.pool.query<{ isDeleted: boolean }>(
+			`select "isDeleted" from soft_delete_replace_records where id = $1`,
+			[masterRow.id],
+		)
+		expect(masterStored.rows).toStrictEqual([{ isDeleted: true }])
+	})
+
+	it('rolls back an ordered itemized delete batch without replaying update policy or hooks', async () => {
+		const { database, ultimabase: app } = getFixture()
+		replaceDeleteTrace.length = 0
+		const [first, second] = await ReplaceRecord.createMany(
+			{
+				data: [{ title: 'batch first' }, { title: 'batch rejected' }],
+			},
+			{ ultimabase: app },
+		)
+		if (first === undefined || second === undefined) {
+			throw new TypeError('Expected both replace-delete batch records')
+		}
+		rejectedDeleteTitle = 'batch rejected'
+
+		await expect(
+			ReplaceRecord.deleteMany(
+				{
+					where: [{ id: { eq: first.id } }, { id: { eq: second.id } }],
+				},
+				{ ultimabase: app },
+			),
+		).rejects.toThrow('replace-delete batch rejected')
+		expect(replaceDeleteTrace).toStrictEqual([
+			'before:delete:batch first',
+			'after:delete:batch first',
+			'before:delete:batch rejected',
+		])
+		const stored = await database.pool.query<{ isDeleted: boolean }>(
+			`select "isDeleted" from soft_delete_replace_records
+			 where id = any($1::uuid[])
+			 order by id`,
+			[[first.id, second.id]],
+		)
+		expect(stored.rows).toStrictEqual([
+			{ isDeleted: false },
+			{ isDeleted: false },
+		])
+		rejectedDeleteTitle = undefined
+	})
+
+	it('retains native hard-delete persistence for explicit and disabled schemas', async () => {
+		const { database, ultimabase: app } = getFixture()
+		const explicit = await VisibleRecord.createOne(
+			{ data: { title: 'explicit hard delete' } },
+			{ ultimabase: app },
+		)
+		const disabled = await PlainRecord.createOne(
+			{ data: { title: 'disabled hard delete' } },
+			{ ultimabase: app },
+		)
+
+		await VisibleRecord.deleteOne({ id: explicit.id }, { ultimabase: app })
+		await PlainRecord.deleteOne({ id: disabled.id }, { ultimabase: app })
+
+		const rows = await database.pool.query<{ remaining: number }>(
+			`select (
+				select count(*)::int from soft_delete_visible_records where id = $1
+			) + (
+				select count(*)::int from soft_delete_plain_records where id = $2
+			) as remaining`,
+			[explicit.id, disabled.id],
+		)
+		expect(rows.rows).toStrictEqual([{ remaining: 0 }])
 	})
 
 	it('rejects a later middleware attempt to write the protected tombstone', async () => {

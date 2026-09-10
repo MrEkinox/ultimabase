@@ -28,6 +28,7 @@ import type {
 export interface PersistencePlanRewriterDefinition {
 	readonly operations: readonly PersistencePlanOperationKind[]
 	readonly schema: SchemaDefinition | undefined
+	readonly schemas?: readonly SchemaDefinition[]
 }
 
 /** Lists logical operation kinds that may own a physical persistence plan. */
@@ -59,6 +60,16 @@ type PersistencePlanRewriteHandler<
 	input: DatabasePersistenceRewriteInput<TLogicalOperation, TPhysicalOperation>,
 ) => MaybePromise<DatabasePersistencePlan<TPhysicalOperation>>
 
+type PersistencePlanRewriterTarget<TSchema extends SchemaDefinition> =
+	| Readonly<{
+			schema?: TSchema
+			schemas?: never
+	  }>
+	| Readonly<{
+			schema?: never
+			schemas: readonly TSchema[]
+	  }>
+
 const persistencePlanRewriteHandlers = new WeakMap<
 	object,
 	PersistencePlanRewriteHandler
@@ -72,17 +83,27 @@ export const persistencePlanRewriter = <
 		...PersistencePlanOperationKind[],
 	],
 	const TSchema extends SchemaDefinition = SchemaDefinition,
->(options: {
-	readonly operations: TOperations
-	readonly schema?: TSchema
-	readonly rewrite: PersistencePlanRewriteHandler<
-		RewriterLogicalOperation<TSchema, TOperations>,
-		RewriterPhysicalOperation<RewriterLogicalOperation<TSchema, TOperations>>
-	>
-}): PersistencePlanRewriterDefinition => {
+>(
+	options: {
+		readonly operations: TOperations
+		readonly rewrite: PersistencePlanRewriteHandler<
+			RewriterLogicalOperation<TSchema, TOperations>,
+			RewriterPhysicalOperation<RewriterLogicalOperation<TSchema, TOperations>>
+		>
+	} & PersistencePlanRewriterTarget<TSchema>,
+): PersistencePlanRewriterDefinition => {
+	if (options.schema !== undefined && options.schemas !== undefined) {
+		throw new TypeError(
+			'Persistence plan rewriters cannot target both schema and schemas',
+		)
+	}
+
 	const definition = immutableRecord({
 		operations: immutableArray(options.operations),
 		...(options.schema === undefined ? {} : { schema: options.schema }),
+		...(options.schemas === undefined
+			? {}
+			: { schemas: immutableArray(options.schemas) }),
 	}) as PersistencePlanRewriterDefinition
 
 	persistencePlanRewriteHandlers.set(

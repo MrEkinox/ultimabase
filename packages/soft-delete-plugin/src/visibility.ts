@@ -23,7 +23,8 @@ interface SoftDeleteVisibilityPlan {
 	readonly schema: SchemaDefinition
 }
 
-const isExactOwner = (
+/** @internal Matches only the tombstone contributed by one exact plugin instance. */
+export const isSoftDeleteTombstoneOwner = (
 	schema: SchemaDefinition,
 	owner: PluginIdentity,
 ): boolean => {
@@ -43,7 +44,7 @@ const compileVisibilityPlan = (
 	immutableArray(
 		schemas
 			.values()
-			.filter((schema) => isExactOwner(schema, owner))
+			.filter((schema) => isSoftDeleteTombstoneOwner(schema, owner))
 			.map((schema) =>
 				immutableRecord({
 					schema,

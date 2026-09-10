@@ -1,8 +1,10 @@
 import {
 	booleanField,
+	providePersistencePlanRewriter,
 	provideRuntimeConstraint,
-	runtimeConstraintCapability,
 	type CapabilityProviderDeclaration,
+	type persistencePlanRewriterCapability,
+	type runtimeConstraintCapability,
 } from '@ultimabase/core'
 import {
 	definePluginModule,
@@ -22,6 +24,7 @@ import {
 	softDeleteTombstoneContributionId,
 	softDeleteTombstoneFieldName,
 } from './visibility.js'
+import { createSoftDeletePersistenceRewriter } from './replace-delete.js'
 
 const softDeletePluginModule: PluginModule<
 	'@ultimabase/soft-delete-plugin',
@@ -42,6 +45,10 @@ const softDeletePluginPrivileges: readonly [
 		readonly name: 'runtime:constrain'
 		readonly reason: 'Keeps tombstoned rows outside ordinary operations.'
 	}>,
+	Readonly<{
+		readonly name: 'persistence:rewrite'
+		readonly reason: 'Rewrites native deletes as atomic tombstone updates.'
+	}>,
 ] = [
 	{
 		name: 'schema:declare',
@@ -51,11 +58,16 @@ const softDeletePluginPrivileges: readonly [
 		name: 'runtime:constrain',
 		reason: 'Keeps tombstoned rows outside ordinary operations.',
 	},
+	{
+		name: 'persistence:rewrite',
+		reason: 'Rewrites native deletes as atomic tombstone updates.',
+	},
 ]
 
 type SoftDeletePluginCapabilities = Readonly<{
 	readonly provides: readonly [
 		CapabilityProviderDeclaration<typeof runtimeConstraintCapability>,
+		CapabilityProviderDeclaration<typeof persistencePlanRewriterCapability>,
 	]
 }>
 
@@ -92,6 +104,16 @@ export const softDeletePlugin = (
 			value: createSoftDeleteVisibilityPolicy(schemas, owner),
 		}),
 	})
+	const replaceDeleteProvider = providePersistencePlanRewriter({
+		contributionId: 'official-soft-delete-replace-delete',
+		create: ({ owner, schemas }) => ({
+			value: createSoftDeletePersistenceRewriter(
+				schemas,
+				owner,
+				normalized.defaultMode,
+			),
+		}),
+	})
 	const tombstonePatch = schemaPatch().addField({
 		contributionId: softDeleteTombstoneContributionId,
 		field: booleanField({ default: false, required: true }),
@@ -104,7 +126,7 @@ export const softDeletePlugin = (
 			? {}
 			: { instanceId: normalized.instanceId }),
 		privileges: softDeletePluginPrivileges,
-		capabilities: { provides: [visibilityProvider] },
+		capabilities: { provides: [visibilityProvider, replaceDeleteProvider] },
 		declare: ({ schemas }) => {
 			schemas.defineOptions({
 				contributionId: 'official-soft-delete-schema-option',

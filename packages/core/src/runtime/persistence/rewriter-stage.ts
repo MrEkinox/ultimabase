@@ -51,10 +51,13 @@ export const createPersistencePlanRewriteStage = (
 
 		for (const contribution of contributions) {
 			const definition = contribution.value
+			const targetSchema = plan.target.schema.definition
 			if (
 				!definition.operations.includes(input.logicalOperation.kind) ||
 				(definition.schema !== undefined &&
-					definition.schema !== plan.target.schema.definition)
+					definition.schema !== targetSchema) ||
+				(definition.schemas !== undefined &&
+					!definition.schemas.includes(targetSchema))
 			) {
 				continue
 			}

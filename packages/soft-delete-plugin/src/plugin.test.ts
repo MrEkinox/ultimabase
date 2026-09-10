@@ -11,6 +11,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import type { SoftDeleteSchemaOption } from './contracts.js'
 import { softDeletePlugin } from './plugin.js'
+import { createSoftDeletePersistenceRewriter } from './replace-delete.js'
 
 const documentSchema = (
 	className: string,
@@ -33,6 +34,9 @@ describe('softDeletePlugin', () => {
 					{
 						contributionId: 'official-soft-delete-visibility',
 					},
+					{
+						contributionId: 'official-soft-delete-replace-delete',
+					},
 				],
 				replaces: [],
 				requires: [],
@@ -48,8 +52,85 @@ describe('softDeletePlugin', () => {
 					name: 'runtime:constrain',
 					reason: 'Keeps tombstoned rows outside ordinary operations.',
 				},
+				{
+					name: 'persistence:rewrite',
+					reason: 'Rewrites native deletes as atomic tombstone updates.',
+				},
 			],
 		})
+	})
+
+	it('compiles replace-delete targets without matching explicit or disabled schemas', async () => {
+		const Direct = documentSchema(
+			'DirectReplaceDeleteDocument',
+			'replace-delete',
+		)
+		const Inherited = documentSchema('InheritedReplaceDeleteDocument')
+		const Explicit = documentSchema('ExplicitHardDeleteDocument', 'explicit')
+		const Disabled = documentSchema('DisabledHardDeleteDocument', false)
+		const plugin = softDeletePlugin({
+			defaultMode: 'replace-delete',
+			instanceId: 'replace-targets',
+		})
+		const application = new FrameworkApplication({
+			pluginPrivileges: { logger: false },
+			plugins: [plugin],
+			schemas: [Direct, Inherited, Explicit, Disabled],
+		})
+
+		await application.initialize()
+		try {
+			const rewriter = createSoftDeletePersistenceRewriter(
+				application.schemas,
+				plugin.manifest.identity,
+				'replace-delete',
+			)
+
+			expect(rewriter).toMatchObject({
+				operations: ['delete-one'],
+				schemas: [Direct, Inherited],
+			})
+		} finally {
+			await application.dispose()
+		}
+	})
+
+	it('keeps replace-delete plans isolated between applications', async () => {
+		const ReplaceDocument = documentSchema('IsolatedReplaceDeleteDocument')
+		const ExplicitDocument = documentSchema('IsolatedReplaceDeleteDocument')
+		const replacePlugin = softDeletePlugin({ defaultMode: 'replace-delete' })
+		const explicitPlugin = softDeletePlugin({ defaultMode: 'explicit' })
+		const replaceApplication = new FrameworkApplication({
+			pluginPrivileges: { logger: false },
+			plugins: [replacePlugin],
+			schemas: [ReplaceDocument],
+		})
+		const explicitApplication = new FrameworkApplication({
+			pluginPrivileges: { logger: false },
+			plugins: [explicitPlugin],
+			schemas: [ExplicitDocument],
+		})
+
+		await replaceApplication.initialize()
+		await explicitApplication.initialize()
+		try {
+			const replacePlan = createSoftDeletePersistenceRewriter(
+				replaceApplication.schemas,
+				replacePlugin.manifest.identity,
+				'replace-delete',
+			)
+			const explicitPlan = createSoftDeletePersistenceRewriter(
+				explicitApplication.schemas,
+				explicitPlugin.manifest.identity,
+				'explicit',
+			)
+
+			expect(replacePlan.schemas).toStrictEqual([ReplaceDocument])
+			expect(explicitPlan.schemas).toStrictEqual([])
+		} finally {
+			await replaceApplication.dispose()
+			await explicitApplication.dispose()
+		}
 	})
 
 	it('does not install the direct option through import side effects', async () => {
@@ -82,10 +163,14 @@ describe('softDeletePlugin', () => {
 			application.schemas.get(Disabled.className)?.definition,
 		).toHaveProperty('softDelete', false)
 		for (const schema of [Explicit, Inherited]) {
-			expect(schema.persistedFields.isDeleted).toMatchObject({
+			const tombstone = schema.persistedFields.isDeleted
+			expect(tombstone).toMatchObject({
 				kind: 'boolean',
 				options: { default: false, required: true },
 			})
+			if (tombstone === undefined) {
+				throw new TypeError('Expected the compiled soft-delete tombstone')
+			}
 			expect(schema.provenance.fields.isDeleted).toMatchObject({
 				contributionId: 'official-soft-delete-tombstone',
 				owner: {
@@ -93,9 +178,7 @@ describe('softDeletePlugin', () => {
 					pluginId: '@ultimabase/soft-delete-plugin',
 				},
 			})
-			expect(
-				readFieldTypegenState(schema.persistedFields.isDeleted!),
-			).toMatchObject({
+			expect(readFieldTypegenState(tombstone)).toMatchObject({
 				create: 'forbidden',
 				object: 'required',
 				update: 'forbidden',

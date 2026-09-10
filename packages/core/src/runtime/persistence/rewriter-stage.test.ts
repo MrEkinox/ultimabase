@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import {
 	FrameworkApplication,
@@ -18,6 +18,7 @@ import {
 	createDatabasePersistencePlan,
 	rewriteDeletePersistencePlan,
 } from './plans.js'
+import type { DatabasePersistenceRewriteInput } from './contracts.js'
 import { createPersistencePlanRewriteStage } from './rewriter-stage.js'
 
 const articleSchema = Schema.define({
@@ -77,6 +78,21 @@ const defineRewriterPlugin = (pluginId: string, withPrivilege = true) =>
 	})
 
 describe('persistence plan rewriter capability', () => {
+	it('rejects ambiguous singular and collection schema targeting', () => {
+		const identityRewrite = (input: DatabasePersistenceRewriteInput) =>
+			input.plan
+		expect(() =>
+			persistencePlanRewriter({
+				operations: ['delete-one'],
+				rewrite: identityRewrite,
+				schema: articleSchema,
+				schemas: [articleSchema],
+			} as never),
+		).toThrow(
+			'Persistence plan rewriters cannot target both schema and schemas',
+		)
+	})
+
 	it('requires the exact facade and persistence privilege', () => {
 		const privilegeFailure = captureFrameworkError(
 			() =>
@@ -150,6 +166,70 @@ describe('persistence plan rewriter capability', () => {
 					},
 				],
 			})
+		} finally {
+			await application.dispose()
+		}
+	})
+
+	it('targets an immutable application schema collection without touching other plans', async () => {
+		const otherSchema = Schema.define({
+			className: 'PersistenceStageUntargeted',
+			fields: (field) => ({ deleted: field.boolean() }),
+		})
+		const rewriteCalls = vi.fn()
+		const collectionDefinition = persistencePlanRewriter({
+			operations: ['delete-one'],
+			rewrite: ({ plan }) => {
+				rewriteCalls()
+				return rewriteDeletePersistencePlan(
+					plan,
+					normalizeUpdateExpression(articleSchema, { deleted: true }),
+				)
+			},
+			schemas: [articleSchema],
+		})
+		const plugin = definePlugin({
+			core: '^0.0.0',
+			pluginId: 'fixture.persistence-schema-collection',
+			version: '1.0.0',
+			privileges: [
+				{ name: 'persistence:rewrite', reason: 'Exercises exact targeting.' },
+			],
+			capabilities: {
+				provides: [
+					providePersistencePlanRewriter({
+						contributionId: 'targeted-delete',
+						create: () => ({ value: collectionDefinition }),
+					}),
+				],
+			},
+		})
+		const application = await createApplication({
+			pluginPrivileges: { logger: false },
+			plugins: [plugin],
+			schemas: [articleSchema, otherSchema],
+		})
+
+		try {
+			const stage = createPersistencePlanRewriteStage(application)
+			const otherDelete = {
+				kind: 'delete-one',
+				query: new QueryBuilder(otherSchema).where((where) =>
+					where.eq('id', 'other-1'),
+				).ast,
+			} as const
+			const untouched = createDatabasePersistencePlan(otherDelete)
+
+			expect(
+				await stage?.({ logicalOperation: otherDelete, plan: untouched }),
+			).toBe(untouched)
+			expect(rewriteCalls).not.toHaveBeenCalled()
+
+			const targeted = createDatabasePersistencePlan(deleteOperation)
+			expect(
+				await stage?.({ logicalOperation: deleteOperation, plan: targeted }),
+			).toMatchObject({ kind: 'update-one' })
+			expect(rewriteCalls).toHaveBeenCalledOnce()
 		} finally {
 			await application.dispose()
 		}
