@@ -27,6 +27,13 @@ import {
 } from '../plugin-operations/capabilities.js'
 import type { OperationTransportProtocol } from '../plugin-operations/contracts.js'
 import type { ExposedOperationTransportBinding } from '../plugin-operations/transport.js'
+import type { CompiledSchemaRegistry } from '../../schema/index.js'
+import type { CompiledApplicationSchemaSurface } from '../../plugins/application-surface-registry.js'
+import {
+	planApplicationSchemaMutations,
+	type ApplicationSchemaMutationTransportPlan,
+	type SchemaMutationTransportPlanningOptions,
+} from './schema-mutation-transport-planning.js'
 
 /** Selects exact operation tokens for deterministic transport schema planning. */
 export interface OperationTransportPlanningOptions<
@@ -53,6 +60,10 @@ export interface ApplicationOperationTransportPlanner {
 	plan<const TTransport extends OperationTransportProtocol>(
 		options: OperationTransportPlanningOptions<TTransport>,
 	): ApplicationOperationTransportPlan<TTransport>
+	/** Plans every exact schema mutation explicitly bound to one transport. */
+	planSchemaMutations<const TTransport extends OperationTransportProtocol>(
+		options: SchemaMutationTransportPlanningOptions<TTransport>,
+	): ApplicationSchemaMutationTransportPlan<TTransport>
 }
 
 interface PlannerState {
@@ -61,6 +72,11 @@ interface PlannerState {
 	disposed: boolean
 	resolveOperation:
 		((name: string) => CompiledPluginOperation | undefined) | undefined
+	resolveSchemaSurface:
+		| ((className: string) => CompiledApplicationSchemaSurface | undefined)
+		| undefined
+	schemaMutationBindings: readonly CapabilityProviderContribution[] | undefined
+	schemas: CompiledSchemaRegistry | undefined
 }
 
 interface BoundPlannerState {
@@ -220,6 +236,64 @@ class CoreApplicationOperationTransportPlanner implements ApplicationOperationTr
 			transport: options.transport,
 		})
 	}
+
+	planSchemaMutations<const TTransport extends OperationTransportProtocol>(
+		options: SchemaMutationTransportPlanningOptions<TTransport>,
+	): ApplicationSchemaMutationTransportPlan<TTransport> {
+		const state = plannerStates.get(this)
+		if (
+			state === undefined ||
+			state.disposed ||
+			state.application === undefined ||
+			state.resolveSchemaSurface === undefined ||
+			state.schemaMutationBindings === undefined ||
+			state.schemas === undefined
+		) {
+			throw new TypeError(
+				'Application operation transport planner is unavailable',
+			)
+		}
+		const owner = readApplicationPluginOwner(state.application)
+		if (owner === undefined) {
+			throw new FrameworkError(
+				'PLUGIN_PRIVILEGE_DENIED',
+				'Schema mutation transport planning requires an attributed plugin callback.',
+				{
+					internalDetails: {
+						kind: 'schema-mutation-planning-owner-missing',
+					},
+				},
+			)
+		}
+		assertApplicationPluginPrivilege(
+			state.application,
+			owner,
+			'transport:expose',
+		)
+		if (
+			!isPlainRecord(options) ||
+			!isOperationTransportProtocol(options.transport)
+		) {
+			throw new TypeError(
+				'schema mutation transport planning requires a protocol',
+			)
+		}
+		for (const key of Object.keys(options)) {
+			if (key !== 'transport') {
+				throw new TypeError(
+					`schema mutation transport planning contains unknown key: ${key}`,
+				)
+			}
+		}
+		return planApplicationSchemaMutations(
+			{
+				bindings: state.schemaMutationBindings,
+				resolveSurface: state.resolveSchemaSurface,
+				schemas: state.schemas,
+			},
+			options,
+		)
+	}
 }
 
 /** Provides transports with static, owner-validated operation binding facts. */
@@ -256,6 +330,9 @@ const canonicalPlanner = provideCapability(
 				bindings: undefined,
 				disposed: false,
 				resolveOperation: undefined,
+				resolveSchemaSurface: undefined,
+				schemaMutationBindings: undefined,
+				schemas: undefined,
 			}
 			plannerStates.set(planner, state)
 			Object.freeze(planner)
@@ -266,6 +343,9 @@ const canonicalPlanner = provideCapability(
 					state.bindings = undefined
 					state.disposed = true
 					state.resolveOperation = undefined
+					state.resolveSchemaSurface = undefined
+					state.schemaMutationBindings = undefined
+					state.schemas = undefined
 				},
 			})
 		},
@@ -294,6 +374,11 @@ export const bindApplicationOperationTransportPlanner = (
 		readonly resolveOperation: (
 			name: string,
 		) => CompiledPluginOperation | undefined
+		readonly resolveSchemaSurface: (
+			className: string,
+		) => CompiledApplicationSchemaSurface | undefined
+		readonly schemaMutationBindings: readonly CapabilityProviderContribution[]
+		readonly schemas: CompiledSchemaRegistry
 	}>,
 ): void => {
 	if (planner === undefined) return
@@ -314,6 +399,9 @@ export const bindApplicationOperationTransportPlanner = (
 	state.application = options.application
 	state.bindings = immutableArray(options.bindings)
 	state.resolveOperation = options.resolveOperation
+	state.resolveSchemaSurface = options.resolveSchemaSurface
+	state.schemaMutationBindings = immutableArray(options.schemaMutationBindings)
+	state.schemas = options.schemas
 }
 
 /** Identifies the non-replaceable Core operation planning protocol. */

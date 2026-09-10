@@ -61,7 +61,7 @@ export const matchRestRoute = (
 	)
 	if (exact !== undefined) return immutableRecord({ route: exact })
 	for (const route of routes) {
-		if (route.method !== request.method || !route.path.endsWith('/{id}')) {
+		if (route.method !== request.method || !route.path.includes('{id}')) {
 			continue
 		}
 		const id = matchesDynamicPath(route.path, pathname)

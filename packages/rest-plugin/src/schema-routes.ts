@@ -4,6 +4,7 @@ import {
 	type GenericField,
 	type GenericOutputDescriptor,
 	type PluginIdentity,
+	type SchemaDefinition,
 } from '@ultimabase/core'
 import type { HttpMethod } from '@ultimabase/http-plugin'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
@@ -97,6 +98,18 @@ const isEnabled = (
 	readSelection(schema, operation) ??
 	readSelection(defaults, operation) ??
 	builtInDefaults[operation]
+
+/** Resolves whether one application schema exposes its explicitly bound mutations. */
+export const areRestSchemaMutationsEnabled = (
+	schema: RestSchemaRoutesOption | undefined,
+	defaults: RestSchemaRoutesOption | undefined,
+): boolean => {
+	const read = (
+		selection: RestSchemaRoutesOption | undefined,
+	): boolean | undefined =>
+		typeof selection === 'boolean' ? selection : selection?.mutations
+	return read(schema) ?? read(defaults) ?? true
+}
 
 const routeTemplates: readonly Readonly<{
 	method: HttpMethod
@@ -195,6 +208,22 @@ const assertRestOutputDescriptors = (
 	}
 }
 
+/** Validates the complete schema-result codec used by native and custom routes. */
+export const assertRestSchemaResultCodecs = (
+	schema: SchemaDefinition,
+): void => {
+	assertRestFieldCodecs(schema.persistedFields, `${schema.className}.fields`)
+	assertRestOutputDescriptors(
+		Object.fromEntries(
+			Object.entries(schema.virtualFields).map(([name, field]) => [
+				name,
+				field.output,
+			]),
+		),
+		`${schema.className}.virtualFields`,
+	)
+}
+
 /** Compiles one instance fragment from the complete application schema graph. */
 export const compileRestRouteFragment = (
 	options: Readonly<{
@@ -230,19 +259,7 @@ export const compileRestRouteFragment = (
 				isEnabled(configuredRoutes, options.defaultRoutes, template.operation),
 			)
 		) {
-			assertRestFieldCodecs(
-				schema.persistedFields,
-				`${schema.className}.fields`,
-			)
-			assertRestOutputDescriptors(
-				Object.fromEntries(
-					Object.entries(schema.virtualFields).map(([name, field]) => [
-						name,
-						field.output,
-					]),
-				),
-				`${schema.className}.virtualFields`,
-			)
+			assertRestSchemaResultCodecs(schema)
 		}
 		const virtualFields = immutableRecord(
 			Object.fromEntries(

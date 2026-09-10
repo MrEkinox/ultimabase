@@ -44,16 +44,15 @@ import {
 } from '../runtime/application/application-operation-transport-planning.js'
 import { operationTransportBindingCapability } from '../runtime/plugin-operations/capabilities.js'
 import * as mutation from '../runtime/application/application-schema-mutation-surface.js'
+import { schemaMutationTransportBindingCapability } from '../runtime/schema-mutations/transport-capabilities.js'
 interface MaterializedCapabilityResource {
 	readonly owner: PluginIdentity
 	readonly dispose: () => MaybePromise<void>
 }
-
 /** Retains exact provider ownership after application capability materialization. */
 export type MaterializedCapabilityContribution<
 	TToken extends CapabilityToken = CapabilityToken,
 > = CapabilityProviderContribution<TToken>
-
 const throwCapabilityCycle = (
 	token: CapabilityToken,
 	resolutionStack: readonly CapabilityToken[],
@@ -76,7 +75,6 @@ const throwCapabilityCycle = (
 		},
 	)
 }
-
 const assertApplicationResource: (
 	value: unknown,
 	capabilityId: string,
@@ -89,7 +87,6 @@ const assertApplicationResource: (
 			`Application capability "${capabilityId}" factory must return a plain resource object`,
 		)
 	}
-
 	for (const key of Reflect.ownKeys(value)) {
 		if (key !== 'value' && key !== 'dispose') {
 			throw new TypeError(
@@ -97,7 +94,6 @@ const assertApplicationResource: (
 			)
 		}
 	}
-
 	if (!Object.hasOwn(value, 'value')) {
 		throw new TypeError(
 			`Application capability "${capabilityId}" resource must contain value`,
@@ -109,7 +105,6 @@ const assertApplicationResource: (
 		)
 	}
 }
-
 const throwCleanupErrors = (errors: readonly unknown[]): void => {
 	if (errors.length === 0) return
 	if (errors.length === 1) throw errors[0]
@@ -118,7 +113,6 @@ const throwCleanupErrors = (errors: readonly unknown[]): void => {
 		'Multiple application capabilities failed to dispose.',
 	)
 }
-
 const createDeniedConstraintCompilerReader = (
 	owner: PluginIdentity,
 ): DatabaseConstraintCompilerReader => {
@@ -143,7 +137,6 @@ const createDeniedConstraintCompilerReader = (
 		values: throwDenied,
 	})
 }
-
 /** Materializes application values and creates exact owner-bound consumer readers. */
 export class ApplicationCapabilityHost {
 	readonly #application: object
@@ -379,6 +372,7 @@ export class ApplicationCapabilityHost {
 		const nextStack = [...resolutionStack, token]
 		if (isApplicationOperationTransportPlanningCapability(token)) {
 			await this.#resolve(operationTransportBindingCapability, nextStack)
+			await this.#resolve(schemaMutationTransportBindingCapability, nextStack)
 		}
 		const providers: unknown[] = []
 		const materializedContributions: MaterializedCapabilityContribution[] = []
@@ -485,6 +479,12 @@ export class ApplicationCapabilityHost {
 						operationTransportBindingCapability,
 					) ?? [],
 				resolveOperation: this.#resolveOperation,
+				resolveSchemaSurface: this.#resolveSchemaSurface,
+				schemaMutationBindings:
+					this.#resolvedContributions.get(
+						schemaMutationTransportBindingCapability,
+					) ?? [],
+				schemas: this.#schemas,
 			})
 		}
 		if (mutation.isApplicationSchemaMutationSurfaceCapability(token)) {

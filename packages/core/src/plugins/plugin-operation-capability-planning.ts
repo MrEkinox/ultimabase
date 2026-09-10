@@ -17,6 +17,10 @@ import {
 	isAuthorizedPluginSchemaMutationProvider,
 	pluginSchemaMutationHandlerCapability,
 } from '../runtime/schema-mutations/capabilities.js'
+import {
+	isAuthorizedSchemaMutationTransportBindingProvider,
+	schemaMutationTransportBindingCapability,
+} from '../runtime/schema-mutations/transport-capabilities.js'
 
 interface PluginOperationProtocolPlanningOptions {
 	readonly assertPrivilege: (
@@ -35,7 +39,8 @@ export const isPluginOperationProtocolToken = (
 ): boolean =>
 	token === pluginOperationHandlerCapability ||
 	token === operationTransportBindingCapability ||
-	token === pluginSchemaMutationHandlerCapability
+	token === pluginSchemaMutationHandlerCapability ||
+	token === schemaMutationTransportBindingCapability
 
 /** Enforces the exact public facade and privilege for every operation protocol. */
 export const assertPluginOperationProtocolEntry = (
@@ -87,6 +92,19 @@ export const assertPluginOperationProtocolEntry = (
 			)
 		}
 		if (
+			entry.token === schemaMutationTransportBindingCapability &&
+			!isAuthorizedSchemaMutationTransportBindingProvider(declaration)
+		) {
+			options.reject(
+				'Schema mutation transport bindings must use provideSchemaMutationTransportBinding.',
+				{
+					kind: 'schema-mutation-transport-provider-factory',
+					plugin: formatPluginIdentity(provider.owner),
+					contributionId: declaration.contributionId,
+				},
+			)
+		}
+		if (
 			entry.token === operationTransportBindingCapability &&
 			!isAuthorizedOperationTransportBindingProvider(declaration)
 		) {
@@ -104,6 +122,9 @@ export const assertPluginOperationProtocolEntry = (
 			options.assertPrivilege(provider, 'persistence:rewrite')
 		}
 		if (entry.token === operationTransportBindingCapability) {
+			options.assertPrivilege(provider, 'transport:expose')
+		}
+		if (entry.token === schemaMutationTransportBindingCapability) {
 			options.assertPrivilege(provider, 'transport:expose')
 		}
 	}

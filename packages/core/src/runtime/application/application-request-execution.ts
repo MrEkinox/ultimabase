@@ -51,6 +51,11 @@ import {
 	type ApplicationSchemaMutationRequest,
 	type ApplicationSchemaMutationResult,
 } from './application-schema-mutation-execution.js'
+import type {
+	ApplicationSchemaMutationTransport,
+	SchemaMutationTransportExposureOptions,
+} from '../schema-mutations/transport.js'
+import { exposeFrameworkSchemaMutations } from '../schema-mutations/transport-exposure.js'
 
 /** Carries one raw credential only for immediate application-owned verification. */
 export interface ApplicationMasterKeyVerificationOptions<
@@ -99,6 +104,10 @@ export interface ApplicationRequestExecutor {
 	exposeOperations<const TTransport extends OperationTransportProtocol>(
 		options: OperationTransportExposureOptions<TTransport>,
 	): ApplicationOperationTransport<TTransport>
+	/** Constructs one immutable allowlist for bound schema-local mutations. */
+	exposeSchemaMutations<const TTransport extends OperationTransportProtocol>(
+		options: SchemaMutationTransportExposureOptions<TTransport>,
+	): ApplicationSchemaMutationTransport<TTransport>
 	/** Reports or acknowledges Core's shared public-protection uncertainty. */
 	reportPublicTransportProtection<
 		const TTransport extends OperationTransportProtocol,
@@ -261,6 +270,14 @@ class CoreApplicationRequestExecutor implements ApplicationRequestExecutor {
 		const framework = readBoundFramework(this, false)
 		requireAttributedOwner(framework)
 		return framework.exposeOperations(options)
+	}
+
+	exposeSchemaMutations<const TTransport extends OperationTransportProtocol>(
+		options: SchemaMutationTransportExposureOptions<TTransport>,
+	): ApplicationSchemaMutationTransport<TTransport> {
+		const framework = readBoundFramework(this, false)
+		requireAttributedOwner(framework)
+		return exposeFrameworkSchemaMutations(framework, options)
 	}
 
 	reportPublicTransportProtection<

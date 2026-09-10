@@ -8,10 +8,14 @@ import {
 	Schema,
 	addSchemaField,
 	defineOperationValue,
+	defineOperationTransport,
 	definePlugin,
 	defineSchemaMutation,
 	provideSchemaMutationHandler,
+	provideSchemaMutationTransportBinding,
 	schemaMutationHandler,
+	schemaMutationTransportBinding,
+	schemaMutationWireCodec,
 	stringField,
 } from '@ultimabase/core'
 
@@ -22,24 +26,32 @@ const Post = Schema.define({
 	}),
 })
 
+const archiveInput = defineOperationValue((value, path) => {
+	if (
+		typeof value !== 'object' ||
+		value === null ||
+		!('reason' in value) ||
+		typeof value.reason !== 'string'
+	) {
+		throw new TypeError(`${path}.reason must be a string`)
+	}
+	return Object.freeze({ reason: value.reason })
+})
+
 const archive = defineSchemaMutation({
 	authority: 'request',
 	effect: 'update',
 	errors: ['community.workflow.archive-rejected'],
-	input: defineOperationValue((value, path) => {
-		if (
-			typeof value !== 'object' ||
-			value === null ||
-			!('reason' in value) ||
-			typeof value.reason !== 'string'
-		) {
-			throw new TypeError(`${path}.reason must be a string`)
-		}
-		return Object.freeze({ reason: value.reason })
-	}),
+	input: archiveInput,
 	name: 'community.workflow.archive',
 	returning: 'after',
 	select: { workflowState: true },
+	version: '1.0.0',
+})
+
+// The owner names REST v1 without importing the optional REST package.
+const restV1 = defineOperationTransport({
+	name: 'ultimabase.rest',
 	version: '1.0.0',
 })
 
@@ -63,6 +75,23 @@ export const workflowPlugin = definePlugin({
 					}),
 				}),
 			}),
+			provideSchemaMutationTransportBinding({
+				contributionId: 'archive-rest-v1',
+				create: () => ({
+					value: schemaMutationTransportBinding({
+						codec: schemaMutationWireCodec({
+							decode: (value) =>
+								archiveInput.snapshot(value, 'REST archive input'),
+							mutation: archive,
+							transport: restV1,
+						}),
+						metadata: {
+							errors: { 'community.workflow.archive-rejected': 409 },
+						},
+						mutation: archive,
+					}),
+				}),
+			}),
 		],
 	},
 	core: '^0.0.0',
@@ -72,6 +101,7 @@ export const workflowPlugin = definePlugin({
 		{ name: 'model:extend', reason: 'Adds direct archive methods.' },
 		{ name: 'persistence:rewrite', reason: 'Persists the archive state.' },
 		{ name: 'schema:declare', reason: 'Adds the owned workflow field.' },
+		{ name: 'transport:expose', reason: 'Binds archive to REST v1.' },
 	],
 	version: '1.0.0',
 	declare: ({ models, operations, schemas }) => {

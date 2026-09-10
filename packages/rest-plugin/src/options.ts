@@ -39,6 +39,8 @@ export interface RestSchemaRoutes {
 	readonly upsert?: boolean
 	/** Selects homogeneous, ordered, atomic itemized bulk routes. */
 	readonly bulk?: boolean | RestBulkRoutes
+	/** Generates explicitly bound plugin-owned schema mutation routes. */
+	readonly mutations?: boolean
 }
 
 export type RestSchemaRoutesOption = boolean | RestSchemaRoutes
@@ -52,6 +54,7 @@ const schemaRouteKeys = new Set([
 	'find',
 	'first',
 	'get',
+	'mutations',
 	'update',
 	'upsert',
 ])

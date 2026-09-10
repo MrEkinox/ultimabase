@@ -4,7 +4,6 @@ export interface OptionalProductPublicApi {
 	readonly compatibleProviderContract: readonly string[]
 	readonly conformanceSupport: readonly string[]
 }
-
 export const hooksPluginPublicApi = {
 	applicationApi: [
 		'DefineEventFactory',
@@ -115,7 +114,6 @@ export const hooksPluginPublicApi = {
 		'hookDiagnosticsObserverCapability',
 	],
 } as const satisfies OptionalProductPublicApi
-
 export const accessPluginPublicApi = {
 	applicationApi: [
 		'AccessContext',
@@ -203,7 +201,6 @@ export const accessPluginPublicApi = {
 		'accessDiagnosticsObserverCapability',
 	],
 } as const satisfies OptionalProductPublicApi
-
 export const validationPluginPublicApi = {
 	applicationApi: [
 		'CompatibleFieldStandardSchema',
@@ -219,7 +216,6 @@ export const validationPluginPublicApi = {
 	compatibleProviderContract: [],
 	conformanceSupport: [],
 } as const satisfies OptionalProductPublicApi
-
 export const passwordAuthPluginPublicApi = {
 	applicationApi: [
 		'IssuedPasswordSession',
@@ -254,7 +250,6 @@ export const passwordAuthPluginPublicApi = {
 	compatibleProviderContract: [],
 	conformanceSupport: [],
 } as const satisfies OptionalProductPublicApi
-
 export const httpPluginPublicApi = {
 	applicationApi: [
 		'HttpBrowserBootstrapRouteDefinition',
@@ -356,6 +351,9 @@ export const restPluginPublicApi = {
 		'RestRouteDefinition',
 		'RestRouteGraph',
 		'RestRouteProvenance',
+		'RestSchemaMutationRouteDefinition',
+		'RestSchemaMutationRouteProvenance',
+		'RestSchemaMutationTransport',
 		'RestSchemaOperation',
 		'RestSchemaRouteDefinition',
 		'RestSchemaRoutes',
@@ -523,10 +521,13 @@ export const removedHttpPluginPublicApiNames = [
 /** Names REST compiler details deliberately kept out of the root API. */
 export const removedRestPluginPublicApiNames = [
 	'bindRestOperationTransport',
+	'bindRestSchemaMutationTransport',
 	'compileRestOperationRouteFragment',
 	'compileRestRouteFragment',
+	'compileRestSchemaMutationRouteFragment',
 	'createRestOperationTransport',
 	'createRestRouteFragment',
+	'createRestSchemaMutationTransport',
 	'encodeRestPathSegment',
 	'isRestApplicationProvenance',
 	'normalizeRestSchemaRoutes',

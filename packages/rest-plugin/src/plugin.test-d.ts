@@ -5,6 +5,8 @@ import {
 	restPlugin,
 	type RestPlugin,
 	type RestOperationTransport,
+	type RestSchemaMutationRouteDefinition,
+	type RestSchemaMutationTransport,
 	type RestErrorEnvelope,
 	type RestReadOperationAst,
 	type RestResponseErrorCode,
@@ -40,6 +42,7 @@ test('preserves exact immutable REST public types', () => {
 	expectTypeOf<IsAny<typeof plugin>>().toEqualTypeOf<false>()
 	expectTypeOf<RestSchemaRoutes>().toExtend<{
 		readonly find?: boolean
+		readonly mutations?: boolean
 	}>()
 	expectTypeOf<RestRouteDefinition['method']>().toExtend<string>()
 	expectTypeOf<
@@ -52,6 +55,12 @@ test('preserves exact immutable REST public types', () => {
 	expectTypeOf<
 		RestOperationTransport['operations'][number]['kind']
 	>().toEqualTypeOf<'rest-plugin-operation-route'>()
+	expectTypeOf<
+		RestSchemaMutationTransport['mutations'][number]
+	>().toEqualTypeOf<RestSchemaMutationRouteDefinition>()
+	expectTypeOf<
+		RestSchemaMutationRouteDefinition['operation']
+	>().toEqualTypeOf<'schemaMutation'>()
 	const count = executeRestReadRequest(executor, context, schema, {
 		operation: 'count',
 		request: new Request('https://example.test/count'),

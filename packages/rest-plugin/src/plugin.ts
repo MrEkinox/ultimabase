@@ -1,7 +1,9 @@
 import {
+	applicationOperationTransportPlanningCapability,
 	applicationRequestExecutionCapability,
 	provideCapability,
 	requireCapability,
+	type ApplicationOperationTransportPlanner,
 	type ApplicationRequestExecutor,
 	type CapabilityProviderDeclaration,
 	type CapabilityRequirement,
@@ -35,8 +37,15 @@ import {
 	restRouteGraphCapability,
 	type RestPluginOperationRouteDefinition,
 	type RestRouteGraph,
+	type RestSchemaMutationRouteDefinition,
 } from './routes.js'
 import { compileRestRouteFragment } from './schema-routes.js'
+import { compileRestSchemaMutationRouteFragment } from './schema-mutation-routes.js'
+import {
+	bindRestSchemaMutationTransport,
+	createRestSchemaMutationTransport,
+	type RestSchemaMutationTransport,
+} from './schema-mutation-execution.js'
 import { defaultRestReadLimits, type RestReadLimits } from './reads.js'
 import { configureRestHttpOwner, createRestHttpMounts } from './http-handler.js'
 
@@ -64,6 +73,18 @@ const requestExecutionRequirement: CapabilityRequirement<
 > = requireCapability(applicationRequestExecutionCapability, '^1.0.0', {
 	phase: 'materialization',
 })
+const transportPlanningRequirement: CapabilityRequirement<
+	typeof applicationOperationTransportPlanningCapability,
+	false,
+	'^1.0.0',
+	'materialization'
+> = requireCapability(
+	applicationOperationTransportPlanningCapability,
+	'^1.0.0',
+	{
+		phase: 'materialization',
+	},
+)
 /** Configures immutable REST v1 schema-route generation. */
 export interface RestPluginOptions {
 	/** Accepts Core's inability to prove complete public policy coverage. */
@@ -89,6 +110,8 @@ export interface RestPluginExports {
 	readonly routeGraph: RestRouteGraph
 	/** Exists only when this REST instance explicitly exposes operations. */
 	readonly operationTransport?: RestOperationTransport
+	/** Exists only when this instance exposes plugin-owned schema mutations. */
+	readonly schemaMutationTransport?: RestSchemaMutationTransport
 }
 
 interface NormalizedRestBasePath {
@@ -217,11 +240,13 @@ type RestPluginCapabilities = Readonly<{
 	readonly provides: readonly [
 		CapabilityProviderDeclaration<typeof restRouteGraphCapability>,
 		CapabilityProviderDeclaration<typeof restRouteGraphCapability>,
+		CapabilityProviderDeclaration<typeof restRouteGraphCapability>,
 		CapabilityProviderDeclaration<typeof httpEndpointContributionsCapability>,
 	]
 	readonly requires: readonly [
 		typeof routeGraphRequirement,
 		typeof requestExecutionRequirement,
+		typeof transportPlanningRequirement,
 	]
 }>
 
@@ -235,6 +260,9 @@ type RestPluginDefinition = Readonly<{
 					get(
 						requirement: typeof requestExecutionRequirement,
 					): ApplicationRequestExecutor
+					get(
+						requirement: typeof transportPlanningRequirement,
+					): ApplicationOperationTransportPlanner
 				}>
 				readonly pluginExports: RestPluginExports
 			}>,
@@ -274,6 +302,23 @@ export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 			owner,
 			pluginVersion: restPluginModule.version,
 		})
+	const compileSchemaMutationRoutes = (
+		owner: Parameters<
+			typeof compileRestSchemaMutationRouteFragment
+		>[0]['owner'],
+		schemas: Parameters<
+			typeof compileRestSchemaMutationRouteFragment
+		>[0]['schemas'],
+		planner: ApplicationOperationTransportPlanner,
+	) =>
+		compileRestSchemaMutationRouteFragment({
+			basePath: normalized.basePath,
+			defaultRoutes: normalized.defaultRoutes,
+			owner,
+			plan: planner.planSchemaMutations({ transport: restProtocol }),
+			pluginVersion: restPluginModule.version,
+			schemas,
+		})
 	const routeProvider = provideCapability(restRouteGraphCapability, {
 		contributionId: 'official-rest-schema-routes',
 		create: ({ owner, schemas }) => ({
@@ -286,6 +331,19 @@ export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 			value: compileOperationRoutes(owner),
 		}),
 	})
+	const schemaMutationRouteProvider = provideCapability(
+		restRouteGraphCapability,
+		{
+			contributionId: 'official-rest-schema-mutation-routes',
+			create: ({ capabilities: reader, owner, schemas }) => ({
+				value: compileSchemaMutationRoutes(
+					owner,
+					schemas,
+					reader.get(transportPlanningRequirement),
+				),
+			}),
+		},
+	)
 	const httpEndpointProvider = provideCapability(
 		httpEndpointContributionsCapability,
 		{
@@ -293,9 +351,17 @@ export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 			create: ({ capabilities: reader, owner, schemas }) => {
 				const schemaRoutes = compileSchemaRoutes(owner, schemas)
 				const operationRoutes = compileOperationRoutes(owner)
+				const schemaMutationRoutes = compileSchemaMutationRoutes(
+					owner,
+					schemas,
+					reader.get(transportPlanningRequirement),
+				)
 				return {
 					value: createRestHttpMounts(
-						schemaRoutes.routes.length + operationRoutes.routes.length > 0,
+						schemaRoutes.routes.length +
+							operationRoutes.routes.length +
+							schemaMutationRoutes.routes.length >
+							0,
 						normalized.mountPath,
 						owner,
 						reader.get(requestExecutionRequirement),
@@ -306,8 +372,17 @@ export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 		},
 	)
 	const capabilities: RestPluginCapabilities = {
-		provides: [routeProvider, operationRouteProvider, httpEndpointProvider],
-		requires: [routeGraphRequirement, requestExecutionRequirement],
+		provides: [
+			routeProvider,
+			operationRouteProvider,
+			schemaMutationRouteProvider,
+			httpEndpointProvider,
+		],
+		requires: [
+			routeGraphRequirement,
+			requestExecutionRequirement,
+			transportPlanningRequirement,
+		],
 	}
 
 	return restPluginModule.plugin({
@@ -338,6 +413,16 @@ export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 				operationRoutes.length === 0
 					? undefined
 					: createRestOperationTransport(operationRoutes)
+			const schemaMutationRoutes = routeGraph.routes.filter(
+				(route): route is RestSchemaMutationRouteDefinition =>
+					route.kind === 'rest-schema-mutation-route' &&
+					route.provenance.plugin.pluginId === restPluginModule.pluginId &&
+					route.provenance.plugin.instanceId === normalized.instanceId,
+			)
+			const schemaMutationTransport =
+				schemaMutationRoutes.length === 0
+					? undefined
+					: createRestSchemaMutationTransport(schemaMutationRoutes)
 			configureRestHttpOwner(
 				reader.get(requestExecutionRequirement),
 				routeGraph,
@@ -349,12 +434,16 @@ export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 				},
 				readLimits,
 				operationTransport,
+				schemaMutationTransport,
 			)
 			return immutableRecord({
 				basePath: normalized.basePath,
 				readLimits,
 				routeGraph,
 				...(operationTransport === undefined ? {} : { operationTransport }),
+				...(schemaMutationTransport === undefined
+					? {}
+					: { schemaMutationTransport }),
 			})
 		},
 		hooks: {
@@ -367,6 +456,17 @@ export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 								? { acknowledgeUnverifiedProtection: true as const }
 								: {}),
 							operations: normalized.operations,
+							transport: restProtocol,
+						}),
+					)
+				}
+				if (pluginExports.schemaMutationTransport !== undefined) {
+					bindRestSchemaMutationTransport(
+						pluginExports.schemaMutationTransport,
+						reader.get(requestExecutionRequirement).exposeSchemaMutations({
+							...(normalized.acknowledgeUnverifiedProtection === true
+								? { acknowledgeUnverifiedProtection: true as const }
+								: {}),
 							transport: restProtocol,
 						}),
 					)

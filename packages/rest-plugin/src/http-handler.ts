@@ -19,6 +19,7 @@ import {
 } from './response-values.js'
 import { executeRestMutationRequest } from './mutation-execution.js'
 import type { RestOperationTransport } from './operation-execution.js'
+import type { RestSchemaMutationTransport } from './schema-mutation-execution.js'
 import { executeRestReadRequest } from './read-execution.js'
 import {
 	createRestCaughtErrorResponse,
@@ -46,11 +47,13 @@ interface RestOwnerHttpState {
 	limits: RestReadLimits | undefined
 	operationTransport: RestOperationTransport | undefined
 	routes: readonly RestRouteDefinition[]
+	schemaMutationTransport: RestSchemaMutationTransport | undefined
 }
 
 interface ConfiguredRestOwnerHttpState {
 	readonly limits: RestReadLimits
 	readonly operationTransport: RestOperationTransport | undefined
+	readonly schemaMutationTransport: RestSchemaMutationTransport | undefined
 }
 
 const ownerStates = new WeakMap<
@@ -76,6 +79,7 @@ export const configureRestHttpOwner = (
 	owner: PluginIdentity,
 	limits: RestReadLimits,
 	operationTransport: RestOperationTransport | undefined,
+	schemaMutationTransport: RestSchemaMutationTransport | undefined,
 ): void => {
 	const state = ownerStates.get(executor)?.get(ownerKey(owner))
 	const routes = graph.routes.filter(
@@ -89,6 +93,7 @@ export const configureRestHttpOwner = (
 	state.routes = immutableArray(routes)
 	state.limits = limits
 	state.operationTransport = operationTransport
+	state.schemaMutationTransport = schemaMutationTransport
 }
 
 const schemaResult = (
@@ -245,6 +250,31 @@ const executeMatchedRoute = async (
 			state.limits,
 		)
 	}
+	if (match.route.kind === 'rest-schema-mutation-route') {
+		if (state.schemaMutationTransport === undefined) {
+			throw new TypeError('REST schema mutation transport is unavailable')
+		}
+		const schema = schemas.get(match.route.schema)
+		if (schema === undefined) {
+			throw new TypeError('REST schema mutation route schema is unavailable')
+		}
+		const result = await state.schemaMutationTransport.execute(
+			getCurrentRequest(),
+			match.route,
+			match.id ?? '',
+			request,
+			schema,
+			state.limits,
+		)
+		if (result === null) {
+			throw new FrameworkError(
+				'NOT_FOUND',
+				'REST schema mutation target was absent.',
+				{ publicMessage: 'The requested object was not found.' },
+			)
+		}
+		return createRestJsonResponse({ result: schemaResult(schema, result) }, 200)
+	}
 	if (state.operationTransport === undefined) {
 		throw new TypeError('REST operation transport is unavailable')
 	}
@@ -300,8 +330,9 @@ const createMountHandler =
 				requestId,
 			)
 		}
-		const operationRoute =
-			match.route.kind === 'rest-plugin-operation-route'
+		const pluginErrorRoute =
+			match.route.kind === 'rest-plugin-operation-route' ||
+			match.route.kind === 'rest-schema-mutation-route'
 				? match.route
 				: undefined
 		try {
@@ -314,6 +345,7 @@ const createMountHandler =
 				{
 					limits: state.limits,
 					operationTransport: state.operationTransport,
+					schemaMutationTransport: state.schemaMutationTransport,
 				},
 				executor,
 				schemas,
@@ -321,9 +353,10 @@ const createMountHandler =
 		} catch (error: unknown) {
 			if (request.signal.aborted) throw error
 			return createRestCaughtErrorResponse(error, requestId, {
-				...(operationRoute === undefined ? {} : { route: operationRoute }),
+				...(pluginErrorRoute === undefined ? {} : { route: pluginErrorRoute }),
 				statusFor: (operation, code) =>
-					state.operationTransport?.statusFor(operation, code),
+					state.operationTransport?.statusFor(operation, code) ??
+					state.schemaMutationTransport?.statusFor(operation, code),
 			})
 		}
 	}
@@ -345,6 +378,7 @@ export const createRestHttpMounts = (
 		limits: undefined,
 		operationTransport: undefined,
 		routes: immutableArray([]),
+		schemaMutationTransport: undefined,
 	}
 	const states =
 		ownerStates.get(executor) ?? new Map<string, RestOwnerHttpState>()

@@ -108,6 +108,39 @@ developer passes `acknowledgeUnverifiedProtection: true`, starting an
 application with generated routes uses Core's shared
 `UNVERIFIED_PUBLIC_TRANSPORT_PROTECTION` diagnostic.
 
+## Plugin-owned schema mutations
+
+An application-owned schema exposes each request-authority mutation that its
+owner explicitly binds to `ultimabase.rest@1.0.0`. REST derives the schema-local
+route from the compiled graph:
+
+```text
+POST /api/v1/classes/{Schema}/{id}/{command-kebab-case}
+```
+
+The bounded JSON body accepts only optional `input`, `select`, and `include`
+properties. For example, a command named `archivePost` receives:
+
+```json
+{
+	"input": { "reason": "superseded" },
+	"select": { "id": true, "title": true, "workflowState": true }
+}
+```
+
+The mutation owner supplies its private payload decoder and the complete HTTP
+status mapping for its declared public errors. Core continues to own the target
+ID, schema, context, selection, inclusion, result materialization, transaction,
+policy, Hooks, and persistence plan. REST receives only inert route metadata and
+a late-bound executable allowlist; a mutation cannot be invoked through the
+generic `/operations` endpoint.
+
+`rest: { mutations: false }` disables these routes for one schema, while
+`rest: { mutations: true }` overrides a disabled plugin default. Omission
+inherits `restPlugin({ default })`, then the built-in `true` mutation default.
+Master-only mutations are never generated as REST routes. Success returns
+`200` with `{ result }`, using the schema's existing REST field codecs.
+
 ## Read normalization
 
 `normalizeRestReadRequest(schema, input, limits)` accepts the route-selected

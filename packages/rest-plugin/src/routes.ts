@@ -71,6 +71,26 @@ export interface RestPluginOperationRouteProvenance {
 	readonly protocolVersion: typeof restProtocol.version
 }
 
+/** Retains the inert mutation, schema, and REST owners behind one custom route. */
+export interface RestSchemaMutationRouteProvenance {
+	readonly application: RestApplicationProvenance
+	readonly method: 'POST'
+	readonly mutation: Readonly<{
+		readonly command: string
+		readonly name: string
+		readonly owner: Readonly<{
+			readonly instanceId?: string
+			readonly pluginId: string
+			readonly version: string
+		}>
+		readonly version: string
+	}>
+	readonly path: string
+	readonly plugin: RestRoutePlugin
+	readonly protocolVersion: typeof restProtocol.version
+	readonly schema: SchemaContributionProvenance
+}
+
 /** Declares one generated schema route without parsing or executing a request. */
 export interface RestSchemaRouteDefinition {
 	readonly kind: 'rest-schema-route'
@@ -97,8 +117,27 @@ export interface RestPluginOperationRouteDefinition {
 	readonly provenance: RestPluginOperationRouteProvenance
 }
 
+/** Declares one exact plugin-owned schema mutation route. */
+export interface RestSchemaMutationRouteDefinition {
+	readonly command: string
+	readonly errors: readonly string[]
+	readonly kind: 'rest-schema-mutation-route'
+	readonly method: 'POST'
+	readonly mutation: string
+	readonly mutationVersion: string
+	readonly operation: 'schemaMutation'
+	/** Places the exact UUID-v7 target before the fixed mutation path segment. */
+	readonly path: string
+	readonly protocol: typeof restProtocol
+	readonly provenance: RestSchemaMutationRouteProvenance
+	readonly schema: string
+	readonly virtualFields: Readonly<Record<string, GenericOutputDescriptor>>
+}
+
 export type RestRouteDefinition =
-	RestPluginOperationRouteDefinition | RestSchemaRouteDefinition
+	| RestPluginOperationRouteDefinition
+	| RestSchemaMutationRouteDefinition
+	| RestSchemaRouteDefinition
 
 /** Exposes one deterministic application-local REST route snapshot. */
 export interface RestRouteGraph {
@@ -129,8 +168,27 @@ export interface RestPluginOperationRouteCandidate {
 	readonly protocol: typeof restProtocol
 }
 
+export interface RestSchemaMutationRouteCandidate {
+	readonly command: string
+	readonly errors: readonly string[]
+	readonly kind: 'rest-schema-mutation-route'
+	readonly method: 'POST'
+	readonly mutation: string
+	readonly mutationOwner: RestRoutePlugin
+	readonly mutationVersion: string
+	readonly operation: 'schemaMutation'
+	readonly path: string
+	readonly plugin: RestRoutePlugin
+	readonly protocol: typeof restProtocol
+	readonly schema: string
+	readonly schemaProvenance: SchemaContributionProvenance
+	readonly virtualFields: Readonly<Record<string, GenericOutputDescriptor>>
+}
+
 type RestRouteCandidate =
-	RestPluginOperationRouteCandidate | RestSchemaRouteCandidate
+	| RestPluginOperationRouteCandidate
+	| RestSchemaMutationRouteCandidate
+	| RestSchemaRouteCandidate
 
 export interface RestRouteFragmentValue {
 	readonly routes: readonly RestRouteCandidate[]
@@ -226,6 +284,47 @@ const createOperationRoute = (
 	})
 }
 
+const createSchemaMutationRoute = (
+	application: RestApplicationProvenance,
+	candidate: RestSchemaMutationRouteCandidate,
+): RestSchemaMutationRouteDefinition => {
+	const mutation = immutableRecord({
+		command: candidate.command,
+		name: candidate.mutation,
+		owner: immutableRecord({
+			...(candidate.mutationOwner.instanceId === undefined
+				? {}
+				: { instanceId: candidate.mutationOwner.instanceId }),
+			pluginId: candidate.mutationOwner.pluginId,
+			version: candidate.mutationOwner.version,
+		}),
+		version: candidate.mutationVersion,
+	})
+	const provenance = immutableRecord({
+		application,
+		method: candidate.method,
+		mutation,
+		path: candidate.path,
+		plugin: candidate.plugin,
+		protocolVersion: restProtocol.version,
+		schema: candidate.schemaProvenance,
+	})
+	return immutableRecord({
+		command: candidate.command,
+		errors: immutableArray(candidate.errors),
+		kind: candidate.kind,
+		method: candidate.method,
+		mutation: candidate.mutation,
+		mutationVersion: candidate.mutationVersion,
+		operation: candidate.operation,
+		path: candidate.path,
+		protocol: restProtocol,
+		provenance,
+		schema: candidate.schema,
+		virtualFields: candidate.virtualFields,
+	})
+}
+
 const composeRouteGraph = (
 	fragments: readonly RestRouteFragmentValue[],
 ): RestRouteGraph => {
@@ -244,7 +343,9 @@ const composeRouteGraph = (
 			routes.push(
 				candidate.kind === 'rest-schema-route'
 					? createSchemaRoute(application, candidate)
-					: createOperationRoute(application, candidate),
+					: candidate.kind === 'rest-schema-mutation-route'
+						? createSchemaMutationRoute(application, candidate)
+						: createOperationRoute(application, candidate),
 			)
 		}
 	}

@@ -13,6 +13,7 @@ export {
 } from './operation-errors.js'
 export type { RestOperationErrorCode } from './operation-errors.js'
 export type { RestOperationTransport } from './operation-execution.js'
+export type { RestSchemaMutationTransport } from './schema-mutation-execution.js'
 export {
 	defaultRestMutationLimits,
 	normalizeRestMutationRequest,
@@ -51,5 +52,7 @@ export type {
 	RestRouteGraph,
 	RestRouteProvenance,
 	RestSchemaRouteDefinition,
+	RestSchemaMutationRouteDefinition,
+	RestSchemaMutationRouteProvenance,
 	RestSchemaOperation,
 } from './routes.js'

@@ -583,6 +583,19 @@ requests must still use the separately late-bound
 `ApplicationRequestExecutor.exposeOperations()` facade; the planner cannot
 decode, execute, or authorize anything.
 
+Plugin-owned schema mutations use a separate binding family under the same
+canonical transport identity. The mutation owner contributes one nominal
+`schemaMutationWireCodec()` and
+`provideSchemaMutationTransportBinding()` value. The planner's
+`planSchemaMutations({ transport })` method returns only callback-free,
+schema-local descriptors; after startup,
+`ApplicationRequestExecutor.exposeSchemaMutations({ transport })` returns the
+matching application allowlist. A transport must execute an exact descriptor
+from that allowlist with the route-selected application schema, ID, payload,
+selection, inclusion, and `RequestContext`. Core alone decodes under owner
+attribution and enters the schema-mutation Runtime. Master authority cannot be
+selected from wire input.
+
 Core cannot prove complete transport coverage from arbitrary policy callbacks.
 Every exposure that has not acknowledged that uncertainty emits one structured
 `UNVERIFIED_PUBLIC_TRANSPORT_PROTECTION` warning per transport protocol. Its

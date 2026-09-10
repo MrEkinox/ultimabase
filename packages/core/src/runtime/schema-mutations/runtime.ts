@@ -21,12 +21,25 @@ import {
 	getPluginSchemaMutationHandler,
 	pluginSchemaMutationHandlerCapability,
 } from './capabilities.js'
+import {
+	getSchemaMutationWireCodec,
+	isSchemaMutationTransportBinding,
+	schemaMutationTransportBindingCapability,
+} from './transport-capabilities.js'
 import type { PluginSchemaMutationHandler } from './contracts.js'
+import type { SchemaMutationTransportBindingDefinition } from './transport-contracts.js'
+import type { OperationTransportProtocol } from '../plugin-operations/contracts.js'
 
 interface OwnedSchemaMutationHandler {
 	readonly contributionId: string
 	readonly owner: PluginIdentity
 	readonly resolve: PluginSchemaMutationHandler
+}
+
+export interface OwnedSchemaMutationTransportBinding {
+	readonly binding: SchemaMutationTransportBindingDefinition
+	readonly contributionId: string
+	readonly owner: PluginIdentity
 }
 
 const sameOwner = (
@@ -61,6 +74,10 @@ const mutationFailure = (
 /** Resolves exact application-owned handlers without exposing them in the graph. */
 export class PluginSchemaMutationRuntime {
 	readonly #handlers = new Map<object, OwnedSchemaMutationHandler>()
+	readonly #transportBindings = new Map<
+		OperationTransportProtocol,
+		Map<object, OwnedSchemaMutationTransportBinding>
+	>()
 
 	constructor(
 		private readonly application: FrameworkApplication<
@@ -129,6 +146,49 @@ export class PluginSchemaMutationRuntime {
 				)
 			}
 		}
+
+		for (const contribution of readApplicationCapabilityContributions(
+			application,
+			schemaMutationTransportBindingCapability,
+		)) {
+			const binding = contribution.value
+			const command = isSchemaMutationTransportBinding(binding)
+				? commands.get(binding.mutation)
+				: undefined
+			if (command === undefined || !sameOwner(command, contribution)) {
+				throw new FrameworkError(
+					'PLUGIN_OPERATION_INVALID',
+					`Plugin "${formatPluginIdentity(contribution.owner)}" provided an invalid schema mutation transport binding.`,
+					{
+						internalDetails: {
+							kind: 'schema-mutation-transport-owner-invalid',
+							plugin: formatPluginIdentity(contribution.owner),
+							contributionId: contribution.contributionId,
+						},
+					},
+				)
+			}
+			let byMutation = this.#transportBindings.get(binding.transport)
+			if (byMutation === undefined) {
+				byMutation = new Map()
+				this.#transportBindings.set(binding.transport, byMutation)
+			}
+			if (byMutation.has(binding.mutation)) {
+				throw mutationFailure(
+					command,
+					'schema-mutation-transport-conflict',
+					`Schema mutation ${binding.mutation.name} has duplicate bindings for ${binding.transport.name}.`,
+				)
+			}
+			byMutation.set(
+				binding.mutation,
+				immutableRecord({
+					binding,
+					contributionId: contribution.contributionId,
+					owner: immutableRecord(contribution.owner),
+				}),
+			)
+		}
 	}
 
 	/** Invokes one exact resolver under its retained plugin attribution. */
@@ -182,5 +242,46 @@ export class PluginSchemaMutationRuntime {
 				owned.contributionId,
 			)
 		}
+	}
+
+	/** Resolves one exact owner binding after transport exposure selected it. */
+	transportBinding(
+		command: CompiledSchemaMutationCommand,
+		transport: OperationTransportProtocol,
+	): OwnedSchemaMutationTransportBinding {
+		const source = readPluginSchemaMutationSource(command.mutation)
+		const binding = this.#transportBindings.get(transport)?.get(source)
+		if (binding === undefined) {
+			throw mutationFailure(
+				command,
+				'schema-mutation-transport-binding-missing',
+				`Schema mutation ${command.mutation.name} has no binding for ${transport.name}@${transport.version}.`,
+			)
+		}
+		return binding
+	}
+
+	/** Reads an optional binding while static exposure remains explicit. */
+	findTransportBinding(
+		command: CompiledSchemaMutationCommand,
+		transport: OperationTransportProtocol,
+	): OwnedSchemaMutationTransportBinding | undefined {
+		return this.#transportBindings
+			.get(transport)
+			?.get(readPluginSchemaMutationSource(command.mutation))
+	}
+
+	/** Decodes one payload under the exact binding owner's attribution. */
+	decodeTransportInput(
+		binding: OwnedSchemaMutationTransportBinding,
+		value: unknown,
+	): unknown {
+		const codec = getSchemaMutationWireCodec(binding.binding.codec)
+		if (codec === undefined) {
+			throw new TypeError('Schema mutation transport codec is unavailable')
+		}
+		return runWithApplicationPluginOwner(this.application, binding.owner, () =>
+			codec.decode(value),
+		)
 	}
 }

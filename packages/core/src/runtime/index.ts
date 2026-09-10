@@ -29,6 +29,10 @@ export type {
 	ApplicationOperationTransportPlanner,
 	OperationTransportPlanningOptions,
 } from './application/application-operation-transport-planning.js'
+export type {
+	ApplicationSchemaMutationTransportPlan,
+	SchemaMutationTransportPlanningOptions,
+} from './application/schema-mutation-transport-planning.js'
 export { applicationSchemaMutationSurfaceCapability } from './application/application-schema-mutation-surface.js'
 export type {
 	ApplicationSchemaMutationDescriptor,
@@ -165,8 +169,17 @@ export {
 export {
 	pluginSchemaMutationHandlerCapability,
 	provideSchemaMutationHandler,
+	provideSchemaMutationTransportBinding,
 	schemaMutationHandler,
+	schemaMutationTransportBinding,
+	schemaMutationWireCodec,
 } from './schema-mutations/index.js'
+export type {
+	ApplicationSchemaMutationTransport,
+	ExposedSchemaMutationTransportBinding,
+	SchemaMutationTransportExposureOptions,
+	SchemaMutationTransportRequest,
+} from './schema-mutations/transport.js'
 export type {
 	PluginSchemaMutationEffectResult,
 	PluginSchemaMutationHandler,
@@ -175,6 +188,10 @@ export type {
 	PluginSchemaMutationOperationAst,
 	PluginSchemaMutationTarget,
 	PluginSchemaMutationUpdateEffect,
+	SchemaMutationTransportBindingDefinition,
+	SchemaMutationTransportBindingMetadata,
+	SchemaMutationTransportWireInput,
+	SchemaMutationWireCodec,
 } from './schema-mutations/index.js'
 export type {
 	ApplicationOperationTransport,

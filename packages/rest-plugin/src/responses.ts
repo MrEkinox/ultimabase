@@ -5,7 +5,13 @@ import { RestReadNormalizationError } from './errors.js'
 import { encodeRestJsonValue } from './response-values.js'
 import { RestMutationNormalizationError } from './mutation-errors.js'
 import { RestOperationNormalizationError } from './operation-errors.js'
-import type { RestPluginOperationRouteDefinition } from './routes.js'
+import type {
+	RestPluginOperationRouteDefinition,
+	RestSchemaMutationRouteDefinition,
+} from './routes.js'
+
+type RestPluginErrorRoute =
+	RestPluginOperationRouteDefinition | RestSchemaMutationRouteDefinition
 
 export const restResponseErrorCodes: Readonly<{
 	readonly badRequest: 'REST_BAD_REQUEST'
@@ -158,12 +164,16 @@ const frameworkFailure = (error: AnyFrameworkError): RestPublicFailure => {
 
 const pluginFailure = (
 	error: AnyPluginError,
-	route: RestPluginOperationRouteDefinition | undefined,
+	route: RestPluginErrorRoute | undefined,
 	statusFor: (operation: string, code: string) => number | undefined,
 ): RestPublicFailure => {
 	const payload = error.toJSON()
+	const operation =
+		route?.kind === 'rest-schema-mutation-route'
+			? route.mutation
+			: route?.operation
 	const status =
-		route === undefined ? undefined : statusFor(route.operation, payload.code)
+		operation === undefined ? undefined : statusFor(operation, payload.code)
 	if (payload.message === undefined || status === undefined) {
 		return internalFailure()
 	}
@@ -224,7 +234,7 @@ export const createRestCaughtErrorResponse = (
 	error: unknown,
 	requestId: string,
 	options: Readonly<{
-		route?: RestPluginOperationRouteDefinition
+		route?: RestPluginErrorRoute
 		statusFor: (operation: string, code: string) => number | undefined
 	}>,
 ): Response => {
