@@ -1,100 +1,67 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import type { SchemaDefinition } from '../schema/schema/definition.js'
-import { reservedSchemaModelFieldNames } from '../schema/schema/reserved-field-names.js'
-import type { PluginSchemaContributionOwner } from '../schema/schema/provenance.js'
 import type { SchemaRegistry } from '../schema/schema/registry.js'
-import type { JsonValue } from '../schema/fields/builtins/json.js'
-import type {
-	ApplicationSurfaceDeclarations,
-	QueryExtensionDefinition,
-} from './application-surface-declarations.js'
-import type { PluginOperationDefinition } from './plugin-operations.js'
+import type { ApplicationSurfaceDeclarations } from './application-surface-declarations.js'
+import {
+	compilePluginSchemaMutationDefinition,
+	type CompiledPluginSchemaMutationDefinition,
+	type PluginSchemaMutationDefinition,
+} from './plugin-schema-mutations.js'
 import type { SchemaCompilerOutput } from './schema-compiler-ir/contracts.js'
-import { attachPluginDeclarationDiagnostic } from './schema-declaration-contracts.js'
+import {
+	attachPluginDeclarationDiagnostic,
+	samePluginOwner,
+} from './schema-declaration-contracts.js'
+import {
+	addOperationCommand,
+	reservedModelHandleNames,
+	reservedSchemaHandleNames,
+	type CompiledApplicationSchemaSurface,
+	type CompiledOperationCommand,
+	type CompiledPluginOperation,
+	type CompiledPluginSchemaMutation,
+	type CompiledQueryExtension,
+	type CompiledSchemaMutationCommand,
+} from './application-surface-contracts.js'
+export { coreSchemaHandleCommandNames } from './application-surface-contracts.js'
+export type {
+	CompiledApplicationSchemaSurface,
+	CompiledOperationCommand,
+	CompiledPluginOperation,
+	CompiledPluginSchemaMutation,
+	CompiledQueryExtension,
+	CompiledSchemaMutationCommand,
+} from './application-surface-contracts.js'
 
-/** Records one operation together with the exact plugin that declared it. */
-export interface CompiledPluginOperation {
-	readonly operation: PluginOperationDefinition
-	readonly owner: PluginSchemaContributionOwner
-}
-
-/** Records one command alias on an application-owned schema or model handle. */
-export interface CompiledOperationCommand {
-	readonly contributionId: string
-	readonly operation: PluginOperationDefinition
-	readonly owner: PluginSchemaContributionOwner
-	readonly staticOptions: Readonly<Record<string, JsonValue>>
-}
-
-/** Records one query alias on an application-owned schema handle. */
-export interface CompiledQueryExtension {
-	readonly contributionId: string
-	readonly extension: QueryExtensionDefinition
-	readonly owner: PluginSchemaContributionOwner
-	readonly staticOptions: Readonly<Record<string, JsonValue>>
-}
-
-/** Contains every final application-local surface for one schema identity. */
-export interface CompiledApplicationSchemaSurface {
-	readonly modelCommands: ReadonlyMap<string, CompiledOperationCommand>
-	readonly queryExtensions: ReadonlyMap<string, CompiledQueryExtension>
+interface MutableApplicationSchemaSurface {
+	readonly modelCommands: Map<string, CompiledOperationCommand>
+	readonly modelMutations: Map<string, CompiledSchemaMutationCommand>
+	readonly queryExtensions: Map<string, CompiledQueryExtension>
 	readonly schema: SchemaDefinition
-	readonly schemaCommands: ReadonlyMap<string, CompiledOperationCommand>
+	readonly schemaCommands: Map<string, CompiledOperationCommand>
+	readonly schemaMutations: Map<string, CompiledSchemaMutationCommand>
 }
 
-/** Names Core commands that plugin direct schema surfaces cannot shadow. */
-export const coreSchemaHandleCommandNames = [
-	'count',
-	'createMany',
-	'createOne',
-	'deleteMany',
-	'deleteOne',
-	'exists',
-	'findMany',
-	'findOne',
-	'get',
-	'updateMany',
-	'updateOne',
-	'upsertMany',
-	'upsertOne',
-] as const
-
-const reservedSchemaHandleNames = new Set([
-	...coreSchemaHandleCommandNames,
-	'command',
-	'commands',
-	'for',
-	'query',
-	'queries',
-	'schema',
-])
-const reservedModelHandleNames = new Set([
-	'command',
-	'commands',
-	'equals',
-	'exists',
-	'fetch',
-	'model',
-	'schema',
-	'state',
-	'toPointer',
-	...reservedSchemaModelFieldNames,
-])
-
-const addCommand = (
-	target: Map<string, CompiledOperationCommand>,
+const hasMutationName = (
+	surface: MutableApplicationSchemaSurface,
 	name: string,
-	command: CompiledOperationCommand,
-	reserved: ReadonlySet<string>,
-	path: string,
+): boolean =>
+	surface.modelMutations.has(name) || surface.schemaMutations.has(name)
+
+const assertMutationSelection = (
+	name: string,
+	mutation: CompiledPluginSchemaMutationDefinition,
+	schema: SchemaDefinition,
 ): void => {
-	if (reserved.has(name)) {
-		throw new TypeError(`${path} uses reserved handle method: ${name}`)
+	for (const fieldName of Object.keys(mutation.select)) {
+		const field = schema.persistedFields[fieldName]
+		if (field === undefined || field.kind === 'relation') {
+			throw new TypeError(
+				`Schema mutation ${name} selects unavailable persisted field: ${fieldName}`,
+			)
+		}
 	}
-	if (target.has(name))
-		throw new TypeError(`${path} contains duplicate command: ${name}`)
-	target.set(name, immutableRecord(command))
 }
 
 /** Validates and publishes all non-executable operation and handle declarations. */
@@ -104,22 +71,35 @@ export const compileApplicationSurfaces = (
 	registry: SchemaRegistry,
 ): Readonly<{
 	operations: ReadonlyMap<string, CompiledPluginOperation>
+	schemaMutations: ReadonlyMap<string, CompiledPluginSchemaMutation>
 	schemas: ReadonlyMap<string, CompiledApplicationSchemaSurface>
 }> => {
 	const operations = new Map<string, CompiledPluginOperation>()
+	const schemaMutations = new Map<string, CompiledPluginSchemaMutation>()
+	const sources = new Map<string, PluginSchemaMutationDefinition>()
 	for (const declaration of declarations) {
 		for (const owned of declaration.operations) {
-			const prior = operations.get(owned.operation.name)
-			if (prior !== undefined) {
+			const name = owned.operation.name
+			if (operations.has(name) || schemaMutations.has(name)) {
 				throw attachPluginDeclarationDiagnostic(
-					new TypeError(
-						`Duplicate plugin operation name: ${owned.operation.name}`,
-					),
+					new TypeError(`Duplicate plugin operation name: ${name}`),
 					owned.owner,
-					`operations.${owned.operation.name}`,
+					`operations.${name}`,
 				)
 			}
-			operations.set(owned.operation.name, immutableRecord(owned))
+			if (owned.operation.kind === 'plugin-schema-mutation') {
+				const mutation = compilePluginSchemaMutationDefinition(owned.operation)
+				schemaMutations.set(
+					name,
+					immutableRecord({ mutation, owner: owned.owner }),
+				)
+				sources.set(name, owned.operation)
+			} else {
+				operations.set(
+					name,
+					immutableRecord({ operation: owned.operation, owner: owned.owner }),
+				)
+			}
 		}
 	}
 
@@ -143,27 +123,31 @@ export const compileApplicationSurfaces = (
 		}
 		return immutableArray([target.schema.className])
 	}
-	const mutableSchemas = new Map<
-		string,
-		{
-			modelCommands: Map<string, CompiledOperationCommand>
-			queryExtensions: Map<string, CompiledQueryExtension>
-			schema: SchemaDefinition
-			schemaCommands: Map<string, CompiledOperationCommand>
-		}
-	>()
+	const mutableSchemas = new Map<string, MutableApplicationSchemaSurface>()
 	for (const schema of registry.values()) {
 		mutableSchemas.set(schema.className, {
 			modelCommands: new Map(),
+			modelMutations: new Map(),
 			queryExtensions: new Map(),
 			schema,
 			schemaCommands: new Map(),
+			schemaMutations: new Map(),
 		})
 	}
 
+	const mutationContributionIds = new Set<string>()
 	for (const declaration of declarations) {
 		for (const surface of declaration.modelSurfaces) {
 			try {
+				if (Object.keys(surface.schemaMutations).length > 0) {
+					const contributionKey = `${surface.owner.pluginId}\u0000${surface.owner.instanceId ?? ''}\u0000${surface.contributionId}`
+					if (mutationContributionIds.has(contributionKey)) {
+						throw new TypeError(
+							`Duplicate schema mutation contributionId: ${surface.contributionId}`,
+						)
+					}
+					mutationContributionIds.add(contributionKey)
+				}
 				for (const className of targetClassNames(surface.target)) {
 					const target = mutableSchemas.get(className)
 					if (target === undefined) {
@@ -172,12 +156,17 @@ export const compileApplicationSurfaces = (
 					for (const [name, operation] of Object.entries(
 						surface.schemaCommands,
 					)) {
+						if (hasMutationName(target, name)) {
+							throw new TypeError(
+								`${className} surface contains duplicate command: ${name}`,
+							)
+						}
 						if (operations.get(operation.name)?.operation !== operation) {
 							throw new TypeError(
 								`Schema command ${name} references an undeclared operation`,
 							)
 						}
-						addCommand(
+						addOperationCommand(
 							target.schemaCommands,
 							name,
 							{
@@ -193,12 +182,17 @@ export const compileApplicationSurfaces = (
 					for (const [name, operation] of Object.entries(
 						surface.modelCommands,
 					)) {
+						if (hasMutationName(target, name)) {
+							throw new TypeError(
+								`${className} surface contains duplicate command: ${name}`,
+							)
+						}
 						if (operations.get(operation.name)?.operation !== operation) {
 							throw new TypeError(
 								`Model command ${name} references an undeclared operation`,
 							)
 						}
-						addCommand(
+						addOperationCommand(
 							target.modelCommands,
 							name,
 							{
@@ -213,6 +207,61 @@ export const compileApplicationSurfaces = (
 							]),
 							`${className} model surface`,
 						)
+					}
+					for (const [name, binding] of Object.entries(
+						surface.schemaMutations,
+					)) {
+						const compiled = schemaMutations.get(binding.mutation.name)
+						if (
+							compiled === undefined ||
+							sources.get(binding.mutation.name) !== binding.mutation
+						) {
+							throw new TypeError(
+								`Schema mutation ${name} references an undeclared mutation`,
+							)
+						}
+						if (!samePluginOwner(compiled.owner, surface.owner)) {
+							throw new TypeError(
+								`Schema mutation ${name} must be attached by its declaring owner`,
+							)
+						}
+						if (
+							target.schemaCommands.has(name) ||
+							target.modelCommands.has(name) ||
+							target.queryExtensions.has(name) ||
+							hasMutationName(target, name)
+						) {
+							throw new TypeError(
+								`${className} surface contains duplicate command: ${name}`,
+							)
+						}
+						assertMutationSelection(name, compiled.mutation, target.schema)
+						const command = immutableRecord({
+							contributionId: surface.contributionId,
+							mutation: compiled.mutation,
+							owner: surface.owner,
+							staticOptions: surface.staticOptions,
+						})
+						for (const mutationSurface of binding.surfaces) {
+							if (mutationSurface === 'schema') {
+								if (reservedSchemaHandleNames.has(name)) {
+									throw new TypeError(
+										`${className} schema mutation uses reserved handle method: ${name}`,
+									)
+								}
+								target.schemaMutations.set(name, command)
+							} else {
+								if (
+									reservedModelHandleNames.has(name) ||
+									Object.hasOwn(target.schema.definition.fields, name)
+								) {
+									throw new TypeError(
+										`${className} model mutation uses reserved handle method: ${name}`,
+									)
+								}
+								target.modelMutations.set(name, command)
+							}
+						}
 					}
 				}
 			} catch (cause: unknown) {
@@ -238,7 +287,10 @@ export const compileApplicationSurfaces = (
 								`${className} query surface uses reserved method: ${name}`,
 							)
 						}
-						if (target.queryExtensions.has(name)) {
+						if (
+							target.queryExtensions.has(name) ||
+							hasMutationName(target, name)
+						) {
 							throw new TypeError(
 								`${className} query surface contains duplicate extension: ${name}`,
 							)
@@ -267,17 +319,22 @@ export const compileApplicationSurfaces = (
 
 	const schemas = new Map<string, CompiledApplicationSchemaSurface>()
 	for (const [className, mutable] of mutableSchemas) {
-		const surface = immutableRecord({
-			modelCommands: new Map(mutable.modelCommands),
-			queryExtensions: new Map(mutable.queryExtensions),
-			schema: mutable.schema,
-			schemaCommands: new Map(mutable.schemaCommands),
-		})
-		schemas.set(className, surface)
+		schemas.set(
+			className,
+			immutableRecord({
+				modelCommands: new Map(mutable.modelCommands),
+				modelMutations: new Map(mutable.modelMutations),
+				queryExtensions: new Map(mutable.queryExtensions),
+				schema: mutable.schema,
+				schemaCommands: new Map(mutable.schemaCommands),
+				schemaMutations: new Map(mutable.schemaMutations),
+			}),
+		)
 	}
 
 	return immutableRecord({
 		operations: new Map(operations),
+		schemaMutations: new Map(schemaMutations),
 		schemas: new Map(schemas),
 	})
 }

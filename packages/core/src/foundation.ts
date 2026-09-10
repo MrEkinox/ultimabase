@@ -38,6 +38,22 @@ export {
 	defineOperationValue,
 	isPluginOperationDefinition,
 } from './plugins/plugin-operations.js'
+export {
+	defineSchemaMutation,
+	isPluginSchemaMutationDefinition,
+} from './plugins/plugin-schema-mutations.js'
+export type {
+	CompiledPluginSchemaMutationDefinition,
+	DefinePluginSchemaMutationOptions,
+	PluginSchemaMutationAuthority,
+	PluginSchemaMutationDefinition,
+	PluginSchemaMutationDependencySelection,
+	PluginSchemaMutationEffect,
+	PluginSchemaMutationErrorCode,
+	PluginSchemaMutationInput,
+	PluginSchemaMutationNoInput,
+	PluginSchemaMutationReturning,
+} from './plugins/plugin-schema-mutations.js'
 export type {
 	DefinePluginOperationOptions,
 	PluginOperationDefinition,
@@ -54,6 +70,8 @@ export type {
 	PluginModelSurfaceRegistrar,
 	PluginOperationDeclarationRegistrar,
 	PluginQuerySurfaceRegistrar,
+	PluginSchemaMutationSurface,
+	PluginSchemaMutationSurfaceBinding,
 	QueryExtensionDefinition,
 	QueryExtensionInput,
 } from './plugins/application-surface-declarations.js'

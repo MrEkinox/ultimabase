@@ -149,8 +149,12 @@ export const renderGeneratedSurfaces = (
 			] as const) {
 				const available =
 					kind === 'schema'
-						? [...surface.schemaCommands, ...surface.queryExtensions]
-						: surface.modelCommands
+						? [
+								...surface.schemaCommands,
+								...surface.schemaMutations,
+								...surface.queryExtensions,
+							]
+						: [...surface.modelCommands, ...surface.modelMutations]
 				for (const property of properties) {
 					const runtimeSurface = available.find(
 						(candidate) => candidate.name === property.name,
@@ -175,6 +179,37 @@ export const renderGeneratedSurfaces = (
 	const operationByName = new Map(
 		snapshot.operations.map((operation) => [operation.name, operation]),
 	)
+	const renderMutationDefinition = (
+		mutation: TypegenApplicationSnapshot['surfaces'][number]['schemaMutations'][number],
+	): string => {
+		const input =
+			mutation.input === undefined
+				? 'unknown'
+				: context.imports.alias(mutation.input)
+		const errors = `readonly [${mutation.errors.map(quote).join(', ')}]`
+		return `Core.PluginSchemaMutationDefinition<${quote(mutation.mutation)}, ${quote(mutation.version)}, ${input}, ${errors}>`
+	}
+	const renderSurfaceType = (
+		properties: readonly TypegenPropertyNode[],
+		mutations: TypegenApplicationSnapshot['surfaces'][number]['schemaMutations'],
+		className: string,
+		method:
+			| 'ApplicationModelSchemaMutationMethod'
+			| 'ApplicationSchemaMutationMethod',
+	): string => {
+		if (mutations.length === 0) return renderObjectType(properties, context)
+		const mutationType = `{
+${mutations
+	.map(
+		(mutation) =>
+			`\t\t\t\treadonly ${propertyName(mutation.name)}: Core.${method}<Core.SchemaReference<${quote(className)}>, ${renderMutationDefinition(mutation)}>`,
+	)
+	.join('\n')}
+\t\t\t}`
+		return properties.length === 0
+			? mutationType
+			: `${renderObjectType(properties, context)} & ${mutationType}`
+	}
 	const operations = snapshot.operations.map((operation) => {
 		const input =
 			operation.input === undefined
@@ -211,14 +246,14 @@ export const renderGeneratedSurfaces = (
 			})
 			.join('\n')
 		return `\t\treadonly ${quote(surface.className)}: {
-\t\t\treadonly model: ${renderObjectType(augmentationFor(snapshot, surface.className, 'model'), context)}
+\t\t\treadonly model: ${renderSurfaceType(augmentationFor(snapshot, surface.className, 'model'), surface.modelMutations, surface.className, 'ApplicationModelSchemaMutationMethod')}
 \t\t\treadonly modelCommands: {
 ${renderCommands(surface.modelCommands)}
 \t\t\t}
 \t\t\treadonly queries: {
 ${queries}
 \t\t\t}
-\t\t\treadonly schema: ${renderObjectType(augmentationFor(snapshot, surface.className, 'schema'), context)}
+\t\t\treadonly schema: ${renderSurfaceType(augmentationFor(snapshot, surface.className, 'schema'), surface.schemaMutations, surface.className, 'ApplicationSchemaMutationMethod')}
 \t\t\treadonly schemaCommands: {
 ${renderCommands(surface.schemaCommands)}
 \t\t\t}

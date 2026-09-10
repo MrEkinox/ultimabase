@@ -35,6 +35,8 @@ TypeScript snippets:
   options, stable and dynamic plugin schemas, application handles, frozen
   selectors, immutable patches, conflicts,
   and logical provenance;
+- [`plugin-schema-mutations.md`](plugin-schema-mutations.md) declares a neutral
+  item-oriented workflow mutation and its application-owned direct methods;
 - [`inference-registry-and-plans.md`](inference-registry-and-plans.md) shows
   operation-specific types, schema registration, and validation plans.
 

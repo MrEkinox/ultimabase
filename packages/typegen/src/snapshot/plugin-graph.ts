@@ -7,6 +7,7 @@ import type {
 	TypegenCommandSnapshot,
 	TypegenOwnerSnapshot,
 	TypegenReference,
+	TypegenSchemaMutationSnapshot,
 } from '../snapshot.js'
 
 const snapshotOwner = (
@@ -237,6 +238,35 @@ export const snapshotTypegenGraph = (
 			owner: snapshotOwner(value.owner),
 			staticOptions: value.staticOptions,
 		})
+	const mutation = (
+		name: string,
+		value: CompiledTypegenGraph['schemaSurfaces'][number]['schemaMutations'] extends ReadonlyMap<
+			string,
+			infer TValue
+		>
+			? TValue
+			: never,
+	): TypegenSchemaMutationSnapshot => {
+		const owner = snapshotOwner(value.owner)
+		return immutableRecord({
+			authority: value.mutation.authority,
+			contributionId: value.contributionId,
+			effect: value.mutation.effect,
+			errors: immutableArray(value.mutation.errors),
+			input: readReference(
+				value.mutation.input.typegen,
+				owner,
+				`${value.mutation.name}.input`,
+			),
+			mutation: value.mutation.name,
+			name,
+			owner,
+			returning: value.mutation.returning,
+			select: immutableArray(Object.keys(value.mutation.select)),
+			staticOptions: value.staticOptions,
+			version: value.mutation.version,
+		})
+	}
 	const surfaces = immutableArray(
 		[...graph.schemaSurfaces]
 			.sort((left, right) =>
@@ -249,6 +279,11 @@ export const snapshotTypegenGraph = (
 						[...surface.modelCommands]
 							.sort(([left], [right]) => left.localeCompare(right))
 							.map(([name, value]) => command(name, value)),
+					),
+					modelMutations: immutableArray(
+						[...surface.modelMutations]
+							.sort(([left], [right]) => left.localeCompare(right))
+							.map(([name, value]) => mutation(name, value)),
 					),
 					queryExtensions: immutableArray(
 						[...surface.queryExtensions]
@@ -273,6 +308,11 @@ export const snapshotTypegenGraph = (
 						[...surface.schemaCommands]
 							.sort(([left], [right]) => left.localeCompare(right))
 							.map(([name, value]) => command(name, value)),
+					),
+					schemaMutations: immutableArray(
+						[...surface.schemaMutations]
+							.sort(([left], [right]) => left.localeCompare(right))
+							.map(([name, value]) => mutation(name, value)),
 					),
 				}),
 			),

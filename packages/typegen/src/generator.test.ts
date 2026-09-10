@@ -724,7 +724,7 @@ describe('generateApplicationTypes', () => {
 		})
 
 		expect(second).toStrictEqual(first)
-		expect(first.snapshot.version).toBe(9)
+		expect(first.snapshot.version).toBe(10)
 		expect(first.contents).toContain('export type ConfiguredEditorialWorkflow')
 		expect(first.contents).toContain('interface UltimaBaseGeneratedOperations')
 		expect(first.contents).toContain('readonly "fixture.workflow.publish"')

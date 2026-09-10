@@ -7,6 +7,7 @@ import {
 	type MutableApplicationSurfaceDeclarations,
 } from './application-surface-declarations.js'
 import { defineOperation, defineOperationValue } from './plugin-operations.js'
+import { defineSchemaMutation } from './plugin-schema-mutations.js'
 
 const value = defineOperationValue((input) => input)
 const operation = defineOperation({
@@ -15,6 +16,14 @@ const operation = defineOperation({
 	result: value,
 	target: 'application',
 	transaction: 'forbidden',
+	version: '1.0.0',
+})
+const mutation = defineSchemaMutation({
+	authority: 'request',
+	effect: 'update',
+	input: value,
+	name: 'fixture.surface.mutation',
+	returning: 'after',
 	version: '1.0.0',
 })
 
@@ -84,7 +93,40 @@ describe('application surface declaration validation', () => {
 		}).toThrow('model surface.inspect must reference a model operation')
 		expect(() => {
 			registrars.operations.declare({} as never)
-		}).toThrow('operation must be created by defineOperation')
+		}).toThrow(
+			'operation must be created by defineOperation or defineSchemaMutation',
+		)
+		expect(() => {
+			registrars.models.extend(
+				{},
+				{
+					contributionId: 'invalid-mutation-name',
+					schemaMutations: {
+						'not-safe': { mutation, surfaces: ['schema'] },
+					},
+				},
+			)
+		}).toThrow('must be a TypeScript and GraphQL identifier')
+		expect(() => {
+			registrars.models.extend(
+				{},
+				{
+					contributionId: 'empty-mutation-surfaces',
+					schemaMutations: { archive: { mutation, surfaces: [] } },
+				},
+			)
+		}).toThrow('surfaces must be a non-empty array')
+		expect(() => {
+			registrars.models.extend(
+				{},
+				{
+					contributionId: 'forged-mutation',
+					schemaMutations: {
+						archive: { mutation: {} as never, surfaces: ['schema'] },
+					},
+				},
+			)
+		}).toThrow('must be created by defineSchemaMutation')
 		expect(() => {
 			registrars.queries.extend({}, undefined as never)
 		}).toThrow('query surface must be a plain object')

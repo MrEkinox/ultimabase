@@ -327,6 +327,45 @@ transaction.
 Transport publication remains a separate explicit binding and still requires
 `transport:expose`.
 
+## Declare schema mutations without another wrapper
+
+Use Core's `defineSchemaMutation()` and the owner-bound `operations` and
+`models` facades directly. `definePluginModule()` may remove repeated package
+identity fields, but Plugin Kit does not wrap the mutation token or its
+`schemaMutations` binding:
+
+```ts
+const archive = defineSchemaMutation({
+	authority: 'request',
+	effect: 'update',
+	input: defineOperationValue(snapshotArchiveInput),
+	name: 'community.workflow.archive',
+	returning: 'after',
+	select: { workflowState: true },
+	version: '1.0.0',
+})
+
+workflow.plugin({
+	privileges: [
+		{ name: 'operation:declare', reason: 'Declares archive.' },
+		{ name: 'model:extend', reason: 'Adds archive methods.' },
+	],
+	declare: ({ models, operations }) => {
+		operations.declare(archive)
+		models.extend(Post, {
+			contributionId: 'workflow-mutations',
+			schemaMutations: {
+				archive: { mutation: archive, surfaces: ['schema', 'model'] },
+			},
+		})
+	},
+})
+```
+
+Keeping these Core calls visible preserves exact owner attribution, the
+`operation:declare` and `model:extend` privilege split, target freezing,
+collision checks, and the callback-free compilation boundary.
+
 ## Group Typegen references
 
 Use one module object when several public types come from the same package:

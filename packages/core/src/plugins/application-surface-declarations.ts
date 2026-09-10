@@ -15,6 +15,18 @@ import type {
 	PluginOperationValueContract,
 } from './plugin-operations.js'
 import { isPluginOperationDefinition } from './plugin-operations.js'
+import {
+	isPluginSchemaMutationDefinition,
+	type PluginSchemaMutationDefinition,
+} from './plugin-schema-mutations.js'
+import {
+	snapshotSchemaMutationMap,
+	type PluginSchemaMutationSurfaceBinding,
+} from './schema-mutation-surface-declarations.js'
+export type {
+	PluginSchemaMutationSurface,
+	PluginSchemaMutationSurfaceBinding,
+} from './schema-mutation-surface-declarations.js'
 import type {
 	SchemaSelection,
 	SchemaSelectorOptions,
@@ -115,8 +127,10 @@ export const defineQueryExtension = <
 }
 
 export interface PluginOperationDeclarationRegistrar {
-	/** Declares one operation token without installing a handler or transport. */
-	declare(operation: PluginOperationDefinition): void
+	/** Declares one operation or schema-mutation token without installing a handler. */
+	declare(
+		operation: PluginOperationDefinition | PluginSchemaMutationDefinition,
+	): void
 }
 
 export interface PluginModelSurfaceRegistrar {
@@ -130,6 +144,9 @@ export interface PluginModelSurfaceRegistrar {
 			>
 			readonly schemaCommands?: Readonly<
 				Record<string, PluginOperationDefinition<string, string, 'schema'>>
+			>
+			readonly schemaMutations?: Readonly<
+				Record<string, PluginSchemaMutationSurfaceBinding>
 			>
 			readonly staticOptions?: Readonly<Record<string, JsonValue>>
 		},
@@ -149,7 +166,7 @@ export interface PluginQuerySurfaceRegistrar {
 }
 
 export interface OwnedPluginOperationDeclaration {
-	readonly operation: PluginOperationDefinition
+	readonly operation: PluginOperationDefinition | PluginSchemaMutationDefinition
 	readonly owner: PluginSchemaContributionOwner
 }
 
@@ -161,6 +178,9 @@ export interface OwnedModelSurfaceDeclaration {
 	readonly owner: PluginSchemaContributionOwner
 	readonly schemaCommands: Readonly<
 		Record<string, PluginOperationDefinition<string, string, 'schema'>>
+	>
+	readonly schemaMutations: Readonly<
+		Record<string, PluginSchemaMutationSurfaceBinding>
 	>
 	readonly staticOptions: Readonly<Record<string, JsonValue>>
 	readonly target: ApplicationSurfaceTarget
@@ -262,9 +282,13 @@ export const createApplicationSurfaceRegistrars = (
 					'schema',
 					'model surface',
 				)
+				const schemaMutations = snapshotSchemaMutationMap(
+					options.schemaMutations,
+				)
 				if (
 					Object.keys(modelCommands).length === 0 &&
-					Object.keys(schemaCommands).length === 0
+					Object.keys(schemaCommands).length === 0 &&
+					Object.keys(schemaMutations).length === 0
 				) {
 					throw new TypeError('model surface must declare at least one command')
 				}
@@ -274,6 +298,7 @@ export const createApplicationSurfaceRegistrars = (
 						modelCommands,
 						owner,
 						schemaCommands,
+						schemaMutations,
 						staticOptions: snapshotStaticOptions(
 							options.staticOptions,
 							'model surface staticOptions',
@@ -285,8 +310,13 @@ export const createApplicationSurfaceRegistrars = (
 		}),
 		operations: immutableRecord({
 			declare: (operation): void => {
-				if (!isPluginOperationDefinition(operation)) {
-					throw new TypeError('operation must be created by defineOperation')
+				if (
+					!isPluginOperationDefinition(operation) &&
+					!isPluginSchemaMutationDefinition(operation)
+				) {
+					throw new TypeError(
+						'operation must be created by defineOperation or defineSchemaMutation',
+					)
 				}
 				declarations.operations.push(immutableRecord({ operation, owner }))
 			},

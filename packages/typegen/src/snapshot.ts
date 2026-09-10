@@ -137,11 +137,29 @@ export interface TypegenQueryExtensionSnapshot {
 	readonly version: string
 }
 
+/** Carries one callback-free direct schema-mutation surface declaration. */
+export interface TypegenSchemaMutationSnapshot {
+	readonly authority: 'master' | 'request'
+	readonly contributionId: string
+	readonly effect: 'delete' | 'update'
+	readonly errors: readonly string[]
+	readonly input: TypegenReference | undefined
+	readonly mutation: string
+	readonly name: string
+	readonly owner: TypegenOwnerSnapshot
+	readonly returning: 'after' | 'before'
+	readonly select: readonly string[]
+	readonly staticOptions: Readonly<Record<string, JsonValue>>
+	readonly version: string
+}
+
 export interface TypegenSchemaSurfaceSnapshot {
 	readonly className: string
 	readonly modelCommands: readonly TypegenCommandSnapshot[]
+	readonly modelMutations: readonly TypegenSchemaMutationSnapshot[]
 	readonly queryExtensions: readonly TypegenQueryExtensionSnapshot[]
 	readonly schemaCommands: readonly TypegenCommandSnapshot[]
+	readonly schemaMutations: readonly TypegenSchemaMutationSnapshot[]
 }
 
 export interface TypegenContributionSnapshot {
@@ -177,7 +195,7 @@ export interface TypegenApplicationSnapshot {
 	readonly privateStorageFingerprint?: string
 	readonly schemas: readonly TypegenSchemaSnapshot[]
 	readonly surfaces: readonly TypegenSchemaSurfaceSnapshot[]
-	readonly version: 9
+	readonly version: 10
 }
 
 interface PluginValueReference extends TypegenReference {
@@ -546,7 +564,7 @@ export const createCompiledTypegenSnapshot = (
 			? {}
 			: { privateStorageFingerprint: application.privateStorageFingerprint }),
 		schemas,
-		version: 9,
+		version: 10,
 	})
 }
 

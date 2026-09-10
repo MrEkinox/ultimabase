@@ -1,13 +1,13 @@
-import {
-	assertNonEmptyString,
-	immutableRecord,
-	isPlainRecord,
-} from '@ultimabase/shared'
-import { valid } from 'semver'
+import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 import {
 	isTypegenReference,
 	type TypegenReference,
 } from './typegen-contracts.js'
+import {
+	assertOperationIdentity,
+	assertOperationValueContract,
+	snapshotOperationErrors,
+} from './operation-contract-validation.js'
 
 /** Names the application identity carried by one custom operation declaration. */
 export type PluginOperationTarget = 'application' | 'model' | 'schema'
@@ -112,31 +112,6 @@ export type PluginOperationErrorCode<TOperation> =
 		: never
 
 const operationNames = new WeakSet<object>()
-const operationNamePattern =
-	/^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?\.[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$/u
-const operationErrorCodePattern =
-	/^(?:[A-Z][A-Z0-9_]*|[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?\.[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?)$/u
-
-const assertOperationValueContract: (
-	value: unknown,
-	path: string,
-) => asserts value is PluginOperationValueContract<unknown> = (value, path) => {
-	if (!isPlainRecord(value) || typeof value.snapshot !== 'function') {
-		throw new TypeError(`${path} must expose a snapshot function`)
-	}
-
-	for (const key of Object.keys(value)) {
-		if (key !== 'snapshot' && key !== 'typegen') {
-			throw new TypeError(`${path} contains unknown option: ${key}`)
-		}
-	}
-	if (value.typegen !== undefined && !isTypegenReference(value.typegen)) {
-		throw new TypeError(
-			`${path}.typegen must be created by defineTypegenReference`,
-		)
-	}
-}
-
 /** Creates one immutable operation value contract with exact inference. */
 export const defineOperationValue = <TValue>(
 	snapshot: (value: unknown, path: string) => TValue,
@@ -204,15 +179,7 @@ export const defineOperation = <
 		}
 	}
 
-	assertNonEmptyString(options.name, 'operation name')
-	if (!operationNamePattern.test(options.name)) {
-		throw new TypeError(`operation name must be namespaced: ${options.name}`)
-	}
-	if (valid(options.version) !== options.version) {
-		throw new TypeError(
-			`operation version must be exact SemVer: ${options.version}`,
-		)
-	}
+	assertOperationIdentity(options.name, options.version, 'operation')
 	if (
 		options.target !== 'application' &&
 		options.target !== 'model' &&
@@ -234,26 +201,10 @@ export const defineOperation = <
 	}
 	assertOperationValueContract(options.input, 'operation input')
 	assertOperationValueContract(options.result, 'operation result')
-	const errors = options.errors ?? ([] as unknown as TErrors)
-	if (!Array.isArray(errors)) {
-		throw new TypeError('operation errors must be an array')
-	}
-	const seenErrors = new Set<string>()
-	for (const [index, code] of errors.entries()) {
-		assertNonEmptyString(code, `operation errors[${String(index)}]`)
-		if (!operationErrorCodePattern.test(code)) {
-			throw new TypeError(
-				`operation error code must be namespaced or a constant identifier: ${code}`,
-			)
-		}
-		if (seenErrors.has(code)) {
-			throw new TypeError(`operation errors contains duplicate code: ${code}`)
-		}
-		seenErrors.add(code)
-	}
+	const errors = snapshotOperationErrors(options.errors, 'operation')
 
 	const definition = immutableRecord({
-		errors: Object.freeze([...errors]) as unknown as TErrors,
+		errors,
 		input: options.input,
 		kind: 'plugin-operation' as const,
 		name: options.name,

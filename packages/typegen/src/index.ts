@@ -38,5 +38,6 @@ export type {
 	TypegenReference,
 	TypegenSchemaSnapshot,
 	TypegenSchemaSurfaceSnapshot,
+	TypegenSchemaMutationSnapshot,
 	TypegenValueNode,
 } from './snapshot.js'

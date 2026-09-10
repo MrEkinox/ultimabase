@@ -53,6 +53,16 @@ export class ReferenceImports {
 			if (operation.result !== undefined)
 				this.#addReference(operation.result, references)
 		}
+		for (const surface of snapshot.surfaces) {
+			for (const mutation of [
+				...surface.schemaMutations,
+				...surface.modelMutations,
+			]) {
+				if (mutation.input !== undefined) {
+					this.#addReference(mutation.input, references)
+				}
+			}
+		}
 		for (const contribution of snapshot.contributions) {
 			for (const declaration of contribution.declarations) {
 				this.#collectTypeNode(declaration.type, references)

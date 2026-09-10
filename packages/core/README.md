@@ -506,6 +506,46 @@ When a command name is only known at runtime, use
 cached per application, preserves the schema instance and immutable model
 behavior, and never mutates the exported class or prototype.
 
+Item-oriented workflow mutations use the separate `defineSchemaMutation()`
+contract. They retain one logical mutation identity, a caller or Master
+authority requirement, an update or delete effect family, a fixed before/after
+result phase, and only the persisted dependencies needed by their future owner
+resolver:
+
+```ts
+const archive = defineSchemaMutation({
+	authority: 'request',
+	effect: 'update',
+	errors: ['community.workflow.archive-rejected'],
+	input: defineOperationValue(snapshotArchiveInput),
+	name: 'community.workflow.archive',
+	returning: 'after',
+	select: { workflowState: true },
+	version: '1.0.0',
+})
+
+declare({ models, operations }) {
+	operations.declare(archive)
+	models.extend(PostSchema, {
+		contributionId: 'workflow-mutations',
+		schemaMutations: {
+			archive: { mutation: archive, surfaces: ['schema', 'model'] },
+		},
+	})
+}
+```
+
+These declarations compile to callback-free descriptors and direct
+application-owned methods. Typegen derives their payload, schema projection,
+inclusion, and result types; JavaScript sees the same methods from the compiled
+graph without generated files. They are deliberately distinct from arbitrary
+`schemaCommands` and `modelCommands`. This declaration layer does not yet
+execute them: invoking one reports that its Runtime provider is unavailable.
+The Runtime resolver and canonical persistence pipeline are added separately.
+
+See the focused
+[plugin schema mutation example](examples/schema/plugin-schema-mutations.md).
+
 Transport exposure is a second explicit boundary. The operation owner requests
 `transport:expose`, provides a nominal wire codec through
 `provideOperationTransportBinding`, and the application selects a non-empty

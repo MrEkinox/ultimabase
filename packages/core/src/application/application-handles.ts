@@ -31,45 +31,27 @@ import type {
 	UltimaBaseGeneratedOperations,
 	UltimaBaseGeneratedSchemaSurfaces,
 } from '../schema/type-info.js'
-import type { PluginSchemaContributionOwner } from '../schema/schema/provenance.js'
 import type { PluginLifecycleState } from '../plugins/lifecycle-manager.js'
 import {
 	registerApplicationSchemaModelViewHost,
 	type ApplicationSchemaModelViewState,
 } from './application-model-views.js'
-/** Exposes safe owner facts without plugin configuration or execution state. */
-export interface ApplicationContributionOwner {
-	readonly instanceId?: string
-	readonly pluginId: string
-	readonly version: string
-}
-/** Identifies the application, schema, or immutable model bound to an envelope. */
-export type PluginOperationEnvelopeTarget =
-	| Readonly<{ readonly kind: 'application' }>
-	| Readonly<{ readonly kind: 'schema'; readonly schema?: string }>
-	| Readonly<{
-			readonly kind: 'model'
-			readonly schema?: string
-			readonly state?: 'draft' | 'persisted'
-	  }>
-/** Carries one validated logical operation without executing or exposing it. */
-export interface PluginOperationEnvelope<
-	TOperation extends PluginOperationDefinition = PluginOperationDefinition,
-> {
-	readonly kind: 'plugin-operation'
-	readonly name: TOperation['name']
-	readonly payload: PluginOperationInput<TOperation>
-	readonly target: PluginOperationEnvelopeTarget
-	readonly transaction: TOperation['transaction']
-	readonly version: TOperation['version']
-}
+import { createUnavailableSchemaMutationMethod } from './application-schema-mutations.js'
+import {
+	snapshotApplicationContributionOwner,
+	type ApplicationContributionOwner,
+	type ApplicationOperationBinding,
+	type PluginOperationEnvelope,
+	type PluginOperationEnvelopeTarget,
+} from './application-operation-contracts.js'
+export type {
+	ApplicationContributionOwner,
+	ApplicationOperationBinding,
+	PluginOperationEnvelope,
+	PluginOperationEnvelopeTarget,
+} from './application-operation-contracts.js'
 interface ApplicationHandleLifetime {
 	readonly state: PluginLifecycleState
-}
-/** Retains the exact schema or model selected by an application-owned handle. */
-export interface ApplicationOperationBinding {
-	readonly model?: object
-	readonly schema?: SchemaDefinition
 }
 /** Executes one prepared envelope through the facade's active RequestEngine. */
 export type ApplicationOperationExecutor = (
@@ -81,14 +63,6 @@ const applicationOperationExecutors = new WeakMap<
 	ApplicationOperationHandle,
 	ApplicationOperationExecutor
 >()
-const snapshotOwner = (
-	owner: PluginSchemaContributionOwner,
-): ApplicationContributionOwner =>
-	immutableRecord({
-		...(owner.instanceId === undefined ? {} : { instanceId: owner.instanceId }),
-		pluginId: owner.pluginId,
-		version: owner.version,
-	})
 const assertHandleAvailable = (lifetime: ApplicationHandleLifetime): void => {
 	if (lifetime.state === 'disposing' || lifetime.state === 'disposed') {
 		throw new TypeError('Application handle cannot be used after disposal')
@@ -109,7 +83,7 @@ export class ApplicationOperationHandle<
 	) {
 		this.#compiled = compiled
 		this.definition = compiled.operation as TOperation
-		this.owner = snapshotOwner(compiled.owner)
+		this.owner = snapshotApplicationContributionOwner(compiled.owner)
 		Object.freeze(this)
 	}
 
@@ -319,6 +293,11 @@ export class ApplicationSchemaHandleBase<
 		const handle = new Proxy(this, {
 			get: (target, property, receiver): unknown => {
 				if (typeof property === 'string') {
+					if (target.surface.schemaMutations.has(property)) {
+						return createUnavailableSchemaMutationMethod(property, () => {
+							assertHandleAvailable(target.lifetime)
+						})
+					}
 					if (target.surface.schemaCommands.has(property)) {
 						return target.command(property)
 					}
@@ -336,6 +315,10 @@ export class ApplicationSchemaHandleBase<
 				}
 				return Reflect.get(target, property, receiver)
 			},
+			has: (target, property): boolean =>
+				(typeof property === 'string' &&
+					target.surface.schemaMutations.has(property)) ||
+				Reflect.has(target, property),
 		})
 		registerApplicationSchemaModelViewHost(handle, state)
 		return handle
@@ -453,11 +436,28 @@ export class ApplicationModelHandle<
 		)
 		Object.freeze(this)
 		return new Proxy(this, {
-			get: (target, property, receiver): unknown =>
-				typeof property === 'string' &&
-				target.surface.modelCommands.has(property)
+			get: (target, property, receiver): unknown => {
+				if (
+					typeof property === 'string' &&
+					target.surface.modelMutations.has(property)
+				) {
+					return createUnavailableSchemaMutationMethod(
+						property,
+						() => {
+							assertHandleAvailable(target.lifetime)
+						},
+						target.state === 'persisted',
+					)
+				}
+				return typeof property === 'string' &&
+					target.surface.modelCommands.has(property)
 					? target.command(property)
-					: Reflect.get(target, property, receiver),
+					: Reflect.get(target, property, receiver)
+			},
+			has: (target, property): boolean =>
+				(typeof property === 'string' &&
+					target.surface.modelMutations.has(property)) ||
+				Reflect.has(target, property),
 		})
 	}
 

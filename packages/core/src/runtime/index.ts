@@ -70,6 +70,13 @@ export type {
 	PluginOperationEnvelope,
 	PluginOperationEnvelopeTarget,
 } from '../application/application-handles.js'
+export type {
+	ApplicationModelSchemaMutationMethod,
+	ApplicationSchemaMutationMethod,
+	PluginSchemaMutationModelInput,
+	PluginSchemaMutationResult,
+	PluginSchemaMutationSchemaInput,
+} from '../application/application-schema-mutations.js'
 export { requireCurrentRequestRoleResolver } from './context/subject-capabilities.js'
 // Applications create request-bound engines; opaque grants protect master construction.
 export { FrameworkEngine, RequestEngine } from './engine/framework-engine.js'
