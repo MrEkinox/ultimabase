@@ -157,6 +157,19 @@ export {
 	provideOperationHandler,
 	provideOperationTransportBinding,
 } from './plugin-operations/index.js'
+export {
+	pluginSchemaMutationHandlerCapability,
+	provideSchemaMutationHandler,
+	schemaMutationHandler,
+} from './schema-mutations/index.js'
+export type {
+	PluginSchemaMutationEffectResult,
+	PluginSchemaMutationHandler,
+	PluginSchemaMutationHandlerDefinition,
+	PluginSchemaMutationHandlerInput,
+	PluginSchemaMutationTarget,
+	PluginSchemaMutationUpdateEffect,
+} from './schema-mutations/index.js'
 export type {
 	ApplicationOperationTransport,
 	ExposedOperationTransportBinding,
@@ -182,6 +195,8 @@ export type {
 	DatabasePersistenceReturning,
 	DatabasePersistenceRewriteInput,
 	DatabasePersistenceTarget,
+	PersistenceLogicalOperationAst,
+	PersistencePlanOperationKind,
 	PersistencePlanRewriterDefinition,
 } from './persistence/index.js'
 // Enforcement factories let permission and community plugins share one monotonic boundary.

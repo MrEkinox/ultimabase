@@ -34,7 +34,7 @@ describe('database persistence plans', () => {
 			kind: 'delete-one',
 			returning: { operationKind: 'delete-one' },
 			target: { schema: deleteOperation.query.schema },
-			version: 1,
+			version: 2,
 		})
 		expect(plan.data).toStrictEqual({ query: deleteOperation.query })
 		expect(plan.provenance).toMatchObject([

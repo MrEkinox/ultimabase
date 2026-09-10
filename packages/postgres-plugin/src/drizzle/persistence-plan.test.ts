@@ -191,6 +191,8 @@ describe('PostgreSQL persistence plans', () => {
 			new PostgresSchemaCatalog([schema]),
 		)
 		const transaction = await adapter.beginTransaction()
+		expect(adapter.capabilities?.persistencePlans?.version).toBe(2)
+		expect(transaction.capabilities?.persistencePlans?.version).toBe(2)
 		expect(adapter.capabilities?.pluginFieldStructuralContains).toBe(
 			databasePluginFieldStructuralContainsCapability,
 		)

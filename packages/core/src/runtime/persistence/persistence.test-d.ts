@@ -9,6 +9,7 @@ import {
 	rewriteDeletePersistencePlan,
 	Schema,
 	type DatabasePersistencePlan,
+	type PersistencePlanOperationKind,
 } from '../../index.js'
 
 const articleSchema = Schema.define({
@@ -55,4 +56,22 @@ test('preserves logical delete correlation across one physical update plan', () 
 	expectTypeOf(
 		new QueryBuilder(articleSchema).ast.schema.definition,
 	).toEqualTypeOf<typeof articleSchema>()
+})
+
+test('exposes schema-mutation identity while retaining a Core-owned physical plan', () => {
+	const definition = persistencePlanRewriter({
+		operations: ['plugin-schema-mutation'],
+		schema: articleSchema,
+		rewrite: ({ logicalOperation, plan }) => {
+			expectTypeOf(
+				logicalOperation.kind,
+			).toEqualTypeOf<'plugin-schema-mutation'>()
+			expectTypeOf(plan).toExtend<DatabasePersistencePlan>()
+			return plan
+		},
+	})
+
+	expectTypeOf(definition.operations).toEqualTypeOf<
+		readonly PersistencePlanOperationKind[]
+	>()
 })

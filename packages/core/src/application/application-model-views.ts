@@ -11,7 +11,10 @@ import type {
 	ApplicationOperationBinding,
 	ApplicationOperationHandle,
 } from './application-handles.js'
-import { createUnavailableSchemaMutationMethod } from './application-schema-mutations.js'
+import {
+	createApplicationSchemaMutationMethod,
+	type ApplicationSchemaMutationExecutor,
+} from './application-schema-mutations.js'
 
 /** Preserves one schema model while adding the selected application's generated surface. */
 export type ApplicationBoundModel<
@@ -27,6 +30,7 @@ export interface ApplicationSchemaModelViewState {
 		operation: PluginOperationDefinition,
 		binding?: ApplicationOperationBinding,
 	) => ApplicationOperationHandle
+	readonly executeSchemaMutation: ApplicationSchemaMutationExecutor
 	readonly surface: CompiledApplicationSchemaSurface
 }
 
@@ -107,10 +111,18 @@ export const bindApplicationSchemaModel = <
 			) {
 				let mutation = methodViews.get(property)
 				if (mutation === undefined) {
-					mutation = createUnavailableSchemaMutationMethod(
-						property,
-						() => undefined,
-					)
+					const command = state.surface.modelMutations.get(property)
+					if (command === undefined) {
+						throw new TypeError(`Unknown model mutation: ${property}`)
+					}
+					mutation = createApplicationSchemaMutationMethod({
+						assertAvailable: () => undefined,
+						command,
+						execute: state.executeSchemaMutation,
+						model: view,
+						name: property,
+						schema: state.surface.schema,
+					})
 					methodViews.set(property, mutation)
 				}
 				return mutation

@@ -3,7 +3,10 @@ export {
 	persistencePlanRewriterCapability,
 	providePersistencePlanRewriter,
 } from './capabilities.js'
-export type { PersistencePlanRewriterDefinition } from './capabilities.js'
+export type {
+	PersistencePlanOperationKind,
+	PersistencePlanRewriterDefinition,
+} from './capabilities.js'
 export { databasePersistencePlanVersion } from './contracts.js'
 export type {
 	DatabasePersistencePlan,
@@ -12,6 +15,7 @@ export type {
 	DatabasePersistenceReturning,
 	DatabasePersistenceRewriteInput,
 	DatabasePersistenceTarget,
+	PersistenceLogicalOperationAst,
 } from './contracts.js'
 export {
 	createDatabasePersistencePlan,

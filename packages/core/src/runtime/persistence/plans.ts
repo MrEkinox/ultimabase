@@ -19,6 +19,7 @@ import {
 	databasePersistencePlanVersion,
 	type DatabasePersistencePlan,
 	type DatabasePersistenceProvenance,
+	type PersistenceLogicalOperationAst,
 } from './contracts.js'
 
 const canonicalPersistenceProvenance: DatabasePersistenceProvenance =
@@ -189,17 +190,17 @@ const assertUpdateExpression = (value: unknown): void => {
 
 /** Validates a plugin result and appends owner provenance under Core control. */
 export const acceptDatabasePersistenceRewrite = <
-	const TOperation extends DatabaseOperationAst,
+	const TPhysicalOperation extends DatabaseOperationAst,
 >(
-	logicalOperation: TOperation,
-	previous: DatabasePersistencePlan<TOperation>,
+	logicalOperation: PersistenceLogicalOperationAst,
+	previous: DatabasePersistencePlan<TPhysicalOperation>,
 	candidate: unknown,
 	provenance: Readonly<{
 		contributionId: string
 		owner: PluginIdentity
 		pluginVersion: string
 	}>,
-): DatabasePersistencePlan<TOperation> => {
+): DatabasePersistencePlan<TPhysicalOperation> => {
 	if (!isPlainRecord(candidate)) {
 		throw new TypeError('Persistence plan rewriters must return a plain object')
 	}
@@ -232,12 +233,12 @@ export const acceptDatabasePersistenceRewrite = <
 			candidate.kind === 'update-many')
 	if (!allowedKind) {
 		throw new TypeError(
-			`Persistence protocol version 1 cannot rewrite ${logicalOperation.kind} as ${String(candidate.kind)}`,
+			`Persistence protocol version ${String(databasePersistencePlanVersion)} cannot rewrite ${logicalOperation.kind} as ${String(candidate.kind)}`,
 		)
 	}
 	if (candidate.kind === previous.kind && candidate.data !== previous.data) {
 		throw new TypeError(
-			'Persistence protocol version 1 only permits delete plans to become update plans',
+			`Persistence protocol version ${String(databasePersistencePlanVersion)} only permits delete plans to become update plans`,
 		)
 	}
 	if (candidate.kind !== previous.kind) {
@@ -264,5 +265,5 @@ export const acceptDatabasePersistenceRewrite = <
 				protocolVersion: databasePersistencePlanVersion,
 			}),
 		]),
-	}) as unknown as DatabasePersistencePlan<TOperation>
+	}) as unknown as DatabasePersistencePlan<TPhysicalOperation>
 }

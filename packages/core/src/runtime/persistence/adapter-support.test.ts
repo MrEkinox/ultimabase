@@ -53,7 +53,7 @@ describe('persistence adapter support', () => {
 			internalDetails: {
 				kind: 'persistence-plan-capability-missing',
 				planKind: 'find-many',
-				protocolVersion: 1,
+				protocolVersion: 2,
 			},
 		})
 
@@ -62,7 +62,7 @@ describe('persistence adapter support', () => {
 				persistencePlans: {
 					kind: 'persistence-plans',
 					kinds: ['find-many'],
-					version: 2,
+					version: 1,
 				} as never,
 			},
 			execute: unreachableExecute,

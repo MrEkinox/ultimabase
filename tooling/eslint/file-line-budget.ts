@@ -20,7 +20,7 @@ export const handwrittenFileLineBaseline: Readonly<Record<string, number>> =
 		'packages/core/src/query/query/input.ts': 792,
 		'packages/core/src/query/query/query.ts': 700,
 		'packages/core/src/runtime/enforcement/dispatcher.test.ts': 895,
-		'packages/core/src/runtime/engine/framework-engine.ts': 793,
+		'packages/core/src/runtime/engine/framework-engine.ts': 783,
 		'packages/core/src/runtime/behaviors/validation-boundaries.ts': 949,
 		'packages/core/src/runtime/pipeline/inclusion-projection.ts': 660,
 		'packages/core/src/runtime/pipeline/runtime-pipeline.test.ts': 1127,

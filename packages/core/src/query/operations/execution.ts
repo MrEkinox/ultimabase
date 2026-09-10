@@ -190,6 +190,25 @@ export const registerQueryExecutionOwner = (
 	queryExecutionApplications.set(registration.application, normalized)
 }
 
+/** @internal Rejects a terminal facade that belongs to another application. */
+export const assertOperationExecutionOwner = (
+	owner: object | undefined,
+	expectedApplication: object,
+): void => {
+	if (owner === undefined) return
+	const registration = queryExecutionOwners.get(owner)
+	if (registration === undefined) {
+		throw new TypeError('operation ultimabase must be an UltimaBase instance')
+	}
+	if (registration.application !== expectedApplication) {
+		throw new FrameworkError(
+			'VALIDATION_ERROR',
+			'Explicit query ownership cannot replace the active application.',
+			{ publicMessage: 'The requested schema is not available.' },
+		)
+	}
+}
+
 const bindExecutionResult = async <TResult>(
 	result: Promise<TResult>,
 	registration: QueryExecutionOwnerRegistration | undefined,

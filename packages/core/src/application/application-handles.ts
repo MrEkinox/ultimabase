@@ -16,6 +16,7 @@ import {
 	type CompiledApplicationSchemaSurface,
 	type CompiledOperationCommand,
 	type CompiledPluginOperation,
+	type CompiledSchemaMutationCommand,
 } from '../plugins/application-surface-registry.js'
 import type {
 	PluginOperationDefinition,
@@ -36,7 +37,10 @@ import {
 	registerApplicationSchemaModelViewHost,
 	type ApplicationSchemaModelViewState,
 } from './application-model-views.js'
-import { createUnavailableSchemaMutationMethod } from './application-schema-mutations.js'
+import {
+	createApplicationSchemaMutationMethod,
+	type ApplicationSchemaMutationExecutor,
+} from './application-schema-mutations.js'
 import {
 	snapshotApplicationContributionOwner,
 	type ApplicationContributionOwner,
@@ -264,6 +268,7 @@ export class ApplicationSchemaHandleBase<
 			operation: PluginOperationDefinition,
 			binding?: ApplicationOperationBinding,
 		) => ApplicationOperationHandle,
+		private readonly executeSchemaMutation: ApplicationSchemaMutationExecutor,
 	) {
 		this.schema = surface.schema as TSchema
 		this.commands = immutableRecord(
@@ -287,6 +292,7 @@ export class ApplicationSchemaHandleBase<
 			modelViews: new WeakMap(),
 			resolveOperation,
 			surface,
+			executeSchemaMutation,
 		}
 		registerApplicationSchemaModelViewHost(this, state)
 		Object.freeze(this)
@@ -294,9 +300,7 @@ export class ApplicationSchemaHandleBase<
 			get: (target, property, receiver): unknown => {
 				if (typeof property === 'string') {
 					if (target.surface.schemaMutations.has(property)) {
-						return createUnavailableSchemaMutationMethod(property, () => {
-							assertHandleAvailable(target.lifetime)
-						})
+						return target.createSchemaMutationMethod(property)
 					}
 					if (target.surface.schemaCommands.has(property)) {
 						return target.command(property)
@@ -357,6 +361,7 @@ export class ApplicationSchemaHandleBase<
 			record.state,
 			this.surface,
 			this.resolveOperation,
+			this.executeSchemaMutation,
 		) as ApplicationModelHandleFor<TSchema>
 	}
 
@@ -387,6 +392,22 @@ export class ApplicationSchemaHandleBase<
 		command: CompiledOperationCommand,
 	): ApplicationOperationHandle {
 		return this.resolveOperation(command.operation, { schema: this.schema })
+	}
+
+	private createSchemaMutationMethod(name: string) {
+		const command = this.surface.schemaMutations.get(name)
+		if (command === undefined) {
+			throw new TypeError(`Unknown ${this.schema.className} mutation: ${name}`)
+		}
+		return createApplicationSchemaMutationMethod({
+			assertAvailable: () => {
+				assertHandleAvailable(this.lifetime)
+			},
+			command,
+			execute: this.executeSchemaMutation,
+			name,
+			schema: this.schema,
+		})
 	}
 
 	private invokeSchemaCommand(
@@ -425,6 +446,7 @@ export class ApplicationModelHandle<
 			operation: PluginOperationDefinition,
 			binding?: ApplicationOperationBinding,
 		) => ApplicationOperationHandle,
+		private readonly executeSchemaMutation: ApplicationSchemaMutationExecutor,
 	) {
 		this.commands = immutableRecord(
 			Object.fromEntries(
@@ -441,13 +463,7 @@ export class ApplicationModelHandle<
 					typeof property === 'string' &&
 					target.surface.modelMutations.has(property)
 				) {
-					return createUnavailableSchemaMutationMethod(
-						property,
-						() => {
-							assertHandleAvailable(target.lifetime)
-						},
-						target.state === 'persisted',
-					)
+					return target.createSchemaMutationMethod(property)
 				}
 				return typeof property === 'string' &&
 					target.surface.modelCommands.has(property)
@@ -478,6 +494,24 @@ export class ApplicationModelHandle<
 	): ApplicationOperationHandle {
 		return this.resolveOperation(command.operation, {
 			model: this.model,
+			schema: this.schema,
+		})
+	}
+
+	private createSchemaMutationMethod(name: string) {
+		const command: CompiledSchemaMutationCommand | undefined =
+			this.surface.modelMutations.get(name)
+		if (command === undefined) {
+			throw new TypeError(`Unknown ${this.schema.className} mutation: ${name}`)
+		}
+		return createApplicationSchemaMutationMethod({
+			assertAvailable: () => {
+				assertHandleAvailable(this.lifetime)
+			},
+			command,
+			execute: this.executeSchemaMutation,
+			model: this.model,
+			name,
 			schema: this.schema,
 		})
 	}

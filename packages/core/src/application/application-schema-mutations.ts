@@ -1,4 +1,4 @@
-import type { QueryFieldName } from '../query/ast/contracts.js'
+import type { QueryAst, QueryFieldName } from '../query/ast/contracts.js'
 import type {
 	ExactQuerySelection,
 	LiteralQuerySelection,
@@ -6,37 +6,122 @@ import type {
 } from '../query/clauses/selection.js'
 import type { OperationObjectId } from '../query/operations/contracts.js'
 import type { OperationOptions } from '../query/operations/options.js'
+import { queryFromFindOneInput } from '../query/query/input.js'
 import type {
 	ExactGeneratedInclusionInput,
 	QueryIncludedFieldFromInput,
 	QuerySelectedFieldFromInput,
 } from '../query/query/input.js'
 import type { QueryResult } from '../query/query/result.js'
+import type { CompiledSchemaMutationCommand } from '../plugins/application-surface-registry.js'
 import type {
 	PluginSchemaMutationDefinition,
 	PluginSchemaMutationInput,
 } from '../plugins/plugin-schema-mutations.js'
+import { readPluginSchemaMutationSource } from '../plugins/plugin-schema-mutations.js'
+import { assertImmutableOperationValue } from '../plugins/plugin-operation-boundaries.js'
 import type { SchemaDefinition } from '../schema/schema/definition.js'
 import type {
 	SchemaTypeInfoFor,
 	SchemaTypeInfoSource,
 } from '../schema/type-info.js'
+import { readPersistedSchemaModelRecord } from '../schema/schema/model-state.js'
+import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
-/** @internal Creates the temporary direct method used before Runtime issue 2603. */
-export const createUnavailableSchemaMutationMethod =
-	(
-		name: string,
-		assertAvailable: () => void,
-		persisted = true,
-	): ((...arguments_: readonly unknown[]) => Promise<never>) =>
-	(): Promise<never> => {
-		assertAvailable()
-		return Promise.reject(
-			new TypeError(
-				persisted
-					? `Schema mutation execution is unavailable until its Runtime provider is installed: ${name}`
-					: `Schema mutation ${name} requires a persisted model`,
-			),
+/** Carries one normalized direct call without an executable resolver or adapter. */
+export interface PluginSchemaMutationEnvelope {
+	readonly command: string
+	readonly id: string
+	readonly kind: 'plugin-schema-mutation'
+	readonly payload: unknown
+	readonly query: QueryAst
+	readonly mutation: CompiledSchemaMutationCommand['mutation']
+}
+
+/** Executes one application-owned schema mutation behind its dynamic method. */
+export type ApplicationSchemaMutationExecutor = (
+	command: CompiledSchemaMutationCommand,
+	schema: SchemaDefinition,
+	envelope: PluginSchemaMutationEnvelope,
+	options: OperationOptions | undefined,
+) => Promise<unknown>
+
+const schemaMutationInputKeys = new Set(['id', 'include', 'input', 'select'])
+
+const assertSchemaMutationInput = (
+	value: unknown,
+	name: string,
+): Readonly<Record<string, unknown>> => {
+	if (!isPlainRecord(value)) {
+		throw new TypeError(`Schema mutation ${name} input must be a plain object`)
+	}
+	for (const key of Object.keys(value)) {
+		if (!schemaMutationInputKeys.has(key)) {
+			throw new TypeError(
+				`Schema mutation ${name} input contains unknown key: ${key}`,
+			)
+		}
+	}
+	return value
+}
+
+/** @internal Builds one exact schema or persisted-model mutation method. */
+export const createApplicationSchemaMutationMethod =
+	(options: {
+		readonly assertAvailable: () => void
+		readonly command: CompiledSchemaMutationCommand
+		readonly execute: ApplicationSchemaMutationExecutor
+		readonly model?: object
+		readonly name: string
+		readonly schema: SchemaDefinition
+	}): ((...arguments_: readonly unknown[]) => Promise<unknown>) =>
+	async (...arguments_: readonly unknown[]): Promise<unknown> => {
+		options.assertAvailable()
+		if (arguments_.length > 2) {
+			throw new TypeError(
+				`Schema mutation ${options.name} accepts at most two arguments`,
+			)
+		}
+
+		const rawInput =
+			options.model === undefined ? arguments_[0] : (arguments_[0] ?? {})
+		const input = assertSchemaMutationInput(rawInput, options.name)
+		const modelRecord =
+			options.model === undefined
+				? undefined
+				: readPersistedSchemaModelRecord(options.model, options.name)
+		const idValue = modelRecord?.objectId ?? input.id
+		if (typeof idValue !== 'string') {
+			throw new TypeError(`Schema mutation ${options.name} id must be a string`)
+		}
+		if (options.model !== undefined && Object.hasOwn(input, 'id')) {
+			throw new TypeError(
+				`Schema mutation ${options.name} model input cannot contain id`,
+			)
+		}
+
+		const source = readPluginSchemaMutationSource(options.command.mutation)
+		const payload = source.input.snapshot(input.input, `${source.name}.input`)
+		assertImmutableOperationValue(payload, `${source.name}.input`)
+		const projection = queryFromFindOneInput(options.schema, {
+			...(input.include === undefined ? {} : { include: input.include }),
+			...(input.select === undefined ? {} : { select: input.select }),
+			where: { id: { eq: idValue } },
+		} as never)
+		const envelope = immutableRecord({
+			command: options.name,
+			id: idValue,
+			kind: 'plugin-schema-mutation' as const,
+			mutation: options.command.mutation,
+			payload,
+			query: projection.ast,
+		})
+
+		return options.execute(
+			options.command,
+			options.schema,
+			envelope,
+			arguments_[1] as OperationOptions | undefined,
 		)
 	}
 

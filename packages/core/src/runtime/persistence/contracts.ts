@@ -12,11 +12,12 @@ import type {
 } from '../../query/index.js'
 import type { PluginIdentity } from '../../plugins/manifest.js'
 import type { MaybePromise } from '@ultimabase/shared'
+import type { PluginSchemaMutationOperationAst } from '../schema-mutations/contracts.js'
 
 /** Selects the portable physical-plan protocol understood by Core Runtime. */
-export const databasePersistencePlanVersion = 1 as const
+export const databasePersistencePlanVersion = 2 as const
 
-/** Enumerates the physical statement families supported by protocol version 1. */
+/** Enumerates the physical statement families supported by protocol version 2. */
 export type DatabasePersistencePlanKind =
 	| 'count'
 	| 'create-many'
@@ -111,7 +112,7 @@ type QueryPersistencePlan<
 	TOperation extends DatabaseOperationAst,
 > = DatabasePersistencePlanBase<TKind, QueryPersistenceData, TOperation>
 
-/** Represents every immutable physical statement accepted by protocol version 1. */
+/** Represents every immutable physical statement accepted by protocol version 2. */
 export type DatabasePersistencePlan<
 	TOperation extends DatabaseOperationAst = DatabaseOperationAst,
 > =
@@ -149,17 +150,27 @@ export type DatabasePersistencePlan<
 			TOperation
 	  >
 
+/** Lists native and plugin-owned logical identities visible to plan rewriters. */
+export type PersistenceLogicalOperationAst =
+	DatabaseOperationAst | PluginSchemaMutationOperationAst
+
 /** Supplies a rewriter with logical intent and no protected constraint state. */
 export interface DatabasePersistenceRewriteInput<
-	TOperation extends DatabaseOperationAst = DatabaseOperationAst,
+	TLogicalOperation extends PersistenceLogicalOperationAst =
+		PersistenceLogicalOperationAst,
+	TPhysicalOperation extends DatabaseOperationAst =
+		TLogicalOperation extends DatabaseOperationAst
+			? TLogicalOperation
+			: DatabaseOperationAst,
 > {
-	readonly logicalOperation: TOperation
-	readonly plan: DatabasePersistencePlan<TOperation>
+	readonly logicalOperation: TLogicalOperation
+	readonly plan: DatabasePersistencePlan<TPhysicalOperation>
 }
 
 /** Applies every authorized application-local rewrite in graph order. */
 export type RuntimePersistencePlanRewriteStage = <
-	const TOperation extends DatabaseOperationAst,
+	const TLogicalOperation extends PersistenceLogicalOperationAst,
+	const TPhysicalOperation extends DatabaseOperationAst,
 >(
-	input: DatabasePersistenceRewriteInput<TOperation>,
-) => MaybePromise<DatabasePersistencePlan<TOperation>>
+	input: DatabasePersistenceRewriteInput<TLogicalOperation, TPhysicalOperation>,
+) => MaybePromise<DatabasePersistencePlan<TPhysicalOperation>>

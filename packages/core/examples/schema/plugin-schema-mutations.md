@@ -6,16 +6,19 @@ product vocabulary to Core or mutating an exported schema class.
 ```ts
 import {
 	Schema,
+	addSchemaField,
 	defineOperationValue,
 	definePlugin,
 	defineSchemaMutation,
+	provideSchemaMutationHandler,
+	schemaMutationHandler,
+	stringField,
 } from '@ultimabase/core'
 
 const Post = Schema.define({
 	className: 'Post',
 	fields: (field) => ({
 		title: field.string({ required: true }),
-		workflowState: field.string({ required: true }),
 	}),
 })
 
@@ -41,15 +44,48 @@ const archive = defineSchemaMutation({
 })
 
 export const workflowPlugin = definePlugin({
+	capabilities: {
+		provides: [
+			provideSchemaMutationHandler({
+				contributionId: 'archive-handler',
+				create: () => ({
+					value: schemaMutationHandler({
+						mutation: archive,
+						resolve: async ({ context, input, originalItem, target }) => {
+							await auditArchiveRequest({
+								context,
+								input,
+								originalItem,
+								target,
+							})
+							return { data: { workflowState: 'archived' } }
+						},
+					}),
+				}),
+			}),
+		],
+	},
 	core: '^0.0.0',
 	pluginId: 'community.workflow',
 	privileges: [
 		{ name: 'operation:declare', reason: 'Declares archive.' },
 		{ name: 'model:extend', reason: 'Adds direct archive methods.' },
+		{ name: 'persistence:rewrite', reason: 'Persists the archive state.' },
+		{ name: 'schema:declare', reason: 'Adds the owned workflow field.' },
 	],
 	version: '1.0.0',
-	declare: ({ models, operations }) => {
+	declare: ({ models, operations, schemas }) => {
 		operations.declare(archive)
+		schemas.patch({
+			operations: [
+				addSchemaField({
+					contributionId: 'workflow-state',
+					field: stringField(),
+					name: 'workflowState',
+				}),
+			],
+			targets: schemas.select({ className: Post.className }),
+		})
 		models.extend(Post, {
 			contributionId: 'workflow-mutations',
 			schemaMutations: {
@@ -83,5 +119,9 @@ await post.archive({ input: { reason: 'superseded' } })
 The model form exists only on persisted application-owned models and omits the
 target `id`. A payload whose generated type is `undefined` also omits `input`.
 Both forms use the ordinary `OperationOptions` as their second argument. The
-declaration milestone exposes and types these methods but intentionally rejects
-execution until the separate schema-mutation Runtime provider is installed.
+resolver cannot access the adapter, authority grants, constraints, transaction
+control, or the application engine. Queries started through ordinary schema APIs
+inherit the same root request transaction. Core locks the visible target,
+snapshots the declared resolver selection, validates the owner-only effect, and
+materializes the requested before/after projection without replaying native
+update or delete behavior.

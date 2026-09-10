@@ -4,11 +4,6 @@ import {
 	type PluginDefinition,
 } from '../../foundation.js'
 import type {
-	ApplicationOperationBinding,
-	PluginOperationEnvelope,
-} from '../../application/application-handles.js'
-import type { CompiledPluginOperation } from '../../plugins/application-surface-registry.js'
-import type {
 	AnonymousRequestAccess,
 	MasterRequestAccess,
 	RequestAccess,
@@ -66,11 +61,9 @@ import {
 import { throwIfOperationCancelled } from '../cancellation/operation-cancellation.js'
 import { executeRuntimeRelationMutation } from '../relations/relation-mutation.js'
 import { createProtectedObjectNotFoundError } from '../operations/target-errors.js'
-import {
-	executePluginOperationRequest,
-	exposeFrameworkOperations,
-} from '../plugin-operations/engine-integration.js'
-import { registerRequestPluginOperationExecutor } from '../plugin-operations/request-execution.js'
+import { exposeFrameworkOperations } from '../plugin-operations/engine-integration.js'
+import { registerRequestPluginOperationHost } from '../plugin-operations/request-execution.js'
+import { registerRequestSchemaMutationHost } from '../schema-mutations/request-execution.js'
 import type {
 	ApplicationOperationTransport,
 	OperationTransportExposureOptions,
@@ -284,11 +277,29 @@ export class RequestEngine<
 		this.#transactionLifetime = transactionLifetime
 		registerAdapterAccess(this, pipeline, transactionLifetime)
 		registerRequestPrivateStorageContext(this, pipeline, transactionLifetime)
-		registerRequestPluginOperationExecutor(
-			this,
-			(compiled, binding, envelope) =>
-				this.#executePluginOperation(compiled, binding, envelope),
-		)
+		registerRequestPluginOperationHost({
+			engine: this,
+			runTransaction: (handler) => this.transaction(handler),
+			...(this.#transactionLifetime === undefined
+				? {}
+				: { transactionLifetime: this.#transactionLifetime }),
+		})
+		registerRequestSchemaMutationHost({
+			createContextEngine: (nextContext) =>
+				new RequestEngine(
+					requestEngineConstructionKey,
+					this.framework,
+					nextContext,
+					this.#pipeline,
+					this.#transactionLifetime,
+				),
+			engine: this,
+			pipeline: this.#pipeline,
+			runTransaction: (handler) => this.transaction(handler),
+			...(this.#transactionLifetime === undefined
+				? {}
+				: { transactionLifetime: this.#transactionLifetime }),
+		})
 		registerOperationExecutionHandler(this, (operation, options, scope) =>
 			this.#executeTerminal(operation, options, scope),
 		)
@@ -558,27 +569,6 @@ export class RequestEngine<
 		const TOperation extends ExecutableOperationAst<TSchemas[number]>,
 	>(operation: TOperation): Promise<OperationResult<TOperation>> {
 		return this.#executeOperation(operation)
-	}
-
-	async #executePluginOperation(
-		compiled: CompiledPluginOperation,
-		binding: ApplicationOperationBinding,
-		envelope: PluginOperationEnvelope,
-	): Promise<unknown> {
-		assertApplicationEngineAvailable(this.application)
-		return executePluginOperationRequest({
-			binding,
-			compiled,
-			engine: this,
-			envelope,
-			...(this.#transactionLifetime === undefined
-				? {}
-				: { transactionLifetime: this.#transactionLifetime }),
-			runRequiredTransaction: () =>
-				this.transaction((transaction) =>
-					transaction.#executePluginOperation(compiled, binding, envelope),
-				),
-		})
 	}
 
 	/** Executes public and framework-scoped operations through one shared lifecycle. */

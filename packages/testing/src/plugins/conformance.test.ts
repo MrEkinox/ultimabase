@@ -1,15 +1,20 @@
 import {
+	addSchemaField,
 	defineCapability,
 	defineOperation,
 	defineOperationValue,
 	definePlugin,
 	defineQueryExtension,
+	defineSchemaMutation,
 	defineTypegenReference,
 	operationHandler,
 	provideCapability,
 	provideOperationHandler,
+	provideSchemaMutationHandler,
 	QueryBuilder,
 	Schema,
+	schemaMutationHandler,
+	stringField,
 } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
@@ -42,6 +47,7 @@ const optionalContracts = [
 	'migration',
 	'operation',
 	'persistence',
+	'schema-mutation',
 	'schema-surface',
 	'transport',
 	'typegen',
@@ -272,6 +278,99 @@ describe('plugin conformance suite', () => {
 		const report = await runPluginConformance(suite)
 		expect(report.checks).toContainEqual({
 			contract: 'static-determinism',
+			status: 'passed',
+		})
+	})
+
+	it('covers a neutral plugin-owned schema mutation without product engines', async () => {
+		const Post = Schema.define({
+			className: 'ConformanceSchemaMutationPost',
+			fields: (field) => ({ title: field.string() }),
+		})
+		const archive = defineSchemaMutation({
+			authority: 'request',
+			effect: 'update',
+			input: defineOperationValue((value) => value),
+			name: 'fixture.conformance-schema-mutation.archive',
+			returning: 'after',
+			select: { title: true },
+			version: '1.0.0',
+		})
+		const handler = schemaMutationHandler({
+			mutation: archive,
+			resolve: () => ({ data: { workflowState: 'archived' } }),
+		})
+		const plugin = definePlugin({
+			capabilities: {
+				provides: [
+					provideSchemaMutationHandler({
+						contributionId: 'archive-handler',
+						create: () => ({ value: handler }),
+					}),
+				],
+			},
+			core: '^0.0.0',
+			declare: ({ models, operations, schemas }) => {
+				operations.declare(archive)
+				schemas.patch({
+					operations: [
+						addSchemaField({
+							contributionId: 'workflow-state',
+							field: stringField(),
+							name: 'workflowState',
+						}),
+					],
+					targets: schemas.select({ className: Post.className }),
+				})
+				models.extend(
+					{ className: Post.className },
+					{
+						contributionId: 'archive-surface',
+						schemaMutations: {
+							archive: { mutation: archive, surfaces: ['schema', 'model'] },
+						},
+					},
+				)
+			},
+			pluginId: 'fixture.conformance-schema-mutation',
+			privileges: [
+				{ name: 'model:extend', reason: 'Adds a neutral mutation surface.' },
+				{ name: 'operation:declare', reason: 'Declares a neutral mutation.' },
+				{ name: 'persistence:rewrite', reason: 'Owns its narrow effect.' },
+				{ name: 'schema:declare', reason: 'Adds its owned state field.' },
+			] as const,
+			version: '1.0.0',
+		})
+		const suite = definePluginConformanceSuite({
+			createFixture: () =>
+				createPluginConformanceFixture({ schemas: [Post], subject: plugin }),
+			expected: {
+				core: '^0.0.0',
+				pluginId: 'fixture.conformance-schema-mutation',
+				privileges: [
+					'model:extend',
+					'operation:declare',
+					'persistence:rewrite',
+					'schema:declare',
+				],
+				version: '1.0.0',
+			},
+		}).check('schema-mutation', async (context) => {
+			const { application } = context.createApplication()
+			await application.initialize()
+			const surface = application.getSchemaSurface(Post.className)
+
+			expect(surface?.schemaMutations.get('archive')?.mutation.name).toBe(
+				archive.name,
+			)
+			expect(surface?.modelMutations.get('archive')?.mutation.name).toBe(
+				archive.name,
+			)
+		})
+
+		const report = await runPluginConformance(suite)
+		expect(report.checks).toContainEqual({
+			contract: 'schema-mutation',
 			status: 'passed',
 		})
 	})

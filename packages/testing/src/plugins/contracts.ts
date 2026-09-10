@@ -17,6 +17,7 @@ export type PluginConformanceContract =
 	| 'persistence'
 	| 'privilege-denial'
 	| 'provenance'
+	| 'schema-mutation'
 	| 'schema-surface'
 	| 'static-determinism'
 	| 'transport'

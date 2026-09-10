@@ -10,6 +10,10 @@ import {
 } from '@ultimabase/shared'
 
 import {
+	databasePersistencePlanVersion,
+	type DatabasePersistencePlanKind,
+} from '../persistence/contracts.js'
+import {
 	databaseAdapterCapability,
 	databasePointerCapabilityVersion,
 	type DatabaseAdapter,
@@ -50,6 +54,7 @@ import {
 	bindApplicationRequestExecutor,
 } from './application-request-execution.js'
 import { bindRuntimeVirtualFields } from '../virtual-fields/binding.js'
+import { bindFrameworkSchemaMutationRuntime } from '../schema-mutations/engine-integration.js'
 
 /** Configures framework-owned assembly without exposing low-level pipeline slots. */
 export interface CreateFrameworkEngineOptions {
@@ -172,6 +177,30 @@ const applicationUsesPointers = (
 			),
 		)
 
+const readRequiredSchemaMutationPlans = (
+	application: FrameworkApplication<
+		readonly SchemaDefinition[],
+		readonly PluginDefinition[]
+	>,
+): ReadonlySet<DatabasePersistencePlanKind> => {
+	const required = new Set<DatabasePersistencePlanKind>()
+	for (const schema of application.schemas.values()) {
+		const surface = application.getSchemaSurface(schema.className)
+		for (const command of [
+			...(surface?.schemaMutations.values() ?? []),
+			...(surface?.modelMutations.values() ?? []),
+		]) {
+			// Schema-mutation protocol 1 locks a visible target through a prepared
+			// singular delete shape before choosing its final update or delete effect.
+			required.add('delete-one')
+			required.add(
+				command.mutation.effect === 'update' ? 'update-one' : 'delete-one',
+			)
+		}
+	}
+	return required
+}
+
 /** Fails during assembly instead of letting a database mis-store logical pointers. */
 const assertRequiredAdapterCapabilities = (
 	application: FrameworkApplication<
@@ -180,20 +209,31 @@ const assertRequiredAdapterCapabilities = (
 	>,
 	adapter: DatabaseAdapter,
 ): void => {
-	if (!applicationUsesPointers(application)) {
-		return
+	if (applicationUsesPointers(application)) {
+		const pointers: unknown = adapter.capabilities?.pointers
+
+		if (
+			!isPlainRecord(pointers) ||
+			pointers.kind !== 'pointers' ||
+			pointers.version !== databasePointerCapabilityVersion
+		) {
+			throw new TypeError(
+				`database adapter must implement pointer capability version ${String(databasePointerCapabilityVersion)}`,
+			)
+		}
 	}
 
-	const pointers: unknown = adapter.capabilities?.pointers
-
-	if (
-		!isPlainRecord(pointers) ||
-		pointers.kind !== 'pointers' ||
-		pointers.version !== databasePointerCapabilityVersion
-	) {
-		throw new TypeError(
-			`database adapter must implement pointer capability version ${String(databasePointerCapabilityVersion)}`,
-		)
+	const requiredPlans = readRequiredSchemaMutationPlans(application)
+	if (requiredPlans.size > 0) {
+		const capability = adapter.capabilities?.persistencePlans
+		if (
+			capability?.version !== databasePersistencePlanVersion ||
+			[...requiredPlans].some((kind) => !capability.kinds.includes(kind))
+		) {
+			throw new TypeError(
+				`database adapter must implement schema mutation persistence plan protocol version ${String(databasePersistencePlanVersion)}`,
+			)
+		}
 	}
 }
 
@@ -369,6 +409,7 @@ export const createFrameworkEngine = <
 				}
 
 	const framework = new FrameworkEngine(engineOptions)
+	bindFrameworkSchemaMutationRuntime(framework)
 	bindApplicationRequestExecutor(
 		readApplicationCapability(
 			application,

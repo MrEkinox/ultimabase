@@ -539,9 +539,13 @@ These declarations compile to callback-free descriptors and direct
 application-owned methods. Typegen derives their payload, schema projection,
 inclusion, and result types; JavaScript sees the same methods from the compiled
 graph without generated files. They are deliberately distinct from arbitrary
-`schemaCommands` and `modelCommands`. This declaration layer does not yet
-execute them: invoking one reports that its Runtime provider is unavailable.
-The Runtime resolver and canonical persistence pipeline are added separately.
+`schemaCommands` and `modelCommands`. The owner separately provides one
+application-lifetime resolver with `provideSchemaMutationHandler()` and
+`schemaMutationHandler()`. The resolver sees only immutable `context`, `input`,
+`originalItem`, and `target` values. Core validates its owner-only replacement,
+keeps the logical `plugin-schema-mutation` identity through policy and behavior,
+and compiles the final `update-one` or Master-only `delete-one` plan inside the
+automatic transaction.
 
 See the focused
 [plugin schema mutation example](examples/schema/plugin-schema-mutations.md).
@@ -1887,9 +1891,11 @@ Milestone 14 maps the removed generic paths as follows:
 - unused operator, generator, and transport registry categories are removed
   without replacement.
 
-Persistence plan protocol version 1 keeps logical operations immutable while
-allowing only `delete-one` to `update-one` and `delete-many` to `update-many`
-physical rewrites. A rewriter receives the logical operation and an immutable
+Persistence plan protocol version 2 keeps logical operations immutable while
+separating plugin-owned schema-mutation identity from its Core-compiled
+`update-one` or `delete-one` statement. Native rewrites still allow only
+`delete-one` to `update-one` and `delete-many` to `update-many`. A rewriter
+receives the logical operation and an immutable
 target, data, returning, and provenance plan, but never receives protected row
 filters or adapter constraints. Core keeps those restrictions in the adapter
 request envelope and applies them to the final physical statement. Adapters

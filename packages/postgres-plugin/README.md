@@ -117,7 +117,7 @@ restrictions outside the developer Query, so product behaviors cannot inspect
 or remove it. PostgreSQL compiles both channels and the developer predicate into
 one parameterized `AND` expression.
 
-The adapter also advertises Core persistence-plan protocol version 1. It locks
+The adapter also advertises Core persistence-plan protocol version 2. It locks
 mutation targets from the canonical logical plan, then executes the final
 physical plan on the same borrowed client. An authorized delete-to-update
 rewrite therefore issues one constrained tombstone `UPDATE` while Runtime hooks,

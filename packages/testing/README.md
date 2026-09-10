@@ -110,8 +110,11 @@ const completeSuite = suite
 ```
 
 The optional contract names are `typegen`, `javascript-operation`, `operation`,
-`schema-surface`, `transport`, `middleware`, `persistence`, `codec`, `migration`,
-and `adapter-failure`. This keeps the report precise while leaving each
+`schema-mutation`, `schema-surface`, `transport`, `middleware`, `persistence`,
+`codec`, `migration`, and `adapter-failure`. A `schema-mutation` verifier should
+execute one neutral application-owned schema or bound-model command and assert
+its logical identity and physical effect without installing Access, Hooks, or a
+product plugin. This keeps the report precise while leaving each
 plugin-specific assertion readable. `withPluginTypegenConformance()` implements
 the generic `typegen` check and compares two complete generated outputs before
 running an optional package-specific assertion.

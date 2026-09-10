@@ -82,7 +82,7 @@ describe('application-owned schema mutations', () => {
 		expect(typeof Reflect.get(schemaHandle, 'archive')).toBe('function')
 		await expect(
 			(Reflect.get(schemaHandle, 'archive') as () => Promise<unknown>)(),
-		).rejects.toThrow('Schema mutation execution is unavailable')
+		).rejects.toThrow('input must be a plain object')
 		const persisted = materializeSchemaModel(WorkflowPost, {
 			createdAt: '2026-09-10T00:00:00.000Z',
 			id: '0199325a-0c00-7000-8000-000000000001',
@@ -94,12 +94,12 @@ describe('application-owned schema mutations', () => {
 		expect('archive' in boundModel).toBe(true)
 		await expect(
 			(Reflect.get(boundModel, 'archive') as () => Promise<unknown>)(),
-		).rejects.toThrow('Schema mutation execution is unavailable')
+		).rejects.toThrow('input must be a string')
 		const persistedHandle = schemaHandle.for(persisted)
 		expect('archive' in persistedHandle).toBe(true)
 		await expect(
 			(Reflect.get(persistedHandle, 'archive') as () => Promise<unknown>)(),
-		).rejects.toThrow('Schema mutation execution is unavailable')
+		).rejects.toThrow('input must be a string')
 
 		const draft = new WorkflowPost({
 			title: 'Draft',
@@ -112,7 +112,7 @@ describe('application-owned schema mutations', () => {
 					'archive',
 				) as () => Promise<unknown>
 			)(),
-		).rejects.toThrow('requires a persisted model')
+		).rejects.toThrow('requires persisted model state')
 	})
 
 	it('rejects foreign owners, unavailable dependencies, and duplicate aliases', () => {

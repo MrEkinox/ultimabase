@@ -56,6 +56,7 @@ import {
 	createRuntimeVirtualFieldScheduler,
 	inheritRuntimeVirtualFields,
 } from '../virtual-fields/binding.js'
+import { registerRuntimeSchemaMutationPipeline } from '../schema-mutations/pipeline-execution.js'
 import type { RuntimeVirtualFieldScheduler } from '../virtual-fields/execution.js'
 import {
 	prepareBoundRuntimeVirtualFieldProjection,
@@ -163,6 +164,11 @@ export class RuntimePipeline {
 			this.#stages,
 			this.#resultBoundaries,
 		)
+		registerRuntimeSchemaMutationPipeline(this, {
+			boundaries: this.#resultBoundaries,
+			inclusions: this.#inclusionProjector,
+			stages: this.#stages,
+		})
 		retainRuntimeMutationBatchProjector(this, (request) =>
 			this.#inclusionProjector.projectMutationBatch(
 				request,

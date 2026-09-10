@@ -6,6 +6,8 @@ import {
 	type PluginDefinition,
 } from '../../foundation.js'
 import { registerQueryExecutionOwner } from '../../query/operations/execution.js'
+import { normalizeOperationOptions } from '../../query/operations/execution.js'
+import type { OperationOptions } from '../../query/operations/options.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import { Schema } from '../../schema/index.js'
 import { immutableArray, isPlainRecord } from '@ultimabase/shared'
@@ -33,6 +35,9 @@ import type {
 	OperationTransportExposureOptions,
 } from '../plugin-operations/transport.js'
 import { executeRequestPluginOperation } from '../plugin-operations/request-execution.js'
+import { executeRequestSchemaMutation } from '../schema-mutations/request-execution.js'
+import type { PluginSchemaMutationEnvelope } from '../../application/application-schema-mutations.js'
+import type { CompiledSchemaMutationCommand } from '../../plugins/application-surface-registry.js'
 import {
 	createFrameworkEngine,
 	normalizeCreateFrameworkEngineOptions,
@@ -302,6 +307,8 @@ export class UltimaBase<
 					)
 					return operationHandle
 				},
+				(command, schema, envelope, options) =>
+					this.#executeSchemaMutation(command, schema, envelope, options),
 			)
 			handle = schemaHandle
 			this.#schemaHandles.set(className, handle)
@@ -392,6 +399,31 @@ export class UltimaBase<
 			compiled,
 			binding,
 			envelope,
+		)
+	}
+
+	async #executeSchemaMutation(
+		command: CompiledSchemaMutationCommand,
+		schema: SchemaDefinition,
+		envelope: PluginSchemaMutationEnvelope,
+		options: OperationOptions | undefined,
+	): Promise<unknown> {
+		const active = getActiveFrameworkContext()
+		const requestEngine =
+			active?.application === this.application
+				? active.requestEngine
+				: this.engine.anonymous({
+						requestId: randomUUID(),
+						source: requestSources.internal,
+					})
+		return this.#bindQueryResult(
+			await executeRequestSchemaMutation(
+				requestEngine,
+				command,
+				schema,
+				envelope,
+				normalizeOperationOptions(options),
+			),
 		)
 	}
 }

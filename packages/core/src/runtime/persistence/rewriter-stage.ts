@@ -11,10 +11,7 @@ import {
 	getPersistencePlanRewriteHandler,
 	persistencePlanRewriterCapability,
 } from './capabilities.js'
-import type {
-	DatabasePersistencePlan,
-	RuntimePersistencePlanRewriteStage,
-} from './contracts.js'
+import type { RuntimePersistencePlanRewriteStage } from './contracts.js'
 import { acceptDatabasePersistenceRewrite } from './plans.js'
 
 /** Compiles materialized rewriters without creating an absent placeholder stage. */
@@ -50,8 +47,7 @@ export const createPersistencePlanRewriteStage = (
 	if (contributions.length === 0) return undefined
 
 	return async (input) => {
-		let plan: DatabasePersistencePlan<typeof input.logicalOperation> =
-			input.plan
+		let plan = input.plan
 
 		for (const contribution of contributions) {
 			const definition = contribution.value

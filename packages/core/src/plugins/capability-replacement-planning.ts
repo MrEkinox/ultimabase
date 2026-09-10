@@ -33,11 +33,9 @@ import {
 	persistencePlanRewriterCapability,
 } from '../runtime/persistence/capabilities.js'
 import {
-	isAuthorizedOperationTransportBindingProvider,
-	isAuthorizedPluginOperationProvider,
-	operationTransportBindingCapability,
-	pluginOperationHandlerCapability,
-} from '../runtime/plugin-operations/capabilities.js'
+	assertPluginOperationProtocolEntry,
+	isPluginOperationProtocolToken,
+} from './plugin-operation-capability-planning.js'
 import {
 	assertCoreCapabilityDecorationAllowed,
 	assertCoreCapabilityProviders,
@@ -236,60 +234,13 @@ export const buildReplacementChains = (
 			)
 		}
 	}
-	const isPluginOperationProtocol =
-		entry.token === pluginOperationHandlerCapability ||
-		entry.token === operationTransportBindingCapability
-	if (isPluginOperationProtocol && entry.requirements.length > 0) {
-		const [requirement] = entry.requirements
-		return throwCapabilityConflict(
-			'Plugin operation protocols cannot be consumed through a capability requirement.',
-			{
-				kind: 'plugin-operation-requirement-forbidden',
-				plugin:
-					requirement === undefined
-						? 'unknown'
-						: formatPluginIdentity(requirement.owner),
-				capabilityId: entry.token.capabilityId,
-			},
-		)
-	}
-	if (entry.token === pluginOperationHandlerCapability) {
-		for (const provider of entry.providers) {
-			if (
-				!isAuthorizedPluginOperationProvider(
-					provider.declaration as CapabilityProviderDeclaration,
-				)
-			) {
-				return throwCapabilityConflict(
-					'Plugin operation handlers must use provideOperationHandler.',
-					{
-						kind: 'plugin-operation-provider-factory',
-						plugin: formatPluginIdentity(provider.owner),
-						contributionId: provider.declaration.contributionId,
-					},
-				)
-			}
-		}
-	}
-	if (entry.token === operationTransportBindingCapability) {
-		for (const provider of entry.providers) {
-			if (
-				!isAuthorizedOperationTransportBindingProvider(
-					provider.declaration as CapabilityProviderDeclaration,
-				)
-			) {
-				return throwCapabilityConflict(
-					'Operation transport bindings must use provideOperationTransportBinding.',
-					{
-						kind: 'operation-transport-provider-factory',
-						plugin: formatPluginIdentity(provider.owner),
-						contributionId: provider.declaration.contributionId,
-					},
-				)
-			}
-			assertContributionPrivilege(entries, entry, provider, 'transport:expose')
-		}
-	}
+	const isPluginOperationProtocol = isPluginOperationProtocolToken(entry.token)
+	assertPluginOperationProtocolEntry(entry, {
+		assertPrivilege: (provider, privilege) => {
+			assertContributionPrivilege(entries, entry, provider, privilege)
+		},
+		reject: throwCapabilityConflict,
+	})
 
 	const runtimeProviderPower = runtimeProviderPrivilege(entry.token)
 	if (runtimeProviderPower !== undefined) {

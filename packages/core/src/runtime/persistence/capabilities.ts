@@ -15,24 +15,49 @@ import type {
 	ExecutableOperationAst,
 	OperationKind,
 } from '../../query/index.js'
+import type { PluginSchemaMutationOperationAst } from '../schema-mutations/contracts.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import type { DatabaseOperationAst } from '../database/contracts.js'
 import type {
 	DatabasePersistencePlan,
 	DatabasePersistenceRewriteInput,
+	PersistenceLogicalOperationAst,
 } from './contracts.js'
 
 /** Describes one targeted physical-plan rewriter without exposing its callback. */
 export interface PersistencePlanRewriterDefinition {
-	readonly operations: readonly OperationKind[]
+	readonly operations: readonly PersistencePlanOperationKind[]
 	readonly schema: SchemaDefinition | undefined
 }
 
+/** Lists logical operation kinds that may own a physical persistence plan. */
+export type PersistencePlanOperationKind =
+	OperationKind | 'plugin-schema-mutation'
+
+type RewriterLogicalOperation<
+	TSchema extends SchemaDefinition,
+	TOperations extends readonly PersistencePlanOperationKind[],
+> =
+	| Extract<
+			ExecutableOperationAst<TSchema>,
+			{ readonly kind: TOperations[number] }
+	  >
+	| ('plugin-schema-mutation' extends TOperations[number]
+			? PluginSchemaMutationOperationAst
+			: never)
+
+type RewriterPhysicalOperation<TLogicalOperation> =
+	TLogicalOperation extends DatabaseOperationAst
+		? TLogicalOperation
+		: DatabaseOperationAst
+
 type PersistencePlanRewriteHandler<
-	TOperation extends DatabaseOperationAst = DatabaseOperationAst,
+	TLogicalOperation extends PersistenceLogicalOperationAst =
+		PersistenceLogicalOperationAst,
+	TPhysicalOperation extends DatabaseOperationAst = DatabaseOperationAst,
 > = (
-	input: DatabasePersistenceRewriteInput<TOperation>,
-) => MaybePromise<DatabasePersistencePlan<TOperation>>
+	input: DatabasePersistenceRewriteInput<TLogicalOperation, TPhysicalOperation>,
+) => MaybePromise<DatabasePersistencePlan<TPhysicalOperation>>
 
 const persistencePlanRewriteHandlers = new WeakMap<
 	object,
@@ -42,16 +67,17 @@ const persistencePlanRewriterProviders = new WeakSet<object>()
 
 /** Creates one targeted rewriter whose callback never receives protected constraints. */
 export const persistencePlanRewriter = <
-	const TOperations extends readonly [OperationKind, ...OperationKind[]],
+	const TOperations extends readonly [
+		PersistencePlanOperationKind,
+		...PersistencePlanOperationKind[],
+	],
 	const TSchema extends SchemaDefinition = SchemaDefinition,
 >(options: {
 	readonly operations: TOperations
 	readonly schema?: TSchema
 	readonly rewrite: PersistencePlanRewriteHandler<
-		Extract<
-			ExecutableOperationAst<TSchema>,
-			{ readonly kind: TOperations[number] }
-		>
+		RewriterLogicalOperation<TSchema, TOperations>,
+		RewriterPhysicalOperation<RewriterLogicalOperation<TSchema, TOperations>>
 	>
 }): PersistencePlanRewriterDefinition => {
 	const definition = immutableRecord({
