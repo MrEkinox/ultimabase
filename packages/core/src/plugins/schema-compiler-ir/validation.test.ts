@@ -156,6 +156,53 @@ describe('schema compiler IR validation', () => {
 		}).toThrow('Schema selector option.path requires option.equals')
 	})
 
+	it.each([
+		[
+			immutableRecord({ name: 'workflow', present: true }),
+			'option.present must be false',
+		],
+		[
+			immutableRecord({ equals: false, name: 'workflow', present: false }),
+			'option.present cannot be combined',
+		],
+		[
+			immutableRecord({
+				name: 'workflow',
+				path: immutableArray(['enabled']),
+				present: false,
+			}),
+			'option.present cannot be combined',
+		],
+	] as const)(
+		'rejects malformed absence selector facts: %#',
+		(option, message) => {
+			const session = new SchemaCompilerArtifactSession()
+			const input = createInput(session)
+			const declaration = input.declarations[0]
+			if (declaration === undefined) {
+				throw new TypeError('Missing fixture declaration')
+			}
+			const malformed = immutableRecord({
+				...input,
+				declarations: immutableArray([
+					immutableRecord({
+						...declaration,
+						selections: immutableArray([
+							immutableRecord({
+								selectionId: 'selection:malformed-absence',
+								selector: immutableRecord({ option }),
+							}),
+						]),
+					}),
+				]),
+			})
+
+			expect(() => {
+				assertSchemaCompilerInput(malformed, session)
+			}).toThrow(message)
+		},
+	)
+
 	it('rejects schema additions that omit their attribution facts', () => {
 		const session = new SchemaCompilerArtifactSession()
 		const input = createInput(session)

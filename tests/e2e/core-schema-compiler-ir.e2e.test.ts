@@ -17,7 +17,7 @@ describe('packed @ultimabase/core schema compiler IR', () => {
 	it('exports the nominal callback-free protocol through package declarations', () => {
 		expect(languageFixture.diagnostics()).toStrictEqual([])
 		expect(languageFixture.readHover('compiler-protocol').display).toContain(
-			'"6.0.0"',
+			'"7.0.0"',
 		)
 		const input = languageFixture.readHover('compiler-input')
 		expect(input.display).toContain('SchemaCompilerInput')
@@ -47,6 +47,12 @@ describe('packed @ultimabase/core schema compiler IR', () => {
 		expect(
 			languageFixture.readHover('option-presence-selector').documentation,
 		).toContain('normalized direct option is present')
+		expect(
+			languageFixture.readHover('option-absence-selector').display,
+		).toContain('SchemaOptionAbsenceSelector')
+		expect(
+			languageFixture.readHover('option-absence-selector').documentation,
+		).toContain('normalized direct option is absent')
 		expect(
 			languageFixture.readHover('option-equality-selector').display,
 		).toContain('SchemaOptionEqualitySelector')

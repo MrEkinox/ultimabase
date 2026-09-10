@@ -48,6 +48,7 @@ export const matchesSchemaCompilerSelector = (
 		const option = state.options.find(
 			({ name }) => name === selector.option?.name,
 		)
+		if (selector.option.present === false) return option === undefined
 		if (option === undefined) return false
 		if (selector.option.equals !== undefined) {
 			const selected = readOptionPath(option.value, selector.option.path ?? [])

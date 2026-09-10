@@ -55,6 +55,7 @@ export type {
 	ReplaceSchemaFieldOperation,
 	ReplaceSchemaIndexOperation,
 	SchemaPatchOperation,
+	SchemaOptionAbsenceSelector,
 	SchemaOptionEqualitySelector,
 	SchemaOptionPresenceSelector,
 	SchemaOptionSelector,

@@ -251,6 +251,7 @@ export type {
 	SetSchemaFieldOptionOperation,
 	SetSchemaOptionOperation,
 	SchemaOptionDefinition,
+	SchemaOptionAbsenceSelector,
 	SchemaOptionEqualitySelector,
 	SchemaOptionPresenceSelector,
 	SchemaOptionRuntimeCompilationContext,

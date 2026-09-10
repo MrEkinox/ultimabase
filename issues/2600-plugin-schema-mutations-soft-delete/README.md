@@ -16,13 +16,14 @@ generic foundation to deliver the first supported official soft-delete plugin.
 5. [x] [2605 — Extend Hooks for schema mutations](2605-schema-mutation-hooks.md)
 6. [x] [2606 — Expose schema mutations through REST](2606-schema-mutation-rest.md)
 7. [x] [2607 — Expose schema mutations through GraphQL](2607-schema-mutation-graphql.md)
-8. [ ] [2608 — Create the official soft-delete package](2608-soft-delete-package-contract.md)
-9. [ ] [2609 — Enforce tombstone visibility and writes](2609-soft-delete-visibility.md)
-10. [ ] [2610 — Implement replace-delete mode](2610-soft-delete-replace-mode.md)
-11. [ ] [2611 — Implement explicit soft delete](2611-soft-delete-explicit-mode.md)
-12. [ ] [2612 — Add restore and purge commands](2612-soft-delete-administration.md)
-13. [ ] [2613 — Prove the public soft-delete vertical](2613-soft-delete-public-vertical.md)
-14. [ ] [2614 — Audit and close official soft delete](2614-soft-delete-final-audit.md)
+8. [x] [2615 — Select absent direct schema options](2615-schema-option-absence-selector.md)
+9. [ ] [2608 — Create the official soft-delete package](2608-soft-delete-package-contract.md)
+10. [ ] [2609 — Enforce tombstone visibility and writes](2609-soft-delete-visibility.md)
+11. [ ] [2610 — Implement replace-delete mode](2610-soft-delete-replace-mode.md)
+12. [ ] [2611 — Implement explicit soft delete](2611-soft-delete-explicit-mode.md)
+13. [ ] [2612 — Add restore and purge commands](2612-soft-delete-administration.md)
+14. [ ] [2613 — Prove the public soft-delete vertical](2613-soft-delete-public-vertical.md)
+15. [ ] [2614 — Audit and close official soft delete](2614-soft-delete-final-audit.md)
 
 Issues 2604 and 2605 may proceed independently after 2603. Issues 2606 and
 2607 may likewise proceed independently after 2603. Every later issue remains

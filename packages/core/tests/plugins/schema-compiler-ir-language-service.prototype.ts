@@ -8,6 +8,7 @@ import {
 	type /* hover:compiler-input */ SchemaCompilerInput,
 	type SchemaCompilerOutput,
 	type SchemaCompilerProvenance,
+	type /* hover:option-absence-selector */ SchemaOptionAbsenceSelector,
 	type /* hover:option-equality-selector */ SchemaOptionEqualitySelector,
 	type /* hover:option-presence-selector */ SchemaOptionPresenceSelector,
 	type SchemaSelectorOptions,
@@ -17,6 +18,7 @@ declare const compilerInput: SchemaCompilerInput
 declare const compilerOutput: SchemaCompilerOutput
 declare const artifact: SchemaCompilerArtifactReference<'field'>
 declare const provenance: SchemaCompilerProvenance
+declare const absenceSelector: SchemaOptionAbsenceSelector
 declare const presenceSelector: SchemaOptionPresenceSelector
 declare const equalitySelector: SchemaOptionEqualitySelector
 
@@ -37,6 +39,7 @@ const replacement = /* hover:compiler-replacement */ replaceSchemaCompiler({
 	contributionId: 'packed-fixture',
 })
 const presence: SchemaSelectorOptions = { option: presenceSelector }
+const absence: SchemaSelectorOptions = { option: absenceSelector }
 const equality: SchemaSelectorOptions = { option: equalitySelector }
 
 void protocol
@@ -48,4 +51,5 @@ void target
 void selected
 void replacement
 void presence
+void absence
 void equality

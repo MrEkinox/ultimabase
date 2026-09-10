@@ -67,13 +67,14 @@ visibility invariants when they are absent.
 5. [x] Issue 2605 — integrate optional Hooks semantics.
 6. [x] Issue 2606 — expose generic schema mutations in REST.
 7. [x] Issue 2607 — expose generic schema mutations in GraphQL.
-8. [ ] Issue 2608 — create the official soft-delete package and schema contract.
-9. [ ] Issue 2609 — enforce tombstone visibility and write protection.
-10. [ ] Issue 2610 — implement replace-delete mode.
-11. [ ] Issue 2611 — implement the explicit `softDelete` mutation.
-12. [ ] Issue 2612 — add private Master-only restore and purge commands.
-13. [ ] Issue 2613 — prove the public cross-transport PostgreSQL vertical.
-14. [ ] Issue 2614 — audit and close the milestone.
+8. [x] Issue 2615 — add deterministic direct-option absence selection.
+9. [ ] Issue 2608 — create the official soft-delete package and schema contract.
+10. [ ] Issue 2609 — enforce tombstone visibility and write protection.
+11. [ ] Issue 2610 — implement replace-delete mode.
+12. [ ] Issue 2611 — implement the explicit `softDelete` mutation.
+13. [ ] Issue 2612 — add private Master-only restore and purge commands.
+14. [ ] Issue 2613 — prove the public cross-transport PostgreSQL vertical.
+15. [ ] Issue 2614 — audit and close the milestone.
 
 The authoritative acceptance criteria and dependency graph live in
 [`issues/2600-plugin-schema-mutations-soft-delete/`](issues/2600-plugin-schema-mutations-soft-delete/README.md).

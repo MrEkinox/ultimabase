@@ -17,6 +17,7 @@ export interface SchemaOptionPresenceSelector {
 	readonly name: string
 	readonly equals?: never
 	readonly path?: never
+	readonly present?: never
 }
 
 /** Selects schemas where one direct option value equals portable JSON. */
@@ -27,11 +28,24 @@ export interface SchemaOptionEqualitySelector {
 	readonly name: string
 	/** Optional path into the normalized portable option value. */
 	readonly path?: readonly string[]
+	readonly present?: never
 }
 
-/** Chooses presence-only matching or structural JSON equality explicitly. */
+/** Selects schemas where one normalized direct option is absent. */
+export interface SchemaOptionAbsenceSelector {
+	readonly equals?: never
+	/** Exact direct option name; the definition must still resolve uniquely. */
+	readonly name: string
+	readonly path?: never
+	/** Absence is the only supported negated selector operation. */
+	readonly present: false
+}
+
+/** Chooses presence, absence, or structural JSON equality explicitly. */
 export type SchemaOptionSelector =
-	SchemaOptionEqualitySelector | SchemaOptionPresenceSelector
+	| SchemaOptionAbsenceSelector
+	| SchemaOptionEqualitySelector
+	| SchemaOptionPresenceSelector
 
 /** Selects schemas from the graph frozen before the current plugin's patches. */
 export interface SchemaSelectorOptions {

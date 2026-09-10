@@ -128,6 +128,11 @@ Selectors observe only the graph completed by earlier plugins. All their targets
 freeze before the current plugin applies its first patch, so an addition cannot
 self-expand a later selection from the same callback.
 
+`{ option: { name } }` matches direct-option presence, while
+`{ option: { name, present: false } }` matches omission only. An explicit
+`false` remains a present value. The absence form is deliberately not a general
+negation language and cannot be combined with `equals` or `path`.
+
 An addition needs `schema:declare`. Changing or removing an existing contribution
 needs `schema:transform` and an exact target containing the prior owner, stable
 contribution ID, and expected immutable shape. A stale target fails instead of

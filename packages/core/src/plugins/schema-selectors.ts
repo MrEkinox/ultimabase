@@ -78,12 +78,22 @@ export const normalizeSelector = (selector: unknown): SchemaSelectorOptions => {
 		}
 		assertKnownKeys(
 			optionInput,
-			new Set(['equals', 'name', 'path']),
+			new Set(['equals', 'name', 'path', 'present']),
 			'schema selector option',
 		)
 		assertNonEmptyString(optionInput.name, 'Schema selector option.name')
 		const hasEquals = Object.hasOwn(optionInput, 'equals')
-		if (!hasEquals && Object.hasOwn(optionInput, 'path')) {
+		const hasPath = Object.hasOwn(optionInput, 'path')
+		const hasPresent = Object.hasOwn(optionInput, 'present')
+		if (hasPresent && optionInput.present !== false) {
+			throw new TypeError('Schema selector option.present must be false')
+		}
+		if (hasPresent && (hasEquals || hasPath)) {
+			throw new TypeError(
+				'Schema selector option.present cannot be combined with option.equals or option.path',
+			)
+		}
+		if (!hasEquals && hasPath) {
 			throw new TypeError('Schema selector option.path requires option.equals')
 		}
 		if (optionInput.path !== undefined && !isUnknownArray(optionInput.path)) {
@@ -102,16 +112,18 @@ export const normalizeSelector = (selector: unknown): SchemaSelectorOptions => {
 							return segment
 						}),
 					)
-		option = hasEquals
-			? immutableRecord({
-					equals: snapshotJsonValue(
-						optionInput.equals,
-						'Schema selector option.equals',
-					),
-					name: optionInput.name,
-					...(normalizedPath === undefined ? {} : { path: normalizedPath }),
-				})
-			: immutableRecord({ name: optionInput.name })
+		option = hasPresent
+			? immutableRecord({ name: optionInput.name, present: false as const })
+			: hasEquals
+				? immutableRecord({
+						equals: snapshotJsonValue(
+							optionInput.equals,
+							'Schema selector option.equals',
+						),
+						name: optionInput.name,
+						...(normalizedPath === undefined ? {} : { path: normalizedPath }),
+					})
+				: immutableRecord({ name: optionInput.name })
 	}
 
 	const ownerInput = untrustedSelector.owner
@@ -251,7 +263,10 @@ export const matchesSelector = (
 	}
 
 	if (selector.option !== undefined) {
-		if (!Object.hasOwn(candidate.definition, selector.option.name)) {
+		const hasOption = Object.hasOwn(candidate.definition, selector.option.name)
+		if (selector.option.present === false) {
+			if (hasOption) return false
+		} else if (!hasOption) {
 			return false
 		}
 		if (selector.option.equals !== undefined) {

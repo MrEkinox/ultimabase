@@ -10,6 +10,8 @@ import {
 	isSchemaCompilerArtifactReference,
 	replaceSchemaCompiler,
 	stringField,
+	type SchemaSelectorOptions,
+	type SchemaSelection,
 	type SchemaOptions,
 } from '../index.js'
 import { jsonObjectOption } from '../../tests/plugins/schema-declarations.fixtures.js'
@@ -18,6 +20,7 @@ import { compileCanonicalSchemaCompilerIr } from './schema-compiler-ir/canonical
 describe('schema option-presence selection', () => {
 	it('applies ordinary isolated field and index patches without exposing opaque values', async () => {
 		let callbackCalls = 0
+		let absenceSelection: SchemaSelection | undefined
 		const compilerInputs: string[] = []
 		const transform = (value: string): string => {
 			callbackCalls += 1
@@ -65,6 +68,19 @@ describe('schema option-presence selection', () => {
 						}),
 					],
 					targets: schemas.select({ option: { name: 'document' } }),
+				})
+				absenceSelection = schemas.select({
+					option: { name: 'document', present: false },
+				})
+				schemas.patch({
+					operations: [
+						addSchemaField({
+							contributionId: 'non-document-state',
+							field: stringField(),
+							name: 'nonDocumentState',
+						}),
+					],
+					targets: absenceSelection,
 				})
 			},
 		})
@@ -134,8 +150,14 @@ describe('schema option-presence selection', () => {
 		expect(callbackCalls).toBe(0)
 		expect(compilerInputs).toHaveLength(2)
 		expect(compilerInputs[0]).toContain('"artifactKind":"option-value"')
+		expect(compilerInputs[0]).toContain('"present":false')
 		expect(compilerInputs[0]).not.toContain('toUpperCase')
+		expect(absenceSelection).toBeDefined()
+		expect(Object.isFrozen(absenceSelection)).toBe(true)
+		expect(Object.isFrozen(absenceSelection?.selector)).toBe(true)
+		expect(Object.isFrozen(absenceSelection?.selector.option)).toBe(true)
 		expect(Document.fields.documentState?.kind).toBe('string')
+		expect(Document.fields.nonDocumentState).toBeUndefined()
 		expect(Document.indexes).toContainEqual({
 			fields: ['documentState', 'createdAt'],
 			unique: false,
@@ -153,8 +175,132 @@ describe('schema option-presence selection', () => {
 			owner: { pluginId: 'community.document' },
 		})
 		expect(Plain.fields.documentState).toBeUndefined()
+		expect(Plain.fields.nonDocumentState?.kind).toBe('string')
 		expect(Isolated.fields.documentState).toBeUndefined()
+		expect(Isolated.fields.nonDocumentState?.kind).toBe('string')
 	})
+
+	it('distinguishes omission from explicit false and other direct values', async () => {
+		const modeOption = defineSchemaOption<false | 'explicit'>({
+			normalize: (value, path) => {
+				if (value !== false && value !== 'explicit') {
+					throw new TypeError(`${path} must be false or explicit`)
+				}
+				return value
+			},
+			protocolVersion: 1,
+			typegen: false,
+		})
+		const plugin = definePlugin({
+			core: '^0.0.0',
+			pluginId: 'fixture.absent-option',
+			privileges: [
+				{
+					name: 'schema:declare',
+					reason: 'Selects schemas that omit the direct mode option.',
+				},
+			] as const,
+			version: '1.0.0',
+			declare: ({ schemas }) => {
+				schemas.defineOptions({
+					contributionId: 'mode-options',
+					schema: { mode: modeOption },
+				})
+				schemas.patch({
+					operations: [
+						addSchemaField({
+							contributionId: 'inherited-mode-field',
+							field: stringField(),
+							name: 'inheritedMode',
+						}),
+					],
+					targets: schemas.select({
+						option: { name: 'mode', present: false },
+					}),
+				})
+			},
+		})
+		const Omitted = Schema.define({
+			className: 'AbsentOptionOmitted',
+			fields: (field) => ({ title: field.string() }),
+		})
+		const Disabled = Schema.define({
+			className: 'AbsentOptionDisabled',
+			fields: (field) => ({ title: field.string() }),
+			mode: false,
+		} as SchemaOptions<'AbsentOptionDisabled'> & { readonly mode: false })
+		const Explicit = Schema.define({
+			className: 'AbsentOptionExplicit',
+			fields: (field) => ({ title: field.string() }),
+			mode: 'explicit',
+		} as SchemaOptions<'AbsentOptionExplicit'> & {
+			readonly mode: 'explicit'
+		})
+
+		await createApplication({
+			pluginPrivileges: { logger: false },
+			plugins: [plugin],
+			schemas: [Omitted, Disabled, Explicit],
+		})
+
+		expect(Omitted.fields.inheritedMode?.kind).toBe('string')
+		expect(Disabled.fields.inheritedMode).toBeUndefined()
+		expect(Explicit.fields.inheritedMode).toBeUndefined()
+	})
+
+	it.each([
+		[
+			'present true',
+			{ option: { name: 'workflow', present: true } },
+			'option.present must be false',
+		],
+		[
+			'present plus equals',
+			{ option: { equals: false, name: 'workflow', present: false } },
+			'option.present cannot be combined',
+		],
+		[
+			'present plus path',
+			{ option: { name: 'workflow', path: ['enabled'], present: false } },
+			'option.present cannot be combined',
+		],
+		[
+			'callback',
+			{ option: { name: 'workflow', present: () => false } },
+			'option.present must be false',
+		],
+		[
+			'unknown key',
+			{ option: { missing: true, name: 'workflow' } },
+			'Unknown schema selector option key: missing',
+		],
+	] as const)(
+		'rejects invalid absence selector form: %s',
+		async (_, selector, message) => {
+			const plugin = definePlugin({
+				core: '^0.0.0',
+				pluginId: 'fixture.invalid-absence-selector',
+				privileges: [
+					{
+						name: 'schema:declare',
+						reason: 'Exercises absence selector validation.',
+					},
+				] as const,
+				version: '1.0.0',
+				declare: ({ schemas }) => {
+					schemas.select(selector as SchemaSelectorOptions)
+				},
+			})
+
+			await expect(
+				createApplication({
+					pluginPrivileges: { logger: false },
+					plugins: [plugin],
+					schemas: [],
+				}),
+			).rejects.toThrow(message)
+		},
+	)
 
 	it('rejects unknown and ambiguous option owners before setup', async () => {
 		let setups = 0
@@ -181,7 +327,9 @@ describe('schema option-presence selection', () => {
 								name: 'selectedField',
 							}),
 						],
-						targets: schemas.select({ option: { name: optionName } }),
+						targets: schemas.select({
+							option: { name: optionName, present: false },
+						}),
 					})
 				},
 			})

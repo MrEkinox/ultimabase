@@ -13,6 +13,7 @@ import {
 	requireCapability,
 	stringField,
 	type PluginSchemaDeclarationRegistrar,
+	type SchemaOptionAbsenceSelector,
 	type SchemaSelection,
 } from '../index.js'
 
@@ -135,6 +136,35 @@ test('types schema declarations from exact active privileges', () => {
 			expectTypeOf(selected).toEqualTypeOf<SchemaSelection>()
 			const present = schemas.select({ option: { name: 'workflow' } })
 			expectTypeOf(present).toEqualTypeOf<SchemaSelection>()
+			const absenceSelector: SchemaOptionAbsenceSelector = {
+				name: 'workflow',
+				present: false,
+			}
+			const absent = schemas.select({ option: absenceSelector })
+			expectTypeOf(absent).toEqualTypeOf<SchemaSelection>()
+			schemas.select({
+				option: {
+					name: 'workflow',
+					// @ts-expect-error -- Absence is the only supported present flag.
+					present: true,
+				},
+			})
+			schemas.select({
+				option: {
+					equals: false,
+					name: 'workflow',
+					// @ts-expect-error -- Absence cannot be combined with equality.
+					present: false,
+				},
+			})
+			schemas.select({
+				option: {
+					name: 'workflow',
+					path: ['enabled'],
+					// @ts-expect-error -- Absence cannot be combined with a path.
+					present: false,
+				},
+			})
 			schemas.select({
 				// @ts-expect-error -- Paths belong only to equality selectors.
 				option: {

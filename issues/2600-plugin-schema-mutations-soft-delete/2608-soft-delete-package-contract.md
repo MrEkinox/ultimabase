@@ -3,8 +3,8 @@
 - Status: planned
 - Milestone: 26
 - Packages: future `@ultimabase/soft-delete-plugin`, `@ultimabase/typegen`
-- Depends on: 2602
-- ADR: [ADR-0245](../../docs/adr/0245-plugin-schema-mutations-and-soft-delete.md)
+- Depends on: 2602, 2615
+- ADR: [ADR-0245](../../docs/adr/0245-plugin-schema-mutations-and-soft-delete.md), [ADR-0246](../../docs/adr/0246-schema-option-absence-and-static-plugin-powers.md)
 
 ## Goal
 
@@ -24,13 +24,15 @@ transport providers.
       the feature.
 - [ ] Configuration has no `schemas` allowlist, mutable selector callback,
       environment dependency, adapter option, Access option, or Hooks option.
-- [ ] The plugin declares only exact conditional privileges and deterministic
-      capabilities required by effective schema modes, with truthful reasons and
-      diagnostics.
+- [ ] The plugin declares the smallest fixed truthful set of potential
+      privileges and deterministic capabilities required by its accepted modes;
+      effective schema contributions remain conditional and may compile to an
+      empty application-local plan.
 - [ ] Multiple explicit plugin instances reject ambiguous ownership of the same
       schema while distinct applications remain isolated.
-- [ ] Typegen contributes the direct schema option and exact enabled model
-      surface without becoming Runtime truth.
+- [ ] Typegen contributes the direct schema option without becoming Runtime
+      truth; model surfaces are added only with their executable behavior in
+      issues 2611 and 2612.
 - [ ] Public JSDoc and the package README explain inheritance, both modes,
       optional official integrations, protected storage, and v1 exclusions.
 

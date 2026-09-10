@@ -298,11 +298,20 @@ replacement, rename, and removal require `schema:transform` plus the exact prior
 owner, contribution ID, and expected logical shape. Core schema identity and
 system fields remain protected. `{ option: { name } }` checks only that the
 normalized direct option occurs and therefore also supports opaque callback
-values without exposing or invoking them. `{ option: { name, path?, equals } }`
-keeps structural JSON equality: object key order is irrelevant, while array
-order and primitive identity remain exact. Contribution IDs are local to the
-full `{ pluginId, instanceId? }` identity, so two explicit instances may reuse
-the same local ID.
+values without exposing or invoking them. `{ option: { name, present: false } }`
+selects only schemas that omit that direct option; an explicit `false` remains
+present and does not match. `{ option: { name, path?, equals } }` keeps
+structural JSON equality: object key order is irrelevant, while array order and
+primitive identity remain exact. `present: true`, combinations of `present`
+with equality or paths, and general selector negation are rejected. The option
+name must still resolve to one exact definition. Contribution IDs are local to
+the full `{ pluginId, instanceId? }` identity, so two explicit instances may
+reuse the same local ID.
+
+The callback-free schema compiler protocol includes all three option selector
+forms. Replacement compilers must support the exported protocol version
+exactly; a version mismatch fails before compilation rather than silently
+changing absence semantics.
 
 Direct plugin options use ordinary properties rather than a separate options
 bag. Schema-scoped contracts use `defineSchemaOption()`. Field-scoped contracts

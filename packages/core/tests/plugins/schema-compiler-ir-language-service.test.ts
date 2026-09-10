@@ -32,13 +32,18 @@ const readHover = (
 }
 
 describe('schema compiler IR source language service', () => {
-	it('exposes distinct documented presence and equality selector contracts', () => {
+	it('exposes distinct documented option selector contracts', () => {
 		expect(service.getSemanticDiagnostics(fixtureFile)).toStrictEqual([])
-		expect(readHover('compiler-protocol').display).toContain('"6.0.0"')
+		expect(readHover('compiler-protocol').display).toContain('"7.0.0"')
 		const presence = readHover('option-presence-selector')
 		expect(presence.display).toContain('SchemaOptionPresenceSelector')
 		expect(presence.documentation).toContain(
 			'normalized direct option is present',
+		)
+		const absence = readHover('option-absence-selector')
+		expect(absence.display).toContain('SchemaOptionAbsenceSelector')
+		expect(absence.documentation).toContain(
+			'normalized direct option is absent',
 		)
 		expect(readHover('option-equality-selector').display).toContain(
 			'SchemaOptionEqualitySelector',

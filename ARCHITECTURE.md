@@ -276,6 +276,14 @@ under its definition owner. Missing, ambiguous, or wrongly owned definitions
 fail before any infrastructure phase; duplicate definitions become an error
 only when an occurrence needs an exact owner.
 
+Plugin schema selectors can match direct-option presence, portable structural
+equality, or the exact absence form `{ option: { name, present: false } }`.
+Absence is distinct from an explicit `false`, crosses the versioned
+callback-free compiler IR, and still requires one exact option-definition
+owner. Plugin manifests remain the smallest fixed truthful set of potential
+powers evaluated before schema compilation; effective declarations may compile
+to an empty application-local plan without creating a second capability graph.
+
 Developer-authored options declare structured public Typegen references.
 Factory-owned compiler markers instead declare `typegen: false`: Core retains
 their validation, ownership, provenance, and plugin requirement while generated

@@ -227,6 +227,7 @@ Accepted records:
 - [ADR-0243: Singular nested writes use one bounded Core mutation graph](0243-bounded-singular-nested-writes.md)
 - [ADR-0244: Contextual field builders and virtual results](0244-contextual-fields-and-virtual-results.md)
 - [ADR-0245: Plugin-defined schema mutations preserve logical identity](0245-plugin-schema-mutations-and-soft-delete.md)
+- [ADR-0246: Schema option absence is selectable and plugin powers are static](0246-schema-option-absence-and-static-plugin-powers.md)
 
 Superseded records:
 
