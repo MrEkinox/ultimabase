@@ -44,6 +44,8 @@ export interface GraphqlSchemaOperations {
 	readonly delete?: boolean
 	/** Generates the singular upsert mutation field. */
 	readonly upsert?: boolean
+	/** Generates explicitly bound plugin-owned schema mutation fields. */
+	readonly mutations?: boolean
 	/** Selects all or individual itemized bulk mutation fields. */
 	readonly bulk?: boolean | GraphqlBulkOperations
 }
@@ -67,6 +69,7 @@ const operationKeys = new Set([
 	'findMany',
 	'findOne',
 	'get',
+	'mutations',
 	'update',
 	'upsert',
 ])

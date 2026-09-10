@@ -3,8 +3,18 @@ import {
 	UltimaBase,
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
+	addSchemaField,
+	booleanField,
+	defineOperationTransport,
+	defineOperationValue,
 	definePlugin,
 	provideCapability,
+	provideSchemaMutationHandler,
+	provideSchemaMutationTransportBinding,
+	schemaMutationHandler,
+	schemaMutationTransportBinding,
+	schemaMutationWireCodec,
+	defineSchemaMutation,
 } from '@ultimabase/core'
 import { graphqlPlugin } from '@ultimabase/graphql-plugin'
 import { graphqlYogaPlugin } from '@ultimabase/graphql-yoga-plugin'
@@ -14,20 +24,66 @@ import { GraphQLObjectType, GraphQLSchema, GraphQLString } from 'graphql'
 import { createServer } from 'node:net'
 import process from 'node:process'
 
+const storedRow = Object.freeze({
+	createdAt: '2026-09-10T00:00:00.000Z',
+	id: '01991f00-0000-7000-8000-000000000704',
+	title: 'Packed Yoga',
+	updatedAt: '2026-09-10T00:00:00.000Z',
+	workflowArchived: false,
+})
+
+class GraphqlYogaE2eTransaction {
+	kind = 'database-transaction-adapter'
+	capabilities = { persistencePlans: databasePersistencePlanCapability }
+
+	prepare() {
+		return Promise.resolve({
+			target: storedRow,
+			execute: (execution) => {
+				if (execution?.operation.kind !== 'update-one') {
+					throw new TypeError('Packed Yoga schema mutation expects an update')
+				}
+				const current = Object.freeze({
+					...storedRow,
+					workflowArchived: true,
+				})
+				return Promise.resolve({
+					materializations: [
+						Object.freeze({ current, kind: 'update', previous: storedRow }),
+					],
+					result: current,
+				})
+			},
+		})
+	}
+
+	execute() {
+		throw new TypeError('Packed Yoga schema mutation executes prepared work')
+	}
+
+	commit() {
+		return Promise.resolve()
+	}
+
+	rollback() {
+		return Promise.resolve()
+	}
+}
+
 class GraphqlYogaE2eDatabase {
 	kind = 'database-adapter'
 	capabilities = { persistencePlans: databasePersistencePlanCapability }
 
 	execute(request) {
 		const row = {
-			id: '01991f00-0000-7000-8000-000000000704',
-			title: 'Packed Yoga',
+			id: storedRow.id,
+			title: storedRow.title,
 		}
 		return Promise.resolve(request.operation.kind === 'find-many' ? [row] : row)
 	}
 
 	beginTransaction() {
-		return Promise.reject(new TypeError('GraphQL Yoga E2E does not mutate'))
+		return Promise.resolve(new GraphqlYogaE2eTransaction())
 	}
 }
 
@@ -79,6 +135,84 @@ const ManagedVirtual = Schema.define({
 	}),
 	graphql: true,
 })
+const archiveInput = defineOperationValue((value, path) => {
+	if (value !== undefined) throw new TypeError(`${path} must be undefined`)
+	return undefined
+})
+const archiveMutation = defineSchemaMutation({
+	authority: 'request',
+	effect: 'update',
+	input: archiveInput,
+	name: 'fixture.graphql-yoga.archive',
+	returning: 'after',
+	version: '1.0.0',
+})
+const graphqlProtocol = defineOperationTransport({
+	name: 'ultimabase.graphql',
+	version: '1.0.0',
+})
+const workflowPlugin = definePlugin({
+	capabilities: {
+		provides: [
+			provideSchemaMutationHandler({
+				contributionId: 'archive-handler',
+				create: () => ({
+					value: schemaMutationHandler({
+						mutation: archiveMutation,
+						resolve: () => ({ data: { workflowArchived: true } }),
+					}),
+				}),
+			}),
+			provideSchemaMutationTransportBinding({
+				contributionId: 'archive-graphql-binding',
+				create: () => ({
+					value: schemaMutationTransportBinding({
+						codec: schemaMutationWireCodec({
+							decode: (value) =>
+								archiveInput.snapshot(value, 'archive.wire-input'),
+							mutation: archiveMutation,
+							transport: graphqlProtocol,
+						}),
+						metadata: {
+							kind: 'graphql-schema-mutation-binding',
+							types: [],
+						},
+						mutation: archiveMutation,
+					}),
+				}),
+			}),
+		],
+	},
+	core: '^0.0.0',
+	declare: ({ models, operations, schemas }) => {
+		operations.declare(archiveMutation)
+		schemas.patch({
+			operations: [
+				addSchemaField({
+					contributionId: 'workflow-archived',
+					field: booleanField(),
+					name: 'workflowArchived',
+				}),
+			],
+			targets: schemas.select({ className: ManagedVirtual.className }),
+		})
+		models.extend(ManagedVirtual, {
+			contributionId: 'workflow-mutation',
+			schemaMutations: {
+				archive: { mutation: archiveMutation, surfaces: ['schema'] },
+			},
+		})
+	},
+	pluginId: 'fixture.graphql-yoga-workflow',
+	privileges: [
+		{ name: 'model:extend', reason: 'Adds archive.' },
+		{ name: 'operation:declare', reason: 'Declares archive.' },
+		{ name: 'persistence:rewrite', reason: 'Persists archive.' },
+		{ name: 'schema:declare', reason: 'Adds workflow state.' },
+		{ name: 'transport:expose', reason: 'Binds GraphQL v1.' },
+	],
+	version: '1.0.0',
+})
 const schema = new GraphQLSchema({
 	query: new GraphQLObjectType({
 		name: 'Query',
@@ -91,10 +225,11 @@ const application = new UltimaBase({
 	pluginPrivileges: { logger: false },
 	plugins: [
 		databasePlugin,
+		workflowPlugin,
 		httpPlugin({ appId: 'managed' }),
 		graphqlPlugin({
 			acknowledgeUnverifiedProtection: true,
-			default: false,
+			default: { findOne: true, mutations: true },
 			schemas: [schema],
 		}),
 		graphqlYogaPlugin(),
@@ -105,6 +240,7 @@ const application = new UltimaBase({
 
 await application.start()
 let body
+let mutation
 let status
 try {
 	const response = await globalThis.fetch(
@@ -122,6 +258,21 @@ try {
 	)
 	status = response.status
 	body = await response.json()
+	const mutationResponse = await globalThis.fetch(
+		`http://127.0.0.1:${String(port)}/graphql`,
+		{
+			body: JSON.stringify({
+				query:
+					'mutation { archiveManagedVirtual(input: { id: "01991f00-0000-7000-8000-000000000704" }) { id title workflowArchived createdAt updatedAt } }',
+			}),
+			headers: {
+				'Content-Type': 'application/json',
+				[httpApplicationIdHeader]: 'managed',
+			},
+			method: 'POST',
+		},
+	)
+	mutation = await mutationResponse.json()
 } finally {
 	await application.dispose()
 }
@@ -133,4 +284,4 @@ try {
 	closed = true
 }
 
-process.stdout.write(JSON.stringify({ body, closed, status }))
+process.stdout.write(JSON.stringify({ body, closed, mutation, status }))

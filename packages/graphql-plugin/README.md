@@ -227,6 +227,47 @@ reviewed their complete policy coverage may acknowledge it explicitly:
 graphqlPlugin({ acknowledgeUnverifiedProtection: true })
 ```
 
+Plugin-owned schema mutations use the same schema exposure policy. The
+`operations.mutations` switch defaults to `true`, inherits through the direct
+schema option and `graphqlPlugin({ default })`, and controls declarations only:
+
+```ts
+const Post = Schema.define({
+	className: 'Post',
+	fields: (field) => ({ title: field.string() }),
+	graphql: { operations: { mutations: true } },
+})
+```
+
+When the mutation owner supplies a canonical `ultimabase.graphql@1.0.0`
+binding, GraphQL derives the root from the command and generated model name.
+For example, the neutral `archive` command becomes:
+
+```graphql
+input ArchivePostInput {
+	id: ID!
+	data: ArchiveReasonInput!
+}
+
+type Mutation {
+	archivePost(input: ArchivePostInput!): Post
+}
+```
+
+The owner controls only the optional `data` type and its closed supporting
+input-object or enum definitions. It cannot choose a root field, schema, target
+ID, result type, resolver, or authority. A mutation whose logical payload is
+`undefined` omits `data` and keeps only `id: ID!`. Master-only schema mutations
+never enter the SDL.
+
+The resolver derives `select` and `include` from the ordinary model selection,
+validates the exact `{ request: RequestContext }` context, and invokes Core's
+late-bound schema-mutation allowlist. Networkless execution and Yoga therefore
+share validation, Access, Hooks, transactions, constraints, cancellation,
+Master provenance, and safe-error behavior. This mechanism is separate from
+the explicit application-operation allowlist below; one kind cannot be
+reclassified as the other.
+
 ## Explicit plugin operations
 
 An installed operation stays private. Add its exact application-operation token

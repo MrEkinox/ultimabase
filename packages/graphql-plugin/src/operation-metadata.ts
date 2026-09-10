@@ -69,6 +69,15 @@ export interface GraphqlOperationBindingMetadata {
 	readonly types: readonly GraphqlOperationSupportingTypeDefinition[]
 }
 
+/** Describes the payload types for one generated schema-mutation field. */
+export interface GraphqlSchemaMutationBindingMetadata {
+	/** Describes `input.data`; omission means the logical payload is `undefined`. */
+	readonly input?: GraphqlOperationTypeReference
+	readonly kind: 'graphql-schema-mutation-binding'
+	/** Supplies the closed input-object and enum definitions reachable from data. */
+	readonly types: readonly GraphqlOperationSupportingTypeDefinition[]
+}
+
 const assertExactKeys = (
 	value: Readonly<Record<string, unknown>>,
 	allowed: ReadonlySet<string>,
@@ -220,6 +229,35 @@ export const normalizeGraphqlOperationBindingMetadata = (
 		kind: 'graphql-operation-binding' as const,
 		result: normalizeTypeReference(value.result, `${path}.result`),
 		root: value.root,
+		types: immutableArray(
+			value.types.map((definition, index) =>
+				normalizeSupportingType(definition, `${path}.types[${String(index)}]`),
+			),
+		),
+	})
+}
+
+/** Validates one schema-mutation binding without accepting root-field control. */
+export const normalizeGraphqlSchemaMutationBindingMetadata = (
+	value: unknown,
+	mutation: string,
+): GraphqlSchemaMutationBindingMetadata => {
+	const path = `GraphQL binding for schema mutation ${mutation}`
+	if (!isPlainRecord(value)) {
+		throw new TypeError(`${path} must be a plain object`)
+	}
+	assertExactKeys(value, new Set(['input', 'kind', 'types']), path)
+	if (value.kind !== 'graphql-schema-mutation-binding') {
+		throw new TypeError(`${path}.kind must be graphql-schema-mutation-binding`)
+	}
+	if (!isUnknownArray(value.types)) {
+		throw new TypeError(`${path}.types must be an array`)
+	}
+	return immutableRecord({
+		...(value.input === undefined
+			? {}
+			: { input: normalizeTypeReference(value.input, `${path}.input`) }),
+		kind: 'graphql-schema-mutation-binding' as const,
 		types: immutableArray(
 			value.types.map((definition, index) =>
 				normalizeSupportingType(definition, `${path}.types[${String(index)}]`),

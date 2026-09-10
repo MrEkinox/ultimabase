@@ -7,6 +7,7 @@ import {
 import {
 	resolveGraphqlBulkOperation,
 	resolveGraphqlSchemaOperation,
+	resolveGraphqlSchemaMutations,
 } from './surfaces.js'
 
 describe('GraphQL schema exposure options', () => {
@@ -37,7 +38,7 @@ describe('GraphQL schema exposure options', () => {
 			'Post.graphql',
 		)
 		const pluginDefault = normalizeGraphqlSchemaOperations(
-			{ count: true, get: true, bulk: { update: true } },
+			{ count: true, get: true, mutations: false, bulk: { update: true } },
 			'GraphQL plugin default',
 		)
 
@@ -59,6 +60,9 @@ describe('GraphQL schema exposure options', () => {
 		expect(resolveGraphqlBulkOperation(direct, pluginDefault, 'delete')).toBe(
 			false,
 		)
+		expect(resolveGraphqlSchemaMutations(direct, pluginDefault)).toBe(false)
+		expect(resolveGraphqlSchemaMutations(true, pluginDefault)).toBe(true)
+		expect(resolveGraphqlSchemaMutations(undefined, undefined)).toBe(true)
 	})
 
 	it.each([

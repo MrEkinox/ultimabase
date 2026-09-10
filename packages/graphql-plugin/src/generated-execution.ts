@@ -3,6 +3,7 @@ import {
 	type ApplicationCallbackExecutor,
 	type ApplicationRequestExecutor,
 	type ExposedOperationTransportBinding,
+	type ExposedSchemaMutationTransportBinding,
 	type PluginIdentity,
 	type SchemaDefinition,
 } from '@ultimabase/core'
@@ -16,10 +17,13 @@ import {
 	type GraphqlMutationOperation,
 } from './mutation-normalization.js'
 import {
+	normalizeGraphqlCollectionArguments,
 	prepareGraphqlReadOperation,
 	type GraphqlReadOperation,
 } from './read-normalization.js'
 import type { GraphqlOperationExecution } from './operation-execution.js'
+import type { GraphqlSchemaMutationExecution } from './schema-mutation-execution.js'
+import { normalizeGraphqlSelection } from './selection-normalization.js'
 
 type GeneratedResolver = GraphQLFieldResolver<unknown, unknown>
 
@@ -56,6 +60,7 @@ export class GraphqlGeneratedExecution {
 	readonly #executor: ApplicationRequestExecutor
 	readonly #operations: GraphqlOperationExecution
 	readonly #owner: PluginIdentity
+	readonly #schemaMutations: GraphqlSchemaMutationExecution
 
 	constructor(
 		options: Readonly<{
@@ -64,6 +69,7 @@ export class GraphqlGeneratedExecution {
 			readonly executor: ApplicationRequestExecutor
 			readonly operations: GraphqlOperationExecution
 			readonly owner: PluginIdentity
+			readonly schemaMutations: GraphqlSchemaMutationExecution
 		}>,
 	) {
 		this.#callbacks = options.callbacks
@@ -71,6 +77,7 @@ export class GraphqlGeneratedExecution {
 		this.#executor = options.executor
 		this.#operations = options.operations
 		this.#owner = options.owner
+		this.#schemaMutations = options.schemaMutations
 	}
 
 	async #run<TResult>(
@@ -137,6 +144,47 @@ export class GraphqlGeneratedExecution {
 		return this.#run(contextValue, (context) =>
 			this.#operations.execute(context, operation, input),
 		)
+	}
+
+	schemaMutation(
+		descriptor: ExposedSchemaMutationTransportBinding,
+		schema: SchemaDefinition,
+		hasPayload: boolean,
+	): GeneratedResolver {
+		return (_source, args, contextValue, info) =>
+			this.#run(contextValue, (context) => {
+				if (
+					!isPlainRecord(args) ||
+					Reflect.ownKeys(args).length !== 1 ||
+					!isPlainRecord(args.input) ||
+					typeof args.input.id !== 'string'
+				) {
+					throw new TypeError(
+						'GraphQL schema mutation requires one input object with an ID',
+					)
+				}
+				const projection = normalizeGraphqlSelection(
+					schema,
+					info,
+					false,
+					(target, relationArgs, scope) =>
+						normalizeGraphqlCollectionArguments(
+							target,
+							relationArgs,
+							this.#connections,
+							scope,
+						),
+					descriptor.effect === 'delete' ? 'stored-pointer-only' : 'include',
+				)
+				return this.#schemaMutations.execute({
+					context,
+					descriptor,
+					id: args.input.id,
+					...projection,
+					input: hasPayload ? args.input.data : undefined,
+					schema,
+				})
+			})
 	}
 
 	relation(

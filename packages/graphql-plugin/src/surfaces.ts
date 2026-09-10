@@ -13,7 +13,10 @@ import {
 	type GraphqlSchemaOperations,
 } from './options.js'
 
-type GeneratedOperation = Exclude<keyof GraphqlSchemaOperations, 'bulk'>
+type GeneratedOperation = Exclude<
+	keyof GraphqlSchemaOperations,
+	'bulk' | 'mutations'
+>
 type BulkOperation = keyof GraphqlBulkOperations
 
 export interface GraphqlSchemaSurface {
@@ -31,6 +34,7 @@ export interface GraphqlSchemaSurface {
 	readonly findMany: boolean
 	readonly findOne: boolean
 	readonly get: boolean
+	readonly schemaMutations: boolean
 	readonly update: boolean
 	readonly upsert: boolean
 }
@@ -87,6 +91,18 @@ export const resolveGraphqlBulkOperation = (
 	readBulkOperation(directOperations(direct), operation) ??
 	readBulkOperation(pluginDefault, operation) ??
 	false
+
+/** Resolves whether one application schema exposes its bound schema mutations. */
+export const resolveGraphqlSchemaMutations = (
+	direct: GraphqlSchemaExposureOption | undefined,
+	pluginDefault: boolean | GraphqlSchemaOperations | undefined,
+): boolean => {
+	const read = (
+		value: boolean | GraphqlSchemaOperations | undefined,
+	): boolean | undefined =>
+		typeof value === 'boolean' ? value : value?.mutations
+	return read(directOperations(direct)) ?? read(pluginDefault) ?? true
+}
 
 export const graphqlSourceDescription = (
 	schema: SchemaDefinition,
@@ -157,6 +173,9 @@ export const collectGraphqlSchemaSurfaces = (
 				resolveGraphqlSchemaOperation(direct, pluginDefault, 'get'),
 			owner,
 			schema,
+			schemaMutations:
+				owner.kind === 'application' &&
+				resolveGraphqlSchemaMutations(direct, pluginDefault),
 			typeName,
 			update:
 				owner.kind === 'application' &&

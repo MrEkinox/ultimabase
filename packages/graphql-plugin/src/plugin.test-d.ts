@@ -52,7 +52,12 @@ test('preserves plugin and generated schema option types', async () => {
 		className: 'Post',
 		fields: (field) => ({ title: field.string({ required: true }) }),
 		graphql: {
-			operations: { bulk: { create: true }, get: true, upsert: false },
+			operations: {
+				bulk: { create: true },
+				get: true,
+				mutations: true,
+				upsert: false,
+			},
 			typeName: 'Article',
 		},
 	})

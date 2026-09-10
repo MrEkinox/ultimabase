@@ -86,6 +86,7 @@ Schema.define({
 				'findMany',
 				'findOne',
 				'get',
+				'mutations',
 				'update',
 				'upsert',
 			]),

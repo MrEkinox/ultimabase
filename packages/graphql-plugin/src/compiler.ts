@@ -1,10 +1,12 @@
 import type {
 	ApplicationOperationTransportPlan,
+	ApplicationSchemaMutationTransportPlan,
 	CompiledSchemaRegistry,
 } from '@ultimabase/core'
 import { GraphQLObjectType, GraphQLSchema, validateSchema } from 'graphql'
 import type { GraphQLFieldConfigArgumentMap } from 'graphql'
 
+import { GraphqlBindingTypeCompiler } from './binding-type-compiler.js'
 import { GraphqlFieldTypeCompiler } from './field-compiler.js'
 import type { GraphqlGeneratedExecution } from './generated-execution.js'
 import type { NormalizedGraphqlExecutionLimits } from './connection-limits.js'
@@ -15,6 +17,9 @@ import { GraphqlNameRegistry } from './names.js'
 import { GraphqlOperationSchemaCompiler } from './operation-schema-compiler.js'
 import type { GraphqlSchemaOperations } from './options.js'
 import { GraphqlReadInputCompiler } from './read-input-compiler.js'
+import type { graphqlProtocol } from './protocol.js'
+import type { GraphqlSchemaMutationExecution } from './schema-mutation-execution.js'
+import { GraphqlSchemaMutationSchemaCompiler } from './schema-mutation-schema-compiler.js'
 import { collectGraphqlSchemaSurfaces } from './surfaces.js'
 
 const reserveGraphqlNames = (names: GraphqlNameRegistry): void => {
@@ -47,6 +52,10 @@ export const compileGraphqlSchema = (
 		readonly defaultOperations?: boolean | GraphqlSchemaOperations
 		readonly execution: GraphqlGeneratedExecution
 		readonly operationPlan: ApplicationOperationTransportPlan
+		readonly schemaMutationPlan: ApplicationSchemaMutationTransportPlan<
+			typeof graphqlProtocol
+		>
+		readonly schemaMutations: GraphqlSchemaMutationExecution
 		readonly schemas: CompiledSchemaRegistry
 	}>,
 ): GraphQLSchema => {
@@ -100,16 +109,30 @@ export const compileGraphqlSchema = (
 			mutations.updateInput(surface.schema)
 		}
 	}
-	const operationCompiler = new GraphqlOperationSchemaCompiler({
-		execution: options.execution,
+	const bindingTypes = new GraphqlBindingTypeCompiler({
 		fields,
 		names,
-		plan: options.operationPlan,
-		surfaces,
+		schemas: [...surfaces.keys()],
 	})
+	const operationCompiler = new GraphqlOperationSchemaCompiler({
+		execution: options.execution,
+		plan: options.operationPlan,
+		types: bindingTypes,
+	})
+	const schemaMutationCompiler = new GraphqlSchemaMutationSchemaCompiler({
+		execution: options.execution,
+		fieldTypes: fields,
+		names,
+		plan: options.schemaMutationPlan,
+		schemaMutations: options.schemaMutations,
+		surfaces,
+		types: bindingTypes,
+	})
+	bindingTypes.finalize()
 	const queryFields = reads.queryFields()
 	const mutationFields = mutationOperations.mutationFields()
 	operationCompiler.addRootFields(queryFields, mutationFields)
+	schemaMutationCompiler.addRootFields(mutationFields)
 	const query = new GraphQLObjectType({
 		name: 'Query',
 		fields: queryFields,
@@ -129,7 +152,7 @@ export const compileGraphqlSchema = (
 			...fields.types,
 			...mutations.types,
 			...mutationOperations.types,
-			...operationCompiler.types,
+			...bindingTypes.types,
 			...reads.types,
 		],
 	})

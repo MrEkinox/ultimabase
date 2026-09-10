@@ -2,6 +2,7 @@ import {
 	defineCapability,
 	type ApplicationOperationTransport,
 	type ApplicationCapabilityResource,
+	type ApplicationSchemaMutationTransport,
 	type CapabilityToken,
 } from '@ultimabase/core'
 import {
@@ -13,6 +14,8 @@ import {
 
 import type { GraphqlConnectionRuntime } from './connection-runtime.js'
 import type { GraphqlOperationExecution } from './operation-execution.js'
+import type { graphqlProtocol } from './protocol.js'
+import type { GraphqlSchemaMutationExecution } from './schema-mutation-execution.js'
 import type { GraphqlExecuteOptions } from './networkless-execution.js'
 import type { GraphqlNetworklessExecution } from './networkless-execution.js'
 
@@ -31,6 +34,7 @@ interface GraphqlApplicationState {
 	disposed: boolean
 	networkless: GraphqlNetworklessExecution | undefined
 	operations: GraphqlOperationExecution | undefined
+	schemaMutations: GraphqlSchemaMutationExecution | undefined
 	schema: GraphQLSchema | undefined
 }
 
@@ -41,6 +45,7 @@ class GraphqlApplicationResource implements GraphqlApplication {
 		schema: GraphQLSchema,
 		connections: GraphqlConnectionRuntime,
 		operations: GraphqlOperationExecution,
+		schemaMutations: GraphqlSchemaMutationExecution,
 		networkless: GraphqlNetworklessExecution,
 	) {
 		graphqlApplicationStates.set(this, {
@@ -48,6 +53,7 @@ class GraphqlApplicationResource implements GraphqlApplication {
 			disposed: false,
 			networkless,
 			operations,
+			schemaMutations,
 			schema,
 		})
 		Object.freeze(this)
@@ -119,12 +125,14 @@ export const createGraphqlApplicationResource = (
 	schema: GraphQLSchema,
 	connections: GraphqlConnectionRuntime,
 	operations: GraphqlOperationExecution,
+	schemaMutations: GraphqlSchemaMutationExecution,
 	networkless: GraphqlNetworklessExecution,
 ): ApplicationCapabilityResource<GraphqlApplication> => {
 	const value = new GraphqlApplicationResource(
 		schema,
 		connections,
 		operations,
+		schemaMutations,
 		networkless,
 	)
 	return {
@@ -134,9 +142,11 @@ export const createGraphqlApplicationResource = (
 			if (state !== undefined) {
 				state.connections?.dispose()
 				state.operations?.dispose()
+				state.schemaMutations?.dispose()
 				state.connections = undefined
 				state.networkless = undefined
 				state.operations = undefined
+				state.schemaMutations = undefined
 				state.disposed = true
 				state.schema = undefined
 			}
@@ -154,6 +164,18 @@ export const bindGraphqlOperationTransport = (
 		throw new TypeError('GraphQL application has been disposed')
 	}
 	state.operations.bind(transport)
+}
+
+/** @internal Late-binds Core's exact schema-mutation facade. */
+export const bindGraphqlSchemaMutationTransport = (
+	application: GraphqlApplication,
+	transport: ApplicationSchemaMutationTransport<typeof graphqlProtocol>,
+): void => {
+	const state = graphqlApplicationStates.get(application)
+	if (state?.disposed !== false || state.schemaMutations === undefined) {
+		throw new TypeError('GraphQL application has been disposed')
+	}
+	state.schemaMutations.bind(transport)
 }
 
 /** @internal Resolves the private cursor owner retained by a live capability. */

@@ -4,6 +4,7 @@
 - Date: 2026-09-08
 - Refines: ADR-0225, ADR-0233 and ADR-0238
 - Depends on: ADR-0190, ADR-0191, ADR-0207 and ADR-0208
+- Refined by: ADR-0245
 
 ## Context
 
@@ -58,6 +59,17 @@ inside the one GraphQL public surface, so GraphQL acknowledges its bridge
 diagnostic and reports public-protection uncertainty once under
 `ultimabase.graphql@1.0.0`.
 
+ADR-0245 adds a separate `planSchemaMutations({ transport })` family to this
+same non-replaceable capability. It plans every exact schema-and-command
+binding for the protocol without taking an application-operation token
+allowlist. Its descriptors add schema, command, authority, effect, and returning
+facts while retaining the same callback-free and owner-attributed boundary.
+They contain no payload codec or executable mutation handler. Transports still
+bind the matching executable family only through
+`ApplicationRequestExecutor.exposeSchemaMutations()` after engine construction.
+The application-operation and schema-mutation plans remain distinct and cannot
+reclassify one another.
+
 ## Consequences
 
 - Transports can validate a deterministic public shape before startup without
@@ -66,7 +78,8 @@ diagnostic and reports public-protection uncertainty once under
   identity and inert metadata.
 - Planning and execution compare the same descriptors but remain separate
   lifecycle phases.
-- The capability deliberately supports only application-targeted operations.
-  Schema and model commands remain on their application-owned handles.
+- Application operations remain explicitly allowlisted. Schema mutations use
+  their separate ADR-0245 plan and remain attached to application-owned schema
+  and model handles.
 - A future transport needing more static facts must refine this ADR rather than
   gain a generic capability or Runtime lookup.

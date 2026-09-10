@@ -11,7 +11,8 @@ import { GraphqlConnectionRuntime } from './connection-runtime.js'
 import { defaultGraphqlExecutionLimits } from './connection-limits.js'
 import { GraphqlGeneratedExecution } from './generated-execution.js'
 import { GraphqlOperationExecution } from './operation-execution.js'
-import { graphqlOperationProtocol } from './protocol.js'
+import { graphqlOperationProtocol, graphqlProtocol } from './protocol.js'
+import { GraphqlSchemaMutationExecution } from './schema-mutation-execution.js'
 
 const Parent = Schema.define({
 	className: 'QueryCountParent',
@@ -48,12 +49,17 @@ describe('GraphQL generated execution', () => {
 			operations: [],
 			transport: graphqlOperationProtocol,
 		})
+		const schemaMutations = new GraphqlSchemaMutationExecution({
+			mutations: [],
+			transport: graphqlProtocol,
+		})
 		const execution = new GraphqlGeneratedExecution({
 			callbacks,
 			connections,
 			executor,
 			operations,
 			owner: { pluginId: '@ultimabase/graphql-plugin' },
+			schemaMutations,
 		})
 		const resolver = execution.relation(
 			Parent,
@@ -82,5 +88,6 @@ describe('GraphQL generated execution', () => {
 		expect(readCount).toBe(0)
 		connections.dispose()
 		operations.dispose()
+		schemaMutations.dispose()
 	})
 })

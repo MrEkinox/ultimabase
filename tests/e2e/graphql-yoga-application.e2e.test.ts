@@ -21,6 +21,17 @@ it('serves the packed GraphQL Yoga adapter through managed Hono', async () => {
 			},
 		},
 		closed: true,
+		mutation: {
+			data: {
+				archiveManagedVirtual: {
+					createdAt: '2026-09-10T00:00:00.000Z',
+					id: '01991f00-0000-7000-8000-000000000704',
+					title: 'Packed Yoga',
+					updatedAt: '2026-09-10T00:00:00.000Z',
+					workflowArchived: true,
+				},
+			},
+		},
 		status: 200,
 	})
 })

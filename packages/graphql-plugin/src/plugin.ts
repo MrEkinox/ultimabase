@@ -21,6 +21,7 @@ import { GraphQLSchema } from 'graphql'
 import {
 	createGraphqlApplicationResource,
 	bindGraphqlOperationTransport,
+	bindGraphqlSchemaMutationTransport,
 	graphqlApplicationCapability,
 	type GraphqlApplication,
 } from './application.js'
@@ -44,6 +45,7 @@ import { graphqlOperationProtocol, graphqlProtocol } from './protocol.js'
 import { composeGraphqlSchemas } from './schema-composition.js'
 import type { OwnedGraphqlSchema } from './schema-composition-types.js'
 import { graphqlSchemaContributionsCapability } from './schema-contributions.js'
+import { GraphqlSchemaMutationExecution } from './schema-mutation-execution.js'
 
 const graphqlPluginModule: PluginModule<
 	'@ultimabase/graphql-plugin',
@@ -238,11 +240,18 @@ export const graphqlPlugin = (
 		contributionId: 'official-graphql-application',
 		create: ({ callbacks, capabilities: reader, owner, schemas }) => {
 			const connections = new GraphqlConnectionRuntime(normalized.limits)
-			const operationPlan = reader.get(operationPlanningRequirement).plan({
+			const planner = reader.get(operationPlanningRequirement)
+			const operationPlan = planner.plan({
 				operations: normalized.operations,
 				transport: graphqlOperationProtocol,
 			})
 			const operations = new GraphqlOperationExecution(operationPlan)
+			const schemaMutationPlan = planner.planSchemaMutations({
+				transport: graphqlProtocol,
+			})
+			const schemaMutations = new GraphqlSchemaMutationExecution(
+				schemaMutationPlan,
+			)
 			try {
 				const execution = new GraphqlGeneratedExecution({
 					callbacks,
@@ -250,6 +259,7 @@ export const graphqlPlugin = (
 					executor: reader.get(requestExecutionRequirement),
 					operations,
 					owner,
+					schemaMutations,
 				})
 				const generated = compileGraphqlSchema({
 					connectionLimits: normalized.limits,
@@ -258,6 +268,8 @@ export const graphqlPlugin = (
 						: { defaultOperations: normalized.defaultOperations }),
 					execution,
 					operationPlan,
+					schemaMutationPlan,
+					schemaMutations,
 					schemas,
 				})
 				const schema = composeGraphqlSchemas({
@@ -293,11 +305,13 @@ export const graphqlPlugin = (
 					schema,
 					connections,
 					operations,
+					schemaMutations,
 					networkless,
 				)
 			} catch (error: unknown) {
 				connections.dispose()
 				operations.dispose()
+				schemaMutations.dispose()
 				throw error
 			}
 		},
@@ -337,6 +351,14 @@ export const graphqlPlugin = (
 						}),
 					)
 				}
+				bindGraphqlSchemaMutationTransport(
+					pluginExports,
+					reader.get(requestExecutionRequirement).exposeSchemaMutations({
+						// Generated roots are part of the one public GraphQL report below.
+						acknowledgeUnverifiedProtection: true,
+						transport: graphqlProtocol,
+					}),
+				)
 				reader
 					.get(requestExecutionRequirement)
 					.reportPublicTransportProtection({
