@@ -55,6 +55,14 @@ request-aware synchronous or asynchronous resolution. The
 [completed plan](docs/plans/completed/contextual-fields-and-virtual-results.md)
 retains its contract, explicit v1 exclusions, and final cross-transport evidence.
 
+[Milestone 26](issues/2600-plugin-schema-mutations-soft-delete/README.md) is the
+active objective. It first generalizes plugin-owned model commands into exact
+schema mutation identities that the Runtime, optional official Access and Hooks
+engines, REST, and GraphQL can consume without learning product vocabulary. It
+then ships `@ultimabase/soft-delete-plugin` with schema-local opt-in,
+replace-delete and explicit mutation modes, protected tombstone visibility, and
+private Master-only restore and purge commands.
+
 The ACL hardening plan remains paused at issue 432. It is not part of an active
 plan.
 
@@ -116,7 +124,7 @@ elect to add.
 Pointers, relations, and JSONB-backed object fields are complete
 transport-neutral foundations. Local Password Auth is active in milestone 23;
 other authentication integrations, realtime, jobs, cache, gRPC, OpenAPI, CLI,
-code generation, SDKs, audit, observability, soft delete, tenant isolation,
+code generation, SDKs, audit, observability, tenant isolation,
 advanced fields, health, and administration remain issue-tracked capabilities.
 New packages are created only when implementation begins.
 
@@ -283,10 +291,24 @@ asynchronously from the exact request context, and never enters storage,
 migrations, mutation inputs, filters, or ordering. Direct TypeScript, REST, and
 GraphQL share one Runtime resolver and structural output contract.
 
+## Milestone 26 — Plugin-defined schema mutations and official soft delete
+
+Add one generic, versioned schema-mutation contract for plugin-owned logical
+operations. Application schema/model handles, the canonical Runtime pipeline,
+optional official Access and Hooks engines, REST, and GraphQL consume the same
+identity without adding `softDelete` to Core. On that foundation, the official
+soft-delete plugin may either preserve logical delete semantics while rewriting
+the physical plan to a tombstone update, or add a distinct `softDelete`
+mutation while retaining hard delete. Schemas opt in directly and omitted
+options inherit the plugin's explicit default mode. Default visibility and
+tombstone writes remain protected; restore and irreversible purge are
+Master-only server commands and are not generated transport endpoints.
+
 ## First usable release
 
 The first release must support full primitive-field CRUD, bulk operations,
 upserts, REST, GraphQL, PostgreSQL, GraphQL-owned cursor pagination, singular
 nested pointer and relation writes, optional official typed Hooks and Access
 plugins, contextual field builders, output-only virtual result fields, automatic
-mutation transactions, and parallel integration tests.
+mutation transactions, the official soft-delete plugin, and parallel integration
+tests.

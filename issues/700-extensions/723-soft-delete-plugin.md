@@ -1,10 +1,17 @@
 # 723: Add soft-delete plugin
 
-- Status: planned
+- Status: superseded
 - Milestone: 7+
 - Packages: future `@ultimabase/soft-delete-plugin`
 - Depends on: 617, 1509
 - ADR: ADR-0186, ADR-0187, ADR-0188, ADR-0190, ADR-0191, ADR-0192, ADR-0193
+- Superseded by: 2601
+
+Milestone 26 supersedes this replace-only proposal. It retains the physical
+delete rewrite described below, while also deciding schema-local opt-in, an
+explicit `softDelete` mutation, generic Access and Hooks participation, REST
+and GraphQL exposure, and private administrative restore and purge commands.
+The original proposal remains below as historical context.
 
 ## Goal
 

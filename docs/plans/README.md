@@ -7,7 +7,7 @@ priority changes.
 
 ## Active
 
-None.
+- [Plugin-defined schema mutations and official soft delete](../../CURRENT_PLAN.md)
 
 ## Paused
 

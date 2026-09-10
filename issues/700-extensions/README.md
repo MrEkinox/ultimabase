@@ -34,7 +34,9 @@ contracts later rather than defining parallel relationship semantics.
 ## Other planned extensions
 
 Issue 703 completed the default JSONB-backed `objectField` vertical. Issues 704
-through 728 preserve future product intent without creating empty packages.
+through 722 and 724 through 728 preserve future product intent without creating
+empty packages. The former issue 723 is superseded by milestone 26's broader
+plugin-defined schema mutation and official soft-delete contract.
 The former generic authentication issue 706 is superseded by milestone 23's
 local Password Auth vertical. Better Auth issue 707 remains an independent
 future integration over the shared HTTP and Core capabilities. Deferred issue
