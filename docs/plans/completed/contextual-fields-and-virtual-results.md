@@ -1,10 +1,11 @@
-# Current plan: contextual fields and virtual results
+# Completed plan: contextual fields and virtual results
 
-- Status: active
+- Status: completed
 - Milestone: 25
 - Started: 2026-09-09
-- Governing decision: [ADR-0244](docs/adr/0244-contextual-fields-and-virtual-results.md)
-- Resume point: [issue 2511](issues/2500-contextual-fields-virtual-results/2511-contextual-virtual-final-audit.md)
+- Completed: 2026-09-10
+- Governing decision: [ADR-0244](../../adr/0244-contextual-fields-and-virtual-results.md)
+- Resume point: none
 
 ## Objective
 
@@ -70,7 +71,7 @@ semantics.
 11. [ ] Issue 2511 — audit and close the milestone.
 
 The authoritative acceptance criteria and dependencies live in
-[`issues/2500-contextual-fields-virtual-results/`](issues/2500-contextual-fields-virtual-results/).
+[`issues/2500-contextual-fields-virtual-results/`](../../../issues/2500-contextual-fields-virtual-results/).
 
 ## Frozen constraints
 
@@ -136,8 +137,15 @@ On every resumed task:
 
 ## Completion and handoff
 
-After issue 2511 passes the full repository, generated-contract,
-Typegen-free, package-archive, cross-transport, performance, concurrency,
-multi-application, and PostgreSQL gates, archive this file under
-`docs/plans/completed/`, mark milestone 25 completed, and reconcile the release
-scope and roadmap.
+Issues 2501 through 2511 are complete. Source, generated, built, packed, and
+Typegen-free contracts preserve the four contextual builder profiles. Direct
+TypeScript, REST, networkless GraphQL, Yoga, and PostgreSQL execute one Core
+virtual-result path with private dependencies, structural validation, Access,
+bounded asynchronous scheduling, cancellation, attribution, and transaction
+rollback.
+
+The final audit passed repository constraints, issue metadata, TypeScript,
+2,230 unit/type/performance tests, lint, formatting, every package build,
+`attw`, `publint`, 2,475 coverage tests, 150 packed-package tests, and 313 E2E
+tests. Milestone 25 is closed; its explicit v1 exclusions remain future work
+rather than implicit extension points.

@@ -1,6 +1,6 @@
 # Milestone 25 — Contextual fields and virtual results
 
-- Status: in-progress
+- Status: completed
 
 Make field declaration autocomplete truthful for stored roots, embedded object
 properties, and output-only values, then deliver selectable request-aware
@@ -18,7 +18,7 @@ virtual fields without inventing persistence or mutation behavior.
 8. [x] [2508 — Expose virtual fields through REST](2508-rest-virtual-fields.md)
 9. [x] [2509 — Expose virtual fields through GraphQL](2509-graphql-virtual-fields.md)
 10. [x] [2510 — Prove the public virtual-field vertical](2510-virtual-field-public-vertical.md)
-11. [ ] [2511 — Audit and close contextual virtual fields](2511-contextual-virtual-final-audit.md)
+11. [x] [2511 — Audit and close contextual virtual fields](2511-contextual-virtual-final-audit.md)
 
 ## Candidate contract
 

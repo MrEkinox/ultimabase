@@ -48,13 +48,12 @@ per-object policy and Hook execution inside one automatic transaction. The
 [completed plan](docs/plans/completed/nested-writes-before-first-release.md)
 retains its contract and final evidence.
 
-[Milestone 25](issues/2500-contextual-fields-virtual-results/README.md) is the
-active objective. It first makes stored, embedded, virtual, and output field
-builders advertise only executable capabilities, then adds Core-owned virtual
-result fields with private persisted dependency selections and request-aware
-synchronous or asynchronous resolution. Issues 2501 through 2503 completed the
-ADR gate, truthful embedded built-ins, and output-only descriptors; work resumes
-with contextual plugin declarations and Typegen in issue 2504.
+[Milestone 25](issues/2500-contextual-fields-virtual-results/README.md) completed
+truthful stored, embedded, virtual, and output field builders plus Core-owned
+virtual result fields with private persisted dependency selections and
+request-aware synchronous or asynchronous resolution. The
+[completed plan](docs/plans/completed/contextual-fields-and-virtual-results.md)
+retains its contract, explicit v1 exclusions, and final cross-transport evidence.
 
 The ACL hardening plan remains paused at issue 432. It is not part of an active
 plan.
@@ -276,10 +275,10 @@ partial success remain outside the initial contract.
 
 ## Milestone 25 — Contextual fields and virtual results
 
-Give stored root fields, embedded object properties, virtual declarations, and
-output-only value descriptors separate truthful builder contracts. On that
-foundation, add `field.virtual({ output, select, resolve })`: a selectable Core
-result field that privately loads persisted dependencies, may resolve
+Completed separate truthful builder contracts for stored root fields, embedded
+object properties, virtual declarations, and output-only value descriptors. On
+that foundation, `field.virtual({ output, select, resolve })` is a selectable
+Core result field that privately loads persisted dependencies, may resolve
 asynchronously from the exact request context, and never enters storage,
 migrations, mutation inputs, filters, or ordering. Direct TypeScript, REST, and
 GraphQL share one Runtime resolver and structural output contract.
@@ -289,4 +288,5 @@ GraphQL share one Runtime resolver and structural output contract.
 The first release must support full primitive-field CRUD, bulk operations,
 upserts, REST, GraphQL, PostgreSQL, GraphQL-owned cursor pagination, singular
 nested pointer and relation writes, optional official typed Hooks and Access
-plugins, automatic mutation transactions, and parallel integration tests.
+plugins, contextual field builders, output-only virtual result fields, automatic
+mutation transactions, and parallel integration tests.

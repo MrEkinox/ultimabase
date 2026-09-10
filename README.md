@@ -108,11 +108,12 @@ users[0]?.toJSON() // A detached immutable object.
   server.
 - The framework targets Node.js 24+, ESM, TypeScript, and an Apache-2.0 license.
 
-The shipped authenticated REST, GraphQL, and nested-write vertical is
+The shipped authenticated REST, GraphQL, nested-write, and virtual-result vertical is
 demonstrated by the [`examples/minimal`](examples/minimal/README.md)
 application. It exercises network-independent GraphQL execution and the
 optional Yoga HTTP adapter beside REST, including atomic pointer and relation
-writes, while GraphiQL and Apollo Sandbox remain separate development plugins.
+writes plus request-aware output-only fields whose persisted dependencies stay
+private, while GraphiQL and Apollo Sandbox remain separate development plugins.
 
 ## Repository map
 

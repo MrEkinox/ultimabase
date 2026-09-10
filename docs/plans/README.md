@@ -7,8 +7,7 @@ priority changes.
 
 ## Active
 
-- [Contextual fields and virtual results](../../CURRENT_PLAN.md), resumable at
-  issue 2504 after completing the output-only value descriptor contract.
+None.
 
 ## Paused
 
@@ -17,6 +16,7 @@ priority changes.
 
 ## Completed
 
+- [Contextual fields and virtual results](completed/contextual-fields-and-virtual-results.md)
 - [Nested writes before the first release](completed/nested-writes-before-first-release.md)
 - [HTTP, REST, and password authentication](completed/http-rest-and-password-auth.md)
 - [Generated schema authoring and type contracts](completed/generated-schema-authoring-and-type-contracts.md)
