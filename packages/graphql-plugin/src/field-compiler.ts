@@ -1,10 +1,8 @@
 import {
-	getFieldListDepth,
-	getPluginFieldWireCodec,
 	readFieldTypegenState,
 	type CompiledSchemaRegistry,
 	type GenericField,
-	type PluginFieldWireCodec,
+	type SchemaDeclaredFields,
 	type SchemaDefinition,
 	type SchemaFields,
 } from '@ultimabase/core'
@@ -25,7 +23,11 @@ import { GraphqlSchemaCompilationError } from './errors.js'
 import type { GraphqlGeneratedExecution } from './generated-execution.js'
 import { GraphqlConnectionTypeCompiler } from './connection-types.js'
 import {
-	isGraphqlBuiltInFieldKind,
+	encodeGraphqlPluginFieldValue,
+	readGraphqlPluginFieldCodec,
+} from './field-codecs.js'
+import { GraphqlOutputTypeCompiler } from './output-type-compiler.js'
+import {
 	readGraphqlEnumValues,
 	readGraphqlFieldDescription,
 	readGraphqlFieldOwner,
@@ -37,7 +39,6 @@ import {
 	graphqlFieldTypeSegment,
 } from './names.js'
 import type { GraphqlNameRegistry } from './names.js'
-import { graphqlFieldProtocol } from './protocol.js'
 import { GraphqlJSON } from './scalars.js'
 import {
 	readGraphqlScalarInputType,
@@ -62,6 +63,7 @@ export class GraphqlFieldTypeCompiler {
 	readonly #relationResolver: GraphqlGeneratedExecution['relation']
 	readonly #models = new Map<SchemaDefinition, GraphQLObjectType>()
 	readonly #connectionTypes: GraphqlConnectionTypeCompiler
+	readonly #outputTypes: GraphqlOutputTypeCompiler
 	readonly #enums = new Map<string, GraphQLEnumType>()
 	readonly #embeddedInputs = new Map<string, GraphQLInputObjectType>()
 	readonly #embeddedOutputs = new Map<string, GraphQLObjectType>()
@@ -86,9 +88,14 @@ export class GraphqlFieldTypeCompiler {
 			names: options.names,
 			surfaces: options.surfaces,
 		})
+		this.#outputTypes = new GraphqlOutputTypeCompiler(options.names)
 	}
 	get types(): readonly GraphQLNamedType[] {
-		return [...this.#namedTypes, ...this.#connectionTypes.types]
+		return [
+			...this.#namedTypes,
+			...this.#connectionTypes.types,
+			...this.#outputTypes.types,
+		]
 	}
 
 	connectionType(schema: SchemaDefinition): GraphQLObjectType {
@@ -126,7 +133,7 @@ export class GraphqlFieldTypeCompiler {
 	}
 	#outputFields(
 		schema: SchemaDefinition,
-		fields: SchemaFields,
+		fields: SchemaDeclaredFields,
 		parentPath: readonly string[],
 	): GraphQLFieldConfigMap<unknown, unknown> {
 		const compiled: GraphQLFieldConfigMap<unknown, unknown> = {}
@@ -137,12 +144,33 @@ export class GraphqlFieldTypeCompiler {
 				graphqlSourceDescription(schema, path),
 				readGraphqlFieldOwner(schema, path),
 			)
-			const codec = this.#pluginCodec(field, schema, path)
+			if (field.kind === 'virtual') {
+				const virtual = schema.virtualFields[name]
+				if (virtual === undefined) {
+					throw new TypeError('Compiled virtual field metadata is unavailable')
+				}
+				compiled[name] = {
+					description: readGraphqlFieldDescription(virtual),
+					type: this.#outputTypes.output(
+						virtual.output,
+						schema,
+						path,
+						this.#surface(schema).typeName,
+					),
+				}
+				continue
+			}
+			const stored =
+				parentPath.length === 0 ? schema.persistedFields[name] : field
+			if (stored === undefined) {
+				throw new TypeError('Compiled persisted field metadata is unavailable')
+			}
+			const codec = readGraphqlPluginFieldCodec(stored, schema, path)
 			const target =
-				field.kind === 'relation' ? this.#target(schema, path) : undefined
+				stored.kind === 'relation' ? this.#target(schema, path) : undefined
 			compiled[name] = {
-				description: readGraphqlFieldDescription(field),
-				type: this.#outputType(field, schema, path),
+				description: readGraphqlFieldDescription(stored),
+				type: this.#outputType(stored, schema, path),
 				...(target === undefined
 					? {}
 					: {
@@ -158,44 +186,11 @@ export class GraphqlFieldTypeCompiler {
 					? {}
 					: {
 							resolve: (source: unknown) =>
-								this.#encodePluginValue(source, name, field, codec),
+								encodeGraphqlPluginFieldValue(source, name, stored, codec),
 						}),
 			}
 		}
 		return compiled
-	}
-	#encodePluginValue(
-		source: unknown,
-		name: string,
-		field: GenericField,
-		codec: PluginFieldWireCodec,
-	): unknown {
-		if (typeof source !== 'object' || source === null) return undefined
-		const value: unknown = Reflect.get(source, name)
-		if (value === null || value === undefined) return value
-		if (getFieldListDepth(field.options) === 0) return codec.encode(value)
-		return Array.isArray(value)
-			? value.map((entry) => codec.encode(entry))
-			: value
-	}
-	#pluginCodec(
-		field: GenericField,
-		schema: SchemaDefinition,
-		path: readonly string[],
-	): PluginFieldWireCodec | undefined {
-		if (isGraphqlBuiltInFieldKind(field.kind)) return undefined
-		const codec = getPluginFieldWireCodec(field, graphqlFieldProtocol)
-		if (codec === undefined) {
-			throw new GraphqlSchemaCompilationError(
-				'missing-field-codec',
-				`Plugin field ${schema.className}.${path.join('.')} has no ultimabase.graphql.field@1.0.0 JSON codec`,
-				{
-					owner: readGraphqlFieldOwner(schema, path),
-					path: `${schema.className}.${path.join('.')}`,
-				},
-			)
-		}
-		return codec
 	}
 	#fieldPathKey(schema: SchemaDefinition, path: readonly string[]): string {
 		return `${schema.className}\0${path.join('\0')}`
@@ -228,7 +223,7 @@ export class GraphqlFieldTypeCompiler {
 			case 'relation':
 				return this.#connectionTypes.connection(this.#target(schema, path))
 			default:
-				this.#pluginCodec(field, schema, path)
+				readGraphqlPluginFieldCodec(field, schema, path)
 				return GraphqlJSON
 		}
 	}
@@ -245,7 +240,7 @@ export class GraphqlFieldTypeCompiler {
 			case 'object':
 				return this.#embeddedInput(field, schema, path)
 			default:
-				this.#pluginCodec(field, schema, path)
+				readGraphqlPluginFieldCodec(field, schema, path)
 				return GraphqlJSON
 		}
 	}

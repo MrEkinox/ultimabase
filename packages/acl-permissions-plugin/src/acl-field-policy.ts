@@ -55,7 +55,7 @@ export const createACLFieldPolicy = (
 
 			return immutableRecord({
 				selectionFields: immutableArray(
-					Object.entries(schema.persistedFields)
+					Object.entries(schema.fields)
 						.filter(
 							([field, definition]) =>
 								field !== aclFieldName && definition.kind !== 'relation',

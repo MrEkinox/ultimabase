@@ -46,3 +46,8 @@ The HTTP plugin selects the application, resolves its request context and
 credentials, and exchanges an enabled Master key before Yoga runs. Yoga sees
 only that active context and delegates execution to the same narrow GraphQL
 application capability used by networkless execution.
+
+Virtual fields require no Yoga-specific resolver or configuration. Their
+selection, request-aware asynchronous resolution, output validation, Access,
+Master behavior, cancellation, and mutation rollback stay in Core; Yoga only
+delivers the resulting GraphQL response through the selected HTTP application.

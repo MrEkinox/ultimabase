@@ -23,6 +23,26 @@ const Note = Schema.define({
 	fields: (field) => ({
 		primary: field.pointer({ target: 'JavaScriptGraphqlTarget' }),
 		title: field.string(),
+		summary: field.virtual({
+			output: (output) =>
+				output.object({
+					fields: (nested) => ({
+						binary: nested.binary({ nullable: false }),
+						huge: nested.bigint({ nullable: false }),
+						label: nested.string({ nullable: false }),
+					}),
+					nullable: false,
+				}),
+			resolve: async ({ item }) => {
+				await Promise.resolve()
+				return {
+					binary: Uint8Array.from([1, 2, 3]),
+					huge: 9_007_199_254_740_993n,
+					label: String(item.title).toUpperCase(),
+				}
+			},
+			select: { title: true },
+		}),
 	}),
 	graphql: true,
 })
@@ -88,7 +108,7 @@ const query = await graphql({
 	schema: graphqlApplication.schema,
 	source: `query {
 		findManyJavaScriptGraphqlNote(first: 1) {
-			nodes { id title }
+			nodes { id title summary { binary huge label } }
 			pageInfo { hasNextPage }
 		}
 	}`,

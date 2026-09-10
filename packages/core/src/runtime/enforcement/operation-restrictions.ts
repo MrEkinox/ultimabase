@@ -169,6 +169,10 @@ const restrictOperationSelection = <
 	}
 	// The pipeline accepts only normalized executable operations at this point.
 	const executable = operation as unknown as ExecutableOperationAst
+	// Scalar terminals have no record projection for a field policy to narrow.
+	if (executable.kind === 'count' || executable.kind === 'exists') {
+		return operation
+	}
 
 	if ('query' in executable) {
 		return immutableRecord({

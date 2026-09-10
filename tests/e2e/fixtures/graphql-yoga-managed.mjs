@@ -1,4 +1,5 @@
 import {
+	Schema,
 	UltimaBase,
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
@@ -17,8 +18,12 @@ class GraphqlYogaE2eDatabase {
 	kind = 'database-adapter'
 	capabilities = { persistencePlans: databasePersistencePlanCapability }
 
-	execute() {
-		return Promise.reject(new TypeError('GraphQL Yoga E2E does not query'))
+	execute(request) {
+		const row = {
+			id: '01991f00-0000-7000-8000-000000000704',
+			title: 'Packed Yoga',
+		}
+		return Promise.resolve(request.operation.kind === 'find-many' ? [row] : row)
 	}
 
 	beginTransaction() {
@@ -59,6 +64,21 @@ const reservePort = () =>
 	})
 
 const port = await reservePort()
+const ManagedVirtual = Schema.define({
+	className: 'ManagedVirtual',
+	fields: (field) => ({
+		title: field.string(),
+		summary: field.virtual({
+			output: (output) => output.string({ nullable: false }),
+			resolve: async ({ item }) => {
+				await Promise.resolve()
+				return String(item.title).toUpperCase()
+			},
+			select: { title: true },
+		}),
+	}),
+	graphql: true,
+})
 const schema = new GraphQLSchema({
 	query: new GraphQLObjectType({
 		name: 'Query',
@@ -80,7 +100,7 @@ const application = new UltimaBase({
 		graphqlYogaPlugin(),
 		honoServerPlugin({ host: '127.0.0.1', port }),
 	],
-	schemas: [],
+	schemas: [ManagedVirtual],
 })
 
 await application.start()
@@ -90,7 +110,9 @@ try {
 	const response = await globalThis.fetch(
 		`http://127.0.0.1:${String(port)}/graphql`,
 		{
-			body: JSON.stringify({ query: '{ value }' }),
+			body: JSON.stringify({
+				query: '{ value findOneManagedVirtual { summary } }',
+			}),
 			headers: {
 				'Content-Type': 'application/json',
 				[httpApplicationIdHeader]: 'managed',

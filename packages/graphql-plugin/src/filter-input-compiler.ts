@@ -313,7 +313,7 @@ export class GraphqlFilterInputCompiler {
 				OR: { type: this.#list(result) },
 				NOT: { type: result },
 				...Object.fromEntries(
-					Object.entries(schema.definition.fields).map(([fieldName, field]) => {
+					Object.entries(schema.persistedFields).map(([fieldName, field]) => {
 						assertGraphqlFieldName(
 							fieldName,
 							graphqlSourceDescription(schema, [fieldName]),
@@ -341,7 +341,7 @@ export class GraphqlFilterInputCompiler {
 		const field = new GraphQLEnumType({
 			name: enumName,
 			values: Object.fromEntries(
-				Object.keys(schema.definition.fields).map((name) => [
+				Object.keys(schema.persistedFields).map((name) => [
 					name,
 					{ value: name },
 				]),

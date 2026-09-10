@@ -82,7 +82,8 @@ export class GraphqlMutationInputCompiler {
 			fieldName,
 		])?.mappedBy
 		if (mappedBy?.kind !== 'pointer') return true
-		const mappedField = mappedBy.schema.fields[mappedBy.fieldPath[0] ?? '']
+		const mappedField =
+			mappedBy.schema.persistedFields[mappedBy.fieldPath[0] ?? '']
 		return (
 			mappedField === undefined || readFieldTypegenState(mappedField).nullable
 		)
@@ -159,7 +160,7 @@ export class GraphqlMutationInputCompiler {
 			mappedBy?.kind === 'pointer' ? mappedBy.fieldPath[0] : undefined
 		if (omitted === undefined) return this.createInput(target)
 
-		const eligible = Object.entries(target.fields).some(
+		const eligible = Object.entries(target.persistedFields).some(
 			([name, field]) =>
 				name !== omitted && this.#fieldAvailable(field, 'create', true),
 		)
@@ -290,7 +291,7 @@ export class GraphqlMutationInputCompiler {
 		omitted?: string,
 	): GraphQLInputFieldConfigMap {
 		const compiled: GraphQLInputFieldConfigMap = {}
-		for (const [fieldName, field] of Object.entries(schema.fields)) {
+		for (const [fieldName, field] of Object.entries(schema.persistedFields)) {
 			if (
 				fieldName === omitted ||
 				!this.#fieldAvailable(field, mode, relationships) ||
@@ -331,7 +332,7 @@ export class GraphqlMutationInputCompiler {
 		const existing = cache.get(schema)
 		if (existing !== undefined) return existing
 		const relationships = !flat
-		const eligible = Object.values(schema.fields).some(
+		const eligible = Object.values(schema.persistedFields).some(
 			(field) =>
 				this.#fieldAvailable(field, 'create', relationships) &&
 				(!flat || (field.kind !== 'pointer' && field.kind !== 'relation')),
@@ -353,7 +354,7 @@ export class GraphqlMutationInputCompiler {
 		const existing = cache.get(schema)
 		if (existing !== undefined) return existing
 		const relationships = !flat
-		const mutable = Object.values(schema.fields).some(
+		const mutable = Object.values(schema.persistedFields).some(
 			(field) =>
 				this.#fieldAvailable(field, 'update', relationships) &&
 				(!flat || (field.kind !== 'pointer' && field.kind !== 'relation')),

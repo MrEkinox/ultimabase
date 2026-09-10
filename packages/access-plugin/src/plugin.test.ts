@@ -29,6 +29,10 @@ declare module '@ultimabase/core' {
 		readonly access?: FieldAccessOption<this>
 	}
 
+	interface UltimaBaseGeneratedVirtualFieldOptions {
+		readonly access?: FieldAccessOption<this>
+	}
+
 	interface UltimaBaseGeneratedSchemaOptions {
 		readonly access?: SchemaAccessOption<this>
 	}
@@ -104,6 +108,25 @@ const MasterBypassDocument = Schema.define({
 	access: { read: false },
 })
 
+const VirtualDocument = Schema.define({
+	className: 'AccessPluginVirtualDocument',
+	fields: (field) => ({
+		label: field.virtual({
+			output: (output) => output.string({ nullable: false }),
+			resolve: ({ item }) => `Label: ${String(item.title)}`,
+			select: { title: true },
+		}),
+		privateLabel: field.virtual({
+			access: { read: false },
+			output: (output) => output.string({ nullable: false }),
+			resolve: ({ item }) => `Private: ${String(item.title)}`,
+			select: { title: true },
+		}),
+		title: field.string(),
+	}),
+	access: { read: true },
+})
+
 const row = {
 	createdAt: '2026-08-20T10:00:00.000Z',
 	id: '019c0000-0000-7000-8000-000000000001',
@@ -146,6 +169,37 @@ describe('accessPlugin', () => {
 			).resolves.toEqual([expect.not.objectContaining({ secret: 'hidden' })])
 			await expect(
 				SecretDocument.findMany({ select: { secret: true } }, { ultimabase }),
+			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
+		} finally {
+			await ultimabase.dispose()
+		}
+	})
+
+	it('keeps virtual read policy separate from persisted adapter projection', async () => {
+		const ultimabase = new UltimaBase({
+			plugins: [
+				accessPlugin({ default: true }),
+				databasePlugin(
+					new StaticReadAdapter([{ id: row.id, title: 'visible' }]),
+				),
+			],
+			schemas: [VirtualDocument],
+		})
+
+		try {
+			await ultimabase.start()
+			const result = await VirtualDocument.findMany(
+				{ select: { label: true, title: true } },
+				{ ultimabase },
+			)
+			expect(result).toEqual([
+				expect.objectContaining({ label: 'Label: visible', title: 'visible' }),
+			])
+			await expect(
+				VirtualDocument.findMany(
+					{ select: { privateLabel: true } },
+					{ ultimabase },
+				),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 		} finally {
 			await ultimabase.dispose()

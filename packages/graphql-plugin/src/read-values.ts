@@ -233,7 +233,7 @@ export const decodeGraphqlWhere = (
 					]
 				}
 				if (name === 'NOT') return [name, decodeGraphqlWhere(schema, item)]
-				const field = schema.fields[name]
+				const field = schema.persistedFields[name]
 				if (field === undefined || !isPlainRecord(item)) return [name, item]
 				return [
 					name,

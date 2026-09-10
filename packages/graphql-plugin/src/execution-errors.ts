@@ -75,3 +75,13 @@ export const createSafeGraphqlError = (
 	}
 	return new GraphQLError(failure.message, { extensions })
 }
+
+/** Converts a native GraphQL abort into the same safe public cancellation shape. */
+export const createCancelledGraphqlError = (requestId: string): GraphQLError =>
+	new GraphQLError('The operation was cancelled.', {
+		extensions: {
+			code: 'OPERATION_CANCELLED',
+			requestId,
+			retryable: false,
+		},
+	})

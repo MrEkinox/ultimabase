@@ -16,7 +16,7 @@ virtual fields without inventing persistence or mutation behavior.
 6. [x] [2506 — Resolve asynchronous virtual fields](2506-virtual-field-runtime.md)
 7. [x] [2507 — Integrate virtual projections with PostgreSQL](2507-postgres-virtual-projections.md)
 8. [x] [2508 — Expose virtual fields through REST](2508-rest-virtual-fields.md)
-9. [ ] [2509 — Expose virtual fields through GraphQL](2509-graphql-virtual-fields.md)
+9. [x] [2509 — Expose virtual fields through GraphQL](2509-graphql-virtual-fields.md)
 10. [ ] [2510 — Prove the public virtual-field vertical](2510-virtual-field-public-vertical.md)
 11. [ ] [2511 — Audit and close contextual virtual fields](2511-contextual-virtual-final-audit.md)
 

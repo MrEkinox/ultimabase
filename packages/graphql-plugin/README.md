@@ -128,6 +128,43 @@ Ordering is an explicit ordered list. Model selections, fragments, directives,
 pointers, and relation selections normalize into Core's immutable Query and
 Operation AST without retaining GraphQL or HTTP objects.
 
+Virtual fields are output-only model fields compiled from their Core
+`OutputBuilder` descriptor. Built-in scalar, enum, temporal, decimal, binary,
+JSON, nullable, list, and nested object shapes receive their exact GraphQL
+representation. Named output objects reuse the ordinary deterministic custom
+schema composition rules, so compatible definitions merge and incompatible
+fields fail startup.
+
+```ts
+const Post = Schema.define({
+	className: 'Post',
+	fields: (field) => ({
+		title: field.string(),
+		summary: field.virtual({
+			output: (output) =>
+				output.object({
+					fields: (nested) => ({
+						label: nested.string({ nullable: false }),
+					}),
+				}),
+			resolve: async ({ context, item }) => ({
+				label: `${String(item.title)}:${context.access.mode}`,
+			}),
+			select: { title: true },
+		}),
+	}),
+	graphql: true,
+})
+```
+
+GraphQL contributes only the logical `summary` selection. Core authorizes it,
+loads its persisted dependencies privately, invokes and validates the resolver,
+then returns the virtual value through the ordinary result pipeline. GraphQL
+never receives the resolver or its private dependency view. Virtual names are
+absent from create, update, upsert, nested-write, where, order, connection, and
+relationship inputs. A plugin output descriptor without an exact GraphQL v1
+representation fails schema compilation instead of degrading to JSON.
+
 The generated mutation surface includes enabled singular and ordered itemized
 bulk create, update, delete, and upsert commands. GraphQL input wrappers are
 decoded into the same schema commands used by direct TypeScript and REST.

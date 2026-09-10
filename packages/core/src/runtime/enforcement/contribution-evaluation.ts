@@ -30,6 +30,7 @@ import {
 import { getOperationSchema } from '../operations/schema.js'
 import type { RuntimeOperationStageInput } from '../pipeline/contracts.js'
 import type { EnforcementContributionImplementation } from './definitions.js'
+import type { EnforcementFieldBoundary } from './contracts.js'
 import {
 	getEnforcementContributionImplementation,
 	matchesEnforcementContribution,
@@ -210,11 +211,12 @@ export const readEnforcementContributions = (
 	return immutableArray(contributions)
 }
 
-/** Rejects field names that do not belong to the exact operation schema. */
+/** Validates one field boundary against persisted input or logical output names. */
 export const normalizeEnforcementRestrictedFields = (
 	fields: unknown,
 	schema: SchemaDefinition,
 	contribution: OwnedPluginContribution,
+	boundary: EnforcementFieldBoundary,
 ): readonly string[] => {
 	if (!isUnknownArray(fields)) {
 		throw new TypeError(
@@ -223,12 +225,11 @@ export const normalizeEnforcementRestrictedFields = (
 	}
 
 	const normalized: string[] = []
+	const declaredFields =
+		boundary === 'input' ? schema.persistedFields : schema.fields
 
 	for (const field of fields) {
-		if (
-			typeof field !== 'string' ||
-			!Object.hasOwn(schema.persistedFields, field)
-		) {
+		if (typeof field !== 'string' || !Object.hasOwn(declaredFields, field)) {
 			throw new TypeError(
 				`Enforcement contribution "${contribution.name}" returned an unknown schema field`,
 			)
@@ -302,6 +303,7 @@ export const evaluateEnforcementContributions = async <
 						effects.inputFields,
 						schema,
 						contribution,
+						'input',
 					),
 				)
 			}
@@ -313,6 +315,7 @@ export const evaluateEnforcementContributions = async <
 						effects.selectionFields,
 						schema,
 						contribution,
+						'selection',
 					),
 				)
 			}
@@ -364,7 +367,12 @@ export const evaluateEnforcementContributions = async <
 				state = narrowEnforcementFields(
 					state,
 					boundary,
-					normalizeEnforcementRestrictedFields(output, schema, contribution),
+					normalizeEnforcementRestrictedFields(
+						output,
+						schema,
+						contribution,
+						boundary,
+					),
 				)
 				break
 			}

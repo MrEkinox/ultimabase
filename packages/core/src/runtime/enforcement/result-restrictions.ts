@@ -127,7 +127,12 @@ export const enforceOutputRestrictions = async <
 		state = narrowEnforcementFields(
 			state,
 			'output',
-			normalizeEnforcementRestrictedFields(output, schema, contribution),
+			normalizeEnforcementRestrictedFields(
+				output,
+				schema,
+				contribution,
+				'output',
+			),
 		)
 	}
 

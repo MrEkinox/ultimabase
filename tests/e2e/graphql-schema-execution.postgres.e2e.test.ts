@@ -36,6 +36,7 @@ declare module '@ultimabase/core' {
 
 const publicAcl = new ACL().grantPublic('delete', 'read', 'update')
 const privateAcl = new ACL()
+const deniedVirtualAccess = { access: { read: false } }
 const hookTrace: string[] = []
 
 const GraphqlAuthor = Schema.define({
@@ -56,6 +57,20 @@ const GraphqlPost = Schema.define({
 	fields: (field) => ({
 		author: field.pointer({ target: 'GraphqlExecutionAuthor' }),
 		counter: field.int({ default: 0 }),
+		contextLabel: field.virtual({
+			output: (output) => output.string({ nullable: false }),
+			resolve: async ({ context, item }) => {
+				await Promise.resolve()
+				return `${String(item.title)}:${context.access.mode}`
+			},
+			select: { title: true },
+		}),
+		privateLabel: field.virtual({
+			...deniedVirtualAccess,
+			output: (output) => output.string({ nullable: false }),
+			resolve: ({ item }) => `Private: ${String(item.title)}`,
+			select: { title: true },
+		}),
 		slug: field.string({ indexed: 'unique', required: true }),
 		title: field.string({
 			required: true,
@@ -188,25 +203,31 @@ describe('GraphQL generated schema execution with PostgreSQL', () => {
 	it('executes reads and every mutation family through canonical Runtime semantics', async () => {
 		const created = await execute(`mutation {
 			createGraphqlExecutionPost(input: { slug: "one", title: "One" }) {
-				id slug title counter
+				id slug title counter contextLabel
 			}
 		}`)
 		expect(created.errors).toBeUndefined()
 		const first = recordAt(created.data, 'createGraphqlExecutionPost')
-		expect(first).toMatchObject({ counter: 0, slug: 'one', title: 'One' })
+		expect(first).toMatchObject({
+			contextLabel: 'One:anonymous',
+			counter: 0,
+			slug: 'one',
+			title: 'One',
+		})
 
 		const updated = await execute(
 			`mutation Update($id: ID!) {
 			updateGraphqlExecutionPost(input: {
 				id: $id
 				data: { counter: { increment: 2 }, title: { set: "Updated" } }
-			}) { id slug title counter }
+			}) { id slug title counter contextLabel }
 		}`,
 			context('anonymous'),
 			{ id: first.id },
 		)
 		expect(updated.errors).toBeUndefined()
 		expect(recordAt(updated.data, 'updateGraphqlExecutionPost')).toMatchObject({
+			contextLabel: 'Updated:anonymous',
 			counter: 2,
 			title: 'Updated',
 		})
@@ -216,11 +237,12 @@ describe('GraphQL generated schema execution with PostgreSQL', () => {
 				where: { slug: { eq: "one" } }
 				create: { slug: "one", title: "Created branch" }
 				update: { title: { set: "Upserted" } }
-			}) { id slug title counter }
+			}) { id slug title counter contextLabel }
 		}`)
 		expect(upserted.errors).toBeUndefined()
 		expect(recordAt(upserted.data, 'upsertGraphqlExecutionPost')).toMatchObject(
 			{
+				contextLabel: 'Upserted:anonymous',
 				counter: 2,
 				title: 'Upserted',
 			},
@@ -369,6 +391,27 @@ describe('GraphQL generated schema execution with PostgreSQL', () => {
 		expect(masterRead.errors).toBeUndefined()
 		expect(recordAt(masterRead.data, 'getGraphqlExecutionPost')).toMatchObject({
 			title: 'Private',
+		})
+
+		const deniedVirtual = await execute(
+			`query { getGraphqlExecutionPost(id: "${privateRecord.id}") { privateLabel } }`,
+		)
+		expect(deniedVirtual.data).toEqual({ getGraphqlExecutionPost: null })
+		expect(deniedVirtual.errors?.[0]?.extensions).toMatchObject({
+			code: 'PERMISSION_DENIED',
+		})
+		const masterVirtual = await execute(
+			`query { getGraphqlExecutionPost(id: "${privateRecord.id}") {
+				contextLabel privateLabel
+			} }`,
+			context('master'),
+		)
+		expect(masterVirtual.errors).toBeUndefined()
+		expect(
+			recordAt(masterVirtual.data, 'getGraphqlExecutionPost'),
+		).toMatchObject({
+			contextLabel: 'Private:master',
+			privateLabel: 'Private: Private',
 		})
 
 		const controller = new AbortController()

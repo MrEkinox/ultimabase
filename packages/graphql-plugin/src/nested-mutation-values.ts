@@ -135,7 +135,7 @@ export const decodeGraphqlMutationData = (
 	return immutableRecord(
 		Object.fromEntries(
 			Object.entries(value).map(([name, item]) => {
-				const field = schema.fields[name]
+				const field = schema.persistedFields[name]
 				if (field === undefined) return [name, item]
 				if (relationships === 'nested' && field.kind === 'pointer') {
 					return [name, decodePointerCommands(field, item, mode)]

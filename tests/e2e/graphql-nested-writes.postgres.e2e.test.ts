@@ -37,6 +37,14 @@ const Post = Schema.define({
 		primary: field.pointer({ target: 'GraphqlNestedTarget' }),
 		targets: field.relation({ target: 'GraphqlNestedTarget' }),
 		title: field.string({ required: true }),
+		headline: field.virtual({
+			output: (output) => output.string({ nullable: false }),
+			resolve: async ({ item }) => {
+				await Promise.resolve()
+				return `Post: ${String(item.title)}`
+			},
+			select: { title: true },
+		}),
 	}),
 	graphql: true,
 })
@@ -190,7 +198,7 @@ describe('GraphQL nested writes with PostgreSQL', { concurrent: false }, () => {
 		const created = await execute(
 			`mutation Create($input: GraphqlNestedPostCreateInput!) {
 				createGraphqlNestedPost(input: $input) {
-					id title primary { id name score }
+					id title headline primary { id name score }
 					targets(first: 10) { nodes { id name score } }
 				}
 			}`,
@@ -207,6 +215,7 @@ describe('GraphQL nested writes with PostgreSQL', { concurrent: false }, () => {
 		)
 		expect(created.errors).toBeUndefined()
 		const createdPost = fieldResult(created.data, 'createGraphqlNestedPost')
+		expect(createdPost.headline).toBe('Post: Created')
 		expect(createdPost.primary).toMatchObject({
 			name: 'Pointer created',
 			score: '1',
@@ -230,7 +239,7 @@ describe('GraphQL nested writes with PostgreSQL', { concurrent: false }, () => {
 		const updated = await execute(
 			`mutation Update($input: GraphqlNestedPostUpdateOneInput!) {
 				updateGraphqlNestedPost(input: $input) {
-					title primary { name score }
+					title headline primary { name score }
 					targets(first: 10) { nodes { name score } }
 				}
 			}`,
@@ -265,6 +274,7 @@ describe('GraphQL nested writes with PostgreSQL', { concurrent: false }, () => {
 		)
 		expect(updated.errors).toBeUndefined()
 		const updatedPost = fieldResult(updated.data, 'updateGraphqlNestedPost')
+		expect(updatedPost.headline).toBe('Post: Updated')
 		expect(updatedPost.primary).toMatchObject({
 			name: 'Pointer updated',
 			score: '3',
@@ -310,7 +320,7 @@ describe('GraphQL nested writes with PostgreSQL', { concurrent: false }, () => {
 		const created = await executeYoga(
 			`mutation Create($input: GraphqlNestedPostCreateInput!) {
 				createGraphqlNestedPost(input: $input) {
-					id title targets(first: 10) { nodes { name } }
+					id title headline targets(first: 10) { nodes { name } }
 				}
 			}`,
 			{
@@ -321,6 +331,7 @@ describe('GraphQL nested writes with PostgreSQL', { concurrent: false }, () => {
 			},
 		)
 		const post = fieldResult(created.data, 'createGraphqlNestedPost')
+		expect(post.headline).toBe('Post: Yoga created')
 		expect(relationNodes(post.targets)).toEqual([{ name: 'Yoga target' }])
 		if (typeof post.id !== 'string') {
 			throw new TypeError('Yoga nested-write post ID is unavailable')

@@ -19,7 +19,10 @@ import {
 	prepareGraphqlDocument,
 	prepareGraphqlVariables,
 } from './document-limits.js'
-import { createSafeGraphqlError } from './execution-errors.js'
+import {
+	createCancelledGraphqlError,
+	createSafeGraphqlError,
+} from './execution-errors.js'
 
 /** Supplies a trusted context and one exact GraphQL operation document. */
 export interface GraphqlExecuteOptions {
@@ -125,14 +128,23 @@ export class GraphqlNetworklessExecution {
 				}
 				const errors = validate(this.#schema, document)
 				if (errors.length > 0) return { errors }
-				return await execute({
-					schema: this.#schema,
-					document,
-					contextValue: Object.freeze({ request: context }),
-					operationName: options.operationName,
-					variableValues: variables,
-					abortSignal: context.signal,
-				})
+				try {
+					return await execute({
+						schema: this.#schema,
+						document,
+						contextValue: Object.freeze({ request: context }),
+						operationName: options.operationName,
+						variableValues: variables,
+						abortSignal: context.signal,
+					})
+				} catch (error: unknown) {
+					return errorResult(
+						context.signal.aborted
+							? createCancelledGraphqlError(context.requestId)
+							: error,
+						context.requestId,
+					)
+				}
 			}),
 		)
 	}

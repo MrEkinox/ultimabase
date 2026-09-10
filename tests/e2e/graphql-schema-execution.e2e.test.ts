@@ -28,6 +28,11 @@ it('executes packed GraphQL from JavaScript without Typegen', async () => {
 					nodes: [
 						{
 							id: '01991f00-0000-7000-8000-000000000612',
+							summary: {
+								binary: 'AQID',
+								huge: '9007199254740993',
+								label: 'TYPEGEN-FREE GRAPHQL',
+							},
 							title: 'Typegen-free GraphQL',
 						},
 					],

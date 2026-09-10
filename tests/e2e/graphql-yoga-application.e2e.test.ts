@@ -14,7 +14,12 @@ it('serves the packed GraphQL Yoga adapter through managed Hono', async () => {
 	const output: unknown = JSON.parse(stdout)
 
 	expect(output).toStrictEqual({
-		body: { data: { value: 'network-value' } },
+		body: {
+			data: {
+				findOneManagedVirtual: { summary: 'PACKED YOGA' },
+				value: 'network-value',
+			},
+		},
 		closed: true,
 		status: 200,
 	})

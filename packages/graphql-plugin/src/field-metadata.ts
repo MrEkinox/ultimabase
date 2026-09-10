@@ -1,5 +1,6 @@
 import type {
 	GenericField,
+	GenericVirtualField,
 	SchemaContributionOwner,
 	SchemaDefinition,
 	SchemaFields,
@@ -51,7 +52,7 @@ export const readGraphqlObjectFields = (field: GenericField): SchemaFields => {
 }
 
 export const readGraphqlFieldDescription = (
-	field: GenericField,
+	field: GenericField | GenericVirtualField,
 ): string | undefined =>
 	'description' in field.options &&
 	typeof field.options.description === 'string'
