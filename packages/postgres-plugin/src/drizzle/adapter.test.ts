@@ -20,22 +20,18 @@ import {
 	type UpdateOneOperationAst,
 	type UpsertOneOperationAst,
 } from '@ultimabase/core'
-import { isPlainRecord, isUnknownArray } from '@ultimabase/shared'
+import { isPlainRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 
 import { createPostgresDatabaseAdapter } from './adapter.js'
 import { execute, prepare } from './database-request.test-fixture.js'
-import type { PostgresDriverQueryClient } from './client.js'
 import type { PostgresConstraintCompilerRegistry } from '../constraints/compiler.js'
 import {
 	postgresConstraintCompiler,
 	type PostgresConstraintCompilerDefinition,
 } from '../constraints/definition.js'
-import type {
-	PostgresPool,
-	PostgresPoolClient,
-} from '../connection/contracts.js'
 import { PostgresSchemaCatalog } from '../schema/catalog.js'
+import { FixtureDriver, FixturePool } from './database-adapter.test-fixture.js'
 
 const articleSchema = Schema.define({
 	className: 'Article',
@@ -63,6 +59,28 @@ const pointerRegistry = new SchemaRegistry([
 const pointerCatalog = new PostgresSchemaCatalog(
 	pointerRegistry.values(),
 	pointerRegistry.resolveSchemaTargets(),
+)
+
+const relationTargetSchema = Schema.define({
+	className: 'AdapterRelationTarget',
+	fields: (field) => ({
+		label: field.string(),
+		visible: field.boolean(),
+	}),
+})
+const relationSourceSchema = Schema.define({
+	className: 'AdapterRelationSource',
+	fields: (field) => ({
+		targets: field.relation({ target: 'AdapterRelationTarget' }),
+	}),
+})
+const relationRegistry = new SchemaRegistry([
+	relationSourceSchema,
+	relationTargetSchema,
+])
+const relationCatalog = new PostgresSchemaCatalog(
+	relationRegistry.values(),
+	relationRegistry.resolveSchemaTargets(),
 )
 
 const decodeTenantPayload = (
@@ -105,136 +123,6 @@ const createConstraintCompilerRegistry = (
 	}))
 
 	return Object.freeze({ values: () => contributions })
-}
-
-interface RecordedDriverQuery {
-	readonly params: readonly unknown[]
-	readonly text: string
-}
-
-interface FixtureDriverResult {
-	readonly rowCount: number
-	readonly rows: readonly (readonly unknown[])[]
-}
-
-type TransactionStatement = 'BEGIN' | 'COMMIT' | 'ROLLBACK'
-
-/** Emulates only node-postgres' query boundary while Drizzle builds and maps real SQL. */
-class FixtureDriver implements PostgresDriverQueryClient, PostgresPoolClient {
-	readonly #responses: (Error | FixtureDriverResult)[] = []
-	readonly #transactionFailures = new Map<TransactionStatement, Error>()
-	readonly calls: RecordedDriverQuery[] = []
-	readonly transactionCalls: TransactionStatement[] = []
-	readonly releaseArguments: (Error | boolean | undefined)[] = []
-	releaseCalls = 0
-	#releaseFailure: Error | undefined
-
-	respond(rows: readonly (readonly unknown[])[], rowCount = rows.length): void {
-		this.#responses.push({ rowCount, rows })
-	}
-
-	fail(error: Error): void {
-		this.#responses.push(error)
-	}
-
-	failTransaction(statement: TransactionStatement, error: Error): void {
-		this.#transactionFailures.set(statement, error)
-	}
-
-	failRelease(error: Error): void {
-		this.#releaseFailure = error
-	}
-
-	query(...arguments_: unknown[]): Promise<FixtureDriverResult> {
-		const values: readonly unknown[] = arguments_
-		const configuration = values[0]
-		const parameters = values[1]
-
-		if (
-			configuration === 'BEGIN' ||
-			configuration === 'COMMIT' ||
-			configuration === 'ROLLBACK'
-		) {
-			this.transactionCalls.push(configuration)
-			const failure = this.#transactionFailures.get(configuration)
-
-			return failure === undefined
-				? Promise.resolve({ rowCount: 0, rows: [] })
-				: Promise.reject(failure)
-		}
-
-		if (
-			!isPlainRecord(configuration) ||
-			typeof configuration.text !== 'string' ||
-			!isUnknownArray(parameters)
-		) {
-			return Promise.reject(new TypeError('Invalid Drizzle fixture query'))
-		}
-
-		this.calls.push({ params: parameters, text: configuration.text })
-
-		const response = this.#responses.shift()
-
-		if (response === undefined) {
-			return Promise.reject(new TypeError('Missing Drizzle fixture response'))
-		}
-
-		return response instanceof Error
-			? Promise.reject(response)
-			: Promise.resolve(response)
-	}
-
-	release(error?: Error | boolean): void {
-		this.releaseCalls += 1
-		this.releaseArguments.push(error)
-
-		if (this.#releaseFailure !== undefined) {
-			throw this.#releaseFailure
-		}
-	}
-}
-
-/** Borrows the exact fixture driver used by each transaction adapter. */
-class FixturePool implements PostgresPool {
-	readonly #connectError: Error | undefined
-	readonly #rootDriver: FixtureDriver
-	readonly #transactionDrivers: readonly FixtureDriver[]
-	connectCalls = 0
-
-	constructor(
-		rootDriver: FixtureDriver,
-		transactionDrivers: readonly FixtureDriver[],
-		connectError?: Error,
-	) {
-		this.#connectError = connectError
-		this.#rootDriver = rootDriver
-		this.#transactionDrivers = transactionDrivers
-	}
-
-	connect(): Promise<PostgresPoolClient> {
-		this.connectCalls += 1
-		const client = this.#transactionDrivers[this.connectCalls - 1]
-
-		if (this.#connectError !== undefined) {
-			return Promise.reject(this.#connectError)
-		}
-
-		if (client === undefined) {
-			return Promise.reject(
-				new TypeError('Missing PostgreSQL transaction fixture client'),
-			)
-		}
-
-		return Promise.resolve(client)
-	}
-
-	end(): Promise<void> {
-		return Promise.resolve()
-	}
-
-	query(...arguments_: unknown[]): Promise<FixtureDriverResult> {
-		return this.#rootDriver.query(...arguments_)
-	}
 }
 
 const createFixture = (
@@ -714,6 +602,60 @@ describe('internal PostgreSQL database adapter', () => {
 		})
 		expect(String(failure)).not.toContain(secret)
 		expect(JSON.stringify(failure.toJSON())).not.toContain(secret)
+	})
+
+	it('compiles private row filters inside eager relation branches', async () => {
+		const driver = new FixtureDriver()
+		const pool = new FixturePool(driver, [])
+		const adapter = createPostgresDatabaseAdapter(pool, relationCatalog)
+		const query = new QueryBuilder(relationSourceSchema).include(
+			'targets',
+			(targets) => targets.where((where) => where.eq('label', 'caller')),
+		)
+		const inclusion = query.ast.inclusion.fields[0]
+
+		if (inclusion === undefined) {
+			throw new TypeError('Eager relation fixture requires one inclusion')
+		}
+		const targetOperation: FindManyOperationAst<typeof relationTargetSchema> = {
+			kind: 'find-many',
+			query: inclusion.query as unknown as FindManyOperationAst<
+				typeof relationTargetSchema
+			>['query'],
+		}
+		const rowFilter = new QueryBuilder(relationTargetSchema).where((where) =>
+			where.eq('visible', true),
+		).ast.where?.expression
+
+		if (rowFilter === undefined) {
+			throw new TypeError('Eager relation fixture requires one private filter')
+		}
+
+		driver.fail(new Error('stop after SQL compilation'))
+		await expect(
+			execute(adapter, {
+				constraints: [],
+				operation: { kind: 'find-many', query: query.ast },
+				inclusions: [
+					{
+						fieldPath: ['targets'],
+						kind: 'relation',
+						request: {
+							constraints: [],
+							operation: targetOperation,
+							plan: createDatabasePersistencePlan(targetOperation),
+							rowFilter,
+						},
+					},
+				],
+			}),
+		).rejects.toMatchObject({ code: 'INTERNAL_ERROR' })
+
+		expect(driver.calls).toHaveLength(1)
+		expect(driver.calls[0]?.params).toEqual(
+			expect.arrayContaining(['caller', true]),
+		)
+		expect(driver.calls[0]?.text.toLowerCase()).toContain('and')
 	})
 
 	it('fails before SQL for unsupported versions, invalid payloads, outputs, and creates', async () => {

@@ -138,6 +138,7 @@ export class RuntimePipeline {
 			this.#inclusionProjector.projectMutationBatch(
 				request,
 				createRuntimeVirtualFieldScheduler(this),
+				createRuntimeRelationFilterResolver(this),
 			),
 		)
 
@@ -414,6 +415,7 @@ export class RuntimePipeline {
 		const inclusions = await this.#inclusionProjector.prepare(
 			context,
 			operation,
+			relationFilterResolver,
 		)
 
 		throwIfOperationCancelled(context.signal, {

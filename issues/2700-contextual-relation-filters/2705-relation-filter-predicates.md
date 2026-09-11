@@ -1,6 +1,6 @@
 # 2705: Filter relation predicates and cardinality
 
-- Status: planned
+- Status: ready
 - Milestone: 27
 - Packages: `@ultimabase/core`, database adapters
 - Depends on: 2704

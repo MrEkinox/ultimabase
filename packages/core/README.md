@@ -883,7 +883,10 @@ Unlike a pointer, an included relation supports `where`, `orderBy`, `offset`,
 `limit`, `select`, and nested `include`. Its offset is applied independently to
 every parent collection. Installed source-relation field policy runs once
 before loading. Target policy and output resolution still apply through the
-target read pipeline.
+target read pipeline. The field's declared relation `where` narrows that same
+target collection before ordering, offset, and limit. Core resolves a contextual
+declaration once per exact field and root operation, even when one inclusion
+hydrates many parents or repeats through a mutation result projection.
 
 Persisted models expose only their declared to-many fields through an immutable
 `Relation<TSource, TTarget>` handle:

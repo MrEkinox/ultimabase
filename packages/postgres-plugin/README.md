@@ -697,9 +697,12 @@ const articles = await Article.findMany({
 
 PostgreSQL compiles pointer, owning-relation, inverse-relation, and nested
 inclusion branches into one Drizzle RQB `with` tree. Core prepares target policy
-and constraints before the adapter receives that tree. No adapter-side
-DataLoader or per-parent query loop is used. A nested `offset` is applied by
-Drizzle independently to each parent collection.
+and constraints before the adapter receives that tree. A relation field's
+declared `where` arrives only as Core's normalized private row filter and is
+combined with the inclusion query before ordering and pagination. PostgreSQL
+never receives the resolver or request context. No adapter-side DataLoader or
+per-parent query loop is used. A nested `offset` is applied by Drizzle
+independently to each parent collection.
 
 Relation handle scopes stay outside the developer Query AST and are combined
 with developer predicates and protected row filters using parameterized SQL.

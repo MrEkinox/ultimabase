@@ -19,15 +19,12 @@ import { Pointer, Schema, type SchemaDefinition } from '../../schema/index.js'
 import type { RequestContext } from '../context/request-context.js'
 import {
 	databaseInclusionCapabilityVersion,
-	type DatabaseConstraintNode,
 	type DatabaseInclusionPlan,
 	type DatabaseMutationOperationAst,
 	type DatabaseOperationAst,
 	type DatabaseOperationExecutor,
 	type DatabaseOperationOutcome,
 	type DatabaseOperationResult,
-	type DatabaseRelationPredicateScope,
-	type DatabaseRowFilterNode,
 } from '../database/contracts.js'
 import type { EnforcementState } from '../enforcement/state.js'
 import { isProtectedPolicyDenied } from '../enforcement/protected-denial.js'
@@ -52,11 +49,9 @@ import type {
 	RuntimePipelineStages,
 } from './contracts.js'
 import {
-	createRuntimeEnforcementInput,
 	createRuntimeOperationInput,
 	emptyRuntimeConstraints,
 	readRuntimeSelectedFieldsOverride,
-	snapshotRuntimeConstraints,
 } from './stage-inputs.js'
 import type { RuntimePipeline } from './runtime-pipeline.js'
 import { createDatabasePersistenceRequest } from '../persistence/execution.js'
@@ -65,7 +60,15 @@ import {
 	prepareRuntimeVirtualFieldProjection,
 	type RuntimeVirtualFieldProjection,
 } from '../virtual-fields/projection.js'
-import { finalizeRuntimeInclusionValue } from './inclusion-finalization.js'
+import {
+	finalizeRuntimeInclusionValue,
+	restoreRuntimeInclusionResult,
+} from './inclusion-finalization.js'
+import type { RuntimeRelationFilterResolver } from '../relation-filters/execution.js'
+import {
+	prepareRuntimeInclusionEnforcement,
+	type RuntimeInclusionEnforcementResult,
+} from './inclusion-enforcement.js'
 
 /** Carries one grouped mutation projection without exposing it on RuntimePipeline. */
 export interface RuntimeMutationBatchProjectionRequest {
@@ -229,16 +232,6 @@ export interface RuntimePreparedInclusion {
 	readonly virtualProjection: RuntimeVirtualFieldProjection | undefined
 }
 
-/** Restores the operation result after inclusion hydration preserves cardinality. */
-const restoreRuntimeInclusionResult = <
-	const TOperation extends DatabaseOperationAst,
->(
-	result: unknown,
-): RuntimeOperationResult<TOperation> =>
-	// Every branch below validates the operation-specific null, record, or array
-	// shape before replacing only declared relationship field values.
-	result as RuntimeOperationResult<TOperation>
-
 /** Owns nested policy projection without replaying root policy or behavior. */
 export class RuntimeInclusionProjector {
 	readonly #stages: Readonly<RuntimePipelineStages>
@@ -256,6 +249,7 @@ export class RuntimeInclusionProjector {
 	async projectMutationBatch(
 		request: RuntimeMutationBatchProjectionRequest,
 		virtualScheduler?: RuntimeVirtualFieldScheduler,
+		relationFilterResolver?: RuntimeRelationFilterResolver,
 	): Promise<readonly Readonly<Record<string, unknown>>[]> {
 		if (request.objectIds.length !== request.results.length) {
 			throw new TypeError(
@@ -297,7 +291,11 @@ export class RuntimeInclusionProjector {
 				where: immutableRecord({ expression, kind: 'where' as const }),
 			}),
 		})
-		const inclusions = await this.prepare(request.context, operation)
+		const inclusions = await this.prepare(
+			request.context,
+			operation,
+			relationFilterResolver,
+		)
 
 		if (inclusions.length === 0) return immutableArray(request.results)
 
@@ -383,6 +381,7 @@ export class RuntimeInclusionProjector {
 	async prepare(
 		context: RequestContext,
 		parentOperation: DatabaseOperationAst,
+		relationFilterResolver?: RuntimeRelationFilterResolver,
 	): Promise<readonly RuntimePreparedInclusion[]> {
 		const prepared: RuntimePreparedInclusion[] = []
 		const parentSchema = getOperationSchema(parentOperation)
@@ -393,6 +392,14 @@ export class RuntimeInclusionProjector {
 
 		for (const descriptor of readInclusions(parentOperation)) {
 			let operation = createInclusionOperation(descriptor)
+			const relation =
+				descriptor.kind === 'relation'
+					? immutableRecord({
+							fieldPath: immutableArray([descriptor.field]),
+							source: parentSchema,
+							target: descriptor.query.schema.definition,
+						})
+					: undefined
 
 			operation = await this.#stages.normalization(
 				createRuntimeOperationInput(context, operation),
@@ -401,44 +408,29 @@ export class RuntimeInclusionProjector {
 				createRuntimeOperationInput(context, operation),
 			)
 
-			let enforcement: EnforcementState | undefined
-			let constraints: readonly DatabaseConstraintNode[] =
-				emptyRuntimeConstraints
-			let relationPredicates:
-				readonly DatabaseRelationPredicateScope[] | undefined
-			let rowFilter: DatabaseRowFilterNode | undefined
+			let preparedEnforcement: RuntimeInclusionEnforcementResult
 
 			if (
-				descriptor.kind === 'relation' &&
+				relation !== undefined &&
 				this.#stages.enforcement?.enforceRelationRead !== undefined
 			) {
 				await this.#stages.enforcement.enforceRelationRead(
 					immutableRecord({
 						context,
 						operation,
-						relation: immutableRecord({
-							fieldPath: immutableArray([descriptor.field]),
-							source: parentSchema,
-							target: descriptor.query.schema.definition,
-						}),
+						relation,
 					}),
 				)
 			}
 
 			try {
-				if (this.#stages.enforcement !== undefined) {
-					enforcement = await this.#stages.enforcement.evaluate(
-						createRuntimeOperationInput(context, operation),
-					)
-					const enforced = await this.#stages.enforcement.enforceOperation(
-						createRuntimeEnforcementInput(context, operation, enforcement),
-					)
-
-					operation = enforced.operation
-					constraints = snapshotRuntimeConstraints(enforced.constraints)
-					relationPredicates = enforced.relationPredicates
-					rowFilter = enforced.rowFilter
-				}
+				preparedEnforcement = await prepareRuntimeInclusionEnforcement(
+					this.#stages,
+					context,
+					operation,
+					relation,
+					relationFilterResolver,
+				)
 			} catch (error: unknown) {
 				if (!isProtectedPolicyDenied(error)) throw error
 
@@ -468,8 +460,15 @@ export class RuntimeInclusionProjector {
 				continue
 			}
 
+			const { constraints, enforcement, relationPredicates, rowFilter } =
+				preparedEnforcement
+			operation = preparedEnforcement.operation
 			const virtualProjection = prepareRuntimeVirtualFieldProjection(operation)
-			const nested = await this.prepare(context, operation)
+			const nested = await this.prepare(
+				context,
+				operation,
+				relationFilterResolver,
+			)
 			const request = createDatabasePersistenceRequest(
 				{
 					constraints,

@@ -8,7 +8,10 @@ import {
 import { FrameworkError } from '../../foundation.js'
 import type { RuntimeBehaviorBoundaries } from '../behaviors/boundaries.js'
 import type { RequestContext } from '../context/request-context.js'
-import type { DatabaseOperationResult } from '../database/contracts.js'
+import type {
+	DatabaseOperationAst,
+	DatabaseOperationResult,
+} from '../database/contracts.js'
 import { retainRuntimeSchemaModelMetadata } from '../operations/model-metadata.js'
 import {
 	createRuntimeProjectedDatabaseResultInput,
@@ -28,6 +31,15 @@ export type RuntimeInclusionHydrator = (
 	inclusions: readonly RuntimePreparedInclusion[],
 	scheduler: RuntimeVirtualFieldScheduler | undefined,
 ) => Promise<RuntimeOperationResult<RuntimePreparedInclusion['operation']>>
+
+/** Restores the terminal-specific result after inclusion hydration preserves cardinality. */
+export const restoreRuntimeInclusionResult = <
+	const TOperation extends DatabaseOperationAst,
+>(
+	result: unknown,
+): RuntimeOperationResult<TOperation> =>
+	// Callers validate the exact null, record, or array shape before replacing fields.
+	result as RuntimeOperationResult<TOperation>
 
 /** Completes one eager target through the same private virtual projection boundary. */
 export const finalizeRuntimeInclusionValue = async (
