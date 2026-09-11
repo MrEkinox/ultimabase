@@ -8,8 +8,11 @@ import {
 	Schema,
 	type InferCreateInput,
 	type InferObject,
+	type RequestContextValue,
 	type SchemaResult,
 } from '@ultimabase/core'
+
+declare const currentUserId: RequestContextValue<string>
 
 export const UserSchema = Schema.define({
 	className: 'User',
@@ -33,6 +36,21 @@ export const PostSchema = Schema.define({
 	}),
 })
 
+export const ConversationSchema = Schema.define({
+	className: 'Conversation',
+	fields: (field) => ({
+		participants: field.relation({ target: 'User' }),
+		otherParticipants: field.relation({
+			target: 'User',
+			where: ({ context, where }) => {
+				const userId = context.getValue(currentUserId)
+
+				return userId === undefined ? where : where.ne('id', userId)
+			},
+		}),
+	}),
+})
+
 export type User = InferObject<typeof UserSchema>
 export type CreateUserInput = InferCreateInput<typeof UserSchema>
 ```
@@ -41,6 +59,14 @@ export type CreateUserInput = InferCreateInput<typeof UserSchema>
 one-to-many relationship, and `UserSchema.posts` is its storage-free inverse.
 An owning `relationField({ target })` plus one inverse `relationField` represents
 many-to-many. Use `pointerField({ indexed: "unique" })` for one-to-one.
+
+`otherParticipants.where` shapes only reads through that exact relation. A
+static declaration such as `{ active: { eq: true } }` uses the ordinary target
+filter contract. A contextual declaration receives the immutable request
+context and an empty target-typed builder, and must resolve synchronously. Core
+combines it with every caller filter using `AND`. This is not authorization:
+Access, ACL, and protected constraints still decide which rows may be observed,
+and another route to `User` does not inherit this relation's shaping rule.
 
 An ordinary User model keeps `posts` unloaded. A source read can explicitly
 include the collection with its own portable target query:

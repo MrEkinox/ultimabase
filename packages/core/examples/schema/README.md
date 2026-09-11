@@ -21,9 +21,9 @@ TypeScript snippets:
   from selectable results;
 - [`pointers.md`](pointers.md) declares exact single-object references and
   immutable logical pointer values;
-- [`relations.md`](relations.md) declares owning and inverse to-many topology
-  and builds opaque, independently paginated relation queries without embedding
-  collections in model records;
+- [`relations.md`](relations.md) declares owning and inverse to-many topology,
+  static or request-contextual read shaping, and opaque independently paginated
+  relation queries without embedding collections in model records;
 - [`nested-writes.md`](nested-writes.md) composes bounded singular pointer and
   relation commands while keeping bulk and draft inputs flat;
 - [`explicit-relationships.md`](explicit-relationships.md) models edges with

@@ -116,27 +116,24 @@ export interface PluginFieldWireCodec<TValue = unknown> {
 
 /** Identifies the Core-owned portable containment protocol understood by adapters. */
 export const pluginFieldStructuralContainsProtocolVersion = 1 as const
-
 /** Inert metadata proving that one declared plugin field supports containment. */
 export interface PluginFieldStructuralContainsMetadata {
 	readonly format: 'json'
 	readonly protocolVersion: typeof pluginFieldStructuralContainsProtocolVersion
 }
-
 interface PluginFieldStructuralContainsCapability {
 	readonly metadata: PluginFieldStructuralContainsMetadata
 	readonly snapshotOperand: (value: unknown, path: string) => unknown
 }
-
 interface FieldMetadata<TKind extends string, TOptions extends object> {
 	readonly kind: TKind
 	readonly options: Readonly<TOptions>
 }
-
 interface FieldCapabilities {
 	readonly deferRequiredUntilResolveInput: boolean
 	readonly mutationInput: 'forbidden' | undefined
 	readonly optionsContract: BuiltInFieldOptionsContract | undefined
+	readonly relationWhere: unknown
 	readonly schemaTarget: SchemaTarget | undefined
 	readonly snapshotValue: ScalarValueSnapshot
 	readonly storageCodec: PluginFieldStorageCodec | undefined
@@ -144,12 +141,13 @@ interface FieldCapabilities {
 	readonly structuralContains:
 		PluginFieldStructuralContainsCapability | undefined
 }
-
 /** Carries non-metadata capabilities used only by specialized field factories. */
 export interface FieldDefinitionCapabilities {
 	/** Lets a plugin fill a required create value before structural revalidation. */
 	readonly deferRequiredUntilResolveInput?: boolean
 	readonly schemaTarget?: SchemaTarget
+	/** Retains relation shaping outside portable field metadata. */
+	readonly relationWhere?: unknown
 	/** Lets adapters persist one plugin scalar through a validated JSON representation. */
 	readonly storageCodec?: PluginFieldStorageCodec
 	/** Attaches exact transport codecs without exposing callbacks in field metadata. */
@@ -161,10 +159,8 @@ export interface FieldDefinitionCapabilities {
 	/** Records Core-owned root option names for specialized factories. */
 	readonly optionsContract?: BuiltInFieldOptionsContract
 }
-
 // Weak ownership proves factory provenance without retaining application schemas.
 const fieldCapabilities = new WeakMap<object, FieldCapabilities>()
-
 /**
  * Creates every official field through one immutable, capability-aware boundary.
  */
@@ -199,6 +195,7 @@ export const createFieldDefinition = <
 			mutationInput: undefined,
 			optionsContract:
 				capabilities.optionsContract ?? getBuiltInFieldOptionsContract(options),
+			relationWhere: capabilities.relationWhere,
 			schemaTarget: capabilities.schemaTarget,
 			snapshotValue,
 			storageCodec: capabilities.storageCodec,
@@ -209,12 +206,15 @@ export const createFieldDefinition = <
 
 	return field
 }
-
 /** Reads built-in ownership without exposing private behavioral capabilities. */
 export const getDeclaredFieldOptionsContract = (
 	field: GenericField,
 ): BuiltInFieldOptionsContract | undefined =>
 	fieldCapabilities.get(field)?.optionsContract
+
+/** @internal Reads a private relation-filter declaration retained by its factory. */
+export const getFieldRelationWhere = (field: GenericField): unknown =>
+	fieldCapabilities.get(field)?.relationWhere
 
 /** Rebuilds immutable field metadata while retaining its private factory capabilities. */
 export const replaceDeclaredFieldOptions = (

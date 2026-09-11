@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { FrameworkApplication } from '../../../application/framework-application.js'
 import { definePlugin } from '../../../plugins/definition.js'
+import { getCompiledStaticRelationWhere } from '../../../query/filters/relation-where-declaration.js'
 import {
 	compileValidationPlans,
 	relationField,
@@ -16,6 +17,7 @@ import {
 	RelationPost,
 	RelationTag,
 } from './relation-fixture.test-support.js'
+import { getRelationWhereDeclaration } from './relation.js'
 
 describe('relationField', () => {
 	it('keeps targets private and compiles owning and inverse metadata', () => {
@@ -93,6 +95,128 @@ describe('relationField', () => {
 		})
 		expect(Object.isFrozen(field)).toBe(true)
 		expect(Object.isFrozen(field.options)).toBe(true)
+	})
+
+	it('snapshots static where input without exposing it as field metadata', () => {
+		const where = { label: { eq: 'initial' } }
+		const field = relationField({
+			target: () => RelationTag,
+			where,
+		})
+		where.label.eq = 'mutated'
+		const declaration = getRelationWhereDeclaration(field)
+
+		expect(field.options).toStrictEqual({})
+		expect(declaration).toStrictEqual({
+			input: { label: { eq: 'initial' } },
+			kind: 'static',
+		})
+		expect(
+			Object.isFrozen(
+				declaration?.kind === 'static' ? declaration.input : undefined,
+			),
+		).toBe(true)
+	})
+
+	it('retains contextual resolvers privately and rejects malformed declarations', () => {
+		const resolver = () => ({ label: { eq: 'visible' } })
+		const field = relationField({
+			target: () => RelationTag,
+			where: resolver,
+		})
+		const declaration = getRelationWhereDeclaration(field)
+
+		expect(field.options).toStrictEqual({})
+		expect(declaration).toMatchObject({ kind: 'contextual' })
+		expect(declaration?.kind === 'contextual' && declaration.resolve).toBe(
+			resolver,
+		)
+		expect(() =>
+			relationField({ target: () => RelationTag, where: null } as never),
+		).toThrow(
+			'relationField where must be a plain object or synchronous resolver',
+		)
+		expect(() =>
+			relationField({ target: () => RelationTag, where: [] } as never),
+		).toThrow(
+			'relationField where must be a plain object or synchronous resolver',
+		)
+		expect(() =>
+			relationField({
+				target: () => RelationTag,
+				where: async () => {
+					await Promise.resolve()
+					return {}
+				},
+			} as never),
+		).toThrow('relationField where resolver must be synchronous')
+	})
+
+	it('normalizes static filters only after the exact target resolves', () => {
+		const Target = Schema.define({
+			className: 'RelationWhereTarget',
+			fields: (field) => ({ active: field.boolean() }),
+		})
+		const Source = Schema.define({
+			className: 'RelationWhereSource',
+			fields: (field) => ({
+				targets: field.relation({
+					target: 'RelationWhereTarget',
+					where: { active: { eq: true } },
+				}),
+			}),
+		})
+		const application = new FrameworkApplication({
+			plugins: [],
+			schemas: [Source, Target],
+		}).compileSchemas()
+		const relation = Source.persistedFields.targets
+
+		if (relation === undefined) throw new TypeError('Expected relation field')
+		expect(application.schemaTargets.get(Source, ['targets'])).toBe(Target)
+		expect(getCompiledStaticRelationWhere(relation)).toStrictEqual({
+			field: 'active',
+			kind: 'equal',
+			value: true,
+		})
+	})
+
+	it('rejects invalid static target filters during application compilation', () => {
+		const Target = Schema.define({
+			className: 'InvalidRelationWhereTarget',
+			fields: (field) => ({ active: field.boolean() }),
+		})
+		const unknownField = Schema.define({
+			className: 'UnknownRelationWhereSource',
+			fields: (field) => ({
+				targets: field.relation({
+					target: 'InvalidRelationWhereTarget',
+					where: { missing: { eq: true } },
+				}),
+			}),
+		})
+		const invalidOperator = Schema.define({
+			className: 'OperatorRelationWhereSource',
+			fields: (field) => ({
+				targets: field.relation({
+					target: 'InvalidRelationWhereTarget',
+					where: { active: { contains: true } },
+				}),
+			}),
+		})
+
+		expect(() =>
+			new FrameworkApplication({
+				plugins: [],
+				schemas: [unknownField, Target],
+			}).compileSchemas(),
+		).toThrow('where.missing must reference a schema field')
+		expect(() =>
+			new FrameworkApplication({
+				plugins: [],
+				schemas: [invalidOperator, Target],
+			}).compileSchemas(),
+		).toThrow('query operator contains does not support boolean fields')
 	})
 
 	it.each([

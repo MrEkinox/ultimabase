@@ -172,4 +172,12 @@ describe('packed @ultimabase/core FieldBuilder contract', () => {
 			[...languageFixture.readStringCompletions('pointer-on-delete')].sort(),
 		).toStrictEqual(['cascade', 'restrict', 'setNull'])
 	})
+
+	it('exports contextual relation filters from the packed declaration', () => {
+		expect(
+			languageFixture
+				.readMemberCompletions('relation-options')
+				.map(({ name }) => name),
+		).toEqual(expect.arrayContaining(['mappedBy', 'target', 'where']))
+	})
 })

@@ -1,6 +1,11 @@
-import { assertNonEmptyString, immutableRecord } from '@ultimabase/shared'
+import {
+	assertNonEmptyString,
+	immutableRecord,
+	isPlainRecord,
+} from '@ultimabase/shared'
 
 import { createFieldDefinition } from '../base/definition.js'
+import { getFieldRelationWhere } from '../base/definition.js'
 import {
 	assertBuiltInFieldOptions,
 	assertFieldOptions,
@@ -10,10 +15,14 @@ import type {
 	FieldDefinition,
 	FieldOptionValueCarrier,
 	FieldTypegenState,
+	GenericField,
 } from '../base/contract.js'
 import type { SchemaDefinition } from '../../schema/definition.js'
 import type { SchemaReference } from '../../schema/definition.js'
 import type { SchemaTarget } from '../../schema/targets.js'
+import { snapshotCapturedOptionValue } from '../../schema/captured-options.js'
+import type { RequestContext } from '../../../runtime/context/request-context.js'
+import type { WhereBuilder, WhereInput } from '../../../query/filters/where.js'
 import type {
 	SchemaDeclarationTargetName,
 	SchemaRelationshipFieldName,
@@ -34,6 +43,48 @@ export interface RelationFieldTypegenState extends FieldTypegenState {
 /** Selects target fields that can own one inverse relationship. */
 export type RelationMappedFieldName<TTarget extends SchemaDefinition> =
 	SchemaRelationshipFieldName<TTarget, 'pointer' | 'relation'>
+
+/** Receives only request state and an empty immutable builder for the target. */
+export interface RelationWhereResolverInput<
+	TTarget extends SchemaDefinition = SchemaDefinition,
+> {
+	/** Carries the exact immutable context bound to the current operation. */
+	readonly context: RequestContext
+	/** Starts an immutable filter for the exact relation target. */
+	readonly where: WhereBuilder<TTarget>
+}
+
+type RelationWhereResolverResult<TTarget extends SchemaDefinition> = (
+	WhereBuilder<TTarget> | WhereInput<TTarget>
+) & {
+	/** Excludes PromiseLike values through Core's already-reserved model name. */
+	readonly then?: never
+}
+
+/** Resolves one synchronous target filter for a relation read. */
+export type RelationWhereResolver<
+	TTarget extends SchemaDefinition = SchemaDefinition,
+> = (
+	input: RelationWhereResolverInput<TTarget>,
+) => RelationWhereResolverResult<TTarget>
+
+/** Accepts either one static target filter or one synchronous contextual resolver. */
+export type RelationWhere<TTarget extends SchemaDefinition = SchemaDefinition> =
+	RelationWhereResolver<TTarget> | WhereInput<TTarget>
+
+interface StaticRelationWhereDeclaration {
+	readonly input: Readonly<Record<string, unknown>>
+	readonly kind: 'static'
+}
+
+interface ContextualRelationWhereDeclaration {
+	readonly kind: 'contextual'
+	readonly resolve: RelationWhereResolver
+}
+
+/** @internal Keeps executable relation shaping outside compiler-visible metadata. */
+export type RelationWhereDeclaration =
+	ContextualRelationWhereDeclaration | StaticRelationWhereDeclaration
 
 /** Stores only stable adapter-neutral relation metadata. */
 export interface RelationFieldMetadataOptions<
@@ -66,6 +117,12 @@ export interface RelationFieldOptions<
 	 * @example `target: () => Post`
 	 */
 	readonly target: SchemaTarget<TTarget>
+	/**
+	 * Narrows every read through this relation without replacing caller filters.
+	 * @example `where: { published: { eq: true } }`
+	 * @example `where: ({ where }) => where.ne('id', currentUserId)`
+	 */
+	readonly where?: RelationWhere<NoInfer<TTarget>>
 }
 
 /** Carries one exact relation target without exposing an embedded collection value. */
@@ -105,7 +162,7 @@ export type NamedRelationFieldBuilderMethod = <
 
 const relationFieldOptionsContract: BuiltInFieldOptionsContract = {
 	kind: 'relation',
-	optionKeys: ['description', 'mappedBy', 'target'],
+	optionKeys: ['description', 'mappedBy', 'target', 'where'],
 }
 
 const snapshotRelationValue = (_value: unknown, path: string): never => {
@@ -136,6 +193,67 @@ const normalizeRelationMetadata = <TMappedBy extends string | undefined>(
 	})
 }
 
+const assertSynchronousRelationWhereResolver: (
+	value: unknown,
+) => asserts value is RelationWhereResolver = (value) => {
+	if (typeof value !== 'function') {
+		throw new TypeError('relationField where resolver must be a function')
+	}
+	if (Object.prototype.toString.call(value) === '[object AsyncFunction]') {
+		throw new TypeError('relationField where resolver must be synchronous')
+	}
+}
+
+const normalizeRelationWhereDeclaration = (
+	value: unknown,
+): RelationWhereDeclaration | undefined => {
+	if (value === undefined) return undefined
+
+	if (typeof value === 'function') {
+		assertSynchronousRelationWhereResolver(value)
+
+		return immutableRecord({
+			kind: 'contextual' as const,
+			resolve: value,
+		})
+	}
+
+	if (!isPlainRecord(value)) {
+		throw new TypeError(
+			'relationField where must be a plain object or synchronous resolver',
+		)
+	}
+
+	const snapshot = snapshotCapturedOptionValue(value)
+	if (!isPlainRecord(snapshot)) {
+		throw new TypeError('relationField where must be a plain object')
+	}
+
+	return immutableRecord({
+		input: snapshot,
+		kind: 'static' as const,
+	})
+}
+
+/** @internal Returns the exact private declaration attached by `relationField`. */
+export const getRelationWhereDeclaration = (
+	field: GenericField,
+): RelationWhereDeclaration | undefined => {
+	const declaration = getFieldRelationWhere(field)
+
+	if (declaration === undefined) return undefined
+	if (
+		typeof declaration !== 'object' ||
+		declaration === null ||
+		!('kind' in declaration) ||
+		(declaration.kind !== 'static' && declaration.kind !== 'contextual')
+	) {
+		throw new TypeError('Invalid relation where declaration binding')
+	}
+
+	return declaration as RelationWhereDeclaration
+}
+
 /**
  * Declares an independently queryable to-many relationship.
  *
@@ -158,13 +276,14 @@ export const relationField = <
 	assertFieldOptions(options)
 	assertBuiltInFieldOptions(options, relationFieldOptionsContract)
 
-	const { target, ...declarationOptions } = options
+	const { target, where, ...declarationOptions } = options
 
 	if (typeof target !== 'function') {
 		throw new TypeError('relationField target must be a function')
 	}
 
 	const normalizedMetadata = normalizeRelationMetadata(declarationOptions)
+	const relationWhere = normalizeRelationWhereDeclaration(where)
 	const unresolvedOptions = immutableRecord(
 		Object.fromEntries(
 			Object.entries(declarationOptions).filter(
@@ -177,6 +296,10 @@ export const relationField = <
 		'relation',
 		immutableRecord({ ...normalizedMetadata, ...unresolvedOptions }),
 		snapshotRelationValue,
-		{ optionsContract: relationFieldOptionsContract, schemaTarget: target },
+		{
+			optionsContract: relationFieldOptionsContract,
+			relationWhere,
+			schemaTarget: target,
+		},
 	)
 }

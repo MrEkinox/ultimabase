@@ -1,6 +1,6 @@
 # 2703: Resolve filters for relation reads
 
-- Status: planned
+- Status: ready
 - Milestone: 27
 - Packages: `@ultimabase/core`, `@ultimabase/testing`
 - Depends on: 2702

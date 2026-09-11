@@ -60,6 +60,7 @@ import {
 	PrivateStorageRegistry,
 } from '../private-storage/registry.js'
 import { configureApplicationPrivateStorage } from '../private-storage/runtime.js'
+import { compileStaticRelationWhereDeclarations } from '../query/filters/relation-where-declaration.js'
 
 /** Captures every static input needed to construct one isolated application. */
 export interface FrameworkApplicationOptions<
@@ -312,6 +313,7 @@ export class FrameworkApplication<
 				this.#fieldBuilderMethods,
 				this.#schemaCompiler.compile,
 			)
+			compileStaticRelationWhereDeclarations(this.schemas)
 			this.#privateStorage.close(this.schemas)
 			this.#schemaCompilationState = 'compiled'
 

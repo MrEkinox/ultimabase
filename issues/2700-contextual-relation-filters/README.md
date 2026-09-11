@@ -10,7 +10,7 @@ through the canonical Runtime instead of becoming Drizzle-specific behavior.
 ## Execution order
 
 1. [x] [2701 — Decide contextual relation filters](2701-contextual-relation-filter-contract.md)
-2. [ ] [2702 — Declare typed relation filters](2702-relation-filter-declarations.md)
+2. [x] [2702 — Declare typed relation filters](2702-relation-filter-declarations.md)
 3. [ ] [2703 — Resolve filters for relation reads](2703-relation-filter-runtime.md)
 4. [ ] [2704 — Filter eager relation inclusions](2704-relation-filter-inclusions.md)
 5. [ ] [2705 — Filter relation predicates and cardinality](2705-relation-filter-predicates.md)

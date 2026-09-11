@@ -830,6 +830,36 @@ one-to-one remains `pointerField({ indexed: "unique" })`. Relation fields are
 root-level schema declarations and never appear in `InferObject`, create input,
 update input, validation values, or an ordinary unloaded model.
 
+A relation may define one target-typed read subset with `where`. The static form
+uses the same portable filter vocabulary as an ordinary target Query:
+
+```ts
+comments: field.relation({
+	target: 'Comment',
+	where: { published: { eq: true } },
+})
+```
+
+The contextual form receives only the immutable request context and an empty,
+target-typed `WhereBuilder`. It is synchronous and may return either that
+builder or an exact target `WhereInput`:
+
+```ts
+participants: field.relation({
+	target: 'User',
+	where: ({ context, where }) =>
+		context.access.mode === 'master'
+			? where
+			: where.ne('id', String(context.metadata.currentUserId)),
+})
+```
+
+Relation shaping is always combined with the caller's filter through logical
+`AND`; it never grants access or replaces Access, ACL, or protected constraints.
+Master does not bypass it unless the declaration explicitly returns an empty
+filter for Master. The callback remains private Runtime behavior and never
+enters Typegen, compiler IR, adapter requests, or transport metadata.
+
 Reads may explicitly include the collection with an independently shaped target
 query:
 

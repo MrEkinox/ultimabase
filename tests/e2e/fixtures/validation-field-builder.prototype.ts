@@ -8,7 +8,9 @@ import {
 	type JsonDocument,
 	objectField,
 	Pointer,
+	type RelationWhereResolver,
 	Schema,
+	type SchemaReference,
 	stringField,
 } from '@ultimabase/core'
 
@@ -21,6 +23,13 @@ const PackedTarget = Schema.define({
 	fields: () => ({}),
 })
 void PackedTarget
+
+const packedRelationWhere: RelationWhereResolver<
+	SchemaReference<'PackedValidatorTarget'>
+> = ({ context, where }) => {
+	void context.requestId
+	return where
+}
 
 const zodPluginValidator = z.custom<PackedPluginValue>(
 	(value) => value instanceof PackedPluginValue,
@@ -155,6 +164,12 @@ Schema.define({
 		assignee: field.pointer({
 			target: 'PackedFieldBuilder',
 			onDelete: /* completion:pointer-on-delete */ 'restrict',
+		}),
+		// @ts-expect-error -- Completion intentionally omits the required target.
+		relationOptions: field.relation({/* completion:relation-options */}),
+		filteredTargets: field.relation({
+			target: 'PackedValidatorTarget',
+			where: packedRelationWhere,
 		}),
 		signatureName: field.string(),
 		profile: field.object({

@@ -36,6 +36,9 @@ export type {
 	RelationFieldMetadataOptions,
 	RelationFieldOptions,
 	RelationMappedFieldName,
+	RelationWhere,
+	RelationWhereResolver,
+	RelationWhereResolverInput,
 } from './fields/builtins/relation.js'
 export { Pointer, snapshotPointerValue } from './relations/pointer.js'
 export type {

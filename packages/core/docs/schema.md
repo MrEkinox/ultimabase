@@ -256,6 +256,36 @@ reused owners, and nested relation declarations fail before infrastructure
 connects. The logical graph exposes ownership and mapping paths without SQL,
 join-table or transport names.
 
+An optional `where` narrows the visible target collection for this exact
+relation. It accepts an ordinary target `WhereInput` or one synchronous
+contextual resolver:
+
+```ts
+const ConversationSchema = Schema.define({
+	className: 'Conversation',
+	fields: (field) => ({
+		activeParticipants: field.relation({
+			target: 'User',
+			where: { suspended: { eq: false } },
+		}),
+		otherParticipants: field.relation({
+			target: 'User',
+			where: ({ context, where }) =>
+				where.ne('id', String(context.metadata.currentUserId)),
+		}),
+	}),
+})
+```
+
+The resolver receives no source model, engine, adapter, transaction, or mutable
+context. Its builder starts empty, is immutable, and is correlated with the
+exact target schema, including nested relationship predicates. Core retains the
+callback privately; schema snapshots and Typegen contain no executable code.
+The relation filter is application shaping rather than authorization: it always
+narrows caller filters with `AND` and cannot replace Access, ACL, or protected
+constraints. It also remains active for Master unless the resolver explicitly
+chooses an empty filter.
+
 Relations accept documentation, but no scalar validation,
 default, list, index, immutable, or Core lifecycle options. Installing the
 official Access plugin adds its typed `access.read` and `access.update`

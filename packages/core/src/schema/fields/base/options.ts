@@ -80,6 +80,7 @@ const coreFieldOptionKeySet: ReadonlySet<string> = new Set([
 	'timezone',
 	'typeName',
 	'values',
+	'where',
 ])
 
 /** Identifies root option names reserved by at least one Core field contract. */
