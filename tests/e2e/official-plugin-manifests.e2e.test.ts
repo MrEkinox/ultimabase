@@ -96,6 +96,7 @@ it('publishes the audited privilege and environment contract for every official 
 				'operation:declare',
 				'model:extend',
 				'transport:expose',
+				'typegen:reference',
 			],
 		},
 		{

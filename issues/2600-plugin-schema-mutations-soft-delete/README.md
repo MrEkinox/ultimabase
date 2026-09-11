@@ -1,6 +1,6 @@
 # Milestone 26 — Plugin-defined schema mutations and official soft delete
 
-- Status: in-progress
+- Status: completed
 
 Generalize application-owned model commands into exact plugin-defined schema
 mutations that participate in the canonical Runtime, optional official Access
@@ -23,7 +23,7 @@ generic foundation to deliver the first supported official soft-delete plugin.
 12. [x] [2611 — Implement explicit soft delete](2611-soft-delete-explicit-mode.md)
 13. [x] [2612 — Add restore and purge commands](2612-soft-delete-administration.md)
 14. [x] [2613 — Prove the public soft-delete vertical](2613-soft-delete-public-vertical.md)
-15. [ ] [2614 — Audit and close official soft delete](2614-soft-delete-final-audit.md)
+15. [x] [2614 — Audit and close official soft delete](2614-soft-delete-final-audit.md)
 
 Issues 2604 and 2605 may proceed independently after 2603. Issues 2606 and
 2607 may likewise proceed independently after 2603. Every later issue remains
@@ -63,3 +63,9 @@ modes through the same Runtime. The final gate includes Access, Hooks, protected
 constraints, Master administration, rollback, relations, ordered itemized
 delete batches, application isolation, documentation, coverage, and complete
 repository validation.
+
+Milestone 26 is complete. The final audit passed source and dependency removal
+checks, 2,324 ordinary tests, 2,595 coverage tests, 155 packed-package tests,
+341 built E2E tests, every repository gate, and every package's `attw` and
+`publint` checks. The archived completed plan retains the full contract,
+evidence, and explicit first-release exclusions.

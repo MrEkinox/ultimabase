@@ -1,10 +1,11 @@
-# Active plan: plugin-defined schema mutations and official soft delete
+# Completed plan: plugin-defined schema mutations and official soft delete
 
-- Status: active
+- Status: completed
 - Milestone: 26
 - Started: 2026-09-10
-- Governing decision: [ADR-0245](docs/adr/0245-plugin-schema-mutations-and-soft-delete.md)
-- Resume point: issue 2614
+- Completed: 2026-09-11
+- Governing decision: [ADR-0245](../../adr/0245-plugin-schema-mutations-and-soft-delete.md)
+- Resume point: none
 
 ## Objective
 
@@ -74,12 +75,12 @@ visibility invariants when they are absent.
 12. [x] Issue 2611 — implement the explicit `softDelete` mutation.
 13. [x] Issue 2612 — add private Master-only restore and purge commands.
 14. [x] Issue 2613 — prove the public cross-transport PostgreSQL vertical.
-15. [ ] Issue 2614 — audit and close the milestone.
+15. [x] Issue 2614 — audit and close the milestone.
 
 The authoritative acceptance criteria and dependency graph live in
-[`issues/2600-plugin-schema-mutations-soft-delete/`](issues/2600-plugin-schema-mutations-soft-delete/README.md).
+[`issues/2600-plugin-schema-mutations-soft-delete/`](../../../issues/2600-plugin-schema-mutations-soft-delete/).
 
-## Approved planning constraints
+## Frozen constraints
 
 - Generic mutation identities are Core contracts; `softDelete`, `restore`, and
   `purge` remain plugin-owned vocabulary.
@@ -109,9 +110,9 @@ The authoritative acceptance criteria and dependency graph live in
 - Source declarations and the compiled graph remain Runtime truth. Typegen may
   describe the resulting handles and options but emits no executable client.
 
-## Resume protocol
+## Verification protocol
 
-On every resumed task:
+Every issue followed the same verification protocol:
 
 1. Read `AGENTS.md`, this plan, the milestone README, the selected issue, and
    every referenced ADR completely.
@@ -124,29 +125,42 @@ On every resumed task:
 6. Create one dedicated commit after explicit approval and never push without a
    separate explicit request.
 
-## Mandatory stop boundaries
+## Explicit first-release exclusions
 
-- Issue 2601 must accept ADR-0245 before any public type, Runtime, policy,
-  lifecycle, adapter, or transport contract changes.
-- Stop if a schema mutation requires Core or a transport to name a concrete
-  product operation, or if it exposes an engine, adapter, authority grant,
-  persistence constraint, or mutable registry.
-- Stop if plugin mutation execution would replay a native update/delete
-  operation, lose its own logical identity, weaken accumulated constraints, or
-  escape the root transaction.
-- Stop before automatically exposing every plugin mutation, exposing restore or
-  purge publicly, or manufacturing Master authority from transport input.
-- Stop before include-deleted query APIs, configurable tombstone field names or
-  values, time/user deletion metadata, cascade policy, nested soft delete,
-  uniqueness reuse, partial indexes, retention jobs, or automatic purging.
-- Stop if the exact public API requires `any`, deep imports, generated Runtime
-  code, an official-engine dependency from Core, or a file-budget exception.
+- Core and transports do not name product mutations or expose an engine,
+  adapter, authority grant, persistence constraint, or mutable registry.
+- Plugin mutation execution does not replay native update or delete behavior,
+  weaken accumulated constraints, or escape the root transaction.
+- Restore and purge have no public transport endpoint, and transport input
+  cannot manufacture Master authority.
+- V1 has no include-deleted query API, configurable tombstone field or value,
+  deletion time or actor metadata, cascade policy, nested or bulk soft delete,
+  uniqueness reuse, partial-index strategy, retention job, or automatic purge.
+- Public contracts contain no `any`, deep import, generated Runtime code,
+  official-engine dependency from Core, or new file-budget exception.
 
-## Completion gate
+## Completion evidence
 
-The plan closes only after source and generated TypeScript, Typegen-free
-JavaScript, packed packages, direct execution, REST, networkless GraphQL, Yoga,
-PostgreSQL Testcontainers, Access, Hooks, rollback, relations, application
-isolation, and security matrices prove the same semantics. The final issue runs
-the complete repository validation sequence, reconciles documentation and
-examples, archives this plan, and marks milestone 26 completed.
+- The generic schema-mutation identity is shared by declarations, application
+  handles, Runtime, Access, Hooks, REST, GraphQL, Typegen, and protocol-2
+  persistence plans. Static audits found no product-specific implementation in
+  Core, transports, policy or lifecycle engines, and adapters.
+- `@ultimabase/soft-delete-plugin` depends only on public Core, Plugin Kit, and
+  Shared foundations. Its exact schema, constraint, rewrite, mutation,
+  transport, and Typegen privileges are present in the official manifest
+  inventory, while it installs no Access or Hooks engine and claims no host
+  environment behavior.
+- Direct TypeScript, Typegen-free JavaScript, replace and explicit semantics,
+  native itemized delete batches, Access, Hooks, protected visibility, Master
+  restore and purge, cancellation, rollback, relations, REST Fetch, networkless
+  GraphQL, Yoga, application isolation, and PostgreSQL pass through one logical
+  Runtime contract.
+- The final gate passed 2,324 ordinary tests, 2,595 coverage tests, 155 packed
+  package tests, and 341 built E2E tests. Coverage completed at 88.77%
+  statements, 81.56% branches, 94.66% functions, and 89.32% lines.
+  Constraints, issue metadata, TypeScript, lint, formatting, all package builds,
+  `attw`, `publint`, source removal audits, and dependency checks also passed.
+
+Milestone 26 is complete. Its accepted generic extension point and official
+plugin are now part of the first-release scope; the exclusions above remain
+future work rather than implicit APIs.

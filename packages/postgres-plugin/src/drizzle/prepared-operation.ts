@@ -211,7 +211,7 @@ const executeLockedMutation = async (
 			constraint,
 		)
 
-		// Logical delete observers and results retain the preimage even when storage tombstones it.
+		// Logical delete observers and results retain the preimage across a physical rewrite.
 		return immutableRecord({
 			materialization: immutableRecord({
 				kind: 'delete' as const,

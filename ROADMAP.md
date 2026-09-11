@@ -55,13 +55,15 @@ request-aware synchronous or asynchronous resolution. The
 [completed plan](docs/plans/completed/contextual-fields-and-virtual-results.md)
 retains its contract, explicit v1 exclusions, and final cross-transport evidence.
 
-[Milestone 26](issues/2600-plugin-schema-mutations-soft-delete/README.md) is the
-active objective. It first generalizes plugin-owned model commands into exact
-schema mutation identities that the Runtime, optional official Access and Hooks
-engines, REST, and GraphQL can consume without learning product vocabulary. It
-then ships `@ultimabase/soft-delete-plugin` with schema-local opt-in,
-replace-delete and explicit mutation modes, protected tombstone visibility, and
-private Master-only restore and purge commands.
+[Milestone 26](issues/2600-plugin-schema-mutations-soft-delete/README.md)
+completed exact plugin-owned schema mutation identities across Runtime,
+optional official Access and Hooks engines, REST, and GraphQL without teaching
+those foundations product vocabulary. It also shipped
+`@ultimabase/soft-delete-plugin` with schema-local opt-in, replace-delete and
+explicit mutation modes, protected tombstone visibility, and private
+Master-only restore and purge commands. The
+[completed plan](docs/plans/completed/plugin-defined-schema-mutations-and-official-soft-delete.md)
+retains the complete contract, verification evidence, and v1 exclusions.
 
 The ACL hardening plan remains paused at issue 432. It is not part of an active
 plan.

@@ -7,7 +7,7 @@ priority changes.
 
 ## Active
 
-- [Plugin-defined schema mutations and official soft delete](../../CURRENT_PLAN.md)
+No cross-package objective is currently active.
 
 ## Paused
 
@@ -16,6 +16,7 @@ priority changes.
 
 ## Completed
 
+- [Plugin-defined schema mutations and official soft delete](completed/plugin-defined-schema-mutations-and-official-soft-delete.md)
 - [Contextual fields and virtual results](completed/contextual-fields-and-virtual-results.md)
 - [Nested writes before the first release](completed/nested-writes-before-first-release.md)
 - [HTTP, REST, and password authentication](completed/http-rest-and-password-auth.md)
