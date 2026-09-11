@@ -92,6 +92,46 @@ rule, Hooks accepts `beforeOperation.softDelete` and
 `softDelete{Schema}(input: { id: ID! })`. Replace and disabled schemas never
 gain those additional transport endpoints.
 
+## Private administration
+
+Every effective `explicit` or `replace-delete` schema exposes two commands on
+its application schema handle only:
+
+```ts
+const restored = await ultimabase
+	.schema(Post)
+	.restore(
+		{ id: postId, select: { id: true, isDeleted: true, title: true } },
+		{ useMasterKey: true },
+	)
+
+const purged = await ultimabase
+	.schema(Post)
+	.purge(
+		{ id: postId, select: { id: true, title: true } },
+		{ useMasterKey: true },
+	)
+```
+
+`restore` atomically clears `isDeleted` on an existing tombstone and returns
+the restored postimage. Stored fields, pointers, and relation memberships are
+preserved. `purge` accepts only an existing tombstone, physically deletes it
+under the database's ordinary integrity rules, and returns its preimage. A
+missing, active, or already purged target produces the same non-disclosing
+missing-object result.
+
+Both commands require an application-provenanced Core Master context before
+target lookup. `useMasterKey: true` goes through the mandatory Master audit; an
+already elevated request context can be inherited without a second elevation.
+The optional Hooks plugin exposes `beforeOperation.restore`,
+`afterOperation.restore`, `beforeOperation.purge`, and `afterOperation.purge`
+for transactional business audit and rejection. Master does not bypass those
+Hooks.
+
+The commands deliberately have no model method, Access branch, REST route, or
+GraphQL field. Server code must select the owning application schema handle;
+no transport input can manufacture their authority.
+
 ## Optional integrations and protected storage
 
 The package depends only on Core and Plugin Kit. It does not install or require

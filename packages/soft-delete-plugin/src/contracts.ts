@@ -21,3 +21,7 @@ export interface NormalizedSoftDeletePluginOptions {
 	readonly defaultMode: SoftDeleteMode
 	readonly instanceId?: string
 }
+
+/** @internal Stable identities used to recognize only this plugin's administration. */
+export const restoreMutationName = 'ultimabase.soft-delete.restore'
+export const purgeMutationName = 'ultimabase.soft-delete.purge'

@@ -21,7 +21,7 @@ generic foundation to deliver the first supported official soft-delete plugin.
 10. [x] [2609 — Enforce tombstone visibility and writes](2609-soft-delete-visibility.md)
 11. [x] [2610 — Implement replace-delete mode](2610-soft-delete-replace-mode.md)
 12. [x] [2611 — Implement explicit soft delete](2611-soft-delete-explicit-mode.md)
-13. [ ] [2612 — Add restore and purge commands](2612-soft-delete-administration.md)
+13. [x] [2612 — Add restore and purge commands](2612-soft-delete-administration.md)
 14. [ ] [2613 — Prove the public soft-delete vertical](2613-soft-delete-public-vertical.md)
 15. [ ] [2614 — Audit and close official soft delete](2614-soft-delete-final-audit.md)
 

@@ -258,6 +258,8 @@ describe('official explicit soft-delete transports', () => {
 		expect(paths).toStrictEqual([
 			'/api/v1/classes/SoftDeleteTransportExplicit/{id}/soft-delete',
 		])
+		expect(paths.some((path) => path.endsWith('/restore'))).toBe(false)
+		expect(paths.some((path) => path.endsWith('/purge'))).toBe(false)
 
 		const graphql = app.application.getPlugin('@ultimabase/graphql-plugin')
 		const sdl = graphql.printSchema()
@@ -269,6 +271,8 @@ describe('official explicit soft-delete transports', () => {
 		)
 		expect(sdl).not.toContain('softDeleteSoftDeleteTransportReplace')
 		expect(sdl).not.toContain('softDeleteSoftDeleteTransportDisabled')
+		expect(sdl).not.toContain('restoreSoftDeleteTransportExplicit')
+		expect(sdl).not.toContain('purgeSoftDeleteTransportExplicit')
 	})
 
 	it('executes the same command through REST and networkless GraphQL', async () => {

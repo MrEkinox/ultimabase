@@ -151,6 +151,7 @@ const assertEnvelope = (
 const resolveRequestContext = async (
 	host: SchemaMutationRequestHost,
 	command: CompiledSchemaMutationCommand,
+	schema: SchemaDefinition,
 	options: NormalizedOperationOptions,
 ): Promise<RequestContext> => {
 	let context = host.engine.context
@@ -170,7 +171,7 @@ const resolveRequestContext = async (
 		context = await elevateTrustedMasterRequest(
 			getFrameworkMasterAuthority(host.engine.framework),
 			context,
-			`Schema mutation ${command.mutation.name}`,
+			`Schema mutation ${command.mutation.name} on schema ${schema.className}`,
 			host.engine.application,
 		)
 	}
@@ -188,7 +189,7 @@ export const executeSchemaMutationRequest = async (
 	assertApplicationEngineAvailable(host.engine.application)
 	assertOperationExecutionOwner(options.ultimabase, host.engine.application)
 	assertEnvelope(host, command, schema, envelope)
-	const context = await resolveRequestContext(host, command, options)
+	const context = await resolveRequestContext(host, command, schema, options)
 	if (context !== host.engine.context) {
 		return executeRequestSchemaMutation(
 			host.createContextEngine(context),

@@ -40,6 +40,8 @@ describe('softDeletePlugin', () => {
 					{ contributionId: 'official-soft-delete-handler' },
 					{ contributionId: 'official-soft-delete-rest-binding' },
 					{ contributionId: 'official-soft-delete-graphql-binding' },
+					{ contributionId: 'official-soft-delete-restore-handler' },
+					{ contributionId: 'official-soft-delete-purge-handler' },
 				],
 				replaces: [],
 				requires: [],
@@ -61,11 +63,11 @@ describe('softDeletePlugin', () => {
 				},
 				{
 					name: 'operation:declare',
-					reason: 'Declares the explicit soft-delete mutation.',
+					reason: 'Declares soft-delete and administration mutations.',
 				},
 				{
 					name: 'model:extend',
-					reason: 'Adds soft-delete commands to explicit schema handles.',
+					reason: 'Adds soft-delete commands to enabled schema handles.',
 				},
 				{
 					name: 'transport:expose',
@@ -73,6 +75,51 @@ describe('softDeletePlugin', () => {
 				},
 			],
 		})
+	})
+
+	it('attaches Master administration only to enabled schema handles', async () => {
+		const Explicit = documentSchema('AdministrationExplicit', 'explicit')
+		const Replace = documentSchema('AdministrationReplace', 'replace-delete')
+		const Inherited = documentSchema('AdministrationInherited')
+		const Disabled = documentSchema('AdministrationDisabled', false)
+		const application = new FrameworkApplication({
+			pluginPrivileges: { logger: false },
+			plugins: [softDeletePlugin({ defaultMode: 'replace-delete' })],
+			schemas: [Explicit, Replace, Inherited, Disabled],
+		})
+
+		await application.initialize()
+		try {
+			for (const schema of [Explicit, Replace, Inherited]) {
+				const surface = application.getSchemaSurface(schema.className)
+				expect([...(surface?.schemaMutations.keys() ?? [])]).toEqual(
+					expect.arrayContaining(['restore', 'purge']),
+				)
+				expect(surface?.schemaMutations.get('restore')).toMatchObject({
+					mutation: {
+						authority: 'master',
+						effect: 'update',
+						name: 'ultimabase.soft-delete.restore',
+						returning: 'after',
+					},
+				})
+				expect(surface?.schemaMutations.get('purge')).toMatchObject({
+					mutation: {
+						authority: 'master',
+						effect: 'delete',
+						name: 'ultimabase.soft-delete.purge',
+						returning: 'before',
+					},
+				})
+				expect(surface?.modelMutations.has('restore')).toBe(false)
+				expect(surface?.modelMutations.has('purge')).toBe(false)
+			}
+			const disabled = application.getSchemaSurface(Disabled.className)
+			expect(disabled?.schemaMutations.has('restore')).toBe(false)
+			expect(disabled?.schemaMutations.has('purge')).toBe(false)
+		} finally {
+			await application.dispose()
+		}
 	})
 
 	it('attaches the logical command only to explicit schema and model handles', async () => {
@@ -346,9 +393,14 @@ describe('softDeletePlugin', () => {
 			staticOptions: { defaultMode: 'replace-delete' },
 		})
 		expect(editorial.snapshot.surfaces[0]?.schemaMutations).toEqual([
+			expect.objectContaining({ name: 'purge' }),
+			expect.objectContaining({ name: 'restore' }),
 			expect.objectContaining({ name: 'softDelete' }),
 		])
-		expect(legal.snapshot.surfaces[0]?.schemaMutations).toStrictEqual([])
+		expect(legal.snapshot.surfaces[0]?.schemaMutations).toEqual([
+			expect.objectContaining({ name: 'purge' }),
+			expect.objectContaining({ name: 'restore' }),
+		])
 		expect(editorial.fingerprint).not.toBe(legal.fingerprint)
 	})
 })

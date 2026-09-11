@@ -78,6 +78,20 @@ void Invalid
 	)
 	expect(generated.snapshot.surfaces[0]?.schemaMutations).toEqual([
 		expect.objectContaining({
+			authority: 'master',
+			effect: 'delete',
+			mutation: 'ultimabase.soft-delete.purge',
+			name: 'purge',
+			returning: 'before',
+		}),
+		expect.objectContaining({
+			authority: 'master',
+			effect: 'update',
+			mutation: 'ultimabase.soft-delete.restore',
+			name: 'restore',
+			returning: 'after',
+		}),
+		expect.objectContaining({
 			authority: 'request',
 			effect: 'update',
 			mutation: 'ultimabase.soft-delete.soft-delete',
@@ -90,6 +104,18 @@ void Invalid
 	)
 	expect(generated.contents).toContain(
 		'readonly softDelete: Core.ApplicationModelSchemaMutationMethod',
+	)
+	expect(generated.contents).toContain(
+		'readonly restore: Core.ApplicationSchemaMutationMethod',
+	)
+	expect(generated.contents).toContain(
+		'readonly purge: Core.ApplicationSchemaMutationMethod',
+	)
+	expect(generated.contents).not.toContain(
+		'readonly restore: Core.ApplicationModelSchemaMutationMethod',
+	)
+	expect(generated.contents).not.toContain(
+		'readonly purge: Core.ApplicationModelSchemaMutationMethod',
 	)
 	const generatedDocument = generated.snapshot.schemas.find(
 		({ className }) => className === Document.className,

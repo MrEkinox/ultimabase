@@ -30,6 +30,11 @@ import {
 	createExplicitSoftDeleteProviders,
 	softDeleteMutation,
 } from './explicit.js'
+import {
+	createSoftDeleteAdministrationProviders,
+	purgeMutation,
+	restoreMutation,
+} from './administration.js'
 
 const softDeletePluginModule: PluginModule<
 	'@ultimabase/soft-delete-plugin',
@@ -56,11 +61,11 @@ const softDeletePluginPrivileges: readonly [
 	}>,
 	Readonly<{
 		readonly name: 'operation:declare'
-		readonly reason: 'Declares the explicit soft-delete mutation.'
+		readonly reason: 'Declares soft-delete and administration mutations.'
 	}>,
 	Readonly<{
 		readonly name: 'model:extend'
-		readonly reason: 'Adds soft-delete commands to explicit schema handles.'
+		readonly reason: 'Adds soft-delete commands to enabled schema handles.'
 	}>,
 	Readonly<{
 		readonly name: 'transport:expose'
@@ -81,11 +86,11 @@ const softDeletePluginPrivileges: readonly [
 	},
 	{
 		name: 'operation:declare',
-		reason: 'Declares the explicit soft-delete mutation.',
+		reason: 'Declares soft-delete and administration mutations.',
 	},
 	{
 		name: 'model:extend',
-		reason: 'Adds soft-delete commands to explicit schema handles.',
+		reason: 'Adds soft-delete commands to enabled schema handles.',
 	},
 	{
 		name: 'transport:expose',
@@ -100,6 +105,8 @@ type SoftDeletePluginCapabilities = Readonly<{
 		CapabilityProviderDeclaration<typeof pluginSchemaMutationHandlerCapability>,
 		CapabilityProviderDeclaration,
 		CapabilityProviderDeclaration,
+		CapabilityProviderDeclaration<typeof pluginSchemaMutationHandlerCapability>,
+		CapabilityProviderDeclaration<typeof pluginSchemaMutationHandlerCapability>,
 	]
 }>
 
@@ -147,6 +154,7 @@ export const softDeletePlugin = (
 		}),
 	})
 	const explicitProviders = createExplicitSoftDeleteProviders()
+	const administrationProviders = createSoftDeleteAdministrationProviders()
 	const tombstonePatch = schemaPatch().addField({
 		contributionId: softDeleteTombstoneContributionId,
 		field: booleanField({ default: false, required: true }),
@@ -164,10 +172,13 @@ export const softDeletePlugin = (
 				visibilityProvider,
 				replaceDeleteProvider,
 				...explicitProviders,
+				...administrationProviders,
 			],
 		},
 		declare: ({ models, operations, schemas }) => {
 			operations.declare(softDeleteMutation)
+			operations.declare(restoreMutation)
+			operations.declare(purgeMutation)
 			schemas.defineOptions({
 				contributionId: 'official-soft-delete-schema-option',
 				schema: { softDelete: softDeleteSchemaOption },
@@ -222,6 +233,45 @@ export const softDeletePlugin = (
 					{
 						...explicitSurface,
 						contributionId: 'official-soft-delete-default-mutation',
+						staticOptions: { defaultMode: normalized.defaultMode },
+					},
+				)
+			}
+
+			const administrationSurface = {
+				contributionId: 'official-soft-delete-administration',
+				schemaMutations: {
+					restore: {
+						mutation: restoreMutation,
+						surfaces: ['schema'] as const,
+					},
+					purge: {
+						mutation: purgeMutation,
+						surfaces: ['schema'] as const,
+					},
+				},
+			}
+			for (const mode of ['explicit', 'replace-delete'] as const) {
+				models.extend(
+					{
+						option: { equals: mode, name: 'softDelete' },
+						owner: { kind: 'application' },
+					},
+					{
+						...administrationSurface,
+						contributionId: `official-soft-delete-${mode}-administration`,
+					},
+				)
+			}
+			if (normalized.defaultMode !== 'disabled') {
+				models.extend(
+					{
+						option: { name: 'softDelete', present: false },
+						owner: { kind: 'application' },
+					},
+					{
+						...administrationSurface,
+						contributionId: 'official-soft-delete-default-administration',
 						staticOptions: { defaultMode: normalized.defaultMode },
 					},
 				)

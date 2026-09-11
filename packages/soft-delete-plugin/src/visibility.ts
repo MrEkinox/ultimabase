@@ -7,7 +7,13 @@ import {
 	type ProtectedPolicyDefinition,
 	type SchemaDefinition,
 } from '@ultimabase/core'
-import { immutableArray, immutableRecord } from '@ultimabase/shared'
+import {
+	immutableArray,
+	immutableRecord,
+	isPlainRecord,
+} from '@ultimabase/shared'
+
+import { purgeMutationName, restoreMutationName } from './contracts.js'
 
 export const softDeleteTombstoneContributionId =
 	'official-soft-delete-tombstone'
@@ -19,8 +25,38 @@ const visibleRowFilter: DatabaseRowFilterNode = immutableRecord({
 	value: false,
 })
 
+const tombstonedRowFilter: DatabaseRowFilterNode = immutableRecord({
+	field: softDeleteTombstoneFieldName,
+	kind: 'equal',
+	value: true,
+})
+
 interface SoftDeleteVisibilityPlan {
 	readonly schema: SchemaDefinition
+}
+
+const isOwnedAdministration = (
+	operation: unknown,
+	owner: PluginIdentity,
+): boolean => {
+	if (
+		!isPlainRecord(operation) ||
+		operation.kind !== 'plugin-schema-mutation' ||
+		!isPlainRecord(operation.owner) ||
+		!isPlainRecord(operation.mutation)
+	) {
+		return false
+	}
+	return (
+		operation.owner.kind === 'plugin' &&
+		operation.owner.pluginId === owner.pluginId &&
+		operation.owner.instanceId === owner.instanceId &&
+		operation.mutation.version === '1.0.0' &&
+		((operation.command === 'restore' &&
+			operation.mutation.name === restoreMutationName) ||
+			(operation.command === 'purge' &&
+				operation.mutation.name === purgeMutationName))
+	)
 }
 
 /** @internal Matches only the tombstone contributed by one exact plugin instance. */
@@ -65,9 +101,14 @@ export const createSoftDeleteVisibilityPolicy = (
 			const plan = plans.find(({ schema }) => schema === operationSchema)
 			if (plan === undefined) return undefined
 
-			return operation.kind === 'create-one' || operation.kind === 'create-many'
-				? undefined
-				: immutableRecord({ rowFilter: visibleRowFilter })
+			if (operation.kind === 'create-one' || operation.kind === 'create-many') {
+				return undefined
+			}
+			return immutableRecord({
+				rowFilter: isOwnedAdministration(operation, owner)
+					? tombstonedRowFilter
+					: visibleRowFilter,
+			})
 		},
 		master: 'enforce',
 	})

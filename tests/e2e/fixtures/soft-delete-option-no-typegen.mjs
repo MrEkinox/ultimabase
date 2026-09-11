@@ -17,18 +17,25 @@ const application = new FrameworkApplication({
 	plugins: [softDeletePlugin({ defaultMode: 'replace-delete' })],
 	schemas: [ExplicitPost, OmittedPost],
 })
-application.compileSchemas()
+await application.initialize()
 
 const explicit = application.schemas.get(ExplicitPost.className)
 const omitted = application.schemas.get(OmittedPost.className)
 const option = explicit?.provenance.options.softDelete?.definition
+const explicitSurface = application.getSchemaSurface(ExplicitPost.className)
+const omittedSurface = application.getSchemaSurface(OmittedPost.className)
 
 stdout.write(
 	`${JSON.stringify({
 		defaultMode: option?.normalizedStaticOptions.defaultMode,
 		explicitMode: explicit?.definition.softDelete,
+		explicitModelMutations: [...(explicitSurface?.modelMutations.keys() ?? [])],
+		explicitSchemaMutations: [
+			...(explicitSurface?.schemaMutations.keys() ?? []),
+		],
 		explicitTombstone: explicit?.persistedFields.isDeleted?.options,
 		omissionPreserved: !Object.hasOwn(omitted?.definition ?? {}, 'softDelete'),
+		omittedSchemaMutations: [...(omittedSurface?.schemaMutations.keys() ?? [])],
 		omittedTombstoneOwner: omitted?.provenance.fields.isDeleted?.owner.pluginId,
 		owner: option?.owner,
 	})}\n`,
