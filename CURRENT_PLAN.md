@@ -4,7 +4,7 @@
 - Milestone: 27
 - Started: 2026-09-11
 - Governing decision: [ADR-0247](docs/adr/0247-contextual-relation-filters.md)
-- Resume point: issue 2706
+- Resume point: issue 2707
 
 ## Objective
 
@@ -61,7 +61,7 @@ protected constraint.
 3. [x] Issue 2703 — resolve contextual filters for direct relation reads.
 4. [x] Issue 2704 — apply filters to eager relation inclusions.
 5. [x] Issue 2705 — compose filters into relation predicates and cardinality.
-6. [ ] Issue 2706 — prove public transport and PostgreSQL parity.
+6. [x] Issue 2706 — prove public transport and PostgreSQL parity.
 7. [ ] Issue 2707 — audit and close the milestone.
 
 The authoritative acceptance criteria and dependency graph live in

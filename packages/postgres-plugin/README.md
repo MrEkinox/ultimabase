@@ -711,6 +711,13 @@ through its ordinary policy and behavior pipeline. Mutations lock and update
 the source inside the same Runtime transaction as their edge changes, so a
 later behavior failure rolls back both. Duplicate connects are idempotent.
 
+The private read filter never enters owning or inverse membership writes.
+`connect`, `disconnect`, `set`, `clear`, and nested relationship commands alter
+the physical edge selected by Core even when the target is excluded from the
+next read. A requested mutation-result inclusion is a read and does apply the
+filter. Grouped eager inclusions remain one relational `SELECT` rather than one
+query per parent.
+
 Source relation quantifiers compile to correlated `EXISTS` expressions without
 loading target rows:
 

@@ -87,9 +87,36 @@ const recordSoftDeleteEvent = async (
 export const ExampleAuthor = Schema.define({
 	className: 'ExampleAuthor',
 	fields: (field) => ({
+		articles: field.relation({
+			mappedBy: 'author',
+			target: 'ExampleArticle',
+			where: { published: { eq: true } },
+		}),
+		audience: field.enum({
+			default: 'public',
+			typeName: 'ExampleAuthorAudience',
+			values: ['authenticated', 'public'],
+		}),
+		contributions: field.relation({
+			mappedBy: 'contributors',
+			target: 'ExampleArticle',
+			where: { published: { eq: true } },
+		}),
+		listed: field.boolean({ default: true }),
 		name: field.string({ required: true, validation: z.string().min(1) }),
+		readable: field.boolean({ default: true }),
 	}),
-	acl: { default: publicArticleACL },
+	access: {
+		read: {
+			allow: true,
+			where: ({ where }) => where.eq('readable', true),
+		},
+	},
+	acl: {
+		default: publicArticleACL,
+		resolveInput: ({ currentAcl, inputAcl }) =>
+			inputAcl ?? currentAcl ?? publicArticleACL,
+	},
 	graphql: true,
 	hooks: {
 		afterOperation: {
@@ -128,7 +155,10 @@ export const ExampleArticle = Schema.define({
 	className: 'ExampleArticle',
 	fields: (field) => ({
 		author: field.pointer({ target: 'ExampleAuthor' }),
-		contributors: field.relation({ target: 'ExampleAuthor' }),
+		contributors: field.relation({
+			target: 'ExampleAuthor',
+			where: { listed: { eq: true } },
+		}),
 		presentation: field.object({
 			fields: (embedded) => ({
 				subtitle: embedded.string(),
@@ -136,6 +166,13 @@ export const ExampleArticle = Schema.define({
 			}),
 		}),
 		published: field.boolean({ default: true }),
+		reviewers: field.relation({
+			target: 'ExampleAuthor',
+			where: ({ context, where }) =>
+				context.getValue(passwordPrincipal) === undefined
+					? where.eq('audience', 'public')
+					: where,
+		}),
 		slug: field.string({ indexed: 'unique', required: true }),
 		title: field.string({
 			hooks: { resolveInput: ({ value }) => value?.trim() ?? null },

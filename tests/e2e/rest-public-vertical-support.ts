@@ -1,4 +1,5 @@
 import type { MasterAccessEvent } from '@ultimabase/core'
+import type { PostgresPool } from '@ultimabase/postgres-plugin'
 import type { HonoServerPlugin } from '@ultimabase/server-hono-plugin'
 import { vi } from 'vitest'
 
@@ -45,7 +46,8 @@ export interface MinimalExampleModule {
 	readonly createMinimalApplication: (options: {
 		readonly applicationId: string
 		readonly browserOrigin?: string
-		readonly databaseUrl: string
+		readonly databasePool?: PostgresPool
+		readonly databaseUrl?: string
 		readonly masterKey: string
 		readonly masterTransport?: boolean
 		readonly onMasterUse: (event: MasterAccessEvent) => void

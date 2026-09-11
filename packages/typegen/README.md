@@ -166,6 +166,15 @@ only other fields, while `id: false` is rejected by TypeScript. The same
 generated `include` types drive exact relationship projections on reads and on
 `createOne`, `createMany`, `updateOne`, and `updateMany`.
 
+Relation declarations also receive the exact target `WhereInput` and
+`WhereBuilder` types for their optional `where`. Static inputs and synchronous
+`({ context, where }) => ...` resolvers are checked at the source declaration,
+including inverse relations. Typegen records only callback-free relationship
+metadata: it never copies the resolver body or turns generated declarations
+into Runtime behavior. The same source callback therefore executes in
+Typegen-free JavaScript, while a stale or missing generated file cannot change
+relation visibility.
+
 The emitted file is application-facing rather than an opaque implementation
 dump. Concrete named types such as `TodoItem`, `TodoCreateInput`,
 `TodoWhereInput`, and `TodoSelect` appear first, followed by one flat `Schemas`

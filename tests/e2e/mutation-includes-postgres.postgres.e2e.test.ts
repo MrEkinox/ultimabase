@@ -1,9 +1,4 @@
-import {
-	postgresPlugin,
-	type PostgresPool,
-	type PostgresPoolClient,
-	type PostgresQueryResult,
-} from '@ultimabase/postgres-plugin'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { Schema, UltimaBase } from '@ultimabase/core'
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -12,6 +7,7 @@ import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from './postgres-worker-fixture.js'
+import { RecordingPostgresPool } from './recording-postgres-pool.js'
 
 const projectionAccessError = new Error(
 	'mutation inclusion target Access rejected the projection',
@@ -66,78 +62,8 @@ const Article = Schema.define({
 
 const schemas = [Author, Post, Tag, Article] as const
 
-/** Reads SQL text from both direct node-postgres calls and Drizzle query configs. */
-const readQueryText = (input: unknown): string => {
-	if (typeof input === 'string') return input
-
-	if (
-		typeof input === 'object' &&
-		input !== null &&
-		'text' in input &&
-		typeof input.text === 'string'
-	) {
-		return input.text
-	}
-
-	throw new TypeError('PostgreSQL query instrumentation received invalid SQL')
-}
-
-/** Counts actual driver statements while preserving the injected pool lifecycle. */
-class CountingPostgresPool implements PostgresPool {
-	readonly statements: string[] = []
-	readonly #pool: PostgresWorkerFixture['pool']
-
-	constructor(pool: PostgresWorkerFixture['pool']) {
-		this.#pool = pool
-	}
-
-	async connect(): Promise<PostgresPoolClient> {
-		const client = await this.#pool.connect()
-
-		return {
-			query: async (
-				queryText: string,
-				values?: unknown[],
-			): Promise<PostgresQueryResult> => {
-				this.statements.push(readQueryText(queryText))
-				const result = await client.query(queryText, values)
-
-				return { rows: result.rows }
-			},
-			release: (error) => {
-				client.release(error)
-			},
-		}
-	}
-
-	end(): Promise<void> {
-		// The worker fixture remains the owner of its concrete pool.
-		return Promise.resolve()
-	}
-
-	async query(
-		queryText: string,
-		values?: unknown[],
-	): Promise<PostgresQueryResult> {
-		this.statements.push(readQueryText(queryText))
-		const result = await this.#pool.query(queryText, values)
-
-		return { rows: result.rows }
-	}
-
-	reset(): void {
-		this.statements.length = 0
-	}
-
-	selectCount(): number {
-		return this.statements.filter((statement) =>
-			statement.trimStart().toLowerCase().startsWith('select'),
-		).length
-	}
-}
-
 let fixture: PostgresWorkerFixture | undefined
-let pool: CountingPostgresPool | undefined
+let pool: RecordingPostgresPool | undefined
 let ultimabase:
 	| UltimaBase<
 			readonly [...typeof schemas],
@@ -155,7 +81,7 @@ const getApplication = () => {
 
 beforeAll(async () => {
 	fixture = await createPostgresWorkerFixture({ prefix: 'mutation_include' })
-	pool = new CountingPostgresPool(fixture.pool)
+	pool = new RecordingPostgresPool(fixture.pool)
 	ultimabase = new UltimaBase({
 		plugins: [
 			accessPlugin({ default: true }),

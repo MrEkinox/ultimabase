@@ -1,9 +1,4 @@
-import {
-	postgresPlugin,
-	type PostgresPool,
-	type PostgresPoolClient,
-	type PostgresQueryResult,
-} from '@ultimabase/postgres-plugin'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { FrameworkError, Schema, UltimaBase } from '@ultimabase/core'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
@@ -11,6 +6,7 @@ import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from './postgres-worker-fixture.js'
+import { RecordingPostgresPool } from './recording-postgres-pool.js'
 
 const resolverFailure = new Error('virtual resolver rejected the mutation')
 
@@ -48,68 +44,6 @@ const Post = Schema.define({
 })
 
 const schemas = [Person, Post] as const
-
-/** Reads SQL text from both direct node-postgres calls and Drizzle query configs. */
-const readQueryText = (input: unknown): string => {
-	if (typeof input === 'string') return input
-	if (
-		typeof input === 'object' &&
-		input !== null &&
-		'text' in input &&
-		typeof input.text === 'string'
-	) {
-		return input.text
-	}
-
-	throw new TypeError('PostgreSQL query instrumentation received invalid SQL')
-}
-
-/** Records statements while leaving the worker fixture responsible for cleanup. */
-class RecordingPostgresPool implements PostgresPool {
-	readonly statements: string[] = []
-	readonly #pool: PostgresWorkerFixture['pool']
-
-	constructor(pool: PostgresWorkerFixture['pool']) {
-		this.#pool = pool
-	}
-
-	async connect(): Promise<PostgresPoolClient> {
-		const client = await this.#pool.connect()
-
-		return {
-			query: async (
-				queryText: string,
-				values?: unknown[],
-			): Promise<PostgresQueryResult> => {
-				this.statements.push(readQueryText(queryText))
-				const result = await client.query(queryText, values)
-
-				return { rows: result.rows }
-			},
-			release: (error) => {
-				client.release(error)
-			},
-		}
-	}
-
-	end(): Promise<void> {
-		return Promise.resolve()
-	}
-
-	async query(
-		queryText: string,
-		values?: unknown[],
-	): Promise<PostgresQueryResult> {
-		this.statements.push(readQueryText(queryText))
-		const result = await this.#pool.query(queryText, values)
-
-		return { rows: result.rows }
-	}
-
-	reset(): void {
-		this.statements.length = 0
-	}
-}
 
 let fixture: PostgresWorkerFixture | undefined
 let pool: RecordingPostgresPool | undefined

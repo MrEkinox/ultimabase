@@ -10,7 +10,7 @@ import {
 	passwordAuthOperations,
 	passwordAuthPlugin,
 } from '@ultimabase/password-auth-plugin'
-import { postgresPlugin } from '@ultimabase/postgres-plugin'
+import { postgresPlugin, type PostgresPool } from '@ultimabase/postgres-plugin'
 import { restPlugin } from '@ultimabase/rest-plugin'
 import {
 	honoServerPlugin,
@@ -20,20 +20,27 @@ import {
 import { minimalBehaviorPlugins, minimalSchemas } from './schema.ts'
 import { exampleStatusOperation, exampleStatusPlugin } from './status-plugin.ts'
 
-export interface MinimalApplicationOptions {
+interface MinimalApplicationBaseOptions {
 	readonly applicationId?: string
 	readonly browserOrigin?: string
-	readonly databaseUrl: string
 	readonly masterKey: string
 	readonly masterTransport?: boolean
 	readonly onMasterUse?: (event: MasterAccessEvent) => void | PromiseLike<void>
 	readonly server?: HonoServerPlugin
 }
 
+/** Selects either a managed URL or a developer-owned pool for the example. */
+export type MinimalApplicationOptions = MinimalApplicationBaseOptions &
+	(
+		| { readonly databasePool: PostgresPool; readonly databaseUrl?: never }
+		| { readonly databasePool?: never; readonly databaseUrl: string }
+	)
+
 /** Builds the complete public REST and GraphQL graph without starting it. */
 export const createMinimalApplication = ({
 	applicationId = 'minimal',
 	browserOrigin = 'http://localhost:5173',
+	databasePool,
 	databaseUrl,
 	masterKey,
 	masterTransport = true,
@@ -100,7 +107,11 @@ export const createMinimalApplication = ({
 			}),
 			graphqlYogaPlugin({ introspection: true }),
 			server,
-			postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
+			postgresPlugin(
+				databasePool === undefined
+					? { schemaPolicy: 'override', url: databaseUrl }
+					: { pool: databasePool, schemaPolicy: 'override' },
+			),
 		],
 		schemas: minimalSchemas,
 	})

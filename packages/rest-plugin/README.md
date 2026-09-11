@@ -173,6 +173,15 @@ collections in `{ results }`, singular values in `{ result }`, counts in
 application context originate from the same HTTP request lifetime so
 normalization and Runtime observe its composed cancellation/deadline signal.
 
+A relation field's declared `where` is not REST syntax and is never serialized
+to the client. Core resolves it from the selected application's real request
+context, combines it with caller `where`, Access, ACL, protected constraints,
+and physical membership, then applies relation ordering, offset, and limit.
+Relationship projections and parent `count` or `exists` predicates therefore
+observe the same visible collection as a direct relation handle. Verified
+Master bypasses authorization but retains this shaping unless the declaration
+itself explicitly branches for Master.
+
 Virtual fields use the same flat `select` syntax as stored result fields:
 
 ```text

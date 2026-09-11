@@ -320,13 +320,21 @@ information without a count query.
 
 Cursors are opaque, signed with a random application-lifetime key, and bound to
 the generated model type, relationship path, normalized GraphQL wire filter,
-and effective order. A malformed, altered, foreign-application,
-restarted-application, or context-shifted cursor is rejected as
-`GRAPHQL_INVALID_CURSOR` before Runtime.
+and effective order. A malformed, altered, foreign-application, or
+restarted-application cursor is rejected as `GRAPHQL_INVALID_CURSOR` before
+Runtime.
 The key is cleared when the application is disposed. Relationship cursors are
 not bound to a parent ID because one eager Core inclusion may page the same
 relationship across several parents; target Access and ACL remain enforced by
 the ordinary Runtime inclusion.
+
+A source relation's declared `where` and request identity are deliberately not
+encoded in the cursor. Core recomputes contextual shaping and authorization for
+every page, just as it does for a direct relation read. A cursor reused under a
+different legitimate context remains structurally valid but may address a
+different visible collection; it is an integrity-protected offset, not an
+authorization token or snapshot. Networkless GraphQL and every HTTP adapter
+delegate this behavior to the same Runtime path.
 
 The cursor contains an offset rather than a database identity or snapshot.
 Concurrent insertions and deletions can consequently shift later pages, which

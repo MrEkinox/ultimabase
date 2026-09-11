@@ -129,6 +129,47 @@ They are absent from REST and GraphQL. V1 also deliberately excludes
 include-deleted queries, deletion metadata, cascade behavior, uniqueness reuse,
 retention jobs, automatic purge, bulk soft delete, and nested soft delete.
 
+## Contextual relation views
+
+Relations may define one reusable read subset directly on the source field.
+`ExampleArticle.contributors` uses a static target filter, while `reviewers`
+uses Password Auth request context:
+
+```ts
+contributors: field.relation({
+	target: 'ExampleAuthor',
+	where: { listed: { eq: true } },
+}),
+reviewers: field.relation({
+	target: 'ExampleAuthor',
+	where: ({ context, where }) =>
+		context.getValue(passwordPrincipal) === undefined
+			? where.eq('audience', 'public')
+			: where,
+}),
+```
+
+The same declaration shapes direct relation handles, nested inclusions, REST
+relationship projections, GraphQL connections, and the visible universe used
+by `some`, `none`, `every`, `count`, `isEmpty`, and `isNotEmpty`. A caller's
+target `where` is added with logical `AND`; ordering, offset, and limit run
+after filtering. `ExampleAuthor.articles` and `contributions` show the same
+contract on inverse pointer and inverse relation storage.
+
+This is presentation logic, not security. The example's independent Author
+Access filter and ACL can still hide rows that satisfy a relation filter, while
+another relation or root query may expose a row excluded only by shaping.
+Master bypasses Access and ACL but does not automatically bypass relation
+shaping; here a Master request without a Password Auth principal still sees the
+public `reviewers` view. The callback is synchronous, request-local, and gets no
+source item, adapter, transport request, or transaction. V1 deliberately omits
+async and source-item-dependent filters and exposes no transport-specific
+bypass.
+
+Relationship writes keep physical membership semantics. Connecting an
+unlisted contributor still creates the edge, and a later `disconnect` removes
+it; only the read projection omits that contributor.
+
 ## Virtual result fields
 
 `ExampleArticle` also demonstrates output-only values computed by Core. Its

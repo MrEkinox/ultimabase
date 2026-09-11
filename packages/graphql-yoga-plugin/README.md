@@ -51,3 +51,9 @@ Virtual fields require no Yoga-specific resolver or configuration. Their
 selection, request-aware asynchronous resolution, output validation, Access,
 Master behavior, cancellation, and mutation rollback stay in Core; Yoga only
 delivers the resulting GraphQL response through the selected HTTP application.
+
+Contextual relation filters follow the same rule. Yoga contributes no filter
+argument or resolver: it forwards the HTTP-selected anonymous, authenticated,
+or Master context, and Core applies the source relation's synchronous `where`
+before GraphQL connection ordering and pagination. Networkless execution and
+Yoga therefore return the same visible nodes for the same application context.
