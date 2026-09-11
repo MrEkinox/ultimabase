@@ -5,8 +5,8 @@ Official soft-delete support for UltimaBase application schemas.
 The package establishes the immutable configuration and direct schema-option
 contract. Enabled application schemas receive the protected tombstone,
 ordinary operations see only active rows, and `replace-delete` schemas persist
-native deletes as tombstone updates. The explicit mutation and Master
-administration are delivered by the following milestone issues.
+native deletes as tombstone updates. An `explicit` schema keeps native hard
+delete and gains a distinct `softDelete` command.
 
 ```ts
 import { Schema, UltimaBase } from '@ultimabase/core'
@@ -64,12 +64,42 @@ one rejected item rolls back every earlier tombstone written by that batch.
 Schemas in `explicit` or `disabled` mode do not enter the rewriter target plan
 and retain physical hard-delete persistence.
 
+## Explicit execution
+
+For an effective `explicit` schema, the application schema handle and every
+bound persisted model expose the same singular command:
+
+```ts
+const deleted = await ultimabase.schema(Post).softDelete({
+	id: postId,
+	select: { id: true, isDeleted: true, title: true },
+})
+
+await ultimabase.schema(Post).for(post).softDelete()
+```
+
+The command has the stable logical identity
+`ultimabase.soft-delete.soft-delete`, loads one currently visible target, sets
+only `isDeleted: true`, and returns the postimage. It does not replay native
+update or delete policy and Hooks. A repeated call receives the ordinary
+non-disclosing missing-target error because the tombstone is already hidden.
+
+When the optional official integrations are installed, they discover this
+generic mutation descriptor. Access accepts an independent `access.softDelete`
+rule, Hooks accepts `beforeOperation.softDelete` and
+`afterOperation.softDelete`, REST publishes
+`POST /api/v1/classes/{Schema}/{id}/soft-delete`, and GraphQL publishes
+`softDelete{Schema}(input: { id: ID! })`. Replace and disabled schemas never
+gain those additional transport endpoints.
+
 ## Optional integrations and protected storage
 
 The package depends only on Core and Plugin Kit. It does not install or require
 the official Access, Hooks, REST, GraphQL, Yoga, PostgreSQL, or audit plugins.
 When installed, those products discover the generic compiled mutation surface
-instead of receiving a soft-delete-specific integration.
+instead of receiving a soft-delete-specific integration. Explicit soft delete
+keeps structural validation, protected targeting, transactionality, and
+persistence when Access and Hooks are absent.
 
 Enabled schemas own the fixed stored boolean `isDeleted`, defaulting to
 `false`. Caller-controlled create, update, nested-write, REST, and GraphQL input

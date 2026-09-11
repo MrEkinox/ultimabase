@@ -9,6 +9,7 @@ import {
 	type PluginSchemaMutationDefinition,
 } from './plugin-schema-mutations.js'
 import type { SchemaCompilerOutput } from './schema-compiler-ir/contracts.js'
+import type { SchemaCompilerSchemaNode } from './schema-compiler-ir/contracts.js'
 import {
 	attachPluginDeclarationDiagnostic,
 	samePluginOwner,
@@ -52,10 +53,12 @@ const hasMutationName = (
 const assertMutationSelection = (
 	name: string,
 	mutation: CompiledPluginSchemaMutationDefinition,
-	schema: SchemaDefinition,
+	schema: SchemaCompilerSchemaNode,
 ): void => {
 	for (const fieldName of Object.keys(mutation.select)) {
-		const field = schema.persistedFields[fieldName]
+		const field = schema.fields.find(
+			({ name: candidate }) => candidate === fieldName,
+		)
 		if (field === undefined || field.kind === 'relation') {
 			throw new TypeError(
 				`Schema mutation ${name} selects unavailable persisted field: ${fieldName}`,
@@ -109,6 +112,9 @@ export const compileApplicationSurfaces = (
 			classNames,
 		]),
 	)
+	const outputSchemas = new Map(
+		output.schemas.map((schema) => [schema.className, schema]),
+	)
 	const targetClassNames = (
 		target: ApplicationSurfaceDeclarations['modelSurfaces'][number]['target'],
 	): readonly string[] => {
@@ -153,6 +159,16 @@ export const compileApplicationSurfaces = (
 					if (target === undefined) {
 						throw new TypeError(`Unknown model surface schema: ${className}`)
 					}
+					const outputSchema = outputSchemas.get(className)
+					if (outputSchema === undefined) {
+						throw new TypeError(
+							`Missing compiled model surface schema: ${className}`,
+						)
+					}
+					const fieldNames = new Set([
+						...outputSchema.fields.map(({ name }) => name),
+						...outputSchema.virtualFields.map(({ name }) => name),
+					])
 					for (const [name, operation] of Object.entries(
 						surface.schemaCommands,
 					)) {
@@ -201,10 +217,7 @@ export const compileApplicationSurfaces = (
 								owner: surface.owner,
 								staticOptions: surface.staticOptions,
 							},
-							new Set([
-								...reservedModelHandleNames,
-								...Object.keys(target.schema.definition.fields),
-							]),
+							new Set([...reservedModelHandleNames, ...fieldNames]),
 							`${className} model surface`,
 						)
 					}
@@ -235,7 +248,7 @@ export const compileApplicationSurfaces = (
 								`${className} surface contains duplicate command: ${name}`,
 							)
 						}
-						assertMutationSelection(name, compiled.mutation, target.schema)
+						assertMutationSelection(name, compiled.mutation, outputSchema)
 						const command = immutableRecord({
 							contributionId: surface.contributionId,
 							mutation: compiled.mutation,
@@ -253,7 +266,7 @@ export const compileApplicationSurfaces = (
 							} else {
 								if (
 									reservedModelHandleNames.has(name) ||
-									Object.hasOwn(target.schema.definition.fields, name)
+									fieldNames.has(name)
 								) {
 									throw new TypeError(
 										`${className} model mutation uses reserved handle method: ${name}`,

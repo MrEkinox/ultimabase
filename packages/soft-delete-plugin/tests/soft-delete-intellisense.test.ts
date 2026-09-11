@@ -76,7 +76,21 @@ void Invalid
 	expect(generated.contents).toContain(
 		'readonly softDelete?: Plugin0_SoftDeleteSchemaOption',
 	)
-	expect(generated.snapshot.surfaces[0]?.schemaMutations).toStrictEqual([])
+	expect(generated.snapshot.surfaces[0]?.schemaMutations).toEqual([
+		expect.objectContaining({
+			authority: 'request',
+			effect: 'update',
+			mutation: 'ultimabase.soft-delete.soft-delete',
+			name: 'softDelete',
+			returning: 'after',
+		}),
+	])
+	expect(generated.contents).toContain(
+		'readonly softDelete: Core.ApplicationSchemaMutationMethod',
+	)
+	expect(generated.contents).toContain(
+		'readonly softDelete: Core.ApplicationModelSchemaMutationMethod',
+	)
 	const generatedDocument = generated.snapshot.schemas.find(
 		({ className }) => className === Document.className,
 	)

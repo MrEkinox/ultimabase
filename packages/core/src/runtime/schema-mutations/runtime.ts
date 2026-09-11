@@ -103,11 +103,23 @@ export class PluginSchemaMutationRuntime {
 			const definition = contribution.value
 			const resolve = getPluginSchemaMutationHandler(definition)
 			const command = commands.get(definition.mutation)
-			if (
-				resolve === undefined ||
-				command === undefined ||
-				!sameOwner(command, contribution)
-			) {
+			if (resolve === undefined) {
+				throw new FrameworkError(
+					'PLUGIN_OPERATION_INVALID',
+					`Plugin "${formatPluginIdentity(contribution.owner)}" provided an invalid schema mutation handler.`,
+					{
+						internalDetails: {
+							kind: 'schema-mutation-handler-owner-invalid',
+							plugin: formatPluginIdentity(contribution.owner),
+							contributionId: contribution.contributionId,
+						},
+					},
+				)
+			}
+			// Static providers may be dormant when schema selectors expose no
+			// matching command in this application. They receive no Runtime effect.
+			if (command === undefined) continue
+			if (!sameOwner(command, contribution)) {
 				throw new FrameworkError(
 					'PLUGIN_OPERATION_INVALID',
 					`Plugin "${formatPluginIdentity(contribution.owner)}" provided an invalid schema mutation handler.`,
@@ -152,10 +164,23 @@ export class PluginSchemaMutationRuntime {
 			schemaMutationTransportBindingCapability,
 		)) {
 			const binding = contribution.value
-			const command = isSchemaMutationTransportBinding(binding)
-				? commands.get(binding.mutation)
-				: undefined
-			if (command === undefined || !sameOwner(command, contribution)) {
+			if (!isSchemaMutationTransportBinding(binding)) {
+				throw new FrameworkError(
+					'PLUGIN_OPERATION_INVALID',
+					`Plugin "${formatPluginIdentity(contribution.owner)}" provided an invalid schema mutation transport binding.`,
+					{
+						internalDetails: {
+							kind: 'schema-mutation-transport-owner-invalid',
+							plugin: formatPluginIdentity(contribution.owner),
+							contributionId: contribution.contributionId,
+						},
+					},
+				)
+			}
+			const command = commands.get(binding.mutation)
+			// A canonical binding stays inert when no schema selected its mutation.
+			if (command === undefined) continue
+			if (!sameOwner(command, contribution)) {
 				throw new FrameworkError(
 					'PLUGIN_OPERATION_INVALID',
 					`Plugin "${formatPluginIdentity(contribution.owner)}" provided an invalid schema mutation transport binding.`,

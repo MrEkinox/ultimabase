@@ -486,7 +486,7 @@ after restore; public behavior still observes the logical delete. Purge later
 performs the physical delete and its configured referential actions.
 
 `explicit` leaves native hard delete unchanged and attaches one request-authority
-update mutation named `@ultimabase/soft-delete.soft-delete` under command
+update mutation named `ultimabase.soft-delete.soft-delete` under command
 `softDelete`. Its owner effect sets only `isDeleted: true` and returns the
 postimage. It therefore runs `access.softDelete`,
 `beforeOperation.softDelete`, and `afterOperation.softDelete`, never native

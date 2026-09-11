@@ -227,7 +227,10 @@ beforeAll(async () => {
 		await ultimabase.start()
 	} catch (error: unknown) {
 		await fixture.dispose()
-		throw error
+		throw new Error(
+			error instanceof Error ? error.message : JSON.stringify(error),
+			{ cause: error },
+		)
 	}
 }, 30_000)
 

@@ -115,6 +115,59 @@ describe('application-owned schema mutations', () => {
 		).rejects.toThrow('requires persisted model state')
 	})
 
+	it('compiles selected model mutations before relationship metadata is published', () => {
+		const Related = Schema.define({
+			className: 'SchemaMutationCompilationOrderRelated',
+			fields: () => ({}),
+		})
+		const Document = Schema.define({
+			className: 'SchemaMutationCompilationOrderDocument',
+			fields: (field) => ({
+				related: field.relation({ target: Related.className }),
+			}),
+		})
+		const mutation = defineSchemaMutation({
+			authority: 'request',
+			effect: 'update',
+			input: defineOperationValue((value) => value),
+			name: 'fixture.compilation-order.mutate',
+			returning: 'after',
+			version: '1.0.0',
+		})
+		const plugin = definePlugin({
+			core: '^0.0.0',
+			declare: ({ models, operations }) => {
+				operations.declare(mutation)
+				models.extend(
+					{ className: Document.className },
+					{
+						contributionId: 'selected-relation-mutation',
+						schemaMutations: {
+							mutate: { mutation, surfaces: ['model'] },
+						},
+					},
+				)
+			},
+			pluginId: 'fixture.schema-mutation-compilation-order',
+			privileges: [
+				{ name: 'model:extend', reason: 'Adds the model mutation.' },
+				{ name: 'operation:declare', reason: 'Declares the mutation.' },
+			] as const,
+			version: '1.0.0',
+		})
+		const ultimabase = new UltimaBase({
+			pluginPrivileges: { logger: false },
+			plugins: [plugin],
+			schemas: [Related, Document],
+		})
+
+		expect(
+			ultimabase.application
+				.getSchemaSurface(Document.className)
+				?.modelMutations.has('mutate'),
+		).toBe(true)
+	})
+
 	it('rejects foreign owners, unavailable dependencies, and duplicate aliases', () => {
 		const declaringPlugin = definePlugin({
 			core: '^0.0.0',

@@ -37,6 +37,9 @@ describe('softDeletePlugin', () => {
 					{
 						contributionId: 'official-soft-delete-replace-delete',
 					},
+					{ contributionId: 'official-soft-delete-handler' },
+					{ contributionId: 'official-soft-delete-rest-binding' },
+					{ contributionId: 'official-soft-delete-graphql-binding' },
 				],
 				replaces: [],
 				requires: [],
@@ -54,10 +57,63 @@ describe('softDeletePlugin', () => {
 				},
 				{
 					name: 'persistence:rewrite',
-					reason: 'Rewrites native deletes as atomic tombstone updates.',
+					reason: 'Persists soft-delete effects as atomic tombstone updates.',
+				},
+				{
+					name: 'operation:declare',
+					reason: 'Declares the explicit soft-delete mutation.',
+				},
+				{
+					name: 'model:extend',
+					reason: 'Adds soft-delete commands to explicit schema handles.',
+				},
+				{
+					name: 'transport:expose',
+					reason: 'Binds explicit soft delete to REST and GraphQL.',
 				},
 			],
 		})
+	})
+
+	it('attaches the logical command only to explicit schema and model handles', async () => {
+		const Direct = documentSchema('DirectExplicitSoftDelete', 'explicit')
+		const Inherited = documentSchema('InheritedExplicitSoftDelete')
+		const Replace = documentSchema(
+			'ReplaceWithoutSoftDeleteCommand',
+			'replace-delete',
+		)
+		const Disabled = documentSchema('DisabledWithoutSoftDeleteCommand', false)
+		const application = new FrameworkApplication({
+			pluginPrivileges: { logger: false },
+			plugins: [softDeletePlugin({ defaultMode: 'explicit' })],
+			schemas: [Direct, Inherited, Replace, Disabled],
+		})
+
+		await application.initialize()
+		try {
+			for (const schema of [Direct, Inherited]) {
+				const command = application
+					.getSchemaSurface(schema.className)
+					?.schemaMutations.get('softDelete')
+				expect(command).toMatchObject({
+					mutation: {
+						authority: 'request',
+						effect: 'update',
+						name: 'ultimabase.soft-delete.soft-delete',
+						returning: 'after',
+					},
+				})
+			}
+			for (const schema of [Replace, Disabled]) {
+				expect(
+					application
+						.getSchemaSurface(schema.className)
+						?.schemaMutations.has('softDelete'),
+				).toBe(false)
+			}
+		} finally {
+			await application.dispose()
+		}
 	})
 
 	it('compiles replace-delete targets without matching explicit or disabled schemas', async () => {
@@ -251,7 +307,7 @@ describe('softDeletePlugin', () => {
 
 	it('keeps option provenance and defaults isolated between applications', () => {
 		const Editorial = documentSchema('IsolatedSoftDeleteDocument', 'explicit')
-		const Legal = documentSchema('IsolatedSoftDeleteDocument', 'explicit')
+		const Legal = documentSchema('IsolatedSoftDeleteDocument')
 		const editorial = generateApplicationTypes({
 			application: new FrameworkApplication({
 				pluginPrivileges: { logger: false },
@@ -289,6 +345,10 @@ describe('softDeletePlugin', () => {
 			owner: { instanceId: 'legal' },
 			staticOptions: { defaultMode: 'replace-delete' },
 		})
+		expect(editorial.snapshot.surfaces[0]?.schemaMutations).toEqual([
+			expect.objectContaining({ name: 'softDelete' }),
+		])
+		expect(legal.snapshot.surfaces[0]?.schemaMutations).toStrictEqual([])
 		expect(editorial.fingerprint).not.toBe(legal.fingerprint)
 	})
 })

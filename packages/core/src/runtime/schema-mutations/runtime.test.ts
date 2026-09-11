@@ -655,4 +655,58 @@ describe('plugin schema mutation Runtime', () => {
 		expect(first.trace).toStrictEqual([])
 		expect(second.trace).toStrictEqual([])
 	})
+
+	it('keeps a valid handler dormant when no schema selects its mutation', async () => {
+		const dormantMutation = defineSchemaMutation({
+			authority: 'request',
+			effect: 'update',
+			input: defineOperationValue((value) => value),
+			name: 'fixture.schema-mutation.dormant',
+			returning: 'after',
+			version: '1.0.0',
+		})
+		const dormantOwner = definePlugin({
+			capabilities: {
+				provides: [
+					provideSchemaMutationHandler({
+						contributionId: 'dormant-handler',
+						create: () => ({
+							value: schemaMutationHandler({
+								mutation: dormantMutation,
+								resolve: () => ({ data: {} }),
+							}),
+						}),
+					}),
+				],
+			},
+			core: '^0.0.0',
+			declare: ({ operations }) => {
+				operations.declare(dormantMutation)
+			},
+			pluginId: 'fixture.schema-mutation-dormant',
+			privileges: [
+				{ name: 'operation:declare', reason: 'Declares an optional mutation.' },
+				{ name: 'persistence:rewrite', reason: 'Owns its optional effect.' },
+			] as const,
+			version: '1.0.0',
+		})
+		const database = definePlugin({
+			capabilities: {
+				provides: [
+					provideTestDatabaseAdapter(new RecordingDatabaseAdapter([], [])),
+				],
+			},
+			core: '^0.0.0',
+			pluginId: 'fixture.schema-mutation-dormant-database',
+			version: '1.0.0',
+		})
+		const ultimabase = new UltimaBase({
+			pluginPrivileges: { logger: false },
+			plugins: [database, dormantOwner],
+			schemas: [],
+		})
+
+		await expect(ultimabase.start()).resolves.toBeUndefined()
+		await ultimabase.dispose()
+	})
 })

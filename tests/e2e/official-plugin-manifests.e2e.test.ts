@@ -89,7 +89,14 @@ it('publishes the audited privilege and environment contract for every official 
 		{
 			environment: [],
 			pluginId: '@ultimabase/soft-delete-plugin',
-			privileges: ['schema:declare'],
+			privileges: [
+				'schema:declare',
+				'runtime:constrain',
+				'persistence:rewrite',
+				'operation:declare',
+				'model:extend',
+				'transport:expose',
+			],
 		},
 		{
 			environment: [],
