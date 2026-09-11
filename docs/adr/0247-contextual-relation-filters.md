@@ -175,12 +175,20 @@ hidden cache lifetime.
 
 Nested relation traversals inside caller predicates, declared filters, and
 inclusions resolve the `where` of each encountered field. Injected nodes count
-toward the existing relationship depth and Query complexity budgets. Core also
-tracks the active declaration-expansion chain: if a relation's own resolved
-filter recursively requires that same declaration before the first expansion
-finishes, the operation fails deterministically instead of recursing forever.
-A finite caller-authored traversal may revisit the same field and reuse its
-already normalized filter while still consuming ordinary depth.
+toward the existing relationship depth and Query complexity budgets. The
+portable depth remains eight levels, and one operation may contain at most 64
+relation-predicate occurrences across caller expressions, declared filters, and
+policy-owned private expressions. Repeated occurrences count even when they
+reuse one immutable AST node. The count is a fixed Core safety boundary rather
+than a configurable transport option, and exceeding it fails before adapter
+work with the ordinary validation error boundary.
+
+Core also tracks the active declaration-expansion chain: if a relation's own
+resolved filter recursively requires that same declaration before the first
+expansion finishes, the operation fails deterministically instead of recursing
+forever. A finite caller-authored traversal may revisit the same field and reuse
+its already normalized filter while still consuming ordinary depth and
+complexity.
 
 Static filters are validated during application compilation. Contextual results
 are normalized and structurally snapshotted for the target schema on each root

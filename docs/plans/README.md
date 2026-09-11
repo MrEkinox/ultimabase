@@ -7,7 +7,7 @@ priority changes.
 
 ## Active
 
-- [Contextual relation filters](../../CURRENT_PLAN.md), resumable at issue 2701.
+No cross-package objective is currently active.
 
 ## Paused
 
@@ -16,6 +16,7 @@ priority changes.
 
 ## Completed
 
+- [Contextual relation filters](completed/contextual-relation-filters.md)
 - [Plugin-defined schema mutations and official soft delete](completed/plugin-defined-schema-mutations-and-official-soft-delete.md)
 - [Contextual fields and virtual results](completed/contextual-fields-and-virtual-results.md)
 - [Nested writes before the first release](completed/nested-writes-before-first-release.md)

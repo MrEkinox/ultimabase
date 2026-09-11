@@ -1,6 +1,6 @@
 # Milestone 27 — Contextual relation filters
 
-- Status: in-progress
+- Status: completed
 
 Add one Core-owned `where` option to relation fields so a relation can define a
 static or request-contextual visible read subset. The filter composes with
@@ -15,7 +15,7 @@ through the canonical Runtime instead of becoming Drizzle-specific behavior.
 4. [x] [2704 — Filter eager relation inclusions](2704-relation-filter-inclusions.md)
 5. [x] [2705 — Filter relation predicates and cardinality](2705-relation-filter-predicates.md)
 6. [x] [2706 — Prove public relation-filter parity](2706-relation-filter-public-vertical.md)
-7. [ ] [2707 — Audit and close contextual relation filters](2707-relation-filter-final-audit.md)
+7. [x] [2707 — Audit and close contextual relation filters](2707-relation-filter-final-audit.md)
 
 Issues remain sequential because each later surface must reuse the exact
 normalization and Runtime semantics established by its dependency rather than
@@ -27,6 +27,8 @@ implementing a parallel filter path.
   synchronous function of `{ context, where }`.
 - The callback receives the exact request context and an immutable target
   `WhereBuilder`; it receives no source object or infrastructure capability.
+- Caller, declaration, and policy-owned relation predicates share Core's fixed
+  eight-level depth and 64-occurrence operation budgets before adapter work.
 - Core combines the relation filter and caller filter with logical `AND` before
   target policy and protected constraints reach the adapter.
 - Relation handles, eager inclusions, transport relation projections and
@@ -56,3 +58,9 @@ packed packages, REST, networkless GraphQL, Yoga, PostgreSQL, Access, ACL,
 Master, nested traversal, recursion limits, application isolation, and complete
 repository validation prove one contract. The final audit must also confirm
 that relation writes and pointer behavior remain unchanged.
+
+Milestone 27 is complete. The final audit added the missing fixed
+64-occurrence relation-predicate complexity boundary, found no parallel public
+or execution path, and passed 2,357 ordinary tests, 2,633 coverage tests, 156
+packed-consumer tests, 346 built E2E tests, every repository gate, and every
+package's `attw` and `publint` checks.

@@ -10,6 +10,10 @@ import {
 	normalizeContextualRelationWhereResult,
 	readRelationWhereField,
 } from '../../query/filters/relation-where-declaration.js'
+import {
+	createQueryRelationComplexityError,
+	queryRelationPredicateMaxCount,
+} from '../../query/filters/relation.js'
 import type { QueryFilterNode } from '../../query/filters/logical.js'
 import { WhereBuilder } from '../../query/filters/where.js'
 import { getRelationWhereDeclaration } from '../../schema/fields/builtins/relation.js'
@@ -54,6 +58,7 @@ export class RuntimeRelationFilterResolver {
 		QueryFilterNode<SchemaDefinition> | undefined
 	>()
 	readonly #resolving = new Set<object>()
+	#predicateOccurrences = 0
 	readonly #runtime
 
 	constructor(application: RelationFilterApplication) {
@@ -72,6 +77,14 @@ export class RuntimeRelationFilterResolver {
 		input: RuntimeRelationPredicatePreparationInput,
 	): Promise<readonly DatabaseRelationPredicateScope[] | undefined> {
 		return prepareRuntimeRelationPredicates(this.#application, this, input)
+	}
+
+	/** @internal Charges one caller or private occurrence to this root operation. */
+	consumePredicateOccurrence(): void {
+		this.#predicateOccurrences += 1
+		if (this.#predicateOccurrences > queryRelationPredicateMaxCount) {
+			throw createQueryRelationComplexityError()
+		}
 	}
 
 	/** Returns one immutable private target restriction for an exact relation field. */

@@ -30,6 +30,9 @@ import { traverseQueryExpression } from './traversal.js'
 /** Bounds portable relation recursion before an adapter sees the QueryBuilder AST. */
 export const queryRelationPredicateMaxDepth = 8 as const
 
+/** Bounds relation-predicate work across one portable Runtime operation. */
+export const queryRelationPredicateMaxCount = 64 as const
+
 /** Selects the collection quantifier applied to one exact to-many relation. */
 export type QueryRelationQuantifierOperator = 'every' | 'none' | 'some'
 
@@ -185,6 +188,18 @@ export const createQueryRelationDepthError =
 			{
 				publicMessage: 'The relation filter is nested too deeply.',
 				internalDetails: { kind: 'query-relation-depth-exceeded' },
+			},
+		)
+
+/** Creates the shared failure for an over-wide relation predicate graph. */
+export const createQueryRelationComplexityError =
+	(): FrameworkError<'VALIDATION_ERROR'> =>
+		new FrameworkError(
+			'VALIDATION_ERROR',
+			`Relation predicates cannot exceed ${String(queryRelationPredicateMaxCount)} occurrences per operation.`,
+			{
+				publicMessage: 'The relation filter is too complex.',
+				internalDetails: { kind: 'query-relation-complexity-exceeded' },
 			},
 		)
 
@@ -443,6 +458,9 @@ export const collectQueryRelationPredicates = (
 			isQueryRelationCountNode(candidate) ||
 			isQueryRelationPredicateNode(candidate)
 		) {
+			if (collected.length >= queryRelationPredicateMaxCount) {
+				throw createQueryRelationComplexityError()
+			}
 			collected.push(candidate)
 			return 'target'
 		}

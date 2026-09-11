@@ -1023,8 +1023,10 @@ policy filter and the relation field's declared `where` into one private adapter
 scope that behavior cannot inspect or remove. The declaration first defines the
 visible relation universe; the caller's nested predicate then narrows that
 universe for quantifiers or filtered counts. Predicate depth includes nested
-declaration expansion, and adapters must advertise the separate versioned
-relation predicate capability before execution.
+declaration expansion. Core also limits each operation to 64 relation predicate
+occurrences, including private predicates contributed by declarations and
+policies, before any adapter work. Adapters must advertise the separate
+versioned relation predicate capability before execution.
 
 A to-many relation is never nullable. Use `isNotEmpty: true` to require at least
 one visible related object and `isEmpty: true` to require an empty visible

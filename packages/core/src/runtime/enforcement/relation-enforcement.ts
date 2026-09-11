@@ -8,6 +8,10 @@ import {
 	isQueryRelationCountNode,
 	isQueryRelationPredicateNode,
 } from '../../query/index.js'
+import {
+	createQueryRelationComplexityError,
+	queryRelationPredicateMaxCount,
+} from '../../query/filters/relation.js'
 import { traverseQueryExpression } from '../../query/filters/traversal.js'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
@@ -38,6 +42,9 @@ export const collectDirectRelationPredicates = (
 			isQueryRelationCountNode(candidate) ||
 			isQueryRelationPredicateNode(candidate)
 		) {
+			if (collected.length >= queryRelationPredicateMaxCount) {
+				throw createQueryRelationComplexityError()
+			}
 			collected.push(candidate)
 			return 'skip'
 		}

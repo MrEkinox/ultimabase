@@ -176,6 +176,8 @@ class RuntimeRelationPredicatePreparer {
 			throw createQueryRelationDepthError()
 		}
 
+		this.#resolver.consumePredicateOccurrence()
+
 		if (this.#prepared.has(predicate)) return
 
 		const initialScope = this.#initialScopes.get(predicate)

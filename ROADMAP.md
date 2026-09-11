@@ -65,13 +65,14 @@ Master-only restore and purge commands. The
 [completed plan](docs/plans/completed/plugin-defined-schema-mutations-and-official-soft-delete.md)
 retains the complete contract, verification evidence, and v1 exclusions.
 
-[Milestone 27](issues/2700-contextual-relation-filters/README.md) is the active
-objective. [ADR-0247](docs/adr/0247-contextual-relation-filters.md) accepts a
+[Milestone 27](issues/2700-contextual-relation-filters/README.md) completed one
 Core-owned static or request-contextual `where` on relation fields. Direct
 relation reads, eager inclusions, predicates, cardinality, REST, and GraphQL
-share one visible-membership definition while adapters continue to receive only
-portable normalized filters. The filter shapes reads and does not replace
-Access, ACL, protected constraints, or physical relation membership.
+share one visible-membership definition while adapters receive only portable
+normalized filters. The filter shapes reads without replacing Access, ACL,
+protected constraints, or physical relation membership. The
+[completed plan](docs/plans/completed/contextual-relation-filters.md) retains
+the contract, final evidence, and explicit exclusions.
 
 The ACL hardening plan remains paused at issue 432. It is not part of an active
 plan.

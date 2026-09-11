@@ -79,6 +79,9 @@ users[0]?.toJSON() // A detached immutable object.
 - Singular creates and updates accept the same schema-aware nested pointer and
   relation commands through direct TypeScript, REST, and GraphQL. Core executes
   the complete bounded graph in one automatic transaction.
+- Relation fields may declare one static or request-contextual `where` that
+  shapes direct reads, eager inclusions, REST, and GraphQL consistently without
+  replacing Access, ACL, protected constraints, or physical membership.
 - UltimaBase, Schema, Query, ACL, and Role domain objects use immutable classes.
 - Hooks, Access, and application field validation are optional official plugin
   capabilities. The Validation plugin owns Standard Schema rules while Core
@@ -112,14 +115,15 @@ users[0]?.toJSON() // A detached immutable object.
   server.
 - The framework targets Node.js 24+, ESM, TypeScript, and an Apache-2.0 license.
 
-The shipped authenticated REST, GraphQL, soft-delete, nested-write, and
-virtual-result vertical is demonstrated by the
+The shipped authenticated REST, GraphQL, soft-delete, nested-write,
+virtual-result, and contextual relation-filter vertical is demonstrated by the
 [`examples/minimal`](examples/minimal/README.md)
 application. It exercises network-independent GraphQL execution and the
 optional Yoga HTTP adapter beside REST, including atomic pointer and relation
 writes, both soft-delete modes, private Master restoration and purge, plus
-request-aware output-only fields whose persisted dependencies stay private,
-while GraphiQL and Apollo Sandbox remain separate development plugins.
+request-aware output-only fields whose persisted dependencies stay private and
+relation views shaped from authentication context, while GraphiQL and Apollo
+Sandbox remain separate development plugins.
 
 ## Repository map
 

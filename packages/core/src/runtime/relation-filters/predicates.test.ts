@@ -4,6 +4,7 @@ import {
 	definePlugin,
 	MasterAuthority,
 	normalizeWhereInput,
+	QueryBuilder,
 	RequestContextValue,
 	Schema,
 	type RelationWhereResolver,
@@ -13,10 +14,12 @@ import { describe, expect, it } from 'vitest'
 import { provideTestDatabaseAdapter } from '../../../tests/runtime/fixtures/database-adapter-capability.js'
 import { RecordingDatabaseAdapter } from '../../../tests/runtime/fixtures/recording-database-adapter.js'
 import { provideTestRuntimeConstraint } from '../../../tests/runtime/fixtures/runtime-capabilities.js'
+import { queryRelationPredicateMaxCount } from '../../query/filters/relation.js'
 import { createFrameworkEngine } from '../application/create-framework-engine.js'
 import { runWithRequestEngine } from '../context/active-framework-context.js'
 import { RequestContext, requestSources } from '../context/request-context.js'
 import { protectedPolicy } from '../enforcement/protected-policy.js'
+import { RuntimeRelationFilterResolver } from './execution.js'
 
 const tenant = new RequestContextValue<string>(
 	'fixture.relation-predicate-tenant',
@@ -282,6 +285,121 @@ describe('Runtime relation-filter predicates', () => {
 			).rejects.toMatchObject({
 				code: 'VALIDATION_ERROR',
 				publicMessage: 'The relation filter is nested too deeply.',
+			})
+			expect(adapter.rootRequests).toStrictEqual([])
+		} finally {
+			await application.dispose()
+		}
+	})
+
+	it('counts private declaration predicates in the operation complexity budget', async () => {
+		const Node = Schema.define({
+			className: 'ComplexFilteredPredicateNode',
+			fields: (field) => ({
+				active: field.boolean(),
+				children: field.relation({
+					target: 'ComplexFilteredPredicateNode',
+				}),
+			}),
+		})
+		const Source = Schema.define({
+			className: 'ComplexFilteredPredicateSource',
+			fields: (field) => ({
+				targets: field.relation({
+					target: 'ComplexFilteredPredicateNode',
+					where: (({ where }) => {
+						let result = where
+
+						for (
+							let index = 0;
+							index < queryRelationPredicateMaxCount;
+							index += 1
+						) {
+							result = result.some('children', { active: { eq: true } })
+						}
+
+						return result
+					}) as RelationWhereResolver<typeof Node>,
+				}),
+			}),
+		})
+		const adapter = new RecordingDatabaseAdapter([], [])
+		const application = await createApplication({
+			plugins: [databasePlugin(adapter)],
+			schemas: [Source, Node],
+		})
+		const request = createFrameworkEngine(application).anonymous({
+			requestId: 'complex-filtered-relation-predicate',
+			source: requestSources.internal,
+		})
+
+		try {
+			await expect(
+				runWithRequestEngine(request, () =>
+					Source.findMany({ where: { targets: { some: {} } } }),
+				),
+			).rejects.toMatchObject({
+				code: 'VALIDATION_ERROR',
+				internalDetails: { kind: 'query-relation-complexity-exceeded' },
+				publicMessage: 'The relation filter is too complex.',
+			})
+			expect(adapter.rootRequests).toStrictEqual([])
+		} finally {
+			await application.dispose()
+		}
+	})
+
+	it('shares the complexity budget across preparation phases of one operation', async () => {
+		const Node = Schema.define({
+			className: 'PhasedComplexityRelationNode',
+			fields: (field) => ({
+				children: field.relation({ target: 'PhasedComplexityRelationNode' }),
+			}),
+		})
+		const adapter = new RecordingDatabaseAdapter([], [])
+		const application = await createApplication({
+			plugins: [databasePlugin(adapter)],
+			schemas: [Node],
+		})
+		const resolver = new RuntimeRelationFilterResolver(application)
+		const context = RequestContext.anonymous({
+			requestId: 'phased-relation-complexity',
+			source: requestSources.internal,
+		})
+		const operation = {
+			kind: 'find-many' as const,
+			query: new QueryBuilder(Node).ast,
+		}
+		const createFilter = (count: number) => {
+			let query = new QueryBuilder(Node)
+
+			for (let index = 0; index < count; index += 1) {
+				query = query.where((where) => where.some('children', {}))
+			}
+
+			const expression = query.ast.where?.expression
+			if (expression === undefined) {
+				throw new TypeError('Phased relation complexity fixture is incomplete')
+			}
+
+			return expression
+		}
+
+		try {
+			await resolver.preparePredicates({
+				context,
+				operation,
+				rowFilter: createFilter(queryRelationPredicateMaxCount / 2),
+			})
+			await expect(
+				resolver.preparePredicates({
+					context,
+					operation,
+					rowFilter: createFilter(queryRelationPredicateMaxCount / 2 + 1),
+				}),
+			).rejects.toMatchObject({
+				code: 'VALIDATION_ERROR',
+				internalDetails: { kind: 'query-relation-complexity-exceeded' },
 			})
 			expect(adapter.rootRequests).toStrictEqual([])
 		} finally {

@@ -12,6 +12,7 @@ import {
 	createQueryRelationCount,
 	isQueryRelationCountNode,
 	isQueryRelationPredicateNode,
+	queryRelationPredicateMaxCount,
 	queryRelationPredicateMaxDepth,
 } from './relation.js'
 import { WhereBuilder } from './where.js'
@@ -483,6 +484,41 @@ describe('relation predicates', () => {
 		} as unknown as QueryExpressionNode
 
 		expect(collectQueryRelationPredicates(logical)).toHaveLength(2)
+	})
+
+	it('rejects relation ASTs above the portable occurrence budget', () => {
+		const predicates = Array.from(
+			{ length: queryRelationPredicateMaxCount + 1 },
+			(_, index) => {
+				const expression = new QueryBuilder(Company).where({
+					teams: { some: { name: { eq: `Team ${String(index)}` } } },
+				}).ast.where?.expression
+
+				if (expression === undefined) {
+					throw new TypeError('Relation complexity fixture is incomplete')
+				}
+
+				return expression
+			},
+		)
+		const withinBudget = {
+			expressions: predicates.slice(0, queryRelationPredicateMaxCount),
+			kind: 'and' as const,
+		}
+		const aboveBudget = {
+			expressions: predicates,
+			kind: 'and' as const,
+		}
+
+		expect(collectQueryRelationPredicates(withinBudget)).toHaveLength(
+			queryRelationPredicateMaxCount,
+		)
+		expect(() => collectQueryRelationPredicates(aboveBudget)).toThrow(
+			expect.objectContaining({
+				code: 'VALIDATION_ERROR',
+				internalDetails: { kind: 'query-relation-complexity-exceeded' },
+			}),
+		)
 	})
 
 	it('rejects relation builders created for another target schema', () => {

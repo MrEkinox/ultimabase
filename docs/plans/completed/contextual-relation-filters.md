@@ -1,10 +1,11 @@
-# Active plan: contextual relation filters
+# Completed plan: contextual relation filters
 
-- Status: active
+- Status: completed
 - Milestone: 27
 - Started: 2026-09-11
-- Governing decision: [ADR-0247](docs/adr/0247-contextual-relation-filters.md)
-- Resume point: issue 2707
+- Completed: 2026-09-11
+- Governing decision: [ADR-0247](../../adr/0247-contextual-relation-filters.md)
+- Resume point: none
 
 ## Objective
 
@@ -62,12 +63,12 @@ protected constraint.
 4. [x] Issue 2704 — apply filters to eager relation inclusions.
 5. [x] Issue 2705 — compose filters into relation predicates and cardinality.
 6. [x] Issue 2706 — prove public transport and PostgreSQL parity.
-7. [ ] Issue 2707 — audit and close the milestone.
+7. [x] Issue 2707 — audit and close the milestone.
 
 The authoritative acceptance criteria and dependency graph live in
-[`issues/2700-contextual-relation-filters/`](issues/2700-contextual-relation-filters/README.md).
+[`issues/2700-contextual-relation-filters/`](../../../issues/2700-contextual-relation-filters/).
 
-## Approved planning constraints
+## Frozen constraints
 
 - `where` belongs to Core's relation-field contract, never to Drizzle or one
   transport.
@@ -83,8 +84,10 @@ The authoritative acceptance criteria and dependency graph live in
   transport relation projections and connections, and the visible universe of
   `some`, `none`, `every`, `count`, `isEmpty`, and `isNotEmpty`.
 - Nested relation traversals resolve the corresponding field filter under the
-  existing bounded Query depth and complexity rules. Cyclic expansion must fail
-  deterministically instead of recursing without limit.
+  fixed eight-level depth and 64-occurrence relation-predicate budgets. Caller,
+  declaration, and policy-owned predicates share that one operation-local
+  complexity count. Cyclic expansion must fail deterministically instead of
+  recursing without limit.
 - Relation membership commands and nested writes keep physical membership
   semantics. `connect`, `disconnect`, `set`, and `clear` do not inherit this
   read-shaping filter.
@@ -97,9 +100,9 @@ The authoritative acceptance criteria and dependency graph live in
 - JavaScript applications execute the same behavior without Typegen or a
   generated Runtime client.
 
-## Resume protocol
+## Verification protocol
 
-On every resumed task:
+Every issue followed the same verification protocol:
 
 1. Read `AGENTS.md`, this plan, the milestone README, the selected issue, and
    every referenced ADR completely.
@@ -112,29 +115,47 @@ On every resumed task:
 6. Create one dedicated commit after explicit approval and never push without a
    separate explicit request.
 
-## Mandatory stop boundaries
+## Explicit first-release exclusions
 
-- Issue 2701 must accept ADR-0247 before any public field, Query, Runtime,
-  adapter, or transport contract changes.
-- Stop if the implementation requires Core to import Drizzle, PostgreSQL, REST,
-  GraphQL, Access, Hooks, or another concrete plugin.
-- Stop if the relation filter could replace or weaken caller predicates,
-  protected constraints, Access, ACL, or physical membership.
-- Stop before applying the filter to relation membership mutations or nested
-  writes; that would change write semantics and requires a separate decision.
-- Stop before passing the source model or source fields to the callback; doing
-  so changes collection batching and can introduce N+1 execution.
-- Stop before asynchronous callbacks, schema-root defaults, a public bypass,
-  adapter-specific filter syntax, or implicit cross-request caching.
-- Stop if the exact public API requires `any`, deep imports, generated Runtime
-  code, mutable builders, or a file-budget exception.
+- Core, adapters, and transports expose no Drizzle-specific relation option,
+  executable relation resolver, request context, mutable Query shortcut, or
+  generic bypass.
+- Relation shaping cannot replace or weaken caller predicates, protected
+  constraints, Access, ACL, or physical membership.
+- Relation membership mutations and nested writes never inherit the read
+  filter; eager mutation-result projections remain ordinary filtered reads.
+- Contextual callbacks receive no source model or source fields, remain
+  synchronous, and create no cross-request cache or per-parent execution.
+- V1 has no asynchronous callback, source-dependent filter, schema-root default,
+  public bypass, adapter-specific syntax, pointer filter, snapshot pagination,
+  or keyset cursor.
+- Public contracts contain no `any`, deep import, generated Runtime code,
+  mutable builder, or new file-budget exception.
 
-## Completion gate
+## Completion evidence
 
-The plan closes only after source and generated TypeScript, Typegen-free
-JavaScript, packed packages, direct relation handles, nested eager inclusion,
-relation predicates and cardinality, REST, networkless GraphQL, Yoga, and
-PostgreSQL Testcontainers prove the same static and contextual semantics. The
-final issue runs the complete repository validation sequence, reconciles
-documentation and examples, archives this plan, and marks milestone 27
-completed.
+- Static and contextual declarations compile from the exact target schema while
+  executable callbacks remain private, application-bound Runtime behavior.
+  Direct relation handles, eager inclusions, predicates, cardinality, REST,
+  networkless GraphQL, Yoga, and PostgreSQL share the same visible universe.
+- Caller predicates, relation shaping, target Access, ACL, protected constraints,
+  and physical membership compose monotonically. Master bypasses authorization
+  but retains shaping unless the declaration explicitly branches on authority.
+- Nested traversal retains the fixed depth of eight and now shares one fixed
+  64-occurrence relation-predicate complexity budget across caller,
+  declaration, and policy-owned expressions. Cycles and budget failures stop
+  before adapter work.
+- Physical connect, disconnect, set, clear, and nested-write behavior remains
+  independent from read shaping. Pointer projection, REST offsets, GraphQL
+  Relay cursors, mutation projections, grouped inclusions, and Typegen-free
+  JavaScript retain their established contracts.
+- The final gate passed 503 files with 2,357 ordinary tests, 586 files with
+  2,633 coverage tests, 27 packed-consumer files with 156 tests, and 86 built
+  E2E files with 346 tests. Coverage completed at 88.84% statements, 81.68%
+  branches, 94.75% functions, and 89.38% lines. Every package passed `attw` and
+  `publint`; constraints, issue metadata, formatting, TypeScript, lint, build,
+  dependency, export, and removal audits also passed.
+
+Milestone 27 is complete. Contextual relation filters are now part of the
+first-release contract, while the exclusions above remain future work rather
+than implicit extension points.

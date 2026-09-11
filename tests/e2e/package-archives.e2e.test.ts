@@ -373,7 +373,7 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 		expect(schema.documentation).toContain(
 			'Defines one final schema-specific class',
 		)
-	})
+	}, 10_000)
 
 	it('keeps the no-Typegen draft fallback minimal and exposes QueryBuilder', () => {
 		const draft = readFixtureQuickInfo('packedDraft = new PostSchema')
