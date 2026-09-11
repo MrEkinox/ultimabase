@@ -18,7 +18,30 @@ export interface MinimalExampleModule {
 	readonly ExampleAuthor: object
 	readonly ExamplePrivateNote: object
 	readonly ExampleRole: object
+	readonly ExampleSoftDeleteEvent: object
 	readonly ExampleUser: object
+	readonly purgeArticle: (
+		application: MinimalApplication,
+		id: string,
+	) => Promise<unknown>
+	readonly restoreArticle: (
+		application: MinimalApplication,
+		id: string,
+	) => Promise<unknown>
+	readonly softDeleteArticle: (
+		application: MinimalApplication,
+		id: string,
+		sessionToken: string,
+	) => Promise<unknown>
+	readonly softDeleteArticleFromModel: (
+		application: MinimalApplication,
+		id: string,
+		sessionToken: string,
+	) => Promise<unknown>
+	readonly softDeleteAuthor: (
+		application: MinimalApplication,
+		id: string,
+	) => Promise<unknown>
 	readonly createMinimalApplication: (options: {
 		readonly applicationId: string
 		readonly browserOrigin?: string
@@ -45,11 +68,16 @@ export const loadMinimalExample = async (): Promise<MinimalExampleModule> => {
 		'../../examples/minimal/src/create-application.ts',
 		'../../examples/minimal/src/schema.ts',
 		'../../examples/minimal/src/client.ts',
+		'../../examples/minimal/src/soft-delete.ts',
 	]
-	const [applicationModule, schemaModule, clientModule]: unknown[] =
-		await Promise.all(
-			modulePaths.map(async (path) => vi.importActual<unknown>(path)),
-		)
+	const [
+		applicationModule,
+		schemaModule,
+		clientModule,
+		softDeleteModule,
+	]: unknown[] = await Promise.all(
+		modulePaths.map(async (path) => vi.importActual<unknown>(path)),
+	)
 	if (
 		typeof applicationModule !== 'object' ||
 		applicationModule === null ||
@@ -65,12 +93,26 @@ export const loadMinimalExample = async (): Promise<MinimalExampleModule> => {
 		!isObjectLike(schemaModule.ExamplePrivateNote) ||
 		!('ExampleRole' in schemaModule) ||
 		!isObjectLike(schemaModule.ExampleRole) ||
+		!('ExampleSoftDeleteEvent' in schemaModule) ||
+		!isObjectLike(schemaModule.ExampleSoftDeleteEvent) ||
 		!('ExampleUser' in schemaModule) ||
 		!isObjectLike(schemaModule.ExampleUser) ||
 		typeof clientModule !== 'object' ||
 		clientModule === null ||
 		!('createMinimalClient' in clientModule) ||
-		typeof clientModule.createMinimalClient !== 'function'
+		typeof clientModule.createMinimalClient !== 'function' ||
+		typeof softDeleteModule !== 'object' ||
+		softDeleteModule === null ||
+		!('purgeArticle' in softDeleteModule) ||
+		typeof softDeleteModule.purgeArticle !== 'function' ||
+		!('restoreArticle' in softDeleteModule) ||
+		typeof softDeleteModule.restoreArticle !== 'function' ||
+		!('softDeleteArticle' in softDeleteModule) ||
+		typeof softDeleteModule.softDeleteArticle !== 'function' ||
+		!('softDeleteArticleFromModel' in softDeleteModule) ||
+		typeof softDeleteModule.softDeleteArticleFromModel !== 'function' ||
+		!('softDeleteAuthor' in softDeleteModule) ||
+		typeof softDeleteModule.softDeleteAuthor !== 'function'
 	) {
 		throw new TypeError('Minimal example exports are invalid')
 	}
@@ -79,9 +121,15 @@ export const loadMinimalExample = async (): Promise<MinimalExampleModule> => {
 		ExampleAuthor: schemaModule.ExampleAuthor,
 		ExamplePrivateNote: schemaModule.ExamplePrivateNote,
 		ExampleRole: schemaModule.ExampleRole,
+		ExampleSoftDeleteEvent: schemaModule.ExampleSoftDeleteEvent,
 		ExampleUser: schemaModule.ExampleUser,
 		createMinimalApplication: applicationModule.createMinimalApplication,
 		createMinimalClient: clientModule.createMinimalClient,
+		purgeArticle: softDeleteModule.purgeArticle,
+		restoreArticle: softDeleteModule.restoreArticle,
+		softDeleteArticle: softDeleteModule.softDeleteArticle,
+		softDeleteArticleFromModel: softDeleteModule.softDeleteArticleFromModel,
+		softDeleteAuthor: softDeleteModule.softDeleteAuthor,
 	} as MinimalExampleModule
 }
 

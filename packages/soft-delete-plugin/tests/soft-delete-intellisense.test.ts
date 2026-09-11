@@ -70,11 +70,14 @@ void Invalid
 	expect(service.getSemanticDiagnostics(fileName)).toStrictEqual([])
 	expect(completions).toContain('softDelete')
 	expect(generated.contents).toContain(
-		'SoftDeleteSchemaOption as Plugin0_SoftDeleteSchemaOption',
+		'PluginSchemaMutationNoInput as Plugin0_PluginSchemaMutationNoInput',
+	)
+	expect(generated.contents).toContain(
+		'SoftDeleteSchemaOption as Plugin1_SoftDeleteSchemaOption',
 	)
 	expect(generated.contents).toContain('from "@ultimabase/soft-delete-plugin"')
 	expect(generated.contents).toContain(
-		'readonly softDelete?: Plugin0_SoftDeleteSchemaOption',
+		'readonly softDelete?: Plugin1_SoftDeleteSchemaOption',
 	)
 	expect(generated.snapshot.surfaces[0]?.schemaMutations).toEqual([
 		expect.objectContaining({

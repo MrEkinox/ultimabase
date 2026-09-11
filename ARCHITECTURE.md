@@ -245,10 +245,17 @@ final projections repeat only Core structural snapshots. An application without
 the plugin has no application field validator or placeholder Runtime behavior.
 
 The official `@ultimabase/soft-delete-plugin` owns the direct `softDelete`
-schema option and its application-local mode inheritance. It depends only on
-public foundations; protected tombstone behavior and generic schema-mutation
-surfaces compose without importing Access, Hooks, REST, GraphQL, Yoga, or a
-database implementation.
+schema option and its application-local `disabled`, `replace-delete`, and
+`explicit` mode inheritance. Replace mode retains the native logical delete
+while a protected plan rewrite performs the physical tombstone update. Explicit
+mode retains hard delete and contributes a separate application-owned schema
+mutation. Both use the same generic Runtime transaction, protected constraints,
+and persistence boundary. Optional Access and Hooks engines derive independent
+logical operation keys, while REST and GraphQL expose only the explicit command
+on otherwise eligible schemas. Audited Master-only `restore` and `purge`
+commands exist only on application schema handles. The package depends only on
+public foundations and never imports those optional engines, transports, Yoga,
+or a database implementation.
 
 ## Direct plugin options
 

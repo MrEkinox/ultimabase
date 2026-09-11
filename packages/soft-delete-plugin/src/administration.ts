@@ -8,7 +8,11 @@ import {
 	type pluginSchemaMutationHandlerCapability,
 } from '@ultimabase/core'
 
-import { purgeMutationName, restoreMutationName } from './contracts.js'
+import {
+	purgeMutationName,
+	restoreMutationName,
+	softDeleteNoInputTypegen,
+} from './contracts.js'
 import { softDeleteTombstoneFieldName } from './visibility.js'
 
 const administrationInput = defineOperationValue((value, path): undefined => {
@@ -16,7 +20,7 @@ const administrationInput = defineOperationValue((value, path): undefined => {
 		throw new TypeError(`${path} must be undefined`)
 	}
 	return undefined
-})
+}, softDeleteNoInputTypegen)
 
 /** @internal Restores one exact tombstoned item without exposing a public route. */
 export const restoreMutation: PluginSchemaMutationDefinition<

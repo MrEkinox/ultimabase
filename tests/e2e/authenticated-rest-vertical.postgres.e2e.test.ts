@@ -412,6 +412,49 @@ describe('authenticated public REST vertical', { concurrent: false }, () => {
 		expect(isolatedSignUp.status).toBe(200)
 		const secondSession = await readAuthentication(isolatedSignUp)
 		expect(secondSession.userId).not.toBe(authenticated.userId)
+		const secondApplicationInstance = requireApplication(
+			secondApplication,
+			'second',
+		)
+		const isolatedArticle = readObject(
+			await invoke(minimal.ExampleArticle, 'createOne', [
+				{
+					data: {
+						slug: 'second-application-soft-delete',
+						title: 'Second application',
+					},
+				},
+				{ ultimabase: secondApplicationInstance },
+			]),
+			'second application article',
+		)
+		const isolatedArticleId = readString(isolatedArticle, 'id')
+		const foreignSoftDelete = await requestJson(
+			secondAppId,
+			`/api/v1/classes/ExampleArticle/${isolatedArticleId}/soft-delete`,
+			{
+				body: {},
+				method: 'POST',
+				sessionToken: authenticated.token,
+			},
+		)
+		expect(foreignSoftDelete.status).toBe(401)
+		const isolatedSoftDelete = await requestJson(
+			secondAppId,
+			`/api/v1/classes/ExampleArticle/${isolatedArticleId}/soft-delete`,
+			{
+				body: {},
+				method: 'POST',
+				sessionToken: secondSession.token,
+			},
+		)
+		expect(isolatedSoftDelete.status).toBe(200)
+		await expect(
+			invoke(minimal.ExampleArticle, 'findOne', [
+				{ where: { id: { eq: isolatedArticleId } } },
+				{ ultimabase: secondApplicationInstance },
+			]),
+		).resolves.toBeNull()
 
 		for (const response of await Promise.all([
 			requestJson(firstAppId, statusPath, {

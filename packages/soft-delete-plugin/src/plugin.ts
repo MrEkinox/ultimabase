@@ -15,7 +15,10 @@ import {
 	type PluginModuleInstance,
 } from '@ultimabase/plugin-kit'
 
-import type { SoftDeletePluginOptions } from './contracts.js'
+import {
+	softDeleteNoInputTypegen,
+	type SoftDeletePluginOptions,
+} from './contracts.js'
 import {
 	normalizeSoftDeletePluginOptions,
 	softDeleteSchemaOption,
@@ -71,6 +74,10 @@ const softDeletePluginPrivileges: readonly [
 		readonly name: 'transport:expose'
 		readonly reason: 'Binds explicit soft delete to REST and GraphQL.'
 	}>,
+	Readonly<{
+		readonly name: 'typegen:reference'
+		readonly reason: 'Preserves payload-free soft-delete commands in Typegen.'
+	}>,
 ] = [
 	{
 		name: 'schema:declare',
@@ -95,6 +102,10 @@ const softDeletePluginPrivileges: readonly [
 	{
 		name: 'transport:expose',
 		reason: 'Binds explicit soft delete to REST and GraphQL.',
+	},
+	{
+		name: 'typegen:reference',
+		reason: 'Preserves payload-free soft-delete commands in Typegen.',
 	},
 ]
 
@@ -175,7 +186,8 @@ export const softDeletePlugin = (
 				...administrationProviders,
 			],
 		},
-		declare: ({ models, operations, schemas }) => {
+		declare: ({ models, operations, schemas, typegenReferences }) => {
+			typegenReferences.register(softDeleteNoInputTypegen)
 			operations.declare(softDeleteMutation)
 			operations.declare(restoreMutation)
 			operations.declare(purgeMutation)

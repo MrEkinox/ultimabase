@@ -4,7 +4,7 @@
 - Milestone: 26
 - Started: 2026-09-10
 - Governing decision: [ADR-0245](docs/adr/0245-plugin-schema-mutations-and-soft-delete.md)
-- Resume point: issue 2613
+- Resume point: issue 2614
 
 ## Objective
 
@@ -73,7 +73,7 @@ visibility invariants when they are absent.
 11. [x] Issue 2610 — implement replace-delete mode.
 12. [x] Issue 2611 — implement the explicit `softDelete` mutation.
 13. [x] Issue 2612 — add private Master-only restore and purge commands.
-14. [ ] Issue 2613 — prove the public cross-transport PostgreSQL vertical.
+14. [x] Issue 2613 — prove the public cross-transport PostgreSQL vertical.
 15. [ ] Issue 2614 — audit and close the milestone.
 
 The authoritative acceptance criteria and dependency graph live in

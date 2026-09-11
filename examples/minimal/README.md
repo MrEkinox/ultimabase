@@ -9,9 +9,10 @@ Every public request requires
 `X-UltimaBase-Application-Id: minimal`. REST is mounted under `/api/v1` and
 GraphQL accepts `POST /graphql`. The application exposes only
 `ExampleAuthor`, `ExampleArticle`, and `ExamplePrivateNote` CRUD plus the
-explicit `example.status` and four Password Auth operations. `ExampleRole` has
-no generated GraphQL roots, and Password Auth credentials and session storage
-never enter either public schema.
+explicit `ExampleArticle` soft-delete mutation, `example.status`, and four
+Password Auth operations. `ExampleRole` and the internal
+`ExampleSoftDeleteEvent` audit schema have no generated CRUD roots, and Password
+Auth credentials and session storage never enter either public schema.
 
 Access, ACL, Hooks, Validation, Roles, Password Auth, REST, GraphQL, Yoga,
 HTTP, Hono, and PostgreSQL remain explicit independently removable plugins.
@@ -58,6 +59,75 @@ curl http://127.0.0.1:1337/graphql \
 Both titles are trimmed by the same Hook, validated by the same Validation
 plugin, authorized by the same Access and ACL policies, and persisted in the
 same automatic mutation transaction.
+
+## Official soft delete
+
+The application installs `softDeletePlugin({ defaultMode: 'disabled' })` and
+then makes each schema's intent explicit:
+
+- `ExampleAuthor` uses `replace-delete`, so its ordinary `deleteOne`, REST
+  `DELETE`, and GraphQL delete mutation keep the logical delete contract while
+  PostgreSQL writes a tombstone.
+- `ExampleArticle` uses `explicit`, so native delete remains a hard delete and a
+  separately authorized `softDelete` command is added.
+- `ExamplePrivateNote` omits the option and therefore inherits `disabled`.
+
+An authenticated direct call can use the generated application schema handle or
+the same command on a loaded model. The example helper validates a real Password
+Auth session before entering the ambient request context:
+
+```ts
+import {
+	softDeleteArticle,
+	softDeleteArticleFromModel,
+} from './src/soft-delete.ts'
+
+await softDeleteArticle(ultimabase, articleId, sessionToken)
+await softDeleteArticleFromModel(ultimabase, anotherArticleId, sessionToken)
+```
+
+The matching REST and GraphQL calls are generated from that same mutation
+descriptor; they are not custom business handlers:
+
+```sh
+curl "http://127.0.0.1:1337/api/v1/classes/ExampleArticle/ARTICLE_ID/soft-delete" \
+  --request POST \
+  --header 'Content-Type: application/json' \
+  --header 'Authorization: Bearer SESSION_TOKEN' \
+  --header 'X-UltimaBase-Application-Id: minimal' \
+  --data '{"select":{"id":true,"isDeleted":true,"title":true}}'
+```
+
+```graphql
+mutation SoftDelete($id: ID!) {
+	softDeleteExampleArticle(input: { id: $id }) {
+		id
+		isDeleted
+		title
+	}
+}
+```
+
+Every ordinary read, count, existence check, pointer, and relation traversal
+excludes the resulting tombstone. `access.delete` and `access.softDelete` remain
+independent decisions. The Hooks plugin likewise reports `delete`,
+`softDelete`, `restore`, and `purge` as distinct logical operations. This
+example writes one `ExampleSoftDeleteEvent` in the same transaction to make the
+logical operation and its physical `update` or `delete` effect observable
+without adding a public audit route.
+
+Restoration and irreversible purge are server-only Master operations:
+
+```ts
+import { purgeArticle, restoreArticle } from './src/soft-delete.ts'
+
+await restoreArticle(ultimabase, articleId)
+await purgeArticle(ultimabase, obsoleteArticleId)
+```
+
+They are absent from REST and GraphQL. V1 also deliberately excludes
+include-deleted queries, deletion metadata, cascade behavior, uniqueness reuse,
+retention jobs, automatic purge, bulk soft delete, and nested soft delete.
 
 ## Virtual result fields
 

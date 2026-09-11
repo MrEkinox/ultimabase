@@ -23,6 +23,7 @@ it('conforms to the public plugin and Typegen contracts', async () => {
 				'operation:declare',
 				'model:extend',
 				'transport:expose',
+				'typegen:reference',
 			],
 			version: '0.0.0',
 		},

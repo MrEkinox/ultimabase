@@ -29,6 +29,11 @@ application plugin graph before Core recognizes the direct `softDelete` option.
 Typegen adds that option to authoring declarations, but the source declaration
 and compiled application graph remain Runtime truth.
 
+The runnable [`examples/minimal`](../../examples/minimal/README.md) application
+proves both modes, authenticated REST and GraphQL execution, direct generated
+handles, transactional Hook evidence, and private Master administration against
+PostgreSQL.
+
 ## Mode inheritance
 
 `defaultMode` accepts `disabled`, `replace-delete`, or `explicit` and defaults to

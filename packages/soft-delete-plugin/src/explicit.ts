@@ -12,6 +12,7 @@ import {
 	type pluginSchemaMutationHandlerCapability,
 } from '@ultimabase/core'
 
+import { softDeleteNoInputTypegen } from './contracts.js'
 import { softDeleteTombstoneFieldName } from './visibility.js'
 
 const softDeleteInput = defineOperationValue((value, path): undefined => {
@@ -19,7 +20,7 @@ const softDeleteInput = defineOperationValue((value, path): undefined => {
 		throw new TypeError(`${path} must be undefined`)
 	}
 	return undefined
-})
+}, softDeleteNoInputTypegen)
 
 /** @internal Defines the one logical command shared by every explicit schema. */
 export const softDeleteMutation: PluginSchemaMutationDefinition<

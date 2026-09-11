@@ -93,6 +93,10 @@ users[0]?.toJSON() // A detached immutable object.
   JavaScript applications run without Typegen or a generated client.
 - Stable plugin operations and application-specific model surfaces execute
   through application-owned handles rather than mutating exported schema classes.
+- The official soft-delete plugin can preserve native delete as a tombstone
+  rewrite or add an independently authorized `softDelete` mutation. Ordinary
+  reads stay tombstone-blind, while audited `restore` and `purge` commands remain
+  private to trusted server code.
 - Owner-private plugin records retain typed transactional persistence and
   migration provenance without becoming application schemas, Query or Typegen
   surfaces, generated transport routes, or application behavior inputs.
@@ -108,12 +112,14 @@ users[0]?.toJSON() // A detached immutable object.
   server.
 - The framework targets Node.js 24+, ESM, TypeScript, and an Apache-2.0 license.
 
-The shipped authenticated REST, GraphQL, nested-write, and virtual-result vertical is
-demonstrated by the [`examples/minimal`](examples/minimal/README.md)
+The shipped authenticated REST, GraphQL, soft-delete, nested-write, and
+virtual-result vertical is demonstrated by the
+[`examples/minimal`](examples/minimal/README.md)
 application. It exercises network-independent GraphQL execution and the
 optional Yoga HTTP adapter beside REST, including atomic pointer and relation
-writes plus request-aware output-only fields whose persisted dependencies stay
-private, while GraphiQL and Apollo Sandbox remain separate development plugins.
+writes, both soft-delete modes, private Master restoration and purge, plus
+request-aware output-only fields whose persisted dependencies stay private,
+while GraphiQL and Apollo Sandbox remain separate development plugins.
 
 ## Repository map
 

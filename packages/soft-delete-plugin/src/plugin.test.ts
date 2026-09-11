@@ -73,6 +73,10 @@ describe('softDeletePlugin', () => {
 					name: 'transport:expose',
 					reason: 'Binds explicit soft delete to REST and GraphQL.',
 				},
+				{
+					name: 'typegen:reference',
+					reason: 'Preserves payload-free soft-delete commands in Typegen.',
+				},
 			],
 		})
 	})
@@ -397,6 +401,10 @@ describe('softDeletePlugin', () => {
 			expect.objectContaining({ name: 'restore' }),
 			expect.objectContaining({ name: 'softDelete' }),
 		])
+		expect(editorial.contents).toContain('PluginSchemaMutationNoInput as')
+		expect(editorial.contents).not.toContain(
+			'"ultimabase.soft-delete.soft-delete", "1.0.0", unknown',
+		)
 		expect(legal.snapshot.surfaces[0]?.schemaMutations).toEqual([
 			expect.objectContaining({ name: 'purge' }),
 			expect.objectContaining({ name: 'restore' }),

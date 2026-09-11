@@ -7,6 +7,7 @@ import {
 	passwordPrincipal,
 } from '@ultimabase/password-auth-plugin'
 import { RoleSchema, hasRole, rolesPlugin } from '@ultimabase/roles-plugin'
+import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
 import { validationPlugin } from '@ultimabase/validation-plugin'
 import { z } from 'zod'
 
@@ -46,6 +47,42 @@ const editorACL = new ACL().grantRole(
 	'update',
 )
 
+/** Stores durable evidence from logical soft-delete lifecycle Hooks. */
+export const ExampleSoftDeleteEvent = Schema.define({
+	className: 'ExampleSoftDeleteEvent',
+	fields: (field) => ({
+		logicalOperation: field.string({ required: true }),
+		persistenceEffect: field.enum({
+			required: true,
+			typeName: 'ExampleSoftDeletePersistenceEffect',
+			values: ['update', 'delete'],
+		}),
+		schemaName: field.string({ required: true }),
+		targetId: field.string({ required: true }),
+	}),
+	access: {
+		create: true,
+		delete: false,
+		read: false,
+		update: false,
+		upsert: false,
+	},
+	graphql: false,
+	rest: false,
+	softDelete: false,
+})
+
+const recordSoftDeleteEvent = async (
+	logicalOperation: 'delete' | 'purge' | 'restore' | 'softDelete',
+	persistenceEffect: 'delete' | 'update',
+	schemaName: 'ExampleArticle' | 'ExampleAuthor',
+	targetId: string,
+): Promise<void> => {
+	await ExampleSoftDeleteEvent.createOne({
+		data: { logicalOperation, persistenceEffect, schemaName, targetId },
+	})
+}
+
 /** Authors can be selected and included through both public transports. */
 export const ExampleAuthor = Schema.define({
 	className: 'ExampleAuthor',
@@ -54,7 +91,36 @@ export const ExampleAuthor = Schema.define({
 	}),
 	acl: { default: publicArticleACL },
 	graphql: true,
+	hooks: {
+		afterOperation: {
+			delete: async ({ originalItem }) => {
+				await recordSoftDeleteEvent(
+					'delete',
+					'update',
+					'ExampleAuthor',
+					originalItem.id,
+				)
+			},
+			purge: async ({ originalItem }) => {
+				await recordSoftDeleteEvent(
+					'purge',
+					'delete',
+					'ExampleAuthor',
+					originalItem.id,
+				)
+			},
+			restore: async ({ originalItem }) => {
+				await recordSoftDeleteEvent(
+					'restore',
+					'update',
+					'ExampleAuthor',
+					originalItem.id,
+				)
+			},
+		},
+	},
 	rest: true,
+	softDelete: 'replace-delete',
 })
 
 /** Articles demonstrate policy, lifecycle, validation, and relationships. */
@@ -154,6 +220,9 @@ export const ExampleArticle = Schema.define({
 		},
 		update: true,
 		upsert: true,
+		softDelete: {
+			allow: ({ context }) => context.getValue(passwordPrincipal) !== undefined,
+		},
 	},
 	graphql: true,
 	acl: {
@@ -162,6 +231,43 @@ export const ExampleArticle = Schema.define({
 			inputAcl ?? currentAcl ?? publicArticleACL,
 	},
 	rest: true,
+	softDelete: 'explicit',
+	hooks: {
+		afterOperation: {
+			delete: async ({ originalItem }) => {
+				await recordSoftDeleteEvent(
+					'delete',
+					'delete',
+					'ExampleArticle',
+					originalItem.id,
+				)
+			},
+			purge: async ({ originalItem }) => {
+				await recordSoftDeleteEvent(
+					'purge',
+					'delete',
+					'ExampleArticle',
+					originalItem.id,
+				)
+			},
+			restore: async ({ originalItem }) => {
+				await recordSoftDeleteEvent(
+					'restore',
+					'update',
+					'ExampleArticle',
+					originalItem.id,
+				)
+			},
+			softDelete: async ({ originalItem }) => {
+				await recordSoftDeleteEvent(
+					'softDelete',
+					'update',
+					'ExampleArticle',
+					originalItem.id,
+				)
+			},
+		},
+	},
 })
 
 /** Notes prove authenticated role-based Access and ACL through public CRUD. */
@@ -183,6 +289,7 @@ export const ExamplePrivateNote = Schema.define({
 
 /** Keeps the schema-owning optional plugins explicit and independently removable. */
 export const minimalBehaviorPlugins = [
+	softDeletePlugin({ defaultMode: 'disabled' }),
 	accessPlugin({ default: true }),
 	hooksPlugin(),
 	validationPlugin(),
@@ -195,4 +302,5 @@ export const minimalSchemas = [
 	ExampleArticle,
 	ExampleRole,
 	ExamplePrivateNote,
+	ExampleSoftDeleteEvent,
 ] as const

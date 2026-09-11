@@ -22,6 +22,7 @@
 		"@ultimabase/rest-plugin": "workspace:^",
 		"@ultimabase/roles-plugin": "workspace:^",
 		"@ultimabase/server-hono-plugin": "workspace:^",
+		"@ultimabase/soft-delete-plugin": "workspace:^",
 		"@ultimabase/typegen": "workspace:^",
 		"@ultimabase/validation-plugin": "workspace:^",
 		"zod": "^4.4.3"

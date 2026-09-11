@@ -287,9 +287,16 @@ export const executeRuntimeSchemaMutation = async (
 	}
 
 	const preparationOperation = preparePhysicalOperation(logical)
+	const virtualScheduler = createRuntimeVirtualFieldScheduler(pipeline)
+	const preparationVirtualProjection =
+		prepareBoundRuntimeVirtualFieldProjection(
+			preparationOperation,
+			virtualScheduler,
+		)
 	const preparationPlan = createDatabasePersistencePlanWithSelection(
 		preparationOperation,
-		preparationOperation.query.selection,
+		preparationVirtualProjection?.persistedSelection ??
+			preparationOperation.query.selection,
 	)
 	assertPersistencePlanCapability(executor, preparationPlan)
 	const prepared = (await executor.prepare(
@@ -369,7 +376,6 @@ export const executeRuntimeSchemaMutation = async (
 	}
 
 	const physical = createPhysicalOperation(logical)
-	const virtualScheduler = createRuntimeVirtualFieldScheduler(pipeline)
 	const virtualProjection = prepareBoundRuntimeVirtualFieldProjection(
 		physical,
 		virtualScheduler,

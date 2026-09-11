@@ -1,3 +1,5 @@
+import { defineTypegenReference, type TypegenReference } from '@ultimabase/core'
+
 /** Selects the application-wide fallback used when a schema omits `softDelete`. */
 export type SoftDeleteMode = 'disabled' | 'explicit' | 'replace-delete'
 
@@ -25,3 +27,12 @@ export interface NormalizedSoftDeletePluginOptions {
 /** @internal Stable identities used to recognize only this plugin's administration. */
 export const restoreMutationName = 'ultimabase.soft-delete.restore'
 export const purgeMutationName = 'ultimabase.soft-delete.purge'
+
+/** @internal Preserves payload-free mutation calls through generated declarations. */
+export const softDeleteNoInputTypegen: TypegenReference<
+	'@ultimabase/core',
+	'PluginSchemaMutationNoInput'
+> = defineTypegenReference({
+	exportName: 'PluginSchemaMutationNoInput',
+	module: '@ultimabase/core',
+})
