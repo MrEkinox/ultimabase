@@ -7,7 +7,7 @@ priority changes.
 
 ## Active
 
-No cross-package objective is currently active.
+- [Contextual relation filters](../../CURRENT_PLAN.md), resumable at issue 2701.
 
 ## Paused
 

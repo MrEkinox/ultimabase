@@ -65,6 +65,13 @@ Master-only restore and purge commands. The
 [completed plan](docs/plans/completed/plugin-defined-schema-mutations-and-official-soft-delete.md)
 retains the complete contract, verification evidence, and v1 exclusions.
 
+[Milestone 27](issues/2700-contextual-relation-filters/README.md) is the active
+objective. It adds a Core-owned static or request-contextual `where` to relation
+fields. Direct relation reads, eager inclusions, predicates, cardinality, REST,
+and GraphQL share one visible-membership definition while adapters continue to
+receive only the canonical Query AST. The filter shapes reads and does not
+replace Access, ACL, protected constraints, or physical relation membership.
+
 The ACL hardening plan remains paused at issue 432. It is not part of an active
 plan.
 
@@ -306,6 +313,18 @@ mutation while retaining hard delete. Schemas opt in directly and omitted
 options inherit the plugin's explicit default mode. Default visibility and
 tombstone writes remain protected; restore and irreversible purge are
 Master-only server commands and are not generated transport endpoints.
+
+## Milestone 27 — Contextual relation filters
+
+Let a relation field declare one target-typed static or request-contextual
+`where`. Core resolves that filter from the exact request context and combines
+it through logical `AND` with caller predicates, target policy, protected
+constraints, and physical membership. Relation handles, eager inclusions,
+transport projections and connections, predicates, emptiness, and cardinality
+observe the same filtered relation universe. The filter remains read shaping,
+is not implicitly bypassed by Master, and does not alter relation membership
+mutations or nested writes. PostgreSQL and future adapters compile only the
+resulting portable Query AST and never execute application callbacks.
 
 ## First usable release
 

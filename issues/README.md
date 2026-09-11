@@ -84,6 +84,7 @@ consistent without rewriting historical issue prose.
 - [`2400-nested-writes/`](2400-nested-writes/README.md)
 - [`2500-contextual-fields-virtual-results/`](2500-contextual-fields-virtual-results/README.md)
 - [`2600-plugin-schema-mutations-soft-delete/`](2600-plugin-schema-mutations-soft-delete/README.md)
+- [`2700-contextual-relation-filters/`](2700-contextual-relation-filters/README.md)
 
 ## Assignment prompt
 
