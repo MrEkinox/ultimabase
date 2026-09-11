@@ -1,5 +1,8 @@
 import {
 	addSchemaField,
+	databaseAdapterCapability,
+	databasePersistencePlanCapability,
+	databaseRelationCapability,
 	defineCapability,
 	defineOperation,
 	defineOperationValue,
@@ -15,6 +18,11 @@ import {
 	Schema,
 	schemaMutationHandler,
 	stringField,
+	type DatabaseAdapter,
+	type DatabaseOperationAst,
+	type DatabaseOperationRequest,
+	type DatabaseOperationResult,
+	type RelationWhereResolver,
 } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
@@ -47,6 +55,7 @@ const optionalContracts = [
 	'migration',
 	'operation',
 	'persistence',
+	'relation-read',
 	'schema-mutation',
 	'schema-surface',
 	'transport',
@@ -371,6 +380,119 @@ describe('plugin conformance suite', () => {
 		const report = await runPluginConformance(suite)
 		expect(report.checks).toContainEqual({
 			contract: 'schema-mutation',
+			status: 'passed',
+		})
+	})
+
+	it('covers portable relation shaping without a database or policy product', async () => {
+		const sourceId = '0198f090-2a50-7000-8000-000000000093'
+		class RelationAdapter implements DatabaseAdapter {
+			readonly kind = 'database-adapter' as const
+			readonly capabilities = Object.freeze({
+				persistencePlans: databasePersistencePlanCapability,
+				relations: databaseRelationCapability,
+			})
+			readonly requests: DatabaseOperationRequest[] = []
+			whereInvocations = 0
+			readonly #results: unknown[] = [
+				{
+					createdAt: '2026-09-11T10:00:00.000Z',
+					id: sourceId,
+					updatedAt: '2026-09-11T10:00:00.000Z',
+				},
+				0,
+			]
+
+			execute<const TOperation extends DatabaseOperationAst>(
+				request: DatabaseOperationRequest<TOperation>,
+			): Promise<DatabaseOperationResult<TOperation>> {
+				this.requests.push(request)
+				const result = this.#results.shift()
+				return Promise.resolve(result as DatabaseOperationResult<TOperation>)
+			}
+
+			beginTransaction(): Promise<never> {
+				return Promise.reject(
+					new TypeError('Relation read conformance does not open transactions'),
+				)
+			}
+		}
+		let latestAdapter: RelationAdapter | undefined
+		const createFixture = () => {
+			const adapter = new RelationAdapter()
+			const Target = Schema.define({
+				className: 'ConformanceRelationTarget',
+				fields: (field) => ({ visible: field.boolean() }),
+			})
+			const Source = Schema.define({
+				className: 'ConformanceRelationSource',
+				fields: (field) => ({
+					targets: field.relation({
+						target: 'ConformanceRelationTarget',
+						where: (({ where }) => {
+							adapter.whereInvocations += 1
+							return where.eq('visible', true)
+						}) as RelationWhereResolver<typeof Target>,
+					}),
+				}),
+			})
+			latestAdapter = adapter
+			const plugin = definePlugin({
+				capabilities: {
+					provides: [
+						provideCapability(databaseAdapterCapability, {
+							contributionId: 'relation-read-adapter',
+							create: () => ({ value: adapter }),
+						}),
+					],
+				},
+				core: '^0.0.0',
+				pluginId: 'fixture.conformance-relation-read',
+				version: '0.0.0',
+			})
+
+			return createPluginConformanceFixture({
+				schemas: [Source, Target],
+				subject: plugin,
+			})
+		}
+		const suite = definePluginConformanceSuite({
+			createFixture,
+			expected: {
+				core: '^0.0.0',
+				pluginId: 'fixture.conformance-relation-read',
+				version: '0.0.0',
+			},
+		}).check('relation-read', async (context) => {
+			const { schemas, ultimabase } = context.createUltimaBase()
+			const [Source, Target] = schemas
+			await ultimabase.start()
+			const source = await Source.get({ id: sourceId }, { ultimabase })
+			await source.relation('targets').count({}, { ultimabase })
+
+			if (latestAdapter === undefined) {
+				throw new TypeError('Relation read conformance adapter is unavailable')
+			}
+			const adapter = latestAdapter
+			expect(adapter.whereInvocations).toBe(1)
+			expect(adapter.requests[1]).toMatchObject({
+				relation: {
+					fieldPath: ['targets'],
+					source: Source,
+					sourceObjectId: sourceId,
+					target: Target,
+				},
+				rowFilter: {
+					field: 'visible',
+					kind: 'equal',
+					value: true,
+				},
+			})
+		})
+
+		const report = await runPluginConformance(suite)
+		expect(report.checks).toContainEqual({
+			contract: 'relation-read',
 			status: 'passed',
 		})
 	})

@@ -93,6 +93,7 @@ const optionalContracts: ReadonlySet<OptionalPluginConformanceContract> =
 		'migration',
 		'operation',
 		'persistence',
+		'relation-read',
 		'schema-mutation',
 		'schema-surface',
 		'transport',

@@ -18,7 +18,8 @@ const compiledStaticRelationWhere = new WeakMap<
 	QueryFilterNode<SchemaDefinition>
 >()
 
-const readFieldAtPath = (
+/** @internal Resolves the exact stored field behind one trusted relation path. */
+export const readRelationWhereField = (
 	schema: SchemaDefinition,
 	fieldPath: readonly string[],
 ): GenericField => {
@@ -60,7 +61,7 @@ export const compileStaticRelationWhereDeclarations = (
 	schemas: CompiledSchemaRegistry,
 ): void => {
 	for (const target of schemas.schemaTargets.values()) {
-		const field = readFieldAtPath(target.source, target.fieldPath)
+		const field = readRelationWhereField(target.source, target.fieldPath)
 		if (field.kind !== 'relation') continue
 
 		const declaration = getRelationWhereDeclaration(field)

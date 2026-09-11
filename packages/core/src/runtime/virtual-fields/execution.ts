@@ -6,18 +6,15 @@ import {
 } from '@ultimabase/shared'
 
 import { FrameworkError } from '../../foundation.js'
-import {
-	snapshotOutputValue,
-	type SchemaContributionProvenance,
-} from '../../schema/index.js'
+import { snapshotOutputValue } from '../../schema/index.js'
 import { getVirtualFieldResolver } from '../../schema/schema/virtual-field.js'
 import type { DatabaseOperationAst } from '../database/contracts.js'
 import type { RequestContext } from '../context/request-context.js'
 import {
 	createRuntimeCallbackDescriptor,
 	getApplicationRuntimeCallbackExecutor,
-	type RuntimeCallbackDescriptor,
 } from '../contributions/execution.js'
+import { createSchemaRuntimeCallbackOwner } from '../contributions/schema-callback-owner.js'
 import { throwIfOperationCancelled } from '../cancellation/operation-cancellation.js'
 import { transferRuntimeSchemaModelMetadata } from '../operations/model-metadata.js'
 import type { RuntimeOperationResult } from '../pipeline/contracts.js'
@@ -27,33 +24,6 @@ const virtualResolverBatchSize = 16
 
 interface VirtualResolverInvocation {
 	readonly run: () => Promise<unknown>
-}
-
-const createCallbackOwner = (
-	provenance: SchemaContributionProvenance,
-): RuntimeCallbackDescriptor['owner'] => {
-	if (provenance.owner.kind === 'application') {
-		return immutableRecord({
-			contributionId: provenance.contributionId,
-			kind: 'application' as const,
-		})
-	}
-	if (provenance.owner.kind === 'plugin') {
-		return immutableRecord({
-			contributionId: provenance.contributionId,
-			kind: 'plugin' as const,
-			pluginId: provenance.owner.pluginId,
-			...(provenance.owner.instanceId === undefined
-				? {}
-				: { instanceId: provenance.owner.instanceId }),
-		})
-	}
-
-	throw new FrameworkError(
-		'INTERNAL_ERROR',
-		'Core-owned schema fields cannot carry application virtual resolvers.',
-		{ publicMessage: 'The operation could not be completed.' },
-	)
 }
 
 const preserveFrameworkControlFailure = (error: unknown): boolean =>
@@ -144,7 +114,7 @@ export class RuntimeVirtualFieldScheduler {
 				)
 				const descriptor = createRuntimeCallbackDescriptor({
 					operationKind: operation.kind,
-					owner: createCallbackOwner(virtual.provenance),
+					owner: createSchemaRuntimeCallbackOwner(virtual.provenance),
 					phase: `virtual-field:${virtual.name}`,
 					target: {
 						className: projection.schema.className,

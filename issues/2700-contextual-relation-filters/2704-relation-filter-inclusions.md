@@ -1,6 +1,6 @@
 # 2704: Filter eager relation inclusions
 
-- Status: planned
+- Status: ready
 - Milestone: 27
 - Packages: `@ultimabase/core`, database adapters
 - Depends on: 2703

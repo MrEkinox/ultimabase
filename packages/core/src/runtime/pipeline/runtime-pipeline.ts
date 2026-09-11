@@ -10,10 +10,6 @@ import type {
 	UpdateOneOperationAst,
 } from '../../query/operations/contracts.js'
 import { readNestedWriteRootOperation } from '../../schema/nested-writes/operation-markers.js'
-import type {
-	NestedWriteGraph,
-	NestedWriteObjectNode,
-} from '../../schema/nested-writes/contracts.js'
 import type { SchemaDefinition } from '../../schema/schema/definition.js'
 import { RequestContext } from '../context/request-context.js'
 import type {
@@ -56,6 +52,11 @@ import {
 	createRuntimeVirtualFieldScheduler,
 	inheritRuntimeVirtualFields,
 } from '../virtual-fields/binding.js'
+import {
+	createRuntimeRelationFilterResolver,
+	inheritRuntimeRelationFilters,
+} from '../relation-filters/binding.js'
+import type { RuntimeRelationFilterResolver } from '../relation-filters/execution.js'
 import { registerRuntimeSchemaMutationPipeline } from '../schema-mutations/pipeline-execution.js'
 import type { RuntimeVirtualFieldScheduler } from '../virtual-fields/execution.js'
 import {
@@ -78,6 +79,12 @@ import {
 import { isProtectedPolicyDenied } from '../enforcement/protected-denial.js'
 import { assertRuntimePipelineStages } from './stage-validation.js'
 import {
+	combineDatabaseRowFilters,
+	retainExecutionOperation,
+	type ActiveNestedWrite,
+	type RuntimePipelineExecutionState,
+} from './private-execution.js'
+import {
 	createRuntimeEnforcementInput,
 	createRuntimeEnforcementResultInput,
 	createRuntimeProjectedDatabaseResultInput,
@@ -92,48 +99,6 @@ import {
 
 export { projectRuntimeMutationBatch } from './inclusion-projection.js'
 export type { RuntimeMutationBatchProjectionRequest } from './inclusion-projection.js'
-
-/** Combines independent private restrictions without making either transformable. */
-const combineDatabaseRowFilters = (
-	first: DatabaseRowFilterNode | undefined,
-	second: DatabaseRowFilterNode | undefined,
-): DatabaseRowFilterNode | undefined => {
-	if (first === undefined) {
-		return second
-	}
-
-	if (second === undefined) {
-		return first
-	}
-
-	return normalizeLogicalFilter({
-		kind: 'and',
-		expressions: [first, second],
-	})
-}
-
-/** Carries only mutable orchestration state that never crosses a behavior boundary. */
-interface RuntimePipelineExecutionState {
-	operation: DatabaseOperationAst
-}
-
-interface ActiveNestedWrite {
-	readonly coordinator: RuntimeNestedWriteCoordinator
-	readonly graph: NestedWriteGraph
-	readonly node: NestedWriteObjectNode
-}
-
-/** Retains the latest immutable AST for transaction error attribution. */
-const retainExecutionOperation = <
-	const TOperation extends DatabaseOperationAst,
->(
-	execution: RuntimePipelineExecutionState,
-	operation: TOperation,
-): TOperation => {
-	execution.operation = operation
-
-	return operation
-}
 
 /**
  * Executes every operation through one fixed security and transaction order.
@@ -191,6 +156,7 @@ export class RuntimePipeline {
 		)
 		inheritRuntimeNestedWrites(this, scope.pipeline)
 		inheritRuntimeVirtualFields(this, scope.pipeline)
+		inheritRuntimeRelationFilters(this, scope.pipeline)
 		return scope
 	}
 
@@ -229,6 +195,7 @@ export class RuntimePipeline {
 			operation: request.operation,
 		}
 		const virtualScheduler = createRuntimeVirtualFieldScheduler(this)
+		const relationFilterResolver = createRuntimeRelationFilterResolver(this)
 
 		try {
 			const nestedMarker = readNestedWriteRootOperation(request.operation)
@@ -285,6 +252,7 @@ export class RuntimePipeline {
 									{ operation },
 									nested,
 									virtualScheduler,
+									relationFilterResolver,
 								)
 							} catch (error: unknown) {
 								if (denied === true && isProtectedPolicyDenied(error)) {
@@ -311,6 +279,7 @@ export class RuntimePipeline {
 							execution,
 							nested,
 							virtualScheduler,
+							relationFilterResolver,
 						),
 				)
 
@@ -318,7 +287,13 @@ export class RuntimePipeline {
 			}
 
 			return await runWithRuntimeNestedWriteStageContext(undefined, () =>
-				this.#executeOperation(request, execution, undefined, virtualScheduler),
+				this.#executeOperation(
+					request,
+					execution,
+					undefined,
+					virtualScheduler,
+					relationFilterResolver,
+				),
 			)
 		} catch (error: unknown) {
 			if (
@@ -347,6 +322,7 @@ export class RuntimePipeline {
 		execution: RuntimePipelineExecutionState,
 		nested?: ActiveNestedWrite,
 		virtualScheduler?: RuntimeVirtualFieldScheduler,
+		relationFilterResolver?: RuntimeRelationFilterResolver,
 	): Promise<RuntimeOperationResult<TOperation>> {
 		const context: RequestContext = request.context
 		const privateRowFilter =
@@ -373,6 +349,7 @@ export class RuntimePipeline {
 		let enforcement: EnforcementState | undefined
 		let constraints: readonly DatabaseConstraintNode[] = emptyRuntimeConstraints
 		let rowFilter: DatabaseRowFilterNode | undefined = privateRowFilter
+		let relationFilter: DatabaseRowFilterNode | undefined
 		let relationPredicates:
 			readonly DatabaseRelationPredicateScope[] | undefined
 
@@ -400,12 +377,34 @@ export class RuntimePipeline {
 				)
 
 			operation = retainExecutionOperation(execution, enforced.operation)
+			if (
+				privateRelation !== undefined &&
+				nested === undefined &&
+				!isRuntimeMutationOperation(operation)
+			) {
+				relationFilter = await relationFilterResolver?.resolve(
+					context,
+					operation,
+					privateRelation,
+				)
+			}
 			constraints = snapshotRuntimeConstraints(enforced.constraints)
 			rowFilter = combineDatabaseRowFilters(
-				privateRowFilter,
+				combineDatabaseRowFilters(privateRowFilter, relationFilter),
 				enforced.rowFilter,
 			)
 			relationPredicates = enforced.relationPredicates
+		} else if (
+			privateRelation !== undefined &&
+			nested === undefined &&
+			!isRuntimeMutationOperation(operation)
+		) {
+			relationFilter = await relationFilterResolver?.resolve(
+				context,
+				operation,
+				privateRelation,
+			)
+			rowFilter = combineDatabaseRowFilters(privateRowFilter, relationFilter)
 		}
 
 		const virtualProjection = prepareBoundRuntimeVirtualFieldProjection(

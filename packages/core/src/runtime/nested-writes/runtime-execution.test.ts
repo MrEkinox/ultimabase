@@ -21,6 +21,7 @@ const childId = '0199c2d0-0000-7000-8000-000000000001'
 const rootId = '0199c2d0-0000-7000-8000-000000000002'
 const tagId = '0199c2d0-0000-7000-8000-000000000003'
 const redirectedId = '0199c2d0-0000-7000-8000-000000000004'
+let relationWhereInvocations = 0
 
 const Author = Schema.define({
 	className: 'NestedRuntimeAuthor',
@@ -31,7 +32,13 @@ const Post = Schema.define({
 	className: 'NestedRuntimePost',
 	fields: (field) => ({
 		author: field.pointer({ target: 'NestedRuntimeAuthor' }),
-		tags: field.relation({ target: 'NestedRuntimeTag' }),
+		tags: field.relation({
+			target: 'NestedRuntimeTag',
+			where: () => {
+				relationWhereInvocations += 1
+				return {}
+			},
+		}),
 		title: field.string({ required: true }),
 	}),
 })
@@ -144,6 +151,7 @@ describe('Runtime nested create and connect execution', () => {
 	})
 
 	it('preflights connect targets and rolls a persisted source back on child failure', async () => {
+		relationWhereInvocations = 0
 		const trace: string[] = []
 		const root = record(rootId, { title: 'Root' })
 		const childFailure = new Error('nested child failed')
@@ -190,6 +198,7 @@ describe('Runtime nested create and connect execution', () => {
 		).toEqual(['find-one', 'create-one', 'create-one'])
 		expect(trace).toContain('adapter:rollback')
 		expect(trace).not.toContain('adapter:commit')
+		expect(relationWhereInvocations).toBe(0)
 		await ultimabase.dispose()
 	})
 

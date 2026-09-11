@@ -54,6 +54,7 @@ import {
 	bindApplicationRequestExecutor,
 } from './application-request-execution.js'
 import { bindRuntimeVirtualFields } from '../virtual-fields/binding.js'
+import { bindRuntimeRelationFilters } from '../relation-filters/binding.js'
 import { bindFrameworkSchemaMutationRuntime } from '../schema-mutations/engine-integration.js'
 
 /** Configures framework-owned assembly without exposing low-level pipeline slots. */
@@ -392,6 +393,7 @@ export const createFrameworkEngine = <
 		)
 	}
 	bindRuntimeVirtualFields(pipeline, application)
+	bindRuntimeRelationFilters(pipeline, application)
 	bindRuntimeNestedWrites(
 		pipeline,
 		createRuntimeNestedWriteBinding(

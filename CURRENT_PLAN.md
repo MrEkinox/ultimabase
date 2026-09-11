@@ -4,7 +4,7 @@
 - Milestone: 27
 - Started: 2026-09-11
 - Governing decision: [ADR-0247](docs/adr/0247-contextual-relation-filters.md)
-- Resume point: issue 2703
+- Resume point: issue 2704
 
 ## Objective
 
@@ -58,7 +58,7 @@ protected constraint.
 
 1. [x] Issue 2701 — accept the contextual relation-filter contract.
 2. [x] Issue 2702 — declare the exact typed relation `where` API.
-3. [ ] Issue 2703 — resolve contextual filters for direct relation reads.
+3. [x] Issue 2703 — resolve contextual filters for direct relation reads.
 4. [ ] Issue 2704 — apply filters to eager relation inclusions.
 5. [ ] Issue 2705 — compose filters into relation predicates and cardinality.
 6. [ ] Issue 2706 — prove public transport and PostgreSQL parity.

@@ -35,14 +35,20 @@ test('preserves exact subject and schema tuples in optional checks', () => {
 			pluginId: 'fixture.typed-conformance',
 			version: '0.0.0',
 		},
-	}).check('operation', (context) => {
-		const fixture = context.createApplication()
-		expectTypeOf(fixture.subject).toEqualTypeOf(plugin)
-		expectTypeOf(fixture.schemas).toEqualTypeOf<readonly [typeof Post]>()
-		expectTypeOf(fixture.application).toEqualTypeOf<
-			FrameworkApplication<readonly [typeof Post], readonly [typeof plugin]>
-		>()
 	})
+		.check('operation', (context) => {
+			const fixture = context.createApplication()
+			expectTypeOf(fixture.subject).toEqualTypeOf(plugin)
+			expectTypeOf(fixture.schemas).toEqualTypeOf<readonly [typeof Post]>()
+			expectTypeOf(fixture.application).toEqualTypeOf<
+				FrameworkApplication<readonly [typeof Post], readonly [typeof plugin]>
+			>()
+		})
+		.check('relation-read', (context) => {
+			expectTypeOf(context.createUltimaBase().schemas).toEqualTypeOf<
+				readonly [typeof Post]
+			>()
+		})
 
 	expectTypeOf<OptionalPluginConformanceContract>().toExtend<PluginConformanceContract>()
 	// @ts-expect-error -- Baseline contracts cannot be replaced by custom checks.
