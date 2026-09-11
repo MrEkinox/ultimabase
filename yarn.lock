@@ -1572,6 +1572,7 @@ __metadata:
     "@ultimabase/rest-plugin": "workspace:^"
     "@ultimabase/roles-plugin": "workspace:^"
     "@ultimabase/server-hono-plugin": "workspace:^"
+    "@ultimabase/soft-delete-plugin": "workspace:^"
     "@ultimabase/typegen": "workspace:^"
     "@ultimabase/validation-plugin": "workspace:^"
     typescript: "npm:^6.0.3"
@@ -1811,12 +1812,13 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ultimabase/soft-delete-plugin@workspace:packages/soft-delete-plugin":
+"@ultimabase/soft-delete-plugin@workspace:^, @ultimabase/soft-delete-plugin@workspace:packages/soft-delete-plugin":
   version: 0.0.0-use.local
   resolution: "@ultimabase/soft-delete-plugin@workspace:packages/soft-delete-plugin"
   dependencies:
     "@ultimabase/core": "workspace:^"
     "@ultimabase/plugin-kit": "workspace:^"
+    "@ultimabase/shared": "workspace:^"
     "@ultimabase/testing": "workspace:^"
     "@ultimabase/typegen": "workspace:^"
     tsdown: "npm:^0.22.14"
