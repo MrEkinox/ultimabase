@@ -23,6 +23,7 @@ import {
 	databaseInclusionCapability,
 	databasePersistencePlanCapability,
 	databaseRelationCapability,
+	databaseRelationPredicateCapability,
 	RuntimePipeline,
 } from '../../../src/runtime/index.js'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
@@ -80,6 +81,7 @@ export interface RecordingAdapterCapabilityOptions {
 	readonly inclusions?: boolean
 	readonly persistencePlans?: boolean
 	readonly relations?: boolean
+	readonly relationPredicates?: boolean
 }
 
 /** Snapshots the portable protocols one fixture adapter truthfully advertises. */
@@ -97,6 +99,9 @@ const createRecordingCapabilities = (
 		...(options.relations === false
 			? {}
 			: { relations: databaseRelationCapability }),
+		...(options.relationPredicates === false
+			? {}
+			: { relationPredicates: databaseRelationPredicateCapability }),
 	})
 
 const recordingIncludedValues = new WeakMap<

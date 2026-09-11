@@ -217,7 +217,7 @@ export interface DatabaseRelationScope extends DatabaseRelationReference {
 	readonly sourceObjectId: string
 }
 
-/** Carries target policy beside one exact public relation leaf, never inside it. */
+/** Carries private target policy and relation shaping beside one public relation leaf. */
 export interface DatabaseRelationPredicateScope {
 	readonly constraints: readonly DatabaseConstraintNode[]
 	readonly predicate: QueryRelationFilterNode

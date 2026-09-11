@@ -1019,9 +1019,12 @@ integer through `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `in`, `notIn`, `between`,
 or `notBetween`; operands must be non-negative safe integers. Its optional
 target-typed `where` filters the related objects before every comparison, and at
 least one comparison is required. Runtime evaluates every installed target
-policy filter into a private adapter scope that behavior cannot remove. Predicate depth is
-bounded, and adapters must advertise the separate versioned relation predicate
-capability before execution.
+policy filter and the relation field's declared `where` into one private adapter
+scope that behavior cannot inspect or remove. The declaration first defines the
+visible relation universe; the caller's nested predicate then narrows that
+universe for quantifiers or filtered counts. Predicate depth includes nested
+declaration expansion, and adapters must advertise the separate versioned
+relation predicate capability before execution.
 
 A to-many relation is never nullable. Use `isNotEmpty: true` to require at least
 one visible related object and `isEmpty: true` to require an empty visible
@@ -1034,7 +1037,9 @@ exist.
 `count: { eq: 0 }` and `count: { gt: 0 }` are valid, but `isEmpty: true` and
 `isNotEmpty: true` remain the clearer and cheaper existence forms. Multiple
 count comparisons, including a filtered count, reuse one cardinality
-calculation rather than issuing one query per operator or parent object.
+calculation rather than issuing one query per operator or parent object. Direct
+relation handles, eager inclusions, emptiness, quantifiers, and counts therefore
+agree on the same request-local visible targets before inclusion pagination.
 
 When an edge owns application data, model it as an ordinary schema with two
 pointer fields instead of hiding metadata behind `relationField`:

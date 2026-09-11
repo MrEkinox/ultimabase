@@ -17,6 +17,7 @@ import type { SchemaDefinition } from '../../schema/index.js'
 import { assertApplicationEngineAvailable } from '../engine/application-binding.js'
 import type {
 	DatabaseOperationAst,
+	DatabaseRelationPredicateScope,
 	DatabaseRelationReference,
 } from '../database/contracts.js'
 import type { RequestContext } from '../context/request-context.js'
@@ -25,6 +26,10 @@ import {
 	getApplicationRuntimeCallbackExecutor,
 } from '../contributions/execution.js'
 import { createSchemaRuntimeCallbackOwner } from '../contributions/schema-callback-owner.js'
+import {
+	prepareRuntimeRelationPredicates,
+	type RuntimeRelationPredicatePreparationInput,
+} from './predicate-preparation.js'
 
 type RelationFilterApplication = FrameworkApplication<
 	readonly SchemaDefinition[],
@@ -60,6 +65,13 @@ export class RuntimeRelationFilterResolver {
 
 		this.#application = application
 		this.#runtime = getApplicationRuntimeCallbackExecutor(application)
+	}
+
+	/** Prepares private policy and declaration scopes for every relation predicate. */
+	async preparePredicates(
+		input: RuntimeRelationPredicatePreparationInput,
+	): Promise<readonly DatabaseRelationPredicateScope[] | undefined> {
+		return prepareRuntimeRelationPredicates(this.#application, this, input)
 	}
 
 	/** Returns one immutable private target restriction for an exact relation field. */

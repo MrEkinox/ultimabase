@@ -332,7 +332,6 @@ export class RuntimePipeline {
 				: normalizeLogicalFilter(request.rowFilter)
 		const privateRelation = request.relation
 		let operation: TOperation = request.operation
-
 		const reservedCreateId = readReservedCreateId(operation)
 		operation = await this.#stages.normalization(
 			createRuntimeOperationInput(context, operation),
@@ -346,14 +345,11 @@ export class RuntimePipeline {
 				createRuntimeOperationInput(context, operation),
 			),
 		)
-
 		let enforcement: EnforcementState | undefined
 		let constraints: readonly DatabaseConstraintNode[] = emptyRuntimeConstraints
 		let rowFilter: DatabaseRowFilterNode | undefined = privateRowFilter
-		let relationFilter: DatabaseRowFilterNode | undefined
 		let relationPredicates:
 			readonly DatabaseRelationPredicateScope[] | undefined
-
 		if (this.#stages.enforcement !== undefined) {
 			if (
 				privateRelation !== undefined &&
@@ -378,17 +374,16 @@ export class RuntimePipeline {
 				)
 
 			operation = retainExecutionOperation(execution, enforced.operation)
-			if (
+			const relationFilter =
 				privateRelation !== undefined &&
 				nested === undefined &&
 				!isRuntimeMutationOperation(operation)
-			) {
-				relationFilter = await relationFilterResolver?.resolve(
-					context,
-					operation,
-					privateRelation,
-				)
-			}
+					? await relationFilterResolver?.resolve(
+							context,
+							operation,
+							privateRelation,
+						)
+					: undefined
 			constraints = snapshotRuntimeConstraints(enforced.constraints)
 			rowFilter = combineDatabaseRowFilters(
 				combineDatabaseRowFilters(privateRowFilter, relationFilter),
@@ -400,13 +395,20 @@ export class RuntimePipeline {
 			nested === undefined &&
 			!isRuntimeMutationOperation(operation)
 		) {
-			relationFilter = await relationFilterResolver?.resolve(
+			const relationFilter = await relationFilterResolver?.resolve(
 				context,
 				operation,
 				privateRelation,
 			)
 			rowFilter = combineDatabaseRowFilters(privateRowFilter, relationFilter)
 		}
+		relationPredicates =
+			(await relationFilterResolver?.preparePredicates({
+				context,
+				operation,
+				relationPredicates,
+				rowFilter,
+			})) ?? relationPredicates
 
 		const virtualProjection = prepareBoundRuntimeVirtualFieldProjection(
 			operation,

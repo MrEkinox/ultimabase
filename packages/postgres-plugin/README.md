@@ -724,8 +724,9 @@ Owning joins, inverse joins, and inverse pointers share the same compiler.
 `none` negates a matching `EXISTS`; `every` rejects a visible related row that
 does not satisfy the target predicate, which makes it true for an empty
 relation. Nested predicates receive deterministic table aliases. Developer
-values, target Access filters, and plugin constraints remain parameters or
-private compiler input and never become interpolated SQL text.
+values, the relation field's Core-resolved `where`, target Access filters, and
+plugin constraints remain parameters or private compiler input and never become
+interpolated SQL text. The resolver and request context never reach PostgreSQL.
 
 Relation emptiness uses `isEmpty: true` and non-emptiness uses
 `isNotEmpty: true`. Core normalizes those explicit flags to `none: {}` and
@@ -753,11 +754,11 @@ const establishedArticles = await Article.findMany({
 Drizzle RQB v2 has no relation cardinality comparator, so PostgreSQL uses
 Drizzle Core's aliased `QueryBuilder`, `count()`, joins, and parameterized
 comparison helpers for this leaf. An optional target `where`, target Access
-filters, and plugin constraints remain inside the correlated subquery, so
-hidden or non-matching targets are not counted. All comparisons share one
-aggregate scan and compile through `HAVING`. Owning joins, inverse joins, and
-inverse pointers still execute as one SQL statement without loading related
-rows or issuing per-parent queries.
+filters, the relation field's private declared filter, and plugin constraints
+remain inside the correlated subquery, so hidden or non-matching targets are not
+counted. All comparisons share one aggregate scan and compile through `HAVING`.
+Owning joins, inverse joins, and inverse pointers still execute as one SQL
+statement without loading related rows or issuing per-parent queries.
 
 Relationships with business data remain ordinary schemas. For example, two
 required pointers plus a composite unique index model a membership edge:

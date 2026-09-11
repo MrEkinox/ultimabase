@@ -47,11 +47,17 @@ export const prepareRuntimeInclusionEnforcement = async (
 						relation,
 					)
 
+		const relationPredicates = await relationFilterResolver?.preparePredicates({
+			context,
+			operation: initialOperation,
+			rowFilter,
+		})
+
 		return immutableRecord({
 			constraints: emptyRuntimeConstraints,
 			enforcement: undefined,
 			operation: initialOperation,
-			relationPredicates: undefined,
+			relationPredicates,
 			rowFilter,
 		})
 	}
@@ -68,11 +74,23 @@ export const prepareRuntimeInclusionEnforcement = async (
 			? undefined
 			: await relationFilterResolver?.resolve(context, operation, relation)
 
+	const rowFilter = combineDatabaseRowFilters(
+		relationFilter,
+		enforced.rowFilter,
+	)
+	const relationPredicates =
+		(await relationFilterResolver?.preparePredicates({
+			context,
+			operation,
+			relationPredicates: enforced.relationPredicates,
+			rowFilter,
+		})) ?? enforced.relationPredicates
+
 	return immutableRecord({
 		constraints: snapshotRuntimeConstraints(enforced.constraints),
 		enforcement,
 		operation,
-		relationPredicates: enforced.relationPredicates,
-		rowFilter: combineDatabaseRowFilters(relationFilter, enforced.rowFilter),
+		relationPredicates,
+		rowFilter,
 	})
 }

@@ -28,7 +28,7 @@ import {
 } from './state.js'
 
 /** Reads only the relation leaves owned by the current schema expression level. */
-const collectDirectRelationPredicates = (
+export const collectDirectRelationPredicates = (
 	expression: QueryExpressionNode,
 ): readonly QueryRelationFilterNode[] => {
 	const collected: QueryRelationFilterNode[] = []
@@ -46,6 +46,26 @@ const collectDirectRelationPredicates = (
 	})
 
 	return immutableArray(collected)
+}
+
+/** Creates the target read used to evaluate one relation leaf's private policy. */
+export const createRelationPredicateTargetOperation = (
+	predicate: QueryRelationFilterNode,
+	includePredicate: boolean,
+): DatabaseOperationAst => {
+	const query = immutableRecord({
+		...createQueryAst(predicate.target.definition),
+		...(includePredicate
+			? {
+					where: immutableRecord({
+						expression: predicate.expression,
+						kind: 'where' as const,
+					}),
+				}
+			: {}),
+	})
+
+	return immutableRecord({ kind: 'exists' as const, query })
 }
 
 type RelationPredicateEvaluator = <
@@ -131,21 +151,10 @@ export const createRelationPredicateEvaluator = (
 						predicate.expression.kind === 'constant' &&
 						predicate.expression.value
 					)
-				const targetQuery = immutableRecord({
-					...createQueryAst(predicate.target.definition),
-					...(includePredicateInTargetQuery
-						? {
-								where: immutableRecord({
-									kind: 'where' as const,
-									expression: predicate.expression,
-								}),
-							}
-						: {}),
-				})
-				const targetOperation = immutableRecord({
-					kind: 'exists' as const,
-					query: targetQuery,
-				})
+				const targetOperation = createRelationPredicateTargetOperation(
+					predicate,
+					includePredicateInTargetQuery,
+				)
 				const targetInput = immutableRecord({
 					context: input.context,
 					operation: targetOperation,

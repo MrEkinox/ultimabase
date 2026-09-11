@@ -13,7 +13,7 @@ through the canonical Runtime instead of becoming Drizzle-specific behavior.
 2. [x] [2702 — Declare typed relation filters](2702-relation-filter-declarations.md)
 3. [x] [2703 — Resolve filters for relation reads](2703-relation-filter-runtime.md)
 4. [x] [2704 — Filter eager relation inclusions](2704-relation-filter-inclusions.md)
-5. [ ] [2705 — Filter relation predicates and cardinality](2705-relation-filter-predicates.md)
+5. [x] [2705 — Filter relation predicates and cardinality](2705-relation-filter-predicates.md)
 6. [ ] [2706 — Prove public relation-filter parity](2706-relation-filter-public-vertical.md)
 7. [ ] [2707 — Audit and close contextual relation filters](2707-relation-filter-final-audit.md)
 
