@@ -4,7 +4,7 @@
 - Milestone: 27
 - Packages: `@ultimabase/core`, database adapters
 - Depends on: 2704
-- ADR: proposed ADR-0247
+- ADR: [ADR-0247](../../docs/adr/0247-contextual-relation-filters.md)
 
 ## Goal
 

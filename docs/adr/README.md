@@ -228,6 +228,7 @@ Accepted records:
 - [ADR-0244: Contextual field builders and virtual results](0244-contextual-fields-and-virtual-results.md)
 - [ADR-0245: Plugin-defined schema mutations preserve logical identity](0245-plugin-schema-mutations-and-soft-delete.md)
 - [ADR-0246: Schema option absence is selectable and plugin powers are static](0246-schema-option-absence-and-static-plugin-powers.md)
+- [ADR-0247: Relation fields own contextual read filters](0247-contextual-relation-filters.md)
 
 Superseded records:
 

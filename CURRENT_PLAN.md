@@ -3,8 +3,8 @@
 - Status: active
 - Milestone: 27
 - Started: 2026-09-11
-- Governing decision: proposed ADR-0247, owned by issue 2701
-- Resume point: issue 2701
+- Governing decision: [ADR-0247](docs/adr/0247-contextual-relation-filters.md)
+- Resume point: issue 2702
 
 ## Objective
 
@@ -14,7 +14,7 @@ and composes the filter through the ordinary Query and Runtime pipeline so
 direct TypeScript, REST, GraphQL, Yoga, and every database adapter observe one
 contract without adding adapter-specific relation behavior.
 
-## Candidate developer contract
+## Accepted developer contract
 
 A relation may declare a static target filter:
 
@@ -56,7 +56,7 @@ protected constraint.
 
 ## Execution order
 
-1. [ ] Issue 2701 — accept the contextual relation-filter contract.
+1. [x] Issue 2701 — accept the contextual relation-filter contract.
 2. [ ] Issue 2702 — declare the exact typed relation `where` API.
 3. [ ] Issue 2703 — resolve contextual filters for direct relation reads.
 4. [ ] Issue 2704 — apply filters to eager relation inclusions.

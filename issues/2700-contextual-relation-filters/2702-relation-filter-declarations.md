@@ -1,10 +1,10 @@
 # 2702: Declare typed relation filters
 
-- Status: planned
+- Status: ready
 - Milestone: 27
 - Packages: `@ultimabase/core`, `@ultimabase/typegen`
 - Depends on: 2701
-- ADR: proposed ADR-0247
+- ADR: [ADR-0247](../../docs/adr/0247-contextual-relation-filters.md)
 
 ## Goal
 

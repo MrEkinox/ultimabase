@@ -9,7 +9,7 @@ through the canonical Runtime instead of becoming Drizzle-specific behavior.
 
 ## Execution order
 
-1. [ ] [2701 — Decide contextual relation filters](2701-contextual-relation-filter-contract.md)
+1. [x] [2701 — Decide contextual relation filters](2701-contextual-relation-filter-contract.md)
 2. [ ] [2702 — Declare typed relation filters](2702-relation-filter-declarations.md)
 3. [ ] [2703 — Resolve filters for relation reads](2703-relation-filter-runtime.md)
 4. [ ] [2704 — Filter eager relation inclusions](2704-relation-filter-inclusions.md)
@@ -21,7 +21,7 @@ Issues remain sequential because each later surface must reuse the exact
 normalization and Runtime semantics established by its dependency rather than
 implementing a parallel filter path.
 
-## Candidate contract
+## Accepted contract
 
 - `field.relation({ target, where })` accepts a target-typed static filter or a
   synchronous function of `{ context, where }`.

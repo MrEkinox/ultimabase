@@ -154,6 +154,15 @@ derive exact application-local command keys from the inert compiled mutation
 surface. Static transport planning and late execution remain separate; Core and
 the transports never name `softDelete`, `restore`, or `purge`.
 
+ADR-0247 makes a relation field's static or request-contextual `where` a
+Core-owned private read scope. The exact request context resolves synchronous
+application behavior once per relation definition and root operation; the
+result then combines monotonically with caller predicates, target policy,
+protected constraints, and physical membership. Relation handles, eager
+inclusions, transport projections, predicates, emptiness, and cardinality share
+that visible universe. Adapters receive only portable normalized filters, while
+membership mutations and nested writes retain physical edge semantics.
+
 Operation transport identities follow the same exact canonical rule. Their
 bindings may carry immutable transport-owned JSON metadata, while Core's
 allowlist facade reveals only inert operation descriptors. REST uses that

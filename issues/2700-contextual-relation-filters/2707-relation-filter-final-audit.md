@@ -4,7 +4,7 @@
 - Milestone: 27
 - Packages: repository-wide
 - Depends on: 2706
-- ADR: proposed ADR-0247
+- ADR: [ADR-0247](../../docs/adr/0247-contextual-relation-filters.md)
 
 ## Goal
 

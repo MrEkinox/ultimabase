@@ -4,7 +4,7 @@
 - Milestone: 27
 - Packages: `@ultimabase/core`, `@ultimabase/typegen`, `@ultimabase/rest-plugin`, `@ultimabase/graphql-plugin`, `@ultimabase/graphql-yoga-plugin`, `@ultimabase/postgres-plugin`, examples
 - Depends on: 2705
-- ADR: proposed ADR-0247
+- ADR: [ADR-0247](../../docs/adr/0247-contextual-relation-filters.md)
 
 ## Goal
 
