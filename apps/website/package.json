@@ -11,6 +11,7 @@
 		"postinstall": "fumadocs-mdx",
 		"start": "next start",
 		"test:browser": "yarn build && vitest run --config ../../vitest.config.ts --project website-browser",
+		"validate:docs": "yarn generate && vitest run --config ../../vitest.config.ts --project website-content",
 		"typecheck": "yarn generate && tsc --noEmit"
 	},
 	"dependencies": {
@@ -30,7 +31,8 @@
 		"playwright": "1.63.0",
 		"playwright-core": "1.63.0",
 		"tailwindcss": "4.3.3",
-		"vitest": "4.1.10"
+		"vitest": "4.1.10",
+		"zod": "4.4.3"
 	},
 	"engines": {
 		"node": ">=24.0.0"

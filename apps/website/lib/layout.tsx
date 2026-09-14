@@ -1,18 +1,20 @@
 import type { BaseLayoutProps } from 'fumadocs-ui/layouts/shared'
 
 import { NavigationBrand } from '../components/brand'
+import { i18nConfig, localizePath, type SiteLocale } from './i18n'
 import { siteConfig } from './site'
 
-export const baseLayoutOptions = (): BaseLayoutProps => ({
+export const baseLayoutOptions = (locale: SiteLocale): BaseLayoutProps => ({
+	i18n: i18nConfig,
 	links: siteConfig.navigation.map((item) => ({
 		...(item.external === true ? { external: true } : {}),
 		text: item.label,
-		url: item.href,
+		url: item.external === true ? item.href : localizePath(locale, item.href),
 	})),
 	nav: {
 		title: siteConfig.name,
-		url: '/',
+		url: localizePath(locale, '/'),
 	},
-	searchToggle: { enabled: false },
+	searchToggle: { enabled: true },
 	slots: { navTitle: NavigationBrand },
 })

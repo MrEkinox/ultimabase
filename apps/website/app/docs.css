@@ -1,0 +1,73 @@
+.ub-docs-diagram {
+	margin-block: var(--ub-space-8);
+	border-block: var(--ub-border-width) solid var(--ub-border-strong);
+	padding-block: var(--ub-space-6);
+}
+
+.ub-docs-diagram figcaption {
+	display: grid;
+	gap: var(--ub-space-2);
+	margin-bottom: var(--ub-space-6);
+}
+
+.ub-docs-diagram figcaption strong {
+	font-size: 1rem;
+}
+
+.ub-docs-diagram figcaption span {
+	color: var(--ub-muted);
+	font-size: 0.875rem;
+	line-height: 1.6;
+}
+
+.ub-docs-diagram ol {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+	gap: var(--ub-space-3);
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.ub-docs-diagram li {
+	display: grid;
+	min-height: 7rem;
+	align-content: space-between;
+	gap: var(--ub-space-4);
+	border: var(--ub-border-width) solid var(--ub-border);
+	background: var(--ub-surface);
+	padding: var(--ub-space-4);
+	font-size: 0.875rem;
+	font-weight: 680;
+	line-height: 1.45;
+}
+
+.ub-docs-diagram li > span {
+	color: var(--ub-accent);
+	font-family: var(--ub-font-mono);
+	font-size: 0.6875rem;
+}
+
+.ub-translation-fallback {
+	max-width: 42rem;
+	padding-block: clamp(var(--ub-space-12), 8vw, 6rem);
+}
+
+.ub-translation-fallback h1 {
+	margin: 0;
+	font-size: clamp(2rem, 5vw, 3.5rem);
+	font-weight: 675;
+	letter-spacing: -0.05em;
+	line-height: 1.04;
+}
+
+.ub-translation-fallback > p:not(.ub-section-index) {
+	margin: var(--ub-space-6) 0 0;
+	color: var(--ub-muted);
+	font-size: 1.0625rem;
+	line-height: 1.7;
+}
+
+.ub-translation-fallback .ub-action-row {
+	align-items: center;
+}

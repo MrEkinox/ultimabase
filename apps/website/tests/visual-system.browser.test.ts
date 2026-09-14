@@ -256,6 +256,68 @@ describe('website visual system', () => {
 		}
 	})
 
+	it('keeps search and locale switching inside the public documentation', async () => {
+		const context = await browser?.newContext({
+			colorScheme: 'light',
+			viewport: { height: 900, width: 1280 },
+		})
+		if (context === undefined) throw new Error('Browser did not start')
+
+		try {
+			const clientErrors: string[] = []
+			const page = await context.newPage()
+			page.on('console', (message) => {
+				if (message.type() === 'error') clientErrors.push(message.text())
+			})
+			page.on('pageerror', (error) => {
+				clientErrors.push(error.message)
+			})
+
+			await page.goto(`${origin}/en/docs`)
+			expect(page.url()).toBe(`${origin}/docs`)
+			expect(await page.locator('html').getAttribute('lang')).toBe('en')
+
+			await page.locator('button[data-search-full]').click()
+			const searchDialog = page.getByRole('dialog')
+			await searchDialog.waitFor({ state: 'visible' })
+			await searchDialog.getByRole('textbox').fill('canonical')
+			await searchDialog
+				.getByRole('button', { name: /Documentation/u })
+				.first()
+				.waitFor({ state: 'visible' })
+			await page.keyboard.press('Escape')
+
+			await page.getByRole('button', { name: 'Choose a language' }).click()
+			await page.getByText('Français', { exact: true }).click()
+			await page.waitForURL(`${origin}/fr/docs`)
+			expect(await page.locator('html').getAttribute('lang')).toBe('fr')
+			await page
+				.getByText('Cette page confirme le parcours français du site.')
+				.waitFor({ state: 'visible' })
+
+			const frenchSearch = await page.request.get(
+				`${origin}/api/search?query=parcours&locale=fr`,
+			)
+			expect(frenchSearch.ok()).toBe(true)
+			expect(JSON.stringify(await frenchSearch.json())).toContain('/fr/docs')
+
+			const englishOnlySearch = await page.request.get(
+				`${origin}/api/search?query=canonical&locale=fr`,
+			)
+			expect(englishOnlySearch.ok()).toBe(true)
+			expect(await englishOnlySearch.json()).toEqual([])
+
+			const privateSearch = await page.request.get(
+				`${origin}/api/search?query=ADR-0191&locale=en`,
+			)
+			expect(privateSearch.ok()).toBe(true)
+			expect(await privateSearch.json()).toEqual([])
+			expect(clientErrors).toEqual([])
+		} finally {
+			await context.close()
+		}
+	})
+
 	it('removes decorative motion when reduced motion is requested', async () => {
 		const context = await browser?.newContext({
 			reducedMotion: 'reduce',

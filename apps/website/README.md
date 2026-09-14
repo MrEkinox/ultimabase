@@ -20,8 +20,11 @@ yarn website:dev
 
 Open `http://localhost:3000`. Marketing routes use the `(marketing)` route
 group, while documentation is mounted at `/docs` through the `(docs)` group.
-Public documentation source belongs in `content/docs`; root `docs/` remains the
-engineering source for ADRs, specifications, and implementation plans.
+The route implementation lives below `[lang]`: the proxy rewrites canonical
+English URLs internally and keeps the explicit `/fr` prefix for French. Public
+documentation source belongs in `content/docs/en` and `content/docs/fr`; root
+`docs/` remains the engineering source for ADRs, specifications, and
+implementation plans.
 
 ## Validation
 
@@ -31,6 +34,7 @@ Run the focused checks before committing website changes:
 yarn website:typecheck
 yarn website:lint
 yarn website:build
+yarn website:validate
 yarn website:test
 ```
 
@@ -39,6 +43,25 @@ the focused checks. Both are ignored by Git, ESLint, and Prettier. The ordinary
 root `yarn build` continues to build only non-private publishable workspaces.
 Next.js also maintains the conventional tracked `next-env.d.ts`; repository
 formatting and linting leave that generated declaration untouched.
+
+## Documentation shell
+
+`lib/i18n.ts` owns the supported locales, labels, URL policy, and UI
+translations. English pages are canonical at `/docs`; French pages use
+`/fr/docs`. A missing French translation renders an explicit link to its
+English source and the nearest French documentation entry instead of silently
+mixing languages.
+
+Every public MDX page requires a title, description, and release status.
+Frontmatter may also declare navigation order and translation source metadata.
+`components/mdx.tsx` exposes the shared code, tabs, callouts, cards, file-tree,
+and semantic architecture-diagram components.
+
+The `/api/search` index is built only from this public content source and is
+locale-aware. `yarn website:validate` generates the typed content, validates
+frontmatter, canonical URLs, sidebar ordering, duplicate navigation entries,
+and internal documentation links. It never scans the repository's engineering
+`docs/` directory.
 
 ## Visual system
 
@@ -57,4 +80,5 @@ Shared marketing and documentation surfaces live under `components/`:
 
 The browser test builds and starts the production application, then checks the
 light and dark shells, mobile and 200%-zoom-equivalent reflow, reduced motion,
-focus semantics, and WCAG A/AA findings with Playwright and Axe.
+focus semantics, localized search and routing, and WCAG A/AA findings with
+Playwright and Axe.

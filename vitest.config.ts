@@ -50,6 +50,14 @@ const testProjects: TestProjectConfiguration[] = [
 		extends: true,
 		root: workspaceRoot,
 		test: {
+			include: ['apps/website/tests/**/*.content.test.ts'],
+			name: 'website-content',
+		},
+	},
+	{
+		extends: true,
+		root: workspaceRoot,
+		test: {
 			fileParallelism: false,
 			include: ['apps/website/tests/**/*.browser.test.ts'],
 			name: 'website-browser',

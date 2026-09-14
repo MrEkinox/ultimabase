@@ -1,6 +1,6 @@
 # 2805: Define the public documentation editorial contract
 
-- Status: planned
+- Status: ready
 - Milestone: 28
 - Packages: `apps/website`, repository-wide documentation
 - Depends on: 2804

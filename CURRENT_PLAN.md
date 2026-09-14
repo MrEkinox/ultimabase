@@ -3,7 +3,7 @@
 - Status: in progress
 - Milestone: 28
 - Created: 2026-09-14
-- Current issue: 2804
+- Current issue: 2805
 - Governing backlog: [Milestone 28](issues/2800-public-website-documentation/README.md)
 
 ## Objective
@@ -72,6 +72,9 @@ browser accessibility coverage.
 Issue 2803 completed the English product landing page, shipped-API example,
 shared Runtime diagram, factual feature evidence, pre-release messaging, and
 responsive browser verification.
+Issue 2804 completed canonical English and prefixed French routing, explicit
+translation fallback behavior, locale-aware public search, shared MDX
+components, frontmatter validation, and content-contract checks.
 
 ### Phase 1 — Application, design, and content foundation
 

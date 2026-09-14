@@ -1,0 +1,28 @@
+---
+title: Documentation
+description: Découvrez UltimaBase à travers une documentation structurée par objectifs.
+order: 0
+releaseStatus: pre-release
+translation:
+  source: /docs
+  reviewedAt: 2026-09-14
+---
+
+<Callout title="Documentation en préversion">
+	UltimaBase évolue vers sa première version stable. Les contrats publics sont
+	documentés au fur et à mesure de leur disponibilité.
+</Callout>
+
+Cette page confirme le parcours français du site. Les pages non encore traduites
+renvoient explicitement vers leur source anglaise au lieu de mélanger les langues.
+
+<ArchitectureDiagram
+	title="Un seul modèle d’application"
+	description="Chaque point d’entrée public rejoint le même graphe d’application compilé."
+	steps={[
+		'TypeScript, REST ou GraphQL',
+		'Opération normalisée',
+		'Validation, règles et hooks',
+		'Persistance transactionnelle',
+	]}
+/>

@@ -40,7 +40,8 @@
 		"website:dev": "yarn workspace @ultimabase/website dev",
 		"website:lint": "yarn workspace @ultimabase/website lint",
 		"website:test": "yarn workspace @ultimabase/website test:browser",
-		"website:typecheck": "yarn workspace @ultimabase/website typecheck"
+		"website:typecheck": "yarn workspace @ultimabase/website typecheck",
+		"website:validate": "yarn workspace @ultimabase/website validate:docs"
 	},
 	"devDependencies": {
 		"@arethetypeswrong/core": "^0.18.5",
