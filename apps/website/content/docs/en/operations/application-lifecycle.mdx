@@ -1,0 +1,50 @@
+---
+title: Application Lifecycle
+description: Start only after graph validation and dispose every application-owned resource deterministically.
+audience:
+  - application-developer
+  - operator
+contentType: guide
+order: 2
+outcome: Handle startup, failure, and graceful shutdown through the supported application facade.
+owner: '2813'
+releaseStatus: pre-release
+sources:
+  - packages/core/README.md
+  - packages/server-hono-plugin/README.md
+  - docs/adr/0190-capability-host-lifecycle-and-legacy-convergence.md
+---
+
+`new UltimaBase()` builds no network or database connection. `start()` validates the
+complete graph, materializes application capabilities, runs setup, connects resources,
+and starts transports in dependency order. Public work begins only after it resolves.
+
+```ts fixture="operations/lifecycle.ts"
+import { UltimaBase } from '@ultimabase/core'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
+
+const databaseUrl = process.env.DATABASE_URL
+if (databaseUrl === undefined) throw new TypeError('DATABASE_URL is required')
+
+const application = new UltimaBase({
+	plugins: [postgresPlugin({ schemaPolicy: 'fail', url: databaseUrl })],
+	schemas: [],
+})
+
+try {
+	await application.start()
+	// Run application-owned work only after every startup phase succeeds.
+} finally {
+	await application.dispose()
+}
+```
+
+If startup fails, Core tears down every resource that already materialized, in reverse
+dependency order. `dispose()` stops transports, disconnects resources, runs teardown,
+and revokes application values. Cleanup failures are reported without abandoning
+remaining cleanup.
+
+Request cancellation and configured HTTP deadlines share one signal through context
+resolution, Runtime, transactions, and response completion. The application owns the
+signal lineage; plugins do not replace it. Reusing one Hono provider lets several
+applications share a listener, while disposing one mount leaves the others running.

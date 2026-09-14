@@ -1,0 +1,35 @@
+---
+title: Production Checklist
+description: Review the shipped operational boundary before choosing provider-specific infrastructure.
+audience:
+  - operator
+contentType: reference
+order: 6
+outcome: Identify what the framework currently guarantees and what your deployment must still own.
+owner: '2813'
+releaseStatus: pre-release
+sources:
+  - README.md
+  - packages/postgres-plugin/README.md
+  - packages/server-hono-plugin/README.md
+---
+
+Before exposing an application:
+
+- run Node.js 24+ and validate every required environment value;
+- use a dedicated PostgreSQL identity and choose `schemaPolicy` explicitly;
+- review every public REST or GraphQL route and acknowledge protection only after
+  configuring the intended Access, ACL, and authentication policies;
+- keep database, session, and Master material server-side; persist Master audit events;
+- configure exact application IDs, browser origins, proxy/TLS behavior, request limits,
+  graceful process signals, and external backup/restore procedures;
+- exercise startup failure and `dispose()` in the target environment.
+
+UltimaBase does not currently ship a migration runner, health endpoint, metrics or
+tracing product, cache, job system, administration UI, backup policy, deployment
+template, or service-level guarantee. Add provider-owned infrastructure around the
+public boundaries you actually need; do not infer undocumented framework behavior.
+
+The Hono provider owns only its listener. TLS, proxy trust, compression, and rate
+limiting remain deployment concerns. The preview documentation does not choose a
+cloud, container platform, or production topology.

@@ -154,6 +154,12 @@ describe('public documentation content contract', () => {
 			'/docs/mutations/transactions',
 			'/docs/mutations/update',
 			'/docs/mutations/upserts',
+			'/docs/operations/application-lifecycle',
+			'/docs/operations/browser-policy',
+			'/docs/operations/configuration-and-environment',
+			'/docs/operations/postgres',
+			'/docs/operations/production-checklist',
+			'/docs/operations/secrets-and-master-key',
 			'/docs/plugins/authoring',
 			'/docs/plugins/capabilities',
 			'/docs/plugins/identity-and-instances',
@@ -211,6 +217,7 @@ describe('public documentation content contract', () => {
 			'security',
 			'apis',
 			'plugins',
+			'operations',
 		])
 		expect(
 			visibleDocumentationSections([
@@ -281,6 +288,11 @@ describe('public documentation content contract', () => {
 			'mutations/transactions.ts',
 			'mutations/update.ts',
 			'mutations/upsert.ts',
+			'operations/browser-policy.ts',
+			'operations/configuration.ts',
+			'operations/lifecycle.ts',
+			'operations/postgres.ts',
+			'operations/secrets.ts',
 			'plugins/authoring.ts',
 			'plugins/capabilities.ts',
 			'plugins/consumer.ts',

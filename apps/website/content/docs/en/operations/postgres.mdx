@@ -1,0 +1,46 @@
+---
+title: PostgreSQL
+description: Connect the official database plugin and choose an explicit direct synchronization policy.
+audience:
+  - application-developer
+  - operator
+contentType: guide
+order: 3
+outcome: Operate the shipped PostgreSQL connection and schema preparation behavior without assuming migrations exist.
+owner: '2813'
+releaseStatus: pre-release
+sources:
+  - packages/postgres-plugin/README.md
+---
+
+`@ultimabase/postgres-plugin` owns `pg`, Drizzle compilation, transactions,
+introspection, database constraints, and direct schema synchronization. Neither
+Drizzle nor a raw pool is exposed to application Query or transports.
+
+```ts fixture="operations/postgres.ts"
+import { UltimaBase } from '@ultimabase/core'
+import { postgresPlugin, postgresPluginName } from '@ultimabase/postgres-plugin'
+
+const databaseUrl = process.env.DATABASE_URL
+if (databaseUrl === undefined) throw new TypeError('DATABASE_URL is required')
+
+const application = new UltimaBase({
+	plugins: [postgresPlugin({ schemaPolicy: 'fail', url: databaseUrl })],
+	schemas: [],
+})
+
+await application.start()
+const connection =
+	application.application.getPlugin(postgresPluginName).connection
+console.info(connection.state)
+await application.dispose()
+```
+
+Creating the application makes no connection. `start()` verifies connectivity and
+returns the borrowed client. A pool created from `url` is application-owned and closes
+on disposal; an injected pool remains developer-owned.
+
+`schemaPolicy` is `override`, `fail`, or `ignore`. These are direct synchronization
+modes. A migration capability is planned separately and is **not shipped**; migration
+intent metadata is inert until a future migration owner reviews and applies it. Use
+`fail` when production must reject drift rather than modifying the database directly.

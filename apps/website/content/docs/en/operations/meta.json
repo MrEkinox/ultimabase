@@ -1,0 +1,11 @@
+{
+	"title": "Operate Your Application",
+	"pages": [
+		"configuration-and-environment",
+		"application-lifecycle",
+		"postgres",
+		"secrets-and-master-key",
+		"browser-policy",
+		"production-checklist"
+	]
+}

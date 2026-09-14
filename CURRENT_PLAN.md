@@ -3,7 +3,7 @@
 - Status: in progress
 - Milestone: 28
 - Created: 2026-09-14
-- Current issue: 2813
+- Current issue: 2814
 - Governing backlog: [Milestone 28](issues/2800-public-website-documentation/README.md)
 
 ## Objective
@@ -102,6 +102,10 @@ Issue 2812 completed the six-page public-API path, generated and compiled
 public-export fixtures, and one executable application proving equivalent
 TypeScript, REST, networkless GraphQL, and Yoga behavior with boundary-owned
 wire and error representations.
+Issue 2813 completed the six-page operations path, compiled public-export
+configuration fixtures, executable lifecycle coverage, repository-derived
+compatibility checks, and an explicit inventory of shipped versus missing
+production capabilities.
 
 ### Phase 1 — Application, design, and content foundation
 

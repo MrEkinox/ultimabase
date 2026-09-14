@@ -1,0 +1,42 @@
+---
+title: Browser Policy
+description: Enable one exact browser-origin policy only when a browser client needs it.
+audience:
+  - application-developer
+  - operator
+contentType: guide
+order: 5
+outcome: Configure CORS without treating it as authentication or authorization.
+owner: '2813'
+releaseStatus: pre-release
+sources:
+  - packages/http-plugin/README.md
+  - packages/server-hono-plugin/README.md
+---
+
+Browser-origin policy is disabled by default. Enable it with all five fields and list
+only the origins, methods, and headers the client actually uses.
+
+```ts fixture="operations/browser-policy.ts"
+import { httpPlugin } from '@ultimabase/http-plugin'
+
+export const http = httpPlugin({
+	appId: 'api',
+	browser: {
+		allowedHeaders: ['Content-Type', 'X-UltimaBase-Application-Id'],
+		allowedMethods: ['GET', 'POST'],
+		allowedOrigins: ['https://app.example'],
+		credentials: false,
+		maxAgeSeconds: 600,
+	},
+})
+```
+
+Preflight is infrastructure-only: it selects no application and invokes no
+credential resolver, route, Runtime, hook, policy, or database operation. Every real
+request still needs its exact application ID.
+
+All applications sharing one server provider must declare one structurally identical
+effective policy. Wildcard origin is incompatible with credentials, cookies,
+Authorization, or enabled Master transport. CORS is not authentication,
+authorization, CSRF protection, or protection from non-browser clients.
