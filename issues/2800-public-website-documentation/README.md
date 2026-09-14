@@ -21,7 +21,7 @@ architecture and may be published progressively without duplicating the site.
 5. [x] [2805 — Define the public documentation editorial contract](2805-documentation-editorial-contract.md)
 6. [x] [2806 — Author the English getting-started journey](2806-english-getting-started.md)
 7. [x] [2807 — Document data modeling](2807-english-data-modeling.md)
-8. [ ] [2808 — Document reading data](2808-english-reading-data.md)
+8. [x] [2808 — Document reading data](2808-english-reading-data.md)
 9. [ ] [2809 — Document mutations and transactions](2809-english-mutations-transactions.md)
 10. [ ] [2810 — Document the plugin system](2810-english-plugin-system.md)
 11. [ ] [2811 — Document application security](2811-english-application-security.md)

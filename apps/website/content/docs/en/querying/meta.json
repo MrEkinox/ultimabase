@@ -1,0 +1,12 @@
+{
+	"title": "Read Data",
+	"pages": [
+		"overview",
+		"filters",
+		"selections",
+		"ordering-and-pagination",
+		"includes",
+		"relation-predicates",
+		"contextual-relations"
+	]
+}

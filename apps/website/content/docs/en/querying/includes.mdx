@@ -1,0 +1,84 @@
+---
+title: Include Related Data
+description: Hydrate pointer and relation targets with cardinality-aware nested projections.
+audience:
+  - application-developer
+contentType: guide
+order: 5
+outcome: Load a pointer and a bounded relation while preserving exact nested result types.
+owner: '2808'
+releaseStatus: pre-release
+sources:
+  - packages/core/README.md
+  - packages/core/docs/query.md
+  - docs/adr/0154-unified-eager-relationship-inclusion.md
+  - docs/adr/0159-projection-only-pointer-inclusions.md
+---
+
+## Outcome
+
+Use `include` to make relationship I/O explicit and shape each target with its
+own exact selection.
+
+## Prerequisites
+
+Understand the difference between [Pointers](../data-modeling/pointers) and
+[Relations](../data-modeling/relations). Select root scalar fields separately.
+
+## Steps
+
+Include a to-one author and a filtered, ordered, bounded comment collection:
+
+```ts title="src/post-context.ts" fixture="querying/includes.ts"
+import { Post } from './schemas.js'
+import { ultimabase } from './ultimabase.js'
+
+export const readPostsWithContext = () =>
+	Post.findMany(
+		{
+			include: {
+				author: { select: { name: true } },
+				comments: {
+					limit: 3,
+					orderBy: { createdAt: 'desc' },
+					select: { body: true },
+					where: { published: { eq: true } },
+				},
+			},
+			select: { title: true },
+		},
+		{ ultimabase },
+	)
+```
+
+Pointer and relation cardinality deliberately expose different nested clauses:
+
+| Included field | Allowed shaping                                                   | Result                          |
+| -------------- | ----------------------------------------------------------------- | ------------------------------- |
+| Pointer        | `select`, nested `include`                                        | Selected target model or `null` |
+| Relation       | `where`, `orderBy`, `offset`, `limit`, `select`, nested `include` | Readonly selected model array   |
+
+A pointer already identifies at most one target. Allowing a nested `where`
+would make an existing pointer look absent only because it missed a projection
+filter, so Core rejects that clause.
+
+Relation filtering runs before ordering, offset, and limit. Its offset applies
+independently to each parent collection, not across all included targets.
+
+## Verify
+
+The inferred root model contains `id`, `title`, selected `author`, and included
+`comments`. The author contains `id` and `name`; each comment contains `id` and
+`body`. Unselected fields are absent from those nested model types.
+
+Missing or inaccessible pointer targets become `null`. Relations contain only
+visible targets and therefore become an empty array when none remain. Nested
+target reads still apply installed policies, protected constraints, output
+restrictions, and the relationship's declared shaping filter.
+
+## Next steps
+
+Filter parent records by related targets with
+[Relation Predicates](./relation-predicates). For a relation whose visible
+universe is always narrower, continue to
+[Contextual Relation Filters](./contextual-relations).

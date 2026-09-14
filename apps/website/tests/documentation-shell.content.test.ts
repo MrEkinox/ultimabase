@@ -140,6 +140,13 @@ describe('public documentation content contract', () => {
 			'/docs/getting-started/introduction',
 			'/docs/getting-started/next-steps',
 			'/docs/getting-started/project-structure',
+			'/docs/querying/contextual-relations',
+			'/docs/querying/filters',
+			'/docs/querying/includes',
+			'/docs/querying/ordering-and-pagination',
+			'/docs/querying/overview',
+			'/docs/querying/relation-predicates',
+			'/docs/querying/selections',
 			'/fr/docs',
 		])
 
@@ -170,6 +177,7 @@ describe('public documentation content contract', () => {
 		expect(visible.map(({ slug }) => slug)).toEqual([
 			'getting-started',
 			'data-modeling',
+			'querying',
 		])
 		expect(
 			visibleDocumentationSections([
@@ -225,6 +233,14 @@ describe('public documentation content contract', () => {
 			'getting-started/main.ts',
 			'getting-started/schema.ts',
 			'getting-started/ultimabase.ts',
+			'querying/contextual-relations.ts',
+			'querying/filters.ts',
+			'querying/includes.ts',
+			'querying/overview.ts',
+			'querying/pagination.ts',
+			'querying/query-builder.ts',
+			'querying/relation-predicates.ts',
+			'querying/selections.ts',
 		])
 
 		for (const block of fixtureBlocks) {

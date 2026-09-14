@@ -1,0 +1,79 @@
+---
+title: Ordering and Pagination
+description: Build deterministic offset pages and understand the transport-specific cursor boundary.
+audience:
+  - application-developer
+contentType: guide
+order: 4
+outcome: Return a bounded, explicitly ordered Core page without inventing a cursor contract.
+owner: '2808'
+releaseStatus: pre-release
+sources:
+  - packages/core/docs/query.md
+  - docs/adr/0174-object-ordering-inputs.md
+  - docs/adr/0227-core-query-exposes-offset-not-cursors.md
+  - docs/adr/0228-experimental-http-rest-v1-wire-contract.md
+  - docs/adr/0238-graphql-v1-contract.md
+---
+
+## Outcome
+
+Combine explicit ordering, a maximum `limit`, and a non-negative `offset` to
+produce predictable Core and REST collection pages.
+
+## Prerequisites
+
+Choose a stable field or field combination that uniquely orders the matching
+records. Pagination cannot repair ambiguous ordering after the fact.
+
+## Steps
+
+Declare ordering priority in object property order. Add `id` as a unique
+tie-breaker when the leading value can repeat:
+
+```ts title="src/post-page.ts" fixture="querying/pagination.ts"
+import { Post } from './schemas.js'
+import { ultimabase } from './ultimabase.js'
+
+export const readPostPage = (page: number) =>
+	Post.findMany(
+		{
+			limit: 25,
+			offset: page * 25,
+			orderBy: { createdAt: 'desc', id: 'asc' },
+			select: { createdAt: true, title: true },
+		},
+		{ ultimabase },
+	)
+```
+
+`limit` is the maximum number of returned rows. `offset` skips that many
+matching rows and must be a non-negative safe integer. An offset of zero is the
+first page. Core does not add implicit ordering or an `id` tie-breaker.
+
+## Verify
+
+For `page = 2`, the input requests at most 25 rows after skipping 50. Repeating
+the call against unchanged data and the same ordering produces the same page.
+
+Offset pagination is not a snapshot: inserting or deleting earlier rows between
+calls can shift later pages, and deep offsets may become expensive. Prefer
+focused filters plus explicit unique ordering for long-running iteration.
+
+## Transport boundary
+
+| Surface         | Public pagination                                         |
+| --------------- | --------------------------------------------------------- |
+| Core TypeScript | `limit` and `offset`; no cursor API or metadata           |
+| REST v1         | Offset pagination; no cursor, `pageInfo`, or `nextCursor` |
+| GraphQL v1      | Relay `first` and `after`, edges, and `pageInfo`          |
+
+GraphQL owns and signs its opaque Relay cursor, then normalizes the decoded
+position into ordinary Core offset clauses. That cursor provides wire integrity
+and context binding, not keyset or snapshot semantics. It never enters the Core
+Query AST.
+
+## Next steps
+
+Relation inclusions also accept independent per-parent ordering, limit, and
+offset. See [Includes](./includes).

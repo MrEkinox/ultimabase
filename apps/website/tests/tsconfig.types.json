@@ -5,8 +5,10 @@
 		"types": ["node", "vitest"]
 	},
 	"include": [
-		"data-modeling.test-d.ts",
+		"*.test-d.ts",
 		"fixtures/data-modeling/**/*.ts",
-		"fixtures/data-modeling/.ultimabase/schema.generated.d.ts"
+		"fixtures/data-modeling/.ultimabase/schema.generated.d.ts",
+		"fixtures/querying/**/*.ts",
+		"fixtures/querying/.ultimabase/schema.generated.d.ts"
 	]
 }

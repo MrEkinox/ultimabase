@@ -1,6 +1,6 @@
 # 2809: Document mutations and transactions
 
-- Status: planned
+- Status: ready
 - Milestone: 28
 - Packages: `apps/website`, `@ultimabase/core`
 - Depends on: 2805

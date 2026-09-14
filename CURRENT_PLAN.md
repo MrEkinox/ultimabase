@@ -3,7 +3,7 @@
 - Status: in progress
 - Milestone: 28
 - Created: 2026-09-14
-- Current issue: 2808
+- Current issue: 2809
 - Governing backlog: [Milestone 28](issues/2800-public-website-documentation/README.md)
 
 ## Objective
@@ -84,6 +84,9 @@ browser coverage for the first application and untranslated French fallback.
 Issue 2807 completed the seven-page data-modeling path, generated application
 contracts, compiled source and built-export fixtures, and focused inference
 tests for fields, immutable models, embedded objects, pointers, and relations.
+Issue 2808 completed the seven-page read-data path, canonical object and builder
+examples, source and built type coverage, and Runtime fixtures for immutable
+queries, inclusions, pagination, and relation predicates.
 
 ### Phase 1 — Application, design, and content foundation
 
@@ -219,4 +222,4 @@ Resume only after explicit user direction to start implementation:
 5. Implement issue 2801 only; do not absorb visual design or content work from
    later issues.
 
-Resume point: **issue 2808**.
+Resume point: **issue 2809**.
