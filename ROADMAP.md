@@ -74,6 +74,14 @@ protected constraints, or physical relation membership. The
 [completed plan](docs/plans/completed/contextual-relation-filters.md) retains
 the contract, final evidence, and explicit exclusions.
 
+[Milestone 28](issues/2800-public-website-documentation/README.md) plans one
+private Next.js application for the public landing page and user documentation.
+It establishes a provisional visual system, an English-first Fumadocs learning
+path, the first French reader journey, and long-term documentation-currency
+guardrails before a verified preview. The
+[paused plan](CURRENT_PLAN.md) retains the approved sitemap and resumes at issue
+2801 only after explicit user direction.
+
 The ACL hardening plan remains paused at issue 432. It is not part of an active
 plan.
 
@@ -328,6 +336,21 @@ filtered relation universe. The filter remains read shaping, is not implicitly
 bypassed by Master, and does not alter relation membership mutations or nested
 writes. PostgreSQL and future adapters compile only portable normalized filters
 and never execute application callbacks.
+
+## Milestone 28 — Public website and documentation
+
+Build one private `apps/website` Next.js workspace containing a custom landing
+page and Fumadocs documentation. Public learning material remains separate from
+internal specifications and ADR history, uses shipped behavior as evidence, and
+assumes the intended npm installation experience while labelling the product
+pre-release. English is the first complete language; the same application
+progressively publishes human-reviewed French content under `/fr`.
+
+The milestone also adds prospective contribution rules and practical checks so
+future code changes classify their public-documentation impact and update
+affected pages when necessary. It deliberately leaves the final product name,
+domain, hosting provider, analytics, CMS, blog, pricing, and public deployment
+for later decisions.
 
 ## First usable release
 

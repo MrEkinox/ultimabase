@@ -1,0 +1,201 @@
+# Paused plan: public website and documentation foundation
+
+- Status: paused before implementation
+- Milestone: 28
+- Created: 2026-09-14
+- Resume point: issue 2801
+- Governing backlog: [Milestone 28](issues/2800-public-website-documentation/README.md)
+
+## Objective
+
+Create one polished, private Next.js workspace for the public product landing
+page and Fumadocs documentation. The first complete content language is English,
+with a shared localization architecture and one coherent French entry journey.
+The website must describe shipped behavior truthfully, remain easy to rename,
+and introduce durable safeguards against documentation drift.
+
+Implementation is explicitly paused. Planning files are the only authorized
+changes at this point; no application scaffold, dependency, generated artifact,
+or website code has been created.
+
+## Approved direction
+
+- The deployable site belongs in `apps/website`, not in `packages/`.
+- The workspace is private even though it has its own `package.json`.
+- Next.js App Router hosts a custom landing page and Fumadocs documentation in
+  one application.
+- Root `docs/` retains engineering specifications, plans, concepts, and ADRs.
+  Public task-oriented content belongs to the website and may link back to
+  engineering history when useful.
+- The current `UltimaBase` name, canonical URL, repository URL, and release
+  label remain centralized provisional configuration because the final name and
+  domain are undecided.
+- English uses unprefixed canonical routes. Human-reviewed French content uses
+  `/fr` and does not duplicate application components.
+- Installation guides describe the intended npm experience even before the
+  packages are actually published, with honest pre-release labelling.
+- The visual direction is clean, editorial, code-led, and product-specific. It
+  avoids generic AI imagery, decorative gradient fields, excessive glass
+  cards, synthetic mascots, and unsupported marketing claims.
+- The first output is a presentable preview, not a public deployment. Hosting,
+  domain purchase, analytics, and launch remain later explicit decisions.
+
+## Reader journey
+
+The documentation navigation follows user tasks rather than package ownership:
+
+```text
+Getting Started
+→ Model Your Data
+→ Read Data
+→ Write Data
+→ Secure Your Application
+→ Expose APIs
+→ Plugins
+→ Guides
+→ Concepts
+→ Reference
+```
+
+The complete target sitemap, landing narrative, product boundaries, and French
+route policy live in the milestone README. It is the information-architecture
+source for implementation issues and must be updated deliberately if navigation
+changes.
+
+## Execution plan
+
+### Phase 1 — Application, design, and content foundation
+
+1. Issue 2801 creates only the private Next.js/Fumadocs workspace, typed site
+   metadata, route boundaries, development commands, and build integration.
+2. Issue 2802 establishes replaceable visual tokens, provisional identity,
+   shared navigation, responsive primitives, accessibility, and restrained
+   motion.
+3. Issue 2803 builds the English landing page after the shared visual system.
+4. Issue 2804 may proceed after 2801 in parallel with 2802. It fixes MDX,
+   navigation, search, frontmatter, English/French routing, and translation
+   fallback contracts before content is authored.
+5. Issue 2805 defines audiences, page types, editorial voice, terminology,
+   sample conventions, technical sources, and ownership before substantial
+   authoring begins.
+
+### Phase 2 — Public English experience
+
+6. Issue 2806 authors and validates the first complete installation and
+   application journey.
+7. Issue 2807 documents schemas, fields, immutable models, embedded values,
+   pointers, and relations.
+8. Issue 2808 documents Query, filters, selections, pagination, inclusions, and
+   contextual relation reads.
+9. Issue 2809 documents mutation commands, nested writes, transactions, and
+   soft delete.
+10. Issue 2810 documents plugin consumption, official plugin inventory, and the
+    public plugin-authoring kernel.
+11. Issue 2811 documents identity, Password Auth, Access, Roles, ACL, and Master
+    as one accurate security learning path.
+12. Issue 2812 documents direct TypeScript, HTTP application, REST, GraphQL,
+    Yoga, and error boundaries without flattening their wire differences.
+13. Issue 2813 documents configuration, application and server lifecycle,
+    PostgreSQL, secrets, browser policy, and provider-neutral production
+    boundaries without presenting unshipped operational capabilities as
+    available.
+14. Issue 2814 adds cross-cutting how-to guides after their canonical concepts
+    and contracts exist.
+15. Issue 2815 turns the maintained minimal application into runnable reader
+    scenarios rather than copying it into website-only examples.
+16. Issue 2816 publishes a curated reference and complete public package
+    inventory without prematurely generating exhaustive unstable API prose.
+17. Issue 2817 adds symptom-first troubleshooting and safe diagnostic paths.
+
+Issues 2806 through 2812 may be implemented in bounded non-overlapping
+workstreams only after 2805 fixes the content contract.
+The later guides, examples, reference, and troubleshooting issues reuse those
+canonical explanations. The primary agent owns navigation integration,
+terminology, and validation of all public examples.
+
+### Phase 3 — Localization and long-term currency
+
+18. Issue 2818 translates the landing and complete Getting Started path into
+    French, adds translation freshness metadata, and proves explicit fallback
+    behavior. Full French parity is not a milestone blocker.
+19. Issue 2819 changes repository contribution rules so every implementation
+    classifies public-documentation impact before completion. It adds ownership
+    mapping, source edit/report links, review dates, terminology checks, and
+    practical sample/content validation without requiring meaningless doc edits
+    for internal refactors. It also records when multiple supported release
+    lines should trigger versioned documentation.
+
+### Phase 4 — Preview gate
+
+20. Issue 2820 audits responsive behavior, accessibility, search quality,
+    localization, reader task walkthroughs, SEO metadata, links, claims,
+    performance, production build, and repository compatibility. It prepares
+    preview instructions but does not deploy.
+
+## Documentation-currency rule to deliver
+
+Issue 2819 must preserve this distinction:
+
+```text
+code change
+├── no documentation impact
+├── internal engineering documentation impact
+├── public website documentation impact
+└── both internal and public impact
+```
+
+An agent must make and record that classification. Public behavior, exports,
+configuration, installation, errors, security semantics, and supported
+integrations normally require website review in the same issue. Internal
+refactors must not be forced to create meaningless documentation churn.
+Automation should compile reusable samples and validate known ownership and
+links, while human review remains responsible for semantic prose accuracy.
+
+## Verification protocol
+
+For each issue:
+
+1. Read `AGENTS.md`, this plan, the milestone README, the selected issue, every
+   package README in scope, and relevant ADRs completely.
+2. Confirm dependencies, inspect the working tree, and preserve unrelated user
+   changes.
+3. Keep implementation within one issue plus required tests, examples, and
+   documentation.
+4. Run focused website checks before broader repository gates justified by the
+   change.
+5. Verify all public code samples against source or built public exports rather
+   than copying untested snippets.
+6. Update status and completion evidence only after acceptance criteria pass.
+7. Create one dedicated commit after the issue is complete, and never push or
+   deploy without explicit user approval.
+
+## Stop boundaries
+
+Stop and request direction before:
+
+- selecting or purchasing a permanent domain;
+- changing the public product name globally or presenting it as final;
+- selecting a public hosting provider or deploying publicly;
+- adding analytics, tracking, accounts, newsletter capture, a CMS, blog,
+  pricing, hosted-product claims, or comparison marketing;
+- introducing a publishable documentation or design-system package without a
+  second concrete consumer;
+- documenting an unshipped capability as available;
+- changing framework APIs merely to make website copy easier;
+- replacing the approved information architecture with a materially different
+  navigation model.
+
+## Resume protocol
+
+Resume only after explicit user direction to start implementation:
+
+1. Re-read this plan and the complete issue 2801.
+2. Verify that issue 2801 remains `ready` and that no newer active plan or user
+   instruction supersedes it.
+3. Inspect local and remote Git state before editing.
+4. Re-check current Next.js, React, and Fumadocs compatibility rather than
+   trusting versions observed during planning.
+5. Implement issue 2801 only; do not absorb visual design or content work from
+   later issues.
+
+Resume point: **issue 2801**.

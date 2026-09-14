@@ -11,6 +11,8 @@ No cross-package objective is currently active.
 
 ## Paused
 
+- [Public website and documentation foundation](../../CURRENT_PLAN.md),
+  resumable at issue 2801 only after explicit user direction.
 - [ACL hardening and developer-experience consolidation](paused/acl-hardening-and-developer-experience-consolidation.md),
   resumable at issue 432 only after explicit user direction.
 
