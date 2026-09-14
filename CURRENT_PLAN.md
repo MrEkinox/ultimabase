@@ -1,9 +1,9 @@
-# Paused plan: public website and documentation foundation
+# Active plan: public website and documentation foundation
 
-- Status: paused before implementation
+- Status: in progress
 - Milestone: 28
 - Created: 2026-09-14
-- Resume point: issue 2801
+- Current issue: 2802
 - Governing backlog: [Milestone 28](issues/2800-public-website-documentation/README.md)
 
 ## Objective
@@ -14,9 +14,8 @@ with a shared localization architecture and one coherent French entry journey.
 The website must describe shipped behavior truthfully, remain easy to rename,
 and introduce durable safeguards against documentation drift.
 
-Implementation is explicitly paused. Planning files are the only authorized
-changes at this point; no application scaffold, dependency, generated artifact,
-or website code has been created.
+Implementation started on 2026-09-14 after explicit user approval. Work proceeds
+one issue at a time with a dedicated verified commit for each issue.
 
 ## Approved direction
 
@@ -63,6 +62,10 @@ source for implementation issues and must be updated deliberately if navigation
 changes.
 
 ## Execution plan
+
+Issue 2801 completed the private Next.js and Fumadocs workspace, generated-file
+boundaries, provisional typed site configuration, and independent website
+validation without entering the publishable package build graph.
 
 ### Phase 1 — Application, design, and content foundation
 

@@ -1,6 +1,6 @@
 # 2802: Establish the provisional visual system
 
-- Status: planned
+- Status: ready
 - Milestone: 28
 - Packages: `apps/website`
 - Depends on: 2801

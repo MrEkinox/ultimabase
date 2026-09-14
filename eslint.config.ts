@@ -24,6 +24,9 @@ export default defineConfig(
 	{
 		// Generated artifacts must never influence repository lint results.
 		ignores: [
+			'**/.next/**',
+			'**/.source/**',
+			'**/next-env.d.ts',
 			'**/coverage/**',
 			'**/dist/**',
 			'**/node_modules/**',
@@ -37,7 +40,7 @@ export default defineConfig(
 		files: ['**/*.cjs', '**/*.js', '**/*.mjs'],
 	},
 	{
-		files: ['**/*.ts'],
+		files: ['**/*.{ts,tsx}'],
 		languageOptions: {
 			parserOptions: {
 				projectService: true,

@@ -9,9 +9,10 @@
 node_modules
 coverage
 dist
+.next
+.source
 *.tsbuildinfo
 *.log
 .idea
 .vscode/*
 ultimabase/migrations/*.local.*
-

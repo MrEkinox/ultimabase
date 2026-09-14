@@ -78,9 +78,9 @@ the contract, final evidence, and explicit exclusions.
 private Next.js application for the public landing page and user documentation.
 It establishes a provisional visual system, an English-first Fumadocs learning
 path, the first French reader journey, and long-term documentation-currency
-guardrails before a verified preview. The
-[paused plan](CURRENT_PLAN.md) retains the approved sitemap and resumes at issue
-2801 only after explicit user direction.
+guardrails before a verified preview. The [active plan](CURRENT_PLAN.md) retains
+the approved sitemap and is now being implemented issue by issue, beginning
+with 2801.
 
 The ACL hardening plan remains paused at issue 432. It is not part of an active
 plan.

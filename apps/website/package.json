@@ -1,0 +1,33 @@
+{
+	"name": "@ultimabase/website",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"build": "yarn generate && next build --webpack",
+		"dev": "next dev",
+		"generate": "fumadocs-mdx",
+		"lint": "yarn generate && eslint .",
+		"postinstall": "fumadocs-mdx",
+		"start": "next start",
+		"typecheck": "yarn generate && tsc --noEmit"
+	},
+	"dependencies": {
+		"fumadocs-core": "16.15.10",
+		"fumadocs-mdx": "15.4.0",
+		"fumadocs-ui": "16.15.10",
+		"next": "16.3.5",
+		"react": "19.3.0",
+		"react-dom": "19.3.0"
+	},
+	"devDependencies": {
+		"@tailwindcss/postcss": "4.3.3",
+		"@types/mdx": "2.0.13",
+		"@types/react": "19.3.0",
+		"@types/react-dom": "19.3.0",
+		"tailwindcss": "4.3.3"
+	},
+	"engines": {
+		"node": ">=24.0.0"
+	}
+}

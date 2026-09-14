@@ -35,7 +35,11 @@
 		"test:performance": "vitest run --project performance",
 		"test:types": "vitest run --project types",
 		"test:watch": "vitest --project unit --watch",
-		"typecheck": "tsc --build tsconfig.json tooling/tsconfig/test.json"
+		"typecheck": "tsc --build tsconfig.json tooling/tsconfig/test.json",
+		"website:build": "yarn workspace @ultimabase/website build",
+		"website:dev": "yarn workspace @ultimabase/website dev",
+		"website:lint": "yarn workspace @ultimabase/website lint",
+		"website:typecheck": "yarn workspace @ultimabase/website typecheck"
 	},
 	"devDependencies": {
 		"@arethetypeswrong/core": "^0.18.5",

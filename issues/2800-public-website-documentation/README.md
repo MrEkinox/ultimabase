@@ -1,6 +1,6 @@
 # Milestone 28 — Public website and documentation
 
-- Status: planned
+- Status: in-progress
 
 Create one private Next.js application for the public product website and user
 documentation. The application lives under `apps/website`, uses Fumadocs for
@@ -14,7 +14,7 @@ architecture and may be published progressively without duplicating the site.
 
 ## Execution order
 
-1. [ ] [2801 — Scaffold the private website application](2801-website-application-foundation.md)
+1. [x] [2801 — Scaffold the private website application](2801-website-application-foundation.md)
 2. [ ] [2802 — Establish the provisional visual system](2802-website-visual-system.md)
 3. [ ] [2803 — Build the public landing page](2803-marketing-landing-page.md)
 4. [ ] [2804 — Build the localized documentation shell](2804-localized-documentation-shell.md)
