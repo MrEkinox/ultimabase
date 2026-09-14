@@ -1,6 +1,6 @@
 # 2804: Build the localized documentation shell
 
-- Status: planned
+- Status: ready
 - Milestone: 28
 - Packages: `apps/website`
 - Depends on: 2801

@@ -29,6 +29,7 @@
 	--ub-focus: #155eef;
 	--ub-code-background: #181c1a;
 	--ub-code-foreground: #eef0ea;
+	--ub-on-dark-accent: #ff9478;
 	--color-fd-background: var(--ub-background);
 	--color-fd-foreground: var(--ub-foreground);
 	--color-fd-muted: #ebe9e2;
@@ -62,6 +63,7 @@
 	--ub-focus: #8cb4ff;
 	--ub-code-background: #0b0e0c;
 	--ub-code-foreground: #f3f4ef;
+	--ub-on-dark-accent: #ff9478;
 	--color-fd-muted: #1b211d;
 	--color-fd-secondary: #202622;
 	--color-fd-accent-foreground: #ffd9cd;

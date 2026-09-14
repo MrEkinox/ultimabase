@@ -6,6 +6,9 @@ import { fileURLToPath } from 'node:url'
 import { chromium, type Browser, type Page } from 'playwright'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
+import { minimalExampleUrl } from '../components/landing/content'
+import { siteConfig } from '../lib/site'
+
 const websiteRoot = fileURLToPath(new URL('..', import.meta.url))
 const repositoryRoot = fileURLToPath(new URL('../../..', import.meta.url))
 const nextBinary = path.join(repositoryRoot, 'node_modules/next/dist/bin/next')
@@ -168,8 +171,11 @@ describe('website visual system', () => {
 				.getByRole('heading', { level: 1 })
 				.waitFor({ state: 'visible' })
 			await page
-				.getByRole('link', { name: 'Read the documentation' })
+				.getByRole('link', { name: 'Start building' })
 				.waitFor({ state: 'visible' })
+			await page
+				.getByRole('figure', { name: 'Three entry points. One Runtime.' })
+				.waitFor({ state: 'attached' })
 			expect(
 				await page.evaluate(
 					() => document.documentElement.scrollWidth <= window.innerWidth,
@@ -186,6 +192,65 @@ describe('website visual system', () => {
 					() => document.documentElement.scrollWidth <= window.innerWidth,
 				),
 			).toBe(true)
+		} finally {
+			await context.close()
+		}
+	})
+
+	it('connects navigation, calls to action, and theme without client errors', async () => {
+		const context = await browser?.newContext({
+			colorScheme: 'light',
+			viewport: { height: 900, width: 1280 },
+		})
+		if (context === undefined) throw new Error('Browser did not start')
+
+		try {
+			const clientErrors: string[] = []
+			const page = await context.newPage()
+			page.on('console', (message) => {
+				if (message.type() === 'error') clientErrors.push(message.text())
+			})
+			page.on('pageerror', (error) => {
+				clientErrors.push(error.message)
+			})
+
+			await page.goto(origin)
+			await page
+				.getByRole('heading', {
+					level: 1,
+					name: 'Define your data once. Keep every API honest.',
+				})
+				.waitFor({ state: 'visible' })
+
+			expect(
+				await page
+					.locator('#nd-nav')
+					.getByRole('link', { name: 'Docs' })
+					.getAttribute('href'),
+			).toBe(siteConfig.routes.docs)
+			expect(
+				await page
+					.getByRole('link', { name: 'Start building' })
+					.getAttribute('href'),
+			).toBe(siteConfig.routes.gettingStarted)
+			expect(
+				await page
+					.getByRole('link', { name: 'View on GitHub' })
+					.getAttribute('href'),
+			).toBe(siteConfig.repositoryUrl.href)
+			expect(
+				await page
+					.getByRole('link', { name: 'Inspect the runnable example' })
+					.getAttribute('href'),
+			).toBe(minimalExampleUrl)
+
+			const root = page.locator('html')
+			expect((await root.getAttribute('class')) ?? '').not.toContain('dark')
+			await page.getByRole('button', { name: 'Toggle Theme' }).click()
+			await expect
+				.poll(async () => (await root.getAttribute('class'))?.includes('dark'))
+				.toBe(true)
+			expect(clientErrors).toEqual([])
 		} finally {
 			await context.close()
 		}

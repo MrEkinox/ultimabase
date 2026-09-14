@@ -3,7 +3,7 @@
 - Status: in progress
 - Milestone: 28
 - Created: 2026-09-14
-- Current issue: 2803
+- Current issue: 2804
 - Governing backlog: [Milestone 28](issues/2800-public-website-documentation/README.md)
 
 ## Objective
@@ -69,6 +69,9 @@ validation without entering the publishable package build graph.
 Issue 2802 completed the shared token system, provisional brand boundary,
 responsive shell primitives, light and dark modes, reduced-motion behavior, and
 browser accessibility coverage.
+Issue 2803 completed the English product landing page, shipped-API example,
+shared Runtime diagram, factual feature evidence, pre-release messaging, and
+responsive browser verification.
 
 ### Phase 1 — Application, design, and content foundation
 

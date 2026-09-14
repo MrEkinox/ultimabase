@@ -2,6 +2,7 @@
 @import 'fumadocs-ui/css/neutral.css';
 @import 'fumadocs-ui/css/preset.css';
 @import './theme.css';
+@import './landing.css';
 
 * {
 	border-color: var(--ub-border);
@@ -92,24 +93,6 @@ body {
 
 .ub-section-reading {
 	width: min(100% - 2rem, 48rem);
-}
-
-.ub-foundation-hero {
-	display: grid;
-	min-height: min(48rem, calc(100dvh - 4rem));
-	grid-template-columns: minmax(0, 1.12fr) minmax(19rem, 0.88fr);
-	align-items: center;
-	gap: clamp(var(--ub-space-8), 7vw, 6rem);
-	padding-block: clamp(var(--ub-space-16), 12vw, 8rem);
-}
-
-.ub-foundation-copy h1 {
-	max-width: 13ch;
-	margin: 0;
-	font-size: clamp(2.75rem, 6.5vw, 5.75rem);
-	font-weight: 670;
-	letter-spacing: -0.062em;
-	line-height: 0.96;
 }
 
 .ub-eyebrow {
@@ -237,10 +220,6 @@ body {
 	line-height: 1.8;
 }
 
-.ub-foundation-note {
-	padding-bottom: clamp(var(--ub-space-16), 8vw, 6rem);
-}
-
 .ub-callout {
 	display: grid;
 	grid-template-columns: auto minmax(0, 1fr);
@@ -299,16 +278,6 @@ body {
 }
 
 @media (max-width: 48rem) {
-	.ub-foundation-hero {
-		min-height: auto;
-		grid-template-columns: minmax(0, 1fr);
-		gap: var(--ub-space-12);
-	}
-
-	.ub-foundation-copy h1 {
-		font-size: clamp(2.65rem, 14vw, 4.5rem);
-	}
-
 	.ub-code-surface {
 		box-shadow: 0.5rem 0.5rem 0 var(--ub-accent-soft);
 	}

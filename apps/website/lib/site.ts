@@ -15,6 +15,11 @@ export interface SiteConfig {
 	readonly navigation: readonly SiteNavigationItem[]
 	readonly releaseStatus: SiteReleaseStatus
 	readonly repositoryUrl: URL
+	readonly routes: {
+		readonly docs: string
+		readonly examples: string
+		readonly gettingStarted: string
+	}
 }
 
 const canonicalUrl = new URL(process.env.NEXT_PUBLIC_SITE_URL ?? developmentUrl)
@@ -41,4 +46,9 @@ export const siteConfig = Object.freeze({
 	]),
 	releaseStatus: 'pre-release',
 	repositoryUrl,
+	routes: Object.freeze({
+		docs: '/docs',
+		examples: '/examples',
+		gettingStarted: '/docs/getting-started/introduction',
+	}),
 } satisfies SiteConfig)
