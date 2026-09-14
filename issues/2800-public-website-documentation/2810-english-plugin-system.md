@@ -1,6 +1,6 @@
 # 2810: Document the plugin system
 
-- Status: planned
+- Status: ready
 - Milestone: 28
 - Packages: `apps/website`, official plugin packages
 - Depends on: 2805

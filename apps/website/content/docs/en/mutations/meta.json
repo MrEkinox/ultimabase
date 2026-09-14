@@ -1,0 +1,13 @@
+{
+	"title": "Write Data",
+	"pages": [
+		"create",
+		"update",
+		"delete",
+		"bulk-operations",
+		"upserts",
+		"nested-writes",
+		"transactions",
+		"soft-delete"
+	]
+}

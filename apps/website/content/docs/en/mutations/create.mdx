@@ -1,0 +1,51 @@
+---
+title: Create Records
+description: Create one typed record, shape its result, and understand what runs before it is returned.
+audience:
+  - application-developer
+contentType: guide
+order: 1
+outcome: Create one record with defaults, a nested pointer command, and an exact result type.
+owner: '2809'
+releaseStatus: pre-release
+sources:
+  - packages/core/README.md
+  - packages/core/docs/runtime.md
+  - docs/adr/0109-model-mutator-methods-and-create-draft.md
+  - docs/adr/0243-bounded-singular-nested-writes.md
+---
+
+Use `Schema.createOne` for a single root mutation. Its input is checked against
+the generated schema surface, and `select` plus `include` determine both the
+returned data and its TypeScript type.
+
+```ts title="src/create-post.ts" fixture="mutations/create.ts"
+import { Post } from './schemas.js'
+import { ultimabase } from './ultimabase.js'
+
+export const createPost = (authorId: string) =>
+	Post.createOne(
+		{
+			data: {
+				author: { connect: authorId },
+				slug: 'first-post',
+				title: 'First post',
+			},
+			include: { author: { select: { displayName: true } } },
+			select: { slug: true, title: true },
+		},
+		{ ultimabase },
+	)
+```
+
+Core applies generated values and defaults once, runs structural validation,
+the configured policy and Hook capabilities, then persists the record in one
+automatic transaction. The returned model is immutable: changing data means
+issuing another command, not assigning a property.
+
+Use `Schema.create(data)` when you need an immutable draft before persistence,
+then call `draft.create()`. Drafts are useful for local composition, but nested
+writes belong to `createOne` and are not available on draft creation.
+
+Continue with [Update Records](./update), or learn how one root write can own a
+bounded graph in [Nested Writes](./nested-writes).

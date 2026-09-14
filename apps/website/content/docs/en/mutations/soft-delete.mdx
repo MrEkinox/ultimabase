@@ -1,0 +1,57 @@
+---
+title: Soft Delete
+description: Choose replacement or explicit tombstone commands without weakening ordinary visibility.
+audience:
+  - application-developer
+contentType: concept
+order: 8
+outcome: Configure a deletion mode and keep restore or purge behind private Master authority.
+owner: '2809'
+releaseStatus: pre-release
+sources:
+  - packages/soft-delete-plugin/README.md
+  - packages/core/docs/runtime.md
+  - docs/adr/0190-versioned-capability-kernel.md
+---
+
+Soft deletion is an optional plugin capability. A schema opts into one explicit
+mode; importing the package alone installs no behavior.
+
+| Mode             | Native `deleteOne`                                | Additional application command |
+| ---------------- | ------------------------------------------------- | ------------------------------ |
+| `replace-delete` | Writes a tombstone instead of physically deleting | none                           |
+| `explicit`       | Keeps native physical deletion                    | `softDelete`                   |
+
+```ts title="src/soft-delete-post.ts" fixture="mutations/soft-delete.ts"
+import { Post } from './schemas.js'
+import { ultimabase } from './ultimabase.js'
+
+export const softDeletePost = (postId: string) =>
+	ultimabase
+		.schema(Post)
+		.softDelete({ id: postId, select: { isDeleted: true, title: true } })
+
+export const restorePost = (postId: string) =>
+	ultimabase
+		.schema(Post)
+		.restore(
+			{ id: postId, select: { isDeleted: true, title: true } },
+			{ useMasterKey: true },
+		)
+
+export const purgePost = (postId: string) =>
+	ultimabase
+		.schema(Post)
+		.purge({ id: postId, select: { title: true } }, { useMasterKey: true })
+```
+
+Ordinary reads hide tombstones. That visibility rule also applies to normal
+Master reads; Master authority is not a general switch for including deleted
+records. `restore` and `purge` are private application-schema commands that
+require explicit server-side Master authority. They are not model, REST,
+GraphQL, or Access-policy branches.
+
+In explicit mode, native `deleteOne` remains the deliberate hard-delete path.
+In replacement mode, physical purge stays on the private Master surface. Both
+modes preserve the ordinary validation, Hook, transaction, integrity, and
+protected-policy boundaries.

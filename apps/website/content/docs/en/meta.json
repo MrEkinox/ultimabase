@@ -1,4 +1,10 @@
 {
 	"title": "Documentation",
-	"pages": ["index", "getting-started", "data-modeling", "querying"]
+	"pages": [
+		"index",
+		"getting-started",
+		"data-modeling",
+		"querying",
+		"mutations"
+	]
 }

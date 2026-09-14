@@ -1,0 +1,48 @@
+---
+title: Unique Upserts
+description: Create or update exactly one record through a unique identity boundary.
+audience:
+  - application-developer
+contentType: guide
+order: 5
+outcome: Build deterministic upserts without broad filter or nested-write ambiguity.
+owner: '2809'
+releaseStatus: pre-release
+sources:
+  - packages/core/README.md
+  - packages/core/docs/runtime.md
+  - docs/adr/0163-public-schema-root-mutation-commands.md
+---
+
+An upsert must identify one possible record. Use `id`, one declared unique
+field, or one complete composite unique group—never an arbitrary filter.
+
+```ts title="src/upsert-post.ts" fixture="mutations/upsert.ts"
+import { increment } from '@ultimabase/core'
+
+import { Account, Post } from './schemas.js'
+import { ultimabase } from './ultimabase.js'
+
+export const importPost = (authorId: string, slug: string, title: string) =>
+	Post.upsertOne(
+		{
+			create: {
+				author: Account.pointer(authorId),
+				slug,
+				title,
+			},
+			select: { slug: true, title: true, views: true },
+			update: { title, views: increment(1) },
+			where: { slug: { eq: slug } },
+		},
+		{ ultimabase },
+	)
+```
+
+If the target is absent, equality values from `where` seed the create branch.
+An explicitly supplied create value that contradicts that identity is rejected.
+If the target exists, the update branch follows the ordinary update pipeline.
+
+`upsertMany` applies the same rule to an ordered list. Upserts do not expose
+nested writes: split a graph workflow into explicit commands inside
+[an explicit transaction](./transactions) when you need that control.

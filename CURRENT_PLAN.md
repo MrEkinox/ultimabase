@@ -3,7 +3,7 @@
 - Status: in progress
 - Milestone: 28
 - Created: 2026-09-14
-- Current issue: 2809
+- Current issue: 2810
 - Governing backlog: [Milestone 28](issues/2800-public-website-documentation/README.md)
 
 ## Objective
@@ -87,6 +87,10 @@ tests for fields, immutable models, embedded objects, pointers, and relations.
 Issue 2808 completed the seven-page read-data path, canonical object and builder
 examples, source and built type coverage, and Runtime fixtures for immutable
 queries, inclusions, pagination, and relation predicates.
+Issue 2809 completed the eight-page write-data path, source and built type
+coverage, checked-in generated contracts, public Runtime execution fixtures,
+and explicit boundaries for itemized writes, transactions, nested graphs, and
+soft deletion.
 
 ### Phase 1 — Application, design, and content foundation
 
@@ -222,4 +226,4 @@ Resume only after explicit user direction to start implementation:
 5. Implement issue 2801 only; do not absorb visual design or content work from
    later issues.
 
-Resume point: **issue 2809**.
+Resume point: **issue 2810**.
