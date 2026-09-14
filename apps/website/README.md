@@ -53,8 +53,9 @@ English source and the nearest French documentation entry instead of silently
 mixing languages.
 
 Every public MDX page requires a title, description, audience, content type,
-reader outcome, owning issue, release status, and canonical repository sources.
-Frontmatter may also declare navigation order and translation source metadata.
+reader outcome, owning issue, release status, review date, and canonical
+repository sources. Frontmatter may also declare navigation order and
+translation source metadata.
 `components/mdx.tsx` exposes the shared code, tabs, callouts, cards, file-tree,
 and semantic architecture-diagram components.
 
@@ -89,3 +90,7 @@ The browser test builds and starts the production application, then checks the
 light and dark shells, mobile and 200%-zoom-equivalent reflow, reduced motion,
 focus semantics, localized search and routing, and WCAG A/AA findings with
 Playwright and Axe.
+
+[`docs/preview-readiness.md`](docs/preview-readiness.md) records the current
+private-preview audit, production asset totals, and the decisions required
+before any public deployment.

@@ -13,9 +13,26 @@ import '../globals.css'
 export const metadata: Metadata = {
 	description: siteConfig.description,
 	metadataBase: siteConfig.canonicalUrl,
+	openGraph: {
+		description: siteConfig.description,
+		locale: 'en_US',
+		siteName: siteConfig.name,
+		title: siteConfig.name,
+		type: 'website',
+		url: siteConfig.canonicalUrl,
+	},
+	robots: {
+		follow: siteConfig.preview.indexable,
+		index: siteConfig.preview.indexable,
+	},
 	title: {
 		default: siteConfig.name,
 		template: `%s · ${siteConfig.name}`,
+	},
+	twitter: {
+		card: 'summary',
+		description: siteConfig.description,
+		title: siteConfig.name,
 	},
 }
 

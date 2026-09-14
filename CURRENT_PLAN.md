@@ -1,9 +1,9 @@
 # Active plan: public website and documentation foundation
 
-- Status: in progress
+- Status: completed
 - Milestone: 28
 - Created: 2026-09-14
-- Current issue: 2820
+- Current issue: none
 - Governing backlog: [Milestone 28](issues/2800-public-website-documentation/README.md)
 
 ## Objective
@@ -129,6 +129,10 @@ Issue 2819 completed the prospective documentation-impact workflow, exact
 package-to-section ownership, reader-visible review dates and source-edit links,
 focused bilingual prose checks, and ordinary CI validation while preserving
 human review and authoritative engineering sources.
+Issue 2820 completed the private-preview gate with production-browser reader
+walkthroughs, search and accessibility audits, replaceable technical metadata,
+indexing controls, a global recovery page, recorded production asset totals,
+and a provider-neutral handoff that performs no deployment.
 
 ### Phase 1 — Application, design, and content foundation
 
@@ -264,4 +268,4 @@ Resume only after explicit user direction to start implementation:
 5. Implement issue 2801 only; do not absorb visual design or content work from
    later issues.
 
-Resume point: **issue 2820**.
+Resume point: **milestone complete — no remaining issue**.

@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 
 import { LandingPage } from '../../../components/landing/landing-page'
 import { isSiteLocale, localizePath } from '../../../lib/i18n'
+import { createPublicPageMetadata } from '../../../lib/metadata'
 import { siteConfig } from '../../../lib/site'
 
 interface HomePageProps {
@@ -27,12 +28,12 @@ export async function generateMetadata({
 			? 'Un framework backend TypeScript typé, composé de plugins explicites et d’un Runtime unique.'
 			: siteConfig.description
 
-	return {
-		alternates: {
-			canonical: localizePath(lang, '/'),
-			languages: { en: '/', fr: '/fr' },
-		},
+	return createPublicPageMetadata({
+		absoluteTitle: true,
+		canonicalPath: localizePath(lang, '/'),
 		description,
-		title: { absolute: siteConfig.name },
-	}
+		languages: { en: '/', fr: '/fr' },
+		locale: lang,
+		title: siteConfig.name,
+	})
 }

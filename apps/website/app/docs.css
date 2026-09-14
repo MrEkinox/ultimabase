@@ -71,3 +71,12 @@
 .ub-translation-fallback .ub-action-row {
 	align-items: center;
 }
+
+/* GitHub Light's red and orange tokens miss AA contrast on the site surface. */
+html:not(.dark) .shiki span[style*='--shiki-light:#D73A49'] {
+	--shiki-light: #b11f35 !important;
+}
+
+html:not(.dark) .shiki span[style*='--shiki-light:#E36209'] {
+	--shiki-light: #923b00 !important;
+}

@@ -13,6 +13,10 @@ export interface SiteConfig {
 	readonly description: string
 	readonly name: string
 	readonly navigation: readonly SiteNavigationItem[]
+	readonly preview: {
+		readonly indexable: boolean
+		readonly reviewedAt: string
+	}
 	readonly releaseStatus: SiteReleaseStatus
 	readonly repositoryUrl: URL
 	readonly sourceRepository: {
@@ -36,6 +40,10 @@ const sourceRepository = Object.freeze({
 const repositoryUrl = new URL(
 	`https://github.com/${sourceRepository.owner}/${sourceRepository.name}`,
 )
+const preview: SiteConfig['preview'] = Object.freeze({
+	indexable: false,
+	reviewedAt: '2026-09-14',
+})
 
 /**
  * Provisional public identity for the website.
@@ -57,6 +65,7 @@ export const siteConfig = Object.freeze({
 			label: 'GitHub',
 		},
 	]),
+	preview,
 	releaseStatus: 'pre-release',
 	repositoryUrl,
 	sourceRepository,

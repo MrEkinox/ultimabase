@@ -13,6 +13,7 @@ import { getMdxComponents } from '../../../../../components/mdx'
 import { resolveDocumentationPage } from '../../../../../lib/docs-localization'
 import { documentationEditOptions } from '../../../../../lib/docs-links'
 import { isSiteLocale } from '../../../../../lib/i18n'
+import { createPublicPageMetadata } from '../../../../../lib/metadata'
 import { source } from '../../../../../lib/source'
 
 interface DocumentationPageProps {
@@ -83,27 +84,27 @@ export async function generateMetadata({ params }: DocumentationPageProps) {
 		englishPage,
 	)
 	if (resolution.kind === 'translation-fallback') {
-		return {
-			alternates: { canonical: resolution.englishPage.url },
+		return createPublicPageMetadata({
+			canonicalPath: resolution.englishPage.url,
 			description:
 				'Cette page est disponible en anglais pendant sa traduction.',
+			locale: lang,
 			title: 'Traduction française en attente',
-		}
+		})
 	}
 	if (resolution.kind === 'not-found') notFound()
 
 	const { page } = resolution
 	const frenchPage = source.getPage(slug, 'fr')
 
-	return {
-		alternates: {
-			canonical: page.url,
-			languages: {
-				...(englishPage === undefined ? {} : { en: englishPage.url }),
-				...(frenchPage === undefined ? {} : { fr: frenchPage.url }),
-			},
-		},
+	return createPublicPageMetadata({
+		canonicalPath: page.url,
 		description: page.data.description,
+		languages: {
+			...(englishPage === undefined ? {} : { en: englishPage.url }),
+			...(frenchPage === undefined ? {} : { fr: frenchPage.url }),
+		},
+		locale: lang,
 		title: page.data.title,
-	}
+	})
 }
