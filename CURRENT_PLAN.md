@@ -3,7 +3,7 @@
 - Status: in progress
 - Milestone: 28
 - Created: 2026-09-14
-- Current issue: 2810
+- Current issue: 2811
 - Governing backlog: [Milestone 28](issues/2800-public-website-documentation/README.md)
 
 ## Objective
@@ -91,6 +91,9 @@ Issue 2809 completed the eight-page write-data path, source and built type
 coverage, checked-in generated contracts, public Runtime execution fixtures,
 and explicit boundaries for itemized writes, transactions, nested graphs, and
 soft deletion.
+Issue 2810 completed the eight-page plugin path, compiled consumer and author
+fixtures, the complete classified official-plugin catalog, and explicit
+contracts for identity, privileges, capabilities, dependencies, and lifecycle.
 
 ### Phase 1 — Application, design, and content foundation
 
@@ -226,4 +229,4 @@ Resume only after explicit user direction to start implementation:
 5. Implement issue 2801 only; do not absorb visual design or content work from
    later issues.
 
-Resume point: **issue 2810**.
+Resume point: **issue 2811**.

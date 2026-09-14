@@ -23,7 +23,7 @@ architecture and may be published progressively without duplicating the site.
 7. [x] [2807 — Document data modeling](2807-english-data-modeling.md)
 8. [x] [2808 — Document reading data](2808-english-reading-data.md)
 9. [x] [2809 — Document mutations and transactions](2809-english-mutations-transactions.md)
-10. [ ] [2810 — Document the plugin system](2810-english-plugin-system.md)
+10. [x] [2810 — Document the plugin system](2810-english-plugin-system.md)
 11. [ ] [2811 — Document application security](2811-english-application-security.md)
 12. [ ] [2812 — Document TypeScript, REST, and GraphQL APIs](2812-english-public-apis.md)
 13. [ ] [2813 — Document operating an application](2813-operating-an-application.md)

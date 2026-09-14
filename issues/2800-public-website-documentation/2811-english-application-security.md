@@ -1,6 +1,6 @@
 # 2811: Document application security
 
-- Status: planned
+- Status: ready
 - Milestone: 28
 - Packages: `apps/website`, security-related official plugins
 - Depends on: 2805, 2810

@@ -1,0 +1,71 @@
+---
+title: Official Plugins
+description: Find the official package that owns each optional UltimaBase capability.
+audience:
+  - application-developer
+contentType: reference
+order: 3
+outcome: Choose the smallest set of official plugins for an application task.
+owner: '2810'
+releaseStatus: pre-release
+sources:
+  - packages/access-plugin/README.md
+  - packages/acl-permissions-plugin/README.md
+  - packages/apollo-sandbox-plugin/README.md
+  - packages/graphiql-plugin/README.md
+  - packages/graphql-plugin/README.md
+  - packages/graphql-yoga-plugin/README.md
+  - packages/hooks-plugin/README.md
+  - packages/http-plugin/README.md
+  - packages/password-auth-plugin/README.md
+  - packages/pg-vector-plugin/README.md
+  - packages/postgres-plugin/README.md
+  - packages/rest-plugin/README.md
+  - packages/roles-plugin/README.md
+  - packages/server-hono-plugin/README.md
+  - packages/soft-delete-plugin/README.md
+  - packages/validation-plugin/README.md
+---
+
+Start from the capability you need. Every package below remains optional and
+must be configured explicitly.
+
+## Data and behavior
+
+| Package                          | Responsibility                                                                                |
+| -------------------------------- | --------------------------------------------------------------------------------------------- |
+| `@ultimabase/postgres-plugin`    | PostgreSQL adapter, schema preparation, queries, and transactions                             |
+| `@ultimabase/hooks-plugin`       | Official schema and field lifecycle Hooks                                                     |
+| `@ultimabase/validation-plugin`  | Rejection-only Standard Schema field validation                                               |
+| `@ultimabase/soft-delete-plugin` | Replace-delete or explicit tombstone lifecycle                                                |
+| `@ultimabase/pg-vector-plugin`   | Typed logical vector field declaration; PostgreSQL physical vector support is not shipped yet |
+
+See [Soft Delete](../mutations/soft-delete) for its application commands.
+
+## Identity and policy
+
+| Package                              | Responsibility                                          |
+| ------------------------------------ | ------------------------------------------------------- |
+| `@ultimabase/password-auth-plugin`   | Local username/password identity and revocable sessions |
+| `@ultimabase/access-plugin`          | Optional official schema and field policy engine        |
+| `@ultimabase/roles-plugin`           | Developer-defined schema-backed roles                   |
+| `@ultimabase/acl-permissions-plugin` | Immutable object-level ACL policy                       |
+
+Authentication and roles add request subjects; they grant nothing by
+themselves. Access and ACL are independent monotonic policy providers.
+
+## APIs and servers
+
+| Package                             | Responsibility                                               |
+| ----------------------------------- | ------------------------------------------------------------ |
+| `@ultimabase/http-plugin`           | Fetch-compatible application selection and route composition |
+| `@ultimabase/server-hono-plugin`    | Node.js Hono listener provider                               |
+| `@ultimabase/rest-plugin`           | Experimental REST v1 routes and wire contract                |
+| `@ultimabase/graphql-plugin`        | Network-independent GraphQL schema and execution             |
+| `@ultimabase/graphql-yoga-plugin`   | GraphQL-over-HTTP adapter                                    |
+| `@ultimabase/graphiql-plugin`       | Optional GraphiQL browser explorer                           |
+| `@ultimabase/apollo-sandbox-plugin` | Optional Apollo Sandbox browser explorer                     |
+
+These packages compose as siblings through capabilities. For example, the Yoga
+adapter needs GraphQL and HTTP, while the Hono provider consumes HTTP; none of
+those imports silently installs another layer.

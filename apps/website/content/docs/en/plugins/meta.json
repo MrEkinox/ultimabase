@@ -1,0 +1,13 @@
+{
+	"title": "Plugins",
+	"pages": [
+		"overview",
+		"installation",
+		"official-plugins",
+		"authoring",
+		"identity-and-instances",
+		"manifests-and-privileges",
+		"capabilities",
+		"lifecycle-and-dependencies"
+	]
+}

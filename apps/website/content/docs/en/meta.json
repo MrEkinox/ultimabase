@@ -5,6 +5,7 @@
 		"getting-started",
 		"data-modeling",
 		"querying",
-		"mutations"
+		"mutations",
+		"plugins"
 	]
 }

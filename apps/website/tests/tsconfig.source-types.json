@@ -10,5 +10,16 @@
 			],
 			"@ultimabase/typegen": ["../../../packages/typegen/src/index.ts"]
 		}
-	}
+	},
+	"include": [
+		"data-modeling.test-d.ts",
+		"mutations.test-d.ts",
+		"querying.test-d.ts",
+		"fixtures/data-modeling/**/*.ts",
+		"fixtures/data-modeling/.ultimabase/schema.generated.d.ts",
+		"fixtures/mutations/**/*.ts",
+		"fixtures/mutations/.ultimabase/schema.generated.d.ts",
+		"fixtures/querying/**/*.ts",
+		"fixtures/querying/.ultimabase/schema.generated.d.ts"
+	]
 }

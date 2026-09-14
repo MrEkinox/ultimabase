@@ -1,0 +1,40 @@
+---
+title: Plugin System
+description: Compose application behavior explicitly through one validated, versioned plugin graph.
+audience:
+  - application-developer
+  - plugin-author
+contentType: concept
+order: 1
+outcome: Decide whether a feature belongs in the application plugin list and know what Core validates.
+owner: '2810'
+releaseStatus: pre-release
+sources:
+  - packages/core/README.md
+  - packages/plugin-kit/README.md
+  - docs/adr/0190-capability-host-lifecycle-and-legacy-convergence.md
+---
+
+UltimaBase keeps concrete behavior in plugins. A plugin may declare schema
+features, provide versioned capabilities, install Runtime behavior, expose a
+transport, or own infrastructure. Core stays responsible for graph validation,
+ownership, privileges, lifecycle, and cleanup.
+
+Importing a plugin package never installs it. Behavior begins only when the
+factory result appears in one application's `plugins` array. This makes the
+application graph readable and keeps separate applications isolated.
+
+```text
+package import → plugin factory → application graph validation → static declarations
+               → capability materialization → setup and lifecycle → disposal
+```
+
+The graph is deterministic. Dependencies run before consumers; configuration
+position breaks ties; registration order breaks ties inside one plugin.
+Conflicts, missing requirements, incompatible versions, duplicate identities,
+and denied privileges fail before infrastructure effects.
+
+Application developers can start with [Install a Plugin](./installation) and
+the [Official Plugins](./official-plugins) index. Plugin authors should begin
+with [Author a Plugin](./authoring), then read the manifest and capability
+contracts rather than depending on Core internals.

@@ -1,0 +1,53 @@
+---
+title: Manifests and Privileges
+description: Declare exact Core powers and direct environment behavior before effects can run.
+audience:
+  - plugin-author
+  - application-developer
+contentType: concept
+order: 6
+outcome: Review a plugin manifest and distinguish enforceable privileges from environment claims.
+owner: '2810'
+releaseStatus: pre-release
+sources:
+  - packages/core/README.md
+  - docs/adr/0191-plugin-privilege-taxonomy-and-diagnostics.md
+  - docs/adr/0208-enforceable-plugin-powers-and-environment-truth.md
+---
+
+The manifest is an immutable review surface. It declares identity, package and
+Core versions, dependencies, capabilities, requested Core privileges with
+reasons, and direct environment claims.
+
+```ts title="src/delivery-plugin.ts" fixture="plugins/manifest.ts"
+import { definePlugin } from '@ultimabase/core'
+
+export const deliveryPlugin = definePlugin({
+	core: '^0.0.0',
+	environment: ['environment:network'],
+	pluginId: 'community.delivery',
+	privileges: [
+		{
+			name: 'event:publish',
+			reason: 'Publishes committed delivery events.',
+		},
+	],
+	setup: () => ({ provider: 'example' as const }),
+	version: '1.0.0',
+})
+```
+
+Privileges protect Core-owned facades such as `schema:declare`,
+`runtime:observe`, `persistence:rewrite`, `transport:expose`,
+`typegen:contribute`, and `authority:elevate`. One privilege never implies a
+neighboring power, and a request must explain why it is needed.
+
+Environment claims report direct filesystem, network, process, or native-code
+behavior. They can be denied before startup but are not an operating-system
+sandbox for trusted in-process JavaScript. Do not describe a claim as a Core
+permission.
+
+Applications may deny privileges or claims globally, by plugin ID, or by exact
+instance. Unknown policy targets fail as configuration errors. The default
+startup report lists the effective review result without options, secrets,
+credentials, capability values, or stack traces.

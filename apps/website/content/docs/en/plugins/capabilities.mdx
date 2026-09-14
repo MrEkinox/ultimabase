@@ -1,0 +1,93 @@
+---
+title: Capabilities
+description: Integrate plugins through nominal versioned protocols with explicit lifetime and cardinality.
+audience:
+  - plugin-author
+contentType: concept
+order: 7
+outcome: Choose declaration or application lifetime and wire an exact requirement.
+owner: '2810'
+releaseStatus: pre-release
+sources:
+  - packages/core/README.md
+  - packages/plugin-kit/README.md
+  - docs/adr/0190-capability-host-lifecycle-and-legacy-convergence.md
+  - docs/adr/0195-setup-phase-capability-requirements.md
+---
+
+Capabilities are the only public cross-plugin integration host. Each nominal
+token fixes a namespaced ID, semantic protocol version, cardinality, lifetime,
+and consumer composition function.
+
+```ts title="src/capabilities.ts" fixture="plugins/capabilities.ts"
+import {
+	defineCapability,
+	definePlugin,
+	provideCapability,
+	requireCapability,
+} from '@ultimabase/core'
+
+export const formatCapability = defineCapability<{
+	readonly format: 'compact'
+}>()({
+	capabilityId: 'community.workflow-format',
+	cardinality: 'single',
+	compose: ([provider]) => provider,
+	lifetime: 'declaration',
+	version: '1.0.0',
+})
+
+export const queueCapability = defineCapability<{
+	readonly enqueue: (message: string) => Promise<void>
+}>()({
+	capabilityId: 'community.workflow-queue',
+	cardinality: 'single',
+	compose: ([provider]) => provider,
+	lifetime: 'application',
+	version: '1.0.0',
+})
+
+export const workflowInfrastructurePlugin = definePlugin({
+	capabilities: {
+		provides: [
+			provideCapability(formatCapability, {
+				contributionId: 'compact-format',
+				value: { format: 'compact' },
+			}),
+			provideCapability(queueCapability, {
+				contributionId: 'memory-queue',
+				create: () => ({
+					value: { enqueue: () => Promise.resolve() },
+				}),
+			}),
+		],
+	},
+	core: '^0.0.0',
+	pluginId: 'community.workflow-infrastructure',
+	version: '1.0.0',
+})
+
+const format = requireCapability(formatCapability, '^1.0.0')
+
+export const workflowConsumerPlugin = definePlugin({
+	capabilities: { requires: [format] },
+	core: '^0.0.0',
+	pluginId: 'community.workflow-consumer',
+	setup: ({ capabilities }) => ({ format: capabilities.get(format).format }),
+	version: '1.0.0',
+})
+```
+
+Declaration capabilities contain deeply frozen serializable facts available
+during static compilation. Application capabilities declare an inert factory,
+materialize once per application, may own resources, and are revoked on
+disposal. Secrets and live connections never belong in declaration values.
+
+`single` selects one provider, `multiple` retains ordered independent
+providers, and `pipeline` composes ordered handlers. Decoration is limited to
+`single` and `pipeline`; replacement targets one exact owner and contribution.
+Both require their dedicated privileges and reject ambiguous chains.
+
+A plugin may read only the exact required or optional requirement objects in
+its manifest. Prefer capabilities over named dependencies when alternative
+providers can satisfy the protocol.
