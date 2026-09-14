@@ -36,14 +36,16 @@ The constructor accepts a declared `FrameworkErrorCode`, a non-empty diagnostic
 message, and optional `cause`, `publicMessage`, `publicDetails`,
 `internalDetails`, and `retryable` values.
 
-| Boundary | Representative stable codes |
-| --- | --- |
-| Core data | `VALIDATION_ERROR`, `NOT_FOUND`, `PERMISSION_DENIED`, `TRANSACTION_ERROR` |
-| Core plugins | `PLUGIN_DEPENDENCY_MISSING`, `PLUGIN_CAPABILITY_CONFLICT`, `PLUGIN_PRIVILEGE_DENIED`, `PLUGIN_DECLARATION_INVALID` |
-| HTTP before dispatch | `HTTP_BAD_REQUEST`, `HTTP_APPLICATION_REJECTED`, `HTTP_NOT_FOUND`, `HTTP_REQUEST_TIMEOUT`, `HTTP_INTERNAL_ERROR` |
-| REST after dispatch | `REST_READ_INVALID_INPUT`, `REST_READ_BODY_TOO_LARGE`, `REST_INTERNAL_ERROR` and operation-specific public mappings |
-| GraphQL compilation/runtime | `GRAPHQL_SCHEMA_COMPILATION_FAILED`, `GRAPHQL_INVALID_CURSOR`, safe GraphQL extensions |
-| Password Auth | `PASSWORD_AUTH_INVALID_CREDENTIALS`, `PASSWORD_AUTH_INVALID_SESSION`, `PASSWORD_AUTH_SIGN_UP_REJECTED` |
+| Boundary | Representative stable codes | Diagnostic path |
+| --- | --- | --- |
+| Core data | `VALIDATION_ERROR`, `NOT_FOUND`, `PERMISSION_DENIED`, `TRANSACTION_ERROR` | owning concept or guide |
+| Core plugins | `PLUGIN_DEPENDENCY_MISSING`, `PLUGIN_CAPABILITY_CONFLICT`, `PLUGIN_PRIVILEGE_DENIED`, `PLUGIN_DECLARATION_INVALID` | [startup](../troubleshooting/startup) |
+| PostgreSQL | sanitized `INTERNAL_ERROR` or schema `VALIDATION_ERROR` | [PostgreSQL](../troubleshooting/postgres) |
+| Typegen | `SCHEMA_TYPEGEN_FAILED` with a stable reason | [Typegen](../troubleshooting/typegen) |
+| HTTP before dispatch | `HTTP_BAD_REQUEST`, `HTTP_APPLICATION_REJECTED`, `HTTP_NOT_FOUND`, `HTTP_REQUEST_TIMEOUT`, `HTTP_INTERNAL_ERROR` | [HTTP identity](../troubleshooting/http-and-application-identity) |
+| REST after dispatch | `REST_READ_INVALID_INPUT`, `REST_READ_BODY_TOO_LARGE`, `REST_INTERNAL_ERROR` and operation-specific public mappings | owning API page |
+| GraphQL compilation/runtime | `GRAPHQL_SCHEMA_COMPILATION_FAILED`, `GRAPHQL_INVALID_CURSOR`, safe GraphQL extensions | owning API page |
+| Password Auth | `PASSWORD_AUTH_INVALID_CREDENTIALS`, `PASSWORD_AUTH_INVALID_SESSION`, `PASSWORD_AUTH_SIGN_UP_REJECTED` | [authentication](../troubleshooting/http-and-application-identity) |
 
 ## Defaults
 
@@ -78,4 +80,4 @@ try {
 ```
 
 See [API error boundaries](../apis/errors), [Master authority](../security/master-authority),
-and the upcoming [Troubleshooting](../troubleshooting) section.
+and [Troubleshooting](../troubleshooting/startup).

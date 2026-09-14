@@ -1,0 +1,90 @@
+---
+title: HTTP Identity and Authentication
+description: Diagnose application selection, request correlation, browser policy, and Password Auth failures.
+audience:
+  - application-developer
+  - operator
+contentType: troubleshooting
+order: 4
+outcome: Repair a rejected request without weakening application, credential, or browser boundaries.
+owner: '2817'
+releaseStatus: pre-release
+sources:
+  - packages/http-plugin/src/request-boundary.ts
+  - packages/http-plugin/README.md
+  - packages/password-auth-plugin/src/operations.ts
+  - packages/password-auth-plugin/README.md
+---
+
+## Symptom
+
+Before a route starts, HTTP returns a private, non-cacheable envelope with a
+stable code and `X-UltimaBase-Request-Id`:
+
+| Code | First interpretation |
+| --- | --- |
+| `HTTP_BAD_REQUEST` | malformed or ambiguous request evidence |
+| `HTTP_APPLICATION_REJECTED` | application selection or credentials were rejected |
+| `HTTP_NOT_FOUND` | no selected route owns the path |
+| `HTTP_REQUEST_TIMEOUT` | the shared request deadline expired |
+| `HTTP_INTERNAL_ERROR` | the pre-dispatch boundary failed safely |
+
+Password Auth returns `PASSWORD_AUTH_INVALID_CREDENTIALS`,
+`PASSWORD_AUTH_INVALID_SESSION`, or `PASSWORD_AUTH_SIGN_UP_REJECTED` after its
+operation begins. These deliberately avoid credential and account-existence
+details.
+
+## Cause
+
+Every public request selects exactly one mounted application with one original
+`X-UltimaBase-Application-Id` header. Common causes are a missing or unknown ID,
+duplicate sensitive headers, an invalid request ID, the wrong route prefix, an
+expired Bearer or cookie session, or both Bearer and cookie credentials at once.
+Cookie routes additionally require exact JSON, a matching non-null `Origin`,
+and compatible browser policy.
+
+## Confirm
+
+Reproduce without credentials first:
+
+```sh
+curl -i \
+  -H 'X-UltimaBase-Application-Id: blog' \
+  http://localhost:3000/api/v1/Post
+```
+
+Record status, error code, and `X-UltimaBase-Request-Id`. Confirm the configured
+public `appId`, mount, method, and route. In browser tools, check only whether
+the required origin, method, and header names are present; never copy
+`Authorization`, `Cookie`, or Master values into logs or reports.
+
+For Password Auth, distinguish login/sign-up from refresh/logout. A stale cookie
+is ignored only by sign-up and login; invalid cookies remain rejected elsewhere.
+
+## Resolve
+
+- Send exactly one correct application ID on the real request. A browser
+  preflight intentionally sends none.
+- Use the documented route base and method for the selected REST, GraphQL, or
+  authentication operation.
+- Remove ambiguous duplicate headers and never combine Bearer with the configured
+  session cookie.
+- For cookie mode, configure explicit origins with credentials and allow `POST`,
+  `Content-Type`, and `X-UltimaBase-Application-Id`.
+- Re-authenticate an expired session through the public login flow. Do not forge
+  request context or switch to Master authority as a recovery mechanism.
+
+CORS is not authentication or authorization; widening it cannot repair an
+invalid credential.
+
+## Escalate
+
+Report the sanitized request method and path, public application ID, response
+status, stable error code, request ID, transport, and whether the client used
+Bearer or cookie mode. Never include raw headers, cookies, tokens, request
+bodies, password hashes, or Master material. Use
+[Reporting a problem](./reporting-a-problem).
+
+See [HTTP applications](../apis/http-applications),
+[Password Auth](../security/password-authentication), and the
+[error reference](../reference/errors).

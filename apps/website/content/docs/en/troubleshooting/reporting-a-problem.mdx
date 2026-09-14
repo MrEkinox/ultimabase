@@ -1,0 +1,92 @@
+---
+title: Reporting a Problem
+description: Prepare a minimal, reproducible, and sanitized UltimaBase issue report.
+audience:
+  - application-developer
+  - plugin-author
+  - operator
+contentType: troubleshooting
+order: 5
+outcome: Give maintainers enough safe evidence to reproduce a public framework failure.
+owner: '2817'
+releaseStatus: pre-release
+sources:
+  - README.md
+  - SECURITY.md
+  - package.json
+  - issues
+---
+
+## Symptom
+
+Report a problem when a documented public contract behaves differently in a
+minimal application, a stable error code has no actionable recovery, or the
+same sanitized failure survives the relevant troubleshooting path.
+
+Do not open a public issue for a suspected vulnerability. Follow the repository
+[security policy](https://github.com/MrEkinox/ultimadatabase/blob/main/SECURITY.md)
+instead.
+
+## Cause
+
+Reports are difficult to act on when they omit versions or expected behavior,
+depend on a private application, mix several failures, or include only a
+screenshot of a wrapper error. They are unsafe when they contain environment
+dumps, database URLs, credentials, cookies, tokens, user data, raw driver
+causes, or Master material.
+
+## Confirm
+
+Record the toolchain without printing environment variables:
+
+```sh
+node --version
+yarn --version
+yarn why @ultimabase/core
+```
+
+Reduce the problem to the smallest schemas, plugins, configuration, and command
+that reproduce it. Run it twice from a clean application lifecycle. Preserve
+stable error codes, Typegen reasons, HTTP request IDs, and sanitized driver codes
+when available.
+
+## Resolve
+
+Before reporting, compare the installed release with the pre-release
+documentation, regenerate replaceable Typegen output, and apply the matching
+[startup](./startup), [PostgreSQL](./postgres),
+[Typegen](./typegen), or [HTTP and authentication](./http-and-application-identity)
+recovery.
+
+If the problem remains, open a repository issue using this structure:
+
+```md
+### Versions
+Node, package manager, TypeScript, and every @ultimabase package
+
+### Minimal reproduction
+Repository or self-contained code plus the exact command
+
+### Expected behavior
+The documented observable result
+
+### Actual behavior
+Stable code, sanitized diagnostic, and lifecycle stage
+
+### Additional context
+Operating system and narrowly relevant provider versions
+```
+
+Verify that the reproduction contains synthetic data and no private registry
+tokens. Prefer text logs over screenshots when the text can be sanitized.
+
+## Escalate
+
+Link the exact documentation page and public package entry point involved. State
+whether the failure occurs against source, built packages, or both, and whether
+it is deterministic. If no safe minimal reproduction is possible, explain which
+data cannot be shared rather than substituting production secrets.
+
+Use the repository [issue tracker](https://github.com/MrEkinox/ultimadatabase/issues)
+for non-security problems. See the [error reference](../reference/errors) for
+stable identities.

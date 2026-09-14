@@ -3,7 +3,7 @@
 - Status: in progress
 - Milestone: 28
 - Created: 2026-09-14
-- Current issue: 2817
+- Current issue: 2818
 - Governing backlog: [Milestone 28](issues/2800-public-website-documentation/README.md)
 
 ## Objective
@@ -117,6 +117,10 @@ Issue 2816 completed nine curated reference pages, source and built-export type
 fixtures, verified public defaults, and an exact classified inventory of all
 published package roots without exposing deep imports or generated Runtime
 truth.
+Issue 2817 completed five symptom-first troubleshooting paths for startup,
+PostgreSQL, Typegen, HTTP application identity, Password Auth, and safe issue
+reporting, backed by public diagnostic identity, link, command, security, and
+focused failure-path checks.
 
 ### Phase 1 — Application, design, and content foundation
 
@@ -252,4 +256,4 @@ Resume only after explicit user direction to start implementation:
 5. Implement issue 2801 only; do not absorb visual design or content work from
    later issues.
 
-Resume point: **issue 2817**.
+Resume point: **issue 2818**.

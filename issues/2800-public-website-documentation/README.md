@@ -30,7 +30,7 @@ architecture and may be published progressively without duplicating the site.
 14. [x] [2814 — Publish focused task guides](2814-focused-task-guides.md)
 15. [x] [2815 — Publish runnable examples](2815-runnable-examples.md)
 16. [x] [2816 — Publish the curated API reference](2816-curated-api-reference.md)
-17. [ ] [2817 — Document troubleshooting and diagnostics](2817-troubleshooting-diagnostics.md)
+17. [x] [2817 — Document troubleshooting and diagnostics](2817-troubleshooting-diagnostics.md)
 18. [ ] [2818 — Add the first French reader journey](2818-french-reader-journey.md)
 19. [ ] [2819 — Guard public documentation against code drift](2819-documentation-currency-guardrails.md)
 20. [ ] [2820 — Harden and verify the website preview](2820-website-preview-verification.md)

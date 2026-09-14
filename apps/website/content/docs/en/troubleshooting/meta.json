@@ -1,0 +1,10 @@
+{
+	"title": "Troubleshooting",
+	"pages": [
+		"startup",
+		"postgres",
+		"typegen",
+		"http-and-application-identity",
+		"reporting-a-problem"
+	]
+}

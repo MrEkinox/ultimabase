@@ -199,6 +199,11 @@ describe('public documentation content contract', () => {
 			'/docs/security/password-authentication',
 			'/docs/security/request-identity',
 			'/docs/security/roles',
+			'/docs/troubleshooting/http-and-application-identity',
+			'/docs/troubleshooting/postgres',
+			'/docs/troubleshooting/reporting-a-problem',
+			'/docs/troubleshooting/startup',
+			'/docs/troubleshooting/typegen',
 			'/fr/docs',
 		])
 
@@ -236,6 +241,7 @@ describe('public documentation content contract', () => {
 			'plugins',
 			'operations',
 			'guides',
+			'troubleshooting',
 			'reference',
 		])
 		expect(
