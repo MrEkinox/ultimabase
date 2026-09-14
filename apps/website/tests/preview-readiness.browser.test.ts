@@ -43,6 +43,12 @@ describe('website preview audit', () => {
 			const page = await context.newPage()
 			const clientErrors = collectClientErrors(page)
 			await page.goto(origin)
+			expect(
+				await page
+					.locator('#nd-nav')
+					.getByRole('link', { name: 'Plugins' })
+					.getAttribute('href'),
+			).toBe('/docs/plugins/overview')
 			await page.getByRole('link', { name: 'Start building' }).click()
 			await page.waitForURL(`${origin}/docs/getting-started/introduction`)
 			await page
@@ -58,6 +64,31 @@ describe('website preview audit', () => {
 				.getByRole('heading', {
 					level: 1,
 					name: 'Learn from the application we actually test.',
+				})
+				.waitFor()
+			expect(clientErrors).toEqual([])
+		} finally {
+			await context.close()
+		}
+	})
+
+	it('makes release maturity discoverable from the landing page', async () => {
+		const context = await browser?.newContext({
+			colorScheme: 'dark',
+			viewport: { height: 900, width: 1280 },
+		})
+		if (context === undefined) throw new Error('Browser did not start')
+
+		try {
+			const page = await context.newPage()
+			const clientErrors = collectClientErrors(page)
+			await page.goto(origin)
+			await page.getByRole('link', { name: 'Read release status' }).click()
+			await page.waitForURL(`${origin}/status/release-status`)
+			await page
+				.getByRole('heading', {
+					level: 1,
+					name: 'Built enough to evaluate. Early enough to change.',
 				})
 				.waitFor()
 			expect(clientErrors).toEqual([])
@@ -162,6 +193,72 @@ describe('website preview audit', () => {
 			}
 		},
 	)
+
+	it.each([
+		[
+			'/status/release-status',
+			'Built enough to evaluate. Early enough to change.',
+		],
+		[
+			'/status/roadmap',
+			'Evidence first. Milestones second. Dates never invented.',
+		],
+		['/status/contributing', 'Make one change easy to understand and trust.'],
+	])('serves the source-backed status page at %s', async (route, title) => {
+		const context = await browser?.newContext({
+			viewport: { height: 900, width: 1280 },
+		})
+		if (context === undefined) throw new Error('Browser did not start')
+
+		try {
+			const page = await context.newPage()
+			const clientErrors = collectClientErrors(page)
+			const response = await page.goto(`${origin}${route}`)
+			expect(response?.status()).toBe(200)
+			await page.getByRole('heading', { level: 1, name: title }).waitFor()
+			expect(
+				await page.getByRole('navigation', { name: 'Status pages' }).count(),
+			).toBe(1)
+			expect(
+				await page.locator('meta[name="robots"]').getAttribute('content'),
+			).toContain('noindex')
+			expect(await accessibilityViolations(page)).toEqual([])
+			expect(clientErrors).toEqual([])
+		} finally {
+			await context.close()
+		}
+	})
+
+	it('keeps untranslated French status routes explicit and canonical', async () => {
+		const context = await browser?.newContext({
+			viewport: { height: 900, width: 1280 },
+		})
+		if (context === undefined) throw new Error('Browser did not start')
+
+		try {
+			const page = await context.newPage()
+			const clientErrors = collectClientErrors(page)
+			await page.goto(`${origin}/fr/status/release-status`)
+			await page
+				.getByRole('heading', {
+					level: 1,
+					name: 'Cette page n’est pas encore disponible en français.',
+				})
+				.waitFor()
+			expect(
+				await page
+					.getByRole('link', { name: 'Lire la source anglaise' })
+					.getAttribute('href'),
+			).toBe('/status/release-status')
+			expect(
+				await page.locator('link[rel="canonical"]').getAttribute('href'),
+			).toBe(new URL('/status/release-status', siteConfig.canonicalUrl).href)
+			expect(await accessibilityViolations(page)).toEqual([])
+			expect(clientErrors).toEqual([])
+		} finally {
+			await context.close()
+		}
+	})
 
 	it('serves provisional technical metadata and a branded 404', async () => {
 		const context = await browser?.newContext({

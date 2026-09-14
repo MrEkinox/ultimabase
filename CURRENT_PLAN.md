@@ -1,9 +1,9 @@
 # Active plan: public website and documentation foundation
 
-- Status: in-progress
+- Status: completed
 - Milestone: 28
 - Created: 2026-09-14
-- Current issue: 2822
+- Current issue: none
 - Governing backlog: [Milestone 28](issues/2800-public-website-documentation/README.md)
 
 ## Objective
@@ -135,8 +135,8 @@ indexing controls, a global recovery page, recorded production asset totals,
 and a provider-neutral handoff that performs no deployment.
 The subsequent milestone audit found that the approved Concepts section,
 standalone status routes, and global Plugins entry remained absent. Issue 2821
-publishes the eight missing mental-model pages; issue 2822 then restores status
-and navigation parity and reruns the final preview gate.
+published the eight missing mental-model pages; issue 2822 restored status and
+navigation parity and reran the final preview gate.
 
 ### Phase 1 — Application, design, and content foundation
 
@@ -276,4 +276,4 @@ Resume after interruption:
 5. Complete one corrective issue and its dedicated verification before moving
    to the next.
 
-Resume point: **issue 2822 — publish status pages and restore navigation parity**.
+Resume point: **milestone complete — no remaining issue**.

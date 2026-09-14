@@ -34,7 +34,7 @@ export function createPublicPageMetadata({
 
 	return {
 		alternates: {
-			canonical: canonicalUrl,
+			canonical: canonicalUrl.href,
 			...(languageUrls === undefined ? {} : { languages: languageUrls }),
 		},
 		description,

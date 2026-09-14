@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 
 import robots from '../app/robots'
 import { exampleScenarios } from '../components/examples/content'
+import { statusPageSlugs } from '../components/status/content'
 import { createPublicPageMetadata } from '../lib/metadata'
 import {
 	createPublicSitemap,
@@ -63,6 +64,7 @@ describe('website preview readiness', () => {
 		const entries = createPublicSitemap(
 			pages,
 			exampleScenarios.map((scenario) => scenario.slug),
+			statusPageSlugs,
 		)
 		const urls = entries.map(({ url }) => url)
 		const documentationUrls = pages.map(
@@ -72,6 +74,9 @@ describe('website preview readiness', () => {
 			(scenario) =>
 				new URL(`/examples/${scenario.slug}`, siteConfig.canonicalUrl).href,
 		)
+		const statusUrls = statusPageSlugs.map(
+			(slug) => new URL(`/status/${slug}`, siteConfig.canonicalUrl).href,
+		)
 
 		expect(new Set(urls).size).toBe(urls.length)
 		expect(urls).toEqual(
@@ -79,6 +84,7 @@ describe('website preview readiness', () => {
 				siteConfig.canonicalUrl.href,
 				new URL('/examples', siteConfig.canonicalUrl).href,
 				...scenarioUrls,
+				...statusUrls,
 				...documentationUrls,
 			]),
 		)
@@ -91,6 +97,11 @@ describe('website preview readiness', () => {
 		expect(urls).not.toContain(
 			new URL('/fr/examples', siteConfig.canonicalUrl).href,
 		)
+		for (const slug of statusPageSlugs) {
+			expect(urls).not.toContain(
+				new URL(`/fr/status/${slug}`, siteConfig.canonicalUrl).href,
+			)
+		}
 	})
 
 	it('keeps preview indexing disabled until launch is approved', () => {
@@ -114,8 +125,9 @@ describe('website preview readiness', () => {
 			title: 'Introduction',
 		})
 
-		expect(metadata.alternates?.canonical).toEqual(
-			new URL('/docs/getting-started/introduction', siteConfig.canonicalUrl),
+		expect(metadata.alternates?.canonical).toBe(
+			new URL('/docs/getting-started/introduction', siteConfig.canonicalUrl)
+				.href,
 		)
 		expect(metadata.openGraph).toMatchObject({
 			locale: 'en_US',

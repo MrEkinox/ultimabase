@@ -9,7 +9,7 @@ import {
 	TextLink,
 } from '../primitives'
 import { ArchitectureFlow } from './architecture-flow'
-import { applicationExample, landingCopy, minimalExampleUrl } from './content'
+import { applicationExample, landingCopy } from './content'
 
 export interface LandingPageProps {
 	readonly locale: SiteLocale
@@ -95,7 +95,10 @@ export function LandingPage({ locale }: LandingPageProps) {
 					>
 						{copy.status.primaryAction}
 					</ButtonLink>
-					<ButtonLink external href={minimalExampleUrl} variant="secondary">
+					<ButtonLink
+						href={localizePath(locale, siteConfig.routes.releaseStatus)}
+						variant="secondary"
+					>
 						{copy.status.secondaryAction}
 					</ButtonLink>
 				</div>

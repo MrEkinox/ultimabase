@@ -26,6 +26,11 @@ documentation source belongs in `content/docs/en` and `content/docs/fr`; root
 `docs/` remains the engineering source for ADRs, specifications, and
 implementation plans.
 
+Source-backed release status, roadmap, and contribution guidance live at
+`/status/*`. Their English routes are canonical; untranslated French routes
+render the same explicit fallback contract as documentation pages. The global
+Plugins link points directly to the public plugin overview.
+
 ## Validation
 
 Run the focused checks before committing website changes:

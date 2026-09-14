@@ -225,7 +225,7 @@ export const landingCopy: Readonly<Record<'en' | 'fr', LandingCopy>> =
 					'The architecture is substantial and the API is usable. Expect deliberate change while the first stable release contract is finalized.',
 				eyebrow: 'Honest by default',
 				primaryAction: 'Read Getting Started',
-				secondaryAction: 'Inspect the runnable example',
+				secondaryAction: 'Read release status',
 				title: 'Active pre-release development.',
 			},
 		},
@@ -284,13 +284,8 @@ export const landingCopy: Readonly<Record<'en' | 'fr', LandingCopy>> =
 					'L’architecture est déjà conséquente et l’API utilisable. Des changements volontaires restent possibles avant la finalisation du premier contrat stable.',
 				eyebrow: 'Transparent par défaut',
 				primaryAction: 'Lire Bien démarrer',
-				secondaryAction: 'Voir l’exemple exécutable',
+				secondaryAction: 'Lire le statut de version',
 				title: 'Développement actif en préversion.',
 			},
 		},
 	})
-
-export const minimalExampleUrl = new URL(
-	'tree/main/examples/minimal',
-	`${siteConfig.repositoryUrl.href}/`,
-).href

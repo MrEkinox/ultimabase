@@ -8,7 +8,8 @@ hosting, and launch policy receive an explicit decision.
 ## Reader and content audit
 
 The verified reader path covers installation, a first typed application, plugin
-installation, an authenticated API, and startup diagnosis. Public search is
+installation, an authenticated API, startup diagnosis, the cross-cutting
+Concepts section, and all three source-backed status pages. Public search is
 checked against beginner vocabulary, package names, stable error identities,
 French terminology, keyboard operation, and a useful empty result. The public
 content loader reads only `content/docs`; root engineering specifications and
@@ -33,8 +34,10 @@ tokens while preserving syntax highlighting.
 
 Canonical, language-alternate, Open Graph, and X text metadata derive from the
 same page title, description, locale, and provisional canonical origin. The
-generated favicon uses the replaceable geometric mark. Sitemap, robots, and 404
-responses have production-browser coverage.
+generated favicon uses the replaceable geometric mark. Sitemap, robots, status
+metadata, untranslated French fallbacks, and 404 responses have
+production-browser coverage. The global navigation exposes the approved Docs,
+Plugins, Examples, and GitHub paths.
 
 No social-card image is included while the product name and public domain are
 provisional. This prevents a stale branded image from becoming part of the
@@ -43,9 +46,9 @@ the same change as its Open Graph and X image metadata.
 
 ## Production build snapshot
 
-The 2026-09-14 Next.js production build prerenders 106 application pages. Its
-complete static chunk inventory is 1,604,107 bytes of JavaScript (509,906 bytes
-when individually gzip-compressed) and 94,926 bytes of CSS (16,551 bytes when
+The 2026-09-14 Next.js production build prerenders 120 application pages. Its
+complete static chunk inventory is 1,604,719 bytes of JavaScript (511,379 bytes
+when individually gzip-compressed) and 97,407 bytes of CSS (16,895 bytes when
 gzip-compressed). These totals cover every route chunk, not the first-load cost
 of one page. The only explicit client boundaries in website source are the
 shared brand navigation and the Fumadocs theme/localization provider; no

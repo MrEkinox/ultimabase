@@ -15,6 +15,7 @@ const absoluteUrl = (pathname: string): string =>
 export function createPublicSitemap(
 	documentationPages: readonly DocumentationSitemapPage[],
 	scenarioSlugs: readonly string[],
+	statusSlugs: readonly string[] = [],
 ): MetadataRoute.Sitemap {
 	const frenchDocumentationPaths = new Set(
 		documentationPages
@@ -42,6 +43,12 @@ export function createPublicSitemap(
 			lastModified: siteConfig.preview.reviewedAt,
 			priority: 0.6,
 			url: absoluteUrl(`/examples/${slug}`),
+		})),
+		...statusSlugs.map((slug) => ({
+			changeFrequency: 'weekly' as const,
+			lastModified: siteConfig.preview.reviewedAt,
+			priority: 0.6,
+			url: absoluteUrl(`/status/${slug}`),
 		})),
 	]
 

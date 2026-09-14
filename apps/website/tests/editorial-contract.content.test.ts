@@ -82,11 +82,24 @@ describe('documentation editorial contract', () => {
 			}
 		}
 
+		for (const section of parsed.sections) {
+			const sectionFiles = await readdir(
+				path.join(websiteRoot, 'content/docs/en', section.slug),
+			)
+			const publishedSlugs = sectionFiles
+				.filter((fileName) => fileName.endsWith('.mdx'))
+				.map((fileName) => fileName.replace(/\.mdx$/u, ''))
+				.sort()
+			expect(publishedSlugs, section.slug).toEqual(
+				section.pages.map(({ slug }) => slug).sort(),
+			)
+		}
+
 		expect(
 			parsed.standalonePages.some(
 				({ sourceStatus }) => sourceStatus === 'missing',
 			),
-		).toBe(true)
+		).toBe(false)
 	})
 
 	it('keeps one representative outline aligned with every page template', async () => {

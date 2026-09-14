@@ -63,6 +63,7 @@ const frenchNavigationLabels: Readonly<Record<string, string>> = Object.freeze({
 	Docs: 'Documentation',
 	Examples: 'Exemples',
 	GitHub: 'GitHub',
+	Plugins: 'Plugins',
 })
 
 export function localizeNavigationLabel(

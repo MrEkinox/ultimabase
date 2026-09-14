@@ -2,9 +2,15 @@ import { ButtonLink, TextLink } from '../primitives'
 
 export interface TranslationFallbackProps {
 	readonly englishUrl: string
+	readonly returnLabel?: string
+	readonly returnUrl?: string
 }
 
-export function TranslationFallback({ englishUrl }: TranslationFallbackProps) {
+export function TranslationFallback({
+	englishUrl,
+	returnLabel = 'Documentation française',
+	returnUrl = '/fr/docs',
+}: TranslationFallbackProps) {
 	return (
 		<div className="ub-translation-fallback">
 			<p className="ub-section-index">Traduction en attente</p>
@@ -15,8 +21,8 @@ export function TranslationFallback({ englishUrl }: TranslationFallbackProps) {
 			</p>
 			<div className="ub-action-row">
 				<ButtonLink href={englishUrl}>Lire la source anglaise</ButtonLink>
-				<TextLink href="/fr/docs" prefetch={false}>
-					Documentation française
+				<TextLink href={returnUrl} prefetch={false}>
+					{returnLabel}
 				</TextLink>
 			</div>
 		</div>

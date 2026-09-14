@@ -1,6 +1,6 @@
 # Milestone 28 — Public website and documentation
 
-- Status: in-progress
+- Status: completed
 
 Create one private Next.js application for the public product website and user
 documentation. The application lives under `apps/website`, uses Fumadocs for
@@ -35,7 +35,7 @@ architecture and may be published progressively without duplicating the site.
 19. [x] [2819 — Guard public documentation against code drift](2819-documentation-currency-guardrails.md)
 20. [x] [2820 — Harden and verify the website preview](2820-website-preview-verification.md)
 21. [x] [2821 — Publish the missing concept mental models](2821-concept-mental-models.md)
-22. [ ] [2822 — Publish status pages and restore navigation parity](2822-status-and-navigation-parity.md)
+22. [x] [2822 — Publish status pages and restore navigation parity](2822-status-and-navigation-parity.md)
 
 Issues 2802 and 2804 may proceed independently after 2801. Issue 2805 fixes
 audiences, page types, terminology, voice, sample conventions, and source
@@ -156,14 +156,14 @@ The public route architecture is:
 │   │   ├── browser-policy
 │   │   └── production-checklist
 │   ├── guides
-│   │   ├── validation
-│   │   ├── hooks
-│   │   ├── authenticated-api
-│   │   ├── virtual-fields
-│   │   ├── nested-writes
-│   │   ├── soft-delete
-│   │   ├── contextual-relations
-│   │   └── testing
+│   │   ├── validate-input
+│   │   ├── run-lifecycle-hooks
+│   │   ├── build-an-authenticated-api
+│   │   ├── add-virtual-fields
+│   │   ├── write-nested-data
+│   │   ├── add-soft-delete
+│   │   ├── filter-contextual-relations
+│   │   └── test-an-application
 │   ├── concepts
 │   │   ├── application-graph
 │   │   ├── runtime-pipeline

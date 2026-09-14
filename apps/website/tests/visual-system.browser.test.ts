@@ -1,7 +1,6 @@
 import type { Browser } from 'playwright'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { minimalExampleUrl } from '../components/landing/content'
 import { siteConfig } from '../lib/site'
 import {
 	accessibilityViolations,
@@ -142,9 +141,9 @@ describe('website visual system', () => {
 			).toBe(siteConfig.repositoryUrl.href)
 			expect(
 				await page
-					.getByRole('link', { name: 'Inspect the runnable example' })
+					.getByRole('link', { name: 'Read release status' })
 					.getAttribute('href'),
-			).toBe(minimalExampleUrl)
+			).toBe('/status/release-status')
 
 			const root = page.locator('html')
 			expect((await root.getAttribute('class')) ?? '').not.toContain('dark')

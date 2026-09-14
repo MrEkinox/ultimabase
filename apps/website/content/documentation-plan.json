@@ -431,42 +431,42 @@
 			],
 			"pages": [
 				{
-					"slug": "validation",
+					"slug": "validate-input",
 					"contentType": "guide",
 					"outcome": "Add Standard Schema validation at the final mutation-input boundary."
 				},
 				{
-					"slug": "hooks",
+					"slug": "run-lifecycle-hooks",
 					"contentType": "guide",
 					"outcome": "Add ordered transactional lifecycle behavior through the Hooks plugin."
 				},
 				{
-					"slug": "authenticated-api",
+					"slug": "build-an-authenticated-api",
 					"contentType": "guide",
 					"outcome": "Expose an authenticated API with explicit identity and policy plugins."
 				},
 				{
-					"slug": "virtual-fields",
+					"slug": "add-virtual-fields",
 					"contentType": "guide",
 					"outcome": "Add contextual computed output without pretending it is stored."
 				},
 				{
-					"slug": "nested-writes",
+					"slug": "write-nested-data",
 					"contentType": "guide",
 					"outcome": "Implement one concrete atomic relationship mutation."
 				},
 				{
-					"slug": "soft-delete",
+					"slug": "add-soft-delete",
 					"contentType": "guide",
 					"outcome": "Add visible logical deletion and administrative recovery."
 				},
 				{
-					"slug": "contextual-relations",
+					"slug": "filter-contextual-relations",
 					"contentType": "guide",
 					"outcome": "Build one request-scoped relationship view consistently."
 				},
 				{
-					"slug": "testing",
+					"slug": "test-an-application",
 					"contentType": "guide",
 					"outcome": "Verify applications and plugins with supported testing helpers."
 				}
@@ -676,7 +676,7 @@
 			"slug": "release-status",
 			"contentType": "reference",
 			"outcome": "Understand release maturity and supported expectations.",
-			"owner": "2820",
+			"owner": "2822",
 			"audiences": ["application-developer", "plugin-author", "operator"],
 			"releaseStatus": "pre-release",
 			"sourceStatus": "partial",
@@ -687,7 +687,7 @@
 			"slug": "roadmap",
 			"contentType": "reference",
 			"outcome": "Distinguish shipped behavior from planned work.",
-			"owner": "2820",
+			"owner": "2822",
 			"audiences": ["application-developer", "plugin-author", "operator"],
 			"releaseStatus": "pre-release",
 			"sourceStatus": "ready",
@@ -701,11 +701,11 @@
 			"slug": "contributing",
 			"contentType": "guide",
 			"outcome": "Find the repository contribution and verification workflow.",
-			"owner": "2820",
+			"owner": "2822",
 			"audiences": ["plugin-author"],
 			"releaseStatus": "pre-release",
-			"sourceStatus": "missing",
-			"sources": ["AGENTS.md", "README.md"]
+			"sourceStatus": "ready",
+			"sources": ["CONTRIBUTING.md", "AGENTS.md", "README.md"]
 		}
 	]
 }

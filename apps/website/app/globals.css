@@ -4,6 +4,7 @@
 @import './theme.css';
 @import './landing.css';
 @import './examples.css';
+@import './status.css';
 @import './docs.css';
 
 * {

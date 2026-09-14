@@ -74,15 +74,14 @@ protected constraints, or physical relation membership. The
 [completed plan](docs/plans/completed/contextual-relation-filters.md) retains
 the contract, final evidence, and explicit exclusions.
 
-[Milestone 28](issues/2800-public-website-documentation/README.md) is completing one
+[Milestone 28](issues/2800-public-website-documentation/README.md) completed one
 private Next.js application for the public landing page and user documentation.
 It establishes a provisional visual system, an English-first Fumadocs learning
 path, the first French reader journey, and long-term documentation-currency
 guardrails before a verified preview. A completion audit found missing approved
 Concepts and Status routes plus the global Plugins entry; corrective issues
-2821 and 2822 now close that sitemap-parity gap. The
-[active plan](CURRENT_PLAN.md) retains the approved sitemap and exact resume
-point.
+2821 and 2822 closed that sitemap-parity gap. The completed plan retains the
+approved sitemap and verification record.
 
 The ACL hardening plan remains paused at issue 432. It is not part of an active
 plan.

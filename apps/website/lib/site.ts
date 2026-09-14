@@ -28,6 +28,8 @@ export interface SiteConfig {
 		readonly docs: string
 		readonly examples: string
 		readonly gettingStarted: string
+		readonly plugins: string
+		readonly releaseStatus: string
 	}
 }
 
@@ -44,6 +46,13 @@ const preview: SiteConfig['preview'] = Object.freeze({
 	indexable: false,
 	reviewedAt: '2026-09-14',
 })
+const routes: SiteConfig['routes'] = Object.freeze({
+	docs: '/docs',
+	examples: '/examples',
+	gettingStarted: '/docs/getting-started/introduction',
+	plugins: '/docs/plugins/overview',
+	releaseStatus: '/status/release-status',
+})
 
 /**
  * Provisional public identity for the website.
@@ -57,8 +66,9 @@ export const siteConfig = Object.freeze({
 		'A typed TypeScript backend framework with explicit plugins and one runtime path.',
 	name: 'UltimaBase',
 	navigation: Object.freeze([
-		{ href: '/docs', label: 'Docs' },
-		{ href: '/examples', label: 'Examples' },
+		{ href: routes.docs, label: 'Docs' },
+		{ href: routes.plugins, label: 'Plugins' },
+		{ href: routes.examples, label: 'Examples' },
 		{
 			external: true,
 			href: repositoryUrl.href,
@@ -69,9 +79,5 @@ export const siteConfig = Object.freeze({
 	releaseStatus: 'pre-release',
 	repositoryUrl,
 	sourceRepository,
-	routes: Object.freeze({
-		docs: '/docs',
-		examples: '/examples',
-		gettingStarted: '/docs/getting-started/introduction',
-	}),
+	routes,
 } satisfies SiteConfig)
