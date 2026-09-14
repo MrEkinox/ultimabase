@@ -25,6 +25,7 @@ export const documentationSourceStatuses = [
 export const translationSchema = z.object({
 	reviewedAt: z.iso.date(),
 	source: z.string().startsWith('/docs'),
+	sourceHash: z.string().regex(/^sha256:[a-f0-9]{64}$/u),
 })
 
 export const documentationMetadataFields = {

@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation'
+import { findNeighbour } from 'fumadocs-core/page-tree'
 import {
 	DocsBody,
 	DocsDescription,
@@ -44,9 +45,10 @@ export default async function DocumentationPage({
 
 	const { page } = resolution
 	const Content = page.data.body
+	const neighbours = findNeighbour(source.getPageTree(lang), page.url)
 
 	return (
-		<DocsPage toc={page.data.toc}>
+		<DocsPage footer={{ items: neighbours }} toc={page.data.toc}>
 			<DocsTitle>{page.data.title}</DocsTitle>
 			<DocsDescription>{page.data.description}</DocsDescription>
 			<DocsBody>

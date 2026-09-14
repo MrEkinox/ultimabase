@@ -14,8 +14,10 @@ export function TranslationFallback({ englishUrl }: TranslationFallbackProps) {
 				maintenant ou revenir à l’accueil de la documentation française.
 			</p>
 			<div className="ub-action-row">
-				<ButtonLink href={englishUrl}>Read the English source</ButtonLink>
-				<TextLink href="/fr/docs">Documentation française</TextLink>
+				<ButtonLink href={englishUrl}>Lire la source anglaise</ButtonLink>
+				<TextLink href="/fr/docs" prefetch={false}>
+					Documentation française
+				</TextLink>
 			</div>
 		</div>
 	)

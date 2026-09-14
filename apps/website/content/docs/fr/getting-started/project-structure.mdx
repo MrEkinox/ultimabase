@@ -1,0 +1,84 @@
+---
+title: Structure du projet
+description: Organisez les schémas, la configuration, les points d’entrée, l’environnement et les déclarations générées optionnelles.
+audience:
+  - application-developer
+contentType: tutorial
+order: 4
+outcome: Placer clairement les schémas, plugins, configurations et déclarations générées.
+owner: '2818'
+releaseStatus: pre-release
+sources:
+  - apps/website/content/docs/en/getting-started/project-structure.mdx
+translation:
+  source: /docs/getting-started/project-structure
+  sourceHash: sha256:02b9d2bf8c2b1c3314007afd2ca77088571c203e0708b742244178731c25594c
+  reviewedAt: 2026-09-14
+---
+
+## Ce que vous allez construire
+
+Vous allez transformer l’exemple à trois fichiers en une structure capable de
+grandir sans cacher le graphe d’application ni traiter les déclarations générées
+comme du code Runtime.
+
+## Prérequis
+
+Exécutez la création d’enregistrement de la
+[première application](./first-application). Gardez la configuration importable :
+les futurs transports, tests et Typegen ont tous besoin du même graphe.
+
+## Étapes
+
+Le premier projet prend cette forme :
+
+<Files>
+	<Folder name="src" defaultOpen>
+		<File name="schema.ts" />
+		<File name="ultimabase.ts" />
+		<File name="main.ts" />
+	</Folder>
+	<File name=".env" />
+	<File name=".gitignore" />
+	<File name="package.json" />
+	<File name="tsconfig.json" />
+</Files>
+
+- `schema.ts` contient les déclarations de données déterministes. Séparez-le par
+  domaine lorsque plusieurs schémas apparaissent, puis exportez une liste
+  explicite.
+- `ultimabase.ts` contient le graphe d’application : schémas, instances de
+  plugins, privilèges et configuration au niveau de l’application.
+- `main.ts` gère le cycle de vie du processus. Il démarre l’application et la
+  libère pendant l’arrêt ou après un travail borné.
+- `.env` appartient au processus local, pas au contrôle de source. En
+  production, fournissez les secrets par l’environnement de déploiement ou son
+  gestionnaire de secrets.
+
+### Déclarations générées optionnelles
+
+UltimaBase fonctionne depuis le graphe d’application compilé sans Typegen.
+Ajoutez `@ultimabase/typegen` pour obtenir des types adaptés à votre application
+pour les champs, opérations et surfaces de schéma apportés par les plugins.
+
+Le plugin Typegen lit le graphe statique déjà compilé et écrit
+`.ultimabase/schema.generated.d.ts` avant toute connexion à l’infrastructure.
+Gardez ce fichier inclus par TypeScript, mais ne l’importez pas comme un client
+exécutable. Cette déclaration est remplaçable ; votre schéma et la configuration
+des plugins restent la vérité du Runtime.
+
+<Callout type="info" title="Une seule définition d’application">
+	Ne maintenez pas une « application Typegen » différente de l’application
+	Runtime. Exportez et chargez le même graphe `UltimaBase` afin que les
+	déclarations générées ne puissent pas décrire une autre configuration.
+</Callout>
+
+## Résultat attendu
+
+Un lecteur peut localiser les déclarations de données, la composition, le cycle
+de vie et les secrets sans ouvrir la sortie générée. Supprimer puis régénérer le
+fichier Typegen ne change pas le comportement du Runtime.
+
+## Étape suivante
+
+[Choisissez la suite du parcours documentaire](./next-steps).

@@ -11,9 +11,16 @@ import {
 	usePathname as useNextPathname,
 	useRouter,
 } from 'next/navigation'
+import type { ComponentProps } from 'react'
 
-// Both libraries target anchor props; this adapter bridges their optional-prop variance.
-const FrameworkLink = NextLink as NonNullable<Framework['Link']>
+/** Avoids invalid segment-prefetch requests across the canonical locale rewrite. */
+function FrameworkLink({ href, ...props }: ComponentProps<'a'>) {
+	if (href === undefined) return <a {...props} />
+	const linkProps = props as Omit<ComponentProps<typeof NextLink>, 'href'>
+	return <NextLink {...linkProps} href={href} prefetch={false} />
+}
+
+const frameworkLink = FrameworkLink as NonNullable<Framework['Link']>
 
 /** Keeps Fumadocs route state stable across the canonical English rewrite. */
 function useCanonicalPathname(): string {
@@ -27,7 +34,7 @@ function useCanonicalPathname(): string {
 export function SiteProvider(props: RootProviderProps) {
 	return (
 		<FrameworkProvider
-			Link={FrameworkLink}
+			Link={frameworkLink}
 			useParams={useParams}
 			usePathname={useCanonicalPathname}
 			useRouter={useRouter}

@@ -1,4 +1,8 @@
-import { localizePath, type SiteLocale } from '../lib/i18n'
+import {
+	localizeNavigationLabel,
+	localizePath,
+	type SiteLocale,
+} from '../lib/i18n'
 import { siteConfig } from '../lib/site'
 import { Brand } from './brand'
 import { TextLink } from './primitives'
@@ -20,9 +24,10 @@ export function SiteFooter({ locale }: SiteFooterProps) {
 					<Brand />
 					<p>{description}</p>
 				</div>
-				<nav aria-label="Footer">
+				<nav aria-label={locale === 'fr' ? 'Pied de page' : 'Footer'}>
 					{siteConfig.navigation.map((item) => (
 						<TextLink
+							{...(item.external === true ? {} : { prefetch: false })}
 							href={
 								item.external === true
 									? item.href
@@ -30,7 +35,7 @@ export function SiteFooter({ locale }: SiteFooterProps) {
 							}
 							key={item.label}
 						>
-							{item.label}
+							{localizeNavigationLabel(locale, item.label)}
 						</TextLink>
 					))}
 				</nav>

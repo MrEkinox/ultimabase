@@ -205,6 +205,10 @@ describe('public documentation content contract', () => {
 			'/docs/troubleshooting/startup',
 			'/docs/troubleshooting/typegen',
 			'/fr/docs',
+			'/fr/docs/getting-started/first-application',
+			'/fr/docs/getting-started/installation',
+			'/fr/docs/getting-started/introduction',
+			'/fr/docs/getting-started/project-structure',
 		])
 
 		for (const page of pages) {
@@ -287,7 +291,9 @@ describe('public documentation content contract', () => {
 		const fixtureBlocks = pages.flatMap((page) =>
 			compiledFixtureBlocks(page.source),
 		)
-		expect(fixtureBlocks.map(({ fixture }) => fixture).sort()).toEqual([
+		expect(
+			[...new Set(fixtureBlocks.map(({ fixture }) => fixture))].sort(),
+		).toEqual([
 			'apis/explorers.ts',
 			'apis/graphql.ts',
 			'apis/hono.ts',

@@ -1,0 +1,121 @@
+---
+title: Installation
+description: Préparez Node.js, TypeScript et une base PostgreSQL de développement, puis installez les premiers packages UltimaBase.
+audience:
+  - application-developer
+contentType: tutorial
+order: 2
+outcome: Installer les packages prévus pour npm et vérifier les prérequis locaux.
+owner: '2818'
+releaseStatus: pre-release
+sources:
+  - apps/website/content/docs/en/getting-started/installation.mdx
+translation:
+  source: /docs/getting-started/installation
+  sourceHash: sha256:bb9a14feded8184e8ab8c0291ecb380da1512c8a365cfcd3db44fe6a19b204fb
+  reviewedAt: 2026-09-14
+---
+
+## Ce que vous allez construire
+
+Vous allez préparer un projet TypeScript ESM avec Core et le plugin PostgreSQL.
+Les packages utilisent les noms prévus pour leur publication sur npm, même si
+le framework reste en préversion.
+
+## Prérequis
+
+- Node.js 24 ou plus récent. Vérifiez avec `node --version`.
+- npm, Yarn ou pnpm. Utilisez un seul gestionnaire de packages pour tout le projet.
+- Une base PostgreSQL accessible et réservée à cet exercice. La suite
+  d’intégration d’UltimaBase vérifie actuellement PostgreSQL 17.
+
+<Callout type="warn" title="Utilisez une base de développement jetable">
+	La première application utilise la synchronisation directe avec la stratégie
+	`override`. Choisissez une base locale vide, jamais des données partagées ou
+	de production.
+</Callout>
+
+## Étapes
+
+Créez le dossier du projet et initialisez ses métadonnées :
+
+```bash title="Terminal"
+mkdir ultimabase-first-app
+cd ultimabase-first-app
+npm init -y
+npm pkg set type=module
+```
+
+Installez les packages du Runtime :
+
+<Tabs items={['npm', 'Yarn', 'pnpm']}>
+	<Tab value="npm">
+		```bash npm install @ultimabase/core @ultimabase/postgres-plugin ```
+	</Tab>
+	<Tab value="Yarn">
+		```bash yarn add @ultimabase/core @ultimabase/postgres-plugin ```
+	</Tab>
+	<Tab value="pnpm">
+		```bash pnpm add @ultimabase/core @ultimabase/postgres-plugin ```
+	</Tab>
+</Tabs>
+
+Installez TypeScript et les déclarations Node.js comme dépendances de
+développement :
+
+<Tabs items={['npm', 'Yarn', 'pnpm']}>
+	<Tab value="npm">
+		```bash npm install --save-dev typescript @types/node ```
+	</Tab>
+	<Tab value="Yarn">```bash yarn add --dev typescript @types/node ```</Tab>
+	<Tab value="pnpm">```bash pnpm add --save-dev typescript @types/node ```</Tab>
+</Tabs>
+
+Créez une configuration stricte du compilateur :
+
+```json title="tsconfig.json"
+{
+	"compilerOptions": {
+		"module": "NodeNext",
+		"moduleResolution": "NodeNext",
+		"outDir": "dist",
+		"rootDir": "src",
+		"strict": true,
+		"target": "ES2024",
+		"types": ["node"]
+	},
+	"include": ["src"]
+}
+```
+
+Ajoutez ces scripts au fichier `package.json` existant :
+
+```json title="package.json"
+{
+	"scripts": {
+		"build": "tsc",
+		"start": "node --env-file=.env dist/main.js",
+		"typecheck": "tsc --noEmit"
+	}
+}
+```
+
+Créez un fichier d’environnement local. Remplacez sa valeur par l’URL de
+connexion à votre base de développement :
+
+```dotenv title=".env"
+DATABASE_URL=postgres://postgres:postgres@localhost:5432/ultimabase_first_app
+```
+
+Ne commitez pas `.env`. Ajoutez-le à `.gitignore` avant d’y enregistrer de vrais
+identifiants.
+
+## Résultat attendu
+
+Exécutez `npm run typecheck`. TypeScript doit terminer sans diagnostic. Si la
+base n’est pas encore démarrée, la commande réussit tout de même, car aucune
+connexion n’est ouverte pendant la vérification des types.
+
+## Étape suivante
+
+[Construisez et exécutez la première application](./first-application).

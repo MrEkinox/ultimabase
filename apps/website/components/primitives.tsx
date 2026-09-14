@@ -37,11 +37,16 @@ export interface TextLinkProps {
 	readonly children: ReactNode
 	readonly className?: string
 	readonly href: string
+	readonly prefetch?: boolean
 }
 
-export function TextLink({ children, className, href }: TextLinkProps) {
+export function TextLink({ children, className, href, prefetch }: TextLinkProps) {
 	return (
-		<Link className={joinClassNames('ub-text-link', className)} href={href}>
+		<Link
+			{...(prefetch === undefined ? {} : { prefetch })}
+			className={joinClassNames('ub-text-link', className)}
+			href={href}
+		>
 			{children}
 		</Link>
 	)

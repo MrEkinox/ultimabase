@@ -1,132 +1,27 @@
-import AxeBuilder from '@axe-core/playwright'
-import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
-import { createServer } from 'node:net'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
-import { chromium, type Browser, type Page } from 'playwright'
+import type { Browser } from 'playwright'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { minimalExampleUrl } from '../components/landing/content'
 import { siteConfig } from '../lib/site'
-
-const websiteRoot = fileURLToPath(new URL('..', import.meta.url))
-const repositoryRoot = fileURLToPath(new URL('../../..', import.meta.url))
-const nextBinary = path.join(repositoryRoot, 'node_modules/next/dist/bin/next')
+import {
+	accessibilityViolations,
+	collectClientErrors,
+	startWebsiteBrowserHarness,
+	type WebsiteBrowserHarness,
+} from './browser-harness'
 
 let browser: Browser | undefined
+let harness: WebsiteBrowserHarness | undefined
 let origin = ''
-let websiteProcess: ChildProcessWithoutNullStreams | undefined
-let websiteOutput = ''
-
-const availablePort = async (): Promise<number> =>
-	new Promise((resolve, reject) => {
-		const server = createServer()
-		server.once('error', reject)
-		server.listen(0, '127.0.0.1', () => {
-			const address = server.address()
-			if (address === null || typeof address === 'string') {
-				server.close()
-				reject(new TypeError('Website test server did not receive a TCP port'))
-				return
-			}
-			server.close((error) => {
-				if (error === undefined) resolve(address.port)
-				else reject(error)
-			})
-		})
-	})
-
-const waitForWebsite = async (): Promise<void> => {
-	for (let attempt = 0; attempt < 100; attempt += 1) {
-		if (websiteProcess !== undefined && websiteProcess.exitCode !== null) {
-			throw new Error(`Website exited before readiness:\n${websiteOutput}`)
-		}
-
-		try {
-			const response = await fetch(origin)
-			if (response.ok) return
-		} catch {
-			// The production server may still be binding its listener.
-		}
-
-		await new Promise((resolve) => setTimeout(resolve, 100))
-	}
-
-	throw new Error(`Website did not become ready:\n${websiteOutput}`)
-}
-
-const stopWebsite = async (): Promise<void> => {
-	const childProcess = websiteProcess
-	if (childProcess === undefined) return
-	if (childProcess.exitCode !== null) return
-
-	await new Promise<void>((resolve) => {
-		const forceStop = setTimeout(() => {
-			childProcess.kill('SIGKILL')
-			resolve()
-		}, 5_000)
-		forceStop.unref()
-		childProcess.once('exit', () => {
-			clearTimeout(forceStop)
-			resolve()
-		})
-		childProcess.kill('SIGTERM')
-	})
-}
-
-const accessibilityViolations = async (page: Page) => {
-	const results = await new AxeBuilder({ page })
-		.withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
-		.analyze()
-
-	return results.violations.map((violation) => ({
-		id: violation.id,
-		impact: violation.impact,
-		targets: violation.nodes.flatMap((node) => node.target),
-	}))
-}
-
-function collectClientErrors(page: Page): string[] {
-	const errors: string[] = []
-	page.on('console', (message) => {
-		if (message.type() === 'error') {
-			errors.push(`${page.url()}: ${message.text()}`)
-		}
-	})
-	page.on('pageerror', (error) => {
-		errors.push(`${page.url()}: ${error.message}`)
-	})
-	return errors
-}
 
 beforeAll(async () => {
-	const port = await availablePort()
-	origin = `http://127.0.0.1:${String(port)}`
-	websiteProcess = spawn(
-		process.execPath,
-		[nextBinary, 'start', '--hostname', '127.0.0.1', '--port', String(port)],
-		{
-			cwd: websiteRoot,
-			env: { ...process.env, NEXT_TELEMETRY_DISABLED: '1' },
-			stdio: 'pipe',
-		},
-	)
-	websiteProcess.stdout.setEncoding('utf8')
-	websiteProcess.stderr.setEncoding('utf8')
-	websiteProcess.stdout.on('data', (value: string) => {
-		websiteOutput += value
-	})
-	websiteProcess.stderr.on('data', (value: string) => {
-		websiteOutput += value
-	})
-
-	await waitForWebsite()
-	browser = await chromium.launch({ headless: true })
+	harness = await startWebsiteBrowserHarness()
+	browser = harness.browser
+	origin = harness.origin
 })
 
 afterAll(async () => {
-	await browser?.close()
-	await stopWebsite()
+	await harness?.close()
 })
 
 describe('website visual system', () => {
@@ -317,49 +212,6 @@ describe('website visual system', () => {
 			)
 			expect(privateSearch.ok()).toBe(true)
 			expect(await privateSearch.json()).toEqual([])
-			expect(clientErrors).toEqual([])
-		} finally {
-			await context.close()
-		}
-	})
-
-	it('publishes a usable first-application journey and explicit French fallback', async () => {
-		const context = await browser?.newContext({
-			colorScheme: 'dark',
-			viewport: { height: 900, width: 1280 },
-		})
-		if (context === undefined) throw new Error('Browser did not start')
-
-		try {
-			const page = await context.newPage()
-			const clientErrors = collectClientErrors(page)
-
-			await page.goto(`${origin}/docs/getting-started/first-application`)
-			await page
-				.getByRole('heading', { level: 1, name: 'First Application' })
-				.waitFor({ state: 'visible' })
-			await page
-				.getByRole('link', { name: 'First Application' })
-				.waitFor({ state: 'visible' })
-			expect(await page.locator('pre').count()).toBe(4)
-			expect(await accessibilityViolations(page)).toEqual([])
-
-			await page.getByRole('button', { name: 'Choose a language' }).click()
-			await page.getByText('Français', { exact: true }).click()
-			await page.waitForURL(
-				`${origin}/fr/docs/getting-started/first-application`,
-			)
-			await page
-				.getByRole('heading', {
-					level: 1,
-					name: 'Cette page n’est pas encore disponible en français.',
-				})
-				.waitFor({ state: 'visible' })
-			expect(
-				await page
-					.getByRole('link', { name: 'Read the English source' })
-					.getAttribute('href'),
-			).toBe('/docs/getting-started/first-application')
 			expect(clientErrors).toEqual([])
 		} finally {
 			await context.close()

@@ -1,6 +1,6 @@
 # 2818: Add the first French reader journey
 
-- Status: planned
+- Status: complete
 - Milestone: 28
 - Packages: `apps/website`
 - Depends on: 2802, 2803, 2805, 2806
@@ -13,23 +13,23 @@ a collection of isolated translated labels.
 
 ## Acceptance criteria
 
-- [ ] `/fr` presents the same product promise and pre-release honesty as the
+- [x] `/fr` presents the same product promise and pre-release honesty as the
       English landing without translating identifiers or code.
-- [ ] French Introduction, Installation, First Application, and Project
+- [x] French Introduction, Installation, First Application, and Project
       Structure pages preserve the validated English examples.
-- [ ] Navigation, search, metadata, accessibility labels, previous/next links,
+- [x] Navigation, search, metadata, accessibility labels, previous/next links,
       and locale switching are translated consistently.
-- [ ] Missing French pages lead clearly to available English content without
+- [x] Missing French pages lead clearly to available English content without
       silent mixed-language rendering.
-- [ ] Translation metadata records the English source and makes stale French
+- [x] Translation metadata records the English source and makes stale French
       content detectable when the source changes.
-- [ ] A short terminology glossary guides future English-to-French work.
+- [x] A short terminology glossary guides future English-to-French work.
 
 ## Tests
 
-- [ ] French routes, search, canonical metadata, and locale switching have
+- [x] French routes, search, canonical metadata, and locale switching have
       focused browser coverage.
-- [ ] Code blocks remain equivalent to their validated English sources where
+- [x] Code blocks remain equivalent to their validated English sources where
       only surrounding prose is translated.
 
 ## Out of scope

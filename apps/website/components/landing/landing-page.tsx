@@ -1,4 +1,5 @@
 import { siteConfig } from '../../lib/site'
+import { localizePath, type SiteLocale } from '../../lib/i18n'
 import {
 	ButtonLink,
 	Callout,
@@ -10,35 +11,37 @@ import {
 import { ArchitectureFlow } from './architecture-flow'
 import {
 	applicationExample,
-	landingFeatures,
+	landingCopy,
 	minimalExampleUrl,
 } from './content'
 
-export function LandingPage() {
+export interface LandingPageProps {
+	readonly locale: SiteLocale
+}
+
+export function LandingPage({ locale }: LandingPageProps) {
+	const copy = landingCopy[locale]
+
 	return (
 		<div className="ub-landing">
 			<Section className="ub-landing-hero">
 				<div className="ub-landing-hero-copy">
-					<Eyebrow>{siteConfig.releaseStatus} · open source</Eyebrow>
-					<h1>Define your data once. Keep every API honest.</h1>
-					<p className="ub-lede">
-						UltimaBase turns static TypeScript schemas and explicit plugins into
-						one application graph. Direct calls, REST, and GraphQL execute
-						through the same typed Runtime.
-					</p>
+					<Eyebrow>{copy.hero.status}</Eyebrow>
+					<h1>{copy.hero.title}</h1>
+					<p className="ub-lede">{copy.hero.description}</p>
 					<div className="ub-action-row">
-						<ButtonLink href={siteConfig.routes.gettingStarted}>
-							Start building
+						<ButtonLink href={localizePath(locale, siteConfig.routes.gettingStarted)}>
+							{copy.hero.primaryAction}
 						</ButtonLink>
 						<ButtonLink
 							external
 							href={siteConfig.repositoryUrl.href}
 							variant="secondary"
 						>
-							View on GitHub
+							{copy.hero.secondaryAction}
 						</ButtonLink>
 					</div>
-					<p className="ub-hero-note">Node.js 24+ · TypeScript · Apache-2.0</p>
+					<p className="ub-hero-note">{copy.hero.note}</p>
 				</div>
 
 				<CodeSurface
@@ -48,62 +51,54 @@ export function LandingPage() {
 			</Section>
 
 			<Section className="ub-landing-principle" width="reading">
-				<p className="ub-section-index">01 / Explicit composition</p>
-				<h2>Core stays small. Capabilities stay visible.</h2>
-				<p>
-					PostgreSQL, transports, authentication, validation, Access, Hooks, and
-					developer tooling are installed as plugins. Each one declares what it
-					contributes and which privileges or environmental access it needs.
-				</p>
-				<Callout title="No hidden framework mode">
-					Remove a plugin and its behavior disappears. Core does not install a
-					neutral imitation or silently choose a replacement.
+				<p className="ub-section-index">{copy.principle.index}</p>
+				<h2>{copy.principle.title}</h2>
+				<p>{copy.principle.description}</p>
+				<Callout title={copy.principle.calloutTitle}>
+					{copy.principle.callout}
 				</Callout>
 			</Section>
 
 			<Section className="ub-landing-flow">
-				<ArchitectureFlow />
+				<ArchitectureFlow copy={copy.flow} />
 			</Section>
 
 			<Section className="ub-landing-evidence">
 				<div className="ub-section-heading">
 					<div>
-						<p className="ub-section-index">03 / Shipped foundations</p>
-						<h2>Built for the parts that become difficult later.</h2>
+						<p className="ub-section-index">{copy.evidence.index}</p>
+						<h2>{copy.evidence.title}</h2>
 					</div>
 					<p>
-						The framework is pre-release, but these contracts are implemented
-						and covered across the public execution paths.
+						{copy.evidence.description}
 					</p>
 				</div>
 				<ol className="ub-feature-list">
-					{landingFeatures.map((feature) => (
+					{copy.features.map((feature) => (
 						<li key={feature.index}>
 							<span>{feature.index}</span>
 							<div>
 								<h3>{feature.title}</h3>
 								<p>{feature.description}</p>
 							</div>
-							<TextLink href={feature.href}>Read the contract</TextLink>
+							<TextLink href={localizePath(locale, feature.href)}>
+								{copy.evidence.featureLink}
+							</TextLink>
 						</li>
 					))}
 				</ol>
 			</Section>
 
 			<Section className="ub-landing-status" width="reading">
-				<Eyebrow>Honest by default</Eyebrow>
-				<h2>Active pre-release development.</h2>
-				<p>
-					The architecture is substantial and the API is usable. Expect
-					deliberate change while the first stable release contract is
-					finalized.
-				</p>
+				<Eyebrow>{copy.status.eyebrow}</Eyebrow>
+				<h2>{copy.status.title}</h2>
+				<p>{copy.status.description}</p>
 				<div className="ub-action-row">
-					<ButtonLink href={siteConfig.routes.gettingStarted}>
-						Read Getting Started
+					<ButtonLink href={localizePath(locale, siteConfig.routes.gettingStarted)}>
+						{copy.status.primaryAction}
 					</ButtonLink>
 					<ButtonLink external href={minimalExampleUrl} variant="secondary">
-						Inspect the runnable example
+						{copy.status.secondaryAction}
 					</ButtonLink>
 				</div>
 			</Section>
