@@ -10,6 +10,7 @@
 		"apis",
 		"plugins",
 		"operations",
-		"guides"
+		"guides",
+		"reference"
 	]
 }

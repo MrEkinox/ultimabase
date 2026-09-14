@@ -1,0 +1,84 @@
+---
+title: Plugin Manifests
+description: Look up stable plugin identity, compatibility, privileges, claims, dependencies, and capabilities.
+audience:
+  - plugin-author
+  - operator
+contentType: reference
+order: 6
+outcome: Declare an inspectable plugin with exact authority and composition requirements.
+owner: '2816'
+releaseStatus: pre-release
+sources:
+  - packages/core/src/plugins/manifest.ts
+  - packages/core/README.md
+  - packages/plugin-kit/README.md
+---
+
+## Signature
+
+```ts
+import { definePlugin } from '@ultimabase/core'
+
+const plugin = definePlugin({
+	pluginId: 'community.workflow',
+	instanceId: 'editorial',
+	version: '1.0.0',
+	core: '^0.0.0',
+	privileges: [{ name: 'runtime:observe', reason: 'Records timing.' }],
+	environment: [],
+	capabilities: { provides: [], requires: [], optional: [] },
+	setup: () => ({ ready: true as const }),
+})
+```
+
+## Parameters
+
+| Property | Required | Meaning |
+| --- | --- | --- |
+| `pluginId` | yes | Stable namespaced package identity |
+| `instanceId` | for repeated configuration | Exact configured instance identity |
+| `version` | yes | Plugin package semantic version |
+| `core` | yes | Supported Core semantic-version range |
+| `privileges` | no | Closed Core power requests, each with a reason |
+| `environment` | no | Direct filesystem, network, process, or native-code claims |
+| `capabilities` | no | Versioned providers, requirements, decorators, or replacements |
+| dependencies and peers | no | Package identity compatibility and lifecycle ordering |
+
+Use a dependency when provider-first lifecycle order is required. Use a peer
+when an engine consumes the add-on's capability and no order should be created.
+
+## Defaults
+
+Privileges, claims, dependencies, peers, and capability lists default to empty.
+No wildcard privilege exists. Duplicate plugin IDs require distinct explicit
+instance IDs; otherwise composition fails.
+
+## Returns
+
+`definePlugin()` returns a frozen static definition. It runs no declaration,
+setup, lifecycle, I/O, or Runtime work. Application graph construction later
+validates compatibility and resolves deterministic dependency order.
+
+## Errors
+
+Invalid identifiers, SemVer, unknown privilege names, missing dependencies,
+cycles, capability conflicts, and denied active privilege requests fail before
+effects. Unknown denial-policy targets are configuration errors.
+
+## Example
+
+```ts
+import { definePluginModule } from '@ultimabase/plugin-kit'
+
+const workflow = definePluginModule({
+	core: '^0.0.0',
+	pluginId: 'community.workflow',
+	version: '1.0.0',
+})
+
+export const workflowPlugin = () => workflow.plugin({ setup: () => ({}) })
+```
+
+See [manifest concepts](../plugins/manifests-and-privileges),
+[capabilities](../plugins/capabilities), and [plugin authoring](../plugins/authoring).

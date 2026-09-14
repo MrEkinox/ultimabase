@@ -1,0 +1,14 @@
+{
+	"title": "Reference",
+	"pages": [
+		"application-configuration",
+		"schema",
+		"fields",
+		"query",
+		"models",
+		"plugin-manifests",
+		"official-plugin-options",
+		"errors",
+		"packages"
+	]
+}

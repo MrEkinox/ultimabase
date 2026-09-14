@@ -1,0 +1,74 @@
+---
+title: Immutable Models
+description: Look up draft construction, persisted model identity, local methods, and Runtime-delegating commands.
+audience:
+  - application-developer
+contentType: reference
+order: 5
+outcome: Use immutable draft and persisted model methods without introducing mutable Active Record state.
+owner: '2816'
+releaseStatus: pre-release
+sources:
+  - packages/core/src/schema/schema/model-commands.ts
+  - packages/core/README.md
+---
+
+## Signature
+
+```ts
+const draft = new Post({ title: 'Draft' })
+const created = await draft.create({ select: { id: true, title: true } })
+const updated = await created.update({
+	data: { title: 'Published' },
+	select: { id: true, title: true },
+})
+```
+
+Drafts and persisted results use the class returned by `Schema.define()`. The
+instance is frozen; every write returns another model.
+
+## Parameters
+
+| Method | Available on | Input |
+| --- | --- | --- |
+| `get(field)`, `toJSON()` | both | no I/O; visible values only |
+| `create`, `upsert` | draft | ordinary schema command options |
+| `fetch`, `exists` | persisted | ordinary read options |
+| `update`, `delete` | persisted | ordinary mutation options |
+| `toPointer`, `equals` | persisted | local schema-qualified identity |
+| `relation(field)` | persisted | declared to-many field name |
+
+Every executing method accepts the usual final `OperationOptions` boundary:
+an owning `ultimabase`, a compatible context, or trusted server-only
+`useMasterKey: true`.
+
+## Defaults
+
+Draft construction performs no I/O. Results expose only selected and permitted
+fields. Mutation commands do not reuse the receiver's earlier read selection.
+There is no dirty tracking, mutable setter, or `save()` method.
+
+## Returns
+
+`create`, `upsert`, `fetch`, and `update` return a new immutable model. `delete`
+returns the selected pre-delete model. `exists` returns a boolean; `toPointer`
+returns a detached immutable identity; `relation` returns an immutable scoped
+handle.
+
+## Errors
+
+Calling a draft-only method on a persisted result, or the inverse, throws.
+`get()` rejects fields absent from the visible result. Strict persisted methods
+such as `fetch`, `update`, and `delete` throw `NOT_FOUND` after the identity is no
+longer visible.
+
+## Example
+
+```ts
+const fresh = await updated.fetch({ select: { id: true, title: true } })
+const sameIdentity = fresh.equals(created)
+const authorPointer = fresh.toPointer()
+```
+
+See [model concepts](../data-modeling/models), [create](../mutations/create),
+and [update](../mutations/update).

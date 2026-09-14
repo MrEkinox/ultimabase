@@ -3,7 +3,16 @@
 	"compilerOptions": {
 		"paths": {
 			"@ultimabase/core": ["../../../packages/core/src/index.ts"],
+			"@ultimabase/graphql-plugin": [
+				"../../../packages/graphql-plugin/src/index.ts"
+			],
+			"@ultimabase/password-auth-plugin": [
+				"../../../packages/password-auth-plugin/src/index.ts"
+			],
 			"@ultimabase/plugin-kit": ["../../../packages/plugin-kit/src/index.ts"],
+			"@ultimabase/rest-plugin": [
+				"../../../packages/rest-plugin/src/index.ts"
+			],
 			"@ultimabase/shared": ["../../../packages/shared/src/index.ts"],
 			"@ultimabase/soft-delete-plugin": [
 				"../../../packages/soft-delete-plugin/src/index.ts"
@@ -15,6 +24,7 @@
 		"data-modeling.test-d.ts",
 		"mutations.test-d.ts",
 		"querying.test-d.ts",
+		"reference.test-d.ts",
 		"fixtures/data-modeling/**/*.ts",
 		"fixtures/data-modeling/.ultimabase/schema.generated.d.ts",
 		"fixtures/mutations/**/*.ts",

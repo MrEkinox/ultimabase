@@ -1,0 +1,84 @@
+---
+title: Query
+description: Look up schema read inputs, immutable QueryBuilder methods, terminals, and result behavior.
+audience:
+  - application-developer
+  - plugin-author
+contentType: reference
+order: 4
+outcome: Build and execute one transport-neutral read with an exact selection and result type.
+owner: '2816'
+releaseStatus: pre-release
+sources:
+  - packages/core/src/query/query/query.ts
+  - packages/core/docs/query.md
+  - packages/core/README.md
+---
+
+## Signature
+
+```ts
+import { QueryBuilder } from '@ultimabase/core'
+
+const query = new QueryBuilder(Post)
+	.where({ published: { eq: true } })
+	.select({ id: true, title: true })
+	.descending('createdAt')
+	.limit(20)
+
+const input = query.build()
+const posts = await Post.findMany(input, { ultimabase })
+```
+
+Schema-root commands accept the same canonical object directly:
+`findMany`, `findOne`, `get`, `count`, and `exists`.
+
+## Parameters
+
+| Clause | Meaning |
+| --- | --- |
+| `where` | Typed scalar, list, object, pointer, and relation predicates |
+| `select` | Flat result projection; `id` is always retained |
+| `include` | Pointer or relation target projection |
+| `orderBy` | Ordered terms with explicit direction and null placement |
+| `limit`, `offset` | Bounded offset pagination |
+
+Builder methods always return a new instance. `include(field, callback)` receives
+a target-typed builder. Pointers accept only a projection; relations additionally
+accept filtering, ordering, limit, and offset.
+
+## Defaults
+
+Omitted selection returns the complete visible model. An empty builder contains
+no filter, ordering, inclusion, limit, or offset. Core does not append a hidden
+ordering term. REST and GraphQL apply their own documented public page limits
+before normalizing into this Query contract.
+
+## Returns
+
+`findMany` returns a readonly model array. `findOne` and schema-level singular
+update/delete return a model or `null`. `get` requires a visible target and
+throws when absent. `count` returns a non-negative number and `exists` a boolean.
+`build()` returns immutable, non-executing input.
+
+## Errors
+
+Unknown fields, invalid operators, negative pagination, invalid relation
+predicates, and unsupported adapter capabilities fail before database work.
+Target policy may deliberately collapse a denied object to ordinary not-found
+behavior.
+
+## Example
+
+```ts
+const articles = await Article.findMany({
+	include: { author: { select: { id: true, name: true } } },
+	limit: 25,
+	orderBy: [{ createdAt: 'desc' }],
+	select: { id: true, title: true },
+	where: { title: { contains: 'TypeScript' } },
+})
+```
+
+See [reading data](../querying/overview), [filters](../querying/filters), and
+[pagination](../querying/ordering-and-pagination).

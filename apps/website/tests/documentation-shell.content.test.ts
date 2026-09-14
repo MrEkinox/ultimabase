@@ -183,6 +183,15 @@ describe('public documentation content contract', () => {
 			'/docs/querying/overview',
 			'/docs/querying/relation-predicates',
 			'/docs/querying/selections',
+			'/docs/reference/application-configuration',
+			'/docs/reference/errors',
+			'/docs/reference/fields',
+			'/docs/reference/models',
+			'/docs/reference/official-plugin-options',
+			'/docs/reference/packages',
+			'/docs/reference/plugin-manifests',
+			'/docs/reference/query',
+			'/docs/reference/schema',
 			'/docs/security/access',
 			'/docs/security/acl',
 			'/docs/security/master-authority',
@@ -227,6 +236,7 @@ describe('public documentation content contract', () => {
 			'plugins',
 			'operations',
 			'guides',
+			'reference',
 		])
 		expect(
 			visibleDocumentationSections([

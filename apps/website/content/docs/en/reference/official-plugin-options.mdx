@@ -1,0 +1,103 @@
+---
+title: Official Plugin Options
+description: Look up the configuration and defaults of every shipped official plugin factory.
+audience:
+  - application-developer
+  - plugin-author
+  - operator
+contentType: reference
+order: 7
+outcome: Configure each optional capability without assuming hidden installation or undocumented defaults.
+owner: '2816'
+releaseStatus: pre-release
+sources:
+  - packages/access-plugin/README.md
+  - packages/acl-permissions-plugin/README.md
+  - packages/apollo-sandbox-plugin/README.md
+  - packages/graphiql-plugin/README.md
+  - packages/graphql-plugin/README.md
+  - packages/graphql-yoga-plugin/README.md
+  - packages/hooks-plugin/README.md
+  - packages/http-plugin/README.md
+  - packages/password-auth-plugin/README.md
+  - packages/pg-vector-plugin/README.md
+  - packages/postgres-plugin/README.md
+  - packages/rest-plugin/README.md
+  - packages/roles-plugin/README.md
+  - packages/server-hono-plugin/README.md
+  - packages/soft-delete-plugin/README.md
+  - packages/typegen/README.md
+  - packages/validation-plugin/README.md
+---
+
+## Signature
+
+Every factory is imported from its package root and placed explicitly in
+`plugins`. Importing a package alone installs nothing.
+
+```ts
+plugins: [
+	accessPlugin({ default: false }),
+	httpPlugin({ appId: 'notes' }),
+	graphqlPlugin(),
+	postgresPlugin({ url: databaseUrl, schemaPolicy: 'fail' }),
+]
+```
+
+## Parameters
+
+| Factory | Principal options | Defaults and status |
+| --- | --- | --- |
+| `accessPlugin` | `default` operation policy | exact undeclared operations deny; fields remain available |
+| `aclPlugin` | `limits.maxPrincipals`, `limits.maxRoles` | 100 principals, 50 roles |
+| `hooksPlugin` | none | no lifecycle exists until installed |
+| `validationPlugin` | none | synchronous rejection-only Standard Schema validation |
+| `softDeletePlugin` | `defaultMode`, `instanceId` | `disabled`; schema may choose `false`, `replace-delete`, or `explicit` |
+| `rolesPlugin` | none | role deletion defaults to `fail` on each Role schema |
+| `passwordAuthPlugin` | `user`, `password`, `session`, `http.cookie` | Argon2id policy; 7-day rolling and 30-day absolute session |
+| `pgVectorPlugin` | none | logical field shipped; PostgreSQL physical vector support not shipped |
+| `postgresPlugin` | exactly one of `url` or `pool`, `schemaPolicy` | `override`; injected pools stay developer-owned |
+| `httpPlugin` | required `appId`, optional `browser`, `master`, `requestTimeoutMs` | browser policy and Master transport disabled |
+| `honoServerPlugin` | managed `host`/`port`, or existing `app` ownership | managed port `1337` |
+| `restPlugin` | `basePath`, `bodyLimit`, `maxLimit`, route defaults, operations | experimental v1; `/api/v1`, 1 MiB body, maximum limit 1000 |
+| `graphqlPlugin` | operation defaults, limits, custom schemas, operations | networkless; page 25/100, depth 20, 100 KiB document |
+| `graphqlYogaPlugin` | `path`, `bodyLimit`, `introspection` | `/graphql`, 1 MiB body, introspection disabled |
+| `graphiqlPlugin` | `environment`, production opt-in | disabled in production unless explicitly allowed |
+| `apolloSandboxPlugin` | `environment`, production opt-in | disabled in production unless explicitly allowed |
+| `typegenPlugin` | `applicationId`, `outputPath`, source loading options | writes inert declarations before infrastructure connects |
+
+## Defaults
+
+Defaults are application-local and never mutate a schema globally. Sparse REST
+and GraphQL route defaults inherit the schema and transport built-ins. Public
+route generation is exposure, not authorization; unacknowledged policy coverage
+emits `UNVERIFIED_PUBLIC_TRANSPORT_PROTECTION`.
+
+## Returns
+
+Each factory returns one immutable plugin definition. Application code may read
+only deliberately public setup exports with `application.getPlugin(...)`.
+Factories never start a listener or connect to PostgreSQL by themselves.
+
+## Errors
+
+Unknown option keys, invalid ranges, conflicting instances, missing capability
+providers, unsafe browser policy, unsupported field codecs, or ambiguous server
+ownership fail before the affected lifecycle phase. Provider-specific runtime
+failures retain safe public error boundaries described on [Errors](./errors).
+
+## Example
+
+```ts
+plugins: [
+	passwordAuthPlugin(),
+	restPlugin({
+		acknowledgeUnverifiedProtection: true,
+		operations: [passwordAuthOperations.login],
+	}),
+	softDeletePlugin({ defaultMode: 'disabled' }),
+]
+```
+
+See [official plugin responsibilities](../plugins/official-plugins),
+[installation](../plugins/installation), and [production configuration](../operations/configuration-and-environment).
