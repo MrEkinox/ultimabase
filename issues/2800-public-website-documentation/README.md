@@ -15,7 +15,7 @@ architecture and may be published progressively without duplicating the site.
 ## Execution order
 
 1. [x] [2801 — Scaffold the private website application](2801-website-application-foundation.md)
-2. [ ] [2802 — Establish the provisional visual system](2802-website-visual-system.md)
+2. [x] [2802 — Establish the provisional visual system](2802-website-visual-system.md)
 3. [ ] [2803 — Build the public landing page](2803-marketing-landing-page.md)
 4. [ ] [2804 — Build the localized documentation shell](2804-localized-documentation-shell.md)
 5. [ ] [2805 — Define the public documentation editorial contract](2805-documentation-editorial-contract.md)

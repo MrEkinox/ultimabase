@@ -39,6 +39,7 @@
 		"website:build": "yarn workspace @ultimabase/website build",
 		"website:dev": "yarn workspace @ultimabase/website dev",
 		"website:lint": "yarn workspace @ultimabase/website lint",
+		"website:test": "yarn workspace @ultimabase/website test:browser",
 		"website:typecheck": "yarn workspace @ultimabase/website typecheck"
 	},
 	"devDependencies": {

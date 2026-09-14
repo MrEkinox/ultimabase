@@ -48,6 +48,16 @@ const sourcePackageAliases = Object.fromEntries(
 const testProjects: TestProjectConfiguration[] = [
 	{
 		extends: true,
+		root: workspaceRoot,
+		test: {
+			fileParallelism: false,
+			include: ['apps/website/tests/**/*.browser.test.ts'],
+			name: 'website-browser',
+			testTimeout: 60_000,
+		},
+	},
+	{
+		extends: true,
 		test: {
 			include: [
 				'packages/*/src/**/*.test.ts',

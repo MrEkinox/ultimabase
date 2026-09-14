@@ -35,6 +35,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@axe-core/playwright@npm:4.13.0":
+  version: 4.13.0
+  resolution: "@axe-core/playwright@npm:4.13.0"
+  dependencies:
+    axe-core: "npm:~4.13.0"
+  peerDependencies:
+    playwright-core: ">= 1.0.0"
+  checksum: 10c0/0938f24f3955bfa11c77c326300646a4f1dcd513389320ace9985d68486a622c443b2a34cd86f6002f617a3395623ad1e99a622450830873166aaa7e0312aa68
+  languageName: node
+  linkType: hard
+
 "@babel/helper-string-parser@npm:^7.29.7":
   version: 7.29.7
   resolution: "@babel/helper-string-parser@npm:7.29.7"
@@ -3540,6 +3551,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ultimabase/website@workspace:apps/website"
   dependencies:
+    "@axe-core/playwright": "npm:4.13.0"
     "@tailwindcss/postcss": "npm:4.3.3"
     "@types/mdx": "npm:2.0.13"
     "@types/react": "npm:19.3.0"
@@ -3548,9 +3560,12 @@ __metadata:
     fumadocs-mdx: "npm:15.4.0"
     fumadocs-ui: "npm:16.15.10"
     next: "npm:16.3.5"
+    playwright: "npm:1.63.0"
+    playwright-core: "npm:1.63.0"
     react: "npm:19.3.0"
     react-dom: "npm:19.3.0"
     tailwindcss: "npm:4.3.3"
+    vitest: "npm:4.1.10"
   languageName: unknown
   linkType: soft
 
@@ -4194,6 +4209,13 @@ __metadata:
   version: 3.2.6
   resolution: "async@npm:3.2.6"
   checksum: 10c0/36484bb15ceddf07078688d95e27076379cc2f87b10c03b6dd8a83e89475a3c8df5848859dd06a4c95af1e4c16fc973de0171a77f18ea00be899aca2a4f85e70
+  languageName: node
+  linkType: hard
+
+"axe-core@npm:~4.13.0":
+  version: 4.13.0
+  resolution: "axe-core@npm:4.13.0"
+  checksum: 10c0/0e3be8be10eea64beddefd3007e1425424ff60c26c5f4d5f748ec48c2825356839c02ad4167fc1f03a6d84ecd82108f49fb2846ab7fe949273787391745561ca
   languageName: node
   linkType: hard
 
@@ -8103,7 +8125,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"playwright@npm:^1.63.0":
+"playwright@npm:1.63.0, playwright@npm:^1.63.0":
   version: 1.63.0
   resolution: "playwright@npm:1.63.0"
   dependencies:

@@ -1,5 +1,6 @@
 import type { BaseLayoutProps } from 'fumadocs-ui/layouts/shared'
 
+import { NavigationBrand } from '../components/brand'
 import { siteConfig } from './site'
 
 export const baseLayoutOptions = (): BaseLayoutProps => ({
@@ -12,4 +13,6 @@ export const baseLayoutOptions = (): BaseLayoutProps => ({
 		title: siteConfig.name,
 		url: '/',
 	},
+	searchToggle: { enabled: false },
+	slots: { navTitle: NavigationBrand },
 })

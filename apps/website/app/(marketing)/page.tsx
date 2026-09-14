@@ -1,25 +1,48 @@
-import Link from 'next/link'
-
+import {
+	ButtonLink,
+	Callout,
+	CodeSurface,
+	Eyebrow,
+	Section,
+} from '../../components/primitives'
 import { siteConfig } from '../../lib/site'
+
+const foundationExample = `const app = new UltimaBase({
+  schemas: [Article],
+  plugins: [postgresPlugin(), restPlugin()],
+})`
 
 export default function HomePage() {
 	return (
-		<main className="mx-auto flex min-h-[calc(100dvh-64px)] max-w-5xl flex-col justify-center px-6 py-20">
-			<p className="mb-4 text-sm font-medium uppercase tracking-[0.16em]">
-				{siteConfig.releaseStatus}
-			</p>
-			<h1 className="max-w-3xl text-5xl font-semibold tracking-tight sm:text-6xl">
-				A typed backend foundation for explicit applications.
-			</h1>
-			<p className="mt-6 max-w-2xl text-lg text-fd-muted-foreground">
-				The website foundation is ready. The complete product story and visual
-				system follow in the next focused milestones.
-			</p>
-			<div className="mt-8">
-				<Link className="font-medium underline underline-offset-4" href="/docs">
-					Open documentation
-				</Link>
-			</div>
-		</main>
+		<div className="ub-foundation-page">
+			<Section className="ub-foundation-hero">
+				<div className="ub-foundation-copy">
+					<Eyebrow>{siteConfig.releaseStatus} · developer preview</Eyebrow>
+					<h1>A typed backend foundation for explicit applications.</h1>
+					<p className="ub-lede">
+						One application graph, deliberate plugins, and the same runtime path
+						from TypeScript to public APIs.
+					</p>
+					<div className="ub-action-row">
+						<ButtonLink href="/docs">Read the documentation</ButtonLink>
+						<ButtonLink
+							external
+							href={siteConfig.repositoryUrl.href}
+							variant="secondary"
+						>
+							Explore the repository
+						</ButtonLink>
+					</div>
+				</div>
+				<CodeSurface code={foundationExample} label="Application foundation" />
+			</Section>
+
+			<Section className="ub-foundation-note" width="reading">
+				<Callout title="Visual foundation">
+					This restrained system is the shared base for the product story and
+					documentation. Final landing-page copy follows in its own issue.
+				</Callout>
+			</Section>
+		</div>
 	)
 }

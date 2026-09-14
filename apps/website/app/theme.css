@@ -1,0 +1,68 @@
+:root {
+	--ub-font-sans:
+		Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+		'Segoe UI', sans-serif;
+	--ub-font-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+	--ub-space-1: 0.25rem;
+	--ub-space-2: 0.5rem;
+	--ub-space-3: 0.75rem;
+	--ub-space-4: 1rem;
+	--ub-space-6: 1.5rem;
+	--ub-space-8: 2rem;
+	--ub-space-12: 3rem;
+	--ub-space-16: 4rem;
+	--ub-radius-small: 0.375rem;
+	--ub-radius-medium: 0.75rem;
+	--ub-radius-large: 1rem;
+	--ub-border-width: 1px;
+	--ub-background: #f5f3ed;
+	--ub-surface: #fbfaf6;
+	--ub-surface-raised: #ffffff;
+	--ub-foreground: #171a18;
+	--ub-muted: #626760;
+	--ub-border: #cbc9bf;
+	--ub-border-strong: #9a9d94;
+	--ub-accent: #ad3d20;
+	--ub-accent-hover: #8e2f17;
+	--ub-accent-soft: #f1d8cf;
+	--ub-accent-contrast: #ffffff;
+	--ub-focus: #155eef;
+	--ub-code-background: #181c1a;
+	--ub-code-foreground: #eef0ea;
+	--color-fd-background: var(--ub-background);
+	--color-fd-foreground: var(--ub-foreground);
+	--color-fd-muted: #ebe9e2;
+	--color-fd-muted-foreground: var(--ub-muted);
+	--color-fd-popover: var(--ub-surface-raised);
+	--color-fd-popover-foreground: var(--ub-foreground);
+	--color-fd-card: var(--ub-surface);
+	--color-fd-card-foreground: var(--ub-foreground);
+	--color-fd-border: var(--ub-border);
+	--color-fd-primary: var(--ub-foreground);
+	--color-fd-primary-foreground: var(--ub-background);
+	--color-fd-secondary: #e8e6de;
+	--color-fd-secondary-foreground: var(--ub-foreground);
+	--color-fd-accent: var(--ub-accent-soft);
+	--color-fd-accent-foreground: #68210f;
+	--color-fd-ring: var(--ub-focus);
+}
+
+.dark {
+	--ub-background: #111513;
+	--ub-surface: #171c19;
+	--ub-surface-raised: #1c211e;
+	--ub-foreground: #eff1eb;
+	--ub-muted: #a9aea7;
+	--ub-border: #39403b;
+	--ub-border-strong: #626b64;
+	--ub-accent: #ff7956;
+	--ub-accent-hover: #ff9478;
+	--ub-accent-soft: #49271f;
+	--ub-accent-contrast: #25100a;
+	--ub-focus: #8cb4ff;
+	--ub-code-background: #0b0e0c;
+	--ub-code-foreground: #f3f4ef;
+	--color-fd-muted: #1b211d;
+	--color-fd-secondary: #202622;
+	--color-fd-accent-foreground: #ffd9cd;
+}

@@ -31,6 +31,7 @@ Run the focused checks before committing website changes:
 yarn website:typecheck
 yarn website:lint
 yarn website:build
+yarn website:test
 ```
 
 The production build creates `.next`, and Fumadocs generates `.source` before
@@ -38,3 +39,22 @@ the focused checks. Both are ignored by Git, ESLint, and Prettier. The ordinary
 root `yarn build` continues to build only non-private publishable workspaces.
 Next.js also maintains the conventional tracked `next-env.d.ts`; repository
 formatting and linting leave that generated declaration untouched.
+
+## Visual system
+
+`app/theme.css` is the replaceable source for typography, spacing, radii,
+borders, semantic colors, the light and dark palettes, and the single coral
+accent. `components/brand-mark.tsx` owns the provisional geometric mark used by
+the navigation and generated favicon.
+
+Shared marketing and documentation surfaces live under `components/`:
+
+- `brand.tsx` provides the text mark and navigation identity;
+- `site-shell.tsx` provides the common footer while Fumadocs renders responsive
+  headers from the shared options in `lib/layout.tsx`;
+- `primitives.tsx` provides buttons, links, sections, code surfaces, and
+  callouts.
+
+The browser test builds and starts the production application, then checks the
+light and dark shells, mobile and 200%-zoom-equivalent reflow, reduced motion,
+focus semantics, and WCAG A/AA findings with Playwright and Axe.

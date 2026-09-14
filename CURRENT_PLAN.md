@@ -3,7 +3,7 @@
 - Status: in progress
 - Milestone: 28
 - Created: 2026-09-14
-- Current issue: 2802
+- Current issue: 2803
 - Governing backlog: [Milestone 28](issues/2800-public-website-documentation/README.md)
 
 ## Objective
@@ -66,6 +66,9 @@ changes.
 Issue 2801 completed the private Next.js and Fumadocs workspace, generated-file
 boundaries, provisional typed site configuration, and independent website
 validation without entering the publishable package build graph.
+Issue 2802 completed the shared token system, provisional brand boundary,
+responsive shell primitives, light and dark modes, reduced-motion behavior, and
+browser accessibility coverage.
 
 ### Phase 1 — Application, design, and content foundation
 
