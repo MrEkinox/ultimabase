@@ -38,6 +38,7 @@ export const siteConfig = Object.freeze({
 	name: 'UltimaBase',
 	navigation: Object.freeze([
 		{ href: '/docs', label: 'Docs' },
+		{ href: '/examples', label: 'Examples' },
 		{
 			external: true,
 			href: repositoryUrl.href,

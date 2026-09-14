@@ -3,7 +3,7 @@
 - Status: in progress
 - Milestone: 28
 - Created: 2026-09-14
-- Current issue: 2815
+- Current issue: 2816
 - Governing backlog: [Milestone 28](issues/2800-public-website-documentation/README.md)
 
 ## Objective
@@ -109,6 +109,10 @@ production capabilities.
 Issue 2814 completed eight focused task guides with one consistent prerequisite,
 shortest-path, verification, limitation, and canonical-link structure, backed
 by the maintained minimal application's generated-type and TypeScript checks.
+Issue 2815 completed a dedicated examples surface over the maintained minimal
+application, seven source-linked reader journeys, exact source-region and
+canonical-document validation, and the relevant PostgreSQL-backed E2E paths
+without introducing a website-only application fork.
 
 ### Phase 1 — Application, design, and content foundation
 
@@ -244,4 +248,4 @@ Resume only after explicit user direction to start implementation:
 5. Implement issue 2801 only; do not absorb visual design or content work from
    later issues.
 
-Resume point: **issue 2811**.
+Resume point: **issue 2816**.
