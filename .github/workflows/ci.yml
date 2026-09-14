@@ -56,6 +56,9 @@ jobs:
         # Project references emit the declarations required by typed E2E linting.
         run: yarn typecheck
 
+      - name: Validate public documentation
+        run: yarn website:validate
+
       - name: Lint
         run: yarn lint
         env:

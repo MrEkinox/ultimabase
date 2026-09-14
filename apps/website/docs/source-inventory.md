@@ -4,6 +4,12 @@ This inventory maps the current repository to the planned public site without
 treating existing prose as publishable by default. The page-level mapping and
 ownership live in `content/documentation-plan.json`.
 
+The maintained package-to-section routing lives in
+`content/documentation-ownership.json`. Every public package appears exactly
+once there; an area may point reviewers to several principal website sections.
+The map is a review index, while each page's `sources` remains its precise
+content evidence.
+
 ## Source classes
 
 | Source                          | Best use                                                      | Limitation                                                                       |

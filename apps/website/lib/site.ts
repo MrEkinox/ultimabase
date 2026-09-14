@@ -15,6 +15,11 @@ export interface SiteConfig {
 	readonly navigation: readonly SiteNavigationItem[]
 	readonly releaseStatus: SiteReleaseStatus
 	readonly repositoryUrl: URL
+	readonly sourceRepository: {
+		readonly branch: string
+		readonly name: string
+		readonly owner: string
+	}
 	readonly routes: {
 		readonly docs: string
 		readonly examples: string
@@ -23,7 +28,14 @@ export interface SiteConfig {
 }
 
 const canonicalUrl = new URL(process.env.NEXT_PUBLIC_SITE_URL ?? developmentUrl)
-const repositoryUrl = new URL('https://github.com/MrEkinox/ultimadatabase')
+const sourceRepository = Object.freeze({
+	branch: 'main',
+	name: 'ultimadatabase',
+	owner: 'MrEkinox',
+})
+const repositoryUrl = new URL(
+	`https://github.com/${sourceRepository.owner}/${sourceRepository.name}`,
+)
 
 /**
  * Provisional public identity for the website.
@@ -47,6 +59,7 @@ export const siteConfig = Object.freeze({
 	]),
 	releaseStatus: 'pre-release',
 	repositoryUrl,
+	sourceRepository,
 	routes: Object.freeze({
 		docs: '/docs',
 		examples: '/examples',

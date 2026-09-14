@@ -1,6 +1,6 @@
 # 2816: Publish the curated API reference
 
-- Status: complete
+- Status: completed
 - Milestone: 28
 - Packages: `apps/website`, publishable packages
 - Depends on: 2807, 2808, 2809, 2810, 2811, 2812, 2813

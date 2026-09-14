@@ -9,6 +9,7 @@ order: 4
 outcome: Repair a rejected request without weakening application, credential, or browser boundaries.
 owner: '2817'
 releaseStatus: pre-release
+reviewedAt: 2026-09-14
 sources:
   - packages/http-plugin/src/request-boundary.ts
   - packages/http-plugin/README.md
@@ -21,13 +22,13 @@ sources:
 Before a route starts, HTTP returns a private, non-cacheable envelope with a
 stable code and `X-UltimaBase-Request-Id`:
 
-| Code | First interpretation |
-| --- | --- |
-| `HTTP_BAD_REQUEST` | malformed or ambiguous request evidence |
+| Code                        | First interpretation                               |
+| --------------------------- | -------------------------------------------------- |
+| `HTTP_BAD_REQUEST`          | malformed or ambiguous request evidence            |
 | `HTTP_APPLICATION_REJECTED` | application selection or credentials were rejected |
-| `HTTP_NOT_FOUND` | no selected route owns the path |
-| `HTTP_REQUEST_TIMEOUT` | the shared request deadline expired |
-| `HTTP_INTERNAL_ERROR` | the pre-dispatch boundary failed safely |
+| `HTTP_NOT_FOUND`            | no selected route owns the path                    |
+| `HTTP_REQUEST_TIMEOUT`      | the shared request deadline expired                |
+| `HTTP_INTERNAL_ERROR`       | the pre-dispatch boundary failed safely            |
 
 Password Auth returns `PASSWORD_AUTH_INVALID_CREDENTIALS`,
 `PASSWORD_AUTH_INVALID_SESSION`, or `PASSWORD_AUTH_SIGN_UP_REJECTED` after its

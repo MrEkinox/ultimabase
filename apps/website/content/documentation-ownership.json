@@ -1,0 +1,73 @@
+{
+	"version": 1,
+	"areas": [
+		{
+			"id": "core-application",
+			"packages": ["@ultimabase/core", "@ultimabase/shared"],
+			"sections": [
+				"getting-started",
+				"data-modeling",
+				"querying",
+				"mutations",
+				"reference"
+			]
+		},
+		{
+			"id": "plugin-authoring-and-tooling",
+			"packages": [
+				"@ultimabase/plugin-kit",
+				"@ultimabase/testing",
+				"@ultimabase/typegen"
+			],
+			"sections": ["plugins", "guides", "reference", "troubleshooting"]
+		},
+		{
+			"id": "database-and-data-behavior",
+			"packages": [
+				"@ultimabase/hooks-plugin",
+				"@ultimabase/pg-vector-plugin",
+				"@ultimabase/postgres-plugin",
+				"@ultimabase/soft-delete-plugin",
+				"@ultimabase/validation-plugin"
+			],
+			"sections": [
+				"data-modeling",
+				"mutations",
+				"operations",
+				"guides",
+				"reference",
+				"troubleshooting"
+			]
+		},
+		{
+			"id": "http-and-transports",
+			"packages": [
+				"@ultimabase/graphql-http",
+				"@ultimabase/graphql-plugin",
+				"@ultimabase/graphql-yoga-plugin",
+				"@ultimabase/http-plugin",
+				"@ultimabase/rest-plugin",
+				"@ultimabase/server-hono-plugin"
+			],
+			"sections": ["apis", "operations", "reference", "troubleshooting"]
+		},
+		{
+			"id": "application-security",
+			"packages": [
+				"@ultimabase/access-plugin",
+				"@ultimabase/acl-permissions-plugin",
+				"@ultimabase/password-auth-plugin",
+				"@ultimabase/roles-plugin"
+			],
+			"sections": ["security", "guides", "reference", "troubleshooting"]
+		},
+		{
+			"id": "api-explorers",
+			"packages": [
+				"@ultimabase/apollo-sandbox-plugin",
+				"@ultimabase/graphiql-plugin"
+			],
+			"sections": ["apis", "plugins", "reference"]
+		}
+	]
+}

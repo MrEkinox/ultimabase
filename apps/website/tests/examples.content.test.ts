@@ -20,12 +20,17 @@ describe('runnable example journeys', () => {
 		for (const scenario of exampleScenarios) {
 			for (const source of scenario.sources) {
 				expect(source.path).toMatch(/^examples\/minimal\//u)
-				const file = await readFile(path.join(repositoryRoot, source.path), 'utf8')
+				const file = await readFile(
+					path.join(repositoryRoot, source.path),
+					'utf8',
+				)
 				const lines = file.split('\n')
 				expect(source.startLine).toBeGreaterThan(0)
 				expect(source.endLine).toBeLessThanOrEqual(lines.length)
 				expect(source.endLine).toBeGreaterThanOrEqual(source.startLine)
-				const region = lines.slice(source.startLine - 1, source.endLine).join('\n')
+				const region = lines
+					.slice(source.startLine - 1, source.endLine)
+					.join('\n')
 				expect(region, `${scenario.slug}: ${source.label}`).toContain(
 					source.expectedText,
 				)

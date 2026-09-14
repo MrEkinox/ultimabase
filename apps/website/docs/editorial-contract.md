@@ -141,6 +141,7 @@ contentType: tutorial
 outcome: Start and verify a minimal UltimaBase application.
 owner: '2806'
 releaseStatus: pre-release
+reviewedAt: 2026-09-14
 sources:
   - examples/minimal/README.md
 ```
@@ -148,8 +149,11 @@ sources:
 `audience` accepts `application-developer`, `plugin-author`, and `operator`.
 `contentType` accepts the five templates above. `owner` is the issue that owns
 the page's public contract. `sources` lists the repository paths that must be
-checked when behavior changes. A French translation also records its canonical
-English `translation.source` and the date of its last deliberate review.
+checked when behavior changes. `reviewedAt` records the last deliberate review
+of the complete page against those sources; it is rendered in the page footer
+beside the source-edit link. A French translation also records its canonical
+English `translation.source`, the English source fingerprint, and the date of
+its last deliberate translation review.
 
 The grouped source plan in `content/documentation-plan.json` sets the same
 contract before a page exists. `sourceStatus` means:
@@ -171,3 +175,26 @@ layers instead of building one encyclopedic page.
 When the sources disagree, stop authoring and resolve the public contract in
 the owning package or an ADR first. Documentation must describe the repository,
 not choose new architecture on its behalf.
+
+## Verification and currency
+
+The ordinary documentation validation checks frontmatter, source paths,
+translation fingerprints, shared samples, package ownership, edit links, and a
+small terminology and heading-style ruleset. The same validation runs in CI.
+Diagnostics name the affected file and the corrective action.
+
+Mechanical checks cannot decide whether an explanation is complete, whether a
+behavioral nuance changed, or whether an example teaches the right boundary.
+Every implementation issue therefore records one documentation-impact
+classification and reviews the ownership map. Public behavior changes update
+the public site in the same issue unless the issue records a concrete reason
+that no reader-facing change is needed.
+
+An unavoidable false positive may be listed in
+`content/docs-lint-exceptions.json` with its exact file, matched text, and a
+specific reason. Broad patterns and undocumented suppressions are not accepted.
+The exception is a reviewable escape hatch, not a substitute for clear prose.
+
+Package READMEs, TypeScript declarations, tests, and accepted ADRs remain the
+authoritative contracts. Public pages synthesize those sources for readers;
+they do not replace or silently contradict them.

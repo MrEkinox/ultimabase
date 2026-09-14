@@ -40,7 +40,12 @@ export interface TextLinkProps {
 	readonly prefetch?: boolean
 }
 
-export function TextLink({ children, className, href, prefetch }: TextLinkProps) {
+export function TextLink({
+	children,
+	className,
+	href,
+	prefetch,
+}: TextLinkProps) {
 	return (
 		<Link
 			{...(prefetch === undefined ? {} : { prefetch })}

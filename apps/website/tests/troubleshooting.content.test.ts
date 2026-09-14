@@ -25,7 +25,9 @@ const pageNames = [
 const readPage = async (name: (typeof pageNames)[number]): Promise<string> =>
 	readFile(path.join(troubleshootingRoot, `${name}.mdx`), 'utf8')
 
-const collectMdxFiles = async (directory: string): Promise<readonly string[]> => {
+const collectMdxFiles = async (
+	directory: string,
+): Promise<readonly string[]> => {
 	const entries = await readdir(directory, { withFileTypes: true })
 	const nested = await Promise.all(
 		entries.map((entry) => {
@@ -92,9 +94,9 @@ describe('troubleshooting content', () => {
 	})
 
 	it('keeps diagnostic commands executable without exposing environment values', async () => {
-		expect(execFileSync(process.execPath, ['--version'], { encoding: 'utf8' })).toMatch(
-			/^v\d+/u,
-		)
+		expect(
+			execFileSync(process.execPath, ['--version'], { encoding: 'utf8' }),
+		).toMatch(/^v\d+/u)
 		expect(
 			execFileSync('yarn', ['--version'], {
 				cwd: repositoryRoot,

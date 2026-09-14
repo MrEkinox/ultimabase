@@ -9,6 +9,7 @@ order: 1
 outcome: Configure and run one isolated application with explicit schemas, plugins, authority, and validation.
 owner: '2816'
 releaseStatus: pre-release
+reviewedAt: 2026-09-14
 sources:
   - packages/core/src/runtime/application/ultima-base.ts
   - packages/core/src/runtime/context/request-context.ts
@@ -23,7 +24,11 @@ sources:
 ## Signature
 
 ```ts
-import { MasterAuthority, RequestContextValue, UltimaBase } from '@ultimabase/core'
+import {
+	MasterAuthority,
+	RequestContextValue,
+	UltimaBase,
+} from '@ultimabase/core'
 
 const app = new UltimaBase({
 	schemas,
@@ -40,13 +45,13 @@ infrastructure. `await app.start()` performs initialization and lifecycle start;
 
 ## Parameters
 
-| Option | Required | Meaning |
-| --- | --- | --- |
-| `schemas` | yes | Exact immutable schema classes owned by this application |
-| `plugins` | yes | Top-level definitions; nested definitions join the same global graph |
-| `masterAuthority` | no | Audited server authority used by `useMasterKey: true` |
-| `pluginPrivileges` | no | Cumulative privilege and environment-claim denials plus report logger |
-| `validation` | no | Timezone, clock, UUID generation, and nested-write budgets |
+| Option             | Required | Meaning                                                               |
+| ------------------ | -------- | --------------------------------------------------------------------- |
+| `schemas`          | yes      | Exact immutable schema classes owned by this application              |
+| `plugins`          | yes      | Top-level definitions; nested definitions join the same global graph  |
+| `masterAuthority`  | no       | Audited server authority used by `useMasterKey: true`                 |
+| `pluginPrivileges` | no       | Cumulative privilege and environment-claim denials plus report logger |
+| `validation`       | no       | Timezone, clock, UUID generation, and nested-write budgets            |
 
 Unknown root options fail immediately. Use `app.application` only for advanced
 plugin export access and `app.schema(...)`, `app.query(...)`, or
@@ -65,9 +70,7 @@ const request = app.engine.anonymous({
 	source: 'internal',
 })
 
-await request.transaction(() =>
-	Post.createOne({ data: { title: 'Atomic' } }),
-)
+await request.transaction(() => Post.createOne({ data: { title: 'Atomic' } }))
 ```
 
 Core authority modes are only `anonymous` and `master`. Authentication plugins

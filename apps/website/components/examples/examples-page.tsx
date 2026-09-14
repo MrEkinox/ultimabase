@@ -1,13 +1,19 @@
 import Link from 'next/link'
 
 import { siteConfig } from '../../lib/site'
-import { ButtonLink, Callout, CodeSurface, Eyebrow, Section } from '../primitives'
+import {
+	ButtonLink,
+	Callout,
+	CodeSurface,
+	Eyebrow,
+	Section,
+} from '../primitives'
 import {
 	exampleScenarios,
 	exampleSourceUrl,
 	minimalExampleCommand,
-	type ExampleScenario,
 } from './content'
+import type { ExampleScenario } from './types'
 
 const startCommand = `corepack yarn build
 DATABASE_URL=postgres://postgres:postgres@localhost:5432/ultimabase_minimal \\
@@ -33,7 +39,9 @@ export function ExamplesIndexPage() {
 						canonical documentation behind it.
 					</p>
 					<div className="ub-action-row">
-						<ButtonLink href="/examples/model-the-schema">Start the first journey</ButtonLink>
+						<ButtonLink href="/examples/model-the-schema">
+							Start the first journey
+						</ButtonLink>
 						<ButtonLink
 							external
 							href={`${siteConfig.repositoryUrl.href}/tree/main/examples/minimal`}
@@ -45,7 +53,11 @@ export function ExamplesIndexPage() {
 				</div>
 				<div className="ub-example-facts" aria-label="Example facts">
 					<p>Example 01</p>
-					<strong>@ultimabase/<wbr />example-minimal</strong>
+					<strong>
+						@ultimabase/
+						<wbr />
+						example-minimal
+					</strong>
 					<span>PostgreSQL · REST · GraphQL · Password Auth</span>
 				</div>
 			</Section>
@@ -73,15 +85,25 @@ export function ExamplesIndexPage() {
 
 			<Section className="ub-example-boundary" width="reading">
 				<Callout title="Pre-release and local-development boundaries">
-					The example uses a destructive <code>schemaPolicy: 'override'</code>, a
-					development-only Master key, and repository workspace packages. Keep the
-					key on the server, use a disposable database, and follow the installation
-					guide when consuming published packages from another project.
+					The example uses a destructive <code>schemaPolicy: 'override'</code>,
+					a development-only Master key, and repository workspace packages. Keep
+					the key on the server, use a disposable database, and follow the
+					installation guide when consuming published packages from another
+					project.
 				</Callout>
 				<div className="ub-source-legend" aria-label="Source label meanings">
-					<div><strong>Application code</strong><span>Copyable framework composition.</span></div>
-					<div><strong>Repository instructions</strong><span>Commands for this monorepo checkout.</span></div>
-					<div><strong>Test helper</strong><span>Evidence, not a browser-safe client API.</span></div>
+					<div>
+						<strong>Application code</strong>
+						<span>Copyable framework composition.</span>
+					</div>
+					<div>
+						<strong>Repository instructions</strong>
+						<span>Commands for this monorepo checkout.</span>
+					</div>
+					<div>
+						<strong>Test helper</strong>
+						<span>Evidence, not a browser-safe client API.</span>
+					</div>
 				</div>
 			</Section>
 
@@ -91,7 +113,9 @@ export function ExamplesIndexPage() {
 						<p className="ub-section-index">Choose a journey</p>
 						<h2>From graph to production boundaries.</h2>
 					</div>
-					<p>Read in order for a complete path, or enter at the task you need.</p>
+					<p>
+						Read in order for a complete path, or enter at the task you need.
+					</p>
 				</div>
 				<ol className="ub-example-grid">
 					{exampleScenarios.map((scenario) => (
@@ -115,15 +139,22 @@ interface ExampleScenarioPageProps {
 }
 
 export function ExampleScenarioPage({ scenario }: ExampleScenarioPageProps) {
-	const currentIndex = exampleScenarios.findIndex((entry) => entry.slug === scenario.slug)
+	const currentIndex = exampleScenarios.findIndex(
+		(entry) => entry.slug === scenario.slug,
+	)
 	const nextScenario = exampleScenarios[currentIndex + 1]
 
 	return (
 		<article className="ub-example-detail">
 			<Section className="ub-example-detail-hero">
 				<div>
-					<Link className="ub-example-back" href="/examples">← All examples</Link>
-					<Eyebrow>Journey {scenario.index} / {String(exampleScenarios.length).padStart(2, '0')}</Eyebrow>
+					<Link className="ub-example-back" href="/examples">
+						← All examples
+					</Link>
+					<Eyebrow>
+						Journey {scenario.index} /{' '}
+						{String(exampleScenarios.length).padStart(2, '0')}
+					</Eyebrow>
 					<h1>{scenario.title}</h1>
 					<p className="ub-lede">{scenario.summary}</p>
 				</div>
@@ -137,7 +168,9 @@ export function ExampleScenarioPage({ scenario }: ExampleScenarioPageProps) {
 				<div>
 					<p className="ub-section-index">Shortest path</p>
 					<ol>
-						{scenario.steps.map((step) => <li key={step}>{step}</li>)}
+						{scenario.steps.map((step) => (
+							<li key={step}>{step}</li>
+						))}
 					</ol>
 				</div>
 				<CodeSurface code={scenario.code} label={scenario.codeLabel} />
@@ -152,9 +185,15 @@ export function ExampleScenarioPage({ scenario }: ExampleScenarioPageProps) {
 					{scenario.sources.map((source) => (
 						<li key={`${source.path}:${String(source.startLine)}`}>
 							<span>{source.kind}</span>
-							<a href={exampleSourceUrl(source)} rel="noreferrer" target="_blank">
+							<a
+								href={exampleSourceUrl(source)}
+								rel="noreferrer"
+								target="_blank"
+							>
 								<strong>{source.label}</strong>
-								<code>{source.path}:{source.startLine}–{source.endLine}</code>
+								<code>
+									{source.path}:{source.startLine}–{source.endLine}
+								</code>
 							</a>
 						</li>
 					))}
@@ -172,9 +211,13 @@ export function ExampleScenarioPage({ scenario }: ExampleScenarioPageProps) {
 					))}
 				</div>
 				{nextScenario === undefined ? (
-					<ButtonLink href="/docs/operations/production-checklist">Continue to production readiness</ButtonLink>
+					<ButtonLink href="/docs/operations/production-checklist">
+						Continue to production readiness
+					</ButtonLink>
 				) : (
-					<ButtonLink href={`/examples/${nextScenario.slug}`}>Next: {nextScenario.title}</ButtonLink>
+					<ButtonLink href={`/examples/${nextScenario.slug}`}>
+						Next: {nextScenario.title}
+					</ButtonLink>
 				)}
 			</Section>
 		</article>

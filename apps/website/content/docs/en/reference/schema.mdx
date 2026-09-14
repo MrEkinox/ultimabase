@@ -9,6 +9,7 @@ order: 2
 outcome: Declare an authoritative schema graph and resolve its application-owned runtime surface.
 owner: '2816'
 releaseStatus: pre-release
+reviewedAt: 2026-09-14
 sources:
   - packages/core/src/schema/schema/definition.ts
   - packages/core/README.md
@@ -32,12 +33,12 @@ their application-local methods and options.
 
 ## Parameters
 
-| Property | Required | Meaning |
-| --- | --- | --- |
-| `className` | yes | Stable logical model name and Typegen identity |
-| `fields(field)` | yes | Map of stored, relationship, and virtual declarations |
-| `indexes` | no | Ordered single or composite logical indexes |
-| plugin options | only when used | Direct options such as `access`, `hooks`, `rest`, `graphql`, or `postgres` owned by installed plugins |
+| Property        | Required       | Meaning                                                                                               |
+| --------------- | -------------- | ----------------------------------------------------------------------------------------------------- |
+| `className`     | yes            | Stable logical model name and Typegen identity                                                        |
+| `fields(field)` | yes            | Map of stored, relationship, and virtual declarations                                                 |
+| `indexes`       | no             | Ordered single or composite logical indexes                                                           |
+| plugin options  | only when used | Direct options such as `access`, `hooks`, `rest`, `graphql`, or `postgres` owned by installed plugins |
 
 Names colliding with system fields, Query operators, or immutable model methods
 are rejected. Relationship targets resolve against the complete application

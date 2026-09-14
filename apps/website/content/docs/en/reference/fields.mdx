@@ -9,6 +9,7 @@ order: 3
 outcome: Choose the narrowest field declaration and understand which options apply to storage, input, and output.
 owner: '2816'
 releaseStatus: pre-release
+reviewedAt: 2026-09-14
 sources:
   - packages/core/src/schema/schema/field-builder-contract.ts
   - packages/core/docs/schema.md
@@ -33,17 +34,17 @@ fields: (field) => ({
 
 ## Parameters
 
-| Method family | Logical value | Important options |
-| --- | --- | --- |
-| `string`, `boolean`, `int`, `float` | primitive | `required`, `default`, `immutable`, `list`, `indexed` |
-| `bigint`, `decimal` | canonical string | decimal `precision` and `scale` |
-| `date`, `dateTime`, `time` | canonical temporal string | temporal generation where supported |
-| `uuid`, `binary`, `json` | UUID, bytes, or portable JSON | scalar-common options |
-| `enum` | declared string union | required `values`, optional `typeName` |
-| `object` | typed embedded object | restricted embedded `fields` callback |
-| `pointer` | one target identity | `target`, `onDelete`, `required`, `indexed` |
-| `relation` | to-many handle | `target`, optional `mappedBy` and contextual `where` |
-| `virtual` | output-only value | `output`, persisted `select`, synchronous or asynchronous `resolve` |
+| Method family                       | Logical value                 | Important options                                                   |
+| ----------------------------------- | ----------------------------- | ------------------------------------------------------------------- |
+| `string`, `boolean`, `int`, `float` | primitive                     | `required`, `default`, `immutable`, `list`, `indexed`               |
+| `bigint`, `decimal`                 | canonical string              | decimal `precision` and `scale`                                     |
+| `date`, `dateTime`, `time`          | canonical temporal string     | temporal generation where supported                                 |
+| `uuid`, `binary`, `json`            | UUID, bytes, or portable JSON | scalar-common options                                               |
+| `enum`                              | declared string union         | required `values`, optional `typeName`                              |
+| `object`                            | typed embedded object         | restricted embedded `fields` callback                               |
+| `pointer`                           | one target identity           | `target`, `onDelete`, `required`, `indexed`                         |
+| `relation`                          | to-many handle                | `target`, optional `mappedBy` and contextual `where`                |
+| `virtual`                           | output-only value             | `output`, persisted `select`, synchronous or asynchronous `resolve` |
 
 Installed plugins may add a method only to declared contexts: `stored`,
 `embedded`, `virtual`, or `output`. A portable codec does not imply support in

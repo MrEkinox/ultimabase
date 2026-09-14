@@ -5,12 +5,13 @@ import {
 	DocsDescription,
 	DocsPage,
 	DocsTitle,
-} from 'fumadocs-ui/layouts/docs/page'
+} from 'fumadocs-ui/page'
 import { createRelativeLink } from 'fumadocs-ui/mdx'
 
 import { TranslationFallback } from '../../../../../components/docs/translation-fallback'
 import { getMdxComponents } from '../../../../../components/mdx'
 import { resolveDocumentationPage } from '../../../../../lib/docs-localization'
+import { documentationEditOptions } from '../../../../../lib/docs-links'
 import { isSiteLocale } from '../../../../../lib/i18n'
 import { source } from '../../../../../lib/source'
 
@@ -48,7 +49,12 @@ export default async function DocumentationPage({
 	const neighbours = findNeighbour(source.getPageTree(lang), page.url)
 
 	return (
-		<DocsPage footer={{ items: neighbours }} toc={page.data.toc}>
+		<DocsPage
+			editOnGithub={documentationEditOptions(page.path)}
+			footer={{ items: neighbours }}
+			lastUpdate={page.data.reviewedAt}
+			toc={page.data.toc}
+		>
 			<DocsTitle>{page.data.title}</DocsTitle>
 			<DocsDescription>{page.data.description}</DocsDescription>
 			<DocsBody>

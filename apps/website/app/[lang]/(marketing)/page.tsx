@@ -16,7 +16,9 @@ export default async function HomePage({ params }: HomePageProps) {
 	return <LandingPage locale={lang} />
 }
 
-export async function generateMetadata({ params }: HomePageProps): Promise<Metadata> {
+export async function generateMetadata({
+	params,
+}: HomePageProps): Promise<Metadata> {
 	const { lang } = await params
 	if (!isSiteLocale(lang)) notFound()
 

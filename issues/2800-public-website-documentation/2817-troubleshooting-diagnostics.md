@@ -1,6 +1,6 @@
 # 2817: Document troubleshooting and diagnostics
 
-- Status: complete
+- Status: completed
 - Milestone: 28
 - Packages: `apps/website`, repository-wide public diagnostics
 - Depends on: 2806, 2810, 2811, 2812, 2813

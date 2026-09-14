@@ -9,6 +9,7 @@ order: 6
 outcome: Declare an inspectable plugin with exact authority and composition requirements.
 owner: '2816'
 releaseStatus: pre-release
+reviewedAt: 2026-09-14
 sources:
   - packages/core/src/plugins/manifest.ts
   - packages/core/README.md
@@ -34,16 +35,16 @@ const plugin = definePlugin({
 
 ## Parameters
 
-| Property | Required | Meaning |
-| --- | --- | --- |
-| `pluginId` | yes | Stable namespaced package identity |
-| `instanceId` | for repeated configuration | Exact configured instance identity |
-| `version` | yes | Plugin package semantic version |
-| `core` | yes | Supported Core semantic-version range |
-| `privileges` | no | Closed Core power requests, each with a reason |
-| `environment` | no | Direct filesystem, network, process, or native-code claims |
-| `capabilities` | no | Versioned providers, requirements, decorators, or replacements |
-| dependencies and peers | no | Package identity compatibility and lifecycle ordering |
+| Property               | Required                   | Meaning                                                        |
+| ---------------------- | -------------------------- | -------------------------------------------------------------- |
+| `pluginId`             | yes                        | Stable namespaced package identity                             |
+| `instanceId`           | for repeated configuration | Exact configured instance identity                             |
+| `version`              | yes                        | Plugin package semantic version                                |
+| `core`                 | yes                        | Supported Core semantic-version range                          |
+| `privileges`           | no                         | Closed Core power requests, each with a reason                 |
+| `environment`          | no                         | Direct filesystem, network, process, or native-code claims     |
+| `capabilities`         | no                         | Versioned providers, requirements, decorators, or replacements |
+| dependencies and peers | no                         | Package identity compatibility and lifecycle ordering          |
 
 Use a dependency when provider-first lifecycle order is required. Use a peer
 when an engine consumes the add-on's capability and no order should be created.

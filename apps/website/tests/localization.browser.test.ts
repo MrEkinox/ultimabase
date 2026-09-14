@@ -91,9 +91,7 @@ describe('French public journey', () => {
 				.waitFor({ state: 'visible' })
 			expect(await page.locator('pre').count()).toBe(4)
 			await page.getByText('Sur cette page', { exact: true }).waitFor()
-			await page
-				.getByRole('button', { name: 'Choisir une langue' })
-				.waitFor()
+			await page.getByRole('button', { name: 'Choisir une langue' }).waitFor()
 			await page
 				.locator('article a[href="/fr/docs/getting-started/installation"]')
 				.waitFor()
@@ -108,6 +106,13 @@ describe('French public journey', () => {
 					siteConfig.canonicalUrl,
 				).href,
 			)
+			const editLink = page.getByRole('link', { name: 'Modifier sur GitHub' })
+			expect(await editLink.getAttribute('href')).toBe(
+				'https://github.com/MrEkinox/ultimadatabase/blob/main/apps/website/content/docs/fr/getting-started/first-application.mdx',
+			)
+			await page
+				.getByText('Dernière mise à jour le', { exact: false })
+				.waitFor()
 
 			const search = await page.request.get(
 				`${origin}/api/search?query=préversion&locale=fr`,

@@ -2,7 +2,10 @@ import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 
 import { ExampleScenarioPage } from '../../../../../components/examples/examples-page'
-import { exampleScenarios, findExampleScenario } from '../../../../../components/examples/content'
+import {
+	exampleScenarios,
+	findExampleScenario,
+} from '../../../../../components/examples/content'
 import { isSiteLocale } from '../../../../../lib/i18n'
 
 interface ScenarioPageProps {
@@ -13,7 +16,9 @@ export function generateStaticParams() {
 	return exampleScenarios.map((scenario) => ({ scenario: scenario.slug }))
 }
 
-export async function generateMetadata({ params }: ScenarioPageProps): Promise<Metadata> {
+export async function generateMetadata({
+	params,
+}: ScenarioPageProps): Promise<Metadata> {
 	const { scenario: slug } = await params
 	const scenario = findExampleScenario(slug)
 	if (scenario === undefined) return {}

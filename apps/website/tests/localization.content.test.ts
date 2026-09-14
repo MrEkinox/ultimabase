@@ -4,10 +4,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
-import {
-	applicationExample,
-	landingCopy,
-} from '../components/landing/content'
+import { applicationExample, landingCopy } from '../components/landing/content'
 import { resolveDocumentationPage } from '../lib/docs-localization'
 import { localizeNavigationLabel, localizePath } from '../lib/i18n'
 
@@ -35,7 +32,10 @@ const translatedPages = [
 const readDocumentation = (relativePath: string): Promise<string> =>
 	readFile(path.join(documentationRoot, relativePath), 'utf8')
 
-const readFrontmatterValue = (source: string, key: string): string | undefined =>
+const readFrontmatterValue = (
+	source: string,
+	key: string,
+): string | undefined =>
 	new RegExp(`^  ${key}: (?<value>.+)$`, 'mu').exec(source)?.groups?.value
 
 const fencedBlocks = (source: string): readonly string[] =>
@@ -50,7 +50,10 @@ describe('French reader journey', () => {
 				readDocumentation(page.english),
 				readDocumentation(page.french),
 			])
-			const fingerprint = createHash('sha256').update(english).digest('hex')
+			const translatableSource = english.replace(/^reviewedAt: .+\n/mu, '')
+			const fingerprint = createHash('sha256')
+				.update(translatableSource)
+				.digest('hex')
 
 			expect(readFrontmatterValue(french, 'source')).toBe(page.source)
 			expect(readFrontmatterValue(french, 'sourceHash')).toBe(
@@ -89,11 +92,7 @@ describe('French reader journey', () => {
 			'/fr/docs/getting-started/introduction',
 		)
 		expect(
-			resolveDocumentationPage(
-				'fr',
-				undefined,
-				'/docs/querying/overview',
-			),
+			resolveDocumentationPage('fr', undefined, '/docs/querying/overview'),
 		).toEqual({
 			englishPage: '/docs/querying/overview',
 			kind: 'translation-fallback',

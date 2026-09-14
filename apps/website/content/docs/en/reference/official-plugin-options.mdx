@@ -10,6 +10,7 @@ order: 7
 outcome: Configure each optional capability without assuming hidden installation or undocumented defaults.
 owner: '2816'
 releaseStatus: pre-release
+reviewedAt: 2026-09-14
 sources:
   - packages/access-plugin/README.md
   - packages/acl-permissions-plugin/README.md
@@ -46,25 +47,25 @@ plugins: [
 
 ## Parameters
 
-| Factory | Principal options | Defaults and status |
-| --- | --- | --- |
-| `accessPlugin` | `default` operation policy | exact undeclared operations deny; fields remain available |
-| `aclPlugin` | `limits.maxPrincipals`, `limits.maxRoles` | 100 principals, 50 roles |
-| `hooksPlugin` | none | no lifecycle exists until installed |
-| `validationPlugin` | none | synchronous rejection-only Standard Schema validation |
-| `softDeletePlugin` | `defaultMode`, `instanceId` | `disabled`; schema may choose `false`, `replace-delete`, or `explicit` |
-| `rolesPlugin` | none | role deletion defaults to `fail` on each Role schema |
-| `passwordAuthPlugin` | `user`, `password`, `session`, `http.cookie` | Argon2id policy; 7-day rolling and 30-day absolute session |
-| `pgVectorPlugin` | none | logical field shipped; PostgreSQL physical vector support not shipped |
-| `postgresPlugin` | exactly one of `url` or `pool`, `schemaPolicy` | `override`; injected pools stay developer-owned |
-| `httpPlugin` | required `appId`, optional `browser`, `master`, `requestTimeoutMs` | browser policy and Master transport disabled |
-| `honoServerPlugin` | managed `host`/`port`, or existing `app` ownership | managed port `1337` |
-| `restPlugin` | `basePath`, `bodyLimit`, `maxLimit`, route defaults, operations | experimental v1; `/api/v1`, 1 MiB body, maximum limit 1000 |
-| `graphqlPlugin` | operation defaults, limits, custom schemas, operations | networkless; page 25/100, depth 20, 100 KiB document |
-| `graphqlYogaPlugin` | `path`, `bodyLimit`, `introspection` | `/graphql`, 1 MiB body, introspection disabled |
-| `graphiqlPlugin` | `environment`, production opt-in | disabled in production unless explicitly allowed |
-| `apolloSandboxPlugin` | `environment`, production opt-in | disabled in production unless explicitly allowed |
-| `typegenPlugin` | `applicationId`, `outputPath`, source loading options | writes inert declarations before infrastructure connects |
+| Factory               | Principal options                                                  | Defaults and status                                                    |
+| --------------------- | ------------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| `accessPlugin`        | `default` operation policy                                         | exact undeclared operations deny; fields remain available              |
+| `aclPlugin`           | `limits.maxPrincipals`, `limits.maxRoles`                          | 100 principals, 50 roles                                               |
+| `hooksPlugin`         | none                                                               | no lifecycle exists until installed                                    |
+| `validationPlugin`    | none                                                               | synchronous rejection-only Standard Schema validation                  |
+| `softDeletePlugin`    | `defaultMode`, `instanceId`                                        | `disabled`; schema may choose `false`, `replace-delete`, or `explicit` |
+| `rolesPlugin`         | none                                                               | role deletion defaults to `fail` on each Role schema                   |
+| `passwordAuthPlugin`  | `user`, `password`, `session`, `http.cookie`                       | Argon2id policy; 7-day rolling and 30-day absolute session             |
+| `pgVectorPlugin`      | none                                                               | logical field shipped; PostgreSQL physical vector support not shipped  |
+| `postgresPlugin`      | exactly one of `url` or `pool`, `schemaPolicy`                     | `override`; injected pools stay developer-owned                        |
+| `httpPlugin`          | required `appId`, optional `browser`, `master`, `requestTimeoutMs` | browser policy and Master transport disabled                           |
+| `honoServerPlugin`    | managed `host`/`port`, or existing `app` ownership                 | managed port `1337`                                                    |
+| `restPlugin`          | `basePath`, `bodyLimit`, `maxLimit`, route defaults, operations    | experimental v1; `/api/v1`, 1 MiB body, maximum limit 1000             |
+| `graphqlPlugin`       | operation defaults, limits, custom schemas, operations             | networkless; page 25/100, depth 20, 100 KiB document                   |
+| `graphqlYogaPlugin`   | `path`, `bodyLimit`, `introspection`                               | `/graphql`, 1 MiB body, introspection disabled                         |
+| `graphiqlPlugin`      | `environment`, production opt-in                                   | disabled in production unless explicitly allowed                       |
+| `apolloSandboxPlugin` | `environment`, production opt-in                                   | disabled in production unless explicitly allowed                       |
+| `typegenPlugin`       | `applicationId`, `outputPath`, source loading options              | writes inert declarations before infrastructure connects               |
 
 ## Defaults
 

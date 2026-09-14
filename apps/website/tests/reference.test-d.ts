@@ -27,7 +27,9 @@ test('keeps representative reference signatures on public package exports', () =
 	expectTypeOf(ReferencePost.className).toEqualTypeOf<'ReferencePost'>()
 	expectTypeOf(query.schema).toEqualTypeOf<typeof ReferencePost>()
 	expectTypeOf(error.code).toEqualTypeOf<'NOT_FOUND'>()
-	expectTypeOf(plugin.manifest.identity.pluginId).toEqualTypeOf<'reference.example'>()
+	expectTypeOf(
+		plugin.manifest.identity.pluginId,
+	).toEqualTypeOf<'reference.example'>()
 	expectTypeOf<RestPluginOptions['basePath']>().toEqualTypeOf<
 		string | undefined
 	>()

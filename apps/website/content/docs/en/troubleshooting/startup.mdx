@@ -10,6 +10,7 @@ order: 1
 outcome: Identify the startup stage that failed and repair configuration without bypassing a safety boundary.
 owner: '2817'
 releaseStatus: pre-release
+reviewedAt: 2026-09-14
 sources:
   - packages/core/src/errors/framework-error.ts
   - packages/core/README.md
@@ -22,14 +23,14 @@ sources:
 error code and lifecycle stage; do not reduce every startup failure to a database
 problem.
 
-| Diagnostic | Meaning |
-| --- | --- |
-| `PLUGIN_DEPENDENCY_MISSING` or `PLUGIN_DEPENDENCY_CYCLE` | the static plugin graph cannot be ordered |
-| `PLUGIN_DUPLICATE` or `PLUGIN_CONFLICT` | identity or replacement is ambiguous |
-| `PLUGIN_CAPABILITY_MISSING` or `PLUGIN_CAPABILITY_CONFLICT` | an application capability has no valid composition |
-| `PLUGIN_PROTOCOL_INCOMPATIBLE` | two versioned contracts cannot communicate |
-| `PLUGIN_PRIVILEGE_DENIED` | policy rejected a requested privilege or environment claim |
-| `PLUGIN_DECLARATION_INVALID` | a static contribution violates its public contract |
+| Diagnostic                                                  | Meaning                                                    |
+| ----------------------------------------------------------- | ---------------------------------------------------------- |
+| `PLUGIN_DEPENDENCY_MISSING` or `PLUGIN_DEPENDENCY_CYCLE`    | the static plugin graph cannot be ordered                  |
+| `PLUGIN_DUPLICATE` or `PLUGIN_CONFLICT`                     | identity or replacement is ambiguous                       |
+| `PLUGIN_CAPABILITY_MISSING` or `PLUGIN_CAPABILITY_CONFLICT` | an application capability has no valid composition         |
+| `PLUGIN_PROTOCOL_INCOMPATIBLE`                              | two versioned contracts cannot communicate                 |
+| `PLUGIN_PRIVILEGE_DENIED`                                   | policy rejected a requested privilege or environment claim |
+| `PLUGIN_DECLARATION_INVALID`                                | a static contribution violates its public contract         |
 
 A plain `TypeError` usually points to malformed options or an unknown key.
 

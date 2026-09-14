@@ -9,6 +9,7 @@ order: 4
 outcome: Build and execute one transport-neutral read with an exact selection and result type.
 owner: '2816'
 releaseStatus: pre-release
+reviewedAt: 2026-09-14
 sources:
   - packages/core/src/query/query/query.ts
   - packages/core/docs/query.md
@@ -35,13 +36,13 @@ Schema-root commands accept the same canonical object directly:
 
 ## Parameters
 
-| Clause | Meaning |
-| --- | --- |
-| `where` | Typed scalar, list, object, pointer, and relation predicates |
-| `select` | Flat result projection; `id` is always retained |
-| `include` | Pointer or relation target projection |
-| `orderBy` | Ordered terms with explicit direction and null placement |
-| `limit`, `offset` | Bounded offset pagination |
+| Clause            | Meaning                                                      |
+| ----------------- | ------------------------------------------------------------ |
+| `where`           | Typed scalar, list, object, pointer, and relation predicates |
+| `select`          | Flat result projection; `id` is always retained              |
+| `include`         | Pointer or relation target projection                        |
+| `orderBy`         | Ordered terms with explicit direction and null placement     |
+| `limit`, `offset` | Bounded offset pagination                                    |
 
 Builder methods always return a new instance. `include(field, callback)` receives
 a target-typed builder. Pointers accept only a projection; relations additionally

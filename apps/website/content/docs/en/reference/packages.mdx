@@ -10,6 +10,7 @@ order: 9
 outcome: Install the smallest public package set for an application, plugin, transport, or test.
 owner: '2816'
 releaseStatus: pre-release
+reviewedAt: 2026-09-14
 sources:
   - packages/README.md
   - packages/*/package.json
@@ -31,16 +32,16 @@ private and unsupported.
 
 ## Parameters
 
-| Category | Packages |
-| --- | --- |
-| Core foundations | `@ultimabase/core`, `@ultimabase/shared` |
-| Plugin authoring | `@ultimabase/plugin-kit` |
-| Tooling | `@ultimabase/typegen` |
-| Database and data | `@ultimabase/postgres-plugin`, `@ultimabase/pg-vector-plugin`, `@ultimabase/soft-delete-plugin`, `@ultimabase/validation-plugin`, `@ultimabase/hooks-plugin` |
-| Security | `@ultimabase/access-plugin`, `@ultimabase/acl-permissions-plugin`, `@ultimabase/password-auth-plugin`, `@ultimabase/roles-plugin` |
+| Category             | Packages                                                                                                                                                                            |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Core foundations     | `@ultimabase/core`, `@ultimabase/shared`                                                                                                                                            |
+| Plugin authoring     | `@ultimabase/plugin-kit`                                                                                                                                                            |
+| Tooling              | `@ultimabase/typegen`                                                                                                                                                               |
+| Database and data    | `@ultimabase/postgres-plugin`, `@ultimabase/pg-vector-plugin`, `@ultimabase/soft-delete-plugin`, `@ultimabase/validation-plugin`, `@ultimabase/hooks-plugin`                        |
+| Security             | `@ultimabase/access-plugin`, `@ultimabase/acl-permissions-plugin`, `@ultimabase/password-auth-plugin`, `@ultimabase/roles-plugin`                                                   |
 | Transport and server | `@ultimabase/http-plugin`, `@ultimabase/server-hono-plugin`, `@ultimabase/rest-plugin`, `@ultimabase/graphql-plugin`, `@ultimabase/graphql-http`, `@ultimabase/graphql-yoga-plugin` |
-| Explorers | `@ultimabase/graphiql-plugin`, `@ultimabase/apollo-sandbox-plugin` |
-| Testing | `@ultimabase/testing` |
+| Explorers            | `@ultimabase/graphiql-plugin`, `@ultimabase/apollo-sandbox-plugin`                                                                                                                  |
+| Testing              | `@ultimabase/testing`                                                                                                                                                               |
 
 `@ultimabase/graphql-http` is a provider-neutral contract, not a plugin.
 `@ultimabase/pg-vector-plugin` currently ships the logical field contract but

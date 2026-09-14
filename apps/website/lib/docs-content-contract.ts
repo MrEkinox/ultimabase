@@ -36,6 +36,7 @@ export const documentationMetadataFields = {
 	outcome: z.string().trim().min(1),
 	owner: z.string().regex(/^\d{4}$/u),
 	releaseStatus: z.enum(documentationReleaseStatuses),
+	reviewedAt: z.iso.date(),
 	sources: z.array(z.string().trim().min(1)).min(1),
 	translation: translationSchema.optional(),
 }

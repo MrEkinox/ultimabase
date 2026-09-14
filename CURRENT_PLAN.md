@@ -3,7 +3,7 @@
 - Status: in progress
 - Milestone: 28
 - Created: 2026-09-14
-- Current issue: 2819
+- Current issue: 2820
 - Governing backlog: [Milestone 28](issues/2800-public-website-documentation/README.md)
 
 ## Objective
@@ -125,6 +125,10 @@ Issue 2818 completed the shared French landing and four-page Getting Started
 journey, exact cross-language sample reuse, source-fingerprint freshness checks,
 translated navigation and accessibility labels, localized search and metadata,
 and explicit English fallbacks for untranslated content.
+Issue 2819 completed the prospective documentation-impact workflow, exact
+package-to-section ownership, reader-visible review dates and source-edit links,
+focused bilingual prose checks, and ordinary CI validation while preserving
+human review and authoritative engineering sources.
 
 ### Phase 1 — Application, design, and content foundation
 
@@ -260,4 +264,4 @@ Resume only after explicit user direction to start implementation:
 5. Implement issue 2801 only; do not absorb visual design or content work from
    later issues.
 
-Resume point: **issue 2819**.
+Resume point: **issue 2820**.

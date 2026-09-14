@@ -245,7 +245,10 @@ export const landingCopy: Readonly<Record<'en' | 'fr', LandingCopy>> =
 				entryPointsLabel: 'Points d’entrée de l’application',
 				index: '02 / Un seul modèle d’exécution',
 				inputs: [
-					{ detail: 'Query immuable et commandes de modèle', label: 'TypeScript' },
+					{
+						detail: 'Query immuable et commandes de modèle',
+						label: 'TypeScript',
+					},
 					{ detail: 'Protocole de ressources versionné', label: 'REST' },
 					{ detail: 'Opérations de schéma et de plugin', label: 'GraphQL' },
 				],

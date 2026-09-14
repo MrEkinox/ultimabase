@@ -1,38 +1,6 @@
 import { siteConfig } from '../../lib/site'
 
-export type ExampleLinkKind = 'Concept' | 'Reference' | 'Task guide'
-export type ExampleSourceKind =
-	| 'Application code'
-	| 'Repository instructions'
-	| 'Test helper'
-
-export interface ExampleDocumentationLink {
-	readonly href: string
-	readonly kind: ExampleLinkKind
-	readonly label: string
-}
-
-export interface ExampleSourceRegion {
-	readonly endLine: number
-	readonly expectedText: string
-	readonly kind: ExampleSourceKind
-	readonly label: string
-	readonly path: string
-	readonly startLine: number
-}
-
-export interface ExampleScenario {
-	readonly code: string
-	readonly codeLabel: string
-	readonly documentation: readonly ExampleDocumentationLink[]
-	readonly index: string
-	readonly outcome: string
-	readonly slug: string
-	readonly sources: readonly ExampleSourceRegion[]
-	readonly steps: readonly string[]
-	readonly summary: string
-	readonly title: string
-}
+import type { ExampleScenario, ExampleSourceRegion } from './types'
 
 const repositorySourceUrl = (source: ExampleSourceRegion): string =>
 	new URL(
@@ -60,13 +28,21 @@ export const exampleScenarios: readonly ExampleScenario[] = Object.freeze([
 })`,
 		codeLabel: 'src/schema.ts',
 		documentation: [
-			{ href: '/docs/data-modeling/schemas', kind: 'Concept', label: 'Schemas' },
+			{
+				href: '/docs/data-modeling/schemas',
+				kind: 'Concept',
+				label: 'Schemas',
+			},
 			{
 				href: '/docs/getting-started/first-application',
 				kind: 'Task guide',
 				label: 'Build a first application',
 			},
-			{ href: '/docs/data-modeling/fields', kind: 'Reference', label: 'Fields' },
+			{
+				href: '/docs/data-modeling/fields',
+				kind: 'Reference',
+				label: 'Fields',
+			},
 		],
 		index: '01',
 		outcome:
@@ -87,7 +63,8 @@ export const exampleScenarios: readonly ExampleScenario[] = Object.freeze([
 			'Notice that relations name schema targets, never database tables.',
 			'Run Typegen after changing the graph to refresh editor declarations.',
 		],
-		summary: 'Start with the authoritative TypeScript graph, not transport schemas.',
+		summary:
+			'Start with the authoritative TypeScript graph, not transport schemas.',
 		title: 'Model the schema',
 	},
 	{
@@ -100,13 +77,21 @@ export const exampleScenarios: readonly ExampleScenario[] = Object.freeze([
 )`,
 		codeLabel: 'direct-query.ts',
 		documentation: [
-			{ href: '/docs/querying/overview', kind: 'Concept', label: 'Query overview' },
+			{
+				href: '/docs/querying/overview',
+				kind: 'Concept',
+				label: 'Query overview',
+			},
 			{
 				href: '/docs/guides/test-an-application',
 				kind: 'Task guide',
 				label: 'Test an application',
 			},
-			{ href: '/docs/apis/typescript', kind: 'Reference', label: 'TypeScript API' },
+			{
+				href: '/docs/apis/typescript',
+				kind: 'Reference',
+				label: 'TypeScript API',
+			},
 		],
 		index: '02',
 		outcome:
@@ -138,7 +123,11 @@ export const exampleScenarios: readonly ExampleScenario[] = Object.freeze([
   --data '{"slug":"hello-rest","title":"Hello REST"}'`,
 		codeLabel: 'REST request',
 		documentation: [
-			{ href: '/docs/apis/http-applications', kind: 'Concept', label: 'HTTP applications' },
+			{
+				href: '/docs/apis/http-applications',
+				kind: 'Concept',
+				label: 'HTTP applications',
+			},
 			{
 				href: '/docs/getting-started/next-steps',
 				kind: 'Task guide',
@@ -184,13 +173,21 @@ export const exampleScenarios: readonly ExampleScenario[] = Object.freeze([
   --data '{"query":"mutation SignUp($input: PasswordAuthCredentialsInput!) { signUp(input: $input) { session { token } } }","variables":{"input":{"username":"ada","password":"correct horse battery staple"}}}'`,
 		codeLabel: 'sign-up.sh',
 		documentation: [
-			{ href: '/docs/security/overview', kind: 'Concept', label: 'Security model' },
+			{
+				href: '/docs/security/overview',
+				kind: 'Concept',
+				label: 'Security model',
+			},
 			{
 				href: '/docs/guides/build-an-authenticated-api',
 				kind: 'Task guide',
 				label: 'Build an authenticated API',
 			},
-			{ href: '/docs/security/access', kind: 'Reference', label: 'Access policies' },
+			{
+				href: '/docs/security/access',
+				kind: 'Reference',
+				label: 'Access policies',
+			},
 		],
 		index: '04',
 		outcome:
@@ -219,7 +216,8 @@ export const exampleScenarios: readonly ExampleScenario[] = Object.freeze([
 			'Send the token with Authorization: Bearer on later REST or GraphQL calls.',
 			'Treat authentication as request identity; it does not create Core Master authority.',
 		],
-		summary: 'Add identity without conflating a user session with trusted authority.',
+		summary:
+			'Add identity without conflating a user session with trusted authority.',
 		title: 'Authenticate and authorize',
 	},
 	{
@@ -239,13 +237,21 @@ export const exampleScenarios: readonly ExampleScenario[] = Object.freeze([
 )`,
 		codeLabel: 'nested-write.ts',
 		documentation: [
-			{ href: '/docs/data-modeling/relations', kind: 'Concept', label: 'Relations' },
+			{
+				href: '/docs/data-modeling/relations',
+				kind: 'Concept',
+				label: 'Relations',
+			},
 			{
 				href: '/docs/guides/write-nested-data',
 				kind: 'Task guide',
 				label: 'Write nested data',
 			},
-			{ href: '/docs/mutations/nested-writes', kind: 'Reference', label: 'Nested writes' },
+			{
+				href: '/docs/mutations/nested-writes',
+				kind: 'Reference',
+				label: 'Nested writes',
+			},
 		],
 		index: '05',
 		outcome:
@@ -277,13 +283,21 @@ export const exampleScenarios: readonly ExampleScenario[] = Object.freeze([
 })`,
 		codeLabel: 'src/schema.ts',
 		documentation: [
-			{ href: '/docs/data-modeling/fields', kind: 'Concept', label: 'Field kinds' },
+			{
+				href: '/docs/data-modeling/fields',
+				kind: 'Concept',
+				label: 'Field kinds',
+			},
 			{
 				href: '/docs/guides/add-virtual-fields',
 				kind: 'Task guide',
 				label: 'Add virtual fields',
 			},
-			{ href: '/docs/querying/selections', kind: 'Reference', label: 'Selections' },
+			{
+				href: '/docs/querying/selections',
+				kind: 'Reference',
+				label: 'Selections',
+			},
 		],
 		index: '06',
 		outcome:
@@ -314,13 +328,21 @@ await restoreArticle(ultimabase, articleId)
 await purgeArticle(ultimabase, obsoleteArticleId)`,
 		codeLabel: 'soft-delete.ts',
 		documentation: [
-			{ href: '/docs/mutations/soft-delete', kind: 'Concept', label: 'Soft delete' },
+			{
+				href: '/docs/mutations/soft-delete',
+				kind: 'Concept',
+				label: 'Soft delete',
+			},
 			{
 				href: '/docs/guides/add-soft-delete',
 				kind: 'Task guide',
 				label: 'Add soft delete',
 			},
-			{ href: '/docs/mutations/delete', kind: 'Reference', label: 'Delete commands' },
+			{
+				href: '/docs/mutations/delete',
+				kind: 'Reference',
+				label: 'Delete commands',
+			},
 		],
 		index: '07',
 		outcome:
@@ -349,7 +371,8 @@ await purgeArticle(ultimabase, obsoleteArticleId)`,
 			'Authorize softDelete independently from hard delete.',
 			'Keep restoration and irreversible purge behind trusted server authority.',
 		],
-		summary: 'Make logical deletion explicit in policy, hooks, and transport exposure.',
+		summary:
+			'Make logical deletion explicit in policy, hooks, and transport exposure.',
 		title: 'Soft-delete data',
 	},
 ])

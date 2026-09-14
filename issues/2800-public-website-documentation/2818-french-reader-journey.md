@@ -1,6 +1,6 @@
 # 2818: Add the first French reader journey
 
-- Status: complete
+- Status: completed
 - Milestone: 28
 - Packages: `apps/website`
 - Depends on: 2802, 2803, 2805, 2806

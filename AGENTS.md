@@ -285,6 +285,18 @@ Create a dedicated commit after an issue is complete, but never push it without 
 
 ## Documentation and decisions
 
+- Before completing every implementation issue, record exactly one
+  `Documentation impact` classification in the issue handoff: `none`,
+  `internal engineering documentation`, `public website documentation`, or
+  `both`. A `none` classification must include a concrete reason.
+- Changes to public behavior, exports, configuration, installation, examples,
+  errors, security semantics, or supported integrations must review and update
+  the affected pages under `apps/website/content/docs` in the same issue. When
+  no public edit is necessary, record why the existing public contract remains
+  accurate.
+- Use `apps/website/content/documentation-ownership.json` to locate the likely
+  public sections for a package. Its mapping narrows review; it does not replace
+  judgment or the page-level `sources` metadata.
 - Update the package README when its public contract changes.
 - Every change under `packages/core/src/schema` must review the schema examples. Update
   `packages/core/examples/schema` in the same issue whenever field behavior, schema
@@ -292,6 +304,9 @@ Create a dedicated commit after an issue is complete, but never push it without 
 - Add or update an ADR for architectural decisions, dependency-boundary changes, storage formats, public API conventions, or security semantics.
 - Keep issue status and acceptance criteria current.
 - Do not rewrite an accepted ADR to hide history; supersede it with a new ADR.
+- Root specifications, package contracts, and ADRs remain authoritative
+  engineering sources. Generated declarations and website prose never become
+  Runtime truth.
 
 ## Scope discipline
 
