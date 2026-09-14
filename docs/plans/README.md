@@ -8,7 +8,7 @@ priority changes.
 ## Active
 
 - [Public website and documentation foundation](../../CURRENT_PLAN.md),
-  currently implementing issue 2805.
+  currently implementing issue 2806.
 
 ## Paused
 

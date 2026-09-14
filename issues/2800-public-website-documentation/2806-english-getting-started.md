@@ -1,6 +1,6 @@
 # 2806: Author the English getting-started journey
 
-- Status: planned
+- Status: ready
 - Milestone: 28
 - Packages: `apps/website`
 - Depends on: 2805

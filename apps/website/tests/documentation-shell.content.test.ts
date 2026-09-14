@@ -115,7 +115,14 @@ describe('public documentation content contract', () => {
 			expect(page.source).toMatch(/^---\n[\s\S]*?\n---/u)
 			expect(page.source).toMatch(/^title: .+$/mu)
 			expect(page.source).toMatch(/^description: .+$/mu)
+			expect(page.source).toMatch(/^audience:\n(?: {2}- .+\n)+/mu)
+			expect(page.source).toMatch(
+				/^contentType: (tutorial|guide|concept|troubleshooting|reference)$/mu,
+			)
+			expect(page.source).toMatch(/^outcome: .+$/mu)
+			expect(page.source).toMatch(/^owner: ['"]?\d{4}['"]?$/mu)
 			expect(page.source).toMatch(/^releaseStatus: (pre-release|stable)$/mu)
+			expect(page.source).toMatch(/^sources:\n(?: {2}- .+\n?)+/mu)
 		}
 	})
 

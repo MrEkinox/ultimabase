@@ -52,10 +52,17 @@ translations. English pages are canonical at `/docs`; French pages use
 English source and the nearest French documentation entry instead of silently
 mixing languages.
 
-Every public MDX page requires a title, description, and release status.
+Every public MDX page requires a title, description, audience, content type,
+reader outcome, owning issue, release status, and canonical repository sources.
 Frontmatter may also declare navigation order and translation source metadata.
 `components/mdx.tsx` exposes the shared code, tabs, callouts, cards, file-tree,
 and semantic architecture-diagram components.
+
+The internal [`docs/editorial-contract.md`](docs/editorial-contract.md) defines
+page templates, voice, terminology, code-sample rules, and progressive
+disclosure. [`docs/source-inventory.md`](docs/source-inventory.md) records which
+repository material is suitable for each public area, while
+`content/documentation-plan.json` assigns every planned page before authoring.
 
 The `/api/search` index is built only from this public content source and is
 locale-aware. `yarn website:validate` generates the typed content, validates

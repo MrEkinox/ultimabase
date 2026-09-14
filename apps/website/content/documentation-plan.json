@@ -1,0 +1,711 @@
+{
+	"sections": [
+		{
+			"slug": "getting-started",
+			"label": "Getting Started",
+			"owner": "2806",
+			"audiences": ["application-developer"],
+			"releaseStatus": "pre-release",
+			"sourceStatus": "ready",
+			"sources": [
+				"README.md",
+				"examples/minimal/README.md",
+				"examples/minimal/src/create-application.ts",
+				"packages/core/src/index.ts",
+				"packages/postgres-plugin/src/index.ts"
+			],
+			"pages": [
+				{
+					"slug": "introduction",
+					"contentType": "tutorial",
+					"outcome": "Decide whether UltimaBase fits a typed backend application."
+				},
+				{
+					"slug": "installation",
+					"contentType": "tutorial",
+					"outcome": "Install the intended npm packages and verify prerequisites."
+				},
+				{
+					"slug": "first-application",
+					"contentType": "tutorial",
+					"outcome": "Start a minimal schema-backed PostgreSQL application."
+				},
+				{
+					"slug": "project-structure",
+					"contentType": "tutorial",
+					"outcome": "Place schemas, plugins, configuration, and generated declarations deliberately."
+				},
+				{
+					"slug": "next-steps",
+					"contentType": "tutorial",
+					"outcome": "Choose the next learning path from a working application."
+				}
+			]
+		},
+		{
+			"slug": "data-modeling",
+			"label": "Model Your Data",
+			"owner": "2807",
+			"audiences": ["application-developer", "plugin-author"],
+			"releaseStatus": "pre-release",
+			"sourceStatus": "ready",
+			"sources": [
+				"packages/core/docs/schema.md",
+				"packages/core/examples/schema",
+				"packages/core/README.md",
+				"examples/minimal/src/schema.ts",
+				"docs/adr/0002-static-schemas-and-typed-extensions.md"
+			],
+			"pages": [
+				{
+					"slug": "schemas",
+					"contentType": "concept",
+					"outcome": "Define a static schema and understand its compiled identity."
+				},
+				{
+					"slug": "fields",
+					"contentType": "reference",
+					"outcome": "Choose field kinds and options without bypassing the builder."
+				},
+				{
+					"slug": "models",
+					"contentType": "concept",
+					"outcome": "Use detached immutable model values and application-owned handles correctly."
+				},
+				{
+					"slug": "defaults",
+					"contentType": "concept",
+					"outcome": "Predict static, generated, and runtime default behavior."
+				},
+				{
+					"slug": "embedded-objects",
+					"contentType": "concept",
+					"outcome": "Model nested object values with their structural guarantees."
+				},
+				{
+					"slug": "pointers",
+					"contentType": "concept",
+					"outcome": "Model typed to-one relationships and their identity semantics."
+				},
+				{
+					"slug": "relations",
+					"contentType": "concept",
+					"outcome": "Model inverse to-many relationships and membership semantics."
+				}
+			]
+		},
+		{
+			"slug": "querying",
+			"label": "Read Data",
+			"owner": "2808",
+			"audiences": ["application-developer"],
+			"releaseStatus": "pre-release",
+			"sourceStatus": "ready",
+			"sources": [
+				"packages/core/docs/query.md",
+				"packages/core/src/query",
+				"packages/postgres-plugin/README.md",
+				"examples/minimal/src/schema.ts",
+				"docs/adr/0058-immutable-unbound-query-builder.md"
+			],
+			"pages": [
+				{
+					"slug": "overview",
+					"contentType": "concept",
+					"outcome": "Build and execute an immutable typed query."
+				},
+				{
+					"slug": "filters",
+					"contentType": "reference",
+					"outcome": "Express supported scalar and logical filters precisely."
+				},
+				{
+					"slug": "selections",
+					"contentType": "guide",
+					"outcome": "Select output fields while preserving inferred result types."
+				},
+				{
+					"slug": "ordering-and-pagination",
+					"contentType": "guide",
+					"outcome": "Order and page results with explicit stability tradeoffs."
+				},
+				{
+					"slug": "includes",
+					"contentType": "guide",
+					"outcome": "Load pointers and relations without changing relationship meaning."
+				},
+				{
+					"slug": "relation-predicates",
+					"contentType": "reference",
+					"outcome": "Filter parents through visible relation cardinality and predicates."
+				},
+				{
+					"slug": "contextual-relations",
+					"contentType": "concept",
+					"outcome": "Understand request-contextual relationship views across APIs."
+				}
+			]
+		},
+		{
+			"slug": "mutations",
+			"label": "Write Data",
+			"owner": "2809",
+			"audiences": ["application-developer"],
+			"releaseStatus": "pre-release",
+			"sourceStatus": "ready",
+			"sources": [
+				"packages/core/docs/runtime.md",
+				"packages/core/README.md",
+				"packages/postgres-plugin/README.md",
+				"packages/soft-delete-plugin/README.md",
+				"packages/core/examples/schema/nested-writes.md",
+				"docs/adr/0099-automatic-mutation-transactions.md"
+			],
+			"pages": [
+				{
+					"slug": "create",
+					"contentType": "guide",
+					"outcome": "Create one validated record and shape its result."
+				},
+				{
+					"slug": "update",
+					"contentType": "guide",
+					"outcome": "Update one target with typed field operations."
+				},
+				{
+					"slug": "delete",
+					"contentType": "guide",
+					"outcome": "Delete one target with explicit result semantics."
+				},
+				{
+					"slug": "bulk-operations",
+					"contentType": "concept",
+					"outcome": "Choose singular or itemized bulk commands with known atomicity."
+				},
+				{
+					"slug": "upserts",
+					"contentType": "guide",
+					"outcome": "Create or update through a unique typed target."
+				},
+				{
+					"slug": "nested-writes",
+					"contentType": "guide",
+					"outcome": "Persist a bounded relationship graph atomically."
+				},
+				{
+					"slug": "transactions",
+					"contentType": "concept",
+					"outcome": "Predict automatic mutation and explicit read transaction boundaries."
+				},
+				{
+					"slug": "soft-delete",
+					"contentType": "guide",
+					"outcome": "Install and use logical deletion without hiding physical behavior."
+				}
+			]
+		},
+		{
+			"slug": "security",
+			"label": "Secure Your Application",
+			"owner": "2811",
+			"audiences": ["application-developer", "operator"],
+			"releaseStatus": "pre-release",
+			"sourceStatus": "ready",
+			"sources": [
+				"packages/core/docs/access.md",
+				"packages/password-auth-plugin/README.md",
+				"packages/access-plugin/README.md",
+				"packages/roles-plugin/README.md",
+				"packages/acl-permissions-plugin/README.md",
+				"docs/PRODUCT_SPEC.md",
+				"docs/adr/0206-application-owned-master-provenance.md"
+			],
+			"pages": [
+				{
+					"slug": "overview",
+					"contentType": "concept",
+					"outcome": "Choose the independent security capabilities an application needs."
+				},
+				{
+					"slug": "password-authentication",
+					"contentType": "guide",
+					"outcome": "Install password identity and session behavior explicitly."
+				},
+				{
+					"slug": "request-identity",
+					"contentType": "concept",
+					"outcome": "Understand plugin-owned subjects and request context."
+				},
+				{
+					"slug": "access",
+					"contentType": "concept",
+					"outcome": "Apply deny-only operation, item, and field policy."
+				},
+				{
+					"slug": "roles",
+					"contentType": "guide",
+					"outcome": "Model application roles without granting authority implicitly."
+				},
+				{
+					"slug": "acl",
+					"contentType": "guide",
+					"outcome": "Attach immutable object ACL restrictions safely."
+				},
+				{
+					"slug": "master-authority",
+					"contentType": "concept",
+					"outcome": "Use trusted server-side Master authority without transport forgery."
+				}
+			]
+		},
+		{
+			"slug": "apis",
+			"label": "Expose APIs",
+			"owner": "2812",
+			"audiences": ["application-developer", "operator"],
+			"releaseStatus": "pre-release",
+			"sourceStatus": "ready",
+			"sources": [
+				"README.md",
+				"packages/http-plugin/README.md",
+				"packages/rest-plugin/README.md",
+				"packages/graphql-plugin/README.md",
+				"packages/graphql-yoga-plugin/README.md",
+				"packages/server-hono-plugin/README.md",
+				"examples/minimal/README.md"
+			],
+			"pages": [
+				{
+					"slug": "typescript",
+					"contentType": "guide",
+					"outcome": "Execute schema commands directly with typed application context."
+				},
+				{
+					"slug": "http-applications",
+					"contentType": "concept",
+					"outcome": "Mount and identify one exact application per HTTP request."
+				},
+				{
+					"slug": "rest",
+					"contentType": "reference",
+					"outcome": "Use the versioned REST resource and mutation protocol."
+				},
+				{
+					"slug": "graphql",
+					"contentType": "reference",
+					"outcome": "Use generated schema operations and Relay-style reads."
+				},
+				{
+					"slug": "graphql-yoga",
+					"contentType": "guide",
+					"outcome": "Expose GraphQL through the optional Yoga HTTP bridge."
+				},
+				{
+					"slug": "errors",
+					"contentType": "reference",
+					"outcome": "Interpret framework and transport error boundaries accurately."
+				}
+			]
+		},
+		{
+			"slug": "plugins",
+			"label": "Plugins",
+			"owner": "2810",
+			"audiences": ["application-developer", "plugin-author"],
+			"releaseStatus": "pre-release",
+			"sourceStatus": "ready",
+			"sources": [
+				"ARCHITECTURE.md",
+				"packages/plugin-kit/README.md",
+				"packages/core/README.md",
+				"packages/testing/README.md",
+				"docs/adr/0186-trusted-open-plugin-kernel.md",
+				"docs/adr/0190-capability-host-lifecycle-and-legacy-convergence.md",
+				"docs/adr/0191-plugin-privilege-taxonomy-and-diagnostics.md"
+			],
+			"pages": [
+				{
+					"slug": "overview",
+					"contentType": "concept",
+					"outcome": "Understand explicit plugin composition and Core boundaries."
+				},
+				{
+					"slug": "installation",
+					"contentType": "guide",
+					"outcome": "Install and configure a plugin instance deliberately."
+				},
+				{
+					"slug": "official-plugins",
+					"contentType": "reference",
+					"outcome": "Choose among the shipped official plugin packages."
+				},
+				{
+					"slug": "authoring",
+					"contentType": "tutorial",
+					"outcome": "Build and verify a minimal public plugin."
+				},
+				{
+					"slug": "identity-and-instances",
+					"contentType": "concept",
+					"outcome": "Assign stable plugin and explicit instance identities."
+				},
+				{
+					"slug": "manifests-and-privileges",
+					"contentType": "reference",
+					"outcome": "Declare compatibility, powers, claims, and replacement intent."
+				},
+				{
+					"slug": "capabilities",
+					"contentType": "concept",
+					"outcome": "Integrate plugins through owned versioned capabilities."
+				},
+				{
+					"slug": "lifecycle-and-dependencies",
+					"contentType": "concept",
+					"outcome": "Predict deterministic setup, ordering, and teardown."
+				}
+			]
+		},
+		{
+			"slug": "operations",
+			"label": "Operate Your Application",
+			"owner": "2813",
+			"audiences": ["operator", "application-developer"],
+			"releaseStatus": "pre-release",
+			"sourceStatus": "partial",
+			"sources": [
+				"packages/core/README.md",
+				"packages/postgres-plugin/README.md",
+				"packages/http-plugin/README.md",
+				"packages/server-hono-plugin/README.md",
+				"examples/minimal/README.md",
+				"docs/RELEASING.md"
+			],
+			"pages": [
+				{
+					"slug": "configuration-and-environment",
+					"contentType": "guide",
+					"outcome": "Separate checked configuration from runtime secrets and environment."
+				},
+				{
+					"slug": "application-lifecycle",
+					"contentType": "concept",
+					"outcome": "Start, stop, and isolate applications and shared providers safely."
+				},
+				{
+					"slug": "postgres",
+					"contentType": "guide",
+					"outcome": "Configure PostgreSQL lifecycle and schema policy."
+				},
+				{
+					"slug": "secrets-and-master-key",
+					"contentType": "guide",
+					"outcome": "Supply and rotate trusted credentials outside transport input."
+				},
+				{
+					"slug": "browser-policy",
+					"contentType": "guide",
+					"outcome": "Enable browser-origin policy only when explicitly required."
+				},
+				{
+					"slug": "production-checklist",
+					"contentType": "guide",
+					"outcome": "Review shipped production boundaries without assuming hosted services."
+				}
+			]
+		},
+		{
+			"slug": "guides",
+			"label": "Guides",
+			"owner": "2814",
+			"audiences": ["application-developer", "plugin-author", "operator"],
+			"releaseStatus": "pre-release",
+			"sourceStatus": "partial",
+			"sources": [
+				"examples/minimal/README.md",
+				"packages/validation-plugin/README.md",
+				"packages/hooks-plugin/README.md",
+				"packages/password-auth-plugin/README.md",
+				"packages/soft-delete-plugin/README.md",
+				"packages/testing/README.md"
+			],
+			"pages": [
+				{
+					"slug": "validation",
+					"contentType": "guide",
+					"outcome": "Add Standard Schema validation at the final mutation-input boundary."
+				},
+				{
+					"slug": "hooks",
+					"contentType": "guide",
+					"outcome": "Add ordered transactional lifecycle behavior through the Hooks plugin."
+				},
+				{
+					"slug": "authenticated-api",
+					"contentType": "guide",
+					"outcome": "Expose an authenticated API with explicit identity and policy plugins."
+				},
+				{
+					"slug": "virtual-fields",
+					"contentType": "guide",
+					"outcome": "Add contextual computed output without pretending it is stored."
+				},
+				{
+					"slug": "nested-writes",
+					"contentType": "guide",
+					"outcome": "Implement one concrete atomic relationship mutation."
+				},
+				{
+					"slug": "soft-delete",
+					"contentType": "guide",
+					"outcome": "Add visible logical deletion and administrative recovery."
+				},
+				{
+					"slug": "contextual-relations",
+					"contentType": "guide",
+					"outcome": "Build one request-scoped relationship view consistently."
+				},
+				{
+					"slug": "testing",
+					"contentType": "guide",
+					"outcome": "Verify applications and plugins with supported testing helpers."
+				}
+			]
+		},
+		{
+			"slug": "concepts",
+			"label": "Concepts",
+			"owner": "2816",
+			"audiences": ["application-developer", "plugin-author", "operator"],
+			"releaseStatus": "pre-release",
+			"sourceStatus": "ready",
+			"sources": [
+				"ARCHITECTURE.md",
+				"docs/PRODUCT_SPEC.md",
+				"packages/core/docs/runtime.md",
+				"packages/core/README.md",
+				"packages/typegen/README.md",
+				"docs/adr"
+			],
+			"pages": [
+				{
+					"slug": "application-graph",
+					"contentType": "concept",
+					"outcome": "Understand the compiled graph as runtime truth."
+				},
+				{
+					"slug": "runtime-pipeline",
+					"contentType": "concept",
+					"outcome": "Follow one operation through the mandatory execution order."
+				},
+				{
+					"slug": "request-context",
+					"contentType": "concept",
+					"outcome": "Understand scoped values, identity, and execution attribution."
+				},
+				{
+					"slug": "transactions",
+					"contentType": "concept",
+					"outcome": "Distinguish automatic mutation and explicit transaction scopes."
+				},
+				{
+					"slug": "logical-operations-and-persistence",
+					"contentType": "concept",
+					"outcome": "Separate public operation meaning from replaceable physical plans."
+				},
+				{
+					"slug": "immutability",
+					"contentType": "concept",
+					"outcome": "Use immutable builders, models, ACLs, and roles predictably."
+				},
+				{
+					"slug": "typegen",
+					"contentType": "concept",
+					"outcome": "Treat generated declarations as replaceable developer tooling."
+				},
+				{
+					"slug": "architecture-decisions",
+					"contentType": "concept",
+					"outcome": "Trace public contracts to engineering decisions when deeper context helps."
+				}
+			]
+		},
+		{
+			"slug": "troubleshooting",
+			"label": "Troubleshooting",
+			"owner": "2817",
+			"audiences": ["application-developer", "plugin-author", "operator"],
+			"releaseStatus": "pre-release",
+			"sourceStatus": "partial",
+			"sources": [
+				"packages/core/README.md",
+				"packages/postgres-plugin/README.md",
+				"packages/typegen/README.md",
+				"packages/http-plugin/README.md",
+				"issues"
+			],
+			"pages": [
+				{
+					"slug": "startup",
+					"contentType": "troubleshooting",
+					"outcome": "Diagnose application compilation, privilege, and lifecycle failures."
+				},
+				{
+					"slug": "postgres",
+					"contentType": "troubleshooting",
+					"outcome": "Diagnose connection, schema policy, and adapter failures."
+				},
+				{
+					"slug": "typegen",
+					"contentType": "troubleshooting",
+					"outcome": "Diagnose source loading and declaration generation failures."
+				},
+				{
+					"slug": "http-and-application-identity",
+					"contentType": "troubleshooting",
+					"outcome": "Diagnose routing, mounted application, and credential boundaries."
+				},
+				{
+					"slug": "reporting-a-problem",
+					"contentType": "troubleshooting",
+					"outcome": "Collect safe diagnostics and report a reproducible problem."
+				}
+			]
+		},
+		{
+			"slug": "reference",
+			"label": "Reference",
+			"owner": "2816",
+			"audiences": ["application-developer", "plugin-author", "operator"],
+			"releaseStatus": "pre-release",
+			"sourceStatus": "ready",
+			"sources": [
+				"packages/*/README.md",
+				"packages/*/src/index.ts",
+				"README.md",
+				"ARCHITECTURE.md"
+			],
+			"pages": [
+				{
+					"slug": "application-configuration",
+					"contentType": "reference",
+					"outcome": "Look up public application options and defaults."
+				},
+				{
+					"slug": "schema",
+					"contentType": "reference",
+					"outcome": "Look up static schema declarations and handles."
+				},
+				{
+					"slug": "fields",
+					"contentType": "reference",
+					"outcome": "Look up built-in field factories and option contracts."
+				},
+				{
+					"slug": "query",
+					"contentType": "reference",
+					"outcome": "Look up Query builders, inputs, and terminal results."
+				},
+				{
+					"slug": "models",
+					"contentType": "reference",
+					"outcome": "Look up immutable model constructors and commands."
+				},
+				{
+					"slug": "plugin-manifests",
+					"contentType": "reference",
+					"outcome": "Look up manifest identity, privileges, claims, and compatibility fields."
+				},
+				{
+					"slug": "official-plugin-options",
+					"contentType": "reference",
+					"outcome": "Look up every shipped official plugin factory option."
+				},
+				{
+					"slug": "errors",
+					"contentType": "reference",
+					"outcome": "Look up framework issue and error codes by public boundary."
+				},
+				{
+					"slug": "packages",
+					"contentType": "reference",
+					"outcome": "Choose the correct public package without deep imports."
+				}
+			]
+		}
+	],
+	"standalonePages": [
+		{
+			"path": "/",
+			"slug": "home",
+			"contentType": "concept",
+			"outcome": "Understand the product promise and choose a next step.",
+			"owner": "2803",
+			"audiences": ["application-developer", "plugin-author", "operator"],
+			"releaseStatus": "pre-release",
+			"sourceStatus": "ready",
+			"sources": ["README.md", "ARCHITECTURE.md", "examples/minimal/README.md"]
+		},
+		{
+			"path": "/docs",
+			"slug": "docs",
+			"contentType": "concept",
+			"outcome": "Choose the documentation path for the current task.",
+			"owner": "2804",
+			"audiences": ["application-developer", "plugin-author", "operator"],
+			"releaseStatus": "pre-release",
+			"sourceStatus": "ready",
+			"sources": ["issues/2800-public-website-documentation/README.md"]
+		},
+		{
+			"path": "/examples",
+			"slug": "examples",
+			"contentType": "guide",
+			"outcome": "Run maintained scenarios from the minimal application.",
+			"owner": "2815",
+			"audiences": ["application-developer", "plugin-author"],
+			"releaseStatus": "pre-release",
+			"sourceStatus": "ready",
+			"sources": [
+				"examples/minimal/README.md",
+				"examples/todo-backend/README.md"
+			]
+		},
+		{
+			"path": "/status/release-status",
+			"slug": "release-status",
+			"contentType": "reference",
+			"outcome": "Understand release maturity and supported expectations.",
+			"owner": "2820",
+			"audiences": ["application-developer", "plugin-author", "operator"],
+			"releaseStatus": "pre-release",
+			"sourceStatus": "partial",
+			"sources": ["README.md", ".changeset/README.md", "docs/RELEASING.md"]
+		},
+		{
+			"path": "/status/roadmap",
+			"slug": "roadmap",
+			"contentType": "reference",
+			"outcome": "Distinguish shipped behavior from planned work.",
+			"owner": "2820",
+			"audiences": ["application-developer", "plugin-author", "operator"],
+			"releaseStatus": "pre-release",
+			"sourceStatus": "ready",
+			"sources": [
+				"issues/README.md",
+				"issues/2800-public-website-documentation/README.md"
+			]
+		},
+		{
+			"path": "/status/contributing",
+			"slug": "contributing",
+			"contentType": "guide",
+			"outcome": "Find the repository contribution and verification workflow.",
+			"owner": "2820",
+			"audiences": ["plugin-author"],
+			"releaseStatus": "pre-release",
+			"sourceStatus": "missing",
+			"sources": ["AGENTS.md", "README.md"]
+		}
+	]
+}

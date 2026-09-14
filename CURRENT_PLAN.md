@@ -3,7 +3,7 @@
 - Status: in progress
 - Milestone: 28
 - Created: 2026-09-14
-- Current issue: 2805
+- Current issue: 2806
 - Governing backlog: [Milestone 28](issues/2800-public-website-documentation/README.md)
 
 ## Objective
@@ -75,6 +75,9 @@ responsive browser verification.
 Issue 2804 completed canonical English and prefixed French routing, explicit
 translation fallback behavior, locale-aware public search, shared MDX
 components, frontmatter validation, and content-contract checks.
+Issue 2805 completed the reader and page-type contract, bilingual terminology,
+sample conventions, progressive-disclosure rules, and a validated source and
+ownership map for every planned public page.
 
 ### Phase 1 — Application, design, and content foundation
 
@@ -210,4 +213,4 @@ Resume only after explicit user direction to start implementation:
 5. Implement issue 2801 only; do not absorb visual design or content work from
    later issues.
 
-Resume point: **issue 2801**.
+Resume point: **issue 2806**.
