@@ -11,7 +11,7 @@
 		"postinstall": "fumadocs-mdx",
 		"start": "next start",
 		"test:browser": "yarn build && vitest run --config ../../vitest.config.ts --project website-browser",
-		"validate:docs": "yarn generate && vitest run --config ../../vitest.config.ts --project website-content",
+		"validate:docs": "yarn generate && vitest run --config ../../vitest.config.ts --project website-content --project website-types-built --project website-types-source",
 		"typecheck": "yarn generate && tsc --noEmit"
 	},
 	"dependencies": {

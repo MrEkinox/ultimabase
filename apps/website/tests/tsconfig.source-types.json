@@ -1,0 +1,10 @@
+{
+	"extends": "./tsconfig.types.json",
+	"compilerOptions": {
+		"paths": {
+			"@ultimabase/core": ["../../../packages/core/src/index.ts"],
+			"@ultimabase/shared": ["../../../packages/shared/src/index.ts"],
+			"@ultimabase/typegen": ["../../../packages/typegen/src/index.ts"]
+		}
+	}
+}

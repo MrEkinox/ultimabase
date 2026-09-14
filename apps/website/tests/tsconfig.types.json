@@ -1,0 +1,12 @@
+{
+	"extends": "../tsconfig.json",
+	"compilerOptions": {
+		"incremental": false,
+		"types": ["node", "vitest"]
+	},
+	"include": [
+		"data-modeling.test-d.ts",
+		"fixtures/data-modeling/**/*.ts",
+		"fixtures/data-modeling/.ultimabase/schema.generated.d.ts"
+	]
+}

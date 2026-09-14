@@ -1,0 +1,101 @@
+---
+title: Fields
+description: Choose stored, embedded, virtual, and plugin-defined field kinds with precise options.
+audience:
+  - application-developer
+  - plugin-author
+contentType: reference
+order: 2
+outcome: Select the correct field kind and understand which surfaces it enters.
+owner: '2807'
+releaseStatus: pre-release
+sources:
+  - packages/core/README.md
+  - packages/core/docs/schema.md
+  - packages/core/examples/schema/field-options.md
+  - docs/adr/0213-direct-plugin-options-replace-schema-and-field-extensions.md
+---
+
+Fields describe logical application values. Adapters decide how those values
+are stored; application schemas never contain database columns or Drizzle
+definitions.
+
+```ts title="src/product.ts" fixture="data-modeling/fields.ts"
+import { Schema } from '@ultimabase/core'
+
+export const Product = Schema.define({
+	className: 'DocsProduct',
+	fields: (field) => ({
+		displayPrice: field.virtual({
+			output: (output) => output.string({ nullable: false }),
+			resolve: ({ item }) => `${item.price} EUR`,
+			select: { price: true },
+		}),
+		price: field.decimal({ precision: 12, required: true, scale: 2 }),
+		status: field.enum({
+			default: 'draft',
+			typeName: 'DocsProductStatus',
+			values: ['draft', 'published'],
+		}),
+		tags: field.string({ default: [], list: true }),
+	}),
+})
+```
+
+## Field categories
+
+| Category        | Stored                | Accepted as input           | Returned as output                    | Use it for                                              |
+| --------------- | --------------------- | --------------------------- | ------------------------------------- | ------------------------------------------------------- |
+| Stored          | Yes                   | Yes                         | Yes                                   | Scalar values, JSON, enums, binaries, and lists         |
+| Embedded object | As one value          | Yes                         | Yes                                   | A nested value owned by its parent record               |
+| Pointer         | Target identity       | Yes                         | Yes                                   | One reference to another schema                         |
+| Relation        | Membership topology   | Through relation operations | Through includes and relation queries | A to-many relationship                                  |
+| Virtual         | No                    | No                          | When selected                         | A value derived from stored fields                      |
+| Plugin-defined  | Declared by its owner | Owner-defined               | Owner-defined                         | A portable logical kind supplied by an installed plugin |
+
+Importing a plugin package does not add a field factory. The application must
+install the plugin that owns the field definition; static compilation then
+adds its exact builder method and Typegen contract.
+
+## Built-in value fields
+
+| Builder                    | Application value    | Notes                                       |
+| -------------------------- | -------------------- | ------------------------------------------- |
+| `string`                   | `string`             | Text, identifiers, labels                   |
+| `boolean`                  | `boolean`            | Two-state logical value                     |
+| `int`, `float`             | `number`             | Integer or floating-point values            |
+| `bigint`, `decimal`        | `string`             | Exact values without JavaScript number loss |
+| `uuid`                     | `string`             | Valid UUID text                             |
+| `date`, `time`, `dateTime` | ISO `string`         | Calendar, clock, or instant semantics       |
+| `binary`                   | `Uint8Array`         | Binary application data                     |
+| `json`                     | JSON value           | Schemaless JSON data                        |
+| `enum`                     | String literal union | A closed set with a reusable `typeName`     |
+| `object`                   | Typed object         | Structured embedded data                    |
+
+Set `list: true` for a one-dimensional list of a value field. Lists do not
+naturally represent relationships; use `pointer` or `relation` instead.
+
+## Common options
+
+- `required: true` makes the complete value non-null and normally requires it
+  on create.
+- `default` supplies a static value or a zero-argument factory when create
+  input omits the field.
+- `indexed: true` requests an index; `indexed: 'unique'` also enforces
+  uniqueness through the adapter.
+- `immutable: true` accepts a value on create but prevents later updates.
+- `description` documents the field for tooling and generated surfaces.
+
+Field-specific options such as decimal precision or string bounds are Runtime
+validation and storage intent. TypeScript still reflects the logical value
+type. See [Defaults and nullability](./defaults) for the input matrix.
+
+## Virtual fields
+
+A virtual field declares an output type, the stored fields its resolver needs,
+and a pure resolver. It can be selected, but it is never create or update input,
+filter input, ordering input, index data, or persisted state.
+
+The `displayPrice` example above selects `price` as a dependency, even if the
+caller requests only `displayPrice`. Its non-null output contract is independent
+from stored-field nullability.

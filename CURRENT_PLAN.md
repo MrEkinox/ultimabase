@@ -3,7 +3,7 @@
 - Status: in progress
 - Milestone: 28
 - Created: 2026-09-14
-- Current issue: 2807
+- Current issue: 2808
 - Governing backlog: [Milestone 28](issues/2800-public-website-documentation/README.md)
 
 ## Objective
@@ -81,6 +81,9 @@ ownership map for every planned public page.
 Issue 2806 completed the five-page English Getting Started journey, compiled
 public-export fixtures, package-manager setup, explicit Typegen boundaries, and
 browser coverage for the first application and untranslated French fallback.
+Issue 2807 completed the seven-page data-modeling path, generated application
+contracts, compiled source and built-export fixtures, and focused inference
+tests for fields, immutable models, embedded objects, pointers, and relations.
 
 ### Phase 1 — Application, design, and content foundation
 
@@ -216,4 +219,4 @@ Resume only after explicit user direction to start implementation:
 5. Implement issue 2801 only; do not absorb visual design or content work from
    later issues.
 
-Resume point: **issue 2807**.
+Resume point: **issue 2808**.

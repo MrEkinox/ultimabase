@@ -1,0 +1,76 @@
+---
+title: Relations
+description: Model to-many membership without storing an array of target records in the owner.
+audience:
+  - application-developer
+contentType: concept
+order: 7
+outcome: Choose owning or inverse relation topology and understand where membership lives.
+owner: '2807'
+releaseStatus: pre-release
+sources:
+  - packages/core/README.md
+  - packages/core/docs/schema.md
+  - packages/core/examples/schema/relations.md
+  - docs/adr/0118-transport-neutral-relations.md
+  - docs/adr/0179-name-based-relationship-targets.md
+---
+
+A relation declares a typed to-many edge between two schemas. The owning
+record does not contain a target array: the adapter owns physical membership,
+and Runtime exposes that membership through relation-aware operations.
+
+```ts title="src/post.ts" fixture="data-modeling/relationships.ts"
+import { Schema } from '@ultimabase/core'
+
+export const Author = Schema.define({
+	className: 'DocsAuthor',
+	fields: (field) => ({
+		name: field.string({ required: true }),
+		posts: field.relation({ mappedBy: 'author', target: 'DocsPost' }),
+	}),
+})
+
+export const Post = Schema.define({
+	className: 'DocsPost',
+	fields: (field) => ({
+		author: field.pointer({
+			onDelete: 'restrict',
+			required: true,
+			target: 'DocsAuthor',
+		}),
+		reviewers: field.relation({ target: 'DocsAuthor' }),
+		title: field.string({ required: true }),
+	}),
+})
+```
+
+## Owning and inverse sides
+
+`Post.reviewers` is an owning relation: it owns an independent membership set.
+`Author.posts` is inverse because `mappedBy: 'author'` points to the
+`Post.author` pointer. It derives membership from that pointer and cannot own a
+second competing set.
+
+Static compilation resolves both target names and verifies inverse topology.
+The target schema is part of the logical contract; physical table or collection
+names are adapter details and cannot redefine it.
+
+## Model shape
+
+Relations do not appear as arrays in normal create, update, or complete item
+types. Persisted models expose relation handles when the operation includes the
+relationship. Those handles retain the exact target type and delegate reads or
+membership changes through Runtime.
+
+Use an explicit relationship schema when the edge itself needs data such as a
+role, position, invitation status, or creation time. That makes each membership
+an ordinary record with its own fields and lifecycle.
+
+<Callout type="info" title="One source of membership truth">
+	Choose either an owning relation or an inverse `mappedBy` relation for a given
+	edge. Do not mirror both sides with separately writable relation sets.
+</Callout>
+
+Later chapters cover filtering, inclusion, and mutation syntax. The modeling
+contract here stays the same across Runtime, REST, and GraphQL transports.

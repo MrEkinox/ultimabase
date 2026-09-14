@@ -1,0 +1,69 @@
+---
+title: Defaults and Nullability
+description: Make create inputs and persisted values predictable with required fields, nulls, defaults, and generators.
+audience:
+  - application-developer
+contentType: concept
+order: 4
+outcome: Predict the create input and complete model type for every field configuration.
+owner: '2807'
+releaseStatus: pre-release
+sources:
+  - packages/core/README.md
+  - packages/core/docs/schema.md
+  - packages/core/examples/schema/field-options.md
+---
+
+UltimaBase separates whether create input may omit a field from whether its
+complete persisted value may be `null`.
+
+```ts title="src/publication.ts" fixture="data-modeling/defaults.ts"
+import { Schema } from '@ultimabase/core'
+
+export const Publication = Schema.define({
+	className: 'DocsPublication',
+	fields: (field) => ({
+		publishedAt: field.dateTime({ autoNow: true }),
+		status: field.string({ default: 'draft' }),
+		summary: field.string(),
+		title: field.string({ required: true }),
+	}),
+})
+```
+
+## Input and persisted shapes
+
+| Declaration            | Create input             | Complete persisted value |
+| ---------------------- | ------------------------ | ------------------------ |
+| No option              | Optional, accepts `null` | `T \| null`              |
+| `required: true`       | Required                 | `T`                      |
+| `default: value`       | Optional                 | `T \| null`              |
+| `autoNow: true`        | Optional                 | `T`                      |
+| Generated system field | Not accepted             | Generated `T`            |
+
+When an optional field has no default, an omitted create value is normalized to
+`null`. Optional therefore means “may be absent from input,” not “the property
+disappears from a complete model.”
+
+A default can be a static value or a zero-argument factory:
+
+```ts
+token: field.uuid({ default: () => crypto.randomUUID() })
+```
+
+Factories run when create input is prepared, so use them for values that must be
+fresh per record. `autoNow: true` is the portable temporal generator for the
+current time. Defaults and generators are not replayed during updates or later
+structural validation.
+
+`required: true` combined with a default or generator remains optional in create
+input because UltimaBase can produce the missing value. It remains non-null on
+complete models.
+
+<Callout
+	type="warn"
+	title="Do not use database expressions as portable defaults"
+>
+	Schema defaults are application values or application factories. Database-side
+	expressions belong to database-specific migration or adapter configuration.
+</Callout>

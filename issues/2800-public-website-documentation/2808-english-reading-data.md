@@ -1,6 +1,6 @@
 # 2808: Document reading data
 
-- Status: planned
+- Status: ready
 - Milestone: 28
 - Packages: `apps/website`, `@ultimabase/core`
 - Depends on: 2805

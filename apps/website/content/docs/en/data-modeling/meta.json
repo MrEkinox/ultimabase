@@ -1,0 +1,12 @@
+{
+	"title": "Model Your Data",
+	"pages": [
+		"schemas",
+		"fields",
+		"models",
+		"defaults",
+		"embedded-objects",
+		"pointers",
+		"relations"
+	]
+}

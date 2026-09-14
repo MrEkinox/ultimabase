@@ -11,9 +11,7 @@ import { resolveDocumentationPage } from '../lib/docs-localization'
 import { supportedLocales, type SiteLocale } from '../lib/i18n'
 
 const contentRoot = fileURLToPath(new URL('../content/docs', import.meta.url))
-const fixtureRoot = fileURLToPath(
-	new URL('./fixtures/getting-started', import.meta.url),
-)
+const fixtureRoot = fileURLToPath(new URL('./fixtures', import.meta.url))
 
 interface ContentPage {
 	readonly filePath: string
@@ -130,6 +128,13 @@ describe('public documentation content contract', () => {
 		)
 		expect(urls.sort()).toEqual([
 			'/docs',
+			'/docs/data-modeling/defaults',
+			'/docs/data-modeling/embedded-objects',
+			'/docs/data-modeling/fields',
+			'/docs/data-modeling/models',
+			'/docs/data-modeling/pointers',
+			'/docs/data-modeling/relations',
+			'/docs/data-modeling/schemas',
 			'/docs/getting-started/first-application',
 			'/docs/getting-started/installation',
 			'/docs/getting-started/introduction',
@@ -162,7 +167,10 @@ describe('public documentation content contract', () => {
 		const visible = visibleDocumentationSections(
 			(await readContentPages()).map((page) => page.url),
 		)
-		expect(visible.map(({ slug }) => slug)).toEqual(['getting-started'])
+		expect(visible.map(({ slug }) => slug)).toEqual([
+			'getting-started',
+			'data-modeling',
+		])
 		expect(
 			visibleDocumentationSections([
 				'/docs/plugins/overview',
@@ -207,9 +215,16 @@ describe('public documentation content contract', () => {
 			compiledFixtureBlocks(page.source),
 		)
 		expect(fixtureBlocks.map(({ fixture }) => fixture).sort()).toEqual([
-			'main.ts',
-			'schema.ts',
-			'ultimabase.ts',
+			'data-modeling/defaults.ts',
+			'data-modeling/embedded-objects.ts',
+			'data-modeling/fields.ts',
+			'data-modeling/models.ts',
+			'data-modeling/pointers.ts',
+			'data-modeling/relationships.ts',
+			'data-modeling/schemas.ts',
+			'getting-started/main.ts',
+			'getting-started/schema.ts',
+			'getting-started/ultimabase.ts',
 		])
 
 		for (const block of fixtureBlocks) {
