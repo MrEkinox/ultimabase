@@ -1,6 +1,6 @@
 # 2821: Publish the missing concept mental models
 
-- Status: in-progress
+- Status: completed
 - Milestone: 28
 - Packages: `apps/website`, `@ultimabase/core`, `@ultimabase/typegen`
 - Depends on: 2816
@@ -14,29 +14,40 @@ internal architecture into the beginner API.
 
 ## Acceptance criteria
 
-- [ ] The English documentation publishes application graph, Runtime pipeline,
+- [x] The English documentation publishes application graph, Runtime pipeline,
       request context, transactions, logical operations and persistence,
       immutability, Typegen, and architecture-decision pages.
-- [ ] Each page gives one concise mental model, states the important boundary,
+- [x] Each page gives one concise mental model, states the important boundary,
       and links readers to the canonical task or reference pages.
-- [ ] Application declarations and the compiled graph remain Runtime truth;
+- [x] Application declarations and the compiled graph remain Runtime truth;
       generated declarations are described only as replaceable tooling.
-- [ ] Runtime ordering, policy monotonicity, application-owned Master authority,
+- [x] Runtime ordering, policy monotonicity, application-owned Master authority,
       transaction ownership, and persistence-plan replacement match accepted
       contracts.
-- [ ] The Concepts section appears in the intended documentation navigation
+- [x] The Concepts section appears in the intended documentation navigation
       order and untranslated French routes use the explicit English fallback.
-- [ ] The public ownership plan assigns the concept section to this corrective
+- [x] The public ownership plan assigns the concept section to this corrective
       issue without hiding the historical omission from issue 2816.
 
 ## Tests
 
-- [ ] Content tests require exactly the eight approved pages, frontmatter,
+- [x] Content tests require exactly the eight approved pages, frontmatter,
       source ownership, headings, and valid internal links.
-- [ ] Browser coverage verifies the Concepts navigation entry, one complete
+- [x] Browser coverage verifies the Concepts navigation entry, one complete
       English page, and the French fallback.
 
 ## Out of scope
 
 - Exhaustive internal architecture reference, new framework behavior, API
   changes, complete French translation, or rewriting accepted ADR history.
+
+## Completion evidence
+
+- Documentation impact: `public website documentation` — the approved Concepts
+  section now contains eight source-owned English mental models and explicit
+  French fallback behavior.
+- Content validation passes 79 tests across 27 files. The production build
+  prerenders 114 pages, and 19 browser tests cover the Concepts sidebar,
+  English page, French fallback, accessibility, search, and existing journeys.
+- No public API, Runtime behavior, package, domain, deployment, or final brand
+  decision changed.

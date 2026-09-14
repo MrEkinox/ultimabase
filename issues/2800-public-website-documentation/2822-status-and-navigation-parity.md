@@ -1,6 +1,6 @@
 # 2822: Publish status pages and restore navigation parity
 
-- Status: planned
+- Status: ready
 - Milestone: 28
 - Packages: `apps/website`, repository-wide documentation
 - Depends on: 2820, 2821

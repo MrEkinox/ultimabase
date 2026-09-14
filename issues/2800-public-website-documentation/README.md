@@ -34,7 +34,7 @@ architecture and may be published progressively without duplicating the site.
 18. [x] [2818 — Add the first French reader journey](2818-french-reader-journey.md)
 19. [x] [2819 — Guard public documentation against code drift](2819-documentation-currency-guardrails.md)
 20. [x] [2820 — Harden and verify the website preview](2820-website-preview-verification.md)
-21. [ ] [2821 — Publish the missing concept mental models](2821-concept-mental-models.md)
+21. [x] [2821 — Publish the missing concept mental models](2821-concept-mental-models.md)
 22. [ ] [2822 — Publish status pages and restore navigation parity](2822-status-and-navigation-parity.md)
 
 Issues 2802 and 2804 may proceed independently after 2801. Issue 2805 fixes

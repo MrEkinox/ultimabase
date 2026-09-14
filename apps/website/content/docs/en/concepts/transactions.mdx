@@ -1,0 +1,52 @@
+---
+title: Transaction Boundaries
+description: Distinguish automatic mutation transactions from explicit multi-operation scopes.
+audience:
+  - application-developer
+  - plugin-author
+contentType: concept
+order: 4
+outcome: Predict what commits, rolls back, and runs after commit.
+owner: '2821'
+releaseStatus: pre-release
+reviewedAt: 2026-09-14
+sources:
+  - packages/core/docs/runtime.md
+  - docs/adr/0099-automatic-mutation-transactions.md
+  - docs/adr/0070-plugin-hooks-and-post-commit-events.md
+---
+
+## Automatic and explicit scopes
+
+Every root mutation owns an automatic transaction. Its nested writes, Hook-
+started database operations, protected constraints, and persistence plan share
+that boundary. A failure before commit rolls the whole mutation back.
+
+```text
+one root mutation
+└── automatic transaction
+    ├── nested object and relation writes
+    ├── before and after business Hooks
+    ├── adapter work and constraints
+    └── commit → buffered post-commit events
+```
+
+Reads do not open transactions by default. When several root commands or reads
+must observe one atomic unit, use the request engine's explicit
+`transaction()` scope. Nested explicit transactions and public savepoints are
+not part of the contract.
+
+## Commit is the dividing line
+
+Business after-Hooks run before commit and can still abort the transaction.
+Named events emitted through the request context are buffered and delivered
+only after a successful outer commit. Failed work does not leak post-commit
+effects.
+
+Automatic transactions are an application invariant, not a transport feature.
+The same mutation has the same boundary whether it began in TypeScript, REST,
+or GraphQL.
+
+For the executable API and grouping example, read
+[Mutations: Transactions](../mutations/transactions). For nested atomic work,
+continue with [Write Nested Data](../guides/write-nested-data).

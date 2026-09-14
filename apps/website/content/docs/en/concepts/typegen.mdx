@@ -1,0 +1,56 @@
+---
+title: Typegen
+description: Understand generated declarations as deterministic editor tooling, never executable truth.
+audience:
+  - application-developer
+  - plugin-author
+contentType: concept
+order: 7
+outcome: Know what Typegen derives, when it runs, and what happens without its output.
+owner: '2821'
+releaseStatus: pre-release
+reviewedAt: 2026-09-14
+sources:
+  - packages/typegen/README.md
+  - packages/core/README.md
+  - docs/adr/0173-generated-schema-authoring.md
+---
+
+Typegen turns one compiled static application graph into precise TypeScript
+declarations. It improves completion and catches invalid schema, operation,
+filter, selection, plugin-field, and application-handle usage before Runtime.
+
+```text
+developer declarations + configured plugin graph
+                       ↓ static compilation
+             immutable application snapshot
+                 ↙                    ↘
+       Runtime behavior        Typegen declarations
+```
+
+## What the generated file is
+
+The output is a deterministic, replaceable `.d.ts` artifact. It contains inert
+types and explicitly owned inert plugin outputs, with a fingerprint covering
+the application identity and relevant graph contracts. Writes replace the file
+atomically.
+
+It contains no callbacks, credentials, infrastructure handles, adapter state,
+or executable Runtime client. Structured Typegen contributions cannot inject
+arbitrary TypeScript or JavaScript.
+
+## What remains authoritative
+
+Developer schema declarations plus authorized deterministic plugin
+contributions define the compiled graph. JavaScript applications execute that
+same graph when generated declarations are absent. A stale file may mislead the
+editor, but it cannot change Runtime visibility, validation, or relationship
+behavior.
+
+Automatic development generation runs after static compilation and before
+infrastructure connects. Production builds generate and ship the artifact;
+manual command and watch workflows remain deferred.
+
+Follow [Project Structure](../getting-started/project-structure) to include the
+artifact, [Troubleshoot Typegen](../troubleshooting/typegen) for recovery, and
+[Schema Reference](../reference/schema) for the public declaration surface.

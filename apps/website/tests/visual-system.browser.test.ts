@@ -211,7 +211,22 @@ describe('website visual system', () => {
 				`${origin}/api/search?query=ADR-0191&locale=en`,
 			)
 			expect(privateSearch.ok()).toBe(true)
-			expect(await privateSearch.json()).toEqual([])
+			const architectureResults: unknown = await privateSearch.json()
+			expect(Array.isArray(architectureResults)).toBe(true)
+			if (!Array.isArray(architectureResults)) {
+				throw new TypeError('Search results must be an array')
+			}
+			expect(
+				architectureResults.every(
+					(result: unknown) =>
+						typeof result === 'object' &&
+						result !== null &&
+						'url' in result &&
+						typeof result.url === 'string' &&
+						result.url.startsWith('/docs/') &&
+						!result.url.startsWith('/docs/adr/'),
+				),
+			).toBe(true)
 			expect(clientErrors).toEqual([])
 		} finally {
 			await context.close()

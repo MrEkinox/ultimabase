@@ -3,7 +3,7 @@
 - Status: in-progress
 - Milestone: 28
 - Created: 2026-09-14
-- Current issue: 2821
+- Current issue: 2822
 - Governing backlog: [Milestone 28](issues/2800-public-website-documentation/README.md)
 
 ## Objective
@@ -276,4 +276,4 @@ Resume after interruption:
 5. Complete one corrective issue and its dedicated verification before moving
    to the next.
 
-Resume point: **issue 2821 — publish the missing concept mental models**.
+Resume point: **issue 2822 — publish status pages and restore navigation parity**.

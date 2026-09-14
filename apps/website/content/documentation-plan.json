@@ -475,7 +475,7 @@
 		{
 			"slug": "concepts",
 			"label": "Concepts",
-			"owner": "2816",
+			"owner": "2821",
 			"audiences": ["application-developer", "plugin-author", "operator"],
 			"releaseStatus": "pre-release",
 			"sourceStatus": "ready",

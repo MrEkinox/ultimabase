@@ -139,6 +139,7 @@ describe('website preview audit', () => {
 	it.each([
 		['/docs/getting-started/installation', 'Installation'],
 		['/docs/getting-started/first-application', 'First Application'],
+		['/docs/concepts/runtime-pipeline', 'Runtime Pipeline'],
 		['/docs/plugins/installation', 'Install a Plugin'],
 		['/docs/guides/build-an-authenticated-api', 'Build an Authenticated API'],
 		['/docs/troubleshooting/startup', 'Startup and Plugin Graph'],

@@ -140,4 +140,42 @@ describe('French public journey', () => {
 			await context.close()
 		}
 	})
+
+	it('publishes Concepts in English and falls back explicitly in French', async () => {
+		const context = await browser?.newContext({
+			colorScheme: 'light',
+			viewport: { height: 900, width: 1280 },
+		})
+		if (context === undefined) throw new Error('Browser did not start')
+
+		try {
+			const page = await context.newPage()
+			const clientErrors = collectClientErrors(page)
+			await page.goto(`${origin}/docs/concepts/application-graph`)
+			await page
+				.getByRole('heading', { level: 1, name: 'Application Graph' })
+				.waitFor()
+			await page
+				.locator('#nd-sidebar')
+				.getByText('Concepts', { exact: true })
+				.waitFor()
+			expect(await accessibilityViolations(page)).toEqual([])
+
+			await page.goto(`${origin}/fr/docs/concepts/application-graph`)
+			await page
+				.getByRole('heading', {
+					level: 1,
+					name: 'Cette page n’est pas encore disponible en français.',
+				})
+				.waitFor()
+			expect(
+				await page
+					.getByRole('link', { name: 'Lire la source anglaise' })
+					.getAttribute('href'),
+			).toBe('/docs/concepts/application-graph')
+			expect(clientErrors).toEqual([])
+		} finally {
+			await context.close()
+		}
+	})
 })

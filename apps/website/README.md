@@ -71,6 +71,11 @@ frontmatter, canonical URLs, sidebar ordering, duplicate navigation entries,
 and internal documentation links. It never scans the repository's engineering
 `docs/` directory.
 
+The `Concepts` section explains the compiled application graph, shared Runtime
+pipeline, request and transaction scope, persistence plans, immutability,
+Typegen, and the role of ADRs. It links back to task guides and curated
+reference pages instead of exposing repository internals as the learning path.
+
 ## Visual system
 
 `app/theme.css` is the replaceable source for typography, spacing, radii,
