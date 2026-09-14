@@ -1,0 +1,10 @@
+{
+	"title": "Getting Started",
+	"pages": [
+		"introduction",
+		"installation",
+		"first-application",
+		"project-structure",
+		"next-steps"
+	]
+}

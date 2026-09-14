@@ -19,7 +19,7 @@ architecture and may be published progressively without duplicating the site.
 3. [x] [2803 — Build the public landing page](2803-marketing-landing-page.md)
 4. [x] [2804 — Build the localized documentation shell](2804-localized-documentation-shell.md)
 5. [x] [2805 — Define the public documentation editorial contract](2805-documentation-editorial-contract.md)
-6. [ ] [2806 — Author the English getting-started journey](2806-english-getting-started.md)
+6. [x] [2806 — Author the English getting-started journey](2806-english-getting-started.md)
 7. [ ] [2807 — Document data modeling](2807-english-data-modeling.md)
 8. [ ] [2808 — Document reading data](2808-english-reading-data.md)
 9. [ ] [2809 — Document mutations and transactions](2809-english-mutations-transactions.md)

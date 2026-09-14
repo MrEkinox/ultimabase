@@ -1,0 +1,83 @@
+---
+title: Next Steps
+description: Choose the next UltimaBase learning path after running the first typed PostgreSQL application.
+audience:
+  - application-developer
+contentType: tutorial
+order: 5
+outcome: Choose the next learning path from a working application.
+owner: '2806'
+releaseStatus: pre-release
+sources:
+  - packages/core/docs/schema.md
+  - packages/core/docs/query.md
+  - packages/core/docs/access.md
+  - packages/plugin-kit/README.md
+  - packages/rest-plugin/README.md
+  - packages/graphql-plugin/README.md
+---
+
+## What you will build
+
+Nothing new in this step. You will choose the shortest path from the working
+`Task` application to the capability your project needs next.
+
+## Prerequisites
+
+Finish [First Application](./first-application). Keep the first application
+small until one requirement proves that another plugin or concept is needed.
+
+## Steps
+
+The full public sections are being authored from the current package contracts.
+Until each curated page is published, these links take you to the precise
+repository source instead of an empty placeholder.
+
+<Cards>
+	<Card
+		title="Model schemas"
+		href="https://github.com/MrEkinox/ultimadatabase/blob/main/packages/core/docs/schema.md"
+	>
+		Explore fields, defaults, embedded objects, pointers, and relations.
+	</Card>
+	<Card
+		title="Read with Query"
+		href="https://github.com/MrEkinox/ultimadatabase/blob/main/packages/core/docs/query.md"
+	>
+		Build immutable filters, selections, ordering, pagination, and includes.
+	</Card>
+	<Card
+		title="Understand security"
+		href="https://github.com/MrEkinox/ultimadatabase/blob/main/packages/core/docs/access.md"
+	>
+		Separate Core authority from optional identity and authorization plugins.
+	</Card>
+	<Card
+		title="Use and author plugins"
+		href="https://github.com/MrEkinox/ultimadatabase/blob/main/packages/plugin-kit/README.md"
+	>
+		Learn explicit identity, privileges, capabilities, and lifecycle.
+	</Card>
+	<Card
+		title="Expose REST"
+		href="https://github.com/MrEkinox/ultimadatabase/blob/main/packages/rest-plugin/README.md"
+	>
+		Map HTTP resources into the same Runtime operation model.
+	</Card>
+	<Card
+		title="Expose GraphQL"
+		href="https://github.com/MrEkinox/ultimadatabase/blob/main/packages/graphql-plugin/README.md"
+	>
+		Generate a network-independent schema before choosing an HTTP adapter.
+	</Card>
+</Cards>
+
+## Expected result
+
+You can name the next application requirement and the single public contract
+that explains it. Add plugins only when that requirement needs their concrete
+behavior.
+
+## Next steps
+
+Return to the [documentation home](/docs) whenever you want to switch paths.

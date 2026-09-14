@@ -1,0 +1,116 @@
+---
+title: First Application
+description: Define a Task schema, connect PostgreSQL, start UltimaBase, and persist one typed record.
+audience:
+  - application-developer
+contentType: tutorial
+order: 3
+outcome: Start and verify a minimal schema-backed PostgreSQL application.
+owner: '2806'
+releaseStatus: pre-release
+sources:
+  - packages/core/README.md
+  - packages/postgres-plugin/README.md
+  - examples/minimal/src/main.ts
+  - examples/minimal/src/create-application.ts
+---
+
+## What you will build
+
+The application owns one static `Task` schema and one PostgreSQL plugin. On
+startup, UltimaBase compiles that exact graph, prepares the schema, connects the
+Runtime, and makes the schema command available.
+
+## Prerequisites
+
+Complete [Installation](./installation) and make sure the database named by
+`DATABASE_URL` is reachable. The code below uses ESM imports, so local
+TypeScript imports end in `.js`; the compiler resolves them to their `.ts`
+sources and emits valid Node.js paths.
+
+## Steps
+
+Define the data model. Field factories preserve the exact TypeScript shape and
+Core validates the same structure at Runtime.
+
+```ts title="src/schema.ts" fixture="schema.ts"
+import { Schema } from '@ultimabase/core'
+
+export const Task = Schema.define({
+	className: 'Task',
+	fields: (field) => ({
+		done: field.boolean({ default: false }),
+		title: field.string({ required: true }),
+	}),
+})
+```
+
+Create the application. `schemaPolicy: 'override'` is convenient for this
+disposable database: it creates missing structures and applies supported
+changes, but it is not a replacement for reviewed production migrations.
+
+```ts title="src/ultimabase.ts" fixture="ultimabase.ts"
+import { UltimaBase } from '@ultimabase/core'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
+
+import { Task } from './schema.js'
+
+const databaseUrl = process.env.DATABASE_URL
+
+if (databaseUrl === undefined) {
+	throw new TypeError('DATABASE_URL is required')
+}
+
+export const ultimabase = new UltimaBase({
+	plugins: [
+		postgresPlugin({
+			schemaPolicy: 'override',
+			url: databaseUrl,
+		}),
+	],
+	schemas: [Task],
+})
+```
+
+Start the application, create one record through the shared Runtime, and always
+release resources:
+
+```ts title="src/main.ts" fixture="main.ts"
+import { Task } from './schema.js'
+import { ultimabase } from './ultimabase.js'
+
+try {
+	await ultimabase.start()
+
+	const task = await Task.createOne(
+		{ data: { title: 'Write the documentation' } },
+		{ ultimabase },
+	)
+
+	process.stdout.write(`${JSON.stringify(task.toJSON())}\n`)
+} finally {
+	await ultimabase.dispose()
+}
+```
+
+Run the complete local check:
+
+```bash title="Terminal"
+npm run typecheck
+npm run build
+npm start
+```
+
+## Expected result
+
+The process prints one JSON object containing a generated `id`, the title
+`"Write the documentation"`, and `done: false`, then exits after closing the
+application-owned PostgreSQL pool. UltimaBase has also prepared the managed
+database structure for the `Task` schema.
+
+If startup fails, first confirm that `DATABASE_URL` is loaded and that the
+database accepts a connection from the same terminal.
+
+## Next steps
+
+[Understand where each file belongs and when Typegen helps](./project-structure).

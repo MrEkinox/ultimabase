@@ -3,7 +3,7 @@
 - Status: in progress
 - Milestone: 28
 - Created: 2026-09-14
-- Current issue: 2806
+- Current issue: 2807
 - Governing backlog: [Milestone 28](issues/2800-public-website-documentation/README.md)
 
 ## Objective
@@ -78,6 +78,9 @@ components, frontmatter validation, and content-contract checks.
 Issue 2805 completed the reader and page-type contract, bilingual terminology,
 sample conventions, progressive-disclosure rules, and a validated source and
 ownership map for every planned public page.
+Issue 2806 completed the five-page English Getting Started journey, compiled
+public-export fixtures, package-manager setup, explicit Typegen boundaries, and
+browser coverage for the first application and untranslated French fallback.
 
 ### Phase 1 — Application, design, and content foundation
 
@@ -213,4 +216,4 @@ Resume only after explicit user direction to start implementation:
 5. Implement issue 2801 only; do not absorb visual design or content work from
    later issues.
 
-Resume point: **issue 2806**.
+Resume point: **issue 2807**.

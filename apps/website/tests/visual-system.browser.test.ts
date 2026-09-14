@@ -86,6 +86,19 @@ const accessibilityViolations = async (page: Page) => {
 	}))
 }
 
+function collectClientErrors(page: Page): string[] {
+	const errors: string[] = []
+	page.on('console', (message) => {
+		if (message.type() === 'error') {
+			errors.push(`${page.url()}: ${message.text()}`)
+		}
+	})
+	page.on('pageerror', (error) => {
+		errors.push(`${page.url()}: ${error.message}`)
+	})
+	return errors
+}
+
 beforeAll(async () => {
 	const port = await availablePort()
 	origin = `http://127.0.0.1:${String(port)}`
@@ -205,14 +218,8 @@ describe('website visual system', () => {
 		if (context === undefined) throw new Error('Browser did not start')
 
 		try {
-			const clientErrors: string[] = []
 			const page = await context.newPage()
-			page.on('console', (message) => {
-				if (message.type() === 'error') clientErrors.push(message.text())
-			})
-			page.on('pageerror', (error) => {
-				clientErrors.push(error.message)
-			})
+			const clientErrors = collectClientErrors(page)
 
 			await page.goto(origin)
 			await page
@@ -264,28 +271,26 @@ describe('website visual system', () => {
 		if (context === undefined) throw new Error('Browser did not start')
 
 		try {
-			const clientErrors: string[] = []
 			const page = await context.newPage()
-			page.on('console', (message) => {
-				if (message.type() === 'error') clientErrors.push(message.text())
-			})
-			page.on('pageerror', (error) => {
-				clientErrors.push(error.message)
-			})
+			const clientErrors = collectClientErrors(page)
 
 			await page.goto(`${origin}/en/docs`)
 			expect(page.url()).toBe(`${origin}/docs`)
 			expect(await page.locator('html').getAttribute('lang')).toBe('en')
+			expect(clientErrors).toEqual([])
 
 			await page.locator('button[data-search-full]').click()
 			const searchDialog = page.getByRole('dialog')
 			await searchDialog.waitFor({ state: 'visible' })
+			expect(clientErrors).toEqual([])
 			await searchDialog.getByRole('textbox').fill('canonical')
 			await searchDialog
 				.getByRole('button', { name: /Documentation/u })
 				.first()
 				.waitFor({ state: 'visible' })
+			expect(clientErrors).toEqual([])
 			await page.keyboard.press('Escape')
+			expect(clientErrors).toEqual([])
 
 			await page.getByRole('button', { name: 'Choose a language' }).click()
 			await page.getByText('Français', { exact: true }).click()
@@ -312,6 +317,49 @@ describe('website visual system', () => {
 			)
 			expect(privateSearch.ok()).toBe(true)
 			expect(await privateSearch.json()).toEqual([])
+			expect(clientErrors).toEqual([])
+		} finally {
+			await context.close()
+		}
+	})
+
+	it('publishes a usable first-application journey and explicit French fallback', async () => {
+		const context = await browser?.newContext({
+			colorScheme: 'dark',
+			viewport: { height: 900, width: 1280 },
+		})
+		if (context === undefined) throw new Error('Browser did not start')
+
+		try {
+			const page = await context.newPage()
+			const clientErrors = collectClientErrors(page)
+
+			await page.goto(`${origin}/docs/getting-started/first-application`)
+			await page
+				.getByRole('heading', { level: 1, name: 'First Application' })
+				.waitFor({ state: 'visible' })
+			await page
+				.getByRole('link', { name: 'First Application' })
+				.waitFor({ state: 'visible' })
+			expect(await page.locator('pre').count()).toBe(4)
+			expect(await accessibilityViolations(page)).toEqual([])
+
+			await page.getByRole('button', { name: 'Choose a language' }).click()
+			await page.getByText('Français', { exact: true }).click()
+			await page.waitForURL(
+				`${origin}/fr/docs/getting-started/first-application`,
+			)
+			await page
+				.getByRole('heading', {
+					level: 1,
+					name: 'Cette page n’est pas encore disponible en français.',
+				})
+				.waitFor({ state: 'visible' })
+			expect(
+				await page
+					.getByRole('link', { name: 'Read the English source' })
+					.getAttribute('href'),
+			).toBe('/docs/getting-started/first-application')
 			expect(clientErrors).toEqual([])
 		} finally {
 			await context.close()

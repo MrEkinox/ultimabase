@@ -1,10 +1,10 @@
 import { i18nProvider } from 'fumadocs-ui/i18n'
-import { RootProvider } from 'fumadocs-ui/provider/next'
 import type { Metadata, Viewport } from 'next'
 import { notFound } from 'next/navigation'
 import type { ReactNode } from 'react'
 
 import { SiteFooter } from '../../components/site-shell'
+import { SiteProvider } from '../../components/site-provider'
 import { i18n, isSiteLocale, translations } from '../../lib/i18n'
 import { siteConfig } from '../../lib/site'
 
@@ -42,12 +42,12 @@ export default async function RootLayout({
 	return (
 		<html lang={lang} suppressHydrationWarning>
 			<body>
-				<RootProvider i18n={i18nProvider(translations, lang)}>
+				<SiteProvider i18n={i18nProvider(translations, lang)}>
 					<div className="ub-page-shell">
 						{children}
 						<SiteFooter locale={lang} />
 					</div>
-				</RootProvider>
+				</SiteProvider>
 			</body>
 		</html>
 	)

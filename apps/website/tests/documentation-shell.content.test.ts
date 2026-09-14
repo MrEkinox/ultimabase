@@ -11,6 +11,9 @@ import { resolveDocumentationPage } from '../lib/docs-localization'
 import { supportedLocales, type SiteLocale } from '../lib/i18n'
 
 const contentRoot = fileURLToPath(new URL('../content/docs', import.meta.url))
+const fixtureRoot = fileURLToPath(
+	new URL('./fixtures/getting-started', import.meta.url),
+)
 
 interface ContentPage {
 	readonly filePath: string
@@ -84,6 +87,22 @@ function internalDocumentationLinks(source: string): readonly string[] {
 	})
 }
 
+function compiledFixtureBlocks(
+	source: string,
+): readonly { readonly code: string; readonly fixture: string }[] {
+	return [
+		...source.matchAll(
+			/```ts[^\n]*fixture="(?<fixture>[^"]+)"\n(?<code>[\s\S]*?)```/gu,
+		),
+	].flatMap((match) => {
+		const code = match.groups?.code
+		const fixture = match.groups?.fixture
+		return code === undefined || fixture === undefined
+			? []
+			: [{ code: code.trim(), fixture }]
+	})
+}
+
 describe('public documentation content contract', () => {
 	it('uses an explicit English source when French is not published', () => {
 		expect(resolveDocumentationPage('fr', undefined, '/docs/querying')).toEqual(
@@ -109,7 +128,15 @@ describe('public documentation content contract', () => {
 		expect([...new Set(pages.map(({ locale }) => locale))].sort()).toEqual(
 			[...supportedLocales].sort(),
 		)
-		expect(urls.sort()).toEqual(['/docs', '/fr/docs'])
+		expect(urls.sort()).toEqual([
+			'/docs',
+			'/docs/getting-started/first-application',
+			'/docs/getting-started/installation',
+			'/docs/getting-started/introduction',
+			'/docs/getting-started/next-steps',
+			'/docs/getting-started/project-structure',
+			'/fr/docs',
+		])
 
 		for (const page of pages) {
 			expect(page.source).toMatch(/^---\n[\s\S]*?\n---/u)
@@ -135,7 +162,7 @@ describe('public documentation content contract', () => {
 		const visible = visibleDocumentationSections(
 			(await readContentPages()).map((page) => page.url),
 		)
-		expect(visible).toEqual([])
+		expect(visible.map(({ slug }) => slug)).toEqual(['getting-started'])
 		expect(
 			visibleDocumentationSections([
 				'/docs/plugins/overview',
@@ -171,6 +198,26 @@ describe('public documentation content contract', () => {
 					true,
 				)
 			}
+		}
+	})
+
+	it('renders compiled TypeScript fixtures without documentation drift', async () => {
+		const pages = await readContentPages()
+		const fixtureBlocks = pages.flatMap((page) =>
+			compiledFixtureBlocks(page.source),
+		)
+		expect(fixtureBlocks.map(({ fixture }) => fixture).sort()).toEqual([
+			'main.ts',
+			'schema.ts',
+			'ultimabase.ts',
+		])
+
+		for (const block of fixtureBlocks) {
+			const fixture = await readFile(
+				path.join(fixtureRoot, block.fixture),
+				'utf8',
+			)
+			expect(block.code, block.fixture).toBe(fixture.trim())
 		}
 	})
 })
