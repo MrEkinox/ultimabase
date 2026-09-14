@@ -1,0 +1,56 @@
+---
+title: GraphQL over HTTP
+description: Mount the network-independent GraphQL application through Yoga and the shared HTTP boundary.
+audience:
+  - application-developer
+contentType: guide
+order: 5
+outcome: Serve GraphQL over HTTP and add an optional development explorer deliberately.
+owner: '2812'
+releaseStatus: pre-release
+sources:
+  - packages/graphql-yoga-plugin/README.md
+  - packages/graphiql-plugin/README.md
+  - packages/apollo-sandbox-plugin/README.md
+---
+
+`@ultimabase/graphql-yoga-plugin` adapts the final GraphQL schema to the shared HTTP
+application. It installs neither GraphQL, HTTP, nor a server; configure the sibling
+plugins explicitly.
+
+```ts fixture="apis/yoga.ts"
+import { graphqlYogaPlugin } from '@ultimabase/graphql-yoga-plugin'
+
+export const yoga = graphqlYogaPlugin({
+	bodyLimit: 512 * 1024,
+	introspection: true,
+	path: '/api/graphql',
+})
+```
+
+The default endpoint is `POST /graphql`. Yoga accepts UTF-8 JSON GraphQL requests,
+rejects batching, uploads, subscriptions, SSE, and its built-in GraphiQL UI, and
+limits bodies to 1 MiB by default. HTTP introspection is disabled unless enabled
+explicitly.
+
+HTTP selects the application and resolves its anonymous, authenticated, or Master
+context before Yoga begins. Yoga forwards that context to the same GraphQL execution
+capability used by networkless calls, so policy, virtual fields, contextual relations,
+transactions, cancellation, and safe errors do not fork.
+
+Development explorers are separate, optional plugins:
+
+```ts fixture="apis/explorers.ts"
+import { apolloSandboxPlugin } from '@ultimabase/apollo-sandbox-plugin'
+import { graphiqlPlugin } from '@ultimabase/graphiql-plugin'
+
+export const explorers = [
+	graphiqlPlugin({ environment: 'development' }),
+	apolloSandboxPlugin({ environment: 'development' }),
+]
+```
+
+They bind to the configured provider-neutral GraphQL endpoint and attach the public
+application ID. They embed no credential or authority. Production exposure requires
+`allowInProduction: true`; schema discovery also requires Yoga introspection. Their
+remote browser assets declare an `environment:network` claim.

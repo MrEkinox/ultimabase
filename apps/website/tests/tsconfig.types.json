@@ -6,6 +6,8 @@
 	},
 	"include": [
 		"*.test-d.ts",
+		"fixtures/apis/**/*.ts",
+		"fixtures/apis/.ultimabase/schema.generated.d.ts",
 		"fixtures/data-modeling/**/*.ts",
 		"fixtures/data-modeling/.ultimabase/schema.generated.d.ts",
 		"fixtures/querying/**/*.ts",

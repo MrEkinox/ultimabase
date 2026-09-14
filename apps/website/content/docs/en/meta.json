@@ -7,6 +7,7 @@
 		"querying",
 		"mutations",
 		"security",
+		"apis",
 		"plugins"
 	]
 }

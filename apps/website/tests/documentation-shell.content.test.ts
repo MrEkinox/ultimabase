@@ -128,6 +128,12 @@ describe('public documentation content contract', () => {
 		)
 		expect(urls.sort()).toEqual([
 			'/docs',
+			'/docs/apis/errors',
+			'/docs/apis/graphql',
+			'/docs/apis/graphql-yoga',
+			'/docs/apis/http-applications',
+			'/docs/apis/rest',
+			'/docs/apis/typescript',
 			'/docs/data-modeling/defaults',
 			'/docs/data-modeling/embedded-objects',
 			'/docs/data-modeling/fields',
@@ -203,6 +209,7 @@ describe('public documentation content contract', () => {
 			'querying',
 			'mutations',
 			'security',
+			'apis',
 			'plugins',
 		])
 		expect(
@@ -249,6 +256,13 @@ describe('public documentation content contract', () => {
 			compiledFixtureBlocks(page.source),
 		)
 		expect(fixtureBlocks.map(({ fixture }) => fixture).sort()).toEqual([
+			'apis/explorers.ts',
+			'apis/graphql.ts',
+			'apis/hono.ts',
+			'apis/http.ts',
+			'apis/rest.ts',
+			'apis/typescript.ts',
+			'apis/yoga.ts',
 			'data-modeling/defaults.ts',
 			'data-modeling/embedded-objects.ts',
 			'data-modeling/fields.ts',

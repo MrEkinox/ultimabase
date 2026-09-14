@@ -3,7 +3,7 @@
 - Status: in progress
 - Milestone: 28
 - Created: 2026-09-14
-- Current issue: 2812
+- Current issue: 2813
 - Governing backlog: [Milestone 28](issues/2800-public-website-documentation/README.md)
 
 ## Objective
@@ -98,6 +98,10 @@ Issue 2811 completed the seven-page application-security path, generated and
 compiled public-export fixtures, executable ACL coverage, and explicit
 threat boundaries for identity, Access, Roles, ACL, and application-owned
 Master authority.
+Issue 2812 completed the six-page public-API path, generated and compiled
+public-export fixtures, and one executable application proving equivalent
+TypeScript, REST, networkless GraphQL, and Yoga behavior with boundary-owned
+wire and error representations.
 
 ### Phase 1 — Application, design, and content foundation
 

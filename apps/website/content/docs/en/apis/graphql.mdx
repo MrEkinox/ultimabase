@@ -1,0 +1,58 @@
+---
+title: GraphQL
+description: Generate and execute one application-local GraphQL schema without requiring an HTTP server.
+audience:
+  - application-developer
+contentType: guide
+order: 4
+outcome: Execute generated GraphQL operations and understand their Relay pagination representation.
+owner: '2812'
+releaseStatus: pre-release
+sources:
+  - packages/graphql-plugin/README.md
+  - docs/adr/0238-graphql-v1-contract.md
+---
+
+`@ultimabase/graphql-plugin` compiles one executable `GraphQLSchema` from the final
+application graph. It imports no HTTP, Yoga, REST, authentication, policy, or
+database provider. The setup export exposes `schema`, `execute()`, and deterministic
+`printSchema()`.
+
+```ts fixture="apis/graphql.ts"
+import { randomUUID } from 'node:crypto'
+
+import { application } from './running-application.js'
+
+const graphql = application.application.getPlugin('@ultimabase/graphql-plugin')
+const context = application.engine.anonymous({
+	requestId: randomUUID(),
+	source: 'internal',
+}).context
+
+export const result = await graphql.execute({
+	context,
+	document: `{
+		findManyApiPost(first: 20, where: { published: { eq: true } }) {
+			nodes { id title }
+			pageInfo { hasNextPage endCursor }
+		}
+	}`,
+})
+```
+
+Generated reads, mutations, nested writes, virtual fields, and explicitly selected
+plugin operations all delegate through Core's narrow application request executor.
+Custom schema resolvers receive only `{ request: RequestContext }`, never the
+application, executor, adapter, grant, transaction, or lifecycle control.
+
+Collections use Relay-style `edges`, `nodes`, and `pageInfo` without `totalCount`.
+`first` defaults to 25 and is capped at 100 unless configured. Cursors are opaque,
+application-lifetime, integrity-protected offsets—not authorization tokens or
+database snapshots. Concurrent changes may shift later offset pages.
+
+This differs from REST's `{ results }` array and numeric limit/offset representation,
+but the visible objects still pass through the same Query normalization, policies,
+Runtime, and database capability.
+
+Generated public GraphQL surfaces require the same explicit protection acknowledgement
+as REST. Exposure controls declarations only; it never grants access.
