@@ -1,0 +1,47 @@
+---
+title: Write a Related Graph
+description: Create and connect related objects in one bounded singular mutation.
+audience:
+  - application-developer
+contentType: tutorial
+order: 5
+outcome: Create an article and contributor atomically, then return the included graph.
+owner: '2814'
+releaseStatus: pre-release
+sources:
+  - examples/minimal/README.md
+  - packages/core/README.md
+---
+
+## Prerequisites
+
+Define [Pointers](/docs/data-modeling/pointers) and
+[Relations](/docs/data-modeling/relations), then read the canonical
+[Nested Writes](/docs/mutations/nested-writes) contract.
+
+## Shortest path
+
+```ts
+await Article.createOne({
+	data: {
+		author: { connect: authorId },
+		contributors: { create: [{ name: 'Grace' }] },
+		title: 'Nested writes',
+	},
+	include: { contributors: { select: { name: true } } },
+})
+```
+
+## Verify the outcome
+
+Read the article and contributor after success. Force one child validation failure
+and confirm neither the root, child, nor relation membership persists.
+
+## Limitations
+
+Nested commands are available only on singular create and update. Nested delete and
+upsert are not available; depth and operation budgets are application-wide.
+
+## Related concepts
+
+See [Transactions](/docs/mutations/transactions) and [Includes](/docs/querying/includes).

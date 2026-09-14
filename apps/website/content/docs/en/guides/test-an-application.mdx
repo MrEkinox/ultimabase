@@ -1,0 +1,50 @@
+---
+title: Test an Application
+description: Verify generated types, isolated Runtime behavior, and public transport paths with Vitest.
+audience:
+  - application-developer
+  - plugin-author
+contentType: tutorial
+order: 8
+outcome: Run deterministic type and application checks before adding database-backed scenarios.
+owner: '2814'
+releaseStatus: pre-release
+sources:
+  - packages/testing/README.md
+  - examples/minimal/package.json
+---
+
+## Prerequisites
+
+Complete [First Application](/docs/getting-started/first-application) and understand
+[Application Lifecycle](/docs/operations/application-lifecycle).
+
+## Shortest path
+
+From the repository root, verify the maintained complete example without secrets or
+a running database:
+
+```sh
+corepack yarn workspace @ultimabase/example-minimal check-generated-types
+corepack yarn workspace @ultimabase/example-minimal typecheck
+```
+
+Use Vitest for behavior. Create a fresh application per test, use a deterministic
+public adapter fake for narrow Runtime tests, and reserve PostgreSQL Testcontainers
+for adapter integration behavior.
+
+## Verify the outcome
+
+Assert generated declarations are unchanged, public exports compile, startup and
+disposal complete, and observable results match. For plugin packages, use
+`definePluginConformanceSuite()` plus only the domain checks the plugin actually owns.
+
+## Limitations
+
+Type checks do not prove PostgreSQL or network behavior. Do not share applications,
+pools, schemas, or mutable plugin instances between parallel workers.
+
+## Related concepts
+
+See [Plugin Authoring](/docs/plugins/authoring), [PostgreSQL](/docs/operations/postgres),
+and [API Errors](/docs/apis/errors).

@@ -1,0 +1,46 @@
+---
+title: Add Soft Delete
+description: Choose replace-delete or an explicit soft-delete command per schema.
+audience:
+  - application-developer
+contentType: tutorial
+order: 6
+outcome: Hide a tombstoned object from every ordinary read path.
+owner: '2814'
+releaseStatus: pre-release
+sources:
+  - packages/soft-delete-plugin/README.md
+  - examples/minimal/README.md
+---
+
+## Prerequisites
+
+Read [Delete Data](/docs/mutations/delete), [Soft Delete](/docs/mutations/soft-delete),
+and [Master Authority](/docs/security/master-authority).
+
+## Shortest path
+
+Install `softDeletePlugin({ defaultMode: 'disabled' })`, then state schema intent:
+
+```ts
+const Article = Schema.define({
+	className: 'Article',
+	softDelete: 'explicit',
+	fields: (field) => ({ title: field.string() }),
+})
+```
+
+## Verify the outcome
+
+Run the generated `softDelete` command. Confirm find, count, exists, pointer, and
+relation reads omit the tombstone. Restore it through trusted server code and verify
+the ordinary read returns it again.
+
+## Limitations
+
+Restore and purge are Master-only and never become REST or GraphQL routes. V1 has no
+deletion timestamp, retention job, include-deleted query, or nested soft delete.
+
+## Related concepts
+
+See [Access](/docs/security/access) and [Lifecycle Hooks](./run-lifecycle-hooks).

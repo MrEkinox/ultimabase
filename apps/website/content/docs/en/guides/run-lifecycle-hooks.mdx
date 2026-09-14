@@ -1,0 +1,45 @@
+---
+title: Run Lifecycle Hooks
+description: Normalize mutation input and perform transaction-bound business work with optional Hooks.
+audience:
+  - application-developer
+contentType: tutorial
+order: 2
+outcome: Trim a title and write an audit record in the same transaction.
+owner: '2814'
+releaseStatus: pre-release
+sources:
+  - packages/hooks-plugin/README.md
+  - examples/minimal/src/schema.ts
+---
+
+## Prerequisites
+
+Read [Transactions](/docs/mutations/transactions) and install `hooksPlugin()`.
+
+## Shortest path
+
+Use field `resolveInput` to return the normalized value. Use schema
+`beforeOperation.create` for business work that must commit or roll back with the
+primary mutation.
+
+```ts
+title: field.string({
+	hooks: { resolveInput: ({ value }) => value?.trim() ?? null },
+})
+```
+
+## Verify the outcome
+
+Create a title with surrounding whitespace and assert the stored result is trimmed.
+Then make a later Hook fail and verify both the primary row and audit row roll back.
+
+## Limitations
+
+Hooks do not replace operation input, results, or persistence plans. `afterOperation`
+still runs before commit; use emitted events for post-commit delivery.
+
+## Related concepts
+
+See [Create Data](/docs/mutations/create), [Nested Writes](/docs/mutations/nested-writes),
+and [Plugin Lifecycle](/docs/plugins/lifecycle-and-dependencies).

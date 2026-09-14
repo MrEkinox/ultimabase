@@ -3,7 +3,7 @@
 - Status: in progress
 - Milestone: 28
 - Created: 2026-09-14
-- Current issue: 2814
+- Current issue: 2815
 - Governing backlog: [Milestone 28](issues/2800-public-website-documentation/README.md)
 
 ## Objective
@@ -106,6 +106,9 @@ Issue 2813 completed the six-page operations path, compiled public-export
 configuration fixtures, executable lifecycle coverage, repository-derived
 compatibility checks, and an explicit inventory of shipped versus missing
 production capabilities.
+Issue 2814 completed eight focused task guides with one consistent prerequisite,
+shortest-path, verification, limitation, and canonical-link structure, backed
+by the maintained minimal application's generated-type and TypeScript checks.
 
 ### Phase 1 — Application, design, and content foundation
 

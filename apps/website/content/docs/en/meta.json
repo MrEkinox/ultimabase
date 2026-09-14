@@ -9,6 +9,7 @@
 		"security",
 		"apis",
 		"plugins",
-		"operations"
+		"operations",
+		"guides"
 	]
 }

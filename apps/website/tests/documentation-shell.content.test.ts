@@ -146,6 +146,14 @@ describe('public documentation content contract', () => {
 			'/docs/getting-started/introduction',
 			'/docs/getting-started/next-steps',
 			'/docs/getting-started/project-structure',
+			'/docs/guides/add-soft-delete',
+			'/docs/guides/add-virtual-fields',
+			'/docs/guides/build-an-authenticated-api',
+			'/docs/guides/filter-contextual-relations',
+			'/docs/guides/run-lifecycle-hooks',
+			'/docs/guides/test-an-application',
+			'/docs/guides/validate-input',
+			'/docs/guides/write-nested-data',
 			'/docs/mutations/bulk-operations',
 			'/docs/mutations/create',
 			'/docs/mutations/delete',
@@ -218,6 +226,7 @@ describe('public documentation content contract', () => {
 			'apis',
 			'plugins',
 			'operations',
+			'guides',
 		])
 		expect(
 			visibleDocumentationSections([
