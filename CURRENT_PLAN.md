@@ -1,9 +1,9 @@
 # Active plan: public website and documentation foundation
 
-- Status: completed
+- Status: in-progress
 - Milestone: 28
 - Created: 2026-09-14
-- Current issue: none
+- Current issue: 2821
 - Governing backlog: [Milestone 28](issues/2800-public-website-documentation/README.md)
 
 ## Objective
@@ -133,6 +133,10 @@ Issue 2820 completed the private-preview gate with production-browser reader
 walkthroughs, search and accessibility audits, replaceable technical metadata,
 indexing controls, a global recovery page, recorded production asset totals,
 and a provider-neutral handoff that performs no deployment.
+The subsequent milestone audit found that the approved Concepts section,
+standalone status routes, and global Plugins entry remained absent. Issue 2821
+publishes the eight missing mental-model pages; issue 2822 then restores status
+and navigation parity and reruns the final preview gate.
 
 ### Phase 1 — Application, design, and content foundation
 
@@ -195,12 +199,16 @@ terminology, and validation of all public examples.
     for internal refactors. It also records when multiple supported release
     lines should trigger versioned documentation.
 
-### Phase 4 — Preview gate
+### Phase 4 — Preview gate and sitemap parity
 
 20. Issue 2820 audits responsive behavior, accessibility, search quality,
     localization, reader task walkthroughs, SEO metadata, links, claims,
     performance, production build, and repository compatibility. It prepares
     preview instructions but does not deploy.
+21. Issue 2821 publishes the eight approved cross-cutting concept mental
+    models omitted from the first reference pass.
+22. Issue 2822 publishes the three approved status routes, restores the global
+    Plugins link, and reruns the complete private-preview gate.
 
 ## Documentation-currency rule to deliver
 
@@ -257,15 +265,15 @@ Stop and request direction before:
 
 ## Resume protocol
 
-Resume only after explicit user direction to start implementation:
+Resume after interruption:
 
-1. Re-read this plan and the complete issue 2801.
-2. Verify that issue 2801 remains `ready` and that no newer active plan or user
+1. Re-read this plan and the current corrective issue.
+2. Verify that the current issue remains actionable and that no newer active plan or user
    instruction supersedes it.
 3. Inspect local and remote Git state before editing.
-4. Re-check current Next.js, React, and Fumadocs compatibility rather than
-   trusting versions observed during planning.
-5. Implement issue 2801 only; do not absorb visual design or content work from
-   later issues.
+4. Verify the implemented site against the approved route architecture rather
+   than trusting issue status alone.
+5. Complete one corrective issue and its dedicated verification before moving
+   to the next.
 
-Resume point: **milestone complete — no remaining issue**.
+Resume point: **issue 2821 — publish the missing concept mental models**.
