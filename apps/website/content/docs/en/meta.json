@@ -6,6 +6,7 @@
 		"data-modeling",
 		"querying",
 		"mutations",
+		"security",
 		"plugins"
 	]
 }

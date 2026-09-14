@@ -3,7 +3,7 @@
 - Status: in progress
 - Milestone: 28
 - Created: 2026-09-14
-- Current issue: 2811
+- Current issue: 2812
 - Governing backlog: [Milestone 28](issues/2800-public-website-documentation/README.md)
 
 ## Objective
@@ -94,6 +94,10 @@ soft deletion.
 Issue 2810 completed the eight-page plugin path, compiled consumer and author
 fixtures, the complete classified official-plugin catalog, and explicit
 contracts for identity, privileges, capabilities, dependencies, and lifecycle.
+Issue 2811 completed the seven-page application-security path, generated and
+compiled public-export fixtures, executable ACL coverage, and explicit
+threat boundaries for identity, Access, Roles, ACL, and application-owned
+Master authority.
 
 ### Phase 1 — Application, design, and content foundation
 

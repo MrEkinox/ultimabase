@@ -12,6 +12,8 @@
 		"fixtures/querying/.ultimabase/schema.generated.d.ts",
 		"fixtures/mutations/**/*.ts",
 		"fixtures/mutations/.ultimabase/schema.generated.d.ts",
-		"fixtures/plugins/**/*.ts"
+		"fixtures/plugins/**/*.ts",
+		"fixtures/security/**/*.ts",
+		"fixtures/security/.ultimabase/schema.generated.d.ts"
 	]
 }

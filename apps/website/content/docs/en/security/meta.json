@@ -1,0 +1,12 @@
+{
+	"title": "Secure Your Application",
+	"pages": [
+		"overview",
+		"password-authentication",
+		"request-identity",
+		"access",
+		"roles",
+		"acl",
+		"master-authority"
+	]
+}

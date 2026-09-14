@@ -1,0 +1,54 @@
+---
+title: Request Identity
+description: Carry validated, typed identity data through an immutable request context.
+audience:
+  - application-developer
+  - plugin-author
+contentType: concept
+order: 3
+outcome: Add request identity values without creating an authority mode or implicit grant.
+owner: '2811'
+releaseStatus: pre-release
+sources:
+  - packages/core/README.md
+  - packages/password-auth-plugin/README.md
+  - docs/adr/0205-protected-policy-contributions.md
+---
+
+A `RequestContextValue` is a typed, validated slot for request-local data. Identity
+plugins use the same neutral mechanism: Password Auth exposes `passwordPrincipal`
+and `passwordSession`, while another plugin may provide a tenant, API-client, or
+service identity.
+
+```ts fixture="security/request-identity.ts"
+import { RequestContextValue, Schema } from '@ultimabase/core'
+
+export const tenantId = new RequestContextValue<string>(
+	'acme.identity.tenant-id',
+	(value) => {
+		if (typeof value !== 'string' || value.length === 0) {
+			throw new TypeError('Tenant id must be a non-empty string')
+		}
+		return value
+	},
+)
+
+export const Tenant = Schema.define({
+	className: 'SecurityTenant',
+	fields: (field) => ({ name: field.string({ required: true }) }),
+})
+```
+
+Contexts are immutable. Adding a value returns a derived context and preserves its
+application ownership and existing authority provenance. Values can inform Access,
+ACL subject resolution, relation shaping, Hooks, and audit metadata, but they cannot
+mint authority.
+
+For Password Auth, the principal contains only a typed User pointer. The session
+value contains safe identifiers and dates, not the raw token, password, verifier,
+Master grant, role, or authorization decision.
+
+> **Security boundary:** Never interpret a header, JSON field, metadata flag,
+> context lookalike, or caller-selected boolean as authority. Transport code may
+> validate a credential at its owning boundary; only Core can create the resulting
+> private provenance.

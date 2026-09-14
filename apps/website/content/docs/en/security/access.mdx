@@ -1,0 +1,67 @@
+---
+title: Access
+description: Enforce operation, row, item, field, and transition policy through the optional official engine.
+audience:
+  - application-developer
+contentType: guide
+order: 4
+outcome: Define fail-closed authorization that can only narrow as policies compose.
+owner: '2811'
+releaseStatus: pre-release
+sources:
+  - packages/access-plugin/README.md
+  - docs/adr/0204-access-is-one-vertical-plugin.md
+  - docs/adr/0205-protected-policy-contributions.md
+  - docs/adr/0222-sparse-read-access-inherits-secure-defaults.md
+---
+
+Install `accessPlugin()` to enable the official `access` schema and field options.
+Importing the package does nothing, and an application without the plugin has no
+official Access stage.
+
+```ts fixture="security/access.ts"
+import { Article } from './schemas.js'
+
+export const readVisibleArticles = () =>
+	Article.findMany({
+		select: { title: true },
+		where: { published: { eq: true } },
+	})
+```
+
+The complete policy declaration compiled behind this query is:
+
+```ts
+access: {
+  create: true,
+  read: {
+    allow: true,
+    where: ({ where }) => where.eq('published', true),
+  },
+  update: {
+    allow: hasRole(editor),
+    item: ({ item, originalItem }) => item.owner.id === originalItem.owner.id,
+  },
+  delete: hasRole(editor),
+}
+```
+
+Access evaluates at several boundaries:
+
+1. **Operation** rules allow or deny `one`, `many`, `count`, `exists`, and mutation
+   families before data access.
+2. **Row** `where` rules append a private predicate with logical `AND`.
+3. **Item** rules inspect the locked original and prepared candidate for singular
+   mutations.
+4. **Field** rules independently narrow filtering, ordering, output, and writes.
+5. **Value-dependent** rules run again after input resolution so transformed values
+   cannot broaden an earlier decision.
+
+Operations default to deny when neither an exact schema rule nor a configured plugin
+default exists. Fields remain open until an exact field rule or provider narrows
+them. Compatible providers run after the base decision and can deny or restrict, but
+cannot turn a denial into permission.
+
+Master bypasses the complete official Access policy, including callbacks. Core
+validation, installed application validation, Hooks, transactions, database
+constraints, and integrity work still run.

@@ -1,0 +1,72 @@
+---
+title: Master Authority
+description: Configure audited, application-owned server authority for trusted maintenance work.
+audience:
+  - application-developer
+  - operator
+contentType: guide
+order: 7
+outcome: Use Master deliberately without creating a transport-forgeable bypass.
+owner: '2811'
+releaseStatus: pre-release
+sources:
+  - packages/core/README.md
+  - docs/adr/0206-application-owned-master-provenance.md
+  - docs/adr/0218-master-bypasses-authorization-policies.md
+  - docs/adr/0224-http-application-rest-and-password-auth-boundaries.md
+---
+
+Master is trusted server-side authority for work that must bypass authorization,
+such as administration or migrations. Configure keys on the exact application and
+provide an audit callback. Audit failure prevents elevation and every downstream
+effect.
+
+```ts fixture="security/master-authority.ts"
+import { MasterAuthority, Schema, UltimaBase } from '@ultimabase/core'
+
+const AuditRecord = Schema.define({
+	className: 'SecurityAuditRecord',
+	fields: (field) => ({ message: field.string({ required: true }) }),
+})
+
+const masterAuthority = new MasterAuthority({
+	keys: [{ id: 'maintenance', value: 'read-from-a-secret-store' }],
+	onUse: (event) => {
+		console.info(event.keyId, event.reason)
+	},
+})
+
+export const ultimabase = new UltimaBase({
+	masterAuthority,
+	plugins: [],
+	schemas: [AuditRecord],
+})
+
+await AuditRecord.createOne(
+	{ data: { message: 'Rebuilt the search index' } },
+	{ ultimabase, useMasterKey: true },
+)
+```
+
+The concise `useMasterKey: true` option is a trusted direct-server path. For a
+verified raw key, `MasterAuthority.authorize()` returns an opaque grant and
+`RequestEngine.useMasterKey(grant, reason)` binds it to the same application. A
+Master context carries private provenance for both its authority and application;
+a context issued for another application is rejected even when both share an
+authority object.
+
+Master bypasses authorization owned by Access and ACL. It does **not** bypass:
+
+- Core structural validation or installed application validation;
+- Hooks, input resolution, or prepared-operation transforms;
+- automatic transactions, database constraints, or rollback;
+- reference maintenance, lifecycle work, integrity checks, or committed events.
+
+> **Security boundary:** Client `useMasterKey` flags, shaped contexts, metadata,
+> grants, and alternative headers never create Master. The optional canonical HTTP
+> Master header works only when explicitly enabled, after `X-UltimaBase-Application-Id`
+> selects one application, and only when that application's authority verifies and
+> audits the raw key. A key for another application fails closed.
+
+Never compile a Master key into browser code. A public application ID identifies a
+mounted application; it is routing data, not a secret and not authorization proof.

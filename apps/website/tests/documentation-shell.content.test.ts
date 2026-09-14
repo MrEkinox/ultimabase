@@ -163,6 +163,13 @@ describe('public documentation content contract', () => {
 			'/docs/querying/overview',
 			'/docs/querying/relation-predicates',
 			'/docs/querying/selections',
+			'/docs/security/access',
+			'/docs/security/acl',
+			'/docs/security/master-authority',
+			'/docs/security/overview',
+			'/docs/security/password-authentication',
+			'/docs/security/request-identity',
+			'/docs/security/roles',
 			'/fr/docs',
 		])
 
@@ -195,6 +202,7 @@ describe('public documentation content contract', () => {
 			'data-modeling',
 			'querying',
 			'mutations',
+			'security',
 			'plugins',
 		])
 		expect(
@@ -273,6 +281,12 @@ describe('public documentation content contract', () => {
 			'querying/query-builder.ts',
 			'querying/relation-predicates.ts',
 			'querying/selections.ts',
+			'security/access.ts',
+			'security/acl.ts',
+			'security/master-authority.ts',
+			'security/password-auth.ts',
+			'security/request-identity.ts',
+			'security/roles.ts',
 		])
 
 		for (const block of fixtureBlocks) {
