@@ -5,7 +5,7 @@
 	"type": "module",
 	"scripts": {
 		"build": "yarn generate && next build --webpack",
-		"dev": "next dev",
+		"dev": "next dev --webpack",
 		"generate": "fumadocs-mdx",
 		"lint": "yarn generate && eslint .",
 		"postinstall": "fumadocs-mdx",
