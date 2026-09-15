@@ -44,10 +44,12 @@ yarn website:test
 ```
 
 The production build creates `.next`, and Fumadocs generates `.source` before
-the focused checks. Both are ignored by Git, ESLint, and Prettier. The ordinary
-root `yarn build` continues to build only non-private publishable workspaces.
-Next.js also maintains the conventional tracked `next-env.d.ts`; repository
-formatting and linting leave that generated declaration untouched.
+the focused checks. Both are ignored by Git, ESLint, and Prettier. Website
+validation covers the application, public content, and browser behavior; Core
+and plugin behavior remains owned by the package and repository test suites.
+The ordinary root `yarn build` continues to build only non-private publishable
+workspaces. Next.js also maintains the conventional tracked `next-env.d.ts`;
+repository formatting and linting leave that generated declaration untouched.
 
 ## Documentation shell
 
@@ -61,8 +63,8 @@ Every public MDX page requires a title, description, audience, content type,
 reader outcome, owning issue, release status, review date, and canonical
 repository sources. Frontmatter may also declare navigation order and
 translation source metadata.
-`components/mdx.tsx` exposes the shared code, tabs, callouts, cards, file-tree,
-and semantic architecture-diagram components.
+`components/mdx.tsx` exposes the standard Fumadocs code, tabs, callouts, cards,
+steps, and file-tree components.
 
 The internal [`docs/editorial-contract.md`](docs/editorial-contract.md) defines
 page templates, voice, terminology, code-sample rules, and progressive
@@ -83,16 +85,16 @@ reference pages instead of exposing repository internals as the learning path.
 
 ## Visual system
 
-`app/theme.css` is the replaceable source for typography, spacing, radii,
-borders, semantic colors, the light and dark palettes, and the single coral
-accent. `components/brand-mark.tsx` owns the provisional geometric mark used by
-the navigation and generated favicon.
+Documentation uses the standard Fumadocs docs layout and its official `black`
+color preset. `app/theme.css` keeps only the semantic tokens needed by the
+custom marketing surfaces. `components/brand-mark.tsx` owns the provisional
+geometric mark used by marketing navigation and the generated favicon.
 
-Shared marketing and documentation surfaces live under `components/`:
+Shared marketing surfaces live under `components/`:
 
 - `brand.tsx` provides the text mark and navigation identity;
-- `site-shell.tsx` provides the common footer while Fumadocs renders responsive
-  headers from the shared options in `lib/layout.tsx`;
+- `site-shell.tsx` provides the marketing footer while Fumadocs renders the
+  responsive header from the shared options in `lib/layout.tsx`;
 - `primitives.tsx` provides buttons, links, sections, code surfaces, and
   callouts.
 

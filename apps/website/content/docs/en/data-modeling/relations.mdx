@@ -21,7 +21,7 @@ A relation declares a typed to-many edge between two schemas. The owning
 record does not contain a target array: the adapter owns physical membership,
 and Runtime exposes that membership through relation-aware operations.
 
-```ts title="src/post.ts" fixture="data-modeling/relationships.ts"
+```ts title="src/post.ts"
 import { Schema } from '@ultimabase/core'
 
 export const Author = Schema.define({

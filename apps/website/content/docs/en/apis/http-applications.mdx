@@ -24,7 +24,7 @@ identifier:
 X-UltimaBase-Application-Id: blog
 ```
 
-```ts fixture="apis/http.ts"
+```ts
 import { httpPlugin } from '@ultimabase/http-plugin'
 
 export const applicationHttp = httpPlugin({
@@ -58,7 +58,7 @@ foreign credentials, contexts, and grants cannot select Master.
 
 `@ultimabase/server-hono-plugin` is the optional Node server provider:
 
-```ts fixture="apis/hono.ts"
+```ts
 import { honoServerPlugin } from '@ultimabase/server-hono-plugin'
 
 export const server = honoServerPlugin({ host: '127.0.0.1', port: 1337 })

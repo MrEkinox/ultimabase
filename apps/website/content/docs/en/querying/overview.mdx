@@ -21,7 +21,7 @@ UltimaBase reads start on a generated schema class. Pass one canonical object
 that describes filtering, projection, relationships, ordering, and pagination;
 then pass execution options only when no request context is active.
 
-```ts title="src/read-posts.ts" fixture="querying/overview.ts"
+```ts title="src/read-posts.ts"
 import { Post } from './schemas.js'
 import { ultimabase } from './ultimabase.js'
 
@@ -73,7 +73,7 @@ of the query and are never serialized by a transport.
 Object input is the primary API. Use `QueryBuilder` when conditions are composed
 programmatically or reused as a typed scope:
 
-```ts title="src/recent-posts.ts" fixture="querying/query-builder.ts"
+```ts title="src/recent-posts.ts"
 import { QueryBuilder, type QueryScope } from '@ultimabase/core'
 
 import { Post } from './schemas.js'

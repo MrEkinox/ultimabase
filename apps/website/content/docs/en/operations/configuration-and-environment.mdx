@@ -23,7 +23,7 @@ versions aligned. The integration suite currently verifies PostgreSQL 17.
 Treat `process.env` as untrusted input. Read, validate, and convert values at the
 composition root, then pass typed options to plugin factories.
 
-```ts fixture="operations/configuration.ts"
+```ts
 import { UltimaBase } from '@ultimabase/core'
 import { httpPlugin } from '@ultimabase/http-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'

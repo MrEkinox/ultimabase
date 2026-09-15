@@ -19,7 +19,7 @@ Application schemas expose find, get, first, exists, create, update, and delete 
 default. Count, upsert, and bulk routes are disabled until enabled explicitly.
 Plugin-owned schemas never receive generated CRUD routes.
 
-```ts fixture="apis/rest.ts"
+```ts
 export const readPostsOverRest = () =>
 	fetch(
 		'https://api.example/api/v1/classes/ApiPost?where=%7B%22published%22%3A%7B%22eq%22%3Atrue%7D%7D&select=id%2Ctitle',

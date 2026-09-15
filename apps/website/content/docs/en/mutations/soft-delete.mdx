@@ -23,7 +23,7 @@ mode; importing the package alone installs no behavior.
 | `replace-delete` | Writes a tombstone instead of physically deleting | none                           |
 | `explicit`       | Keeps native physical deletion                    | `softDelete`                   |
 
-```ts title="src/soft-delete-post.ts" fixture="mutations/soft-delete.ts"
+```ts title="src/soft-delete-post.ts"
 import { Post } from './schemas.js'
 import { ultimabase } from './ultimabase.js'
 

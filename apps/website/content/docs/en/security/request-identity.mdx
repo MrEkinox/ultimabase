@@ -21,7 +21,7 @@ plugins use the same neutral mechanism: Password Auth exposes `passwordPrincipal
 and `passwordSession`, while another plugin may provide a tenant, API-client, or
 service identity.
 
-```ts fixture="security/request-identity.ts"
+```ts
 import { RequestContextValue, Schema } from '@ultimabase/core'
 
 export const tenantId = new RequestContextValue<string>(

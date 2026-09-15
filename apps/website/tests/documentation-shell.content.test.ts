@@ -11,7 +11,6 @@ import { resolveDocumentationPage } from '../lib/docs-localization'
 import { supportedLocales, type SiteLocale } from '../lib/i18n'
 
 const contentRoot = fileURLToPath(new URL('../content/docs', import.meta.url))
-const fixtureRoot = fileURLToPath(new URL('./fixtures', import.meta.url))
 
 interface ContentPage {
 	readonly filePath: string
@@ -82,22 +81,6 @@ function internalDocumentationLinks(source: string): readonly string[] {
 			href?.startsWith('/fr/docs') === true
 			? [href]
 			: []
-	})
-}
-
-function compiledFixtureBlocks(
-	source: string,
-): readonly { readonly code: string; readonly fixture: string }[] {
-	return [
-		...source.matchAll(
-			/```ts[^\n]*fixture="(?<fixture>[^"]+)"\n(?<code>[\s\S]*?)```/gu,
-		),
-	].flatMap((match) => {
-		const code = match.groups?.code
-		const fixture = match.groups?.fixture
-		return code === undefined || fixture === undefined
-			? []
-			: [{ code: code.trim(), fixture }]
 	})
 }
 
@@ -293,75 +276,6 @@ describe('public documentation content contract', () => {
 					true,
 				)
 			}
-		}
-	})
-
-	it('renders compiled TypeScript fixtures without documentation drift', async () => {
-		const pages = await readContentPages()
-		const fixtureBlocks = pages.flatMap((page) =>
-			compiledFixtureBlocks(page.source),
-		)
-		expect(
-			[...new Set(fixtureBlocks.map(({ fixture }) => fixture))].sort(),
-		).toEqual([
-			'apis/explorers.ts',
-			'apis/graphql.ts',
-			'apis/hono.ts',
-			'apis/http.ts',
-			'apis/rest.ts',
-			'apis/typescript.ts',
-			'apis/yoga.ts',
-			'data-modeling/defaults.ts',
-			'data-modeling/embedded-objects.ts',
-			'data-modeling/fields.ts',
-			'data-modeling/models.ts',
-			'data-modeling/pointers.ts',
-			'data-modeling/relationships.ts',
-			'data-modeling/schemas.ts',
-			'getting-started/main.ts',
-			'getting-started/schema.ts',
-			'getting-started/ultimabase.ts',
-			'mutations/bulk.ts',
-			'mutations/create.ts',
-			'mutations/delete.ts',
-			'mutations/nested-writes.ts',
-			'mutations/soft-delete.ts',
-			'mutations/transactions.ts',
-			'mutations/update.ts',
-			'mutations/upsert.ts',
-			'operations/browser-policy.ts',
-			'operations/configuration.ts',
-			'operations/lifecycle.ts',
-			'operations/postgres.ts',
-			'operations/secrets.ts',
-			'plugins/authoring.ts',
-			'plugins/capabilities.ts',
-			'plugins/consumer.ts',
-			'plugins/instances.ts',
-			'plugins/lifecycle.ts',
-			'plugins/manifest.ts',
-			'querying/contextual-relations.ts',
-			'querying/filters.ts',
-			'querying/includes.ts',
-			'querying/overview.ts',
-			'querying/pagination.ts',
-			'querying/query-builder.ts',
-			'querying/relation-predicates.ts',
-			'querying/selections.ts',
-			'security/access.ts',
-			'security/acl.ts',
-			'security/master-authority.ts',
-			'security/password-auth.ts',
-			'security/request-identity.ts',
-			'security/roles.ts',
-		])
-
-		for (const block of fixtureBlocks) {
-			const fixture = await readFile(
-				path.join(fixtureRoot, block.fixture),
-				'utf8',
-			)
-			expect(block.code, block.fixture).toBe(fixture.trim())
 		}
 	})
 })

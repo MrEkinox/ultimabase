@@ -13,7 +13,7 @@ sources:
   - apps/website/content/docs/en/getting-started/first-application.mdx
 translation:
   source: /docs/getting-started/first-application
-  sourceHash: sha256:c9fb007a941448c21a38463260e0b76c1ec918239ccbfd972e962dd02f109d09
+  sourceHash: sha256:02bcdb03810ca65de679f7e7d30a59cd55fcfc93d976c4a1a6046aff65ba367d
   reviewedAt: 2026-09-14
 ---
 
@@ -35,7 +35,7 @@ leurs sources `.ts` et produit des chemins valides pour Node.js.
 Définissez le modèle de données. Les factories de champs préservent la forme
 TypeScript exacte, et Core valide la même structure au Runtime.
 
-```ts title="src/schema.ts" fixture="getting-started/schema.ts"
+```ts title="src/schema.ts"
 import { Schema } from '@ultimabase/core'
 
 export const Task = Schema.define({
@@ -51,7 +51,7 @@ Créez l’application. `schemaPolicy: 'override'` est pratique pour cette base
 jetable : la stratégie crée les structures manquantes et applique les changements
 pris en charge, mais ne remplace pas des migrations de production relues.
 
-```ts title="src/ultimabase.ts" fixture="getting-started/ultimabase.ts"
+```ts title="src/ultimabase.ts"
 import { UltimaBase } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 
@@ -77,7 +77,7 @@ export const ultimabase = new UltimaBase({
 Démarrez l’application, créez un enregistrement par le Runtime partagé et
 libérez toujours les ressources :
 
-```ts title="src/main.ts" fixture="getting-started/main.ts"
+```ts title="src/main.ts"
 import { Task } from './schema.js'
 import { ultimabase } from './ultimabase.js'
 

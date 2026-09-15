@@ -22,7 +22,7 @@ such as administration or migrations. Configure keys on the exact application an
 provide an audit callback. Audit failure prevents elevation and every downstream
 effect.
 
-```ts fixture="security/master-authority.ts"
+```ts
 import { MasterAuthority, Schema, UltimaBase } from '@ultimabase/core'
 
 const AuditRecord = Schema.define({

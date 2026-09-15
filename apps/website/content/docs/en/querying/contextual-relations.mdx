@@ -20,7 +20,7 @@ A relation can own a reusable target `where` when every traversal through that
 field represents the same narrower application view. The filter may be a static
 object or a synchronous request-aware resolver.
 
-```ts title="src/channel.ts" fixture="querying/contextual-relations.ts"
+```ts title="src/channel.ts"
 import { Schema } from '@ultimabase/core'
 
 export const Channel = Schema.define({

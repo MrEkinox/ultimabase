@@ -20,7 +20,7 @@ A pointer stores one immutable logical reference: the exact target schema plus
 one record ID. It does not load the target and does not expose a mutable target
 object.
 
-```ts title="src/session.ts" fixture="data-modeling/pointers.ts"
+```ts title="src/session.ts"
 import { Schema } from '@ultimabase/core'
 
 export const Account = Schema.define({

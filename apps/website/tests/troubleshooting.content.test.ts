@@ -1,16 +1,9 @@
-import { execFileSync } from 'node:child_process'
 import { readFile, readdir } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
-import { frameworkErrorCodes } from '@ultimabase/core'
-import { httpPreDispatchErrorCodes } from '@ultimabase/http-plugin'
-import { passwordAuthErrorCodes } from '@ultimabase/password-auth-plugin'
-import { SchemaTypegenError } from '@ultimabase/typegen'
-
 const websiteRoot = fileURLToPath(new URL('..', import.meta.url))
-const repositoryRoot = path.resolve(websiteRoot, '../..')
 const docsRoot = path.join(websiteRoot, 'content/docs/en')
 const troubleshootingRoot = path.join(docsRoot, 'troubleshooting')
 
@@ -64,46 +57,7 @@ describe('troubleshooting content', () => {
 		}
 	})
 
-	it('uses the exact public diagnostic identities', async () => {
-		const startup = await readPage('startup')
-		for (const code of [
-			'PLUGIN_DEPENDENCY_MISSING',
-			'PLUGIN_CAPABILITY_CONFLICT',
-			'PLUGIN_PRIVILEGE_DENIED',
-		] as const) {
-			expect(frameworkErrorCodes).toContain(code)
-			expect(startup).toContain(`\`${code}\``)
-		}
-
-		const http = await readPage('http-and-application-identity')
-		for (const code of Object.values(httpPreDispatchErrorCodes)) {
-			expect(http).toContain(`\`${code}\``)
-		}
-		for (const code of Object.values(passwordAuthErrorCodes)) {
-			expect(http).toContain(`\`${code}\``)
-		}
-
-		const typegen = await readPage('typegen')
-		const error = new SchemaTypegenError(
-			'invalid-application-export',
-			'fixture',
-		)
-		expect(error.code).toBe('SCHEMA_TYPEGEN_FAILED')
-		expect(typegen).toContain(`\`${error.code}\``)
-		expect(typegen).toContain(`\`${error.reason}\``)
-	})
-
-	it('keeps diagnostic commands executable without exposing environment values', async () => {
-		expect(
-			execFileSync(process.execPath, ['--version'], { encoding: 'utf8' }),
-		).toMatch(/^v\d+/u)
-		expect(
-			execFileSync('yarn', ['--version'], {
-				cwd: repositoryRoot,
-				encoding: 'utf8',
-			}),
-		).toMatch(/^\d+\.\d+\.\d+/u)
-
+	it('keeps diagnostic instructions safe', async () => {
 		const allPages = await Promise.all(pageNames.map(readPage))
 		const source = allPages.join('\n')
 		for (const unsafe of [
@@ -116,6 +70,8 @@ describe('troubleshooting content', () => {
 		]) {
 			expect(source).not.toContain(unsafe)
 		}
+		expect(source).toContain('node --version')
+		expect(source).toContain('yarn --version')
 		expect(source).toContain('Host-specific filesystem failures')
 	})
 

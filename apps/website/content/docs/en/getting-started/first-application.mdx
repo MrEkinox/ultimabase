@@ -34,7 +34,7 @@ sources and emits valid Node.js paths.
 Define the data model. Field factories preserve the exact TypeScript shape and
 Core validates the same structure at Runtime.
 
-```ts title="src/schema.ts" fixture="getting-started/schema.ts"
+```ts title="src/schema.ts"
 import { Schema } from '@ultimabase/core'
 
 export const Task = Schema.define({
@@ -50,7 +50,7 @@ Create the application. `schemaPolicy: 'override'` is convenient for this
 disposable database: it creates missing structures and applies supported
 changes, but it is not a replacement for reviewed production migrations.
 
-```ts title="src/ultimabase.ts" fixture="getting-started/ultimabase.ts"
+```ts title="src/ultimabase.ts"
 import { UltimaBase } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 
@@ -76,7 +76,7 @@ export const ultimabase = new UltimaBase({
 Start the application, create one record through the shared Runtime, and always
 release resources:
 
-```ts title="src/main.ts" fixture="getting-started/main.ts"
+```ts title="src/main.ts"
 import { Task } from './schema.js'
 import { ultimabase } from './ultimabase.js'
 

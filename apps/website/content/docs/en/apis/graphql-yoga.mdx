@@ -19,7 +19,7 @@ sources:
 application. It installs neither GraphQL, HTTP, nor a server; configure the sibling
 plugins explicitly.
 
-```ts fixture="apis/yoga.ts"
+```ts
 import { graphqlYogaPlugin } from '@ultimabase/graphql-yoga-plugin'
 
 export const yoga = graphqlYogaPlugin({
@@ -41,7 +41,7 @@ transactions, cancellation, and safe errors do not fork.
 
 Development explorers are separate, optional plugins:
 
-```ts fixture="apis/explorers.ts"
+```ts
 import { apolloSandboxPlugin } from '@ultimabase/apollo-sandbox-plugin'
 import { graphiqlPlugin } from '@ultimabase/graphiql-plugin'
 

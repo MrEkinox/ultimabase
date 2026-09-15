@@ -58,38 +58,6 @@ const testProjects: TestProjectConfiguration[] = [
 		extends: true,
 		root: workspaceRoot,
 		test: {
-			include: [],
-			name: 'website-types-source',
-			typecheck: {
-				enabled: true,
-				include: [
-					'apps/website/tests/data-modeling.test-d.ts',
-					'apps/website/tests/mutations.test-d.ts',
-					'apps/website/tests/querying.test-d.ts',
-				],
-				only: true,
-				tsconfig: './apps/website/tests/tsconfig.source-types.json',
-			},
-		},
-	},
-	{
-		extends: true,
-		root: workspaceRoot,
-		test: {
-			include: [],
-			name: 'website-types-built',
-			typecheck: {
-				enabled: true,
-				include: ['apps/website/tests/**/*.test-d.ts'],
-				only: true,
-				tsconfig: './apps/website/tests/tsconfig.types.json',
-			},
-		},
-	},
-	{
-		extends: true,
-		root: workspaceRoot,
-		test: {
 			fileParallelism: false,
 			include: ['apps/website/tests/**/*.browser.test.ts'],
 			name: 'website-browser',

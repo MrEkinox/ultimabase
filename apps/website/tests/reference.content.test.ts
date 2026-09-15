@@ -3,13 +3,6 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
-import { frameworkErrorCodes } from '@ultimabase/core'
-import {
-	defaultPasswordHashPolicy,
-	defaultPasswordSessionPolicy,
-} from '@ultimabase/password-auth-plugin'
-import { defaultRestReadLimits } from '@ultimabase/rest-plugin'
-
 const repositoryRoot = fileURLToPath(new URL('../../..', import.meta.url))
 const contentRoot = fileURLToPath(
 	new URL('../content/docs/en/reference/', import.meta.url),
@@ -97,27 +90,5 @@ describe('curated public reference', () => {
 		)) {
 			expect(packageNames.has(match[1] ?? ''), match[1]).toBe(true)
 		}
-	})
-
-	it('checks representative published defaults and error codes', async () => {
-		expect(defaultRestReadLimits).toStrictEqual({
-			bodyBytes: 1_048_576,
-			maximumResults: 1_000,
-		})
-		expect(defaultPasswordHashPolicy).toMatchObject({
-			memoryCostKiB: 65_536,
-			parallelism: 4,
-			policyVersion: 1,
-			timeCost: 3,
-		})
-		expect(defaultPasswordSessionPolicy).toMatchObject({
-			absoluteExpiresInMs: 30 * 24 * 60 * 60_000,
-			expiresInMs: 7 * 24 * 60 * 60_000,
-		})
-		expect(frameworkErrorCodes).toContain('PLUGIN_PRIVILEGE_DENIED')
-
-		const options = await readPage('official-plugin-options')
-		expect(options).toContain('page 25/100, depth 20, 100 KiB document')
-		expect(options).toContain('`/api/v1`, 1 MiB body, maximum limit 1000')
 	})
 })

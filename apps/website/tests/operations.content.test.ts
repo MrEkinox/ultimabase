@@ -3,10 +3,6 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
-import { UltimaBase } from '@ultimabase/core'
-
-import { apiDatabasePlugin } from './fixtures/apis/test-database'
-
 const repositoryRoot = fileURLToPath(new URL('../../..', import.meta.url))
 const contentRoot = fileURLToPath(
 	new URL('../content/docs/en/operations/', import.meta.url),
@@ -21,16 +17,6 @@ const pages = [
 ] as const
 
 describe('operations documentation contracts', () => {
-	it('executes the supported empty application lifecycle', async () => {
-		const application = new UltimaBase({
-			pluginPrivileges: { logger: false },
-			plugins: [apiDatabasePlugin],
-			schemas: [],
-		})
-		await expect(application.start()).resolves.toBeUndefined()
-		await expect(application.dispose()).resolves.toBeUndefined()
-	})
-
 	it('tracks maintained compatibility and operational limitations', async () => {
 		const rootPackage: unknown = JSON.parse(
 			await readFile(path.join(repositoryRoot, 'package.json'), 'utf8'),

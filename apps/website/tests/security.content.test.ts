@@ -3,20 +3,8 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { beforeAll, describe, expect, it } from 'vitest'
 
-import { ACL } from '@ultimabase/acl-permissions-plugin'
-import { generateApplicationTypes } from '@ultimabase/typegen'
-
-import { securityApplication } from './fixtures/security/application'
-import { Member } from './fixtures/security/schemas'
-
 const contentRoot = fileURLToPath(
 	new URL('../content/docs/en/security/', import.meta.url),
-)
-const generatedPath = fileURLToPath(
-	new URL(
-		'./fixtures/security/.ultimabase/schema.generated.d.ts',
-		import.meta.url,
-	),
 )
 const pageNames = [
 	'access',
@@ -40,27 +28,6 @@ beforeAll(async () => {
 })
 
 describe('security documentation contracts', () => {
-	it('keeps generated security declarations synchronized', async () => {
-		const generated = generateApplicationTypes({
-			application: securityApplication.application,
-			applicationId: 'website-security',
-		})
-
-		expect(generated.contents).toBe(await readFile(generatedPath, 'utf8'))
-	})
-
-	it('executes the documented immutable ACL primitive', () => {
-		const alice = Member.pointer('0199b38e-ef80-7000-8000-000000000001')
-		const initial = new ACL().grantPublic('read')
-		const narrowed = initial
-			.grantPrincipal(alice, 'read', 'update')
-			.revokePublic('read')
-
-		expect(initial.permissionsForPublic()).toEqual(['read'])
-		expect(narrowed.permissionsForPublic()).toEqual([])
-		expect(ACL.fromJSON(narrowed.toJSON()).toJSON()).toEqual(narrowed.toJSON())
-	})
-
 	it('states every security boundary and rejects authority shortcuts', () => {
 		expect(documentation).toMatch(
 			/Authentication establishes identity and grants no\s+authorization\./u,

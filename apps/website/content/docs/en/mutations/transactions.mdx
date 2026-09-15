@@ -23,7 +23,7 @@ or commit failure rolls back the mutation and discards its buffered events.
 Use `RequestEngine.transaction()` when several root commands must share one
 larger atomic unit:
 
-```ts title="src/publish.ts" fixture="mutations/transactions.ts"
+```ts title="src/publish.ts"
 import { requestSources } from '@ultimabase/core'
 
 import { Account, Post } from './schemas.js'
