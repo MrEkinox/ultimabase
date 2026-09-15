@@ -1,3 +1,4 @@
+import { currentDocumentationPath } from '../../lib/docs-versions'
 import { siteConfig } from '../../lib/site'
 
 export const statusPageSlugs = [
@@ -50,7 +51,7 @@ export const statusPages: readonly StatusPageContent[] = Object.freeze([
 			'What you can evaluate today, and which promises deliberately wait for a stable release.',
 		eyebrow: 'Release status',
 		primaryAction: {
-			href: '/docs/getting-started/introduction',
+			href: currentDocumentationPath('getting-started/introduction'),
 			title: 'Evaluate the framework',
 		},
 		sections: [
@@ -61,19 +62,19 @@ export const statusPages: readonly StatusPageContent[] = Object.freeze([
 					{
 						description:
 							'Static schemas, immutable queries and models, shared Runtime execution, transactions, and PostgreSQL persistence are implemented.',
-						href: '/docs/getting-started/introduction',
+						href: currentDocumentationPath('getting-started/introduction'),
 						title: 'Application foundations',
 					},
 					{
 						description:
 							'Validation, Hooks, Access, Roles, ACL, authentication, transports, explorers, and tooling are explicit optional packages.',
-						href: '/docs/plugins/official-plugins',
+						href: currentDocumentationPath('plugins/official-plugins'),
 						title: 'Official plugin system',
 					},
 					{
 						description:
 							'Direct TypeScript, experimental REST v1, and GraphQL share the same operation and policy path.',
-						href: '/docs/apis/typescript',
+						href: currentDocumentationPath('apis/typescript'),
 						title: 'Public execution paths',
 					},
 				],
@@ -93,7 +94,7 @@ export const statusPages: readonly StatusPageContent[] = Object.freeze([
 					{
 						description:
 							'Examples are written against package roots and marked pre-release; generated declarations never become Runtime truth.',
-						href: '/docs/getting-started/installation',
+						href: currentDocumentationPath('getting-started/installation'),
 						title: 'Intended npm experience',
 					},
 				],
@@ -105,10 +106,10 @@ export const statusPages: readonly StatusPageContent[] = Object.freeze([
 				items: [
 					{
 						description:
-							'The active package line is the only documented line. Versioned documentation begins only when more than one public release line is maintained.',
+							'The active package line already has an explicit documentation version. Additional maintained lines will appear in the same selector without changing older URLs.',
 						external: true,
 						href: repositoryFile('CONTRIBUTING.md'),
-						title: 'One canonical documentation line',
+						title: 'Versioned documentation policy',
 					},
 					{
 						description:
@@ -142,19 +143,19 @@ export const statusPages: readonly StatusPageContent[] = Object.freeze([
 					{
 						description:
 							'Schemas, Query, immutable models, application compilation, plugin capabilities, validation, policy, Hooks, and transaction invariants.',
-						href: '/docs/concepts/application-graph',
+						href: currentDocumentationPath('concepts/application-graph'),
 						title: 'Core and plugin kernel',
 					},
 					{
 						description:
 							'PostgreSQL, HTTP application selection, REST, Password Auth, GraphQL, Yoga, and optional explorers.',
-						href: '/docs/plugins/official-plugins',
+						href: currentDocumentationPath('plugins/official-plugins'),
 						title: 'Public verticals',
 					},
 					{
 						description:
 							'Nested writes, contextual fields and relations, plugin schema mutations, and official soft deletion.',
-						href: '/docs/guides/write-nested-data',
+						href: currentDocumentationPath('guides/write-nested-data'),
 						title: 'Recent data capabilities',
 					},
 				],
@@ -174,7 +175,7 @@ export const statusPages: readonly StatusPageContent[] = Object.freeze([
 					{
 						description:
 							'Architecture decisions are proposed before public boundaries, storage, dependency direction, or security semantics change.',
-						href: '/docs/concepts/architecture-decisions',
+						href: currentDocumentationPath('concepts/architecture-decisions'),
 						title: 'Decision discipline',
 					},
 				],
@@ -244,7 +245,7 @@ export const statusPages: readonly StatusPageContent[] = Object.freeze([
 					{
 						description:
 							'Runtime tests, type tests, package-root export checks, immutable-builder coverage, and PostgreSQL integration tests protect different boundaries.',
-						href: '/docs/guides/test-an-application',
+						href: currentDocumentationPath('guides/test-an-application'),
 						title: 'Test the public behavior',
 					},
 					{
@@ -264,7 +265,7 @@ export const statusPages: readonly StatusPageContent[] = Object.freeze([
 					{
 						description:
 							'Compiled samples, ownership checks, and links catch mechanical drift; humans remain responsible for semantic accuracy.',
-						href: '/docs/guides/test-an-application',
+						href: currentDocumentationPath('guides/test-an-application'),
 						title: 'Review documentation impact',
 					},
 					{

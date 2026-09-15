@@ -56,13 +56,18 @@ need meaningless prose changes.
 
 ## Public documentation releases
 
-Keep one canonical pre-release documentation line while the repository supports
-only the current package line. Versioned documentation becomes necessary only
-when the release policy commits to maintaining more than one public release
-line concurrently. At that point, create a separate proposal for versioned
-routing, search, ownership, and backports. A breaking stable release also needs
-a migration guide that explains observable changes; do not duplicate the
-current pre-release site in anticipation of that trigger.
+Every public page belongs to an explicit release line under
+`apps/website/content/docs/<locale>/<version>`. Add a new version only when its
+framework line has a real public contract to document; never copy the current
+line merely to reserve a future number. Keep older version directories frozen
+except for corrections and explicitly supported backports. Register new lines
+in `apps/website/lib/docs-versions.ts`, and preserve the same relative page path
+when a guide exists across versions so the Fumadocs selector can keep the reader
+on the equivalent page.
+
+A breaking stable release also needs a migration guide that explains observable
+changes between the affected versions. Search, ownership, translations, and
+documentation-impact review apply independently to every maintained line.
 
 Public pages are curated explanations backed by root specifications, package
 contracts, public exports, and Runtime behavior. They never replace those

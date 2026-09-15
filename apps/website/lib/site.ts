@@ -1,3 +1,5 @@
+import { currentDocumentationPath } from './docs-versions'
+
 const developmentUrl = 'http://localhost:3000'
 
 export type SiteReleaseStatus = 'pre-release'
@@ -47,10 +49,10 @@ const preview: SiteConfig['preview'] = Object.freeze({
 	reviewedAt: '2026-09-14',
 })
 const routes: SiteConfig['routes'] = Object.freeze({
-	docs: '/docs',
+	docs: currentDocumentationPath(),
 	examples: '/examples',
-	gettingStarted: '/docs/getting-started/introduction',
-	plugins: '/docs/plugins/overview',
+	gettingStarted: currentDocumentationPath('getting-started/introduction'),
+	plugins: currentDocumentationPath('plugins/overview'),
 	releaseStatus: '/status/release-status',
 })
 

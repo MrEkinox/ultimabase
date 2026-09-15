@@ -1,3 +1,4 @@
+import { documentationPath } from '../../lib/docs-versions'
 import { ButtonLink, TextLink } from '../primitives'
 
 export interface TranslationFallbackProps {
@@ -9,7 +10,7 @@ export interface TranslationFallbackProps {
 export function TranslationFallback({
 	englishUrl,
 	returnLabel = 'Documentation française',
-	returnUrl = '/fr/docs',
+	returnUrl = documentationPath('fr'),
 }: TranslationFallbackProps) {
 	return (
 		<div className="ub-translation-fallback">

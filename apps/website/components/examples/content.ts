@@ -1,3 +1,4 @@
+import { currentDocumentationPath } from '../../lib/docs-versions'
 import { siteConfig } from '../../lib/site'
 
 import type { ExampleScenario, ExampleSourceRegion } from './types'
@@ -29,17 +30,17 @@ export const exampleScenarios: readonly ExampleScenario[] = Object.freeze([
 		codeLabel: 'src/schema.ts',
 		documentation: [
 			{
-				href: '/docs/data-modeling/schemas',
+				href: currentDocumentationPath('data-modeling/schemas'),
 				kind: 'Concept',
 				label: 'Schemas',
 			},
 			{
-				href: '/docs/getting-started/first-application',
+				href: currentDocumentationPath('getting-started/first-application'),
 				kind: 'Task guide',
 				label: 'Build a first application',
 			},
 			{
-				href: '/docs/data-modeling/fields',
+				href: currentDocumentationPath('data-modeling/fields'),
 				kind: 'Reference',
 				label: 'Fields',
 			},
@@ -78,17 +79,17 @@ export const exampleScenarios: readonly ExampleScenario[] = Object.freeze([
 		codeLabel: 'direct-query.ts',
 		documentation: [
 			{
-				href: '/docs/querying/overview',
+				href: currentDocumentationPath('querying/overview'),
 				kind: 'Concept',
 				label: 'Query overview',
 			},
 			{
-				href: '/docs/guides/test-an-application',
+				href: currentDocumentationPath('guides/test-an-application'),
 				kind: 'Task guide',
 				label: 'Test an application',
 			},
 			{
-				href: '/docs/apis/typescript',
+				href: currentDocumentationPath('apis/typescript'),
 				kind: 'Reference',
 				label: 'TypeScript API',
 			},
@@ -124,16 +125,20 @@ export const exampleScenarios: readonly ExampleScenario[] = Object.freeze([
 		codeLabel: 'REST request',
 		documentation: [
 			{
-				href: '/docs/apis/http-applications',
+				href: currentDocumentationPath('apis/http-applications'),
 				kind: 'Concept',
 				label: 'HTTP applications',
 			},
 			{
-				href: '/docs/getting-started/next-steps',
+				href: currentDocumentationPath('getting-started/next-steps'),
 				kind: 'Task guide',
 				label: 'Choose a public API',
 			},
-			{ href: '/docs/apis/rest', kind: 'Reference', label: 'REST API' },
+			{
+				href: currentDocumentationPath('apis/rest'),
+				kind: 'Reference',
+				label: 'REST API',
+			},
 		],
 		index: '03',
 		outcome:
@@ -174,17 +179,17 @@ export const exampleScenarios: readonly ExampleScenario[] = Object.freeze([
 		codeLabel: 'sign-up.sh',
 		documentation: [
 			{
-				href: '/docs/security/overview',
+				href: currentDocumentationPath('security/overview'),
 				kind: 'Concept',
 				label: 'Security model',
 			},
 			{
-				href: '/docs/guides/build-an-authenticated-api',
+				href: currentDocumentationPath('guides/build-an-authenticated-api'),
 				kind: 'Task guide',
 				label: 'Build an authenticated API',
 			},
 			{
-				href: '/docs/security/access',
+				href: currentDocumentationPath('security/access'),
 				kind: 'Reference',
 				label: 'Access policies',
 			},
@@ -238,17 +243,17 @@ export const exampleScenarios: readonly ExampleScenario[] = Object.freeze([
 		codeLabel: 'nested-write.ts',
 		documentation: [
 			{
-				href: '/docs/data-modeling/relations',
+				href: currentDocumentationPath('data-modeling/relations'),
 				kind: 'Concept',
 				label: 'Relations',
 			},
 			{
-				href: '/docs/guides/write-nested-data',
+				href: currentDocumentationPath('guides/write-nested-data'),
 				kind: 'Task guide',
 				label: 'Write nested data',
 			},
 			{
-				href: '/docs/mutations/nested-writes',
+				href: currentDocumentationPath('mutations/nested-writes'),
 				kind: 'Reference',
 				label: 'Nested writes',
 			},
@@ -284,17 +289,17 @@ export const exampleScenarios: readonly ExampleScenario[] = Object.freeze([
 		codeLabel: 'src/schema.ts',
 		documentation: [
 			{
-				href: '/docs/data-modeling/fields',
+				href: currentDocumentationPath('data-modeling/fields'),
 				kind: 'Concept',
 				label: 'Field kinds',
 			},
 			{
-				href: '/docs/guides/add-virtual-fields',
+				href: currentDocumentationPath('guides/add-virtual-fields'),
 				kind: 'Task guide',
 				label: 'Add virtual fields',
 			},
 			{
-				href: '/docs/querying/selections',
+				href: currentDocumentationPath('querying/selections'),
 				kind: 'Reference',
 				label: 'Selections',
 			},
@@ -329,17 +334,17 @@ await purgeArticle(ultimabase, obsoleteArticleId)`,
 		codeLabel: 'soft-delete.ts',
 		documentation: [
 			{
-				href: '/docs/mutations/soft-delete',
+				href: currentDocumentationPath('mutations/soft-delete'),
 				kind: 'Concept',
 				label: 'Soft delete',
 			},
 			{
-				href: '/docs/guides/add-soft-delete',
+				href: currentDocumentationPath('guides/add-soft-delete'),
 				kind: 'Task guide',
 				label: 'Add soft delete',
 			},
 			{
-				href: '/docs/mutations/delete',
+				href: currentDocumentationPath('mutations/delete'),
 				kind: 'Reference',
 				label: 'Delete commands',
 			},

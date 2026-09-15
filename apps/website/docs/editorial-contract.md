@@ -164,6 +164,13 @@ contract before a page exists. `sourceStatus` means:
 - `missing`: no suitable public contract exists yet, even if internal context
   can help define the gap.
 
+Every page also belongs to an explicit release folder at
+`content/docs/<locale>/<version>`. Links inside one version target that exact
+version rather than the current-version redirect. A translation records the
+English page from the same release line. Older version folders change only for
+corrections or maintained backports; new framework behavior belongs to the
+newest supported line.
+
 ## Progressive disclosure
 
 Beginner paths introduce only the packages and mental models required for the

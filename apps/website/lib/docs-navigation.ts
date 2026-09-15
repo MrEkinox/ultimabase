@@ -1,3 +1,5 @@
+import { isDocumentationVersion } from './docs-versions'
+
 export interface DocumentationSection {
 	readonly label: string
 	readonly slug: string
@@ -26,7 +28,12 @@ export function visibleDocumentationSections(
 	return documentationSections.filter((section) =>
 		urls.some((url) => {
 			const documentationPath = url.replace(/^\/fr(?=\/docs(?:\/|$))/u, '')
-			return documentationPath.startsWith(`/docs/${section.slug}/`)
+			const [, root, version, sectionSlug] = documentationPath.split('/')
+			return (
+				root === 'docs' &&
+				isDocumentationVersion(version) &&
+				sectionSlug === section.slug
+			)
 		}),
 	)
 }

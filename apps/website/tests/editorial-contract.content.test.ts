@@ -11,6 +11,7 @@ import {
 	editorialTemplates,
 } from '../lib/docs-content-contract'
 import { documentationSections } from '../lib/docs-navigation'
+import { currentDocumentationVersion } from '../lib/docs-versions'
 
 const websiteRoot = fileURLToPath(new URL('..', import.meta.url))
 const repositoryRoot = path.resolve(websiteRoot, '../..')
@@ -63,7 +64,10 @@ describe('documentation editorial contract', () => {
 
 		const urls = [
 			...parsed.sections.flatMap((section) =>
-				section.pages.map((page) => `/docs/${section.slug}/${page.slug}`),
+				section.pages.map(
+					(page) =>
+						`/docs/${currentDocumentationVersion.slug}/${section.slug}/${page.slug}`,
+				),
 			),
 			...parsed.standalonePages.map(({ path: pagePath }) => pagePath),
 		]
@@ -84,7 +88,12 @@ describe('documentation editorial contract', () => {
 
 		for (const section of parsed.sections) {
 			const sectionFiles = await readdir(
-				path.join(websiteRoot, 'content/docs/en', section.slug),
+				path.join(
+					websiteRoot,
+					'content/docs/en',
+					currentDocumentationVersion.slug,
+					section.slug,
+				),
 			)
 			const publishedSlugs = sectionFiles
 				.filter((fileName) => fileName.endsWith('.mdx'))

@@ -48,12 +48,12 @@ describe('French public journey', () => {
 					.locator('#nd-nav')
 					.getByRole('link', { name: 'Documentation' })
 					.getAttribute('href'),
-			).toBe('/fr/docs')
+			).toBe('/fr/docs/1.0')
 			expect(
 				await page
 					.getByRole('link', { name: 'Commencer' })
 					.getAttribute('href'),
-			).toBe('/fr/docs/getting-started/introduction')
+			).toBe('/fr/docs/1.0/getting-started/introduction')
 			expect(await page.locator('pre').first().textContent()).toContain(
 				"from '@ultimabase/core'",
 			)
@@ -81,10 +81,13 @@ describe('French public journey', () => {
 			const page = await context.newPage()
 			const clientErrors = collectClientErrors(page)
 			await page.goto(`${origin}/docs/getting-started/first-application`)
+			expect(page.url()).toBe(
+				`${origin}/docs/1.0/getting-started/first-application`,
+			)
 			await page.getByRole('button', { name: 'Choose a language' }).click()
 			await page.getByText('Français', { exact: true }).click()
 			await page.waitForURL(
-				`${origin}/fr/docs/getting-started/first-application`,
+				`${origin}/fr/docs/1.0/getting-started/first-application`,
 			)
 			await page
 				.getByRole('heading', { level: 1, name: 'Première application' })
@@ -93,22 +96,24 @@ describe('French public journey', () => {
 			await page.getByText('Sur cette page', { exact: true }).waitFor()
 			await page.getByRole('button', { name: 'Choisir une langue' }).waitFor()
 			await page
-				.locator('article a[href="/fr/docs/getting-started/installation"]')
+				.locator('article a[href="/fr/docs/1.0/getting-started/installation"]')
 				.waitFor()
 			await page
-				.locator('article a[href="/fr/docs/getting-started/project-structure"]')
+				.locator(
+					'article a[href="/fr/docs/1.0/getting-started/project-structure"]',
+				)
 				.waitFor()
 			expect(
 				await page.locator('link[rel="canonical"]').getAttribute('href'),
 			).toBe(
 				new URL(
-					'/fr/docs/getting-started/first-application',
+					'/fr/docs/1.0/getting-started/first-application',
 					siteConfig.canonicalUrl,
 				).href,
 			)
 			const editLink = page.getByRole('link', { name: 'Modifier sur GitHub' })
 			expect(await editLink.getAttribute('href')).toBe(
-				'https://github.com/MrEkinox/ultimadatabase/blob/main/apps/website/content/docs/fr/getting-started/first-application.mdx',
+				'https://github.com/MrEkinox/ultimadatabase/blob/main/apps/website/content/docs/fr/1.0/getting-started/first-application.mdx',
 			)
 			await page
 				.getByText('Dernière mise à jour le', { exact: false })
@@ -119,7 +124,7 @@ describe('French public journey', () => {
 			)
 			expect(search.ok()).toBe(true)
 			expect(JSON.stringify(await search.json())).toContain(
-				'/fr/docs/getting-started',
+				'/fr/docs/1.0/getting-started',
 			)
 
 			await page.goto(`${origin}/fr/docs/querying/overview`)
@@ -133,7 +138,7 @@ describe('French public journey', () => {
 				await page
 					.getByRole('link', { name: 'Lire la source anglaise' })
 					.getAttribute('href'),
-			).toBe('/docs/querying/overview')
+			).toBe('/docs/1.0/querying/overview')
 			expect(await accessibilityViolations(page)).toEqual([])
 			expect(clientErrors).toEqual([])
 		} finally {
@@ -151,7 +156,7 @@ describe('French public journey', () => {
 		try {
 			const page = await context.newPage()
 			const clientErrors = collectClientErrors(page)
-			await page.goto(`${origin}/docs/concepts/application-graph`)
+			await page.goto(`${origin}/docs/1.0/concepts/application-graph`)
 			await page
 				.getByRole('heading', { level: 1, name: 'Application Graph' })
 				.waitFor()
@@ -161,7 +166,7 @@ describe('French public journey', () => {
 				.waitFor()
 			expect(await accessibilityViolations(page)).toEqual([])
 
-			await page.goto(`${origin}/fr/docs/concepts/application-graph`)
+			await page.goto(`${origin}/fr/docs/1.0/concepts/application-graph`)
 			await page
 				.getByRole('heading', {
 					level: 1,
@@ -172,7 +177,7 @@ describe('French public journey', () => {
 				await page
 					.getByRole('link', { name: 'Lire la source anglaise' })
 					.getAttribute('href'),
-			).toBe('/docs/concepts/application-graph')
+			).toBe('/docs/1.0/concepts/application-graph')
 			expect(clientErrors).toEqual([])
 		} finally {
 			await context.close()

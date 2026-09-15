@@ -22,9 +22,9 @@ Open `http://localhost:3000`. Marketing routes use the `(marketing)` route
 group, while documentation is mounted at `/docs` through the `(docs)` group.
 The route implementation lives below `[lang]`: the proxy rewrites canonical
 English URLs internally and keeps the explicit `/fr` prefix for French. Public
-documentation source belongs in `content/docs/en` and `content/docs/fr`; root
-`docs/` remains the engineering source for ADRs, specifications, and
-implementation plans.
+documentation source belongs in version folders such as
+`content/docs/en/1.0` and `content/docs/fr/1.0`; root `docs/` remains the
+engineering source for ADRs, specifications, and implementation plans.
 
 Source-backed release status, roadmap, and contribution guidance live at
 `/status/*`. Their English routes are canonical; untranslated French routes
@@ -54,10 +54,10 @@ repository formatting and linting leave that generated declaration untouched.
 ## Documentation shell
 
 `lib/i18n.ts` owns the supported locales, labels, URL policy, and UI
-translations. English pages are canonical at `/docs`; French pages use
-`/fr/docs`. A missing French translation renders an explicit link to its
-English source and the nearest French documentation entry instead of silently
-mixing languages.
+translations. English pages use `/docs/<version>`; French pages use
+`/fr/docs/<version>`. A missing French translation renders an explicit link to
+the same English documentation version and the nearest French documentation
+entry instead of silently mixing languages.
 
 Every public MDX page requires a title, description, audience, content type,
 reader outcome, owning issue, release status, review date, and canonical
@@ -82,6 +82,19 @@ The `Concepts` section explains the compiled application graph, shared Runtime
 pipeline, request and transaction scope, persistence plans, immutability,
 Typegen, and the role of ADRs. It links back to task guides and curated
 reference pages instead of exposing repository internals as the learning path.
+
+## Documentation versions
+
+Documentation URLs include the framework release line, for example
+`/docs/1.0/getting-started/introduction`. `/docs` and legacy unversioned page
+URLs redirect to the newest configured line. Fumadocs derives the version
+selector from each version folder's `root: "version"` metadata.
+
+To publish another maintained line, add its locale folders and register it in
+`lib/docs-versions.ts`, newest first. Reuse relative page paths when the same
+guide exists in several versions so switching versions preserves the reader's
+location. Do not create an empty version or mutate older documentation to match
+new behavior.
 
 ## Visual system
 

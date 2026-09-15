@@ -6,16 +6,18 @@ import { describe, expect, it } from 'vitest'
 
 import { applicationExample, landingCopy } from '../components/landing/content'
 import { resolveDocumentationPage } from '../lib/docs-localization'
+import { currentDocumentationVersion } from '../lib/docs-versions'
 import { localizeNavigationLabel, localizePath } from '../lib/i18n'
 
 const websiteRoot = fileURLToPath(new URL('..', import.meta.url))
 const documentationRoot = path.join(websiteRoot, 'content/docs')
+const version = currentDocumentationVersion.slug
 
 const translatedPages = [
 	{
-		english: 'en/index.mdx',
-		french: 'fr/index.mdx',
-		source: '/docs',
+		english: `en/${version}/index.mdx`,
+		french: `fr/${version}/index.mdx`,
+		source: `/docs/${version}`,
 	},
 	...[
 		'first-application',
@@ -23,9 +25,9 @@ const translatedPages = [
 		'introduction',
 		'project-structure',
 	].map((slug) => ({
-		english: `en/getting-started/${slug}.mdx`,
-		french: `fr/getting-started/${slug}.mdx`,
-		source: `/docs/getting-started/${slug}`,
+		english: `en/${version}/getting-started/${slug}.mdx`,
+		french: `fr/${version}/getting-started/${slug}.mdx`,
+		source: `/docs/${version}/getting-started/${slug}`,
 	})),
 ] as const
 
@@ -88,13 +90,13 @@ describe('French reader journey', () => {
 	it('localizes navigation while preserving explicit fallback routes', () => {
 		expect(localizeNavigationLabel('fr', 'Docs')).toBe('Documentation')
 		expect(localizeNavigationLabel('fr', 'Examples')).toBe('Exemples')
-		expect(localizePath('fr', '/docs/getting-started/introduction')).toBe(
-			'/fr/docs/getting-started/introduction',
+		expect(localizePath('fr', '/docs/1.0/getting-started/introduction')).toBe(
+			'/fr/docs/1.0/getting-started/introduction',
 		)
 		expect(
-			resolveDocumentationPage('fr', undefined, '/docs/querying/overview'),
+			resolveDocumentationPage('fr', undefined, '/docs/1.0/querying/overview'),
 		).toEqual({
-			englishPage: '/docs/querying/overview',
+			englishPage: '/docs/1.0/querying/overview',
 			kind: 'translation-fallback',
 		})
 	})

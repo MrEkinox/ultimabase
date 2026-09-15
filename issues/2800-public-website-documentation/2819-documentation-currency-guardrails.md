@@ -60,6 +60,13 @@ so the website does not silently diverge from shipped behavior.
   requiring public doc edits for every internal refactor, generating all prose
   from source, or retroactively auditing every completed issue.
 
+## Follow-up
+
+Issue 2823 supersedes the original timing decision for versioned routing after
+the user requested that the `1.0` line establish the structure before a second
+maintained line exists. It does not change this issue's historical completion
+evidence.
+
 ## Completion evidence
 
 - Documentation impact: `both` — repository contribution rules now require the

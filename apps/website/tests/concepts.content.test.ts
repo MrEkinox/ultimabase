@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 
 const repositoryRoot = fileURLToPath(new URL('../../..', import.meta.url))
 const contentRoot = fileURLToPath(
-	new URL('../content/docs/en/concepts/', import.meta.url),
+	new URL('../content/docs/en/1.0/concepts/', import.meta.url),
 )
 const planPath = fileURLToPath(
 	new URL('../content/documentation-plan.json', import.meta.url),

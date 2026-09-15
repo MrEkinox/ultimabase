@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next'
 
+import { currentDocumentationPath } from './docs-versions'
 import { siteConfig } from './site'
 
 export interface DocumentationSitemapPage {
@@ -67,7 +68,7 @@ export function createPublicSitemap(
 				},
 				changeFrequency: 'weekly',
 				lastModified: page.reviewedAt,
-				priority: canonicalPath === '/docs' ? 0.9 : 0.8,
+				priority: canonicalPath === currentDocumentationPath() ? 0.9 : 0.8,
 				url: absoluteUrl(page.url),
 			}
 		},

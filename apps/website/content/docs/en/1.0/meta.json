@@ -1,0 +1,19 @@
+{
+	"title": "1.0",
+	"root": "version",
+	"pages": [
+		"index",
+		"getting-started",
+		"data-modeling",
+		"querying",
+		"mutations",
+		"security",
+		"apis",
+		"plugins",
+		"operations",
+		"guides",
+		"concepts",
+		"troubleshooting",
+		"reference"
+	]
+}

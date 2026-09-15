@@ -1,7 +1,9 @@
+import { isDocumentationVersion } from './docs-versions'
 import { siteConfig } from './site'
 
 const contentPrefix = 'apps/website/content/docs/'
-const publicPagePath = /^(?:en|fr)\/(?:[a-z0-9-]+\/)*[a-z0-9-]+\.mdx$/u
+const publicPagePath =
+	/^(?:en|fr)\/[a-z0-9-]+(?:\.[a-z0-9-]+)*(?:\/[a-z0-9-]+)*\/[a-z0-9-]+\.mdx$/u
 
 export interface DocumentationEditOptions {
 	readonly owner: string
@@ -12,7 +14,8 @@ export interface DocumentationEditOptions {
 
 /** Resolves one Fumadocs virtual path to its exact repository source file. */
 export function documentationSourcePath(pagePath: string): string {
-	if (!publicPagePath.test(pagePath)) {
+	const [, version] = pagePath.split('/')
+	if (!publicPagePath.test(pagePath) || !isDocumentationVersion(version)) {
 		throw new TypeError(`Invalid public documentation source path: ${pagePath}`)
 	}
 	return `${contentPrefix}${pagePath}`

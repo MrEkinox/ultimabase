@@ -1,3 +1,4 @@
+import { currentDocumentationPath } from '../../lib/docs-versions'
 import { siteConfig } from '../../lib/site'
 
 export interface LandingFeature {
@@ -85,42 +86,42 @@ export const landingFeatures: readonly LandingFeature[] = Object.freeze([
 	{
 		description:
 			'Drizzle stays private while schemas, queries, constraints, and lifecycle remain framework-owned.',
-		href: '/docs/operations/postgres',
+		href: currentDocumentationPath('operations/postgres'),
 		index: '01',
 		title: 'PostgreSQL, without leaking the adapter',
 	},
 	{
 		description:
 			'Every mutation and database work started by its hooks share one automatic transaction.',
-		href: '/docs/mutations/transactions',
+		href: currentDocumentationPath('mutations/transactions'),
 		index: '02',
 		title: 'Automatic mutation transactions',
 	},
 	{
 		description:
 			'Typed pointers, relations, inclusions, nested writes, and contextual views use one model.',
-		href: '/docs/data-modeling/relations',
+		href: currentDocumentationPath('data-modeling/relations'),
 		index: '03',
 		title: 'Relationships with one meaning',
 	},
 	{
 		description:
 			'Core structural checks compose with optional Standard Schema application validation.',
-		href: '/docs/guides/validate-input',
+		href: currentDocumentationPath('guides/validate-input'),
 		index: '04',
 		title: 'Validation at the right boundary',
 	},
 	{
 		description:
 			'Authentication, Access, Roles, and ACL stay independently removable and monotonically restrictive.',
-		href: '/docs/security/overview',
+		href: currentDocumentationPath('security/overview'),
 		index: '05',
 		title: 'Explicit security capabilities',
 	},
 	{
 		description:
 			'Generated declarations improve autocomplete without becoming runtime truth or a required client.',
-		href: '/docs/getting-started/project-structure',
+		href: currentDocumentationPath('getting-started/project-structure'),
 		index: '06',
 		title: 'Replaceable Typegen declarations',
 	},
@@ -130,42 +131,42 @@ const frenchLandingFeatures: readonly LandingFeature[] = Object.freeze([
 	{
 		description:
 			'Drizzle reste privé tandis que les schémas, requêtes, contraintes et cycles de vie appartiennent au framework.',
-		href: '/docs/operations/postgres',
+		href: currentDocumentationPath('operations/postgres'),
 		index: '01',
 		title: 'PostgreSQL, sans exposer l’adaptateur',
 	},
 	{
 		description:
 			'Chaque mutation et le travail de base de données lancé par ses hooks partagent une transaction automatique.',
-		href: '/docs/mutations/transactions',
+		href: currentDocumentationPath('mutations/transactions'),
 		index: '02',
 		title: 'Transactions automatiques pour les mutations',
 	},
 	{
 		description:
 			'Pointeurs typés, relations, inclusions, écritures imbriquées et vues contextuelles suivent un même modèle.',
-		href: '/docs/data-modeling/relations',
+		href: currentDocumentationPath('data-modeling/relations'),
 		index: '03',
 		title: 'Des relations au sens unique',
 	},
 	{
 		description:
 			'Les contrôles structurels de Core se composent avec la validation applicative Standard Schema optionnelle.',
-		href: '/docs/guides/validate-input',
+		href: currentDocumentationPath('guides/validate-input'),
 		index: '04',
 		title: 'La validation à la bonne frontière',
 	},
 	{
 		description:
 			'Authentification, Access, Roles et ACL restent indépendamment retirables et ne peuvent que restreindre.',
-		href: '/docs/security/overview',
+		href: currentDocumentationPath('security/overview'),
 		index: '05',
 		title: 'Des capacités de sécurité explicites',
 	},
 	{
 		description:
 			'Les déclarations générées améliorent l’autocomplétion sans devenir la vérité du Runtime ni un client obligatoire.',
-		href: '/docs/getting-started/project-structure',
+		href: currentDocumentationPath('getting-started/project-structure'),
 		index: '06',
 		title: 'Des déclarations Typegen remplaçables',
 	},

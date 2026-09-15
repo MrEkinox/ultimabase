@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 const contentRoot = fileURLToPath(
-	new URL('../content/docs/en/guides/', import.meta.url),
+	new URL('../content/docs/en/1.0/guides/', import.meta.url),
 )
 const pages = [
 	'add-soft-delete',

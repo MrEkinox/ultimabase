@@ -1,18 +1,4 @@
 {
 	"title": "Documentation",
-	"pages": [
-		"index",
-		"getting-started",
-		"data-modeling",
-		"querying",
-		"mutations",
-		"security",
-		"apis",
-		"plugins",
-		"operations",
-		"guides",
-		"concepts",
-		"troubleshooting",
-		"reference"
-	]
+	"pages": ["1.0"]
 }

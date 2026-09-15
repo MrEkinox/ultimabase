@@ -32,6 +32,33 @@ async function publicSearch(page: Page, query: string): Promise<string> {
 }
 
 describe('website preview audit', () => {
+	it('exposes the current docs version and preserves legacy links', async () => {
+		const context = await browser?.newContext({
+			viewport: { height: 900, width: 1280 },
+		})
+		if (context === undefined) throw new Error('Browser did not start')
+
+		try {
+			const page = await context.newPage()
+			const clientErrors = collectClientErrors(page)
+			await page.goto(`${origin}/docs/getting-started/introduction`)
+			expect(page.url()).toBe(`${origin}/docs/1.0/getting-started/introduction`)
+
+			const versionSelector = page
+				.locator('#nd-sidebar')
+				.getByRole('button', { exact: true, name: '1.0' })
+			await versionSelector.waitFor()
+			await versionSelector.click()
+			expect(
+				await page.getByRole('link', { exact: true, name: '1.0' }).count(),
+			).toBe(1)
+			expect(await accessibilityViolations(page)).toEqual([])
+			expect(clientErrors).toEqual([])
+		} finally {
+			await context.close()
+		}
+	})
+
 	it('completes the primary navigation and call-to-action path', async () => {
 		const context = await browser?.newContext({
 			colorScheme: 'light',
@@ -48,9 +75,9 @@ describe('website preview audit', () => {
 					.locator('#nd-nav')
 					.getByRole('link', { name: 'Plugins' })
 					.getAttribute('href'),
-			).toBe('/docs/plugins/overview')
+			).toBe('/docs/1.0/plugins/overview')
 			await page.getByRole('link', { name: 'Start building' }).click()
-			await page.waitForURL(`${origin}/docs/getting-started/introduction`)
+			await page.waitForURL(`${origin}/docs/1.0/getting-started/introduction`)
 			await page
 				.getByRole('heading', { level: 1, name: 'Introduction' })
 				.waitFor()
@@ -135,13 +162,13 @@ describe('website preview audit', () => {
 		try {
 			const page = await context.newPage()
 			expect(await publicSearch(page, 'install')).toContain(
-				'/docs/getting-started/installation',
+				'/docs/1.0/getting-started/installation',
 			)
 			expect(await publicSearch(page, '@ultimabase/core')).toContain(
-				'/docs/reference/packages',
+				'/docs/1.0/reference/packages',
 			)
 			expect(await publicSearch(page, 'HTTP_APPLICATION_REJECTED')).toContain(
-				'/docs/troubleshooting/http-and-application-identity',
+				'/docs/1.0/troubleshooting/http-and-application-identity',
 			)
 			const french = await page.request.get(
 				`${origin}/api/search?query=${encodeURIComponent('préversion')}&locale=fr`,
@@ -168,12 +195,15 @@ describe('website preview audit', () => {
 	})
 
 	it.each([
-		['/docs/getting-started/installation', 'Installation'],
-		['/docs/getting-started/first-application', 'First Application'],
-		['/docs/concepts/runtime-pipeline', 'Runtime Pipeline'],
-		['/docs/plugins/installation', 'Install a Plugin'],
-		['/docs/guides/build-an-authenticated-api', 'Build an Authenticated API'],
-		['/docs/troubleshooting/startup', 'Startup and Plugin Graph'],
+		['/docs/1.0/getting-started/installation', 'Installation'],
+		['/docs/1.0/getting-started/first-application', 'First Application'],
+		['/docs/1.0/concepts/runtime-pipeline', 'Runtime Pipeline'],
+		['/docs/1.0/plugins/installation', 'Install a Plugin'],
+		[
+			'/docs/1.0/guides/build-an-authenticated-api',
+			'Build an Authenticated API',
+		],
+		['/docs/1.0/troubleshooting/startup', 'Startup and Plugin Graph'],
 	])(
 		'keeps the reader task at %s independently usable',
 		async (route, title) => {
@@ -187,7 +217,9 @@ describe('website preview audit', () => {
 				const response = await page.goto(`${origin}${route}`)
 				expect(response?.status()).toBe(200)
 				await page.getByRole('heading', { level: 1, name: title }).waitFor()
-				expect(await page.locator('main a[href*="/docs/adr/"]').count()).toBe(0)
+				expect(
+					await page.locator('main a[href*="/docs/1.0/adr/"]').count(),
+				).toBe(0)
 			} finally {
 				await context.close()
 			}

@@ -115,18 +115,18 @@ describe('documentation currency guardrails', () => {
 	})
 
 	it('maps every page to its exact source-edit coordinates', () => {
-		const pagePath = 'fr/getting-started/introduction.mdx'
+		const pagePath = 'fr/1.0/getting-started/introduction.mdx'
 		expect(documentationSourcePath(pagePath)).toBe(
-			'apps/website/content/docs/fr/getting-started/introduction.mdx',
+			'apps/website/content/docs/fr/1.0/getting-started/introduction.mdx',
 		)
 		expect(documentationEditOptions(pagePath)).toEqual({
 			owner: 'MrEkinox',
-			path: 'apps/website/content/docs/fr/getting-started/introduction.mdx',
+			path: 'apps/website/content/docs/fr/1.0/getting-started/introduction.mdx',
 			repo: 'ultimadatabase',
 			sha: 'main',
 		})
 		expect(documentationEditUrl(pagePath).href).toBe(
-			'https://github.com/MrEkinox/ultimadatabase/blob/main/apps/website/content/docs/fr/getting-started/introduction.mdx',
+			'https://github.com/MrEkinox/ultimadatabase/blob/main/apps/website/content/docs/fr/1.0/getting-started/introduction.mdx',
 		)
 		expect(() => documentationSourcePath('../AGENTS.md')).toThrow(
 			'Invalid public documentation source path',

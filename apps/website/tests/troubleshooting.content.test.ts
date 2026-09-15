@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 const websiteRoot = fileURLToPath(new URL('..', import.meta.url))
-const docsRoot = path.join(websiteRoot, 'content/docs/en')
+const docsRoot = path.join(websiteRoot, 'content/docs/en/1.0')
 const troubleshootingRoot = path.join(docsRoot, 'troubleshooting')
 
 const pageNames = [
@@ -36,7 +36,7 @@ const collectMdxFiles = async (
 const pageUrl = (filePath: string): string => {
 	const relative = path.relative(docsRoot, filePath).replaceAll(path.sep, '/')
 	const slug = relative.replace(/\.mdx$/u, '').replace(/\/index$/u, '')
-	return slug === 'index' ? '/docs' : `/docs/${slug}`
+	return slug === 'index' ? '/docs/1.0' : `/docs/1.0/${slug}`
 }
 
 describe('troubleshooting content', () => {
@@ -80,7 +80,7 @@ describe('troubleshooting content', () => {
 		const urls = new Set(files.map(pageUrl))
 
 		for (const name of pageNames) {
-			const currentUrl = `/docs/troubleshooting/${name}`
+			const currentUrl = `/docs/1.0/troubleshooting/${name}`
 			const source = await readPage(name)
 			const links = [...source.matchAll(/\[[^\]]+\]\((?<href>[^)]+)\)/gu)]
 				.map((match) => match.groups?.href)

@@ -7,7 +7,10 @@ import { officialPluginCatalog } from '../lib/official-plugins'
 
 const repositoryRoot = fileURLToPath(new URL('../../..', import.meta.url))
 const pluginPagePath = fileURLToPath(
-	new URL('../content/docs/en/plugins/official-plugins.mdx', import.meta.url),
+	new URL(
+		'../content/docs/en/1.0/plugins/official-plugins.mdx',
+		import.meta.url,
+	),
 )
 describe('plugin documentation contracts', () => {
 	it('classifies every current official plugin package deliberately', async () => {

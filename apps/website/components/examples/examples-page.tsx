@@ -1,5 +1,6 @@
 import Link from 'next/link'
 
+import { currentDocumentationPath } from '../../lib/docs-versions'
 import { siteConfig } from '../../lib/site'
 import {
 	ButtonLink,
@@ -211,7 +212,9 @@ export function ExampleScenarioPage({ scenario }: ExampleScenarioPageProps) {
 					))}
 				</div>
 				{nextScenario === undefined ? (
-					<ButtonLink href="/docs/operations/production-checklist">
+					<ButtonLink
+						href={currentDocumentationPath('operations/production-checklist')}
+					>
 						Continue to production readiness
 					</ButtonLink>
 				) : (

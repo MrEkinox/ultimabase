@@ -184,7 +184,7 @@ describe('website visual system', () => {
 			const clientErrors = collectClientErrors(page)
 
 			await page.goto(`${origin}/en/docs`)
-			expect(page.url()).toBe(`${origin}/docs`)
+			expect(page.url()).toBe(`${origin}/docs/1.0`)
 			expect(await page.locator('html').getAttribute('lang')).toBe('en')
 			expect(clientErrors).toEqual([])
 
@@ -203,7 +203,7 @@ describe('website visual system', () => {
 
 			await page.getByRole('button', { name: 'Choose a language' }).click()
 			await page.getByText('Français', { exact: true }).click()
-			await page.waitForURL(`${origin}/fr/docs`)
+			await page.waitForURL(`${origin}/fr/docs/1.0`)
 			expect(await page.locator('html').getAttribute('lang')).toBe('fr')
 			await page
 				.getByText('Cette page confirme le parcours français du site.')
@@ -237,8 +237,8 @@ describe('website visual system', () => {
 						result !== null &&
 						'url' in result &&
 						typeof result.url === 'string' &&
-						result.url.startsWith('/docs/') &&
-						!result.url.startsWith('/docs/adr/'),
+						result.url.startsWith('/docs/1.0/') &&
+						!result.url.startsWith('/docs/1.0/adr/'),
 				),
 			).toBe(true)
 			expect(clientErrors).toEqual([])

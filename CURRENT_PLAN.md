@@ -137,6 +137,9 @@ The subsequent milestone audit found that the approved Concepts section,
 standalone status routes, and global Plugins entry remained absent. Issue 2821
 published the eight missing mental-model pages; issue 2822 restored status and
 navigation parity and reran the final preview gate.
+Issue 2823 versioned the documentation source and canonical URLs under `1.0`,
+enabled Fumadocs' native release-line selector, and preserved legacy links
+through current-version redirects.
 
 ### Phase 1 — Application, design, and content foundation
 
@@ -209,6 +212,8 @@ terminology, and validation of all public examples.
     models omitted from the first reference pass.
 22. Issue 2822 publishes the three approved status routes, restores the global
     Plugins link, and reruns the complete private-preview gate.
+23. Issue 2823 gives every public documentation page an explicit release line
+    and prepares the native Fumadocs selector for later maintained versions.
 
 ## Documentation-currency rule to deliver
 

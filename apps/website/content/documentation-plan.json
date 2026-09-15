@@ -647,7 +647,7 @@
 			"sources": ["README.md", "ARCHITECTURE.md", "examples/minimal/README.md"]
 		},
 		{
-			"path": "/docs",
+			"path": "/docs/1.0",
 			"slug": "docs",
 			"contentType": "concept",
 			"outcome": "Choose the documentation path for the current task.",

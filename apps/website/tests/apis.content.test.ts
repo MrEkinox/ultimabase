@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 const contentRoot = fileURLToPath(
-	new URL('../content/docs/en/apis/', import.meta.url),
+	new URL('../content/docs/en/1.0/apis/', import.meta.url),
 )
 const pageNames = [
 	'errors',

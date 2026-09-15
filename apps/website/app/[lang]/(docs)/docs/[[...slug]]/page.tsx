@@ -1,4 +1,4 @@
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { findNeighbour } from 'fumadocs-core/page-tree'
 import {
 	DocsBody,
@@ -11,6 +11,11 @@ import { createRelativeLink } from 'fumadocs-ui/mdx'
 import { getMdxComponents } from '../../../../../components/mdx'
 import { resolveDocumentationPage } from '../../../../../lib/docs-localization'
 import { documentationEditOptions } from '../../../../../lib/docs-links'
+import {
+	documentationPath,
+	isDocumentationVersion,
+	versionDocumentationSlug,
+} from '../../../../../lib/docs-versions'
 import { isSiteLocale } from '../../../../../lib/i18n'
 import { createPublicPageMetadata } from '../../../../../lib/metadata'
 import { source } from '../../../../../lib/source'
@@ -27,6 +32,9 @@ export default async function DocumentationPage({
 }: DocumentationPageProps) {
 	const { lang, slug } = await params
 	if (!isSiteLocale(lang)) notFound()
+	if (!isDocumentationVersion(slug?.[0])) {
+		redirect(documentationPath(lang, slug?.join('/')))
+	}
 
 	const resolution = resolveDocumentationPage(
 		lang,
@@ -45,7 +53,10 @@ export default async function DocumentationPage({
 				<DocsBody>
 					<p>
 						<a href={resolution.englishPage.url}>Lire la source anglaise</a> ou{' '}
-						<a href="/fr/docs">revenir à la documentation française</a>.
+						<a href={documentationPath('fr')}>
+							revenir à la documentation française
+						</a>
+						.
 					</p>
 				</DocsBody>
 			</DocsPage>
@@ -84,11 +95,12 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: DocumentationPageProps) {
 	const { lang, slug } = await params
 	if (!isSiteLocale(lang)) notFound()
+	const versionedSlug = versionDocumentationSlug(slug)
 
-	const englishPage = source.getPage(slug, 'en')
+	const englishPage = source.getPage(versionedSlug, 'en')
 	const resolution = resolveDocumentationPage(
 		lang,
-		source.getPage(slug, lang),
+		source.getPage(versionedSlug, lang),
 		englishPage,
 	)
 	if (resolution.kind === 'translation-fallback') {
@@ -103,7 +115,7 @@ export async function generateMetadata({ params }: DocumentationPageProps) {
 	if (resolution.kind === 'not-found') notFound()
 
 	const { page } = resolution
-	const frenchPage = source.getPage(slug, 'fr')
+	const frenchPage = source.getPage(versionedSlug, 'fr')
 
 	return createPublicPageMetadata({
 		canonicalPath: page.url,
