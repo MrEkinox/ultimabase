@@ -1,9 +1,10 @@
 import { HomeLayout } from 'fumadocs-ui/layouts/home'
+import { notFound } from 'next/navigation'
 import type { ReactNode } from 'react'
 
+import { SiteFooter } from '../../../components/site-shell'
 import { baseLayoutOptions } from '../../../lib/layout'
 import { isSiteLocale } from '../../../lib/i18n'
-import { notFound } from 'next/navigation'
 
 interface MarketingLayoutProps {
 	readonly children: ReactNode
@@ -17,5 +18,10 @@ export default async function MarketingLayout({
 	const { lang } = await params
 	if (!isSiteLocale(lang)) notFound()
 
-	return <HomeLayout {...baseLayoutOptions(lang)}>{children}</HomeLayout>
+	return (
+		<div className="ub-page-shell">
+			<HomeLayout {...baseLayoutOptions(lang)}>{children}</HomeLayout>
+			<SiteFooter locale={lang} />
+		</div>
+	)
 }

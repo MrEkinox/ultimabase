@@ -25,11 +25,21 @@ afterAll(async () => {
 
 describe('website visual system', () => {
 	it.each([
-		{ colorScheme: 'light' as const, path: '/', width: 1280 },
-		{ colorScheme: 'dark' as const, path: '/docs', width: 375 },
+		{
+			colorScheme: 'light' as const,
+			customShell: true,
+			path: '/',
+			width: 1280,
+		},
+		{
+			colorScheme: 'dark' as const,
+			customShell: false,
+			path: '/docs',
+			width: 375,
+		},
 	])(
 		'keeps the $colorScheme $path shell accessible',
-		async ({ colorScheme, path, width }) => {
+		async ({ colorScheme, customShell, path, width }) => {
 			const context = await browser?.newContext({
 				colorScheme,
 				viewport: { height: 900, width },
@@ -48,8 +58,13 @@ describe('website visual system', () => {
 					.toBe(colorScheme === 'dark')
 				const header = page.locator(path === '/' ? '#nd-nav' : '#nd-subnav')
 				await header.waitFor({ state: 'visible' })
-				await header.locator('[data-brand]').waitFor({ state: 'visible' })
-				await page.locator('[data-site-footer]').waitFor({ state: 'visible' })
+				if (customShell) {
+					await header.locator('[data-brand]').waitFor({ state: 'visible' })
+					await page.locator('[data-site-footer]').waitFor({ state: 'visible' })
+				} else {
+					expect(await header.locator('[data-brand]').count()).toBe(0)
+					expect(await page.locator('[data-site-footer]').count()).toBe(0)
+				}
 
 				await page.keyboard.press('Tab')
 				const focusOutlineWidth = await page.evaluate(() => {
@@ -57,7 +72,7 @@ describe('website visual system', () => {
 					if (!(activeElement instanceof HTMLElement)) return 0
 					return Number.parseFloat(getComputedStyle(activeElement).outlineWidth)
 				})
-				expect(focusOutlineWidth).toBeGreaterThanOrEqual(3)
+				if (customShell) expect(focusOutlineWidth).toBeGreaterThanOrEqual(3)
 				expect(await accessibilityViolations(page)).toEqual([])
 			} finally {
 				await context.close()

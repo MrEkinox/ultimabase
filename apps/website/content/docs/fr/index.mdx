@@ -15,7 +15,7 @@ sources:
   - apps/website/content/docs/en/index.mdx
 translation:
   source: /docs
-  sourceHash: sha256:418d4a752e4aa27578c26c115361a81841925771de65756e7ca852df01971bb7
+  sourceHash: sha256:ea6e18c4a8c5c8a840a74f9b03af54edf400b0d97bb811914fa8df702f22df72
   reviewedAt: 2026-09-14
 ---
 
@@ -27,13 +27,13 @@ translation:
 Cette page confirme le parcours français du site. Les pages non encore traduites
 renvoient explicitement vers leur source anglaise au lieu de mélanger les langues.
 
-<ArchitectureDiagram
-	title="Un seul modèle d’application"
-	description="Chaque point d’entrée public rejoint le même graphe d’application compilé."
-	steps={[
-		'TypeScript, REST ou GraphQL',
-		'Opération normalisée',
-		'Validation, règles et hooks',
-		'Persistance transactionnelle',
-	]}
-/>
+**Un seul modèle d’application**
+
+Chaque point d’entrée public rejoint le même graphe d’application compilé.
+
+<Steps>
+	<Step>TypeScript, REST ou GraphQL</Step>
+	<Step>Opération normalisée</Step>
+	<Step>Validation, règles et hooks</Step>
+	<Step>Persistance transactionnelle</Step>
+</Steps>

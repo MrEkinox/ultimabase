@@ -13,7 +13,7 @@ sources:
   - apps/website/content/docs/en/getting-started/introduction.mdx
 translation:
   source: /docs/getting-started/introduction
-  sourceHash: sha256:05e6f4e222f99c87a4254a416cfdddfaa95d9decc89a47f2cdfa4b9fa4977f2c
+  sourceHash: sha256:43ad6d4cb6e27df27b8f0801c7611de0e1960cdf94afd2f9f06121e9d52a2282
   reviewedAt: 2026-09-14
 ---
 
@@ -38,16 +38,17 @@ liés aux transports ne masquent pas le premier résultat fonctionnel.
 
 À la fin, vous aurez vu le contrat central :
 
-<ArchitectureDiagram
-	title="Un seul parcours d’application compilé"
-	description="Le schéma et les plugins choisis deviennent la vérité du Runtime de l’application."
-	steps={[
-		'Schéma TypeScript statique',
-		'Graphe de plugins explicite',
-		'Pipeline Runtime de Core',
-		'Persistance PostgreSQL',
-	]}
-/>
+**Un seul parcours d’application compilé**
+
+Le schéma et les plugins choisis deviennent la vérité du Runtime de
+l’application.
+
+<Steps>
+	<Step>Schéma TypeScript statique</Step>
+	<Step>Graphe de plugins explicite</Step>
+	<Step>Pipeline Runtime de Core</Step>
+	<Step>Persistance PostgreSQL</Step>
+</Steps>
 
 ## Prérequis
 

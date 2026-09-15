@@ -8,7 +8,6 @@ import {
 } from 'fumadocs-ui/page'
 import { createRelativeLink } from 'fumadocs-ui/mdx'
 
-import { TranslationFallback } from '../../../../../components/docs/translation-fallback'
 import { getMdxComponents } from '../../../../../components/mdx'
 import { resolveDocumentationPage } from '../../../../../lib/docs-localization'
 import { documentationEditOptions } from '../../../../../lib/docs-links'
@@ -37,8 +36,17 @@ export default async function DocumentationPage({
 	if (resolution.kind === 'translation-fallback') {
 		return (
 			<DocsPage toc={[]}>
+				<DocsTitle>
+					Cette page n’est pas encore disponible en français.
+				</DocsTitle>
+				<DocsDescription>
+					La version anglaise reste la source complète pendant la traduction.
+				</DocsDescription>
 				<DocsBody>
-					<TranslationFallback englishUrl={resolution.englishPage.url} />
+					<p>
+						<a href={resolution.englishPage.url}>Lire la source anglaise</a> ou{' '}
+						<a href="/fr/docs">revenir à la documentation française</a>.
+					</p>
 				</DocsBody>
 			</DocsPage>
 		)

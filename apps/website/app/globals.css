@@ -1,41 +1,10 @@
 @import 'tailwindcss';
-@import 'fumadocs-ui/css/neutral.css';
+@import 'fumadocs-ui/css/black.css';
 @import 'fumadocs-ui/css/preset.css';
 @import './theme.css';
 @import './landing.css';
 @import './examples.css';
 @import './status.css';
-@import './docs.css';
-
-* {
-	border-color: var(--ub-border);
-}
-
-html {
-	background: var(--ub-background);
-	scroll-behavior: smooth;
-}
-
-body {
-	background: var(--ub-background);
-	color: var(--ub-foreground);
-	font-family: var(--ub-font-sans);
-	font-feature-settings:
-		'ss01' 1,
-		'cv11' 1;
-	text-rendering: optimizeLegibility;
-}
-
-::selection {
-	background: var(--ub-accent-soft);
-	color: var(--ub-foreground);
-}
-
-:where(a, button, input, textarea, select, [tabindex]):focus-visible {
-	border-radius: var(--ub-radius-small);
-	outline: 3px solid var(--ub-focus);
-	outline-offset: 3px;
-}
 
 .ub-page-shell {
 	display: flex;
@@ -48,16 +17,15 @@ body {
 	flex: 1;
 }
 
-#nd-nav,
-#nd-subnav {
-	border-bottom: var(--ub-border-width) solid var(--ub-border);
-	background: var(--ub-background);
-	backdrop-filter: none;
+.ub-page-shell
+	:where(a, button, input, textarea, select, [tabindex]):focus-visible {
+	border-radius: var(--ub-radius-small);
+	outline: 3px solid var(--ub-focus);
+	outline-offset: 3px;
 }
 
-#nd-nav > div {
-	background: var(--ub-background);
-	backdrop-filter: none;
+.ub-page-shell #nd-nav [data-search-full] {
+	color: var(--color-fd-foreground);
 }
 
 .ub-brand-link {
@@ -80,7 +48,7 @@ body {
 	border: var(--ub-border-width) solid var(--ub-border-strong);
 	border-radius: var(--ub-radius-small);
 	background: var(--ub-foreground);
-	color: var(--ub-accent);
+	color: var(--ub-accent-contrast);
 }
 
 .ub-brand-name {
@@ -234,9 +202,9 @@ body {
 	display: flex;
 	justify-content: space-between;
 	gap: var(--ub-space-4);
-	border-bottom: var(--ub-border-width) solid #3c433f;
+	border-bottom: var(--ub-border-width) solid var(--ub-border);
 	padding: var(--ub-space-3) var(--ub-space-4);
-	color: #bbc0b9;
+	color: var(--ub-muted);
 	font-family: var(--ub-font-mono);
 	font-size: 0.6875rem;
 	letter-spacing: 0.06em;
@@ -334,14 +302,8 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-	html {
-		scroll-behavior: auto;
-	}
-
-	*,
-	*::before,
-	*::after {
-		scroll-behavior: auto !important;
+	.ub-button,
+	.ub-code-surface {
 		transition-duration: 0.01ms !important;
 		animation-duration: 0.01ms !important;
 		animation-iteration-count: 1 !important;
@@ -351,4 +313,13 @@ body {
 	.ub-code-surface:hover {
 		transform: none;
 	}
+}
+
+/* The bundled GitHub Light tokens miss WCAG AA for these syntax colors. */
+html:not(.dark) .shiki span[style*='--shiki-light:#D73A49'] {
+	--shiki-light: #b11f35 !important;
+}
+
+html:not(.dark) .shiki span[style*='--shiki-light:#E36209'] {
+	--shiki-light: #923b00 !important;
 }

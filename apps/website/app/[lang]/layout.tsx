@@ -3,7 +3,6 @@ import type { Metadata, Viewport } from 'next'
 import { notFound } from 'next/navigation'
 import type { ReactNode } from 'react'
 
-import { SiteFooter } from '../../components/site-shell'
 import { SiteProvider } from '../../components/site-provider'
 import { i18n, isSiteLocale, translations } from '../../lib/i18n'
 import { siteConfig } from '../../lib/site'
@@ -38,10 +37,6 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
 	colorScheme: 'light dark',
-	themeColor: [
-		{ color: '#f5f3ed', media: '(prefers-color-scheme: light)' },
-		{ color: '#111513', media: '(prefers-color-scheme: dark)' },
-	],
 }
 
 interface RootLayoutProps {
@@ -60,10 +55,7 @@ export default async function RootLayout({
 		<html lang={lang} suppressHydrationWarning>
 			<body>
 				<SiteProvider i18n={i18nProvider(translations, lang)}>
-					<div className="ub-page-shell">
-						{children}
-						<SiteFooter locale={lang} />
-					</div>
+					{children}
 				</SiteProvider>
 			</body>
 		</html>
