@@ -206,7 +206,10 @@ describe('website visual system', () => {
 			await page.waitForURL(`${origin}/fr/docs/1.0`)
 			expect(await page.locator('html').getAttribute('lang')).toBe('fr')
 			await page
-				.getByText('Cette page confirme le parcours français du site.')
+				.getByText(
+					'Cette page est l’entrée française de la documentation UltimaBase',
+					{ exact: false },
+				)
 				.waitFor({ state: 'visible' })
 
 			const frenchSearch = await page.request.get(

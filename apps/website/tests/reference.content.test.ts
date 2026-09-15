@@ -8,15 +8,12 @@ const contentRoot = fileURLToPath(
 	new URL('../content/docs/en/1.0/reference/', import.meta.url),
 )
 const pages = [
-	'application-configuration',
-	'schema',
-	'fields',
-	'query',
-	'models',
-	'plugin-manifests',
-	'official-plugin-options',
-	'errors',
-	'packages',
+	'core-api/application',
+	'core-api/schema',
+	'core-api/fields',
+	'core-api/query',
+	'core-api/models',
+	'core-api/errors',
 ] as const
 
 const readPage = (page: (typeof pages)[number]): Promise<string> =>
@@ -37,7 +34,7 @@ describe('curated public reference', () => {
 				expect(source, `${page}: ${heading}`).toContain(heading)
 			}
 			expect(source).toContain('releaseStatus: pre-release')
-			expect(source).toMatch(/\.\.\/[^)\s]+/u)
+			expect(source).toMatch(/(?:\/docs\/1\.0\/|\.\.\/)[^)\s]+/u)
 		}
 	})
 
@@ -68,7 +65,10 @@ describe('curated public reference', () => {
 			packageNames.push(packageJson.name)
 		}
 
-		const packagePage = await readPage('packages')
+		const packagePage = await readFile(
+			path.join(contentRoot, 'package-index.mdx'),
+			'utf8',
+		)
 		const documentedNames = [
 			...packagePage.matchAll(/`(@ultimabase\/[a-z0-9-]+)`/gu),
 		].map((match) => match[1])
@@ -76,7 +76,10 @@ describe('curated public reference', () => {
 	})
 
 	it('keeps code imports on real package roots without deep paths', async () => {
-		const packagePage = await readPage('packages')
+		const packagePage = await readFile(
+			path.join(contentRoot, 'package-index.mdx'),
+			'utf8',
+		)
 		const packageNames = new Set(
 			[...packagePage.matchAll(/`(@ultimabase\/[a-z0-9-]+)`/gu)].map(
 				(match) => match[1],

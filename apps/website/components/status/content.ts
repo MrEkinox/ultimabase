@@ -68,13 +68,15 @@ export const statusPages: readonly StatusPageContent[] = Object.freeze([
 					{
 						description:
 							'Validation, Hooks, Access, Roles, ACL, authentication, transports, explorers, and tooling are explicit optional packages.',
-						href: currentDocumentationPath('plugins/official-plugins'),
+						href: currentDocumentationPath('plugins/overview'),
 						title: 'Official plugin system',
 					},
 					{
 						description:
 							'Direct TypeScript, experimental REST v1, and GraphQL share the same operation and policy path.',
-						href: currentDocumentationPath('apis/typescript'),
+						href: currentDocumentationPath(
+							'core/application/direct-typescript',
+						),
 						title: 'Public execution paths',
 					},
 				],
@@ -143,13 +145,15 @@ export const statusPages: readonly StatusPageContent[] = Object.freeze([
 					{
 						description:
 							'Schemas, Query, immutable models, application compilation, plugin capabilities, validation, policy, Hooks, and transaction invariants.',
-						href: currentDocumentationPath('concepts/application-graph'),
+						href: currentDocumentationPath(
+							'core/application/application-graph',
+						),
 						title: 'Core and plugin kernel',
 					},
 					{
 						description:
 							'PostgreSQL, HTTP application selection, REST, Password Auth, GraphQL, Yoga, and optional explorers.',
-						href: currentDocumentationPath('plugins/official-plugins'),
+						href: currentDocumentationPath('plugins/overview'),
 						title: 'Public verticals',
 					},
 					{
@@ -175,7 +179,7 @@ export const statusPages: readonly StatusPageContent[] = Object.freeze([
 					{
 						description:
 							'Architecture decisions are proposed before public boundaries, storage, dependency direction, or security semantics change.',
-						href: currentDocumentationPath('concepts/architecture-decisions'),
+						href: currentDocumentationPath('reference/architecture-decisions'),
 						title: 'Decision discipline',
 					},
 				],

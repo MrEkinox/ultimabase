@@ -1,0 +1,48 @@
+---
+title: Delete Records
+description: Delete one exact target while preserving hooks, integrity work, and a typed preimage.
+audience:
+  - application-developer
+contentType: guide
+order: 3
+outcome: Choose schema-root or loaded-model deletion and interpret its result.
+owner: '2809'
+releaseStatus: pre-release
+reviewedAt: 2026-09-15
+sources:
+  - packages/core/README.md
+  - packages/core/docs/runtime.md
+  - docs/adr/0109-model-mutator-methods-and-create-draft.md
+  - docs/adr/0099-automatic-mutation-transactions.md
+---
+
+Delete one record by stable identity or an exact unique predicate. The result
+is a selected view of the pre-delete record, so the application can retain the
+business data it needs without re-reading a row that no longer exists.
+
+```ts title="src/delete-post.ts"
+import { Post } from './schemas.js'
+import { ultimabase } from './ultimabase.js'
+
+export const deletePost = (postId: string) =>
+	Post.deleteOne(
+		{ id: postId, select: { slug: true, title: true } },
+		{ ultimabase },
+	)
+
+export const deleteLoadedPost = async (postId: string) => {
+	const post = await Post.get({ id: postId }, { ultimabase })
+	return post.delete({ select: { title: true } }, { ultimabase })
+}
+```
+
+The schema-root command returns `null` when the visible target does not exist.
+The loaded-model command is strict and reports `NOT_FOUND` instead. Both run the
+normal policy, Hook, validation, relationship-integrity, and transaction
+pipeline. There is no general `skipHooks` deletion escape hatch.
+
+Native delete means physical deletion unless the optional Soft Delete plugin
+replaces it for that schema. See the
+[Soft Delete plugin](/docs/1.0/plugins/official/data-and-persistence/soft-delete)
+before choosing a retention policy. Configuration, restore, purge, and
+tombstone visibility belong to that plugin rather than Core writing semantics.

@@ -78,10 +78,18 @@ frontmatter, canonical URLs, sidebar ordering, duplicate navigation entries,
 and internal documentation links. It never scans the repository's engineering
 `docs/` directory.
 
-The `Concepts` section explains the compiled application graph, shared Runtime
-pipeline, request and transaction scope, persistence plans, immutability,
-Typegen, and the role of ADRs. It links back to task guides and curated
-reference pages instead of exposing repository internals as the learning path.
+The documentation navigation is capability-owned. Native application, modeling,
+query, mutation, Runtime, and authority behavior lives below `Core`. Optional
+behavior lives below `Plugins > Official Plugins` or `Plugins > Community
+Plugins`, with one canonical section per plugin. Cross-cutting guides combine
+several capabilities; plugin-specific setup, reference, and troubleshooting are
+headings on the owning plugin's page instead of repeated sidebar entries.
+
+`Plugin System` explains composition, `Using Plugins` owns consumption and
+compatibility, and `Build a Plugin` owns the author journey. Community listings remain visibly
+community-maintained even when their documentation is curated on this site.
+`Reference` keeps exhaustive Core lookup, the package index, compatibility, and
+architecture background outside the primary learning path.
 
 ## Documentation versions
 

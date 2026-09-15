@@ -1,0 +1,31 @@
+---
+title: GraphiQL
+description: Add an optional development GraphiQL UI to one configured GraphQL HTTP endpoint.
+audience:
+  - application-developer
+contentType: guide
+outcome: Enable GraphiQL without embedding credentials or silently exposing it in production.
+owner: '2824'
+releaseStatus: pre-release
+reviewedAt: 2026-09-15
+sources:
+  - packages/graphiql-plugin/README.md
+---
+
+`@ultimabase/graphiql-plugin` contributes a browser explorer only. It does not
+install GraphQL, Yoga, HTTP, or a server.
+
+```ts
+import { graphiqlPlugin } from '@ultimabase/graphiql-plugin'
+
+const explorer = graphiqlPlugin({ environment: 'development' })
+```
+
+For application ID `notes`, open
+`/__ultimabase/apps/notes/graphiql`. The page targets the installed provider's
+GraphQL HTTP endpoint and attaches the public application ID. It embeds no
+credential or authority.
+
+Production contributes no route unless `allowInProduction: true` is explicit.
+Schema discovery also requires GraphQL HTTP introspection. Remote version-pinned
+assets are reported through the plugin's network environmental claim.

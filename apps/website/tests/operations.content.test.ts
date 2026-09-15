@@ -5,15 +5,15 @@ import { describe, expect, it } from 'vitest'
 
 const repositoryRoot = fileURLToPath(new URL('../../..', import.meta.url))
 const contentRoot = fileURLToPath(
-	new URL('../content/docs/en/1.0/operations/', import.meta.url),
+	new URL('../content/docs/en/1.0/', import.meta.url),
 )
 const pages = [
-	'application-lifecycle',
-	'browser-policy',
-	'configuration-and-environment',
-	'postgres',
-	'production-checklist',
-	'secrets-and-master-key',
+	'core/application/lifecycle',
+	'plugins/official/http-and-apis/http',
+	'operations/configuration-and-environment',
+	'plugins/official/data-and-persistence/postgresql',
+	'operations/production-checklist',
+	'operations/secrets',
 ] as const
 
 describe('operations documentation contracts', () => {
@@ -38,10 +38,14 @@ describe('operations documentation contracts', () => {
 			'migration capability is planned separately',
 		)
 		expect(documentation).toContain(
-			'Browser-origin policy is disabled by default',
+			'Browser-origin behavior is disabled by default',
 		)
 		expect(documentation).toContain('health endpoint')
-		expect(documentation).toContain('../security/master-authority')
-		expect(documentation).toContain('../apis/http-applications')
+		expect(documentation).toContain(
+			'/docs/1.0/core/security-foundations/master-authority',
+		)
+		expect(documentation).toContain(
+			'/docs/1.0/plugins/official/http-and-apis/http',
+		)
 	})
 })

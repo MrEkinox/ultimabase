@@ -5,18 +5,15 @@ import { describe, expect, it } from 'vitest'
 
 const websiteRoot = fileURLToPath(new URL('..', import.meta.url))
 const docsRoot = path.join(websiteRoot, 'content/docs/en/1.0')
-const troubleshootingRoot = path.join(docsRoot, 'troubleshooting')
-
-const pageNames = [
-	'http-and-application-identity',
-	'postgres',
-	'reporting-a-problem',
-	'startup',
-	'typegen',
+const pagePaths = [
+	'plugins/official/http-and-apis/http',
+	'plugins/official/data-and-persistence/postgresql',
+	'operations/application-troubleshooting',
 ] as const
 
-const readPage = async (name: (typeof pageNames)[number]): Promise<string> =>
-	readFile(path.join(troubleshootingRoot, `${name}.mdx`), 'utf8')
+const readPage = async (
+	pagePath: (typeof pagePaths)[number],
+): Promise<string> => readFile(path.join(docsRoot, `${pagePath}.mdx`), 'utf8')
 
 const collectMdxFiles = async (
 	directory: string,
@@ -40,26 +37,22 @@ const pageUrl = (filePath: string): string => {
 }
 
 describe('troubleshooting content', () => {
-	it('keeps every entry symptom-first and gives one safe escalation path', async () => {
-		for (const name of pageNames) {
-			const source = await readPage(name)
-			for (const heading of [
-				'## Symptom',
-				'## Cause',
-				'## Confirm',
-				'## Resolve',
-				'## Escalate',
-			]) {
-				expect(source, `${name}: ${heading}`).toContain(heading)
-			}
-			expect(source).toMatch(/^contentType: troubleshooting$/mu)
+	it('keeps troubleshooting beside the subject it diagnoses', async () => {
+		const [http, postgres, application] = await Promise.all(
+			pagePaths.map(readPage),
+		)
+		expect(http).toContain('## Troubleshooting')
+		expect(postgres).toContain('## Troubleshooting')
+		expect(application).toContain('## Startup and plugin graph')
+		expect(application).toContain('## Typegen')
+		expect(application).toContain('## Report a problem')
+		for (const source of [http, postgres, application]) {
 			expect(source).toMatch(/^releaseStatus: pre-release$/mu)
 		}
 	})
 
 	it('keeps diagnostic instructions safe', async () => {
-		const allPages = await Promise.all(pageNames.map(readPage))
-		const source = allPages.join('\n')
+		const source = (await Promise.all(pagePaths.map(readPage))).join('\n')
 		for (const unsafe of [
 			'NODE_TLS_REJECT_UNAUTHORIZED=0',
 			'console.log(process.env)',
@@ -72,16 +65,16 @@ describe('troubleshooting content', () => {
 		}
 		expect(source).toContain('node --version')
 		expect(source).toContain('yarn --version')
-		expect(source).toContain('Host-specific filesystem failures')
+		expect(source).toContain('Host permissions and path casing vary')
 	})
 
-	it('keeps internal troubleshooting links valid and connected to error identity', async () => {
+	it('keeps internal troubleshooting links valid and connected to errors', async () => {
 		const files = await collectMdxFiles(docsRoot)
 		const urls = new Set(files.map(pageUrl))
 
-		for (const name of pageNames) {
-			const currentUrl = `/docs/1.0/troubleshooting/${name}`
-			const source = await readPage(name)
+		for (const pagePath of pagePaths) {
+			const currentUrl = `/docs/1.0/${pagePath}`
+			const source = await readPage(pagePath)
 			const links = [...source.matchAll(/\[[^\]]+\]\((?<href>[^)]+)\)/gu)]
 				.map((match) => match.groups?.href)
 				.filter(
@@ -91,26 +84,30 @@ describe('troubleshooting content', () => {
 						!href.startsWith('https://'),
 				)
 			for (const href of links) {
-				const resolved = path.posix.normalize(
-					path.posix.join(path.posix.dirname(currentUrl), href),
-				)
-				expect(urls, `${name}: ${href}`).toContain(resolved)
-			}
-			if (name !== 'reporting-a-problem') {
-				expect(source).toContain('./reporting-a-problem')
+				const pathOnly = href.split('#')[0] ?? href
+				const resolved = pathOnly.startsWith('/')
+					? pathOnly
+					: path.posix.normalize(
+							path.posix.join(path.posix.dirname(currentUrl), pathOnly),
+						)
+				expect(urls, `${pagePath}: ${href}`).toContain(resolved)
 			}
 		}
 
 		const errors = await readFile(
-			path.join(docsRoot, 'reference/errors.mdx'),
+			path.join(docsRoot, 'reference/core-api/errors.mdx'),
 			'utf8',
 		)
-		expect(errors).toContain('../troubleshooting/startup')
-		expect(errors).toContain('../troubleshooting/http-and-application-identity')
+		expect(errors).toContain(
+			'/docs/1.0/operations/application-troubleshooting#startup-and-plugin-graph',
+		)
+		expect(errors).toContain(
+			'/docs/1.0/plugins/official/http-and-apis/http#troubleshooting',
+		)
 	})
 
 	it('requires a reproducible and sanitized report', async () => {
-		const report = await readPage('reporting-a-problem')
+		const report = await readPage('operations/application-troubleshooting')
 		for (const field of [
 			'### Versions',
 			'### Minimal reproduction',

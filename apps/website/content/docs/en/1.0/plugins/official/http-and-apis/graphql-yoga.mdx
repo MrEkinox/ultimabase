@@ -1,0 +1,42 @@
+---
+title: GraphQL Yoga
+description: Mount the network-independent GraphQL application through Yoga and the shared HTTP boundary.
+audience:
+  - application-developer
+contentType: guide
+order: 5
+outcome: Serve GraphQL over HTTP without merging schema, transport, explorer, or server ownership.
+owner: '2812'
+releaseStatus: pre-release
+reviewedAt: 2026-09-15
+sources:
+  - packages/graphql-yoga-plugin/README.md
+---
+
+`@ultimabase/graphql-yoga-plugin` adapts the final GraphQL schema to the shared HTTP
+application. It installs neither GraphQL, HTTP, nor a server; configure the sibling
+plugins explicitly.
+
+```ts
+import { graphqlYogaPlugin } from '@ultimabase/graphql-yoga-plugin'
+
+export const yoga = graphqlYogaPlugin({
+	bodyLimit: 512 * 1024,
+	introspection: true,
+	path: '/api/graphql',
+})
+```
+
+The default endpoint is `POST /graphql`. Yoga accepts UTF-8 JSON GraphQL requests,
+rejects batching, uploads, subscriptions, SSE, and its built-in GraphiQL UI, and
+limits bodies to 1 MiB by default. HTTP introspection is disabled unless enabled
+explicitly.
+
+HTTP selects the application and resolves its anonymous, authenticated, or Master
+context before Yoga begins. Yoga forwards that context to the same GraphQL execution
+capability used by networkless calls, so policy, virtual fields, contextual relations,
+transactions, cancellation, and safe errors do not fork.
+
+Development explorers are independent plugins. Add [GraphiQL](./graphiql) or
+[Apollo Sandbox](./apollo-sandbox) only when the application needs a browser UI.
+Neither explorer is part of Yoga, and neither one installs its dependencies.

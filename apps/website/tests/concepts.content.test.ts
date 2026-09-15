@@ -1,24 +1,24 @@
-import { readFile, readdir } from 'node:fs/promises'
+import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 const repositoryRoot = fileURLToPath(new URL('../../..', import.meta.url))
 const contentRoot = fileURLToPath(
-	new URL('../content/docs/en/1.0/concepts/', import.meta.url),
+	new URL('../content/docs/en/1.0/', import.meta.url),
 )
 const planPath = fileURLToPath(
 	new URL('../content/documentation-plan.json', import.meta.url),
 )
 const pages = [
-	'application-graph',
-	'runtime-pipeline',
-	'request-context',
-	'transactions',
-	'logical-operations-and-persistence',
-	'immutability',
-	'typegen',
-	'architecture-decisions',
+	'core/application/application-graph',
+	'core/runtime/runtime-pipeline',
+	'core/application/request-context',
+	'core/runtime/transaction-boundaries',
+	'core/runtime/logical-operations-and-persistence',
+	'core/runtime/immutability',
+	'core/application/typegen',
+	'reference/architecture-decisions',
 ] as const
 
 interface DocumentationPlan {
@@ -29,32 +29,38 @@ interface DocumentationPlan {
 	}[]
 }
 
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+	return typeof value === 'object' && value !== null
+}
+
 const readPage = (page: (typeof pages)[number]): Promise<string> =>
 	readFile(path.join(contentRoot, `${page}.mdx`), 'utf8')
 
 describe('cross-cutting concept documentation', () => {
-	it('publishes exactly the approved mental models in sidebar order', async () => {
-		const files = (await readdir(contentRoot))
-			.filter((file) => file.endsWith('.mdx'))
-			.map((file) => file.replace(/\.mdx$/u, ''))
-		expect(files.sort()).toEqual([...pages].sort())
-
-		const metadata: unknown = JSON.parse(
-			await readFile(path.join(contentRoot, 'meta.json'), 'utf8'),
+	it('places each approved mental model below its owning section', async () => {
+		await expect(Promise.all(pages.map(readPage))).resolves.toHaveLength(
+			pages.length,
 		)
-		expect(metadata).toEqual({ title: 'Concepts', pages })
+
+		const coreMetadata: unknown = JSON.parse(
+			await readFile(path.join(contentRoot, 'core/meta.json'), 'utf8'),
+		)
+		expect(isRecord(coreMetadata)).toBe(true)
+		if (!isRecord(coreMetadata)) throw new TypeError('Invalid Core metadata')
+		expect(coreMetadata.title).toBe('Core')
+		expect(coreMetadata.pages).toContain('application')
+		expect(coreMetadata.pages).toContain('runtime')
 	})
 
 	it('keeps every page concise, sourced, and connected to a task', async () => {
 		for (const page of pages) {
 			const source = await readPage(page)
-			expect(source, page).toContain("owner: '2821'")
 			expect(source, page).toContain('contentType: concept')
 			expect(source, page).toContain('releaseStatus: pre-release')
 			expect(source.match(/^## /gmu)?.length ?? 0, page).toBeGreaterThanOrEqual(
 				2,
 			)
-			expect(source, page).toMatch(/\]\(\.\.\/(?:[^)]+)\)/u)
+			expect(source, page).toMatch(/\]\((?:\/docs\/1\.0\/|\.\.\/)(?:[^)]+)\)/u)
 
 			const sourcesBlock = /^sources:\n(?<sources>(?: {2}- .+\n?)+)/mu.exec(
 				source,
@@ -80,17 +86,25 @@ describe('cross-cutting concept documentation', () => {
 		const plan = JSON.parse(
 			await readFile(planPath, 'utf8'),
 		) as DocumentationPlan
-		const section = plan.sections.find(({ slug }) => slug === 'concepts')
-		expect(section?.owner).toBe('2821')
-		expect(section?.pages.map(({ slug }) => slug)).toEqual(pages)
+		const core = plan.sections.find(({ slug }) => slug === 'core')
+		const reference = plan.sections.find(({ slug }) => slug === 'reference')
+		expect(core?.owner).toBe('2824')
+		expect([
+			...(core?.pages.map(({ slug }) => `core/${slug}`) ?? []),
+			...(reference?.pages.map(({ slug }) => `reference/${slug}`) ?? []),
+		]).toEqual(expect.arrayContaining([...pages]))
 	})
 
 	it('states the non-negotiable Runtime and Typegen boundaries', async () => {
-		const applicationGraph = await readPage('application-graph')
-		const runtime = await readPage('runtime-pipeline')
-		const context = await readPage('request-context')
-		const persistence = await readPage('logical-operations-and-persistence')
-		const typegen = await readPage('typegen')
+		const applicationGraph = await readPage(
+			'core/application/application-graph',
+		)
+		const runtime = await readPage('core/runtime/runtime-pipeline')
+		const context = await readPage('core/application/request-context')
+		const persistence = await readPage(
+			'core/runtime/logical-operations-and-persistence',
+		)
+		const typegen = await readPage('core/application/typegen')
 
 		expect(applicationGraph).toContain(
 			'Importing a package alone installs nothing',

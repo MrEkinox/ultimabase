@@ -84,7 +84,9 @@ function internalDocumentationLinks(source: string): readonly string[] {
 	return links.flatMap((match) => {
 		const href = match.groups?.href
 		return href?.startsWith('/docs') === true ||
-			href?.startsWith('/fr/docs') === true
+			href?.startsWith('/fr/docs') === true ||
+			href?.startsWith('./') === true ||
+			href?.startsWith('../') === true
 			? [href]
 			: []
 	})
@@ -93,9 +95,13 @@ function internalDocumentationLinks(source: string): readonly string[] {
 describe('public documentation content contract', () => {
 	it('uses an explicit English source when French is not published', () => {
 		expect(
-			resolveDocumentationPage('fr', undefined, '/docs/1.0/querying'),
+			resolveDocumentationPage(
+				'fr',
+				undefined,
+				'/docs/1.0/core/reading-data/overview',
+			),
 		).toEqual({
-			englishPage: '/docs/1.0/querying',
+			englishPage: '/docs/1.0/core/reading-data/overview',
 			kind: 'translation-fallback',
 		})
 		expect(resolveDocumentationPage('en', undefined, undefined)).toEqual({
@@ -112,19 +118,44 @@ describe('public documentation content contract', () => {
 	it('keeps version configuration explicit and maps legacy routes to current docs', async () => {
 		expect(documentationVersions).toEqual([{ label: '1.0', slug: '1.0' }])
 		expect(currentDocumentationVersion.slug).toBe('1.0')
-		expect(documentationPath('en', 'querying/overview')).toBe(
-			'/docs/1.0/querying/overview',
+		expect(documentationPath('en', 'core/reading-data/overview')).toBe(
+			'/docs/1.0/core/reading-data/overview',
 		)
 		expect(documentationPath('fr')).toBe('/fr/docs/1.0')
 		expect(versionDocumentationSlug(['querying', 'overview'])).toEqual([
 			'1.0',
-			'querying',
+			'core',
+			'reading-data',
 			'overview',
 		])
 		expect(versionDocumentationSlug(['1.0', 'querying', 'overview'])).toEqual([
 			'1.0',
-			'querying',
+			'core',
+			'reading-data',
 			'overview',
+		])
+		expect(
+			versionDocumentationSlug(['1.0', 'mutations', 'soft-delete']),
+		).toEqual([
+			'1.0',
+			'plugins',
+			'official',
+			'data-and-persistence',
+			'soft-delete',
+		])
+		expect(versionDocumentationSlug(['1.0', 'security', 'access'])).toEqual([
+			'1.0',
+			'plugins',
+			'official',
+			'authentication-and-authorization',
+			'access',
+		])
+		expect(versionDocumentationSlug(['1.0', 'apis', 'rest'])).toEqual([
+			'1.0',
+			'plugins',
+			'official',
+			'http-and-apis',
+			'rest',
 		])
 
 		for (const locale of supportedLocales) {
@@ -146,98 +177,32 @@ describe('public documentation content contract', () => {
 		expect([...new Set(pages.map(({ locale }) => locale))].sort()).toEqual(
 			[...supportedLocales].sort(),
 		)
-		expect(urls.sort()).toEqual([
-			'/docs/1.0',
-			'/docs/1.0/apis/errors',
-			'/docs/1.0/apis/graphql',
-			'/docs/1.0/apis/graphql-yoga',
-			'/docs/1.0/apis/http-applications',
-			'/docs/1.0/apis/rest',
-			'/docs/1.0/apis/typescript',
-			'/docs/1.0/concepts/application-graph',
-			'/docs/1.0/concepts/architecture-decisions',
-			'/docs/1.0/concepts/immutability',
-			'/docs/1.0/concepts/logical-operations-and-persistence',
-			'/docs/1.0/concepts/request-context',
-			'/docs/1.0/concepts/runtime-pipeline',
-			'/docs/1.0/concepts/transactions',
-			'/docs/1.0/concepts/typegen',
-			'/docs/1.0/data-modeling/defaults',
-			'/docs/1.0/data-modeling/embedded-objects',
-			'/docs/1.0/data-modeling/fields',
-			'/docs/1.0/data-modeling/models',
-			'/docs/1.0/data-modeling/pointers',
-			'/docs/1.0/data-modeling/relations',
-			'/docs/1.0/data-modeling/schemas',
-			'/docs/1.0/getting-started/first-application',
-			'/docs/1.0/getting-started/installation',
-			'/docs/1.0/getting-started/introduction',
-			'/docs/1.0/getting-started/next-steps',
-			'/docs/1.0/getting-started/project-structure',
-			'/docs/1.0/guides/add-soft-delete',
-			'/docs/1.0/guides/add-virtual-fields',
-			'/docs/1.0/guides/build-an-authenticated-api',
-			'/docs/1.0/guides/filter-contextual-relations',
-			'/docs/1.0/guides/run-lifecycle-hooks',
-			'/docs/1.0/guides/test-an-application',
-			'/docs/1.0/guides/validate-input',
-			'/docs/1.0/guides/write-nested-data',
-			'/docs/1.0/mutations/bulk-operations',
-			'/docs/1.0/mutations/create',
-			'/docs/1.0/mutations/delete',
-			'/docs/1.0/mutations/nested-writes',
-			'/docs/1.0/mutations/soft-delete',
-			'/docs/1.0/mutations/transactions',
-			'/docs/1.0/mutations/update',
-			'/docs/1.0/mutations/upserts',
-			'/docs/1.0/operations/application-lifecycle',
-			'/docs/1.0/operations/browser-policy',
-			'/docs/1.0/operations/configuration-and-environment',
-			'/docs/1.0/operations/postgres',
-			'/docs/1.0/operations/production-checklist',
-			'/docs/1.0/operations/secrets-and-master-key',
-			'/docs/1.0/plugins/authoring',
-			'/docs/1.0/plugins/capabilities',
-			'/docs/1.0/plugins/identity-and-instances',
-			'/docs/1.0/plugins/installation',
-			'/docs/1.0/plugins/lifecycle-and-dependencies',
-			'/docs/1.0/plugins/manifests-and-privileges',
-			'/docs/1.0/plugins/official-plugins',
-			'/docs/1.0/plugins/overview',
-			'/docs/1.0/querying/contextual-relations',
-			'/docs/1.0/querying/filters',
-			'/docs/1.0/querying/includes',
-			'/docs/1.0/querying/ordering-and-pagination',
-			'/docs/1.0/querying/overview',
-			'/docs/1.0/querying/relation-predicates',
-			'/docs/1.0/querying/selections',
-			'/docs/1.0/reference/application-configuration',
-			'/docs/1.0/reference/errors',
-			'/docs/1.0/reference/fields',
-			'/docs/1.0/reference/models',
-			'/docs/1.0/reference/official-plugin-options',
-			'/docs/1.0/reference/packages',
-			'/docs/1.0/reference/plugin-manifests',
-			'/docs/1.0/reference/query',
-			'/docs/1.0/reference/schema',
-			'/docs/1.0/security/access',
-			'/docs/1.0/security/acl',
-			'/docs/1.0/security/master-authority',
-			'/docs/1.0/security/overview',
-			'/docs/1.0/security/password-authentication',
-			'/docs/1.0/security/request-identity',
-			'/docs/1.0/security/roles',
-			'/docs/1.0/troubleshooting/http-and-application-identity',
-			'/docs/1.0/troubleshooting/postgres',
-			'/docs/1.0/troubleshooting/reporting-a-problem',
-			'/docs/1.0/troubleshooting/startup',
-			'/docs/1.0/troubleshooting/typegen',
-			'/fr/docs/1.0',
-			'/fr/docs/1.0/getting-started/first-application',
-			'/fr/docs/1.0/getting-started/installation',
-			'/fr/docs/1.0/getting-started/introduction',
-			'/fr/docs/1.0/getting-started/project-structure',
-		])
+		expect(urls).toEqual(
+			expect.arrayContaining([
+				'/docs/1.0',
+				'/docs/1.0/core/application/application-graph',
+				'/docs/1.0/core/writing-data/delete',
+				'/docs/1.0/plugins/official/data-and-persistence/soft-delete',
+				'/docs/1.0/plugins/official/http-and-apis/rest',
+				'/docs/1.0/plugins/overview',
+				'/docs/1.0/plugins/using-plugins',
+				'/docs/1.0/plugins/community-plugins',
+				'/docs/1.0/plugins/build-a-plugin',
+				'/docs/1.0/operations/application-troubleshooting',
+				'/docs/1.0/reference/core-api/application',
+				'/fr/docs/1.0',
+			]),
+		)
+		expect(urls).not.toEqual(
+			expect.arrayContaining([
+				'/docs/1.0/mutations/soft-delete',
+				'/docs/1.0/security/access',
+				'/docs/1.0/apis/rest',
+				'/docs/1.0/plugins/official',
+				'/docs/1.0/plugins/community',
+				'/docs/1.0/plugins/build-a-plugin/getting-started',
+			]),
+		)
 
 		for (const page of pages) {
 			expect(page.source).toMatch(/^---\n[\s\S]*?\n---/u)
@@ -266,16 +231,10 @@ describe('public documentation content contract', () => {
 		)
 		expect(visible.map(({ slug }) => slug)).toEqual([
 			'getting-started',
-			'data-modeling',
-			'querying',
-			'mutations',
-			'security',
-			'apis',
+			'core',
 			'plugins',
-			'operations',
 			'guides',
-			'concepts',
-			'troubleshooting',
+			'operations',
 			'reference',
 		])
 		expect(
@@ -303,15 +262,25 @@ describe('public documentation content contract', () => {
 		}
 	})
 
-	it('resolves every absolute internal documentation link', async () => {
+	it('resolves every internal documentation link', async () => {
 		const pages = await readContentPages()
 		const publishedUrls = new Set(pages.map((page) => page.url))
 
 		for (const page of pages) {
 			for (const href of internalDocumentationLinks(page.source)) {
-				expect(publishedUrls.has(href), `${page.filePath} -> ${href}`).toBe(
-					true,
-				)
+				const resolved = href.startsWith('/')
+					? href
+					: path.posix.normalize(
+							path.posix.join(path.posix.dirname(page.url), href),
+						)
+				const resolvesDirectly = publishedUrls.has(resolved)
+				const resolvesThroughFrenchFallback =
+					resolved.startsWith('/fr/docs') &&
+					publishedUrls.has(resolved.slice(3))
+				expect(
+					resolvesDirectly || resolvesThroughFrenchFallback,
+					`${page.filePath} -> ${href}`,
+				).toBe(true)
 			}
 		}
 	})

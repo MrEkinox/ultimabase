@@ -7,13 +7,10 @@ const contentRoot = fileURLToPath(
 	new URL('../content/docs/en/1.0/guides/', import.meta.url),
 )
 const pages = [
-	'add-soft-delete',
 	'add-virtual-fields',
 	'build-an-authenticated-api',
 	'filter-contextual-relations',
-	'run-lifecycle-hooks',
 	'test-an-application',
-	'validate-input',
 	'write-nested-data',
 ] as const
 

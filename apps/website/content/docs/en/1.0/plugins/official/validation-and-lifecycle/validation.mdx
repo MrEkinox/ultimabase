@@ -1,0 +1,54 @@
+---
+title: Validation
+description: Add synchronous Standard Schema validation to final mutation values while Core retains structural validation.
+audience:
+  - application-developer
+contentType: concept
+outcome: Decide when application validation belongs in the Validation plugin rather than Core or Hooks.
+owner: '2824'
+releaseStatus: pre-release
+reviewedAt: 2026-09-15
+sources:
+  - packages/validation-plugin/README.md
+  - examples/minimal/src/schema.ts
+---
+
+## Overview
+
+`@ultimabase/validation-plugin` owns the optional `validation` field option.
+Core always enforces requiredness, nullability, canonical value shapes, defaults,
+immutable fields, and database integrity; installing this plugin adds
+application-specific rejection rules.
+
+## Installation and configuration
+
+Install a Standard Schema implementation such as Zod, add
+`validationPlugin()` explicitly, and attach validators to fields:
+
+```ts
+title: field.string({
+	required: true,
+	validation: z.string().min(1).max(200),
+})
+```
+
+Core still owns requiredness, nullability, and structural types. The plugin
+adds a synchronous rejection-only check over the final resolved value.
+
+## Execution semantics
+
+Validators use Standard Schema V1. They run synchronously over complete,
+present, non-null mutation values after input resolution and structural
+validation. They may accept or reject the canonical value, but cannot transform
+it. Master mutations follow the same validation path.
+
+## Verify and troubleshoot
+
+Submit an empty title and assert the stable `field.validation` issue path. Then
+submit a valid title and read it back. Master authority must receive the same
+validation result.
+
+Reads and result materialization do not replay application validators. Use
+[Hooks](./hooks) when input must be normalized or transaction-bound business
+work must run. Validators cannot transform values, return promises, or run on
+reads.

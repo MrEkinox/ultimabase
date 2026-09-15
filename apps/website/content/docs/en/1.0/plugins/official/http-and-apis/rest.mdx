@@ -1,0 +1,58 @@
+---
+title: REST API
+description: Expose selected schema and application operations through the experimental JSON REST v1 contract.
+audience:
+  - application-developer
+contentType: guide
+order: 3
+outcome: Call generated REST routes while preserving the same Runtime semantics as TypeScript.
+owner: '2812'
+releaseStatus: pre-release
+reviewedAt: 2026-09-15
+sources:
+  - packages/rest-plugin/README.md
+  - docs/adr/0228-experimental-http-rest-v1-wire-contract.md
+---
+
+`@ultimabase/rest-plugin` contributes an experimental route graph under `/api/v1`.
+Application schemas expose find, get, first, exists, create, update, and delete by
+default. Count, upsert, and bulk routes are disabled until enabled explicitly.
+Plugin-owned schemas never receive generated CRUD routes.
+
+```ts
+export const readPostsOverRest = () =>
+	fetch(
+		'https://api.example/api/v1/classes/ApiPost?where=%7B%22published%22%3A%7B%22eq%22%3Atrue%7D%7D&select=id%2Ctitle',
+		{
+			headers: { 'X-UltimaBase-Application-Id': 'blog' },
+		},
+	)
+```
+
+GET query parameters and complex JSON POST bodies normalize into the same Query AST
+as direct TypeScript. Collection reads default to 100 items; the default maximum is
+1,000. Request bodies default to a 1 MiB limit and require
+`application/json` when present.
+
+Routes use `/classes/{Schema}` for collections and `/classes/{Schema}/{uuid}` for
+items. Mutations decode into the same schema commands as TypeScript, including
+supported nested create and update commands. Bulk operations remain ordered,
+itemized, atomic, and have no partial-success mode.
+
+Success envelopes preserve the operation shape:
+
+```json
+{ "results": [{ "id": "…", "title": "One Runtime" }] }
+{ "result": { "id": "…", "title": "One Runtime" } }
+{ "count": 1 }
+{ "exists": true }
+```
+
+Application operations stay private until their exact tokens appear in
+`restPlugin({ operations })`. Selected operations receive
+`POST /api/v1/operations/{namespacedOperation}` with `{ "input": value }`.
+
+REST exposure does not grant permission. Access, ACL, authentication, and Master are
+configured independently. A public route graph requires an explicit
+`acknowledgeUnverifiedProtection: true` after policy review; it is an acknowledgement,
+not a policy.

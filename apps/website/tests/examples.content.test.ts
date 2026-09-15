@@ -15,6 +15,15 @@ const documentationRoot = path.join(
 	'apps/website/content/docs/en',
 )
 
+async function readDocumentationPage(relativePath: string): Promise<string> {
+	return readFile(
+		path.join(documentationRoot, `${relativePath}.mdx`),
+		'utf8',
+	).catch(() =>
+		readFile(path.join(documentationRoot, relativePath, 'index.mdx'), 'utf8'),
+	)
+}
+
 describe('runnable example journeys', () => {
 	it('keeps source regions exact and inside the maintained minimal example', async () => {
 		for (const scenario of exampleScenarios) {
@@ -54,9 +63,9 @@ describe('runnable example journeys', () => {
 
 			for (const link of scenario.documentation) {
 				const relativePath = link.href.replace(/^\/docs\/?/u, '')
-				await expect(
-					readFile(path.join(documentationRoot, `${relativePath}.mdx`), 'utf8'),
-				).resolves.toContain('title:')
+				await expect(readDocumentationPage(relativePath)).resolves.toContain(
+					'title:',
+				)
 			}
 		}
 	})

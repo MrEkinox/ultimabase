@@ -107,7 +107,7 @@ describe('documentation currency guardrails', () => {
 					sections,
 				},
 			],
-			version: 1,
+			version: 2,
 		}
 		expect(
 			validateDocumentationOwnership(withoutCore, packages, sections),

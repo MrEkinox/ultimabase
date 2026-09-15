@@ -51,6 +51,28 @@ async function sourcePathExists(source: string): Promise<boolean> {
 		.catch(() => false)
 }
 
+async function publishedPageSlugs(
+	directory: string,
+): Promise<readonly string[]> {
+	const entries = await readdir(directory, { withFileTypes: true })
+	const pages = await Promise.all(
+		entries.map(async (entry) => {
+			const entryPath = path.join(directory, entry.name)
+			if (entry.isDirectory()) {
+				return (await publishedPageSlugs(entryPath)).map(
+					(slug) => `${entry.name}/${slug}`,
+				)
+			}
+			return entry.name.endsWith('.mdx')
+				? [entry.name.replace(/\.mdx$/u, '')]
+				: []
+		}),
+	)
+	return pages
+		.flat()
+		.map((slug) => slug.replace(/(?:^|\/)index$/u, '').replace(/\/$/u, ''))
+}
+
 describe('documentation editorial contract', () => {
 	it('assigns every planned page a valid owner, outcome, type, and source', async () => {
 		const parsed = documentationPlanSchema.parse(
@@ -87,17 +109,17 @@ describe('documentation editorial contract', () => {
 		}
 
 		for (const section of parsed.sections) {
-			const sectionFiles = await readdir(
-				path.join(
-					websiteRoot,
-					'content/docs/en',
-					currentDocumentationVersion.slug,
-					section.slug,
+			const publishedSlugs = [
+				await publishedPageSlugs(
+					path.join(
+						websiteRoot,
+						'content/docs/en',
+						currentDocumentationVersion.slug,
+						section.slug,
+					),
 				),
-			)
-			const publishedSlugs = sectionFiles
-				.filter((fileName) => fileName.endsWith('.mdx'))
-				.map((fileName) => fileName.replace(/\.mdx$/u, ''))
+			]
+				.flat()
 				.sort()
 			expect(publishedSlugs, section.slug).toEqual(
 				section.pages.map(({ slug }) => slug).sort(),

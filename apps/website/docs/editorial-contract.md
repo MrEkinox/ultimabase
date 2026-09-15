@@ -174,10 +174,47 @@ newest supported line.
 ## Progressive disclosure
 
 Beginner paths introduce only the packages and mental models required for the
-next working result. Task guides assume the linked prerequisite and avoid
-re-teaching it. Concept pages own rationale and boundaries. Reference owns full
-parameter and error detail. Troubleshooting owns recovery. Link between those
-layers instead of building one encyclopedic page.
+next working result. Task guides assume linked prerequisites and avoid
+re-teaching them. A coherent subject may combine overview, installation,
+configuration, behavior, reference, limitations, and troubleshooting as
+sections of one long page. Split only when a reader can complete the resulting
+page as an independent task with its own outcome.
+
+### Capability ownership in navigation
+
+The public sitemap makes ownership visible before a reader copies configuration:
+
+- native application, modeling, query, mutation, Runtime, and authority behavior
+  belongs below `Core`;
+- optional behavior belongs below the exact official or community plugin that
+  installs it;
+- a Core task page may link to an optional plugin but never duplicate that
+  plugin's setup, configuration, reference, or troubleshooting;
+- `Guides` contains only workflows that combine several capabilities;
+- plugin-specific failures stay with the plugin, while application-wide startup,
+  Typegen, and reporting paths stay below `Operations`;
+- exhaustive Core signatures, the package index, compatibility, and architecture
+  background stay below `Reference`.
+
+Nested navigation is intentional only while it helps a reader choose a subject.
+Group by reader decision, capability family, and exact plugin, then move the
+plugin's subtasks into the page-level `On this page` navigation. Never repeat a
+folder label as a same-named child page. Do not flatten a plugin-owned feature
+into `Writing Data`, `Security`, or `Expose APIs` merely because that is where
+the reader observes its result.
+
+### Community plugin pages
+
+A community listing records its npm package, maintainer, source repository,
+license, supported UltimaBase range, last reviewed version, documentation, and
+support channel. It labels the package `Community maintained` and states that a
+listing is not a complete security audit, warranty, official maintenance promise,
+or endorsement.
+
+Community documentation may be curated on this site, but the maintainer owns
+release accuracy, support, security response, and compatibility updates. Do not
+publish fictional, unpublished, unmaintained, or unreviewed catalog entries to
+avoid an empty state.
 
 When the sources disagree, stop authoring and resolve the public contract in
 the owning package or an ADR first. Documentation must describe the repository,

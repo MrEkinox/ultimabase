@@ -1,15 +1,15 @@
 {
-	"version": 1,
+	"version": 2,
 	"areas": [
 		{
 			"id": "core-application",
 			"packages": ["@ultimabase/core", "@ultimabase/shared"],
 			"sections": [
 				"getting-started",
-				"data-modeling",
-				"querying",
-				"mutations",
-				"reference"
+				"core",
+				"guides",
+				"operations",
+				"reference/core-api"
 			]
 		},
 		{
@@ -19,24 +19,44 @@
 				"@ultimabase/testing",
 				"@ultimabase/typegen"
 			],
-			"sections": ["plugins", "guides", "reference", "troubleshooting"]
+			"sections": [
+				"core/application/typegen",
+				"plugins/overview",
+				"plugins/build-a-plugin",
+				"guides/test-an-application",
+				"operations/application-troubleshooting",
+				"reference"
+			]
 		},
 		{
-			"id": "database-and-data-behavior",
+			"id": "postgresql",
+			"packages": ["@ultimabase/postgres-plugin"],
+			"sections": [
+				"getting-started",
+				"plugins/official/data-and-persistence/postgresql",
+				"operations",
+				"reference"
+			]
+		},
+		{
+			"id": "optional-data-behavior",
 			"packages": [
-				"@ultimabase/hooks-plugin",
 				"@ultimabase/pg-vector-plugin",
-				"@ultimabase/postgres-plugin",
-				"@ultimabase/soft-delete-plugin",
-				"@ultimabase/validation-plugin"
+				"@ultimabase/soft-delete-plugin"
 			],
 			"sections": [
-				"data-modeling",
-				"mutations",
-				"operations",
+				"plugins/official/data-and-persistence",
 				"guides",
-				"reference",
-				"troubleshooting"
+				"reference"
+			]
+		},
+		{
+			"id": "validation-and-lifecycle",
+			"packages": ["@ultimabase/hooks-plugin", "@ultimabase/validation-plugin"],
+			"sections": [
+				"plugins/official/validation-and-lifecycle",
+				"guides",
+				"reference"
 			]
 		},
 		{
@@ -49,17 +69,27 @@
 				"@ultimabase/rest-plugin",
 				"@ultimabase/server-hono-plugin"
 			],
-			"sections": ["apis", "operations", "reference", "troubleshooting"]
+			"sections": [
+				"plugins/official/http-and-apis",
+				"guides",
+				"operations",
+				"reference"
+			]
 		},
 		{
-			"id": "application-security",
+			"id": "authentication-and-authorization",
 			"packages": [
 				"@ultimabase/access-plugin",
 				"@ultimabase/acl-permissions-plugin",
 				"@ultimabase/password-auth-plugin",
 				"@ultimabase/roles-plugin"
 			],
-			"sections": ["security", "guides", "reference", "troubleshooting"]
+			"sections": [
+				"core/security-foundations",
+				"plugins/official/authentication-and-authorization",
+				"guides",
+				"reference"
+			]
 		},
 		{
 			"id": "api-explorers",
@@ -67,7 +97,7 @@
 				"@ultimabase/apollo-sandbox-plugin",
 				"@ultimabase/graphiql-plugin"
 			],
-			"sections": ["apis", "plugins", "reference"]
+			"sections": ["plugins/official/http-and-apis", "reference"]
 		}
 	]
 }

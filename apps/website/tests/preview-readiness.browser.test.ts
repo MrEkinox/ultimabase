@@ -99,6 +99,55 @@ describe('website preview audit', () => {
 		}
 	})
 
+	it('renders the nested Core, official-plugin, and community journeys', async () => {
+		const context = await browser?.newContext({
+			viewport: { height: 900, width: 1280 },
+		})
+		if (context === undefined) throw new Error('Browser did not start')
+
+		try {
+			const page = await context.newPage()
+			const sidebar = page.locator('#nd-sidebar')
+
+			await page.goto(`${origin}/docs/1.0/core/application/application-graph`)
+			await sidebar.getByText('Core', { exact: true }).waitFor()
+			await sidebar.getByText('Application', { exact: true }).waitFor()
+
+			await page.goto(
+				`${origin}/docs/1.0/plugins/official/data-and-persistence/soft-delete`,
+			)
+			await sidebar
+				.getByRole('button', { exact: true, name: 'Official Plugins' })
+				.waitFor()
+			await sidebar
+				.getByRole('button', { exact: true, name: 'Data and Persistence' })
+				.waitFor()
+			await sidebar
+				.getByRole('link', { exact: true, name: 'Soft Delete' })
+				.waitFor()
+			expect(
+				await sidebar
+					.getByRole('button', { exact: true, name: 'Soft Delete' })
+					.count(),
+			).toBe(0)
+
+			await page.goto(`${origin}/docs/1.0/plugins/community-plugins`)
+			await sidebar
+				.getByRole('link', { exact: true, name: 'Community Plugins' })
+				.waitFor()
+			await page
+				.getByRole('heading', { level: 1, name: 'Community Plugins' })
+				.waitFor()
+
+			await page.goto(`${origin}/docs/1.0/mutations/soft-delete`)
+			expect(page.url()).toBe(
+				`${origin}/docs/1.0/plugins/official/data-and-persistence/soft-delete`,
+			)
+		} finally {
+			await context.close()
+		}
+	})
+
 	it('makes release maturity discoverable from the landing page', async () => {
 		const context = await browser?.newContext({
 			colorScheme: 'dark',
@@ -165,10 +214,10 @@ describe('website preview audit', () => {
 				'/docs/1.0/getting-started/installation',
 			)
 			expect(await publicSearch(page, '@ultimabase/core')).toContain(
-				'/docs/1.0/reference/packages',
+				'/docs/1.0/reference/package-index',
 			)
 			expect(await publicSearch(page, 'HTTP_APPLICATION_REJECTED')).toContain(
-				'/docs/1.0/troubleshooting/http-and-application-identity',
+				'/docs/1.0/plugins/official/http-and-apis/http',
 			)
 			const french = await page.request.get(
 				`${origin}/api/search?query=${encodeURIComponent('préversion')}&locale=fr`,
@@ -197,13 +246,16 @@ describe('website preview audit', () => {
 	it.each([
 		['/docs/1.0/getting-started/installation', 'Installation'],
 		['/docs/1.0/getting-started/first-application', 'First Application'],
-		['/docs/1.0/concepts/runtime-pipeline', 'Runtime Pipeline'],
-		['/docs/1.0/plugins/installation', 'Install a Plugin'],
+		['/docs/1.0/core/runtime/runtime-pipeline', 'Runtime Pipeline'],
+		['/docs/1.0/plugins/using-plugins', 'Using Plugins'],
 		[
 			'/docs/1.0/guides/build-an-authenticated-api',
 			'Build an Authenticated API',
 		],
-		['/docs/1.0/troubleshooting/startup', 'Startup and Plugin Graph'],
+		[
+			'/docs/1.0/operations/application-troubleshooting',
+			'Application Troubleshooting',
+		],
 	])(
 		'keeps the reader task at %s independently usable',
 		async (route, title) => {

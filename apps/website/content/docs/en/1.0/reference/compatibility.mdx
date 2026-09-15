@@ -1,0 +1,47 @@
+---
+title: Compatibility
+description: Check the platform baseline and provider boundaries for the current UltimaBase documentation line.
+audience:
+  - application-developer
+  - operator
+contentType: reference
+outcome: Confirm the current platform baseline before installing or deploying UltimaBase.
+owner: '2824'
+releaseStatus: pre-release
+reviewedAt: 2026-09-15
+sources:
+  - README.md
+  - package.json
+  - packages/postgres-plugin/README.md
+  - apps/website/lib/docs-versions.ts
+  - CONTRIBUTING.md
+---
+
+## Platform baseline
+
+| Component | Current documented baseline                     |
+| --------- | ----------------------------------------------- |
+| Node.js   | 24 or newer                                     |
+| Modules   | ESM                                             |
+| Language  | TypeScript                                      |
+| Database  | PostgreSQL through the optional official plugin |
+
+Individual plugins may declare narrower peer, protocol, provider, or platform
+requirements. Check the owning plugin page and its manifest before deployment.
+The documentation version identifies an UltimaBase release line; it does not
+override a plugin's exact compatibility declaration.
+
+## Documentation versions
+
+This site currently publishes the `1.0` documentation line. Use the version
+selector in the documentation sidebar when additional maintained lines become
+available.
+
+Framework documentation describes the matching Core contract and official
+plugins. Community plugin pages separately declare their compatible UltimaBase
+range and last reviewed version. Match all three before copying configuration
+or upgrading an application.
+
+Older documentation changes only for corrections or maintained backports. New
+behavior belongs to the newest applicable line, with a migration guide when a
+stable release introduces a breaking change.

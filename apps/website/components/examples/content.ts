@@ -30,7 +30,7 @@ export const exampleScenarios: readonly ExampleScenario[] = Object.freeze([
 		codeLabel: 'src/schema.ts',
 		documentation: [
 			{
-				href: currentDocumentationPath('data-modeling/schemas'),
+				href: currentDocumentationPath('core/data-modeling/schemas'),
 				kind: 'Concept',
 				label: 'Schemas',
 			},
@@ -40,7 +40,7 @@ export const exampleScenarios: readonly ExampleScenario[] = Object.freeze([
 				label: 'Build a first application',
 			},
 			{
-				href: currentDocumentationPath('data-modeling/fields'),
+				href: currentDocumentationPath('core/data-modeling/fields'),
 				kind: 'Reference',
 				label: 'Fields',
 			},
@@ -79,7 +79,7 @@ export const exampleScenarios: readonly ExampleScenario[] = Object.freeze([
 		codeLabel: 'direct-query.ts',
 		documentation: [
 			{
-				href: currentDocumentationPath('querying/overview'),
+				href: currentDocumentationPath('core/reading-data/overview'),
 				kind: 'Concept',
 				label: 'Query overview',
 			},
@@ -89,7 +89,7 @@ export const exampleScenarios: readonly ExampleScenario[] = Object.freeze([
 				label: 'Test an application',
 			},
 			{
-				href: currentDocumentationPath('apis/typescript'),
+				href: currentDocumentationPath('core/application/direct-typescript'),
 				kind: 'Reference',
 				label: 'TypeScript API',
 			},
@@ -125,7 +125,7 @@ export const exampleScenarios: readonly ExampleScenario[] = Object.freeze([
 		codeLabel: 'REST request',
 		documentation: [
 			{
-				href: currentDocumentationPath('apis/http-applications'),
+				href: currentDocumentationPath('plugins/official/http-and-apis/http'),
 				kind: 'Concept',
 				label: 'HTTP applications',
 			},
@@ -135,7 +135,7 @@ export const exampleScenarios: readonly ExampleScenario[] = Object.freeze([
 				label: 'Choose a public API',
 			},
 			{
-				href: currentDocumentationPath('apis/rest'),
+				href: currentDocumentationPath('plugins/official/http-and-apis/rest'),
 				kind: 'Reference',
 				label: 'REST API',
 			},
@@ -179,7 +179,9 @@ export const exampleScenarios: readonly ExampleScenario[] = Object.freeze([
 		codeLabel: 'sign-up.sh',
 		documentation: [
 			{
-				href: currentDocumentationPath('security/overview'),
+				href: currentDocumentationPath(
+					'core/security-foundations/security-model',
+				),
 				kind: 'Concept',
 				label: 'Security model',
 			},
@@ -189,7 +191,9 @@ export const exampleScenarios: readonly ExampleScenario[] = Object.freeze([
 				label: 'Build an authenticated API',
 			},
 			{
-				href: currentDocumentationPath('security/access'),
+				href: currentDocumentationPath(
+					'plugins/official/authentication-and-authorization/access',
+				),
 				kind: 'Reference',
 				label: 'Access policies',
 			},
@@ -243,7 +247,7 @@ export const exampleScenarios: readonly ExampleScenario[] = Object.freeze([
 		codeLabel: 'nested-write.ts',
 		documentation: [
 			{
-				href: currentDocumentationPath('data-modeling/relations'),
+				href: currentDocumentationPath('core/data-modeling/relationships'),
 				kind: 'Concept',
 				label: 'Relations',
 			},
@@ -253,7 +257,7 @@ export const exampleScenarios: readonly ExampleScenario[] = Object.freeze([
 				label: 'Write nested data',
 			},
 			{
-				href: currentDocumentationPath('mutations/nested-writes'),
+				href: currentDocumentationPath('core/writing-data/nested-writes'),
 				kind: 'Reference',
 				label: 'Nested writes',
 			},
@@ -289,7 +293,7 @@ export const exampleScenarios: readonly ExampleScenario[] = Object.freeze([
 		codeLabel: 'src/schema.ts',
 		documentation: [
 			{
-				href: currentDocumentationPath('data-modeling/fields'),
+				href: currentDocumentationPath('core/data-modeling/fields'),
 				kind: 'Concept',
 				label: 'Field kinds',
 			},
@@ -299,7 +303,7 @@ export const exampleScenarios: readonly ExampleScenario[] = Object.freeze([
 				label: 'Add virtual fields',
 			},
 			{
-				href: currentDocumentationPath('querying/selections'),
+				href: currentDocumentationPath('core/reading-data/selections'),
 				kind: 'Reference',
 				label: 'Selections',
 			},
@@ -334,17 +338,21 @@ await purgeArticle(ultimabase, obsoleteArticleId)`,
 		codeLabel: 'soft-delete.ts',
 		documentation: [
 			{
-				href: currentDocumentationPath('mutations/soft-delete'),
+				href: currentDocumentationPath(
+					'plugins/official/data-and-persistence/soft-delete',
+				),
 				kind: 'Concept',
 				label: 'Soft delete',
 			},
 			{
-				href: currentDocumentationPath('guides/add-soft-delete'),
+				href: currentDocumentationPath(
+					'plugins/official/data-and-persistence/soft-delete',
+				),
 				kind: 'Task guide',
 				label: 'Add soft delete',
 			},
 			{
-				href: currentDocumentationPath('mutations/delete'),
+				href: currentDocumentationPath('core/writing-data/delete'),
 				kind: 'Reference',
 				label: 'Delete commands',
 			},

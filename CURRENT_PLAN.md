@@ -41,20 +41,34 @@ one issue at a time with a dedicated verified commit for each issue.
 
 ## Reader journey
 
-The documentation navigation follows user tasks rather than package ownership:
+The documentation keeps task-oriented learning paths while making capability
+ownership explicit:
 
 ```text
 Getting Started
-→ Model Your Data
-→ Read Data
-→ Write Data
-→ Secure Your Application
-→ Expose APIs
+→ Core
+  → Application
+  → Data Modeling
+  → Reading Data
+  → Writing Data
+  → Runtime
+  → Security Foundations
 → Plugins
+  → Plugin System
+  → Using Plugins
+  → Official Plugins
+  → Community Plugins
+  → Build a Plugin
 → Guides
-→ Concepts
+→ Operations
 → Reference
 ```
+
+Core pages own native framework behavior. Optional behavior is canonical only
+below its official or community plugin. Guides combine several capabilities;
+they do not duplicate plugin setup, configuration, reference, or troubleshooting.
+The sidebar stops at coherent subjects; closely related subtasks live in a long
+page and its `On this page` navigation rather than repeated nested entries.
 
 The complete target sitemap, landing narrative, product boundaries, and French
 route policy live in the milestone README. It is the information-architecture
@@ -140,6 +154,10 @@ navigation parity and reran the final preview gate.
 Issue 2823 versioned the documentation source and canonical URLs under `1.0`,
 enabled Fumadocs' native release-line selector, and preserved legacy links
 through current-version redirects.
+Issue 2824 completed the compact public information architecture around
+explicit Core and plugin capability ownership. It also replaced repeated
+sidebar task trees with coherent long pages and Fumadocs' page-level table of
+contents, while preserving versioned and legacy routes.
 
 ### Phase 1 — Application, design, and content foundation
 
@@ -214,6 +232,8 @@ terminology, and validation of all public examples.
     Plugins link, and reruns the complete private-preview gate.
 23. Issue 2823 gives every public documentation page an explicit release line
     and prepares the native Fumadocs selector for later maintained versions.
+24. Issue 2824 replaces the flat task-only sitemap with nested Core, official
+    plugin, community plugin, authoring, guide, operations, and reference paths.
 
 ## Documentation-currency rule to deliver
 

@@ -1,0 +1,81 @@
+---
+title: Selections and Read Results
+description: Select the smallest visible model shape and preserve exact TypeScript inference.
+audience:
+  - application-developer
+contentType: guide
+order: 3
+outcome: Choose between inclusive and exclusive projections and the appropriate singular terminal.
+owner: '2808'
+releaseStatus: pre-release
+reviewedAt: 2026-09-15
+sources:
+  - packages/core/README.md
+  - packages/core/docs/query.md
+  - packages/core/docs/schema.md
+  - docs/adr/0152-schema-root-object-read-commands.md
+---
+
+## Outcome
+
+Use a flat `select` object to make Runtime output and the inferred immutable
+model agree on exactly which scalar and pointer fields are visible.
+
+## Prerequisites
+
+Start with [Query Overview](./overview). Relationships have their own nested
+projection contract in [Related Data](./related-data).
+
+## Steps
+
+Select only the fields needed by the caller. Every returned root or nested model
+always includes `id`, so it does not need to be repeated:
+
+```ts title="src/post-results.ts"
+import { Post } from './schemas.js'
+import { ultimabase } from './ultimabase.js'
+
+export const readPostCard = (id: string) =>
+	Post.get({ id, select: { createdAt: true, title: true } }, { ultimabase })
+
+export const readPostSignals = () =>
+	Promise.all([
+		Post.findOne(
+			{
+				orderBy: { createdAt: 'desc' },
+				select: { title: true },
+				where: { published: { eq: true } },
+			},
+			{ ultimabase },
+		),
+		Post.count({ where: { published: { eq: true } } }, { ultimabase }),
+		Post.exists({ where: { published: { eq: false } } }, { ultimabase }),
+	])
+```
+
+Selection has two modes:
+
+- any `true` flag enables inclusion mode, keeping only fields marked `true`;
+- an object containing only `false` flags excludes those fields and keeps the
+  rest.
+
+An empty object keeps the complete output. A mixed object uses inclusion mode,
+so `{ title: true, internalNote: false }` selects only `title` plus the always
+available `id`. `id: false` is rejected instead of silently changing identity
+semantics.
+
+## Verify
+
+Hover the result of `readPostCard()`. It contains `id`, `createdAt`, and `title`,
+but not `internalNote`, `published`, or other unselected fields. At Runtime,
+direct properties, `get()`, enumeration, inspection, and `toJSON()` expose that
+same visible snapshot.
+
+`findOne` returns the selected model or `null`. `get` returns the selected model
+or throws `NOT_FOUND`. `count` and `exists` accept only filtering because they do
+not materialize model fields.
+
+## Next steps
+
+Add deterministic paging with [Ordering and Pagination](./ordering-and-pagination),
+or load related models with [Related Data](./related-data).

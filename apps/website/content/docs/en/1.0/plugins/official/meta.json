@@ -1,0 +1,9 @@
+{
+	"title": "Official Plugins",
+	"pages": [
+		"data-and-persistence",
+		"validation-and-lifecycle",
+		"authentication-and-authorization",
+		"http-and-apis"
+	]
+}

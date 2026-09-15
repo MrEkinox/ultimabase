@@ -5,20 +5,14 @@ export interface DocumentationSection {
 	readonly slug: string
 }
 
-/** Canonical task-oriented sidebar order for every documentation locale. */
+/** Canonical capability-owned sidebar order for every documentation locale. */
 export const documentationSections: readonly DocumentationSection[] =
 	Object.freeze([
 		{ label: 'Getting Started', slug: 'getting-started' },
-		{ label: 'Model Your Data', slug: 'data-modeling' },
-		{ label: 'Read Data', slug: 'querying' },
-		{ label: 'Write Data', slug: 'mutations' },
-		{ label: 'Secure Your Application', slug: 'security' },
-		{ label: 'Expose APIs', slug: 'apis' },
+		{ label: 'Core', slug: 'core' },
 		{ label: 'Plugins', slug: 'plugins' },
-		{ label: 'Operate Your Application', slug: 'operations' },
 		{ label: 'Guides', slug: 'guides' },
-		{ label: 'Concepts', slug: 'concepts' },
-		{ label: 'Troubleshooting', slug: 'troubleshooting' },
+		{ label: 'Operations', slug: 'operations' },
 		{ label: 'Reference', slug: 'reference' },
 	])
 

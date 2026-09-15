@@ -10,7 +10,7 @@ order: 0
 outcome: Choose the documentation path that matches the work you need to complete.
 owner: '2804'
 releaseStatus: pre-release
-reviewedAt: 2026-09-14
+reviewedAt: 2026-09-15
 sources:
   - README.md
   - ARCHITECTURE.md
@@ -22,8 +22,8 @@ sources:
 	documented as they ship, and deliberate changes may still occur.
 </Callout>
 
-This is the canonical English documentation. The complete reader journey is
-being published section by section, beginning with Getting Started.
+This is the canonical English documentation for UltimaBase `1.0`. Start with
+Getting Started, then choose the owner of the behavior you need.
 
 **One application model**
 
@@ -35,3 +35,28 @@ Every public entry point reaches the same compiled application graph.
 	<Step>Validation, policy, and hooks</Step>
 	<Step>Transactional persistence</Step>
 </Steps>
+
+<Cards>
+	<Card title="Getting Started" href="/docs/1.0/getting-started/introduction">
+		Install UltimaBase and run the first typed PostgreSQL application.
+	</Card>
+	<Card title="Core" href="/docs/1.0/core/application/application-graph">
+		Learn native application, modeling, query, mutation, Runtime, and authority
+		behavior.
+	</Card>
+	<Card
+		title="Official Plugins"
+		href="/docs/1.0/plugins/overview#official-plugins"
+	>
+		Add database, lifecycle, security, HTTP, and API capabilities explicitly.
+	</Card>
+	<Card title="Community Plugins" href="/docs/1.0/plugins/community-plugins">
+		Understand the future community catalog or prepare a plugin submission.
+	</Card>
+	<Card title="Guides" href="/docs/1.0/guides/build-an-authenticated-api">
+		Complete workflows that combine several Core and plugin capabilities.
+	</Card>
+	<Card title="Reference" href="/docs/1.0/reference/core-api/application">
+		Look up Core signatures, packages, compatibility, and architecture context.
+	</Card>
+</Cards>

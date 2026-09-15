@@ -1,0 +1,83 @@
+---
+title: Community Plugins
+description: Discover the future community ecosystem and understand who maintains, documents, and supports each listed plugin.
+audience:
+  - application-developer
+  - plugin-author
+contentType: concept
+outcome: Understand how community plugins will be listed without confusing visibility with official maintenance.
+owner: '2824'
+releaseStatus: pre-release
+reviewedAt: 2026-09-15
+sources:
+  - CONTRIBUTING.md
+  - packages/plugin-kit/README.md
+  - packages/testing/README.md
+  - docs/concepts/open-plugin-authoring.md
+  - docs/adr/0191-plugin-privilege-taxonomy-and-diagnostics.md
+---
+
+## Current catalog
+
+UltimaBase is designed so community plugins use the same public capability,
+privilege, lifecycle, policy, and Typegen boundaries as official plugins. This
+section will make mature community work easier to discover and document.
+
+No community plugin is listed yet. The empty catalog is deliberate: this site
+does not invent packages, maintainers, compatibility claims, or support status.
+
+A future listing will include the package name, maintainer, source repository,
+license, supported UltimaBase range, last reviewed version, documentation, and
+support channel. Documentation hosted here is curated for clarity, but the
+plugin remains community-maintained unless its page explicitly says otherwise.
+
+## Publishing requirements
+
+A listed community plugin must provide:
+
+- a published package with a stable plugin ID and explicit compatibility range;
+- an accessible source repository and declared license;
+- a valid manifest with reasons for every privilege and environmental claim;
+- installation, configuration, usage, upgrade, removal, and troubleshooting
+  documentation;
+- a minimal reproducible example and automated tests against public package
+  exports;
+- an identified maintainer and public support or issue channel;
+- no private `src/` imports, hidden registries, raw application engines, or
+  undeclared environmental behavior.
+
+Roadmap ideas, empty packages, unpublished prototypes, and compatibility
+inferred only from installation are not catalog entries.
+
+## Submit a plugin
+
+Open an issue in the UltimaBase repository titled
+`[Community plugin] <package-name>` and include:
+
+- npm package name and current version;
+- source repository, license, and maintainer contact;
+- supported UltimaBase range and tested Node.js versions;
+- plugin manifest, requested privileges, and environmental claims;
+- installation, configuration, usage, removal, and troubleshooting links;
+- test evidence and any native, network, filesystem, or process behavior;
+- the support channel readers should use after installation.
+
+Review may request corrections, clearer compatibility evidence, or a focused PR
+adding the plugin page. Acceptance adds discoverability only. The maintainer
+keeps ownership of releases, security responses, support, and compatibility
+updates.
+
+## Review and maintenance boundary
+
+UltimaBase may review manifest structure, documentation quality,
+public-boundary usage, and reproducible compatibility evidence. A listing is
+not a complete security audit, warranty, endorsement, or promise of continued
+maintenance.
+
+The catalog may remove or mark a plugin incompatible when its package
+disappears, its documentation becomes misleading, its supported release cannot
+be reproduced, or its maintainer no longer responds to material issues.
+
+Before requesting review, install the published package in a clean application
+using the claimed UltimaBase version and run its documented minimal example. If
+you are starting from an idea, begin with [Build a Plugin](./build-a-plugin).

@@ -8,7 +8,7 @@ order: 7
 outcome: Show authenticated readers a different relation view through every API.
 owner: '2814'
 releaseStatus: pre-release
-reviewedAt: 2026-09-14
+reviewedAt: 2026-09-15
 sources:
   - docs/adr/0247-contextual-relation-filters.md
   - examples/minimal/src/schema.ts
@@ -16,8 +16,8 @@ sources:
 
 ## Prerequisites
 
-Read [Contextual Relations](/docs/1.0/querying/contextual-relations) and
-[Request Identity](/docs/1.0/security/request-identity).
+Read [Related Data](/docs/1.0/core/reading-data/related-data#contextual-relation-filters) and
+[Request Identity](/docs/1.0/core/security-foundations/request-identity).
 
 ## Shortest path
 
@@ -44,5 +44,5 @@ It shapes only this traversal and is not authorization; protect targets independ
 
 ## Related concepts
 
-See [Relation Predicates](/docs/1.0/querying/relation-predicates),
-[Access](/docs/1.0/security/access), and [Object ACLs](/docs/1.0/security/acl).
+See [Relation Predicates](/docs/1.0/core/reading-data/related-data#relation-predicates),
+[Access](/docs/1.0/plugins/official/authentication-and-authorization/access), and [Object ACLs](/docs/1.0/plugins/official/authentication-and-authorization/acl-permissions).

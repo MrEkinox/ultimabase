@@ -1,0 +1,176 @@
+---
+title: Application Troubleshooting
+description: Diagnose application compilation, plugin privileges, dependencies, and lifecycle startup.
+audience:
+  - application-developer
+  - plugin-author
+  - operator
+contentType: troubleshooting
+order: 1
+outcome: Identify the startup stage that failed and repair configuration without bypassing a safety boundary.
+owner: '2817'
+releaseStatus: pre-release
+reviewedAt: 2026-09-15
+sources:
+  - packages/core/src/errors/framework-error.ts
+  - packages/core/README.md
+  - packages/plugin-kit/README.md
+  - packages/typegen/src/errors.ts
+  - packages/typegen/src/loader.ts
+  - packages/typegen/README.md
+  - SECURITY.md
+---
+
+## Startup and plugin graph
+
+### Symptom
+
+`await app.start()` rejects before the application accepts work. Keep the stable
+error code and lifecycle stage; do not reduce every startup failure to a database
+problem.
+
+| Diagnostic                                                  | Meaning                                                    |
+| ----------------------------------------------------------- | ---------------------------------------------------------- |
+| `PLUGIN_DEPENDENCY_MISSING` or `PLUGIN_DEPENDENCY_CYCLE`    | the static plugin graph cannot be ordered                  |
+| `PLUGIN_DUPLICATE` or `PLUGIN_CONFLICT`                     | identity or replacement is ambiguous                       |
+| `PLUGIN_CAPABILITY_MISSING` or `PLUGIN_CAPABILITY_CONFLICT` | an application capability has no valid composition         |
+| `PLUGIN_PROTOCOL_INCOMPATIBLE`                              | two versioned contracts cannot communicate                 |
+| `PLUGIN_PRIVILEGE_DENIED`                                   | policy rejected a requested privilege or environment claim |
+| `PLUGIN_DECLARATION_INVALID`                                | a static contribution violates its public contract         |
+
+A plain `TypeError` usually points to malformed options or an unknown key.
+
+### Cause
+
+Typical causes are a missing required plugin, duplicate instances without
+distinct instance IDs, incompatible capability versions, a denied privilege,
+or invalid configuration. Constructors compile and snapshot the static graph;
+`start()` then runs setup, preparation, connection, and start in dependency
+order. The first failed stage triggers cleanup.
+
+### Confirm
+
+Capture only stable identity at the application boundary:
+
+```ts
+import { FrameworkError } from '@ultimabase/core'
+
+try {
+	await app.start()
+} catch (error: unknown) {
+	const diagnostic =
+		error instanceof FrameworkError
+			? { code: error.code, retryable: error.retryable }
+			: { name: error instanceof Error ? error.name : 'UnknownError' }
+
+	console.error('UltimaBase startup failed', diagnostic)
+	throw error
+}
+```
+
+Review the default plugin report for exact plugin and instance IDs, declared
+privileges, reasons, severity, and environmental claims. Also run the project
+checks that validate dependency direction and TypeScript configuration:
+
+```sh
+yarn constraints
+yarn typecheck
+```
+
+### Resolve
+
+- Install a missing dependency or correct its compatible version range.
+- Give deliberate duplicate configurations distinct instance IDs and keep
+  capability ownership unambiguous.
+- Grant only the exact privilege whose documented behavior the application
+  needs; do not replace policy with an allow-all rule.
+- Correct invalid options at the reported owner, then construct a fresh
+  application. A disposed application cannot be restarted.
+- If startup reached an infrastructure stage, follow the dedicated
+  [PostgreSQL](/docs/1.0/plugins/official/data-and-persistence/postgresql#troubleshooting)
+  or Typegen section below.
+
+Never treat disabling validation, Hooks, authorization, or privilege checks as
+a recovery step.
+
+### Escalate
+
+If the public code and plugin identities do not identify the misconfiguration,
+prepare a minimal graph containing only the failing schemas and plugins. Record
+the first error code and whether cleanup also failed, sanitize all diagnostics,
+then use the reporting checklist below.
+
+See [Build a Plugin](/docs/1.0/plugins/build-a-plugin) and the
+[error reference](/docs/1.0/reference/core-api/errors).
+
+## Typegen
+
+### Symptom
+
+The generated declaration is missing or stale, TypeScript cannot see a schema or
+plugin-owned field, or generation throws `SCHEMA_TYPEGEN_FAILED`. Preserve its
+stable `reason` and owner.
+
+### Confirm and resolve
+
+Run the application's normal generation command, then TypeScript:
+
+```sh
+yarn dev
+yarn typecheck
+```
+
+Check that `.ultimabase/schema.generated.d.ts` contains the generated-file
+notice and an `@ultimabase/schema-fingerprint`. Compare it with version control;
+never edit it by hand.
+
+- Export the configured application name from the configured source module.
+- Register public, deterministic Typegen declarations for custom contributions.
+- Give independent applications distinct IDs and output paths.
+- Keep the generated declaration included by `tsconfig.json`, but never import
+  it as Runtime state.
+
+Host permissions and path casing vary. Grant access only to the generated
+directory rather than loosening repository-wide permissions. See
+[Typegen](/docs/1.0/core/application/typegen) for the architectural boundary.
+
+## Report a problem
+
+Use this path when a documented public contract behaves differently in a
+minimal application or a stable error has no actionable recovery. Suspected
+vulnerabilities belong in the repository security process, never a public issue.
+
+Record versions without printing environment variables:
+
+```sh
+node --version
+yarn --version
+yarn why @ultimabase/core
+```
+
+Reduce the failure to the smallest schemas, plugins, configuration, and command.
+Run it twice from a clean lifecycle. Keep stable error codes, Typegen reasons,
+HTTP request IDs, and sanitized driver codes. Remove database URLs,
+credentials, cookies, tokens, user data, raw causes, and Master material.
+
+```md
+### Versions
+
+Node, package manager, TypeScript, and every @ultimabase package
+
+### Minimal reproduction
+
+Repository or self-contained code plus the exact command
+
+### Expected behavior
+
+The documented observable result
+
+### Actual behavior
+
+Stable code, sanitized diagnostic, and lifecycle stage
+```
+
+Use the repository [issue tracker](https://github.com/MrEkinox/ultimadatabase/issues)
+for non-security problems. Link the exact documentation page and public package
+entry point involved.

@@ -128,6 +128,9 @@ describe('French public journey', () => {
 			)
 
 			await page.goto(`${origin}/fr/docs/querying/overview`)
+			expect(page.url()).toBe(
+				`${origin}/fr/docs/1.0/core/reading-data/overview`,
+			)
 			await page
 				.getByRole('heading', {
 					level: 1,
@@ -138,7 +141,7 @@ describe('French public journey', () => {
 				await page
 					.getByRole('link', { name: 'Lire la source anglaise' })
 					.getAttribute('href'),
-			).toBe('/docs/1.0/querying/overview')
+			).toBe('/docs/1.0/core/reading-data/overview')
 			expect(await accessibilityViolations(page)).toEqual([])
 			expect(clientErrors).toEqual([])
 		} finally {
@@ -146,7 +149,7 @@ describe('French public journey', () => {
 		}
 	})
 
-	it('publishes Concepts in English and falls back explicitly in French', async () => {
+	it('publishes Core documentation in English and falls back explicitly in French', async () => {
 		const context = await browser?.newContext({
 			colorScheme: 'light',
 			viewport: { height: 900, width: 1280 },
@@ -156,17 +159,19 @@ describe('French public journey', () => {
 		try {
 			const page = await context.newPage()
 			const clientErrors = collectClientErrors(page)
-			await page.goto(`${origin}/docs/1.0/concepts/application-graph`)
+			await page.goto(`${origin}/docs/1.0/core/application/application-graph`)
 			await page
 				.getByRole('heading', { level: 1, name: 'Application Graph' })
 				.waitFor()
 			await page
 				.locator('#nd-sidebar')
-				.getByText('Concepts', { exact: true })
+				.getByText('Core', { exact: true })
 				.waitFor()
 			expect(await accessibilityViolations(page)).toEqual([])
 
-			await page.goto(`${origin}/fr/docs/1.0/concepts/application-graph`)
+			await page.goto(
+				`${origin}/fr/docs/1.0/core/application/application-graph`,
+			)
 			await page
 				.getByRole('heading', {
 					level: 1,
@@ -177,7 +182,7 @@ describe('French public journey', () => {
 				await page
 					.getByRole('link', { name: 'Lire la source anglaise' })
 					.getAttribute('href'),
-			).toBe('/docs/1.0/concepts/application-graph')
+			).toBe('/docs/1.0/core/application/application-graph')
 			expect(clientErrors).toEqual([])
 		} finally {
 			await context.close()

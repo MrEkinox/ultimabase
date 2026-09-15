@@ -4,16 +4,10 @@
 	"pages": [
 		"index",
 		"getting-started",
-		"data-modeling",
-		"querying",
-		"mutations",
-		"security",
-		"apis",
+		"core",
 		"plugins",
-		"operations",
 		"guides",
-		"concepts",
-		"troubleshooting",
+		"operations",
 		"reference"
 	]
 }

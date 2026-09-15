@@ -8,7 +8,7 @@ order: 5
 outcome: Choose the next learning path from a working application.
 owner: '2806'
 releaseStatus: pre-release
-reviewedAt: 2026-09-14
+reviewedAt: 2026-09-15
 sources:
   - packages/core/docs/schema.md
   - packages/core/docs/query.md
@@ -30,44 +30,35 @@ small until one requirement proves that another plugin or concept is needed.
 
 ## Steps
 
-The full public sections are being authored from the current package contracts.
-Until each curated page is published, these links take you to the precise
-repository source instead of an empty placeholder.
+Choose a Core concept when the behavior is native. Choose a plugin page when an
+optional package owns the behavior. Use guides only for workflows that combine
+several capabilities.
 
 <Cards>
-	<Card
-		title="Model schemas"
-		href="https://github.com/MrEkinox/ultimadatabase/blob/main/packages/core/docs/schema.md"
-	>
+	<Card title="Model schemas" href="/docs/1.0/core/data-modeling/schemas">
 		Explore fields, defaults, embedded objects, pointers, and relations.
 	</Card>
-	<Card
-		title="Read with Query"
-		href="https://github.com/MrEkinox/ultimadatabase/blob/main/packages/core/docs/query.md"
-	>
+	<Card title="Read with Query" href="/docs/1.0/core/reading-data/overview">
 		Build immutable filters, selections, ordering, pagination, and includes.
 	</Card>
 	<Card
 		title="Understand security"
-		href="https://github.com/MrEkinox/ultimadatabase/blob/main/packages/core/docs/access.md"
+		href="/docs/1.0/core/security-foundations/security-model"
 	>
 		Separate Core authority from optional identity and authorization plugins.
 	</Card>
-	<Card
-		title="Use and author plugins"
-		href="https://github.com/MrEkinox/ultimadatabase/blob/main/packages/plugin-kit/README.md"
-	>
+	<Card title="Choose a plugin" href="/docs/1.0/plugins/using-plugins">
 		Learn explicit identity, privileges, capabilities, and lifecycle.
 	</Card>
 	<Card
 		title="Expose REST"
-		href="https://github.com/MrEkinox/ultimadatabase/blob/main/packages/rest-plugin/README.md"
+		href="/docs/1.0/plugins/official/http-and-apis/rest"
 	>
 		Map HTTP resources into the same Runtime operation model.
 	</Card>
 	<Card
 		title="Expose GraphQL"
-		href="https://github.com/MrEkinox/ultimadatabase/blob/main/packages/graphql-plugin/README.md"
+		href="/docs/1.0/plugins/official/http-and-apis/graphql"
 	>
 		Generate a network-independent schema before choosing an HTTP adapter.
 	</Card>

@@ -13,7 +13,8 @@ import { resolveDocumentationPage } from '../../../../../lib/docs-localization'
 import { documentationEditOptions } from '../../../../../lib/docs-links'
 import {
 	documentationPath,
-	isDocumentationVersion,
+	documentationVersions,
+	resolveLegacyDocumentationPath,
 	versionDocumentationSlug,
 } from '../../../../../lib/docs-versions'
 import { isSiteLocale } from '../../../../../lib/i18n'
@@ -32,8 +33,14 @@ export default async function DocumentationPage({
 }: DocumentationPageProps) {
 	const { lang, slug } = await params
 	if (!isSiteLocale(lang)) notFound()
-	if (!isDocumentationVersion(slug?.[0])) {
-		redirect(documentationPath(lang, slug?.join('/')))
+	const requestedVersion = documentationVersions.find(
+		(version) => version.slug === slug?.[0],
+	)
+	const relativeSlug = requestedVersion === undefined ? slug : slug?.slice(1)
+	const relativePath = relativeSlug?.join('/') ?? ''
+	const canonicalPath = resolveLegacyDocumentationPath(relativePath)
+	if (requestedVersion === undefined || canonicalPath !== relativePath) {
+		redirect(documentationPath(lang, canonicalPath, requestedVersion))
 	}
 
 	const resolution = resolveDocumentationPage(

@@ -1,12 +1,9 @@
 {
 	"title": "Guides",
 	"pages": [
-		"validate-input",
-		"run-lifecycle-hooks",
 		"build-an-authenticated-api",
 		"add-virtual-fields",
 		"write-nested-data",
-		"add-soft-delete",
 		"filter-contextual-relations",
 		"test-an-application"
 	]

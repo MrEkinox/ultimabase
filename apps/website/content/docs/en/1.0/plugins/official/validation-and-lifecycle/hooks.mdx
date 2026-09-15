@@ -1,0 +1,54 @@
+---
+title: Hooks
+description: Install the official field and schema lifecycle engine without making lifecycle behavior part of Core.
+audience:
+  - application-developer
+  - plugin-author
+contentType: concept
+outcome: Place normalization and transaction-bound business behavior at the correct Hook boundary.
+owner: '2824'
+releaseStatus: pre-release
+reviewedAt: 2026-09-15
+sources:
+  - packages/hooks-plugin/README.md
+  - examples/minimal/src/schema.ts
+  - docs/adr/0189-optional-hooks-and-access-plugins.md
+---
+
+## Overview
+
+`@ultimabase/hooks-plugin` supplies UltimaBase's official field and schema Hooks.
+Importing the package installs nothing, and an application without
+`hooksPlugin()` has no neutral or hidden Hook stages.
+
+## Installation and configuration
+
+Install the plugin and add `hooksPlugin()` to the application graph. Use field
+`resolveInput` to normalize a value:
+
+```ts
+title: field.string({
+	hooks: { resolveInput: ({ value }) => value?.trim() ?? null },
+})
+```
+
+Use schema `beforeOperation.create` for business work that must commit or roll
+back with the primary mutation.
+
+## Runtime order and transactions
+
+Field `resolveInput` Hooks normalize values. Schema and application observers
+perform ordered work around the logical mutation. Business after-Hooks still
+run before commit and may abort the transaction; external delivery belongs
+after commit.
+
+## Verify and troubleshoot
+
+Create a title with surrounding whitespace and verify the stored result is
+trimmed. Then make a later Hook fail and confirm that both the primary row and
+transaction-bound work roll back.
+
+Hook order follows plugin dependencies, plugin position, and registration order.
+Hooks never replace authorization, structural validation, persistence plans, or
+transaction ownership. `afterOperation` still runs before commit; use emitted
+events for post-commit delivery.

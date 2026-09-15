@@ -1,0 +1,245 @@
+---
+title: Build a Plugin
+description: Define one immutable plugin module without hiding Core ownership or validation.
+audience:
+  - plugin-author
+contentType: guide
+order: 4
+outcome: Create a reusable factory with stable package identity and typed setup exports.
+owner: '2810'
+releaseStatus: pre-release
+reviewedAt: 2026-09-15
+sources:
+  - packages/plugin-kit/README.md
+  - packages/core/README.md
+  - packages/testing/README.md
+  - CONTRIBUTING.md
+  - docs/adr/0190-capability-host-lifecycle-and-legacy-convergence.md
+  - docs/adr/0191-plugin-privilege-taxonomy-and-diagnostics.md
+  - docs/adr/0195-setup-phase-capability-requirements.md
+  - docs/adr/0203-plugin-peer-requirements-do-not-order.md
+  - docs/adr/0208-enforceable-plugin-powers-and-environment-truth.md
+---
+
+## Start with a stable module
+
+Use `@ultimabase/plugin-kit` to remove repeated authoring boilerplate. It is a
+helper library, not a plugin, registry, service locator, or permission bypass.
+Its helpers delegate to the public Core kernel.
+
+```ts title="src/plugin.ts"
+import { definePluginModule } from '@ultimabase/plugin-kit'
+
+const workflow = definePluginModule({
+	core: '^0.0.0',
+	pluginId: 'community.workflow',
+	version: '1.0.0',
+})
+
+export const workflowPlugin = (instanceId?: string) =>
+	workflow.plugin({
+		...(instanceId === undefined ? {} : { instanceId }),
+		setup: () => ({ ready: true as const }),
+	})
+```
+
+`definePluginModule` binds stable package facts once. The factory still returns
+a static typed definition; it must not connect, read files, start listeners, or
+perform other effects. Put resource creation in an application capability
+factory or `setup`, where Core can attribute and dispose it.
+
+Use Core directly for capability definitions, Runtime behavior, protected
+constraints, persistence rewrites, raw adapter leases, transport bindings,
+Master elevation, and explicit cross-owner transformations. Keeping those
+calls visible makes ownership and privilege boundaries reviewable.
+
+A publishable plugin package ends in `-plugin`. Export its factory and public
+contracts from the package root; consumers must not deep-import `src/`.
+
+## Identity and instances
+
+A plugin owner is the structured pair `{ pluginId, instanceId? }`. `pluginId`
+is the stable namespaced package identity. `instanceId` is an explicit,
+non-empty configuration identity; Core never guesses it from options.
+
+```ts title="src/ultimabase.ts"
+import { UltimaBase } from '@ultimabase/core'
+
+import { workflowPlugin } from './plugin.js'
+
+export const ultimabase = new UltimaBase({
+	plugins: [workflowPlugin('editorial'), workflowPlugin('publishing')],
+	schemas: [],
+})
+```
+
+Two separately configured definitions with the same `pluginId` require
+different `instanceId` values. Reusing the exact definition object is
+composition reuse; duplicating one structured identity is an error. Do not
+concatenate identities into an ad hoc string or derive them from secrets and
+URLs.
+
+## Manifests, privileges, and claims
+
+The manifest is an immutable review surface. It declares identity, package and
+Core versions, dependencies, capabilities, requested Core privileges with
+reasons, and direct environmental claims.
+
+```ts title="src/delivery-plugin.ts"
+import { definePlugin } from '@ultimabase/core'
+
+export const deliveryPlugin = definePlugin({
+	core: '^0.0.0',
+	environment: ['environment:network'],
+	pluginId: 'community.delivery',
+	privileges: [
+		{
+			name: 'event:publish',
+			reason: 'Publishes committed delivery events.',
+		},
+	],
+	setup: () => ({ provider: 'example' as const }),
+	version: '1.0.0',
+})
+```
+
+Privileges protect Core-owned powers such as `schema:declare`,
+`runtime:observe`, `persistence:rewrite`, `transport:expose`,
+`typegen:contribute`, and `authority:elevate`. One privilege never implies a
+neighboring power. Environment claims report direct filesystem, network,
+process, or native-code behavior; they are inspectable policy, not an
+operating-system sandbox.
+
+Applications may deny privileges or claims globally, by plugin ID, or by exact
+instance. Unknown policy targets fail as configuration errors.
+
+## Capabilities
+
+Capabilities are the only public cross-plugin integration host. Each nominal
+token fixes a namespaced ID, semantic protocol version, cardinality, lifetime,
+and consumer composition function.
+
+```ts title="src/capabilities.ts"
+import {
+	defineCapability,
+	definePlugin,
+	provideCapability,
+	requireCapability,
+} from '@ultimabase/core'
+
+export const formatCapability = defineCapability<{
+	readonly format: 'compact'
+}>()({
+	capabilityId: 'community.workflow-format',
+	cardinality: 'single',
+	compose: ([provider]) => provider,
+	lifetime: 'declaration',
+	version: '1.0.0',
+})
+
+const format = requireCapability(formatCapability, '^1.0.0')
+
+export const workflowFormatPlugin = definePlugin({
+	capabilities: {
+		provides: [
+			provideCapability(formatCapability, {
+				contributionId: 'compact-format',
+				value: { format: 'compact' },
+			}),
+		],
+	},
+	core: '^0.0.0',
+	pluginId: 'community.workflow-format',
+	version: '1.0.0',
+})
+
+export const workflowConsumerPlugin = definePlugin({
+	capabilities: { requires: [format] },
+	core: '^0.0.0',
+	pluginId: 'community.workflow-consumer',
+	setup: ({ capabilities }) => ({ format: capabilities.get(format).format }),
+	version: '1.0.0',
+})
+```
+
+Declaration capabilities contain deeply frozen serializable facts. Application
+capabilities declare inert factories, materialize once per application, may
+own resources, and are revoked on disposal. Secrets and live connections never
+belong in declaration values.
+
+`single` selects one provider, `multiple` retains ordered independent
+providers, and `pipeline` composes ordered handlers. Decoration and replacement
+require dedicated privileges and reject ambiguous chains.
+
+## Lifecycle and dependencies
+
+Use a dependency when provider-first declaration or lifecycle order is part of
+the contract. Dependencies, not incidental source-array position, control
+ordering.
+
+The fixed sequence is static declaration, application-capability
+materialization, setup, connect, schema preparation, Runtime start, then
+transport start. Stop and disposal run in reverse dependency order. Nested
+plugins are configuration sugar over the same global graph.
+
+Use `optionalDependencies` when ordering is required only if another plugin is
+installed. Use a peer when presence and version compatibility are required but
+lifecycle ordering would be false coupling. A peer grants no capability read or
+setup export.
+
+Capability requirements default to materialization phase and create
+provider-first ordering. Use `phase: 'setup'` only for a genuine peer protocol
+whose application values can materialize independently. Cycles and missing
+required providers fail before effects.
+
+## Manifest reference
+
+| Property               | Required                   | Meaning                                                        |
+| ---------------------- | -------------------------- | -------------------------------------------------------------- |
+| `pluginId`             | yes                        | Stable namespaced package identity                             |
+| `instanceId`           | for repeated configuration | Exact configured instance identity                             |
+| `version`              | yes                        | Plugin package semantic version                                |
+| `core`                 | yes                        | Supported Core semantic-version range                          |
+| `privileges`           | no                         | Closed Core power requests, each with a reason                 |
+| `environment`          | no                         | Direct filesystem, network, process, or native-code claims     |
+| `capabilities`         | no                         | Versioned providers, requirements, decorators, or replacements |
+| dependencies and peers | no                         | Compatibility and lifecycle ordering                           |
+
+Privileges, claims, dependencies, peers, and capability lists default to empty.
+No wildcard privilege exists. `definePlugin()` returns a frozen static
+definition and runs no lifecycle or I/O work. Invalid identifiers, SemVer,
+unknown privilege names, missing dependencies, cycles, capability conflicts,
+and denied privileges fail before effects.
+
+## Testing
+
+Use `@ultimabase/testing` for runner-independent conformance fixtures and run
+them with Vitest. Test the public package export exactly as an application will
+import it.
+
+Cover stable identity, declared privileges, dependencies, capabilities,
+deterministic ordering, application isolation, materialization, startup,
+teardown, and failure cleanup. If multiple instances are supported, prove two
+explicit instances compose without sharing state.
+
+Add TypeScript tests for every public generic surface and optional Typegen
+contribution. Generated declarations are editor contracts, not Runtime truth;
+also prove that behavior works without a generated client. Database or network
+behavior requires real integration coverage at that boundary.
+
+## Publishing
+
+Publish only after the plugin has one stable identity, a documented
+compatibility range, package-root exports, and a complete test run against the
+built artifact.
+
+Release documentation must include installation, the smallest working
+configuration, requested privileges and environmental claims, lifecycle
+ownership, errors, upgrade notes, removal, and a support channel. Do not promise
+compatibility beyond versions exercised by the release process.
+
+Importing the package must not install behavior. Avoid private UltimaBase
+imports and do not expose Core engines, adapters, authority, or lifecycle
+mutation as convenience APIs. After publishing, read
+[Community Plugins](./community-plugins#submit-a-plugin) if you want the package
+considered for the public catalog.

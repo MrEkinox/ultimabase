@@ -1,0 +1,63 @@
+---
+title: Application Graph
+description: Understand how schemas and explicit plugins become one validated application.
+audience:
+  - application-developer
+  - plugin-author
+  - operator
+contentType: concept
+order: 1
+outcome: Know which declarations define an application and when they become executable.
+owner: '2821'
+releaseStatus: pre-release
+reviewedAt: 2026-09-15
+sources:
+  - ARCHITECTURE.md
+  - packages/core/README.md
+  - docs/adr/0173-generated-schema-authoring.md
+  - docs/adr/0186-trusted-open-plugin-kernel.md
+  - docs/adr/0191-plugin-privilege-taxonomy-and-diagnostics.md
+---
+
+An UltimaBase application is a compiled graph of developer-owned schemas and
+explicit plugin declarations. The graph — not import side effects, generated
+types, or the order in which Node.js happened to load files — defines what the
+application can do.
+
+```text
+schemas + configured plugins + static options
+                    ↓
+     identity, dependency, privilege, and conflict checks
+                    ↓
+         immutable compiled application graph
+                    ↓
+       capabilities, lifecycle, Runtime, transports
+```
+
+## What compilation proves
+
+Core first resolves plugin identities, instances, dependencies, compatibility,
+requested privileges, and capability contracts. It then runs pure static
+declarations, allocates every schema identity, resolves fields and relationships,
+and freezes the complete result. Invalid configuration fails before plugin
+setup, database connections, or transport effects.
+
+The graph is application-local. Two applications in one process do not share a
+mutable plugin or schema registry. Reusing a schema class is safe only when its
+independently compiled definition is structurally identical.
+
+## Where behavior comes from
+
+Core owns compilation, lifecycle, the operation model, and mandatory execution
+invariants. Concrete capabilities — PostgreSQL, validation, Access, Hooks,
+authentication, REST, GraphQL, and explorers — arrive through configured
+plugins. Importing a package alone installs nothing.
+
+Typegen may read the completed static graph and emit editor declarations, but
+those files remain replaceable tooling. JavaScript applications execute the
+same graph without a generated client.
+
+Start with [Application Configuration](/docs/1.0/reference/core-api/application)
+to assemble a graph, then use [Plugin System](/docs/1.0/plugins/overview) to understand
+plugin ownership and [Application Lifecycle](/docs/1.0/core/application/lifecycle)
+to see when infrastructure starts.

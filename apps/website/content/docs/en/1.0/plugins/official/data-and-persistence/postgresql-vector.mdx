@@ -1,0 +1,46 @@
+---
+title: PostgreSQL Vector
+description: Add an application-local typed vector field without teaching Core a provider-specific field kind.
+audience:
+  - application-developer
+  - plugin-author
+contentType: concept
+outcome: Declare a dimension-safe vector field and understand the current persistence boundary.
+owner: '2824'
+releaseStatus: pre-release
+reviewedAt: 2026-09-15
+sources:
+  - packages/pg-vector-plugin/README.md
+---
+
+`@ultimabase/pg-vector-plugin` contributes `field.vector({ dimensions })` to the
+compiled application that installs `pgVectorPlugin()`. Applications without the
+plugin do not expose that builder method.
+
+```ts
+import { Schema, UltimaBase } from '@ultimabase/core'
+import { pgVectorPlugin } from '@ultimabase/pg-vector-plugin'
+
+const Document = Schema.define({
+	className: 'Document',
+	fields: (field) => ({
+		embedding: field.vector({ dimensions: 1536, required: true }),
+	}),
+})
+
+const ultimabase = new UltimaBase({
+	plugins: [pgVectorPlugin()],
+	schemas: [Document],
+})
+```
+
+Vector values are immutable `readonly number[]` snapshots. The plugin validates
+their exact dimension and requires every element to be finite. Its GraphQL codec
+allows the GraphQL plugin to expose the field without importing the vector
+package.
+
+The logical field is shipped, but PostgreSQL physical `pgvector` compilation is
+not shipped in this release. Installing the plugin does not yet create a
+`vector` database column or vector-search operator. Do not present the logical
+field as a production similarity-search integration until that persistence
+capability exists.

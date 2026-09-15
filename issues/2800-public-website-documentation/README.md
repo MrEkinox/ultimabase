@@ -37,6 +37,7 @@ architecture and may be published progressively without duplicating the site.
 21. [x] [2821 — Publish the missing concept mental models](2821-concept-mental-models.md)
 22. [x] [2822 — Publish status pages and restore navigation parity](2822-status-and-navigation-parity.md)
 23. [x] [2823 — Add versioned documentation navigation](2823-versioned-documentation-navigation.md)
+24. [x] [2824 — Restructure documentation by capability ownership](2824-restructure-documentation-by-capability-ownership.md)
 
 Issues 2802 and 2804 may proceed independently after 2801. Issue 2805 fixes
 audiences, page types, terminology, voice, sample conventions, and source
@@ -101,96 +102,92 @@ The public route architecture is:
 │       │   ├── first-application
 │       │   ├── project-structure
 │       │   └── next-steps
-│       ├── data-modeling
-│       │   ├── schemas
-│       │   ├── fields
-│       │   ├── models
-│       │   ├── defaults
-│       │   ├── embedded-objects
-│       │   ├── pointers
-│       │   └── relations
-│       ├── querying
-│       │   ├── overview
-│       │   ├── filters
-│       │   ├── selections
-│       │   ├── ordering-and-pagination
-│       │   ├── includes
-│       │   ├── relation-predicates
-│       │   └── contextual-relations
-│       ├── mutations
-│       │   ├── create
-│       │   ├── update
-│       │   ├── delete
-│       │   ├── bulk-operations
-│       │   ├── upserts
-│       │   ├── nested-writes
-│       │   ├── transactions
-│       │   └── soft-delete
-│       ├── security
-│       │   ├── overview
-│       │   ├── password-authentication
-│       │   ├── request-identity
-│       │   ├── access
-│       │   ├── roles
-│       │   ├── acl
-│       │   └── master-authority
-│       ├── apis
-│       │   ├── typescript
-│       │   ├── http-applications
-│       │   ├── rest
-│       │   ├── graphql
-│       │   ├── graphql-yoga
-│       │   └── errors
+│       ├── core
+│       │   ├── application
+│       │   │   ├── application-graph
+│       │   │   ├── direct-typescript
+│       │   │   ├── lifecycle
+│       │   │   ├── request-context
+│       │   │   └── typegen
+│       │   ├── data-modeling
+│       │   │   ├── schemas
+│       │   │   ├── fields
+│       │   │   ├── models
+│       │   │   ├── defaults
+│       │   │   ├── embedded-objects
+│       │   │   └── relationships
+│       │   ├── reading-data
+│       │   │   ├── overview
+│       │   │   ├── filters
+│       │   │   ├── selections
+│       │   │   ├── ordering-and-pagination
+│       │   │   └── related-data
+│       │   ├── writing-data
+│       │   │   ├── create
+│       │   │   ├── update
+│       │   │   ├── delete
+│       │   │   ├── upserts
+│       │   │   ├── bulk-operations
+│       │   │   ├── nested-writes
+│       │   │   └── transactions
+│       │   ├── runtime
+│       │   │   ├── runtime-pipeline
+│       │   │   ├── transaction-boundaries
+│       │   │   ├── logical-operations-and-persistence
+│       │   │   ├── immutability
+│       │   │   └── api-errors
+│       │   └── security-foundations
+│       │       ├── security-model
+│       │       ├── request-identity
+│       │       └── master-authority
 │       ├── plugins
 │       │   ├── overview
-│       │   ├── installation
-│       │   ├── official-plugins
-│       │   ├── authoring
-│       │   ├── identity-and-instances
-│       │   ├── manifests-and-privileges
-│       │   ├── capabilities
-│       │   └── lifecycle-and-dependencies
-│       ├── operations
-│       │   ├── configuration-and-environment
-│       │   ├── application-lifecycle
-│       │   ├── postgres
-│       │   ├── secrets-and-master-key
-│       │   ├── browser-policy
-│       │   └── production-checklist
+│       │   ├── using-plugins
+│       │   ├── official
+│       │   │   ├── data-and-persistence
+│       │   │   │   ├── postgresql
+│       │   │   │   ├── soft-delete
+│       │   │   │   └── postgresql-vector
+│       │   │   ├── validation-and-lifecycle
+│       │   │   │   ├── validation
+│       │   │   │   └── hooks
+│       │   │   ├── authentication-and-authorization
+│       │   │   │   ├── password-authentication
+│       │   │   │   ├── access
+│       │   │   │   ├── roles
+│       │   │   │   └── acl-permissions
+│       │   │   └── http-and-apis
+│       │   │       ├── http
+│       │   │       ├── hono-server
+│       │   │       ├── rest
+│       │   │       ├── graphql
+│       │   │       ├── graphql-yoga
+│       │   │       ├── graphiql
+│       │   │       └── apollo-sandbox
+│       │   ├── community-plugins
+│       │   └── build-a-plugin
 │       ├── guides
-│       │   ├── validate-input
-│       │   ├── run-lifecycle-hooks
 │       │   ├── build-an-authenticated-api
 │       │   ├── add-virtual-fields
 │       │   ├── write-nested-data
-│       │   ├── add-soft-delete
 │       │   ├── filter-contextual-relations
 │       │   └── test-an-application
-│       ├── concepts
-│       │   ├── application-graph
-│       │   ├── runtime-pipeline
-│       │   ├── request-context
-│       │   ├── transactions
-│       │   ├── logical-operations-and-persistence
-│       │   ├── immutability
-│       │   ├── typegen
-│       │   └── architecture-decisions
-│       ├── troubleshooting
-│       │   ├── startup
-│       │   ├── postgres
-│       │   ├── typegen
-│       │   ├── http-and-application-identity
-│       │   └── reporting-a-problem
+│       ├── operations
+│       │   ├── configuration-and-environment
+│       │   ├── secrets
+│       │   ├── production-checklist
+│       │   └── application-troubleshooting
 │       └── reference
-│           ├── application-configuration
-│           ├── schema
-│           ├── fields
-│           ├── query
-│           ├── models
-│           ├── plugin-manifests
-│           ├── official-plugin-options
-│           ├── errors
-│           └── packages
+│           ├── core-api
+│           │   ├── application
+│           │   ├── schema
+│           │   ├── fields
+│           │   ├── query
+│           │   ├── models
+│           │   └── errors
+│           ├── package-index
+│           ├── compatibility
+│           └── architecture-decisions
 ├── examples
 ├── status
 │   ├── release-status
@@ -201,6 +198,13 @@ The public route architecture is:
     ├── examples
     └── status
 ```
+
+Sidebar routes stop at a coherent reader subject. Subtasks that share one owner
+and context live as headings in that page and appear in Fumadocs' `On this page`
+navigation. In particular, official plugin pages own installation,
+configuration, behavior, reference, limitations, and troubleshooting without a
+same-named folder and child page. A new route is justified only when the reader
+can complete it as an independent task.
 
 The unprefixed routes are canonical English URLs. `/docs` and legacy
 unversioned documentation paths redirect to the newest maintained line. French

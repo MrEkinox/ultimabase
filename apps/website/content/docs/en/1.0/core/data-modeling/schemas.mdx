@@ -1,0 +1,74 @@
+---
+title: Schemas
+description: Define the stable names, fields, and system metadata that form an UltimaBase data model.
+audience:
+  - application-developer
+contentType: concept
+order: 1
+outcome: Define and register a portable schema with exact generated types.
+owner: '2807'
+releaseStatus: pre-release
+reviewedAt: 2026-09-15
+sources:
+  - packages/core/README.md
+  - packages/core/docs/schema.md
+  - packages/core/examples/schema/basic-schema.md
+  - docs/adr/0213-direct-plugin-options-replace-schema-field-extensions.md
+---
+
+A schema is the static declaration of one stored entity. It gives that entity a
+stable `className`, declares its fields, and becomes part of one application's
+compiled graph.
+
+```ts title="src/article.ts"
+import { Schema } from '@ultimabase/core'
+
+export const Article = Schema.define({
+	className: 'DocsArticle',
+	fields: (field) => ({
+		published: field.boolean({ default: false }),
+		slug: field.string({ indexed: 'unique', required: true }),
+		title: field.string({ required: true }),
+	}),
+})
+```
+
+## Schema identity
+
+`className` is the stable logical identity used by relations, generated types,
+and adapters. Treat it like a persistent API name: changing it describes a
+different schema, not a cosmetic rename.
+
+Register every schema in the `schemas` array of the `UltimaBase` application
+that owns it. UltimaBase compiles the complete application graph before setup,
+connections, or model construction. Duplicate names and unresolved
+relationship targets fail during this static phase.
+
+## System fields
+
+Every registered schema receives three immutable, generated fields:
+
+| Field       | Type                   | Purpose                |
+| ----------- | ---------------------- | ---------------------- |
+| `id`        | `string`               | Stable record identity |
+| `createdAt` | ISO date-time `string` | Creation time          |
+| `updatedAt` | ISO date-time `string` | Last update time       |
+
+They are always present on complete persisted models and are not accepted in
+create or update data. Application code must not redeclare them.
+
+## Exact application types
+
+The field callback defines the Runtime graph. Typegen then reads that compiled
+graph and emits replaceable declarations for the exact application: model
+items, create and update inputs, filters, selections, relationships, and
+plugin-owned additions. Generated files improve autocomplete; they never
+become Runtime truth.
+
+<Callout type="info" title="A schema only exists inside an application">
+	Importing a schema class does not register it globally. Register the exact
+	class in each application that should compile and use it.
+</Callout>
+
+Continue with [Fields](./fields) to choose the right logical value type and
+validation options.

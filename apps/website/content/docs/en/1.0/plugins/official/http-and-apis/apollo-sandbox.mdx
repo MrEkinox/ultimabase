@@ -1,0 +1,31 @@
+---
+title: Apollo Sandbox
+description: Add an optional development Apollo Sandbox UI to one configured GraphQL HTTP endpoint.
+audience:
+  - application-developer
+contentType: guide
+outcome: Enable Apollo Sandbox without endpoint switching, embedded credentials, or accidental production exposure.
+owner: '2824'
+releaseStatus: pre-release
+reviewedAt: 2026-09-15
+sources:
+  - packages/apollo-sandbox-plugin/README.md
+---
+
+`@ultimabase/apollo-sandbox-plugin` contributes a browser explorer only. It does
+not install GraphQL, Yoga, HTTP, or a server.
+
+```ts
+import { apolloSandboxPlugin } from '@ultimabase/apollo-sandbox-plugin'
+
+const explorer = apolloSandboxPlugin({ environment: 'development' })
+```
+
+For application ID `notes`, open
+`/__ultimabase/apps/notes/apollo-sandbox`. The page fixes the installed GraphQL
+HTTP endpoint, attaches the public application ID, and disables endpoint editing
+and cookie controls. It embeds no credential or authority.
+
+Production contributes no route unless `allowInProduction: true` is explicit.
+Schema discovery also requires GraphQL HTTP introspection. The Apollo CDN asset
+is visible in the plugin's network environmental claim.

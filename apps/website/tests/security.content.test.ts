@@ -4,16 +4,16 @@ import { fileURLToPath } from 'node:url'
 import { beforeAll, describe, expect, it } from 'vitest'
 
 const contentRoot = fileURLToPath(
-	new URL('../content/docs/en/1.0/security/', import.meta.url),
+	new URL('../content/docs/en/1.0/', import.meta.url),
 )
 const pageNames = [
-	'access',
-	'acl',
-	'master-authority',
-	'overview',
-	'password-authentication',
-	'request-identity',
-	'roles',
+	'plugins/official/authentication-and-authorization/access',
+	'plugins/official/authentication-and-authorization/acl-permissions',
+	'core/security-foundations/master-authority',
+	'core/security-foundations/security-model',
+	'plugins/official/authentication-and-authorization/password-authentication',
+	'core/security-foundations/request-identity',
+	'plugins/official/authentication-and-authorization/roles',
 ] as const
 let documentation = ''
 

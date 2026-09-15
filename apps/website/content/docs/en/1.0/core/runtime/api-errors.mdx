@@ -1,0 +1,57 @@
+---
+title: API Errors
+description: Distinguish protocol-neutral HTTP failures from REST and GraphQL execution errors.
+audience:
+  - application-developer
+  - operator
+contentType: reference
+order: 6
+outcome: Identify which boundary rejected a request without exposing internal details.
+owner: '2812'
+releaseStatus: pre-release
+reviewedAt: 2026-09-15
+sources:
+  - packages/http-plugin/README.md
+  - packages/rest-plugin/README.md
+  - packages/graphql-plugin/README.md
+---
+
+The component that has safely accepted a request owns its error representation. This
+keeps application selection and credential failures independent from REST or GraphQL.
+
+```text
+original request
+  ├─ application/header/credential/timeout failure → HTTP_* envelope
+  ├─ REST handler began                            → REST_* envelope
+  └─ GraphQL handler began                         → GraphQL response errors
+```
+
+HTTP and REST use the stable JSON shape:
+
+```json
+{
+	"error": {
+		"code": "REST_VALIDATION_ERROR",
+		"message": "The request could not be validated.",
+		"retryable": false,
+		"requestId": "0199…"
+	}
+}
+```
+
+Every HTTP response receives `X-UltimaBase-Request-Id` and
+`Cache-Control: private, no-store`. Missing or unknown application identity and
+credential rejection remain `HTTP_APPLICATION_REJECTED`; malformed original headers
+use `HTTP_BAD_REQUEST`; timeouts use `HTTP_REQUEST_TIMEOUT`.
+
+After REST begins, malformed input, versions, media types, body limits, permissions,
+missing targets, validation, and unexpected failures use their documented `REST_*`
+codes. Unknown exceptions and internal details become a fixed
+`REST_INTERNAL_ERROR` rather than leaking implementation data.
+
+GraphQL follows the GraphQL response format. Explicitly public Core or plugin errors
+retain only safe extensions such as code, retryability, request ID, and optional JSON
+details. Unknown failures are masked as `INTERNAL_SERVER_ERROR`.
+
+No error includes a raw credential, password, session token, Master key, grant,
+adapter, persistence plan, private record, or internal stack trace.

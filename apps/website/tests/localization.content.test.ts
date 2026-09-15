@@ -94,9 +94,13 @@ describe('French reader journey', () => {
 			'/fr/docs/1.0/getting-started/introduction',
 		)
 		expect(
-			resolveDocumentationPage('fr', undefined, '/docs/1.0/querying/overview'),
+			resolveDocumentationPage(
+				'fr',
+				undefined,
+				'/docs/1.0/core/reading-data/overview',
+			),
 		).toEqual({
-			englishPage: '/docs/1.0/querying/overview',
+			englishPage: '/docs/1.0/core/reading-data/overview',
 			kind: 'translation-fallback',
 		})
 	})

@@ -1,0 +1,51 @@
+---
+title: Immutability
+description: Use independent query branches, model snapshots, ACLs, and roles without hidden state.
+audience:
+  - application-developer
+  - plugin-author
+contentType: concept
+order: 6
+outcome: Predict how builders and public domain values behave when reused.
+owner: '2821'
+releaseStatus: pre-release
+reviewedAt: 2026-09-15
+sources:
+  - packages/core/README.md
+  - docs/adr/0058-immutable-unbound-query-builder.md
+  - docs/adr/0109-constructible-schema-models.md
+---
+
+UltimaBase public domain values are immutable. Query builders, model snapshots,
+ACLs, and roles return a new value when changed; an earlier value keeps its
+original meaning.
+
+```text
+base query
+├── where published → published branch
+└── where draft     → draft branch
+
+Neither branch changes base or the other branch.
+```
+
+## Builders describe work
+
+A Query is an unbound description of selection, filtering, ordering, inclusion,
+and pagination. It does not capture an application, adapter, transaction, or
+request authority. Execution binds it to the current application only at the
+Runtime boundary.
+
+## Models describe snapshots
+
+A constructed model is a detached draft; a returned model is a persisted
+snapshot of exactly the visible selected fields. Neither is a live database
+record. There is no dirty tracking, lazy loading, or mutable `save()` path that
+could bypass validation, policy, Hooks, and transactions.
+
+ACL and Role values follow the same rule: adding an entry or membership returns
+a replacement value. This makes shared configuration and request-local
+branching predictable.
+
+Use [Query Overview](/docs/1.0/core/reading-data/overview) for builder examples,
+[Models](/docs/1.0/core/data-modeling/models) for draft and persisted states, and
+[ACL](/docs/1.0/plugins/official/authentication-and-authorization/acl-permissions) for immutable object policy.

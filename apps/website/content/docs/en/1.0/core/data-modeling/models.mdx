@@ -1,0 +1,71 @@
+---
+title: Models
+description: Work with immutable draft and persisted model snapshots without Active Record state.
+audience:
+  - application-developer
+contentType: concept
+order: 3
+outcome: Construct, inspect, serialize, and reason about immutable schema models.
+owner: '2807'
+releaseStatus: pre-release
+reviewedAt: 2026-09-15
+sources:
+  - packages/core/README.md
+  - packages/core/docs/schema.md
+  - docs/adr/0109-constructible-schema-models.md
+---
+
+Each compiled schema class is also an immutable model constructor. A model is a
+snapshot of visible application data, not a mutable row and not an open database
+connection.
+
+```ts title="src/product-model.ts"
+import { Product } from './fields.js'
+
+export const createProductDraft = () =>
+	new Product({
+		price: '19.90',
+		tags: ['typescript'],
+	})
+
+export const serializeProductDraft = () => createProductDraft().toJSON()
+```
+
+## Draft and persisted states
+
+`new Product(input)` creates a draft synchronously and performs no I/O. Drafts
+contain create input, so they do not yet expose a generated identity or system
+timestamps.
+
+Models returned by Runtime operations are persisted snapshots. They expose a
+stable `id` plus the fields selected for that operation. A partial selection is
+intentional: direct properties, `get()`, enumeration, inspection, and
+`toJSON()` all agree on the same visible snapshot.
+
+| Capability                                              | Draft model | Persisted model |
+| ------------------------------------------------------- | ----------- | --------------- |
+| Constructed with `new Schema(data)`                     | Yes         | No              |
+| Has generated `id`                                      | No          | Yes             |
+| `toJSON()` returns visible data                         | Yes         | Yes             |
+| May initiate `create` or `upsert`                       | Yes         | No              |
+| May initiate `fetch`, `update`, or `delete` by identity | No          | Yes             |
+
+## Immutability
+
+Model properties and serialized values are readonly. Calling a model command
+does not mutate that instance; it delegates to the application's shared Runtime
+pipeline and resolves to a new snapshot.
+
+This is deliberately not Active Record. There is no `save()`, dirty tracking,
+lazy field loading, or direct adapter persistence. Validation, access policy,
+hooks, transactions, and protected constraints remain in the shared Runtime
+path.
+
+<Callout type="info" title="Compile before constructing">
+	Model construction depends on the application-specific compiled graph. Create
+	the `UltimaBase` application that registers the schema before constructing its
+	models.
+</Callout>
+
+The exact draft, item, output, and operation types come from Typegen. The model
+class remains the Runtime value; generated declarations add no generated client.

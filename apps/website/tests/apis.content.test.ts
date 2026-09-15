@@ -4,15 +4,15 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 const contentRoot = fileURLToPath(
-	new URL('../content/docs/en/1.0/apis/', import.meta.url),
+	new URL('../content/docs/en/1.0/', import.meta.url),
 )
 const pageNames = [
-	'errors',
-	'graphql',
-	'graphql-yoga',
-	'http-applications',
-	'rest',
-	'typescript',
+	'core/runtime/api-errors',
+	'plugins/official/http-and-apis/graphql',
+	'plugins/official/http-and-apis/graphql-yoga',
+	'plugins/official/http-and-apis/http',
+	'plugins/official/http-and-apis/rest',
+	'core/application/direct-typescript',
 ] as const
 
 const readDocumentation = async (): Promise<string> =>

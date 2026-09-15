@@ -3,12 +3,18 @@ import { z } from 'zod'
 const areaSchema = z.object({
 	id: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/u),
 	packages: z.array(z.string().regex(/^@ultimabase\/[a-z0-9-]+$/u)).min(1),
-	sections: z.array(z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/u)).min(1),
+	sections: z
+		.array(
+			z
+				.string()
+				.regex(/^[a-z0-9]+(?:-[a-z0-9]+)*(?:\/[a-z0-9]+(?:-[a-z0-9]+)*)*$/u),
+		)
+		.min(1),
 })
 
 const ownershipSchema = z.object({
 	areas: z.array(areaSchema).min(1),
-	version: z.literal(1),
+	version: z.literal(2),
 })
 
 export type DocumentationOwnership = z.infer<typeof ownershipSchema>
@@ -56,7 +62,11 @@ export function validateDocumentationOwnership(
 		}
 
 		for (const section of new Set(area.sections)) {
-			if (!expectedSectionSet.has(section)) {
+			const topLevelSection = section.split('/')[0]
+			if (
+				topLevelSection === undefined ||
+				!expectedSectionSet.has(topLevelSection)
+			) {
 				diagnostics.push(
 					`Unknown website section in documentation ownership: ${section}`,
 				)
