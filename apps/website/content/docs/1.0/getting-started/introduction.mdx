@@ -8,7 +8,7 @@ order: 1
 outcome: Decide whether UltimaBase fits a typed Node.js backend application.
 owner: '2806'
 releaseStatus: pre-release
-reviewedAt: 2026-09-14
+reviewedAt: 2026-09-16
 sources:
   - README.md
   - ARCHITECTURE.md
@@ -40,10 +40,22 @@ By the end, you will have seen the central contract:
 The schema and selected plugins become the application Runtime truth.
 
 <Steps>
-	<Step>Static TypeScript schema</Step>
-	<Step>Explicit plugin graph</Step>
-	<Step>Core Runtime pipeline</Step>
-	<Step>PostgreSQL persistence</Step>
+	<Step>
+		<h3>Static TypeScript schema</h3>
+		<p>Declare the data model in TypeScript.</p>
+	</Step>
+	<Step>
+		<h3>Explicit plugin graph</h3>
+		<p>Install only the capabilities your application uses.</p>
+	</Step>
+	<Step>
+		<h3>Core Runtime pipeline</h3>
+		<p>Execute commands through one shared path.</p>
+	</Step>
+	<Step>
+		<h3>PostgreSQL persistence</h3>
+		<p>Store data through the PostgreSQL plugin.</p>
+	</Step>
 </Steps>
 
 ## Prerequisites

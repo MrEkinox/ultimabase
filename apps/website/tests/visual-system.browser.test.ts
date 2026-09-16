@@ -24,6 +24,40 @@ afterAll(async () => {
 })
 
 describe('website visual system', () => {
+	it.each(['/docs/1.0', '/docs/1.0/getting-started/introduction'])(
+		'renders readable native steps on %s',
+		async (route) => {
+			const context = await browser?.newContext({
+				viewport: { height: 900, width: 1280 },
+			})
+			if (context === undefined) throw new Error('Browser did not start')
+
+			try {
+				const page = await context.newPage()
+				await page.goto(`${origin}${route}`)
+				const steps = page.locator('.fd-steps > .fd-step')
+				expect(await steps.count()).toBe(4)
+				for (const step of await steps.all()) {
+					expect(await step.locator('h3').count()).toBe(1)
+					expect(await step.locator('p').count()).toBe(1)
+				}
+
+				const stepTops = await steps.evaluateAll((elements) =>
+					elements.map((element) => element.getBoundingClientRect().top),
+				)
+				let previousTop: number | undefined
+				for (const top of stepTops) {
+					if (previousTop !== undefined) {
+						expect(top - previousTop).toBeGreaterThan(48)
+					}
+					previousTop = top
+				}
+			} finally {
+				await context.close()
+			}
+		},
+	)
+
 	it.each([
 		{
 			colorScheme: 'light' as const,
