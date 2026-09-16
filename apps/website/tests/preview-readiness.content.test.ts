@@ -4,7 +4,6 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 import robots from '../app/robots'
-import { exampleScenarios } from '../components/examples/content'
 import { statusPageSlugs } from '../components/status/content'
 import { createPublicPageMetadata } from '../lib/metadata'
 import {
@@ -59,18 +58,10 @@ async function documentationPages(): Promise<DocumentationSitemapPage[]> {
 describe('website preview readiness', () => {
 	it('publishes every canonical reader route without engineering internals', async () => {
 		const pages = await documentationPages()
-		const entries = createPublicSitemap(
-			pages,
-			exampleScenarios.map((scenario) => scenario.slug),
-			statusPageSlugs,
-		)
+		const entries = createPublicSitemap(pages, statusPageSlugs)
 		const urls = entries.map(({ url }) => url)
 		const documentationUrls = pages.map(
 			(page) => new URL(page.url, siteConfig.canonicalUrl).href,
-		)
-		const scenarioUrls = exampleScenarios.map(
-			(scenario) =>
-				new URL(`/examples/${scenario.slug}`, siteConfig.canonicalUrl).href,
 		)
 		const statusUrls = statusPageSlugs.map(
 			(slug) => new URL(`/status/${slug}`, siteConfig.canonicalUrl).href,
@@ -80,12 +71,13 @@ describe('website preview readiness', () => {
 		expect(urls).toEqual(
 			expect.arrayContaining([
 				siteConfig.canonicalUrl.href,
-				new URL('/examples', siteConfig.canonicalUrl).href,
-				...scenarioUrls,
 				...statusUrls,
 				...documentationUrls,
 			]),
 		)
+		expect(
+			urls.some((url) => new URL(url).pathname.startsWith('/examples')),
+		).toBe(false)
 		expect(urls.every((url) => !new URL(url).pathname.startsWith('/fr'))).toBe(
 			true,
 		)

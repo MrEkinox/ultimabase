@@ -82,17 +82,12 @@ describe('website preview audit', () => {
 				.getByRole('heading', { level: 1, name: 'Introduction' })
 				.waitFor()
 
-			await page
-				.locator('#nd-sidebar')
-				.getByRole('link', { name: 'Examples' })
-				.click()
-			await page.waitForURL(`${origin}/examples`)
-			await page
-				.getByRole('heading', {
-					level: 1,
-					name: 'Learn from the application we actually test.',
-				})
-				.waitFor()
+			expect(
+				await page
+					.locator('#nd-sidebar')
+					.getByRole('link', { name: 'Examples' })
+					.count(),
+			).toBe(0)
 			expect(clientErrors).toEqual([])
 		} finally {
 			await context.close()
@@ -148,7 +143,7 @@ describe('website preview audit', () => {
 		}
 	})
 
-	it('makes release maturity discoverable from the landing page', async () => {
+	it('makes every project status page discoverable from the landing page', async () => {
 		const context = await browser?.newContext({
 			colorScheme: 'dark',
 			viewport: { height: 900, width: 1280 },
@@ -159,8 +154,24 @@ describe('website preview audit', () => {
 			const page = await context.newPage()
 			const clientErrors = collectClientErrors(page)
 			await page.goto(origin)
-			await page.getByRole('link', { name: 'Read release status' }).click()
-			await page.waitForURL(`${origin}/status/release-status`)
+			const projectInformation = page.getByRole('navigation', {
+				name: 'Project information',
+			})
+			for (const [label, route] of [
+				['Release status', siteConfig.routes.releaseStatus],
+				['Roadmap', siteConfig.routes.roadmap],
+				['Contributing', siteConfig.routes.contributing],
+			] as const) {
+				expect(
+					await projectInformation
+						.getByRole('link', { name: label })
+						.getAttribute('href'),
+				).toBe(route)
+			}
+			await projectInformation
+				.getByRole('link', { name: 'Release status' })
+				.click()
+			await page.waitForURL(`${origin}${siteConfig.routes.releaseStatus}`)
 			await page
 				.getByRole('heading', {
 					level: 1,
@@ -168,6 +179,21 @@ describe('website preview audit', () => {
 				})
 				.waitFor()
 			expect(clientErrors).toEqual([])
+		} finally {
+			await context.close()
+		}
+	})
+
+	it('does not publish the former examples pages', async () => {
+		const context = await browser?.newContext()
+		if (context === undefined) throw new Error('Browser did not start')
+
+		try {
+			const page = await context.newPage()
+			for (const route of ['/examples', '/examples/model-the-schema']) {
+				const response = await page.request.get(`${origin}${route}`)
+				expect(response.status(), route).toBe(404)
+			}
 		} finally {
 			await context.close()
 		}

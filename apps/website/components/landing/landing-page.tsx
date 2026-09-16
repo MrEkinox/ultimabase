@@ -85,13 +85,19 @@ export function LandingPage() {
 					<ButtonLink href={siteConfig.routes.gettingStarted}>
 						{copy.status.primaryAction}
 					</ButtonLink>
-					<ButtonLink
-						href={siteConfig.routes.releaseStatus}
-						variant="secondary"
-					>
-						{copy.status.secondaryAction}
-					</ButtonLink>
 				</div>
+				<nav
+					aria-label="Project information"
+					className="ub-landing-project-links"
+				>
+					<TextLink href={siteConfig.routes.releaseStatus}>
+						Release status
+					</TextLink>
+					<TextLink href={siteConfig.routes.roadmap}>Roadmap</TextLink>
+					<TextLink href={siteConfig.routes.contributing}>
+						Contributing
+					</TextLink>
+				</nav>
 			</Section>
 		</div>
 	)

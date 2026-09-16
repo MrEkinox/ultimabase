@@ -12,6 +12,8 @@ Brand metadata must therefore be centralized and replaceable. English is the
 only authored site language after the 2026-09-16 post-milestone simplification.
 The original French work remains recorded in issue 2818 but is no longer part
 of the delivered site.
+The post-milestone website simplification also removes the `/examples` routes;
+the maintained repository examples remain available as documentation sources.
 
 ## Execution order
 
@@ -82,7 +84,6 @@ without rewriting the completion history of the earlier bounded issues.
 Global navigation
 ├── Docs
 ├── Plugins
-├── Examples
 ├── GitHub
 ├── Search
 └── Theme
@@ -186,7 +187,6 @@ The public route architecture is:
 │           ├── package-index
 │           ├── compatibility
 │           └── architecture-decisions
-├── examples
 ├── status
 │   ├── release-status
 │   ├── roadmap
@@ -203,6 +203,7 @@ can complete it as an independent task.
 The routes are canonical English URLs. `/docs` and legacy unversioned
 documentation paths redirect to the newest maintained line. Version switching
 preserves the page when an equivalent exists or returns to that version's root.
+The landing page links directly to all three status pages in its final section.
 
 ## Landing-page narrative
 

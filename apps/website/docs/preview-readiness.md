@@ -36,8 +36,10 @@ Canonical, Open Graph, and X text metadata derive from the
 same page title, description, and provisional canonical origin. The
 generated favicon uses the replaceable geometric mark. Sitemap, robots, status
 metadata and 404 responses have
-production-browser coverage. The global navigation exposes the approved Docs,
-Plugins, Examples, and GitHub paths.
+production-browser coverage. The global navigation exposes Docs, Plugins, and
+GitHub; the landing page links directly to release status, roadmap, and
+contribution guidance near its end. The former `/examples` pages are removed;
+the repository examples remain maintained as source material for guides.
 
 No social-card image is included while the product name and public domain are
 provisional. This prevents a stale branded image from becoming part of the
@@ -46,9 +48,9 @@ the same change as its Open Graph and X image metadata.
 
 ## Production build snapshot
 
-The 2026-09-16 Next.js production build prerenders 93 application pages. Its
-complete static chunk inventory is 1,629,737 bytes of JavaScript (518,054 bytes
-when individually gzip-compressed) and 94,558 bytes of CSS (16,233 bytes when
+The 2026-09-16 Next.js production build prerenders 85 application pages. Its
+complete static chunk inventory is 1,629,218 bytes of JavaScript (517,617 bytes
+when individually gzip-compressed) and 87,990 bytes of CSS (15,382 bytes when
 gzip-compressed). These totals cover every route chunk, not the first-load cost
 of one page. The only explicit client boundaries in website source are the
 shared brand navigation and the Fumadocs theme provider; no

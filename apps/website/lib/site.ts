@@ -27,11 +27,12 @@ export interface SiteConfig {
 		readonly owner: string
 	}
 	readonly routes: {
+		readonly contributing: string
 		readonly docs: string
-		readonly examples: string
 		readonly gettingStarted: string
 		readonly plugins: string
 		readonly releaseStatus: string
+		readonly roadmap: string
 	}
 }
 
@@ -49,11 +50,12 @@ const preview: SiteConfig['preview'] = Object.freeze({
 	reviewedAt: '2026-09-14',
 })
 const routes: SiteConfig['routes'] = Object.freeze({
+	contributing: '/status/contributing',
 	docs: currentDocumentationPath(),
-	examples: '/examples',
 	gettingStarted: currentDocumentationPath('getting-started/introduction'),
 	plugins: currentDocumentationPath('plugins/overview'),
 	releaseStatus: '/status/release-status',
+	roadmap: '/status/roadmap',
 })
 
 /**
@@ -70,7 +72,6 @@ export const siteConfig = Object.freeze({
 	navigation: Object.freeze([
 		{ href: routes.docs, label: 'Docs' },
 		{ href: routes.plugins, label: 'Plugins' },
-		{ href: routes.examples, label: 'Examples' },
 		{
 			external: true,
 			href: repositoryUrl.href,

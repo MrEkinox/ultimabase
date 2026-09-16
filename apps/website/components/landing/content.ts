@@ -50,7 +50,6 @@ export interface LandingCopy {
 		readonly description: string
 		readonly eyebrow: string
 		readonly primaryAction: string
-		readonly secondaryAction: string
 		readonly title: string
 	}>
 }
@@ -183,7 +182,6 @@ export const landingCopy: LandingCopy = Object.freeze({
 			'The architecture is substantial and the API is usable. Expect deliberate change while the first stable release contract is finalized.',
 		eyebrow: 'Honest by default',
 		primaryAction: 'Read Getting Started',
-		secondaryAction: 'Read release status',
 		title: 'Active pre-release development.',
 	},
 })

@@ -25,8 +25,10 @@ in version folders such as `content/docs/1.0`; root `docs/` remains the
 engineering source for ADRs, specifications, and implementation plans.
 
 Source-backed release status, roadmap, and contribution guidance live at
-`/status/*`. The global Plugins link points directly to the public plugin
-overview.
+`/status/*` and are linked directly from the landing page's final section. The
+global Plugins link points directly to the public plugin overview. The former
+`/examples` pages are no longer published; the runnable repository examples
+remain available as sources for guides and tests.
 
 ## Validation
 

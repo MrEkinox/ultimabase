@@ -491,20 +491,6 @@
 			"sources": ["issues/2800-public-website-documentation/README.md"]
 		},
 		{
-			"path": "/examples",
-			"slug": "examples",
-			"contentType": "guide",
-			"outcome": "Run maintained scenarios from the minimal application.",
-			"owner": "2815",
-			"audiences": ["application-developer", "plugin-author"],
-			"releaseStatus": "pre-release",
-			"sourceStatus": "ready",
-			"sources": [
-				"examples/minimal/README.md",
-				"examples/todo-backend/README.md"
-			]
-		},
-		{
 			"path": "/status/release-status",
 			"slug": "release-status",
 			"contentType": "reference",

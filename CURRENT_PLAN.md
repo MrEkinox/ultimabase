@@ -161,6 +161,10 @@ contents, while preserving versioned and legacy routes.
 The 2026-09-16 post-milestone decision supersedes the previously delivered
 French journey: the website now publishes only authored English pages. Browser
 translation is available to readers but is not a maintained site capability.
+The later post-milestone examples cleanup removes the seven website-only
+scenario pages and their index. Repository examples remain maintained for
+guides and tests; release status, roadmap, and contributing are linked directly
+from the landing page.
 
 ### Phase 1 — Application, design, and content foundation
 

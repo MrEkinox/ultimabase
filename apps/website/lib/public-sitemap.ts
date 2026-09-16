@@ -14,8 +14,7 @@ const absoluteUrl = (pathname: string): string =>
 /** Builds the public route inventory without exposing repository-internal documents. */
 export function createPublicSitemap(
 	documentationPages: readonly DocumentationSitemapPage[],
-	scenarioSlugs: readonly string[],
-	statusSlugs: readonly string[] = [],
+	statusSlugs: readonly string[],
 ): MetadataRoute.Sitemap {
 	const marketing: MetadataRoute.Sitemap = [
 		{
@@ -24,18 +23,6 @@ export function createPublicSitemap(
 			priority: 1,
 			url: absoluteUrl('/'),
 		},
-		{
-			changeFrequency: 'monthly',
-			lastModified: siteConfig.preview.reviewedAt,
-			priority: 0.7,
-			url: absoluteUrl('/examples'),
-		},
-		...scenarioSlugs.map((slug) => ({
-			changeFrequency: 'monthly' as const,
-			lastModified: siteConfig.preview.reviewedAt,
-			priority: 0.6,
-			url: absoluteUrl(`/examples/${slug}`),
-		})),
 		...statusSlugs.map((slug) => ({
 			changeFrequency: 'weekly' as const,
 			lastModified: siteConfig.preview.reviewedAt,

@@ -233,6 +233,13 @@
 	border-top: var(--ub-border-width) solid var(--ub-border-strong);
 }
 
+.ub-landing-project-links {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--ub-space-4) var(--ub-space-8);
+	margin-top: var(--ub-space-8);
+}
+
 @media (max-width: 64rem) {
 	.ub-flow {
 		grid-template-columns: minmax(0, 1fr);

@@ -154,11 +154,24 @@ describe('website visual system', () => {
 					.getByRole('link', { name: 'View on GitHub' })
 					.getAttribute('href'),
 			).toBe(siteConfig.repositoryUrl.href)
+			const projectInformation = page.getByRole('navigation', {
+				name: 'Project information',
+			})
 			expect(
-				await page
-					.getByRole('link', { name: 'Read release status' })
+				await projectInformation
+					.getByRole('link', { name: 'Release status' })
 					.getAttribute('href'),
-			).toBe('/status/release-status')
+			).toBe(siteConfig.routes.releaseStatus)
+			expect(
+				await projectInformation
+					.getByRole('link', { name: 'Roadmap' })
+					.getAttribute('href'),
+			).toBe(siteConfig.routes.roadmap)
+			expect(
+				await projectInformation
+					.getByRole('link', { name: 'Contributing' })
+					.getAttribute('href'),
+			).toBe(siteConfig.routes.contributing)
 
 			const root = page.locator('html')
 			expect((await root.getAttribute('class')) ?? '').not.toContain('dark')

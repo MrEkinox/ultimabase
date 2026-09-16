@@ -43,7 +43,6 @@ content evidence.
 | Concepts                 | Architecture, product spec, Runtime guide, and ADRs                 | Ready     | Translate internal reasoning into stable public mental models         |
 | Troubleshooting          | Package limitations, error contracts, and issue evidence            | Partial   | Build symptom-led diagnostics from verified failures only             |
 | Reference                | Package READMEs and public export barrels                           | Ready     | Document exports, defaults, errors, and examples without deep imports |
-| Examples                 | Minimal and todo applications                                       | Ready     | Keep scenarios runnable and link each step to its owning guide        |
 | Status                   | Root status, changesets, release guide, milestone issues            | Partial   | Separate shipped, pre-release, and planned behavior explicitly        |
 
 ## Known gaps and unsuitable shortcuts
