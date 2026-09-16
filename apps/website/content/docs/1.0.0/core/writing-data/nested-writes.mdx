@@ -1,25 +1,36 @@
 ---
 title: Nested Writes
-description: Mutate a bounded pointer and relation graph from one singular root command.
+description: Create or update related records in one bounded, atomic command.
 audience:
   - application-developer
 contentType: concept
 order: 6
-outcome: Choose legal pointer and relation commands and predict their order and limits.
+outcome: Create and update a related graph while respecting command, visibility, and size limits.
 owner: '2809'
 releaseStatus: pre-release
-reviewedAt: 2026-09-15
+reviewedAt: 2026-09-16
 sources:
+  - packages/core/README.md
   - packages/core/examples/schema/nested-writes.md
   - packages/core/docs/runtime.md
   - docs/adr/0243-bounded-singular-nested-writes.md
 ---
 
-Nested writes belong to `createOne`, `updateOne`, and a persisted model's
-`update` command. They execute as one ordered graph inside the root automatic
-transaction.
+Use a nested write when one post command must also create, connect, or update
+related records. `createOne`, `updateOne`, and a persisted model's `update()`
+accept relationship commands inside `data`. The root and every child run in
+one transaction; a failure rolls back the whole graph.
 
-```ts title="src/nested-posts.ts"
+The examples assume a started application with a persistence plugin. `Post`
+has required `slug` and `title` fields, an `author` pointer to a schema with
+`displayName` and `email`, and an owning `comments` relation to a schema with
+`body`. See [Relationships](/docs/1.0.0/core/data-modeling/relationships) for
+how to declare those fields and [Manual Installation](/docs/1.0.0/manual-installation)
+for application setup.
+
+## Create a post and its related records
+
+```ts title="src/create-post-graph.ts"
 import { Post } from './schemas.js'
 import { ultimabase } from './ultimabase.js'
 
@@ -34,8 +45,8 @@ export const createPostGraph = (existingCommentId: string) =>
 					},
 				},
 				comments: {
-					connect: [existingCommentId],
 					create: [{ body: 'First' }, { body: 'Second' }],
+					connect: [existingCommentId],
 				},
 				slug: 'nested-post',
 				title: 'Nested post',
@@ -47,6 +58,20 @@ export const createPostGraph = (existingCommentId: string) =>
 		},
 		{ ultimabase },
 	)
+```
+
+`author.create` creates an author and stores its pointer on the post.
+`comments.create` creates two comments and connects them; `comments.connect`
+adds an existing, visible comment by ID. These are different operations:
+`connect` never creates a target. The final returned post includes the
+requested author and comments when they are visible to the caller; read
+policy may omit some included targets.
+
+## Update the related graph
+
+```ts title="src/revise-post-graph.ts"
+import { Post } from './schemas.js'
+import { ultimabase } from './ultimabase.js'
 
 export const revisePostGraph = (
 	postId: string,
@@ -59,8 +84,8 @@ export const revisePostGraph = (
 				author: { update: { displayName: 'Ada Lovelace' } },
 				comments: {
 					create: [{ body: 'Third' }],
-					disconnect: [oldCommentId],
 					update: [{ data: { body: 'Edited' }, id: commentId }],
+					disconnect: [oldCommentId],
 				},
 			},
 			id: postId,
@@ -69,16 +94,66 @@ export const revisePostGraph = (
 	)
 ```
 
-| Field    | Create root                        | Update root                                                                           |
-| -------- | ---------------------------------- | ------------------------------------------------------------------------------------- |
-| Pointer  | exactly one of `connect`, `create` | exactly one of `connect`, `create`, `update`, `disconnect`                            |
-| Relation | incremental `connect` and `create` | incremental `connect`, `create`, `update`, `disconnect`, or exclusive `set` / `clear` |
+`author.update` changes the currently linked, visible author; it needs no
+author ID. `comments.update` requires an ID that is currently in this post's
+visible relation. `comments.disconnect` removes membership but does not delete
+the comment. Each ID in this example must refer to a distinct target.
 
-Incremental relation commands may coexist and run in the documented order.
-`set` and `clear` are exclusive replacement commands. They operate on visible
-membership: policy-hidden edges are retained rather than silently removed.
+## Choose a relationship command
 
-The default graph budget is depth 5 and 100 nested operations; applications may
-configure stricter positive limits. Nested delete and upsert commands are not
-available. Neither are nested commands on bulk roots, upserts, or drafts. A
-failure anywhere rolls back the graph—there is no partial-success branch.
+| Field    | On `createOne`                    | On `updateOne` or a persisted model's `update()`                                                               |
+| -------- | --------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Pointer  | `connect: id` or `create: data`   | `connect: id`, `create: data`, `update: data`, or `disconnect: true`                                           |
+| Relation | `create: [data]`, `connect: [id]` | `create: [data]`, `connect: [id]`, `update: [{ id, data }]`, `disconnect: [id]`, `set: [id]`, or `clear: true` |
+
+A pointer command object contains exactly one command. `disconnect: true` is
+available only for an optional pointer. Relation `create`, `connect`, `update`,
+and `disconnect` may coexist; their arrays must be non-empty. Core runs them
+in that order regardless of property order, preserving order within each
+array. Identity commands take the target's ID string, not a model or a
+`{ id }` object. Do not name the same target ID twice across those commands.
+
+Pointer child creates and updates run before the root write. Relation child
+mutations and membership changes run after it. The root's after-hooks see the
+completed graph, and `select` / `include` project the final result.
+
+`set` and `clear` must each be the sole command in their relation object.
+`set: []` and `clear: true` both remove visible memberships; `set` can also
+replace them with specified visible targets. Neither command deletes targets
+or removes policy-hidden memberships. A relation mapped by a required inverse
+pointer cannot use `disconnect`, `set`, or `clear`, because that would clear a
+required field. See [Relationships](/docs/1.0.0/core/data-modeling/relationships)
+for owning and inverse relations.
+
+## Bounds and failure behavior
+
+By default, the root is at depth zero and a graph may reach five nested target
+levels and 100 operation nodes. The operation count includes the root, child
+mutations, pointer actions, and relation membership actions; one relation
+target creation counts as both a child create and a membership connection.
+Configure `validation.nestedWrites.maxDepth` and `maxOperations` to raise or
+lower these limits. `maxDepth` must be a non-negative safe integer;
+`maxOperations` must be a positive safe integer.
+
+Core checks the declared graph and existing target visibility before the first
+business hook or write. A missing or inaccessible related target, conflicting IDs, a
+limit violation, failed validation, policy rejection, or hook failure aborts
+the whole transaction: there is no partial-success branch.
+
+Nested delete and upsert commands are not available. Bulk roots, upserts, and
+draft construction accept only flat data, not nested relationship commands.
+Use a singular root command when you need this graph behavior.
+
+## Next steps
+
+<Cards>
+	<Card
+		title="Relationships"
+		href="/docs/1.0.0/core/data-modeling/relationships"
+	>
+		Declare owning and inverse relations before writing them.
+	</Card>
+	<Card title="Transactions" href="./transactions">
+		Coordinate multiple root commands in one explicit transaction.
+	</Card>
+</Cards>
