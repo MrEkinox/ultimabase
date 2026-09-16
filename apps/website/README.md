@@ -20,6 +20,13 @@ yarn website:dev
 
 Open `http://localhost:3000`. Marketing routes use the `(marketing)` route
 group, while documentation is mounted at `/docs` through the `(docs)` group.
+
+The development server also permits the current LAN preview host
+`192.168.1.135` through Next.js `allowedDevOrigins`, so interactive controls
+work when the site is opened at `http://192.168.1.135:3000`. If the host's LAN
+address changes, update the exact hostname in `next.config.mjs` and restart the
+development server. Do not add a wildcard for the local network.
+
 English is the only authored site language. Public documentation source belongs
 in version folders such as `content/docs/1.0.0`; root `docs/` remains the
 engineering source for ADRs, specifications, and implementation plans.
@@ -46,6 +53,11 @@ The production build creates `.next`, and Fumadocs generates `.source` before
 the focused checks. Both are ignored by Git, ESLint, and Prettier. Website
 validation covers the application, public content, and browser behavior; Core
 and plugin behavior remains owned by the package and repository test suites.
+
+If a long-running `website:dev` server is open while `website:build` or
+`website:test` regenerates `.next`, restart the development server before
+checking interactive controls again.
+
 The ordinary root `yarn build` continues to build only non-private publishable
 workspaces. Next.js also maintains the conventional tracked `next-env.d.ts`;
 repository formatting and linting leave that generated declaration untouched.

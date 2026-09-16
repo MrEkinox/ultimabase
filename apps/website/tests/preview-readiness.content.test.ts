@@ -56,6 +56,14 @@ async function documentationPages(): Promise<DocumentationSitemapPage[]> {
 }
 
 describe('website preview readiness', () => {
+	it('allows the current LAN host to use development-only Next.js resources', async () => {
+		const config = await readFile(
+			path.join(websiteRoot, 'next.config.mjs'),
+			'utf8',
+		)
+		expect(config).toMatch(/allowedDevOrigins:\s*\['192\.168\.1\.135'\]/u)
+	})
+
 	it('publishes every canonical reader route without engineering internals', async () => {
 		const pages = await documentationPages()
 		const entries = createPublicSitemap(pages, statusPageSlugs)
@@ -103,8 +111,7 @@ describe('website preview readiness', () => {
 		})
 
 		expect(metadata.alternates?.canonical).toBe(
-			new URL('/docs/1.0.0', siteConfig.canonicalUrl)
-				.href,
+			new URL('/docs/1.0.0', siteConfig.canonicalUrl).href,
 		)
 		expect(metadata.openGraph).toMatchObject({
 			locale: 'en_US',
