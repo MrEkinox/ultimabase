@@ -6,10 +6,17 @@ import {
 	DocsPage,
 	DocsTitle,
 } from 'fumadocs-ui/page'
+import {
+	MarkdownCopyButton,
+	ViewOptionsPopover,
+} from 'fumadocs-ui/layouts/docs/page'
 import { createRelativeLink } from 'fumadocs-ui/mdx'
 
 import { getMdxComponents } from '../../../../components/mdx'
-import { documentationEditOptions } from '../../../../lib/docs-links'
+import {
+	documentationEditOptions,
+	documentationEditUrl,
+} from '../../../../lib/docs-links'
 import {
 	documentationPath,
 	documentationVersions,
@@ -43,6 +50,7 @@ export default async function DocumentationPage({
 	if (page === undefined) notFound()
 	const Content = page.data.body
 	const neighbours = findNeighbour(source.getPageTree(), page.url)
+	const markdownUrl = `${page.url}.md`
 
 	return (
 		<DocsPage
@@ -53,6 +61,13 @@ export default async function DocumentationPage({
 		>
 			<DocsTitle>{page.data.title}</DocsTitle>
 			<DocsDescription>{page.data.description}</DocsDescription>
+			<div className="flex flex-wrap items-center gap-2 border-b pt-2 pb-6">
+				<MarkdownCopyButton markdownUrl={markdownUrl} />
+				<ViewOptionsPopover
+					githubUrl={documentationEditUrl(page.path).href}
+					markdownUrl={markdownUrl}
+				/>
+			</div>
 			<DocsBody>
 				<Content
 					components={getMdxComponents({

@@ -75,6 +75,12 @@ frontmatter, canonical URLs, sidebar ordering, duplicate navigation entries,
 and internal documentation links. It never scans the repository's engineering
 `docs/` directory.
 
+Each versioned documentation page has Fumadocs' Copy Markdown and Open actions.
+Its `.md` URL serves processed Markdown from the same authored page, including
+the page's release-line path. The Open menu links to the exact source file and
+offers external AI shortcuts; those shortcuts can read the page only after the
+site has a reachable public URL.
+
 The documentation navigation is capability-owned. Native application, modeling,
 query, mutation, Runtime, and authority behavior lives below `Core`. Optional
 behavior lives below `Plugins > Official Plugins` or `Plugins > Community

@@ -27,8 +27,8 @@ require human review against the frontmatter `sources` list.
 The production-browser suite covers desktop, mobile, 200%-zoom-equivalent
 reflow, keyboard focus, search, navigation, light and dark
 themes, reduced motion, page landmarks, headings, code-copy controls, diagrams,
-and WCAG A/AA findings. The site overrides two low-contrast GitHub Light syntax
-tokens while preserving syntax highlighting.
+per-page Markdown actions, and WCAG A/AA findings. The site overrides two
+low-contrast GitHub Light syntax tokens while preserving syntax highlighting.
 
 ## Metadata and indexing
 
@@ -48,13 +48,14 @@ the same change as its Open Graph and X image metadata.
 
 ## Production build snapshot
 
-The 2026-09-16 Next.js production build prerenders 85 application pages. Its
-complete static chunk inventory is 1,629,218 bytes of JavaScript (517,617 bytes
-when individually gzip-compressed) and 87,990 bytes of CSS (15,382 bytes when
-gzip-compressed). These totals cover every route chunk, not the first-load cost
-of one page. The only explicit client boundaries in website source are the
-shared brand navigation and the Fumadocs theme provider; no
-decorative image is on the critical path.
+The 2026-09-16 Next.js production build prerenders 160 application pages,
+including a Markdown representation of each of the 75 authored documentation
+pages. Its complete static chunk inventory is 1,639,861 bytes of JavaScript
+(523,029 bytes when individually gzip-compressed) and 88,036 bytes of CSS
+(15,386 bytes when gzip-compressed). These totals cover every route chunk, not
+the first-load cost of one page. Website-owned client boundaries remain the
+shared brand navigation and the Fumadocs theme provider; Fumadocs supplies the
+page-action controls. No decorative image is on the critical path.
 
 Reproduce the aggregate measurement after `yarn website:build`:
 
