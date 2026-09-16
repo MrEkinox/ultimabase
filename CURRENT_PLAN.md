@@ -186,6 +186,9 @@ The later Data Modeling review moved virtual-field behavior into the Core
 `/docs/1.0.0/core/data-modeling/virtual-fields` concept page. The former
 `/docs/1.0.0/guides/add-virtual-fields` route is removed without a pre-launch
 redirect; Guides retains its task workflows.
+The Fields page now includes the built-in field-builder lookup in its page-level
+contents. The duplicate `/docs/1.0.0/reference/core-api/fields` route is removed
+without a pre-launch redirect.
 
 ### Phase 1 — Application, design, and content foundation
 

@@ -116,4 +116,36 @@ describe('documentation sidebar', () => {
 			await context.close()
 		}
 	})
+
+	it('keeps field builders in Fields and removes the duplicate reference route', async () => {
+		const context = await browser?.newContext()
+		if (context === undefined) throw new Error('Browser did not start')
+
+		try {
+			const page = await context.newPage()
+			await page.goto(`${origin}/docs/1.0.0/core/data-modeling/fields`)
+			await page
+				.getByRole('heading', { level: 2, name: 'Built-in field builders' })
+				.waitFor()
+			expect(
+				await page.locator('a[href="#built-in-field-builders"]').count(),
+			).toBeGreaterThan(0)
+			const sidebar = page.locator('#nd-sidebar')
+			expect(
+				await sidebar
+					.getByRole('link', { name: 'Fields', exact: true })
+					.count(),
+			).toBe(1)
+			expect(
+				await sidebar.getByRole('link', { name: 'Field Builders' }).count(),
+			).toBe(0)
+			const oldReference = await page.request.get(
+				`${origin}/docs/1.0.0/reference/core-api/fields`,
+				{ maxRedirects: 0 },
+			)
+			expect(oldReference.status()).toBe(404)
+		} finally {
+			await context.close()
+		}
+	})
 })

@@ -103,6 +103,8 @@ as separate child routes. Optional Typegen setup lives in the independent
 `Guides > Generate TypeScript Types` task page.
 `Core > Data Modeling > Virtual Fields` owns the output-only field concept;
 the former Guides page is not served.
+`Core > Data Modeling > Fields` also owns the built-in builder lookup; there is
+no duplicate field-builder page under Reference.
 The docs sidebar shows the version and page tree without duplicate global
 Plugins or GitHub links. Its repository icon sits beside Fumadocs' theme switch
 at the bottom; marketing navigation retains the full set of site links.

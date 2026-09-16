@@ -1,4 +1,4 @@
 {
 	"title": "Core API",
-	"pages": ["application", "schema", "fields", "query", "models", "errors"]
+	"pages": ["application", "schema", "query", "models", "errors"]
 }

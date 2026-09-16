@@ -32,7 +32,7 @@
 				{
 					"slug": "data-modeling/fields",
 					"contentType": "concept",
-					"outcome": "Choose a field family and understand which values are stored, accepted as input, or returned as output."
+					"outcome": "Choose a field family, look up its builder, and understand which values are stored, accepted as input, or returned as output."
 				},
 				{
 					"slug": "data-modeling/models",
@@ -383,11 +383,6 @@
 					"slug": "core-api/errors",
 					"contentType": "reference",
 					"outcome": "Handle stable public error codes without exposing trusted diagnostics or relying on transport internals."
-				},
-				{
-					"slug": "core-api/fields",
-					"contentType": "reference",
-					"outcome": "Choose the narrowest field declaration and understand which options apply to storage, input, and output."
 				},
 				{
 					"slug": "core-api/models",

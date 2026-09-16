@@ -1,18 +1,19 @@
 ---
 title: Fields
-description: Choose the right field for a value, relationship, or computed result.
+description: Choose a field family and look up Core's built-in field builders and options.
 audience:
   - application-developer
   - plugin-author
 contentType: concept
 order: 2
-outcome: Choose a field family and understand which values are stored, accepted as input, or returned as output.
+outcome: Choose a field family, look up its builder, and understand which values are stored, accepted as input, or returned as output.
 owner: '2807'
 releaseStatus: pre-release
 reviewedAt: 2026-09-16
 sources:
   - packages/core/README.md
   - packages/core/docs/schema.md
+  - packages/core/src/schema/schema/field-builder-contract.ts
   - packages/core/examples/schema/field-options.md
   - packages/core/examples/schema/virtual-fields.md
   - docs/adr/0213-direct-plugin-options-replace-schema-field-extensions.md
@@ -53,16 +54,44 @@ rules.
 | A computed, selectable result           | `field.virtual()`; output-only. See [Virtual Fields](./virtual-fields).                                  |
 | A distinct value kind owned by a plugin | That plugin's field method, installed in the application.                                                |
 
-Core's built-in field methods and their exact options are listed in the
-[Field Builders reference](/docs/1.0.0/reference/core-api/fields). For numbers,
-`int` and `float` use JavaScript `number`; `bigint` and `decimal` use strings to
-preserve exact values. Use `object` when the nested shape is part of your model,
-and `json` when it is deliberately unstructured. A list of record IDs is not a
-substitute for a `pointer` or `relation` when you need relationship behavior.
+Use `object` when the nested shape is part of your model, and `json` when it is
+deliberately unstructured. A list of record IDs is not a substitute for a
+`pointer` or `relation` when you need relationship behavior.
+
+## Built-in field builders
+
+The `fields` callback receives a `field` builder. Each method returns an
+immutable declaration; it does not create or load a record. Choose by the
+value your application uses, not by a database column type.
+
+| Builder            | Application value           | Builder-specific options or behavior                                                                                    |
+| ------------------ | --------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `field.string()`   | `string`                    | Text; application formats such as email need the optional Validation plugin.                                            |
+| `field.boolean()`  | `boolean`                   | No builder-specific options.                                                                                            |
+| `field.int()`      | Safe integer `number`       | `autoIncrement` requests adapter-backed generation.                                                                     |
+| `field.bigint()`   | Native JavaScript `bigint`  | `autoIncrement` requests adapter-backed generation; transports need an explicit codec.                                  |
+| `field.float()`    | `number`                    | Use `decimal` for exact base-10 values.                                                                                 |
+| `field.decimal()`  | Exact decimal `string`      | `precision` limits total digits; `scale` limits fractional digits.                                                      |
+| `field.uuid()`     | UUID `string`               | UUID syntax is always checked; `default` can supply a generated value.                                                  |
+| `field.date()`     | `YYYY-MM-DD` string         | `autoNow` can generate a calendar day.                                                                                  |
+| `field.time()`     | Canonical time string       | `timezone` defaults to `false`; `autoNow` can generate a time.                                                          |
+| `field.dateTime()` | Canonical date-time string  | `timezone` defaults to `true`; `autoNow` can generate a timestamp.                                                      |
+| `field.binary()`   | `Uint8Array`                | Wire encoding belongs to the transport.                                                                                 |
+| `field.json()`     | JSON object or array        | Optional fields may also be `null`; root scalars are rejected.                                                          |
+| `field.enum()`     | Declared string union       | `values` is required; `typeName` can name the generated contract.                                                       |
+| `field.object()`   | Typed nested value          | Declare child `fields`; see [Embedded Objects](./embedded-objects).                                                     |
+| `field.pointer()`  | One target reference        | `target` is required; `onDelete` defaults to `restrict`. See [Relationships](./relationships).                          |
+| `field.relation()` | To-many relation handle     | `target` is required; `mappedBy` and `where` shape an inverse or scoped relation. See [Relationships](./relationships). |
+| `field.virtual()`  | Selected, output-only value | Declare `output`, `select`, and `resolve`; see [Virtual Fields](./virtual-fields).                                      |
+
+`int` and `float` use JavaScript `number`; `bigint` uses native `bigint`, and
+`decimal` uses a string so its base-10 value stays exact. Stored value fields
+can also use the common options below. Pointers have a narrower option set;
+relations and virtual fields do not use stored-value options.
 
 ## Common options and validation
 
-Value fields share several options:
+Stored value fields share several options:
 
 - `required: true` makes a complete value non-null. Create input must supply it
   unless a default or generator can provide it.
@@ -79,6 +108,11 @@ Core validates requiredness, nullability, canonical value shapes, enum values,
 and decimal precision and scale. It does not impose application rules such as
 string length, email format, or a business-specific numeric range. Add those
 through the optional [Validation plugin](/docs/1.0.0/plugins/official/validation-and-lifecycle/validation).
+
+`autoNow` cannot be combined with `default` or `list: true`. An invalid built-in
+option or combination fails during declaration or application compilation;
+invalid input values fail when an operation runs. For create-input and
+persisted-value details, see [Defaults and Nullability](./defaults).
 
 ## Virtual results
 

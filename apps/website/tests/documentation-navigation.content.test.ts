@@ -123,7 +123,6 @@ const canonicalNavigation = {
 	'1.0.0/reference/core-api': [
 		'application',
 		'schema',
-		'fields',
 		'query',
 		'models',
 		'errors',
@@ -159,6 +158,21 @@ describe('documentation navigation architecture', () => {
 		await expect(
 			readFile(
 				path.join(contentRoot, '1.0.0/guides/add-virtual-fields.mdx'),
+				'utf8',
+			),
+		).rejects.toMatchObject({ code: 'ENOENT' })
+	})
+
+	it('keeps field builder lookup inside Fields without a duplicate reference page', async () => {
+		const page = await readFile(
+			path.join(contentRoot, '1.0.0/core/data-modeling/fields.mdx'),
+			'utf8',
+		)
+		expect(page).toContain('## Built-in field builders')
+		expect(page).toContain('Native JavaScript `bigint`')
+		await expect(
+			readFile(
+				path.join(contentRoot, '1.0.0/reference/core-api/fields.mdx'),
 				'utf8',
 			),
 		).rejects.toMatchObject({ code: 'ENOENT' })
