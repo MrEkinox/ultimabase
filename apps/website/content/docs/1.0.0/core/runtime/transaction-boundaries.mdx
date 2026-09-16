@@ -1,56 +1,69 @@
 ---
 title: Transaction Boundaries
-description: Distinguish automatic mutation transactions from explicit multi-operation scopes.
+description: Understand how Runtime owns and propagates one transaction scope.
 audience:
   - application-developer
   - plugin-author
 contentType: concept
 order: 4
-outcome: Predict what commits, rolls back, and runs after commit.
+outcome: Explain transaction reuse, rollback-only work, and post-commit timing.
 owner: '2821'
 releaseStatus: pre-release
 reviewedAt: 2026-09-16
 sources:
   - packages/core/docs/runtime.md
+  - docs/adr/0068-request-engine-transactions.md
   - docs/adr/0099-automatic-mutation-transactions.md
-  - docs/adr/0070-plugin-hooks-and-post-commit-events.md
+  - docs/adr/0107-hook-context-capabilities-and-events.md
 ---
 
-## Automatic and explicit scopes
+The [Transactions](/docs/1.0.0/core/writing-data/transactions) page shows how
+application code groups commands. This page explains why a command cannot
+silently escape the active database transaction.
 
-Every root mutation owns an automatic transaction. Its nested writes, Hook-
-started database operations, protected constraints, and persistence plan share
-that boundary. A failure before commit rolls the whole mutation back.
+## One active request scope
+
+A root mutation with no active transaction opens one adapter transaction.
+Runtime derives a transaction-bound request engine and installs it in the
+current asynchronous scope before the mutation runs. Nested writes and
+database operations started by optional Hooks inherit that exact engine; they
+do not open sibling transactions. A root read does not open a transaction, but
+it can join an explicit one.
 
 <Mermaid
-	description="One root mutation opens an automatic transaction containing nested writes, business Hooks, and adapter work; buffered events run after commit."
+	description="A root mutation or explicit request transaction establishes one scoped engine. Every nested operation inherits it, then the outer transaction commits once or rolls back as a unit."
 	chart="flowchart TB
-    A[One root mutation] --> B[Automatic transaction]
-    B --> C[Nested object and relation writes]
-    B --> D[Before and after business Hooks]
-    B --> E[Adapter work and constraints]
-    C --> F[Commit]
-    D --> F
-    E --> F
-    F --> G[Buffered post-commit events]"
+    A[Root mutation or request.transaction] --> B[One scoped engine]
+    B --> C[Root command]
+    B --> D[Nested commands and Hook-started work]
+    C --> E[Outer transaction finalization]
+    D --> E
+    E --> F[Commit once or roll back]"
 />
 
-Reads do not open transactions by default. When several root commands or reads
-must observe one atomic unit, use the request engine's explicit
-`transaction()` scope. Nested explicit transactions and public savepoints are
-not part of the contract.
+`request.transaction(callback)` creates the same kind of bound engine for
+several commands. Its application, context, authority, and request metadata
+remain unchanged. Schema terminals without an explicit engine use the current
+scope. Runtime waits for operations started inside it, even if the callback
+forgot to await one, before finalizing the transaction. A failed operation
+makes the scope rollback-only even if user code catches its rejection.
+
+Nested calls to `request.transaction()` fail with `TRANSACTION_ERROR`; there
+are no public savepoints. A transaction-bound engine or query retained after
+the callback closes also fails rather than running outside the transaction.
 
 ## Commit is the dividing line
 
-Business after-Hooks run before commit and can still abort the transaction.
-Named events emitted through the request context are buffered and delivered
-only after a successful outer commit. Failed work does not leak post-commit
-effects.
+Business after-Hooks, final output restriction, and result projection happen
+before the outer commit and may still abort it. Named events emitted from an
+optional Hook context are buffered with the transaction. Rollback discards
+them; a successful commit releases them to matching consumers. A consumer
+failure occurs after commit and cannot undo committed rows.
 
 Automatic transactions are an application invariant, not a transport feature.
 The same mutation has the same boundary whether it began in TypeScript, REST,
 or GraphQL.
 
-For the executable API and grouping example, read
-[Mutations: Transactions](/docs/1.0.0/core/writing-data/transactions). For nested atomic work,
-continue with [Write Nested Data](/docs/1.0.0/guides/write-nested-data).
+For an executable grouping example, return to
+[Transactions](/docs/1.0.0/core/writing-data/transactions). For a single
+related graph, see [Nested Writes](/docs/1.0.0/core/writing-data/nested-writes).
