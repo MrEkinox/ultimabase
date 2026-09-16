@@ -9,11 +9,12 @@ order: 3
 outcome: Operate the shipped PostgreSQL connection and schema preparation behavior without assuming migrations exist.
 owner: '2813'
 releaseStatus: pre-release
-reviewedAt: 2026-09-15
+reviewedAt: 2026-09-17
 sources:
   - packages/postgres-plugin/README.md
   - packages/postgres-plugin/src/connection/managed-connection.ts
   - packages/postgres-plugin/src/synchronization/preparer.ts
+  - docs/adr/0080-postgres-index-compilation.md
 ---
 
 ## Overview
@@ -58,6 +59,31 @@ intent metadata is inert until a future migration owner reviews and applies it. 
 
 Direct synchronization does not infer destructive removal of unmatched tables
 or columns. Use explicit `renamedFrom` metadata for a deliberate column rename.
+
+## Index preparation
+
+Declare ordinary and unique indexes through Core's [Schemas](/docs/1.0.0/core/data-modeling/schemas#indexes)
+API, not through Drizzle or SQL. PostgreSQL compiles supported field-level and
+composite declarations into physical indexes with deterministic names. The
+declared field order is retained, and a unique index provides the exact
+conflict target used by [Unique Upserts](/docs/1.0.0/core/writing-data/upserts).
+
+An index declaration alone does not prove that an existing database has that
+index. At `start()`, `schemaPolicy: 'override'` (the default) applies supported index changes;
+`'fail'` reports drift without changing it; and `'ignore'` skips structural
+inspection. Do not use `'ignore'` while assuming a newly declared unique index
+already exists. Review duplicate data before adding uniqueness to a populated
+table: an index that cannot be created makes schema preparation fail.
+
+PostgreSQL permits multiple `NULL` values in a unique index. If every record
+must supply the indexed value, declare its field `required: true` as well.
+Unsupported index shapes fail preparation rather than being approximated.
+
+If a write violates a PostgreSQL uniqueness constraint, its public
+`VALIDATION_ERROR` reports a data-constraint failure without exposing the
+driver message or index name. Do not rely on public error details to identify
+the conflicting fields. For other adapters, index support and physical
+preparation belong to that adapter's contract.
 
 ## Troubleshooting
 

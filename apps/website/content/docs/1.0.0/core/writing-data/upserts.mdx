@@ -8,7 +8,7 @@ order: 5
 outcome: Upsert a record by unique slug and understand both possible branches.
 owner: '2809'
 releaseStatus: pre-release
-reviewedAt: 2026-09-16
+reviewedAt: 2026-09-17
 sources:
   - packages/core/README.md
   - packages/core/docs/query.md
@@ -71,6 +71,34 @@ framework `id`, one field declared unique, or every field of one declared
 composite unique index. Extra conditions, partial composite keys, ranges, and
 multi-match filters are invalid. See [Schemas](/docs/1.0.0/core/data-modeling/schemas)
 for index declarations.
+
+For the `TenantArticle` schema in [Indexes](/docs/1.0.0/core/data-modeling/schemas#indexes),
+the pair is the target. Both values must be present; `slug` alone is not
+unique:
+
+```ts title="src/upsert-tenant-article.ts"
+import { TenantArticle } from './tenant-article.js'
+import { ultimabase } from './ultimabase.js'
+
+export const saveTenantArticle = (
+	tenantId: string,
+	slug: string,
+	title: string,
+) =>
+	TenantArticle.upsertOne(
+		{
+			where: { tenantId: { eq: tenantId }, slug: { eq: slug } },
+			create: { title },
+			update: { title },
+			select: { slug: true, title: true },
+		},
+		{ ultimabase },
+	)
+```
+
+Core supplies the two target values to the create branch before validating
+required fields. Register `TenantArticle` in the same started application and
+ensure its physical unique index has been prepared before this command runs.
 
 A root upsert runs in an automatic transaction and reuses an active explicit
 transaction. Core structural validation always applies; optional Validation,

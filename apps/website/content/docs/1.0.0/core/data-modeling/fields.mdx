@@ -9,7 +9,7 @@ order: 2
 outcome: Choose a field family, look up its builder, and understand which values are stored, accepted as input, or returned as output.
 owner: '2807'
 releaseStatus: pre-release
-reviewedAt: 2026-09-16
+reviewedAt: 2026-09-17
 sources:
   - packages/core/README.md
   - packages/core/docs/schema.md
@@ -89,6 +89,26 @@ value your application uses, not by a database column type.
 can also use the common options below. Pointers have a narrower option set;
 relations and virtual fields do not use stored-value options.
 
+### Values to pass from TypeScript
+
+Some built-in kinds have a stricter shape than their TypeScript type alone
+expresses. These are direct application values, before a REST or GraphQL
+transport applies its own wire encoding:
+
+| Field      | Valid value                  | Important boundary                                                                                     |
+| ---------- | ---------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `bigint`   | `42n`                        | A JavaScript `number` is not an exact bigint.                                                          |
+| `decimal`  | `'19.99'`                    | Pass a plain decimal string, not `19.99`, exponent notation, or a leading `+`.                         |
+| `date`     | `'2026-07-31'`               | A calendar day has no time or timezone.                                                                |
+| `time`     | `'14:30:00.000'`             | Milliseconds are required; with `timezone: true`, use `Z` or an offset such as `'14:30:00.000+02:00'`. |
+| `dateTime` | `'2026-07-31T14:30:00.000Z'` | An offset is required by default; `timezone: false` instead uses `'2026-07-31T14:30:00.000'`.          |
+| `binary`   | `new Uint8Array([1, 2, 3])`  | Pass bytes directly; Base64 or multipart encoding belongs to the transport.                            |
+
+Core checks these shapes during an operation. The application's timezone
+controls automatic calendar and zone-less values; it does not relax a field's
+required input format. See [Application](/docs/1.0.0/core/application#configure-core-validation-and-time)
+for that setting and [Defaults and Nullability](./defaults) for `autoNow`.
+
 ## Common options and validation
 
 Stored value fields share several options:
@@ -100,7 +120,8 @@ Stored value fields share several options:
 - `list: true` creates one list level for a value field; nested arrays belong in
   a JSON document.
 - `indexed: true` requests an index, while `indexed: 'unique'` requests a unique
-  index from the database adapter.
+  index from the database adapter. See [Indexes](./schemas#indexes) for choosing
+  and preparing one.
 - `immutable: true` allows a value on create but rejects developer updates.
 - `description` supplies text for tooling and generated surfaces.
 

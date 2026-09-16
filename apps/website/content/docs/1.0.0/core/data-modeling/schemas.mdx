@@ -8,12 +8,14 @@ order: 1
 outcome: Define and register a schema, choose its declaration options, and understand when its fields and application handle become available.
 owner: '2807'
 releaseStatus: pre-release
-reviewedAt: 2026-09-16
+reviewedAt: 2026-09-17
 sources:
   - packages/core/README.md
   - packages/core/docs/schema.md
   - packages/core/src/schema/schema/definition.ts
+  - packages/core/src/schema/schema/indexes.ts
   - packages/core/examples/schema/basic-schema.md
+  - docs/adr/0080-postgres-index-compilation.md
   - docs/adr/0213-direct-plugin-options-replace-schema-field-extensions.md
 ---
 
@@ -52,14 +54,66 @@ have one exact installed plugin owner, and each plugin documents its own
 configuration. Importing a plugin package alone does not install it. See
 [Using Plugins](/docs/1.0.0/plugins/using-plugins).
 
-### Indexes
+## Indexes
 
-Use `indexed: true` or `indexed: 'unique'` on one field for a single-field
-index. The `indexes` array in the example declares a composite index on
-`published` and the framework-owned `createdAt` field. Each composite entry
-needs at least two distinct top-level fields; add `unique: true` when the
-combination must be unique. UltimaBase records portable indexing intent, while
-the database plugin decides how to implement it.
+An index helps the database find rows for a recurring filter or ordering
+pattern. A unique index also rejects duplicate values. Neither kind filters
+results or grants access: keep query predicates and authorization rules
+explicit. Indexes take storage and add work to writes, so declare them for
+queries or uniqueness requirements you actually have.
+
+### Index one field
+
+Set `indexed: true` on a stored field for an ordinary index, or
+`indexed: 'unique'` when stored values must be distinct. Omit `indexed` or
+use `indexed: false` when no index is needed. The `slug` field in the first
+example is unique across all `DocsArticle` records; `published` is not unique.
+An index does not make a field required: `required` and uniqueness are separate
+decisions. If absence must be forbidden, also set `required: true`; an
+adapter's treatment of nulls in a unique index is a physical database rule.
+
+### Index a combination
+
+Use the schema-level `indexes` array when the index covers at least two
+distinct top-level fields. The first example indexes `published` together with
+the framework-owned `createdAt` field. The order in `fields` is preserved;
+put the columns in the order that serves your common query pattern, then check
+the database's query plan when performance matters. The database planner, not
+Core, decides whether an ordinary index is used for a particular query.
+
+For a slug that is unique only within one tenant, declare the pair as unique
+instead of making `slug` globally unique:
+
+```ts title="src/tenant-article.ts"
+import { Schema } from '@ultimabase/core'
+
+export const TenantArticle = Schema.define({
+	className: 'TenantArticle',
+	fields: (field) => ({
+		slug: field.string({ required: true }),
+		tenantId: field.string({ required: true }),
+		title: field.string({ required: true }),
+	}),
+	indexes: [
+		{ fields: ['tenantId', 'slug'], unique: true },
+		{ fields: ['tenantId', 'createdAt'] },
+	],
+})
+```
+
+The first index forbids two articles with the same `tenantId` **and** `slug`,
+but permits the same slug in different tenants. The second is an ordinary
+index for tenant-scoped chronological reads; it permits duplicates. `unique`
+defaults to `false`. Core rejects repeated or unknown fields and a composite
+entry with fewer than two fields. Index only top-level stored fields or
+framework-owned system fields, not an embedded child, relation, or virtual
+result.
+
+Every unique declaration can be an exact [upsert target](/docs/1.0.0/core/writing-data/upserts#choose-a-valid-target).
+The database plugin creates and enforces physical indexes; Core records
+portable intent and does not expose SQL or index names. See
+[PostgreSQL index preparation](/docs/1.0.0/plugins/official/data-and-persistence/postgresql#index-preparation)
+before relying on a new index in an existing database.
 
 ## Register and compile
 

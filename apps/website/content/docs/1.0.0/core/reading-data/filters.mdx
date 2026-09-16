@@ -8,7 +8,7 @@ order: 2
 outcome: Choose the right scalar, list, structured, pointer, or relation predicate for a where input.
 owner: '2808'
 releaseStatus: pre-release
-reviewedAt: 2026-09-16
+reviewedAt: 2026-09-17
 sources:
   - packages/core/README.md
   - packages/core/docs/query.md
@@ -140,6 +140,28 @@ when the visible relation is empty, so combine it with `isNotEmpty: true` when
 at least one target is required. See [Related Data](./related-data) for
 relation-filter examples and visibility rules.
 
-For conditions assembled in application code, use the immutable `WhereBuilder`
-described in [Reusable Dynamic Queries](./overview#reusable-dynamic-queries).
-Its `.build()` result uses this same `where` contract.
+## Build a filter dynamically
+
+Use `WhereBuilder` when application code chooses operands at runtime. Its
+methods return new immutable branches; `.build()` produces the same `where`
+object used in the examples above:
+
+```ts title="src/visible-posts.ts"
+import { WhereBuilder } from '@ultimabase/core'
+
+import { Post } from './schemas.js'
+import { ultimabase } from './ultimabase.js'
+
+export const readVisiblePosts = (minimumViews: number) => {
+	const where = new WhereBuilder(Post)
+		.eq('published', true)
+		.gte('views', minimumViews)
+
+	return Post.findMany({ where: where.build() }, { ultimabase })
+}
+```
+
+The two conditions combine with `AND`. The builder does not execute a query;
+`Post.findMany()` does. A built filter can also be passed to `QueryBuilder.where()`
+when you need a reusable selection or ordering. See
+[Reusable Dynamic Queries](./overview#reusable-dynamic-queries).

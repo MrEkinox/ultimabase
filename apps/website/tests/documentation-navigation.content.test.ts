@@ -175,7 +175,9 @@ describe('documentation navigation architecture', () => {
 		)
 		for (const heading of [
 			'## Declaration options',
-			'### Indexes',
+			'## Indexes',
+			'### Index one field',
+			'### Index a combination',
 			'## Schema classes and application handles',
 			'## Compilation errors',
 		]) {

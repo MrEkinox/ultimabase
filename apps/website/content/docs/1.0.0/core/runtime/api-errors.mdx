@@ -9,9 +9,12 @@ order: 6
 outcome: Read a safe error response and find the contract owned by the rejecting layer.
 owner: '2812'
 releaseStatus: pre-release
-reviewedAt: 2026-09-16
+reviewedAt: 2026-09-17
 sources:
   - packages/core/src/errors/framework-error.ts
+  - packages/core/src/schema/plans/contracts.ts
+  - packages/core/src/runtime/validation/runtime-validation.ts
+  - packages/postgres-plugin/src/drizzle/operation-error.ts
   - packages/http-plugin/README.md
   - packages/rest-plugin/README.md
   - packages/graphql-plugin/README.md
@@ -116,6 +119,38 @@ export const findPostOrNull = async (postId: string) => {
 	}
 }
 ```
+
+### Read validation issues when present
+
+Core structural input validation can attach an `issues` array in the public
+details of a `VALIDATION_ERROR`. Each issue has a stable `code`, a `path` of
+field names and numeric list positions, and a readable `message`. For example,
+a missing label in the first item of a nested input can be reported as:
+
+```json title="Validation error payload"
+{
+	"code": "VALIDATION_ERROR",
+	"retryable": false,
+	"message": "The operation input is invalid.",
+	"details": {
+		"issues": [
+			{
+				"code": "field.required",
+				"path": ["input", "items", 0, "label"],
+				"message": "Field is required"
+			}
+		]
+	}
+}
+```
+
+Use the path to associate a structural issue with an input field and the code
+for programmatic handling. Do not parse the message to identify the failure.
+Not every `VALIDATION_ERROR` has field issues: PostgreSQL also maps a unique
+constraint violation to this code with a generic public message and no index
+or field name. Check that `details.issues` exists before treating an error as
+a form-field failure. The exact public envelope after REST or GraphQL dispatch
+still belongs to that transport.
 
 HTTP, REST, GraphQL, PostgreSQL, Typegen, and Password Auth each own their
 additional error codes and public representations. Use the relevant

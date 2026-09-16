@@ -5,13 +5,15 @@ audience:
   - application-developer
 contentType: concept
 order: 7
-outcome: Choose, declare, and read pointers or relations with the right ownership and cardinality.
+outcome: Choose, declare, read, and change relationships with the right ownership and cardinality.
 owner: '2807'
 releaseStatus: pre-release
-reviewedAt: 2026-09-16
+reviewedAt: 2026-09-17
 sources:
   - packages/core/README.md
   - packages/core/docs/schema.md
+  - packages/core/src/schema/relations/relation.ts
+  - packages/postgres-plugin/src/drizzle/relation-executor.ts
   - packages/core/examples/schema/pointers.md
   - packages/core/examples/schema/relations.md
   - docs/adr/0115-immutable-model-commands.md
@@ -182,8 +184,45 @@ export const readReviewers = async (postId: string) => {
 }
 ```
 
-The same handle supports `connect`, `disconnect`, `set`, and `clear` for
-membership changes; disconnecting an edge does not delete its target record.
+## Change relation membership
+
+A persisted model's relation handle can change an existing membership without
+updating an array field or deleting a target record. For example, add one
+reviewer and then read the visible membership:
+
+```ts title="src/add-reviewer.ts"
+import { Post } from './post.js'
+import { ultimabase } from './ultimabase.js'
+
+export const addReviewer = async (postId: string, reviewerId: string) => {
+	const post = await Post.get({ id: postId }, { ultimabase })
+	const reviewers = post.relation('reviewers')
+
+	await reviewers.connect(reviewerId, { ultimabase })
+	return reviewers.findMany({ select: { name: true } }, { ultimabase })
+}
+```
+
+The returned models have `id` and `name`; the edge itself is not a model field.
+Choose the mutation that describes the intended membership change:
+
+| Method                     | Effect                                                                                    |
+| -------------------------- | ----------------------------------------------------------------------------------------- |
+| `connect(id, options?)`    | Add one target without removing existing edges; it also accepts a non-empty tuple of IDs. |
+| `disconnect(id, options?)` | Remove one edge without deleting its target; it also accepts a non-empty tuple of IDs.    |
+| `set(ids, options?)`       | Replace membership with the supplied IDs; `[]` is allowed.                                |
+| `clear(options?)`          | Remove membership without supplying an empty array.                                       |
+
+Each call has one automatic or inherited transaction and runs installed
+source-field policy, target visibility checks, and mutation behavior. Missing
+or inaccessible targets both report `NOT_FOUND`; duplicate IDs within one
+call are rejected before the transaction. On an owning relation, direct-handle
+`set` and `clear` change the complete physical edge set, not only the subset a
+read currently shows. An inverse pointer relation instead updates its visible
+targets through ordinary pointer mutations; an operation that would clear a
+required inverse pointer fails. Use [Nested Writes](/docs/1.0.0/core/writing-data/nested-writes)
+when the relation change must be part of the same atomic root create or update;
+its `set` and `clear` preserve policy-hidden memberships.
 
 A relation may declare a static or request-contextual `where` to narrow every
 read through that field. It intersects with caller filters and target policies;
