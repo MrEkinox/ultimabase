@@ -1,32 +1,40 @@
 ---
 title: Request Identity
-description: Carry validated, typed identity data through an immutable request context.
+description: Carry validated, typed request values without treating them as authority.
 audience:
   - application-developer
   - plugin-author
 contentType: concept
 order: 3
-outcome: Add request identity values without creating an authority mode or implicit grant.
+outcome: Create, derive, and read a typed request value without granting access.
 owner: '2811'
 releaseStatus: pre-release
-reviewedAt: 2026-09-15
+reviewedAt: 2026-09-16
 sources:
   - packages/core/README.md
+  - packages/core/docs/access.md
+  - packages/core/src/runtime/context/request-context.ts
   - packages/password-auth-plugin/README.md
   - docs/adr/0205-protected-policy-contributions.md
 ---
 
-A `RequestContextValue` is a typed, validated slot for request-local data. Identity
-plugins use the same neutral mechanism: Password Auth exposes `passwordPrincipal`
-and `passwordSession`, while another plugin may provide a tenant, API-client, or
-service identity.
+A `RequestContextValue<T>` is a typed, validated slot for one request. An
+identity plugin can use it to attach a principal after checking credentials;
+another plugin might attach a tenant or API-client identity. The value is
+information for installed policies, not permission by itself.
 
-```ts
-import { RequestContextValue, Schema } from '@ultimabase/core'
+## Derive a typed context
+
+```ts title="src/request-identity.ts"
+import {
+	RequestContext,
+	RequestContextValue,
+	requestSources,
+} from '@ultimabase/core'
 
 export const tenantId = new RequestContextValue<string>(
 	'acme.identity.tenant-id',
-	(value) => {
+	(value: unknown) => {
 		if (typeof value !== 'string' || value.length === 0) {
 			throw new TypeError('Tenant id must be a non-empty string')
 		}
@@ -34,22 +42,55 @@ export const tenantId = new RequestContextValue<string>(
 	},
 )
 
-export const Tenant = Schema.define({
-	className: 'SecurityTenant',
-	fields: (field) => ({ name: field.string({ required: true }) }),
+const anonymous = RequestContext.anonymous({
+	requestId: 'request-123',
+	source: requestSources.internal,
 })
+
+export const scoped = anonymous.withValue(tenantId, 'tenant-42')
+export const currentTenant = scoped.getValue(tenantId) // string | undefined
+export const authorityMode = scoped.access.mode // 'anonymous'
 ```
 
-Contexts are immutable. Adding a value returns a derived context and preserves its
-application ownership and existing authority provenance. Values can inform Access,
-ACL subject resolution, relation shaping, Hooks, and audit metadata, but they cannot
-mint authority.
+`withValue()` validates and snapshots the value, then returns a new context.
+`anonymous` remains unchanged. If the original context belongs to an
+application, the derived one retains that ownership and its authority
+provenance. Reading requires the exact token object: another token with the
+same name is not interchangeable. Adding the same token twice fails instead
+of silently replacing identity.
 
-For Password Auth, the principal contains only a typed User pointer. The session
-value contains safe identifiers and dates, not the raw token, password, verifier,
-Master grant, role, or authorization decision.
+## Identity is not a grant
 
-> **Security boundary:** Never interpret a header, JSON field, metadata flag,
-> context lookalike, or caller-selected boolean as authority. Transport code may
-> validate a credential at its owning boundary; only Core can create the resulting
-> private provenance.
+Values can inform Access rules, ACL subject resolution, relation shaping,
+Hooks, and audit metadata. An installed policy must explicitly consume the
+value to make an authorization decision. Core authority still has only
+`anonymous` and `master` modes; an authenticated user normally remains in
+`anonymous` mode.
+
+The optional Password Auth plugin exposes `passwordPrincipal` and
+`passwordSession` tokens after it verifies a session. Its principal carries a
+typed User pointer; its session context carries safe identifiers and dates,
+not the raw token, password, verifier, Master grant, role, or authorization
+decision. See [Password Authentication](/docs/1.0.0/plugins/official/authentication-and-authorization/password-authentication)
+for the actual credential flow.
+
+<Callout type="warn" title="Never derive authority from request data">
+	A header, JSON field, metadata flag, lookalike context, or caller-selected
+	boolean cannot create Master authority. A credential-owning plugin validates
+	untrusted input before attaching safe identity values; only Core can create
+	the private provenance of a Master request.
+</Callout>
+
+## Related tasks
+
+<Cards>
+	<Card title="Security Model" href="./security-model">
+		Separate identity from authorization and Master authority.
+	</Card>
+	<Card
+		title="Access"
+		href="/docs/1.0.0/plugins/official/authentication-and-authorization/access"
+	>
+		Use request identity in an explicit authorization policy.
+	</Card>
+</Cards>
