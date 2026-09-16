@@ -1,17 +1,18 @@
 ---
 title: Related Data
-description: Hydrate pointer and relation targets with cardinality-aware nested projections.
+description: Load related models and distinguish inclusion filters from parent predicates.
 audience:
   - application-developer
 contentType: guide
 order: 5
-outcome: Load a pointer and a bounded relation while preserving exact nested result types.
+outcome: Load a pointer and a bounded relation, then choose where a relationship filter applies.
 owner: '2808'
 releaseStatus: pre-release
-reviewedAt: 2026-09-15
+reviewedAt: 2026-09-16
 sources:
   - packages/core/README.md
   - packages/core/docs/query.md
+  - packages/core/src/schema/fields/builtins/relation.ts
   - docs/adr/0154-unified-eager-relationship-inclusion.md
   - docs/adr/0159-projection-only-pointer-inclusions.md
   - docs/adr/0156-visible-relation-cardinality-filters.md
@@ -20,13 +21,16 @@ sources:
   - docs/adr/0247-contextual-relation-filters.md
 ---
 
-## Eager inclusion
+## Include related models
 
-Use `include` to make relationship I/O explicit and shape each target with its
-own exact selection.
+Use `include` to load related records with their own selections. A root
+`select` chooses fields on each `Post`; it does not load an author or comments
+on its own.
 
-Understand [Relationships](/docs/1.0.0/core/data-modeling/relationships) first.
-Select root scalar fields separately from related data.
+Start with [Relationships](/docs/1.0.0/core/data-modeling/relationships) and
+register the schemas in a started application. The example assumes `Post` has
+an `author` pointer to a schema with `name`, and a `comments` relation to a
+schema with `body` and `published`.
 
 Include a to-one author and a filtered, ordered, bounded comment collection:
 
@@ -41,7 +45,7 @@ export const readPostsWithContext = () =>
 				author: { select: { name: true } },
 				comments: {
 					limit: 3,
-					orderBy: { createdAt: 'desc' },
+					orderBy: { createdAt: 'desc', id: 'asc' },
 					select: { body: true },
 					where: { published: { eq: true } },
 				},
@@ -59,36 +63,63 @@ Pointer and relation cardinality deliberately expose different nested clauses:
 | Pointer        | `select`, nested `include`                                        | Selected target model or `null` |
 | Relation       | `where`, `orderBy`, `offset`, `limit`, `select`, nested `include` | Readonly selected model array   |
 
-A pointer already identifies at most one target. Allowing a nested `where`
-would make an existing pointer look absent only because it missed a projection
-filter, so Core rejects that clause.
+A pointer already identifies at most one target. A nested `where` on its
+inclusion would make an existing pointer appear missing merely because it
+failed a projection filter, so Core rejects that clause. Filter parent posts by
+their author with the pointer's `is` or `isNot` operator in the root `where`;
+see [Filters](./filters).
 
 Relation filtering runs before ordering, offset, and limit. Its offset applies
-independently to each parent collection, not across all included targets.
+independently to each parent's comment collection, not across all comments.
+The `id` tie-breaker makes a page deterministic when several comments share a
+timestamp. An inclusion filter does not remove a parent post whose included
+collection is empty.
+
+## Choose where a filter applies
+
+| Goal                               | Put the condition in                                                     | Effect                                                             |
+| ---------------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------ |
+| Return only matching parents       | Root `where` with a relation predicate such as `comments: { some: ... }` | Filters posts; does not load comments.                             |
+| Load only matching targets         | `include.comments.where`                                                 | Filters each returned post's comment array; does not filter posts. |
+| Define the relation's usual subset | `field.relation({ where })`                                              | Narrows every read through that exact relation field.              |
+
+These conditions intersect when used together. The declared relation filter
+cannot be overridden by a caller and does not replace authorization.
+If you already have one persisted parent and do not need to return it again,
+read its collection through a [relation handle](/docs/1.0.0/core/data-modeling/relationships#read-related-records).
 
 ## Verify
 
-The inferred root model contains `id`, `title`, selected `author`, and included
-`comments`. The author contains `id` and `name`; each comment contains `id` and
-`body`. Unselected fields are absent from those nested model types.
+The inferred root model contains `id`, `title`, included `author`, and included
+`comments`. When present, the author contains `id` and `name`; each included
+comment contains `id` and `body`. Unselected fields are absent from those
+nested model types. Installed output policies can narrow the runtime result
+further.
 
 Missing or inaccessible pointer targets become `null`. Relations contain only
-visible targets and therefore become an empty array when none remain. Nested
-target reads still apply installed policies, protected constraints, output
-restrictions, and the relationship's declared shaping filter.
+visible targets and therefore become an empty array when none remain. The
+array may also be shorter than the complete visible relation because this
+example requests at most three comments. Nested target reads still apply
+installed policies, protected constraints, output restrictions, and the
+relation's declared shaping filter.
 
 ## Relation predicates
 
-Relation predicates match source records without loading the related collection:
+Relation predicates match source records without loading the related
+collection. This example assumes `Author.posts` is a to-many relation and
+`Post` declares `published` and `score`:
 
 ```ts title="src/relation-filters.ts"
+import { Author } from './schemas.js'
+import { ultimabase } from './ultimabase.js'
+
 export const readEstablishedAuthors = () =>
 	Author.findMany(
 		{
 			where: {
 				posts: {
 					count: { gte: 3, where: { published: { eq: true } } },
-					some: { score: { gte: 80 } },
+					some: { published: { eq: true }, score: { gte: 80 } },
 				},
 			},
 		},
@@ -96,32 +127,55 @@ export const readEstablishedAuthors = () =>
 	)
 ```
 
-`some` requires a visible match, `none` requires no visible match, and `every`
-requires no visible violation. `every` is true for an empty visible relation.
-Use `isEmpty: true` or `isNotEmpty: true` for existence semantics. `count`
-accepts numeric comparisons and an optional target `where`.
+The result contains authors, not their posts. `some` requires a visible match,
+`none` requires no visible match, and `every` requires no visible violation.
+`every` is true for an empty visible relation; add `isNotEmpty: true` when at
+least one target is required. Use `isEmpty: true` or `isNotEmpty: true` for
+simple existence checks. `count` needs at least one comparison with a
+non-negative safe-integer operand; its optional target `where` filters the
+counted posts before the comparison. Here each returned author has at least
+three visible published posts, including at least one with a score of 80 or
+more.
 
 Every predicate observes the same visible universe: physical membership, the
 field's declared filter, target policies and constraints, then the caller's
 predicate. Hidden targets are not counted.
 
-## Contextual relation filters
+## Declared relation filters
 
-A relation may declare one synchronous, request-aware `where` when every
-traversal through that field represents the same narrower application view:
+A relation may declare one static target filter, such as
+`where: { published: { eq: true } }`. Use a synchronous contextual callback
+when that subset depends on the request. Register both schemas below in the
+same application:
 
 ```ts title="src/channel.ts"
-messages: field.relation({
-	target: 'QueryMessage',
-	where: ({ context, where }) =>
-		context.access.mode === 'master' ? where : where.eq('published', true),
+import { Schema } from '@ultimabase/core'
+
+export const Message = Schema.define({
+	className: 'DocsMessage',
+	fields: (field) => ({ published: field.boolean({ required: true }) }),
+})
+
+export const Channel = Schema.define({
+	className: 'DocsChannel',
+	fields: (field) => ({
+		messages: field.relation({
+			target: () => Message,
+			where: ({ context, where }) =>
+				context.access.mode === 'master' ? where : where.eq('published', true),
+		}),
+	}),
 })
 ```
 
 The immutable `WhereBuilder` starts empty and targets the exact related schema.
 The callback receives request context but no source item, adapter, transaction,
-transport request, or authority grant.
+transport request, or authority grant. It must return a target `WhereInput` or
+builder synchronously; an empty builder adds no restriction.
 
-The declared filter intersects with caller filters, authorization row filters,
-and protected constraints. It shapes reads but does not authorize them, modify
-physical membership, or change `connect`, `disconnect`, `set`, or `clear`.
+Master does not automatically bypass a declared relation filter. This example
+deliberately returns the empty builder for Master; other requests see only
+published messages. The filter intersects with caller filters, authorization
+row filters, and protected constraints. It shapes reads but does not authorize
+them, modify physical membership, or change `connect`, `disconnect`, `set`, or
+`clear`.
