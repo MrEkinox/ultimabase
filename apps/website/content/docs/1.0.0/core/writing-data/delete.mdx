@@ -1,24 +1,35 @@
 ---
 title: Delete Records
-description: Delete one exact target while preserving hooks, integrity work, and a typed preimage.
+description: Delete one record and understand its pre-delete result and failure cases.
 audience:
   - application-developer
 contentType: guide
 order: 3
-outcome: Choose schema-root or loaded-model deletion and interpret its result.
+outcome: Delete one record by ID and handle its pre-delete result or an absent target.
 owner: '2809'
 releaseStatus: pre-release
-reviewedAt: 2026-09-15
+reviewedAt: 2026-09-16
 sources:
   - packages/core/README.md
+  - packages/core/docs/query.md
+  - packages/core/docs/schema.md
   - packages/core/docs/runtime.md
-  - docs/adr/0109-model-mutator-methods-and-create-draft.md
+  - packages/soft-delete-plugin/README.md
+  - docs/adr/0109-constructible-schema-models.md
   - docs/adr/0099-automatic-mutation-transactions.md
+  - docs/adr/0146-flat-delete-one-result-selections.md
+  - docs/adr/0162-strict-object-target-commands.md
+  - docs/adr/0182-singular-id-target-aliases.md
 ---
 
-Delete one record by stable identity or an exact unique predicate. The result
-is a selected view of the pre-delete record, so the application can retain the
-business data it needs without re-reading a row that no longer exists.
+Use `Post.deleteOne()` to delete one visible record. It returns an immutable
+snapshot of that record **before** deletion, so select any values you need from
+the result before the row becomes unavailable.
+
+The example uses the `Post` schema from [Create Records](./create), with `slug`
+and `title` fields, in a started application with a persistence plugin.
+
+## Delete by ID
 
 ```ts title="src/delete-post.ts"
 import { Post } from './schemas.js'
@@ -29,6 +40,38 @@ export const deletePost = (postId: string) =>
 		{ id: postId, select: { slug: true, title: true } },
 		{ ultimabase },
 	)
+```
+
+`id` is shorthand for `where: { id: { eq: postId } }`. You may instead pass a
+`where` predicate using one declared unique field or unique composite index.
+Pass exactly one of `id` and `where`; a filter that could match several rows
+is not a valid `deleteOne` target.
+
+## Verify the result
+
+If a visible post matches, `deletePost()` returns a `Post` containing its `id`,
+`slug`, and `title` as they were before deletion. A later ordinary read by that
+ID returns no record. The returned snapshot is not a live row or a way to undo
+the delete. Without `select`, the result contains the complete visible
+pre-delete model.
+
+If no visible post matches, schema-level `deleteOne()` returns `null`; it does
+not run item Hooks for a nonexistent record. Check for `null` before using the
+result. A target hidden by an installed row-visibility rule also appears
+absent; an explicit rejection of the delete operation may instead throw.
+
+Delete results accept flat `select`, but not `include`. Selecting a pointer
+does not load its target. If you need related data, read it before deleting the
+record. See [Selections](/docs/1.0.0/core/reading-data/selections) for result
+shaping.
+
+## Delete a loaded model
+
+When you already have a persisted `Post`, call its strict identity command:
+
+```ts title="src/delete-loaded-post.ts"
+import { Post } from './schemas.js'
+import { ultimabase } from './ultimabase.js'
 
 export const deleteLoadedPost = async (postId: string) => {
 	const post = await Post.get({ id: postId }, { ultimabase })
@@ -36,13 +79,37 @@ export const deleteLoadedPost = async (postId: string) => {
 }
 ```
 
-The schema-root command returns `null` when the visible target does not exist.
-The loaded-model command is strict and reports `NOT_FOUND` instead. Both run the
-normal policy, Hook, validation, relationship-integrity, and transaction
-pipeline. There is no general `skipHooks` deletion escape hatch.
+`get()` throws `NOT_FOUND` if the record is already absent or inaccessible.
+Once loaded, `post.delete()` also throws `NOT_FOUND` if that protected target
+disappears or becomes inaccessible before deletion. Unlike `deleteOne()`, it
+never returns `null`. The prior `post` snapshot remains unchanged.
 
-Native delete means physical deletion unless the optional Soft Delete plugin
-replaces it for that schema. See the
-[Soft Delete plugin](/docs/1.0.0/plugins/official/data-and-persistence/soft-delete)
-before choosing a retention policy. Configuration, restore, purge, and
-tombstone visibility belong to that plugin rather than Core writing semantics.
+## Integrity and soft deletion
+
+Core runs a root delete in an automatic transaction and reuses an explicit
+transaction when one is active. For physical deletion, pointers to the target
+default to `onDelete: 'restrict'`; an explicitly configured `cascade` or
+optional-pointer `setNull` changes that behavior. An integrity failure, or an
+installed policy or Hook rejection, rolls back the deletion. There is no
+general option to skip installed Hooks. See [Relationships](/docs/1.0.0/core/data-modeling/relationships)
+before deleting records that other schemas reference.
+
+With no delete-rewriting plugin, native delete physically removes the row. The
+optional Soft Delete plugin's `replace-delete` mode instead stores a tombstone
+while preserving the same logical delete result; its `explicit` mode leaves
+native delete physical and adds a separate `softDelete` command. Its own page
+covers configuration, restore, purge, and tombstone visibility.
+
+## Next steps
+
+<Cards>
+	<Card title="Bulk Operations" href="./bulk-operations">
+		Delete several exact targets in one ordered transaction.
+	</Card>
+	<Card
+		title="Soft Delete"
+		href="/docs/1.0.0/plugins/official/data-and-persistence/soft-delete"
+	>
+		Keep a tombstone when physical deletion is not the desired behavior.
+	</Card>
+</Cards>
