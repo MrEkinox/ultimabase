@@ -50,7 +50,7 @@ rules.
 | An unstructured JSON document           | `field.json()`; its root must be an object or array, or `null` if optional.                              |
 | One reference to another record         | `field.pointer()`; it stores target identity, not a loaded record. See [Relationships](./relationships). |
 | A changing set of related records       | `field.relation()`; it represents membership, not a stored array. See [Relationships](./relationships).  |
-| A computed, selectable result           | `field.virtual()`; it is output-only, never stored or accepted as mutation input.                        |
+| A computed, selectable result           | `field.virtual()`; output-only. See [Virtual Fields](./virtual-fields).                                  |
 | A distinct value kind owned by a plugin | That plugin's field method, installed in the application.                                                |
 
 Core's built-in field methods and their exact options are listed in the
