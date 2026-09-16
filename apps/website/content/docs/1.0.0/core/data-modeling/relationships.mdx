@@ -1,0 +1,124 @@
+---
+title: Relationships
+description: Reference one record by immutable schema identity and ID without loading it.
+audience:
+  - application-developer
+contentType: concept
+order: 6
+outcome: Declare, construct, compare, and serialize a typed to-one reference.
+owner: '2807'
+releaseStatus: pre-release
+reviewedAt: 2026-09-15
+sources:
+  - packages/core/README.md
+  - packages/core/docs/schema.md
+  - packages/core/examples/schema/pointers.md
+  - packages/core/examples/schema/relations.md
+  - docs/adr/0115-immutable-model-commands.md
+  - docs/adr/0118-transport-neutral-relations.md
+  - docs/adr/0179-name-based-relationship-targets.md
+---
+
+## Pointers
+
+A pointer stores one immutable logical reference: the exact target schema plus
+one record ID. It does not load the target and does not expose a mutable target
+object.
+
+```ts title="src/session.ts"
+import { Schema } from '@ultimabase/core'
+
+export const Account = Schema.define({
+	className: 'DocsAccount',
+	fields: (field) => ({
+		email: field.string({ required: true }),
+	}),
+})
+
+export const Session = Schema.define({
+	className: 'DocsSession',
+	fields: (field) => ({
+		account: field.pointer({
+			onDelete: 'cascade',
+			required: true,
+			target: 'DocsAccount',
+		}),
+		expiresAt: field.dateTime({ required: true }),
+	}),
+})
+
+export const accountReference = Account.pointer(
+	'0198f090-2a50-7000-8000-000000000034',
+)
+```
+
+The string `target` is resolved against the schemas registered in the same
+application. Typegen then narrows `Session.account` to the generated
+`DocsAccount` pointer handle rather than a generic string.
+
+Use `Account.pointer(id)` to construct a typed reference. The equivalent general
+form is `new Pointer(Account, id)`. Pointer construction performs no I/O.
+`pointer.equals(other)` compares both schema identity and ID, while
+`pointer.toJSON()` returns the frozen logical reference shape.
+
+### Pointer deletion behavior
+
+`onDelete` states what should happen when the target is deleted:
+
+- `restrict` rejects target deletion while the pointer exists;
+- `cascade` deletes the referencing record;
+- `setNull` clears the pointer and therefore requires a nullable field.
+
+Use `indexed: 'unique'` on a pointer to express a one-to-one constraint. Use a
+relation instead when one record owns a changing set of target members.
+
+## Relations
+
+A relation declares a typed to-many edge between two schemas. The owning record
+does not contain a target array: the adapter owns physical membership, and
+Runtime exposes that membership through relation-aware operations.
+
+```ts title="src/post.ts"
+import { Schema } from '@ultimabase/core'
+
+export const Author = Schema.define({
+	className: 'DocsAuthor',
+	fields: (field) => ({
+		name: field.string({ required: true }),
+		posts: field.relation({ mappedBy: 'author', target: 'DocsPost' }),
+	}),
+})
+
+export const Post = Schema.define({
+	className: 'DocsPost',
+	fields: (field) => ({
+		author: field.pointer({
+			onDelete: 'restrict',
+			required: true,
+			target: 'DocsAuthor',
+		}),
+		reviewers: field.relation({ target: 'DocsAuthor' }),
+		title: field.string({ required: true }),
+	}),
+})
+```
+
+### Owning and inverse sides
+
+`Post.reviewers` owns an independent membership set. `Author.posts` is inverse
+because `mappedBy: 'author'` derives membership from `Post.author`; it cannot own
+a competing set. Static compilation resolves target names and verifies inverse
+topology.
+
+Relations do not appear as arrays in normal mutation types. Persisted models
+expose relation handles when an operation includes the relationship. Use an
+explicit relationship schema when the edge needs fields such as role, position,
+status, or creation time.
+
+<Callout type="info" title="One source of membership truth">
+	Choose either an owning relation or an inverse `mappedBy` relation for an
+	edge. Do not mirror both sides with separately writable relation sets.
+</Callout>
+
+Continue with [Related Data](/docs/1.0.0/core/reading-data/related-data) for
+inclusion, filters, counts, and contextual relation views.

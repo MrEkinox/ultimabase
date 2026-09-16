@@ -1,0 +1,13 @@
+{
+	"title": "Version 1.0.0",
+	"root": "version",
+	"pages": [
+		"index",
+		"getting-started",
+		"core",
+		"plugins",
+		"guides",
+		"operations",
+		"reference"
+	]
+}

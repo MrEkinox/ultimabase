@@ -1,0 +1,95 @@
+---
+title: PostgreSQL
+description: Connect the official database plugin and choose an explicit direct synchronization policy.
+audience:
+  - application-developer
+  - operator
+contentType: guide
+order: 3
+outcome: Operate the shipped PostgreSQL connection and schema preparation behavior without assuming migrations exist.
+owner: '2813'
+releaseStatus: pre-release
+reviewedAt: 2026-09-15
+sources:
+  - packages/postgres-plugin/README.md
+  - packages/postgres-plugin/src/connection/managed-connection.ts
+  - packages/postgres-plugin/src/synchronization/preparer.ts
+---
+
+## Overview
+
+`@ultimabase/postgres-plugin` owns `pg`, Drizzle compilation, transactions,
+introspection, database constraints, and direct schema synchronization. Neither
+Drizzle nor a raw pool is exposed to application Query or transports.
+
+## Installation and configuration
+
+```ts
+import { UltimaBase } from '@ultimabase/core'
+import { postgresPlugin, postgresPluginName } from '@ultimabase/postgres-plugin'
+
+const databaseUrl = process.env.DATABASE_URL
+if (databaseUrl === undefined) throw new TypeError('DATABASE_URL is required')
+
+const application = new UltimaBase({
+	plugins: [postgresPlugin({ schemaPolicy: 'fail', url: databaseUrl })],
+	schemas: [],
+})
+
+await application.start()
+const connection =
+	application.application.getPlugin(postgresPluginName).connection
+console.info(connection.state)
+await application.dispose()
+```
+
+## Connection ownership
+
+Creating the application makes no connection. `start()` verifies connectivity and
+returns the borrowed client. A pool created from `url` is application-owned and closes
+on disposal; an injected pool remains developer-owned.
+
+## Schema synchronization
+
+`schemaPolicy` is `override`, `fail`, or `ignore`. These are direct synchronization
+modes. A migration capability is planned separately and is **not shipped**; migration
+intent metadata is inert until a future migration owner reviews and applies it. Use
+`fail` when production must reject drift rather than modifying the database directly.
+
+Direct synchronization does not infer destructive removal of unmatched tables
+or columns. Use explicit `renamedFrom` metadata for a deliberate column rename.
+
+## Troubleshooting
+
+### Symptom
+
+Startup may fail with the public message `The database connection could not be
+established.` and `INTERNAL_ERROR`. The driver message remains private. Schema
+preparation reports `VALIDATION_ERROR` when `schemaPolicy: 'fail'` detects drift
+or an unsupported live structure.
+
+### Confirm
+
+Check only whether the connection setting exists; never print its value:
+
+```sh
+node -e "process.exit(process.env.DATABASE_URL ? 0 : 1)"
+```
+
+Confirm the same URL and TLS settings with the provider's supported client. If
+startup succeeds, the public connection service reports `connected`. For drift,
+use `schemaPolicy: 'fail'` in a controlled environment and inspect trusted
+server diagnostics. Never return raw causes, SQL, or connection details to an
+HTTP client.
+
+### Resolve
+
+- Correct the endpoint, credential, availability, or required TLS settings.
+- Review expected additive drift before applying direct synchronization.
+- Keep unsupported structures under an explicit migration owner.
+- Use `ignore` only when another reviewed process owns the schema.
+
+When escalating, include the UltimaBase and PostgreSQL versions, schema policy,
+sanitized driver code, lifecycle stage, and a minimal schema. Exclude URLs,
+usernames, passwords, certificates, SQL values, and raw causes. Then follow
+[Reporting a problem](/docs/1.0.0/operations/application-troubleshooting#report-a-problem).

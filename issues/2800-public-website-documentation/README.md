@@ -94,8 +94,8 @@ The public route architecture is:
 ```text
 /
 ├── docs
-│   └── <version> (currently 1.0)
-│       ├── index (Introduction)
+│   └── <version> (currently 1.0.0)
+│       ├── index (What is UltimaBase)
 │       ├── getting-started
 │       │   ├── installation
 │       │   ├── first-application
@@ -198,7 +198,7 @@ configuration, behavior, reference, limitations, and troubleshooting without a
 same-named folder and child page. A new route is justified only when the reader
 can complete it as an independent task.
 
-The routes are canonical, versioned English URLs. Introduction lives at the
+The routes are canonical, versioned English URLs. "What is UltimaBase" lives at the
 version root. Unversioned and removed documentation paths return 404; the site
 has not launched, so there is no compatibility routing. Version switching
 preserves the page when an equivalent exists or returns to that version's root.

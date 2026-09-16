@@ -25,14 +25,14 @@ afterAll(async () => {
 describe('documentation page actions', () => {
 	it.each([
 		{
-			pagePath: '/docs/1.0',
-			sourcePath: 'apps/website/content/docs/1.0/index.mdx',
-			title: 'Introduction',
+			pagePath: '/docs/1.0.0',
+			sourcePath: 'apps/website/content/docs/1.0.0/index.mdx',
+			title: 'What is UltimaBase',
 		},
 		{
-			pagePath: '/docs/1.0/getting-started/installation',
+			pagePath: '/docs/1.0.0/getting-started/installation',
 			sourcePath:
-				'apps/website/content/docs/1.0/getting-started/installation.mdx',
+				'apps/website/content/docs/1.0.0/getting-started/installation.mdx',
 			title: 'Installation',
 		},
 	])(
@@ -99,7 +99,7 @@ describe('documentation page actions', () => {
 		try {
 			const page = await context.newPage()
 			const response = await page.request.get(
-				`${origin}/docs/1.0/not-a-page.md`,
+				`${origin}/docs/1.0.0/not-a-page.md`,
 			)
 			expect(response.status()).toBe(404)
 		} finally {

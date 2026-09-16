@@ -82,7 +82,7 @@ describe('website preview readiness', () => {
 			true,
 		)
 		expect(
-			urls.some((url) => new URL(url).pathname.includes('/docs/1.0/adr')),
+			urls.some((url) => new URL(url).pathname.includes('/docs/1.0.0/adr')),
 		).toBe(false)
 	})
 
@@ -97,26 +97,26 @@ describe('website preview readiness', () => {
 
 	it('aligns canonical, Open Graph, and X metadata without a stale image', () => {
 		const metadata = createPublicPageMetadata({
-			canonicalPath: '/docs/1.0',
+			canonicalPath: '/docs/1.0.0',
 			description: 'Understand the framework before building an application.',
-			title: 'Introduction',
+			title: 'What is UltimaBase',
 		})
 
 		expect(metadata.alternates?.canonical).toBe(
-			new URL('/docs/1.0', siteConfig.canonicalUrl)
+			new URL('/docs/1.0.0', siteConfig.canonicalUrl)
 				.href,
 		)
 		expect(metadata.openGraph).toMatchObject({
 			locale: 'en_US',
 			siteName: siteConfig.name,
-			title: 'Introduction',
+			title: 'What is UltimaBase',
 			type: 'website',
 		})
 		expect(metadata.openGraph?.images).toBeUndefined()
 		expect(metadata.alternates?.languages).toBeUndefined()
 		expect(metadata.twitter).toMatchObject({
 			card: 'summary',
-			title: 'Introduction',
+			title: 'What is UltimaBase',
 		})
 		expect(metadata.twitter?.images).toBeUndefined()
 	})

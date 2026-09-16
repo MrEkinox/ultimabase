@@ -465,8 +465,8 @@
 			"sources": ["README.md", "ARCHITECTURE.md", "examples/minimal/README.md"]
 		},
 		{
-			"path": "/docs/1.0",
-			"slug": "introduction",
+			"path": "/docs/1.0.0",
+			"slug": "what-is-ultimabase",
 			"contentType": "concept",
 			"outcome": "Understand UltimaBase's core model and choose the right next path.",
 			"owner": "2806",

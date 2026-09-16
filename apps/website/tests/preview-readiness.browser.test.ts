@@ -41,14 +41,14 @@ describe('website preview audit', () => {
 		try {
 			const page = await context.newPage()
 			const clientErrors = collectClientErrors(page)
-			await page.goto(`${origin}/docs/1.0`)
+			await page.goto(`${origin}/docs/1.0.0`)
 			const versionSelector = page
 				.locator('#nd-sidebar')
-				.getByRole('button', { exact: true, name: '1.0' })
+				.getByRole('button', { exact: true, name: 'Version 1.0.0' })
 			await versionSelector.waitFor()
 			await versionSelector.click()
 			expect(
-				await page.getByRole('link', { exact: true, name: '1.0' }).count(),
+				await page.getByRole('link', { exact: true, name: 'Version 1.0.0' }).count(),
 			).toBe(1)
 			expect(await accessibilityViolations(page)).toEqual([])
 			expect(clientErrors).toEqual([])
@@ -73,9 +73,9 @@ describe('website preview audit', () => {
 					.locator('#nd-nav')
 					.getByRole('link', { name: 'Plugins' })
 					.getAttribute('href'),
-			).toBe('/docs/1.0/plugins/overview')
+			).toBe('/docs/1.0.0/plugins/overview')
 			await page.getByRole('link', { name: 'Start building' }).click()
-			await page.waitForURL(`${origin}/docs/1.0/getting-started/installation`)
+			await page.waitForURL(`${origin}/docs/1.0.0/getting-started/installation`)
 			await page
 				.getByRole('heading', { level: 1, name: 'Installation' })
 				.waitFor()
@@ -102,12 +102,12 @@ describe('website preview audit', () => {
 			const page = await context.newPage()
 			const sidebar = page.locator('#nd-sidebar')
 
-			await page.goto(`${origin}/docs/1.0/core/application/application-graph`)
+			await page.goto(`${origin}/docs/1.0.0/core/application/application-graph`)
 			await sidebar.getByText('Core', { exact: true }).waitFor()
 			await sidebar.getByText('Application', { exact: true }).waitFor()
 
 			await page.goto(
-				`${origin}/docs/1.0/plugins/official/data-and-persistence/soft-delete`,
+				`${origin}/docs/1.0.0/plugins/official/data-and-persistence/soft-delete`,
 			)
 			await sidebar
 				.getByRole('button', { exact: true, name: 'Official Plugins' })
@@ -124,7 +124,7 @@ describe('website preview audit', () => {
 					.count(),
 			).toBe(0)
 
-			await page.goto(`${origin}/docs/1.0/plugins/community-plugins`)
+			await page.goto(`${origin}/docs/1.0.0/plugins/community-plugins`)
 			await sidebar
 				.getByRole('link', { exact: true, name: 'Community Plugins' })
 				.waitFor()
@@ -188,8 +188,8 @@ describe('website preview audit', () => {
 				'/examples',
 				'/examples/model-the-schema',
 				'/docs',
-				'/docs/1.0/getting-started/introduction',
-				'/docs/1.0/mutations/soft-delete',
+				'/docs/1.0.0/getting-started/introduction',
+				'/docs/1.0',
 			]) {
 				const response = await page.request.get(`${origin}${route}`, {
 					maxRedirects: 0,
@@ -210,7 +210,7 @@ describe('website preview audit', () => {
 
 		try {
 			const page = await context.newPage()
-			await page.goto(`${origin}/docs/1.0/getting-started/first-application`)
+			await page.goto(`${origin}/docs/1.0.0/getting-started/first-application`)
 			await page
 				.getByRole('heading', { level: 1, name: 'First Application' })
 				.waitFor()
@@ -239,15 +239,15 @@ describe('website preview audit', () => {
 		try {
 			const page = await context.newPage()
 			expect(await publicSearch(page, 'install')).toContain(
-				'/docs/1.0/getting-started/installation',
+				'/docs/1.0.0/getting-started/installation',
 			)
 			expect(await publicSearch(page, '@ultimabase/core')).toContain(
-				'/docs/1.0/reference/package-index',
+				'/docs/1.0.0/reference/package-index',
 			)
 			expect(await publicSearch(page, 'HTTP_APPLICATION_REJECTED')).toContain(
-				'/docs/1.0/plugins/official/http-and-apis/http',
+				'/docs/1.0.0/plugins/official/http-and-apis/http',
 			)
-			await page.goto(`${origin}/docs/1.0`)
+			await page.goto(`${origin}/docs/1.0.0`)
 			const dialog = page.getByRole('dialog')
 			await page.locator('button[data-search-full]').click()
 			await dialog.waitFor()
@@ -266,16 +266,16 @@ describe('website preview audit', () => {
 	})
 
 	it.each([
-		['/docs/1.0/getting-started/installation', 'Installation'],
-		['/docs/1.0/getting-started/first-application', 'First Application'],
-		['/docs/1.0/core/runtime/runtime-pipeline', 'Runtime Pipeline'],
-		['/docs/1.0/plugins/using-plugins', 'Using Plugins'],
+		['/docs/1.0.0/getting-started/installation', 'Installation'],
+		['/docs/1.0.0/getting-started/first-application', 'First Application'],
+		['/docs/1.0.0/core/runtime/runtime-pipeline', 'Runtime Pipeline'],
+		['/docs/1.0.0/plugins/using-plugins', 'Using Plugins'],
 		[
-			'/docs/1.0/guides/build-an-authenticated-api',
+			'/docs/1.0.0/guides/build-an-authenticated-api',
 			'Build an Authenticated API',
 		],
 		[
-			'/docs/1.0/operations/application-troubleshooting',
+			'/docs/1.0.0/operations/application-troubleshooting',
 			'Application Troubleshooting',
 		],
 	])(
@@ -292,7 +292,7 @@ describe('website preview audit', () => {
 				expect(response?.status()).toBe(200)
 				await page.getByRole('heading', { level: 1, name: title }).waitFor()
 				expect(
-					await page.locator('main a[href*="/docs/1.0/adr/"]').count(),
+					await page.locator('main a[href*="/docs/1.0.0/adr/"]').count(),
 				).toBe(0)
 			} finally {
 				await context.close()
@@ -352,7 +352,7 @@ describe('website preview audit', () => {
 				})
 				.waitFor()
 			expect(await accessibilityViolations(page)).toEqual([])
-			for (const path of ['/fr/docs/1.0', '/en/docs/1.0']) {
+			for (const path of ['/fr/docs/1.0.0', '/en/docs/1.0.0']) {
 				const oldLanguageRoute = await page.request.get(`${origin}${path}`)
 				expect(oldLanguageRoute.status()).toBe(404)
 			}
@@ -369,10 +369,10 @@ describe('website preview audit', () => {
 
 		try {
 			const page = await context.newPage()
-			await page.goto(`${origin}/docs/1.0`)
+			await page.goto(`${origin}/docs/1.0.0`)
 			expect(
 				await page.locator('meta[property="og:title"]').getAttribute('content'),
-			).toBe('Introduction')
+			).toBe('What is UltimaBase')
 			expect(
 				await page.locator('meta[name="twitter:card"]').getAttribute('content'),
 			).toBe('summary')

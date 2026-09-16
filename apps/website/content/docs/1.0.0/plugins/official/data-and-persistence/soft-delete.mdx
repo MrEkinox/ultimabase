@@ -1,0 +1,91 @@
+---
+title: Soft Delete
+description: Choose replacement or explicit tombstone commands without weakening ordinary visibility.
+audience:
+  - application-developer
+contentType: concept
+order: 8
+outcome: Configure a deletion mode and keep restore or purge behind private Master authority.
+owner: '2809'
+releaseStatus: pre-release
+reviewedAt: 2026-09-15
+sources:
+  - packages/soft-delete-plugin/README.md
+  - examples/minimal/README.md
+  - packages/core/docs/runtime.md
+  - docs/adr/0190-versioned-capability-kernel.md
+---
+
+## Overview
+
+Soft deletion is an optional plugin capability. A schema opts into one explicit
+mode; importing the package alone installs no behavior.
+
+| Mode             | Native `deleteOne`                                | Additional application command |
+| ---------------- | ------------------------------------------------- | ------------------------------ |
+| `replace-delete` | Writes a tombstone instead of physically deleting | none                           |
+| `explicit`       | Keeps native physical deletion                    | `softDelete`                   |
+
+## Installation and configuration
+
+Install `@ultimabase/soft-delete-plugin`, add `softDeletePlugin()` to the
+application plugin list, then state the mode on each participating schema:
+
+```ts title="src/schemas.ts"
+const Article = Schema.define({
+	className: 'Article',
+	softDelete: 'explicit',
+	fields: (field) => ({ title: field.string() }),
+})
+```
+
+Use `defaultMode: 'disabled'` when every schema must opt in deliberately. Read
+[Delete Data](/docs/1.0.0/core/writing-data/delete) and
+[Master Authority](/docs/1.0.0/core/security-foundations/master-authority) before
+exposing an application workflow around deletion.
+
+## Delete, restore, and purge records
+
+```ts title="src/soft-delete-post.ts"
+import { Post } from './schemas.js'
+import { ultimabase } from './ultimabase.js'
+
+export const softDeletePost = (postId: string) =>
+	ultimabase
+		.schema(Post)
+		.softDelete({ id: postId, select: { isDeleted: true, title: true } })
+
+export const restorePost = (postId: string) =>
+	ultimabase
+		.schema(Post)
+		.restore(
+			{ id: postId, select: { isDeleted: true, title: true } },
+			{ useMasterKey: true },
+		)
+
+export const purgePost = (postId: string) =>
+	ultimabase
+		.schema(Post)
+		.purge({ id: postId, select: { title: true } }, { useMasterKey: true })
+```
+
+## Visibility semantics
+
+Ordinary reads hide tombstones. That visibility rule also applies to normal
+Master reads; Master authority is not a general switch for including deleted
+records. `restore` and `purge` are private application-schema commands that
+require explicit server-side Master authority. They are not model, REST,
+GraphQL, or Access-policy branches.
+
+## Limits and troubleshooting
+
+In explicit mode, native `deleteOne` remains the deliberate hard-delete path.
+In replacement mode, physical purge stays on the private Master surface. Both
+modes preserve the ordinary validation, Hook, transaction, integrity, and
+protected-policy boundaries.
+
+Verify that find, count, exists, pointer, and relation reads omit a tombstone.
+Restore it through trusted server code and verify the ordinary read returns it
+again. V1 has no deletion timestamp, retention job, include-deleted query, or
+nested soft delete. If a record remains visible, confirm that the schema opts in
+and that every access path goes through the same compiled application Runtime.

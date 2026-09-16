@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 
 const repositoryRoot = fileURLToPath(new URL('../../..', import.meta.url))
 const contentRoot = fileURLToPath(
-	new URL('../content/docs/1.0/reference/', import.meta.url),
+	new URL('../content/docs/1.0.0/reference/', import.meta.url),
 )
 const pages = [
 	'core-api/application',
@@ -34,7 +34,7 @@ describe('curated public reference', () => {
 				expect(source, `${page}: ${heading}`).toContain(heading)
 			}
 			expect(source).toContain('releaseStatus: pre-release')
-			expect(source).toMatch(/(?:\/docs\/1\.0\/|\.\.\/)[^)\s]+/u)
+			expect(source).toMatch(/(?:\/docs\/1\.0\.0\/|\.\.\/)[^)\s]+/u)
 		}
 	})
 

@@ -1,0 +1,119 @@
+---
+title: Application Configuration
+description: Look up UltimaBase construction, lifecycle, request context, and transaction boundaries.
+audience:
+  - application-developer
+  - operator
+contentType: reference
+order: 1
+outcome: Configure and run one isolated application with explicit schemas, plugins, authority, and validation.
+owner: '2816'
+releaseStatus: pre-release
+reviewedAt: 2026-09-15
+sources:
+  - packages/core/src/runtime/application/ultima-base.ts
+  - packages/core/src/runtime/context/request-context.ts
+  - packages/core/README.md
+---
+
+<Callout title="Pre-release contract">
+	The application facade is shipped and tested, but package versions are still
+	pre-release. Review release notes before upgrading.
+</Callout>
+
+## Signature
+
+```ts
+import {
+	MasterAuthority,
+	RequestContextValue,
+	UltimaBase,
+} from '@ultimabase/core'
+
+const app = new UltimaBase({
+	schemas,
+	plugins,
+	masterAuthority,
+	pluginPrivileges,
+	validation,
+})
+```
+
+`new UltimaBase()` validates and snapshots configuration without connecting to
+infrastructure. `await app.start()` performs initialization and lifecycle start;
+`await app.dispose()` permanently releases the application.
+
+## Parameters
+
+| Option             | Required | Meaning                                                               |
+| ------------------ | -------- | --------------------------------------------------------------------- |
+| `schemas`          | yes      | Exact immutable schema classes owned by this application              |
+| `plugins`          | yes      | Top-level definitions; nested definitions join the same global graph  |
+| `masterAuthority`  | no       | Audited server authority used by `useMasterKey: true`                 |
+| `pluginPrivileges` | no       | Cumulative privilege and environment-claim denials plus report logger |
+| `validation`       | no       | Timezone, clock, UUID generation, and nested-write budgets            |
+
+Unknown root options fail immediately. Use `app.application` only for advanced
+plugin export access and `app.schema(...)`, `app.query(...)`, or
+`app.operation(...)` for application-owned handles.
+
+### Request context and transactions
+
+```ts
+const tenantId = new RequestContextValue('app.tenant', (value) => {
+	if (typeof value !== 'string') throw new TypeError('tenant must be text')
+	return value
+})
+
+const request = app.engine.anonymous({
+	requestId: crypto.randomUUID(),
+	source: 'internal',
+})
+
+await request.transaction(() => Post.createOne({ data: { title: 'Atomic' } }))
+```
+
+Core authority modes are only `anonymous` and `master`. Authentication plugins
+derive typed context values without adding a user authority mode. Every root
+mutation is already automatic and transactional; explicit transactions group
+several operations. Nested explicit transactions are unsupported.
+
+## Defaults
+
+- No Master authority exists unless configured.
+- No plugin behavior, database, API, or server is installed implicitly.
+- Root reads do not open a transaction; root mutations do.
+- Applications are isolated and cannot be restarted after stop or disposal.
+
+## Returns
+
+Construction returns a frozen facade. `start()`, `stop()`, and `dispose()` resolve
+to `void`; schema and operation handles return their own typed results.
+`app.state` reports the underlying lifecycle state.
+
+## Errors
+
+Invalid option shapes throw `TypeError`. Schema or plugin graph failures occur
+before infrastructure effects. Startup failure preserves the original error and
+may add cleanup failures in an `AggregateError`. A foreign or stale request
+context is rejected before Runtime work.
+
+## Example
+
+```ts
+const app = new UltimaBase({
+	plugins: [postgresPlugin({ url: databaseUrl })],
+	schemas: [Post],
+})
+
+await app.start()
+try {
+	await Post.findMany(undefined, { ultimabase: app })
+} finally {
+	await app.dispose()
+}
+```
+
+See [application lifecycle](/docs/1.0.0/core/application/lifecycle),
+[request identity](/docs/1.0.0/core/security-foundations/request-identity), and
+[transactions](/docs/1.0.0/core/writing-data/transactions).

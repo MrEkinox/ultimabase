@@ -1,0 +1,48 @@
+---
+title: Filter a Relation by Request Context
+description: Give one relation a reusable request-aware read view without turning it into authorization.
+audience:
+  - application-developer
+contentType: tutorial
+order: 7
+outcome: Show authenticated readers a different relation view through every API.
+owner: '2814'
+releaseStatus: pre-release
+reviewedAt: 2026-09-15
+sources:
+  - docs/adr/0247-contextual-relation-filters.md
+  - examples/minimal/src/schema.ts
+---
+
+## Prerequisites
+
+Read [Related Data](/docs/1.0.0/core/reading-data/related-data#contextual-relation-filters) and
+[Request Identity](/docs/1.0.0/core/security-foundations/request-identity).
+
+## Shortest path
+
+```ts
+reviewers: field.relation({
+	target: 'User',
+	where: ({ context, where }) =>
+		context.getValue(passwordPrincipal) === undefined
+			? where.eq('audience', 'public')
+			: where,
+})
+```
+
+## Verify the outcome
+
+Compare anonymous and authenticated relation handles, eager includes, REST
+projections, GraphQL connections, counts, and predicates. Each must use the same
+visible relation universe before pagination.
+
+## Limitations
+
+The resolver is synchronous, request-local, and receives no source item or adapter.
+It shapes only this traversal and is not authorization; protect targets independently.
+
+## Related concepts
+
+See [Relation Predicates](/docs/1.0.0/core/reading-data/related-data#relation-predicates),
+[Access](/docs/1.0.0/plugins/official/authentication-and-authorization/access), and [Object ACLs](/docs/1.0.0/plugins/official/authentication-and-authorization/acl-permissions).

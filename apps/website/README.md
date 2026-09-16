@@ -21,7 +21,7 @@ yarn website:dev
 Open `http://localhost:3000`. Marketing routes use the `(marketing)` route
 group, while documentation is mounted at `/docs` through the `(docs)` group.
 English is the only authored site language. Public documentation source belongs
-in version folders such as `content/docs/1.0`; root `docs/` remains the
+in version folders such as `content/docs/1.0.0`; root `docs/` remains the
 engineering source for ADRs, specifications, and implementation plans.
 
 Source-backed release status, roadmap, and contribution guidance live at
@@ -87,6 +87,9 @@ behavior lives below `Plugins > Official Plugins` or `Plugins > Community
 Plugins`, with one canonical section per plugin. Cross-cutting guides combine
 several capabilities; plugin-specific setup, reference, and troubleshooting are
 headings on the owning plugin's page instead of repeated sidebar entries.
+The docs sidebar shows the version and page tree without duplicate global
+Plugins or GitHub links. Its repository icon sits beside Fumadocs' theme switch
+at the bottom; marketing navigation retains the full set of site links.
 
 `Plugin System` explains composition, `Using Plugins` owns consumption and
 compatibility, and `Build a Plugin` owns the author journey. Community listings remain visibly
@@ -96,8 +99,9 @@ architecture background outside the primary learning path.
 
 ## Documentation versions
 
-Documentation URLs include the framework release line. `/docs/1.0` is the
-Introduction; Getting Started begins at `/docs/1.0/getting-started/installation`.
+Documentation URLs include the framework release line. `/docs/1.0.0` is
+"What is UltimaBase"; Getting Started begins at
+`/docs/1.0.0/getting-started/installation`.
 Only current versioned URLs are served; removed and unversioned pages return
 404. Fumadocs derives the version selector from each version folder's
 `root: "version"` metadata.

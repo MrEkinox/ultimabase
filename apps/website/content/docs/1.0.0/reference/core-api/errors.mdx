@@ -1,0 +1,84 @@
+---
+title: Errors
+description: Look up framework, HTTP, REST, GraphQL, and plugin-owned public failure boundaries.
+audience:
+  - application-developer
+  - plugin-author
+  - operator
+contentType: reference
+order: 8
+outcome: Handle stable public error codes without exposing trusted diagnostics or relying on transport internals.
+owner: '2816'
+releaseStatus: pre-release
+reviewedAt: 2026-09-15
+sources:
+  - packages/core/src/errors/framework-error.ts
+  - packages/http-plugin/src/request-boundary.ts
+  - packages/rest-plugin/src/errors.ts
+  - packages/graphql-plugin/src/errors.ts
+  - packages/password-auth-plugin/src/operations.ts
+---
+
+## Signature
+
+```ts
+import { FrameworkError, frameworkErrorCodes } from '@ultimabase/core'
+
+const error = new FrameworkError('NOT_FOUND', 'Trusted diagnostic', {
+	publicMessage: 'The requested object was not found.',
+	publicDetails: { resource: 'Post' },
+	retryable: false,
+})
+```
+
+## Parameters
+
+The constructor accepts a declared `FrameworkErrorCode`, a non-empty diagnostic
+message, and optional `cause`, `publicMessage`, `publicDetails`,
+`internalDetails`, and `retryable` values.
+
+| Boundary                    | Representative stable codes                                                                                         | Diagnostic path                                                                          |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Core data                   | `VALIDATION_ERROR`, `NOT_FOUND`, `PERMISSION_DENIED`, `TRANSACTION_ERROR`                                           | owning concept or guide                                                                  |
+| Core plugins                | `PLUGIN_DEPENDENCY_MISSING`, `PLUGIN_CAPABILITY_CONFLICT`, `PLUGIN_PRIVILEGE_DENIED`, `PLUGIN_DECLARATION_INVALID`  | [startup](/docs/1.0.0/operations/application-troubleshooting#startup-and-plugin-graph)     |
+| PostgreSQL                  | sanitized `INTERNAL_ERROR` or schema `VALIDATION_ERROR`                                                             | [PostgreSQL](/docs/1.0.0/plugins/official/data-and-persistence/postgresql#troubleshooting) |
+| Typegen                     | `SCHEMA_TYPEGEN_FAILED` with a stable reason                                                                        | [Typegen](/docs/1.0.0/operations/application-troubleshooting#typegen)                      |
+| HTTP before dispatch        | `HTTP_BAD_REQUEST`, `HTTP_APPLICATION_REJECTED`, `HTTP_NOT_FOUND`, `HTTP_REQUEST_TIMEOUT`, `HTTP_INTERNAL_ERROR`    | [HTTP identity](/docs/1.0.0/plugins/official/http-and-apis/http#troubleshooting)           |
+| REST after dispatch         | `REST_READ_INVALID_INPUT`, `REST_READ_BODY_TOO_LARGE`, `REST_INTERNAL_ERROR` and operation-specific public mappings | owning API page                                                                          |
+| GraphQL compilation/runtime | `GRAPHQL_SCHEMA_COMPILATION_FAILED`, `GRAPHQL_INVALID_CURSOR`, safe GraphQL extensions                              | owning API page                                                                          |
+| Password Auth               | `PASSWORD_AUTH_INVALID_CREDENTIALS`, `PASSWORD_AUTH_INVALID_SESSION`, `PASSWORD_AUTH_SIGN_UP_REJECTED`              | [authentication](/docs/1.0.0/plugins/official/http-and-apis/http#troubleshooting)          |
+
+## Defaults
+
+`retryable` defaults to `false`. Diagnostic message, stack, cause, and internal
+details are private. Unknown failures collapse to the owning boundary's fixed
+internal-error representation.
+
+## Returns
+
+`error.toJSON()` returns only `{ code, retryable, message?, details? }` using
+explicitly public values. REST and GraphQL map that payload into their own wire
+envelopes. HTTP failures before route dispatch keep the protocol-neutral HTTP
+envelope.
+
+## Errors
+
+Constructing a `FrameworkError` with an unknown code or malformed options throws
+`TypeError`. A plugin may expose only error codes declared on its operation and
+mapped by the selected transport; undeclared errors are masked.
+
+## Example
+
+```ts
+try {
+	await Post.get({ id: postId })
+} catch (error: unknown) {
+	if (error instanceof FrameworkError && error.code === 'NOT_FOUND') {
+		return null
+	}
+	throw error
+}
+```
+
+See [API error boundaries](/docs/1.0.0/core/runtime/api-errors), [Master authority](/docs/1.0.0/core/security-foundations/master-authority),
+and [Troubleshooting](/docs/1.0.0/operations/application-troubleshooting).

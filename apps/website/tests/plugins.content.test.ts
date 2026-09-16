@@ -7,7 +7,7 @@ import { officialPluginCatalog } from '../lib/official-plugins'
 
 const repositoryRoot = fileURLToPath(new URL('../../..', import.meta.url))
 const pluginPagePath = fileURLToPath(
-	new URL('../content/docs/1.0/plugins/overview.mdx', import.meta.url),
+	new URL('../content/docs/1.0.0/plugins/overview.mdx', import.meta.url),
 )
 
 async function readMdxTree(directory: string): Promise<string> {

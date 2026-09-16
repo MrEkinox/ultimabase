@@ -1,0 +1,77 @@
+---
+title: Public Packages
+description: Choose among every shipped package root without importing private source paths.
+audience:
+  - application-developer
+  - plugin-author
+  - operator
+contentType: reference
+order: 9
+outcome: Install the smallest public package set for an application, plugin, transport, or test.
+owner: '2816'
+releaseStatus: pre-release
+reviewedAt: 2026-09-15
+sources:
+  - packages/README.md
+  - packages/*/package.json
+  - packages/*/src/index.ts
+---
+
+## Signature
+
+Every supported import uses one package root:
+
+```ts
+import { Schema, UltimaBase } from '@ultimabase/core'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
+import { definePluginModule } from '@ultimabase/plugin-kit'
+```
+
+Imports such as `@ultimabase/core/src/...` or filesystem paths into a package are
+private and unsupported.
+
+## Parameters
+
+| Category             | Packages                                                                                                                                                                            |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Core foundations     | `@ultimabase/core`, `@ultimabase/shared`                                                                                                                                            |
+| Plugin authoring     | `@ultimabase/plugin-kit`                                                                                                                                                            |
+| Tooling              | `@ultimabase/typegen`                                                                                                                                                               |
+| Database and data    | `@ultimabase/postgres-plugin`, `@ultimabase/pg-vector-plugin`, `@ultimabase/soft-delete-plugin`, `@ultimabase/validation-plugin`, `@ultimabase/hooks-plugin`                        |
+| Security             | `@ultimabase/access-plugin`, `@ultimabase/acl-permissions-plugin`, `@ultimabase/password-auth-plugin`, `@ultimabase/roles-plugin`                                                   |
+| Transport and server | `@ultimabase/http-plugin`, `@ultimabase/server-hono-plugin`, `@ultimabase/rest-plugin`, `@ultimabase/graphql-plugin`, `@ultimabase/graphql-http`, `@ultimabase/graphql-yoga-plugin` |
+| Explorers            | `@ultimabase/graphiql-plugin`, `@ultimabase/apollo-sandbox-plugin`                                                                                                                  |
+| Testing              | `@ultimabase/testing`                                                                                                                                                               |
+
+`@ultimabase/graphql-http` is a provider-neutral contract, not a plugin.
+`@ultimabase/pg-vector-plugin` currently ships the logical field contract but
+not PostgreSQL physical vector storage. REST is explicitly experimental; all
+packages remain pre-release at version `0.0.0` in this repository.
+
+## Defaults
+
+Packages install no behavior merely by being imported. Plugin packages end in
+`-plugin`; foundations, authoring helpers, contracts, tooling, and testing do
+not. Every current package exposes only the root `.` entry.
+
+## Returns
+
+Package roots expose the documented application APIs, public types, plugin
+factories, protocol contracts, or testing utilities. Generated Typegen files
+augment editor declarations but never replace these Runtime exports.
+
+## Errors
+
+Deep imports are outside the public export map and may fail package resolution.
+A missing plugin or adapter capability produces an application compilation or
+startup error rather than silently enabling substitute behavior.
+
+## Example
+
+```sh
+corepack yarn add @ultimabase/core @ultimabase/postgres-plugin
+```
+
+Add only the plugin packages required by the application graph. See
+[installation](../getting-started/installation), [official plugins](/docs/1.0.0/plugins/overview#official-plugins),
+and [plugin authoring](/docs/1.0.0/plugins/build-a-plugin).

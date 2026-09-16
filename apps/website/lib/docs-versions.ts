@@ -5,7 +5,7 @@ export interface DocumentationVersion {
 
 /** Supported documentation lines, newest first. */
 export const documentationVersions = Object.freeze([
-	{ label: '1.0', slug: '1.0' },
+	{ label: 'Version 1.0.0', slug: '1.0.0' },
 ] as const satisfies readonly DocumentationVersion[])
 
 export type DocumentationVersionSlug =

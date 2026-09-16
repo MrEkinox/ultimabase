@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 
 const repositoryRoot = fileURLToPath(new URL('../../..', import.meta.url))
 const contentRoot = fileURLToPath(
-	new URL('../content/docs/1.0/', import.meta.url),
+	new URL('../content/docs/1.0.0/', import.meta.url),
 )
 const pages = [
 	'core/application/lifecycle',
@@ -42,10 +42,10 @@ describe('operations documentation contracts', () => {
 		)
 		expect(documentation).toContain('health endpoint')
 		expect(documentation).toContain(
-			'/docs/1.0/core/security-foundations/master-authority',
+			'/docs/1.0.0/core/security-foundations/master-authority',
 		)
 		expect(documentation).toContain(
-			'/docs/1.0/plugins/official/http-and-apis/http',
+			'/docs/1.0.0/plugins/official/http-and-apis/http',
 		)
 	})
 })

@@ -1,0 +1,100 @@
+---
+title: Using Plugins
+description: Choose, install, configure, and verify an UltimaBase plugin without hiding application ownership.
+audience:
+  - application-developer
+  - operator
+contentType: guide
+order: 2
+outcome: Add the smallest compatible plugin set and verify its application-local behavior.
+owner: '2824'
+releaseStatus: pre-release
+reviewedAt: 2026-09-15
+sources:
+  - packages/core/README.md
+  - packages/plugin-kit/README.md
+  - packages/hooks-plugin/README.md
+  - packages/validation-plugin/README.md
+  - docs/adr/0190-capability-host-lifecycle-and-legacy-convergence.md
+  - docs/adr/0191-plugin-privilege-taxonomy-and-diagnostics.md
+---
+
+## Choose the capability
+
+Start from the capability your application needs, not from the number of
+packages available. Prefer one focused provider whose contract and operational
+effects you can explain.
+
+Before installation, check:
+
+1. **Compatibility:** the plugin declares support for your UltimaBase release.
+2. **Ownership:** its manifest identifies one stable plugin and optional exact
+   instance.
+3. **Privileges:** every requested Core power has a concrete reason.
+4. **Environmental claims:** filesystem, network, process, or native behavior is
+   visible before startup.
+5. **Maintenance:** the package identifies its maintainer, source repository,
+   license, release history, and support channel.
+6. **Documentation:** setup, configuration, failure modes, and removal are
+   documented for the version you use.
+
+Official plugins are maintained with the framework. A community listing makes
+a package discoverable; it does not make the package UltimaBase-maintained or
+security-audited.
+
+## Install and configure
+
+Install the packages that own the behavior you need, then call each plugin
+factory in the application definition:
+
+```bash
+yarn add @ultimabase/core @ultimabase/hooks-plugin @ultimabase/validation-plugin zod
+```
+
+```ts title="src/ultimabase.ts"
+import { UltimaBase } from '@ultimabase/core'
+import { hooksPlugin } from '@ultimabase/hooks-plugin'
+import { validationPlugin } from '@ultimabase/validation-plugin'
+
+import { Article } from './schemas.js'
+
+export const ultimabase = new UltimaBase({
+	plugins: [hooksPlugin(), validationPlugin()],
+	schemas: [Article],
+})
+```
+
+Importing a plugin package never installs it. Calling a factory is also inert
+until the returned definition enters an application. `start()` validates the
+complete graph before connection, schema preparation, Runtime, or transport
+startup.
+
+Read the owning plugin page before configuring it. A plugin may require another
+capability, an explicit peer, an environmental claim, or acknowledgement before
+public exposure.
+
+## Verify application types
+
+Run your Typegen command after changing plugins. Generated declarations expose
+only the schema options, fields, operations, and model surfaces contributed to
+that exact application. JavaScript executes the same compiled graph without a
+generated Runtime client.
+
+Test the plugin through your application's public surface. Verify startup,
+expected behavior, failure cleanup, and disposal rather than treating a
+successful package installation as evidence.
+
+## Check compatibility
+
+Every plugin declares the UltimaBase versions and capability protocols it
+supports. Core validates these declarations while compiling the application
+graph. Required capabilities, privileges, peer identities, and exact protocol
+versions must compose without ambiguity.
+
+Use the documentation version that matches your application, then verify the
+plugin manifest. UltimaBase rejects missing providers, incompatible protocols,
+denied privileges, and duplicate identities before infrastructure effects.
+
+See [Compatibility](/docs/1.0.0/reference/compatibility) for release-line rules,
+[Official Plugins](./overview#official-plugins) for shipped integrations, and
+[Community Plugins](./community-plugins) for the community maintenance boundary.

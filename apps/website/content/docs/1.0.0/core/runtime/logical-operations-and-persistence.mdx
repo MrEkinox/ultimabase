@@ -1,0 +1,51 @@
+---
+title: Logical Operations and Persistence
+description: Separate the operation users requested from the physical work an adapter performs.
+audience:
+  - application-developer
+  - plugin-author
+contentType: concept
+order: 5
+outcome: Understand safe persistence rewrites without changing policy or Hook meaning.
+owner: '2821'
+releaseStatus: pre-release
+reviewedAt: 2026-09-15
+sources:
+  - ARCHITECTURE.md
+  - packages/core/docs/runtime.md
+  - docs/adr/0200-protected-rewritable-persistence-plans.md
+  - docs/adr/0205-protected-policy-contributions.md
+---
+
+## Meaning before mechanics
+
+The logical operation records application meaning: create, read, update,
+delete, or a declared plugin operation against a schema. Policy, Hooks, audit,
+results, and relationships reason about that stable meaning.
+
+The persistence plan describes how the adapter fulfills it. A plugin with the
+exact privilege may rewrite that physical plan without changing the logical
+operation seen by the rest of Runtime.
+
+```text
+logical delete
+├── policy and Hooks still observe: delete
+├── result semantics still follow: delete
+└── soft-delete rewrite may persist: guarded update of tombstone fields
+```
+
+## Protected constraints stay protected
+
+Row filters and adapter constraints accumulated by policy do not enter the
+replaceable plan. Core carries them beside it and the adapter combines every
+constraint with `AND`. A persistence rewrite therefore cannot drop an ACL
+filter, bypass tenant-like restrictions, or turn a denied target into a visible
+one.
+
+Transports remain outside both layers. They normalize requests and serialize
+results; they never issue SQL or receive a raw adapter. Database-specific
+compilation stays in the database plugin.
+
+See [Soft Delete](/docs/1.0.0/plugins/official/data-and-persistence/soft-delete) for the concrete official rewrite,
+[Access](/docs/1.0.0/plugins/official/authentication-and-authorization/access) for logical policy, and
+[PostgreSQL](/docs/1.0.0/plugins/official/data-and-persistence/postgresql) for adapter ownership.

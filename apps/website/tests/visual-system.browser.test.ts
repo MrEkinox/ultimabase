@@ -24,6 +24,35 @@ afterAll(async () => {
 })
 
 describe('website visual system', () => {
+	it('keeps the docs sidebar focused and GitHub beside the theme switch', async () => {
+		const context = await browser?.newContext({
+			viewport: { height: 900, width: 1280 },
+		})
+		if (context === undefined) throw new Error('Browser did not start')
+
+		try {
+			const page = await context.newPage()
+			await page.goto(`${origin}/docs/1.0.0`)
+			const sidebar = page.locator('#nd-sidebar')
+			await sidebar.getByRole('link', { name: 'What is UltimaBase' }).waitFor()
+			expect(await sidebar.getByRole('link', { name: 'Plugins', exact: true }).count()).toBe(0)
+			const github = sidebar.getByRole('link', { name: 'GitHub' })
+			expect(await github.getAttribute('href')).toBe(siteConfig.repositoryUrl.href)
+			const githubBox = await github.boundingBox()
+			const themeBox = await sidebar.locator('[data-theme-toggle]').boundingBox()
+			const sidebarBox = await sidebar.boundingBox()
+			expect(githubBox).not.toBeNull()
+			expect(themeBox).not.toBeNull()
+			expect(sidebarBox).not.toBeNull()
+			if (githubBox && themeBox && sidebarBox) {
+				expect(Math.abs(githubBox.y - themeBox.y)).toBeLessThan(12)
+				expect(sidebarBox.y + sidebarBox.height - githubBox.y).toBeLessThan(100)
+			}
+		} finally {
+			await context.close()
+		}
+	})
+
 	it.each([
 		{
 			colorScheme: 'light' as const,
@@ -34,7 +63,7 @@ describe('website visual system', () => {
 		{
 			colorScheme: 'dark' as const,
 			customShell: false,
-			path: '/docs/1.0',
+			path: '/docs/1.0.0',
 			width: 375,
 		},
 	])(
@@ -196,8 +225,8 @@ describe('website visual system', () => {
 			const page = await context.newPage()
 			const clientErrors = collectClientErrors(page)
 
-			await page.goto(`${origin}/docs/1.0`)
-			expect(page.url()).toBe(`${origin}/docs/1.0`)
+			await page.goto(`${origin}/docs/1.0.0`)
+			expect(page.url()).toBe(`${origin}/docs/1.0.0`)
 			expect(await page.locator('html').getAttribute('lang')).toBe('en')
 			expect(clientErrors).toEqual([])
 
@@ -205,9 +234,9 @@ describe('website visual system', () => {
 			const searchDialog = page.getByRole('dialog')
 			await searchDialog.waitFor({ state: 'visible' })
 			expect(clientErrors).toEqual([])
-			await searchDialog.getByRole('textbox').fill('Introduction')
+			await searchDialog.getByRole('textbox').fill('What is UltimaBase')
 			await searchDialog
-				.getByRole('button', { name: /Introduction/u })
+				.getByRole('button', { name: /What is UltimaBase/u })
 				.first()
 				.waitFor({ state: 'visible' })
 			expect(clientErrors).toEqual([])
@@ -234,8 +263,8 @@ describe('website visual system', () => {
 						result !== null &&
 						'url' in result &&
 						typeof result.url === 'string' &&
-						result.url.startsWith('/docs/1.0/') &&
-						!result.url.startsWith('/docs/1.0/adr/'),
+						result.url.startsWith('/docs/1.0.0/') &&
+						!result.url.startsWith('/docs/1.0.0/adr/'),
 				),
 			).toBe(true)
 			expect(clientErrors).toEqual([])
@@ -252,7 +281,7 @@ describe('website visual system', () => {
 
 		try {
 			const page = await context.newPage()
-			await page.goto(`${origin}/docs/1.0/getting-started/installation`)
+			await page.goto(`${origin}/docs/1.0.0/getting-started/installation`)
 			const yarnTabs = page.getByRole('tab', { exact: true, name: 'yarn' })
 			expect(await yarnTabs.count()).toBe(4)
 			await yarnTabs.first().click()
@@ -265,7 +294,7 @@ describe('website visual system', () => {
 			expect(activeCommands.join('\n')).toContain('yarn init -y')
 			expect(activeCommands.join('\n')).toContain('yarn tsc --version')
 
-			await page.goto(`${origin}/docs/1.0/getting-started/first-application`)
+			await page.goto(`${origin}/docs/1.0.0/getting-started/first-application`)
 			const nextYarnTab = page.getByRole('tab', { exact: true, name: 'yarn' })
 			await expect
 				.poll(() => nextYarnTab.getAttribute('data-state'))
@@ -288,16 +317,16 @@ describe('website visual system', () => {
 			const page = await context.newPage()
 			const linearJourneys = [
 				[
-					'/docs/1.0',
-					'/docs/1.0/getting-started/installation',
+					'/docs/1.0.0',
+					'/docs/1.0.0/getting-started/installation',
 				],
 				[
-					'/docs/1.0/getting-started/installation',
-					'/docs/1.0/getting-started/first-application',
+					'/docs/1.0.0/getting-started/installation',
+					'/docs/1.0.0/getting-started/first-application',
 				],
 				[
-					'/docs/1.0/core/reading-data/ordering-and-pagination',
-					'/docs/1.0/core/reading-data/related-data',
+					'/docs/1.0.0/core/reading-data/ordering-and-pagination',
+					'/docs/1.0.0/core/reading-data/related-data',
 				],
 			] as const
 
@@ -309,13 +338,13 @@ describe('website visual system', () => {
 				expect(await nextLink.count()).toBeGreaterThan(0)
 			}
 
-			await page.goto(`${origin}/docs/1.0/getting-started/first-application`)
+			await page.goto(`${origin}/docs/1.0.0/getting-started/first-application`)
 			const gettingStartedCards = page
 				.getByRole('heading', { level: 2, name: 'Next steps' })
 				.locator('xpath=following-sibling::div[1]')
 				.locator('a[data-card]')
 			expect(await gettingStartedCards.count()).toBe(7)
-			await page.goto(`${origin}/docs/1.0/core/reading-data/selections`)
+			await page.goto(`${origin}/docs/1.0.0/core/reading-data/selections`)
 			const cards = page
 				.getByRole('heading', { level: 2, name: 'Next steps' })
 				.locator('xpath=following-sibling::div[1]')
@@ -325,7 +354,7 @@ describe('website visual system', () => {
 				'Related Data',
 			])
 			await cards.nth(1).click()
-			await page.waitForURL(`${origin}/docs/1.0/core/reading-data/related-data`)
+			await page.waitForURL(`${origin}/docs/1.0.0/core/reading-data/related-data`)
 		} finally {
 			await context.close()
 		}

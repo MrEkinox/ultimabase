@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 
 const repositoryRoot = fileURLToPath(new URL('../../..', import.meta.url))
 const contentRoot = fileURLToPath(
-	new URL('../content/docs/1.0/', import.meta.url),
+	new URL('../content/docs/1.0.0/', import.meta.url),
 )
 const planPath = fileURLToPath(
 	new URL('../content/documentation-plan.json', import.meta.url),
@@ -60,7 +60,7 @@ describe('cross-cutting concept documentation', () => {
 			expect(source.match(/^## /gmu)?.length ?? 0, page).toBeGreaterThanOrEqual(
 				2,
 			)
-			expect(source, page).toMatch(/\]\((?:\/docs\/1\.0\/|\.\.\/)(?:[^)]+)\)/u)
+			expect(source, page).toMatch(/\]\((?:\/docs\/1\.0\.0\/|\.\.\/)(?:[^)]+)\)/u)
 
 			const sourcesBlock = /^sources:\n(?<sources>(?: {2}- .+\n?)+)/mu.exec(
 				source,

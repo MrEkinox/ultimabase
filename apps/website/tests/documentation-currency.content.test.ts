@@ -115,18 +115,18 @@ describe('documentation currency guardrails', () => {
 	})
 
 	it('maps every page to its exact source-edit coordinates', () => {
-		const pagePath = '1.0/index.mdx'
+		const pagePath = '1.0.0/index.mdx'
 		expect(documentationSourcePath(pagePath)).toBe(
-			'apps/website/content/docs/1.0/index.mdx',
+			'apps/website/content/docs/1.0.0/index.mdx',
 		)
 		expect(documentationEditOptions(pagePath)).toEqual({
 			owner: 'MrEkinox',
-			path: 'apps/website/content/docs/1.0/index.mdx',
+			path: 'apps/website/content/docs/1.0.0/index.mdx',
 			repo: 'ultimadatabase',
 			sha: 'main',
 		})
 		expect(documentationEditUrl(pagePath).href).toBe(
-			'https://github.com/MrEkinox/ultimadatabase/blob/main/apps/website/content/docs/1.0/index.mdx',
+			'https://github.com/MrEkinox/ultimadatabase/blob/main/apps/website/content/docs/1.0.0/index.mdx',
 		)
 		expect(() => documentationSourcePath('../AGENTS.md')).toThrow(
 			'Invalid public documentation source path',

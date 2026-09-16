@@ -84,17 +84,22 @@ function internalDocumentationLinks(source: string): readonly string[] {
 
 describe('public documentation content contract', () => {
 	it('keeps version configuration explicit and canonical URLs versioned', async () => {
-		expect(documentationVersions).toEqual([{ label: '1.0', slug: '1.0' }])
-		expect(currentDocumentationVersion.slug).toBe('1.0')
+		expect(documentationVersions).toEqual([
+			{ label: 'Version 1.0.0', slug: '1.0.0' },
+		])
+		expect(currentDocumentationVersion.slug).toBe('1.0.0')
 		expect(documentationPath('core/reading-data/overview')).toBe(
-			'/docs/1.0/core/reading-data/overview',
+			'/docs/1.0.0/core/reading-data/overview',
 		)
-		expect(documentationPath()).toBe('/docs/1.0')
+		expect(documentationPath()).toBe('/docs/1.0.0')
 
 		const metadata = JSON.parse(
-			await readFile(path.join(contentRoot, '1.0', 'meta.json'), 'utf8'),
+			await readFile(path.join(contentRoot, '1.0.0', 'meta.json'), 'utf8'),
 		) as unknown
-		expect(metadata).toMatchObject({ root: 'version', title: '1.0' })
+		expect(metadata).toMatchObject({
+			root: 'version',
+			title: 'Version 1.0.0',
+		})
 	})
 
 	it('keeps only release-line folders at the documentation source root', async () => {
@@ -114,27 +119,27 @@ describe('public documentation content contract', () => {
 		expect(new Set(urls).size).toBe(urls.length)
 		expect(urls).toEqual(
 			expect.arrayContaining([
-				'/docs/1.0',
-				'/docs/1.0/core/application/application-graph',
-				'/docs/1.0/core/writing-data/delete',
-				'/docs/1.0/plugins/official/data-and-persistence/soft-delete',
-				'/docs/1.0/plugins/official/http-and-apis/rest',
-				'/docs/1.0/plugins/overview',
-				'/docs/1.0/plugins/using-plugins',
-				'/docs/1.0/plugins/community-plugins',
-				'/docs/1.0/plugins/build-a-plugin',
-				'/docs/1.0/operations/application-troubleshooting',
-				'/docs/1.0/reference/core-api/application',
+				'/docs/1.0.0',
+				'/docs/1.0.0/core/application/application-graph',
+				'/docs/1.0.0/core/writing-data/delete',
+				'/docs/1.0.0/plugins/official/data-and-persistence/soft-delete',
+				'/docs/1.0.0/plugins/official/http-and-apis/rest',
+				'/docs/1.0.0/plugins/overview',
+				'/docs/1.0.0/plugins/using-plugins',
+				'/docs/1.0.0/plugins/community-plugins',
+				'/docs/1.0.0/plugins/build-a-plugin',
+				'/docs/1.0.0/operations/application-troubleshooting',
+				'/docs/1.0.0/reference/core-api/application',
 			]),
 		)
 		expect(urls).not.toEqual(
 			expect.arrayContaining([
-				'/docs/1.0/mutations/soft-delete',
-				'/docs/1.0/security/access',
-				'/docs/1.0/apis/rest',
-				'/docs/1.0/plugins/official',
-				'/docs/1.0/plugins/community',
-				'/docs/1.0/plugins/build-a-plugin/getting-started',
+				'/docs/1.0.0/mutations/soft-delete',
+				'/docs/1.0.0/security/access',
+				'/docs/1.0.0/apis/rest',
+				'/docs/1.0.0/plugins/official',
+				'/docs/1.0.0/plugins/community',
+				'/docs/1.0.0/plugins/build-a-plugin/getting-started',
 			]),
 		)
 
@@ -173,8 +178,8 @@ describe('public documentation content contract', () => {
 		])
 		expect(
 			visibleDocumentationSections([
-				'/docs/1.0/plugins/overview',
-				'/docs/1.0/getting-started/installation',
+				'/docs/1.0.0/plugins/overview',
+				'/docs/1.0.0/getting-started/installation',
 			]).map(({ slug }) => slug),
 		).toEqual(['getting-started', 'plugins'])
 	})

@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 const websiteRoot = fileURLToPath(new URL('..', import.meta.url))
-const docsRoot = path.join(websiteRoot, 'content/docs/1.0')
+const docsRoot = path.join(websiteRoot, 'content/docs/1.0.0')
 const pagePaths = [
 	'plugins/official/http-and-apis/http',
 	'plugins/official/data-and-persistence/postgresql',
@@ -33,7 +33,7 @@ const collectMdxFiles = async (
 const pageUrl = (filePath: string): string => {
 	const relative = path.relative(docsRoot, filePath).replaceAll(path.sep, '/')
 	const slug = relative.replace(/\.mdx$/u, '').replace(/\/index$/u, '')
-	return slug === 'index' ? '/docs/1.0' : `/docs/1.0/${slug}`
+	return slug === 'index' ? '/docs/1.0.0' : `/docs/1.0.0/${slug}`
 }
 
 describe('troubleshooting content', () => {
@@ -73,7 +73,7 @@ describe('troubleshooting content', () => {
 		const urls = new Set(files.map(pageUrl))
 
 		for (const pagePath of pagePaths) {
-			const currentUrl = `/docs/1.0/${pagePath}`
+			const currentUrl = `/docs/1.0.0/${pagePath}`
 			const source = await readPage(pagePath)
 			const links = [...source.matchAll(/\[[^\]]+\]\((?<href>[^)]+)\)/gu)]
 				.map((match) => match.groups?.href)
@@ -99,10 +99,10 @@ describe('troubleshooting content', () => {
 			'utf8',
 		)
 		expect(errors).toContain(
-			'/docs/1.0/operations/application-troubleshooting#startup-and-plugin-graph',
+			'/docs/1.0.0/operations/application-troubleshooting#startup-and-plugin-graph',
 		)
 		expect(errors).toContain(
-			'/docs/1.0/plugins/official/http-and-apis/http#troubleshooting',
+			'/docs/1.0.0/plugins/official/http-and-apis/http#troubleshooting',
 		)
 	})
 

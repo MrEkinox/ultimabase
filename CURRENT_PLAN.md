@@ -45,7 +45,7 @@ The documentation keeps task-oriented learning paths while making capability
 ownership explicit:
 
 ```text
-Introduction
+What is UltimaBase
 → Getting Started
 → Core
   → Application
@@ -152,9 +152,9 @@ The subsequent milestone audit found that the approved Concepts section,
 standalone status routes, and global Plugins entry remained absent. Issue 2821
 published the eight missing mental-model pages; issue 2822 restored status and
 navigation parity and reran the final preview gate.
-Issue 2823 versioned the documentation source and canonical URLs under `1.0`
-and enabled Fumadocs' native release-line selector. Its former legacy-link
-redirects were removed before launch.
+Issue 2823 versioned the documentation source and canonical URLs, initially
+under `1.0`, and enabled Fumadocs' native release-line selector. Before launch,
+the release line moved to `1.0.0` and legacy-link redirects were removed.
 Issue 2824 completed the compact public information architecture around
 explicit Core and plugin capability ownership. It also replaced repeated
 sidebar task trees with coherent long pages and Fumadocs' page-level table of
@@ -167,9 +167,9 @@ scenario pages and their index. Repository examples remain maintained for
 guides and tests; release status, roadmap, and contributing are linked directly
 from the landing page.
 The subsequent Getting Started review reduces that path to Installation and
-First Application. Introduction is the version root at `/docs/1.0`. The first
-application page owns the project-file explanation and next-path cards; former
-Project Structure and Next Steps URLs are no longer served. The Typegen concept
+First Application. "What is UltimaBase" is the version root at `/docs/1.0.0`.
+The first application page owns the project-file explanation and next-path
+cards; former Project Structure and Next Steps URLs are no longer served. The Typegen concept
 owns its optional setup.
 
 ### Phase 1 — Application, design, and content foundation
