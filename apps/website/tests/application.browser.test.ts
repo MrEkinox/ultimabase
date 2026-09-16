@@ -21,7 +21,7 @@ afterAll(async () => {
 })
 
 describe('single application page', () => {
-	it('keeps every application subject on one navigable page', async () => {
+	it('keeps the application concept focused and links to the Typegen guide', async () => {
 		const context = await browser?.newContext()
 		if (context === undefined) throw new Error('Browser did not start')
 
@@ -45,24 +45,21 @@ describe('single application page', () => {
 			for (const heading of [
 				'Application graph',
 				'Start and dispose',
-				'Read and write in TypeScript',
-				'Request context and authority',
-				'Optional Typegen',
+				'Application boundaries',
+				'Next steps',
 			]) {
 				await page.getByRole('heading', { level: 2, name: heading }).waitFor()
 			}
 			expect(
-				await page.locator('a[href="#optional-typegen"]').count(),
-			).toBeGreaterThan(0)
+				await page.getByRole('heading', { name: 'Optional Typegen' }).count(),
+			).toBe(0)
 			await page.goto(`${origin}/docs/1.0.0/manual-installation`)
 			await page
-				.locator('a[href="/docs/1.0.0/core/application#optional-typegen"]')
+				.locator('a[data-card][href="/docs/1.0.0/guides/generate-types"]')
 				.click()
-			await page.waitForURL(
-				`${origin}/docs/1.0.0/core/application#optional-typegen`,
-			)
+			await page.waitForURL(`${origin}/docs/1.0.0/guides/generate-types`)
 			await page
-				.getByRole('heading', { level: 2, name: 'Optional Typegen' })
+				.getByRole('heading', { level: 1, name: 'Generate TypeScript Types' })
 				.waitFor()
 		} finally {
 			await context.close()

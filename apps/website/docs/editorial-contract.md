@@ -169,7 +169,8 @@ The public sitemap makes ownership visible before a reader copies configuration:
   plugin's setup, configuration, reference, or troubleshooting;
 - `Guides` contains only workflows that combine several capabilities;
 - plugin-specific failures stay with the plugin, while application-wide startup,
-  Typegen, and reporting paths stay below `Operations`;
+  Typegen, and reporting troubleshooting paths stay below `Operations`; Typegen
+  setup is an independent task below `Guides`;
 - exhaustive Core signatures, the package index, compatibility, and architecture
   background stay below `Reference`.
 

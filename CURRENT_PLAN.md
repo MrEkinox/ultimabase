@@ -178,8 +178,10 @@ automatic initializer as unavailable. "What is UltimaBase" remains the version
 root at `/docs/1.0.0`. The manual page owns project files and next-path cards;
 the former Getting Started URLs are no longer served. The single Core
 Application page now owns graph compilation, lifecycle, direct TypeScript,
-request context, and optional Typegen setup; its former child URLs are no longer
-served.
+and application scope; its former child URLs are no longer served. The later
+reader-path audit moved optional Typegen setup to the independent
+`/docs/1.0.0/guides/generate-types` guide, leaving the Core page focused on
+the application concept.
 
 ### Phase 1 — Application, design, and content foundation
 

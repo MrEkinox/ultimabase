@@ -27,7 +27,9 @@ const readDocumentation = async (): Promise<string> =>
 describe('public API documentation contracts', () => {
 	it('states transport ownership and authorization boundaries', async () => {
 		const documentation = await readDocumentation()
-		expect(documentation).toContain('Exposure is never authorization')
+		expect(documentation).toMatch(
+			/request labels or plugin values cannot manufacture\s+Master access/u,
+		)
 		expect(documentation).toContain(
 			'Custom schema resolvers receive only `{ request: RequestContext }`',
 		)

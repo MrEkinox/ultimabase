@@ -10,6 +10,7 @@ const pages = [
 	'add-virtual-fields',
 	'build-an-authenticated-api',
 	'filter-contextual-relations',
+	'generate-types',
 	'test-an-application',
 	'write-nested-data',
 ] as const

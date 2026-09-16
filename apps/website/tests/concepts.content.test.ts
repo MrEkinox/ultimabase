@@ -97,6 +97,10 @@ describe('cross-cutting concept documentation', () => {
 
 	it('states the non-negotiable Runtime and Typegen boundaries', async () => {
 		const application = await readPage('core/application')
+		const typegen = await readFile(
+			path.join(contentRoot, 'guides/generate-types.mdx'),
+			'utf8',
+		)
 		const runtime = await readPage('core/runtime/runtime-pipeline')
 		const persistence = await readPage(
 			'core/runtime/logical-operations-and-persistence',
@@ -104,10 +108,11 @@ describe('cross-cutting concept documentation', () => {
 
 		expect(application).toContain('Importing a package alone installs nothing')
 		expect(runtime).toContain('Policy contributions are monotonic')
-		expect(application).toContain(
-			'None of them can manufacture Master authority',
+		expect(application).toMatch(
+			/request labels or plugin values cannot manufacture\s+Master access/u,
 		)
 		expect(persistence).toMatch(/do not enter the\s+replaceable plan/u)
-		expect(application).toContain('generated declarations are absent')
+		expect(typegen).toContain('not what UltimaBase executes')
+		expect(application).not.toContain('## Optional Typegen')
 	})
 })

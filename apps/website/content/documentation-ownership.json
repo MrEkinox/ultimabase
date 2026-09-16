@@ -20,7 +20,7 @@
 				"@ultimabase/typegen"
 			],
 			"sections": [
-				"core/application",
+				"guides/generate-types",
 				"plugins/overview",
 				"plugins/build-a-plugin",
 				"guides/test-an-application",

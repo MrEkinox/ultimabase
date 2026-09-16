@@ -105,6 +105,7 @@ const canonicalNavigation = {
 		'add-virtual-fields',
 		'write-nested-data',
 		'filter-contextual-relations',
+		'generate-types',
 		'test-an-application',
 	],
 	'1.0.0/operations': [
