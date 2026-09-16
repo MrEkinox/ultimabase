@@ -23,11 +23,6 @@
 					"slug": "installation",
 					"contentType": "tutorial",
 					"outcome": "Install the intended npm packages and verify the local prerequisites."
-				},
-				{
-					"slug": "introduction",
-					"contentType": "concept",
-					"outcome": "Decide whether UltimaBase fits a typed Node.js backend application."
 				}
 			]
 		},
@@ -471,14 +466,14 @@
 		},
 		{
 			"path": "/docs/1.0",
-			"slug": "docs",
+			"slug": "introduction",
 			"contentType": "concept",
-			"outcome": "Choose the documentation path for the current task.",
-			"owner": "2804",
+			"outcome": "Understand UltimaBase's core model and choose the right next path.",
+			"owner": "2806",
 			"audiences": ["application-developer", "plugin-author", "operator"],
 			"releaseStatus": "pre-release",
 			"sourceStatus": "ready",
-			"sources": ["issues/2800-public-website-documentation/README.md"]
+			"sources": ["README.md", "ARCHITECTURE.md", "docs/PRODUCT_SPEC.md"]
 		},
 		{
 			"path": "/status/release-status",

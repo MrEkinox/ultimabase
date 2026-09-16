@@ -27,7 +27,7 @@ describe('documentation page actions', () => {
 		{
 			pagePath: '/docs/1.0',
 			sourcePath: 'apps/website/content/docs/1.0/index.mdx',
-			title: 'Documentation',
+			title: 'Introduction',
 		},
 		{
 			pagePath: '/docs/1.0/getting-started/installation',

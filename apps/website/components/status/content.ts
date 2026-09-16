@@ -51,7 +51,7 @@ export const statusPages: readonly StatusPageContent[] = Object.freeze([
 			'What you can evaluate today, and which promises deliberately wait for a stable release.',
 		eyebrow: 'Release status',
 		primaryAction: {
-			href: currentDocumentationPath('getting-started/introduction'),
+			href: currentDocumentationPath(),
 			title: 'Evaluate the framework',
 		},
 		sections: [
@@ -62,7 +62,7 @@ export const statusPages: readonly StatusPageContent[] = Object.freeze([
 					{
 						description:
 							'Static schemas, immutable queries and models, shared Runtime execution, transactions, and PostgreSQL persistence are implemented.',
-						href: currentDocumentationPath('getting-started/introduction'),
+						href: currentDocumentationPath(),
 						title: 'Application foundations',
 					},
 					{

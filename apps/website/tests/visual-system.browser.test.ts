@@ -24,37 +24,6 @@ afterAll(async () => {
 })
 
 describe('website visual system', () => {
-	it('renders readable native steps on the docs index', async () => {
-		const context = await browser?.newContext({
-			viewport: { height: 900, width: 1280 },
-		})
-		if (context === undefined) throw new Error('Browser did not start')
-
-		try {
-			const page = await context.newPage()
-			await page.goto(`${origin}/docs/1.0`)
-			const steps = page.locator('.fd-steps > .fd-step')
-			expect(await steps.count()).toBe(4)
-			for (const step of await steps.all()) {
-				expect(await step.locator('h3').count()).toBe(1)
-				expect(await step.locator('p').count()).toBe(1)
-			}
-
-			const stepTops = await steps.evaluateAll((elements) =>
-				elements.map((element) => element.getBoundingClientRect().top),
-			)
-			let previousTop: number | undefined
-			for (const top of stepTops) {
-				if (previousTop !== undefined) {
-					expect(top - previousTop).toBeGreaterThan(48)
-				}
-				previousTop = top
-			}
-		} finally {
-			await context.close()
-		}
-	})
-
 	it.each([
 		{
 			colorScheme: 'light' as const,
@@ -65,7 +34,7 @@ describe('website visual system', () => {
 		{
 			colorScheme: 'dark' as const,
 			customShell: false,
-			path: '/docs',
+			path: '/docs/1.0',
 			width: 375,
 		},
 	])(
@@ -227,7 +196,7 @@ describe('website visual system', () => {
 			const page = await context.newPage()
 			const clientErrors = collectClientErrors(page)
 
-			await page.goto(`${origin}/docs`)
+			await page.goto(`${origin}/docs/1.0`)
 			expect(page.url()).toBe(`${origin}/docs/1.0`)
 			expect(await page.locator('html').getAttribute('lang')).toBe('en')
 			expect(clientErrors).toEqual([])
@@ -236,9 +205,9 @@ describe('website visual system', () => {
 			const searchDialog = page.getByRole('dialog')
 			await searchDialog.waitFor({ state: 'visible' })
 			expect(clientErrors).toEqual([])
-			await searchDialog.getByRole('textbox').fill('canonical')
+			await searchDialog.getByRole('textbox').fill('Introduction')
 			await searchDialog
-				.getByRole('button', { name: /Documentation/u })
+				.getByRole('button', { name: /Introduction/u })
 				.first()
 				.waitFor({ state: 'visible' })
 			expect(clientErrors).toEqual([])
@@ -319,7 +288,7 @@ describe('website visual system', () => {
 			const page = await context.newPage()
 			const linearJourneys = [
 				[
-					'/docs/1.0/getting-started/introduction',
+					'/docs/1.0',
 					'/docs/1.0/getting-started/installation',
 				],
 				[
@@ -346,11 +315,6 @@ describe('website visual system', () => {
 				.locator('xpath=following-sibling::div[1]')
 				.locator('a[data-card]')
 			expect(await gettingStartedCards.count()).toBe(7)
-			await page.goto(`${origin}/docs/1.0/getting-started/project-structure`)
-			expect(page.url()).toBe(
-				`${origin}/docs/1.0/getting-started/first-application`,
-			)
-
 			await page.goto(`${origin}/docs/1.0/core/reading-data/selections`)
 			const cards = page
 				.getByRole('heading', { level: 2, name: 'Next steps' })

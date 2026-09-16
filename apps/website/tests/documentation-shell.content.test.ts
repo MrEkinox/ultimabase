@@ -12,7 +12,6 @@ import {
 	documentationPath,
 	documentationVersions,
 	isDocumentationVersion,
-	versionDocumentationSlug,
 } from '../lib/docs-versions'
 
 const contentRoot = fileURLToPath(new URL('../content/docs', import.meta.url))
@@ -84,53 +83,13 @@ function internalDocumentationLinks(source: string): readonly string[] {
 }
 
 describe('public documentation content contract', () => {
-	it('keeps version configuration explicit and maps legacy routes to current docs', async () => {
+	it('keeps version configuration explicit and canonical URLs versioned', async () => {
 		expect(documentationVersions).toEqual([{ label: '1.0', slug: '1.0' }])
 		expect(currentDocumentationVersion.slug).toBe('1.0')
 		expect(documentationPath('core/reading-data/overview')).toBe(
 			'/docs/1.0/core/reading-data/overview',
 		)
-		expect(versionDocumentationSlug(['querying', 'overview'])).toEqual([
-			'1.0',
-			'core',
-			'reading-data',
-			'overview',
-		])
-		expect(versionDocumentationSlug(['1.0', 'querying', 'overview'])).toEqual([
-			'1.0',
-			'core',
-			'reading-data',
-			'overview',
-		])
-		expect(
-			versionDocumentationSlug(['1.0', 'mutations', 'soft-delete']),
-		).toEqual([
-			'1.0',
-			'plugins',
-			'official',
-			'data-and-persistence',
-			'soft-delete',
-		])
-		expect(versionDocumentationSlug(['1.0', 'security', 'access'])).toEqual([
-			'1.0',
-			'plugins',
-			'official',
-			'authentication-and-authorization',
-			'access',
-		])
-		expect(versionDocumentationSlug(['1.0', 'apis', 'rest'])).toEqual([
-			'1.0',
-			'plugins',
-			'official',
-			'http-and-apis',
-			'rest',
-		])
-		expect(
-			versionDocumentationSlug(['1.0', 'getting-started', 'project-structure']),
-		).toEqual(['1.0', 'getting-started', 'first-application'])
-		expect(
-			versionDocumentationSlug(['1.0', 'getting-started', 'next-steps']),
-		).toEqual(['1.0', 'getting-started', 'first-application'])
+		expect(documentationPath()).toBe('/docs/1.0')
 
 		const metadata = JSON.parse(
 			await readFile(path.join(contentRoot, '1.0', 'meta.json'), 'utf8'),
@@ -215,7 +174,7 @@ describe('public documentation content contract', () => {
 		expect(
 			visibleDocumentationSections([
 				'/docs/1.0/plugins/overview',
-				'/docs/1.0/getting-started/introduction',
+				'/docs/1.0/getting-started/installation',
 			]).map(({ slug }) => slug),
 		).toEqual(['getting-started', 'plugins'])
 	})

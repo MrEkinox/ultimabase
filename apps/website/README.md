@@ -96,10 +96,11 @@ architecture background outside the primary learning path.
 
 ## Documentation versions
 
-Documentation URLs include the framework release line, for example
-`/docs/1.0/getting-started/introduction`. `/docs` and legacy unversioned page
-URLs redirect to the newest configured line. Fumadocs derives the version
-selector from each version folder's `root: "version"` metadata.
+Documentation URLs include the framework release line. `/docs/1.0` is the
+Introduction; Getting Started begins at `/docs/1.0/getting-started/installation`.
+Only current versioned URLs are served; removed and unversioned pages return
+404. Fumadocs derives the version selector from each version folder's
+`root: "version"` metadata.
 
 To publish another maintained line, add its version folder and register it in
 `lib/docs-versions.ts`, newest first. Reuse relative page paths when the same

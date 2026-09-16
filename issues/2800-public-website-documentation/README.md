@@ -95,8 +95,8 @@ The public route architecture is:
 /
 ├── docs
 │   └── <version> (currently 1.0)
+│       ├── index (Introduction)
 │       ├── getting-started
-│       │   ├── introduction
 │       │   ├── installation
 │       │   ├── first-application
 │       ├── core
@@ -198,11 +198,12 @@ configuration, behavior, reference, limitations, and troubleshooting without a
 same-named folder and child page. A new route is justified only when the reader
 can complete it as an independent task.
 
-The routes are canonical English URLs. `/docs` and legacy unversioned
-documentation paths redirect to the newest maintained line. Version switching
+The routes are canonical, versioned English URLs. Introduction lives at the
+version root. Unversioned and removed documentation paths return 404; the site
+has not launched, so there is no compatibility routing. Version switching
 preserves the page when an equivalent exists or returns to that version's root.
-The former Getting Started `project-structure` and `next-steps` routes redirect
-to `first-application`, which now contains those subjects as page sections.
+The former Getting Started `project-structure` and `next-steps` subjects now
+live as sections of `first-application`.
 The landing page links directly to all three status pages in its final section.
 
 ## Landing-page narrative

@@ -1,74 +1,60 @@
 ---
-title: Documentation
-description: Learn UltimaBase through task-oriented guides and precise framework contracts.
+title: Introduction
+description: Understand what UltimaBase provides, what remains explicit, and whether its pre-release contract fits your application.
 audience:
   - application-developer
   - plugin-author
   - operator
 contentType: concept
 order: 0
-outcome: Choose the documentation path that matches the work you need to complete.
-owner: '2804'
+outcome: Understand UltimaBase's core model and choose the right next path.
+owner: '2806'
 releaseStatus: pre-release
 reviewedAt: 2026-09-16
 sources:
   - README.md
   - ARCHITECTURE.md
-  - issues/2800-public-website-documentation/README.md
+  - docs/PRODUCT_SPEC.md
 ---
 
-<Callout title="Pre-release documentation">
-	UltimaBase is evolving toward its first stable release. Public contracts are
-	documented as they ship, and deliberate changes may still occur.
+UltimaBase is an open-source, Node.js-first framework for building typed data
+applications from static TypeScript schemas. You declare the data model and
+choose explicit plugins; UltimaBase compiles that graph and sends every
+operation through one Runtime pipeline.
+
+<Callout title="Pre-release contract">
+	UltimaBase is under active development before its first stable release. The
+	documentation describes behavior that exists today, but public APIs may still
+	change deliberately.
 </Callout>
 
-This is the canonical English documentation for UltimaBase `1.0`. Start with
-Getting Started, then choose the owner of the behavior you need.
+## Context
 
-**One application model**
+Application developers can start with a small TypeScript project without
+choosing an HTTP transport. Plugin authors extend the same application graph,
+and operators can follow its explicit configuration and lifecycle. No prior
+UltimaBase knowledge is required.
 
-Every public entry point reaches the same compiled application graph.
+## Mental model
 
-<Steps>
-	<Step>
-		<h3>TypeScript, REST, or GraphQL</h3>
-		<p>Choose the entry point that fits your application.</p>
-	</Step>
-	<Step>
-		<h3>Normalized operation</h3>
-		<p>Each entry point becomes a logical operation in Core.</p>
-	</Step>
-	<Step>
-		<h3>Validation, policy, and hooks</h3>
-		<p>Installed capabilities run through the same Runtime pipeline.</p>
-	</Step>
-	<Step>
-		<h3>Transactional persistence</h3>
-		<p>Mutations commit in one automatic database transaction.</p>
-	</Step>
-</Steps>
+Your schema and the plugins you install form one compiled application graph.
+Core owns the schema, immutable data commands, structural validation, and the
+Runtime pipeline. The PostgreSQL plugin supplies persistence. Generated types
+can improve editor support later, but they are not executable application code.
 
-<Cards>
-	<Card title="Getting Started" href="/docs/1.0/getting-started/introduction">
-		Install UltimaBase and run the first typed PostgreSQL application.
-	</Card>
-	<Card title="Core" href="/docs/1.0/core/application/application-graph">
-		Learn native application, modeling, query, mutation, Runtime, and authority
-		behavior.
-	</Card>
-	<Card
-		title="Official Plugins"
-		href="/docs/1.0/plugins/overview#official-plugins"
-	>
-		Add database, lifecycle, security, HTTP, and API capabilities explicitly.
-	</Card>
-	<Card title="Community Plugins" href="/docs/1.0/plugins/community-plugins">
-		Understand the future community catalog or prepare a plugin submission.
-	</Card>
-	<Card title="Guides" href="/docs/1.0/guides/build-an-authenticated-api">
-		Complete workflows that combine several Core and plugin capabilities.
-	</Card>
-	<Card title="Reference" href="/docs/1.0/reference/core-api/application">
-		Look up Core signatures, packages, compatibility, and architecture context.
-	</Card>
-</Cards>
+## Boundaries
+
+UltimaBase is not a hosted backend service or a Parse Server-compatible clone.
+Application code does not write Drizzle queries directly. Authentication,
+authorization, HTTP, REST, and GraphQL are optional capabilities; Core does
+not install them for you.
+
+## Related tasks
+
+- To build a first application, complete [Installation](/docs/1.0/getting-started/installation)
+  and [First Application](/docs/1.0/getting-started/first-application). That path
+  needs Node.js 24 or newer and a disposable PostgreSQL database.
+- To extend UltimaBase, learn the [Plugin System](/docs/1.0/plugins/overview)
+  and [Build a Plugin](/docs/1.0/plugins/build-a-plugin).
+- To run or deploy an application, start with the
+  [Production Checklist](/docs/1.0/operations/production-checklist).

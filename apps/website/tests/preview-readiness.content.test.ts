@@ -97,13 +97,13 @@ describe('website preview readiness', () => {
 
 	it('aligns canonical, Open Graph, and X metadata without a stale image', () => {
 		const metadata = createPublicPageMetadata({
-			canonicalPath: '/docs/1.0/getting-started/introduction',
+			canonicalPath: '/docs/1.0',
 			description: 'Understand the framework before building an application.',
 			title: 'Introduction',
 		})
 
 		expect(metadata.alternates?.canonical).toBe(
-			new URL('/docs/1.0/getting-started/introduction', siteConfig.canonicalUrl)
+			new URL('/docs/1.0', siteConfig.canonicalUrl)
 				.href,
 		)
 		expect(metadata.openGraph).toMatchObject({

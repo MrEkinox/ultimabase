@@ -32,7 +32,7 @@ async function publicSearch(page: Page, query: string): Promise<string> {
 }
 
 describe('website preview audit', () => {
-	it('exposes the current docs version and preserves legacy links', async () => {
+	it('exposes the current docs version', async () => {
 		const context = await browser?.newContext({
 			viewport: { height: 900, width: 1280 },
 		})
@@ -41,9 +41,7 @@ describe('website preview audit', () => {
 		try {
 			const page = await context.newPage()
 			const clientErrors = collectClientErrors(page)
-			await page.goto(`${origin}/docs/getting-started/introduction`)
-			expect(page.url()).toBe(`${origin}/docs/1.0/getting-started/introduction`)
-
+			await page.goto(`${origin}/docs/1.0`)
 			const versionSelector = page
 				.locator('#nd-sidebar')
 				.getByRole('button', { exact: true, name: '1.0' })
@@ -77,9 +75,9 @@ describe('website preview audit', () => {
 					.getAttribute('href'),
 			).toBe('/docs/1.0/plugins/overview')
 			await page.getByRole('link', { name: 'Start building' }).click()
-			await page.waitForURL(`${origin}/docs/1.0/getting-started/introduction`)
+			await page.waitForURL(`${origin}/docs/1.0/getting-started/installation`)
 			await page
-				.getByRole('heading', { level: 1, name: 'Introduction' })
+				.getByRole('heading', { level: 1, name: 'Installation' })
 				.waitFor()
 
 			expect(
@@ -134,10 +132,6 @@ describe('website preview audit', () => {
 				.getByRole('heading', { level: 1, name: 'Community Plugins' })
 				.waitFor()
 
-			await page.goto(`${origin}/docs/1.0/mutations/soft-delete`)
-			expect(page.url()).toBe(
-				`${origin}/docs/1.0/plugins/official/data-and-persistence/soft-delete`,
-			)
 		} finally {
 			await context.close()
 		}
@@ -184,14 +178,22 @@ describe('website preview audit', () => {
 		}
 	})
 
-	it('does not publish the former examples pages', async () => {
+	it('does not publish removed documentation and examples routes', async () => {
 		const context = await browser?.newContext()
 		if (context === undefined) throw new Error('Browser did not start')
 
 		try {
 			const page = await context.newPage()
-			for (const route of ['/examples', '/examples/model-the-schema']) {
-				const response = await page.request.get(`${origin}${route}`)
+			for (const route of [
+				'/examples',
+				'/examples/model-the-schema',
+				'/docs',
+				'/docs/1.0/getting-started/introduction',
+				'/docs/1.0/mutations/soft-delete',
+			]) {
+				const response = await page.request.get(`${origin}${route}`, {
+					maxRedirects: 0,
+				})
 				expect(response.status(), route).toBe(404)
 			}
 		} finally {
@@ -208,7 +210,7 @@ describe('website preview audit', () => {
 
 		try {
 			const page = await context.newPage()
-			await page.goto(`${origin}/docs/getting-started/first-application`)
+			await page.goto(`${origin}/docs/1.0/getting-started/first-application`)
 			await page
 				.getByRole('heading', { level: 1, name: 'First Application' })
 				.waitFor()
@@ -245,7 +247,7 @@ describe('website preview audit', () => {
 			expect(await publicSearch(page, 'HTTP_APPLICATION_REJECTED')).toContain(
 				'/docs/1.0/plugins/official/http-and-apis/http',
 			)
-			await page.goto(`${origin}/docs`)
+			await page.goto(`${origin}/docs/1.0`)
 			const dialog = page.getByRole('dialog')
 			await page.locator('button[data-search-full]').click()
 			await dialog.waitFor()
@@ -367,7 +369,7 @@ describe('website preview audit', () => {
 
 		try {
 			const page = await context.newPage()
-			await page.goto(`${origin}/docs/getting-started/introduction`)
+			await page.goto(`${origin}/docs/1.0`)
 			expect(
 				await page.locator('meta[property="og:title"]').getAttribute('content'),
 			).toBe('Introduction')

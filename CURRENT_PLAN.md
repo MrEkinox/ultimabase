@@ -45,7 +45,8 @@ The documentation keeps task-oriented learning paths while making capability
 ownership explicit:
 
 ```text
-Getting Started
+Introduction
+→ Getting Started
 → Core
   → Application
   → Data Modeling
@@ -151,13 +152,13 @@ The subsequent milestone audit found that the approved Concepts section,
 standalone status routes, and global Plugins entry remained absent. Issue 2821
 published the eight missing mental-model pages; issue 2822 restored status and
 navigation parity and reran the final preview gate.
-Issue 2823 versioned the documentation source and canonical URLs under `1.0`,
-enabled Fumadocs' native release-line selector, and preserved legacy links
-through current-version redirects.
+Issue 2823 versioned the documentation source and canonical URLs under `1.0`
+and enabled Fumadocs' native release-line selector. Its former legacy-link
+redirects were removed before launch.
 Issue 2824 completed the compact public information architecture around
 explicit Core and plugin capability ownership. It also replaced repeated
 sidebar task trees with coherent long pages and Fumadocs' page-level table of
-contents, while preserving versioned and legacy routes.
+contents. The pre-launch cleanup serves only current versioned routes.
 The 2026-09-16 post-milestone decision supersedes the previously delivered
 French journey: the website now publishes only authored English pages. Browser
 translation is available to readers but is not a maintained site capability.
@@ -165,10 +166,11 @@ The later post-milestone examples cleanup removes the seven website-only
 scenario pages and their index. Repository examples remain maintained for
 guides and tests; release status, roadmap, and contributing are linked directly
 from the landing page.
-The subsequent Getting Started review reduces that path to Introduction,
-Installation, and First Application. The first application page now owns the
-project-file explanation and next-path cards; former Project Structure and
-Next Steps URLs redirect there. The Typegen concept owns its optional setup.
+The subsequent Getting Started review reduces that path to Installation and
+First Application. Introduction is the version root at `/docs/1.0`. The first
+application page owns the project-file explanation and next-path cards; former
+Project Structure and Next Steps URLs are no longer served. The Typegen concept
+owns its optional setup.
 
 ### Phase 1 — Application, design, and content foundation
 

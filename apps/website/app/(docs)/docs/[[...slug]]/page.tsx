@@ -1,4 +1,4 @@
-import { notFound, redirect } from 'next/navigation'
+import { notFound } from 'next/navigation'
 import { findNeighbour } from 'fumadocs-core/page-tree'
 import {
 	DocsBody,
@@ -17,12 +17,6 @@ import {
 	documentationEditOptions,
 	documentationEditUrl,
 } from '../../../../lib/docs-links'
-import {
-	documentationPath,
-	documentationVersions,
-	resolveLegacyDocumentationPath,
-	versionDocumentationSlug,
-} from '../../../../lib/docs-versions'
 import { createPublicPageMetadata } from '../../../../lib/metadata'
 import { source } from '../../../../lib/source'
 
@@ -36,16 +30,6 @@ export default async function DocumentationPage({
 	params,
 }: DocumentationPageProps) {
 	const { slug } = await params
-	const requestedVersion = documentationVersions.find(
-		(version) => version.slug === slug?.[0],
-	)
-	const relativeSlug = requestedVersion === undefined ? slug : slug?.slice(1)
-	const relativePath = relativeSlug?.join('/') ?? ''
-	const canonicalPath = resolveLegacyDocumentationPath(relativePath)
-	if (requestedVersion === undefined || canonicalPath !== relativePath) {
-		redirect(documentationPath(canonicalPath, requestedVersion))
-	}
-
 	const page = source.getPage(slug)
 	if (page === undefined) notFound()
 	const Content = page.data.body
@@ -60,7 +44,9 @@ export default async function DocumentationPage({
 			toc={page.data.toc}
 		>
 			<DocsTitle>{page.data.title}</DocsTitle>
-			<DocsDescription>{page.data.description}</DocsDescription>
+			<DocsDescription className="mb-2">
+				{page.data.description}
+			</DocsDescription>
 			<div className="flex flex-wrap items-center gap-2 border-b pt-2 pb-6">
 				<MarkdownCopyButton markdownUrl={markdownUrl} />
 				<ViewOptionsPopover
@@ -85,8 +71,7 @@ export function generateStaticParams() {
 
 export async function generateMetadata({ params }: DocumentationPageProps) {
 	const { slug } = await params
-	const versionedSlug = versionDocumentationSlug(slug)
-	const page = source.getPage(versionedSlug)
+	const page = source.getPage(slug)
 	if (page === undefined) notFound()
 
 	return createPublicPageMetadata({

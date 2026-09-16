@@ -52,7 +52,7 @@ const preview: SiteConfig['preview'] = Object.freeze({
 const routes: SiteConfig['routes'] = Object.freeze({
 	contributing: '/status/contributing',
 	docs: currentDocumentationPath(),
-	gettingStarted: currentDocumentationPath('getting-started/introduction'),
+	gettingStarted: currentDocumentationPath('getting-started/installation'),
 	plugins: currentDocumentationPath('plugins/overview'),
 	releaseStatus: '/status/release-status',
 	roadmap: '/status/roadmap',
