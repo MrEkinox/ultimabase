@@ -8,18 +8,23 @@ order: 1
 outcome: Choose a read terminal, build its input, and execute it in the correct application context.
 owner: '2808'
 releaseStatus: pre-release
-reviewedAt: 2026-09-15
+reviewedAt: 2026-09-16
 sources:
   - packages/core/README.md
   - packages/core/docs/query.md
+  - packages/core/src/query/query/input.ts
   - packages/core/src/query/query/query.ts
   - docs/adr/0152-schema-root-object-read-commands.md
   - docs/adr/0227-core-query-exposes-offset-not-cursors.md
 ---
 
-UltimaBase reads start on a generated schema class. Pass one canonical object
-that describes filtering, projection, relationships, ordering, and pagination;
-then pass execution options only when no request context is active.
+Read from the schema class returned by `Schema.define()`. `findMany` accepts one
+object for filtering, selection, related data, ordering, and pagination.
+Execution options are a separate final argument, not part of that read input.
+
+The example assumes `Post` declares `published` and `title`, and that its
+application is started with a persistence plugin. See
+[Manual Installation](/docs/1.0.0/manual-installation) for that setup.
 
 ```ts title="src/read-posts.ts"
 import { Post } from './schemas.js'
@@ -37,36 +42,39 @@ export const readPublishedPosts = () =>
 	)
 ```
 
-The schema, fields, operators, and result projection are correlated. Typegen
-makes invalid fields fail at compile time; Core repeats structural validation
-for JavaScript and transport input before Runtime reaches an adapter.
+The call returns at most 20 immutable `Post` models, ordered newest first with
+`id` breaking equal-timestamp ties. Each result contains `id`, `createdAt`,
+and `title`; `published` filters the rows but is not returned because the
+selection does not request it. The schema's TypeScript types check fields and
+operators; optional Typegen adds application-wide precision for installed
+plugins. Core still validates JavaScript and untrusted transport input before
+executing a read.
 
 ## Read terminals
 
-| Terminal                       | Result               | No visible match | Use it for                              |
-| ------------------------------ | -------------------- | ---------------- | --------------------------------------- |
-| `findMany(input?, options?)`   | Readonly model array | Empty array      | A filtered collection                   |
-| `findOne(input?, options?)`    | One model or `null`  | `null`           | The first match under explicit ordering |
-| `get({ id, ... }, options?)`   | One model            | `NOT_FOUND`      | One known stable identity               |
-| `count({ where? }, options?)`  | `number`             | `0`              | Collection cardinality                  |
-| `exists({ where? }, options?)` | `boolean`            | `false`          | A low-cost presence check               |
+| Terminal                       | Result               | No visible match | Use it for                       |
+| ------------------------------ | -------------------- | ---------------- | -------------------------------- |
+| `findMany(input?, options?)`   | Readonly model array | Empty array      | A filtered collection            |
+| `findOne(input?, options?)`    | One model or `null`  | `null`           | One matching record              |
+| `get({ id, ... }, options?)`   | One model            | `NOT_FOUND`      | One known stable identity        |
+| `count({ where? }, options?)`  | `number`             | `0`              | Collection cardinality           |
+| `exists({ where? }, options?)` | `boolean`            | `false`          | Presence without loading a model |
 
 `findOne` and `get` communicate different expectations. Use `get` when absence
 is exceptional and the ID is already known. Use `findOne` when a filter may
-legitimately match nothing.
+legitimately match nothing. If several records may match `findOne`, add
+`orderBy` to define which is first; Core adds no implicit ordering. `count` and
+`exists` accept `where`, not selection, ordering, or pagination clauses.
 
 ## Execution context
 
-Inside an active request, hook, or transaction, a read inherits the exact
-application, request context, cancellation signal, authority, and transaction:
-
-```ts
-const post = await Post.findOne({ where: { published: { eq: true } } })
-```
-
-For a root script, worker, or test, pass the started application explicitly as
-the final argument, as the first example does. Execution options are not part
-of the query and are never serialized by a transport.
+Inside an active request, hook, or transaction, a read can omit the final
+argument and inherit the exact application, request context, cancellation
+signal, authority, and any active transaction. A read does not start a
+transaction by itself. In a root script, worker, or test, pass the started
+application explicitly as the final argument, as the first example does.
+Execution options can also supply a trusted context when needed; they are
+never serialized as query input by a transport.
 
 ## Reusable dynamic queries
 
@@ -77,22 +85,37 @@ programmatically or reused as a typed scope:
 import { QueryBuilder, type QueryScope } from '@ultimabase/core'
 
 import { Post } from './schemas.js'
+import { ultimabase } from './ultimabase.js'
 
 const published: QueryScope<typeof Post> = (query) =>
 	query.where({ published: { eq: true } })
 
-export const recentPublishedPosts = new QueryBuilder(Post)
+const recentPublishedInput = new QueryBuilder(Post)
 	.select({ createdAt: true, title: true })
 	.use(published)
 	.descending('createdAt')
 	.ascending('id')
 	.limit(25)
 	.build()
+
+export const readRecentPublishedPosts = () =>
+	Post.findMany(recentPublishedInput, { ultimabase })
 ```
 
 Every builder method returns a new frozen branch. `build()` emits the same
 canonical object accepted by `Post.findMany`; the builder performs no I/O and
-retains no application or authority.
+retains no application or authority. The last call executes the read.
 
-Continue with [Filters](./filters), then shape the returned type with
-[Selections](./selections).
+## Related tasks
+
+<Cards>
+	<Card title="Filters" href="./filters">
+		Combine field operators and logical groups in `where`.
+	</Card>
+	<Card title="Selections" href="./selections">
+		Choose the visible fields and inferred result shape.
+	</Card>
+	<Card title="Ordering and Pagination" href="./ordering-and-pagination">
+		Build bounded, deterministic collection pages.
+	</Card>
+</Cards>
