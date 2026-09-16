@@ -22,7 +22,7 @@
 				{
 					"slug": "data-modeling/defaults",
 					"contentType": "concept",
-					"outcome": "Predict the create input and complete model type for every field configuration."
+					"outcome": "Predict create-input presence, default resolution, and complete persisted values."
 				},
 				{
 					"slug": "data-modeling/embedded-objects",
