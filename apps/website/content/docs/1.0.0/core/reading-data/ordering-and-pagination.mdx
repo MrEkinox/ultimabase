@@ -1,75 +1,106 @@
 ---
 title: Ordering and Pagination
-description: Build deterministic offset pages and understand the transport-specific cursor boundary.
+description: Order records predictably and page through them with limit and offset.
 audience:
   - application-developer
 contentType: guide
 order: 4
-outcome: Return a bounded, explicitly ordered Core page without inventing a cursor contract.
+outcome: Request a bounded Core page with an explicit, unique order and a valid offset.
 owner: '2808'
 releaseStatus: pre-release
 reviewedAt: 2026-09-16
 sources:
   - packages/core/docs/query.md
+  - packages/core/src/query/query/input.ts
+  - packages/core/src/query/clauses/ordering.ts
+  - packages/core/src/query/clauses/pagination.ts
   - docs/adr/0174-object-ordering-inputs.md
   - docs/adr/0227-core-query-exposes-offset-not-cursors.md
-  - docs/adr/0228-experimental-http-rest-v1-wire-contract.md
-  - docs/adr/0238-graphql-v1-contract.md
 ---
 
 ## Outcome
 
-Combine explicit ordering, a maximum `limit`, and a non-negative `offset` to
-produce predictable Core and REST collection pages.
+Combine explicit ordering, a positive `limit`, and a non-negative `offset` to
+return a predictable page from a Core collection read. Core does not provide a
+cursor or snapshot pagination API.
 
 ## Prerequisites
 
-Choose a stable field or field combination that uniquely orders the matching
-records. Pagination cannot repair ambiguous ordering after the fact.
+Start with [Query Overview](./overview) and a started application. The example
+assumes `Post` declares `title` and has the built-in `createdAt` field. Choose
+an order that uniquely positions matching records; a timestamp alone may
+repeat.
 
 ## Steps
 
-Declare ordering priority in object property order. Add `id` as a unique
-tie-breaker when the leading value can repeat:
+This function uses a zero-based `pageIndex`: `0` is the first page. Declare
+ordering priority in object property order and add `id` to break timestamp
+ties:
 
 ```ts title="src/post-page.ts"
 import { Post } from './schemas.js'
 import { ultimabase } from './ultimabase.js'
 
-export const readPostPage = (page: number) =>
-	Post.findMany(
+const PAGE_SIZE = 25
+
+export const readPostPage = (pageIndex: number) => {
+	const offset = pageIndex * PAGE_SIZE
+
+	if (
+		!Number.isSafeInteger(pageIndex) ||
+		pageIndex < 0 ||
+		!Number.isSafeInteger(offset)
+	) {
+		throw new RangeError('pageIndex must produce a non-negative safe offset')
+	}
+
+	return Post.findMany(
 		{
-			limit: 25,
-			offset: page * 25,
+			limit: PAGE_SIZE,
+			offset,
 			orderBy: { createdAt: 'desc', id: 'asc' },
 			select: { createdAt: true, title: true },
 		},
 		{ ultimabase },
 	)
+}
 ```
 
-`limit` is the maximum number of returned rows. `offset` skips that many
-matching rows and must be a non-negative safe integer. An offset of zero is the
-first page. Core does not add implicit ordering or an `id` tie-breaker.
+`limit` is the maximum number of rows returned and must be a positive safe
+integer. `offset` skips matching rows and must be a non-negative safe integer;
+omitting it is equivalent to zero. Core validates both values, but the example
+also rejects invalid page indexes before executing a read.
+
+`orderBy` accepts `asc`, `desc`, or `null` for each supported persisted field.
+`null` skips that field. The first non-null property has highest priority.
+Core adds neither default ordering nor an `id` tie-breaker: without a complete
+order, two reads may return tied records in different positions. A field may be
+used for ordering without being included in `select`.
 
 ## Verify
 
-For `page = 2`, the input requests at most 25 rows after skipping 50. Repeating
-the call against unchanged data and the same ordering produces the same page.
+For `pageIndex = 2`, the function requests the third page: at most 25 rows
+after skipping 50. Repeating it against unchanged data with the same order
+produces the same page. A page may contain fewer than 25 rows or be empty.
 
-Offset pagination is not a snapshot: inserting or deleting earlier rows between
-calls can shift later pages, and deep offsets may become expensive. Prefer
-focused filters plus explicit unique ordering for long-running iteration.
+Offset pagination is not a snapshot. Inserting, deleting, or changing records
+between calls can shift later pages even with a unique order. Deep offsets may
+also become expensive. Use focused filters when scanning a large collection;
+do not treat an offset as a durable continuation token.
 
-## Transport boundary
+## Next steps
 
-| Surface         | Public pagination                                         |
-| --------------- | --------------------------------------------------------- |
-| Core TypeScript | `limit` and `offset`; no cursor API or metadata           |
-| REST v1         | Offset pagination; no cursor, `pageInfo`, or `nextCursor` |
-| GraphQL v1      | Relay `first` and `after`, edges, and `pageInfo`          |
-
-GraphQL owns and signs its opaque Relay cursor, then normalizes the decoded
-position into ordinary Core offset clauses. That cursor provides wire integrity
-and context binding, not keyset or snapshot semantics. It never enters the Core
-Query AST.
+<Cards>
+	<Card title="Related Data" href="./related-data">
+		Page an included relation independently for each parent record.
+	</Card>
+	<Card title="REST API" href="/docs/1.0.0/plugins/official/http-and-apis/rest">
+		Use the REST plugin's numeric pagination parameters.
+	</Card>
+	<Card
+		title="GraphQL"
+		href="/docs/1.0.0/plugins/official/http-and-apis/graphql"
+	>
+		Use the GraphQL plugin's Relay connection and cursors.
+	</Card>
+</Cards>
