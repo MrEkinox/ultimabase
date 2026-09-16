@@ -119,6 +119,9 @@ the former Guides page is not served.
 no duplicate field-builder page under Reference.
 `Core > Data Modeling > Schemas` owns declaration options, indexes, and
 application-bound handles; there is no duplicate Schema page under Reference.
+`Core > Data Modeling > Models` owns draft construction, persisted snapshots,
+instance commands, and failure behavior; there is no duplicate model page under
+Reference.
 The docs sidebar shows the version and page tree without duplicate global
 Plugins or GitHub links. Its repository icon sits beside Fumadocs' theme switch
 at the bottom; marketing navigation retains the full set of site links.

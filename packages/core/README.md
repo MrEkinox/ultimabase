@@ -1393,10 +1393,12 @@ fields visible in that result, so a selected result cannot recover omitted data.
 Draft `create` and `upsert` plus persisted `update`, `delete`, and `fetch` accept
 the same exact result selections as their static read or mutation equivalents.
 `fetch` and `exists` reuse the normal read pipeline, including installed policies and behavior.
-`toPointer` and `equals` operate locally on protected identity, even when `id`
-was not selected. All instance commands remain immutable conveniences: a
-mutation starts without the receiver's read selection and returns a new model.
-`get`, `fetch`, `update`, and `delete` target one exact identity and throw
+`toPointer` and `equals` operate locally on validated identity. Every persisted
+model exposes `id`, even when the selection did not name it. All instance
+commands remain immutable conveniences: a mutation starts without the receiver's
+read selection and returns a new model.
+`get(field)` reads the visible snapshot locally and throws when the field is
+absent. `fetch`, `update`, and `delete` target one exact identity and throw
 `NOT_FOUND` when it no longer exists. Schema `updateOne` and `deleteOne` accept
 exactly one of `id` or `where`; `id` is only a concise alias for
 `where: { id: { eq: id } }`. They remain nullable conditional mutations and

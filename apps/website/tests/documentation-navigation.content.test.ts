@@ -120,7 +120,7 @@ const canonicalNavigation = {
 		'compatibility',
 		'architecture-decisions',
 	],
-	'1.0.0/reference/core-api': ['application', 'query', 'models', 'errors'],
+	'1.0.0/reference/core-api': ['application', 'query', 'errors'],
 } as const satisfies Readonly<Record<string, readonly string[]>>
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
@@ -188,6 +188,29 @@ describe('documentation navigation architecture', () => {
 		await expect(
 			readFile(
 				path.join(contentRoot, '1.0.0/reference/core-api/schema.mdx'),
+				'utf8',
+			),
+		).rejects.toMatchObject({ code: 'ENOENT' })
+	})
+
+	it('keeps model commands inside Models without a duplicate reference page', async () => {
+		const page = await readFile(
+			path.join(contentRoot, '1.0.0/core/data-modeling/models.mdx'),
+			'utf8',
+		)
+		for (const heading of [
+			'## Drafts and persisted models',
+			'## Visible fields and identity',
+			'## Commands by state',
+			'## Immutability and failures',
+		]) {
+			expect(page).toContain(heading)
+		}
+		expect(page).toContain("import { Product } from './product.js'")
+		expect(page).toContain("name: 'Notebook'")
+		await expect(
+			readFile(
+				path.join(contentRoot, '1.0.0/reference/core-api/models.mdx'),
 				'utf8',
 			),
 		).rejects.toMatchObject({ code: 'ENOENT' })

@@ -174,7 +174,6 @@ The public route architecture is:
 │           ├── core-api
 │           │   ├── application
 │           │   ├── query
-│           │   ├── models
 │           │   └── errors
 │           ├── package-index
 │           ├── compatibility

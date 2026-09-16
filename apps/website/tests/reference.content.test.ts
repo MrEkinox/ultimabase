@@ -10,7 +10,6 @@ const contentRoot = fileURLToPath(
 const pages = [
 	'core-api/application',
 	'core-api/query',
-	'core-api/models',
 	'core-api/errors',
 ] as const
 

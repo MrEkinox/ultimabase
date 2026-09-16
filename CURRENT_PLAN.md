@@ -193,6 +193,10 @@ The Schemas page now includes declaration options, indexes, application-bound
 handles, and compilation errors. The duplicate
 `/docs/1.0.0/reference/core-api/schema` route is removed without a pre-launch
 redirect.
+The Models page now combines the draft and persisted mental model with instance
+command lookup and failures. The duplicate
+`/docs/1.0.0/reference/core-api/models` route is removed without a pre-launch
+redirect.
 
 ### Phase 1 — Application, design, and content foundation
 

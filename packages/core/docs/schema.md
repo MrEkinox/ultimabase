@@ -314,9 +314,10 @@ const recentPosts = await posts.findMany({
 
 The `relation()` argument completes only exact relation field names and returns
 `Relation<typeof UserSchema, typeof PostSchema>`. Drafts omit the method from
-their type. A persisted projection may use it even when `id` is not visible,
-because Runtime retains the validated source identity separately; an adapter
-that did not provide protected identity fails before a handle can be created.
+their type. Every persisted projection exposes `id`, even when its selection
+does not name it. Runtime also retains validated source identity separately so
+a visible field alone cannot forge a relation handle; an adapter that did not
+provide trusted identity fails before a handle can be created.
 
 `Relation` is a frozen opaque class. `query()` returns the ordinary target
 `Query`, so selection, filtering, ordering, offset pagination, count,
@@ -385,16 +386,17 @@ if (post !== null) {
 ```
 
 Direct properties, `get()`, enumeration, inspection, and `toJSON()` all share
-the same visible snapshot. Omitted fields are absent at runtime and from the
-inferred result type. Runtime retains the protected object identity separately,
-so an instance selected with only `title` can still target itself without
-revealing `id` through properties or serialization. A later `update()` or
+the same visible snapshot. Omitted fields other than `id` are absent at runtime
+and from the inferred result type. Every persisted selection includes visible
+`id`, even when the caller selects only `title`. Runtime separately retains
+validated identity to target instance commands safely. A later `update()` or
 `delete()` applies its own result selection rather than preserving that earlier
 read projection. Without `select`, it returns the complete model allowed by
 installed output policy.
 
-Drafts expose only `create` and `upsert`; persisted or queried models expose only
-`update` and `delete`:
+Drafts expose `create` and `upsert` as executing commands. Persisted or queried
+models expose `fetch`, `exists`, `update`, and `delete`, plus local identity
+helpers:
 
 ```ts
 import { increment } from '@ultimabase/core'

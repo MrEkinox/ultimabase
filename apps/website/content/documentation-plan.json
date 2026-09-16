@@ -37,7 +37,7 @@
 				{
 					"slug": "data-modeling/models",
 					"contentType": "concept",
-					"outcome": "Construct, inspect, serialize, and reason about immutable schema models."
+					"outcome": "Construct, inspect, and use immutable draft and persisted schema models."
 				},
 				{
 					"slug": "data-modeling/relationships",
@@ -383,11 +383,6 @@
 					"slug": "core-api/errors",
 					"contentType": "reference",
 					"outcome": "Handle stable public error codes without exposing trusted diagnostics or relying on transport internals."
-				},
-				{
-					"slug": "core-api/models",
-					"contentType": "reference",
-					"outcome": "Use immutable draft and persisted model methods without introducing mutable Active Record state."
 				},
 				{
 					"slug": "core-api/query",

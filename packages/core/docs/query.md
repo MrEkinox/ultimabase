@@ -57,8 +57,9 @@ Relation inclusions accept the same `offset` name. The adapter applies it
 independently to every parent collection.
 
 `select` receives one flat boolean object correlated with the schema. As soon
-as one field is `true`, only fields marked `true` remain visible. With only
-`false` values, every schema field remains visible except those marked `false`:
+as one field is `true`, only fields marked `true` and the implicit `id` remain
+visible. With only `false` values, every schema field remains visible except
+those marked `false`:
 
 ```ts
 const cards = await Post.findMany({ select: { id: true, title: true } })
