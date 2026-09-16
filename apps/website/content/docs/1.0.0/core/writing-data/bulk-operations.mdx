@@ -1,38 +1,60 @@
 ---
 title: Bulk Operations
-description: Run an ordered atomic batch without weakening singular mutation semantics.
+description: Create, update, upsert, or delete several records in one atomic batch.
 audience:
   - application-developer
 contentType: concept
 order: 4
-outcome: Use bulk commands with the same guarantees as their singular forms.
+outcome: Choose the right batch input and interpret its ordered results and failures.
 owner: '2809'
 releaseStatus: pre-release
-reviewedAt: 2026-09-15
+reviewedAt: 2026-09-16
 sources:
   - packages/core/README.md
+  - packages/core/docs/query.md
   - packages/core/docs/runtime.md
   - docs/adr/0099-automatic-mutation-transactions.md
-  - docs/adr/0163-public-schema-root-mutation-commands.md
+  - docs/adr/0148-uniform-mutation-result-selections.md
+  - docs/adr/0164-atomic-item-oriented-mutation-hooks.md
+  - docs/adr/0180-mutation-relationship-projections.md
+  - docs/adr/0243-bounded-singular-nested-writes.md
 ---
 
-Bulk commands are ordered lists of singular operations. They are a convenient
-application API, not a public set-based database shortcut.
+Bulk commands execute an ordered list of singular record operations in one
+transaction. They are not set-based shortcuts: each item crosses Core's
+structural validation and, when installed, the relevant policy and Hook
+lifecycles.
+
+The examples assume a started application with a persistence plugin and a
+`Post` schema with required `slug` and `title` fields, no other required
+fields, and a unique `slug`. See [Manual Installation](/docs/1.0.0/manual-installation)
+for the application setup.
+
+## Choose a batch command
+
+| Command      | Input entries                       | Result without `select`              |
+| ------------ | ----------------------------------- | ------------------------------------ |
+| `createMany` | Create data                         | Complete visible created models      |
+| `updateMany` | `{ where, data }`                   | Models with only `id`                |
+| `upsertMany` | `{ where, create, update }`         | Complete visible result models       |
+| `deleteMany` | Unique predicates in `where: [...]` | Models with only `id`, before delete |
+
+Each command accepts one `select` for every result. A selected model still
+includes `id`, even when it is not listed. `createMany` and `updateMany` also
+accept `include`; upsert and delete batches do not.
+
+## Create and update records
 
 ```ts title="src/bulk-posts.ts"
-import { Account, Post } from './schemas.js'
+import { Post } from './schemas.js'
 import { ultimabase } from './ultimabase.js'
 
 export const createPostBatch = (
-	authorId: string,
 	posts: readonly { readonly slug: string; readonly title: string }[],
 ) =>
 	Post.createMany(
 		{
-			data: posts.map((post) => ({
-				author: Account.pointer(authorId),
-				...post,
-			})),
+			data: posts.map(({ slug, title }) => ({ slug, title })),
 			select: { slug: true, title: true },
 		},
 		{ ultimabase },
@@ -53,12 +75,72 @@ export const renamePostBatch = (
 	)
 ```
 
-`createMany`, `updateMany`, `upsertMany`, and `deleteMany` preserve input order.
-Every item gets singular validation, policy evaluation, Hooks, and result
-materialization inside one transaction. One failure rolls back the entire
-batch; there is no partial-success mode.
+`updateMany` entries and the `deleteMany` target list use `where`, even when
+targeting an ID; they do not accept the top-level `id` shortcut of the singular
+commands. Each `where` must identify one unique target, not a broad filter.
 
-Each update, upsert, or delete item must identify at most one target through an
-ID or exact unique predicate. Nested writes are intentionally unavailable on
-bulk roots. If a privileged persistence-plan plugin combines physical work, it
-must preserve the original itemized logical behavior.
+## Upsert and delete records
+
+```ts title="src/bulk-import-and-delete.ts"
+import { Post } from './schemas.js'
+import { ultimabase } from './ultimabase.js'
+
+export const upsertPostBatch = (
+	posts: readonly { readonly slug: string; readonly title: string }[],
+) =>
+	Post.upsertMany(
+		{
+			data: posts.map(({ slug, title }) => ({
+				where: { slug: { eq: slug } },
+				create: { slug, title },
+				update: { title },
+			})),
+			select: { slug: true, title: true },
+		},
+		{ ultimabase },
+	)
+
+export const deletePostBatch = (postIds: readonly string[]) =>
+	Post.deleteMany(
+		{
+			where: postIds.map((id) => ({ id: { eq: id } })),
+			select: { slug: true, title: true },
+		},
+		{ ultimabase },
+	)
+```
+
+Upsert entries create a missing unique target or update an existing one. By
+contrast, every `updateMany` or `deleteMany` entry must match one visible
+record; a missing target raises `NOT_FOUND` and rolls back the whole batch.
+Each `deleteMany` result contains the selected values from before deletion.
+See [Unique Upserts](./upserts) and [Delete Records](./delete) for the singular
+semantics.
+
+## Verify and handle failures
+
+All four commands return an immutable array with one model per input, in input
+order. Each example specifies a selection, and every returned model also
+includes its implicit `id`. An empty batch returns `[]` without starting an
+item lifecycle or transaction.
+
+An invalid input, unique-key conflict, missing directed target, installed
+policy or Hook rejection, or persistence failure aborts the batch. All earlier
+writes and Hook-started database work in that batch roll back; there is no
+partial-success mode or public `atomic: false` option. A root batch starts an
+automatic transaction, while a batch inside an explicit transaction reuses it.
+
+Bulk create, update, and upsert inputs may contain ordinary pointer values, but
+not nested relationship commands. Use singular [Nested Writes](./nested-writes)
+when one root operation must create or connect related records.
+
+## Next steps
+
+<Cards>
+	<Card title="Transactions" href="./transactions">
+		Coordinate several commands within one explicit transaction.
+	</Card>
+	<Card title="Nested Writes" href="./nested-writes">
+		Write a bounded relationship graph from a singular root.
+	</Card>
+</Cards>
