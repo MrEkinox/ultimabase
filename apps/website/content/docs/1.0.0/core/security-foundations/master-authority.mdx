@@ -1,73 +1,117 @@
 ---
 title: Master Authority
-description: Configure audited, application-owned server authority for trusted maintenance work.
+description: Configure audited, application-owned Master authority for trusted server work.
 audience:
   - application-developer
   - operator
 contentType: guide
 order: 7
-outcome: Use Master deliberately without creating a transport-forgeable bypass.
+outcome: Run and verify one audited Master command without exposing a client-side bypass.
 owner: '2811'
 releaseStatus: pre-release
-reviewedAt: 2026-09-15
+reviewedAt: 2026-09-16
 sources:
   - packages/core/README.md
+  - packages/core/docs/runtime.md
+  - packages/access-plugin/README.md
+  - packages/postgres-plugin/README.md
   - docs/adr/0206-application-owned-master-provenance.md
   - docs/adr/0218-master-bypasses-authorization-policies.md
   - docs/adr/0224-http-application-rest-and-password-auth-boundaries.md
 ---
 
-Master is trusted server-side authority for work that must bypass authorization,
-such as administration or migrations. Configure keys on the exact application and
-provide an audit callback. Audit failure prevents elevation and every downstream
-effect.
+Master is trusted server-side authority for work that must bypass
+authorization. It belongs to one exact application and requires a successful
+audit before an elevated command runs. It is not a role, authenticated user,
+transport flag, or substitute for an ordinary application policy.
 
-```ts
+## Configure a trusted server command
+
+The example assumes `DATABASE_URL` and `ULTIMABASE_MASTER_KEY` are supplied by
+the server environment. It uses PostgreSQL for persistence and the optional
+Access plugin with its default-deny policy; an ordinary anonymous create would
+be denied. Keep the code on the server, never in a browser bundle.
+
+```ts title="src/maintenance.ts"
+import { accessPlugin } from '@ultimabase/access-plugin'
 import { MasterAuthority, Schema, UltimaBase } from '@ultimabase/core'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
 
-const AuditRecord = Schema.define({
-	className: 'SecurityAuditRecord',
-	fields: (field) => ({ message: field.string({ required: true }) }),
+const databaseUrl = process.env.DATABASE_URL
+const masterKey = process.env.ULTIMABASE_MASTER_KEY
+
+if (!databaseUrl || !masterKey) {
+	throw new TypeError('DATABASE_URL and ULTIMABASE_MASTER_KEY are required')
+}
+
+const Post = Schema.define({
+	className: 'Post',
+	fields: (field) => ({ title: field.string({ required: true }) }),
 })
 
 const masterAuthority = new MasterAuthority({
-	keys: [{ id: 'maintenance', value: 'read-from-a-secret-store' }],
+	keys: [{ id: 'maintenance', value: masterKey }],
 	onUse: (event) => {
-		console.info(event.keyId, event.reason)
+		console.info('Master use', {
+			keyId: event.keyId,
+			reason: event.reason,
+			requestId: event.requestId,
+		})
 	},
 })
 
 export const ultimabase = new UltimaBase({
 	masterAuthority,
-	plugins: [],
-	schemas: [AuditRecord],
+	plugins: [accessPlugin(), postgresPlugin({ url: databaseUrl })],
+	schemas: [Post],
 })
 
-await AuditRecord.createOne(
-	{ data: { message: 'Rebuilt the search index' } },
-	{ ultimabase, useMasterKey: true },
-)
+await ultimabase.start()
+
+export const createMaintenancePost = (title: string) =>
+	Post.createOne({ data: { title } }, { ultimabase, useMasterKey: true })
 ```
 
-The concise `useMasterKey: true` option is a trusted direct-server path. For a
-verified raw key, `MasterAuthority.authorize()` returns an opaque grant and
-`RequestEngine.useMasterKey(grant, reason)` binds it to the same application. A
-Master context carries private provenance for both its authority and application;
-a context issued for another application is rejected even when both share an
-authority object.
+Calling `createMaintenancePost('Rebuild complete')` from trusted server code
+returns the created model and emits one audit event before the write. If the
+audit callback throws, elevation fails and no post is written. `console.info`
+is only a local demonstration; use an audit sink with appropriate durability,
+access controls, and failure handling for production.
+
+## Choose the entry path
+
+`useMasterKey: true` is the concise, trusted direct-server option. It uses the
+first configured key ID for the audit and does not verify a raw key at that
+call. When a trusted boundary receives a raw key, `MasterAuthority.authorize()`
+verifies it and returns an opaque grant; `RequestEngine.useMasterKey(grant,
+reason)` then audits and binds the elevation to its exact application. A
+grant or Master context from another application is rejected, even if both
+applications share the same authority configuration.
+
+The optional HTTP Master header works only when explicitly enabled. The
+public application ID selects one application first; only that application's
+authority may verify and audit the raw key. A client-supplied `useMasterKey`
+flag, shaped context, foreign grant, or alternative header cannot select
+Master. See [HTTP](/docs/1.0.0/plugins/official/http-and-apis/http) for that
+separate transport setup.
+
+## Know what Master bypasses
 
 Master bypasses authorization owned by Access and ACL. It does **not** bypass:
 
 - Core structural validation or installed application validation;
 - Hooks, input resolution, or prepared-operation transforms;
 - automatic transactions, database constraints, or rollback;
-- reference maintenance, lifecycle work, integrity checks, or committed events.
+- reference maintenance, lifecycle work, or integrity checks.
 
-> **Security boundary:** Client `useMasterKey` flags, shaped contexts, metadata,
-> grants, and alternative headers never create Master. The optional canonical HTTP
-> Master header works only when explicitly enabled, after `X-UltimaBase-Application-Id`
-> selects one application, and only when that application's authority verifies and
-> audits the raw key. A key for another application fails closed.
+<Callout type="warn" title="Keep credentials out of public output">
+	Client `useMasterKey` flags, shaped contexts, metadata, grants, and
+	alternative headers never create Master. Never log a raw key or place it in
+	request metadata, a schema field, a browser bundle, or an error response.
+</Callout>
 
-Never compile a Master key into browser code. A public application ID identifies a
-mounted application; it is routing data, not a secret and not authorization proof.
+A public application ID identifies a mounted application; it is routing data,
+not a secret or authorization proof. For ordinary user requests, use
+[Access](/docs/1.0.0/plugins/official/authentication-and-authorization/access)
+or [ACL](/docs/1.0.0/plugins/official/authentication-and-authorization/acl-permissions)
+instead of Master.
