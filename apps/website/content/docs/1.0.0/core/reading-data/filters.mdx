@@ -1,25 +1,30 @@
 ---
 title: Filters
-description: Combine field-specific operators and logical groups in one typed where object.
+description: Match records with typed field operators and logical groups.
 audience:
   - application-developer
 contentType: reference
 order: 2
-outcome: Express precise scalar, list, pointer, and structured predicates with valid operands.
+outcome: Choose the right scalar, list, structured, pointer, or relation predicate for a where input.
 owner: '2808'
 releaseStatus: pre-release
-reviewedAt: 2026-09-15
+reviewedAt: 2026-09-16
 sources:
   - packages/core/README.md
   - packages/core/docs/query.md
   - packages/core/src/query/filters
   - docs/adr/0143-canonical-object-where-inputs.md
+  - docs/adr/0157-explicit-relation-emptiness-filters.md
   - docs/adr/0160-pointer-identity-and-target-filters.md
 ---
 
-`where` is a schema-correlated object. Fields and operators at the same level
-combine with implicit `AND`; the reserved `AND`, `OR`, and `NOT` keys create
-recursive logical groups.
+Pass a `where` object to a read to match records. Its field names and available
+operators follow the schema. Fields and operators at the same level combine with
+`AND`; use `AND`, `OR`, and `NOT` for nested groups.
+
+This example assumes `Post` declares `published` as a boolean, `title` as a
+string, `views` as an integer, and `tags` as a string list. It also assumes a
+started application exported as `ultimabase`.
 
 ```ts title="src/discover-posts.ts"
 import { Post } from './schemas.js'
@@ -29,68 +34,112 @@ export const readDiscoverablePosts = () =>
 	Post.findMany(
 		{
 			where: {
-				NOT: { title: { startsWith: 'Archive' } },
-				OR: [{ score: { gte: 80 } }, { tags: { has: 'featured' } }],
 				published: { eq: true },
 				views: { between: { lower: 100, upper: 10_000 } },
+				OR: [
+					{ title: { contains: 'TypeScript' } },
+					{ tags: { has: 'featured' } },
+				],
+				NOT: { title: { startsWith: 'Archive' } },
 			},
 		},
 		{ ultimabase },
 	)
 ```
 
-## Operator families
+Every returned post is published, has 100–10,000 views inclusive, matches at
+least one `OR` branch, and does not have a title starting with `Archive`. An
+empty match returns `[]`. Core validates the filter before execution and
+intersects it with installed access restrictions; a `where` clause never grants
+access to otherwise hidden records.
 
-Autocomplete exposes only the operators supported by a field kind.
+## Scalar and list operators
 
-| Family                | Representative operators                          | Notes                                      |
-| --------------------- | ------------------------------------------------- | ------------------------------------------ |
-| Equality              | `eq`, `ne`, `in`, `notIn`                         | Exact logical values                       |
-| Ordering              | `gt`, `gte`, `lt`, `lte`, `between`, `notBetween` | Ordered values; ranges include both bounds |
-| Text                  | `contains`, `startsWith`, `endsWith`, `matches`   | String-specific matching                   |
-| Nullability           | `isNull`, `isNotNull`                             | Accept literal `true`, not `eq: null`      |
-| One-dimensional lists | `has`, `hasSome`, `hasEvery`, `isEmpty`           | Element-aware list checks                  |
-| JSON and objects      | `contains`, `containedBy`, key and path operators | Structured portable values                 |
+Autocomplete shows only operators supported by the chosen field kind.
 
-Several operators on one field still combine through `AND`. For example,
-`{ views: { gte: 100, lt: 1_000 } }` is a half-open interval. Prefer
-`between: { lower, upper }` when both bounds should be inclusive.
+| Field kind            | Operators                                           | Operand and meaning                                                                                                          |
+| --------------------- | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Comparable scalar     | `eq`, `ne`, `in`, `notIn`                           | One value or an array of candidate values.                                                                                   |
+| Ordered scalar        | `gt`, `gte`, `lt`, `lte`, `between`, `notBetween`   | Values of the field's type. A range uses `{ lower, upper }`, including both bounds for `between`.                            |
+| String                | `contains`, `startsWith`, `endsWith`, `matches`     | Text; `matches` takes `{ source, flags }`, not a `RegExp` instance.                                                          |
+| Nullable stored field | `isNull`, `isNotNull`                               | Only the literal `true`.                                                                                                     |
+| One-dimensional list  | `eq`, `ne`, `has`, `hasSome`, `hasEvery`, `isEmpty` | `eq`/`ne` compare the whole list; `has` checks one element; `hasSome`/`hasEvery` take arrays; `isEmpty: true` excludes null. |
 
-## Pointer filters
-
-A pointer stores target identity. `eq`, `ne`, `in`, and `notIn` accept target
-object IDs, while `is` and `isNot` traverse the visible target with its exact
-schema filter:
-
-```ts
-const memberships = await Membership.findMany({
-	where: {
-		project: {
-			eq: projectId,
-			is: { archived: { eq: false } },
-		},
-	},
-})
-```
-
-`eq` checks only stored identity. `is` and `isNot` evaluate target visibility
-and policy. A null pointer satisfies `isNot`; add `isNotNull: true` when null
-must be excluded.
+Several operators on one field also combine with `AND`: `{ views: { gte: 100,
+lt: 1_000 } }` includes 100 but excludes 1,000. `notBetween` matches values
+strictly outside its inclusive bounds. Use `isNull: true` or `isNotNull: true`
+to distinguish a nullable list from an empty one.
 
 ## Structured values
 
-Typed embedded objects preserve exact keys and path segments. JSON fields allow
-dynamic paths with JSON-compatible operands. Paths stay as segment arrays, so a
-dot inside a declared field name is never parsed as nesting.
+`field.json()` and `field.object()` support structural `contains` and
+`containedBy`, key checks (`hasKey`, `hasAnyKeys`, `hasAllKeys`), and `at` path
+predicates. Here `metadata` is a JSON field and `profile` is a typed embedded
+object with `contact.email`:
 
-```ts
-where: {
-	profile: {
-		at: [{ path: ['contact', 'email'], eq: 'ada@example.com' }],
-	},
-}
+```ts title="src/filter-profiles.ts"
+import { Post } from './schemas.js'
+import { ultimabase } from './ultimabase.js'
+
+export const readPublicProfiles = () =>
+	Post.findMany(
+		{
+			where: {
+				metadata: { contains: { visibility: 'public' } },
+				profile: {
+					at: [{ path: ['contact', 'email'], eq: 'ada@example.com' }],
+				},
+			},
+		},
+		{ ultimabase },
+	)
 ```
 
-For dynamic conditions, build a `WhereBuilder`, call `.build()`, and pass the
-result as ordinary `where`. It uses the same operators and normalization; it is
-not a second query language.
+Each `at` path is an array of segments, not a dotted string. Typed object
+paths and operands follow the declared shape; JSON paths are dynamic. For
+advanced JSONPath expressions, use `jsonPathExists` or `jsonPathMatches` with
+`{ source, variables? }`. The expression source is not TypeScript-checked.
+See [Embedded Objects](/docs/1.0.0/core/data-modeling/embedded-objects) for
+how nested values are declared.
+
+## Pointers and relations
+
+A pointer stores one target ID. Its `eq`, `ne`, `in`, and `notIn` operators take
+target IDs, not `Pointer` objects. `is` and `isNot` instead test a nested filter
+against the visible target:
+
+```ts title="src/filter-memberships.ts"
+import { Membership } from './schemas.js'
+import { ultimabase } from './ultimabase.js'
+
+export const readActiveMemberships = (projectId: string) =>
+	Membership.findMany(
+		{
+			where: {
+				project: {
+					eq: projectId,
+					is: { archived: { eq: false } },
+				},
+			},
+		},
+		{ ultimabase },
+	)
+```
+
+This assumes `Membership.project` points to a `Project` with an `archived`
+boolean. `eq` checks stored identity without reading the target. `is` and
+`isNot` apply target visibility and policy. `isNot` also matches a null pointer
+or a target hidden by policy; add `isNotNull: true` if a null pointer must not
+match. Use `isNull: true` to find null pointers, not `eq: null`.
+
+A to-many relation is not a stored list. It supports `some`, `none`, and
+`every` with a target-schema `where` object; `count` compares the number of
+visible related records and can include its own target `where`. For a simple
+existence check, use `isEmpty: true` or `isNotEmpty: true`. `every` is also true
+when the visible relation is empty, so combine it with `isNotEmpty: true` when
+at least one target is required. See [Related Data](./related-data) for
+relation-filter examples and visibility rules.
+
+For conditions assembled in application code, use the immutable `WhereBuilder`
+described in [Reusable Dynamic Queries](./overview#reusable-dynamic-queries).
+Its `.build()` result uses this same `where` contract.
