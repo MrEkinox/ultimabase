@@ -72,7 +72,9 @@ describe('documentation sidebar', () => {
 				).toBe(0)
 			}
 			expect(
-				await sidebar.getByRole('link', { name: 'Application', exact: true }).count(),
+				await sidebar
+					.getByRole('link', { name: 'Application', exact: true })
+					.count(),
 			).toBe(1)
 			expect(
 				await sidebar
@@ -84,6 +86,32 @@ describe('documentation sidebar', () => {
 					.getByRole('link', { name: 'Build an Authenticated API' })
 					.getAttribute('href'),
 			).toBe('/docs/1.0.0/guides/build-an-authenticated-api')
+		} finally {
+			await context.close()
+		}
+	})
+
+	it('places virtual fields in Data Modeling without a duplicate guide route', async () => {
+		const context = await browser?.newContext()
+		if (context === undefined) throw new Error('Browser did not start')
+
+		try {
+			const page = await context.newPage()
+			await page.goto(`${origin}/docs/1.0.0/core/data-modeling/virtual-fields`)
+			await page
+				.getByRole('heading', { level: 1, name: 'Virtual Fields' })
+				.waitFor()
+			const sidebar = page.locator('#nd-sidebar')
+			expect(
+				await sidebar
+					.getByRole('link', { name: 'Virtual Fields' })
+					.getAttribute('href'),
+			).toBe('/docs/1.0.0/core/data-modeling/virtual-fields')
+			const oldGuide = await page.request.get(
+				`${origin}/docs/1.0.0/guides/add-virtual-fields`,
+				{ maxRedirects: 0 },
+			)
+			expect(oldGuide.status()).toBe(404)
 		} finally {
 			await context.close()
 		}

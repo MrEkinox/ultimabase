@@ -86,9 +86,8 @@ A `virtual` field declares an output shape, a `select` of persisted dependencies
 and a resolver. The resolver can use the request context and return a value or
 a promise. Core loads dependency-only values privately and validates the
 resolved output before returning it. Virtual fields are not stored, indexed,
-filterable, orderable, or writable. Follow
-[Add a Computed Result Field](/docs/1.0.0/guides/add-virtual-fields) for a
-complete example.
+filterable, orderable, or writable. [Virtual Fields](./virtual-fields) explains
+dependencies, output typing, request context, and failure behavior.
 
 ## Plugin-owned field methods
 

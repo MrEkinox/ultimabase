@@ -182,6 +182,10 @@ and application scope; its former child URLs are no longer served. The later
 reader-path audit moved optional Typegen setup to the independent
 `/docs/1.0.0/guides/generate-types` guide, leaving the Core page focused on
 the application concept.
+The later Data Modeling review moved virtual-field behavior into the Core
+`/docs/1.0.0/core/data-modeling/virtual-fields` concept page. The former
+`/docs/1.0.0/guides/add-virtual-fields` route is removed without a pre-launch
+redirect; Guides retains its task workflows.
 
 ### Phase 1 — Application, design, and content foundation
 

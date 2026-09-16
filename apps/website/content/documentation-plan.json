@@ -31,8 +31,8 @@
 				},
 				{
 					"slug": "data-modeling/fields",
-					"contentType": "reference",
-					"outcome": "Select the correct field kind and understand which surfaces it enters."
+					"contentType": "concept",
+					"outcome": "Choose a field family and understand which values are stored, accepted as input, or returned as output."
 				},
 				{
 					"slug": "data-modeling/models",
@@ -47,7 +47,12 @@
 				{
 					"slug": "data-modeling/schemas",
 					"contentType": "concept",
-					"outcome": "Define and register a portable schema with exact generated types."
+					"outcome": "Define and register a schema, and understand when its fields become available."
+				},
+				{
+					"slug": "data-modeling/virtual-fields",
+					"contentType": "concept",
+					"outcome": "Define a virtual field and predict its selection, privacy, typing, and failure behavior."
 				},
 				{
 					"slug": "reading-data/filters",
@@ -282,11 +287,6 @@
 			],
 			"releaseStatus": "pre-release",
 			"pages": [
-				{
-					"slug": "add-virtual-fields",
-					"contentType": "tutorial",
-					"outcome": "Select a computed display title without exposing its private dependencies."
-				},
 				{
 					"slug": "build-an-authenticated-api",
 					"contentType": "tutorial",

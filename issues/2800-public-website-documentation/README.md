@@ -107,6 +107,7 @@ The public route architecture is:
 │       │   │   ├── models
 │       │   │   ├── defaults
 │       │   │   ├── embedded-objects
+│       │   │   ├── virtual-fields
 │       │   │   └── relationships
 │       │   ├── reading-data
 │       │   │   ├── overview
@@ -160,7 +161,6 @@ The public route architecture is:
 │       │   └── build-a-plugin
 │       ├── guides
 │       │   ├── build-an-authenticated-api
-│       │   ├── add-virtual-fields
 │       │   ├── write-nested-data
 │       │   ├── filter-contextual-relations
 │       │   ├── generate-types

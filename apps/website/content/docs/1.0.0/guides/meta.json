@@ -2,7 +2,6 @@
 	"title": "Guides",
 	"pages": [
 		"build-an-authenticated-api",
-		"add-virtual-fields",
 		"write-nested-data",
 		"filter-contextual-relations",
 		"generate-types",

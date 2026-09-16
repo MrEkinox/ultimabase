@@ -36,6 +36,7 @@ const canonicalNavigation = {
 		'models',
 		'defaults',
 		'embedded-objects',
+		'virtual-fields',
 		'relationships',
 	],
 	'1.0.0/core/reading-data': [
@@ -102,7 +103,6 @@ const canonicalNavigation = {
 	],
 	'1.0.0/guides': [
 		'build-an-authenticated-api',
-		'add-virtual-fields',
 		'write-nested-data',
 		'filter-contextual-relations',
 		'generate-types',
@@ -147,5 +147,20 @@ describe('documentation navigation architecture', () => {
 				throw new TypeError(`Invalid metadata: ${directory}`)
 			expect(metadata.pages, directory).toEqual(expectedPages)
 		}
+	})
+
+	it('owns virtual-field documentation in Core without a duplicate guide', async () => {
+		const page = await readFile(
+			path.join(contentRoot, '1.0.0/core/data-modeling/virtual-fields.mdx'),
+			'utf8',
+		)
+		expect(page).toContain('contentType: concept')
+		expect(page).toContain('## Selection and private dependencies')
+		await expect(
+			readFile(
+				path.join(contentRoot, '1.0.0/guides/add-virtual-fields.mdx'),
+				'utf8',
+			),
+		).rejects.toMatchObject({ code: 'ENOENT' })
 	})
 })
