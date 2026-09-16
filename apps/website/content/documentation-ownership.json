@@ -5,7 +5,7 @@
 			"id": "core-application",
 			"packages": ["@ultimabase/core", "@ultimabase/shared"],
 			"sections": [
-				"getting-started",
+				"manual-installation",
 				"core",
 				"guides",
 				"operations",
@@ -32,7 +32,7 @@
 			"id": "postgresql",
 			"packages": ["@ultimabase/postgres-plugin"],
 			"sections": [
-				"getting-started",
+				"manual-installation",
 				"plugins/official/data-and-persistence/postgresql",
 				"operations",
 				"reference"

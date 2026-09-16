@@ -45,8 +45,10 @@ The documentation keeps task-oriented learning paths while making capability
 ownership explicit:
 
 ```text
-What is UltimaBase
-→ Getting Started
+Introduction
+  → Quick Start (automatic setup not yet available)
+  → What is UltimaBase
+  → Manual Installation
 → Core
   → Application
   → Data Modeling
@@ -166,11 +168,13 @@ The later post-milestone examples cleanup removes the seven website-only
 scenario pages and their index. Repository examples remain maintained for
 guides and tests; release status, roadmap, and contributing are linked directly
 from the landing page.
-The subsequent Getting Started review reduces that path to Installation and
-First Application. "What is UltimaBase" is the version root at `/docs/1.0.0`.
-The first application page owns the project-file explanation and next-path
-cards; former Project Structure and Next Steps URLs are no longer served. The Typegen concept
-owns its optional setup.
+The subsequent Getting Started review first reduced that path to Installation
+and First Application. The later Introduction revision combines both into one
+Manual Installation page and adds a Quick Start page that clearly marks the
+automatic initializer as unavailable. "What is UltimaBase" remains the version
+root at `/docs/1.0.0`. The manual page owns project files and next-path cards;
+the former Getting Started URLs are no longer served. The Typegen concept owns
+its optional setup.
 
 ### Phase 1 — Application, design, and content foundation
 

@@ -30,10 +30,9 @@ describe('documentation page actions', () => {
 			title: 'What is UltimaBase',
 		},
 		{
-			pagePath: '/docs/1.0.0/getting-started/installation',
-			sourcePath:
-				'apps/website/content/docs/1.0.0/getting-started/installation.mdx',
-			title: 'Installation',
+			pagePath: '/docs/1.0.0/manual-installation',
+			sourcePath: 'apps/website/content/docs/1.0.0/manual-installation.mdx',
+			title: 'Manual Installation',
 		},
 	])(
 		'serves and copies Markdown for $pagePath',

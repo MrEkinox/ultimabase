@@ -95,10 +95,10 @@ The public route architecture is:
 /
 ├── docs
 │   └── <version> (currently 1.0.0)
-│       ├── index (What is UltimaBase)
-│       ├── getting-started
-│       │   ├── installation
-│       │   ├── first-application
+│       ├── Introduction (sidebar group, not a route)
+│       │   ├── quick-start (automatic setup not yet available)
+│       │   ├── index (What is UltimaBase)
+│       │   └── manual-installation
 │       ├── core
 │       │   ├── application
 │       │   │   ├── application-graph
@@ -202,8 +202,11 @@ The routes are canonical, versioned English URLs. "What is UltimaBase" lives at 
 version root. Unversioned and removed documentation paths return 404; the site
 has not launched, so there is no compatibility routing. Version switching
 preserves the page when an equivalent exists or returns to that version's root.
-The former Getting Started `project-structure` and `next-steps` subjects now
-live as sections of `first-application`.
+The former Getting Started `installation` and `first-application` routes now
+form one long `manual-installation` page. `Quick Start` previews the intended
+automatic initializer, explicitly unavailable before publication. The former
+`project-structure` and `next-steps` subjects remain sections of that manual
+page.
 The landing page links directly to all three status pages in its final section.
 
 ## Landing-page narrative

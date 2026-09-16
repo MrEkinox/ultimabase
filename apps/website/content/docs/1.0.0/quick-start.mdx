@@ -1,0 +1,67 @@
+---
+title: Quick Start
+icon: Rocket
+description: See the intended one-command UltimaBase setup and use the manual path until the initializer is available.
+audience:
+  - application-developer
+contentType: concept
+order: 1
+outcome: Understand the intended automatic setup and find the working manual installation path.
+owner: '2806'
+releaseStatus: pre-release
+reviewedAt: 2026-09-16
+sources:
+  - README.md
+  - apps/website/README.md
+  - issues/2800-public-website-documentation/README.md
+---
+
+<Callout type="warn" title="Automatic setup is not yet available">
+	The `create-ultimabase-app` initializer has not been published. The commands
+	below show the intended release experience; they will not set up an UltimaBase
+	application today. To build one now, follow [Manual
+	Installation](/docs/1.0.0/manual-installation).
+</Callout>
+
+## Context
+
+The goal of Quick Start is to remove manual project setup when UltimaBase is
+released. You will still need a supported Node.js installation and a
+PostgreSQL database for the first application.
+
+## Mental model
+
+The intended entry point is a package-manager `create` command. It will
+initialize a project that you can inspect and edit, rather than changing how
+UltimaBase schemas, plugins, or Runtime work. The generator's prompts, output
+files, and supported options are not defined yet.
+
+### Automatic installation
+
+These commands are a preview of the intended package name, not runnable setup
+instructions yet:
+
+```bash tab="npm" tab-group="package-manager"
+npm create ultimabase-app@latest
+```
+
+```bash tab="yarn"
+yarn create ultimabase-app
+```
+
+```bash tab="pnpm"
+pnpm create ultimabase-app
+```
+
+## Boundaries
+
+Do not assume an application has been generated or follow an unpublished
+initializer in production automation. The manual path documents the actual
+schema, PostgreSQL configuration, TypeScript setup, and lifecycle in full.
+
+## Related tasks
+
+- [Manual Installation](/docs/1.0.0/manual-installation) is the complete path
+  for building and running a first application today.
+- [What is UltimaBase](/docs/1.0.0) explains the schema-and-plugin model before
+  you choose a setup path.

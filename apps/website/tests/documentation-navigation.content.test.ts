@@ -7,15 +7,16 @@ const contentRoot = fileURLToPath(new URL('../content/docs', import.meta.url))
 
 const canonicalNavigation = {
 	'1.0.0': [
+		'---Introduction---',
+		'quick-start',
 		'index',
-		'getting-started',
+		'manual-installation',
 		'core',
 		'plugins',
 		'guides',
 		'operations',
 		'reference',
 	],
-	'1.0.0/getting-started': ['installation', 'first-application'],
 	'1.0.0/core': [
 		'application',
 		'data-modeling',

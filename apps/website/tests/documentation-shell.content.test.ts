@@ -169,7 +169,6 @@ describe('public documentation content contract', () => {
 			(await readContentPages()).map((page) => page.url),
 		)
 		expect(visible.map(({ slug }) => slug)).toEqual([
-			'getting-started',
 			'core',
 			'plugins',
 			'guides',
@@ -179,9 +178,9 @@ describe('public documentation content contract', () => {
 		expect(
 			visibleDocumentationSections([
 				'/docs/1.0.0/plugins/overview',
-				'/docs/1.0.0/getting-started/installation',
+				'/docs/1.0.0/manual-installation',
 			]).map(({ slug }) => slug),
-		).toEqual(['getting-started', 'plugins'])
+		).toEqual(['plugins'])
 	})
 
 	it('rejects duplicate entries in sidebar metadata', async () => {

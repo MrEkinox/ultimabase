@@ -31,7 +31,7 @@ content evidence.
 
 | Public area              | Primary sources                                                     | Readiness | Editorial treatment                                                   |
 | ------------------------ | ------------------------------------------------------------------- | --------- | --------------------------------------------------------------------- |
-| Getting Started          | Root README, `examples/minimal`, Core and PostgreSQL exports        | Ready     | Turn the runnable path into one fixed beginner journey                |
+| Introduction             | Root README, `examples/minimal`, Core and PostgreSQL exports        | Partial   | Keep the manual path runnable; mark automatic setup unavailable       |
 | Model Your Data          | Core schema guide and schema examples                               | Ready     | Split lookup detail from mental models and task guidance              |
 | Read Data                | Core query guide and query sources                                  | Ready     | Preserve immutable Query semantics and typed results                  |
 | Write Data               | Runtime guide, nested-write examples, persistence plugins           | Ready     | Make transaction and itemized-operation boundaries visible            |

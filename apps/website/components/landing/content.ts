@@ -181,7 +181,7 @@ export const landingCopy: LandingCopy = Object.freeze({
 		description:
 			'The architecture is substantial and the API is usable. Expect deliberate change while the first stable release contract is finalized.',
 		eyebrow: 'Honest by default',
-		primaryAction: 'Read Getting Started',
+		primaryAction: 'Read Manual Installation',
 		title: 'Active pre-release development.',
 	},
 })

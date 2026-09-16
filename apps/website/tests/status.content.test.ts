@@ -32,6 +32,8 @@ describe('public status pages', () => {
 		const implementedStandalonePages = [
 			'/',
 			siteConfig.routes.docs,
+			'/docs/1.0.0/quick-start',
+			siteConfig.routes.gettingStarted,
 			...statusPageSlugs.map((slug) => `/status/${slug}`),
 		]
 		expect(plan.standalonePages.map(({ path: pagePath }) => pagePath)).toEqual(

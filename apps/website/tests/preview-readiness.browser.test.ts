@@ -48,7 +48,9 @@ describe('website preview audit', () => {
 			await versionSelector.waitFor()
 			await versionSelector.click()
 			expect(
-				await page.getByRole('link', { exact: true, name: 'Version 1.0.0' }).count(),
+				await page
+					.getByRole('link', { exact: true, name: 'Version 1.0.0' })
+					.count(),
 			).toBe(1)
 			expect(await accessibilityViolations(page)).toEqual([])
 			expect(clientErrors).toEqual([])
@@ -75,9 +77,9 @@ describe('website preview audit', () => {
 					.getAttribute('href'),
 			).toBe('/docs/1.0.0/plugins/overview')
 			await page.getByRole('link', { name: 'Start building' }).click()
-			await page.waitForURL(`${origin}/docs/1.0.0/getting-started/installation`)
+			await page.waitForURL(`${origin}/docs/1.0.0/manual-installation`)
 			await page
-				.getByRole('heading', { level: 1, name: 'Installation' })
+				.getByRole('heading', { level: 1, name: 'Manual Installation' })
 				.waitFor()
 
 			expect(
@@ -131,7 +133,6 @@ describe('website preview audit', () => {
 			await page
 				.getByRole('heading', { level: 1, name: 'Community Plugins' })
 				.waitFor()
-
 		} finally {
 			await context.close()
 		}
@@ -189,6 +190,8 @@ describe('website preview audit', () => {
 				'/examples/model-the-schema',
 				'/docs',
 				'/docs/1.0.0/getting-started/introduction',
+				'/docs/1.0.0/getting-started/installation',
+				'/docs/1.0.0/getting-started/first-application',
 				'/docs/1.0',
 			]) {
 				const response = await page.request.get(`${origin}${route}`, {
@@ -210,9 +213,9 @@ describe('website preview audit', () => {
 
 		try {
 			const page = await context.newPage()
-			await page.goto(`${origin}/docs/1.0.0/getting-started/first-application`)
+			await page.goto(`${origin}/docs/1.0.0/manual-installation`)
 			await page
-				.getByRole('heading', { level: 1, name: 'First Application' })
+				.getByRole('heading', { level: 1, name: 'Manual Installation' })
 				.waitFor()
 			expect(await page.getByRole('main').count()).toBe(1)
 			expect(
@@ -239,7 +242,7 @@ describe('website preview audit', () => {
 		try {
 			const page = await context.newPage()
 			expect(await publicSearch(page, 'install')).toContain(
-				'/docs/1.0.0/getting-started/installation',
+				'/docs/1.0.0/manual-installation',
 			)
 			expect(await publicSearch(page, '@ultimabase/core')).toContain(
 				'/docs/1.0.0/reference/package-index',
@@ -266,8 +269,8 @@ describe('website preview audit', () => {
 	})
 
 	it.each([
-		['/docs/1.0.0/getting-started/installation', 'Installation'],
-		['/docs/1.0.0/getting-started/first-application', 'First Application'],
+		['/docs/1.0.0/quick-start', 'Quick Start'],
+		['/docs/1.0.0/manual-installation', 'Manual Installation'],
 		['/docs/1.0.0/core/runtime/runtime-pipeline', 'Runtime Pipeline'],
 		['/docs/1.0.0/plugins/using-plugins', 'Using Plugins'],
 		[
@@ -366,7 +369,6 @@ describe('website preview audit', () => {
 			viewport: { height: 900, width: 1280 },
 		})
 		if (context === undefined) throw new Error('Browser did not start')
-
 		try {
 			const page = await context.newPage()
 			await page.goto(`${origin}/docs/1.0.0`)
@@ -379,12 +381,10 @@ describe('website preview audit', () => {
 			expect(
 				await page.locator('meta[name="robots"]').getAttribute('content'),
 			).toContain('noindex')
-
 			for (const route of ['/sitemap.xml', '/robots.txt', '/icon']) {
 				const response = await page.request.get(`${origin}${route}`)
 				expect(response.ok(), route).toBe(true)
 			}
-
 			const missing = await page.goto(`${origin}/not-a-preview-route`)
 			expect(missing?.status()).toBe(404)
 			await page

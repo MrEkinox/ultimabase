@@ -2,8 +2,10 @@
 	"title": "Version 1.0.0",
 	"root": "version",
 	"pages": [
+		"---Introduction---",
+		"quick-start",
 		"index",
-		"getting-started",
+		"manual-installation",
 		"core",
 		"plugins",
 		"guides",

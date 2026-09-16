@@ -96,7 +96,7 @@ export const statusPages: readonly StatusPageContent[] = Object.freeze([
 					{
 						description:
 							'Documentation samples use package roots and are marked pre-release; generated declarations never become Runtime truth.',
-						href: currentDocumentationPath('getting-started/installation'),
+						href: currentDocumentationPath('manual-installation'),
 						title: 'Intended npm experience',
 					},
 				],

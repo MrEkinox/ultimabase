@@ -8,7 +8,6 @@ export interface DocumentationSection {
 /** Canonical capability-owned sidebar order. */
 export const documentationSections: readonly DocumentationSection[] =
 	Object.freeze([
-		{ label: 'Getting Started', slug: 'getting-started' },
 		{ label: 'Core', slug: 'core' },
 		{ label: 'Plugins', slug: 'plugins' },
 		{ label: 'Guides', slug: 'guides' },

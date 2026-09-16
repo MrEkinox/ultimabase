@@ -81,7 +81,12 @@ the page's release-line path. The Open menu links to the exact source file and
 offers external AI shortcuts; those shortcuts can read the page only after the
 site has a reachable public URL.
 
-The documentation navigation is capability-owned. Native application, modeling,
+The documentation navigation begins with an `Introduction` sidebar separator:
+`Quick Start` previews the unavailable automatic initializer, `What is
+UltimaBase` explains the model, and `Manual Installation` is the complete
+working first-application path. The initializer's commands are explicitly
+non-runnable until its package is published. The remaining navigation is
+capability-owned. Native application, modeling,
 query, mutation, Runtime, and authority behavior lives below `Core`. Optional
 behavior lives below `Plugins > Official Plugins` or `Plugins > Community
 Plugins`, with one canonical section per plugin. Cross-cutting guides combine
@@ -100,10 +105,9 @@ architecture background outside the primary learning path.
 ## Documentation versions
 
 Documentation URLs include the framework release line. `/docs/1.0.0` is
-"What is UltimaBase"; Getting Started begins at
-`/docs/1.0.0/getting-started/installation`.
-Only current versioned URLs are served; removed and unversioned pages return
-404. Fumadocs derives the version selector from each version folder's
+"What is UltimaBase"; the introduction also contains
+`/docs/1.0.0/quick-start` and `/docs/1.0.0/manual-installation`.
+Only current versioned URLs are served; removed and unversioned pages return 404. Fumadocs derives the version selector from each version folder's
 `root: "version"` metadata.
 
 To publish another maintained line, add its version folder and register it in

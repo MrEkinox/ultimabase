@@ -35,11 +35,19 @@ describe('website visual system', () => {
 			await page.goto(`${origin}/docs/1.0.0`)
 			const sidebar = page.locator('#nd-sidebar')
 			await sidebar.getByRole('link', { name: 'What is UltimaBase' }).waitFor()
-			expect(await sidebar.getByRole('link', { name: 'Plugins', exact: true }).count()).toBe(0)
+			expect(
+				await sidebar
+					.getByRole('link', { name: 'Plugins', exact: true })
+					.count(),
+			).toBe(0)
 			const github = sidebar.getByRole('link', { name: 'GitHub' })
-			expect(await github.getAttribute('href')).toBe(siteConfig.repositoryUrl.href)
+			expect(await github.getAttribute('href')).toBe(
+				siteConfig.repositoryUrl.href,
+			)
 			const githubBox = await github.boundingBox()
-			const themeBox = await sidebar.locator('[data-theme-toggle]').boundingBox()
+			const themeBox = await sidebar
+				.locator('[data-theme-toggle]')
+				.boundingBox()
 			const sidebarBox = await sidebar.boundingBox()
 			expect(githubBox).not.toBeNull()
 			expect(themeBox).not.toBeNull()
@@ -273,7 +281,7 @@ describe('website visual system', () => {
 		}
 	})
 
-	it('keeps one package-manager choice across the first application journey', async () => {
+	it('keeps one package-manager choice across manual installation', async () => {
 		const context = await browser?.newContext({
 			viewport: { height: 900, width: 1280 },
 		})
@@ -281,9 +289,9 @@ describe('website visual system', () => {
 
 		try {
 			const page = await context.newPage()
-			await page.goto(`${origin}/docs/1.0.0/getting-started/installation`)
+			await page.goto(`${origin}/docs/1.0.0/manual-installation`)
 			const yarnTabs = page.getByRole('tab', { exact: true, name: 'yarn' })
-			expect(await yarnTabs.count()).toBe(4)
+			expect(await yarnTabs.count()).toBe(5)
 			await yarnTabs.first().click()
 			for (const tab of await yarnTabs.all()) {
 				expect(await tab.getAttribute('data-state')).toBe('active')
@@ -293,17 +301,7 @@ describe('website visual system', () => {
 				.allTextContents()
 			expect(activeCommands.join('\n')).toContain('yarn init -y')
 			expect(activeCommands.join('\n')).toContain('yarn tsc --version')
-
-			await page.goto(`${origin}/docs/1.0.0/getting-started/first-application`)
-			const nextYarnTab = page.getByRole('tab', { exact: true, name: 'yarn' })
-			await expect
-				.poll(() => nextYarnTab.getAttribute('data-state'))
-				.toBe('active')
-			expect(
-				await page
-					.locator('[role="tabpanel"][data-state="active"]')
-					.innerText(),
-			).toContain('yarn typecheck')
+			expect(activeCommands.join('\n')).toContain('yarn typecheck')
 		} finally {
 			await context.close()
 		}
@@ -316,14 +314,7 @@ describe('website visual system', () => {
 		try {
 			const page = await context.newPage()
 			const linearJourneys = [
-				[
-					'/docs/1.0.0',
-					'/docs/1.0.0/getting-started/installation',
-				],
-				[
-					'/docs/1.0.0/getting-started/installation',
-					'/docs/1.0.0/getting-started/first-application',
-				],
+				['/docs/1.0.0', '/docs/1.0.0/manual-installation'],
 				[
 					'/docs/1.0.0/core/reading-data/ordering-and-pagination',
 					'/docs/1.0.0/core/reading-data/related-data',
@@ -338,7 +329,7 @@ describe('website visual system', () => {
 				expect(await nextLink.count()).toBeGreaterThan(0)
 			}
 
-			await page.goto(`${origin}/docs/1.0.0/getting-started/first-application`)
+			await page.goto(`${origin}/docs/1.0.0/manual-installation`)
 			const gettingStartedCards = page
 				.getByRole('heading', { level: 2, name: 'Next steps' })
 				.locator('xpath=following-sibling::div[1]')
@@ -354,7 +345,9 @@ describe('website visual system', () => {
 				'Related Data',
 			])
 			await cards.nth(1).click()
-			await page.waitForURL(`${origin}/docs/1.0.0/core/reading-data/related-data`)
+			await page.waitForURL(
+				`${origin}/docs/1.0.0/core/reading-data/related-data`,
+			)
 		} finally {
 			await context.close()
 		}

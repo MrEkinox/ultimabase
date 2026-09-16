@@ -7,7 +7,7 @@ hosting, and launch policy receive an explicit decision.
 
 ## Reader and content audit
 
-The verified reader path covers installation, a first typed application, plugin
+The verified reader path covers manual installation, a first typed application, plugin
 installation, an authenticated API, startup diagnosis, the cross-cutting
 Concepts section, and all three source-backed status pages. Public search is
 checked against beginner vocabulary, package names, stable error identities,
@@ -21,6 +21,8 @@ packages are not yet published. Reusable TypeScript examples compile against
 source and built package exports, and maintained Runtime samples execute where a
 deterministic adapter or PostgreSQL fixture exists. Semantic claims still
 require human review against the frontmatter `sources` list.
+The Quick Start page explicitly marks its automatic initializer as unavailable;
+it links to the complete manual path rather than implying a generator exists.
 
 ## Accessibility and interaction audit
 

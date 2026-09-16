@@ -1,32 +1,6 @@
 {
 	"sections": [
 		{
-			"slug": "getting-started",
-			"label": "Getting Started",
-			"owner": "2806",
-			"audiences": ["application-developer"],
-			"sourceStatus": "ready",
-			"sources": [
-				"README.md",
-				"examples/minimal/README.md",
-				"packages/core/README.md",
-				"packages/postgres-plugin/README.md"
-			],
-			"releaseStatus": "pre-release",
-			"pages": [
-				{
-					"slug": "first-application",
-					"contentType": "tutorial",
-					"outcome": "Start and verify a minimal schema-backed PostgreSQL application."
-				},
-				{
-					"slug": "installation",
-					"contentType": "tutorial",
-					"outcome": "Install the intended npm packages and verify the local prerequisites."
-				}
-			]
-		},
-		{
 			"slug": "core",
 			"label": "Core",
 			"owner": "2824",
@@ -474,6 +448,37 @@
 			"releaseStatus": "pre-release",
 			"sourceStatus": "ready",
 			"sources": ["README.md", "ARCHITECTURE.md", "docs/PRODUCT_SPEC.md"]
+		},
+		{
+			"path": "/docs/1.0.0/quick-start",
+			"slug": "quick-start",
+			"contentType": "concept",
+			"outcome": "Understand the intended automatic setup and find the working manual installation path.",
+			"owner": "2806",
+			"audiences": ["application-developer"],
+			"releaseStatus": "pre-release",
+			"sourceStatus": "partial",
+			"sources": [
+				"README.md",
+				"apps/website/README.md",
+				"issues/2800-public-website-documentation/README.md"
+			]
+		},
+		{
+			"path": "/docs/1.0.0/manual-installation",
+			"slug": "manual-installation",
+			"contentType": "tutorial",
+			"outcome": "Start and verify a minimal schema-backed PostgreSQL application from a manually configured project.",
+			"owner": "2806",
+			"audiences": ["application-developer"],
+			"releaseStatus": "pre-release",
+			"sourceStatus": "ready",
+			"sources": [
+				"README.md",
+				"packages/core/README.md",
+				"packages/postgres-plugin/README.md",
+				"examples/minimal/README.md"
+			]
 		},
 		{
 			"path": "/status/release-status",

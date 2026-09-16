@@ -92,7 +92,10 @@ describe('documentation currency guardrails', () => {
 		)
 		const ownership = await readJson(ownershipPath)
 		const packages = await publicPackageNames()
-		const sections = documentationSections.map(({ slug }) => slug)
+		const sections = [
+			...documentationSections.map(({ slug }) => slug),
+			'manual-installation',
+		]
 
 		expect(
 			validateDocumentationOwnership(ownership, packages, sections),
