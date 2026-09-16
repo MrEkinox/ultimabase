@@ -12,6 +12,7 @@ releaseStatus: pre-release
 reviewedAt: 2026-09-16
 sources:
   - ARCHITECTURE.md
+  - packages/core/README.md
   - packages/core/docs/runtime.md
   - docs/adr/0200-protected-rewritable-persistence-plans.md
   - docs/adr/0205-protected-policy-contributions.md
@@ -28,9 +29,11 @@ Policy, Hooks, audit, results, and relationship behavior use that identity.
 The persistence plan describes the adapter statement. Core validates the plan
 before the database plugin executes it.
 
-The current plan protocol permits identity execution and the specific
-delete-to-update mapping used by replacement soft delete. It is not a general
-SQL or arbitrary-operation rewrite API. A provider needs the exact
+For native commands, the current plan protocol permits identity execution and
+only `delete-one` to `update-one` or `delete-many` to `update-many` rewrites.
+Plugin-owned schema mutations can have their own logical identity while Core
+compiles an approved update or delete statement. None of these paths is a
+general SQL or arbitrary-operation rewrite API. A rewriter needs the exact
 `persistence:rewrite` privilege, and an incompatible adapter rejects the plan.
 
 <Mermaid
