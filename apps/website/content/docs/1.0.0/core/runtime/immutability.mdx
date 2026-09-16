@@ -1,54 +1,78 @@
 ---
 title: Immutability
-description: Use independent query branches, model snapshots, ACLs, and roles without hidden state.
+description: Reuse query builders and persisted model snapshots without hidden mutation.
 audience:
   - application-developer
   - plugin-author
 contentType: concept
 order: 6
-outcome: Predict how builders and public domain values behave when reused.
+outcome: Branch a query and update a model without changing earlier values.
 owner: '2821'
 releaseStatus: pre-release
 reviewedAt: 2026-09-16
 sources:
   - packages/core/README.md
+  - packages/core/src/query/query/query.ts
   - docs/adr/0058-immutable-unbound-query-builder.md
   - docs/adr/0109-constructible-schema-models.md
 ---
 
-UltimaBase public domain values are immutable. Query builders, model snapshots,
-ACLs, and roles return a new value when changed; an earlier value keeps its
-original meaning.
+UltimaBase's query builders and schema models are immutable. A builder method
+returns a new branch; a model command returns a new snapshot. Neither changes
+the value you already hold.
+
+## Branch a read without shared state
+
+Assume `Post` declares a `published` boolean and a `title` string. Build a
+reusable selection, then branch its filter:
+
+```ts title="src/post-queries.ts"
+import { QueryBuilder } from '@ultimabase/core'
+
+import { Post } from './schemas.js'
+
+const base = new QueryBuilder(Post).select({ title: true })
+
+export const publishedInput = base.where({ published: { eq: true } }).build()
+
+export const draftInput = base.where({ published: { eq: false } }).build()
+```
+
+Both inputs select `title`, but each has its own filter. `base` still has no
+`where` clause. `build()` returns the ordinary input for `Post.findMany()`;
+building and branching perform no I/O and retain no request, application, or
+authority. Execution binds the input to a started application or the current
+request scope.
 
 <Mermaid
-	description="Published and draft queries branch independently from the same immutable base query."
+	description="The published and draft query inputs branch from one unchanged base builder."
 	chart="flowchart TB
-    A[Base query] --> B[Where published]
-    A --> C[Where draft]
-    B --> D[Published branch]
-    C --> E[Draft branch]"
+    A[Base selection] --> B[Published filter]
+    A --> C[Draft filter]
+    B --> D[Published input]
+    C --> E[Draft input]"
 />
 
-Neither branch changes the base query or the other branch.
+## Keep model snapshots separate
 
-## Builders describe work
+A `new Post(data)` draft is detached and performs no I/O. A model returned by
+Runtime is a persisted snapshot of exactly its visible selected fields. A
+persisted model's `update()` writes through the normal validation, policy, Hook,
+and transaction path, then returns a new model with the same identity. The
+earlier model still shows its earlier values; use `fetch()` when you need a
+fresh read.
 
-A Query is an unbound description of selection, filtering, ordering, inclusion,
-and pagination. It does not capture an application, adapter, transaction, or
-request authority. Execution binds it to the current application only at the
-Runtime boundary.
+`get()` and `toJSON()` only inspect the snapshot. They do not lazy-load missing
+fields, and `get()` rejects a field that was not selected. There is no dirty
+tracking, mutable `save()`, or direct adapter persistence path.
 
-## Models describe snapshots
+## Related values and tasks
 
-A constructed model is a detached draft; a returned model is a persisted
-snapshot of exactly the visible selected fields. Neither is a live database
-record. There is no dirty tracking, lazy loading, or mutable `save()` path that
-could bypass validation, policy, Hooks, and transactions.
+Optional ACL and Role domain values follow the same replacement pattern:
+adding an entry or membership returns a new value. They do not change an
+earlier value held by another request.
 
-ACL and Role values follow the same rule: adding an entry or membership returns
-a replacement value. This makes shared configuration and request-local
-branching predictable.
-
-Use [Query Overview](/docs/1.0.0/core/reading-data/overview) for builder examples,
-[Models](/docs/1.0.0/core/data-modeling/models) for draft and persisted states, and
-[ACL](/docs/1.0.0/plugins/official/authentication-and-authorization/acl-permissions) for immutable object policy.
+Use [Query Overview](/docs/1.0.0/core/reading-data/overview) for execution,
+[Models](/docs/1.0.0/core/data-modeling/models) for draft and persisted
+commands, and [ACL](/docs/1.0.0/plugins/official/authentication-and-authorization/acl-permissions)
+for immutable object policy.
