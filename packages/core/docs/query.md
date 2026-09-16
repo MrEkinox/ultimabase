@@ -308,10 +308,12 @@ or adapter-specific behavior. A schema-root `updateOne` or `deleteOne` returns
 
 `createOne`, `updateOne`, and `deleteOne` return complete immutable models by
 default and accept the same flat boolean `select` contract as schema reads. The
-projection changes only the public result; installed mutation behavior continues to receive
-complete logical materializations. Other singular schema commands still return
-complete models. No mutation accepts `include`, and pointer or relation values
-remain unloaded references:
+projection changes only the public result; installed mutation behavior continues
+to receive complete logical materializations. `createOne`, `createMany`,
+`updateOne`, and `updateMany` also accept `include` for transaction-bound
+relationship result projection. Delete and upsert commands do not accept
+`include`. Without it, pointer fields remain unloaded references and to-many
+relations are accessed through model handles:
 
 ```ts
 const created = await Post.createOne({
@@ -322,7 +324,8 @@ const created = await Post.createOne({
 const post = await Post.updateOne({
 	id: postId,
 	data: { title: 'Updated' },
-	select: { id: true, title: true, author: true },
+	select: { id: true, title: true },
+	include: { author: { select: { name: true } } },
 })
 
 const deleted = await Post.deleteOne({
@@ -331,14 +334,14 @@ const deleted = await Post.deleteOne({
 })
 
 if (post !== null) {
-	const author = await post.author.findOne()
+	const authorName = post.author?.name
 	const tags = await post.relation('tags').findMany()
 }
 ```
 
-Use a separate `Post.findOne` or `Post.get` with `include` when an included
-pointer is required. This keeps relation I/O visible while allowing the write
-result itself to remain narrow.
+An included target is loaded after the write inside the same transaction,
+without replaying the root mutation's policies or hooks. Without an `include`,
+use an explicit subsequent read when hydrated relationships are needed.
 
 `updateMany` and `deleteMany` return immutable model arrays in declaration
 order. Without `select`, they request only `id`; an explicit selection returns

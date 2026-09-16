@@ -1,52 +1,93 @@
 ---
 title: Create Records
-description: Create one typed record, shape its result, and understand what runs before it is returned.
+description: Create one record, connect an existing target, and select the returned model.
 audience:
   - application-developer
 contentType: guide
 order: 1
-outcome: Create one record with defaults, a nested pointer command, and an exact result type.
+outcome: Create one record with a default, a pointer connection, and a selected result.
 owner: '2809'
 releaseStatus: pre-release
-reviewedAt: 2026-09-15
+reviewedAt: 2026-09-16
 sources:
   - packages/core/README.md
+  - packages/core/docs/query.md
+  - packages/core/docs/schema.md
   - packages/core/docs/runtime.md
-  - docs/adr/0109-model-mutator-methods-and-create-draft.md
+  - docs/adr/0109-constructible-schema-models.md
+  - docs/adr/0180-mutation-relationship-projections.md
   - docs/adr/0243-bounded-singular-nested-writes.md
 ---
 
-Use `Schema.createOne` for a single root mutation. Its input is checked against
-the generated schema surface, and `select` plus `include` determine both the
-returned data and its TypeScript type.
+Use `Post.createOne()` to persist one record. `data` describes the new record;
+`select` and `include` shape the returned model, not the data being written.
+
+This example assumes `Post` declares required `slug` and `title` fields, a
+`published` boolean with `default: false`, and an `author` pointer to a schema
+with `displayName`. Register the schemas in a started application with a
+persistence plugin, as in [Manual Installation](/docs/1.0.0/manual-installation).
+Pass the ID of an existing target that the operation may connect.
+
+## Create one record
 
 ```ts title="src/create-post.ts"
 import { Post } from './schemas.js'
 import { ultimabase } from './ultimabase.js'
 
-export const createPost = (authorId: string) =>
+export const createPost = (authorId: string, slug: string, title: string) =>
 	Post.createOne(
 		{
 			data: {
 				author: { connect: authorId },
-				slug: 'first-post',
-				title: 'First post',
+				slug,
+				title,
 			},
 			include: { author: { select: { displayName: true } } },
-			select: { slug: true, title: true },
+			select: { published: true, slug: true, title: true },
 		},
 		{ ultimabase },
 	)
 ```
 
-Core applies generated values and defaults once, runs structural validation,
-the configured policy and Hook capabilities, then persists the record in one
-automatic transaction. The returned model is immutable: changing data means
-issuing another command, not assigning a property.
+`connect` links the new post to an existing author; it does not create the
+author. Core checks the target before the first write. To create an author in
+the same command, use `author: { create: ... }` as described in
+[Nested Writes](./nested-writes).
 
-Use `Schema.create(data)` when you need an immutable draft before persistence,
-then call `draft.create()`. Drafts are useful for local composition, but nested
-writes belong to `createOne` and are not available on draft creation.
+## Verify the result
 
-Continue with [Update Records](./update), or learn how one root write can own a
-bounded graph in [Nested Writes](./nested-writes).
+The returned immutable `Post` contains its generated `id`, the supplied
+`slug` and `title`, and `published: false` from the declared default. Its
+included `author` contains `id` and `displayName` when that target is visible;
+target read policy may instead make the inclusion `null`. Unselected post
+fields are absent from `toJSON()` and from the selected TypeScript result
+shape. See [Selections](/docs/1.0.0/core/reading-data/selections) for the
+projection rules.
+
+Core applies generated values and defaults once, validates the complete
+structure, and commits the root and pointer connection in one automatic
+transaction. The optional Validation, Access, and Hooks plugins participate
+only when installed. If target validation, an installed policy or hook, or
+persistence fails, the transaction rolls back; no partial post is committed.
+
+## Drafts and other create paths
+
+Construct an immutable draft with `new Post(data)` when you need to assemble a
+record locally. Construction performs no I/O; `draft.create(input, options)`
+persists it and returns a new model. The draft's data must use ordinary field
+values, not nested `connect` or `create` commands. See [Models](/docs/1.0.0/core/data-modeling/models)
+for its full lifecycle.
+
+Use [Bulk Operations](./bulk-operations) for an itemized collection create.
+Nested writes belong to singular `createOne`, not to bulk roots or drafts.
+
+## Next steps
+
+<Cards>
+	<Card title="Update Records" href="./update">
+		Change a persisted record with an immutable update command.
+	</Card>
+	<Card title="Nested Writes" href="./nested-writes">
+		Create or connect a bounded relationship graph atomically.
+	</Card>
+</Cards>
