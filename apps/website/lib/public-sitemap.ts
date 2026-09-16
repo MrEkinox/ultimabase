@@ -4,7 +4,6 @@ import { currentDocumentationPath } from './docs-versions'
 import { siteConfig } from './site'
 
 export interface DocumentationSitemapPage {
-	readonly locale?: string
 	readonly reviewedAt: string
 	readonly url: string
 }
@@ -18,16 +17,8 @@ export function createPublicSitemap(
 	scenarioSlugs: readonly string[],
 	statusSlugs: readonly string[] = [],
 ): MetadataRoute.Sitemap {
-	const frenchDocumentationPaths = new Set(
-		documentationPages
-			.filter((page) => page.locale === 'fr')
-			.map((page) => page.url.replace(/^\/fr(?=\/docs(?:\/|$))/u, '')),
-	)
 	const marketing: MetadataRoute.Sitemap = [
 		{
-			alternates: {
-				languages: { en: absoluteUrl('/'), fr: absoluteUrl('/fr') },
-			},
 			changeFrequency: 'monthly',
 			lastModified: siteConfig.preview.reviewedAt,
 			priority: 1,
@@ -55,20 +46,10 @@ export function createPublicSitemap(
 
 	const documentation: MetadataRoute.Sitemap = documentationPages.map(
 		(page) => {
-			const canonicalPath = page.url.replace(/^\/fr(?=\/docs(?:\/|$))/u, '')
-			const hasFrenchPage = frenchDocumentationPaths.has(canonicalPath)
 			return {
-				alternates: {
-					languages: {
-						en: absoluteUrl(canonicalPath),
-						...(hasFrenchPage
-							? { fr: absoluteUrl(`/fr${canonicalPath}`) }
-							: {}),
-					},
-				},
 				changeFrequency: 'weekly',
 				lastModified: page.reviewedAt,
-				priority: canonicalPath === currentDocumentationPath() ? 0.9 : 0.8,
+				priority: page.url === currentDocumentationPath() ? 0.9 : 0.8,
 				url: absoluteUrl(page.url),
 			}
 		},

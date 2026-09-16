@@ -7,20 +7,18 @@ import {
 	documentationSections,
 	visibleDocumentationSections,
 } from '../lib/docs-navigation'
-import { resolveDocumentationPage } from '../lib/docs-localization'
 import {
 	currentDocumentationVersion,
 	documentationPath,
 	documentationVersions,
+	isDocumentationVersion,
 	versionDocumentationSlug,
 } from '../lib/docs-versions'
-import { supportedLocales, type SiteLocale } from '../lib/i18n'
 
 const contentRoot = fileURLToPath(new URL('../content/docs', import.meta.url))
 
 interface ContentPage {
 	readonly filePath: string
-	readonly locale: SiteLocale
 	readonly source: string
 	readonly url: string
 }
@@ -44,22 +42,16 @@ async function findFiles(
 	return nested.flat()
 }
 
-function pageUrl(filePath: string): { locale: SiteLocale; url: string } {
+function pageUrl(filePath: string): { url: string } {
 	const relativePath = path.relative(contentRoot, filePath)
-	const [locale, ...segmentsWithFile] = relativePath.split(path.sep)
-	if (locale !== 'en' && locale !== 'fr') {
-		throw new TypeError(`Unsupported documentation locale in ${relativePath}`)
-	}
-
-	const segments = segmentsWithFile
+	const segments = relativePath
+		.split(path.sep)
 		.join('/')
 		.replace(/\.mdx?$/u, '')
 		.split('/')
 		.filter((segment) => segment !== 'index')
-	const localePrefix = locale === 'en' ? '' : `/${locale}`
 	return {
-		locale,
-		url: `${localePrefix}/docs${segments.length === 0 ? '' : `/${segments.join('/')}`}`,
+		url: `/docs${segments.length === 0 ? '' : `/${segments.join('/')}`}`,
 	}
 }
 
@@ -84,7 +76,6 @@ function internalDocumentationLinks(source: string): readonly string[] {
 	return links.flatMap((match) => {
 		const href = match.groups?.href
 		return href?.startsWith('/docs') === true ||
-			href?.startsWith('/fr/docs') === true ||
 			href?.startsWith('./') === true ||
 			href?.startsWith('../') === true
 			? [href]
@@ -93,35 +84,12 @@ function internalDocumentationLinks(source: string): readonly string[] {
 }
 
 describe('public documentation content contract', () => {
-	it('uses an explicit English source when French is not published', () => {
-		expect(
-			resolveDocumentationPage(
-				'fr',
-				undefined,
-				'/docs/1.0/core/reading-data/overview',
-			),
-		).toEqual({
-			englishPage: '/docs/1.0/core/reading-data/overview',
-			kind: 'translation-fallback',
-		})
-		expect(resolveDocumentationPage('en', undefined, undefined)).toEqual({
-			kind: 'not-found',
-		})
-		expect(resolveDocumentationPage('fr', '/fr/docs/1.0', '/docs/1.0')).toEqual(
-			{
-				kind: 'page',
-				page: '/fr/docs/1.0',
-			},
-		)
-	})
-
 	it('keeps version configuration explicit and maps legacy routes to current docs', async () => {
 		expect(documentationVersions).toEqual([{ label: '1.0', slug: '1.0' }])
 		expect(currentDocumentationVersion.slug).toBe('1.0')
-		expect(documentationPath('en', 'core/reading-data/overview')).toBe(
+		expect(documentationPath('core/reading-data/overview')).toBe(
 			'/docs/1.0/core/reading-data/overview',
 		)
-		expect(documentationPath('fr')).toBe('/fr/docs/1.0')
 		expect(versionDocumentationSlug(['querying', 'overview'])).toEqual([
 			'1.0',
 			'core',
@@ -158,25 +126,27 @@ describe('public documentation content contract', () => {
 			'rest',
 		])
 
-		for (const locale of supportedLocales) {
-			const metadata = JSON.parse(
-				await readFile(
-					path.join(contentRoot, locale, '1.0', 'meta.json'),
-					'utf8',
-				),
-			) as unknown
-			expect(metadata).toMatchObject({ root: 'version', title: '1.0' })
-		}
+		const metadata = JSON.parse(
+			await readFile(path.join(contentRoot, '1.0', 'meta.json'), 'utf8'),
+		) as unknown
+		expect(metadata).toMatchObject({ root: 'version', title: '1.0' })
 	})
 
-	it('keeps canonical URLs, metadata, and locales unambiguous', async () => {
+	it('keeps only release-line folders at the documentation source root', async () => {
+		const entries = await readdir(contentRoot, { withFileTypes: true })
+		expect(
+			entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name),
+		).toEqual(documentationVersions.map(({ slug }) => slug))
+		expect(entries.every((entry) => isDocumentationVersion(entry.name))).toBe(
+			true,
+		)
+	})
+
+	it('keeps canonical URLs and metadata unambiguous', async () => {
 		const pages = await readContentPages()
 		const urls = pages.map((page) => page.url)
 
 		expect(new Set(urls).size).toBe(urls.length)
-		expect([...new Set(pages.map(({ locale }) => locale))].sort()).toEqual(
-			[...supportedLocales].sort(),
-		)
 		expect(urls).toEqual(
 			expect.arrayContaining([
 				'/docs/1.0',
@@ -190,7 +160,6 @@ describe('public documentation content contract', () => {
 				'/docs/1.0/plugins/build-a-plugin',
 				'/docs/1.0/operations/application-troubleshooting',
 				'/docs/1.0/reference/core-api/application',
-				'/fr/docs/1.0',
 			]),
 		)
 		expect(urls).not.toEqual(
@@ -273,14 +242,9 @@ describe('public documentation content contract', () => {
 					: path.posix.normalize(
 							path.posix.join(path.posix.dirname(page.url), href),
 						)
-				const resolvesDirectly = publishedUrls.has(resolved)
-				const resolvesThroughFrenchFallback =
-					resolved.startsWith('/fr/docs') &&
-					publishedUrls.has(resolved.slice(3))
-				expect(
-					resolvesDirectly || resolvesThroughFrenchFallback,
-					`${page.filePath} -> ${href}`,
-				).toBe(true)
+				expect(publishedUrls.has(resolved), `${page.filePath} -> ${href}`).toBe(
+					true,
+				)
 			}
 		}
 	})

@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 const websiteRoot = fileURLToPath(new URL('..', import.meta.url))
-const docsRoot = path.join(websiteRoot, 'content/docs/en/1.0')
+const docsRoot = path.join(websiteRoot, 'content/docs/1.0')
 const pagePaths = [
 	'plugins/official/http-and-apis/http',
 	'plugins/official/data-and-persistence/postgresql',

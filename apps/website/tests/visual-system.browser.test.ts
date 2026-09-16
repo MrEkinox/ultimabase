@@ -172,7 +172,7 @@ describe('website visual system', () => {
 		}
 	})
 
-	it('keeps search and locale switching inside the public documentation', async () => {
+	it('keeps search inside the English documentation', async () => {
 		const context = await browser?.newContext({
 			colorScheme: 'light',
 			viewport: { height: 900, width: 1280 },
@@ -183,7 +183,7 @@ describe('website visual system', () => {
 			const page = await context.newPage()
 			const clientErrors = collectClientErrors(page)
 
-			await page.goto(`${origin}/en/docs`)
+			await page.goto(`${origin}/docs`)
 			expect(page.url()).toBe(`${origin}/docs/1.0`)
 			expect(await page.locator('html').getAttribute('lang')).toBe('en')
 			expect(clientErrors).toEqual([])
@@ -201,31 +201,12 @@ describe('website visual system', () => {
 			await page.keyboard.press('Escape')
 			expect(clientErrors).toEqual([])
 
-			await page.getByRole('button', { name: 'Choose a language' }).click()
-			await page.getByText('Français', { exact: true }).click()
-			await page.waitForURL(`${origin}/fr/docs/1.0`)
-			expect(await page.locator('html').getAttribute('lang')).toBe('fr')
-			await page
-				.getByText(
-					'Cette page est l’entrée française de la documentation UltimaBase',
-					{ exact: false },
-				)
-				.waitFor({ state: 'visible' })
-
-			const frenchSearch = await page.request.get(
-				`${origin}/api/search?query=parcours&locale=fr`,
-			)
-			expect(frenchSearch.ok()).toBe(true)
-			expect(JSON.stringify(await frenchSearch.json())).toContain('/fr/docs')
-
-			const englishOnlySearch = await page.request.get(
-				`${origin}/api/search?query=canonical&locale=fr`,
-			)
-			expect(englishOnlySearch.ok()).toBe(true)
-			expect(await englishOnlySearch.json()).toEqual([])
+			expect(
+				await page.getByRole('button', { name: 'Choose a language' }).count(),
+			).toBe(0)
 
 			const privateSearch = await page.request.get(
-				`${origin}/api/search?query=ADR-0191&locale=en`,
+				`${origin}/api/search?query=ADR-0191`,
 			)
 			expect(privateSearch.ok()).toBe(true)
 			const architectureResults: unknown = await privateSearch.json()

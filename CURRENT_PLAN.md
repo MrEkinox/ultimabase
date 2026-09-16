@@ -9,8 +9,8 @@
 ## Objective
 
 Create one polished, private Next.js workspace for the public product landing
-page and Fumadocs documentation. The first complete content language is English,
-with a shared localization architecture and one coherent French entry journey.
+page and Fumadocs documentation. English is the only authored site language;
+readers may use browser page translation at their discretion.
 The website must describe shipped behavior truthfully, remain easy to rename,
 and introduce durable safeguards against documentation drift.
 
@@ -29,8 +29,8 @@ one issue at a time with a dedicated verified commit for each issue.
 - The current `UltimaBase` name, canonical URL, repository URL, and release
   label remain centralized provisional configuration because the final name and
   domain are undecided.
-- English uses unprefixed canonical routes. Human-reviewed French content uses
-  `/fr` and does not duplicate application components.
+- The site publishes only English canonical routes. It does not maintain
+  translated pages, language switching, or translated search indexes.
 - Installation guides describe the intended npm experience even before the
   packages are actually published, with honest pre-release labelling.
 - The visual direction is clean, editorial, code-led, and product-specific. It
@@ -70,8 +70,8 @@ they do not duplicate plugin setup, configuration, reference, or troubleshooting
 The sidebar stops at coherent subjects; closely related subtasks live in a long
 page and its `On this page` navigation rather than repeated nested entries.
 
-The complete target sitemap, landing narrative, product boundaries, and French
-route policy live in the milestone README. It is the information-architecture
+The complete target sitemap, landing narrative, and product boundaries live in
+the milestone README. It is the information-architecture
 source for implementation issues and must be updated deliberately if navigation
 changes.
 
@@ -158,6 +158,9 @@ Issue 2824 completed the compact public information architecture around
 explicit Core and plugin capability ownership. It also replaced repeated
 sidebar task trees with coherent long pages and Fumadocs' page-level table of
 contents, while preserving versioned and legacy routes.
+The 2026-09-16 post-milestone decision supersedes the previously delivered
+French journey: the website now publishes only authored English pages. Browser
+translation is available to readers but is not a maintained site capability.
 
 ### Phase 1 — Application, design, and content foundation
 
@@ -208,11 +211,11 @@ The later guides, examples, reference, and troubleshooting issues reuse those
 canonical explanations. The primary agent owns navigation integration,
 terminology, and validation of all public examples.
 
-### Phase 3 — Localization and long-term currency
+### Phase 3 — Historical localization work and long-term currency
 
-18. Issue 2818 translates the landing and complete Getting Started path into
-    French, adds translation freshness metadata, and proves explicit fallback
-    behavior. Full French parity is not a milestone blocker.
+18. Issue 2818 originally translated the landing and Getting Started path into
+    French. This work was later removed by the 2026-09-16 English-only decision;
+    the issue remains a historical completion record.
 19. Issue 2819 changes repository contribution rules so every implementation
     classifies public-documentation impact before completion. It adds ownership
     mapping, source edit/report links, review dates, terminology checks, and
@@ -223,7 +226,7 @@ terminology, and validation of all public examples.
 ### Phase 4 — Preview gate and sitemap parity
 
 20. Issue 2820 audits responsive behavior, accessibility, search quality,
-    localization, reader task walkthroughs, SEO metadata, links, claims,
+    reader task walkthroughs, SEO metadata, links, claims,
     performance, production build, and repository compatibility. It prepares
     preview instructions but does not deploy.
 21. Issue 2821 publishes the eight approved cross-cutting concept mental

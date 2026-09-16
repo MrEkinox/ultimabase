@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 const mutationContentRoot = fileURLToPath(
-	new URL('../content/docs/en/1.0/core/writing-data/', import.meta.url),
+	new URL('../content/docs/1.0/core/writing-data/', import.meta.url),
 )
 describe('mutation documentation contracts', () => {
 	it('rejects removed mutation escape hatches and unsupported semantics', async () => {

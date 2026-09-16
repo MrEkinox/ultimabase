@@ -1,36 +1,29 @@
 import type { BaseLayoutProps } from 'fumadocs-ui/layouts/shared'
 
 import { NavigationBrand } from '../components/brand'
-import {
-	i18nConfig,
-	localizeNavigationLabel,
-	localizePath,
-	type SiteLocale,
-} from './i18n'
 import { siteConfig } from './site'
 
-const navigationLinks = (locale: SiteLocale) =>
+const navigationLinks = () =>
 	siteConfig.navigation.map((item) => ({
 		...(item.external === true ? { external: true } : {}),
-		text: localizeNavigationLabel(locale, item.label),
-		url: item.external === true ? item.href : localizePath(locale, item.href),
+		text: item.label,
+		url: item.href,
 	}))
 
-export const baseLayoutOptions = (locale: SiteLocale): BaseLayoutProps => ({
-	i18n: i18nConfig,
-	links: navigationLinks(locale),
+export const baseLayoutOptions = (): BaseLayoutProps => ({
+	links: navigationLinks(),
 	nav: {
 		title: siteConfig.name,
-		url: localizePath(locale, '/'),
+		url: '/',
 	},
 	searchToggle: { enabled: true },
 	slots: { navTitle: NavigationBrand },
 })
 
-export const docsLayoutOptions = (locale: SiteLocale): BaseLayoutProps => ({
-	...baseLayoutOptions(locale),
-	links: navigationLinks(locale).filter(
-		(item) => item.url !== localizePath(locale, siteConfig.routes.docs),
+export const docsLayoutOptions = (): BaseLayoutProps => ({
+	...baseLayoutOptions(),
+	links: navigationLinks().filter(
+		(item) => item.url !== siteConfig.routes.docs,
 	),
 	slots: {},
 })

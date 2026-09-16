@@ -5,7 +5,7 @@ export interface DocumentationSection {
 	readonly slug: string
 }
 
-/** Canonical capability-owned sidebar order for every documentation locale. */
+/** Canonical capability-owned sidebar order. */
 export const documentationSections: readonly DocumentationSection[] =
 	Object.freeze([
 		{ label: 'Getting Started', slug: 'getting-started' },
@@ -21,8 +21,7 @@ export function visibleDocumentationSections(
 ): readonly DocumentationSection[] {
 	return documentationSections.filter((section) =>
 		urls.some((url) => {
-			const documentationPath = url.replace(/^\/fr(?=\/docs(?:\/|$))/u, '')
-			const [, root, version, sectionSlug] = documentationPath.split('/')
+			const [, root, version, sectionSlug] = url.split('/')
 			return (
 				root === 'docs' &&
 				isDocumentationVersion(version) &&

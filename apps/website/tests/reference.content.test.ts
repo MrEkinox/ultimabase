@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 
 const repositoryRoot = fileURLToPath(new URL('../../..', import.meta.url))
 const contentRoot = fileURLToPath(
-	new URL('../content/docs/en/1.0/reference/', import.meta.url),
+	new URL('../content/docs/1.0/reference/', import.meta.url),
 )
 const pages = [
 	'core-api/application',

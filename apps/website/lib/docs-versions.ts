@@ -1,6 +1,3 @@
-import type { SiteLocale } from './i18n'
-import { localizePath } from './i18n'
-
 export interface DocumentationVersion {
 	readonly label: string
 	readonly slug: string
@@ -147,15 +144,13 @@ export function isDocumentationVersion(
 }
 
 export function documentationPath(
-	locale: SiteLocale,
 	relativePath = '',
 	version: DocumentationVersion = currentDocumentationVersion,
 ): string {
 	const normalizedPath = relativePath.replace(/^\/+|\/+$/gu, '')
-	const versionedPath = `/docs/${version.slug}${
+	return `/docs/${version.slug}${
 		normalizedPath.length === 0 ? '' : `/${normalizedPath}`
 	}`
-	return localizePath(locale, versionedPath)
 }
 
 export function resolveLegacyDocumentationPath(relativePath: string): string {
@@ -173,7 +168,7 @@ export function resolveLegacyDocumentationPath(relativePath: string): string {
 
 /** Builds a canonical English URL for the newest supported documentation line. */
 export function currentDocumentationPath(relativePath = ''): string {
-	return documentationPath('en', relativePath)
+	return documentationPath(relativePath)
 }
 
 export function versionDocumentationSlug(

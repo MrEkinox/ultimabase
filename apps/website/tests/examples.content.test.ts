@@ -10,10 +10,7 @@ import {
 } from '../components/examples/content'
 
 const repositoryRoot = fileURLToPath(new URL('../../..', import.meta.url))
-const documentationRoot = path.join(
-	repositoryRoot,
-	'apps/website/content/docs/en',
-)
+const documentationRoot = path.join(repositoryRoot, 'apps/website/content/docs')
 
 async function readDocumentationPage(relativePath: string): Promise<string> {
 	return readFile(

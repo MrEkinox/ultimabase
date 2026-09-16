@@ -1,13 +1,11 @@
-import { localizePath, type SiteLocale } from '../../lib/i18n'
 import { ButtonLink, Eyebrow, Section, TextLink } from '../primitives'
 import { statusPages, type StatusPageContent } from './content'
 
 export interface StatusPageProps {
 	readonly content: StatusPageContent
-	readonly locale: SiteLocale
 }
 
-export function StatusPage({ content, locale }: StatusPageProps) {
+export function StatusPage({ content }: StatusPageProps) {
 	return (
 		<article className="ub-status-page">
 			<Section className="ub-status-hero" width="reading">
@@ -22,7 +20,7 @@ export function StatusPage({ content, locale }: StatusPageProps) {
 					{statusPages.map((page) => (
 						<TextLink
 							aria-current={page.slug === content.slug ? 'page' : undefined}
-							href={localizePath(locale, `/status/${page.slug}`)}
+							href={`/status/${page.slug}`}
 							key={page.slug}
 						>
 							{page.eyebrow}
@@ -47,9 +45,7 @@ export function StatusPage({ content, locale }: StatusPageProps) {
 											Open {item.title}
 										</a>
 									) : (
-										<TextLink href={localizePath(locale, item.href)}>
-											Read {item.title}
-										</TextLink>
+										<TextLink href={item.href}>Read {item.title}</TextLink>
 									)}
 								</li>
 							))}
@@ -62,21 +58,16 @@ export function StatusPage({ content, locale }: StatusPageProps) {
 						{...(content.primaryAction.external === true
 							? { external: true }
 							: {})}
-						href={
-							content.primaryAction.external === true
-								? content.primaryAction.href
-								: localizePath(locale, content.primaryAction.href)
-						}
+						href={content.primaryAction.href}
 					>
 						{content.primaryAction.title}
 					</ButtonLink>
 					<ButtonLink
-						href={localizePath(
-							locale,
+						href={
 							content.slug === 'release-status'
 								? '/status/roadmap'
-								: '/status/release-status',
-						)}
+								: '/status/release-status'
+						}
 						variant="secondary"
 					>
 						{content.slug === 'release-status' ? 'Roadmap' : 'Release status'}

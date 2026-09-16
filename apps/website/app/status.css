@@ -123,13 +123,6 @@
 	padding-top: var(--ub-space-12);
 }
 
-.ub-status-fallback {
-	width: min(100% - 2rem, 48rem);
-	min-height: 65dvh;
-	margin-inline: auto;
-	padding-block: clamp(var(--ub-space-16), 12vw, 8rem);
-}
-
 @media (max-width: 40rem) {
 	.ub-status-section ul {
 		grid-template-columns: minmax(0, 1fr);

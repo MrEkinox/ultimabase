@@ -36,8 +36,8 @@ async function documentationPages(): Promise<DocumentationSitemapPage[]> {
 	return Promise.all(
 		files.map(async (file) => {
 			const relativePath = path.relative(documentationRoot, file)
-			const [locale = 'en', ...segments] = relativePath.split(path.sep)
-			const routeSegments = segments
+			const routeSegments = relativePath
+				.split(path.sep)
 				.join('/')
 				.replace(/\.mdx$/u, '')
 				.replace(/(?:^|\/)index$/u, '')
@@ -48,11 +48,9 @@ async function documentationPages(): Promise<DocumentationSitemapPage[]> {
 			if (reviewedAt === undefined) {
 				throw new Error(`Missing reviewedAt in ${relativePath}`)
 			}
-			const prefix = locale === 'fr' ? '/fr/docs' : '/docs'
 			return {
-				locale,
 				reviewedAt,
-				url: `${prefix}${routeSegments === '' ? '' : `/${routeSegments}`}`,
+				url: `/docs${routeSegments === '' ? '' : `/${routeSegments}`}`,
 			}
 		}),
 	)
@@ -88,20 +86,12 @@ describe('website preview readiness', () => {
 				...documentationUrls,
 			]),
 		)
-		expect(urls.some((url) => new URL(url).pathname.startsWith('/en'))).toBe(
-			false,
+		expect(urls.every((url) => !new URL(url).pathname.startsWith('/fr'))).toBe(
+			true,
 		)
 		expect(
 			urls.some((url) => new URL(url).pathname.includes('/docs/1.0/adr')),
 		).toBe(false)
-		expect(urls).not.toContain(
-			new URL('/fr/examples', siteConfig.canonicalUrl).href,
-		)
-		for (const slug of statusPageSlugs) {
-			expect(urls).not.toContain(
-				new URL(`/fr/status/${slug}`, siteConfig.canonicalUrl).href,
-			)
-		}
 	})
 
 	it('keeps preview indexing disabled until launch is approved', () => {
@@ -117,11 +107,6 @@ describe('website preview readiness', () => {
 		const metadata = createPublicPageMetadata({
 			canonicalPath: '/docs/1.0/getting-started/introduction',
 			description: 'Understand the framework before building an application.',
-			languages: {
-				en: '/docs/1.0/getting-started/introduction',
-				fr: '/fr/docs/1.0/getting-started/introduction',
-			},
-			locale: 'en',
 			title: 'Introduction',
 		})
 
@@ -136,6 +121,7 @@ describe('website preview readiness', () => {
 			type: 'website',
 		})
 		expect(metadata.openGraph?.images).toBeUndefined()
+		expect(metadata.alternates?.languages).toBeUndefined()
 		expect(metadata.twitter).toMatchObject({
 			card: 'summary',
 			title: 'Introduction',

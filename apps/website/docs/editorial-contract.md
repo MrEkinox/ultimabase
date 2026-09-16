@@ -55,7 +55,7 @@ behavior only and link to concepts for rationale.
 
 ## Voice and structure
 
-- Write public prose in English first, in direct present-tense sentences.
+- Write public prose in English, in direct present-tense sentences.
 - Address the reader as “you” for actions. Use “UltimaBase” for framework
   behavior and name the owning plugin when behavior is optional.
 - Prefer one idea per paragraph and descriptive sentence-case headings.
@@ -80,30 +80,10 @@ the behavior were available. Use “experimental” only when a public contract
 defines its support consequences. Prefer “not yet available” to vague future
 promises.
 
-The following seed keeps English code and French prose aligned. Identifiers,
-package names, API names, and code remain unchanged in every locale.
-
-| English public term | Preferred French prose | Translation rule                                              |
-| ------------------- | ---------------------- | ------------------------------------------------------------- |
-| UltimaBase          | UltimaBase             | Provisional product name; never translate                     |
-| Core                | Core                   | Product component; keep the capitalized English name          |
-| Runtime             | Runtime                | Product execution domain; keep the capitalized English name   |
-| plugin              | plugin                 | Keep the ecosystem term; use the package's exact name in code |
-| application graph   | graphe d’application   | Use for the compiled authoritative graph                      |
-| schema              | schéma                 | Keep `schema` only in identifiers and code                    |
-| field               | champ                  | Prefer the domain word outside code                           |
-| query               | requête                | Keep `Query` for the public class                             |
-| mutation            | mutation               | Same word in public prose                                     |
-| pointer             | pointeur               | Use for typed to-one relationships                            |
-| relation            | relation               | Use for inverse to-many relationships                         |
-| request context     | contexte de requête    | Do not shorten to “contexte” when ambiguous                   |
-| Master authority    | autorité Master        | `Master` remains capitalized and untranslated                 |
-| hook                | hook                   | Keep the established extension term                           |
-| type generation     | génération de types    | Keep `Typegen` for the tool or package                        |
-| soft delete         | suppression logique    | Keep package and option identifiers unchanged                 |
-| pre-release         | préversion             | Status label may remain `pre-release` in metadata             |
-
-Extend this table before introducing a competing translation on a public page.
+Use public API names and package identifiers exactly as exported. Browser page
+translation is reader-controlled and is not a maintained UltimaBase language
+edition; readers should verify code, security details, and error names against
+the authored English page.
 
 ## Code samples
 
@@ -151,9 +131,7 @@ sources:
 the page's public contract. `sources` lists the repository paths that must be
 checked when behavior changes. `reviewedAt` records the last deliberate review
 of the complete page against those sources; it is rendered in the page footer
-beside the source-edit link. A French translation also records its canonical
-English `translation.source`, the English source fingerprint, and the date of
-its last deliberate translation review.
+beside the source-edit link.
 
 The grouped source plan in `content/documentation-plan.json` sets the same
 contract before a page exists. `sourceStatus` means:
@@ -165,9 +143,8 @@ contract before a page exists. `sourceStatus` means:
   can help define the gap.
 
 Every page also belongs to an explicit release folder at
-`content/docs/<locale>/<version>`. Links inside one version target that exact
-version rather than the current-version redirect. A translation records the
-English page from the same release line. Older version folders change only for
+`content/docs/<version>`. Links inside one version target that exact
+version rather than the current-version redirect. Older version folders change only for
 corrections or maintained backports; new framework behavior belongs to the
 newest supported line.
 
@@ -223,7 +200,7 @@ not choose new architecture on its behalf.
 ## Verification and currency
 
 The ordinary documentation validation checks frontmatter, source paths,
-translation fingerprints, shared samples, package ownership, edit links, and a
+shared samples, package ownership, edit links, and a
 small terminology and heading-style ruleset. The same validation runs in CI.
 Diagnostics name the affected file and the corrective action.
 

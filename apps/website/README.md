@@ -20,16 +20,13 @@ yarn website:dev
 
 Open `http://localhost:3000`. Marketing routes use the `(marketing)` route
 group, while documentation is mounted at `/docs` through the `(docs)` group.
-The route implementation lives below `[lang]`: the proxy rewrites canonical
-English URLs internally and keeps the explicit `/fr` prefix for French. Public
-documentation source belongs in version folders such as
-`content/docs/en/1.0` and `content/docs/fr/1.0`; root `docs/` remains the
+English is the only authored site language. Public documentation source belongs
+in version folders such as `content/docs/1.0`; root `docs/` remains the
 engineering source for ADRs, specifications, and implementation plans.
 
 Source-backed release status, roadmap, and contribution guidance live at
-`/status/*`. Their English routes are canonical; untranslated French routes
-render the same explicit fallback contract as documentation pages. The global
-Plugins link points directly to the public plugin overview.
+`/status/*`. The global Plugins link points directly to the public plugin
+overview.
 
 ## Validation
 
@@ -53,16 +50,14 @@ repository formatting and linting leave that generated declaration untouched.
 
 ## Documentation shell
 
-`lib/i18n.ts` owns the supported locales, labels, URL policy, and UI
-translations. English pages use `/docs/<version>`; French pages use
-`/fr/docs/<version>`. A missing French translation renders an explicit link to
-the same English documentation version and the nearest French documentation
-entry instead of silently mixing languages.
+The site publishes one English route for each page. Readers may use their
+browser's page translation, but UltimaBase does not publish or verify translated
+documentation. API names, code examples, and security details should be checked
+against the authored English page.
 
 Every public MDX page requires a title, description, audience, content type,
 reader outcome, owning issue, release status, review date, and canonical
-repository sources. Frontmatter may also declare navigation order and
-translation source metadata.
+repository sources. Frontmatter may also declare navigation order.
 `components/mdx.tsx` exposes the standard Fumadocs code, tabs, callouts, cards,
 steps, and file-tree components.
 
@@ -72,8 +67,8 @@ disclosure. [`docs/source-inventory.md`](docs/source-inventory.md) records which
 repository material is suitable for each public area, while
 `content/documentation-plan.json` assigns every planned page before authoring.
 
-The `/api/search` index is built only from this public content source and is
-locale-aware. `yarn website:validate` generates the typed content, validates
+The `/api/search` index is built only from this public content source.
+`yarn website:validate` generates the typed content, validates
 frontmatter, canonical URLs, sidebar ordering, duplicate navigation entries,
 and internal documentation links. It never scans the repository's engineering
 `docs/` directory.
@@ -98,7 +93,7 @@ Documentation URLs include the framework release line, for example
 URLs redirect to the newest configured line. Fumadocs derives the version
 selector from each version folder's `root: "version"` metadata.
 
-To publish another maintained line, add its locale folders and register it in
+To publish another maintained line, add its version folder and register it in
 `lib/docs-versions.ts`, newest first. Reuse relative page paths when the same
 guide exists in several versions so switching versions preserves the reader's
 location. Do not create an empty version or mutate older documentation to match
@@ -121,7 +116,7 @@ Shared marketing surfaces live under `components/`:
 
 The browser test builds and starts the production application, then checks the
 light and dark shells, mobile and 200%-zoom-equivalent reflow, reduced motion,
-focus semantics, localized search and routing, and WCAG A/AA findings with
+focus semantics, search and routing, and WCAG A/AA findings with
 Playwright and Axe.
 
 [`docs/preview-readiness.md`](docs/preview-readiness.md) records the current

@@ -113,7 +113,7 @@ describe('documentation editorial contract', () => {
 				await publishedPageSlugs(
 					path.join(
 						websiteRoot,
-						'content/docs/en',
+						'content/docs',
 						currentDocumentationVersion.slug,
 						section.slug,
 					),

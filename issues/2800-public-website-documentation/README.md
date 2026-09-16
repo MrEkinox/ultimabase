@@ -9,8 +9,9 @@ the repository's engineering specifications and ADR history.
 
 The product name, domain, visual identity, and release date remain provisional.
 Brand metadata must therefore be centralized and replaceable. English is the
-first complete language; French uses the same application and information
-architecture and may be published progressively without duplicating the site.
+only authored site language after the 2026-09-16 post-milestone simplification.
+The original French work remains recorded in issue 2818 but is no longer part
+of the delivered site.
 
 ## Execution order
 
@@ -44,8 +45,7 @@ audiences, page types, terminology, voice, sample conventions, and source
 ownership before English authoring begins. The foundational English sections
 may then proceed independently with non-overlapping page ownership. Guides,
 examples, reference, and troubleshooting reuse those canonical explanations
-instead of restating them. Issue 2803 depends on the visual system. French
-translation follows accepted English pages instead of unstable drafts.
+instead of restating them. Issue 2803 depends on the visual system.
 Documentation-currency rules follow real content so their ownership map and
 checks have concrete targets; the final preview audit depends on those
 guardrails.
@@ -73,9 +73,8 @@ without rewriting the completion history of the earlier bounded issues.
 - The initial identity relies on typography, spacing, restrained color, code,
   and diagrams. It does not require a final logo or generated hero artwork and
   avoids generic AI-product visual conventions.
-- English is canonical for the first complete release. French routes share the
-  same implementation; untranslated content links clearly to English instead
-  of silently mixing languages.
+- English is the sole authored public language. Browser translation is optional
+  reader behavior, not a maintained UltimaBase documentation edition.
 
 ## Target navigation architecture
 
@@ -86,7 +85,6 @@ Global navigation
 ├── Examples
 ├── GitHub
 ├── Search
-├── English / Français
 └── Theme
 ```
 
@@ -193,10 +191,6 @@ The public route architecture is:
 │   ├── release-status
 │   ├── roadmap
 │   └── contributing
-└── fr
-    ├── docs/<version>
-    ├── examples
-    └── status
 ```
 
 Sidebar routes stop at a coherent reader subject. Subtasks that share one owner
@@ -206,11 +200,9 @@ configuration, behavior, reference, limitations, and troubleshooting without a
 same-named folder and child page. A new route is justified only when the reader
 can complete it as an independent task.
 
-The unprefixed routes are canonical English URLs. `/docs` and legacy
-unversioned documentation paths redirect to the newest maintained line. French
-pages mirror each published version below `/fr`. Locale and version switching
-preserve the page when an equivalent exists and otherwise select the relevant
-version root or expose the existing translation fallback.
+The routes are canonical English URLs. `/docs` and legacy unversioned
+documentation paths redirect to the newest maintained line. Version switching
+preserves the page when an equivalent exists or returns to that version's root.
 
 ## Landing-page narrative
 
@@ -241,7 +233,6 @@ without repository evidence.
   ADRs to simplify website copy.
 - Do not add analytics, newsletter capture, accounts, a CMS, a blog, pricing,
   hosted-product claims, or comparison tables without separate approval.
-- Do not require full French parity to publish the English preview.
 - Do not deploy publicly until hosting and public-release decisions are
   explicit.
 
@@ -249,8 +240,7 @@ without repository evidence.
 
 The milestone closes only after the English landing and initial documentation
 journeys are responsive, accessible, searchable, link-checked, and verified by
-a production build. The first French landing and getting-started path must use
-the same components and content contract. Product claims and samples must match
+a production build. Product claims and samples must match
 shipped behavior, while provisional brand and deployment configuration remain
 replaceable. Repository contribution rules must also require an explicit public
 documentation-impact review for future code changes.

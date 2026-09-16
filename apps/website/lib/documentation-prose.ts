@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 const exceptionSchema = z.object({
 	match: z.string().min(1),
-	path: z.string().regex(/^content\/docs\/(?:en|fr)\/.+\.mdx$/u),
+	path: z.string().regex(/^content\/docs\/.+\.mdx$/u),
 	reason: z.string().min(12),
 })
 
@@ -15,25 +15,15 @@ export type DocumentationLintExceptions = z.infer<typeof exceptionsSchema>
 
 interface ProseRule {
 	readonly correction: string
-	readonly locale: 'en' | 'fr' | 'all'
 	readonly match: string
 }
 
 const proseRules: readonly ProseRule[] = [
-	{ correction: 'TypeScript', locale: 'all', match: 'Typescript' },
-	{ correction: 'JavaScript', locale: 'all', match: 'Javascript' },
-	{ correction: 'GraphQL', locale: 'all', match: 'GraphQl' },
-	{ correction: 'GitHub', locale: 'all', match: 'Github' },
-	{ correction: 'PostgreSQL', locale: 'all', match: 'PostgresSQL' },
-	{
-		correction: 'graphe d’application',
-		locale: 'fr',
-		match: 'application graph',
-	},
-	{ correction: 'contexte de requête', locale: 'fr', match: 'request context' },
-	{ correction: 'autorité Master', locale: 'fr', match: 'Master authority' },
-	{ correction: 'génération de types', locale: 'fr', match: 'type generation' },
-	{ correction: 'suppression logique', locale: 'fr', match: 'soft delete' },
+	{ correction: 'TypeScript', match: 'Typescript' },
+	{ correction: 'JavaScript', match: 'Javascript' },
+	{ correction: 'GraphQL', match: 'GraphQl' },
+	{ correction: 'GitHub', match: 'Github' },
+	{ correction: 'PostgreSQL', match: 'PostgresSQL' },
 ]
 
 const stripNonProse = (source: string): string =>
@@ -55,7 +45,6 @@ export function documentationProseDiagnostics(
 	source: string,
 	exceptions: DocumentationLintExceptions,
 ): readonly string[] {
-	const locale = repositoryPath.startsWith('content/docs/fr/') ? 'fr' : 'en'
 	const prose = stripNonProse(source)
 	const diagnostics: string[] = []
 	const isExcepted = (match: string): boolean =>
@@ -65,11 +54,7 @@ export function documentationProseDiagnostics(
 		)
 
 	for (const rule of proseRules) {
-		if (
-			(rule.locale === 'all' || rule.locale === locale) &&
-			prose.includes(rule.match) &&
-			!isExcepted(rule.match)
-		) {
+		if (prose.includes(rule.match) && !isExcepted(rule.match)) {
 			diagnostics.push(
 				`${repositoryPath}: replace “${rule.match}” with “${rule.correction}” or add an exact justified lint exception`,
 			)

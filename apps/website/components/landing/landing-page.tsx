@@ -1,5 +1,4 @@
 import { siteConfig } from '../../lib/site'
-import { localizePath, type SiteLocale } from '../../lib/i18n'
 import {
 	ButtonLink,
 	Callout,
@@ -11,13 +10,8 @@ import {
 import { ArchitectureFlow } from './architecture-flow'
 import { applicationExample, landingCopy } from './content'
 
-export interface LandingPageProps {
-	readonly locale: SiteLocale
-}
-
-export function LandingPage({ locale }: LandingPageProps) {
-	const copy = landingCopy[locale]
-
+export function LandingPage() {
+	const copy = landingCopy
 	return (
 		<div className="ub-landing">
 			<Section className="ub-landing-hero">
@@ -26,9 +20,7 @@ export function LandingPage({ locale }: LandingPageProps) {
 					<h1>{copy.hero.title}</h1>
 					<p className="ub-lede">{copy.hero.description}</p>
 					<div className="ub-action-row">
-						<ButtonLink
-							href={localizePath(locale, siteConfig.routes.gettingStarted)}
-						>
+						<ButtonLink href={siteConfig.routes.gettingStarted}>
 							{copy.hero.primaryAction}
 						</ButtonLink>
 						<ButtonLink
@@ -77,7 +69,7 @@ export function LandingPage({ locale }: LandingPageProps) {
 								<h3>{feature.title}</h3>
 								<p>{feature.description}</p>
 							</div>
-							<TextLink href={localizePath(locale, feature.href)}>
+							<TextLink href={feature.href}>
 								{copy.evidence.featureLink}
 							</TextLink>
 						</li>
@@ -90,13 +82,11 @@ export function LandingPage({ locale }: LandingPageProps) {
 				<h2>{copy.status.title}</h2>
 				<p>{copy.status.description}</p>
 				<div className="ub-action-row">
-					<ButtonLink
-						href={localizePath(locale, siteConfig.routes.gettingStarted)}
-					>
+					<ButtonLink href={siteConfig.routes.gettingStarted}>
 						{copy.status.primaryAction}
 					</ButtonLink>
 					<ButtonLink
-						href={localizePath(locale, siteConfig.routes.releaseStatus)}
+						href={siteConfig.routes.releaseStatus}
 						variant="secondary"
 					>
 						{copy.status.secondaryAction}

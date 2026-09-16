@@ -115,18 +115,18 @@ describe('documentation currency guardrails', () => {
 	})
 
 	it('maps every page to its exact source-edit coordinates', () => {
-		const pagePath = 'fr/1.0/getting-started/introduction.mdx'
+		const pagePath = '1.0/getting-started/introduction.mdx'
 		expect(documentationSourcePath(pagePath)).toBe(
-			'apps/website/content/docs/fr/1.0/getting-started/introduction.mdx',
+			'apps/website/content/docs/1.0/getting-started/introduction.mdx',
 		)
 		expect(documentationEditOptions(pagePath)).toEqual({
 			owner: 'MrEkinox',
-			path: 'apps/website/content/docs/fr/1.0/getting-started/introduction.mdx',
+			path: 'apps/website/content/docs/1.0/getting-started/introduction.mdx',
 			repo: 'ultimadatabase',
 			sha: 'main',
 		})
 		expect(documentationEditUrl(pagePath).href).toBe(
-			'https://github.com/MrEkinox/ultimadatabase/blob/main/apps/website/content/docs/fr/1.0/getting-started/introduction.mdx',
+			'https://github.com/MrEkinox/ultimadatabase/blob/main/apps/website/content/docs/1.0/getting-started/introduction.mdx',
 		)
 		expect(() => documentationSourcePath('../AGENTS.md')).toThrow(
 			'Invalid public documentation source path',
@@ -164,14 +164,14 @@ describe('documentation currency guardrails', () => {
 		})
 		expect(
 			documentationProseDiagnostics(
-				'content/docs/en/example.mdx',
+				'content/docs/example.mdx',
 				'---\ntitle: Example\n---\n\n### Install.\n\nUse Typescript.',
 				exceptions,
 			),
 		).toEqual([
-			'content/docs/en/example.mdx: replace “Typescript” with “TypeScript” or add an exact justified lint exception',
-			'content/docs/en/example.mdx: heading “Install.” skips from level 1 to 3',
-			'content/docs/en/example.mdx: remove terminal punctuation from heading “Install.” or add an exact justified lint exception',
+			'content/docs/example.mdx: replace “Typescript” with “TypeScript” or add an exact justified lint exception',
+			'content/docs/example.mdx: heading “Install.” skips from level 1 to 3',
+			'content/docs/example.mdx: remove terminal punctuation from heading “Install.” or add an exact justified lint exception',
 		])
 	})
 })

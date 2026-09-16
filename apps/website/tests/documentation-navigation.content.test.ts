@@ -3,9 +3,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
-const contentRoot = fileURLToPath(
-	new URL('../content/docs/en', import.meta.url),
-)
+const contentRoot = fileURLToPath(new URL('../content/docs', import.meta.url))
 
 const canonicalNavigation = {
 	'1.0': [

@@ -22,12 +22,6 @@ export const documentationSourceStatuses = [
 	'missing',
 ] as const
 
-export const translationSchema = z.object({
-	reviewedAt: z.iso.date(),
-	source: z.string().startsWith('/docs'),
-	sourceHash: z.string().regex(/^sha256:[a-f0-9]{64}$/u),
-})
-
 export const documentationMetadataFields = {
 	audience: z.array(z.enum(documentationAudiences)).min(1),
 	contentType: z.enum(documentationContentTypes),
@@ -38,7 +32,6 @@ export const documentationMetadataFields = {
 	releaseStatus: z.enum(documentationReleaseStatuses),
 	reviewedAt: z.iso.date(),
 	sources: z.array(z.string().trim().min(1)).min(1),
-	translation: translationSchema.optional(),
 }
 
 export const documentationPageSchema = pageSchema.extend(

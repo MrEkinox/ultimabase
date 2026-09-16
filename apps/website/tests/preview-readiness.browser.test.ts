@@ -25,7 +25,7 @@ afterAll(async () => {
 
 async function publicSearch(page: Page, query: string): Promise<string> {
 	const response = await page.request.get(
-		`${origin}/api/search?query=${encodeURIComponent(query)}&locale=en`,
+		`${origin}/api/search?query=${encodeURIComponent(query)}`,
 	)
 	expect(response.ok()).toBe(true)
 	return JSON.stringify(await response.json())
@@ -182,13 +182,13 @@ describe('website preview audit', () => {
 
 		try {
 			const page = await context.newPage()
-			await page.goto(`${origin}/fr/docs/getting-started/first-application`)
+			await page.goto(`${origin}/docs/getting-started/first-application`)
 			await page
-				.getByRole('heading', { level: 1, name: 'Première application' })
+				.getByRole('heading', { level: 1, name: 'First Application' })
 				.waitFor()
 			expect(await page.getByRole('main').count()).toBe(1)
 			expect(
-				await page.getByRole('button', { name: 'Copier le code' }).count(),
+				await page.getByRole('button', { name: 'Copy Text' }).count(),
 			).toBeGreaterThan(0)
 			expect(await accessibilityViolations(page)).toEqual([])
 
@@ -219,12 +219,6 @@ describe('website preview audit', () => {
 			expect(await publicSearch(page, 'HTTP_APPLICATION_REJECTED')).toContain(
 				'/docs/1.0/plugins/official/http-and-apis/http',
 			)
-			const french = await page.request.get(
-				`${origin}/api/search?query=${encodeURIComponent('préversion')}&locale=fr`,
-			)
-			expect(french.ok()).toBe(true)
-			expect(JSON.stringify(await french.json())).toContain('/fr/docs')
-
 			await page.goto(`${origin}/docs`)
 			const dialog = page.getByRole('dialog')
 			await page.locator('button[data-search-full]').click()
@@ -313,7 +307,7 @@ describe('website preview audit', () => {
 		}
 	})
 
-	it('keeps untranslated French status routes explicit and canonical', async () => {
+	it('does not publish a translated status route', async () => {
 		const context = await browser?.newContext({
 			viewport: { height: 900, width: 1280 },
 		})
@@ -321,24 +315,19 @@ describe('website preview audit', () => {
 
 		try {
 			const page = await context.newPage()
-			const clientErrors = collectClientErrors(page)
-			await page.goto(`${origin}/fr/status/release-status`)
+			const response = await page.goto(`${origin}/fr/status/release-status`)
+			expect(response?.status()).toBe(404)
 			await page
 				.getByRole('heading', {
 					level: 1,
-					name: 'Cette page n’est pas encore disponible en français.',
+					name: 'Page not found',
 				})
 				.waitFor()
-			expect(
-				await page
-					.getByRole('link', { name: 'Lire la source anglaise' })
-					.getAttribute('href'),
-			).toBe('/status/release-status')
-			expect(
-				await page.locator('link[rel="canonical"]').getAttribute('href'),
-			).toBe(new URL('/status/release-status', siteConfig.canonicalUrl).href)
 			expect(await accessibilityViolations(page)).toEqual([])
-			expect(clientErrors).toEqual([])
+			for (const path of ['/fr/docs/1.0', '/en/docs/1.0']) {
+				const oldLanguageRoute = await page.request.get(`${origin}${path}`)
+				expect(oldLanguageRoute.status()).toBe(404)
+			}
 		} finally {
 			await context.close()
 		}

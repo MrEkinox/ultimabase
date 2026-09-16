@@ -76,9 +76,11 @@ the contract, final evidence, and explicit exclusions.
 
 [Milestone 28](issues/2800-public-website-documentation/README.md) completed one
 private Next.js application for the public landing page and user documentation.
-It establishes a provisional visual system, an English-first Fumadocs learning
-path, the first French reader journey, and long-term documentation-currency
-guardrails before a verified preview. A completion audit found missing approved
+It establishes a provisional visual system, a Fumadocs learning
+path, and long-term documentation-currency
+guardrails before a verified preview. A later simplification removed the
+original French journey in favor of authored English pages and reader-controlled
+browser translation. A completion audit found missing approved
 Concepts and Status routes plus the global Plugins entry; corrective issues
 2821 and 2822 closed that sitemap-parity gap. The completed plan retains the
 approved sitemap and verification record.
@@ -344,8 +346,8 @@ Build one private `apps/website` Next.js workspace containing a custom landing
 page and Fumadocs documentation. Public learning material remains separate from
 internal specifications and ADR history, uses shipped behavior as evidence, and
 assumes the intended npm installation experience while labelling the product
-pre-release. English is the first complete language; the same application
-progressively publishes human-reviewed French content under `/fr`.
+pre-release. English is the only authored site language; browser page
+translation is reader-controlled and is not verified by UltimaBase.
 
 The milestone also adds prospective contribution rules and practical checks so
 future code changes classify their public-documentation impact and update
