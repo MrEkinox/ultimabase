@@ -1,13 +1,13 @@
 ---
 title: Runtime Pipeline
-description: Follow one request through validation, policy, behavior, persistence, and commit.
+description: Follow reads and mutations through Core's shared execution path.
 audience:
   - application-developer
   - plugin-author
   - operator
 contentType: concept
 order: 2
-outcome: Place validation, policy, Hooks, persistence, and post-commit work correctly.
+outcome: Identify when Core validates, enforces policy, writes, and commits.
 owner: '2821'
 releaseStatus: pre-release
 reviewedAt: 2026-09-16
@@ -19,42 +19,61 @@ sources:
   - docs/adr/0205-protected-policy-contributions.md
 ---
 
-Every direct TypeScript, REST, and GraphQL operation enters one Core-owned
-Runtime pipeline. Transports normalize their wire formats; they do not issue
-SQL, evaluate policy, or invent a parallel execution path.
+Direct TypeScript commands and the REST and GraphQL transports enter the same
+Core Runtime. A transport converts its input into a logical operation; it does
+not run its own database or authorization pipeline. Core fixes the execution
+order, while installed plugins contribute behavior at declared boundaries.
+
+## Mutation path
 
 <Mermaid
-	description="A request passes through four ordered Runtime phases from normalization and validation through commit and post-commit events."
+	description="A mutation is normalized, validated and checked against installed policy, then resolved and checked again before business behavior, persistence, result projection and commit. Post-commit events follow commit."
 	chart="flowchart TB
-    A[Normalize, structurally validate, check policy, and load target] --> B[Resolve input, validate again, and re-check policy]
-    B --> C[Run before behavior, persist, and run after behavior]
-    C --> D[Restrict output, commit, and deliver post-commit events]"
+    A[Normalize and structurally validate] --> B[Initial policy and visible target]
+    B --> C[Resolve input, validate again, recheck policy]
+    C --> D[Before behavior, write, after behavior]
+    D --> E[Restrict and project result]
+    E --> F[Commit]
+    F --> G[Post-commit events]"
 />
 
-## Why the order matters
+Core first checks the input's basic structure. Installed policy may reject the
+operation or narrow its target. For updates and deletes, Core then loads and
+locks the visible target. Field and schema input resolution can use that
+original item; target-aware transforms run before Core's mandatory final
+structural validation. Defaults and generators are not replayed. The optional
+Validation plugin runs application field validators at the final mutation
+input boundary.
 
-The initial structural check rejects malformed input before application code
-runs. Target-aware input resolution and arithmetic projection happen only after
-the visible target can be loaded and locked. Core then repeats mandatory
-structural validation without replaying defaults or generators.
+Core reevaluates value-dependent policy after the final candidate exists.
+Optional business before-Hooks run next, followed by the database operation and
+business after-Hooks. After-Hooks can still abort the transaction. Core applies
+final output restrictions and the caller's `select` / `include` projection
+before commit; buffered events are delivered only after a successful commit.
 
 Policy contributions are monotonic: deny-only guards, row filters, adapter
 constraints, field restrictions, and output subsets can narrow accumulated
-access but never broaden it. Value-dependent policy is evaluated again after
-the final mutation candidate exists.
+access but never broaden it. Neither a later Hook nor a physical persistence
+rewrite can remove a protected constraint.
 
-Business after-Hooks still run inside the transaction and may abort it.
-Post-commit subscribers run only after the outer commit succeeds. Master
-authority bypasses authorization policy, not validation, Hooks, transactions,
-database constraints, or integrity work.
+## Reads and ownership
 
-## One path, different owners
+Reads use the same normalization, protected-policy, adapter, and result-shaping
+boundaries, but they do not run mutation input resolution, mutation Hooks, or
+an automatic transaction. An explicit transaction can contain reads. Included
+pointer and relation targets pass through their own visibility checks; a
+caller selection does not override policy.
 
-Core fixes the invariant order. Optional plugins contribute only through their
-declared boundaries, and the database adapter receives the final protected
-persistence work. This keeps transport presentation separate from application
-semantics.
+Core owns structural validation, protected-policy accumulation, the logical
+operation, transaction lifetime, and result boundary. Optional Validation,
+Access, ACL, and Hooks plugins supply their own rules or callbacks; absent
+plugins add no neutral substitute. The database plugin executes the protected
+physical plan. Master authority bypasses authorization policy, not validation,
+Hooks, transactions, database constraints, or integrity work.
 
-Use [Mutations and Transactions](/docs/1.0.0/core/writing-data/transactions) for application
-code, [Lifecycle Hooks](/docs/1.0.0/plugins/official/validation-and-lifecycle/hooks) for business behavior,
-and [Errors](/docs/1.0.0/core/runtime/api-errors) for the boundary that serializes failures.
+## Related tasks
+
+Use [Transactions](/docs/1.0.0/core/writing-data/transactions) to group
+application commands, [Hooks](/docs/1.0.0/plugins/official/validation-and-lifecycle/hooks)
+for optional business behavior, and [Logical Operations and Persistence](./logical-operations-and-persistence)
+for physical rewrites.
