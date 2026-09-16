@@ -237,10 +237,10 @@ const deleted = await Post.deleteOne(
 
 The write surface is:
 
-- `createOne({ data, select? }, options?)`
-- `createMany({ data, select? }, options?)`
-- `updateOne({ id | where, data, select? }, options?)`
-- `updateMany({ data: [{ where, data }], select? }, options?)`
+- `createOne({ data, select?, include? }, options?)`
+- `createMany({ data, select?, include? }, options?)`
+- `updateOne({ id | where, data, select?, include? }, options?)`
+- `updateMany({ data: [{ where, data }], select?, include? }, options?)`
 - `upsertOne({ where, create, update, select? }, options?)`
 - `upsertMany({ data, select? }, options?)`
 - `deleteOne({ id | where, select? }, options?)`
