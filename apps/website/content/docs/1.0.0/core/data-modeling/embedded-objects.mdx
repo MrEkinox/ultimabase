@@ -1,62 +1,159 @@
 ---
 title: Embedded Objects
-description: Model nested values that belong to one parent record and are stored as one logical field.
+description: Define typed nested values and understand their create, update, and list behavior.
 audience:
   - application-developer
 contentType: concept
 order: 5
-outcome: Define a typed embedded object and know when it is not a separate schema.
+outcome: Define a typed embedded value, update it safely, and know when to use a separate schema.
 owner: '2807'
 releaseStatus: pre-release
-reviewedAt: 2026-09-15
+reviewedAt: 2026-09-16
 sources:
   - packages/core/README.md
   - packages/core/docs/schema.md
   - packages/core/examples/schema/objects-and-lists.md
+  - packages/core/src/schema/plans/compiler.ts
+  - docs/adr/0032-object-list-update-replacement.md
+  - docs/adr/0133-canonical-null-for-optional-fields.md
   - docs/adr/0165-embedded-object-field-contract.md
 ---
 
 An embedded object is a structured value owned by one parent record. Use it
-when the nested data has no independent identity or lifecycle.
+when the nested data has a known shape but no independent identity or lifecycle.
+
+## Define the shape
 
 ```ts title="src/customer.ts"
-import { Schema } from '@ultimabase/core'
+import { Schema, type EmbeddedFieldBuilder } from '@ultimabase/core'
+
+const addressFields = (field: EmbeddedFieldBuilder) => ({
+	city: field.string({ required: true }),
+	countryCode: field.string({ required: true }),
+	line1: field.string({ required: true }),
+	line2: field.string(),
+})
 
 export const Customer = Schema.define({
 	className: 'DocsCustomer',
 	fields: (field) => ({
 		name: field.string({ required: true }),
 		shippingAddress: field.object({
-			fields: (embedded) => ({
-				city: embedded.string({ required: true }),
-				countryCode: embedded.string({ required: true }),
-				line1: embedded.string({ required: true }),
-				line2: embedded.string(),
-			}),
+			fields: addressFields,
 			required: true,
 			typeName: 'DocsAddress',
+		}),
+		previousAddresses: field.object({
+			default: [],
+			fields: addressFields,
+			list: true,
+			typeName: 'DocsPreviousAddress',
 		}),
 	}),
 })
 ```
 
-`typeName` gives the generated object contract a stable reusable TypeScript
-name. The parent field's `required` option controls whether the whole object may
-be null; each nested field independently controls its own nullability.
+The reusable `addressFields` callback declares the same child shape in both
+places. `list: true` wraps that shape in one list; it does not give each address
+its own record ID. If you install Typegen, `typeName` supplies a stable base
+name for generated object types. It does not create a separate schema or change
+Runtime behavior.
 
-## Value, not entity
+## Create and read values
 
-The entire object is one stored logical value. Nested object fields may contain
-portable value fields and further embedded objects, but they cannot contain:
+Register `Customer` in a started application with a persistence plugin before
+running this code; [Manual Installation](/docs/1.0.0/manual-installation) shows
+that setup.
 
-- pointers or relations;
-- virtual fields;
-- indexes or uniqueness constraints;
-- auto-increment or other entity identity mechanisms.
+```ts title="src/customer-values.ts"
+import { Customer } from './customer.js'
+import { ultimabase } from './ultimabase.js'
 
-Use a separate schema plus a [pointer](./relationships#pointers) when the nested thing needs
-its own `id`, independent updates, access rules, or relationships.
+const created = await Customer.createOne(
+	{
+		data: {
+			name: 'Ada',
+			shippingAddress: {
+				city: 'Paris',
+				countryCode: 'FR',
+				line1: '12 Rue Exemple',
+			},
+		},
+	},
+	{ ultimabase },
+)
 
-Value lists remain one-dimensional. If your domain genuinely needs arbitrary
-matrix-shaped data, declare a JSON field and validate that JSON through the
-appropriate plugin instead of disguising it as nested field lists.
+console.log(created.toJSON().shippingAddress)
+```
+
+In the complete result, `shippingAddress.line2` is `null` because it was
+omitted, and `previousAddresses` is `[]` because of its default. A missing
+required child such as `city`, an unknown child name, or a `null` list item is
+rejected. The parent field's `required: true` makes the whole address non-null;
+each child has its own requiredness. Without that parent option, an omitted
+address would be `null` in a complete result. A narrowed selection or installed
+output policy can still omit fields from the returned snapshot. See
+[Defaults and Nullability](./defaults) for the general presence rules.
+
+## Update an object or list
+
+An update to a single embedded object is a **deep patch**. Omitted children
+keep their stored values. By contrast, updating an object list **replaces the
+entire list**: each supplied item must include its required children. There is
+no index-based patch of one list entry.
+
+```ts title="src/customer-values.ts"
+const updated = await created.update(
+	{
+		data: {
+			shippingAddress: { line2: 'Suite 2' },
+			previousAddresses: [
+				{
+					city: 'Lyon',
+					countryCode: 'FR',
+					line1: '8 Rue Exemple',
+				},
+			],
+		},
+	},
+	{ ultimabase },
+)
+```
+
+The patch keeps the existing `shippingAddress.city`, `countryCode`, and
+`line1`. The new list contains only the supplied Lyon address. The returned
+`updated` model is a new immutable snapshot; `created` is unchanged. Setting
+an optional object or list to `null` clears the whole value, while `[]` means
+an empty list. See [Update Records](/docs/1.0.0/core/writing-data/update) for
+the general mutation contract.
+
+## Boundaries
+
+An embedded object is one logical stored value. Its children can be scalar
+values, one-dimensional lists, or further embedded objects. They cannot be:
+
+- pointers or relations, which need top-level schema fields;
+- virtual fields, which are output-only;
+- indexed or unique child fields, which have no independent index identity;
+- auto-incrementing integer children, which need their own database column.
+
+Use a separate schema plus a [pointer](./relationships#pointers) when the nested
+thing needs its own `id`, independent updates, or relationships. An embedded
+child may still participate in field-level Access and input resolution when
+the corresponding plugins are installed; it is not independently addressable
+as a record.
+
+For deliberately unstructured documents or multidimensional arrays, use
+`field.json()` instead of disguising them as typed field lists. Use the
+optional Validation plugin for application-specific constraints on that JSON.
+
+## Related tasks
+
+<Cards>
+	<Card title="Fields" href="./fields">
+		Choose between a typed object, a JSON document, and a relationship.
+	</Card>
+	<Card title="Relationships" href="./relationships">
+		Model data with independent record identity.
+	</Card>
+</Cards>
