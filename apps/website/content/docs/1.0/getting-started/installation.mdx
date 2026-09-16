@@ -45,7 +45,7 @@ cd ultimabase-first-app
 npm init -y
 ```
 
-```bash tab="Yarn"
+```bash tab="yarn"
 mkdir ultimabase-first-app
 cd ultimabase-first-app
 yarn init -y
@@ -63,7 +63,7 @@ Install the Runtime packages:
 npm install @ultimabase/core @ultimabase/postgres-plugin
 ```
 
-```bash tab="Yarn"
+```bash tab="yarn"
 yarn add @ultimabase/core @ultimabase/postgres-plugin
 ```
 
@@ -77,7 +77,7 @@ Install TypeScript and the Node.js declarations as development dependencies:
 npm install --save-dev typescript @types/node
 ```
 
-```bash tab="Yarn"
+```bash tab="yarn"
 yarn add --dev typescript @types/node
 ```
 
@@ -134,7 +134,7 @@ Run the typecheck script with your chosen package manager:
 npm run typecheck
 ```
 
-```bash tab="Yarn"
+```bash tab="yarn"
 yarn typecheck
 ```
 
@@ -145,7 +145,3 @@ pnpm typecheck
 TypeScript should complete without diagnostics. If the database is not running
 yet, that command still succeeds because no connection is opened during type
 checking.
-
-## Next steps
-
-[Build and run the first application](./first-application).

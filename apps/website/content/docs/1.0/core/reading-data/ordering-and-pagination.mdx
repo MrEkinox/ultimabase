@@ -8,7 +8,7 @@ order: 4
 outcome: Return a bounded, explicitly ordered Core page without inventing a cursor contract.
 owner: '2808'
 releaseStatus: pre-release
-reviewedAt: 2026-09-15
+reviewedAt: 2026-09-16
 sources:
   - packages/core/docs/query.md
   - docs/adr/0174-object-ordering-inputs.md
@@ -73,8 +73,3 @@ GraphQL owns and signs its opaque Relay cursor, then normalizes the decoded
 position into ordinary Core offset clauses. That cursor provides wire integrity
 and context binding, not keyset or snapshot semantics. It never enters the Core
 Query AST.
-
-## Next steps
-
-Relation inclusions also accept independent per-parent ordering, limit, and
-offset. See [Related Data](./related-data).

@@ -287,7 +287,7 @@ describe('website visual system', () => {
 		try {
 			const page = await context.newPage()
 			await page.goto(`${origin}/docs/1.0/getting-started/installation`)
-			const yarnTabs = page.getByRole('tab', { exact: true, name: 'Yarn' })
+			const yarnTabs = page.getByRole('tab', { exact: true, name: 'yarn' })
 			expect(await yarnTabs.count()).toBe(4)
 			await yarnTabs.first().click()
 			for (const tab of await yarnTabs.all()) {
@@ -300,7 +300,7 @@ describe('website visual system', () => {
 			expect(activeCommands.join('\n')).toContain('yarn typecheck')
 
 			await page.goto(`${origin}/docs/1.0/getting-started/first-application`)
-			const nextYarnTab = page.getByRole('tab', { exact: true, name: 'Yarn' })
+			const nextYarnTab = page.getByRole('tab', { exact: true, name: 'yarn' })
 			await expect
 				.poll(() => nextYarnTab.getAttribute('data-state'))
 				.toBe('active')
@@ -309,6 +309,59 @@ describe('website visual system', () => {
 					.locator('[role="tabpanel"][data-state="active"]')
 					.innerText(),
 			).toContain('yarn start')
+		} finally {
+			await context.close()
+		}
+	})
+
+	it('uses native page navigation for linear steps and cards for choices', async () => {
+		const context = await browser?.newContext()
+		if (context === undefined) throw new Error('Browser did not start')
+
+		try {
+			const page = await context.newPage()
+			const linearJourneys = [
+				[
+					'/docs/1.0/getting-started/introduction',
+					'/docs/1.0/getting-started/installation',
+				],
+				[
+					'/docs/1.0/getting-started/installation',
+					'/docs/1.0/getting-started/first-application',
+				],
+				[
+					'/docs/1.0/getting-started/first-application',
+					'/docs/1.0/getting-started/project-structure',
+				],
+				[
+					'/docs/1.0/getting-started/project-structure',
+					'/docs/1.0/getting-started/next-steps',
+				],
+				[
+					'/docs/1.0/core/reading-data/ordering-and-pagination',
+					'/docs/1.0/core/reading-data/related-data',
+				],
+			] as const
+
+			for (const [path, next] of linearJourneys) {
+				await page.goto(`${origin}${path}`)
+				const redundantHeading = page.locator('main h2:has-text("Next steps")')
+				expect(await redundantHeading.count()).toBe(0)
+				const nextLink = page.locator(`main a[href="${next}"]`)
+				expect(await nextLink.count()).toBeGreaterThan(0)
+			}
+
+			await page.goto(`${origin}/docs/1.0/core/reading-data/selections`)
+			const cards = page
+				.getByRole('heading', { level: 2, name: 'Next steps' })
+				.locator('xpath=following-sibling::div[1]')
+				.locator('a[data-card]')
+			expect(await cards.locator('h3').allTextContents()).toEqual([
+				'Ordering and Pagination',
+				'Related Data',
+			])
+			await cards.nth(1).click()
+			await page.waitForURL(`${origin}/docs/1.0/core/reading-data/related-data`)
 		} finally {
 			await context.close()
 		}
