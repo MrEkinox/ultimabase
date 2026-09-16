@@ -9,7 +9,7 @@ order: 6
 outcome: Identify which boundary rejected a request without exposing internal details.
 owner: '2812'
 releaseStatus: pre-release
-reviewedAt: 2026-09-15
+reviewedAt: 2026-09-16
 sources:
   - packages/http-plugin/README.md
   - packages/rest-plugin/README.md
@@ -19,12 +19,16 @@ sources:
 The component that has safely accepted a request owns its error representation. This
 keeps application selection and credential failures independent from REST or GraphQL.
 
-```text
-original request
-  ├─ application/header/credential/timeout failure → HTTP_* envelope
-  ├─ REST handler began                            → REST_* envelope
-  └─ GraphQL handler began                         → GraphQL response errors
-```
+<Mermaid
+	description="A request rejected before dispatch receives an HTTP error; after dispatch, REST or GraphQL owns its error format."
+	chart="flowchart TB
+    A[Original request] --> B[Application, header, credential, or timeout failure]
+    A --> C[REST handler began]
+    A --> D[GraphQL handler began]
+    B --> E[HTTP error envelope]
+    C --> F[REST error envelope]
+    D --> G[GraphQL response errors]"
+/>
 
 HTTP and REST use the stable JSON shape:
 

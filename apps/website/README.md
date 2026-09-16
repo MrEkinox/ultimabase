@@ -61,7 +61,9 @@ Every public MDX page requires a title, description, audience, content type,
 reader outcome, owning issue, release status, review date, and canonical
 repository sources. Frontmatter may also declare navigation order.
 `components/mdx.tsx` exposes the standard Fumadocs code, tabs, callouts, cards,
-steps, and file-tree components.
+steps, and file-tree components. Authored Mermaid diagrams use a small
+server-rendered SVG component with Fumadocs color variables; keep file contents
+and terminal output as code blocks.
 
 The internal [`docs/editorial-contract.md`](docs/editorial-contract.md) defines
 page templates, voice, terminology, code-sample rules, and progressive

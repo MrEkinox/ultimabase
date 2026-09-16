@@ -8,7 +8,7 @@ order: 7
 outcome: Place business work and post-commit effects on the correct side of commit.
 owner: '2809'
 releaseStatus: pre-release
-reviewedAt: 2026-09-15
+reviewedAt: 2026-09-16
 sources:
   - packages/core/docs/runtime.md
   - packages/postgres-plugin/README.md
@@ -58,9 +58,15 @@ The request engine carries the exact application, authority, request metadata,
 and transaction. Nested explicit transactions and savepoints are not part of
 the public contract.
 
-```text
-validation → policy → before/after operation Hooks → result shaping → commit → named events
-```
+<Mermaid
+	description="A mutation validates input, checks policy, runs operation Hooks, shapes the result, commits, and only then delivers named events."
+	chart="flowchart TB
+    A[Validation] --> B[Policy]
+    B --> C[Before and after operation Hooks]
+    C --> D[Result shaping]
+    D --> E[Commit]
+    E --> F[Named events]"
+/>
 
 Business Hooks run before commit and may abort it. Post-commit side effects use
 named events buffered with `context.emit()`; subscribers run only after a

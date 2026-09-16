@@ -9,7 +9,7 @@ order: 4
 outcome: Predict what commits, rolls back, and runs after commit.
 owner: '2821'
 releaseStatus: pre-release
-reviewedAt: 2026-09-15
+reviewedAt: 2026-09-16
 sources:
   - packages/core/docs/runtime.md
   - docs/adr/0099-automatic-mutation-transactions.md
@@ -22,14 +22,18 @@ Every root mutation owns an automatic transaction. Its nested writes, Hook-
 started database operations, protected constraints, and persistence plan share
 that boundary. A failure before commit rolls the whole mutation back.
 
-```text
-one root mutation
-└── automatic transaction
-    ├── nested object and relation writes
-    ├── before and after business Hooks
-    ├── adapter work and constraints
-    └── commit → buffered post-commit events
-```
+<Mermaid
+	description="One root mutation opens an automatic transaction containing nested writes, business Hooks, and adapter work; buffered events run after commit."
+	chart="flowchart TB
+    A[One root mutation] --> B[Automatic transaction]
+    B --> C[Nested object and relation writes]
+    B --> D[Before and after business Hooks]
+    B --> E[Adapter work and constraints]
+    C --> F[Commit]
+    D --> F
+    E --> F
+    F --> G[Buffered post-commit events]"
+/>
 
 Reads do not open transactions by default. When several root commands or reads
 must observe one atomic unit, use the request engine's explicit

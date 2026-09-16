@@ -92,4 +92,33 @@ describe('single application page', () => {
 			await context.close()
 		}
 	})
+
+	it('renders the application graph as an accessible, mobile-contained diagram', async () => {
+		const context = await browser?.newContext({
+			colorScheme: 'dark',
+			viewport: { height: 812, width: 375 },
+		})
+		if (context === undefined) throw new Error('Browser did not start')
+
+		try {
+			const page = await context.newPage()
+			await page.goto(`${origin}/docs/1.0.0/core/application`)
+			const diagram = page.getByRole('img', {
+				name: /Schemas, plugins, and options pass validation/u,
+			})
+			await diagram.waitFor({ state: 'visible' })
+			expect(await diagram.locator('svg').count()).toBe(1)
+			expect(await diagram.innerHTML()).not.toContain('fonts.googleapis.com')
+			expect(await diagram.textContent()).toContain(
+				'Immutable compiled application graph',
+			)
+			expect(
+				await page.evaluate(
+					() => document.documentElement.scrollWidth <= window.innerWidth,
+				),
+			).toBe(true)
+		} finally {
+			await context.close()
+		}
+	})
 })

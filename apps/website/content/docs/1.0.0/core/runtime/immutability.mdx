@@ -9,7 +9,7 @@ order: 6
 outcome: Predict how builders and public domain values behave when reused.
 owner: '2821'
 releaseStatus: pre-release
-reviewedAt: 2026-09-15
+reviewedAt: 2026-09-16
 sources:
   - packages/core/README.md
   - docs/adr/0058-immutable-unbound-query-builder.md
@@ -20,13 +20,16 @@ UltimaBase public domain values are immutable. Query builders, model snapshots,
 ACLs, and roles return a new value when changed; an earlier value keeps its
 original meaning.
 
-```text
-base query
-├── where published → published branch
-└── where draft     → draft branch
+<Mermaid
+	description="Published and draft queries branch independently from the same immutable base query."
+	chart="flowchart TB
+    A[Base query] --> B[Where published]
+    A --> C[Where draft]
+    B --> D[Published branch]
+    C --> E[Draft branch]"
+/>
 
-Neither branch changes base or the other branch.
-```
+Neither branch changes the base query or the other branch.
 
 ## Builders describe work
 

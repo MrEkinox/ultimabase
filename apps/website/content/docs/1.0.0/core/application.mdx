@@ -34,15 +34,13 @@ Developer-owned schemas, configured plugins, and static options form a graph.
 Importing a package alone installs nothing, and generated types do not decide
 what runs.
 
-```text
-schemas + configured plugins + static options
-                    ↓
-     identity, dependency, privilege, and conflict checks
-                    ↓
-         immutable compiled application graph
-                    ↓
-       capabilities, lifecycle, Runtime, transports
-```
+<Mermaid
+	description="Schemas, plugins, and options pass validation before producing an immutable application graph and its runtime capabilities."
+	chart="flowchart TB
+    A[Schemas + configured plugins + static options] --> B[Identity, dependency, privilege, and conflict checks]
+    B --> C[Immutable compiled application graph]
+    C --> D[Capabilities, lifecycle, Runtime, transports]"
+/>
 
 Core resolves plugin identities and instances, dependencies, compatibility,
 privileges, and capability contracts. Pure static declarations then add schema

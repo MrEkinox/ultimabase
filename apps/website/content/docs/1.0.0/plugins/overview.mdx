@@ -9,7 +9,7 @@ order: 1
 outcome: Decide whether a feature belongs in the application plugin list and know what Core validates.
 owner: '2810'
 releaseStatus: pre-release
-reviewedAt: 2026-09-15
+reviewedAt: 2026-09-16
 sources:
   - packages/core/README.md
   - packages/plugin-kit/README.md
@@ -28,10 +28,16 @@ Importing a plugin package never installs it. Behavior begins only when the
 factory result appears in one application's `plugins` array. This makes the
 application graph readable and keeps separate applications isolated.
 
-```text
-package import → plugin factory → application graph validation → static declarations
-               → capability materialization → setup and lifecycle → disposal
-```
+<Mermaid
+	description="Importing a package does not install it; the plugin factory enters application graph validation, static declarations, capability materialization, lifecycle, and disposal."
+	chart="flowchart TB
+    A[Package import] --> B[Plugin factory]
+    B --> C[Application graph validation]
+    C --> D[Static declarations]
+    D --> E[Capability materialization]
+    E --> F[Setup and lifecycle]
+    F --> G[Disposal]"
+/>
 
 The graph is deterministic. Dependencies run before consumers; configuration
 position breaks ties; registration order breaks ties inside one plugin.

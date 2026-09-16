@@ -10,7 +10,7 @@ order: 2
 outcome: Place validation, policy, Hooks, persistence, and post-commit work correctly.
 owner: '2821'
 releaseStatus: pre-release
-reviewedAt: 2026-09-15
+reviewedAt: 2026-09-16
 sources:
   - ARCHITECTURE.md
   - packages/core/docs/runtime.md
@@ -23,12 +23,13 @@ Every direct TypeScript, REST, and GraphQL operation enters one Core-owned
 Runtime pipeline. Transports normalize their wire formats; they do not issue
 SQL, evaluate policy, or invent a parallel execution path.
 
-```text
-normalize → structural validation → policy and target loading
-          → resolve input → final structural validation → policy re-check
-          → before behavior → persistence → after behavior
-          → output restrictions → commit → post-commit events
-```
+<Mermaid
+	description="A request passes through four ordered Runtime phases from normalization and validation through commit and post-commit events."
+	chart="flowchart TB
+    A[Normalize, structurally validate, check policy, and load target] --> B[Resolve input, validate again, and re-check policy]
+    B --> C[Run before behavior, persist, and run after behavior]
+    C --> D[Restrict output, commit, and deliver post-commit events]"
+/>
 
 ## Why the order matters
 

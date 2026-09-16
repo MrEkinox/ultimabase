@@ -9,7 +9,7 @@ order: 5
 outcome: Understand safe persistence rewrites without changing policy or Hook meaning.
 owner: '2821'
 releaseStatus: pre-release
-reviewedAt: 2026-09-15
+reviewedAt: 2026-09-16
 sources:
   - ARCHITECTURE.md
   - packages/core/docs/runtime.md
@@ -27,12 +27,13 @@ The persistence plan describes how the adapter fulfills it. A plugin with the
 exact privilege may rewrite that physical plan without changing the logical
 operation seen by the rest of Runtime.
 
-```text
-logical delete
-├── policy and Hooks still observe: delete
-├── result semantics still follow: delete
-└── soft-delete rewrite may persist: guarded update of tombstone fields
-```
+<Mermaid
+	description="A logical delete keeps delete semantics for policy, Hooks, and results even when soft delete rewrites its persistence plan."
+	chart="flowchart TB
+    A[Logical delete] --> B[Policy and Hooks observe delete]
+    A --> C[Results retain delete semantics]
+    A --> D[Soft-delete rewrite may persist a guarded tombstone update]"
+/>
 
 ## Protected constraints stay protected
 

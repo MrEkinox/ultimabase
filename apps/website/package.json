@@ -15,6 +15,7 @@
 		"typecheck": "yarn generate && tsc --noEmit"
 	},
 	"dependencies": {
+		"beautiful-mermaid": "1.1.3",
 		"fumadocs-core": "16.15.10",
 		"fumadocs-mdx": "15.4.0",
 		"fumadocs-ui": "16.15.10",
