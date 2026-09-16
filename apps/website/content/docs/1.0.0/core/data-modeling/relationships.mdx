@@ -1,14 +1,14 @@
 ---
 title: Relationships
-description: Reference one record by immutable schema identity and ID without loading it.
+description: Model to-one pointers and to-many relations without embedding related records.
 audience:
   - application-developer
 contentType: concept
 order: 7
-outcome: Declare, construct, compare, and serialize a typed to-one reference.
+outcome: Choose, declare, and read pointers or relations with the right ownership and cardinality.
 owner: '2807'
 releaseStatus: pre-release
-reviewedAt: 2026-09-15
+reviewedAt: 2026-09-16
 sources:
   - packages/core/README.md
   - packages/core/docs/schema.md
@@ -17,7 +17,13 @@ sources:
   - docs/adr/0115-immutable-model-commands.md
   - docs/adr/0118-transport-neutral-relations.md
   - docs/adr/0179-name-based-relationship-targets.md
+  - docs/adr/0247-contextual-relation-filters.md
 ---
+
+Use a **pointer** when a record refers to one target. Use a **relation** when it
+owns or exposes a collection of targets. Neither stores the related records
+inside the source model. Declare both at the schema root, not inside an
+[embedded object](./embedded-objects).
 
 ## Pointers
 
@@ -39,7 +45,6 @@ export const Session = Schema.define({
 	className: 'DocsSession',
 	fields: (field) => ({
 		account: field.pointer({
-			onDelete: 'cascade',
 			required: true,
 			target: 'DocsAccount',
 		}),
@@ -52,31 +57,39 @@ export const accountReference = Account.pointer(
 )
 ```
 
-The string `target` is resolved against the schemas registered in the same
-application. Typegen then narrows `Session.account` to the generated
-`DocsAccount` pointer handle rather than a generic string.
+Register both schemas in the same application. During compilation, UltimaBase
+resolves `target: 'DocsAccount'` to the exact registered `Account` schema;
+an unknown target fails before database setup. Typegen can then expose the
+exact target type for `Session.account`.
 
-Use `Account.pointer(id)` to construct a typed reference. The equivalent general
-form is `new Pointer(Account, id)`. Pointer construction performs no I/O.
-`pointer.equals(other)` compares both schema identity and ID, while
-`pointer.toJSON()` returns the frozen logical reference shape.
+Use `Account.pointer(id)` in a create or update input to reference an existing
+account. The equivalent general form is `new Pointer(Account, id)`. Constructing
+a pointer performs no I/O and does not prove that the target exists;
+persistence enforces the relationship. Its ordinary value is a `Pointer`, not
+an `Account` model. `pointer.equals(other)` compares exact schema identity and
+ID, while `pointer.toJSON()` returns the immutable logical shape
+`{ type: 'pointer', className: 'DocsAccount', id }`.
+
+A required pointer cannot be `null`. An optional pointer can be `null` in a
+complete record; pointers cannot be lists or have defaults. Use
+[Defaults and Nullability](./defaults) for the general presence rules.
 
 ### Pointer deletion behavior
 
-`onDelete` states what should happen when the target is deleted:
+`onDelete` controls how deleting a target affects its referencing records:
 
-- `restrict` rejects target deletion while the pointer exists;
+- `restrict` (the default) rejects target deletion while the pointer exists;
 - `cascade` deletes the referencing record;
-- `setNull` clears the pointer and therefore requires a nullable field.
+- `setNull` clears the pointer and therefore requires an optional field.
 
 Use `indexed: 'unique'` on a pointer to express a one-to-one constraint. Use a
 relation instead when one record owns a changing set of target members.
 
 ## Relations
 
-A relation declares a typed to-many edge between two schemas. The owning record
-does not contain a target array: the adapter owns physical membership, and
-Runtime exposes that membership through relation-aware operations.
+A relation declares a typed to-many edge between two schemas. The source record
+does not contain a target array. The database adapter stores membership, while
+Runtime provides explicit reads and mutations through the relationship.
 
 ```ts title="src/post.ts"
 import { Schema } from '@ultimabase/core'
@@ -93,7 +106,6 @@ export const Post = Schema.define({
 	className: 'DocsPost',
 	fields: (field) => ({
 		author: field.pointer({
-			onDelete: 'restrict',
 			required: true,
 			target: 'DocsAuthor',
 		}),
@@ -105,20 +117,88 @@ export const Post = Schema.define({
 
 ### Owning and inverse sides
 
-`Post.reviewers` owns an independent membership set. `Author.posts` is inverse
-because `mappedBy: 'author'` derives membership from `Post.author`; it cannot own
-a competing set. Static compilation resolves target names and verifies inverse
-topology.
+`Post.reviewers` owns an independent membership set. `Author.posts` is inverse:
+`mappedBy: 'author'` derives its members from `Post.author` instead of storing
+a second edge. Static compilation resolves target names and verifies that the
+inverse points to a compatible field. A one-to-one relationship uses a unique
+pointer, not a one-item relation.
 
-Relations do not appear as arrays in normal mutation types. Persisted models
-expose relation handles when an operation includes the relationship. Use an
-explicit relationship schema when the edge needs fields such as role, position,
-status, or creation time.
+Relations do not appear as arrays in ordinary model values or create/update
+data. A persisted model can create a relation handle through `relation(name)`
+even when the collection was not included in its result. Use an explicit
+relationship schema with pointers when the edge itself needs fields such as
+role, position, status, or creation time.
 
 <Callout type="info" title="One source of membership truth">
 	Choose either an owning relation or an inverse `mappedBy` relation for an
 	edge. Do not mirror both sides with separately writable relation sets.
 </Callout>
 
-Continue with [Related Data](/docs/1.0.0/core/reading-data/related-data) for
-inclusion, filters, counts, and contextual relation views.
+## Read related records
+
+After registering `Author` and `Post` in a started application with a
+persistence plugin, as in
+[Manual Installation](/docs/1.0.0/manual-installation), use `include` to load
+related models explicitly:
+
+```ts title="src/read-posts.ts"
+import { Post } from './post.js'
+import { ultimabase } from './ultimabase.js'
+
+export const readPosts = () =>
+	Post.findMany(
+		{
+			include: {
+				author: { select: { name: true } },
+				reviewers: { limit: 5, select: { name: true } },
+			},
+			select: { title: true },
+		},
+		{ ultimabase },
+	)
+```
+
+Each returned post includes its `id` and `title`. Its included `author` is a
+selected `Author` model or `null` if the target is missing or inaccessible;
+that does not change the stored pointer's requiredness. `reviewers` is a
+readonly array of up to five visible `Author` models, not a stored array on
+`Post`. A relation with no visible targets yields `[]`.
+
+For a collection you do not want to include in a parent result, read through
+the persisted model's relation handle:
+
+```ts title="src/read-reviewers.ts"
+import { Post } from './post.js'
+import { ultimabase } from './ultimabase.js'
+
+export const readReviewers = async (postId: string) => {
+	const post = await Post.get({ id: postId }, { ultimabase })
+	const reviewers = post.relation('reviewers')
+
+	return reviewers.findMany(
+		{ limit: 10, select: { name: true } },
+		{ ultimabase },
+	)
+}
+```
+
+The same handle supports `connect`, `disconnect`, `set`, and `clear` for
+membership changes; disconnecting an edge does not delete its target record.
+
+A relation may declare a static or request-contextual `where` to narrow every
+read through that field. It intersects with caller filters and target policies;
+it does not grant access or change membership.
+
+## Related tasks
+
+<Cards>
+	<Card title="Related Data" href="/docs/1.0.0/core/reading-data/related-data">
+		Load and filter related models with exact selections.
+	</Card>
+	<Card
+		title="Nested Writes"
+		href="/docs/1.0.0/core/writing-data/nested-writes"
+	>
+		Create or change pointer and relation graphs atomically.
+	</Card>
+</Cards>
