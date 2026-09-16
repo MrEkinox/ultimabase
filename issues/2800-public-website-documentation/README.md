@@ -102,7 +102,7 @@ The public route architecture is:
 │       ├── core
 │       │   ├── application (graph, lifecycle, TypeScript, application scope)
 │       │   ├── data-modeling
-│       │   │   ├── schemas
+│       │   │   ├── schemas (declarations, options, and indexes)
 │       │   │   ├── fields (field families and built-in builders)
 │       │   │   ├── models
 │       │   │   ├── defaults
@@ -173,7 +173,6 @@ The public route architecture is:
 │       └── reference
 │           ├── core-api
 │           │   ├── application
-│           │   ├── schema
 │           │   ├── query
 │           │   ├── models
 │           │   └── errors

@@ -189,6 +189,10 @@ redirect; Guides retains its task workflows.
 The Fields page now includes the built-in field-builder lookup in its page-level
 contents. The duplicate `/docs/1.0.0/reference/core-api/fields` route is removed
 without a pre-launch redirect.
+The Schemas page now includes declaration options, indexes, application-bound
+handles, and compilation errors. The duplicate
+`/docs/1.0.0/reference/core-api/schema` route is removed without a pre-launch
+redirect.
 
 ### Phase 1 — Application, design, and content foundation
 

@@ -47,7 +47,7 @@
 				{
 					"slug": "data-modeling/schemas",
 					"contentType": "concept",
-					"outcome": "Define and register a schema, and understand when its fields become available."
+					"outcome": "Define and register a schema, choose its declaration options, and understand when its fields and application handle become available."
 				},
 				{
 					"slug": "data-modeling/virtual-fields",
@@ -393,11 +393,6 @@
 					"slug": "core-api/query",
 					"contentType": "reference",
 					"outcome": "Build and execute one transport-neutral read with an exact selection and result type."
-				},
-				{
-					"slug": "core-api/schema",
-					"contentType": "reference",
-					"outcome": "Declare an authoritative schema graph and resolve its application-owned runtime surface."
 				},
 				{
 					"slug": "package-index",

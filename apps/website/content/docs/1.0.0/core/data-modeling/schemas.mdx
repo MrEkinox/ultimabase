@@ -1,17 +1,18 @@
 ---
 title: Schemas
-description: Define the stable names, fields, and system metadata that form an UltimaBase data model.
+description: Define, register, and compile schemas, including their fields, indexes, and application-owned handles.
 audience:
   - application-developer
 contentType: concept
 order: 1
-outcome: Define and register a schema, and understand when its fields become available.
+outcome: Define and register a schema, choose its declaration options, and understand when its fields and application handle become available.
 owner: '2807'
 releaseStatus: pre-release
 reviewedAt: 2026-09-16
 sources:
   - packages/core/README.md
   - packages/core/docs/schema.md
+  - packages/core/src/schema/schema/definition.ts
   - packages/core/examples/schema/basic-schema.md
   - docs/adr/0213-direct-plugin-options-replace-schema-field-extensions.md
 ---
@@ -31,8 +32,34 @@ export const Article = Schema.define({
 		slug: field.string({ indexed: 'unique', required: true }),
 		title: field.string({ required: true }),
 	}),
+	indexes: [{ fields: ['published', 'createdAt'] }],
 })
 ```
+
+## Declaration options
+
+`Schema.define()` accepts the following Core options:
+
+| Option          | Required | Purpose                                                                                                             |
+| --------------- | -------- | ------------------------------------------------------------------------------------------------------------------- |
+| `className`     | Yes      | Stable logical name for the schema.                                                                                 |
+| `fields(field)` | Yes      | Synchronous callback that returns its stored, relationship, and virtual field declarations. See [Fields](./fields). |
+| `indexes`       | No       | Composite indexes over top-level fields.                                                                            |
+
+Installed plugins may add direct schema options, such as `access`, `hooks`,
+`rest`, `graphql`, or `postgres`. Those are not Core defaults: an option must
+have one exact installed plugin owner, and each plugin documents its own
+configuration. Importing a plugin package alone does not install it. See
+[Using Plugins](/docs/1.0.0/plugins/using-plugins).
+
+### Indexes
+
+Use `indexed: true` or `indexed: 'unique'` on one field for a single-field
+index. The `indexes` array in the example declares a composite index on
+`published` and the framework-owned `createdAt` field. Each composite entry
+needs at least two distinct top-level fields; add `unique: true` when the
+combination must be unique. UltimaBase records portable indexing intent, while
+the database plugin decides how to implement it.
 
 ## Register and compile
 
@@ -54,21 +81,26 @@ a working application, add a persistence plugin and call `start()` as shown in
 [Manual Installation](/docs/1.0.0/manual-installation). At startup, UltimaBase
 runs installed plugins' static declarations, then compiles the complete schema
 graph before plugin setup or database connections. The `fields` callback runs
-during that compilation, not when `article.ts` is imported. Constructing an
-`Article` model or reading field-dependent metadata before compilation throws
-`SchemaCompilationError`.
+during that compilation, not when `article.ts` is imported.
 
 Plugins can also contribute schemas during static declaration; those schemas
 do not need an entry in the application's `schemas` array.
+
+## Schema classes and application handles
+
+`Schema.define()` returns the final schema class. After compilation, that class
+constructs immutable drafts and exposes its ordinary schema commands. Use
+`ultimabase.schema(Article)` to resolve the cached handle bound to this exact
+application. The same method accepts the registered name of a
+plugin-contributed schema. Configuration-dependent commands belong to that
+application handle; plugins do not add methods to an exported schema class or
+its prototype. See [Models](./models) for draft and persisted instances.
 
 ## Schema identity
 
 `className` is the stable logical identity used by relations, generated types,
 and adapters. Treat it like a persistent API name: changing it describes a
 different schema, not a cosmetic rename.
-
-Within one application, duplicate schema names and unresolved relationship
-targets fail during static compilation.
 
 ## System fields
 
@@ -85,6 +117,16 @@ create or update data. UltimaBase generates all three at creation and refreshes
 `updatedAt` on persisted updates; application code cannot set or redeclare
 them.
 
+## Compilation errors
+
+Reading field-dependent metadata or constructing a model before compilation
+throws `SchemaCompilationError`. Compilation also rejects duplicate or reserved
+field names, unresolved relationship targets, and plugin options without one
+exact installed owner. These failures occur before plugin setup or database
+connection, not on the first request. See [Relationships](./relationships) for
+target declarations and [Using Plugins](/docs/1.0.0/plugins/using-plugins) for
+installation and ownership.
+
 ## Optional generated types
 
 The compiled schema graph is Runtime truth. Optional Typegen reads that graph
@@ -92,7 +134,5 @@ to generate application-specific TypeScript declarations for editor completion
 and typechecking; it does not change what the application executes. See
 [Generate TypeScript Types](/docs/1.0.0/guides/generate-types) for setup.
 
-Continue with [Fields](./fields) for field kinds, [Models](./models) for the
-immutable class instances, and [Relationships](./relationships) for schema
-targets. The [Schema API reference](/docs/1.0.0/reference/core-api/schema)
-lists the complete declaration options.
+Continue with [Fields](./fields) for field kinds, [Models](./models) for
+immutable instances, and [Relationships](./relationships) for schema targets.

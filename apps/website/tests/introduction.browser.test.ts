@@ -148,4 +148,33 @@ describe('documentation sidebar', () => {
 			await context.close()
 		}
 	})
+
+	it('keeps schema options in Schemas and removes the duplicate reference route', async () => {
+		const context = await browser?.newContext()
+		if (context === undefined) throw new Error('Browser did not start')
+
+		try {
+			const page = await context.newPage()
+			await page.goto(`${origin}/docs/1.0.0/core/data-modeling/schemas`)
+			await page
+				.getByRole('heading', { level: 2, name: 'Declaration options' })
+				.waitFor()
+			expect(
+				await page.locator('a[href="#declaration-options"]').count(),
+			).toBeGreaterThan(0)
+			const sidebar = page.locator('#nd-sidebar')
+			expect(
+				await sidebar
+					.getByRole('link', { name: 'Schemas', exact: true })
+					.count(),
+			).toBe(1)
+			const oldReference = await page.request.get(
+				`${origin}/docs/1.0.0/reference/core-api/schema`,
+				{ maxRedirects: 0 },
+			)
+			expect(oldReference.status()).toBe(404)
+		} finally {
+			await context.close()
+		}
+	})
 })
