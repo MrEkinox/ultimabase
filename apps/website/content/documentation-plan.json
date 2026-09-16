@@ -17,7 +17,7 @@
 				{
 					"slug": "application",
 					"contentType": "concept",
-					"outcome": "Explain how one UltimaBase application is composed, started, used, and isolated."
+					"outcome": "Configure one UltimaBase application and understand how it is started, used, and isolated."
 				},
 				{
 					"slug": "data-modeling/defaults",
@@ -67,12 +67,12 @@
 				{
 					"slug": "reading-data/overview",
 					"contentType": "concept",
-					"outcome": "Choose a read terminal, build its input, and execute it in the correct application context."
+					"outcome": "Choose a read terminal, build its input, and handle read failures in the correct application context."
 				},
 				{
 					"slug": "reading-data/related-data",
 					"contentType": "guide",
-					"outcome": "Load a pointer and a bounded relation while preserving exact nested result types."
+					"outcome": "Load and filter related data, including request-contextual relation views, without mistaking a filter for authorization."
 				},
 				{
 					"slug": "reading-data/selections",
@@ -82,7 +82,7 @@
 				{
 					"slug": "runtime/api-errors",
 					"contentType": "reference",
-					"outcome": "Identify which boundary rejected a request without exposing internal details."
+					"outcome": "Identify the error owner and handle FrameworkError without exposing internal details."
 				},
 				{
 					"slug": "runtime/immutability",
@@ -137,7 +137,7 @@
 				{
 					"slug": "writing-data/nested-writes",
 					"contentType": "concept",
-					"outcome": "Choose legal pointer and relation commands and predict their order and limits."
+					"outcome": "Choose legal pointer and relation commands and verify their atomic order and limits."
 				},
 				{
 					"slug": "writing-data/transactions",
@@ -293,11 +293,6 @@
 					"outcome": "Sign in over REST and use the opaque Bearer session on a protected read."
 				},
 				{
-					"slug": "filter-contextual-relations",
-					"contentType": "tutorial",
-					"outcome": "Show authenticated readers a different relation view through every API."
-				},
-				{
 					"slug": "generate-types",
 					"contentType": "guide",
 					"outcome": "Generate and verify replaceable declarations for one configured UltimaBase application."
@@ -306,11 +301,6 @@
 					"slug": "test-an-application",
 					"contentType": "tutorial",
 					"outcome": "Run deterministic type and application checks before adding database-backed scenarios."
-				},
-				{
-					"slug": "write-nested-data",
-					"contentType": "tutorial",
-					"outcome": "Create an article and contributor atomically, then return the included graph."
 				}
 			]
 		},
@@ -373,21 +363,6 @@
 					"slug": "compatibility",
 					"contentType": "reference",
 					"outcome": "Confirm the current platform baseline before installing or deploying UltimaBase."
-				},
-				{
-					"slug": "core-api/application",
-					"contentType": "reference",
-					"outcome": "Configure and run one isolated application with explicit schemas, plugins, authority, and validation."
-				},
-				{
-					"slug": "core-api/errors",
-					"contentType": "reference",
-					"outcome": "Handle stable public error codes without exposing trusted diagnostics or relying on transport internals."
-				},
-				{
-					"slug": "core-api/query",
-					"contentType": "reference",
-					"outcome": "Build and execute one transport-neutral read with an exact selection and result type."
 				},
 				{
 					"slug": "package-index",

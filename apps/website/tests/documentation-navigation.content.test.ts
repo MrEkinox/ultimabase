@@ -103,8 +103,6 @@ const canonicalNavigation = {
 	],
 	'1.0.0/guides': [
 		'build-an-authenticated-api',
-		'write-nested-data',
-		'filter-contextual-relations',
 		'generate-types',
 		'test-an-application',
 	],
@@ -115,12 +113,10 @@ const canonicalNavigation = {
 		'application-troubleshooting',
 	],
 	'1.0.0/reference': [
-		'core-api',
 		'package-index',
 		'compatibility',
 		'architecture-decisions',
 	],
-	'1.0.0/reference/core-api': ['application', 'query', 'errors'],
 } as const satisfies Readonly<Record<string, readonly string[]>>
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
@@ -214,5 +210,37 @@ describe('documentation navigation architecture', () => {
 				'utf8',
 			),
 		).rejects.toMatchObject({ code: 'ENOENT' })
+	})
+
+	it('keeps application, query, errors, and relation tasks in their Core pages', async () => {
+		const [application, query, errors, nestedWrites, relatedData] =
+			await Promise.all(
+				[
+					'core/application',
+					'core/reading-data/overview',
+					'core/runtime/api-errors',
+					'core/writing-data/nested-writes',
+					'core/reading-data/related-data',
+				].map((page) =>
+					readFile(path.join(contentRoot, `1.0.0/${page}.mdx`), 'utf8'),
+				),
+			)
+		expect(application).toContain('## Configure the application')
+		expect(query).toContain('## Read failures')
+		expect(errors).toContain('## FrameworkError')
+		expect(nestedWrites).toContain('To verify atomicity')
+		expect(relatedData).toContain('a relation filter is not a permission check')
+
+		for (const retiredPage of [
+			'reference/core-api/application',
+			'reference/core-api/query',
+			'reference/core-api/errors',
+			'guides/write-nested-data',
+			'guides/filter-contextual-relations',
+		]) {
+			await expect(
+				readFile(path.join(contentRoot, `1.0.0/${retiredPage}.mdx`), 'utf8'),
+			).rejects.toMatchObject({ code: 'ENOENT' })
+		}
 	})
 })

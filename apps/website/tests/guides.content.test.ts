@@ -8,10 +8,8 @@ const contentRoot = fileURLToPath(
 )
 const pages = [
 	'build-an-authenticated-api',
-	'filter-contextual-relations',
 	'generate-types',
 	'test-an-application',
-	'write-nested-data',
 ] as const
 
 describe('focused guide contracts', () => {

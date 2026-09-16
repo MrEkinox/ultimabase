@@ -4,13 +4,7 @@
 		{
 			"id": "core-application",
 			"packages": ["@ultimabase/core", "@ultimabase/shared"],
-			"sections": [
-				"manual-installation",
-				"core",
-				"guides",
-				"operations",
-				"reference/core-api"
-			]
+			"sections": ["manual-installation", "core", "guides", "operations"]
 		},
 		{
 			"id": "plugin-authoring-and-tooling",

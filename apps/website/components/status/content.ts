@@ -155,7 +155,7 @@ export const statusPages: readonly StatusPageContent[] = Object.freeze([
 					{
 						description:
 							'Nested writes, contextual fields and relations, plugin schema mutations, and official soft deletion.',
-						href: currentDocumentationPath('guides/write-nested-data'),
+						href: currentDocumentationPath('core/writing-data/nested-writes'),
 						title: 'Recent data capabilities',
 					},
 				],

@@ -88,19 +88,7 @@ between calls can shift later pages even with a unique order. Deep offsets may
 also become expensive. Use focused filters when scanning a large collection;
 do not treat an offset as a durable continuation token.
 
-## Next steps
-
-<Cards>
-	<Card title="Related Data" href="./related-data">
-		Page an included relation independently for each parent record.
-	</Card>
-	<Card title="REST API" href="/docs/1.0.0/plugins/official/http-and-apis/rest">
-		Use the REST plugin's numeric pagination parameters.
-	</Card>
-	<Card
-		title="GraphQL"
-		href="/docs/1.0.0/plugins/official/http-and-apis/graphql"
-	>
-		Use the GraphQL plugin's Relay connection and cursors.
-	</Card>
-</Cards>
+An included relation has its own per-parent pagination; continue with
+[Related Data](./related-data). The optional [REST API](/docs/1.0.0/plugins/official/http-and-apis/rest)
+uses numeric pagination parameters, while [GraphQL](/docs/1.0.0/plugins/official/http-and-apis/graphql)
+exposes Relay connections and cursors.

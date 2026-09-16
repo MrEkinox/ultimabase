@@ -197,6 +197,13 @@ The Models page now combines the draft and persisted mental model with instance
 command lookup and failures. The duplicate
 `/docs/1.0.0/reference/core-api/models` route is removed without a pre-launch
 redirect.
+The subsequent Core API and Guides consolidation places application
+configuration, query lookup, and `FrameworkError` details in their owning Core
+pages. The three remaining `reference/core-api` routes and its sidebar folder
+are removed. Nested-write and contextual-relation guidance now live in their
+Core pages instead of duplicate Guides routes. Reference retains the package
+index, compatibility, and architecture background. The site is still private,
+so these removed URLs have no pre-launch redirects.
 
 ### Phase 1 — Application, design, and content foundation
 

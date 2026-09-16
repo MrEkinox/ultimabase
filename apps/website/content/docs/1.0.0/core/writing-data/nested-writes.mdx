@@ -144,6 +144,10 @@ Nested delete and upsert commands are not available. Bulk roots, upserts, and
 draft construction accept only flat data, not nested relationship commands.
 Use a singular root command when you need this graph behavior.
 
+To verify atomicity, make a child fail validation in a disposable test
+database. After the command rejects, read the root, child, and relation
+membership: none of that command's changes should remain.
+
 ## Next steps
 
 <Cards>

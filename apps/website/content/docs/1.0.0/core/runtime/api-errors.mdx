@@ -26,7 +26,7 @@ handle the request.
 
 | When the failure occurs        | Owner and representation                                       | Start here                                                                              |
 | ------------------------------ | -------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| Direct TypeScript command      | Core `FrameworkError` or the operation's declared plugin error | [Core errors](/docs/1.0.0/reference/core-api/errors)                                    |
+| Direct TypeScript command      | Core `FrameworkError` or the operation's declared plugin error | [FrameworkError](#frameworkerror)                                                       |
 | Before a protocol route begins | HTTP plugin's safe `HTTP_*` JSON envelope                      | [HTTP troubleshooting](/docs/1.0.0/plugins/official/http-and-apis/http#troubleshooting) |
 | After REST begins              | REST plugin's JSON envelope and `REST_*` codes                 | [REST API](/docs/1.0.0/plugins/official/http-and-apis/rest)                             |
 | After GraphQL begins           | GraphQL response errors and safe extensions                    | [GraphQL](/docs/1.0.0/plugins/official/http-and-apis/graphql)                           |
@@ -59,9 +59,6 @@ separate. For example, malformed REST read input can return:
 The HTTP layer adds `X-UltimaBase-Request-Id` and
 `Cache-Control: private, no-store` to its responses. The request ID helps
 correlate a sanitized report with server diagnostics; it is not a credential.
-Core's `FrameworkError.toJSON()` includes only the code, retryability, and
-explicitly public message or details. Diagnostic messages, stacks, causes,
-and internal details stay private.
 
 Before route dispatch, malformed or ambiguous headers use `HTTP_BAD_REQUEST`;
 application or credential rejection uses `HTTP_APPLICATION_REJECTED`. After
@@ -74,10 +71,65 @@ failures may retain safe extensions such as code, retryability, request ID,
 and optional JSON details. Unknown failures are masked as
 `INTERNAL_SERVER_ERROR`.
 
+## FrameworkError
+
+Direct TypeScript calls can inspect Core's `FrameworkError` without depending
+on an HTTP response shape. Its constructor takes a declared
+`FrameworkErrorCode`, a non-empty diagnostic message, and optional `cause`,
+`publicMessage`, `publicDetails`, `internalDetails`, and `retryable` values:
+
+```ts title="src/handle-missing-post.ts"
+import { FrameworkError } from '@ultimabase/core'
+
+const error = new FrameworkError('NOT_FOUND', 'Trusted diagnostic', {
+	publicMessage: 'The requested post was not found.',
+	publicDetails: { resource: 'Post' },
+})
+
+const safePayload = error.toJSON()
+```
+
+`safePayload` contains `code`, `retryable: false`, and the explicitly public
+`message` and `details`. It never includes the diagnostic message, stack,
+cause, or internal details. `frameworkErrorCodes` lists all declared Core
+codes. Common ones include `VALIDATION_ERROR`, `NOT_FOUND`,
+`PERMISSION_DENIED`, `TRANSACTION_ERROR`, and plugin-graph failures such as
+`PLUGIN_DEPENDENCY_MISSING` and `PLUGIN_PRIVILEGE_DENIED`. Unknown codes or
+malformed constructor options throw `TypeError`.
+
+When you need to handle an absent direct-read target, check the stable code:
+
+```ts title="src/find-post.ts"
+import { FrameworkError } from '@ultimabase/core'
+
+import { Post } from './schemas.js'
+import { ultimabase } from './ultimabase.js'
+
+export const findPostOrNull = async (postId: string) => {
+	try {
+		return await Post.get({ id: postId }, { ultimabase })
+	} catch (error: unknown) {
+		if (error instanceof FrameworkError && error.code === 'NOT_FOUND') {
+			return null
+		}
+		throw error
+	}
+}
+```
+
+HTTP, REST, GraphQL, PostgreSQL, Typegen, and Password Auth each own their
+additional error codes and public representations. Use the relevant
+[HTTP](/docs/1.0.0/plugins/official/http-and-apis/http),
+[REST](/docs/1.0.0/plugins/official/http-and-apis/rest),
+[GraphQL](/docs/1.0.0/plugins/official/http-and-apis/graphql), or
+[Password Authentication](/docs/1.0.0/plugins/official/authentication-and-authorization/password-authentication)
+page for that capability's failures; use
+[Application Troubleshooting](/docs/1.0.0/operations/application-troubleshooting)
+for startup and Typegen diagnostics.
+
 ## Handle a failure safely
 
 Check the owner, stable code, and request ID first. Do not use the HTTP status
 alone to infer whether a failure happened before or after dispatch. Never log
 or attach a raw credential, password, session token, Master key, private
-record, or stack trace to a public error report. For code lookup and safe
-handling examples, see [Core Errors](/docs/1.0.0/reference/core-api/errors).
+record, or stack trace to a public error report.

@@ -106,6 +106,22 @@ Every builder method returns a new frozen branch. `build()` emits the same
 canonical object accepted by `Post.findMany`; the builder performs no I/O and
 retains no application or authority. The last call executes the read.
 
+An empty builder has no filter, selection, inclusion, ordering, limit, or
+offset. Omitted selection returns the complete visible model; Core adds no
+hidden ordering term. Use `include(field, callback)` to shape a related target
+with its own typed builder: pointer targets allow projection and nested
+inclusion, while relation targets also allow filtering, ordering, and paging.
+See [Related Data](./related-data) for the corresponding object input.
+
+## Read failures
+
+Core rejects unknown fields, invalid operators, negative pagination, and
+invalid relation predicates before database work. An adapter can also reject
+a query capability it does not support. Installed policy may hide a target,
+so `get()` can report `NOT_FOUND` even when the record exists physically.
+See [API Error Boundaries](/docs/1.0.0/core/runtime/api-errors) for safe error
+handling.
+
 ## Related tasks
 
 <Cards>

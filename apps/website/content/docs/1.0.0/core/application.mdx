@@ -54,8 +54,29 @@ detail.
 The compiled graph is application-local. Two applications in one process do
 not share a mutable schema or plugin registry. Core supplies structural
 validation and the Runtime pipeline; PostgreSQL, authentication, REST, and
-GraphQL are examples of separately installed capabilities. The exact
-constructor options are in [Application Configuration](/docs/1.0.0/reference/core-api/application).
+GraphQL are examples of separately installed capabilities. The constructor
+options are below.
+
+## Configure the application
+
+`new UltimaBase({ schemas, plugins, ...options })` snapshots the configuration
+without connecting to infrastructure. Its root options are:
+
+| Option             | Required | Purpose                                                                                     |
+| ------------------ | -------- | ------------------------------------------------------------------------------------------- |
+| `schemas`          | Yes      | Exact schema classes owned by this application.                                             |
+| `plugins`          | Yes      | Top-level plugin definitions; nested definitions join the same graph.                       |
+| `masterAuthority`  | No       | Audited server authority for explicit Master work.                                          |
+| `pluginPrivileges` | No       | Privilege and environment-claim denials plus the reporting logger.                          |
+| `validation`       | No       | Structural validation settings, timezone, clock, UUID generation, and nested-write budgets. |
+
+No database, server, API, plugin behavior, or Master authority is installed
+implicitly. An unknown root option throws `TypeError`. Schema and plugin graph
+errors are reported before infrastructure starts. Use `app.schema(...)` and
+`app.operation(...)` for application-owned handles; `app.application` is an
+advanced composition surface for plugin exports. For request identity and
+grouped writes, see [Request Identity](/docs/1.0.0/core/security-foundations/request-identity)
+and [Transactions](/docs/1.0.0/core/writing-data/transactions).
 
 ## Start and dispose
 
@@ -63,7 +84,14 @@ Call `start()` before executing operations. It finishes setup, connects the
 installed resources, and starts transports in dependency order. Put `dispose()`
 in `finally` so normal work and failures both release application resources.
 If startup fails, Core cleans up resources already started; disposal is safe
-to call again.
+to call again. If cleanup also fails, startup reports the original failure
+and the cleanup failure in an `AggregateError`.
+
+`app.state` reports the current lifecycle state. `start()`, `stop()`, and
+`dispose()` resolve to `void`; `stop()` ends active infrastructure without
+releasing setup-owned resources, while `dispose()` permanently releases the
+application. A stopped or disposed application cannot restart. The facade is
+frozen, but its private lifecycle state advances through these methods.
 
 This single-file example defines a schema, starts one PostgreSQL-backed
 application, reads directly from TypeScript, and closes it. It assumes the

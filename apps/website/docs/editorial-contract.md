@@ -171,8 +171,9 @@ The public sitemap makes ownership visible before a reader copies configuration:
 - plugin-specific failures stay with the plugin, while application-wide startup,
   Typegen, and reporting troubleshooting paths stay below `Operations`; Typegen
   setup is an independent task below `Guides`;
-- exhaustive Core signatures, the package index, compatibility, and architecture
-  background stay below `Reference`.
+- native Core API details stay in the owning Core page when a separate lookup
+  page would restate the same subject; the package index, compatibility, and
+  architecture background stay below `Reference`.
 
 Nested navigation is intentional only while it helps a reader choose a subject.
 Group by reader decision, capability family, and exact plugin, then move the

@@ -1,9 +1,4 @@
 {
 	"title": "Reference",
-	"pages": [
-		"core-api",
-		"package-index",
-		"compatibility",
-		"architecture-decisions"
-	]
+	"pages": ["package-index", "compatibility", "architecture-decisions"]
 }

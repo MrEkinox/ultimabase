@@ -179,3 +179,11 @@ published messages. The filter intersects with caller filters, authorization
 row filters, and protected constraints. It shapes reads but does not authorize
 them, modify physical membership, or change `connect`, `disconnect`, `set`, or
 `clear`.
+
+For example, an authentication plugin can attach a validated principal to the
+request context. A relation callback may use that value to choose the visible
+subset for anonymous and authenticated readers. The same declared filter
+applies to relation handles, eager inclusion, predicates, counts, and reads
+through REST or GraphQL. Test both request contexts against those paths when
+you use a contextual relation. Protect the target schema separately with an
+authorization policy: a relation filter is not a permission check.

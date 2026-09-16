@@ -8,8 +8,8 @@ hosting, and launch policy receive an explicit decision.
 ## Reader and content audit
 
 The verified reader path covers manual installation, a first typed application, plugin
-installation, an authenticated API, startup diagnosis, the cross-cutting
-Concepts section, and all three source-backed status pages. Public search is
+installation, an authenticated API, startup diagnosis, the Core concept
+pages, and all three source-backed status pages. Public search is
 checked against beginner vocabulary, package names, stable error identities,
 keyboard operation, and a useful empty result. The public
 content loader reads only `content/docs`; root engineering specifications and
@@ -50,11 +50,11 @@ the same change as its Open Graph and X image metadata.
 
 ## Production build snapshot
 
-The 2026-09-16 Next.js production build prerenders 160 application pages,
-including a Markdown representation of each of the 75 authored documentation
-pages. Its complete static chunk inventory is 1,639,861 bytes of JavaScript
-(523,029 bytes when individually gzip-compressed) and 88,036 bytes of CSS
-(15,386 bytes when gzip-compressed). These totals cover every route chunk, not
+The 2026-09-16 Next.js production build prerenders 132 application pages,
+including a Markdown representation of each of the 61 authored documentation
+pages. Its complete static chunk inventory is 1,633,364 bytes of JavaScript
+(522,904 bytes when individually gzip-compressed) and 88,032 bytes of CSS
+(15,378 bytes when gzip-compressed). These totals cover every route chunk, not
 the first-load cost of one page. Website-owned client boundaries remain the
 shared brand navigation and the Fumadocs theme provider; Fumadocs supplies the
 page-action controls. No decorative image is on the critical path.

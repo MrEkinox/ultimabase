@@ -95,15 +95,13 @@ describe('troubleshooting content', () => {
 		}
 
 		const errors = await readFile(
-			path.join(docsRoot, 'reference/core-api/errors.mdx'),
+			path.join(docsRoot, 'core/runtime/api-errors.mdx'),
 			'utf8',
 		)
 		expect(errors).toContain(
-			'/docs/1.0.0/operations/application-troubleshooting#startup-and-plugin-graph',
+			'/docs/1.0.0/operations/application-troubleshooting',
 		)
-		expect(errors).toContain(
-			'/docs/1.0.0/plugins/official/http-and-apis/http#troubleshooting',
-		)
+		expect(errors).toContain('/docs/1.0.0/plugins/official/http-and-apis/http')
 	})
 
 	it('requires a reproducible and sanitized report', async () => {

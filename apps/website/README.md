@@ -110,8 +110,8 @@ Plugins`, with one canonical section per plugin. Cross-cutting guides combine
 several capabilities; plugin-specific setup, reference, and troubleshooting are
 headings on the owning plugin's page instead of repeated sidebar entries.
 `Core > Application` is one concept page: its graph, lifecycle, direct
-TypeScript, and application-scope sections appear in `On this page` rather than
-as separate child routes. Optional Typegen setup lives in the independent
+TypeScript, configuration, and application-scope sections appear in `On this
+page` rather than as separate child routes. Optional Typegen setup lives in the independent
 `Guides > Generate TypeScript Types` task page.
 `Core > Data Modeling > Virtual Fields` owns the output-only field concept;
 the former Guides page is not served.
@@ -122,15 +122,23 @@ application-bound handles; there is no duplicate Schema page under Reference.
 `Core > Data Modeling > Models` owns draft construction, persisted snapshots,
 instance commands, and failure behavior; there is no duplicate model page under
 Reference.
-The docs sidebar shows the version and page tree without duplicate global
-Plugins or GitHub links. Its repository icon sits beside Fumadocs' theme switch
-at the bottom; marketing navigation retains the full set of site links.
+`Core > Reading Data > Query Overview` owns read terminals, immutable builders,
+and read failures. `Core > Runtime > API Error Boundaries` owns the public
+`FrameworkError` contract alongside transport boundaries. `Core > Writing Data
+
+> Nested Writes`and`Core > Reading Data > Related Data`also own their
+formerly repeated Guides tasks. The former three-page`Reference > Core API`
+> folder and two duplicate guides are not served.
+> The docs sidebar shows the version and page tree without duplicate global
+> Plugins or GitHub links. Its repository icon sits beside Fumadocs' theme switch
+> at the bottom; marketing navigation retains the full set of site links.
 
 `Plugin System` explains composition, `Using Plugins` owns consumption and
 compatibility, and `Build a Plugin` owns the author journey. Community listings remain visibly
 community-maintained even when their documentation is curated on this site.
-`Reference` keeps exhaustive Core lookup, the package index, compatibility, and
-architecture background outside the primary learning path.
+`Reference` keeps the package index, compatibility, and architecture background
+outside the primary learning path. Core's own pages carry native API lookup
+beside the concepts and tasks that need it.
 
 ## Documentation versions
 

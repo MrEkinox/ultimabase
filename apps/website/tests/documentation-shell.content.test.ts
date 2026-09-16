@@ -130,7 +130,7 @@ describe('public documentation content contract', () => {
 				'/docs/1.0.0/plugins/community-plugins',
 				'/docs/1.0.0/plugins/build-a-plugin',
 				'/docs/1.0.0/operations/application-troubleshooting',
-				'/docs/1.0.0/reference/core-api/application',
+				'/docs/1.0.0/reference/package-index',
 			]),
 		)
 		expect(urls).not.toEqual(
@@ -141,6 +141,9 @@ describe('public documentation content contract', () => {
 				'/docs/1.0.0/plugins/official',
 				'/docs/1.0.0/plugins/community',
 				'/docs/1.0.0/plugins/build-a-plugin/getting-started',
+				'/docs/1.0.0/reference/core-api/application',
+				'/docs/1.0.0/guides/write-nested-data',
+				'/docs/1.0.0/guides/filter-contextual-relations',
 			]),
 		)
 

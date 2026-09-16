@@ -177,4 +177,28 @@ describe('documentation sidebar', () => {
 			await context.close()
 		}
 	})
+
+	it('serves no pre-launch redirects for the consolidated Core and Guides pages', async () => {
+		const context = await browser?.newContext()
+		if (context === undefined) throw new Error('Browser did not start')
+
+		try {
+			const page = await context.newPage()
+			for (const oldPath of [
+				'reference/core-api/application',
+				'reference/core-api/query',
+				'reference/core-api/errors',
+				'guides/write-nested-data',
+				'guides/filter-contextual-relations',
+			]) {
+				const response = await page.request.get(
+					`${origin}/docs/1.0.0/${oldPath}`,
+					{ maxRedirects: 0 },
+				)
+				expect(response.status(), oldPath).toBe(404)
+			}
+		} finally {
+			await context.close()
+		}
+	})
 })

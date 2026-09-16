@@ -161,8 +161,6 @@ The public route architecture is:
 │       │   └── build-a-plugin
 │       ├── guides
 │       │   ├── build-an-authenticated-api
-│       │   ├── write-nested-data
-│       │   ├── filter-contextual-relations
 │       │   ├── generate-types
 │       │   └── test-an-application
 │       ├── operations
@@ -171,10 +169,6 @@ The public route architecture is:
 │       │   ├── production-checklist
 │       │   └── application-troubleshooting
 │       └── reference
-│           ├── core-api
-│           │   ├── application
-│           │   ├── query
-│           │   └── errors
 │           ├── package-index
 │           ├── compatibility
 │           └── architecture-decisions
@@ -190,6 +184,12 @@ navigation. In particular, official plugin pages own installation,
 configuration, behavior, reference, limitations, and troubleshooting without a
 same-named folder and child page. A new route is justified only when the reader
 can complete it as an independent task.
+
+Application configuration, Query lookup, and `FrameworkError` behavior belong
+to their existing Core pages rather than a parallel three-page Core API folder.
+Nested writes and contextual relation filters also stay in their owning Core
+pages, not in thin Guides copies. Guides retains cross-capability work and the
+independent Typegen and application-testing tasks.
 
 The version sidebar presents Introduction, Core, Plugins, Guides, Operate Your
 Application, and Reference as non-collapsible section titles. It extracts each

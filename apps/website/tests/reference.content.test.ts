@@ -5,33 +5,28 @@ import { describe, expect, it } from 'vitest'
 
 const repositoryRoot = fileURLToPath(new URL('../../..', import.meta.url))
 const contentRoot = fileURLToPath(
-	new URL('../content/docs/1.0.0/reference/', import.meta.url),
+	new URL('../content/docs/1.0.0/', import.meta.url),
 )
 const pages = [
-	'core-api/application',
-	'core-api/query',
-	'core-api/errors',
+	'core/application',
+	'core/reading-data/overview',
+	'core/runtime/api-errors',
 ] as const
 
 const readPage = (page: (typeof pages)[number]): Promise<string> =>
 	readFile(path.join(contentRoot, `${page}.mdx`), 'utf8')
 
 describe('curated public reference', () => {
-	it('keeps every page usable as a complete pre-release lookup', async () => {
-		for (const page of pages) {
-			const source = await readPage(page)
-			for (const heading of [
-				'## Signature',
-				'## Parameters',
-				'## Defaults',
-				'## Returns',
-				'## Errors',
-				'## Example',
-			]) {
-				expect(source, `${page}: ${heading}`).toContain(heading)
-			}
+	it('keeps useful Core lookup within the canonical learning pages', async () => {
+		const [application, query, errors] = await Promise.all(pages.map(readPage))
+		expect(application).toContain('## Configure the application')
+		expect(application).toContain('`pluginPrivileges`')
+		expect(query).toContain('## Read terminals')
+		expect(query).toContain('## Read failures')
+		expect(errors).toContain('## FrameworkError')
+		expect(errors).toContain('`frameworkErrorCodes`')
+		for (const source of [application, query, errors]) {
 			expect(source).toContain('releaseStatus: pre-release')
-			expect(source).toMatch(/(?:\/docs\/1\.0\.0\/|\.\.\/)[^)\s]+/u)
 		}
 	})
 
@@ -63,7 +58,7 @@ describe('curated public reference', () => {
 		}
 
 		const packagePage = await readFile(
-			path.join(contentRoot, 'package-index.mdx'),
+			path.join(contentRoot, 'reference/package-index.mdx'),
 			'utf8',
 		)
 		const documentedNames = [
@@ -74,7 +69,7 @@ describe('curated public reference', () => {
 
 	it('keeps code imports on real package roots without deep paths', async () => {
 		const packagePage = await readFile(
-			path.join(contentRoot, 'package-index.mdx'),
+			path.join(contentRoot, 'reference/package-index.mdx'),
 			'utf8',
 		)
 		const packageNames = new Set(
