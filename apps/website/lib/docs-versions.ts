@@ -48,6 +48,8 @@ const legacyDocumentationPaths: Readonly<Record<string, string>> =
 			'plugins/official/validation-and-lifecycle/hooks',
 		'guides/validate-input':
 			'plugins/official/validation-and-lifecycle/validation',
+		'getting-started/next-steps': 'getting-started/first-application',
+		'getting-started/project-structure': 'getting-started/first-application',
 		'mutations/soft-delete':
 			'plugins/official/data-and-persistence/soft-delete',
 		'operations/application-lifecycle': 'core/application/lifecycle',

@@ -125,6 +125,12 @@ describe('public documentation content contract', () => {
 			'http-and-apis',
 			'rest',
 		])
+		expect(
+			versionDocumentationSlug(['1.0', 'getting-started', 'project-structure']),
+		).toEqual(['1.0', 'getting-started', 'first-application'])
+		expect(
+			versionDocumentationSlug(['1.0', 'getting-started', 'next-steps']),
+		).toEqual(['1.0', 'getting-started', 'first-application'])
 
 		const metadata = JSON.parse(
 			await readFile(path.join(contentRoot, '1.0', 'meta.json'), 'utf8'),

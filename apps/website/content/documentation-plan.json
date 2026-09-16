@@ -26,18 +26,8 @@
 				},
 				{
 					"slug": "introduction",
-					"contentType": "tutorial",
+					"contentType": "concept",
 					"outcome": "Decide whether UltimaBase fits a typed Node.js backend application."
-				},
-				{
-					"slug": "next-steps",
-					"contentType": "tutorial",
-					"outcome": "Choose the next learning path from a working application."
-				},
-				{
-					"slug": "project-structure",
-					"contentType": "tutorial",
-					"outcome": "Place schemas, plugins, configuration, and generated declarations deliberately."
 				}
 			]
 		},
@@ -78,7 +68,7 @@
 				{
 					"slug": "application/typegen",
 					"contentType": "concept",
-					"outcome": "Know what Typegen derives, when it runs, and what happens without its output."
+					"outcome": "Know what Typegen derives and include its generated declaration in a TypeScript project."
 				},
 				{
 					"slug": "data-modeling/defaults",

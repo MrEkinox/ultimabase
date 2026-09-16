@@ -99,8 +99,6 @@ The public route architecture is:
 │       │   ├── introduction
 │       │   ├── installation
 │       │   ├── first-application
-│       │   ├── project-structure
-│       │   └── next-steps
 │       ├── core
 │       │   ├── application
 │       │   │   ├── application-graph
@@ -203,6 +201,8 @@ can complete it as an independent task.
 The routes are canonical English URLs. `/docs` and legacy unversioned
 documentation paths redirect to the newest maintained line. Version switching
 preserves the page when an equivalent exists or returns to that version's root.
+The former Getting Started `project-structure` and `next-steps` routes redirect
+to `first-application`, which now contains those subjects as page sections.
 The landing page links directly to all three status pages in its final section.
 
 ## Landing-page narrative

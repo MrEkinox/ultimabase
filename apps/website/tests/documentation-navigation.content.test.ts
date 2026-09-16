@@ -15,6 +15,7 @@ const canonicalNavigation = {
 		'operations',
 		'reference',
 	],
+	'1.0/getting-started': ['introduction', 'installation', 'first-application'],
 	'1.0/core': [
 		'application',
 		'data-modeling',

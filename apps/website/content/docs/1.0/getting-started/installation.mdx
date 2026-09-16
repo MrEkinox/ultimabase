@@ -94,6 +94,7 @@ Create a strict compiler configuration:
 		"moduleResolution": "NodeNext",
 		"outDir": "dist",
 		"rootDir": "src",
+		"skipLibCheck": true,
 		"strict": true,
 		"target": "ES2024",
 		"types": ["node"]
@@ -101,6 +102,9 @@ Create a strict compiler configuration:
 	"include": ["src"]
 }
 ```
+
+`skipLibCheck` leaves strict checking enabled for your source while avoiding
+diagnostics inside installed packages' declaration files.
 
 Set ESM mode and add these scripts to the generated `package.json`. Keep its
 other existing fields:
@@ -116,32 +120,42 @@ other existing fields:
 }
 ```
 
-Create a local environment file. Replace the value with your development
-database connection URL:
+Create a local environment file. Replace the example credentials and database
+name with a reachable, disposable PostgreSQL database:
 
 ```dotenv title=".env"
 DATABASE_URL=postgres://postgres:postgres@localhost:5432/ultimabase_first_app
 ```
 
-Do not commit `.env`. Add it to `.gitignore` before storing any real
-credentials.
+Keep secrets and generated output out of source control:
+
+```text title=".gitignore"
+.env
+dist/
+node_modules/
+```
+
+If you do not already have a development database, create one with your local
+PostgreSQL installation or a disposable container before continuing. The
+connection URL must name a database that already exists; the first application
+prepares its tables, not the database itself.
 
 ## Expected result
 
-Run the typecheck script with your chosen package manager:
+Confirm that the TypeScript executable is installed:
 
 ```bash tab="npm" tab-group="package-manager"
-npm run typecheck
+npx tsc --version
 ```
 
 ```bash tab="yarn"
-yarn typecheck
+yarn tsc --version
 ```
 
 ```bash tab="pnpm"
-pnpm typecheck
+pnpm exec tsc --version
 ```
 
-TypeScript should complete without diagnostics. If the database is not running
-yet, that command still succeeds because no connection is opened during type
-checking.
+You should see a TypeScript version. Do not run `typecheck` yet: `src/` has no
+source files, so TypeScript would correctly report that it found no inputs.
+The database connection is checked when the application starts.

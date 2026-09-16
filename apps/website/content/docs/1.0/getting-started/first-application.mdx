@@ -12,24 +12,53 @@ reviewedAt: 2026-09-16
 sources:
   - packages/core/README.md
   - packages/postgres-plugin/README.md
+  - packages/typegen/README.md
   - examples/minimal/src/main.ts
   - examples/minimal/src/create-application.ts
 ---
 
 ## What you will build
 
-The application owns one static `Task` schema and one PostgreSQL plugin. On
-startup, UltimaBase compiles that exact graph, prepares the schema, connects the
-Runtime, and makes the schema command available.
+You will create three source files: a `Task` schema, an application that installs
+the PostgreSQL plugin, and an entry point that writes one record. The schema and
+plugin configuration form the graph UltimaBase compiles at startup.
 
 ## Prerequisites
 
-Complete [Installation](./installation) and make sure the database named by
-`DATABASE_URL` is reachable. The code below uses ESM imports, so local
-TypeScript imports end in `.js`; the compiler resolves them to their `.ts`
-sources and emits valid Node.js paths.
+Complete [Installation](./installation). The database named by `DATABASE_URL`
+must already exist and be reachable. Use only the disposable database you
+prepared there: this tutorial enables direct schema synchronization.
 
 ## Steps
+
+### Create the project files
+
+Create the source directory from the project root:
+
+```bash
+mkdir src
+```
+
+The finished project has this shape:
+
+<Files>
+	<Folder name="src" defaultOpen>
+		<File name="schema.ts" />
+		<File name="ultimabase.ts" />
+		<File name="main.ts" />
+	</Folder>
+	<File name=".env" />
+	<File name=".gitignore" />
+	<File name="package.json" />
+	<File name="tsconfig.json" />
+</Files>
+
+`schema.ts` owns data declarations, `ultimabase.ts` owns the application graph,
+and `main.ts` owns this process's lifecycle. `.env` supplies the local database
+URL without becoming part of the application graph. You do not need generated
+declarations to run this application.
+
+### Define the Task schema
 
 Define the data model. Field factories preserve the exact TypeScript shape and
 Core validates the same structure at Runtime.
@@ -45,6 +74,8 @@ export const Task = Schema.define({
 	}),
 })
 ```
+
+### Configure the application
 
 Create the application. `schemaPolicy: 'override'` is convenient for this
 disposable database: it creates missing structures and applies supported
@@ -73,6 +104,12 @@ export const ultimabase = new UltimaBase({
 })
 ```
 
+The local imports below end in `.js` even though the source files are `.ts`.
+With the `NodeNext` configuration from Installation, TypeScript resolves them
+and emits paths that Node.js can execute.
+
+### Start and verify
+
 Start the application, create one record through the shared Runtime, and always
 release resources:
 
@@ -88,7 +125,7 @@ try {
 		{ ultimabase },
 	)
 
-	process.stdout.write(`${JSON.stringify(task.toJSON())}\n`)
+	console.log(task.toJSON())
 } finally {
 	await ultimabase.dispose()
 }
@@ -116,10 +153,62 @@ pnpm start
 
 ## Expected result
 
-The process prints one JSON object containing a generated `id`, the title
-`"Write the documentation"`, and `done: false`, then exits after closing the
-application-owned PostgreSQL pool. UltimaBase has also prepared the managed
-database structure for the `Task` schema.
+The default logger first reports the installed plugin and its requested
+privileges. The process then prints a JavaScript object like this (the
+generated ID and timestamps vary):
+
+```text
+{
+  done: false,
+  title: 'Write the documentation',
+  id: 'generated-id',
+  createdAt: 'generated-timestamp',
+  updatedAt: 'generated-timestamp'
+}
+```
+
+`done` is `false` because the schema supplies that default. The successful
+`createOne` call confirms that PostgreSQL accepted the write. The process then
+exits after closing the application-owned connection pool. UltimaBase has also
+prepared the `Task` table in this disposable database.
 
 If startup fails, first confirm that `DATABASE_URL` is loaded and that the
 database accepts a connection from the same terminal.
+
+## Next steps
+
+Choose the next subject that matches your application, rather than installing
+every optional package at once:
+
+<Cards>
+	<Card title="Model schemas" href="/docs/1.0/core/data-modeling/schemas">
+		Explore fields, defaults, embedded objects, pointers, and relations.
+	</Card>
+	<Card title="Read with Query" href="/docs/1.0/core/reading-data/overview">
+		Build immutable filters, selections, ordering, pagination, and includes.
+	</Card>
+	<Card
+		title="Understand security"
+		href="/docs/1.0/core/security-foundations/security-model"
+	>
+		Separate Core authority from optional identity and authorization plugins.
+	</Card>
+	<Card title="Choose a plugin" href="/docs/1.0/plugins/using-plugins">
+		Learn explicit identity, privileges, capabilities, and lifecycle.
+	</Card>
+	<Card
+		title="Expose REST"
+		href="/docs/1.0/plugins/official/http-and-apis/rest"
+	>
+		Map HTTP resources into the same Runtime operation model.
+	</Card>
+	<Card
+		title="Expose GraphQL"
+		href="/docs/1.0/plugins/official/http-and-apis/graphql"
+	>
+		Generate a network-independent schema before choosing an HTTP adapter.
+	</Card>
+	<Card title="Add Typegen" href="/docs/1.0/core/application/typegen">
+		Generate optional editor declarations from this same application graph.
+	</Card>
+</Cards>

@@ -3,7 +3,7 @@ title: Introduction
 description: Understand what UltimaBase provides, what remains explicit, and whether its pre-release contract fits your application.
 audience:
   - application-developer
-contentType: tutorial
+contentType: concept
 order: 1
 outcome: Decide whether UltimaBase fits a typed Node.js backend application.
 owner: '2806'
@@ -26,67 +26,30 @@ operation through one Runtime pipeline.
 	change deliberately.
 </Callout>
 
-## What you will build
+## Context
 
-This journey creates one `Task` schema, connects it to PostgreSQL, starts the
-application, writes one record, and closes the owned database connection. It
-uses direct TypeScript only, so transport concerns do not obscure the first
-working result.
+This short path is for TypeScript developers who want to try a data application
+without choosing an HTTP transport yet. You will define one `Task` schema,
+connect PostgreSQL, write a record, and close the connection. You need Node.js
+24 or newer and a disposable PostgreSQL database; no UltimaBase experience is
+required.
 
-By the end, you will have seen the central contract:
+## Mental model
 
-**One compiled application path**
+Your schema and the plugins you install form one compiled application graph.
+Core owns the schema, immutable data commands, structural validation, and the
+Runtime pipeline. The PostgreSQL plugin supplies persistence. Generated types
+can improve editor support later, but they are not executable application code.
 
-The schema and selected plugins become the application Runtime truth.
+## Boundaries
 
-<Steps>
-	<Step>
-		<h3>Static TypeScript schema</h3>
-		<p>Declare the data model in TypeScript.</p>
-	</Step>
-	<Step>
-		<h3>Explicit plugin graph</h3>
-		<p>Install only the capabilities your application uses.</p>
-	</Step>
-	<Step>
-		<h3>Core Runtime pipeline</h3>
-		<p>Execute commands through one shared path.</p>
-	</Step>
-	<Step>
-		<h3>PostgreSQL persistence</h3>
-		<p>Store data through the PostgreSQL plugin.</p>
-	</Step>
-</Steps>
+UltimaBase is not a hosted backend service or a Parse Server-compatible clone.
+Application code does not write Drizzle queries directly. Authentication,
+authorization, HTTP, REST, and GraphQL are optional capabilities; Core does
+not install them for you.
 
-## Prerequisites
+## Related tasks
 
-You should be comfortable creating a small TypeScript project and setting an
-environment variable. You need Node.js 24 or newer and a PostgreSQL database
-that is safe to use for development.
-
-No prior UltimaBase knowledge is required.
-
-## Steps
-
-UltimaBase deliberately keeps concrete behavior optional:
-
-1. Core owns schemas, the application graph, immutable query and mutation APIs,
-   structural validation, transactions, and the shared Runtime pipeline.
-2. Plugins add concrete capabilities such as PostgreSQL, validation, access
-   policy, authentication, REST, or GraphQL.
-3. Your configured graph — not generated code — is the authoritative Runtime
-   application.
-
-That separation lets a small application install only what it uses. It also
-makes infrastructure, security, and transport boundaries visible in code.
-
-## Expected result
-
-UltimaBase is a good fit when you want a typed TypeScript data application,
-PostgreSQL as a first-class persistence path, immutable builders, and explicit
-composition instead of a hidden all-in-one server.
-
-It is not a hosted backend service, a Parse Server-compatible clone, or a way
-for application code to write Drizzle queries directly. Authentication,
-authorization, HTTP, REST, GraphQL, and operational infrastructure are not
-silently installed by Core.
+Start with [Installation](./installation), then [build your first application](./first-application).
+For a deeper explanation of the composition model, read the
+[application graph](/docs/1.0/core/application/application-graph).

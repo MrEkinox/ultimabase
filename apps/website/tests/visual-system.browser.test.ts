@@ -24,39 +24,36 @@ afterAll(async () => {
 })
 
 describe('website visual system', () => {
-	it.each(['/docs/1.0', '/docs/1.0/getting-started/introduction'])(
-		'renders readable native steps on %s',
-		async (route) => {
-			const context = await browser?.newContext({
-				viewport: { height: 900, width: 1280 },
-			})
-			if (context === undefined) throw new Error('Browser did not start')
+	it('renders readable native steps on the docs index', async () => {
+		const context = await browser?.newContext({
+			viewport: { height: 900, width: 1280 },
+		})
+		if (context === undefined) throw new Error('Browser did not start')
 
-			try {
-				const page = await context.newPage()
-				await page.goto(`${origin}${route}`)
-				const steps = page.locator('.fd-steps > .fd-step')
-				expect(await steps.count()).toBe(4)
-				for (const step of await steps.all()) {
-					expect(await step.locator('h3').count()).toBe(1)
-					expect(await step.locator('p').count()).toBe(1)
-				}
-
-				const stepTops = await steps.evaluateAll((elements) =>
-					elements.map((element) => element.getBoundingClientRect().top),
-				)
-				let previousTop: number | undefined
-				for (const top of stepTops) {
-					if (previousTop !== undefined) {
-						expect(top - previousTop).toBeGreaterThan(48)
-					}
-					previousTop = top
-				}
-			} finally {
-				await context.close()
+		try {
+			const page = await context.newPage()
+			await page.goto(`${origin}/docs/1.0`)
+			const steps = page.locator('.fd-steps > .fd-step')
+			expect(await steps.count()).toBe(4)
+			for (const step of await steps.all()) {
+				expect(await step.locator('h3').count()).toBe(1)
+				expect(await step.locator('p').count()).toBe(1)
 			}
-		},
-	)
+
+			const stepTops = await steps.evaluateAll((elements) =>
+				elements.map((element) => element.getBoundingClientRect().top),
+			)
+			let previousTop: number | undefined
+			for (const top of stepTops) {
+				if (previousTop !== undefined) {
+					expect(top - previousTop).toBeGreaterThan(48)
+				}
+				previousTop = top
+			}
+		} finally {
+			await context.close()
+		}
+	})
 
 	it.each([
 		{
@@ -297,7 +294,7 @@ describe('website visual system', () => {
 				.locator('[role="tabpanel"][data-state="active"]')
 				.allTextContents()
 			expect(activeCommands.join('\n')).toContain('yarn init -y')
-			expect(activeCommands.join('\n')).toContain('yarn typecheck')
+			expect(activeCommands.join('\n')).toContain('yarn tsc --version')
 
 			await page.goto(`${origin}/docs/1.0/getting-started/first-application`)
 			const nextYarnTab = page.getByRole('tab', { exact: true, name: 'yarn' })
@@ -308,7 +305,7 @@ describe('website visual system', () => {
 				await page
 					.locator('[role="tabpanel"][data-state="active"]')
 					.innerText(),
-			).toContain('yarn start')
+			).toContain('yarn typecheck')
 		} finally {
 			await context.close()
 		}
@@ -330,14 +327,6 @@ describe('website visual system', () => {
 					'/docs/1.0/getting-started/first-application',
 				],
 				[
-					'/docs/1.0/getting-started/first-application',
-					'/docs/1.0/getting-started/project-structure',
-				],
-				[
-					'/docs/1.0/getting-started/project-structure',
-					'/docs/1.0/getting-started/next-steps',
-				],
-				[
 					'/docs/1.0/core/reading-data/ordering-and-pagination',
 					'/docs/1.0/core/reading-data/related-data',
 				],
@@ -350,6 +339,17 @@ describe('website visual system', () => {
 				const nextLink = page.locator(`main a[href="${next}"]`)
 				expect(await nextLink.count()).toBeGreaterThan(0)
 			}
+
+			await page.goto(`${origin}/docs/1.0/getting-started/first-application`)
+			const gettingStartedCards = page
+				.getByRole('heading', { level: 2, name: 'Next steps' })
+				.locator('xpath=following-sibling::div[1]')
+				.locator('a[data-card]')
+			expect(await gettingStartedCards.count()).toBe(7)
+			await page.goto(`${origin}/docs/1.0/getting-started/project-structure`)
+			expect(page.url()).toBe(
+				`${origin}/docs/1.0/getting-started/first-application`,
+			)
 
 			await page.goto(`${origin}/docs/1.0/core/reading-data/selections`)
 			const cards = page

@@ -165,6 +165,10 @@ The later post-milestone examples cleanup removes the seven website-only
 scenario pages and their index. Repository examples remain maintained for
 guides and tests; release status, roadmap, and contributing are linked directly
 from the landing page.
+The subsequent Getting Started review reduces that path to Introduction,
+Installation, and First Application. The first application page now owns the
+project-file explanation and next-path cards; former Project Structure and
+Next Steps URLs redirect there. The Typegen concept owns its optional setup.
 
 ### Phase 1 — Application, design, and content foundation
 

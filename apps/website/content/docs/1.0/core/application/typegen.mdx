@@ -1,15 +1,15 @@
 ---
 title: Typegen
-description: Understand generated declarations as deterministic editor tooling, never executable truth.
+description: Understand and enable generated editor declarations without treating them as executable application code.
 audience:
   - application-developer
   - plugin-author
 contentType: concept
 order: 7
-outcome: Know what Typegen derives, when it runs, and what happens without its output.
+outcome: Know what Typegen derives and include its generated declaration in a TypeScript project.
 owner: '2821'
 releaseStatus: pre-release
-reviewedAt: 2026-09-15
+reviewedAt: 2026-09-16
 sources:
   - packages/typegen/README.md
   - packages/core/README.md
@@ -48,9 +48,98 @@ editor, but it cannot change Runtime visibility, validation, or relationship
 behavior.
 
 Automatic development generation runs after static compilation and before
-infrastructure connects. Production builds generate and ship the artifact;
-manual command and watch workflows remain deferred.
+infrastructure connects. If your build relies on generated types, arrange for
+the artifact to exist before that build's typecheck and include it in the
+deployed build. A dedicated Typegen CLI and watch workflow are not yet shipped.
 
-Follow [Project Structure](/docs/1.0/getting-started/project-structure) to include the
-artifact, [Troubleshoot Typegen](/docs/1.0/operations/application-troubleshooting#typegen) for recovery, and
-[Schema Reference](/docs/1.0/reference/core-api/schema) for the public declaration surface.
+## Enable it in the first application
+
+The [First Application](/docs/1.0/getting-started/first-application) runs
+without Typegen. To add generated editor declarations to that same project,
+install the optional package:
+
+```bash tab="npm" tab-group="package-manager"
+npm install @ultimabase/typegen
+```
+
+```bash tab="yarn"
+yarn add @ultimabase/typegen
+```
+
+```bash tab="pnpm"
+pnpm add @ultimabase/typegen
+```
+
+Add `typegenPlugin()` to the existing application graph. Keep the PostgreSQL
+plugin and the same `Task` schema; do not create a second Typegen-only
+application:
+
+```ts title="src/ultimabase.ts"
+import { UltimaBase } from '@ultimabase/core'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
+import { typegenPlugin } from '@ultimabase/typegen'
+
+import { Task } from './schema.js'
+
+const databaseUrl = process.env.DATABASE_URL
+
+if (databaseUrl === undefined) {
+	throw new TypeError('DATABASE_URL is required')
+}
+
+export const ultimabase = new UltimaBase({
+	plugins: [
+		typegenPlugin(),
+		postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
+	],
+	schemas: [Task],
+})
+```
+
+Include the generated declaration as well as your source files in TypeScript:
+
+```json title="tsconfig.json"
+{
+	"compilerOptions": {
+		"module": "NodeNext",
+		"moduleResolution": "NodeNext",
+		"outDir": "dist",
+		"rootDir": "src",
+		"skipLibCheck": true,
+		"strict": true,
+		"target": "ES2024",
+		"types": ["node"]
+	},
+	"include": ["src", ".ultimabase/**/*.d.ts"]
+}
+```
+
+Build and start the first application once with its existing scripts. Typegen
+writes `.ultimabase/schema.generated.d.ts` during setup, before PostgreSQL
+connects. The first application's `main.ts` also creates a `Task` on each run,
+so keep using a disposable database. Then run `typecheck` to verify that
+TypeScript reads the generated file:
+
+```bash tab="npm" tab-group="package-manager"
+npm run build
+npm start
+npm run typecheck
+```
+
+```bash tab="yarn"
+yarn build
+yarn start
+yarn typecheck
+```
+
+```bash tab="pnpm"
+pnpm build
+pnpm start
+pnpm typecheck
+```
+
+Do not import the `.d.ts` file as a Runtime client. It is replaceable editor
+output, not a second source of application behavior. See
+[Troubleshoot Typegen](/docs/1.0/operations/application-troubleshooting#typegen)
+if generation fails, or [Schema Reference](/docs/1.0/reference/core-api/schema)
+for the public declaration surface.
