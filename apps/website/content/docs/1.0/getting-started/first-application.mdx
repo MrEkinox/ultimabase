@@ -8,7 +8,7 @@ order: 3
 outcome: Start and verify a minimal schema-backed PostgreSQL application.
 owner: '2806'
 releaseStatus: pre-release
-reviewedAt: 2026-09-14
+reviewedAt: 2026-09-16
 sources:
   - packages/core/README.md
   - packages/postgres-plugin/README.md
@@ -96,10 +96,22 @@ try {
 
 Run the complete local check:
 
-```bash title="Terminal"
+```bash tab="npm" tab-group="package-manager"
 npm run typecheck
 npm run build
 npm start
+```
+
+```bash tab="Yarn"
+yarn typecheck
+yarn build
+yarn start
+```
+
+```bash tab="pnpm"
+pnpm typecheck
+pnpm build
+pnpm start
 ```
 
 ## Expected result

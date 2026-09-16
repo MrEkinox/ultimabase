@@ -8,7 +8,7 @@ order: 2
 outcome: Install the intended npm packages and verify the local prerequisites.
 owner: '2806'
 releaseStatus: pre-release
-reviewedAt: 2026-09-14
+reviewedAt: 2026-09-16
 sources:
   - README.md
   - package.json
@@ -39,36 +39,51 @@ framework remains pre-release.
 
 Create the project directory and initialize its package metadata:
 
-```bash title="Terminal"
+```bash tab="npm" tab-group="package-manager"
 mkdir ultimabase-first-app
 cd ultimabase-first-app
 npm init -y
-npm pkg set type=module
+```
+
+```bash tab="Yarn"
+mkdir ultimabase-first-app
+cd ultimabase-first-app
+yarn init -y
+```
+
+```bash tab="pnpm"
+mkdir ultimabase-first-app
+cd ultimabase-first-app
+pnpm init
 ```
 
 Install the Runtime packages:
 
-<Tabs items={['npm', 'Yarn', 'pnpm']}>
-	<Tab value="npm">
-		```bash npm install @ultimabase/core @ultimabase/postgres-plugin ```
-	</Tab>
-	<Tab value="Yarn">
-		```bash yarn add @ultimabase/core @ultimabase/postgres-plugin ```
-	</Tab>
-	<Tab value="pnpm">
-		```bash pnpm add @ultimabase/core @ultimabase/postgres-plugin ```
-	</Tab>
-</Tabs>
+```bash tab="npm" tab-group="package-manager"
+npm install @ultimabase/core @ultimabase/postgres-plugin
+```
+
+```bash tab="Yarn"
+yarn add @ultimabase/core @ultimabase/postgres-plugin
+```
+
+```bash tab="pnpm"
+pnpm add @ultimabase/core @ultimabase/postgres-plugin
+```
 
 Install TypeScript and the Node.js declarations as development dependencies:
 
-<Tabs items={['npm', 'Yarn', 'pnpm']}>
-	<Tab value="npm">
-		```bash npm install --save-dev typescript @types/node ```
-	</Tab>
-	<Tab value="Yarn">```bash yarn add --dev typescript @types/node ```</Tab>
-	<Tab value="pnpm">```bash pnpm add --save-dev typescript @types/node ```</Tab>
-</Tabs>
+```bash tab="npm" tab-group="package-manager"
+npm install --save-dev typescript @types/node
+```
+
+```bash tab="Yarn"
+yarn add --dev typescript @types/node
+```
+
+```bash tab="pnpm"
+pnpm add --save-dev typescript @types/node
+```
 
 Create a strict compiler configuration:
 
@@ -87,10 +102,12 @@ Create a strict compiler configuration:
 }
 ```
 
-Add these scripts to the existing `package.json`:
+Set ESM mode and add these scripts to the generated `package.json`. Keep its
+other existing fields:
 
 ```json title="package.json"
 {
+	"type": "module",
 	"scripts": {
 		"build": "tsc",
 		"start": "node --env-file=.env dist/main.js",
@@ -111,9 +128,23 @@ credentials.
 
 ## Expected result
 
-Run `npm run typecheck`. TypeScript should complete without diagnostics. If the
-database is not running yet, that command still succeeds because no connection
-is opened during type checking.
+Run the typecheck script with your chosen package manager:
+
+```bash tab="npm" tab-group="package-manager"
+npm run typecheck
+```
+
+```bash tab="Yarn"
+yarn typecheck
+```
+
+```bash tab="pnpm"
+pnpm typecheck
+```
+
+TypeScript should complete without diagnostics. If the database is not running
+yet, that command still succeeds because no connection is opened during type
+checking.
 
 ## Next steps
 

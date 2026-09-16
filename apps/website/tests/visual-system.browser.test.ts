@@ -278,6 +278,42 @@ describe('website visual system', () => {
 		}
 	})
 
+	it('keeps one package-manager choice across the first application journey', async () => {
+		const context = await browser?.newContext({
+			viewport: { height: 900, width: 1280 },
+		})
+		if (context === undefined) throw new Error('Browser did not start')
+
+		try {
+			const page = await context.newPage()
+			await page.goto(`${origin}/docs/1.0/getting-started/installation`)
+			const yarnTabs = page.getByRole('tab', { exact: true, name: 'Yarn' })
+			expect(await yarnTabs.count()).toBe(4)
+			await yarnTabs.first().click()
+			for (const tab of await yarnTabs.all()) {
+				expect(await tab.getAttribute('data-state')).toBe('active')
+			}
+			const activeCommands = await page
+				.locator('[role="tabpanel"][data-state="active"]')
+				.allTextContents()
+			expect(activeCommands.join('\n')).toContain('yarn init -y')
+			expect(activeCommands.join('\n')).toContain('yarn typecheck')
+
+			await page.goto(`${origin}/docs/1.0/getting-started/first-application`)
+			const nextYarnTab = page.getByRole('tab', { exact: true, name: 'Yarn' })
+			await expect
+				.poll(() => nextYarnTab.getAttribute('data-state'))
+				.toBe('active')
+			expect(
+				await page
+					.locator('[role="tabpanel"][data-state="active"]')
+					.innerText(),
+			).toContain('yarn start')
+		} finally {
+			await context.close()
+		}
+	})
+
 	it('removes decorative motion when reduced motion is requested', async () => {
 		const context = await browser?.newContext({
 			reducedMotion: 'reduce',
