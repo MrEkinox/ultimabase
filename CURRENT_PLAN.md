@@ -72,6 +72,9 @@ below its official or community plugin. Guides combine several capabilities;
 they do not duplicate plugin setup, configuration, reference, or troubleshooting.
 The sidebar stops at coherent subjects; closely related subtasks live in a long
 page and its `On this page` navigation rather than repeated nested entries.
+Introduction, Core, Plugins, Guides, Operate Your Application, and Reference
+are sidebar titles, not additional collapsible levels. Their child routes remain
+versioned under their existing folders.
 
 The complete target sitemap, landing narrative, and product boundaries live in
 the milestone README. It is the information-architecture

@@ -85,9 +85,12 @@ The documentation navigation begins with an `Introduction` sidebar separator:
 `Quick Start` previews the unavailable automatic initializer, `What is
 UltimaBase` explains the model, and `Manual Installation` is the complete
 working first-application path. The initializer's commands are explicitly
-non-runnable until its package is published. The remaining navigation is
-capability-owned. Native application, modeling,
-query, mutation, Runtime, and authority behavior lives below `Core`. Optional
+non-runnable until its package is published. The remaining top-level areas
+also use Fumadocs sidebar separators rather than collapsible parent folders.
+Their existing files and URLs stay in `core`, `plugins`, `guides`, `operations`,
+and `reference`; the version metadata extracts each folder's immediate items
+below its separator. Native application, modeling, query, mutation, Runtime,
+and authority behavior lives below `Core`. Optional
 behavior lives below `Plugins > Official Plugins` or `Plugins > Community
 Plugins`, with one canonical section per plugin. Cross-cutting guides combine
 several capabilities; plugin-specific setup, reference, and troubleshooting are

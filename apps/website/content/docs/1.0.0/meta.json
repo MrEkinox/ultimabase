@@ -6,10 +6,15 @@
 		"quick-start",
 		"index",
 		"manual-installation",
-		"core",
-		"plugins",
-		"guides",
-		"operations",
-		"reference"
+		"---Core---",
+		"...core",
+		"---Plugins---",
+		"...plugins",
+		"---Guides---",
+		"...guides",
+		"---Operate Your Application---",
+		"...operations",
+		"---Reference---",
+		"...reference"
 	]
 }

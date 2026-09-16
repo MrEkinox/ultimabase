@@ -198,6 +198,11 @@ configuration, behavior, reference, limitations, and troubleshooting without a
 same-named folder and child page. A new route is justified only when the reader
 can complete it as an independent task.
 
+The version sidebar presents Introduction, Core, Plugins, Guides, Operate Your
+Application, and Reference as non-collapsible section titles. It extracts each
+area's existing folder children directly below the title; the route tree above
+remains unchanged, and deeper subject folders may still expand.
+
 The routes are canonical, versioned English URLs. "What is UltimaBase" lives at the
 version root. Unversioned and removed documentation paths return 404; the site
 has not launched, so there is no compatibility routing. Version switching

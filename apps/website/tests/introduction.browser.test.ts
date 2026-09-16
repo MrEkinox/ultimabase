@@ -20,7 +20,7 @@ afterAll(async () => {
 	await harness?.close()
 })
 
-describe('introduction journey', () => {
+describe('documentation sidebar', () => {
 	it('shows three icon-bearing pages under the Introduction separator', async () => {
 		const context = await browser?.newContext()
 		if (context === undefined) throw new Error('Browser did not start')
@@ -43,6 +43,47 @@ describe('introduction journey', () => {
 			expect(
 				await page.getByText('Automatic setup is not yet available').count(),
 			).toBe(1)
+		} finally {
+			await context.close()
+		}
+	})
+
+	it('uses fixed section titles without an extra collapsible level', async () => {
+		const context = await browser?.newContext()
+		if (context === undefined) throw new Error('Browser did not start')
+
+		try {
+			const page = await context.newPage()
+			await page.goto(`${origin}/docs/1.0.0/core/application/application-graph`)
+			const sidebar = page.locator('#nd-sidebar')
+			for (const title of [
+				'Introduction',
+				'Core',
+				'Plugins',
+				'Guides',
+				'Operate Your Application',
+				'Reference',
+			]) {
+				expect(await sidebar.getByText(title, { exact: true }).count()).toBe(1)
+				expect(
+					await sidebar
+						.getByRole('button', { name: title, exact: true })
+						.count(),
+				).toBe(0)
+			}
+			expect(
+				await sidebar.getByRole('button', { name: 'Application' }).count(),
+			).toBe(1)
+			expect(
+				await sidebar
+					.getByRole('link', { name: 'Plugin System' })
+					.getAttribute('href'),
+			).toBe('/docs/1.0.0/plugins/overview')
+			expect(
+				await sidebar
+					.getByRole('link', { name: 'Build an Authenticated API' })
+					.getAttribute('href'),
+			).toBe('/docs/1.0.0/guides/build-an-authenticated-api')
 		} finally {
 			await context.close()
 		}
