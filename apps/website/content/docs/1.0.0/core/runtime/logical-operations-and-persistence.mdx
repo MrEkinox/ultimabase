@@ -1,12 +1,12 @@
 ---
 title: Logical Operations and Persistence
-description: Separate the operation users requested from the physical work an adapter performs.
+description: Distinguish a requested operation from the adapter statement that fulfills it.
 audience:
   - application-developer
   - plugin-author
 contentType: concept
 order: 5
-outcome: Understand safe persistence rewrites without changing policy or Hook meaning.
+outcome: Predict what changes, and what does not, when a delete is physically rewritten.
 owner: '2821'
 releaseStatus: pre-release
 reviewedAt: 2026-09-16
@@ -17,36 +17,53 @@ sources:
   - docs/adr/0205-protected-policy-contributions.md
 ---
 
-## Meaning before mechanics
+An operation has two identities: what the caller requested and how the
+database fulfills it. Keeping them separate lets a narrowly privileged plugin
+change storage behavior without changing authorization or business semantics.
 
-The logical operation records application meaning: create, read, update,
-delete, or a declared plugin operation against a schema. Policy, Hooks, audit,
-results, and relationships reason about that stable meaning.
+## Logical meaning versus physical statement
 
-The persistence plan describes how the adapter fulfills it. A plugin with the
-exact privilege may rewrite that physical plan without changing the logical
-operation seen by the rest of Runtime.
+The logical operation records the command, schema, target, and caller input.
+Policy, Hooks, audit, results, and relationship behavior use that identity.
+The persistence plan describes the adapter statement. Core validates the plan
+before the database plugin executes it.
+
+The current plan protocol permits identity execution and the specific
+delete-to-update mapping used by replacement soft delete. It is not a general
+SQL or arbitrary-operation rewrite API. A provider needs the exact
+`persistence:rewrite` privilege, and an incompatible adapter rejects the plan.
 
 <Mermaid
-	description="A logical delete keeps delete semantics for policy, Hooks, and results even when soft delete rewrites its persistence plan."
+	description="A native logical delete keeps delete policy, Hooks, audit, and result semantics while the optional replacement mode changes only the physical statement into a tombstone update."
 	chart="flowchart TB
-    A[Logical delete] --> B[Policy and Hooks observe delete]
-    A --> C[Results retain delete semantics]
-    A --> D[Soft-delete rewrite may persist a guarded tombstone update]"
+    A[Logical delete] --> B[Delete policy, Hooks, audit, result]
+    A --> C[Physical plan]
+    C -->|default| D[Native database delete]
+    C -->|replace-delete| E[Guarded tombstone update]"
 />
 
-## Protected constraints stay protected
+With the optional Soft Delete plugin in `replace-delete` mode, `deleteOne` is
+still a logical delete. The database writes a tombstone update, but update
+policy, update Hooks, defaults, and generators do not run as if the caller had
+requested `updateOne`. The returned delete result and transaction semantics
+stay those of a delete. By contrast, the plugin's `explicit` mode adds a
+separate logical `softDelete` command; it does not reinterpret native delete.
+
+## Protected constraints stay outside the rewrite
 
 Row filters and adapter constraints accumulated by policy do not enter the
 replaceable plan. Core carries them beside it and the adapter combines every
 constraint with `AND`. A persistence rewrite therefore cannot drop an ACL
 filter, bypass tenant-like restrictions, or turn a denied target into a visible
-one.
+one. The final physical write remains subject to those restrictions in the
+same transaction.
 
-Transports remain outside both layers. They normalize requests and serialize
-results; they never issue SQL or receive a raw adapter. Database-specific
-compilation stays in the database plugin.
+Transports remain outside both layers: REST and GraphQL normalize requests and
+serialize results, but never issue SQL or receive a raw adapter.
 
-See [Soft Delete](/docs/1.0.0/plugins/official/data-and-persistence/soft-delete) for the concrete official rewrite,
-[Access](/docs/1.0.0/plugins/official/authentication-and-authorization/access) for logical policy, and
-[PostgreSQL](/docs/1.0.0/plugins/official/data-and-persistence/postgresql) for adapter ownership.
+## Related tasks
+
+Read [Soft Delete](/docs/1.0.0/plugins/official/data-and-persistence/soft-delete)
+for the concrete modes, [Access](/docs/1.0.0/plugins/official/authentication-and-authorization/access)
+for logical policy, and [PostgreSQL](/docs/1.0.0/plugins/official/data-and-persistence/postgresql)
+for adapter ownership.
