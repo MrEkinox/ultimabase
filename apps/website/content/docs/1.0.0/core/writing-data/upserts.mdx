@@ -1,49 +1,103 @@
 ---
 title: Unique Upserts
-description: Create or update exactly one record through a unique identity boundary.
+description: Create or update one record through a declared unique key.
 audience:
   - application-developer
 contentType: guide
 order: 5
-outcome: Build deterministic upserts without broad filter or nested-write ambiguity.
+outcome: Upsert a record by unique slug and understand both possible branches.
 owner: '2809'
 releaseStatus: pre-release
-reviewedAt: 2026-09-15
+reviewedAt: 2026-09-16
 sources:
   - packages/core/README.md
+  - packages/core/docs/query.md
   - packages/core/docs/runtime.md
-  - docs/adr/0163-public-schema-root-mutation-commands.md
+  - docs/adr/0069-atomic-bulk-and-unique-upserts.md
+  - docs/adr/0112-upsert-target-seeds-create.md
+  - docs/adr/0148-uniform-mutation-result-selections.md
+  - docs/adr/0164-atomic-item-oriented-mutation-hooks.md
+  - docs/adr/0180-mutation-relationship-projections.md
+  - docs/adr/0243-bounded-singular-nested-writes.md
 ---
 
-An upsert must identify one possible record. Use `id`, one declared unique
-field, or one complete composite unique group—never an arbitrary filter.
+Use `Post.upsertOne()` when the same unique key should create a record if absent
+or update it if present. Pass separate `create` and `update` data; UltimaBase
+executes only the branch selected by the unique target.
+
+This example assumes `Post` declares a required `title` and a required `slug`
+with `indexed: 'unique'`, and no other required fields. Register it in a
+started application with a persistence plugin, as in
+[Manual Installation](/docs/1.0.0/manual-installation).
+
+## Upsert by unique slug
 
 ```ts title="src/upsert-post.ts"
-import { increment } from '@ultimabase/core'
-
-import { Account, Post } from './schemas.js'
+import { Post } from './schemas.js'
 import { ultimabase } from './ultimabase.js'
 
-export const importPost = (authorId: string, slug: string, title: string) =>
+export const savePost = (slug: string, title: string) =>
 	Post.upsertOne(
 		{
-			create: {
-				author: Account.pointer(authorId),
-				slug,
-				title,
-			},
-			select: { slug: true, title: true, views: true },
-			update: { title, views: increment(1) },
 			where: { slug: { eq: slug } },
+			create: { slug, title },
+			update: { title },
+			select: { slug: true, title: true },
 		},
 		{ ultimabase },
 	)
 ```
 
-If the target is absent, equality values from `where` seed the create branch.
-An explicitly supplied create value that contradicts that identity is rejected.
-If the target exists, the update branch follows the ordinary update pipeline.
+## Verify the result
 
-`upsertMany` applies the same rule to an ordered list. Upserts do not expose
-nested writes: split a graph workflow into explicit commands inside
-[an explicit transaction](./transactions) when you need that control.
+On the first call for a slug, the create branch stores `slug` and `title`. On a
+later call with the same slug, the update branch replaces `title` and leaves
+omitted fields unchanged. The result is an immutable `Post` in either case,
+with its `id` plus the selected `slug` and `title`. The selection does not
+change what is persisted. Without `select`, the result is the complete visible
+model.
+
+For the create branch, Core treats the unique equality in `where` as the
+authoritative identity. It supplies missing target values to the create
+candidate before required-value validation. The explicit `slug` in this
+example must match `where`; a mismatch fails validation rather than creating
+a record under another key. Do not read first and choose separate create or
+update commands: the upsert owns the atomic unique-key decision.
+
+## Choose a valid target
+
+`where` must contain non-null equality for exactly one unique target: the
+framework `id`, one field declared unique, or every field of one declared
+composite unique index. Extra conditions, partial composite keys, ranges, and
+multi-match filters are invalid. See [Schemas](/docs/1.0.0/core/data-modeling/schemas)
+for index declarations.
+
+A root upsert runs in an automatic transaction and reuses an active explicit
+transaction. Core structural validation always applies; optional Validation,
+Access, and Hooks plugins participate when installed. A rejected branch or
+persistence failure rolls back the operation.
+
+## Boundaries and other paths
+
+Upsert results support flat `select`, not `include`. Upsert `create` and
+`update` accept ordinary field values, including pointer values, but not
+nested relationship commands. Those commands are available on singular
+`createOne` and `updateOne` instead. See [Nested Writes](./nested-writes).
+If an upsert must be combined with related writes, coordinate the separate
+commands in an [explicit transaction](./transactions).
+
+`upsertMany({ data, select? })` applies the same unique-target rule to an
+ordered, atomic batch. See [Bulk Operations](./bulk-operations) for its input
+and result shape. A draft model also has `upsert()`; see
+[Models](/docs/1.0.0/core/data-modeling/models) for that command.
+
+## Next steps
+
+<Cards>
+	<Card title="Bulk Operations" href="./bulk-operations">
+		Upsert several unique targets in one atomic batch.
+	</Card>
+	<Card title="Transactions" href="./transactions">
+		Coordinate multiple writes when one upsert is not enough.
+	</Card>
+</Cards>
