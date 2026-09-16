@@ -100,12 +100,7 @@ The public route architecture is:
 │       │   ├── index (What is UltimaBase)
 │       │   └── manual-installation
 │       ├── core
-│       │   ├── application
-│       │   │   ├── application-graph
-│       │   │   ├── direct-typescript
-│       │   │   ├── lifecycle
-│       │   │   ├── request-context
-│       │   │   └── typegen
+│       │   ├── application (graph, lifecycle, TypeScript, context, Typegen)
 │       │   ├── data-modeling
 │       │   │   ├── schemas
 │       │   │   ├── fields
@@ -200,8 +195,10 @@ can complete it as an independent task.
 
 The version sidebar presents Introduction, Core, Plugins, Guides, Operate Your
 Application, and Reference as non-collapsible section titles. It extracts each
-area's existing folder children directly below the title; the route tree above
-remains unchanged, and deeper subject folders may still expand.
+area's existing folder children directly below the title; deeper subject
+folders may still expand. `Core > Application` is one page with in-page sections
+for graph compilation, lifecycle, direct TypeScript, request context, and
+optional Typegen, rather than five short sidebar entries.
 
 The routes are canonical, versioned English URLs. "What is UltimaBase" lives at the
 version root. Unversioned and removed documentation paths return 404; the site

@@ -74,9 +74,7 @@ export const statusPages: readonly StatusPageContent[] = Object.freeze([
 					{
 						description:
 							'Direct TypeScript, experimental REST v1, and GraphQL share the same operation and policy path.',
-						href: currentDocumentationPath(
-							'core/application/direct-typescript',
-						),
+						href: `${currentDocumentationPath('core/application')}#read-and-write-in-typescript`,
 						title: 'Public execution paths',
 					},
 				],
@@ -145,9 +143,7 @@ export const statusPages: readonly StatusPageContent[] = Object.freeze([
 					{
 						description:
 							'Schemas, Query, immutable models, application compilation, plugin capabilities, validation, policy, Hooks, and transaction invariants.',
-						href: currentDocumentationPath(
-							'core/application/application-graph',
-						),
+						href: `${currentDocumentationPath('core/application')}#application-graph`,
 						title: 'Core and plugin kernel',
 					},
 					{

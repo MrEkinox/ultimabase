@@ -15,29 +15,9 @@
 			"releaseStatus": "pre-release",
 			"pages": [
 				{
-					"slug": "application/application-graph",
+					"slug": "application",
 					"contentType": "concept",
-					"outcome": "Know which declarations define an application and when they become executable."
-				},
-				{
-					"slug": "application/direct-typescript",
-					"contentType": "guide",
-					"outcome": "Read and write application data directly without learning transport or Runtime internals."
-				},
-				{
-					"slug": "application/lifecycle",
-					"contentType": "guide",
-					"outcome": "Handle startup, failure, and graceful shutdown through the supported application facade."
-				},
-				{
-					"slug": "application/request-context",
-					"contentType": "concept",
-					"outcome": "Know what a request context proves and which values cannot create authority."
-				},
-				{
-					"slug": "application/typegen",
-					"contentType": "concept",
-					"outcome": "Know what Typegen derives and include its generated declaration in a TypeScript project."
+					"outcome": "Assemble, start, use, and safely scope an UltimaBase application, with optional generated declarations."
 				},
 				{
 					"slug": "data-modeling/defaults",

@@ -12,7 +12,7 @@ const pageNames = [
 	'plugins/official/http-and-apis/graphql-yoga',
 	'plugins/official/http-and-apis/http',
 	'plugins/official/http-and-apis/rest',
-	'core/application/direct-typescript',
+	'core/application',
 ] as const
 
 const readDocumentation = async (): Promise<string> =>

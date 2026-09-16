@@ -120,7 +120,7 @@ describe('public documentation content contract', () => {
 		expect(urls).toEqual(
 			expect.arrayContaining([
 				'/docs/1.0.0',
-				'/docs/1.0.0/core/application/application-graph',
+				'/docs/1.0.0/core/application',
 				'/docs/1.0.0/core/writing-data/delete',
 				'/docs/1.0.0/plugins/official/data-and-persistence/soft-delete',
 				'/docs/1.0.0/plugins/official/http-and-apis/rest',

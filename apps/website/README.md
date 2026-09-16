@@ -95,6 +95,9 @@ behavior lives below `Plugins > Official Plugins` or `Plugins > Community
 Plugins`, with one canonical section per plugin. Cross-cutting guides combine
 several capabilities; plugin-specific setup, reference, and troubleshooting are
 headings on the owning plugin's page instead of repeated sidebar entries.
+`Core > Application` is one long page: its graph, lifecycle, direct TypeScript,
+request-context, and optional Typegen sections appear in `On this page` rather
+than as five child routes.
 The docs sidebar shows the version and page tree without duplicate global
 Plugins or GitHub links. Its repository icon sits beside Fumadocs' theme switch
 at the bottom; marketing navigation retains the full set of site links.

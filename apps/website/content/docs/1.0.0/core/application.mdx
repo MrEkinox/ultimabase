@@ -1,0 +1,276 @@
+---
+title: Application
+description: Understand how schemas and plugins become one application, run typed operations, and add Typegen when needed.
+audience:
+  - application-developer
+  - plugin-author
+  - operator
+contentType: concept
+order: 1
+outcome: Assemble, start, use, and safely scope an UltimaBase application, with optional generated declarations.
+owner: '2824'
+releaseStatus: pre-release
+reviewedAt: 2026-09-16
+sources:
+  - ARCHITECTURE.md
+  - packages/core/README.md
+  - packages/server-hono-plugin/README.md
+  - packages/typegen/README.md
+  - examples/minimal/src/main.ts
+  - docs/adr/0173-generated-schema-authoring.md
+  - docs/adr/0190-capability-host-lifecycle-and-legacy-convergence.md
+  - docs/adr/0206-application-owned-master-provenance.md
+---
+
+An UltimaBase application is the boundary around one set of schemas, configured
+plugins, resources, and requests. This page follows the `Task` application from
+[Manual Installation](/docs/1.0.0/manual-installation). You can understand the
+application model without completing that tutorial first; use it when you want
+the full runnable project.
+
+## Application graph
+
+Developer-owned schemas, configured plugins, and static options form a graph.
+Importing a package alone installs nothing, and generated types do not decide
+what runs.
+
+```text
+schemas + configured plugins + static options
+                    ↓
+     identity, dependency, privilege, and conflict checks
+                    ↓
+         immutable compiled application graph
+                    ↓
+       capabilities, lifecycle, Runtime, transports
+```
+
+Core resolves plugin identities and instances, dependencies, compatibility,
+privileges, and capability contracts. Pure static declarations then add schema
+and plugin-owned definitions. Core resolves fields and relationships and freezes
+the resulting application graph. Invalid configuration fails before plugin
+setup, database connections, or transport effects.
+
+The graph is application-local: two applications in one process do not share a
+mutable schema or plugin registry. A schema class can be reused only when its
+independently compiled definition is structurally identical. Core owns graph
+compilation and mandatory Runtime invariants. PostgreSQL, validation, Hooks,
+Access, authentication, REST, and GraphQL are installed explicitly as plugins.
+See [Application Configuration](/docs/1.0.0/reference/core-api/application) for
+the constructor options and [Plugin System](/docs/1.0.0/plugins/overview) for
+plugin ownership.
+
+## Start and dispose
+
+Constructing `new UltimaBase(...)` opens no database or network connection.
+`start()` validates and compiles the application, materializes capabilities,
+runs setup, connects resources, and starts transports in dependency order.
+Begin application work only after `start()` resolves. Put `dispose()` in a
+`finally` block so a completed application releases its resources even when
+work fails.
+
+If startup itself fails, Core tears down resources already materialized, in
+reverse dependency order. During ordinary disposal, transports stop before
+their dependent resources are released. Cleanup continues after an individual
+teardown failure and reports the failures rather than silently abandoning the
+remaining work.
+
+## Read and write in TypeScript
+
+The same `Task` schema and `ultimabase` instance from Manual Installation can
+be used directly, without an HTTP transport. This example starts the
+application, writes one task, reads unfinished tasks, and closes the connection:
+
+```ts title="src/main.ts"
+import { Task } from './schema.js'
+import { ultimabase } from './ultimabase.js'
+
+try {
+	await ultimabase.start()
+
+	await Task.createOne(
+		{ data: { title: 'Write the documentation' } },
+		{ ultimabase },
+	)
+
+	const openTasks = await Task.findMany(
+		{ limit: 20, where: { done: { eq: false } } },
+		{ ultimabase },
+	)
+	console.log(openTasks.map((task) => task.toJSON()))
+} finally {
+	await ultimabase.dispose()
+}
+```
+
+Schema-root commands normalize into the same logical operation and Runtime
+pipeline used by REST and GraphQL. Installed validation, policy, Hooks,
+transactions, protected constraints, and result materialization apply there as
+well. Persisted immutable models also offer item commands such as `update()`
+and `delete()`; they delegate through Query and Runtime rather than mutating an
+Active Record or accessing a raw database adapter.
+
+A direct terminal may use its application as above, an existing request
+context, or the trusted server-only Master option. It never accepts a public
+engine, adapter, grant, or lifecycle mutation facade. Exposure is never authorization.
+Review [Security Foundations](/docs/1.0.0/core/security-foundations/security-model)
+before serving public traffic.
+
+## Request context and authority
+
+A request context carries one operation through one exact compiled
+application. It contains a request ID, diagnostic source, metadata,
+cancellation signal, Core authority, and typed values supplied by installed
+plugins. Direct TypeScript operations get their application scope from the
+`ultimabase` option above; an HTTP request must first select one mounted
+application before its transport handler runs.
+
+Core has two authority modes: `anonymous` for ordinary work and `master` for
+trusted server-side work verified by the owning application. An authentication
+plugin may add a typed subject or session, but that creates no third Core mode
+and grants nothing by itself. Access, Roles, and ACL remain independent policy
+providers.
+
+Request IDs, source labels, headers, metadata, and plugin values are useful for
+tracing and application logic. None of them can manufacture Master authority.
+When raw Master-key HTTP access is explicitly enabled, the selected
+application's Core authority verifies and audits it before creating a trusted
+context. Contexts are immutable snapshots; derived execution retains the
+application, authority, metadata, cancellation signal, and active transaction
+without exposing a mutable engine or adapter.
+
+Cancellation and configured HTTP deadlines share one signal through context
+resolution, Runtime, transactions, and response completion. HTTP selection and
+shared-listener behavior belong to the [HTTP plugin](/docs/1.0.0/plugins/official/http-and-apis/http).
+Several applications may share one Hono provider; disposing one mount leaves
+the other applications running.
+For the separate identity and authority boundaries, read
+[Request Identity](/docs/1.0.0/core/security-foundations/request-identity) and
+[Master Authority](/docs/1.0.0/core/security-foundations/master-authority).
+
+## Optional Typegen
+
+Typegen reads the compiled static graph and writes replaceable TypeScript
+declarations for editor completion and typechecking. The generated `.d.ts`
+file is inert: it is not a Runtime client, does not contain callbacks or
+credentials, and cannot change what the application executes. JavaScript
+applications run the same graph when generated declarations are absent. A stale
+file may mislead the editor, but it cannot change Runtime behavior. Plugin-owned
+Typegen contributions use structured inert declarations, not arbitrary
+TypeScript or JavaScript injection.
+
+### Enable generation
+
+The Manual Installation application runs without Typegen. To add it, install
+the optional package:
+
+```bash tab="npm" tab-group="package-manager"
+npm install @ultimabase/typegen
+```
+
+```bash tab="yarn"
+yarn add @ultimabase/typegen
+```
+
+```bash tab="pnpm"
+pnpm add @ultimabase/typegen
+```
+
+Add `typegenPlugin()` to the existing application. Keep the PostgreSQL plugin
+and the same `Task` schema; do not create a second application just for Typegen:
+
+```ts title="src/ultimabase.ts"
+import { UltimaBase } from '@ultimabase/core'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
+import { typegenPlugin } from '@ultimabase/typegen'
+
+import { Task } from './schema.js'
+
+const databaseUrl = process.env.DATABASE_URL
+
+if (databaseUrl === undefined) {
+	throw new TypeError('DATABASE_URL is required')
+}
+
+export const ultimabase = new UltimaBase({
+	plugins: [
+		typegenPlugin(),
+		postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
+	],
+	schemas: [Task],
+})
+```
+
+Keep using the disposable database from Manual Installation: its `override`
+schema policy is not a substitute for reviewed production migrations.
+
+Include the generated declaration alongside your source files in TypeScript.
+In the existing `tsconfig.json`, change `include` to:
+
+```json title="tsconfig.json"
+{
+	"compilerOptions": {
+		"module": "NodeNext",
+		"moduleResolution": "NodeNext",
+		"outDir": "dist",
+		"rootDir": "src",
+		"skipLibCheck": true,
+		"strict": true,
+		"target": "ES2024",
+		"types": ["node"]
+	},
+	"include": ["src", ".ultimabase/**/*.d.ts"]
+}
+```
+
+### Generate and verify
+
+Build and start the same first application once. Typegen writes
+`.ultimabase/schema.generated.d.ts` after static compilation and before
+PostgreSQL connects. The existing `main.ts` also creates a `Task` on every
+run, so keep using a disposable database. Then typecheck the project:
+
+```bash tab="npm" tab-group="package-manager"
+npm run build
+npm start
+npm run typecheck
+```
+
+```bash tab="yarn"
+yarn build
+yarn start
+yarn typecheck
+```
+
+```bash tab="pnpm"
+pnpm build
+pnpm start
+pnpm typecheck
+```
+
+The generated artifact is deterministic and replaced atomically. Its
+fingerprint covers the application identity and relevant graph contracts. If
+your build relies on generated types, create the artifact before that build's
+typecheck and include it in the deployed build. A dedicated Typegen CLI and
+watch workflow are not yet shipped. See
+[Typegen troubleshooting](/docs/1.0.0/operations/application-troubleshooting#typegen)
+if generation fails.
+
+## Next steps
+
+<Cards>
+	<Card title="Model schemas" href="/docs/1.0.0/core/data-modeling/schemas">
+		Define fields, defaults, and relationships in the application graph.
+	</Card>
+	<Card title="Read data" href="/docs/1.0.0/core/reading-data/overview">
+		Build typed queries and control the data returned to callers.
+	</Card>
+	<Card title="Use plugins" href="/docs/1.0.0/plugins/using-plugins">
+		Choose optional capabilities deliberately and inspect their privileges.
+	</Card>
+	<Card
+		title="Expose HTTP"
+		href="/docs/1.0.0/plugins/official/http-and-apis/http"
+	>
+		Select one application before REST or GraphQL enters Runtime.
+	</Card>
+</Cards>

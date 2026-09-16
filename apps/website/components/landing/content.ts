@@ -124,7 +124,7 @@ export const landingFeatures: readonly LandingFeature[] = Object.freeze([
 	{
 		description:
 			'Generated declarations improve autocomplete without becoming runtime truth or a required client.',
-		href: currentDocumentationPath('core/application/typegen'),
+		href: `${currentDocumentationPath('core/application')}#optional-typegen`,
 		index: '06',
 		title: 'Replaceable Typegen declarations',
 	},

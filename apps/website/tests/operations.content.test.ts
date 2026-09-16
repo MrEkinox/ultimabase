@@ -8,7 +8,7 @@ const contentRoot = fileURLToPath(
 	new URL('../content/docs/1.0.0/', import.meta.url),
 )
 const pages = [
-	'core/application/lifecycle',
+	'core/application',
 	'plugins/official/http-and-apis/http',
 	'operations/configuration-and-environment',
 	'plugins/official/data-and-persistence/postgresql',

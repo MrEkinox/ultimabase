@@ -11,13 +11,11 @@ const planPath = fileURLToPath(
 	new URL('../content/documentation-plan.json', import.meta.url),
 )
 const pages = [
-	'core/application/application-graph',
+	'core/application',
 	'core/runtime/runtime-pipeline',
-	'core/application/request-context',
 	'core/runtime/transaction-boundaries',
 	'core/runtime/logical-operations-and-persistence',
 	'core/runtime/immutability',
-	'core/application/typegen',
 	'reference/architecture-decisions',
 ] as const
 
@@ -60,7 +58,9 @@ describe('cross-cutting concept documentation', () => {
 			expect(source.match(/^## /gmu)?.length ?? 0, page).toBeGreaterThanOrEqual(
 				2,
 			)
-			expect(source, page).toMatch(/\]\((?:\/docs\/1\.0\.0\/|\.\.\/)(?:[^)]+)\)/u)
+			expect(source, page).toMatch(
+				/\]\((?:\/docs\/1\.0\.0\/|\.\.\/)(?:[^)]+)\)/u,
+			)
 
 			const sourcesBlock = /^sources:\n(?<sources>(?: {2}- .+\n?)+)/mu.exec(
 				source,
@@ -96,22 +96,18 @@ describe('cross-cutting concept documentation', () => {
 	})
 
 	it('states the non-negotiable Runtime and Typegen boundaries', async () => {
-		const applicationGraph = await readPage(
-			'core/application/application-graph',
-		)
+		const application = await readPage('core/application')
 		const runtime = await readPage('core/runtime/runtime-pipeline')
-		const context = await readPage('core/application/request-context')
 		const persistence = await readPage(
 			'core/runtime/logical-operations-and-persistence',
 		)
-		const typegen = await readPage('core/application/typegen')
 
-		expect(applicationGraph).toContain(
-			'Importing a package alone installs nothing',
-		)
+		expect(application).toContain('Importing a package alone installs nothing')
 		expect(runtime).toContain('Policy contributions are monotonic')
-		expect(context).toContain('None of them can manufacture Master authority')
+		expect(application).toContain(
+			'None of them can manufacture Master authority',
+		)
 		expect(persistence).toMatch(/do not enter the\s+replaceable plan/u)
-		expect(typegen).toContain('generated declarations are absent')
+		expect(application).toContain('generated declarations are absent')
 	})
 })

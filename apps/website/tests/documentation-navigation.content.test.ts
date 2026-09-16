@@ -30,13 +30,6 @@ const canonicalNavigation = {
 		'runtime',
 		'security-foundations',
 	],
-	'1.0.0/core/application': [
-		'application-graph',
-		'direct-typescript',
-		'lifecycle',
-		'request-context',
-		'typegen',
-	],
 	'1.0.0/core/data-modeling': [
 		'schemas',
 		'fields',

@@ -54,7 +54,7 @@ describe('documentation sidebar', () => {
 
 		try {
 			const page = await context.newPage()
-			await page.goto(`${origin}/docs/1.0.0/core/application/application-graph`)
+			await page.goto(`${origin}/docs/1.0.0/core/application`)
 			const sidebar = page.locator('#nd-sidebar')
 			for (const title of [
 				'Introduction',
@@ -72,7 +72,7 @@ describe('documentation sidebar', () => {
 				).toBe(0)
 			}
 			expect(
-				await sidebar.getByRole('button', { name: 'Application' }).count(),
+				await sidebar.getByRole('link', { name: 'Application', exact: true }).count(),
 			).toBe(1)
 			expect(
 				await sidebar

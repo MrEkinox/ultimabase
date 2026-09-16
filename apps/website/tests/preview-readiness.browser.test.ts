@@ -104,7 +104,7 @@ describe('website preview audit', () => {
 			const page = await context.newPage()
 			const sidebar = page.locator('#nd-sidebar')
 
-			await page.goto(`${origin}/docs/1.0.0/core/application/application-graph`)
+			await page.goto(`${origin}/docs/1.0.0/core/application`)
 			await sidebar.getByText('Core', { exact: true }).waitFor()
 			await sidebar.getByText('Application', { exact: true }).waitFor()
 
