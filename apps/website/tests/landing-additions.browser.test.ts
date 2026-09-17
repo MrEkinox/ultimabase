@@ -1,0 +1,120 @@
+import type { Browser } from 'playwright'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import {
+	accessibilityViolations,
+	startWebsiteBrowserHarness,
+	type WebsiteBrowserHarness,
+} from './browser-harness'
+
+let browser: Browser | undefined
+let harness: WebsiteBrowserHarness | undefined
+beforeAll(async () => {
+	harness = await startWebsiteBrowserHarness()
+	browser = harness.browser
+})
+afterAll(async () => {
+	await harness?.close()
+})
+
+describe('landing transport and discovery additions', () => {
+	it.each([
+		{ width: 390, colorScheme: 'light' as const },
+		{ width: 1440, colorScheme: 'dark' as const },
+	])(
+		'exposes all demos and answers at $width in $colorScheme',
+		async ({ width, colorScheme }) => {
+			const context = await browser?.newContext({
+				viewport: { width, height: 900 },
+				colorScheme,
+			})
+			if (!context || !harness) throw new Error('Browser did not start')
+			try {
+				const page = await context.newPage()
+				await page.goto(harness.origin, { waitUntil: 'networkidle' })
+				const transport = page.locator('.ub-transport')
+				expect(await transport.locator('.ub-title-input').textContent()).toBe(
+					'"  Hello UltimaBase  "',
+				)
+				const height = (await transport.boundingBox())?.height
+				for (const label of ['TypeScript', 'REST', 'GraphQL']) {
+					await transport.getByRole('tab', { name: label, exact: true }).click()
+					expect(await transport.getByRole('tabpanel').count()).toBe(1)
+					expect(await transport.getByRole('tabpanel').textContent()).toContain(
+						'Hello UltimaBase',
+					)
+					expect((await transport.boundingBox())?.height).toBe(height)
+					await page
+						.locator('.ub-composition-tabs')
+						.getByRole('tab', { name: label, exact: true })
+						.click()
+					const configuration = await page
+						.locator('.ub-composition-tabs')
+						.getByRole('tabpanel')
+						.textContent()
+					expect(configuration).toContain('postgresPlugin')
+					if (label !== 'TypeScript') {
+						expect(configuration).toContain('httpPlugin')
+						expect(configuration).toContain('honoServerPlugin')
+					}
+					if (label === 'GraphQL')
+						expect(configuration).toContain('graphqlYogaPlugin')
+				}
+				const faq = page.locator('.ub-faq')
+				expect(await faq.locator('summary').count()).toBe(4)
+				for (const summary of await faq.locator('summary').all()) {
+					await summary.focus()
+					await page.keyboard.press('Enter')
+					expect(
+						await summary.locator('..').getAttribute('open'),
+					).not.toBeNull()
+				}
+				expect(await accessibilityViolations(page)).toEqual([])
+				expect(
+					await page.evaluate(() => document.documentElement.scrollWidth),
+				).toBe(width)
+				// The explicitly excluded onboarding change must not slip into this pass.
+				expect(
+					await page
+						.getByRole('link', { name: 'Start building', exact: true })
+						.getAttribute('href'),
+				).toBe('/docs/1.0.0/manual-installation')
+			} finally {
+				await context.close()
+			}
+		},
+	)
+
+	it('serves a real share image and preserves preview indexing policy', async () => {
+		const page = await browser?.newPage()
+		if (!page || !harness) throw new Error('Browser did not start')
+		try {
+			await page.goto(harness.origin)
+			expect(
+				await page.locator('meta[name="twitter:card"]').getAttribute('content'),
+			).toBe('summary_large_image')
+			expect(
+				await page.locator('meta[name="robots"]').getAttribute('content'),
+			).toContain('noindex')
+			const image = await page
+				.locator('meta[property="og:image"]')
+				.getAttribute('content')
+			if (!image) throw new Error('Missing share image')
+			const response = await page.request.get(
+				new URL(new URL(image).pathname, harness.origin).href,
+			)
+			expect(response.ok()).toBe(true)
+			expect(response.headers()['content-type']).toContain('image/png')
+			const png = await response.body()
+			expect(png.subarray(0, 8).toString('hex')).toBe('89504e470d0a1a0a')
+			expect(png.readUInt32BE(16)).toBe(1200)
+			expect(png.readUInt32BE(20)).toBe(630)
+			expect(
+				await page
+					.locator('meta[name="twitter:image"]')
+					.getAttribute('content'),
+			).toContain('opengraph-image')
+		} finally {
+			await page.close()
+		}
+	})
+})

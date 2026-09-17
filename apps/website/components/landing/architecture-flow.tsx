@@ -1,63 +1,60 @@
-import { ArrowDown, Database } from 'lucide-react'
+import { ServerCodeBlock } from 'fumadocs-ui/components/codeblock.rsc'
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
+import { ArrowRight, ArrowUpRight } from 'lucide-react'
 
-import { currentDocumentationPath } from '../../lib/docs-versions'
+import { siteConfig } from '../../lib/site'
 import { TextLink } from '../primitives'
+import { transportExamples } from './transport-content'
 
-/** A deliberately simplified flow; optional engines are labelled as installed behavior. */
+/** The result is an explained contract of the linked example, not a live request. */
 export function ArchitectureFlow() {
 	return (
-		<figure className="ub-flow" aria-labelledby="runtime-flow-title">
-			<figcaption>
-				<p className="ub-section-index">02 / ONE EXECUTION MODEL</p>
-				<h2 id="runtime-flow-title">
-					Different APIs.
-					<br />
-					Same rules.
-				</h2>
+		<figure className="ub-transport" aria-labelledby="runtime-flow-title">
+			<figcaption className="ub-transport-heading">
+				<div>
+					<p className="ub-section-index">02 / ONE EXECUTION MODEL</p>
+					<h2 id="runtime-flow-title">
+						Different APIs.
+						<br />
+						Same rules.
+					</h2>
+				</div>
 				<p>
-					Call from TypeScript. Add REST or GraphQL. Every entry point uses the
-					same operation engine, so your application’s behavior follows the
-					data.
+					Create an article from TypeScript, REST, or GraphQL. In the runnable
+					example, the same title Hook trims whitespace before validation and
+					persistence.
 				</p>
-				<TextLink
-					href={currentDocumentationPath('core/runtime/runtime-pipeline')}
-				>
-					Follow a request <span aria-hidden="true">↗</span>
-				</TextLink>
 			</figcaption>
-			<div className="ub-flow-diagram">
-				<ul aria-label="Application entry points" className="ub-flow-inputs">
-					<li>
-						<strong>TypeScript</strong>
-						<span>Direct calls</span>
-					</li>
-					<li>
-						<strong>REST</strong>
-						<span>Optional plugin</span>
-					</li>
-					<li>
-						<strong>GraphQL</strong>
-						<span>Optional plugin</span>
-					</li>
-				</ul>
-				<div className="ub-flow-merge" aria-hidden="true">
-					<ArrowDown />
-				</div>
-				<div className="ub-runtime">
-					<div className="ub-runtime-title">
-						<span className="ub-runtime-dot" /> One operation engine
+			<div className="ub-transport-proof">
+				<Tabs
+					items={transportExamples.map((example) => example.label)}
+					className="ub-transport-tabs"
+				>
+					<div className="ub-demo-panels">
+						{transportExamples.map((example) => (
+							<Tab key={example.label} value={example.label} forceMount>
+								<ServerCodeBlock
+									code={example.code}
+									lang={example.lang}
+									themes={{ light: 'github-light', dark: 'github-dark' }}
+									codeblock={{ className: 'ub-transport-code' }}
+								/>
+								<p className="ub-transport-caption">{example.caption}</p>
+							</Tab>
+						))}
 					</div>
-					<ul aria-label="Shared runtime responsibilities">
-						<li>Structural validation</li>
-						<li>Installed policies &amp; hooks</li>
-						<li>Mutation transactions</li>
-					</ul>
-				</div>
-				<ArrowDown className="ub-flow-arrow" aria-hidden="true" />
-				<div className="ub-flow-database">
-					<Database aria-hidden="true" />
-					<strong>PostgreSQL</strong>
-					<span>Storage plugin</span>
+				</Tabs>
+				<div className="ub-transport-result">
+					<p className="ub-demo-eyebrow">ONE SHARED TITLE HOOK</p>
+					<code className="ub-title-input">{'"  Hello UltimaBase  "'}</code>
+					<ArrowRight aria-hidden="true" />
+					<code className="ub-title-output">"Hello UltimaBase"</code>
+					<p>
+						The saved title is the same. Each API keeps its own response format.
+					</p>
+					<TextLink href={siteConfig.sourceExampleUrl.href}>
+						See the complete example <ArrowUpRight aria-hidden="true" />
+					</TextLink>
 				</div>
 			</div>
 		</figure>

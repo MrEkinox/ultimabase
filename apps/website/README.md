@@ -182,8 +182,13 @@ Read, and Write tabs with copyable examples and their model field types.
 The precise result types assume generated Typegen declarations;
 the example application uses PostgreSQL's
 `fail` schema policy and directs first-time readers to Manual Installation.
-Plugin composition, a simplified shared execution diagram, and concrete
-transaction, relationship, security, and selection illustrations follow.
+Plugin composition offers TypeScript, REST, and GraphQL application presets.
+Each preset is compiled and its static plugin graph is checked without opening
+a database or listener. HTTP presets explicitly include their HTTP/Hono/Yoga
+dependencies and explain their local, unprotected evaluation configuration.
+A second set of tabs shows requests against the existing minimal example and
+explains its shared title Hook; response envelopes remain transport-specific.
+Transaction, relationship, security, and selection illustrations follow.
 Native Commit/Rollback tabs explain two transaction outcomes; they illustrate
 the contract without pretending to run a database in the browser.
 
@@ -192,12 +197,21 @@ keeps the standard Fumadocs shell, code blocks, navigation, search, and theme
 controls. The examples use server-rendered Fumadocs code blocks and native tabs.
 Mounted tab panels share a grid cell to reserve their tallest content; inactive
 panels are visually hidden and excluded from focus and accessibility navigation.
-On narrow screens, code wraps within its panel. Decorative entry motion respects
+On narrow screens, schema examples wrap within their panel; transport requests
+use native local code scrolling to preserve HTTP paths and headers.
+Decorative entry motion respects
 reduced-motion preferences. Pre-release status, source availability, and the
 Apache-2.0 license are explicit; no initializer or npm publication is implied.
 The marketing header offers Documentation, Plugins, and Fumadocs’ native
 GitHub icon through `githubUrl`, with a native Project
 menu for Release Status, Roadmap, and Contributing. There is no marketing footer.
+Four native FAQ disclosures cover hosting, framework scope, Typegen, and the
+pre-release contract. The existing Manual Installation entry point is unchanged.
+
+The marketing route generates a local 1200×630 Open Graph image through Next.js
+`ImageResponse`, with a large-image X card. Documentation metadata and the
+private-preview indexing policy remain unchanged. No remote image or font
+service is required to produce the share asset.
 
 Shared marketing surfaces live under `components/`:
 

@@ -1,4 +1,3 @@
-import { ServerCodeBlock } from 'fumadocs-ui/components/codeblock.rsc'
 import { ArrowRight, ArrowUpRight, Check } from 'lucide-react'
 
 import { currentDocumentationPath } from '../../lib/docs-versions'
@@ -6,9 +5,11 @@ import { siteConfig } from '../../lib/site'
 import { ButtonLink, Section, TextLink } from '../primitives'
 import { ApplicationProof } from './application-proof'
 import { ArchitectureFlow } from './architecture-flow'
-import { applicationExample, landingFeatures, pluginGroups } from './content'
+import { landingFeatures, pluginGroups } from './content'
 import { FeatureVisual } from './feature-visual'
 import { TransactionProof } from './transaction-proof'
+import { PluginComposition } from './plugin-composition'
+import { LandingFaq } from './landing-faq'
 
 export function LandingPage() {
 	return (
@@ -112,28 +113,7 @@ export function LandingPage() {
 						))}
 					</div>
 				</div>
-				<div className="ub-application-code">
-					<div className="ub-code-overline">
-						<span>YOUR APPLICATION</span>
-						<span>Explicit by design</span>
-					</div>
-					<ServerCodeBlock
-						code={applicationExample}
-						lang="ts"
-						themes={{ light: 'github-dark', dark: 'github-dark' }}
-						codeblock={{
-							className: 'ub-application-codeblock',
-							title: 'src/application.ts',
-						}}
-					/>
-					<p className="ub-setup-note">
-						Checks an existing database schema without changing it. The{' '}
-						<TextLink href={currentDocumentationPath('manual-installation')}>
-							installation guide
-						</TextLink>{' '}
-						covers database setup and shutdown.
-					</p>
-				</div>
+				<PluginComposition />
 			</Section>
 
 			<Section className="ub-landing-flow">
@@ -164,6 +144,8 @@ export function LandingPage() {
 					for your application’s field rules.
 				</p>
 			</Section>
+
+			<LandingFaq />
 
 			<Section className="ub-landing-start">
 				<div>

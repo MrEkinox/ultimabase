@@ -9,10 +9,14 @@ export default function HomePage() {
 }
 
 export function generateMetadata(): Metadata {
-	return createPublicPageMetadata({
+	const metadata = createPublicPageMetadata({
 		absoluteTitle: true,
 		canonicalPath: '/',
 		description: siteConfig.description,
 		title: siteConfig.name,
 	})
+	return {
+		...metadata,
+		twitter: { ...metadata.twitter, card: 'summary_large_image' },
+	}
 }
