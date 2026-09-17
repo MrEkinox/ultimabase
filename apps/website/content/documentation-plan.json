@@ -335,19 +335,9 @@
 			"releaseStatus": "pre-release",
 			"pages": [
 				{
-					"slug": "architecture-decisions",
-					"contentType": "concept",
-					"outcome": "Know when engineering decisions clarify a public boundary and which source stays canonical."
-				},
-				{
-					"slug": "compatibility",
-					"contentType": "reference",
-					"outcome": "Confirm the current platform baseline before installing or deploying UltimaBase."
-				},
-				{
 					"slug": "package-index",
 					"contentType": "reference",
-					"outcome": "Install the smallest public package set for an application, plugin, transport, or test."
+					"outcome": "Choose the packages you need and verify their runtime and plugin compatibility."
 				}
 			]
 		}

@@ -1,4 +1,4 @@
 {
 	"title": "Reference",
-	"pages": ["package-index", "compatibility", "architecture-decisions"]
+	"pages": ["package-index"]
 }

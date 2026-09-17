@@ -51,3 +51,10 @@ internal architecture into the beginner API.
   English page, French fallback, accessibility, search, and existing journeys.
 - No public API, Runtime behavior, package, domain, deployment, or final brand
   decision changed.
+
+## Post-milestone correction
+
+The later Reference audit removed the architecture-decision explainer from the
+public docs: it described contribution process rather than current application
+behavior. The roadmap links to the repository ADR index for contributors. The
+removed pre-launch URL has no redirect.

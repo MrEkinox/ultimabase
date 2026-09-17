@@ -174,9 +174,10 @@ export const statusPages: readonly StatusPageContent[] = Object.freeze([
 					},
 					{
 						description:
-							'Architecture decisions are proposed before public boundaries, storage, dependency direction, or security semantics change.',
-						href: currentDocumentationPath('reference/architecture-decisions'),
-						title: 'Decision discipline',
+							'Propose a decision before changing dependency, storage, public API, or security boundaries; accepted ADRs explain why.',
+						external: true,
+						href: repositoryFile('docs/adr/README.md'),
+						title: 'Architecture decisions',
 					},
 				],
 				title: 'Small issues turn intent into evidence',

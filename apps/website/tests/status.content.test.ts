@@ -93,6 +93,8 @@ describe('public status pages', () => {
 		expect(release).toContain('No release date')
 		expect(roadmap).toContain('Planned is not shipped')
 		expect(roadmap).toContain('not delivery commitments')
+		expect(roadmap).toContain('docs/adr/README.md')
+		expect(roadmap).not.toContain('reference/architecture-decisions')
 		expect(contributing).toContain('documentation impact')
 		expect(contributing).toContain('humans remain responsible')
 	})

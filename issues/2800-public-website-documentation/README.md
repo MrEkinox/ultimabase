@@ -162,9 +162,7 @@ The public route architecture is:
 │       │   ├── before-exposing-your-application
 │       │   └── troubleshooting
 │       └── reference
-│           ├── package-index
-│           ├── compatibility
-│           └── architecture-decisions
+│           └── package-index (Packages and Compatibility)
 ├── status
 │   ├── release-status
 │   ├── roadmap
@@ -194,6 +192,10 @@ Operate Your Application keeps one pre-exposure checklist and one cross-cutting
 troubleshooting path. Application configuration, Master credentials, PostgreSQL,
 and HTTP retain their detailed guidance on their owning pages; Typegen
 generation failures are diagnosed in the Typegen guide.
+Reference keeps one package and compatibility lookup page. The separate
+compatibility page repeated its platform and version context, while the
+architecture-decision page described contributor process rather than a public
+API. The roadmap links directly to the repository ADR index instead.
 
 The version sidebar presents Introduction, Core, Plugins, Guides, Operate Your
 Application, and Reference as non-collapsible section titles. It extracts each

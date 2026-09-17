@@ -97,11 +97,7 @@ const canonicalNavigation = {
 	],
 	'1.0.0/guides': ['generate-types'],
 	'1.0.0/operations': ['before-exposing-your-application', 'troubleshooting'],
-	'1.0.0/reference': [
-		'package-index',
-		'compatibility',
-		'architecture-decisions',
-	],
+	'1.0.0/reference': ['package-index'],
 } as const satisfies Readonly<Record<string, readonly string[]>>
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
@@ -191,6 +187,24 @@ describe('documentation navigation architecture', () => {
 			await expect(
 				readFile(
 					path.join(contentRoot, `1.0.0/operations/${removed}.mdx`),
+					'utf8',
+				),
+			).rejects.toMatchObject({ code: 'ENOENT' })
+		}
+	})
+
+	it('keeps package and compatibility lookup on one reference page', async () => {
+		const page = await readFile(
+			path.join(contentRoot, '1.0.0/reference/package-index.mdx'),
+			'utf8',
+		)
+		expect(page).toContain('## Platform and version compatibility')
+		expect(page).toContain('## Public package roots')
+
+		for (const removed of ['compatibility', 'architecture-decisions']) {
+			await expect(
+				readFile(
+					path.join(contentRoot, `1.0.0/reference/${removed}.mdx`),
 					'utf8',
 				),
 			).rejects.toMatchObject({ code: 'ENOENT' })

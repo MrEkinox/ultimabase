@@ -143,9 +143,10 @@ page leads to focused schema/Typegen, operation/GraphQL, and
 Runtime/infrastructure chapters; those subjects are nested only for authors
 who need them. Community listings remain visibly community-maintained even
 when their documentation is curated on this site.
-`Reference` keeps the package index, compatibility, and architecture background
-outside the primary learning path. Core's own pages carry native API lookup
-beside the concepts and tasks that need it.
+`Reference` keeps one package and compatibility lookup page outside the primary
+learning path. The roadmap links directly to the repository ADR index for
+contributors. Core's own pages carry native API lookup beside the concepts
+and tasks that need it.
 
 ## Documentation versions
 

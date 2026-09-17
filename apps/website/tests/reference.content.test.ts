@@ -17,6 +17,21 @@ const readPage = (page: (typeof pages)[number]): Promise<string> =>
 	readFile(path.join(contentRoot, `${page}.mdx`), 'utf8')
 
 describe('curated public reference', () => {
+	it('combines package lookup and compatibility without promising publication', async () => {
+		const page = await readFile(
+			path.join(contentRoot, 'reference/package-index.mdx'),
+			'utf8',
+		)
+		expect(page).toContain('title: Packages and Compatibility')
+		expect(page).toContain('Node.js 24 or newer')
+		expect(page).toContain('one fixed version group')
+		expect(page).toContain('versioned independently')
+		expect(page).toContain('does **not** prove that an npm package')
+		for (const manager of ['npm', 'yarn', 'pnpm']) {
+			expect(page).toContain(`tab="${manager}"`)
+		}
+	})
+
 	it('keeps useful Core lookup within the canonical learning pages', async () => {
 		const [application, query, errors] = await Promise.all(pages.map(readPage))
 		expect(application).toContain('## Configure the application')

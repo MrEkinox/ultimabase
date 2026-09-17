@@ -41,3 +41,10 @@ without presenting internal or incomplete generated output as product truth.
 
 - Private symbols, exhaustive generated prose, source-browser replacement,
   compatibility promises beyond the current release channel, or API redesign.
+
+## Post-milestone correction
+
+The later Reference audit combined the public package inventory and platform
+and version compatibility in one lookup page. The separate compatibility route
+was thin and repeated the package-selection context. The removed pre-launch
+URL has no redirect.

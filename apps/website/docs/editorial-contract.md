@@ -194,8 +194,8 @@ The public sitemap makes ownership visible before a reader copies configuration:
   Typegen, and reporting troubleshooting paths stay below `Operations`; Typegen
   setup is an independent task below `Guides`;
 - native Core API details stay in the owning Core page when a separate lookup
-  page would restate the same subject; the package index, compatibility, and
-  architecture background stay below `Reference`.
+  page would restate the same subject; package and compatibility lookup stays
+  below `Reference`.
 
 Nested navigation is intentional only while it helps a reader choose a subject.
 Group by reader decision, capability family, and exact plugin, then move the

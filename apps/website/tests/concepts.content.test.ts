@@ -16,7 +16,6 @@ const pages = [
 	'core/runtime/transaction-boundaries',
 	'core/runtime/logical-operations-and-persistence',
 	'core/runtime/immutability',
-	'reference/architecture-decisions',
 ] as const
 
 interface DocumentationPlan {

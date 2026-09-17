@@ -220,6 +220,10 @@ The later operations audit reduces four thin or overlapping routes to a
 pre-exposure checklist and cross-cutting troubleshooting. Configuration and
 secrets remain with Core and their owning plugins; Typegen diagnoses its own
 generation failures. The removed pre-launch URLs have no redirects.
+The later Reference audit combines package roots, platform requirements, and
+version boundaries in one lookup page. The contributor-facing architecture
+decision explainer is removed; the roadmap links to the ADR index directly.
+The removed pre-launch URLs have no redirects.
 
 ### Phase 1 — Application, design, and content foundation
 
