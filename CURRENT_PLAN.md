@@ -62,6 +62,10 @@ Introduction
   → Official Plugins
   → Community Plugins
   → Build a Plugin
+    → Start Here
+    → Schemas and Typegen
+    → Operations and GraphQL
+    → Runtime and Infrastructure
 → Guides
 → Operations
 → Reference

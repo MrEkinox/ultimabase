@@ -177,6 +177,21 @@
 					"outcome": "Export a reusable plugin factory and verify its application-local setup result."
 				},
 				{
+					"slug": "build-a-plugin/schemas-and-typegen",
+					"contentType": "guide",
+					"outcome": "Choose a schema contribution and publish its correct application-specific TypeScript types."
+				},
+				{
+					"slug": "build-a-plugin/operations-and-graphql",
+					"contentType": "guide",
+					"outcome": "Declare executable plugin behavior and choose its exact public transport surface."
+				},
+				{
+					"slug": "build-a-plugin/runtime-and-infrastructure",
+					"contentType": "guide",
+					"outcome": "Select the correct lifecycle, Runtime, storage, and security boundary for an advanced plugin."
+				},
+				{
 					"slug": "community-plugins",
 					"contentType": "concept",
 					"outcome": "Understand how community plugins will be listed without confusing visibility with official maintenance."

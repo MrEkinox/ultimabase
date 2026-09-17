@@ -1,0 +1,9 @@
+{
+	"title": "Build a Plugin",
+	"pages": [
+		"index",
+		"schemas-and-typegen",
+		"operations-and-graphql",
+		"runtime-and-infrastructure"
+	]
+}

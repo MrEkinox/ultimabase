@@ -152,6 +152,10 @@ The public route architecture is:
 │       │   │   └── graphql
 │       │   ├── community-plugins
 │       │   └── build-a-plugin
+│       │       ├── index (Start Here)
+│       │       ├── schemas-and-typegen
+│       │       ├── operations-and-graphql
+│       │       └── runtime-and-infrastructure
 │       ├── guides
 │       │   ├── build-an-authenticated-api
 │       │   ├── generate-types

@@ -1,0 +1,219 @@
+---
+title: Start Here
+description: Create, install, and verify a plugin, then choose the extension boundary for its behavior.
+audience:
+  - plugin-author
+contentType: guide
+order: 4
+outcome: Export a reusable plugin factory and verify its application-local setup result.
+owner: '2810'
+releaseStatus: pre-release
+reviewedAt: 2026-09-17
+sources:
+  - packages/core/README.md
+  - packages/plugin-kit/README.md
+  - packages/testing/README.md
+  - docs/concepts/open-plugin-authoring.md
+  - docs/adr/0190-capability-host-lifecycle-and-legacy-convergence.md
+  - docs/adr/0191-plugin-privilege-taxonomy-and-diagnostics.md
+  - docs/adr/0208-enforceable-plugin-powers-and-environment-truth.md
+---
+
+## Outcome
+
+Build a plugin with one public factory and a typed setup result. Verify that
+the result belongs to the application that installs it. Then choose the
+specific extension boundary for the behavior you want to add. The starter
+plugin does not add schema fields, operations, or Runtime behavior yet.
+
+## Prerequisites
+
+- Read [Plugin System](/docs/1.0.0/plugins/overview) and
+  [Using Plugins](/docs/1.0.0/plugins/using-plugins) so
+  application-local installation is familiar.
+- Have a Node.js 24+, ESM TypeScript library package with a build and a
+  package-root export. Name publishable plugins with the `-plugin` suffix,
+  such as `@your-scope/workflow-plugin`.
+- Use the Core compatibility range you actually test. The snippets target
+  this `1.0.0` documentation line; packages are still pre-release.
+
+## Steps
+
+### Install the authoring packages
+
+Install Core and the optional Plugin Kit helper in your plugin package:
+
+```bash tab="npm" tab-group="package-manager"
+npm install @ultimabase/core @ultimabase/plugin-kit
+```
+
+```bash tab="yarn"
+yarn add @ultimabase/core @ultimabase/plugin-kit
+```
+
+```bash tab="pnpm"
+pnpm add @ultimabase/core @ultimabase/plugin-kit
+```
+
+Plugin Kit removes repeated package identity fields.
+It is not a plugin, registry, service locator, or permission bypass.
+It installs no Runtime behavior. If one file contains only one definition,
+calling Core's `definePlugin()` directly is equally valid.
+
+### Export a static factory
+
+Export the factory at the package root so consumers never need a `src/`
+deep import:
+
+```ts title="src/index.ts"
+import { definePluginModule } from '@ultimabase/plugin-kit'
+
+const workflow = definePluginModule({
+	core: '^1.0.0',
+	pluginId: 'community.workflow',
+	version: '1.0.0',
+})
+
+export const workflowPlugin = (instanceId?: string) =>
+	workflow.plugin({
+		...(instanceId === undefined ? {} : { instanceId }),
+		setup: () => ({ ready: true as const }),
+	})
+```
+
+The factory returns an inert, typed definition. Constructing it must not
+connect to a database, read files, or start a listener. Its `ready` export is
+only a learning example, not workflow functionality. Importing a plugin
+package or calling its factory does not install behavior: the definition must
+enter one application's `plugins` array.
+
+### Install test tooling
+
+Add the conformance harness and Vitest as development dependencies:
+
+```bash tab="npm" tab-group="package-manager"
+npm install --save-dev @ultimabase/testing vitest typescript
+```
+
+```bash tab="yarn"
+yarn add --dev @ultimabase/testing vitest typescript
+```
+
+```bash tab="pnpm"
+pnpm add --save-dev @ultimabase/testing vitest typescript
+```
+
+## Verify
+
+Build your package so its root export resolves, then test the same public
+import an application will use. This plugin needs no database:
+
+```ts title="tests/workflow-plugin.test.ts"
+import { createApplication } from '@ultimabase/core'
+import {
+	createPluginConformanceFixture,
+	definePluginConformanceSuite,
+	runPluginConformance,
+} from '@ultimabase/testing'
+import { expect, it } from 'vitest'
+
+import { workflowPlugin } from '@your-scope/workflow-plugin'
+
+it('exposes setup only through its installed application', async () => {
+	const application = await createApplication({
+		plugins: [workflowPlugin()],
+		schemas: [],
+	})
+
+	try {
+		expect(application.getPlugin('community.workflow')).toStrictEqual({
+			ready: true,
+		})
+	} finally {
+		await application.dispose()
+	}
+})
+
+const suite = definePluginConformanceSuite({
+	createFixture: () =>
+		createPluginConformanceFixture({ subject: workflowPlugin() }),
+	expected: {
+		core: '^1.0.0',
+		pluginId: 'community.workflow',
+		version: '1.0.0',
+	},
+})
+
+it('conforms to the public plugin kernel', async () => {
+	const report = await runPluginConformance(suite)
+	expect(report.checks.every(({ status }) => status === 'passed')).toBe(true)
+})
+```
+
+`createApplication()` initializes an isolated graph and runs setup without
+starting infrastructure. The test disposes it even after an assertion failure.
+Run your Vitest command and confirm that both tests pass. Conformance covers
+static determinism, provenance, lifecycle cleanup, and application isolation;
+it does not prove the domain behavior you will add next.
+
+## Choose an extension boundary
+
+Start with the reader-visible behavior, then use the smallest owning contract.
+One feature may cross several boundaries; none is automatic merely because its
+neighbor exists.
+
+| You want to add                                                                 | Start with                                                                                                                     | Exact additional power                                                        |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
+| A schema, field, direct option, index, or additive patch                        | [Schemas and Typegen](/docs/1.0.0/plugins/build-a-plugin/schemas-and-typegen)                                                  | `schema:declare`                                                              |
+| A generated public type or extra inert artifact                                 | [Schemas and Typegen](/docs/1.0.0/plugins/build-a-plugin/schemas-and-typegen#contribute-to-typegen)                            | `typegen:reference`, `typegen:contribute`, or `typegen:emit`                  |
+| A model command or Query builder                                                | [Operations and GraphQL](/docs/1.0.0/plugins/build-a-plugin/operations-and-graphql)                                            | `model:extend` or `query:extend`                                              |
+| A custom operation or schema mutation                                           | [Operations and GraphQL](/docs/1.0.0/plugins/build-a-plugin/operations-and-graphql)                                            | `operation:declare`, often `model:extend`                                     |
+| A GraphQL field or selected operation                                           | [Operations and GraphQL](/docs/1.0.0/plugins/build-a-plugin/operations-and-graphql#expose-behavior-through-graphql)            | `transport:expose` for an owner contribution                                  |
+| A shared protocol, lifecycle resource, observer, policy, or persistence rewrite | [Runtime and Infrastructure](/docs/1.0.0/plugins/build-a-plugin/runtime-and-infrastructure)                                    | Depends on the exact Core facade                                              |
+| A database adapter, migration, or owner-private record                          | [Runtime and Infrastructure](/docs/1.0.0/plugins/build-a-plugin/runtime-and-infrastructure#data-and-infrastructure-boundaries) | `adapter:consume`, `migration:contribute`, or `storage:private` as applicable |
+
+The full current privilege and environment-claim map is in
+[Runtime and Infrastructure](/docs/1.0.0/plugins/build-a-plugin/runtime-and-infrastructure#privilege-and-claim-reference).
+It distinguishes enforceable Core powers from direct Node.js behavior.
+
+## Identity and ordering
+
+`pluginId` is the stable namespaced package identity. Use a distinct,
+explicit `instanceId` only when one application configures that plugin more
+than once; Core never derives it from options, URLs, or secrets. Read repeated
+setup exports through the structured `{ pluginId, instanceId }` identity
+because the bare ID is ambiguous.
+
+A declared dependency supplies provider-first ordering. Configuration order
+only breaks ties between otherwise ready plugins. A `peer` checks presence
+and version without promising lifecycle order. A required capability is
+preferable to naming a concrete provider when implementations can vary.
+
+## Next steps
+
+<Cards>
+	<Card
+		title="Schemas and Typegen"
+		href="/docs/1.0.0/plugins/build-a-plugin/schemas-and-typegen"
+	>
+		Add schema or field surfaces and publish their exact generated types.
+	</Card>
+	<Card
+		title="Operations and GraphQL"
+		href="/docs/1.0.0/plugins/build-a-plugin/operations-and-graphql"
+	>
+		Add executable behavior, then expose only the selected public surface.
+	</Card>
+	<Card
+		title="Runtime and Infrastructure"
+		href="/docs/1.0.0/plugins/build-a-plugin/runtime-and-infrastructure"
+	>
+		Choose capabilities, policy, storage, lifecycle, and verification
+		boundaries.
+	</Card>
+</Cards>
+
+Before proposing a listing, add at least one observable behavior and its
+focused test. A package that only exports `ready: true` is not a useful plugin.
+The [Community Plugins](/docs/1.0.0/plugins/community-plugins#submit-a-plugin) page explains
+the submission and maintenance requirements.

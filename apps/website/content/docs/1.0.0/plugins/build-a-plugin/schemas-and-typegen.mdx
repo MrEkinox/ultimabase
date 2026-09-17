@@ -1,0 +1,273 @@
+---
+title: Schemas and Typegen
+description: Add plugin-owned schema surfaces and generate exact, inert TypeScript contracts for them.
+audience:
+  - plugin-author
+contentType: guide
+outcome: Choose a schema contribution and publish its correct application-specific TypeScript types.
+owner: '2810'
+releaseStatus: pre-release
+reviewedAt: 2026-09-17
+sources:
+  - packages/core/README.md
+  - packages/plugin-kit/README.md
+  - packages/typegen/README.md
+  - packages/core/src/plugins/typegen-declarations.test.ts
+  - docs/concepts/open-plugin-authoring.md
+  - docs/adr/0208-enforceable-plugin-powers-and-environment-truth.md
+---
+
+## Outcome
+
+Extend a schema without changing Core or patching an exported schema class.
+Then decide whether generic Typegen already derives the correct types or your
+plugin must contribute an additional public declaration. Typegen describes the
+compiled application; generated files never install Runtime behavior.
+
+## Prerequisites
+
+- Complete [Build a Plugin](/docs/1.0.0/plugins/build-a-plugin) and know its stable plugin identity.
+- Read [Schemas](/docs/1.0.0/core/data-modeling/schemas) and
+  [Fields](/docs/1.0.0/core/data-modeling/fields) for the native model.
+- For editor inference, configure the application's
+  [Typegen workflow](/docs/1.0.0/guides/generate-types). Regenerate before
+  typechecking source that uses a plugin-owned schema option or field method.
+
+## Choose the schema contribution
+
+| Requirement                                       | Public declaration boundary                                                    | Privilege          |
+| ------------------------------------------------- | ------------------------------------------------------------------------------ | ------------------ |
+| Add an application-local schema                   | `schemas.add()`                                                                | `schema:declare`   |
+| Add a direct schema or field option               | `schemas.defineOptions()` with `defineSchemaOption()` or `defineFieldOption()` | `schema:declare`   |
+| Add a field, index, constraint, or option value   | `schemas.select()` and `schemas.patch()`                                       | `schema:declare`   |
+| Add a field kind or contextual builder method     | `definePluginField()`, `definePluginFieldBuilderMethod()`                      | `schema:declare`   |
+| Rename, remove, or replace an existing definition | Exact provenance-checked schema transformation                                 | `schema:transform` |
+| Replace the complete schema compiler              | `replaceSchemaCompiler()`                                                      | `schema:replace`   |
+
+The last two rows are specialized and sensitive. Do not request them to perform
+an additive patch. Every contribution needs a stable owner-local
+`contributionId`; Core checks collisions and records provenance in the final
+graph. Plugin-owned schemas are not automatically public REST or GraphQL
+schemas.
+
+## Add an option and an additive patch
+
+This separate example gives application-owned schemas that opt in to
+`workflow` a stored state field and index. The package root exports
+`WorkflowSchemaOption` so generated declarations can reference it:
+
+```ts title="src/index.ts"
+import {
+	addSchemaField,
+	addSchemaIndex,
+	definePlugin,
+	defineSchemaOption,
+	stringField,
+} from '@ultimabase/core'
+
+export type WorkflowSchemaOption = Readonly<{ enabled: boolean }>
+
+const workflowOption = defineSchemaOption<WorkflowSchemaOption>({
+	normalize(value, path) {
+		if (
+			typeof value !== 'object' ||
+			value === null ||
+			!('enabled' in value) ||
+			typeof value.enabled !== 'boolean'
+		) {
+			throw new TypeError(`${path}.enabled must be a boolean`)
+		}
+		return { enabled: value.enabled }
+	},
+	protocolVersion: 1,
+	typegen: {
+		module: '@your-scope/workflow-plugin',
+		type: 'WorkflowSchemaOption',
+	},
+})
+
+export const workflowPlugin = () =>
+	definePlugin({
+		core: '^1.0.0',
+		pluginId: 'community.workflow',
+		version: '1.0.0',
+		privileges: [
+			{
+				name: 'schema:declare',
+				reason: 'Adds the workflow option, state field, and index.',
+			},
+		] as const,
+		declare({ schemas }) {
+			schemas.defineOptions({
+				contributionId: 'workflow-option',
+				schema: { workflow: workflowOption },
+			})
+			const targets = schemas.select({ option: { name: 'workflow' } })
+			schemas.patch({
+				targets,
+				operations: [
+					addSchemaField({
+						contributionId: 'workflow-state',
+						name: 'workflowState',
+						field: stringField({ default: 'pending', required: true }),
+						mutationInput: 'forbidden',
+					}),
+					addSchemaIndex({
+						contributionId: 'workflow-state-index',
+						fields: ['workflowState', 'createdAt'],
+					}),
+				],
+			})
+		},
+	})
+```
+
+`mutationInput: 'forbidden'` keeps `workflowState` visible to reads and
+persistence but reserves writes for the plugin's own effects. It is not a
+permission rule for reading the field. To let developers write it, remove that
+setting and define the intended input behavior. The selector matches the
+presence of `workflow`, including an explicitly false-like value; inspect a
+normalized path/value only when the plugin's contract needs it.
+
+Generic Typegen sees the final field, index, and direct option occurrence. It
+derives the application-specific field and input contracts automatically. You
+do not manually emit a duplicate `Task` model type. A schema with no `workflow`
+option stays untouched. Core rejects unknown options when the plugin is absent.
+
+## Define a new field family carefully
+
+Field value representation, builder availability, storage, and wire encoding
+are independent decisions:
+
+| Concern           | Owner decision                                                                                                 |
+| ----------------- | -------------------------------------------------------------------------------------------------------------- |
+| Logical value     | `definePluginField()` snapshots and validates one field kind.                                                  |
+| Builder placement | `definePluginFieldBuilderMethod()` names only supported `stored`, `embedded`, `virtual`, or `output` contexts. |
+| Direct option     | `definePluginFieldOption()` declares the exact contexts and normalization.                                     |
+| Persistence       | A portable JSON storage codec or an explicit adapter integration.                                              |
+| Query predicates  | Portable codec grants complete-value equality/inclusion only; structural `contains` is a separate opt-in.      |
+| Transport value   | An exact protocol-specific wire codec; storage encoding is not automatically a wire format.                    |
+
+The closed field contexts are `stored`, `embedded`, `virtual`, and `output`.
+Do not advertise a builder method in a context your implementation cannot
+validate. A stored field method does not automatically work as a virtual
+output. Core rejects unsupported usage even when JavaScript or stale generated
+types bypass autocomplete. See the concrete
+[plugin field methods](https://github.com/MrEkinox/ultimadatabase/blob/main/packages/plugin-kit/README.md#declare-contextual-fields-and-options)
+and the [plugin scalar example](https://github.com/MrEkinox/ultimadatabase/blob/main/packages/core/examples/schema/plugin-field-containment.md)
+for the full field and codec contracts.
+
+## Contribute to Typegen
+
+First ask whether the compiled graph already gives Typegen what it needs.
+Generic generation includes plugin-added schemas and fields, used direct
+options, query inputs, operations, and schema/model surfaces. Add a custom
+contribution only for a public type that cannot be derived from those facts.
+
+This example references a type exported from the plugin package and adds an
+inert alias to the main generated declaration:
+
+```ts title="src/typegen.ts"
+import { definePlugin, defineTypegenReference } from '@ultimabase/core'
+
+export type WorkflowState = 'draft' | 'published'
+
+const state = defineTypegenReference({
+	exportName: 'WorkflowState',
+	module: '@your-scope/workflow-plugin',
+})
+
+export const workflowTypegenPlugin = () =>
+	definePlugin({
+		core: '^1.0.0',
+		pluginId: 'community.workflow-types',
+		version: '1.0.0',
+		privileges: [
+			{
+				name: 'typegen:reference',
+				reason: 'References the public WorkflowState type.',
+			},
+			{
+				name: 'typegen:contribute',
+				reason: 'Adds a configured workflow type alias.',
+			},
+		] as const,
+		declare({ typegenReferences, typegenContributions }) {
+			typegenReferences.register(state)
+			typegenContributions.add({
+				contributionId: 'configured-workflow',
+				declarations: [
+					{
+						kind: 'type',
+						name: 'ConfiguredWorkflowState',
+						type: { kind: 'reference', reference: state },
+					},
+				],
+			})
+		},
+	})
+```
+
+Export `WorkflowState` from the actual package root even if implementation
+files are split. The registrar checks that a referenced type was registered by
+its owner. Type nodes are structured data, not raw TypeScript source. You may
+also use Plugin Kit's `defineTypegenModule()` to group several references to
+the same package without changing the Core boundary.
+
+`typegen:emit` is different: `typegenOutputs.emit()` writes an additional
+structured `.d.ts` declaration or deterministic `.json` metadata file. Request
+it only when a separate artifact is necessary. It cannot emit JavaScript,
+callbacks, credentials, a Runtime client, or arbitrary source text. There is
+no `typegen:replace` privilege in the current public kernel.
+
+For example, an owner may publish safe, deterministic build metadata:
+
+```ts title="src/typegen-metadata.ts"
+import { definePlugin } from '@ultimabase/core'
+
+export const workflowMetadataPlugin = () =>
+	definePlugin({
+		core: '^1.0.0',
+		pluginId: 'community.workflow-metadata',
+		privileges: [
+			{
+				name: 'typegen:emit',
+				reason: 'Emits a static workflow feature manifest.',
+			},
+		] as const,
+		version: '1.0.0',
+		declare: ({ typegenOutputs }) => {
+			typegenOutputs.emit({
+				contributionId: 'workflow-features',
+				kind: 'metadata',
+				metadata: { states: ['draft', 'published'] },
+				outputPath: 'workflow.generated.json',
+			})
+		},
+	})
+```
+
+This file is an artifact for tooling, not a source of application behavior.
+Keep user input, secrets, callbacks, and connection details out of the static
+metadata and its output path.
+
+## Verify
+
+Compile the application graph with and without your plugin. With the plugin,
+confirm the option or field appears only where selected and that its
+provenance names your contribution. Generate types twice and compare output:
+the same graph must produce the same declaration. Then typecheck a consumer
+that imports only package-root exports and uses the generated declaration.
+
+Use `withPluginTypegenConformance()` from `@ultimabase/testing` for the generic
+repeatability check, then add a focused assertion for the public type or field
+your plugin promises. Finally start a JavaScript application without Typegen:
+the plugin's Runtime behavior must still work.
+
+## Next steps
+
+Use [Operations and GraphQL](/docs/1.0.0/plugins/build-a-plugin/operations-and-graphql) when the field needs a
+command or a public GraphQL surface. Use
+[Runtime and Infrastructure](/docs/1.0.0/plugins/build-a-plugin/runtime-and-infrastructure) when it needs an
+adapter, policy, or persistence-plan integration. Generated types describe
+those compiled behaviors; they never create them.

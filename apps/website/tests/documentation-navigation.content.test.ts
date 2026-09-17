@@ -89,6 +89,12 @@ const canonicalNavigation = {
 		'rest',
 		'graphql',
 	],
+	'1.0.0/plugins/build-a-plugin': [
+		'index',
+		'schemas-and-typegen',
+		'operations-and-graphql',
+		'runtime-and-infrastructure',
+	],
 	'1.0.0/guides': [
 		'build-an-authenticated-api',
 		'generate-types',

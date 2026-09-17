@@ -138,8 +138,11 @@ formerly repeated Guides tasks. The former three-page`Reference > Core API`
 > at the bottom; marketing navigation retains the full set of site links.
 
 `Plugin System` explains composition, `Using Plugins` owns consumption and
-compatibility, and `Build a Plugin` owns the author journey. Community listings remain visibly
-community-maintained even when their documentation is curated on this site.
+compatibility, and `Build a Plugin` owns the author journey. Its short entry
+page leads to focused schema/Typegen, operation/GraphQL, and
+Runtime/infrastructure chapters; those subjects are nested only for authors
+who need them. Community listings remain visibly community-maintained even
+when their documentation is curated on this site.
 `Reference` keeps the package index, compatibility, and architecture background
 outside the primary learning path. Core's own pages carry native API lookup
 beside the concepts and tasks that need it.

@@ -42,8 +42,12 @@ describe('plugin documentation contracts', () => {
 		if (pluginSection === undefined) throw new Error('Plugins plan is missing')
 
 		for (const page of pluginSection.pages) {
+			const relativePath =
+				page.slug === 'build-a-plugin'
+					? 'build-a-plugin/index.mdx'
+					: `${page.slug}.mdx`
 			const source = await readFile(
-				path.join(pluginDirectory, `${page.slug}.mdx`),
+				path.join(pluginDirectory, relativePath),
 				'utf8',
 			)
 			expect(source, page.slug).toContain(`outcome: ${page.outcome}`)
@@ -64,7 +68,7 @@ describe('plugin documentation contracts', () => {
 	})
 
 	it('shows package-manager choices on plugin consumption and authoring pages', async () => {
-		for (const pageName of ['using-plugins.mdx', 'build-a-plugin.mdx']) {
+		for (const pageName of ['using-plugins.mdx', 'build-a-plugin/index.mdx']) {
 			const source = await readFile(
 				path.join(path.dirname(pluginPagePath), pageName),
 				'utf8',
@@ -124,7 +128,7 @@ describe('plugin documentation contracts', () => {
 
 	it('states explicit installation and preserves Plugin Kit boundaries', async () => {
 		const pages = await Promise.all(
-			['overview.mdx', 'using-plugins.mdx', 'build-a-plugin.mdx'].map(
+			['overview.mdx', 'using-plugins.mdx', 'build-a-plugin/index.mdx'].map(
 				(relativePath) =>
 					readFile(
 						path.join(path.dirname(pluginPagePath), relativePath),
