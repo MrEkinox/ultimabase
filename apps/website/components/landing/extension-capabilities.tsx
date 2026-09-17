@@ -27,9 +27,9 @@ export function ExtensionCapabilities() {
 					<p className="ub-demo-eyebrow">SOFT DELETE PLUGIN</p>
 					<h3>Delete with a way back.</h3>
 					<p>
-						Replace native deletes with recoverable tombstones, or add an
-						explicit soft-delete command. Ordinary reads and relationship
-						traversal hide deleted records.
+						Replace native deletes or add a separate soft-delete command.
+						Deleted records remain recoverable and stay out of ordinary reads
+						and relationship traversal.
 					</p>
 					<figure
 						className="ub-delete-lifecycle"
@@ -43,8 +43,8 @@ export function ExtensionCapabilities() {
 							<span>Restored</span>
 						</div>
 						<figcaption id="delete-lifecycle-caption">
-							Restore and permanent purge are private server commands requiring
-							audited Master authority.
+							Restore and permanent purge are private server commands. Both
+							require trusted, audited Master access.
 						</figcaption>
 					</figure>
 					<TextLink
@@ -76,6 +76,10 @@ export function ExtensionCapabilities() {
 							<dd>Application-specific declarations</dd>
 						</div>
 					</dl>
+					<p>
+						Core checks plugin identities, versions, dependencies, capabilities,
+						and requested privileges before infrastructure starts.
+					</p>
 					<div className="ub-capability-links">
 						<TextLink
 							href={currentDocumentationPath(

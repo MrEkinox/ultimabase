@@ -202,7 +202,11 @@ keeps its private Master-only restore/purge boundary visible. Plugin authoring
 covers custom operations, fields, model/query extensions, middleware, and
 application-specific Typegen declarations. Every capability links to its
 existing owning documentation; these guides remain the detailed contract.
-The old three-card feature summary is replaced rather than duplicated.
+The capability summary labels Core and plugin ownership before the deeper
+examples. Complete application configurations and virtual-field schemas remain visible
+and copyable, with readable code sizes; configuration tabs and API request tabs have separate labels.
+Advanced reads, immutable query builders, contextual relations, and plugin
+validation are described with links to their existing contracts.
 
 Marketing styling uses landing-specific selectors in `app/landing.css` and
 `app/landing-capabilities.css`; documentation
@@ -219,8 +223,8 @@ Apache-2.0 license are explicit; no initializer or npm publication is implied.
 The marketing header offers Documentation, Plugins, and Fumadocs’ native
 GitHub icon through `githubUrl`, with a native Project
 menu for Release Status, Roadmap, and Contributing. There is no marketing footer.
-Four native FAQ disclosures cover hosting, framework scope, Typegen, and the
-pre-release contract. The existing Manual Installation entry point is unchanged.
+Six native FAQ disclosures cover hosting, framework scope, Typegen, database
+schema policies, deployment responsibilities, and the pre-release contract. The existing Manual Installation entry point is unchanged.
 
 The marketing route generates a local 1200×630 Open Graph image through Next.js
 `ImageResponse`, with a large-image X card. Documentation metadata and the
@@ -236,9 +240,10 @@ Shared marketing surfaces live under `components/`:
 
 The content suite compiles the displayed landing examples against public package
 exports and real Typegen declarations. The TypeScript checker verifies every
-displayed field type, including nullable fields; negative checks protect
+displayed field type; negative checks protect
 excluded fields and incorrect assignments. Virtual-field selection and the
-displayed Zod rule also compile against real generated application declarations.
+displayed Zod rule and Access policy also compile against real generated
+application declarations.
 On a fresh checkout, run the root
 `yarn typecheck` first to emit workspace exports (as CI already does). The sample
 check compiles the static application only; it never starts a database connection.
@@ -251,5 +256,5 @@ interaction checks cover clipboard contents, stable tab heights, selected
 fields, transaction outcomes, and the application-setup anchor.
 
 [`docs/preview-readiness.md`](docs/preview-readiness.md) records the current
-private-preview audit, production asset totals, and the decisions required
+private-preview audit, asset measurement instructions, and the decisions required
 before any public deployment.

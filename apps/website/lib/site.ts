@@ -49,7 +49,7 @@ const sourceExampleUrl = new URL(
 )
 const preview: SiteConfig['preview'] = Object.freeze({
 	indexable: false,
-	reviewedAt: '2026-09-14',
+	reviewedAt: '2026-09-18',
 })
 const routes: SiteConfig['routes'] = Object.freeze({
 	contributing: currentDocumentationPath('project/contributing'),
@@ -68,7 +68,7 @@ const routes: SiteConfig['routes'] = Object.freeze({
 export const siteConfig = Object.freeze({
 	canonicalUrl,
 	description:
-		'UltimaBase is an open-source TypeScript backend framework for typed data APIs built from schemas and optional plugins.',
+		'Build typed data APIs with a TypeScript backend framework. Compose PostgreSQL, REST, GraphQL, authentication, and access-control plugins.',
 	name: 'UltimaBase',
 	navigation: Object.freeze([
 		{ href: routes.docs, label: 'Documentation' },

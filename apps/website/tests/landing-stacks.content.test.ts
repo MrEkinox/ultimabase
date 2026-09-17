@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
 	virtualFieldExample,
+	accessSchemaExample,
 	validationFieldExample,
 } from '../components/landing/capability-content'
 import { compositionExamples } from '../components/landing/composition-content'
@@ -102,6 +103,12 @@ describe('landing plugin stacks', () => {
 // The showcase uses the same source strings as these compiled, application-local fixtures.
 it.each([
 	{
+		name: 'row access',
+		code: accessSchemaExample,
+		schema: 'PublicArticle',
+		checks: '',
+	},
+	{
 		name: 'virtual fields',
 		code: virtualFieldExample,
 		schema: 'Profile',
@@ -137,9 +144,10 @@ void title; void invalid`,
 import { UltimaBase } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { validationPlugin } from '@ultimabase/validation-plugin'
+import { accessPlugin } from '@ultimabase/access-plugin'
 export const app = new UltimaBase({
   schemas: [${example.schema}],
-  plugins: [postgresPlugin({ url: 'postgres://localhost/landing_check' }), validationPlugin()],
+  plugins: [postgresPlugin({ url: 'postgres://localhost/landing_check' }), validationPlugin(), accessPlugin()],
 })`
 			await writeFile(filename, source)
 			const application = await loadTypegenApplication({

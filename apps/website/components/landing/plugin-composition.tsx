@@ -10,7 +10,7 @@ export function PluginComposition() {
 	return (
 		<div className="ub-application-code">
 			<div className="ub-code-overline">
-				<span>YOUR APPLICATION</span>
+				<span>CONFIGURE YOUR APPLICATION</span>
 				<span>Choose an API</span>
 			</div>
 			<Tabs
@@ -26,6 +26,7 @@ export function PluginComposition() {
 							themes={{ light: 'github-dark', dark: 'github-dark' }}
 							codeblock={{
 								className: 'ub-application-codeblock',
+								viewportProps: { style: { maxHeight: 'none' } },
 								title: 'src/application.ts',
 							}}
 						/>

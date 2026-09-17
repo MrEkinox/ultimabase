@@ -102,7 +102,7 @@ export default function OpenGraphImage() {
 					</div>
 					{[
 						['title', 'string'],
-						['published', 'boolean | null'],
+						['published', 'boolean'],
 					].map(([field, type]) => (
 						<div
 							key={field}

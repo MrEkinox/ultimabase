@@ -19,7 +19,7 @@ export function DataCapabilities() {
 		>
 			<header className="ub-capability-heading">
 				<div>
-					<p className="ub-section-index">04 / DATA MODELING</p>
+					<p className="ub-section-index">05 / DATA MODELING</p>
 					<h2 id="data-capabilities-title">More than columns.</h2>
 				</div>
 				<p>
@@ -77,6 +77,46 @@ export function DataCapabilities() {
 						</TextLink>
 					</article>
 				))}
+			</div>
+			<div className="ub-capability-columns ub-query-capabilities">
+				<article>
+					<h3>Query the data you need.</h3>
+					<p>
+						Select fields, include related models, filter and sort. Page with
+						limit and offset; use count or exists when you don’t need the
+						records.
+					</p>
+					<TextLink
+						href={currentDocumentationPath('core/reading-data/overview')}
+					>
+						Explore queries <ArrowUpRight aria-hidden="true" />
+					</TextLink>
+				</article>
+				<article>
+					<h3>Build on a shared query.</h3>
+					<p>
+						Start with a base query and derive variants. Immutable builders keep
+						the original unchanged, and returned models are immutable snapshots.
+					</p>
+					<TextLink
+						href={currentDocumentationPath('core/reading-data/overview')}
+					>
+						Query builders and scopes <ArrowUpRight aria-hidden="true" />
+					</TextLink>
+				</article>
+				<article>
+					<h3>Filter related records.</h3>
+					<p>
+						Find authors with at least three published posts, or filter a
+						relation for the current request. Use some, every, and count
+						predicates. Access policies still enforce authorization.
+					</p>
+					<TextLink
+						href={currentDocumentationPath('core/reading-data/related-data')}
+					>
+						Explore related data <ArrowUpRight aria-hidden="true" />
+					</TextLink>
+				</article>
 			</div>
 		</Section>
 	)

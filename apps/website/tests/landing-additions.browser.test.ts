@@ -1,4 +1,5 @@
 import type { Browser } from 'playwright'
+import { compositionExamples } from '../components/landing/composition-content'
 import { virtualFieldExample } from '../components/landing/capability-content'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import {
@@ -53,16 +54,35 @@ describe('landing transport and discovery additions', () => {
 						.locator('.ub-composition-tabs')
 						.getByRole('tabpanel')
 						.textContent()
+					// Each complete preset remains readable without a nested vertical scrollbar.
+					expect(
+						await page
+							.locator('.ub-composition-tabs')
+							.getByRole('region')
+							.evaluate(
+								(element) => element.scrollHeight <= element.clientHeight + 1,
+							),
+					).toBe(true)
 					expect(configuration).toContain('postgresPlugin')
 					if (label !== 'TypeScript') {
 						expect(configuration).toContain('httpPlugin')
 						expect(configuration).toContain('honoServerPlugin')
 					}
+					await page
+						.locator('.ub-composition-tabs')
+						.getByRole('button', { name: 'Copy Text', exact: true })
+						.click()
+					await expect
+						.poll(() => page.evaluate(() => navigator.clipboard.readText()))
+						.toBe(
+							compositionExamples.find((example) => example.label === label)
+								?.code,
+						)
 					if (label === 'GraphQL')
 						expect(configuration).toContain('graphqlYogaPlugin')
 				}
 				const faq = page.locator('.ub-faq')
-				expect(await faq.locator('summary').count()).toBe(4)
+				expect(await faq.locator('summary').count()).toBe(6)
 				for (const summary of await faq.locator('summary').all()) {
 					await summary.focus()
 					await page.keyboard.press('Enter')
@@ -117,6 +137,12 @@ describe('landing transport and discovery additions', () => {
 		if (!page || !harness) throw new Error('Browser did not start')
 		try {
 			await page.goto(harness.origin)
+			expect(await page.title()).toBe(
+				'UltimaBase — TypeScript backend framework',
+			)
+			expect(
+				await page.locator('meta[property="og:title"]').getAttribute('content'),
+			).toBe('UltimaBase — TypeScript backend framework')
 			expect(
 				await page.locator('meta[name="twitter:card"]').getAttribute('content'),
 			).toBe('summary_large_image')

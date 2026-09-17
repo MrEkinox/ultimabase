@@ -13,7 +13,7 @@ export function generateMetadata(): Metadata {
 		absoluteTitle: true,
 		canonicalPath: '/',
 		description: siteConfig.description,
-		title: siteConfig.name,
+		title: `${siteConfig.name} — TypeScript backend framework`,
 	})
 	return {
 		...metadata,

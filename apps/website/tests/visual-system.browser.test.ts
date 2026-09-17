@@ -181,7 +181,7 @@ describe('website visual system', () => {
 			})
 			expect(
 				await applicationPreview
-					.getByRole('link', { name: 'How application assembly works' })
+					.getByRole('link', { name: 'Configure an application' })
 					.getAttribute('href'),
 			).toBe(currentDocumentationPath('core/application'))
 			expect(
@@ -203,7 +203,7 @@ describe('website visual system', () => {
 			).toBe(siteConfig.routes.docs)
 			expect(
 				await page
-					.getByRole('link', { name: 'Run the example' })
+					.getByRole('link', { name: 'View runnable example' })
 					.getAttribute('href'),
 			).toBe(siteConfig.sourceExampleUrl.href)
 			expect(

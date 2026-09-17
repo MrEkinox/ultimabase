@@ -4,7 +4,7 @@ import { readExample, schemaExample, writeExample } from './content'
 const modelFields = [
 	{ name: 'id', type: 'string' },
 	{ name: 'title', type: 'string' },
-	{ name: 'published', type: 'boolean | null' },
+	{ name: 'published', type: 'boolean' },
 ] as const
 
 export const demoExamples = [
@@ -15,7 +15,7 @@ export const demoExamples = [
 		title: 'Declare fields once.',
 		description: 'Your schema defines the field types on an Article model.',
 		fields: modelFields,
-		note: 'Core provides id. published defaults to false and remains nullable.',
+		note: 'Core provides id. published is required and defaults to false.',
 	},
 	{
 		label: 'Read',
@@ -24,7 +24,7 @@ export const demoExamples = [
 		title: 'Select fields. Narrow the type.',
 		description: 'Each returned model exposes the selected fields, plus id.',
 		fields: modelFields.filter((field) => field.name !== 'published'),
-		note: 'published is used to filter the query. It is absent from the selected model.',
+		note: 'Filter by published without returning it. Only title and id appear in the result.',
 	},
 	{
 		label: 'Write',

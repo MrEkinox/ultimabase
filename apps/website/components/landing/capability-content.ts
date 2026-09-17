@@ -79,6 +79,26 @@ export const writeCapabilities = [
 	},
 ] as const
 
+// The policy excerpt is also compiled in its complete schema below.
+export const accessRuleExample = `access: {
+  read: {
+    allow: true,
+    where: ({ where }) =>
+      where.eq('published', true),
+  },
+}`
+
+export const accessSchemaExample = `import { Schema } from '@ultimabase/core'
+
+export const PublicArticle = Schema.define({
+  className: 'PublicArticle',
+  fields: (f) => ({
+    title: f.string({ required: true }),
+    published: f.boolean({ required: true, default: false }),
+  }),
+  ${accessRuleExample},
+})`
+
 export const accessCapabilities = [
 	{
 		title: 'Operations',

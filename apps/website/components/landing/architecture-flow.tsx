@@ -21,10 +21,13 @@ export function ArchitectureFlow() {
 				</div>
 				<p>
 					Create an article from TypeScript, REST, or GraphQL. In the runnable
-					example, the same title Hook trims whitespace before validation and
-					persistence.
+					example, the same title Hook trims whitespace before application
+					validation and persistence.
 				</p>
 			</figcaption>
+			<p className="ub-demo-eyebrow ub-api-call-label">
+				MAKE A REQUEST / RUNNABLE EXAMPLE
+			</p>
 			<div className="ub-transport-proof">
 				<Tabs
 					items={transportExamples.map((example) => example.label)}

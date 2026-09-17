@@ -5,19 +5,17 @@ export const Article = Schema.define({
   className: 'Article',
   fields: (f) => ({
     title: f.string({ required: true }),
-    published: f.boolean({ default: false }),
+    published: f.boolean({ required: true, default: false }),
   }),
 })`
 
 export const readExample = `const articles = await Article.findMany(
   {
-    where: {
-      published: { eq: true },
-    },
-    select: {
-      title: true,
-    },
+    where: { published: { eq: true } },
+    select: { title: true },
+    orderBy: { title: 'asc', id: 'asc' },
     limit: 3,
+    offset: 0,
   },
   { ultimabase: app },
 )`

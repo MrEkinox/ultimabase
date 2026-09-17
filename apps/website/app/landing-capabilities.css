@@ -379,17 +379,14 @@
 	}
 	.ub-computed-proof .ub-capability-code pre {
 		padding: 1rem;
-		font-size: 0.75rem;
+		font-size: 0.875rem;
 		/* Keep the schema indentation intact inside Fumadocs' local scroll viewport. */
 		width: max-content;
 		min-width: 100%;
 		white-space: pre;
 		overflow-wrap: normal;
 	}
-	.ub-access-levels > div {
-		grid-template-columns: 1fr;
-		gap: 0.4rem;
-	}
+
 	.ub-hooks-strip {
 		gap: 1rem;
 	}
@@ -409,10 +406,121 @@
 		width: 0.75rem;
 	}
 }
+@media (max-width: 40rem) {
+	.ub-access-levels > div {
+		grid-template-columns: 1fr;
+		gap: 0.4rem;
+	}
+}
 @media (max-width: 23rem) {
 	.ub-identity-grid > article,
 	.ub-extension-grid > article,
 	.ub-computed-result {
+		padding: 1rem;
+	}
+}
+
+/* Summaries support comparison before readers open the complete examples. */
+.ub-capability-navigation a > span {
+	display: grid;
+	gap: 0.5rem;
+}
+.ub-capability-navigation small {
+	font: 0.625rem/1.5 var(--ub-font-mono);
+	letter-spacing: 0.06em;
+	color: var(--landing-blue);
+}
+.ub-capability-navigation strong {
+	color: var(--landing-ink);
+	font-size: 1rem;
+	font-weight: 550;
+	line-height: 1.4;
+}
+.ub-capability-navigation a > span > span {
+	font-size: 0.8125rem;
+	line-height: 1.6;
+}
+.ub-capability-navigation svg {
+	flex-shrink: 0;
+	width: 1rem;
+}
+.ub-landing .ub-access-code pre {
+	font-size: 0.875rem;
+	line-height: 1.75;
+	padding: 1.25rem;
+}
+.ub-landing .ub-api-call-label {
+	margin-bottom: 1.25rem;
+}
+.ub-query-capabilities {
+	margin-top: 2.5rem;
+	border-top: 1px solid var(--landing-line);
+}
+.ub-policy-proof {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+	margin-top: 2rem;
+	border: 1px solid var(--landing-line);
+	border-radius: 0.75rem;
+	overflow: hidden;
+	background: var(--landing-card);
+}
+.ub-policy-proof .ub-access-code {
+	margin: 0;
+	border: 0;
+	border-radius: 0;
+	border-right: 1px solid var(--landing-line);
+	box-shadow: none;
+}
+.ub-policy-proof figcaption {
+	align-self: center;
+	padding: 2rem;
+}
+.ub-policy-proof h3 {
+	margin-block: 0.75rem 1rem;
+}
+.ub-policy-proof p:not(.ub-demo-eyebrow) {
+	color: var(--landing-muted);
+	font-size: 0.875rem;
+	line-height: 1.75;
+}
+.ub-policy-proof .ub-access-outcomes {
+	margin-bottom: 1rem;
+}
+@media (max-width: 48rem) {
+	.ub-policy-proof {
+		grid-template-columns: minmax(0, 1fr);
+	}
+	.ub-policy-proof .ub-access-code {
+		border-right: 0;
+		border-bottom: 1px solid var(--landing-line);
+	}
+	.ub-policy-proof figcaption {
+		padding: 1.5rem;
+	}
+}
+.ub-access-outcomes {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 1.5rem;
+	padding: 1rem 0;
+	border-bottom: 1px solid var(--landing-line);
+	font-size: 0.875rem;
+	color: var(--landing-muted);
+}
+.ub-access-outcomes strong {
+	color: var(--landing-blue);
+	margin-right: 0.5rem;
+}
+@media (max-width: 40rem) {
+	.ub-capability-navigation a {
+		gap: 0.4rem;
+		align-items: start;
+	}
+	.ub-capability-navigation svg {
+		margin-top: 1.5rem;
+	}
+	.ub-landing .ub-access-code pre {
 		padding: 1rem;
 	}
 }

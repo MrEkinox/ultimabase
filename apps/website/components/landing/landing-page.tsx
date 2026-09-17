@@ -40,7 +40,7 @@ export function LandingPage() {
 							href={siteConfig.sourceExampleUrl.href}
 							variant="secondary"
 						>
-							Run the example <ArrowUpRight aria-hidden="true" />
+							View runnable example <ArrowUpRight aria-hidden="true" />
 						</ButtonLink>
 					</div>
 					<p className="ub-hero-note">
@@ -82,16 +82,36 @@ export function LandingPage() {
 			<Section className="ub-capability-navigation">
 				<nav aria-label="Explore product capabilities">
 					<a href="#application-setup">
-						Plugins & APIs <ArrowRight aria-hidden="true" />
+						<span>
+							<small>OFFICIAL PLUGINS</small>
+							<strong>Plugins & APIs</strong>
+							<span>PostgreSQL storage. REST and GraphQL APIs.</span>
+						</span>
+						<ArrowRight aria-hidden="true" />
 					</a>
 					<a href="#data-modeling">
-						Data modeling <ArrowRight aria-hidden="true" />
+						<span>
+							<small>CORE</small>
+							<strong>Typed models & queries</strong>
+							<span>Relations, computed fields, reusable queries.</span>
+						</span>
+						<ArrowRight aria-hidden="true" />
 					</a>
 					<a href="#identity-and-access">
-						Authentication & access <ArrowRight aria-hidden="true" />
+						<span>
+							<small>OFFICIAL PLUGINS</small>
+							<strong>Authentication & access</strong>
+							<span>Sessions, row filters, field rules and ACLs.</span>
+						</span>
+						<ArrowRight aria-hidden="true" />
 					</a>
 					<a href="#business-behavior">
-						Business behavior <ArrowRight aria-hidden="true" />
+						<span>
+							<small>PLUGIN EXTENSIONS</small>
+							<strong>Your business logic</strong>
+							<span>Transactional hooks and custom operations.</span>
+						</span>
+						<ArrowRight aria-hidden="true" />
 					</a>
 				</nav>
 			</Section>
@@ -117,7 +137,7 @@ export function LandingPage() {
 						types, without a generated runtime client.
 					</p>
 					<TextLink href={currentDocumentationPath('core/application')}>
-						How application assembly works <ArrowUpRight aria-hidden="true" />
+						Configure an application <ArrowUpRight aria-hidden="true" />
 					</TextLink>
 					<div className="ub-plugin-directory">
 						{pluginGroups.map((group) => (
@@ -144,8 +164,8 @@ export function LandingPage() {
 				<WriteCapabilities />
 			</Section>
 
-			<DataCapabilities />
 			<IdentityCapabilities />
+			<DataCapabilities />
 			<ExtensionCapabilities />
 
 			<LandingFaq />

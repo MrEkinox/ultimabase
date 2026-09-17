@@ -2,7 +2,8 @@ import { ArrowUpRight, KeyRound, ShieldCheck } from 'lucide-react'
 
 import { currentDocumentationPath } from '../../lib/docs-versions'
 import { Section, TextLink } from '../primitives'
-import { accessCapabilities } from './capability-content'
+import { ServerCodeBlock } from 'fumadocs-ui/components/codeblock.rsc'
+import { accessCapabilities, accessRuleExample } from './capability-content'
 
 /** Identity establishes the caller; the separately installed policies decide access. */
 export function IdentityCapabilities() {
@@ -14,7 +15,7 @@ export function IdentityCapabilities() {
 		>
 			<header className="ub-capability-heading">
 				<div>
-					<p className="ub-section-index">05 / IDENTITY & ACCESS</p>
+					<p className="ub-section-index">04 / IDENTITY & ACCESS</p>
 					<h2 id="identity-capabilities-title">
 						Know the caller.
 						<br />
@@ -106,6 +107,34 @@ export function IdentityCapabilities() {
 					</div>
 				</article>
 			</div>
+			<figure className="ub-policy-proof" aria-labelledby="policy-proof-title">
+				<ServerCodeBlock
+					code={accessRuleExample}
+					lang="ts"
+					themes={{ light: 'github-light', dark: 'github-dark' }}
+					codeblock={{
+						title: 'article.ts · Access policy excerpt',
+						className: 'ub-access-code',
+					}}
+				/>
+				<figcaption>
+					<p className="ub-demo-eyebrow">ROW POLICY / ACCESS PLUGIN</p>
+					<h3 id="policy-proof-title">Only published articles get through.</h3>
+					<p>
+						Allow reads, then narrow them with a private filter. Ordinary
+						callers can read published articles; drafts stay hidden.
+					</p>
+					<div className="ub-access-outcomes">
+						<span>
+							<strong>Published</strong> Readable
+						</span>
+						<span>
+							<strong>Draft</strong> Hidden
+						</span>
+					</div>
+					<p>Requires the Access plugin. Unspecified mutations stay denied.</p>
+				</figcaption>
+			</figure>
 		</Section>
 	)
 }

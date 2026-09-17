@@ -45,25 +45,24 @@ guidance on desktop and mobile. The landing has no footer. Its main action opens
 unpublished npm packages are ready to install. The former `/examples` pages are removed;
 the repository examples remain maintained as source material for guides.
 
-No social-card image is included while the product name and public domain are
-provisional. This prevents a stale branded image from becoming part of the
-preview. A final card can be commissioned with the launch identity and added in
-the same change as its Open Graph and X image metadata.
+The landing includes a locally generated 1200×630 Open Graph image and a
+large-image X card. Its page title identifies UltimaBase as a TypeScript backend
+framework. The share image uses the provisional identity and must be reviewed
+with the name and domain before launch; its existence does not enable indexing.
 
 The [2026-09-18 landing redesign handoff](./landing-redesign.md) records the
-current landing composition, screenshots, source checks, and navigation audit.
+initial landing composition. The [audit improvements](./landing-audit-improvements.md)
+record the subsequent content, desktop composition, metadata, and visual checks.
 
 ## Production build snapshot
 
-The 2026-09-17 Next.js production build prerenders 121 application pages,
-including a Markdown representation of each of the 57 authored documentation
-pages. Its complete static chunk inventory is 1,636,039 bytes of JavaScript
-(524,919 bytes when individually gzip-compressed) and 92,890 bytes of CSS
-(16,503 bytes when gzip-compressed). These totals cover every route chunk, not
-the first-load cost of one page. Website-owned client boundaries remain the
-shared brand navigation and the Fumadocs theme provider; Fumadocs supplies the
-page-action controls. The landing's first-view application proof is semantic
-HTML and CSS, with no image download on the critical path.
+The 2026-09-18 production build prerenders 122 application pages, including
+Markdown representations of the 57 authored documentation pages and the landing
+share image. These route counts are not a first-load performance measurement.
+The landing uses semantic HTML, local CSS, and Fumadocs code blocks and tabs;
+its first-view proof requires no image download. Full code examples remain visible and copyable on desktop and mobile.
+Measure asset totals again after each build instead of treating an older
+inventory as current performance evidence.
 
 Reproduce the aggregate measurement after `yarn website:build`:
 

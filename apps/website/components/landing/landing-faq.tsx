@@ -27,6 +27,20 @@ const questions = [
 		label: 'How Typegen works',
 	},
 	{
+		question: 'How are database schema changes handled?',
+		answer:
+			'The PostgreSQL plugin offers three policies: override applies supported schema changes, fail checks for drift, and ignore leaves preparation to your own process. Review changes before applying them. No official migration runner is shipped yet.',
+		href: 'plugins/official/postgresql',
+		label: 'Compare schema policies',
+	},
+	{
+		question: 'What do I manage when I deploy?',
+		answer:
+			'You own hosting, database backups, secrets, monitoring, and the controls around your public endpoints. UltimaBase supplies application APIs and optional policy plugins; it does not provide a hosted console or a built-in job or cache service.',
+		href: 'operations/before-exposing-your-application',
+		label: 'Before exposing your application',
+	},
+	{
 		question: 'What does pre-release mean?',
 		answer:
 			'You can evaluate the implementation today, but public APIs can change before a stable release. The documentation’s 1.0.0 label is not a stability guarantee, and no production support window has been announced.',

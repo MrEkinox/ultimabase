@@ -1,5 +1,6 @@
 /* Landing-only tokens keep the standard Fumadocs documentation shell intact. */
 .ub-landing {
+	--landing-ink: #172135;
 	--landing-blue: #2055d6;
 	--landing-soft: #edf3ff;
 	--landing-muted: #596477;
@@ -12,6 +13,7 @@
 	color: #172135;
 }
 html.dark .ub-landing {
+	--landing-ink: #edf1fa;
 	--landing-blue: #96b9ff;
 	--landing-soft: #0b101a;
 	--landing-muted: #a5b0c3;
@@ -299,12 +301,12 @@ html.dark .ub-landing {
 	align-items: center;
 	justify-content: space-between;
 	gap: 2rem;
-	padding-block: 4rem;
+	padding-block: 2rem;
 	border-bottom: 1px solid var(--landing-line);
 }
 .ub-intro p {
 	color: var(--landing-muted);
-	font-size: clamp(1.5rem, 2.6vw, 2.25rem);
+	font-size: clamp(1.125rem, 1.6vw, 1.5rem);
 	line-height: 1.55;
 	letter-spacing: -0.035em;
 }
@@ -318,7 +320,7 @@ html.dark .ub-landing {
 }
 .ub-landing-composition {
 	display: grid;
-	grid-template-columns: 0.9fr 1.1fr;
+	grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
 	align-items: center;
 	gap: 2rem;
 	padding-block: 4rem 5rem;
@@ -391,7 +393,7 @@ html.dark .ub-landing {
 .ub-application-code .ub-application-codeblock pre {
 	padding: 1.5rem;
 	background: #101b30;
-	font-size: 0.75rem;
+	font-size: 0.875rem;
 	line-height: 1.9;
 }
 .ub-setup-note {
@@ -629,7 +631,7 @@ html.dark .ub-landing {
 		padding-block: 2rem 2.5rem;
 	}
 	.ub-intro p {
-		font-size: 1.5rem;
+		font-size: 1.125rem;
 	}
 	.ub-landing-composition,
 	.ub-transport-heading,
@@ -641,7 +643,6 @@ html.dark .ub-landing {
 		padding-block: 3.5rem;
 	}
 	.ub-application-code .ub-application-codeblock pre {
-		font-size: 0.75rem;
 		padding: 1rem;
 	}
 	.ub-landing-flow {
