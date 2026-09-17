@@ -12,6 +12,7 @@ reviewedAt: 2026-09-17
 sources:
   - packages/core/README.md
   - packages/core/docs/schema.md
+  - packages/core/src/schema/relations/pointer.ts
   - packages/core/src/schema/relations/relation.ts
   - packages/postgres-plugin/src/drizzle/relation-executor.ts
   - packages/core/examples/schema/pointers.md
@@ -75,6 +76,28 @@ ID, while `pointer.toJSON()` returns the immutable logical shape
 A required pointer cannot be `null`. An optional pointer can be `null` in a
 complete record; pointers cannot be lists or have defaults. Use
 [Defaults and Nullability](./defaults) for the general presence rules.
+
+### Read through a pointer
+
+If you already have a pointer, read its target without extracting the ID and
+building a separate schema query:
+
+```ts title="src/read-account.ts"
+import { accountReference } from './session.js'
+import { ultimabase } from './ultimabase.js'
+
+const account = await accountReference.findOne(
+	{ select: { email: true } },
+	{ ultimabase },
+)
+const accountIsVisible = await accountReference.exists({}, { ultimabase })
+```
+
+`findOne()` returns a selected `Account` model or `null`; `exists()` returns a
+boolean without loading a model. Both reads remain scoped to the pointer's
+exact target ID and run through the ordinary target read pipeline. A missing
+or policy-hidden target gives `null` or `false`. Neither method changes the
+stored pointer or grants access to its target.
 
 ### Pointer deletion behavior
 
@@ -183,6 +206,40 @@ export const readReviewers = async (postId: string) => {
 	)
 }
 ```
+
+The same handle offers the other target read terminals. For example, check
+whether a post has a particular visible reviewer and count its visible
+reviewers without loading the collection:
+
+```ts title="src/read-reviewers.ts"
+import { Post } from './post.js'
+import { ultimabase } from './ultimabase.js'
+
+export const inspectReviewers = async (postId: string, reviewerId: string) => {
+	const post = await Post.get({ id: postId }, { ultimabase })
+	const reviewers = post.relation('reviewers')
+
+	return {
+		first: await reviewers.findOne(
+			{ orderBy: { id: 'asc' }, select: { name: true } },
+			{ ultimabase },
+		),
+		matching: await reviewers.get(
+			{ id: reviewerId, select: { name: true } },
+			{ ultimabase },
+		),
+		count: await reviewers.count({}, { ultimabase }),
+		hasAny: await reviewers.exists({}, { ultimabase }),
+	}
+}
+```
+
+`findOne()` reads the first matching visible member, and `get()` targets one ID
+within this relation rather than the whole `Author` schema. `count()` and
+`exists()` return a number and boolean without materializing the members.
+All five relation read methods apply the field's declared filter and target
+policies; their results describe visible membership, which can differ from
+physical membership. Use `where` in these read inputs to narrow it further.
 
 ## Change relation membership
 

@@ -8,7 +8,7 @@ order: 1
 outcome: Choose a read terminal, build its input, and execute it in the correct application context.
 owner: '2808'
 releaseStatus: pre-release
-reviewedAt: 2026-09-16
+reviewedAt: 2026-09-17
 sources:
   - packages/core/README.md
   - packages/core/docs/query.md
@@ -74,7 +74,9 @@ signal, authority, and any active transaction. A read does not start a
 transaction by itself. In a root script, worker, or test, pass the started
 application explicitly as the final argument, as the first example does.
 Execution options can also supply a trusted context when needed; they are
-never serialized as query input by a transport.
+never serialized as query input by a transport. See
+[Request Identity](/docs/1.0.0/core/security-foundations/request-identity#use-a-context-in-a-direct-operation)
+for an explicit context and cancellation example.
 
 ## Reusable dynamic queries
 
