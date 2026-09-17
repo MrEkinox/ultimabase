@@ -1,6 +1,6 @@
 ---
 title: Roles
-description: Model durable role membership and use it as an optional request subject in policy.
+description: Store typed role membership and hierarchy, then use them in Access or ACL policy.
 audience:
   - application-developer
 contentType: guide
@@ -11,21 +11,36 @@ releaseStatus: pre-release
 reviewedAt: 2026-09-17
 sources:
   - packages/roles-plugin/README.md
+  - packages/roles-plugin/src/role-access.ts
+  - packages/roles-plugin/src/role-deletion.ts
+  - packages/roles-plugin/src/role-reference.ts
+  - packages/roles-plugin/src/role-schema.ts
+  - tests/e2e/roles-postgres.postgres.e2e.test.ts
+  - examples/minimal/src/schema.ts
+  - docs/adr/0119-developer-defined-role-schemas.md
   - docs/adr/0205-protected-policy-contributions.md
 ---
 
 ## Overview
 
-`@ultimabase/roles-plugin` stores application-local role membership and
-hierarchy through a developer-defined role schema. A role reference is
-immutable and can identify a normalized name or a stable UUID. The plugin
-provides role subjects for policy, but membership never grants permission by
-itself.
+`@ultimabase/roles-plugin` stores roles as ordinary application schemas with
+typed members and parent–child hierarchy. You define the role schema and its
+exact member schema; the plugin supplies membership commands and a request
+resolver. A role reference identifies a role, but neither the reference nor
+membership grants permission by itself.
+A role, a role hierarchy, and an authenticated principal
+grant nothing by themselves.
+
+Use [Access](./access) to make a role an operation or field decision through
+`hasRole()`. [Object ACLs](./acl-permissions) can grant rights to a role through
+Core's separate protected-policy boundary; ACL does not require the official
+Access plugin. Authentication supplies the current member but also grants
+nothing on its own.
 
 ## Installation
 
-Start with an UltimaBase application and a database provider. Install the
-Roles package:
+Start with an UltimaBase application and database provider. Install the
+optional Roles package:
 
 ```bash tab="npm" tab-group="package-manager"
 npm install @ultimabase/roles-plugin
@@ -39,71 +54,221 @@ yarn add @ultimabase/roles-plugin
 pnpm add @ultimabase/roles-plugin
 ```
 
-Install [Access](./access) separately only if you use `hasRole()` in an
-Access rule. ACL can consume role subjects without installing Access.
+Role storage and administration work without Access. Install
+`@ultimabase/access-plugin` separately if you use `hasRole()` in an Access
+rule. The example below also uses
+[Password Authentication](./password-authentication) to identify the current
+member; you can supply another exact member resolver instead. Roles' internal
+membership queries need configured, audited
+[Master Authority](/docs/1.0.0/core/security-foundations/master-authority).
 
 ## Configuration
 
-Define the exact member schema, then define and register a role schema:
+Define a role domain for the exact member schema. Here the Password
+Authentication principal points to the same `PasswordUser` class declared in
+`members.schema`, so `hasRole()` can evaluate the caller's membership:
 
 ```ts title="src/roles.ts"
 import { Schema } from '@ultimabase/core'
-import { RoleSchema, rolesPlugin } from '@ultimabase/roles-plugin'
-
-export const Member = Schema.define({
-	className: 'Member',
-	fields: (field) => ({
-		name: field.string({ required: true }),
-	}),
-})
+import {
+	PasswordUser,
+	passwordPrincipal,
+} from '@ultimabase/password-auth-plugin'
+import { RoleSchema, hasRole } from '@ultimabase/roles-plugin'
 
 export const AppRole = RoleSchema.define({
 	className: 'Role',
-	members: { schema: Member },
+	members: {
+		schema: PasswordUser,
+		resolveCurrent: ({ context }) => context.getValue(passwordPrincipal)?.user,
+	},
 	deletion: { references: 'fail' },
 	fields: (field) => ({
 		description: field.string(),
 	}),
+	access: {
+		read: true,
+		create: false,
+		update: false,
+		delete: false,
+	},
 })
 
-export const roles = rolesPlugin()
-export const editor = AppRole.role('editor')
+export const EditorRole = AppRole.role('editor')
+
+export const Post = Schema.define({
+	className: 'Post',
+	fields: (field) => ({ title: field.string({ required: true }) }),
+	access: {
+		read: true,
+		update: hasRole(EditorRole),
+	},
+})
 ```
 
-Include `Member` and `AppRole` in `schemas`, and `roles` in `plugins`.
-`rolesPlugin()` has no factory options. `members.schema` selects one exact
-member schema. `deletion.references` accepts `'fail'` (the default),
-`'preserve'`, or `'cascade'`; choosing a less restrictive deletion mode
-requires reviewing what happens to external references. Custom `fields`,
-indexes, Hooks, and supported schema options remain available on the role
-schema.
+Install the identity, policy, and role plugins in one application. The User
+schema is contributed by Password Authentication; `AppRole` and `Post` are
+developer schemas:
+
+```ts title="src/ultimabase.ts"
+import { accessPlugin } from '@ultimabase/access-plugin'
+import { MasterAuthority, UltimaBase } from '@ultimabase/core'
+import { passwordAuthPlugin } from '@ultimabase/password-auth-plugin'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
+import { rolesPlugin } from '@ultimabase/roles-plugin'
+import { AppRole, Post } from './roles.js'
+
+const databaseUrl = process.env.DATABASE_URL
+const masterKey = process.env.ULTIMABASE_MASTER_KEY
+if (!databaseUrl || !masterKey) {
+	throw new Error('DATABASE_URL and ULTIMABASE_MASTER_KEY are required')
+}
+
+export const ultimabase = new UltimaBase({
+	masterAuthority: new MasterAuthority({
+		keys: [{ id: 'server', value: masterKey }],
+		onUse: (event) => console.info('Master use', event.reason),
+	}),
+	plugins: [
+		postgresPlugin({ url: databaseUrl }),
+		passwordAuthPlugin(),
+		accessPlugin(),
+		rolesPlugin(),
+	],
+	schemas: [AppRole, Post],
+})
+
+await ultimabase.start()
+```
+
+Use a disposable database or a reviewed PostgreSQL schema policy while
+developing. Replace the console audit with a reliable sink before deployment;
+never send Master credentials to a browser. `rolesPlugin()` takes no factory
+options. Role behavior is selected by the registered `RoleSchema.define()`
+declaration:
+
+| Role schema option                     | Purpose                                                                                                                   |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `members.schema`                       | The exact schema of persisted direct members                                                                              |
+| `members.resolveCurrent`               | Maps request-local identity to a Pointer of that exact member schema; omit it only when no current-member check is needed |
+| `deletion.references`                  | External-reference policy: `fail` (default), `preserve`, or `cascade`                                                     |
+| `fields`, `indexes`, `access`, `hooks` | Ordinary custom schema features beside generated role fields, when their owning plugins are installed                     |
+
+`RoleSchema.define()` injects `name`, `members`, and `roles`. Do not redeclare
+those reserved fields. Role schemas remain available to trusted server Query,
+but are not automatically published as generated REST or GraphQL CRUD routes.
 
 ## Behavior and limitations
 
-`RoleSchema.define()` adds the framework-owned `name`, `members`, and
-nested `roles` fields. Names are normalized and unique within the schema.
-`AppRole.role('editor')` selects a name; `AppRole.role({ id })` selects
-an exact UUID. Neither reference performs I/O. A UUID remains stable after
-renaming the role.
+### Create roles and manage membership
 
-Persisted roles expose `addMember()`, `removeMember()`, `addRole()`,
-and `removeRole()`. The plugin validates hierarchy cycles and emits optional
-events after commit. A role, a role hierarchy, and an authenticated principal
-grant nothing by themselves. [Access](./access) must explicitly use
-`hasRole()`, or [Object ACLs](./acl-permissions) must grant rights to that role.
+Persist roles through the normal immutable model API. Run administrative
+commands only from trusted server code with audited Master authority when the
+role schema denies ordinary mutations, as in the configuration above:
 
-Master authority does not imply role membership. Role maintenance may
-initiate audited internal Master queries, but it does not lend that authority
-to Access, ACL, or the caller.
+```ts title="src/seed-roles.ts"
+import { PasswordUser } from '@ultimabase/password-auth-plugin'
+import { AppRole } from './roles.js'
+import { ultimabase } from './ultimabase.js'
+
+const editor = await new AppRole({ name: 'editor' }).create(
+	{},
+	{ ultimabase, useMasterKey: true },
+)
+const administrator = await new AppRole({ name: 'administrator' }).create(
+	{},
+	{ ultimabase, useMasterKey: true },
+)
+
+export const addEditor = (userId: string) =>
+	editor.addMember(PasswordUser.pointer(userId), {
+		ultimabase,
+		useMasterKey: true,
+	})
+
+await administrator.addRole(editor, { ultimabase, useMasterKey: true })
+```
+
+Run the role creation once as setup, not on every request. `addMember()` and
+`removeMember()` accept a Pointer or persisted model from the exact member
+schema—not a raw ID. `addRole()` and `removeRole()` change hierarchy:
+`administrator.addRole(editor)` makes Editor a child of Administrator, so
+Editor members also satisfy Administrator membership. The opposite call
+would mean the opposite inheritance. Draft roles cannot run these commands.
+
+These commands use normal relation writes, validation, Access, Hooks when
+installed, and automatic transactions. The plugin rejects self or indirect
+cycles. A membership or hierarchy change is visible to a **new** request;
+membership is resolved once and cached within an active request, so do not
+expect a policy check already in progress to reread changed membership.
+
+### Choose a role reference
+
+`AppRole.role('editor')` creates a normalized name reference;
+`AppRole.role({ id: editor.id })` creates an exact UUID reference. Both are
+immutable, schema-qualified, and perform no database I/O. Stored names are
+trimmed, NFKC-normalized, lowercased, and unique within that role schema.
+Renaming changes what a name reference resolves to; the persisted UUID stays
+stable. Prefer the UUID form for long-lived references after a role exists.
+
+`resolveRoleReference(reference, options)` loads a stored role when server
+code needs its model. It fails explicitly for an unknown name or ID and for
+ambiguous name storage; merely constructing a reference does not prove a
+matching role exists.
+
+### Use roles in policy
+
+`hasRole(EditorRole)` is one ordinary official Access boolean decision. In
+the example, it grants `Post.update` only when the request's Password
+Authentication principal resolves to a direct or inherited Editor member.
+`members.resolveCurrent` may be asynchronous but must return a Pointer from
+the exact `members.schema`, or `undefined` when there is no current member.
+Omitting it leaves storage and administration available, while current-member
+checks deny normally. A configured resolver with no member or no membership
+also returns `false`.
+
+If a rule uses `hasRole()` without any application-local role-resolver
+provider, execution raises `PLUGIN_CAPABILITY_MISSING` before business Hooks
+or storage. Installing `rolesPlugin()` provides that resolver; a community
+provider may supply the same neutral capability. Master authority does not
+imply membership. Master bypasses the official Access rule as authority, not
+by pretending `hasRole()` returned `true`.
+
+ACL can grant rights to a role reference independently of the Access plugin.
+The ACL and Roles plugins resolve that reference through Core's neutral
+subject boundary; role membership alone still grants nothing. See
+[Object ACLs](./acl-permissions) for persisted grants.
+
+### Deletion, events, and limits
+
+| `deletion.references` | Effect                                                                                                                       |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `fail` (default)      | Rejects deletion while the role has members, child or parent edges, or references reported by another plugin                 |
+| `preserve`            | Deletes the role and leaves external references inert; choose this only when the dangling-reference behavior is intentional  |
+| `cascade`             | Requires Master, clears role edges, and invokes explicit cleanup contributions from reference owners in the same transaction |
+
+Role deletion is singular: `role.delete()` or `AppRole.deleteOne()` applies
+the policy, while `deleteMany()` is rejected. Do not switch to `cascade` just
+to silence `ROLE_DELETE_REFERENCED`; review every reference owner first.
+
+Membership, hierarchy, and deletion events are optional post-commit
+notifications. They are not delivered on rollback, and the Roles plugin does
+not require Hooks. Hierarchy traversal rejects cycles and fails explicitly if
+it exceeds 64 levels or 10,000 visited roles.
 
 ## Troubleshooting
 
-If `RoleSchema` is rejected during application compilation, confirm
-`rolesPlugin()` is installed and the role and member schemas are registered
-in the same application. If `hasRole()` cannot resolve the current member,
-check that Access and the exact member resolver are configured; membership
-storage alone does not identify a request.
-
-If a deletion fails, inspect the role's `deletion.references` policy and its
-member, child-role, and external references. Do not switch to `cascade`
-merely to make an unexplained failure disappear.
+- **`RoleSchema` is rejected during compilation:** check that `rolesPlugin()`
+  is installed, `AppRole` is registered, and `members.schema` is the exact
+  registered member class. Generated `name`, `members`, and `roles` cannot be
+  replaced by custom fields.
+- **`hasRole()` always denies:** verify `members.resolveCurrent` returns the
+  exact member Pointer from the active request context. A session by itself
+  supplies identity, not a role grant; confirm the persisted membership and
+  hierarchy in the same application.
+- **`PLUGIN_CAPABILITY_MISSING`:** the Access rule ran without an installed
+  role-resolver provider. Install `rolesPlugin()` or an intentional compatible
+  provider in that application.
+- **Role deletion fails:** inspect direct members, child and parent roles,
+  and external references under the schema's deletion policy. Use a singular
+  deletion; `deleteMany()` cannot run per-role cleanup.
