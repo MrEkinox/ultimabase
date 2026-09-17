@@ -1,6 +1,7 @@
 import type { Browser } from 'playwright'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
+import { currentDocumentationPath } from '../lib/docs-versions'
 import { siteConfig } from '../lib/site'
 import {
 	accessibilityViolations,
@@ -171,10 +172,18 @@ describe('website visual system', () => {
 			await page
 				.getByRole('heading', {
 					level: 1,
-					name: 'Define your data once. Keep every API honest.',
+					name: 'Your schema is the contract. Every API follows.',
 				})
 				.waitFor({ state: 'visible' })
-
+			const applicationPreview = page.getByRole('region', {
+				name: 'Example application configuration',
+			})
+			expect(await applicationPreview.getByRole('listitem').count()).toBe(3)
+			expect(
+				await applicationPreview
+					.getByRole('link', { name: 'Explore the application graph' })
+					.getAttribute('href'),
+			).toBe(currentDocumentationPath('core/application'))
 			expect(
 				await page
 					.locator('#nd-nav')

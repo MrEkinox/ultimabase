@@ -33,17 +33,26 @@ export interface LandingCopy {
 	readonly flow: LandingFlowCopy
 	readonly hero: Readonly<{
 		readonly description: string
+		readonly firstLine: string
 		readonly note: string
 		readonly primaryAction: string
+		readonly secondLine: string
 		readonly secondaryAction: string
 		readonly status: string
+	}>
+	readonly preview: Readonly<{
+		readonly caption: string
+		readonly description: string
+		readonly link: string
 		readonly title: string
 	}>
 	readonly principle: Readonly<{
-		readonly callout: string
-		readonly calloutTitle: string
 		readonly description: string
 		readonly index: string
+		readonly layers: readonly Readonly<{
+			readonly description: string
+			readonly label: string
+		}>[]
 		readonly title: string
 	}>
 	readonly status: Readonly<{
@@ -129,10 +138,10 @@ export const landingFeatures: readonly LandingFeature[] = Object.freeze([
 export const landingCopy: LandingCopy = Object.freeze({
 	evidence: {
 		description:
-			'The framework is pre-release, but these contracts are implemented and covered across the public execution paths.',
-		featureLink: 'Read the contract',
-		index: '03 / Shipped foundations',
-		title: 'Built for the parts that become difficult later.',
+			'Relationships, writes, validation, security, and types each have a clear place in the application graph.',
+		featureLink: 'Explore',
+		index: '03 / The details',
+		title: 'The same rules reach the hard parts.',
 	},
 	features: landingFeatures,
 	flow: {
@@ -157,27 +166,47 @@ export const landingCopy: LandingCopy = Object.freeze({
 	},
 	hero: {
 		description:
-			'UltimaBase turns static TypeScript schemas and explicit plugins into one application graph. Direct calls, REST, and GraphQL execute through the same typed Runtime.',
+			'Define your data in TypeScript. Add the plugins you need. Direct calls, REST, and GraphQL follow the same application rules.',
+		firstLine: 'Your schema is the contract.',
 		note: 'Node.js 24+ · TypeScript · Apache-2.0',
 		primaryAction: 'Start building',
+		secondLine: 'Every API follows.',
 		secondaryAction: 'View on GitHub',
 		status: `${siteConfig.releaseStatus} · open source`,
-		title: 'Define your data once. Keep every API honest.',
+	},
+	preview: {
+		caption:
+			'One schema and two explicit plugins. No generated Runtime client.',
+		description:
+			'This is a real application configuration: an Article schema, PostgreSQL persistence, and replaceable TypeScript declarations.',
+		link: 'Explore the application graph',
+		title: 'Start with the application, not the adapter.',
 	},
 	principle: {
-		callout:
-			'Remove a plugin and its behavior disappears. Core does not install a neutral imitation or silently choose a replacement.',
-		calloutTitle: 'No hidden framework mode',
 		description:
-			'PostgreSQL, transports, authentication, validation, Access, Hooks, and developer tooling are installed as plugins. Each one declares what it contributes and which privileges or environmental access it needs.',
+			'Choose the capabilities that belong in your application. Each plugin declares its contribution and the privileges or environmental access it needs. Remove it, and its behavior goes with it.',
 		index: '01 / Explicit composition',
-		title: 'Core stays small. Capabilities stay visible.',
+		layers: [
+			{
+				label: 'Core',
+				description: 'Schemas, queries, and one execution pipeline',
+			},
+			{
+				label: 'Plugins',
+				description: 'Persistence, transports, security, and tooling',
+			},
+			{
+				label: 'Your application',
+				description: 'The exact graph you configure',
+			},
+		],
+		title: 'A small core. A deliberate stack.',
 	},
 	status: {
 		description:
-			'The architecture is substantial and the API is usable. Expect deliberate change while the first stable release contract is finalized.',
-		eyebrow: 'Honest by default',
+			'UltimaBase is in active pre-release development. Explore the API, read the release status, and help shape what comes next.',
+		eyebrow: 'Build with us',
 		primaryAction: 'Read Manual Installation',
-		title: 'Active pre-release development.',
+		title: 'Build on a contract you can inspect.',
 	},
 })

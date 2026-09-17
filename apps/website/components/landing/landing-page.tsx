@@ -1,7 +1,7 @@
+import { currentDocumentationPath } from '../../lib/docs-versions'
 import { siteConfig } from '../../lib/site'
 import {
 	ButtonLink,
-	Callout,
 	CodeSurface,
 	Eyebrow,
 	Section,
@@ -16,8 +16,16 @@ export function LandingPage() {
 		<div className="ub-landing">
 			<Section className="ub-landing-hero">
 				<div className="ub-landing-hero-copy">
-					<Eyebrow>{copy.hero.status}</Eyebrow>
-					<h1>{copy.hero.title}</h1>
+					<Eyebrow className="ub-landing-hero-kicker">
+						<span aria-hidden="true" className="ub-landing-status-dot" />
+						{copy.hero.status}
+					</Eyebrow>
+					<h1>
+						<span>{copy.hero.firstLine}</span>
+						<span className="ub-landing-hero-second-line">
+							{copy.hero.secondLine}
+						</span>
+					</h1>
 					<p className="ub-lede">{copy.hero.description}</p>
 					<div className="ub-action-row">
 						<ButtonLink href={siteConfig.routes.gettingStarted}>
@@ -33,20 +41,76 @@ export function LandingPage() {
 					</div>
 					<p className="ub-hero-note">{copy.hero.note}</p>
 				</div>
-
-				<CodeSurface
-					code={applicationExample}
-					label="schema-and-application.ts"
-				/>
 			</Section>
 
-			<Section className="ub-landing-principle" width="reading">
-				<p className="ub-section-index">{copy.principle.index}</p>
-				<h2>{copy.principle.title}</h2>
-				<p>{copy.principle.description}</p>
-				<Callout title={copy.principle.calloutTitle}>
-					{copy.principle.callout}
-				</Callout>
+			<Section
+				className="ub-landing-preview"
+				aria-label="Example application configuration"
+			>
+				<div className="ub-preview">
+					<div className="ub-preview-topline" aria-hidden="true">
+						<span>01 / A real application</span>
+						<span>Schema + explicit plugins</span>
+					</div>
+					<div className="ub-preview-body">
+						<div className="ub-preview-code">
+							<CodeSurface
+								code={applicationExample}
+								label="src/application.ts"
+							/>
+						</div>
+						<div className="ub-preview-aside">
+							<p className="ub-preview-aside-index">Configured, not assumed</p>
+							<h2>{copy.preview.title}</h2>
+							<p>{copy.preview.description}</p>
+							<ol
+								className="ub-preview-inventory"
+								aria-label="Configured parts"
+							>
+								<li>
+									<span>01 / Schema</span>
+									<strong>Article</strong>
+									<small>slug · title</small>
+								</li>
+								<li>
+									<span>02 / Plugin</span>
+									<strong>PostgreSQL</strong>
+									<small>Persistence</small>
+								</li>
+								<li>
+									<span>03 / Plugin</span>
+									<strong>Typegen</strong>
+									<small>Declarations</small>
+								</li>
+							</ol>
+						</div>
+					</div>
+					<div className="ub-preview-footer">
+						<p>{copy.preview.caption}</p>
+						<TextLink href={currentDocumentationPath('core/application')}>
+							{copy.preview.link} <span aria-hidden="true">↗</span>
+						</TextLink>
+					</div>
+				</div>
+			</Section>
+
+			<Section className="ub-landing-principle">
+				<div className="ub-landing-principle-heading">
+					<p className="ub-section-index">{copy.principle.index}</p>
+					<h2>{copy.principle.title}</h2>
+				</div>
+				<div className="ub-landing-principle-detail">
+					<p>{copy.principle.description}</p>
+					<ol className="ub-composition-layers">
+						{copy.principle.layers.map((layer, index) => (
+							<li key={layer.label}>
+								<span>{String(index + 1).padStart(2, '0')}</span>
+								<strong>{layer.label}</strong>
+								<small>{layer.description}</small>
+							</li>
+						))}
+					</ol>
+				</div>
 			</Section>
 
 			<Section className="ub-landing-flow">
@@ -77,14 +141,16 @@ export function LandingPage() {
 				</ol>
 			</Section>
 
-			<Section className="ub-landing-status" width="reading">
-				<Eyebrow>{copy.status.eyebrow}</Eyebrow>
-				<h2>{copy.status.title}</h2>
-				<p>{copy.status.description}</p>
-				<div className="ub-action-row">
-					<ButtonLink href={siteConfig.routes.gettingStarted}>
-						{copy.status.primaryAction}
-					</ButtonLink>
+			<Section className="ub-landing-status">
+				<div className="ub-landing-status-main">
+					<Eyebrow>{copy.status.eyebrow}</Eyebrow>
+					<h2>{copy.status.title}</h2>
+					<p>{copy.status.description}</p>
+					<div className="ub-action-row">
+						<ButtonLink href={siteConfig.routes.gettingStarted}>
+							{copy.status.primaryAction}
+						</ButtonLink>
+					</div>
 				</div>
 				<nav
 					aria-label="Project information"

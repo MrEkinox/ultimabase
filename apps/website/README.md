@@ -174,6 +174,11 @@ Documentation uses the standard Fumadocs docs layout and its official `black`
 color preset. `app/theme.css` keeps only the semantic tokens needed by the
 custom marketing surfaces. `components/brand-mark.tsx` owns the provisional
 geometric mark used by marketing navigation and the generated favicon.
+The landing page is the only custom content layout: its hero leads into a
+source-backed application configuration, an explanation of plugin composition,
+the shared execution path, and links to the relevant product contracts. Its
+pre-release status and project links stay visible rather than implying a
+hosted service or a stable release.
 
 Shared marketing surfaces live under `components/`:
 

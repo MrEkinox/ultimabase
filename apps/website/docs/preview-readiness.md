@@ -53,8 +53,8 @@ the same change as its Open Graph and X image metadata.
 The 2026-09-17 Next.js production build prerenders 121 application pages,
 including a Markdown representation of each of the 57 authored documentation
 pages. Its complete static chunk inventory is 1,633,118 bytes of JavaScript
-(522,697 bytes when individually gzip-compressed) and 85,686 bytes of CSS
-(15,054 bytes when gzip-compressed). These totals cover every route chunk, not
+(522,697 bytes when individually gzip-compressed) and 90,205 bytes of CSS
+(15,938 bytes when gzip-compressed). These totals cover every route chunk, not
 the first-load cost of one page. Website-owned client boundaries remain the
 shared brand navigation and the Fumadocs theme provider; Fumadocs supplies the
 page-action controls. No decorative image is on the critical path.
