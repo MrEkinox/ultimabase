@@ -1,12 +1,4 @@
 {
 	"title": "HTTP and APIs",
-	"pages": [
-		"http",
-		"hono-server",
-		"rest",
-		"graphql",
-		"graphql-yoga",
-		"graphiql",
-		"apollo-sandbox"
-	]
+	"pages": ["http", "rest", "graphql"]
 }

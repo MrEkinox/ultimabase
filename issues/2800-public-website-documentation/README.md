@@ -151,12 +151,8 @@ The public route architecture is:
 │       │   │   │   └── acl-permissions
 │       │   │   └── http-and-apis
 │       │   │       ├── http
-│       │   │       ├── hono-server
 │       │   │       ├── rest
-│       │   │       ├── graphql
-│       │   │       ├── graphql-yoga
-│       │   │       ├── graphiql
-│       │   │       └── apollo-sandbox
+│       │   │       └── graphql
 │       │   ├── community-plugins
 │       │   └── build-a-plugin
 │       ├── guides
@@ -182,8 +178,11 @@ Sidebar routes stop at a coherent reader subject. Subtasks that share one owner
 and context live as headings in that page and appear in Fumadocs' `On this page`
 navigation. In particular, official plugin pages own installation,
 configuration, behavior, reference, limitations, and troubleshooting without a
-same-named folder and child page. A new route is justified only when the reader
-can complete it as an independent task.
+same-named folder and child page. Closely related optional packages may share
+one page while retaining their separate plugin identity and configuration:
+`http` includes Hono server integration, and `graphql` includes Yoga and the
+optional GraphiQL and Apollo Sandbox explorers. A new route is justified only
+when the reader can complete it as an independent task.
 
 Application configuration, Query lookup, and `FrameworkError` behavior belong
 to their existing Core pages rather than a parallel three-page Core API folder.

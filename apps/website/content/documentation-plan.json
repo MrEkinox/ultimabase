@@ -217,34 +217,14 @@
 					"outcome": "Configure a deletion mode and keep restore or purge behind private Master authority."
 				},
 				{
-					"slug": "official/http-and-apis/apollo-sandbox",
-					"contentType": "guide",
-					"outcome": "Enable Apollo Sandbox without endpoint switching, embedded credentials, or accidental production exposure."
-				},
-				{
-					"slug": "official/http-and-apis/graphiql",
-					"contentType": "guide",
-					"outcome": "Enable GraphiQL without embedding credentials or silently exposing it in production."
-				},
-				{
 					"slug": "official/http-and-apis/graphql",
 					"contentType": "guide",
-					"outcome": "Execute generated GraphQL operations and understand their Relay pagination representation."
-				},
-				{
-					"slug": "official/http-and-apis/graphql-yoga",
-					"contentType": "guide",
-					"outcome": "Serve GraphQL over HTTP without merging schema, transport, explorer, or server ownership."
-				},
-				{
-					"slug": "official/http-and-apis/hono-server",
-					"contentType": "guide",
-					"outcome": "Choose framework-owned or developer-owned Hono lifecycle deliberately."
+					"outcome": "Execute GraphQL directly or over HTTP, choose an optional explorer, and understand Relay pagination."
 				},
 				{
 					"slug": "official/http-and-apis/http",
 					"contentType": "guide",
-					"outcome": "Configure a public application boundary and understand what happens before REST or GraphQL begins."
+					"outcome": "Configure the HTTP application boundary and choose a managed or existing Hono server."
 				},
 				{
 					"slug": "official/http-and-apis/rest",

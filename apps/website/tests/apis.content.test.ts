@@ -9,7 +9,6 @@ const contentRoot = fileURLToPath(
 const pageNames = [
 	'core/runtime/api-errors',
 	'plugins/official/http-and-apis/graphql',
-	'plugins/official/http-and-apis/graphql-yoga',
 	'plugins/official/http-and-apis/http',
 	'plugins/official/http-and-apis/rest',
 	'core/application',

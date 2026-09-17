@@ -92,15 +92,7 @@ const canonicalNavigation = {
 		'roles',
 		'acl-permissions',
 	],
-	'1.0.0/plugins/official/http-and-apis': [
-		'http',
-		'hono-server',
-		'rest',
-		'graphql',
-		'graphql-yoga',
-		'graphiql',
-		'apollo-sandbox',
-	],
+	'1.0.0/plugins/official/http-and-apis': ['http', 'rest', 'graphql'],
 	'1.0.0/guides': [
 		'build-an-authenticated-api',
 		'generate-types',
@@ -135,6 +127,25 @@ describe('documentation navigation architecture', () => {
 			if (!isRecord(metadata))
 				throw new TypeError(`Invalid metadata: ${directory}`)
 			expect(metadata.pages, directory).toEqual(expectedPages)
+		}
+	})
+
+	it('keeps HTTP and GraphQL companion plugins on their owning pages', async () => {
+		const directory = path.join(
+			contentRoot,
+			'1.0.0/plugins/official/http-and-apis',
+		)
+		const [http, graphql] = await Promise.all([
+			readFile(path.join(directory, 'http.mdx'), 'utf8'),
+			readFile(path.join(directory, 'graphql.mdx'), 'utf8'),
+		])
+
+		expect(http).toContain('## Run a Node.js server with Hono')
+		expect(http).toContain('`@ultimabase/server-hono-plugin`')
+		expect(graphql).toContain('## Serve GraphQL over HTTP with Yoga')
+		expect(graphql).toContain('## Choose a development explorer')
+		for (const plugin of ['graphql-yoga', 'graphiql', 'apollo-sandbox']) {
+			expect(graphql).toContain(`@ultimabase/${plugin}-plugin`)
 		}
 	})
 
