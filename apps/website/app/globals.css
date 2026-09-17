@@ -3,6 +3,7 @@
 @import 'fumadocs-ui/css/preset.css';
 @import './theme.css';
 @import './landing.css';
+@import './landing-capabilities.css';
 
 .ub-page-shell {
 	display: flex;

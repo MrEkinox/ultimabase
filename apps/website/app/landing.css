@@ -472,130 +472,6 @@ html.dark .ub-landing {
 	font-size: 0.875rem;
 	font-weight: 600;
 }
-.ub-feature-grid {
-	display: grid;
-	grid-template-columns: repeat(3, minmax(0, 1fr));
-	gap: 2rem;
-	padding-top: 3rem;
-	border-top: 1px solid var(--landing-line);
-}
-.ub-feature {
-	min-width: 0;
-}
-.ub-landing .ub-feature h2 {
-	margin-top: 1.5rem;
-	font-size: 1.5rem;
-	font-weight: 560;
-	letter-spacing: -0.035em;
-	line-height: 1.2;
-}
-.ub-feature > p {
-	margin-top: 0.75rem;
-	color: var(--landing-muted);
-	font-size: 0.9375rem;
-	line-height: 1.75;
-}
-.ub-feature > .ub-text-link {
-	margin-top: 1.25rem;
-	font-size: 0.875rem;
-}
-.ub-feature-visual {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	gap: 0.65rem;
-	min-height: 10rem;
-	border-radius: 0.4rem;
-	background: var(--landing-soft);
-	color: var(--landing-blue);
-	font: 0.8125rem/1.5 var(--ub-font-mono);
-}
-/* Each visual shows a different concrete data contract. */
-.ub-relation-model {
-	display: grid;
-	width: 7rem;
-	border: 1px solid var(--landing-line);
-	border-radius: 0.3rem;
-	background: var(--landing-card);
-	box-shadow: 4px 4px 0 color-mix(in srgb, var(--landing-blue) 8%, transparent);
-}
-.ub-relation-model strong {
-	padding: 0.6rem 0.8rem;
-	border-bottom: 1px solid var(--landing-line);
-	font-weight: 500;
-}
-.ub-relation-model > span {
-	padding: 0.15rem 0.8rem;
-	color: var(--landing-muted);
-	font-size: 0.75rem;
-}
-.ub-relation-model > span:last-child {
-	padding-bottom: 0.5rem;
-}
-.ub-relation-edge {
-	display: grid;
-	justify-items: center;
-	gap: 0.25rem;
-	padding: 0.5rem;
-	font-size: 0.75rem;
-}
-.ub-relation-edge svg {
-	width: 2rem;
-	height: 2rem;
-}
-.ub-policy-example {
-	display: grid;
-	grid-template-columns: auto auto auto;
-	align-items: center;
-	column-gap: 1rem;
-	row-gap: 0.75rem;
-	padding: 1rem;
-}
-.ub-policy-example > svg:first-child {
-	grid-column: 1 / -1;
-	width: 1.75rem;
-	height: 1.75rem;
-}
-.ub-policy-example span,
-.ub-type-example span {
-	display: block;
-	color: var(--landing-muted);
-	font-size: 0.6875rem;
-	margin-bottom: 0.35rem;
-}
-.ub-policy-example strong {
-	font: 500 0.875rem/1.5 var(--ub-font-sans);
-}
-.ub-type-example {
-	display: flex;
-	align-items: center;
-	gap: 1.25rem;
-	padding: 1rem;
-	font-size: 0.75rem;
-}
-.ub-type-example > div {
-	padding: 0.8rem;
-	border: 1px solid var(--landing-line);
-	border-radius: 0.3rem;
-	background: var(--landing-card);
-}
-.ub-validation-note {
-	display: flex;
-	align-items: center;
-	flex-wrap: wrap;
-	gap: 0.35rem;
-	margin-top: 1.5rem;
-	color: var(--landing-muted);
-	font-size: 0.8125rem;
-	line-height: 1.6;
-}
-.ub-validation-note > svg {
-	margin-right: 0.3rem;
-	color: var(--landing-blue);
-}
-.ub-validation-note .ub-text-link {
-	font-size: inherit;
-}
 .ub-landing-start {
 	display: grid;
 	grid-template-columns: 1.3fr 1fr;
@@ -698,9 +574,6 @@ html.dark .ub-landing {
 		font-size: 0.875rem;
 		padding-inline: 1rem;
 	}
-	.ub-feature-visual {
-		font-size: 0.75rem;
-	}
 }
 @media (max-width: 48rem) {
 	.ub-landing .ub-section {
@@ -774,15 +647,6 @@ html.dark .ub-landing {
 	.ub-landing-flow {
 		padding: 1.5rem;
 	}
-	.ub-feature-grid {
-		grid-template-columns: minmax(0, 1fr);
-	}
-	.ub-feature > p {
-		min-height: 0;
-	}
-	.ub-feature-visual {
-		min-height: 8rem;
-	}
 	.ub-landing-start {
 		padding: 1.5rem;
 		margin-bottom: 3rem;
@@ -853,41 +717,6 @@ html.dark .ub-landing {
 		white-space: pre-wrap;
 		overflow-wrap: anywhere;
 	}
-
-	.ub-type-example {
-		gap: 0.5rem;
-		padding-inline: 0.5rem;
-		font-size: 0.6875rem;
-	}
-	.ub-type-example > div {
-		padding: 0.6rem;
-	}
-	.ub-policy-example {
-		column-gap: 0.5rem;
-	}
-}
-
-@media (max-width: 24rem) {
-	.ub-type-example {
-		flex-direction: column;
-		padding-block: 1rem;
-	}
-	.ub-type-example > svg {
-		transform: rotate(90deg);
-	}
-	.ub-relation-model {
-		min-width: 0;
-	}
-	.ub-relation-model strong {
-		padding-inline: 0.5rem;
-	}
-	.ub-relation-edge {
-		padding-inline: 0;
-	}
-	.ub-policy-example {
-		padding: 0.75rem;
-		font-size: 0.75rem;
-	}
 }
 
 /* GitHub Dark's comment gray needs more contrast on the landing's raised surface. */
@@ -896,35 +725,8 @@ html.dark .ub-landing .shiki span[style*='--shiki-dark:#6A737D'] {
 }
 
 @media (max-width: 64rem) {
-	.ub-feature-grid {
-		gap: 1.5rem;
-	}
 	.ub-transaction-proof {
 		gap: 2rem;
-	}
-	.ub-feature-visual {
-		font-size: 0.6875rem;
-	}
-	.ub-type-example {
-		gap: 0.5rem;
-		flex-direction: column;
-		padding-block: 1rem;
-	}
-	.ub-type-example > svg {
-		transform: rotate(90deg);
-	}
-	.ub-policy-example {
-		column-gap: 0.5rem;
-		padding-inline: 0.5rem;
-	}
-	.ub-relation-edge {
-		padding-inline: 0;
-	}
-	.ub-relation-model {
-		min-width: 0;
-	}
-	.ub-relation-model strong {
-		padding-inline: 0.5rem;
 	}
 }
 @media (max-width: 48rem) {
@@ -939,7 +741,7 @@ html.dark .ub-landing .shiki span[style*='--shiki-dark:#6A737D'] {
 		padding: 1.25rem;
 		align-self: start;
 	}
-	.ub-demo-eyebrow {
+	.ub-demo-result .ub-demo-eyebrow {
 		display: none;
 	}
 	.ub-landing .ub-demo-result h2 {
@@ -976,22 +778,6 @@ html.dark .ub-landing .shiki span[style*='--shiki-dark:#6A737D'] {
 	.ub-transaction-outcome {
 		padding: 0.75rem;
 	}
-	.ub-feature-grid {
-		gap: 2.5rem;
-	}
-	.ub-feature {
-		display: grid;
-		grid-template-columns: 1fr;
-	}
-	.ub-feature-visual {
-		min-height: 9rem;
-	}
-	.ub-type-example {
-		flex-direction: row;
-	}
-	.ub-type-example > svg {
-		transform: none;
-	}
 }
 
 .ub-demo-tabs [role='tab'][data-state='active'],
@@ -1002,12 +788,6 @@ html.dark .ub-landing .shiki span[style*='--shiki-dark:#6A737D'] {
 	.ub-proof .ub-code pre {
 		padding-block: 2.25rem 1rem;
 		line-height: 1.55;
-	}
-	.ub-feature-visual {
-		min-height: 7rem;
-	}
-	.ub-feature-grid {
-		gap: 2rem;
 	}
 }
 

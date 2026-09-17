@@ -39,7 +39,7 @@ export function LandingFaq() {
 	return (
 		<Section className="ub-faq" aria-labelledby="faq-title">
 			<div>
-				<p className="ub-section-index">04 / QUESTIONS</p>
+				<p className="ub-section-index">07 / QUESTIONS</p>
 				<h2 id="faq-title">Before you start.</h2>
 			</div>
 			<div className="ub-faq-list">

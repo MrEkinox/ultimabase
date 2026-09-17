@@ -1,12 +1,14 @@
-import { ArrowRight, ArrowUpRight, Check } from 'lucide-react'
+import { ArrowRight, ArrowUpRight } from 'lucide-react'
 
 import { currentDocumentationPath } from '../../lib/docs-versions'
 import { siteConfig } from '../../lib/site'
 import { ButtonLink, Section, TextLink } from '../primitives'
 import { ApplicationProof } from './application-proof'
 import { ArchitectureFlow } from './architecture-flow'
-import { landingFeatures, pluginGroups } from './content'
-import { FeatureVisual } from './feature-visual'
+import { pluginGroups } from './content'
+import { DataCapabilities, WriteCapabilities } from './data-capabilities'
+import { IdentityCapabilities } from './identity-capabilities'
+import { ExtensionCapabilities } from './extension-capabilities'
 import { TransactionProof } from './transaction-proof'
 import { PluginComposition } from './plugin-composition'
 import { LandingFaq } from './landing-faq'
@@ -27,7 +29,7 @@ export function LandingPage() {
 					<p className="ub-lede">
 						Build typed data APIs from TypeScript schemas.
 						<br className="ub-desktop-break" /> Compose the backend you need
-						with plugins for PostgreSQL, REST, GraphQL, and more.
+						with plugins for PostgreSQL, REST, GraphQL, and authentication.
 					</p>
 					<div className="ub-action-row">
 						<ButtonLink href={currentDocumentationPath('manual-installation')}>
@@ -77,6 +79,23 @@ export function LandingPage() {
 				</TextLink>
 			</Section>
 
+			<Section className="ub-capability-navigation">
+				<nav aria-label="Explore product capabilities">
+					<a href="#application-setup">
+						Plugins & APIs <ArrowRight aria-hidden="true" />
+					</a>
+					<a href="#data-modeling">
+						Data modeling <ArrowRight aria-hidden="true" />
+					</a>
+					<a href="#identity-and-access">
+						Authentication & access <ArrowRight aria-hidden="true" />
+					</a>
+					<a href="#business-behavior">
+						Business behavior <ArrowRight aria-hidden="true" />
+					</a>
+				</nav>
+			</Section>
+
 			<Section
 				className="ub-landing-composition"
 				id="application-setup"
@@ -122,28 +141,12 @@ export function LandingPage() {
 
 			<Section className="ub-landing-details">
 				<TransactionProof />
-				<div className="ub-feature-grid">
-					{landingFeatures.map((feature) => (
-						<article key={feature.index} className="ub-feature">
-							<FeatureVisual kind={feature.kind} />
-							<h2>{feature.title}</h2>
-							<p>{feature.description}</p>
-							<TextLink href={feature.href}>
-								{feature.linkLabel} <ArrowUpRight aria-hidden="true" />
-							</TextLink>
-						</article>
-					))}
-				</div>
-				<p className="ub-validation-note">
-					<Check aria-hidden="true" /> Core checks data structure. Add the{' '}
-					<TextLink
-						href={currentDocumentationPath('plugins/official/validation')}
-					>
-						Validation plugin
-					</TextLink>{' '}
-					for your application’s field rules.
-				</p>
+				<WriteCapabilities />
 			</Section>
+
+			<DataCapabilities />
+			<IdentityCapabilities />
+			<ExtensionCapabilities />
 
 			<LandingFaq />
 

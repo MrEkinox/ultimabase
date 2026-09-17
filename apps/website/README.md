@@ -188,17 +188,31 @@ a database or listener. HTTP presets explicitly include their HTTP/Hono/Yoga
 dependencies and explain their local, unprotected evaluation configuration.
 A second set of tabs shows requests against the existing minimal example and
 explains its shared title Hook; response envelopes remain transport-specific.
-Transaction, relationship, security, and selection illustrations follow.
 Native Commit/Rollback tabs explain two transaction outcomes; they illustrate
-the contract without pretending to run a database in the browser.
+the contract without pretending to run a database in the browser. A visible
+capability navigation links to application setup, data modeling, identity and
+access, and business behavior for readers comparing frameworks.
 
-Marketing styling is scoped to `.ub-landing` in `app/landing.css`; documentation
+The capability sections show atomic increments, unique upserts, atomic batches,
+typed embedded values, relations and nested writes, a complete virtual-field
+schema with its computed result, and Standard Schema validation with Zod.
+Identity coverage describes local password authentication, session rotation and
+revocation, operation/row/field policies, object ACLs, and roles. Soft deletion
+keeps its private Master-only restore/purge boundary visible. Plugin authoring
+covers custom operations, fields, model/query extensions, middleware, and
+application-specific Typegen declarations. Every capability links to its
+existing owning documentation; these guides remain the detailed contract.
+The old three-card feature summary is replaced rather than duplicated.
+
+Marketing styling uses landing-specific selectors in `app/landing.css` and
+`app/landing-capabilities.css`; documentation
 keeps the standard Fumadocs shell, code blocks, navigation, search, and theme
 controls. The examples use server-rendered Fumadocs code blocks and native tabs.
 Mounted tab panels share a grid cell to reserve their tallest content; inactive
 panels are visually hidden and excluded from focus and accessibility navigation.
-On narrow screens, schema examples wrap within their panel; transport requests
-use native local code scrolling to preserve HTTP paths and headers.
+On narrow screens, the short hero examples wrap within their panel; transport
+requests and the virtual-field schema use native local code scrolling to
+preserve request syntax and schema indentation.
 Decorative entry motion respects
 reduced-motion preferences. Pre-release status, source availability, and the
 Apache-2.0 license are explicit; no initializer or npm publication is implied.
@@ -223,7 +237,9 @@ Shared marketing surfaces live under `components/`:
 The content suite compiles the displayed landing examples against public package
 exports and real Typegen declarations. The TypeScript checker verifies every
 displayed field type, including nullable fields; negative checks protect
-excluded fields and incorrect assignments. On a fresh checkout, run the root
+excluded fields and incorrect assignments. Virtual-field selection and the
+displayed Zod rule also compile against real generated application declarations.
+On a fresh checkout, run the root
 `yarn typecheck` first to emit workspace exports (as CI already does). The sample
 check compiles the static application only; it never starts a database connection.
 

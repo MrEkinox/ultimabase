@@ -8,6 +8,10 @@ import {
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 
+import {
+	virtualFieldExample,
+	validationFieldExample,
+} from '../components/landing/capability-content'
 import { compositionExamples } from '../components/landing/composition-content'
 import { schemaExample } from '../components/landing/content'
 import { transportExamples } from '../components/landing/transport-content'
@@ -94,3 +98,70 @@ describe('landing plugin stacks', () => {
 		}
 	}, 20_000)
 })
+
+// The showcase uses the same source strings as these compiled, application-local fixtures.
+it.each([
+	{
+		name: 'virtual fields',
+		code: virtualFieldExample,
+		schema: 'Profile',
+		checks: `const profile = await Profile.get(
+  { id: 'example', select: { displayName: true } },
+  { ultimabase: app },
+)
+const name: string = profile.displayName
+// @ts-expect-error Private virtual dependencies are not selected result properties.
+profile.firstName
+void name`,
+	},
+	{
+		name: 'Standard Schema validation',
+		code: validationFieldExample,
+		schema: 'ValidatedArticle',
+		checks: `const article = await ValidatedArticle.createOne(
+  { data: { title: 'A validated title' } },
+  { ultimabase: app },
+)
+const title: string = article.title
+// @ts-expect-error Validation must preserve the declared field type.
+const invalid: number = article.title
+void title; void invalid`,
+	},
+])(
+	'checks the advertised $name schema and inferred results',
+	async (example) => {
+		const directory = await mkdtemp(path.join(root, '.landing-check-'))
+		try {
+			const filename = path.join(directory, 'capability.ts')
+			const source = `${example.code}
+import { UltimaBase } from '@ultimabase/core'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
+import { validationPlugin } from '@ultimabase/validation-plugin'
+export const app = new UltimaBase({
+  schemas: [${example.schema}],
+  plugins: [postgresPlugin({ url: 'postgres://localhost/landing_check' }), validationPlugin()],
+})`
+			await writeFile(filename, source)
+			const application = await loadTypegenApplication({
+				sourcePath: filename,
+				exportName: 'app',
+			})
+			const generated = generateApplicationTypes({
+				application,
+				applicationId: 'capability',
+			})
+			await writeFile(
+				path.join(directory, 'capability.generated.d.ts'),
+				generated.contents,
+			)
+			await writeFile(
+				filename,
+				`/// <reference path="./capability.generated.d.ts" />\n${source}\nawait app.start()\n${example.checks}`,
+			)
+			assertCompiles(filename)
+		} finally {
+			await rm(directory, { recursive: true, force: true })
+		}
+	},
+	20_000,
+)

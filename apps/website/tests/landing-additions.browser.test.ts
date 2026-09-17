@@ -1,4 +1,5 @@
 import type { Browser } from 'playwright'
+import { virtualFieldExample } from '../components/landing/capability-content'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import {
 	accessibilityViolations,
@@ -25,6 +26,7 @@ describe('landing transport and discovery additions', () => {
 		async ({ width, colorScheme }) => {
 			const context = await browser?.newContext({
 				viewport: { width, height: 900 },
+				permissions: ['clipboard-read', 'clipboard-write'],
 				colorScheme,
 			})
 			if (!context || !harness) throw new Error('Browser did not start')
@@ -68,6 +70,32 @@ describe('landing transport and discovery additions', () => {
 						await summary.locator('..').getAttribute('open'),
 					).not.toBeNull()
 				}
+				// Core/plugin ownership stays visible on mobile as well as desktop.
+				for (const label of await page
+					.locator('.ub-capabilities .ub-demo-eyebrow')
+					.all()) {
+					expect(await label.isVisible()).toBe(true)
+				}
+				// Readers comparing features can jump directly to each visible capability group.
+				const navigation = page.getByRole('navigation', {
+					name: 'Explore product capabilities',
+				})
+				for (const link of await navigation.getByRole('link').all()) {
+					const target = await link.getAttribute('href')
+					if (!target) throw new Error('Missing capability anchor')
+					await link.click()
+					await page.waitForURL(`${harness.origin}/${target}`)
+					const bounds = await page.locator(target).boundingBox()
+					expect(bounds?.y).toBeGreaterThanOrEqual(56)
+					expect(bounds?.y).toBeLessThan(140)
+				}
+				await page
+					.locator('.ub-computed-proof')
+					.getByRole('button', { name: 'Copy Text', exact: true })
+					.click()
+				await expect
+					.poll(() => page.evaluate(() => navigator.clipboard.readText()))
+					.toBe(virtualFieldExample)
 				expect(await accessibilityViolations(page)).toEqual([])
 				expect(
 					await page.evaluate(() => document.documentElement.scrollWidth),

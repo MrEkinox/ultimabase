@@ -213,11 +213,9 @@ describe('website visual system', () => {
 			).toBe(siteConfig.sourceExampleUrl.href)
 			expect(
 				await page
-					.getByRole('link', { name: 'Read the security model' })
+					.getByRole('link', { name: 'Access rules' })
 					.getAttribute('href'),
-			).toBe(
-				currentDocumentationPath('core/security-foundations/security-model'),
-			)
+			).toBe(currentDocumentationPath('plugins/official/access'))
 			const root = page.locator('html')
 			expect((await root.getAttribute('class')) ?? '').not.toContain('dark')
 			await page.getByRole('button', { name: 'Toggle Theme' }).click()
