@@ -219,6 +219,14 @@ the operation decision explicit. The [Password Authentication](./password-authen
 page explains how the principal enters the request context, and
 [Roles](./roles) documents `hasRole()` for membership decisions.
 
+If you also expose a `find` route for this schema through [REST](./rest),
+verify the boundary with three requests: an anonymous read returns `403`
+`PERMISSION_DENIED`, a valid Password Authentication Bearer session returns
+`200` with a `results` collection, and a revoked session returns `401`
+`HTTP_APPLICATION_REJECTED` before Access runs. The Bearer token establishes
+identity; this Access rule grants the read. A successful read does not imply
+per-user row isolation.
+
 ### Field read and write rules
 
 An undeclared field is available unless an exact field rule or compatible

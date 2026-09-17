@@ -84,8 +84,13 @@ describe('documentation sidebar', () => {
 			expect(
 				await sidebar
 					.getByRole('link', { name: 'Build an Authenticated API' })
-					.getAttribute('href'),
-			).toBe('/docs/1.0.0/guides/build-an-authenticated-api')
+					.count(),
+			).toBe(0)
+			const duplicateGuide = await page.request.get(
+				`${origin}/docs/1.0.0/guides/build-an-authenticated-api`,
+				{ maxRedirects: 0 },
+			)
+			expect(duplicateGuide.status()).toBe(404)
 		} finally {
 			await context.close()
 		}

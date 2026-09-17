@@ -38,3 +38,11 @@ concepts and API contracts have canonical documentation.
 
 - Concept reference, exhaustive API signatures, deployment providers, benchmark
   marketing, or tasks requiring unimplemented roadmap capabilities.
+
+## Post-milestone correction
+
+The authenticated-API guide was removed during the later page-by-page audit.
+It repeated the Password Authentication, Access, HTTP, and REST pages without
+adding an independent executable task. The official plugin pages now own its
+session and protected-read checks; this historical issue remains completed
+for its original delivery.

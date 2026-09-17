@@ -157,7 +157,6 @@ The public route architecture is:
 │       │       ├── operations-and-graphql
 │       │       └── runtime-and-infrastructure
 │       ├── guides
-│       │   ├── build-an-authenticated-api
 │       │   ├── generate-types
 │       │   └── test-an-application
 │       ├── operations
@@ -189,8 +188,10 @@ justified only when the reader can complete it as an independent task.
 Application configuration, Query lookup, and `FrameworkError` behavior belong
 to their existing Core pages rather than a parallel three-page Core API folder.
 Nested writes and contextual relation filters also stay in their owning Core
-pages, not in thin Guides copies. Guides retains cross-capability work and the
-independent Typegen and application-testing tasks.
+pages, not in thin Guides copies. The former authenticated-API guide repeated
+Password Authentication, Access, HTTP, and REST; their owning pages now carry
+its session and protected-read checks. Guides retains the independent Typegen
+and application-testing tasks.
 
 The version sidebar presents Introduction, Core, Plugins, Guides, Operate Your
 Application, and Reference as non-collapsible section titles. It extracts each

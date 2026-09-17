@@ -288,11 +288,6 @@
 			"releaseStatus": "pre-release",
 			"pages": [
 				{
-					"slug": "build-an-authenticated-api",
-					"contentType": "tutorial",
-					"outcome": "Sign in over REST and use the opaque Bearer session on a protected read."
-				},
-				{
 					"slug": "generate-types",
 					"contentType": "guide",
 					"outcome": "Generate and verify replaceable declarations for one configured UltimaBase application."

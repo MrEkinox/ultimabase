@@ -95,11 +95,7 @@ const canonicalNavigation = {
 		'operations-and-graphql',
 		'runtime-and-infrastructure',
 	],
-	'1.0.0/guides': [
-		'build-an-authenticated-api',
-		'generate-types',
-		'test-an-application',
-	],
+	'1.0.0/guides': ['generate-types', 'test-an-application'],
 	'1.0.0/operations': [
 		'configuration-and-environment',
 		'secrets',

@@ -270,8 +270,8 @@ describe('website preview audit', () => {
 		['/docs/1.0.0/core/runtime/runtime-pipeline', 'Runtime Pipeline'],
 		['/docs/1.0.0/plugins/using-plugins', 'Using Plugins'],
 		[
-			'/docs/1.0.0/guides/build-an-authenticated-api',
-			'Build an Authenticated API',
+			'/docs/1.0.0/plugins/official/password-authentication',
+			'Password Authentication',
 		],
 		[
 			'/docs/1.0.0/operations/application-troubleshooting',

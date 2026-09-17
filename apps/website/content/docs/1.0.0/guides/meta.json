@@ -1,8 +1,4 @@
 {
 	"title": "Guides",
-	"pages": [
-		"build-an-authenticated-api",
-		"generate-types",
-		"test-an-application"
-	]
+	"pages": ["generate-types", "test-an-application"]
 }

@@ -210,6 +210,9 @@ are removed. Nested-write and contextual-relation guidance now live in their
 Core pages instead of duplicate Guides routes. Reference retains the package
 index, compatibility, and architecture background. The site is still private,
 so these removed URLs have no pre-launch redirects.
+The later authenticated-API audit removes its thin duplicate Guide. Password
+Authentication owns REST session exposure and session limits; Access owns the
+protected-read verification. The removed pre-launch URL has no redirect.
 
 ### Phase 1 — Application, design, and content foundation
 
