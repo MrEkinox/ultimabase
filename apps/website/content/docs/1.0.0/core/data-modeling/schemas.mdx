@@ -17,6 +17,7 @@ sources:
   - packages/core/examples/schema/basic-schema.md
   - docs/adr/0080-postgres-index-compilation.md
   - docs/adr/0213-direct-plugin-options-replace-schema-field-extensions.md
+  - docs/adr/0248-application-selected-schema-class-mutations.md
 ---
 
 A schema declares one kind of stored record: its stable `className` and the
@@ -146,9 +147,12 @@ do not need an entry in the application's `schemas` array.
 constructs immutable drafts and exposes its ordinary schema commands. Use
 `ultimabase.schema(Article)` to resolve the cached handle bound to this exact
 application. The same method accepts the registered name of a
-plugin-contributed schema. Configuration-dependent commands belong to that
-application handle; plugins do not add methods to an exported schema class or
-its prototype. See [Models](./models) for draft and persisted instances.
+plugin-contributed schema. Most configuration-dependent commands belong to
+that application handle. A plugin schema mutation can also appear directly on
+the frozen class after an owning application starts, but the call still selects
+the active application or takes `{ ultimabase }` and verifies that application's
+compiled plugin graph. See [Soft Delete](/docs/1.0.0/plugins/official/soft-delete)
+for an example and [Models](./models) for draft and persisted instances.
 
 ## Schema identity
 

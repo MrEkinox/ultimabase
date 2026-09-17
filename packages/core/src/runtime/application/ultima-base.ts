@@ -5,11 +5,15 @@ import {
 	type FrameworkApplicationOptions,
 	type PluginDefinition,
 } from '../../foundation.js'
-import { registerQueryExecutionOwner } from '../../query/operations/execution.js'
+import {
+	executeStaticSchemaMutation,
+	registerQueryExecutionOwner,
+} from '../../query/operations/execution.js'
 import { normalizeOperationOptions } from '../../query/operations/execution.js'
 import type { OperationOptions } from '../../query/operations/options.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import { Schema } from '../../schema/index.js'
+import { registerStaticSchemaMutation } from '../../schema/schema/model-static-mutations.js'
 import { immutableArray, isPlainRecord } from '@ultimabase/shared'
 import { findSchemaModelRecord } from '../../schema/schema/model-state.js'
 import type { PluginOperationDefinition } from '../../plugins/plugin-operations.js'
@@ -170,6 +174,25 @@ export class UltimaBase<
 		registerQueryExecutionOwner(this, {
 			application: this.application,
 			bindResult: (value) => this.#bindQueryResult(value),
+			executeSchemaMutation: (schema, name, input, options) => {
+				const surface = this.application.getSchemaSurface(schema.className)
+				if (surface?.schema !== schema || !surface.schemaMutations.has(name)) {
+					throw new TypeError(
+						`Schema mutation ${schema.className}.${name} is not installed in this application`,
+					)
+				}
+				const handle = this.schema(schema)
+				const method: unknown = Reflect.get(handle, name)
+				if (typeof method !== 'function') {
+					throw new TypeError(
+						`Schema mutation ${schema.className}.${name} is not installed in this application`,
+					)
+				}
+				return Reflect.apply(method, handle, [
+					input,
+					options,
+				]) as Promise<unknown>
+			},
 			createRootExecutor: () => {
 				const frameworkEngine = this.#frameworkEngine ?? this.engine
 				const requestEngine = frameworkEngine.anonymous({
@@ -366,6 +389,14 @@ export class UltimaBase<
 
 			await this.application.start()
 			this.#frameworkEngine = frameworkEngine
+			for (const schema of this.application.schemas.values()) {
+				const surface = this.application.getSchemaSurface(schema.className)
+				for (const name of surface?.schemaMutations.keys() ?? []) {
+					registerStaticSchemaMutation(schema, name, (input, options) =>
+						executeStaticSchemaMutation(schema, name, input, options),
+					)
+				}
+			}
 		} catch (error: unknown) {
 			try {
 				await this.application.dispose()

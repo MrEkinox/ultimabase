@@ -241,7 +241,9 @@ logger; the detached report remains available through
 
 ## Use the installed surface
 
-Typegen augments only application-owned handles and their returned models:
+Typegen augments application-owned handles and their returned models. A
+plugin-defined schema mutation also appears on the generated schema class and
+requires the selected application for execution outside an active request:
 
 ```ts
 const Post = ultimabase.schema(PostSchema)

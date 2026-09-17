@@ -1,0 +1,57 @@
+import type { OperationOptions } from '../../query/operations/options.js'
+import type { SchemaDefinition } from './definition.js'
+
+type StaticSchemaMutation = (
+	input: unknown,
+	options?: OperationOptions,
+) => Promise<unknown>
+
+// The class stays frozen. Only command names are shared across applications;
+// execution always resolves the selected application's compiled surface.
+const staticMutations = new WeakMap<object, Map<string, StaticSchemaMutation>>()
+
+/** Exposes installed schema mutations without modifying a class or prototype. */
+export const createStaticSchemaMutationView = <
+	TSchema extends new (input: unknown) => object,
+>(
+	target: TSchema,
+): TSchema => {
+	const view: TSchema = new Proxy(target, {
+		construct: (constructor, arguments_, newTarget): object =>
+			Reflect.construct(
+				constructor,
+				arguments_,
+				newTarget === view ? constructor : newTarget,
+			) as object,
+		get: (constructor, property, receiver): unknown => {
+			if (typeof property === 'string') {
+				const method = staticMutations.get(view)?.get(property)
+				if (method !== undefined) return method
+			}
+			return Reflect.get(constructor, property, receiver)
+		},
+		has: (constructor, property): boolean =>
+			(typeof property === 'string' &&
+				staticMutations.get(view)?.has(property) === true) ||
+			Reflect.has(constructor, property),
+	})
+	return view
+}
+
+/** Adds one inert class-level dispatcher after its application has started. */
+export const registerStaticSchemaMutation = (
+	schema: SchemaDefinition,
+	name: string,
+	method: StaticSchemaMutation,
+): void => {
+	let methods = staticMutations.get(schema)
+	if (methods?.has(name) === true) return
+	if (Reflect.has(schema, name)) {
+		throw new TypeError(`Reserved schema static mutation: ${name}`)
+	}
+	if (methods === undefined) {
+		methods = new Map()
+		staticMutations.set(schema, methods)
+	}
+	methods.set(name, method)
+}

@@ -200,13 +200,14 @@ export const renderGeneratedSurfaces = (
 		method:
 			| 'ApplicationModelSchemaMutationMethod'
 			| 'ApplicationSchemaMutationMethod',
+		schemaType = `Core.SchemaReference<${quote(className)}>`,
 	): string => {
 		if (mutations.length === 0) return renderObjectType(properties, context)
 		const mutationType = `{
 ${mutations
 	.map(
 		(mutation) =>
-			`\t\t\t\treadonly ${propertyName(mutation.name)}: Core.${method}<Core.SchemaReference<${quote(className)}>, ${renderMutationDefinition(mutation)}>`,
+			`\t\t\t\treadonly ${propertyName(mutation.name)}: Core.${method}<${schemaType}, ${renderMutationDefinition(mutation)}>`,
 	)
 	.join('\n')}
 \t\t\t}`
@@ -265,6 +266,7 @@ ${mutations
 			)
 			.join('\n')
 		return `\t\treadonly ${quote(surface.className)}: {
+\t\t\treadonly schemaClass: ${renderSurfaceType([], surface.schemaMutations, surface.className, 'ApplicationSchemaMutationMethod', `Core.SchemaClass<Core.SchemaTypeInfoByNameOrBase<${quote(surface.className)}>>`)}
 \t\t\treadonly model: ${renderSurfaceType(augmentationFor(snapshot, surface.className, 'model'), surface.modelMutations, surface.className, 'ApplicationModelSchemaMutationMethod')}
 \t\t\treadonly modelCommands: {
 ${renderCommands(surface.modelCommands)}

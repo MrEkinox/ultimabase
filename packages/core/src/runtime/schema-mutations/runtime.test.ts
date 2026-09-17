@@ -10,6 +10,7 @@ import {
 import { Schema, stringField } from '../../schema/index.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import { UltimaBase } from '../application/ultima-base.js'
+import { runWithRequestEngine } from '../context/active-framework-context.js'
 import {
 	provideRuntimeBehavior,
 	provideRuntimeConstraint,
@@ -307,15 +308,21 @@ describe('plugin schema mutation Runtime', () => {
 				},
 			],
 		})
-		const archive = Reflect.get(
-			fixture.ultimabase.schema(fixture.Post),
-			'archive',
-		) as (input: unknown) => Promise<unknown>
-		const result = await archive({
-			id,
-			input: { reason: 'superseded' },
-			select: { title: true, workflowState: true },
-		})
+		const archive = Reflect.get(fixture.Post, 'archive') as (
+			input: unknown,
+		) => Promise<unknown>
+		expect(Object.isFrozen(fixture.Post)).toBe(true)
+		await expect(
+			archive({ id, input: { reason: 'missing owner' } }),
+		).rejects.toMatchObject({ code: 'MISSING_EXECUTION_CONTEXT' })
+		const selection = { title: true, workflowState: true }
+		const result = await runWithRequestEngine(
+			fixture.ultimabase.engine.anonymous({
+				requestId: 'static-mutation',
+				source: requestSources.internal,
+			}),
+			() => archive({ id, input: { reason: 'superseded' }, select: selection }),
+		)
 
 		expect(result).toBeInstanceOf(fixture.Post)
 		expect(result).toMatchObject({
@@ -609,25 +616,56 @@ describe('plugin schema mutation Runtime', () => {
 			target: previous,
 			value: { id, title: previous.title },
 		})
-		const purge = Reflect.get(
-			fixture.ultimabase.schema(fixture.Post),
-			'purge',
-		) as (input: unknown, options?: unknown) => Promise<unknown>
+		const purge = Reflect.get(fixture.Post, 'purge') as (
+			input: unknown,
+			options?: unknown,
+		) => Promise<unknown>
 
-		await expect(purge({ id })).rejects.toMatchObject({
+		await expect(
+			purge({ id }, { ultimabase: fixture.ultimabase }),
+		).rejects.toMatchObject({
 			code: 'MASTER_ACCESS_DENIED',
 		})
 		expect(fixture.trace).toStrictEqual([])
 		expect(fixture.handler).not.toHaveBeenCalled()
 
 		await expect(
-			purge({ id, select: { title: true } }, { useMasterKey: true }),
+			purge(
+				{ id, select: { title: true } },
+				{ ultimabase: fixture.ultimabase, useMasterKey: true },
+			),
 		).resolves.toMatchObject({ id, title: 'Release notes' })
 		expect(fixture.audit).toHaveBeenCalledOnce()
 		expect(fixture.handler).toHaveBeenCalledOnce()
 		expect(fixture.adapter.transactions[0]?.executions[0]?.operation.kind).toBe(
 			'delete-one',
 		)
+		const otherAdapter = new RecordingDatabaseAdapter([], [])
+		const other = new UltimaBase({
+			pluginPrivileges: { logger: false },
+			plugins: [
+				definePlugin({
+					capabilities: {
+						provides: [provideTestDatabaseAdapter(otherAdapter)],
+					},
+					core: '^0.0.0',
+					pluginId: 'fixture.schema-mutation-without-purge',
+					version: '1.0.0',
+				}),
+			],
+			schemas: [fixture.Post],
+		})
+		try {
+			await other.start()
+			await expect(
+				purge({ id }, { ultimabase: other, useMasterKey: true }),
+			).rejects.toThrow(
+				`Schema mutation ${fixture.Post.className}.purge is not installed in this application`,
+			)
+			expect(otherAdapter.rootRequests).toStrictEqual([])
+		} finally {
+			await Promise.all([other.dispose(), fixture.ultimabase.dispose()])
+		}
 	})
 
 	it('rejects a foreign application owner before transaction effects', async () => {

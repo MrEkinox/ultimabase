@@ -154,6 +154,12 @@ derive exact application-local command keys from the inert compiled mutation
 surface. Static transport planning and late execution remain separate; Core and
 the transports never name `softDelete`, `restore`, or `purge`.
 
+ADR-0248 also exposes schema mutations through direct frozen-class syntax.
+Each call resolves one active or explicit application and verifies its compiled
+surface before entering the same handle and Runtime. The same class may show
+names from different started applications, but behavior and authority do not
+cross application boundaries.
+
 ADR-0247 makes a relation field's static or request-contextual `where` a
 Core-owned private read scope. The exact request context resolves synchronous
 application behavior once per relation definition and root operation; the

@@ -20,6 +20,12 @@ interface QueryExecutionOwnerRegistration {
 	readonly application: object
 	readonly bindResult: (value: unknown) => unknown
 	readonly createRootExecutor: () => QueryExecutionDispatcher
+	readonly executeSchemaMutation: (
+		schema: SchemaDefinition,
+		name: string,
+		input: unknown,
+		options: OperationOptions | undefined,
+	) => Promise<unknown>
 }
 
 interface ActiveQueryExecution {
@@ -188,6 +194,49 @@ export const registerQueryExecutionOwner = (
 	const normalized = immutableRecord(registration)
 	queryExecutionOwners.set(owner, normalized)
 	queryExecutionApplications.set(registration.application, normalized)
+}
+
+/** Dispatches one class-level plugin method through the selected application only. */
+export const executeStaticSchemaMutation = async (
+	schema: SchemaDefinition,
+	name: string,
+	input: unknown,
+	options?: OperationOptions,
+): Promise<unknown> => {
+	const normalized = normalizeOperationOptions(options)
+	const active = activeQueryExecution.getStore()
+	const explicitOwner = normalized.ultimabase
+	const registration =
+		explicitOwner === undefined
+			? undefined
+			: queryExecutionOwners.get(explicitOwner)
+	if (explicitOwner !== undefined && registration === undefined) {
+		throw new TypeError('operation ultimabase must be an UltimaBase instance')
+	}
+	if (
+		active?.application !== undefined &&
+		registration !== undefined &&
+		active.application !== registration.application
+	) {
+		throw new FrameworkError(
+			'VALIDATION_ERROR',
+			'Explicit query ownership cannot replace the active application.',
+			{ publicMessage: 'The requested schema is not available.' },
+		)
+	}
+	const selected =
+		registration ??
+		(active?.application === undefined
+			? undefined
+			: queryExecutionApplications.get(active.application))
+	if (selected === undefined) {
+		throw new FrameworkError(
+			'MISSING_EXECUTION_CONTEXT',
+			'No request is active. Pass { ultimabase } to this schema operation.',
+			{ publicMessage: 'No request execution context is available.' },
+		)
+	}
+	return selected.executeSchemaMutation(schema, name, input, options)
 }
 
 /** @internal Rejects a terminal facade that belongs to another application. */

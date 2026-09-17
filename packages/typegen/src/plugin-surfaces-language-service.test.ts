@@ -190,7 +190,14 @@ describe('generated plugin surface declarations', () => {
 		'typechecks exact dynamic handles through %s Core exports',
 		(_, corePath) => {
 			const source = `${createGeneratedRegistry()}
+import { Schema } from '@ultimabase/core'
 declare const ultimabase: Core.UltimaBase<readonly [], readonly []>
+const StaticPost = Schema.define({
+	className: 'SemanticDynamicPost',
+	fields: (field) => ({ title: field.string() }),
+})
+const staticMutation = StaticPost.softDelete({ id: 'post-1' }, { ultimabase })
+const staticArchive = StaticPost.archive({ id: 'post-1', input: { id: 'reason-1' }, select: { title: true } }, { ultimabase })
 const schema = ultimabase.schema('SemanticDynamicPost')
 const envelope = schema.publish.prepare({ id: 'post-1' })
 const schemaExecution: Promise<Core.BaseItem> = schema.publish.execute({ id: 'post-1' })
@@ -235,6 +242,10 @@ const useModelCommands = async () => {
 }
 // @ts-expect-error -- Generated dynamic handles reject unknown plugin aliases.
 schema.unknownPluginSurface
+// @ts-expect-error -- Arbitrary schema commands do not become class-level mutations.
+StaticPost.publish({ id: 'post-1' }, { ultimabase })
+// @ts-expect-error -- Class-level mutations retain exact target input.
+StaticPost.softDelete({ missing: 'post-1' }, { ultimabase })
 // @ts-expect-error -- Exact generated operation input requires id.
 operation.prepare({ missing: true })
 // @ts-expect-error -- Schema mutations require one exact target id.
@@ -258,6 +269,8 @@ void operationExecution
 void schemaExecution
 void archiveExecution
 void softDeleteExecution
+void staticMutation
+void staticArchive
 void useModelCommands
 void unknownError
 void (undefined as unknown as RemovedHookContext)

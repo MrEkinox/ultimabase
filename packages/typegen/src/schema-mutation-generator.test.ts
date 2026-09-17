@@ -86,6 +86,10 @@ describe('schema mutation Typegen', () => {
 		expect(first.contents).toContain(
 			'readonly archive: Core.ApplicationSchemaMutationMethod',
 		)
+		expect(first.contents).toContain('readonly schemaClass: {')
+		expect(first.contents).toContain(
+			'Core.SchemaClass<Core.SchemaTypeInfoByNameOrBase<"TypegenSchemaMutationPost">>',
+		)
 		expect(first.contents).toContain(
 			'readonly archive: Core.ApplicationModelSchemaMutationMethod',
 		)

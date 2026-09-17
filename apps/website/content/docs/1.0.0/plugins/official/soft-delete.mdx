@@ -11,9 +11,11 @@ releaseStatus: pre-release
 reviewedAt: 2026-09-17
 sources:
   - packages/soft-delete-plugin/README.md
+  - examples/minimal/src/soft-delete.ts
   - examples/minimal/README.md
   - packages/core/docs/runtime.md
   - docs/adr/0245-plugin-schema-mutations-and-soft-delete.md
+  - docs/adr/0248-application-selected-schema-class-mutations.md
 ---
 
 ## Overview
@@ -75,39 +77,46 @@ exposing an application workflow around deletion.
 
 ### Delete, restore, and purge records
 
-With the `explicit` mode shown above, the application schema handle exposes
-`softDelete`. The following server-side maintenance commands also require a
-configured, audited `MasterAuthority`; never forward a client-selected
-`useMasterKey` flag from transport input.
+Once the application starts, the plugin exposes methods directly on the `Post`
+schema class. Outside an active request, pass the exact `ultimabase` instance
+as you would for native schema methods. `restore` and `purge` additionally
+require a configured, audited `MasterAuthority`; never forward a
+client-selected `useMasterKey` flag from transport input.
 
 ```ts title="src/soft-delete-post.ts"
 import { Post } from './schemas.js'
 import { ultimabase } from './ultimabase.js'
 
 export const softDeletePost = (postId: string) =>
-	ultimabase
-		.schema(Post)
-		.softDelete({ id: postId, select: { isDeleted: true, title: true } })
+	Post.softDelete(
+		{ id: postId, select: { isDeleted: true, title: true } },
+		{ ultimabase },
+	)
 
 export const restorePost = (postId: string) =>
-	ultimabase
-		.schema(Post)
-		.restore(
-			{ id: postId, select: { isDeleted: true, title: true } },
-			{ useMasterKey: true },
-		)
+	Post.restore(
+		{ id: postId, select: { isDeleted: true, title: true } },
+		{ ultimabase, useMasterKey: true },
+	)
 
 export const purgePost = (postId: string) =>
-	ultimabase
-		.schema(Post)
-		.purge({ id: postId, select: { title: true } }, { useMasterKey: true })
+	Post.purge(
+		{ id: postId, select: { title: true } },
+		{ ultimabase, useMasterKey: true },
+	)
 ```
+
+The original `ultimabase.schema(Post).softDelete(...)`, `.restore(...)`, and
+`.purge(...)` handles remain available. For a persisted model, only explicit
+soft delete has a direct `post.softDelete()` command. Another application may
+use the same `Post` class without the plugin; passing that application rejects
+the call rather than using the plugin installed elsewhere.
 
 ### Visibility semantics
 
 Ordinary reads hide tombstones. That visibility rule also applies to normal
 Master reads; Master authority is not a general switch for including deleted
-records. `restore` and `purge` are private application-schema commands that
+records. `restore` and `purge` are private schema commands that
 require explicit server-side Master authority. They are not model, REST,
 GraphQL, or Access-policy branches.
 
@@ -136,6 +145,6 @@ If a deleted record remains visible, first confirm the schema's effective mode
 and that the read goes through the compiled UltimaBase application. Verify that
 find, count, exists, pointer, and relation reads omit a tombstone.
 Restore it through trusted server code and verify the ordinary read returns it
-again. If restore or purge is rejected, check that it runs from the owning
-application schema handle with audited Master authority; neither command is a
-public transport endpoint.
+again. If restore or purge is rejected, check that the selected application
+installed the plugin and configured audited Master authority; neither command
+is a public transport endpoint.

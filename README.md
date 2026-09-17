@@ -95,7 +95,9 @@ users[0]?.toJSON() // A detached immutable object.
 - Typegen may include plugin-owned contracts but generates declarations only;
   JavaScript applications run without Typegen or a generated client.
 - Stable plugin operations and application-specific model surfaces execute
-  through application-owned handles rather than mutating exported schema classes.
+  through application-owned handles. Plugin schema mutations can also be
+  called on a frozen schema class with an explicit or active application; the
+  class only dispatches to that application's compiled handle.
 - The official soft-delete plugin can preserve native delete as a tombstone
   rewrite or add an independently authorized `softDelete` mutation. Ordinary
   reads stay tombstone-blind, while audited `restore` and `purge` commands remain

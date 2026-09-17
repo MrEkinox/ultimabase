@@ -12,17 +12,17 @@ const runWithSession = <TResult>(
 		.getPlugin('@ultimabase/password-auth-plugin')
 		.runWithSession(sessionToken, handler)
 
-/** Runs the explicit command from the exact application schema handle. */
+/** Runs the plugin command on the class through this exact application. */
 export const softDeleteArticle = (
 	app: MinimalApplication,
 	id: string,
 	sessionToken: string,
 ) =>
 	runWithSession(app, sessionToken, () =>
-		app.schema(ExampleArticle).softDelete({
-			id,
-			select: { id: true, isDeleted: true, title: true },
-		}),
+		ExampleArticle.softDelete(
+			{ id, select: { id: true, isDeleted: true, title: true } },
+			{ ultimabase: app },
+		),
 	)
 
 /** Demonstrates the same explicit command from a bound persisted model. */
@@ -45,21 +45,17 @@ export const softDeleteArticleFromModel = async (
 
 /** Restores one hidden article through trusted server authority. */
 export const restoreArticle = (app: MinimalApplication, id: string) =>
-	app
-		.schema(ExampleArticle)
-		.restore(
-			{ id, select: { id: true, isDeleted: true, title: true } },
-			{ useMasterKey: true },
-		)
+	ExampleArticle.restore(
+		{ id, select: { id: true, isDeleted: true, title: true } },
+		{ ultimabase: app, useMasterKey: true },
+	)
 
 /** Permanently removes one already hidden article. */
 export const purgeArticle = (app: MinimalApplication, id: string) =>
-	app
-		.schema(ExampleArticle)
-		.purge(
-			{ id, select: { id: true, isDeleted: true, title: true } },
-			{ useMasterKey: true },
-		)
+	ExampleArticle.purge(
+		{ id, select: { id: true, isDeleted: true, title: true } },
+		{ ultimabase: app, useMasterKey: true },
+	)
 
 /** Keeps native delete syntax while replace mode writes an author tombstone. */
 export const softDeleteAuthor = (app: MinimalApplication, id: string) =>

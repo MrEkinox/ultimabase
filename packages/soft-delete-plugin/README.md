@@ -71,11 +71,16 @@ and retain physical hard-delete persistence.
 
 ## Explicit execution
 
-For an effective `explicit` schema, the application schema handle and every
-bound persisted model expose the same singular command:
+For an effective `explicit` schema, the class, application schema handle, and
+every bound persisted model expose the same singular command after startup:
 
 ```ts
-const deleted = await ultimabase.schema(Post).softDelete({
+const deleted = await Post.softDelete(
+	{ id: postId, select: { id: true, isDeleted: true, title: true } },
+	{ ultimabase },
+)
+
+const deletedFromHandle = await ultimabase.schema(Post).softDelete({
 	id: postId,
 	select: { id: true, isDeleted: true, title: true },
 })
@@ -100,22 +105,18 @@ gain those additional transport endpoints.
 ## Private administration
 
 Every effective `explicit` or `replace-delete` schema exposes two commands on
-its application schema handle only:
+its class and application schema handle, but never on a persisted model:
 
 ```ts
-const restored = await ultimabase
-	.schema(Post)
-	.restore(
-		{ id: postId, select: { id: true, isDeleted: true, title: true } },
-		{ useMasterKey: true },
-	)
+const restored = await Post.restore(
+	{ id: postId, select: { id: true, isDeleted: true, title: true } },
+	{ ultimabase, useMasterKey: true },
+)
 
-const purged = await ultimabase
-	.schema(Post)
-	.purge(
-		{ id: postId, select: { id: true, title: true } },
-		{ useMasterKey: true },
-	)
+const purged = await Post.purge(
+	{ id: postId, select: { id: true, title: true } },
+	{ ultimabase, useMasterKey: true },
+)
 ```
 
 `restore` atomically clears `isDeleted` on an existing tombstone and returns
@@ -134,8 +135,9 @@ for transactional business audit and rejection. Master does not bypass those
 Hooks.
 
 The commands deliberately have no model method, Access branch, REST route, or
-GraphQL field. Server code must select the owning application schema handle;
-no transport input can manufacture their authority.
+GraphQL field. Server code must select the owning application explicitly or
+through an active trusted request; no transport input can manufacture Master
+authority. The application schema handle remains available for both commands.
 
 ## Optional integrations and protected storage
 

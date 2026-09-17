@@ -442,7 +442,9 @@ creating an operation.
 ### Application-owned schema, model, and operation handles
 
 Plugin-created schemas and conditional public methods never mutate an exported
-schema class or its prototype. `ultimabase.schema(nameOrClass)` resolves one
+schema class or its prototype. Schema mutations may appear as inert static
+dispatchers on the frozen class after application startup; each call still
+selects one application's compiled surface. `ultimabase.schema(nameOrClass)` resolves one
 cached handle from the final application graph. Stable classes preserve their
 ordinary package-owned methods, while configuration-dependent schemas remain
 available by runtime name in JavaScript:
@@ -545,7 +547,20 @@ declare({ models, operations }) {
 ```
 
 These declarations compile to callback-free descriptors and direct
-application-owned methods. Typegen derives their payload, schema projection,
+application-owned methods. An installed schema mutation is also callable from
+the frozen schema class with an active request or explicit application:
+
+```ts
+await PostSchema.archive(
+	{ id: postId, input: { reason: 'superseded' } },
+	{ ultimabase },
+)
+```
+
+The class only dispatches to the selected application's compiled surface; a
+same-class application without that mutation rejects the call. Arbitrary
+schema commands and query extensions remain application-handle-only. Typegen
+derives mutation payload, schema projection,
 inclusion, and result types; JavaScript sees the same methods from the compiled
 graph without generated files. They are deliberately distinct from arbitrary
 `schemaCommands` and `modelCommands`. The owner separately provides one

@@ -51,6 +51,7 @@ import type {
 	BaseSchemaTypeInfo,
 	SchemaTypeInfo,
 	SchemaTypeInfoByNameOrBase,
+	UltimaBaseGeneratedSchemaClassSurface,
 	UltimaBaseGeneratedSchemaOptions,
 } from '../type-info.js'
 import type { SchemaAPI } from './schema-api.js'
@@ -137,7 +138,6 @@ export interface SchemaMetadata<
 	/** The immutable output-only field map hidden from persistence. */
 	readonly virtualFields: SchemaVirtualFields
 }
-
 /** Carries trusted schema identity plus the neutral metadata used by Core. */
 export interface SchemaDefinition<
 	TClassName extends string = string,
@@ -156,11 +156,11 @@ export interface SchemaClass<
 	/** Creates one immutable pointer to this schema. */
 	pointer(id: string): Pointer<this>
 }
-
 /** Resolves one public schema class by its generated logical contract. */
 export type SchemaReference<TClassName extends string> = SchemaClass<
 	SchemaTypeInfoByNameOrBase<TClassName>
->
+> &
+	UltimaBaseGeneratedSchemaClassSurface<TClassName>
 
 /** Collects additional static capabilities owned by a schema specialization. */
 export type SchemaStaticCapabilities = object

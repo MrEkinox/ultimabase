@@ -42,6 +42,16 @@ const Explicit = Schema.define({
   softDelete: 'explicit',
   fields: (field) => ({ title: field.string() }),
 })
+declare const ultimabase: import('@ultimabase/core').UltimaBase<readonly [], readonly []>
+const Installed = Schema.define({
+  className: 'SoftDeleteIntellisenseDocument',
+  fields: (field) => ({ title: field.string() }),
+})
+const deleted = Installed.softDelete({ id: 'document-1', select: { isDeleted: true } }, { ultimabase })
+const restored = Installed.restore({ id: 'document-1' }, { ultimabase, useMasterKey: true })
+const purged = Installed.purge({ id: 'document-1' }, { ultimabase, useMasterKey: true })
+// @ts-expect-error -- Mutation inputs require the exact target id.
+Installed.softDelete({ missing: 'document-1' }, { ultimabase })
 const Disabled = Schema.define({
   className: 'SoftDeleteDisabled',
   softDelete: false,
@@ -55,6 +65,10 @@ const Invalid = Schema.define({
 })
 void Completion
 void Explicit
+void Installed
+void deleted
+void restored
+void purged
 void Disabled
 void Invalid
 `

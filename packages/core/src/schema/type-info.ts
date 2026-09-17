@@ -1,5 +1,5 @@
 /** Invalidates generated fingerprints when Core's shared typegen ABI changes. */
-export const generatedApplicationContractVersion = 18 as const
+export const generatedApplicationContractVersion = 19 as const
 
 /** Minimal identity implemented by every generated persisted item. */
 export interface SchemaItemType {
@@ -66,6 +66,16 @@ export interface UltimaBaseGeneratedOperations {}
 
 /** Application-generated declarations merge exact application handle surfaces here. */
 export interface UltimaBaseGeneratedSchemaSurfaces {}
+
+/** Narrows class-level methods to the selected generated schema name. */
+export type UltimaBaseGeneratedSchemaClassSurface<TClassName extends string> =
+	TClassName extends keyof UltimaBaseGeneratedSchemaSurfaces
+		? UltimaBaseGeneratedSchemaSurfaces[TClassName] extends Readonly<{
+				readonly schemaClass: infer TMethods extends object
+			}>
+			? TMethods
+			: Readonly<Record<never, never>>
+		: Readonly<Record<never, never>>
 
 /** Marks that one complete generated registry is active in the TypeScript project. */
 export interface UltimaBaseGeneratedRegistryState {}

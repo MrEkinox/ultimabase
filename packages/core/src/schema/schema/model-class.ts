@@ -60,6 +60,7 @@ import type {
 	SchemaModelState,
 } from './model-contracts.js'
 import { SchemaModelPrototype } from './model-commands.js'
+import { createStaticSchemaMutationView } from './model-static-mutations.js'
 import {
 	persistedModelConstructionKey,
 	preparedDraftConstructionKey,
@@ -345,10 +346,11 @@ export const createSchemaModelClass = <
 
 	// The generated class implements both structural views, while its constructor
 	// signature deliberately remains private to this composition boundary.
-	const readDefinedSchema = (): SchemaReference<TClassName> =>
-		DefinedSchemaModel as unknown as SchemaReference<TClassName>
-	const readDefinedSchemaClass = (): SchemaClass =>
-		DefinedSchemaModel as unknown as SchemaClass
+	const schema = createStaticSchemaMutationView(
+		DefinedSchemaModel,
+	) as unknown as SchemaReference<TClassName>
+	const readDefinedSchema = (): SchemaReference<TClassName> => schema
+	const readDefinedSchemaClass = (): SchemaClass => schema as SchemaClass
 
 	Object.defineProperty(DefinedSchemaModel, 'name', {
 		configurable: false,
@@ -389,7 +391,6 @@ export const createSchemaModelClass = <
 		},
 	})
 
-	const schema = readDefinedSchema()
 	registerSchemaModelClass(schema)
 	return schema
 }
