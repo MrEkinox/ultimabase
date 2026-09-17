@@ -92,7 +92,7 @@ The optional HTTP Master header works only when explicitly enabled. The
 public application ID selects one application first; only that application's
 authority may verify and audit the raw key. A client-supplied `useMasterKey`
 flag, shaped context, foreign grant, or alternative header cannot select
-Master. See [HTTP](/docs/1.0.0/plugins/official/http-and-apis/http) for that
+Master. See [HTTP](/docs/1.0.0/plugins/official/http) for that
 separate transport setup.
 
 ## Know what Master bypasses
@@ -112,6 +112,6 @@ Master bypasses authorization owned by Access and ACL. It does **not** bypass:
 
 A public application ID identifies a mounted application; it is routing data,
 not a secret or authorization proof. For ordinary user requests, use
-[Access](/docs/1.0.0/plugins/official/authentication-and-authorization/access)
-or [ACL](/docs/1.0.0/plugins/official/authentication-and-authorization/acl-permissions)
+[Access](/docs/1.0.0/plugins/official/access)
+or [ACL](/docs/1.0.0/plugins/official/acl-permissions)
 instead of Master.

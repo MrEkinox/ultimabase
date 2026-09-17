@@ -6,8 +6,8 @@ import { describe, expect, it } from 'vitest'
 const websiteRoot = fileURLToPath(new URL('..', import.meta.url))
 const docsRoot = path.join(websiteRoot, 'content/docs/1.0.0')
 const pagePaths = [
-	'plugins/official/http-and-apis/http',
-	'plugins/official/data-and-persistence/postgresql',
+	'plugins/official/http',
+	'plugins/official/postgresql',
 	'operations/application-troubleshooting',
 ] as const
 
@@ -101,7 +101,7 @@ describe('troubleshooting content', () => {
 		expect(errors).toContain(
 			'/docs/1.0.0/operations/application-troubleshooting',
 		)
-		expect(errors).toContain('/docs/1.0.0/plugins/official/http-and-apis/http')
+		expect(errors).toContain('/docs/1.0.0/plugins/official/http')
 	})
 
 	it('requires a reproducible and sanitized report', async () => {

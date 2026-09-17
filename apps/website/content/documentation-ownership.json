@@ -27,7 +27,7 @@
 			"packages": ["@ultimabase/postgres-plugin"],
 			"sections": [
 				"manual-installation",
-				"plugins/official/data-and-persistence/postgresql",
+				"plugins/official/postgresql",
 				"operations",
 				"reference"
 			]
@@ -39,7 +39,8 @@
 				"@ultimabase/soft-delete-plugin"
 			],
 			"sections": [
-				"plugins/official/data-and-persistence",
+				"plugins/official/postgresql-vector",
+				"plugins/official/soft-delete",
 				"guides",
 				"reference"
 			]
@@ -48,7 +49,8 @@
 			"id": "validation-and-lifecycle",
 			"packages": ["@ultimabase/hooks-plugin", "@ultimabase/validation-plugin"],
 			"sections": [
-				"plugins/official/validation-and-lifecycle",
+				"plugins/official/validation",
+				"plugins/official/hooks",
 				"guides",
 				"reference"
 			]
@@ -64,7 +66,9 @@
 				"@ultimabase/server-hono-plugin"
 			],
 			"sections": [
-				"plugins/official/http-and-apis",
+				"plugins/official/http",
+				"plugins/official/rest",
+				"plugins/official/graphql",
 				"guides",
 				"operations",
 				"reference"
@@ -80,7 +84,10 @@
 			],
 			"sections": [
 				"core/security-foundations",
-				"plugins/official/authentication-and-authorization",
+				"plugins/official/password-authentication",
+				"plugins/official/access",
+				"plugins/official/roles",
+				"plugins/official/acl-permissions",
 				"guides",
 				"reference"
 			]
@@ -91,7 +98,7 @@
 				"@ultimabase/apollo-sandbox-plugin",
 				"@ultimabase/graphiql-plugin"
 			],
-			"sections": ["plugins/official/http-and-apis", "reference"]
+			"sections": ["plugins/official/graphql", "reference"]
 		}
 	]
 }

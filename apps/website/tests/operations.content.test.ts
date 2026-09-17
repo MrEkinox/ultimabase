@@ -9,9 +9,9 @@ const contentRoot = fileURLToPath(
 )
 const pages = [
 	'core/application',
-	'plugins/official/http-and-apis/http',
+	'plugins/official/http',
 	'operations/configuration-and-environment',
-	'plugins/official/data-and-persistence/postgresql',
+	'plugins/official/postgresql',
 	'operations/production-checklist',
 	'operations/secrets',
 ] as const
@@ -44,8 +44,6 @@ describe('operations documentation contracts', () => {
 		expect(documentation).toContain(
 			'/docs/1.0.0/core/security-foundations/master-authority',
 		)
-		expect(documentation).toContain(
-			'/docs/1.0.0/plugins/official/http-and-apis/http',
-		)
+		expect(documentation).toContain('/docs/1.0.0/plugins/official/http')
 	})
 })

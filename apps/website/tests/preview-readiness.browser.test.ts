@@ -94,7 +94,7 @@ describe('website preview audit', () => {
 		}
 	})
 
-	it('renders the nested Core, official-plugin, and community journeys', async () => {
+	it('renders Core, flat official-plugin, and community journeys', async () => {
 		const context = await browser?.newContext({
 			viewport: { height: 900, width: 1280 },
 		})
@@ -108,24 +108,18 @@ describe('website preview audit', () => {
 			await sidebar.getByText('Core', { exact: true }).waitFor()
 			await sidebar.getByText('Application', { exact: true }).waitFor()
 
-			await page.goto(
-				`${origin}/docs/1.0.0/plugins/official/data-and-persistence/soft-delete`,
-			)
+			await page.goto(`${origin}/docs/1.0.0/plugins/official/soft-delete`)
 			await sidebar
 				.getByRole('button', { exact: true, name: 'Official Plugins' })
-				.waitFor()
-			await sidebar
-				.getByRole('button', { exact: true, name: 'Data and Persistence' })
 				.waitFor()
 			await sidebar
 				.getByRole('link', { exact: true, name: 'Soft Delete' })
 				.waitFor()
 			expect(
 				await sidebar
-					.getByRole('button', { exact: true, name: 'Soft Delete' })
+					.getByRole('button', { exact: true, name: 'Data and Persistence' })
 					.count(),
 			).toBe(0)
-
 			await page.goto(`${origin}/docs/1.0.0/plugins/community-plugins`)
 			await sidebar
 				.getByRole('link', { exact: true, name: 'Community Plugins' })
@@ -192,6 +186,8 @@ describe('website preview audit', () => {
 				'/docs/1.0.0/getting-started/introduction',
 				'/docs/1.0.0/getting-started/installation',
 				'/docs/1.0.0/getting-started/first-application',
+				'/docs/1.0.0/plugins/official/data-and-persistence/soft-delete',
+				'/docs/1.0.0/plugins/official/http-and-apis/graphql',
 				'/docs/1.0',
 			]) {
 				const response = await page.request.get(`${origin}${route}`, {
@@ -248,7 +244,7 @@ describe('website preview audit', () => {
 				'/docs/1.0.0/reference/package-index',
 			)
 			expect(await publicSearch(page, 'HTTP_APPLICATION_REJECTED')).toContain(
-				'/docs/1.0.0/plugins/official/http-and-apis/http',
+				'/docs/1.0.0/plugins/official/http',
 			)
 			await page.goto(`${origin}/docs/1.0.0`)
 			const dialog = page.getByRole('dialog')

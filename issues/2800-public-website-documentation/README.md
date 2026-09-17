@@ -137,22 +137,18 @@ The public route architecture is:
 │       │   ├── overview
 │       │   ├── using-plugins
 │       │   ├── official
-│       │   │   ├── data-and-persistence
-│       │   │   │   ├── postgresql
-│       │   │   │   ├── soft-delete
-│       │   │   │   └── postgresql-vector
-│       │   │   ├── validation-and-lifecycle
-│       │   │   │   ├── validation
-│       │   │   │   └── hooks
-│       │   │   ├── authentication-and-authorization
-│       │   │   │   ├── password-authentication
-│       │   │   │   ├── access
-│       │   │   │   ├── roles
-│       │   │   │   └── acl-permissions
-│       │   │   └── http-and-apis
-│       │   │       ├── http
-│       │   │       ├── rest
-│       │   │       └── graphql
+│       │   │   ├── postgresql
+│       │   │   ├── soft-delete
+│       │   │   ├── postgresql-vector
+│       │   │   ├── validation
+│       │   │   ├── hooks
+│       │   │   ├── password-authentication
+│       │   │   ├── access
+│       │   │   ├── roles
+│       │   │   ├── acl-permissions
+│       │   │   ├── http
+│       │   │   ├── rest
+│       │   │   └── graphql
 │       │   ├── community-plugins
 │       │   └── build-a-plugin
 │       ├── guides
@@ -181,8 +177,9 @@ configuration, behavior, reference, limitations, and troubleshooting without a
 same-named folder and child page. Closely related optional packages may share
 one page while retaining their separate plugin identity and configuration:
 `http` includes Hono server integration, and `graphql` includes Yoga and the
-optional GraphiQL and Apollo Sandbox explorers. A new route is justified only
-when the reader can complete it as an independent task.
+optional GraphiQL and Apollo Sandbox explorers. Every official plugin guide is
+a direct child of `official`; there are no category folders. A new route is
+justified only when the reader can complete it as an independent task.
 
 Application configuration, Query lookup, and `FrameworkError` behavior belong
 to their existing Core pages rather than a parallel three-page Core API folder.

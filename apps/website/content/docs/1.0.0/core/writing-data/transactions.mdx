@@ -103,7 +103,7 @@ transaction remains rollback-only. Do not start a nested explicit transaction:
 savepoints are not supported, and the call fails with `TRANSACTION_ERROR`.
 
 Business `beforeOperation` and `afterOperation` Hooks from the optional
-[Hooks plugin](/docs/1.0.0/plugins/official/validation-and-lifecycle/hooks)
+[Hooks plugin](/docs/1.0.0/plugins/official/hooks)
 run before commit and may abort it. For post-commit delivery, a Hook can call
 `context.emit(name, payload)` when a matching named-event consumer is
 installed. The event is buffered until the successful outer commit. Without

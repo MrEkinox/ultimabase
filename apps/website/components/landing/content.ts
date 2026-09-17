@@ -85,9 +85,7 @@ export const landingFeatures: readonly LandingFeature[] = Object.freeze([
 	{
 		description:
 			'Drizzle stays private while schemas, queries, constraints, and lifecycle remain framework-owned.',
-		href: currentDocumentationPath(
-			'plugins/official/data-and-persistence/postgresql',
-		),
+		href: currentDocumentationPath('plugins/official/postgresql'),
 		index: '01',
 		title: 'PostgreSQL, without leaking the adapter',
 	},
@@ -108,9 +106,7 @@ export const landingFeatures: readonly LandingFeature[] = Object.freeze([
 	{
 		description:
 			'Core structural checks compose with optional Standard Schema application validation.',
-		href: currentDocumentationPath(
-			'plugins/official/validation-and-lifecycle/validation',
-		),
+		href: currentDocumentationPath('plugins/official/validation'),
 		index: '04',
 		title: 'Validation at the right boundary',
 	},

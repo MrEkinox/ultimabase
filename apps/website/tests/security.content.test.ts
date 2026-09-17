@@ -7,13 +7,13 @@ const contentRoot = fileURLToPath(
 	new URL('../content/docs/1.0.0/', import.meta.url),
 )
 const pageNames = [
-	'plugins/official/authentication-and-authorization/access',
-	'plugins/official/authentication-and-authorization/acl-permissions',
+	'plugins/official/access',
+	'plugins/official/acl-permissions',
 	'core/security-foundations/master-authority',
 	'core/security-foundations/security-model',
-	'plugins/official/authentication-and-authorization/password-authentication',
+	'plugins/official/password-authentication',
 	'core/security-foundations/request-identity',
-	'plugins/official/authentication-and-authorization/roles',
+	'plugins/official/roles',
 ] as const
 let documentation = ''
 

@@ -1,9 +1,17 @@
 {
 	"title": "Official Plugins",
 	"pages": [
-		"data-and-persistence",
-		"validation-and-lifecycle",
-		"authentication-and-authorization",
-		"http-and-apis"
+		"postgresql",
+		"soft-delete",
+		"postgresql-vector",
+		"validation",
+		"hooks",
+		"password-authentication",
+		"access",
+		"roles",
+		"acl-permissions",
+		"http",
+		"rest",
+		"graphql"
 	]
 }

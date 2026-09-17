@@ -27,12 +27,12 @@ handle the request.
 
 ## Find the owning boundary
 
-| When the failure occurs        | Owner and representation                                       | Start here                                                                              |
-| ------------------------------ | -------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| Direct TypeScript command      | Core `FrameworkError` or the operation's declared plugin error | [FrameworkError](#frameworkerror)                                                       |
-| Before a protocol route begins | HTTP plugin's safe `HTTP_*` JSON envelope                      | [HTTP troubleshooting](/docs/1.0.0/plugins/official/http-and-apis/http#troubleshooting) |
-| After REST begins              | REST plugin's JSON envelope and `REST_*` codes                 | [REST API](/docs/1.0.0/plugins/official/http-and-apis/rest)                             |
-| After GraphQL begins           | GraphQL response errors and safe extensions                    | [GraphQL](/docs/1.0.0/plugins/official/http-and-apis/graphql)                           |
+| When the failure occurs        | Owner and representation                                       | Start here                                                                |
+| ------------------------------ | -------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Direct TypeScript command      | Core `FrameworkError` or the operation's declared plugin error | [FrameworkError](#frameworkerror)                                         |
+| Before a protocol route begins | HTTP plugin's safe `HTTP_*` JSON envelope                      | [HTTP troubleshooting](/docs/1.0.0/plugins/official/http#troubleshooting) |
+| After REST begins              | REST plugin's JSON envelope and `REST_*` codes                 | [REST API](/docs/1.0.0/plugins/official/rest)                             |
+| After GraphQL begins           | GraphQL response errors and safe extensions                    | [GraphQL](/docs/1.0.0/plugins/official/graphql)                           |
 
 <Mermaid
 	description="A request rejected before route dispatch has an HTTP error envelope; after dispatch, the selected REST or GraphQL handler owns its error format."
@@ -154,10 +154,10 @@ still belongs to that transport.
 
 HTTP, REST, GraphQL, PostgreSQL, Typegen, and Password Auth each own their
 additional error codes and public representations. Use the relevant
-[HTTP](/docs/1.0.0/plugins/official/http-and-apis/http),
-[REST](/docs/1.0.0/plugins/official/http-and-apis/rest),
-[GraphQL](/docs/1.0.0/plugins/official/http-and-apis/graphql), or
-[Password Authentication](/docs/1.0.0/plugins/official/authentication-and-authorization/password-authentication)
+[HTTP](/docs/1.0.0/plugins/official/http),
+[REST](/docs/1.0.0/plugins/official/rest),
+[GraphQL](/docs/1.0.0/plugins/official/graphql), or
+[Password Authentication](/docs/1.0.0/plugins/official/password-authentication)
 page for that capability's failures; use
 [Application Troubleshooting](/docs/1.0.0/operations/application-troubleshooting)
 for startup and Typegen diagnostics.

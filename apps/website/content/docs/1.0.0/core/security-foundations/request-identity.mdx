@@ -107,7 +107,7 @@ The optional Password Auth plugin exposes `passwordPrincipal` and
 `passwordSession` tokens after it verifies a session. Its principal carries a
 typed User pointer; its session context carries safe identifiers and dates,
 not the raw token, password, verifier, Master grant, role, or authorization
-decision. See [Password Authentication](/docs/1.0.0/plugins/official/authentication-and-authorization/password-authentication)
+decision. See [Password Authentication](/docs/1.0.0/plugins/official/password-authentication)
 for the actual credential flow.
 
 <Callout type="warn" title="Never derive authority from request data">
@@ -123,10 +123,7 @@ for the actual credential flow.
 	<Card title="Security Model" href="./security-model">
 		Separate identity from authorization and Master authority.
 	</Card>
-	<Card
-		title="Access"
-		href="/docs/1.0.0/plugins/official/authentication-and-authorization/access"
-	>
+	<Card title="Access" href="/docs/1.0.0/plugins/official/access">
 		Use request identity in an explicit authorization policy.
 	</Card>
 </Cards>

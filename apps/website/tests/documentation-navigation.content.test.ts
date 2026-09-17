@@ -75,24 +75,19 @@ const canonicalNavigation = {
 		'build-a-plugin',
 	],
 	'1.0.0/plugins/official': [
-		'data-and-persistence',
-		'validation-and-lifecycle',
-		'authentication-and-authorization',
-		'http-and-apis',
-	],
-	'1.0.0/plugins/official/data-and-persistence': [
 		'postgresql',
 		'soft-delete',
 		'postgresql-vector',
-	],
-	'1.0.0/plugins/official/validation-and-lifecycle': ['validation', 'hooks'],
-	'1.0.0/plugins/official/authentication-and-authorization': [
+		'validation',
+		'hooks',
 		'password-authentication',
 		'access',
 		'roles',
 		'acl-permissions',
+		'http',
+		'rest',
+		'graphql',
 	],
-	'1.0.0/plugins/official/http-and-apis': ['http', 'rest', 'graphql'],
 	'1.0.0/guides': [
 		'build-an-authenticated-api',
 		'generate-types',
@@ -131,10 +126,7 @@ describe('documentation navigation architecture', () => {
 	})
 
 	it('keeps HTTP and GraphQL companion plugins on their owning pages', async () => {
-		const directory = path.join(
-			contentRoot,
-			'1.0.0/plugins/official/http-and-apis',
-		)
+		const directory = path.join(contentRoot, '1.0.0/plugins/official')
 		const [http, graphql] = await Promise.all([
 			readFile(path.join(directory, 'http.mdx'), 'utf8'),
 			readFile(path.join(directory, 'graphql.mdx'), 'utf8'),

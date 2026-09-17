@@ -182,62 +182,62 @@
 					"outcome": "Understand how community plugins will be listed without confusing visibility with official maintenance."
 				},
 				{
-					"slug": "official/authentication-and-authorization/access",
+					"slug": "official/access",
 					"contentType": "guide",
 					"outcome": "Define fail-closed authorization that can only narrow as policies compose."
 				},
 				{
-					"slug": "official/authentication-and-authorization/acl-permissions",
+					"slug": "official/acl-permissions",
 					"contentType": "guide",
 					"outcome": "Protect individual objects with public, principal, and role permissions."
 				},
 				{
-					"slug": "official/authentication-and-authorization/password-authentication",
+					"slug": "official/password-authentication",
 					"contentType": "guide",
 					"outcome": "Configure local password identity without confusing a session with authorization."
 				},
 				{
-					"slug": "official/authentication-and-authorization/roles",
+					"slug": "official/roles",
 					"contentType": "guide",
 					"outcome": "Compose role membership with Access or ACL without treating membership as a grant."
 				},
 				{
-					"slug": "official/data-and-persistence/postgresql",
+					"slug": "official/postgresql",
 					"contentType": "guide",
 					"outcome": "Operate the shipped PostgreSQL connection and schema preparation behavior without assuming migrations exist."
 				},
 				{
-					"slug": "official/data-and-persistence/postgresql-vector",
+					"slug": "official/postgresql-vector",
 					"contentType": "concept",
 					"outcome": "Declare a dimension-safe vector field and understand the current persistence boundary."
 				},
 				{
-					"slug": "official/data-and-persistence/soft-delete",
+					"slug": "official/soft-delete",
 					"contentType": "concept",
 					"outcome": "Configure a deletion mode and keep restore or purge behind private Master authority."
 				},
 				{
-					"slug": "official/http-and-apis/graphql",
+					"slug": "official/graphql",
 					"contentType": "guide",
 					"outcome": "Execute GraphQL directly or over HTTP, choose an optional explorer, and understand Relay pagination."
 				},
 				{
-					"slug": "official/http-and-apis/http",
+					"slug": "official/http",
 					"contentType": "guide",
 					"outcome": "Configure the HTTP application boundary and choose a managed or existing Hono server."
 				},
 				{
-					"slug": "official/http-and-apis/rest",
+					"slug": "official/rest",
 					"contentType": "guide",
 					"outcome": "Call generated REST routes while preserving the same Runtime semantics as TypeScript."
 				},
 				{
-					"slug": "official/validation-and-lifecycle/hooks",
+					"slug": "official/hooks",
 					"contentType": "concept",
 					"outcome": "Place normalization and transaction-bound business behavior at the correct Hook boundary."
 				},
 				{
-					"slug": "official/validation-and-lifecycle/validation",
+					"slug": "official/validation",
 					"contentType": "concept",
 					"outcome": "Decide when application validation belongs in the Validation plugin rather than Core or Hooks."
 				},
