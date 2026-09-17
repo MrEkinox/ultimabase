@@ -234,7 +234,7 @@
 				{
 					"slug": "official/hooks",
 					"contentType": "concept",
-					"outcome": "Place normalization and transaction-bound business behavior at the correct Hook boundary."
+					"outcome": "Choose and configure the right Hook phase for input, mutation, or post-commit behavior."
 				},
 				{
 					"slug": "official/validation",
