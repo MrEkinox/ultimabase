@@ -141,24 +141,64 @@ html.dark .ub-landing {
 	background: var(--landing-blue);
 	border-radius: 50%;
 }
-/* Schema and command examples. */
+/* Native tabs keep all examples reachable by keyboard and reserve their tallest panel. */
 .ub-proof {
 	grid-column: 1 / -1;
+	min-width: 0;
 	margin: 3rem 0 -1px;
 	border: 1px solid var(--landing-line);
 	border-radius: 0.75rem;
 	background: var(--landing-card);
 	box-shadow: 0 12px 40px -16px rgb(18 50 110 / 0.2);
 }
-.ub-proof-editors {
-	display: grid;
-	grid-template-columns: repeat(2, minmax(0, 1fr));
+.ub-demo-tabs,
+.ub-outcome-tabs {
+	margin: 0;
+	border: 0;
+	border-radius: inherit;
+	background: transparent;
 }
-.ub-proof-schema,
-.ub-proof-query {
+.ub-demo-tabs [role='tablist'],
+.ub-outcome-tabs [role='tablist'] {
+	margin: 0;
+	padding-inline: 1.5rem;
+	border-bottom: 1px solid var(--landing-line);
+	background: transparent;
+}
+.ub-demo-tabs [role='tab'],
+.ub-outcome-tabs [role='tab'] {
+	color: var(--landing-muted);
+	min-height: 2.75rem;
+	padding-inline: 0.5rem;
+	font-size: 0.875rem;
+}
+.ub-demo-panels {
+	display: grid;
 	min-width: 0;
 }
-.ub-proof-schema {
+.ub-demo-panels > [role='tabpanel'] {
+	grid-area: 1 / 1;
+	min-width: 0;
+	margin: 0;
+	border-radius: 0;
+	background: transparent;
+}
+/* Visibility removes inactive controls from focus and accessibility without collapsing layout. */
+.ub-demo-panels > [role='tabpanel'][data-state='inactive'] {
+	display: block;
+	visibility: hidden;
+	pointer-events: none;
+}
+.ub-demo-tabs .ub-demo-panel {
+	display: grid;
+	grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+	padding: 0;
+}
+.ub-demo-tabs .ub-demo-panel[data-state='inactive'] {
+	display: grid;
+}
+.ub-demo-code {
+	min-width: 0;
 	border-right: 1px solid var(--landing-line);
 }
 .ub-editor-label {
@@ -166,20 +206,16 @@ html.dark .ub-landing {
 	justify-content: space-between;
 	align-items: center;
 	gap: 1rem;
-	padding: 1rem 1.5rem;
+	padding: 0.85rem 1.5rem;
 	border-bottom: 1px solid var(--landing-line);
 	color: var(--landing-muted);
 	font: 0.75rem/1.5 var(--ub-font-mono);
 }
 .ub-editor-label > span:first-child {
 	display: inline-flex;
-	gap: 0.5rem;
 	align-items: center;
+	gap: 0.5rem;
 	color: var(--landing-blue);
-}
-.ub-editor-label > span:last-child {
-	font-size: 0.75rem;
-	letter-spacing: 0.05em;
 }
 .ub-proof .ub-code {
 	margin: 0;
@@ -189,55 +225,49 @@ html.dark .ub-landing {
 	box-shadow: none;
 }
 .ub-proof .ub-code pre {
-	padding: 1.5rem;
+	padding: 2.5rem 1.5rem 1.5rem;
 	background: transparent;
-	font-size: 0.8125rem;
-	line-height: 1.85;
+	font-size: 0.875rem;
+	line-height: 1.65;
 }
-.ub-proof-schema .ub-code pre {
-	padding-top: 2rem;
-	padding-bottom: 2rem;
+.ub-demo-result {
+	align-self: center;
+	min-width: 0;
+	padding: 2rem;
 }
-.ub-demo-tabs {
-	margin: 0;
-	border: 0;
-	border-radius: 0;
-	background: transparent;
-}
-.ub-demo-tabs [role='tablist'] {
-	margin: 0;
-	padding: 0 1.5rem;
-	border-bottom: 1px solid var(--landing-line);
-	background: transparent;
-}
-.ub-demo-tabs [role='tab'] {
-	padding-block: 0.65rem;
-	font-size: 0.75rem;
-}
-.ub-demo-tabs [role='tabpanel'] {
-	padding: 0;
-	background: transparent;
-	border-radius: 0;
-}
-.ub-proof-output {
-	display: flex;
-	align-items: center;
-	gap: 1rem;
-	padding: 1rem 1.5rem;
-	border-top: 1px solid var(--landing-line);
-	background: var(--landing-soft);
+.ub-demo-eyebrow {
 	color: var(--landing-blue);
-	font-size: 0.8125rem;
+	font: 0.6875rem/1.5 var(--ub-font-mono);
+	letter-spacing: 0.09em;
 }
-.ub-result-label {
-	display: inline-flex;
-	align-items: center;
-	gap: 0.5rem;
-	font-weight: 650;
-	white-space: nowrap;
+.ub-landing .ub-demo-result h2 {
+	margin-top: 0.75rem;
+	font-size: clamp(1.5rem, 2.2vw, 2rem);
+	line-height: 1.15;
+	letter-spacing: -0.035em;
 }
-.ub-proof-output > svg {
-	margin-left: auto;
+.ub-demo-result > p:not(.ub-demo-eyebrow) {
+	margin-top: 0.75rem;
+	color: var(--landing-muted);
+	font-size: 0.875rem;
+	line-height: 1.65;
+}
+.ub-field-types {
+	margin-top: 1.5rem;
+	border-block: 1px solid var(--landing-line);
+	font: 0.875rem/1.5 var(--ub-font-mono);
+}
+.ub-field-types > div {
+	display: flex;
+	justify-content: space-between;
+	gap: 1rem;
+	padding: 0.55rem 0;
+}
+.ub-field-types > div + div {
+	border-top: 1px dashed var(--landing-line);
+}
+.ub-field-types dd {
+	color: var(--landing-blue);
 }
 .ub-proof figcaption {
 	display: flex;
@@ -247,9 +277,21 @@ html.dark .ub-landing {
 	border-top: 1px solid var(--landing-line);
 	color: var(--landing-muted);
 	font-size: 0.75rem;
+	line-height: 1.6;
 }
-.ub-proof figcaption span {
+.ub-proof figcaption a {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4rem;
 	white-space: nowrap;
+	color: var(--landing-blue);
+	font-weight: 600;
+}
+.ub-unpublished-note {
+	flex-basis: 100%;
+}
+#application-setup {
+	scroll-margin-top: 5rem;
 }
 /* Editorial introduction and explicit application composition. */
 .ub-intro {
@@ -485,46 +527,87 @@ html.dark .ub-landing {
 .ub-landing-details {
 	padding-block: 6rem;
 }
-.ub-section-heading {
-	text-align: center;
-	margin-bottom: 3rem;
+.ub-transaction-proof {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+	align-items: center;
+	gap: 4rem;
+	padding-bottom: 4rem;
 }
-.ub-section-heading > p:last-child {
+.ub-transaction-proof > div > p:not(.ub-section-index) {
+	max-width: 31rem;
 	margin-top: 1.25rem;
 	color: var(--landing-muted);
+	line-height: 1.75;
+}
+.ub-transaction-proof .ub-text-link {
+	margin-top: 1.5rem;
+}
+.ub-transaction-demo {
+	min-width: 0;
+	border: 1px solid var(--landing-line);
+	border-radius: 0.75rem;
+	background: var(--landing-soft);
+}
+.ub-transaction-demo figcaption {
+	padding: 1.25rem 1.5rem 0.5rem;
+	font-size: 0.875rem;
+	font-weight: 600;
+}
+.ub-outcome-tabs [role='tabpanel'] {
+	padding: 1.5rem;
+}
+.ub-transaction-demo li {
+	display: flex;
+	align-items: baseline;
+	gap: 1rem;
+	padding: 1rem 0;
+	border-bottom: 1px solid var(--landing-line);
+	font-size: 0.9375rem;
+}
+.ub-transaction-demo li span {
+	color: var(--landing-blue);
+	font: 0.75rem var(--ub-font-mono);
+}
+.ub-transaction-outcome {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	margin-top: 1.5rem;
+	padding: 1rem;
+	border: 1px solid var(--landing-line);
+	border-radius: 0.35rem;
+	background: var(--landing-card);
+	color: var(--landing-blue);
+	font-size: 0.875rem;
+	font-weight: 600;
 }
 .ub-feature-grid {
 	display: grid;
-	grid-template-columns: repeat(2, minmax(0, 1fr));
-	gap: 1.5rem;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 2rem;
+	padding-top: 3rem;
+	border-top: 1px solid var(--landing-line);
 }
 .ub-feature {
 	min-width: 0;
-	padding: 1.5rem;
-	border: 1px solid var(--landing-line);
-	border-radius: 1rem;
-	background: var(--landing-card);
-	box-shadow: 0 8px 14px -12px rgb(18 40 80 / 0.35);
 }
-.ub-feature:nth-child(even) {
-	padding: 1.5rem;
-}
-.ub-feature h3 {
-	margin-top: 1.75rem;
-	font-size: 1.4rem;
+.ub-landing .ub-feature h2 {
+	margin-top: 1.5rem;
+	font-size: 1.5rem;
 	font-weight: 560;
 	letter-spacing: -0.035em;
+	line-height: 1.2;
 }
 .ub-feature > p {
-	max-width: 30rem;
-	min-height: 5.25rem;
 	margin-top: 0.75rem;
 	color: var(--landing-muted);
-	font-size: 1rem;
+	font-size: 0.9375rem;
 	line-height: 1.75;
 }
 .ub-feature > .ub-text-link {
 	margin-top: 1.25rem;
+	font-size: 0.875rem;
 }
 .ub-feature-visual {
 	display: flex;
@@ -538,29 +621,6 @@ html.dark .ub-landing {
 	font: 0.8125rem/1.5 var(--ub-font-mono);
 }
 /* Each visual shows a different concrete data contract. */
-.ub-transaction {
-	width: 85%;
-	font-size: 0.75rem;
-}
-.ub-transaction > div {
-	display: grid;
-	grid-template-columns: 1.5rem 1fr auto;
-	align-items: center;
-	gap: 0.5rem;
-	padding: 0.6rem;
-	border-bottom: 1px solid var(--landing-line);
-}
-.ub-transaction > div > span {
-	color: var(--landing-muted);
-}
-.ub-transaction-commit {
-	background: var(--landing-card);
-	border: 1px solid var(--landing-line);
-	border-radius: 0.3rem;
-}
-.ub-transaction-commit strong {
-	font-weight: 500;
-}
 .ub-relation-model {
 	display: grid;
 	width: 7rem;
@@ -745,7 +805,7 @@ html.dark .ub-landing {
 		padding: 2rem;
 	}
 	.ub-proof .ub-code pre {
-		font-size: 0.75rem;
+		font-size: 0.875rem;
 		padding-inline: 1rem;
 	}
 	.ub-feature-visual {
@@ -789,40 +849,15 @@ html.dark .ub-landing {
 	.ub-proof {
 		margin-top: 2rem;
 	}
-	.ub-proof-editors {
-		grid-template-columns: 1fr;
-	}
-	.ub-proof-schema {
-		border-right: 0;
-		border-bottom: 1px solid var(--landing-line);
-	}
 	.ub-editor-label {
 		padding: 0.85rem 1rem;
 	}
-	.ub-proof-schema .ub-code pre {
-		padding-block: 1.25rem;
-	}
 	.ub-proof .ub-code pre {
-		font-size: 0.75rem;
-	}
-	.ub-proof-output {
-		flex-wrap: wrap;
-		gap: 0.5rem;
-		padding: 1rem;
-		font-size: 0.75rem;
-	}
-	.ub-proof-output > span:nth-child(2) {
-		max-width: 26ch;
-	}
-	.ub-proof-output > svg {
-		display: none;
+		font-size: 0.875rem;
 	}
 	.ub-proof figcaption {
 		padding: 0.85rem 1rem;
 		font-size: 0.75rem;
-	}
-	.ub-proof figcaption span {
-		display: none;
 	}
 	.ub-intro {
 		align-items: start;
@@ -855,15 +890,8 @@ html.dark .ub-landing {
 	.ub-feature-grid {
 		grid-template-columns: minmax(0, 1fr);
 	}
-	.ub-feature,
-	.ub-feature:nth-child(even) {
-		padding: 1rem 1rem 1.5rem;
-	}
 	.ub-feature > p {
 		min-height: 0;
-	}
-	.ub-feature h3 {
-		font-size: 1.3rem;
 	}
 	.ub-feature-visual {
 		min-height: 8rem;
@@ -875,9 +903,6 @@ html.dark .ub-landing {
 	}
 	.ub-start-actions {
 		justify-content: start;
-	}
-	.ub-section-heading {
-		margin-bottom: 2rem;
 	}
 	.ub-section-index {
 		font-size: 0.75rem;
@@ -926,7 +951,7 @@ html.dark .ub-landing {
 		font-size: 0.6875rem;
 	}
 	.ub-proof .ub-code pre {
-		font-size: 0.75rem;
+		font-size: 0.875rem;
 	}
 	.ub-landing-hero h1 {
 		font-size: clamp(2.4rem, 9.2vw, 4rem);
@@ -941,9 +966,7 @@ html.dark .ub-landing {
 		white-space: pre-wrap;
 		overflow-wrap: anywhere;
 	}
-	.ub-proof .ub-code pre {
-		line-height: 1.8;
-	}
+
 	.ub-type-example {
 		gap: 0.5rem;
 		padding-inline: 0.5rem;
@@ -965,10 +988,6 @@ html.dark .ub-landing {
 	.ub-type-example > svg {
 		transform: rotate(90deg);
 	}
-	.ub-transaction {
-		width: 95%;
-		font-size: 0.6875rem;
-	}
 	.ub-relation-model {
 		min-width: 0;
 	}
@@ -987,4 +1006,120 @@ html.dark .ub-landing {
 /* GitHub Dark's comment gray needs more contrast on the landing's raised surface. */
 html.dark .ub-landing .shiki span[style*='--shiki-dark:#6A737D'] {
 	--shiki-dark: #a5b0c3 !important;
+}
+
+@media (max-width: 64rem) {
+	.ub-feature-grid {
+		gap: 1.5rem;
+	}
+	.ub-transaction-proof {
+		gap: 2rem;
+	}
+	.ub-feature-visual {
+		font-size: 0.6875rem;
+	}
+	.ub-type-example {
+		gap: 0.5rem;
+		flex-direction: column;
+		padding-block: 1rem;
+	}
+	.ub-type-example > svg {
+		transform: rotate(90deg);
+	}
+	.ub-policy-example {
+		column-gap: 0.5rem;
+		padding-inline: 0.5rem;
+	}
+	.ub-relation-edge {
+		padding-inline: 0;
+	}
+	.ub-relation-model {
+		min-width: 0;
+	}
+	.ub-relation-model strong {
+		padding-inline: 0.5rem;
+	}
+}
+@media (max-width: 48rem) {
+	.ub-demo-tabs .ub-demo-panel {
+		grid-template-columns: minmax(0, 1fr);
+	}
+	.ub-demo-code {
+		border-right: 0;
+		border-bottom: 1px solid var(--landing-line);
+	}
+	.ub-demo-result {
+		padding: 1.25rem;
+		align-self: start;
+	}
+	.ub-demo-eyebrow {
+		display: none;
+	}
+	.ub-landing .ub-demo-result h2 {
+		margin-top: 0;
+		font-size: 1.4rem;
+	}
+	.ub-field-types {
+		margin-top: 1rem;
+		font-size: 0.8125rem;
+	}
+	.ub-field-types > div {
+		padding-block: 0.3rem;
+	}
+	.ub-proof figcaption {
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+	.ub-proof figcaption a {
+		align-self: start;
+	}
+	.ub-demo-tabs [role='tablist'] {
+		padding-inline: 0.75rem;
+	}
+	.ub-transaction-proof {
+		grid-template-columns: minmax(0, 1fr);
+		padding-bottom: 3rem;
+	}
+	.ub-transaction-demo figcaption {
+		padding-inline: 1rem;
+	}
+	.ub-outcome-tabs [role='tabpanel'] {
+		padding: 1rem;
+	}
+	.ub-transaction-outcome {
+		padding: 0.75rem;
+	}
+	.ub-feature-grid {
+		gap: 2.5rem;
+	}
+	.ub-feature {
+		display: grid;
+		grid-template-columns: 1fr;
+	}
+	.ub-feature-visual {
+		min-height: 9rem;
+	}
+	.ub-type-example {
+		flex-direction: row;
+	}
+	.ub-type-example > svg {
+		transform: none;
+	}
+}
+
+.ub-demo-tabs [role='tab'][data-state='active'],
+.ub-outcome-tabs [role='tab'][data-state='active'] {
+	color: var(--landing-blue);
+}
+@media (max-width: 48rem) {
+	.ub-proof .ub-code pre {
+		padding-block: 2.25rem 1rem;
+		line-height: 1.55;
+	}
+	.ub-feature-visual {
+		min-height: 7rem;
+	}
+	.ub-feature-grid {
+		gap: 2rem;
+	}
 }

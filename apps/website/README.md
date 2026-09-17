@@ -177,16 +177,21 @@ and focus colors with the shared blue identity; it also keeps the semantic
 tokens needed by custom marketing surfaces. `components/brand-mark.tsx` owns
 the provisional geometric mark used by marketing navigation and the generated favicon.
 The landing page is the only custom content layout. Its blue introduction
-identifies UltimaBase as a TypeScript backend framework, then shows one Article
-schema beside keyboard-accessible read/write examples. The precise result types
-assume generated Typegen declarations; the example application uses PostgreSQL's
+identifies UltimaBase as a TypeScript backend framework, then offers Schema,
+Read, and Write tabs with copyable examples and their model field types.
+The precise result types assume generated Typegen declarations;
+the example application uses PostgreSQL's
 `fail` schema policy and directs first-time readers to Manual Installation.
 Plugin composition, a simplified shared execution diagram, and concrete
 transaction, relationship, security, and selection illustrations follow.
+Native Commit/Rollback tabs explain two transaction outcomes; they illustrate
+the contract without pretending to run a database in the browser.
 
 Marketing styling is scoped to `.ub-landing` in `app/landing.css`; documentation
 keeps the standard Fumadocs shell, code blocks, navigation, search, and theme
 controls. The examples use server-rendered Fumadocs code blocks and native tabs.
+Mounted tab panels share a grid cell to reserve their tallest content; inactive
+panels are visually hidden and excluded from focus and accessibility navigation.
 On narrow screens, code wraps within its panel. Decorative entry motion respects
 reduced-motion preferences. Pre-release status, source availability, and the
 Apache-2.0 license are explicit; no initializer or npm publication is implied.
@@ -202,15 +207,18 @@ Shared marketing surfaces live under `components/`:
 - `primitives.tsx` provides buttons, links, sections, and callouts.
 
 The content suite compiles the displayed landing examples against public package
-exports and real Typegen declarations, including negative checks for excluded
-fields and incorrect result types. On a fresh checkout, run the root
+exports and real Typegen declarations. The TypeScript checker verifies every
+displayed field type, including nullable fields; negative checks protect
+excluded fields and incorrect assignments. On a fresh checkout, run the root
 `yarn typecheck` first to emit workspace exports (as CI already does). The sample
 check compiles the static application only; it never starts a database connection.
 
 The browser tests build and start the production application, then check the
 first-view product proof, complete example visibility, light and dark shells,
 mobile and 200%-zoom-equivalent reflow, reduced motion, focus semantics,
-search and routing, and WCAG A/AA findings with Playwright and Axe.
+search and routing, and WCAG A/AA findings with Playwright and Axe. Landing
+interaction checks cover clipboard contents, stable tab heights, selected
+fields, transaction outcomes, and the application-setup anchor.
 
 [`docs/preview-readiness.md`](docs/preview-readiness.md) records the current
 private-preview audit, production asset totals, and the decisions required

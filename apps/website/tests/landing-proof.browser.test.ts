@@ -97,8 +97,9 @@ describe('landing product proof', () => {
 		try {
 			const page = await context.newPage()
 			await page.goto(harness.origin, { waitUntil: 'networkidle' })
-			const read = page.getByRole('tab', { name: 'Read data' })
-			const write = page.getByRole('tab', { name: 'Write data' })
+			const proof = page.locator('.ub-proof')
+			const read = proof.getByRole('tab', { name: 'Read', exact: true })
+			const write = proof.getByRole('tab', { name: 'Write', exact: true })
 			await read.focus()
 			await page.keyboard.press('ArrowRight')
 			await expect
@@ -108,7 +109,7 @@ describe('landing product proof', () => {
 				.toBe(true)
 			await page.keyboard.press('Enter')
 			await expect.poll(() => write.getAttribute('aria-selected')).toBe('true')
-			expect(await page.getByRole('tabpanel').textContent()).toContain(
+			expect(await proof.getByRole('tabpanel').textContent()).toContain(
 				'Article.createOne',
 			)
 			await page.keyboard.press('ArrowLeft')
@@ -119,7 +120,7 @@ describe('landing product proof', () => {
 				.toBe(true)
 			await page.keyboard.press('Enter')
 			await expect.poll(() => read.getAttribute('aria-selected')).toBe('true')
-			expect(await page.getByRole('tabpanel').textContent()).toContain(
+			expect(await proof.getByRole('tabpanel').textContent()).toContain(
 				'Article.findMany',
 			)
 			await page.setViewportSize({ height: 720, width: 320 })

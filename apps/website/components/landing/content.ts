@@ -5,39 +5,34 @@ export const schemaExample = `import { Schema } from '@ultimabase/core'
 
 export const Article = Schema.define({
   className: 'Article',
-  fields: (field) => ({
-    title: field.string({ required: true }),
-    slug: field.string({
-      required: true, indexed: 'unique',
-    }),
-    published: field.boolean({ default: false }),
+  fields: (f) => ({
+    title: f.string({ required: true }),
+    published: f.boolean({ default: false }),
   }),
 })`
 
 export const readExample = `const articles = await Article.findMany(
   {
-    where: { published: { eq: true } },
-    select: { title: true, slug: true },
+    where: {
+      published: { eq: true },
+    },
+    select: {
+      title: true,
+    },
     limit: 3,
   },
   { ultimabase: app },
-)
-
-articles[0]?.title // string | undefined
-articles[0]?.slug  // string | undefined`
+)`
 
 export const writeExample = `const article = await Article.createOne(
   {
     data: {
-      title: 'A place for your ideas',
-      slug: 'a-place-for-your-ideas',
+      title: 'Hello, world',
       published: true,
     },
   },
   { ultimabase: app },
-)
-
-article.title // string`
+)`
 
 export const applicationExample = `import { UltimaBase } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
@@ -70,17 +65,8 @@ export const pluginGroups = [
 
 export const landingFeatures = [
 	{
-		index: '01',
-		title: 'Writes that belong together.',
-		description:
-			'A mutation and the database work started by its hooks commit or roll back together. Nested writes share that transaction.',
-		href: currentDocumentationPath('core/writing-data/transactions'),
-		linkLabel: 'Explore transactions',
-		kind: 'transaction',
-	},
-	{
 		index: '02',
-		title: 'Your data has relationships.',
+		title: 'Read and write related data.',
 		description:
 			'Declare pointers and relations in your schema. Read related records and make nested writes through the same data APIs.',
 		href: currentDocumentationPath('core/data-modeling/relationships'),
@@ -89,7 +75,7 @@ export const landingFeatures = [
 	},
 	{
 		index: '03',
-		title: 'Identity is only the beginning.',
+		title: 'Keep identity and access separate.',
 		description:
 			'Authentication identifies a caller. Optional Access and ACL plugins decide what they can do. Roles grant nothing on their own.',
 		href: currentDocumentationPath('core/security-foundations/security-model'),
@@ -98,7 +84,7 @@ export const landingFeatures = [
 	},
 	{
 		index: '04',
-		title: 'Types stay close to your code.',
+		title: 'Generate types for your application.',
 		description:
 			'Get schema-aware fields and query results. Typegen generates declarations from your application, including installed plugins. Your app runs without a generated client.',
 		href: currentDocumentationPath('guides/generate-types'),

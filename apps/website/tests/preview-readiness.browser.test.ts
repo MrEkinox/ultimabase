@@ -76,7 +76,9 @@ describe('website preview audit', () => {
 					.getByRole('link', { name: 'Plugins' })
 					.getAttribute('href'),
 			).toBe('/docs/1.0.0/plugins/overview#official-plugins')
-			await page.getByRole('link', { name: 'Explore the docs' }).click()
+			await page
+				.getByRole('link', { name: 'Explore the documentation' })
+				.click()
 			await page.waitForURL(`${origin}/docs/1.0.0`)
 			await page
 				.getByRole('heading', { level: 1, name: 'What is UltimaBase' })

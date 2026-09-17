@@ -131,7 +131,7 @@ describe('website visual system', () => {
 				.getByRole('heading', { level: 1 })
 				.waitFor({ state: 'visible' })
 			await page
-				.getByRole('link', { name: 'Explore the docs' })
+				.getByRole('link', { name: 'Explore the documentation' })
 				.waitFor({ state: 'visible' })
 			await page
 				.getByRole('figure', { name: /Different APIs.*Same rules/u })
@@ -175,7 +175,7 @@ describe('website visual system', () => {
 					name: /Your data model.*A working backend/u,
 				})
 				.waitFor({ state: 'visible' })
-			await page.getByRole('tab', { name: 'Write data' }).waitFor()
+			await page.getByRole('tab', { name: 'Write', exact: true }).waitFor()
 			const applicationPreview = page.getByRole('region', {
 				name: 'Example application configuration',
 			})
@@ -198,14 +198,14 @@ describe('website visual system', () => {
 			).toBe(siteConfig.routes.plugins)
 			expect(
 				await page
-					.getByRole('link', { name: 'Explore the docs' })
+					.getByRole('link', { name: 'Explore the documentation' })
 					.getAttribute('href'),
 			).toBe(siteConfig.routes.docs)
 			expect(
 				await page
-					.getByRole('link', { name: 'View on GitHub' })
+					.getByRole('link', { name: 'Run the example' })
 					.getAttribute('href'),
-			).toBe(siteConfig.repositoryUrl.href)
+			).toBe(siteConfig.sourceExampleUrl.href)
 			expect(
 				await page
 					.getByRole('link', { name: 'Open the runnable example' })

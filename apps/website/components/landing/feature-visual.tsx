@@ -1,37 +1,11 @@
-import { ArrowRight, Check, GitBranch, ShieldCheck } from 'lucide-react'
+import { ArrowRight, GitBranch, ShieldCheck } from 'lucide-react'
 
 interface FeatureVisualProps {
-	readonly kind: 'transaction' | 'relation' | 'security' | 'types'
+	readonly kind: 'relation' | 'security' | 'types'
 }
 
 /** Illustrative diagrams describe contracts, not live database activity. */
 export function FeatureVisual({ kind }: FeatureVisualProps) {
-	if (kind === 'transaction')
-		return (
-			<div
-				className="ub-feature-visual ub-visual-transaction"
-				role="img"
-				aria-label="One transaction contains the mutation and its hook-started writes, followed by one commit."
-			>
-				<div className="ub-transaction" aria-hidden="true">
-					<div>
-						<span>01</span>
-						<code>Create Article</code>
-						<Check />
-					</div>
-					<div>
-						<span>02</span>
-						<code>Run hook-started writes</code>
-						<Check />
-					</div>
-					<div className="ub-transaction-commit">
-						<span>↳</span>
-						<strong>Commit together</strong>
-						<Check />
-					</div>
-				</div>
-			</div>
-		)
 	if (kind === 'relation')
 		return (
 			<div

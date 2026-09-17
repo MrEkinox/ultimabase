@@ -8,6 +8,7 @@ import { ApplicationProof } from './application-proof'
 import { ArchitectureFlow } from './architecture-flow'
 import { applicationExample, landingFeatures, pluginGroups } from './content'
 import { FeatureVisual } from './feature-visual'
+import { TransactionProof } from './transaction-proof'
 
 export function LandingPage() {
 	return (
@@ -33,15 +34,18 @@ export function LandingPage() {
 						</ButtonLink>
 						<ButtonLink
 							external
-							href={siteConfig.repositoryUrl.href}
+							href={siteConfig.sourceExampleUrl.href}
 							variant="secondary"
 						>
-							View on GitHub <ArrowUpRight aria-hidden="true" />
+							Run the example <ArrowUpRight aria-hidden="true" />
 						</ButtonLink>
 					</div>
 					<p className="ub-hero-note">
 						<span className="ub-status-dot" /> Open source · Pre-release{' '}
 						<span aria-hidden="true">/</span> Node.js 24+
+						<span className="ub-unpublished-note">
+							Packages are not published on npm yet.
+						</span>
 					</p>
 				</div>
 				<div className="ub-hero-equation" aria-hidden="true">
@@ -63,18 +67,18 @@ export function LandingPage() {
 				aria-label="Built for TypeScript developers"
 			>
 				<p>
-					UltimaBase turns <strong>TypeScript schemas</strong> into typed data
-					APIs. Built for developers working with relational data, it brings
-					queries, transactions, and <strong>composable plugins</strong> into
-					one backend.
+					For TypeScript teams building with relational data. Keep
+					<strong> queries and business rules together</strong>, and choose the
+					plugins your application needs.
 				</p>
 				<TextLink href={siteConfig.routes.docs}>
-					Explore the docs <ArrowUpRight aria-hidden="true" />
+					Explore the documentation <ArrowUpRight aria-hidden="true" />
 				</TextLink>
 			</Section>
 
 			<Section
 				className="ub-landing-composition"
+				id="application-setup"
 				aria-label="Example application configuration"
 			>
 				<div className="ub-composition-copy">
@@ -89,9 +93,8 @@ export function LandingPage() {
 						and authorization come from the plugins you install.
 					</p>
 					<p>
-						This application connects the Article schema to PostgreSQL. Typegen
-						generates your application’s types. Your application runs without a
-						generated client.
+						PostgreSQL stores your data. Typegen generates your application’s
+						types, without a generated runtime client.
 					</p>
 					<TextLink href={currentDocumentationPath('core/application')}>
 						How application assembly works <ArrowUpRight aria-hidden="true" />
@@ -138,19 +141,12 @@ export function LandingPage() {
 			</Section>
 
 			<Section className="ub-landing-details">
-				<div className="ub-section-heading">
-					<p className="ub-section-index">03 / BEYOND CRUD</p>
-					<h2>
-						The details that make
-						<br />a backend hold together.
-					</h2>
-					<p>From the shape of a result to the boundary of a transaction.</p>
-				</div>
+				<TransactionProof />
 				<div className="ub-feature-grid">
 					{landingFeatures.map((feature) => (
 						<article key={feature.index} className="ub-feature">
 							<FeatureVisual kind={feature.kind} />
-							<h3>{feature.title}</h3>
+							<h2>{feature.title}</h2>
 							<p>{feature.description}</p>
 							<TextLink href={feature.href}>
 								{feature.linkLabel} <ArrowUpRight aria-hidden="true" />

@@ -14,6 +14,7 @@ import {
 	schemaExample,
 	writeExample,
 } from '../components/landing/content'
+import { demoExamples } from '../components/landing/demo-content'
 
 const repositoryRoot = fileURLToPath(new URL('../../..', import.meta.url))
 
@@ -34,12 +35,12 @@ describe('landing page examples', () => {
 				readExample,
 				writeExample,
 				`const title: string = article.title
-const slug: string | undefined = articles[0]?.slug
+const selectedTitle: string | undefined = articles[0]?.title
 // @ts-expect-error A field excluded by select must not leak into the result type.
 articles[0]?.published
 // @ts-expect-error The schema requires a string title.
 const invalid: number = article.title
-void title; void slug; void invalid;
+void title; void selectedTitle; void invalid;
 await app.dispose()`,
 			].join('\n\n')
 			// Generate the real declaration without starting the application or connecting storage.
@@ -96,8 +97,41 @@ await app.dispose()`,
 					getNewLine: () => '\n',
 				}),
 			).toBe('')
+			// Read the compiler's inferred model properties, not handwritten substitute types.
+			const checker = program.getTypeChecker()
+			const compiled = program.getSourceFile(filename)
+			if (!compiled) throw new Error('Landing sample was not compiled')
+			const declarations = compiled.statements.flatMap((statement) =>
+				ts.isVariableStatement(statement)
+					? [...statement.declarationList.declarations]
+					: [],
+			)
+			for (const example of demoExamples) {
+				const name = example.label === 'Read' ? 'articles' : 'article'
+				const declaration = declarations.find(
+					(item) => item.name.getText(compiled) === name,
+				)
+				if (!declaration) throw new Error(`Missing sample variable: ${name}`)
+				const inferred = checker.getTypeAtLocation(declaration.name)
+				const model =
+					example.label === 'Read'
+						? checker.getIndexTypeOfType(inferred, ts.IndexKind.Number)
+						: inferred
+				if (!model) throw new Error('Missing inferred Article model')
+				for (const field of example.fields) {
+					const property = model.getProperty(field.name)
+					if (!property) throw new Error(`Missing model field: ${field.name}`)
+					expect(
+						checker.typeToString(
+							checker.getTypeOfSymbolAtLocation(property, declaration),
+						),
+					).toBe(field.type)
+				}
+				if (example.label === 'Read')
+					expect(model.getProperty('published')).toBeUndefined()
+			}
 		} finally {
 			await rm(directory, { recursive: true, force: true })
 		}
-	})
+	}, 20_000)
 })
