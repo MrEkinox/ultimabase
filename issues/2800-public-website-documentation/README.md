@@ -231,9 +231,9 @@ The home page follows one reader journey rather than enumerating packages:
 7. End with Documentation and GitHub calls to action.
 
 The page should feel editorial and product-specific: strong typography, a
-restrained neutral palette with one distinctive accent, crisp borders, and
-purposeful code or architectural diagrams. Avoid decorative gradients,
-floating glass cards, synthetic mascots, generic network globes, and claims
+restrained neutral palette with a distinctive blue accent shared with the docs,
+crisp borders, and purposeful code or architectural diagrams. Avoid decorative
+gradients, floating glass cards, synthetic mascots, generic network globes, and claims
 without repository evidence.
 
 ## Stop boundaries

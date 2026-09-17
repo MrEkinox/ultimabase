@@ -1,12 +1,9 @@
+import { ServerCodeBlock } from 'fumadocs-ui/components/codeblock.rsc'
+import Image from 'next/image'
+
 import { currentDocumentationPath } from '../../lib/docs-versions'
 import { siteConfig } from '../../lib/site'
-import {
-	ButtonLink,
-	CodeSurface,
-	Eyebrow,
-	Section,
-	TextLink,
-} from '../primitives'
+import { ButtonLink, Eyebrow, Section, TextLink } from '../primitives'
 import { ArchitectureFlow } from './architecture-flow'
 import { applicationExample, landingCopy } from './content'
 
@@ -47,22 +44,40 @@ export function LandingPage() {
 				className="ub-landing-preview"
 				aria-label="Example application configuration"
 			>
-				<div className="ub-preview">
-					<div className="ub-preview-topline" aria-hidden="true">
+				<div className="ub-preview" data-testid="visual-system-motion">
+					<div className="ub-preview-topline">
+						<span className="ub-preview-window-controls" aria-hidden="true">
+							<i />
+							<i />
+							<i />
+						</span>
 						<span>01 / A real application</span>
 						<span>Schema + explicit plugins</span>
 					</div>
 					<div className="ub-preview-body">
 						<div className="ub-preview-code">
-							<CodeSurface
+							<ServerCodeBlock
 								code={applicationExample}
-								label="src/application.ts"
+								lang="ts"
+								themes={{ light: 'github-dark', dark: 'github-dark' }}
+								codeblock={{
+									className: 'ub-preview-codeblock',
+									title: 'src/application.ts',
+								}}
 							/>
 						</div>
 						<div className="ub-preview-aside">
 							<p className="ub-preview-aside-index">Configured, not assumed</p>
 							<h2>{copy.preview.title}</h2>
 							<p>{copy.preview.description}</p>
+							<Image
+								alt=""
+								className="ub-preview-graph"
+								height={270}
+								src="/landing/application-graph.svg"
+								unoptimized
+								width={440}
+							/>
 							<ol
 								className="ub-preview-inventory"
 								aria-label="Configured parts"

@@ -43,9 +43,9 @@
 	width: 2rem;
 	height: 2rem;
 	place-items: center;
-	border: var(--ub-border-width) solid var(--ub-border-strong);
+	border: var(--ub-border-width) solid var(--ub-accent);
 	border-radius: var(--ub-radius-small);
-	background: var(--ub-foreground);
+	background: var(--ub-accent);
 	color: var(--ub-accent-contrast);
 }
 
@@ -179,45 +179,6 @@
 	text-decoration-color: currentColor;
 }
 
-.ub-code-surface {
-	overflow: hidden;
-	border: var(--ub-border-width) solid var(--ub-border-strong);
-	border-radius: var(--ub-radius-large);
-	background: var(--ub-code-background);
-	box-shadow: 0.75rem 0.75rem 0 var(--ub-accent-soft);
-	color: var(--ub-code-foreground);
-	transition:
-		box-shadow 180ms ease,
-		transform 180ms ease;
-}
-
-.ub-code-surface:hover {
-	transform: translate(-2px, -2px);
-	box-shadow: 1rem 1rem 0 var(--ub-accent-soft);
-}
-
-.ub-code-surface figcaption {
-	display: flex;
-	justify-content: space-between;
-	gap: var(--ub-space-4);
-	border-bottom: var(--ub-border-width) solid var(--ub-border);
-	padding: var(--ub-space-3) var(--ub-space-4);
-	color: var(--ub-muted);
-	font-family: var(--ub-font-mono);
-	font-size: 0.6875rem;
-	letter-spacing: 0.06em;
-	text-transform: uppercase;
-}
-
-.ub-code-surface pre {
-	overflow-x: auto;
-	margin: 0;
-	padding: clamp(var(--ub-space-4), 4vw, var(--ub-space-8));
-	font-family: var(--ub-font-mono);
-	font-size: clamp(0.75rem, 1.6vw, 0.875rem);
-	line-height: 1.8;
-}
-
 .ub-callout {
 	display: grid;
 	grid-template-columns: auto minmax(0, 1fr);
@@ -276,10 +237,6 @@
 }
 
 @media (max-width: 48rem) {
-	.ub-code-surface {
-		box-shadow: 0.5rem 0.5rem 0 var(--ub-accent-soft);
-	}
-
 	.ub-footer-inner {
 		align-items: flex-start;
 		flex-direction: column;
@@ -300,15 +257,13 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-	.ub-button,
-	.ub-code-surface {
+	.ub-button {
 		transition-duration: 0.01ms !important;
 		animation-duration: 0.01ms !important;
 		animation-iteration-count: 1 !important;
 	}
 
-	.ub-button:hover,
-	.ub-code-surface:hover {
+	.ub-button:hover {
 		transform: none;
 	}
 }

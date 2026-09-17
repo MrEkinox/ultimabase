@@ -171,22 +171,24 @@ new behavior.
 ## Visual system
 
 Documentation uses the standard Fumadocs docs layout and its official `black`
-color preset. `app/theme.css` keeps only the semantic tokens needed by the
-custom marketing surfaces. `components/brand-mark.tsx` owns the provisional
-geometric mark used by marketing navigation and the generated favicon.
+color preset. `app/theme.css` overrides only the light/dark primary, accent,
+and focus colors with the shared blue identity; it also keeps the semantic
+tokens needed by custom marketing surfaces. `components/brand-mark.tsx` owns
+the provisional geometric mark used by marketing navigation and the generated favicon.
 The landing page is the only custom content layout: its hero leads into a
 source-backed application configuration, an explanation of plugin composition,
 the shared execution path, and links to the relevant product contracts. Its
 pre-release status and project links stay visible rather than implying a
-hosted service or a stable release.
+hosted service or a stable release. The configuration preview uses Fumadocs'
+server-rendered code block and a local SVG diagram of the configured schema
+and plugins; it does not download remote hero imagery.
 
 Shared marketing surfaces live under `components/`:
 
 - `brand.tsx` provides the text mark and navigation identity;
 - `site-shell.tsx` provides the marketing footer while Fumadocs renders the
   responsive header from the shared options in `lib/layout.tsx`;
-- `primitives.tsx` provides buttons, links, sections, code surfaces, and
-  callouts.
+- `primitives.tsx` provides buttons, links, sections, and callouts.
 
 The browser test builds and starts the production application, then checks the
 light and dark shells, mobile and 200%-zoom-equivalent reflow, reduced motion,

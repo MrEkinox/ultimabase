@@ -1,4 +1,10 @@
 :root {
+	/* Keep Fumadocs' black surfaces; only the shared interactive accent changes. */
+	--color-fd-primary: #174bbf;
+	--color-fd-primary-foreground: #fff;
+	--color-fd-accent: #eaf1ff;
+	--color-fd-accent-foreground: #153f9d;
+	--color-fd-ring: #174bbf;
 	--ub-font-sans:
 		Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
 		'Segoe UI', sans-serif;
@@ -24,10 +30,14 @@
 	--ub-border-strong: var(--color-fd-ring);
 	--ub-accent: var(--color-fd-primary);
 	--ub-accent-hover: var(--color-fd-muted-foreground);
-	--ub-accent-soft: var(--color-fd-accent);
 	--ub-accent-contrast: var(--color-fd-primary-foreground);
 	--ub-focus: var(--color-fd-ring);
-	--ub-code-background: var(--color-fd-card);
-	--ub-code-foreground: var(--color-fd-card-foreground);
-	--ub-on-dark-accent: var(--color-fd-primary-foreground);
+}
+
+.dark {
+	--color-fd-primary: #8bb5ff;
+	--color-fd-primary-foreground: #08152f;
+	--color-fd-accent: #14274b;
+	--color-fd-accent-foreground: #d3e3ff;
+	--color-fd-ring: #8bb5ff;
 }

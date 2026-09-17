@@ -90,34 +90,6 @@ export function Eyebrow({
 	)
 }
 
-export interface CodeSurfaceProps {
-	readonly code: string
-	readonly label: string
-	readonly language?: string
-}
-
-export function CodeSurface({
-	code,
-	label,
-	language = 'TypeScript',
-}: CodeSurfaceProps) {
-	return (
-		<figure
-			className="ub-code-surface"
-			data-code-surface
-			data-testid="visual-system-motion"
-		>
-			<figcaption>
-				<span>{label}</span>
-				<span>{language}</span>
-			</figcaption>
-			<pre aria-label={`${label}, ${language}`} tabIndex={0}>
-				<code>{code}</code>
-			</pre>
-		</figure>
-	)
-}
-
 export interface CalloutProps {
 	readonly children: ReactNode
 	readonly title: string
