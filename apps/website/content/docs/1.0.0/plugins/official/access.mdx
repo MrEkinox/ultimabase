@@ -1,6 +1,6 @@
 ---
 title: Access
-description: Enforce operation, row, item, field, and transition policy through the optional official engine.
+description: Author operation, row, item, and field policies with the optional official Access plugin.
 audience:
   - application-developer
 contentType: guide
@@ -11,6 +11,12 @@ releaseStatus: pre-release
 reviewedAt: 2026-09-17
 sources:
   - packages/access-plugin/README.md
+  - packages/access-plugin/src/authoring/contracts.ts
+  - packages/access-plugin/src/authoring/field-declarations.ts
+  - packages/access-plugin/src/plugin.ts
+  - packages/password-auth-plugin/README.md
+  - tests/e2e/access-plugin-postgres.postgres.e2e.test.ts
+  - examples/minimal/src/schema.ts
   - docs/adr/0204-access-is-one-vertical-plugin.md
   - docs/adr/0205-protected-policy-contributions.md
   - docs/adr/0222-sparse-read-access-inherits-secure-defaults.md
@@ -18,19 +24,21 @@ sources:
 
 ## Overview
 
-`@ultimabase/access-plugin` is the optional official authorization engine.
-It owns schema and field `access` rules and enforces them through Core's
-protected Runtime boundary. Importing the package does not install a policy;
-an application without `accessPlugin()` has no official Access stage.
+`@ultimabase/access-plugin` adds the official authorization engine to an
+application. It owns schema and field `access` rules: which operations may run,
+which rows they may reach, which prepared items pass, and how fields may be read
+or written. Importing the package alone does nothing; install `accessPlugin()`
+in each application that uses these rules.
 
-Access can restrict operations, rows, individual items, fields, and mutation
-transitions. It does not authenticate a caller. Add an identity provider
-separately when rules need principals or roles.
+Access does not authenticate callers. [Password Authentication](./password-authentication)
+can provide an identity, and [Roles](./roles) can resolve membership, but
+neither grants access on its own. [Object ACLs](./acl-permissions) are a separate,
+persisted per-object policy that works with or without this plugin.
 
 ## Installation
 
-Start with an UltimaBase application and database provider. Install the
-official Access package:
+Start with an UltimaBase application and a database provider. Install the
+optional Access package:
 
 ```bash tab="npm" tab-group="package-manager"
 npm install @ultimabase/access-plugin
@@ -46,16 +54,19 @@ pnpm add @ultimabase/access-plugin
 
 ## Configuration
 
-Add the factory to your application's `plugins` and a declaration to each
-schema that needs an exact rule:
+Declare a policy on the schema it protects. This example permits reads of
+published articles, hides `internalNote`, and denies every mutation to ordinary
+callers:
 
 ```ts title="src/article.ts"
 import { Schema } from '@ultimabase/core'
-import { accessPlugin } from '@ultimabase/access-plugin'
 
 export const Article = Schema.define({
 	className: 'Article',
 	fields: (field) => ({
+		internalNote: field.string({
+			access: { read: false, write: false },
+		}),
 		published: field.boolean({ default: false }),
 		title: field.string({ required: true }),
 	}),
@@ -66,51 +77,221 @@ export const Article = Schema.define({
 		},
 	},
 })
-
-export const access = accessPlugin()
 ```
 
-Include `Article` in `schemas` and `access` in `plugins`. The example allows
-reads only from published rows. Create, update, delete, and other unspecified
-operations remain denied by the plugin default. `accessPlugin({ default: true })`
-changes that fallback for all native operations and request mutations; use it
-only after a deliberate policy review. A granular `default` object can set
-read capabilities and mutation families separately. Schema `access` defines
-exact rules; field `access` narrows reading, filtering, ordering, or writing
-that field.
+Install the plugin alongside the database provider and register the schema:
+
+```ts title="src/ultimabase.ts"
+import { accessPlugin } from '@ultimabase/access-plugin'
+import { UltimaBase } from '@ultimabase/core'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
+import { Article } from './article.js'
+
+const databaseUrl = process.env.DATABASE_URL
+if (!databaseUrl) throw new Error('DATABASE_URL is required')
+
+export const ultimabase = new UltimaBase({
+	schemas: [Article],
+	plugins: [postgresPlugin({ url: databaseUrl }), accessPlugin()],
+})
+
+await ultimabase.start()
+```
+
+The installed engine denies operations without an exact schema decision by
+default. In this example, `read.allow: true` covers all four read capabilities;
+the private row filter still limits them to published rows. Create, update,
+upsert, and delete remain denied. A normal result omits `internalNote`, while
+an explicit selection, filter, or sort using it is rejected. Audited Master
+requests bypass these Access restrictions.
+
+If you use generated TypeScript declarations, regenerate them after adding the
+plugin so the schema and field `access` options appear. JavaScript applications
+use the same compiled policy without Typegen.
 
 ## Behavior and limitations
 
-Access evaluates in this order:
+### Operation decisions and defaults
 
-1. **Operation** rules decide whether the requested read or mutation family
-   may begin.
-2. **Row** rules append private `where` predicates with logical `AND`.
-3. **Item** rules inspect the locked original and prepared candidate for
-   singular mutations.
-4. **Field** rules restrict filtering, ordering, output, and writes.
-5. **Value-dependent** rules run again after input resolution so a transformed
-   value cannot broaden an earlier decision.
+For each operation, Access evaluates an exact schema decision first. If the
+schema omits that decision, it uses the plugin's `default`. With plain
+`accessPlugin()`, that fallback is `false`. A compatible Access provider runs
+afterward and can only narrow an allowed decision.
 
-Omitted operations deny unless an exact schema rule or configured default
-allows them. Fields remain open until an exact rule or compatible provider
-narrows them. Compatible policy providers can only deny or restrict; they
-cannot turn an earlier denial into permission.
+| Schema key | Applies to                                                              |
+| ---------- | ----------------------------------------------------------------------- |
+| `read`     | `one` (`get` and `findOne`), `many` (`findMany`), `count`, and `exists` |
+| `create`   | Singular and itemized bulk creates                                      |
+| `update`   | Singular and itemized bulk updates                                      |
+| `upsert`   | Singular and itemized bulk upserts                                      |
+| `delete`   | Singular and itemized bulk deletes                                      |
 
-Master bypasses official Access callbacks and decisions. It still runs Core
-structural validation, installed application validation, Hooks, transactions,
-database constraints, and integrity work. A `hasRole()` rule needs the
-separate [Roles](./roles) resolver, and role membership alone grants nothing.
+Each schema key accepts a boolean, a request-aware boolean callback, or a
+detailed object. A detailed `read` rule can grant only selected capabilities:
+
+```ts title="src/count-only-article.ts"
+import { Schema } from '@ultimabase/core'
+
+export const CountOnlyArticle = Schema.define({
+	className: 'CountOnlyArticle',
+	fields: (field) => ({ title: field.string({ required: true }) }),
+	access: { read: { allow: { count: true } } },
+})
+```
+
+With plain `accessPlugin()`, `count` is allowed, while `one`, `many`, and
+`exists` stay denied. Omitted capabilities inherit their configured defaults;
+they are not implicitly allowed by a neighboring `true`.
+
+Use `accessPlugin({ default: true })` only when a permissive fallback is
+intentional: it allows native operations and plugin-owned request mutations
+unless an exact rule denies them. A granular default can separate those
+families—for example, `default: { read: { one: true, many: true, count: false,
+exists: true }, create: false }`. Every omitted family remains denied;
+`schemaMutations` controls plugin-owned request mutations. Defaults are static
+fallbacks, not a place for `where`, `item`, or request-aware callbacks.
+
+### Row and item rules
+
+Detailed schema rules separate the early `allow` decision from later checks:
+
+| Rule    | Available on                   | Checks                                                                            |
+| ------- | ------------------------------ | --------------------------------------------------------------------------------- |
+| `allow` | Every operation family         | Whether the operation may begin; a callback receives `context`                    |
+| `where` | Read, update, upsert, delete   | An additional private row predicate, combined with the caller's query using `AND` |
+| `item`  | Create, update, upsert, delete | A prepared draft, locked original, or final candidate according to the operation  |
+
+For example, an update can reach only unlocked rows and can keep a published
+article's title unchanged:
+
+```ts title="src/editable-article.ts"
+import { Schema } from '@ultimabase/core'
+
+export const EditableArticle = Schema.define({
+	className: 'EditableArticle',
+	fields: (field) => ({
+		locked: field.boolean({ default: false }),
+		published: field.boolean({ default: false }),
+		title: field.string({ required: true }),
+	}),
+	access: {
+		update: {
+			allow: true,
+			where: ({ where }) => where.eq('locked', false),
+			item: ({ item, originalItem }) =>
+				!originalItem.published || item.title === originalItem.title,
+		},
+	},
+})
+```
+
+`where` can be a static filter or a callback using the typed `where` builder.
+A callback may return `undefined` to add no row restriction. It does **not**
+grant an operation: `where` without `allow` still needs an allowed default.
+Row rules also constrain mutation targets; a target outside the visible row
+universe cannot be reached by changing the caller's predicate. `item` runs
+against stable, prepared values. For upsert it also receives `mode` (`create`
+or `update`); update and upsert-update receive `originalItem`.
+
+### Request-aware decisions
+
+An `allow` callback receives `context`, not a built-in `user` property. Read
+the typed value installed by an identity provider when the decision depends
+on the caller. For example, with the Password Authentication plugin configured
+in the same application:
+
+```ts title="src/private-note.ts"
+import { Schema } from '@ultimabase/core'
+import { passwordPrincipal } from '@ultimabase/password-auth-plugin'
+
+export const PrivateNote = Schema.define({
+	className: 'PrivateNote',
+	fields: (field) => ({ body: field.string({ required: true }) }),
+	access: {
+		read: ({ context }) => context.getValue(passwordPrincipal) !== undefined,
+	},
+})
+```
+
+This rule allows any authenticated caller to read notes; it does not make
+notes private to their owner. Use a row `where` rule for ownership and keep
+the operation decision explicit. The [Password Authentication](./password-authentication)
+page explains how the principal enters the request context, and
+[Roles](./roles) documents `hasRole()` for membership decisions.
+
+### Field read and write rules
+
+An undeclared field is available unless an exact field rule or compatible
+provider narrows it. Put `access` on a stored field, embedded property, or
+virtual field. For a virtual field, the rule protects the logical field as a
+whole, not individual properties inside its output descriptor.
+
+| Field rule                         | Effect                                                                                             |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `read: false`                      | Denies output, `where`, and `orderBy` together                                                     |
+| `read: { output, where, orderBy }` | Controls those three disclosure paths separately; all three keys are required                      |
+| `write: false`                     | Denies fills, replacements, and clears together                                                    |
+| `write: { fill, replace, clear }`  | Controls null-to-value, value-to-value, and value-to-null transitions; all three keys are required |
+
+For example, `read: { output: true, where: false, orderBy: false }` permits
+displaying a field but not using it to infer information through filtering or
+ordering. `write: { fill: true, replace: false, clear: false }` permits its first
+non-null value but prevents later replacement or clearing. Field callbacks
+receive the immutable request `context`; value-aware callbacks receive the
+relevant `value` or `originalValue`.
+
+A denied output field is omitted from ordinary results. Explicitly selecting
+it fails with `PERMISSION_DENIED`, as does an unauthorized filter, order, or
+write. Relation fields use `access.read` for traversal and `access.write` for
+logical edge changes; nested writes check the source relation before running
+each child's own Access policy. See [Related Data](/docs/1.0.0/core/reading-data/related-data)
+and [Nested Writes](/docs/1.0.0/core/writing-data/nested-writes) for those
+operations.
+
+### Plugin-owned mutations and policy composition
+
+A plugin-owned request mutation, such as explicit
+[Soft Delete](./soft-delete), has its own exact schema `access` key. It does not
+inherit `update` or `delete` permission merely because its physical effect is
+an update or delete. Its detailed rule can use `allow`, `where`, and `item`;
+the `item` callback sees the locked original and the resolved candidate.
+When no exact rule exists, the `schemaMutations` default applies. Master-only
+commands do not become public through that default.
+
+Compatible provider contributions join schema decisions through logical
+`AND`; private row filters also join through `AND`, and field restrictions
+intersect. A provider cannot turn a denial into a grant. [Object ACLs](./acl-permissions)
+use Core's independent protected-policy boundary and compose with Access
+without depending on it. Authentication and role membership supply facts for
+rules; they do not authorize an operation by themselves.
+
+Access checks run around Core's prepared mutation pipeline, including a
+reevaluation after input resolution. A Hook cannot remove accumulated Access
+restrictions. Trusted, audited Master authority bypasses the complete official
+Access policy, including field rules and compatible-provider callbacks; it
+still runs validation, Hooks, transactions, database constraints, and integrity
+work. Never expose Master as a substitute for a public policy.
 
 ## Troubleshooting
 
-If every request is denied, inspect the effective operation default and the
-schema's exact rule before changing any Master configuration. A sparse
-`read.allow` declaration inherits omitted read capabilities from the
-plugin default; it is not an implicit grant.
-
-If a field disappears or a filtered query fails, inspect its field rule and
-the caller's request context. If an `access` declaration is rejected during
-application compilation, confirm `accessPlugin()` is in the same application
-graph. Never use Master authority to make a broken public policy appear to
-work.
+- **Every request is denied:** confirm `accessPlugin()` is installed and check
+  the exact schema decision and plugin default. Plain `accessPlugin()` denies
+  operations that the schema does not allow. A `where` or `item` rule alone is
+  not an operation grant.
+- **`count` works but `findMany` fails:** inspect `read.allow`. A sparse
+  declaration such as `{ count: true }` leaves `many`, `one`, and `exists` at
+  their defaults.
+- **A row cannot be found or updated:** check the caller's query together with
+  the private `where` restrictions on the relevant operation. Check `item`
+  separately if a prepared target is rejected.
+- **A field is missing or a query fails with `PERMISSION_DENIED`:** check all
+  three read channels (`output`, `where`, `orderBy`) and the write transition
+  that the operation performs. Explicit selection of a denied field fails;
+  ordinary output omits it.
+- **An `access` option is rejected during compilation:** install
+  `accessPlugin()` in that application, regenerate types if you use Typegen,
+  and check the exact rule shape. Read capabilities may be sparse, but grouped
+  field read and write rules must be complete.
+- **A role-dependent rule denies unexpectedly:** verify that [Roles](./roles)
+  and its subject resolver are configured in the same application. Do not use
+  Master to hide a broken caller policy.
