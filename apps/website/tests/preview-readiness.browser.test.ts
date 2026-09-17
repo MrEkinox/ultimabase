@@ -75,11 +75,11 @@ describe('website preview audit', () => {
 					.locator('#nd-nav')
 					.getByRole('link', { name: 'Plugins' })
 					.getAttribute('href'),
-			).toBe('/docs/1.0.0/plugins/overview')
-			await page.getByRole('link', { name: 'Start building' }).click()
-			await page.waitForURL(`${origin}/docs/1.0.0/manual-installation`)
+			).toBe('/docs/1.0.0/plugins/overview#official-plugins')
+			await page.getByRole('link', { name: 'Explore the docs' }).click()
+			await page.waitForURL(`${origin}/docs/1.0.0`)
 			await page
-				.getByRole('heading', { level: 1, name: 'Manual Installation' })
+				.getByRole('heading', { level: 1, name: 'What is UltimaBase' })
 				.waitFor()
 
 			expect(
@@ -144,7 +144,7 @@ describe('website preview audit', () => {
 			const clientErrors = collectClientErrors(page)
 			await page.goto(origin)
 			const projectInformation = page.getByRole('navigation', {
-				name: 'Project information',
+				name: 'Footer',
 			})
 			for (const [label, route] of [
 				['Release status', siteConfig.routes.releaseStatus],
@@ -221,7 +221,7 @@ describe('website preview audit', () => {
 
 			await page.goto(origin)
 			await page
-				.getByRole('figure', { name: 'Three entry points. One Runtime.' })
+				.getByRole('figure', { name: 'Three ways in. One execution path.' })
 				.waitFor()
 			expect(await accessibilityViolations(page)).toEqual([])
 		} finally {

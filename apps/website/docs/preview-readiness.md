@@ -39,8 +39,10 @@ same page title, description, and provisional canonical origin. The
 generated favicon uses the replaceable geometric mark. Sitemap, robots, Project
 metadata and 404 responses have
 production-browser coverage. The global navigation exposes Docs, Plugins, and
-GitHub; the landing page links directly to release status, roadmap, and
-contribution guidance near its end. The former `/examples` pages are removed;
+GitHub; the Plugins link opens the official catalog in the plugin overview.
+The landing footer links directly to release status, roadmap, and contribution
+guidance. Its main action opens the documentation rather than implying that
+unpublished npm packages are ready to install. The former `/examples` pages are removed;
 the repository examples remain maintained as source material for guides.
 
 No social-card image is included while the product name and public domain are

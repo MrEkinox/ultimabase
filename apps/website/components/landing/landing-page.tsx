@@ -25,7 +25,7 @@ export function LandingPage() {
 					</h1>
 					<p className="ub-lede">{copy.hero.description}</p>
 					<div className="ub-action-row">
-						<ButtonLink href={siteConfig.routes.gettingStarted}>
+						<ButtonLink href={siteConfig.routes.docs}>
 							{copy.hero.primaryAction}
 						</ButtonLink>
 						<ButtonLink
@@ -89,9 +89,7 @@ export function LandingPage() {
 								<h3>{feature.title}</h3>
 								<p>{feature.description}</p>
 							</div>
-							<TextLink href={feature.href}>
-								{copy.evidence.featureLink}
-							</TextLink>
+							<TextLink href={feature.href}>{feature.linkLabel}</TextLink>
 						</li>
 					))}
 				</ol>
@@ -103,23 +101,11 @@ export function LandingPage() {
 					<h2>{copy.status.title}</h2>
 					<p>{copy.status.description}</p>
 					<div className="ub-action-row">
-						<ButtonLink href={siteConfig.routes.gettingStarted}>
+						<ButtonLink external href={siteConfig.sourceExampleUrl.href}>
 							{copy.status.primaryAction}
 						</ButtonLink>
 					</div>
 				</div>
-				<nav
-					aria-label="Project information"
-					className="ub-landing-project-links"
-				>
-					<TextLink href={siteConfig.routes.releaseStatus}>
-						Release status
-					</TextLink>
-					<TextLink href={siteConfig.routes.roadmap}>Roadmap</TextLink>
-					<TextLink href={siteConfig.routes.contributing}>
-						Contributing
-					</TextLink>
-				</nav>
 			</Section>
 		</div>
 	)

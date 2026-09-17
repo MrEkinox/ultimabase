@@ -21,6 +21,7 @@ export interface SiteConfig {
 	}
 	readonly releaseStatus: SiteReleaseStatus
 	readonly repositoryUrl: URL
+	readonly sourceExampleUrl: URL
 	readonly sourceRepository: {
 		readonly branch: string
 		readonly name: string
@@ -29,7 +30,6 @@ export interface SiteConfig {
 	readonly routes: {
 		readonly contributing: string
 		readonly docs: string
-		readonly gettingStarted: string
 		readonly plugins: string
 		readonly releaseStatus: string
 		readonly roadmap: string
@@ -45,6 +45,9 @@ const sourceRepository = Object.freeze({
 const repositoryUrl = new URL(
 	`https://github.com/${sourceRepository.owner}/${sourceRepository.name}`,
 )
+const sourceExampleUrl = new URL(
+	`${repositoryUrl.href}/blob/${sourceRepository.branch}/examples/minimal/README.md`,
+)
 const preview: SiteConfig['preview'] = Object.freeze({
 	indexable: false,
 	reviewedAt: '2026-09-14',
@@ -52,8 +55,7 @@ const preview: SiteConfig['preview'] = Object.freeze({
 const routes: SiteConfig['routes'] = Object.freeze({
 	contributing: currentDocumentationPath('project/contributing'),
 	docs: currentDocumentationPath(),
-	gettingStarted: currentDocumentationPath('manual-installation'),
-	plugins: currentDocumentationPath('plugins/overview'),
+	plugins: `${currentDocumentationPath('plugins/overview')}#official-plugins`,
 	releaseStatus: currentDocumentationPath('project/release-status'),
 	roadmap: currentDocumentationPath('project/roadmap'),
 })
@@ -67,7 +69,7 @@ const routes: SiteConfig['routes'] = Object.freeze({
 export const siteConfig = Object.freeze({
 	canonicalUrl,
 	description:
-		'A typed TypeScript backend framework with explicit plugins and one runtime path.',
+		'UltimaBase is an open-source TypeScript backend framework for typed data APIs built from schemas and optional plugins.',
 	name: 'UltimaBase',
 	navigation: Object.freeze([
 		{ href: routes.docs, label: 'Docs' },
@@ -81,6 +83,7 @@ export const siteConfig = Object.freeze({
 	preview,
 	releaseStatus: 'pre-release',
 	repositoryUrl,
+	sourceExampleUrl,
 	sourceRepository,
 	routes,
 } satisfies SiteConfig)

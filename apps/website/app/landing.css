@@ -598,22 +598,6 @@ html.dark .ub-landing {
 	background: #eaf1ff;
 }
 
-.ub-landing-project-links {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 1rem 2rem;
-	border-top: 1px solid #4475ce;
-	padding: 1.5rem clamp(2rem, 6vw, 5rem);
-}
-
-.ub-landing-project-links .ub-text-link {
-	color: #dce9ff;
-}
-
-.ub-landing-project-links .ub-text-link:hover {
-	color: #fff;
-}
-
 @media (max-width: 67rem) {
 	.ub-landing-hero {
 		grid-template-columns: minmax(0, 1fr);

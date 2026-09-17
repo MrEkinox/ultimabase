@@ -5,6 +5,7 @@ export interface LandingFeature {
 	readonly description: string
 	readonly href: string
 	readonly index: string
+	readonly linkLabel: string
 	readonly title: string
 }
 
@@ -25,7 +26,6 @@ export interface LandingFlowCopy {
 export interface LandingCopy {
 	readonly evidence: Readonly<{
 		readonly description: string
-		readonly featureLink: string
 		readonly index: string
 		readonly title: string
 	}>
@@ -87,103 +87,110 @@ await app.start()`
 export const landingFeatures: readonly LandingFeature[] = Object.freeze([
 	{
 		description:
-			'Drizzle stays private while schemas, queries, constraints, and lifecycle remain framework-owned.',
+			'Define schemas and queries in UltimaBase. The PostgreSQL plugin handles storage without making your application use Drizzle.',
 		href: currentDocumentationPath('plugins/official/postgresql'),
 		index: '01',
-		title: 'PostgreSQL, without leaking the adapter',
+		linkLabel: 'Read the PostgreSQL guide',
+		title: 'PostgreSQL behind a plugin',
 	},
 	{
 		description:
-			'Every mutation and database work started by its hooks share one automatic transaction.',
+			'A mutation and the database work started by its hooks commit or roll back together.',
 		href: currentDocumentationPath('core/writing-data/transactions'),
 		index: '02',
-		title: 'Automatic mutation transactions',
+		linkLabel: 'Read about transactions',
+		title: 'Transactions around writes',
 	},
 	{
 		description:
-			'Typed pointers, relations, inclusions, nested writes, and contextual views use one model.',
+			'Define pointers and relations once, then use them in reads and nested writes across enabled entry points.',
 		href: currentDocumentationPath('core/data-modeling/relationships'),
 		index: '03',
-		title: 'Relationships with one meaning',
+		linkLabel: 'Read about relationships',
+		title: 'Relationships across entry points',
 	},
 	{
 		description:
-			'Core structural checks compose with optional Standard Schema application validation.',
+			'Core checks data structure. Add the Validation plugin when your application needs its own field rules.',
 		href: currentDocumentationPath('plugins/official/validation'),
 		index: '04',
-		title: 'Validation at the right boundary',
+		linkLabel: 'Read the Validation guide',
+		title: 'Validation you can extend',
 	},
 	{
 		description:
-			'Authentication, Access, Roles, and ACL stay independently removable and monotonically restrictive.',
+			'Authentication identifies callers. Optional Access and ACL plugins enforce authorization; roles can inform those policies.',
 		href: currentDocumentationPath('core/security-foundations/security-model'),
 		index: '05',
-		title: 'Explicit security capabilities',
+		linkLabel: 'Read the security model',
+		title: 'Identity separate from permissions',
 	},
 	{
 		description:
-			'Generated declarations improve autocomplete without becoming runtime truth or a required client.',
+			'Optional Typegen emits replaceable TypeScript declarations for autocomplete. Your application runs without a generated client.',
 		href: currentDocumentationPath('guides/generate-types'),
 		index: '06',
-		title: 'Replaceable Typegen declarations',
+		linkLabel: 'Read the Typegen guide',
+		title: 'Types without a generated client',
 	},
 ])
 
 export const landingCopy: LandingCopy = Object.freeze({
 	evidence: {
 		description:
-			'Relationships, writes, validation, security, and types each have a clear place in the application graph.',
-		featureLink: 'Explore',
-		index: '03 / The details',
-		title: 'The same rules reach the hard parts.',
+			'Start with schema-backed reads and writes. Add relationships, validation, and security without building a separate path for each API.',
+		index: '03 / Capabilities',
+		title: 'More than basic data operations.',
 	},
 	features: landingFeatures,
 	flow: {
-		connector: 'one operation',
+		connector: 'shared operation',
 		description:
-			'Transport syntax changes. Validation, policy, hooks, transactions, and persistence semantics do not.',
+			'When you add REST or GraphQL, their requests enter the same operation pipeline as direct TypeScript calls. Core validation and mutation transactions stay consistent; installed policy and Hooks plugins join that path.',
 		entryPointsLabel: 'Application entry points',
 		index: '02 / One execution model',
 		inputs: [
-			{ detail: 'Immutable Query and model commands', label: 'TypeScript' },
-			{ detail: 'Versioned resource protocol', label: 'REST' },
-			{ detail: 'Schema and plugin operations', label: 'GraphQL' },
+			{ detail: 'Direct schema and Query calls', label: 'TypeScript' },
+			{ detail: 'Routes from an optional plugin', label: 'REST' },
+			{
+				detail: 'Queries and mutations from an optional plugin',
+				label: 'GraphQL',
+			},
 		],
 		stages: [
-			'Normalize one operation',
-			'Validate and authorize',
-			'Run hooks and transaction',
-			'Persist through PostgreSQL',
+			'Normalize the request',
+			'Validate and apply installed policies',
+			'Run installed hooks and write transactions',
+			'Read or write through PostgreSQL',
 		],
 		stagesLabel: 'Shared runtime stages',
-		title: 'Three entry points. One Runtime.',
+		title: 'Three ways in. One execution path.',
 	},
 	hero: {
 		description:
-			'Define schemas and choose plugins in TypeScript. Direct calls, REST, and GraphQL share one Runtime.',
-		firstLine: 'One graph.',
+			'UltimaBase is a TypeScript backend framework. Define schemas; plugins add storage, REST, and GraphQL.',
+		firstLine: 'Typed APIs.',
 		note: 'Node.js 24+ · TypeScript · Apache-2.0',
-		primaryAction: 'Start building',
-		secondLine: 'Every API.',
+		primaryAction: 'Explore the docs',
+		secondLine: 'One model.',
 		secondaryAction: 'View on GitHub',
 		status: `${siteConfig.releaseStatus} · open source`,
 	},
 	preview: {
-		caption:
-			'One schema and two explicit plugins. No generated Runtime client.',
-		link: 'Explore the application graph',
+		caption: 'Typegen adds editor types; it is not required to run the app.',
+		link: 'How application assembly works',
 	},
 	principle: {
 		description:
-			'Choose the capabilities that belong in your application. Each plugin declares its contribution and the privileges or environmental access it needs. Remove it, and its behavior goes with it.',
-		index: '01 / Explicit composition',
-		title: 'A small core. A deliberate stack.',
+			'An UltimaBase application combines your schemas with only the capabilities you install. This example stores Article records in PostgreSQL and generates TypeScript declarations. Add REST, GraphQL, or security plugins when you need them.',
+		index: '01 / How it works',
+		title: 'One schema. The plugins you choose.',
 	},
 	status: {
 		description:
-			'UltimaBase is in active pre-release development. Explore the API, read the release status, and help shape what comes next.',
-		eyebrow: 'Build with us',
-		primaryAction: 'Read Manual Installation',
-		title: 'Build on a contract you can inspect.',
+			'The packages are not published on npm yet. Run the maintained repository example to see PostgreSQL, REST, and GraphQL working together, then check Release Status before adopting the framework.',
+		eyebrow: 'Pre-release',
+		primaryAction: 'Open the runnable example',
+		title: 'Try UltimaBase from source.',
 	},
 })

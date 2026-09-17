@@ -131,10 +131,10 @@ describe('website visual system', () => {
 				.getByRole('heading', { level: 1 })
 				.waitFor({ state: 'visible' })
 			await page
-				.getByRole('link', { name: 'Start building' })
+				.getByRole('link', { name: 'Explore the docs' })
 				.waitFor({ state: 'visible' })
 			await page
-				.getByRole('figure', { name: 'Three entry points. One Runtime.' })
+				.getByRole('figure', { name: 'Three ways in. One execution path.' })
 				.waitFor({ state: 'attached' })
 			expect(
 				await page.evaluate(
@@ -172,7 +172,7 @@ describe('website visual system', () => {
 			await page
 				.getByRole('heading', {
 					level: 1,
-					name: 'One graph. Every API.',
+					name: 'Typed APIs. One model.',
 				})
 				.waitFor({ state: 'visible' })
 			expect(await page.getByText('Article.createOne').count()).toBe(1)
@@ -181,7 +181,7 @@ describe('website visual system', () => {
 			})
 			expect(
 				await applicationPreview
-					.getByRole('link', { name: 'Explore the application graph' })
+					.getByRole('link', { name: 'How application assembly works' })
 					.getAttribute('href'),
 			).toBe(currentDocumentationPath('core/application'))
 			expect(
@@ -192,33 +192,32 @@ describe('website visual system', () => {
 			).toBe(siteConfig.routes.docs)
 			expect(
 				await page
-					.getByRole('link', { name: 'Start building' })
+					.locator('#nd-nav')
+					.getByRole('link', { name: 'Plugins' })
 					.getAttribute('href'),
-			).toBe(siteConfig.routes.gettingStarted)
+			).toBe(siteConfig.routes.plugins)
+			expect(
+				await page
+					.getByRole('link', { name: 'Explore the docs' })
+					.getAttribute('href'),
+			).toBe(siteConfig.routes.docs)
 			expect(
 				await page
 					.getByRole('link', { name: 'View on GitHub' })
 					.getAttribute('href'),
 			).toBe(siteConfig.repositoryUrl.href)
-			const projectInformation = page.getByRole('navigation', {
-				name: 'Project information',
-			})
 			expect(
-				await projectInformation
-					.getByRole('link', { name: 'Release status' })
+				await page
+					.getByRole('link', { name: 'Open the runnable example' })
 					.getAttribute('href'),
-			).toBe(siteConfig.routes.releaseStatus)
+			).toBe(siteConfig.sourceExampleUrl.href)
 			expect(
-				await projectInformation
-					.getByRole('link', { name: 'Roadmap' })
+				await page
+					.getByRole('link', { name: 'Read the security model' })
 					.getAttribute('href'),
-			).toBe(siteConfig.routes.roadmap)
-			expect(
-				await projectInformation
-					.getByRole('link', { name: 'Contributing' })
-					.getAttribute('href'),
-			).toBe(siteConfig.routes.contributing)
-
+			).toBe(
+				currentDocumentationPath('core/security-foundations/security-model'),
+			)
 			const root = page.locator('html')
 			expect((await root.getAttribute('class')) ?? '').not.toContain('dark')
 			await page.getByRole('button', { name: 'Toggle Theme' }).click()

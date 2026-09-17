@@ -213,13 +213,13 @@
 }
 
 .ub-footer-inner {
-	display: flex;
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
 	width: min(100% - 2rem, 74rem);
 	margin-inline: auto;
-	align-items: flex-end;
-	justify-content: space-between;
-	gap: var(--ub-space-8);
-	padding-block: var(--ub-space-8);
+	align-items: start;
+	gap: clamp(3rem, 8vw, 7rem);
+	padding-block: clamp(2.5rem, 5vw, 4rem);
 }
 
 .ub-footer-identity p {
@@ -231,15 +231,35 @@
 }
 
 .ub-site-footer nav {
-	display: flex;
-	flex-wrap: wrap;
-	gap: var(--ub-space-6);
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: clamp(2rem, 5vw, 5rem);
+}
+
+.ub-footer-group {
+	display: grid;
+	align-content: start;
+	gap: 0.8rem;
+}
+
+.ub-footer-group h2 {
+	margin: 0 0 0.35rem;
+	color: var(--ub-muted);
+	font-size: 0.75rem;
+	font-weight: 700;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+}
+
+.ub-footer-group .ub-text-link {
+	justify-self: start;
+	font-size: 0.9375rem;
 }
 
 @media (max-width: 48rem) {
 	.ub-footer-inner {
-		align-items: flex-start;
-		flex-direction: column;
+		grid-template-columns: minmax(0, 1fr);
+		gap: 2rem;
 	}
 }
 

@@ -33,6 +33,12 @@ describe('landing product proof', () => {
 			try {
 				const page = await context.newPage()
 				await page.goto(harness.origin)
+				expect(
+					await page
+						.locator('.ub-landing-hero')
+						.getByText(/TypeScript backend framework/)
+						.count(),
+				).toBe(1)
 				const output = page.locator('.ub-proof-output')
 				await output.waitFor({ state: 'visible' })
 				const outputTop = await output.evaluate(
@@ -63,6 +69,30 @@ describe('landing product proof', () => {
 				(element) => element.scrollHeight > element.clientHeight + 1,
 			)
 			expect(isClipped).toBe(false)
+		} finally {
+			await context.close()
+		}
+	})
+
+	it('opens the official plugin catalog from the global navigation', async () => {
+		const context = await browser?.newContext({
+			viewport: { height: 900, width: 1440 },
+		})
+		if (context === undefined || harness === undefined) {
+			throw new Error('Browser did not start')
+		}
+
+		try {
+			const page = await context.newPage()
+			await page.goto(harness.origin)
+			await page
+				.locator('#nd-nav')
+				.getByRole('link', { name: 'Plugins' })
+				.click()
+			await page.waitForURL(
+				`${harness.origin}/docs/1.0.0/plugins/overview#official-plugins`,
+			)
+			await page.locator('#official-plugins').waitFor()
 		} finally {
 			await context.close()
 		}

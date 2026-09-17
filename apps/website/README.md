@@ -32,8 +32,9 @@ in version folders such as `content/docs/1.0.0`; root `docs/` remains the
 engineering source for ADRs, specifications, and implementation plans.
 
 Source-backed release status, roadmap, and contribution guidance live under
-`/docs/1.0.0/project/*` and are linked directly from the landing page's final section. The
-global Plugins link points directly to the public plugin overview. The former
+`/docs/1.0.0/project/*` and are linked from the marketing footer. The
+global Plugins link opens the official-plugin catalog section of the public
+plugin overview. The former
 `/examples` pages are no longer published; the runnable repository examples
 remain available as sources for guides and tests.
 
@@ -175,12 +176,13 @@ color preset. `app/theme.css` overrides only the light/dark primary, accent,
 and focus colors with the shared blue identity; it also keeps the semantic
 tokens needed by custom marketing surfaces. `components/brand-mark.tsx` owns
 the provisional geometric mark used by marketing navigation and the generated favicon.
-The landing page is the only custom content layout: its first viewport shows
-the declared Article schema and explicit plugins compiling into one application,
-followed by a source-backed configuration, the shared execution path, and links
-to the relevant product contracts. Its
-pre-release status and project links stay visible rather than implying a
-hosted service or a stable release. The configuration preview uses Fumadocs'
+The landing page is the only custom content layout: its first viewport names
+UltimaBase as a TypeScript backend framework and shows the declared Article
+schema and explicit plugins compiling into one application. A source-backed
+configuration, the shared execution path, and links to the relevant product
+contracts follow. Its pre-release status and source-example action do not
+imply that npm packages or a hosted service are available. The marketing
+footer groups documentation and project links. The configuration preview uses Fumadocs'
 server-rendered code block; the first-view proof uses semantic HTML rather than
 an image or a simulated product dashboard.
 

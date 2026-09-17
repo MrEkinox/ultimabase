@@ -7,8 +7,8 @@ export function ApplicationProof() {
 			data-testid="visual-system-motion"
 		>
 			<div className="ub-proof-toolbar">
-				<span>APPLICATION GRAPH / 01</span>
-				<span className="ub-proof-live">ONE OWNER</span>
+				<span>SCHEMA + PLUGINS</span>
+				<span className="ub-proof-live">ONE APPLICATION</span>
 			</div>
 			<div className="ub-proof-body">
 				<div className="ub-proof-inputs">
@@ -27,7 +27,7 @@ export function ApplicationProof() {
 						</dl>
 					</div>
 					<div className="ub-proof-plugins">
-						<p>02 / COMPOSE</p>
+						<p>02 / ADD PLUGINS</p>
 						<ul>
 							<li>
 								PostgreSQL <span>persistence</span>
@@ -62,7 +62,8 @@ export function ApplicationProof() {
 				</div>
 			</div>
 			<figcaption id="ub-proof-caption">
-				Direct TypeScript shown. REST and GraphQL need their own plugins.
+				This example shows direct TypeScript calls. REST and GraphQL are
+				optional plugins.
 			</figcaption>
 		</figure>
 	)
