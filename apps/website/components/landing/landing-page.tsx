@@ -18,9 +18,7 @@ export function LandingPage() {
 		<div className="ub-landing">
 			<Section className="ub-landing-hero">
 				<div className="ub-landing-hero-copy">
-					<p className="ub-landing-kicker">
-						<span aria-hidden="true">[ ub ]</span> TypeScript backend framework
-					</p>
+					<p className="ub-landing-kicker">TypeScript backend framework</p>
 					<h1>
 						Your data model.
 						<br />
