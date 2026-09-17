@@ -147,6 +147,7 @@ The public route architecture is:
 │       │   │   ├── roles
 │       │   │   ├── acl-permissions
 │       │   │   ├── http
+│       │   │   ├── hono-server
 │       │   │   ├── rest
 │       │   │   └── graphql
 │       │   ├── community-plugins
@@ -176,8 +177,8 @@ navigation. In particular, official plugin pages own installation,
 configuration, behavior, reference, limitations, and troubleshooting without a
 same-named folder and child page. Closely related optional packages may share
 one page while retaining their separate plugin identity and configuration:
-`http` includes Hono server integration, and `graphql` includes Yoga and the
-optional GraphiQL and Apollo Sandbox explorers. Every official plugin guide is
+`http` and `hono-server` have separate guides, while `graphql` includes Yoga
+and the optional GraphiQL and Apollo Sandbox explorers. Every official plugin guide is
 a direct child of `official`; there are no category folders. A new route is
 justified only when the reader can complete it as an independent task.
 

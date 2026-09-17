@@ -85,6 +85,7 @@ const canonicalNavigation = {
 		'roles',
 		'acl-permissions',
 		'http',
+		'hono-server',
 		'rest',
 		'graphql',
 	],
@@ -125,15 +126,19 @@ describe('documentation navigation architecture', () => {
 		}
 	})
 
-	it('keeps HTTP and GraphQL companion plugins on their owning pages', async () => {
+	it('keeps Hono separate from HTTP while GraphQL companions share one guide', async () => {
 		const directory = path.join(contentRoot, '1.0.0/plugins/official')
-		const [http, graphql] = await Promise.all([
+		const [http, hono, graphql] = await Promise.all([
 			readFile(path.join(directory, 'http.mdx'), 'utf8'),
+			readFile(path.join(directory, 'hono-server.mdx'), 'utf8'),
 			readFile(path.join(directory, 'graphql.mdx'), 'utf8'),
 		])
 
-		expect(http).toContain('## Run a Node.js server with Hono')
-		expect(http).toContain('`@ultimabase/server-hono-plugin`')
+		expect(http).toContain('[Hono Server](./hono-server)')
+		expect(http).not.toContain('## Run a Node.js server with Hono')
+		expect(hono).toContain('`@ultimabase/server-hono-plugin`')
+		expect(hono).toContain('## Configuration')
+		expect(hono).toContain('## Troubleshooting')
 		expect(graphql).toContain('## Serve GraphQL over HTTP with Yoga')
 		expect(graphql).toContain('## Choose a development explorer')
 		for (const plugin of ['graphql-yoga', 'graphiql', 'apollo-sandbox']) {

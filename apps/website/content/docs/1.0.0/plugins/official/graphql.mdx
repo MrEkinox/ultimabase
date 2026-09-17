@@ -45,8 +45,8 @@ Generated fields still need a database provider such as
 [PostgreSQL](./postgresql), even when execution has no HTTP server. See
 [Manual Installation](/docs/1.0.0/manual-installation) for the initial project.
 
-To serve GraphQL with the official Node.js Hono provider, also install these
-three plugins:
+To serve GraphQL with the official [Hono Server](./hono-server) provider, also
+install these three plugins:
 
 ```bash tab="npm" tab-group="package-manager"
 npm install @ultimabase/graphql-yoga-plugin @ultimabase/http-plugin @ultimabase/server-hono-plugin
@@ -308,7 +308,7 @@ grants access.
 `@ultimabase/graphql-yoga-plugin` mounts the final schema through the shared
 [HTTP application](./http). These remain separate plugins: GraphQL owns the schema,
 Yoga owns the HTTP GraphQL route, HTTP selects the application, and a server
-provider such as [Hono](./http#run-a-nodejs-server-with-hono) opens the listener.
+provider such as [Hono Server](./hono-server) opens the listener.
 Install and configure each package you use; none is installed by its sibling.
 
 By default, Yoga mounts `POST /graphql`, accepts UTF-8 JSON GraphQL requests,

@@ -1,19 +1,18 @@
 ---
 title: HTTP
-description: Select one HTTP application, apply browser policy, and optionally run it on a Hono server.
+description: Select one HTTP application, apply browser policy, and handle requests before a transport runs.
 audience:
   - application-developer
   - operator
 contentType: guide
 order: 2
-outcome: Configure the HTTP application boundary and choose a managed or existing Hono server.
+outcome: Configure the HTTP application boundary, browser policy, and pre-dispatch request handling.
 owner: '2812'
 releaseStatus: pre-release
 reviewedAt: 2026-09-17
 sources:
   - packages/http-plugin/README.md
   - packages/http-plugin/src/request-boundary.ts
-  - packages/server-hono-plugin/README.md
   - packages/password-auth-plugin/src/operations.ts
   - docs/adr/0224-http-application-rest-and-password-auth-boundaries.md
 ---
@@ -44,35 +43,9 @@ yarn add @ultimabase/http-plugin
 pnpm add @ultimabase/http-plugin
 ```
 
-For the optional Node.js Hono listener, install its separate provider:
-
-```bash tab="npm" tab-group="package-manager"
-npm install @ultimabase/server-hono-plugin
-```
-
-```bash tab="yarn"
-yarn add @ultimabase/server-hono-plugin
-```
-
-```bash tab="pnpm"
-pnpm add @ultimabase/server-hono-plugin
-```
-
-The existing-Hono-app example below also imports `hono` and
-`@hono/node-server` directly; install those as direct dependencies if you use
-that ownership mode.
-
-```bash tab="npm" tab-group="package-manager"
-npm install hono @hono/node-server
-```
-
-```bash tab="yarn"
-yarn add hono @hono/node-server
-```
-
-```bash tab="pnpm"
-pnpm add hono @hono/node-server
-```
+The HTTP plugin does not open a socket. For a Node listener, follow the
+separate [Hono Server](./hono-server) guide; REST and GraphQL routes also need
+their own transport plugins.
 
 ## Configuration
 
@@ -126,72 +99,12 @@ configured `MasterAuthority`. The selected application's authority verifies the 
 key and must complete its audit before dispatch. Alternative headers, body flags,
 foreign credentials, contexts, and grants cannot select Master.
 
-### Run a Node.js server with Hono
+### Connect a server and a transport
 
-The HTTP plugin owns no listener. `@ultimabase/server-hono-plugin` is an optional
-Node.js provider that consumes its HTTP capability. It does not install REST,
-GraphQL, authentication, TLS, proxy trust, compression, or rate limiting.
-
-#### Let UltimaBase own the listener
-
-Without an existing Hono app, the server plugin creates a listener when
-transports start, after the application graph has validated:
-
-```ts
-import { UltimaBase } from '@ultimabase/core'
-import { httpPlugin } from '@ultimabase/http-plugin'
-import { honoServerPlugin } from '@ultimabase/server-hono-plugin'
-
-const server = honoServerPlugin({ host: '127.0.0.1', port: 1337 })
-
-const application = new UltimaBase({
-	plugins: [httpPlugin({ appId: 'blog' }), server],
-	schemas: [],
-})
-
-await application.start()
-```
-
-The default port is `1337` if none is configured. Reuse the _same_ `server`
-value to share one listener across applications with distinct HTTP `appId`
-values. Every application on that provider must use the same effective browser
-policy. Stopping one application removes its mount; the listener closes only
-after the last attached application stops. Separate `honoServerPlugin()` calls
-create independent providers, not a shared server.
-
-#### Join an existing Hono app
-
-Pass an existing `app` to add the UltimaBase dispatcher without letting
-UltimaBase start or stop that app or its listener. This mode requires an
-explicit `browserPolicyOwner` and rejects `host` or `port` on the plugin:
-
-```ts
-import { serve } from '@hono/node-server'
-import { Hono } from 'hono'
-import { UltimaBase } from '@ultimabase/core'
-import { httpPlugin } from '@ultimabase/http-plugin'
-import { honoServerPlugin } from '@ultimabase/server-hono-plugin'
-
-const app = new Hono()
-app.get('/health', (context) => context.text('ok'))
-
-const application = new UltimaBase({
-	plugins: [
-		httpPlugin({ appId: 'blog' }),
-		honoServerPlugin({ app, browserPolicyOwner: 'ultimabase' }),
-	],
-	schemas: [],
-})
-
-await application.start()
-const listener = serve({ fetch: app.fetch, port: 1337 })
-```
-
-Choose `'ultimabase'` when HTTP owns the browser policy. If existing middleware
-already owns CORS, choose `'external'` and keep the HTTP `browser` policy
-disabled. The two owners cannot be combined to produce contradictory CORS
-headers. With an existing app, use a Node integration that supplies Hono's
-standard `incoming.rawHeaders` evidence; missing evidence fails closed.
+The HTTP plugin contributes a Fetch-compatible application boundary, not a
+listener or an API route. The [Hono Server](./hono-server) guide covers managed
+and existing listeners. Add [REST](./rest) or [GraphQL](./graphql) to expose
+routes through that boundary.
 
 ## Troubleshooting
 
@@ -215,7 +128,7 @@ curl -i \
 ```
 
 The path above assumes the REST plugin's default route is installed alongside
-the HTTP and Hono examples. Without REST or another route owner, a 404 is
+HTTP and a server provider. Without REST or another route owner, a 404 is
 expected. Record status, stable error code, and request ID. Confirm the public
 `appId`, mount, method, and route. Send exactly one application ID on real
 requests and never combine Bearer and cookie credentials. Do not copy

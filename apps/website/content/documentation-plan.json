@@ -224,7 +224,12 @@
 				{
 					"slug": "official/http",
 					"contentType": "guide",
-					"outcome": "Configure the HTTP application boundary and choose a managed or existing Hono server."
+					"outcome": "Configure the HTTP application boundary, browser policy, and pre-dispatch request handling."
+				},
+				{
+					"slug": "official/hono-server",
+					"contentType": "guide",
+					"outcome": "Run an UltimaBase HTTP application on a managed or existing Hono server without mixing listener and browser-policy ownership."
 				},
 				{
 					"slug": "official/rest",

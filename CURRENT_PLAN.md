@@ -72,8 +72,8 @@ below its official or community plugin. Guides combine several capabilities;
 they do not duplicate plugin setup, configuration, reference, or troubleshooting.
 The sidebar stops at coherent subjects; closely related subtasks live in a long
 page and its `On this page` navigation rather than repeated nested entries.
-Every official plugin guide is a direct child of `Official Plugins`; HTTP and
-GraphQL each retain their closely related companion plugins on one page.
+Every official plugin guide is a direct child of `Official Plugins`. HTTP and
+Hono Server have separate pages; GraphQL retains Yoga and explorers on one page.
 Introduction, Core, Plugins, Guides, Operate Your Application, and Reference
 are sidebar titles, not additional collapsible levels. Their child routes remain
 versioned under their existing folders.

@@ -107,9 +107,9 @@ below its separator. Native application, modeling, query, mutation, Runtime,
 and authority behavior lives below `Core`. Optional
 behavior lives below `Plugins > Official Plugins` or `Plugins > Community
 Plugins`. Every official guide is a direct child of `Official Plugins`, with
-no category folders. Closely related packages can share one page: HTTP includes the
-optional Hono server, while GraphQL includes Yoga and optional explorers;
-each plugin keeps its own configuration and ownership. Cross-cutting guides
+no category folders. HTTP and its optional Hono server have separate guides;
+GraphQL includes Yoga and optional explorers on one page. Each plugin keeps
+its own configuration and ownership. Cross-cutting guides
 combine several capabilities; plugin-specific setup, reference, and
 troubleshooting are headings on the relevant page instead of repeated sidebar
 entries.

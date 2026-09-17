@@ -67,6 +67,7 @@
 			],
 			"sections": [
 				"plugins/official/http",
+				"plugins/official/hono-server",
 				"plugins/official/rest",
 				"plugins/official/graphql",
 				"guides",
