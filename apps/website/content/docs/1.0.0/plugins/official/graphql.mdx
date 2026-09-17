@@ -11,6 +11,8 @@ releaseStatus: pre-release
 reviewedAt: 2026-09-17
 sources:
   - packages/graphql-plugin/README.md
+  - packages/graphql-plugin/src/options.ts
+  - packages/graphql-plugin/src/surfaces.ts
   - packages/graphql-yoga-plugin/README.md
   - packages/graphiql-plugin/README.md
   - packages/apollo-sandbox-plugin/README.md
@@ -37,6 +39,10 @@ yarn add @ultimabase/graphql-plugin
 ```bash tab="pnpm"
 pnpm add @ultimabase/graphql-plugin
 ```
+
+Generated fields still need a database provider such as
+[PostgreSQL](./postgresql), even when execution has no HTTP server. See
+[Manual Installation](/docs/1.0.0/manual-installation) for the initial project.
 
 To serve GraphQL with the official Node.js Hono provider, also install these
 three plugins:
@@ -74,12 +80,11 @@ pnpm add @ultimabase/graphiql-plugin
 
 Add `graphqlPlugin()` to a database-backed application with at least one
 queryable schema. The final schema must have a query root field; `schemas: []`
-is not a working generated API. This example assumes PostgreSQL tables have
-already been prepared, so it uses the non-mutating `fail` schema policy:
+is not a working generated API. This local example exposes only `getPost` and
+`findManyPost`. Use a disposable development database: PostgreSQL's `override`
+policy may create or alter tables.
 
 ```ts title="src/main.ts"
-import { randomUUID } from 'node:crypto'
-
 import { Schema, UltimaBase } from '@ultimabase/core'
 import { graphqlPlugin } from '@ultimabase/graphql-plugin'
 import { graphqlYogaPlugin } from '@ultimabase/graphql-yoga-plugin'
@@ -90,17 +95,20 @@ import { honoServerPlugin } from '@ultimabase/server-hono-plugin'
 const Post = Schema.define({
 	className: 'Post',
 	fields: (field) => ({ title: field.string({ required: true }) }),
-	graphql: true,
+	graphql: { operations: { get: true, findMany: true } },
 })
 
 const databaseUrl = process.env.DATABASE_URL
 if (databaseUrl === undefined) throw new TypeError('DATABASE_URL is required')
 
-const application = new UltimaBase({
+export const application = new UltimaBase({
 	plugins: [
-		postgresPlugin({ schemaPolicy: 'fail', url: databaseUrl }),
+		postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
 		httpPlugin({ appId: 'notes' }),
-		graphqlPlugin(),
+		graphqlPlugin({
+			acknowledgeUnverifiedProtection: true,
+			default: false,
+		}),
 		graphqlYogaPlugin(),
 		honoServerPlugin({ host: '127.0.0.1', port: 1337 }),
 	],
@@ -110,17 +118,40 @@ const application = new UltimaBase({
 await application.start()
 ```
 
+`default: false` disables generated operations unless a schema opts in; it also
+disables plugin-defined schema mutations. The acknowledgement lets this
+reviewed local-only API start, but does not authorize requests. The loopback
+listener, read-only exposure, and absence of credentials make this a learning
+example, not a production configuration. Before binding publicly, configure
+identity and [Access](./access) or [ACL](./acl-permissions) rules, then review
+the complete exposed schema. Authentication alone grants no permission. Do
+not use `override` against shared or production data without a reviewed
+schema plan.
+
 For direct execution only, keep `graphqlPlugin()` and omit HTTP, Yoga, and
-Hono. `graphqlPlugin()` also accepts `schemas` for custom GraphQL schemas,
-`default` for generated exposure, `operations` for explicit plugin operations,
-and `limits` for request and pagination budgets. Public generated exposure may
-require `acknowledgeUnverifiedProtection: true` after a policy review; this
-acknowledgement is not an authorization grant. See [PostgreSQL](./postgresql)
-for physical schema preparation and [HTTP](./http) for application selection.
-This local-only example has no Access policy or authentication; do not expose
-it on a public network as a production configuration.
+Hono. The plugin also accepts `schemas` for completed custom GraphQL schemas,
+`operations` for exact plugin operations, and `limits` for execution and
+pagination budgets. See [PostgreSQL](./postgresql) for physical schema
+preparation and [HTTP](./http) for application selection.
 
 ## Behavior and limitations
+
+### Generated fields and exposure
+
+Without overrides, application-owned schemas expose `getPost`,
+`findOnePost`, `findManyPost`, and `existsPost` queries, plus `createPost`,
+`updatePost`, and `deletePost` mutations. `countPost`, upsert, and itemized
+bulk mutations are off by default. These names use the GraphQL type name;
+GraphQL does not pluralize the schema's `className`.
+
+`graphql: false` removes one schema's generated surface. `graphql: true`
+enables **every** generated operation, including count, upsert, and bulk.
+For a narrower surface, set `graphql: { operations: { ... } }` as above:
+omitted operations inherit `graphqlPlugin({ default })`, then the built-in
+defaults. Disabled fields do not exist, even for Master. Plugin-owned schemas
+do not receive generated CRUD fields; exact plugin operations appear only
+when selected through `graphqlPlugin({ operations })` and bound by their owner.
+None of these exposure choices grants authorization.
 
 ### GraphQL without HTTP
 
@@ -135,10 +166,13 @@ The context is application-bound. Direct execution needs no HTTP server, but it
 still passes generated operations through the same Core request executor as an
 HTTP call.
 
-For example, continue the `src/main.ts` setup above after `start()` (the HTTP
-plugins can be omitted when you only execute directly):
+For example, import the started application from `src/main.ts`. If you only
+execute directly, omit the HTTP, Yoga, and Hono plugins from that file:
 
-```ts title="src/main.ts"
+```ts title="src/direct-graphql.ts"
+import { randomUUID } from 'node:crypto'
+import { application } from './main.js'
+
 const graphql = application.application.getPlugin('@ultimabase/graphql-plugin')
 const context = application.engine.anonymous({
 	requestId: randomUUID(),
@@ -198,6 +232,21 @@ HTTP selects the application and resolves its request context before Yoga begins
 Yoga forwards that context to the same GraphQL execution capability as direct
 calls. It does not reimplement policies, virtual fields, contextual relations,
 transactions, cancellation, or safe errors.
+
+To verify the local setup, send a query with its exact HTTP application ID:
+
+```bash title="terminal"
+curl -i -X POST \
+  -H 'X-UltimaBase-Application-Id: notes' \
+  -H 'Content-Type: application/json' \
+  --data '{"query":"{ findManyPost(first: 10) { nodes { id title } } }"}' \
+  http://127.0.0.1:1337/graphql
+```
+
+On a fresh database, expect HTTP `200` with an empty `nodes` array inside
+`data.findManyPost`. A missing or incorrect application ID is rejected by
+HTTP before Yoga executes the query. Introspection remains off in this
+example; turn it on explicitly only if a development explorer needs it.
 
 ### Choose a development explorer
 
