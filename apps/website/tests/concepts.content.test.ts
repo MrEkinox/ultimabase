@@ -13,9 +13,7 @@ const planPath = fileURLToPath(
 const pages = [
 	'core/application',
 	'core/runtime/runtime-pipeline',
-	'core/runtime/transaction-boundaries',
 	'core/runtime/logical-operations-and-persistence',
-	'core/runtime/immutability',
 ] as const
 
 interface DocumentationPlan {

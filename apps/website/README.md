@@ -109,10 +109,9 @@ behavior lives below `Plugins > Official Plugins` or `Plugins > Community
 Plugins`. Every official guide is a direct child of `Official Plugins`, with
 no category folders. HTTP and its optional Hono server have separate guides;
 GraphQL includes Yoga and optional explorers on one page. Each plugin keeps
-its own configuration and ownership. Cross-cutting guides
-combine several capabilities; plugin-specific setup, reference, and
-troubleshooting are headings on the relevant page instead of repeated sidebar
-entries.
+its own configuration and ownership. Application-level guides cover Typegen
+and testing. Plugin-specific setup, reference, and troubleshooting stay as
+headings on the relevant page instead of repeated sidebar entries.
 `Core > Application` is one concept page: its graph, lifecycle, direct
 TypeScript, configuration, and application-scope sections appear in `On this
 page` rather than as separate child routes. Optional Typegen setup lives in the independent
@@ -127,15 +126,18 @@ application-bound handles; there is no duplicate Schema page under Reference.
 instance commands, and failure behavior; there is no duplicate model page under
 Reference.
 `Core > Reading Data > Query Overview` owns read terminals, immutable builders,
-and read failures. `Core > Runtime > API Error Boundaries` owns the public
-`FrameworkError` contract alongside transport boundaries. `Core > Writing Data
+branching, and read failures. `Core > Data Modeling > Models` owns immutable
+model snapshots. `Core > Writing Data > Transactions` owns both the task and
+its Runtime scope; there are no duplicate Runtime pages for immutability or
+transaction boundaries. `Core > Runtime > API Error Boundaries` owns the public
+`FrameworkError` contract alongside transport boundaries. The Nested Writes
+page in Core Writing Data and the Related Data page in Core Reading Data own
+their formerly repeated Guides tasks. The former Core API folder under
+Reference and those duplicate guides are not served.
 
-> Nested Writes`and`Core > Reading Data > Related Data`also own their
-formerly repeated Guides tasks. The former three-page`Reference > Core API`
-> folder and two duplicate guides are not served.
-> The docs sidebar shows the version and page tree without duplicate global
-> Plugins or GitHub links. Its repository icon sits beside Fumadocs' theme switch
-> at the bottom; marketing navigation retains the full set of site links.
+The docs sidebar shows the version and page tree without duplicate global
+Plugins or GitHub links. Its repository icon sits beside Fumadocs' theme
+switch at the bottom; marketing navigation retains the full set of site links.
 
 `Plugin System` explains composition, `Using Plugins` owns consumption and
 compatibility, and `Build a Plugin` owns the author journey. Its short entry
@@ -143,10 +145,12 @@ page leads to focused schema/Typegen, operation/GraphQL, and
 Runtime/infrastructure chapters; those subjects are nested only for authors
 who need them. Community listings remain visibly community-maintained even
 when their documentation is curated on this site.
-`Reference` keeps one package and compatibility lookup page outside the primary
-learning path. The roadmap links directly to the repository ADR index for
-contributors. Core's own pages carry native API lookup beside the concepts
-and tasks that need it.
+`Guides > Test an Application` exercises a public schema command with an
+isolated application and disposable PostgreSQL schema; it does not run the
+framework's repository test suite. `Reference` keeps one package and
+compatibility lookup page outside the primary learning path. The roadmap
+links directly to the repository ADR index for contributors. Core's own pages
+carry native API lookup beside the concepts and tasks that need it.
 
 ## Documentation versions
 

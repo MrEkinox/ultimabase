@@ -57,9 +57,7 @@ const canonicalNavigation = {
 	],
 	'1.0.0/core/runtime': [
 		'runtime-pipeline',
-		'transaction-boundaries',
 		'logical-operations-and-persistence',
-		'immutability',
 		'api-errors',
 	],
 	'1.0.0/core/security-foundations': [
@@ -95,7 +93,7 @@ const canonicalNavigation = {
 		'operations-and-graphql',
 		'runtime-and-infrastructure',
 	],
-	'1.0.0/guides': ['generate-types'],
+	'1.0.0/guides': ['generate-types', 'test-an-application'],
 	'1.0.0/operations': ['before-exposing-your-application', 'troubleshooting'],
 	'1.0.0/reference': ['package-index'],
 } as const satisfies Readonly<Record<string, readonly string[]>>
@@ -154,13 +152,15 @@ describe('documentation navigation architecture', () => {
 		).rejects.toMatchObject({ code: 'ENOENT' })
 	})
 
-	it('does not publish the repository-only application testing guide', async () => {
-		await expect(
-			readFile(
-				path.join(contentRoot, '1.0.0/guides/test-an-application.mdx'),
-				'utf8',
-			),
-		).rejects.toMatchObject({ code: 'ENOENT' })
+	it('publishes application testing guidance rather than repository test commands', async () => {
+		const page = await readFile(
+			path.join(contentRoot, '1.0.0/guides/test-an-application.mdx'),
+			'utf8',
+		)
+		expect(page).toContain('PostgresTestWorker')
+		expect(page).toContain('Task.createOne(')
+		expect(page).toContain('Task.get(')
+		expect(page).not.toContain('yarn test:e2e:built')
 	})
 
 	it('keeps operations in two task-shaped pages without the thin duplicates', async () => {

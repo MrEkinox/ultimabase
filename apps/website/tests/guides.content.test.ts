@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest'
 const contentRoot = fileURLToPath(
 	new URL('../content/docs/1.0.0/guides/', import.meta.url),
 )
-const pages = ['generate-types'] as const
+const pages = ['generate-types', 'test-an-application'] as const
 
 describe('focused guide contracts', () => {
 	it('keeps every guide task-shaped and complete', async () => {
@@ -25,7 +25,7 @@ describe('focused guide contracts', () => {
 				expect(source, `${page}: ${heading}`).toContain(heading)
 			}
 			expect(source, page).toMatch(/^outcome: .+$/mu)
-			expect(source, page).toMatch(/```(?:ts|sh|http)\n/u)
+			expect(source, page).toMatch(/```(?:ts|sh|http)(?: [^\n]+)?\n/u)
 		}
 	})
 
@@ -62,5 +62,18 @@ describe('focused guide contracts', () => {
 		expect(usingPlugins).toContain(
 			'/docs/1.0.0/guides/generate-types#generate-before-building',
 		)
+	})
+
+	it('tests application behavior in an isolated disposable database', async () => {
+		const guide = await readFile(
+			path.join(contentRoot, 'test-an-application.mdx'),
+			'utf8',
+		)
+		expect(guide).toContain('TEST_DATABASE_URL')
+		expect(guide).toContain('PostgresTestWorker')
+		expect(guide).toContain('await worker.reset()')
+		expect(guide).toContain('await ultimabase.dispose()')
+		expect(guide).toContain('await worker.dispose()')
+		expect(guide).not.toContain('yarn test:e2e:built')
 	})
 })

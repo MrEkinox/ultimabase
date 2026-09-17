@@ -1,7 +1,7 @@
 # Public documentation source inventory
 
-This inventory maps the current repository to the planned public site without
-treating existing prose as publishable by default. The page-level mapping and
+This inventory maps the current repository to the private preview of the public
+site without treating existing prose as publishable by default. The page-level mapping and
 ownership live in `content/documentation-plan.json`.
 
 The maintained package-to-section routing lives in
@@ -29,29 +29,23 @@ content evidence.
 
 ## Sitemap coverage
 
-| Public area              | Primary sources                                                     | Readiness | Editorial treatment                                                   |
-| ------------------------ | ------------------------------------------------------------------- | --------- | --------------------------------------------------------------------- |
-| Introduction             | Root README, `examples/minimal`, Core and PostgreSQL exports        | Partial   | Keep the manual path runnable; mark automatic setup unavailable       |
-| Model Your Data          | Core schema guide and schema examples                               | Ready     | Split lookup detail from mental models and task guidance              |
-| Read Data                | Core query guide and query sources                                  | Ready     | Preserve immutable Query semantics and typed results                  |
-| Write Data               | Runtime guide, nested-write examples, persistence plugins           | Ready     | Make transaction and itemized-operation boundaries visible            |
-| Secure Your Application  | Access guide and authentication, Access, Roles, ACL package READMEs | Ready     | Present independent plugins; never imply identity grants access       |
-| Expose APIs              | HTTP, REST, GraphQL, Yoga, and Hono package READMEs                 | Ready     | Show sibling transports entering one application execution boundary   |
-| Plugins                  | Architecture, plugin-kit, testing, and capability ADRs              | Ready     | Teach a compact plugin before privileges and lifecycle detail         |
-| Operate Your Application | Provider READMEs, example configuration, release guide              | Partial   | Synthesize lifecycle and secrets; production guarantees need review   |
-| Guides                   | Official plugin READMEs and maintained examples                     | Partial   | Validate each end-to-end combination before publication               |
-| Concepts                 | Architecture, product spec, Runtime guide, and ADRs                 | Ready     | Translate internal reasoning into stable public mental models         |
-| Troubleshooting          | Package limitations, error contracts, and issue evidence            | Partial   | Build symptom-led diagnostics from verified failures only             |
-| Reference                | Package READMEs and public export barrels                           | Ready     | Document exports, defaults, errors, and examples without deep imports |
-| Status                   | Root status, changesets, release guide, milestone issues            | Partial   | Separate shipped, pre-release, and planned behavior explicitly        |
+| Public area              | Primary sources                                                    | Readiness | Editorial treatment                                                  |
+| ------------------------ | ------------------------------------------------------------------ | --------- | -------------------------------------------------------------------- |
+| Introduction             | Root README, `examples/minimal`, Core and PostgreSQL exports       | Partial   | Keep the manual path runnable; mark automatic setup unavailable      |
+| Core                     | Schema examples, Core source and guides, Runtime and security ADRs | Ready     | Own native modeling, reads, writes, Runtime, and authority           |
+| Plugins                  | Official package READMEs, plugin-kit, testing, and capability ADRs | Ready     | Keep optional setup and limitations with the owning plugin           |
+| Guides                   | Typegen and testing READMEs, Manual Installation, maintained tests | Partial   | Teach concrete application tasks without repeating package reference |
+| Operate Your Application | Provider READMEs, example configuration, release guide             | Partial   | Give a pre-exposure checklist and symptom-led startup diagnostics    |
+| Reference                | Package READMEs and public export barrels                          | Ready     | Keep package and compatibility lookup outside task pages             |
+| Status                   | Root status, changesets, release guide, contribution guide         | Partial   | Separate shipped, pre-release, and planned behavior explicitly       |
 
 ## Known gaps and unsuitable shortcuts
 
-- A complete production checklist is not yet a single guaranteed public
-  contract. The Operations owner must reconcile provider lifecycle, secrets,
-  migrations, observability, and deployment assumptions before publishing it.
-- The repository has an agent workflow but no contributor-facing contribution
-  guide. `AGENTS.md` is useful internal context, not a public contribution page.
+- The public pre-exposure checklist is a verification aid, not a deployment
+  template or production guarantee. Applications still own backups, migration
+  review, observability, and host-specific shutdown behavior.
+- `CONTRIBUTING.md` and `/status/contributing` are the contributor-facing path.
+  `AGENTS.md` remains an internal agent contract, not a public tutorial.
 - Pre-release packages do not justify stable support or compatibility promises.
   The status pages must stay explicit until the release process establishes
   them.

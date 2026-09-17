@@ -42,7 +42,7 @@
 				{
 					"slug": "data-modeling/relationships",
 					"contentType": "concept",
-					"outcome": "Declare, construct, compare, and serialize a typed to-one reference."
+					"outcome": "Choose and declare pointers and relations, then use a relation handle to read or change membership."
 				},
 				{
 					"slug": "data-modeling/schemas",
@@ -85,11 +85,6 @@
 					"outcome": "Identify the error owner and handle FrameworkError without exposing internal details."
 				},
 				{
-					"slug": "runtime/immutability",
-					"contentType": "concept",
-					"outcome": "Predict how builders and public domain values behave when reused."
-				},
-				{
 					"slug": "runtime/logical-operations-and-persistence",
 					"contentType": "concept",
 					"outcome": "Understand safe persistence rewrites without changing policy or Hook meaning."
@@ -98,11 +93,6 @@
 					"slug": "runtime/runtime-pipeline",
 					"contentType": "concept",
 					"outcome": "Place validation, policy, Hooks, persistence, and post-commit work correctly."
-				},
-				{
-					"slug": "runtime/transaction-boundaries",
-					"contentType": "concept",
-					"outcome": "Predict what commits, rolls back, and runs after commit."
 				},
 				{
 					"slug": "security-foundations/master-authority",
@@ -291,6 +281,11 @@
 					"slug": "generate-types",
 					"contentType": "guide",
 					"outcome": "Generate and verify replaceable declarations for one configured UltimaBase application."
+				},
+				{
+					"slug": "test-an-application",
+					"contentType": "guide",
+					"outcome": "Verify a public create-and-read path with an isolated application and disposable PostgreSQL schema."
 				}
 			]
 		},

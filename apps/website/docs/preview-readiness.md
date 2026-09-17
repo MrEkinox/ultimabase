@@ -7,11 +7,11 @@ hosting, and launch policy receive an explicit decision.
 
 ## Reader and content audit
 
-The verified reader path covers manual installation, a first typed application, plugin
-installation, an authenticated API, startup diagnosis, the Core concept
-pages, and all three source-backed status pages. Public search is
-checked against beginner vocabulary, package names, stable error identities,
-keyboard operation, and a useful empty result. The public
+The verified reader path covers manual installation, a first typed application,
+plugin installation, Core concepts, the REST and GraphQL entry points,
+application testing, startup diagnosis, and all three source-backed status
+pages. Public search is checked against beginner vocabulary, package names,
+stable error identities, keyboard operation, and a useful empty result. The public
 content loader reads only `content/docs`; root engineering specifications and
 ADRs enter the reader experience only through deliberate links.
 
@@ -50,8 +50,8 @@ the same change as its Open Graph and X image metadata.
 
 ## Production build snapshot
 
-The 2026-09-16 Next.js production build prerenders 132 application pages,
-including a Markdown representation of each of the 61 authored documentation
+The 2026-09-17 Next.js production build prerenders 118 application pages,
+including a Markdown representation of each of the 54 authored documentation
 pages. Its complete static chunk inventory is 1,633,364 bytes of JavaScript
 (522,904 bytes when individually gzip-compressed) and 88,032 bytes of CSS
 (15,378 bytes when gzip-compressed). These totals cover every route chunk, not

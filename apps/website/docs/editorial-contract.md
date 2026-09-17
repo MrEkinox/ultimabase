@@ -189,10 +189,12 @@ The public sitemap makes ownership visible before a reader copies configuration:
   installs it;
 - a Core task page may link to an optional plugin but never duplicate that
   plugin's setup, configuration, reference, or troubleshooting;
-- `Guides` contains only workflows that combine several capabilities;
-- plugin-specific failures stay with the plugin, while application-wide startup,
-  Typegen, and reporting troubleshooting paths stay below `Operations`; Typegen
-  setup is an independent task below `Guides`;
+- `Guides` owns application-level developer tasks, such as generating types or
+  testing an application, that need a concrete end-to-end context rather than
+  another copy of a plugin's configuration;
+- plugin-specific failures stay with the plugin, while application-wide startup
+  and reporting troubleshooting paths stay below `Operations`; Typegen setup
+  and its generation failures stay together in the independent `Guides` task;
 - native Core API details stay in the owning Core page when a separate lookup
   page would restate the same subject; package and compatibility lookup stays
   below `Reference`.

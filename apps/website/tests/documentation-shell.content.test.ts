@@ -122,6 +122,7 @@ describe('public documentation content contract', () => {
 				'/docs/1.0.0',
 				'/docs/1.0.0/core/application',
 				'/docs/1.0.0/guides/generate-types',
+				'/docs/1.0.0/guides/test-an-application',
 				'/docs/1.0.0/core/writing-data/delete',
 				'/docs/1.0.0/plugins/official/soft-delete',
 				'/docs/1.0.0/plugins/official/rest',

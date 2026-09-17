@@ -1,0 +1,205 @@
+---
+title: Test an Application
+description: Exercise a real UltimaBase operation in an isolated PostgreSQL schema with Vitest.
+audience:
+  - application-developer
+contentType: guide
+order: 2
+outcome: Verify a create-and-read path without sharing application or database state between test workers.
+owner: '2814'
+releaseStatus: pre-release
+reviewedAt: 2026-09-17
+sources:
+  - packages/core/README.md
+  - packages/postgres-plugin/README.md
+  - packages/testing/README.md
+  - tests/e2e/postgres-worker-isolation.postgres.e2e.test.ts
+  - apps/website/content/docs/1.0.0/manual-installation.mdx
+---
+
+Test the application boundary your code actually uses: start a fresh
+UltimaBase application, write through its public schema API, read the result,
+then release every resource. This example extends the `Task` schema from
+[Manual Installation](/docs/1.0.0/manual-installation); it does not run
+UltimaBase's repository test suite inside your project.
+
+## Prerequisites
+
+- Complete Manual Installation and keep `src/schema.ts` with its `Task` class.
+- Have a **separate, disposable** PostgreSQL database for tests. The test
+  user needs permission to create and drop schemas in that database. Never
+  point this guide at shared development or production data.
+- Use Node.js 24 or newer and the same package manager as your application.
+
+## Shortest path
+
+### Install test dependencies
+
+Vitest runs the test. `pg` supplies a pool that the test owns, and
+`@ultimabase/testing` supplies an isolated PostgreSQL schema for each Vitest
+worker:
+
+```bash tab="npm" tab-group="package-manager"
+npm install --save-dev vitest @ultimabase/testing pg @types/pg
+```
+
+```bash tab="yarn"
+yarn add --dev vitest @ultimabase/testing pg @types/pg
+```
+
+```bash tab="pnpm"
+pnpm add --save-dev vitest @ultimabase/testing pg @types/pg
+```
+
+Add `.env.test` to `.gitignore`, then create it with a connection to the
+disposable test database, not the `DATABASE_URL` used by the first application:
+
+```dotenv title=".env.test"
+TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5432/ultimabase_first_app_test
+```
+
+Add these scripts to your existing `package.json`:
+
+```json title="package.json"
+{
+	"scripts": {
+		"test": "vitest run",
+		"test:typecheck": "tsc -p tsconfig.test.json"
+	}
+}
+```
+
+Keep the production TypeScript configuration from Manual Installation. This
+second configuration checks test files without emitting them into `dist/`:
+
+```json title="tsconfig.test.json"
+{
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"noEmit": true,
+		"rootDir": "."
+	},
+	"include": ["src", "tests"]
+}
+```
+
+### Assert one public operation
+
+Create `tests/task.test.ts`:
+
+```ts title="tests/task.test.ts"
+import process from 'node:process'
+
+import { UltimaBase } from '@ultimabase/core'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
+import { PostgresTestWorker, readVitestPoolId } from '@ultimabase/testing'
+import { Pool } from 'pg'
+import { expect, it } from 'vitest'
+
+import { Task } from '../src/schema.js'
+
+process.loadEnvFile('.env.test')
+const databaseUrl = process.env.TEST_DATABASE_URL
+if (databaseUrl === undefined) {
+	throw new TypeError('TEST_DATABASE_URL is required')
+}
+
+it('creates and reads a Task through one application', async () => {
+	const workerId = readVitestPoolId(process.env.VITEST_POOL_ID)
+	const adminPool = new Pool({ connectionString: databaseUrl })
+	const worker = new PostgresTestWorker({
+		prefix: 'task_app_test',
+		query: (statement) => adminPool.query(statement),
+		workerId,
+	})
+	let pool: Pool | undefined
+
+	try {
+		await worker.reset()
+		pool = new Pool({
+			connectionString: databaseUrl,
+			options: worker.connectionOptions,
+		})
+		const ultimabase = new UltimaBase({
+			plugins: [postgresPlugin({ pool, schemaPolicy: 'override' })],
+			schemas: [Task],
+		})
+
+		try {
+			await ultimabase.start()
+			const created = await Task.createOne(
+				{ data: { title: 'Test the application' } },
+				{ ultimabase },
+			)
+			const saved = await Task.get({ id: created.id }, { ultimabase })
+
+			expect(saved.get('title')).toBe('Test the application')
+			expect(saved.get('done')).toBe(false)
+		} finally {
+			await ultimabase.dispose()
+		}
+	} finally {
+		try {
+			await pool?.end()
+		} finally {
+			try {
+				await worker.dispose()
+			} finally {
+				await adminPool.end()
+			}
+		}
+	}
+}, 30_000)
+```
+
+`worker.reset()` drops and recreates **only its named test schema**; the
+worker-specific `search_path` makes the application prepare and use tables
+there. The application receives a borrowed pool, so the test closes that pool
+after `ultimabase.dispose()`. The administrative pool then removes the schema
+and closes. No application instance, plugin state, or database schema is
+shared with another worker.
+
+## Verify the outcome
+
+Run the type check and the test:
+
+```bash tab="npm" tab-group="package-manager"
+npm run test:typecheck
+npm test
+```
+
+```bash tab="yarn"
+yarn test:typecheck
+yarn test
+```
+
+```bash tab="pnpm"
+pnpm test:typecheck
+pnpm test
+```
+
+The test should pass after creating and reading one `Task`. Temporarily
+change the expected title to confirm that the assertion fails, then restore
+it. If startup fails, check the test database URL and the test user's schema
+permissions before changing `schemaPolicy`.
+
+## Limitations
+
+This is an integration test, not a unit test: it needs a running PostgreSQL
+server. It proves the chosen create-and-read path, not every schema, plugin,
+transport, or authorization rule in your application. Add focused tests for
+the behavior you install, including both allowed and denied public requests
+when you expose an API. Run only one test suite with this schema prefix
+against a given test database at a time; use another prefix or database for
+independent concurrent suites.
+
+`@ultimabase/testing` also exposes plugin conformance tools. Those belong to
+the [plugin-author workflow](/docs/1.0.0/plugins/build-a-plugin), not to
+ordinary application assertions.
+
+## Related concepts
+
+Read [Transactions](/docs/1.0.0/core/writing-data/transactions) when testing
+rollback behavior, [Using Plugins](/docs/1.0.0/plugins/using-plugins) when a
+test installs optional behavior, and [PostgreSQL](/docs/1.0.0/plugins/official/postgresql)
+for pool ownership and schema policies.

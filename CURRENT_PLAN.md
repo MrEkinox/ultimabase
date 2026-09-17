@@ -72,8 +72,9 @@ Introduction
 ```
 
 Core pages own native framework behavior. Optional behavior is canonical only
-below its official or community plugin. Guides combine several capabilities;
-they do not duplicate plugin setup, configuration, reference, or troubleshooting.
+below its official or community plugin. Guides cover application-level tasks
+such as Typegen and isolated testing; they do not duplicate plugin setup,
+configuration, reference, or troubleshooting.
 The sidebar stops at coherent subjects; closely related subtasks live in a long
 page and its `On this page` navigation rather than repeated nested entries.
 Every official plugin guide is a direct child of `Official Plugins`. HTTP and

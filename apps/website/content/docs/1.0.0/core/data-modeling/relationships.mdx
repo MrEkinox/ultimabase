@@ -166,38 +166,14 @@ role, position, status, or creation time.
 	edge. Do not mirror both sides with separately writable relation sets.
 </Callout>
 
-## Read related records
+## Read through a relation handle
 
-After registering `Author` and `Post` in a started application with a
-persistence plugin, as in
-[Manual Installation](/docs/1.0.0/manual-installation), use `include` to load
-related models explicitly:
-
-```ts title="src/read-posts.ts"
-import { Post } from './post.js'
-import { ultimabase } from './ultimabase.js'
-
-export const readPosts = () =>
-	Post.findMany(
-		{
-			include: {
-				author: { select: { name: true } },
-				reviewers: { limit: 5, select: { name: true } },
-			},
-			select: { title: true },
-		},
-		{ ultimabase },
-	)
-```
-
-Each returned post includes its `id` and `title`. Its included `author` is a
-selected `Author` model or `null` if the target is missing or inaccessible;
-that does not change the stored pointer's requiredness. `reviewers` is a
-readonly array of up to five visible `Author` models, not a stored array on
-`Post`. A relation with no visible targets yields `[]`.
-
-For a collection you do not want to include in a parent result, read through
-the persisted model's relation handle:
+Use `include` to load pointer and relation targets with a parent result;
+[Related Data](/docs/1.0.0/core/reading-data/related-data) owns the full
+example, selection rules, and filtering behavior. For a collection you do
+not want to include in a parent result, use the persisted model's relation
+handle. The following examples assume registered `Author` and `Post` schemas
+in a started application with a persistence plugin.
 
 ```ts title="src/read-reviewers.ts"
 import { Post } from './post.js'

@@ -8,7 +8,7 @@ order: 3
 outcome: Construct, inspect, and use immutable draft and persisted schema models.
 owner: '2807'
 releaseStatus: pre-release
-reviewedAt: 2026-09-16
+reviewedAt: 2026-09-17
 sources:
   - packages/core/README.md
   - packages/core/docs/schema.md
@@ -111,6 +111,8 @@ const pointer = fresh.toPointer()
 `updated` and `fresh` are distinct immutable snapshots. `sameProduct` is
 `true` because both persisted models have the same schema and `id`. `pointer`
 contains that detached identity, not a connection to the database.
+The original `created` value still shows its earlier selection and values;
+call `fetch()` when you need a fresh snapshot.
 
 ## Immutability and failures
 

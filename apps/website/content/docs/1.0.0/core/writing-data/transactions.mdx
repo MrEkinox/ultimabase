@@ -8,7 +8,7 @@ order: 7
 outcome: Group related writes, handle failures, and place external effects after commit.
 owner: '2809'
 releaseStatus: pre-release
-reviewedAt: 2026-09-16
+reviewedAt: 2026-09-17
 sources:
   - packages/core/README.md
   - packages/core/docs/runtime.md
@@ -79,6 +79,23 @@ reject either command and abort both writes.
 To verify, call the function with a fresh slug, then read the post by that
 slug and the account by ID in a new request. Both changes should be present.
 If the callback fails, the fresh slug should not resolve to a post.
+
+## How the transaction scope propagates
+
+Runtime creates one transaction-bound request engine for a root mutation or an
+explicit `request.transaction()` callback. Schema commands in that asynchronous
+scope use the same application, authority, request metadata, and database
+transaction without receiving an extra transaction parameter. Nested writes
+and database work started by optional Hooks inherit that engine too. They do
+not open sibling transactions. The outer scope commits once.
+
+Runtime waits for operations started in the scope before finalizing it, even
+if the callback forgot to await one. Still await every command yourself so
+its result and failure are handled at the right point in your code. Once the
+callback closes, a retained transaction-bound engine or query fails rather
+than silently running outside the transaction. These rules are the same for a
+mutation entered through TypeScript, REST, or GraphQL; the transport does not
+own transaction lifetime.
 
 ## Know what commits and what rolls back
 

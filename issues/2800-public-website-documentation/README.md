@@ -125,9 +125,7 @@ The public route architecture is:
 │       │   │   └── transactions
 │       │   ├── runtime
 │       │   │   ├── runtime-pipeline
-│       │   │   ├── transaction-boundaries
 │       │   │   ├── logical-operations-and-persistence
-│       │   │   ├── immutability
 │       │   │   └── api-errors
 │       │   └── security-foundations
 │       │       ├── security-model
@@ -157,7 +155,8 @@ The public route architecture is:
 │       │       ├── operations-and-graphql
 │       │       └── runtime-and-infrastructure
 │       ├── guides
-│       │   └── generate-types
+│       │   ├── generate-types
+│       │   └── test-an-application
 │       ├── operations
 │       │   ├── before-exposing-your-application
 │       │   └── troubleshooting

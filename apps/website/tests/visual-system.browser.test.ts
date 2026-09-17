@@ -334,7 +334,12 @@ describe('website visual system', () => {
 				.getByRole('heading', { level: 2, name: 'Next steps' })
 				.locator('xpath=following-sibling::div[1]')
 				.locator('a[data-card]')
-			expect(await gettingStartedCards.count()).toBe(7)
+			expect(await gettingStartedCards.count()).toBe(8)
+			expect(
+				await gettingStartedCards
+					.filter({ hasText: 'Test the application' })
+					.count(),
+			).toBe(1)
 			await page.goto(`${origin}/docs/1.0.0/core/reading-data/selections`)
 			const cards = page
 				.getByRole('heading', { level: 2, name: 'Next steps' })
