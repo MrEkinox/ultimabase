@@ -13,7 +13,7 @@ sources:
   - packages/soft-delete-plugin/README.md
   - examples/minimal/README.md
   - packages/core/docs/runtime.md
-  - docs/adr/0190-versioned-capability-kernel.md
+  - docs/adr/0245-plugin-schema-mutations-and-soft-delete.md
 ---
 
 ## Overview
@@ -75,6 +75,11 @@ exposing an application workflow around deletion.
 
 ### Delete, restore, and purge records
 
+With the `explicit` mode shown above, the application schema handle exposes
+`softDelete`. The following server-side maintenance commands also require a
+configured, audited `MasterAuthority`; never forward a client-selected
+`useMasterKey` flag from transport input.
+
 ```ts title="src/soft-delete-post.ts"
 import { Post } from './schemas.js'
 import { ultimabase } from './ultimabase.js'
@@ -112,6 +117,15 @@ In explicit mode, native `deleteOne` remains the deliberate hard-delete path.
 In replacement mode, physical purge stays on the private Master surface. Both
 modes preserve the ordinary validation, Hook, transaction, integrity, and
 protected-policy boundaries.
+
+With the optional Access plugin, explicit soft delete has its own
+`access.softDelete` rule rather than inheriting native update or delete rules.
+Hooks likewise receive `beforeOperation.softDelete` and
+`afterOperation.softDelete`. If the schema is exposed through REST or GraphQL,
+the explicit mode adds `POST /api/v1/classes/{Schema}/{id}/soft-delete` or
+`softDelete{Schema}` respectively. Replace-delete and disabled schemas add no
+new transport endpoint. Restore and purge remain private even when a transport
+is installed.
 
 V1 has no deletion timestamp, retention job, include-deleted query, or nested
 soft delete.

@@ -9,7 +9,7 @@ order: 1
 outcome: Decide whether a feature belongs in the application plugin list and know what Core validates.
 owner: '2810'
 releaseStatus: pre-release
-reviewedAt: 2026-09-16
+reviewedAt: 2026-09-17
 sources:
   - packages/core/README.md
   - packages/plugin-kit/README.md
@@ -29,14 +29,15 @@ factory result appears in one application's `plugins` array. This makes the
 application graph readable and keeps separate applications isolated.
 
 <Mermaid
-	description="Importing a package does not install it; the plugin factory enters application graph validation, static declarations, capability materialization, lifecycle, and disposal."
+	description="Importing a package has no effect by itself; only a factory definition in the application's plugin list enters graph validation, declaration, capability materialization, lifecycle, and disposal."
 	chart="flowchart TB
-    A[Package import] --> B[Plugin factory]
-    B --> C[Application graph validation]
-    C --> D[Static declarations]
-    D --> E[Capability materialization]
-    E --> F[Setup and lifecycle]
-    F --> G[Disposal]"
+    A[Import package] --> B[Call plugin factory]
+    B --> C[Add definition to application plugins]
+    C --> D[Validate application graph]
+    D --> E[Compile static declarations]
+    E --> F[Materialize capabilities]
+    F --> G[Setup and lifecycle]
+    G --> H[Disposal]"
 />
 
 The graph is deterministic. Dependencies run before consumers; configuration
@@ -65,7 +66,14 @@ with its own configuration and responsibility.
 
 ## Choose your next step
 
-Application developers should continue with [Using Plugins](./using-plugins).
-Compare the official list above with [Community Plugins](./community-plugins).
-Plugin authors should begin with [Build a Plugin](./build-a-plugin) rather than
-depending on Core internals.
+<Cards>
+	<Card title="Using Plugins" href="./using-plugins">
+		Choose a compatible package, install it, and verify it in one application.
+	</Card>
+	<Card title="Community Plugins" href="./community-plugins">
+		Understand maintenance boundaries and propose a new listing.
+	</Card>
+	<Card title="Build a Plugin" href="./build-a-plugin">
+		Create a public, versioned plugin without depending on Core internals.
+	</Card>
+</Cards>

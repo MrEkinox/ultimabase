@@ -81,8 +81,7 @@ replace the ACL directly.
 
 `ACL` is immutable: each grant or revoke returns a new value. For example,
 `new ACL().grantPublic('read')` creates a distinct value. `toJSON()` produces
-detached versioned data, and `ACL.fromJSON()`
-validates it strictly.
+detached versioned data, and `ACL.fromJSON()` validates it strictly.
 
 The ACL is stored atomically with its object. Non-Master callers cannot
 select, filter, order by, or replace the reserved field. Authentication and

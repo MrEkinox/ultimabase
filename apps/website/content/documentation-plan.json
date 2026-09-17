@@ -219,7 +219,7 @@
 				{
 					"slug": "official/graphql",
 					"contentType": "guide",
-					"outcome": "Execute GraphQL directly or over HTTP, choose an optional explorer, and understand Relay pagination."
+					"outcome": "Install the GraphQL packages you need, configure execution, and understand HTTP and explorer boundaries."
 				},
 				{
 					"slug": "official/http",

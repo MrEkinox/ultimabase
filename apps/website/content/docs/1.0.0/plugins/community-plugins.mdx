@@ -8,9 +8,10 @@ contentType: concept
 outcome: Understand how community plugins will be listed without confusing visibility with official maintenance.
 owner: '2824'
 releaseStatus: pre-release
-reviewedAt: 2026-09-15
+reviewedAt: 2026-09-17
 sources:
   - CONTRIBUTING.md
+  - apps/website/lib/site.ts
   - packages/plugin-kit/README.md
   - packages/testing/README.md
   - docs/concepts/open-plugin-authoring.md
@@ -51,8 +52,9 @@ inferred only from installation are not catalog entries.
 
 ## Submit a plugin
 
-Open an issue in the UltimaBase repository titled
-`[Community plugin] <package-name>` and include:
+Before writing a documentation PR, [open a community plugin proposal](https://github.com/MrEkinox/ultimadatabase/issues/new)
+in the UltimaBase repository. Title it `[Community plugin] <package-name>`
+and include:
 
 - npm package name and current version;
 - source repository, license, and maintainer contact;

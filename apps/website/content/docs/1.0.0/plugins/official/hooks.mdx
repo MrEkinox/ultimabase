@@ -40,9 +40,8 @@ pnpm add @ultimabase/hooks-plugin
 
 ## Configuration
 
-Add `hooksPlugin()` to the application graph. Use field `resolveInput` to
-normalize a value and schema `beforeOperation` for transaction-bound business
-work:
+Add `hooksPlugin()` to the application graph. This example uses field
+`resolveInput` to normalize a value before final validation:
 
 ```ts title="src/post.ts"
 import { Schema } from '@ultimabase/core'
@@ -61,10 +60,11 @@ export const hooks = hooksPlugin()
 ```
 
 Include `hooks` in `plugins` and `Post` in `schemas`. The factory has no
-configuration options. The schema-level `hooks` option groups
-`beforeOperation` and `afterOperation` callbacks; the field-level option
-provides `resolveInput`. Field Hooks apply to stored fields and embedded
-properties, not virtual wrappers or output descriptors.
+configuration options. For transaction-bound business work, the schema-level
+`hooks` option groups `beforeOperation` and `afterOperation` callbacks by
+mutation name. The field-level option provides `resolveInput`. Field Hooks
+apply to stored fields and embedded properties, not virtual wrappers or output
+descriptors.
 
 ## Behavior and limitations
 

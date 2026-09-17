@@ -9,12 +9,13 @@ order: 2
 outcome: Add the smallest compatible plugin set and verify its application-local behavior.
 owner: '2824'
 releaseStatus: pre-release
-reviewedAt: 2026-09-15
+reviewedAt: 2026-09-17
 sources:
   - packages/core/README.md
   - packages/plugin-kit/README.md
   - packages/hooks-plugin/README.md
   - packages/validation-plugin/README.md
+  - packages/postgres-plugin/README.md
   - docs/adr/0190-capability-host-lifecycle-and-legacy-convergence.md
   - docs/adr/0191-plugin-privilege-taxonomy-and-diagnostics.md
 ---
@@ -44,45 +45,95 @@ security-audited.
 
 ## Install and configure
 
-Install the packages that own the behavior you need, then call each plugin
-factory in the application definition:
+Complete [Manual Installation](/docs/1.0.0/manual-installation) first: this
+example extends its Node.js application with a PostgreSQL provider. Use a
+**disposable development database** because the `override` schema policy can
+change its physical tables. Hooks normalizes a title; Validation rejects the
+empty result. Install both optional plugins and Zod:
 
-```bash
-yarn add @ultimabase/core @ultimabase/hooks-plugin @ultimabase/validation-plugin zod
+```bash tab="npm" tab-group="package-manager"
+npm install @ultimabase/hooks-plugin @ultimabase/validation-plugin zod
 ```
 
-```ts title="src/ultimabase.ts"
-import { UltimaBase } from '@ultimabase/core'
-import { hooksPlugin } from '@ultimabase/hooks-plugin'
-import { validationPlugin } from '@ultimabase/validation-plugin'
+```bash tab="yarn"
+yarn add @ultimabase/hooks-plugin @ultimabase/validation-plugin zod
+```
 
-import { Article } from './schemas.js'
+```bash tab="pnpm"
+pnpm add @ultimabase/hooks-plugin @ultimabase/validation-plugin zod
+```
 
-export const ultimabase = new UltimaBase({
-	plugins: [hooksPlugin(), validationPlugin()],
-	schemas: [Article],
+Declare behavior on the field that needs it:
+
+```ts title="src/article.ts"
+import { Schema } from '@ultimabase/core'
+import { z } from 'zod'
+
+export const Article = Schema.define({
+	className: 'Article',
+	fields: (field) => ({
+		title: field.string({
+			required: true,
+			hooks: { resolveInput: ({ value }) => value?.trim() ?? null },
+			validation: z.string().min(1),
+		}),
+	}),
 })
 ```
 
-Importing a plugin package never installs it. Calling a factory is also inert
-until the returned definition enters an application. `start()` validates the
-complete graph before connection, schema preparation, Runtime, or transport
-startup.
+Install the behavior in exactly this application, alongside persistence:
 
-Read the owning plugin page before configuring it. A plugin may require another
-capability, an explicit peer, an environmental claim, or acknowledgement before
-public exposure.
+```ts title="src/main.ts"
+import { UltimaBase } from '@ultimabase/core'
+import { hooksPlugin } from '@ultimabase/hooks-plugin'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
+import { validationPlugin } from '@ultimabase/validation-plugin'
 
-## Verify application types
+import { Article } from './article.js'
 
-Run your Typegen command after changing plugins. Generated declarations expose
-only the schema options, fields, operations, and model surfaces contributed to
-that exact application. JavaScript executes the same compiled graph without a
-generated Runtime client.
+const databaseUrl = process.env.DATABASE_URL
+if (databaseUrl === undefined) throw new TypeError('DATABASE_URL is required')
 
-Test the plugin through your application's public surface. Verify startup,
-expected behavior, failure cleanup, and disposal rather than treating a
-successful package installation as evidence.
+const ultimabase = new UltimaBase({
+	plugins: [
+		postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
+		hooksPlugin(),
+		validationPlugin(),
+	],
+	schemas: [Article],
+})
+
+try {
+	await ultimabase.start()
+	const article = await Article.createOne(
+		{ data: { title: '  Hello  ' } },
+		{ ultimabase },
+	)
+	console.log(article.title) // 'Hello'
+} finally {
+	await ultimabase.dispose()
+}
+```
+
+Importing a plugin package never installs it. Calling its factory is also
+inert until the returned definition enters an application. Run
+[Generate TypeScript Types](/docs/1.0.0/guides/generate-types) after changing
+the graph so the editor recognizes plugin-owned options. Generated files are
+declarations, not a Runtime client. Read [Hooks](./official/hooks) and
+[Validation](./official/validation) for their exact behavior.
+
+## Verify and maintain the plugin set
+
+The example logs `Hello`. Try a whitespace-only title next: normalization
+produces an empty string and Validation rejects it before persistence. Verify
+both the successful result and the rejected write through the application's
+public API. A successful package installation alone proves neither.
+
+If startup fails, inspect the plugin's diagnostic and compatibility range
+before changing privileges or infrastructure settings. After removal, delete
+the factory from `plugins`, remove plugin-owned schema options or commands,
+regenerate Typegen, and verify startup and data compatibility. Removing a
+plugin does not automatically migrate its stored data.
 
 ## Check compatibility
 

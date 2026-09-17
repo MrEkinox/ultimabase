@@ -95,7 +95,7 @@ Real requests must identify the exact HTTP application:
 
 ```ts title="src/read-posts.ts"
 export const readPostsOverRest = () =>
-	fetch('https://api.example/api/v1/classes/Post', {
+	fetch('http://127.0.0.1:1337/api/v1/classes/Post', {
 		headers: { 'X-UltimaBase-Application-Id': 'blog' },
 	})
 ```

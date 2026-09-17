@@ -211,13 +211,15 @@ Reproduce without credentials first:
 ```sh
 curl -i \
   -H 'X-UltimaBase-Application-Id: blog' \
-  http://localhost:3000/api/v1/Post
+  http://127.0.0.1:1337/api/v1/classes/Post
 ```
 
-Record status, stable error code, and request ID. Confirm the public `appId`,
-mount, method, and route. Send exactly one application ID on real requests and
-never combine Bearer and cookie credentials. Do not copy Authorization, Cookie,
-Master values, or request bodies into logs or reports.
+The path above assumes the REST plugin's default route is installed alongside
+the HTTP and Hono examples. Without REST or another route owner, a 404 is
+expected. Record status, stable error code, and request ID. Confirm the public
+`appId`, mount, method, and route. Send exactly one application ID on real
+requests and never combine Bearer and cookie credentials. Do not copy
+Authorization, Cookie, Master values, or request bodies into logs or reports.
 
 If the boundary still rejects the request, follow
 [Reporting a problem](/docs/1.0.0/operations/application-troubleshooting#report-a-problem)

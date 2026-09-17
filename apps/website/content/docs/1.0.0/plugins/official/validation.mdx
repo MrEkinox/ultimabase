@@ -74,8 +74,8 @@ present, non-null mutation values after input resolution and structural
 validation. They may accept or reject the canonical value, but cannot transform
 it. Master mutations follow the same validation path.
 
-Reads and result materialization do not replay application validators. Master
-mutations still run them; validators cannot transform values or return promises.
+Reads and result materialization do not replay application validators.
+Validators cannot transform values or return promises.
 
 ## Troubleshooting
 

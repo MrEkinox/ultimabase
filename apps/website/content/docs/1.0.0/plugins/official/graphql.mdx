@@ -168,8 +168,10 @@ This differs from REST's `{ results }` array and numeric limit/offset representa
 but the visible objects still pass through the same Query normalization, policies,
 Runtime, and database capability.
 
-Generated public GraphQL surfaces require the same explicit protection acknowledgement
-as REST. Exposure controls declarations only; it never grants access.
+Generated public GraphQL surfaces report
+`UNVERIFIED_PUBLIC_TRANSPORT_PROTECTION` until you explicitly acknowledge a
+reviewed policy, as REST does. Exposure controls declarations only; it never
+grants access.
 
 ### Serve GraphQL over HTTP with Yoga
 

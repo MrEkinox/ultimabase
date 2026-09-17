@@ -1,9 +1,10 @@
-import { readFile, readdir } from 'node:fs/promises'
+import { access, readFile, readdir } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 import { officialPluginCatalog } from '../lib/official-plugins'
+import { documentationPlanSchema } from '../lib/docs-content-contract'
 
 const repositoryRoot = fileURLToPath(new URL('../../..', import.meta.url))
 const pluginPagePath = fileURLToPath(
@@ -25,6 +26,55 @@ async function readMdxTree(directory: string): Promise<string> {
 }
 
 describe('plugin documentation contracts', () => {
+	it('keeps every plugin page aligned with the plan and real repository sources', async () => {
+		const pluginDirectory = path.dirname(pluginPagePath)
+		const rawPlan: unknown = JSON.parse(
+			await readFile(
+				path.join(
+					path.dirname(pluginDirectory),
+					'../../documentation-plan.json',
+				),
+				'utf8',
+			),
+		)
+		const plan = documentationPlanSchema.parse(rawPlan)
+		const pluginSection = plan.sections.find(({ slug }) => slug === 'plugins')
+		if (pluginSection === undefined) throw new Error('Plugins plan is missing')
+
+		for (const page of pluginSection.pages) {
+			const source = await readFile(
+				path.join(pluginDirectory, `${page.slug}.mdx`),
+				'utf8',
+			)
+			expect(source, page.slug).toContain(`outcome: ${page.outcome}`)
+			const sources = /^sources:\n(?<paths>(?: {2}- .+\n)+)/mu.exec(source)
+			if (sources?.groups?.paths === undefined) {
+				throw new Error(`${page.slug} has no repository sources`)
+			}
+			for (const [, sourcePath] of sources.groups.paths.matchAll(
+				/^ {2}- (.+)$/gmu,
+			)) {
+				if (sourcePath === undefined) continue
+				await expect(
+					access(path.join(repositoryRoot, sourcePath)),
+					`${page.slug}: ${sourcePath}`,
+				).resolves.toBeUndefined()
+			}
+		}
+	})
+
+	it('shows package-manager choices on plugin consumption and authoring pages', async () => {
+		for (const pageName of ['using-plugins.mdx', 'build-a-plugin.mdx']) {
+			const source = await readFile(
+				path.join(path.dirname(pluginPagePath), pageName),
+				'utf8',
+			)
+			for (const manager of ['npm', 'yarn', 'pnpm']) {
+				expect(source, `${pageName}: ${manager}`).toContain(`tab="${manager}"`)
+			}
+		}
+	})
+
 	it('uses one reader journey on every official plugin page', async () => {
 		const directory = path.join(path.dirname(pluginPagePath), 'official')
 		const entries = await readdir(directory, { withFileTypes: true })

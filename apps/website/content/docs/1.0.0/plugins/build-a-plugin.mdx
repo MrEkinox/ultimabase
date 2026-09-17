@@ -8,7 +8,7 @@ order: 4
 outcome: Create a reusable factory with stable package identity and typed setup exports.
 owner: '2810'
 releaseStatus: pre-release
-reviewedAt: 2026-09-15
+reviewedAt: 2026-09-17
 sources:
   - packages/plugin-kit/README.md
   - packages/core/README.md
@@ -21,6 +21,29 @@ sources:
   - docs/adr/0208-enforceable-plugin-powers-and-environment-truth.md
 ---
 
+## Prepare a plugin package
+
+Start with a Node.js 24+, ESM TypeScript package whose name ends in
+`-plugin`, for example `@your-scope/workflow-plugin`. Install the Core
+contracts and the optional authoring helpers:
+
+```bash tab="npm" tab-group="package-manager"
+npm install @ultimabase/core @ultimabase/plugin-kit
+```
+
+```bash tab="yarn"
+yarn add @ultimabase/core @ultimabase/plugin-kit
+```
+
+```bash tab="pnpm"
+pnpm add @ultimabase/core @ultimabase/plugin-kit
+```
+
+Export your factory from the package root. Readers should import
+`@your-scope/workflow-plugin`, never its private `src/` files. Use the Core
+version range that matches the public release you actually test; the example
+below targets the `1.0.0` documentation line.
+
 ## Start with a stable module
 
 Use `@ultimabase/plugin-kit` to remove repeated authoring boilerplate. It is a
@@ -31,7 +54,7 @@ Its helpers delegate to the public Core kernel.
 import { definePluginModule } from '@ultimabase/plugin-kit'
 
 const workflow = definePluginModule({
-	core: '^0.0.0',
+	core: '^1.0.0',
 	pluginId: 'community.workflow',
 	version: '1.0.0',
 })
@@ -48,13 +71,14 @@ a static typed definition; it must not connect, read files, start listeners, or
 perform other effects. Put resource creation in an application capability
 factory or `setup`, where Core can attribute and dispose it.
 
+Install `workflowPlugin()` in an application's `plugins` array to verify that
+it starts and exposes its `ready` setup result. An import or a factory call on
+its own installs no behavior.
+
 Use Core directly for capability definitions, Runtime behavior, protected
 constraints, persistence rewrites, raw adapter leases, transport bindings,
 Master elevation, and explicit cross-owner transformations. Keeping those
 calls visible makes ownership and privilege boundaries reviewable.
-
-A publishable plugin package ends in `-plugin`. Export its factory and public
-contracts from the package root; consumers must not deep-import `src/`.
 
 ## Identity and instances
 
@@ -89,19 +113,18 @@ reasons, and direct environmental claims.
 import { definePlugin } from '@ultimabase/core'
 
 export const deliveryPlugin = definePlugin({
-	core: '^0.0.0',
-	environment: ['environment:network'],
+	core: '^1.0.0',
 	pluginId: 'community.delivery',
-	privileges: [
-		{
-			name: 'event:publish',
-			reason: 'Publishes committed delivery events.',
-		},
-	],
 	setup: () => ({ provider: 'example' as const }),
 	version: '1.0.0',
 })
 ```
+
+This minimal plugin requests no Core privilege and makes no environmental
+claim. Add each privilege only when its implementation uses that exact Core
+power, with a reason for the request. Declare `environment:network` only if
+your plugin itself performs network I/O; the claim reports direct behavior
+but does not sandbox it.
 
 Privileges protect Core-owned powers such as `schema:declare`,
 `runtime:observe`, `persistence:rewrite`, `transport:expose`,
@@ -148,14 +171,14 @@ export const workflowFormatPlugin = definePlugin({
 			}),
 		],
 	},
-	core: '^0.0.0',
+	core: '^1.0.0',
 	pluginId: 'community.workflow-format',
 	version: '1.0.0',
 })
 
 export const workflowConsumerPlugin = definePlugin({
 	capabilities: { requires: [format] },
-	core: '^0.0.0',
+	core: '^1.0.0',
 	pluginId: 'community.workflow-consumer',
 	setup: ({ capabilities }) => ({ format: capabilities.get(format).format }),
 	version: '1.0.0',
@@ -216,6 +239,20 @@ and denied privileges fail before effects.
 Use `@ultimabase/testing` for runner-independent conformance fixtures and run
 them with Vitest. Test the public package export exactly as an application will
 import it.
+
+Install these as development dependencies in the plugin package:
+
+```bash tab="npm" tab-group="package-manager"
+npm install --save-dev @ultimabase/testing vitest typescript
+```
+
+```bash tab="yarn"
+yarn add --dev @ultimabase/testing vitest typescript
+```
+
+```bash tab="pnpm"
+pnpm add --save-dev @ultimabase/testing vitest typescript
+```
 
 Cover stable identity, declared privileges, dependencies, capabilities,
 deterministic ordering, application isolation, materialization, startup,
