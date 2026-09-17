@@ -10,6 +10,10 @@ releaseStatus: pre-release
 reviewedAt: 2026-09-17
 sources:
   - packages/validation-plugin/README.md
+  - packages/validation-plugin/src/field-validation.ts
+  - packages/validation-plugin/src/operation-validation.ts
+  - packages/validation-plugin/src/field-validation.test.ts
+  - docs/adr/0223-optional-field-validation-plugin.md
   - examples/minimal/src/schema.ts
 ---
 
@@ -18,12 +22,15 @@ sources:
 `@ultimabase/validation-plugin` owns the optional `validation` field option.
 Core always enforces requiredness, nullability, canonical value shapes, defaults,
 immutable fields, and database integrity; installing this plugin adds
-application-specific rejection rules.
+application-specific rejection rules. Importing the package alone does not
+install those rules in an application.
 
 ## Installation
 
-Install the plugin and a Standard Schema implementation such as Zod. An
-existing UltimaBase application and database provider are prerequisites.
+Start from an UltimaBase application with a database provider, as in
+[Manual Installation](/docs/1.0.0/manual-installation). Install this plugin
+and a Standard Schema V1 implementation such as Zod. The example below uses
+the already-installed PostgreSQL provider.
 
 ```bash tab="npm" tab-group="package-manager"
 npm install @ultimabase/validation-plugin zod
@@ -39,12 +46,11 @@ pnpm add @ultimabase/validation-plugin zod
 
 ## Configuration
 
-Add `validationPlugin()` explicitly and attach validators to stored fields or
-embedded properties:
+Attach a validator to a stored field. Here Zod checks the complete canonical
+string after Core has resolved the input:
 
 ```ts title="src/article.ts"
 import { Schema } from '@ultimabase/core'
-import { validationPlugin } from '@ultimabase/validation-plugin'
 import { z } from 'zod'
 
 export const Article = Schema.define({
@@ -56,35 +62,77 @@ export const Article = Schema.define({
 		}),
 	}),
 })
-
-export const validation = validationPlugin()
 ```
 
-Include `validation` in the application's `plugins` and `Article` in its
-`schemas`. The factory has no configuration options. The `validation` field
-option accepts a synchronous Standard Schema V1 validator compatible with the
-field's complete value; virtual fields and output descriptors do not accept it.
+Install the plugin in the same application that registers `Article`:
+
+```ts title="src/ultimabase.ts"
+import { UltimaBase } from '@ultimabase/core'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
+import { validationPlugin } from '@ultimabase/validation-plugin'
+import { Article } from './article.js'
+
+const databaseUrl = process.env.DATABASE_URL
+if (!databaseUrl) throw new Error('DATABASE_URL is required')
+
+export const ultimabase = new UltimaBase({
+	schemas: [Article],
+	plugins: [postgresPlugin({ url: databaseUrl }), validationPlugin()],
+})
+
+await ultimabase.start()
+```
+
+`validationPlugin()` takes no options. For TypeScript authoring, regenerate
+application declarations after adding it so the `validation` option appears on
+supported fields; see [Generate TypeScript Types](/docs/1.0.0/guides/generate-types).
+
+The option accepts one synchronous Standard Schema V1 validator whose input
+and output are compatible with the field's complete canonical non-null value.
+It works on stored fields and embedded object properties, including list and
+plugin-defined stored values. Relation handles, virtual fields, and output
+descriptors do not expose it. `required` remains an independent Core option:
+the validator does not decide whether a field may be omitted or set to `null`.
 
 ## Behavior and limitations
 
-### Execution semantics
+### What runs, and when
 
-Validators use Standard Schema V1. They run synchronously over complete,
-present, non-null mutation values after input resolution and structural
-validation. They may accept or reject the canonical value, but cannot transform
-it. Master mutations follow the same validation path.
+The plugin checks each present, non-null field occurrence once for create,
+update, and upsert candidates. Defaults, generators, optional field and schema
+`resolveInput` hooks, prepared-operation transforms, and final Core structural
+validation run first. The validator sees the resulting complete value, not a
+raw transport input or an arithmetic delta. An update that increments a
+validated number checks its projected complete value while keeping the
+database operation atomic.
 
-Reads and result materialization do not replay application validators.
-Validators cannot transform values or return promises.
+Standard Schema issues become `field.validation` issues with the affected
+field path, including nested object and list positions. Master mutations take
+the same validation path; Master bypasses authorization, not validation.
+
+The validator may accept or reject the value, but its output is not adopted as
+a replacement. A schema that trims, coerces, inserts a default, or otherwise
+changes the value is a validator-contract error. Use [Hooks](./hooks) for input
+normalization, then validate the resolved result. Validators must be
+synchronous; promises and thrown vendor errors are contract errors too.
+
+Reads, included records, adapter results, and mutation results retain Core's
+structural checks but do **not** rerun application validators. This plugin is
+not a read-time data-cleaning mechanism or a substitute for database
+constraints such as unique indexes.
 
 ## Troubleshooting
 
-Submit an empty title and assert the stable `field.validation` issue path. Then
-submit a valid title and read it back. Master authority must receive the same
-validation result.
-
-If the `validation` option is unknown at startup, confirm that
-`validationPlugin()` is in the same application's plugin list. If a validator
-tries to transform a value or returns a promise, use a synchronous rejection
-rule instead. Use [Hooks](./hooks) when input must be normalized or
-transaction-bound business work must run.
+- **`validation` is an unknown field option:** confirm `validationPlugin()` is
+  installed in this application's `plugins`, then regenerate Typegen. Importing
+  the package or declaring a validator does not install the plugin.
+- **A value is rejected with `field.validation`:** inspect the issue path and
+  the vendor's message. In the example, an empty title fails `min(1)`; a
+  non-empty title passes. The same rule applies to Master mutations.
+- **A validator-contract error occurs:** keep validation synchronous and
+  rejection-only. For example, `z.string().trim()` can change accepted values;
+  normalize through a `resolveInput` hook instead, then validate the result.
+- **A value that fails an application rule still reads:** application validators
+  do not run on reads, although Core still checks its structural shape. Check
+  the data source and enforce persistent invariants with the appropriate
+  database constraint or migration.
