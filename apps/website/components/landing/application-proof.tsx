@@ -1,4 +1,12 @@
-/** A product-specific, readable view of what one configured application exposes. */
+import { ServerCodeBlock } from 'fumadocs-ui/components/codeblock.rsc'
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
+import { ArrowDown, Check, FileCode2 } from 'lucide-react'
+
+import { readExample, schemaExample, writeExample } from './content'
+
+const themes = { dark: 'github-dark', light: 'github-light' }
+
+/** Server-rendered examples use native Fumadocs tabs, including keyboard navigation. */
 export function ApplicationProof() {
 	return (
 		<figure
@@ -6,64 +14,58 @@ export function ApplicationProof() {
 			aria-labelledby="ub-proof-caption"
 			data-testid="visual-system-motion"
 		>
-			<div className="ub-proof-toolbar">
-				<span>SCHEMA + PLUGINS</span>
-				<span className="ub-proof-live">ONE APPLICATION</span>
+			<div className="ub-proof-editors">
+				<div className="ub-proof-schema">
+					<div className="ub-editor-label">
+						<span>
+							<FileCode2 aria-hidden="true" /> article.ts
+						</span>
+						<span>01 / DEFINE</span>
+					</div>
+					<ServerCodeBlock
+						code={schemaExample}
+						lang="ts"
+						themes={themes}
+						codeblock={{ className: 'ub-code', allowCopy: false }}
+					/>
+				</div>
+				<div className="ub-proof-query">
+					<div className="ub-editor-label">
+						<span>
+							<FileCode2 aria-hidden="true" /> application.ts
+						</span>
+						<span>02 / USE</span>
+					</div>
+					<Tabs items={['Read data', 'Write data']} className="ub-demo-tabs">
+						<Tab>
+							<ServerCodeBlock
+								code={readExample}
+								lang="ts"
+								themes={themes}
+								codeblock={{ className: 'ub-code', allowCopy: false }}
+							/>
+						</Tab>
+						<Tab>
+							<ServerCodeBlock
+								code={writeExample}
+								lang="ts"
+								themes={themes}
+								codeblock={{ className: 'ub-code', allowCopy: false }}
+							/>
+						</Tab>
+					</Tabs>
+				</div>
 			</div>
-			<div className="ub-proof-body">
-				<div className="ub-proof-inputs">
-					<div className="ub-proof-schema">
-						<p>01 / DECLARE</p>
-						<strong>Article</strong>
-						<dl>
-							<div>
-								<dt>slug</dt>
-								<dd>unique string</dd>
-							</div>
-							<div>
-								<dt>title</dt>
-								<dd>required string</dd>
-							</div>
-						</dl>
-					</div>
-					<div className="ub-proof-plugins">
-						<p>02 / ADD PLUGINS</p>
-						<ul>
-							<li>
-								PostgreSQL <span>persistence</span>
-							</li>
-							<li>
-								Typegen <span>declarations</span>
-							</li>
-						</ul>
-					</div>
-				</div>
-				<div className="ub-proof-connector" aria-hidden="true">
-					<span />
-					<b>→</b>
-				</div>
-				<div className="ub-proof-output">
-					<p>03 / USE</p>
-					<strong>One application</strong>
-					<ul>
-						<li>
-							<code>Article.findMany</code>
-							<span>Typed read</span>
-						</li>
-						<li>
-							<code>Article.createOne</code>
-							<span>Transactional write</span>
-						</li>
-						<li>
-							<code>.d.ts</code>
-							<span>Replaceable types</span>
-						</li>
-					</ul>
-				</div>
+			<div className="ub-proof-output">
+				<span className="ub-result-label">
+					<ArrowDown aria-hidden="true" /> Typed data APIs
+				</span>
+				<span>Schema-aware inputs. Selected results. Immutable models.</span>
+				<Check aria-hidden="true" />
 			</div>
 			<figcaption id="ub-proof-caption">
-				This example shows direct TypeScript calls. REST and GraphQL are
-				optional plugins.
+				Direct TypeScript with a started PostgreSQL application and generated
+				Typegen declarations. <span>Setup below ↓</span>
 			</figcaption>
 		</figure>
 	)

@@ -1,41 +1,64 @@
-import type { LandingFlowCopy } from './content'
+import { ArrowDown, Database } from 'lucide-react'
 
-export interface ArchitectureFlowProps {
-	readonly copy: LandingFlowCopy
-}
+import { currentDocumentationPath } from '../../lib/docs-versions'
+import { TextLink } from '../primitives'
 
-export function ArchitectureFlow({ copy }: ArchitectureFlowProps) {
+/** A deliberately simplified flow; optional engines are labelled as installed behavior. */
+export function ArchitectureFlow() {
 	return (
 		<figure className="ub-flow" aria-labelledby="runtime-flow-title">
 			<figcaption>
-				<p className="ub-section-index">{copy.index}</p>
-				<h2 id="runtime-flow-title">{copy.title}</h2>
-				<p>{copy.description}</p>
+				<p className="ub-section-index">02 / ONE EXECUTION MODEL</p>
+				<h2 id="runtime-flow-title">
+					Different APIs.
+					<br />
+					Same rules.
+				</h2>
+				<p>
+					Call from TypeScript. Add REST or GraphQL. Every entry point uses the
+					same operation engine, so your application’s behavior follows the
+					data.
+				</p>
+				<TextLink
+					href={currentDocumentationPath('core/runtime/runtime-pipeline')}
+				>
+					Follow a request <span aria-hidden="true">↗</span>
+				</TextLink>
 			</figcaption>
-
 			<div className="ub-flow-diagram">
-				<ul aria-label={copy.entryPointsLabel} className="ub-flow-inputs">
-					{copy.inputs.map((input) => (
-						<li key={input.label}>
-							<strong>{input.label}</strong>
-							<span>{input.detail}</span>
-						</li>
-					))}
+				<ul aria-label="Application entry points" className="ub-flow-inputs">
+					<li>
+						<strong>TypeScript</strong>
+						<span>Direct calls</span>
+					</li>
+					<li>
+						<strong>REST</strong>
+						<span>Optional plugin</span>
+					</li>
+					<li>
+						<strong>GraphQL</strong>
+						<span>Optional plugin</span>
+					</li>
 				</ul>
-
-				<div aria-hidden="true" className="ub-flow-connector">
-					<span />
-					<span>{copy.connector}</span>
+				<div className="ub-flow-merge" aria-hidden="true">
+					<ArrowDown />
 				</div>
-
-				<ol aria-label={copy.stagesLabel} className="ub-flow-stages">
-					{copy.stages.map((stage, index) => (
-						<li key={stage}>
-							<span>{String(index + 1).padStart(2, '0')}</span>
-							{stage}
-						</li>
-					))}
-				</ol>
+				<div className="ub-runtime">
+					<div className="ub-runtime-title">
+						<span className="ub-runtime-dot" /> One operation engine
+					</div>
+					<ul aria-label="Shared runtime responsibilities">
+						<li>Structural validation</li>
+						<li>Installed policies &amp; hooks</li>
+						<li>Mutation transactions</li>
+					</ul>
+				</div>
+				<ArrowDown className="ub-flow-arrow" aria-hidden="true" />
+				<div className="ub-flow-database">
+					<Database aria-hidden="true" />
+					<strong>PostgreSQL</strong>
+					<span>Storage plugin</span>
+				</div>
 			</div>
 		</figure>
 	)

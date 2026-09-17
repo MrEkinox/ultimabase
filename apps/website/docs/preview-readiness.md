@@ -38,10 +38,10 @@ Canonical, Open Graph, and X text metadata derive from the
 same page title, description, and provisional canonical origin. The
 generated favicon uses the replaceable geometric mark. Sitemap, robots, Project
 metadata and 404 responses have
-production-browser coverage. The global navigation exposes Docs, Plugins, and
-GitHub; the Plugins link opens the official catalog in the plugin overview.
-The landing footer links directly to release status, roadmap, and contribution
-guidance. Its main action opens the documentation rather than implying that
+production-browser coverage. The global navigation exposes Documentation,
+Plugins, a Project menu, and Fumadocs’ native GitHub icon. The Plugins link opens
+the official catalog; Project links to release status, roadmap, and contribution
+guidance on desktop and mobile. The landing has no footer. Its main action opens the documentation rather than implying that
 unpublished npm packages are ready to install. The former `/examples` pages are removed;
 the repository examples remain maintained as source material for guides.
 
@@ -49,6 +49,9 @@ No social-card image is included while the product name and public domain are
 provisional. This prevents a stale branded image from becoming part of the
 preview. A final card can be commissioned with the launch identity and added in
 the same change as its Open Graph and X image metadata.
+
+The [2026-09-18 landing redesign handoff](./landing-redesign.md) records the
+current landing composition, screenshots, source checks, and navigation audit.
 
 ## Production build snapshot
 

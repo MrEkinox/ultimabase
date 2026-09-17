@@ -32,7 +32,7 @@ in version folders such as `content/docs/1.0.0`; root `docs/` remains the
 engineering source for ADRs, specifications, and implementation plans.
 
 Source-backed release status, roadmap, and contribution guidance live under
-`/docs/1.0.0/project/*` and are linked from the marketing footer. The
+`/docs/1.0.0/project/*` and are linked from the marketing header’s Project menu. The
 global Plugins link opens the official-plugin catalog section of the public
 plugin overview. The former
 `/examples` pages are no longer published; the runnable repository examples
@@ -176,22 +176,36 @@ color preset. `app/theme.css` overrides only the light/dark primary, accent,
 and focus colors with the shared blue identity; it also keeps the semantic
 tokens needed by custom marketing surfaces. `components/brand-mark.tsx` owns
 the provisional geometric mark used by marketing navigation and the generated favicon.
-The landing page is the only custom content layout: its first viewport names
-UltimaBase as a TypeScript backend framework and shows the declared Article
-schema and explicit plugins compiling into one application. A source-backed
-configuration, the shared execution path, and links to the relevant product
-contracts follow. Its pre-release status and source-example action do not
-imply that npm packages or a hosted service are available. The marketing
-footer groups documentation and project links. The configuration preview uses Fumadocs'
-server-rendered code block; the first-view proof uses semantic HTML rather than
-an image or a simulated product dashboard.
+The landing page is the only custom content layout. Its blue introduction
+identifies UltimaBase as a TypeScript backend framework, then shows one Article
+schema beside keyboard-accessible read/write examples. The precise result types
+assume generated Typegen declarations; the example application uses PostgreSQL's
+`fail` schema policy and directs first-time readers to Manual Installation.
+Plugin composition, a simplified shared execution diagram, and concrete
+transaction, relationship, security, and selection illustrations follow.
+
+Marketing styling is scoped to `.ub-landing` in `app/landing.css`; documentation
+keeps the standard Fumadocs shell, code blocks, navigation, search, and theme
+controls. The examples use server-rendered Fumadocs code blocks and native tabs.
+On narrow screens, code wraps within its panel. Decorative entry motion respects
+reduced-motion preferences. Pre-release status, source availability, and the
+Apache-2.0 license are explicit; no initializer or npm publication is implied.
+The marketing header offers Documentation, Plugins, and Fumadocs’ native
+GitHub icon through `githubUrl`, with a native Project
+menu for Release Status, Roadmap, and Contributing. There is no marketing footer.
 
 Shared marketing surfaces live under `components/`:
 
 - `brand.tsx` provides the text mark and navigation identity;
-- `site-shell.tsx` provides the marketing footer while Fumadocs renders the
-  responsive header from the shared options in `lib/layout.tsx`;
+- `lib/layout.tsx` configures Fumadocs’ responsive marketing header and Project
+  menu; documentation keeps its separate standard navigation options;
 - `primitives.tsx` provides buttons, links, sections, and callouts.
+
+The content suite compiles the displayed landing examples against public package
+exports and real Typegen declarations, including negative checks for excluded
+fields and incorrect result types. On a fresh checkout, run the root
+`yarn typecheck` first to emit workspace exports (as CI already does). The sample
+check compiles the static application only; it never starts a database connection.
 
 The browser tests build and start the production application, then check the
 first-view product proof, complete example visibility, light and dark shells,

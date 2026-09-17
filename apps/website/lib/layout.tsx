@@ -5,13 +5,35 @@ import { siteConfig } from './site'
 
 const navigationLinks = () =>
 	siteConfig.navigation.map((item) => ({
-		...(item.external === true ? { external: true } : {}),
 		text: item.label,
 		url: item.href,
 	}))
 
 export const baseLayoutOptions = (): BaseLayoutProps => ({
-	links: navigationLinks(),
+	links: [
+		...navigationLinks(),
+		{
+			type: 'menu',
+			text: 'Project',
+			items: [
+				{
+					text: 'Release status',
+					url: siteConfig.routes.releaseStatus,
+					description: 'What is available today.',
+				},
+				{
+					text: 'Roadmap',
+					url: siteConfig.routes.roadmap,
+					description: 'Follow the framework’s direction.',
+				},
+				{
+					text: 'Contributing',
+					url: siteConfig.routes.contributing,
+					description: 'Help build UltimaBase.',
+				},
+			],
+		},
+	],
 	nav: {
 		title: siteConfig.name,
 		url: '/',

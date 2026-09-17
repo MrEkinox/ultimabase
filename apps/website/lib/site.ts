@@ -5,7 +5,6 @@ const developmentUrl = 'http://localhost:3000'
 export type SiteReleaseStatus = 'pre-release'
 
 export interface SiteNavigationItem {
-	readonly external?: boolean
 	readonly href: string
 	readonly label: string
 }
@@ -72,13 +71,8 @@ export const siteConfig = Object.freeze({
 		'UltimaBase is an open-source TypeScript backend framework for typed data APIs built from schemas and optional plugins.',
 	name: 'UltimaBase',
 	navigation: Object.freeze([
-		{ href: routes.docs, label: 'Docs' },
+		{ href: routes.docs, label: 'Documentation' },
 		{ href: routes.plugins, label: 'Plugins' },
-		{
-			external: true,
-			href: repositoryUrl.href,
-			label: 'GitHub',
-		},
 	]),
 	preview,
 	releaseStatus: 'pre-release',

@@ -132,44 +132,6 @@ describe('website preview audit', () => {
 		}
 	})
 
-	it('makes every project status page discoverable from the landing page', async () => {
-		const context = await browser?.newContext({
-			colorScheme: 'dark',
-			viewport: { height: 900, width: 1280 },
-		})
-		if (context === undefined) throw new Error('Browser did not start')
-
-		try {
-			const page = await context.newPage()
-			const clientErrors = collectClientErrors(page)
-			await page.goto(origin)
-			const projectInformation = page.getByRole('navigation', {
-				name: 'Footer',
-			})
-			for (const [label, route] of [
-				['Release status', siteConfig.routes.releaseStatus],
-				['Roadmap', siteConfig.routes.roadmap],
-				['Contributing', siteConfig.routes.contributing],
-			] as const) {
-				expect(
-					await projectInformation
-						.getByRole('link', { name: label })
-						.getAttribute('href'),
-				).toBe(route)
-			}
-			await projectInformation
-				.getByRole('link', { name: 'Release status' })
-				.click()
-			await page.waitForURL(`${origin}${siteConfig.routes.releaseStatus}`)
-			await page
-				.getByRole('heading', { level: 1, name: 'Release Status' })
-				.waitFor()
-			expect(clientErrors).toEqual([])
-		} finally {
-			await context.close()
-		}
-	})
-
 	it('does not publish removed documentation and examples routes', async () => {
 		const context = await browser?.newContext()
 		if (context === undefined) throw new Error('Browser did not start')
@@ -221,7 +183,7 @@ describe('website preview audit', () => {
 
 			await page.goto(origin)
 			await page
-				.getByRole('figure', { name: 'Three ways in. One execution path.' })
+				.getByRole('figure', { name: /Different APIs.*Same rules/u })
 				.waitFor()
 			expect(await accessibilityViolations(page)).toEqual([])
 		} finally {

@@ -98,7 +98,7 @@ describe('website visual system', () => {
 				await header.waitFor({ state: 'visible' })
 				if (customShell) {
 					await header.locator('[data-brand]').waitFor({ state: 'visible' })
-					await page.locator('[data-site-footer]').waitFor({ state: 'visible' })
+					expect(await page.getByRole('contentinfo').count()).toBe(0)
 				} else {
 					expect(await header.locator('[data-brand]').count()).toBe(0)
 					expect(await page.locator('[data-site-footer]').count()).toBe(0)
@@ -134,7 +134,7 @@ describe('website visual system', () => {
 				.getByRole('link', { name: 'Explore the docs' })
 				.waitFor({ state: 'visible' })
 			await page
-				.getByRole('figure', { name: 'Three ways in. One execution path.' })
+				.getByRole('figure', { name: /Different APIs.*Same rules/u })
 				.waitFor({ state: 'attached' })
 			expect(
 				await page.evaluate(
@@ -172,10 +172,10 @@ describe('website visual system', () => {
 			await page
 				.getByRole('heading', {
 					level: 1,
-					name: 'Typed APIs. One model.',
+					name: /Your data model.*A working backend/u,
 				})
 				.waitFor({ state: 'visible' })
-			expect(await page.getByText('Article.createOne').count()).toBe(1)
+			await page.getByRole('tab', { name: 'Write data' }).waitFor()
 			const applicationPreview = page.getByRole('region', {
 				name: 'Example application configuration',
 			})
@@ -187,7 +187,7 @@ describe('website visual system', () => {
 			expect(
 				await page
 					.locator('#nd-nav')
-					.getByRole('link', { name: 'Docs' })
+					.getByRole('link', { name: 'Documentation' })
 					.getAttribute('href'),
 			).toBe(siteConfig.routes.docs)
 			expect(
