@@ -74,7 +74,7 @@ export const statusPages: readonly StatusPageContent[] = Object.freeze([
 					{
 						description:
 							'Direct TypeScript, experimental REST v1, and GraphQL share the same operation and policy path.',
-						href: `${currentDocumentationPath('core/application')}#read-and-write-in-typescript`,
+						href: `${currentDocumentationPath('core/application')}#start-and-dispose`,
 						title: 'Public execution paths',
 					},
 				],

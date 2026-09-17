@@ -1,8 +1,10 @@
 import { readFile, readdir } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import Slugger from 'github-slugger'
 import { describe, expect, it } from 'vitest'
 
+import { statusPages } from '../components/status/content'
 import {
 	documentationSections,
 	visibleDocumentationSections,
@@ -69,17 +71,39 @@ async function readContentPages(): Promise<readonly ContentPage[]> {
 
 function internalDocumentationLinks(source: string): readonly string[] {
 	const links = [
-		...source.matchAll(/\[[^\]]*\]\((?<href>[^\s)#]+)(?:#[^)]+)?\)/gu),
-		...source.matchAll(/\bhref=["'](?<href>[^"'#]+)(?:#[^"']*)?["']/gu),
+		...source.matchAll(/\[[^\]]*\]\((?<href>[^\s)]+)\)/gu),
+		...source.matchAll(/\bhref=["'](?<href>[^"']+)["']/gu),
 	]
 	return links.flatMap((match) => {
 		const href = match.groups?.href
 		return href?.startsWith('/docs') === true ||
 			href?.startsWith('./') === true ||
-			href?.startsWith('../') === true
+			href?.startsWith('../') === true ||
+			href?.startsWith('#') === true
 			? [href]
 			: []
 	})
+}
+
+function headingAnchors(source: string): ReadonlySet<string> {
+	const slugger = new Slugger()
+	const anchors = new Set<string>()
+	let inCodeBlock = false
+
+	for (const line of source.split('\n')) {
+		if (/^(?:```|~~~)/u.test(line)) {
+			inCodeBlock = !inCodeBlock
+			continue
+		}
+		if (inCodeBlock) continue
+
+		const title = /^#{1,6} (?<title>.+)$/u.exec(line)?.groups?.title
+		if (title === undefined) continue
+		const explicitId = /\s*\[#(?<id>[^\]]+)\]\s*$/u.exec(title)?.groups?.id
+		anchors.add(`#${explicitId ?? slugger.slug(title)}`)
+	}
+
+	return anchors
 }
 
 describe('public documentation content contract', () => {
@@ -208,20 +232,49 @@ describe('public documentation content contract', () => {
 		}
 	})
 
-	it('resolves every internal documentation link', async () => {
+	it('resolves every internal documentation link and section anchor', async () => {
 		const pages = await readContentPages()
-		const publishedUrls = new Set(pages.map((page) => page.url))
+		// Fumadocs uses github-slugger for heading IDs; ignore fenced examples.
+		const publishedPages = new Map(
+			pages.map((page) => [page.url, headingAnchors(page.source)]),
+		)
+		expect(publishedPages.size).toBe(pages.length)
+
+		const checkLink = (from: string, href: string): void => {
+			const [pathname, fragment] = href.split('#', 2)
+			const resolved =
+				pathname === ''
+					? from
+					: pathname?.startsWith('/') === true
+						? pathname
+						: path.posix.normalize(
+								path.posix.join(path.posix.dirname(from), pathname ?? ''),
+							)
+			const headings = publishedPages.get(resolved)
+			expect(headings, `${from} -> ${href}`).toBeDefined()
+			if (fragment !== undefined && fragment !== '') {
+				expect(
+					headings?.has(`#${decodeURIComponent(fragment)}`),
+					`${from} -> ${href}`,
+				).toBe(true)
+			}
+		}
 
 		for (const page of pages) {
 			for (const href of internalDocumentationLinks(page.source)) {
-				const resolved = href.startsWith('/')
-					? href
-					: path.posix.normalize(
-							path.posix.join(path.posix.dirname(page.url), href),
-						)
-				expect(publishedUrls.has(resolved), `${page.filePath} -> ${href}`).toBe(
-					true,
-				)
+				checkLink(page.url, href)
+			}
+		}
+
+		for (const page of statusPages) {
+			const links = [
+				page.primaryAction.href,
+				...page.sections.flatMap((section) =>
+					section.items.flatMap((item) => item.href ?? []),
+				),
+			]
+			for (const href of links) {
+				if (href.startsWith('/docs')) checkLink(`/status/${page.slug}`, href)
 			}
 		}
 	})

@@ -86,8 +86,8 @@ repository material is suitable for each public area, while
 The `/api/search` index is built only from this public content source.
 `yarn website:validate` generates the typed content, validates
 frontmatter, canonical URLs, sidebar ordering, duplicate navigation entries,
-and internal documentation links. It never scans the repository's engineering
-`docs/` directory.
+and internal documentation links and heading anchors, including links from the
+status pages. It never scans the repository's engineering `docs/` directory.
 
 Each versioned documentation page has Fumadocs' Copy Markdown and Open actions.
 Its `.md` URL serves processed Markdown from the same authored page, including
