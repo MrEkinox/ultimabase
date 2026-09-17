@@ -1,9 +1,9 @@
 import { ServerCodeBlock } from 'fumadocs-ui/components/codeblock.rsc'
-import Image from 'next/image'
 
 import { currentDocumentationPath } from '../../lib/docs-versions'
 import { siteConfig } from '../../lib/site'
 import { ButtonLink, Eyebrow, Section, TextLink } from '../primitives'
+import { ApplicationProof } from './application-proof'
 import { ArchitectureFlow } from './architecture-flow'
 import { applicationExample, landingCopy } from './content'
 
@@ -38,93 +38,34 @@ export function LandingPage() {
 					</div>
 					<p className="ub-hero-note">{copy.hero.note}</p>
 				</div>
+				<div className="ub-landing-hero-proof">
+					<ApplicationProof />
+				</div>
 			</Section>
 
 			<Section
-				className="ub-landing-preview"
+				className="ub-landing-principle"
 				aria-label="Example application configuration"
 			>
-				<div className="ub-preview" data-testid="visual-system-motion">
-					<div className="ub-preview-topline">
-						<span className="ub-preview-window-controls" aria-hidden="true">
-							<i />
-							<i />
-							<i />
-						</span>
-						<span>01 / A real application</span>
-						<span>Schema + explicit plugins</span>
-					</div>
-					<div className="ub-preview-body">
-						<div className="ub-preview-code">
-							<ServerCodeBlock
-								code={applicationExample}
-								lang="ts"
-								themes={{ light: 'github-dark', dark: 'github-dark' }}
-								codeblock={{
-									className: 'ub-preview-codeblock',
-									title: 'src/application.ts',
-								}}
-							/>
-						</div>
-						<div className="ub-preview-aside">
-							<p className="ub-preview-aside-index">Configured, not assumed</p>
-							<h2>{copy.preview.title}</h2>
-							<p>{copy.preview.description}</p>
-							<Image
-								alt=""
-								className="ub-preview-graph"
-								height={270}
-								src="/landing/application-graph.svg"
-								unoptimized
-								width={440}
-							/>
-							<ol
-								className="ub-preview-inventory"
-								aria-label="Configured parts"
-							>
-								<li>
-									<span>01 / Schema</span>
-									<strong>Article</strong>
-									<small>slug · title</small>
-								</li>
-								<li>
-									<span>02 / Plugin</span>
-									<strong>PostgreSQL</strong>
-									<small>Persistence</small>
-								</li>
-								<li>
-									<span>03 / Plugin</span>
-									<strong>Typegen</strong>
-									<small>Declarations</small>
-								</li>
-							</ol>
-						</div>
-					</div>
-					<div className="ub-preview-footer">
-						<p>{copy.preview.caption}</p>
-						<TextLink href={currentDocumentationPath('core/application')}>
-							{copy.preview.link} <span aria-hidden="true">↗</span>
-						</TextLink>
-					</div>
-				</div>
-			</Section>
-
-			<Section className="ub-landing-principle">
-				<div className="ub-landing-principle-heading">
+				<div className="ub-landing-principle-copy">
 					<p className="ub-section-index">{copy.principle.index}</p>
 					<h2>{copy.principle.title}</h2>
-				</div>
-				<div className="ub-landing-principle-detail">
 					<p>{copy.principle.description}</p>
-					<ol className="ub-composition-layers">
-						{copy.principle.layers.map((layer, index) => (
-							<li key={layer.label}>
-								<span>{String(index + 1).padStart(2, '0')}</span>
-								<strong>{layer.label}</strong>
-								<small>{layer.description}</small>
-							</li>
-						))}
-					</ol>
+					<p className="ub-principle-caption">{copy.preview.caption}</p>
+					<TextLink href={currentDocumentationPath('core/application')}>
+						{copy.preview.link} <span aria-hidden="true">↗</span>
+					</TextLink>
+				</div>
+				<div className="ub-application-code">
+					<ServerCodeBlock
+						code={applicationExample}
+						lang="ts"
+						themes={{ light: 'github-dark', dark: 'github-dark' }}
+						codeblock={{
+							className: 'ub-application-codeblock',
+							title: 'src/application.ts',
+						}}
+					/>
 				</div>
 			</Section>
 

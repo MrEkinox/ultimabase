@@ -172,13 +172,13 @@ describe('website visual system', () => {
 			await page
 				.getByRole('heading', {
 					level: 1,
-					name: 'Your schema is the contract. Every API follows.',
+					name: 'One graph. Every API.',
 				})
 				.waitFor({ state: 'visible' })
+			expect(await page.getByText('Article.createOne').count()).toBe(1)
 			const applicationPreview = page.getByRole('region', {
 				name: 'Example application configuration',
 			})
-			expect(await applicationPreview.getByRole('listitem').count()).toBe(3)
 			expect(
 				await applicationPreview
 					.getByRole('link', { name: 'Explore the application graph' })

@@ -175,13 +175,14 @@ color preset. `app/theme.css` overrides only the light/dark primary, accent,
 and focus colors with the shared blue identity; it also keeps the semantic
 tokens needed by custom marketing surfaces. `components/brand-mark.tsx` owns
 the provisional geometric mark used by marketing navigation and the generated favicon.
-The landing page is the only custom content layout: its hero leads into a
-source-backed application configuration, an explanation of plugin composition,
-the shared execution path, and links to the relevant product contracts. Its
+The landing page is the only custom content layout: its first viewport shows
+the declared Article schema and explicit plugins compiling into one application,
+followed by a source-backed configuration, the shared execution path, and links
+to the relevant product contracts. Its
 pre-release status and project links stay visible rather than implying a
 hosted service or a stable release. The configuration preview uses Fumadocs'
-server-rendered code block and a local SVG diagram of the configured schema
-and plugins; it does not download remote hero imagery.
+server-rendered code block; the first-view proof uses semantic HTML rather than
+an image or a simulated product dashboard.
 
 Shared marketing surfaces live under `components/`:
 
@@ -190,10 +191,10 @@ Shared marketing surfaces live under `components/`:
   responsive header from the shared options in `lib/layout.tsx`;
 - `primitives.tsx` provides buttons, links, sections, and callouts.
 
-The browser test builds and starts the production application, then checks the
-light and dark shells, mobile and 200%-zoom-equivalent reflow, reduced motion,
-focus semantics, search and routing, and WCAG A/AA findings with
-Playwright and Axe.
+The browser tests build and start the production application, then check the
+first-view product proof, complete example visibility, light and dark shells,
+mobile and 200%-zoom-equivalent reflow, reduced motion, focus semantics,
+search and routing, and WCAG A/AA findings with Playwright and Axe.
 
 [`docs/preview-readiness.md`](docs/preview-readiness.md) records the current
 private-preview audit, production asset totals, and the decisions required

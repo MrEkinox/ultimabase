@@ -42,17 +42,11 @@ export interface LandingCopy {
 	}>
 	readonly preview: Readonly<{
 		readonly caption: string
-		readonly description: string
 		readonly link: string
-		readonly title: string
 	}>
 	readonly principle: Readonly<{
 		readonly description: string
 		readonly index: string
-		readonly layers: readonly Readonly<{
-			readonly description: string
-			readonly label: string
-		}>[]
 		readonly title: string
 	}>
 	readonly status: Readonly<{
@@ -166,40 +160,23 @@ export const landingCopy: LandingCopy = Object.freeze({
 	},
 	hero: {
 		description:
-			'Define your data in TypeScript. Add the plugins you need. Direct calls, REST, and GraphQL follow the same application rules.',
-		firstLine: 'Your schema is the contract.',
+			'Define schemas and choose plugins in TypeScript. Direct calls, REST, and GraphQL share one Runtime.',
+		firstLine: 'One graph.',
 		note: 'Node.js 24+ · TypeScript · Apache-2.0',
 		primaryAction: 'Start building',
-		secondLine: 'Every API follows.',
+		secondLine: 'Every API.',
 		secondaryAction: 'View on GitHub',
 		status: `${siteConfig.releaseStatus} · open source`,
 	},
 	preview: {
 		caption:
 			'One schema and two explicit plugins. No generated Runtime client.',
-		description:
-			'This is a real application configuration: an Article schema, PostgreSQL persistence, and replaceable TypeScript declarations.',
 		link: 'Explore the application graph',
-		title: 'Start with the application, not the adapter.',
 	},
 	principle: {
 		description:
 			'Choose the capabilities that belong in your application. Each plugin declares its contribution and the privileges or environmental access it needs. Remove it, and its behavior goes with it.',
 		index: '01 / Explicit composition',
-		layers: [
-			{
-				label: 'Core',
-				description: 'Schemas, queries, and one execution pipeline',
-			},
-			{
-				label: 'Plugins',
-				description: 'Persistence, transports, security, and tooling',
-			},
-			{
-				label: 'Your application',
-				description: 'The exact graph you configure',
-			},
-		],
 		title: 'A small core. A deliberate stack.',
 	},
 	status: {
