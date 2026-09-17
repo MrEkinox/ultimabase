@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest'
 const contentRoot = fileURLToPath(
 	new URL('../content/docs/1.0.0/guides/', import.meta.url),
 )
-const pages = ['generate-types', 'test-an-application'] as const
+const pages = ['generate-types'] as const
 
 describe('focused guide contracts', () => {
 	it('keeps every guide task-shaped and complete', async () => {

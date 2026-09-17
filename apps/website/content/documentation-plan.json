@@ -291,11 +291,6 @@
 					"slug": "generate-types",
 					"contentType": "guide",
 					"outcome": "Generate and verify replaceable declarations for one configured UltimaBase application."
-				},
-				{
-					"slug": "test-an-application",
-					"contentType": "tutorial",
-					"outcome": "Run deterministic type and application checks before adding database-backed scenarios."
 				}
 			]
 		},

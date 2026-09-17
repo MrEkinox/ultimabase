@@ -157,8 +157,7 @@ The public route architecture is:
 │       │       ├── operations-and-graphql
 │       │       └── runtime-and-infrastructure
 │       ├── guides
-│       │   ├── generate-types
-│       │   └── test-an-application
+│       │   └── generate-types
 │       ├── operations
 │       │   ├── configuration-and-environment
 │       │   ├── secrets
@@ -191,7 +190,8 @@ Nested writes and contextual relation filters also stay in their owning Core
 pages, not in thin Guides copies. The former authenticated-API guide repeated
 Password Authentication, Access, HTTP, and REST; their owning pages now carry
 its session and protected-read checks. Guides retains the independent Typegen
-and application-testing tasks.
+task. The thin application-testing page was removed: it described repository
+checks without teaching a runnable application test.
 
 The version sidebar presents Introduction, Core, Plugins, Guides, Operate Your
 Application, and Reference as non-collapsible section titles. It extracts each

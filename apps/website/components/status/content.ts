@@ -245,7 +245,8 @@ export const statusPages: readonly StatusPageContent[] = Object.freeze([
 					{
 						description:
 							'Runtime tests, type tests, package-root export checks, immutable-builder coverage, and PostgreSQL integration tests protect different boundaries.',
-						href: currentDocumentationPath('guides/test-an-application'),
+						external: true,
+						href: repositoryFile('AGENTS.md#testing-requirements'),
 						title: 'Test the public behavior',
 					},
 					{
@@ -265,7 +266,8 @@ export const statusPages: readonly StatusPageContent[] = Object.freeze([
 					{
 						description:
 							'Compiled samples, ownership checks, and links catch mechanical drift; humans remain responsible for semantic accuracy.',
-						href: currentDocumentationPath('guides/test-an-application'),
+						external: true,
+						href: repositoryFile('AGENTS.md#documentation-and-decisions'),
 						title: 'Review documentation impact',
 					},
 					{

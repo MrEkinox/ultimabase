@@ -95,7 +95,7 @@ const canonicalNavigation = {
 		'operations-and-graphql',
 		'runtime-and-infrastructure',
 	],
-	'1.0.0/guides': ['generate-types', 'test-an-application'],
+	'1.0.0/guides': ['generate-types'],
 	'1.0.0/operations': [
 		'configuration-and-environment',
 		'secrets',
@@ -158,6 +158,15 @@ describe('documentation navigation architecture', () => {
 		await expect(
 			readFile(
 				path.join(contentRoot, '1.0.0/guides/add-virtual-fields.mdx'),
+				'utf8',
+			),
+		).rejects.toMatchObject({ code: 'ENOENT' })
+	})
+
+	it('does not publish the repository-only application testing guide', async () => {
+		await expect(
+			readFile(
+				path.join(contentRoot, '1.0.0/guides/test-an-application.mdx'),
 				'utf8',
 			),
 		).rejects.toMatchObject({ code: 'ENOENT' })

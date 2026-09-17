@@ -213,6 +213,9 @@ so these removed URLs have no pre-launch redirects.
 The later authenticated-API audit removes its thin duplicate Guide. Password
 Authentication owns REST session exposure and session limits; Access owns the
 protected-read verification. The removed pre-launch URL has no redirect.
+The later application-testing audit removes its thin Guide because it ran only
+repository checks and supplied no application test. Plugin conformance remains
+with plugin authoring; the removed pre-launch URL has no redirect.
 
 ### Phase 1 — Application, design, and content foundation
 

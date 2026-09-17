@@ -46,3 +46,8 @@ It repeated the Password Authentication, Access, HTTP, and REST pages without
 adding an independent executable task. The official plugin pages now own its
 session and protected-read checks; this historical issue remains completed
 for its original delivery.
+
+The later application-testing audit also removed the thin `Test an Application`
+page. Its repository-only commands and general advice did not provide a
+runnable test for a reader's application. Plugin conformance remains in the
+plugin-authoring guide, and repository test requirements remain in `AGENTS.md`.
