@@ -1,11 +1,11 @@
 ---
 title: Build a Plugin
-description: Define one immutable plugin module without hiding Core ownership or validation.
+description: Create, install, and verify a small plugin before adding advanced capabilities.
 audience:
   - plugin-author
 contentType: guide
 order: 4
-outcome: Create a reusable factory with stable package identity and typed setup exports.
+outcome: Export a reusable plugin factory and verify its application-local setup result.
 owner: '2810'
 releaseStatus: pre-release
 reviewedAt: 2026-09-17
@@ -21,11 +21,31 @@ sources:
   - docs/adr/0208-enforceable-plugin-powers-and-environment-truth.md
 ---
 
-## Prepare a plugin package
+## Outcome
 
-Start with a Node.js 24+, ESM TypeScript package whose name ends in
-`-plugin`, for example `@your-scope/workflow-plugin`. Install the Core
-contracts and the optional authoring helpers:
+Build a plugin with one public factory and a typed setup result, then verify it
+through the same application boundary that consumers use. This first plugin
+does not add schema fields, operations, or Runtime behavior; those require
+separate declarations and exact privileges.
+
+## Prerequisites
+
+- Know how an application's `plugins` array works from
+  [Using Plugins](./using-plugins).
+- Have a Node.js 24+, ESM TypeScript library package with a build and a
+  package-root export. Name it with the `-plugin` suffix, for example
+  `@your-scope/workflow-plugin`. The test below imports that built public
+  export, not a private `src/` path.
+- Use the Core version range that matches the public release you actually
+  test. The examples target this `1.0.0` documentation line; the packages are
+  still pre-release.
+
+## Steps
+
+### Install the authoring packages
+
+Install the Core contracts and the optional Plugin Kit helper in your plugin
+package:
 
 ```bash tab="npm" tab-group="package-manager"
 npm install @ultimabase/core @ultimabase/plugin-kit
@@ -39,18 +59,16 @@ yarn add @ultimabase/core @ultimabase/plugin-kit
 pnpm add @ultimabase/core @ultimabase/plugin-kit
 ```
 
-Export your factory from the package root. Readers should import
-`@your-scope/workflow-plugin`, never its private `src/` files. Use the Core
-version range that matches the public release you actually test; the example
-below targets the `1.0.0` documentation line.
+The package now has the contracts needed to declare a plugin. Plugin Kit
+removes repeated package identity fields.
+It is not a plugin, registry, service locator, or permission bypass.
+It installs no Runtime behavior.
 
-## Start with a stable module
+### Define and export the factory
 
-Use `@ultimabase/plugin-kit` to remove repeated authoring boilerplate. It is a
-helper library, not a plugin, registry, service locator, or permission bypass.
-Its helpers delegate to the public Core kernel.
+Bind the stable package facts once and export a factory from your package root:
 
-```ts title="src/plugin.ts"
+```ts title="src/index.ts"
 import { definePluginModule } from '@ultimabase/plugin-kit'
 
 const workflow = definePluginModule({
@@ -67,64 +85,147 @@ export const workflowPlugin = (instanceId?: string) =>
 ```
 
 `definePluginModule` binds stable package facts once. The factory still returns
-a static typed definition; it must not connect, read files, start listeners, or
-perform other effects. Put resource creation in an application capability
-factory or `setup`, where Core can attribute and dispose it.
+a static typed definition. It must not connect, read files, start listeners,
+or perform other effects. Put application-local resource creation in an
+application capability factory with a disposer, or manage setup-owned resources
+through the plugin lifecycle.
 
-Install `workflowPlugin()` in an application's `plugins` array to verify that
-it starts and exposes its `ready` setup result. An import or a factory call on
-its own installs no behavior.
+Here `ready` is only a demonstration of a typed setup export. It does not add
+workflow behavior. Importing the package or calling `workflowPlugin()` alone
+installs nothing; the returned definition must enter an application's
+`plugins` array.
 
-Use Core directly for capability definitions, Runtime behavior, protected
-constraints, persistence rewrites, raw adapter leases, transport bindings,
-Master elevation, and explicit cross-owner transformations. Keeping those
-calls visible makes ownership and privilege boundaries reviewable.
+### Install test tooling
 
-## Identity and instances
+Add the runner-independent conformance harness and Vitest as development
+dependencies:
+
+```bash tab="npm" tab-group="package-manager"
+npm install --save-dev @ultimabase/testing vitest typescript
+```
+
+```bash tab="yarn"
+yarn add --dev @ultimabase/testing vitest typescript
+```
+
+```bash tab="pnpm"
+pnpm add --save-dev @ultimabase/testing vitest typescript
+```
+
+## Verify
+
+The small plugin needs no database. Build your package so its root export is
+available, then add one test file that checks both its application setup
+result and the public kernel contracts:
+
+```ts title="tests/workflow-plugin.test.ts"
+import { createApplication } from '@ultimabase/core'
+import {
+	createPluginConformanceFixture,
+	definePluginConformanceSuite,
+	runPluginConformance,
+} from '@ultimabase/testing'
+import { expect, it } from 'vitest'
+
+import { workflowPlugin } from '@your-scope/workflow-plugin'
+
+it('exposes its setup result through the installed application', async () => {
+	const application = await createApplication({
+		plugins: [workflowPlugin()],
+		schemas: [],
+	})
+
+	try {
+		expect(application.getPlugin('community.workflow')).toStrictEqual({
+			ready: true,
+		})
+	} finally {
+		await application.dispose()
+	}
+})
+
+const suite = definePluginConformanceSuite({
+	createFixture: () =>
+		createPluginConformanceFixture({ subject: workflowPlugin() }),
+	expected: {
+		core: '^1.0.0',
+		pluginId: 'community.workflow',
+		version: '1.0.0',
+	},
+})
+
+it('conforms to the public plugin kernel', async () => {
+	const report = await runPluginConformance(suite)
+	expect(report.checks.every(({ status }) => status === 'passed')).toBe(true)
+})
+```
+
+`createApplication()` initializes this isolated graph and runs plugin setup
+without starting infrastructure. The test disposes the application even if an
+assertion fails. The conformance suite creates fresh applications to check
+identity, declarations, lifecycle cleanup, and isolation. Run your Vitest
+test command and confirm that both tests pass. If conformance fails, fix the
+reported contract before adding more features. A consumer application
+normally uses `new UltimaBase({ plugins: [workflowPlugin()], ... })`.
+
+## Extend the plugin
+
+The first plugin has no privileges, claims, or cross-plugin requirements. Add
+only the boundaries needed for behavior you actually implement. Use Core
+directly for capability definitions, Runtime behavior, protected constraints,
+persistence rewrites, raw adapter leases, transport bindings, Master elevation,
+and explicit cross-owner transformations. Keeping these calls visible makes
+ownership and privilege checks reviewable.
+
+### Identity and instances
 
 A plugin owner is the structured pair `{ pluginId, instanceId? }`. `pluginId`
 is the stable namespaced package identity. `instanceId` is an explicit,
 non-empty configuration identity; Core never guesses it from options.
 
-```ts title="src/ultimabase.ts"
-import { UltimaBase } from '@ultimabase/core'
+```ts title="tests/workflow-instances.test.ts"
+import { createApplication } from '@ultimabase/core'
+import { expect, it } from 'vitest'
 
-import { workflowPlugin } from './plugin.js'
+import { workflowPlugin } from '@your-scope/workflow-plugin'
 
-export const ultimabase = new UltimaBase({
-	plugins: [workflowPlugin('editorial'), workflowPlugin('publishing')],
-	schemas: [],
+it('addresses each configured instance by structured identity', async () => {
+	const application = await createApplication({
+		plugins: [workflowPlugin('editorial'), workflowPlugin('publishing')],
+		schemas: [],
+	})
+
+	try {
+		expect(
+			application.getPlugin({
+				pluginId: 'community.workflow',
+				instanceId: 'editorial',
+			}),
+		).toStrictEqual({ ready: true })
+		expect(() => application.getPlugin('community.workflow')).toThrow()
+	} finally {
+		await application.dispose()
+	}
 })
 ```
 
 Two separately configured definitions with the same `pluginId` require
-different `instanceId` values. Reusing the exact definition object is
-composition reuse; duplicating one structured identity is an error. Do not
-concatenate identities into an ad hoc string or derive them from secrets and
-URLs.
+different `instanceId` values. Use the structured identity when reading one
+instance's export; a bare ID is ambiguous here. Reusing the exact definition
+object is composition reuse; duplicating one structured identity is an error.
+Do not derive instance IDs from secrets or URLs.
 
-## Manifests, privileges, and claims
+### Manifests, privileges, and claims
 
 The manifest is an immutable review surface. It declares identity, package and
 Core versions, dependencies, capabilities, requested Core privileges with
 reasons, and direct environmental claims.
 
-```ts title="src/delivery-plugin.ts"
-import { definePlugin } from '@ultimabase/core'
-
-export const deliveryPlugin = definePlugin({
-	core: '^1.0.0',
-	pluginId: 'community.delivery',
-	setup: () => ({ provider: 'example' as const }),
-	version: '1.0.0',
-})
-```
-
-This minimal plugin requests no Core privilege and makes no environmental
-claim. Add each privilege only when its implementation uses that exact Core
-power, with a reason for the request. Declare `environment:network` only if
-your plugin itself performs network I/O; the claim reports direct behavior
-but does not sandbox it.
+The `workflowPlugin()` above requests no Core privilege and makes no
+environmental claim. Add each privilege only when its implementation uses
+that exact Core power, with a reason for the request. Declare
+`environment:network` only if your plugin itself performs network I/O; the
+claim reports direct behavior but does not sandbox it.
 
 Privileges protect Core-owned powers such as `schema:declare`,
 `runtime:observe`, `persistence:rewrite`, `transport:expose`,
@@ -136,11 +237,12 @@ operating-system sandbox.
 Applications may deny privileges or claims globally, by plugin ID, or by exact
 instance. Unknown policy targets fail as configuration errors.
 
-## Capabilities
+### Capabilities
 
 Capabilities are the only public cross-plugin integration host. Each nominal
 token fixes a namespaced ID, semantic protocol version, cardinality, lifetime,
-and consumer composition function.
+and consumer composition function. This independent example shows one
+provider and one consumer; it is not part of the minimal plugin above.
 
 ```ts title="src/capabilities.ts"
 import {
@@ -194,11 +296,11 @@ belong in declaration values.
 providers, and `pipeline` composes ordered handlers. Decoration and replacement
 require dedicated privileges and reject ambiguous chains.
 
-## Lifecycle and dependencies
+### Lifecycle and dependencies
 
 Use a dependency when provider-first declaration or lifecycle order is part of
-the contract. Dependencies, not incidental source-array position, control
-ordering.
+the contract. Dependencies establish that order; configuration position only
+breaks ties between otherwise ready plugins.
 
 The fixed sequence is static declaration, application-capability
 materialization, setup, connect, schema preparation, Runtime start, then
@@ -215,7 +317,7 @@ provider-first ordering. Use `phase: 'setup'` only for a genuine peer protocol
 whose application values can materialize independently. Cycles and missing
 required providers fail before effects.
 
-## Manifest reference
+### Manifest reference
 
 | Property               | Required                   | Meaning                                                        |
 | ---------------------- | -------------------------- | -------------------------------------------------------------- |
@@ -226,7 +328,9 @@ required providers fail before effects.
 | `privileges`           | no                         | Closed Core power requests, each with a reason                 |
 | `environment`          | no                         | Direct filesystem, network, process, or native-code claims     |
 | `capabilities`         | no                         | Versioned providers, requirements, decorators, or replacements |
-| dependencies and peers | no                         | Compatibility and lifecycle ordering                           |
+| `dependencies`         | no                         | Required provider-first plugin relationships                   |
+| `optionalDependencies` | no                         | Provider-first order if the target is installed                |
+| `peers`                | no                         | Required compatibility without lifecycle ordering              |
 
 Privileges, claims, dependencies, peers, and capability lists default to empty.
 No wildcard privilege exists. `definePlugin()` returns a frozen static
@@ -234,37 +338,28 @@ definition and runs no lifecycle or I/O work. Invalid identifiers, SemVer,
 unknown privilege names, missing dependencies, cycles, capability conflicts,
 and denied privileges fail before effects.
 
-## Testing
+## Test added behavior
 
-Use `@ultimabase/testing` for runner-independent conformance fixtures and run
-them with Vitest. Test the public package export exactly as an application will
-import it.
-
-Install these as development dependencies in the plugin package:
-
-```bash tab="npm" tab-group="package-manager"
-npm install --save-dev @ultimabase/testing vitest typescript
-```
-
-```bash tab="yarn"
-yarn add --dev @ultimabase/testing vitest typescript
-```
-
-```bash tab="pnpm"
-pnpm add --save-dev @ultimabase/testing vitest typescript
-```
-
-Cover stable identity, declared privileges, dependencies, capabilities,
-deterministic ordering, application isolation, materialization, startup,
-teardown, and failure cleanup. If multiple instances are supported, prove two
-explicit instances compose without sharing state.
+The conformance suite verifies the common kernel contracts. Add focused tests
+for every behavior your plugin actually contributes: privilege denial,
+dependencies, capabilities, ordering, application isolation, startup,
+teardown, and failure cleanup as applicable. If multiple instances are
+supported, prove that two explicit instances compose without sharing state.
 
 Add TypeScript tests for every public generic surface and optional Typegen
 contribution. Generated declarations are editor contracts, not Runtime truth;
 also prove that behavior works without a generated client. Database or network
 behavior requires real integration coverage at that boundary.
 
-## Publishing
+## Next steps
+
+Before publishing, add one observable behavior and its focused test. A plugin
+that only exports `ready: true` is a learning example, not a useful workflow
+package. Keep plugin-specific setup and troubleshooting in its own package
+documentation. For an existing application's plugin choice, return to
+[Using Plugins](./using-plugins).
+
+### Publishing
 
 Publish only after the plugin has one stable identity, a documented
 compatibility range, package-root exports, and a complete test run against the

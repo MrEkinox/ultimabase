@@ -174,7 +174,7 @@
 				{
 					"slug": "build-a-plugin",
 					"contentType": "guide",
-					"outcome": "Create a reusable factory with stable package identity and typed setup exports."
+					"outcome": "Export a reusable plugin factory and verify its application-local setup result."
 				},
 				{
 					"slug": "community-plugins",
