@@ -54,10 +54,6 @@ export const Session = Schema.define({
 		expiresAt: field.dateTime({ required: true }),
 	}),
 })
-
-export const accountReference = Account.pointer(
-	'0198f090-2a50-7000-8000-000000000034',
-)
 ```
 
 Register both schemas in the same application. During compilation, UltimaBase
@@ -79,25 +75,36 @@ complete record; pointers cannot be lists or have defaults. Use
 
 ### Read through a pointer
 
-If you already have a pointer, read its target without extracting the ID and
-building a separate schema query:
+After registering both schemas and starting the application with a persistence
+plugin, read a persisted session without including its account. Its selected
+`account` field is still a `Pointer`, not a loaded `Account` model:
 
 ```ts title="src/read-account.ts"
-import { accountReference } from './session.js'
+import { Session } from './session.js'
 import { ultimabase } from './ultimabase.js'
 
-const account = await accountReference.findOne(
-	{ select: { email: true } },
-	{ ultimabase },
-)
-const accountIsVisible = await accountReference.exists({}, { ultimabase })
+export const readSessionAccount = async (sessionId: string) => {
+	const session = await Session.get(
+		{ id: sessionId, select: { account: true } },
+		{ ultimabase },
+	)
+
+	return session.account.findOne({ select: { email: true } }, { ultimabase })
+}
 ```
 
-`findOne()` returns a selected `Account` model or `null`; `exists()` returns a
-boolean without loading a model. Both reads remain scoped to the pointer's
-exact target ID and run through the ordinary target read pipeline. A missing
-or policy-hidden target gives `null` or `false`. Neither method changes the
-stored pointer or grants access to its target.
+`findOne()` returns a selected `Account` model or `null` if the target is missing
+or hidden by policy. When you need only a boolean, call
+`session.account.exists({}, { ultimabase })` instead; it does not load a model.
+Both methods remain scoped to the pointer's exact target ID and run through the
+ordinary target read pipeline. Neither changes the stored pointer or grants
+access to its target.
+
+If you already know that you need the account when reading the session, use
+`include: { account: { select: { email: true } } }` on `Session.get()` instead.
+Read through the pointer when you have the session already and decide to load
+its target later. See [Related Data](/docs/1.0.0/core/reading-data/related-data)
+for inclusion behavior.
 
 ### Pointer deletion behavior
 
