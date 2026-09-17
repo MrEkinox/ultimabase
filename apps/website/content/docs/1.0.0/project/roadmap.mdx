@@ -1,12 +1,12 @@
 ---
 title: Roadmap
-description: Understand how UltimaBase separates delivered foundations from planned work.
+description: See the capabilities under consideration after today's pre-release implementation.
 audience:
   - application-developer
   - plugin-author
   - operator
 contentType: reference
-outcome: Distinguish shipped behavior from issue-tracked intent without assuming delivery dates.
+outcome: Find proposed capabilities and their tracking issues without mistaking them for commitments.
 owner: '2822'
 releaseStatus: pre-release
 reviewedAt: 2026-09-17
@@ -14,41 +14,49 @@ sources:
   - README.md
   - ROADMAP.md
   - issues/README.md
-  - issues/2800-public-website-documentation/README.md
+  - issues/700-extensions/707-better-auth-plugin.md
+  - issues/700-extensions/708-realtime-contract.md
+  - issues/700-extensions/709-realtime-memory-adapter.md
+  - issues/700-extensions/712-bullmq-jobs.md
+  - issues/700-extensions/713-cache-plugin.md
+  - issues/700-extensions/715-openapi-generator.md
+  - issues/700-extensions/719-typescript-sdk.md
+  - issues/700-extensions/727-admin-app.md
 ---
 
-The [issue backlog](https://github.com/MrEkinox/ultimadatabase/tree/main/issues)
-is UltimaBase's executable roadmap. Completed issues are evidence of delivered
-work; planned issues describe intent, not a delivery commitment.
+This page covers possible future capabilities. For what exists in the
+repository today, see [Release Status](./release-status) and the owning Core or
+plugin documentation.
 
-## Delivered foundations
+## Planned capabilities
 
-The repository has a typed path from static schemas through one Runtime to
-[PostgreSQL](/docs/1.0.0/plugins/official/postgresql). It includes immutable
-models and Query, application compilation, plugin capabilities, validation,
-policy, Hooks, and transaction boundaries.
+The linked issues are **planned**, not implemented or scheduled. Each issue
+defines a narrower scope and dependencies than this overview can show.
 
-Optional public paths include HTTP application selection, experimental REST,
-Password Authentication, network-independent GraphQL, Yoga, and development
-explorers. [Nested writes](/docs/1.0.0/core/writing-data/nested-writes),
-request-contextual fields and relations, plugin schema mutations, and
-[Soft Delete](/docs/1.0.0/plugins/official/soft-delete) are documented with
-their owning capability. Check [Release Status](./release-status) before
-deciding what can be evaluated today.
-
-## How work advances
-
-A milestone explains direction. Each implementation
-[issue](https://github.com/MrEkinox/ultimadatabase/blob/main/issues/README.md)
-records dependencies, scope, acceptance criteria, and completion evidence.
-Work begins only when its dependencies are ready. Changes to dependency,
-storage, public API, or security boundaries require an architectural decision;
-the [ADR index](https://github.com/MrEkinox/ultimadatabase/blob/main/docs/adr/README.md)
-records accepted decisions.
+- **Realtime:** Define post-commit events and an optional local adapter.
+  Tracked by the [event contract](https://github.com/MrEkinox/ultimadatabase/blob/main/issues/700-extensions/708-realtime-contract.md)
+  and [memory adapter](https://github.com/MrEkinox/ultimadatabase/blob/main/issues/700-extensions/709-realtime-memory-adapter.md) issues.
+- **Background jobs:** Run asynchronous work through an optional
+  [BullMQ plugin](https://github.com/MrEkinox/ultimadatabase/blob/main/issues/700-extensions/712-bullmq-jobs.md).
+- **Caching:** Cache query results without bypassing access rules or serving
+  stale private data. Tracked by [cache contracts and invalidation](https://github.com/MrEkinox/ultimadatabase/blob/main/issues/700-extensions/713-cache-plugin.md).
+- **API tooling:** Generate an [OpenAPI description](https://github.com/MrEkinox/ultimadatabase/blob/main/issues/700-extensions/715-openapi-generator.md)
+  and a [TypeScript SDK](https://github.com/MrEkinox/ultimadatabase/blob/main/issues/700-extensions/719-typescript-sdk.md)
+  through separate work.
+- **Authentication:** Offer [Better Auth](https://github.com/MrEkinox/ultimadatabase/blob/main/issues/700-extensions/707-better-auth-plugin.md)
+  as an optional integration.
+- **Administration:** Provide a separately deployed
+  [admin application](https://github.com/MrEkinox/ultimadatabase/blob/main/issues/700-extensions/727-admin-app.md)
+  using public APIs and explicit Master authority.
 
 ## Planned is not shipped
 
-Realtime, jobs, caching, more authentication integrations, OpenAPI, SDKs, and
-administration remain possible issue-tracked capabilities. Their scope can
-change before implementation. The [milestone plan](https://github.com/MrEkinox/ultimadatabase/blob/main/ROADMAP.md)
-contains intent but no invented dates or support promises.
+These issues do not establish a release date, implementation order, or final
+API. Work may change scope or be deferred after dependency and design review.
+There is no announced next-release feature list. Do not base an application on
+a planned capability until its owning documentation describes shipped behavior.
+
+The [milestone plan](https://github.com/MrEkinox/ultimadatabase/blob/main/ROADMAP.md)
+and [issue backlog](https://github.com/MrEkinox/ultimadatabase/tree/main/issues)
+carry the complete engineering context. To suggest a change or help with an
+existing issue, see [Contributing](./contributing).

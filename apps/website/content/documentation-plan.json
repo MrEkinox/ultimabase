@@ -353,17 +353,17 @@
 				{
 					"slug": "release-status",
 					"contentType": "reference",
-					"outcome": "Distinguish implemented behavior from publication and support commitments."
+					"outcome": "Decide whether the current pre-release framework is suitable for evaluation or adoption."
 				},
 				{
 					"slug": "roadmap",
 					"contentType": "reference",
-					"outcome": "Distinguish shipped behavior from issue-tracked intent without assuming delivery dates."
+					"outcome": "Find proposed capabilities and their tracking issues without mistaking them for commitments."
 				},
 				{
 					"slug": "contributing",
 					"contentType": "guide",
-					"outcome": "Select a ready issue, verify the change, and keep public documentation aligned."
+					"outcome": "Choose a contribution path, verify your work, and submit a useful proposal or pull request."
 				}
 			]
 		}

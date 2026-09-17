@@ -1,53 +1,63 @@
 ---
 title: Contributing
-description: Find the repository workflow for one focused, verified contribution.
+description: Choose how to improve UltimaBase, set up the repository, and submit a focused contribution.
 audience:
   - plugin-author
   - application-developer
 contentType: guide
-outcome: Select a ready issue, verify the change, and keep public documentation aligned.
+outcome: Choose a contribution path, verify your work, and submit a useful proposal or pull request.
 owner: '2822'
 releaseStatus: pre-release
 reviewedAt: 2026-09-17
 sources:
   - CONTRIBUTING.md
-  - AGENTS.md
   - issues/README.md
   - README.md
+  - apps/website/README.md
+  - .github/ISSUE_TEMPLATE/community-plugin.md
 ---
 
-The repository's [contribution guide](https://github.com/MrEkinox/ultimadatabase/blob/main/CONTRIBUTING.md)
-is the authoritative setup and pull-request checklist. This page shows the
-shortest path through it; plugin authors should also read
-[Build a Plugin](/docs/1.0.0/plugins/build-a-plugin).
+You can help by reporting a problem, improving the framework or its docs, or
+building a community plugin. The repository's
+[contribution guide](https://github.com/MrEkinox/ultimadatabase/blob/main/CONTRIBUTING.md)
+has the complete pull-request requirements.
 
-## Choose one ready issue
+## Choose a contribution path
 
-Start in the [issue backlog](https://github.com/MrEkinox/ultimadatabase/tree/main/issues).
-Check its dependencies and acceptance criteria before changing code. Read the
-relevant package contracts and any accepted
-[architecture decisions](https://github.com/MrEkinox/ultimadatabase/blob/main/docs/adr/README.md).
-Keep implementation, tests, examples, and documentation in one focused change.
-Agents also follow the repository's [agent contract](https://github.com/MrEkinox/ultimadatabase/blob/main/AGENTS.md).
+- **Report a bug or documentation gap.** [Open an issue](https://github.com/MrEkinox/ultimadatabase/issues/new)
+  with the version or commit you used, the steps to reproduce, what happened,
+  and what you expected. For a docs problem, include the page URL.
+- **Improve the framework or its docs.** Choose a ready item from the
+  [issue backlog](https://github.com/MrEkinox/ultimadatabase/tree/main/issues)
+  and check its dependencies and acceptance criteria before opening a pull
+  request. A focused correction can start with a new issue if none fits.
+- **Build a community plugin.** Follow [Build a Plugin](/docs/1.0.0/plugins/build-a-plugin),
+  then use the [community plugin proposal](/docs/1.0.0/plugins/community-plugins#propose-a-plugin)
+  for feedback or a future listing. A listing requires a published, reviewable
+  package; an idea or prototype can still be proposed for feedback.
 
-## Prove the result
+## Set up and verify a change
 
-Use Vitest for Runtime behavior and compile-time tests for public generic
-APIs. Check package-root exports and immutability where relevant; use
-PostgreSQL integration tests for database behavior. Run the focused checks
-first, then the broader typecheck, test, lint, and build gates justified by
-the change. Record anything that could not run in the pull request. The
-[definition of done](https://github.com/MrEkinox/ultimadatabase/blob/main/CONTRIBUTING.md#definition-of-done)
-has the complete repository requirements.
+After cloning the repository, use Node.js 24 or newer and the pinned Yarn
+version. Install dependencies from the repository root:
 
-## Keep readers current
+```bash title="Terminal"
+corepack enable
+yarn install --immutable
+```
 
-Every implementation change classifies its documentation impact as `none`,
-`internal engineering documentation`, `public website documentation`, or
-`both`. Public behavior and contracts normally require a review of the
-affected website pages in the same issue. Mechanical checks help catch drift,
-but people remain responsible for semantic accuracy.
+Run the tests for the area you changed first. For website content, run
+`yarn website:validate` and `yarn website:typecheck`. For framework code, run
+the relevant package tests, then `yarn typecheck`, `yarn test`, `yarn lint`,
+and `yarn build` as appropriate. Database behavior also needs PostgreSQL
+integration coverage. Record checks you could not run.
 
-Open a focused [pull request](https://github.com/MrEkinox/ultimadatabase/pulls)
-that names the issue, architectural impact, documentation classification,
-tests, and any temporary compromise.
+## Submit the result
+
+Keep code, tests, examples, and affected documentation together. Add a
+Changeset when a public package contract changes. In your
+[pull request](https://github.com/MrEkinox/ultimadatabase/pulls), link the
+issue, explain the developer-visible result and any architectural impact, and
+list the checks you ran. Note whether the public docs needed an update and
+why. The [definition of done](https://github.com/MrEkinox/ultimadatabase/blob/main/CONTRIBUTING.md#definition-of-done)
+contains the full repository checklist.

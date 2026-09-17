@@ -2,7 +2,8 @@
 
 ## Workflow
 
-1. Read `AGENTS.md`.
+1. Read `README.md` and the README of each package you will change. Coding
+   agents must also follow `AGENTS.md`.
 2. Select one ready issue from `issues/`.
 3. Confirm all listed dependencies are complete.
 4. Create a focused branch.
@@ -57,7 +58,8 @@ need meaningless prose changes.
 ## Public documentation releases
 
 Every public page belongs to an explicit release line under
-`apps/website/content/docs/<locale>/<version>`. Add a new version only when its
+`apps/website/content/docs/<version>`. English is the only authored site
+language. Add a new version only when its
 framework line has a real public contract to document; never copy the current
 line merely to reserve a future number. Keep older version directories frozen
 except for corrections and explicitly supported backports. Register new lines
@@ -66,7 +68,7 @@ when a guide exists across versions so the Fumadocs selector can keep the reader
 on the equivalent page.
 
 A breaking stable release also needs a migration guide that explains observable
-changes between the affected versions. Search, ownership, translations, and
+changes between the affected versions. Search, ownership, and
 documentation-impact review apply independently to every maintained line.
 
 Public pages are curated explanations backed by root specifications, package

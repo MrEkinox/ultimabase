@@ -1,12 +1,12 @@
 ---
 title: Release Status
-description: See what UltimaBase implements today and which release promises remain open.
+description: Check what you can evaluate today and which release guarantees UltimaBase does not yet make.
 audience:
   - application-developer
   - plugin-author
   - operator
 contentType: reference
-outcome: Distinguish implemented behavior from publication and support commitments.
+outcome: Decide whether the current pre-release framework is suitable for evaluation or adoption.
 owner: '2822'
 releaseStatus: pre-release
 reviewedAt: 2026-09-17
@@ -15,42 +15,43 @@ sources:
   - .changeset/README.md
   - docs/RELEASING.md
   - packages/README.md
+  - examples/minimal/README.md
+  - apps/website/lib/docs-versions.ts
 ---
 
-UltimaBase is in active pre-release development. Its documented foundations are
-implemented and tested, but naming, package publication, compatibility, and
-launch decisions may still change deliberately.
+UltimaBase is in active pre-release development. Its implementation can be
+evaluated, but the documentation's `1.0.0` label is not a published-package or
+stability guarantee.
 
-## Available now
+## Current status
 
-- [Static schemas and the application graph](/docs/1.0.0/core/application)
-  compile into one application-local Runtime.
-- [PostgreSQL persistence](/docs/1.0.0/plugins/official/postgresql),
-  immutable reads and writes, transactions, and explicit optional plugins are
-  implemented.
-- Direct TypeScript, experimental [REST](/docs/1.0.0/plugins/official/rest),
-  and [GraphQL](/docs/1.0.0/plugins/official/graphql) enter the same operation
-  and policy path. Each transport retains its own public wire format.
+| Question                                    | Answer                                                                                                                                                                                                                                |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Can I evaluate the framework?               | Yes. The repository contains a [runnable PostgreSQL, REST, and GraphQL example](https://github.com/MrEkinox/ultimadatabase/blob/main/examples/minimal/README.md). It needs Node.js 24 or newer and a development PostgreSQL database. |
+| How do I install the documented packages?   | Follow [Manual Installation](/docs/1.0.0/manual-installation) for the intended npm, yarn, or pnpm setup. Check the exact package versions in the registry before installing; this site is not a release feed.                         |
+| Does `1.0.0` mean a stable package release? | No. It selects this documentation line; by itself, it does not prove an npm release or guarantee compatibility.                                                                                                                       |
+| Is production support guaranteed?           | No. There is no announced support window, migration guarantee, hosted service, or production support commitment.                                                                                                                      |
 
-Implemented does not mean stable or ready to expose without review. Follow
-[Before Exposing Your Application](/docs/1.0.0/operations/before-exposing-your-application)
-for the checks your deployment must own.
+Core schemas, immutable data operations, PostgreSQL persistence, and optional
+plugins are implemented in the repository. Direct TypeScript, experimental
+[REST](/docs/1.0.0/plugins/official/rest), and
+[GraphQL](/docs/1.0.0/plugins/official/graphql) use the same Runtime. Their
+owning pages describe behavior and limits; this page does not replace them.
 
-## Package and documentation versions
+## Choose your next step
 
-The installation examples use the intended npm package names. They do not
-announce that a stable package channel or compatibility window exists. Check
-the version you actually install against [Packages and Compatibility](/docs/1.0.0/reference/package-index)
-and the owning plugin guide. The `1.0.0` documentation URL identifies this
-documentation line; it is not proof of a published `1.0.0` package.
+- To evaluate the implementation from source, run the repository's
+  [minimal example](https://github.com/MrEkinox/ultimadatabase/blob/main/examples/minimal/README.md)
+  against a disposable database.
+- For a new application, follow [Manual Installation](/docs/1.0.0/manual-installation)
+  and check package versions and requirements in
+  [Packages and Compatibility](/docs/1.0.0/reference/package-index).
+- Before exposing any application to users, work through
+  [Before Exposing Your Application](/docs/1.0.0/operations/before-exposing-your-application).
 
-Package releases use Changesets, independent SemVer for official plugins,
-archive validation, and an approval-gated [release process](https://github.com/MrEkinox/ultimadatabase/blob/main/docs/RELEASING.md).
-Additional maintained documentation lines will appear in the version selector
-without changing older URLs.
+Public APIs and package compatibility may still change before the first stable
+release. The [release process](https://github.com/MrEkinox/ultimadatabase/blob/main/docs/RELEASING.md)
+describes how publication is verified and approved; it is not a release date.
 
-## Not promised yet
-
-No release date, long-term support window, migration guarantee, hosted service,
-or production support commitment has been announced. Plan with that change
-budget in mind. The [Roadmap](./roadmap) records direction, not delivery dates.
+No release date has been announced. The [Roadmap](./roadmap) shows possible
+future work, not a delivery schedule.
