@@ -13,6 +13,7 @@ export const documentationSections: readonly DocumentationSection[] =
 		{ label: 'Guides', slug: 'guides' },
 		{ label: 'Operations', slug: 'operations' },
 		{ label: 'Reference', slug: 'reference' },
+		{ label: 'Project', slug: 'project' },
 	])
 
 export function visibleDocumentationSections(

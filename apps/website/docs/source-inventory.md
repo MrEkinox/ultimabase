@@ -37,17 +37,17 @@ content evidence.
 | Guides                   | Typegen and testing READMEs, Manual Installation, maintained tests | Partial   | Teach concrete application tasks without repeating package reference |
 | Operate Your Application | Provider READMEs, example configuration, release guide             | Partial   | Give a pre-exposure checklist and symptom-led startup diagnostics    |
 | Reference                | Package READMEs and public export barrels                          | Ready     | Keep package and compatibility lookup outside task pages             |
-| Status                   | Root status, changesets, release guide, contribution guide         | Partial   | Separate shipped, pre-release, and planned behavior explicitly       |
+| Project                  | Root status, changesets, release guide, contribution guide         | Partial   | Separate shipped, pre-release, and planned behavior explicitly       |
 
 ## Known gaps and unsuitable shortcuts
 
 - The public pre-exposure checklist is a verification aid, not a deployment
   template or production guarantee. Applications still own backups, migration
   review, observability, and host-specific shutdown behavior.
-- `CONTRIBUTING.md` and `/status/contributing` are the contributor-facing path.
+- `CONTRIBUTING.md` and `/docs/1.0.0/project/contributing` are the contributor-facing path.
   `AGENTS.md` remains an internal agent contract, not a public tutorial.
 - Pre-release packages do not justify stable support or compatibility promises.
-  The status pages must stay explicit until the release process establishes
+  The Project pages must stay explicit until the release process establishes
   them.
 - Package READMEs and ADRs must not be copied wholesale. Public pages need a
   reader outcome, current terminology, verified examples, and a deliberate

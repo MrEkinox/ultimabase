@@ -1,6 +1,5 @@
 import type { MetadataRoute } from 'next'
 
-import { statusPageSlugs } from '../components/status/content'
 import { createPublicSitemap } from '../lib/public-sitemap'
 import { source } from '../lib/source'
 
@@ -11,6 +10,5 @@ export default function sitemap(): MetadataRoute.Sitemap {
 			reviewedAt: page.data.reviewedAt,
 			url: page.url,
 		})),
-		statusPageSlugs,
 	)
 }

@@ -9,7 +9,7 @@ hosting, and launch policy receive an explicit decision.
 
 The verified reader path covers manual installation, a first typed application,
 plugin installation, Core concepts, the REST and GraphQL entry points,
-application testing, startup diagnosis, and all three source-backed status
+application testing, startup diagnosis, and all three source-backed Project
 pages. Public search is checked against beginner vocabulary, package names,
 stable error identities, keyboard operation, and a useful empty result. The public
 content loader reads only `content/docs`; root engineering specifications and
@@ -36,7 +36,7 @@ low-contrast GitHub Light syntax tokens while preserving syntax highlighting.
 
 Canonical, Open Graph, and X text metadata derive from the
 same page title, description, and provisional canonical origin. The
-generated favicon uses the replaceable geometric mark. Sitemap, robots, status
+generated favicon uses the replaceable geometric mark. Sitemap, robots, Project
 metadata and 404 responses have
 production-browser coverage. The global navigation exposes Docs, Plugins, and
 GitHub; the landing page links directly to release status, roadmap, and
@@ -50,11 +50,11 @@ the same change as its Open Graph and X image metadata.
 
 ## Production build snapshot
 
-The 2026-09-17 Next.js production build prerenders 118 application pages,
-including a Markdown representation of each of the 54 authored documentation
-pages. Its complete static chunk inventory is 1,633,364 bytes of JavaScript
-(522,904 bytes when individually gzip-compressed) and 88,032 bytes of CSS
-(15,378 bytes when gzip-compressed). These totals cover every route chunk, not
+The 2026-09-17 Next.js production build prerenders 121 application pages,
+including a Markdown representation of each of the 57 authored documentation
+pages. Its complete static chunk inventory is 1,633,118 bytes of JavaScript
+(522,697 bytes when individually gzip-compressed) and 85,686 bytes of CSS
+(15,054 bytes when gzip-compressed). These totals cover every route chunk, not
 the first-load cost of one page. Website-owned client boundaries remain the
 shared brand navigation and the Fumadocs theme provider; Fumadocs supplies the
 page-action controls. No decorative image is on the critical path.

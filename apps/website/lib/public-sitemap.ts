@@ -14,7 +14,6 @@ const absoluteUrl = (pathname: string): string =>
 /** Builds the public route inventory without exposing repository-internal documents. */
 export function createPublicSitemap(
 	documentationPages: readonly DocumentationSitemapPage[],
-	statusSlugs: readonly string[],
 ): MetadataRoute.Sitemap {
 	const marketing: MetadataRoute.Sitemap = [
 		{
@@ -23,12 +22,6 @@ export function createPublicSitemap(
 			priority: 1,
 			url: absoluteUrl('/'),
 		},
-		...statusSlugs.map((slug) => ({
-			changeFrequency: 'weekly' as const,
-			lastModified: siteConfig.preview.reviewedAt,
-			priority: 0.6,
-			url: absoluteUrl(`/status/${slug}`),
-		})),
 	]
 
 	const documentation: MetadataRoute.Sitemap = documentationPages.map(

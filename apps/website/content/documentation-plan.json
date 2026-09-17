@@ -335,6 +335,37 @@
 					"outcome": "Choose the packages you need and verify their runtime and plugin compatibility."
 				}
 			]
+		},
+		{
+			"slug": "project",
+			"label": "Project",
+			"owner": "2822",
+			"audiences": ["application-developer", "plugin-author", "operator"],
+			"sourceStatus": "partial",
+			"sources": [
+				"README.md",
+				"ROADMAP.md",
+				"CONTRIBUTING.md",
+				"docs/RELEASING.md"
+			],
+			"releaseStatus": "pre-release",
+			"pages": [
+				{
+					"slug": "release-status",
+					"contentType": "reference",
+					"outcome": "Distinguish implemented behavior from publication and support commitments."
+				},
+				{
+					"slug": "roadmap",
+					"contentType": "reference",
+					"outcome": "Distinguish shipped behavior from issue-tracked intent without assuming delivery dates."
+				},
+				{
+					"slug": "contributing",
+					"contentType": "guide",
+					"outcome": "Select a ready issue, verify the change, and keep public documentation aligned."
+				}
+			]
 		}
 	],
 	"standalonePages": [
@@ -390,42 +421,6 @@
 				"packages/postgres-plugin/README.md",
 				"examples/minimal/README.md"
 			]
-		},
-		{
-			"path": "/status/release-status",
-			"slug": "release-status",
-			"contentType": "reference",
-			"outcome": "Understand release maturity and supported expectations.",
-			"owner": "2822",
-			"audiences": ["application-developer", "plugin-author", "operator"],
-			"releaseStatus": "pre-release",
-			"sourceStatus": "partial",
-			"sources": ["README.md", ".changeset/README.md", "docs/RELEASING.md"]
-		},
-		{
-			"path": "/status/roadmap",
-			"slug": "roadmap",
-			"contentType": "reference",
-			"outcome": "Distinguish shipped behavior from planned work.",
-			"owner": "2822",
-			"audiences": ["application-developer", "plugin-author", "operator"],
-			"releaseStatus": "pre-release",
-			"sourceStatus": "ready",
-			"sources": [
-				"issues/README.md",
-				"issues/2800-public-website-documentation/README.md"
-			]
-		},
-		{
-			"path": "/status/contributing",
-			"slug": "contributing",
-			"contentType": "guide",
-			"outcome": "Find the repository contribution and verification workflow.",
-			"owner": "2822",
-			"audiences": ["plugin-author"],
-			"releaseStatus": "pre-release",
-			"sourceStatus": "ready",
-			"sources": ["CONTRIBUTING.md", "AGENTS.md", "README.md"]
 		}
 	]
 }

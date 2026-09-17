@@ -4,7 +4,6 @@ import { fileURLToPath } from 'node:url'
 import Slugger from 'github-slugger'
 import { describe, expect, it } from 'vitest'
 
-import { statusPages } from '../components/status/content'
 import {
 	documentationSections,
 	visibleDocumentationSections,
@@ -159,6 +158,9 @@ describe('public documentation content contract', () => {
 				'/docs/1.0.0/plugins/build-a-plugin/runtime-and-infrastructure',
 				'/docs/1.0.0/operations/troubleshooting',
 				'/docs/1.0.0/reference/package-index',
+				'/docs/1.0.0/project/release-status',
+				'/docs/1.0.0/project/roadmap',
+				'/docs/1.0.0/project/contributing',
 			]),
 		)
 		expect(urls).not.toEqual(
@@ -206,6 +208,7 @@ describe('public documentation content contract', () => {
 			'guides',
 			'operations',
 			'reference',
+			'project',
 		])
 		expect(
 			visibleDocumentationSections([
@@ -263,18 +266,6 @@ describe('public documentation content contract', () => {
 		for (const page of pages) {
 			for (const href of internalDocumentationLinks(page.source)) {
 				checkLink(page.url, href)
-			}
-		}
-
-		for (const page of statusPages) {
-			const links = [
-				page.primaryAction.href,
-				...page.sections.flatMap((section) =>
-					section.items.flatMap((item) => item.href ?? []),
-				),
-			]
-			for (const href of links) {
-				if (href.startsWith('/docs')) checkLink(`/status/${page.slug}`, href)
 			}
 		}
 	})

@@ -50,12 +50,12 @@ const preview: SiteConfig['preview'] = Object.freeze({
 	reviewedAt: '2026-09-14',
 })
 const routes: SiteConfig['routes'] = Object.freeze({
-	contributing: '/status/contributing',
+	contributing: currentDocumentationPath('project/contributing'),
 	docs: currentDocumentationPath(),
 	gettingStarted: currentDocumentationPath('manual-installation'),
 	plugins: currentDocumentationPath('plugins/overview'),
-	releaseStatus: '/status/release-status',
-	roadmap: '/status/roadmap',
+	releaseStatus: currentDocumentationPath('project/release-status'),
+	roadmap: currentDocumentationPath('project/roadmap'),
 })
 
 /**

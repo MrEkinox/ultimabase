@@ -69,6 +69,10 @@ Introduction
 → Guides
 → Operations
 → Reference
+→ Project
+  → Release Status
+  → Roadmap
+  → Contributing
 ```
 
 Core pages own native framework behavior. Optional behavior is canonical only
@@ -79,7 +83,7 @@ The sidebar stops at coherent subjects; closely related subtasks live in a long
 page and its `On this page` navigation rather than repeated nested entries.
 Every official plugin guide is a direct child of `Official Plugins`. HTTP and
 Hono Server have separate pages; GraphQL retains Yoga and explorers on one page.
-Introduction, Core, Plugins, Guides, Operate Your Application, and Reference
+Introduction, Core, Plugins, Guides, Operate Your Application, Reference, and Project
 are sidebar titles, not additional collapsible levels. Their child routes remain
 versioned under their existing folders.
 
@@ -225,6 +229,10 @@ The later Reference audit combines package roots, platform requirements, and
 version boundaries in one lookup page. The contributor-facing architecture
 decision explainer is removed; the roadmap links to the ADR index directly.
 The removed pre-launch URLs have no redirects.
+The subsequent pre-launch site simplification moves release status, roadmap,
+and contributing under the versioned `Project` documentation section. Their
+former `/status/*` routes are removed without redirects. The landing page is
+the only separately authored site page and still links to all three subjects.
 
 ### Phase 1 — Application, design, and content foundation
 

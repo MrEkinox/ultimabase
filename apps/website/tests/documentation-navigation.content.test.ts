@@ -21,6 +21,8 @@ const canonicalNavigation = {
 		'...operations',
 		'---Reference---',
 		'...reference',
+		'---Project---',
+		'...project',
 	],
 	'1.0.0/core': [
 		'application',
@@ -96,6 +98,7 @@ const canonicalNavigation = {
 	'1.0.0/guides': ['generate-types', 'test-an-application'],
 	'1.0.0/operations': ['before-exposing-your-application', 'troubleshooting'],
 	'1.0.0/reference': ['package-index'],
+	'1.0.0/project': ['release-status', 'roadmap', 'contributing'],
 } as const satisfies Readonly<Record<string, readonly string[]>>
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {

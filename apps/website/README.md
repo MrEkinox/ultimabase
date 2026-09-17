@@ -31,8 +31,8 @@ English is the only authored site language. Public documentation source belongs
 in version folders such as `content/docs/1.0.0`; root `docs/` remains the
 engineering source for ADRs, specifications, and implementation plans.
 
-Source-backed release status, roadmap, and contribution guidance live at
-`/status/*` and are linked directly from the landing page's final section. The
+Source-backed release status, roadmap, and contribution guidance live under
+`/docs/1.0.0/project/*` and are linked directly from the landing page's final section. The
 global Plugins link points directly to the public plugin overview. The former
 `/examples` pages are no longer published; the runnable repository examples
 remain available as sources for guides and tests.
@@ -87,7 +87,7 @@ The `/api/search` index is built only from this public content source.
 `yarn website:validate` generates the typed content, validates
 frontmatter, canonical URLs, sidebar ordering, duplicate navigation entries,
 and internal documentation links and heading anchors, including links from the
-status pages. It never scans the repository's engineering `docs/` directory.
+Project pages. It never scans the repository's engineering `docs/` directory.
 
 Each versioned documentation page has Fumadocs' Copy Markdown and Open actions.
 Its `.md` URL serves processed Markdown from the same authored page, including
@@ -102,7 +102,7 @@ working first-application path. The initializer's commands are explicitly
 non-runnable until its package is published. The remaining top-level areas
 also use Fumadocs sidebar separators rather than collapsible parent folders.
 Their existing files and URLs stay in `core`, `plugins`, `guides`, `operations`,
-and `reference`; the version metadata extracts each folder's immediate items
+`reference`, and `project`; the version metadata extracts each folder's immediate items
 below its separator. Native application, modeling, query, mutation, Runtime,
 and authority behavior lives below `Core`. Optional
 behavior lives below `Plugins > Official Plugins` or `Plugins > Community
@@ -138,6 +138,8 @@ Reference and those duplicate guides are not served.
 The docs sidebar shows the version and page tree without duplicate global
 Plugins or GitHub links. Its repository icon sits beside Fumadocs' theme
 switch at the bottom; marketing navigation retains the full set of site links.
+`Project` groups release status, roadmap, and contribution guidance in the
+versioned docs; the landing page is the only separately authored site page.
 
 `Plugin System` explains composition, `Using Plugins` owns consumption and
 compatibility, and `Build a Plugin` owns the author journey. Its short entry

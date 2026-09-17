@@ -75,7 +75,8 @@ behavior only and link to concepts for rationale.
 
 Use `pre-release` for behavior that is shipped but may change before the first
 stable release. Use `stable` only after the repository explicitly guarantees
-the documented compatibility. Use “planned” only on status pages, never as if
+the documented compatibility. Use “planned” only on the Project status and
+roadmap pages, never as if
 the behavior were available. Use “experimental” only when a public contract
 defines its support consequences. Prefer “not yet available” to vague future
 promises.

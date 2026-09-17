@@ -162,10 +162,7 @@ describe('website preview audit', () => {
 				.click()
 			await page.waitForURL(`${origin}${siteConfig.routes.releaseStatus}`)
 			await page
-				.getByRole('heading', {
-					level: 1,
-					name: 'Built enough to evaluate. Early enough to change.',
-				})
+				.getByRole('heading', { level: 1, name: 'Release Status' })
 				.waitFor()
 			expect(clientErrors).toEqual([])
 		} finally {
@@ -189,6 +186,9 @@ describe('website preview audit', () => {
 				'/docs/1.0.0/plugins/official/data-and-persistence/soft-delete',
 				'/docs/1.0.0/plugins/official/http-and-apis/graphql',
 				'/docs/1.0',
+				'/status/release-status',
+				'/status/roadmap',
+				'/status/contributing',
 			]) {
 				const response = await page.request.get(`${origin}${route}`, {
 					maxRedirects: 0,
@@ -297,16 +297,10 @@ describe('website preview audit', () => {
 	)
 
 	it.each([
-		[
-			'/status/release-status',
-			'Built enough to evaluate. Early enough to change.',
-		],
-		[
-			'/status/roadmap',
-			'Evidence first. Milestones second. Dates never invented.',
-		],
-		['/status/contributing', 'Make one change easy to understand and trust.'],
-	])('serves the source-backed status page at %s', async (route, title) => {
+		['/docs/1.0.0/project/release-status', 'Release Status'],
+		['/docs/1.0.0/project/roadmap', 'Roadmap'],
+		['/docs/1.0.0/project/contributing', 'Contributing'],
+	])('serves the project documentation at %s', async (route, title) => {
 		const context = await browser?.newContext({
 			viewport: { height: 900, width: 1280 },
 		})
@@ -318,9 +312,19 @@ describe('website preview audit', () => {
 			const response = await page.goto(`${origin}${route}`)
 			expect(response?.status()).toBe(200)
 			await page.getByRole('heading', { level: 1, name: title }).waitFor()
-			expect(
-				await page.getByRole('navigation', { name: 'Status pages' }).count(),
-			).toBe(1)
+			const sidebar = page.locator('#nd-sidebar')
+			await sidebar.getByText('Project', { exact: true }).waitFor()
+			for (const [name, href] of [
+				['Release Status', siteConfig.routes.releaseStatus],
+				['Roadmap', siteConfig.routes.roadmap],
+				['Contributing', siteConfig.routes.contributing],
+			] as const) {
+				expect(
+					await sidebar
+						.getByRole('link', { name, exact: true })
+						.getAttribute('href'),
+				).toBe(href)
+			}
 			expect(
 				await page.locator('meta[name="robots"]').getAttribute('content'),
 			).toContain('noindex')
@@ -331,7 +335,7 @@ describe('website preview audit', () => {
 		}
 	})
 
-	it('does not publish a translated status route', async () => {
+	it('does not publish translated project routes', async () => {
 		const context = await browser?.newContext({
 			viewport: { height: 900, width: 1280 },
 		})
@@ -339,7 +343,9 @@ describe('website preview audit', () => {
 
 		try {
 			const page = await context.newPage()
-			const response = await page.goto(`${origin}/fr/status/release-status`)
+			const response = await page.goto(
+				`${origin}/fr/docs/1.0.0/project/release-status`,
+			)
 			expect(response?.status()).toBe(404)
 			await page
 				.getByRole('heading', {

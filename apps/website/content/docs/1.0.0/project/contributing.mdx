@@ -1,0 +1,53 @@
+---
+title: Contributing
+description: Find the repository workflow for one focused, verified contribution.
+audience:
+  - plugin-author
+  - application-developer
+contentType: guide
+outcome: Select a ready issue, verify the change, and keep public documentation aligned.
+owner: '2822'
+releaseStatus: pre-release
+reviewedAt: 2026-09-17
+sources:
+  - CONTRIBUTING.md
+  - AGENTS.md
+  - issues/README.md
+  - README.md
+---
+
+The repository's [contribution guide](https://github.com/MrEkinox/ultimadatabase/blob/main/CONTRIBUTING.md)
+is the authoritative setup and pull-request checklist. This page shows the
+shortest path through it; plugin authors should also read
+[Build a Plugin](/docs/1.0.0/plugins/build-a-plugin).
+
+## Choose one ready issue
+
+Start in the [issue backlog](https://github.com/MrEkinox/ultimadatabase/tree/main/issues).
+Check its dependencies and acceptance criteria before changing code. Read the
+relevant package contracts and any accepted
+[architecture decisions](https://github.com/MrEkinox/ultimadatabase/blob/main/docs/adr/README.md).
+Keep implementation, tests, examples, and documentation in one focused change.
+Agents also follow the repository's [agent contract](https://github.com/MrEkinox/ultimadatabase/blob/main/AGENTS.md).
+
+## Prove the result
+
+Use Vitest for Runtime behavior and compile-time tests for public generic
+APIs. Check package-root exports and immutability where relevant; use
+PostgreSQL integration tests for database behavior. Run the focused checks
+first, then the broader typecheck, test, lint, and build gates justified by
+the change. Record anything that could not run in the pull request. The
+[definition of done](https://github.com/MrEkinox/ultimadatabase/blob/main/CONTRIBUTING.md#definition-of-done)
+has the complete repository requirements.
+
+## Keep readers current
+
+Every implementation change classifies its documentation impact as `none`,
+`internal engineering documentation`, `public website documentation`, or
+`both`. Public behavior and contracts normally require a review of the
+affected website pages in the same issue. Mechanical checks help catch drift,
+but people remain responsible for semantic accuracy.
+
+Open a focused [pull request](https://github.com/MrEkinox/ultimadatabase/pulls)
+that names the issue, architectural impact, documentation classification,
+tests, and any temporary compromise.

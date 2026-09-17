@@ -63,6 +63,7 @@ describe('documentation sidebar', () => {
 				'Guides',
 				'Operate Your Application',
 				'Reference',
+				'Project',
 			]) {
 				expect(await sidebar.getByText(title, { exact: true }).count()).toBe(1)
 				expect(

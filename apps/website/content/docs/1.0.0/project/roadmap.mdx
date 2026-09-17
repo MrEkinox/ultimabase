@@ -1,0 +1,54 @@
+---
+title: Roadmap
+description: Understand how UltimaBase separates delivered foundations from planned work.
+audience:
+  - application-developer
+  - plugin-author
+  - operator
+contentType: reference
+outcome: Distinguish shipped behavior from issue-tracked intent without assuming delivery dates.
+owner: '2822'
+releaseStatus: pre-release
+reviewedAt: 2026-09-17
+sources:
+  - README.md
+  - ROADMAP.md
+  - issues/README.md
+  - issues/2800-public-website-documentation/README.md
+---
+
+The [issue backlog](https://github.com/MrEkinox/ultimadatabase/tree/main/issues)
+is UltimaBase's executable roadmap. Completed issues are evidence of delivered
+work; planned issues describe intent, not a delivery commitment.
+
+## Delivered foundations
+
+The repository has a typed path from static schemas through one Runtime to
+[PostgreSQL](/docs/1.0.0/plugins/official/postgresql). It includes immutable
+models and Query, application compilation, plugin capabilities, validation,
+policy, Hooks, and transaction boundaries.
+
+Optional public paths include HTTP application selection, experimental REST,
+Password Authentication, network-independent GraphQL, Yoga, and development
+explorers. [Nested writes](/docs/1.0.0/core/writing-data/nested-writes),
+request-contextual fields and relations, plugin schema mutations, and
+[Soft Delete](/docs/1.0.0/plugins/official/soft-delete) are documented with
+their owning capability. Check [Release Status](./release-status) before
+deciding what can be evaluated today.
+
+## How work advances
+
+A milestone explains direction. Each implementation
+[issue](https://github.com/MrEkinox/ultimadatabase/blob/main/issues/README.md)
+records dependencies, scope, acceptance criteria, and completion evidence.
+Work begins only when its dependencies are ready. Changes to dependency,
+storage, public API, or security boundaries require an architectural decision;
+the [ADR index](https://github.com/MrEkinox/ultimadatabase/blob/main/docs/adr/README.md)
+records accepted decisions.
+
+## Planned is not shipped
+
+Realtime, jobs, caching, more authentication integrations, OpenAPI, SDKs, and
+administration remain possible issue-tracked capabilities. Their scope can
+change before implementation. The [milestone plan](https://github.com/MrEkinox/ultimadatabase/blob/main/ROADMAP.md)
+contains intent but no invented dates or support promises.

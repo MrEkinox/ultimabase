@@ -160,12 +160,12 @@ The public route architecture is:
 │       ├── operations
 │       │   ├── before-exposing-your-application
 │       │   └── troubleshooting
-│       └── reference
-│           └── package-index (Packages and Compatibility)
-├── status
-│   ├── release-status
-│   ├── roadmap
-│   └── contributing
+│       ├── reference
+│       │   └── package-index (Packages and Compatibility)
+│       └── project
+│           ├── release-status
+│           ├── roadmap
+│           └── contributing
 ```
 
 Sidebar routes stop at a coherent reader subject. Subtasks that share one owner
@@ -197,7 +197,7 @@ architecture-decision page described contributor process rather than a public
 API. The roadmap links directly to the repository ADR index instead.
 
 The version sidebar presents Introduction, Core, Plugins, Guides, Operate Your
-Application, and Reference as non-collapsible section titles. It extracts each
+Application, Reference, and Project as non-collapsible section titles. It extracts each
 area's existing folder children directly below the title; deeper subject
 folders may still expand. `Core > Application` is one page with in-page sections
 for graph compilation, lifecycle, direct TypeScript, and application scope,
@@ -213,7 +213,9 @@ form one long `manual-installation` page. `Quick Start` previews the intended
 automatic initializer, explicitly unavailable before publication. The former
 `project-structure` and `next-steps` subjects remain sections of that manual
 page.
-The landing page links directly to all three status pages in its final section.
+The landing page links directly to all three Project documentation pages in its
+final section. The former `/status/*` paths are removed without pre-launch
+redirects, leaving the landing page as the only separately authored site page.
 
 ## Landing-page narrative
 

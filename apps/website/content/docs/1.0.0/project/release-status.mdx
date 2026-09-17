@@ -1,0 +1,56 @@
+---
+title: Release Status
+description: See what UltimaBase implements today and which release promises remain open.
+audience:
+  - application-developer
+  - plugin-author
+  - operator
+contentType: reference
+outcome: Distinguish implemented behavior from publication and support commitments.
+owner: '2822'
+releaseStatus: pre-release
+reviewedAt: 2026-09-17
+sources:
+  - README.md
+  - .changeset/README.md
+  - docs/RELEASING.md
+  - packages/README.md
+---
+
+UltimaBase is in active pre-release development. Its documented foundations are
+implemented and tested, but naming, package publication, compatibility, and
+launch decisions may still change deliberately.
+
+## Available now
+
+- [Static schemas and the application graph](/docs/1.0.0/core/application)
+  compile into one application-local Runtime.
+- [PostgreSQL persistence](/docs/1.0.0/plugins/official/postgresql),
+  immutable reads and writes, transactions, and explicit optional plugins are
+  implemented.
+- Direct TypeScript, experimental [REST](/docs/1.0.0/plugins/official/rest),
+  and [GraphQL](/docs/1.0.0/plugins/official/graphql) enter the same operation
+  and policy path. Each transport retains its own public wire format.
+
+Implemented does not mean stable or ready to expose without review. Follow
+[Before Exposing Your Application](/docs/1.0.0/operations/before-exposing-your-application)
+for the checks your deployment must own.
+
+## Package and documentation versions
+
+The installation examples use the intended npm package names. They do not
+announce that a stable package channel or compatibility window exists. Check
+the version you actually install against [Packages and Compatibility](/docs/1.0.0/reference/package-index)
+and the owning plugin guide. The `1.0.0` documentation URL identifies this
+documentation line; it is not proof of a published `1.0.0` package.
+
+Package releases use Changesets, independent SemVer for official plugins,
+archive validation, and an approval-gated [release process](https://github.com/MrEkinox/ultimadatabase/blob/main/docs/RELEASING.md).
+Additional maintained documentation lines will appear in the version selector
+without changing older URLs.
+
+## Not promised yet
+
+No release date, long-term support window, migration guarantee, hosted service,
+or production support commitment has been announced. Plan with that change
+budget in mind. The [Roadmap](./roadmap) records direction, not delivery dates.
