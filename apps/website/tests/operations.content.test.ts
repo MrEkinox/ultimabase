@@ -34,8 +34,8 @@ describe('operations documentation contracts', () => {
 			packageManager: 'yarn@4.9.2',
 		})
 		expect(documentation).toContain('Node.js 24+')
-		expect(documentation).toContain(
-			'migration capability is planned separately',
+		expect(documentation).toMatch(
+			/No official\s+migration runner is shipped yet\./u,
 		)
 		expect(documentation).toContain(
 			'Browser-origin behavior is disabled by default',

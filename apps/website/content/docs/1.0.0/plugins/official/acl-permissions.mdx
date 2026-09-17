@@ -8,50 +8,101 @@ order: 6
 outcome: Protect individual objects with public, principal, and role permissions.
 owner: '2811'
 releaseStatus: pre-release
-reviewedAt: 2026-09-15
+reviewedAt: 2026-09-17
 sources:
   - packages/acl-permissions-plugin/README.md
   - docs/adr/0205-protected-policy-contributions.md
   - docs/adr/0218-master-bypasses-authorization-policies.md
 ---
 
-`@ultimabase/acl-permissions-plugin` adds one persisted ACL to each schema that opts
-in. An ACL grants object-level `read`, `update`, and `delete` rights to public,
-authenticated, exact-principal, and role subjects.
+## Overview
 
-```ts
-import { ACL } from '@ultimabase/acl-permissions-plugin'
+`@ultimabase/acl-permissions-plugin` adds a stored access-control list to
+each schema that opts in. An ACL can grant object-level `read`, `update`,
+and `delete` rights to public, authenticated, exact-principal, or role
+subjects. The plugin enforces those rights through Core protected constraints
+and database filtering, not by loading every row and filtering afterward.
 
-import { AppRole, Member } from './schemas.js'
+ACL is independent of [Access](./access). When both are installed, their
+restrictions compose; neither can widen the other.
 
-const alice = Member.pointer('0199b38e-ef80-7000-8000-000000000001')
+## Installation
 
-export const articleACL = new ACL()
-	.grantPublic('read')
-	.grantPrincipal(alice, 'read', 'update')
-	.grantRole(AppRole.role('editor'), 'read', 'update')
+Start with an UltimaBase application and a database provider that supports
+the ACL field and constraints, such as [PostgreSQL](./postgresql). Install
+the ACL package:
 
-export const withoutPublicRead = articleACL.revokePublic('read')
+```bash tab="npm" tab-group="package-manager"
+npm install @ultimabase/acl-permissions-plugin
 ```
 
-`ACL` is immutable: every grant or revoke returns a new value. `toJSON()` produces a
-detached, versioned format; `ACL.fromJSON()` validates it strictly and restores a
-canonical value.
+```bash tab="yarn"
+yarn add @ultimabase/acl-permissions-plugin
+```
 
-Install `aclPlugin()` and add the schema-level `acl` option. The plugin contributes
-its policy directly through Core protected constraints and adapter constraints. It
-does not depend on or peer with `@ultimabase/access-plugin`; both may be installed,
-and their restrictions compose with logical `AND`.
+```bash tab="pnpm"
+pnpm add @ultimabase/acl-permissions-plugin
+```
 
-The reserved ACL field is stored atomically with the object and indexed by supported
-database plugins. Non-Master requests cannot select, filter, order by, or replace it.
-Create defaults and `resolveInput` may derive policy from the proposed data and the
-current neutral principal. Explicit ACL input is Master-only and still requires the
-schema's input resolver.
+## Configuration
 
-Authentication and Roles are optional subject providers. They resolve exact public
-schema references, while ACL remains independent of their concrete packages. The
-default size limits are 100 principals and 50 roles per object.
+Install `aclPlugin()` in the application graph and opt a schema in with its
+direct `acl` option. A default supplies the ACL for a new record:
 
-Master bypasses ACL authorization, but not ACL size validation, reference integrity,
-input resolution, change events, or transaction behavior.
+```ts title="src/post.ts"
+import { Schema } from '@ultimabase/core'
+import { ACL, aclPlugin } from '@ultimabase/acl-permissions-plugin'
+
+export const Post = Schema.define({
+	className: 'Post',
+	fields: (field) => ({
+		title: field.string({ required: true }),
+	}),
+	acl: {
+		default: () => new ACL().grantPublic('read'),
+	},
+})
+
+export const acl = aclPlugin()
+```
+
+Include `Post` in `schemas` and `acl` in `plugins`. The reserved stored
+`acl` field is added by the plugin; do not declare it manually. The zero-option
+factory limits each ACL to 100 principals and 50 roles. Configure different
+application limits with `aclPlugin({ limits: { maxPrincipals, maxRoles } })`,
+or override either limit on one schema with `acl.limits`.
+
+The schema option also accepts `resolveInput` for deriving a replacement
+ACL from proposed data, the current ACL, and trusted input. Explicit ACL input
+requires Master authority and a schema input resolver; ordinary callers cannot
+replace the ACL directly.
+
+## Behavior and limitations
+
+`ACL` is immutable: each grant or revoke returns a new value. For example,
+`new ACL().grantPublic('read')` creates a distinct value. `toJSON()` produces
+detached versioned data, and `ACL.fromJSON()`
+validates it strictly.
+
+The ACL is stored atomically with its object. Non-Master callers cannot
+select, filter, order by, or replace the reserved field. Authentication and
+Roles are optional subject providers; an ACL with role grants needs a
+compatible role resolver. Master bypasses ACL authorization, but not size
+validation, reference integrity, input resolution, events, or transactions.
+
+ACL grants do not install authentication, create roles, or expose stored ACLs
+over REST or GraphQL by themselves. The database adapter must support the
+required protected containment behavior; unsupported adapters fail rather
+than silently dropping enforcement.
+
+## Troubleshooting
+
+If a schema rejects `acl` at startup, confirm `aclPlugin()` is in that
+application's plugin list. If role grants fail to compile or persist, check
+that a compatible role provider is installed and the references target its
+exact schema. If a non-Master request cannot read the reserved `acl` field,
+that is intentional; inspect it only through trusted server code.
+
+If ACL replacement is rejected, check for Master authority, a schema
+`resolveInput`, and a singular update. Bulk updates and upserts do not
+replace an existing ACL, even for Master.

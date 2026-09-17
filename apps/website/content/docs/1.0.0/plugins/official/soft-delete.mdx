@@ -8,7 +8,7 @@ order: 8
 outcome: Configure a deletion mode and keep restore or purge behind private Master authority.
 owner: '2809'
 releaseStatus: pre-release
-reviewedAt: 2026-09-15
+reviewedAt: 2026-09-17
 sources:
   - packages/soft-delete-plugin/README.md
   - examples/minimal/README.md
@@ -26,25 +26,54 @@ mode; importing the package alone installs no behavior.
 | `replace-delete` | Writes a tombstone instead of physically deleting | none                           |
 | `explicit`       | Keeps native physical deletion                    | `softDelete`                   |
 
-## Installation and configuration
+## Installation
 
-Install `@ultimabase/soft-delete-plugin`, add `softDeletePlugin()` to the
-application plugin list, then state the mode on each participating schema:
+Start with an application that has a database provider; see
+[Manual Installation](/docs/1.0.0/manual-installation). Install the optional
+plugin package:
+
+```bash tab="npm" tab-group="package-manager"
+npm install @ultimabase/soft-delete-plugin
+```
+
+```bash tab="yarn"
+yarn add @ultimabase/soft-delete-plugin
+```
+
+```bash tab="pnpm"
+pnpm add @ultimabase/soft-delete-plugin
+```
+
+## Configuration
+
+Add `softDeletePlugin()` to the application plugin list, then state the mode on
+each participating schema:
 
 ```ts title="src/schemas.ts"
-const Article = Schema.define({
-	className: 'Article',
+import { Schema } from '@ultimabase/core'
+import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
+
+export const Post = Schema.define({
+	className: 'Post',
 	softDelete: 'explicit',
 	fields: (field) => ({ title: field.string() }),
 })
+
+export const softDelete = softDeletePlugin({ defaultMode: 'disabled' })
 ```
 
-Use `defaultMode: 'disabled'` when every schema must opt in deliberately. Read
+Include `softDelete` in the application's `plugins` and `Post` in its `schemas`.
+`defaultMode` accepts `disabled` (the default), `replace-delete`, or `explicit`.
+Each schema may override it with `softDelete: false | 'replace-delete' |
+'explicit'`; `false` disables the feature for that schema. Use
+`defaultMode: 'disabled'` when every schema must opt in deliberately. Read
 [Delete Data](/docs/1.0.0/core/writing-data/delete) and
 [Master Authority](/docs/1.0.0/core/security-foundations/master-authority) before
 exposing an application workflow around deletion.
 
-## Delete, restore, and purge records
+## Behavior and limitations
+
+### Delete, restore, and purge records
 
 ```ts title="src/soft-delete-post.ts"
 import { Post } from './schemas.js'
@@ -69,7 +98,7 @@ export const purgePost = (postId: string) =>
 		.purge({ id: postId, select: { title: true } }, { useMasterKey: true })
 ```
 
-## Visibility semantics
+### Visibility semantics
 
 Ordinary reads hide tombstones. That visibility rule also applies to normal
 Master reads; Master authority is not a general switch for including deleted
@@ -77,15 +106,22 @@ records. `restore` and `purge` are private application-schema commands that
 require explicit server-side Master authority. They are not model, REST,
 GraphQL, or Access-policy branches.
 
-## Limits and troubleshooting
+### Limits
 
 In explicit mode, native `deleteOne` remains the deliberate hard-delete path.
 In replacement mode, physical purge stays on the private Master surface. Both
 modes preserve the ordinary validation, Hook, transaction, integrity, and
 protected-policy boundaries.
 
-Verify that find, count, exists, pointer, and relation reads omit a tombstone.
+V1 has no deletion timestamp, retention job, include-deleted query, or nested
+soft delete.
+
+## Troubleshooting
+
+If a deleted record remains visible, first confirm the schema's effective mode
+and that the read goes through the compiled UltimaBase application. Verify that
+find, count, exists, pointer, and relation reads omit a tombstone.
 Restore it through trusted server code and verify the ordinary read returns it
-again. V1 has no deletion timestamp, retention job, include-deleted query, or
-nested soft delete. If a record remains visible, confirm that the schema opts in
-and that every access path goes through the same compiled application Runtime.
+again. If restore or purge is rejected, check that it runs from the owning
+application schema handle with audited Master authority; neither command is a
+public transport endpoint.

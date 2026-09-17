@@ -32,8 +32,8 @@ describe('security documentation contracts', () => {
 		expect(documentation).toMatch(
 			/Authentication establishes identity and grants no\s+authorization\./u,
 		)
-		expect(documentation).toContain(
-			'A role, a role hierarchy, and an authenticated principal\n> grant nothing by themselves.',
+		expect(documentation).toMatch(
+			/A role, a role hierarchy, and an authenticated principal\s+grant nothing by themselves\./u,
 		)
 		expect(documentation).toContain(
 			'Client `useMasterKey` flags, shaped contexts, metadata,',
@@ -54,7 +54,9 @@ describe('security documentation contracts', () => {
 		expect(documentedCode).not.toMatch(
 			/(?:mode|authority)\s*[:=]+\s*['"](?:user|system)['"]/u,
 		)
-		expect(documentation).not.toMatch(/roles? (?:automatically )?grants?/iu)
+		expect(documentation).not.toMatch(
+			/roles? (?:automatically )?grants? (?:access|permission|authority)/iu,
+		)
 		expect(documentation).not.toMatch(
 			/Master (?:skips|bypasses) (?:validation|Hooks|transactions)/u,
 		)

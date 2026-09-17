@@ -1,24 +1,54 @@
 ---
 title: PostgreSQL Vector
-description: Add an application-local typed vector field without teaching Core a provider-specific field kind.
+description: Declare a typed vector field while PostgreSQL vector persistence is still unavailable.
 audience:
   - application-developer
   - plugin-author
 contentType: concept
-outcome: Declare a dimension-safe vector field and understand the current persistence boundary.
+outcome: Declare a dimension-safe vector field and recognize the current physical storage limit.
 owner: '2824'
 releaseStatus: pre-release
-reviewedAt: 2026-09-15
+reviewedAt: 2026-09-17
 sources:
   - packages/pg-vector-plugin/README.md
 ---
 
-`@ultimabase/pg-vector-plugin` contributes `field.vector({ dimensions })` to the
-compiled application that installs `pgVectorPlugin()`. Applications without the
-plugin do not expose that builder method.
+## Overview
 
-```ts
-import { Schema, UltimaBase } from '@ultimabase/core'
+`@ultimabase/pg-vector-plugin` contributes the application-local
+`field.vector({ dimensions })` builder. It validates an immutable array of
+finite numbers with one exact dimension and contributes a GraphQL field codec.
+Core does not know a vector field kind when the plugin is absent.
+
+This is a **logical field contract**, not a production pgvector integration:
+PostgreSQL vector column compilation and similarity-search operators are not
+shipped yet.
+
+## Installation
+
+Install the plugin package in an UltimaBase project:
+
+```bash tab="npm" tab-group="package-manager"
+npm install @ultimabase/pg-vector-plugin
+```
+
+```bash tab="yarn"
+yarn add @ultimabase/pg-vector-plugin
+```
+
+```bash tab="pnpm"
+pnpm add @ultimabase/pg-vector-plugin
+```
+
+For TypeScript authoring, regenerate the application's declarations after
+adding the plugin; see [Generate TypeScript Types](/docs/1.0.0/guides/generate-types).
+
+## Configuration
+
+Add `pgVectorPlugin()` to the application and declare a stored vector field:
+
+```ts title="src/document.ts"
+import { Schema, createApplication } from '@ultimabase/core'
 import { pgVectorPlugin } from '@ultimabase/pg-vector-plugin'
 
 const Document = Schema.define({
@@ -28,19 +58,37 @@ const Document = Schema.define({
 	}),
 })
 
-const ultimabase = new UltimaBase({
+export const application = await createApplication({
 	plugins: [pgVectorPlugin()],
 	schemas: [Document],
 })
 ```
 
-Vector values are immutable `readonly number[]` snapshots. The plugin validates
-their exact dimension and requires every element to be finite. Its GraphQL codec
-allows the GraphQL plugin to expose the field without importing the vector
-package.
+This example compiles declarations only; it does not start a database-backed
+application or prove persistence. `pgVectorPlugin()` has no factory options.
+`dimensions` is required and must be a positive integer. The ordinary stored
+field options, including `required`, retain their Core meanings.
 
-The logical field is shipped, but PostgreSQL physical `pgvector` compilation is
-not shipped in this release. Installing the plugin does not yet create a
-`vector` database column or vector-search operator. Do not present the logical
-field as a production similarity-search integration until that persistence
-capability exists.
+## Behavior and limitations
+
+Vector values are detached immutable `readonly number[]` snapshots. The
+plugin rejects the wrong number of elements, non-finite numbers, and invalid
+dimension declarations. Its GraphQL codec lets an installed GraphQL plugin
+expose the field without importing this package.
+
+The builder currently supports stored schema fields only, not embedded
+properties or output descriptors. Its logical value contract does not create
+a PostgreSQL `vector` column. Do not use it as a working similarity-search or
+production vector-storage feature until the physical adapter support ships.
+
+## Troubleshooting
+
+If TypeScript does not recognize `field.vector`, confirm the plugin is in
+this application's configuration and regenerate Typegen. If compilation
+reports a dimension or value error, check the declared positive dimension
+against every supplied finite numeric element.
+
+If PostgreSQL cannot prepare a vector column, that is the current product
+limit, not a missing extension setting. Do not work around it with raw SQL
+while expecting UltimaBase Query, validation, and synchronization to understand
+that column.

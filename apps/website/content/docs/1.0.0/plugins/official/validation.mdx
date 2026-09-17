@@ -7,7 +7,7 @@ contentType: concept
 outcome: Decide when application validation belongs in the Validation plugin rather than Core or Hooks.
 owner: '2824'
 releaseStatus: pre-release
-reviewedAt: 2026-09-15
+reviewedAt: 2026-09-17
 sources:
   - packages/validation-plugin/README.md
   - examples/minimal/src/schema.ts
@@ -20,35 +20,71 @@ Core always enforces requiredness, nullability, canonical value shapes, defaults
 immutable fields, and database integrity; installing this plugin adds
 application-specific rejection rules.
 
-## Installation and configuration
+## Installation
 
-Install a Standard Schema implementation such as Zod, add
-`validationPlugin()` explicitly, and attach validators to fields:
+Install the plugin and a Standard Schema implementation such as Zod. An
+existing UltimaBase application and database provider are prerequisites.
 
-```ts
-title: field.string({
-	required: true,
-	validation: z.string().min(1).max(200),
-})
+```bash tab="npm" tab-group="package-manager"
+npm install @ultimabase/validation-plugin zod
 ```
 
-Core still owns requiredness, nullability, and structural types. The plugin
-adds a synchronous rejection-only check over the final resolved value.
+```bash tab="yarn"
+yarn add @ultimabase/validation-plugin zod
+```
 
-## Execution semantics
+```bash tab="pnpm"
+pnpm add @ultimabase/validation-plugin zod
+```
+
+## Configuration
+
+Add `validationPlugin()` explicitly and attach validators to stored fields or
+embedded properties:
+
+```ts title="src/article.ts"
+import { Schema } from '@ultimabase/core'
+import { validationPlugin } from '@ultimabase/validation-plugin'
+import { z } from 'zod'
+
+export const Article = Schema.define({
+	className: 'Article',
+	fields: (field) => ({
+		title: field.string({
+			required: true,
+			validation: z.string().min(1).max(200),
+		}),
+	}),
+})
+
+export const validation = validationPlugin()
+```
+
+Include `validation` in the application's `plugins` and `Article` in its
+`schemas`. The factory has no configuration options. The `validation` field
+option accepts a synchronous Standard Schema V1 validator compatible with the
+field's complete value; virtual fields and output descriptors do not accept it.
+
+## Behavior and limitations
+
+### Execution semantics
 
 Validators use Standard Schema V1. They run synchronously over complete,
 present, non-null mutation values after input resolution and structural
 validation. They may accept or reject the canonical value, but cannot transform
 it. Master mutations follow the same validation path.
 
-## Verify and troubleshoot
+Reads and result materialization do not replay application validators. Master
+mutations still run them; validators cannot transform values or return promises.
+
+## Troubleshooting
 
 Submit an empty title and assert the stable `field.validation` issue path. Then
 submit a valid title and read it back. Master authority must receive the same
 validation result.
 
-Reads and result materialization do not replay application validators. Use
-[Hooks](./hooks) when input must be normalized or transaction-bound business
-work must run. Validators cannot transform values, return promises, or run on
-reads.
+If the `validation` option is unknown at startup, confirm that
+`validationPlugin()` is in the same application's plugin list. If a validator
+tries to transform a value or returns a promise, use a synchronous rejection
+rule instead. Use [Hooks](./hooks) when input must be normalized or
+transaction-bound business work must run.

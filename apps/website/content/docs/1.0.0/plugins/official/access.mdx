@@ -8,7 +8,7 @@ order: 4
 outcome: Define fail-closed authorization that can only narrow as policies compose.
 owner: '2811'
 releaseStatus: pre-release
-reviewedAt: 2026-09-15
+reviewedAt: 2026-09-17
 sources:
   - packages/access-plugin/README.md
   - docs/adr/0204-access-is-one-vertical-plugin.md
@@ -16,53 +16,101 @@ sources:
   - docs/adr/0222-sparse-read-access-inherits-secure-defaults.md
 ---
 
-Install `accessPlugin()` to enable the official `access` schema and field options.
-Importing the package does nothing, and an application without the plugin has no
-official Access stage.
+## Overview
 
-```ts
-import { Article } from './schemas.js'
+`@ultimabase/access-plugin` is the optional official authorization engine.
+It owns schema and field `access` rules and enforces them through Core's
+protected Runtime boundary. Importing the package does not install a policy;
+an application without `accessPlugin()` has no official Access stage.
 
-export const readVisibleArticles = () =>
-	Article.findMany({
-		select: { title: true },
-		where: { published: { eq: true } },
-	})
+Access can restrict operations, rows, individual items, fields, and mutation
+transitions. It does not authenticate a caller. Add an identity provider
+separately when rules need principals or roles.
+
+## Installation
+
+Start with an UltimaBase application and database provider. Install the
+official Access package:
+
+```bash tab="npm" tab-group="package-manager"
+npm install @ultimabase/access-plugin
 ```
 
-The complete policy declaration compiled behind this query is:
-
-```ts
-access: {
-  create: true,
-  read: {
-    allow: true,
-    where: ({ where }) => where.eq('published', true),
-  },
-  update: {
-    allow: hasRole(editor),
-    item: ({ item, originalItem }) => item.owner.id === originalItem.owner.id,
-  },
-  delete: hasRole(editor),
-}
+```bash tab="yarn"
+yarn add @ultimabase/access-plugin
 ```
 
-Access evaluates at several boundaries:
+```bash tab="pnpm"
+pnpm add @ultimabase/access-plugin
+```
 
-1. **Operation** rules allow or deny `one`, `many`, `count`, `exists`, and mutation
-   families before data access.
-2. **Row** `where` rules append a private predicate with logical `AND`.
-3. **Item** rules inspect the locked original and prepared candidate for singular
-   mutations.
-4. **Field** rules independently narrow filtering, ordering, output, and writes.
-5. **Value-dependent** rules run again after input resolution so transformed values
-   cannot broaden an earlier decision.
+## Configuration
 
-Operations default to deny when neither an exact schema rule nor a configured plugin
-default exists. Fields remain open until an exact field rule or provider narrows
-them. Compatible providers run after the base decision and can deny or restrict, but
-cannot turn a denial into permission.
+Add the factory to your application's `plugins` and a declaration to each
+schema that needs an exact rule:
 
-Master bypasses the complete official Access policy, including callbacks. Core
-validation, installed application validation, Hooks, transactions, database
-constraints, and integrity work still run.
+```ts title="src/article.ts"
+import { Schema } from '@ultimabase/core'
+import { accessPlugin } from '@ultimabase/access-plugin'
+
+export const Article = Schema.define({
+	className: 'Article',
+	fields: (field) => ({
+		published: field.boolean({ default: false }),
+		title: field.string({ required: true }),
+	}),
+	access: {
+		read: {
+			allow: true,
+			where: ({ where }) => where.eq('published', true),
+		},
+	},
+})
+
+export const access = accessPlugin()
+```
+
+Include `Article` in `schemas` and `access` in `plugins`. The example allows
+reads only from published rows. Create, update, delete, and other unspecified
+operations remain denied by the plugin default. `accessPlugin({ default: true })`
+changes that fallback for all native operations and request mutations; use it
+only after a deliberate policy review. A granular `default` object can set
+read capabilities and mutation families separately. Schema `access` defines
+exact rules; field `access` narrows reading, filtering, ordering, or writing
+that field.
+
+## Behavior and limitations
+
+Access evaluates in this order:
+
+1. **Operation** rules decide whether the requested read or mutation family
+   may begin.
+2. **Row** rules append private `where` predicates with logical `AND`.
+3. **Item** rules inspect the locked original and prepared candidate for
+   singular mutations.
+4. **Field** rules restrict filtering, ordering, output, and writes.
+5. **Value-dependent** rules run again after input resolution so a transformed
+   value cannot broaden an earlier decision.
+
+Omitted operations deny unless an exact schema rule or configured default
+allows them. Fields remain open until an exact rule or compatible provider
+narrows them. Compatible policy providers can only deny or restrict; they
+cannot turn an earlier denial into permission.
+
+Master bypasses official Access callbacks and decisions. It still runs Core
+structural validation, installed application validation, Hooks, transactions,
+database constraints, and integrity work. A `hasRole()` rule needs the
+separate [Roles](./roles) resolver, and role membership alone grants nothing.
+
+## Troubleshooting
+
+If every request is denied, inspect the effective operation default and the
+schema's exact rule before changing any Master configuration. A sparse
+`read.allow` declaration inherits omitted read capabilities from the
+plugin default; it is not an implicit grant.
+
+If a field disappears or a filtered query fails, inspect its field rule and
+the caller's request context. If an `access` declaration is rejected during
+application compilation, confirm `accessPlugin()` is in the same application
+graph. Never use Master authority to make a broken public policy appear to
+work.

@@ -204,12 +204,12 @@
 				{
 					"slug": "official/postgresql",
 					"contentType": "guide",
-					"outcome": "Operate the shipped PostgreSQL connection and schema preparation behavior without assuming migrations exist."
+					"outcome": "Configure the PostgreSQL plugin, choose a direct schema policy, and diagnose startup failures."
 				},
 				{
 					"slug": "official/postgresql-vector",
 					"contentType": "concept",
-					"outcome": "Declare a dimension-safe vector field and understand the current persistence boundary."
+					"outcome": "Declare a dimension-safe vector field and recognize the current physical storage limit."
 				},
 				{
 					"slug": "official/soft-delete",

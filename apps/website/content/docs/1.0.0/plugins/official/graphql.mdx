@@ -5,7 +5,7 @@ audience:
   - application-developer
 contentType: guide
 order: 4
-outcome: Execute GraphQL directly or over HTTP, choose an optional explorer, and understand Relay pagination.
+outcome: Install the GraphQL packages you need, configure execution, and understand HTTP and explorer boundaries.
 owner: '2812'
 releaseStatus: pre-release
 reviewedAt: 2026-09-17
@@ -17,45 +17,147 @@ sources:
   - docs/adr/0238-graphql-v1-contract.md
 ---
 
-## GraphQL without HTTP
+## Overview
+
+`@ultimabase/graphql-plugin` owns the executable schema. Yoga, HTTP, Hono, and
+browser explorers are independent, optional plugins. None installs its siblings.
+
+## Installation
+
+For direct GraphQL execution, install the schema plugin:
+
+```bash tab="npm" tab-group="package-manager"
+npm install @ultimabase/graphql-plugin
+```
+
+```bash tab="yarn"
+yarn add @ultimabase/graphql-plugin
+```
+
+```bash tab="pnpm"
+pnpm add @ultimabase/graphql-plugin
+```
+
+To serve GraphQL with the official Node.js Hono provider, also install these
+three plugins:
+
+```bash tab="npm" tab-group="package-manager"
+npm install @ultimabase/graphql-yoga-plugin @ultimabase/http-plugin @ultimabase/server-hono-plugin
+```
+
+```bash tab="yarn"
+yarn add @ultimabase/graphql-yoga-plugin @ultimabase/http-plugin @ultimabase/server-hono-plugin
+```
+
+```bash tab="pnpm"
+pnpm add @ultimabase/graphql-yoga-plugin @ultimabase/http-plugin @ultimabase/server-hono-plugin
+```
+
+For a development explorer, additionally install the package you choose:
+
+```bash tab="npm" tab-group="package-manager"
+npm install @ultimabase/graphiql-plugin
+# or: npm install @ultimabase/apollo-sandbox-plugin
+```
+
+```bash tab="yarn"
+yarn add @ultimabase/graphiql-plugin
+# or: yarn add @ultimabase/apollo-sandbox-plugin
+```
+
+```bash tab="pnpm"
+pnpm add @ultimabase/graphiql-plugin
+# or: pnpm add @ultimabase/apollo-sandbox-plugin
+```
+
+## Configuration
+
+Add `graphqlPlugin()` to a database-backed application with at least one
+queryable schema. The final schema must have a query root field; `schemas: []`
+is not a working generated API. This example assumes PostgreSQL tables have
+already been prepared, so it uses the non-mutating `fail` schema policy:
+
+```ts title="src/main.ts"
+import { randomUUID } from 'node:crypto'
+
+import { Schema, UltimaBase } from '@ultimabase/core'
+import { graphqlPlugin } from '@ultimabase/graphql-plugin'
+import { graphqlYogaPlugin } from '@ultimabase/graphql-yoga-plugin'
+import { httpPlugin } from '@ultimabase/http-plugin'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
+import { honoServerPlugin } from '@ultimabase/server-hono-plugin'
+
+const Post = Schema.define({
+	className: 'Post',
+	fields: (field) => ({ title: field.string({ required: true }) }),
+	graphql: true,
+})
+
+const databaseUrl = process.env.DATABASE_URL
+if (databaseUrl === undefined) throw new TypeError('DATABASE_URL is required')
+
+const application = new UltimaBase({
+	plugins: [
+		postgresPlugin({ schemaPolicy: 'fail', url: databaseUrl }),
+		httpPlugin({ appId: 'notes' }),
+		graphqlPlugin(),
+		graphqlYogaPlugin(),
+		honoServerPlugin({ host: '127.0.0.1', port: 1337 }),
+	],
+	schemas: [Post],
+})
+
+await application.start()
+```
+
+For direct execution only, keep `graphqlPlugin()` and omit HTTP, Yoga, and
+Hono. `graphqlPlugin()` also accepts `schemas` for custom GraphQL schemas,
+`default` for generated exposure, `operations` for explicit plugin operations,
+and `limits` for request and pagination budgets. Public generated exposure may
+require `acknowledgeUnverifiedProtection: true` after a policy review; this
+acknowledgement is not an authorization grant. See [PostgreSQL](./postgresql)
+for physical schema preparation and [HTTP](./http) for application selection.
+This local-only example has no Access policy or authentication; do not expose
+it on a public network as a production configuration.
+
+## Behavior and limitations
+
+### GraphQL without HTTP
 
 `@ultimabase/graphql-plugin` compiles one executable `GraphQLSchema` from the final
 application graph. It imports no HTTP, Yoga, REST, authentication, policy, or
-database provider. The setup export exposes `schema`, `execute()`, and deterministic
-`printSchema()`.
+database provider. The setup export exposes `schema`, `execute()`, and
+deterministic `printSchema()`. `execute()` needs a real request context bound to the same
+started application. Foreign, forged, stale, cancelled, and disposed contexts
+fail before resolver work.
 
-```ts
-import { randomUUID } from 'node:crypto'
+The context is application-bound. Direct execution needs no HTTP server, but it
+still passes generated operations through the same Core request executor as an
+HTTP call.
 
-import { application } from './running-application.js'
+For example, continue the `src/main.ts` setup above after `start()` (the HTTP
+plugins can be omitted when you only execute directly):
 
+```ts title="src/main.ts"
 const graphql = application.application.getPlugin('@ultimabase/graphql-plugin')
 const context = application.engine.anonymous({
 	requestId: randomUUID(),
 	source: 'internal',
 }).context
 
-export const result = await graphql.execute({
+const result = await graphql.execute({
 	context,
-	document: `{
-		findManyApiPost(first: 20, where: { published: { eq: true } }) {
-			nodes { id title }
-			pageInfo { hasNextPage endCursor }
-		}
-	}`,
+	document: '{ findManyPost(first: 10) { nodes { id title } } }',
 })
+console.log(result.data)
 ```
-
-The context is application-bound. Direct execution needs no HTTP server, but it
-still passes generated operations through the same Core request executor as an
-HTTP call.
 
 Generated reads, mutations, nested writes, virtual fields, and explicitly selected
 plugin operations all delegate through Core's narrow application request executor.
 Custom schema resolvers receive only `{ request: RequestContext }`, never the
 application, executor, adapter, grant, transaction, or lifecycle control.
 
-## Pagination and protection
+### Pagination and protection
 
 Collections use Relay-style `edges`, `nodes`, and `pageInfo` without `totalCount`.
 `first` defaults to 25 and is capped at 100 unless configured. Cursors are opaque,
@@ -69,33 +171,13 @@ Runtime, and database capability.
 Generated public GraphQL surfaces require the same explicit protection acknowledgement
 as REST. Exposure controls declarations only; it never grants access.
 
-## Serve GraphQL over HTTP with Yoga
+### Serve GraphQL over HTTP with Yoga
 
 `@ultimabase/graphql-yoga-plugin` mounts the final schema through the shared
 [HTTP application](./http). These remain separate plugins: GraphQL owns the schema,
 Yoga owns the HTTP GraphQL route, HTTP selects the application, and a server
 provider such as [Hono](./http#run-a-nodejs-server-with-hono) opens the listener.
 Install and configure each package you use; none is installed by its sibling.
-
-```ts
-import { UltimaBase } from '@ultimabase/core'
-import { graphqlPlugin } from '@ultimabase/graphql-plugin'
-import { graphqlYogaPlugin } from '@ultimabase/graphql-yoga-plugin'
-import { httpPlugin } from '@ultimabase/http-plugin'
-import { honoServerPlugin } from '@ultimabase/server-hono-plugin'
-
-const application = new UltimaBase({
-	plugins: [
-		httpPlugin({ appId: 'notes' }),
-		graphqlPlugin(),
-		graphqlYogaPlugin(),
-		honoServerPlugin({ port: 1337 }),
-	],
-	schemas: [],
-})
-
-await application.start()
-```
 
 By default, Yoga mounts `POST /graphql`, accepts UTF-8 JSON GraphQL requests,
 and limits streamed bodies to 1 MiB. It rejects batching, uploads,
@@ -115,7 +197,7 @@ Yoga forwards that context to the same GraphQL execution capability as direct
 calls. It does not reimplement policies, virtual fields, contextual relations,
 transactions, cancellation, or safe errors.
 
-## Choose a development explorer
+### Choose a development explorer
 
 Explorers are optional, independent plugins. Add one only if you need a browser
 UI; neither installs GraphQL, Yoga, HTTP, or a server. For an application with
@@ -142,3 +224,17 @@ controls. Neither embeds credentials or authority. Schema discovery requires
 Yoga introspection to be enabled. In production, neither contributes a route
 unless `allowInProduction: true` is explicit. Both load remote assets; review
 their network environmental claims before enabling either one.
+
+## Troubleshooting
+
+If startup reports no query root field, expose at least one queryable schema
+or supply a valid custom GraphQL schema. An empty `schemas` array creates no
+placeholder query. If direct execution rejects a context, create it from the
+same started application and do not retain it after cancellation or disposal.
+
+For HTTP selection errors, first check the exact
+`X-UltimaBase-Application-Id` header and configured `appId`. If an explorer
+loads without schema discovery, enable Yoga introspection in the intended
+environment and check its endpoint path. A missing explorer route in
+production is expected unless explicitly enabled. Cursors are opaque and
+application-lifetime: use a fresh one after restart.

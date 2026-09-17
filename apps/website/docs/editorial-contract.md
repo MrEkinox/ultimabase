@@ -157,6 +157,28 @@ configuration, behavior, reference, limitations, and troubleshooting as
 sections of one long page. Split only when a reader can complete the resulting
 page as an independent task with its own outcome.
 
+### Official plugin pages
+
+Every page under `Plugins > Official Plugins` uses the same reading order,
+regardless of its general page type:
+
+1. `Overview`: what the plugin owns, and the boundary between it and Core or
+   other plugins.
+2. `Installation`: the published package name in synchronized npm, yarn, and
+   pnpm command tabs. Distinguish required siblings from optional integrations;
+   importing a package never installs behavior.
+3. `Configuration`: a focused, complete example followed by the plugin's
+   factory, schema, or field options that a developer can actually choose.
+4. `Behavior and limitations`: operational semantics, security boundaries, and
+   optional integrations. Use nested headings for a long page.
+5. `Troubleshooting`: symptoms, safe checks, and the next action. Keep this as
+   the final section, not mixed with feature descriptions.
+
+If a plugin has no factory options, say so rather than inventing a table. If a
+feature is not yet shipped, label the limit at the point where a reader might
+otherwise expect it to work. Closely related plugins may share one page, but
+their package installation and ownership must remain explicit.
+
 ### Capability ownership in navigation
 
 The public sitemap makes ownership visible before a reader copies configuration:

@@ -25,6 +25,31 @@ async function readMdxTree(directory: string): Promise<string> {
 }
 
 describe('plugin documentation contracts', () => {
+	it('uses one reader journey on every official plugin page', async () => {
+		const directory = path.join(path.dirname(pluginPagePath), 'official')
+		const entries = await readdir(directory, { withFileTypes: true })
+		const pages = entries.filter(
+			(entry) => entry.isFile() && entry.name.endsWith('.mdx'),
+		)
+
+		for (const page of pages) {
+			const source = await readFile(path.join(directory, page.name), 'utf8')
+			const headings = [...source.matchAll(/^## (?<title>.+)$/gmu)].map(
+				(match) => match.groups?.title,
+			)
+			expect(headings, page.name).toEqual([
+				'Overview',
+				'Installation',
+				'Configuration',
+				'Behavior and limitations',
+				'Troubleshooting',
+			])
+			for (const manager of ['npm', 'yarn', 'pnpm']) {
+				expect(source, `${page.name}: ${manager}`).toContain(`tab="${manager}"`)
+			}
+		}
+	})
+
 	it('classifies every current official plugin package deliberately', async () => {
 		const packageEntries = await readdir(
 			path.join(repositoryRoot, 'packages'),
