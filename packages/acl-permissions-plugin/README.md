@@ -141,7 +141,8 @@ const Post = Schema.define({
 Static and asynchronous defaults, explicit master input, create-many items, and
 singular updates are validated before persistence. Master bypasses ACL
 authorization, never size validation or the singular replacement requirement.
-Replacing an existing ACL therefore uses `Schema.updateOne()`; `updateMany()`,
+Replacing an existing ACL uses `Schema.updateOne()` or an itemized
+`Schema.updateMany()` entry with one exact target per item. Set-based updates,
 `upsertOne()`, and `upsertMany()` reject ACL replacement even for trusted master
 execution.
 
