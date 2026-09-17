@@ -13,6 +13,7 @@ sources:
   - packages/graphql-plugin/README.md
   - packages/graphql-plugin/src/options.ts
   - packages/graphql-plugin/src/surfaces.ts
+  - packages/graphql-plugin/src/compiler.test.ts
   - packages/graphql-yoga-plugin/README.md
   - packages/graphiql-plugin/README.md
   - packages/apollo-sandbox-plugin/README.md
@@ -136,22 +137,117 @@ preparation and [HTTP](./http) for application selection.
 
 ## Behavior and limitations
 
-### Generated fields and exposure
+### Choose the generated surface
 
-Without overrides, application-owned schemas expose `getPost`,
-`findOnePost`, `findManyPost`, and `existsPost` queries, plus `createPost`,
-`updatePost`, and `deletePost` mutations. `countPost`, upsert, and itemized
-bulk mutations are off by default. These names use the GraphQL type name;
-GraphQL does not pluralize the schema's `className`.
+GraphQL generates root fields for each exposed application-owned schema. The
+tables below use `Post` as the GraphQL type name. GraphQL does not pluralize
+or case-fold the schema's `className`; a custom `typeName` changes these field
+suffixes.
+
+The `src/main.ts` example above deliberately exposes **only** `getPost` and
+`findManyPost`. The "default" column describes what a schema would expose
+without that example's `default: false` setting. A disabled field is absent
+from the endpoint's schema, even for Master.
 
 `graphql: false` removes one schema's generated surface. `graphql: true`
 enables **every** generated operation, including count, upsert, and bulk.
-For a narrower surface, set `graphql: { operations: { ... } }` as above:
-omitted operations inherit `graphqlPlugin({ default })`, then the built-in
-defaults. Disabled fields do not exist, even for Master. Plugin-owned schemas
-do not receive generated CRUD fields; exact plugin operations appear only
-when selected through `graphqlPlugin({ operations })` and bound by their owner.
-None of these exposure choices grants authorization.
+For a narrower surface, use `graphql: { operations: { ... } }`: omitted
+operations inherit `graphqlPlugin({ default })`, then the built-in defaults.
+Exposure never grants authorization.
+
+### Generated queries
+
+| Field          | Arguments                                                                  | What it returns                          | Default |
+| -------------- | -------------------------------------------------------------------------- | ---------------------------------------- | ------- |
+| `getPost`      | `id: ID!`                                                                  | One `Post`; a missing target is an error | On      |
+| `findOnePost`  | `where: PostWhere`, `orderBy: [PostOrder!]`                                | First match or `null`                    | On      |
+| `findManyPost` | `where: PostWhere`, `orderBy: [PostOrder!]`, `first: Int`, `after: String` | A `PostConnection!` page                 | On      |
+| `countPost`    | `where: PostWhere`                                                         | Matching-row count as `SafeInt!`         | Off     |
+| `existsPost`   | `where: PostWhere`                                                         | Whether a match exists as `Boolean!`     | On      |
+
+`findManyPost` returns `nodes`, `edges`, and `pageInfo` with `endCursor` and
+`hasNextPage`; it does not return `totalCount`. Use `countPost` separately
+when enabled. Filters and ordering are generated from the schema's actual
+fields and their supported operators. GraphQL selections choose result
+fields; there is no `select` argument.
+
+```graphql title="src/queries.graphql"
+query FirstPosts {
+	findManyPost(first: 10) {
+		nodes {
+			id
+			title
+		}
+		pageInfo {
+			endCursor
+			hasNextPage
+		}
+	}
+}
+```
+
+This query works with the read-only local configuration above. Pass
+`pageInfo.endCursor` as `after` for the next page when `hasNextPage` is true.
+
+### Generated mutations
+
+| Field            | Required argument             | What it returns                     | Default |
+| ---------------- | ----------------------------- | ----------------------------------- | ------- |
+| `createPost`     | `input: PostCreateInput!`     | Created `Post!`                     | On      |
+| `updatePost`     | `input: PostUpdateOneInput!`  | Updated `Post`                      | On      |
+| `deletePost`     | `input: PostDeleteOneInput!`  | Deleted `Post` preimage             | On      |
+| `upsertPost`     | `input: PostUpsertOneInput!`  | Created or updated `Post!`          | Off     |
+| `createManyPost` | `input: PostCreateManyInput!` | Created `[Post!]!` items            | Off     |
+| `updateManyPost` | `input: PostUpdateManyInput!` | Updated `[Post!]!` items            | Off     |
+| `deleteManyPost` | `input: PostDeleteManyInput!` | Deleted `[Post!]!` preimages        | Off     |
+| `upsertManyPost` | `input: PostUpsertManyInput!` | Created or updated `[Post!]!` items | Off     |
+
+The local example exposes **none** of these mutations. Enable only the
+operations you intend to serve, after configuring authorization. For example,
+with `create: true` on `Post`, a caller can send:
+
+```graphql title="src/mutations.graphql"
+mutation CreatePost {
+	createPost(input: { title: "Hello" }) {
+		id
+		title
+	}
+}
+```
+
+Create input fields come from the schema. Update and delete inputs target one
+record by `id` or an exact unique `where`; upsert supplies `where`, `create`,
+and `update` branches. Bulk operations are homogeneous, ordered, itemized,
+and atomic, without partial success. GraphQL derives the result projection
+from the selection set; it does not accept a `select` argument. See
+[Create Data](/docs/1.0.0/core/writing-data/create),
+[Upserts](/docs/1.0.0/core/writing-data/upserts), and
+[Bulk Operations](/docs/1.0.0/core/writing-data/bulk-operations) for the
+underlying mutation behavior.
+
+### Plugin and custom root fields
+
+The tables cover generated schema operations, not a universal list for every
+application. A plugin-owned schema does not receive generated CRUD fields.
+Exact application operations appear only when selected through
+`graphqlPlugin({ operations })` and bound by their owner. For example,
+[Password Authentication](./password-authentication) can contribute `signUp`,
+`login`, `refresh`, and `logout` mutations when explicitly selected, while
+[Soft Delete](./soft-delete) can contribute a schema-specific `softDeletePost`
+mutation when enabled. Custom GraphQL schemas may add other root fields.
+
+To inspect what **your** started application actually exposes, use the
+GraphQL plugin's deterministic `printSchema()` output:
+
+```ts title="src/print-graphql-schema.ts"
+import { application } from './main.js'
+
+const graphql = application.application.getPlugin('@ultimabase/graphql-plugin')
+console.log(graphql.printSchema())
+```
+
+For browser schema discovery through Yoga, enable introspection only in the
+intended development environment.
 
 ### GraphQL without HTTP
 
