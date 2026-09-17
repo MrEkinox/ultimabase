@@ -11,6 +11,8 @@ releaseStatus: pre-release
 reviewedAt: 2026-09-17
 sources:
   - packages/soft-delete-plugin/README.md
+  - packages/soft-delete-plugin/src/plugin.ts
+  - packages/soft-delete-plugin/src/visibility.ts
   - examples/minimal/src/soft-delete.ts
   - examples/minimal/README.md
   - packages/core/docs/runtime.md
@@ -23,10 +25,15 @@ sources:
 Soft deletion is an optional plugin capability. A schema opts into one explicit
 mode; importing the package alone installs no behavior.
 
-| Mode             | Native `deleteOne`                                | Additional application command |
-| ---------------- | ------------------------------------------------- | ------------------------------ |
-| `replace-delete` | Writes a tombstone instead of physically deleting | none                           |
-| `explicit`       | Keeps native physical deletion                    | `softDelete`                   |
+| Mode             | Native `deleteOne`                                | Additional command |
+| ---------------- | ------------------------------------------------- | ------------------ |
+| `replace-delete` | Writes a tombstone instead of physically deleting | none               |
+| `explicit`       | Physically deletes the record                     | `softDelete`       |
+
+Use `replace-delete` when existing delete calls should become recoverable. Use
+`explicit` when callers must choose between soft deletion and native physical
+deletion. The plugin default is `disabled`, so an unconfigured schema keeps
+native hard-delete behavior.
 
 ## Installation
 
@@ -48,24 +55,53 @@ pnpm add @ultimabase/soft-delete-plugin
 
 ## Configuration
 
-Add `softDeletePlugin()` to the application plugin list, then state the mode on
-each participating schema:
+State the mode on each participating schema:
 
 ```ts title="src/schemas.ts"
 import { Schema } from '@ultimabase/core'
-import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
 
 export const Post = Schema.define({
 	className: 'Post',
 	softDelete: 'explicit',
 	fields: (field) => ({ title: field.string() }),
 })
-
-export const softDelete = softDeletePlugin({ defaultMode: 'disabled' })
 ```
 
-Include `softDelete` in the application's `plugins` and `Post` in its `schemas`.
-`defaultMode` accepts `disabled` (the default), `replace-delete`, or `explicit`.
+Install the plugin in the same application that registers `Post`. This example
+also configures audited Master authority for the private restore and purge
+commands shown below. It assumes that the PostgreSQL provider is installed as
+described in [Manual Installation](/docs/1.0.0/manual-installation).
+
+```ts title="src/ultimabase.ts"
+import { MasterAuthority, UltimaBase } from '@ultimabase/core'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
+import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
+import { Post } from './schemas.js'
+
+const databaseUrl = process.env.DATABASE_URL
+const masterKey = process.env.ULTIMABASE_MASTER_KEY
+if (!databaseUrl || !masterKey) {
+	throw new Error('DATABASE_URL and ULTIMABASE_MASTER_KEY are required')
+}
+
+export const ultimabase = new UltimaBase({
+	masterAuthority: new MasterAuthority({
+		keys: [{ id: 'server', value: masterKey }],
+		onUse: (event) => console.info('Master use', event.reason),
+	}),
+	plugins: [
+		postgresPlugin({ url: databaseUrl }),
+		softDeletePlugin({ defaultMode: 'disabled' }),
+	],
+	schemas: [Post],
+})
+
+await ultimabase.start()
+```
+
+Keep the Master key on the server. Replace the console audit with a durable
+sink before deployment. `defaultMode` accepts `disabled` (the default),
+`replace-delete`, or `explicit`.
 Each schema may override it with `softDelete: false | 'replace-delete' |
 'explicit'`; `false` disables the feature for that schema. Use
 `defaultMode: 'disabled'` when every schema must opt in deliberately. Read
@@ -112,6 +148,17 @@ soft delete has a direct `post.softDelete()` command. Another application may
 use the same `Post` class without the plugin; passing that application rejects
 the call rather than using the plugin installed elsewhere.
 
+`Post.softDelete()` sets `isDeleted: true` and returns the selected **post-delete**
+record. `Post.restore()` clears that flag and returns the restored record;
+`Post.purge()` physically deletes an existing tombstone and returns its
+**pre-delete** record. A missing, active, or already purged target produces the
+same non-disclosing missing-object result for restore and purge.
+
+To check the flow, create a `Post`, soft-delete it, and confirm an ordinary
+`findOne` no longer returns it. Restore the same ID through trusted server code
+and confirm the ordinary read returns it again. Purge is only for an already
+soft-deleted record; once purged, it cannot be restored through UltimaBase.
+
 ### Visibility semantics
 
 Ordinary reads hide tombstones. That visibility rule also applies to normal
@@ -120,31 +167,52 @@ records. `restore` and `purge` are private schema commands that
 require explicit server-side Master authority. They are not model, REST,
 GraphQL, or Access-policy branches.
 
+The plugin owns the stored `isDeleted` field. You can select it in a result,
+but caller-controlled create, update, or nested-write input cannot set it.
+Visibility also applies to counts, existence checks, pointer and relation
+traversal, and ordinary update or delete targets.
+
 ### Limits
 
-In explicit mode, native `deleteOne` remains the deliberate hard-delete path.
-In replacement mode, physical purge stays on the private Master surface. Both
-modes preserve the ordinary validation, Hook, transaction, integrity, and
-protected-policy boundaries.
+<Callout type="warn" title="Native delete is permanent in explicit mode">
+	In `explicit` mode, `deleteOne` physically removes the record; `restore`
+	cannot recover it. Call `softDelete` when you need a recoverable tombstone.
+</Callout>
+
+In `replace-delete` mode, native `deleteOne` and each item of `deleteMany`
+remain logical delete operations, but physically write tombstones. They return
+the selected **pre-delete** record, unlike explicit `softDelete`. They use delete
+Access and Hooks, not update Access, Hooks, validators, or defaults. An itemized
+batch runs in one transaction, so one rejected item rolls back earlier
+tombstones. Physical purge stays on the private Master surface. Both modes
+preserve Core's transaction, integrity, and protected-policy boundaries.
 
 With the optional Access plugin, explicit soft delete has its own
 `access.softDelete` rule rather than inheriting native update or delete rules.
 Hooks likewise receive `beforeOperation.softDelete` and
-`afterOperation.softDelete`. If the schema is exposed through REST or GraphQL,
-the explicit mode adds `POST /api/v1/classes/{Schema}/{id}/soft-delete` or
-`softDelete{Schema}` respectively. Replace-delete and disabled schemas add no
-new transport endpoint. Restore and purge remain private even when a transport
-is installed.
+`afterOperation.softDelete`. The optional Hooks plugin also offers
+`beforeOperation.restore`, `afterOperation.restore`, `beforeOperation.purge`,
+and `afterOperation.purge` for the private commands.
+
+When REST or GraphQL exposes the schema, explicit mode adds
+`POST /api/v1/classes/{Schema}/{id}/soft-delete` or `softDelete{Schema}`
+respectively. Replace-delete and disabled schemas add no new transport
+endpoint. Restore and purge remain private even when a transport is installed.
 
 V1 has no deletion timestamp, retention job, include-deleted query, or nested
 soft delete.
 
 ## Troubleshooting
 
-If a deleted record remains visible, first confirm the schema's effective mode
-and that the read goes through the compiled UltimaBase application. Verify that
-find, count, exists, pointer, and relation reads omit a tombstone.
-Restore it through trusted server code and verify the ordinary read returns it
-again. If restore or purge is rejected, check that the selected application
-installed the plugin and configured audited Master authority; neither command
-is a public transport endpoint.
+If a deleted record remains visible, check the schema's effective mode, that
+the soft-delete operation succeeded, and that the read goes through the same
+compiled UltimaBase application. Direct database reads do not apply plugin
+visibility. If you cannot restore a record deleted in `explicit` mode, check
+whether the caller used native `deleteOne`: that operation does not leave a
+tombstone.
+
+If restore or purge is rejected, check that the selected application installed
+the plugin, the target is an existing tombstone, and trusted server code
+supplied audited Master authority. Neither command is a public transport
+endpoint. If a schema method is missing, start the owning application and pass
+that exact instance outside an active request.
