@@ -25,9 +25,10 @@ export function LandingPage() {
 						<span>A working backend.</span>
 					</h1>
 					<p className="ub-lede">
-						Build typed data APIs from TypeScript schemas.
-						<br className="ub-desktop-break" /> Compose the backend you need
-						with plugins for PostgreSQL, REST, GraphQL, and authentication.
+						Define your schemas in TypeScript. Query your data with typed APIs.
+						<br className="ub-desktop-break" /> Extend your backend with plugins
+						for PostgreSQL, REST, GraphQL, authentication, and more—or build
+						your own.
 					</p>
 					<div className="ub-action-row">
 						<ButtonLink href={currentDocumentationPath('manual-installation')}>
