@@ -17,7 +17,7 @@
 				"guides/generate-types",
 				"plugins/overview",
 				"plugins/build-a-plugin",
-				"operations/application-troubleshooting",
+				"operations/troubleshooting",
 				"reference"
 			]
 		},

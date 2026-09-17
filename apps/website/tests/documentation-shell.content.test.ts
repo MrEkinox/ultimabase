@@ -132,7 +132,7 @@ describe('public documentation content contract', () => {
 				'/docs/1.0.0/plugins/build-a-plugin/schemas-and-typegen',
 				'/docs/1.0.0/plugins/build-a-plugin/operations-and-graphql',
 				'/docs/1.0.0/plugins/build-a-plugin/runtime-and-infrastructure',
-				'/docs/1.0.0/operations/application-troubleshooting',
+				'/docs/1.0.0/operations/troubleshooting',
 				'/docs/1.0.0/reference/package-index',
 			]),
 		)

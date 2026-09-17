@@ -96,12 +96,7 @@ const canonicalNavigation = {
 		'runtime-and-infrastructure',
 	],
 	'1.0.0/guides': ['generate-types'],
-	'1.0.0/operations': [
-		'configuration-and-environment',
-		'secrets',
-		'production-checklist',
-		'application-troubleshooting',
-	],
+	'1.0.0/operations': ['before-exposing-your-application', 'troubleshooting'],
 	'1.0.0/reference': [
 		'package-index',
 		'compatibility',
@@ -170,6 +165,36 @@ describe('documentation navigation architecture', () => {
 				'utf8',
 			),
 		).rejects.toMatchObject({ code: 'ENOENT' })
+	})
+
+	it('keeps operations in two task-shaped pages without the thin duplicates', async () => {
+		const preflight = await readFile(
+			path.join(
+				contentRoot,
+				'1.0.0/operations/before-exposing-your-application.mdx',
+			),
+			'utf8',
+		)
+		const troubleshooting = await readFile(
+			path.join(contentRoot, '1.0.0/operations/troubleshooting.mdx'),
+			'utf8',
+		)
+		expect(preflight).toContain('## Verify before exposure')
+		expect(troubleshooting).toContain('## Report a problem')
+
+		for (const removed of [
+			'configuration-and-environment',
+			'secrets',
+			'production-checklist',
+			'application-troubleshooting',
+		]) {
+			await expect(
+				readFile(
+					path.join(contentRoot, `1.0.0/operations/${removed}.mdx`),
+					'utf8',
+				),
+			).rejects.toMatchObject({ code: 'ENOENT' })
+		}
 	})
 
 	it('keeps field builder lookup inside Fields without a duplicate reference page', async () => {

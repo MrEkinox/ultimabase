@@ -1,0 +1,102 @@
+---
+title: Before Exposing Your Application
+description: Check the application, data, security, and hosting boundaries before accepting public traffic.
+audience:
+  - application-developer
+  - operator
+contentType: guide
+order: 1
+outcome: Identify the checks your application and deployment must pass before public exposure.
+owner: '2813'
+releaseStatus: pre-release
+reviewedAt: 2026-09-17
+sources:
+  - README.md
+  - packages/core/README.md
+  - packages/postgres-plugin/README.md
+  - packages/http-plugin/README.md
+  - packages/server-hono-plugin/README.md
+  - packages/password-auth-plugin/README.md
+---
+
+UltimaBase is [pre-release](/status/release-status). This checklist identifies
+boundaries to verify before accepting public traffic; it is not a deployment
+template or a claim that a particular application is production-ready.
+
+## Prerequisites
+
+Have a configured application and a planned database and host. Complete
+[Manual Installation](/docs/1.0.0/manual-installation) against a disposable
+database before evaluating a public environment.
+
+## Steps
+
+### Prepare configuration and data
+
+- Run Node.js 24 or newer and check that the UltimaBase packages you install
+  belong to a [compatible set](/docs/1.0.0/reference/compatibility). Validate
+  required environment values at your application's composition root before
+  passing them to plugin factories. Do not send raw `process.env` values to
+  browser code. See [Application](/docs/1.0.0/core/application#configure-the-application).
+- If you use PostgreSQL, give the application a dedicated database account and
+  choose its [schema policy](/docs/1.0.0/plugins/official/postgresql#direct-schema-policies)
+  deliberately. `override` changes supported physical structures; it is not
+  an unattended production migration strategy. `fail` checks a prepared
+  schema for drift, while `ignore` leaves preparation to another process.
+- Test your own backup and restore procedure before depending on stored data.
+  UltimaBase does not provide one or ship an official migration runner yet.
+
+### Protect public requests
+
+- Review every REST or GraphQL route you expose. Authentication supplies an
+  identity, not authorization: configure the intended
+  [Access](/docs/1.0.0/plugins/official/access) and, where needed,
+  [Object ACLs](/docs/1.0.0/plugins/official/acl-permissions). Verify both an
+  allowed request and a denied request against the mounted application.
+- Configure the exact [HTTP application ID and browser policy](/docs/1.0.0/plugins/official/http)
+  for each public application. Browser-origin policy is disabled by default;
+  enabling CORS does not grant access or protect against CSRF.
+- Provide TLS termination, proxy trust, request limits, and any rate limiting
+  in infrastructure you control. The
+  [Hono Server](/docs/1.0.0/plugins/official/hono-server#keep-the-boundary-intact)
+  plugin owns a listener, not those protections.
+
+### Keep credentials at their owners
+
+- Load database credentials and Master keys from your server environment or a
+  secret manager. Never commit them, put them in generated declarations, send
+  them to a browser, or include them in public errors and reports.
+- If configured, keep [Master Authority](/docs/1.0.0/core/security-foundations/master-authority)
+  server-side and connect its `onUse` callback to an audit sink that meets your
+  durability requirements. A successful elevation must complete its audit.
+- If installed, let [Password Authentication](/docs/1.0.0/plugins/official/password-authentication)
+  retain password verifiers and session digests in its owner-private storage.
+  Handle raw session tokens only at issuance and credential boundaries.
+
+### Exercise lifecycle and ownership
+
+- Start and dispose the application in the target environment, including a
+  failed-start path. The host process owns signal handling and graceful
+  shutdown; [Application](/docs/1.0.0/core/application#start-and-dispose)
+  explains the framework lifecycle.
+- Provide the health checks, metrics or tracing, backups, and operational
+  alerts your deployment needs. UltimaBase currently ships no health endpoint,
+  observability product, cache, job system, administration UI, deployment
+  template, backup policy, or service-level guarantee.
+
+## Verify before exposure
+
+Confirm that startup and disposal complete. For each capability you install,
+verify its relevant boundary: schema policy against a prepared database,
+allowed and denied public requests, and Master audit delivery where Master is
+configured. Test these in the environment you intend to expose. If a check
+fails, follow
+[Troubleshooting](/docs/1.0.0/operations/troubleshooting) and the failing
+plugin's own troubleshooting section; never disable a security boundary just
+to make startup pass.
+
+## Next steps
+
+Keep the provider-specific backup, restore, observability, and shutdown
+procedures with your deployment. Revisit this checklist when you add a public
+route, plugin, credential, or application instance.

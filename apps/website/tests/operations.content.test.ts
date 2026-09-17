@@ -10,10 +10,8 @@ const contentRoot = fileURLToPath(
 const pages = [
 	'core/application',
 	'plugins/official/http',
-	'operations/configuration-and-environment',
 	'plugins/official/postgresql',
-	'operations/production-checklist',
-	'operations/secrets',
+	'operations/before-exposing-your-application',
 ] as const
 
 describe('operations documentation contracts', () => {

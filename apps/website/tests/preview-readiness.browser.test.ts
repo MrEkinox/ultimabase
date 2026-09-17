@@ -273,10 +273,7 @@ describe('website preview audit', () => {
 			'/docs/1.0.0/plugins/official/password-authentication',
 			'Password Authentication',
 		],
-		[
-			'/docs/1.0.0/operations/application-troubleshooting',
-			'Application Troubleshooting',
-		],
+		['/docs/1.0.0/operations/troubleshooting', 'Troubleshooting'],
 	])(
 		'keeps the reader task at %s independently usable',
 		async (route, title) => {

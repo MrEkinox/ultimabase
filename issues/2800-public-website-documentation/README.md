@@ -159,10 +159,8 @@ The public route architecture is:
 │       ├── guides
 │       │   └── generate-types
 │       ├── operations
-│       │   ├── configuration-and-environment
-│       │   ├── secrets
-│       │   ├── production-checklist
-│       │   └── application-troubleshooting
+│       │   ├── before-exposing-your-application
+│       │   └── troubleshooting
 │       └── reference
 │           ├── package-index
 │           ├── compatibility
@@ -192,6 +190,10 @@ Password Authentication, Access, HTTP, and REST; their owning pages now carry
 its session and protected-read checks. Guides retains the independent Typegen
 task. The thin application-testing page was removed: it described repository
 checks without teaching a runnable application test.
+Operate Your Application keeps one pre-exposure checklist and one cross-cutting
+troubleshooting path. Application configuration, Master credentials, PostgreSQL,
+and HTTP retain their detailed guidance on their owning pages; Typegen
+generation failures are diagnosed in the Typegen guide.
 
 The version sidebar presents Introduction, Core, Plugins, Guides, Operate Your
 Application, and Reference as non-collapsible section titles. It extracts each

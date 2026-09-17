@@ -1,9 +1,4 @@
 {
 	"title": "Operate Your Application",
-	"pages": [
-		"configuration-and-environment",
-		"secrets",
-		"production-checklist",
-		"application-troubleshooting"
-	]
+	"pages": ["before-exposing-your-application", "troubleshooting"]
 }

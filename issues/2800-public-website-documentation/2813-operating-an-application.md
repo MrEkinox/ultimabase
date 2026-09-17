@@ -51,3 +51,12 @@ platform or unimplemented operational capabilities.
 - Selecting a cloud or container provider, deployment templates, Kubernetes,
   an operations dashboard, unshipped migrations, health endpoints,
   observability, backup policy, or service-level guarantees.
+
+## Post-milestone correction
+
+The later operations audit replaced the separate configuration, secrets, and
+production-checklist pages with one pre-exposure checklist. Detailed
+configuration and credential behavior stays on the owning Core and plugin
+pages; the checklist links those boundaries without presenting a deployment
+template or production-readiness guarantee. The removed pre-launch URLs have
+no redirects.

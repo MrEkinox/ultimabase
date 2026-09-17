@@ -13,6 +13,7 @@ sources:
   - packages/typegen/README.md
   - packages/typegen/src/plugin.ts
   - packages/typegen/src/loader.ts
+  - packages/typegen/src/errors.ts
   - packages/typegen/src/generator.ts
   - packages/typegen/src/writer.ts
   - packages/typegen/src/index.ts
@@ -207,8 +208,23 @@ Generated declarations are needed by TypeScript, not by the deployed
 JavaScript Runtime. Either commit the output or reproduce it in every build
 environment with the required configuration available; the scripts above take
 the latter approach. There is no dedicated Typegen CLI, freshness-check mode,
-or watch mode yet. If generation fails, see
-[Typegen troubleshooting](/docs/1.0.0/operations/application-troubleshooting#typegen).
+or watch mode yet.
+
+### Troubleshooting generation
+
+Run the `generate:types` script from this guide, then `typecheck`. If the
+declaration is missing or stale, confirm that `src/ultimabase.ts` exports the
+configured `ultimabase` name, that `.env` is available without printing its
+values, and that the generated directory is writable. The `applicationId` and
+output path in the script must match `typegenPlugin()`; include the `.d.ts` in
+`tsconfig.json` but never import it as Runtime state.
+
+For `SCHEMA_TYPEGEN_FAILED`, keep the stable `reason` and owner. Check
+plugin-owned references and output paths when the failure names a contribution.
+Host permissions and path casing vary; grant access only to the generated
+directory, not the whole project. Never edit an old declaration to make a
+typecheck pass. Use [Report a problem](/docs/1.0.0/operations/troubleshooting#report-a-problem)
+if a minimal application still fails.
 
 ## Related concepts
 

@@ -216,6 +216,10 @@ protected-read verification. The removed pre-launch URL has no redirect.
 The later application-testing audit removes its thin Guide because it ran only
 repository checks and supplied no application test. Plugin conformance remains
 with plugin authoring; the removed pre-launch URL has no redirect.
+The later operations audit reduces four thin or overlapping routes to a
+pre-exposure checklist and cross-cutting troubleshooting. Configuration and
+secrets remain with Core and their owning plugins; Typegen diagnoses its own
+generation failures. The removed pre-launch URLs have no redirects.
 
 ### Phase 1 — Application, design, and content foundation
 

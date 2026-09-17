@@ -79,6 +79,11 @@ advanced composition surface for plugin exports. For request identity and
 grouped writes, see [Request Identity](/docs/1.0.0/core/security-foundations/request-identity)
 and [Transactions](/docs/1.0.0/core/writing-data/transactions).
 
+Read and validate required environment values at the composition root before
+passing them to plugin factories. Keep credentials server-side; the
+[pre-exposure checklist](/docs/1.0.0/operations/before-exposing-your-application)
+collects the other boundaries to review before accepting public traffic.
+
 ### Configure Core validation and time
 
 The root `validation` option configures Core's structural Runtime boundary; it

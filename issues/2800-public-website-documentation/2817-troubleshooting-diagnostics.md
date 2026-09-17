@@ -41,3 +41,11 @@ knowledge.
 
 - An interactive support service, collection of secrets or telemetry, generic
   Node.js/PostgreSQL administration, or undocumented internal recovery tools.
+
+## Post-milestone correction
+
+The later operations audit renamed the cross-cutting application page to
+`Troubleshooting` and moved Typegen-specific recovery into the Typegen guide.
+The remaining page focuses on startup and plugin-graph symptoms, links to
+plugin-owned recovery, and retains sanitized issue reporting. Its removed
+pre-launch URL has no redirect.

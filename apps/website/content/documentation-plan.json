@@ -309,24 +309,14 @@
 			"releaseStatus": "pre-release",
 			"pages": [
 				{
-					"slug": "application-troubleshooting",
+					"slug": "before-exposing-your-application",
+					"contentType": "guide",
+					"outcome": "Identify the checks your application and deployment must pass before public exposure."
+				},
+				{
+					"slug": "troubleshooting",
 					"contentType": "troubleshooting",
-					"outcome": "Identify the startup stage that failed and repair configuration without bypassing a safety boundary."
-				},
-				{
-					"slug": "configuration-and-environment",
-					"contentType": "guide",
-					"outcome": "Build a typed production configuration without passing unvalidated environment values through the application."
-				},
-				{
-					"slug": "production-checklist",
-					"contentType": "reference",
-					"outcome": "Identify what the framework currently guarantees and what your deployment must still own."
-				},
-				{
-					"slug": "secrets",
-					"contentType": "guide",
-					"outcome": "Place each secret at the boundary that consumes it and keep it out of clients and diagnostics."
+					"outcome": "Identify the failed startup boundary and repair it without bypassing a safety check."
 				}
 			]
 		},

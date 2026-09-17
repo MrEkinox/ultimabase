@@ -8,7 +8,7 @@ const docsRoot = path.join(websiteRoot, 'content/docs/1.0.0')
 const pagePaths = [
 	'plugins/official/http',
 	'plugins/official/postgresql',
-	'operations/application-troubleshooting',
+	'operations/troubleshooting',
 ] as const
 
 const readPage = async (
@@ -44,7 +44,10 @@ describe('troubleshooting content', () => {
 		expect(http).toContain('## Troubleshooting')
 		expect(postgres).toContain('## Troubleshooting')
 		expect(application).toContain('## Startup and plugin graph')
-		expect(application).toContain('## Typegen')
+		expect(application).toContain(
+			'/docs/1.0.0/guides/generate-types#troubleshooting-generation',
+		)
+		expect(application).not.toContain('## Typegen')
 		expect(application).toContain('## Report a problem')
 		for (const source of [http, postgres, application]) {
 			expect(source).toMatch(/^releaseStatus: pre-release$/mu)
@@ -65,7 +68,8 @@ describe('troubleshooting content', () => {
 		}
 		expect(source).toContain('node --version')
 		expect(source).toContain('yarn --version')
-		expect(source).toContain('Host permissions and path casing vary')
+		expect(source).not.toContain('yarn dev')
+		expect(source).not.toContain('yarn constraints')
 	})
 
 	it('keeps internal troubleshooting links valid and connected to errors', async () => {
@@ -85,11 +89,14 @@ describe('troubleshooting content', () => {
 				)
 			for (const href of links) {
 				const pathOnly = href.split('#')[0] ?? href
-				const resolved = pathOnly.startsWith('/')
-					? pathOnly
-					: path.posix.normalize(
-							path.posix.join(path.posix.dirname(currentUrl), pathOnly),
-						)
+				const resolved =
+					pathOnly === ''
+						? currentUrl
+						: pathOnly.startsWith('/')
+							? pathOnly
+							: path.posix.normalize(
+									path.posix.join(path.posix.dirname(currentUrl), pathOnly),
+								)
 				expect(urls, `${pagePath}: ${href}`).toContain(resolved)
 			}
 		}
@@ -98,14 +105,12 @@ describe('troubleshooting content', () => {
 			path.join(docsRoot, 'core/runtime/api-errors.mdx'),
 			'utf8',
 		)
-		expect(errors).toContain(
-			'/docs/1.0.0/operations/application-troubleshooting',
-		)
+		expect(errors).toContain('/docs/1.0.0/operations/troubleshooting')
 		expect(errors).toContain('/docs/1.0.0/plugins/official/http')
 	})
 
 	it('requires a reproducible and sanitized report', async () => {
-		const report = await readPage('operations/application-troubleshooting')
+		const report = await readPage('operations/troubleshooting')
 		for (const field of [
 			'### Versions',
 			'### Minimal reproduction',
@@ -114,12 +119,8 @@ describe('troubleshooting content', () => {
 		]) {
 			expect(report).toContain(field)
 		}
-		for (const secret of [
-			'database URLs',
-			'cookies',
-			'tokens',
-			'Master material',
-		]) {
+		expect(report).toMatch(/database\s+URLs/u)
+		for (const secret of ['cookies', 'tokens', 'Master material']) {
 			expect(report).toContain(secret)
 		}
 	})
