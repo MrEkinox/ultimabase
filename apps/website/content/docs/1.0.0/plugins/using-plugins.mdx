@@ -35,9 +35,9 @@ this application, not to every UltimaBase application in the process.
   `src/schema.ts`, `src/ultimabase.ts`, and `src/main.ts` files.
 - Set up [Generate TypeScript Types](/docs/1.0.0/guides/generate-types), including
   `typegenPlugin()`, the generated declaration in `tsconfig.json`, and the
-  [build-time generator](/docs/1.0.0/guides/generate-types#limitations). You
-  must run that generator before typechecking or building source that uses
-  plugin-owned field options. JavaScript Runtime does not require Typegen.
+  [pre-build generator](/docs/1.0.0/guides/generate-types#generate-before-building).
+  The `typecheck` and `build` scripts there regenerate the declaration before
+  checking plugin-owned field options. JavaScript Runtime does not require it.
 
 ## Steps
 
@@ -166,25 +166,22 @@ try {
 }
 ```
 
-Run the build-time generator **after** updating the plugin list and schema but
-**before** TypeScript checks the new options:
+Run the updated scripts. Each regenerates Typegen after the plugin and schema
+changes but before TypeScript checks the new options:
 
 ```bash tab="npm" tab-group="package-manager"
-node --env-file=.env scripts/generate-types.mjs
 npm run typecheck
 npm run build
 npm start
 ```
 
 ```bash tab="yarn"
-node --env-file=.env scripts/generate-types.mjs
 yarn typecheck
 yarn build
 yarn start
 ```
 
 ```bash tab="pnpm"
-node --env-file=.env scripts/generate-types.mjs
 pnpm typecheck
 pnpm build
 pnpm start

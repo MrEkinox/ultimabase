@@ -40,4 +40,27 @@ describe('focused guide contracts', () => {
 			/(?:browser|client).{0,80}X-UltimaBase-Master-Key/iu,
 		)
 	})
+
+	it('teaches complete Typegen output before TypeScript checks', async () => {
+		const typegen = await readFile(
+			path.join(contentRoot, 'generate-types.mdx'),
+			'utf8',
+		)
+		const usingPlugins = await readFile(
+			path.join(contentRoot, '../plugins/using-plugins.mdx'),
+			'utf8',
+		)
+
+		expect(typegen).toContain('writeGeneratedTypeFiles([')
+		expect(typegen).toContain('generated.outputs.map(')
+		expect(typegen).toContain(
+			'"typecheck": "node --env-file=.env scripts/generate-types.mjs && tsc --noEmit"',
+		)
+		expect(typegen).toContain(
+			'"build": "node --env-file=.env scripts/generate-types.mjs && tsc"',
+		)
+		expect(usingPlugins).toContain(
+			'/docs/1.0.0/guides/generate-types#generate-before-building',
+		)
+	})
 })
