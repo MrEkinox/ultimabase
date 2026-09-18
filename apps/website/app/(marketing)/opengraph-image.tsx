@@ -1,145 +1,265 @@
 import { ImageResponse } from 'next/og'
+import type { ReactNode } from 'react'
 
 import { BrandMark } from '../../components/brand-mark'
 
 export const alt =
-	'UltimaBase — TypeScript schemas, typed data APIs, and composable backend plugins.'
+	'UltimaBase — your TypeScript data model and plugins become typed data APIs.'
 export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
 
-/** A local, statically rendered share image keeps previews independent of external assets. */
-export default function OpenGraphImage() {
-	return new ImageResponse(
+const blue = '#a9c6ff'
+const ink = '#f3f6ff'
+const muted = '#adb8ca'
+
+function Chip({ label, accent = false }: { label: string; accent?: boolean }) {
+	return (
+		<span
+			style={{
+				background: accent ? '#15233c' : '#090c12',
+				border: accent ? '1px solid #385483' : '1px solid #323d4f',
+				borderRadius: 5,
+				color: accent ? blue : muted,
+				display: 'flex',
+				fontFamily: 'monospace',
+				fontSize: 14,
+				padding: '6px 9px',
+			}}
+		>
+			{label}
+		</span>
+	)
+}
+
+function EquationCard({
+	icon,
+	labels,
+	title,
+}: {
+	icon: ReactNode
+	labels: readonly string[]
+	title: string
+}) {
+	return (
 		<div
 			style={{
+				background: '#12151b',
+				border: '1px solid #485875',
+				borderRadius: 12,
+				boxShadow: '0 5px 0 #1b2a47',
+				color: ink,
 				display: 'flex',
 				flexDirection: 'column',
+				padding: '20px 22px',
 				width: '100%',
-				height: '100%',
-				padding: '52px 60px',
-				background: '#edf3ff',
-				color: '#172135',
-				fontFamily: 'sans-serif',
 			}}
 		>
 			<div
 				style={{
-					display: 'flex',
 					alignItems: 'center',
-					gap: 14,
-					fontSize: 27,
+					display: 'flex',
+					fontSize: 21,
 					fontWeight: 700,
+					gap: 12,
 				}}
 			>
+				<span style={{ color: blue, display: 'flex' }}>{icon}</span>
+				{title}
+			</div>
+			<div
+				style={{
+					display: 'flex',
+					flexWrap: 'wrap',
+					gap: 8,
+					marginTop: 16,
+				}}
+			>
+				{labels.map((label) => (
+					<Chip key={label} accent={label === '+ Your own'} label={label} />
+				))}
+			</div>
+		</div>
+	)
+}
+
+/** Mirror the hero's dark palette, coordinate field, and schema/plugin model. */
+export default function OpenGraphImage() {
+	return new ImageResponse(
+		<div
+			style={{
+				background: '#0b101a',
+				color: ink,
+				display: 'flex',
+				flexDirection: 'column',
+				fontFamily: 'sans-serif',
+				height: '100%',
+				overflow: 'hidden',
+				padding: '42px 52px',
+				position: 'relative',
+				width: '100%',
+			}}
+		>
+			<div style={{ alignItems: 'center', display: 'flex', gap: 12 }}>
 				<div
 					style={{
-						display: 'flex',
 						alignItems: 'center',
+						background: blue,
+						borderRadius: 7,
+						color: '#0b101a',
+						display: 'flex',
+						height: 40,
 						justifyContent: 'center',
-						width: 48,
-						height: 48,
-						borderRadius: 12,
-						background: '#2055d6',
-						color: '#ffffff',
+						width: 40,
 					}}
 				>
-					<BrandMark size={34} />
+					<BrandMark size={29} />
 				</div>
-				UltimaBase
+				<span style={{ fontSize: 23, fontWeight: 700, letterSpacing: -0.6 }}>
+					UltimaBase
+				</span>
 			</div>
-			<div style={{ display: 'flex', flex: 1, alignItems: 'center', gap: 45 }}>
-				<div style={{ display: 'flex', flexDirection: 'column', width: 585 }}>
-					<div style={{ color: '#2055d6', fontSize: 19, marginBottom: 22 }}>
-						TYPESCRIPT BACKEND FRAMEWORK
+			<div
+				style={{
+					alignItems: 'center',
+					display: 'flex',
+					flex: 1,
+					gap: 52,
+				}}
+			>
+				<div style={{ display: 'flex', flexDirection: 'column', width: 610 }}>
+					<div
+						style={{
+							color: blue,
+							fontFamily: 'monospace',
+							fontSize: 16,
+							letterSpacing: 1.7,
+							marginBottom: 27,
+						}}
+					>
+						TypeScript backend framework
 					</div>
 					<div
 						style={{
-							fontSize: 63,
-							lineHeight: 1.05,
-							letterSpacing: -3,
+							fontSize: 68,
 							fontWeight: 700,
+							letterSpacing: -4.4,
+							lineHeight: 1.02,
 						}}
 					>
 						Your data model.
 					</div>
 					<div
 						style={{
-							color: '#2055d6',
-							fontSize: 63,
-							lineHeight: 1.05,
-							letterSpacing: -3,
+							color: blue,
+							fontSize: 68,
 							fontWeight: 700,
-							marginTop: 8,
+							letterSpacing: -4.4,
+							lineHeight: 1.02,
 						}}
 					>
 						A working backend.
 					</div>
 					<div
 						style={{
+							color: muted,
+							display: 'flex',
+							flexDirection: 'column',
 							fontSize: 23,
-							color: '#596477',
-							lineHeight: 1.5,
-							marginTop: 26,
+							lineHeight: 1.4,
+							marginTop: 27,
 						}}
 					>
-						Typed data APIs. Composable plugins.
+						<span>Define schemas in TypeScript. Query with typed APIs.</span>
+						<span>Extend your backend with plugins.</span>
+					</div>
+					<div
+						style={{
+							alignItems: 'center',
+							color: muted,
+							display: 'flex',
+							fontSize: 15,
+							gap: 10,
+							marginTop: 36,
+						}}
+					>
+						<span
+							style={{
+								background: blue,
+								borderRadius: '50%',
+								height: 6,
+								width: 6,
+							}}
+						/>
+						Open source · Pre-release{' '}
+						<span style={{ color: '#485875' }}>/</span> Node.js 24+
 					</div>
 				</div>
 				<div
 					style={{
+						alignItems: 'center',
+						color: blue,
 						display: 'flex',
 						flexDirection: 'column',
-						width: 410,
-						padding: 30,
-						border: '1px solid #cfdaee',
-						borderRadius: 16,
-						background: '#ffffff',
-						boxShadow: '8px 8px 0 #dce6ff',
+						width: 420,
 					}}
 				>
-					<div style={{ color: '#596477', fontSize: 18, marginBottom: 25 }}>
-						Article · Schema
+					<div
+						style={{
+							fontFamily: 'monospace',
+							fontSize: 13,
+							letterSpacing: 1.6,
+							marginBottom: 17,
+						}}
+					>
+						YOUR APPLICATION
 					</div>
-					{[
-						['title', 'string'],
-						['published', 'boolean'],
-					].map(([field, type]) => (
-						<div
-							key={field}
-							style={{
-								display: 'flex',
-								justifyContent: 'space-between',
-								fontSize: 19,
-								padding: '16px 0',
-								borderTop: '1px solid #dce2ed',
-							}}
-						>
-							<span>{field}</span>
-							<span style={{ color: '#2055d6' }}>{type}</span>
-						</div>
-					))}
+					<EquationCard
+						icon={<span style={{ fontFamily: 'monospace' }}>{'{ }'}</span>}
+						labels={['Article', 'Author', '…']}
+						title="Your schemas"
+					/>
+					<div
+						style={{
+							alignItems: 'center',
+							display: 'flex',
+							fontFamily: 'monospace',
+							fontSize: 24,
+							height: 42,
+							justifyContent: 'center',
+						}}
+					>
+						+
+					</div>
+					<EquationCard
+						icon={
+							<svg
+								fill="none"
+								height="20"
+								stroke={blue}
+								strokeWidth="1.7"
+								viewBox="0 0 24 24"
+								width="20"
+							>
+								<rect height="8" rx="1" width="8" x="3" y="3" />
+								<rect height="8" rx="1" width="8" x="13" y="13" />
+								<path d="M13 7h5a2 2 0 0 1 2 2v2M7 13v5a2 2 0 0 0 2 2h2" />
+							</svg>
+						}
+						labels={['PostgreSQL', 'REST', 'GraphQL', 'Hooks', '+ Your own']}
+						title="Your plugins"
+					/>
 					<div
 						style={{
 							display: 'flex',
-							marginTop: 22,
 							fontSize: 19,
-							color: '#2055d6',
+							fontWeight: 650,
+							gap: 9,
+							marginTop: 17,
 						}}
 					>
-						Schema → typed operations
+						↓ <span>Typed data APIs</span>
 					</div>
 				</div>
-			</div>
-			<div
-				style={{
-					display: 'flex',
-					justifyContent: 'space-between',
-					color: '#596477',
-					fontSize: 18,
-				}}
-			>
-				<span>Open source · Apache-2.0</span>
-				<span>Pre-release</span>
 			</div>
 		</div>,
 		size,
