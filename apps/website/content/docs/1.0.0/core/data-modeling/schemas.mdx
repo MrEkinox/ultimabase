@@ -30,10 +30,10 @@ import { Schema } from '@ultimabase/core'
 
 export const Article = Schema.define({
 	className: 'DocsArticle',
-	fields: (field) => ({
-		published: field.boolean({ default: false }),
-		slug: field.string({ indexed: 'unique', required: true }),
-		title: field.string({ required: true }),
+	fields: (f) => ({
+		published: f.boolean({ default: false }),
+		slug: f.string({ indexed: 'unique', required: true }),
+		title: f.string({ required: true }),
 	}),
 	indexes: [{ fields: ['published', 'createdAt'] }],
 })
@@ -46,7 +46,7 @@ export const Article = Schema.define({
 | Option          | Required | Purpose                                                                                                             |
 | --------------- | -------- | ------------------------------------------------------------------------------------------------------------------- |
 | `className`     | Yes      | Stable logical name for the schema.                                                                                 |
-| `fields(field)` | Yes      | Synchronous callback that returns its stored, relationship, and virtual field declarations. See [Fields](./fields). |
+| `fields(f)` | Yes      | Synchronous callback that returns its stored, relationship, and virtual field declarations. See [Fields](./fields). |
 | `indexes`       | No       | Composite indexes over top-level fields.                                                                            |
 
 Installed plugins may add direct schema options, such as `access`, `hooks`,
@@ -90,10 +90,10 @@ import { Schema } from '@ultimabase/core'
 
 export const TenantArticle = Schema.define({
 	className: 'TenantArticle',
-	fields: (field) => ({
-		slug: field.string({ required: true }),
-		tenantId: field.string({ required: true }),
-		title: field.string({ required: true }),
+	fields: (f) => ({
+		slug: f.string({ required: true }),
+		tenantId: f.string({ required: true }),
+		title: f.string({ required: true }),
 	}),
 	indexes: [
 		{ fields: ['tenantId', 'slug'], unique: true },

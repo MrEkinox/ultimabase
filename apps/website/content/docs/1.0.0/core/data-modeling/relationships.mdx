@@ -39,19 +39,19 @@ import { Schema } from '@ultimabase/core'
 
 export const Account = Schema.define({
 	className: 'DocsAccount',
-	fields: (field) => ({
-		email: field.string({ required: true }),
+	fields: (f) => ({
+		email: f.string({ required: true }),
 	}),
 })
 
 export const Session = Schema.define({
 	className: 'DocsSession',
-	fields: (field) => ({
-		account: field.pointer({
+	fields: (f) => ({
+		account: f.pointer({
 			required: true,
 			target: 'DocsAccount',
 		}),
-		expiresAt: field.dateTime({ required: true }),
+		expiresAt: f.dateTime({ required: true }),
 	}),
 })
 ```
@@ -128,21 +128,21 @@ import { Schema } from '@ultimabase/core'
 
 export const Author = Schema.define({
 	className: 'DocsAuthor',
-	fields: (field) => ({
-		name: field.string({ required: true }),
-		posts: field.relation({ mappedBy: 'author', target: 'DocsPost' }),
+	fields: (f) => ({
+		name: f.string({ required: true }),
+		posts: f.relation({ mappedBy: 'author', target: 'DocsPost' }),
 	}),
 })
 
 export const Post = Schema.define({
 	className: 'DocsPost',
-	fields: (field) => ({
-		author: field.pointer({
+	fields: (f) => ({
+		author: f.pointer({
 			required: true,
 			target: 'DocsAuthor',
 		}),
-		reviewers: field.relation({ target: 'DocsAuthor' }),
-		title: field.string({ required: true }),
+		reviewers: f.relation({ target: 'DocsAuthor' }),
+		title: f.string({ required: true }),
 	}),
 })
 ```

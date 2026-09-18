@@ -35,11 +35,11 @@ import { Schema } from '@ultimabase/core'
 
 export const Publication = Schema.define({
 	className: 'DocsPublication',
-	fields: (field) => ({
-		publishedAt: field.dateTime({ autoNow: true }),
-		status: field.string({ default: 'draft' }),
-		summary: field.string(),
-		title: field.string({ required: true }),
+	fields: (f) => ({
+		publishedAt: f.dateTime({ autoNow: true }),
+		status: f.string({ default: 'draft' }),
+		summary: f.string(),
+		title: f.string({ required: true }),
 	}),
 })
 ```
@@ -94,7 +94,7 @@ object; list elements themselves cannot be `null`. See
 
 A default can be a static value or a zero-argument factory:
 
-`field.uuid({ default: () => crypto.randomUUID() })`.
+`f.uuid({ default: () => crypto.randomUUID() })`.
 
 The factory runs once for each record whose create input omits that field, not
 when the schema or draft is constructed. Its result is validated like a supplied

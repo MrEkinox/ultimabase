@@ -202,9 +202,9 @@ import { Schema } from '@ultimabase/core'
 
 export const Task = Schema.define({
 	className: 'Task',
-	fields: (field) => ({
-		done: field.boolean({ default: false }),
-		title: field.string({ required: true }),
+	fields: (f) => ({
+		done: f.boolean({ default: false }),
+		title: f.string({ required: true }),
 	}),
 })
 ```

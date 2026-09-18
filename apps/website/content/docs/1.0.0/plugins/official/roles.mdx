@@ -83,8 +83,8 @@ export const AppRole = RoleSchema.define({
 		resolveCurrent: ({ context }) => context.getValue(passwordPrincipal)?.user,
 	},
 	deletion: { references: 'fail' },
-	fields: (field) => ({
-		description: field.string(),
+	fields: (f) => ({
+		description: f.string(),
 	}),
 	access: {
 		read: true,
@@ -98,7 +98,7 @@ export const EditorRole = AppRole.role('editor')
 
 export const Post = Schema.define({
 	className: 'Post',
-	fields: (field) => ({ title: field.string({ required: true }) }),
+	fields: (f) => ({ title: f.string({ required: true }) }),
 	access: {
 		read: true,
 		update: hasRole(EditorRole),

@@ -65,8 +65,8 @@ import { ACL } from '@ultimabase/acl-permissions-plugin'
 
 export const Post = Schema.define({
 	className: 'Post',
-	fields: (field) => ({
-		title: field.string({ required: true }),
+	fields: (f) => ({
+		title: f.string({ required: true }),
 	}),
 	acl: {
 		default: () => new ACL().grantPublic('read'),

@@ -65,8 +65,8 @@ import { honoServerPlugin } from '@ultimabase/server-hono-plugin'
 
 const Post = Schema.define({
 	className: 'Post',
-	fields: (field) => ({
-		title: field.string({ required: true }),
+	fields: (f) => ({
+		title: f.string({ required: true }),
 	}),
 	rest: { find: true, get: true },
 })

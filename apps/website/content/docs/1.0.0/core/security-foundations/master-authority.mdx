@@ -46,7 +46,7 @@ if (!databaseUrl || !masterKey) {
 
 const Post = Schema.define({
 	className: 'Post',
-	fields: (field) => ({ title: field.string({ required: true }) }),
+	fields: (f) => ({ title: f.string({ required: true }) }),
 })
 
 const masterAuthority = new MasterAuthority({

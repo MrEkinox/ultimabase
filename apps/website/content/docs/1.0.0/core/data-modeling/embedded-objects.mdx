@@ -27,23 +27,23 @@ when the nested data has a known shape but no independent identity or lifecycle.
 ```ts title="src/customer.ts"
 import { Schema, type EmbeddedFieldBuilder } from '@ultimabase/core'
 
-const addressFields = (field: EmbeddedFieldBuilder) => ({
-	city: field.string({ required: true }),
-	countryCode: field.string({ required: true }),
-	line1: field.string({ required: true }),
-	line2: field.string(),
+const addressFields = (f: EmbeddedFieldBuilder) => ({
+	city: f.string({ required: true }),
+	countryCode: f.string({ required: true }),
+	line1: f.string({ required: true }),
+	line2: f.string(),
 })
 
 export const Customer = Schema.define({
 	className: 'DocsCustomer',
-	fields: (field) => ({
-		name: field.string({ required: true }),
-		shippingAddress: field.object({
+	fields: (f) => ({
+		name: f.string({ required: true }),
+		shippingAddress: f.object({
 			fields: addressFields,
 			required: true,
 			typeName: 'DocsAddress',
 		}),
-		previousAddresses: field.object({
+		previousAddresses: f.object({
 			default: [],
 			fields: addressFields,
 			list: true,
@@ -144,7 +144,7 @@ the corresponding plugins are installed; it is not independently addressable
 as a record.
 
 For deliberately unstructured documents or multidimensional arrays, use
-`field.json()` instead of disguising them as typed field lists. Use the
+`f.json()` instead of disguising them as typed field lists. Use the
 optional Validation plugin for application-specific constraints on that JSON.
 
 ## Related tasks

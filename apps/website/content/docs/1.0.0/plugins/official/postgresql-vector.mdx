@@ -20,11 +20,11 @@ sources:
 ## Overview
 
 `@ultimabase/pg-vector-plugin` contributes the application-local
-`field.vector({ dimensions })` builder and the standalone `vectorField()`
+`f.vector({ dimensions })` builder and the standalone `vectorField()`
 factory. They define a logical field whose value is a detached, immutable
 `readonly number[]`. The plugin checks that every component is a finite number
 and that the array has exactly the declared length. Core does not provide
-`field.vector()` when the plugin is absent.
+`f.vector()` when the plugin is absent.
 
 **You cannot persist this field with the PostgreSQL plugin yet.** There is no
 PostgreSQL vector column compiler or similarity-search operator. Use the plugin
@@ -48,7 +48,7 @@ pnpm add @ultimabase/pg-vector-plugin
 ```
 
 For TypeScript authoring, regenerate the application's declarations after
-adding the plugin so `field.vector()` appears on this application's builder;
+adding the plugin so `f.vector()` appears on this application's builder;
 see [Generate TypeScript Types](/docs/1.0.0/guides/generate-types).
 
 ## Configuration
@@ -61,8 +61,8 @@ import { pgVectorPlugin } from '@ultimabase/pg-vector-plugin'
 
 const Document = Schema.define({
 	className: 'Document',
-	fields: (field) => ({
-		embedding: field.vector({ dimensions: 1536, required: true }),
+	fields: (f) => ({
+		embedding: f.vector({ dimensions: 1536, required: true }),
 	}),
 })
 
@@ -125,7 +125,7 @@ UltimaBase Query, validation, or schema synchronization understand the field.
 
 ## Troubleshooting
 
-- **`field.vector` is missing in TypeScript:** install `pgVectorPlugin()` in
+- **`f.vector` is missing in TypeScript:** install `pgVectorPlugin()` in
   this application and regenerate its Typegen declarations. Without the
   plugin, schema compilation also rejects the builder method.
 - **A dimension or value is rejected:** use a positive safe integer for

@@ -81,7 +81,7 @@ collection is empty.
 | ---------------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------ |
 | Return only matching parents       | Root `where` with a relation predicate such as `comments: { some: ... }` | Filters posts; does not load comments.                             |
 | Load only matching targets         | `include.comments.where`                                                 | Filters each returned post's comment array; does not filter posts. |
-| Define the relation's usual subset | `field.relation({ where })`                                              | Narrows every read through that exact relation field.              |
+| Define the relation's usual subset | `f.relation({ where })`                                              | Narrows every read through that exact relation field.              |
 
 These conditions intersect when used together. The declared relation filter
 cannot be overridden by a caller and does not replace authorization.
@@ -153,13 +153,13 @@ import { Schema } from '@ultimabase/core'
 
 export const Message = Schema.define({
 	className: 'DocsMessage',
-	fields: (field) => ({ published: field.boolean({ required: true }) }),
+	fields: (f) => ({ published: f.boolean({ required: true }) }),
 })
 
 export const Channel = Schema.define({
 	className: 'DocsChannel',
-	fields: (field) => ({
-		messages: field.relation({
+	fields: (f) => ({
+		messages: f.relation({
 			target: () => Message,
 			where: ({ context, where }) =>
 				context.access.mode === 'master' ? where : where.eq('published', true),

@@ -33,10 +33,10 @@ import { Schema } from '@ultimabase/core'
 
 export const Profile = Schema.define({
 	className: 'DocsProfile',
-	fields: (field) => ({
-		firstName: field.string({ required: true }),
-		lastName: field.string({ required: true }),
-		displayName: field.virtual({
+	fields: (f) => ({
+		firstName: f.string({ required: true }),
+		lastName: f.string({ required: true }),
+		displayName: f.virtual({
 			output: (output) => output.string({ nullable: false }),
 			select: { firstName: true, lastName: true },
 			resolve: ({ item }) => `${item.firstName} ${item.lastName}`,
@@ -131,7 +131,7 @@ transaction.
 ## Persisted data and generated types
 
 A virtual field is top-level output only: it cannot be a child of
-`field.object()`. It is absent from stored records, create and update data,
+`f.object()`. It is absent from stored records, create and update data,
 filters, ordering, indexes, migrations, and adapter plans. Changing only its
 resolver or output declaration does not change the database schema. REST and
 GraphQL represent the selected value but do not execute the resolver

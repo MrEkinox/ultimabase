@@ -68,8 +68,8 @@ import { postgresPlugin, postgresPluginName } from '@ultimabase/postgres-plugin'
 
 const Task = Schema.define({
 	className: 'Task',
-	fields: (field) => ({
-		title: field.string({ required: true }),
+	fields: (f) => ({
+		title: f.string({ required: true }),
 	}),
 })
 
@@ -121,8 +121,8 @@ import { Schema } from '@ultimabase/core'
 export const Article = Schema.define({
 	className: 'Article',
 	postgres: { table: 'articles' },
-	fields: (field) => ({
-		title: field.string({ postgres: { renamedFrom: 'headline' } }),
+	fields: (f) => ({
+		title: f.string({ postgres: { renamedFrom: 'headline' } }),
 	}),
 })
 ```

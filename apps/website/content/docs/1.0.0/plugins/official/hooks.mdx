@@ -65,18 +65,18 @@ import { Schema } from '@ultimabase/core'
 
 export const PostTitleChange = Schema.define({
 	className: 'PostTitleChange',
-	fields: (field) => ({
-		postId: field.string({ required: true }),
-		previousTitle: field.string({ required: true }),
-		title: field.string({ required: true }),
+	fields: (f) => ({
+		postId: f.string({ required: true }),
+		previousTitle: f.string({ required: true }),
+		title: f.string({ required: true }),
 	}),
 })
 
 export const Post = Schema.define({
 	className: 'Post',
-	fields: (field) => ({
-		published: field.boolean({ default: false }),
-		title: field.string({
+	fields: (f) => ({
+		published: f.boolean({ default: false }),
+		title: f.string({
 			required: true,
 			hooks: { resolveInput: ({ value }) => value?.trim() ?? null },
 		}),
@@ -239,7 +239,7 @@ import { postCreated } from './post-created-event.js'
 
 export const EventedPost = Schema.define({
 	className: 'EventedPost',
-	fields: (field) => ({ title: field.string({ required: true }) }),
+	fields: (f) => ({ title: f.string({ required: true }) }),
 	hooks: {
 		afterOperation: {
 			create: ({ context, item }) => {

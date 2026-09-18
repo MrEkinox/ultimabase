@@ -28,10 +28,10 @@ import { Schema } from '@ultimabase/core'
 
 export const Product = Schema.define({
 	className: 'DocsProduct',
-	fields: (field) => ({
-		name: field.string({ required: true }),
-		price: field.decimal({ precision: 12, required: true, scale: 2 }),
-		tags: field.string({ list: true }),
+	fields: (f) => ({
+		name: f.string({ required: true }),
+		price: f.decimal({ precision: 12, required: true, scale: 2 }),
+		tags: f.string({ list: true }),
 	}),
 })
 ```
@@ -47,11 +47,11 @@ rules.
 | You need                                | Choose                                                                                                   |
 | --------------------------------------- | -------------------------------------------------------------------------------------------------------- |
 | A scalar, enum, or one-dimensional list | A built-in value field; use `list: true` for a list of that value.                                       |
-| A nested value with known fields        | `field.object()`; it belongs to its parent record. See [Embedded Objects](./embedded-objects).           |
-| An unstructured JSON document           | `field.json()`; its root must be an object or array, or `null` if optional.                              |
-| One reference to another record         | `field.pointer()`; it stores target identity, not a loaded record. See [Relationships](./relationships). |
-| A changing set of related records       | `field.relation()`; it represents membership, not a stored array. See [Relationships](./relationships).  |
-| A computed, selectable result           | `field.virtual()`; output-only. See [Virtual Fields](./virtual-fields).                                  |
+| A nested value with known fields        | `f.object()`; it belongs to its parent record. See [Embedded Objects](./embedded-objects).           |
+| An unstructured JSON document           | `f.json()`; its root must be an object or array, or `null` if optional.                              |
+| One reference to another record         | `f.pointer()`; it stores target identity, not a loaded record. See [Relationships](./relationships). |
+| A changing set of related records       | `f.relation()`; it represents membership, not a stored array. See [Relationships](./relationships).  |
+| A computed, selectable result           | `f.virtual()`; output-only. See [Virtual Fields](./virtual-fields).                                  |
 | A distinct value kind owned by a plugin | That plugin's field method, installed in the application.                                                |
 
 Use `object` when the nested shape is part of your model, and `json` when it is
@@ -60,29 +60,29 @@ deliberately unstructured. A list of record IDs is not a substitute for a
 
 ## Built-in field builders
 
-The `fields` callback receives a `field` builder. Each method returns an
-immutable declaration; it does not create or load a record. Choose by the
-value your application uses, not by a database column type.
+The `fields` callback receives a field builder, named `f` in these examples.
+Each method returns an immutable declaration; it does not create or load a
+record. Choose by the value your application uses, not by a database column type.
 
 | Builder            | Application value           | Builder-specific options or behavior                                                                                    |
 | ------------------ | --------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `field.string()`   | `string`                    | Text; application formats such as email need the optional Validation plugin.                                            |
-| `field.boolean()`  | `boolean`                   | No builder-specific options.                                                                                            |
-| `field.int()`      | Safe integer `number`       | `autoIncrement` requests adapter-backed generation.                                                                     |
-| `field.bigint()`   | Native JavaScript `bigint`  | `autoIncrement` requests adapter-backed generation; transports need an explicit codec.                                  |
-| `field.float()`    | `number`                    | Use `decimal` for exact base-10 values.                                                                                 |
-| `field.decimal()`  | Exact decimal `string`      | `precision` limits total digits; `scale` limits fractional digits.                                                      |
-| `field.uuid()`     | UUID `string`               | UUID syntax is always checked; `default` can supply a generated value.                                                  |
-| `field.date()`     | `YYYY-MM-DD` string         | `autoNow` can generate a calendar day.                                                                                  |
-| `field.time()`     | Canonical time string       | `timezone` defaults to `false`; `autoNow` can generate a time.                                                          |
-| `field.dateTime()` | Canonical date-time string  | `timezone` defaults to `true`; `autoNow` can generate a timestamp.                                                      |
-| `field.binary()`   | `Uint8Array`                | Wire encoding belongs to the transport.                                                                                 |
-| `field.json()`     | JSON object or array        | Optional fields may also be `null`; root scalars are rejected.                                                          |
-| `field.enum()`     | Declared string union       | `values` is required; `typeName` can name the generated contract.                                                       |
-| `field.object()`   | Typed nested value          | Declare child `fields`; see [Embedded Objects](./embedded-objects).                                                     |
-| `field.pointer()`  | One target reference        | `target` is required; `onDelete` defaults to `restrict`. See [Relationships](./relationships).                          |
-| `field.relation()` | To-many relation handle     | `target` is required; `mappedBy` and `where` shape an inverse or scoped relation. See [Relationships](./relationships). |
-| `field.virtual()`  | Selected, output-only value | Declare `output`, `select`, and `resolve`; see [Virtual Fields](./virtual-fields).                                      |
+| `f.string()`   | `string`                    | Text; application formats such as email need the optional Validation plugin.                                            |
+| `f.boolean()`  | `boolean`                   | No builder-specific options.                                                                                            |
+| `f.int()`      | Safe integer `number`       | `autoIncrement` requests adapter-backed generation.                                                                     |
+| `f.bigint()`   | Native JavaScript `bigint`  | `autoIncrement` requests adapter-backed generation; transports need an explicit codec.                                  |
+| `f.float()`    | `number`                    | Use `decimal` for exact base-10 values.                                                                                 |
+| `f.decimal()`  | Exact decimal `string`      | `precision` limits total digits; `scale` limits fractional digits.                                                      |
+| `f.uuid()`     | UUID `string`               | UUID syntax is always checked; `default` can supply a generated value.                                                  |
+| `f.date()`     | `YYYY-MM-DD` string         | `autoNow` can generate a calendar day.                                                                                  |
+| `f.time()`     | Canonical time string       | `timezone` defaults to `false`; `autoNow` can generate a time.                                                          |
+| `f.dateTime()` | Canonical date-time string  | `timezone` defaults to `true`; `autoNow` can generate a timestamp.                                                      |
+| `f.binary()`   | `Uint8Array`                | Wire encoding belongs to the transport.                                                                                 |
+| `f.json()`     | JSON object or array        | Optional fields may also be `null`; root scalars are rejected.                                                          |
+| `f.enum()`     | Declared string union       | `values` is required; `typeName` can name the generated contract.                                                       |
+| `f.object()`   | Typed nested value          | Declare child `fields`; see [Embedded Objects](./embedded-objects).                                                     |
+| `f.pointer()`  | One target reference        | `target` is required; `onDelete` defaults to `restrict`. See [Relationships](./relationships).                          |
+| `f.relation()` | To-many relation handle     | `target` is required; `mappedBy` and `where` shape an inverse or scoped relation. See [Relationships](./relationships). |
+| `f.virtual()`  | Selected, output-only value | Declare `output`, `select`, and `resolve`; see [Virtual Fields](./virtual-fields).                                      |
 
 `int` and `float` use JavaScript `number`; `bigint` uses native `bigint`, and
 `decimal` uses a string so its base-10 value stays exact. Stored value fields

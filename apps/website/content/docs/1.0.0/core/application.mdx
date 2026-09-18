@@ -150,7 +150,7 @@ import { postgresPlugin } from '@ultimabase/postgres-plugin'
 
 const Task = Schema.define({
 	className: 'Task',
-	fields: (field) => ({ title: field.string({ required: true }) }),
+	fields: (f) => ({ title: f.string({ required: true }) }),
 })
 
 const databaseUrl = process.env.DATABASE_URL

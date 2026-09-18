@@ -113,9 +113,9 @@ import { z } from 'zod'
 
 export const Task = Schema.define({
 	className: 'Task',
-	fields: (field) => ({
-		done: field.boolean({ default: false }),
-		title: field.string({
+	fields: (f) => ({
+		done: f.boolean({ default: false }),
+		title: f.string({
 			required: true,
 			hooks: { resolveInput: ({ value }) => value?.trim() ?? null },
 			validation: z.string().min(1),

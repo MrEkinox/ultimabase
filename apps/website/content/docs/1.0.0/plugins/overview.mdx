@@ -36,7 +36,7 @@ import { hooksPlugin } from '@ultimabase/hooks-plugin'
 
 const Post = Schema.define({
 	className: 'Post',
-	fields: (field) => ({ title: field.string() }),
+	fields: (f) => ({ title: f.string() }),
 	hooks: {
 		beforeOperation: {
 			create: ({ item }) => console.log(item.title),

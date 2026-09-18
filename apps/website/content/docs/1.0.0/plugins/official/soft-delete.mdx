@@ -63,7 +63,7 @@ import { Schema } from '@ultimabase/core'
 export const Post = Schema.define({
 	className: 'Post',
 	softDelete: 'explicit',
-	fields: (field) => ({ title: field.string() }),
+	fields: (f) => ({ title: f.string() }),
 })
 ```
 

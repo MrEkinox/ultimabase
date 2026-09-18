@@ -63,12 +63,12 @@ import { Schema } from '@ultimabase/core'
 
 export const Article = Schema.define({
 	className: 'Article',
-	fields: (field) => ({
-		internalNote: field.string({
+	fields: (f) => ({
+		internalNote: f.string({
 			access: { read: false, write: false },
 		}),
-		published: field.boolean({ default: false }),
-		title: field.string({ required: true }),
+		published: f.boolean({ default: false }),
+		title: f.string({ required: true }),
 	}),
 	access: {
 		read: {
@@ -134,7 +134,7 @@ import { Schema } from '@ultimabase/core'
 
 export const CountOnlyArticle = Schema.define({
 	className: 'CountOnlyArticle',
-	fields: (field) => ({ title: field.string({ required: true }) }),
+	fields: (f) => ({ title: f.string({ required: true }) }),
 	access: { read: { allow: { count: true } } },
 })
 ```
@@ -169,10 +169,10 @@ import { Schema } from '@ultimabase/core'
 
 export const EditableArticle = Schema.define({
 	className: 'EditableArticle',
-	fields: (field) => ({
-		locked: field.boolean({ default: false }),
-		published: field.boolean({ default: false }),
-		title: field.string({ required: true }),
+	fields: (f) => ({
+		locked: f.boolean({ default: false }),
+		published: f.boolean({ default: false }),
+		title: f.string({ required: true }),
 	}),
 	access: {
 		update: {
@@ -206,7 +206,7 @@ import { passwordPrincipal } from '@ultimabase/password-auth-plugin'
 
 export const PrivateNote = Schema.define({
 	className: 'PrivateNote',
-	fields: (field) => ({ body: field.string({ required: true }) }),
+	fields: (f) => ({ body: f.string({ required: true }) }),
 	access: {
 		read: ({ context }) => context.getValue(passwordPrincipal) !== undefined,
 	},
