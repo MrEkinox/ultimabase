@@ -41,8 +41,11 @@ example or empty application, and a PostgreSQL setup. TypeScript includes
 Typegen automatically; JavaScript does not.
 
 The local, unpublished implementation already supports the PostgreSQL base
-project plus Hooks, Validation, Soft Delete, and PostgreSQL Vector selections.
-The Vector choice does not add persisted vector storage or search.
+project plus Hooks, Validation, Soft Delete, PostgreSQL Vector, Password Auth,
+Access, Roles, and Object ACL selections. The Vector choice does not add
+persisted vector storage or search. Security choices configure local Master
+auditing, but identity and role membership alone do not grant data access.
+API and explorer templates are still in progress.
 
 ### Automatic installation
 

@@ -14,6 +14,7 @@ import path from 'node:path'
 
 import { renderBaseFiles } from './base-template.js'
 import type { InitializerPlan, PackageManager } from './config.js'
+import { needsMasterKey } from './security-template.js'
 
 const implementedPlugins = new Set([
 	'postgres-plugin',
@@ -21,6 +22,10 @@ const implementedPlugins = new Set([
 	'pg-vector-plugin',
 	'soft-delete-plugin',
 	'validation-plugin',
+	'access-plugin',
+	'acl-permissions-plugin',
+	'password-auth-plugin',
+	'roles-plugin',
 ])
 
 export interface ProjectGenerationOptions {
@@ -79,7 +84,11 @@ export const createProject = async (
 	try {
 		const password =
 			plan.database === 'docker' ? randomBytes(24).toString('hex') : undefined
-		const files = renderBaseFiles(plan, password)
+		const masterKey =
+			plan.database === 'docker' && needsMasterKey(plan)
+				? randomBytes(32).toString('hex')
+				: undefined
+		const files = renderBaseFiles(plan, password, masterKey)
 		options.onProgress?.('Writing project files')
 		for (const [relative, contents] of files) {
 			if (relative === '.env') continue

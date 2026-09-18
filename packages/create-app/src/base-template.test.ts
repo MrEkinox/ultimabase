@@ -161,4 +161,96 @@ describe('base project templates', () => {
 			'no schema for schema-local behavior',
 		)
 	})
+
+	it.each([
+		['access-plugin', 'accessPlugin()'],
+		['acl-permissions-plugin', 'aclPlugin()'],
+		['password-auth-plugin', 'passwordAuthPlugin({ user: AppUser })'],
+		['roles-plugin', 'rolesPlugin()'],
+	] as const)(
+		'adds %s without a public route in TypeScript and JavaScript',
+		(id, factory) => {
+			for (const language of ['ts', 'js'] as const) {
+				const plan = resolveSelection(
+					{ name: 'secure-notes', language, plugins: [id] },
+					'/tmp',
+				)
+				const files = renderBaseFiles(plan)
+				const application = files.get(`src/ultimabase.${language}`) ?? ''
+				const schema = files.get(`src/schema.${language}`) ?? ''
+				const main = files.get(`src/main.${language}`) ?? ''
+				const manifest = JSON.parse(files.get('package.json') ?? '{}') as {
+					readonly dependencies: Record<string, string>
+				}
+				expect(manifest.dependencies).toHaveProperty(`@ultimabase/${id}`)
+				expect(application).toContain(factory)
+				expect(application).toContain('new MasterAuthority({')
+				expect(application).toContain('requestId: event.requestId')
+				expect(application).not.toContain('restPlugin(')
+				expect(application).not.toContain('graphqlYogaPlugin(')
+				expect(application).not.toContain('cookie:')
+				expect(application).not.toContain('console.log(masterKey)')
+				expect(main).toContain('useMasterKey: true')
+				expect(files.get('.env.example')).toContain(
+					'ULTIMABASE_MASTER_KEY=<generate-a-random-local-key>',
+				)
+				if (id === 'access-plugin')
+					expect(schema).toContain(
+						'read: false, create: false, update: false, delete: false',
+					)
+				if (id === 'acl-permissions-plugin')
+					expect(schema).toContain('default: () => new ACL()')
+				if (id === 'password-auth-plugin') {
+					expect(schema).toContain('PasswordUserSchema.define(')
+					expect(application).not.toContain('schemas: [Task, AppUser]')
+				}
+				if (id === 'roles-plugin') {
+					expect(schema).toContain('RoleSchema.define(')
+					expect(schema).toContain('export const Member = Schema.define(')
+					expect(application).toContain('schemas: [Task, Member, AppRole]')
+				}
+			}
+		},
+	)
+
+	it('keeps authentication, membership and object policies independent', () => {
+		const plan = resolveSelection(
+			{
+				name: 'secure-notes',
+				plugins: [
+					'password-auth-plugin',
+					'roles-plugin',
+					'acl-permissions-plugin',
+				],
+			},
+			'/tmp',
+		)
+		const files = renderBaseFiles(plan)
+		const schema = files.get('src/schema.ts') ?? ''
+		const application = files.get('src/ultimabase.ts') ?? ''
+		expect(schema).toContain('schema: AppUser')
+		expect(schema).toContain('context.getValue(passwordPrincipal)?.user')
+		expect(schema).toContain(
+			'resolveInput: ({ currentAcl, inputAcl }) => inputAcl ?? currentAcl ?? new ACL()',
+		)
+		expect(application).toContain('schemas: [Task, AppRole]')
+		expect(application).not.toContain('accessPlugin()')
+		expect(application).not.toContain('schemas: [Task, AppUser')
+		expect(files.get('README.md')).toContain(
+			'A session identifies a caller; it does not grant Task access',
+		)
+		expect(files.get('README.md')).toContain('ACL alone does not deny creation')
+	})
+
+	it('requires a local Master key for security Docker projects', () => {
+		const plan = resolveSelection(
+			{ name: 'secure-notes', database: 'docker', plugins: ['access-plugin'] },
+			'/tmp',
+		)
+		expect(() => renderBaseFiles(plan, 'docker-password')).toThrow('Master key')
+		const files = renderBaseFiles(plan, 'docker-password', 'test-master-key')
+		expect(files.get('.env')).toContain('ULTIMABASE_MASTER_KEY=test-master-key')
+		expect(files.get('.env.example')).not.toContain('test-master-key')
+		expect(files.get('.gitignore')).toContain('.env\n')
+	})
 })

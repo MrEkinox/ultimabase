@@ -110,11 +110,40 @@ describe('project generation', () => {
 	it('rejects optional selections before writing until their templates land', async () => {
 		const cwd = root()
 		const plan = resolveSelection(
-			{ name: 'notes', plugins: ['access-plugin'], install: false },
+			{ name: 'notes', plugins: ['http-plugin'], install: false },
 			cwd,
 		)
 		await expect(createProject(plan)).rejects.toThrow('not implemented yet')
 		expect(readdirSync(cwd)).toEqual([])
+	})
+
+	it('writes security secrets only after dependency installation', async () => {
+		const cwd = root()
+		const plan = resolveSelection(
+			{
+				name: 'secure-notes',
+				plugins: ['password-auth-plugin'],
+				database: 'docker',
+				install: true,
+			},
+			cwd,
+		)
+		await createProject(plan, {
+			installDependencies: (directory) => {
+				expect(existsSync(path.join(directory, '.env'))).toBe(false)
+				return Promise.resolve()
+			},
+		})
+		const env = readFileSync(path.join(plan.destination, '.env'), 'utf8')
+		expect(env).toMatch(/ULTIMABASE_MASTER_KEY=[0-9a-f]{64}/)
+		const masterKey = /ULTIMABASE_MASTER_KEY=([0-9a-f]{64})/.exec(env)?.[1]
+		expect(masterKey).toBeDefined()
+		expect(statSync(path.join(plan.destination, '.env')).mode & 0o777).toBe(
+			0o600,
+		)
+		expect(
+			readFileSync(path.join(plan.destination, '.env.example'), 'utf8'),
+		).not.toContain(masterKey)
 	})
 
 	it('does not expose a Docker secret to dependency installation', async () => {

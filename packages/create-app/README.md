@@ -9,12 +9,20 @@ or JavaScript, with either a runnable Task starter or an empty application.
 Hooks, Validation, Soft Delete, and PostgreSQL Vector can be selected today.
 The Task example configures schema-local Hooks, Validation, and recoverable
 native deletes when selected. Vector remains a logical value contract here;
-the starter does not persist vectors or claim vector search.
+the starter does not persist vectors or claim vector search. Password Auth,
+Access, Roles, and Object ACLs also generate valid application graphs. Password
+Auth adds a User schema and sessions without granting data access. Access
+denies ordinary Task operations in the starter; ACLs start empty and deny
+ordinary Task reads, updates, and deletes, but do not govern creation. Roles
+define membership identities without granting access by themselves.
 TypeScript automatically runs Typegen before typecheck and build; JavaScript
 does not depend on Typegen or TypeScript. The database can be an existing
-disposable instance or a generated local Docker Compose service. Later
-milestone 29 issues add security and API plugin composition, packed-project
-verification, and the full Quick Start journey.
+disposable instance or a generated local Docker Compose service. Security
+choices configure a development Master audit and require a private key in an
+ignored `.env`. Docker mode generates that key locally; existing-database mode
+requires replacing the `.env.example` placeholder. No security plugin adds a
+public route by itself. Later milestone 29 issues add API plugin composition,
+packed-project verification, and the full Quick Start journey.
 
 Run the built local executable with `node dist/cli.js --help`, or generate a
 base project with `node dist/cli.js --name notes --yes --no-install`. The
@@ -22,9 +30,9 @@ selection validates npm package names, available plugin IDs, plugin
 prerequisites, and a new destination. The grouped prompt includes all 16
 official plugins; Typegen is automatic for TypeScript and absent for
 JavaScript. `--yes` accepts the documented defaults and never authorizes
-overwriting an existing target. Unsupported security and API choices currently
-fail with an explicit message before any files are written while their templates
-are implemented in the next issues.
+overwriting an existing target. Unsupported API choices currently fail with an
+explicit message before any files are written while their templates are
+implemented in the next issue.
 
 The project generator is not ready for application setup until milestone 29
 closes.
