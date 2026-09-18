@@ -13,3 +13,9 @@ export {
 	type ParsedOptions,
 	type SelectionInput,
 } from './config.js'
+export {
+	nextCommands,
+	renderBaseFiles,
+	type ProjectFiles,
+} from './base-template.js'
+export { createProject, type ProjectGenerationOptions } from './generate.js'

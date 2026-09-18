@@ -9,16 +9,18 @@ order: 1
 outcome: Understand the intended automatic setup and find the working manual installation path.
 owner: '2806'
 releaseStatus: pre-release
-reviewedAt: 2026-09-16
+reviewedAt: 2026-09-18
 sources:
   - README.md
   - apps/website/README.md
+  - docs/adr/0249-interactive-project-initializer.md
+  - packages/create-app/README.md
   - issues/2800-public-website-documentation/README.md
 ---
 
 <Callout type="warn" title="Automatic setup is not yet available">
-	The `create-ultimabase-app` initializer has not been published. The commands
-	below show the intended release experience; they will not set up an UltimaBase
+	The `@ultimabase/create-app` initializer has not been published. The command
+	below shows the intended release experience; it will not set up an UltimaBase
 	application today. To build one now, follow [Manual
 	Installation](/docs/1.0.0/manual-installation).
 </Callout>
@@ -26,31 +28,24 @@ sources:
 ## Context
 
 The goal of Quick Start is to remove manual project setup when UltimaBase is
-released. You will still need a supported Node.js installation and a
-PostgreSQL database for the first application.
+released. You will still need Node.js 24 or newer and a disposable PostgreSQL
+database for the first application.
 
 ## Mental model
 
 The intended entry point is a package-manager `create` command. It will
 initialize a project that you can inspect and edit, rather than changing how
-UltimaBase schemas, plugins, or Runtime work. The generator's prompts, output
-files, and supported options are not defined yet.
+UltimaBase schemas, plugins, or Runtime work. The planned flow asks for
+TypeScript or JavaScript, REST and GraphQL HTTP APIs, official plugins, a Task
+example or empty application, and a PostgreSQL setup. TypeScript includes
+Typegen automatically; JavaScript does not.
 
 ### Automatic installation
 
-These commands are a preview of the intended package name, not runnable setup
-instructions yet:
+This is the proposed npm entry point, not a runnable setup instruction yet:
 
 ```bash tab="npm" tab-group="package-manager"
-npm create ultimabase-app@latest
-```
-
-```bash tab="yarn"
-yarn create ultimabase-app
-```
-
-```bash tab="pnpm"
-pnpm create ultimabase-app
+npm create @ultimabase/app@latest
 ```
 
 ## Boundaries

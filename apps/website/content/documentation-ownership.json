@@ -7,6 +7,11 @@
 			"sections": ["manual-installation", "core", "guides", "operations"]
 		},
 		{
+			"id": "project-initializer",
+			"packages": ["@ultimabase/create-app"],
+			"sections": ["quick-start", "reference"]
+		},
+		{
 			"id": "plugin-authoring-and-tooling",
 			"packages": [
 				"@ultimabase/plugin-kit",

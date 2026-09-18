@@ -2,10 +2,12 @@
 import * as clack from '@clack/prompts'
 import process from 'node:process'
 
+import { nextCommands } from './base-template.js'
 import { parseOptions } from './config.js'
+import { createProject } from './generate.js'
 import { CancelledError, collectSelection, terminalPrompts } from './prompts.js'
 
-const help = `Create an UltimaBase project (selection preview; file generation is not implemented yet).
+const help = `Create an UltimaBase project.
 
 Usage: create-app [options]
 
@@ -24,7 +26,7 @@ Options:
 
 Defaults with --yes: TypeScript, no HTTP API, PostgreSQL plugin, Task starter,
 existing PostgreSQL, npm if no manager is detected, and dependency installation.
-This preview writes no files.`
+Existing destinations are never overwritten. The package is not published yet.`
 
 /** Exit cleanly on cancellation and report validation errors without a stack trace. */
 export const run = async (args: readonly string[]): Promise<number> => {
@@ -35,7 +37,7 @@ export const run = async (args: readonly string[]): Promise<number> => {
 			return 0
 		}
 		if (process.stdout.isTTY) clack.intro('Create an UltimaBase project')
-		await collectSelection(
+		const plan = await collectSelection(
 			options,
 			{
 				cwd: process.cwd(),
@@ -46,9 +48,12 @@ export const run = async (args: readonly string[]): Promise<number> => {
 			},
 			terminalPrompts,
 		)
-		clack.outro(
-			'Selection validated. Project generation follows in issue 2903; no files were written.',
-		)
+		await createProject(plan, {
+			onProgress: (message) => {
+				clack.log.step(message)
+			},
+		})
+		clack.outro(`Project ready.\n${nextCommands(plan).join('\n')}`)
 		return 0
 	} catch (error) {
 		if (error instanceof CancelledError) {

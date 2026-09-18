@@ -116,6 +116,9 @@ describe('initializer flags', () => {
 		expect(() => parseOptions(['--install', '--no-install'])).toThrow(
 			'conflicts',
 		)
+		expect(() => parseOptions(['--database', 'sqlite'])).toThrow(
+			'--database must be',
+		)
 		expect(() => resolveSelection({ name: 'Upper Case' }, root())).toThrow(
 			'Invalid npm package name',
 		)

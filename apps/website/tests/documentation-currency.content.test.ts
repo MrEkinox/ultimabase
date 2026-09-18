@@ -94,6 +94,7 @@ describe('documentation currency guardrails', () => {
 		const packages = await publicPackageNames()
 		const sections = [
 			...documentationSections.map(({ slug }) => slug),
+			'quick-start',
 			'manual-installation',
 		]
 
