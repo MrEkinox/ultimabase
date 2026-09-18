@@ -43,6 +43,10 @@ interface RootLayoutProps {
 export default function RootLayout({ children }: RootLayoutProps) {
 	return (
 		<html lang="en" suppressHydrationWarning>
+			<head>
+				{/* The site has native themes; Dark Reader mutates SVGs before hydration. */}
+				<meta name="darkreader-lock" />
+			</head>
 			<body>
 				<RootProvider>{children}</RootProvider>
 			</body>

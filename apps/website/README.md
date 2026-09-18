@@ -87,6 +87,9 @@ Each page's Markdown copy returns an HTTP canonical link to its HTML page.
 steps, and file-tree components. Authored Mermaid diagrams use a small
 server-rendered SVG component with Fumadocs color variables; keep file contents
 and terminal output as code blocks.
+The root HTML includes a static Dark Reader lock because the site already has
+native light and dark themes; this prevents the extension from changing SVG
+attributes before React hydration.
 
 The internal [`docs/editorial-contract.md`](docs/editorial-contract.md) defines
 page templates, voice, terminology, code-sample rules, and progressive

@@ -32,6 +32,17 @@ async function publicSearch(page: Page, query: string): Promise<string> {
 }
 
 describe('website preview audit', () => {
+	it.each(['/', '/docs/1.0.0'])(
+		'opts out of Dark Reader before hydration on %s',
+		async (route) => {
+			const response = await fetch(`${origin}${route}`)
+			expect(response.status).toBe(200)
+			const html = await response.text()
+			const head = /<head>([\s\S]*?)<\/head>/u.exec(html)?.[1]
+			expect(head).toMatch(/<meta name="darkreader-lock"\s*\/?\s*>/u)
+		},
+	)
+
 	it('exposes the current docs version', async () => {
 		const context = await browser?.newContext({
 			viewport: { height: 900, width: 1280 },
