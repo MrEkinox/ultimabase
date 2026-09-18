@@ -1,19 +1,21 @@
 ---
 title: Roadmap
-description: See the capabilities under consideration after today's pre-release implementation.
+description: See the next priorities and the optional capabilities planned for UltimaBase.
 audience:
   - application-developer
   - plugin-author
   - operator
 contentType: reference
-outcome: Find proposed capabilities and their tracking issues without mistaking them for commitments.
+outcome: Identify upcoming priorities and proposed capabilities without mistaking plans for shipped behavior or release commitments.
 owner: '2822'
 releaseStatus: pre-release
-reviewedAt: 2026-09-17
+reviewedAt: 2026-09-18
 sources:
   - README.md
   - ROADMAP.md
+  - CURRENT_PLAN.md
   - issues/README.md
+  - issues/700-extensions/705-file-plugin.md
   - issues/700-extensions/707-better-auth-plugin.md
   - issues/700-extensions/708-realtime-contract.md
   - issues/700-extensions/709-realtime-memory-adapter.md
@@ -24,39 +26,121 @@ sources:
   - issues/700-extensions/727-admin-app.md
 ---
 
-This page covers possible future capabilities. For what exists in the
-repository today, see [Release Status](./release-status) and the owning Core or
-plugin documentation.
+import {
+	Braces,
+	Database,
+	FileCode2,
+	FileUp,
+	KeyRound,
+	LayoutDashboard,
+	ListTodo,
+	Radio,
+} from 'lucide-react'
 
-## Planned capabilities
+UltimaBase already has schemas, typed data operations, PostgreSQL, and optional
+REST, GraphQL, and password authentication in the repository. See
+[Release Status](./release-status) for what you can evaluate today. The cards
+below show what comes next and the later directions tracked in the issue backlog.
 
-The linked issues are **planned**, not implemented or scheduled. Each issue
-defines a narrower scope and dependencies than this overview can show.
+<Callout type="info" title="Current focus">
+	Files and caching are the next two priorities. Both need design work before
+	implementation begins; the linked issues are still marked planned.
+</Callout>
 
-- **Realtime:** Define post-commit events and an optional local adapter.
-  Tracked by the [event contract](https://github.com/MrEkinox/ultimadatabase/blob/main/issues/700-extensions/708-realtime-contract.md)
-  and [memory adapter](https://github.com/MrEkinox/ultimadatabase/blob/main/issues/700-extensions/709-realtime-memory-adapter.md) issues.
-- **Background jobs:** Run asynchronous work through an optional
-  [BullMQ plugin](https://github.com/MrEkinox/ultimadatabase/blob/main/issues/700-extensions/712-bullmq-jobs.md).
-- **Caching:** Cache query results without bypassing access rules or serving
-  stale private data. Tracked by [cache contracts and invalidation](https://github.com/MrEkinox/ultimadatabase/blob/main/issues/700-extensions/713-cache-plugin.md).
-- **API tooling:** Generate an [OpenAPI description](https://github.com/MrEkinox/ultimadatabase/blob/main/issues/700-extensions/715-openapi-generator.md)
-  and a [TypeScript SDK](https://github.com/MrEkinox/ultimadatabase/blob/main/issues/700-extensions/719-typescript-sdk.md)
-  through separate work.
-- **Authentication:** Offer [Better Auth](https://github.com/MrEkinox/ultimadatabase/blob/main/issues/700-extensions/707-better-auth-plugin.md)
-  as an optional integration.
-- **Administration:** Provide a separately deployed
-  [admin application](https://github.com/MrEkinox/ultimadatabase/blob/main/issues/700-extensions/727-admin-app.md)
-  using public APIs and explicit Master authority.
+## Next priorities
+
+<Cards>
+	<Card
+		title="File fields"
+		description="Attach files to a schema through a typed field."
+		icon={<FileUp />}
+		className="border-fd-primary/40 bg-fd-primary/5"
+		href="https://github.com/MrEkinox/ultimadatabase/blob/main/issues/700-extensions/705-file-plugin.md"
+	>
+		An optional plugin is planned for file metadata, upload authorization, and
+		storage adapters. The field API and blob lifecycle still need design review.
+	</Card>
+	<Card
+		title="Caching"
+		description="Faster reads that respect application access rules."
+		icon={<Database />}
+		className="border-fd-primary/40 bg-fd-primary/5"
+		href="https://github.com/MrEkinox/ultimadatabase/blob/main/issues/700-extensions/713-cache-plugin.md"
+	>
+		The planned cache contracts must account for private data and invalidate
+		after committed mutations. The cache design is not final.
+	</Card>
+</Cards>
+
+## Further ahead
+
+These are separate planned tracks. Their issues describe dependencies and
+boundaries; the order shown here is not a delivery sequence.
+
+<Cards>
+	<Card
+		title="Realtime"
+		description="Post-commit events and a local adapter for development."
+		icon={<Radio />}
+		href="https://github.com/MrEkinox/ultimadatabase/blob/main/issues/700-extensions/708-realtime-contract.md"
+	>
+		First define safe events and subscription boundaries, then an isolated
+		in-memory adapter.
+	</Card>
+	<Card
+		title="Background jobs"
+		description="Asynchronous work through an optional BullMQ plugin."
+		icon={<ListTodo />}
+		href="https://github.com/MrEkinox/ultimadatabase/blob/main/issues/700-extensions/712-bullmq-jobs.md"
+	>
+		Job handlers retain explicit request authority, with retry and idempotency
+		metadata.
+	</Card>
+	<Card
+		title="OpenAPI"
+		description="An API description generated from schema and REST metadata."
+		icon={<FileCode2 />}
+		href="https://github.com/MrEkinox/ultimadatabase/blob/main/issues/700-extensions/715-openapi-generator.md"
+	>
+		API tooling should describe the installed application, without a second API
+		definition to maintain.
+	</Card>
+	<Card
+		title="TypeScript SDK"
+		description="A typed client generated from application schemas."
+		icon={<Braces />}
+		href="https://github.com/MrEkinox/ultimadatabase/blob/main/issues/700-extensions/719-typescript-sdk.md"
+	>
+		A separate API tooling track for schema-derived inputs, selected results,
+		cursors, and errors.
+	</Card>
+	<Card
+		title="More authentication"
+		description="An optional Better Auth integration."
+		icon={<KeyRound />}
+		href="https://github.com/MrEkinox/ultimadatabase/blob/main/issues/700-extensions/707-better-auth-plugin.md"
+	>
+		Separate from the existing Password Auth plugin, using shared HTTP and
+		application capabilities.
+	</Card>
+	<Card
+		title="Administration"
+		description="A separate app for managing an UltimaBase backend."
+		icon={<LayoutDashboard />}
+		href="https://github.com/MrEkinox/ultimadatabase/blob/main/issues/700-extensions/727-admin-app.md"
+	>
+		Built on public APIs, with explicit audited Master authority for privileged
+		actions.
+	</Card>
+</Cards>
 
 ## Planned is not shipped
 
-These issues do not establish a release date, implementation order, or final
-API. Work may change scope or be deferred after dependency and design review.
-There is no announced next-release feature list. Do not base an application on
-a planned capability until its owning documentation describes shipped behavior.
+The issues above do not establish a release date, implementation order, or
+final API. There is no announced next-release feature list. Work may change
+scope or be deferred after dependency and design review.
 
 The [milestone plan](https://github.com/MrEkinox/ultimadatabase/blob/main/ROADMAP.md)
 and [issue backlog](https://github.com/MrEkinox/ultimadatabase/tree/main/issues)
-carry the complete engineering context. To suggest a change or help with an
-existing issue, see [Contributing](./contributing).
+carry the full engineering context. To suggest a change or help with an issue,
+see [Contributing](./contributing).
