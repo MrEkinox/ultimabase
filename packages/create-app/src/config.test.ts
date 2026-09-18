@@ -142,7 +142,9 @@ describe('initializer flags', () => {
 	})
 
 	it('detects only an unambiguous invoking manager', () => {
+		expect(detectPackageManager('npm/11.0.0 node/v24')).toBe('npm')
 		expect(detectPackageManager('yarn/4.9.2 npm/? node/v24')).toBe('yarn')
+		expect(detectPackageManager('pnpm/10.0.0 npm/? node/v24')).toBe('pnpm')
 		expect(detectPackageManager('unknown/1')).toBeUndefined()
 	})
 })

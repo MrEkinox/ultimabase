@@ -177,11 +177,24 @@ const capabilityNotes = (plan: InitializerPlan): string[] => [
 	...(plan.plugins.includes('password-auth-plugin')
 		? ['Password Auth adds identity and sessions, not CRUD permission.']
 		: []),
+	...(plan.plugins.includes('password-auth-plugin') &&
+	(plan.plugins.includes('rest-plugin') ||
+		plan.plugins.includes('graphql-plugin'))
+		? [
+				'Only the exact Password Auth operations are added to the selected API allowlists; add online-attempt defenses before public deployment.',
+			]
+		: []),
 	...(plan.plugins.includes('graphiql-plugin') ||
 	plan.plugins.includes('apollo-sandbox-plugin')
 		? ['Explorers and introspection are development-only.']
 		: []),
-	...(plan.apis.length > 0
+	...(plan.plugins.includes('rest-plugin') ||
+	plan.plugins.includes('graphql-plugin')
+		? [
+				'Task API mutations are disabled; acknowledging unverified public protection does not establish authorization.',
+			]
+		: []),
+	...(plan.plugins.includes('server-hono-plugin')
 		? ['HTTP binds to 127.0.0.1; API requests need the exact application ID.']
 		: []),
 	...(plan.starter === 'empty'
@@ -193,7 +206,16 @@ export const formatPlan = (plan: InitializerPlan): string =>
 	[
 		`Destination: ${plan.destination}`,
 		`Language: ${plan.language === 'ts' ? 'TypeScript + automatic Typegen' : 'JavaScript (no Typegen)'}`,
-		`HTTP APIs: ${plan.apis.join(', ') || 'none; direct application calls'}`,
+		`Data APIs: ${
+			[
+				...(plan.plugins.includes('rest-plugin') ? ['REST'] : []),
+				...(plan.plugins.includes('graphql-yoga-plugin')
+					? ['GraphQL over HTTP']
+					: plan.plugins.includes('graphql-plugin')
+						? ['direct GraphQL']
+						: []),
+			].join(', ') || 'none; direct application calls'
+		}`,
 		`Plugins: ${plan.plugins.map((id) => `@ultimabase/${id}${plan.automaticPlugins.includes(id) ? ' (included)' : ''}`).join(', ')}`,
 		`Starter: ${plan.starter}; database: ${plan.database}; manager: ${plan.packageManager}`,
 		`Install dependencies: ${plan.install ? 'yes' : 'no'}`,

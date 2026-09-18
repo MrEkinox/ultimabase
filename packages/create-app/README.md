@@ -1,7 +1,8 @@
 # @ultimabase/create-app
 
-The standalone UltimaBase project initializer. Its proposed npm entry point is
-`npm create @ultimabase/app@latest`; the package has not been published.
+The standalone UltimaBase project initializer. Its proposed entry points are
+`npm create @ultimabase/app@latest`, `yarn dlx @ultimabase/create-app@latest`,
+and `pnpm dlx @ultimabase/create-app@latest`. The package has not been published.
 
 The interactive and flag-only selection flows normalize to one project plan.
 The local executable now generates a PostgreSQL project in TypeScript
@@ -21,8 +22,21 @@ disposable instance or a generated local Docker Compose service. Security
 choices configure a development Master audit and require a private key in an
 ignored `.env`. Docker mode generates that key locally; existing-database mode
 requires replacing the `.env.example` placeholder. No security plugin adds a
-public route by itself. Later milestone 29 issues add API plugin composition,
-packed-project verification, and the full Quick Start journey.
+public route by itself.
+
+The API selector now composes REST or GraphQL over HTTP with the HTTP boundary
+and a managed Hono listener on `127.0.0.1:1337`. Advanced choices can install
+HTTP without a listener, network-independent GraphQL, or a development-only
+GraphiQL or Apollo Sandbox page. Introspection is enabled only for a selected
+explorer in development. Generated Task routes are read-only by default, and
+internal member and role schemas remain off generated routes. Selecting
+Password Auth together with REST or GraphQL adds its four exact operations to
+that protocol's allowlist; a valid session still grants no Task permission.
+The application ID header is required, browser-origin access and HTTP Master
+keys remain disabled, and acknowledging unverified public protection is not a
+security policy. The generated README gives exact local request examples and
+deployment boundaries. Later milestone 29 issues add packed-project
+verification and the full Quick Start journey.
 
 Run the built local executable with `node dist/cli.js --help`, or generate a
 base project with `node dist/cli.js --name notes --yes --no-install`. The
@@ -30,9 +44,8 @@ selection validates npm package names, available plugin IDs, plugin
 prerequisites, and a new destination. The grouped prompt includes all 16
 official plugins; Typegen is automatic for TypeScript and absent for
 JavaScript. `--yes` accepts the documented defaults and never authorizes
-overwriting an existing target. Unsupported API choices currently fail with an
-explicit message before any files are written while their templates are
-implemented in the next issue.
+overwriting an existing target. Incompatible selections fail before any files
+are written.
 
 The project generator is not ready for application setup until milestone 29
 closes.

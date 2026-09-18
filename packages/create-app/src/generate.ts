@@ -26,6 +26,13 @@ const implementedPlugins = new Set([
 	'acl-permissions-plugin',
 	'password-auth-plugin',
 	'roles-plugin',
+	'http-plugin',
+	'server-hono-plugin',
+	'rest-plugin',
+	'graphql-plugin',
+	'graphql-yoga-plugin',
+	'graphiql-plugin',
+	'apollo-sandbox-plugin',
 ])
 
 export interface ProjectGenerationOptions {

@@ -1,5 +1,6 @@
 import type { PluginId } from './catalog.js'
 import type { InitializerPlan } from './config.js'
+import { privateSchemaApiOptions } from './api-template.js'
 
 const securityIds: readonly PluginId[] = [
 	'access-plugin',
@@ -45,6 +46,7 @@ export const AppUser = PasswordUserSchema.define({
 		declarations.push(`// A local member model keeps Roles useful without installing authentication.
 export const Member = Schema.define({
   className: 'Member',
+${privateSchemaApiOptions(plan)}
   fields: (f) => ({ name: f.string({ required: true }) }),
 })`)
 	}
@@ -56,6 +58,7 @@ export const Member = Schema.define({
 		declarations.push(`// Role membership is data, not an authorization grant by itself.
 export const AppRole = RoleSchema.define({
   className: 'Role',
+${privateSchemaApiOptions(plan)}
   members: { schema: ${member}${resolveCurrent} },
   deletion: { references: 'fail' },
   fields: (f) => ({ description: f.string() }),

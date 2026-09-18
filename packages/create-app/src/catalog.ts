@@ -114,6 +114,7 @@ export const isPluginId = (value: string): value is PluginId =>
 export const pluginDependencies: Readonly<
 	Partial<Record<PluginId, readonly PluginId[]>>
 > = {
+	'server-hono-plugin': ['http-plugin'],
 	'rest-plugin': ['http-plugin', 'server-hono-plugin'],
 	'graphql-yoga-plugin': [
 		'graphql-plugin',

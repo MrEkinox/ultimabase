@@ -107,13 +107,19 @@ describe('project generation', () => {
 		expect(existsSync(plan.destination)).toBe(true)
 	})
 
-	it('rejects optional selections before writing until their templates land', async () => {
+	it('rejects an empty GraphQL graph before writing', () => {
 		const cwd = root()
-		const plan = resolveSelection(
-			{ name: 'notes', plugins: ['http-plugin'], install: false },
-			cwd,
-		)
-		await expect(createProject(plan)).rejects.toThrow('not implemented yet')
+		expect(() =>
+			resolveSelection(
+				{
+					name: 'notes',
+					starter: 'empty',
+					plugins: ['graphql-plugin'],
+					install: false,
+				},
+				cwd,
+			),
+		).toThrow('requires at least one public query field')
 		expect(readdirSync(cwd)).toEqual([])
 	})
 

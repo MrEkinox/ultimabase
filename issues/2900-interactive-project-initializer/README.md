@@ -15,7 +15,7 @@ authority for every generated application.
 3. [x] [2903 — Generate the base TypeScript and JavaScript projects](2903-base-project-templates.md)
 4. [x] [2904 — Compose data and behavior plugins](2904-data-behavior-plugin-templates.md)
 5. [x] [2905 — Compose security plugins safely](2905-security-plugin-templates.md)
-6. [ ] [2906 — Compose HTTP, API, and explorer plugins](2906-api-plugin-templates.md)
+6. [x] [2906 — Compose HTTP, API, and explorer plugins](2906-api-plugin-templates.md)
 7. [ ] [2907 — Verify packaged generated projects](2907-packaged-validation.md)
 8. [ ] [2908 — Document the complete Quick Start journey](2908-quick-start-documentation.md)
 

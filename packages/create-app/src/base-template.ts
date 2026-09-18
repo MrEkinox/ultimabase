@@ -3,6 +3,14 @@ import path from 'node:path'
 import type { PluginId } from './catalog.js'
 import type { InitializerPlan, PackageManager } from './config.js'
 import {
+	apiApplicationImports,
+	apiDependencies,
+	apiNextCommands,
+	apiPluginEntries,
+	apiReadmeNotes,
+	hasHttpListener,
+} from './api-template.js'
+import {
 	needsMasterKey,
 	securityApplicationImports,
 	securityApplicationOption,
@@ -64,6 +72,7 @@ export const nextCommands = (plan: InitializerPlan): readonly string[] => [
 			]
 		: []),
 	scriptCommand(plan.packageManager, 'start'),
+	...apiNextCommands(plan),
 ]
 
 const applicationSource = (
@@ -71,6 +80,7 @@ const applicationSource = (
 ): string => `import { UltimaBase } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 ${securityApplicationImports(plan).join('\n')}
+${apiApplicationImports(plan).join('\n')}
 ${includes(plan, 'hooks-plugin') ? "import { hooksPlugin } from '@ultimabase/hooks-plugin'\n" : ''}
 ${includes(plan, 'pg-vector-plugin') ? "import { pgVectorPlugin } from '@ultimabase/pg-vector-plugin'\n" : ''}
 ${includes(plan, 'soft-delete-plugin') ? "import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'\n" : ''}
@@ -91,6 +101,9 @@ ${plan.typegen ? '    typegenPlugin(),\n' : ''}${includes(plan, 'hooks-plugin') 
 )
 	.map((entry) => `    ${entry},\n`)
 	.join('')}    postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
+${apiPluginEntries(plan)
+	.map((entry) => `    ${entry},\n`)
+	.join('')}
   ],
 })
 `
@@ -144,7 +157,17 @@ const mainSource = (
 
 try {
   await ultimabase.start()
-${plan.starter === 'task' ? taskCommand(plan) : "  console.log('UltimaBase is ready')\n"}} finally {
+${plan.starter === 'task' ? taskCommand(plan) : "  console.log('UltimaBase is ready')\n"}${
+	hasHttpListener(plan)
+		? `  console.log('Local API listening on http://127.0.0.1:1337')
+  // Keep the managed listener alive until the local process is stopped.
+  await new Promise${plan.language === 'ts' ? '<void>' : ''}((resolve) => {
+    process.once('SIGINT', () => resolve())
+    process.once('SIGTERM', () => resolve())
+  })
+`
+		: ''
+}} finally {
   await ultimabase.dispose()
 }
 `
@@ -212,6 +235,9 @@ ${includes(plan, 'hooks-plugin') && plan.starter === 'task' ? '- Hooks normalize
 ${securityReadmeNotes(plan)
 	.map((note) => `- ${note}`)
 	.join('\n')}
+${apiReadmeNotes(plan)
+	.map((note) => `- ${note}`)
+	.join('\n')}
 
 ## Run
 
@@ -236,6 +262,7 @@ export const renderBaseFiles = (
 		'@ultimabase/core': '^0.0.0',
 		'@ultimabase/postgres-plugin': '^0.0.0',
 		...securityDependencies(plan),
+		...apiDependencies(plan),
 		...(includes(plan, 'hooks-plugin')
 			? { '@ultimabase/hooks-plugin': '^0.0.0' }
 			: {}),

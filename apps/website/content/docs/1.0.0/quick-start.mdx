@@ -33,7 +33,7 @@ database for the first application.
 
 ## Mental model
 
-The intended entry point is a package-manager `create` command. It will
+The intended entry point is a package-manager command. It will
 initialize a project that you can inspect and edit, rather than changing how
 UltimaBase schemas, plugins, or Runtime work. The planned flow asks for
 TypeScript or JavaScript, REST and GraphQL HTTP APIs, official plugins, a Task
@@ -42,17 +42,30 @@ Typegen automatically; JavaScript does not.
 
 The local, unpublished implementation already supports the PostgreSQL base
 project plus Hooks, Validation, Soft Delete, PostgreSQL Vector, Password Auth,
-Access, Roles, and Object ACL selections. The Vector choice does not add
-persisted vector storage or search. Security choices configure local Master
-auditing, but identity and role membership alone do not grant data access.
-API and explorer templates are still in progress.
+Access, Roles, Object ACLs, REST, GraphQL, HTTP, Hono, GraphiQL, and Apollo
+Sandbox selections. The Vector choice does not add persisted vector storage
+or search. Security choices configure local Master auditing, but identity and
+role membership alone do not grant data access. Generated Task API routes are
+read-only by default; Password Auth operations are included only in an exact
+selected transport allowlist. The managed server binds to loopback, and
+explorers with introspection are development-only. This is a local setup
+template, not a reviewed public deployment policy.
 
 ### Automatic installation
 
-This is the proposed npm entry point, not a runnable setup instruction yet:
+These are the proposed package-manager entry points, not runnable setup
+instructions yet:
 
 ```bash tab="npm" tab-group="package-manager"
 npm create @ultimabase/app@latest
+```
+
+```bash tab="yarn" tab-group="package-manager"
+yarn dlx @ultimabase/create-app@latest
+```
+
+```bash tab="pnpm" tab-group="package-manager"
+pnpm dlx @ultimabase/create-app@latest
 ```
 
 ## Boundaries
