@@ -106,6 +106,14 @@ the page's release-line path. The Open menu links to the exact source file and
 offers external AI shortcuts; those shortcuts can read the page only after the
 site has a reachable public URL.
 
+`/llms.txt` lists the versioned documentation pages with descriptions and a
+pre-release reminder. `/llms-full.txt` combines their processed Markdown for
+tools that need one document. Per-page `.md` files convert callouts, cards,
+command tabs, file trees, and Mermaid diagrams into readable Markdown while the
+HTML pages keep the standard Fumadocs components. Preview builds still block
+crawlers through `robots.txt`; the public build switch above makes these routes
+available from the published origin.
+
 The documentation navigation begins with an `Introduction` sidebar separator:
 `Quick Start` previews the unavailable automatic initializer, `What is
 UltimaBase` explains the model, and `Manual Installation` is the complete

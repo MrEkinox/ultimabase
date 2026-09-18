@@ -105,4 +105,55 @@ describe('documentation page actions', () => {
 			await context.close()
 		}
 	})
+
+	it('publishes a navigable index and readable full documentation for AI readers', async () => {
+		const context = await browser?.newContext()
+		if (context === undefined) throw new Error('Browser did not start')
+
+		try {
+			const page = await context.newPage()
+			const indexResponse = await page.request.get(`${origin}/llms.txt`)
+			expect(indexResponse.status()).toBe(200)
+			expect(indexResponse.headers()['content-type']).toContain('text/plain')
+			const index = await indexResponse.text()
+			expect(index).toContain('# UltimaBase documentation')
+			expect(index).toContain('## Documentation index')
+			expect(index).toContain(
+				'[Read the complete documentation](/llms-full.txt)',
+			)
+			expect(index).toContain(
+				'[Manual Installation](/docs/1.0.0/manual-installation)',
+			)
+			expect(index).toContain(
+				'[Release Status](/docs/1.0.0/project/release-status)',
+			)
+			expect(index).toContain('[Roadmap](/docs/1.0.0/project/roadmap)')
+
+			const roadmapResponse = await page.request.get(
+				`${origin}/docs/1.0.0/project/roadmap.md`,
+			)
+			expect(roadmapResponse.status()).toBe(200)
+			expect(await roadmapResponse.text()).toContain(
+				'[File fields](https://github.com/MrEkinox/ultimadatabase/blob/main/issues/700-extensions/705-file-plugin.md)',
+			)
+
+			const fullResponse = await page.request.get(`${origin}/llms-full.txt`)
+			expect(fullResponse.status()).toBe(200)
+			expect(fullResponse.headers()['content-type']).toContain('text/plain')
+			const full = await fullResponse.text()
+			expect(full).toContain(
+				'# Manual Installation (/docs/1.0.0/manual-installation)',
+			)
+			expect(full).toContain('**npm**\n\n```bash\nmkdir ultimabase-first-app')
+			expect(full).toContain('- src/\n  - schema.ts')
+			expect(full).toContain(
+				'[File fields](https://github.com/MrEkinox/ultimadatabase/blob/main/issues/700-extensions/705-file-plugin.md)',
+			)
+			expect(full).toContain('```mermaid\nflowchart')
+			expect(full).not.toContain('\0')
+			expect(full).not.toMatch(/<(?:Callout|Cards|CodeBlockTabs|Mermaid)\b/u)
+		} finally {
+			await context.close()
+		}
+	})
 })

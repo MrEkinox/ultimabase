@@ -6,7 +6,21 @@ export const docs = defineDocs({
 	dir: 'content/docs',
 	docs: {
 		postprocess: {
-			includeProcessedMarkdown: true,
+			includeProcessedMarkdown: {
+				mdxAsPlaceholder: [
+					'Callout',
+					'Card',
+					'Cards',
+					'CodeBlockTab',
+					'CodeBlockTabs',
+					'CodeBlockTabsList',
+					'CodeBlockTabsTrigger',
+					'File',
+					'Files',
+					'Folder',
+					'Mermaid',
+				],
+			},
 		},
 		schema: documentationPageSchema,
 	},
