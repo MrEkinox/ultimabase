@@ -1,4 +1,6 @@
 import { ImageResponse } from 'next/og'
+import { readFile } from 'node:fs/promises'
+import { join } from 'node:path'
 import type { ReactNode } from 'react'
 
 import { BrandMark } from '../../components/brand-mark'
@@ -8,22 +10,24 @@ export const alt =
 export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
 
-const blue = '#a9c6ff'
-const ink = '#f3f6ff'
-const muted = '#adb8ca'
+const blue = '#2055d6'
+const ink = '#172135'
+const muted = '#526079'
+const soft = '#edf3ff'
+const line = '#d6dfef'
 
 function Chip({ label, accent = false }: { label: string; accent?: boolean }) {
 	return (
 		<span
 			style={{
-				background: accent ? '#15233c' : '#090c12',
-				border: accent ? '1px solid #385483' : '1px solid #323d4f',
+				background: accent ? soft : '#f9fafc',
+				border: accent ? '1px dashed #a9bef0' : `1px solid ${line}`,
 				borderRadius: 5,
 				color: accent ? blue : muted,
 				display: 'flex',
 				fontFamily: 'monospace',
-				fontSize: 14,
-				padding: '6px 9px',
+				fontSize: 16,
+				padding: '6px 10px',
 			}}
 		>
 			{label}
@@ -43,14 +47,14 @@ function EquationCard({
 	return (
 		<div
 			style={{
-				background: '#12151b',
-				border: '1px solid #485875',
+				background: '#ffffff',
+				border: '1px solid #adc2f0',
 				borderRadius: 12,
-				boxShadow: '0 5px 0 #1b2a47',
+				boxShadow: '0 5px 0 #dae5fa',
 				color: ink,
 				display: 'flex',
 				flexDirection: 'column',
-				padding: '20px 22px',
+				padding: '21px 22px',
 				width: '100%',
 			}}
 		>
@@ -58,8 +62,8 @@ function EquationCard({
 				style={{
 					alignItems: 'center',
 					display: 'flex',
-					fontSize: 21,
-					fontWeight: 700,
+					fontSize: 23,
+					fontWeight: 600,
 					gap: 12,
 				}}
 			>
@@ -82,16 +86,22 @@ function EquationCard({
 	)
 }
 
-/** Mirror the hero's dark palette, coordinate field, and schema/plugin model. */
-export default function OpenGraphImage() {
+/** Render the share card from bundled font files so its weights survive static generation. */
+export default async function OpenGraphImage() {
+	const fontDirectory = join(process.cwd(), 'assets', 'share-image')
+	const [regular, semibold] = await Promise.all([
+		readFile(join(fontDirectory, 'Inter-Regular.ttf')),
+		readFile(join(fontDirectory, 'Inter-SemiBold.ttf')),
+	])
+
 	return new ImageResponse(
 		<div
 			style={{
-				background: '#0b101a',
+				background: soft,
 				color: ink,
 				display: 'flex',
 				flexDirection: 'column',
-				fontFamily: 'sans-serif',
+				fontFamily: 'Inter',
 				height: '100%',
 				overflow: 'hidden',
 				padding: '42px 52px',
@@ -105,7 +115,7 @@ export default function OpenGraphImage() {
 						alignItems: 'center',
 						background: blue,
 						borderRadius: 7,
-						color: '#0b101a',
+						color: '#ffffff',
 						display: 'flex',
 						height: 40,
 						justifyContent: 'center',
@@ -114,7 +124,7 @@ export default function OpenGraphImage() {
 				>
 					<BrandMark size={29} />
 				</div>
-				<span style={{ fontSize: 23, fontWeight: 700, letterSpacing: -0.6 }}>
+				<span style={{ fontSize: 24, fontWeight: 600, letterSpacing: -0.6 }}>
 					UltimaBase
 				</span>
 			</div>
@@ -131,7 +141,7 @@ export default function OpenGraphImage() {
 						style={{
 							color: blue,
 							fontFamily: 'monospace',
-							fontSize: 16,
+							fontSize: 17,
 							letterSpacing: 1.7,
 							marginBottom: 27,
 						}}
@@ -141,7 +151,7 @@ export default function OpenGraphImage() {
 					<div
 						style={{
 							fontSize: 68,
-							fontWeight: 700,
+							fontWeight: 600,
 							letterSpacing: -4.4,
 							lineHeight: 1.02,
 						}}
@@ -152,7 +162,7 @@ export default function OpenGraphImage() {
 						style={{
 							color: blue,
 							fontSize: 68,
-							fontWeight: 700,
+							fontWeight: 600,
 							letterSpacing: -4.4,
 							lineHeight: 1.02,
 						}}
@@ -164,7 +174,7 @@ export default function OpenGraphImage() {
 							color: muted,
 							display: 'flex',
 							flexDirection: 'column',
-							fontSize: 23,
+							fontSize: 22,
 							lineHeight: 1.4,
 							marginTop: 27,
 						}}
@@ -177,7 +187,7 @@ export default function OpenGraphImage() {
 							alignItems: 'center',
 							color: muted,
 							display: 'flex',
-							fontSize: 15,
+							fontSize: 17,
 							gap: 10,
 							marginTop: 36,
 						}}
@@ -191,7 +201,7 @@ export default function OpenGraphImage() {
 							}}
 						/>
 						Open source · Pre-release{' '}
-						<span style={{ color: '#485875' }}>/</span> Node.js 24+
+						<span style={{ color: '#9aaccb' }}>/</span> Node.js 24+
 					</div>
 				</div>
 				<div
@@ -206,7 +216,7 @@ export default function OpenGraphImage() {
 					<div
 						style={{
 							fontFamily: 'monospace',
-							fontSize: 13,
+							fontSize: 15,
 							letterSpacing: 1.6,
 							marginBottom: 17,
 						}}
@@ -251,8 +261,8 @@ export default function OpenGraphImage() {
 					<div
 						style={{
 							display: 'flex',
-							fontSize: 19,
-							fontWeight: 650,
+							fontSize: 20,
+							fontWeight: 600,
 							gap: 9,
 							marginTop: 17,
 						}}
@@ -262,6 +272,12 @@ export default function OpenGraphImage() {
 				</div>
 			</div>
 		</div>,
-		size,
+		{
+			...size,
+			fonts: [
+				{ name: 'Inter', data: regular, weight: 400, style: 'normal' },
+				{ name: 'Inter', data: semibold, weight: 600, style: 'normal' },
+			],
+		},
 	)
 }
