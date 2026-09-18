@@ -60,6 +60,9 @@ developer reads their exports.
 
 ## Development tooling
 
+- `create-app`: standalone interactive project initializer. During milestone
+  29 it previews a validated selection; it is not published or ready to
+  generate an application yet.
 - `typegen`: static application loading, deterministic compact schema
   declarations, plugin contributions, fingerprints, and atomic output
   replacement. It emits no generated Runtime client.
