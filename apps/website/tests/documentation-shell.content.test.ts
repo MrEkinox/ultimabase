@@ -108,7 +108,7 @@ function headingAnchors(source: string): ReadonlySet<string> {
 describe('public documentation content contract', () => {
 	it('keeps version configuration explicit and canonical URLs versioned', async () => {
 		expect(documentationVersions).toEqual([
-			{ label: 'Version 1.0.0', slug: '1.0.0' },
+			{ label: 'Version 1.0.0', slug: '1.0.0', status: 'pre-release' },
 		])
 		expect(currentDocumentationVersion.slug).toBe('1.0.0')
 		expect(documentationPath('core/reading-data/overview')).toBe(

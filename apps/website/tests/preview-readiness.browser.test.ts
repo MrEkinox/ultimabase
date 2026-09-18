@@ -44,12 +44,12 @@ describe('website preview audit', () => {
 			await page.goto(`${origin}/docs/1.0.0`)
 			const versionSelector = page
 				.locator('#nd-sidebar')
-				.getByRole('button', { exact: true, name: 'Version 1.0.0' })
+				.getByRole('button', { exact: true, name: 'Version 1.0.0 Pre-release' })
 			await versionSelector.waitFor()
 			await versionSelector.click()
 			expect(
 				await page
-					.getByRole('link', { exact: true, name: 'Version 1.0.0' })
+					.getByRole('link', { exact: true, name: 'Version 1.0.0 Pre-release' })
 					.count(),
 			).toBe(1)
 			expect(await accessibilityViolations(page)).toEqual([])

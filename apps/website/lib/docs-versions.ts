@@ -1,11 +1,12 @@
 export interface DocumentationVersion {
 	readonly label: string
 	readonly slug: string
+	readonly status: 'pre-release' | 'stable'
 }
 
-/** Supported documentation lines, newest first. */
+/** Supported documentation lines and their reader-visible status, newest first. */
 export const documentationVersions = Object.freeze([
-	{ label: 'Version 1.0.0', slug: '1.0.0' },
+	{ label: 'Version 1.0.0', slug: '1.0.0', status: 'pre-release' },
 ] as const satisfies readonly DocumentationVersion[])
 
 export type DocumentationVersionSlug =

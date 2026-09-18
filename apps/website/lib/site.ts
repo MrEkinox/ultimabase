@@ -1,8 +1,12 @@
-import { currentDocumentationPath } from './docs-versions'
+import {
+	currentDocumentationPath,
+	currentDocumentationVersion,
+	type DocumentationVersion,
+} from './docs-versions'
 
 const developmentUrl = 'http://localhost:3000'
 
-export type SiteReleaseStatus = 'pre-release'
+export type SiteReleaseStatus = DocumentationVersion['status']
 
 export interface SiteNavigationItem {
 	readonly href: string
@@ -75,7 +79,7 @@ export const siteConfig = Object.freeze({
 		{ href: routes.plugins, label: 'Plugins' },
 	]),
 	preview,
-	releaseStatus: 'pre-release',
+	releaseStatus: currentDocumentationVersion.status,
 	repositoryUrl,
 	sourceExampleUrl,
 	sourceRepository,
