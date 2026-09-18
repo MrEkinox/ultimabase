@@ -85,6 +85,13 @@ Concepts and Status routes plus the global Plugins entry; corrective issues
 2821 and 2822 closed that sitemap-parity gap. The completed plan retains the
 approved sitemap and verification record.
 
+[Milestone 29](issues/2900-interactive-project-initializer/README.md) plans a
+separate interactive project initializer. It will generate runnable TypeScript
+or JavaScript UltimaBase applications from the current official plugin catalog,
+configure Typegen only for TypeScript, and keep the general `ultimabase` CLI in
+its existing deferred backlog. No initializer package is implemented or
+published yet.
+
 The ACL hardening plan remains paused at issue 432. It is not part of an active
 plan.
 
@@ -354,6 +361,16 @@ future code changes classify their public-documentation impact and update
 affected pages when necessary. It deliberately leaves the final product name,
 domain, hosting provider, analytics, CMS, blog, pricing, and public deployment
 for later decisions.
+
+## Milestone 29 — Interactive project initializer
+
+Create a scoped `@ultimabase/create-app` package for a question-by-question
+project setup with equivalent non-interactive options. Generate one runnable
+PostgreSQL application in TypeScript or JavaScript, offer the current official
+plugins with valid composition and honest capability limits, and verify the
+packed initializer before the Quick Start can present it as available. This
+milestone does not implement the deferred general `ultimabase` command, Typegen
+watch mode, or an npm release.
 
 ## First usable release
 

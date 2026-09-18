@@ -7,8 +7,8 @@ priority changes.
 
 ## Active
 
-- [Public website and documentation foundation](../../CURRENT_PLAN.md),
-  currently implementing issue 2809.
+- [Interactive project initializer](../../CURRENT_PLAN.md), planned; implementation
+  has not started.
 
 ## Paused
 
@@ -17,6 +17,7 @@ priority changes.
 
 ## Completed
 
+- [Public website and documentation foundation](completed/public-website-and-documentation-foundation.md)
 - [Contextual relation filters](completed/contextual-relation-filters.md)
 - [Plugin-defined schema mutations and official soft delete](completed/plugin-defined-schema-mutations-and-official-soft-delete.md)
 - [Contextual fields and virtual results](completed/contextual-fields-and-virtual-results.md)

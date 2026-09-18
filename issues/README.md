@@ -86,6 +86,7 @@ consistent without rewriting historical issue prose.
 - [`2600-plugin-schema-mutations-soft-delete/`](2600-plugin-schema-mutations-soft-delete/README.md)
 - [`2700-contextual-relation-filters/`](2700-contextual-relation-filters/README.md)
 - [`2800-public-website-documentation/`](2800-public-website-documentation/README.md)
+- [`2900-interactive-project-initializer/`](2900-interactive-project-initializer/README.md)
 
 ## Assignment prompt
 
