@@ -110,7 +110,7 @@ describe('project generation', () => {
 	it('rejects optional selections before writing until their templates land', async () => {
 		const cwd = root()
 		const plan = resolveSelection(
-			{ name: 'notes', plugins: ['hooks-plugin'], install: false },
+			{ name: 'notes', plugins: ['access-plugin'], install: false },
 			cwd,
 		)
 		await expect(createProject(plan)).rejects.toThrow('not implemented yet')

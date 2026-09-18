@@ -1,8 +1,12 @@
 import path from 'node:path'
 
+import type { PluginId } from './catalog.js'
 import type { InitializerPlan, PackageManager } from './config.js'
 
 export type ProjectFiles = ReadonlyMap<string, string>
+
+const includes = (plan: InitializerPlan, id: PluginId): boolean =>
+	plan.plugins.includes(id)
 
 const scriptCommand = (
 	manager: PackageManager,
@@ -38,6 +42,10 @@ const applicationSource = (
 	plan: InitializerPlan,
 ): string => `import { UltimaBase } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
+${includes(plan, 'hooks-plugin') ? "import { hooksPlugin } from '@ultimabase/hooks-plugin'\n" : ''}
+${includes(plan, 'pg-vector-plugin') ? "import { pgVectorPlugin } from '@ultimabase/pg-vector-plugin'\n" : ''}
+${includes(plan, 'soft-delete-plugin') ? "import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'\n" : ''}
+${includes(plan, 'validation-plugin') ? "import { validationPlugin } from '@ultimabase/validation-plugin'\n" : ''}
 ${plan.typegen ? "import { typegenPlugin } from '@ultimabase/typegen'\n" : ''}
 ${plan.starter === 'task' ? "import { Task } from './schema.js'\n" : ''}
 const databaseUrl = process.env.DATABASE_URL
@@ -47,7 +55,7 @@ if (databaseUrl === undefined) throw new TypeError('DATABASE_URL is required')
 export const ultimabase = new UltimaBase({
   schemas: [${plan.starter === 'task' ? 'Task' : ''}],
   plugins: [
-${plan.typegen ? '    typegenPlugin(),\n' : ''}    postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
+${plan.typegen ? '    typegenPlugin(),\n' : ''}${includes(plan, 'hooks-plugin') ? '    hooksPlugin(),\n' : ''}${includes(plan, 'pg-vector-plugin') ? '    pgVectorPlugin(),\n' : ''}${includes(plan, 'soft-delete-plugin') ? "    softDeletePlugin({ defaultMode: 'disabled' }),\n" : ''}${includes(plan, 'validation-plugin') ? '    validationPlugin(),\n' : ''}    postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
   ],
 })
 `
@@ -55,12 +63,16 @@ ${plan.typegen ? '    typegenPlugin(),\n' : ''}    postgresPlugin({ schemaPolicy
 const schemaSource = (plan: InitializerPlan): string =>
 	plan.starter === 'task'
 		? `import { Schema } from '@ultimabase/core'
+${includes(plan, 'validation-plugin') ? "import { z } from 'zod'" : ''}
 
 // The same declaration drives TypeScript inference and Runtime validation.
 export const Task = Schema.define({
   className: 'Task',
+${includes(plan, 'soft-delete-plugin') ? "  softDelete: 'replace-delete',\n" : ''}
   fields: (f) => ({
-    title: f.string({ required: true }),
+    title: f.string({
+      required: true,
+${includes(plan, 'hooks-plugin') ? '      hooks: { resolveInput: ({ value }) => value?.trim() ?? null },\n' : ''}${includes(plan, 'validation-plugin') ? '      validation: z.string().min(1).max(200),\n' : ''}    }),
     done: f.boolean({ default: false }),
   }),
 })
@@ -139,6 +151,7 @@ ${plan.starter === 'task' ? 'The Task starter writes one record on each run.' : 
 ${plan.database === 'docker' ? '- Docker Compose. Run docker compose up -d to start the disposable local PostgreSQL 17 service. Its credentials live only in the ignored .env file.' : '- A dedicated disposable PostgreSQL database. Copy .env.example to .env and set DATABASE_URL; the initializer does not create your database.'}
 - The application uses direct schema synchronization with override for a disposable development database. Do not point it at production or shared data.
 ${plan.typegen ? '- Typegen generates replaceable declarations before typecheck and build; it does not create a Runtime client or connect to PostgreSQL.' : '- JavaScript runs the same application graph without Typegen or generated declarations.'}
+${includes(plan, 'hooks-plugin') && plan.starter === 'task' ? '- Hooks normalize Task titles before the database mutation.\n' : ''}${includes(plan, 'validation-plugin') && plan.starter === 'task' ? '- Validation rejects Task titles outside 1–200 characters after input resolution.\n' : ''}${includes(plan, 'soft-delete-plugin') && plan.starter === 'task' ? '- Soft Delete replaces native Task deletion with a recoverable tombstone. Restore and purge require separately configured trusted, audited Master access; this starter does not configure it.\n' : ''}${includes(plan, 'pg-vector-plugin') ? '- PostgreSQL Vector is installed for its logical value contract only. This starter does not persist vectors or offer vector search.\n' : ''}${plan.starter === 'empty' && plan.plugins.length > 1 ? '- Optional plugins are configured, but this empty application has no schema for schema-local behavior.\n' : ''}
 
 ## Run
 
@@ -152,7 +165,7 @@ ${nextCommands(plan)
 ${plan.database === 'docker' ? 'When finished, docker compose down -v removes the disposable database volume.' : 'Keep .env private. It is ignored by Git.'}
 `
 
-/** Render only the base PostgreSQL project; later issues add plugin families. */
+/** Render the PostgreSQL project with its currently supported plugin choices. */
 export const renderBaseFiles = (
 	plan: InitializerPlan,
 	dockerPassword?: string,
@@ -161,6 +174,21 @@ export const renderBaseFiles = (
 	const dependencies: Record<string, string> = {
 		'@ultimabase/core': '^0.0.0',
 		'@ultimabase/postgres-plugin': '^0.0.0',
+		...(includes(plan, 'hooks-plugin')
+			? { '@ultimabase/hooks-plugin': '^0.0.0' }
+			: {}),
+		...(includes(plan, 'pg-vector-plugin')
+			? { '@ultimabase/pg-vector-plugin': '^0.0.0' }
+			: {}),
+		...(includes(plan, 'soft-delete-plugin')
+			? { '@ultimabase/soft-delete-plugin': '^0.0.0' }
+			: {}),
+		...(includes(plan, 'validation-plugin')
+			? { '@ultimabase/validation-plugin': '^0.0.0' }
+			: {}),
+		...(includes(plan, 'validation-plugin') && plan.starter === 'task'
+			? { zod: '^4.4.3' }
+			: {}),
 		...(plan.typegen ? { '@ultimabase/typegen': '^0.0.0' } : {}),
 	}
 	const packageJson = {

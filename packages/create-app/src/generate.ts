@@ -15,6 +15,14 @@ import path from 'node:path'
 import { renderBaseFiles } from './base-template.js'
 import type { InitializerPlan, PackageManager } from './config.js'
 
+const implementedPlugins = new Set([
+	'postgres-plugin',
+	'hooks-plugin',
+	'pg-vector-plugin',
+	'soft-delete-plugin',
+	'validation-plugin',
+])
+
 export interface ProjectGenerationOptions {
 	readonly installDependencies?: (
 		directory: string,
@@ -56,10 +64,10 @@ export const createProject = async (
 	plan: InitializerPlan,
 	options: ProjectGenerationOptions = {},
 ): Promise<void> => {
-	const unsupported = plan.plugins.filter((id) => id !== 'postgres-plugin')
+	const unsupported = plan.plugins.filter((id) => !implementedPlugins.has(id))
 	if (unsupported.length > 0) {
 		throw new Error(
-			`Templates for ${unsupported.map((id) => `@ultimabase/${id}`).join(', ')} are not implemented yet. Choose the base PostgreSQL project for now.`,
+			`Templates for ${unsupported.map((id) => `@ultimabase/${id}`).join(', ')} are not implemented yet. Choose currently supported plugins for now.`,
 		)
 	}
 	const parent = path.dirname(plan.destination)

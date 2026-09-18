@@ -13,7 +13,7 @@ authority for every generated application.
 1. [x] [2901 — Decide the initializer contract](2901-initializer-contract.md)
 2. [x] [2902 — Build the interactive selection boundary](2902-interactive-selection.md)
 3. [x] [2903 — Generate the base TypeScript and JavaScript projects](2903-base-project-templates.md)
-4. [ ] [2904 — Compose data and behavior plugins](2904-data-behavior-plugin-templates.md)
+4. [x] [2904 — Compose data and behavior plugins](2904-data-behavior-plugin-templates.md)
 5. [ ] [2905 — Compose security plugins safely](2905-security-plugin-templates.md)
 6. [ ] [2906 — Compose HTTP, API, and explorer plugins](2906-api-plugin-templates.md)
 7. [ ] [2907 — Verify packaged generated projects](2907-packaged-validation.md)
