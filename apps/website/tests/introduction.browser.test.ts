@@ -41,7 +41,10 @@ describe('documentation sidebar', () => {
 				expect(await link.locator('svg').count()).toBe(1)
 			}
 			expect(
-				await page.getByText('Automatic setup is not yet available').count(),
+				await page.getByText('The initializer is not published').count(),
+			).toBe(1)
+			expect(
+				await page.getByRole('heading', { name: 'Expected result' }).count(),
 			).toBe(1)
 		} finally {
 			await context.close()

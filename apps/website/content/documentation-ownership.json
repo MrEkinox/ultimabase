@@ -9,7 +9,12 @@
 		{
 			"id": "project-initializer",
 			"packages": ["@ultimabase/create-app"],
-			"sections": ["quick-start", "reference"]
+			"sections": [
+				"quick-start",
+				"guides/generate-types",
+				"reference",
+				"project/release-status"
+			]
 		},
 		{
 			"id": "plugin-authoring-and-tooling",

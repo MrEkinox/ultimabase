@@ -394,16 +394,22 @@
 		{
 			"path": "/docs/1.0.0/quick-start",
 			"slug": "quick-start",
-			"contentType": "concept",
-			"outcome": "Understand the intended automatic setup and find the working manual installation path.",
-			"owner": "2806",
+			"contentType": "tutorial",
+			"outcome": "Understand the generated project's first-run path and use manual installation until packages are published.",
+			"owner": "2908",
 			"audiences": ["application-developer"],
 			"releaseStatus": "pre-release",
-			"sourceStatus": "partial",
+			"sourceStatus": "ready",
 			"sources": [
-				"README.md",
-				"apps/website/README.md",
-				"issues/2800-public-website-documentation/README.md"
+				"docs/adr/0249-interactive-project-initializer.md",
+				"packages/create-app/README.md",
+				"packages/create-app/src/cli.ts",
+				"packages/create-app/src/prompts.ts",
+				"packages/create-app/src/catalog.ts",
+				"packages/create-app/src/base-template.ts",
+				"packages/create-app/src/api-template.ts",
+				"packages/create-app/src/security-template.ts",
+				"tests/e2e/create-app-packed.e2e.test.ts"
 			]
 		},
 		{

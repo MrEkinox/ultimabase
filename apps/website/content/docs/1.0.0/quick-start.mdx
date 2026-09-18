@@ -1,60 +1,60 @@
 ---
 title: Quick Start
 icon: Rocket
-description: See the intended one-command UltimaBase setup and use the manual path until the initializer is available.
+description: Preview the interactive initializer, generated files, and first run of a PostgreSQL-backed UltimaBase application.
 audience:
   - application-developer
-contentType: concept
+contentType: tutorial
 order: 1
-outcome: Understand the intended automatic setup and find the working manual installation path.
-owner: '2806'
+outcome: Understand the generated project's first-run path and use manual installation until packages are published.
+owner: '2908'
 releaseStatus: pre-release
 reviewedAt: 2026-09-18
 sources:
-  - README.md
-  - apps/website/README.md
   - docs/adr/0249-interactive-project-initializer.md
   - packages/create-app/README.md
-  - issues/2800-public-website-documentation/README.md
+  - packages/create-app/src/cli.ts
+  - packages/create-app/src/prompts.ts
+  - packages/create-app/src/catalog.ts
+  - packages/create-app/src/base-template.ts
+  - packages/create-app/src/api-template.ts
+  - packages/create-app/src/security-template.ts
+  - tests/e2e/create-app-packed.e2e.test.ts
 ---
 
-<Callout type="warn" title="Automatic setup is not yet available">
-	The `@ultimabase/create-app` initializer has not been published. The command
-	below shows the intended release experience; it will not set up an UltimaBase
-	application today. To build one now, follow [Manual
-	Installation](/docs/1.0.0/manual-installation).
+<Callout type="warn" title="The initializer is not published">
+	These commands show the intended release experience. They cannot install
+	UltimaBase from the npm registry today. To run an application now, follow
+	[Manual Installation](/docs/1.0.0/manual-installation) or the [repository
+	example](https://github.com/MrEkinox/ultimadatabase/blob/main/examples/minimal/README.md).
 </Callout>
 
-## Context
+## What you will build
 
-The goal of Quick Start is to remove manual project setup when UltimaBase is
-released. You will still need Node.js 24 or newer and a disposable PostgreSQL
-database for the first application.
+The initializer creates a Node.js application with a `Task` schema,
+PostgreSQL persistence, and a start script that writes one Task. You choose
+TypeScript or JavaScript, optional HTTP APIs and plugins, and either a local
+Docker database or one you already run. The result is an ordinary project:
+you own its schema and application configuration.
 
-## Mental model
+## Prerequisites
 
-The intended entry point is a package-manager command. It will
-initialize a project that you can inspect and edit, rather than changing how
-UltimaBase schemas, plugins, or Runtime work. The planned flow asks for
-TypeScript or JavaScript, REST and GraphQL HTTP APIs, official plugins, a Task
-example or empty application, and a PostgreSQL setup. TypeScript includes
-Typegen automatically; JavaScript does not.
+- Node.js 24 or newer and npm, yarn, or pnpm.
+- For the path below, Docker Compose and a disposable local database.
+- For the existing-database path, a separate disposable PostgreSQL database
+  and its connection URL. The initializer does not create that database.
 
-The local, unpublished implementation already supports the PostgreSQL base
-project plus Hooks, Validation, Soft Delete, PostgreSQL Vector, Password Auth,
-Access, Roles, Object ACLs, REST, GraphQL, HTTP, Hono, GraphiQL, and Apollo
-Sandbox selections. The Vector choice does not add persisted vector storage
-or search. Security choices configure local Master auditing, but identity and
-role membership alone do not grant data access. Generated Task API routes are
-read-only by default; Password Auth operations are included only in an exact
-selected transport allowlist. The managed server binds to loopback, and
-explorers with introspection are development-only. This is a local setup
-template, not a reviewed public deployment policy.
+<Callout type="warn" title="Use only disposable data">
+	The generated application uses PostgreSQL's `override` schema policy for local
+	development. Do not point it at shared or production data.
+</Callout>
 
-### Automatic installation
+## Steps
 
-These are the proposed package-manager entry points, not runnable setup
-instructions yet:
+### 1. Start the initializer
+
+After publication, use the command for the package manager you want in the
+generated project:
 
 ```bash tab="npm" tab-group="package-manager"
 npm create @ultimabase/app@latest
@@ -68,15 +68,217 @@ yarn dlx @ultimabase/create-app@latest
 pnpm dlx @ultimabase/create-app@latest
 ```
 
-## Boundaries
+`npx @ultimabase/create-app@latest` will also launch the same package after
+publication. It detects npm as the invoking manager; add
+`--package-manager yarn` or `--package-manager pnpm` if that manager should
+install dependencies in the generated project.
 
-Do not assume an application has been generated or follow an unpublished
-initializer in production automation. The manual path documents the actual
-schema, PostgreSQL configuration, TypeScript setup, and lifecycle in full.
+### 2. Choose the project
 
-## Related tasks
+For a first run, answer the prompts as follows:
 
-- [Manual Installation](/docs/1.0.0/manual-installation) is the complete path
-  for building and running a first application today.
-- [What is UltimaBase](/docs/1.0.0) explains the schema-and-plugin model before
-  you choose a setup path.
+| Prompt                             | Choose                                | Effect                                                                                            |
+| ---------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Project name and destination       | `notes`; accept the `notes` directory | Creates a new directory. Existing paths are never overwritten.                                    |
+| Language                           | TypeScript                            | Includes Typegen before typecheck and build.                                                      |
+| How will clients access your data? | None                                  | Uses direct application calls; no HTTP listener. REST and GraphQL can be selected together later. |
+| Official plugins                   | No additional plugins                 | PostgreSQL is included automatically.                                                             |
+| Starter                            | Runnable Task example                 | Defines `Task` and writes one record on start.                                                    |
+| PostgreSQL                         | Local Docker Compose                  | Writes `compose.yaml` and a private `.env`.                                                       |
+| Install dependencies now?          | Yes                                   | Installs with the invoking package manager before creating the destination.                       |
+| Create this project?               | Yes                                   | Confirms the displayed plan.                                                                      |
+
+The summary identifies automatic dependencies. These are its key lines for
+the npm answers above:
+
+```text
+Language: TypeScript + automatic Typegen
+Data APIs: none; direct application calls
+Plugins: @ultimabase/postgres-plugin (included)
+Starter: task; database: docker; manager: npm
+Install dependencies: yes
+```
+
+The manager line reads `yarn` or `pnpm` when launched through those
+managers. Cancelling before confirmation leaves the destination untouched.
+
+The official plugin question groups all 16 shipped plugins. The earlier API
+answer and this selector share one selection:
+
+| Group            | Available choices                                                        |
+| ---------------- | ------------------------------------------------------------------------ |
+| Data & behavior  | PostgreSQL, Hooks, Validation, Soft Delete, PostgreSQL Vector            |
+| Security         | Password Auth, Access, Roles, Object ACLs                                |
+| HTTP & explorers | HTTP, Hono server, REST, GraphQL, GraphQL Yoga, GraphiQL, Apollo Sandbox |
+
+REST includes HTTP and Hono. GraphQL selected as an HTTP API includes
+GraphQL, Yoga, HTTP, and Hono. Advanced plugin choices can keep GraphQL
+network-independent or add a development-only explorer. See [Using
+Plugins](/docs/1.0.0/plugins/using-plugins) for the composition rules.
+
+### 3. Inspect the generated files
+
+The TypeScript and Docker choices above create:
+
+<Files>
+	<Folder name="src" defaultOpen>
+		<File name="schema.ts" />
+		<File name="ultimabase.ts" />
+		<File name="main.ts" />
+	</Folder>
+	<Folder name="scripts">
+		<File name="generate-types.mjs" />
+	</Folder>
+	<File name=".env" />
+	<File name=".env.example" />
+	<File name=".gitignore" />
+	<File name="compose.yaml" />
+	<File name="package.json" />
+	<File name="README.md" />
+	<File name="tsconfig.json" />
+</Files>
+
+`schema.ts` defines Task. `ultimabase.ts` composes Core, PostgreSQL, and
+Typegen in one graph. `main.ts` starts the application, writes a Task, and
+disposes it. The package depends on `@ultimabase/core`,
+`@ultimabase/postgres-plugin`, and `@ultimabase/typegen`; TypeScript and
+`@types/node` are development dependencies. Its scripts are:
+
+```json title="package.json — TypeScript scripts"
+{
+	"generate:types": "node --env-file=.env scripts/generate-types.mjs",
+	"typecheck": "node --env-file=.env scripts/generate-types.mjs && tsc --noEmit",
+	"build": "node --env-file=.env scripts/generate-types.mjs && tsc",
+	"start": "node --env-file=.env dist/main.js"
+}
+```
+
+Typecheck or build writes `.ultimabase/schema.generated.d.ts`. It is a
+replaceable declaration, not a Runtime client. The output is ignored by Git;
+regenerate it when schemas or plugins change. [Generate TypeScript
+Types](/docs/1.0.0/guides/generate-types) explains the contract.
+
+JavaScript instead writes `src/schema.js`, `src/ultimabase.js`, and
+`src/main.js`. It has no `tsconfig.json`, Typegen script, TypeScript
+dependency, or generated declaration. Its base dependencies are Core and
+PostgreSQL. With an existing database, its initial tree is:
+
+<Files>
+	<Folder name="src" defaultOpen>
+		<File name="schema.js" />
+		<File name="ultimabase.js" />
+		<File name="main.js" />
+	</Folder>
+	<File name=".env.example" />
+	<File name=".gitignore" />
+	<File name="package.json" />
+	<File name="README.md" />
+</Files>
+
+It has one script:
+
+```json title="package.json — JavaScript scripts"
+{
+	"start": "node --env-file=.env src/main.js"
+}
+```
+
+With an existing database, either language writes `.env.example` but not
+`.env` or `compose.yaml`. The generated README records the selected plugins
+and exact next steps.
+
+### 4. Start PostgreSQL and run the application
+
+For the Docker choice, enter the directory and start the database:
+
+```bash
+cd notes
+docker compose up -d
+```
+
+For an existing database, copy `.env.example` to `.env` and replace its
+`DATABASE_URL` placeholder with your disposable database URL. Keep the file
+private. Security plugin choices may also require a local Master key; the
+generated README identifies the value without printing it.
+
+The default flow installs dependencies during generation. If you chose
+`--no-install` or answered No, first run `npm install`, `yarn install`, or
+`pnpm install` in the generated directory. Then run the TypeScript scripts:
+
+```bash tab="npm" tab-group="package-manager"
+npm run typecheck
+npm run build
+npm start
+```
+
+```bash tab="yarn" tab-group="package-manager"
+yarn typecheck
+yarn build
+yarn start
+```
+
+```bash tab="pnpm" tab-group="package-manager"
+pnpm typecheck
+pnpm build
+pnpm start
+```
+
+For JavaScript, skip typecheck and build; use `npm start`, `yarn start`, or
+`pnpm start`. Typegen loads the TypeScript configuration without connecting
+to PostgreSQL. Starting the application connects to the database.
+
+## Expected result
+
+The Task starter prints a new record with a generated `id`,
+`title: 'Ship the first feature'`, and `done: false`. Starting it again
+writes another record. The empty starter instead prints
+`UltimaBase is ready` and has no Task to query.
+
+If you selected REST or GraphQL, the application also listens on
+`127.0.0.1:1337` until you stop it. Its README supplies local requests with
+`X-UltimaBase-Application-Id: main`. Generated Task API mutations are
+disabled; the seed write is a server-side call. The loopback listener and
+unverified-protection acknowledgement are not a public security policy.
+
+## Choose a different path
+
+For automation, use flags. This example selects both HTTP APIs and Hooks
+without installing dependencies:
+
+```bash tab="npm" tab-group="package-manager"
+npm create @ultimabase/app@latest -- --name api-notes --language ts --api rest --api graphql --plugin @ultimabase/hooks-plugin --starter task --database docker --package-manager npm --no-install
+```
+
+```bash tab="yarn" tab-group="package-manager"
+yarn dlx @ultimabase/create-app@latest --name api-notes --language ts --api rest --api graphql --plugin @ultimabase/hooks-plugin --starter task --database docker --package-manager yarn --no-install
+```
+
+```bash tab="pnpm" tab-group="package-manager"
+pnpm dlx @ultimabase/create-app@latest --name api-notes --language ts --api rest --api graphql --plugin @ultimabase/hooks-plugin --starter task --database docker --package-manager pnpm --no-install
+```
+
+Without a terminal, provide every choice as above or use `--yes` for
+documented defaults. With `--yes` and no API flags, no HTTP API is selected.
+`--yes` never permits overwriting an existing directory. Repeat
+`--plugin @ultimabase/<id>` for multiple official plugins.
+
+The selector does not invent capabilities. PostgreSQL Vector does not add
+persisted vector search. Password Auth identifies callers but does not grant
+data access; Roles do not grant permission by themselves. Access or Object
+ACLs may intentionally deny sample reads. Password Auth operations appear
+over a selected API only through an exact allowlist. GraphiQL and Apollo
+Sandbox, including the introspection they need, are development-only in the
+generated configuration. Review [Password
+Authentication](/docs/1.0.0/plugins/official/password-authentication),
+[Access](/docs/1.0.0/plugins/official/access),
+[REST](/docs/1.0.0/plugins/official/rest), and
+[GraphQL](/docs/1.0.0/plugins/official/graphql) before changing those defaults.
+
+## Next steps
+
+- Edit `src/schema.ts` or `src/schema.js` to define your model, then
+  `src/ultimabase.ts` or `src/ultimabase.js` to choose plugins.
+- Before publication, use [Manual Installation](/docs/1.0.0/manual-installation)
+  to build a working project.
+- Before exposing an API beyond your machine, read [Before Exposing Your
+  Application](/docs/1.0.0/operations/before-exposing-your-application).

@@ -85,19 +85,18 @@ Concepts and Status routes plus the global Plugins entry; corrective issues
 2821 and 2822 closed that sitemap-parity gap. The completed plan retains the
 approved sitemap and verification record.
 
-[Milestone 29](issues/2900-interactive-project-initializer/README.md) is building a
-separate interactive project initializer. It will generate runnable TypeScript
-or JavaScript UltimaBase applications from the current official plugin catalog,
-configure Typegen only for TypeScript, and keep the general `ultimabase` CLI in
-its existing deferred backlog. No initializer package is implemented or
-published yet.
+[Milestone 29](issues/2900-interactive-project-initializer/README.md) completed a
+separate interactive project initializer. Its packed local executable generates
+TypeScript or JavaScript applications from the official plugin catalog and
+configures Typegen only for TypeScript. The package is not published; the
+general `ultimabase` CLI remains in its deferred backlog.
 
 The ACL hardening plan remains paused at issue 432. It is not part of an active
 plan.
 
 Completed cross-milestone plans are retained under
 [`docs/plans/completed/`](docs/plans/completed/) so their decisions remain
-available without competing with the active resume point.
+available.
 
 Milestone numbers continue to describe architectural ownership rather than a
 strict implementation sequence.
@@ -368,9 +367,9 @@ Create a scoped `@ultimabase/create-app` package for a question-by-question
 project setup with equivalent non-interactive options. Generate one runnable
 PostgreSQL application in TypeScript or JavaScript, offer the current official
 plugins with valid composition and honest capability limits, and verify the
-packed initializer before the Quick Start can present it as available. This
-milestone does not implement the deferred general `ultimabase` command, Typegen
-watch mode, or an npm release.
+packed initializer and document its intended Quick Start. Publication remains
+a separate decision. The milestone does not implement the deferred general
+`ultimabase` command, Typegen watch mode, or an npm release.
 
 ## First usable release
 

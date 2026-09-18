@@ -1,19 +1,20 @@
-# Active plan: interactive project initializer
+# Completed plan: interactive project initializer
 
-- Status: in-progress
+- Status: completed
 - Milestone: 29
 - Created: 2026-09-18
+- Completed: 2026-09-18
 - Current issue: none
-- Next issue: 2908
-- Governing backlog: [Milestone 29](issues/2900-interactive-project-initializer/README.md)
-- Previous completed plan: [Public website and documentation foundation](docs/plans/completed/public-website-and-documentation-foundation.md)
+- Next issue: none
+- Governing backlog: [Milestone 29](../../../issues/2900-interactive-project-initializer/README.md)
+- Previous completed plan: [Public website and documentation foundation](public-website-and-documentation-foundation.md)
 
 ## Objective
 
 Create a publishable `@ultimabase/create-app` package that asks a developer a
 small sequence of terminal questions and writes a valid, runnable UltimaBase
-application. This plan records the agreed journey and orders implementation
-issues; it does not itself implement or publish the initializer.
+application. This plan records the agreed journey and completed implementation;
+it did not publish the initializer.
 
 The Quick Start currently previews an unpublished command. Keep that warning
 until registry publication is separately authorized and verified. The
@@ -123,4 +124,4 @@ or security exception. Do not silently relax an unsupported selection to an
 unprotected or non-runnable project. No npm publication, Git push, or website
 deployment is authorized by this planning request.
 
-Resume point: **issue 2908 — complete Quick Start documentation**.
+Resume point: **milestone complete — no remaining issue**.

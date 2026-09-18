@@ -9,7 +9,7 @@ contentType: reference
 outcome: Decide whether the current pre-release framework is suitable for evaluation or adoption.
 owner: '2822'
 releaseStatus: pre-release
-reviewedAt: 2026-09-17
+reviewedAt: 2026-09-18
 sources:
   - README.md
   - .changeset/README.md
@@ -17,11 +17,18 @@ sources:
   - packages/README.md
   - examples/minimal/README.md
   - apps/website/lib/docs-versions.ts
+  - packages/create-app/README.md
+  - tests/e2e/create-app-packed.e2e.test.ts
 ---
 
 UltimaBase is in active pre-release development. Its implementation can be
 evaluated, but the documentation's `1.0.0` label is not a published-package or
 stability guarantee.
+
+The [Quick Start](/docs/1.0.0/quick-start) now describes a tested local
+initializer. Its npm, yarn, pnpm, and npx registry commands remain unavailable
+until the packages are published and a post-publication installation check
+passes. Use Manual Installation or the repository example in the meantime.
 
 ## Current status
 

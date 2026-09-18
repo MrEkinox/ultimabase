@@ -2,7 +2,10 @@
 
 The standalone UltimaBase project initializer. Its proposed entry points are
 `npm create @ultimabase/app@latest`, `yarn dlx @ultimabase/create-app@latest`,
-and `pnpm dlx @ultimabase/create-app@latest`. The package has not been published.
+`pnpm dlx @ultimabase/create-app@latest`, and
+`npx @ultimabase/create-app@latest`. The package has not been published. See
+the [Quick Start](../../apps/website/content/docs/1.0.0/quick-start.mdx) for
+the complete future reader path.
 
 The interactive and flag-only selection flows normalize to one project plan.
 The local executable now generates a PostgreSQL project in TypeScript
@@ -37,7 +40,7 @@ keys remain disabled, and acknowledging unverified public protection is not a
 security policy. The generated README gives exact local request examples and
 deployment boundaries. Packed-project verification covers the archive shape,
 all official plugin selections, and TypeScript builds against local compiled
-packages. The full Quick Start journey remains in issue 2908.
+packages.
 
 Run the built local executable with `node dist/cli.js --help`, or generate a
 base project with `node dist/cli.js --name notes --yes --no-install`. The
@@ -48,5 +51,9 @@ JavaScript. `--yes` accepts the documented defaults and never authorizes
 overwriting an existing target. Incompatible selections fail before any files
 are written.
 
-The project generator is not ready for application setup until milestone 29
-closes.
+The generated project uses PostgreSQL `schemaPolicy: 'override'` only for
+disposable local databases. HTTP listeners bind to loopback. The starter's
+unverified-protection acknowledgement does not secure public routes. Use the
+generated README and the owning plugin guides before changing these defaults.
+Registry installation and the advertised commands still require package
+publication and a post-publication smoke test.

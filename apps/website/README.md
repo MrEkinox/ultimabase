@@ -118,7 +118,7 @@ crawlers through `robots.txt`; the public build switch above makes these routes
 available from the published origin.
 
 The documentation navigation begins with an `Introduction` sidebar separator:
-`Quick Start` previews the unavailable automatic initializer, `What is
+`Quick Start` documents the verified but unpublished initializer journey, `What is
 UltimaBase` explains the model, and `Manual Installation` is the complete
 working first-application path. The initializer's commands are explicitly
 non-runnable until its package is published. The remaining top-level areas

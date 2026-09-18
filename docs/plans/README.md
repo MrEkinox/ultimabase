@@ -7,8 +7,7 @@ priority changes.
 
 ## Active
 
-- [Interactive project initializer](../../CURRENT_PLAN.md), in progress after
-  completion of the initializer contract in issue 2901.
+No active multi-issue plan.
 
 ## Paused
 
@@ -17,6 +16,7 @@ priority changes.
 
 ## Completed
 
+- [Interactive project initializer](completed/interactive-project-initializer.md)
 - [Public website and documentation foundation](completed/public-website-and-documentation-foundation.md)
 - [Contextual relation filters](completed/contextual-relation-filters.md)
 - [Plugin-defined schema mutations and official soft delete](completed/plugin-defined-schema-mutations-and-official-soft-delete.md)

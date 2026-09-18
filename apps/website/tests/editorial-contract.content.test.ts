@@ -94,13 +94,16 @@ describe('documentation editorial contract', () => {
 			...parsed.standalonePages.map(({ path: pagePath }) => pagePath),
 		]
 		expect(new Set(urls).size).toBe(urls.length)
-		const issueFiles = await readdir(
-			path.join(repositoryRoot, 'issues/2800-public-website-documentation'),
-		)
+		// Page ownership can move to a later milestone as the public contract evolves.
+		const issueFiles = await readdir(path.join(repositoryRoot, 'issues'), {
+			recursive: true,
+		})
 
 		for (const item of [...parsed.sections, ...parsed.standalonePages]) {
 			expect(
-				issueFiles.some((fileName) => fileName.startsWith(`${item.owner}-`)),
+				issueFiles.some((fileName) =>
+					path.basename(fileName).startsWith(`${item.owner}-`),
+				),
 			).toBe(true)
 
 			for (const source of item.sources) {
