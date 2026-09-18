@@ -260,14 +260,28 @@ export default async function OpenGraphImage() {
 					/>
 					<div
 						style={{
+							alignItems: 'center',
 							display: 'flex',
+							flexDirection: 'column',
 							fontSize: 20,
 							fontWeight: 600,
-							gap: 9,
+							gap: 8,
 							marginTop: 17,
 						}}
 					>
-						↓ <span>Typed data APIs</span>
+						<svg
+							fill="none"
+							height="20"
+							stroke={blue}
+							strokeLinecap="round"
+							strokeLinejoin="round"
+							strokeWidth="1.8"
+							viewBox="0 0 24 24"
+							width="20"
+						>
+							<path d="M12 4v16m-6-6 6 6 6-6" />
+						</svg>
+						<span>Typed data APIs</span>
 					</div>
 				</div>
 			</div>
