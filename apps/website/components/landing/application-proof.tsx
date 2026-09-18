@@ -35,7 +35,7 @@ export function ApplicationProof() {
 									code={example.code}
 									lang="ts"
 									themes={{ dark: 'github-dark', light: 'github-light' }}
-									codeblock={{ className: 'ub-code' }}
+									codeblock={{ allowCopy: false, className: 'ub-code' }}
 								/>
 							</div>
 							<div className="ub-demo-result">

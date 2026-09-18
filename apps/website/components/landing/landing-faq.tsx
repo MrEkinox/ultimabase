@@ -1,4 +1,4 @@
-import { Plus } from 'lucide-react'
+import { ChevronDown } from 'lucide-react'
 
 import { currentDocumentationPath } from '../../lib/docs-versions'
 import { Section, TextLink } from '../primitives'
@@ -43,7 +43,7 @@ const questions = [
 	{
 		question: 'What does pre-release mean?',
 		answer:
-			'You can evaluate the implementation today, but public APIs can change before a stable release. The documentation’s 1.0.0 label is not a stability guarantee, and no production support window has been announced.',
+			'You can evaluate the implementation today using the runnable source example; packages are not published on npm yet. Public APIs can change before a stable release. The documentation’s 1.0.0 label is not a stability guarantee, and no production support window has been announced.',
 		href: 'project/release-status',
 		label: 'Read the current status',
 	},
@@ -52,16 +52,13 @@ const questions = [
 export function LandingFaq() {
 	return (
 		<Section className="ub-faq" aria-labelledby="faq-title">
-			<div>
-				<p className="ub-section-index">07 / QUESTIONS</p>
-				<h2 id="faq-title">Before you start.</h2>
-			</div>
+			<h2 id="faq-title">A few things to know.</h2>
 			<div className="ub-faq-list">
-				{questions.map((item) => (
-					<details key={item.question}>
+				{questions.map((item, index) => (
+					<details key={item.question} open={index === 0}>
 						<summary>
 							{item.question}
-							<Plus aria-hidden="true" />
+							<ChevronDown aria-hidden="true" />
 						</summary>
 						<p>{item.answer}</p>
 						<TextLink href={currentDocumentationPath(item.href)}>

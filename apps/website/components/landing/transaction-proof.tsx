@@ -32,7 +32,6 @@ export function TransactionProof() {
 	return (
 		<article className="ub-transaction-proof">
 			<div>
-				<p className="ub-section-index">03 / TRANSACTIONS</p>
 				<h2>
 					Related writes.
 					<br />
@@ -83,6 +82,19 @@ export function TransactionProof() {
 					</div>
 				</Tabs>
 			</figure>
+			<section className="ub-hooks-strip" aria-labelledby="hooks-title">
+				<div>
+					<p className="ub-demo-eyebrow">HOOKS PLUGIN</p>
+					<h3 id="hooks-title">Keep business rules with your data.</h3>
+				</div>
+				<p>
+					Normalize inputs, reject a mutation, and run related database work in
+					its transaction. Queue events for delivery after a successful commit.
+				</p>
+				<TextLink href={currentDocumentationPath('plugins/official/hooks')}>
+					Explore Hooks <ArrowUpRight aria-hidden="true" />
+				</TextLink>
+			</section>
 		</article>
 	)
 }

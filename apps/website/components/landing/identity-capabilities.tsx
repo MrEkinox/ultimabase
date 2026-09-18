@@ -15,7 +15,7 @@ export function IdentityCapabilities() {
 		>
 			<header className="ub-capability-heading">
 				<div>
-					<p className="ub-section-index">04 / IDENTITY & ACCESS</p>
+					<p className="ub-section-label">Authentication & access</p>
 					<h2 id="identity-capabilities-title">
 						Know the caller.
 						<br />
@@ -66,10 +66,6 @@ export function IdentityCapabilities() {
 					>
 						Explore authentication <ArrowUpRight aria-hidden="true" />
 					</TextLink>
-					<p className="ub-capability-note">
-						Current scope: local passwords and sessions. Password recovery, MFA,
-						and a built-in rate limiter are not included.
-					</p>
 				</article>
 				<article className="ub-access-panel">
 					<ShieldCheck aria-hidden="true" />
@@ -113,6 +109,7 @@ export function IdentityCapabilities() {
 					lang="ts"
 					themes={{ light: 'github-light', dark: 'github-dark' }}
 					codeblock={{
+						allowCopy: false,
 						title: 'article.ts · Access policy excerpt',
 						className: 'ub-access-code',
 					}}
@@ -132,7 +129,6 @@ export function IdentityCapabilities() {
 							<strong>Draft</strong> Hidden
 						</span>
 					</div>
-					<p>Requires the Access plugin. Unspecified mutations stay denied.</p>
 				</figcaption>
 			</figure>
 		</Section>

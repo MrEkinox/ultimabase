@@ -13,7 +13,7 @@ export function ExtensionCapabilities() {
 		>
 			<header className="ub-capability-heading">
 				<div>
-					<p className="ub-section-index">06 / BUSINESS BEHAVIOR</p>
+					<p className="ub-section-label">Extensions</p>
 					<h2 id="extension-capabilities-title">Go beyond CRUD.</h2>
 				</div>
 				<p>
@@ -30,6 +30,12 @@ export function ExtensionCapabilities() {
 						Replace native deletes or add a separate soft-delete command.
 						Deleted records remain recoverable and stay out of ordinary reads
 						and relationship traversal.
+					</p>
+					<p>
+						Restore records with their stored fields and relationships intact.
+						In explicit mode, the REST and GraphQL plugins can expose
+						soft-delete commands, while Access and Hooks let you define rules
+						and behavior specifically for soft deletion.
 					</p>
 					<figure
 						className="ub-delete-lifecycle"
@@ -93,19 +99,6 @@ export function ExtensionCapabilities() {
 						</TextLink>
 					</div>
 				</article>
-			</div>
-			<div className="ub-hooks-strip">
-				<div>
-					<p className="ub-demo-eyebrow">HOOKS PLUGIN</p>
-					<h3>Keep business rules with your data.</h3>
-				</div>
-				<p>
-					Normalize inputs, reject a mutation, and run related database work in
-					its transaction. Queue events for delivery after a successful commit.
-				</p>
-				<TextLink href={currentDocumentationPath('plugins/official/hooks')}>
-					Explore Hooks <ArrowUpRight aria-hidden="true" />
-				</TextLink>
 			</div>
 		</Section>
 	)

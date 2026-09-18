@@ -71,8 +71,9 @@ html.dark .ub-landing {
 	border-radius: 1.25rem;
 	background: var(--landing-soft);
 }
-/* An abstract coordinate field frames the schema-to-application demonstration. */
-.ub-landing-hero::before {
+/* The same coordinate field connects the opening demo and closing invitation. */
+.ub-landing-hero::before,
+.ub-landing-start::before {
 	content: '';
 	position: absolute;
 	z-index: -1;
@@ -90,8 +91,7 @@ html.dark .ub-landing {
 .ub-landing-hero-copy {
 	text-align: left;
 }
-.ub-landing-kicker,
-.ub-section-index {
+.ub-landing-kicker {
 	color: var(--landing-blue);
 	font: 0.75rem/1.5 var(--ub-font-mono);
 	letter-spacing: 0.09em;
@@ -145,7 +145,7 @@ html.dark .ub-landing {
 	min-width: 0;
 	margin: 3rem 0 -1px;
 	border: 1px solid var(--landing-line);
-	border-radius: 0.75rem;
+	border-radius: 0.75rem 0.75rem 0 0;
 	background: var(--landing-card);
 	box-shadow: 0 12px 40px -16px rgb(18 50 110 / 0.2);
 }
@@ -222,8 +222,16 @@ html.dark .ub-landing {
 	background: transparent;
 	box-shadow: none;
 }
+/* Landing previews own their spacing instead of stacking viewport, pre, and line padding. */
+.ub-landing .shiki > [role='region'] {
+	padding-block: 0;
+}
+.ub-landing .shiki pre {
+	--padding-left: 0px;
+	--padding-right: 0px;
+}
 .ub-proof .ub-code pre {
-	padding: 2.5rem 1.5rem 1.5rem;
+	padding: 1rem 1.5rem;
 	background: transparent;
 	font-size: 0.875rem;
 	line-height: 1.65;
@@ -297,18 +305,17 @@ html.dark .ub-landing {
 	align-items: center;
 	justify-content: space-between;
 	gap: 2rem;
-	padding-block: 2rem;
-	border-bottom: 1px solid var(--landing-line);
+	padding-block: 3rem;
 }
 .ub-intro p {
-	color: var(--landing-muted);
+	color: var(--landing-ink);
 	font-size: clamp(1.125rem, 1.6vw, 1.5rem);
 	line-height: 1.55;
 	letter-spacing: -0.035em;
 }
 .ub-intro strong {
 	color: var(--landing-blue);
-	font-weight: 500;
+	font-weight: 600;
 }
 .ub-intro .ub-text-link {
 	white-space: nowrap;
@@ -317,14 +324,19 @@ html.dark .ub-landing {
 .ub-landing-composition {
 	display: grid;
 	grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
-	align-items: center;
+	/* Share the tallest card's height without fixing either card's content size. */
+	align-items: stretch;
 	gap: 2rem;
 	padding-block: 4rem 5rem;
 }
-.ub-section-index {
-	margin-bottom: 1.5rem;
+.ub-section-label {
+	margin-bottom: 1rem;
+	color: var(--landing-blue);
+	font-size: 0.875rem;
+	font-weight: 600;
+	line-height: 1.5;
 }
-.ub-composition-copy > p:not(.ub-section-index) {
+.ub-composition-copy > p:not(.ub-section-label) {
 	margin-top: 1.4rem;
 	color: var(--landing-muted);
 	font-size: 1rem;
@@ -387,22 +399,10 @@ html.dark .ub-landing {
 	color: #c6d2e9;
 }
 .ub-application-code .ub-application-codeblock pre {
-	padding: 1.5rem;
+	padding: 1rem 1.25rem;
 	background: #101b30;
 	font-size: 0.875rem;
 	line-height: 1.9;
-}
-.ub-setup-note {
-	margin: 0;
-	padding: 1rem 1.25rem;
-	border-top: 1px solid #2c3a55;
-	color: #b0bdd4;
-	font-size: 0.75rem;
-	line-height: 1.7;
-}
-.ub-landing .ub-setup-note .ub-text-link {
-	color: #a8c6ff;
-	font-size: inherit;
 }
 /* Shared execution diagram. */
 .ub-landing-flow {
@@ -422,13 +422,13 @@ html.dark .ub-landing {
 	gap: 4rem;
 	padding-bottom: 4rem;
 }
-.ub-transaction-proof > div > p:not(.ub-section-index) {
+.ub-transaction-proof > div > p:not(.ub-section-label) {
 	max-width: 31rem;
 	margin-top: 1.25rem;
 	color: var(--landing-muted);
 	line-height: 1.75;
 }
-.ub-transaction-proof .ub-text-link {
+.ub-transaction-proof > div .ub-text-link {
 	margin-top: 1.5rem;
 }
 .ub-transaction-demo {
@@ -470,87 +470,147 @@ html.dark .ub-landing {
 	font-size: 0.875rem;
 	font-weight: 600;
 }
+/* Echo the hero surface while keeping the closing actions centered. */
 .ub-landing-start {
+	position: relative;
+	isolation: isolate;
 	display: grid;
-	grid-template-columns: 1.3fr 1fr;
-	align-items: center;
-	gap: 3rem;
+	justify-items: center;
+	gap: 2rem;
 	margin-bottom: 5rem;
-	padding: 3.5rem;
-	border: 1px solid #344a75;
-	border-radius: 0.75rem;
-	background: #11254b;
-	color: #f0f5ff;
-}
-.ub-landing-start .ub-section-index {
-	color: #a0c0ff;
+	padding: 4rem 2rem;
+	border: 1px solid var(--landing-line);
+	border-radius: 1.25rem;
+	background: var(--landing-soft);
+	color: var(--landing-ink);
+	text-align: center;
 }
 .ub-landing-start h2 {
 	font-size: clamp(2.2rem, 3.8vw, 3.25rem);
 }
-.ub-landing-start p:not(.ub-section-index) {
-	max-width: 32rem;
-	margin-top: 1.5rem;
-	color: #bccbe4;
+.ub-landing-start > div > p {
+	max-width: 34rem;
+	margin: 1.25rem auto 0;
+	color: var(--landing-muted);
 	font-size: 1rem;
 	line-height: 1.75;
 }
 .ub-start-actions {
-	display: grid;
-	justify-items: start;
-	justify-content: end;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: center;
 	gap: 1.5rem;
 }
 .ub-start-actions .ub-button {
-	background: #e9f0ff;
-	color: #143a87;
+	width: auto;
 }
-.ub-start-actions .ub-button:hover {
-	background: #fff;
+.ub-start-status {
+	display: flex;
+	align-items: center;
+	gap: 0.65rem;
+	color: var(--landing-muted);
+	font-size: 0.8125rem;
 }
-.ub-start-actions .ub-text-link {
-	color: #bdd2ff;
+.ub-landing .ub-start-status .ub-text-link {
+	color: var(--landing-muted);
+	font-size: inherit;
+	font-weight: inherit;
+	text-decoration: underline;
+	text-underline-offset: 0.2em;
 }
+.ub-landing .ub-start-status .ub-text-link:hover {
+	color: var(--landing-blue);
+}
+/* Concrete examples make the schema/plugin composition legible at a glance. */
 .ub-hero-equation {
 	align-self: center;
 	display: grid;
 	justify-items: center;
-	transform: rotate(-5deg);
-	padding: 1rem;
+	padding: 0.5rem;
 	color: var(--landing-blue);
 }
 .ub-equation-label {
 	font: 0.6875rem/1.5 var(--ub-font-mono);
 	letter-spacing: 0.1em;
-	margin-bottom: 1.5rem;
+	margin-bottom: 1rem;
 }
 .ub-equation-schema,
 .ub-equation-plugins {
-	display: grid;
+	position: relative;
 	width: 100%;
-	padding: 1.5rem;
-	border: 1px solid var(--landing-blue);
-	border-radius: 0.5rem;
+	padding: 1.25rem;
+	border: 1px solid
+		color-mix(in srgb, var(--landing-blue) 35%, var(--landing-line));
+	border-radius: 0.625rem;
 	background: var(--landing-card);
-	font-size: 1.5rem;
+	box-shadow: 0 4px 0 color-mix(in srgb, var(--landing-blue) 9%, transparent);
+}
+.ub-equation-card-heading {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+}
+.ub-equation-card-heading strong {
+	color: var(--landing-ink);
+	font-size: 1.25rem;
 	font-weight: 550;
-	letter-spacing: -0.04em;
-	box-shadow: 6px 6px 0 color-mix(in srgb, var(--landing-blue) 12%, transparent);
+	letter-spacing: -0.035em;
 }
-.ub-equation-schema span,
-.ub-equation-plugins span {
-	margin-top: 0.5rem;
+.ub-equation-items {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	margin-top: 1rem;
+}
+.ub-equation-items > span {
+	padding: 0.35rem 0.55rem;
+	border: 1px solid var(--landing-line);
+	border-radius: 0.25rem;
+	background: var(--landing-paper);
 	color: var(--landing-muted);
-	font: 0.75rem/1.5 var(--ub-font-mono);
-	letter-spacing: 0;
+	font: 0.75rem/1.4 var(--ub-font-mono);
 }
-.ub-equation-plus {
-	padding: 0.4rem;
-	font: 2rem/1 var(--ub-font-mono);
+.ub-equation-items > .ub-equation-custom {
+	border-style: dashed;
+	color: var(--landing-blue);
+	background: var(--landing-soft);
+}
+.ub-equation-connector {
+	position: relative;
+	display: grid;
+	place-items: center;
+	width: 100%;
+	height: 3rem;
+}
+.ub-equation-connector::before {
+	content: '';
+	position: absolute;
+	inset-block: 0;
+	border-left: 1px solid
+		color-mix(in srgb, var(--landing-blue) 45%, transparent);
+}
+.ub-equation-connector > span {
+	z-index: 1;
+	display: grid;
+	place-items: center;
+	width: 1.625rem;
+	height: 1.625rem;
+	border: 1px solid var(--landing-line);
+	border-radius: 50%;
+	background: var(--landing-soft);
+	font: 1rem/1 var(--ub-font-mono);
 }
 .ub-equation-result {
-	margin-top: 1.5rem;
-	font: 0.875rem/1.5 var(--ub-font-mono);
+	display: grid;
+	justify-items: center;
+	gap: 0.625rem;
+	margin-top: 1rem;
+}
+.ub-equation-result strong {
+	font-size: 1rem;
+	font-weight: 550;
+	letter-spacing: -0.02em;
 }
 .ub-composition-copy {
 	padding: 2rem;
@@ -564,8 +624,7 @@ html.dark .ub-landing {
 	.ub-transport-heading {
 		gap: 2.5rem;
 	}
-	.ub-landing-flow,
-	.ub-landing-start {
+	.ub-landing-flow {
 		padding: 2rem;
 	}
 	.ub-proof .ub-code pre {
@@ -624,14 +683,13 @@ html.dark .ub-landing {
 		align-items: start;
 		flex-direction: column;
 		gap: 1rem;
-		padding-block: 2rem 2.5rem;
+		padding-block: 2.5rem;
 	}
 	.ub-intro p {
 		font-size: 1.125rem;
 	}
 	.ub-landing-composition,
-	.ub-transport-heading,
-	.ub-landing-start {
+	.ub-transport-heading {
 		grid-template-columns: 1fr;
 	}
 	.ub-landing-composition,
@@ -645,14 +703,13 @@ html.dark .ub-landing {
 		padding: 1.5rem;
 	}
 	.ub-landing-start {
-		padding: 1.5rem;
 		margin-bottom: 3rem;
-		gap: 2rem;
+		padding: 3rem 1.5rem;
 	}
 	.ub-start-actions {
-		justify-content: start;
+		flex-direction: column;
 	}
-	.ub-section-index {
+	.ub-section-label {
 		font-size: 0.75rem;
 	}
 }
@@ -681,7 +738,6 @@ html.dark .ub-landing {
 	.ub-equation-schema,
 	.ub-equation-plugins {
 		padding: 1rem;
-		font-size: 1.2rem;
 	}
 	.ub-equation-label {
 		font-size: 0.625rem;
@@ -783,7 +839,7 @@ html.dark .ub-landing .shiki span[style*='--shiki-dark:#6A737D'] {
 }
 @media (max-width: 48rem) {
 	.ub-proof .ub-code pre {
-		padding-block: 2.25rem 1rem;
+		padding-block: 1rem;
 		line-height: 1.55;
 	}
 }
@@ -837,7 +893,7 @@ html.dark .ub-landing .shiki span[style*='--shiki-dark:#6A737D'] {
 	box-shadow: none;
 }
 .ub-transport-code pre {
-	padding: 2.5rem 1.25rem 1.25rem;
+	padding: 1rem 1.25rem;
 	font-size: 0.8125rem;
 	line-height: 1.65;
 }
@@ -912,28 +968,46 @@ html.dark .ub-landing .shiki span[style*='--shiki-dark:#6A737D'] {
 }
 .ub-faq {
 	display: grid;
-	grid-template-columns: 0.8fr 1.2fr;
-	gap: 4rem;
-	padding-block: 1rem 5rem;
+	gap: 2.5rem;
+	max-width: 56.25rem;
+	padding-block: 2rem 5rem;
+}
+.ub-landing .ub-faq h2 {
+	font-size: clamp(2rem, 3vw, 2.75rem);
+	text-align: center;
 }
 .ub-faq-list {
 	min-width: 0;
-	border-top: 1px solid var(--landing-line);
+	border: 1px solid var(--landing-line);
+	border-radius: 0.75rem;
+	overflow: hidden;
 }
-.ub-faq details {
-	padding: 1.25rem 0;
+.ub-faq details:not(:last-child) {
 	border-bottom: 1px solid var(--landing-line);
+}
+/* Native details keeps keyboard interaction and works before hydration. */
+.ub-faq details[open] {
+	padding-bottom: 1.5rem;
+	background: var(--landing-soft);
 }
 .ub-faq summary {
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
 	gap: 1rem;
+	padding: 1.25rem 1.5rem;
 	list-style: none;
 	cursor: pointer;
 	font-size: 1.05rem;
 	font-weight: 550;
 	line-height: 1.5;
+}
+.ub-faq summary:hover {
+	color: var(--landing-blue);
+}
+.ub-faq summary:focus-visible {
+	outline: 2px solid var(--landing-blue);
+	outline-offset: -2px;
 }
 .ub-faq summary::-webkit-details-marker {
 	display: none;
@@ -942,15 +1016,16 @@ html.dark .ub-landing .shiki span[style*='--shiki-dark:#6A737D'] {
 	color: var(--landing-blue);
 }
 .ub-faq details[open] summary svg {
-	transform: rotate(45deg);
+	transform: rotate(180deg);
 }
 .ub-faq details > p {
-	margin-top: 1rem;
+	margin-inline: 1.5rem;
 	color: var(--landing-muted);
 	line-height: 1.75;
 }
 .ub-faq .ub-text-link {
 	margin-top: 0.75rem;
+	margin-inline: 1.5rem;
 	font-size: 0.875rem;
 }
 @media (max-width: 48rem) {
@@ -995,6 +1070,11 @@ html.dark .ub-landing .shiki span[style*='--shiki-dark:#6A737D'] {
 		gap: 2rem;
 	}
 	.ub-faq summary {
+		padding-inline: 1rem;
 		font-size: 1rem;
+	}
+	.ub-faq details > p,
+	.ub-faq .ub-text-link {
+		margin-inline: 1rem;
 	}
 }

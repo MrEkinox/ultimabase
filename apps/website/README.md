@@ -178,7 +178,7 @@ tokens needed by custom marketing surfaces. `components/brand-mark.tsx` owns
 the provisional geometric mark used by marketing navigation and the generated favicon.
 The landing page is the only custom content layout. Its blue introduction
 identifies UltimaBase as a TypeScript backend framework, then offers Schema,
-Read, and Write tabs with copyable examples and their model field types.
+Read, and Write tabs with illustrative examples and their model field types.
 The precise result types assume generated Typegen declarations;
 the example application uses PostgreSQL's
 `fail` schema policy and directs first-time readers to Manual Installation.
@@ -202,9 +202,9 @@ keeps its private Master-only restore/purge boundary visible. Plugin authoring
 covers custom operations, fields, model/query extensions, middleware, and
 application-specific Typegen declarations. Every capability links to its
 existing owning documentation; these guides remain the detailed contract.
-The capability summary labels Core and plugin ownership before the deeper
-examples. Complete application configurations and virtual-field schemas remain visible
-and copyable, with readable code sizes; configuration tabs and API request tabs have separate labels.
+Compact section links lead to the detailed capability examples, whose labels
+identify Core and plugin ownership. Complete application configurations and virtual-field schemas remain visible
+with readable code sizes; configuration tabs and API request tabs have separate labels.
 Advanced reads, immutable query builders, contextual relations, and plugin
 validation are described with links to their existing contracts.
 
@@ -212,6 +212,12 @@ Marketing styling uses landing-specific selectors in `app/landing.css` and
 `app/landing-capabilities.css`; documentation
 keeps the standard Fumadocs shell, code blocks, navigation, search, and theme
 controls. The examples use server-rendered Fumadocs code blocks and native tabs.
+Landing examples disable native copy buttons; documentation retains its
+standard copy controls.
+The configuration cards share the taller card's height on desktop. Hooks are
+presented with the transaction demonstration; the centered FAQ opens its first
+answer by default. The closing invitation repeats the hero's themed background
+and dot pattern, with links to the runnable example and installation guide.
 Mounted tab panels share a grid cell to reserve their tallest content; inactive
 panels are visually hidden and excluded from focus and accessibility navigation.
 On narrow screens, the short hero examples wrap within their panel; transport
@@ -252,7 +258,7 @@ The browser tests build and start the production application, then check the
 first-view product proof, complete example visibility, light and dark shells,
 mobile and 200%-zoom-equivalent reflow, reduced motion, focus semantics,
 search and routing, and WCAG A/AA findings with Playwright and Axe. Landing
-interaction checks cover clipboard contents, stable tab heights, selected
+interaction checks cover complete example text, the absence of copy controls, stable tab heights, selected
 fields, transaction outcomes, and the application-setup anchor.
 
 [`docs/preview-readiness.md`](docs/preview-readiness.md) records the current

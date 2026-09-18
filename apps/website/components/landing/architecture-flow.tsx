@@ -12,7 +12,6 @@ export function ArchitectureFlow() {
 		<figure className="ub-transport" aria-labelledby="runtime-flow-title">
 			<figcaption className="ub-transport-heading">
 				<div>
-					<p className="ub-section-index">02 / ONE EXECUTION MODEL</p>
 					<h2 id="runtime-flow-title">
 						Different APIs.
 						<br />
@@ -40,7 +39,10 @@ export function ArchitectureFlow() {
 									code={example.code}
 									lang={example.lang}
 									themes={{ light: 'github-light', dark: 'github-dark' }}
-									codeblock={{ className: 'ub-transport-code' }}
+									codeblock={{
+										allowCopy: false,
+										className: 'ub-transport-code',
+									}}
 								/>
 								<p className="ub-transport-caption">{example.caption}</p>
 							</Tab>

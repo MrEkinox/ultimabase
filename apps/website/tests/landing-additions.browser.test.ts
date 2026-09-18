@@ -27,7 +27,6 @@ describe('landing transport and discovery additions', () => {
 		async ({ width, colorScheme }) => {
 			const context = await browser?.newContext({
 				viewport: { width, height: 900 },
-				permissions: ['clipboard-read', 'clipboard-write'],
 				colorScheme,
 			})
 			if (!context || !harness) throw new Error('Browser did not start')
@@ -68,27 +67,35 @@ describe('landing transport and discovery additions', () => {
 						expect(configuration).toContain('httpPlugin')
 						expect(configuration).toContain('honoServerPlugin')
 					}
-					await page
-						.locator('.ub-composition-tabs')
-						.getByRole('button', { name: 'Copy Text', exact: true })
-						.click()
-					await expect
-						.poll(() => page.evaluate(() => navigator.clipboard.readText()))
-						.toBe(
-							compositionExamples.find((example) => example.label === label)
-								?.code,
-						)
+					expect(
+						await page.locator('.ub-composition-tabs pre').textContent(),
+					).toBe(
+						compositionExamples.find((example) => example.label === label)
+							?.code,
+					)
+					expect(
+						await page
+							.locator('.ub-landing')
+							.getByRole('button', { name: 'Copy Text', exact: true })
+							.count(),
+					).toBe(0)
 					if (label === 'GraphQL')
 						expect(configuration).toContain('graphqlYogaPlugin')
 				}
 				const faq = page.locator('.ub-faq')
 				expect(await faq.locator('summary').count()).toBe(6)
+				expect(await faq.locator('details[open]').count()).toBe(1)
+				expect(
+					await faq.locator('details').first().getAttribute('open'),
+				).not.toBeNull()
 				for (const summary of await faq.locator('summary').all()) {
+					const wasOpen =
+						(await summary.locator('..').getAttribute('open')) !== null
 					await summary.focus()
 					await page.keyboard.press('Enter')
 					expect(
-						await summary.locator('..').getAttribute('open'),
-					).not.toBeNull()
+						(await summary.locator('..').getAttribute('open')) !== null,
+					).toBe(!wasOpen)
 				}
 				// Core/plugin ownership stays visible on mobile as well as desktop.
 				for (const label of await page
@@ -109,13 +116,9 @@ describe('landing transport and discovery additions', () => {
 					expect(bounds?.y).toBeGreaterThanOrEqual(56)
 					expect(bounds?.y).toBeLessThan(140)
 				}
-				await page
-					.locator('.ub-computed-proof')
-					.getByRole('button', { name: 'Copy Text', exact: true })
-					.click()
-				await expect
-					.poll(() => page.evaluate(() => navigator.clipboard.readText()))
-					.toBe(virtualFieldExample)
+				expect(await page.locator('.ub-computed-proof pre').textContent()).toBe(
+					virtualFieldExample,
+				)
 				expect(await accessibilityViolations(page)).toEqual([])
 				expect(
 					await page.evaluate(() => document.documentElement.scrollWidth),

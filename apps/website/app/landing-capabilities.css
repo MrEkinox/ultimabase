@@ -2,7 +2,9 @@
 .ub-landing .ub-capability-navigation nav {
 	display: grid;
 	grid-template-columns: repeat(4, minmax(0, 1fr));
-	border-bottom: 1px solid var(--landing-line);
+	border: 1px solid var(--landing-line);
+	border-radius: 0.75rem;
+	overflow: hidden;
 }
 .ub-capability-navigation a {
 	display: flex;
@@ -19,6 +21,10 @@
 .ub-capability-navigation a:hover {
 	background: var(--landing-soft);
 	color: var(--landing-blue);
+}
+.ub-capability-navigation a:focus-visible {
+	outline: 2px solid var(--landing-blue);
+	outline-offset: -3px;
 }
 .ub-landing .ub-capabilities {
 	padding-block: 4rem;
@@ -42,6 +48,7 @@
 	line-height: 1.75;
 }
 .ub-landing .ub-capabilities h3,
+.ub-landing .ub-hooks-strip h3,
 .ub-landing .ub-capability-columns h3 {
 	font-size: 1.5rem;
 	font-weight: 550;
@@ -108,7 +115,7 @@
 }
 .ub-computed-proof .ub-capability-code pre {
 	background: transparent;
-	padding: 1.5rem;
+	padding: 1rem 1.25rem;
 	font-size: 0.8125rem;
 	line-height: 1.8;
 }
@@ -218,11 +225,6 @@
 	font-size: 0.875rem;
 	line-height: 1.65;
 }
-.ub-capabilities article > p.ub-capability-note {
-	font-size: 0.75rem;
-	line-height: 1.7;
-	margin-top: 1.25rem;
-}
 .ub-access-levels {
 	margin-block: 1.5rem;
 }
@@ -297,11 +299,13 @@
 	line-height: 1.65;
 }
 .ub-hooks-strip {
+	/* Hooks explain the transaction demo above and span both of its columns. */
+	grid-column: 1 / -1;
 	display: grid;
 	grid-template-columns: 1fr 1.2fr auto;
 	align-items: center;
 	gap: 2rem;
-	margin-top: 2rem;
+	border-top: 1px solid var(--landing-line);
 	padding-block: 2rem 0;
 }
 .ub-hooks-strip h3 {
@@ -420,26 +424,7 @@
 	}
 }
 
-/* Summaries support comparison before readers open the complete examples. */
-.ub-capability-navigation a > span {
-	display: grid;
-	gap: 0.5rem;
-}
-.ub-capability-navigation small {
-	font: 0.625rem/1.5 var(--ub-font-mono);
-	letter-spacing: 0.06em;
-	color: var(--landing-blue);
-}
-.ub-capability-navigation strong {
-	color: var(--landing-ink);
-	font-size: 1rem;
-	font-weight: 550;
-	line-height: 1.4;
-}
-.ub-capability-navigation a > span > span {
-	font-size: 0.8125rem;
-	line-height: 1.6;
-}
+/* Keep section shortcuts compact; each destination explains its capabilities. */
 .ub-capability-navigation svg {
 	flex-shrink: 0;
 	width: 1rem;
@@ -447,7 +432,7 @@
 .ub-landing .ub-access-code pre {
 	font-size: 0.875rem;
 	line-height: 1.75;
-	padding: 1.25rem;
+	padding: 1rem 1.25rem;
 }
 .ub-landing .ub-api-call-label {
 	margin-bottom: 1.25rem;
@@ -472,7 +457,8 @@
 	border-right: 1px solid var(--landing-line);
 	box-shadow: none;
 }
-.ub-policy-proof figcaption {
+/* Only the explanatory column needs padding, not the nested code block title. */
+.ub-policy-proof > figcaption {
 	align-self: center;
 	padding: 2rem;
 }
@@ -484,9 +470,6 @@
 	font-size: 0.875rem;
 	line-height: 1.75;
 }
-.ub-policy-proof .ub-access-outcomes {
-	margin-bottom: 1rem;
-}
 @media (max-width: 48rem) {
 	.ub-policy-proof {
 		grid-template-columns: minmax(0, 1fr);
@@ -495,7 +478,7 @@
 		border-right: 0;
 		border-bottom: 1px solid var(--landing-line);
 	}
-	.ub-policy-proof figcaption {
+	.ub-policy-proof > figcaption {
 		padding: 1.5rem;
 	}
 }
@@ -503,8 +486,7 @@
 	display: flex;
 	flex-wrap: wrap;
 	gap: 1.5rem;
-	padding: 1rem 0;
-	border-bottom: 1px solid var(--landing-line);
+	padding-top: 1rem;
 	font-size: 0.875rem;
 	color: var(--landing-muted);
 }
@@ -513,13 +495,6 @@
 	margin-right: 0.5rem;
 }
 @media (max-width: 40rem) {
-	.ub-capability-navigation a {
-		gap: 0.4rem;
-		align-items: start;
-	}
-	.ub-capability-navigation svg {
-		margin-top: 1.5rem;
-	}
 	.ub-landing .ub-access-code pre {
 		padding: 1rem;
 	}

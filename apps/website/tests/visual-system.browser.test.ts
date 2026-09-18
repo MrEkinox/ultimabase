@@ -208,7 +208,7 @@ describe('website visual system', () => {
 			).toBe(siteConfig.sourceExampleUrl.href)
 			expect(
 				await page
-					.getByRole('link', { name: 'Open the runnable example' })
+					.getByRole('link', { name: 'Open the example', exact: true })
 					.getAttribute('href'),
 			).toBe(siteConfig.sourceExampleUrl.href)
 			expect(

@@ -19,7 +19,7 @@ export function DataCapabilities() {
 		>
 			<header className="ub-capability-heading">
 				<div>
-					<p className="ub-section-index">05 / DATA MODELING</p>
+					<p className="ub-section-label">Data modeling</p>
 					<h2 id="data-capabilities-title">More than columns.</h2>
 				</div>
 				<p>
@@ -32,7 +32,11 @@ export function DataCapabilities() {
 					code={virtualFieldExample}
 					lang="ts"
 					themes={{ light: 'github-light', dark: 'github-dark' }}
-					codeblock={{ title: 'profile.ts', className: 'ub-capability-code' }}
+					codeblock={{
+						allowCopy: false,
+						title: 'profile.ts',
+						className: 'ub-capability-code',
+					}}
 				/>
 				<div className="ub-computed-result">
 					<p className="ub-demo-eyebrow">VIRTUAL FIELDS / CORE</p>

@@ -1,4 +1,10 @@
-import { ArrowRight, ArrowUpRight } from 'lucide-react'
+import {
+	ArrowDown,
+	ArrowRight,
+	ArrowUpRight,
+	Blocks,
+	Braces,
+} from 'lucide-react'
 
 import { currentDocumentationPath } from '../../lib/docs-versions'
 import { siteConfig } from '../../lib/site'
@@ -51,15 +57,39 @@ export function LandingPage() {
 					</p>
 				</div>
 				<div className="ub-hero-equation" aria-hidden="true">
-					<span className="ub-equation-label">THE APPLICATION MODEL</span>
-					<span className="ub-equation-schema">
-						Your schemas<span>Article · Author · …</span>
-					</span>
-					<span className="ub-equation-plus">+</span>
-					<span className="ub-equation-plugins">
-						Your plugins<span>Storage · APIs · Behavior</span>
-					</span>
-					<span className="ub-equation-result">One backend. Yours.</span>
+					<span className="ub-equation-label">YOUR APPLICATION</span>
+					<div className="ub-equation-schema">
+						<div className="ub-equation-card-heading">
+							<Braces />
+							<strong>Your schemas</strong>
+						</div>
+						<div className="ub-equation-items">
+							<span>Article</span>
+							<span>Author</span>
+							<span>…</span>
+						</div>
+					</div>
+					<div className="ub-equation-connector">
+						<span>+</span>
+					</div>
+					<div className="ub-equation-plugins">
+						<div className="ub-equation-card-heading">
+							<Blocks />
+							<strong>Your plugins</strong>
+						</div>
+						<div className="ub-equation-items">
+							<span>PostgreSQL</span>
+							<span>REST</span>
+							<span>GraphQL</span>
+							<span>Password auth</span>
+							<span>Hooks</span>
+							<span className="ub-equation-custom">+ Your own</span>
+						</div>
+					</div>
+					<div className="ub-equation-result">
+						<ArrowDown />
+						<strong>Typed data APIs</strong>
+					</div>
 				</div>
 				<ApplicationProof />
 			</Section>
@@ -69,9 +99,11 @@ export function LandingPage() {
 				aria-label="Built for TypeScript developers"
 			>
 				<p>
-					For TypeScript teams building with relational data. Keep
-					<strong> queries and business rules together</strong>, and choose the
-					plugins your application needs.
+					For <strong>TypeScript</strong> teams building on relational data.
+					<br />
+					<strong>Define your business rules once</strong>, and apply them
+					across <strong>TypeScript</strong>, <strong>REST</strong>, and{' '}
+					<strong>GraphQL</strong>.
 				</p>
 				<TextLink href={siteConfig.routes.docs}>
 					Explore the documentation <ArrowUpRight aria-hidden="true" />
@@ -81,36 +113,16 @@ export function LandingPage() {
 			<Section className="ub-capability-navigation">
 				<nav aria-label="Explore product capabilities">
 					<a href="#application-setup">
-						<span>
-							<small>OFFICIAL PLUGINS</small>
-							<strong>Plugins & APIs</strong>
-							<span>PostgreSQL storage. REST and GraphQL APIs.</span>
-						</span>
-						<ArrowRight aria-hidden="true" />
+						Plugins & APIs <ArrowRight aria-hidden="true" />
 					</a>
 					<a href="#data-modeling">
-						<span>
-							<small>CORE</small>
-							<strong>Typed models & queries</strong>
-							<span>Relations, computed fields, reusable queries.</span>
-						</span>
-						<ArrowRight aria-hidden="true" />
+						Data modeling <ArrowRight aria-hidden="true" />
 					</a>
 					<a href="#identity-and-access">
-						<span>
-							<small>OFFICIAL PLUGINS</small>
-							<strong>Authentication & access</strong>
-							<span>Sessions, row filters, field rules and ACLs.</span>
-						</span>
-						<ArrowRight aria-hidden="true" />
+						Authentication & access <ArrowRight aria-hidden="true" />
 					</a>
 					<a href="#business-behavior">
-						<span>
-							<small>PLUGIN EXTENSIONS</small>
-							<strong>Your business logic</strong>
-							<span>Transactional hooks and custom operations.</span>
-						</span>
-						<ArrowRight aria-hidden="true" />
+						Extensions <ArrowRight aria-hidden="true" />
 					</a>
 				</nav>
 			</Section>
@@ -121,7 +133,7 @@ export function LandingPage() {
 				aria-label="Example application configuration"
 			>
 				<div className="ub-composition-copy">
-					<p className="ub-section-index">01 / COMPOSE YOUR BACKEND</p>
+					<p className="ub-section-label">Plugins</p>
 					<h2>
 						A small core.
 						<br />
@@ -169,28 +181,32 @@ export function LandingPage() {
 
 			<LandingFaq />
 
-			<Section className="ub-landing-start">
+			<Section className="ub-landing-start" aria-labelledby="start-title">
 				<div>
-					<p className="ub-section-index">OPEN SOURCE / APACHE-2.0</p>
-					<h2>
-						Your next backend
-						<br />
-						starts with a schema.
-					</h2>
+					<h2 id="start-title">Build your first backend.</h2>
 					<p>
-						UltimaBase is in active pre-release development. APIs may change,
-						and packages are not published on npm yet. Start with the runnable
-						source example.
+						Start with a working application. Explore its schemas, plugins, and
+						APIs.
 					</p>
 				</div>
 				<div className="ub-start-actions">
 					<ButtonLink external href={siteConfig.sourceExampleUrl.href}>
-						Open the runnable example <ArrowUpRight aria-hidden="true" />
+						Open the example <ArrowUpRight aria-hidden="true" />
 					</ButtonLink>
-					<TextLink href={siteConfig.routes.releaseStatus}>
-						Read the release status <ArrowRight aria-hidden="true" />
-					</TextLink>
+					<ButtonLink
+						href={currentDocumentationPath('manual-installation')}
+						variant="secondary"
+					>
+						Installation guide <ArrowRight aria-hidden="true" />
+					</ButtonLink>
 				</div>
+				<p className="ub-start-status">
+					<span>Apache-2.0</span>
+					<span aria-hidden="true">·</span>
+					<TextLink href={siteConfig.routes.releaseStatus}>
+						Pre-release
+					</TextLink>
+				</p>
 			</Section>
 		</div>
 	)

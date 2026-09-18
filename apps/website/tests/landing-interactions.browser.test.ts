@@ -21,12 +21,11 @@ afterAll(async () => {
 
 describe('landing demonstrations', () => {
 	it.each([375, 1440])(
-		'keeps the %i-pixel demo stable, copyable, and accessible',
+		'keeps the %i-pixel demo stable and accessible without copy controls',
 		async (width) => {
 			const context = await browser?.newContext({
 				colorScheme: 'dark',
 				viewport: { width, height: 900 },
-				permissions: ['clipboard-read', 'clipboard-write'],
 			})
 			if (!context || !harness) throw new Error('Browser did not start')
 			try {
@@ -48,12 +47,12 @@ describe('landing demonstrations', () => {
 					expect(
 						Math.abs((bounds?.height ?? 0) - initial.height),
 					).toBeLessThanOrEqual(1)
-					await panel
-						.getByRole('button', { name: 'Copy Text', exact: true })
-						.click()
-					await expect
-						.poll(() => page.evaluate(() => navigator.clipboard.readText()))
-						.toBe(example.code)
+					expect(await panel.locator('pre').textContent()).toBe(example.code)
+					expect(
+						await panel
+							.getByRole('button', { name: 'Copy Text', exact: true })
+							.count(),
+					).toBe(0)
 				}
 				await proof.getByRole('tab', { name: 'Read', exact: true }).click()
 				expect(await accessibilityViolations(page)).toEqual([])
