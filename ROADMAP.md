@@ -85,7 +85,7 @@ Concepts and Status routes plus the global Plugins entry; corrective issues
 2821 and 2822 closed that sitemap-parity gap. The completed plan retains the
 approved sitemap and verification record.
 
-[Milestone 29](issues/2900-interactive-project-initializer/README.md) plans a
+[Milestone 29](issues/2900-interactive-project-initializer/README.md) is building a
 separate interactive project initializer. It will generate runnable TypeScript
 or JavaScript UltimaBase applications from the current official plugin catalog,
 configure Typegen only for TypeScript, and keep the general `ultimabase` CLI in

@@ -1,6 +1,6 @@
 # Milestone 29 — Interactive project initializer
 
-- Status: planned
+- Status: in-progress
 
 Create a standalone, scoped project initializer that turns a short interactive
 conversation into a runnable UltimaBase application. It is a project generator,
@@ -10,7 +10,7 @@ authority for every generated application.
 
 ## Execution order
 
-1. [ ] [2901 — Decide the initializer contract](2901-initializer-contract.md)
+1. [x] [2901 — Decide the initializer contract](2901-initializer-contract.md)
 2. [ ] [2902 — Build the interactive selection boundary](2902-interactive-selection.md)
 3. [ ] [2903 — Generate the base TypeScript and JavaScript projects](2903-base-project-templates.md)
 4. [ ] [2904 — Compose data and behavior plugins](2904-data-behavior-plugin-templates.md)

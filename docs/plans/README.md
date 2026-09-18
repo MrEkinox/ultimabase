@@ -7,8 +7,8 @@ priority changes.
 
 ## Active
 
-- [Interactive project initializer](../../CURRENT_PLAN.md), planned; implementation
-  has not started.
+- [Interactive project initializer](../../CURRENT_PLAN.md), in progress after
+  completion of the initializer contract in issue 2901.
 
 ## Paused
 

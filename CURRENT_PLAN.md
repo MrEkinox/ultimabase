@@ -1,10 +1,10 @@
-# Planned execution: interactive project initializer
+# Active plan: interactive project initializer
 
-- Status: planned
+- Status: in-progress
 - Milestone: 29
 - Created: 2026-09-18
 - Current issue: none
-- Next issue: 2901, after explicit implementation direction
+- Next issue: 2902
 - Governing backlog: [Milestone 29](issues/2900-interactive-project-initializer/README.md)
 - Previous completed plan: [Public website and documentation foundation](docs/plans/completed/public-website-and-documentation-foundation.md)
 
@@ -123,4 +123,4 @@ or security exception. Do not silently relax an unsupported selection to an
 unprotected or non-runnable project. No npm publication, Git push, or website
 deployment is authorized by this planning request.
 
-Resume point: **issue 2901, pending explicit implementation direction**.
+Resume point: **issue 2902 — interactive selection boundary**.
