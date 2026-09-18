@@ -4,7 +4,7 @@
 - Milestone: 29
 - Created: 2026-09-18
 - Current issue: none
-- Next issue: 2907
+- Next issue: 2908
 - Governing backlog: [Milestone 29](issues/2900-interactive-project-initializer/README.md)
 - Previous completed plan: [Public website and documentation foundation](docs/plans/completed/public-website-and-documentation-foundation.md)
 
@@ -123,4 +123,4 @@ or security exception. Do not silently relax an unsupported selection to an
 unprotected or non-runnable project. No npm publication, Git push, or website
 deployment is authorized by this planning request.
 
-Resume point: **issue 2907 — packaged generated-project verification**.
+Resume point: **issue 2908 — complete Quick Start documentation**.

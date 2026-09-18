@@ -35,8 +35,9 @@ that protocol's allowlist; a valid session still grants no Task permission.
 The application ID header is required, browser-origin access and HTTP Master
 keys remain disabled, and acknowledging unverified public protection is not a
 security policy. The generated README gives exact local request examples and
-deployment boundaries. Later milestone 29 issues add packed-project
-verification and the full Quick Start journey.
+deployment boundaries. Packed-project verification covers the archive shape,
+all official plugin selections, and TypeScript builds against local compiled
+packages. The full Quick Start journey remains in issue 2908.
 
 Run the built local executable with `node dist/cli.js --help`, or generate a
 base project with `node dist/cli.js --name notes --yes --no-install`. The

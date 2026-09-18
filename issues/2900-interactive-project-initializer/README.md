@@ -16,7 +16,7 @@ authority for every generated application.
 4. [x] [2904 — Compose data and behavior plugins](2904-data-behavior-plugin-templates.md)
 5. [x] [2905 — Compose security plugins safely](2905-security-plugin-templates.md)
 6. [x] [2906 — Compose HTTP, API, and explorer plugins](2906-api-plugin-templates.md)
-7. [ ] [2907 — Verify packaged generated projects](2907-packaged-validation.md)
+7. [x] [2907 — Verify packaged generated projects](2907-packaged-validation.md)
 8. [ ] [2908 — Document the complete Quick Start journey](2908-quick-start-documentation.md)
 
 The issues are sequential so each plugin family extends one validated project
