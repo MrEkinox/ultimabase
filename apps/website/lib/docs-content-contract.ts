@@ -26,6 +26,7 @@ export const documentationMetadataFields = {
 	audience: z.array(z.enum(documentationAudiences)).min(1),
 	contentType: z.enum(documentationContentTypes),
 	description: z.string().trim().min(1),
+	seoTitle: z.string().trim().min(1).optional(),
 	order: z.number().int().nonnegative().optional(),
 	outcome: z.string().trim().min(1),
 	owner: z.string().regex(/^\d{4}$/u),

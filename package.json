@@ -37,6 +37,7 @@
 		"test:watch": "vitest --project unit --watch",
 		"typecheck": "tsc --build tsconfig.json tooling/tsconfig/test.json",
 		"website:build": "yarn workspace @ultimabase/website build",
+		"website:build:public": "yarn workspace @ultimabase/website build:public",
 		"website:dev": "yarn workspace @ultimabase/website dev",
 		"website:lint": "yarn workspace @ultimabase/website lint",
 		"website:test": "yarn workspace @ultimabase/website test:browser",

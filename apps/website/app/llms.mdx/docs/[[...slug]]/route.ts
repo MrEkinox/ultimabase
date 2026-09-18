@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 
+import { siteConfig } from '../../../../lib/site'
 import { documentationMarkdown, source } from '../../../../lib/source'
 
 interface MarkdownRouteProps {
@@ -19,7 +20,11 @@ export async function GET(_request: Request, { params }: MarkdownRouteProps) {
 	if (page === undefined) notFound()
 
 	return new Response(await documentationMarkdown.page(page), {
-		headers: { 'Content-Type': 'text/markdown; charset=utf-8' },
+		// Keep the Markdown copy crawlable while consolidating search on the HTML page.
+		headers: {
+			'Content-Type': 'text/markdown; charset=utf-8',
+			Link: `<${new URL(page.url, siteConfig.canonicalUrl).href}>; rel="canonical"`,
+		},
 	})
 }
 

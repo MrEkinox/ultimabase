@@ -9,6 +9,12 @@ are provisional and centralized in `lib/site.ts`. Set `NEXT_PUBLIC_SITE_URL` to
 an absolute preview URL when validating canonical metadata; local development
 uses `http://localhost:3000` by default.
 
+An ordinary `website:build` remains a non-indexable preview by default. A public
+build uses `yarn website:build:public` with both `NEXT_PUBLIC_SITE_URL` set to a
+public HTTPS origin and `NEXT_PUBLIC_SITE_INDEXABLE=true`. The public build
+rejects a local origin or disabled indexing; do not use the preview build as a
+public deployment artifact.
+
 ## Local development
 
 From the repository root:
@@ -73,6 +79,10 @@ against the authored English page.
 Every public MDX page requires a title, description, audience, content type,
 reader outcome, owning issue, release status, review date, and canonical
 repository sources. Frontmatter may also declare navigation order.
+Selected entry pages may declare `seoTitle` for a descriptive browser/search
+title while their shorter `title` remains the visible heading and sidebar label.
+Each page's Markdown copy returns an HTTP canonical link to its HTML page.
+
 `components/mdx.tsx` exposes the standard Fumadocs code, tabs, callouts, cards,
 steps, and file-tree components. Authored Mermaid diagrams use a small
 server-rendered SVG component with Fumadocs color variables; keep file contents

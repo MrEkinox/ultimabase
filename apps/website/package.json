@@ -5,6 +5,7 @@
 	"type": "module",
 	"scripts": {
 		"build": "yarn generate && next build --webpack",
+		"build:public": "ULTIMABASE_PUBLIC_BUILD=1 yarn build",
 		"dev": "next dev --webpack",
 		"generate": "fumadocs-mdx",
 		"lint": "yarn generate && eslint .",

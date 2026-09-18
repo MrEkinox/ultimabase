@@ -40,6 +40,30 @@ export interface SiteConfig {
 }
 
 const canonicalUrl = new URL(process.env.NEXT_PUBLIC_SITE_URL ?? developmentUrl)
+
+/** Reject a public build that would publish an unindexable or local identity. */
+export function assertPublicBuildReady(url: URL, indexable: boolean): void {
+	if (!indexable) {
+		throw new Error(
+			'Public website build requires NEXT_PUBLIC_SITE_INDEXABLE=true.',
+		)
+	}
+	if (
+		url.protocol !== 'https:' ||
+		url.hostname === 'localhost' ||
+		url.hostname.endsWith('.localhost') ||
+		url.hostname === '127.0.0.1' ||
+		url.hostname === '[::1]' ||
+		url.pathname !== '/' ||
+		url.search !== '' ||
+		url.hash !== ''
+	) {
+		throw new Error(
+			'Public website build requires NEXT_PUBLIC_SITE_URL to be a public HTTPS origin.',
+		)
+	}
+}
+
 const sourceRepository = Object.freeze({
 	branch: 'main',
 	name: 'ultimadatabase',
@@ -52,9 +76,13 @@ const sourceExampleUrl = new URL(
 	`${repositoryUrl.href}/blob/${sourceRepository.branch}/examples/minimal/README.md`,
 )
 const preview: SiteConfig['preview'] = Object.freeze({
-	indexable: false,
+	indexable: process.env.NEXT_PUBLIC_SITE_INDEXABLE === 'true',
 	reviewedAt: '2026-09-18',
 })
+
+if (process.env.ULTIMABASE_PUBLIC_BUILD === '1' || preview.indexable) {
+	assertPublicBuildReady(canonicalUrl, preview.indexable)
+}
 const routes: SiteConfig['routes'] = Object.freeze({
 	contributing: currentDocumentationPath('project/contributing'),
 	docs: currentDocumentationPath(),

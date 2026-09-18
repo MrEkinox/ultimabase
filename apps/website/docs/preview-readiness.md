@@ -35,10 +35,13 @@ low-contrast GitHub Light syntax tokens while preserving syntax highlighting.
 ## Metadata and indexing
 
 Canonical, Open Graph, and X text metadata derive from the
-same page title, description, and provisional canonical origin. The
+selected page metadata title, description, and provisional canonical origin. The
 generated favicon uses the replaceable geometric mark. Sitemap, robots, Project
 metadata and 404 responses have
-production-browser coverage. The global navigation exposes Documentation,
+production-browser coverage. Selected documentation pages use a separate search
+title while their visible heading and sidebar label stay concise. Markdown
+copies remain available with an HTTP canonical link to their HTML reader pages.
+The global navigation exposes Documentation,
 Plugins, a Project menu, and Fumadocs’ native GitHub icon. The Plugins link opens
 the official catalog; Project links to release status, roadmap, and contribution
 guidance on desktop and mobile. The landing has no footer. Its main action opens the documentation rather than implying that
@@ -88,3 +91,13 @@ Do not publish from this milestone. Before any public deployment, explicitly
 approve the hosting provider, canonical domain, product name, social card,
 indexing policy, and any required operational monitoring. Then update only the
 central site configuration and repeat the complete verification suite.
+
+For an approved public build, set `NEXT_PUBLIC_SITE_URL` to its final HTTPS
+origin and enable indexing explicitly:
+
+```bash
+NEXT_PUBLIC_SITE_URL="https://your-domain.example" NEXT_PUBLIC_SITE_INDEXABLE=true yarn website:build:public
+```
+
+The public-build guard rejects `localhost`, non-HTTPS origins, and disabled
+indexing. The ordinary build remains suitable for a non-indexable preview.

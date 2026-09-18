@@ -9,7 +9,7 @@ import {
 	createPublicSitemap,
 	type DocumentationSitemapPage,
 } from '../lib/public-sitemap'
-import { siteConfig } from '../lib/site'
+import { assertPublicBuildReady, siteConfig } from '../lib/site'
 
 const websiteRoot = fileURLToPath(new URL('..', import.meta.url))
 const documentationRoot = path.join(websiteRoot, 'content/docs')
@@ -108,6 +108,25 @@ describe('website preview readiness', () => {
 			rules: { disallow: '/', userAgent: '*' },
 			sitemap: new URL('/sitemap.xml', siteConfig.canonicalUrl).href,
 		})
+	})
+
+	it('rejects public builds without an indexable HTTPS origin', () => {
+		expect(() => {
+			assertPublicBuildReady(new URL('https://docs.example.org'), false)
+		}).toThrow('NEXT_PUBLIC_SITE_INDEXABLE=true')
+		for (const origin of [
+			'http://docs.example.org',
+			'https://localhost:3000',
+			'https://127.0.0.1:3000',
+			'https://docs.example.org/path',
+		]) {
+			expect(() => {
+				assertPublicBuildReady(new URL(origin), true)
+			}).toThrow('public HTTPS origin')
+		}
+		expect(() => {
+			assertPublicBuildReady(new URL('https://docs.example.org'), true)
+		}).not.toThrow()
 	})
 
 	it('aligns canonical, Open Graph, and X metadata without a stale image', () => {

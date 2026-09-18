@@ -77,6 +77,6 @@ export async function generateMetadata({ params }: DocumentationPageProps) {
 	return createPublicPageMetadata({
 		canonicalPath: page.url,
 		description: page.data.description,
-		title: page.data.title,
+		title: page.data.seoTitle ?? page.data.title,
 	})
 }

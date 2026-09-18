@@ -360,4 +360,25 @@ describe('website preview audit', () => {
 			await context.close()
 		}
 	})
+
+	it('keeps visible doc titles concise and points Markdown at its HTML canonical', async () => {
+		const context = await browser?.newContext()
+		if (context === undefined) throw new Error('Browser did not start')
+		try {
+			const page = await context.newPage()
+			const route = '/docs/1.0.0/plugins/official/rest'
+			await page.goto(`${origin}${route}`)
+			expect(await page.title()).toBe(
+				'REST API from TypeScript Schemas · UltimaBase',
+			)
+			await page.getByRole('heading', { level: 1, name: 'REST API' }).waitFor()
+			const markdown = await page.request.get(`${origin}${route}.md`)
+			expect(markdown.status()).toBe(200)
+			expect(markdown.headers().link).toBe(
+				`<${new URL(route, siteConfig.canonicalUrl).href}>; rel="canonical"`,
+			)
+		} finally {
+			await context.close()
+		}
+	})
 })
