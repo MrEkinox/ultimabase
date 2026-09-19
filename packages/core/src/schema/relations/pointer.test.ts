@@ -82,7 +82,18 @@ describe('Pointer', () => {
 			kind: 'find-one',
 			query: { selection: { fields: [{ field: 'id' }] }, where: undefined },
 		})
-		expect(scope).toMatchObject({ kind: 'row-filter', objectId: targetId })
+		expect(scope).toMatchObject({
+			kind: 'row-filter',
+			objectId: targetId,
+			protectedPolicyDeniedAsMissing: true,
+		})
+		await runWithQueryExecution({}, dispatcher, () => pointer.exists())
+		expect(operation).toMatchObject({ kind: 'exists' })
+		expect(scope).toMatchObject({
+			kind: 'row-filter',
+			objectId: targetId,
+			protectedPolicyDeniedAsMissing: true,
+		})
 	})
 
 	it('structurally shares trusted values at snapshot boundaries', () => {

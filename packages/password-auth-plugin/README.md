@@ -116,10 +116,40 @@ errors to status 400 or 401 without importing REST.
 The same explicit tokens may be passed to `graphqlPlugin({ operations })`.
 Password Auth contributes canonical GraphQL metadata and codecs for `signUp`,
 `login`, `refresh`, and `logout` without importing the GraphQL package. The
-GraphQL payload exposes only `principal.userId` plus the public session result;
-it never serializes the User model, custom User fields, a password, or a stored
-verifier. Authentication still adds request identity only and grants no schema
-access by itself.
+GraphQL payload exposes `principal.userId`, `session`, and a nullable `user`
+field using the configured User output type. REST exposes the same readable
+profile in `result.user`, beside its existing principal pointer and session.
+Direct operations return `PasswordAuthenticationResult<TUser>` with
+`user: SchemaResult<TUser> | null` (custom fields follow the generated User contract).
+
+All three successful operations, including refresh, read the current profile
+inside their transaction under the newly issued principal and session. This
+read starts with anonymous Core authority, even for a Master caller, and retains
+ordinary policy, field restrictions, and read Hooks. A missing or policy-hidden
+User returns `null` without rejecting the session. Unexpected read failures abort
+the transaction, including token rotation. No password or stored verifier enters
+the result. GraphQL selects fields from this ordinary default read; it does not
+add relationship inclusion. Returning User does not expose generated User CRUD.
+
+```graphql
+mutation {
+	refresh {
+		user {
+			id
+			username
+			displayName
+		}
+		session {
+			token
+			expiresAt
+		}
+	}
+}
+```
+
+`displayName` above requires the custom User declared earlier. Restricted fields
+follow ordinary transport output rules: REST omits them, while GraphQL applies
+its declared field nullability. Authentication grants no schema access by itself.
 
 ## Resolve sessions over HTTP
 

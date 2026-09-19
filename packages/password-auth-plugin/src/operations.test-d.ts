@@ -2,11 +2,13 @@ import {
 	FrameworkApplication,
 	type PluginOperationInput,
 	type PluginOperationResult,
+	type SchemaResult,
 } from '@ultimabase/core'
 import { expectTypeOf, test } from 'vitest'
 
 import {
 	passwordAuthPlugin,
+	PasswordUserSchema,
 	type PasswordAuthHttpOptions,
 	type PasswordCredentialsInput,
 } from './index.js'
@@ -29,6 +31,20 @@ test('retains exact operation input and result contracts', () => {
 	expectTypeOf<
 		PluginOperationResult<typeof passwordAuthOperations.logout>
 	>().toEqualTypeOf<PasswordLogoutResult>()
+})
+
+test('types the nullable profile through the configured User schema contract', () => {
+	const User = PasswordUserSchema.define({
+		className: 'User',
+		fields: (field) => ({ displayName: field.string() }),
+	})
+	expectTypeOf(User.className).toEqualTypeOf<'User'>()
+	expectTypeOf<
+		PasswordAuthenticationResult<typeof User>['user']
+	>().toEqualTypeOf<SchemaResult<typeof User> | null>()
+	expectTypeOf<
+		PluginOperationResult<typeof passwordAuthOperations.refresh>['user']
+	>().toEqualTypeOf<PasswordAuthenticationResult['user']>()
 })
 
 test('exposes one typed application-bound runWithSession helper', async () => {

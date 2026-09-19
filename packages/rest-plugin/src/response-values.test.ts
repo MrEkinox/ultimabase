@@ -130,6 +130,55 @@ const VirtualResponseRecord = Schema.define({
 new SchemaRegistry([ResponseAuthor, ResponseRecord]).resolveSchemaTargets()
 
 describe('REST response values', () => {
+	it('encodes nested operation models only from the selected application registry', () => {
+		const schemas = new SchemaRegistry([ResponseAuthor, ResponseRecord])
+		const profile = materializeSchemaModel(ResponseRecord, {
+			id: recordId,
+			huge: 9_007_199_254_740_993n,
+			blob: new Uint8Array([1, 2, 3]),
+			code: 'VISIBLE',
+		})
+		expect(
+			encodeRestJsonValue(
+				{ user: profile, nested: [profile] },
+				invalid,
+				schemas,
+			),
+		).toEqual({
+			user: {
+				id: recordId,
+				huge: '9007199254740993',
+				blob: { type: 'binary', encoding: 'base64', data: 'AQID' },
+				code: { code: 'visible' },
+			},
+			nested: [
+				{
+					id: recordId,
+					huge: '9007199254740993',
+					blob: { type: 'binary', encoding: 'base64', data: 'AQID' },
+					code: { code: 'visible' },
+				},
+			],
+		})
+		expect(() =>
+			encodeRestJsonValue(profile, invalid, new SchemaRegistry([])),
+		).toThrow('Unrepresentable REST value')
+		expect(() => encodeRestJsonValue(profile, invalid)).toThrow(
+			'Unrepresentable REST value',
+		)
+		expect(() =>
+			encodeRestSchemaResult(ResponseAuthor, profile, invalid),
+		).toThrow('Unrepresentable REST value')
+		// Ordinary JSON never accepts a model, even inside a schema JSON field.
+		const invalidJson = materializeSchemaModel(ResponseRecord, {
+			id: recordId,
+			metadata: { user: profile },
+		})
+		expect(() => encodeRestJsonValue(invalidJson, invalid, schemas)).toThrow(
+			'Unrepresentable REST value',
+		)
+	})
+
 	it('applies the complete schema operation status and envelope matrix', async () => {
 		const model = materializeSchemaModel(ResponseRecord, { id: recordId })
 		const cases: readonly Readonly<{
@@ -343,6 +392,7 @@ describe('REST response values', () => {
 			'Unrepresentable REST value',
 		)
 		const result = materializeSchemaModel(ResponseRecord, {
+			id: recordId,
 			count: Number.MAX_SAFE_INTEGER + 1,
 		})
 		expect(() =>

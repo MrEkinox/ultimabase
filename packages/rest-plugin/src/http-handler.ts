@@ -289,6 +289,7 @@ const executeMatchedRoute = async (
 			result: encodeRestJsonValue(
 				result,
 				() => new TypeError('Invalid REST result'),
+				schemas,
 			),
 		},
 		200,

@@ -1,5 +1,6 @@
 import {
 	PluginError,
+	Pointer,
 	defineOperation,
 	defineOperationTransport,
 	defineOperationValue,
@@ -11,10 +12,12 @@ import {
 	type PluginOperationInput,
 	type PluginOperationResult,
 	type TypegenReference,
+	type SchemaResult,
 } from '@ultimabase/core'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
-import { isPasswordPrincipal } from './principal.js'
+import { isPasswordPrincipal, type PasswordPrincipal } from './principal.js'
+import type { PasswordUserDefinition } from './user-schema.js'
 import {
 	isPasswordSessionToken,
 	type PasswordAuthenticationResult,
@@ -81,12 +84,28 @@ const nullInput = defineOperationValue<null>((value, path) => {
 	return null
 })
 
+const isUserProfile = (
+	value: unknown,
+	principal: PasswordPrincipal,
+): value is SchemaResult<PasswordUserDefinition> | null => {
+	if (value === null) return true
+	if (!(value instanceof principal.user.schema)) return false
+	const prototype: unknown = Reflect.get(principal.user.schema, 'prototype')
+	if (typeof prototype !== 'object' || prototype === null) return false
+	const toPointer: unknown = Reflect.get(prototype, 'toPointer')
+	if (typeof toPointer !== 'function') return false
+	// The nominal model method rejects drafts and prototype-shaped impostors.
+	const pointer: unknown = Reflect.apply(toPointer, value, [])
+	return Pointer.is(pointer) && pointer.equals(principal.user)
+}
+
 const authenticationResult = defineOperationValue<PasswordAuthenticationResult>(
 	(value, path) => {
 		if (
 			!isPlainRecord(value) ||
-			Object.keys(value).length !== 2 ||
+			Object.keys(value).length !== 3 ||
 			!isPasswordPrincipal(value.principal) ||
+			!isUserProfile(value.user, value.principal) ||
 			!isPlainRecord(value.session) ||
 			Object.keys(value.session).length !== 4 ||
 			typeof value.session.absoluteExpiresAt !== 'string' ||
@@ -98,6 +117,7 @@ const authenticationResult = defineOperationValue<PasswordAuthenticationResult>(
 		}
 		return immutableRecord({
 			principal: value.principal,
+			user: value.user,
 			session: immutableRecord({
 				absoluteExpiresAt: value.session.absoluteExpiresAt,
 				expiresAt: value.session.expiresAt,
@@ -213,6 +233,7 @@ const toWireAuthenticationResult = (value: PasswordAuthenticationResult) =>
 	immutableRecord({
 		principal: immutableRecord({ user: value.principal.user.toJSON() }),
 		session: value.session,
+		user: value.user,
 	})
 
 const createRestBinding = <TOperation extends PasswordAuthOperation>(

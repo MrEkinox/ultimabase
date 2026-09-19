@@ -208,6 +208,7 @@ export const rotatePasswordSession = async (
 	now: number = Date.now(),
 ): Promise<
 	| Readonly<{
+			readonly context: PasswordSession
 			readonly issued: IssuedPasswordSession
 			readonly userId: string
 	  }>
@@ -242,6 +243,7 @@ export const rotatePasswordSession = async (
 	})
 	if (updated === null) return undefined
 	return immutableRecord({
+		context: toContextSession(updated),
 		issued: immutableRecord({
 			absoluteExpiresAt: updated.absoluteExpiresAt,
 			expiresAt: updated.expiresAt,

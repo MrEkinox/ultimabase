@@ -4,6 +4,7 @@ import {
 	getFieldSchemaTarget,
 	getPluginFieldWireCodec,
 	type GenericField,
+	type CompiledSchemaRegistry,
 	type GenericOutputDescriptor,
 	type SchemaDefinition,
 } from '@ultimabase/core'
@@ -34,11 +35,20 @@ const readModelValues = (
 	invalid: InvalidRestValue,
 ): Readonly<Record<string, unknown>> => {
 	if (typeof value !== 'object' || value === null) throw invalid()
-	if (Object.getPrototypeOf(value) !== Reflect.get(schema, 'prototype')) {
+	const prototype: unknown = Reflect.get(schema, 'prototype')
+	if (
+		typeof prototype !== 'object' ||
+		prototype === null ||
+		Object.getPrototypeOf(value) !== prototype
+	) {
 		throw invalid()
 	}
-	const toJSON: unknown = Reflect.get(value, 'toJSON')
-	if (typeof toJSON !== 'function') throw invalid()
+	const toJSON: unknown = Reflect.get(prototype, 'toJSON')
+	const toPointer: unknown = Reflect.get(prototype, 'toPointer')
+	if (typeof toJSON !== 'function' || typeof toPointer !== 'function')
+		throw invalid()
+	const pointer: unknown = Reflect.apply(toPointer, value, [])
+	if (!Pointer.is(pointer) || pointer.schema !== schema) throw invalid()
 	const values: unknown = Reflect.apply(toJSON, value, [])
 	if (!isPlainRecord(values)) throw invalid()
 	return values
@@ -48,6 +58,7 @@ const encodeJsonValue = (
 	value: unknown,
 	invalid: InvalidRestValue,
 	seen: Set<object>,
+	schemas?: CompiledSchemaRegistry,
 ): unknown => {
 	if (
 		value === null ||
@@ -64,16 +75,32 @@ const encodeJsonValue = (
 		if (seen.has(value)) throw invalid()
 		seen.add(value)
 		const encoded = immutableArray(
-			value.map((item) => encodeJsonValue(item, invalid, seen)),
+			value.map((item) => encodeJsonValue(item, invalid, seen, schemas)),
 		)
 		seen.delete(value)
 		return encoded
+	}
+	if (
+		schemas !== undefined &&
+		typeof value === 'object' &&
+		!isPlainRecord(value)
+	) {
+		const schema = schemas
+			.values()
+			.find(
+				(candidate) =>
+					Object.getPrototypeOf(value) === Reflect.get(candidate, 'prototype'),
+			)
+		if (schema !== undefined) {
+			// Only this application's models use schema codecs; JSON fields remain JSON.
+			return encodeSchemaRecord(schema, value, invalid)
+		}
 	}
 	if (!isPlainRecord(value) || seen.has(value)) throw invalid()
 	seen.add(value)
 	const encoded: Record<string, unknown> = {}
 	for (const [name, item] of Object.entries(value)) {
-		encoded[name] = encodeJsonValue(item, invalid, seen)
+		encoded[name] = encodeJsonValue(item, invalid, seen, schemas)
 	}
 	seen.delete(value)
 	return immutableRecord(encoded)
@@ -286,4 +313,5 @@ export const encodeRestSchemaResult = (
 export const encodeRestJsonValue = (
 	value: unknown,
 	invalid: InvalidRestValue,
-): unknown => encodeJsonValue(value, invalid, new Set())
+	schemas?: CompiledSchemaRegistry,
+): unknown => encodeJsonValue(value, invalid, new Set(), schemas)

@@ -95,6 +95,12 @@ object when the operation declares no public plugin errors. REST validates the
 complete mapping before transport startup and accepts only integer error
 statuses from 400 through 599. The `RestOperationTransport` setup export then
 executes only its own route objects through Core's existing operation Runtime.
+Operation codecs may return nested persisted models from the selected
+application. REST encodes their already authorized visible fields with its
+ordinary schema codecs, including bigint, binary, and custom field kinds.
+It does not load additional fields or relationships. JSON fields themselves
+remain strict JSON; foreign schema models are rejected.
+
 An HTTP success returns `200` with `{ result }`; a declared `PluginError` uses
 the exact configured status from that operation's static binding.
 It preserves anonymous contexts, plugin-owned values, verified Master

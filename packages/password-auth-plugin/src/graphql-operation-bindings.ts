@@ -50,6 +50,10 @@ const sessionType = immutableRecord({
 })
 const payloadType = immutableRecord({
 	fields: immutableArray([
+		immutableRecord({
+			name: 'user',
+			type: immutableRecord({ kind: 'schema', className: 'User' }),
+		}),
 		graphqlField(
 			'principal',
 			graphqlNonNull(graphqlNamed('PasswordAuthPrincipal')),
@@ -78,6 +82,7 @@ const toGraphqlAuthenticationResult = (value: PasswordAuthenticationResult) =>
 	immutableRecord({
 		principal: immutableRecord({ userId: value.principal.user.id }),
 		session: value.session,
+		user: value.user,
 	})
 
 const createGraphqlBinding = <TOperation extends PasswordAuthOperation>(

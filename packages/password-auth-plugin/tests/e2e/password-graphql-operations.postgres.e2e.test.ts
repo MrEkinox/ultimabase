@@ -1,5 +1,12 @@
 import {
+	accessPlugin,
+	fieldAccess,
+	provideAccessContributions,
+	schemaAccess,
+} from '@ultimabase/access-plugin'
+import {
 	MasterAuthority,
+	definePlugin,
 	Schema,
 	UltimaBase,
 	getCurrentRequest,
@@ -11,8 +18,11 @@ import {
 	type GraphqlApplication,
 } from '@ultimabase/graphql-plugin'
 import {
+	PasswordUserSchema,
 	passwordAuthOperations,
 	passwordAuthPlugin,
+	passwordPrincipal,
+	passwordSession,
 } from '@ultimabase/password-auth-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { isPlainRecord } from '@ultimabase/shared'
@@ -67,6 +77,7 @@ const authMutation = (field: 'login' | 'signUp') =>
 	`mutation Auth($input: PasswordAuthCredentialsInput!) {
 		${field}(input: $input) {
 			principal { userId }
+			user { id username displayName secret serial avatar }
 			session { id token expiresAt absoluteExpiresAt }
 		}
 	}`
@@ -83,7 +94,48 @@ const readSessionToken = (data: unknown, field: string): string => {
 
 describe('Password Auth GraphQL operations with PostgreSQL', () => {
 	it('signs up, logs in, refreshes, logs out, and masks credentials', async () => {
+		let profileVisible = true
+		const User = PasswordUserSchema.define({
+			className: 'User',
+			fields: (field) => ({
+				avatar: field.binary({ default: new Uint8Array([1, 2, 3]) }),
+				displayName: field.string({ default: 'Ada' }),
+				secret: field.string({ default: 'private' }),
+				serial: field.bigint({ default: 9_007_199_254_740_993n }),
+			}),
+		})
+		const profilePolicy = definePlugin({
+			pluginId: 'fixture.graphql-profile-policy',
+			version: '1.0.0',
+			core: '^0.0.0',
+			privileges: [
+				{
+					name: 'runtime:constrain',
+					reason: 'Verify authenticated profile reads.',
+				},
+			],
+			capabilities: {
+				provides: [
+					provideAccessContributions('profile', () => {
+						const secretField = User.persistedFields.secret
+						if (secretField === undefined)
+							throw new TypeError('Missing fixture secret field')
+						return [
+							schemaAccess(User, {
+								read: ({ context }) =>
+									profileVisible &&
+									context.access.mode === 'anonymous' &&
+									context.getValue(passwordPrincipal) !== undefined &&
+									context.getValue(passwordSession) !== undefined,
+							}),
+							fieldAccess(User, secretField, ['secret'], { read: false }),
+						]
+					}),
+				],
+			},
+		})
 		const passwordPlugin = passwordAuthPlugin({
+			user: User,
 			password: { memoryCostKiB: 19_456, parallelism: 1, timeCost: 2 },
 		})
 		const ultimabase = new UltimaBase({
@@ -98,6 +150,8 @@ describe('Password Auth GraphQL operations with PostgreSQL', () => {
 					schemaPolicy: 'override',
 				}),
 				passwordPlugin,
+				accessPlugin({ default: true }),
+				profilePolicy,
 				graphqlPlugin({
 					acknowledgeUnverifiedProtection: true,
 					operations: [
@@ -124,6 +178,15 @@ describe('Password Auth GraphQL operations with PostgreSQL', () => {
 			)
 			expect(signedUp.errors).toBeUndefined()
 			expect(readSessionToken(signedUp.data, 'signUp')).toMatch(/^ub_s1\./u)
+			expect(signedUp.data?.signUp).toMatchObject({
+				user: {
+					username: 'graphql-user',
+					displayName: 'Ada',
+					secret: null,
+					serial: '9007199254740993',
+					avatar: 'AQID',
+				},
+			})
 			expect(JSON.stringify(signedUp)).not.toContain('password')
 
 			const rejected = await executeAnonymous(
@@ -141,6 +204,18 @@ describe('Password Auth GraphQL operations with PostgreSQL', () => {
 				message: 'Invalid credentials.',
 			})
 			expect(JSON.stringify(rejected)).not.toContain('wrong password')
+			profileVisible = false
+			const hidden = await executeAnonymous(
+				ultimabase.engine,
+				graphql,
+				authMutation('login'),
+				'password-graphql-hidden',
+				{ input: { password, username: 'graphql-user' } },
+			)
+			expect(hidden.errors).toBeUndefined()
+			expect(hidden.data?.login).toMatchObject({ user: null })
+			expect(readSessionToken(hidden.data, 'login')).toMatch(/^ub_s1\./u)
+			profileVisible = true
 
 			const loggedIn = await executeAnonymous(
 				ultimabase.engine,
@@ -150,6 +225,17 @@ describe('Password Auth GraphQL operations with PostgreSQL', () => {
 				{ input: { password, username: 'GRAPHQL-USER' } },
 			)
 			const loginToken = readSessionToken(loggedIn.data, 'login')
+			expect(loggedIn.errors).toBeUndefined()
+			expect(loggedIn.data?.login).toMatchObject({
+				user: { displayName: 'Ada' },
+			})
+			await User.updateOne(
+				{
+					where: { username: { eq: 'graphql-user' } },
+					data: { displayName: 'Updated' },
+				},
+				{ ultimabase, useMasterKey: true },
+			)
 			const auth = ultimabase.application.getPlugin(
 				'@ultimabase/password-auth-plugin',
 			)
@@ -159,10 +245,13 @@ describe('Password Auth GraphQL operations with PostgreSQL', () => {
 				return graphql.execute({
 					context: loginContext,
 					document:
-						'mutation { refresh { principal { userId } session { token } } }',
+						'mutation { refresh { user { displayName secret } principal { userId } session { token } } }',
 				})
 			})
 			expect(refreshed.errors).toBeUndefined()
+			expect(refreshed.data?.refresh).toMatchObject({
+				user: { displayName: 'Updated', secret: null },
+			})
 			const refreshToken = readSessionToken(refreshed.data, 'refresh')
 			expect(refreshToken).not.toBe(loginToken)
 			if (loginContext === undefined) {

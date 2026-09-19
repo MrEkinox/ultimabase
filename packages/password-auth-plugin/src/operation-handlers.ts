@@ -27,10 +27,8 @@ import {
 	verifyNormalizedPasswordOrDummy,
 } from './password-hasher.js'
 import type { ResolvedPasswordHashPolicy } from './password-policy.js'
-import {
-	createPasswordAuthenticationResult,
-	passwordSession,
-} from './session.js'
+import { passwordSession } from './session.js'
+import { readPasswordAuthenticationResult } from './authentication-result.js'
 import type { ResolvedPasswordSessionPolicy } from './session-policy.js'
 import {
 	issuePasswordSession,
@@ -115,10 +113,11 @@ const createSignUpHandler = <TUser extends PasswordUserDefinition>(
 						pointer.id,
 						options.sessionPolicy,
 					)
-					return createPasswordAuthenticationResult(
+					return readPasswordAuthenticationResult(
 						options.user,
 						pointer.id,
-						session.issued,
+						session,
+						transaction.context,
 					)
 				})
 			} catch (error: unknown) {
@@ -177,7 +176,7 @@ const createLoginHandler = <TUser extends PasswordUserDefinition>(
 						options.passwordPolicy,
 					)
 				: undefined
-			return engine.transaction(async () => {
+			return engine.transaction(async (transaction) => {
 				const current = await findPasswordCredentialByUsername(
 					options.credentials,
 					normalized.username,
@@ -199,10 +198,11 @@ const createLoginHandler = <TUser extends PasswordUserDefinition>(
 					current.userId,
 					options.sessionPolicy,
 				)
-				return createPasswordAuthenticationResult(
+				return readPasswordAuthenticationResult(
 					options.user,
 					current.userId,
-					session.issued,
+					session,
+					transaction.context,
 				)
 			})
 		},
@@ -239,10 +239,11 @@ const createRefreshHandler = <TUser extends PasswordUserDefinition>(
 				options.sessionPolicy,
 			)
 			if (rotated === undefined) return rejectPasswordSession()
-			return createPasswordAuthenticationResult(
+			return readPasswordAuthenticationResult(
 				options.user,
 				rotated.userId,
-				rotated.issued,
+				rotated,
+				context,
 			)
 		},
 	})

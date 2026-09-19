@@ -587,7 +587,10 @@ allowlist with `ultimabase.exposeOperations({ transport, operations })`.
 Version 1 of this generic protocol binds application-targeted operations; schema
 and model targets remain directly executable through their owned handles. Wire
 requests supply an already validated `RequestContext` and cannot select Master,
-Runtime replacement, or a raw adapter.
+Runtime replacement, or a raw adapter. Results may contain persisted schema
+models with Core's usual detached field values, including native binary values.
+Mutable ordinary operation containers remain invalid; transport codecs own
+representation without fetching or widening those model values.
 
 Protocol identities are canonical by exact name and version, so an operation
 owner and transport package can contribute compatible bindings without
@@ -769,7 +772,9 @@ const memberships = await Membership.findMany({
 `eq` compares only the stored pointer identity. `is` and `isNot` query fields
 of the visible target and therefore apply installed target constraints. Pointer
 nullability remains explicit through `isNull` and `isNotNull`. `pointer.findOne()` and
-`pointer.exists()` execute normal reads already scoped by the pointer ID, while
+`pointer.exists()` execute normal reads already scoped by the pointer ID.
+Missing or policy-hidden targets return `null` and `false`, respectively;
+unexpected callback and adapter errors still fail the operation. Meanwhile,
 bounded single-target inclusion is selection-aware:
 
 ```ts

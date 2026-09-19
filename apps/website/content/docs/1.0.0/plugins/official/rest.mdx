@@ -9,11 +9,12 @@ order: 3
 outcome: Call generated REST routes while preserving the same Runtime semantics as TypeScript.
 owner: '2812'
 releaseStatus: pre-release
-reviewedAt: 2026-09-17
+reviewedAt: 2026-09-19
 sources:
   - packages/rest-plugin/README.md
   - packages/rest-plugin/src/schema-routes.ts
   - packages/rest-plugin/src/options.ts
+  - packages/rest-plugin/src/response-values.ts
   - examples/minimal/src/create-application.ts
   - docs/adr/0228-experimental-http-rest-v1-wire-contract.md
 ---
@@ -182,6 +183,11 @@ plugin operations return `{ "result": ... }`; count and exists return
 `{ "count": 1 }` and `{ "exists": true }`. A first read with no visible match
 returns `{ "result": null }`. Create and bulk create return HTTP `201`; other
 successful operations return `200`.
+
+An exposed plugin operation may return a readable schema model inside its
+result, such as Password Auth's `result.user`. REST applies the same field
+encodings as generated schema routes and includes only values already returned
+by the authorized Runtime read. It does not fetch extra fields or relationships.
 
 Mutations use the same schema commands and automatic transaction boundaries
 as TypeScript. Bulk is ordered, itemized, atomic, and never partial-success.

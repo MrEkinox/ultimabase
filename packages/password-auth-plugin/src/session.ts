@@ -1,6 +1,6 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 
-import { RequestContextValue } from '@ultimabase/core'
+import { RequestContextValue, type SchemaResult } from '@ultimabase/core'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 import {
@@ -39,6 +39,8 @@ export interface PasswordAuthenticationResult<
 > {
 	readonly principal: PasswordPrincipal<TUser>
 	readonly session: IssuedPasswordSession
+	/** The current readable profile; null when ordinary User read policy denies it. */
+	readonly user: SchemaResult<TUser> | null
 }
 
 /** Carries the exact successful logout acknowledgement. */
@@ -108,10 +110,12 @@ export const createPasswordAuthenticationResult = (
 	user: PasswordUserDefinition,
 	userId: string,
 	session: IssuedPasswordSession,
+	profile: SchemaResult<PasswordUserDefinition> | null,
 ): PasswordAuthenticationResult =>
 	immutableRecord({
 		principal: createPasswordPrincipal(user.pointer(userId)),
 		session: immutableRecord(session),
+		user: profile,
 	})
 
 /** Recognizes only package-created context session values. */

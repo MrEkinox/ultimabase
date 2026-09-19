@@ -1,4 +1,8 @@
-import { PluginError } from '@ultimabase/core'
+import {
+	PluginError,
+	SchemaRegistry,
+	materializeSchemaModel,
+} from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -9,6 +13,8 @@ import {
 	rejectPasswordSignUp,
 } from './operations.js'
 import { passwordAuthGraphqlBindings } from './graphql-operation-bindings.js'
+import { createPasswordPrincipal } from './principal.js'
+import { PasswordUserSchema } from './user-schema.js'
 import {
 	createPasswordSessionToken,
 	digestPasswordSessionToken,
@@ -16,6 +22,83 @@ import {
 } from './session.js'
 
 describe('Password Auth operation contracts', () => {
+	it('snapshots only a persisted profile matching the authenticated identity', () => {
+		const User = PasswordUserSchema.define({
+			className: 'User',
+			fields: () => ({}),
+		})
+		new SchemaRegistry([User]).resolveSchemaTargets()
+		const id = '01991f00-0000-7000-8000-000000000101'
+		const profile = materializeSchemaModel(User, { id, username: 'ada' })
+		const result = {
+			principal: createPasswordPrincipal(User.pointer(id)),
+			session: {
+				absoluteExpiresAt: '2026-10-19T00:00:00.000Z',
+				expiresAt: '2026-09-26T00:00:00.000Z',
+				id,
+				token: createPasswordSessionToken().token,
+			},
+			user: profile,
+		}
+		const snapshot = passwordAuthOperations.login.result.snapshot(
+			result,
+			'result',
+		)
+		expect(snapshot.user).toBe(profile)
+		expect(Object.isFrozen(snapshot)).toBe(true)
+		expect(Object.isFrozen(snapshot.session)).toBe(true)
+		expect(
+			passwordAuthOperations.refresh.result.snapshot(
+				{ ...result, user: null },
+				'result',
+			).user,
+		).toBeNull()
+		for (const invalid of [
+			null,
+			{ ...result, extra: true },
+			{ ...result, principal: { user: result.principal.user } },
+			{ ...result, session: null },
+			...[
+				{ ...result.session, extra: true },
+				{ ...result.session, absoluteExpiresAt: 1 },
+				{ ...result.session, expiresAt: null },
+				{ ...result.session, id: undefined },
+				{ ...result.session, token: 'invalid-token' },
+			].map((session) => ({ ...result, session })),
+		]) {
+			expect(() =>
+				passwordAuthOperations.login.result.snapshot(invalid, 'result'),
+			).toThrow('Password Auth result')
+		}
+		for (const user of [
+			undefined,
+			{},
+			1,
+			materializeSchemaModel(User, {
+				id: '01991f00-0000-7000-8000-000000000102',
+			}),
+		]) {
+			expect(() =>
+				passwordAuthOperations.login.result.snapshot(
+					{ ...result, user },
+					'result',
+				),
+			).toThrow('Password Auth result')
+		}
+		const prototype: unknown = Reflect.get(User, 'prototype')
+		if (typeof prototype !== 'object' || prototype === null)
+			throw new TypeError('Missing model prototype')
+		const forged: unknown = Object.create(prototype, {
+			toPointer: { value: () => result.principal.user },
+		})
+		expect(() =>
+			passwordAuthOperations.login.result.snapshot(
+				{ ...result, user: forged },
+				'result',
+			),
+		).toThrow()
+	})
+
 	it('declares exact names, versions, transactions, and public errors', () => {
 		expect(passwordAuthOperations.signUp).toMatchObject({
 			errors: [passwordAuthErrorCodes.signUpRejected],
