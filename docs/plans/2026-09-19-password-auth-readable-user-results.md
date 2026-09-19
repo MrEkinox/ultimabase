@@ -1,5 +1,9 @@
 # Password Auth readable User results
 
+The nullable-profile and Pointer-denial decisions recorded here were subsequently
+corrected by [the required User follow-up](2026-09-20-password-auth-required-user.md).
+The validation below describes the original implementation before that correction.
+
 User-requested scope: return the readable User with sign-up, login, and refresh
 through direct operations, REST, and GraphQL. Preserve coverage and logout's
 contract. ADR-0252 records the approved extension of the pre-release auth result.

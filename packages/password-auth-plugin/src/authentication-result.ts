@@ -1,4 +1,4 @@
-import { RequestContext } from '@ultimabase/core'
+import { FrameworkError, RequestContext } from '@ultimabase/core'
 
 import { createPasswordPrincipal } from './principal.js'
 import {
@@ -30,9 +30,18 @@ export const readPasswordAuthenticationResult = async (
 	})
 		.withValue(passwordPrincipal, createPasswordPrincipal(user.pointer(userId)))
 		.withValue(passwordSession, session.context)
-	// Pointer reads normalize only Core-proven policy denials to absence before
-	// transaction failure tracking; infrastructure and callback errors still abort.
+	// Authentication must not commit credentials or a session without a readable User.
+	// Read errors propagate unchanged; row filtering or absence also aborts the transaction.
 	const profile = await user.pointer(userId).findOne(undefined, { context })
+	if (profile === null) {
+		throw new FrameworkError(
+			'NOT_FOUND',
+			'Password Auth User is not readable.',
+			{
+				publicMessage: 'The requested object was not found.',
+			},
+		)
+	}
 	return createPasswordAuthenticationResult(
 		user,
 		userId,

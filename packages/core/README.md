@@ -773,8 +773,8 @@ const memberships = await Membership.findMany({
 of the visible target and therefore apply installed target constraints. Pointer
 nullability remains explicit through `isNull` and `isNotNull`. `pointer.findOne()` and
 `pointer.exists()` execute normal reads already scoped by the pointer ID.
-Missing or policy-hidden targets return `null` and `false`, respectively;
-unexpected callback and adapter errors still fail the operation. Meanwhile,
+Missing or row-filtered targets return `null` and `false`, respectively;
+explicit policy denials, callback errors, and adapter errors still fail the operation. Meanwhile,
 bounded single-target inclusion is selection-aware:
 
 ```ts

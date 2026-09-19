@@ -39,8 +39,8 @@ export interface PasswordAuthenticationResult<
 > {
 	readonly principal: PasswordPrincipal<TUser>
 	readonly session: IssuedPasswordSession
-	/** The current readable profile; null when ordinary User read policy denies it. */
-	readonly user: SchemaResult<TUser> | null
+	/** The current readable profile, required for authentication to succeed. */
+	readonly user: SchemaResult<TUser>
 }
 
 /** Carries the exact successful logout acknowledgement. */
@@ -110,7 +110,7 @@ export const createPasswordAuthenticationResult = (
 	user: PasswordUserDefinition,
 	userId: string,
 	session: IssuedPasswordSession,
-	profile: SchemaResult<PasswordUserDefinition> | null,
+	profile: SchemaResult<PasswordUserDefinition>,
 ): PasswordAuthenticationResult =>
 	immutableRecord({
 		principal: createPasswordPrincipal(user.pointer(userId)),

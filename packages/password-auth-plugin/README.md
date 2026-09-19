@@ -116,19 +116,19 @@ errors to status 400 or 401 without importing REST.
 The same explicit tokens may be passed to `graphqlPlugin({ operations })`.
 Password Auth contributes canonical GraphQL metadata and codecs for `signUp`,
 `login`, `refresh`, and `logout` without importing the GraphQL package. The
-GraphQL payload exposes `principal.userId`, `session`, and a nullable `user`
+GraphQL payload exposes `principal.userId`, `session`, and a required `user`
 field using the configured User output type. REST exposes the same readable
 profile in `result.user`, beside its existing principal pointer and session.
 Direct operations return `PasswordAuthenticationResult<TUser>` with
-`user: SchemaResult<TUser> | null` (custom fields follow the generated User contract).
+`user: SchemaResult<TUser>` (custom fields follow the generated User contract).
 
 All three successful operations, including refresh, read the current profile
 inside their transaction under the newly issued principal and session. This
 read starts with anonymous Core authority, even for a Master caller, and retains
-ordinary policy, field restrictions, and read Hooks. A missing or policy-hidden
-User returns `null` without rejecting the session. Unexpected read failures abort
-the transaction, including token rotation. No password or stored verifier enters
-the result. GraphQL selects fields from this ordinary default read; it does not
+ordinary policy, field restrictions, and read Hooks. A missing, filtered-out,
+or policy-denied User rejects authentication. Every profile read failure aborts the transaction,
+including User/credential creation, session issuance, and token rotation. No
+password or stored verifier enters the result. GraphQL selects fields from this ordinary default read; it does not
 add relationship inclusion. Returning User does not expose generated User CRUD.
 
 ```graphql

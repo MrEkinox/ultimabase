@@ -85,15 +85,15 @@ describe('Pointer', () => {
 		expect(scope).toMatchObject({
 			kind: 'row-filter',
 			objectId: targetId,
-			protectedPolicyDeniedAsMissing: true,
 		})
+		expect(scope).not.toHaveProperty('protectedPolicyDeniedAsMissing')
 		await runWithQueryExecution({}, dispatcher, () => pointer.exists())
 		expect(operation).toMatchObject({ kind: 'exists' })
 		expect(scope).toMatchObject({
 			kind: 'row-filter',
 			objectId: targetId,
-			protectedPolicyDeniedAsMissing: true,
 		})
+		expect(scope).not.toHaveProperty('protectedPolicyDeniedAsMissing')
 	})
 
 	it('structurally shares trusted values at snapshot boundaries', () => {

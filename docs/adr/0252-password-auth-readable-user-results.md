@@ -3,6 +3,8 @@
 - Status: accepted
 - Date: 2026-09-19
 - Refines: ADR-0235, ADR-0238, ADR-0193
+- Partially superseded by: [ADR-0253](0253-password-auth-required-user.md)
+  for profile nullability and Pointer read failures
 
 ## Context
 

@@ -33,7 +33,7 @@ test('retains exact operation input and result contracts', () => {
 	>().toEqualTypeOf<PasswordLogoutResult>()
 })
 
-test('types the nullable profile through the configured User schema contract', () => {
+test('types the required profile through the configured User schema contract', () => {
 	const User = PasswordUserSchema.define({
 		className: 'User',
 		fields: (field) => ({ displayName: field.string() }),
@@ -41,7 +41,7 @@ test('types the nullable profile through the configured User schema contract', (
 	expectTypeOf(User.className).toEqualTypeOf<'User'>()
 	expectTypeOf<
 		PasswordAuthenticationResult<typeof User>['user']
-	>().toEqualTypeOf<SchemaResult<typeof User> | null>()
+	>().toEqualTypeOf<SchemaResult<typeof User>>()
 	expectTypeOf<
 		PluginOperationResult<typeof passwordAuthOperations.refresh>['user']
 	>().toEqualTypeOf<PasswordAuthenticationResult['user']>()

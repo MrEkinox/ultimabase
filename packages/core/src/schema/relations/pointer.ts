@@ -131,7 +131,7 @@ export class Pointer<
 		)
 	}
 
-	/** Reads this exact target, returning null when it is absent or policy-hidden. */
+	/** Reads this exact target through the ordinary read pipeline. */
 	findOne<const TInput extends FindOneInput<TSchema>>(
 		input: ExactReadInput<TSchema, TInput, FindOneInput<TSchema>>,
 		options?: OperationOptions,
@@ -152,7 +152,6 @@ export class Pointer<
 		const query = scopeQueryToObjectId(
 			queryFromFindOneInput(this.#schema, input),
 			this.#id as OperationObjectId<TSchema>,
-			{ protectedPolicyDeniedAsMissing: true },
 		)
 
 		return executeQueryFindOne(query, options)
@@ -166,7 +165,6 @@ export class Pointer<
 		const query = scopeQueryToObjectId(
 			queryFromExistsInput(this.#schema, input),
 			this.#id as OperationObjectId<TSchema>,
-			{ protectedPolicyDeniedAsMissing: true },
 		)
 
 		return executeQueryExists(query, options)

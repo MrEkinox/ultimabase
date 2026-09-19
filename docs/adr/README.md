@@ -234,6 +234,7 @@ Accepted records:
 - [ADR-0250: Package-owned E2E and isolated test typechecks](0250-package-owned-e2e-and-type-tests.md).
 - [ADR-0251: Affected GitHub validation](0251-affected-github-validation.md).
 - [ADR-0252: Password Auth returns the readable User profile](0252-password-auth-readable-user-results.md).
+- [ADR-0253: Password Auth requires a readable User](0253-password-auth-required-user.md).
 
 Superseded records:
 

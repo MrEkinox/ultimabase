@@ -52,7 +52,10 @@ const payloadType = immutableRecord({
 	fields: immutableArray([
 		immutableRecord({
 			name: 'user',
-			type: immutableRecord({ kind: 'schema', className: 'User' }),
+			type: immutableRecord({
+				kind: 'non-null',
+				ofType: immutableRecord({ kind: 'schema', className: 'User' }),
+			}),
 		}),
 		graphqlField(
 			'principal',

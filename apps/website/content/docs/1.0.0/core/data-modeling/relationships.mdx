@@ -8,7 +8,7 @@ order: 7
 outcome: Choose, declare, read, and change relationships with the right ownership and cardinality.
 owner: '2807'
 releaseStatus: pre-release
-reviewedAt: 2026-09-17
+reviewedAt: 2026-09-20
 sources:
   - packages/core/README.md
   - packages/core/docs/schema.md
@@ -94,8 +94,10 @@ export const readSessionAccount = async (sessionId: string) => {
 ```
 
 `findOne()` returns a selected `Account` model or `null` if the target is missing
-or hidden by policy. When you need only a boolean, call
+or excluded by a row filter. When you need only a boolean, call
 `session.account.exists({}, { ultimabase })` instead; it does not load a model.
+Explicit read-policy denials reject both operations and abort an active
+transaction, just like other read errors.
 Both methods remain scoped to the pointer's exact target ID and run through the
 ordinary target read pipeline. Neither changes the stored pointer or grants
 access to its target.

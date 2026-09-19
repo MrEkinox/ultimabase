@@ -52,6 +52,23 @@ const sessionToken = (result: Readonly<Record<string, unknown>>): string => {
 	return token
 }
 
+// Inspect committed storage so failed logins cannot leave undisclosed sessions behind.
+const countStoredSessions = async (): Promise<number> => {
+	if (fixture === undefined)
+		throw new TypeError('Profile fixture is unavailable')
+	const tables = await fixture.pool.query<{ readonly table_name: string }>(
+		`SELECT table_name FROM information_schema.columns
+		 WHERE table_schema = current_schema() AND column_name = 'tokenDigest'`,
+	)
+	const table = tables.rows[0]?.table_name
+	if (table === undefined || !/^_ub_private_[a-f0-9]{32}$/u.test(table))
+		throw new TypeError('Expected the private session table')
+	const result = await fixture.pool.query<{ readonly count: number }>(
+		`SELECT count(*)::int AS count FROM "${table}"`,
+	)
+	return result.rows[0]?.count ?? 0
+}
+
 const createApplication = () => {
 	if (fixture === undefined)
 		throw new TypeError('Profile fixture is unavailable')
@@ -281,69 +298,73 @@ describe('Password Auth readable profiles', () => {
 		}
 	})
 
-	it.each(['deny', 'missing'] as const)(
-		'keeps sessions usable when the profile is %s',
-		async (mode) => {
+	it.each([
+		{ mode: 'deny', status: 403, code: 'PERMISSION_DENIED' },
+		{ mode: 'missing', status: 404, code: 'NOT_FOUND' },
+		{ mode: 'fail', status: 500, code: 'INTERNAL_ERROR' },
+	] as const)(
+		'rolls back all authentication changes when the profile read is $mode',
+		async ({ mode, status, code }) => {
 			const app = createApplication()
-			app.setMode(mode)
 			await app.ultimabase.start()
 			try {
-				for (const operation of ['signUp', 'login'] as const) {
-					const response = await app.request(operation, {
-						username: `profile-${mode}`,
-						password,
-					})
-					expect(response.status).toBe(200)
-					expect(record(response.body.result).user).toBeNull()
-					const refreshed = await app.request(
-						'refresh',
-						null,
-						sessionToken(record(response.body.result)),
-					)
-					expect(refreshed.status).toBe(200)
-					expect(record(refreshed.body.result).user).toBeNull()
-					expect(
-						(
-							await app.request(
-								'logout',
-								null,
-								sessionToken(record(refreshed.body.result)),
-							)
-						).body,
-					).toEqual({ result: { revoked: true } })
-				}
+				const credentials = { username: `rollback-${mode}`, password }
+				const initialSessions = await countStoredSessions()
+				app.setMode(mode)
+				const rejectedSignUp = await app.request('signUp', credentials)
+				expect(rejectedSignUp.status).toBe(status)
+				expect(rejectedSignUp.body).not.toHaveProperty('result')
+				expect(await countStoredSessions()).toBe(initialSessions)
+				expect(
+					await app.User.findOne(
+						{ where: { username: { eq: credentials.username } } },
+						{ ultimabase: app.ultimabase, useMasterKey: true },
+					),
+				).toBeNull()
+
+				// Reusing the username proves that failed signup also removed its credential.
+				app.setMode('allow')
+				const created = await app.request('signUp', credentials)
+				expect(created.status).toBe(200)
+				const token = sessionToken(record(created.body.result))
+				const sessionsBeforeFailure = await countStoredSessions()
+				app.setMode(mode)
+				const rejectedLogin = await app.request('login', credentials)
+				expect(rejectedLogin.status).toBe(status)
+				expect(rejectedLogin.body).not.toHaveProperty('result')
+				expect(await countStoredSessions()).toBe(sessionsBeforeFailure)
+				const rejectedRefresh = await app.request('refresh', null, token)
+				expect(rejectedRefresh.status).toBe(status)
+				expect(rejectedRefresh.body).not.toHaveProperty('result')
+				expect(JSON.stringify(rejectedRefresh.body)).toContain(code)
+				expect(JSON.stringify(rejectedRefresh.body)).not.toContain('ub_s1.')
+
+				// The direct operation must reject too, independently of transport selection.
+				await expect(
+					app.ultimabase
+						.operation(passwordAuthOperations.login)
+						.execute(credentials),
+				).rejects.toMatchObject({ code })
+				expect(await countStoredSessions()).toBe(sessionsBeforeFailure)
+				app.setMode('allow')
+				const refreshed = await app.request('refresh', null, token)
+				expect(refreshed.status).toBe(200)
+				expect(record(record(refreshed.body.result).user).username).toBe(
+					credentials.username,
+				)
+				expect(app.reads.at(-1)?.version).toBe(1)
+				expect(
+					(
+						await app.request(
+							'logout',
+							null,
+							sessionToken(record(refreshed.body.result)),
+						)
+					).body,
+				).toEqual({ result: { revoked: true } })
 			} finally {
 				await app.ultimabase.dispose()
 			}
 		},
 	)
-
-	it('rolls back signup and token rotation on unexpected profile failures', async () => {
-		const app = createApplication()
-		await app.ultimabase.start()
-		try {
-			app.setMode('fail')
-			expect(
-				(
-					await app.request('signUp', {
-						username: 'rollback-profile',
-						password,
-					})
-				).status,
-			).toBe(500)
-			app.setMode('allow')
-			const created = await app.request('signUp', {
-				username: 'rollback-profile',
-				password,
-			})
-			expect(created.status).toBe(200)
-			const token = sessionToken(record(created.body.result))
-			app.setMode('fail')
-			expect((await app.request('refresh', null, token)).status).toBe(500)
-			app.setMode('allow')
-			expect((await app.request('refresh', null, token)).status).toBe(200)
-		} finally {
-			await app.ultimabase.dispose()
-		}
-	})
 })

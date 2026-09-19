@@ -26,6 +26,7 @@ import {
 } from '@ultimabase/password-auth-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { isPlainRecord } from '@ultimabase/shared'
+import { isObjectType } from 'graphql'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import {
@@ -169,6 +170,12 @@ describe('Password Auth GraphQL operations with PostgreSQL', () => {
 			const graphql = ultimabase.application.getPlugin(
 				'@ultimabase/graphql-plugin',
 			)
+			const payload = graphql.schema.getType('PasswordAuthPayload')
+			expect(
+				isObjectType(payload)
+					? payload.getFields().user?.type.toString()
+					: undefined,
+			).toBe('User!')
 			const signedUp = await executeAnonymous(
 				ultimabase.engine,
 				graphql,
@@ -208,13 +215,16 @@ describe('Password Auth GraphQL operations with PostgreSQL', () => {
 			const hidden = await executeAnonymous(
 				ultimabase.engine,
 				graphql,
-				authMutation('login'),
+				// Omitting user must not bypass the required profile read.
+				'mutation Auth($input: PasswordAuthCredentialsInput!) { login(input: $input) { session { token } } }',
 				'password-graphql-hidden',
 				{ input: { password, username: 'graphql-user' } },
 			)
-			expect(hidden.errors).toBeUndefined()
-			expect(hidden.data?.login).toMatchObject({ user: null })
-			expect(readSessionToken(hidden.data, 'login')).toMatch(/^ub_s1\./u)
+			expect(hidden.errors?.[0]).toMatchObject({
+				extensions: { code: 'PERMISSION_DENIED' },
+			})
+			expect(hidden.data).toBeNull()
+			expect(JSON.stringify(hidden)).not.toContain('ub_s1.')
 			profileVisible = true
 
 			const loggedIn = await executeAnonymous(
@@ -239,6 +249,18 @@ describe('Password Auth GraphQL operations with PostgreSQL', () => {
 			const auth = ultimabase.application.getPlugin(
 				'@ultimabase/password-auth-plugin',
 			)
+			profileVisible = false
+			const deniedRefresh = await auth.runWithSession(loginToken, () =>
+				graphql.execute({
+					context: getCurrentRequest(),
+					document: 'mutation { refresh { session { token } } }',
+				}),
+			)
+			expect(deniedRefresh.errors?.[0]).toMatchObject({
+				extensions: { code: 'PERMISSION_DENIED' },
+			})
+			expect(deniedRefresh.data).toBeNull()
+			profileVisible = true
 			let loginContext: RequestContext | undefined
 			const refreshed = await auth.runWithSession(loginToken, () => {
 				loginContext = getCurrentRequest()

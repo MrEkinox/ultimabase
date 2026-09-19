@@ -50,6 +50,6 @@ loads one bounded target explicitly, while to-many collections use the separate
 
 After the application starts, `author.findOne(undefined, { ultimabase })` reads
 that exact User under the active policy. It returns `null` when the target is
-missing or policy-hidden; `author.exists({}, { ultimabase })` returns `false`
-in those cases. Neither read grants access, and unexpected errors still abort
-an active transaction.
+missing or filtered out; `author.exists({}, { ultimabase })` returns `false`
+in those cases. Neither read grants access. Explicit policy denials and unexpected errors
+propagate and abort an active transaction.

@@ -87,8 +87,7 @@ const nullInput = defineOperationValue<null>((value, path) => {
 const isUserProfile = (
 	value: unknown,
 	principal: PasswordPrincipal,
-): value is SchemaResult<PasswordUserDefinition> | null => {
-	if (value === null) return true
+): value is SchemaResult<PasswordUserDefinition> => {
 	if (!(value instanceof principal.user.schema)) return false
 	const prototype: unknown = Reflect.get(principal.user.schema, 'prototype')
 	if (typeof prototype !== 'object' || prototype === null) return false

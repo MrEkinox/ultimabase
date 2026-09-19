@@ -47,12 +47,6 @@ describe('Password Auth operation contracts', () => {
 		expect(snapshot.user).toBe(profile)
 		expect(Object.isFrozen(snapshot)).toBe(true)
 		expect(Object.isFrozen(snapshot.session)).toBe(true)
-		expect(
-			passwordAuthOperations.refresh.result.snapshot(
-				{ ...result, user: null },
-				'result',
-			).user,
-		).toBeNull()
 		for (const invalid of [
 			null,
 			{ ...result, extra: true },
@@ -71,6 +65,7 @@ describe('Password Auth operation contracts', () => {
 			).toThrow('Password Auth result')
 		}
 		for (const user of [
+			null,
 			undefined,
 			{},
 			1,
@@ -141,6 +136,16 @@ describe('Password Auth operation contracts', () => {
 		expect(() =>
 			passwordAuthOperations.refresh.input.snapshot({}, 'refresh'),
 		).toThrow('must be null')
+		// A result acknowledgement must not accept null or contradictory state either.
+		for (const result of [
+			null,
+			{ revoked: false },
+			{ revoked: true, extra: true },
+		]) {
+			expect(() =>
+				passwordAuthOperations.logout.result.snapshot(result, 'logout'),
+			).toThrow('must acknowledge one revoked session')
+		}
 	})
 
 	it('creates only the three uniform public failures', () => {
