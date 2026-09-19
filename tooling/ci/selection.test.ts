@@ -146,7 +146,7 @@ describe('GitHub affected checks', () => {
 			packages: [],
 			transversal: [],
 			website: true,
-			build: false,
+			build: true,
 			coverage: false,
 		})
 	})

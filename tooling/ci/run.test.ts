@@ -89,6 +89,17 @@ process.exit(process.env.FAIL_COMMAND === 'true' ? 7 : 0);
 }
 
 describe('GitHub selected command execution', () => {
+	it('keeps compiled landing examples when package artifacts are available', () => {
+		const { result, commands, directory } = execute('repository', {
+			...selected,
+			documentation: true,
+		})
+		expect(result.status, result.stderr).toBe(0)
+		expect(commands).toContainEqual({
+			cwd: directory,
+			args: ['website:validate'],
+		})
+	})
 	it('checks only selected suites and keeps runtime fixtures rooted at the repository', () => {
 		const { result, commands, directory } = execute('package', selected)
 		expect(result.status, result.stderr).toBe(0)
@@ -171,7 +182,16 @@ describe('GitHub selected command execution', () => {
 					'tooling/documentation/active-contracts.test.ts',
 				],
 			},
-			{ cwd: directory, args: ['website:validate'] },
+			{
+				cwd: directory,
+				args: [
+					'website:validate',
+					'--exclude',
+					'**/landing-samples.content.test.ts',
+					'--exclude',
+					'**/landing-stacks.content.test.ts',
+				],
+			},
 		])
 	})
 	it('starts the PostgreSQL project only when a selected suite requires it', () => {

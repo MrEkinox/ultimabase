@@ -161,13 +161,21 @@ export const selectCi = (input: SelectionInput): CiPlan => {
 			!file.startsWith('packages/') &&
 			!file.startsWith('apps/website/'),
 	)
+	const website =
+		full ||
+		changed.some(
+			(file) => file.startsWith('apps/website/') && !isDocumentation(file),
+		)
 	return {
 		full,
 		changed,
 		packages,
 		transversal,
 		build:
-			packages.length > 0 || transversal.length > 0 || workspaceLint.length > 0,
+			packages.length > 0 ||
+			transversal.length > 0 ||
+			workspaceLint.length > 0 ||
+			website,
 		// A partial suite cannot be compared to the complete production coverage denominator.
 		coverage: full,
 		tooling: full || changed.some((file) => file.startsWith('tooling/')),
@@ -180,11 +188,7 @@ export const selectCi = (input: SelectionInput): CiPlan => {
 					file.startsWith('apps/website/'),
 			),
 		issues: full || changed.some((file) => file.startsWith('issues/')),
-		website:
-			full ||
-			changed.some(
-				(file) => file.startsWith('apps/website/') && !isDocumentation(file),
-			),
+		website,
 		workspaceLint,
 	}
 }

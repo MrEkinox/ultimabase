@@ -44,11 +44,11 @@ export const Article = Schema.define({
 
 `Schema.define()` accepts the following Core options:
 
-| Option          | Required | Purpose                                                                                                             |
-| --------------- | -------- | ------------------------------------------------------------------------------------------------------------------- |
-| `className`     | Yes      | Stable logical name for the schema.                                                                                 |
+| Option      | Required | Purpose                                                                                                             |
+| ----------- | -------- | ------------------------------------------------------------------------------------------------------------------- |
+| `className` | Yes      | Stable logical name for the schema.                                                                                 |
 | `fields(f)` | Yes      | Synchronous callback that returns its stored, relationship, and virtual field declarations. See [Fields](./fields). |
-| `indexes`       | No       | Composite indexes over top-level fields.                                                                            |
+| `indexes`   | No       | Composite indexes over top-level fields.                                                                            |
 
 Installed plugins may add direct schema options, such as `access`, `hooks`,
 `rest`, `graphql`, or `postgres`. Those are not Core defaults: an option must

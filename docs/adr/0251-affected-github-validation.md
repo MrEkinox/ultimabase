@@ -24,7 +24,9 @@ explicit conservative dependencies on every package.
 
 Documentation changes run formatting and documentation checks without package
 tests, builds, browser installation, or PostgreSQL. Website implementation
-changes run website checks. Shared configuration, lockfiles, manifests, shared
+changes run website checks with shared compiled package artifacts. The two landing
+example compiler suites run only when package or website code requires a build;
+documentation-only checks retain the other content guards. Shared configuration, lockfiles, manifests, shared
 fixtures, removed test files, unknown paths, or unavailable diff history request
 full validation. New computed fixture dependencies must be represented explicitly
 in the selector and protected by a regression test.

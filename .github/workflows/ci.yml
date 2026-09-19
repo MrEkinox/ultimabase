@@ -58,7 +58,8 @@ jobs:
 
   repository:
     name: Repository and documentation
-    needs: select
+    needs: [select, build]
+    if: always() && needs.select.result == 'success' && (needs.build.result == 'success' || needs.build.result == 'skipped')
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
@@ -66,6 +67,12 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/setup
+      - uses: actions/download-artifact@v8
+        if: needs.select.outputs.build == 'true'
+        with:
+          name: compiled-packages
+      - run: tar -xf compiled-packages.tar
+        if: needs.select.outputs.build == 'true'
       - run: node tooling/ci/run.ts repository
 
   build:
@@ -158,13 +165,17 @@ jobs:
 
   website:
     name: Website
-    needs: select
+    needs: [select, build]
     if: needs.select.outputs.website == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/setup
+      - uses: actions/download-artifact@v8
+        with:
+          name: compiled-packages
+      - run: tar -xf compiled-packages.tar
       - run: yarn website:typecheck
       - run: yarn website:lint
       - run: yarn playwright install --with-deps chromium

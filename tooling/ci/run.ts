@@ -110,7 +110,18 @@ switch (process.argv[2]) {
 					'unit',
 					'tooling/documentation/active-contracts.test.ts',
 				])
-			run(['website:validate'])
+			// Landing example compilation depends on built exports, not documentation prose.
+			run(
+				plan.build
+					? ['website:validate']
+					: [
+							'website:validate',
+							'--exclude',
+							'**/landing-samples.content.test.ts',
+							'--exclude',
+							'**/landing-stacks.content.test.ts',
+						],
+			)
 		}
 		if (plan.tooling && !plan.coverage)
 			run(['vitest', 'run', '--project', 'unit', 'tooling/', '--maxWorkers=2'])

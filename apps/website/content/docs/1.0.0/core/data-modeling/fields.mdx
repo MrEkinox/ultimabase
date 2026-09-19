@@ -45,15 +45,15 @@ rules.
 
 ## Choose a field family
 
-| You need                                | Choose                                                                                                   |
-| --------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| A scalar, enum, or one-dimensional list | A built-in value field; use `list: true` for a list of that value.                                       |
+| You need                                | Choose                                                                                               |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| A scalar, enum, or one-dimensional list | A built-in value field; use `list: true` for a list of that value.                                   |
 | A nested value with known fields        | `f.object()`; it belongs to its parent record. See [Embedded Objects](./embedded-objects).           |
 | An unstructured JSON document           | `f.json()`; its root must be an object or array, or `null` if optional.                              |
 | One reference to another record         | `f.pointer()`; it stores target identity, not a loaded record. See [Relationships](./relationships). |
 | A changing set of related records       | `f.relation()`; it represents membership, not a stored array. See [Relationships](./relationships).  |
 | A computed, selectable result           | `f.virtual()`; output-only. See [Virtual Fields](./virtual-fields).                                  |
-| A distinct value kind owned by a plugin | That plugin's field method, installed in the application.                                                |
+| A distinct value kind owned by a plugin | That plugin's field method, installed in the application.                                            |
 
 Use `object` when the nested shape is part of your model, and `json` when it is
 deliberately unstructured. A list of record IDs is not a substitute for a
@@ -65,8 +65,8 @@ The `fields` callback receives a field builder, named `f` in these examples.
 Each method returns an immutable declaration; it does not create or load a
 record. Choose by the value your application uses, not by a database column type.
 
-| Builder            | Application value           | Builder-specific options or behavior                                                                                    |
-| ------------------ | --------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Builder        | Application value           | Builder-specific options or behavior                                                                                    |
+| -------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | `f.string()`   | `string`                    | Text; application formats such as email need the optional Validation plugin.                                            |
 | `f.boolean()`  | `boolean`                   | No builder-specific options.                                                                                            |
 | `f.int()`      | Safe integer `number`       | `autoIncrement` requests adapter-backed generation.                                                                     |
