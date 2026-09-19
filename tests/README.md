@@ -66,6 +66,13 @@ cancellation, application-isolation, and transport-safe failure matrix.
 Built E2E retain their public package imports and worker-isolated schemas.
 The coverage projects run the same source-coverable suites with source aliases;
 archive and compiled-artifact audits remain built-only.
+This includes language-service suites that read compiled declarations and suites
+that invoke built exports exclusively through Node subprocesses: Vitest's source
+aliases cannot affect either path. They run once through the built E2E project,
+including in complete GitHub validation. The discovery guard keeps their explicit
+exceptions separate from source-coverable E2E; production coverage inclusion and
+thresholds stay unchanged. See the
+[test audit](../docs/plans/2026-09-19-test-execution-audit.md).
 
 PostgreSQL E2E suites start real Testcontainers and therefore require a working
 Docker-compatible container runtime. Package unit and type tests never require
