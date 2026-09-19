@@ -93,13 +93,23 @@ export const securityApplicationImports = (
 		? ["import { MasterAuthority } from '@ultimabase/core'"]
 		: []),
 	...(has(plan, 'access-plugin')
-		? ["import { accessPlugin } from '@ultimabase/access-plugin'"]
+		? [
+				has(plan, 'password-auth-plugin')
+					? "import { accessPlugin, provideAccessContributions, schemaAccess } from '@ultimabase/access-plugin'"
+					: "import { accessPlugin } from '@ultimabase/access-plugin'",
+			]
 		: []),
 	...(has(plan, 'acl-permissions-plugin')
 		? ["import { aclPlugin } from '@ultimabase/acl-permissions-plugin'"]
 		: []),
 	...(has(plan, 'password-auth-plugin')
 		? ["import { passwordAuthPlugin } from '@ultimabase/password-auth-plugin'"]
+		: []),
+	...(has(plan, 'access-plugin') && has(plan, 'password-auth-plugin')
+		? [
+				"import { definePlugin } from '@ultimabase/core'",
+				"import { passwordPrincipal } from '@ultimabase/password-auth-plugin'",
+			]
 		: []),
 	...(has(plan, 'roles-plugin')
 		? ["import { rolesPlugin } from '@ultimabase/roles-plugin'"]
@@ -118,13 +128,45 @@ export const securitySchemaNames = (
 export const securityPluginEntries = (
 	plan: InitializerPlan,
 ): readonly string[] => [
-	...(has(plan, 'access-plugin') ? ['accessPlugin()'] : []),
+	...(has(plan, 'access-plugin')
+		? has(plan, 'password-auth-plugin')
+			? ['accessPlugin({ default: { read: true } })', 'profilePolicy']
+			: ['accessPlugin()']
+		: []),
 	...(has(plan, 'acl-permissions-plugin') ? ['aclPlugin()'] : []),
 	...(has(plan, 'password-auth-plugin')
 		? ['passwordAuthPlugin({ user: AppUser })']
 		: []),
 	...(has(plan, 'roles-plugin') ? ['rolesPlugin()'] : []),
 ]
+
+/** Plugin-owned schemas use attributed contributions instead of inline Access. */
+export const securityPolicySource = (plan: InitializerPlan): string =>
+	has(plan, 'access-plugin') && has(plan, 'password-auth-plugin')
+		? `// Allow only the current session's profile; all other schema reads remain denied.
+const profilePolicy = definePlugin({
+  pluginId: 'app.profile-policy',
+  version: '1.0.0',
+  core: '^0.0.0',
+  peers: [{ pluginId: '@ultimabase/access-plugin', version: '^0.0.0' }],
+  privileges: [{ name: 'runtime:constrain', reason: 'Restrict reads to the current session owner.' }],
+  capabilities: {
+    provides: [provideAccessContributions('own-profile', ({ schemas }) =>
+      schemas.values().map((schema) => schema === AppUser
+        ? schemaAccess(AppUser, {
+            read: {
+              where: ({ context, where }) => {
+                const principal = context.getValue(passwordPrincipal)
+                return where.in('id', principal === undefined ? [] : [principal.user.id])
+              },
+            },
+          })
+        : schemaAccess(schema, { read: false })),
+    )],
+  },
+})
+`
+		: ''
 
 export const securityMasterSource = (plan: InitializerPlan): string =>
 	needsMasterKey(plan)
@@ -178,9 +220,14 @@ export const securityReadmeNotes = (
 				'Password Auth contributes a User schema, private credentials, and sessions. A session identifies a caller; it does not grant Task access or publish authentication operations.',
 			]
 		: []),
+	...(has(plan, 'password-auth-plugin') && has(plan, 'access-plugin')
+		? [
+				'The generated User read policy exposes only the current session owner. Sign-up, login, and refresh require this readable profile; other User operations still use Access defaults.',
+			]
+		: []),
 	...(has(plan, 'access-plugin')
 		? [
-				'Access defaults to deny. The Task example explicitly denies ordinary CRUD; its local write uses audited Master authority.',
+				'Access denies ordinary operations except the explicitly configured own-profile read policy when Password Auth is selected. The Task example explicitly denies ordinary CRUD; its local write uses audited Master authority.',
 			]
 		: []),
 	...(has(plan, 'acl-permissions-plugin')

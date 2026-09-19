@@ -15,9 +15,12 @@ The Task example configures schema-local Hooks, Validation, and recoverable
 native deletes when selected. Vector remains a logical value contract here;
 the starter does not persist vectors or claim vector search. Password Auth,
 Access, Roles, and Object ACLs also generate valid application graphs. Password
-Auth adds a User schema and sessions without granting data access. Access
-denies ordinary Task operations in the starter; ACLs start empty and deny
-ordinary Task reads, updates, and deletes, but do not govern creation. Roles
+Auth adds a User schema and sessions without granting Task access. When Access
+is selected too, the generated User read policy exposes only the session owner
+so sign-up, login, and refresh can return their required profile. Other User
+operations retain the deny default. Access denies ordinary Task operations in
+the starter; ACLs start empty and deny ordinary Task reads, updates, and deletes,
+but do not govern creation. Roles
 define membership identities without granting access by themselves.
 TypeScript automatically runs Typegen before typecheck and build; JavaScript
 does not depend on Typegen or TypeScript. The database can be an existing

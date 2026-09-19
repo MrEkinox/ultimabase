@@ -77,6 +77,47 @@ const runVerification = async (
 }
 
 describe('generated security applications with PostgreSQL', () => {
+	it('limits generated User reads to the session owner in JavaScript', async () => {
+		const project = await generate('js', [
+			'password-auth-plugin',
+			'access-plugin',
+		])
+		try {
+			const output = await runVerification(
+				project.destination,
+				`import assert from 'node:assert/strict'
+import { passwordAuthOperations } from '@ultimabase/password-auth-plugin'
+import { ultimabase } from './src/ultimabase.js'
+import { AppUser } from './src/schema.js'
+
+await ultimabase.start()
+try {
+  const auth = ultimabase.application.getPlugin('@ultimabase/password-auth-plugin')
+  const signUp = (username) => ultimabase.operation(passwordAuthOperations.signUp).execute({ username, password: 'correct horse battery staple' })
+  const alice = await signUp('profile-alice')
+  const bob = await signUp('profile-bob')
+  assert.equal(alice.user.username, 'profile-alice')
+  assert.equal(bob.user.username, 'profile-bob')
+  assert.deepEqual(await AppUser.findMany(undefined, { ultimabase }), [])
+  await auth.runWithSession(alice.session.token, async () => {
+    const users = await AppUser.findMany()
+    assert.deepEqual(users.map(user => user.id), [alice.user.id])
+    assert.equal(await AppUser.pointer(bob.user.id).findOne(), null)
+    // The profile rule must not grant writes, even to the caller's own User.
+    await assert.rejects(AppUser.updateOne({ where: { id: { eq: alice.user.id } }, data: { displayName: 'Changed' } }), { code: 'PERMISSION_DENIED' })
+  })
+  console.log('OWN_PROFILE_PASS')
+} finally {
+  await ultimabase.dispose()
+}
+`,
+			)
+			expect(output).toContain('OWN_PROFILE_PASS')
+		} finally {
+			await project.dispose()
+		}
+	}, 60_000)
+
 	it('keeps password identity separate from role-backed ACL access', async () => {
 		const project = await generate('js', [
 			'password-auth-plugin',
@@ -141,7 +182,7 @@ try {
 			const output = await runVerification(
 				project.destination,
 				`import { ultimabase } from './dist/ultimabase.js'
-import { Task } from './dist/schema.js'
+import { AppRole, Task } from './dist/schema.js'
 
 const audit = []
 const originalInfo = console.info
@@ -151,6 +192,7 @@ try {
   await Task.createOne({ data: { title: 'Private task' } }, { ultimabase, useMasterKey: true })
   for (const operation of [
     () => Task.findOne({ select: { title: true } }, { ultimabase }),
+    () => AppRole.findMany(undefined, { ultimabase }),
     () => Task.createOne({ data: { title: 'Denied task' } }, { ultimabase }),
   ]) {
     let denied = false

@@ -12,6 +12,9 @@ ordinary local Yarn commands.
   generated applications. Keep additional computed fixture dependencies here.
 - `run.ts` validates the plan and invokes the selected formatting, documentation,
   lint, type, and runtime commands with argument arrays rather than shell strings.
+- Every package must re-export `tooling/vitest/package.config.ts` from its local
+  `vitest.config.ts`; otherwise package-root type tests inherit incompatible root globs.
+  The real Vitest inventory check compares every package with root discovery.
 - Tests cover diff boundaries, missing history, deleted suites, reverse
   dependencies, fixture chains, command routing, and full Vitest discovery parity.
 

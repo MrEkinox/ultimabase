@@ -155,7 +155,9 @@ describe('test ownership and discovery', () => {
 		}
 	})
 
-	it.each(['rest-plugin', 'typegen'])(
+	it.each(
+		packageManifests.map((manifest) => path.basename(path.dirname(manifest))),
+	)(
 		'selects the same %s tests from the package command as from the root',
 		async (packageName) => {
 			const prefix = `packages/${packageName}/`

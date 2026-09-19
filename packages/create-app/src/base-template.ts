@@ -17,6 +17,7 @@ import {
 	securityDependencies,
 	securityMasterSource,
 	securityPluginEntries,
+	securityPolicySource,
 	securityReadmeNotes,
 	securitySchemaDeclarations,
 	securitySchemaImports,
@@ -90,6 +91,7 @@ ${applicationSchemaImport(plan)}
 const databaseUrl = process.env.DATABASE_URL
 if (databaseUrl === undefined) throw new TypeError('DATABASE_URL is required')
 ${securityMasterSource(plan)}
+${securityPolicySource(plan)}
 
 // Override synchronization is only suitable for this disposable development database.
 export const ultimabase = new UltimaBase({

@@ -322,11 +322,12 @@ try {
 			const payload: unknown = await signUp.json()
 			if (!isRecord(payload) || !isRecord(payload.result))
 				throw new TypeError('Sign-up result is missing')
+			expect(payload.result.user).toMatchObject({ username: 'alice' })
 			const session = payload.result.session
 			if (!isRecord(session) || typeof session.token !== 'string')
 				throw new TypeError('Sign-up token is missing')
 			const graphqlLogin = await graphql(
-				'mutation { login(input: { username: "alice", password: "correct horse battery staple" }) { session { token } } }',
+				'mutation { login(input: { username: "alice", password: "correct horse battery staple" }) { user { id username } session { token } } }',
 			)
 			const loginPayload: unknown = await graphqlLogin.json()
 			if (!isRecord(loginPayload) || !isRecord(loginPayload.data))
@@ -335,6 +336,14 @@ try {
 			if (!isRecord(login) || !isRecord(login.session))
 				throw new TypeError('GraphQL login session is missing')
 			expect(typeof login.session.token).toBe('string')
+			expect(login.user).toMatchObject({ username: 'alice' })
+			const refreshed = await graphql(
+				'mutation { refresh { user { id username } session { token } } }',
+				String(login.session.token),
+			)
+			expect(await refreshed.json()).toMatchObject({
+				data: { refresh: { user: { username: 'alice' } } },
+			})
 			const deniedRest = await fetch(`${endpoint}/api/v1/classes/Task`, {
 				headers: {
 					...applicationHeader,
