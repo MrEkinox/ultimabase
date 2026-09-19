@@ -15,11 +15,13 @@
 		"../../packages/*/src/**/*.test-d.ts",
 		"../../packages/*/tests/**/*.ts",
 		"../../tests/e2e/**/*.ts",
+		"../../tests/fixtures/**/*.ts",
 		"../../tests/performance/**/*.ts",
 		"../documentation/**/*.test.ts",
 		"../eslint/**/*.test.ts",
 		"../issues/**/*.ts",
 		"../prototypes/generated-schema-authoring/**/*.ts",
+		"../vitest/**/*.test.ts",
 		"../vitest/optional-product-public-api.ts",
 		"../vitest/typescript-language-service.ts"
 	]

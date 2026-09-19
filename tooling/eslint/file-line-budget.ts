@@ -34,8 +34,8 @@ export const handwrittenFileLineBaseline: Readonly<Record<string, number>> =
 		'packages/postgres-plugin/src/query/filter-compiler.test.ts': 804,
 		'packages/postgres-plugin/src/query/filter-compiler.ts': 650,
 		'packages/typegen/src/generator-language-service.test.ts': 864,
-		'tests/e2e/relation-postgres.postgres.e2e.test.ts': 943,
-		'tests/e2e/runtime-postgres.postgres.e2e.test.ts': 1139,
+		'packages/core/tests/e2e/relation-postgres.postgres.e2e.test.ts': 943,
+		'packages/core/tests/e2e/runtime-postgres.postgres.e2e.test.ts': 1139,
 	})
 
 const generatedArtifactPattern =

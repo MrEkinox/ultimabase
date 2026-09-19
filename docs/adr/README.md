@@ -231,6 +231,7 @@ Accepted records:
 - [ADR-0247: Relation fields own contextual read filters](0247-contextual-relation-filters.md)
 - [ADR-0248: Application-selected plugin mutations on schema classes](0248-application-selected-schema-class-mutations.md)
 - [ADR-0249: Project creation is a standalone interactive initializer](0249-interactive-project-initializer.md)
+- [ADR-0250: Package-owned E2E and isolated test typechecks](0250-package-owned-e2e-and-type-tests.md).
 
 Superseded records:
 

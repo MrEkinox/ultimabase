@@ -20,8 +20,12 @@
 	},
 	"scripts": {
 		"build": "tsdown",
-		"test": "vitest run --passWithNoTests",
-		"typecheck": "tsc --build"
+		"test": "vitest run --project unit --project types --passWithNoTests",
+		"typecheck": "tsc --build",
+		"test:unit": "vitest run --project unit --passWithNoTests",
+		"test:types": "vitest run --project types --passWithNoTests",
+		"test:e2e:built": "vitest run --project e2e --project postgres-e2e --passWithNoTests",
+		"typecheck:tests": "tsc --project tsconfig.test.json"
 	},
 	"dependencies": {
 		"@hono/node-server": "^2.1.1",

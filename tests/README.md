@@ -1,17 +1,22 @@
-# Cross-package tests
+# Test ownership
 
 - `e2e`: complete application behavior across multiple packages.
 - `fixtures`: schemas and application configurations shared by tests.
 - `performance`: guarded performance regression suites.
 
 Focused package unit and compile-time tests live beside their source. A package's
-`tests` directory contains only public-export and cross-domain behavior.
+`tests` directory owns public-export and cross-domain behavior. Its `tests/e2e`
+suites exercise its own contract through compiled exports, with supporting
+packages when needed. Root `tests/e2e` owns application-wide composition and
+transport parity. Using several plugins alone does not make a suite root-owned.
 
 ## File conventions
 
 - `packages/*/src/**/*.test.ts`: focused package runtime tests.
 - `packages/*/src/**/*.test-d.ts`: focused package compile-time tests.
-- `packages/*/tests/**/*.test.ts`: package-level integration and public-export tests.
+- `packages/*/tests/**/*.test.ts`: package-level tests, excluding E2E files.
+- `packages/*/tests/e2e/**/*.e2e.test.ts`: package-owned built-export E2E.
+- `packages/*/tests/e2e/**/*.postgres.e2e.test.ts`: package-owned PostgreSQL E2E.
 - `packages/*/tests/**/*.test-d.ts`: package-level compile-time integration tests.
 - `tests/e2e/**/*.e2e.test.ts`: Docker-free cross-package end-to-end tests.
 - `tests/e2e/**/*.postgres.e2e.test.ts`: worker-isolated PostgreSQL end-to-end tests.
@@ -24,6 +29,10 @@ structural counters rather than elapsed-time thresholds. The PostgreSQL project 
 shares only its connection URI, and assigns a reset schema to every worker
 slot. The ordinary E2E project remains Docker-free for focused package archive
 checks.
+
+`packages/*/tsconfig.test.json` isolates each package's test compiler roots.
+`tests/fixtures/plugin-options.d.ts` explicitly includes application option
+declarations without loading other executable suites.
 
 `tests/tsconfig.json` associates root E2E files with the same strict TypeScript
 settings used by the test runner. Editors should discover this nearby project
@@ -53,8 +62,9 @@ networkless GraphQL, and Yoga nested mutation outputs, verifies authenticated
 and Master presentation, and crosses more than two fixed resolver batches.
 The focused nested-write suites retain the policy, lifecycle, limits, rollback,
 cancellation, application-isolation, and transport-safe failure matrix.
-These suites use only built public package exports and worker-isolated schemas
-without transport plugins.
+Built E2E retain their public package imports and worker-isolated schemas.
+The coverage projects run the same source-coverable suites with source aliases;
+archive and compiled-artifact audits remain built-only.
 
 PostgreSQL E2E suites start real Testcontainers and therefore require a working
 Docker-compatible container runtime. Package unit and type tests never require
@@ -71,3 +81,26 @@ Docker.
   E2E projects with V8 coverage.
 - `yarn test:types`: run compile-time type tests only.
 - `yarn test:watch [path]`: watch package-local unit tests, optionally filtered by path.
+
+## Package commands
+
+Build dependencies once with `yarn build` before running built-export E2E or
+source tests that consume another workspace's declarations. Then, for example:
+
+```sh
+yarn workspace @ultimabase/rest-plugin test
+yarn workspace @ultimabase/rest-plugin test:unit
+yarn workspace @ultimabase/rest-plugin test:types
+yarn workspace @ultimabase/rest-plugin typecheck:tests
+yarn workspace @ultimabase/rest-plugin test:e2e:built
+```
+
+`test` includes unit and type tests only. `test:types` runs the package's type
+assertions and checks its local test program; `typecheck:tests` checks that
+program directly with TypeScript. `test:e2e:built` selects both ordinary and
+PostgreSQL E2E, starting Docker infrastructure only when PostgreSQL files match.
+Use `yarn workspace <name> exec vitest run --project e2e` for Docker-free E2E.
+
+The root `yarn test:coverage` remains the complete coverage gate. A package-only
+run does not replace it or apply global coverage thresholds to a partial suite.
+See [ADR-0250](../docs/adr/0250-package-owned-e2e-and-type-tests.md).

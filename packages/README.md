@@ -93,3 +93,9 @@ Package-level public-export and cross-domain tests remain under the package's
 `tests/` directory.
 
 From the repository root, `yarn test:pack` builds and validates every public archive with publint, Are The Types Wrong, an archive allowlist, and a Vitest Node consumer.
+
+## Repository tests
+
+Each package owns its unit and type tests and the E2E suites protecting its
+contract. See [test ownership and package commands](../tests/README.md) for
+scoped execution and the complete root coverage gate.

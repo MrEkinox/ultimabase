@@ -25,7 +25,7 @@ import {
 import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
-} from './postgres-worker-fixture.js'
+} from '../fixtures/postgres-worker-fixture.js'
 
 let fixture: PostgresWorkerFixture | undefined
 

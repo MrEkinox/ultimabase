@@ -70,6 +70,8 @@ export default defineConfig(
 			// Package test helpers share the same strict project as executable tests.
 			'packages/*/tests/**/*.ts',
 			'tests/e2e/**/*.ts',
+			'tests/fixtures/**/*.ts',
+			'tooling/vitest/**/*.test.ts',
 			'tooling/documentation/**/*.test.ts',
 			'tooling/prototypes/generated-schema-authoring/**/*.ts',
 			'tooling/eslint/**/*.test.ts',

@@ -18,7 +18,7 @@ import {
 import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
-} from './postgres-worker-fixture.js'
+} from '../fixtures/postgres-worker-fixture.js'
 
 const executeFile = promisify(execFile)
 const javascriptFixture = path.join(

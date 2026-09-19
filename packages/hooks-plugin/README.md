@@ -97,7 +97,7 @@ await Post.findMany(undefined, { ultimabase })
 Adding a `hooks` option without `hooksPlugin()` is an unknown-option application
 compilation error; importing this package alone does not change that result.
 The packed PostgreSQL lifecycle is exercised by the
-[`hooks-plugin-postgres.postgres.e2e.test.ts`](../../tests/e2e/hooks-plugin-postgres.postgres.e2e.test.ts)
+[`hooks-plugin-postgres.postgres.e2e.test.ts`](tests/e2e/hooks-plugin-postgres.postgres.e2e.test.ts)
 public-package suite.
 
 ## Plugin-owned schema mutations

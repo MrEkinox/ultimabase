@@ -173,13 +173,13 @@ describe('active documentation contracts', () => {
 			'docs/concepts/open-plugin-authoring.md':
 				'tests/e2e/fixtures/open-kernel-workflow.ts',
 			'packages/access-plugin/README.md':
-				'tests/e2e/access-plugin-postgres.postgres.e2e.test.ts',
+				'packages/access-plugin/tests/e2e/access-plugin-postgres.postgres.e2e.test.ts',
 			'packages/hooks-plugin/README.md':
-				'tests/e2e/hooks-plugin-postgres.postgres.e2e.test.ts',
+				'packages/hooks-plugin/tests/e2e/hooks-plugin-postgres.postgres.e2e.test.ts',
 			'packages/pg-vector-plugin/README.md':
 				'packages/typegen/src/generator-language-service.test.ts',
 			'packages/postgres-plugin/README.md':
-				'tests/e2e/hooks-plugin-postgres.postgres.e2e.test.ts',
+				'packages/hooks-plugin/tests/e2e/hooks-plugin-postgres.postgres.e2e.test.ts',
 		} as const
 
 		for (const [document, example] of Object.entries(backingExamples)) {

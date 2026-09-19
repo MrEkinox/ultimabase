@@ -7,7 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
-} from './postgres-worker-fixture.js'
+} from '../fixtures/postgres-worker-fixture.js'
 
 const membershipTrace: string[] = []
 

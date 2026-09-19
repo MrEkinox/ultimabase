@@ -314,7 +314,7 @@ const ultimabase = new UltimaBase({
 If a later business handler fails, PostgreSQL rolls back the audit row and primary
 row together. Named events are released only after a successful outer commit.
 The Docker-backed
-[`hooks-plugin-postgres.postgres.e2e.test.ts`](../../tests/e2e/hooks-plugin-postgres.postgres.e2e.test.ts)
+[`hooks-plugin-postgres.postgres.e2e.test.ts`](../hooks-plugin/tests/e2e/hooks-plugin-postgres.postgres.e2e.test.ts)
 public-package suite verifies this behavior alongside plugin ordering, opaque
 scope constraints, read restrictions, output resolution, and atomic itemized
 batch semantics.

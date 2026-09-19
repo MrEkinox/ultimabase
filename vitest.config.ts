@@ -7,14 +7,9 @@ import {
 	type ViteUserConfig,
 } from 'vitest/config'
 
+import { graphqlRuntimeDependencies } from './tooling/vitest/runtime.js'
+
 const workspaceRoot = path.dirname(fileURLToPath(import.meta.url))
-const graphqlRuntimeDependencies: (string | RegExp)[] = [
-	'graphql',
-	'graphql-yoga',
-	/^@envelop\//u,
-	/^@graphql-tools\//u,
-	/^@graphql-yoga\//u,
-]
 const sourcePackageAliases = Object.fromEntries(
 	[
 		'access-plugin',
@@ -73,7 +68,9 @@ const testProjects: TestProjectConfiguration[] = [
 				'tooling/documentation/**/*.test.ts',
 				'tooling/eslint/**/*.test.ts',
 				'tooling/issues/**/*.test.ts',
+				'tooling/vitest/**/*.test.ts',
 			],
+			exclude: ['**/*.e2e.test.ts'],
 			name: 'unit',
 			// Language-service fixtures need headroom when coverage instruments Core,
 			// especially on resource-constrained hosted runners.
@@ -86,14 +83,19 @@ const testProjects: TestProjectConfiguration[] = [
 		test: {
 			exclude: [
 				'tests/e2e/**/*.postgres.e2e.test.ts',
+				'packages/*/tests/e2e/**/*.postgres.e2e.test.ts',
 				'tests/e2e/package-archives.e2e.test.ts',
+				'packages/core/tests/e2e/core-archive-declarations.e2e.test.ts',
 				// The managed listener validates compiled Fetch realms, not source coverage.
-				'tests/e2e/graphql-yoga-application.e2e.test.ts',
+				'packages/graphql-yoga-plugin/tests/e2e/graphql-yoga-application.e2e.test.ts',
 				// This artifact audit reads build-only source maps and remains covered by
 				// the post-build e2e project.
-				'tests/e2e/password-auth-plugin.e2e.test.ts',
+				'packages/password-auth-plugin/tests/e2e/password-auth-plugin.e2e.test.ts',
 			],
-			include: ['tests/e2e/**/*.e2e.test.ts'],
+			include: [
+				'tests/e2e/**/*.e2e.test.ts',
+				'packages/*/tests/e2e/**/*.e2e.test.ts',
+			],
 			name: 'coverage-e2e',
 			// Source instrumentation amplifies packed language-service checks on
 			// resource-constrained hosted runners.
@@ -104,8 +106,11 @@ const testProjects: TestProjectConfiguration[] = [
 		extends: true,
 		resolve: { alias: sourcePackageAliases },
 		test: {
-			globalSetup: ['./tests/e2e/postgres.global-setup.ts'],
-			include: ['tests/e2e/**/*.postgres.e2e.test.ts'],
+			globalSetup: ['./tests/fixtures/postgres.global-setup.ts'],
+			include: [
+				'tests/e2e/**/*.postgres.e2e.test.ts',
+				'packages/*/tests/e2e/**/*.postgres.e2e.test.ts',
+			],
 			name: 'coverage-postgres-e2e',
 			testTimeout: 20_000,
 		},
@@ -113,16 +118,22 @@ const testProjects: TestProjectConfiguration[] = [
 	{
 		extends: true,
 		test: {
-			exclude: ['tests/e2e/**/*.postgres.e2e.test.ts'],
-			include: ['tests/e2e/**/*.e2e.test.ts'],
+			exclude: ['**/*.postgres.e2e.test.ts'],
+			include: [
+				'tests/e2e/**/*.e2e.test.ts',
+				'packages/*/tests/e2e/**/*.e2e.test.ts',
+			],
 			name: 'e2e',
 		},
 	},
 	{
 		extends: true,
 		test: {
-			globalSetup: ['./tests/e2e/postgres.global-setup.ts'],
-			include: ['tests/e2e/**/*.postgres.e2e.test.ts'],
+			globalSetup: ['./tests/fixtures/postgres.global-setup.ts'],
+			include: [
+				'tests/e2e/**/*.postgres.e2e.test.ts',
+				'packages/*/tests/e2e/**/*.postgres.e2e.test.ts',
+			],
 			name: 'postgres-e2e',
 		},
 	},

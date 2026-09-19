@@ -8,8 +8,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
-} from './postgres-worker-fixture.js'
-import { RecordingPostgresPool } from './recording-postgres-pool.js'
+} from '../fixtures/postgres-worker-fixture.js'
+import { RecordingPostgresPool } from '../fixtures/recording-postgres-pool.js'
 import {
 	closeServer,
 	readArray,
