@@ -112,3 +112,13 @@ fixture modules contain helpers only; importing one never executes another suite
 The root `yarn test:coverage` remains the complete coverage gate. A package-only
 run does not replace it or apply global coverage thresholds to a partial suite.
 See [ADR-0250](../docs/adr/0250-package-owned-e2e-and-type-tests.md).
+
+## GitHub Actions
+
+GitHub selects affected packages, their transitive dependants, and the integration
+suites that consume them. Documentation-only changes run documentation checks.
+Shared configuration changes and uncertain diffs fall back to complete validation;
+manual workflow dispatch also runs the complete coverage gate. A targeted run does
+not measure or enforce global coverage. Local commands above keep their existing
+behavior. See [ADR-0251](../docs/adr/0251-affected-github-validation.md) and
+[the CI tooling guide](../tooling/ci/README.md).

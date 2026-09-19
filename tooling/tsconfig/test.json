@@ -2,6 +2,7 @@
 	"extends": "./base.json",
 	"compilerOptions": {
 		"composite": false,
+		"allowImportingTsExtensions": true,
 		"declaration": false,
 		"declarationMap": false,
 		"isolatedDeclarations": false,
@@ -17,6 +18,7 @@
 		"../../tests/e2e/**/*.ts",
 		"../../tests/fixtures/**/*.ts",
 		"../../tests/performance/**/*.ts",
+		"../ci/**/*.ts",
 		"../documentation/**/*.test.ts",
 		"../eslint/**/*.test.ts",
 		"../issues/**/*.ts",

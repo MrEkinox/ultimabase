@@ -2,6 +2,10 @@
 
 Shared repository configuration lives here. Tooling packages must not become runtime dependencies.
 
+GitHub-only check selection is described in [ci/README.md](ci/README.md). Standard
+GitHub actions and Yarn handle changed paths and workspace dependants; local test
+commands retain complete discovery.
+
 ## Test configuration
 
 - `vitest/package.config.ts` separates package-local unit, type, built-export E2E,
