@@ -5,7 +5,7 @@ import {
 } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
-import type { DecimalLedgerOption } from './fixtures/open-kernel-value.js'
+import type { DecimalLedgerOption } from '../../../../tests/e2e/fixtures/open-kernel-value.js'
 
 describe('direct community plugin options', () => {
 	it('rejects schema and field options when their owner is absent', async () => {

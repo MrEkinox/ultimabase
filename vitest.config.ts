@@ -70,7 +70,7 @@ const testProjects: TestProjectConfiguration[] = [
 				'tooling/issues/**/*.test.ts',
 				'tooling/vitest/**/*.test.ts',
 			],
-			exclude: ['**/*.e2e.test.ts'],
+			exclude: ['**/*.e2e.test.ts', '**/*.performance.test.ts'],
 			name: 'unit',
 			// Language-service fixtures need headroom when coverage instruments Core,
 			// especially on resource-constrained hosted runners.
@@ -141,7 +141,10 @@ const testProjects: TestProjectConfiguration[] = [
 		extends: true,
 		test: {
 			fileParallelism: false,
-			include: ['tests/performance/**/*.performance.test.ts'],
+			include: [
+				'tests/performance/**/*.performance.test.ts',
+				'packages/*/tests/performance/**/*.performance.test.ts',
+			],
 			name: 'performance',
 		},
 		resolve: { alias: sourcePackageAliases },

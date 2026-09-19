@@ -6,7 +6,7 @@ replace correctness tests.
 
 ## Typegen editor measurements
 
-`tests/performance/typegen-editor.performance.test.ts` compares two isolated
+`packages/typegen/tests/performance/typegen-editor.performance.test.ts` compares two isolated
 Node.js processes over the same synthetic application with 48 schemas and 12
 scalar fields per schema. The recursive scenario models the former
 field-map-driven public type expansion. The generated scenario uses one named
@@ -24,7 +24,8 @@ suite verifies correct diagnostics, field completions, and compact generated
 hover output, but deliberately has no timing or memory threshold: those
 observations vary by CPU, operating system, and TypeScript release.
 
-Run the probe with the other deterministic performance checks:
+Run the package-owned probe with `yarn workspace @ultimabase/typegen
+test:performance`, or run it with the other performance checks:
 
 ```sh
 yarn test:performance

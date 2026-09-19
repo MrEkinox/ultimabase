@@ -235,3 +235,9 @@ allow developers to request generation manually without starting the
 application. This package currently exposes automatic startup generation plus
 the side-effect-free compiler, TypeScript loader, fingerprint, and atomic
 writer for explicit build integrations.
+
+## Development checks
+
+`yarn workspace @ultimabase/typegen test:performance` runs the isolated
+large-schema editor measurements in `tests/performance`. The package `test`
+command includes these checks alongside unit and compile-time tests.

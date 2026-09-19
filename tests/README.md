@@ -14,13 +14,14 @@ transport parity. Using several plugins alone does not make a suite root-owned.
 
 - `packages/*/src/**/*.test.ts`: focused package runtime tests.
 - `packages/*/src/**/*.test-d.ts`: focused package compile-time tests.
-- `packages/*/tests/**/*.test.ts`: package-level tests, excluding E2E files.
+- `packages/*/tests/**/*.test.ts`: package-level tests, excluding E2E and performance files.
 - `packages/*/tests/e2e/**/*.e2e.test.ts`: package-owned built-export E2E.
 - `packages/*/tests/e2e/**/*.postgres.e2e.test.ts`: package-owned PostgreSQL E2E.
 - `packages/*/tests/**/*.test-d.ts`: package-level compile-time integration tests.
 - `tests/e2e/**/*.e2e.test.ts`: Docker-free cross-package end-to-end tests.
 - `tests/e2e/**/*.postgres.e2e.test.ts`: worker-isolated PostgreSQL end-to-end tests.
-- `tests/performance/**/*.performance.test.ts`: deterministic performance budgets.
+- `packages/*/tests/performance/**/*.performance.test.ts`: package-owned performance suites.
+- `tests/performance/**/*.performance.test.ts`: cross-package performance budgets.
 
 Vitest runs these conventions as distinct projects named `unit`, `e2e`,
 `postgres-e2e`, `performance`, and `types`. Runtime files use isolated fork
@@ -95,11 +96,18 @@ yarn workspace @ultimabase/rest-plugin typecheck:tests
 yarn workspace @ultimabase/rest-plugin test:e2e:built
 ```
 
-`test` includes unit and type tests only. `test:types` runs the package's type
+`test` includes unit and type tests; Typegen also includes its package-owned
+editor performance suite. Run it independently with
+`yarn workspace @ultimabase/typegen test:performance`. `test:types` runs the package's type
 assertions and checks its local test program; `typecheck:tests` checks that
 program directly with TypeScript. `test:e2e:built` selects both ordinary and
 PostgreSQL E2E, starting Docker infrastructure only when PostgreSQL files match.
 Use `yarn workspace <name> exec vitest run --project e2e` for Docker-free E2E.
+
+Focused Hooks and Access conformance belongs to their packages. GraphiQL and
+Apollo Sandbox own their browser behavior, while root suites retain explorer
+collisions, application isolation, and compatible-provider composition. Shared
+fixture modules contain helpers only; importing one never executes another suite.
 
 The root `yarn test:coverage` remains the complete coverage gate. A package-only
 run does not replace it or apply global coverage thresholds to a partial suite.

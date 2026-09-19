@@ -20,10 +20,18 @@ const config: ViteUserConfig = defineConfig({
 			{
 				extends: true,
 				test: {
+					name: 'performance',
+					include: ['tests/performance/**/*.performance.test.ts'],
+					fileParallelism: false,
+				},
+			},
+			{
+				extends: true,
+				test: {
 					name: 'unit',
 					include: ['src/**/*.test.ts', 'tests/**/*.test.ts'],
 					// Built-export and database tests must never enter the fast unit suite.
-					exclude: ['**/*.e2e.test.ts'],
+					exclude: ['**/*.e2e.test.ts', '**/*.performance.test.ts'],
 					testTimeout: 30_000,
 				},
 			},

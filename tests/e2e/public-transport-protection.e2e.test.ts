@@ -7,7 +7,7 @@ import { createAlternativePolicyEngine } from './fixtures/alternative-policy-eng
 import {
 	OfficialConformanceDatabase,
 	officialConformanceDatabasePlugin,
-} from './fixtures/official-conformance-database.js'
+} from '../fixtures/official-conformance-database.js'
 import {
 	createPublicTransportDiagnosticPlugin,
 	publicTransportDiagnosticOperation,

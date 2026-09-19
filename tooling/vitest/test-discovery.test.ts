@@ -77,6 +77,22 @@ describe('test ownership and discovery', () => {
 		}
 	})
 
+	it('runs every performance suite exactly once, never as a unit or E2E', () => {
+		const files = globSync(
+			[
+				'tests/performance/**/*.performance.test.ts',
+				'packages/*/tests/performance/**/*.performance.test.ts',
+			],
+			{ cwd: repositoryRoot },
+		)
+		for (const file of files) {
+			expect(
+				rootFiles.filter((entry) => entry.file === file),
+				file,
+			).toEqual([{ file, projectName: 'performance' }])
+		}
+	})
+
 	it('retains every source-coverable E2E and explicit artifact-only exceptions', () => {
 		const artifactOnly = new Set([
 			'tests/e2e/package-archives.e2e.test.ts',
@@ -120,23 +136,33 @@ describe('test ownership and discovery', () => {
 		}
 	})
 
-	it('selects the same REST tests from the package command as from the root', async () => {
-		const prefix = 'packages/rest-plugin/'
-		const local = await discover(path.join(repositoryRoot, prefix))
-		for (const projectName of ['unit', 'types', 'e2e', 'postgres-e2e']) {
-			const root = rootFiles
-				.filter(
-					(entry) =>
-						entry.projectName === projectName && entry.file.startsWith(prefix),
-				)
-				.map(({ file }) => file)
-				.sort()
-			expect(
-				local
-					.filter((entry) => entry.projectName === projectName)
+	it.each(['rest-plugin', 'typegen'])(
+		'selects the same %s tests from the package command as from the root',
+		async (packageName) => {
+			const prefix = `packages/${packageName}/`
+			const local = await discover(path.join(repositoryRoot, prefix))
+			for (const projectName of [
+				'unit',
+				'types',
+				'e2e',
+				'postgres-e2e',
+				'performance',
+			]) {
+				const root = rootFiles
+					.filter(
+						(entry) =>
+							entry.projectName === projectName &&
+							entry.file.startsWith(prefix),
+					)
 					.map(({ file }) => file)
-					.sort(),
-			).toEqual(root)
-		}
-	})
+					.sort()
+				expect(
+					local
+						.filter((entry) => entry.projectName === projectName)
+						.map(({ file }) => file)
+						.sort(),
+				).toEqual(root)
+			}
+		},
+	)
 })
