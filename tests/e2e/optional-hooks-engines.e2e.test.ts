@@ -1,5 +1,5 @@
-import path from 'node:path'
 import { readFile } from 'node:fs/promises'
+import path from 'node:path'
 
 import {
 	FrameworkApplication,
@@ -9,10 +9,10 @@ import {
 	databasePersistencePlanCapability,
 	definePlugin,
 	provideCapability,
+	typegenEmitterCapability,
 	type DatabaseAdapter,
 	type DatabaseOperationAst,
 	type DatabaseOperationResult,
-	typegenEmitterCapability,
 } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import {
@@ -140,12 +140,7 @@ describe('optional Hooks engine proof', () => {
 			expected: {
 				core: '^0.0.0',
 				pluginId: alternativeBehaviorPluginId,
-				privileges: [
-					'schema:declare',
-					'runtime:intercept',
-					'event:publish',
-					'typegen:contribute',
-				],
+				privileges: ['schema:declare', 'runtime:intercept', 'event:publish'],
 				version: '1.0.0',
 			},
 		}).check('middleware', async ({ createUltimaBase }) => {
@@ -168,7 +163,6 @@ describe('optional Hooks engine proof', () => {
 			withPluginTypegenConformance(suite, {
 				applicationId: 'alternative-behavior-conformance',
 				verify: ({ contents }) => {
-					expect(contents).toContain('AlternativeBehaviorDiagnostic')
 					expect(contents).toContain('AlternativeBehaviorAudittyped')
 					expect(contents).not.toContain('@ultimabase/hooks-plugin')
 				},

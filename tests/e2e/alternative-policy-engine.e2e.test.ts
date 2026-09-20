@@ -13,12 +13,12 @@ import {
 	databasePluginFieldStructuralContainsCapability,
 	definePlugin,
 	provideCapability,
+	typegenEmitterCapability,
 	type DatabaseAdapter,
 	type DatabaseOperationAst,
 	type DatabaseOperationRequest,
 	type DatabaseOperationResult,
 	type DatabaseTransactionAdapter,
-	typegenEmitterCapability,
 } from '@ultimabase/core'
 import {
 	createPluginConformanceFixture,
@@ -166,11 +166,7 @@ describe('independent protected policy engine', () => {
 			expected: {
 				core: '^0.0.0',
 				pluginId: alternativePolicyPluginId,
-				privileges: [
-					'schema:declare',
-					'runtime:constrain',
-					'typegen:contribute',
-				],
+				privileges: ['schema:declare', 'runtime:constrain'],
 				version: '1.0.0',
 			},
 		}).check('middleware', async ({ createUltimaBase }) => {
@@ -198,7 +194,6 @@ describe('independent protected policy engine', () => {
 			withPluginTypegenConformance(suite, {
 				applicationId: 'alternative-policy-conformance',
 				verify: ({ contents }) => {
-					expect(contents).toContain('AlternativeTenantPolicyDiagnostic')
 					expect(contents).not.toContain('@ultimabase/access-plugin')
 				},
 			}),
@@ -412,7 +407,7 @@ describe('independent protected policy engine', () => {
 			import.meta.dirname,
 			'alternative-policy-language-service.fixture.ts',
 		)
-		const source = `import type {} from '@ultimabase/core'\n${generated}\nconst valid: AlternativeTenantPolicyDiagnostic = { schema: 'Post', tenant: 'community' }\n// @ts-expect-error -- The generated diagnostic retains string fields.\nconst invalid: AlternativeTenantPolicyDiagnostic = { schema: 'Post', tenant: 1 }\nvoid valid\nvoid invalid\n`
+		const source = `import type {} from '@ultimabase/core'\n${generated}\nconst valid: AlternativePolicyDocumentCreateInput = { title: 'Post', tenant: 'community' }\n// @ts-expect-error -- The generated schema retains string fields.\nconst invalid: AlternativePolicyDocumentCreateInput = { title: 'Post', tenant: 1 }\nvoid valid\nvoid invalid\n`
 		const host: ts.LanguageServiceHost = {
 			fileExists: (requested) => ts.sys.fileExists(requested),
 			getCompilationSettings: () => ({

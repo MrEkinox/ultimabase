@@ -52,7 +52,8 @@ describe('focused guide contracts', () => {
 		)
 
 		expect(typegen).toContain('writeGeneratedTypeFiles([')
-		expect(typegen).toContain('generated.outputs.map(')
+		expect(typegen).toContain('contents: generated.contents')
+		expect(typegen).not.toContain('generated.outputs')
 		expect(typegen).toContain(
 			'"typecheck": "node --env-file=.env scripts/generate-types.mjs && tsc --noEmit"',
 		)

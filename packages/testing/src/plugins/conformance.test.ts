@@ -7,14 +7,12 @@ import {
 	defineOperation,
 	defineOperationValue,
 	definePlugin,
-	defineQueryExtension,
 	defineSchemaMutation,
 	defineTypegenReference,
 	operationHandler,
 	provideCapability,
 	provideOperationHandler,
 	provideSchemaMutationHandler,
-	QueryBuilder,
 	Schema,
 	schemaMutationHandler,
 	stringField,
@@ -158,7 +156,7 @@ describe('plugin conformance suite', () => {
 		expect(Object.isFrozen(report.checks)).toBe(true)
 	})
 
-	it('snapshots public operation and model surfaces through conformance', async () => {
+	it('snapshots public operations and type references through conformance', async () => {
 		const text = defineOperationValue((value, path): string => {
 			if (typeof value !== 'string') throw new TypeError(`${path} must be text`)
 			return value
@@ -171,28 +169,6 @@ describe('plugin conformance suite', () => {
 			transaction: 'forbidden',
 			version: '1.0.0',
 		})
-		const publishSchema = defineOperation({
-			input: text,
-			name: 'fixture.snapshot.publish-schema',
-			result: text,
-			target: 'schema',
-			transaction: 'forbidden',
-			version: '1.0.0',
-		})
-		const publishModel = defineOperation({
-			input: text,
-			name: 'fixture.snapshot.publish-model',
-			result: text,
-			target: 'model',
-			transaction: 'forbidden',
-			version: '1.0.0',
-		})
-		const byTitle = defineQueryExtension({
-			apply: (schema) => new QueryBuilder(schema),
-			input: text,
-			name: 'fixture.snapshot.by-title',
-			version: '1.0.0',
-		})
 		const publicState = defineTypegenReference({
 			exportName: 'PublicState',
 			module: '@fixture/snapshot-surfaces',
@@ -201,7 +177,7 @@ describe('plugin conformance suite', () => {
 			className: 'ConformanceSurfacePost',
 			fields: (field) => ({ title: field.string() }),
 		})
-		const operations = [inspect, publishSchema, publishModel] as const
+		const operations = [inspect] as const
 		const plugin = definePlugin({
 			capabilities: {
 				provides: operations.map((operation) =>
@@ -217,53 +193,17 @@ describe('plugin conformance suite', () => {
 				),
 			},
 			core: '^0.0.0',
-			declare: ({
-				models,
-				operations: operationDeclarations,
-				queries,
-				typegenContributions,
-				typegenReferences,
-			}) => {
+			declare: ({ operations: operationDeclarations, typegenReferences }) => {
 				for (const operation of operations) {
 					operationDeclarations.declare(operation)
 				}
-				models.extend(
-					{ className: Post.className },
-					{
-						contributionId: 'publishing',
-						modelCommands: { publish: publishModel },
-						schemaCommands: { publish: publishSchema },
-						staticOptions: { mode: 'review' },
-					},
-				)
-				queries.extend(
-					{ className: Post.className },
-					{
-						contributionId: 'publishing-query',
-						extensions: { byTitle },
-						staticOptions: { mode: 'review' },
-					},
-				)
 				typegenReferences.register(publicState)
-				typegenContributions.add({
-					contributionId: 'public-state',
-					declarations: [
-						{
-							kind: 'type',
-							name: 'ConfiguredPublicState',
-							type: { kind: 'reference', reference: publicState },
-						},
-					],
-				})
 			},
 			instanceId: 'main',
 			pluginId: 'fixture.snapshot-surfaces',
 			privileges: [
-				{ name: 'model:extend', reason: 'Adds public publishing commands.' },
 				{ name: 'operation:declare', reason: 'Declares public operations.' },
-				{ name: 'query:extend', reason: 'Adds one public query extension.' },
 				{ name: 'typegen:reference', reason: 'References one public type.' },
-				{ name: 'typegen:contribute', reason: 'Adds one inert declaration.' },
 			],
 			version: '1.0.0',
 		})
@@ -273,13 +213,7 @@ describe('plugin conformance suite', () => {
 			expected: {
 				core: '^0.0.0',
 				pluginId: 'fixture.snapshot-surfaces',
-				privileges: [
-					'model:extend',
-					'operation:declare',
-					'query:extend',
-					'typegen:reference',
-					'typegen:contribute',
-				],
+				privileges: ['operation:declare', 'typegen:reference'],
 				version: '1.0.0',
 			},
 		})

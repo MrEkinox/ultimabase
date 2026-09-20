@@ -26,17 +26,15 @@ describe('packed plugin operation execution', () => {
 				'application-isolation',
 				'javascript-operation',
 			],
-			directModelResult: { echo: 'model:persisted:queried' },
 			directResult: { echo: 'direct' },
-			dynamicSchemaResult: {
-				echo: 'schema:JavaScriptDynamicPost:dynamic',
+			nativeResults: {
+				title: 'JavaScript result',
+				dynamicSchema: 'JavaScriptDynamicPost',
+				draftState: 'draft',
+				persistedState: 'persisted',
 			},
 			inspection: {
-				operations: [
-					'fixture.javascript.inspect',
-					'fixture.javascript.inspect-schema',
-					'fixture.javascript.inspect-model',
-				],
+				operations: ['fixture.javascript.inspect'],
 				plugins: [
 					'fixture.javascript-database',
 					'fixture.javascript-operations',
@@ -49,10 +47,6 @@ describe('packed plugin operation execution', () => {
 					'updatedAt',
 					'documentState',
 				],
-			},
-			modelResult: { echo: 'model:draft:draft' },
-			stableSchemaResult: {
-				echo: 'schema:JavaScriptStablePost:stable',
 			},
 			transportErrorResponse: {
 				error: {

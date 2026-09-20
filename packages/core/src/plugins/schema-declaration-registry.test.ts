@@ -1,30 +1,26 @@
+import { isPlainRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 import {
 	FrameworkApplication,
 	Schema,
 	addSchemaField,
 	addSchemaIndex,
-	createApplication,
 	compileValidationPlans,
+	createApplication,
 	definePlugin,
 	defineSchemaOption,
-	removeSchemaFieldOption,
-	removeSchemaIndex,
-	removeSchemaOption,
-	replaceSchemaIndex,
-	readFieldTypegenState,
 	pointerField,
+	readFieldTypegenState,
 	setSchemaFieldOption,
 	setSchemaOption,
 	stringField,
 	type SchemaOptions,
 } from '../index.js'
-import { isPlainRecord } from '@ultimabase/shared'
 import { snapshotJsonValue } from '../schema/fields/builtins/json.js'
 
 import {
-	requireField,
 	optionPlugin,
+	requireField,
 } from '../../tests/plugins/schema-declarations.fixtures.js'
 
 describe('plugin schema declaration registry', () => {
@@ -76,39 +72,11 @@ describe('plugin schema declaration registry', () => {
 		expect(plans.update.fields.managedState?.presence).toBe('forbidden')
 	})
 
-	it('requires declaration authority for additions and rejects duplicate additions', async () => {
+	it('rejects duplicate additions across ordered plugins', async () => {
 		const Post = Schema.define({
 			className: 'AdditionPrivilegePost',
 			fields: (field) => ({ title: field.string() }),
 		})
-		const transformOnly = definePlugin({
-			core: '^0.0.0',
-			pluginId: 'fixture.transform-only-addition',
-			privileges: [
-				{
-					name: 'schema:transform',
-					reason: 'Exercises the exact addition privilege boundary.',
-				},
-			] as const,
-			version: '1.0.0',
-			declare: ({ schemas }) => {
-				schemas.patch({
-					operations: [
-						addSchemaField({
-							contributionId: 'unauthorized-field',
-							field: stringField(),
-							name: 'state',
-						}),
-					],
-					targets: schemas.select({ className: 'AdditionPrivilegePost' }),
-				})
-			},
-		})
-
-		await expect(
-			createApplication({ plugins: [transformOnly], schemas: [Post] }),
-		).rejects.toThrow('schema:declare is required for additions')
-
 		const contributor = (pluginId: string, dependency?: string) =>
 			definePlugin({
 				core: '^0.0.0',
@@ -272,182 +240,65 @@ describe('plugin schema declaration registry', () => {
 		expect(Shared.fields.externalReference?.kind).toBe('string')
 	})
 
-	it('sets and removes exact option values and replaces and removes indexes', async () => {
-		const workflow = { enabled: true }
-		const search = { weight: 10 }
+	it('adds option values and indexes without replacing existing facts', async () => {
 		const Post = Schema.define({
-			className: 'OptionAndIndexTransformPost',
-			fields: (field) => ({
-				summary: field.string(),
-				title: field.string({
-					// @ts-expect-error -- Typegen owns the installed direct option type.
-					search,
-				}),
-			}),
-			indexes: [{ fields: ['title', 'summary'] }],
-			workflow,
-		} as SchemaOptions<'OptionAndIndexTransformPost'> & {
-			readonly workflow: Readonly<{ readonly enabled: boolean }>
+			className: 'OptionAndIndexAdditionPost',
+			fields: (field) => ({ title: field.string(), summary: field.string() }),
 		})
-		const originalIndex = Post.indexes[0]
-		if (originalIndex === undefined) {
-			throw new TypeError('Expected initial index')
-		}
-		const replacementIndex = {
-			fields: ['summary', 'createdAt'] as const,
-			unique: true,
-		}
-		const transformer = definePlugin({
+		const contributor = definePlugin({
 			core: '^0.0.0',
-			dependencies: [
-				{
-					pluginId: 'fixture.schema-options',
-					version: '^1.2.3',
-				},
-			],
-			pluginId: 'fixture.option-index-transformer',
+			pluginId: 'fixture.option-index-addition',
+			version: '1.0.0',
+			dependencies: [{ pluginId: 'fixture.schema-options', version: '^1.2.3' }],
 			privileges: [
 				{
 					name: 'schema:declare',
-					reason: 'Restores removed option values.',
+					reason: 'Adds owned option values and indexes.',
 				},
-				{
-					name: 'schema:transform',
-					reason: 'Transforms exact option values and indexes.',
-				},
-			] as const,
-			version: '1.0.0',
+			],
 			declare: ({ schemas }) => {
 				schemas.patch({
+					targets: schemas.select({ className: Post.className }),
 					operations: [
-						addSchemaField({
-							contributionId: 'plugin-field',
-							field: stringField({
-								// @ts-expect-error -- Typegen owns the installed direct option type.
-								search: { weight: 40 },
-							}),
-							name: 'pluginField',
-						}),
 						setSchemaOption({
-							contributionId: 'replace-workflow',
-							name: 'workflow',
-							target: {
-								contributionId:
-									'schema-option:OptionAndIndexTransformPost.workflow',
-								expected: { enabled: true },
-								owner: { kind: 'application' },
-							},
-							value: { enabled: false },
-						}),
-						removeSchemaOption({
-							contributionId: 'remove-workflow',
-							name: 'workflow',
-							target: {
-								contributionId: 'replace-workflow',
-								expected: { enabled: false },
-								owner: {
-									kind: 'plugin',
-									pluginId: 'fixture.option-index-transformer',
-								},
-							},
-						}),
-						setSchemaOption({
-							contributionId: 'restore-workflow',
+							contributionId: 'workflow-value',
 							name: 'workflow',
 							value: { enabled: true },
 						}),
 						setSchemaFieldOption({
-							contributionId: 'replace-search',
-							field: 'title',
-							name: 'search',
-							target: {
-								contributionId:
-									'field-option:OptionAndIndexTransformPost.title.search',
-								expected: { weight: 10 },
-								owner: { kind: 'application' },
-							},
-							value: { weight: 20 },
-						}),
-						removeSchemaFieldOption({
-							contributionId: 'remove-search',
-							field: 'title',
-							name: 'search',
-							target: {
-								contributionId: 'replace-search',
-								expected: { weight: 20 },
-								owner: {
-									kind: 'plugin',
-									pluginId: 'fixture.option-index-transformer',
-								},
-							},
-						}),
-						setSchemaFieldOption({
-							contributionId: 'restore-search',
+							contributionId: 'search-value',
 							field: 'title',
 							name: 'search',
 							value: { weight: 30 },
 						}),
-						replaceSchemaIndex({
-							contributionId: 'replace-title-index',
-							fields: replacementIndex.fields,
-							target: {
-								contributionId: 'index:OptionAndIndexTransformPost:0',
-								expected: originalIndex,
-								owner: { kind: 'application' },
-							},
-							unique: replacementIndex.unique,
-						}),
-						removeSchemaIndex({
-							contributionId: 'remove-summary-index',
-							target: {
-								contributionId: 'replace-title-index',
-								expected: replacementIndex,
-								owner: {
-									kind: 'plugin',
-									pluginId: 'fixture.option-index-transformer',
-								},
-							},
+						addSchemaIndex({
+							contributionId: 'title-index',
+							fields: ['title', 'summary'],
+							unique: true,
 						}),
 					],
-					targets: schemas.select({
-						className: 'OptionAndIndexTransformPost',
-					}),
 				})
 			},
 		})
-
 		await createApplication({
-			plugins: [optionPlugin(), transformer],
+			plugins: [optionPlugin(), contributor],
 			schemas: [Post],
 		})
-
 		expect(Reflect.get(Post.definition, 'workflow')).toEqual({ enabled: true })
 		expect(
 			Reflect.get(requireField(Post.fields.title).options, 'search'),
 		).toEqual({ weight: 30 })
-		expect(Post.indexes).toEqual([])
-		expect(
-			Reflect.get(requireField(Post.fields.pluginField).options, 'search'),
-		).toEqual({ weight: 40 })
-		expect(Post.provenance.fieldOptions.pluginField?.search).toMatchObject({
-			definition: {
-				owner: { pluginId: 'fixture.schema-options' },
-			},
-			value: {
-				owner: { pluginId: 'fixture.option-index-transformer' },
-			},
-		})
-		expect(Post.provenance.patches.map(({ kind }) => kind)).toEqual([
-			'field:add',
-			'schema-option:set',
-			'schema-option:remove',
-			'schema-option:set',
-			'field-option:set',
-			'field-option:remove',
-			'field-option:set',
-			'index:replace',
-			'index:remove',
+		expect(Post.indexes).toEqual([
+			{ fields: ['title', 'summary'], unique: true },
 		])
+		expect(Post.provenance.options.workflow?.value).toMatchObject({
+			contributionId: 'workflow-value',
+			owner: { pluginId: 'fixture.option-index-addition' },
+		})
+		expect(Post.provenance.fieldOptions.title?.search?.value).toMatchObject({
+			contributionId: 'search-value',
+			owner: { pluginId: 'fixture.option-index-addition' },
+		})
 	})
 
 	it('adds stable schemas and freezes selectors before later plugin additions', async () => {

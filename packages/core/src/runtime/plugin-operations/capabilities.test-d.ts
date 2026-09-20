@@ -2,15 +2,15 @@ import { immutableRecord } from '@ultimabase/shared'
 import { expectTypeOf, test } from 'vitest'
 
 import type { MasterRequestAccess } from '../../access/index.js'
-import type { JsonValue } from '../../schema/index.js'
 import {
 	defineOperation,
 	defineOperationValue,
 	type PluginOperationErrorCode,
 } from '../../plugins/plugin-operations.js'
-import type { RequestEngine } from '../engine/framework-engine.js'
-import type { RequestContext } from '../context/request-context.js'
+import type { JsonValue } from '../../schema/index.js'
 import type { AdapterAccess } from '../adapters/raw-access.js'
+import type { RequestContext } from '../context/request-context.js'
+import type { RequestEngine } from '../engine/framework-engine.js'
 import {
 	defineOperationTransport,
 	operationHandler,
@@ -20,15 +20,15 @@ import {
 	provideOperationTransportBinding,
 } from './capabilities.js'
 import type {
+	OperationTransportBindingMetadata,
+	OperationTransportWireInput,
+	OperationTransportWireResult,
+} from './contracts.js'
+import type {
 	ApplicationOperationTransport,
 	OperationTransportExposureOptions,
 	OperationTransportRequest,
 } from './transport.js'
-import type {
-	OperationTransportWireInput,
-	OperationTransportBindingMetadata,
-	OperationTransportWireResult,
-} from './contracts.js'
 
 const input = defineOperationValue((value: unknown) => {
 	if (typeof value !== 'string') throw new TypeError('input must be a string')
@@ -57,9 +57,7 @@ test('infers exact handler and wire boundary contracts', () => {
 			expectTypeOf(adapters).toEqualTypeOf<AdapterAccess>()
 			expectTypeOf(engine).toEqualTypeOf<RequestEngine>()
 			expectTypeOf(value).toEqualTypeOf<string>()
-			expectTypeOf(target.kind).toEqualTypeOf<
-				'application' | 'model' | 'schema'
-			>()
+			expectTypeOf(target.kind).toEqualTypeOf<'application'>()
 			return value.length
 		},
 	})

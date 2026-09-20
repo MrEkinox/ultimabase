@@ -1,9 +1,9 @@
 import type { PluginDefinition, SchemaDefinition } from '@ultimabase/core'
+import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 import {
 	generateApplicationTypes,
 	type GeneratedApplicationTypes,
 } from '@ultimabase/typegen'
-import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 import { PluginConformanceSuite } from './suite.js'
 
@@ -72,9 +72,7 @@ export const withPluginTypegenConformance = <
 
 		if (
 			firstGenerated.fingerprint !== secondGenerated.fingerprint ||
-			firstGenerated.contents !== secondGenerated.contents ||
-			JSON.stringify(firstGenerated.outputs) !==
-				JSON.stringify(secondGenerated.outputs)
+			firstGenerated.contents !== secondGenerated.contents
 		) {
 			throw new TypeError('generic Typegen output is not deterministic')
 		}

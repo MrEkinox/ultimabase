@@ -121,23 +121,22 @@ describe('generated type file writer', () => {
 		})
 	})
 
-	it('writes fingerprinted inert metadata and rejects mismatched executable destinations', async () => {
+	it('rejects retired metadata and executable destinations before writing', async () => {
 		const directory = await createTemporaryDirectory()
 		const outputPath = path.join(directory, 'workflow.json')
-		const metadata = `${JSON.stringify({
-			'@ultimabase/schema-fingerprint': `sha256:${fingerprint}`,
-			metadata: { workflow: 'editorial' },
-		})}\n`
-
-		await writeGeneratedTypeFile({
-			applicationId: 'fixture.metadata',
-			contents: metadata,
-			kind: 'metadata',
-			outputPath,
+		// JavaScript callers cannot silently retain the removed output-kind option.
+		await expect(
+			writeGeneratedTypeFile({
+				applicationId: 'fixture.metadata',
+				contents: declaration('metadata'),
+				kind: 'metadata',
+				outputPath,
+			} as never),
+		).rejects.toThrow('unknown option: kind')
+		await expect(readFile(outputPath, 'utf8')).rejects.toMatchObject({
+			code: 'ENOENT',
 		})
 
-		expect(readGeneratedTypeFingerprint(metadata)).toBe(fingerprint)
-		expect(await readFile(outputPath, 'utf8')).toBe(metadata)
 		await expect(
 			writeGeneratedTypeFile({
 				applicationId: 'fixture.javascript',

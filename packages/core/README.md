@@ -294,8 +294,8 @@ A selector is an inert immutable descriptor. Core evaluates every selector once
 against the graph completed by earlier plugins, before applying any patch from
 its current owner. A plugin therefore cannot make its own selection grow by
 adding a matching field or schema first. Additions require `schema:declare`;
-replacement, rename, and removal require `schema:transform` plus the exact prior
-owner, contribution ID, and expected logical shape. Core schema identity and
+patches never replace, rename, or remove existing declarations. Option setters
+reject existing values, and every addition retains its exact owner and contribution ID. Core schema identity and
 system fields remain protected. `{ option: { name } }` checks only that the
 normalized direct option occurs and therefore also supports opaque callback
 values without exposing or invoking them. `{ option: { name, present: false } }`
@@ -422,33 +422,17 @@ const publishPost = defineOperation({
 	errors: ['community.workflow.publish-rejected'],
 	name: 'community.workflow.publish-post',
 	version: '1.0.0',
-	target: 'model',
+	target: 'application',
 	transaction: 'required',
 	input: defineOperationValue(snapshotPublishInput),
 	result: defineOperationValue(snapshotPublishResult),
 })
 ```
 
-`operation:declare`, `model:extend`, and `query:extend` expose separate static
-registrars. A model surface may target existing schemas through a frozen
-selector or directly target an exact schema class owned by the same plugin.
-The direct form lets one dynamic schema receive its own commands without
-changing selector ordering:
-
-```ts
-declare({ models, operations, queries, schemas }) {
-	schemas.add({ contributionId: 'audit-schema', schema: AuditEntry })
-	operations.declare(publishPost)
-	models.extend(AuditEntry, {
-		contributionId: 'audit-commands',
-		modelCommands: { publish: publishPost },
-	})
-	queries.extend(
-		{ className: 'Post' },
-		{ contributionId: 'post-queries', extensions: { byWorkflowState } },
-	)
-}
-```
+`operation:declare` exposes the static operation registrar. Declare the token
+under its handler's exact plugin owner, then call
+`ultimabase.operation(publishPost).execute(input)`. Generic operations target
+the application. Item-specific commands use the schema-mutation contract below.
 
 Trusted server helpers can use `getCurrentUltimaBase()` to retrieve the facade
 owning the active request and resolve its ordinary `.operation(token)` handles.
@@ -457,9 +441,6 @@ Like `getCurrentApplication()`, it selects no process-wide default. It fails wit
 has no owning facade. The selected facade retains its lifecycle and operation
 checks. Transports continue to use their narrow request-execution capability.
 
-Schema commands remain application-owned operation handles, while models
-returned through the application expose their generated commands as direct
-callable methods. Query extensions are ordinary `QueryBuilder` factories.
 `prepare()` validates one immutable logical envelope without I/O; `execute()`
 enters the active `RequestEngine`, enforces cancellation and transaction policy,
 invokes the exact owner handler, and validates the result. Handlers are separate
@@ -468,17 +449,9 @@ codes as public domain failures. Codes use either a namespaced lowercase form
 such as `community.workflow.rejected` or a stable constant identifier such as
 `PASSWORD_AUTH_INVALID_SESSION`:
 
-```ts
-const Post = ultimabase.schema('Post')
-const post = await Post.findOne({ where: { id: postId } })
-const published = await post.publish({ reason: 'reviewed' })
-const query = Post.byWorkflowState('ready')
-```
-
-When a command name is only known at runtime, use
-`Post.for(post).command(name).execute(input)`. The transparent model view is
-cached per application, preserves the schema instance and immutable model
-behavior, and never mutates the exported class or prototype.
+Reusable queries are ordinary functions over immutable Query builders. They
+need no plugin registrar. Model views remain application-owned and immutable;
+only native commands and installed schema-mutation methods appear on them.
 
 Item-oriented workflow mutations use the separate `defineSchemaMutation()`
 contract. They retain one logical mutation identity, a caller or Master
@@ -521,12 +494,10 @@ await PostSchema.archive(
 ```
 
 The class only dispatches to the selected application's compiled surface; a
-same-class application without that mutation rejects the call. Arbitrary
-schema commands and query extensions remain application-handle-only. Typegen
+same-class application without that mutation rejects the call. Typegen
 derives mutation payload, schema projection,
 inclusion, and result types; JavaScript sees the same methods from the compiled
-graph without generated files. They are deliberately distinct from arbitrary
-`schemaCommands` and `modelCommands`. The owner separately provides one
+graph without generated files. The owner separately provides one
 application-lifetime resolver with `provideSchemaMutationHandler()` and
 `schemaMutationHandler()`. The resolver sees only immutable `context`, `input`,
 `originalItem`, and `target` values. Core validates its owner-only replacement,
@@ -1725,9 +1696,9 @@ separate contracts. The closed privilege vocabulary has documented Core facade
 ownership and severity; wildcard requests are invalid. Direct filesystem and
 network behavior is reported only through `environment:filesystem` and
 `environment:network`: Core has no enforceable host-I/O facade or corresponding
-privilege. Typegen contributions retain reference, structured contribution, and
-inert output privileges, but there is no Typegen replacement privilege without
-a replaceable Core-owned engine.
+privilege. Typegen retains `typegen:reference` for consumed public package
+types. Generated declarations derive from the compiled graph; plugins cannot
+register arbitrary declarations or extra output files.
 
 Manifest literals and setup exports retain their exact types for plugin lookup.
 Setup, declaration, and lifecycle callbacks remain private to Core and do not

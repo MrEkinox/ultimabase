@@ -38,15 +38,13 @@ its TypeScript types, and publishing it on a transport are separate decisions.
 
 ## Pick the executable surface
 
-| Requirement            | Declare                                                                 | Implement                                                              | Expose                                                                   |
-| ---------------------- | ----------------------------------------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| App-wide command       | `defineOperation({ target: 'application' })` and `operations.declare()` | `provideOperationHandler()` or Plugin Kit's `providePluginOperation()` | Optional exact GraphQL or REST binding and application allowlist         |
-| Schema/model command   | `defineOperation()` plus `models.extend()`                              | Owner-attributed operation handler                                     | Application-owned schema/model handles; not automatically a GraphQL root |
-| Item-oriented mutation | `defineSchemaMutation()` plus `models.extend({ schemaMutations })`      | `provideSchemaMutationHandler()`                                       | Optional separate schema-mutation binding for REST or GraphQL            |
-| Query builder method   | `queries.extend()` with a pure `QueryBuilder` factory                   | Ordinary Core query execution                                          | No automatic custom GraphQL root                                         |
+| Requirement            | Declare                                                                 | Implement                                                              | Expose                                                           |
+| ---------------------- | ----------------------------------------------------------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| App-wide command       | `defineOperation({ target: 'application' })` and `operations.declare()` | `provideOperationHandler()` or Plugin Kit's `providePluginOperation()` | Optional exact GraphQL or REST binding and application allowlist |
+| Item-oriented mutation | `defineSchemaMutation()` plus `models.extend({ schemaMutations })`      | `provideSchemaMutationHandler()`                                       | Optional separate schema-mutation binding for REST or GraphQL    |
 
-`operation:declare` covers tokens. `model:extend` and `query:extend` cover their
-own surfaces. Every command uses an exact namespaced name and semantic version.
+`operation:declare` covers both token kinds. `model:extend` attaches
+schema-mutation methods to schema and model handles. Every command uses an exact namespaced name and semantic version.
 Input and result snapshotters validate untrusted values; declaring an error
 code makes only that `PluginError` safe to publish. Unknown exceptions remain
 internal diagnostics.
@@ -108,65 +106,21 @@ Export both `workflowPlugin` and `formatWorkflow` from the package root. In a
 started application that installs the plugin,
 `await ultimabase.operation(formatWorkflow).execute('  ready  ')` returns
 `'ready'`. The same application without the plugin rejects that token. Generic
-Typegen includes the installed operation's input and result without a custom
-Typegen contribution. The operation remains private from every network
+Typegen derives the installed operation's input and result from its
+registered public type references. The operation remains private from every network
 transport at this point.
 
-## Extend a Query or model handle
+## Reuse queries and mutate one item
 
-Use `queries.extend()` for a reusable immutable query-builder method, not a
-new Runtime terminal. This independent example adds `byTitle` only to the
-application's `Task` schema handle:
+For a reusable query, export an ordinary function that builds an immutable
+`QueryBuilder` or calls the schema's query methods. Query helpers need no plugin
+registrar or privilege.
 
-```ts title="src/task-query-plugin.ts"
-import {
-	QueryBuilder,
-	defineOperationValue,
-	definePlugin,
-	defineQueryExtension,
-} from '@ultimabase/core'
-
-const byTitle = defineQueryExtension({
-	apply: (schema, title) =>
-		new QueryBuilder(schema).where({ title: { eq: title } }),
-	input: defineOperationValue((value, path): string => {
-		if (typeof value !== 'string') {
-			throw new TypeError(`${path} must be a string`)
-		}
-		return value
-	}),
-	name: 'community.workflow.by-title',
-	version: '1.0.0',
-})
-
-export const taskQueryPlugin = () =>
-	definePlugin({
-		core: '^1.0.0',
-		declare: ({ queries }) => {
-			queries.extend(
-				{ className: 'Task' },
-				{
-					contributionId: 'task-by-title',
-					extensions: { byTitle },
-				},
-			)
-		},
-		pluginId: 'community.workflow-query',
-		privileges: [
-			{ name: 'query:extend', reason: 'Adds the Task byTitle builder.' },
-		] as const,
-		version: '1.0.0',
-	})
-```
-
-`models.extend()` similarly attaches exact `schemaCommands` or
-`modelCommands` backed by declared operation tokens. It requires
-`model:extend` in addition to the operation owner's `operation:declare`.
-Neither method mutates an exported schema class or prototype. Typegen derives
-the installed methods for that application; JavaScript uses the same compiled
-handles without generated files. Use a [schema mutation](#expose-a-schema-mutation)
-instead when an item-specific update or delete needs the canonical locked
-target, policy, and transactional effect boundary.
+Use a [schema mutation](#expose-a-schema-mutation) when a command updates or
+deletes one item and needs Core's locked target, policy checks, and transaction.
+`models.extend()` attaches its `schemaMutations` to selected schema and model
+surfaces. Typegen derives those methods from the graph; JavaScript uses the
+same compiled surfaces without generated files.
 
 ## Expose behavior through GraphQL
 

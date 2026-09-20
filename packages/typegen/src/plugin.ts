@@ -123,15 +123,6 @@ const createTypegenPlugin = (
 					contents: generated.contents,
 					outputPath: normalized.outputPath,
 				},
-				...generated.outputs.map((output) => ({
-					applicationId: `${normalized.applicationId}:${output.owner}:${output.contributionId}`,
-					contents: output.contents,
-					kind: output.kind,
-					outputPath: path.resolve(
-						path.dirname(normalized.outputPath),
-						output.outputPath,
-					),
-				})),
 			])
 
 			return immutableRecord({

@@ -1,15 +1,14 @@
 import type { JsonValue } from '../../schema/fields/builtins/json.js'
 import type { SchemaConstraintDefinition } from '../../schema/schema/constraints.js'
+import type { FieldDeclarationContext } from '../../schema/schema/field-contexts.js'
 import type { SchemaIndexDefinition } from '../../schema/schema/indexes.js'
 import type {
 	PluginSchemaContributionOwner,
 	SchemaCompilationProvenance,
-	SchemaContributionOwnerReference,
 	SchemaContributionProvenance,
 	SchemaOptionProvenance,
 } from '../../schema/schema/provenance.js'
 import type { SchemaSelectorOptions } from '../schema-patch-contracts.js'
-import type { FieldDeclarationContext } from '../../schema/schema/field-contexts.js'
 
 /** Versions the complete callback-free logical schema compiler protocol. */
 export const schemaCompilerProtocolVersion = '7.0.0' as const
@@ -113,47 +112,11 @@ export interface SchemaCompilerSchemaNode {
 	readonly virtualFields: readonly SchemaCompilerVirtualFieldNode[]
 }
 
-/** Identifies one previously declared contribution expected by a patch. */
-export interface SchemaCompilerContributionTarget<TExpected> {
-	readonly contributionId: string
-	readonly expected: TExpected
-	readonly owner: SchemaContributionOwnerReference
-}
-
 export interface SchemaCompilerAddFieldOperation {
 	readonly contributionId: string
 	readonly field: SchemaCompilerFieldNode
 	readonly kind: 'field:add'
 	readonly name: string
-}
-
-export interface SchemaCompilerReplaceFieldOperation {
-	readonly contributionId: string
-	readonly field: SchemaCompilerFieldNode
-	readonly kind: 'field:replace'
-	readonly name: string
-	readonly target: SchemaCompilerContributionTarget<
-		SchemaCompilerArtifactReference<'field'>
-	>
-}
-
-export interface SchemaCompilerRenameFieldOperation {
-	readonly contributionId: string
-	readonly from: string
-	readonly kind: 'field:rename'
-	readonly target: SchemaCompilerContributionTarget<
-		SchemaCompilerArtifactReference<'field'>
-	>
-	readonly to: string
-}
-
-export interface SchemaCompilerRemoveFieldOperation {
-	readonly contributionId: string
-	readonly kind: 'field:remove'
-	readonly name: string
-	readonly target: SchemaCompilerContributionTarget<
-		SchemaCompilerArtifactReference<'field'>
-	>
 }
 
 export interface SchemaCompilerAddIndexOperation {
@@ -162,55 +125,17 @@ export interface SchemaCompilerAddIndexOperation {
 	readonly kind: 'index:add'
 }
 
-export interface SchemaCompilerReplaceIndexOperation {
-	readonly contributionId: string
-	readonly index: SchemaIndexDefinition
-	readonly kind: 'index:replace'
-	readonly target: SchemaCompilerContributionTarget<SchemaIndexDefinition>
-}
-
-export interface SchemaCompilerRemoveIndexOperation {
-	readonly contributionId: string
-	readonly kind: 'index:remove'
-	readonly target: SchemaCompilerContributionTarget<SchemaIndexDefinition>
-}
-
 export interface SchemaCompilerAddConstraintOperation {
 	readonly constraint: SchemaCompilerConstraintNode
 	readonly contributionId: string
 	readonly kind: 'constraint:add'
 }
 
-export interface SchemaCompilerReplaceConstraintOperation {
-	readonly constraint: SchemaCompilerConstraintNode
-	readonly contributionId: string
-	readonly kind: 'constraint:replace'
-	readonly target: SchemaCompilerContributionTarget<
-		SchemaCompilerArtifactReference<'constraint'>
-	>
-}
-
-export interface SchemaCompilerRemoveConstraintOperation {
-	readonly contributionId: string
-	readonly kind: 'constraint:remove'
-	readonly target: SchemaCompilerContributionTarget<
-		SchemaCompilerArtifactReference<'constraint'>
-	>
-}
-
 export interface SchemaCompilerSetSchemaOptionOperation {
 	readonly contributionId: string
 	readonly kind: 'schema-option:set'
 	readonly name: string
-	readonly target?: SchemaCompilerContributionTarget<SchemaCompilerOptionValue>
 	readonly value: SchemaCompilerOptionValue
-}
-
-export interface SchemaCompilerRemoveSchemaOptionOperation {
-	readonly contributionId: string
-	readonly kind: 'schema-option:remove'
-	readonly name: string
-	readonly target: SchemaCompilerContributionTarget<SchemaCompilerOptionValue>
 }
 
 export interface SchemaCompilerSetFieldOptionOperation {
@@ -218,16 +143,7 @@ export interface SchemaCompilerSetFieldOptionOperation {
 	readonly field: string
 	readonly kind: 'field-option:set'
 	readonly name: string
-	readonly target?: SchemaCompilerContributionTarget<SchemaCompilerOptionValue>
 	readonly value: SchemaCompilerOptionValue
-}
-
-export interface SchemaCompilerRemoveFieldOptionOperation {
-	readonly contributionId: string
-	readonly field: string
-	readonly kind: 'field-option:remove'
-	readonly name: string
-	readonly target: SchemaCompilerContributionTarget<SchemaCompilerOptionValue>
 }
 
 /** Lists every immutable patch operation understood by the compiler protocol. */
@@ -235,15 +151,6 @@ export type SchemaCompilerPatchOperation =
 	| SchemaCompilerAddConstraintOperation
 	| SchemaCompilerAddFieldOperation
 	| SchemaCompilerAddIndexOperation
-	| SchemaCompilerRemoveConstraintOperation
-	| SchemaCompilerRemoveFieldOperation
-	| SchemaCompilerRemoveFieldOptionOperation
-	| SchemaCompilerRemoveIndexOperation
-	| SchemaCompilerRemoveSchemaOptionOperation
-	| SchemaCompilerRenameFieldOperation
-	| SchemaCompilerReplaceConstraintOperation
-	| SchemaCompilerReplaceFieldOperation
-	| SchemaCompilerReplaceIndexOperation
 	| SchemaCompilerSetFieldOptionOperation
 	| SchemaCompilerSetSchemaOptionOperation
 

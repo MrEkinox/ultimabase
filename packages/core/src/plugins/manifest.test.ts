@@ -10,10 +10,8 @@ describe('plugin manifests', () => {
 	it('publishes the complete privilege vocabulary with facade ownership and severity', () => {
 		expect(Object.keys(pluginPrivilegeMetadata)).toStrictEqual([
 			'schema:declare',
-			'schema:transform',
 			'storage:private',
 			'model:extend',
-			'query:extend',
 			'operation:declare',
 			'runtime:observe',
 			'runtime:intercept',
@@ -25,8 +23,6 @@ describe('plugin manifests', () => {
 			'transport:expose',
 			'event:publish',
 			'typegen:reference',
-			'typegen:contribute',
-			'typegen:emit',
 			'authority:elevate',
 		])
 		expect(
@@ -40,6 +36,29 @@ describe('plugin manifests', () => {
 			expect(Object.isFrozen(metadata)).toBe(true)
 		}
 		expect(Object.isFrozen(pluginPrivilegeMetadata)).toBe(true)
+	})
+
+	it.each([
+		'schema:transform',
+		'query:extend',
+		'typegen:contribute',
+		'typegen:emit',
+	])('rejects the retired %s privilege before declaration', (name) => {
+		let declared = false
+		expect(() =>
+			definePlugin({
+				core: '^0.0.0',
+				pluginId: 'fixture.retired-declaration-power',
+				version: '1.0.0',
+				privileges: [
+					{ name: name as never, reason: 'Exercises a removed privilege.' },
+				],
+				declare: () => {
+					declared = true
+				},
+			}),
+		).toThrow()
+		expect(declared).toBe(false)
 	})
 
 	it('publishes review metadata for every informational environment claim', () => {

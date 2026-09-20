@@ -4,22 +4,19 @@ import {
 	isUnknownArray,
 } from '@ultimabase/shared'
 
-import type {
-	ApplicationOperationBinding,
-	PluginOperationEnvelope,
-} from '../../application/application-handles.js'
+import type { PluginOperationEnvelope } from '../../application/application-handles.js'
 import { FrameworkError } from '../../errors/framework-error.js'
-import type { CompiledPluginOperation } from '../../plugins/application-surface-registry.js'
 import { readApplicationCapabilityContributions } from '../../plugins/application-capability-access.js'
+import type { CompiledPluginOperation } from '../../plugins/application-surface-registry.js'
+import { throwIfOperationCancelled } from '../cancellation/operation-cancellation.js'
 import { runtimeConstraintCapability } from '../capabilities.js'
-import { getProtectedPolicyImplementation } from '../enforcement/protected-policy.js'
 import { runWithRequestEngineScope } from '../context/active-framework-storage.js'
+import { getProtectedPolicyImplementation } from '../enforcement/protected-policy.js'
+import { assertApplicationRequestExecutionAvailable } from '../engine/application-binding.js'
 import type {
 	FrameworkEngine,
 	RequestEngine,
 } from '../engine/framework-engine.js'
-import { assertApplicationRequestExecutionAvailable } from '../engine/application-binding.js'
-import { throwIfOperationCancelled } from '../cancellation/operation-cancellation.js'
 import type { TransactionLifetime } from '../transactions/transaction-lifetime.js'
 import { isOperationTransportProtocol } from './capabilities.js'
 import type { OperationTransportProtocol } from './contracts.js'
@@ -232,7 +229,6 @@ export const exposeFrameworkOperations = <
 }
 
 interface ExecutePluginOperationRequest {
-	readonly binding: ApplicationOperationBinding
 	readonly compiled: CompiledPluginOperation
 	readonly engine: RequestEngine
 	readonly envelope: PluginOperationEnvelope
@@ -244,12 +240,14 @@ interface ExecutePluginOperationRequest {
 export const executePluginOperationRequest = async (
 	request: ExecutePluginOperationRequest,
 ): Promise<unknown> => {
-	const { binding, compiled, engine, envelope, transactionLifetime } = request
+	const { compiled, engine, envelope, transactionLifetime } = request
+	const targetKind: unknown = envelope.target.kind
 	if (
 		engine.application.getOperation(compiled.operation.name) !== compiled ||
 		envelope.name !== compiled.operation.name ||
 		envelope.version !== compiled.operation.version ||
-		envelope.transaction !== compiled.operation.transaction
+		envelope.transaction !== compiled.operation.transaction ||
+		targetKind !== 'application'
 	) {
 		throw new FrameworkError(
 			'PLUGIN_OPERATION_INVALID',
@@ -296,7 +294,6 @@ export const executePluginOperationRequest = async (
 			getFrameworkPluginOperations(engine.framework).execute(
 				engine,
 				compiled,
-				binding,
 				envelope,
 			),
 		)

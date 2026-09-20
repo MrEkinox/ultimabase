@@ -1,18 +1,14 @@
 import type { JsonValue } from '../../schema/fields/builtins/json.js'
-import { areSchemaDeclarationValuesCompatible } from '../../schema/schema/definition.js'
-import type { PluginSchemaContributionOwner } from '../../schema/schema/provenance.js'
-import type { SchemaContributionProvenance } from '../../schema/schema/provenance.js'
 import type {
-	SchemaCompilerContributionTarget,
+	PluginSchemaContributionOwner,
+	SchemaContributionProvenance,
+} from '../../schema/schema/provenance.js'
+import type { CanonicalSchemaCompilerState } from './canonical-state.js'
+import { createCompilerContributionProvenance } from './canonical-state.js'
+import type {
 	SchemaCompilerOptionDefinitionNode,
-	SchemaCompilerOptionValue,
 	SchemaCompilerPatchNode,
 } from './contracts.js'
-import {
-	createCompilerContributionProvenance,
-	sameCompilerOwner,
-} from './canonical-state.js'
-import type { CanonicalSchemaCompilerState } from './canonical-state.js'
 
 export interface CanonicalSchemaOperationContext {
 	readonly definitions: readonly SchemaCompilerOptionDefinitionNode[]
@@ -56,51 +52,6 @@ export const resolveCompilerOptionDefinition = (
 	throw new TypeError(
 		`Ambiguous ${scope} option owner for "${name}" at ${path}`,
 	)
-}
-
-export const assertCompilerTarget = <TExpected>(
-	actual: TExpected,
-	provenance:
-		| Readonly<{
-				readonly contributionId: string
-				readonly owner: Parameters<typeof sameCompilerOwner>[0]
-		  }>
-		| undefined,
-	target: SchemaCompilerContributionTarget<TExpected>,
-	path: string,
-	options?: Readonly<{
-		readonly protectCore?: boolean
-		readonly structural?: boolean
-	}>,
-): void => {
-	if (provenance === undefined) {
-		throw new TypeError(`Missing schema contribution provenance: ${path}`)
-	}
-	if (options?.protectCore === true && provenance.owner.kind === 'core') {
-		throw new TypeError(`Protected Core schema contribution: ${path}`)
-	}
-	if (!sameCompilerOwner(provenance.owner, target.owner)) {
-		throw new TypeError(`Stale schema contribution owner: ${path}`)
-	}
-	if (provenance.contributionId !== target.contributionId) {
-		throw new TypeError(`Stale schema contribution identity: ${path}`)
-	}
-	const compatible =
-		options?.structural === true
-			? areSchemaDeclarationValuesCompatible(actual, target.expected)
-			: actual === target.expected
-	if (!compatible) {
-		throw new TypeError(`Stale schema contribution shape: ${path}`)
-	}
-}
-
-export const assertCompilerOptionTarget = (
-	actual: SchemaCompilerOptionValue,
-	provenance: CanonicalSchemaCompilerState['provenance']['schema'] | undefined,
-	target: SchemaCompilerContributionTarget<SchemaCompilerOptionValue>,
-	path: string,
-): void => {
-	assertCompilerTarget(actual, provenance, target, path, { structural: true })
 }
 
 export const assertUnusedCompilerContributionId = (

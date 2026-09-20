@@ -1,56 +1,12 @@
-import {
-	type AdapterAccess,
-	defineOperation,
-	defineOperationValue,
-	definePlugin,
-	type PluginOperationExecutionTarget,
-	requireCapability,
-	type SchemaDefinition,
-} from '@ultimabase/core'
+import { definePlugin, type SchemaDefinition } from '@ultimabase/core'
 import {
 	postgresConstraintCompiler,
 	postgresPhysicalColumn,
-	postgresRawAdapterCapability,
 	postgresUpgrade,
 } from '@ultimabase/postgres-plugin'
-import { providePluginOperation } from '@ultimabase/plugin-kit'
-import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
+import { isPlainRecord } from '@ultimabase/shared'
 
 import { softDeleteVisibilityConstraintKind } from './open-kernel-soft-delete.js'
-
-const postgresRaw = requireCapability(postgresRawAdapterCapability, '^1.0.0')
-
-const actionInput = defineOperationValue((value, path): Readonly<object> => {
-	if (!isPlainRecord(value) || Reflect.ownKeys(value).length !== 0) {
-		throw new TypeError(`${path} must be an empty object`)
-	}
-	return immutableRecord({})
-})
-const actionResult = defineOperationValue(
-	(value, path): Readonly<{ readonly changed: boolean }> => {
-		if (!isPlainRecord(value) || typeof value.changed !== 'boolean') {
-			throw new TypeError(`${path}.changed must be a boolean`)
-		}
-		return immutableRecord({ changed: value.changed })
-	},
-)
-
-const restoreSoftDeletedModel = defineOperation({
-	input: actionInput,
-	name: 'fixture.soft-delete-postgres.restore',
-	result: actionResult,
-	target: 'model',
-	transaction: 'required',
-	version: '1.0.0',
-})
-const purgeSoftDeletedModel = defineOperation({
-	input: actionInput,
-	name: 'fixture.soft-delete-postgres.purge',
-	result: actionResult,
-	target: 'model',
-	transaction: 'required',
-	version: '1.0.0',
-})
 
 const assertIdentifier = (value: string, path: string): string => {
 	if (!/^[a-z][a-z0-9_]*$/u.test(value)) {
@@ -65,48 +21,10 @@ export interface SoftDeletePostgresOptions {
 	readonly table: string
 }
 
-const readModelIdentity = (
-	target: PluginOperationExecutionTarget,
-): Readonly<{ readonly id: string; readonly schema: string }> => {
-	if (target.kind !== 'model') {
-		throw new TypeError('Soft-delete commands require a model handle')
-	}
-	const id: unknown = 'id' in target.model ? target.model.id : undefined
-	if (typeof id !== 'string') {
-		throw new TypeError('Soft-delete commands require a persisted model')
-	}
-	return { id, schema: target.schema.className }
-}
-
-const changeSoftDeleteState = async (
-	action: 'purge' | 'restore',
-	adapters: AdapterAccess,
-	options: SoftDeletePostgresOptions,
-	table: string,
-	target: PluginOperationExecutionTarget,
-): Promise<Readonly<{ readonly changed: boolean }>> => {
-	const identity = readModelIdentity(target)
-	if (identity.schema !== options.schema.className) {
-		throw new TypeError('Unknown soft-delete schema')
-	}
-	return adapters.withRaw(postgresRaw, async (raw) => {
-		if (raw.scope !== 'transaction') {
-			throw new TypeError(`Soft-delete ${action} requires a transaction`)
-		}
-		const query =
-			action === 'purge'
-				? `DELETE FROM "${table}" WHERE "id" = $1 AND "isDeleted" = TRUE RETURNING "id"`
-				: `UPDATE "${table}" SET "isDeleted" = FALSE WHERE "id" = $1 AND "isDeleted" = TRUE RETURNING "id"`
-		const result = await raw.query(query, [identity.id])
-		return { changed: result.rows.length === 1 }
-	})
-}
-
-/** Owns PostgreSQL restore/purge commands and compiles tombstone visibility. */
+/** Compiles the plugin-owned tombstone visibility constraint for PostgreSQL. */
 export const createSoftDeletePostgresPlugin = (
 	options: SoftDeletePostgresOptions,
 ) => {
-	const table = assertIdentifier(options.table, 'soft-delete table')
 	const compiler = postgresConstraintCompiler({
 		compile: ({ field, sql }) => sql`${field('isDeleted')} = ${false}`,
 		decode: (payload) => {
@@ -119,61 +37,11 @@ export const createSoftDeletePostgresPlugin = (
 		version: 1,
 	})
 	return definePlugin({
-		capabilities: {
-			provides: [
-				providePluginOperation({
-					contributionId: 'postgres-restore',
-					create: () => ({
-						execute: ({ adapters, target }) =>
-							changeSoftDeleteState(
-								'restore',
-								adapters,
-								options,
-								table,
-								target,
-							),
-					}),
-					operation: restoreSoftDeletedModel,
-				}),
-				providePluginOperation({
-					contributionId: 'postgres-purge',
-					create: () => ({
-						execute: ({ adapters, target }) =>
-							changeSoftDeleteState('purge', adapters, options, table, target),
-					}),
-					operation: purgeSoftDeletedModel,
-				}),
-			],
-			requires: [postgresRaw],
-		},
 		core: '^0.0.0',
-		declare: ({ models, operations }) => {
-			operations.declare(restoreSoftDeletedModel)
-			operations.declare(purgeSoftDeletedModel)
-			models.extend(options.schema, {
-				contributionId: 'postgres-soft-delete-commands',
-				modelCommands: {
-					purge: purgeSoftDeletedModel,
-					restore: restoreSoftDeletedModel,
-				},
-			})
-		},
 		instanceId: options.instanceId,
 		pluginId: 'fixture.open-kernel-soft-delete-postgres',
 		privileges: [
 			{ name: 'adapter:consume', reason: 'Compiles tombstone visibility.' },
-			{
-				name: 'adapter:raw',
-				reason: 'Restores and purges inside Runtime transactions.',
-			},
-			{
-				name: 'model:extend',
-				reason: 'Adds PostgreSQL restore and purge commands.',
-			},
-			{
-				name: 'operation:declare',
-				reason: 'Declares PostgreSQL restore and purge.',
-			},
 		] as const,
 		setup: ({ constraintCompilers }) => {
 			constraintCompilers.register(compiler)

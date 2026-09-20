@@ -82,16 +82,12 @@ describe('plugin manifest source language service', () => {
 			'model:extend',
 			'operation:declare',
 			'persistence:rewrite',
-			'query:extend',
 			'runtime:constrain',
 			'runtime:intercept',
 			'runtime:observe',
 			'schema:declare',
-			'schema:transform',
 			'storage:private',
 			'transport:expose',
-			'typegen:contribute',
-			'typegen:emit',
 			'typegen:reference',
 		])
 		expect(readStringCompletions('environment')).toStrictEqual([

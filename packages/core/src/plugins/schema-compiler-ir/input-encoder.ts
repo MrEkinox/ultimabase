@@ -13,6 +13,7 @@ import {
 } from '../schema-declaration-contracts.js'
 import type { SchemaSelection } from '../schema-patch-contracts.js'
 import { collectOptionDefinitions } from '../schema-runtime-options.js'
+import type { SchemaCompilerArtifactSession } from './artifacts.js'
 import type {
 	SchemaCompilerInput,
 	SchemaCompilerOptionDefinitionNode,
@@ -21,7 +22,6 @@ import type {
 	SchemaCompilerSchemaNode,
 } from './contracts.js'
 import { schemaCompilerProtocolVersion } from './contracts.js'
-import type { SchemaCompilerArtifactSession } from './artifacts.js'
 import { SchemaCompilerIrEncoder } from './encoder.js'
 import { encodeSchemaCompilerPatchOperation } from './patch-encoder.js'
 import { assertSchemaCompilerInput } from './validation.js'
@@ -56,9 +56,6 @@ class SchemaCompilerDeclarationEncoder {
 			[
 				...batch.patches.map(({ targets }) => targets),
 				...batch.surfaces.modelSurfaces.flatMap(({ target }) =>
-					target.kind === 'selection' ? [target.selection] : [],
-				),
-				...batch.surfaces.querySurfaces.flatMap(({ target }) =>
 					target.kind === 'selection' ? [target.selection] : [],
 				),
 			].map((selection) => [selection.selectionId, selection]),

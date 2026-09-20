@@ -212,27 +212,23 @@ privilege needs a human-readable reason, appears in the startup report, and
 may be denied globally, by plugin ID, or by exact instance. A dependency's
 privilege never transfers to your plugin.
 
-| Privilege              | Use only for                                                      |
-| ---------------------- | ----------------------------------------------------------------- |
-| `schema:declare`       | Schema, field, option, additive patch, or index declarations.     |
-| `schema:transform`     | Provenance-checked change to an existing declaration.             |
-| `model:extend`         | Application-local schema or model command surfaces.               |
-| `query:extend`         | Application-local Query builder methods.                          |
-| `operation:declare`    | Namespaced operation or schema-mutation tokens.                   |
-| `typegen:reference`    | Registered public package type references.                        |
-| `typegen:contribute`   | Structured declarations in the main generated file.               |
-| `typegen:emit`         | Separate structured `.d.ts` or inert `.json` output.              |
-| `runtime:observe`      | Product event consumers and diagnostics.                          |
-| `runtime:intercept`    | Mutable request behavior at an allowed stage.                     |
-| `runtime:constrain`    | Deny-only or narrowing protected constraints.                     |
-| `persistence:rewrite`  | Physical plan rewrite without logical-policy changes.             |
-| `adapter:consume`      | Adapter capability or attributed physical contribution.           |
-| `adapter:raw`          | Exact revocable adapter-specific raw lease.                       |
-| `migration:contribute` | Explicit attributed adapter migration intent.                     |
-| `storage:private`      | Owner-private persistent collections.                             |
-| `transport:expose`     | HTTP routes, public operation bindings, or GraphQL contributions. |
-| `event:publish`        | Core-checked transactional event publication.                     |
-| `authority:elevate`    | Audited Core Master elevation, never transport-shaped input.      |
+| Privilege              | Use only for                                                       |
+| ---------------------- | ------------------------------------------------------------------ |
+| `schema:declare`       | Schema, field, option, additive patch, or index declarations.      |
+| `model:extend`         | Schema-mutation methods on application-owned schema/model handles. |
+| `operation:declare`    | Namespaced operation or schema-mutation tokens.                    |
+| `typegen:reference`    | Registered public package type references.                         |
+| `runtime:observe`      | Product event consumers and diagnostics.                           |
+| `runtime:intercept`    | Mutable request behavior at an allowed stage.                      |
+| `runtime:constrain`    | Deny-only or narrowing protected constraints.                      |
+| `persistence:rewrite`  | Physical plan rewrite without logical-policy changes.              |
+| `adapter:consume`      | Adapter capability or attributed physical contribution.            |
+| `adapter:raw`          | Exact revocable adapter-specific raw lease.                        |
+| `migration:contribute` | Explicit attributed adapter migration intent.                      |
+| `storage:private`      | Owner-private persistent collections.                              |
+| `transport:expose`     | HTTP routes, public operation bindings, or GraphQL contributions.  |
+| `event:publish`        | Core-checked transactional event publication.                      |
+| `authority:elevate`    | Audited Core Master elevation, never transport-shaped input.       |
 
 The direct environment claims are `environment:filesystem`,
 `environment:network`, `environment:process`, and

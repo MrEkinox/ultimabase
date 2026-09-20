@@ -58,22 +58,6 @@ const inspect = defineOperation({
 	transaction: 'required',
 	version: '1.0.0',
 })
-const inspectSchema = defineOperation({
-	input,
-	name: 'fixture.javascript.inspect-schema',
-	result,
-	target: 'schema',
-	transaction: 'required',
-	version: '1.0.0',
-})
-const inspectModel = defineOperation({
-	input,
-	name: 'fixture.javascript.inspect-model',
-	result,
-	target: 'model',
-	transaction: 'required',
-	version: '1.0.0',
-})
 const opaqueDocumentOption = defineSchemaOption({
 	normalize: (value, path) => {
 		if (typeof value !== 'function') {
@@ -117,20 +101,6 @@ const handler = operationHandler({
 		return immutable({ echo: value.message })
 	},
 })
-const schemaHandler = operationHandler({
-	operation: inspectSchema,
-	execute: ({ input: value, target }) =>
-		immutable({
-			echo: `${target.kind}:${target.kind === 'schema' ? target.schema.className : 'invalid'}:${value.message}`,
-		}),
-})
-const modelHandler = operationHandler({
-	operation: inspectModel,
-	execute: ({ input: value, target }) =>
-		immutable({
-			echo: `${target.kind}:${target.kind === 'model' ? target.state : 'invalid'}:${value.message}`,
-		}),
-})
 const codec = operationWireCodec({
 	decode: (wire) => immutable({ message: wire.text }),
 	encode: (value) => immutable({ text: value.echo }),
@@ -146,14 +116,6 @@ const createOperationPlugin = () =>
 					contributionId: 'handler',
 					create: () => ({ value: handler }),
 				}),
-				provideOperationHandler({
-					contributionId: 'schema-handler',
-					create: () => ({ value: schemaHandler }),
-				}),
-				provideOperationHandler({
-					contributionId: 'model-handler',
-					create: () => ({ value: modelHandler }),
-				}),
 				provideOperationTransportBinding({
 					contributionId: 'binding',
 					create: () => ({ value: binding }),
@@ -161,7 +123,7 @@ const createOperationPlugin = () =>
 			],
 		},
 		core: '^0.0.0',
-		declare: ({ models, operations, schemas }) => {
+		declare: ({ operations, schemas }) => {
 			schemas.defineOptions({
 				contributionId: 'javascript-document-options',
 				schema: { document: opaqueDocumentOption },
@@ -178,25 +140,12 @@ const createOperationPlugin = () =>
 			})
 			schemas.add({ contributionId: 'dynamic-post', schema: DynamicPost })
 			operations.declare(inspect)
-			operations.declare(inspectSchema)
-			operations.declare(inspectModel)
-			for (const target of [StablePost, DynamicPost]) {
-				models.extend(target, {
-					contributionId: `surfaces:${target.className}`,
-					modelCommands: { inspect: inspectModel },
-					schemaCommands: { inspect: inspectSchema },
-				})
-			}
 		},
 		pluginId: 'fixture.javascript-operations',
 		privileges: [
 			{
 				name: 'schema:declare',
 				reason: 'Declares the dynamic JavaScript schema.',
-			},
-			{
-				name: 'model:extend',
-				reason: 'Adds JavaScript schema and model commands.',
 			},
 			{ name: 'operation:declare', reason: 'Declares the JavaScript fixture.' },
 			{ name: 'transport:expose', reason: 'Exposes the fake fixture binding.' },
@@ -249,19 +198,13 @@ export const directResult = await ultimabase
 const stableHandle = ultimabase.schema(StablePost)
 const dynamicHandle = ultimabase.schema('JavaScriptDynamicPost')
 const queriedPost = await stableHandle.findOne()
-export const directModelResult = await queriedPost.inspect({
-	message: 'queried',
-})
-export const stableSchemaResult = await stableHandle.commands.inspect.execute({
-	message: 'stable',
-})
-export const dynamicSchemaResult = await dynamicHandle.inspect.execute({
-	message: 'dynamic',
-})
-export const modelResult = await stableHandle
-	.for(new StablePost({ title: 'Draft' }))
-	.command('inspect')
-	.execute({ message: 'draft' })
+// Native schema/model handles remain usable in JavaScript without generated types.
+export const nativeResults = {
+	title: queriedPost.title,
+	dynamicSchema: dynamicHandle.schema.className,
+	draftState: stableHandle.for(new StablePost({ title: 'Draft' })).state,
+	persistedState: stableHandle.for(queriedPost).state,
+}
 export const inspection = {
 	operations: ultimabase.application.typegenGraph.operations.map(
 		({ operation }) => operation.name,
@@ -328,5 +271,5 @@ export const conformanceChecks = conformanceReport.checks.map(
 
 await ultimabase.dispose()
 process.stdout.write(
-	`${JSON.stringify({ conformanceChecks, directModelResult, directResult, dynamicSchemaResult, inspection, modelResult, stableSchemaResult, transportErrorResponse, transportResponse })}\n`,
+	`${JSON.stringify({ conformanceChecks, directResult, nativeResults, inspection, transportErrorResponse, transportResponse })}\n`,
 )

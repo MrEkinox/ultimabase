@@ -1,9 +1,9 @@
 import type {
 	FrameworkApplication,
 	PluginDefinition,
-	SchemaDefinition,
-	SchemaContributionProvenance,
 	SchemaCompilationProvenance,
+	SchemaContributionProvenance,
+	SchemaDefinition,
 } from '@ultimabase/core'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
@@ -30,37 +30,25 @@ type PublicSchemaSurface = FrameworkApplication<
 >['typegenGraph']['schemaSurfaces'][number]
 
 const snapshotSurface = (surface: PublicSchemaSurface): object => {
-	const snapshotCommands = (
-		commands: PublicSchemaSurface['schemaCommands'],
+	// Both projections retain the same mutation identity and provenance.
+	const snapshotMutations = (
+		commands: PublicSchemaSurface['schemaMutations'],
 	): readonly object[] =>
 		immutableArray(
 			[...commands.entries()].map(([name, command]) =>
 				immutableRecord({
 					contributionId: command.contributionId,
 					name,
-					operation: command.operation.name,
+					mutation: command.mutation,
 					owner: snapshotOwner(command.owner),
 					staticOptions: command.staticOptions,
 				}),
 			),
 		)
-
 	return immutableRecord({
 		className: surface.schema.className,
-		modelCommands: snapshotCommands(surface.modelCommands),
-		queryExtensions: immutableArray(
-			[...surface.queryExtensions.entries()].map(([name, query]) =>
-				immutableRecord({
-					contributionId: query.contributionId,
-					input: query.extension.input.typegen,
-					name,
-					owner: snapshotOwner(query.owner),
-					staticOptions: query.staticOptions,
-					version: query.extension.version,
-				}),
-			),
-		),
-		schemaCommands: snapshotCommands(surface.schemaCommands),
+		modelMutations: snapshotMutations(surface.modelMutations),
+		schemaMutations: snapshotMutations(surface.schemaMutations),
 	})
 }
 
@@ -189,10 +177,6 @@ export const assertPublicPluginProvenance = (
 	for (const option of application.typegenGraph.options)
 		assertOwner(option.owner)
 	for (const declarations of application.typegenGraph.declarations) {
-		for (const contribution of declarations.contributions) {
-			assertOwner(contribution.owner)
-		}
-		for (const output of declarations.outputs) assertOwner(output.owner)
 		for (const reference of declarations.references)
 			assertOwner(reference.owner)
 	}

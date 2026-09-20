@@ -2,13 +2,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 
-import {
-	FrameworkApplication,
-	Schema,
-	definePlugin,
-	optionalCapability,
-	typegenEmitterCapability,
-} from '@ultimabase/core'
+import { FrameworkApplication, Schema } from '@ultimabase/core'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { typegenPlugin } from './plugin.js'
@@ -129,63 +123,6 @@ describe('typegenPlugin', () => {
 		await expect(readFile(ignoredPath, 'utf8')).rejects.toMatchObject({
 			code: 'ENOENT',
 		})
-
-		await application.dispose()
-	})
-
-	it('writes separately owned declaration and metadata outputs beside the main registry', async () => {
-		const directory = await createTemporaryDirectory()
-		const outputPath = path.join(directory, 'schema.generated.d.ts')
-		const emitter = optionalCapability(typegenEmitterCapability, '^1.0.0')
-		const contributor = definePlugin({
-			core: '^0.0.0',
-			pluginId: 'fixture.owned-typegen-output',
-			version: '1.0.0',
-			capabilities: { optional: [emitter] },
-			privileges: [
-				{
-					name: 'typegen:emit',
-					reason: 'Emits fixture-owned inert artifacts.',
-					when: emitter,
-				},
-			],
-			declare: ({ typegenOutputs }) => {
-				typegenOutputs?.emit({
-					contributionId: 'declaration',
-					declarations: [
-						{
-							kind: 'type',
-							name: 'OwnedFixtureDeclaration',
-							type: { kind: 'literal', value: 'fixture' },
-						},
-					],
-					kind: 'declaration',
-					outputPath: 'owned.generated.d.ts',
-				})
-				typegenOutputs?.emit({
-					contributionId: 'metadata',
-					kind: 'metadata',
-					metadata: { enabled: true },
-					outputPath: 'owned.generated.json',
-				})
-			},
-		})
-		const application = new FrameworkApplication({
-			plugins: [
-				contributor,
-				typegenPlugin({ applicationId: 'fixture.outputs', outputPath }),
-			],
-			schemas: [],
-		})
-
-		await application.start()
-
-		expect(
-			await readFile(path.join(directory, 'owned.generated.d.ts'), 'utf8'),
-		).toContain('export type OwnedFixtureDeclaration = "fixture"')
-		expect(
-			await readFile(path.join(directory, 'owned.generated.json'), 'utf8'),
-		).toContain('"enabled": true')
 
 		await application.dispose()
 	})

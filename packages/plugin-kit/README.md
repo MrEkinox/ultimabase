@@ -218,7 +218,7 @@ declare: ({ schemas }) => {
 
 The builder covers additive fields, indexes, constraints, and
 plugin-owned schema or field option values. These operations require the same
-`schema:declare` or `schema:transform` privileges that Core would require
+`schema:declare` privilege that Core would require
 without the helper. Replacement, rename, removal, and exact cross-owner targets
 stay in Core's explicit factories because their provenance checks should remain
 visible at the call site. `mutationInput: 'forbidden'` reserves an added stored
@@ -384,8 +384,8 @@ export const publishResultType = workflowTypes.reference('PublishResult')
 ```
 
 Every reference still crosses Core's nominal `defineTypegenReference(...)`
-boundary. Registering or contributing it requires the corresponding
-`typegen:reference` or `typegen:contribute` privilege. Typegen produces inert
+boundary. Registering it requires `typegen:reference`; generated contracts come
+from the compiled graph. Typegen produces inert
 declarations only; this helper cannot emit JavaScript or create a Runtime client.
 
 ## Static and Runtime boundaries
@@ -403,7 +403,6 @@ declarations only; this helper cannot emit JavaScript or create a Runtime client
 Use `@ultimabase/core` directly for:
 
 - capability definitions, providers, and requirements;
-- destructive or cross-owner schema transformations;
 - Runtime middleware, protected constraints, and persistence rewrites;
 - raw adapter leases, transport bindings, migration intent, and lifecycle;
 - every privilege, owner, registry, Master, or security decision.

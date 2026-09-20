@@ -50,6 +50,16 @@ it('keeps retired kernel and measurement APIs out of published JavaScript', asyn
 		'schemaCompilerCapability',
 		'provideRuntimeObserver',
 		'postCommitEvent',
+		'defineQueryExtension',
+		'replaceSchemaConstraint',
+		'replaceSchemaField',
+		'replaceSchemaIndex',
+		'removeSchemaConstraint',
+		'removeSchemaField',
+		'removeSchemaIndex',
+		'renameSchemaField',
+		'removeSchemaOption',
+		'removeSchemaFieldOption',
 	])
 		expect(core).not.toHaveProperty(name)
 	for (const name of [

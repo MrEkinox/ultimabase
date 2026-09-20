@@ -18,31 +18,20 @@ import {
 	type RestRouteFragmentValue,
 } from './routes.js'
 
-const isApplicationOperation = (
-	operation: PluginOperationDefinition,
-): operation is PluginOperationDefinition<string, string, 'application'> =>
-	operation.target === 'application'
-
 /** @internal Validates the exact operation tokens exposed by one REST instance. */
 export const normalizeRestOperations = (
 	value: unknown,
-): readonly PluginOperationDefinition<string, string, 'application'>[] => {
+): readonly PluginOperationDefinition[] => {
 	if (value === undefined) return immutableArray([])
 	if (!isUnknownArray(value)) {
 		throw new TypeError('REST plugin operations must be an array')
 	}
 	const names = new Set<string>()
-	const operations: PluginOperationDefinition<string, string, 'application'>[] =
-		[]
+	const operations: PluginOperationDefinition[] = []
 	for (const [index, operation] of value.entries()) {
 		if (!isPluginOperationDefinition(operation)) {
 			throw new TypeError(
 				`REST plugin operations[${String(index)}] must be an operation token`,
-			)
-		}
-		if (!isApplicationOperation(operation)) {
-			throw new TypeError(
-				`REST plugin operation ${operation.name} must target the application`,
 			)
 		}
 		if (names.has(operation.name)) {

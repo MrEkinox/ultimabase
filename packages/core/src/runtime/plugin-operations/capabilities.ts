@@ -182,11 +182,6 @@ export const operationTransportBinding = <
 			'operation transport binding codec targets another operation',
 		)
 	}
-	if (options.operation.target !== 'application') {
-		throw new TypeError(
-			'operation transport protocol version 1 supports application operations only',
-		)
-	}
 	const binding = immutableRecord({
 		codec: options.codec,
 		kind: 'operation-transport-binding' as const,

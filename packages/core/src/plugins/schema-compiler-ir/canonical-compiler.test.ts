@@ -19,6 +19,7 @@ import {
 import { compileCanonicalSchemaCompilerIr } from './canonical-compiler.js'
 import { decodeSchemaCompilerOutput } from './decoder.js'
 import { encodeSchemaCompilerInput } from './input-encoder.js'
+import { assertSchemaCompilerPatchOperation } from './operation-validation.js'
 import { assertSchemaCompilerOutput } from './validation.js'
 
 const owner = immutableRecord({
@@ -28,6 +29,18 @@ const owner = immutableRecord({
 })
 
 describe('canonical schema compiler IR', () => {
+	it('rejects malformed additive indexes before compilation', () => {
+		const encoded = encodeSchemaCompilerInput([], [])
+		// Removing destructive patches must preserve the additive input boundary.
+		expect(() => {
+			assertSchemaCompilerPatchOperation(
+				{ contributionId: 'invalid-index', kind: 'index:add', index: null },
+				encoded.session,
+				'patch',
+			)
+		}).toThrow('patch.index must be a portable index')
+	})
+
 	it('normalizes declarations once, freezes selectors, and compiles deterministically', () => {
 		let normalizations = 0
 		const portableOption = defineSchemaOption({
@@ -69,7 +82,6 @@ describe('canonical schema compiler IR', () => {
 				}),
 			]),
 			canDeclare: true,
-			canTransform: false,
 			options: immutableArray([
 				immutableRecord({
 					contributionId: 'portable-option:field:portable',
@@ -114,11 +126,8 @@ describe('canonical schema compiler IR', () => {
 			surfaces: immutableRecord({
 				modelSurfaces: immutableArray([]),
 				operations: immutableArray([]),
-				querySurfaces: immutableArray([]),
 			}),
 			typegen: immutableRecord({
-				contributions: immutableArray([]),
-				outputs: immutableArray([]),
 				references: immutableArray([]),
 			}),
 		})

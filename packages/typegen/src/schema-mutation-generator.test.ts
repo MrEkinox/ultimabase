@@ -72,7 +72,7 @@ describe('schema mutation Typegen', () => {
 		})
 
 		expect(second).toStrictEqual(first)
-		expect(first.snapshot.version).toBe(10)
+		expect(first.snapshot.version).toBe(11)
 		expect(first.snapshot.surfaces[0]?.schemaMutations[0]).toMatchObject({
 			authority: 'request',
 			effect: 'update',

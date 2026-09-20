@@ -1,16 +1,16 @@
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 import {
-	isTypegenReference,
-	type TypegenReference,
-} from './typegen-contracts.js'
-import {
 	assertOperationIdentity,
 	assertOperationValueContract,
 	snapshotOperationErrors,
 } from './operation-contract-validation.js'
+import {
+	isTypegenReference,
+	type TypegenReference,
+} from './typegen-contracts.js'
 
 /** Names the application identity carried by one custom operation declaration. */
-export type PluginOperationTarget = 'application' | 'model' | 'schema'
+export type PluginOperationTarget = 'application'
 
 /** Declares how Runtime must place one custom operation in a transaction. */
 export type PluginOperationTransaction = 'forbidden' | 'optional' | 'required'
@@ -36,7 +36,7 @@ export interface DefinePluginOperationOptions<
 	readonly name: TName
 	/** Exact semantic protocol version. @example `"1.0.0"` */
 	readonly version: TVersion
-	/** Selects application, schema, or immutable model binding. */
+	/** Identifies an application operation; schema-bound work uses schema mutations. */
 	readonly target: TTarget
 	/** Validates and snapshots caller input before Runtime receives it. */
 	readonly input: PluginOperationValueContract<TInput>
@@ -180,14 +180,8 @@ export const defineOperation = <
 	}
 
 	assertOperationIdentity(options.name, options.version, 'operation')
-	if (
-		options.target !== 'application' &&
-		options.target !== 'model' &&
-		options.target !== 'schema'
-	) {
-		throw new TypeError(
-			'operation target must be application, schema, or model',
-		)
+	if (untrustedOptions.target !== 'application') {
+		throw new TypeError('operation target must be application')
 	}
 	const transactions: ReadonlySet<unknown> = new Set([
 		'forbidden',

@@ -9,8 +9,8 @@ import { GraphQLObjectType, GraphQLSchema, GraphQLString } from 'graphql'
 import { expectTypeOf, test } from 'vitest'
 
 import {
-	graphqlPlugin,
 	graphqlOperationProtocol,
+	graphqlPlugin,
 	graphqlProtocol,
 	graphqlSchemaContributionsCapability,
 	provideGraphqlSchemas,
@@ -29,14 +29,6 @@ const applicationOperation = defineOperation({
 	name: 'fixture.graphql.typed-operation',
 	result: operationValue,
 	target: 'application',
-	transaction: 'forbidden',
-	version: '1.0.0',
-})
-const schemaOperation = defineOperation({
-	input: operationValue,
-	name: 'fixture.graphql.typed-schema-operation',
-	result: operationValue,
-	target: 'schema',
 	transaction: 'forbidden',
 	version: '1.0.0',
 })
@@ -124,6 +116,6 @@ test('rejects invalid connection limit types', () => {
 	})
 	graphqlPlugin({
 		// @ts-expect-error GraphQL custom roots accept application operations only
-		operations: [schemaOperation],
+		operations: [{ ...applicationOperation, target: 'schema' }],
 	})
 })

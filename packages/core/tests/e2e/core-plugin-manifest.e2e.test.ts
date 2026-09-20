@@ -27,16 +27,12 @@ describe('packed @ultimabase/core plugin manifests', () => {
 			'model:extend',
 			'operation:declare',
 			'persistence:rewrite',
-			'query:extend',
 			'runtime:constrain',
 			'runtime:intercept',
 			'runtime:observe',
 			'schema:declare',
-			'schema:transform',
 			'storage:private',
 			'transport:expose',
-			'typegen:contribute',
-			'typegen:emit',
 			'typegen:reference',
 		])
 		expect(languageFixture.readStringCompletions('environment')).toStrictEqual([

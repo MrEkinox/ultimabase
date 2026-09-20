@@ -1,16 +1,14 @@
 import { immutableRecord } from '@ultimabase/shared'
 import { expectTypeOf, test } from 'vitest'
 
-import { UltimaBase } from '../runtime/application/ultima-base.js'
 import type {
 	ApplicationOperationHandle,
 	ApplicationSchemaHandle,
 	PluginOperationEnvelope,
 } from '../application/application-handles.js'
-import { QueryBuilder } from '../query/query/query.js'
+import { UltimaBase } from '../runtime/application/ultima-base.js'
 import { Schema } from '../schema/schema/definition.js'
 import { definePlugin } from './definition.js'
-import { defineQueryExtension } from './application-surface-declarations.js'
 import {
 	defineOperation,
 	defineOperationValue,
@@ -36,29 +34,6 @@ const inspect = defineOperation({
 	transaction: 'optional',
 	version: '1.2.3',
 })
-const schemaCommand = defineOperation({
-	input,
-	name: 'fixture.types.schema-command',
-	result,
-	target: 'schema',
-	transaction: 'required',
-	version: '2.0.0',
-})
-const modelCommand = defineOperation({
-	input,
-	name: 'fixture.types.model-command',
-	result,
-	target: 'model',
-	transaction: 'required',
-	version: '2.0.0',
-})
-const query = defineQueryExtension({
-	apply: (schema, value) =>
-		new QueryBuilder(schema).where({ title: { eq: value } }),
-	input,
-	name: 'fixture.types.by-title',
-	version: '1.0.0',
-})
 const Post = Schema.define({
 	className: 'ApplicationSurfaceTypePost',
 	fields: (field) => ({ title: field.string() }),
@@ -67,27 +42,11 @@ const plugin = definePlugin({
 	core: '^0.0.0',
 	pluginId: 'fixture.application-surface-types',
 	privileges: [
-		{ name: 'model:extend', reason: 'Adds typed model commands.' },
 		{ name: 'operation:declare', reason: 'Declares typed operations.' },
-		{ name: 'query:extend', reason: 'Adds typed query extensions.' },
 	] as const,
 	version: '1.0.0',
-	declare: ({ models, operations, queries }) => {
+	declare: ({ operations }) => {
 		operations.declare(inspect)
-		operations.declare(schemaCommand)
-		operations.declare(modelCommand)
-		models.extend(
-			{ className: Post.className },
-			{
-				contributionId: 'commands',
-				modelCommands: { publish: modelCommand },
-				schemaCommands: { publish: schemaCommand },
-			},
-		)
-		queries.extend(
-			{ className: Post.className },
-			{ contributionId: 'queries', extensions: { byTitle: query } },
-		)
 	},
 })
 
@@ -149,4 +108,15 @@ test('exposes declaration facades only for their exact privileges', () => {
 	expectTypeOf(detached.snapshot('value', 'input')).toEqualTypeOf<
 		Readonly<{ readonly value: unknown }>
 	>()
+})
+
+// Retired operation targets cannot reappear through generic inference.
+defineOperation({
+	input,
+	name: 'fixture.types.retired-schema-command',
+	result,
+	// @ts-expect-error -- Generic operations now target the application only.
+	target: 'schema',
+	transaction: 'required',
+	version: '1.0.0',
 })

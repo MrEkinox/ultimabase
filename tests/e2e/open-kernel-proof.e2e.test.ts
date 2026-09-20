@@ -13,9 +13,9 @@ import {
 	getPluginFieldStorageCodec,
 	provideAdapterCapability,
 	provideCapability,
+	typegenEmitterCapability,
 	type PluginPrivilege,
 	type SchemaOptions,
-	typegenEmitterCapability,
 } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
@@ -107,7 +107,7 @@ const createWorkflowFixture = () => {
 }
 
 describe('open-kernel workflow proof', () => {
-	it('passes the public conformance harness and executes every handle boundary', async () => {
+	it('passes the public conformance harness and executes application and transport boundaries', async () => {
 		const suite = definePluginConformanceSuite({
 			createFixture: () => {
 				const { Stable, workflow } = createWorkflowFixture()
@@ -122,13 +122,11 @@ describe('open-kernel workflow proof', () => {
 				pluginId: 'fixture.open-kernel-workflow',
 				privileges: [
 					'schema:declare',
-					'model:extend',
 					'operation:declare',
 					'transport:expose',
 					'runtime:intercept',
 					'runtime:observe',
 					'typegen:reference',
-					'typegen:contribute',
 				],
 				version: '1.0.0',
 			},
@@ -136,8 +134,6 @@ describe('open-kernel workflow proof', () => {
 			.check('operation', async ({ createUltimaBase }) => {
 				const fixture = createUltimaBase()
 				await fixture.ultimabase.start()
-				const stable = fixture.ultimabase.schema(fixture.schemas[0])
-				const dynamic = fixture.ultimabase.schema('WorkflowAuditeditorial')
 				await expect(
 					fixture.ultimabase
 						.operation(inspectWorkflow)
@@ -145,27 +141,6 @@ describe('open-kernel workflow proof', () => {
 				).resolves.toStrictEqual({
 					schema: 'application',
 					state: 'application',
-				})
-				await expect(
-					stable.command('publish').execute({ reason: 'stable' }),
-				).resolves.toStrictEqual({
-					schema: 'OpenKernelWorkflowPost',
-					state: 'schema',
-				})
-				await expect(
-					dynamic.command('publish').execute({ reason: 'dynamic' }),
-				).resolves.toStrictEqual({
-					schema: 'WorkflowAuditeditorial',
-					state: 'schema',
-				})
-				await expect(
-					stable
-						.for(new fixture.schemas[0]({ title: 'Draft' }))
-						.command('publish')
-						.execute({ reason: 'model' }),
-				).resolves.toStrictEqual({
-					schema: 'OpenKernelWorkflowPost',
-					state: 'draft',
 				})
 			})
 			.check('schema-surface', ({ createApplication }) => {
@@ -210,7 +185,7 @@ describe('open-kernel workflow proof', () => {
 			withPluginTypegenConformance(suite, {
 				applicationId: 'open-kernel-workflow',
 				verify: ({ contents }) => {
-					expect(contents).toContain('WorkflowHistoryEntry')
+					expect(contents).toContain('WorkflowTransitionInput')
 					expect(contents).toContain('WorkflowAuditeditorial')
 				},
 			}),
@@ -228,13 +203,11 @@ describe('open-kernel workflow proof', () => {
 	it('denies every active power before it can bind the reusable schema', () => {
 		const privileges: readonly PluginPrivilege[] = [
 			'schema:declare',
-			'model:extend',
 			'operation:declare',
 			'transport:expose',
 			'runtime:intercept',
 			'runtime:observe',
 			'typegen:reference',
-			'typegen:contribute',
 		]
 		for (const privilege of privileges) {
 			const { Stable, workflow } = createWorkflowFixture()
@@ -458,7 +431,7 @@ describe('open-kernel Typegen and migration proof', () => {
 			import.meta.dirname,
 			'open-kernel-language-service.fixture.ts',
 		)
-		const source = `${generated}\nconst app = undefined as unknown as Core.UltimaBase<readonly [], readonly []>\nconst audit = app.schema('WorkflowAuditeditorial')\naudit.publish.prepare({ reason: 'typed' })\nconst result: Promise<Plugin0_WorkflowTransitionResult> = audit.publish.execute({ reason: 'typed' })\nconst validWhere: OpenKernelLanguageServiceLedgerWhereInput = { amount: { eq: { scale: 2, units: '100' }, notIn: [{ scale: 0, units: '0' }] } }\n// @ts-expect-error -- Portable equality retains the plugin's exact logical value.\nconst invalidWhere: OpenKernelLanguageServiceLedgerWhereInput = { amount: { eq: { scale: '2', units: '100' } } }\nvoid result\nvoid validWhere\nvoid invalidWhere\n`
+		const source = `${generated}\nconst app = undefined as unknown as Core.UltimaBase<readonly [], readonly []>\nconst operation = app.operation('fixture.workflow.inspect')\noperation.prepare({ reason: 'typed' })\nconst result: Promise<Plugin0_WorkflowTransitionResult> = operation.execute({ reason: 'typed' })\nconst validWhere: OpenKernelLanguageServiceLedgerWhereInput = { amount: { eq: { scale: 2, units: '100' }, notIn: [{ scale: 0, units: '0' }] } }\n// @ts-expect-error -- Portable equality retains the plugin's exact logical value.\nconst invalidWhere: OpenKernelLanguageServiceLedgerWhereInput = { amount: { eq: { scale: '2', units: '100' } } }\nvoid result\nvoid validWhere\nvoid invalidWhere\n`
 		const host: ts.LanguageServiceHost = {
 			fileExists: (requested) => ts.sys.fileExists(requested),
 			getCompilationSettings: () => ({

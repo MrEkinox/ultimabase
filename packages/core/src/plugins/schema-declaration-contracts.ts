@@ -25,12 +25,12 @@ import {
 	type SchemaOptionRuntimeCompiler,
 } from './schema-option-definitions.js'
 
+import type { ApplicationSurfaceDeclarations } from './application-surface-declarations.js'
 import {
 	type SchemaPatchOperation,
 	type SchemaSelection,
 	type SchemaSelectorOptions,
 } from './schema-patch-contracts.js'
-import type { ApplicationSurfaceDeclarations } from './application-surface-declarations.js'
 import type {
 	MutableTypegenDeclarations,
 	TypegenDeclarations,
@@ -188,7 +188,6 @@ export interface OwnedSchemaPatch {
 export interface SchemaDeclarationBatch {
 	readonly additions: readonly OwnedSchemaAddition[]
 	readonly canDeclare: boolean
-	readonly canTransform: boolean
 	readonly options: readonly OwnedOptionDefinition[]
 	readonly owner: PluginSchemaContributionOwner
 	readonly patches: readonly OwnedSchemaPatch[]
@@ -199,14 +198,12 @@ export interface SchemaDeclarationBatch {
 export interface MutableSchemaDeclarationBatch {
 	readonly additions: OwnedSchemaAddition[]
 	readonly canDeclare: boolean
-	readonly canTransform: boolean
 	readonly options: OwnedOptionDefinition[]
 	readonly owner: PluginSchemaContributionOwner
 	readonly patches: OwnedSchemaPatch[]
 	readonly surfaces: {
 		readonly modelSurfaces: ApplicationSurfaceDeclarations['modelSurfaces'][number][]
 		readonly operations: ApplicationSurfaceDeclarations['operations'][number][]
-		readonly querySurfaces: ApplicationSurfaceDeclarations['querySurfaces'][number][]
 	}
 	readonly typegen: MutableTypegenDeclarations
 }

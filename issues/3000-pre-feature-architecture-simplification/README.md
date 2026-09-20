@@ -30,7 +30,7 @@ this milestone.
 2. [x] [3002 — Decide the single-active-application contract](3002-single-active-application-decision.md)
 3. [x] [3003 — Decide the smaller plugin kernel and canonical graph](3003-smaller-plugin-kernel-decision.md)
 4. [x] [3004 — Remove unused replacement and observer powers](3004-remove-unused-capability-replacement.md)
-5. [ ] [3005 — Remove unused declaration and Typegen powers](3005-remove-unused-declaration-typegen-powers.md)
+5. [x] [3005 — Remove unused declaration and Typegen powers](3005-remove-unused-declaration-typegen-powers.md)
 6. [ ] [3006 — Enforce one active UltimaBase runtime per process](3006-single-active-ultimabase-runtime.md)
 7. [ ] [3007 — Simplify HTTP and server application ownership](3007-simplify-http-application-ownership.md)
 8. [ ] [3008 — Compile one canonical command graph](3008-canonical-command-graph.md)

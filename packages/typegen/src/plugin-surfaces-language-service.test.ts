@@ -2,12 +2,10 @@ import path from 'node:path'
 
 import {
 	FrameworkApplication,
-	QueryBuilder,
 	Schema,
 	defineOperation,
 	defineOperationValue,
 	definePlugin,
-	defineQueryExtension,
 	defineSchemaMutation,
 	defineTypegenReference,
 } from '@ultimabase/core'
@@ -44,22 +42,7 @@ const createGeneratedRegistry = (): string => {
 			(value) => value as Readonly<Record<string, unknown>>,
 			resultReference,
 		),
-		target: 'schema',
-		transaction: 'required',
-		version: '1.0.0',
-	})
-	const publishModel = defineOperation({
-		errors: ['fixture.semantic.rejected'] as const,
-		input: defineOperationValue(
-			(value) => value as { readonly id: string },
-			inputReference,
-		),
-		name: 'fixture.semantic.publish-model',
-		result: defineOperationValue(
-			(value) => value as Readonly<Record<string, unknown>>,
-			resultReference,
-		),
-		target: 'model',
+		target: 'application',
 		transaction: 'required',
 		version: '1.0.0',
 	})
@@ -87,16 +70,6 @@ const createGeneratedRegistry = (): string => {
 		returning: 'after',
 		version: '1.0.0',
 	})
-	const byId = defineQueryExtension({
-		apply: (schema, input: { readonly id: string }) =>
-			new QueryBuilder(schema).where({ id: { eq: input.id } }),
-		input: defineOperationValue(
-			(value) => value as { readonly id: string },
-			inputReference,
-		),
-		name: 'fixture.semantic.by-id',
-		version: '1.0.0',
-	})
 	const plugin = definePlugin({
 		core: '^0.0.0',
 		pluginId: 'fixture.semantic-surfaces',
@@ -105,21 +78,18 @@ const createGeneratedRegistry = (): string => {
 			{ name: 'schema:declare', reason: 'Declares the dynamic schema.' },
 			{ name: 'operation:declare', reason: 'Declares publish.' },
 			{ name: 'model:extend', reason: 'Adds publish.' },
-			{ name: 'query:extend', reason: 'Adds byId.' },
 			{ name: 'typegen:reference', reason: 'References public Core types.' },
 		],
-		declare: ({ models, operations, queries, schemas, typegenReferences }) => {
+		declare: ({ models, operations, schemas, typegenReferences }) => {
 			typegenReferences.register(inputReference)
 			typegenReferences.register(resultReference)
 			typegenReferences.register(noInputReference)
 			schemas.add({ contributionId: 'dynamic', schema: Dynamic })
 			operations.declare(publish)
-			operations.declare(publishModel)
 			operations.declare(archive)
 			operations.declare(softDelete)
 			models.extend(Dynamic, {
 				contributionId: 'publish',
-				modelCommands: { publish: publishModel },
 				schemaMutations: {
 					archive: { mutation: archive, surfaces: ['schema', 'model'] },
 					softDelete: {
@@ -127,11 +97,6 @@ const createGeneratedRegistry = (): string => {
 						surfaces: ['schema', 'model'],
 					},
 				},
-				schemaCommands: { publish },
-			})
-			queries.extend(Dynamic, {
-				contributionId: 'by-id',
-				extensions: { byId },
 			})
 		},
 	})
@@ -199,12 +164,11 @@ const StaticPost = Schema.define({
 const staticMutation = StaticPost.softDelete({ id: 'post-1' }, { ultimabase })
 const staticArchive = StaticPost.archive({ id: 'post-1', input: { id: 'reason-1' }, select: { title: true } }, { ultimabase })
 const schema = ultimabase.schema('SemanticDynamicPost')
-const envelope = schema.publish.prepare({ id: 'post-1' })
-const schemaExecution: Promise<Core.BaseItem> = schema.publish.execute({ id: 'post-1' })
+const envelope = ultimabase.operation('fixture.semantic.publish').prepare({ id: 'post-1' })
 const archiveExecution = schema.archive({ id: 'post-1', input: { id: 'reason-1' }, select: { title: true } })
 const softDeleteExecution = schema.softDelete({ id: 'post-1' })
 const exactId: string = envelope.payload.id
-const query = schema.byId({ id: 'post-1' })
+const query = schema.findMany({ where: { id: { eq: "post-1" } } })
 const operation = ultimabase.operation('fixture.semantic.publish')
 operation.prepare({ id: 'post-2' })
 const operationExecution: Promise<Core.BaseItem> = operation.execute({ id: 'post-2' })
@@ -220,21 +184,19 @@ const useModelCommands = async () => {
 	const fromHandle = await schema.findOne()
 	const fromSchema = await directSchema.findOne(undefined, { ultimabase })
 	if (fromHandle !== null) {
-		const handleResult: Promise<Core.BaseItem> = fromHandle.publish({ id: 'post-3' })
 		const archiveResult = fromHandle.archive({ input: { id: 'reason-2' }, select: { title: true } })
 		const softDeleteResult = fromHandle.softDelete()
-		// @ts-expect-error -- Generated model commands retain their exact input.
+		// @ts-expect-error -- Arbitrary operation commands are no longer generated.
 		fromHandle.publish({ missing: true })
 		// @ts-expect-error -- Payload-bearing mutations require their input property.
 		fromHandle.archive({ select: { title: true } })
 		// @ts-expect-error -- Payload-free model mutations omit the input property.
 		fromHandle.softDelete({ input: undefined })
-	void handleResult
 		void archiveResult
 		void softDeleteResult
 	}
 	if (fromSchema !== null) {
-		const schemaResult: Promise<Core.BaseItem> = fromSchema.publish({ id: 'post-4' })
+		const schemaResult = fromSchema.softDelete()
 		void schemaResult
 	}
 	void archivedTitle
@@ -266,7 +228,6 @@ void exactId
 void query
 void operationError
 void operationExecution
-void schemaExecution
 void archiveExecution
 void softDeleteExecution
 void staticMutation

@@ -5,8 +5,6 @@ import {
 	createApplication,
 	definePlugin,
 	defineSchemaConstraint,
-	removeSchemaConstraint,
-	replaceSchemaConstraint,
 } from '../index.js'
 
 describe('plugin schema artifact transformations', () => {
@@ -48,16 +46,11 @@ describe('plugin schema artifact transformations', () => {
 		expect(application.schemaTargets.get(Right, ['left'])).toBe(Left)
 	})
 
-	it('adds, replaces, and removes exact portable schema constraints', async () => {
+	it('adds portable schema constraints with owner provenance', async () => {
 		const originalConstraint = defineSchemaConstraint({
 			kind: 'fixture.search-index',
 			value: { fields: ['title'] },
 			version: 1,
-		})
-		const replacementConstraint = defineSchemaConstraint({
-			kind: 'fixture.search-index',
-			value: { fields: ['title', 'summary'] },
-			version: 2,
 		})
 		const Post = Schema.define({
 			className: 'ConstraintTransformPost',
@@ -89,99 +82,18 @@ describe('plugin schema artifact transformations', () => {
 					})
 				},
 			})
-		const transformer = definePlugin({
-			core: '^0.0.0',
-			pluginId: 'fixture.constraint-transformer',
-			privileges: [
-				{
-					name: 'schema:transform',
-					reason: 'Replaces one exact portable logical constraint.',
-				},
-			] as const,
-			version: '2.0.0',
-			declare: ({ schemas }) => {
-				schemas.patch({
-					operations: [
-						replaceSchemaConstraint({
-							constraint: replacementConstraint,
-							contributionId: 'replace-search-index',
-							target: {
-								contributionId: 'search-index',
-								expected: originalConstraint,
-								owner: {
-									kind: 'plugin',
-									pluginId: 'fixture.constraint-contributor',
-								},
-							},
-						}),
-					],
-					targets: schemas.select({ className: 'ConstraintTransformPost' }),
-				})
-			},
-		})
-
 		await createApplication({
-			plugins: [contributor('ConstraintTransformPost'), transformer],
+			plugins: [contributor(Post.className)],
 			schemas: [Post],
 		})
-
-		expect(Post.constraints).toEqual([replacementConstraint])
+		expect(Post.constraints).toEqual([originalConstraint])
 		expect(Post.provenance.constraints).toMatchObject([
 			{
-				definition: replacementConstraint,
 				provenance: {
-					contributionId: 'replace-search-index',
-					owner: { pluginId: 'fixture.constraint-transformer' },
+					contributionId: 'search-index',
+					owner: { kind: 'plugin', pluginId: 'fixture.constraint-contributor' },
 				},
 			},
 		])
-
-		const Removable = Schema.define({
-			className: 'ConstraintRemovalPost',
-			fields: (field) => ({ title: field.string() }),
-		})
-		const remover = definePlugin({
-			core: '^0.0.0',
-			pluginId: 'fixture.constraint-remover',
-			privileges: [
-				{
-					name: 'schema:transform',
-					reason: 'Removes one exact portable logical constraint.',
-				},
-			] as const,
-			version: '1.0.0',
-			dependencies: [
-				{
-					pluginId: 'fixture.constraint-contributor',
-					version: '^1.0.0',
-				},
-			],
-			declare: ({ schemas }) => {
-				schemas.patch({
-					operations: [
-						removeSchemaConstraint({
-							contributionId: 'remove-search-index',
-							target: {
-								contributionId: 'search-index',
-								expected: originalConstraint,
-								owner: {
-									kind: 'plugin',
-									pluginId: 'fixture.constraint-contributor',
-								},
-							},
-						}),
-					],
-					targets: schemas.select({ className: 'ConstraintRemovalPost' }),
-				})
-			},
-		})
-
-		await createApplication({
-			plugins: [contributor('ConstraintRemovalPost'), remover],
-			schemas: [Removable],
-		})
-
-		expect(Removable.constraints).toEqual([])
-		expect(Removable.provenance.patches.at(-1)?.kind).toBe('constraint:remove')
 	})
 })

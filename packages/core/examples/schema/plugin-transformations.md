@@ -1,4 +1,4 @@
-# Plugin schema transformations
+# Additive plugin schema contributions
 
 Plugins extend the logical application graph during the pure synchronous
 `declare` phase. They receive no adapter, request, clock, service, or setup
@@ -11,7 +11,6 @@ import {
 	addSchemaIndex,
 	definePlugin,
 	defineSchemaOption,
-	replaceSchemaField,
 	stringField,
 } from '@ultimabase/core'
 
@@ -89,46 +88,6 @@ export const workflowPlugin = definePlugin({
 filters, snapshots, and migration intent while removing it from every caller
 mutation input. Only a provenance-checked plugin-owned effect may change it.
 
-An ordinary cross-owner replacement additionally names the exact prior owner,
-stable contribution identity, and expected immutable shape:
-
-```ts
-const Article = Schema.define({
-	className: 'Article',
-	fields: (field) => ({ title: field.string() }),
-})
-const originalTitle = Article.fields.title
-
-const requiredTitlePlugin = definePlugin({
-	pluginId: '@example/required-title-plugin',
-	version: '1.0.0',
-	core: '^0.0.0',
-	privileges: [
-		{
-			name: 'schema:transform',
-			reason: 'Requires the exact application-owned Article title.',
-		},
-	],
-	declare({ schemas }) {
-		schemas.patch({
-			targets: schemas.select({ className: 'Article' }),
-			operations: [
-				replaceSchemaField({
-					contributionId: 'required-title',
-					name: 'title',
-					field: stringField({ required: true }),
-					target: {
-						owner: { kind: 'application' },
-						contributionId: 'field:Article.title',
-						expected: originalTitle,
-					},
-				}),
-			],
-		})
-	},
-})
-```
-
 Selectors observe only the graph completed by earlier plugins. All their targets
 freeze before the current plugin applies its first patch, so an addition cannot
 self-expand a later selection from the same callback.
@@ -138,11 +97,10 @@ self-expand a later selection from the same callback.
 `false` remains a present value. The absence form is deliberately not a general
 negation language and cannot be combined with `equals` or `path`.
 
-An addition needs `schema:declare`. Changing or removing an existing contribution
-needs `schema:transform` and an exact target containing the prior owner, stable
-contribution ID, and expected immutable shape. A stale target fails instead of
-retargeting a similarly named field. Schema class names and Core-owned `id`,
-`createdAt`, and `updatedAt` fields are protected from ordinary transforms.
+Additions require `schema:declare` and keep their owner and contribution ID.
+Existing fields, indexes, constraints, and option values cannot be replaced,
+renamed, or removed by a plugin patch. Duplicate additions fail. Core system
+fields remain protected.
 
 If no installed descriptor owns a used direct option, compilation fails. If two
 plugins claim the same option name, compilation also fails rather than selecting
@@ -175,86 +133,28 @@ the identical runtime validation without generated artifacts.
 
 ## Dynamic schemas and application handles
 
-A plugin may attach surfaces directly to a schema class it declares in the same
-static callback. Existing schemas instead use frozen selectors. Both resolve
-through one application-owned handle and neither path changes an exported class
-or prototype:
+Plugin-owned schemas remain accessible through application-owned handles:
 
 ```ts
-const WorkflowAuditEntry = Schema.define({
-	className: 'WorkflowAuditEntry',
-	fields: (field) => ({ message: field.string() }),
-})
-
-declare({ models, operations, schemas }) {
-	schemas.add({
-		contributionId: 'workflow-audit-entry',
-		schema: WorkflowAuditEntry,
-	})
-	operations.declare(publishWorkflowEntry)
-	models.extend(WorkflowAuditEntry, {
-		contributionId: 'workflow-audit-commands',
-		modelCommands: { publish: publishWorkflowEntry },
-	})
-}
-
-const AuditEntry = ultimabase.schema('WorkflowAuditEntry')
+const AuditEntry = ultimabase.schema('WorkflowAuditLog')
 const entry = await AuditEntry.findOne({ where: { id: entryId } })
-const published = await entry.publish(input)
-
-// Dynamic tooling can still inspect or execute an operation handle by name.
-const envelope = AuditEntry.for(entry).command(commandName).prepare(input)
 ```
 
-`prepare()` only validates the immutable logical envelope. Direct model methods
-execute through the same operation contract and active `RequestEngine`; neither
-path mutates the dynamic schema class or its prototype.
+To add an item-oriented command, declare a `defineSchemaMutation` token and
+attach it through `models.extend(target, { contributionId, schemaMutations })`.
+For example, `schemaMutations: { archive: { mutation: archiveMutation,
+surfaces: ['schema', 'model'] } }` exposes the declared mutation on the schema
+handle and persisted model. The handler separately supplies its owner-only
+effect. Core retains policy checks, locked targets, and automatic transactions.
 
-## Complete compiler protocol
+Application operations remain available through
+`ultimabase.operation(token).execute(input)`. There is no arbitrary operation
+command map on schema/model handles.
 
-Complete compiler implementations use the separately versioned callback-free IR
-rather than receiving `Schema` classes, field callbacks, or Core registries:
+## Canonical compilation
 
-```ts
-import {
-	schemaCompilerProtocolVersion,
-	type SchemaCompilerInput,
-	type SchemaCompilerOutput,
-} from '@ultimabase/core'
-
-const preserveDeclaredGraph = (
-	input: SchemaCompilerInput,
-): SchemaCompilerOutput =>
-	Object.freeze({
-		protocolVersion: schemaCompilerProtocolVersion,
-		selections: Object.freeze(
-			input.declarations.flatMap(({ selections }) =>
-				selections.map(({ selectionId }) =>
-					Object.freeze({ classNames: Object.freeze([]), selectionId }),
-				),
-			),
-		),
-		schemas: Object.freeze([
-			...input.schemas,
-			...input.declarations.flatMap(({ additions }) =>
-				additions.map(({ schema }) => schema),
-			),
-		]),
-	})
-```
-
-The real compiler must also include plugin-added schemas from the ordered
-declaration batches and apply their selectors and patches. Runtime-bearing
-fields, option definitions, default factories, plugin-owned
-behaviors and policies, and schema classes appear only as nominal artifact
-references. A compiler may
-preserve and arrange those declared references but cannot resolve them or invent
-another application's artifacts. Core owns decoding and final invariant
-validation. Installing a replacement compiler remains owned by issue 1418; the
-IR contract alone adds no post-compilation transform or replacement path.
-
-Each addition retains its contribution ID and normalized static options.
-Extension nodes expose their logical field nodes beside the opaque extension
-identity, so a compiler can apply their complete declared effect without a
-resolver. Every option independently attributes its defining contract and its
-current value contributor.
+Core owns the canonical compiler. It applies ordered declarations, frozen
+selectors, and additive patches, then validates the complete graph before
+publication. Plugins cannot replace the compiler. Opaque artifacts retain exact
+identity and ownership; Typegen reads the resulting inert facts without running
+application callbacks.

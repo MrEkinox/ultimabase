@@ -5,10 +5,14 @@ import {
 	type SchemaOptions,
 } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
-import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import type { PostgresPluginExports } from '@ultimabase/postgres-plugin'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
+import {
+	createPostgresWorkerFixture,
+	type PostgresWorkerFixture,
+} from '../fixtures/postgres-worker-fixture.js'
 import {
 	createSoftDeletePostgresPlugin,
 	createValuePostgresPlugin,
@@ -22,10 +26,6 @@ import {
 	createWorkflowPlugin,
 	type WorkflowCommittedPayload,
 } from './fixtures/open-kernel-workflow.js'
-import {
-	createPostgresWorkerFixture,
-	type PostgresWorkerFixture,
-} from '../fixtures/postgres-worker-fixture.js'
 
 let fixture: PostgresWorkerFixture | undefined
 
@@ -200,42 +200,30 @@ describe('open-kernel PostgreSQL proof', { concurrent: false }, () => {
 				),
 			).toBeNull()
 			expect(deleteTrace).toStrictEqual([`delete:${created.id}`])
-			const restored = await ultimabase
-				.schema(SoftPost)
-				.for(created)
-				.command('restore')
-				.execute({})
-			expect(restored).toStrictEqual({ changed: true })
-			expect(
-				await SoftPost.findOne(
-					{ where: { id: { eq: created.id } } },
-					{ ultimabase },
-				),
-			).not.toBeNull()
 			expect(deleteTrace).not.toContain('update')
+			const retained = await SoftPost.createOne(
+				{ data: { title: 'Keep on rollback' } },
+				{ ultimabase },
+			)
 
 			rejectDelete = true
 			await expect(
-				SoftPost.deleteOne({ id: created.id }, { ultimabase }),
+				SoftPost.deleteOne({ id: retained.id }, { ultimabase }),
 			).rejects.toThrow('reject tombstone')
 			rejectDelete = false
 			expect(
 				await SoftPost.findOne(
-					{ where: { id: { eq: created.id } } },
+					{ where: { id: { eq: retained.id } } },
 					{ ultimabase },
 				),
 			).not.toBeNull()
-			await SoftPost.deleteOne({ id: created.id }, { ultimabase })
-			await expect(
-				ultimabase.schema(SoftPost).for(created).command('purge').execute({}),
-			).resolves.toStrictEqual({ changed: true })
 			const remaining = await getFixture().pool.query<{
 				readonly count: string
 			}>(
 				'SELECT count(*)::text AS count FROM open_kernel_soft_posts WHERE id = $1',
 				[created.id],
 			)
-			expect(remaining.rows).toStrictEqual([{ count: '0' }])
+			expect(remaining.rows).toStrictEqual([{ count: '1' }])
 		} finally {
 			await ultimabase.dispose()
 		}

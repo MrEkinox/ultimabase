@@ -5,7 +5,8 @@
 - Detailed plan: [docs/plans/2026-09-20-pre-feature-architecture-simplification.md](docs/plans/2026-09-20-pre-feature-architecture-simplification.md)
 - Baseline: [docs/plans/2026-09-20-architecture-simplification-baseline.md](docs/plans/2026-09-20-architecture-simplification-baseline.md)
 - Contract matrix: [docs/plans/2026-09-20-architecture-contract-matrix.md](docs/plans/2026-09-20-architecture-contract-matrix.md)
-- Resume point: issue 3005
+- Removal history: [HISTORIQUE_SUPPRESSIONS.md](HISTORIQUE_SUPPRESSIONS.md)
+- Resume point: issue 3006
 
 ## Objective
 
@@ -45,7 +46,9 @@ the complete issue diff for behavior parity, security, plugin ownership,
 obsolete paths, tests, documentation, and scope. Any finding keeps the issue in
 progress: fix it, rerun the affected validation, and repeat the complete audit.
 The next issue may begin only after an audit reports no unresolved finding and
-the issue has its dedicated local commit.
+the issue has its dedicated local commit. Update `HISTORIQUE_SUPPRESSIONS.md` in
+that commit with exact removals, preserved behavior, and the delivered issue;
+planned or in-progress work must never be presented as completed.
 
 No push is authorized by this plan.
 
@@ -91,10 +94,15 @@ Issue 3003 is audited and committed as `f7e9596b`. Issue 3004 is complete with
 a green removal and behavior audit: the approved replacement/observer machinery
 is removed, equivalent Runtime measurements stay internal, and source, packed,
 PostgreSQL, website, build, typecheck, lint, and constraint checks pass.
-Continue with issue 3005 after the dedicated 3004 commit.
+Issue 3004 is committed as `5adb09b3`. Issue 3005 is complete with a green
+removal and retained-behavior audit: R-005–R-008/R-010 are removed, real schema
+mutations and consumed type references remain, and source, packed, PostgreSQL,
+website, build, typecheck, lint, and constraint checks pass. Its dedicated local
+commit delivers the root removal history requested by the user.
 Issue 3004 removes R-001–R-004/R-009; issue 3005 removes R-005–R-008/R-010.
-The Runtime now uses direct Core assembly. The goal remains issues 3001 through
-3014, with the existing hard stop after 3014.
+The Runtime uses direct Core assembly. The next issue is 3006, subject to its
+accepted lifecycle contract and the existing stop gate for any new public API.
+The goal remains issues 3001 through 3014, with the hard stop after 3014.
 
 The user additionally requested simple runner-independent test lifecycle
 utilities. The proposed callback helper belongs to `@ultimabase/testing` and

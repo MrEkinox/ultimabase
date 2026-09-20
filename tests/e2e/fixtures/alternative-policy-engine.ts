@@ -4,13 +4,11 @@ import {
 	definePlugin,
 	defineSchemaOption,
 	getOperationSchema,
-	optionalCapability,
 	protectedPolicy,
 	provideCapability,
 	provideRuntimeConstraint,
 	requireCapability,
 	resolveWhereInput,
-	typegenEmitterCapability,
 	type CompiledSchemaRegistry,
 	type OperationKind,
 } from '@ultimabase/core'
@@ -64,7 +62,6 @@ const alternativePolicyEngine = requireCapability(
 	alternativePolicyEngineCapability,
 	'^1.0.0',
 )
-const optionalTypegen = optionalCapability(typegenEmitterCapability, '^1.0.0')
 
 const isNonEmptyString = (value: unknown): value is string =>
 	typeof value === 'string' && value.length > 0
@@ -217,42 +214,14 @@ export const createAlternativePolicyEngine = (
 			? {}
 			: { instanceId: options.instanceId }),
 		capabilities: {
-			optional: [optionalTypegen],
 			provides: [stateProvider, policyProvider],
 			requires: [alternativePolicyEngine],
 		},
 		core: '^0.0.0',
-		declare: ({ schemas, typegenContributions }) => {
+		declare: ({ schemas }) => {
 			schemas.defineOptions({
 				contributionId: 'alternative-policy-option',
 				schema: { alternativePolicy: alternativePolicySchemaOption },
-			})
-			typegenContributions?.add({
-				contributionId: 'diagnostic-contract',
-				declarations: [
-					{
-						kind: 'type',
-						name: 'AlternativeTenantPolicyDiagnostic',
-						type: {
-							kind: 'object',
-							properties: [
-								{
-									name: 'tenant',
-									readonly: true,
-									type: { kind: 'string' },
-								},
-								{
-									name: 'schema',
-									readonly: true,
-									type: { kind: 'string' },
-								},
-							],
-						},
-					},
-				],
-				staticOptions: {
-					instanceId: options.instanceId ?? 'default',
-				},
 			})
 		},
 		pluginId: alternativePolicyPluginId,
@@ -264,11 +233,6 @@ export const createAlternativePolicyEngine = (
 			{
 				name: 'runtime:constrain',
 				reason: 'Contributes independent tenant and field restrictions.',
-			},
-			{
-				name: 'typegen:contribute',
-				reason: 'Contributes the alternative policy diagnostic contract.',
-				when: optionalTypegen,
 			},
 		],
 		setup: ({ capabilities }) => {

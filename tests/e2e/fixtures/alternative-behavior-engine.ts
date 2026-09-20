@@ -3,11 +3,9 @@ import {
 	defineCapability,
 	defineSchemaOption,
 	getOperationSchema,
-	optionalCapability,
 	provideCapability,
 	provideRuntimeBehavior,
 	requireCapability,
-	typegenEmitterCapability,
 	type CompiledSchemaRegistry,
 	type JsonObject,
 	type OperationKind,
@@ -73,7 +71,6 @@ const optionalDiagnostics = optionalPluginEvents(
 	alternativeBehaviorDiagnosticCapability,
 	'^1.0.0',
 )
-const optionalTypegen = optionalCapability(typegenEmitterCapability, '^1.0.0')
 
 interface AlternativeBehaviorRuntimeState {
 	record(trace: AlternativeBehaviorTrace): void
@@ -263,11 +260,11 @@ export const createAlternativeBehaviorEngine = (
 			? {}
 			: { instanceId: options.instanceId }),
 		capabilities: {
-			optional: [optionalDiagnostics, optionalTypegen],
+			optional: [optionalDiagnostics],
 			provides: [stateProvider, behaviorProvider],
 			requires: [runtimeState],
 		},
-		declare: ({ schemas, typegenContributions }) => {
+		declare: ({ schemas }) => {
 			schemas.defineOptions({
 				contributionId: 'alternative-behavior-option',
 				schema: { alternativeBehavior: alternativeBehaviorSchemaOption },
@@ -275,31 +272,6 @@ export const createAlternativeBehaviorEngine = (
 			schemas.add({
 				contributionId: 'audit-schema',
 				schema: Audit,
-				staticOptions: { instanceId: options.instanceId ?? 'default' },
-			})
-			typegenContributions?.add({
-				contributionId: 'diagnostic-contract',
-				declarations: [
-					{
-						kind: 'type',
-						name: 'AlternativeBehaviorDiagnostic',
-						type: {
-							kind: 'object',
-							properties: [
-								{
-									name: 'label',
-									readonly: true,
-									type: { kind: 'string' },
-								},
-								{
-									name: 'operation',
-									readonly: true,
-									type: { kind: 'string' },
-								},
-							],
-						},
-					},
-				],
 				staticOptions: { instanceId: options.instanceId ?? 'default' },
 			})
 		},
@@ -316,11 +288,6 @@ export const createAlternativeBehaviorEngine = (
 			{
 				name: 'event:publish',
 				reason: 'Publishes committed alternative behavior diagnostics.',
-			},
-			{
-				name: 'typegen:contribute',
-				reason: 'Contributes the alternative diagnostic contract.',
-				when: optionalTypegen,
 			},
 		],
 		setup: ({ capabilities }) => {

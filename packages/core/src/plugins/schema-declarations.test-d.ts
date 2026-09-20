@@ -7,9 +7,6 @@ import {
 	defineCapability,
 	definePlugin,
 	defineSchemaOption,
-	removeSchemaField,
-	renameSchemaField,
-	replaceSchemaField,
 	requireCapability,
 	stringField,
 	type PluginSchemaDeclarationRegistrar,
@@ -111,10 +108,6 @@ test('types schema declarations from exact active privileges', () => {
 				name: 'schema:declare',
 				reason: 'Exercises typed additions.',
 			},
-			{
-				name: 'schema:transform',
-				reason: 'Exercises typed transforms.',
-			},
 		] as const,
 		version: '1.0.0',
 		declare: ({ schemas }) => {
@@ -199,38 +192,7 @@ test('types schema declarations from exact active privileges', () => {
 	})
 })
 
-test('requires exact transform targets and nominal patch operations', () => {
-	const field = stringField()
-	const target = {
-		contributionId: 'field:Post.title',
-		expected: field,
-		owner: { kind: 'application' as const },
-	}
-
-	expectTypeOf(
-		replaceSchemaField({
-			contributionId: 'replace-title',
-			field: stringField({ required: true }),
-			name: 'title',
-			target,
-		}),
-	).toHaveProperty('kind')
-	expectTypeOf(
-		renameSchemaField({
-			contributionId: 'rename-title',
-			from: 'title',
-			target,
-			to: 'headline',
-		}),
-	).toHaveProperty('kind')
-	expectTypeOf(
-		removeSchemaField({
-			contributionId: 'remove-title',
-			name: 'title',
-			target,
-		}),
-	).toHaveProperty('kind')
-
+test('requires nominal additive patch operations', () => {
 	const Post = Schema.define({
 		className: 'TypedSchemaAddition',
 		fields: (fieldBuilder) => ({ title: fieldBuilder.string() }),

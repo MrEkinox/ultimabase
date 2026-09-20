@@ -358,6 +358,5 @@ export const rejectPasswordSession = (): never => {
 /** Retains the operation union without widening handler declarations. */
 export type PasswordAuthOperationDefinition = PluginOperationDefinition<
 	PasswordAuthOperation['name'],
-	'1.0.0',
-	'application'
+	'1.0.0'
 >

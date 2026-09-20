@@ -15,7 +15,7 @@ describe('plugin operation declarations', () => {
 			input: passthrough,
 			name: 'community.workflow.publish',
 			result: passthrough,
-			target: 'schema',
+			target: 'application',
 			transaction: 'required',
 			version: '1.2.3',
 		})
@@ -26,7 +26,7 @@ describe('plugin operation declarations', () => {
 			kind: 'plugin-operation',
 			name: 'community.workflow.publish',
 			result: passthrough,
-			target: 'schema',
+			target: 'application',
 			transaction: 'required',
 			version: '1.2.3',
 		})
@@ -44,7 +44,7 @@ describe('plugin operation declarations', () => {
 			input: passthrough,
 			name: 'community.workflow.publish',
 			result: passthrough,
-			target: 'schema' as const,
+			target: 'application' as const,
 			transaction: 'required' as const,
 			version: '1.0.0',
 		}
@@ -58,9 +58,12 @@ describe('plugin operation declarations', () => {
 		expect(() =>
 			defineOperation({ ...base, transaction: 'sometimes' as never }),
 		).toThrow('operation transaction must be forbidden, optional, or required')
-		expect(() =>
-			defineOperation({ ...base, target: 'database' as never }),
-		).toThrow('operation target must be application, schema, or model')
+		for (const target of ['database', 'schema', 'model']) {
+			expect(() =>
+				defineOperation({ ...base, target: target as never }),
+			).toThrow('operation target must be application')
+		}
+
 		expect(() =>
 			defineOperation({ ...base, errors: ['not-namespaced'] }),
 		).toThrow(

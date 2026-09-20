@@ -29,7 +29,7 @@ a database problem.
 | Diagnostic                                                  | Likely boundary                                     |
 | ----------------------------------------------------------- | --------------------------------------------------- |
 | `PLUGIN_DEPENDENCY_MISSING` or `PLUGIN_DEPENDENCY_CYCLE`    | The plugin dependency graph cannot be ordered.      |
-| `PLUGIN_DUPLICATE` or `PLUGIN_CONFLICT`                     | Identity or replacement is ambiguous.               |
+| `PLUGIN_DUPLICATE` or `PLUGIN_CONFLICT`                     | Plugin identity or provider composition conflicts.  |
 | `PLUGIN_CAPABILITY_MISSING` or `PLUGIN_CAPABILITY_CONFLICT` | A capability has no valid provider or composition.  |
 | `PLUGIN_PROTOCOL_INCOMPATIBLE`                              | Two versioned contracts cannot communicate.         |
 | `PLUGIN_PRIVILEGE_DENIED`                                   | Policy denied a privilege or environmental claim.   |

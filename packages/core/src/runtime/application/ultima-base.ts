@@ -1,48 +1,47 @@
 import { randomUUID } from 'node:crypto'
 
-import {
-	FrameworkApplication,
-	type FrameworkApplicationOptions,
-	type PluginDefinition,
-} from '../../foundation.js'
-import {
-	executeStaticSchemaMutation,
-	registerQueryExecutionOwner,
-} from '../../query/operations/execution.js'
-import { normalizeOperationOptions } from '../../query/operations/execution.js'
-import type { OperationOptions } from '../../query/operations/options.js'
-import type { SchemaDefinition } from '../../schema/index.js'
-import { Schema } from '../../schema/index.js'
-import { registerStaticSchemaMutation } from '../../schema/schema/model-static-mutations.js'
 import { immutableArray, isPlainRecord } from '@ultimabase/shared'
-import { findSchemaModelRecord } from '../../schema/schema/model-state.js'
-import type { PluginOperationDefinition } from '../../plugins/plugin-operations.js'
-import type { CompiledPluginOperation } from '../../plugins/application-surface-registry.js'
 import {
 	ApplicationOperationHandle,
 	ApplicationSchemaHandleBase,
 	registerApplicationOperationExecutor,
-	type ApplicationOperationBinding,
 	type ApplicationOperationHandleForName,
 	type ApplicationSchemaHandle,
 	type ApplicationSchemaHandleForName,
 	type PluginOperationEnvelope,
 } from '../../application/application-handles.js'
 import { bindApplicationSchemaModel } from '../../application/application-model-views.js'
+import {
+	FrameworkApplication,
+	type FrameworkApplicationOptions,
+	type PluginDefinition,
+} from '../../foundation.js'
+import type { CompiledPluginOperation } from '../../plugins/application-surface-registry.js'
+import type { PluginOperationDefinition } from '../../plugins/plugin-operations.js'
+import {
+	executeStaticSchemaMutation,
+	normalizeOperationOptions,
+	registerQueryExecutionOwner,
+} from '../../query/operations/execution.js'
+import type { OperationOptions } from '../../query/operations/options.js'
+import type { SchemaDefinition } from '../../schema/index.js'
+import { Schema } from '../../schema/index.js'
+import { findSchemaModelRecord } from '../../schema/schema/model-state.js'
+import { registerStaticSchemaMutation } from '../../schema/schema/model-static-mutations.js'
 
-import { requestSources } from '../context/request-context.js'
+import type { PluginSchemaMutationEnvelope } from '../../application/application-schema-mutations.js'
+import type { CompiledSchemaMutationCommand } from '../../plugins/application-surface-registry.js'
 import { getActiveFrameworkContext } from '../context/active-framework-storage.js'
 import { registerApplicationFacade } from '../context/current-ultima-base.js'
+import { requestSources } from '../context/request-context.js'
 import type { FrameworkEngine } from '../engine/framework-engine.js'
 import type { OperationTransportProtocol } from '../plugin-operations/contracts.js'
+import { executeRequestPluginOperation } from '../plugin-operations/request-execution.js'
 import type {
 	ApplicationOperationTransport,
 	OperationTransportExposureOptions,
 } from '../plugin-operations/transport.js'
-import { executeRequestPluginOperation } from '../plugin-operations/request-execution.js'
 import { executeRequestSchemaMutation } from '../schema-mutations/request-execution.js'
-import type { PluginSchemaMutationEnvelope } from '../../application/application-schema-mutations.js'
-import type { CompiledSchemaMutationCommand } from '../../plugins/application-surface-registry.js'
 import {
 	createFrameworkEngine,
 	normalizeCreateFrameworkEngineOptions,
@@ -257,8 +256,8 @@ export class UltimaBase<
 			handle = new ApplicationOperationHandle(this, compiled)
 			registerApplicationOperationExecutor(
 				handle,
-				(compiledOperation, binding, envelope) =>
-					this.#executePluginOperation(compiledOperation, binding, envelope),
+				(compiledOperation, envelope) =>
+					this.#executePluginOperation(compiledOperation, envelope),
 			)
 			this.#operationHandles.set(name, handle)
 		}
@@ -309,29 +308,6 @@ export class UltimaBase<
 				this,
 				this,
 				surface,
-				(operation, binding) => {
-					const compiled = this.application.getOperation(operation.name)
-					if (compiled?.operation !== operation) {
-						throw new TypeError(
-							`Operation token is not installed in this application: ${operation.name}`,
-						)
-					}
-					const operationHandle = new ApplicationOperationHandle(
-						this,
-						compiled,
-						binding,
-					)
-					registerApplicationOperationExecutor(
-						operationHandle,
-						(compiledOperation, operationBinding, envelope) =>
-							this.#executePluginOperation(
-								compiledOperation,
-								operationBinding,
-								envelope,
-							),
-					)
-					return operationHandle
-				},
 				(command, schema, envelope, options) =>
 					this.#executeSchemaMutation(command, schema, envelope, options),
 			)
@@ -416,7 +392,6 @@ export class UltimaBase<
 
 	async #executePluginOperation(
 		compiled: CompiledPluginOperation,
-		binding: ApplicationOperationBinding,
 		envelope: PluginOperationEnvelope,
 	): Promise<unknown> {
 		const active = getActiveFrameworkContext()
@@ -427,12 +402,7 @@ export class UltimaBase<
 						requestId: randomUUID(),
 						source: requestSources.internal,
 					})
-		return executeRequestPluginOperation(
-			requestEngine,
-			compiled,
-			binding,
-			envelope,
-		)
+		return executeRequestPluginOperation(requestEngine, compiled, envelope)
 	}
 
 	async #executeSchemaMutation(

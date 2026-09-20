@@ -7,7 +7,7 @@ contentType: guide
 outcome: Choose a schema contribution and publish its correct application-specific TypeScript types.
 owner: '2810'
 releaseStatus: pre-release
-reviewedAt: 2026-09-17
+reviewedAt: 2026-09-20
 sources:
   - packages/core/README.md
   - packages/plugin-kit/README.md
@@ -20,8 +20,8 @@ sources:
 ## Outcome
 
 Extend a schema without changing Core or patching an exported schema class.
-Then decide whether generic Typegen already derives the correct types or your
-plugin must contribute an additional public declaration. Typegen describes the
+Typegen derives application-specific types from the final graph and references
+public types exported by your plugin package. Typegen describes the
 compiled application; generated files never install Runtime behavior.
 
 ## Prerequisites
@@ -35,16 +35,15 @@ compiled application; generated files never install Runtime behavior.
 
 ## Choose the schema contribution
 
-| Requirement                                       | Public declaration boundary                                                    | Privilege          |
-| ------------------------------------------------- | ------------------------------------------------------------------------------ | ------------------ |
-| Add an application-local schema                   | `schemas.add()`                                                                | `schema:declare`   |
-| Add a direct schema or field option               | `schemas.defineOptions()` with `defineSchemaOption()` or `defineFieldOption()` | `schema:declare`   |
-| Add a field, index, constraint, or option value   | `schemas.select()` and `schemas.patch()`                                       | `schema:declare`   |
-| Add a field kind or contextual builder method     | `definePluginField()`, `definePluginFieldBuilderMethod()`                      | `schema:declare`   |
-| Rename, remove, or replace an existing definition | Exact provenance-checked schema transformation                                 | `schema:transform` |
+| Requirement                                     | Public declaration boundary                                                    | Privilege        |
+| ----------------------------------------------- | ------------------------------------------------------------------------------ | ---------------- |
+| Add an application-local schema                 | `schemas.add()`                                                                | `schema:declare` |
+| Add a direct schema or field option             | `schemas.defineOptions()` with `defineSchemaOption()` or `defineFieldOption()` | `schema:declare` |
+| Add a field, index, constraint, or option value | `schemas.select()` and `schemas.patch()`                                       | `schema:declare` |
+| Add a field kind or contextual builder method   | `definePluginField()`, `definePluginFieldBuilderMethod()`                      | `schema:declare` |
 
-The last row is specialized and sensitive. Do not request it to perform
-an additive patch. Every contribution needs a stable owner-local
+Patches are additive: they cannot replace, rename, or remove existing facts.
+Option setters reject an already present value. Every contribution needs a stable owner-local
 `contributionId`; Core checks collisions and records provenance in the final
 graph. Plugin-owned schemas are not automatically public REST or GraphQL
 schemas.
@@ -158,97 +157,44 @@ for the full field and codec contracts.
 
 ## Contribute to Typegen
 
-First ask whether the compiled graph already gives Typegen what it needs.
 Generic generation includes plugin-added schemas and fields, used direct
-options, query inputs, operations, and schema/model surfaces. Add a custom
-contribution only for a public type that cannot be derived from those facts.
+options, query inputs, application operations, and schema-mutation methods.
+Plugins do not add arbitrary declarations or extra output files. Export reusable
+public types from your package root; Typegen can import them when the compiled
+graph needs them.
 
-This example references a type exported from the plugin package and adds an
-inert alias to the main generated declaration:
+For an operation value, attach a nominal reference to its snapshot contract:
 
-```ts title="src/typegen.ts"
-import { definePlugin, defineTypegenReference } from '@ultimabase/core'
+```ts title="src/operation-values.ts"
+import { defineOperationValue, defineTypegenReference } from '@ultimabase/core'
 
 export type WorkflowState = 'draft' | 'published'
 
-const state = defineTypegenReference({
+export const stateReference = defineTypegenReference({
 	exportName: 'WorkflowState',
 	module: '@your-scope/workflow-plugin',
 })
 
-export const workflowTypegenPlugin = () =>
-	definePlugin({
-		core: '^1.0.0',
-		pluginId: 'community.workflow-types',
-		version: '1.0.0',
-		privileges: [
-			{
-				name: 'typegen:reference',
-				reason: 'References the public WorkflowState type.',
-			},
-			{
-				name: 'typegen:contribute',
-				reason: 'Adds a configured workflow type alias.',
-			},
-		] as const,
-		declare({ typegenReferences, typegenContributions }) {
-			typegenReferences.register(state)
-			typegenContributions.add({
-				contributionId: 'configured-workflow',
-				declarations: [
-					{
-						kind: 'type',
-						name: 'ConfiguredWorkflowState',
-						type: { kind: 'reference', reference: state },
-					},
-				],
-			})
-		},
-	})
+export const stateValue = defineOperationValue((value, path): WorkflowState => {
+	if (value !== 'draft' && value !== 'published') {
+		throw new TypeError(`${path} must be draft or published`)
+	}
+	return value
+}, stateReference)
 ```
 
-Export `WorkflowState` from the actual package root even if implementation
-files are split. The registrar checks that a referenced type was registered by
-its owner. Type nodes are structured data, not raw TypeScript source. You may
-also use Plugin Kit's `defineTypegenModule()` to group several references to
-the same package without changing the Core boundary.
+Use `stateValue` as the operation's input or result contract. Its declaring
+plugin requests `typegen:reference` and registers that exact reference with
+`typegenReferences.register(stateReference)` during `declare`. Typegen checks
+reference ownership before emitting the import. Registration alone adds no
+standalone alias or Runtime behavior. The input snapshot still runs without
+Typegen, including in JavaScript applications.
 
-`typegen:emit` is different: `typegenOutputs.emit()` writes an additional
-structured `.d.ts` declaration or deterministic `.json` metadata file. Request
-it only when a separate artifact is necessary. It cannot emit JavaScript,
-callbacks, credentials, a Runtime client, or arbitrary source text. There is
-no `typegen:replace` privilege in the current public kernel.
-
-For example, an owner may publish safe, deterministic build metadata:
-
-```ts title="src/typegen-metadata.ts"
-import { definePlugin } from '@ultimabase/core'
-
-export const workflowMetadataPlugin = () =>
-	definePlugin({
-		core: '^1.0.0',
-		pluginId: 'community.workflow-metadata',
-		privileges: [
-			{
-				name: 'typegen:emit',
-				reason: 'Emits a static workflow feature manifest.',
-			},
-		] as const,
-		version: '1.0.0',
-		declare: ({ typegenOutputs }) => {
-			typegenOutputs.emit({
-				contributionId: 'workflow-features',
-				kind: 'metadata',
-				metadata: { states: ['draft', 'published'] },
-				outputPath: 'workflow.generated.json',
-			})
-		},
-	})
-```
-
-This file is an artifact for tooling, not a source of application behavior.
-Keep user input, secrets, callbacks, and connection details out of the static
-metadata and its output path.
+Plugin Kit's `defineTypegenModule()` groups nominal references to the same
+package. Field and option definitions retain their own structured `typegen`
+metadata; they do not need a manual declaration registry. See
+[Operations and GraphQL](/docs/1.0.0/plugins/build-a-plugin/operations-and-graphql)
+for the complete operation and handler setup.
 
 ## Verify
 

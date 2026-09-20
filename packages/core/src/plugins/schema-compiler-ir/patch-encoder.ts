@@ -1,17 +1,17 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
+import type { GenericField } from '../../schema/fields/base/contract.js'
+import { getDeclaredFieldOptionsContract } from '../../schema/fields/base/definition.js'
+import {
+	snapshotJsonValue,
+	type JsonValue,
+} from '../../schema/fields/builtins/json.js'
 import {
 	coreSchemaContributionOwner,
 	createSchemaContributionProvenance,
 	type PluginSchemaContributionOwner,
 	type SchemaOptionProvenance,
 } from '../../schema/schema/provenance.js'
-import {
-	snapshotJsonValue,
-	type JsonValue,
-} from '../../schema/fields/builtins/json.js'
-import type { GenericField } from '../../schema/fields/base/contract.js'
-import { getDeclaredFieldOptionsContract } from '../../schema/fields/base/definition.js'
 import type {
 	OptionDefinitionIndex,
 	ResolvedFieldOptions,
@@ -21,17 +21,8 @@ import {
 	normalizeOwnedOptionValue,
 	resolveFieldOptions,
 } from '../schema-option-resolution.js'
-import type {
-	ExistingSchemaContributionTarget,
-	SchemaPatchOperation,
-} from '../schema-patch-contracts.js'
-import type {
-	SchemaCompilerArtifactKind,
-	SchemaCompilerArtifactReference,
-	SchemaCompilerContributionTarget,
-	SchemaCompilerOptionValue,
-	SchemaCompilerPatchOperation,
-} from './contracts.js'
+import type { SchemaPatchOperation } from '../schema-patch-contracts.js'
+import type { SchemaCompilerPatchOperation } from './contracts.js'
 import type { SchemaCompilerIrEncoder } from './encoder.js'
 
 interface PatchEncodingContext {
@@ -143,48 +134,6 @@ const normalizedOptionValue = (
 	)
 }
 
-const encodeArtifactTarget = <
-	TExpected,
-	const TKind extends SchemaCompilerArtifactKind,
->(
-	target: ExistingSchemaContributionTarget<TExpected>,
-	artifactKind: TKind,
-	context: PatchEncodingContext,
-): SchemaCompilerContributionTarget<SchemaCompilerArtifactReference<TKind>> =>
-	immutableRecord({
-		contributionId: target.contributionId,
-		expected: context.encoder.targetReference(
-			artifactKind,
-			target.contributionId,
-			target.owner,
-			target.expected,
-			`${context.path}.target.expected`,
-		),
-		owner: target.owner,
-	})
-
-const encodeValueTarget = (
-	target: ExistingSchemaContributionTarget<unknown>,
-	context: PatchEncodingContext,
-): SchemaCompilerContributionTarget<SchemaCompilerOptionValue> =>
-	immutableRecord({
-		contributionId: target.contributionId,
-		expected: context.encoder.optionValue(
-			target.expected,
-			`${context.path}.target.expected`,
-		),
-		owner: target.owner,
-	})
-
-const encodePortableTarget = <TExpected>(
-	target: ExistingSchemaContributionTarget<TExpected>,
-): SchemaCompilerContributionTarget<TExpected> =>
-	immutableRecord({
-		contributionId: target.contributionId,
-		expected: target.expected,
-		owner: target.owner,
-	})
-
 const normalizedIndex = (
 	fields: readonly [string, string, ...string[]],
 	unique: boolean | undefined,
@@ -222,64 +171,11 @@ export const encodeSchemaCompilerPatchOperation = (
 				name: operation.name,
 			})
 		}
-		case 'field:replace': {
-			const field = normalizedField(operation.field, `${path}.field`, context)
-			return immutableRecord({
-				contributionId: operation.contributionId,
-				field: context.encoder.fieldNode(
-					field,
-					operation.name,
-					`${path}.field`,
-					provenance,
-					fieldOptionProvenance(field, operation.contributionId, context),
-				),
-				kind: operation.kind,
-				name: operation.name,
-				target: encodeArtifactTarget(operation.target, 'field', {
-					...context,
-					path,
-				}),
-			})
-		}
-		case 'field:rename':
-			return immutableRecord({
-				contributionId: operation.contributionId,
-				from: operation.from,
-				kind: operation.kind,
-				target: encodeArtifactTarget(operation.target, 'field', {
-					...context,
-					path,
-				}),
-				to: operation.to,
-			})
-		case 'field:remove':
-			return immutableRecord({
-				contributionId: operation.contributionId,
-				kind: operation.kind,
-				name: operation.name,
-				target: encodeArtifactTarget(operation.target, 'field', {
-					...context,
-					path,
-				}),
-			})
 		case 'index:add':
 			return immutableRecord({
 				contributionId: operation.contributionId,
 				index: normalizedIndex(operation.index.fields, operation.index.unique),
 				kind: operation.kind,
-			})
-		case 'index:replace':
-			return immutableRecord({
-				contributionId: operation.contributionId,
-				index: normalizedIndex(operation.index.fields, operation.index.unique),
-				kind: operation.kind,
-				target: encodePortableTarget(operation.target),
-			})
-		case 'index:remove':
-			return immutableRecord({
-				contributionId: operation.contributionId,
-				kind: operation.kind,
-				target: encodePortableTarget(operation.target),
 			})
 		case 'constraint:add':
 			return immutableRecord({
@@ -291,42 +187,11 @@ export const encodeSchemaCompilerPatchOperation = (
 				contributionId: operation.contributionId,
 				kind: operation.kind,
 			})
-		case 'constraint:replace':
-			return immutableRecord({
-				constraint: context.encoder.constraintNode(
-					operation.constraint,
-					provenance,
-					`${path}.constraint`,
-				),
-				contributionId: operation.contributionId,
-				kind: operation.kind,
-				target: encodeArtifactTarget(operation.target, 'constraint', {
-					...context,
-					path,
-				}),
-			})
-		case 'constraint:remove':
-			return immutableRecord({
-				contributionId: operation.contributionId,
-				kind: operation.kind,
-				target: encodeArtifactTarget(operation.target, 'constraint', {
-					...context,
-					path,
-				}),
-			})
 		case 'schema-option:set':
 			return immutableRecord({
 				contributionId: operation.contributionId,
 				kind: operation.kind,
 				name: operation.name,
-				...(operation.target === undefined
-					? {}
-					: {
-							target: encodeValueTarget(operation.target, {
-								...context,
-								path,
-							}),
-						}),
 				value: context.encoder.optionValue(
 					normalizedOptionValue(
 						'schema',
@@ -338,27 +203,12 @@ export const encodeSchemaCompilerPatchOperation = (
 					`${path}.value`,
 				),
 			})
-		case 'schema-option:remove':
-			return immutableRecord({
-				contributionId: operation.contributionId,
-				kind: operation.kind,
-				name: operation.name,
-				target: encodeValueTarget(operation.target, { ...context, path }),
-			})
 		case 'field-option:set':
 			return immutableRecord({
 				contributionId: operation.contributionId,
 				field: operation.field,
 				kind: operation.kind,
 				name: operation.name,
-				...(operation.target === undefined
-					? {}
-					: {
-							target: encodeValueTarget(operation.target, {
-								...context,
-								path,
-							}),
-						}),
 				value: context.encoder.optionValue(
 					normalizedOptionValue(
 						'field',
@@ -369,14 +219,6 @@ export const encodeSchemaCompilerPatchOperation = (
 					),
 					`${path}.value`,
 				),
-			})
-		case 'field-option:remove':
-			return immutableRecord({
-				contributionId: operation.contributionId,
-				field: operation.field,
-				kind: operation.kind,
-				name: operation.name,
-				target: encodeValueTarget(operation.target, { ...context, path }),
 			})
 		default:
 			return assertNeverOperation(operation)

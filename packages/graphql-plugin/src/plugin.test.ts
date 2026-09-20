@@ -13,8 +13,8 @@ import {
 	type DatabaseOperationResult,
 	type DatabaseTransactionAdapter,
 } from '@ultimabase/core'
-import { describe, expect, it, vi } from 'vitest'
 import { graphql } from 'graphql'
+import { describe, expect, it, vi } from 'vitest'
 
 import { graphqlPlugin } from './plugin.js'
 
@@ -27,14 +27,6 @@ const optionOperation = defineOperation({
 	name: 'fixture.graphql-option.operation',
 	result: nullValue,
 	target: 'application',
-	transaction: 'forbidden',
-	version: '1.0.0',
-})
-const schemaOptionOperation = defineOperation({
-	input: nullValue,
-	name: 'fixture.graphql-option.schema-operation',
-	result: nullValue,
-	target: 'schema',
 	transaction: 'forbidden',
 	version: '1.0.0',
 })
@@ -96,7 +88,10 @@ describe('graphqlPlugin', () => {
 		[{ operations: null }, 'must be an array'],
 		[{ operations: [{}] }, 'must be an operation token'],
 		[{ operations: [optionOperation, optionOperation] }, 'repeats'],
-		[{ operations: [schemaOptionOperation] }, 'must target the application'],
+		[
+			{ operations: [{ ...optionOperation, target: 'schema' }] },
+			'must be an operation token',
+		],
 		[{ schemas: null }, 'must be an array'],
 		[{ schemas: [{}] }, 'completed GraphQLSchema'],
 		[{ instanceId: 'secondary' }, 'Unknown'],

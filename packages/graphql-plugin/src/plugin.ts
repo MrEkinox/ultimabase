@@ -66,11 +66,7 @@ export interface GraphqlPluginOptions {
 	/** Configures the forward Relay page window. */
 	readonly limits?: GraphqlExecutionLimits
 	/** Explicitly exposes exact application operations through owner bindings. */
-	readonly operations?: readonly PluginOperationDefinition<
-		string,
-		string,
-		'application'
-	>[]
+	readonly operations?: readonly PluginOperationDefinition[]
 	/** Adds completed application-owned schemas after the generated surface. */
 	readonly schemas?: readonly GraphQLSchema[]
 }

@@ -1,10 +1,8 @@
-import { immutableRecord } from '@ultimabase/shared'
-
 import type { JsonValue } from '../schema/fields/builtins/json.js'
 import type { SchemaDefinition } from '../schema/schema/definition.js'
-import { reservedSchemaModelFieldNames } from '../schema/schema/reserved-field-names.js'
 import type { PluginSchemaContributionOwner } from '../schema/schema/provenance.js'
-import type { QueryExtensionDefinition } from './application-surface-declarations.js'
+import { reservedSchemaModelFieldNames } from '../schema/schema/reserved-field-names.js'
+
 import type { PluginOperationDefinition } from './plugin-operations.js'
 import type { CompiledPluginSchemaMutationDefinition } from './plugin-schema-mutations.js'
 
@@ -20,14 +18,6 @@ export interface CompiledPluginSchemaMutation {
 	readonly owner: PluginSchemaContributionOwner
 }
 
-/** Records one command alias on an application-owned schema or model handle. */
-export interface CompiledOperationCommand {
-	readonly contributionId: string
-	readonly operation: PluginOperationDefinition
-	readonly owner: PluginSchemaContributionOwner
-	readonly staticOptions: Readonly<Record<string, JsonValue>>
-}
-
 /** Records one direct schema-mutation command on selected application handles. */
 export interface CompiledSchemaMutationCommand {
 	readonly contributionId: string
@@ -36,21 +26,10 @@ export interface CompiledSchemaMutationCommand {
 	readonly staticOptions: Readonly<Record<string, JsonValue>>
 }
 
-/** Records one query alias on an application-owned schema handle. */
-export interface CompiledQueryExtension {
-	readonly contributionId: string
-	readonly extension: QueryExtensionDefinition
-	readonly owner: PluginSchemaContributionOwner
-	readonly staticOptions: Readonly<Record<string, JsonValue>>
-}
-
 /** Contains every final application-local surface for one schema identity. */
 export interface CompiledApplicationSchemaSurface {
-	readonly modelCommands: ReadonlyMap<string, CompiledOperationCommand>
 	readonly modelMutations: ReadonlyMap<string, CompiledSchemaMutationCommand>
-	readonly queryExtensions: ReadonlyMap<string, CompiledQueryExtension>
 	readonly schema: SchemaDefinition
-	readonly schemaCommands: ReadonlyMap<string, CompiledOperationCommand>
 	readonly schemaMutations: ReadonlyMap<string, CompiledSchemaMutationCommand>
 }
 
@@ -77,11 +56,7 @@ const dangerousObjectNames = ['__proto__', 'constructor', 'prototype', 'then']
 export const reservedSchemaHandleNames: ReadonlySet<string> = new Set([
 	...coreSchemaHandleCommandNames,
 	...dangerousObjectNames,
-	'command',
-	'commands',
 	'for',
-	'query',
-	'queries',
 	'schema',
 ])
 
@@ -89,8 +64,6 @@ export const reservedSchemaHandleNames: ReadonlySet<string> = new Set([
 export const reservedModelHandleNames: ReadonlySet<string> = new Set([
 	...dangerousObjectNames,
 	...reservedSchemaModelFieldNames,
-	'command',
-	'commands',
 	'equals',
 	'exists',
 	'fetch',
@@ -99,20 +72,3 @@ export const reservedModelHandleNames: ReadonlySet<string> = new Set([
 	'state',
 	'toPointer',
 ])
-
-/** @internal Adds one collision-checked arbitrary operation command. */
-export const addOperationCommand = (
-	target: Map<string, CompiledOperationCommand>,
-	name: string,
-	command: CompiledOperationCommand,
-	reserved: ReadonlySet<string>,
-	path: string,
-): void => {
-	if (reserved.has(name)) {
-		throw new TypeError(`${path} uses reserved handle method: ${name}`)
-	}
-	if (target.has(name)) {
-		throw new TypeError(`${path} contains duplicate command: ${name}`)
-	}
-	target.set(name, immutableRecord(command))
-}

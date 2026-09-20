@@ -1,23 +1,31 @@
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 import { describe, expect, it, vi } from 'vitest'
 
-import { materializeSchemaModel } from '../../schema/schema/model-materialization.js'
-import { Schema } from '../../schema/schema/definition.js'
-import { PluginError } from '../../errors/plugin-error.js'
+import { provideTestDatabaseAdapter } from '../../../tests/runtime/fixtures/database-adapter-capability.js'
 import {
-	elevateMasterRequest,
-	MasterAuthority,
-} from '../master/master-authority.js'
-import { definePlugin } from '../../plugins/definition.js'
+	RecordingDatabaseAdapter,
+	type QueuedAdapterResult,
+} from '../../../tests/runtime/fixtures/recording-database-adapter.js'
+import { PluginError } from '../../errors/plugin-error.js'
 import { requireCapability } from '../../plugins/capabilities.js'
+import { definePlugin } from '../../plugins/definition.js'
 import {
 	defineOperation,
 	defineOperationValue,
 } from '../../plugins/plugin-operations.js'
+import { Schema } from '../../schema/schema/definition.js'
+import {
+	defineAdapterRawCapability,
+	provideAdapterRawCapability,
+} from '../adapters/raw-access.js'
 import { UltimaBase } from '../application/ultima-base.js'
-import { RequestContext } from '../context/request-context.js'
 import { runWithRequestEngine } from '../context/active-framework-context.js'
+import { RequestContext } from '../context/request-context.js'
 import type { RequestEngine } from '../engine/framework-engine.js'
+import {
+	elevateMasterRequest,
+	MasterAuthority,
+} from '../master/master-authority.js'
 import {
 	defineOperationTransport,
 	operationHandler,
@@ -26,15 +34,6 @@ import {
 	provideOperationHandler,
 	provideOperationTransportBinding,
 } from './capabilities.js'
-import {
-	RecordingDatabaseAdapter,
-	type QueuedAdapterResult,
-} from '../../../tests/runtime/fixtures/recording-database-adapter.js'
-import { provideTestDatabaseAdapter } from '../../../tests/runtime/fixtures/database-adapter-capability.js'
-import {
-	defineAdapterRawCapability,
-	provideAdapterRawCapability,
-} from '../adapters/raw-access.js'
 
 const messageValue = defineOperationValue((value, path) => {
 	if (!isPlainRecord(value) || typeof value.message !== 'string') {
@@ -64,22 +63,6 @@ const forbiddenOperation = defineOperation({
 	result: acceptedValue,
 	target: 'application',
 	transaction: 'forbidden',
-	version: '1.0.0',
-})
-const schemaOperation = defineOperation({
-	input: messageValue,
-	name: 'fixture.operations.publish-schema',
-	result: acceptedValue,
-	target: 'schema',
-	transaction: 'required',
-	version: '1.0.0',
-})
-const modelOperation = defineOperation({
-	input: messageValue,
-	name: 'fixture.operations.publish-model',
-	result: acceptedValue,
-	target: 'model',
-	transaction: 'required',
 	version: '1.0.0',
 })
 const Post = Schema.define({
@@ -126,27 +109,9 @@ const createFixture = async (options: FixtureOptions = {}) => {
 			}>
 		},
 	})
-	const schemaHandler = operationHandler({
-		operation: schemaOperation,
-		execute: ({ input, target }) => {
-			trace.push(
-				`schema:${target.kind === 'schema' ? target.schema.className : 'wrong'}:${input.message}`,
-			)
-			return immutableRecord({ accepted: true })
-		},
-	})
 	const forbiddenHandler = operationHandler({
 		operation: forbiddenOperation,
 		execute: () => immutableRecord({ accepted: true }),
-	})
-	const modelHandler = operationHandler({
-		operation: modelOperation,
-		execute: ({ input, target }) => {
-			trace.push(
-				`model:${target.kind === 'model' ? target.state : 'wrong'}:${input.message}`,
-			)
-			return immutableRecord({ accepted: true })
-		},
 	})
 	const plugin = definePlugin({
 		capabilities: {
@@ -155,18 +120,12 @@ const createFixture = async (options: FixtureOptions = {}) => {
 					contributionId: 'application-handler',
 					create: () => ({ value: applicationHandler }),
 				}),
-				provideOperationHandler({
-					contributionId: 'schema-handler',
-					create: () => ({ value: schemaHandler }),
-				}),
+
 				provideOperationHandler({
 					contributionId: 'forbidden-handler',
 					create: () => ({ value: forbiddenHandler }),
 				}),
-				provideOperationHandler({
-					contributionId: 'model-handler',
-					create: () => ({ value: modelHandler }),
-				}),
+
 				provideOperationTransportBinding({
 					contributionId: 'fake-binding',
 					create: () => ({ value: fakeBinding }),
@@ -174,20 +133,12 @@ const createFixture = async (options: FixtureOptions = {}) => {
 			],
 		},
 		core: '^0.0.0',
-		declare: ({ models, operations }) => {
+		declare: ({ operations }) => {
 			operations.declare(applicationOperation)
 			operations.declare(forbiddenOperation)
-			operations.declare(schemaOperation)
-			operations.declare(modelOperation)
-			models.extend(Post, {
-				contributionId: 'post-commands',
-				modelCommands: { publish: modelOperation },
-				schemaCommands: { publish: schemaOperation },
-			})
 		},
 		pluginId: 'fixture.plugin-operations',
 		privileges: [
-			{ name: 'model:extend', reason: 'Binds operation test commands.' },
 			{ name: 'operation:declare', reason: 'Declares operation test tokens.' },
 			{ name: 'transport:expose', reason: 'Binds the fake public protocol.' },
 		] as const,
@@ -212,77 +163,6 @@ const createFixture = async (options: FixtureOptions = {}) => {
 }
 
 describe('plugin operation Runtime', () => {
-	it('binds direct and schema-handle query results to callable model commands', async () => {
-		const row = {
-			createdAt: '2026-08-19T00:00:00.000Z',
-			id: '0198c000-0000-7000-8000-000000000010',
-			title: 'Ready',
-			updatedAt: '2026-08-19T00:00:00.000Z',
-		}
-		const fixture = await createFixture({
-			adapterResults: [
-				{ status: 'fulfilled', value: row },
-				{ status: 'fulfilled', value: row },
-			],
-		})
-
-		const direct = await Post.findOne({}, { ultimabase: fixture.ultimabase })
-		expect(direct).toBeInstanceOf(Post)
-		expect(Object.isFrozen(direct)).toBe(true)
-		expect('publish' in (direct as object)).toBe(true)
-		const directPublish = Reflect.get(direct ?? {}, 'publish') as (
-			input: Readonly<{ readonly message: string }>,
-		) => Promise<Readonly<{ readonly accepted: boolean }>>
-		await expect(directPublish({ message: 'direct' })).resolves.toStrictEqual({
-			accepted: true,
-		})
-
-		const PostHandle = fixture.ultimabase.schema(Post)
-		const fromHandle = await PostHandle.findOne()
-		expect(fromHandle).toBeInstanceOf(Post)
-		const handlePublish = Reflect.get(fromHandle ?? {}, 'publish') as (
-			input: Readonly<{ readonly message: string }>,
-		) => Promise<Readonly<{ readonly accepted: boolean }>>
-		await expect(handlePublish({ message: 'handle' })).resolves.toStrictEqual({
-			accepted: true,
-		})
-		expect(PostHandle.for(fromHandle as object).model).toBe(fromHandle)
-		expect(Reflect.has(new Post({ title: 'Unbound' }), 'publish')).toBe(false)
-		expect(fixture.trace).toEqual(
-			expect.arrayContaining([
-				'model:persisted:direct',
-				'model:persisted:handle',
-			]),
-		)
-
-		const isolatedAdapter = new RecordingDatabaseAdapter(
-			[{ status: 'fulfilled', value: row }],
-			[],
-		)
-		const isolatedDatabase = definePlugin({
-			capabilities: {
-				provides: [provideTestDatabaseAdapter(isolatedAdapter)],
-			},
-			core: '^0.0.0',
-			pluginId: 'fixture.plugin-operation-isolated-database',
-			version: '1.0.0',
-		})
-		const isolatedApplication = new UltimaBase({
-			pluginPrivileges: { logger: false },
-			plugins: [isolatedDatabase],
-			schemas: [Post],
-		})
-		await isolatedApplication.start()
-		const isolated = await Post.findOne({}, { ultimabase: isolatedApplication })
-		expect(Reflect.has(isolated ?? {}, 'publish')).toBe(false)
-		await isolatedApplication.dispose()
-
-		await fixture.ultimabase.dispose()
-		await expect(handlePublish({ message: 'disposed' })).rejects.toThrow(
-			'Application handle cannot be used after disposal',
-		)
-	})
-
 	it('opens raw adapter access only inside the active operation transaction', async () => {
 		interface RawFixture {
 			kind(): string
@@ -368,7 +248,7 @@ describe('plugin operation Runtime', () => {
 		await ultimabase.dispose()
 	})
 
-	it('executes application, schema, and immutable model targets through handles', async () => {
+	it('executes application targets through handles', async () => {
 		const fixture = await createFixture()
 		await expect(
 			fixture.ultimabase
@@ -382,33 +262,9 @@ describe('plugin operation Runtime', () => {
 				message: 'inspect',
 			}),
 		).resolves.toStrictEqual({ accepted: true })
-		await expect(
-			fixture.ultimabase
-				.schema(Post)
-				.command('publish')
-				.execute({ message: 'now' }),
-		).resolves.toStrictEqual({ accepted: true })
-		const persisted = materializeSchemaModel(Post, {
-			createdAt: '2026-08-19T00:00:00.000Z',
-			id: '0198c000-0000-7000-8000-000000000001',
-			title: 'Ready',
-			updatedAt: '2026-08-19T00:00:00.000Z',
-		})
-		await fixture.ultimabase
-			.schema(Post)
-			.for(persisted)
-			.command('publish')
-			.execute({ message: 'model' })
-
 		expect(fixture.trace).toStrictEqual([
 			'adapter:begin',
 			expect.stringMatching(/^application:.+:application$/u),
-			'adapter:commit',
-			'adapter:begin',
-			`schema:${Post.className}:now`,
-			'adapter:commit',
-			'adapter:begin',
-			'model:persisted:model',
 			'adapter:commit',
 		])
 		await fixture.ultimabase.dispose()

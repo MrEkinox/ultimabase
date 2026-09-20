@@ -1,54 +1,21 @@
 import { assertNonEmptyString, isPlainRecord } from '@ultimabase/shared'
 
-import type { SchemaCompilerArtifactKind } from './contracts.js'
 import type { SchemaCompilerArtifactSession } from './artifacts.js'
+import type { SchemaCompilerArtifactKind } from './contracts.js'
 import { assertSchemaCompilerFieldNode } from './node-validation.js'
 
 const operationKeys: Readonly<Record<string, ReadonlySet<string>>> = {
 	'constraint:add': new Set(['constraint', 'contributionId', 'kind']),
-	'constraint:remove': new Set(['contributionId', 'kind', 'target']),
-	'constraint:replace': new Set([
-		'constraint',
-		'contributionId',
-		'kind',
-		'target',
-	]),
-	'field-option:remove': new Set([
-		'contributionId',
-		'field',
-		'kind',
-		'name',
-		'target',
-	]),
 	'field-option:set': new Set([
 		'contributionId',
 		'field',
 		'kind',
 		'name',
-		'target',
 		'value',
 	]),
 	'field:add': new Set(['contributionId', 'field', 'kind', 'name']),
-	'field:remove': new Set(['contributionId', 'kind', 'name', 'target']),
-	'field:rename': new Set(['contributionId', 'from', 'kind', 'target', 'to']),
-	'field:replace': new Set([
-		'contributionId',
-		'field',
-		'kind',
-		'name',
-		'target',
-	]),
 	'index:add': new Set(['contributionId', 'index', 'kind']),
-	'index:remove': new Set(['contributionId', 'kind', 'target']),
-	'index:replace': new Set(['contributionId', 'index', 'kind', 'target']),
-	'schema-option:remove': new Set(['contributionId', 'kind', 'name', 'target']),
-	'schema-option:set': new Set([
-		'contributionId',
-		'kind',
-		'name',
-		'target',
-		'value',
-	]),
+	'schema-option:set': new Set(['contributionId', 'kind', 'name', 'value']),
 }
 
 const assertKeys = (
@@ -71,25 +38,6 @@ const assertArtifactNode = (
 ): void => {
 	if (!isPlainRecord(value) || !session.owns(value.artifact, artifactKind)) {
 		throw new TypeError(`${path} must contain a ${artifactKind} artifact`)
-	}
-}
-
-const assertTarget = (
-	value: unknown,
-	artifactKind: SchemaCompilerArtifactKind | undefined,
-	session: SchemaCompilerArtifactSession,
-	path: string,
-): void => {
-	if (!isPlainRecord(value)) throw new TypeError(`${path} must be a target`)
-	assertKeys(value, new Set(['contributionId', 'expected', 'owner']), path)
-	assertNonEmptyString(value.contributionId, `${path}.contributionId`)
-	if (!isPlainRecord(value.owner))
-		throw new TypeError(`${path}.owner must be an owner`)
-	if (
-		artifactKind !== undefined &&
-		!session.owns(value.expected, artifactKind)
-	) {
-		throw new TypeError(`${path}.expected must be a ${artifactKind} artifact`)
 	}
 }
 
@@ -118,31 +66,12 @@ export const assertSchemaCompilerPatchOperation = (
 	}
 	const keys = operationKeys[operation.kind]
 	if (keys === undefined) throw new TypeError(`${path}.kind is unsupported`)
-	const optionalTarget =
-		(operation.kind === 'field-option:set' ||
-			operation.kind === 'schema-option:set') &&
-		operation.target === undefined
-			? new Set([...keys].filter((key) => key !== 'target'))
-			: keys
-	assertKeys(operation, optionalTarget, path)
+	assertKeys(operation, keys, path)
 
 	switch (operation.kind) {
 		case 'field:add':
 			assertNamed(operation, path, 'name')
 			assertSchemaCompilerFieldNode(operation.field, session, `${path}.field`)
-			return
-		case 'field:replace':
-			assertNamed(operation, path, 'name')
-			assertSchemaCompilerFieldNode(operation.field, session, `${path}.field`)
-			assertTarget(operation.target, 'field', session, `${path}.target`)
-			return
-		case 'field:remove':
-			assertNamed(operation, path, 'name')
-			assertTarget(operation.target, 'field', session, `${path}.target`)
-			return
-		case 'field:rename':
-			assertNamed(operation, path, 'from', 'to')
-			assertTarget(operation.target, 'field', session, `${path}.target`)
 			return
 		case 'constraint:add':
 			assertArtifactNode(
@@ -152,48 +81,16 @@ export const assertSchemaCompilerPatchOperation = (
 				`${path}.constraint`,
 			)
 			return
-		case 'constraint:replace':
-			assertArtifactNode(
-				operation.constraint,
-				'constraint',
-				session,
-				`${path}.constraint`,
-			)
-			assertTarget(operation.target, 'constraint', session, `${path}.target`)
-			return
-		case 'constraint:remove':
-			assertTarget(operation.target, 'constraint', session, `${path}.target`)
-			return
 		case 'field-option:set':
 			assertNamed(operation, path, 'field', 'name')
-			if (operation.target !== undefined) {
-				assertTarget(operation.target, undefined, session, `${path}.target`)
-			}
-			return
-		case 'field-option:remove':
-			assertNamed(operation, path, 'field', 'name')
-			assertTarget(operation.target, undefined, session, `${path}.target`)
 			return
 		case 'schema-option:set':
 			assertNamed(operation, path, 'name')
-			if (operation.target !== undefined) {
-				assertTarget(operation.target, undefined, session, `${path}.target`)
-			}
-			return
-		case 'schema-option:remove':
-			assertNamed(operation, path, 'name')
-			assertTarget(operation.target, undefined, session, `${path}.target`)
 			return
 		case 'index:add':
-		case 'index:replace':
 			if (!isPlainRecord(operation.index)) {
 				throw new TypeError(`${path}.index must be a portable index`)
 			}
-			if (operation.kind === 'index:replace') {
-				assertTarget(operation.target, undefined, session, `${path}.target`)
-			}
 			return
-		case 'index:remove':
-			assertTarget(operation.target, undefined, session, `${path}.target`)
 	}
 }

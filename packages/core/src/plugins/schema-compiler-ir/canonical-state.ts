@@ -102,14 +102,6 @@ export const appendCompilerPatchProvenance = (
 	})
 }
 
-export const removeNamedNode = <
-	TNode extends Readonly<{ readonly name: string }>,
->(
-	nodes: readonly TNode[],
-	name: string,
-): readonly TNode[] =>
-	immutableArray(nodes.filter((node) => node.name !== name))
-
 export const replaceNamedNode = <
 	TNode extends Readonly<{ readonly name: string }>,
 >(
@@ -118,13 +110,3 @@ export const replaceNamedNode = <
 	replacement: TNode,
 ): readonly TNode[] =>
 	immutableArray(nodes.map((node) => (node.name === name ? replacement : node)))
-
-export const withoutCompilerRecordKey = <TValue>(
-	record: Readonly<Record<string, TValue>>,
-	removedKey: string,
-): Readonly<Record<string, TValue>> =>
-	immutableRecord(
-		Object.fromEntries(
-			Object.entries(record).filter(([key]) => key !== removedKey),
-		),
-	)

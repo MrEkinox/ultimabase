@@ -64,16 +64,11 @@ export type {
 	PluginOperationTransaction,
 	PluginOperationValueContract,
 } from './plugins/plugin-operations.js'
-export { defineQueryExtension } from './plugins/application-surface-declarations.js'
 export type {
-	DefineQueryExtensionOptions,
 	PluginModelSurfaceRegistrar,
 	PluginOperationDeclarationRegistrar,
-	PluginQuerySurfaceRegistrar,
 	PluginSchemaMutationSurface,
 	PluginSchemaMutationSurfaceBinding,
-	QueryExtensionDefinition,
-	QueryExtensionInput,
 } from './plugins/application-surface-declarations.js'
 export {
 	defineCapability,
@@ -140,26 +135,12 @@ export {
 	defineTypegenReference,
 	isTypegenReference,
 } from './plugins/typegen-contracts.js'
-export type {
-	TypegenNamedDeclaration,
-	TypegenOutputDeclaration,
-	TypegenOutputDeclarationOptions,
-	TypegenOutputMetadata,
-	TypegenPropertyNode,
-	TypegenReference,
-	TypegenSchemaAugmentation,
-	TypegenStructuredContribution,
-	TypegenTypeNode,
-} from './plugins/typegen-contracts.js'
+export type { TypegenReference } from './plugins/typegen-contracts.js'
 export type {
 	CompiledTypegenGraph,
 	CompiledTypegenOption,
-	OwnedTypegenContribution,
-	OwnedTypegenOutput,
 	OwnedTypegenReference,
-	TypegenContributionRegistrar,
 	TypegenDeclarations,
-	TypegenOutputRegistrar,
 	TypegenReferenceRegistrar,
 } from './plugins/typegen-declarations.js'
 export {
@@ -168,15 +149,6 @@ export {
 	addSchemaIndex,
 	defineFieldOption,
 	defineSchemaOption,
-	removeSchemaConstraint,
-	removeSchemaField,
-	removeSchemaFieldOption,
-	removeSchemaIndex,
-	removeSchemaOption,
-	renameSchemaField,
-	replaceSchemaField,
-	replaceSchemaConstraint,
-	replaceSchemaIndex,
 	setSchemaFieldOption,
 	setSchemaOption,
 } from './plugins/schema-declarations.js'
@@ -185,18 +157,8 @@ export type {
 	AddSchemaFieldOperation,
 	AddSchemaFieldOptions,
 	AddSchemaIndexOperation,
-	ExistingSchemaContributionTarget,
 	FieldOptionDefinition,
 	PluginSchemaDeclarationRegistrar,
-	RemoveSchemaConstraintOperation,
-	RemoveSchemaFieldOperation,
-	RemoveSchemaFieldOptionOperation,
-	RemoveSchemaIndexOperation,
-	RemoveSchemaOptionOperation,
-	RenameSchemaFieldOperation,
-	ReplaceSchemaConstraintOperation,
-	ReplaceSchemaFieldOperation,
-	ReplaceSchemaIndexOperation,
 	SetSchemaFieldOptionOperation,
 	SetSchemaOptionOperation,
 	SchemaOptionDefinition,

@@ -10,10 +10,9 @@ import {
 	optionalCapability,
 	provideOperationTransportBinding,
 	stringField,
-	type PluginOperationExecutionTarget,
+	typegenEmitterCapability,
 	type JsonObject,
 	type SchemaDefinition,
-	typegenEmitterCapability,
 } from '@ultimabase/core'
 import {
 	defineEvent,
@@ -41,7 +40,7 @@ export interface WorkflowTransitionInput {
 
 export interface WorkflowTransitionResult {
 	readonly schema: string
-	readonly state: 'application' | 'draft' | 'persisted' | 'schema'
+	readonly state: 'application'
 }
 
 export interface WorkflowCommittedPayload extends JsonObject {
@@ -92,10 +91,7 @@ const transitionResult = defineOperationValue(
 		if (
 			!isPlainRecord(value) ||
 			typeof value.schema !== 'string' ||
-			(value.state !== 'application' &&
-				value.state !== 'draft' &&
-				value.state !== 'persisted' &&
-				value.state !== 'schema')
+			value.state !== 'application'
 		) {
 			throw new TypeError(`${path} must be a workflow transition result`)
 		}
@@ -109,22 +105,6 @@ export const inspectWorkflow = defineOperation({
 	name: 'fixture.workflow.inspect',
 	result: transitionResult,
 	target: 'application',
-	transaction: 'required',
-	version: '1.0.0',
-})
-export const publishWorkflowSchema = defineOperation({
-	input: transitionInput,
-	name: 'fixture.workflow.publish-schema',
-	result: transitionResult,
-	target: 'schema',
-	transaction: 'required',
-	version: '1.0.0',
-})
-export const publishWorkflowModel = defineOperation({
-	input: transitionInput,
-	name: 'fixture.workflow.publish-model',
-	result: transitionResult,
-	target: 'model',
 	transaction: 'required',
 	version: '1.0.0',
 })
@@ -152,21 +132,6 @@ const workflowModule = definePluginModule({
 })
 const emitter = optionalCapability(typegenEmitterCapability, '^1.0.0')
 
-const targetResult = (
-	target: PluginOperationExecutionTarget,
-): WorkflowTransitionResult => {
-	if (target.kind === 'application') {
-		return immutableRecord({ schema: 'application', state: 'application' })
-	}
-	if (target.kind === 'schema') {
-		return immutableRecord({ schema: target.schema.className, state: 'schema' })
-	}
-	return immutableRecord({
-		schema: target.schema.className,
-		state: target.state,
-	})
-}
-
 export interface WorkflowPluginOptions {
 	readonly instanceId: string
 	readonly onCommitted?: (payload: WorkflowCommittedPayload) => void
@@ -182,7 +147,6 @@ export const createWorkflowPlugin = (options: WorkflowPluginOptions) => {
 			action: field.string({ required: true }),
 		}),
 	})
-	const targetSchemas = [options.stableSchema, DynamicAudit] as const
 	const plugin = workflowModule.plugin({
 		peers: [{ pluginId: '@ultimabase/hooks-plugin', version: '^0.0.0' }],
 		capabilities: {
@@ -190,19 +154,14 @@ export const createWorkflowPlugin = (options: WorkflowPluginOptions) => {
 			provides: [
 				providePluginOperation({
 					contributionId: 'inspect-handler',
-					execute: ({ target }) => targetResult(target),
+					execute: () =>
+						immutableRecord({
+							schema: 'application',
+							state: 'application' as const,
+						}),
 					operation: inspectWorkflow,
 				}),
-				providePluginOperation({
-					contributionId: 'schema-handler',
-					execute: ({ target }) => targetResult(target),
-					operation: publishWorkflowSchema,
-				}),
-				providePluginOperation({
-					contributionId: 'model-handler',
-					execute: ({ target }) => targetResult(target),
-					operation: publishWorkflowModel,
-				}),
+
 				provideOperationTransportBinding({
 					contributionId: 'fake-transport',
 					create: () => ({ value: workflowTransportBinding }),
@@ -234,13 +193,7 @@ export const createWorkflowPlugin = (options: WorkflowPluginOptions) => {
 				),
 			],
 		},
-		declare: ({
-			models,
-			operations,
-			schemas,
-			typegenContributions,
-			typegenReferences,
-		}) => {
+		declare: ({ operations, schemas, typegenReferences }) => {
 			schemas.defineOptions({
 				contributionId: 'workflow-options',
 				schema: { workflow: workflowOption },
@@ -274,56 +227,14 @@ export const createWorkflowPlugin = (options: WorkflowPluginOptions) => {
 				}),
 			)
 			operations.declare(inspectWorkflow)
-			operations.declare(publishWorkflowSchema)
-			operations.declare(publishWorkflowModel)
-			for (const target of targetSchemas) {
-				models.extend(target, {
-					contributionId: `workflow-surfaces:${target.className}`,
-					modelCommands: { publish: publishWorkflowModel },
-					schemaCommands: { publish: publishWorkflowSchema },
-				})
-			}
 			if (typegenReferences !== undefined) {
 				typegenReferences.register(transitionInputReference)
 				typegenReferences.register(transitionResultReference)
 			}
-			typegenContributions?.add({
-				contributionId: 'workflow-contracts',
-				declarations: [
-					{
-						description: 'One immutable workflow history entry.',
-						kind: 'type',
-						name: 'WorkflowHistoryEntry',
-						type: {
-							kind: 'object',
-							properties: [
-								{
-									name: 'at',
-									readonly: true,
-									type: { kind: 'string' },
-								},
-								{
-									name: 'state',
-									readonly: true,
-									type: {
-										kind: 'union',
-										values: [
-											{ kind: 'literal', value: 'draft' },
-											{ kind: 'literal', value: 'review' },
-										],
-									},
-								},
-							],
-						},
-					},
-				],
-				staticOptions: { instanceId: options.instanceId },
-			})
 		},
 		instanceId: options.instanceId,
 		privileges: [
 			{ name: 'schema:declare', reason: 'Adds workflow schema declarations.' },
-			{ name: 'model:extend', reason: 'Adds workflow handle commands.' },
 			{ name: 'operation:declare', reason: 'Declares workflow operations.' },
 			{
 				name: 'transport:expose',
@@ -340,11 +251,6 @@ export const createWorkflowPlugin = (options: WorkflowPluginOptions) => {
 			{
 				name: 'typegen:reference',
 				reason: 'References workflow public types.',
-				when: emitter,
-			},
-			{
-				name: 'typegen:contribute',
-				reason: 'Contributes workflow declarations.',
 				when: emitter,
 			},
 		] as const,

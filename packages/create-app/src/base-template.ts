@@ -1,7 +1,5 @@
 import path from 'node:path'
 
-import type { PluginId } from './catalog.js'
-import type { InitializerPlan, PackageManager } from './config.js'
 import {
 	apiApplicationImports,
 	apiDependencies,
@@ -10,6 +8,8 @@ import {
 	apiReadmeNotes,
 	hasHttpListener,
 } from './api-template.js'
+import type { PluginId } from './catalog.js'
+import type { InitializerPlan, PackageManager } from './config.js'
 import {
 	needsMasterKey,
 	securityApplicationImports,
@@ -191,12 +191,6 @@ const application = await loadTypegenApplication({
 const generated = generateApplicationTypes({ application, applicationId })
 await writeGeneratedTypeFiles([
   { applicationId, contents: generated.contents, outputPath },
-  ...generated.outputs.map((output) => ({
-    applicationId: [applicationId, output.owner, output.contributionId].join(':'),
-    contents: output.contents,
-    kind: output.kind,
-    outputPath: path.resolve(path.dirname(outputPath), output.outputPath),
-  })),
 ])
 `
 

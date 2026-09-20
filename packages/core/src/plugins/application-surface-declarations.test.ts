@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest'
 
 import {
 	createApplicationSurfaceRegistrars,
-	defineQueryExtension,
 	type MutableApplicationSurfaceDeclarations,
 } from './application-surface-declarations.js'
 import { defineOperation, defineOperationValue } from './plugin-operations.js'
@@ -27,42 +26,11 @@ const mutation = defineSchemaMutation({
 	version: '1.0.0',
 })
 
-const queryOptions = {
-	apply: () => {
-		throw new TypeError('not reached')
-	},
-	input: value,
-	name: 'fixture.surface.query',
-	version: '1.0.0',
-}
-
 describe('application surface declaration validation', () => {
-	it('rejects malformed query extension descriptors', () => {
-		expect(() => defineQueryExtension(undefined as never)).toThrow(
-			'query extension must be a plain object',
-		)
-		expect(() =>
-			defineQueryExtension({ ...queryOptions, execute: true } as never),
-		).toThrow('query extension contains unknown option: execute')
-		expect(() =>
-			defineQueryExtension({ ...queryOptions, name: 'query' }),
-		).toThrow('query extension name must be namespaced')
-		expect(() =>
-			defineQueryExtension({ ...queryOptions, version: '^1.0.0' }),
-		).toThrow('query extension version must be exact SemVer')
-		expect(() =>
-			defineQueryExtension({ ...queryOptions, input: {} } as never),
-		).toThrow('query extension input must expose a snapshot function')
-		expect(() =>
-			defineQueryExtension({ ...queryOptions, apply: undefined } as never),
-		).toThrow('query extension apply must be a function')
-	})
-
-	it('rejects malformed command and query surface contributions', () => {
+	it('rejects malformed mutation surfaces and retired command maps', () => {
 		const declarations: MutableApplicationSurfaceDeclarations = {
 			modelSurfaces: [],
 			operations: [],
-			querySurfaces: [],
 		}
 		const registrars = createApplicationSurfaceRegistrars(
 			immutableRecord({
@@ -79,18 +47,17 @@ describe('application surface declaration validation', () => {
 		expect(() => {
 			registrars.models.extend({}, undefined as never)
 		}).toThrow('model surface must be a plain object')
-		expect(() => {
-			registrars.models.extend(
-				{},
-				{ contributionId: 'empty', modelCommands: {} },
-			)
-		}).toThrow('model surface must declare at least one command')
-		expect(() => {
-			registrars.models.extend({}, {
-				contributionId: 'wrong-target',
-				modelCommands: { inspect: operation },
-			} as never)
-		}).toThrow('model surface.inspect must reference a model operation')
+		for (const removedKey of ['modelCommands', 'schemaCommands']) {
+			expect(() => {
+				registrars.models.extend(
+					{},
+					{
+						contributionId: 'retired-map',
+						[removedKey]: { inspect: operation },
+					},
+				)
+			}).toThrow(`model surface contains unknown option: ${removedKey}`)
+		}
 		expect(() => {
 			registrars.operations.declare({} as never)
 		}).toThrow(
@@ -127,23 +94,5 @@ describe('application surface declaration validation', () => {
 				},
 			)
 		}).toThrow('must be created by defineSchemaMutation')
-		expect(() => {
-			registrars.queries.extend({}, undefined as never)
-		}).toThrow('query surface must be a plain object')
-		expect(() => {
-			registrars.queries.extend(
-				{},
-				{ contributionId: 'invalid-map', extensions: undefined as never },
-			)
-		}).toThrow('query surface extensions must be a plain object')
-		expect(() => {
-			registrars.queries.extend(
-				{},
-				{ contributionId: 'forged', extensions: { forged: {} as never } },
-			)
-		}).toThrow('query surface forged must be created by defineQueryExtension')
-		expect(() => {
-			registrars.queries.extend({}, { contributionId: 'empty', extensions: {} })
-		}).toThrow('query surface must declare at least one extension')
 	})
 })

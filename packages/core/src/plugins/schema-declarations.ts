@@ -1,8 +1,4 @@
-export {
-	addSchemaConstraint,
-	removeSchemaConstraint,
-	replaceSchemaConstraint,
-} from './schema-artifact-patch-operations.js'
+export { addSchemaConstraint } from './schema-artifact-patch-operations.js'
 
 export { attachPluginDeclarationDiagnostic } from './schema-declaration-contracts.js'
 
@@ -16,13 +12,6 @@ export { SchemaDeclarationRegistry } from './schema-declaration-registry.js'
 export {
 	addSchemaField,
 	addSchemaIndex,
-	removeSchemaField,
-	removeSchemaFieldOption,
-	removeSchemaIndex,
-	removeSchemaOption,
-	renameSchemaField,
-	replaceSchemaField,
-	replaceSchemaIndex,
 	setSchemaFieldOption,
 	setSchemaOption,
 } from './schema-field-patch-operations.js'
@@ -45,21 +34,11 @@ export type {
 	AddSchemaFieldOperation,
 	AddSchemaFieldOptions,
 	AddSchemaIndexOperation,
-	ExistingSchemaContributionTarget,
-	RemoveSchemaConstraintOperation,
-	RemoveSchemaFieldOperation,
-	RemoveSchemaFieldOptionOperation,
-	RemoveSchemaIndexOperation,
-	RemoveSchemaOptionOperation,
-	RenameSchemaFieldOperation,
-	ReplaceSchemaConstraintOperation,
-	ReplaceSchemaFieldOperation,
-	ReplaceSchemaIndexOperation,
-	SchemaPatchOperation,
 	SchemaOptionAbsenceSelector,
 	SchemaOptionEqualitySelector,
 	SchemaOptionPresenceSelector,
 	SchemaOptionSelector,
+	SchemaPatchOperation,
 	SchemaSelection,
 	SchemaSelectorOptions,
 	SetSchemaFieldOptionOperation,

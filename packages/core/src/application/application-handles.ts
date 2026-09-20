@@ -1,6 +1,5 @@
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 import type { OperationOptions } from '../query/operations/options.js'
-import { QueryBuilder } from '../query/query/query.js'
 import type {
 	SchemaDefinition,
 	SchemaReference,
@@ -14,43 +13,37 @@ import {
 import {
 	coreSchemaHandleCommandNames,
 	type CompiledApplicationSchemaSurface,
-	type CompiledOperationCommand,
 	type CompiledPluginOperation,
 	type CompiledSchemaMutationCommand,
 } from '../plugins/application-surface-registry.js'
+import { assertImmutableOperationValue } from '../plugins/plugin-operation-boundaries.js'
 import type {
 	PluginOperationDefinition,
 	PluginOperationInput,
 	PluginOperationResult,
 } from '../plugins/plugin-operations.js'
-import { assertImmutableOperationValue } from '../plugins/plugin-operation-boundaries.js'
-import type {
-	QueryExtensionDefinition,
-	QueryExtensionInput,
-} from '../plugins/application-surface-declarations.js'
+
+import type { PluginLifecycleState } from '../plugins/lifecycle-manager.js'
 import type {
 	UltimaBaseGeneratedOperations,
 	UltimaBaseGeneratedSchemaSurfaces,
 } from '../schema/type-info.js'
-import type { PluginLifecycleState } from '../plugins/lifecycle-manager.js'
 import {
 	registerApplicationSchemaModelViewHost,
 	type ApplicationSchemaModelViewState,
 } from './application-model-views.js'
 import {
-	createApplicationSchemaMutationMethod,
-	type ApplicationSchemaMutationExecutor,
-} from './application-schema-mutations.js'
-import {
 	snapshotApplicationContributionOwner,
 	type ApplicationContributionOwner,
-	type ApplicationOperationBinding,
 	type PluginOperationEnvelope,
 	type PluginOperationEnvelopeTarget,
 } from './application-operation-contracts.js'
+import {
+	createApplicationSchemaMutationMethod,
+	type ApplicationSchemaMutationExecutor,
+} from './application-schema-mutations.js'
 export type {
 	ApplicationContributionOwner,
-	ApplicationOperationBinding,
 	PluginOperationEnvelope,
 	PluginOperationEnvelopeTarget,
 } from './application-operation-contracts.js'
@@ -60,7 +53,6 @@ interface ApplicationHandleLifetime {
 /** Executes one prepared envelope through the facade's active RequestEngine. */
 export type ApplicationOperationExecutor = (
 	compiled: CompiledPluginOperation,
-	binding: ApplicationOperationBinding,
 	envelope: PluginOperationEnvelope,
 ) => Promise<unknown>
 const applicationOperationExecutors = new WeakMap<
@@ -83,7 +75,6 @@ export class ApplicationOperationHandle<
 	constructor(
 		private readonly lifetime: ApplicationHandleLifetime,
 		compiled: CompiledPluginOperation,
-		private readonly binding: ApplicationOperationBinding = {},
 	) {
 		this.#compiled = compiled
 		this.definition = compiled.operation as TOperation
@@ -102,7 +93,6 @@ export class ApplicationOperationHandle<
 		}
 		return (await executor(
 			this.#compiled,
-			this.binding,
 			envelope,
 		)) as PluginOperationResult<TOperation>
 	}
@@ -117,30 +107,9 @@ export class ApplicationOperationHandle<
 			`${this.definition.name}.input`,
 		) as PluginOperationInput<TOperation>
 		assertImmutableOperationValue(payload, `${this.definition.name}.input`)
-		const modelRecord =
-			this.binding.model === undefined
-				? undefined
-				: readSchemaModelRecord(this.binding.model)
-		const target: PluginOperationEnvelopeTarget =
-			this.definition.target === 'application'
-				? immutableRecord({ kind: 'application' as const })
-				: this.definition.target === 'schema'
-					? immutableRecord({
-							kind: 'schema' as const,
-							...(this.binding.schema === undefined
-								? {}
-								: { schema: this.binding.schema.className }),
-						})
-					: immutableRecord({
-							kind: 'model' as const,
-							...(this.binding.schema === undefined
-								? {}
-								: { schema: this.binding.schema.className }),
-							...(modelRecord?.state === 'draft' ||
-							modelRecord?.state === 'persisted'
-								? { state: modelRecord.state }
-								: {}),
-						})
+		const target: PluginOperationEnvelopeTarget = immutableRecord({
+			kind: 'application',
+		})
 		const envelope = immutableRecord({
 			kind: 'plugin-operation' as const,
 			name: this.definition.name,
@@ -188,49 +157,12 @@ type SurfacePart<TSchema extends SchemaDefinition, TKey extends PropertyKey> =
 		? TValue
 		: Readonly<Record<never, never>>
 
-type GeneratedSchemaCommands<TSchema extends SchemaDefinition> =
-	SurfacePart<TSchema, 'schemaCommands'> extends infer TCommands extends
-		Readonly<Record<string, string>>
-		? {
-				readonly [TName in keyof TCommands]: ApplicationOperationHandle<
-					GeneratedOperation<TCommands[TName]>
-				>
-			}
-		: Readonly<Record<never, never>>
-
-type GeneratedModelCommands<TSchema extends SchemaDefinition> =
-	SurfacePart<TSchema, 'modelCommands'> extends infer TCommands extends
-		Readonly<Record<string, string>>
-		? {
-				readonly [TName in keyof TCommands]: ApplicationOperationHandle<
-					GeneratedOperation<TCommands[TName]>
-				>
-			}
-		: Readonly<Record<never, never>>
-
-type GeneratedQueries<TSchema extends SchemaDefinition> =
-	SurfacePart<TSchema, 'queries'> extends infer TQueries extends Readonly<
-		Record<string, QueryExtensionDefinition>
-	>
-		? {
-				readonly [TName in keyof TQueries]: (
-					input: QueryExtensionInput<TQueries[TName]>,
-				) => QueryBuilder<TSchema>
-			}
-		: Readonly<Record<never, never>>
-
 /** Represents one schema through an application, without a constructible class. */
 export type ApplicationSchemaHandle<
 	TSchema extends SchemaDefinition = SchemaDefinition,
 > = CoreSchemaHandleCommands<TSchema> &
 	ApplicationSchemaHandleBase<TSchema> &
-	SurfacePart<TSchema, 'schema'> &
-	GeneratedSchemaCommands<TSchema> &
-	GeneratedQueries<TSchema> &
-	Readonly<{
-		commands: GeneratedSchemaCommands<TSchema>
-		queries: GeneratedQueries<TSchema>
-	}>
+	SurfacePart<TSchema, 'schema'>
 
 const mergeApplicationOptions = (
 	options: unknown,
@@ -250,47 +182,22 @@ const mergeApplicationOptions = (
 	return immutableRecord({ ...options, ultimabase })
 }
 
-/** Owns dynamic schema, command, query, and immutable model binding behavior. */
+/** Owns native schema commands, schema mutations, and immutable model binding behavior. */
 export class ApplicationSchemaHandleBase<
 	TSchema extends SchemaDefinition = SchemaDefinition,
 > {
-	readonly commands: Readonly<Record<string, ApplicationOperationHandle>>
-	readonly queries: Readonly<
-		Record<string, (input: unknown) => QueryBuilder<SchemaDefinition>>
-	>
 	readonly schema: TSchema
 
 	constructor(
 		private readonly lifetime: ApplicationHandleLifetime,
 		private readonly ultimabase: NonNullable<OperationOptions['ultimabase']>,
 		private readonly surface: CompiledApplicationSchemaSurface,
-		private readonly resolveOperation: (
-			operation: PluginOperationDefinition,
-			binding?: ApplicationOperationBinding,
-		) => ApplicationOperationHandle,
 		private readonly executeSchemaMutation: ApplicationSchemaMutationExecutor,
 	) {
 		this.schema = surface.schema as TSchema
-		this.commands = immutableRecord(
-			Object.fromEntries(
-				[...surface.schemaCommands].map(([name, command]) => [
-					name,
-					this.createCommandHandle(command),
-				]),
-			),
-		)
-		this.queries = immutableRecord(
-			Object.fromEntries(
-				[...surface.queryExtensions].map(([name]) => [
-					name,
-					(input: unknown) => this.query(name, input),
-				]),
-			),
-		)
 		const state: ApplicationSchemaModelViewState = {
 			mergeOptions: (options) => mergeApplicationOptions(options, ultimabase),
 			modelViews: new WeakMap(),
-			resolveOperation,
 			surface,
 			executeSchemaMutation,
 		}
@@ -301,12 +208,6 @@ export class ApplicationSchemaHandleBase<
 				if (typeof property === 'string') {
 					if (target.surface.schemaMutations.has(property)) {
 						return target.createSchemaMutationMethod(property)
-					}
-					if (target.surface.schemaCommands.has(property)) {
-						return target.command(property)
-					}
-					if (target.surface.queryExtensions.has(property)) {
-						return (input: unknown) => target.query(property, input)
 					}
 				}
 				if (
@@ -326,18 +227,6 @@ export class ApplicationSchemaHandleBase<
 		})
 		registerApplicationSchemaModelViewHost(handle, state)
 		return handle
-	}
-
-	/** Resolves one schema command alias to its inert operation handle. */
-	command(name: string): ApplicationOperationHandle {
-		assertHandleAvailable(this.lifetime)
-		const command = this.surface.schemaCommands.get(name)
-		if (command === undefined) {
-			throw new TypeError(
-				`Unknown ${this.schema.className} schema command: ${name}`,
-			)
-		}
-		return this.createCommandHandle(command)
 	}
 
 	/** Binds one trusted draft or persisted model without copying its identity. */
@@ -360,38 +249,8 @@ export class ApplicationSchemaHandleBase<
 			model,
 			record.state,
 			this.surface,
-			this.resolveOperation,
 			this.executeSchemaMutation,
 		) as ApplicationModelHandleFor<TSchema>
-	}
-
-	/** Applies one validated QueryBuilder extension without entering Runtime. */
-	query(name: string, input: unknown): QueryBuilder<SchemaDefinition> {
-		assertHandleAvailable(this.lifetime)
-		const query = this.surface.queryExtensions.get(name)
-		if (query === undefined) {
-			throw new TypeError(
-				`Unknown ${this.schema.className} query extension: ${name}`,
-			)
-		}
-		const snapshot = query.extension.input.snapshot(
-			input,
-			`${query.extension.name}.input`,
-		)
-		assertImmutableOperationValue(snapshot, `${query.extension.name}.input`)
-		const result = query.extension.apply(this.schema, snapshot)
-		if (!(result instanceof QueryBuilder) || result.schema !== this.schema) {
-			throw new TypeError(
-				`Query extension ${query.extension.name} must return a query for ${this.schema.className}`,
-			)
-		}
-		return result
-	}
-
-	private createCommandHandle(
-		command: CompiledOperationCommand,
-	): ApplicationOperationHandle {
-		return this.resolveOperation(command.operation, { schema: this.schema })
 	}
 
 	private createSchemaMutationMethod(name: string) {
@@ -434,28 +293,14 @@ export class ApplicationSchemaHandleBase<
 export class ApplicationModelHandle<
 	TSchema extends SchemaDefinition = SchemaDefinition,
 > {
-	readonly commands: Readonly<Record<string, ApplicationOperationHandle>>
-
 	constructor(
 		private readonly lifetime: ApplicationHandleLifetime,
 		readonly schema: TSchema,
 		readonly model: object,
 		readonly state: Extract<SchemaModelState, 'draft' | 'persisted'>,
 		private readonly surface: CompiledApplicationSchemaSurface,
-		private readonly resolveOperation: (
-			operation: PluginOperationDefinition,
-			binding?: ApplicationOperationBinding,
-		) => ApplicationOperationHandle,
 		private readonly executeSchemaMutation: ApplicationSchemaMutationExecutor,
 	) {
-		this.commands = immutableRecord(
-			Object.fromEntries(
-				[...surface.modelCommands].map(([name, command]) => [
-					name,
-					this.createCommandHandle(command),
-				]),
-			),
-		)
 		Object.freeze(this)
 		return new Proxy(this, {
 			get: (target, property, receiver): unknown => {
@@ -465,36 +310,12 @@ export class ApplicationModelHandle<
 				) {
 					return target.createSchemaMutationMethod(property)
 				}
-				return typeof property === 'string' &&
-					target.surface.modelCommands.has(property)
-					? target.command(property)
-					: Reflect.get(target, property, receiver)
+				return Reflect.get(target, property, receiver)
 			},
 			has: (target, property): boolean =>
 				(typeof property === 'string' &&
 					target.surface.modelMutations.has(property)) ||
 				Reflect.has(target, property),
-		})
-	}
-
-	/** Resolves one model command alias while retaining protected model identity. */
-	command(name: string): ApplicationOperationHandle {
-		assertHandleAvailable(this.lifetime)
-		const command = this.surface.modelCommands.get(name)
-		if (command === undefined) {
-			throw new TypeError(
-				`Unknown ${this.schema.className} model command: ${name}`,
-			)
-		}
-		return this.createCommandHandle(command)
-	}
-
-	private createCommandHandle(
-		command: CompiledOperationCommand,
-	): ApplicationOperationHandle {
-		return this.resolveOperation(command.operation, {
-			model: this.model,
-			schema: this.schema,
 		})
 	}
 
@@ -519,10 +340,7 @@ export class ApplicationModelHandle<
 
 /** Resolves exact generated direct methods for one immutable model handle. */
 export type ApplicationModelHandleFor<TSchema extends SchemaDefinition> =
-	ApplicationModelHandle<TSchema> &
-		SurfacePart<TSchema, 'model'> &
-		GeneratedModelCommands<TSchema> &
-		Readonly<{ commands: GeneratedModelCommands<TSchema> }>
+	ApplicationModelHandle<TSchema> & SurfacePart<TSchema, 'model'>
 
 /** Resolves one exact generated operation from its stable namespaced name. */
 export type ApplicationOperationHandleForName<TName extends string> =

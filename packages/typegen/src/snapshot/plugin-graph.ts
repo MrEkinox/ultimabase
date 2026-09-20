@@ -4,7 +4,6 @@ import { immutableArray, immutableRecord } from '@ultimabase/shared'
 import { SchemaTypegenError } from '../errors.js'
 import type {
 	TypegenApplicationSnapshot,
-	TypegenCommandSnapshot,
 	TypegenOwnerSnapshot,
 	TypegenReference,
 	TypegenSchemaMutationSnapshot,
@@ -36,49 +35,6 @@ const snapshotReference = (
 				module: reference.module,
 			})
 
-const assertUniqueContributionIdentities = (
-	graph: CompiledTypegenGraph,
-): void => {
-	const contributionIds = new Set<string>()
-	const outputIds = new Set<string>()
-	const outputPaths = new Map<string, string>()
-	for (const declaration of graph.declarations) {
-		for (const contribution of declaration.contributions) {
-			const owner = snapshotOwner(contribution.owner)
-			const key = `${ownerKey(owner)}\u0000${contribution.contributionId}`
-			if (contributionIds.has(key)) {
-				throw new SchemaTypegenError(
-					'generated-identity-conflict',
-					`Duplicate Typegen contributionId: ${contribution.contributionId}`,
-					{ owner: owner.pluginId, path: contribution.contributionId },
-				)
-			}
-			contributionIds.add(key)
-		}
-		for (const output of declaration.outputs) {
-			const owner = snapshotOwner(output.owner)
-			const key = `${ownerKey(owner)}\u0000${output.contributionId}`
-			if (outputIds.has(key)) {
-				throw new SchemaTypegenError(
-					'generated-identity-conflict',
-					`Duplicate Typegen output contributionId: ${output.contributionId}`,
-					{ owner: owner.pluginId, path: output.outputPath },
-				)
-			}
-			outputIds.add(key)
-			const prior = outputPaths.get(output.outputPath)
-			if (prior !== undefined) {
-				throw new SchemaTypegenError(
-					'output-path-conflict',
-					`Typegen output "${output.outputPath}" from "${owner.pluginId}" conflicts with "${prior}"`,
-					{ owner: owner.pluginId, path: output.outputPath },
-				)
-			}
-			outputPaths.set(output.outputPath, owner.pluginId)
-		}
-	}
-}
-
 const createReferenceReader = (graph: CompiledTypegenGraph) => {
 	const registered = new Map<string, ReadonlySet<object>>()
 	for (const declaration of graph.declarations) {
@@ -109,57 +65,15 @@ const createReferenceReader = (graph: CompiledTypegenGraph) => {
 /** Detaches the plugin-owned portion of one final Core graph. */
 export const snapshotTypegenGraph = (
 	graph: CompiledTypegenGraph | undefined,
-): Pick<
-	TypegenApplicationSnapshot,
-	'contributions' | 'operations' | 'options' | 'outputs' | 'surfaces'
-> => {
+): Pick<TypegenApplicationSnapshot, 'operations' | 'options' | 'surfaces'> => {
 	if (graph === undefined) {
 		return immutableRecord({
-			contributions: immutableArray([]),
 			operations: immutableArray([]),
 			options: immutableArray([]),
-			outputs: immutableArray([]),
 			surfaces: immutableArray([]),
 		})
 	}
-	assertUniqueContributionIdentities(graph)
 	const readReference = createReferenceReader(graph)
-	const contributions = immutableArray(
-		graph.declarations
-			.flatMap(({ contributions: values }) => values)
-			.sort((left, right) =>
-				left.owner.pluginId === right.owner.pluginId
-					? left.contributionId.localeCompare(right.contributionId)
-					: left.owner.pluginId.localeCompare(right.owner.pluginId),
-			)
-			.map((value) =>
-				immutableRecord({
-					augmentations: value.augmentations,
-					contributionId: value.contributionId,
-					declarations: value.declarations,
-					owner: snapshotOwner(value.owner),
-					staticOptions: value.staticOptions,
-				}),
-			),
-	)
-	const outputs = immutableArray(
-		graph.declarations
-			.flatMap(({ outputs: values }) => values)
-			.sort((left, right) => left.outputPath.localeCompare(right.outputPath))
-			.map((value) =>
-				immutableRecord({
-					contributionId: value.contributionId,
-					...(value.declarations === undefined
-						? {}
-						: { declarations: value.declarations }),
-					kind: value.kind,
-					...(value.metadata === undefined ? {} : { metadata: value.metadata }),
-					outputPath: value.outputPath,
-					owner: snapshotOwner(value.owner),
-					staticOptions: value.staticOptions,
-				}),
-			),
-	)
 	const operations = immutableArray(
 		[...graph.operations]
 			.sort((left, right) =>
@@ -222,22 +136,6 @@ export const snapshotTypegenGraph = (
 				}),
 			),
 	)
-	const command = (
-		name: string,
-		value: CompiledTypegenGraph['schemaSurfaces'][number]['schemaCommands'] extends ReadonlyMap<
-			string,
-			infer TValue
-		>
-			? TValue
-			: never,
-	): TypegenCommandSnapshot =>
-		immutableRecord({
-			contributionId: value.contributionId,
-			name,
-			operation: value.operation.name,
-			owner: snapshotOwner(value.owner),
-			staticOptions: value.staticOptions,
-		})
 	const mutation = (
 		name: string,
 		value: CompiledTypegenGraph['schemaSurfaces'][number]['schemaMutations'] extends ReadonlyMap<
@@ -275,39 +173,10 @@ export const snapshotTypegenGraph = (
 			.map((surface) =>
 				immutableRecord({
 					className: surface.schema.className,
-					modelCommands: immutableArray(
-						[...surface.modelCommands]
-							.sort(([left], [right]) => left.localeCompare(right))
-							.map(([name, value]) => command(name, value)),
-					),
 					modelMutations: immutableArray(
 						[...surface.modelMutations]
 							.sort(([left], [right]) => left.localeCompare(right))
 							.map(([name, value]) => mutation(name, value)),
-					),
-					queryExtensions: immutableArray(
-						[...surface.queryExtensions]
-							.sort(([left], [right]) => left.localeCompare(right))
-							.map(([name, value]) => {
-								const owner = snapshotOwner(value.owner)
-								return immutableRecord({
-									contributionId: value.contributionId,
-									input: readReference(
-										value.extension.input.typegen,
-										owner,
-										`${surface.schema.className}.${name}.input`,
-									),
-									name,
-									owner,
-									staticOptions: value.staticOptions,
-									version: value.extension.version,
-								})
-							}),
-					),
-					schemaCommands: immutableArray(
-						[...surface.schemaCommands]
-							.sort(([left], [right]) => left.localeCompare(right))
-							.map(([name, value]) => command(name, value)),
 					),
 					schemaMutations: immutableArray(
 						[...surface.schemaMutations]
@@ -318,10 +187,8 @@ export const snapshotTypegenGraph = (
 			),
 	)
 	return immutableRecord({
-		contributions,
 		operations,
 		options,
-		outputs,
 		surfaces,
 	})
 }

@@ -13,9 +13,8 @@ descriptions below retain the previous concurrent-application contract.
 accepts ten precisely listed extension removals and one private compiled command
 graph. Issues 3004/3005 remove those unused powers while preserving the used
 performance measurements; issues 3008–3013 consolidate application operations
-and schema mutations. Until those implementations land, descriptions below may
-still name the superseded mechanisms. Their presence is not a requirement to
-retain an API explicitly removed by ADR-0259.
+and schema mutations. The separate command representations remain until that
+consolidation; the removed extension APIs have no compatibility path.
 
 ```text
 developer declarations + pure authorized plugin declarations
@@ -229,8 +228,8 @@ their protocols and use the generic kernel directly.
 manifest facts, parses strict manual or synchronous Standard Schema plugin
 options into immutable objects, builds common additive
 schema patches, flattens operation-provider wrappers, and groups nominal Typegen
-references without weakening a Core validation boundary. Destructive
-transformations, capabilities, privileges, ownership, registries, adapters, and
+references without weakening a Core validation boundary.
+Capabilities, privileges, ownership, registries, adapters, and
 Master remain direct Core contracts. Core never imports the kit. Official
 plugins use the same toolbox where it removes real duplication, while
 `@ultimabase/testing` owns runner-agnostic conformance fixtures and assertions.
@@ -241,10 +240,9 @@ parse Standard Schema contracts, including Plugin Kit and the optional Validatio
 plugin. Core has no direct dependency on it.
 
 `@ultimabase/typegen` is optional development tooling. It snapshots the final
-compiled application graph and accepts owner-scoped plugin contributions as
-references, structured declarations, or separately owned deterministic output.
-It emits replaceable `.d.ts` contracts and deterministic non-executable metadata
-only, before infrastructure connection; it never generates JavaScript or a
+compiled application graph and consumes owner-scoped nominal public type
+references. It emits one replaceable `.d.ts` contract before infrastructure
+connection; it never generates JavaScript or a
 Runtime client. Core never imports Typegen, and JavaScript applications execute
 the same compiled graph without generated artifacts.
 
@@ -445,16 +443,17 @@ compatibility only; it grants no capability read or lifecycle guarantee.
 
 Each application owns its capability host and private resource store.
 Plugin-scoped views attach the actual owner and instance to every declaration,
-transform, middleware, constraint, codec, persistence rewrite, Typegen
-contribution, event, and command. Plugin code cannot self-assert a different
+additive patch, middleware, constraint, codec, persistence rewrite, Typegen
+reference, event, and command. Plugin code cannot self-assert a different
 owner.
 
 Before application compilation, Core invokes each authorized plugin's
 synchronous static declaration callback in dependency-first order. The public
 host may add schemas, FieldBuilder methods and logical kinds, namespaced schema
-or field options, immutable schema patches, model methods, custom operations,
-query extensions, and Typegen descriptors. Cross-owner changes require an
-explicit privilege. Declarations are pure, deterministic, and separated from
+or field options, additive immutable patches, schema-mutation methods,
+application operations, and public Typegen references. Each boundary requires
+its exact privilege; destructive patches and generic schema/model operations
+are removed by ADR-0259. Declarations are pure, deterministic, and separated from
 secrets, services, adapters, requests, clocks, and network state.
 
 Developer declarations and authorized plugin contributions compile into one

@@ -1,15 +1,14 @@
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
-import type { ApplicationOperationBinding } from '../../application/application-handles.js'
 import { FrameworkError } from '../../errors/framework-error.js'
 import type { CompiledPluginOperation } from '../../plugins/application-surface-registry.js'
-import type { PluginOperationDefinition } from '../../plugins/plugin-operations.js'
 import { assertImmutableOperationValue } from '../../plugins/plugin-operation-boundaries.js'
+import type { PluginOperationDefinition } from '../../plugins/plugin-operations.js'
 import type { JsonValue } from '../../schema/index.js'
 import { RequestContext } from '../context/request-context.js'
 import type { RequestEngine } from '../engine/framework-engine.js'
-import { executeRequestPluginOperation } from './request-execution.js'
 import type { OperationTransportProtocol } from './contracts.js'
+import { executeRequestPluginOperation } from './request-execution.js'
 import type {
 	OwnedTransportBinding,
 	PluginOperationRuntime,
@@ -169,11 +168,9 @@ export class CoreApplicationOperationTransport<
 			transaction: exposed.compiled.operation.transaction,
 			version: exposed.compiled.operation.version,
 		})
-		const binding: ApplicationOperationBinding = immutableRecord({})
 		const result = await executeRequestPluginOperation(
 			engine,
 			exposed.compiled,
-			binding,
 			envelope,
 		)
 		return this.runtime.encode(exposed.binding, result)

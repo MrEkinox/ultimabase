@@ -9,6 +9,10 @@ import {
 import type { SchemaDefinition } from '../schema/schema/definition.js'
 import type { FieldBuilderMethodResolver } from '../schema/schema/field-builder-methods.js'
 import {
+	type PluginSchemaContributionOwner,
+	type SchemaCompilationProvenance,
+} from '../schema/schema/provenance.js'
+import {
 	publishSchemaRegistryCompilation,
 	type SchemaRegistry,
 	stageSchemaRegistryCompilation,
@@ -16,10 +20,6 @@ import {
 import type { SchemaTargetGraph } from '../schema/schema/targets.js'
 import type { CapabilityRequirement } from './capabilities.js'
 import type { ApplicationCapabilityHost } from './capability-host.js'
-import {
-	type PluginSchemaContributionOwner,
-	type SchemaCompilationProvenance,
-} from '../schema/schema/provenance.js'
 import {
 	diagnosePluginDeclarationFailure,
 	type MutableSchemaDeclarationBatch,
@@ -39,36 +39,33 @@ import {
 } from './schema-option-definitions.js'
 
 import {
-	type SchemaSelection,
-	type SchemaSelectorOptions,
 	schemaPatchOperations,
+	type SchemaSelection,
 	schemaSelections,
+	type SchemaSelectorOptions,
 } from './schema-patch-contracts.js'
 
-import { normalizeSelector } from './schema-selectors.js'
-import { executeRuntimeCompilations } from './schema-runtime-options.js'
 import {
 	createApplicationSurfaceRegistrars,
-	snapshotApplicationSurfaceDeclarations,
 	type PluginModelSurfaceRegistrar,
 	type PluginOperationDeclarationRegistrar,
-	type PluginQuerySurfaceRegistrar,
+	snapshotApplicationSurfaceDeclarations,
 } from './application-surface-declarations.js'
 import {
 	compileApplicationSurfaces,
 	type CompiledApplicationSchemaSurface,
 	type CompiledPluginOperation,
 } from './application-surface-registry.js'
+import { compileSchemaDeclarations } from './compiled-schema-declarations.js'
+import { createCompiledTypegenGraph } from './compiled-typegen-graph.js'
+import { executeRuntimeCompilations } from './schema-runtime-options.js'
+import { normalizeSelector } from './schema-selectors.js'
 import {
-	createTypegenRegistrars,
-	snapshotTypegenDeclarations,
-	type TypegenContributionRegistrar,
 	type CompiledTypegenGraph,
-	type TypegenOutputRegistrar,
+	createTypegenReferenceRegistrar,
+	snapshotTypegenDeclarations,
 	type TypegenReferenceRegistrar,
 } from './typegen-declarations.js'
-import { createCompiledTypegenGraph } from './compiled-typegen-graph.js'
-import { compileSchemaDeclarations } from './compiled-schema-declarations.js'
 
 export class SchemaDeclarationRegistry {
 	readonly #batches: SchemaDeclarationBatch[] = []
@@ -89,11 +86,7 @@ export class SchemaDeclarationRegistry {
 			declare: boolean
 			modelExtend: boolean
 			operationDeclare: boolean
-			queryExtend: boolean
 			requirements: readonly CapabilityRequirement[]
-			transform: boolean
-			typegenContribute: boolean
-			typegenEmit: boolean
 			typegenReference: boolean
 		}>,
 	): Readonly<{
@@ -101,10 +94,7 @@ export class SchemaDeclarationRegistry {
 		commit(): void
 		models: PluginModelSurfaceRegistrar
 		operations: PluginOperationDeclarationRegistrar
-		queries: PluginQuerySurfaceRegistrar
 		registrar: PluginSchemaDeclarationRegistrar
-		typegenContributions: TypegenContributionRegistrar
-		typegenOutputs: TypegenOutputRegistrar
 		typegenReferences: TypegenReferenceRegistrar
 	}> {
 		if (this.#closed) {
@@ -114,18 +104,14 @@ export class SchemaDeclarationRegistry {
 		const batch: MutableSchemaDeclarationBatch = {
 			additions: [],
 			canDeclare: privileges.declare,
-			canTransform: privileges.transform,
 			options: [],
 			owner,
 			patches: [],
 			surfaces: {
 				modelSurfaces: [],
 				operations: [],
-				querySurfaces: [],
 			},
 			typegen: {
-				contributions: [],
-				outputs: [],
 				references: [],
 			},
 		}
@@ -160,7 +146,11 @@ export class SchemaDeclarationRegistry {
 			batch.surfaces,
 			createSelection,
 		)
-		const typegen = createTypegenRegistrars(owner, batch.typegen, assertOpen)
+		const typegen = createTypegenReferenceRegistrar(
+			owner,
+			batch.typegen,
+			assertOpen,
+		)
 		const registrar: PluginSchemaDeclarationRegistrar = immutableRecord({
 			add: (options): void => {
 				assertDeclare()
@@ -246,10 +236,8 @@ export class SchemaDeclarationRegistry {
 			},
 			patch: (options): void => {
 				assertOpen()
-				if (!batch.canDeclare && !batch.canTransform) {
-					throw new TypeError(
-						'schema:declare or schema:transform is required for patches',
-					)
+				if (!batch.canDeclare) {
+					throw new TypeError('schema:declare is required for patches')
 				}
 				if (!isPlainRecord(options)) {
 					throw new TypeError('Schema patch must be a plain object')
@@ -267,28 +255,6 @@ export class SchemaDeclarationRegistry {
 						throw new TypeError(
 							'Schema patch operation must be created by a Core patch factory',
 						)
-					}
-					const requiresTransform =
-						operation.kind === 'field:replace' ||
-						operation.kind === 'field:rename' ||
-						operation.kind === 'field:remove' ||
-						operation.kind === 'index:replace' ||
-						operation.kind === 'index:remove' ||
-						operation.kind === 'constraint:replace' ||
-						operation.kind === 'constraint:remove' ||
-						operation.kind === 'schema-option:remove' ||
-						operation.kind === 'field-option:remove' ||
-						(operation.kind === 'schema-option:set' &&
-							operation.target !== undefined) ||
-						(operation.kind === 'field-option:set' &&
-							operation.target !== undefined)
-					if (requiresTransform && !batch.canTransform) {
-						throw new TypeError(
-							'schema:transform is required for replacement, rename, or removal',
-						)
-					}
-					if (!requiresTransform && !batch.canDeclare) {
-						throw new TypeError('schema:declare is required for additions')
 					}
 				}
 				batch.patches.push(
@@ -327,11 +293,8 @@ export class SchemaDeclarationRegistry {
 			},
 			models: surfaces.models,
 			operations: surfaces.operations,
-			queries: surfaces.queries,
 			registrar,
-			typegenContributions: typegen.contributions,
-			typegenOutputs: typegen.outputs,
-			typegenReferences: typegen.references,
+			typegenReferences: typegen,
 		})
 	}
 

@@ -6,15 +6,12 @@ Milestone 30's accepted ADR-0258 and ADR-0259 define the approved migration
 target. ADR-0258 permits one initialized application per JavaScript realm and
 isolated parallel workers. ADR-0259 removes exactly R-001–R-010, preserves used
 plugin behavior and internal performance measurements, and keeps one private
-command graph with application operations and schema mutations. Historical
-destructive-patch, arbitrary schema/model-operation, and extra Typegen
-requirements below remain current
-implementation descriptions only until their assigned migration issues land;
-they do not override these accepted removals. Update the corresponding rules
-with the implementation. Do not add substitute public APIs or remove another
-capability without following the architecture stop rule. Issue 3004 removes
-generic decoration/replacement, compiler/Runtime substitution, and the Core
-observer protocol; their supported product counterparts remain intact.
+command graph with application operations and schema mutations. Issues
+3004/3005 remove generic decoration/replacement, compiler/Runtime substitution,
+the Core observer protocol, Query extensions, destructive patches, arbitrary
+schema/model operations, and manual Typegen declarations/extra outputs.
+Their used product counterparts remain intact. Do not add substitute public
+APIs or remove another capability without following the architecture stop rule.
 
 ## Read first
 
@@ -178,9 +175,11 @@ Run or update `yarn constraints` when dependency constraints exist. If a request
   immutable patches, model surfaces, operations, Typegen declarations, Runtime
   middleware, protected constraints, and persistence-plan rewrites. Static
   contributions remain pure, synchronous, deterministic, and infrastructure-free.
-- Query extensions, Runtime observers, migration intent, and filesystem reads
-  use their own exact privileges; broader neighboring privileges never imply
-  them.
+- Product-owned Runtime observation, migration intent, and filesystem claims
+  retain their exact privilege or claim boundaries; broader neighboring powers
+  never imply them. Query extension registrars and destructive schema patches
+  are removed. Typegen derives declarations from the graph and registered public
+  type references; plugins cannot append manual declarations or extra outputs.
 - `@ultimabase/plugin-kit` contains reusable authoring helpers only. Official
   plugins use it when suitable, and its helpers must not bypass ownership,
   privilege, validation, or provenance checks enforced by Core.

@@ -1,10 +1,16 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import { FrameworkError } from '../errors/framework-error.js'
+import type { PrivateStorageDeclarationRegistrar } from '../private-storage/contracts.js'
+import type { PrivateStorageRegistry } from '../private-storage/registry.js'
 import type {
 	FieldBuilderMethodRegistrar,
 	FieldBuilderMethodRegistry,
 } from '../schema/schema/field-builder-methods.js'
+import type {
+	PluginModelSurfaceRegistrar,
+	PluginOperationDeclarationRegistrar,
+} from './application-surface-declarations.js'
 import {
 	assertCapabilityRequirement,
 	type CapabilityConsumerValue,
@@ -25,18 +31,7 @@ import {
 	attachPluginDeclarationDiagnostic,
 	type PluginSchemaDeclarationRegistrar,
 } from './schema-declarations.js'
-import type {
-	PluginModelSurfaceRegistrar,
-	PluginOperationDeclarationRegistrar,
-	PluginQuerySurfaceRegistrar,
-} from './application-surface-declarations.js'
-import type {
-	TypegenContributionRegistrar,
-	TypegenOutputRegistrar,
-	TypegenReferenceRegistrar,
-} from './typegen-declarations.js'
-import type { PrivateStorageDeclarationRegistrar } from '../private-storage/contracts.js'
-import type { PrivateStorageRegistry } from '../private-storage/registry.js'
+import type { TypegenReferenceRegistrar } from './typegen-declarations.js'
 
 type RequiredCapability<TCapabilities> =
 	NormalizedPluginCapabilityDeclarations<TCapabilities>['requires'][number]
@@ -90,19 +85,6 @@ type UnconditionalSchemaDeclareRequest<TPrivileges> =
 			: TRequest
 		: never
 
-type SchemaTransformRequest<TPrivileges> = Extract<
-	PrivilegeUnion<TPrivileges>,
-	Readonly<{ name: 'schema:transform' }>
->
-type SchemaDeclarationRequest<TPrivileges> =
-	SchemaDeclareRequest<TPrivileges> | SchemaTransformRequest<TPrivileges>
-type UnconditionalSchemaDeclarationRequest<TPrivileges> =
-	SchemaDeclarationRequest<TPrivileges> extends infer TRequest
-		? TRequest extends Readonly<{ when: CapabilityRequirement }>
-			? never
-			: TRequest
-		: never
-
 type PluginFieldDeclarationContext<TPrivileges> = [
 	SchemaDeclareRequest<TPrivileges>,
 ] extends [never]
@@ -112,10 +94,10 @@ type PluginFieldDeclarationContext<TPrivileges> = [
 		: Readonly<{ fields: FieldBuilderMethodRegistrar }>
 
 type PluginSchemaDeclarationContext<TPrivileges> = [
-	SchemaDeclarationRequest<TPrivileges>,
+	SchemaDeclareRequest<TPrivileges>,
 ] extends [never]
 	? Readonly<Record<never, never>>
-	: [UnconditionalSchemaDeclarationRequest<TPrivileges>] extends [never]
+	: [UnconditionalSchemaDeclareRequest<TPrivileges>] extends [never]
 		? Readonly<{ schemas?: PluginSchemaDeclarationRegistrar }>
 		: Readonly<{ schemas: PluginSchemaDeclarationRegistrar }>
 
@@ -156,30 +138,11 @@ type PluginOperationDeclarationContext<TPrivileges> =
 		'operations',
 		PluginOperationDeclarationRegistrar
 	>
-type PluginQueryDeclarationContext<TPrivileges> = PrivilegedDeclarationContext<
-	TPrivileges,
-	'query:extend',
-	'queries',
-	PluginQuerySurfaceRegistrar
->
 type PluginTypegenReferenceContext<TPrivileges> = PrivilegedDeclarationContext<
 	TPrivileges,
 	'typegen:reference',
 	'typegenReferences',
 	TypegenReferenceRegistrar
->
-type PluginTypegenContributionContext<TPrivileges> =
-	PrivilegedDeclarationContext<
-		TPrivileges,
-		'typegen:contribute',
-		'typegenContributions',
-		TypegenContributionRegistrar
-	>
-type PluginTypegenOutputContext<TPrivileges> = PrivilegedDeclarationContext<
-	TPrivileges,
-	'typegen:emit',
-	'typegenOutputs',
-	TypegenOutputRegistrar
 >
 type PluginPrivateStorageDeclarationContext<TPrivileges> =
 	PrivilegedDeclarationContext<
@@ -208,10 +171,7 @@ export type PluginDeclarationContext<
 	PluginSchemaDeclarationContext<TPrivileges> &
 	PluginModelDeclarationContext<TPrivileges> &
 	PluginOperationDeclarationContext<TPrivileges> &
-	PluginQueryDeclarationContext<TPrivileges> &
 	PluginTypegenReferenceContext<TPrivileges> &
-	PluginTypegenContributionContext<TPrivileges> &
-	PluginTypegenOutputContext<TPrivileges> &
 	PluginPrivateStorageDeclarationContext<TPrivileges>
 
 /** Declares deterministic application metadata before schemas are compiled. */
@@ -261,32 +221,17 @@ export class PluginDeclarationHost {
 			const privilege = definition.manifest.privileges.find(
 				(request) => request.name === 'schema:declare',
 			)
-			const transformPrivilege = definition.manifest.privileges.find(
-				(request) => request.name === 'schema:transform',
-			)
 			const canDeclare =
 				privilege !== undefined &&
 				this.graph.capabilities.isPrivilegeActive(owner, privilege)
-			const canTransform =
-				transformPrivilege !== undefined &&
-				this.graph.capabilities.isPrivilegeActive(owner, transformPrivilege)
 			const modelPrivilege = definition.manifest.privileges.find(
 				(request) => request.name === 'model:extend',
 			)
 			const operationPrivilege = definition.manifest.privileges.find(
 				(request) => request.name === 'operation:declare',
 			)
-			const queryPrivilege = definition.manifest.privileges.find(
-				(request) => request.name === 'query:extend',
-			)
 			const typegenReferencePrivilege = definition.manifest.privileges.find(
 				(request) => request.name === 'typegen:reference',
-			)
-			const typegenContributionPrivilege = definition.manifest.privileges.find(
-				(request) => request.name === 'typegen:contribute',
-			)
-			const typegenOutputPrivilege = definition.manifest.privileges.find(
-				(request) => request.name === 'typegen:emit',
 			)
 			const privateStoragePrivilege = definition.manifest.privileges.find(
 				(request) => request.name === 'storage:private',
@@ -297,24 +242,12 @@ export class PluginDeclarationHost {
 			const canDeclareOperations =
 				operationPrivilege !== undefined &&
 				this.graph.capabilities.isPrivilegeActive(owner, operationPrivilege)
-			const canExtendQueries =
-				queryPrivilege !== undefined &&
-				this.graph.capabilities.isPrivilegeActive(owner, queryPrivilege)
 			const canReferenceTypegen =
 				typegenReferencePrivilege !== undefined &&
 				this.graph.capabilities.isPrivilegeActive(
 					owner,
 					typegenReferencePrivilege,
 				)
-			const canContributeTypegen =
-				typegenContributionPrivilege !== undefined &&
-				this.graph.capabilities.isPrivilegeActive(
-					owner,
-					typegenContributionPrivilege,
-				)
-			const canEmitTypegen =
-				typegenOutputPrivilege !== undefined &&
-				this.graph.capabilities.isPrivilegeActive(owner, typegenOutputPrivilege)
 			const canUsePrivateStorage =
 				privateStoragePrivilege !== undefined &&
 				this.graph.capabilities.isPrivilegeActive(
@@ -336,27 +269,19 @@ export class PluginDeclarationHost {
 			})
 			const schemaSession =
 				canDeclare ||
-				canTransform ||
 				canExtendModels ||
 				canDeclareOperations ||
-				canExtendQueries ||
-				canReferenceTypegen ||
-				canContributeTypegen ||
-				canEmitTypegen
+				canReferenceTypegen
 					? this.schemaDeclarations.beginPluginDeclaration(
 							schemaOwner,
 							immutableRecord({
 								declare: canDeclare,
 								modelExtend: canExtendModels,
 								operationDeclare: canDeclareOperations,
-								queryExtend: canExtendQueries,
 								requirements: immutableArray([
 									...definition.manifest.capabilities.requires,
 									...definition.manifest.capabilities.optional,
 								]),
-								transform: canTransform,
-								typegenContribute: canContributeTypegen,
-								typegenEmit: canEmitTypegen,
 								typegenReference: canReferenceTypegen,
 							}),
 						)
@@ -413,7 +338,7 @@ export class PluginDeclarationHost {
 			const context = immutableRecord({
 				capabilities,
 				...(fieldSession === undefined ? {} : { fields: fieldSession.fields }),
-				...(schemaSession !== undefined && (canDeclare || canTransform)
+				...(schemaSession !== undefined && canDeclare
 					? { schemas: schemaSession.registrar }
 					: {}),
 				...(canExtendModels && schemaSession !== undefined
@@ -422,17 +347,8 @@ export class PluginDeclarationHost {
 				...(canDeclareOperations && schemaSession !== undefined
 					? { operations: schemaSession.operations }
 					: {}),
-				...(canExtendQueries && schemaSession !== undefined
-					? { queries: schemaSession.queries }
-					: {}),
 				...(canReferenceTypegen && schemaSession !== undefined
 					? { typegenReferences: schemaSession.typegenReferences }
-					: {}),
-				...(canContributeTypegen && schemaSession !== undefined
-					? { typegenContributions: schemaSession.typegenContributions }
-					: {}),
-				...(canEmitTypegen && schemaSession !== undefined
-					? { typegenOutputs: schemaSession.typegenOutputs }
 					: {}),
 				...(privateStorageSession === undefined
 					? {}

@@ -1,5 +1,4 @@
 import type { CompiledApplicationSchemaSurface } from '../plugins/application-surface-registry.js'
-import type { PluginOperationDefinition } from '../plugins/plugin-operations.js'
 import type { OperationOptions } from '../query/operations/options.js'
 import type { SchemaDefinition } from '../schema/schema/definition.js'
 import {
@@ -7,10 +6,6 @@ import {
 	retainSchemaModelAlias,
 } from '../schema/schema/model-state.js'
 import type { UltimaBaseGeneratedModelSurface } from '../schema/type-info.js'
-import type {
-	ApplicationOperationBinding,
-	ApplicationOperationHandle,
-} from './application-handles.js'
 import {
 	createApplicationSchemaMutationMethod,
 	type ApplicationSchemaMutationExecutor,
@@ -26,10 +21,6 @@ export type ApplicationBoundModel<
 export interface ApplicationSchemaModelViewState {
 	readonly mergeOptions: (options: unknown) => OperationOptions
 	readonly modelViews: WeakMap<object, object>
-	readonly resolveOperation: (
-		operation: PluginOperationDefinition,
-		binding?: ApplicationOperationBinding,
-	) => ApplicationOperationHandle
 	readonly executeSchemaMutation: ApplicationSchemaMutationExecutor
 	readonly surface: CompiledApplicationSchemaSurface
 }
@@ -100,8 +91,6 @@ export const bindApplicationSchemaModel = <
 	if (existing !== undefined) {
 		return existing as ApplicationBoundModel<TSchema, TModel>
 	}
-
-	const commandHandles = new Map<string, ApplicationOperationHandle>()
 	const methodViews = new Map<PropertyKey, unknown>()
 	const view: object = new Proxy(target, {
 		get: (current, property, receiver): unknown => {
@@ -127,30 +116,6 @@ export const bindApplicationSchemaModel = <
 				}
 				return mutation
 			}
-			if (
-				typeof property === 'string' &&
-				state.surface.modelCommands.has(property)
-			) {
-				let command = methodViews.get(property)
-				if (command === undefined) {
-					const compiled = state.surface.modelCommands.get(property)
-					if (compiled === undefined) {
-						throw new TypeError(`Unknown model command: ${property}`)
-					}
-					let operationHandle = commandHandles.get(property)
-					if (operationHandle === undefined) {
-						operationHandle = state.resolveOperation(compiled.operation, {
-							model: view,
-							schema: state.surface.schema,
-						})
-						commandHandles.set(property, operationHandle)
-					}
-					const selectedHandle = operationHandle
-					command = (input: unknown) => selectedHandle.execute(input)
-					methodViews.set(property, command)
-				}
-				return command
-			}
 
 			const value: unknown = Reflect.get(current, property, receiver)
 			if (
@@ -175,8 +140,7 @@ export const bindApplicationSchemaModel = <
 		},
 		has: (current, property): boolean =>
 			(typeof property === 'string' &&
-				(state.surface.modelCommands.has(property) ||
-					state.surface.modelMutations.has(property))) ||
+				state.surface.modelMutations.has(property)) ||
 			Reflect.has(current, property),
 	})
 	retainSchemaModelAlias(view, target)

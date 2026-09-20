@@ -3,8 +3,8 @@
 Deterministic generated application contracts for UltimaBase schemas.
 
 The package compiles only the static application graph, converts it to an
-inert snapshot, emits one compact TypeScript declaration plus explicitly owned
-inert plugin outputs, and replaces each file atomically. It never connects
+inert snapshot, emits one compact TypeScript declaration, and replaces it
+atomically. It never connects
 infrastructure, reads database credentials, serializes callbacks, or emits a
 Runtime client.
 
@@ -12,8 +12,7 @@ Runtime client.
 application sources and atomically writes generated artifacts. This is an
 inspectable and denyable startup claim, not a Core filesystem privilege or an
 operating-system sandbox. Typegen has no replacement privilege; its public
-plugin powers are the owner-scoped reference, structured contribution, and
-inert output boundaries supplied by Core.
+plugin input is the compiled graph and its owner-scoped public type references.
 
 ## Automatic startup generation
 
@@ -66,49 +65,22 @@ await writeGeneratedTypeFile({
 
 ### Plugin-owned contracts
 
-Plugins request separate privileges for public type references, structured main
-declaration contributions, and separate output:
+Typegen derives application contracts from the compiled graph. Plugins export
+reusable public types from their package root and name them with
+`defineTypegenReference({ module, exportName })`. Operation value contracts use
+that reference as the second argument to `defineOperationValue(snapshot, reference)`.
+The declaring plugin requests `typegen:reference` and registers the exact token
+with `typegenReferences.register(reference)` during `declare`.
 
-```ts
-const publicState = defineTypegenReference({
-	module: '@example/workflow-plugin',
-	exportName: 'WorkflowState',
-})
-
-definePlugin({
-	pluginId: '@example/workflow-plugin',
-	version: '1.0.0',
-	core: '^0.0.0',
-	privileges: [
-		{ name: 'typegen:reference', reason: 'References WorkflowState.' },
-		{ name: 'typegen:contribute', reason: 'Adds configured workflow types.' },
-	],
-	declare({ typegenReferences, typegenContributions }) {
-		typegenReferences.register(publicState)
-		typegenContributions.add({
-			contributionId: 'workflow-types',
-			declarations: [
-				{
-					kind: 'type',
-					name: 'ConfiguredWorkflow',
-					type: { kind: 'reference', reference: publicState },
-				},
-			],
-		})
-	},
-})
-```
-
-The closed type-node format supports primitives, JSON literals, arrays, tuples,
-unions, objects, and registered generic references. Raw TypeScript is not
-accepted. `typegen:emit` is limited to structured `.d.ts` declarations and
-deterministic `.json` metadata; JavaScript, binaries, callbacks, credentials,
-connection data, and generated Runtime clients are rejected.
+References are nominal and owner-scoped. Registering one adds no standalone
+alias. Plugins cannot append arbitrary declarations, schema/model augmentations,
+or extra output files. Field and option definitions retain their existing
+structured Typegen metadata. JavaScript runs the same graph without Typegen.
 
 Generic generation reads the final graph and emits plugin-added schemas,
 fields, used direct schema and contextual field options, exact namespaced operations,
-dynamic schema handles, schema/model commands, and query inputs. Plugin owner,
-version, contribution ID, static options, imports, destinations, and contents
+dynamic schema handles, schema-mutation methods, and query inputs. Plugin owner,
+version, contribution ID, static options, imports, and contents
 all participate in collision checks and fingerprints.
 
 Core-owned structural metadata that cannot change a TypeScript value shape is
@@ -120,7 +92,7 @@ Validation plugin is installed, Typegen emits its direct option and type-only
 compatibility reference while omitting validator identities and callbacks.
 
 Operation declarations retain exact input, result, and declared public
-`PluginError` code unions. Generated application and schema/model handles add
+`PluginError` code unions. Generated application operation handles add
 typing and autocomplete to the same runtime `execute()` method; they never emit
 an executable client. Portable plugin scalars receive an exact generic
 complete-value filter containing only `eq`, `ne`, `in`, `notIn`, and null
@@ -141,7 +113,7 @@ maintenance work can retain transactional auditing. Custom Hook payload,
 candidate, preimage, result, and target types come from that same inert entry.
 Typegen emits `contains` only for those fields and keeps the executable snapshot
 callback out of generated artifacts. These contracts advance the inert snapshot
-format to version 10 and the generator format to version 18. Owner-private
+format to version 11 and the generator format to version 19. Owner-private
 collections contribute only an opaque application fingerprint input; their
 owners, collection names, fields, indexes, references, options, and records
 never enter the snapshot or emitted declarations. An application without
@@ -224,7 +196,7 @@ automatic startup generation replaces the artifact.
 
 Every artifact embeds a deterministic SHA-256 fingerprint covering the Core
 generated-contract ABI, generator version, application identity, plugin field
-and Typegen contracts, owners, static options, destinations, and resolved schema
+and Typegen contracts, owners, static options, and resolved schema
 snapshot. `writeGeneratedTypeFile()` writes a
 complete sibling temporary file and atomically renames it over the destination.
 `writeGeneratedTypeFiles()` additionally rejects duplicate resolved output

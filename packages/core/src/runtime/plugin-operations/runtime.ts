@@ -2,7 +2,6 @@ import { immutableRecord } from '@ultimabase/shared'
 
 import type {
 	ApplicationContributionOwner,
-	ApplicationOperationBinding,
 	PluginOperationEnvelope,
 } from '../../application/application-handles.js'
 import { FrameworkError } from '../../errors/framework-error.js'
@@ -12,18 +11,14 @@ import type {
 	PluginDefinition,
 } from '../../foundation.js'
 import { readApplicationCapabilityContributions } from '../../plugins/application-capability-access.js'
-import { runWithApplicationPluginOwner } from '../../plugins/callback-execution.js'
 import type { CompiledPluginOperation } from '../../plugins/application-surface-registry.js'
+import { runWithApplicationPluginOwner } from '../../plugins/callback-execution.js'
 import { formatPluginIdentity } from '../../plugins/manifest.js'
-import type { PluginOperationDefinition } from '../../plugins/plugin-operations.js'
 import { assertImmutableOperationValue } from '../../plugins/plugin-operation-boundaries.js'
+import type { PluginOperationDefinition } from '../../plugins/plugin-operations.js'
 import type { SchemaDefinition } from '../../schema/index.js'
-import {
-	isSchemaModelInstance,
-	readSchemaModelRecord,
-} from '../../schema/schema/model-state.js'
-import type { RequestEngine } from '../engine/framework-engine.js'
 import { createRequestAdapterAccess } from '../adapters/request-access.js'
+import type { RequestEngine } from '../engine/framework-engine.js'
 import {
 	getOperationWireCodec,
 	getPluginOperationHandler,
@@ -122,71 +117,6 @@ const operationFailure = (
 
 const isPluginError = (error: unknown): error is PluginError =>
 	error instanceof PluginError
-
-const resolveExecutionTarget = (
-	application: FrameworkApplication<
-		readonly SchemaDefinition[],
-		readonly PluginDefinition[]
-	>,
-	compiled: CompiledPluginOperation,
-	binding: ApplicationOperationBinding,
-): PluginOperationExecutionTarget => {
-	switch (compiled.operation.target) {
-		case 'application':
-			if (binding.schema !== undefined || binding.model !== undefined) {
-				throw operationFailure(
-					compiled,
-					'operation-target-invalid',
-					'Application operation received a schema or model binding.',
-				)
-			}
-			return immutableRecord({ kind: 'application' as const })
-		case 'schema':
-			if (
-				binding.schema === undefined ||
-				binding.model !== undefined ||
-				!application.ownsSchema(binding.schema)
-			) {
-				throw operationFailure(
-					compiled,
-					'operation-schema-target-invalid',
-					'Schema operation requires an exact application schema handle.',
-				)
-			}
-			return immutableRecord({
-				kind: 'schema' as const,
-				schema: binding.schema,
-			})
-		case 'model': {
-			if (
-				binding.schema === undefined ||
-				binding.model === undefined ||
-				!application.ownsSchema(binding.schema) ||
-				!isSchemaModelInstance(binding.schema, binding.model)
-			) {
-				throw operationFailure(
-					compiled,
-					'operation-model-target-invalid',
-					'Model operation requires an exact application model handle.',
-				)
-			}
-			const state = readSchemaModelRecord(binding.model).state
-			if (state !== 'draft' && state !== 'persisted') {
-				throw operationFailure(
-					compiled,
-					'operation-model-state-invalid',
-					'Model operation requires a draft or persisted target.',
-				)
-			}
-			return immutableRecord({
-				kind: 'model' as const,
-				model: binding.model,
-				schema: binding.schema,
-				state,
-			})
-		}
-	}
-}
 
 /** Resolves and executes owner-bound plugin operations for one application. */
 export class PluginOperationRuntime {
@@ -293,7 +223,6 @@ export class PluginOperationRuntime {
 	async execute(
 		engine: RequestEngine,
 		compiled: CompiledPluginOperation,
-		binding: ApplicationOperationBinding,
 		envelope: PluginOperationEnvelope,
 	): Promise<unknown> {
 		const owned = this.#handlers.get(compiled.operation)
@@ -304,7 +233,9 @@ export class PluginOperationRuntime {
 				`Operation ${compiled.operation.name} has no installed handler.`,
 			)
 		}
-		const target = resolveExecutionTarget(this.application, compiled, binding)
+		const target: PluginOperationExecutionTarget = immutableRecord({
+			kind: 'application',
+		})
 		try {
 			const candidate = await runWithApplicationPluginOwner(
 				this.application,

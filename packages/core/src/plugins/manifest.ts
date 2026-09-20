@@ -76,7 +76,7 @@ const privilegeMetadata = (
  *
  * @example
  * ```ts
- * const privilege: PluginPrivilege = 'schema:transform'
+ * const privilege: PluginPrivilege = 'schema:declare'
  * ```
  */
 export type PluginPrivilege =
@@ -88,16 +88,12 @@ export type PluginPrivilege =
 	| 'model:extend'
 	| 'operation:declare'
 	| 'persistence:rewrite'
-	| 'query:extend'
 	| 'runtime:constrain'
 	| 'runtime:intercept'
 	| 'runtime:observe'
 	| 'schema:declare'
-	| 'schema:transform'
 	| 'storage:private'
 	| 'transport:expose'
-	| 'typegen:contribute'
-	| 'typegen:emit'
 	| 'typegen:reference'
 
 /**
@@ -108,10 +104,8 @@ export const pluginPrivilegeMetadata: Readonly<
 	Record<PluginPrivilege, PluginPrivilegeMetadata>
 > = immutableRecord({
 	'schema:declare': privilegeMetadata('schema', 'standard'),
-	'schema:transform': privilegeMetadata('schema', 'sensitive'),
 	'storage:private': privilegeMetadata('persistence', 'critical'),
 	'model:extend': privilegeMetadata('model', 'standard'),
-	'query:extend': privilegeMetadata('query', 'standard'),
 	'operation:declare': privilegeMetadata('operation', 'standard'),
 	'runtime:observe': privilegeMetadata('runtime', 'standard'),
 	'runtime:intercept': privilegeMetadata('runtime', 'sensitive'),
@@ -123,8 +117,6 @@ export const pluginPrivilegeMetadata: Readonly<
 	'transport:expose': privilegeMetadata('transport', 'sensitive'),
 	'event:publish': privilegeMetadata('event', 'standard'),
 	'typegen:reference': privilegeMetadata('typegen', 'standard'),
-	'typegen:contribute': privilegeMetadata('typegen', 'standard'),
-	'typegen:emit': privilegeMetadata('typegen', 'sensitive'),
 	'authority:elevate': privilegeMetadata('authority', 'critical'),
 })
 

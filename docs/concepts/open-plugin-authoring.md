@@ -36,13 +36,13 @@ export const publishPost = defineOperation({
 	input: transitionInput,
 	name: 'community.workflow.publish-post',
 	result: transitionResult,
-	target: 'model',
+	target: 'application',
 	transaction: 'required',
 	version: '1.0.0',
 })
 ```
 
-`application`, `schema`, and `model` are the available operation targets. The
+Generic operations target `application`; item-oriented commands use schema mutations. The
 provider receives the validated `input`, resolved `target`, immutable request
 `context`, `engine`, capability `adapters`, and exact contribution `owner`:
 
@@ -75,14 +75,7 @@ const workflowOption = defineSchemaOption<WorkflowSchemaOption>({
 	},
 })
 
-declare: ({
-	models,
-	operations,
-	schemas,
-	typegenContributions,
-	typegenReferences,
-}) => {
-	const targetSchemas = [PostSchema] as const
+declare: ({ operations, schemas, typegenReferences }) => {
 	schemas.defineOptions({
 		contributionId: 'workflow-options',
 		schema: { workflow: workflowOption },
@@ -103,35 +96,20 @@ declare: ({
 	)
 
 	operations.declare(publishPost)
-	for (const target of targetSchemas) {
-		models.extend(target, {
-			contributionId: `workflow-surface:${target.className}`,
-			modelCommands: { publish: publishPost },
-		})
-	}
-
 	typegenReferences?.register(transitionInputReference)
 	typegenReferences?.register(transitionResultReference)
-	typegenContributions?.add({
-		contributionId: 'workflow-contracts',
-		declarations: [workflowHistoryDeclaration],
-	})
 }
 ```
 
 `schemas.add`, `schemas.defineOptions`, `schemas.patch`, `schemas.select`,
-`operations.declare`, `models.extend`, `typegenReferences.register`, and
-`typegenContributions.add` are the current registrar names. `models.extend`
-accepts separate `schemaCommands` and `modelCommands`; plugins never mutate an
-exported schema class or prototype. Typegen contributions are structured inert
-declarations, never source strings or Runtime callbacks.
+`operations.declare`, and `typegenReferences.register` are the registrars used
+here. Patches are additive and require `schema:declare`; operations require
+`operation:declare`; public references require `typegen:reference`. Typegen
+derives declarations from the graph, without a manual output registry.
 
-Schema option namespaces, schemas, fields, indexes, and immutable patches use
-`schema:declare`. Application schema/model commands use `model:extend`.
-Operations use `operation:declare`. Typegen references and declarations use
-`typegen:reference` and `typegen:contribute` respectively. Adding fields does
-not request `schema:transform`; that privilege is reserved for rewriting an
-existing field definition.
+For item-oriented updates or deletes, declare a `defineSchemaMutation` token
+and attach its `schemaMutations` with `models.extend` under `model:extend`.
+Core preserves the selected item's policy, locked target, and transaction.
 
 ## Build the plugin
 
@@ -156,20 +134,12 @@ export const workflowPlugin = (options: WorkflowPluginOptions) =>
 				reason: 'Adds workflow options and fields.',
 			},
 			{
-				name: 'model:extend',
-				reason: 'Adds the publish model command.',
-			},
-			{
 				name: 'operation:declare',
 				reason: 'Declares the publish operation.',
 			},
 			{
 				name: 'typegen:reference',
 				reason: 'References public workflow types.',
-			},
-			{
-				name: 'typegen:contribute',
-				reason: 'Adds structured workflow declarations.',
 			},
 		],
 	})
@@ -241,25 +211,18 @@ logger; the detached report remains available through
 
 ## Use the installed surface
 
-Typegen augments application-owned handles and their returned models. A
-plugin-defined schema mutation also appears on the generated schema class and
-requires the selected application for execution outside an active request:
+Typegen derives the application operation's exact input and result from its
+registered references. Execute the installed token through the application:
 
 ```ts
-const Post = ultimabase.schema(PostSchema)
-const post = await Post.findOne({ where: { id: postId } })
-
-if (post !== null) {
-	await post.publish({ reason: 'Editorial approval' })
-}
+await ultimabase
+	.operation(publishPost)
+	.execute({ reason: 'Editorial approval' })
 ```
 
-Schema commands appear on `Post`; model commands appear on `post`. Dynamic code
-can use `Post.for(post).command(name).execute(input)`. Stable application,
-schema, or model operations can also use their exported token through
-`ultimabase.operation(token)`. JavaScript executes the same graph without
-Typegen; names, payloads, results, ownership, capability versions, and
-application lifetime are validated at Runtime.
+Schema mutations separately expose their declared schema/model methods.
+JavaScript executes the same graph without Typegen; names, payloads, results,
+ownership, capability versions, and application lifetime are validated at Runtime.
 
 ## Adapter, transport, and community helpers
 

@@ -2,45 +2,39 @@ import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import type { SchemaDefinition } from '../schema/schema/definition.js'
 import type { SchemaRegistry } from '../schema/schema/registry.js'
+import {
+	reservedModelHandleNames,
+	reservedSchemaHandleNames,
+	type CompiledApplicationSchemaSurface,
+	type CompiledPluginOperation,
+	type CompiledPluginSchemaMutation,
+	type CompiledSchemaMutationCommand,
+} from './application-surface-contracts.js'
 import type { ApplicationSurfaceDeclarations } from './application-surface-declarations.js'
 import {
 	compilePluginSchemaMutationDefinition,
 	type CompiledPluginSchemaMutationDefinition,
 	type PluginSchemaMutationDefinition,
 } from './plugin-schema-mutations.js'
-import type { SchemaCompilerOutput } from './schema-compiler-ir/contracts.js'
-import type { SchemaCompilerSchemaNode } from './schema-compiler-ir/contracts.js'
+import type {
+	SchemaCompilerOutput,
+	SchemaCompilerSchemaNode,
+} from './schema-compiler-ir/contracts.js'
 import {
 	attachPluginDeclarationDiagnostic,
 	samePluginOwner,
 } from './schema-declaration-contracts.js'
-import {
-	addOperationCommand,
-	reservedModelHandleNames,
-	reservedSchemaHandleNames,
-	type CompiledApplicationSchemaSurface,
-	type CompiledOperationCommand,
-	type CompiledPluginOperation,
-	type CompiledPluginSchemaMutation,
-	type CompiledQueryExtension,
-	type CompiledSchemaMutationCommand,
-} from './application-surface-contracts.js'
 export { coreSchemaHandleCommandNames } from './application-surface-contracts.js'
 export type {
 	CompiledApplicationSchemaSurface,
-	CompiledOperationCommand,
 	CompiledPluginOperation,
 	CompiledPluginSchemaMutation,
-	CompiledQueryExtension,
 	CompiledSchemaMutationCommand,
 } from './application-surface-contracts.js'
 
 interface MutableApplicationSchemaSurface {
-	readonly modelCommands: Map<string, CompiledOperationCommand>
 	readonly modelMutations: Map<string, CompiledSchemaMutationCommand>
-	readonly queryExtensions: Map<string, CompiledQueryExtension>
 	readonly schema: SchemaDefinition
-	readonly schemaCommands: Map<string, CompiledOperationCommand>
 	readonly schemaMutations: Map<string, CompiledSchemaMutationCommand>
 }
 
@@ -132,11 +126,8 @@ export const compileApplicationSurfaces = (
 	const mutableSchemas = new Map<string, MutableApplicationSchemaSurface>()
 	for (const schema of registry.values()) {
 		mutableSchemas.set(schema.className, {
-			modelCommands: new Map(),
 			modelMutations: new Map(),
-			queryExtensions: new Map(),
 			schema,
-			schemaCommands: new Map(),
 			schemaMutations: new Map(),
 		})
 	}
@@ -169,58 +160,6 @@ export const compileApplicationSurfaces = (
 						...outputSchema.fields.map(({ name }) => name),
 						...outputSchema.virtualFields.map(({ name }) => name),
 					])
-					for (const [name, operation] of Object.entries(
-						surface.schemaCommands,
-					)) {
-						if (hasMutationName(target, name)) {
-							throw new TypeError(
-								`${className} surface contains duplicate command: ${name}`,
-							)
-						}
-						if (operations.get(operation.name)?.operation !== operation) {
-							throw new TypeError(
-								`Schema command ${name} references an undeclared operation`,
-							)
-						}
-						addOperationCommand(
-							target.schemaCommands,
-							name,
-							{
-								contributionId: surface.contributionId,
-								operation,
-								owner: surface.owner,
-								staticOptions: surface.staticOptions,
-							},
-							reservedSchemaHandleNames,
-							`${className} schema surface`,
-						)
-					}
-					for (const [name, operation] of Object.entries(
-						surface.modelCommands,
-					)) {
-						if (hasMutationName(target, name)) {
-							throw new TypeError(
-								`${className} surface contains duplicate command: ${name}`,
-							)
-						}
-						if (operations.get(operation.name)?.operation !== operation) {
-							throw new TypeError(
-								`Model command ${name} references an undeclared operation`,
-							)
-						}
-						addOperationCommand(
-							target.modelCommands,
-							name,
-							{
-								contributionId: surface.contributionId,
-								operation,
-								owner: surface.owner,
-								staticOptions: surface.staticOptions,
-							},
-							new Set([...reservedModelHandleNames, ...fieldNames]),
-							`${className} model surface`,
-						)
-					}
 					for (const [name, binding] of Object.entries(
 						surface.schemaMutations,
 					)) {
@@ -238,12 +177,7 @@ export const compileApplicationSurfaces = (
 								`Schema mutation ${name} must be attached by its declaring owner`,
 							)
 						}
-						if (
-							target.schemaCommands.has(name) ||
-							target.modelCommands.has(name) ||
-							target.queryExtensions.has(name) ||
-							hasMutationName(target, name)
-						) {
+						if (hasMutationName(target, name)) {
 							throw new TypeError(
 								`${className} surface contains duplicate command: ${name}`,
 							)
@@ -286,48 +220,6 @@ export const compileApplicationSurfaces = (
 				)
 			}
 		}
-
-		for (const surface of declaration.querySurfaces) {
-			try {
-				for (const className of targetClassNames(surface.target)) {
-					const target = mutableSchemas.get(className)
-					if (target === undefined) {
-						throw new TypeError(`Unknown query surface schema: ${className}`)
-					}
-					for (const [name, extension] of Object.entries(surface.extensions)) {
-						if (reservedSchemaHandleNames.has(name)) {
-							throw new TypeError(
-								`${className} query surface uses reserved method: ${name}`,
-							)
-						}
-						if (
-							target.queryExtensions.has(name) ||
-							hasMutationName(target, name)
-						) {
-							throw new TypeError(
-								`${className} query surface contains duplicate extension: ${name}`,
-							)
-						}
-						target.queryExtensions.set(
-							name,
-							immutableRecord({
-								contributionId: surface.contributionId,
-								extension,
-								owner: surface.owner,
-								staticOptions: surface.staticOptions,
-							}),
-						)
-					}
-				}
-			} catch (cause: unknown) {
-				throw attachPluginDeclarationDiagnostic(
-					cause,
-					surface.owner,
-					'queries',
-					surface.contributionId,
-				)
-			}
-		}
 	}
 
 	const schemas = new Map<string, CompiledApplicationSchemaSurface>()
@@ -335,11 +227,8 @@ export const compileApplicationSurfaces = (
 		schemas.set(
 			className,
 			immutableRecord({
-				modelCommands: new Map(mutable.modelCommands),
 				modelMutations: new Map(mutable.modelMutations),
-				queryExtensions: new Map(mutable.queryExtensions),
 				schema: mutable.schema,
-				schemaCommands: new Map(mutable.schemaCommands),
 				schemaMutations: new Map(mutable.schemaMutations),
 			}),
 		)

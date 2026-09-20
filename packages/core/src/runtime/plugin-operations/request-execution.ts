@@ -1,15 +1,11 @@
-import type {
-	ApplicationOperationBinding,
-	PluginOperationEnvelope,
-} from '../../application/application-handles.js'
+import type { PluginOperationEnvelope } from '../../application/application-handles.js'
 import type { CompiledPluginOperation } from '../../plugins/application-surface-registry.js'
 import type { RequestEngine } from '../engine/framework-engine.js'
-import { executePluginOperationRequest } from './engine-integration.js'
 import type { TransactionLifetime } from '../transactions/transaction-lifetime.js'
+import { executePluginOperationRequest } from './engine-integration.js'
 
 type RequestPluginOperationExecutor = (
 	compiled: CompiledPluginOperation,
-	binding: ApplicationOperationBinding,
 	envelope: PluginOperationEnvelope,
 ) => Promise<unknown>
 const requestPluginOperationExecutors = new WeakMap<
@@ -37,27 +33,19 @@ export const registerRequestPluginOperationExecutor = (
 export const registerRequestPluginOperationHost = (
 	options: RequestPluginOperationHostOptions,
 ): void => {
-	registerRequestPluginOperationExecutor(
-		options.engine,
-		(compiled, binding, envelope) =>
-			executePluginOperationRequest({
-				binding,
-				compiled,
-				engine: options.engine,
-				envelope,
-				...(options.transactionLifetime === undefined
-					? {}
-					: { transactionLifetime: options.transactionLifetime }),
-				runRequiredTransaction: () =>
-					options.runTransaction((transaction) =>
-						executeRequestPluginOperation(
-							transaction,
-							compiled,
-							binding,
-							envelope,
-						),
-					),
-			}),
+	registerRequestPluginOperationExecutor(options.engine, (compiled, envelope) =>
+		executePluginOperationRequest({
+			compiled,
+			engine: options.engine,
+			envelope,
+			...(options.transactionLifetime === undefined
+				? {}
+				: { transactionLifetime: options.transactionLifetime }),
+			runRequiredTransaction: () =>
+				options.runTransaction((transaction) =>
+					executeRequestPluginOperation(transaction, compiled, envelope),
+				),
+		}),
 	)
 }
 
@@ -65,12 +53,11 @@ export const registerRequestPluginOperationHost = (
 export const executeRequestPluginOperation = (
 	engine: RequestEngine,
 	compiled: CompiledPluginOperation,
-	binding: ApplicationOperationBinding,
 	envelope: PluginOperationEnvelope,
 ): Promise<unknown> => {
 	const executor = requestPluginOperationExecutors.get(engine)
 	if (executor === undefined) {
 		throw new TypeError('Request plugin operation execution is unavailable')
 	}
-	return executor(compiled, binding, envelope)
+	return executor(compiled, envelope)
 }

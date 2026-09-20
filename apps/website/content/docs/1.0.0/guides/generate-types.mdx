@@ -84,7 +84,7 @@ export const ultimabase = new UltimaBase({
 })
 ```
 
-This activates conditional Typegen contributions from installed plugins. It
+This activates conditional public type references from installed plugins. It
 also regenerates the files whenever this application starts, before PostgreSQL
 connects. The separate build step below makes those types available **before**
 TypeScript checks your source. The default application ID is `main`; choose
@@ -114,8 +114,8 @@ In the `tsconfig.json` from Manual Installation, include Typegen's output:
 ### Generate before building
 
 Create this script at your project root. It loads the exported application,
-compiles its static graph without calling `start()`, and writes both the main
-declaration and any separately owned outputs from installed plugins:
+compiles its static graph without calling `start()`, and writes the application
+declaration:
 
 ```js title="scripts/generate-types.mjs"
 import path from 'node:path'
@@ -136,12 +136,6 @@ const generated = generateApplicationTypes({ application, applicationId })
 
 await writeGeneratedTypeFiles([
 	{ applicationId, contents: generated.contents, outputPath },
-	...generated.outputs.map((output) => ({
-		applicationId: `${applicationId}:${output.owner}:${output.contributionId}`,
-		contents: output.contents,
-		kind: output.kind,
-		outputPath: path.resolve(path.dirname(outputPath), output.outputPath),
-	})),
 ])
 ```
 

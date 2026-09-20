@@ -1,11 +1,11 @@
 import {
-	getPluginFieldStructuralContains,
 	getPluginFieldStorageCodec,
+	getPluginFieldStructuralContains,
 	readFieldTypegenState,
 	type CompiledSchemaRegistry,
 	type CompiledTypegenGraph,
-	type FieldTypegenState,
 	type FieldDeclarationContext,
+	type FieldTypegenState,
 	type FrameworkApplication,
 	type GenericField,
 	type JsonValue,
@@ -13,8 +13,6 @@ import {
 	type OwnedPluginFieldType,
 	type PluginDefinition,
 	type SchemaDefinition,
-	type TypegenNamedDeclaration,
-	type TypegenPropertyNode,
 } from '@ultimabase/core'
 import {
 	immutableArray,
@@ -115,25 +113,8 @@ export interface TypegenOperationSnapshot {
 	readonly name: string
 	readonly owner: TypegenOwnerSnapshot
 	readonly result: TypegenReference | undefined
-	readonly target: 'application' | 'model' | 'schema'
+	readonly target: 'application'
 	readonly transaction: 'forbidden' | 'optional' | 'required'
-	readonly version: string
-}
-
-export interface TypegenCommandSnapshot {
-	readonly contributionId: string
-	readonly name: string
-	readonly operation: string
-	readonly owner: TypegenOwnerSnapshot
-	readonly staticOptions: Readonly<Record<string, JsonValue>>
-}
-
-export interface TypegenQueryExtensionSnapshot {
-	readonly contributionId: string
-	readonly input: TypegenReference | undefined
-	readonly name: string
-	readonly owner: TypegenOwnerSnapshot
-	readonly staticOptions: Readonly<Record<string, JsonValue>>
 	readonly version: string
 }
 
@@ -155,47 +136,20 @@ export interface TypegenSchemaMutationSnapshot {
 
 export interface TypegenSchemaSurfaceSnapshot {
 	readonly className: string
-	readonly modelCommands: readonly TypegenCommandSnapshot[]
 	readonly modelMutations: readonly TypegenSchemaMutationSnapshot[]
-	readonly queryExtensions: readonly TypegenQueryExtensionSnapshot[]
-	readonly schemaCommands: readonly TypegenCommandSnapshot[]
 	readonly schemaMutations: readonly TypegenSchemaMutationSnapshot[]
-}
-
-export interface TypegenContributionSnapshot {
-	readonly augmentations: readonly Readonly<{
-		readonly model?: readonly TypegenPropertyNode[]
-		readonly schema?: readonly TypegenPropertyNode[]
-		readonly target: string
-	}>[]
-	readonly contributionId: string
-	readonly declarations: readonly TypegenNamedDeclaration[]
-	readonly owner: TypegenOwnerSnapshot
-	readonly staticOptions: Readonly<Record<string, JsonValue>>
-}
-
-export interface TypegenOutputSnapshot {
-	readonly contributionId: string
-	readonly declarations?: readonly TypegenNamedDeclaration[]
-	readonly kind: 'declaration' | 'metadata'
-	readonly metadata?: JsonValue
-	readonly outputPath: string
-	readonly owner: TypegenOwnerSnapshot
-	readonly staticOptions: Readonly<Record<string, JsonValue>>
 }
 
 export interface TypegenApplicationSnapshot {
 	readonly applicationId: string
-	readonly contributions: readonly TypegenContributionSnapshot[]
 	readonly fieldMethods: readonly TypegenFieldMethodSnapshot[]
 	readonly operations: readonly TypegenOperationSnapshot[]
 	readonly options: readonly TypegenOptionSnapshot[]
-	readonly outputs: readonly TypegenOutputSnapshot[]
 	/** Changes fingerprints for private storage without revealing its descriptors. */
 	readonly privateStorageFingerprint?: string
 	readonly schemas: readonly TypegenSchemaSnapshot[]
 	readonly surfaces: readonly TypegenSchemaSurfaceSnapshot[]
-	readonly version: 10
+	readonly version: 11
 }
 
 interface PluginValueReference extends TypegenReference {
@@ -564,7 +518,7 @@ export const createCompiledTypegenSnapshot = (
 			? {}
 			: { privateStorageFingerprint: application.privateStorageFingerprint }),
 		schemas,
-		version: 10,
+		version: 11,
 	})
 }
 

@@ -39,11 +39,7 @@ import {
 export interface OperationTransportPlanningOptions<
 	TTransport extends OperationTransportProtocol = OperationTransportProtocol,
 > {
-	readonly operations: readonly PluginOperationDefinition<
-		string,
-		string,
-		'application'
-	>[]
+	readonly operations: readonly PluginOperationDefinition[]
 	readonly transport: TTransport
 }
 
@@ -116,7 +112,7 @@ const descriptorFor = (
 	state: BoundPlannerState,
 ): ExposedOperationTransportBinding => {
 	const compiled = state.resolveOperation(operation.name)
-	if (compiled?.operation !== operation || operation.target !== 'application') {
+	if (compiled?.operation !== operation) {
 		throw operationFailure(
 			operation,
 			'operation-planning-token-invalid',

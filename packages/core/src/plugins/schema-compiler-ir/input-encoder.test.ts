@@ -1,29 +1,18 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 
-import { stringField } from '../../schema/fields/builtins/string.js'
 import { snapshotJsonValue } from '../../schema/fields/builtins/json.js'
+import { stringField } from '../../schema/fields/builtins/string.js'
 import { defineSchemaConstraint } from '../../schema/schema/constraints.js'
 import {
 	prepareSchemaCompilation,
 	Schema,
 } from '../../schema/schema/definition.js'
+import { addSchemaConstraint } from '../schema-artifact-patch-operations.js'
 import type { SchemaDeclarationBatch } from '../schema-declaration-contracts.js'
-import {
-	addSchemaConstraint,
-	removeSchemaConstraint,
-	replaceSchemaConstraint,
-} from '../schema-artifact-patch-operations.js'
 import {
 	addSchemaField,
 	addSchemaIndex,
-	removeSchemaField,
-	removeSchemaFieldOption,
-	removeSchemaIndex,
-	removeSchemaOption,
-	renameSchemaField,
-	replaceSchemaField,
-	replaceSchemaIndex,
 	setSchemaFieldOption,
 	setSchemaOption,
 } from '../schema-field-patch-operations.js'
@@ -46,11 +35,6 @@ describe('schema compiler declaration encoding', () => {
 			value: { enabled: true },
 			version: 1,
 		})
-		const replacementConstraint = defineSchemaConstraint({
-			kind: 'fixture.compiler-replacement',
-			value: { enabled: false },
-			version: 1,
-		})
 		const Post = Schema.define({
 			className: 'CompilerIrDeclarationPost',
 			fields: (field) => ({
@@ -71,100 +55,34 @@ describe('schema compiler declaration encoding', () => {
 		if (title === undefined || index === undefined) {
 			throw new TypeError('Missing schema compiler fixture artifacts')
 		}
-		const fieldTarget = {
-			contributionId: 'field:CompilerIrDeclarationPost.title',
-			expected: title,
-			owner: { kind: 'application' as const },
-		}
-		const constraintTarget = {
-			contributionId: 'constraint-original',
-			expected: originalConstraint,
-			owner: { kind: 'plugin' as const, pluginId: owner.pluginId },
-		}
-		const indexTarget = {
-			contributionId: 'index:CompilerIrDeclarationPost:0',
-			expected: index,
-			owner: { kind: 'application' as const },
-		}
 		const operations = immutableArray([
 			addSchemaField({
 				contributionId: 'field-add',
 				field: stringField(),
 				name: 'state',
 			}),
-			replaceSchemaField({
-				contributionId: 'field-replace',
-				field: stringField({ required: true }),
-				name: 'title',
-				target: fieldTarget,
-			}),
-			renameSchemaField({
-				contributionId: 'field-rename',
-				from: 'title',
-				target: fieldTarget,
-				to: 'headline',
-			}),
-			removeSchemaField({
-				contributionId: 'field-remove',
-				name: 'title',
-				target: fieldTarget,
-			}),
+
 			addSchemaIndex({
 				contributionId: 'index-add',
 				fields: ['state', 'createdAt'],
 			}),
-			replaceSchemaIndex({
-				contributionId: 'index-replace',
-				fields: ['title', 'updatedAt'],
-				target: indexTarget,
-			}),
-			removeSchemaIndex({
-				contributionId: 'index-remove',
-				target: indexTarget,
-			}),
+
 			addSchemaConstraint({
 				constraint: originalConstraint,
 				contributionId: 'constraint-add',
 			}),
-			replaceSchemaConstraint({
-				constraint: replacementConstraint,
-				contributionId: 'constraint-replace',
-				target: constraintTarget,
-			}),
-			removeSchemaConstraint({
-				contributionId: 'constraint-remove',
-				target: constraintTarget,
-			}),
+
 			setSchemaOption({
 				contributionId: 'schema-option-set',
 				name: 'workflow',
 				value: { enabled: true },
 			}),
-			removeSchemaOption({
-				contributionId: 'schema-option-remove',
-				name: 'workflow',
-				target: {
-					contributionId: 'schema-option-set',
-					expected: { enabled: true },
-					owner: { kind: 'plugin', pluginId: owner.pluginId },
-				},
-			}),
+
 			setSchemaFieldOption({
 				contributionId: 'field-option-set',
 				field: 'title',
 				name: 'search',
 				value: { weight: 10 },
-			}),
-			removeSchemaFieldOption({
-				contributionId: 'field-option-remove',
-				field: 'title',
-				name: 'description',
-				target: {
-					contributionId:
-						'field-option:CompilerIrDeclarationPost.title.description',
-					expected: 'Title',
-					owner: { kind: 'application' },
-				},
 			}),
 		])
 		const workflowOption = defineSchemaOption({
@@ -188,7 +106,6 @@ describe('schema compiler declaration encoding', () => {
 				}),
 			]),
 			canDeclare: true,
-			canTransform: true,
 			options: immutableArray([
 				immutableRecord({
 					contributionId: 'workflow-option:schema:workflow',
@@ -222,11 +139,8 @@ describe('schema compiler declaration encoding', () => {
 			surfaces: immutableRecord({
 				modelSurfaces: immutableArray([]),
 				operations: immutableArray([]),
-				querySurfaces: immutableArray([]),
 			}),
 			typegen: immutableRecord({
-				contributions: immutableArray([]),
-				outputs: immutableArray([]),
 				references: immutableArray([]),
 			}),
 		})
