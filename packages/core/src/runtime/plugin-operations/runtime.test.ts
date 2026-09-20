@@ -7,6 +7,9 @@ import {
 	RecordingDatabaseAdapter,
 	type QueuedAdapterResult,
 } from '../../../tests/runtime/fixtures/recording-database-adapter.js'
+import { FrameworkApplication } from '../../application/framework-application.js'
+import { readApplicationCommandGraph } from '../../plugins/application-command-graph.js'
+import { executeRequestPluginOperation } from './request-execution.js'
 import { PluginError } from '../../errors/plugin-error.js'
 import { requireCapability } from '../../plugins/capabilities.js'
 import { definePlugin } from '../../plugins/definition.js'
@@ -166,6 +169,92 @@ const createFixture = async (options: FixtureOptions = {}) => {
 }
 
 describe('plugin operation Runtime', () => {
+	it('shares direct and transport boundaries without consulting legacy execution views', async () => {
+		const { ultimabase, trace } = await createFixture()
+		const handle = ultimabase.operation(applicationOperation)
+		// Compatibility views remain public metadata, never a second execution source.
+		const legacy = vi
+			.spyOn(FrameworkApplication.prototype, 'getOperation')
+			.mockImplementation(() => {
+				throw new Error('Legacy declaration lookup reached Runtime')
+			})
+		try {
+			const exposure = ultimabase.exposeOperations({
+				transport: fakeProtocol,
+				operations: [applicationOperation.name],
+				acknowledgeUnverifiedProtection: true,
+			})
+			const context = RequestContext.anonymous({
+				requestId: 'canonical-wire',
+				source: 'fixture',
+			})
+			await expect(
+				handle.execute({ message: 'direct' }),
+			).resolves.toStrictEqual({ accepted: true })
+			await expect(
+				exposure.execute({
+					context,
+					input: { text: 'wire' },
+					operation: applicationOperation.name,
+					version: '1.0.0',
+				}),
+			).resolves.toStrictEqual({ ok: true })
+			for (const execute of [
+				() => handle.execute({ message: 42 } as never),
+				() =>
+					exposure.execute({
+						context,
+						input: { text: 42 },
+						operation: applicationOperation.name,
+						version: '1.0.0',
+					}),
+			])
+				await expect(execute()).rejects.toThrow(
+					`${applicationOperation.name}.input.message must be a string`,
+				)
+			expect(trace.filter((entry) => entry === 'adapter:begin')).toHaveLength(2)
+			expect(legacy).not.toHaveBeenCalled()
+		} finally {
+			legacy.mockRestore()
+			await ultimabase.dispose()
+		}
+	})
+
+	it('rejects copied commands and forged envelope facts before entering a transaction', async () => {
+		const { ultimabase, trace } = await createFixture()
+		const graph = readApplicationCommandGraph(ultimabase.application)
+		const command = graph.fromSource(applicationOperation)
+		if (command?.kind !== 'operation')
+			throw new Error('Missing operation fixture')
+		const envelope = ultimabase
+			.operation(applicationOperation)
+			.prepare({ message: 'valid' })
+		const engine = ultimabase.engine.anonymous({
+			requestId: 'canonical-command',
+			source: 'fixture',
+		})
+		await expect(
+			executeRequestPluginOperation(engine, { ...command }, envelope),
+		).rejects.toMatchObject({
+			internalDetails: { kind: 'operation-envelope-mismatch' },
+		})
+		for (const invalid of [
+			{ ...envelope, name: 'fixture.missing' },
+			{ ...envelope, version: '2.0.0' },
+			{ ...envelope, transaction: 'optional' as const },
+		])
+			await expect(
+				executeRequestPluginOperation(engine, command, invalid),
+			).rejects.toMatchObject({
+				internalDetails: { kind: 'operation-envelope-mismatch' },
+			})
+		expect(trace).toStrictEqual([])
+		await expect(
+			executeRequestPluginOperation(engine, command, envelope),
+		).resolves.toStrictEqual({ accepted: true })
+		await ultimabase.dispose()
+	})
+
 	it('opens raw adapter access only inside the active operation transaction', async () => {
 		interface RawFixture {
 			kind(): string

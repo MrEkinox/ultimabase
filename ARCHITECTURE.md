@@ -21,6 +21,11 @@ refines the construction phases: pure compilation freezes declarations and
 ordered surfaces; application materialization binds exact owner implementations
 and inert transport metadata before consumers. Issue 3008 introduces the private
 canonical graph and removes independent Runtime binding ownership stores.
+Issue 3009 executes application operations from those exact records: direct
+handles and wire transports share one input snapshot/envelope boundary, and
+Runtime reads command identity, transaction policy, result boundaries and public
+errors from the graph. The retained declaration view is a derived adapter, not
+an execution registry.
 Bounded legacy handle/Typegen views and transport facades derive from it during
 issues 3009–3012. The removed extension APIs have no compatibility path.
 

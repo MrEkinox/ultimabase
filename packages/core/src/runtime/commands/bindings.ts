@@ -232,13 +232,13 @@ export class CommandBindings {
 	}
 
 	/** Reads the exact attributed implementation without accepting registrations. */
-	handler(source: CommandSource): CommandHandler | undefined {
+	handler(source: CommandSource | CompiledCommand): CommandHandler | undefined {
 		return this.#read(source)?.handler
 	}
 
 	/** Static and executable projections resolve the same canonical binding. */
 	transport(
-		source: CommandSource,
+		source: CommandSource | CompiledCommand,
 		protocol: OperationTransportProtocol,
 	): CommandTransportBinding | undefined {
 		return this.#read(source)?.transports.get(protocol)
@@ -251,9 +251,12 @@ export class CommandBindings {
 		this.#bound.clear()
 	}
 
-	#read(source: CommandSource): Implementations | undefined {
+	#read(source: CommandSource | CompiledCommand): Implementations | undefined {
 		this.#assertAvailable()
-		const command = this.#fromSource(source)
+		const command =
+			source.kind === 'operation' || source.kind === 'mutation'
+				? source
+				: this.#fromSource(source)
 		return command === undefined ? undefined : this.#entries.get(command)
 	}
 

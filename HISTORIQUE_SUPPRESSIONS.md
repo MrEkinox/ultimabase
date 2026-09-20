@@ -165,7 +165,7 @@ au fur et à mesure des migrations et de leurs audits.
 
 | Issues    | Ancien mécanisme à retirer                                                                        | Ce qui reprend sa responsabilité                                                  | État                   |
 | --------- | ------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ---------------------- |
-| 3008–3009 | Stockages indépendants des opérations et faits recopiés entre compilation et exécution            | Graphe privé canonique et liaison d’exécution attribuée au propriétaire           | À réaliser             |
+| 3008–3009 | Stockages indépendants des opérations et faits recopiés entre compilation et exécution            | Graphe privé canonique et liaison d’exécution attribuée au propriétaire           | Livré                  |
 | 3010      | Registres parallèles des mutations de schéma et de leurs bindings                                 | Même graphe, avec la sémantique propre aux mutations conservée                    | À réaliser             |
 | 3011      | Registres de surfaces et générateurs redondants                                                   | Projections immuables des mêmes faits pour les méthodes développeur et Typegen    | À réaliser             |
 | 3012      | Registres et comparaisons en double entre plans statiques et bindings des transports              | Projections REST/GraphQL du graphe, avec codecs et contrôle d’exécution conservés | À réaliser             |
@@ -210,7 +210,7 @@ au fur et à mesure des migrations et de leurs audits.
   Audit final sans anomalie ; 2 523 tests unitaires/types/performance et 379
   intégrations passent. Aucun changement d’implémentation dans Core.
 
-- **3008 — livrée dans ce commit :** les déclarations d’opérations et de
+- **3008 — livrée dans `86a5bbd8` :** les déclarations d’opérations et de
   mutations appartiennent désormais au même graphe privé. Les stockages
   `#compiledOperations` et `#compiledSchemaSurfaces` sont remplacés par ce graphe
   et ses index dérivés. Les quatre registres Runtime `#handlers` et
@@ -225,6 +225,18 @@ au fur et à mesure des migrations et de leurs audits.
   publics et la taille des déclarations restent inchangés. Audit final sans
   anomalie restante : **2 529 tests unitaires/types/performance et 379
   intégrations** passent. Les adaptations restantes sont traitées en 3009–3012.
+
+- **3009 — livrée dans ce commit :** la construction d’enveloppe et la validation
+  des entrées communes aux handles et aux transports ne sont plus dupliquées.
+  Le Runtime des opérations ne lit plus `getOperation()` ni les anciennes vues
+  de déclaration : identité, transactions, erreurs et résultats viennent de la
+  commande canonique. La vue publique reste un adaptateur dérivé sans pouvoir
+  d’enregistrement. Aucun changement métier dans Password Auth ou Plugin Kit,
+  aucune nouvelle API ; les sessions, le stockage privé et les quatre méthodes
+  d’authentification restent couverts. Audit final sans anomalie : **2 532 tests
+  unitaires/types/performance et 379 intégrations** passent. Cette transition
+  ajoute **52 lignes de production** ; les suppressions des adaptations restantes
+  suivent en 3010–3013.
 
 ## Sources de décision
 

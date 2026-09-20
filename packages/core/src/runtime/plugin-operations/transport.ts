@@ -2,8 +2,9 @@ import { runApplicationWork } from '../../application/active-application.js'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 import { FrameworkError } from '../../errors/framework-error.js'
-import type { CompiledPluginOperation } from '../../plugins/application-surface-registry.js'
-import { assertImmutableOperationValue } from '../../plugins/plugin-operation-boundaries.js'
+import type { CompiledOperationCommand } from '../../plugins/command-graph.js'
+import { prepareOperationEnvelope } from '../../application/operation-envelope.js'
+import { readApplicationCommandGraph } from '../../plugins/application-command-graph.js'
 import type { PluginOperationDefinition } from '../../plugins/plugin-operations.js'
 import type { JsonValue } from '../../schema/index.js'
 import { RequestContext } from '../context/request-context.js'
@@ -17,7 +18,7 @@ import type {
 
 interface ExposedOperation {
 	readonly binding: OwnedTransportBinding
-	readonly compiled: CompiledPluginOperation
+	readonly compiled: CompiledOperationCommand
 }
 
 const isRequestContext = (value: unknown): value is RequestContext =>
@@ -108,9 +109,9 @@ export class CoreApplicationOperationTransport<
 		this.operations = Object.freeze(
 			[...this.exposed.values()].map(({ binding, compiled }) =>
 				immutableRecord({
-					errors: compiled.operation.errors,
+					errors: compiled.definition.errors,
 					metadata: binding.binding.metadata,
-					name: compiled.operation.name,
+					name: compiled.definition.name,
 					owner: immutableRecord({
 						...(compiled.owner.instanceId === undefined
 							? {}
@@ -118,7 +119,7 @@ export class CoreApplicationOperationTransport<
 						pluginId: compiled.owner.pluginId,
 						version: compiled.owner.version,
 					}),
-					version: compiled.operation.version,
+					version: compiled.definition.version,
 				}),
 			),
 		)
@@ -146,32 +147,21 @@ export class CoreApplicationOperationTransport<
 					{ publicMessage: 'The requested operation is not available.' },
 				)
 			}
-			if (request.version !== exposed.compiled.operation.version) {
+			if (request.version !== exposed.compiled.definition.version) {
 				throw new FrameworkError(
 					'PLUGIN_PROTOCOL_INCOMPATIBLE',
-					`Operation ${request.operation} version ${request.version} is incompatible with ${exposed.compiled.operation.version}.`,
+					`Operation ${request.operation} version ${request.version} is incompatible with ${exposed.compiled.definition.version}.`,
 					{
 						publicMessage: 'The requested operation version is not available.',
 					},
 				)
 			}
 			const decoded = this.runtime.decode(exposed.binding, request.input)
-			const payload = exposed.compiled.operation.input.snapshot(
+			const envelope = prepareOperationEnvelope(
+				readApplicationCommandGraph(engine.application),
+				exposed.compiled,
 				decoded,
-				`${exposed.compiled.operation.name}.input`,
 			)
-			assertImmutableOperationValue(
-				payload,
-				`${exposed.compiled.operation.name}.input`,
-			)
-			const envelope = immutableRecord({
-				kind: 'plugin-operation' as const,
-				name: exposed.compiled.operation.name,
-				payload,
-				target: immutableRecord({ kind: 'application' as const }),
-				transaction: exposed.compiled.operation.transaction,
-				version: exposed.compiled.operation.version,
-			})
 			const result = await executeRequestPluginOperation(
 				engine,
 				exposed.compiled,

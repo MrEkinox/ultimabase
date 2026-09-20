@@ -10,6 +10,7 @@ import type {
 	CompiledSchemaMutationCommand,
 } from './application-surface-contracts.js'
 import type { PluginOperationDefinition } from './plugin-operations.js'
+import { assertImmutableOperationValue } from './plugin-operation-boundaries.js'
 import type {
 	CompiledPluginSchemaMutationDefinition,
 	PluginSchemaMutationDefinition,
@@ -55,6 +56,27 @@ export type CompiledCommand =
 			readonly surfaces: readonly CommandSurface[]
 	  }>
 
+export type CompiledOperationCommand = Extract<
+	CompiledCommand,
+	{ kind: 'operation' }
+>
+
+interface OperationView {
+	readonly command: CompiledOperationCommand
+	readonly graph: CompiledCommandGraph
+}
+const operationViews = new WeakMap<CompiledPluginOperation, OperationView>()
+
+/** Resolves the retained public declaration view to its canonical private command. */
+export const readOperationCommand = (
+	view: CompiledPluginOperation,
+): OperationView => {
+	const compiled = operationViews.get(view)
+	if (compiled === undefined)
+		throw new TypeError('Operation view was not compiled by Core')
+	return compiled
+}
+
 /** Source tokens never enter an inert projection or become a registration API. */
 export type CommandSource =
 	PluginOperationDefinition | PluginSchemaMutationDefinition
@@ -69,11 +91,10 @@ export class CompiledCommandGraph {
 		this.fromSource(source),
 	)
 	readonly commands: readonly CompiledCommand[]
-	readonly #entries: ReadonlyMap<string, CommandEntry>
-	readonly #operationViews = new WeakMap<
-		CompiledCommand,
-		CompiledPluginOperation
-	>()
+	readonly #entries: ReadonlyMap<
+		string,
+		CommandEntry & { readonly operationView?: CompiledPluginOperation }
+	>
 	readonly #surfaceViews = new Map<string, CompiledApplicationSchemaSurface>()
 
 	constructor(
@@ -81,20 +102,27 @@ export class CompiledCommandGraph {
 		schemas: readonly SchemaDefinition[],
 	) {
 		this.#entries = new Map(
-			entries.map((entry) => [entry.command.definition.name, entry]),
+			entries.map((entry) => {
+				if (
+					entry.command.kind !== 'operation' ||
+					entry.source.kind !== 'plugin-operation'
+				)
+					return [entry.command.definition.name, entry] as const
+				const operationView = immutableRecord({
+					operation: entry.source,
+					owner: entry.command.owner,
+				})
+				operationViews.set(
+					operationView,
+					immutableRecord({ command: entry.command, graph: this }),
+				)
+				return [
+					entry.command.definition.name,
+					{ ...entry, operationView },
+				] as const
+			}),
 		)
 		this.commands = immutableArray(entries.map(({ command }) => command))
-		for (const entry of entries) {
-			if (entry.source.kind === 'plugin-operation') {
-				this.#operationViews.set(
-					entry.command,
-					immutableRecord({
-						operation: entry.source,
-						owner: entry.command.owner,
-					}),
-				)
-			}
-		}
 		const views = new Map(
 			schemas.map((schema) => [
 				schema.className,
@@ -146,10 +174,24 @@ export class CompiledCommandGraph {
 		return entry?.source === source ? entry.command : undefined
 	}
 
+	/** Runs only the exact source boundary belonging to this compiled operation. */
+	snapshotOperation(
+		command: CompiledOperationCommand,
+		boundary: 'input' | 'result',
+		value: unknown,
+	): unknown {
+		const entry = this.#entries.get(command.definition.name)
+		if (entry?.command !== command || entry.source.kind !== 'plugin-operation')
+			throw new TypeError('Operation command belongs to another compiled graph')
+		const path = `${command.definition.name}.${boundary}`
+		const snapshot = entry.source[boundary].snapshot(value, path)
+		assertImmutableOperationValue(snapshot, path)
+		return snapshot
+	}
+
 	/** Temporary operation view for the bounded execution and surface migrations. */
 	operation(name: string): CompiledPluginOperation | undefined {
-		const command = this.get(name)
-		return command === undefined ? undefined : this.#operationViews.get(command)
+		return this.#entries.get(name)?.operationView
 	}
 
 	/** Copies the index while retaining the exact immutable envelope command identities. */

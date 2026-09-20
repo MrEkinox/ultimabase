@@ -16,7 +16,7 @@ import {
 	type FrameworkApplicationOptions,
 	type PluginDefinition,
 } from '../../foundation.js'
-import type { CompiledPluginOperation } from '../../plugins/application-surface-registry.js'
+import type { CompiledOperationCommand } from '../../plugins/command-graph.js'
 import type { PluginOperationDefinition } from '../../plugins/plugin-operations.js'
 import {
 	executeStaticSchemaMutation,
@@ -400,7 +400,7 @@ export class UltimaBase<
 	}
 
 	async #executePluginOperation(
-		compiled: CompiledPluginOperation,
+		compiled: CompiledOperationCommand,
 		envelope: PluginOperationEnvelope,
 	): Promise<unknown> {
 		const active = getActiveFrameworkContext()

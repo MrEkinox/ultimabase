@@ -11,11 +11,12 @@ import type {
 	PluginDefinition,
 } from '../../foundation.js'
 import { readApplicationCommandGraph } from '../../plugins/application-command-graph.js'
-import type { CommandBindings } from '../commands/bindings.js'
-import type { CompiledPluginOperation } from '../../plugins/application-surface-registry.js'
+import type {
+	CompiledCommandGraph,
+	CompiledOperationCommand,
+} from '../../plugins/command-graph.js'
 import { runWithApplicationPluginOwner } from '../../plugins/callback-execution.js'
 import { formatPluginIdentity } from '../../plugins/manifest.js'
-import { assertImmutableOperationValue } from '../../plugins/plugin-operation-boundaries.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import { createRequestAdapterAccess } from '../adapters/request-access.js'
 import type { RequestEngine } from '../engine/framework-engine.js'
@@ -33,7 +34,7 @@ export interface OwnedTransportBinding {
 }
 
 const operationFailure = (
-	compiled: CompiledPluginOperation,
+	compiled: CompiledOperationCommand,
 	kind: string,
 	message: string,
 	cause?: unknown,
@@ -44,7 +45,7 @@ const operationFailure = (
 		publicMessage: 'The requested operation could not be completed.',
 		internalDetails: {
 			kind,
-			operation: compiled.operation.name,
+			operation: compiled.definition.name,
 			plugin: formatPluginIdentity(compiled.owner),
 			...(contributionId === undefined ? {} : { contributionId }),
 		},
@@ -55,7 +56,7 @@ const isPluginError = (error: unknown): error is PluginError =>
 
 /** Resolves and executes owner-bound plugin operations for one application. */
 export class PluginOperationRuntime {
-	readonly #bindings: CommandBindings
+	readonly #graph: CompiledCommandGraph
 
 	constructor(
 		private readonly application: FrameworkApplication<
@@ -64,21 +65,21 @@ export class PluginOperationRuntime {
 		>,
 	) {
 		// Binding ownership is decided once during application materialization.
-		this.#bindings = readApplicationCommandGraph(application).bindings
+		this.#graph = readApplicationCommandGraph(application)
 	}
 
 	/** Invokes one handler and enforces its result and public error contracts. */
 	async execute(
 		engine: RequestEngine,
-		compiled: CompiledPluginOperation,
+		compiled: CompiledOperationCommand,
 		envelope: PluginOperationEnvelope,
 	): Promise<unknown> {
-		const owned = this.#bindings.handler(compiled.operation)
+		const owned = this.#graph.bindings.handler(compiled)
 		if (owned?.kind !== 'operation') {
 			throw operationFailure(
 				compiled,
 				'operation-handler-missing',
-				`Operation ${compiled.operation.name} has no installed handler.`,
+				`Operation ${compiled.definition.name} has no installed handler.`,
 			)
 		}
 		const target: PluginOperationExecutionTarget = immutableRecord({
@@ -100,19 +101,14 @@ export class PluginOperationRuntime {
 						}),
 					),
 			)
-			const result = compiled.operation.result.snapshot(
-				candidate,
-				`${compiled.operation.name}.result`,
-			)
-			assertImmutableOperationValue(result, `${compiled.operation.name}.result`)
-			return result
+			return this.#graph.snapshotOperation(compiled, 'result', candidate)
 		} catch (error: unknown) {
 			if (isPluginError(error)) {
-				if (compiled.operation.errors.includes(error.code)) throw error
+				if (compiled.definition.errors.includes(error.code)) throw error
 				throw operationFailure(
 					compiled,
 					'operation-plugin-error-undeclared',
-					`Operation ${compiled.operation.name} threw undeclared plugin error ${error.code}.`,
+					`Operation ${compiled.definition.name} threw undeclared plugin error ${error.code}.`,
 					error,
 					owned.contributionId,
 				)
@@ -121,7 +117,7 @@ export class PluginOperationRuntime {
 			throw operationFailure(
 				compiled,
 				'operation-handler-failed',
-				`Operation ${compiled.operation.name} handler failed.`,
+				`Operation ${compiled.definition.name} handler failed.`,
 				error,
 				owned.contributionId,
 			)
@@ -130,15 +126,15 @@ export class PluginOperationRuntime {
 
 	/** Resolves one binding only after explicit application exposure selects it. */
 	transportBinding(
-		compiled: CompiledPluginOperation,
+		compiled: CompiledOperationCommand,
 		transport: OperationTransportProtocol,
 	): OwnedTransportBinding {
-		const binding = this.#bindings.transport(compiled.operation, transport)
+		const binding = this.#graph.bindings.transport(compiled, transport)
 		if (binding?.kind !== 'operation') {
 			throw operationFailure(
 				compiled,
 				'operation-transport-binding-missing',
-				`Operation ${compiled.operation.name} has no binding for ${transport.name}@${transport.version}.`,
+				`Operation ${compiled.definition.name} has no binding for ${transport.name}@${transport.version}.`,
 			)
 		}
 		return binding

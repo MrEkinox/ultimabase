@@ -16,7 +16,12 @@ import {
 	type CompiledPluginOperation,
 	type CompiledSchemaMutationCommand,
 } from '../plugins/application-surface-registry.js'
-import { assertImmutableOperationValue } from '../plugins/plugin-operation-boundaries.js'
+import {
+	readOperationCommand,
+	type CompiledCommandGraph,
+	type CompiledOperationCommand,
+} from '../plugins/command-graph.js'
+import { prepareOperationEnvelope } from './operation-envelope.js'
 import type {
 	PluginOperationDefinition,
 	PluginOperationInput,
@@ -36,7 +41,6 @@ import {
 	snapshotApplicationContributionOwner,
 	type ApplicationContributionOwner,
 	type PluginOperationEnvelope,
-	type PluginOperationEnvelopeTarget,
 } from './application-operation-contracts.js'
 import {
 	createApplicationSchemaMutationMethod,
@@ -52,7 +56,7 @@ interface ApplicationHandleLifetime {
 }
 /** Executes one prepared envelope through the facade's active RequestEngine. */
 export type ApplicationOperationExecutor = (
-	compiled: CompiledPluginOperation,
+	compiled: CompiledOperationCommand,
 	envelope: PluginOperationEnvelope,
 ) => Promise<unknown>
 const applicationOperationExecutors = new WeakMap<
@@ -70,15 +74,18 @@ export class ApplicationOperationHandle<
 > {
 	readonly definition: TOperation
 	readonly owner: ApplicationContributionOwner
-	readonly #compiled: CompiledPluginOperation
+	readonly #compiled: CompiledOperationCommand
+	readonly #graph: CompiledCommandGraph
 
 	constructor(
 		private readonly lifetime: ApplicationHandleLifetime,
 		compiled: CompiledPluginOperation,
 	) {
-		this.#compiled = compiled
+		const { command, graph } = readOperationCommand(compiled)
+		this.#compiled = command
+		this.#graph = graph
 		this.definition = compiled.operation as TOperation
-		this.owner = snapshotApplicationContributionOwner(compiled.owner)
+		this.owner = snapshotApplicationContributionOwner(command.owner)
 		Object.freeze(this)
 	}
 
@@ -102,23 +109,11 @@ export class ApplicationOperationHandle<
 		input: PluginOperationInput<TOperation>,
 	): PluginOperationEnvelope<TOperation> {
 		assertHandleAvailable(this.lifetime)
-		const payload = this.definition.input.snapshot(
+		return prepareOperationEnvelope(
+			this.#graph,
+			this.#compiled,
 			input,
-			`${this.definition.name}.input`,
-		) as PluginOperationInput<TOperation>
-		assertImmutableOperationValue(payload, `${this.definition.name}.input`)
-		const target: PluginOperationEnvelopeTarget = immutableRecord({
-			kind: 'application',
-		})
-		const envelope = immutableRecord({
-			kind: 'plugin-operation' as const,
-			name: this.definition.name,
-			payload,
-			target,
-			transaction: this.definition.transaction,
-			version: this.definition.version,
-		}) as PluginOperationEnvelope<TOperation>
-		return envelope
+		) as PluginOperationEnvelope<TOperation>
 	}
 }
 

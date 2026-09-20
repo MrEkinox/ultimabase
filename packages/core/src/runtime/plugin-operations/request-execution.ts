@@ -1,12 +1,12 @@
 import { runApplicationWork } from '../../application/active-application.js'
 import type { PluginOperationEnvelope } from '../../application/application-handles.js'
-import type { CompiledPluginOperation } from '../../plugins/application-surface-registry.js'
+import type { CompiledOperationCommand } from '../../plugins/command-graph.js'
 import type { RequestEngine } from '../engine/framework-engine.js'
 import type { TransactionLifetime } from '../transactions/transaction-lifetime.js'
 import { executePluginOperationRequest } from './engine-integration.js'
 
 type RequestPluginOperationExecutor = (
-	compiled: CompiledPluginOperation,
+	compiled: CompiledOperationCommand,
 	envelope: PluginOperationEnvelope,
 ) => Promise<unknown>
 const requestPluginOperationExecutors = new WeakMap<
@@ -53,7 +53,7 @@ export const registerRequestPluginOperationHost = (
 /** Invokes the private bridge without adding low-level methods to the public class. */
 export const executeRequestPluginOperation = (
 	engine: RequestEngine,
-	compiled: CompiledPluginOperation,
+	compiled: CompiledOperationCommand,
 	envelope: PluginOperationEnvelope,
 ): Promise<unknown> => {
 	const executor = requestPluginOperationExecutors.get(engine)

@@ -14,6 +14,7 @@ import {
 	provideOperationTransportBinding,
 } from '../runtime/plugin-operations/capabilities.js'
 import { readApplicationCommandGraph } from './application-command-graph.js'
+import { readOperationCommand } from './command-graph.js'
 import { definePlugin } from './definition.js'
 import { defineOperation, defineOperationValue } from './plugin-operations.js'
 import { defineSchemaMutation } from './plugin-schema-mutations.js'
@@ -144,6 +145,47 @@ const assertInert = (candidate: unknown): void => {
 }
 
 describe('canonical command graph', () => {
+	it('keeps snapshot callbacks private and rejects foreign command identities', async () => {
+		const owned = fixture()
+		const applications = [0, 1].map(() =>
+			applicationFixture(
+				new FrameworkApplication({
+					schemas: [Document],
+					plugins: [owned.plugin],
+					pluginPrivileges: { logger: false },
+				}),
+			),
+		)
+		const graphs = applications.map((application) => {
+			application.compileSchemas()
+			return readApplicationCommandGraph(application)
+		})
+		const [first, second] = graphs
+		if (first === undefined || second === undefined)
+			throw new Error('Missing fixture graph')
+		const view = first.operation(owned.operation.name)
+		if (view === undefined) throw new Error('Missing fixture operation')
+		const { command, graph } = readOperationCommand(view)
+		expect(graph).toBe(first)
+		expect(command).toBe(first.fromSource(owned.operation))
+		expect(first.snapshotOperation(command, 'input', 'payload')).toBe('payload')
+		expect(first.snapshotOperation(command, 'result', 'result')).toBe('result')
+		expect(() => first.snapshotOperation(command, 'input', 42)).toThrow(
+			'Expected a string',
+		)
+		// Same nominal token and owner in another pure compilation confer no authority.
+		expect(() => second.snapshotOperation(command, 'input', 'payload')).toThrow(
+			'another compiled graph',
+		)
+		expect(second.bindings.handler(command)).toBeUndefined()
+		expect(() => readOperationCommand({ ...view })).toThrow(
+			'not compiled by Core',
+		)
+		assertInert(command)
+		expect(owned.create).not.toHaveBeenCalled()
+		for (const application of applications) await application.dispose()
+	})
+
 	it('compiles two inert kinds and stable derived aliases in contribution order', async () => {
 		const owned = fixture()
 		const application = applicationFixture(

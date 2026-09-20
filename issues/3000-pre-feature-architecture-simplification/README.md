@@ -36,7 +36,7 @@ this milestone.
 6. [x] [3006 — Enforce one active UltimaBase runtime per process](3006-single-active-ultimabase-runtime.md)
 7. [x] [3007 — Simplify HTTP and server application ownership](3007-simplify-http-application-ownership.md)
 8. [x] [3008 — Compile one canonical command graph](3008-canonical-command-graph.md)
-9. [ ] [3009 — Migrate application operations to the canonical graph](3009-migrate-application-operations.md)
+9. [x] [3009 — Migrate application operations to the canonical graph](3009-migrate-application-operations.md)
 10. [ ] [3010 — Migrate schema mutations to the canonical graph](3010-migrate-schema-mutations.md)
 11. [ ] [3011 — Derive developer and Typegen surfaces](3011-derive-developer-typegen-surfaces.md)
 12. [ ] [3012 — Derive REST and GraphQL transport projections](3012-derive-transport-projections.md)

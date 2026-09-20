@@ -1,3 +1,4 @@
+import { readApplicationCommandGraph } from '../../plugins/application-command-graph.js'
 import {
 	immutableRecord,
 	isPlainRecord,
@@ -7,7 +8,7 @@ import {
 import type { PluginOperationEnvelope } from '../../application/application-handles.js'
 import { FrameworkError } from '../../errors/framework-error.js'
 import { readApplicationCapabilityContributions } from '../../plugins/application-capability-access.js'
-import type { CompiledPluginOperation } from '../../plugins/application-surface-registry.js'
+import type { CompiledOperationCommand } from '../../plugins/command-graph.js'
 import { throwIfOperationCancelled } from '../cancellation/operation-cancellation.js'
 import { runtimeConstraintCapability } from '../capabilities.js'
 import { runWithRequestEngineScope } from '../context/active-framework-storage.js'
@@ -176,7 +177,7 @@ export const exposeFrameworkOperations = <
 		string,
 		{
 			readonly binding: ReturnType<PluginOperationRuntime['transportBinding']>
-			readonly compiled: CompiledPluginOperation
+			readonly compiled: CompiledOperationCommand
 		}
 	>()
 	const runtime = getFrameworkPluginOperations(framework)
@@ -188,11 +189,12 @@ export const exposeFrameworkOperations = <
 				'operation transport exposure entries must be tokens or names',
 			)
 		}
-		const compiled = framework.application.getOperation(name)
-		if (
-			compiled === undefined ||
-			(typeof tokenOrName !== 'string' && compiled.operation !== tokenOrName)
-		) {
+		const graph = readApplicationCommandGraph(framework.application)
+		const compiled =
+			typeof tokenOrName === 'string'
+				? graph.get(name)
+				: graph.fromSource(tokenOrName)
+		if (compiled?.kind !== 'operation') {
 			throw new FrameworkError(
 				'PLUGIN_OPERATION_INVALID',
 				`Operation ${name} is not installed in this application.`,
@@ -229,7 +231,7 @@ export const exposeFrameworkOperations = <
 }
 
 interface ExecutePluginOperationRequest {
-	readonly compiled: CompiledPluginOperation
+	readonly compiled: CompiledOperationCommand
 	readonly engine: RequestEngine
 	readonly envelope: PluginOperationEnvelope
 	readonly transactionLifetime?: TransactionLifetime
@@ -243,10 +245,12 @@ export const executePluginOperationRequest = async (
 	const { compiled, engine, envelope, transactionLifetime } = request
 	const targetKind: unknown = envelope.target.kind
 	if (
-		engine.application.getOperation(compiled.operation.name) !== compiled ||
-		envelope.name !== compiled.operation.name ||
-		envelope.version !== compiled.operation.version ||
-		envelope.transaction !== compiled.operation.transaction ||
+		readApplicationCommandGraph(engine.application).get(
+			compiled.definition.name,
+		) !== compiled ||
+		envelope.name !== compiled.definition.name ||
+		envelope.version !== compiled.definition.version ||
+		envelope.transaction !== compiled.definition.transaction ||
 		targetKind !== 'application'
 	) {
 		throw new FrameworkError(
@@ -256,7 +260,7 @@ export const executePluginOperationRequest = async (
 				publicMessage: 'The requested operation is not available.',
 				internalDetails: {
 					kind: 'operation-envelope-mismatch',
-					operation: compiled.operation.name,
+					operation: compiled.definition.name,
 				},
 			},
 		)
@@ -266,18 +270,18 @@ export const executePluginOperationRequest = async (
 	})
 
 	if (
-		compiled.operation.transaction === 'required' &&
+		compiled.definition.transaction === 'required' &&
 		transactionLifetime === undefined
 	) {
 		return request.runRequiredTransaction()
 	}
 	if (
-		compiled.operation.transaction === 'forbidden' &&
+		compiled.definition.transaction === 'forbidden' &&
 		transactionLifetime !== undefined
 	) {
 		const error = new FrameworkError(
 			'TRANSACTION_ERROR',
-			`Operation ${compiled.operation.name} forbids an active transaction.`,
+			`Operation ${compiled.definition.name} forbids an active transaction.`,
 			{
 				publicMessage: 'The operation cannot run in this transaction.',
 				internalDetails: {

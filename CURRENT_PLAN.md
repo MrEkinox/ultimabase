@@ -1,12 +1,12 @@
 # Active plan: pre-feature architecture simplification
 
-- Status: active — issue 3008 audited; issue 3009 follows its dedicated commit
+- Status: active — issue 3009 audited; issue 3010 follows its dedicated commit
 - Milestone: [30 — Pre-feature architecture simplification](issues/3000-pre-feature-architecture-simplification/README.md)
 - Detailed plan: [docs/plans/2026-09-20-pre-feature-architecture-simplification.md](docs/plans/2026-09-20-pre-feature-architecture-simplification.md)
 - Baseline: [docs/plans/2026-09-20-architecture-simplification-baseline.md](docs/plans/2026-09-20-architecture-simplification-baseline.md)
 - Contract matrix: [docs/plans/2026-09-20-architecture-contract-matrix.md](docs/plans/2026-09-20-architecture-contract-matrix.md)
 - Removal history: [HISTORIQUE_SUPPRESSIONS.md](HISTORIQUE_SUPPRESSIONS.md)
-- Resume point: issue 3009
+- Resume point: issue 3010
 
 ## Objective
 
@@ -142,9 +142,20 @@ Derived adapters preserve existing identity, ordering, API and plugin behavior.
 The final 2,529 unit/type/performance and 379 integration tests pass, alongside
 typecheck, build, lint, website, constraints and issue metadata. This foundation
 adds 100 production TypeScript lines; public exports and declaration bytes are
-unchanged. Its dedicated local commit must precede issue 3009. Nothing is pushed.
+unchanged. Issue 3008 is committed as `86a5bbd8`: +1,365 / -604 lines, net +761,
+including tests and documentation. Nothing was pushed.
 The bounded consumer migrations remain issues 3009–3012, followed by the removal
 audit and checkpoint. Stop after issue 3014 remains mandatory.
+
+Issue 3009 is complete with a green audit. Application operation execution now
+reads canonical command records; direct handles and transports share input
+snapshot/envelope preparation. Required/optional/forbidden transactions, request
+context, owner attribution, public errors and result snapshots remain unchanged.
+Password Auth and Plugin Kit need no production or public API change. All 2,532
+unit/type/performance and 379 integration tests pass, alongside typecheck, build,
+lint, constraints and issue metadata. Production adds 52 lines during this bounded
+migration; exports and declaration bytes stay unchanged. Its dedicated local
+commit must precede issue 3010. No push is authorized; stop after 3014.
 
 Documentation impact: internal engineering documentation until an issue changes
 a public contract; those issues must update both package and public website
