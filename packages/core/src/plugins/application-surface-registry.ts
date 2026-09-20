@@ -1,20 +1,19 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
-import type { SchemaDefinition } from '../schema/schema/definition.js'
 import type { SchemaRegistry } from '../schema/schema/registry.js'
 import {
 	reservedModelHandleNames,
 	reservedSchemaHandleNames,
-	type CompiledApplicationSchemaSurface,
-	type CompiledPluginOperation,
-	type CompiledPluginSchemaMutation,
-	type CompiledSchemaMutationCommand,
 } from './application-surface-contracts.js'
+import {
+	CompiledCommandGraph,
+	type CommandEntry,
+	type CommandSurface,
+} from './command-graph.js'
 import type { ApplicationSurfaceDeclarations } from './application-surface-declarations.js'
 import {
 	compilePluginSchemaMutationDefinition,
 	type CompiledPluginSchemaMutationDefinition,
-	type PluginSchemaMutationDefinition,
 } from './plugin-schema-mutations.js'
 import type {
 	SchemaCompilerOutput,
@@ -28,21 +27,8 @@ export { coreSchemaHandleCommandNames } from './application-surface-contracts.js
 export type {
 	CompiledApplicationSchemaSurface,
 	CompiledPluginOperation,
-	CompiledPluginSchemaMutation,
 	CompiledSchemaMutationCommand,
 } from './application-surface-contracts.js'
-
-interface MutableApplicationSchemaSurface {
-	readonly modelMutations: Map<string, CompiledSchemaMutationCommand>
-	readonly schema: SchemaDefinition
-	readonly schemaMutations: Map<string, CompiledSchemaMutationCommand>
-}
-
-const hasMutationName = (
-	surface: MutableApplicationSchemaSurface,
-	name: string,
-): boolean =>
-	surface.modelMutations.has(name) || surface.schemaMutations.has(name)
 
 const assertMutationSelection = (
 	name: string,
@@ -61,42 +47,51 @@ const assertMutationSelection = (
 	}
 }
 
-/** Validates and publishes all non-executable operation and handle declarations. */
-export const compileApplicationSurfaces = (
+/** Compiles one immutable command graph before any schema state is published. */
+export const compileCommandGraph = (
 	declarations: readonly ApplicationSurfaceDeclarations[],
 	output: SchemaCompilerOutput,
 	registry: SchemaRegistry,
-): Readonly<{
-	operations: ReadonlyMap<string, CompiledPluginOperation>
-	schemaMutations: ReadonlyMap<string, CompiledPluginSchemaMutation>
-	schemas: ReadonlyMap<string, CompiledApplicationSchemaSurface>
-}> => {
-	const operations = new Map<string, CompiledPluginOperation>()
-	const schemaMutations = new Map<string, CompiledPluginSchemaMutation>()
-	const sources = new Map<string, PluginSchemaMutationDefinition>()
+): CompiledCommandGraph => {
+	const entries = new Map<string, CommandEntry>()
+	const surfaces = new Map<string, CommandSurface[]>()
 	for (const declaration of declarations) {
 		for (const owned of declaration.operations) {
-			const name = owned.operation.name
-			if (operations.has(name) || schemaMutations.has(name)) {
+			const source = owned.operation
+			const name = source.name
+			if (entries.has(name)) {
 				throw attachPluginDeclarationDiagnostic(
 					new TypeError(`Duplicate plugin operation name: ${name}`),
 					owned.owner,
 					`operations.${name}`,
 				)
 			}
-			if (owned.operation.kind === 'plugin-schema-mutation') {
-				const mutation = compilePluginSchemaMutationDefinition(owned.operation)
-				schemaMutations.set(
-					name,
-					immutableRecord({ mutation, owner: owned.owner }),
-				)
-				sources.set(name, owned.operation)
-			} else {
-				operations.set(
-					name,
-					immutableRecord({ operation: owned.operation, owner: owned.owner }),
-				)
-			}
+			const command =
+				source.kind === 'plugin-schema-mutation'
+					? immutableRecord({
+							kind: 'mutation' as const,
+							definition: compilePluginSchemaMutationDefinition(source),
+							owner: owned.owner,
+							surfaces: immutableArray<readonly CommandSurface[]>([]),
+						})
+					: immutableRecord({
+							kind: 'operation' as const,
+							definition: immutableRecord({
+								...source,
+								input: immutableRecord({
+									...(source.input.typegen === undefined
+										? {}
+										: { typegen: source.input.typegen }),
+								}),
+								result: immutableRecord({
+									...(source.result.typegen === undefined
+										? {}
+										: { typegen: source.result.typegen }),
+								}),
+							}),
+							owner: owned.owner,
+						})
+			entries.set(name, { command, source })
 		}
 	}
 
@@ -123,16 +118,10 @@ export const compileApplicationSurfaces = (
 		}
 		return immutableArray([target.schema.className])
 	}
-	const mutableSchemas = new Map<string, MutableApplicationSchemaSurface>()
-	for (const schema of registry.values()) {
-		mutableSchemas.set(schema.className, {
-			modelMutations: new Map(),
-			schema,
-			schemaMutations: new Map(),
-		})
-	}
+	const schemaAliases = new Map<string, Set<string>>()
 
 	const mutationContributionIds = new Set<string>()
+	let nextSurfaceOrder = 0
 	for (const declaration of declarations) {
 		for (const surface of declaration.modelSurfaces) {
 			try {
@@ -146,7 +135,7 @@ export const compileApplicationSurfaces = (
 					mutationContributionIds.add(contributionKey)
 				}
 				for (const className of targetClassNames(surface.target)) {
-					const target = mutableSchemas.get(className)
+					const target = registry.get(className)
 					if (target === undefined) {
 						throw new TypeError(`Unknown model surface schema: ${className}`)
 					}
@@ -163,10 +152,11 @@ export const compileApplicationSurfaces = (
 					for (const [name, binding] of Object.entries(
 						surface.schemaMutations,
 					)) {
-						const compiled = schemaMutations.get(binding.mutation.name)
+						const entry = entries.get(binding.mutation.name)
+						const compiled = entry?.command
 						if (
-							compiled === undefined ||
-							sources.get(binding.mutation.name) !== binding.mutation
+							compiled?.kind !== 'mutation' ||
+							entry?.source !== binding.mutation
 						) {
 							throw new TypeError(
 								`Schema mutation ${name} references an undeclared mutation`,
@@ -177,18 +167,27 @@ export const compileApplicationSurfaces = (
 								`Schema mutation ${name} must be attached by its declaring owner`,
 							)
 						}
-						if (hasMutationName(target, name)) {
+						const aliases = schemaAliases.get(className) ?? new Set<string>()
+						if (aliases.has(name)) {
 							throw new TypeError(
 								`${className} surface contains duplicate command: ${name}`,
 							)
 						}
-						assertMutationSelection(name, compiled.mutation, outputSchema)
-						const command = immutableRecord({
-							contributionId: surface.contributionId,
-							mutation: compiled.mutation,
-							owner: surface.owner,
-							staticOptions: surface.staticOptions,
-						})
+						aliases.add(name)
+						schemaAliases.set(className, aliases)
+						assertMutationSelection(name, compiled.definition, outputSchema)
+						const selected = surfaces.get(binding.mutation.name) ?? []
+						selected.push(
+							immutableRecord({
+								className,
+								order: nextSurfaceOrder++,
+								contributionId: surface.contributionId,
+								name,
+								staticOptions: surface.staticOptions,
+								surfaces: binding.surfaces,
+							}),
+						)
+						surfaces.set(binding.mutation.name, selected)
 						for (const mutationSurface of binding.surfaces) {
 							if (mutationSurface === 'schema') {
 								if (reservedSchemaHandleNames.has(name)) {
@@ -196,7 +195,6 @@ export const compileApplicationSurfaces = (
 										`${className} schema mutation uses reserved handle method: ${name}`,
 									)
 								}
-								target.schemaMutations.set(name, command)
 							} else {
 								if (
 									reservedModelHandleNames.has(name) ||
@@ -206,7 +204,6 @@ export const compileApplicationSurfaces = (
 										`${className} model mutation uses reserved handle method: ${name}`,
 									)
 								}
-								target.modelMutations.set(name, command)
 							}
 						}
 					}
@@ -222,21 +219,21 @@ export const compileApplicationSurfaces = (
 		}
 	}
 
-	const schemas = new Map<string, CompiledApplicationSchemaSurface>()
-	for (const [className, mutable] of mutableSchemas) {
-		schemas.set(
-			className,
+	return new CompiledCommandGraph(
+		[...entries.values()].map(({ command, source }) =>
 			immutableRecord({
-				modelMutations: new Map(mutable.modelMutations),
-				schema: mutable.schema,
-				schemaMutations: new Map(mutable.schemaMutations),
+				command:
+					command.kind === 'mutation'
+						? immutableRecord({
+								...command,
+								surfaces: immutableArray(
+									surfaces.get(command.definition.name) ?? [],
+								),
+							})
+						: command,
+				source,
 			}),
-		)
-	}
-
-	return immutableRecord({
-		operations: new Map(operations),
-		schemaMutations: new Map(schemaMutations),
-		schemas: new Map(schemas),
-	})
+		),
+		[...registry.values()],
+	)
 }

@@ -16,8 +16,13 @@ after shutdown; HTTP application identity remains required.
 accepts ten precisely listed extension removals and one private compiled command
 graph. Issues 3004/3005 remove those unused powers while preserving the used
 performance measurements; issues 3008–3013 consolidate application operations
-and schema mutations. The separate command representations remain until that
-consolidation; the removed extension APIs have no compatibility path.
+and schema mutations. [ADR-0261](docs/adr/0261-command-compilation-and-binding-phases.md)
+refines the construction phases: pure compilation freezes declarations and
+ordered surfaces; application materialization binds exact owner implementations
+and inert transport metadata before consumers. Issue 3008 introduces the private
+canonical graph and removes independent Runtime binding ownership stores.
+Bounded legacy handle/Typegen views and transport facades derive from it during
+issues 3009–3012. The removed extension APIs have no compatibility path.
 
 ```text
 developer declarations + pure authorized plugin declarations

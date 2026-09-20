@@ -4,7 +4,7 @@
 - Milestone: 30
 - Packages: `@ultimabase/core`, `@ultimabase/soft-delete-plugin`, `@ultimabase/access-plugin`, `@ultimabase/hooks-plugin`
 - Depends on: 3009
-- ADR: ADR-0259 and retained schema-mutation semantics from ADR-0245
+- ADR: ADR-0261 refines the compilation/binding phases of ADR-0259 and retained schema-mutation semantics from ADR-0245
 
 ## Goal
 

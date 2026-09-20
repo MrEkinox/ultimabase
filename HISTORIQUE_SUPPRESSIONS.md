@@ -198,7 +198,7 @@ au fur et à mesure des migrations et de leurs audits.
   Cette étape ajoute **344 lignes de production** pour le contrôle et la fermeture
   sûre du cycle de vie. Le retrait de l’hébergement HTTP partagé reste en 3007.
 
-- **3007 — livrée dans ce commit :** retrait de `HttpApplicationMountTable`,
+- **3007 — `fc579bf4` :** retrait de `HttpApplicationMountTable`,
   de son type de configuration `HttpServerProviderCompatibility`, des tableaux
   d’applications, du set Hono des applications démarrées, de la comparaison
   CORS entre applications et du comptage des derniers montages. Le pont privé
@@ -210,11 +210,28 @@ au fur et à mesure des migrations et de leurs audits.
   Audit final sans anomalie ; 2 523 tests unitaires/types/performance et 379
   intégrations passent. Aucun changement d’implémentation dans Core.
 
+- **3008 — livrée dans ce commit :** les déclarations d’opérations et de
+  mutations appartiennent désormais au même graphe privé. Les stockages
+  `#compiledOperations` et `#compiledSchemaSurfaces` sont remplacés par ce graphe
+  et ses index dérivés. Les quatre registres Runtime `#handlers` et
+  `#transportBindings`, ainsi que les comparaisons de propriétaire répétées
+  dans les planners, disparaissent. Le type interne inutilisé
+  `CompiledPluginSchemaMutation` et son export intermédiaire sont supprimés.
+  Les handlers/codecs sont rattachés à leur commande pendant la matérialisation,
+  conformément à la précision explicitement validée dans ADR-0261. Les vues
+  de transition conservent les identités et l’ordre des méthodes ; aucune
+  capacité de plugin ni API publique supplémentaire n’est ajoutée ou retirée.
+  Cette étape de fondation ajoute **100 lignes de production** ; les exports
+  publics et la taille des déclarations restent inchangés. Audit final sans
+  anomalie restante : **2 529 tests unitaires/types/performance et 379
+  intégrations** passent. Les adaptations restantes sont traitées en 3009–3012.
+
 ## Sources de décision
 
 - [Plan actif](CURRENT_PLAN.md)
 - [ADR-0258 : une application active](docs/adr/0258-single-active-application-lifecycle.md)
 - [ADR-0259 : noyau réduit et commandes canoniques](docs/adr/0259-smaller-plugin-kernel-and-canonical-commands.md)
 - [ADR-0260 : dispatch HTTP à propriétaire unique](docs/adr/0260-single-owner-http-dispatch.md)
+- [ADR-0261 : compilation et matérialisation des commandes](docs/adr/0261-command-compilation-and-binding-phases.md)
 - [Matrice des contrats à préserver](docs/plans/2026-09-20-architecture-contract-matrix.md)
 - [Inventaire et audit des décisions](docs/plans/2026-09-20-smaller-kernel-decision-proposal.md)

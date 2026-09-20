@@ -10,92 +10,27 @@ import type {
 	FrameworkApplication,
 	PluginDefinition,
 } from '../../foundation.js'
-import { readApplicationCapabilityContributions } from '../../plugins/application-capability-access.js'
+import { readApplicationCommandGraph } from '../../plugins/application-command-graph.js'
+import type { CommandBindings } from '../commands/bindings.js'
 import type { CompiledPluginOperation } from '../../plugins/application-surface-registry.js'
 import { runWithApplicationPluginOwner } from '../../plugins/callback-execution.js'
 import { formatPluginIdentity } from '../../plugins/manifest.js'
 import { assertImmutableOperationValue } from '../../plugins/plugin-operation-boundaries.js'
-import type { PluginOperationDefinition } from '../../plugins/plugin-operations.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import { createRequestAdapterAccess } from '../adapters/request-access.js'
 import type { RequestEngine } from '../engine/framework-engine.js'
-import {
-	getOperationWireCodec,
-	getPluginOperationHandler,
-	isOperationTransportBinding,
-	operationTransportBindingCapability,
-	pluginOperationHandlerCapability,
-} from './capabilities.js'
+import { getOperationWireCodec } from './capabilities.js'
 import type {
 	OperationTransportBindingDefinition,
 	OperationTransportProtocol,
 	PluginOperationExecutionTarget,
-	PluginOperationHandler,
 } from './contracts.js'
-
-interface OwnedHandler {
-	readonly contributionId: string
-	readonly execute: PluginOperationHandler
-	readonly owner: ApplicationContributionOwner
-}
 
 export interface OwnedTransportBinding {
 	readonly binding: OperationTransportBindingDefinition
 	readonly contributionId: string
 	readonly owner: ApplicationContributionOwner
 }
-
-const snapshotOwner = (contribution: {
-	readonly owner: {
-		readonly pluginId: string
-		readonly instanceId?: string | undefined
-	}
-	readonly pluginVersion: string
-}): ApplicationContributionOwner =>
-	immutableRecord({
-		pluginId: contribution.owner.pluginId,
-		...(contribution.owner.instanceId === undefined
-			? {}
-			: { instanceId: contribution.owner.instanceId }),
-		version: contribution.pluginVersion,
-	})
-
-const sameOwner = (
-	compiled: CompiledPluginOperation,
-	contribution: {
-		readonly owner: {
-			readonly pluginId: string
-			readonly instanceId?: string | undefined
-		}
-		readonly pluginVersion: string
-	},
-): boolean =>
-	compiled.owner.pluginId === contribution.owner.pluginId &&
-	compiled.owner.instanceId === contribution.owner.instanceId &&
-	compiled.owner.version === contribution.pluginVersion
-
-const invalidContribution = (
-	contribution: {
-		readonly contributionId: string
-		readonly owner: {
-			readonly instanceId?: string | undefined
-			readonly pluginId: string
-		}
-	},
-	kind: string,
-	label: string,
-): FrameworkError<'PLUGIN_OPERATION_INVALID'> =>
-	new FrameworkError(
-		'PLUGIN_OPERATION_INVALID',
-		`Plugin "${formatPluginIdentity(contribution.owner)}" provided an invalid ${label}.`,
-		{
-			internalDetails: {
-				kind,
-				plugin: formatPluginIdentity(contribution.owner),
-				contributionId: contribution.contributionId,
-			},
-		},
-	)
 
 const operationFailure = (
 	compiled: CompiledPluginOperation,
@@ -120,11 +55,7 @@ const isPluginError = (error: unknown): error is PluginError =>
 
 /** Resolves and executes owner-bound plugin operations for one application. */
 export class PluginOperationRuntime {
-	readonly #handlers = new Map<PluginOperationDefinition, OwnedHandler>()
-	readonly #transportBindings = new Map<
-		OperationTransportProtocol,
-		Map<PluginOperationDefinition, OwnedTransportBinding>
-	>()
+	readonly #bindings: CommandBindings
 
 	constructor(
 		private readonly application: FrameworkApplication<
@@ -132,91 +63,8 @@ export class PluginOperationRuntime {
 			readonly PluginDefinition[]
 		>,
 	) {
-		for (const contribution of readApplicationCapabilityContributions(
-			application,
-			pluginOperationHandlerCapability,
-		)) {
-			const definition = contribution.value
-			const execute = getPluginOperationHandler(definition)
-			if (execute === undefined) {
-				throw invalidContribution(
-					contribution,
-					'operation-handler-owner-invalid',
-					'operation handler',
-				)
-			}
-			const compiled = application.getOperation(definition.operation.name)
-			if (
-				compiled?.operation !== definition.operation ||
-				!sameOwner(compiled, contribution)
-			) {
-				throw invalidContribution(
-					contribution,
-					'operation-handler-owner-invalid',
-					'operation handler',
-				)
-			}
-			if (this.#handlers.has(definition.operation)) {
-				throw operationFailure(
-					compiled,
-					'operation-handler-conflict',
-					`Operation ${definition.operation.name} has multiple handlers.`,
-				)
-			}
-			this.#handlers.set(
-				definition.operation,
-				immutableRecord({
-					contributionId: contribution.contributionId,
-					execute,
-					owner: snapshotOwner(contribution),
-				}),
-			)
-		}
-
-		for (const contribution of readApplicationCapabilityContributions(
-			application,
-			operationTransportBindingCapability,
-		)) {
-			const binding = contribution.value
-			if (!isOperationTransportBinding(binding)) {
-				throw invalidContribution(
-					contribution,
-					'operation-transport-owner-invalid',
-					'transport binding',
-				)
-			}
-			const compiled = application.getOperation(binding.operation.name)
-			if (
-				compiled?.operation !== binding.operation ||
-				!sameOwner(compiled, contribution)
-			) {
-				throw invalidContribution(
-					contribution,
-					'operation-transport-owner-invalid',
-					'transport binding',
-				)
-			}
-			let byOperation = this.#transportBindings.get(binding.transport)
-			if (byOperation === undefined) {
-				byOperation = new Map()
-				this.#transportBindings.set(binding.transport, byOperation)
-			}
-			if (byOperation.has(binding.operation)) {
-				throw operationFailure(
-					compiled,
-					'operation-transport-conflict',
-					`Operation ${binding.operation.name} has duplicate bindings for ${binding.transport.name}.`,
-				)
-			}
-			byOperation.set(
-				binding.operation,
-				immutableRecord({
-					binding,
-					contributionId: contribution.contributionId,
-					owner: snapshotOwner(contribution),
-				}),
-			)
-		}
+		// Binding ownership is decided once during application materialization.
+		this.#bindings = readApplicationCommandGraph(application).bindings
 	}
 
 	/** Invokes one handler and enforces its result and public error contracts. */
@@ -225,8 +73,8 @@ export class PluginOperationRuntime {
 		compiled: CompiledPluginOperation,
 		envelope: PluginOperationEnvelope,
 	): Promise<unknown> {
-		const owned = this.#handlers.get(compiled.operation)
-		if (owned === undefined) {
+		const owned = this.#bindings.handler(compiled.operation)
+		if (owned?.kind !== 'operation') {
 			throw operationFailure(
 				compiled,
 				'operation-handler-missing',
@@ -285,10 +133,8 @@ export class PluginOperationRuntime {
 		compiled: CompiledPluginOperation,
 		transport: OperationTransportProtocol,
 	): OwnedTransportBinding {
-		const binding = this.#transportBindings
-			.get(transport)
-			?.get(compiled.operation)
-		if (binding === undefined) {
+		const binding = this.#bindings.transport(compiled.operation, transport)
+		if (binding?.kind !== 'operation') {
 			throw operationFailure(
 				compiled,
 				'operation-transport-binding-missing',

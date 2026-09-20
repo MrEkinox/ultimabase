@@ -1,3 +1,4 @@
+import { bindApplicationCommandGraph } from '../plugins/application-command-graph.js'
 import {
 	acquireApplication,
 	assertOutsideApplicationWork,
@@ -202,8 +203,11 @@ export class FrameworkApplication<
 			this.schemas,
 			setupRegistries.getConstraintCompilerReader(),
 			this,
-			(name) => this.getOperation(name),
 			(className) => this.getSchemaSurface(className),
+			() =>
+				this.#schemaCompilationState === 'compiled'
+					? this.#schemaDeclarations.commandGraph()
+					: undefined,
 		)
 		this.#capabilityHost = capabilityHost
 		capabilityHostReference.current = capabilityHost
@@ -334,6 +338,7 @@ export class FrameworkApplication<
 			)
 			compileStaticRelationWhereDeclarations(this.schemas)
 			this.#privateStorage.close(this.schemas)
+			bindApplicationCommandGraph(this, this.#schemaDeclarations.commandGraph())
 			this.#schemaCompilationState = 'compiled'
 
 			return this

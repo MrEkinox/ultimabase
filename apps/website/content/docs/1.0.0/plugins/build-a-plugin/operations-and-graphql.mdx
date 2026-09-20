@@ -17,6 +17,7 @@ sources:
   - packages/rest-plugin/README.md
   - packages/soft-delete-plugin/src/explicit.ts
   - docs/adr/0240-static-operation-transport-planning.md
+  - docs/adr/0261-command-compilation-and-binding-phases.md
   - docs/adr/0256-rest-operation-public-paths.md
 ---
 
@@ -48,6 +49,13 @@ schema-mutation methods to schema and model handles. Every command uses an exact
 Input and result snapshotters validate untrusted values; declaring an error
 code makes only that `PluginError` safe to publish. Unknown exceptions remain
 internal diagnostics.
+
+Pure schema compilation and Typegen do not call your handler or binding
+providers' `create` factories. Those factories run once during application
+initialization, under their exact plugin owner. Core rejects duplicate active
+handlers or protocol bindings and foreign ownership before plugin setup or
+transport planning. If initialization fails, it disposes the resources already
+created. Keep resource cleanup in the provider's `dispose` callback.
 
 ## Declare and implement an operation
 

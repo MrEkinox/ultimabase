@@ -1,12 +1,12 @@
 # Active plan: pre-feature architecture simplification
 
-- Status: active — issue 3007 audited; next issue 3008
+- Status: active — issue 3008 audited; issue 3009 follows its dedicated commit
 - Milestone: [30 — Pre-feature architecture simplification](issues/3000-pre-feature-architecture-simplification/README.md)
 - Detailed plan: [docs/plans/2026-09-20-pre-feature-architecture-simplification.md](docs/plans/2026-09-20-pre-feature-architecture-simplification.md)
 - Baseline: [docs/plans/2026-09-20-architecture-simplification-baseline.md](docs/plans/2026-09-20-architecture-simplification-baseline.md)
 - Contract matrix: [docs/plans/2026-09-20-architecture-contract-matrix.md](docs/plans/2026-09-20-architecture-contract-matrix.md)
 - Removal history: [HISTORIQUE_SUPPRESSIONS.md](HISTORIQUE_SUPPRESSIONS.md)
-- Resume point: issue 3008
+- Resume point: issue 3009
 
 ## Objective
 
@@ -131,8 +131,20 @@ public dispatch utility. Exact bootstrap ownership, identity, credentials,
 Master, CORS, listener cleanup and sequential provider reuse remain.
 All 2,523 unit/type/performance and 379 integration tests pass, alongside
 typecheck, build, lint, website and constraints. Production TypeScript shrinks
-by 240 lines with no Core implementation change. The dedicated local commit
-must precede issue 3008. Continue with issue 3008; stop after issue 3014.
+by 240 lines with no Core implementation change. Issue 3007 is committed as `fc579bf4`: +1,114 / -921 lines, net +193,
+including tests and documentation. Nothing was pushed.
+
+Issue 3008 is complete with a green audit under the user-approved
+[ADR-0261](docs/adr/0261-command-compilation-and-binding-phases.md). One private
+canonical graph owns declarations and exact application bindings; Runtime's
+four handler/transport maps and repeated planner ownership checks are removed.
+Derived adapters preserve existing identity, ordering, API and plugin behavior.
+The final 2,529 unit/type/performance and 379 integration tests pass, alongside
+typecheck, build, lint, website, constraints and issue metadata. This foundation
+adds 100 production TypeScript lines; public exports and declaration bytes are
+unchanged. Its dedicated local commit must precede issue 3009. Nothing is pushed.
+The bounded consumer migrations remain issues 3009–3012, followed by the removal
+audit and checkpoint. Stop after issue 3014 remains mandatory.
 
 Documentation impact: internal engineering documentation until an issue changes
 a public contract; those issues must update both package and public website

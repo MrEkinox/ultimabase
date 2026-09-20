@@ -514,6 +514,16 @@ Hooks vocabulary.
 See the focused
 [plugin schema mutation example](examples/schema/plugin-schema-mutations.md).
 
+Core compiles both command kinds into one private graph. Pure compilation fixes
+names, exact owners, contracts and ordered schema/model aliases without running
+handler or binding factories. During application materialization, Core binds
+handlers and codecs to those same records. Duplicate active handlers/bindings,
+foreign owners and forged source tokens fail before plugin setup or consuming
+transport planning; already-created resources are disposed on failure. Selected
+schema mutations still require a handler when Runtime is assembled. Declared
+mutations with no selected schema remain dormant. Disposal revokes private
+binding access while static descriptions remain inert.
+
 Transport exposure is a second explicit boundary. The operation owner requests
 `transport:expose`, provides a nominal wire codec through
 `provideOperationTransportBinding`, and the application selects a non-empty
@@ -536,9 +546,9 @@ remain private.
 
 Transports that must compile a public shape before the engine exists require
 `applicationOperationTransportPlanningCapability` during application
-materialization. Its `plan({ transport, operations })` method applies the same
-exact-token, canonical-protocol, binding-owner, and `transport:expose` checks,
-but returns only immutable inert descriptors. The planner is demand-installed,
+materialization. Its `plan({ transport, operations })` method selects the
+canonical owner-validated bindings after exact-token, canonical-protocol and
+`transport:expose` checks, returning only immutable inert descriptors. The planner is demand-installed,
 Core-owned, non-replaceable, and invalid after application disposal. Actual
 requests must still use the separately late-bound
 `ApplicationRequestExecutor.exposeOperations()` facade; the planner cannot

@@ -211,23 +211,32 @@ describe('application schema mutation transport planning', () => {
 			version: '1.0.0',
 		})
 		const harness: Harness = {}
-		const application = await createApplication({
-			pluginPrivileges: { logger: false },
-			plugins: [createOwnerPlugin(0), foreign, consumerPlugin(harness)],
-			schemas: [Document],
+		// Ownership now fails at materialization, before a transport can obtain its planner.
+		await expect(
+			createApplication({
+				pluginPrivileges: { logger: false },
+				plugins: [createOwnerPlugin(0), foreign, consumerPlugin(harness)],
+				schemas: [Document],
+			}),
+		).rejects.toMatchObject({
+			code: 'PLUGIN_OPERATION_INVALID',
+			internalDetails: { kind: 'schema-mutation-transport-owner-invalid' },
 		})
-		expect(() => runPlanning(harness)).toThrow('does not match')
-		await application.dispose()
+		expect(harness.planner).toBeUndefined()
 	})
 
 	it('rejects duplicate bindings before transport startup', async () => {
 		const harness: Harness = {}
-		const application = await createApplication({
-			pluginPrivileges: { logger: false },
-			plugins: [createOwnerPlugin(2), consumerPlugin(harness)],
-			schemas: [Document],
+		await expect(
+			createApplication({
+				pluginPrivileges: { logger: false },
+				plugins: [createOwnerPlugin(2), consumerPlugin(harness)],
+				schemas: [Document],
+			}),
+		).rejects.toMatchObject({
+			code: 'PLUGIN_OPERATION_INVALID',
+			internalDetails: { kind: 'schema-mutation-transport-conflict' },
 		})
-		expect(() => runPlanning(harness)).toThrow('duplicate bindings')
-		await application.dispose()
+		expect(harness.planner).toBeUndefined()
 	})
 })

@@ -4,7 +4,7 @@
 - Milestone: 30
 - Packages: `@ultimabase/core`, `@ultimabase/rest-plugin`, `@ultimabase/graphql-plugin`, command-owning plugins
 - Depends on: 3011
-- ADR: ADR-0259 refining ADR-0240
+- ADR: ADR-0261 refines the compilation/binding phases of ADR-0259 refining ADR-0240
 
 ## Goal
 

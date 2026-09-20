@@ -12,12 +12,6 @@ export interface CompiledPluginOperation {
 	readonly owner: PluginSchemaContributionOwner
 }
 
-/** Records one callback-free schema mutation with its exact declaring owner. */
-export interface CompiledPluginSchemaMutation {
-	readonly mutation: CompiledPluginSchemaMutationDefinition
-	readonly owner: PluginSchemaContributionOwner
-}
-
 /** Records one direct schema-mutation command on selected application handles. */
 export interface CompiledSchemaMutationCommand {
 	readonly contributionId: string

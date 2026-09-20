@@ -4,7 +4,7 @@
 - Milestone: 30
 - Packages: `@ultimabase/core`, `@ultimabase/password-auth-plugin`, `@ultimabase/plugin-kit`
 - Depends on: 3008
-- ADR: ADR-0259
+- ADR: ADR-0261 refines the compilation/binding phases of ADR-0259
 
 ## Goal
 

@@ -104,7 +104,11 @@ their history.
 2. One canonical compiled command graph owns identity, authority, input and
    result contracts, private execution, surfaces, and transport metadata. Core
    exposes immutable projections of that graph instead of maintaining parallel
-   planning and execution registries.
+   planning and execution registries. The explicitly approved
+   [ADR-0261](../adr/0261-command-compilation-and-binding-phases.md) fixes two
+   construction phases: pure declaration compilation, then exact binding
+   materialization before transport consumers. Factories and public plugin
+   APIs retain their existing lifecycle.
 3. Public capability machinery is retained for concrete current consumers and
    required kernel invariants. Public exposure alone is not a consumer. Generic
    decoration, replacement, compiler replacement, Runtime replacement, Typegen

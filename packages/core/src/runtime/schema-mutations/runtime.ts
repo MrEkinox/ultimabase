@@ -7,7 +7,8 @@ import type {
 	FrameworkApplication,
 	PluginDefinition,
 } from '../../foundation.js'
-import { readApplicationCapabilityContributions } from '../../plugins/application-capability-access.js'
+import { readApplicationCommandGraph } from '../../plugins/application-command-graph.js'
+import type { CommandBindings } from '../commands/bindings.js'
 import { runWithApplicationPluginOwner } from '../../plugins/callback-execution.js'
 import type { CompiledSchemaMutationCommand } from '../../plugins/application-surface-registry.js'
 import {
@@ -17,24 +18,9 @@ import {
 import { readPluginSchemaMutationSource } from '../../plugins/plugin-schema-mutations.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import type { RequestContext } from '../context/request-context.js'
-import {
-	getPluginSchemaMutationHandler,
-	pluginSchemaMutationHandlerCapability,
-} from './capabilities.js'
-import {
-	getSchemaMutationWireCodec,
-	isSchemaMutationTransportBinding,
-	schemaMutationTransportBindingCapability,
-} from './transport-capabilities.js'
-import type { PluginSchemaMutationHandler } from './contracts.js'
+import { getSchemaMutationWireCodec } from './transport-capabilities.js'
 import type { SchemaMutationTransportBindingDefinition } from './transport-contracts.js'
 import type { OperationTransportProtocol } from '../plugin-operations/contracts.js'
-
-interface OwnedSchemaMutationHandler {
-	readonly contributionId: string
-	readonly owner: PluginIdentity
-	readonly resolve: PluginSchemaMutationHandler
-}
 
 export interface OwnedSchemaMutationTransportBinding {
 	readonly binding: SchemaMutationTransportBindingDefinition
@@ -42,19 +28,8 @@ export interface OwnedSchemaMutationTransportBinding {
 	readonly owner: PluginIdentity
 }
 
-const sameOwner = (
-	command: CompiledSchemaMutationCommand,
-	contribution: {
-		readonly owner: PluginIdentity
-		readonly pluginVersion: string
-	},
-): boolean =>
-	command.owner.pluginId === contribution.owner.pluginId &&
-	command.owner.instanceId === contribution.owner.instanceId &&
-	command.owner.version === contribution.pluginVersion
-
 const mutationFailure = (
-	command: CompiledSchemaMutationCommand,
+	command: Pick<CompiledSchemaMutationCommand, 'mutation' | 'owner'>,
 	kind: string,
 	message: string,
 	cause?: unknown,
@@ -73,11 +48,7 @@ const mutationFailure = (
 
 /** Resolves exact application-owned handlers without exposing them in the graph. */
 export class PluginSchemaMutationRuntime {
-	readonly #handlers = new Map<object, OwnedSchemaMutationHandler>()
-	readonly #transportBindings = new Map<
-		OperationTransportProtocol,
-		Map<object, OwnedSchemaMutationTransportBinding>
-	>()
+	readonly #bindings: CommandBindings
 
 	constructor(
 		private readonly application: FrameworkApplication<
@@ -85,134 +56,22 @@ export class PluginSchemaMutationRuntime {
 			readonly PluginDefinition[]
 		>,
 	) {
-		const commands = new Map<object, CompiledSchemaMutationCommand>()
-		for (const schema of application.schemas.values()) {
-			const surface = application.getSchemaSurface(schema.className)
-			for (const command of [
-				...(surface?.schemaMutations.values() ?? []),
-				...(surface?.modelMutations.values() ?? []),
-			]) {
-				commands.set(readPluginSchemaMutationSource(command.mutation), command)
-			}
-		}
-
-		for (const contribution of readApplicationCapabilityContributions(
-			application,
-			pluginSchemaMutationHandlerCapability,
-		)) {
-			const definition = contribution.value
-			const resolve = getPluginSchemaMutationHandler(definition)
-			const command = commands.get(definition.mutation)
-			if (resolve === undefined) {
-				throw new FrameworkError(
-					'PLUGIN_OPERATION_INVALID',
-					`Plugin "${formatPluginIdentity(contribution.owner)}" provided an invalid schema mutation handler.`,
-					{
-						internalDetails: {
-							kind: 'schema-mutation-handler-owner-invalid',
-							plugin: formatPluginIdentity(contribution.owner),
-							contributionId: contribution.contributionId,
-						},
-					},
-				)
-			}
-			// Static providers may be dormant when schema selectors expose no
-			// matching command in this application. They receive no Runtime effect.
-			if (command === undefined) continue
-			if (!sameOwner(command, contribution)) {
-				throw new FrameworkError(
-					'PLUGIN_OPERATION_INVALID',
-					`Plugin "${formatPluginIdentity(contribution.owner)}" provided an invalid schema mutation handler.`,
-					{
-						internalDetails: {
-							kind: 'schema-mutation-handler-owner-invalid',
-							plugin: formatPluginIdentity(contribution.owner),
-							contributionId: contribution.contributionId,
-						},
-					},
-				)
-			}
-			if (this.#handlers.has(definition.mutation)) {
+		const graph = readApplicationCommandGraph(application)
+		this.#bindings = graph.bindings
+		// Missing selected resolvers still fail when Runtime is assembled, not in pure compilation.
+		for (const command of graph.commands) {
+			if (command.kind !== 'mutation' || command.surfaces.length === 0) continue
+			if (
+				this.#bindings.handler(
+					readPluginSchemaMutationSource(command.definition),
+				) === undefined
+			) {
 				throw mutationFailure(
-					command,
-					'schema-mutation-handler-conflict',
-					`Schema mutation ${command.mutation.name} has multiple handlers.`,
-				)
-			}
-			this.#handlers.set(
-				definition.mutation,
-				immutableRecord({
-					contributionId: contribution.contributionId,
-					owner: immutableRecord(contribution.owner),
-					resolve,
-				}),
-			)
-		}
-
-		for (const [mutation, command] of commands) {
-			if (!this.#handlers.has(mutation)) {
-				throw mutationFailure(
-					command,
+					{ mutation: command.definition, owner: command.owner },
 					'schema-mutation-handler-missing',
-					`Schema mutation ${command.mutation.name} has no installed handler.`,
+					`Schema mutation ${command.definition.name} has no installed handler.`,
 				)
 			}
-		}
-
-		for (const contribution of readApplicationCapabilityContributions(
-			application,
-			schemaMutationTransportBindingCapability,
-		)) {
-			const binding = contribution.value
-			if (!isSchemaMutationTransportBinding(binding)) {
-				throw new FrameworkError(
-					'PLUGIN_OPERATION_INVALID',
-					`Plugin "${formatPluginIdentity(contribution.owner)}" provided an invalid schema mutation transport binding.`,
-					{
-						internalDetails: {
-							kind: 'schema-mutation-transport-owner-invalid',
-							plugin: formatPluginIdentity(contribution.owner),
-							contributionId: contribution.contributionId,
-						},
-					},
-				)
-			}
-			const command = commands.get(binding.mutation)
-			// A canonical binding stays inert when no schema selected its mutation.
-			if (command === undefined) continue
-			if (!sameOwner(command, contribution)) {
-				throw new FrameworkError(
-					'PLUGIN_OPERATION_INVALID',
-					`Plugin "${formatPluginIdentity(contribution.owner)}" provided an invalid schema mutation transport binding.`,
-					{
-						internalDetails: {
-							kind: 'schema-mutation-transport-owner-invalid',
-							plugin: formatPluginIdentity(contribution.owner),
-							contributionId: contribution.contributionId,
-						},
-					},
-				)
-			}
-			let byMutation = this.#transportBindings.get(binding.transport)
-			if (byMutation === undefined) {
-				byMutation = new Map()
-				this.#transportBindings.set(binding.transport, byMutation)
-			}
-			if (byMutation.has(binding.mutation)) {
-				throw mutationFailure(
-					command,
-					'schema-mutation-transport-conflict',
-					`Schema mutation ${binding.mutation.name} has duplicate bindings for ${binding.transport.name}.`,
-				)
-			}
-			byMutation.set(
-				binding.mutation,
-				immutableRecord({
-					binding,
-					contributionId: contribution.contributionId,
-					owner: immutableRecord(contribution.owner),
-				}),
-			)
 		}
 	}
 
@@ -225,8 +84,8 @@ export class PluginSchemaMutationRuntime {
 		originalItem: Readonly<Record<string, unknown>>,
 	): Promise<unknown> {
 		const source = readPluginSchemaMutationSource(command.mutation)
-		const owned = this.#handlers.get(source)
-		if (owned === undefined) {
+		const owned = this.#bindings.handler(source)
+		if (owned?.kind !== 'mutation') {
 			throw mutationFailure(
 				command,
 				'schema-mutation-handler-missing',
@@ -275,8 +134,8 @@ export class PluginSchemaMutationRuntime {
 		transport: OperationTransportProtocol,
 	): OwnedSchemaMutationTransportBinding {
 		const source = readPluginSchemaMutationSource(command.mutation)
-		const binding = this.#transportBindings.get(transport)?.get(source)
-		if (binding === undefined) {
+		const binding = this.#bindings.transport(source, transport)
+		if (binding?.kind !== 'mutation') {
 			throw mutationFailure(
 				command,
 				'schema-mutation-transport-binding-missing',
@@ -291,9 +150,11 @@ export class PluginSchemaMutationRuntime {
 		command: CompiledSchemaMutationCommand,
 		transport: OperationTransportProtocol,
 	): OwnedSchemaMutationTransportBinding | undefined {
-		return this.#transportBindings
-			.get(transport)
-			?.get(readPluginSchemaMutationSource(command.mutation))
+		const binding = this.#bindings.transport(
+			readPluginSchemaMutationSource(command.mutation),
+			transport,
+		)
+		return binding?.kind === 'mutation' ? binding : undefined
 	}
 
 	/** Decodes one payload under the exact binding owner's attribution. */

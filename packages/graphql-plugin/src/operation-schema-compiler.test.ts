@@ -425,7 +425,11 @@ describe('GraphQL plugin operations', () => {
 				],
 				schemas: [RecordSchema],
 			}).start(),
-		).rejects.toThrow('not owned by its declaration owner')
+			// Core rejects the foreign provider before GraphQL receives its inert plan.
+		).rejects.toMatchObject({
+			code: 'PLUGIN_OPERATION_INVALID',
+			internalDetails: { kind: 'operation-transport-owner-invalid' },
+		})
 
 		const incompatibleProtocol = defineOperationTransport({
 			name: graphqlOperationProtocol.name,

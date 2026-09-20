@@ -6,7 +6,7 @@ import {
 } from '@ultimabase/shared'
 
 import { FrameworkError } from '../../errors/framework-error.js'
-import type { CompiledPluginOperation } from '../../plugins/application-surface-registry.js'
+import { readApplicationCommandGraph } from '../../plugins/application-command-graph.js'
 import {
 	defineCapability,
 	provideCapability,
@@ -21,10 +21,7 @@ import {
 	type PluginOperationDefinition,
 } from '../../plugins/plugin-operations.js'
 import { assertApplicationPluginPrivilege } from '../../plugins/setup-registries.js'
-import {
-	isOperationTransportBinding,
-	isOperationTransportProtocol,
-} from '../plugin-operations/capabilities.js'
+import { isOperationTransportProtocol } from '../plugin-operations/capabilities.js'
 import type { OperationTransportProtocol } from '../plugin-operations/contracts.js'
 import type { ExposedOperationTransportBinding } from '../plugin-operations/transport.js'
 import type { CompiledSchemaRegistry } from '../../schema/index.js'
@@ -64,22 +61,12 @@ export interface ApplicationOperationTransportPlanner {
 
 interface PlannerState {
 	application: object | undefined
-	bindings: readonly CapabilityProviderContribution[] | undefined
 	disposed: boolean
-	resolveOperation:
-		((name: string) => CompiledPluginOperation | undefined) | undefined
 	resolveSchemaSurface:
 		| ((className: string) => CompiledApplicationSchemaSurface | undefined)
 		| undefined
 	schemaMutationBindings: readonly CapabilityProviderContribution[] | undefined
 	schemas: CompiledSchemaRegistry | undefined
-}
-
-interface BoundPlannerState {
-	readonly bindings: readonly CapabilityProviderContribution[]
-	readonly resolveOperation: (
-		name: string,
-	) => CompiledPluginOperation | undefined
 }
 
 const plannerStates = new WeakMap<
@@ -98,66 +85,40 @@ const operationFailure = (
 		internalDetails: { kind, operation: operation.name },
 	})
 
-const sameOwner = (
-	compiled: CompiledPluginOperation,
-	contribution: CapabilityProviderContribution,
-): boolean =>
-	compiled.owner.pluginId === contribution.owner.pluginId &&
-	compiled.owner.instanceId === contribution.owner.instanceId &&
-	compiled.owner.version === contribution.pluginVersion
-
 const descriptorFor = (
 	operation: PluginOperationDefinition,
 	transport: OperationTransportProtocol,
-	state: BoundPlannerState,
+	application: object,
 ): ExposedOperationTransportBinding => {
-	const compiled = state.resolveOperation(operation.name)
-	if (compiled?.operation !== operation) {
+	const graph = readApplicationCommandGraph(application)
+	const command = graph.fromSource(operation)
+	if (command?.kind !== 'operation') {
 		throw operationFailure(
 			operation,
 			'operation-planning-token-invalid',
 			`Operation ${operation.name} is not an installed application operation.`,
 		)
 	}
-	const matches = state.bindings.filter(
-		(contribution) =>
-			isOperationTransportBinding(contribution.value) &&
-			contribution.value.operation === operation &&
-			contribution.value.transport === transport,
-	)
-	if (matches.length !== 1) {
+	const owned = graph.bindings.transport(operation, transport)
+	if (owned?.kind !== 'operation') {
 		throw operationFailure(
 			operation,
-			matches.length === 0
-				? 'operation-planning-binding-missing'
-				: 'operation-planning-binding-conflict',
+			'operation-planning-binding-missing',
 			`Operation ${operation.name} requires one exact binding for ${transport.name}@${transport.version}.`,
 		)
 	}
-	const contribution = matches[0]
-	if (
-		contribution === undefined ||
-		!isOperationTransportBinding(contribution.value) ||
-		!sameOwner(compiled, contribution)
-	) {
-		throw operationFailure(
-			operation,
-			'operation-planning-owner-invalid',
-			`Operation ${operation.name} binding is not owned by its declaration owner.`,
-		)
-	}
 	return immutableRecord({
-		errors: compiled.operation.errors,
-		metadata: contribution.value.metadata,
-		name: compiled.operation.name,
+		errors: command.definition.errors,
+		metadata: owned.binding.metadata,
+		name: command.definition.name,
 		owner: immutableRecord({
-			...(compiled.owner.instanceId === undefined
+			...(command.owner.instanceId === undefined
 				? {}
-				: { instanceId: compiled.owner.instanceId }),
-			pluginId: compiled.owner.pluginId,
-			version: compiled.owner.version,
+				: { instanceId: command.owner.instanceId }),
+			pluginId: command.owner.pluginId,
+			version: command.owner.version,
 		}),
-		version: compiled.operation.version,
+		version: command.definition.version,
 	})
 }
 
@@ -169,9 +130,7 @@ class CoreApplicationOperationTransportPlanner implements ApplicationOperationTr
 		if (
 			state === undefined ||
 			state.disposed ||
-			state.application === undefined ||
-			state.bindings === undefined ||
-			state.resolveOperation === undefined
+			state.application === undefined
 		) {
 			throw new TypeError(
 				'Application operation transport planner is unavailable',
@@ -221,10 +180,7 @@ class CoreApplicationOperationTransportPlanner implements ApplicationOperationTr
 			}
 			names.add(operation.name)
 			descriptors.push(
-				descriptorFor(operation, options.transport, {
-					bindings: state.bindings,
-					resolveOperation: state.resolveOperation,
-				}),
+				descriptorFor(operation, options.transport, state.application),
 			)
 		}
 		return immutableRecord({
@@ -283,6 +239,7 @@ class CoreApplicationOperationTransportPlanner implements ApplicationOperationTr
 		}
 		return planApplicationSchemaMutations(
 			{
+				application: state.application,
 				bindings: state.schemaMutationBindings,
 				resolveSurface: state.resolveSchemaSurface,
 				schemas: state.schemas,
@@ -323,9 +280,7 @@ const canonicalPlanner = provideCapability(
 			const planner = new CoreApplicationOperationTransportPlanner()
 			const state: PlannerState = {
 				application: undefined,
-				bindings: undefined,
 				disposed: false,
-				resolveOperation: undefined,
 				resolveSchemaSurface: undefined,
 				schemaMutationBindings: undefined,
 				schemas: undefined,
@@ -336,9 +291,7 @@ const canonicalPlanner = provideCapability(
 				value: planner,
 				dispose: () => {
 					state.application = undefined
-					state.bindings = undefined
 					state.disposed = true
-					state.resolveOperation = undefined
 					state.resolveSchemaSurface = undefined
 					state.schemaMutationBindings = undefined
 					state.schemas = undefined
@@ -366,10 +319,6 @@ export const bindApplicationOperationTransportPlanner = (
 	planner: unknown,
 	options: Readonly<{
 		readonly application: object
-		readonly bindings: readonly CapabilityProviderContribution[]
-		readonly resolveOperation: (
-			name: string,
-		) => CompiledPluginOperation | undefined
 		readonly resolveSchemaSurface: (
 			className: string,
 		) => CompiledApplicationSchemaSurface | undefined
@@ -393,8 +342,6 @@ export const bindApplicationOperationTransportPlanner = (
 		)
 	}
 	state.application = options.application
-	state.bindings = immutableArray(options.bindings)
-	state.resolveOperation = options.resolveOperation
 	state.resolveSchemaSurface = options.resolveSchemaSurface
 	state.schemaMutationBindings = immutableArray(options.schemaMutationBindings)
 	state.schemas = options.schemas

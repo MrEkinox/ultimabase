@@ -2,7 +2,7 @@ import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import type { CompiledApplicationSchemaSurface } from '../../plugins/application-surface-registry.js'
 import type { CapabilityProviderContribution } from '../../plugins/capabilities.js'
-import type { PluginIdentity } from '../../plugins/manifest.js'
+import { readApplicationCommandGraph } from '../../plugins/application-command-graph.js'
 import { readPluginSchemaMutationSource } from '../../plugins/plugin-schema-mutations.js'
 import type { CompiledSchemaRegistry } from '../../schema/index.js'
 import { isSchemaMutationTransportBinding } from '../schema-mutations/transport-capabilities.js'
@@ -25,23 +25,13 @@ export interface ApplicationSchemaMutationTransportPlan<
 }
 
 interface SchemaMutationTransportPlanningState {
+	readonly application: object
 	readonly bindings: readonly CapabilityProviderContribution[]
 	readonly resolveSurface: (
 		className: string,
 	) => CompiledApplicationSchemaSurface | undefined
 	readonly schemas: CompiledSchemaRegistry
 }
-
-const sameOwner = (
-	owner: PluginIdentity & Readonly<{ readonly version: string }>,
-	contribution: CapabilityProviderContribution,
-): boolean =>
-	owner.pluginId === contribution.owner.pluginId &&
-	owner.instanceId === contribution.owner.instanceId &&
-	owner.version === contribution.pluginVersion
-
-const describeOwner = (owner: PluginIdentity): string =>
-	`${owner.pluginId}${owner.instanceId === undefined ? '' : `#${owner.instanceId}`}`
 
 /** @internal Plans exact schema and command pairs without retaining codecs. */
 export const planApplicationSchemaMutations = <
@@ -50,21 +40,7 @@ export const planApplicationSchemaMutations = <
 	state: SchemaMutationTransportPlanningState,
 	options: SchemaMutationTransportPlanningOptions<TTransport>,
 ): ApplicationSchemaMutationTransportPlan<TTransport> => {
-	const bindings = new Map<object, CapabilityProviderContribution>()
-	for (const contribution of state.bindings) {
-		const binding = contribution.value
-		if (!isSchemaMutationTransportBinding(binding)) {
-			throw new TypeError('Invalid schema mutation transport binding')
-		}
-		if (binding.transport !== options.transport) continue
-		const existing = bindings.get(binding.mutation)
-		if (existing !== undefined) {
-			throw new TypeError(
-				`Schema mutation ${binding.mutation.name} has duplicate bindings for ${options.transport.name}`,
-			)
-		}
-		bindings.set(binding.mutation, contribution)
-	}
+	const bindings = readApplicationCommandGraph(state.application).bindings
 
 	const usedBindings = new Set<object>()
 	const mutations: ExposedSchemaMutationTransportBinding[] = []
@@ -79,17 +55,9 @@ export const planApplicationSchemaMutations = <
 			left.localeCompare(right),
 		)) {
 			const source = readPluginSchemaMutationSource(command.mutation)
-			const contribution = bindings.get(source)
-			if (contribution === undefined) continue
-			if (!sameOwner(command.owner, contribution)) {
-				throw new TypeError(
-					`Schema mutation ${command.mutation.name} binding owner ${describeOwner(contribution.owner)} does not match its declaration owner`,
-				)
-			}
-			const binding = contribution.value
-			if (!isSchemaMutationTransportBinding(binding)) {
-				throw new TypeError('Invalid schema mutation transport binding')
-			}
+			const owned = bindings.transport(source, options.transport)
+			if (owned?.kind !== 'mutation') continue
+			const binding = owned.binding
 			usedBindings.add(source)
 			mutations.push(
 				immutableRecord({
@@ -107,10 +75,14 @@ export const planApplicationSchemaMutations = <
 			)
 		}
 	}
-	for (const [mutation, contribution] of bindings) {
-		if (usedBindings.has(mutation)) continue
+	for (const contribution of state.bindings) {
 		const binding = contribution.value
-		if (!isSchemaMutationTransportBinding(binding)) continue
+		if (
+			!isSchemaMutationTransportBinding(binding) ||
+			binding.transport !== options.transport ||
+			usedBindings.has(binding.mutation)
+		)
+			continue
 		throw new TypeError(
 			`Schema mutation ${binding.mutation.name} transport binding has no installed schema surface`,
 		)

@@ -242,6 +242,7 @@ Accepted records:
 - [ADR-0258: One active application per JavaScript realm](0258-single-active-application-lifecycle.md), partially superseding the concurrency and shared-hosting contracts named in that record.
 - [ADR-0259: Smaller plugin kernel and canonical commands](0259-smaller-plugin-kernel-and-canonical-commands.md)
 - [ADR-0260: Single-owner HTTP dispatch](0260-single-owner-http-dispatch.md)
+- [ADR-0261: Command compilation and binding phases](0261-command-compilation-and-binding-phases.md)
 
 Superseded records:
 

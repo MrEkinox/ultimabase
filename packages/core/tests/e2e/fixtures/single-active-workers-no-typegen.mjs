@@ -1,3 +1,5 @@
+import process from 'node:process'
+import { URL } from 'node:url'
 import assert from 'node:assert/strict'
 import { once } from 'node:events'
 import { isMainThread, parentPort, Worker } from 'node:worker_threads'

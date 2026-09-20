@@ -52,10 +52,11 @@ import {
 	snapshotApplicationSurfaceDeclarations,
 } from './application-surface-declarations.js'
 import {
-	compileApplicationSurfaces,
+	compileCommandGraph,
 	type CompiledApplicationSchemaSurface,
 	type CompiledPluginOperation,
 } from './application-surface-registry.js'
+import type { CompiledCommandGraph } from './command-graph.js'
 import { compileSchemaDeclarations } from './compiled-schema-declarations.js'
 import { createCompiledTypegenGraph } from './compiled-typegen-graph.js'
 import { executeRuntimeCompilations } from './schema-runtime-options.js'
@@ -76,9 +77,7 @@ export class SchemaDeclarationRegistry {
 	#runtimeCompilationState: 'failed' | 'idle' | 'running' | 'succeeded' = 'idle'
 	#compiledProvenance:
 		ReadonlyMap<string, SchemaCompilationProvenance> | undefined
-	#compiledOperations: ReadonlyMap<string, CompiledPluginOperation> | undefined
-	#compiledSchemaSurfaces:
-		ReadonlyMap<string, CompiledApplicationSchemaSurface> | undefined
+	#commands: CompiledCommandGraph | undefined
 
 	beginPluginDeclaration(
 		owner: PluginSchemaContributionOwner,
@@ -346,7 +345,7 @@ export class SchemaDeclarationRegistry {
 		const compiled = compileSchemaDeclarations(staging.prepared, this.#batches)
 		this.#runtimeCompilations = compiled.runtimeCompilations
 		this.#compiledProvenance = compiled.provenance
-		const surfaces = compileApplicationSurfaces(
+		const commands = compileCommandGraph(
 			this.#batches.map(({ surfaces: declarations }) => declarations),
 			compiled.output,
 			staging.registry,
@@ -356,32 +355,36 @@ export class SchemaDeclarationRegistry {
 			staging,
 			compiled.candidates,
 		)
-		this.#compiledOperations = surfaces.operations
-		this.#compiledSchemaSurfaces = surfaces.schemas
+		this.#commands = commands
 		return targets
+	}
+
+	/** Reads the private canonical graph only after atomic schema publication. */
+	commandGraph(): CompiledCommandGraph {
+		if (this.#commands === undefined)
+			throw new TypeError('Application commands have not been compiled')
+		return this.#commands
 	}
 
 	/** Resolves one final operation declaration after static compilation. */
 	operation(name: string): CompiledPluginOperation | undefined {
-		if (this.#compiledOperations === undefined) {
+		if (this.#commands === undefined) {
 			throw new TypeError('Application operations have not been compiled')
 		}
-		return this.#compiledOperations.get(name)
+		return this.#commands.operation(name)
 	}
 
 	/** Reads the complete immutable graph after successful compilation. */
 	typegenGraph(): CompiledTypegenGraph {
-		if (
-			this.#compiledOperations === undefined ||
-			this.#compiledSchemaSurfaces === undefined
-		) {
+		if (this.#commands === undefined) {
 			throw new TypeError('Typegen declarations require compiled schemas')
 		}
+		const views = this.#commands.legacyViews()
 		return createCompiledTypegenGraph({
 			batches: this.#batches,
-			operations: this.#compiledOperations,
+			operations: views.operations,
 			provenance: this.#compiledProvenance,
-			schemaSurfaces: this.#compiledSchemaSurfaces,
+			schemaSurfaces: views.schemas,
 		})
 	}
 
@@ -389,10 +392,10 @@ export class SchemaDeclarationRegistry {
 	schemaSurface(
 		className: string,
 	): CompiledApplicationSchemaSurface | undefined {
-		if (this.#compiledSchemaSurfaces === undefined) {
+		if (this.#commands === undefined) {
 			throw new TypeError('Application schema surfaces have not been compiled')
 		}
-		return this.#compiledSchemaSurfaces.get(className)
+		return this.#commands.schemaSurface(className)
 	}
 
 	diagnoseFailure(error: unknown): PluginDeclarationFailureDiagnostic {

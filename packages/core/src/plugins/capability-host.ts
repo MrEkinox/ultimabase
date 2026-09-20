@@ -1,3 +1,5 @@
+import type { CommandBindings } from '../runtime/commands/bindings.js'
+import type { CompiledCommandGraph } from './command-graph.js'
 import {
 	immutableArray,
 	immutableRecord,
@@ -28,7 +30,6 @@ import {
 	type CapabilityInventory,
 } from './capability-inventory.js'
 import type { PluginGraph } from './graph.js'
-import type { CompiledPluginOperation } from './application-surface-registry.js'
 import type { NormalizedPlugin } from './normalization.js'
 import {
 	formatPluginIdentity,
@@ -138,15 +139,13 @@ const createDeniedConstraintCompilerReader = (
 }
 /** Materializes application values and creates exact owner-bound consumer readers. */
 export class ApplicationCapabilityHost {
+	readonly #commands: (() => CompiledCommandGraph | undefined) | undefined
 	readonly #application: object
 	readonly #callbacks: ApplicationCallbackExecutor
 	readonly #graph: PluginGraph
 	readonly #inventory: CapabilityInventory
 	readonly #schemas: CompiledSchemaRegistry
 	readonly #constraintCompilers: DatabaseConstraintCompilerReader
-	readonly #resolveOperation: (
-		name: string,
-	) => CompiledPluginOperation | undefined
 	readonly #resolveSchemaSurface: mutation.SchemaMutationSurfaceResolver
 	readonly #readers = new Map<
 		string,
@@ -164,6 +163,7 @@ export class ApplicationCapabilityHost {
 	readonly #resolvedTokens = new Set<CapabilityToken>()
 	readonly #resources: MaterializedCapabilityResource[] = []
 	#materializationPromise: Promise<void> | undefined
+	#commandBindings: CommandBindings | undefined
 	#materialized = false
 	#disposed = false
 
@@ -172,15 +172,15 @@ export class ApplicationCapabilityHost {
 		schemas: CompiledSchemaRegistry,
 		constraintCompilers: DatabaseConstraintCompilerReader,
 		application?: object,
-		resolveOperation?: (name: string) => CompiledPluginOperation | undefined,
 		resolveSchemaSurface?: mutation.SchemaMutationSurfaceResolver,
+		commands?: () => CompiledCommandGraph | undefined,
 	) {
+		this.#commands = commands
 		this.#application = application ?? this
 		this.#graph = graph
 		this.#inventory = graph.capabilities
 		this.#schemas = schemas
 		this.#constraintCompilers = constraintCompilers
-		this.#resolveOperation = resolveOperation ?? (() => undefined)
 		this.#resolveSchemaSurface = resolveSchemaSurface ?? (() => undefined)
 		this.#callbacks = createApplicationCallbackExecutor(
 			this.#application,
@@ -332,6 +332,8 @@ export class ApplicationCapabilityHost {
 				errors.push(error)
 			}
 		}
+		const bindings = this.#commandBindings ?? this.#commands?.()?.bindings
+		bindings?.dispose()
 		this.#resources.length = 0
 		this.#resolvedConsumers.clear()
 		this.#resolvedContributions.clear()
@@ -341,6 +343,7 @@ export class ApplicationCapabilityHost {
 	}
 
 	async #performMaterialization(): Promise<void> {
+		this.#commandBindings = this.#commands?.()?.bindings
 		for (const { entry } of readCapabilityPlans(this.#inventory)) {
 			if (entry.token.lifetime === 'application') {
 				await this.#resolve(entry.token, [])
@@ -460,15 +463,11 @@ export class ApplicationCapabilityHost {
 			}
 		}
 
+		this.#commandBindings?.materialize(token, materializedContributions)
 		const consumer: unknown = composeCapability(token, providers)
 		if (isApplicationOperationTransportPlanningCapability(token)) {
 			bindApplicationOperationTransportPlanner(consumer, {
 				application: this.#application,
-				bindings:
-					this.#resolvedContributions.get(
-						operationTransportBindingCapability,
-					) ?? [],
-				resolveOperation: this.#resolveOperation,
 				resolveSchemaSurface: this.#resolveSchemaSurface,
 				schemaMutationBindings:
 					this.#resolvedContributions.get(
