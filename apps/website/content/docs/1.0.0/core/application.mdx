@@ -10,12 +10,13 @@ order: 1
 outcome: Explain how one UltimaBase application is composed, started, used, and isolated.
 owner: '2824'
 releaseStatus: pre-release
-reviewedAt: 2026-09-17
+reviewedAt: 2026-09-20
 sources:
   - ARCHITECTURE.md
   - packages/core/README.md
   - packages/core/src/application/framework-application.ts
   - packages/core/src/runtime/application/ultima-base.ts
+  - packages/core/src/runtime/context/current-ultima-base.ts
   - packages/core/src/runtime/validation/runtime-validation-options.ts
   - examples/minimal/src/create-application.ts
   - docs/adr/0173-generated-schema-authoring.md
@@ -78,6 +79,13 @@ errors are reported before infrastructure starts. Use `app.schema(...)` and
 advanced composition surface for plugin exports. For request identity and
 grouped writes, see [Request Identity](/docs/1.0.0/core/security-foundations/request-identity)
 and [Transactions](/docs/1.0.0/core/writing-data/transactions).
+
+Inside an active request, trusted server code can retrieve its owning facade
+with `getCurrentUltimaBase()` from `@ultimabase/core`. It returns the exact
+application's `UltimaBase`, so `.operation(token)` uses the existing request
+scope. There is no global default: outside a request, or in a low-level engine
+created without an `UltimaBase` facade, it throws `MISSING_EXECUTION_CONTEXT`.
+Scripts should retain and pass their explicit `ultimabase` instance.
 
 Read and validate required environment values at the composition root before
 passing them to plugin factories. Keep credentials server-side; the

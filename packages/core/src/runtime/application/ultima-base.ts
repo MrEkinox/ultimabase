@@ -32,6 +32,7 @@ import { bindApplicationSchemaModel } from '../../application/application-model-
 
 import { requestSources } from '../context/request-context.js'
 import { getActiveFrameworkContext } from '../context/active-framework-storage.js'
+import { registerApplicationFacade } from '../context/current-ultima-base.js'
 import type { FrameworkEngine } from '../engine/framework-engine.js'
 import type { OperationTransportProtocol } from '../plugin-operations/contracts.js'
 import type {
@@ -206,6 +207,7 @@ export class UltimaBase<
 		})
 
 		// Public facade identity is stable while private lifecycle state may advance.
+		registerApplicationFacade(this)
 		Object.freeze(this)
 	}
 

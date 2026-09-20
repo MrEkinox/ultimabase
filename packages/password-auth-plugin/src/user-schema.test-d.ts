@@ -8,12 +8,44 @@ import {
 	type PasswordAuthPlugin,
 	type PasswordPrincipal,
 	type PasswordUserDefinition,
+	type PasswordAuthenticationResult,
+	type PasswordLogoutResult,
 } from './index.js'
 
 const AppUser = PasswordUserSchema.define({
 	className: 'User',
 	fields: (field) => ({ displayName: field.string({ required: true }) }),
 	indexes: [{ fields: ['displayName', 'username'] }],
+})
+
+test('types class authentication results against the exact User and rejects extra options', () => {
+	const credentials = {
+		username: 'Ada',
+		password: 'correct horse battery staple',
+	}
+	expectTypeOf(AppUser.signUp(credentials)).toEqualTypeOf<
+		Promise<PasswordAuthenticationResult<typeof AppUser>>
+	>()
+	expectTypeOf(AppUser.login(credentials)).toEqualTypeOf<
+		Promise<PasswordAuthenticationResult<typeof AppUser>>
+	>()
+	expectTypeOf(AppUser.refresh('token')).toEqualTypeOf<
+		Promise<PasswordAuthenticationResult<typeof AppUser>>
+	>()
+	expectTypeOf(AppUser.logout('token')).toEqualTypeOf<
+		Promise<PasswordLogoutResult>
+	>()
+	expectTypeOf(PasswordUser.signUp(credentials)).toEqualTypeOf<
+		Promise<PasswordAuthenticationResult<typeof PasswordUser>>
+	>()
+	// @ts-expect-error -- Credentials require both username and password.
+	void AppUser.signUp({ username: 'Ada' })
+	// @ts-expect-error -- Session objects cannot replace the exact raw token.
+	void AppUser.refresh({ token: 'token' })
+	// @ts-expect-error -- Authentication does not introduce a caller elevation option.
+	void AppUser.login(credentials, { useMasterKey: true })
+	// @ts-expect-error -- The token is explicit even inside an authenticated request.
+	void AppUser.logout()
 })
 
 test('retains nominal User and principal typing', () => {

@@ -11,7 +11,6 @@ owner-private storage rather than application schemas.
 import { MasterAuthority, UltimaBase } from '@ultimabase/core'
 import {
 	PasswordUserSchema,
-	passwordAuthOperations,
 	passwordAuthPlugin,
 } from '@ultimabase/password-auth-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
@@ -37,12 +36,20 @@ const ultimabase = new UltimaBase({
 
 await ultimabase.start()
 
-const signedUp = await ultimabase
-	.operation(passwordAuthOperations.signUp)
-	.execute({
+const signedUp = await AppUser.signUp(
+	{
 		username: 'Ada',
 		password: 'correct horse battery staple',
-	})
+	},
+	{ ultimabase },
+)
+
+const loggedIn = await AppUser.login(
+	{ username: 'Ada', password: 'correct horse battery staple' },
+	{ ultimabase },
+)
+const refreshed = await AppUser.refresh(loggedIn.session.token, { ultimabase })
+await AppUser.logout(refreshed.session.token, { ultimabase })
 
 const auth = ultimabase.application.getPlugin(
 	'@ultimabase/password-auth-plugin',
@@ -52,6 +59,18 @@ await auth.runWithSession(
 	() => AppUser.findMany(), // Queries inherit the authenticated request context.
 )
 ```
+
+`AppUser.signUp()`, `login()`, `refresh()`, and `logout()` execute the existing
+application operations. The default `PasswordUser` exposes the same methods.
+Pass `{ ultimabase }` in scripts; inside an active request, omit it to inherit
+the application's facade. A conflicting explicit application or a User class
+not installed in that application is rejected before credential work. The
+application must be started. These methods do not store a current user or token
+on the class and do not appear on User model instances.
+
+Refresh and logout validate their explicit token and establish its session
+scope internally. Use `runWithSession()` for other authenticated application
+work. The class methods accept no caller Master or context override.
 
 `username` is injected as a required, unique, immutable field. Custom User
 schemas cannot redeclare it or add `password`, `passwordHash`, `credential`, or

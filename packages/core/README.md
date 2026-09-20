@@ -494,6 +494,13 @@ declare({ models, operations, queries, schemas }) {
 }
 ```
 
+Trusted server helpers can use `getCurrentUltimaBase()` to retrieve the facade
+owning the active request and resolve its ordinary `.operation(token)` handles.
+Like `getCurrentApplication()`, it selects no process-wide default. It fails with
+`MISSING_EXECUTION_CONTEXT` outside a request or for a low-level framework that
+has no owning facade. The selected facade retains its lifecycle and operation
+checks. Transports continue to use their narrow request-execution capability.
+
 Schema commands remain application-owned operation handles, while models
 returned through the application expose their generated commands as direct
 callable methods. Query extensions are ordinary `QueryBuilder` factories.

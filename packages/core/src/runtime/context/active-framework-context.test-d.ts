@@ -4,6 +4,8 @@ import type {
 } from '../../foundation.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import { expectTypeOf, test } from 'vitest'
+import type { OperationOptions } from '../../query/operations/options.js'
+import { getCurrentUltimaBase } from './current-ultima-base.js'
 
 import type {
 	FrameworkEngine,
@@ -35,6 +37,9 @@ test('exposes safe widened contextual types and exact callback results', () => {
 		>
 	>()
 	expectTypeOf(getCurrentRequest()).toEqualTypeOf<RequestContext>()
+	expectTypeOf(getCurrentUltimaBase()).toEqualTypeOf<
+		NonNullable<OperationOptions['ultimabase']>
+	>()
 	expectTypeOf(
 		runWithRequestEngine(requestEngine, () => 'completed' as const),
 	).toEqualTypeOf<'completed'>()

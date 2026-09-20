@@ -139,6 +139,7 @@ describe('@ultimabase/core public entry point', () => {
 			'getCurrentFrameworkContext',
 			'getCurrentRequest',
 			'getCurrentTransactionId',
+			'getCurrentUltimaBase',
 			'getFieldListDepth',
 			'getFieldSchemaTarget',
 			'getOperationSchema',

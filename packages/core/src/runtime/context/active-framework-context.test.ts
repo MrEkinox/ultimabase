@@ -15,6 +15,7 @@ import {
 	runWithRequestEngine,
 } from './active-framework-context.js'
 import { requestSources } from './request-context.js'
+import { getCurrentUltimaBase } from './current-ultima-base.js'
 
 const articleSchema = Schema.define({
 	className: 'ScopedArticle',
@@ -70,6 +71,7 @@ describe('active framework context', () => {
 			getCurrentApplicationEngine,
 			getCurrentApplication,
 			getCurrentRequest,
+			getCurrentUltimaBase,
 		]) {
 			expectMissingContext(readCurrentValue)
 		}
@@ -94,6 +96,8 @@ describe('active framework context', () => {
 			expect(getCurrentEngine()).toBe(requestEngine)
 			expect(getCurrentRequest()).toBe(requestEngine.context)
 			expect(Object.isFrozen(context)).toBe(true)
+			// Low-level frameworks must not select an unrelated facade implicitly.
+			expect(getCurrentUltimaBase).toThrow('no owning UltimaBase facade')
 
 			return 'scoped' as const
 		})

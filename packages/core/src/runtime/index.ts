@@ -14,6 +14,7 @@ export {
 	runWithRequestEngine,
 } from './context/active-framework-context.js'
 export type { ActiveFrameworkContext } from './context/active-framework-context.js'
+export { getCurrentUltimaBase } from './context/current-ultima-base.js'
 export { runOutsideRequestEngineScope } from './context/active-framework-storage.js'
 // Application assembly installs every mandatory stage from plugin-owned declarations.
 export { createFrameworkEngine } from './application/create-framework-engine.js'

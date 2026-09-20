@@ -9,6 +9,10 @@ import {
 	type UltimaBaseGeneratedSchemaOptions,
 } from '@ultimabase/core'
 import { isPlainRecord } from '@ultimabase/shared'
+import {
+	createPasswordUserAuthMethods,
+	type PasswordUserAuthMethods,
+} from './user-auth-methods.js'
 
 declare const passwordUserDefinitionBrand: unique symbol
 
@@ -42,9 +46,10 @@ type ReservedPasswordUserFieldCollision<TFields extends object> =
 /** Identifies one schema created through the final Password User composition point. */
 export type PasswordUserDefinition<
 	TCustomFields extends SchemaFields = SchemaFields,
-> = SchemaReference<'User'> & {
-	readonly [passwordUserDefinitionBrand]: TCustomFields
-}
+> = SchemaReference<'User'> &
+	PasswordUserAuthMethods<TCustomFields> & {
+		readonly [passwordUserDefinitionBrand]: TCustomFields
+	}
 
 /** Declares ordinary application fields beside the package-owned username. */
 export interface PasswordUserSchemaOptions<
@@ -84,6 +89,7 @@ export class PasswordUserSchema {
 	 *   className: 'User',
 	 *   fields: (field) => ({ displayName: field.string() }),
 	 * })
+	 * const result = await AppUser.signUp({ username: 'Ada', password }, { ultimabase })
 	 * ```
 	 */
 	static define<const TCustomFields extends SchemaFields>(
@@ -112,15 +118,19 @@ export class PasswordUserSchema {
 			return { ...customFields, username: createUsernameField() }
 		}
 		const definition = Schema as unknown as {
-			define(
+			defineWithStatics(
 				options: Readonly<Record<string, unknown>>,
+				factory: typeof createPasswordUserAuthMethods,
 			): SchemaReference<'User'>
 		}
-		const schema = definition.define({
-			...generatedOptions,
-			fields,
-			...(indexes === undefined ? {} : { indexes }),
-		})
+		const schema = definition.defineWithStatics(
+			{
+				...generatedOptions,
+				fields,
+				...(indexes === undefined ? {} : { indexes }),
+			},
+			createPasswordUserAuthMethods,
+		)
 		passwordUserSchemas.add(schema)
 		return schema as unknown as PasswordUserDefinition<TCustomFields>
 	}
