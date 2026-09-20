@@ -1,12 +1,12 @@
 # Active plan: pre-feature architecture simplification
 
-- Status: active — issue 3009 audited; issue 3010 follows its dedicated commit
+- Status: active — issue 3010 audited; issue 3011 follows its dedicated commit
 - Milestone: [30 — Pre-feature architecture simplification](issues/3000-pre-feature-architecture-simplification/README.md)
 - Detailed plan: [docs/plans/2026-09-20-pre-feature-architecture-simplification.md](docs/plans/2026-09-20-pre-feature-architecture-simplification.md)
 - Baseline: [docs/plans/2026-09-20-architecture-simplification-baseline.md](docs/plans/2026-09-20-architecture-simplification-baseline.md)
 - Contract matrix: [docs/plans/2026-09-20-architecture-contract-matrix.md](docs/plans/2026-09-20-architecture-contract-matrix.md)
 - Removal history: [HISTORIQUE_SUPPRESSIONS.md](HISTORIQUE_SUPPRESSIONS.md)
-- Resume point: issue 3010
+- Resume point: issue 3011
 
 ## Objective
 
@@ -155,7 +155,19 @@ Password Auth and Plugin Kit need no production or public API change. All 2,532
 unit/type/performance and 379 integration tests pass, alongside typecheck, build,
 lint, constraints and issue metadata. Production adds 52 lines during this bounded
 migration; exports and declaration bytes stay unchanged. Its dedicated local
-commit must precede issue 3010. No push is authorized; stop after 3014.
+commit is `08c0b334`: +414 / -126 lines, net +288, including tests and
+documentation. No push is authorized; stop after 3014.
+
+Issue 3010 is complete with a green audit. Schema mutation Runtime uses exact
+canonical commands and frozen schema-local alias membership. The old private
+source table and duplicate payload/projection preparation are removed. Logical
+Soft Delete, native delete rewriting, private Master administration, Access,
+Hooks, protected targeting, relations and transaction behavior remain unchanged.
+A validation-order finding was corrected and protected by a wire regression.
+All 2,533 unit/type/performance and 379 integration tests pass; typecheck, build,
+lint, constraints and issue checks pass. This transition adds 50 production lines
+with unchanged exports and declaration bytes. Its dedicated local commit must
+precede issue 3011. No push; hard stop after issue 3014.
 
 Documentation impact: internal engineering documentation until an issue changes
 a public contract; those issues must update both package and public website

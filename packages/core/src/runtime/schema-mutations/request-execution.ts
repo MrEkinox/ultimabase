@@ -1,9 +1,10 @@
+import { readApplicationCommandGraph } from '../../plugins/application-command-graph.js'
 import { runApplicationWork } from '../../application/active-application.js'
 import { immutableRecord } from '@ultimabase/shared'
 
 import type { PluginSchemaMutationEnvelope } from '../../application/application-schema-mutations.js'
 import { FrameworkError } from '../../errors/framework-error.js'
-import type { CompiledSchemaMutationCommand } from '../../plugins/application-surface-registry.js'
+import type { CompiledMutationCommand } from '../../plugins/command-graph.js'
 import {
 	assertOperationExecutionOwner,
 	type NormalizedOperationOptions,
@@ -32,7 +33,7 @@ import { executeRuntimeSchemaMutation } from './pipeline-execution.js'
 import { getFrameworkSchemaMutationRuntime } from './engine-integration.js'
 
 type RequestSchemaMutationExecutor = (
-	command: CompiledSchemaMutationCommand,
+	command: CompiledMutationCommand,
 	schema: SchemaDefinition,
 	envelope: PluginSchemaMutationEnvelope,
 	options: NormalizedOperationOptions,
@@ -108,7 +109,7 @@ export const registerRequestSchemaMutationHost = (
 /** Enters the private bridge without adding schema mutations to RequestEngine's API. */
 export const executeRequestSchemaMutation = (
 	engine: RequestEngine,
-	command: CompiledSchemaMutationCommand,
+	command: CompiledMutationCommand,
 	schema: SchemaDefinition,
 	envelope: PluginSchemaMutationEnvelope,
 	options: NormalizedOperationOptions,
@@ -124,19 +125,22 @@ export const executeRequestSchemaMutation = (
 
 const assertEnvelope = (
 	host: SchemaMutationRequestHost,
-	command: CompiledSchemaMutationCommand,
+	command: CompiledMutationCommand,
 	schema: SchemaDefinition,
 	envelope: PluginSchemaMutationEnvelope,
 ): void => {
-	const surface = host.engine.application.getSchemaSurface(schema.className)
-	const installed = surface?.schemaMutations.get(envelope.command)
-	const installedModel = surface?.modelMutations.get(envelope.command)
+	const graph = readApplicationCommandGraph(host.engine.application)
 	const envelopeKind: unknown = envelope.kind
 	if (
 		!host.engine.application.ownsSchema(schema) ||
-		(installed !== command && installedModel !== command) ||
+		graph.get(command.definition.name) !== command ||
+		!command.surfaces.some(
+			(surface) =>
+				surface.className === schema.className &&
+				surface.name === envelope.command,
+		) ||
 		envelopeKind !== 'plugin-schema-mutation' ||
-		envelope.mutation !== command.mutation ||
+		envelope.mutation !== command.definition ||
 		envelope.id.length === 0 ||
 		envelope.query.schema.definition !== schema
 	) {
@@ -153,7 +157,7 @@ const assertEnvelope = (
 
 const resolveRequestContext = async (
 	host: SchemaMutationRequestHost,
-	command: CompiledSchemaMutationCommand,
+	command: CompiledMutationCommand,
 	schema: SchemaDefinition,
 	options: NormalizedOperationOptions,
 ): Promise<RequestContext> => {
@@ -174,7 +178,7 @@ const resolveRequestContext = async (
 		context = await elevateTrustedMasterRequest(
 			getFrameworkMasterAuthority(host.engine.framework),
 			context,
-			`Schema mutation ${command.mutation.name} on schema ${schema.className}`,
+			`Schema mutation ${command.definition.name} on schema ${schema.className}`,
 			host.engine.application,
 		)
 	}
@@ -184,7 +188,7 @@ const resolveRequestContext = async (
 /** Resolves authority, transaction scope, and the logical Runtime entry point. */
 export const executeSchemaMutationRequest = async (
 	host: SchemaMutationRequestHost,
-	command: CompiledSchemaMutationCommand,
+	command: CompiledMutationCommand,
 	schema: SchemaDefinition,
 	envelope: PluginSchemaMutationEnvelope,
 	options: NormalizedOperationOptions,
@@ -203,12 +207,12 @@ export const executeSchemaMutationRequest = async (
 		)
 	}
 	if (
-		command.mutation.authority === 'master' &&
+		command.definition.authority === 'master' &&
 		context.access.mode !== 'master'
 	) {
 		throw new FrameworkError(
 			'MASTER_ACCESS_DENIED',
-			`Schema mutation ${command.mutation.name} requires Master authority.`,
+			`Schema mutation ${command.definition.name} requires Master authority.`,
 			{ publicMessage: 'Master access is required.' },
 		)
 	}

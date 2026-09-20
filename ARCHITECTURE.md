@@ -25,7 +25,10 @@ Issue 3009 executes application operations from those exact records: direct
 handles and wire transports share one input snapshot/envelope boundary, and
 Runtime reads command identity, transaction policy, result boundaries and public
 errors from the graph. The retained declaration view is a derived adapter, not
-an execution registry.
+an execution registry. Issue 3010 applies the same boundary to schema
+mutations: request dispatch validates the exact canonical command and its
+frozen schema-local aliases, while the existing logical pipeline preserves
+Master checks, protected targeting, owner-only effects and before/after results.
 Bounded legacy handle/Typegen views and transport facades derive from it during
 issues 3009–3012. The removed extension APIs have no compatibility path.
 

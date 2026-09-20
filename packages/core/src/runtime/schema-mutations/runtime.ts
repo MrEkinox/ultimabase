@@ -10,12 +10,11 @@ import type {
 import { readApplicationCommandGraph } from '../../plugins/application-command-graph.js'
 import type { CommandBindings } from '../commands/bindings.js'
 import { runWithApplicationPluginOwner } from '../../plugins/callback-execution.js'
-import type { CompiledSchemaMutationCommand } from '../../plugins/application-surface-registry.js'
+import type { CompiledMutationCommand } from '../../plugins/command-graph.js'
 import {
 	formatPluginIdentity,
 	type PluginIdentity,
 } from '../../plugins/manifest.js'
-import { readPluginSchemaMutationSource } from '../../plugins/plugin-schema-mutations.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import type { RequestContext } from '../context/request-context.js'
 import { getSchemaMutationWireCodec } from './transport-capabilities.js'
@@ -29,7 +28,7 @@ export interface OwnedSchemaMutationTransportBinding {
 }
 
 const mutationFailure = (
-	command: Pick<CompiledSchemaMutationCommand, 'mutation' | 'owner'>,
+	command: CompiledMutationCommand,
 	kind: string,
 	message: string,
 	cause?: unknown,
@@ -40,7 +39,7 @@ const mutationFailure = (
 		publicMessage: 'The requested operation could not be completed.',
 		internalDetails: {
 			kind,
-			operation: command.mutation.name,
+			operation: command.definition.name,
 			plugin: formatPluginIdentity(command.owner),
 			...(contributionId === undefined ? {} : { contributionId }),
 		},
@@ -61,13 +60,9 @@ export class PluginSchemaMutationRuntime {
 		// Missing selected resolvers still fail when Runtime is assembled, not in pure compilation.
 		for (const command of graph.commands) {
 			if (command.kind !== 'mutation' || command.surfaces.length === 0) continue
-			if (
-				this.#bindings.handler(
-					readPluginSchemaMutationSource(command.definition),
-				) === undefined
-			) {
+			if (this.#bindings.handler(command) === undefined) {
 				throw mutationFailure(
-					{ mutation: command.definition, owner: command.owner },
+					command,
 					'schema-mutation-handler-missing',
 					`Schema mutation ${command.definition.name} has no installed handler.`,
 				)
@@ -77,19 +72,18 @@ export class PluginSchemaMutationRuntime {
 
 	/** Invokes one exact resolver under its retained plugin attribution. */
 	async resolve(
-		command: CompiledSchemaMutationCommand,
+		command: CompiledMutationCommand,
 		schema: SchemaDefinition,
 		envelope: PluginSchemaMutationEnvelope,
 		context: RequestContext,
 		originalItem: Readonly<Record<string, unknown>>,
 	): Promise<unknown> {
-		const source = readPluginSchemaMutationSource(command.mutation)
-		const owned = this.#bindings.handler(source)
+		const owned = this.#bindings.handler(command)
 		if (owned?.kind !== 'mutation') {
 			throw mutationFailure(
 				command,
 				'schema-mutation-handler-missing',
-				`Schema mutation ${command.mutation.name} has no installed handler.`,
+				`Schema mutation ${command.definition.name} has no installed handler.`,
 			)
 		}
 		try {
@@ -113,7 +107,7 @@ export class PluginSchemaMutationRuntime {
 			if (
 				error instanceof PluginError &&
 				typeof error.code === 'string' &&
-				command.mutation.errors.includes(error.code)
+				command.definition.errors.includes(error.code)
 			) {
 				throw error
 			}
@@ -121,7 +115,7 @@ export class PluginSchemaMutationRuntime {
 			throw mutationFailure(
 				command,
 				'schema-mutation-handler-failed',
-				`Schema mutation ${command.mutation.name} handler failed.`,
+				`Schema mutation ${command.definition.name} handler failed.`,
 				error,
 				owned.contributionId,
 			)
@@ -130,16 +124,15 @@ export class PluginSchemaMutationRuntime {
 
 	/** Resolves one exact owner binding after transport exposure selected it. */
 	transportBinding(
-		command: CompiledSchemaMutationCommand,
+		command: CompiledMutationCommand,
 		transport: OperationTransportProtocol,
 	): OwnedSchemaMutationTransportBinding {
-		const source = readPluginSchemaMutationSource(command.mutation)
-		const binding = this.#bindings.transport(source, transport)
+		const binding = this.#bindings.transport(command, transport)
 		if (binding?.kind !== 'mutation') {
 			throw mutationFailure(
 				command,
 				'schema-mutation-transport-binding-missing',
-				`Schema mutation ${command.mutation.name} has no binding for ${transport.name}@${transport.version}.`,
+				`Schema mutation ${command.definition.name} has no binding for ${transport.name}@${transport.version}.`,
 			)
 		}
 		return binding
@@ -147,13 +140,10 @@ export class PluginSchemaMutationRuntime {
 
 	/** Reads an optional binding while static exposure remains explicit. */
 	findTransportBinding(
-		command: CompiledSchemaMutationCommand,
+		command: CompiledMutationCommand,
 		transport: OperationTransportProtocol,
 	): OwnedSchemaMutationTransportBinding | undefined {
-		const binding = this.#bindings.transport(
-			readPluginSchemaMutationSource(command.mutation),
-			transport,
-		)
+		const binding = this.#bindings.transport(command, transport)
 		return binding?.kind === 'mutation' ? binding : undefined
 	}
 

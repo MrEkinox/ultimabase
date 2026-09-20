@@ -14,7 +14,7 @@ import {
 	provideOperationTransportBinding,
 } from '../runtime/plugin-operations/capabilities.js'
 import { readApplicationCommandGraph } from './application-command-graph.js'
-import { readOperationCommand } from './command-graph.js'
+import { readMutationCommand, readOperationCommand } from './command-graph.js'
 import { definePlugin } from './definition.js'
 import { defineOperation, defineOperationValue } from './plugin-operations.js'
 import { defineSchemaMutation } from './plugin-schema-mutations.js'
@@ -168,17 +168,29 @@ describe('canonical command graph', () => {
 		const { command, graph } = readOperationCommand(view)
 		expect(graph).toBe(first)
 		expect(command).toBe(first.fromSource(owned.operation))
-		expect(first.snapshotOperation(command, 'input', 'payload')).toBe('payload')
-		expect(first.snapshotOperation(command, 'result', 'result')).toBe('result')
-		expect(() => first.snapshotOperation(command, 'input', 42)).toThrow(
-			'Expected a string',
-		)
+		expect(first.snapshotInput(command, 'payload')).toBe('payload')
+		expect(first.snapshotOperationResult(command, 'result')).toBe('result')
+		expect(() => first.snapshotInput(command, 42)).toThrow('Expected a string')
 		// Same nominal token and owner in another pure compilation confer no authority.
-		expect(() => second.snapshotOperation(command, 'input', 'payload')).toThrow(
+		expect(() => second.snapshotInput(command, 'payload')).toThrow(
 			'another compiled graph',
 		)
 		expect(second.bindings.handler(command)).toBeUndefined()
 		expect(() => readOperationCommand({ ...view })).toThrow(
+			'not compiled by Core',
+		)
+		const mutationView = first
+			.schemaSurface(Document.className)
+			?.schemaMutations.get('archive_one')
+		if (mutationView === undefined) throw new Error('Missing mutation fixture')
+		const mutation = readMutationCommand(mutationView)
+		expect(mutation.graph).toBe(first)
+		expect(mutation.command).toBe(first.fromSource(owned.mutation))
+		expect(first.snapshotInput(mutation.command, 'reason')).toBe('reason')
+		expect(() => second.snapshotInput(mutation.command, 'reason')).toThrow(
+			'another compiled graph',
+		)
+		expect(() => readMutationCommand({ ...mutationView })).toThrow(
 			'not compiled by Core',
 		)
 		assertInert(command)

@@ -77,6 +77,26 @@ export const readOperationCommand = (
 	return compiled
 }
 
+export type CompiledMutationCommand = Extract<
+	CompiledCommand,
+	{ kind: 'mutation' }
+>
+interface MutationView {
+	readonly command: CompiledMutationCommand
+	readonly graph: CompiledCommandGraph
+}
+const mutationViews = new WeakMap<CompiledSchemaMutationCommand, MutationView>()
+
+/** Resolves a retained schema/model alias without storing another mutation declaration. */
+export const readMutationCommand = (
+	view: CompiledSchemaMutationCommand,
+): MutationView => {
+	const compiled = mutationViews.get(view)
+	if (compiled === undefined)
+		throw new TypeError('Mutation view was not compiled by Core')
+	return compiled
+}
+
 /** Source tokens never enter an inert projection or become a registration API. */
 export type CommandSource =
 	PluginOperationDefinition | PluginSchemaMutationDefinition
@@ -151,6 +171,7 @@ export class CompiledCommandGraph {
 				owner: command.owner,
 				staticOptions: surface.staticOptions,
 			})
+			mutationViews.set(view, immutableRecord({ command, graph: this }))
 			for (const kind of surface.surfaces) {
 				const index =
 					kind === 'schema' ? target.schemaMutations : target.modelMutations
@@ -174,19 +195,34 @@ export class CompiledCommandGraph {
 		return entry?.source === source ? entry.command : undefined
 	}
 
-	/** Runs only the exact source boundary belonging to this compiled operation. */
-	snapshotOperation(
-		command: CompiledOperationCommand,
-		boundary: 'input' | 'result',
-		value: unknown,
-	): unknown {
-		const entry = this.#entries.get(command.definition.name)
-		if (entry?.command !== command || entry.source.kind !== 'plugin-operation')
-			throw new TypeError('Operation command belongs to another compiled graph')
-		const path = `${command.definition.name}.${boundary}`
-		const snapshot = entry.source[boundary].snapshot(value, path)
+	/** Snapshots either command's payload through its one private source contract. */
+	snapshotInput(command: CompiledCommand, value: unknown): unknown {
+		const source = this.#source(command)
+		const path = `${command.definition.name}.input`
+		const snapshot = source.input.snapshot(value, path)
 		assertImmutableOperationValue(snapshot, path)
 		return snapshot
+	}
+
+	/** Application operations alone own an arbitrary result contract. */
+	snapshotOperationResult(
+		command: CompiledOperationCommand,
+		value: unknown,
+	): unknown {
+		const source = this.#source(command)
+		if (source.kind !== 'plugin-operation')
+			throw new TypeError('Expected an application operation')
+		const path = `${command.definition.name}.result`
+		const snapshot = source.result.snapshot(value, path)
+		assertImmutableOperationValue(snapshot, path)
+		return snapshot
+	}
+
+	#source(command: CompiledCommand): CommandSource {
+		const entry = this.#entries.get(command.definition.name)
+		if (entry?.command !== command)
+			throw new TypeError('Command belongs to another compiled graph')
+		return entry.source
 	}
 
 	/** Temporary operation view for the bounded execution and surface migrations. */

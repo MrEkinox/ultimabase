@@ -1,3 +1,4 @@
+import { readMutationCommand } from '../../plugins/command-graph.js'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 import type { FrameworkEngine } from '../engine/framework-engine.js'
@@ -54,9 +55,10 @@ export const exposeFrameworkSchemaMutations = <
 			...surface.schemaMutations,
 			...surface.modelMutations,
 		])
-		for (const [commandName, command] of [...commands].sort(([left], [right]) =>
+		for (const [commandName, view] of [...commands].sort(([left], [right]) =>
 			left.localeCompare(right),
 		)) {
+			const { command } = readMutationCommand(view)
 			const binding = runtime.findTransportBinding(command, options.transport)
 			if (binding === undefined) continue
 			exposed.push(immutableRecord({ binding, command, commandName, schema }))

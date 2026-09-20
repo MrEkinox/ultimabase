@@ -16,7 +16,10 @@ import {
 	type FrameworkApplicationOptions,
 	type PluginDefinition,
 } from '../../foundation.js'
-import type { CompiledOperationCommand } from '../../plugins/command-graph.js'
+import {
+	readMutationCommand,
+	type CompiledOperationCommand,
+} from '../../plugins/command-graph.js'
 import type { PluginOperationDefinition } from '../../plugins/plugin-operations.js'
 import {
 	executeStaticSchemaMutation,
@@ -431,7 +434,7 @@ export class UltimaBase<
 		return this.#bindQueryResult(
 			await executeRequestSchemaMutation(
 				requestEngine,
-				command,
+				readMutationCommand(command).command,
 				schema,
 				envelope,
 				normalizeOperationOptions(options),

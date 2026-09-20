@@ -6,7 +6,6 @@ import type {
 } from '../query/clauses/selection.js'
 import type { OperationObjectId } from '../query/operations/contracts.js'
 import type { OperationOptions } from '../query/operations/options.js'
-import { queryFromFindOneInput } from '../query/query/input.js'
 import type {
 	ExactGeneratedInclusionInput,
 	QueryIncludedFieldFromInput,
@@ -18,15 +17,15 @@ import type {
 	PluginSchemaMutationDefinition,
 	PluginSchemaMutationInput,
 } from '../plugins/plugin-schema-mutations.js'
-import { readPluginSchemaMutationSource } from '../plugins/plugin-schema-mutations.js'
-import { assertImmutableOperationValue } from '../plugins/plugin-operation-boundaries.js'
+import { readMutationCommand } from '../plugins/command-graph.js'
+import { prepareSchemaMutationEnvelope } from './schema-mutation-envelope.js'
 import type { SchemaDefinition } from '../schema/schema/definition.js'
 import type {
 	SchemaTypeInfoFor,
 	SchemaTypeInfoSource,
 } from '../schema/type-info.js'
 import { readPersistedSchemaModelRecord } from '../schema/schema/model-state.js'
-import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
+import { isPlainRecord } from '@ultimabase/shared'
 
 /** Carries one normalized direct call without an executable resolver or adapter. */
 export interface PluginSchemaMutationEnvelope {
@@ -100,21 +99,15 @@ export const createApplicationSchemaMutationMethod =
 			)
 		}
 
-		const source = readPluginSchemaMutationSource(options.command.mutation)
-		const payload = source.input.snapshot(input.input, `${source.name}.input`)
-		assertImmutableOperationValue(payload, `${source.name}.input`)
-		const projection = queryFromFindOneInput(options.schema, {
-			...(input.include === undefined ? {} : { include: input.include }),
-			...(input.select === undefined ? {} : { select: input.select }),
-			where: { id: { eq: idValue } },
-		} as never)
-		const envelope = immutableRecord({
-			command: options.name,
+		const { command, graph } = readMutationCommand(options.command)
+		const envelope = prepareSchemaMutationEnvelope({
+			graph,
+			command,
+			schema: options.schema,
+			name: options.name,
 			id: idValue,
-			kind: 'plugin-schema-mutation' as const,
-			mutation: options.command.mutation,
-			payload,
-			query: projection.ast,
+			input: input.input,
+			projection: input,
 		})
 
 		return options.execute(

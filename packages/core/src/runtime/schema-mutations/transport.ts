@@ -5,12 +5,11 @@ import {
 	isPlainRecord,
 } from '@ultimabase/shared'
 
-import type { PluginSchemaMutationEnvelope } from '../../application/application-schema-mutations.js'
+import { prepareSchemaMutationEnvelope } from '../../application/schema-mutation-envelope.js'
+import { readApplicationCommandGraph } from '../../plugins/application-command-graph.js'
+import type { CompiledMutationCommand } from '../../plugins/command-graph.js'
 import { FrameworkError } from '../../errors/framework-error.js'
 import type { CompiledSchemaMutationCommand } from '../../plugins/application-surface-registry.js'
-import { readPluginSchemaMutationSource } from '../../plugins/plugin-schema-mutations.js'
-import { assertImmutableOperationValue } from '../../plugins/plugin-operation-boundaries.js'
-import { queryFromFindOneInput } from '../../query/query/input.js'
 import type { JsonValue, SchemaDefinition } from '../../schema/index.js'
 import { throwIfOperationCancelled } from '../cancellation/operation-cancellation.js'
 import { RequestContext } from '../context/request-context.js'
@@ -69,7 +68,7 @@ export interface ApplicationSchemaMutationTransport<
 interface ExposedSchemaMutation {
 	readonly binding: OwnedSchemaMutationTransportBinding
 	readonly commandName: string
-	readonly command: CompiledSchemaMutationCommand
+	readonly command: CompiledMutationCommand
 	readonly schema: SchemaDefinition
 }
 
@@ -87,16 +86,16 @@ const createDescriptor = (
 	exposed: ExposedSchemaMutation,
 ): ExposedSchemaMutationTransportBinding =>
 	immutableRecord({
-		authority: exposed.command.mutation.authority,
+		authority: exposed.command.definition.authority,
 		command: exposed.commandName,
-		effect: exposed.command.mutation.effect,
-		errors: exposed.command.mutation.errors,
+		effect: exposed.command.definition.effect,
+		errors: exposed.command.definition.errors,
 		metadata: exposed.binding.binding.metadata,
-		mutation: exposed.command.mutation.name,
+		mutation: exposed.command.definition.name,
 		owner: exposed.command.owner,
-		returning: exposed.command.mutation.returning,
+		returning: exposed.command.definition.returning,
 		schema: exposed.schema.className,
-		version: exposed.command.mutation.version,
+		version: exposed.command.definition.version,
 	})
 
 /** @internal Retains executable codecs and commands behind inert descriptors. */
@@ -157,28 +156,21 @@ export class CoreApplicationSchemaMutationTransport<
 				throw new TypeError('schema mutation transport id must be a string')
 			}
 			throwIfOperationCancelled(request.context.signal, {
-				operation: exposed.command.mutation.name,
+				operation: exposed.command.definition.name,
 				stage: 'transport-input',
 			})
 			const decoded = this.runtime.decodeTransportInput(
 				exposed.binding,
 				request.input,
 			)
-			const source = readPluginSchemaMutationSource(exposed.command.mutation)
-			const payload = source.input.snapshot(decoded, `${source.name}.input`)
-			assertImmutableOperationValue(payload, `${source.name}.input`)
-			const projection = queryFromFindOneInput(request.schema, {
-				...(request.include === undefined ? {} : { include: request.include }),
-				...(request.select === undefined ? {} : { select: request.select }),
-				where: { id: { eq: request.id } },
-			} as never)
-			const envelope: PluginSchemaMutationEnvelope = immutableRecord({
-				command: exposed.commandName,
+			const envelope = prepareSchemaMutationEnvelope({
+				graph: readApplicationCommandGraph(engine.application),
+				command: exposed.command,
+				schema: request.schema,
+				name: exposed.commandName,
 				id: request.id,
-				kind: 'plugin-schema-mutation' as const,
-				mutation: exposed.command.mutation,
-				payload,
-				query: projection.ast,
+				input: decoded,
+				projection: request,
 			})
 			return executeRequestSchemaMutation(
 				engine,

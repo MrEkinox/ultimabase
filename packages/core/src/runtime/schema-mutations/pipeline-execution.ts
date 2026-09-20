@@ -5,7 +5,7 @@ import {
 } from '@ultimabase/shared'
 
 import type { PluginSchemaMutationEnvelope } from '../../application/application-schema-mutations.js'
-import type { CompiledSchemaMutationCommand } from '../../plugins/application-surface-registry.js'
+import type { CompiledMutationCommand } from '../../plugins/command-graph.js'
 import type {
 	DeleteOneOperationAst,
 	GetOperationAst,
@@ -63,7 +63,7 @@ interface SchemaMutationPipelineBinding {
 }
 
 export interface RuntimeSchemaMutationRequest {
-	readonly command: CompiledSchemaMutationCommand
+	readonly command: CompiledMutationCommand
 	readonly context: RequestContext
 	readonly envelope: PluginSchemaMutationEnvelope
 	readonly runtime: PluginSchemaMutationRuntime
@@ -129,10 +129,10 @@ const readPreparedTarget = (
 }
 
 const projectResolverItem = (
-	command: CompiledSchemaMutationCommand,
+	command: CompiledMutationCommand,
 	target: Readonly<Record<string, unknown>>,
 ): Readonly<Record<string, unknown>> => {
-	const fields = new Set(['id', ...Object.keys(command.mutation.select)])
+	const fields = new Set(['id', ...Object.keys(command.definition.select)])
 	return immutableRecord(
 		Object.fromEntries(
 			Object.entries(target).filter(([field]) => fields.has(field)),
@@ -154,7 +154,7 @@ const projectResultRecord = (
 }
 
 const assertLogicalIdentity: (
-	command: CompiledSchemaMutationCommand,
+	command: CompiledMutationCommand,
 	schema: SchemaDefinition,
 	envelope: PluginSchemaMutationEnvelope,
 	operation: unknown,
@@ -169,7 +169,7 @@ const assertLogicalIdentity: (
 		operation.kind !== 'plugin-schema-mutation' ||
 		operation.command !== envelope.command ||
 		operation.id !== envelope.id ||
-		operation.mutation !== command.mutation ||
+		operation.mutation !== command.definition ||
 		operation.owner !== command.owner ||
 		!isPlainRecord(operation.query) ||
 		!isPlainRecord(operation.query.schema) ||
@@ -259,7 +259,7 @@ export const executeRuntimeSchemaMutation = async (
 		input: envelope.payload,
 		item: undefined,
 		kind: 'plugin-schema-mutation' as const,
-		mutation: command.mutation,
+		mutation: command.definition,
 		originalItem: undefined,
 		owner: command.owner,
 		query: envelope.query,
@@ -382,7 +382,7 @@ export const executeRuntimeSchemaMutation = async (
 	)
 	const preparedInclusions = await inclusions.prepare(context, physical)
 	const beforeInclusionSource =
-		command.mutation.returning === 'before'
+		command.definition.returning === 'before'
 			? await createBeforeInclusionSource(
 					executor,
 					physical,
@@ -440,7 +440,7 @@ export const executeRuntimeSchemaMutation = async (
 	const materialization = outcome.materializations[0]
 	if (
 		materialization === undefined ||
-		(command.mutation.effect === 'update'
+		(command.definition.effect === 'update'
 			? materialization.kind !== 'update'
 			: materialization.kind !== 'delete')
 	) {
@@ -448,7 +448,7 @@ export const executeRuntimeSchemaMutation = async (
 	}
 	const previous = materialization.previous
 	const sourceRecord =
-		command.mutation.returning === 'before'
+		command.definition.returning === 'before'
 			? previous
 			: materialization.kind === 'update'
 				? materialization.current
@@ -491,7 +491,7 @@ export const executeRuntimeSchemaMutation = async (
 		)
 	}
 	const afterInclusionSource =
-		command.mutation.returning === 'after'
+		command.definition.returning === 'after'
 			? await loadSingularMutationInclusionSource(
 					executor,
 					physical,

@@ -5,7 +5,7 @@ import {
 } from '@ultimabase/shared'
 
 import { FrameworkError } from '../../errors/framework-error.js'
-import type { CompiledSchemaMutationCommand } from '../../plugins/application-surface-registry.js'
+import type { CompiledMutationCommand } from '../../plugins/command-graph.js'
 import type { UpdateExpressionNode } from '../../query/index.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import { snapshotDeclaredFieldValue } from '../../schema/fields/base/definition.js'
@@ -21,7 +21,7 @@ export interface ValidatedSchemaMutationEffect {
 }
 
 const invalidEffect = (
-	command: CompiledSchemaMutationCommand,
+	command: CompiledMutationCommand,
 	message: string,
 	field?: string,
 ): FrameworkError<'PLUGIN_OPERATION_INVALID'> =>
@@ -29,13 +29,13 @@ const invalidEffect = (
 		publicMessage: 'The requested operation could not be completed.',
 		internalDetails: {
 			kind: 'schema-mutation-effect-invalid',
-			operation: command.mutation.name,
+			operation: command.definition.name,
 			...(field === undefined ? {} : { field }),
 		},
 	})
 
 const isOwnedField = (
-	command: CompiledSchemaMutationCommand,
+	command: CompiledMutationCommand,
 	schema: SchemaDefinition,
 	field: string,
 ): boolean => {
@@ -50,16 +50,16 @@ const isOwnedField = (
 
 /** Validates the resolver result before Core creates any physical statement. */
 export const validateSchemaMutationEffect = (
-	command: CompiledSchemaMutationCommand,
+	command: CompiledMutationCommand,
 	schema: SchemaDefinition,
 	originalItem: Readonly<Record<string, unknown>>,
 	candidate: unknown,
 ): ValidatedSchemaMutationEffect => {
-	if (command.mutation.effect === 'delete') {
+	if (command.definition.effect === 'delete') {
 		if (candidate !== undefined) {
 			throw invalidEffect(
 				command,
-				`Delete schema mutation ${command.mutation.name} must return undefined.`,
+				`Delete schema mutation ${command.definition.name} must return undefined.`,
 			)
 		}
 
@@ -78,7 +78,7 @@ export const validateSchemaMutationEffect = (
 	) {
 		throw invalidEffect(
 			command,
-			`Update schema mutation ${command.mutation.name} must return one non-empty data object.`,
+			`Update schema mutation ${command.definition.name} must return one non-empty data object.`,
 		)
 	}
 
@@ -98,14 +98,14 @@ export const validateSchemaMutationEffect = (
 		) {
 			throw invalidEffect(
 				command,
-				`Schema mutation ${command.mutation.name} cannot replace field ${fieldName}.`,
+				`Schema mutation ${command.definition.name} cannot replace field ${fieldName}.`,
 				fieldName,
 			)
 		}
 		if (value === undefined) {
 			throw invalidEffect(
 				command,
-				`Schema mutation ${command.mutation.name} cannot replace field ${fieldName} with undefined.`,
+				`Schema mutation ${command.definition.name} cannot replace field ${fieldName} with undefined.`,
 				fieldName,
 			)
 		}
@@ -114,19 +114,19 @@ export const validateSchemaMutationEffect = (
 			snapshot = snapshotDeclaredFieldValue(
 				field,
 				value,
-				`${command.mutation.name}.data.${fieldName}`,
+				`${command.definition.name}.data.${fieldName}`,
 			)
 		} catch (cause: unknown) {
 			throw new FrameworkError(
 				'PLUGIN_OPERATION_INVALID',
-				`Schema mutation ${command.mutation.name} returned an invalid value for ${fieldName}.`,
+				`Schema mutation ${command.definition.name} returned an invalid value for ${fieldName}.`,
 				{
 					cause,
 					publicMessage: 'The requested operation could not be completed.',
 					internalDetails: {
 						field: fieldName,
 						kind: 'schema-mutation-effect-invalid',
-						operation: command.mutation.name,
+						operation: command.definition.name,
 					},
 				},
 			)

@@ -15,7 +15,7 @@ export const prepareOperationEnvelope = (
 	immutableRecord({
 		kind: 'plugin-operation' as const,
 		name: command.definition.name,
-		payload: graph.snapshotOperation(command, 'input', input),
+		payload: graph.snapshotInput(command, input),
 		target: immutableRecord({ kind: 'application' as const }),
 		transaction: command.definition.transaction,
 		version: command.definition.version,

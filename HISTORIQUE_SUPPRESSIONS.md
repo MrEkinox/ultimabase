@@ -166,7 +166,7 @@ au fur et à mesure des migrations et de leurs audits.
 | Issues    | Ancien mécanisme à retirer                                                                        | Ce qui reprend sa responsabilité                                                  | État                   |
 | --------- | ------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ---------------------- |
 | 3008–3009 | Stockages indépendants des opérations et faits recopiés entre compilation et exécution            | Graphe privé canonique et liaison d’exécution attribuée au propriétaire           | Livré                  |
-| 3010      | Registres parallèles des mutations de schéma et de leurs bindings                                 | Même graphe, avec la sémantique propre aux mutations conservée                    | À réaliser             |
+| 3010      | Ancienne table des sources et lectures Runtime des vues de mutation                               | Même graphe, avec la sémantique propre aux mutations conservée                    | Livré                  |
 | 3011      | Registres de surfaces et générateurs redondants                                                   | Projections immuables des mêmes faits pour les méthodes développeur et Typegen    | À réaliser             |
 | 3012      | Registres et comparaisons en double entre plans statiques et bindings des transports              | Projections REST/GraphQL du graphe, avec codecs et contrôle d’exécution conservés | À réaliser             |
 | 3013      | Adaptateurs temporaires de migration, chemins historiques et vérifications réellement redondantes | Chemins canoniques et tests conservant chaque invariant requis                    | À réaliser             |
@@ -226,7 +226,7 @@ au fur et à mesure des migrations et de leurs audits.
   anomalie restante : **2 529 tests unitaires/types/performance et 379
   intégrations** passent. Les adaptations restantes sont traitées en 3009–3012.
 
-- **3009 — livrée dans ce commit :** la construction d’enveloppe et la validation
+- **3009 — livrée dans `08c0b334` :** la construction d’enveloppe et la validation
   des entrées communes aux handles et aux transports ne sont plus dupliquées.
   Le Runtime des opérations ne lit plus `getOperation()` ni les anciennes vues
   de déclaration : identité, transactions, erreurs et résultats viennent de la
@@ -237,6 +237,18 @@ au fur et à mesure des migrations et de leurs audits.
   unitaires/types/performance et 379 intégrations** passent. Cette transition
   ajoute **52 lignes de production** ; les suppressions des adaptations restantes
   suivent en 3010–3013.
+
+- **3010 — livrée dans ce commit :** le Runtime des mutations lit désormais la
+  commande canonique et ses cibles figées. La table privée `schemaMutationSources`
+  et son lecteur `readPluginSchemaMutationSource()` disparaissent. Handles et
+  transports partagent la préparation du payload et de la projection, dans
+  l’ordre de validation existant. Les vues publiques restent des adaptations
+  dérivées ; aucun registre d’exécution indépendant n’est conservé. Aucun
+  changement d’API ou de plugin concret : les deux modes Soft Delete, le Master,
+  les Hooks, Access, les relations et les transactions restent couverts. Audit
+  final sans anomalie : **2 533 tests unitaires/types/performance et 379
+  intégrations** passent. Cette migration ajoute **50 lignes de production**,
+  sans changement des exports ou de la taille des déclarations.
 
 ## Sources de décision
 

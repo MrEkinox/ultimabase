@@ -101,7 +101,7 @@ export class PluginOperationRuntime {
 						}),
 					),
 			)
-			return this.#graph.snapshotOperation(compiled, 'result', candidate)
+			return this.#graph.snapshotOperationResult(compiled, candidate)
 		} catch (error: unknown) {
 			if (isPluginError(error)) {
 				if (compiled.definition.errors.includes(error.code)) throw error

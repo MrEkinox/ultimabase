@@ -3,7 +3,7 @@ import { immutableArray, immutableRecord } from '@ultimabase/shared'
 import type { CompiledApplicationSchemaSurface } from '../../plugins/application-surface-registry.js'
 import type { CapabilityProviderContribution } from '../../plugins/capabilities.js'
 import { readApplicationCommandGraph } from '../../plugins/application-command-graph.js'
-import { readPluginSchemaMutationSource } from '../../plugins/plugin-schema-mutations.js'
+import { readMutationCommand } from '../../plugins/command-graph.js'
 import type { CompiledSchemaRegistry } from '../../schema/index.js'
 import { isSchemaMutationTransportBinding } from '../schema-mutations/transport-capabilities.js'
 import type { ExposedSchemaMutationTransportBinding } from '../schema-mutations/transport.js'
@@ -54,11 +54,11 @@ export const planApplicationSchemaMutations = <
 		for (const [commandName, command] of [...commands].sort(([left], [right]) =>
 			left.localeCompare(right),
 		)) {
-			const source = readPluginSchemaMutationSource(command.mutation)
-			const owned = bindings.transport(source, options.transport)
+			const { command: compiled } = readMutationCommand(command)
+			const owned = bindings.transport(compiled, options.transport)
 			if (owned?.kind !== 'mutation') continue
 			const binding = owned.binding
-			usedBindings.add(source)
+			usedBindings.add(binding.mutation)
 			mutations.push(
 				immutableRecord({
 					authority: command.mutation.authority,

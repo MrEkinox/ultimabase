@@ -126,10 +126,6 @@ export type PluginSchemaMutationErrorCode<TMutation> =
 		: never
 
 const schemaMutationDefinitions = new WeakSet<object>()
-const schemaMutationSources = new WeakMap<
-	CompiledPluginSchemaMutationDefinition,
-	PluginSchemaMutationDefinition
->()
 
 const snapshotSelection = (
 	value: PluginSchemaMutationDependencySelection | undefined,
@@ -259,7 +255,7 @@ export const isPluginSchemaMutationDefinition = (
 export const compilePluginSchemaMutationDefinition = (
 	definition: PluginSchemaMutationDefinition,
 ): CompiledPluginSchemaMutationDefinition => {
-	const compiled = immutableRecord({
+	return immutableRecord({
 		authority: definition.authority,
 		effect: definition.effect,
 		errors: definition.errors,
@@ -274,17 +270,4 @@ export const compilePluginSchemaMutationDefinition = (
 		select: definition.select,
 		version: definition.version,
 	})
-	schemaMutationSources.set(compiled, definition)
-	return compiled
-}
-
-/** @internal Restores the private source token for the future Runtime resolver. */
-export const readPluginSchemaMutationSource = (
-	compiled: CompiledPluginSchemaMutationDefinition,
-): PluginSchemaMutationDefinition => {
-	const source = schemaMutationSources.get(compiled)
-	if (source === undefined) {
-		throw new TypeError('Unknown compiled plugin schema mutation')
-	}
-	return source
 }
