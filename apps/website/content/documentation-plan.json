@@ -218,8 +218,8 @@
 				},
 				{
 					"slug": "official/soft-delete",
-					"contentType": "concept",
-					"outcome": "Configure a deletion mode and keep restore or purge behind private Master authority."
+					"contentType": "guide",
+					"outcome": "Soft-delete a record, verify that ordinary reads hide it, and restore it from trusted server code."
 				},
 				{
 					"slug": "official/graphql",
