@@ -1,10 +1,8 @@
 import {
 	provideRuntimeConstraint,
 	provideRuntimeInterceptor,
-	provideRuntimeObserver,
 	type RuntimeConstraintDefinition,
 	type RuntimeInterceptorDefinition,
-	type RuntimeObserverDefinition,
 } from '../../../src/runtime/index.js'
 
 /** Materializes one immutable interceptor definition for a focused Runtime fixture. */
@@ -23,16 +21,6 @@ export const provideTestRuntimeConstraint = (
 	definition: RuntimeConstraintDefinition,
 ) =>
 	provideRuntimeConstraint({
-		contributionId,
-		create: () => ({ value: definition }),
-	})
-
-/** Materializes one immutable observer definition for a focused Runtime fixture. */
-export const provideTestRuntimeObserver = (
-	contributionId: string,
-	definition: RuntimeObserverDefinition,
-) =>
-	provideRuntimeObserver({
 		contributionId,
 		create: () => ({ value: definition }),
 	})

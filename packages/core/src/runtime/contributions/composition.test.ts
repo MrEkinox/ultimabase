@@ -6,10 +6,7 @@ import {
 import { QueryBuilder } from '../../query/index.js'
 import { Schema } from '../../schema/index.js'
 import { describe, expect, it, vi } from 'vitest'
-import {
-	provideTestRuntimeInterceptor,
-	provideTestRuntimeObserver,
-} from '../../../tests/runtime/fixtures/runtime-capabilities.js'
+import { provideTestRuntimeInterceptor } from '../../../tests/runtime/fixtures/runtime-capabilities.js'
 
 import { RequestContext, requestSources } from '../context/request-context.js'
 import type {
@@ -23,7 +20,6 @@ import type {
 import {
 	afterOperation,
 	beforeOperation,
-	postCommitEvent,
 	preparedOperation,
 } from './definitions.js'
 import { composeRuntimeContributionBehavior } from './composition.js'
@@ -134,58 +130,6 @@ describe('composeRuntimeContributionBehavior', () => {
 				'runtime interceptor factories must return a definition created by an interceptor factory',
 			),
 		)
-	})
-
-	it('rejects contribution kinds registered in the wrong Core category', async () => {
-		const eventInHooks = definePlugin({
-			version: '0.0.0',
-			core: '^0.0.0',
-			pluginId: 'fixture.event-in-hooks',
-			privileges: [
-				{
-					name: 'runtime:intercept',
-					reason: 'Exercises exact interceptor category validation.',
-				},
-			],
-			capabilities: {
-				provides: [
-					provideTestRuntimeInterceptor(
-						'fixture.wrong-event',
-						postCommitEvent({ handler: () => undefined }) as never,
-					),
-				],
-			},
-		})
-		const hookInEvents = definePlugin({
-			version: '0.0.0',
-			core: '^0.0.0',
-			pluginId: 'fixture.interceptor-in-observers',
-			privileges: [
-				{
-					name: 'runtime:observe',
-					reason: 'Exercises exact observer category validation.',
-				},
-			],
-			capabilities: {
-				provides: [
-					provideTestRuntimeObserver(
-						'fixture.wrong-interceptor',
-						beforeOperation({
-							handler: () => undefined,
-						}) as never,
-					),
-				],
-			},
-		})
-
-		for (const plugin of [eventInHooks, hookInEvents]) {
-			await expect(
-				createApplication({
-					schemas: [articleSchema],
-					plugins: [plugin],
-				}),
-			).rejects.toThrow(/factories must return a definition created by/u)
-		}
 	})
 
 	it('rejects schema scopes outside the owning application', async () => {

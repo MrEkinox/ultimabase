@@ -92,15 +92,6 @@ export type AfterOperationHandler<
 	AfterOperationResult<RuntimeInterceptorOperation<TSchema, TOperationKind>>
 >
 
-export type PostCommitEventHandler<
-	TSchema extends SchemaDefinition,
-	TOperationKind extends OperationKind,
-> = (
-	input: RuntimeInterceptorResultInput<
-		RuntimeInterceptorOperation<TSchema, TOperationKind>
-	>,
-) => MaybePromise<void>
-
 /** Resolves one authorized update value against its locked current object. */
 export type PreparedOperationHandler<TSchema extends SchemaDefinition> = (
 	input: RuntimePreparedOperationInput<UpdateOneOperationAst<TSchema>>,
@@ -136,15 +127,6 @@ export type AfterOperationOptions<
 	TSchema,
 	TOperations,
 	AfterOperationHandler<TSchema, TOperations[number]>
->
-
-export type PostCommitEventOptions<
-	TSchema extends SchemaDefinition,
-	TOperations extends readonly OperationKind[],
-> = RuntimeContributionOptions<
-	TSchema,
-	TOperations,
-	PostCommitEventHandler<TSchema, TOperations[number]>
 >
 
 export type PreparedOperationOptions<TSchema extends SchemaDefinition> = Omit<
@@ -191,16 +173,6 @@ export type AfterOperationDefinition<
 	AfterOperationHandler<TSchema, TOperationKind>
 >
 
-export type PostCommitEventDefinition<
-	TSchema extends SchemaDefinition = SchemaDefinition,
-	TOperationKind extends OperationKind = OperationKind,
-> = RuntimeContributionDefinition<
-	'post-commit-event',
-	TSchema,
-	TOperationKind,
-	PostCommitEventHandler<TSchema, TOperationKind>
->
-
 export type PreparedOperationDefinition<
 	TSchema extends SchemaDefinition = SchemaDefinition,
 > = RuntimeContributionDefinition<
@@ -214,13 +186,9 @@ export type RuntimeContributionDefinitionUnion =
 	| BeforeOperationDefinition
 	| AfterOperationDefinition
 	| PreparedOperationDefinition
-	| PostCommitEventDefinition
 
 type RuntimeContributionKind =
-	| 'after-operation'
-	| 'before-operation'
-	| 'post-commit-event'
-	| 'prepared-operation'
+	'after-operation' | 'before-operation' | 'prepared-operation'
 
 interface RuntimeContributionImplementation {
 	readonly kind: RuntimeContributionKind
@@ -361,15 +329,6 @@ export const afterOperation = <
 	options: AfterOperationOptions<TSchema, TOperations>,
 ): AfterOperationDefinition<TSchema, TOperations[number]> =>
 	defineRuntimeContribution('after-operation', options)
-
-/** Declares an external effect that can run only after a successful commit. */
-export const postCommitEvent = <
-	const TSchema extends SchemaDefinition = SchemaDefinition,
-	const TOperations extends readonly OperationKind[] = readonly OperationKind[],
->(
-	options: PostCommitEventOptions<TSchema, TOperations>,
-): PostCommitEventDefinition<TSchema, TOperations[number]> =>
-	defineRuntimeContribution('post-commit-event', options)
 
 /**
  * Declares a schema-scoped transformer for one authorized, locked update target.

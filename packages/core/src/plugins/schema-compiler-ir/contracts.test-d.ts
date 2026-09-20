@@ -1,16 +1,16 @@
 import { expectTypeOf, test } from 'vitest'
 
 import {
-	isSchemaCompilerArtifactReference,
 	schemaCompilerProtocolVersion,
 	type SchemaCompilerArtifactReference,
 	type SchemaCompilerInput,
 	type SchemaCompilerOptionNode,
 	type SchemaCompilerOutput,
 	type SchemaCompilerSchemaAdditionNode,
-} from '../../index.js'
+} from './contracts.js'
+import { isSchemaCompilerArtifactReference } from './artifacts.js'
 
-test('exports one nominal versioned compiler IR contract', () => {
+test('keeps the internal compiler IR nominal and versioned', () => {
 	expectTypeOf(schemaCompilerProtocolVersion).toEqualTypeOf<'7.0.0'>()
 	expectTypeOf<
 		SchemaCompilerInput['protocolVersion']

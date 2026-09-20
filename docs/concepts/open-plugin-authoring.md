@@ -218,7 +218,7 @@ const ultimabase = new UltimaBase({
 	schemas: [PostSchema],
 	plugins: [workflowPlugin({ instanceId: 'editorial' })],
 	pluginPrivileges: {
-		deny: ['adapter:raw', 'runtime:replace'],
+		deny: ['adapter:raw'],
 		denyClaims: ['environment:native-code'],
 		plugins: {
 			'community.workflow': {

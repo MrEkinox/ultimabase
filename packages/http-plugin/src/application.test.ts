@@ -4,7 +4,6 @@ import {
 	UltimaBase,
 	definePlugin,
 	provideCapability,
-	replaceCapability,
 	requireCapability,
 	type ApplicationCallbackExecutor,
 	type ApplicationRequestExecutor,
@@ -223,36 +222,19 @@ describe('HTTP application graph', () => {
 		await application.dispose()
 	})
 
-	it('rejects forged replacement values before server setup', async () => {
+	it('rejects forged provider values before server setup', async () => {
 		const seen = vi.fn()
-		const routeOwner = endpointPlugin(
-			'fixture.replace-target',
-			httpRoute({
-				method: 'GET',
-				path: '/original',
-				protocol,
-				handle: () => new Response(),
-			}),
-		)
-		const replacement = definePlugin({
-			pluginId: 'fixture.forged-replacement',
+		const provider = definePlugin({
+			pluginId: 'fixture.forged-provider',
 			version: '1.0.0',
 			core: '^0.0.0',
 			privileges: [
-				{
-					name: 'capability:replace',
-					reason: 'Exercises replacement validation.',
-				},
-				{ name: 'transport:expose', reason: 'Provides replacement routes.' },
+				{ name: 'transport:expose', reason: 'Provides provider routes.' },
 			],
 			capabilities: {
-				replaces: [
-					replaceCapability(httpEndpointContributionsCapability, {
+				provides: [
+					provideCapability(httpEndpointContributionsCapability, {
 						contributionId: 'forged',
-						target: {
-							owner: { pluginId: 'fixture.replace-target' },
-							contributionId: 'fixture-routes',
-						},
 						create: () => ({
 							value: [
 								{
@@ -271,8 +253,7 @@ describe('HTTP application graph', () => {
 		const application = new FrameworkApplication({
 			pluginPrivileges: { logger: false },
 			plugins: [
-				routeOwner,
-				replacement,
+				provider,
 				httpPlugin({ appId: 'replaced' }),
 				serverPlugin(seen),
 			],
@@ -286,62 +267,45 @@ describe('HTTP application graph', () => {
 		await application.dispose()
 	})
 
-	it('preserves the replaced position while attributing the new route owner', async () => {
-		const original = endpointPlugin(
-			'fixture.valid-replace-target',
-			httpRoute({
-				method: 'GET',
-				path: '/original',
-				protocol,
-				handle: () => new Response('original'),
-			}),
-		)
-		const replacementRoute = httpRoute({
+	it('preserves the provider position while attributing the new route owner', async () => {
+		const providerRoute = httpRoute({
 			method: 'GET',
-			path: '/replacement',
+			path: '/provider',
 			protocol,
-			handle: () => new Response('replacement'),
+			handle: () => new Response('provider'),
 		})
-		const replacement = definePlugin({
-			pluginId: 'fixture.valid-replacement',
+		const provider = definePlugin({
+			pluginId: 'fixture.valid-provider',
 			instanceId: 'green',
 			version: '1.0.0',
 			core: '^0.0.0',
 			privileges: [
-				{ name: 'capability:replace', reason: 'Exercises exact replacement.' },
-				{ name: 'transport:expose', reason: 'Exposes the replacement route.' },
+				{ name: 'transport:expose', reason: 'Exposes the provider route.' },
 			],
 			capabilities: {
-				replaces: [
-					replaceCapability(httpEndpointContributionsCapability, {
-						contributionId: 'replacement-routes',
-						target: {
-							owner: { pluginId: 'fixture.valid-replace-target' },
-							contributionId: 'fixture-routes',
-						},
-						create: () => ({ value: [replacementRoute] }),
+				provides: [
+					provideCapability(httpEndpointContributionsCapability, {
+						contributionId: 'provider-routes',
+						create: () => ({ value: [providerRoute] }),
 					}),
 				],
 			},
 		})
 		const fixture = await initialize([
-			original,
-			replacement,
-			httpPlugin({ appId: 'replacement-app' }),
+			provider,
+			httpPlugin({ appId: 'provider-app' }),
 		])
 
 		expect(fixture.http.routeGraph.routes[0]?.provenance).toMatchObject({
-			contributionId: 'replacement-routes',
-			owner: { pluginId: 'fixture.valid-replacement', instanceId: 'green' },
+			contributionId: 'provider-routes',
+			owner: { pluginId: 'fixture.valid-provider', instanceId: 'green' },
 			registrationIndex: 0,
 		})
 		expect(
 			await (
-				await fixture.http.fetch(
-					serverRequest('replacement-app', '/replacement'),
-				)
+				await fixture.http.fetch(serverRequest('provider-app', '/provider'))
 			).text(),
-		).toBe('replacement')
+		).toBe('provider')
 		await fixture.application.dispose()
 	})
 

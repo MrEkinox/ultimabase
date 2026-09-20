@@ -87,8 +87,6 @@ const assertCapabilities = (plugin: PluginDefinition): void => {
 		readonly declarations: readonly Readonly<{ readonly token: object }>[]
 	}>[] = [
 		{ declarations: capabilities.provides, name: 'provides' },
-		{ declarations: capabilities.decorates, name: 'decorates' },
-		{ declarations: capabilities.replaces, name: 'replaces' },
 		{ declarations: capabilities.requires, name: 'requires' },
 		{ declarations: capabilities.optional, name: 'optional' },
 	]

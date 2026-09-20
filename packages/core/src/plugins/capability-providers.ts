@@ -27,13 +27,6 @@ import {
 } from './capability-token.js'
 import type { DatabaseConstraintCompilerReader } from './constraint-compilers.js'
 import type { PluginIdentity, PluginPrivilege } from './manifest.js'
-import type { CapabilityReplacementDeclaration } from './capability-replacements.js'
-
-/** Identifies one exact owner-local capability contribution. */
-export interface CapabilityContributionTarget {
-	readonly owner: PluginIdentity
-	readonly contributionId: string
-}
 
 /** Owns one application provider value and its optional deterministic cleanup. */
 export interface ApplicationCapabilityResource<TProvider> {
@@ -207,17 +200,9 @@ export const provideCapability = <const TToken extends CapabilityToken>(
 	return provider as CapabilityProviderDeclaration<TToken>
 }
 
-/** Retains a replacement factory in the same provenance store as providers. */
-export const retainApplicationCapabilityFactory = (
-	declaration: object,
-	factory: ApplicationCapabilityFactory<unknown>,
-): void => {
-	applicationCapabilityFactories.set(declaration, factory)
-}
-
-/** Runs one hidden application provider or replacement factory. */
+/** Runs one hidden application provider factory. */
 export const runApplicationCapabilityFactory = (
-	declaration: CapabilityProviderDeclaration | CapabilityReplacementDeclaration,
+	declaration: CapabilityProviderDeclaration,
 	context: ApplicationCapabilityFactoryContext,
 ): MaybePromise<ApplicationCapabilityResource<unknown>> => {
 	const factory = applicationCapabilityFactories.get(declaration)

@@ -35,10 +35,7 @@ import {
 	type RuntimeCallbackDescriptor,
 	type RuntimeCallbackExecutor,
 } from './execution.js'
-import {
-	runtimeInterceptorCapability,
-	runtimeObserverCapability,
-} from '../capabilities.js'
+import { runtimeInterceptorCapability } from '../capabilities.js'
 
 type RuntimeContributionImplementation = NonNullable<
 	ReturnType<typeof getRuntimeContributionImplementation>
@@ -231,15 +228,12 @@ const readContributions = (
 		readonly SchemaDefinition[],
 		readonly PluginDefinition[]
 	>,
-	category: 'interceptors' | 'observers',
 ): readonly OwnedRuntimeContribution[] => {
 	const ownedContributions: OwnedRuntimeContribution[] = []
 
 	const contributions = readApplicationCapabilityContributions(
 		application,
-		category === 'observers'
-			? runtimeObserverCapability
-			: runtimeInterceptorCapability,
+		runtimeInterceptorCapability,
 	).map(({ contributionId, owner, value }) =>
 		immutableRecord({
 			name: contributionId,
@@ -252,33 +246,11 @@ const readContributions = (
 	)
 
 	for (const contribution of contributions) {
-		if (
-			category === 'interceptors' &&
-			getRuntimeContributionImplementation(contribution.value) === undefined
-		) {
-			// Fixed-position pipeline interceptors are assembled separately.
-			continue
-		}
-
 		const implementation = getRuntimeContributionImplementation(
 			contribution.value,
 		)
-
-		if (implementation === undefined) {
-			throw new TypeError(
-				`Plugin "${contribution.ownerPlugin}" registered invalid runtime ${category} contribution "${contribution.name}"`,
-			)
-		}
-
-		if (
-			(category === 'interceptors' &&
-				implementation.kind === 'post-commit-event') ||
-			(category === 'observers' && implementation.kind !== 'post-commit-event')
-		) {
-			throw new TypeError(
-				`Runtime contribution "${contribution.name}" uses the wrong registry`,
-			)
-		}
+		// Fixed-position pipeline interceptors are assembled separately.
+		if (implementation === undefined) continue
 
 		if (
 			implementation.schema !== undefined &&
@@ -392,33 +364,6 @@ const runPreparedContributions = async <
 	return operation
 }
 
-const runPostCommitContributions = async <
-	const TOperation extends DatabaseOperationAst,
->(
-	contributions: readonly OwnedRuntimeContribution[],
-	runtime: RuntimeCallbackExecutor,
-	input: RuntimeResultStageInput<TOperation>,
-): Promise<void> => {
-	for (const owned of contributions) {
-		const { implementation } = owned
-		if (matchesContribution(implementation, input.operation)) {
-			await runtime.invoke(
-				createRuntimeContributionDescriptor(owned, input.operation),
-				input.context,
-				() =>
-					implementation.run(
-						createAfterContributionInput(
-							input.context,
-							input.operation,
-							input.result,
-						),
-					),
-				{ cancellable: false },
-			)
-		}
-	}
-}
-
 /** Composes low-level Runtime definitions into the generic behavior kernel. */
 export const composeRuntimeContributionBehavior = <
 	const TSchemas extends readonly SchemaDefinition[],
@@ -432,9 +377,8 @@ export const composeRuntimeContributionBehavior = <
 		)
 	}
 
-	const interceptors = readContributions(application, 'interceptors')
-	const observers = readContributions(application, 'observers')
-	if (interceptors.length === 0 && observers.length === 0) return undefined
+	const interceptors = readContributions(application)
+	if (interceptors.length === 0) return undefined
 
 	const runtime = getApplicationRuntimeCallbackExecutor(application)
 	const globalBefore = immutableArray(
@@ -494,12 +438,6 @@ export const composeRuntimeContributionBehavior = <
 							result: schemaResult,
 						})
 					},
-				}),
-		...(observers.length === 0
-			? {}
-			: {
-					postCommit: (input) =>
-						runPostCommitContributions(observers, runtime, input),
 				}),
 		...(prepared.length === 0
 			? {}

@@ -1,3 +1,4 @@
+import { provideRuntimeBehavior } from '../capabilities.js'
 import {
 	createApplication,
 	definePlugin,
@@ -14,10 +15,7 @@ import {
 	guard,
 	restrictSelection,
 } from '../enforcement/definitions.js'
-import {
-	beforeOperation,
-	postCommitEvent,
-} from '../contributions/definitions.js'
+import { beforeOperation } from '../contributions/definitions.js'
 import { MasterAuthority } from '../master/master-authority.js'
 import { runtimePipelineStage } from '../pipeline/definitions.js'
 import { RecordingDatabaseAdapter } from '../../../tests/runtime/fixtures/recording-database-adapter.js'
@@ -25,7 +23,6 @@ import { provideTestDatabaseAdapter } from '../../../tests/runtime/fixtures/data
 import {
 	provideTestRuntimeConstraint,
 	provideTestRuntimeInterceptor,
-	provideTestRuntimeObserver,
 } from '../../../tests/runtime/fixtures/runtime-capabilities.js'
 import { createFrameworkEngine } from './create-framework-engine.js'
 
@@ -159,10 +156,6 @@ describe('createFrameworkEngine', () => {
 					name: 'runtime:intercept',
 					reason: 'Exercises low-level before-operation hooks.',
 				},
-				{
-					name: 'runtime:observe',
-					reason: 'Exercises post-commit observers.',
-				},
 			],
 			capabilities: {
 				provides: [
@@ -176,16 +169,16 @@ describe('createFrameworkEngine', () => {
 							},
 						}),
 					),
-					provideTestRuntimeObserver(
-						'fixture.created-event',
-						postCommitEvent({
-							schema: articleSchema,
-							operations: ['create-one'],
-							handler: () => {
-								trace.push('event:post-commit')
+					provideRuntimeBehavior({
+						contributionId: 'fixture.created-event',
+						create: () => ({
+							value: {
+								postCommit: () => {
+									trace.push('event:post-commit')
+								},
 							},
 						}),
-					),
+					}),
 				],
 			},
 		})

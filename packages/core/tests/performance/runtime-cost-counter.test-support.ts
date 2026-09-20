@@ -1,18 +1,9 @@
-import {
-	definePlugin,
-	replaceRuntime,
-	RuntimePipeline,
-	type PluginDefinition,
-	type RuntimeBehaviorStages,
-	type RuntimeEnforcementStages,
-	type RuntimePipelineStages,
-} from '@ultimabase/core'
-
-/** Configures one application-local Runtime cost probe. */
-export interface RuntimeCostProbeOptions {
-	/** Distinguishes several probes configured in the same application graph. */
-	readonly instanceId?: string
-}
+import { AsyncLocalStorage } from 'node:async_hooks'
+import type {
+	RuntimeBehaviorStages,
+	RuntimeEnforcementStages,
+	RuntimePipelineStages,
+} from '../../src/runtime/pipeline/contracts.js'
 
 /** Records deterministic optional Runtime work independently from elapsed time. */
 export interface RuntimeCostSnapshot {
@@ -302,23 +293,8 @@ export const assertNoOptionalRuntimeCost = (
 	}
 }
 
-/**
- * Instruments optional Runtime bundles through the public replacement boundary.
- *
- * The probe is intended for isolated tests and benchmarks. It delegates execution
- * to `RuntimePipeline` and therefore must not be combined with another executor
- * replacement in the same application.
- *
- * @example
- * ```ts
- * const probe = new RuntimeCostProbe()
- * const ultimabase = new UltimaBase({ plugins: [probe.plugin, databasePlugin] })
- * await ultimabase.start()
- * console.log(probe.snapshot())
- * ```
- */
+/** Counts real canonical stages inside one test scenario without a plugin API. */
 export class RuntimeCostProbe {
-	readonly plugin: PluginDefinition
 	readonly #counters: MutableRuntimeCostCounters = {
 		runtimeAssemblies: 0,
 		behaviorBundles: 0,
@@ -329,34 +305,14 @@ export class RuntimeCostProbe {
 		enforcementStageCalls: 0,
 	}
 
-	constructor(options: RuntimeCostProbeOptions = {}) {
-		this.plugin = definePlugin({
-			pluginId: 'ultimabase.testing.runtime-cost-probe',
-			...(options.instanceId === undefined
-				? {}
-				: { instanceId: options.instanceId }),
-			version: '0.0.0',
-			core: '^0.0.0',
-			privileges: [
-				{
-					name: 'runtime:replace',
-					reason:
-						'Measures the assembled optional Runtime stage graph in tests.',
-				},
-			],
-			capabilities: {
-				replaces: [
-					replaceRuntime({
-						contributionId: 'runtime-cost-probe',
-						create: () => ({
-							value: (stages) =>
-								new RuntimePipeline(wrapRuntimeStages(stages, this.#counters)),
-						}),
-					}),
-				],
-			},
-		})
-		Object.freeze(this)
+	/** Keeps simultaneous scenarios attributed to their own test observation. */
+	run<TResult>(callback: () => TResult): TResult {
+		return activeProbe.run(this, callback)
+	}
+
+	/** Wraps only stages that the canonical engine actually assembled. */
+	instrument(stages: RuntimePipelineStages): RuntimePipelineStages {
+		return wrapRuntimeStages(stages, this.#counters)
 	}
 
 	/** Returns one detached immutable view of all work observed so far. */
@@ -376,3 +332,10 @@ export class RuntimeCostProbe {
 		})
 	}
 }
+
+const activeProbe = new AsyncLocalStorage<RuntimeCostProbe>()
+
+/** Leaves unrelated pipelines untouched; this module is never a package export. */
+export const measureRuntimeStages = (
+	stages: RuntimePipelineStages,
+): RuntimePipelineStages => activeProbe.getStore()?.instrument(stages) ?? stages

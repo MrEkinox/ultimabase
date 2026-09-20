@@ -42,9 +42,8 @@ compiled application; generated files never install Runtime behavior.
 | Add a field, index, constraint, or option value   | `schemas.select()` and `schemas.patch()`                                       | `schema:declare`   |
 | Add a field kind or contextual builder method     | `definePluginField()`, `definePluginFieldBuilderMethod()`                      | `schema:declare`   |
 | Rename, remove, or replace an existing definition | Exact provenance-checked schema transformation                                 | `schema:transform` |
-| Replace the complete schema compiler              | `replaceSchemaCompiler()`                                                      | `schema:replace`   |
 
-The last two rows are specialized and sensitive. Do not request them to perform
+The last row is specialized and sensitive. Do not request it to perform
 an additive patch. Every contribution needs a stable owner-local
 `contributionId`; Core checks collisions and records provenance in the final
 graph. Plugin-owned schemas are not automatically public REST or GraphQL

@@ -11,17 +11,13 @@ describe('plugin manifests', () => {
 		expect(Object.keys(pluginPrivilegeMetadata)).toStrictEqual([
 			'schema:declare',
 			'schema:transform',
-			'schema:replace',
 			'storage:private',
 			'model:extend',
 			'query:extend',
 			'operation:declare',
-			'capability:decorate',
-			'capability:replace',
 			'runtime:observe',
 			'runtime:intercept',
 			'runtime:constrain',
-			'runtime:replace',
 			'persistence:rewrite',
 			'adapter:consume',
 			'adapter:raw',
@@ -37,13 +33,7 @@ describe('plugin manifests', () => {
 			Object.entries(pluginPrivilegeMetadata)
 				.filter(([, metadata]) => metadata.severity === 'critical')
 				.map(([name]) => name),
-		).toStrictEqual([
-			'schema:replace',
-			'storage:private',
-			'runtime:replace',
-			'adapter:raw',
-			'authority:elevate',
-		])
+		).toStrictEqual(['storage:private', 'adapter:raw', 'authority:elevate'])
 		for (const metadata of Object.values(pluginPrivilegeMetadata)) {
 			expect(metadata.facade).toBeTruthy()
 			expect(['standard', 'sensitive', 'critical']).toContain(metadata.severity)

@@ -7,12 +7,14 @@ target. ADR-0258 permits one initialized application per JavaScript realm and
 isolated parallel workers. ADR-0259 removes exactly R-001–R-010, preserves used
 plugin behavior and internal performance measurements, and keeps one private
 command graph with application operations and schema mutations. Historical
-replacement/decorator, destructive-patch, generic-observer, arbitrary
-schema/model-operation, and extra Typegen requirements below remain current
+destructive-patch, arbitrary schema/model-operation, and extra Typegen
+requirements below remain current
 implementation descriptions only until their assigned migration issues land;
 they do not override these accepted removals. Update the corresponding rules
 with the implementation. Do not add substitute public APIs or remove another
-capability without following the architecture stop rule.
+capability without following the architecture stop rule. Issue 3004 removes
+generic decoration/replacement, compiler/Runtime substitution, and the Core
+observer protocol; their supported product counterparts remain intact.
 
 ## Read first
 
@@ -146,7 +148,7 @@ Run or update `yarn constraints` when dependency constraints exist. If a request
 - A plugin factory returns a static typed definition.
 - A manifest declares structured plugin and optional instance identity,
   compatibility ranges, requested privileges with reasons, environmental
-  claims, dependencies, capabilities, and explicit replacement intent.
+  claims, dependencies, and capabilities.
 - Every requested privilege from ADR-0191's closed vocabulary is validated and
   reported before any plugin static declaration, Typegen, setup, connection,
   Runtime, or transport effect.
@@ -158,12 +160,12 @@ Run or update `yarn constraints` when dependency constraints exist. If a request
   behavior that in-process JavaScript cannot be forced to declare. Privileges
   and claims are inspectable policy, not an operating-system sandbox.
 - Plugins declare versioned application-local capabilities and may provide,
-  require, decorate, or explicitly replace them only with the matching
-  privilege and deterministic conflict rules.
+  require, or optionally consume them only with the matching privilege and
+  deterministic conflict rules.
 - Capability cardinality and composition are fixed: `single` has one provider,
   `multiple` has ordered independent providers, and `pipeline` has ordered
-  handlers. Decoration and replacement follow ADR-0190 and never silently use
-  last-writer-wins. Tokens declare `declaration` or `application` lifetime;
+  handlers. ADR-0259 removes generic decoration and replacement; competing
+  single providers remain errors. Tokens declare `declaration` or `application` lifetime;
   resource-backed application values are materialized and disposed by Core.
 - Nested plugins are configuration sugar over one global plugin graph.
 - Plugin `peers` validate exact identity and semantic compatibility without
@@ -278,7 +280,7 @@ Runtime; an absent policy plugin contributes nothing.
 - Test builders for immutability.
 - Test public package exports and prohibit deep imports.
 - Test capability ownership, deterministic order, two explicit instances of one
-  plugin, replacement and decoration conflicts, lifecycle cleanup, upgrades,
+  plugin, provider conflicts, rejection of removed powers, lifecycle cleanup, upgrades,
   orphaned contributions, and the absence of legacy registry bypasses.
 - Every bug fix includes a regression test.
 

@@ -2,18 +2,10 @@ import { expectTypeOf, test } from 'vitest'
 
 import { Schema } from '../schema/index.js'
 import { guard } from './enforcement/definitions.js'
-import {
-	afterOperation,
-	beforeOperation,
-	postCommitEvent,
-} from './contributions/definitions.js'
-import { RuntimePipeline } from './pipeline/runtime-pipeline.js'
-import type { RuntimePipelineStages } from './pipeline/contracts.js'
+import { afterOperation, beforeOperation } from './contributions/definitions.js'
 import {
 	provideRuntimeConstraint,
 	provideRuntimeInterceptor,
-	provideRuntimeObserver,
-	replaceRuntime,
 } from './capabilities.js'
 
 const schema = Schema.define({
@@ -59,41 +51,6 @@ test('retains exact operation correlation through every public Runtime facade', 
 				},
 				operations: ['create-one'],
 				schema,
-			}),
-		}),
-	})
-
-	provideRuntimeObserver({
-		contributionId: 'committed-create',
-		create: () => ({
-			value: postCommitEvent({
-				handler: ({ operation }) => {
-					expectTypeOf(operation.kind).toEqualTypeOf<'create-one'>()
-				},
-				operations: ['create-one'],
-				schema,
-			}),
-		}),
-	})
-
-	replaceRuntime({
-		contributionId: 'typed-replacement',
-		create: () => ({
-			value: (stages) => {
-				expectTypeOf(stages).toEqualTypeOf<Readonly<RuntimePipelineStages>>()
-				return new RuntimePipeline(stages)
-			},
-		}),
-	})
-})
-
-test('keeps transforming hooks out of the observer facade', () => {
-	provideRuntimeObserver({
-		contributionId: 'invalid-observer',
-		create: () => ({
-			// @ts-expect-error Observers cannot return or replace an execution result.
-			value: afterOperation({
-				handler: ({ result }) => ({ result }),
 			}),
 		}),
 	})

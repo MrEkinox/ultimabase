@@ -8,11 +8,6 @@ import { isPlainRecord, isUnknownArray } from '@ultimabase/shared'
 
 import { type PluginDefinition } from '../plugins/definition.js'
 import { composeDeclarationCapabilities } from '../plugins/capability-inventory.js'
-import {
-	selectSchemaCompiler,
-	type SelectedSchemaCompiler,
-} from '../plugins/schema-compiler-ir/schema-compiler-selection.js'
-import type { SchemaCompilerProvenance } from '../plugins/schema-compiler-ir/schema-compiler-capability.js'
 import { ApplicationCapabilityHost } from '../plugins/capability-host.js'
 import { PluginDeclarationHost } from '../plugins/declaration-host.js'
 import { SchemaDeclarationRegistry } from '../plugins/schema-declarations.js'
@@ -110,15 +105,12 @@ export class FrameworkApplication<
 	readonly schemas: SchemaRegistry<TSchemas>
 	/** Exposes the detached policy result evaluated before every plugin effect. */
 	readonly pluginPrivilegeReport: PluginPrivilegeReport
-	/** Reports the exact complete schema compiler selected for this application. */
-	readonly schemaCompilerProvenance: SchemaCompilerProvenance
 	readonly #setupRegistries: PluginSetupRegistries
 	readonly #lifecycle: PluginLifecycleManager
 	readonly #capabilityHost: ApplicationCapabilityHost
 	readonly #fieldBuilderMethods = new FieldBuilderMethodRegistry()
 	readonly #schemaDeclarations = new SchemaDeclarationRegistry()
 	readonly #declarationHost: PluginDeclarationHost
-	readonly #schemaCompiler: SelectedSchemaCompiler
 	readonly #privateStorage = new PrivateStorageRegistry()
 	#schemaCompilationState: 'compiled' | 'compiling' | 'failed' | 'idle' = 'idle'
 	#schemaCompilationError: FrameworkError | undefined
@@ -139,8 +131,6 @@ export class FrameworkApplication<
 		diagnostics.emitPolicyReport(privilegePolicy.logger, privilegePolicy.report)
 		diagnostics.assertPolicyAllowed(privilegePolicy.report)
 		composeDeclarationCapabilities(graph.capabilities)
-		this.#schemaCompiler = selectSchemaCompiler(graph.capabilities)
-		this.schemaCompilerProvenance = this.#schemaCompiler.provenance
 
 		this.schemas = new SchemaRegistry(options.schemas)
 		this.#declarationHost = new PluginDeclarationHost(
@@ -311,7 +301,6 @@ export class FrameworkApplication<
 			this.#schemaDeclarations.compileSchemaRegistry(
 				this.schemas,
 				this.#fieldBuilderMethods,
-				this.#schemaCompiler.compile,
 			)
 			compileStaticRelationWhereDeclarations(this.schemas)
 			this.#privateStorage.close(this.schemas)

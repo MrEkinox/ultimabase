@@ -11,29 +11,20 @@ import { definePlugin } from '../plugins/definition.js'
 import { PluginGraph } from '../plugins/graph.js'
 import { normalizePlugins } from '../plugins/normalization.js'
 import {
-	decorateCapability,
 	optionalCapability,
 	provideCapability,
-	replaceCapability,
 } from '../plugins/capabilities.js'
 import { RequestContext, requestSources } from './context/request-context.js'
 import { runWithRequestEngine } from './context/active-framework-context.js'
 import { beforeOperation } from './contributions/definitions.js'
-import { guard } from './enforcement/definitions.js'
 import { composeRuntimeContributionBehavior } from './contributions/composition.js'
-import { RuntimePipeline } from './pipeline/runtime-pipeline.js'
 import { createFrameworkEngine } from './application/create-framework-engine.js'
 import {
-	canonicalRuntimeExecutorTarget,
 	provideRuntimeBehavior,
-	provideRuntimeConstraint,
 	provideRuntimeInterceptor,
-	replaceRuntime,
 	runtimeBehaviorCapability,
 	runtimeConstraintCapability,
-	runtimeExecutorCapability,
 	runtimeInterceptorCapability,
-	runtimeObserverCapability,
 } from './capabilities.js'
 import { RecordingDatabaseAdapter } from '../../tests/runtime/fixtures/recording-database-adapter.js'
 import { provideTestDatabaseAdapter } from '../../tests/runtime/fixtures/database-adapter-capability.js'
@@ -77,20 +68,9 @@ const captureFrameworkError = (
 
 describe('public Runtime capabilities', () => {
 	it('declares distinct versioned cardinalities behind application lifetime', () => {
-		expect(runtimeExecutorCapability).toMatchObject({
-			capabilityId: 'ultimabase.runtime-executor',
-			cardinality: 'single',
-			lifetime: 'application',
-			version: '3.0.0',
-		})
 		expect(runtimeBehaviorCapability.version).toBe('3.0.0')
 		expect(runtimeInterceptorCapability.cardinality).toBe('pipeline')
 		expect(runtimeConstraintCapability.cardinality).toBe('multiple')
-		expect(runtimeObserverCapability.cardinality).toBe('multiple')
-		expect(canonicalRuntimeExecutorTarget).toStrictEqual({
-			contributionId: 'canonical-runtime-executor',
-			owner: { pluginId: '@ultimabase/core' },
-		})
 	})
 
 	it('installs no neutral Runtime contribution when no plugin provides one', () => {
@@ -100,7 +80,7 @@ describe('public Runtime capabilities', () => {
 			.map(({ token }) => token.capabilityId)
 			.filter((capabilityId) => capabilityId.startsWith('ultimabase.runtime-'))
 
-		expect(runtimeCapabilities).toStrictEqual(['ultimabase.runtime-executor'])
+		expect(runtimeCapabilities).toStrictEqual([])
 	})
 
 	it('rejects missing privileges and generic Runtime capability facades', () => {
@@ -147,78 +127,6 @@ describe('public Runtime capabilities', () => {
 			captureFrameworkError(() => createPluginApplication(genericProvider))
 				.internalDetails,
 		).toMatchObject({ kind: 'runtime-capability-provider-factory' })
-
-		const genericExecutor = definePlugin({
-			core: '^0.0.0',
-			pluginId: 'fixture.runtime-generic-executor',
-			version: '0.0.0',
-			capabilities: {
-				provides: [
-					provideCapability(runtimeExecutorCapability, {
-						contributionId: 'generic-executor',
-						create: () => ({
-							value: (stages) => new RuntimePipeline(stages),
-						}),
-					}),
-				],
-			},
-		})
-		expect(
-			captureFrameworkError(() => createPluginApplication(genericExecutor))
-				.internalDetails,
-		).toMatchObject({ kind: 'runtime-executor-provider-forbidden' })
-	})
-
-	it('requires replaceRuntime and the critical runtime replacement privilege', () => {
-		const genericReplacement = definePlugin({
-			core: '^0.0.0',
-			pluginId: 'fixture.runtime-generic-replacement',
-			version: '0.0.0',
-			privileges: [
-				{
-					name: 'runtime:replace',
-					reason: 'Exercises replacement validation.',
-				},
-			],
-			capabilities: {
-				replaces: [
-					replaceCapability(runtimeExecutorCapability, {
-						contributionId: 'generic-replacement',
-						target: canonicalRuntimeExecutorTarget,
-						create: () => ({
-							value: (stages) => new RuntimePipeline(stages),
-						}),
-					}),
-				],
-			},
-		})
-		expect(
-			captureFrameworkError(() => createPluginApplication(genericReplacement))
-				.internalDetails,
-		).toMatchObject({ kind: 'runtime-replacement-factory' })
-
-		const missingPrivilege = definePlugin({
-			core: '^0.0.0',
-			pluginId: 'fixture.runtime-replacement-no-privilege',
-			version: '0.0.0',
-			capabilities: {
-				replaces: [
-					replaceRuntime({
-						contributionId: 'replacement',
-						create: () => ({
-							value: (stages) => new RuntimePipeline(stages),
-						}),
-					}),
-				],
-			},
-		})
-		expect(
-			captureFrameworkError(() => createPluginApplication(missingPrivilege))
-				.internalDetails,
-		).toMatchObject({
-			kind: 'capability-privilege-missing',
-			privilege: 'runtime:replace',
-		})
 	})
 
 	it('requires Runtime interception privilege and validates mutation guards', async () => {
@@ -280,69 +188,7 @@ describe('public Runtime capabilities', () => {
 		)
 	})
 
-	it('forbids generic decoration of protected Runtime protocols', () => {
-		const plugin = definePlugin({
-			core: '^0.0.0',
-			pluginId: 'fixture.runtime-decorator',
-			version: '0.0.0',
-			privileges: [
-				{
-					name: 'capability:decorate',
-					reason: 'Exercises protected Runtime decoration.',
-				},
-			],
-			capabilities: {
-				decorates: [
-					decorateCapability(runtimeExecutorCapability, {
-						contributionId: 'decorator',
-						decorate: (executor) => executor,
-					}),
-				],
-			},
-		})
-		expect(
-			captureFrameworkError(() => createPluginApplication(plugin))
-				.internalDetails,
-		).toMatchObject({ kind: 'runtime-capability-decoration-forbidden' })
-	})
-
-	it('forbids generic replacement and inspection of protected Runtime protocols', () => {
-		const definition = guard({ handler: () => undefined })
-		const replacingPlugin = definePlugin({
-			core: '^0.0.0',
-			pluginId: 'fixture.runtime-constraint-replacement',
-			version: '0.0.0',
-			privileges: [
-				{ name: 'runtime:constrain', reason: 'Provides the protected guard.' },
-				{
-					name: 'capability:replace',
-					reason: 'Exercises protected replacement rejection.',
-				},
-			],
-			capabilities: {
-				provides: [
-					provideRuntimeConstraint({
-						contributionId: 'guard',
-						create: () => ({ value: definition }),
-					}),
-				],
-				replaces: [
-					replaceCapability(runtimeConstraintCapability, {
-						contributionId: 'replacement',
-						target: {
-							owner: { pluginId: 'fixture.runtime-constraint-replacement' },
-							contributionId: 'guard',
-						},
-						create: () => ({ value: definition }),
-					}),
-				],
-			},
-		})
-		expect(
-			captureFrameworkError(() => createPluginApplication(replacingPlugin))
-				.internalDetails,
-		).toMatchObject({ kind: 'runtime-capability-replacement-forbidden' })
-
+	it('forbids inspection of protected Runtime protocols', () => {
 		const inspectingPlugin = definePlugin({
 			core: '^0.0.0',
 			pluginId: 'fixture.runtime-constraint-inspection',
@@ -413,41 +259,17 @@ describe('public Runtime capabilities', () => {
 		expect(disposals).toStrictEqual([1, 2])
 	})
 
-	it('runs a replacement behind cancellation and automatic transaction boundaries', async () => {
-		let replacementCalls = 0
-		let replacementReceivedMutationGuard = false
+	it('keeps cancellation ahead of mutation guards and automatic transactions', async () => {
+		let guardCalls = 0
 		const adapter = new RecordingDatabaseAdapter([], [])
-		const replacement = definePlugin({
-			core: '^0.0.0',
-			pluginId: 'fixture.runtime-replacement',
-			version: '0.0.0',
-			privileges: [
-				{ name: 'runtime:replace', reason: 'Exercises Runtime replacement.' },
-			],
-			capabilities: {
-				replaces: [
-					replaceRuntime({
-						contributionId: 'replacement',
-						create: () => ({
-							value: (stages) => {
-								replacementCalls += 1
-								replacementReceivedMutationGuard =
-									typeof stages.behaviors?.guardMutationInput === 'function'
-								return new RuntimePipeline(stages)
-							},
-						}),
-					}),
-				],
-			},
-		})
 		const behavior = definePlugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.runtime-replacement-guard',
+			pluginId: 'fixture.runtime-guard',
 			version: '0.0.0',
 			privileges: [
 				{
 					name: 'runtime:intercept',
-					reason: 'Proves replacements receive the composed guard.',
+					reason: 'Proves cancellation prevents mutation guards from running.',
 				},
 			],
 			capabilities: {
@@ -455,7 +277,11 @@ describe('public Runtime capabilities', () => {
 					provideRuntimeBehavior({
 						contributionId: 'final-mutation-guard',
 						create: () => ({
-							value: { guardMutationInput: () => undefined },
+							value: {
+								guardMutationInput: () => {
+									guardCalls += 1
+								},
+							},
 						}),
 					}),
 				],
@@ -469,14 +295,14 @@ describe('public Runtime capabilities', () => {
 		})
 		const application = await createApplication({
 			pluginPrivileges: { logger: false },
-			plugins: [replacement, behavior, database],
+			plugins: [behavior, database],
 			schemas: [runtimeSchema],
 		})
 		const framework = createFrameworkEngine(application)
 		const controller = new AbortController()
 		controller.abort()
 		const request = framework.anonymous({
-			requestId: 'replacement-cancelled',
+			requestId: 'cancelled',
 			signal: controller.signal,
 			source: requestSources.internal,
 		})
@@ -486,51 +312,9 @@ describe('public Runtime capabilities', () => {
 				runtimeSchema.createOne({ data: { title: 'blocked' } }),
 			),
 		).rejects.toMatchObject({ code: 'OPERATION_CANCELLED' })
-		expect(replacementCalls).toBe(1)
-		expect(replacementReceivedMutationGuard).toBe(true)
+		expect(guardCalls).toBe(0)
 		expect(adapter.transactions).toStrictEqual([])
 
-		await application.dispose()
-	})
-
-	it('rejects a malformed executor result during framework assembly', async () => {
-		const replacement = definePlugin({
-			core: '^0.0.0',
-			pluginId: 'fixture.runtime-malformed-replacement',
-			version: '0.0.0',
-			privileges: [
-				{ name: 'runtime:replace', reason: 'Exercises malformed replacement.' },
-			],
-			capabilities: {
-				replaces: [
-					replaceRuntime({
-						contributionId: 'malformed',
-						create: () => ({ value: (() => ({})) as never }),
-					}),
-				],
-			},
-		})
-		const database = definePlugin({
-			core: '^0.0.0',
-			pluginId: 'fixture.runtime-malformed-database',
-			version: '0.0.0',
-			capabilities: {
-				provides: [
-					provideTestDatabaseAdapter(new RecordingDatabaseAdapter([], [])),
-				],
-			},
-		})
-		const application = await createApplication({
-			pluginPrivileges: { logger: false },
-			plugins: [replacement, database],
-			schemas: [runtimeSchema],
-		})
-
-		expect(() => createFrameworkEngine(application)).toThrow(
-			new TypeError(
-				'Runtime executor factory must return a RuntimePipeline instance',
-			),
-		)
 		await application.dispose()
 	})
 })

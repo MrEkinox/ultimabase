@@ -14,22 +14,10 @@ export type {
 	ApplicationCapabilityFactoryContext,
 	ApplicationCapabilityResource,
 	CapabilityContributionBase,
-	CapabilityContributionTarget,
 	CapabilityProviderContribution,
 	CapabilityProviderDeclaration,
 	PluginCapabilityReader,
 } from './capability-providers.js'
-export {
-	assertCapabilityDecoratorDeclaration,
-	assertCapabilityReplacementDeclaration,
-	decorateCapability,
-	replaceCapability,
-	runCapabilityDecorator,
-} from './capability-replacements.js'
-export type {
-	CapabilityDecoratorDeclaration,
-	CapabilityReplacementDeclaration,
-} from './capability-replacements.js'
 export {
 	assertCapabilityRequirement,
 	assertOptionalCapabilityRequirement,

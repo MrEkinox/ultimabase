@@ -11,7 +11,7 @@ import {
 	diffRuntimeCostSnapshots,
 	RuntimeCostProbe,
 	type RuntimeCostSnapshot,
-} from '@ultimabase/testing'
+} from '../../../packages/core/tests/performance/runtime-cost-probe.test-support.js'
 
 import {
 	DeterministicDatabaseAdapter,
@@ -85,29 +85,30 @@ export const runRuntimeCostScenario = async (
 		pluginPrivileges: { logger: false },
 		plugins: [
 			...optionalPlugins(configuration),
-			probe.plugin,
 			deterministicDatabasePlugin(adapter),
 		],
 		schemas: [MeasuredPost],
 	})
 
-	await ultimabase.start()
-	const startup = probe.snapshot()
-	const beforeRead = probe.snapshot()
-	await MeasuredPost.findMany(undefined, { ultimabase })
-	const afterRead = probe.snapshot()
-	await MeasuredPost.createOne(
-		{ data: { title: 'Measured mutation' } },
-		{ ultimabase },
-	)
-	const afterMutation = probe.snapshot()
-	await ultimabase.dispose()
+	return probe.run(async () => {
+		await ultimabase.start()
+		const startup = probe.snapshot()
+		const beforeRead = probe.snapshot()
+		await MeasuredPost.findMany(undefined, { ultimabase })
+		const afterRead = probe.snapshot()
+		await MeasuredPost.createOne(
+			{ data: { title: 'Measured mutation' } },
+			{ ultimabase },
+		)
+		const afterMutation = probe.snapshot()
+		await ultimabase.dispose()
 
-	return Object.freeze({
-		configuration,
-		startup,
-		read: diffRuntimeCostSnapshots(afterRead, beforeRead),
-		mutation: diffRuntimeCostSnapshots(afterMutation, afterRead),
-		database: adapter.snapshot(),
+		return Object.freeze({
+			configuration,
+			startup,
+			read: diffRuntimeCostSnapshots(afterRead, beforeRead),
+			mutation: diffRuntimeCostSnapshots(afterMutation, afterRead),
+			database: adapter.snapshot(),
+		})
 	})
 }

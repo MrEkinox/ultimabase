@@ -410,7 +410,7 @@ identities.
 
 Each plugin definition contains a static manifest with its structured identity,
 package and Core compatibility, requested privileges with reasons, environment
-claims, provided and required capability tokens, and replacement intent. An
+claims, and provided and required capability tokens. An
 application may deny privileges globally, by plugin ID, or for an exact
 instance. The default console logger reports every plugin and requested power,
 then one typed diagnostic aggregates denials before declarations, Typegen,
@@ -420,8 +420,7 @@ Plugins are trusted in-process Node.js code. Privileges govern UltimaBase-owned
 facades and make powers inspectable; separate environmental claims describe
 direct filesystem, network, process, or native-code behavior that Core cannot
 verify. Neither mechanism is an operating-system sandbox. Critical privileges
-include complete schema or Runtime replacement, raw adapter access, and
-authority elevation. Core exposes no filesystem, network, or Typegen replacement
+include private storage, raw adapter access, and authority elevation. Core exposes no filesystem, network, or Typegen replacement
 privilege without a corresponding enforceable facade. Master credential
 verification and grant creation remain Core-owned. An explicitly configured
 HTTP plugin may pass one raw key to the exact application authority selected by
@@ -434,7 +433,9 @@ Versioned capabilities replace public architectural string slots. A `single`
 capability accepts one provider, a `multiple` capability accepts independent
 providers, and a `pipeline` capability composes handlers. Tokens also distinguish
 pure `declaration` values from resource-backed `application` implementations
-materialized during setup.
+materialized during setup. Providers retain exact owner identity and stable
+order. Competing single providers are errors; generic provider replacement and
+consumer decoration are not public powers (ADR-0259).
 
 `PluginGraph` validates the combined normalized configuration again, resolves
 required and present optional dependencies, validates non-ordering plugin peers,
@@ -472,9 +473,9 @@ while ownership, command lookup, and disposal remain local to that application.
 Complete logical compilation crosses one versioned callback-free IR. Portable
 facts remain visible, while schema classes and Runtime-bearing field and option
 artifacts use nominal references owned by one private application
-session. The canonical compiler and a compatible privileged replacement consume
-the same request; Core never runs a hidden canonical pass before replacement and
-always revalidates the returned graph before publishing it.
+session. Core invokes its canonical compiler directly and revalidates the
+returned graph before publishing it. The compiler protocol is internal; plugins
+extend compilation through authorized declarations.
 
 Milestone 14 removed string slots, the plugin service registry, and generic
 named setup contribution registries. Versioned capabilities are the only public
@@ -516,7 +517,7 @@ and adapter constraints directly. Roles and authentication may supply optional
 request subjects but grant nothing by themselves.
 
 The low-level `beforeOperation()`, `afterOperation()`,
-`preparedOperation()`, and `postCommitEvent()` factories are generic Runtime
+and `preparedOperation()` factories are generic Runtime
 contributions, not built-in schema Hooks. Their inputs use immutable
 `RequestContext`. Core executes such callbacks through a product-neutral
 cancellation and recursion boundary; concrete plugins may add stricter

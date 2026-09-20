@@ -1,9 +1,7 @@
 import {
-	decorateCapability,
 	definePlugin,
 	FrameworkApplication,
 	provideCapability,
-	replaceCapability,
 	requireCapability,
 } from '../../foundation.js'
 import { describe, expect, it } from 'vitest'
@@ -61,24 +59,12 @@ describe('application request execution capability ownership', () => {
 		})
 	})
 
-	it('cannot be provided, replaced, or decorated by plugins', () => {
+	it('cannot be provided by plugins', () => {
 		const fakeExecutor = {} as ApplicationRequestExecutor
 		const declarations = [
 			provideCapability(applicationRequestExecutionCapability, {
 				contributionId: 'forged-provider',
 				create: () => ({ value: fakeExecutor }),
-			}),
-			replaceCapability(applicationRequestExecutionCapability, {
-				contributionId: 'forged-replacement',
-				target: {
-					owner: { pluginId: '@ultimabase/core' },
-					contributionId: 'application-request-executor',
-				},
-				create: () => ({ value: fakeExecutor }),
-			}),
-			decorateCapability(applicationRequestExecutionCapability, {
-				contributionId: 'forged-decorator',
-				decorate: (executor) => executor,
 			}),
 		] as const
 
@@ -92,26 +78,9 @@ describe('application request execution capability ownership', () => {
 								core: '^0.0.0',
 								pluginId: `fixture.${declaration.contributionId}`,
 								version: '0.0.0',
-								privileges: [
-									{
-										name: 'capability:replace',
-										reason: 'Exercises a forbidden Core protocol mutation.',
-									},
-								],
 								capabilities: {
 									requires: [requestExecutionRequirement],
-									provides:
-										declaration.kind === 'capability-provider'
-											? [declaration]
-											: [],
-									replaces:
-										declaration.kind === 'capability-replacement'
-											? [declaration]
-											: [],
-									decorates:
-										declaration.kind === 'capability-decorator'
-											? [declaration]
-											: [],
+									provides: [declaration],
 								},
 							}),
 						],

@@ -39,10 +39,7 @@ import {
 } from '../validation/runtime-validation.js'
 import { createFinalMutationValidationStage } from '../validation/final-mutation-validation.js'
 import { MasterAuthority } from '../master/master-authority.js'
-import {
-	runtimeExecutorCapability,
-	runtimeInterceptorCapability,
-} from '../capabilities.js'
+import { runtimeInterceptorCapability } from '../capabilities.js'
 import { createPersistencePlanRewriteStage } from '../persistence/rewriter-stage.js'
 import { composeRuntimeBehaviors } from '../behaviors/composition.js'
 import {
@@ -366,32 +363,8 @@ export const createFrameworkEngine = <
 		...(enforcement === undefined ? {} : { enforcement }),
 		...(persistencePlanRewrite === undefined ? {} : { persistencePlanRewrite }),
 	}
-	const runtimeContribution = readApplicationCapabilityContributions(
-		application,
-		runtimeExecutorCapability,
-	)[0]
-	const runtimeFactory = runtimeContribution?.value
-	if (
-		runtimeContribution === undefined ||
-		typeof runtimeFactory !== 'function'
-	) {
-		throw new TypeError(
-			'runtimeExecutorCapability must resolve to a Runtime executor factory',
-		)
-	}
-	const pipeline: unknown =
-		runtimeContribution.owner.pluginId === '@ultimabase/core'
-			? runtimeFactory(stages)
-			: runWithApplicationPluginOwner(
-					application,
-					runtimeContribution.owner,
-					() => runtimeFactory(stages),
-				)
-	if (!(pipeline instanceof RuntimePipeline)) {
-		throw new TypeError(
-			'Runtime executor factory must return a RuntimePipeline instance',
-		)
-	}
+	// Core constructs the mandatory pipeline directly; plugins contribute its authorized stages.
+	const pipeline = new RuntimePipeline(stages)
 	bindRuntimeVirtualFields(pipeline, application)
 	bindRuntimeRelationFilters(pipeline, application)
 	bindRuntimeNestedWrites(

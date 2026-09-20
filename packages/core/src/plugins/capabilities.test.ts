@@ -5,7 +5,6 @@ import {
 	defineCapability,
 	optionalCapability,
 	provideCapability,
-	replaceCapability,
 	requireCapability,
 } from './capabilities.js'
 import { definePlugin } from './definition.js'
@@ -81,7 +80,6 @@ describe('capability declarations', () => {
 
 	it('snapshots declaration values and keeps application providers inert', () => {
 		const source = { endpoint: 'https://audit.example' }
-		const replacementSource = { endpoint: 'https://replacement.example' }
 		const declarationProvider = provideCapability(declarationToken, {
 			contributionId: 'primary',
 			value: source,
@@ -92,17 +90,8 @@ describe('capability declarations', () => {
 				value: { write: () => Promise.resolve() },
 			}),
 		})
-		const replacement = replaceCapability(declarationToken, {
-			contributionId: 'replacement',
-			target: {
-				owner: { pluginId: 'fixture.audit-provider' },
-				contributionId: 'primary',
-			},
-			value: replacementSource,
-		})
 
 		source.endpoint = 'https://changed.example'
-		replacementSource.endpoint = 'https://changed.example'
 
 		expect(declarationProvider).toStrictEqual({
 			kind: 'capability-provider',
@@ -111,10 +100,6 @@ describe('capability declarations', () => {
 			value: { endpoint: 'https://audit.example' },
 		})
 		expect(Object.isFrozen(declarationProvider.value)).toBe(true)
-		expect(replacement.value).toStrictEqual({
-			endpoint: 'https://replacement.example',
-		})
-		expect(Object.isFrozen(replacement.value)).toBe(true)
 		expect(applicationProvider).toStrictEqual({
 			kind: 'capability-provider',
 			token: applicationToken,
@@ -184,23 +169,6 @@ describe('capability declarations', () => {
 			),
 		)
 		expect(() =>
-			replaceCapability(declarationToken, {
-				contributionId: 'invalid',
-				target: {
-					owner: { pluginId: 'fixture.audit-provider' },
-					contributionId: 'primary',
-				},
-				value: {
-					// Runtime validation protects JavaScript callers from non-JSON values.
-					endpoint: new Date(),
-				} as unknown as { readonly endpoint: string },
-			}),
-		).toThrow(
-			new TypeError(
-				'capability replacement value.endpoint must contain only plain JSON objects',
-			),
-		)
-		expect(() =>
 			provideCapability(
 				{
 					...declarationToken,
@@ -219,6 +187,39 @@ describe('capability declarations', () => {
 })
 
 describe('CapabilityInventory', () => {
+	it('scopes duplicate contribution IDs to the exact plugin instance', () => {
+		const declaration = provideCapability(declarationToken, {
+			contributionId: 'shared-local-id',
+			value: { endpoint: 'https://audit.example' },
+		})
+		const provider = (instanceId: string, duplicate = false) =>
+			definePlugin({
+				pluginId: 'fixture.instanced-audit',
+				instanceId,
+				version: '1.0.0',
+				core: '^0.0.0',
+				capabilities: {
+					provides: duplicate ? [declaration, declaration] : [declaration],
+				},
+			})
+		// A local contribution ID is reusable by another explicit instance, never twice by its owner.
+		const graph = new PluginGraph(
+			normalizePlugins([provider('first'), provider('second')]),
+		)
+		expect(
+			graph.capabilities.entries[0]?.providers.map(
+				({ owner }) => owner.instanceId,
+			),
+		).toStrictEqual(['first', 'second'])
+		expect(
+			() => new PluginGraph(normalizePlugins([provider('first', true)])),
+		).toThrow(
+			expect.objectContaining({
+				code: 'PLUGIN_CAPABILITY_CONFLICT',
+			}),
+		)
+	})
+
 	it('validates providers, optional requirements, and conditional privileges statically', () => {
 		const optionalAudit = optionalCapability(declarationToken, '^1.0.0')
 		const provider = definePlugin({
@@ -252,7 +253,7 @@ describe('CapabilityInventory', () => {
 		const absent = new PluginGraph(normalizePlugins([consumer]))
 		const [privilege] = consumer.manifest.privileges
 
-		expect(present.capabilities.entries).toHaveLength(3)
+		expect(present.capabilities.entries).toHaveLength(1)
 		expect(
 			present.capabilities.entries.find(
 				({ token: candidate }) => candidate === declarationToken,

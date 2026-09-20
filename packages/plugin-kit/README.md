@@ -402,7 +402,7 @@ declarations only; this helper cannot emit JavaScript or create a Runtime client
 
 Use `@ultimabase/core` directly for:
 
-- capability definitions, requirements, decoration, and replacement;
+- capability definitions, providers, and requirements;
 - destructive or cross-owner schema transformations;
 - Runtime middleware, protected constraints, and persistence rewrites;
 - raw adapter leases, transport bindings, migration intent, and lifecycle;

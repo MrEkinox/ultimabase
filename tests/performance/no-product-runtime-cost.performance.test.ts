@@ -1,7 +1,7 @@
 import {
 	assertNoOptionalRuntimeCost,
 	type RuntimeCostSnapshot,
-} from '@ultimabase/testing'
+} from '../../packages/core/tests/performance/runtime-cost-probe.test-support.js'
 import { describe, expect, it } from 'vitest'
 
 import {

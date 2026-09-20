@@ -45,23 +45,16 @@ export type {
 	ApplicationSchemaMutationResult,
 } from './application/application-schema-mutation-execution.js'
 export {
-	canonicalRuntimeExecutorTarget,
 	provideRuntimeConstraint,
 	provideRuntimeBehavior,
 	provideRuntimeInterceptor,
-	provideRuntimeObserver,
-	replaceRuntime,
 	runtimeConstraintCapability,
 	runtimeBehaviorCapability,
-	runtimeExecutorCapability,
 	runtimeInterceptorCapability,
-	runtimeObserverCapability,
 } from './capabilities.js'
 export type {
 	RuntimeConstraintDefinition,
-	RuntimeExecutorFactory,
 	RuntimeInterceptorDefinition,
-	RuntimeObserverDefinition,
 } from './capabilities.js'
 // UltimaBase is the regular class-based facade over Core composition and Runtime execution.
 export { UltimaBase } from './application/ultima-base.js'
@@ -273,7 +266,6 @@ export type {
 export {
 	afterOperation,
 	beforeOperation,
-	postCommitEvent,
 	preparedOperation,
 } from './contributions/definitions.js'
 export type {
@@ -284,9 +276,6 @@ export type {
 	BeforeOperationDefinition,
 	BeforeOperationHandler,
 	BeforeOperationOptions,
-	PostCommitEventDefinition,
-	PostCommitEventHandler,
-	PostCommitEventOptions,
 	PreparedOperationDefinition,
 	PreparedOperationHandler,
 	PreparedOperationOptions,

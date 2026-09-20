@@ -22,8 +22,6 @@ describe('packed @ultimabase/core plugin manifests', () => {
 			'adapter:consume',
 			'adapter:raw',
 			'authority:elevate',
-			'capability:decorate',
-			'capability:replace',
 			'event:publish',
 			'migration:contribute',
 			'model:extend',
@@ -33,9 +31,7 @@ describe('packed @ultimabase/core plugin manifests', () => {
 			'runtime:constrain',
 			'runtime:intercept',
 			'runtime:observe',
-			'runtime:replace',
 			'schema:declare',
-			'schema:replace',
 			'schema:transform',
 			'storage:private',
 			'transport:expose',
@@ -92,15 +88,6 @@ describe('packed @ultimabase/core plugin manifests', () => {
 		)
 		expect(languageFixture.readHover('provider-value').display).toContain(
 			'readonly endpoint: string;',
-		)
-		expect(languageFixture.readHover('decorator').display).toContain(
-			'CapabilityDecoratorDeclaration',
-		)
-		expect(languageFixture.readHover('replacement').display).toContain(
-			'CapabilityReplacementDeclaration',
-		)
-		expect(languageFixture.readHover('capability-chain').display).toContain(
-			'interface CapabilityProviderChainInspection',
 		)
 		expect(languageFixture.readHover('policy').display).toContain(
 			'interface PluginPrivilegePolicy',

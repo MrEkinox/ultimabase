@@ -1,13 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-	decorateCapability,
 	defineCapability,
 	defineOperationValue,
 	definePlugin,
 	defineSchemaMutation,
 	provideCapability,
-	replaceCapability,
 	requireCapability,
 } from '../../foundation.js'
 import { Schema } from '../../schema/index.js'
@@ -116,44 +114,23 @@ describe('application schema mutation surface capability', () => {
 		}
 	})
 
-	it('cannot be provided, replaced, or decorated by plugins', () => {
+	it('cannot be provided by plugins', () => {
 		const fixture = defineFixture('protected')
 		const forged = {
 			get: () => [],
 		}
-		const target = {
-			owner: { pluginId: '@ultimabase/core' },
-			contributionId: 'application-schema-mutation-surface',
-		} as const
 		const declarations = [
 			provideCapability(applicationSchemaMutationSurfaceCapability, {
 				contributionId: 'forged-provider',
 				create: () => ({ value: forged }),
 			}),
-			replaceCapability(applicationSchemaMutationSurfaceCapability, {
-				contributionId: 'forged-replacement',
-				create: () => ({ value: forged }),
-				target,
-			}),
-			decorateCapability(applicationSchemaMutationSurfaceCapability, {
-				contributionId: 'forged-decoration',
-				decorate: () => forged,
-			}),
 		]
 
 		for (const declaration of declarations) {
 			const plugin = definePlugin({
-				capabilities:
-					declaration.kind === 'capability-provider'
-						? { provides: [declaration] }
-						: declaration.kind === 'capability-replacement'
-							? { replaces: [declaration] }
-							: { decorates: [declaration] },
+				capabilities: { provides: [declaration] },
 				core: '^0.0.0',
 				pluginId: `fixture.surface-forgery-${declaration.kind}`,
-				privileges: [
-					{ name: 'capability:replace', reason: 'Attempts a forgery.' },
-				] as const,
 				version: '1.0.0',
 			})
 

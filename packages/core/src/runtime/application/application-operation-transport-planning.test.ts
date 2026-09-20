@@ -5,9 +5,7 @@ import {
 	defineOperation,
 	defineOperationValue,
 	definePlugin,
-	decorateCapability,
 	provideCapability,
-	replaceCapability,
 	requireCapability,
 	type ApplicationCallbackExecutor,
 	type PluginIdentity,
@@ -235,18 +233,6 @@ describe('application operation transport planning', () => {
 				contributionId: 'forged-provider',
 				create: () => ({ value: fake }),
 			}),
-			replaceCapability(applicationOperationTransportPlanningCapability, {
-				contributionId: 'forged-replacement',
-				target: {
-					contributionId: 'application-operation-transport-planner',
-					owner: { pluginId: '@ultimabase/core' },
-				},
-				create: () => ({ value: fake }),
-			}),
-			decorateCapability(applicationOperationTransportPlanningCapability, {
-				contributionId: 'forged-decorator',
-				decorate: (planner) => planner,
-			}),
 		] as const) {
 			expect(
 				() =>
@@ -254,27 +240,10 @@ describe('application operation transport planning', () => {
 						plugins: [
 							definePlugin({
 								capabilities: {
-									decorates:
-										declaration.kind === 'capability-decorator'
-											? [declaration]
-											: [],
-									provides:
-										declaration.kind === 'capability-provider'
-											? [declaration]
-											: [],
-									replaces:
-										declaration.kind === 'capability-replacement'
-											? [declaration]
-											: [],
+									provides: [declaration],
 								},
 								core: '^0.0.0',
 								pluginId: `fixture.${declaration.contributionId}`,
-								privileges: [
-									{
-										name: 'capability:replace',
-										reason: 'Exercises a forbidden Core planner override.',
-									},
-								],
 								version: '1.0.0',
 							}),
 						],

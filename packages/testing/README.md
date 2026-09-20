@@ -143,40 +143,6 @@ above; `@ultimabase/testing` does not import either product. An independent
 lifecycle or policy engine runs the common kernel suite and its own optional
 checks without implementing the official Hooks or Access vocabulary.
 
-## Runtime cost instrumentation
-
-`RuntimeCostProbe` measures the generic optional stage graph without importing
-or naming a concrete behavior or policy product. Add its `plugin` to an isolated
-test application, take immutable snapshots around representative requests, and
-subtract them with `diffRuntimeCostSnapshots()`:
-
-```ts
-import {
-	RuntimeCostProbe,
-	assertNoOptionalRuntimeCost,
-	diffRuntimeCostSnapshots,
-} from '@ultimabase/testing'
-
-const probe = new RuntimeCostProbe()
-const ultimabase = new UltimaBase({
-	plugins: [probe.plugin, databasePlugin],
-	schemas: [Post],
-})
-
-await ultimabase.start()
-const before = probe.snapshot()
-await Post.findMany(undefined, { ultimabase })
-const readCost = diffRuntimeCostSnapshots(probe.snapshot(), before)
-```
-
-The probe uses the public `replaceRuntime()` boundary and delegates to the
-canonical `RuntimePipeline`. It must therefore remain test-only and cannot
-share an application with another Runtime executor replacement.
-`assertNoOptionalRuntimeCost()` allows exactly one instrumented assembly and zero
-optional behavior or enforcement bundles, stages, and request calls. It is a
-stable structural budget, not a wall-clock assertion and not a promise that
-Core performs no work.
-
 ## PostgreSQL worker isolation
 
 `PostgresTestWorker` gives every Vitest fork a deterministic PostgreSQL schema

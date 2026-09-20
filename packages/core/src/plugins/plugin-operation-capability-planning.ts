@@ -1,7 +1,4 @@
-import type {
-	CapabilityProviderDeclaration,
-	CapabilityToken,
-} from './capabilities.js'
+import type { CapabilityToken } from './capabilities.js'
 import type {
 	MutableCapabilityEntry,
 	OwnedProvider,
@@ -64,7 +61,7 @@ export const assertPluginOperationProtocolEntry = (
 	}
 
 	for (const provider of entry.providers) {
-		const declaration = provider.declaration as CapabilityProviderDeclaration
+		const declaration = provider.declaration
 		if (
 			entry.token === pluginOperationHandlerCapability &&
 			!isAuthorizedPluginOperationProvider(declaration)

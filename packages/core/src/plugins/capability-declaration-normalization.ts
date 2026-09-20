@@ -11,10 +11,6 @@ import type {
 } from './capability-declarations.js'
 import { assertCapabilityProviderDeclaration } from './capability-providers.js'
 import {
-	assertCapabilityDecoratorDeclaration,
-	assertCapabilityReplacementDeclaration,
-} from './capability-replacements.js'
-import {
 	assertCapabilityRequirement,
 	type CapabilityRequirement,
 } from './capability-requirements.js'
@@ -57,8 +53,6 @@ export const normalizeCapabilityDeclarations = (
 	if (options === undefined) {
 		return immutableRecord({
 			provides: immutableArray([]),
-			decorates: immutableArray([]),
-			replaces: immutableArray([]),
 			requires: immutableArray([]),
 			optional: immutableArray([]),
 		})
@@ -70,13 +64,7 @@ export const normalizeCapabilityDeclarations = (
 	}
 
 	for (const key of Object.keys(untrustedOptions)) {
-		if (
-			key !== 'provides' &&
-			key !== 'decorates' &&
-			key !== 'replaces' &&
-			key !== 'requires' &&
-			key !== 'optional'
-		) {
+		if (key !== 'provides' && key !== 'requires' && key !== 'optional') {
 			throw new TypeError(`capabilities contains unknown option: ${key}`)
 		}
 	}
@@ -85,16 +73,6 @@ export const normalizeCapabilityDeclarations = (
 		options.provides,
 		'capabilities.provides',
 		assertCapabilityProviderDeclaration,
-	)
-	const decorates = normalizeCapabilityArray(
-		options.decorates,
-		'capabilities.decorates',
-		assertCapabilityDecoratorDeclaration,
-	)
-	const replaces = normalizeCapabilityArray(
-		options.replaces,
-		'capabilities.replaces',
-		assertCapabilityReplacementDeclaration,
 	)
 	const requires = normalizeCapabilityArray(
 		options.requires,
@@ -125,8 +103,6 @@ export const normalizeCapabilityDeclarations = (
 
 	return immutableRecord({
 		provides,
-		decorates,
-		replaces,
 		requires,
 		optional,
 	})

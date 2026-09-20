@@ -27,9 +27,6 @@ const languageFixture = await createPackedCoreLanguageFixture(
 describe('packed @ultimabase/core Runtime capabilities', () => {
 	it('preserves exact operation and result types through public-only imports', () => {
 		expect(languageFixture.diagnostics()).toStrictEqual([])
-		expect(languageFixture.readHover('runtime-executor').display).toContain(
-			'type RuntimeExecutorFactory',
-		)
 		expect(
 			languageFixture.readHover('runtime-final-mutation-guard').display,
 		).toContain('type RuntimeFinalMutationGuardStage')

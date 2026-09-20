@@ -109,7 +109,6 @@ export const createPluginStaticConformanceSnapshot = (
 		pluginDeclarations: graph.declarations,
 		pluginOptions: graph.options,
 		privilegeReport: application.pluginPrivilegeReport,
-		schemaCompiler: application.schemaCompilerProvenance,
 		schemas: immutableArray(
 			application.schemas.values().map((schema) =>
 				immutableRecord({

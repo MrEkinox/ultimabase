@@ -47,7 +47,6 @@ import {
 
 import { normalizeSelector } from './schema-selectors.js'
 import { executeRuntimeCompilations } from './schema-runtime-options.js'
-import type { SchemaCompilerImplementation } from './schema-compiler-ir/schema-compiler-capability.js'
 import {
 	createApplicationSurfaceRegistrars,
 	snapshotApplicationSurfaceDeclarations,
@@ -375,18 +374,13 @@ export class SchemaDeclarationRegistry {
 	compileSchemaRegistry(
 		registry: SchemaRegistry,
 		fieldMethods: FieldBuilderMethodResolver,
-		compile: SchemaCompilerImplementation,
 	): SchemaTargetGraph {
 		const staging = stageSchemaRegistryCompilation(
 			registry,
 			this.schemaAdditions(),
 			fieldMethods,
 		)
-		const compiled = compileSchemaDeclarations(
-			staging.prepared,
-			this.#batches,
-			compile,
-		)
+		const compiled = compileSchemaDeclarations(staging.prepared, this.#batches)
 		this.#runtimeCompilations = compiled.runtimeCompilations
 		this.#compiledProvenance = compiled.provenance
 		const surfaces = compileApplicationSurfaces(

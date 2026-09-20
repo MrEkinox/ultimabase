@@ -10,7 +10,6 @@ import {
 	defineTypegenReference,
 	FrameworkApplication,
 	QueryBuilder,
-	replaceSchemaCompiler,
 	Schema,
 	stringField,
 	type FieldBuilder,
@@ -21,7 +20,7 @@ import {
 	type VectorFieldBuilderMethod,
 } from '@ultimabase/pg-vector-plugin'
 import { describe, expect, it } from 'vitest'
-import { immutableArray, immutableRecord } from '@ultimabase/shared'
+import { immutableRecord } from '@ultimabase/shared'
 
 import type { SchemaTypegenError } from './errors.js'
 import { generateApplicationTypes } from './generator.js'
@@ -111,47 +110,21 @@ const createFixture = (reverseOrder = false) => {
 }
 
 describe('generateApplicationTypes', () => {
-	it('uses the same replaced logical graph as the JavaScript application', () => {
+	it('uses the same compiled logical graph as the JavaScript application', () => {
 		const Target = Schema.define({
-			className: 'ReplacedTypegenTarget',
+			className: 'CompiledTypegenTarget',
 			fields: (field) => ({ title: field.string() }),
 		})
-		const replacement = definePlugin({
+		const contribution = definePlugin({
 			core: '^0.0.0',
 			pluginId: 'fixture.typegen-schema-compiler',
 			privileges: [
 				{
 					name: 'schema:declare',
-					reason: 'Declares an ignored patch fixture.',
-				},
-				{
-					name: 'schema:replace',
-					reason: 'Selects the complete fixture compiler.',
+					reason: 'Adds a field shared by Runtime and Typegen.',
 				},
 			] as const,
 			version: '1.0.0',
-			capabilities: {
-				replaces: [
-					replaceSchemaCompiler({
-						compile: (input) =>
-							immutableRecord({
-								protocolVersion: input.protocolVersion,
-								selections: immutableArray(
-									input.declarations.flatMap(({ selections }) =>
-										selections.map(({ selectionId }) =>
-											immutableRecord({
-												classNames: immutableArray([]),
-												selectionId,
-											}),
-										),
-									),
-								),
-								schemas: immutableArray(input.schemas),
-							}),
-						contributionId: 'typegen-fixture-compiler',
-					}),
-				],
-			},
 			declare: ({ schemas }) => {
 				schemas.patch({
 					operations: [
@@ -167,21 +140,18 @@ describe('generateApplicationTypes', () => {
 		})
 		const application = new FrameworkApplication({
 			pluginPrivileges: { logger: false },
-			plugins: [replacement],
+			plugins: [contribution],
 			schemas: [Target],
 		})
 		const generated = generateApplicationTypes({
 			application,
-			applicationId: 'fixture.replaced-graph',
+			applicationId: 'fixture.compiled-graph',
 		})
 
-		expect(Target.fields).not.toHaveProperty('canonicalOnly')
+		expect(Target.fields).toHaveProperty('canonicalOnly')
 		expect(
 			generated.snapshot.schemas[0]?.fields.map(({ name }) => name),
-		).not.toContain('canonicalOnly')
-		expect(application.schemaCompilerProvenance.contributionId).toBe(
-			'typegen-fixture-compiler',
-		)
+		).toContain('canonicalOnly')
 	})
 
 	it('emits one deterministic callback-free registry without plugin setup', () => {

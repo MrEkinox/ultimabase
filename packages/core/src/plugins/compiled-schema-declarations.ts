@@ -21,7 +21,7 @@ import {
 import type { SchemaCompilerOutput } from './schema-compiler-ir/contracts.js'
 import { decodeSchemaCompilerOutput } from './schema-compiler-ir/decoder.js'
 import { encodeSchemaCompilerInput } from './schema-compiler-ir/input-encoder.js'
-import type { SchemaCompilerImplementation } from './schema-compiler-ir/schema-compiler-capability.js'
+import { compileCanonicalSchemaCompilerIr } from './schema-compiler-ir/canonical-compiler.js'
 import { assertSchemaCompilerOutput } from './schema-compiler-ir/validation.js'
 
 /** Contains every artifact produced by one successful static schema compilation. */
@@ -32,11 +32,10 @@ export interface CompiledSchemaDeclarations {
 	readonly runtimeCompilations: readonly PendingSchemaOptionRuntimeCompilation[]
 }
 
-/** Resolves options, executes the selected pure compiler, and detaches its output. */
+/** Resolves options, executes the Core compiler, and detaches its output. */
 export const compileSchemaDeclarations = (
 	prepared: readonly PreparedSchemaCompilation[],
 	batches: readonly SchemaDeclarationBatch[],
-	compile: SchemaCompilerImplementation,
 ): CompiledSchemaDeclarations => {
 	const optionDefinitions = collectOptionDefinitions(batches)
 	const resolvedFields: ResolvedFieldOptions = new WeakMap()
@@ -74,7 +73,7 @@ export const compileSchemaDeclarations = (
 		definitions: optionDefinitions,
 		resolvedFields,
 	})
-	const output = compile(encoded.input)
+	const output = compileCanonicalSchemaCompilerIr(encoded.input)
 	assertSchemaCompilerOutput(encoded.input, output, encoded.session)
 	candidates = [...decodeSchemaCompilerOutput(output, encoded.session)]
 

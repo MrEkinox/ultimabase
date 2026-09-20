@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
 	Schema,
@@ -7,15 +7,15 @@ import {
 	createApplication,
 	definePlugin,
 	defineSchemaOption,
-	isSchemaCompilerArtifactReference,
-	replaceSchemaCompiler,
 	stringField,
 	type SchemaSelectorOptions,
 	type SchemaSelection,
 	type SchemaOptions,
 } from '../index.js'
 import { jsonObjectOption } from '../../tests/plugins/schema-declarations.fixtures.js'
-import { compileCanonicalSchemaCompilerIr } from './schema-compiler-ir/canonical-compiler.js'
+import * as canonical from './schema-compiler-ir/canonical-compiler.js'
+import { isSchemaCompilerArtifactReference } from './schema-compiler-ir/artifacts.js'
+afterEach(() => vi.restoreAllMocks())
 
 describe('schema option-presence selection', () => {
 	it('applies ordinary isolated field and index patches without exposing opaque values', async () => {
@@ -84,42 +84,25 @@ describe('schema option-presence selection', () => {
 				})
 			},
 		})
-		const compilerPlugin = definePlugin({
-			capabilities: {
-				replaces: [
-					replaceSchemaCompiler({
-						compile: (input) => {
-							const document = input.schemas.find(
-								({ className }) => className === 'OpaqueOptionDocument',
-							)
-							const value = document?.options.find(
-								({ name }) => name === 'document',
-							)?.value
-							if (
-								document !== undefined &&
-								!isSchemaCompilerArtifactReference(value)
-							) {
-								throw new TypeError(
-									'Opaque option escaped its compiler artifact',
-								)
-							}
-							compilerInputs.push(JSON.stringify(input))
-							return compileCanonicalSchemaCompilerIr(input)
-						},
-						contributionId: 'opaque-option-compiler',
-					}),
-				],
+		const compile = canonical.compileCanonicalSchemaCompilerIr
+		vi.spyOn(canonical, 'compileCanonicalSchemaCompilerIr').mockImplementation(
+			(input) => {
+				const document = input.schemas.find(
+					({ className }) => className === 'OpaqueOptionDocument',
+				)
+				const value = document?.options.find(
+					({ name }) => name === 'document',
+				)?.value
+				if (
+					document !== undefined &&
+					!isSchemaCompilerArtifactReference(value)
+				) {
+					throw new TypeError('Opaque option escaped its compiler artifact')
+				}
+				compilerInputs.push(JSON.stringify(input))
+				return compile(input)
 			},
-			core: '^0.0.0',
-			pluginId: 'fixture.opaque-option-compiler',
-			privileges: [
-				{
-					name: 'schema:replace',
-					reason: 'Inspects the callback-free public compiler input.',
-				},
-			] as const,
-			version: '1.0.0',
-		})
+		)
 		const Document = Schema.define({
 			className: 'OpaqueOptionDocument',
 			document: transform,
@@ -138,12 +121,12 @@ describe('schema option-presence selection', () => {
 
 		await createApplication({
 			pluginPrivileges: { logger: false },
-			plugins: [compilerPlugin, documentPlugin],
+			plugins: [documentPlugin],
 			schemas: [Document, Plain],
 		})
 		await createApplication({
 			pluginPrivileges: { logger: false },
-			plugins: [compilerPlugin, documentPlugin],
+			plugins: [documentPlugin],
 			schemas: [Isolated],
 		})
 

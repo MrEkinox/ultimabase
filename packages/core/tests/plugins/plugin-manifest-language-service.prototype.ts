@@ -1,14 +1,11 @@
 import {
-	decorateCapability,
 	defineCapability,
 	definePlugin,
 	defineSchemaOption,
 	FrameworkApplication,
 	provideCapability,
-	replaceCapability,
 	requireCapability,
 	type CapabilityToken,
-	type CapabilityProviderChainInspection,
 	type PluginEnvironmentClaim,
 	type PluginDeclarationContext,
 	type PluginIdentity,
@@ -30,18 +27,6 @@ const provider = provideCapability(capability, {
 	value: { endpoint: 'local' },
 })
 const providerValue = /* hover:provider-value */ provider.value
-const decorator = /* hover:decorator */ decorateCapability(capability, {
-	contributionId: 'documented',
-	decorate: (consumer) => consumer,
-})
-const replacement = /* hover:replacement */ replaceCapability(capability, {
-	contributionId: 'replacement',
-	target: {
-		owner: { pluginId: 'fixture.language-provider' },
-		contributionId: 'local',
-	},
-	value: { endpoint: 'replacement' },
-})
 provideCapability(capability, {
 	contributionId: 'invalid-json',
 	// @ts-expect-error -- Packed declarations reject the same non-JSON values as source declarations.
@@ -131,8 +116,6 @@ type InspectedEnvironment = /* hover:environment */ PluginEnvironmentClaim
 type InspectedIdentity = /* hover:identity */ PluginIdentity
 type InspectedManifest = /* hover:manifest */ PluginManifest
 type InspectedCapability = /* hover:capability */ CapabilityToken
-type InspectedCapabilityChain =
-	/* hover:capability-chain */ CapabilityProviderChainInspection
 type InspectedPolicy = /* hover:policy */ PluginPrivilegePolicy
 type InspectedReport = /* hover:report */ PluginPrivilegeReport
 type InspectedDeclarationContext =
@@ -143,8 +126,6 @@ void privilege
 void environment
 void provider
 void providerValue
-void decorator
-void replacement
 void policyApplication
 void policyInstanceApplication
 void (undefined as unknown as InspectedPrivilege)
@@ -152,7 +133,6 @@ void (undefined as unknown as InspectedEnvironment)
 void (undefined as unknown as InspectedIdentity)
 void (undefined as unknown as InspectedManifest)
 void (undefined as unknown as InspectedCapability)
-void (undefined as unknown as InspectedCapabilityChain)
 void (undefined as unknown as InspectedPolicy)
 void (undefined as unknown as InspectedReport)
 void (undefined as unknown as InspectedDeclarationContext)

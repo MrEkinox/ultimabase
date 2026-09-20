@@ -15,7 +15,6 @@ import {
 import {
 	composeCapability,
 	runApplicationCapabilityFactory,
-	runCapabilityDecorator,
 	type ApplicationCapabilityResource,
 	type CapabilityConsumerValue,
 	type CapabilityProviderContribution,
@@ -364,7 +363,7 @@ export class ApplicationCapabilityHost {
 		const plan = readCapabilityPlans(this.#inventory).find(
 			({ entry }) => entry.token === token,
 		)
-		if (plan === undefined || plan.chains.length === 0) {
+		if (plan === undefined || plan.providers.length === 0) {
 			this.#resolvedTokens.add(token)
 			return undefined
 		}
@@ -376,9 +375,7 @@ export class ApplicationCapabilityHost {
 		}
 		const providers: unknown[] = []
 		const materializedContributions: MaterializedCapabilityContribution[] = []
-		for (const chain of plan.chains) {
-			const contribution = chain.at(-1)
-			if (contribution === undefined) continue
+		for (const contribution of plan.providers) {
 			const plugin = contribution.plugin
 
 			const requirements =
@@ -463,14 +460,7 @@ export class ApplicationCapabilityHost {
 			}
 		}
 
-		let consumer: unknown = composeCapability(token, providers)
-		for (const decorator of plan.entry.decorators.toReversed()) {
-			consumer = runWithApplicationPluginOwner(
-				this.#application,
-				decorator.owner,
-				() => runCapabilityDecorator(decorator.declaration, consumer),
-			)
-		}
+		const consumer: unknown = composeCapability(token, providers)
 		if (isApplicationOperationTransportPlanningCapability(token)) {
 			bindApplicationOperationTransportPlanner(consumer, {
 				application: this.#application,

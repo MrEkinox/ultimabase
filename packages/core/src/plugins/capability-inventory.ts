@@ -7,10 +7,7 @@ import {
 import { FrameworkError } from '../errors/framework-error.js'
 import {
 	composeCapability,
-	runCapabilityDecorator,
-	type CapabilityDecoratorDeclaration,
 	type CapabilityProviderDeclaration,
-	type CapabilityReplacementDeclaration,
 	type CapabilityRequirement,
 	type CapabilityToken,
 } from './capabilities.js'
@@ -24,9 +21,7 @@ import {
 	type PluginIdentity,
 	type PluginPrivilegeRequest,
 } from './manifest.js'
-import { buildReplacementChains } from './capability-replacement-planning.js'
-import { canonicalSchemaCompilerFoundation } from './schema-compiler-ir/schema-compiler-capability.js'
-import { canonicalRuntimeExecutorFoundation } from '../runtime/capabilities.js'
+import { planCapabilityProviders } from './capability-provider-planning.js'
 import { isAdapterCapability } from '../runtime/adapters/capabilities.js'
 import { isAdapterContributionCapability } from '../runtime/adapters/contributions.js'
 import {
@@ -42,21 +37,9 @@ import {
 	canonicalApplicationSchemaMutationSurfaceFoundation,
 } from '../runtime/application/application-schema-mutation-surface.js'
 
-/** Reports one provider or replacement without exposing its value or factory. */
+/** Reports one provider without exposing its value or factory. */
 export interface CapabilityProviderInspection {
-	readonly kind: 'provider' | 'replacement'
-	readonly owner: PluginIdentity
-	readonly contributionId: string
-}
-
-/** Reports one complete replacement chain at its stable provider position. */
-export interface CapabilityProviderChainInspection {
-	readonly position: number
-	readonly contributions: readonly CapabilityProviderInspection[]
-}
-
-/** Reports one whole-consumer decorator in deterministic application order. */
-export interface CapabilityDecoratorInspection {
+	readonly kind: 'provider'
 	readonly owner: PluginIdentity
 	readonly contributionId: string
 }
@@ -72,25 +55,15 @@ export interface CapabilityRequirementInspection {
 export interface CapabilityInventoryEntry {
 	readonly token: CapabilityToken
 	readonly providers: readonly CapabilityProviderInspection[]
-	readonly replacements: readonly CapabilityProviderInspection[]
-	readonly decorators: readonly CapabilityDecoratorInspection[]
-	readonly providerChains: readonly CapabilityProviderChainInspection[]
 	readonly requirements: readonly CapabilityRequirementInspection[]
 }
 
 export interface OwnedProvider {
-	readonly kind: 'provider' | 'replacement'
+	readonly kind: 'provider'
 	readonly owner: PluginIdentity
 	readonly plugin?: NormalizedPlugin
 	readonly version: string
-	readonly declaration:
-		CapabilityProviderDeclaration | CapabilityReplacementDeclaration
-}
-
-export interface OwnedDecorator {
-	readonly owner: PluginIdentity
-	readonly plugin: NormalizedPlugin
-	readonly declaration: CapabilityDecoratorDeclaration
+	readonly declaration: CapabilityProviderDeclaration
 }
 
 export interface OwnedRequirement {
@@ -103,27 +76,17 @@ export interface MutableCapabilityEntry {
 	readonly token: CapabilityToken
 	readonly firstOwner: PluginIdentity
 	readonly providers: OwnedProvider[]
-	readonly replacements: OwnedProvider[]
-	readonly decorators: OwnedDecorator[]
 	readonly requirements: OwnedRequirement[]
 }
 
 interface CapabilityPlan {
 	readonly entry: MutableCapabilityEntry
-	readonly chains: readonly (readonly OwnedProvider[])[]
+	readonly providers: readonly OwnedProvider[]
 }
 
 interface CapabilityInventoryState {
 	readonly plans: readonly CapabilityPlan[]
 	readonly declarationConsumers: Map<CapabilityToken, unknown>
-}
-
-/** Retains trusted ownership for one final provider selected by the graph. */
-export interface SelectedCapabilityProvider {
-	readonly declaration:
-		CapabilityProviderDeclaration | CapabilityReplacementDeclaration
-	readonly owner: PluginIdentity
-	readonly version: string
 }
 
 const inventoryStates = new WeakMap<
@@ -203,8 +166,6 @@ const registerToken = (
 		token,
 		firstOwner: owner,
 		providers: [],
-		replacements: [],
-		decorators: [],
 		requirements: [],
 	}
 	versions.set(token.version, entry)
@@ -236,7 +197,7 @@ const getInventoryState = (
 }
 
 /**
- * Owns static capability compatibility and replacement plans.
+ * Owns static capability compatibility and provider order.
  *
  * Executable values and factories never enter its public inspection model.
  */
@@ -278,8 +239,6 @@ export class CapabilityInventory implements Iterable<CapabilityInventoryEntry> {
 			)
 		})
 		for (const foundation of [
-			canonicalSchemaCompilerFoundation,
-			canonicalRuntimeExecutorFoundation,
 			...(consumesApplicationRequests
 				? [canonicalApplicationRequestExecutionFoundation]
 				: []),
@@ -322,28 +281,6 @@ export class CapabilityInventory implements Iterable<CapabilityInventoryEntry> {
 					declaration,
 				})
 			}
-			for (const declaration of declarations.replaces) {
-				registerToken(
-					entriesById,
-					orderedEntries,
-					owner,
-					declaration.token,
-				).replacements.push({
-					kind: 'replacement',
-					owner,
-					plugin,
-					version,
-					declaration,
-				})
-			}
-			for (const declaration of declarations.decorates) {
-				registerToken(
-					entriesById,
-					orderedEntries,
-					owner,
-					declaration.token,
-				).decorators.push({ owner, plugin, declaration })
-			}
 			for (const requirement of [
 				...declarations.requires,
 				...declarations.optional,
@@ -360,13 +297,13 @@ export class CapabilityInventory implements Iterable<CapabilityInventoryEntry> {
 		const plans = orderedEntries.map((entry) =>
 			immutableRecord({
 				entry,
-				chains: buildReplacementChains(orderedEntries, entry),
+				providers: planCapabilityProviders(orderedEntries, entry),
 			}),
 		)
 
 		this.entries = immutableArray(
-			plans.map(({ entry, chains }) => {
-				const active = chains.length > 0
+			plans.map(({ entry, providers }) => {
+				const active = providers.length > 0
 				for (const { owner, requirement } of entry.requirements) {
 					if (!requirement.optional && !active) {
 						throwMissingCapability(owner, requirement)
@@ -376,28 +313,6 @@ export class CapabilityInventory implements Iterable<CapabilityInventoryEntry> {
 				return immutableRecord({
 					token: entry.token,
 					providers: immutableArray(entry.providers.map(inspectProvider)),
-					replacements: immutableArray(entry.replacements.map(inspectProvider)),
-					decorators: immutableArray(
-						entry.decorators.map(({ owner, declaration }) =>
-							immutableRecord({
-								owner: immutableRecord({
-									pluginId: owner.pluginId,
-									...(owner.instanceId === undefined
-										? {}
-										: { instanceId: owner.instanceId }),
-								}),
-								contributionId: declaration.contributionId,
-							}),
-						),
-					),
-					providerChains: immutableArray(
-						chains.map((chain, position) =>
-							immutableRecord({
-								position,
-								contributions: immutableArray(chain.map(inspectProvider)),
-							}),
-						),
-					),
 					requirements: immutableArray(
 						entry.requirements.map(({ owner, requirement }) =>
 							immutableRecord({ owner, requirement, active }),
@@ -451,26 +366,19 @@ export const composeDeclarationCapabilities = (
 	inventory: CapabilityInventory,
 ): void => {
 	const state = getInventoryState(inventory)
-	for (const { entry, chains } of state.plans) {
+	for (const { entry, providers } of state.plans) {
 		if (entry.token.lifetime !== 'declaration') continue
 		// An absent optional capability has no consumer view. In particular, a
 		// single-capability composer must never receive an impossible empty tuple.
-		if (chains.length === 0) continue
+		if (providers.length === 0) continue
 
-		const providers = chains.map((chain) => {
-			const finalContribution = chain.at(-1)
-			if (
-				finalContribution === undefined ||
-				!('value' in finalContribution.declaration)
-			) {
+		const values = providers.map(({ declaration }) => {
+			if (!('value' in declaration)) {
 				throw new TypeError('Declaration capability contribution has no value')
 			}
-			return finalContribution.declaration.value
+			return declaration.value
 		})
-		let consumer: unknown = composeCapability(entry.token, providers)
-		for (const decorator of entry.decorators.toReversed()) {
-			consumer = runCapabilityDecorator(decorator.declaration, consumer)
-		}
+		const consumer: unknown = composeCapability(entry.token, values)
 		state.declarationConsumers.set(entry.token, consumer)
 	}
 }
@@ -481,34 +389,6 @@ export const readDeclarationCapability = (
 	requirement: CapabilityRequirement,
 ): unknown =>
 	getInventoryState(inventory).declarationConsumers.get(requirement.token)
-
-/** Reads one exact final provider without exposing it through public inspection. */
-export const readSelectedCapabilityProvider = (
-	inventory: CapabilityInventory,
-	token: CapabilityToken,
-): SelectedCapabilityProvider => {
-	const plan = getInventoryState(inventory).plans.find(
-		(candidate) => candidate.entry.token === token,
-	)
-	const selected = plan?.chains[0]?.at(-1)
-
-	if (selected === undefined || plan?.chains.length !== 1) {
-		throw new TypeError(
-			`Capability "${token.capabilityId}" has no unique selected provider`,
-		)
-	}
-
-	return immutableRecord({
-		declaration: selected.declaration,
-		owner: immutableRecord({
-			pluginId: selected.owner.pluginId,
-			...(selected.owner.instanceId === undefined
-				? {}
-				: { instanceId: selected.owner.instanceId }),
-		}),
-		version: selected.version,
-	})
-}
 
 /** Supplies application materialization with final static contribution plans. */
 export const readCapabilityPlans = (

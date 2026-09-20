@@ -1,17 +1,14 @@
 import { FrameworkError } from '../errors/framework-error.js'
 import {
 	adapterCapabilityPrivilege,
-	isAdapterCapability,
 	isAuthorizedAdapterCapabilityProvider,
 } from '../runtime/adapters/capabilities.js'
 import {
 	adapterContributionPrivileges,
 	isAuthorizedAdapterContributionProvider,
 } from '../runtime/adapters/contributions.js'
-import type { CapabilityProviderDeclaration } from './capabilities.js'
 import type {
 	MutableCapabilityEntry,
-	OwnedDecorator,
 	OwnedProvider,
 } from './capability-inventory.js'
 import { formatPluginIdentity, type PluginPrivilege } from './manifest.js'
@@ -58,11 +55,7 @@ export const validateAdapterCapabilityEntry = (
 			)
 		}
 		for (const provider of entry.providers) {
-			if (
-				isAuthorizedAdapterCapabilityProvider(
-					provider.declaration as CapabilityProviderDeclaration,
-				)
-			) {
+			if (isAuthorizedAdapterCapabilityProvider(provider.declaration)) {
 				continue
 			}
 			throwCapabilityConflict(
@@ -92,11 +85,7 @@ export const validateAdapterCapabilityEntry = (
 		)
 	}
 	for (const provider of entry.providers) {
-		if (
-			!isAuthorizedAdapterContributionProvider(
-				provider.declaration as CapabilityProviderDeclaration,
-			)
-		) {
+		if (!isAuthorizedAdapterContributionProvider(provider.declaration)) {
 			throwCapabilityConflict(
 				'Adapter contributions must use provideAdapterContribution.',
 				{
@@ -109,42 +98,4 @@ export const validateAdapterCapabilityEntry = (
 		}
 		access.assertProviderPrivilege(provider, privileges.provider)
 	}
-}
-
-const isProtectedAdapterEntry = (entry: MutableCapabilityEntry): boolean =>
-	isAdapterCapability(entry.token) ||
-	adapterContributionPrivileges(entry.token) !== undefined
-
-/** @internal Rejects generic replacement for fixed adapter bridge protocols. */
-export const assertAdapterReplacementAllowed = (
-	entry: MutableCapabilityEntry,
-	replacement: OwnedProvider,
-): void => {
-	if (!isProtectedAdapterEntry(entry)) return
-	throwCapabilityConflict(
-		'Adapter capabilities cannot use generic capability replacement.',
-		{
-			kind: 'adapter-capability-replacement-forbidden',
-			plugin: formatPluginIdentity(replacement.owner),
-			capabilityId: entry.token.capabilityId,
-			contributionId: replacement.declaration.contributionId,
-		},
-	)
-}
-
-/** @internal Rejects generic decoration for fixed adapter bridge protocols. */
-export const assertAdapterDecorationAllowed = (
-	entry: MutableCapabilityEntry,
-	decorator: OwnedDecorator,
-): void => {
-	if (!isProtectedAdapterEntry(entry)) return
-	throwCapabilityConflict(
-		'Adapter capabilities cannot use generic capability decoration.',
-		{
-			kind: 'adapter-capability-decoration-forbidden',
-			plugin: formatPluginIdentity(decorator.owner),
-			capabilityId: entry.token.capabilityId,
-			contributionId: decorator.declaration.contributionId,
-		},
-	)
 }

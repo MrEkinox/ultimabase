@@ -77,8 +77,6 @@ describe('plugin manifest source language service', () => {
 			'adapter:consume',
 			'adapter:raw',
 			'authority:elevate',
-			'capability:decorate',
-			'capability:replace',
 			'event:publish',
 			'migration:contribute',
 			'model:extend',
@@ -88,9 +86,7 @@ describe('plugin manifest source language service', () => {
 			'runtime:constrain',
 			'runtime:intercept',
 			'runtime:observe',
-			'runtime:replace',
 			'schema:declare',
-			'schema:replace',
 			'schema:transform',
 			'storage:private',
 			'transport:expose',
@@ -129,13 +125,6 @@ describe('plugin manifest source language service', () => {
 		expect(readHover('manifest')).toContain('interface PluginManifest')
 		expect(readHover('capability')).toContain('interface CapabilityToken')
 		expect(readHover('provider-value')).toContain('readonly endpoint: string;')
-		expect(readHover('decorator')).toContain('CapabilityDecoratorDeclaration')
-		expect(readHover('replacement')).toContain(
-			'CapabilityReplacementDeclaration',
-		)
-		expect(readHover('capability-chain')).toContain(
-			'interface CapabilityProviderChainInspection',
-		)
 		expect(readHover('policy')).toContain('interface PluginPrivilegePolicy')
 		expect(readHover('report')).toContain('interface PluginPrivilegeReport')
 		expect(readDocumentation('declaration-context')).toContain(

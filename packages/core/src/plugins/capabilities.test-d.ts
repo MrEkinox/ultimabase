@@ -5,7 +5,6 @@ import {
 	definePlugin,
 	optionalCapability,
 	provideCapability,
-	replaceCapability,
 	requireCapability,
 	type CapabilityConsumerValue,
 	type CapabilityProviderValue,
@@ -124,10 +123,6 @@ test('rejects declaration values that are not recursively JSON-compatible', () =
 		lifetime: 'declaration',
 		compose: ([provider]) => provider,
 	})
-	const target = {
-		owner: { pluginId: 'fixture.json-provider' },
-		contributionId: 'primary',
-	} as const
 
 	provideCapability(token, {
 		contributionId: 'primary',
@@ -145,11 +140,5 @@ test('rejects declaration values that are not recursively JSON-compatible', () =
 		contributionId: 'function',
 		// @ts-expect-error -- Functions are not JSON-compatible declaration facts.
 		value: { endpoint: 'invalid', nested: () => undefined },
-	})
-	replaceCapability(token, {
-		contributionId: 'invalid-replacement',
-		target,
-		// @ts-expect-error -- Replacement facts obey the same JSON contract as providers.
-		value: { endpoint: 'invalid', nested: { enabled: undefined } },
 	})
 })

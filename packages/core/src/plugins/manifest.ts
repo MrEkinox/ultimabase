@@ -83,8 +83,6 @@ export type PluginPrivilege =
 	| 'adapter:consume'
 	| 'adapter:raw'
 	| 'authority:elevate'
-	| 'capability:decorate'
-	| 'capability:replace'
 	| 'event:publish'
 	| 'migration:contribute'
 	| 'model:extend'
@@ -94,9 +92,7 @@ export type PluginPrivilege =
 	| 'runtime:constrain'
 	| 'runtime:intercept'
 	| 'runtime:observe'
-	| 'runtime:replace'
 	| 'schema:declare'
-	| 'schema:replace'
 	| 'schema:transform'
 	| 'storage:private'
 	| 'transport:expose'
@@ -113,17 +109,13 @@ export const pluginPrivilegeMetadata: Readonly<
 > = immutableRecord({
 	'schema:declare': privilegeMetadata('schema', 'standard'),
 	'schema:transform': privilegeMetadata('schema', 'sensitive'),
-	'schema:replace': privilegeMetadata('schema', 'critical'),
 	'storage:private': privilegeMetadata('persistence', 'critical'),
 	'model:extend': privilegeMetadata('model', 'standard'),
 	'query:extend': privilegeMetadata('query', 'standard'),
 	'operation:declare': privilegeMetadata('operation', 'standard'),
-	'capability:decorate': privilegeMetadata('capability', 'sensitive'),
-	'capability:replace': privilegeMetadata('capability', 'sensitive'),
 	'runtime:observe': privilegeMetadata('runtime', 'standard'),
 	'runtime:intercept': privilegeMetadata('runtime', 'sensitive'),
 	'runtime:constrain': privilegeMetadata('runtime', 'sensitive'),
-	'runtime:replace': privilegeMetadata('runtime', 'critical'),
 	'persistence:rewrite': privilegeMetadata('persistence', 'sensitive'),
 	'adapter:consume': privilegeMetadata('adapter', 'standard'),
 	'adapter:raw': privilegeMetadata('adapter', 'critical'),

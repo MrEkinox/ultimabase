@@ -85,8 +85,9 @@ export const formatConsumer = definePlugin({
 ```
 
 `single` allows one provider; `multiple` retains ordered independent values;
-`pipeline` composes ordered handlers. Decoration and replacement are explicit,
-owner-attributed actions, not last-writer-wins. Declaration values are
+`pipeline` composes ordered handlers. Every provider retains its exact owner;
+competing `single` providers fail during graph validation. The manifest groups
+are `provides`, `requires`, and `optional`. Declaration values are
 deeply frozen, serializable facts. They must contain no secret, connection, or
 callback. For a live client, use an `application` lifetime token with a
 `create` factory returning `{ value, dispose? }`; Core materializes it once
@@ -111,13 +112,14 @@ Core never guesses it from options.
 
 ## Choose a Runtime boundary
 
-| Goal                                  | Public contribution                                                            | Privilege             | Invariant                                                            |
-| ------------------------------------- | ------------------------------------------------------------------------------ | --------------------- | -------------------------------------------------------------------- |
-| Observe request or post-commit work   | `provideRuntimeObserver()`                                                     | `runtime:observe`     | Observation cannot transform execution.                              |
-| Add request behavior                  | `provideRuntimeBehavior()`                                                     | `runtime:intercept`   | Stay inside replaceable, owner-attributed stages.                    |
-| Deny or narrow access                 | `provideRuntimeConstraint()` with `guard`, `constraint`, or field restrictions | `runtime:constrain`   | Later contributors cannot broaden accumulated restrictions.          |
-| Rewrite the physical persistence plan | `providePersistencePlanRewriter()`                                             | `persistence:rewrite` | Logical policy, hooks, audit, and result identity stay unchanged.    |
-| Replace the complete Runtime executor | Exact replacement capability                                                   | `runtime:replace`     | Core still owns authority, cancellation, and transaction boundaries. |
+Core constructs the Runtime directly. Plugins contribute behavior, policies,
+and persistence rewrites through these supported boundaries.
+
+| Goal                                  | Public contribution                                                            | Privilege             | Invariant                                                         |
+| ------------------------------------- | ------------------------------------------------------------------------------ | --------------------- | ----------------------------------------------------------------- |
+| Add request behavior                  | `provideRuntimeBehavior()`                                                     | `runtime:intercept`   | Core retains mandatory validation and transaction boundaries.     |
+| Deny or narrow access                 | `provideRuntimeConstraint()` with `guard`, `constraint`, or field restrictions | `runtime:constrain`   | Later contributors cannot broaden accumulated restrictions.       |
+| Rewrite the physical persistence plan | `providePersistencePlanRewriter()`                                             | `persistence:rewrite` | Logical policy, hooks, audit, and result identity stay unchanged. |
 
 Use the optional [Hooks](/docs/1.0.0/plugins/official/hooks) and [Access](/docs/1.0.0/plugins/official/access)
 protocols when your plugin specifically extends those product contracts. A
@@ -214,19 +216,15 @@ privilege never transfers to your plugin.
 | ---------------------- | ----------------------------------------------------------------- |
 | `schema:declare`       | Schema, field, option, additive patch, or index declarations.     |
 | `schema:transform`     | Provenance-checked change to an existing declaration.             |
-| `schema:replace`       | Complete logical schema compiler replacement.                     |
 | `model:extend`         | Application-local schema or model command surfaces.               |
 | `query:extend`         | Application-local Query builder methods.                          |
 | `operation:declare`    | Namespaced operation or schema-mutation tokens.                   |
 | `typegen:reference`    | Registered public package type references.                        |
 | `typegen:contribute`   | Structured declarations in the main generated file.               |
 | `typegen:emit`         | Separate structured `.d.ts` or inert `.json` output.              |
-| `capability:decorate`  | Authorized whole-capability decoration.                           |
-| `capability:replace`   | Exact owner-targeted provider replacement.                        |
-| `runtime:observe`      | Runtime observers and compatible event listeners.                 |
+| `runtime:observe`      | Product event consumers and diagnostics.                          |
 | `runtime:intercept`    | Mutable request behavior at an allowed stage.                     |
 | `runtime:constrain`    | Deny-only or narrowing protected constraints.                     |
-| `runtime:replace`      | Complete Runtime executor replacement.                            |
 | `persistence:rewrite`  | Physical plan rewrite without logical-policy changes.             |
 | `adapter:consume`      | Adapter capability or attributed physical contribution.           |
 | `adapter:raw`          | Exact revocable adapter-specific raw lease.                       |

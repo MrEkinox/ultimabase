@@ -164,9 +164,6 @@ export const composeRuntimeBehaviors = (
 	const postCommitObservers = behaviors.flatMap(({ postCommit }) =>
 		postCommit === undefined ? [] : [postCommit],
 	)
-	if (contributionBehavior?.postCommit !== undefined) {
-		postCommitObservers.unshift(contributionBehavior.postCommit)
-	}
 	const preparationPredicates = behaviors.flatMap(
 		({ requiresPreparedMutationItems }) =>
 			requiresPreparedMutationItems === undefined

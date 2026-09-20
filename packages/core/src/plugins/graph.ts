@@ -338,10 +338,9 @@ const connectGraphNodes = (
 				if (provider === consumer) continue
 
 				const capabilities = provider.plugin.definition.manifest.capabilities
-				const providesToken = [
-					...capabilities.provides,
-					...capabilities.replaces,
-				].some(({ token }) => token === requirement.token)
+				const providesToken = capabilities.provides.some(
+					({ token }) => token === requirement.token,
+				)
 				if (providesToken) connectDependency(consumer, provider)
 			}
 		}

@@ -35,6 +35,37 @@ it('omits the removed ACL PostgreSQL bridge from the packed workspace inventory'
 })
 
 const rootLicense = await readFile(path.join(repositoryRoot, 'LICENSE'), 'utf8')
+
+it('keeps retired kernel and measurement APIs out of published JavaScript', async () => {
+	const core = await import('@ultimabase/core')
+	const testing = await import('@ultimabase/testing')
+	// Packed consumers must see the same removals as source consumers.
+	for (const name of [
+		'decorateCapability',
+		'replaceCapability',
+		'replaceSchemaCompiler',
+		'replaceRuntime',
+		'runtimeExecutorCapability',
+		'runtimeObserverCapability',
+		'schemaCompilerCapability',
+		'provideRuntimeObserver',
+		'postCommitEvent',
+	])
+		expect(core).not.toHaveProperty(name)
+	for (const name of [
+		'RuntimeCostProbe',
+		'assertNoOptionalRuntimeCost',
+		'diffRuntimeCostSnapshots',
+	]) {
+		expect(testing).not.toHaveProperty(name)
+	}
+	const declarations = await readFile(
+		path.join(packagesDirectory, 'testing/dist/index.d.ts'),
+		'utf8',
+	)
+	expect(declarations).not.toMatch(/\bRuntimeCost(?:ProbeOptions|Snapshot)\b/u)
+})
+
 const consumerRequire = createRequire(import.meta.url)
 const getResolutionError = (specifier: string): unknown => {
 	try {

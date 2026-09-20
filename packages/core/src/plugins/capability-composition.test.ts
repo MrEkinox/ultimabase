@@ -3,11 +3,9 @@ import { describe, expect, it } from 'vitest'
 import { FrameworkApplication } from '../application/framework-application.js'
 import { FrameworkError } from '../errors/framework-error.js'
 import {
-	decorateCapability,
 	defineCapability,
 	optionalCapability,
 	provideCapability,
-	replaceCapability,
 	requireCapability,
 } from './capabilities.js'
 import { definePlugin } from './definition.js'
@@ -70,7 +68,7 @@ describe('capability composition', () => {
 		expect(resolved).toBeUndefined()
 	})
 
-	it('composes declaration providers, exact replacements, and decorators before setup', async () => {
+	it('composes declaration providers before setup', async () => {
 		interface FormatProvider {
 			readonly name: string
 		}
@@ -99,53 +97,6 @@ describe('capability composition', () => {
 				],
 			},
 		})
-		const replacement = definePlugin({
-			pluginId: 'fixture.format-replacement',
-			version: '1.0.0',
-			core: '^0.0.0',
-			privileges: [
-				{
-					name: 'capability:replace',
-					reason: 'Replaces the selected format fixture.',
-				},
-			],
-			capabilities: {
-				replaces: [
-					replaceCapability(token, {
-						contributionId: 'replacement',
-						target: {
-							owner: {
-								pluginId: 'fixture.format-provider',
-								instanceId: 'primary',
-							},
-							contributionId: 'format',
-						},
-						value: { name: 'replacement' },
-					}),
-				],
-			},
-		})
-		const decorator = definePlugin({
-			pluginId: 'fixture.format-decorator',
-			version: '1.0.0',
-			core: '^0.0.0',
-			privileges: [
-				{
-					name: 'capability:decorate',
-					reason: 'Decorates the complete format fixture.',
-				},
-			],
-			capabilities: {
-				decorates: [
-					decorateCapability(token, {
-						contributionId: 'prefix',
-						decorate: (consumer) => ({
-							render: () => `decorated:${consumer.render()}`,
-						}),
-					}),
-				],
-			},
-		})
 		let rendered: string | undefined
 		const consumer = definePlugin({
 			pluginId: 'fixture.format-consumer',
@@ -158,17 +109,17 @@ describe('capability composition', () => {
 		})
 		const application = new FrameworkApplication({
 			schemas: [],
-			plugins: [consumer, decorator, replacement, provider],
+			plugins: [consumer, provider],
 			pluginPrivileges: { logger: false },
 		})
 
 		await application.initialize()
 
-		expect(rendered).toBe('decorated:replacement')
+		expect(rendered).toBe('original')
 		expect(application.pluginPrivilegeReport.allowed).toBe(true)
 	})
 
-	it('preserves multiple provider positions across replacement chains', async () => {
+	it('preserves multiple provider positions in declaration order', async () => {
 		const token = defineCapability<string, readonly string[]>()({
 			capabilityId: 'fixture.multiple-values',
 			version: '1.0.0',
@@ -203,26 +154,6 @@ describe('capability composition', () => {
 				],
 			},
 		})
-		const replacement = definePlugin({
-			pluginId: 'fixture.multiple-replacement',
-			version: '1.0.0',
-			core: '^0.0.0',
-			privileges: [
-				{ name: 'capability:replace', reason: 'Replaces one exact value.' },
-			],
-			capabilities: {
-				replaces: [
-					replaceCapability(token, {
-						contributionId: 'replacement',
-						target: {
-							owner: { pluginId: 'fixture.multiple-first' },
-							contributionId: 'first',
-						},
-						value: 'replaced-first',
-					}),
-				],
-			},
-		})
 		let values: readonly string[] = []
 		const consumer = definePlugin({
 			pluginId: 'fixture.multiple-consumer',
@@ -235,43 +166,13 @@ describe('capability composition', () => {
 		})
 		const application = new FrameworkApplication({
 			schemas: [],
-			plugins: [consumer, first, replacement, second],
+			plugins: [consumer, first, second],
 			pluginPrivileges: { logger: false },
 		})
 
 		await application.initialize()
-		expect(values).toStrictEqual(['replaced-first', 'second'])
-		expect(
-			new PluginGraph(
-				normalizePlugins([consumer, first, replacement, second]),
-			).capabilities.entries.at(-1)?.providerChains,
-		).toStrictEqual([
-			{
-				position: 0,
-				contributions: [
-					{
-						kind: 'provider',
-						owner: { pluginId: 'fixture.multiple-first' },
-						contributionId: 'first',
-					},
-					{
-						kind: 'replacement',
-						owner: { pluginId: 'fixture.multiple-replacement' },
-						contributionId: 'replacement',
-					},
-				],
-			},
-			{
-				position: 1,
-				contributions: [
-					{
-						kind: 'provider',
-						owner: { pluginId: 'fixture.multiple-second' },
-						contributionId: 'second',
-					},
-				],
-			},
-		])
+		expect(values).toStrictEqual(['first', 'second'])
+		await application.dispose()
 	})
 
 	it('materializes application dependencies before setup and disposes after owner hooks', async () => {
@@ -350,7 +251,7 @@ describe('capability composition', () => {
 		])
 	})
 
-	it('orders pipeline handlers and applies the earliest decorator outermost', async () => {
+	it('orders pipeline handlers according to dependencies', async () => {
 		type Handler = (next: () => string) => () => string
 		const token = defineCapability<Handler, () => string>()({
 			capabilityId: 'fixture.ordered-pipeline',
@@ -395,41 +296,6 @@ describe('capability composition', () => {
 				],
 			},
 		})
-		const firstDecorator = definePlugin({
-			pluginId: 'fixture.decorator-first',
-			version: '1.0.0',
-			core: '^0.0.0',
-			privileges: [
-				{ name: 'capability:decorate', reason: 'Outer wrapper fixture.' },
-			],
-			capabilities: {
-				decorates: [
-					decorateCapability(token, {
-						contributionId: 'first',
-						decorate: (consumer) => () => `A[${consumer()}]`,
-					}),
-				],
-			},
-		})
-		const secondDecorator = definePlugin({
-			pluginId: 'fixture.decorator-second',
-			version: '1.0.0',
-			core: '^0.0.0',
-			dependencies: [
-				{ pluginId: 'fixture.decorator-first', version: '^1.0.0' },
-			],
-			privileges: [
-				{ name: 'capability:decorate', reason: 'Inner wrapper fixture.' },
-			],
-			capabilities: {
-				decorates: [
-					decorateCapability(token, {
-						contributionId: 'second',
-						decorate: (consumer) => () => `B[${consumer()}]`,
-					}),
-				],
-			},
-		})
 		let result: string | undefined
 		const consumer = definePlugin({
 			pluginId: 'fixture.pipeline-consumer',
@@ -442,28 +308,21 @@ describe('capability composition', () => {
 		})
 		const application = new FrameworkApplication({
 			schemas: [],
-			plugins: [
-				consumer,
-				secondDecorator,
-				firstDecorator,
-				secondProvider,
-				firstProvider,
-			],
+			plugins: [consumer, secondProvider, firstProvider],
 			pluginPrivileges: { logger: false },
 		})
 
 		await application.initialize()
 
-		expect(result).toBe('A[B[first(second(terminal))]]')
+		expect(result).toBe('first(second(terminal))')
 	})
 
-	it('materializes only final replacements and isolates resources per application', async () => {
-		let baseCreates = 0
-		let replacementCreates = 0
-		let replacementDisposes = 0
+	it('materializes and disposes each application resource exactly once', async () => {
+		let providerCreates = 0
+		let providerDisposes = 0
 		const observed: number[] = []
 		const token = defineCapability<{ readonly sequence: number }>()({
-			capabilityId: 'fixture.replaced-application',
+			capabilityId: 'fixture.resource-application',
 			version: '1.0.0',
 			cardinality: 'single',
 			lifetime: 'application',
@@ -471,46 +330,20 @@ describe('capability composition', () => {
 		})
 		const requirement = requireCapability(token, '^1.0.0')
 		const provider = definePlugin({
-			pluginId: 'fixture.replaced-base',
+			pluginId: 'fixture.resource-winner',
 			version: '1.0.0',
 			core: '^0.0.0',
 			capabilities: {
 				provides: [
 					provideCapability(token, {
-						contributionId: 'base',
-						create: () => {
-							baseCreates += 1
-							return { value: { sequence: -1 } }
-						},
-					}),
-				],
-			},
-		})
-		const replacement = definePlugin({
-			pluginId: 'fixture.replaced-winner',
-			version: '1.0.0',
-			core: '^0.0.0',
-			privileges: [
-				{
-					name: 'capability:replace',
-					reason: 'Replaces the application provider fixture.',
-				},
-			],
-			capabilities: {
-				replaces: [
-					replaceCapability(token, {
 						contributionId: 'winner',
-						target: {
-							owner: { pluginId: 'fixture.replaced-base' },
-							contributionId: 'base',
-						},
 						create: () => {
-							replacementCreates += 1
-							const sequence = replacementCreates
+							providerCreates += 1
+							const sequence = providerCreates
 							return {
 								value: { sequence },
 								dispose: () => {
-									replacementDisposes += 1
+									providerDisposes += 1
 								},
 							}
 						},
@@ -519,7 +352,7 @@ describe('capability composition', () => {
 			},
 		})
 		const consumer = definePlugin({
-			pluginId: 'fixture.replaced-consumer',
+			pluginId: 'fixture.resource-consumer',
 			version: '1.0.0',
 			core: '^0.0.0',
 			capabilities: { requires: [requirement] },
@@ -530,7 +363,7 @@ describe('capability composition', () => {
 		const createApplication = () =>
 			new FrameworkApplication({
 				schemas: [],
-				plugins: [consumer, replacement, provider],
+				plugins: [consumer, provider],
 				pluginPrivileges: { logger: false },
 			})
 		const first = createApplication()
@@ -541,9 +374,8 @@ describe('capability composition', () => {
 		await first.dispose()
 		await second.dispose()
 
-		expect(baseCreates).toBe(0)
-		expect(replacementCreates).toBe(2)
-		expect(replacementDisposes).toBe(2)
+		expect(providerCreates).toBe(2)
+		expect(providerDisposes).toBe(2)
 		expect(observed).toStrictEqual([1, 2])
 	})
 
@@ -872,129 +704,7 @@ describe('capability composition', () => {
 		expect(disposeCalls).toBe(1)
 	})
 
-	it('rejects missing, incompatible, and cyclic replacement targets', () => {
-		const token = defineCapability<string>()({
-			capabilityId: 'fixture.replacement-targets',
-			version: '1.0.0',
-			cardinality: 'single',
-			lifetime: 'declaration',
-			compose: ([provider]) => provider,
-		})
-		const replacementPlugin = (
-			pluginId: string,
-			contributionId: string,
-			targetPluginId: string,
-			targetContributionId: string,
-		) =>
-			definePlugin({
-				pluginId,
-				version: '1.0.0',
-				core: '^0.0.0',
-				privileges: [
-					{ name: 'capability:replace', reason: 'Target validation fixture.' },
-				],
-				capabilities: {
-					replaces: [
-						replaceCapability(token, {
-							contributionId,
-							target: {
-								owner: { pluginId: targetPluginId },
-								contributionId: targetContributionId,
-							},
-							value: contributionId,
-						}),
-					],
-				},
-			})
-		const missing = replacementPlugin(
-			'fixture.missing-replacement',
-			'missing',
-			'fixture.absent-provider',
-			'absent',
-		)
-
-		expect(
-			captureFrameworkError(() => new PluginGraph(normalizePlugins([missing])))
-				.internalDetails,
-		).toMatchObject({ kind: 'capability-replacement-target-missing' })
-
-		const firstCycle = replacementPlugin(
-			'fixture.cycle-replacement-first',
-			'first',
-			'fixture.cycle-replacement-second',
-			'second',
-		)
-		const secondCycle = replacementPlugin(
-			'fixture.cycle-replacement-second',
-			'second',
-			'fixture.cycle-replacement-first',
-			'first',
-		)
-		expect(
-			captureFrameworkError(
-				() => new PluginGraph(normalizePlugins([firstCycle, secondCycle])),
-			).internalDetails,
-		).toMatchObject({ kind: 'capability-replacement-cycle' })
-
-		const previousToken = defineCapability<string>()({
-			capabilityId: 'fixture.versioned-replacement',
-			version: '1.0.0',
-			cardinality: 'single',
-			lifetime: 'declaration',
-			compose: ([provider]) => provider,
-		})
-		const nextToken = defineCapability<string>()({
-			capabilityId: 'fixture.versioned-replacement',
-			version: '2.0.0',
-			cardinality: 'single',
-			lifetime: 'declaration',
-			compose: ([provider]) => provider,
-		})
-		const previous = definePlugin({
-			pluginId: 'fixture.versioned-provider',
-			version: '1.0.0',
-			core: '^0.0.0',
-			capabilities: {
-				provides: [
-					provideCapability(previousToken, {
-						contributionId: 'provider',
-						value: 'previous',
-					}),
-				],
-			},
-		})
-		const incompatible = definePlugin({
-			pluginId: 'fixture.versioned-replacer',
-			version: '1.0.0',
-			core: '^0.0.0',
-			privileges: [
-				{ name: 'capability:replace', reason: 'Version mismatch fixture.' },
-			],
-			capabilities: {
-				replaces: [
-					replaceCapability(nextToken, {
-						contributionId: 'replacement',
-						target: {
-							owner: { pluginId: 'fixture.versioned-provider' },
-							contributionId: 'provider',
-						},
-						value: 'next',
-					}),
-				],
-			},
-		})
-		const error = captureFrameworkError(
-			() => new PluginGraph(normalizePlugins([previous, incompatible])),
-		)
-		expect(error.code).toBe('PLUGIN_PROTOCOL_INCOMPATIBLE')
-		expect(error.internalDetails).toMatchObject({
-			kind: 'capability-replacement-version',
-			replacementVersion: '2.0.0',
-			targetVersion: '1.0.0',
-		})
-	})
-
-	it('rejects competing singles, missing privileges, and replacement branches statically', () => {
+	it('rejects competing single providers statically', () => {
 		const token = defineCapability<string>()({
 			capabilityId: 'fixture.static-conflicts',
 			version: '1.0.0',
@@ -1024,65 +734,6 @@ describe('capability composition', () => {
 				() => new PluginGraph(normalizePlugins([first, second])),
 			).internalDetails,
 		).toMatchObject({ kind: 'single-capability-provider-conflict' })
-
-		const unauthorized = definePlugin({
-			pluginId: 'fixture.unauthorized-replacement',
-			version: '1.0.0',
-			core: '^0.0.0',
-			capabilities: {
-				replaces: [
-					replaceCapability(token, {
-						contributionId: 'unauthorized',
-						target: {
-							owner: { pluginId: 'fixture.conflict-first' },
-							contributionId: 'first',
-						},
-						value: 'unauthorized',
-					}),
-				],
-			},
-		})
-
-		expect(
-			captureFrameworkError(
-				() => new PluginGraph(normalizePlugins([first, unauthorized])),
-			).internalDetails,
-		).toMatchObject({ kind: 'capability-privilege-missing' })
-
-		const branch = (pluginId: string, contributionId: string) =>
-			definePlugin({
-				pluginId,
-				version: '1.0.0',
-				core: '^0.0.0',
-				privileges: [
-					{ name: 'capability:replace', reason: 'Branch conflict fixture.' },
-				],
-				capabilities: {
-					replaces: [
-						replaceCapability(token, {
-							contributionId,
-							target: {
-								owner: { pluginId: 'fixture.conflict-first' },
-								contributionId: 'first',
-							},
-							value: contributionId,
-						}),
-					],
-				},
-			})
-
-		expect(
-			captureFrameworkError(
-				() =>
-					new PluginGraph(
-						normalizePlugins([
-							first,
-							branch('fixture.branch-one', 'one'),
-							branch('fixture.branch-two', 'two'),
-						]),
-					),
-			).internalDetails,
-		).toMatchObject({ kind: 'capability-replacement-branch' })
 	})
 
 	it('denies privileged composition before token code or plugin callbacks run', () => {
@@ -1102,6 +753,12 @@ describe('capability composition', () => {
 			pluginId: 'fixture.denied-provider',
 			version: '1.0.0',
 			core: '^0.0.0',
+			privileges: [
+				{ name: 'event:publish', reason: 'Denied provider fixture.' },
+			],
+			setup: () => {
+				setupCalls += 1
+			},
 			capabilities: {
 				provides: [
 					provideCapability(token, {
@@ -1111,40 +768,13 @@ describe('capability composition', () => {
 				],
 			},
 		})
-		const replacement = definePlugin({
-			pluginId: 'fixture.denied-replacement',
-			version: '1.0.0',
-			core: '^0.0.0',
-			privileges: [
-				{
-					name: 'capability:replace',
-					reason: 'Denied composition fixture.',
-				},
-			],
-			capabilities: {
-				replaces: [
-					replaceCapability(token, {
-						contributionId: 'replacement',
-						target: {
-							owner: { pluginId: 'fixture.denied-provider' },
-							contributionId: 'provider',
-						},
-						value: 'replacement',
-					}),
-				],
-			},
-			setup: () => {
-				setupCalls += 1
-			},
-		})
-
 		expect(
 			() =>
 				new FrameworkApplication({
 					schemas: [],
-					plugins: [provider, replacement],
+					plugins: [provider],
 					pluginPrivileges: {
-						deny: ['capability:replace'],
+						deny: ['event:publish'],
 						logger: false,
 					},
 				}),

@@ -5,7 +5,6 @@ import {
 	afterOperation,
 	beforeOperation,
 	getRuntimeContributionImplementation,
-	postCommitEvent,
 	preparedOperation,
 } from './definitions.js'
 
@@ -43,19 +42,13 @@ describe('runtime contribution definitions', () => {
 		})
 	})
 
-	it('distinguishes result interceptors and post-commit observer definitions', () => {
+	it('creates nominal result interceptor definitions', () => {
 		const after = afterOperation({
 			handler: (input) => ({ result: input.result }),
 		})
-		const event = postCommitEvent({ handler: () => undefined })
 
 		expect(after).toStrictEqual({
 			kind: 'after-operation',
-			schema: undefined,
-			operations: undefined,
-		})
-		expect(event).toStrictEqual({
-			kind: 'post-commit-event',
 			schema: undefined,
 			operations: undefined,
 		})

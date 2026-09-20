@@ -5,7 +5,7 @@
 - Detailed plan: [docs/plans/2026-09-20-pre-feature-architecture-simplification.md](docs/plans/2026-09-20-pre-feature-architecture-simplification.md)
 - Baseline: [docs/plans/2026-09-20-architecture-simplification-baseline.md](docs/plans/2026-09-20-architecture-simplification-baseline.md)
 - Contract matrix: [docs/plans/2026-09-20-architecture-contract-matrix.md](docs/plans/2026-09-20-architecture-contract-matrix.md)
-- Resume point: issue 3004
+- Resume point: issue 3005
 
 ## Objective
 
@@ -35,7 +35,8 @@ application per JavaScript realm, concurrent requests within that application,
 sequential replacement after complete disposal, and parallel applications in
 isolated test workers or processes. HTTP identity is retained; shared Hono
 application hosting and `HttpApplicationMountTable` are removed by issue 3007.
-Issues 3006/3007 implement this accepted target; Runtime is not changed yet.
+Issues 3006/3007 implement this accepted lifecycle target; the one-application
+limit is not enforced yet.
 
 ## Mandatory issue gate
 
@@ -86,9 +87,13 @@ Soft Delete schema mutations, product-owned Hooks/Access events and diagnostics,
 and equivalent internal performance measurements. Do not request these
 approvals again.
 
-Issue 3003 has a green decision audit; its dedicated local commit precedes 3004.
+Issue 3003 is audited and committed as `f7e9596b`. Issue 3004 is complete with
+a green removal and behavior audit: the approved replacement/observer machinery
+is removed, equivalent Runtime measurements stay internal, and source, packed,
+PostgreSQL, website, build, typecheck, lint, and constraint checks pass.
+Continue with issue 3005 after the dedicated 3004 commit.
 Issue 3004 removes R-001–R-004/R-009; issue 3005 removes R-005–R-008/R-010.
-No Runtime implementation has changed yet. The goal remains issues 3001 through
+The Runtime now uses direct Core assembly. The goal remains issues 3001 through
 3014, with the existing hard stop after 3014.
 
 The user additionally requested simple runner-independent test lifecycle

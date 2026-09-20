@@ -3,13 +3,13 @@ import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import {
+	getOperationSchema,
 	MasterAuthority,
 	Schema,
 	UltimaBase,
 	definePlugin,
-	postCommitEvent,
 	preparedOperation,
-	provideRuntimeObserver,
+	provideRuntimeBehavior,
 	provideRuntimeInterceptor,
 	type SchemaOptions,
 } from '@ultimabase/core'
@@ -78,16 +78,20 @@ const ReplaceRecord = Schema.define({
 const replaceDeleteObserver = definePlugin({
 	capabilities: {
 		provides: [
-			provideRuntimeObserver({
+			provideRuntimeBehavior({
 				contributionId: 'replace-delete-logical-observer',
 				create: () => ({
-					value: postCommitEvent({
-						handler: ({ operation }) => {
-							replaceDeleteTrace.push(`committed:${operation.kind}`)
+					value: {
+						postCommit: ({ operation }) => {
+							if (
+								(operation.kind === 'delete-one' ||
+									operation.kind === 'update-one') &&
+								getOperationSchema(operation) === ReplaceRecord
+							) {
+								replaceDeleteTrace.push(`committed:${operation.kind}`)
+							}
 						},
-						operations: ['delete-one', 'update-one'],
-						schema: ReplaceRecord,
-					}),
+					},
 				}),
 			}),
 		],
@@ -96,7 +100,7 @@ const replaceDeleteObserver = definePlugin({
 	pluginId: 'fixture.soft-delete-logical-observer',
 	privileges: [
 		{
-			name: 'runtime:observe',
+			name: 'runtime:intercept',
 			reason: 'Proves post-commit observers retain logical delete identity.',
 		},
 	] as const,

@@ -2,11 +2,7 @@ import { FrameworkError } from '../errors/framework-error.js'
 import { isApplicationRequestExecutionCapability } from '../runtime/application/application-request-execution.js'
 import { isApplicationOperationTransportPlanningCapability } from '../runtime/application/application-operation-transport-planning.js'
 import { isApplicationSchemaMutationSurfaceCapability } from '../runtime/application/application-schema-mutation-surface.js'
-import type {
-	MutableCapabilityEntry,
-	OwnedDecorator,
-	OwnedProvider,
-} from './capability-inventory.js'
+import type { MutableCapabilityEntry } from './capability-inventory.js'
 import { formatPluginIdentity } from './manifest.js'
 
 const throwCoreCapabilityConflict = (
@@ -57,35 +53,5 @@ export const assertCoreCapabilityProviders = (
 		kind: `${capability.kind}-provider-forbidden`,
 		plugin: formatPluginIdentity(pluginProvider.owner),
 		contributionId: pluginProvider.declaration.contributionId,
-	})
-}
-
-/** Prevents generic replacement from changing Core-owned request execution. */
-export const assertCoreCapabilityReplacementAllowed = (
-	entry: MutableCapabilityEntry,
-	replacement: OwnedProvider,
-): void => {
-	const capability = coreCapabilityDescription(entry)
-	if (capability === undefined) return
-
-	throwCoreCapabilityConflict(`${capability.name} cannot be replaced.`, {
-		kind: `${capability.kind}-replacement-forbidden`,
-		plugin: formatPluginIdentity(replacement.owner),
-		contributionId: replacement.declaration.contributionId,
-	})
-}
-
-/** Prevents generic decoration from observing the private execution binding. */
-export const assertCoreCapabilityDecorationAllowed = (
-	entry: MutableCapabilityEntry,
-	decorator: OwnedDecorator,
-): void => {
-	const capability = coreCapabilityDescription(entry)
-	if (capability === undefined) return
-
-	throwCoreCapabilityConflict(`${capability.name} cannot be decorated.`, {
-		kind: `${capability.kind}-decoration-forbidden`,
-		plugin: formatPluginIdentity(decorator.owner),
-		contributionId: decorator.declaration.contributionId,
 	})
 }

@@ -29,7 +29,6 @@ describe('softDeletePlugin', () => {
 
 		expect(plugin.manifest).toMatchObject({
 			capabilities: {
-				decorates: [],
 				provides: [
 					{
 						contributionId: 'official-soft-delete-visibility',
@@ -43,7 +42,6 @@ describe('softDeletePlugin', () => {
 					{ contributionId: 'official-soft-delete-restore-handler' },
 					{ contributionId: 'official-soft-delete-purge-handler' },
 				],
-				replaces: [],
 				requires: [],
 			},
 			environment: [],

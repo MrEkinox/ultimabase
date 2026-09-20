@@ -1,8 +1,4 @@
 import type { CapabilityProviderDeclaration } from './capability-providers.js'
-import type {
-	CapabilityDecoratorDeclaration,
-	CapabilityReplacementDeclaration,
-} from './capability-replacements.js'
 import type { CapabilityRequirement } from './capability-requirements.js'
 import type { CapabilityToken } from './capability-token.js'
 
@@ -10,18 +6,12 @@ import type { CapabilityToken } from './capability-token.js'
 export interface PluginCapabilityDeclarations<
 	TProvides extends readonly CapabilityProviderDeclaration[] =
 		readonly CapabilityProviderDeclaration[],
-	TDecorates extends readonly CapabilityDecoratorDeclaration[] =
-		readonly CapabilityDecoratorDeclaration[],
-	TReplaces extends readonly CapabilityReplacementDeclaration[] =
-		readonly CapabilityReplacementDeclaration[],
 	TRequires extends readonly CapabilityRequirement<CapabilityToken, false>[] =
 		readonly CapabilityRequirement<CapabilityToken, false>[],
 	TOptional extends readonly CapabilityRequirement<CapabilityToken, true>[] =
 		readonly CapabilityRequirement<CapabilityToken, true>[],
 > {
 	readonly provides: TProvides
-	readonly decorates: TDecorates
-	readonly replaces: TReplaces
 	readonly requires: TRequires
 	readonly optional: TOptional
 }
@@ -29,8 +19,6 @@ export interface PluginCapabilityDeclarations<
 /** Accepts omitted capability groups while preserving exact declaration tuples. */
 export interface PluginCapabilityDeclarationOptions {
 	readonly provides?: readonly CapabilityProviderDeclaration[]
-	readonly decorates?: readonly CapabilityDecoratorDeclaration[]
-	readonly replaces?: readonly CapabilityReplacementDeclaration[]
 	readonly requires?: readonly CapabilityRequirement<CapabilityToken, false>[]
 	readonly optional?: readonly CapabilityRequirement<CapabilityToken, true>[]
 }
@@ -39,20 +27,6 @@ type NormalizedProviders<TOptions> =
 	TOptions extends PluginCapabilityDeclarationOptions
 		? TOptions['provides'] extends readonly CapabilityProviderDeclaration[]
 			? readonly [...TOptions['provides']]
-			: readonly []
-		: readonly []
-
-type NormalizedDecorators<TOptions> =
-	TOptions extends PluginCapabilityDeclarationOptions
-		? TOptions['decorates'] extends readonly CapabilityDecoratorDeclaration[]
-			? readonly [...TOptions['decorates']]
-			: readonly []
-		: readonly []
-
-type NormalizedReplacements<TOptions> =
-	TOptions extends PluginCapabilityDeclarationOptions
-		? TOptions['replaces'] extends readonly CapabilityReplacementDeclaration[]
-			? readonly [...TOptions['replaces']]
 			: readonly []
 		: readonly []
 
@@ -80,8 +54,6 @@ type NormalizedOptionalRequirements<TOptions> =
 export type NormalizedPluginCapabilityDeclarations<TOptions> =
 	PluginCapabilityDeclarations<
 		NormalizedProviders<TOptions>,
-		NormalizedDecorators<TOptions>,
-		NormalizedReplacements<TOptions>,
 		NormalizedRequirements<TOptions>,
 		NormalizedOptionalRequirements<TOptions>
 	>

@@ -1,3 +1,4 @@
+import { isPlainRecord } from '@ultimabase/shared'
 import {
 	createApplication,
 	definePlugin,
@@ -11,41 +12,43 @@ import {
 	afterOperation,
 	beforeOperation,
 	FrameworkEngine,
-	postCommitEvent,
 	requestSources,
 	runWithRequestEngine,
 	RuntimePipeline,
 	type DatabaseAdapter,
 	type RuntimePipelineStages,
 	type RuntimeInterceptorDefinition,
-	type RuntimeObserverDefinition,
+	type RuntimeResultEffectStage,
+	provideRuntimeBehavior,
 } from '../../src/runtime/index.js'
-import { composeRuntimeContributionBehavior } from '../../src/runtime/contributions/composition.js'
+import { composeRuntimeBehaviors } from '../../src/runtime/behaviors/composition.js'
 import {
 	RecordingDatabaseAdapter,
 	type QueuedAdapterResult,
 } from './fixtures/recording-database-adapter.js'
-import {
-	provideTestRuntimeInterceptor,
-	provideTestRuntimeObserver,
-} from './fixtures/runtime-capabilities.js'
+import { provideTestRuntimeInterceptor } from './fixtures/runtime-capabilities.js'
 
 const createTestRuntimeContributions = (
 	declare: (
 		intercept: (name: string, definition: RuntimeInterceptorDefinition) => void,
-		observe: (name: string, definition: RuntimeObserverDefinition) => void,
+		postCommit: (name: string, handler: RuntimeResultEffectStage) => void,
 	) => void,
 ) => {
 	const provides: (
 		| ReturnType<typeof provideTestRuntimeInterceptor>
-		| ReturnType<typeof provideTestRuntimeObserver>
+		| ReturnType<typeof provideRuntimeBehavior>
 	)[] = []
 	declare(
 		(name, definition) => {
 			provides.push(provideTestRuntimeInterceptor(name, definition))
 		},
 		(name, definition) => {
-			provides.push(provideTestRuntimeObserver(name, definition))
+			provides.push(
+				provideRuntimeBehavior({
+					contributionId: name,
+					create: () => ({ value: { postCommit: definition } }),
+				}),
+			)
 		},
 	)
 	return { provides }
@@ -83,12 +86,8 @@ const createOrderedPlugins = (trace: string[]) => {
 				name: 'runtime:intercept',
 				reason: 'Registers low-level Runtime contributions for tests.',
 			},
-			{
-				name: 'runtime:observe',
-				reason: 'Registers post-commit observers for tests.',
-			},
 		],
-		capabilities: createTestRuntimeContributions((intercept, observe) => {
+		capabilities: createTestRuntimeContributions((intercept, postCommit) => {
 			intercept(
 				'fixture.dependency.global-before',
 				beforeOperation({
@@ -138,16 +137,14 @@ const createOrderedPlugins = (trace: string[]) => {
 					},
 				}),
 			)
-			observe(
-				'fixture.dependency.event',
-				postCommitEvent({
-					schema: articleSchema,
-					operations: ['create-one'],
-					handler: (input) => {
-						trace.push(`event:dependency:${String(input.result.title)}`)
-					},
-				}),
-			)
+			postCommit('fixture.dependency.event', (input) => {
+				// The product behavior runs only for its singular create operation.
+				if (input.operation.kind === 'create-one') {
+					if (!isPlainRecord(input.result))
+						throw new TypeError('Expected a singular create result')
+					trace.push(`event:dependency:${String(input.result.title)}`)
+				}
+			})
 			// These valid contributions prove schema and operation filters skip non-matches.
 			intercept(
 				'fixture.dependency.foreign-before',
@@ -182,15 +179,11 @@ const createOrderedPlugins = (trace: string[]) => {
 				name: 'runtime:intercept',
 				reason: 'Registers low-level Runtime contributions for tests.',
 			},
-			{
-				name: 'runtime:observe',
-				reason: 'Registers post-commit observers for tests.',
-			},
 		],
 		dependencies: [
 			{ pluginId: 'fixture.contributions.dependency', version: '^0.0.0' },
 		],
-		capabilities: createTestRuntimeContributions((intercept, observe) => {
+		capabilities: createTestRuntimeContributions((intercept, postCommit) => {
 			intercept(
 				'fixture.consumer.global-before',
 				beforeOperation({
@@ -235,25 +228,18 @@ const createOrderedPlugins = (trace: string[]) => {
 					},
 				}),
 			)
-			observe(
-				'fixture.consumer.event',
-				postCommitEvent({
-					schema: articleSchema,
-					operations: ['create-one'],
-					handler: (input) => {
-						trace.push(`event:consumer:${String(input.result.title)}`)
-					},
-				}),
-			)
-			observe(
-				'fixture.consumer.update-event',
-				postCommitEvent({
-					operations: ['update-one'],
-					handler: () => {
-						trace.push('unexpected:update')
-					},
-				}),
-			)
+			postCommit('fixture.consumer.event', (input) => {
+				// The product behavior runs only for its singular create operation.
+				if (input.operation.kind === 'create-one') {
+					if (!isPlainRecord(input.result))
+						throw new TypeError('Expected a singular create result')
+					trace.push(`event:consumer:${String(input.result.title)}`)
+				}
+			})
+			postCommit('fixture.consumer.update-event', (input) => {
+				if (input.operation.kind === 'update-one')
+					trace.push('unexpected:update')
+			})
 		}),
 	})
 
@@ -269,7 +255,7 @@ const createPipeline = <
 	databaseOperation: DatabaseAdapter,
 	trace: string[],
 ): RuntimePipeline => {
-	const behavior = composeRuntimeContributionBehavior(application)
+	const behavior = composeRuntimeBehaviors(application)
 	const stages: RuntimePipelineStages = {
 		normalization: (input) => input.operation,
 		structuralValidation: (input) => input.operation,
@@ -383,12 +369,8 @@ describe('Runtime contributions and post-commit events', () => {
 					name: 'runtime:intercept',
 					reason: 'Registers a low-level Runtime hook for tests.',
 				},
-				{
-					name: 'runtime:observe',
-					reason: 'Registers a post-commit observer for tests.',
-				},
 			],
-			capabilities: createTestRuntimeContributions((intercept, observe) => {
+			capabilities: createTestRuntimeContributions((intercept, postCommit) => {
 				intercept(
 					'fixture.abort.after',
 					afterOperation({
@@ -400,14 +382,9 @@ describe('Runtime contributions and post-commit events', () => {
 						},
 					}),
 				)
-				observe(
-					'fixture.abort.event',
-					postCommitEvent({
-						handler: () => {
-							trace.push('event:unexpected')
-						},
-					}),
-				)
+				postCommit('fixture.abort.event', () => {
+					trace.push('event:unexpected')
+				})
 			}),
 		})
 		const { request } = await createRequest(

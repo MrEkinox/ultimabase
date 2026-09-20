@@ -34,10 +34,3 @@ export {
 	withPluginTypegenConformance,
 	type PluginTypegenConformanceOptions,
 } from './plugins/typegen-check.js'
-export {
-	assertNoOptionalRuntimeCost,
-	diffRuntimeCostSnapshots,
-	RuntimeCostProbe,
-	type RuntimeCostProbeOptions,
-	type RuntimeCostSnapshot,
-} from './performance/runtime-cost-probe.js'

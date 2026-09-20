@@ -308,10 +308,8 @@ name must still resolve to one exact definition. Contribution IDs are local to
 the full `{ pluginId, instanceId? }` identity, so two explicit instances may
 reuse the same local ID.
 
-The callback-free schema compiler protocol includes all three option selector
-forms. Replacement compilers must support the exported protocol version
-exactly; a version mismatch fails before compilation rather than silently
-changing absence semantics.
+The Core compiler preserves all three option selector forms and checks their
+meaning before publishing the compiled graph.
 
 Direct plugin options use ordinary properties rather than a separate options
 bag. Schema-scoped contracts use `defineSchemaOption()`. Field-scoped contracts
@@ -377,57 +375,15 @@ does not reconstruct local field-map inference. Regeneration through
 `@ultimabase/typegen` replaces those bootstrap types with the exact application
 contract.
 
-Complete schema compilers target the exported `SchemaCompilerInput` and
-`SchemaCompilerOutput` protocol instead of Core's private prepared-schema
-objects. The IR is immutable and callback-free. It exposes portable declarations,
-owners, selectors, patches, protocol versions, and normalized static options;
-schema classes, factory-created fields, option definitions, and
-other Runtime-bearing values cross it only as nominal application-local artifact
-references. Compiler code cannot resolve or forge those references. Core retains
-their private values and validates graph completeness, stable schema identity,
-provenance, portability, and application ownership before decoding any output.
-Schema additions keep their exact contribution identity and static options,
-while option nodes separately attribute their definition owner and current
-value contributor.
-Core's canonical compiler consumes this same IR, revalidates its complete
-output through the public contract, and decodes trusted artifacts only through
-the private compilation session. A plugin with `schema:replace` may use
-`replaceSchemaCompiler(...)` to replace that whole compiler before it runs. The
-ordinary capability replacement helper and `schema:transform` cannot cross this
-boundary, and the schema compiler capability cannot be decorated.
+Core compiles developer schemas and authorized plugin contributions directly.
+Its internal immutable representation retains exact contribution owners,
+selectors, patches, and opaque artifact references. Before publishing the graph,
+Core validates completeness, stable schema identity, provenance, portability,
+application ownership, protected fields, and final relationships. Invalid or
+mutable compilation output fails before plugin setup.
 
-`application.schemaCompilerProvenance` reports the selected capability and IR
-protocol versions, exact contribution target, plugin ID and optional instance,
-package version, and normalized static options. Core derives this record from
-the selected capability chain; compiler output cannot claim or alter it. A
-replacement receives one immutable `SchemaCompilerInput`, returns one complete
-immutable `SchemaCompilerOutput`, and runs once per application compilation.
-Core rejects partial or mutable output, stale artifacts, inconsistent
-provenance, schema identity changes, protected `id`, `createdAt`, or `updatedAt`
-changes, and invalid final relationship graphs before plugin setup.
-
-```ts
-const compiler = definePlugin({
-	pluginId: 'community.schema-compiler',
-	version: '1.0.0',
-	core: '^0.0.0',
-	privileges: [
-		{
-			name: 'schema:replace',
-			reason: 'Selects our complete logical compiler.',
-		},
-	],
-	capabilities: {
-		replaces: [
-			replaceSchemaCompiler({
-				contributionId: 'compiler-v1',
-				compile: (input) => compileCommunitySchemaGraph(input),
-				staticOptions: { dialect: 'portable-v1' },
-			}),
-		],
-	},
-})
-```
+The compiler and Runtime executor are Core implementation boundaries. Plugins
+extend them through the documented contribution APIs and cannot replace them.
 
 Tooling configured in the plugin graph receives the same compiled schema
 registry plus an immutable application-local FieldBuilder method snapshot during
@@ -593,8 +549,8 @@ Transport exposure is a second explicit boundary. The operation owner requests
 allowlist with `ultimabase.exposeOperations({ transport, operations })`.
 Version 1 of this generic protocol binds application-targeted operations; schema
 and model targets remain directly executable through their owned handles. Wire
-requests supply an already validated `RequestContext` and cannot select Master,
-Runtime replacement, or a raw adapter. Results may contain persisted schema
+requests supply an already validated `RequestContext` and cannot select Master
+authority or a raw adapter. Results may contain persisted schema
 models with Core's usual detached field values, including native binary values.
 Mutable ordinary operation containers remain invalid; transport codecs own
 representation without fetching or widening those model values.
@@ -1627,9 +1583,8 @@ Versioned capabilities are the only public cross-plugin integration host.
 Declaration capabilities expose immutable facts before compilation; application
 capabilities materialize one application-local `{ value, dispose? }` resource
 before setup. Consumers can read only the exact required or optional capability
-objects listed in their manifest. Cardinality and explicit replacement or
-decoration rules reject ambiguous providers instead of using string names or
-last-writer-wins behavior.
+objects listed in their manifest. Exact identity and cardinality reject
+ambiguous providers before materialization.
 
 Legacy service tokens and string slots have no compatibility bridge. A former
 exclusive service maps to a `single` application capability, while behavior
@@ -1813,12 +1768,11 @@ and deeply freeze a portable JSON `value`. Application providers instead expose
 an inert `create` factory that runs once per application before plugin setup and
 returns `{ value, dispose? }`.
 
-Every provider has one stable owner-local `contributionId`. A privileged
-`replaceCapability` targets one exact structured owner and contribution while
-preserving the original position; replacement chains remain inspectable through
-`PluginGraph.capabilities`. `decorateCapability` wraps the complete consumer
-view for `single` and `pipeline` tokens, with the earliest dependency outermost.
-`multiple` providers remain independent and cannot be decorated.
+Every provider has one stable owner-local `contributionId`, recorded together
+with its exact plugin and instance in `PluginGraph.capabilities`. Dependency
+order and configuration position determine provider order. A `single` token
+rejects competing providers; `multiple` and `pipeline` tokens retain their
+ordered providers. The manifest accepts `provides`, `requires`, and `optional`.
 
 Plugins read only the exact `requireCapability(...)` or
 `optionalCapability(...)` objects listed in their manifest:
@@ -1895,7 +1849,7 @@ const ultimabase = new UltimaBase({
 	schemas: [PostSchema],
 	plugins: [workflowPlugin({ instanceId: 'editorial' })],
 	pluginPrivileges: {
-		deny: ['runtime:replace'],
+		deny: ['adapter:raw'],
 		denyClaims: ['environment:native-code'],
 		plugins: {
 			'community.workflow': {
@@ -1972,11 +1926,13 @@ Milestone 14 maps the removed generic paths as follows:
 - exclusive string slots become canonical `single` capabilities;
 - public service tokens become application capabilities;
 - optional Hooks and Access use application capabilities owned by their packages;
-- low-level behavior, policy enforcement, post-commit events, and fixed
-  pipeline stages use `provideRuntimeBehavior()`,
-  `provideRuntimeConstraint()`, and `provideRuntimeObserver()` respectively;
-- Runtime execution is a replaceable `single` application capability behind
-  Core-owned application, authority, cancellation, and transaction boundaries;
+- low-level behavior, policy enforcement, and fixed pipeline stages use
+  `provideRuntimeBehavior()`, `provideRuntimeConstraint()`, and
+  `provideRuntimeInterceptor()`;
+- product event and diagnostic capabilities retain their own `runtime:observe`
+  checks; Core has no generic observer registration API;
+- Core constructs its canonical Runtime directly and retains application,
+  authority, cancellation, and transaction boundaries;
 - physical persistence rewrites use the ordered
   `persistencePlanRewriterCapability` and exact
   `providePersistencePlanRewriter()` facade under `persistence:rewrite`;

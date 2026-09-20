@@ -13,34 +13,9 @@ const languageFixture = await createPackedCoreLanguageFixture(
 	'core-schema-compiler-ir.packed.fixture.ts',
 )
 
-describe('packed @ultimabase/core schema compiler IR', () => {
-	it('exports the nominal callback-free protocol through package declarations', () => {
+describe('packed @ultimabase/core schema selectors', () => {
+	it('exports documented schema selector contracts', () => {
 		expect(languageFixture.diagnostics()).toStrictEqual([])
-		expect(languageFixture.readHover('compiler-protocol').display).toContain(
-			'"7.0.0"',
-		)
-		const input = languageFixture.readHover('compiler-input')
-		expect(input.display).toContain('SchemaCompilerInput')
-		expect(input.documentation).toContain('callback-free compilation request')
-		expect(input.hasExample).toBe(true)
-		expect(languageFixture.readHover('compiler-output').display).toContain(
-			'SchemaCompilerOutput',
-		)
-		expect(languageFixture.readHover('compiler-artifact').display).toContain(
-			'SchemaCompilerArtifactReference<"field">',
-		)
-		expect(languageFixture.readHover('compiler-capability').display).toContain(
-			'CapabilityToken<SchemaCompilerProviderDescriptor',
-		)
-		expect(languageFixture.readHover('compiler-target').display).toContain(
-			'CapabilityContributionTarget',
-		)
-		expect(languageFixture.readHover('compiler-provenance').display).toContain(
-			'SchemaCompilerProvenance',
-		)
-		expect(languageFixture.readHover('compiler-replacement').display).toContain(
-			'CapabilityReplacementDeclaration',
-		)
 		expect(
 			languageFixture.readHover('option-presence-selector').display,
 		).toContain('SchemaOptionPresenceSelector')
