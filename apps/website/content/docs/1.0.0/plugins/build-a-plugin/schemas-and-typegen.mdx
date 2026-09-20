@@ -13,6 +13,8 @@ sources:
   - packages/plugin-kit/README.md
   - packages/typegen/README.md
   - packages/core/src/plugins/typegen-declarations.test.ts
+  - packages/core/src/plugins/typegen-declarations.ts
+  - docs/adr/0262-descriptive-typegen-command-inspection.md
   - docs/concepts/open-plugin-authoring.md
   - docs/adr/0208-enforceable-plugin-powers-and-environment-truth.md
 ---
@@ -195,6 +197,18 @@ package. Field and option definitions retain their own structured `typegen`
 metadata; they do not need a manual declaration registry. See
 [Operations and GraphQL](/docs/1.0.0/plugins/build-a-plugin/operations-and-graphql)
 for the complete operation and handler setup.
+
+### Inspect the compiled contracts
+
+Tools can read `application.typegenGraph` after compilation, or `typegenGraph`
+from plugin setup. It contains operation descriptions, schema-mutation aliases,
+owners, options and consumed type references from the compiled application.
+
+Operation entries omit `input.snapshot` and `result.snapshot`; they are
+descriptions, not executable operation tokens. Each surface's `schema` contains
+only `className`, not a constructor. If older tooling used these members, keep
+the original operation or schema declaration for that work. Runtime validation,
+direct methods and the generated types keep their existing behavior.
 
 ## Verify
 

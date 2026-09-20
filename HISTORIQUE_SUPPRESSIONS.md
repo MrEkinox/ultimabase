@@ -238,7 +238,7 @@ au fur et à mesure des migrations et de leurs audits.
   ajoute **52 lignes de production** ; les suppressions des adaptations restantes
   suivent en 3010–3013.
 
-- **3010 — livrée dans ce commit :** le Runtime des mutations lit désormais la
+- **3010 — livrée dans `394045ab` :** le Runtime des mutations lit désormais la
   commande canonique et ses cibles figées. La table privée `schemaMutationSources`
   et son lecteur `readPluginSchemaMutationSource()` disparaissent. Handles et
   transports partagent la préparation du payload et de la projection, dans
@@ -250,6 +250,23 @@ au fur et à mesure des migrations et de leurs audits.
   intégrations** passent. Cette migration ajoute **50 lignes de production**,
   sans changement des exports ou de la taille des déclarations.
 
+## Retrait supplémentaire approuvé — inspection Typegen
+
+- **État : réalisée dans ce commit**, issue 3011, ADR-0262 explicitement validé.
+- **Retrait :** accès aux callbacks `input.snapshot` et `result.snapshot`, à
+  l'identité du token exécutable et aux constructeurs de schéma depuis
+  `CompiledTypegenGraph` / `typegenGraph`.
+- **Raison :** les consommateurs Typegen et de conformité utilisent uniquement
+  les descriptions. Cette projection lit désormais le graphe canonique sans
+  exposer des objets exécutables inutilisés par ces outils.
+- **Conservé :** déclarations d'origine, validateurs Runtime, méthodes directes,
+  références nominales de types, propriétaires, alias, ordre et génération.
+- **Vérification :** audit sans anomalie, 2 534 tests unitaires/types/performance,
+  381 intégrations et 66 vérifications du site passent. Déclarations générées et
+  empreintes identiques avant/après. `legacyViews()` et l’argument de provenance
+  inutilisé du projecteur Typegen disparaissent ; réduction d'une ligne de production.
+- Une option supprimée pourra être ajoutée lorsqu'un besoin concret l'exigera.
+
 ## Sources de décision
 
 - [Plan actif](CURRENT_PLAN.md)
@@ -257,5 +274,6 @@ au fur et à mesure des migrations et de leurs audits.
 - [ADR-0259 : noyau réduit et commandes canoniques](docs/adr/0259-smaller-plugin-kernel-and-canonical-commands.md)
 - [ADR-0260 : dispatch HTTP à propriétaire unique](docs/adr/0260-single-owner-http-dispatch.md)
 - [ADR-0261 : compilation et matérialisation des commandes](docs/adr/0261-command-compilation-and-binding-phases.md)
+- [ADR-0262 : inspection Typegen descriptive](docs/adr/0262-descriptive-typegen-command-inspection.md)
 - [Matrice des contrats à préserver](docs/plans/2026-09-20-architecture-contract-matrix.md)
 - [Inventaire et audit des décisions](docs/plans/2026-09-20-smaller-kernel-decision-proposal.md)

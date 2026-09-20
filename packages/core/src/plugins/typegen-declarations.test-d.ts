@@ -4,6 +4,7 @@ import {
 	definePlugin,
 	defineTypegenReference,
 	type PluginDeclarationContext,
+	type CompiledTypegenGraph,
 	type TypegenReferenceRegistrar,
 } from '../index.js'
 
@@ -36,3 +37,12 @@ definePlugin({
 
 type NoPrivileges = PluginDeclarationContext<readonly []>
 expectTypeOf<NoPrivileges>().not.toHaveProperty('typegenReferences')
+
+// Tooling describes commands; only their original authoring tokens can execute snapshots.
+type Operation = CompiledTypegenGraph['operations'][number]['operation']
+expectTypeOf<Operation['input']>().not.toHaveProperty('snapshot')
+expectTypeOf<Operation['result']>().not.toHaveProperty('snapshot')
+type InspectedSchema = CompiledTypegenGraph['schemaSurfaces'][number]['schema']
+expectTypeOf<InspectedSchema>().toEqualTypeOf<
+	Readonly<{ readonly className: string }>
+>()

@@ -65,6 +65,13 @@ await writeGeneratedTypeFile({
 
 ### Plugin-owned contracts
 
+Core's `CompiledTypegenGraph` is a descriptive projection of the same commands
+used by direct execution. Its operation entries contain no snapshot callbacks
+and are not executable tokens; surface `schema` values contain only `className`,
+not constructors. Consumed nominal type references and owners remain intact.
+This inspection contract replaces the earlier executable views without changing
+the generated declarations or fingerprints.
+
 Typegen derives application contracts from the compiled graph. Plugins export
 reusable public types from their package root and name them with
 `defineTypegenReference({ module, exportName })`. Operation value contracts use

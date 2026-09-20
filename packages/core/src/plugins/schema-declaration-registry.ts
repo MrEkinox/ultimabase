@@ -379,12 +379,9 @@ export class SchemaDeclarationRegistry {
 		if (this.#commands === undefined) {
 			throw new TypeError('Typegen declarations require compiled schemas')
 		}
-		const views = this.#commands.legacyViews()
 		return createCompiledTypegenGraph({
 			batches: this.#batches,
-			operations: views.operations,
-			provenance: this.#compiledProvenance,
-			schemaSurfaces: views.schemas,
+			commands: this.#commands,
 		})
 	}
 

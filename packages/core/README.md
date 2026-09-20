@@ -390,6 +390,14 @@ registry plus an immutable application-local FieldBuilder method snapshot during
 setup. This lets `typegenPlugin()` regenerate before infrastructure connects
 without introducing a Core dependency on the Typegen package.
 
+`FrameworkApplication.typegenGraph` and setup's `typegenGraph` describe the
+canonical commands for tooling. Operation entries retain their names, contracts,
+owners and type references, but omit input/result snapshot callbacks and are not
+executable operation tokens. Each surface's `schema` is only `{ className }`,
+not a schema constructor. Mutation aliases use the same compiled facts as direct
+handles; their inspection Maps are detached from execution indexes. Keep original
+declarations when authoring operations or constructing schema models.
+
 Generated pointer and relation handles correlate targets by their stable schema
 name. Runtime values remain ordinary `Pointer` and `Relation` instances, and
 relation mutations still verify the exact registered schema identity before

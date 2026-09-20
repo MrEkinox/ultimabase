@@ -1,12 +1,12 @@
 # Active plan: pre-feature architecture simplification
 
-- Status: active — issue 3010 audited; issue 3011 follows its dedicated commit
+- Status: active — issue 3011 audited; issue 3012 follows its dedicated commit
 - Milestone: [30 — Pre-feature architecture simplification](issues/3000-pre-feature-architecture-simplification/README.md)
 - Detailed plan: [docs/plans/2026-09-20-pre-feature-architecture-simplification.md](docs/plans/2026-09-20-pre-feature-architecture-simplification.md)
 - Baseline: [docs/plans/2026-09-20-architecture-simplification-baseline.md](docs/plans/2026-09-20-architecture-simplification-baseline.md)
 - Contract matrix: [docs/plans/2026-09-20-architecture-contract-matrix.md](docs/plans/2026-09-20-architecture-contract-matrix.md)
 - Removal history: [HISTORIQUE_SUPPRESSIONS.md](HISTORIQUE_SUPPRESSIONS.md)
-- Resume point: issue 3011
+- Resume point: issue 3012
 
 ## Objective
 
@@ -166,8 +166,23 @@ Hooks, protected targeting, relations and transaction behavior remain unchanged.
 A validation-order finding was corrected and protected by a wire regression.
 All 2,533 unit/type/performance and 379 integration tests pass; typecheck, build,
 lint, constraints and issue checks pass. This transition adds 50 production lines
-with unchanged exports and declaration bytes. Its dedicated local commit must
-precede issue 3011. No push; hard stop after issue 3014.
+with unchanged exports and declaration bytes. Its dedicated local commit is
+`394045ab`: +573 / -167 lines, net +406, including tests and documentation.
+No push; hard stop after issue 3014.
+
+Issue 3011 resumes under the explicitly approved
+[ADR-0262](docs/adr/0262-descriptive-typegen-command-inspection.md). The user
+approved removing executable operation tokens, input/result snapshot callbacks
+and schema constructors from the existing Typegen inspection view. Descriptions,
+nominal type references, owners and alias ordering remain; direct execution and
+generated declarations retain their behavior. No additional graph API or
+compatibility path is authorized. Add an unused option later only when an actual
+requirement justifies it. Issue 3011 is complete with a green audit: the obsolete
+Typegen bridge is removed, source/built inspection is descriptive, and generated
+output/fingerprints remain byte-identical. All 2,534 unit/type/performance tests,
+381 integration tests and 66 website checks pass, with build, typecheck, lint and
+constraints. Production shrinks by one line; public export names stay unchanged.
+Its dedicated local commit precedes 3012. No push; stop after 3014.
 
 Documentation impact: internal engineering documentation until an issue changes
 a public contract; those issues must update both package and public website

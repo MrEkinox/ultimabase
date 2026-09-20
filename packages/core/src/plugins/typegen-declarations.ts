@@ -4,9 +4,9 @@ import type { JsonValue } from '../schema/fields/builtins/json.js'
 import type { FieldDeclarationContext } from '../schema/schema/field-contexts.js'
 import type { PluginSchemaContributionOwner } from '../schema/schema/provenance.js'
 import type {
-	CompiledApplicationSchemaSurface,
-	CompiledPluginOperation,
-} from './application-surface-registry.js'
+	CompiledSchemaSurfaceFacts,
+	OperationCommandFacts,
+} from './application-surface-contracts.js'
 import {
 	isTypegenReference,
 	type TypegenReference,
@@ -41,12 +41,15 @@ export interface CompiledTypegenOption {
 	}>
 }
 
-/** Exposes one immutable final graph to declaration-only tooling. */
+/** Describes the compiled graph without validators, executable tokens or constructors. */
 export interface CompiledTypegenGraph {
 	readonly declarations: readonly TypegenDeclarations[]
-	readonly operations: readonly CompiledPluginOperation[]
+	readonly operations: readonly Readonly<{
+		readonly operation: OperationCommandFacts
+		readonly owner: PluginSchemaContributionOwner
+	}>[]
 	readonly options: readonly CompiledTypegenOption[]
-	readonly schemaSurfaces: readonly CompiledApplicationSchemaSurface[]
+	readonly schemaSurfaces: readonly CompiledSchemaSurfaceFacts[]
 }
 
 export interface MutableTypegenDeclarations {

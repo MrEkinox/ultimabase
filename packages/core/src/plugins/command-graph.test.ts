@@ -145,6 +145,51 @@ const assertInert = (candidate: unknown): void => {
 }
 
 describe('canonical command graph', () => {
+	it('derives inert tooling and direct surfaces from the same commands', () => {
+		const owned = fixture()
+		const application = applicationFixture(
+			new FrameworkApplication({
+				schemas: [Document],
+				plugins: [owned.plugin],
+				pluginPrivileges: { logger: false },
+			}),
+		)
+		application.compileSchemas()
+		const graph = readApplicationCommandGraph(application)
+		const inspection = application.typegenGraph
+		const operation = inspection.operations[0]?.operation
+		expect(operation).toBe(graph.get(owned.operation.name)?.definition)
+		expect(operation).not.toBe(owned.operation)
+		assertInert(inspection.operations)
+		const surface = inspection.schemaSurfaces[0]
+		if (surface === undefined) throw new Error('Missing inspection surface')
+		expect(surface.schema).toEqual({ className: Document.className })
+		assertInert(surface.schema)
+		const direct = application.getSchemaSurface(Document.className)
+		expect(direct?.schema).toBe(Document)
+		expect([...surface.schemaMutations.keys()]).toEqual([
+			'purge_one',
+			'archive_one',
+		])
+		for (const [name, command] of surface.schemaMutations) {
+			assertInert(command)
+			expect(command).toBe(direct?.schemaMutations.get(name))
+			expect(command.mutation).toBe(
+				graph.get(command.mutation.name)?.definition,
+			)
+		}
+		expect(surface.modelMutations.get('archive_one')).toBe(
+			surface.schemaMutations.get('archive_one'),
+		)
+		// An untyped tooling consumer can only mutate its detached lookup indexes.
+		if (surface.schemaMutations instanceof Map) surface.schemaMutations.clear()
+		expect(
+			application.typegenGraph.schemaSurfaces[0]?.schemaMutations.size,
+		).toBe(2)
+		expect(direct?.schemaMutations.size).toBe(2)
+		expect(owned.create).not.toHaveBeenCalled()
+	})
+
 	it('keeps snapshot callbacks private and rejects foreign command identities', async () => {
 		const owned = fixture()
 		const applications = [0, 1].map(() =>

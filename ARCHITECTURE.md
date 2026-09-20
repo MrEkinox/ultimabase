@@ -29,8 +29,11 @@ an execution registry. Issue 3010 applies the same boundary to schema
 mutations: request dispatch validates the exact canonical command and its
 frozen schema-local aliases, while the existing logical pipeline preserves
 Master checks, protected targeting, owner-only effects and before/after results.
-Bounded legacy handle/Typegen views and transport facades derive from it during
-issues 3009–3012. The removed extension APIs have no compatibility path.
+Issue 3011 derives Typegen inspection from canonical inert commands and the same
+alias index as direct handles. [ADR-0262](docs/adr/0262-descriptive-typegen-command-inspection.md)
+removes executable tokens and constructors from that tooling view. Direct
+execution retains exact original declarations. Transport facades remain the
+bounded migration in issue 3012. Removed extension APIs have no compatibility path.
 
 ```text
 developer declarations + pure authorized plugin declarations

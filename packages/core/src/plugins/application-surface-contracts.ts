@@ -6,6 +6,15 @@ import { reservedSchemaModelFieldNames } from '../schema/schema/reserved-field-n
 import type { PluginOperationDefinition } from './plugin-operations.js'
 import type { CompiledPluginSchemaMutationDefinition } from './plugin-schema-mutations.js'
 
+/** Describes an operation without its executable input/result snapshotters. */
+export type OperationCommandFacts = Omit<
+	PluginOperationDefinition,
+	'input' | 'result'
+> & {
+	readonly input: Omit<PluginOperationDefinition['input'], 'snapshot'>
+	readonly result: Omit<PluginOperationDefinition['result'], 'snapshot'>
+}
+
 /** Records one operation together with the exact plugin that declared it. */
 export interface CompiledPluginOperation {
 	readonly operation: PluginOperationDefinition
@@ -20,11 +29,16 @@ export interface CompiledSchemaMutationCommand {
 	readonly staticOptions: Readonly<Record<string, JsonValue>>
 }
 
-/** Contains every final application-local surface for one schema identity. */
-export interface CompiledApplicationSchemaSurface {
+/** Describes selected aliases without retaining a constructible schema. */
+export interface CompiledSchemaSurfaceFacts {
 	readonly modelMutations: ReadonlyMap<string, CompiledSchemaMutationCommand>
-	readonly schema: SchemaDefinition
+	readonly schema: Readonly<{ readonly className: string }>
 	readonly schemaMutations: ReadonlyMap<string, CompiledSchemaMutationCommand>
+}
+
+/** Binds the same aliases to the exact schema used by direct execution. */
+export interface CompiledApplicationSchemaSurface extends CompiledSchemaSurfaceFacts {
+	readonly schema: SchemaDefinition
 }
 
 /** Names Core commands that plugin direct schema surfaces cannot shadow. */

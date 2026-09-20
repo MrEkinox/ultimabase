@@ -206,6 +206,15 @@ export const nativeResults = {
 	persistedState: stableHandle.for(queriedPost).state,
 }
 export const inspection = {
+	// Inspection is descriptive even when the source token retains executable validators.
+	callbackFree: ultimabase.application.typegenGraph.operations.every(
+		({ operation }) =>
+			!('snapshot' in operation.input) && !('snapshot' in operation.result),
+	),
+	constructorFree: ultimabase.application.typegenGraph.schemaSurfaces.every(
+		({ schema }) =>
+			typeof schema === 'object' && Object.keys(schema).join() === 'className',
+	),
 	operations: ultimabase.application.typegenGraph.operations.map(
 		({ operation }) => operation.name,
 	),

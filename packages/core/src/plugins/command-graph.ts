@@ -8,6 +8,8 @@ import type {
 	CompiledApplicationSchemaSurface,
 	CompiledPluginOperation,
 	CompiledSchemaMutationCommand,
+	CompiledSchemaSurfaceFacts,
+	OperationCommandFacts,
 } from './application-surface-contracts.js'
 import type { PluginOperationDefinition } from './plugin-operations.js'
 import { assertImmutableOperationValue } from './plugin-operation-boundaries.js'
@@ -15,21 +17,6 @@ import type {
 	CompiledPluginSchemaMutationDefinition,
 	PluginSchemaMutationDefinition,
 } from './plugin-schema-mutations.js'
-
-/** Inert payload/result facts; executable snapshots stay with the private source. */
-export type CommandValueFacts = Omit<
-	PluginOperationDefinition['input'],
-	'snapshot'
->
-
-/** The existing operation contract with every callback removed. */
-export type OperationCommandFacts = Omit<
-	PluginOperationDefinition,
-	'input' | 'result'
-> & {
-	readonly input: CommandValueFacts
-	readonly result: CommandValueFacts
-}
 
 /** One validated alias on an exact compiled schema, without its constructor. */
 export interface CommandSurface {
@@ -105,7 +92,7 @@ export type CommandEntry = Readonly<{
 	readonly source: CommandSource
 }>
 
-/** Owns one compiled declaration graph; all legacy views derive these records. */
+/** Owns one compiled declaration graph and its derived execution/inspection views. */
 export class CompiledCommandGraph {
 	readonly bindings: CommandBindings = new CommandBindings((source) =>
 		this.fromSource(source),
@@ -225,7 +212,7 @@ export class CompiledCommandGraph {
 		return entry.source
 	}
 
-	/** Temporary operation view for the bounded execution and surface migrations. */
+	/** Retains the public nominal declaration only for direct authoring/execution. */
 	operation(name: string): CompiledPluginOperation | undefined {
 		return this.#entries.get(name)?.operationView
 	}
@@ -244,22 +231,16 @@ export class CompiledCommandGraph {
 				})
 	}
 
-	/** Keeps the old projection shape until its last consumer migrates in 3011. */
-	legacyViews(): Readonly<{
-		operations: ReadonlyMap<string, CompiledPluginOperation>
-		schemas: ReadonlyMap<string, CompiledApplicationSchemaSurface>
-	}> {
-		const operations = new Map<string, CompiledPluginOperation>()
-		for (const command of this.commands) {
-			const operation = this.operation(command.definition.name)
-			if (operation !== undefined)
-				operations.set(command.definition.name, operation)
-		}
-		const schemas = new Map<string, CompiledApplicationSchemaSurface>()
-		for (const className of this.#surfaceViews.keys()) {
-			const surface = this.schemaSurface(className)
-			if (surface !== undefined) schemas.set(className, surface)
-		}
-		return immutableRecord({ operations, schemas })
+	/** Projects the same aliases for inspection; copied indexes cannot alter execution. */
+	schemaSurfaces(): readonly CompiledSchemaSurfaceFacts[] {
+		return immutableArray(
+			[...this.#surfaceViews].map(([className, view]) =>
+				immutableRecord({
+					schema: immutableRecord({ className }),
+					schemaMutations: new Map(view.schemaMutations),
+					modelMutations: new Map(view.modelMutations),
+				}),
+			),
+		)
 	}
 }

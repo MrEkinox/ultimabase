@@ -1,24 +1,28 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
-import type { SchemaCompilationProvenance } from '../schema/schema/provenance.js'
 import type { SchemaDeclarationBatch } from './schema-declaration-contracts.js'
-import type {
-	CompiledApplicationSchemaSurface,
-	CompiledPluginOperation,
-} from './application-surface-registry.js'
+import type { CompiledCommandGraph } from './command-graph.js'
 import type { CompiledTypegenGraph } from './typegen-declarations.js'
 
 /** Projects Typegen's inert view from the successfully compiled application graph. */
 export const createCompiledTypegenGraph = (options: {
 	readonly batches: readonly SchemaDeclarationBatch[]
-	readonly operations: ReadonlyMap<string, CompiledPluginOperation>
-	readonly provenance:
-		ReadonlyMap<string, SchemaCompilationProvenance> | undefined
-	readonly schemaSurfaces: ReadonlyMap<string, CompiledApplicationSchemaSurface>
+	readonly commands: CompiledCommandGraph
 }): CompiledTypegenGraph =>
 	immutableRecord({
 		declarations: immutableArray(options.batches.map(({ typegen }) => typegen)),
-		operations: immutableArray([...options.operations.values()]),
+		operations: immutableArray(
+			options.commands.commands.flatMap((command) =>
+				command.kind === 'operation'
+					? [
+							immutableRecord({
+								operation: command.definition,
+								owner: command.owner,
+							}),
+						]
+					: [],
+			),
+		),
 		options: immutableArray(
 			options.batches.flatMap(({ options: definitions }) =>
 				definitions.flatMap((option) => {
@@ -43,5 +47,5 @@ export const createCompiledTypegenGraph = (options: {
 				}),
 			),
 		),
-		schemaSurfaces: immutableArray([...options.schemaSurfaces.values()]),
+		schemaSurfaces: options.commands.schemaSurfaces(),
 	})
