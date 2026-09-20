@@ -199,7 +199,7 @@
 				{
 					"slug": "official/password-authentication",
 					"contentType": "guide",
-					"outcome": "Configure local password identity without confusing a session with authorization."
+					"outcome": "Register a User, manage its session, and expose authentication through your chosen transport."
 				},
 				{
 					"slug": "official/roles",
