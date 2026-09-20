@@ -13,15 +13,25 @@ removing extension APIs or migrating operations and transports.
 
 ## Acceptance criteria
 
-- [ ] An accepted ADR names every retained production-used plugin power and the
+- [ ] Present the complete retained inventory and exact proposed removal list,
+      including every observable behavior difference, and obtain the user's
+      explicit approval before accepting the ADR.
+- [ ] After that approval, an accepted ADR names every retained current plugin capability and the
       required ownership, privilege, ordering, lifecycle, and isolation
       invariant for each.
 - [ ] Every capability classified unused by issue 3001 is either selected for
       removal or retained with a concrete required invariant and current
-      consumer; hypothetical future use is insufficient.
+      consumer or supported contract; hypothetical future use is insufficient,
+      while ambiguous evidence requires retention and an architecture stop.
 - [ ] One canonical compiled command graph owns operation identity, command
       target, authority, input and result contracts, private execution
       reference, developer surfaces, Typegen facts, and transport metadata.
+- [ ] The graph contains only facts required by a current execution invariant or
+      at least two current projections. Owner-private single-consumer facts stay
+      local unless centralization is required to enforce one named invariant.
+- [ ] The ADR compares concepts, registries, public exports, and representative
+      change fan-out before and after; it may not replace several mechanisms
+      with an equally broad generic registry under a new name.
 - [ ] Runtime, Typegen, REST, and GraphQL receive immutable least-authority
       projections rather than parallel registries or duplicated declarations.
 - [ ] Application operations, request-authority schema mutations, and private
@@ -43,6 +53,9 @@ removing extension APIs or migrating operations and transports.
       transports; correct and repeat until every retained feature has one path,
       every removed power is proven unused, and no security invariant depends on
       an omitted contract.
+- [ ] Verify that the approved removal list, and only that list, is authorized
+      for issues 3004 and 3005. Any later discovery reopens the decision and
+      invokes the architecture stop protocol.
 - [ ] Record the green audit and Documentation impact before completion.
 
 ## Out of scope

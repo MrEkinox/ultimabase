@@ -13,7 +13,11 @@ application, schema-class, request-context, HTTP, or server implementation.
 
 ## Acceptance criteria
 
-- [ ] An accepted ADR specifies one active UltimaBase application per
+- [ ] Present the exact current same-process multi-application, shared-server,
+      application-ID routing, test, and public-contract behavior that would be
+      removed, with the smallest alternatives and their impact, and obtain the
+      user's explicit approval before accepting the ADR.
+- [ ] After that approval, an accepted ADR specifies one active UltimaBase application per
       JavaScript process or realm, concurrent isolated requests within it,
       sequential replacement after complete disposal, and parallel applications
       in isolated test workers or processes.
@@ -40,6 +44,9 @@ application, schema-class, request-context, HTTP, or server implementation.
 - [ ] Audit every current multi-application test and public claim against the
       new contract; correct the ADR and repeat until every removed guarantee and
       every retained concurrency invariant has one explicit disposition.
+- [ ] If a current application, public/community contract, or mandatory
+      invariant needs same-process concurrency, stop and apply the architecture
+      stop protocol instead of silently removing or emulating it.
 - [ ] Record the green audit and Documentation impact before completion.
 
 ## Out of scope

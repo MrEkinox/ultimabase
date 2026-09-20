@@ -8,15 +8,18 @@
 
 ## Goal
 
-Remove declaration, query, command, and Typegen extension levels proven unused
-by issue 3001 while preserving graph-derived Typegen and every production plugin
-surface.
+Remove only declaration, query, command, and Typegen extension levels proven
+unused by issue 3001 and explicitly approved in issue 3003, while preserving
+graph-derived Typegen and every current supported plugin surface.
 
 ## Acceptance criteria
 
 - [ ] Remove exactly the unused powers selected by issue 3003, including their
       privileges, registrars, IR nodes, snapshot data, generators, public
       exports, examples, documentation, and tests.
+- [ ] If implementation reveals a consumer, supported contract, editor or
+      JavaScript behavior, or required invariant for an approved removal, stop
+      and reopen the decision before deleting it.
 - [ ] Retain graph-derived schema, field, option, operation, schema-mutation,
       model, and transport typing used by current applications.
 - [ ] Retain only manual public type-reference or declaration facts with a

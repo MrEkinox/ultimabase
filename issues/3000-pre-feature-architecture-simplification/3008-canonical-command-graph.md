@@ -19,6 +19,9 @@ developer surfaces, Typegen, and transports can derive least-authority views.
 - [ ] Each command records one canonical identity, owner, version, target,
       authority, payload and result facts, public errors, selected surfaces, and
       transport metadata.
+- [ ] Each graph field is justified by a current execution invariant or at least
+      two current projections; owner-private single-consumer facts remain local
+      unless centralization enforces one named invariant.
 - [ ] Executable callbacks and codecs remain private owner-bound references;
       immutable compiled and transport projections contain only their required
       inert facts.
@@ -39,8 +42,9 @@ developer surfaces, Typegen, and transports can derive least-authority views.
 ## Audit gate
 
 - [ ] Audit the compiled graph for duplicated facts, leaked executables,
-      product vocabulary, speculative fields, and parallel validation. Correct
-      and repeat until every fact has one owner and one source of truth.
+      product vocabulary, speculative fields, renamed generic registries, and
+      parallel validation. Correct and repeat until every fact has one owner and
+      one source of truth and the accepted complexity budget is met.
 - [ ] Record graph shape, line, file, test, and Documentation impact evidence
       before completion.
 

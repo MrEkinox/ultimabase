@@ -9,10 +9,11 @@
 
 Reduce the number of concepts, representations, registries, and files involved
 in an ordinary framework change before adding another product capability. The
-milestone preserves current developer behavior and production-used plugin
-powers, removes extension contracts with no production consumer or required
-kernel invariant, and converges operation declaration, application surfaces,
-Typegen, REST, GraphQL, and Runtime execution on one canonical compiled graph.
+milestone preserves current developer behavior and plugin capabilities by
+default, removes only capabilities proven unused and explicitly
+approved for removal, and converges operation declaration, application
+surfaces, Typegen, REST, GraphQL, and Runtime execution on one canonical
+compiled graph.
 
 This is a blocking pre-feature milestone. Planned product work, the paused ACL
 objective, and additional Soft Delete work do not resume until the final issue
@@ -28,7 +29,7 @@ closes the milestone.
   Delete, REST, network-independent GraphQL, Yoga, Hono, and explorer behavior
   retain their current public outcomes unless an accepted issue explicitly
   removes an unused architecture-only capability.
-- Plugin authors retain the production-used ability to add schemas, fields,
+- Plugin authors retain every currently supported ability to add schemas, fields,
   direct options, operations and schema mutations, protected policy,
   middleware, observers, transport representations, private storage, resources,
   and deterministic application-local contributions.
@@ -40,6 +41,35 @@ closes the milestone.
   transaction boundary, structural snapshots, and non-forgeable Master
   authority remain security invariants.
 
+## Preservation and removal contract
+
+The burden of proof is on removal. Every behavior and plugin capability that
+exists at the issue 3001 baseline is retained unless its exact removal is
+approved through issues 3002 or 3003. A removal candidate must have no:
+
+- production source consumer, official plugin consumer, or current application
+  consumer;
+- public export, community-plugin contract, documented promise, example, or
+  generated-project dependency that remains supported;
+- required architecture, security, authority, transaction, lifecycle,
+  isolation, transport, TypeScript, JavaScript, or conformance invariant.
+
+A test, README, or example alone does not prove a production consumer, but it
+does prove an implemented or promised behavior that must be inventoried and
+cannot be deleted automatically. If evidence is incomplete, contradictory, or
+ambiguous, retain the capability and invoke the architecture stop protocol.
+
+Except for the exact approved removals, parity means observable equivalence for
+successful results, public and safe errors, side effects and ordering, Hooks and
+policies, transactions and rollback, authority provenance, lifecycle cleanup,
+TypeScript inference and editor behavior, JavaScript without Typegen, package
+exports, examples, REST routes and envelopes, and GraphQL schemas and errors.
+Every intentional difference must map to one explicitly approved removal.
+Issue 3001 records these facts in a versioned contract matrix with a stable ID,
+owner, public surfaces, consumers or invariant, baseline evidence, retention or
+removal decision, and regression coverage for every behavior and capability.
+Every later issue audits its diff against that same matrix.
+
 ## Simplification decisions to formalize
 
 The decision issues must supersede affected accepted ADRs rather than rewriting
@@ -48,16 +78,20 @@ their history.
 1. One UltimaBase application may be active in one JavaScript process. Requests
    within it remain concurrent and isolated. Tests run applications in parallel
    through existing isolated Vitest workers or processes, and may replace an
-   application sequentially after complete disposal.
+   application sequentially after complete disposal. Issue 3002 must present
+   the exact current same-process and shared-server behavior this removes and
+   receive explicit user approval before this becomes an accepted decision.
 2. One canonical compiled command graph owns identity, authority, input and
    result contracts, private execution, surfaces, and transport metadata. Core
    exposes immutable projections of that graph instead of maintaining parallel
    planning and execution registries.
-3. Public capability machinery is retained only for proven cross-plugin
-   communication and required kernel invariants. Generic decoration,
-   replacement, compiler replacement, Runtime replacement, Typegen contribution
-   levels, query extensions, or command families with no production consumer
-   are candidates for removal and must be proven by issue 3001 before deletion.
+3. Public capability machinery is retained for current consumers, supported
+   public and community contracts, and required kernel invariants. Generic
+   decoration, replacement, compiler replacement, Runtime replacement, Typegen
+   contribution levels, query extensions, or command families with no current
+   consumer are candidates for removal. Issue 3001 must prove each candidate
+   unused and issue 3003 must obtain explicit user approval for the exact
+   removal list before deletion.
 4. Typegen derives application declarations from the canonical graph. Plugins
    manually provide only type facts that cannot be derived from that graph and
    have a current production consumer.
@@ -113,6 +147,25 @@ An observation outside the issue scope becomes a new explicit issue. It blocks
 the current issue whenever it threatens behavior parity, security, the smaller
 architecture, or the ability to remove the superseded path.
 
+## Architecture stop protocol
+
+Routine implementation defects are fixed inside the audit loop. Stop the
+current issue before modifying code or accepting an ADR when evidence reveals:
+
+- an architectural contradiction or a boundary not covered by the accepted
+  decisions;
+- uncertainty about whether a capability, contract, or behavior is unused;
+- behavior loss beyond an exact explicitly approved removal;
+- a need for a new public abstraction, compatibility path, privilege, or
+  extension point;
+- a choice whose security, lifecycle, transport, or plugin impact cannot be
+  resolved from the current contract.
+
+Record the evidence, explain why continuing would be unsafe, present the
+smallest viable options with their behavior and architecture impact, and wait
+for an explicit user decision. Do not hide the conflict behind a compatibility
+layer or silently widen the issue.
+
 ## Measurement protocol
 
 Issue 3001 records a fresh clean-checkout baseline. Each implementation issue
@@ -140,6 +193,9 @@ take precedence.
 ## Stop conditions
 
 - A current production consumer needs a capability classified as unused.
+- A public or community contract, documented behavior, example, generated
+  project, or required invariant needs a capability classified as unused.
+- Evidence is insufficient to prove that a removal candidate is unused.
 - Removing a path would weaken request isolation, Master provenance, monotonic
   policy, transactions, structural validation, or transport safety.
 - A migration starts retaining two permanent architectures instead of deleting
@@ -147,8 +203,8 @@ take precedence.
 - An issue needs an unapproved product behavior or extension point.
 - The audit loop finds a boundary change outside the accepted decision ADRs.
 
-At a stop condition, keep the issue open, explain the evidence and smallest
-options, and wait for explicit direction before expanding the architecture.
+At a stop condition, keep the issue open and follow the architecture stop
+protocol before changing the disputed boundary.
 
 ## Documentation impact
 

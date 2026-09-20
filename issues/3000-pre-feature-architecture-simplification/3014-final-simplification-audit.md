@@ -16,9 +16,17 @@ security, editor quality, or transport parity.
 
 - [ ] Re-run issue 3001's complete feature and plugin-power inventory against
       source, examples, public exports, packed packages, and generated contracts.
+- [ ] Reconcile every stable contract-matrix ID against the final source,
+      public surfaces, regression evidence, and approved disposition; no entry
+      may disappear or change status implicitly.
 - [ ] Every retained power has a production consumer or named mandatory
-      invariant; every removed power and legacy path is absent from source,
-      manifests, privileges, snapshots, exports, documentation, and tests.
+      invariant or supported public/community contract; every removed power was
+      explicitly approved and is absent from source, manifests, privileges,
+      snapshots, exports, documentation, examples, generated projects, and
+      tests.
+- [ ] Build a baseline-to-final behavior-difference ledger. Every difference
+      maps to one exact removal explicitly approved in issue 3002 or 3003; any
+      unmapped difference is a regression and keeps the milestone open.
 - [ ] One active application per process, concurrent request isolation,
       sequential disposal and replacement, and parallel isolated workers pass
       their complete lifecycle and security matrix.
@@ -55,6 +63,9 @@ security, editor quality, or transport parity.
 - [ ] Perform the complete repository audit. If any finding exists, keep issue
       3014 and the milestone open, correct it, rerun affected validation, and
       repeat the complete audit. Continue until no unresolved finding remains.
+- [ ] If parity cannot be restored without changing an accepted architecture
+      decision or adding a new boundary, stop and apply the architecture stop
+      protocol; do not close the milestone through a workaround.
 - [ ] Record exact final evidence and Documentation impact before completion.
 
 ## Out of scope
