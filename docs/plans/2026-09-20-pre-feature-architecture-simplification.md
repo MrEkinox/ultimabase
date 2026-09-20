@@ -8,15 +8,16 @@
 ## Objective
 
 Reduce the number of concepts, representations, registries, and files involved
-in an ordinary framework change before adding another product capability. The
-milestone preserves current developer behavior and plugin capabilities by
-default, removes only capabilities proven unused and explicitly
-approved for removal, and converges operation declaration, application
-surfaces, Typegen, REST, GraphQL, and Runtime execution on one canonical
-compiled graph.
+in an ordinary framework or plugin change before adding another product
+capability. The milestone first simplifies the Core-facing architecture, then
+audits and simplifies every current official plugin. It preserves current
+developer behavior and plugin capabilities by default, removes only
+capabilities proven unused and explicitly approved for removal, and converges
+operation declaration, application surfaces, Typegen, REST, GraphQL, and
+Runtime execution on one canonical compiled graph.
 
 This is a blocking pre-feature milestone. Planned product work, the paused ACL
-objective, and additional Soft Delete work do not resume until the final issue
+objective, and additional Soft Delete work do not resume until issue 3034
 closes the milestone.
 
 ## Preserved behavior
@@ -45,7 +46,9 @@ closes the milestone.
 
 The burden of proof is on removal. Every behavior and plugin capability that
 exists at the issue 3001 baseline is retained unless its exact removal is
-approved through issues 3002 or 3003. A removal candidate must have no:
+approved through issues 3002 or 3003, or through a later architecture stop that
+explicitly reopens and updates the contract matrix. A removal candidate must
+have no:
 
 - production source consumer, official plugin consumer, or current application
   consumer;
@@ -98,6 +101,55 @@ their history.
 5. Official and community plugins continue through the same retained public
    contracts. Simplification must not introduce a private official-plugin path.
 
+## Plugin simplification wave
+
+Issue 3014 is the checkpoint between the Core/kernel migration and plugin-local
+work. After it is green, every current publishable plugin receives one bounded
+issue: Access, Hooks, Validation, Roles, ACL Permissions, Password Auth, Soft
+Delete, PostgreSQL, PostgreSQL Vector, HTTP, Hono Server, REST, GraphQL, GraphQL
+Yoga, GraphiQL, and Apollo Sandbox.
+
+Each plugin issue must:
+
+- measure the package after the Core checkpoint and map its public contract to
+  the issue 3001 contract matrix;
+- remove duplicated compilation, normalization, registration, lifecycle,
+  projection, error, and test machinery that the simplified Core makes
+  unnecessary;
+- preserve ownership, dependency direction, security, transactions, lifecycle,
+  TypeScript, JavaScript, packed-package, and transport behavior;
+- avoid extracting a shared abstraction unless at least two current consumers
+  need it to enforce one current invariant;
+- stop and propose an explicit cross-plugin issue when a safe simplification
+  requires coordinated edits outside the package currently in scope;
+- stop for user review before any public behavior, configuration, export, error,
+  or extension contract changes;
+- update the affected website pages and package README in the same issue when a
+  public change is explicitly approved.
+
+The package audit may conclude that no safe simplification is available. In
+that case it records the evidence and makes no churn solely to reduce a metric.
+Later discoveries never amend the removal list implicitly: the current issue
+stays open while the user reviews the evidence, compatibility impact, contract
+matrix update, and any proposed additional issue.
+
+## Public website documentation contract
+
+The public documentation means the Fumadocs site under
+`apps/website/content/docs`. Package READMEs remain engineering sources but do
+not satisfy this contract. Every implementation issue uses
+`apps/website/content/documentation-ownership.json` and page-level `sources`
+metadata to identify affected pages. A public change is incomplete until those
+pages are updated and validated in the same issue.
+
+After every plugin issue is complete, issues 3031 through 3033 review the site
+as three complete reader journeys: Core and plugin authoring; data, security,
+identity, and persistence; HTTP, REST, GraphQL, and explorers. These issues fix
+cross-page sequencing, stale examples, terminology, navigation, and migration
+explanations that a package-local edit cannot reliably catch. They are
+verification and editorial reconciliation, not permission to defer known site
+updates from an earlier issue.
+
 ## Execution order
 
 1. [3001 — Measure and inventory the retained contract](../../issues/3000-pre-feature-architecture-simplification/3001-measure-and-inventory-retained-contract.md)
@@ -113,7 +165,27 @@ their history.
 11. [3011 — Derive developer and Typegen surfaces](../../issues/3000-pre-feature-architecture-simplification/3011-derive-developer-typegen-surfaces.md)
 12. [3012 — Derive REST and GraphQL transport projections](../../issues/3000-pre-feature-architecture-simplification/3012-derive-transport-projections.md)
 13. [3013 — Delete legacy paths and consolidate verification](../../issues/3000-pre-feature-architecture-simplification/3013-delete-legacy-paths-consolidate-verification.md)
-14. [3014 — Run the final simplification and parity audit](../../issues/3000-pre-feature-architecture-simplification/3014-final-simplification-audit.md)
+14. [3014 — Audit the Core and kernel simplification checkpoint](../../issues/3000-pre-feature-architecture-simplification/3014-core-kernel-simplification-checkpoint.md)
+15. [3015 — Simplify the Access plugin](../../issues/3000-pre-feature-architecture-simplification/3015-simplify-access-plugin.md)
+16. [3016 — Simplify the Hooks plugin](../../issues/3000-pre-feature-architecture-simplification/3016-simplify-hooks-plugin.md)
+17. [3017 — Simplify the Validation plugin](../../issues/3000-pre-feature-architecture-simplification/3017-simplify-validation-plugin.md)
+18. [3018 — Simplify the Roles plugin](../../issues/3000-pre-feature-architecture-simplification/3018-simplify-roles-plugin.md)
+19. [3019 — Simplify the ACL Permissions plugin](../../issues/3000-pre-feature-architecture-simplification/3019-simplify-acl-permissions-plugin.md)
+20. [3020 — Simplify the Password Auth plugin](../../issues/3000-pre-feature-architecture-simplification/3020-simplify-password-auth-plugin.md)
+21. [3021 — Simplify the Soft Delete plugin](../../issues/3000-pre-feature-architecture-simplification/3021-simplify-soft-delete-plugin.md)
+22. [3022 — Simplify the PostgreSQL plugin](../../issues/3000-pre-feature-architecture-simplification/3022-simplify-postgres-plugin.md)
+23. [3023 — Simplify the PostgreSQL Vector plugin](../../issues/3000-pre-feature-architecture-simplification/3023-simplify-pg-vector-plugin.md)
+24. [3024 — Simplify the HTTP plugin](../../issues/3000-pre-feature-architecture-simplification/3024-simplify-http-plugin.md)
+25. [3025 — Simplify the Hono Server plugin](../../issues/3000-pre-feature-architecture-simplification/3025-simplify-server-hono-plugin.md)
+26. [3026 — Simplify the REST plugin](../../issues/3000-pre-feature-architecture-simplification/3026-simplify-rest-plugin.md)
+27. [3027 — Simplify the GraphQL plugin](../../issues/3000-pre-feature-architecture-simplification/3027-simplify-graphql-plugin.md)
+28. [3028 — Simplify the GraphQL Yoga plugin](../../issues/3000-pre-feature-architecture-simplification/3028-simplify-graphql-yoga-plugin.md)
+29. [3029 — Simplify the GraphiQL plugin](../../issues/3000-pre-feature-architecture-simplification/3029-simplify-graphiql-plugin.md)
+30. [3030 — Simplify the Apollo Sandbox plugin](../../issues/3000-pre-feature-architecture-simplification/3030-simplify-apollo-sandbox-plugin.md)
+31. [3031 — Reconcile the Core and plugin-authoring website journey](../../issues/3000-pre-feature-architecture-simplification/3031-reconcile-core-plugin-authoring-website-docs.md)
+32. [3032 — Reconcile the data, security, and persistence website journey](../../issues/3000-pre-feature-architecture-simplification/3032-reconcile-data-security-persistence-website-docs.md)
+33. [3033 — Reconcile the HTTP and transport website journey](../../issues/3000-pre-feature-architecture-simplification/3033-reconcile-http-transport-website-docs.md)
+34. [3034 — Run the final simplification and parity audit](../../issues/3000-pre-feature-architecture-simplification/3034-final-simplification-audit.md)
 
 Dependencies are deliberately sequential. A later issue may not begin while an
 earlier issue has an unresolved audit finding.
@@ -168,10 +240,11 @@ layer or silently widen the issue.
 
 ## Measurement protocol
 
-Issue 3001 records a fresh clean-checkout baseline. Each implementation issue
-reports production and test line deltas, files removed or added, public export
-deltas, test counts, and the measured gates it materially affects. The final
-audit compares at least:
+Issue 3001 records a fresh clean-checkout baseline. Issue 3014 records the
+post-Core checkpoint, and each plugin issue records its package-local starting
+point. Every implementation issue reports production and test line deltas,
+files removed or added, public export deltas, test counts, and the measured
+gates it materially affects. The final audit compares at least:
 
 - production and test TypeScript lines and file counts;
 - Core share of production code;
@@ -208,7 +281,9 @@ protocol before changing the disputed boundary.
 
 ## Documentation impact
 
-Documentation impact: both. The plan and ADRs are internal engineering sources;
-issues that remove or reshape public APIs, application concurrency, plugin
-authoring, transports, or Typegen must update package READMEs and affected
-website pages in the same audited change.
+Documentation impact: both. The plan and ADRs are internal engineering sources.
+Issues that remove or reshape public APIs, application concurrency, plugin
+authoring, transports, or Typegen must update package READMEs and affected pages
+under `apps/website/content/docs` in the same audited change. Issues 3031
+through 3033 then verify the complete public website journeys before the final
+audit.

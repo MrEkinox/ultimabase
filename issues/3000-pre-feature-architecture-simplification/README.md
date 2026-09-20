@@ -2,16 +2,17 @@
 
 - Status: planned
 
-Simplify the application and plugin architecture before any new product feature
-begins. Preserve every current product behavior and plugin capability by
-default, remove only exact capabilities proven unused and explicitly approved
-for removal, and derive every public surface from one canonical compiled graph.
+Simplify the Core-facing architecture and every current official plugin before
+any new product feature begins. Preserve every current product behavior and
+plugin capability by default, remove only exact capabilities proven unused and
+explicitly approved for removal, and derive every public surface from one
+canonical compiled graph.
 The one-active-application-per-process proposal must likewise receive explicit
 approval after its exact compatibility impact is inventoried.
 
 The active implementation contract lives in the
 [pre-feature architecture simplification plan](../../docs/plans/2026-09-20-pre-feature-architecture-simplification.md).
-No later product milestone or paused objective resumes before issue 3014 closes
+No later product milestone or paused objective resumes before issue 3034 closes
 this milestone.
 
 ## Execution order
@@ -29,7 +30,27 @@ this milestone.
 11. [ ] [3011 — Derive developer and Typegen surfaces](3011-derive-developer-typegen-surfaces.md)
 12. [ ] [3012 — Derive REST and GraphQL transport projections](3012-derive-transport-projections.md)
 13. [ ] [3013 — Delete legacy paths and consolidate verification](3013-delete-legacy-paths-consolidate-verification.md)
-14. [ ] [3014 — Run the final simplification and parity audit](3014-final-simplification-audit.md)
+14. [ ] [3014 — Audit the Core and kernel simplification checkpoint](3014-core-kernel-simplification-checkpoint.md)
+15. [ ] [3015 — Simplify the Access plugin](3015-simplify-access-plugin.md)
+16. [ ] [3016 — Simplify the Hooks plugin](3016-simplify-hooks-plugin.md)
+17. [ ] [3017 — Simplify the Validation plugin](3017-simplify-validation-plugin.md)
+18. [ ] [3018 — Simplify the Roles plugin](3018-simplify-roles-plugin.md)
+19. [ ] [3019 — Simplify the ACL Permissions plugin](3019-simplify-acl-permissions-plugin.md)
+20. [ ] [3020 — Simplify the Password Auth plugin](3020-simplify-password-auth-plugin.md)
+21. [ ] [3021 — Simplify the Soft Delete plugin](3021-simplify-soft-delete-plugin.md)
+22. [ ] [3022 — Simplify the PostgreSQL plugin](3022-simplify-postgres-plugin.md)
+23. [ ] [3023 — Simplify the PostgreSQL Vector plugin](3023-simplify-pg-vector-plugin.md)
+24. [ ] [3024 — Simplify the HTTP plugin](3024-simplify-http-plugin.md)
+25. [ ] [3025 — Simplify the Hono Server plugin](3025-simplify-server-hono-plugin.md)
+26. [ ] [3026 — Simplify the REST plugin](3026-simplify-rest-plugin.md)
+27. [ ] [3027 — Simplify the GraphQL plugin](3027-simplify-graphql-plugin.md)
+28. [ ] [3028 — Simplify the GraphQL Yoga plugin](3028-simplify-graphql-yoga-plugin.md)
+29. [ ] [3029 — Simplify the GraphiQL plugin](3029-simplify-graphiql-plugin.md)
+30. [ ] [3030 — Simplify the Apollo Sandbox plugin](3030-simplify-apollo-sandbox-plugin.md)
+31. [ ] [3031 — Reconcile the Core and plugin-authoring website journey](3031-reconcile-core-plugin-authoring-website-docs.md)
+32. [ ] [3032 — Reconcile the data, security, and persistence website journey](3032-reconcile-data-security-persistence-website-docs.md)
+33. [ ] [3033 — Reconcile the HTTP and transport website journey](3033-reconcile-http-transport-website-docs.md)
+34. [ ] [3034 — Run the final simplification and parity audit](3034-final-simplification-audit.md)
 
 Every issue depends on the previous issue's green audit. Implementation,
 correction, and complete re-audit repeat until no finding remains inside the
@@ -40,6 +61,13 @@ consumer, unapproved behavior loss, architectural contradiction, or need for a
 new public boundary stops the issue before implementation continues. The issue
 must present evidence, the smallest options, and their impact, then wait for the
 user's decision. Routine defects remain in the audit loop.
+
+Issues 3015 through 3030 audit and simplify one publishable plugin each after
+the Core checkpoint. A plugin issue may make no code change when its audit finds
+no safe reduction. Any public change requires an explicit stop and user
+decision, then an update to the affected pages under
+`apps/website/content/docs` in that same issue. Issues 3031 through 3033 perform
+the final cross-page website review; package READMEs do not replace it.
 
 ## Completion boundary
 
@@ -58,6 +86,6 @@ user's decision. Routine defects remain in the audit loop.
 - No compatibility implementation, obsolete capability, or superseded planner
   remains beside the canonical path.
 - Final measurements and complete repository validation are recorded in issue
-  3014 before the milestone is marked completed.
+  3034 before the milestone is marked completed.
 - Every observable behavior difference from the baseline maps to an explicitly
   approved removal; no incidental regression is accepted as simplification.

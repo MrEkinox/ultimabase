@@ -7,14 +7,19 @@
 
 ## Objective
 
-Simplify the application and plugin architecture before any new product feature
-is started. Preserve every current product behavior and plugin capability by
+Simplify the Core, application, and every existing official plugin before any
+new product feature is started. Preserve every current product behavior and plugin capability by
 default. A capability may disappear only when the inventory proves that it has
 no current runtime consumer, public or community contract, documented promise,
 example or generated-project dependency, or required architecture, security,
 lifecycle, and conformance invariant, and the user explicitly approves its
 removal. Developer, Typegen, REST, and GraphQL surfaces then derive from one
 canonical compiled graph.
+
+After the Core migration passes its checkpoint, each of the 16 current plugin
+packages receives its own bounded simplification issue. Those issues remove
+plugin-local duplication and obsolete adaptations to the former Core while
+preserving the same public contract by default.
 
 The proposed execution model is one active UltimaBase application per
 JavaScript process, concurrent requests within that application, sequential
@@ -32,6 +37,13 @@ The next issue may begin only after an audit reports no unresolved finding and
 the issue has its dedicated local commit.
 
 No push is authorized by this plan.
+
+Any issue that changes public behavior, configuration, exports, errors, or
+examples must update the affected pages under `apps/website/content/docs` in
+the same audited commit. Dedicated website-documentation issues then review the
+complete Core/plugin-authoring, data/security/persistence, and HTTP/transport
+journeys after implementation. Package READMEs do not substitute for this site
+work.
 
 ## Architecture stop gate
 

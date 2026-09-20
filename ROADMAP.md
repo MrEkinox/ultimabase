@@ -96,6 +96,9 @@ the active blocking objective before any new product capability. It removes
 unused plugin powers, adopts one active application per process while preserving
 concurrent request and parallel-worker isolation, and converges command Runtime,
 developer surfaces, Typegen, REST, and GraphQL on one canonical compiled graph.
+After the Core checkpoint it separately audits and simplifies all 16 current
+official plugins, then reconciles the public Fumadocs site across its Core,
+plugin-authoring, data, security, persistence, HTTP, and transport journeys.
 Every issue must pass a repeated implementation, audit, correction, and
 re-audit loop before the next issue begins.
 
@@ -381,13 +384,20 @@ a separate decision. The milestone does not implement the deferred general
 
 ## Milestone 30 — Pre-feature architecture simplification
 
-Preserve current product behavior and production-used plugin capabilities while
-removing dormant extension contracts and parallel internal representations.
+Preserve current product behavior and plugin capabilities while removing only
+explicitly approved unused extension contracts and parallel internal
+representations.
 UltimaBase supports one active application per JavaScript process, concurrent
 isolated requests within it, sequential replacement after disposal, and
 parallel applications in isolated test workers or processes. One canonical
 compiled command graph becomes the source for direct TypeScript, JavaScript,
 Typegen, REST, GraphQL, and Runtime execution projections.
+
+Once that Core-facing migration is audited, every current official plugin gets
+a bounded simplification issue. Public changes stop for explicit review and
+must update the affected pages in `apps/website/content/docs` in the same issue.
+Three later documentation issues audit the complete public website journeys
+before the milestone closes.
 
 The milestone introduces no new product feature. Each issue is sequential and
 must complete a green audit loop with no unresolved finding before the next
