@@ -111,6 +111,7 @@ const operationPlugin = definePlugin({
 						codec: operationCodec,
 						metadata: {
 							errors: { 'fixture.rest-http.conflict': 409 },
+							path: '/actions/execute',
 						},
 						operation: httpOperation,
 					}),
@@ -314,7 +315,7 @@ describe('REST HTTP response boundary', () => {
 
 	it('encodes plugin-operation success and its declared public failure', async () => {
 		const fixture = await createFixture()
-		const path = '/api/v1/operations/fixture.rest-http.execute'
+		const path = '/api/v1/actions/execute'
 		const success = await fetchApplication(fixture.http, path, {
 			body: JSON.stringify({ input: { text: 'accept' } }),
 			headers: { 'Content-Type': 'application/json' },

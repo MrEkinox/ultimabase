@@ -9,11 +9,13 @@ order: 3
 outcome: Call generated REST routes while preserving the same Runtime semantics as TypeScript.
 owner: '2812'
 releaseStatus: pre-release
-reviewedAt: 2026-09-19
+reviewedAt: 2026-09-20
 sources:
   - packages/rest-plugin/README.md
   - packages/rest-plugin/src/schema-routes.ts
   - packages/rest-plugin/src/options.ts
+  - packages/rest-plugin/src/operation-routes.ts
+  - docs/adr/0256-rest-operation-public-paths.md
   - packages/rest-plugin/src/response-values.ts
   - examples/minimal/src/create-application.ts
   - docs/adr/0228-experimental-http-rest-v1-wire-contract.md
@@ -197,6 +199,13 @@ field data directly; item DELETE has no body. Upsert and bulk use their
 schema-command-shaped JSON bodies. REST decodes input, then Core applies
 structural validation and any installed Validation, Access, ACL, and Hooks
 behavior. A public route is not itself a permission rule.
+
+Application operations use `POST /api/v1/operations/{name}` by default. Their
+owner may declare a short static path in the REST binding. For example,
+[Password Auth](./password-authentication) uses `/api/v1/auth/login` and its
+three sibling authentication routes. The configured `basePath` applies to
+these routes too. A declared path replaces the default URL; it does not create
+an alias or expose an unselected operation.
 
 ## Troubleshooting
 

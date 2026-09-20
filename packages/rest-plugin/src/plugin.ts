@@ -295,10 +295,14 @@ export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 		})
 	const compileOperationRoutes = (
 		owner: Parameters<typeof compileRestOperationRouteFragment>[0]['owner'],
+		planner: ApplicationOperationTransportPlanner,
 	) =>
 		compileRestOperationRouteFragment({
 			basePath: normalized.basePath,
-			operations: normalized.operations,
+			plan: planner.plan({
+				operations: normalized.operations,
+				transport: restProtocol,
+			}),
 			owner,
 			pluginVersion: restPluginModule.version,
 		})
@@ -327,8 +331,11 @@ export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 	})
 	const operationRouteProvider = provideCapability(restRouteGraphCapability, {
 		contributionId: 'official-rest-operation-routes',
-		create: ({ owner }) => ({
-			value: compileOperationRoutes(owner),
+		create: ({ capabilities: reader, owner }) => ({
+			value: compileOperationRoutes(
+				owner,
+				reader.get(transportPlanningRequirement),
+			),
 		}),
 	})
 	const schemaMutationRouteProvider = provideCapability(
@@ -350,7 +357,10 @@ export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 			contributionId: 'official-rest-http-dispatcher',
 			create: ({ capabilities: reader, owner, schemas }) => {
 				const schemaRoutes = compileSchemaRoutes(owner, schemas)
-				const operationRoutes = compileOperationRoutes(owner)
+				const operationRoutes = compileOperationRoutes(
+					owner,
+					reader.get(transportPlanningRequirement),
+				)
 				const schemaMutationRoutes = compileSchemaMutationRoutes(
 					owner,
 					schemas,

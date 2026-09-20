@@ -132,6 +132,12 @@ For REST v1, pass the exact operation tokens to `restPlugin({ operations })`.
 Password Auth contributes the compatible codecs and maps its three public
 errors to status 400 or 401 without importing REST.
 
+The public routes are `POST /api/v1/auth/sign-up`, `/api/v1/auth/login`,
+`/api/v1/auth/refresh`, and `/api/v1/auth/logout`. A custom REST `basePath`
+replaces the `/api` prefix. These paths replace the former namespaced
+`/operations/ultimabase.password-auth.*` URLs without aliases. Bodies still
+use `{ "input": credentials }` or `{ "input": null }` for refresh and logout.
+
 The same explicit tokens may be passed to `graphqlPlugin({ operations })`.
 Password Auth contributes canonical GraphQL metadata and codecs for `signUp`,
 `login`, `refresh`, and `logout` without importing the GraphQL package. The

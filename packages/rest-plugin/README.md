@@ -82,18 +82,28 @@ restPlugin({
 })
 ```
 
-Each selected application operation receives
+By default, each selected application operation receives
 `POST /api/v1/operations/{namespacedOperation}` and accepts exactly
 `{ "input": value }`. The owner contributes its logical-to-wire codec and a
 REST v1 binding through Core. It can independently name the canonical
 `ultimabase.rest@1.0.0` protocol without importing this package, which keeps
 REST and Password Auth as siblings.
 
-The binding metadata must be exactly
-`{ errors: { [declaredPublicErrorCode]: httpStatus } }`, including an empty
-object when the operation declares no public plugin errors. REST validates the
-complete mapping before transport startup and accepts only integer error
-statuses from 400 through 599. The `RestOperationTransport` setup export then
+The binding metadata contains `errors: { [declaredPublicErrorCode]: httpStatus }`,
+including an empty object when the operation declares no public plugin errors.
+An optional `path` replaces the default operation URL: `{ errors, path:
+"/auth/login" }` produces `POST /api/v1/auth/login`. The prefix follows the
+configured `basePath`; the namespaced operation identity stays internal.
+Only static slash-separated ASCII letters, digits, underscores, and hyphens
+are accepted, with a leading slash and no trailing slash. The `classes` and
+`operations` roots are reserved. Templates, percent encoding, dot segments,
+queries, fragments, and additional metadata keys are rejected. No old-path
+alias is registered, and collisions fail before startup.
+
+REST reads these inert bindings through Core's existing transport planner
+during route compilation. It validates the complete mapping before transport
+startup and accepts only integer error statuses from 400 through 599.
+The `RestOperationTransport` setup export then
 executes only its own route objects through Core's existing operation Runtime.
 Operation codecs may return nested persisted models from the selected
 application. REST encodes their already authorized visible fields with its

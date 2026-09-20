@@ -25,7 +25,7 @@ const firstMasterKey = 'authenticated-first-master'
 const password = 'correct horse battery staple'
 const statusPath = '/api/v1/operations/example.status'
 const notePath = '/api/v1/classes/ExamplePrivateNote'
-const operationPath = (name: string): string => `/api/v1/operations/${name}`
+const authPath = (name: string): string => `/api/v1/auth/${name}`
 
 let firstFixture: PostgresWorkerFixture | undefined
 let secondFixture: PostgresWorkerFixture | undefined
@@ -225,26 +225,18 @@ afterAll(async () => {
 describe('authenticated public REST vertical', { concurrent: false }, () => {
 	it('joins Password Auth, roles, Access, ACL, Hono, and PostgreSQL', async () => {
 		const minimal = requireExample()
-		const signUp = await requestJson(
-			firstAppId,
-			operationPath('ultimabase.password-auth.sign-up'),
-			{
-				body: { input: { password, username: 'ada' } },
-				method: 'POST',
-			},
-		)
+		const signUp = await requestJson(firstAppId, authPath('sign-up'), {
+			body: { input: { password, username: 'ada' } },
+			method: 'POST',
+		})
 		expect(signUp.status).toBe(200)
 		const firstSession = await readAuthentication(signUp)
 		expect(firstSession.token).toMatch(/^ub_s1\./u)
 
-		const login = await requestJson(
-			firstAppId,
-			operationPath('ultimabase.password-auth.login'),
-			{
-				body: { input: { password, username: 'ADA' } },
-				method: 'POST',
-			},
-		)
+		const login = await requestJson(firstAppId, authPath('login'), {
+			body: { input: { password, username: 'ADA' } },
+			method: 'POST',
+		})
 		expect(login.status).toBe(200)
 		const authenticated = await readAuthentication(login)
 		expect(authenticated).toMatchObject({ userId: firstSession.userId })
@@ -329,14 +321,10 @@ describe('authenticated public REST vertical', { concurrent: false }, () => {
 			result: { body: 'Published privately' },
 		})
 
-		const deniedUser = await requestJson(
-			firstAppId,
-			operationPath('ultimabase.password-auth.sign-up'),
-			{
-				body: { input: { password, username: 'grace' } },
-				method: 'POST',
-			},
-		)
+		const deniedUser = await requestJson(firstAppId, authPath('sign-up'), {
+			body: { input: { password, username: 'grace' } },
+			method: 'POST',
+		})
 		const deniedSession = await readAuthentication(deniedUser)
 		const denied = await requestJson(firstAppId, notePath, {
 			body: { body: 'Forbidden' },
@@ -353,24 +341,16 @@ describe('authenticated public REST vertical', { concurrent: false }, () => {
 			result: { authority: 'anonymous', principalId: null },
 		})
 
-		const wrongPassword = await requestJson(
-			firstAppId,
-			operationPath('ultimabase.password-auth.login'),
-			{
-				body: {
-					input: { password: 'incorrect password value', username: 'ada' },
-				},
-				method: 'POST',
+		const wrongPassword = await requestJson(firstAppId, authPath('login'), {
+			body: {
+				input: { password: 'incorrect password value', username: 'ada' },
 			},
-		)
-		const unknownUser = await requestJson(
-			firstAppId,
-			operationPath('ultimabase.password-auth.login'),
-			{
-				body: { input: { password, username: 'unknown-user' } },
-				method: 'POST',
-			},
-		)
+			method: 'POST',
+		})
+		const unknownUser = await requestJson(firstAppId, authPath('login'), {
+			body: { input: { password, username: 'unknown-user' } },
+			method: 'POST',
+		})
 		const wrongBody = await wrongPassword.text()
 		const unknownBody = await unknownUser.text()
 		expect([wrongPassword.status, unknownUser.status]).toStrictEqual([401, 401])
@@ -398,14 +378,10 @@ describe('authenticated public REST vertical', { concurrent: false }, () => {
 			sessionToken: authenticated.token,
 		})
 		expect(foreign.status).toBe(401)
-		const isolatedSignUp = await requestJson(
-			secondAppId,
-			operationPath('ultimabase.password-auth.sign-up'),
-			{
-				body: { input: { password, username: 'ada' } },
-				method: 'POST',
-			},
-		)
+		const isolatedSignUp = await requestJson(secondAppId, authPath('sign-up'), {
+			body: { input: { password, username: 'ada' } },
+			method: 'POST',
+		})
 		expect(isolatedSignUp.status).toBe(200)
 		const secondSession = await readAuthentication(isolatedSignUp)
 		expect(secondSession.userId).not.toBe(authenticated.userId)
@@ -474,7 +450,7 @@ describe('authenticated public REST vertical', { concurrent: false }, () => {
 
 		const hiddenOperation = await requestJson(
 			firstAppId,
-			operationPath('ultimabase.password-auth.reset-password'),
+			authPath('reset-password'),
 			{ body: { input: null }, method: 'POST' },
 		)
 		expect(hiddenOperation.status).toBe(404)
@@ -565,15 +541,11 @@ describe('authenticated public REST vertical', { concurrent: false }, () => {
 			sessionToken: authenticated.token,
 		})
 		expect(deleted.status).toBe(200)
-		const logout = await requestJson(
-			firstAppId,
-			operationPath('ultimabase.password-auth.logout'),
-			{
-				body: { input: null },
-				method: 'POST',
-				sessionToken: authenticated.token,
-			},
-		)
+		const logout = await requestJson(firstAppId, authPath('logout'), {
+			body: { input: null },
+			method: 'POST',
+			sessionToken: authenticated.token,
+		})
 		expect(await logout.json()).toStrictEqual({ result: { revoked: true } })
 		const revoked = await requestJson(firstAppId, statusPath, {
 			body: { input: null },

@@ -240,6 +240,7 @@ export const toPasswordAuthenticationPayload = (
 
 const createRestBinding = <TOperation extends PasswordAuthOperation>(
 	operation: TOperation,
+	path: string,
 	status: 400 | 401,
 	decode: (value: unknown) => PluginOperationInput<TOperation>,
 	encode: (value: PluginOperationResult<TOperation>) => unknown,
@@ -253,6 +254,7 @@ const createRestBinding = <TOperation extends PasswordAuthOperation>(
 		}),
 		metadata: immutableRecord({
 			errors: immutableRecord({ [operation.errors[0] as string]: status }),
+			path,
 		}),
 		operation,
 	})
@@ -266,24 +268,28 @@ export const passwordAuthRestBindings: Readonly<
 > = immutableRecord({
 	login: createRestBinding(
 		passwordAuthOperations.login,
+		'/auth/login',
 		401,
 		(value) => credentialsInput.snapshot(value, 'login.wire-input'),
 		toPasswordAuthenticationPayload,
 	),
 	logout: createRestBinding(
 		passwordAuthOperations.logout,
+		'/auth/logout',
 		401,
 		(value) => nullInput.snapshot(value, 'logout.wire-input'),
 		(value) => value,
 	),
 	refresh: createRestBinding(
 		passwordAuthOperations.refresh,
+		'/auth/refresh',
 		401,
 		(value) => nullInput.snapshot(value, 'refresh.wire-input'),
 		toPasswordAuthenticationPayload,
 	),
 	signUp: createRestBinding(
 		passwordAuthOperations.signUp,
+		'/auth/sign-up',
 		400,
 		(value) => credentialsInput.snapshot(value, 'sign-up.wire-input'),
 		toPasswordAuthenticationPayload,

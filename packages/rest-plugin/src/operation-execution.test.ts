@@ -223,7 +223,13 @@ const request = (input: unknown, signal?: AbortSignal): Request =>
 
 describe('REST plugin operation exposure', () => {
 	it('keeps declarations private until explicitly selected', async () => {
-		const fixture = await createFixture({ expose: false })
+		const fixture = await createFixture({
+			expose: false,
+			bindingMetadata: {
+				errors: { 'fixture.rest-operation.rejected': 409 },
+				path: '/inspect',
+			},
+		})
 		try {
 			expect(fixture.rest.operationTransport).toBeUndefined()
 			expect(
@@ -236,50 +242,66 @@ describe('REST plugin operation exposure', () => {
 		}
 	})
 
-	it('executes the exact route through codecs for anonymous and session contexts', async () => {
-		const fixture = await createFixture()
-		try {
-			const transport = fixture.rest.operationTransport
-			const route = transport?.operations[0]
-			expect(route).toMatchObject({
-				method: 'POST',
-				operation: inspectOperation.name,
-				operationVersion: inspectOperation.version,
-				path: `/api/v1/operations/${inspectOperation.name}`,
+	it.each([undefined, '/inspect'])(
+		'executes the exact route with public path %s through the same codecs',
+		async (path) => {
+			const fixture = await createFixture({
+				bindingMetadata: {
+					errors: { 'fixture.rest-operation.rejected': 409 },
+					...(path === undefined ? {} : { path }),
+				},
 			})
-			if (transport === undefined || route === undefined) {
-				throw new TypeError('expected REST operation transport')
+			try {
+				const transport = fixture.rest.operationTransport
+				const route = transport?.operations[0]
+				expect(route).toMatchObject({
+					method: 'POST',
+					operation: inspectOperation.name,
+					operationVersion: inspectOperation.version,
+					path: `/api/v1${path ?? `/operations/${inspectOperation.name}`}`,
+				})
+				if (transport === undefined || route === undefined) {
+					throw new TypeError('expected REST operation transport')
+				}
+				const anonymous = RequestContext.anonymous({
+					requestId: 'anonymous',
+					source: 'rest',
+				})
+				await expect(
+					transport.execute(
+						anonymous,
+						route,
+						request({ text: 'anonymous' }),
+						fixture.rest.readLimits,
+					),
+				).resolves.toStrictEqual({ ok: true })
+				const session = RequestContext.anonymous({
+					requestId: 'session',
+					source: 'rest',
+				}).withValue(sessionValue, { id: 'session-1' })
+				await expect(
+					transport.execute(
+						session,
+						route,
+						request({ text: 'session' }),
+						fixture.rest.readLimits,
+					),
+				).resolves.toStrictEqual({ ok: true })
+			} finally {
+				await fixture.ultimabase.dispose()
 			}
-			const anonymous = RequestContext.anonymous({
-				requestId: 'anonymous',
-				source: 'rest',
-			})
-			await expect(
-				transport.execute(
-					anonymous,
-					route,
-					request({ text: 'anonymous' }),
-					fixture.rest.readLimits,
-				),
-			).resolves.toStrictEqual({ ok: true })
-			const session = RequestContext.anonymous({
-				requestId: 'session',
-				source: 'rest',
-			}).withValue(sessionValue, { id: 'session-1' })
-			await expect(
-				transport.execute(
-					session,
-					route,
-					request({ text: 'session' }),
-					fixture.rest.readLimits,
-				),
-			).resolves.toStrictEqual({ ok: true })
-		} finally {
-			await fixture.ultimabase.dispose()
-		}
-	})
+		},
+	)
 
 	it('validates complete public error status metadata before startup', async () => {
+		await expect(
+			createFixture({
+				bindingMetadata: {
+					errors: { 'fixture.rest-operation.rejected': 409 },
+					path: '/auth/../login',
+				},
+			}),
+		).rejects.toThrow('invalid public path')
 		await expect(
 			createFixture({ bindingMetadata: { errors: {} } }),
 		).rejects.toThrow('must map every declared public error')
@@ -306,27 +328,56 @@ describe('REST plugin operation exposure', () => {
 		).rejects.toMatchObject({ code: 'PLUGIN_OPERATION_INVALID' })
 	})
 
-	it('rejects duplicate operation routes across REST instances', async () => {
-		const ultimabase = new UltimaBase({
-			pluginPrivileges: { logger: false },
-			plugins: [
-				databasePlugin,
-				createOperationPlugin({}),
-				restPlugin({
-					instanceId: 'public',
-					operations: [inspectOperation],
-				}),
-				restPlugin({
-					instanceId: 'admin',
-					operations: [inspectOperation],
-				}),
-			],
-			schemas: [],
-		})
-		await expect(ultimabase.start()).rejects.toThrow(
-			`REST route collision for POST`,
-		)
-	})
+	it.each([
+		{ path: undefined, distinct: false },
+		{ path: '/inspect', distinct: false },
+		{ path: '/inspect', distinct: true },
+	])(
+		'validates operation route composition for %j',
+		async ({ path, distinct }) => {
+			const ultimabase = new UltimaBase({
+				pluginPrivileges: { logger: false },
+				plugins: [
+					databasePlugin,
+					createOperationPlugin({
+						metadata: {
+							errors: { 'fixture.rest-operation.rejected': 409 },
+							...(path === undefined ? {} : { path }),
+						},
+					}),
+					restPlugin({
+						instanceId: 'public',
+						operations: [inspectOperation],
+					}),
+					restPlugin({
+						instanceId: 'admin',
+						...(distinct ? { basePath: '/admin' } : {}),
+						operations: [inspectOperation],
+					}),
+				],
+				schemas: [],
+			})
+			try {
+				if (distinct) {
+					await ultimabase.start()
+					const rest = ultimabase.application.getPlugin({
+						pluginId: '@ultimabase/rest-plugin',
+						instanceId: 'public',
+					})
+					expect(rest.routeGraph.routes.map((route) => route.path)).toEqual([
+						'/api/v1/inspect',
+						'/admin/v1/inspect',
+					])
+				} else {
+					await expect(ultimabase.start()).rejects.toThrow(
+						'REST route collision for POST',
+					)
+				}
+			} finally {
+				await ultimabase.dispose()
+			}
+		},
+	)
 
 	it('enforces the exact JSON envelope, media type, size, and route ownership', async () => {
 		const fixture = await createFixture()

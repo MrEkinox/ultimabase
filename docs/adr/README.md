@@ -237,6 +237,7 @@ Accepted records:
 - [ADR-0253: Password Auth requires a readable User](0253-password-auth-required-user.md).
 - [ADR-0254: Authentication methods on Password User classes](0254-password-user-authentication-methods.md).
 - [ADR-0255: Password Auth transport payloads](0255-password-auth-transport-payloads.md).
+- [ADR-0256: Short public paths for REST application operations](0256-rest-operation-public-paths.md).
 
 Superseded records:
 

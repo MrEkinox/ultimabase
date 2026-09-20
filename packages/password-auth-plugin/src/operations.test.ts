@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest'
 import {
 	passwordAuthErrorCodes,
 	passwordAuthOperations,
+	passwordAuthRestBindings,
 	rejectPasswordCredentials,
 	rejectPasswordSession,
 	rejectPasswordSignUp,
@@ -23,6 +24,20 @@ import {
 } from './session.js'
 
 describe('Password Auth operation contracts', () => {
+	it('owns short REST paths independently from internal operation names', () => {
+		for (const [name, path] of [
+			['signUp', '/auth/sign-up'],
+			['login', '/auth/login'],
+			['refresh', '/auth/refresh'],
+			['logout', '/auth/logout'],
+		] as const) {
+			expect(passwordAuthRestBindings[name].metadata).toMatchObject({ path })
+			expect(passwordAuthRestBindings[name].operation).toBe(
+				passwordAuthOperations[name],
+			)
+		}
+	})
+
 	it('snapshots only a persisted profile matching the authenticated identity', () => {
 		const User = PasswordUserSchema.define({
 			className: 'User',

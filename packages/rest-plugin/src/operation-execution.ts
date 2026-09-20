@@ -4,7 +4,7 @@ import type {
 } from '@ultimabase/core'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
-import { readRestErrorStatusMap } from './binding-metadata.js'
+import { readRestOperationBindingMetadata } from './binding-metadata.js'
 import {
 	invalidRestOperation,
 	restOperationErrorCodes,
@@ -76,11 +76,11 @@ class CoreRestOperationTransport implements RestOperationTransport {
 			}
 			statuses.set(
 				route.operation,
-				readRestErrorStatusMap(
+				readRestOperationBindingMetadata(
 					descriptor.metadata,
 					descriptor.errors,
 					route.operation,
-				),
+				).errors,
 			)
 		}
 		if (descriptors.size !== this.operations.length) {

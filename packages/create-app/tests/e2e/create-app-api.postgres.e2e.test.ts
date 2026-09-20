@@ -261,19 +261,16 @@ try {
 		let server: ChildProcessWithoutNullStreams | undefined
 		try {
 			server = await startServer(project.destination, 'js')
-			const signUp = await fetch(
-				`${endpoint}/api/v1/operations/ultimabase.password-auth.sign-up`,
-				{
-					method: 'POST',
-					headers: { ...applicationHeader, 'Content-Type': 'application/json' },
-					body: JSON.stringify({
-						input: {
-							username: 'bob',
-							password: 'correct horse battery staple',
-						},
-					}),
-				},
-			)
+			const signUp = await fetch(`${endpoint}/api/v1/auth/sign-up`, {
+				method: 'POST',
+				headers: { ...applicationHeader, 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					input: {
+						username: 'bob',
+						password: 'correct horse battery staple',
+					},
+				}),
+			})
 			expect(signUp.status).toBe(200)
 			const payload: unknown = await signUp.json()
 			if (!isRecord(payload) || !isRecord(payload.result))
@@ -305,19 +302,16 @@ try {
 		let server: ChildProcessWithoutNullStreams | undefined
 		try {
 			server = await startServer(project.destination, 'ts')
-			const signUp = await fetch(
-				`${endpoint}/api/v1/operations/ultimabase.password-auth.sign-up`,
-				{
-					method: 'POST',
-					headers: { ...applicationHeader, 'Content-Type': 'application/json' },
-					body: JSON.stringify({
-						input: {
-							username: 'alice',
-							password: 'correct horse battery staple',
-						},
-					}),
-				},
-			)
+			const signUp = await fetch(`${endpoint}/api/v1/auth/sign-up`, {
+				method: 'POST',
+				headers: { ...applicationHeader, 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					input: {
+						username: 'alice',
+						password: 'correct horse battery staple',
+					},
+				}),
+			})
 			expect(signUp.status).toBe(200)
 			const payload: unknown = await signUp.json()
 			if (!isRecord(payload) || !isRecord(payload.result))

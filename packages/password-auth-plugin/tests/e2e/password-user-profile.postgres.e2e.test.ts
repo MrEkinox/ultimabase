@@ -189,7 +189,7 @@ const createApplication = () => {
 		master = false,
 	) => {
 		const response = await fetchRequest(
-			`/api/v1/operations/${passwordAuthOperations[name].name}`,
+			`/api/v1/auth/${name === 'signUp' ? 'sign-up' : name}`,
 			{
 				method: 'POST',
 				body: JSON.stringify({ input }),
@@ -269,6 +269,21 @@ describe('Password Auth readable profiles', () => {
 			const loginToken = sessionToken(record(login.body.result))
 			const refresh = await app.request('refresh', null, loginToken, true)
 			expect(refresh.status).toBe(200)
+			// The short public paths replace the internal operation URLs without aliases.
+			for (const operation of Object.values(passwordAuthOperations)) {
+				const legacy = await app.fetchRequest(
+					`/api/v1/operations/${operation.name}`,
+					{
+						method: 'POST',
+						headers: {
+							'X-UltimaBase-Application-Id': 'profile',
+							'Content-Type': 'application/json',
+						},
+						body: JSON.stringify({ input: null }),
+					},
+				)
+				expect(legacy.status).toBe(404)
+			}
 			// Every REST authentication transition exposes only the profile and session.
 			for (const response of [signUp, login, refresh]) {
 				expect(Object.keys(record(response.body.result)).sort()).toEqual([

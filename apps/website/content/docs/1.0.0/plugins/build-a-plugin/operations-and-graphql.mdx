@@ -7,7 +7,7 @@ contentType: guide
 outcome: Declare executable plugin behavior and choose its exact public transport surface.
 owner: '2810'
 releaseStatus: pre-release
-reviewedAt: 2026-09-17
+reviewedAt: 2026-09-20
 sources:
   - packages/core/README.md
   - packages/plugin-kit/README.md
@@ -17,6 +17,7 @@ sources:
   - packages/rest-plugin/README.md
   - packages/soft-delete-plugin/src/explicit.ts
   - docs/adr/0240-static-operation-transport-planning.md
+  - docs/adr/0256-rest-operation-public-paths.md
 ---
 
 ## Outcome
@@ -368,8 +369,13 @@ mutations with both REST and GraphQL bindings.
 
 - REST exposes only application operations explicitly selected in
   `restPlugin({ operations })`. The owner provides a binding for canonical
-  `ultimabase.rest@1.0.0` with a codec and exact `{ errors: { ... } }`
-  status metadata; the route is `POST /api/v1/operations/{name}` by default.
+  `ultimabase.rest@1.0.0` with a codec and `{ errors: { ... }, path?: string }`
+  metadata. The route is `POST /api/v1/operations/{name}` by default. A static
+  `path: '/auth/login'` replaces it with `POST /api/v1/auth/login`, respecting
+  the configured REST base path. Paths contain slash-separated ASCII letters,
+  digits, underscores, or hyphens, start with `/`, and have no trailing slash.
+  The `classes` and `operations` roots are reserved. Dynamic or encoded paths
+  and unknown metadata keys are rejected; duplicate routes fail before startup.
 - Plugin schema mutations use a separate REST schema-mutation binding and
   schema-local route. They are not REST application operations.
 - An independent Fetch route or mount uses the HTTP package's
