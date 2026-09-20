@@ -165,6 +165,11 @@ describe('application operation transport planning', () => {
 		})
 		expect(Object.isFrozen(plan)).toBe(true)
 		expect(plan.operations[0]).not.toHaveProperty('codec')
+		expect(
+			runPlanning(harness, (planner) =>
+				planner.plan({ operations: [operation], transport: protocol }),
+			).operations[0],
+		).toBe(plan.operations[0])
 		await application.dispose()
 		expect(() =>
 			runPlanning(harness, (planner) =>

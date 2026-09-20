@@ -466,15 +466,7 @@ export class ApplicationCapabilityHost {
 		this.#commandBindings?.materialize(token, materializedContributions)
 		const consumer: unknown = composeCapability(token, providers)
 		if (isApplicationOperationTransportPlanningCapability(token)) {
-			bindApplicationOperationTransportPlanner(consumer, {
-				application: this.#application,
-				resolveSchemaSurface: this.#resolveSchemaSurface,
-				schemaMutationBindings:
-					this.#resolvedContributions.get(
-						schemaMutationTransportBindingCapability,
-					) ?? [],
-				schemas: this.#schemas,
-			})
+			bindApplicationOperationTransportPlanner(consumer, this.#application)
 		}
 		if (mutation.isApplicationSchemaMutationSurfaceCapability(token)) {
 			mutation.bindApplicationSchemaMutationSurface(

@@ -1,5 +1,3 @@
-import { isDeepStrictEqual } from 'node:util'
-
 import type {
 	ApplicationSchemaMutationTransport,
 	ApplicationSchemaMutationTransportPlan,
@@ -15,39 +13,12 @@ interface GraphqlSchemaMutationExecutionState {
 	disposed: boolean
 	plan: ApplicationSchemaMutationTransportPlan<typeof graphqlProtocol>
 	selected: Set<ExposedSchemaMutationTransportBinding>
-	selectedCore: Map<
-		ExposedSchemaMutationTransportBinding,
-		ExposedSchemaMutationTransportBinding
-	>
 }
 
 const states = new WeakMap<
 	GraphqlSchemaMutationExecution,
 	GraphqlSchemaMutationExecutionState
 >()
-
-const sameOwner = (
-	left: ExposedSchemaMutationTransportBinding['owner'],
-	right: ExposedSchemaMutationTransportBinding['owner'],
-): boolean =>
-	left.pluginId === right.pluginId &&
-	left.instanceId === right.instanceId &&
-	left.version === right.version
-
-const sameDescriptor = (
-	left: ExposedSchemaMutationTransportBinding,
-	right: ExposedSchemaMutationTransportBinding,
-): boolean =>
-	left.authority === right.authority &&
-	left.command === right.command &&
-	left.effect === right.effect &&
-	left.mutation === right.mutation &&
-	left.returning === right.returning &&
-	left.schema === right.schema &&
-	left.version === right.version &&
-	sameOwner(left.owner, right.owner) &&
-	isDeepStrictEqual(left.errors, right.errors) &&
-	isDeepStrictEqual(left.metadata, right.metadata)
 
 /** Retains selected schema mutations while Core owns every executable callback. */
 export class GraphqlSchemaMutationExecution {
@@ -59,7 +30,6 @@ export class GraphqlSchemaMutationExecution {
 			disposed: false,
 			plan,
 			selected: new Set(),
-			selectedCore: new Map(),
 		})
 		Object.freeze(this)
 	}
@@ -88,29 +58,14 @@ export class GraphqlSchemaMutationExecution {
 		if (
 			core.transport !== state.plan.transport ||
 			core.mutations.length !== state.plan.mutations.length ||
-			core.mutations.some(
-				(item, index) =>
-					!sameDescriptor(item, state.plan.mutations[index] ?? item),
-			)
+			core.mutations.some((item, index) => item !== state.plan.mutations[index])
 		) {
 			throw new TypeError(
 				'GraphQL schema mutation execution does not match its static plan',
 			)
 		}
-		const selectedCore = new Map(
-			[...state.selected].map((descriptor) => {
-				const index = state.plan.mutations.indexOf(descriptor)
-				const executable = core.mutations[index]
-				if (executable === undefined) {
-					throw new TypeError(
-						'GraphQL schema mutation has no exact Core exposure',
-					)
-				}
-				return [descriptor, executable]
-			}),
-		)
+
 		state.core = core
-		state.selectedCore = selectedCore
 	}
 
 	async execute(options: {
@@ -126,12 +81,9 @@ export class GraphqlSchemaMutationExecution {
 		if (state?.core === undefined || !state.selected.has(options.descriptor)) {
 			throw new TypeError('GraphQL schema mutation execution is unavailable')
 		}
-		const executable = state.selectedCore.get(options.descriptor)
-		if (executable === undefined) {
-			throw new TypeError('GraphQL schema mutation execution is unavailable')
-		}
+
 		return state.core.execute({
-			binding: executable,
+			binding: options.descriptor,
 			context: options.context,
 			id: options.id,
 			...(options.include === undefined ? {} : { include: options.include }),
@@ -147,6 +99,5 @@ export class GraphqlSchemaMutationExecution {
 		state.core = undefined
 		state.disposed = true
 		state.selected.clear()
-		state.selectedCore.clear()
 	}
 }

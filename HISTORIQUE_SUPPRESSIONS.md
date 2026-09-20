@@ -5,7 +5,7 @@ leur impact et leur livraison effective. Il sera mis à jour dans le commit de
 chaque issue : une suppression en cours ne devient « réalisée » qu’après
 validation et audit sans anomalie restante.
 
-Dernière mise à jour : **20 septembre 2026**. Périmètre de l’exécution autorisée :
+Dernière mise à jour : **21 septembre 2026**. Périmètre de l’exécution autorisée :
 **3001 à 3014 incluses**, puis arrêt avant la simplification individuelle des plugins.
 
 ## Règle commune
@@ -252,7 +252,7 @@ au fur et à mesure des migrations et de leurs audits.
 
 ## Retrait supplémentaire approuvé — inspection Typegen
 
-- **État : réalisée dans ce commit**, issue 3011, ADR-0262 explicitement validé.
+- **État : réalisée**, issue 3011, commit `c5073432`, ADR-0262 explicitement validé.
 - **Retrait :** accès aux callbacks `input.snapshot` et `result.snapshot`, à
   l'identité du token exécutable et aux constructeurs de schéma depuis
   `CompiledTypegenGraph` / `typegenGraph`.
@@ -266,6 +266,19 @@ au fur et à mesure des migrations et de leurs audits.
   empreintes identiques avant/après. `legacyViews()` et l’argument de provenance
   inutilisé du projecteur Typegen disparaissent ; réduction d'une ligne de production.
 - Une option supprimée pourra être ajoutée lorsqu'un besoin concret l'exigera.
+
+## Projections des transports — issue 3012 réalisée dans ce commit
+
+Le plan et l'exécution partagent les mêmes descripteurs immuables dérivés des
+commandes canoniques. Disparaissent les reconstructions parallèles, la liste de
+bindings et le résolveur de surfaces conservés par le planner, le contrôle des
+bindings sans cible, les lecteurs Runtime devenus inutilisés et les comparaisons
+structurelles de GraphQL avec sa table de correspondance. Les frontières de
+sélection, de contexte et de cycle de vie restent en place. Un binding sans
+alias sélectionné reste inactif et ne crée aucune route, conformément à la 3012.
+Audit sans anomalie : **2 535 tests unitaires/types/performance, 381 intégrations
+et 66 vérifications du site** passent. Réduction de **111 lignes de production**,
+avec les mêmes exports publics et la même taille de déclarations.
 
 ## Sources de décision
 

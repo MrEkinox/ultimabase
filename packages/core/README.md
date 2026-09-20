@@ -575,6 +575,13 @@ selection, inclusion, and `RequestContext`. Core alone decodes under owner
 attribution and enters the schema-mutation Runtime. Master authority cannot be
 selected from wire input.
 
+Planning and late execution share the exact frozen descriptors derived from the
+canonical command and its materialized binding. Identity checks replace copied
+metadata comparisons; descriptors alone still grant no execution authority.
+A schema-mutation provider with no selected schema/model alias stays dormant
+and contributes no transport descriptor or route. Its presence alone is not an
+unused-binding startup error.
+
 Core cannot prove complete transport coverage from arbitrary policy callbacks.
 Every exposure that has not acknowledged that uncertainty emits one structured
 `UNVERIFIED_PUBLIC_TRANSPORT_PROTECTION` warning per transport protocol. Its

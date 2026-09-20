@@ -184,6 +184,13 @@ describe('plugin operation Runtime', () => {
 				operations: [applicationOperation.name],
 				acknowledgeUnverifiedProtection: true,
 			})
+			const repeated = ultimabase.exposeOperations({
+				transport: fakeProtocol,
+				operations: [applicationOperation],
+				acknowledgeUnverifiedProtection: true,
+			})
+			expect(repeated.operations[0]).toBe(exposure.operations[0])
+
 			const context = RequestContext.anonymous({
 				requestId: 'canonical-wire',
 				source: 'fixture',

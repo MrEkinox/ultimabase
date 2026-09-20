@@ -7,10 +7,10 @@ import {
 
 import { FrameworkError } from '../../errors/framework-error.js'
 import { readApplicationCommandGraph } from '../../plugins/application-command-graph.js'
+import { describeOperationTransport } from '../commands/transport-projection.js'
 import {
 	defineCapability,
 	provideCapability,
-	type CapabilityProviderContribution,
 	type CapabilityProviderDeclaration,
 	type CapabilityToken,
 } from '../../plugins/capabilities.js'
@@ -24,8 +24,6 @@ import { assertApplicationPluginPrivilege } from '../../plugins/setup-registries
 import { isOperationTransportProtocol } from '../plugin-operations/capabilities.js'
 import type { OperationTransportProtocol } from '../plugin-operations/contracts.js'
 import type { ExposedOperationTransportBinding } from '../plugin-operations/transport.js'
-import type { CompiledSchemaRegistry } from '../../schema/index.js'
-import type { CompiledApplicationSchemaSurface } from '../../plugins/application-surface-registry.js'
 import {
 	planApplicationSchemaMutations,
 	type ApplicationSchemaMutationTransportPlan,
@@ -62,11 +60,6 @@ export interface ApplicationOperationTransportPlanner {
 interface PlannerState {
 	application: object | undefined
 	disposed: boolean
-	resolveSchemaSurface:
-		| ((className: string) => CompiledApplicationSchemaSurface | undefined)
-		| undefined
-	schemaMutationBindings: readonly CapabilityProviderContribution[] | undefined
-	schemas: CompiledSchemaRegistry | undefined
 }
 
 const plannerStates = new WeakMap<
@@ -99,7 +92,7 @@ const descriptorFor = (
 			`Operation ${operation.name} is not an installed application operation.`,
 		)
 	}
-	const owned = graph.bindings.transport(operation, transport)
+	const owned = graph.bindings.transport(command, transport)
 	if (owned?.kind !== 'operation') {
 		throw operationFailure(
 			operation,
@@ -107,19 +100,7 @@ const descriptorFor = (
 			`Operation ${operation.name} requires one exact binding for ${transport.name}@${transport.version}.`,
 		)
 	}
-	return immutableRecord({
-		errors: command.definition.errors,
-		metadata: owned.binding.metadata,
-		name: command.definition.name,
-		owner: immutableRecord({
-			...(command.owner.instanceId === undefined
-				? {}
-				: { instanceId: command.owner.instanceId }),
-			pluginId: command.owner.pluginId,
-			version: command.owner.version,
-		}),
-		version: command.definition.version,
-	})
+	return describeOperationTransport(command, owned)
 }
 
 class CoreApplicationOperationTransportPlanner implements ApplicationOperationTransportPlanner {
@@ -196,10 +177,7 @@ class CoreApplicationOperationTransportPlanner implements ApplicationOperationTr
 		if (
 			state === undefined ||
 			state.disposed ||
-			state.application === undefined ||
-			state.resolveSchemaSurface === undefined ||
-			state.schemaMutationBindings === undefined ||
-			state.schemas === undefined
+			state.application === undefined
 		) {
 			throw new TypeError(
 				'Application operation transport planner is unavailable',
@@ -238,12 +216,7 @@ class CoreApplicationOperationTransportPlanner implements ApplicationOperationTr
 			}
 		}
 		return planApplicationSchemaMutations(
-			{
-				application: state.application,
-				bindings: state.schemaMutationBindings,
-				resolveSurface: state.resolveSchemaSurface,
-				schemas: state.schemas,
-			},
+			readApplicationCommandGraph(state.application),
 			options,
 		)
 	}
@@ -281,9 +254,6 @@ const canonicalPlanner = provideCapability(
 			const state: PlannerState = {
 				application: undefined,
 				disposed: false,
-				resolveSchemaSurface: undefined,
-				schemaMutationBindings: undefined,
-				schemas: undefined,
 			}
 			plannerStates.set(planner, state)
 			Object.freeze(planner)
@@ -292,9 +262,6 @@ const canonicalPlanner = provideCapability(
 				dispose: () => {
 					state.application = undefined
 					state.disposed = true
-					state.resolveSchemaSurface = undefined
-					state.schemaMutationBindings = undefined
-					state.schemas = undefined
 				},
 			})
 		},
@@ -317,14 +284,7 @@ export const canonicalApplicationOperationTransportPlanningFoundation: Readonly<
 /** @internal Binds static application provenance before transport compilation. */
 export const bindApplicationOperationTransportPlanner = (
 	planner: unknown,
-	options: Readonly<{
-		readonly application: object
-		readonly resolveSchemaSurface: (
-			className: string,
-		) => CompiledApplicationSchemaSurface | undefined
-		readonly schemaMutationBindings: readonly CapabilityProviderContribution[]
-		readonly schemas: CompiledSchemaRegistry
-	}>,
+	application: object,
 ): void => {
 	if (planner === undefined) return
 	if (typeof planner !== 'object' || planner === null) {
@@ -341,10 +301,7 @@ export const bindApplicationOperationTransportPlanner = (
 			'Application operation transport planner is already bound',
 		)
 	}
-	state.application = options.application
-	state.resolveSchemaSurface = options.resolveSchemaSurface
-	state.schemaMutationBindings = immutableArray(options.schemaMutationBindings)
-	state.schemas = options.schemas
+	state.application = application
 }
 
 /** Identifies the non-replaceable Core operation planning protocol. */

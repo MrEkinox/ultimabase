@@ -1,4 +1,5 @@
-import { readMutationCommand } from '../../plugins/command-graph.js'
+import { readApplicationCommandGraph } from '../../plugins/application-command-graph.js'
+import { projectSchemaMutationTransports } from '../commands/transport-projection.js'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 import type { FrameworkEngine } from '../engine/framework-engine.js'
@@ -48,21 +49,20 @@ export const exposeFrameworkSchemaMutations = <
 	const exposed: ConstructorParameters<
 		typeof CoreApplicationSchemaMutationTransport<TTransport>
 	>[1][number][] = []
-	for (const schema of framework.application.schemas.values()) {
-		const surface = framework.application.getSchemaSurface(schema.className)
-		if (surface?.schema !== schema) continue
-		const commands = new Map([
-			...surface.schemaMutations,
-			...surface.modelMutations,
-		])
-		for (const [commandName, view] of [...commands].sort(([left], [right]) =>
-			left.localeCompare(right),
-		)) {
-			const { command } = readMutationCommand(view)
-			const binding = runtime.findTransportBinding(command, options.transport)
-			if (binding === undefined) continue
-			exposed.push(immutableRecord({ binding, command, commandName, schema }))
-		}
+	for (const entry of projectSchemaMutationTransports(
+		readApplicationCommandGraph(framework.application),
+		options.transport,
+	)) {
+		const schema = framework.application.schemas.get(entry.descriptor.schema)
+		if (schema === undefined)
+			throw new TypeError('Compiled command schema is unavailable')
+		exposed.push(
+			immutableRecord({
+				...entry,
+				commandName: entry.descriptor.command,
+				schema,
+			}),
+		)
 	}
 	reportFrameworkPublicTransportProtection(framework, options)
 

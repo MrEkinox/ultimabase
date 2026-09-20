@@ -1,11 +1,7 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
-import type { CompiledApplicationSchemaSurface } from '../../plugins/application-surface-registry.js'
-import type { CapabilityProviderContribution } from '../../plugins/capabilities.js'
-import { readApplicationCommandGraph } from '../../plugins/application-command-graph.js'
-import { readMutationCommand } from '../../plugins/command-graph.js'
-import type { CompiledSchemaRegistry } from '../../schema/index.js'
-import { isSchemaMutationTransportBinding } from '../schema-mutations/transport-capabilities.js'
+import type { CompiledCommandGraph } from '../../plugins/command-graph.js'
+import { projectSchemaMutationTransports } from '../commands/transport-projection.js'
 import type { ExposedSchemaMutationTransportBinding } from '../schema-mutations/transport.js'
 import type { OperationTransportProtocol } from '../plugin-operations/contracts.js'
 
@@ -24,72 +20,18 @@ export interface ApplicationSchemaMutationTransportPlan<
 	readonly transport: TTransport
 }
 
-interface SchemaMutationTransportPlanningState {
-	readonly application: object
-	readonly bindings: readonly CapabilityProviderContribution[]
-	readonly resolveSurface: (
-		className: string,
-	) => CompiledApplicationSchemaSurface | undefined
-	readonly schemas: CompiledSchemaRegistry
-}
-
-/** @internal Plans exact schema and command pairs without retaining codecs. */
+/** Projects the same exact descriptors used by the late execution allowlist. */
 export const planApplicationSchemaMutations = <
 	const TTransport extends OperationTransportProtocol,
 >(
-	state: SchemaMutationTransportPlanningState,
+	graph: CompiledCommandGraph,
 	options: SchemaMutationTransportPlanningOptions<TTransport>,
-): ApplicationSchemaMutationTransportPlan<TTransport> => {
-	const bindings = readApplicationCommandGraph(state.application).bindings
-
-	const usedBindings = new Set<object>()
-	const mutations: ExposedSchemaMutationTransportBinding[] = []
-	for (const schema of state.schemas.values()) {
-		const surface = state.resolveSurface(schema.className)
-		if (surface?.schema !== schema) continue
-		const commands = new Map([
-			...surface.schemaMutations,
-			...surface.modelMutations,
-		])
-		for (const [commandName, command] of [...commands].sort(([left], [right]) =>
-			left.localeCompare(right),
-		)) {
-			const { command: compiled } = readMutationCommand(command)
-			const owned = bindings.transport(compiled, options.transport)
-			if (owned?.kind !== 'mutation') continue
-			const binding = owned.binding
-			usedBindings.add(binding.mutation)
-			mutations.push(
-				immutableRecord({
-					authority: command.mutation.authority,
-					command: commandName,
-					effect: command.mutation.effect,
-					errors: command.mutation.errors,
-					metadata: binding.metadata,
-					mutation: command.mutation.name,
-					owner: command.owner,
-					returning: command.mutation.returning,
-					schema: schema.className,
-					version: command.mutation.version,
-				}),
-			)
-		}
-	}
-	for (const contribution of state.bindings) {
-		const binding = contribution.value
-		if (
-			!isSchemaMutationTransportBinding(binding) ||
-			binding.transport !== options.transport ||
-			usedBindings.has(binding.mutation)
-		)
-			continue
-		throw new TypeError(
-			`Schema mutation ${binding.mutation.name} transport binding has no installed schema surface`,
-		)
-	}
-
-	return immutableRecord({
-		mutations: immutableArray(mutations),
+): ApplicationSchemaMutationTransportPlan<TTransport> =>
+	immutableRecord({
+		mutations: immutableArray(
+			projectSchemaMutationTransports(graph, options.transport).map(
+				({ descriptor }) => descriptor,
+			),
+		),
 		transport: options.transport,
 	})
-}

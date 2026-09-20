@@ -32,8 +32,11 @@ Master checks, protected targeting, owner-only effects and before/after results.
 Issue 3011 derives Typegen inspection from canonical inert commands and the same
 alias index as direct handles. [ADR-0262](docs/adr/0262-descriptive-typegen-command-inspection.md)
 removes executable tokens and constructors from that tooling view. Direct
-execution retains exact original declarations. Transport facades remain the
-bounded migration in issue 3012. Removed extension APIs have no compatibility path.
+execution retains exact original declarations. Issue 3012 derives static and
+executable transport projections from the same commands and exact materialized
+bindings. Shared inert descriptor identities replace duplicate metadata assembly
+and GraphQL structural comparisons; no binding list or legacy surface resolver
+remains in the planner. Removed extension APIs have no compatibility path.
 
 ```text
 developer declarations + pure authorized plugin declarations

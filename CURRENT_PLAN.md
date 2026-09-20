@@ -1,12 +1,12 @@
 # Active plan: pre-feature architecture simplification
 
-- Status: active — issue 3011 audited; issue 3012 follows its dedicated commit
+- Status: active — issue 3012 audited; issue 3013 follows its dedicated commit
 - Milestone: [30 — Pre-feature architecture simplification](issues/3000-pre-feature-architecture-simplification/README.md)
 - Detailed plan: [docs/plans/2026-09-20-pre-feature-architecture-simplification.md](docs/plans/2026-09-20-pre-feature-architecture-simplification.md)
 - Baseline: [docs/plans/2026-09-20-architecture-simplification-baseline.md](docs/plans/2026-09-20-architecture-simplification-baseline.md)
 - Contract matrix: [docs/plans/2026-09-20-architecture-contract-matrix.md](docs/plans/2026-09-20-architecture-contract-matrix.md)
 - Removal history: [HISTORIQUE_SUPPRESSIONS.md](HISTORIQUE_SUPPRESSIONS.md)
-- Resume point: issue 3012
+- Resume point: issue 3013
 
 ## Objective
 
@@ -182,7 +182,17 @@ Typegen bridge is removed, source/built inspection is descriptive, and generated
 output/fingerprints remain byte-identical. All 2,534 unit/type/performance tests,
 381 integration tests and 66 website checks pass, with build, typecheck, lint and
 constraints. Production shrinks by one line; public export names stay unchanged.
-Its dedicated local commit precedes 3012. No push; stop after 3014.
+Its dedicated local commit is `c5073432`: +389 / -78 lines, net +311,
+including tests and documentation. No push; stop after 3014.
+
+Issue 3012 is complete with a green audit. Plans and executable allowlists share immutable
+descriptors from canonical commands and exact materialized bindings. Existing
+public planning/execution facades and their authority/lifecycle boundaries remain.
+Obsolete descriptor assembly, binding scans and GraphQL correspondence state are
+removed. All 2,535 unit/type/performance tests, 381 integrations and 66 website
+checks pass, alongside build, typecheck, lint and constraints. Production shrinks
+by 111 lines with unchanged public exports and declaration size. Its dedicated
+local commit precedes 3013. No push; the hard stop after 3014 remains.
 
 Documentation impact: internal engineering documentation until an issue changes
 a public contract; those issues must update both package and public website

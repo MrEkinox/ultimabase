@@ -1,5 +1,3 @@
-import { isDeepStrictEqual } from 'node:util'
-
 import type {
 	ApplicationOperationTransport,
 	ApplicationOperationTransportPlan,
@@ -18,24 +16,6 @@ const executionStates = new WeakMap<
 	GraphqlOperationExecution,
 	GraphqlOperationExecutionState
 >()
-
-const sameOwner = (
-	left: ExposedOperationTransportBinding['owner'],
-	right: ExposedOperationTransportBinding['owner'],
-): boolean =>
-	left.pluginId === right.pluginId &&
-	left.instanceId === right.instanceId &&
-	left.version === right.version
-
-const sameDescriptor = (
-	left: ExposedOperationTransportBinding,
-	right: ExposedOperationTransportBinding,
-): boolean =>
-	left.name === right.name &&
-	left.version === right.version &&
-	sameOwner(left.owner, right.owner) &&
-	isDeepStrictEqual(left.errors, right.errors) &&
-	isDeepStrictEqual(left.metadata, right.metadata)
 
 /** Retains the static plan while Core remains the only operation executor. */
 export class GraphqlOperationExecution {
@@ -61,8 +41,7 @@ export class GraphqlOperationExecution {
 			core.transport !== state.plan.transport ||
 			core.operations.length !== state.plan.operations.length ||
 			core.operations.some(
-				(item, index) =>
-					!sameDescriptor(item, state.plan.operations[index] ?? item),
+				(item, index) => item !== state.plan.operations[index],
 			)
 		) {
 			throw new TypeError(

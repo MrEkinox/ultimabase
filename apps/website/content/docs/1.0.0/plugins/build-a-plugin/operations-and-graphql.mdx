@@ -18,6 +18,7 @@ sources:
   - packages/soft-delete-plugin/src/explicit.ts
   - docs/adr/0240-static-operation-transport-planning.md
   - docs/adr/0261-command-compilation-and-binding-phases.md
+  - packages/core/src/runtime/application/application-schema-mutation-transport-planning.test.ts
   - docs/adr/0256-rest-operation-public-paths.md
 ---
 
@@ -129,6 +130,15 @@ deletes one item and needs Core's locked target, policy checks, and transaction.
 `models.extend()` attaches its `schemaMutations` to selected schema and model
 surfaces. Typegen derives those methods from the graph; JavaScript uses the
 same compiled surfaces without generated files.
+
+A mutation handler or transport binding with no selected schema/model alias
+stays dormant. It contributes no method or route and does not cause an
+unused-binding startup error. Declaring a provider alone never exposes a command.
+
+For transport authors, the Core planner and late execution facade share the
+same frozen descriptors from the compiled command. Keep those descriptors when
+binding execution; a reconstructed object does not identify an exposed mutation.
+The plan contains no codec or handler and cannot authorize a request.
 
 ## Expose behavior through GraphQL
 

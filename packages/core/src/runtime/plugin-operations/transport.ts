@@ -1,5 +1,6 @@
+import { describeOperationTransport } from '../commands/transport-projection.js'
 import { runApplicationWork } from '../../application/active-application.js'
-import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
+import { isPlainRecord } from '@ultimabase/shared'
 
 import { FrameworkError } from '../../errors/framework-error.js'
 import type { CompiledOperationCommand } from '../../plugins/command-graph.js'
@@ -108,19 +109,7 @@ export class CoreApplicationOperationTransport<
 		this.transport = transport
 		this.operations = Object.freeze(
 			[...this.exposed.values()].map(({ binding, compiled }) =>
-				immutableRecord({
-					errors: compiled.definition.errors,
-					metadata: binding.binding.metadata,
-					name: compiled.definition.name,
-					owner: immutableRecord({
-						...(compiled.owner.instanceId === undefined
-							? {}
-							: { instanceId: compiled.owner.instanceId }),
-						pluginId: compiled.owner.pluginId,
-						version: compiled.owner.version,
-					}),
-					version: compiled.definition.version,
-				}),
+				describeOperationTransport(compiled, binding),
 			),
 		)
 		Object.freeze(this)

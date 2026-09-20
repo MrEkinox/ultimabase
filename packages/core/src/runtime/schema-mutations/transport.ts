@@ -67,6 +67,7 @@ export interface ApplicationSchemaMutationTransport<
 
 interface ExposedSchemaMutation {
 	readonly binding: OwnedSchemaMutationTransportBinding
+	readonly descriptor: ExposedSchemaMutationTransportBinding
 	readonly commandName: string
 	readonly command: CompiledMutationCommand
 	readonly schema: SchemaDefinition
@@ -81,22 +82,6 @@ const requestKeys = new Set([
 	'schema',
 	'select',
 ])
-
-const createDescriptor = (
-	exposed: ExposedSchemaMutation,
-): ExposedSchemaMutationTransportBinding =>
-	immutableRecord({
-		authority: exposed.command.definition.authority,
-		command: exposed.commandName,
-		effect: exposed.command.definition.effect,
-		errors: exposed.command.definition.errors,
-		metadata: exposed.binding.binding.metadata,
-		mutation: exposed.command.definition.name,
-		owner: exposed.command.owner,
-		returning: exposed.command.definition.returning,
-		schema: exposed.schema.className,
-		version: exposed.command.definition.version,
-	})
 
 /** @internal Retains executable codecs and commands behind inert descriptors. */
 export class CoreApplicationSchemaMutationTransport<
@@ -117,7 +102,7 @@ export class CoreApplicationSchemaMutationTransport<
 	) {
 		this.transport = transport
 		for (const item of exposed) {
-			this.#exposed.set(createDescriptor(item), item)
+			this.#exposed.set(item.descriptor, item)
 		}
 		this.mutations = immutableArray([...this.#exposed.keys()])
 		Object.freeze(this)

@@ -52,7 +52,7 @@ const binding = schemaMutationTransportBinding({
 	mutation: archive,
 })
 
-const createOwnerPlugin = (bindingCount = 1) =>
+const createOwnerPlugin = (bindingCount = 1, selected = true) =>
 	definePlugin({
 		capabilities: {
 			provides:
@@ -86,12 +86,13 @@ const createOwnerPlugin = (bindingCount = 1) =>
 				],
 				targets: schemas.select({ className: Document.className }),
 			})
-			models.extend(Document, {
-				contributionId: 'archive',
-				schemaMutations: {
-					archive: { mutation: archive, surfaces: ['schema'] },
-				},
-			})
+			if (selected)
+				models.extend(Document, {
+					contributionId: 'archive',
+					schemaMutations: {
+						archive: { mutation: archive, surfaces: ['schema'] },
+					},
+				})
 		},
 		pluginId: 'fixture.schema-mutation-planning.owner',
 		privileges: [
@@ -190,6 +191,18 @@ describe('application schema mutation transport planning', () => {
 		})
 		expect(Object.isFrozen(plan)).toBe(true)
 		expect(plan?.mutations[0]).not.toHaveProperty('codec')
+		await application.dispose()
+	})
+
+	it('leaves bindings with no selected alias dormant', async () => {
+		const harness: Harness = {}
+		const application = await createApplication({
+			pluginPrivileges: { logger: false },
+			plugins: [createOwnerPlugin(1, false), consumerPlugin(harness)],
+			schemas: [Document],
+		})
+		// A provider factory alone cannot add a route or a second execution registry.
+		expect(runPlanning(harness)?.mutations).toEqual([])
 		await application.dispose()
 	})
 

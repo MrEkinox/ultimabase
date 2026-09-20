@@ -217,6 +217,11 @@ export class CompiledCommandGraph {
 		return this.#entries.get(name)?.operationView
 	}
 
+	/** Preserves compiled schema order without exposing constructors to projection code. */
+	schemaNames(): readonly string[] {
+		return immutableArray([...this.#surfaceViews.keys()])
+	}
+
 	/** Copies the index while retaining the exact immutable envelope command identities. */
 	schemaSurface(
 		className: string,

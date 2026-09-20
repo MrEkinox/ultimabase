@@ -19,7 +19,6 @@ import type { SchemaDefinition } from '../../schema/index.js'
 import type { RequestContext } from '../context/request-context.js'
 import { getSchemaMutationWireCodec } from './transport-capabilities.js'
 import type { SchemaMutationTransportBindingDefinition } from './transport-contracts.js'
-import type { OperationTransportProtocol } from '../plugin-operations/contracts.js'
 
 export interface OwnedSchemaMutationTransportBinding {
 	readonly binding: SchemaMutationTransportBindingDefinition
@@ -120,31 +119,6 @@ export class PluginSchemaMutationRuntime {
 				owned.contributionId,
 			)
 		}
-	}
-
-	/** Resolves one exact owner binding after transport exposure selected it. */
-	transportBinding(
-		command: CompiledMutationCommand,
-		transport: OperationTransportProtocol,
-	): OwnedSchemaMutationTransportBinding {
-		const binding = this.#bindings.transport(command, transport)
-		if (binding?.kind !== 'mutation') {
-			throw mutationFailure(
-				command,
-				'schema-mutation-transport-binding-missing',
-				`Schema mutation ${command.definition.name} has no binding for ${transport.name}@${transport.version}.`,
-			)
-		}
-		return binding
-	}
-
-	/** Reads an optional binding while static exposure remains explicit. */
-	findTransportBinding(
-		command: CompiledMutationCommand,
-		transport: OperationTransportProtocol,
-	): OwnedSchemaMutationTransportBinding | undefined {
-		const binding = this.#bindings.transport(command, transport)
-		return binding?.kind === 'mutation' ? binding : undefined
 	}
 
 	/** Decodes one payload under the exact binding owner's attribution. */

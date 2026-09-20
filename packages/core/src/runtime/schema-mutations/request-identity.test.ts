@@ -25,6 +25,7 @@ import {
 	schemaMutationTransportBinding,
 	schemaMutationWireCodec,
 } from './transport-capabilities.js'
+import { planApplicationSchemaMutations } from '../application/schema-mutation-transport-planning.js'
 import { exposeFrameworkSchemaMutations } from './transport-exposure.js'
 
 const protocol = defineOperationTransport({
@@ -148,14 +149,6 @@ describe('canonical mutation request identity', () => {
 			source: 'fixture',
 		})
 		const options = normalizeOperationOptions(undefined)
-		const exposure = exposeFrameworkSchemaMutations(ultimabase.engine, {
-			transport: protocol,
-			acknowledgeUnverifiedProtection: true,
-		})
-		const binding = exposure.mutations.find(
-			(item) => item.schema === Post.className,
-		)
-		if (binding === undefined) throw new Error('Missing wire fixture')
 
 		// Runtime must use compiled target membership, even if the public view is unavailable.
 		const legacy = vi
@@ -164,6 +157,39 @@ describe('canonical mutation request identity', () => {
 				throw new Error('Legacy surface lookup reached Runtime')
 			})
 		try {
+			const exposure = exposeFrameworkSchemaMutations(ultimabase.engine, {
+				transport: protocol,
+				acknowledgeUnverifiedProtection: true,
+			})
+			const binding = exposure.mutations.find(
+				(item) => item.schema === Post.className,
+			)
+			if (binding === undefined) throw new Error('Missing wire fixture')
+
+			const plan = planApplicationSchemaMutations(graph, {
+				transport: protocol,
+			})
+			expect(exposure.mutations).toEqual(plan.mutations)
+			expect(
+				plan.mutations.map(({ schema, command }) => [schema, command]),
+			).toEqual([
+				[Post.className, 'archive'],
+				[Other.className, 'close'],
+			])
+			expect(
+				exposure.mutations.every(
+					(item, index) => item === plan.mutations[index],
+				),
+			).toBe(true)
+			await expect(
+				exposure.execute({
+					binding: { ...binding },
+					context: engine.context,
+					id,
+					input: undefined,
+					schema: Post,
+				}),
+			).rejects.toMatchObject({ code: 'PLUGIN_OPERATION_INVALID' })
 			for (const [candidate, schema, request] of [
 				[{ ...command }, Post, envelope],
 				[command, Post, { ...envelope, command: 'close' }],
