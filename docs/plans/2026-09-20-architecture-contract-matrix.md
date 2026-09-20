@@ -1,0 +1,176 @@
+# Architecture contract matrix
+
+- Baseline: [issue 3001 measurements](2026-09-20-architecture-simplification-baseline.md)
+- Source revision: `5806d87a879df0db8265579737c83111eb6030f9`
+- Status: baseline; no removal approved
+
+This matrix is the preservation ledger for milestone 30. IDs are stable. Later
+issues may refine evidence or move an explicitly approved candidate to removed,
+but must not reuse or renumber an ID. `Retain` means observable parity is
+required. `Candidate` means issue 3003 may propose removal; the baseline still
+retains it until the user approves the exact difference.
+
+Evidence abbreviations used below:
+
+- **source**: production consumer or Core invariant in `packages/*/src`;
+- **public**: built package export, package README, website, or accepted ADR;
+- **unit/type**: Vitest runtime tests and TypeScript language-service tests;
+- **packed/JS**: tests against built exports or JavaScript without Typegen;
+- **E2E**: transport or PostgreSQL integration tests;
+- **conformance**: official/community-compatible provider suites.
+
+## Retained observable behavior
+
+| ID    | Owner             | Contract and public surfaces                                                                                                                              | Consumer or invariant                                           | Baseline evidence                             | Decision                                 | Regression coverage                                          |
+| ----- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- | --------------------------------------------- | ---------------------------------------- | ------------------------------------------------------------ |
+| B-001 | Core schema/query | Static schemas, fields, immutable Query/models, CRUD, bulk, upsert, nested writes, relations, contextual relation filters, inclusions and virtual results | Direct TypeScript, transports, adapters and plugins             | source, Core README, schema examples          | Retain                                   | unit/type, packed/JS, PostgreSQL E2E                         |
+| B-002 | Core Runtime      | Mandatory validation, policy, behavior, persistence and result order                                                                                      | Security and plugin composition invariant                       | Runtime source, AGENTS, accepted ADRs         | Retain                                   | pipeline, Hooks, Access, ACL and validation suites           |
+| B-003 | Core Runtime      | One automatic transaction for each mutation and Hook-started database work                                                                                | Atomicity and rollback invariant                                | Runtime and PostgreSQL sources                | Retain                                   | transaction, nested-write and rollback E2E                   |
+| B-004 | Core authority    | Anonymous and non-forgeable server-side Master authority                                                                                                  | Every direct and transport request                              | source, Core README, website                  | Retain                                   | Master type/runtime tests and transport E2E                  |
+| B-005 | Core/application  | JavaScript applications execute without Typegen                                                                                                           | Typegen is replaceable declaration tooling, never Runtime truth | source and architecture                       | Retain                                   | packed REST, GraphQL, relation-filter and Soft Delete JS E2E |
+| B-006 | Core + Typegen    | Direct TypeScript inference, editor documentation and deterministic generated declarations                                                                | TypeScript developers and generated projects                    | public, source                                | Retain                                   | type tests, language-service tests, Typegen fixtures         |
+| B-007 | Core + transports | REST and GraphQL normalize into the same operation/query semantics and Runtime                                                                            | Transport parity and security invariant                         | source, REST/GraphQL READMEs                  | Retain                                   | direct/REST/GraphQL parity E2E                               |
+| B-008 | Core plugin graph | Stable plugin ID plus optional explicit instance; deterministic dependencies and lifecycle cleanup                                                        | Multiple configured instances and shared providers              | source, Core/plugin-kit/testing READMEs       | Retain pending issue 3002 scope decision | graph, lifecycle and conformance suites                      |
+| B-009 | Core application  | Current support for several active applications in one process                                                                                            | Existing tests and HTTP sharing behavior                        | source, password user-method and server tests | Pending issue 3002                       | concurrency, isolation and foreign-application E2E           |
+| B-010 | Core kernel       | Core stays independent from concrete products and infrastructure                                                                                          | Dependency-direction invariant                                  | constraints and architecture                  | Retain                                   | `yarn constraints`, import/public API tests                  |
+| B-011 | Official engines  | Hooks and Access remain optional and add zero neutral Runtime stages when absent                                                                          | Product modularity and cost invariant                           | source and runtime-cost probe                 | Retain                                   | conformance and performance suites                           |
+| B-012 | Official plugins  | PostgreSQL, HTTP/Hono, REST, GraphQL/Yoga/explorers, ACL, Roles, Validation, Password Auth and Soft Delete retain current outcomes                        | Current product surface                                         | package READMEs and website                   | Retain                                   | package public API, packed and E2E suites                    |
+
+## Plugin authoring powers
+
+| ID    | Owner                     | Public power and surfaces                                                                                          | Current package/example/Runtime consumer                                         | Baseline evidence | Decision                                        | Regression coverage                                      |
+| ----- | ------------------------- | ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------- | ----------------- | ----------------------------------------------- | -------------------------------------------------------- |
+| P-001 | Core declaration host     | Declare schemas and field builder methods with `schema:declare`                                                    | Password Auth schema, pg-vector field, plugin-kit field helpers; schema compiler | source/public     | Retain                                          | schema declaration, pg-vector, Password Auth tests       |
+| P-002 | Core declaration host     | Declare namespaced schema and field options                                                                        | Access, Hooks, Validation, Roles, ACL, PostgreSQL, Soft Delete, REST, GraphQL    | source/public     | Retain                                          | option type/runtime tests and Typegen fixtures           |
+| P-003 | Core declaration host     | Select schemas and apply immutable additive patches with `schema:transform`                                        | Soft Delete and plugin-kit patch helpers; schema compiler                        | source/public     | Retain                                          | schema patch, Soft Delete and plugin-kit tests           |
+| P-004 | Core schema               | Add contextual field kinds, codecs and adapter/compiler facts                                                      | pg-vector and PostgreSQL; Query/adapter/GraphQL compilers                        | source/public     | Retain                                          | field-kind, codec, PostgreSQL and GraphQL tests          |
+| P-005 | Core application surfaces | Add application-owned schema/model commands with `model:extend`                                                    | Password Auth user methods and Soft Delete commands; application handles         | source/public     | Retain                                          | type, packed and PostgreSQL E2E                          |
+| P-006 | Core operations           | Declare application/schema/model operations and handlers with `operation:declare`                                  | Password Auth; Runtime operation dispatcher; REST and GraphQL                    | source/public     | Retain; consolidate representation              | operation unit/type and transport E2E                    |
+| P-007 | Core schema mutations     | Declare selected schema mutations, handlers and surface aliases                                                    | Access/Hooks integrations and Soft Delete; Runtime; REST/GraphQL                 | source/public     | Retain; consolidate representation              | schema-mutation conformance and transport E2E            |
+| P-008 | Core private storage      | Declare owner-private tables/fields with `storage:private`                                                         | Password credential/session storage and PostgreSQL compiler/executor             | source/public     | Retain                                          | private-storage and Password Auth E2E                    |
+| P-009 | Core lifecycle            | Materialize and dispose application-lifetime capability resources                                                  | PostgreSQL connections, HTTP/GraphQL/REST applications, server providers         | source/public     | Retain                                          | lifecycle and failure-cleanup tests                      |
+| P-010 | Core plugin graph         | Explicit instances, dependencies, peers, nested-plugin flattening and deterministic order                          | All plugins; testing conformance examples                                        | source/public     | Retain, subject to issue 3002 application scope | graph and conformance suites                             |
+| P-011 | Core capability host      | Define, provide, require and compose versioned declaration/application capabilities                                | 39 named protocols and community plugin boundary                                 | source/public     | Retain                                          | capability host, ownership, instance and lifecycle tests |
+| P-012 | Core Runtime              | Add ordered behavior stages with `runtime:intercept`                                                               | Hooks, Validation, ACL, Roles, Password Auth                                     | source/public     | Retain                                          | behavior composition and product suites                  |
+| P-013 | Core Runtime              | Add deny/narrow-only constraints with `runtime:constrain`                                                          | Access, ACL and Soft Delete                                                      | source/public     | Retain                                          | enforcement monotonicity and product E2E                 |
+| P-014 | Core Runtime              | Observe Runtime activity with `runtime:observe`                                                                    | Access and Hooks diagnostic observer capabilities                                | source/public     | Retain                                          | observer/diagnostic tests                                |
+| P-015 | Core persistence          | Rewrite physical persistence plans with `persistence:rewrite` while preserving logical semantics                   | Soft Delete replacement and PostgreSQL execution                                 | source/public     | Retain                                          | persistence rewrite and Soft Delete E2E                  |
+| P-016 | Core adapter bridge       | Provide/consume adapter contributions with `adapter:consume`, privileged `adapter:raw`, and `migration:contribute` | PostgreSQL physical schema, migrations and raw adapter                           | source/public     | Retain                                          | adapter bridge, migration and PostgreSQL tests           |
+| P-017 | Core transport            | Expose routes, operation bindings and schema-mutation bindings with `transport:expose`                             | HTTP, REST, GraphQL, Yoga and Password Auth                                      | source/public     | Retain; derive from canonical graph             | transport planning and E2E                               |
+| P-018 | Core/plugin-kit events    | Publish and consume typed post-commit events with `event:publish`                                                  | Hooks, Roles and ACL event protocols                                             | source/public     | Retain                                          | event ordering/type and PostgreSQL E2E                   |
+| P-019 | Core Typegen              | Register nominal type references with `typegen:reference`                                                          | Password Auth and Soft Delete; Typegen snapshot/generator                        | source/public     | Retain                                          | Typegen reference, generator and plugin type tests       |
+| P-020 | Core authority            | Request audited internal elevation with `authority:elevate`                                                        | Password Auth, Roles and Soft Delete administration                              | source/public     | Retain                                          | audit failure/inheritance E2E                            |
+| P-021 | Core policy               | Declare principal, role and reference-cleanup protocols without granting access                                    | Password Auth, Roles and ACL                                                     | source/public     | Retain                                          | subject, ACL and cross-application tests                 |
+| P-022 | Core diagnostics          | Inspect manifests, privileges, claims and capability ownership before effects                                      | Startup policy and plugin tooling                                                | source/public     | Retain                                          | privilege policy, diagnostics and conformance tests      |
+| P-023 | Core application          | Read immutable compiled schemas and plugin exports during setup                                                    | Typegen, PostgreSQL and transport setup                                          | source/public     | Retain; simplify projections                    | setup/lifecycle and package integration tests            |
+
+### Example and documentation map
+
+The public examples are grouped by authoring boundary rather than repeated for
+each official consumer:
+
+| Matrix IDs               | Current examples and documented path                                                                                                                                                                        | Runtime consumer                                                               |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| P-001–P-004              | `packages/core/examples/schema`, especially `field-builder.md`, `field-options.md`, `plugin-field-containment.md` and `plugin-transformations.md`; website `plugins/build-a-plugin/schemas-and-typegen.mdx` | schema compiler, Query, PostgreSQL and GraphQL field compilers                 |
+| P-005–P-007, P-017       | `examples/minimal/src/status-plugin.ts`, `packages/core/examples/schema/plugin-schema-mutations.md`; website `plugins/build-a-plugin/operations-and-graphql.mdx`                                            | application handles, command Runtime, REST and GraphQL                         |
+| P-008–P-016, P-020–P-023 | website `plugins/build-a-plugin/runtime-and-infrastructure.mdx`; Core, plugin-kit and testing READMEs                                                                                                       | declaration host, capability host, Runtime assembly, lifecycle and persistence |
+| P-018                    | plugin-kit README event example and Hooks/ACL/Role event tests                                                                                                                                              | post-commit event delivery                                                     |
+| P-019                    | website `plugins/build-a-plugin/schemas-and-typegen.mdx`; Password Auth and Soft Delete definitions                                                                                                         | Typegen snapshot and generator                                                 |
+| P-010                    | website `plugins/build-a-plugin/index.mdx` and testing README conformance examples                                                                                                                          | plugin graph and lifecycle manager                                             |
+
+Official product examples are additionally covered by each package README and
+its owned page under `apps/website/content/docs/1.0.0/plugins/official`.
+
+## Named capability protocols
+
+Every non-fixture `capabilityId` literal in production source is classified
+below. Provider/consumer are the current official path; public tokens also
+remain available to compatible community plugins.
+
+| ID    | Protocol                                              | Owner        | Current provider → consumer or invariant              | Decision                           | Coverage                          |
+| ----- | ----------------------------------------------------- | ------------ | ----------------------------------------------------- | ---------------------------------- | --------------------------------- |
+| C-001 | `ultimabase.access.contributions`                     | Access       | Access providers → official Access runtime            | Retain                             | Access conformance                |
+| C-002 | `ultimabase.access.diagnostics-observer`              | Access       | observer providers → Access diagnostics               | Retain                             | Access diagnostics                |
+| C-003 | `ultimabase.acl-change-events`                        | ACL          | ACL publisher → optional event consumers              | Retain                             | ACL events E2E                    |
+| C-004 | `ultimabase.application-operation-transport-planning` | Core         | Core application → REST/GraphQL                       | Retain; consolidate                | operation transport planning      |
+| C-005 | `ultimabase.application-request-execution`            | Core         | selected application → HTTP/REST/GraphQL              | Retain                             | application request boundary      |
+| C-006 | `ultimabase.application-schema-mutation-surface`      | Core         | compiled application → Access/Hooks/transports        | Retain; consolidate                | mutation surface tests            |
+| C-007 | `ultimabase.database-adapter`                         | Core         | PostgreSQL → Runtime                                  | Retain                             | adapter and PostgreSQL suites     |
+| C-008 | `ultimabase.graphql.application`                      | GraphQL      | GraphQL → Yoga                                        | Retain                             | networkless/Yoga suites           |
+| C-009 | `ultimabase.graphql.http-endpoint`                    | graphql-http | Yoga → GraphiQL/Apollo Sandbox                        | Retain                             | explorer and endpoint tests       |
+| C-010 | `ultimabase.graphql.schemas`                          | GraphQL      | custom schema providers → GraphQL compiler            | Retain                             | schema composition                |
+| C-011 | `ultimabase.hook-diagnostics-observer`                | Hooks        | observer providers → Hooks diagnostics                | Retain                             | Hooks diagnostics                 |
+| C-012 | `ultimabase.hooks.contributions`                      | Hooks        | hook providers → official Hooks runtime               | Retain                             | Hooks conformance                 |
+| C-013 | `ultimabase.hooks.event-consumers`                    | Hooks        | event consumers → Hooks post-commit delivery          | Retain                             | Hooks event tests                 |
+| C-014 | `ultimabase.http.application`                         | HTTP         | HTTP application → Hono server                        | Retain                             | HTTP/Hono lifecycle               |
+| C-015 | `ultimabase.http.browser-policy`                      | HTTP         | browser policy → Hono preflight                       | Retain                             | browser policy tests              |
+| C-016 | `ultimabase.http.context-resolvers`                   | HTTP         | Password Auth/custom resolvers → HTTP request context | Retain                             | HTTP context/auth E2E             |
+| C-017 | `ultimabase.http.endpoints`                           | HTTP         | REST/Yoga/explorers/Auth → HTTP application           | Retain                             | endpoint composition              |
+| C-018 | `ultimabase.operation-transport-bindings`             | Core         | Password Auth/custom bindings → transport planners    | Retain; consolidate                | REST/GraphQL operation E2E        |
+| C-019 | `ultimabase.persistence-plan-rewriters`               | Core         | Soft Delete → Runtime persistence plan                | Retain                             | rewrite and Soft Delete E2E       |
+| C-020 | `ultimabase.plugin-operation-handlers`                | Core         | Password Auth/custom handlers → Runtime               | Retain; consolidate                | operation runtime tests           |
+| C-021 | `ultimabase.plugin-schema-mutation-handlers`          | Core         | Soft Delete/custom handlers → Runtime                 | Retain; consolidate                | mutation runtime tests            |
+| C-022 | `ultimabase.postgres-connection`                      | PostgreSQL   | managed/external connection → PostgreSQL plugin       | Retain                             | connection lifecycle              |
+| C-023 | `ultimabase.postgres-migration-contribution`          | PostgreSQL   | migration contributors → migration planning           | Retain                             | migration bridge tests            |
+| C-024 | `ultimabase.postgres-physical-schema-contribution`    | PostgreSQL   | field plugins → physical schema compiler              | Retain                             | pg-vector/physical schema tests   |
+| C-025 | `ultimabase.postgres-raw-adapter`                     | PostgreSQL   | PostgreSQL raw facade → privileged consumers          | Retain                             | raw adapter tests                 |
+| C-026 | `ultimabase.postgres-schema-preparation`              | PostgreSQL   | schema preparer → PostgreSQL startup                  | Retain                             | preparation/synchronization tests |
+| C-027 | `ultimabase.request-subject.principal-resolver`       | Core         | Password Auth → request subject                       | Retain                             | subject and Auth E2E              |
+| C-028 | `ultimabase.request-subject.reference-cleanup`        | Core         | ACL/identity providers → cleanup pipeline             | Retain                             | reference cleanup E2E             |
+| C-029 | `ultimabase.request-subject.role-resolver`            | Core         | Roles → ACL/request subject                           | Retain                             | Roles/ACL E2E                     |
+| C-030 | `ultimabase.rest.route-graph`                         | REST         | REST route providers → REST/HTTP setup                | Retain                             | route graph tests                 |
+| C-031 | `ultimabase.role-events`                              | Roles        | Roles publisher → optional consumers                  | Retain                             | role event tests                  |
+| C-032 | `ultimabase.runtime-behaviors`                        | Core         | Hooks/Validation/ACL/Roles/Auth → Runtime             | Retain                             | behavior pipeline suites          |
+| C-033 | `ultimabase.runtime-constraints`                      | Core         | Access/ACL/Soft Delete → Runtime                      | Retain                             | monotonic enforcement suites      |
+| C-034 | `ultimabase.runtime-executor`                         | Core         | canonical Runtime provider → application              | Retain token; replacement is R-004 | Runtime capability suites         |
+| C-035 | `ultimabase.runtime-interceptors`                     | Core         | authorized interceptors → Runtime assembly            | Retain                             | interceptor suites                |
+| C-036 | `ultimabase.runtime-observers`                        | Core         | diagnostic observers → Runtime assembly               | Retain                             | observer suites                   |
+| C-037 | `ultimabase.schema-compiler`                          | Core         | canonical compiler → application graph                | Retain token; replacement is R-003 | compiler IR suites                |
+| C-038 | `ultimabase.schema-mutation-transport-bindings`       | Core         | Soft Delete/custom bindings → REST/GraphQL            | Retain; consolidate                | mutation transport suites         |
+| C-039 | `ultimabase.typegen-emitter`                          | Core/Typegen | Typegen plugin → single emitter ownership             | Retain                             | Typegen plugin/lifecycle tests    |
+
+## Removal candidates for issue 3003
+
+These rows record evidence and the observable difference that approval would
+permit. Tests, exports, READMEs, examples and ADRs are obligations, so absence
+of an official Runtime consumer alone does not authorize deletion.
+No repository-owned registry identifies every external community plugin, so
+the external-consumer audit is incomplete by construction. Every candidate is
+therefore retained unless issue 3003 records the explicit compatibility risk
+and the user approves it.
+
+| ID    | Candidate                                                       | Production/official consumer audit                                                                              | Existing obligations                                                              | Proposed difference if approved                                                               | Baseline decision                                                |
+| ----- | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| R-001 | Generic `decorateCapability` and `capability:decorate`          | No production call or official provider                                                                         | Public Core export, type tests, capability host and ADR-0190                      | Community plugins can no longer decorate whole capability consumers                           | Retain pending exact user approval                               |
+| R-002 | Generic `replaceCapability` and `capability:replace`            | Only Core wrappers for compiler and Runtime replacement call it                                                 | Public Core export, type/runtime tests, ADR-0190                                  | Community plugins lose arbitrary provider replacement; specialized decisions remain separate  | Retain pending exact user approval                               |
+| R-003 | `replaceSchemaCompiler` and `schema:replace`                    | No production consumer outside Core implementation                                                              | Public export, language-service/runtime tests, compiler ADRs                      | Applications cannot install a replacement schema compiler                                     | Retain pending exact user approval                               |
+| R-004 | `replaceRuntime` and `runtime:replace`                          | `@ultimabase/testing` `RuntimeCostProbe` is the only production-package consumer; no product plugin consumes it | Public export, testing README/API, performance suite, runtime ADR                 | Applications cannot replace the executor; instrumentation must move to a non-replacement seam | Retain pending exact user approval and replacement test strategy |
+| R-005 | Query extensions and `query:extend`                             | No production call to `defineQueryExtension`; no official plugin requests the privilege                         | Public Core export, declaration host, unit/type tests, ADR-0192                   | Plugins cannot add custom QueryBuilder factories through this mechanism                       | Retain pending exact user approval                               |
+| R-006 | Manual `typegen:contribute` structured main-output augmentation | No official production plugin requests or invokes it                                                            | Public types/registrar, tests, plugin authoring docs, ADR-0198                    | Plugin-specific schema/model Typegen facts must be derived or use retained references         | Retain pending exact user approval                               |
+| R-007 | Manual `typegen:emit` plugin-owned output files                 | No official production plugin requests or invokes it                                                            | Public types/registrar, generator support, tests, plugin authoring docs, ADR-0198 | Plugins cannot request extra declaration or metadata files from Typegen                       | Retain pending exact user approval                               |
+
+No application operation family or schema-mutation family qualifies for
+removal: Password Auth and Soft Delete are production consumers, Access and
+Hooks integrate with schema mutations, and REST/GraphQL expose both families.
+Their duplicated representations are consolidation targets under P-006, P-007,
+P-017, C-004, C-006, C-018, C-020, C-021 and C-038.
+
+## Behavior-difference ledger for issues 3002 and 3003
+
+| ID    | Decision issue | Current behavior                                                                                                      | Potential approved difference                                                                                                     | Required proof before implementation                                                |
+| ----- | -------------- | --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| D-001 | 3002           | Several UltimaBase applications may be active in one process and selected explicitly; some tests share HTTP providers | One active application per process, with parallel tests isolated by worker/process and sequential replacement only after disposal | Exact affected tests, server-sharing behavior, migration path and user approval     |
+| D-002 | 3003           | R-001 through R-007 remain public and tested                                                                          | Only the exact approved candidate rows may be deleted                                                                             | Export/docs/example/community audit, replacement regression strategy, user approval |
+| D-003 | 3003           | Operations and schema mutations use several declaration, capability, planning and projection representations          | One canonical compiled command graph may replace duplicate internal representations                                               | Parity mapping to P-006/P-007/P-017 and all transport/type/runtime proofs           |
+| D-004 | 3003           | Typegen accepts references, structured main-output contributions and owned outputs                                    | Only currently consumed, explicitly retained type facts remain manual                                                             | R-006/R-007 decision plus generated-output parity                                   |
+
+## Audit rule
+
+For every later issue, reviewers must:
+
+1. list the B, P, C, R and D IDs touched by the diff;
+2. show that every retained row preserves source, TypeScript, packed JavaScript,
+   lifecycle, security and transport behavior relevant to that row;
+3. map each intentional difference to an approved D row;
+4. stop if a new dependency or consumer makes a removal claim ambiguous;
+5. add a new ID instead of silently widening an existing row.

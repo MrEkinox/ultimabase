@@ -3,7 +3,9 @@
 - Status: active
 - Milestone: [30 — Pre-feature architecture simplification](issues/3000-pre-feature-architecture-simplification/README.md)
 - Detailed plan: [docs/plans/2026-09-20-pre-feature-architecture-simplification.md](docs/plans/2026-09-20-pre-feature-architecture-simplification.md)
-- Resume point: issue 3001
+- Baseline: [docs/plans/2026-09-20-architecture-simplification-baseline.md](docs/plans/2026-09-20-architecture-simplification-baseline.md)
+- Contract matrix: [docs/plans/2026-09-20-architecture-contract-matrix.md](docs/plans/2026-09-20-architecture-contract-matrix.md)
+- Resume point: issue 3002
 
 ## Objective
 
@@ -38,6 +40,10 @@ the issue has its dedicated local commit.
 
 No push is authorized by this plan.
 
+Issue 3014 is a hard stop. After its green audit and dedicated commit, stop the
+active run and report the Core checkpoint to the user. Do not inspect, start,
+or implement issue 3015 without a later explicit user request.
+
 Any issue that changes public behavior, configuration, exports, errors, or
 examples must update the affected pages under `apps/website/content/docs` in
 the same audited commit. Dedicated website-documentation issues then review the
@@ -58,10 +64,10 @@ the meantime.
 
 ## Current step
 
-Start issue 3001 by measuring the clean baseline and classifying every public
-plugin capability as currently consumed, publicly supported, required by an
-invariant, or a removal candidate. Ambiguity means retention pending a user
-decision. Do not remove an API or change Runtime behavior in that issue.
+Issue 3001 is complete. Start issue 3002 by inventorying every current
+same-process multi-application and shared-server behavior. Present the exact
+compatibility differences, migration path, and alternatives, then stop for the
+explicit user approval required before accepting the decision.
 
 Documentation impact: internal engineering documentation until an issue changes
 a public contract; those issues must update both package and public website

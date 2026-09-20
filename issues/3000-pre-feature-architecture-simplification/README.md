@@ -12,12 +12,16 @@ approval after its exact compatibility impact is inventoried.
 
 The active implementation contract lives in the
 [pre-feature architecture simplification plan](../../docs/plans/2026-09-20-pre-feature-architecture-simplification.md).
+Issue 3001 records the measured
+[baseline](../../docs/plans/2026-09-20-architecture-simplification-baseline.md)
+and stable [contract matrix](../../docs/plans/2026-09-20-architecture-contract-matrix.md)
+used by every later audit.
 No later product milestone or paused objective resumes before issue 3034 closes
 this milestone.
 
 ## Execution order
 
-1. [ ] [3001 — Measure and inventory the retained contract](3001-measure-and-inventory-retained-contract.md)
+1. [x] [3001 — Measure and inventory the retained contract](3001-measure-and-inventory-retained-contract.md)
 2. [ ] [3002 — Decide the single-active-application contract](3002-single-active-application-decision.md)
 3. [ ] [3003 — Decide the smaller plugin kernel and canonical graph](3003-smaller-plugin-kernel-decision.md)
 4. [ ] [3004 — Remove unused capability replacement powers](3004-remove-unused-capability-replacement.md)
@@ -55,6 +59,10 @@ this milestone.
 Every issue depends on the previous issue's green audit. Implementation,
 correction, and complete re-audit repeat until no finding remains inside the
 issue scope. Only then may the issue be completed and the next one started.
+
+Issue 3014 is a hard stop for the currently authorized run. After its green
+audit and dedicated commit, report the Core checkpoint and do not inspect or
+start issue 3015 without a later explicit user request.
 
 Every issue also inherits the plan's architecture stop protocol. An uncertain
 consumer, unapproved behavior loss, architectural contradiction, or need for a

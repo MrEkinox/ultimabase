@@ -3,7 +3,9 @@
 - Status: active
 - Started: 2026-09-20
 - Milestone: [30 — Pre-feature architecture simplification](../../issues/3000-pre-feature-architecture-simplification/README.md)
-- Resume point: issue 3001
+- Resume point: issue 3002
+- Baseline: [issue 3001 measurements](2026-09-20-architecture-simplification-baseline.md)
+- Preservation ledger: [architecture contract matrix](2026-09-20-architecture-contract-matrix.md)
 
 ## Objective
 
@@ -189,6 +191,11 @@ updates from an earlier issue.
 
 Dependencies are deliberately sequential. A later issue may not begin while an
 earlier issue has an unresolved audit finding.
+
+Issue 3014 is also an explicit execution stop. Its green audit and dedicated
+commit complete the currently authorized Core/kernel run. The agent must report
+that checkpoint and must not inspect, start, or implement issue 3015 until the
+user explicitly resumes the plugin simplification wave.
 
 ## Mandatory audit loop
 

@@ -71,6 +71,7 @@ export default defineConfig(
 			'packages/*/tests/**/*.ts',
 			'tests/e2e/**/*.ts',
 			'tests/fixtures/**/*.ts',
+			'tooling/architecture/**/*.ts',
 			'tooling/ci/**/*.ts',
 			'tooling/vitest/**/*.test.ts',
 			'tooling/documentation/**/*.test.ts',

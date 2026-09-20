@@ -8,7 +8,9 @@ priority changes.
 ## Active
 
 - [Pre-feature architecture simplification](2026-09-20-pre-feature-architecture-simplification.md),
-  resumable at issue 3001. It blocks new product work until its Core and
+  resumable at issue 3002, with its
+  [baseline](2026-09-20-architecture-simplification-baseline.md) and
+  [contract matrix](2026-09-20-architecture-contract-matrix.md). It blocks new product work until its Core and
   per-plugin audit loops, public website reconciliation, and final parity gate
   complete.
 

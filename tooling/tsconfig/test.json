@@ -18,6 +18,7 @@
 		"../../tests/e2e/**/*.ts",
 		"../../tests/fixtures/**/*.ts",
 		"../../tests/performance/**/*.ts",
+		"../architecture/**/*.ts",
 		"../ci/**/*.ts",
 		"../documentation/**/*.test.ts",
 		"../eslint/**/*.test.ts",
