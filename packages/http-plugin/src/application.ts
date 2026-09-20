@@ -20,6 +20,7 @@ import {
 	type HttpContextResolverContributionsCapability,
 } from './context.js'
 import type { HttpBrowserPolicy } from './browser-policy.js'
+import { prepareHttpApplicationRequest } from './application-request.js'
 import type { HttpEndpointContributionsCapability } from './endpoints.js'
 import {
 	HttpPreDispatchFailure,
@@ -28,7 +29,6 @@ import {
 	finalizeHttpResponse,
 	httpPreDispatchErrorCodes,
 	prepareHttpServerRequest,
-	readPreparedApplicationId,
 	readPreparedHeader,
 	withoutHttpCredentialHeaders,
 	type HttpOriginalHeader,
@@ -53,6 +53,9 @@ export type {
 	OwnedHttpMount,
 	OwnedHttpRoute,
 } from './route-graph.js'
+
+/** Distinguishes the provider's listener ownership from application identity. */
+export type HttpServerOwnership = 'external' | 'framework'
 
 /** Reports immutable application-owned HTTP authority configuration. */
 export interface HttpApplicationAuthority {
@@ -86,11 +89,6 @@ const httpApplicationStates = new WeakMap<
 	HttpApplication,
 	HttpApplicationState
 >()
-const preparedApplicationFetch = new WeakMap<
-	HttpApplication,
-	(prepared: PreparedHttpServerRequest) => Promise<Response>
->()
-
 interface HttpRequestSignals {
 	readonly deadline: AbortSignal | undefined
 	readonly signal: AbortSignal
@@ -203,11 +201,7 @@ const dispatchPreparedRequest = async (
 	}
 
 	try {
-		if (readPreparedApplicationId(prepared) !== application.appId) {
-			throw new HttpPreDispatchFailure(
-				httpPreDispatchErrorCodes.applicationRejected,
-			)
-		}
+		prepared = prepareHttpApplicationRequest(application, prepared)
 	} catch {
 		return createHttpPreDispatchErrorResponse(
 			httpPreDispatchErrorCodes.applicationRejected,
@@ -369,9 +363,6 @@ export const createHttpApplicationResource = (
 		requestExecution: options.requestExecution,
 		requestTimeoutMs: options.requestTimeoutMs,
 	})
-	preparedApplicationFetch.set(application, (prepared) =>
-		dispatchPreparedRequest(application, prepared),
-	)
 
 	return immutableRecord({
 		value: application,
@@ -383,11 +374,3 @@ export const createHttpApplicationResource = (
 		},
 	})
 }
-
-/** @internal Lets a mount table preserve one prepared request ID during selection. */
-export const fetchPreparedHttpApplication = (
-	application: HttpApplication,
-	prepared: PreparedHttpServerRequest,
-): Promise<Response> =>
-	preparedApplicationFetch.get(application)?.(prepared) ??
-	application.fetch(prepared.input)

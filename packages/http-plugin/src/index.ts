@@ -2,6 +2,7 @@ export { httpApplicationCapability } from './application.js'
 export type {
 	HttpApplication,
 	HttpApplicationAuthority,
+	HttpServerOwnership,
 	OwnedHttpBrowserBootstrapRoute,
 	HttpEndpointProvenance,
 	HttpRouteGraph,
@@ -64,11 +65,7 @@ export type {
 	HttpRouteOptions,
 	ProvideHttpEndpointsOptions,
 } from './endpoints.js'
-export { HttpApplicationMountTable } from './mount-table.js'
-export type {
-	HttpServerOwnership,
-	HttpServerProviderCompatibility,
-} from './mount-table.js'
+export { dispatchHttpApplicationRequest } from './server-dispatch.js'
 export { httpPlugin } from './plugin.js'
 export type {
 	HttpMasterTransportOptions,

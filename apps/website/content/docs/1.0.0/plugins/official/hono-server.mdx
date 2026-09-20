@@ -9,19 +9,20 @@ order: 3
 outcome: Run an UltimaBase HTTP application on a managed or existing Hono server without mixing listener and browser-policy ownership.
 owner: '2812'
 releaseStatus: pre-release
-reviewedAt: 2026-09-17
+reviewedAt: 2026-09-20
 sources:
   - packages/server-hono-plugin/README.md
   - packages/server-hono-plugin/src/options.ts
   - docs/adr/0009-http-server-plugins.md
   - docs/adr/0226-http-browser-and-predispatch-boundaries.md
+  - docs/adr/0260-single-owner-http-dispatch.md
 ---
 
 ## Overview
 
 `@ultimabase/server-hono-plugin` connects an UltimaBase HTTP application to
 Hono on Node.js. It can own a listener or mount onto an existing Hono app. The
-[HTTP plugin](./http) owns application selection, request boundaries, and
+[HTTP plugin](./http) owns application identity, request boundaries, and
 browser policy; Hono supplies the server. Neither plugin creates REST or
 GraphQL routes. Install a [REST](./rest) or [GraphQL](./graphql) transport when
 you need one.
@@ -117,7 +118,9 @@ them on your own listener.
 
 ### Run one active application
 
-One JavaScript realm may initialize one UltimaBase application. A second
+One JavaScript realm may initialize one UltimaBase application. After UltimaBase stops, its routes reject requests
+through the safe HTTP boundary while ordinary Hono routes and the external
+listener remain available. A second
 application fails before opening a listener, even if it reuses the same
 `honoServerPlugin()` value. Await complete disposal before replacement.
 Run simultaneous applications in separate processes, workers, or containers.
@@ -137,7 +140,7 @@ application requests still require their exact `appId`.
 
 The existing-app Node integration must expose Hono's standard
 `incoming.rawHeaders` binding. UltimaBase uses that evidence to reject
-duplicate sensitive headers before application selection and fails closed if
+duplicate sensitive headers before application identity and fails closed if
 the evidence is missing. CORS is not authentication, authorization, or CSRF
 protection. TLS, proxy trust, compression, rate limiting, REST, GraphQL, and
 authentication remain outside this server plugin.
@@ -153,6 +156,6 @@ If initialization reports another active application, await that application’s
 when both applications must run at the same time.
 If an existing Hono app rejects requests before routing, verify its Node
 integration supplies `incoming.rawHeaders` and that CORS has exactly one
-owner. For application selection, credentials, or `HTTP_*` errors, continue at
+owner. For application identity, credentials, or `HTTP_*` errors, continue at
 [HTTP troubleshooting](./http#troubleshooting). A 404 with no REST or GraphQL
 transport installed is expected: the server plugin does not add API routes.

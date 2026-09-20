@@ -108,7 +108,7 @@ export class HttpPreDispatchFailure extends Error {
 	}
 }
 
-/** @internal Creates correlation independently from application selection. */
+/** @internal Creates correlation independently from application identity validation. */
 export const createHttpRequestId = (): string => globalThis.crypto.randomUUID()
 
 const snapshotOriginalHeaders = (
@@ -190,7 +190,7 @@ export const readPreparedHeader = (
 	)?.[1]
 }
 
-/** @internal Reads mandatory application selection from validated evidence. */
+/** @internal Reads the mandatory application identity from validated evidence. */
 export const readPreparedApplicationId = (
 	prepared: PreparedHttpServerRequest,
 ): string => {

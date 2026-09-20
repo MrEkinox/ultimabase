@@ -261,7 +261,7 @@ export const httpPluginPublicApi = {
 		'EnabledHttpBrowserPolicy',
 		'HttpApplication',
 		'HttpApplicationAuthority',
-		'HttpApplicationMountTable',
+		'dispatchHttpApplicationRequest',
 		'HttpBrowserPolicy',
 		'HttpEndpointContributionFactory',
 		'HttpEndpointContributionFactoryContext',
@@ -272,7 +272,6 @@ export const httpPluginPublicApi = {
 		'HttpPreDispatchErrorEnvelope',
 		'HttpRouteGraph',
 		'HttpServerOwnership',
-		'HttpServerProviderCompatibility',
 		'HttpServerRequest',
 		'OwnedHttpEndpoint',
 		'OwnedHttpBrowserBootstrapRoute',
@@ -483,6 +482,8 @@ export const removedValidationPluginPublicApiNames = [
 
 /** Names HTTP assembly internals deliberately kept out of the root API. */
 export const removedHttpPluginPublicApiNames = [
+	'HttpApplicationMountTable',
+	'HttpServerProviderCompatibility',
 	'assertHttpEndpointDefinitions',
 	'assertHttpServerRequest',
 	'createHttpApplicationResource',

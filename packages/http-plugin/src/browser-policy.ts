@@ -293,7 +293,7 @@ const hasCorsResponseHeaders = (headers: Headers): boolean =>
 	corsResponseHeaderNames.some((name) => headers.has(name))
 
 /**
- * Enforces one server-owned browser policy before application selection and
+ * Enforces one server-owned browser policy before application identity validation and
  * decorates only responses whose origin is explicitly accepted.
  */
 export const dispatchHttpBrowserRequest = async (

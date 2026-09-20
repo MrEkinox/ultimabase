@@ -1,9 +1,7 @@
 import { serve, type ServerType } from '@hono/node-server'
 import {
-	HttpApplicationMountTable,
+	dispatchHttpApplicationRequest,
 	dispatchHttpBrowserRequest,
-	httpApplicationProtocolVersion,
-	httpOriginalHeaderMode,
 	type HttpApplication,
 	type HttpBrowserPolicy,
 	type HttpServerOwnership,
@@ -23,31 +21,6 @@ interface HonoServerProviderOptions {
 const disabledBrowserPolicy: HttpBrowserPolicy = Object.freeze({
 	enabled: false,
 })
-
-const browserPoliciesEqual = (
-	left: HttpBrowserPolicy,
-	right: HttpBrowserPolicy,
-): boolean => {
-	if (!left.enabled || !right.enabled) return left.enabled === right.enabled
-	return (
-		left.credentials === right.credentials &&
-		left.maxAgeSeconds === right.maxAgeSeconds &&
-		(left.allowedOrigins === '*' || right.allowedOrigins === '*'
-			? left.allowedOrigins === right.allowedOrigins
-			: left.allowedOrigins.length === right.allowedOrigins.length &&
-				left.allowedOrigins.every(
-					(origin, index) => origin === right.allowedOrigins[index],
-				)) &&
-		left.allowedMethods.length === right.allowedMethods.length &&
-		left.allowedMethods.every(
-			(method, index) => method === right.allowedMethods[index],
-		) &&
-		left.allowedHeaders.length === right.allowedHeaders.length &&
-		left.allowedHeaders.every(
-			(header, index) => header === right.allowedHeaders[index],
-		)
-	)
-}
 
 const assertBrowserPolicyAuthorityCompatibility = (
 	application: HttpApplication,
@@ -81,17 +54,17 @@ const normalizeServerError = (error: unknown): Error =>
 				cause: error,
 			})
 
-/** Owns one explicit provider shared only by applications reusing its plugin value. */
+/** Owns one listener and one HTTP application at a time, with sequential reuse. */
 export class HonoServerProvider {
 	readonly #app: Hono
 	readonly #browserPolicyOwner: 'external' | 'ultimabase'
 	readonly #host: string | undefined
 	readonly #ownership: HttpServerOwnership
 	readonly #port: number
-	readonly #startedApplications = new Set<HttpApplication>()
+	#application: HttpApplication | undefined
+	#acceptingRequests = false
 	#dispatcherMounted = false
 	#browserPolicy: HttpBrowserPolicy | undefined
-	#mountTable: HttpApplicationMountTable
 	#queue: Promise<void> = Promise.resolve()
 	#server: ServerType | undefined
 
@@ -101,11 +74,6 @@ export class HonoServerProvider {
 		this.#host = options.host
 		this.#ownership = options.app === undefined ? 'framework' : 'external'
 		this.#port = options.port
-		this.#mountTable = new HttpApplicationMountTable({
-			applicationProtocolVersion: httpApplicationProtocolVersion,
-			originalHeaderMode: httpOriginalHeaderMode,
-			ownership: this.#ownership,
-		})
 	}
 
 	/** @internal Reports the active listener address for focused provider tests. */
@@ -136,7 +104,10 @@ export class HonoServerProvider {
 				originalHeaders: readNodeOriginalHeaders(context.env),
 				request: context.req.raw,
 			}
-			const dispatch = () => this.#mountTable.fetch(input)
+			const application = this.#acceptingRequests
+				? this.#application
+				: undefined
+			const dispatch = () => dispatchHttpApplicationRequest(application, input)
 			return this.#browserPolicyOwner === 'external'
 				? dispatch()
 				: dispatchHttpBrowserRequest(
@@ -152,56 +123,46 @@ export class HonoServerProvider {
 		application: HttpApplication,
 		browserPolicy: HttpBrowserPolicy,
 	): Promise<void> {
-		if (this.#startedApplications.has(application)) return
+		if (this.#application === application && this.#acceptingRequests) return
+		if (this.#application !== undefined) {
+			throw new TypeError(
+				'Hono server already owns an application; complete its disposal before replacement',
+			)
+		}
 		assertBrowserPolicyAuthorityCompatibility(application, browserPolicy)
 		if (this.#browserPolicyOwner === 'external' && browserPolicy.enabled) {
 			throw new TypeError(
 				'Externally owned browser policy requires HTTP browser policy to be disabled',
 			)
 		}
-		if (
-			this.#browserPolicy !== undefined &&
-			!browserPoliciesEqual(this.#browserPolicy, browserPolicy)
-		) {
-			throw new TypeError(
-				'Applications sharing one Hono server must use an identical HTTP browser policy',
-			)
-		}
-
-		const previousTable = this.#mountTable
-		const previousBrowserPolicy = this.#browserPolicy
-		const candidateTable = previousTable.mount(application)
 		this.#mountDispatcher()
-		this.#mountTable = candidateTable
+		this.#application = application
 		this.#browserPolicy = browserPolicy
+		this.#acceptingRequests = true
 
 		try {
 			if (this.#ownership === 'framework' && this.#server === undefined) {
 				this.#server = await this.#openServer()
 			}
-			this.#startedApplications.add(application)
 		} catch (error: unknown) {
-			this.#mountTable = previousTable
-			this.#browserPolicy = previousBrowserPolicy
+			// A failed startup cleanup still owns its listener until disposal proves release.
+			if (this.#server === undefined) this.#application = undefined
+			this.#browserPolicy = undefined
+			this.#acceptingRequests = false
 			throw error
 		}
 	}
 
 	async #stop(application: HttpApplication): Promise<void> {
-		if (this.#startedApplications.delete(application)) {
-			this.#mountTable = this.#mountTable.unmount(application)
-			if (this.#mountTable.size === 0) this.#browserPolicy = undefined
+		if (this.#application !== application) return
+		// Reject new requests before draining the listener; retain ownership if cleanup fails.
+		this.#acceptingRequests = false
+		this.#browserPolicy = undefined
+		if (this.#ownership === 'framework' && this.#server !== undefined) {
+			await closeServer(this.#server)
+			this.#server = undefined
 		}
-
-		if (
-			this.#ownership === 'framework' &&
-			this.#mountTable.size === 0 &&
-			this.#server !== undefined
-		) {
-			const server = this.#server
-			await closeServer(server)
-			if (this.#server === server) this.#server = undefined
-		}
+		this.#application = undefined
 	}
 
 	#openServer(): Promise<ServerType> {
@@ -217,6 +178,7 @@ export class HonoServerProvider {
 						reject(normalizeServerError(error))
 					},
 					(cleanupError: unknown) => {
+						this.#server = server
 						reject(
 							new AggregateError(
 								[error, cleanupError],

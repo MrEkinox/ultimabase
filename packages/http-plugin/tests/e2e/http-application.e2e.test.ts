@@ -16,6 +16,8 @@ it('runs the packed HTTP application from JavaScript without Typegen', async () 
 
 	expect(output).toStrictEqual({
 		appId: 'javascript-app',
+		absentStatus: 401,
+		absentRequestId: 'absent.request',
 		owner: { pluginId: 'fixture.javascript-http-route' },
 		response: 'typegen-free',
 	})

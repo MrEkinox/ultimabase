@@ -47,7 +47,7 @@ X-UltimaBase-Application-Id: blog
 
 The only application-behavior exception is an exact `GET` route created with
 `httpBrowserBootstrapRoute()`. A browser may open it at
-`/__ultimabase/apps/{encodeURIComponent(appId)}{routePath}`. The mount table
+`/__ultimabase/apps/{encodeURIComponent(appId)}{routePath}`. The application fetch boundary
 accepts the path-carried ID only after confirming that exact application owns
 that exact bootstrap route, then resumes the complete normal context,
 credential, timeout, attribution, and response boundary. The reserved
@@ -73,14 +73,14 @@ Browser-origin behavior is disabled unless `browser` supplies all five policy
 fields. Origins are exact serialized origins, methods use the supported
 uppercase HTTP methods, header names are compared case-insensitively, and
 `maxAgeSeconds` controls the browser preflight cache. Because every real public
-request still selects an application, `allowedHeaders` must include
+request still identifies the application, `allowedHeaders` must include
 `X-UltimaBase-Application-Id`. Add `Authorization`, `Content-Type`,
 `X-UltimaBase-Request-Id`, or `X-UltimaBase-Master-Key` only when browser
 clients actually send those headers.
 
 An accepted browser preflight carries no application ID. The server evaluates
 only the configured origin, requested method, requested header names, and cache
-lifetime, then returns without application selection, context resolution,
+lifetime, then returns without application identity validation, context resolution,
 credential verification, Master audit, route dispatch, Runtime, hooks, policy,
 or persistence. The following real request must still include its exact
 application ID and pass the normal credential and Runtime boundaries.
@@ -239,39 +239,35 @@ original-header requirements, immutable route graph, and one Fetch-compatible
 dispatcher. It never exposes an UltimaBase application, Runtime engine,
 adapter, `MasterAuthority`, grant, or lifecycle control.
 
-Providers keep their current table in their own explicit instance and replace
-it only after `mount()` succeeds:
+Providers keep one optional `HttpApplication` owner. Capability composition
+validates its protocol version and ordered original-header contract before
+server setup. A competing application is rejected before listener effects;
+complete disposal allows a later application to reuse the provider.
+
+Use the shared safe dispatcher, including when no application is available:
 
 ```ts
 import {
-	HttpApplicationMountTable,
-	httpApplicationProtocolVersion,
-	httpOriginalHeaderMode,
+	dispatchHttpApplicationRequest,
+	type HttpApplication,
 } from '@ultimabase/http-plugin'
 
-let table = new HttpApplicationMountTable({
-	applicationProtocolVersion: httpApplicationProtocolVersion,
-	originalHeaderMode: httpOriginalHeaderMode,
-	ownership: 'framework',
-})
-
-table = table.mount(httpApplication)
-```
-
-`ownership: 'framework'` means the provider owns its future listener lifecycle;
-`'external'` means the developer does. Both modes consume the same exact route
-graph. The table is immutable, so a duplicate app ID or incompatible candidate
-cannot partially register an application or damage earlier mounts.
-
-Before constructing Fetch `Headers`, the provider supplies ordered original
-header pairs:
-
-```ts
-const response = await table.fetch({
+let activeApplication: HttpApplication | undefined = httpApplication
+const response = await dispatchHttpApplicationRequest(activeApplication, {
 	request: new Request('http://localhost/status'),
 	originalHeaders: [['X-UltimaBase-Application-Id', 'blog']],
 })
+
+// Close admission before teardown; an external listener may stay open.
+activeApplication = undefined
 ```
+
+Before constructing Fetch `Headers`, the provider captures ordered original
+header pairs. With an owner, dispatch enters its `fetch()` boundary. Without
+one, requests still validate those pairs and request IDs before receiving the
+same safe rejection envelope. Providers retain their exact listener ownership:
+framework-owned listeners drain and close, while external listeners remain
+under the developer's control. `HttpServerOwnership` names those two modes.
 
 A normalized `Headers` object alone cannot prove that a sensitive header did
 not occur twice. Duplicate application ID, Master, Authorization, Cookie,
@@ -292,5 +288,5 @@ narrow application request executor remain private inside the application
 resource.
 
 Importing this package has no effect. Without `httpPlugin()`, Core creates no
-HTTP application capability, route graph, mount table, request context,
+HTTP application capability, route graph, request context,
 listener, or transport diagnostic.

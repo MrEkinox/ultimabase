@@ -1,12 +1,11 @@
 import { expectTypeOf, test } from 'vitest'
 
 import {
-	HttpApplicationMountTable,
-	httpApplicationProtocolVersion,
+	dispatchHttpApplicationRequest,
+	type HttpApplication,
 	httpBrowserBootstrapRoute,
 	httpMount,
 	httpContextResolver,
-	httpOriginalHeaderMode,
 	httpPlugin,
 	httpRoute,
 	provideHttpEndpoints,
@@ -97,7 +96,7 @@ test('types immutable HTTP context resolver contributions', () => {
 	})
 })
 
-test('types immutable endpoint providers and mount-table replacements', () => {
+test('types immutable endpoint providers and sole-owner dispatch', () => {
 	const mount = httpMount({
 		path: '/typed-mount',
 		protocol: { name: 'fixture.mount', version: '1' },
@@ -116,17 +115,19 @@ test('types immutable endpoint providers and mount-table replacements', () => {
 	).toEqualTypeOf<'ultimabase.http.endpoints'>()
 	expectTypeOf(mount).toExtend<HttpEndpointDefinition>()
 
-	const table = new HttpApplicationMountTable({
-		applicationProtocolVersion: httpApplicationProtocolVersion,
-		originalHeaderMode: httpOriginalHeaderMode,
-		ownership: 'external',
-	})
-	type MountResult = ReturnType<HttpApplicationMountTable['mount']>
-	expectTypeOf<MountResult>().toEqualTypeOf<HttpApplicationMountTable>()
-
-	void table.fetch({
-		request: new Request('http://localhost'),
-		// @ts-expect-error -- normalized headers cannot replace original header evidence.
-		headers: new Headers(),
-	})
+	// A server clears its optional owner before teardown without losing safe errors.
+	const dispatch = (application: HttpApplication | undefined) => {
+		expectTypeOf(
+			dispatchHttpApplicationRequest(application, {
+				request: new Request('http://localhost'),
+				originalHeaders: [],
+			}),
+		).toEqualTypeOf<Promise<Response>>()
+		void dispatchHttpApplicationRequest(application, {
+			request: new Request('http://localhost'),
+			// @ts-expect-error -- normalized headers cannot replace original header evidence.
+			headers: new Headers(),
+		})
+	}
+	void dispatch
 })

@@ -37,15 +37,17 @@ Core permits one initialized application per JavaScript realm. A second
 application fails before setup or listener effects. Complete disposal permits
 a later application; independent simultaneous applications require separate
 workers, processes, or containers. The HTTP `appId` still identifies the exact
-expected application and grants no authority. The provider's former shared-mount
-implementation is being removed by milestone 30 issue 3007; concurrent
-application hosting is already unavailable through Core.
+expected application and grants no authority. Each provider keeps one owner;
+it has no shared-mount table or application selector. The same plugin value may
+be reused after complete disposal with a fresh application.
 
 ## Existing Hono application
 
 Pass `app` when application routes must join an existing Hono assembly. The
 plugin adds one dispatcher after UltimaBase validation but never starts, stops,
-or disposes the Hono application or its listener. `host` and `port` are rejected
+or disposes the Hono application or its listener. After UltimaBase stops, its
+dispatcher rejects requests through the safe HTTP boundary; ordinary Hono
+routes keep working. `host` and `port` are rejected
 in this ownership mode.
 
 ```ts
@@ -92,7 +94,7 @@ fails safely instead of producing contradictory policy.
 
 The Node adapter's ordered `rawHeaders` are passed beside the normalized Fetch
 request. Duplicate application ID, Master key, authorization, cookie, content
-length, or request ID lines therefore fail before application selection. An
+length, or request ID lines therefore fail before application behavior. An
 external app must be served by a Node integration that supplies the standard
 Hono `incoming.rawHeaders` binding; requests without that evidence fail closed.
 

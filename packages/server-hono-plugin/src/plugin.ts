@@ -67,13 +67,13 @@ interface HonoServerLifecycleContext {
 	}>
 }
 
-/** Names one exact, optionally shared Hono server provider definition. */
+/** Names one exact Hono server provider definition. */
 export type HonoServerPlugin = PluginModuleInstance<
 	typeof honoServerPluginModule,
 	HonoServerPluginDefinition
 >
 
-/** Creates one explicit Hono provider that may be reused across applications. */
+/** Creates one explicit Hono provider reusable across sequential application lifetimes. */
 export const honoServerPlugin = <
 	TEnvironment extends Env = Env,
 	TSchema extends Schema = Schema,

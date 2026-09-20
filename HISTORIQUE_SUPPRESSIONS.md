@@ -152,10 +152,10 @@ les tests de rejet ; aucune compatibilité silencieuse n’est prévue.
 
 ## Capacités de déploiement retirées
 
-| Décision         | Suppression prévue                                                                                | Raison et comportement conservé                                                                                                                                                                                           | État / issue                  |
-| ---------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
-| D-001 / ADR-0258 | Plusieurs applications initialisées simultanément dans un même environnement JavaScript           | Une seule application active ; requêtes concurrentes isolées ; remplacement après disposal complet ; tests parallèles dans des workers/processus isolés. Une seconde activation échoue avant les effets d’infrastructure. | Réalisée en 3006              |
-| D-001 / ADR-0258 | Hébergement de plusieurs applications sur un même fournisseur Hono et `HttpApplicationMountTable` | Le serveur appartient à l’application active. L’identifiant HTTP vérifie toujours l’application exacte ; autorité Master, sessions, préflight, politique navigateur et erreurs sûres restent conservés.                   | Approuvée, à réaliser en 3007 |
+| Décision         | Suppression prévue                                                                                | Raison et comportement conservé                                                                                                                                                                                           | État / issue     |
+| ---------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| D-001 / ADR-0258 | Plusieurs applications initialisées simultanément dans un même environnement JavaScript           | Une seule application active ; requêtes concurrentes isolées ; remplacement après disposal complet ; tests parallèles dans des workers/processus isolés. Une seconde activation échoue avant les effets d’infrastructure. | Réalisée en 3006 |
+| D-001 / ADR-0258 | Hébergement de plusieurs applications sur un même fournisseur Hono et `HttpApplicationMountTable` | Le serveur appartient à l’application active. L’identifiant HTTP vérifie toujours l’application exacte ; autorité Master, sessions, préflight, politique navigateur et erreurs sûres restent conservés.                   | Réalisée en 3007 |
 
 ## Implémentations internes à remplacer puis supprimer
 
@@ -186,7 +186,7 @@ au fur et à mesure des migrations et de leurs audits.
   sont détaillées dans l’issue ; les tests unitaires, E2E, TypeScript, build,
   lint et documentation passent. Ce fichier est créé à la demande de l’utilisateur.
 
-- **3006 — livrée dans ce commit :** retrait des applications initialisées
+- **3006 — `30bd1452` :** retrait des applications initialisées
   simultanément dans un même environnement JavaScript. L’exécution concurrente
   des requêtes et les workers indépendants restent autorisés. Le remplacement
   attend les opérations en cours et la libération complète des ressources ;
@@ -198,10 +198,23 @@ au fur et à mesure des migrations et de leurs audits.
   Cette étape ajoute **344 lignes de production** pour le contrôle et la fermeture
   sûre du cycle de vie. Le retrait de l’hébergement HTTP partagé reste en 3007.
 
+- **3007 — livrée dans ce commit :** retrait de `HttpApplicationMountTable`,
+  de son type de configuration `HttpServerProviderCompatibility`, des tableaux
+  d’applications, du set Hono des applications démarrées, de la comparaison
+  CORS entre applications et du comptage des derniers montages. Le pont privé
+  `fetchPreparedHttpApplication` et sa WeakMap disparaissent aussi.
+  Le type consommé `HttpServerOwnership`, les validations de protocole et
+  les erreurs sûres restent conservés. L’utilitaire public minimal de dispatch
+  a été explicitement validé dans ADR-0260 ; il ne conserve aucune application.
+  Réduction de **240 lignes de production** et **un export public net**.
+  Audit final sans anomalie ; 2 523 tests unitaires/types/performance et 379
+  intégrations passent. Aucun changement d’implémentation dans Core.
+
 ## Sources de décision
 
 - [Plan actif](CURRENT_PLAN.md)
 - [ADR-0258 : une application active](docs/adr/0258-single-active-application-lifecycle.md)
 - [ADR-0259 : noyau réduit et commandes canoniques](docs/adr/0259-smaller-plugin-kernel-and-canonical-commands.md)
+- [ADR-0260 : dispatch HTTP à propriétaire unique](docs/adr/0260-single-owner-http-dispatch.md)
 - [Matrice des contrats à préserver](docs/plans/2026-09-20-architecture-contract-matrix.md)
 - [Inventaire et audit des décisions](docs/plans/2026-09-20-smaller-kernel-decision-proposal.md)

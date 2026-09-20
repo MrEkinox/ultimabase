@@ -1,27 +1,21 @@
 import { serve, type ServerType } from '@hono/node-server'
-import {
-	httpApplicationProtocolVersion,
-	httpOriginalHeaderMode,
-	type HttpApplication,
-	type HttpBrowserPolicy,
-} from '@ultimabase/http-plugin'
+import type { HttpBrowserPolicy } from '@ultimabase/http-plugin'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { createServer, type Server } from 'node:http'
 import { chromium, type BrowserContext, type Page } from 'playwright'
 import { describe, expect, it } from 'vitest'
 
-import { HonoServerProvider } from './provider.js'
+import { HonoServerProvider } from '../src/provider.js'
+import {
+	createBrowserApplication,
+	type BrowserBoundaryObservations,
+} from './fixtures/browser-application.js'
 
 interface BrowserFetchResult {
 	readonly body: string
 	readonly errorName: string | undefined
 	readonly status: number | undefined
-}
-
-interface BrowserBoundaryObservations {
-	applicationEffects: number
-	preflights: number
 }
 
 const closeServer = (server: Server | ServerType): Promise<void> =>
@@ -100,30 +94,6 @@ const browserFetch = (
 		{ requestInit: init, requestUrl: url },
 	)
 
-const createBrowserApplication = (
-	observations: BrowserBoundaryObservations,
-): HttpApplication => ({
-	appId: 'browser',
-	authority: { master: { enabled: true } },
-	protocolVersion: httpApplicationProtocolVersion,
-	originalHeaderMode: httpOriginalHeaderMode,
-	requestTimeoutMs: undefined,
-	routeGraph: { browserBootstraps: [], endpoints: [], mounts: [], routes: [] },
-	fetch: ({ request }) => {
-		// Crossing this boundary represents all application-owned behavior below it.
-		observations.applicationEffects += 1
-		return Promise.resolve(
-			Response.json({
-				applicationEffects: observations.applicationEffects,
-				authorization: request.headers.get('Authorization'),
-				cookie: request.headers.get('Cookie'),
-				master: request.headers.get('X-UltimaBase-Master-Key'),
-				preflights: observations.preflights,
-			}),
-		)
-	},
-})
-
 const createBrowserPolicy = (allowedOrigin: string): HttpBrowserPolicy => ({
 	allowedHeaders: [
 		'X-UltimaBase-Application-Id',
@@ -167,7 +137,11 @@ describe('HTTP browser boundary in Chromium', () => {
 			host: undefined,
 			port: 1337,
 		})
-		const application = createBrowserApplication(observations)
+		const fixture = await createBrowserApplication(
+			observations,
+			createBrowserPolicy(readOrigin(allowedServer)),
+		)
+		const application = fixture.http
 		const browser = await chromium.launch({ headless: true })
 		const context = await browser.newContext()
 		let targetServer: ServerType | undefined
@@ -257,7 +231,8 @@ describe('HTTP browser boundary in Chromium', () => {
 			expect(masterRequest.status).toBe(200)
 			expect(JSON.parse(masterRequest.body)).toMatchObject({
 				applicationEffects: 4,
-				master: 'master-secret',
+				master: null,
+				mode: 'master',
 				preflights: 3,
 			})
 
@@ -281,6 +256,7 @@ describe('HTTP browser boundary in Chromium', () => {
 			await browser.close()
 			if (targetServer !== undefined) await closeServer(targetServer)
 			await provider.dispose(application)
+			await fixture.dispose()
 			await Promise.all([
 				closeServer(allowedServer),
 				closeServer(rejectedServer),
@@ -310,7 +286,8 @@ describe('HTTP browser boundary in Chromium', () => {
 			host: undefined,
 			port: 1337,
 		})
-		const application = createBrowserApplication(observations)
+		const fixture = await createBrowserApplication(observations)
+		const application = fixture.http
 		await provider.start(application)
 		const targetServer = await startHonoServer(app)
 		const browser = await chromium.launch({ headless: true })
@@ -334,6 +311,7 @@ describe('HTTP browser boundary in Chromium', () => {
 			await browser.close()
 			await closeServer(targetServer)
 			await provider.dispose(application)
+			await fixture.dispose()
 			await closeServer(originServer)
 		}
 	})

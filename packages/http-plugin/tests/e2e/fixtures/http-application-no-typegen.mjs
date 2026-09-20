@@ -10,6 +10,7 @@ import {
 	requireCapability,
 } from '@ultimabase/core'
 import {
+	dispatchHttpApplicationRequest,
 	httpApplicationCapability,
 	httpPlugin,
 	httpRoute,
@@ -92,13 +93,19 @@ try {
 	const http = ultimabase.application.getPlugin(
 		'fixture.javascript-http-server',
 	).http
-	const response = await http.fetch({
+	const response = await dispatchHttpApplicationRequest(http, {
 		originalHeaders: [['X-UltimaBase-Application-Id', 'javascript-app']],
+		request: new Request('http://localhost/javascript'),
+	})
+	const absent = await dispatchHttpApplicationRequest(undefined, {
+		originalHeaders: [['X-UltimaBase-Request-Id', 'absent.request']],
 		request: new Request('http://localhost/javascript'),
 	})
 	process.stdout.write(
 		JSON.stringify({
 			appId: http.appId,
+			absentStatus: absent.status,
+			absentRequestId: absent.headers.get('X-UltimaBase-Request-Id'),
 			owner: http.routeGraph.routes[0].provenance.owner,
 			response: await response.text(),
 		}),

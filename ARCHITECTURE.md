@@ -7,8 +7,10 @@ Milestone 30 has accepted
 application per JavaScript realm, concurrent requests, and sequential replacement
 after disposal. Issue 3006 enforces lifecycle ownership before initialization
 and drains admitted Core work before teardown. Cleanup failure retains the slot.
-Issue 3007 removes the now-unreachable shared-server application routing
-machinery; it does not remove HTTP application identity.
+Issue 3007 removes shared-server routing. Under
+[ADR-0260](docs/adr/0260-single-owner-http-dispatch.md), server providers dispatch
+to one optional HTTP owner through the safe HTTP boundary, including rejection
+after shutdown; HTTP application identity remains required.
 
 [ADR-0259](docs/adr/0259-smaller-plugin-kernel-and-canonical-commands.md) also
 accepts ten precisely listed extension removals and one private compiled command
@@ -116,7 +118,7 @@ It remains network-independent.
 the selected GraphQL HTTP path. Yoga provides it, while the optional GraphiQL
 and Apollo Sandbox plugins consume it without depending on Yoga. Explorer
 bootstrap pages use only HTTP's reserved application path; every non-explorer
-application request remains header-selected. Yoga, REST, Hono, and HTTP
+application request still verifies its header identity. Yoga, REST, Hono, and HTTP
 authentication integrations meet through the HTTP plugin rather than importing
 one another.
 

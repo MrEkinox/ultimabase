@@ -16,9 +16,6 @@ import { graphqlHttpEndpointCapability } from '@ultimabase/graphql-http'
 
 import {
 	httpApplicationCapability,
-	httpApplicationProtocolVersion,
-	httpOriginalHeaderMode,
-	HttpApplicationMountTable,
 	type HttpApplication,
 	type HttpServerRequest,
 } from '@ultimabase/http-plugin'
@@ -121,12 +118,3 @@ export const browserRequest = (
 		),
 	}
 }
-
-export const mountHttpApplication = (
-	application: HttpApplication,
-): HttpApplicationMountTable =>
-	new HttpApplicationMountTable({
-		applicationProtocolVersion: httpApplicationProtocolVersion,
-		originalHeaderMode: httpOriginalHeaderMode,
-		ownership: 'external',
-	}).mount(application)

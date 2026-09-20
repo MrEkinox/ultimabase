@@ -16,6 +16,10 @@ owners contribute standard `Request` to `Response` handlers through the public
 HTTP capability. One initialized application owns the server boundary in each
 JavaScript realm; the provider checks its expected identity against the ordered original `X-UltimaBase-Application-Id` header evidence. External and
 framework-owned providers consume the same graph.
+`dispatchHttpApplicationRequest(owner, input)` dispatches to that one optional
+owner. With no owner, it preserves original-header validation, request
+correlation, privacy headers and safe application rejection. The application
+fetch boundary itself owns exact browser-bootstrap path validation.
 
 Every selected route starts with one anonymous application-bound Core context.
 Optional credential plugins contribute ordered resolvers that add typed
@@ -82,7 +86,7 @@ An explicit transport acknowledgement accepts only that uncertainty. It does
 not grant access, prove policy coverage, bypass policy, or create Master
 authority. Transports still normalize into the shared Runtime pipeline.
 
-Every public HTTP application request identifies one mounted application. When
+Every public HTTP application request identifies the sole active application. When
 the developer explicitly enables Master transport, the HTTP plugin may exchange
 that application's raw Master key through Core's narrow request executor. Core
 verifies and audits the credential before producing private application-owned

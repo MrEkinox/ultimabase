@@ -5,7 +5,6 @@ import {
 	databasePlugin,
 	graphqlHttpProvider,
 	httpConsumer,
-	mountHttpApplication,
 	readHttpApplication,
 } from '../../../../tests/fixtures/graphql-explorer.js'
 import { UltimaBase } from '@ultimabase/core'
@@ -33,7 +32,7 @@ describe('packed Apollo Sandbox plugin', () => {
 		const enabledHttp = readHttpApplication(
 			enabled.application.getPlugin('fixture.explorer-http-consumer'),
 		)
-		const response = await mountHttpApplication(enabledHttp).fetch(
+		const response = await enabledHttp.fetch(
 			browserRequest('production-enabled', '/apollo-sandbox'),
 		)
 		expect(response.status).toBe(200)

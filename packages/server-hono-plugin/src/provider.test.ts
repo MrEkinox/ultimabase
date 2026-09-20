@@ -4,6 +4,7 @@ import {
 	httpOriginalHeaderMode,
 	type HttpApplication,
 	type HttpBrowserPolicy,
+	type HttpServerRequest,
 } from '@ultimabase/http-plugin'
 import { Hono } from 'hono'
 import { createServer, request as nodeRequest } from 'node:http'
@@ -15,6 +16,7 @@ import { HonoServerProvider } from './provider.js'
 const createHttpApplication = (
 	appId: string,
 	onFetch = vi.fn<(request: Request) => void>(),
+	onInput = vi.fn<(input: HttpServerRequest) => void>(),
 ): HttpApplication => ({
 	appId,
 	authority: { master: { enabled: false } },
@@ -22,7 +24,9 @@ const createHttpApplication = (
 	originalHeaderMode: httpOriginalHeaderMode,
 	requestTimeoutMs: undefined,
 	routeGraph: { browserBootstraps: [], endpoints: [], mounts: [], routes: [] },
-	fetch: ({ request }) => {
+	fetch: (input) => {
+		const { request } = input
+		onInput(input)
 		onFetch(request)
 		return Promise.resolve(
 			new Response(`${appId}:${new URL(request.url).pathname}`),
@@ -164,14 +168,15 @@ describe('HonoServerProvider', () => {
 		expect(provider.address).toBeUndefined()
 	})
 
-	it('preserves duplicate sensitive headers before application selection', async () => {
+	it('forwards original duplicate headers unchanged to the HTTP boundary', async () => {
 		const onFetch = vi.fn<(request: Request) => void>()
+		const onInput = vi.fn<(input: HttpServerRequest) => void>()
 		const provider = new HonoServerProvider({
 			app: undefined,
 			host: '127.0.0.1',
 			port: 0,
 		})
-		const application = createHttpApplication('raw', onFetch)
+		const application = createHttpApplication('raw', onFetch, onInput)
 		await provider.start(application)
 		const address = provider.address
 		if (address === undefined) throw new TypeError('Missing listener address')
@@ -185,17 +190,20 @@ describe('HonoServerProvider', () => {
 				'x-ultimabase-application-id',
 				'raw',
 			])
-			expect(response.status).toBe(400)
-			expect(JSON.parse(response.body)).toMatchObject({
-				error: { code: 'HTTP_BAD_REQUEST' },
-			})
-			expect(onFetch).not.toHaveBeenCalled()
+			expect(response.status).toBe(200)
+			expect(onInput.mock.calls[0]?.[0].originalHeaders).toEqual(
+				expect.arrayContaining([
+					['X-UltimaBase-Application-Id', 'raw'],
+					['x-ultimabase-application-id', 'raw'],
+				]),
+			)
+			expect(onFetch).toHaveBeenCalledOnce()
 		} finally {
 			await provider.dispose(application)
 		}
 	})
 
-	it('handles browser preflight before application selection on a real listener', async () => {
+	it('handles browser preflight before application identity validation on a real listener', async () => {
 		const onFetch = vi.fn<(request: Request) => void>()
 		const provider = new HonoServerProvider({
 			app: undefined,
@@ -253,7 +261,7 @@ describe('HonoServerProvider', () => {
 		}
 	})
 
-	it('rejects mismatched shared browser policy without changing the listener', async () => {
+	it('rejects a second owner before changing the listener or browser policy', async () => {
 		const provider = new HonoServerProvider({
 			app: undefined,
 			host: '127.0.0.1',
@@ -268,7 +276,7 @@ describe('HonoServerProvider', () => {
 		try {
 			await expect(
 				provider.start(rejected, browserPolicy(['https://other.example'])),
-			).rejects.toThrow('identical HTTP browser policy')
+			).rejects.toThrow('already owns an application')
 			const response = await fetch(listenerUrl(address, '/stable'), {
 				headers: { 'X-UltimaBase-Application-Id': 'accepted' },
 			})
@@ -320,7 +328,7 @@ describe('HonoServerProvider', () => {
 		await provider.dispose(application)
 	})
 
-	it('atomically shares one listener while retaining exact application mounts', async () => {
+	it('reuses the provider sequentially and ignores stale-owner disposal', async () => {
 		const provider = new HonoServerProvider({
 			app: undefined,
 			host: '127.0.0.1',
@@ -328,30 +336,25 @@ describe('HonoServerProvider', () => {
 		})
 		const first = createHttpApplication('first')
 		const second = createHttpApplication('second')
-		await Promise.all([provider.start(first), provider.start(second)])
+		await provider.start(first)
+		await provider.dispose(first)
+		expect(provider.address).toBeUndefined()
+		await provider.start(second)
 		const address = provider.address
 		if (address === undefined) throw new TypeError('Missing listener address')
-
-		const firstResponse = await fetch(listenerUrl(address, '/shared'), {
-			headers: { 'X-UltimaBase-Application-Id': 'first' },
-		})
-		const secondResponse = await fetch(listenerUrl(address, '/shared'), {
-			headers: { 'X-UltimaBase-Application-Id': 'second' },
-		})
-		expect(await firstResponse.text()).toBe('first:/shared')
-		expect(await secondResponse.text()).toBe('second:/shared')
-
-		await provider.stop(first)
-		expect(provider.address).toStrictEqual(address)
-		const removed = await fetch(listenerUrl(address, '/shared'), {
-			headers: { 'X-UltimaBase-Application-Id': 'first' },
-		})
-		expect(removed.status).toBe(401)
-		await provider.stop(second)
-		expect(provider.address).toBeUndefined()
+		try {
+			await provider.dispose(first)
+			expect(provider.address).toStrictEqual(address)
+			const response = await fetch(listenerUrl(address, '/new'), {
+				headers: { 'X-UltimaBase-Application-Id': 'second' },
+			})
+			expect(await response.text()).toBe('second:/new')
+		} finally {
+			await provider.dispose(second)
+		}
 	})
 
-	it('rejects an app ID collision without changing the running table', async () => {
+	it('rejects a distinct owner even when it reuses the same application ID', async () => {
 		const provider = new HonoServerProvider({
 			app: undefined,
 			host: '127.0.0.1',
@@ -365,7 +368,7 @@ describe('HonoServerProvider', () => {
 
 		try {
 			await expect(provider.start(rejected)).rejects.toThrow(
-				'HTTP application ID is already mounted',
+				'Hono server already owns an application',
 			)
 			const response = await fetch(listenerUrl(address, '/stable'), {
 				headers: { 'X-UltimaBase-Application-Id': 'duplicate' },
@@ -402,6 +405,18 @@ describe('HonoServerProvider', () => {
 			expect(await mounted.text()).toBe('external:/external')
 
 			await provider.dispose(application)
+			const stopped = await fetch(listenerUrl(address, '/external'), {
+				headers: {
+					'X-UltimaBase-Application-Id': 'external',
+					'X-UltimaBase-Request-Id': 'after.stop',
+				},
+			})
+			expect(stopped.status).toBe(401)
+			expect(stopped.headers.get('X-UltimaBase-Request-Id')).toBe('after.stop')
+			expect(stopped.headers.get('Cache-Control')).toBe('private, no-store')
+			expect(await stopped.json()).toMatchObject({
+				error: { code: 'HTTP_APPLICATION_REJECTED' },
+			})
 			expect(server.listening).toBe(true)
 			expect(await (await fetch(listenerUrl(address, '/health'))).text()).toBe(
 				'healthy',

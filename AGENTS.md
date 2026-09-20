@@ -105,16 +105,17 @@ Key prohibitions:
   request execution capability. They never receive a `FrameworkEngine`,
   `RequestEngine`, `FrameworkApplication`, `UltimaBase`, adapter, pipeline,
   authority, grant, or lifecycle mutation facade.
-- Every public HTTP application request identifies one exact mounted
+- Every public HTTP application request identifies the sole active
   application. Explicitly configured infrastructure-only browser preflight is
   the sole exception and invokes no application behavior. An explicitly
   enabled raw Master key is verified and audited only by that application's
   Core authority; headers, flags, shaped contexts, grants, and foreign
   credentials never manufacture authority.
-- Browser-origin policy is disabled by default. Applications sharing one HTTP
-  server provider must declare one structurally identical effective policy;
-  preflight selects no application and invokes no application behavior.
-- Application-selection and credential failures before route dispatch use the
+- Browser-origin policy is disabled by default. The sole active application
+  owns one effective policy; preflight invokes no application behavior.
+  Server providers retain one optional HTTP owner and use the safe HTTP
+  dispatch boundary after shutdown, without shared-server application maps.
+- Application-identity and credential failures before route dispatch use the
   HTTP plugin's protocol-neutral safe error boundary. REST and GraphQL own
   errors only after their selected handler begins.
 - database-specific migration logic stays in a database-specific migration plugin.

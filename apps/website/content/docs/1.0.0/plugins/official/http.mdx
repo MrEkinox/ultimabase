@@ -1,6 +1,6 @@
 ---
 title: HTTP
-description: Select one HTTP application, apply browser policy, and handle requests before a transport runs.
+description: Identify the HTTP application, apply browser policy, and handle requests before a transport runs.
 audience:
   - application-developer
   - operator
@@ -9,19 +9,21 @@ order: 2
 outcome: Configure the HTTP application boundary, browser policy, and pre-dispatch request handling.
 owner: '2812'
 releaseStatus: pre-release
-reviewedAt: 2026-09-17
+reviewedAt: 2026-09-20
 sources:
   - packages/http-plugin/README.md
   - packages/http-plugin/src/request-boundary.ts
   - packages/password-auth-plugin/src/operations.ts
   - docs/adr/0224-http-application-rest-and-password-auth-boundaries.md
+  - docs/adr/0258-single-active-application-lifecycle.md
+  - docs/adr/0260-single-owner-http-dispatch.md
 ---
 
 ## Overview
 
 `@ultimabase/http-plugin` owns the Fetch-compatible application boundary. It does
-not open a socket. Every real public request must carry exactly one public routing
-identifier:
+not open a socket. Every real public request must carry exactly one public application
+identifier. It must match the sole active application and grants no authority:
 
 ```http
 X-UltimaBase-Application-Id: blog
@@ -77,8 +79,8 @@ Master key to browser code.
 
 ### Browser policy
 
-Browser-origin behavior is disabled by default. When enabled, all applications on
-one server provider must declare the same effective policy. CORS controls browser
+Browser-origin behavior is disabled by default. When enabled, the sole active
+application owns one effective policy for its server provider. CORS controls browser
 responses; it is not authentication, authorization, or protection from non-browser
 clients. Preflight may run without an application ID, but it selects no application
 and invokes no context resolver, credential check, route, Runtime, or database work.
@@ -87,9 +89,9 @@ List only the origins, methods, and headers the client actually uses. Wildcard
 origin is incompatible with credentials, cookies, Authorization, or enabled
 Master transport. CORS also does not provide CSRF protection.
 
-### Application selection and authority
+### Application identity and authority
 
-Application selection, duplicate sensitive headers, credentials, optional Master
+Application identity, duplicate sensitive headers, credentials, optional Master
 verification, timeout, and request correlation run before a protocol handler. These
 failures use the safe `HTTP_*` boundary. Once REST or GraphQL begins, that protocol
 owns its response.
@@ -106,18 +108,33 @@ listener or an API route. The [Hono Server](./hono-server) guide covers managed
 and existing listeners. Add [REST](./rest) or [GraphQL](./graphql) to expose
 routes through that boundary.
 
+### Implement a server provider
+
+A custom server consumes `httpApplicationCapability` and
+`httpBrowserPolicyCapability`. Keep one optional HTTP application and pass it
+with the original header pairs to `dispatchHttpApplicationRequest(application,
+input)`. Clear the owner before teardown. When no owner remains, the helper
+still validates header cardinality and correlation, then returns the safe HTTP
+rejection envelope. A Hono external listener can therefore keep serving its
+ordinary routes after UltimaBase stops.
+
+The application boundary also owns exact browser-bootstrap URLs such as
+`/__ultimabase/apps/blog/graphiql`. Only a contributed GET bootstrap route can
+use path identity; normal API requests still require the header. See
+[GraphQL](./graphql) for the browser tool setup.
+
 ## Troubleshooting
 
 Before a route starts, HTTP returns a private, non-cacheable envelope with a
 stable code and `X-UltimaBase-Request-Id`:
 
-| Code                        | First interpretation                               |
-| --------------------------- | -------------------------------------------------- |
-| `HTTP_BAD_REQUEST`          | malformed or ambiguous request evidence            |
-| `HTTP_APPLICATION_REJECTED` | application selection or credentials were rejected |
-| `HTTP_NOT_FOUND`            | no selected route owns the path                    |
-| `HTTP_REQUEST_TIMEOUT`      | the shared request deadline expired                |
-| `HTTP_INTERNAL_ERROR`       | the pre-dispatch boundary failed safely            |
+| Code                        | First interpretation                              |
+| --------------------------- | ------------------------------------------------- |
+| `HTTP_BAD_REQUEST`          | malformed or ambiguous request evidence           |
+| `HTTP_APPLICATION_REJECTED` | application identity or credentials were rejected |
+| `HTTP_NOT_FOUND`            | no selected route owns the path                   |
+| `HTTP_REQUEST_TIMEOUT`      | the shared request deadline expired               |
+| `HTTP_INTERNAL_ERROR`       | the pre-dispatch boundary failed safely           |
 
 Reproduce without credentials first:
 

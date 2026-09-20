@@ -6,7 +6,6 @@ import {
 	databasePlugin,
 	graphqlHttpProvider,
 	httpConsumer,
-	mountHttpApplication,
 	readHttpApplication,
 } from '../fixtures/graphql-explorer.js'
 import { UltimaBase } from '@ultimabase/core'
@@ -63,7 +62,7 @@ describe('packed GraphQL explorer composition', () => {
 		const firstHttp = readHttpApplication(
 			first.application.getPlugin('fixture.explorer-http-consumer'),
 		)
-		const table = mountHttpApplication(firstHttp)
+		const table = firstHttp
 
 		expect(
 			(await table.fetch(browserRequest('first', '/apollo-sandbox'))).status,
@@ -73,7 +72,7 @@ describe('packed GraphQL explorer composition', () => {
 		const secondHttp = readHttpApplication(
 			second.application.getPlugin('fixture.explorer-http-consumer'),
 		)
-		const secondTable = mountHttpApplication(secondHttp)
+		const secondTable = secondHttp
 
 		expect(
 			(await secondTable.fetch(browserRequest('second', '/apollo-sandbox')))

@@ -9,7 +9,6 @@ import {
 	databasePlugin,
 	graphqlHttpProvider,
 	httpConsumer,
-	mountHttpApplication,
 	readHttpApplication,
 } from '../../../../tests/fixtures/graphql-explorer.js'
 import { UltimaBase } from '@ultimabase/core'
@@ -34,7 +33,7 @@ describe('packed GraphiQL plugin', () => {
 		const http = readHttpApplication(
 			ultimabase.application.getPlugin('fixture.explorer-http-consumer'),
 		)
-		const table = mountHttpApplication(http)
+		const table = http
 		const response = await table.fetch(
 			browserRequest('notes-public-id', '/graphiql', [
 				['Cookie', 'session=must-not-leak'],
@@ -75,7 +74,7 @@ describe('packed GraphiQL plugin', () => {
 		const http = readHttpApplication(
 			ultimabase.application.getPlugin('fixture.explorer-http-consumer'),
 		)
-		const table = mountHttpApplication(http)
+		const table = http
 		const input = browserRequest('browser-policy', '/graphiql', [
 			['Origin', 'https://console.example'],
 		])
@@ -118,7 +117,7 @@ describe('packed GraphiQL plugin', () => {
 		)
 		expect(
 			(
-				await mountHttpApplication(disabledHttp).fetch(
+				await disabledHttp.fetch(
 					browserRequest('production-disabled', '/graphiql'),
 				)
 			).status,

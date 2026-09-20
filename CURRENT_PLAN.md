@@ -1,12 +1,12 @@
 # Active plan: pre-feature architecture simplification
 
-- Status: active — issue 3006 audited; next issue 3007
+- Status: active — issue 3007 audited; next issue 3008
 - Milestone: [30 — Pre-feature architecture simplification](issues/3000-pre-feature-architecture-simplification/README.md)
 - Detailed plan: [docs/plans/2026-09-20-pre-feature-architecture-simplification.md](docs/plans/2026-09-20-pre-feature-architecture-simplification.md)
 - Baseline: [docs/plans/2026-09-20-architecture-simplification-baseline.md](docs/plans/2026-09-20-architecture-simplification-baseline.md)
 - Contract matrix: [docs/plans/2026-09-20-architecture-contract-matrix.md](docs/plans/2026-09-20-architecture-contract-matrix.md)
 - Removal history: [HISTORIQUE_SUPPRESSIONS.md](HISTORIQUE_SUPPRESSIONS.md)
-- Resume point: issue 3007
+- Resume point: issue 3008
 
 ## Objective
 
@@ -120,7 +120,19 @@ teardown, fail-closed cleanup, stale authority rejection, current-graph mutation
 visibility, isolated workers and sequential fixture migration. All 2,510
 unit/type/performance and 379 integration tests pass, alongside typecheck,
 build, lint, website and constraints. Its dedicated commit precedes issue 3007.
-Continue with issue 3007; do not change the hard stop after issue 3014.
+Issue 3006 is committed as `30bd1452`: +4,141 / -2,455 lines, net +1,686,
+including tests and documentation. Nothing was pushed.
+
+Issue 3007 is complete with a green audit under ADR-0258 and the explicitly
+approved [ADR-0260](docs/adr/0260-single-owner-http-dispatch.md). The HTTP mount
+table, Hono application set and shared-policy comparison are removed. One
+optional owner retains safe absent-application errors through the approved
+public dispatch utility. Exact bootstrap ownership, identity, credentials,
+Master, CORS, listener cleanup and sequential provider reuse remain.
+All 2,523 unit/type/performance and 379 integration tests pass, alongside
+typecheck, build, lint, website and constraints. Production TypeScript shrinks
+by 240 lines with no Core implementation change. The dedicated local commit
+must precede issue 3008. Continue with issue 3008; stop after issue 3014.
 
 Documentation impact: internal engineering documentation until an issue changes
 a public contract; those issues must update both package and public website
