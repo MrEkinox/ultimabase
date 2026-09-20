@@ -1,9 +1,9 @@
 # Pre-feature architecture simplification
 
-- Status: active
+- Status: paused — Core checkpoint complete; awaiting explicit continuation
 - Started: 2026-09-20
 - Milestone: [30 — Pre-feature architecture simplification](../../issues/3000-pre-feature-architecture-simplification/README.md)
-- Resume point: issue 3005
+- Resume point: none authorized; issue 3015 requires a later explicit request
 - Baseline: [issue 3001 measurements](2026-09-20-architecture-simplification-baseline.md)
 - Preservation ledger: [architecture contract matrix](2026-09-20-architecture-contract-matrix.md)
 
@@ -31,7 +31,8 @@ closes the milestone.
   cancellation, Hooks, Access, ACL, Roles, Validation, Password Auth, Soft
   Delete, REST, network-independent GraphQL, Yoga, Hono, and explorer behavior
   retain their current public outcomes except approved D-001 / ADR-0258 and
-  exact unused architecture-only capabilities selected in ADR-0259.
+  exact unused architecture-only capabilities selected in ADR-0259, plus the
+  separately approved descriptive Typegen inspection boundary in ADR-0262.
 - Plugin authors retain every currently supported ability to add schemas, fields,
   direct options, application operations and schema mutations, protected policy,
   middleware, product-owned observers, transport representations, private storage, resources,
@@ -185,7 +186,7 @@ updates from an earlier issue.
 3. [3003 — Decide the smaller plugin kernel and canonical graph](../../issues/3000-pre-feature-architecture-simplification/3003-smaller-plugin-kernel-decision.md)
 4. [3004 — Remove unused replacement and observer powers](../../issues/3000-pre-feature-architecture-simplification/3004-remove-unused-capability-replacement.md)
 5. [3005 — Remove unused declaration and Typegen powers](../../issues/3000-pre-feature-architecture-simplification/3005-remove-unused-declaration-typegen-powers.md)
-6. [3006 — Enforce one active UltimaBase runtime per process](../../issues/3000-pre-feature-architecture-simplification/3006-single-active-ultimabase-runtime.md)
+6. [3006 — Enforce one active UltimaBase runtime per JavaScript realm](../../issues/3000-pre-feature-architecture-simplification/3006-single-active-ultimabase-runtime.md)
 7. [3007 — Simplify HTTP and server application ownership](../../issues/3000-pre-feature-architecture-simplification/3007-simplify-http-application-ownership.md)
 8. [3008 — Compile one canonical command graph](../../issues/3000-pre-feature-architecture-simplification/3008-canonical-command-graph.md)
 9. [3009 — Migrate application operations to the canonical graph](../../issues/3000-pre-feature-architecture-simplification/3009-migrate-application-operations.md)
@@ -321,3 +322,12 @@ authoring, transports, or Typegen must update package READMEs and affected pages
 under `apps/website/content/docs` in the same audited change. Issues 3031
 through 3033 then verify the complete public website journeys before the final
 audit.
+
+## Authorized checkpoint reached
+
+Issues 3001–3014 are complete and independently committed after their audit
+loops. The [3014 report](2026-09-21-core-kernel-simplification-checkpoint.md)
+records retained contracts, approved differences, clean-checkout verification,
+measured reductions and baselines for the 16 later plugin audits. The current
+run is paused here. No plugin-local issue is inspected or started, no new
+feature resumes, and nothing is pushed. Milestone 30 is not complete.

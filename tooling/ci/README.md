@@ -15,6 +15,9 @@ ordinary local Yarn commands.
 - Every package must re-export `tooling/vitest/package.config.ts` from its local
   `vitest.config.ts`; otherwise package-root type tests inherit incompatible root globs.
   The real Vitest inventory check compares every package with root discovery.
+- Root `tsconfig.json` references every package so `yarn typecheck` emits its
+  declarations before checking repository-wide tests on a clean checkout. The
+  compiler inventory regression checks this independently of existing `dist`.
 - Tests cover diff boundaries, missing history, deleted suites, reverse
   dependencies, fixture chains, command routing, and full Vitest discovery parity.
 

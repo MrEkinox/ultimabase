@@ -164,14 +164,14 @@ Ces retraits réduisent les états et validations en double ; ils ne retirent pa
 les fonctionnalités restantes. Les noms précis et les commits seront ajoutés
 au fur et à mesure des migrations et de leurs audits.
 
-| Issues    | Ancien mécanisme à retirer                                                                        | Ce qui reprend sa responsabilité                                                  | État                   |
-| --------- | ------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ---------------------- |
-| 3008–3009 | Stockages indépendants des opérations et faits recopiés entre compilation et exécution            | Graphe privé canonique et liaison d’exécution attribuée au propriétaire           | Livré                  |
-| 3010      | Ancienne table des sources et lectures Runtime des vues de mutation                               | Même graphe, avec la sémantique propre aux mutations conservée                    | Livré                  |
-| 3011      | Registres de surfaces et générateurs redondants                                                   | Projections immuables des mêmes faits pour les méthodes développeur et Typegen    | Livré                  |
-| 3012      | Registres et comparaisons en double entre plans statiques et bindings des transports              | Projections REST/GraphQL du graphe, avec codecs et contrôle d’exécution conservés | Livré                  |
-| 3013      | Adaptateurs temporaires de migration, chemins historiques et vérifications réellement redondantes | Chemins canoniques et tests conservant chaque invariant requis                    | Livré                  |
-| 3014      | Aucun retrait nouveau autorisé par ce seul checkpoint                                             | Audit final de parité, sécurité, capacités des plugins, documentation et mesures  | À réaliser, puis arrêt |
+| Issues    | Ancien mécanisme à retirer                                                                        | Ce qui reprend sa responsabilité                                                  | État                 |
+| --------- | ------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | -------------------- |
+| 3008–3009 | Stockages indépendants des opérations et faits recopiés entre compilation et exécution            | Graphe privé canonique et liaison d’exécution attribuée au propriétaire           | Livré                |
+| 3010      | Ancienne table des sources et lectures Runtime des vues de mutation                               | Même graphe, avec la sémantique propre aux mutations conservée                    | Livré                |
+| 3011      | Registres de surfaces et générateurs redondants                                                   | Projections immuables des mêmes faits pour les méthodes développeur et Typegen    | Livré                |
+| 3012      | Registres et comparaisons en double entre plans statiques et bindings des transports              | Projections REST/GraphQL du graphe, avec codecs et contrôle d’exécution conservés | Livré                |
+| 3013      | Adaptateurs temporaires de migration, chemins historiques et vérifications réellement redondantes | Chemins canoniques et tests conservant chaque invariant requis                    | Livré                |
+| 3014      | Aucun retrait nouveau autorisé par ce seul checkpoint                                             | Audit final de parité, sécurité, capacités des plugins, documentation et mesures  | Livré, arrêt atteint |
 
 ## Journal de livraison
 
@@ -268,7 +268,7 @@ au fur et à mesure des migrations et de leurs audits.
   inutilisé du projecteur Typegen disparaissent ; réduction d'une ligne de production.
 - Une option supprimée pourra être ajoutée lorsqu'un besoin concret l'exigera.
 
-## Projections des transports — issue 3012 réalisée dans ce commit
+## Projections des transports — issue 3012 réalisée dans `df49ccdd`
 
 Le plan et l'exécution partagent les mêmes descripteurs immuables dérivés des
 commandes canoniques. Disparaissent les reconstructions parallèles, la liste de
@@ -281,6 +281,39 @@ Audit sans anomalie : **2 535 tests unitaires/types/performance, 381 intégratio
 et 66 vérifications du site** passent. Réduction de **111 lignes de production**,
 avec les mêmes exports publics et la même taille de déclarations.
 
+## Nettoyage final — issue 3013
+
+- **3013 — `0828a1f4` :** retrait du dernier repli privé des lecteurs de bindings
+  vers les anciens tokens source ; les lecteurs utilisent uniquement les
+  commandes canoniques. Les deux scénarios de conformité Hooks/Access partagent
+  leur préparation et conservent toutes leurs assertions. Les guides internes,
+  la roadmap du site et le registre des décisions sont réconciliés. L’audit
+  de couverture compare tous les emplacements conservés : aucune perte, aucun
+  seuil ou exclusion modifié. Les 2 776 tests du contrôle de couverture,
+  381 intégrations, 66 contrôles de contenu et 56 tests navigateur passent.
+  Réduction de **4 lignes de production**, exports publics inchangés.
+
+## Checkpoint Core — issue 3014 réalisée
+
+Aucun retrait produit supplémentaire. Le checkout neuf a révélé une référence
+TypeScript manquante pour `create-app` ; elle est ajoutée avec son test de
+régression. L’audit réconcilie tous les contrats, les dix retraits, les cinq
+écarts approuvés et les 39 protocoles d’origine. Les 16 plugins ont leur baseline,
+sans démarrage de leur simplification.
+
+Les tests de couverture (2 777), tests ordinaires (2 536), intégrations (381),
+contrôles documentaires (66) et tests navigateur (56) passent. Tous les
+emplacements de couverture conservés correspondent au rapport final de la 3013.
+Bilan depuis la référence : **6 221 lignes de production supprimées nettes**,
+dont **4 968 dans le Core**, et **106 exports publics en moins nets**. Cette issue
+ne modifie aucune ligne de production. Les mesures n’établissent pas de gain
+fiable de performances ou de CI.
+
+Le [rapport détaillé](docs/plans/2026-09-21-core-kernel-simplification-checkpoint.md)
+consigne aussi les corrections de l’environnement de validation et les délais
+locaux. **Arrêt après la 3014 :** aucun travail sur la 3015, aucune reprise du
+stash Soft Delete et aucun push. Le jalon reste ouvert pour une reprise explicite.
+
 ## Sources de décision
 
 - [Plan actif](CURRENT_PLAN.md)
@@ -291,13 +324,3 @@ avec les mêmes exports publics et la même taille de déclarations.
 - [ADR-0262 : inspection Typegen descriptive](docs/adr/0262-descriptive-typegen-command-inspection.md)
 - [Matrice des contrats à préserver](docs/plans/2026-09-20-architecture-contract-matrix.md)
 - [Inventaire et audit des décisions](docs/plans/2026-09-20-smaller-kernel-decision-proposal.md)
-
-- **3013 — livrée :** retrait du dernier repli privé des lecteurs de bindings
-  vers les anciens tokens source ; les lecteurs utilisent uniquement les
-  commandes canoniques. Les deux scénarios de conformité Hooks/Access partagent
-  leur préparation et conservent toutes leurs assertions. Les guides internes,
-  la roadmap du site et le registre des décisions sont réconciliés. L’audit
-  de couverture compare tous les emplacements conservés : aucune perte, aucun
-  seuil ou exclusion modifié. Les 2 776 tests du contrôle de couverture,
-  381 intégrations, 66 contrôles de contenu et 56 tests navigateur passent.
-  Réduction de **4 lignes de production**, exports publics inchangés.

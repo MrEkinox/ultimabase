@@ -37,7 +37,7 @@ this milestone.
 3. [x] [3003 — Decide the smaller plugin kernel and canonical graph](3003-smaller-plugin-kernel-decision.md)
 4. [x] [3004 — Remove unused replacement and observer powers](3004-remove-unused-capability-replacement.md)
 5. [x] [3005 — Remove unused declaration and Typegen powers](3005-remove-unused-declaration-typegen-powers.md)
-6. [x] [3006 — Enforce one active UltimaBase runtime per process](3006-single-active-ultimabase-runtime.md)
+6. [x] [3006 — Enforce one active UltimaBase runtime per JavaScript realm](3006-single-active-ultimabase-runtime.md)
 7. [x] [3007 — Simplify HTTP and server application ownership](3007-simplify-http-application-ownership.md)
 8. [x] [3008 — Compile one canonical command graph](3008-canonical-command-graph.md)
 9. [x] [3009 — Migrate application operations to the canonical graph](3009-migrate-application-operations.md)
@@ -45,7 +45,7 @@ this milestone.
 11. [x] [3011 — Derive developer and Typegen surfaces](3011-derive-developer-typegen-surfaces.md)
 12. [x] [3012 — Derive REST and GraphQL transport projections](3012-derive-transport-projections.md)
 13. [x] [3013 — Delete legacy paths and consolidate verification](3013-delete-legacy-paths-consolidate-verification.md)
-14. [ ] [3014 — Audit the Core and kernel simplification checkpoint](3014-core-kernel-simplification-checkpoint.md)
+14. [x] [3014 — Audit the Core and kernel simplification checkpoint](3014-core-kernel-simplification-checkpoint.md)
 15. [ ] [3015 — Simplify the Access plugin](3015-simplify-access-plugin.md)
 16. [ ] [3016 — Simplify the Hooks plugin](3016-simplify-hooks-plugin.md)
 17. [ ] [3017 — Simplify the Validation plugin](3017-simplify-validation-plugin.md)
@@ -88,6 +88,10 @@ decision, then an update to the affected pages under
 `apps/website/content/docs` in that same issue. Issues 3031 through 3033 perform
 the final cross-page website review; package READMEs do not replace it.
 
+The [3014 checkpoint](../../docs/plans/2026-09-21-core-kernel-simplification-checkpoint.md)
+is complete with a green clean-checkout audit. The authorized run is paused at
+this boundary. The plugin wave is not started; milestone 30 remains open.
+
 ## Completion boundary
 
 - All current TypeScript, JavaScript, PostgreSQL, REST, GraphQL, authentication,
@@ -97,7 +101,7 @@ the final cross-page website review; package READMEs do not replace it.
   proven safe and explicitly approved. Every removed capability has a source,
   package, packed API, community/public contract, documentation, example,
   generated-project, invariant, and test removal audit.
-- One active application per process coexists with concurrent request isolation,
+- One active application per JavaScript realm coexists with concurrent request isolation,
   sequential disposal and replacement, and parallel isolated test workers.
 - Commands have one canonical compiled representation. Developer, Typegen,
   transport, and execution views are immutable projections rather than parallel

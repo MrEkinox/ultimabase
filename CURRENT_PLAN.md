@@ -1,12 +1,12 @@
-# Active plan: pre-feature architecture simplification
+# Paused plan: pre-feature architecture simplification
 
-- Status: active — issue 3013 audited; issue 3014 follows its dedicated commit
+- Status: paused — issue 3014 complete; authorized stopping point reached
 - Milestone: [30 — Pre-feature architecture simplification](issues/3000-pre-feature-architecture-simplification/README.md)
 - Detailed plan: [docs/plans/2026-09-20-pre-feature-architecture-simplification.md](docs/plans/2026-09-20-pre-feature-architecture-simplification.md)
 - Baseline: [docs/plans/2026-09-20-architecture-simplification-baseline.md](docs/plans/2026-09-20-architecture-simplification-baseline.md)
 - Contract matrix: [docs/plans/2026-09-20-architecture-contract-matrix.md](docs/plans/2026-09-20-architecture-contract-matrix.md)
 - Removal history: [HISTORIQUE_SUPPRESSIONS.md](HISTORIQUE_SUPPRESSIONS.md)
-- Resume point: issue 3014
+- Resume point: none authorized; wait for an explicit request before issue 3015
 
 ## Objective
 
@@ -22,7 +22,8 @@ not preserve speculative compatibility layers or recreate unused powers under
 a new API. Reintroduce a capability only when a concrete need arises.
 The approved used-capability exceptions are D-001 / ADR-0258 (concurrent
 initialized applications and shared-server application routing) and the public
-RuntimeCostProbe API, whose performance measurements must be preserved internally.
+RuntimeCostProbe API, whose performance measurements must be preserved internally,
+and D-005 / ADR-0262 (executable values removed from descriptive Typegen inspection).
 Developer, Typegen, REST, and GraphQL surfaces then derive from one
 canonical compiled graph.
 
@@ -213,3 +214,21 @@ constraints and formatting. Every retained coverage location stays covered as
 before. Production shrinks by four lines; exports and declaration bytes remain
 unchanged. Its dedicated commit precedes the clean-checkout audit in 3014.
 Stop after 3014; no plugin issue or push is authorized.
+
+Issue 3013 is committed as `0828a1f4`: +341 / -156 lines, net +185,
+including tests and documentation. Issue 3014 verifies that revision from a
+clean detached checkout. No plugin-local issue is inspected or started.
+The run must stop immediately after the 3014 audit and dedicated local commit.
+
+Issue 3014 is complete with a green clean-checkout audit. The missing create-app
+compiler reference is fixed and protected; 2,777 coverage tests, 2,536 ordinary
+tests, 381 built integrations, 66 website content tests and 56 browser tests
+pass. Coverage locations, source/packed APIs and all retained contracts are
+reconciled in the [checkpoint report](docs/plans/2026-09-21-core-kernel-simplification-checkpoint.md).
+The baseline for each of the 16 plugins is recorded without starting those issues.
+
+**Authorized run finished: stop after this dedicated 3014 commit.**
+Milestone 30 remains open. Do not inspect or start issue 3015, resume a paused
+feature, or push without a later explicit user request. Editor settings and the
+suspended Soft Delete stash remain untouched. The exact commit line counts are
+reported to the user after committing.

@@ -1,6 +1,7 @@
 # Architecture contract matrix
 
 - Baseline: [issue 3001 measurements](2026-09-20-architecture-simplification-baseline.md)
+- Core checkpoint: [issue 3014 reconciliation](2026-09-21-core-kernel-simplification-checkpoint.md)
 - Source revision: `5806d87a879df0db8265579737c83111eb6030f9`
 - Status: preservation ledger with delivered D-001, R-001–R-010, and the explicitly approved ADR-0262 tooling narrowing (D-005)
 

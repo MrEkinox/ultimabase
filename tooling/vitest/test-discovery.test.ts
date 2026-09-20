@@ -129,6 +129,30 @@ describe('test ownership and discovery', () => {
 		for (const file of artifactOnly) expect(e2eFiles).toContain(file)
 	})
 
+	it('builds every package declaration before repository-wide test typechecking', () => {
+		// A missing reference can stay invisible behind an earlier package build.
+		const config = ts.getParsedCommandLineOfConfigFile(
+			path.join(repositoryRoot, 'tsconfig.json'),
+			{},
+			{
+				...ts.sys,
+				onUnRecoverableConfigFileDiagnostic: (diagnostic) => {
+					throw new Error(
+						ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'),
+					)
+				},
+			},
+		)
+		expect(config?.errors).toEqual([])
+		expect(
+			config?.projectReferences?.map((reference) => reference.path).sort(),
+		).toEqual(
+			packageManifests
+				.map((manifest) => path.dirname(path.join(repositoryRoot, manifest)))
+				.sort(),
+		)
+	})
+
 	it('keeps package compiler roots local, including declaration support but no foreign suites', () => {
 		for (const manifest of packageManifests) {
 			const directory = path.dirname(path.join(repositoryRoot, manifest))

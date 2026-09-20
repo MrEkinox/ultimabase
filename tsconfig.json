@@ -36,6 +36,7 @@
 		{ "path": "./packages/password-auth-plugin" },
 		{ "path": "./packages/acl-permissions-plugin" },
 		{ "path": "./packages/postgres-plugin" },
+		{ "path": "./packages/create-app" },
 		{ "path": "./packages/testing" }
 	]
 }
