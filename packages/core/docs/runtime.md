@@ -140,17 +140,17 @@ const tenantPlugin = (tenantId: string) =>
 
 Runtime uses versioned application capabilities. Product behavior and logical
 interceptors form ordered pipelines, constraints remain independent monotonic
-providers, observers cannot replace results, and one executor sits behind
-Core's request shell. `provideRuntimeBehavior()`,
-`provideRuntimeInterceptor()`, `provideRuntimeConstraint()`, and
-`provideRuntimeObserver()` require `runtime:intercept`, `runtime:intercept`,
-`runtime:constrain`, and `runtime:observe` respectively. Generic capability providers, requirements,
-replacements, and decorators cannot bypass those exact facades or inspect the
-composed protected state. `replaceRuntime()` requires
-`runtime:replace`; replacement changes the executor while Core retains
-application ownership, request cancellation, trusted master construction, and
-the automatic transaction boundary. Runtime contributions are materialized
-before setup and no `runtime`, `events`, or `pipeline` setup registry exists.
+providers, and Core assembles its canonical executor directly.
+`provideRuntimeBehavior()` and `provideRuntimeInterceptor()` require
+`runtime:intercept`; `provideRuntimeConstraint()` requires `runtime:constrain`.
+Generic providers cannot bypass those exact facades or inspect the composed
+protected state. ADR-0259 removed compiler/Runtime replacement, generic
+capability replacement/decoration, and the generic Core observer protocol.
+Product-owned Hooks/Access events and diagnostics retain `runtime:observe`.
+Core retains application ownership, request cancellation, trusted master
+construction, and the automatic transaction boundary. Runtime contributions
+are materialized before setup; there is no `runtime`, `events`, or `pipeline`
+setup registry.
 
 `normalization` and `commit` contributions compose in dependency-first plugin
 order. Enforcement factories are `guard`, `constraint`, `restrictInput`,
@@ -493,9 +493,10 @@ transactions, commit, and observers remain part of the same pipeline.
 
 Core installs no Hooks or Access engine. Plugins contribute complete Runtime
 behavior stages through `provideRuntimeBehavior()`, monotonic restrictions
-through `provideRuntimeConstraint()`, and low-level post-commit observers
-through `provideRuntimeObserver()`. An absent capability contributes no
-dispatcher, snapshot, callback, placeholder, or neutral stage.
+through `provideRuntimeConstraint()`, and their own event/diagnostic capabilities.
+Post-commit event delivery belongs to those product protocols. An absent
+capability contributes no dispatcher, snapshot, callback, placeholder, or neutral
+stage.
 
 This is a structural cost guarantee, not a literal zero-CPU claim. The
 repository's deterministic Runtime cost fixture requires a no-product graph to
@@ -504,17 +505,19 @@ optional stages across a representative read and mutation. Mandatory Core
 stages and unrelated installed capabilities remain active.
 
 The convenience factories `beforeOperation()`, `afterOperation()`,
-`preparedOperation()`, and `postCommitEvent()` are generic low-level Runtime
-definitions. Their inputs use `RequestContext` and they do not create schema or
-field option namespaces. The official Hooks package implements its richer
+and `preparedOperation()` are generic low-level Runtime definitions. Their
+inputs use `RequestContext` and they do not create schema or field option
+namespaces. The official Hooks package implements its richer
 lifecycle, event delivery, diagnostics, and transaction semantics through
 `provideRuntimeBehavior()` and package-owned contracts.
 
 ## Scoped contextual access
 
-Explicit `RequestEngine` injection remains the primary API for transports and
-services. When forwarding the same engine through several internal layers would
-only add noise, a transport can open one Node.js asynchronous scope:
+Trusted server code may use an explicit `RequestEngine` or open a Node.js
+asynchronous scope to share it across internal service calls. Transport plugins
+instead receive the narrow application request execution capability; they do
+not receive an engine, application, or authority facade. For example, trusted
+server code may open this scope:
 
 ```ts
 const publishArticle = async () => {
@@ -536,7 +539,7 @@ Calling any helper outside a scope throws `MISSING_EXECUTION_CONTEXT` rather
 than returning `undefined` or retaining an earlier request.
 
 Only the explicit request engine is accepted when opening a scope. The other
-references are derived from it, preventing a transport from combining an
+references are derived from it, preventing server code from combining an
 application, framework engine, and request context that do not belong together.
 Nested scopes restore their parent, parallel promise chains remain isolated,
 and synchronous or asynchronous callback results keep their exact type.

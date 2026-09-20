@@ -1,13 +1,9 @@
-import { accessPlugin } from '@ultimabase/access-plugin'
 import {
-	createPluginConformanceFixture,
 	definePluginConformanceSuite,
 	runPluginConformance,
-	withPluginTypegenConformance,
 } from '@ultimabase/testing'
 import { describe, expect, it } from 'vitest'
 import {
-	createProofSchema,
 	requireSchema,
 	expectConformanceFailure,
 } from '../../../../tests/fixtures/official-conformance-support.js'
@@ -19,35 +15,6 @@ import {
 
 // Preserve the original public-export scenarios under their contract owner.
 describe('official Access capability conformance', () => {
-	it('proves Access manifest and Typegen contracts', async () => {
-		const suite = definePluginConformanceSuite({
-			createFixture: () =>
-				createPluginConformanceFixture({
-					schemas: [createProofSchema()],
-					subject: accessPlugin(),
-				}),
-			expected: {
-				core: '^0.0.0',
-				environment: [],
-				pluginId: '@ultimabase/access-plugin',
-				privileges: ['schema:declare', 'runtime:constrain'],
-				version: '0.0.0',
-			},
-		})
-		const report = await runPluginConformance(
-			withPluginTypegenConformance(suite, {
-				applicationId: 'official-access-conformance',
-				verify: ({ contents }) => {
-					expect(contents).toContain('@ultimabase/access-plugin')
-					expect(contents).toContain('FieldAccessOption')
-					expect(contents).toContain('SchemaAccessOption')
-				},
-			}),
-		)
-
-		expect(report.checks.map(({ contract }) => contract)).toContain('typegen')
-	})
-
 	it('proves Access denial, filters, item and field narrowing, relations, and transitions', async () => {
 		const suite = definePluginConformanceSuite({
 			createFixture: createOfficialAccessConformanceFixture,

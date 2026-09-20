@@ -93,7 +93,7 @@ general `ultimabase` CLI remains in its deferred backlog.
 
 [Milestone 30](issues/3000-pre-feature-architecture-simplification/README.md) is
 the active blocking objective before any new product capability. It removes
-unused plugin powers, adopts one active application per process while preserving
+unused plugin powers, adopts one active application per JavaScript realm while preserving
 concurrent request and parallel-worker isolation, and converges command Runtime,
 developer surfaces, Typegen, REST, and GraphQL on one canonical compiled graph.
 After the Core checkpoint it separately audits and simplifies all 16 current

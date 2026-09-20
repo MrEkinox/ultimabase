@@ -16,6 +16,10 @@ performance measurements, and the retained application-operation/schema-mutation
 graph. Issues 3004/3005 perform the removals; 3008–3013 consolidate the graph.
 ADR-0261 records the user-approved phase clarification: declarations compile
 purely; handlers and transport bindings bind at application materialization.
+ADR-0262 records the later explicit approval in issue 3011: Typegen inspection
+exposes descriptive facts without executable snapshots or schema constructors.
+Original authoring tokens, direct execution and generated declarations remain;
+the contract matrix tracks this exact difference as D-005.
 
 The active implementation contract lives in the
 [pre-feature architecture simplification plan](../../docs/plans/2026-09-20-pre-feature-architecture-simplification.md).
@@ -40,7 +44,7 @@ this milestone.
 10. [x] [3010 — Migrate schema mutations to the canonical graph](3010-migrate-schema-mutations.md)
 11. [x] [3011 — Derive developer and Typegen surfaces](3011-derive-developer-typegen-surfaces.md)
 12. [x] [3012 — Derive REST and GraphQL transport projections](3012-derive-transport-projections.md)
-13. [ ] [3013 — Delete legacy paths and consolidate verification](3013-delete-legacy-paths-consolidate-verification.md)
+13. [x] [3013 — Delete legacy paths and consolidate verification](3013-delete-legacy-paths-consolidate-verification.md)
 14. [ ] [3014 — Audit the Core and kernel simplification checkpoint](3014-core-kernel-simplification-checkpoint.md)
 15. [ ] [3015 — Simplify the Access plugin](3015-simplify-access-plugin.md)
 16. [ ] [3016 — Simplify the Hooks plugin](3016-simplify-hooks-plugin.md)

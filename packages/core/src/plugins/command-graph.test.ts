@@ -14,10 +14,27 @@ import {
 	provideOperationTransportBinding,
 } from '../runtime/plugin-operations/capabilities.js'
 import { readApplicationCommandGraph } from './application-command-graph.js'
-import { readMutationCommand, readOperationCommand } from './command-graph.js'
+import {
+	readMutationCommand,
+	readOperationCommand,
+	type CompiledCommandGraph,
+	type CommandSource,
+	type CompiledCommand,
+} from './command-graph.js'
 import { definePlugin } from './definition.js'
 import { defineOperation, defineOperationValue } from './plugin-operations.js'
 import { defineSchemaMutation } from './plugin-schema-mutations.js'
+
+// Runtime readers accept only canonical graph records; source tokens bind once.
+const requireCommand = (
+	graph: CompiledCommandGraph,
+	source: CommandSource,
+): CompiledCommand => {
+	const command = graph.fromSource(source)
+	if (command === undefined)
+		throw new TypeError('Fixture command is unavailable')
+	return command
+}
 
 const Document = Schema.define({
 	className: 'CommandGraphDocument',
@@ -308,25 +325,26 @@ describe('canonical command graph', () => {
 		)
 		application.compileSchemas()
 		const graph = readApplicationCommandGraph(application)
+		const command = requireCommand(graph, owned.operation)
 		const before = fingerprint(graph.commands)
-		expect(graph.bindings.handler(owned.operation)).toBeUndefined()
+		expect(graph.bindings.handler(command)).toBeUndefined()
 		await Promise.all([application.initialize(), application.initialize()])
 		expect(owned.create).toHaveBeenCalledTimes(1)
-		expect(graph.bindings.handler(owned.operation)).toMatchObject({
+		expect(graph.bindings.handler(command)).toMatchObject({
 			kind: 'operation',
 			execute: owned.execute,
 		})
-		const binding = graph.bindings.transport(owned.operation, transport)
+		// Shaped copies cannot address another private execution binding.
+		expect(graph.bindings.handler({ ...command })).toBeUndefined()
+		const binding = graph.bindings.transport(command, transport)
 		expect(binding?.binding.metadata).toEqual({ errors: {}, nested: ['inert'] })
 		assertInert(binding?.binding.metadata)
 		assertInert(graph.commands)
 		expect(fingerprint(graph.commands)).toBe(before)
 		await application.dispose()
 		expect(owned.cleanup).toHaveBeenCalledTimes(1)
-		expect(() => graph.bindings.handler(owned.operation)).toThrow(
-			'no longer available',
-		)
-		expect(() => graph.bindings.transport(owned.operation, transport)).toThrow(
+		expect(() => graph.bindings.handler(command)).toThrow('no longer available')
+		expect(() => graph.bindings.transport(command, transport)).toThrow(
 			'no longer available',
 		)
 	})
@@ -343,6 +361,8 @@ describe('canonical command graph', () => {
 		)
 		application.compileSchemas()
 		const graph = readApplicationCommandGraph(application)
+		const firstCommand = requireCommand(graph, first.operation)
+		const secondCommand = requireCommand(graph, second.operation)
 		const equivalent = new FrameworkApplication({
 			schemas: [Document],
 			plugins: [fixture('first').plugin, fixture('second').plugin],
@@ -354,14 +374,12 @@ describe('canonical command graph', () => {
 		)
 		await equivalent.dispose()
 		await application.initialize()
-		expect(graph.bindings.handler(first.operation)?.owner.instanceId).toBe(
-			'first',
-		)
-		expect(graph.bindings.handler(second.operation)?.owner.instanceId).toBe(
+		expect(graph.bindings.handler(firstCommand)?.owner.instanceId).toBe('first')
+		expect(graph.bindings.handler(secondCommand)?.owner.instanceId).toBe(
 			'second',
 		)
-		expect(graph.bindings.handler(first.operation)).not.toBe(
-			graph.bindings.handler(second.operation),
+		expect(graph.bindings.handler(firstCommand)).not.toBe(
+			graph.bindings.handler(secondCommand),
 		)
 	})
 
@@ -416,6 +434,7 @@ describe('canonical command graph', () => {
 		)
 		application.compileSchemas()
 		const graph = readApplicationCommandGraph(application)
+		const command = requireCommand(graph, owned.operation)
 		const contribution = {
 			contributionId: 'first',
 			owner: {
@@ -440,10 +459,10 @@ describe('canonical command graph', () => {
 					invalid,
 				])
 			}).toThrow()
-			expect(graph.bindings.handler(owned.operation)).toBeUndefined()
+			expect(graph.bindings.handler(command)).toBeUndefined()
 		}
 		graph.bindings.materialize(pluginOperationHandlerCapability, [contribution])
-		expect(graph.bindings.handler(owned.operation)).toMatchObject({
+		expect(graph.bindings.handler(command)).toMatchObject({
 			execute: owned.execute,
 		})
 		expect(() => {
@@ -496,7 +515,10 @@ describe('canonical command graph', () => {
 		expect(owned.cleanup).toHaveBeenCalledTimes(1)
 		expect(() =>
 			readApplicationCommandGraph(application).bindings.transport(
-				owned.operation,
+				requireCommand(
+					readApplicationCommandGraph(application),
+					owned.operation,
+				),
 				transport,
 			),
 		).toThrow('no longer available')

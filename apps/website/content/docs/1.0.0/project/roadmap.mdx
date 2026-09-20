@@ -9,7 +9,7 @@ contentType: reference
 outcome: Identify upcoming priorities and proposed capabilities without mistaking plans for shipped behavior or release commitments.
 owner: '2822'
 releaseStatus: pre-release
-reviewedAt: 2026-09-18
+reviewedAt: 2026-09-21
 sources:
   - README.md
   - ROADMAP.md
@@ -61,11 +61,13 @@ import {
 UltimaBase already has schemas, typed data operations, PostgreSQL, and optional
 REST, GraphQL, and password authentication in the repository. See
 [Release Status](./release-status) for what you can evaluate today. The cards
-below show what comes next and the later directions tracked in the issue backlog.
+below show the product directions planned after the current simplification work.
 
 <Callout type="info" title="Current focus">
-	Files and caching are the next two priorities. Both need design work before
-	implementation begins; the linked issues are still marked planned.
+	The current priority is to simplify the Core and existing plugins before
+	adding new capabilities. This work preserves current product behavior and
+	removes only explicitly reviewed unused extension mechanisms. Files and
+	caching remain planned and still need design work.
 </Callout>
 
 ## Next priorities

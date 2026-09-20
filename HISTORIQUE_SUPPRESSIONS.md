@@ -15,10 +15,11 @@ conservées. Une implémentation, ses exports, sa documentation ou ses seuls tes
 ne suffisent pas à justifier une capacité sans consommateur concret. Les
 invariants de sécurité, de cycle de vie et de conformité restent obligatoires.
 
-Deux retraits concernent des usages existants expressément acceptés : les
-applications actives simultanément dans un même environnement JavaScript, et
-l’API publique de mesure `RuntimeCostProbe`. Les tests parallèles isolés et les
-mesures internes restent conservés.
+Trois retraits ciblés ont été expressément acceptés : les applications actives
+simultanément dans un même environnement JavaScript, l’API publique de mesure
+`RuntimeCostProbe`, et les callbacks/constructeurs dans la vue descriptive
+`typegenGraph` (ADR-0262). Les tests parallèles isolés, les mesures internes,
+les déclarations générées et les API d’exécution restent conservés.
 
 Les lignes ci-dessous recensent des décisions approuvées, pas de nouvelles
 propositions. Tout autre retrait présentant un consommateur incertain ou une
@@ -167,9 +168,9 @@ au fur et à mesure des migrations et de leurs audits.
 | --------- | ------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ---------------------- |
 | 3008–3009 | Stockages indépendants des opérations et faits recopiés entre compilation et exécution            | Graphe privé canonique et liaison d’exécution attribuée au propriétaire           | Livré                  |
 | 3010      | Ancienne table des sources et lectures Runtime des vues de mutation                               | Même graphe, avec la sémantique propre aux mutations conservée                    | Livré                  |
-| 3011      | Registres de surfaces et générateurs redondants                                                   | Projections immuables des mêmes faits pour les méthodes développeur et Typegen    | À réaliser             |
-| 3012      | Registres et comparaisons en double entre plans statiques et bindings des transports              | Projections REST/GraphQL du graphe, avec codecs et contrôle d’exécution conservés | À réaliser             |
-| 3013      | Adaptateurs temporaires de migration, chemins historiques et vérifications réellement redondantes | Chemins canoniques et tests conservant chaque invariant requis                    | À réaliser             |
+| 3011      | Registres de surfaces et générateurs redondants                                                   | Projections immuables des mêmes faits pour les méthodes développeur et Typegen    | Livré                  |
+| 3012      | Registres et comparaisons en double entre plans statiques et bindings des transports              | Projections REST/GraphQL du graphe, avec codecs et contrôle d’exécution conservés | Livré                  |
+| 3013      | Adaptateurs temporaires de migration, chemins historiques et vérifications réellement redondantes | Chemins canoniques et tests conservant chaque invariant requis                    | Livré                  |
 | 3014      | Aucun retrait nouveau autorisé par ce seul checkpoint                                             | Audit final de parité, sécurité, capacités des plugins, documentation et mesures  | À réaliser, puis arrêt |
 
 ## Journal de livraison
@@ -290,3 +291,13 @@ avec les mêmes exports publics et la même taille de déclarations.
 - [ADR-0262 : inspection Typegen descriptive](docs/adr/0262-descriptive-typegen-command-inspection.md)
 - [Matrice des contrats à préserver](docs/plans/2026-09-20-architecture-contract-matrix.md)
 - [Inventaire et audit des décisions](docs/plans/2026-09-20-smaller-kernel-decision-proposal.md)
+
+- **3013 — livrée :** retrait du dernier repli privé des lecteurs de bindings
+  vers les anciens tokens source ; les lecteurs utilisent uniquement les
+  commandes canoniques. Les deux scénarios de conformité Hooks/Access partagent
+  leur préparation et conservent toutes leurs assertions. Les guides internes,
+  la roadmap du site et le registre des décisions sont réconciliés. L’audit
+  de couverture compare tous les emplacements conservés : aucune perte, aucun
+  seuil ou exclusion modifié. Les 2 776 tests du contrôle de couverture,
+  381 intégrations, 66 contrôles de contenu et 56 tests navigateur passent.
+  Réduction de **4 lignes de production**, exports publics inchangés.

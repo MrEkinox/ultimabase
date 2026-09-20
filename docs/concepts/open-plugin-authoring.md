@@ -173,10 +173,10 @@ definePlugin({
 
 The token's `compose` contract converts ordered providers into the consumer
 view. A resource capability's factory receives the same exact capability
-reader, not a service locator. Replacements target one structured owner and
-contribution ID; decorators wrap a complete `single` or `pipeline` consumer
-view. No public string slots, named setup registries, or generic service lookup
-remain.
+reader, not a service locator. Competing `single` providers are rejected;
+`multiple` and `pipeline` providers compose in deterministic order. ADR-0259
+removed generic replacement and decoration. No public string slots, named
+setup registries, or generic service lookup remain.
 
 ## Configure privileges
 

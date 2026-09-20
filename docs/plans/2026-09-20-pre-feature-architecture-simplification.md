@@ -79,6 +79,12 @@ exact additional removals and the retained application-operation/schema-mutation
 graph. No code removal
 starts before issue 3003's final audit and accepted ADR.
 
+Issue 3011 subsequently used the architecture stop protocol. The user approved
+[ADR-0262](../adr/0262-descriptive-typegen-command-inspection.md): the existing
+Typegen graph keeps descriptive facts, without executable snapshot callbacks or
+schema constructors. Direct execution and generated declarations remain intact;
+D-005 records this exact approved difference in the preservation ledger.
+
 Except for the exact approved removals, parity means observable equivalence for
 successful results, public and safe errors, side effects and ordering, Hooks and
 policies, transactions and rollback, authority provenance, lifecycle cleanup,

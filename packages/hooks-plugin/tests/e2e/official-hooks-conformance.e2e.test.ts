@@ -1,13 +1,9 @@
-import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import {
-	createPluginConformanceFixture,
 	definePluginConformanceSuite,
 	runPluginConformance,
-	withPluginTypegenConformance,
 } from '@ultimabase/testing'
 import { describe, expect, it } from 'vitest'
 import {
-	createProofSchema,
 	requireSchema,
 	expectConformanceFailure,
 } from '../../../../tests/fixtures/official-conformance-support.js'
@@ -19,35 +15,6 @@ import {
 
 // Preserve the original public-export scenarios under their contract owner.
 describe('official Hooks capability conformance', () => {
-	it('proves Hooks manifest and Typegen contracts', async () => {
-		const suite = definePluginConformanceSuite({
-			createFixture: () =>
-				createPluginConformanceFixture({
-					schemas: [createProofSchema()],
-					subject: hooksPlugin(),
-				}),
-			expected: {
-				core: '^0.0.0',
-				environment: [],
-				pluginId: '@ultimabase/hooks-plugin',
-				privileges: ['schema:declare', 'runtime:intercept'],
-				version: '0.0.0',
-			},
-		})
-		const report = await runPluginConformance(
-			withPluginTypegenConformance(suite, {
-				applicationId: 'official-hooks-conformance',
-				verify: ({ contents }) => {
-					expect(contents).toContain('@ultimabase/hooks-plugin')
-					expect(contents).toContain('FieldHooksOption')
-					expect(contents).toContain('SchemaHooksOption')
-				},
-			}),
-		)
-
-		expect(report.checks.map(({ contract }) => contract)).toContain('typegen')
-	})
-
 	it('proves Hooks ordering, immutability, rollback, commit delivery, and isolation', async () => {
 		const suite = definePluginConformanceSuite({
 			createFixture: createOfficialHooksConformanceFixture,

@@ -1,12 +1,12 @@
 # Active plan: pre-feature architecture simplification
 
-- Status: active — issue 3012 audited; issue 3013 follows its dedicated commit
+- Status: active — issue 3013 audited; issue 3014 follows its dedicated commit
 - Milestone: [30 — Pre-feature architecture simplification](issues/3000-pre-feature-architecture-simplification/README.md)
 - Detailed plan: [docs/plans/2026-09-20-pre-feature-architecture-simplification.md](docs/plans/2026-09-20-pre-feature-architecture-simplification.md)
 - Baseline: [docs/plans/2026-09-20-architecture-simplification-baseline.md](docs/plans/2026-09-20-architecture-simplification-baseline.md)
 - Contract matrix: [docs/plans/2026-09-20-architecture-contract-matrix.md](docs/plans/2026-09-20-architecture-contract-matrix.md)
 - Removal history: [HISTORIQUE_SUPPRESSIONS.md](HISTORIQUE_SUPPRESSIONS.md)
-- Resume point: issue 3013
+- Resume point: issue 3014
 
 ## Objective
 
@@ -197,3 +197,19 @@ local commit precedes 3013. No push; the hard stop after 3014 remains.
 Documentation impact: internal engineering documentation until an issue changes
 a public contract; those issues must update both package and public website
 documentation in the same audited change.
+
+Issue 3012 is committed as `df49ccdd`: +376 / -310 lines, net +66,
+including tests and documentation; production shrinks by 111 lines. Issue 3013
+now audits the complete milestone, captures full coverage before cleanup, and
+removes only proven residual adapters and duplicate verification setup. No push
+is authorized; the hard stop after 3014 still applies.
+
+Issue 3013 is complete with a green complete-diff and coverage-location audit.
+The final private source-token fallback is removed; conformance orchestration is
+shared without deleting a scenario, and stale internal/public documentation is
+corrected. All 2,776 coverage-gate tests, 381 built integrations, 66 website
+content tests and 56 browser tests pass, alongside typecheck, build, lint,
+constraints and formatting. Every retained coverage location stays covered as
+before. Production shrinks by four lines; exports and declaration bytes remain
+unchanged. Its dedicated commit precedes the clean-checkout audit in 3014.
+Stop after 3014; no plugin issue or push is authorized.
