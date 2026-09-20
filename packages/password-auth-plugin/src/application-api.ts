@@ -16,7 +16,7 @@ import {
 	validatePasswordSessionToken,
 	type PasswordSessionCollection,
 } from './sessions.js'
-import type { PasswordUserDefinition } from './user-schema.js'
+import type { PasswordUserReference } from './user-schema.js'
 import { rejectPasswordSession } from './operations.js'
 
 /** Exposes application-bound authenticated execution without raw Runtime access. */
@@ -34,7 +34,7 @@ export const createPasswordAuthPluginExports = (options: {
 	readonly executor: ApplicationRequestExecutor
 	readonly owner: PluginIdentity
 	readonly sessions: PasswordSessionCollection
-	readonly user: PasswordUserDefinition
+	readonly user: PasswordUserReference
 }): PasswordAuthPluginExports =>
 	immutableRecord({
 		runWithSession: async <TResult>(

@@ -47,6 +47,8 @@ export type GraphqlOperationSupportingTypeDefinition =
 			readonly fields: readonly GraphqlOperationTypeFieldDefinition[]
 			readonly kind: 'input-object'
 			readonly name: string
+			/** Includes ordinary create fields from a schema owned by this binding's plugin. */
+			readonly createFieldsFrom?: string
 	  }>
 	| Readonly<{
 			readonly fields: readonly GraphqlOperationTypeFieldDefinition[]
@@ -189,11 +191,28 @@ const normalizeSupportingType = (
 		})
 	}
 	if (value.kind === 'input-object' || value.kind === 'object') {
-		assertExactKeys(value, new Set(['fields', 'kind', 'name']), path)
+		assertExactKeys(
+			value,
+			new Set([
+				'fields',
+				'kind',
+				'name',
+				...(value.kind === 'input-object' ? ['createFieldsFrom'] : []),
+			]),
+			path,
+		)
 		return immutableRecord({
 			fields: normalizeFields(value.fields, `${path}.fields`),
 			kind: value.kind,
 			name,
+			...(Object.hasOwn(value, 'createFieldsFrom')
+				? {
+						createFieldsFrom: readString(
+							value.createFieldsFrom,
+							`${path}.createFieldsFrom`,
+						),
+					}
+				: {}),
 		})
 	}
 	throw new TypeError(`${path}.kind must be enum, input-object, or object`)

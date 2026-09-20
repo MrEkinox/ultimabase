@@ -91,7 +91,7 @@ export class GraphqlOperationSchemaCompiler {
 						binding.metadata.input === undefined
 							? null
 							: isPlainRecord(args)
-								? args.input
+								? this.#types.decodeInput(binding.metadata.input, args.input)
 								: undefined,
 						contextValue,
 					),

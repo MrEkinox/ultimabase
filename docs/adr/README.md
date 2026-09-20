@@ -238,6 +238,7 @@ Accepted records:
 - [ADR-0254: Authentication methods on Password User classes](0254-password-user-authentication-methods.md).
 - [ADR-0255: Password Auth transport payloads](0255-password-auth-transport-payloads.md).
 - [ADR-0256: Short public paths for REST application operations](0256-rest-operation-public-paths.md).
+- [ADR-0257: Schema-derived Password Auth signup inputs](0257-password-auth-signup-inputs.md).
 
 Superseded records:
 

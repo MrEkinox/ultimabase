@@ -7,14 +7,18 @@ import {
 	passwordAuthPlugin,
 	type PasswordAuthPlugin,
 	type PasswordPrincipal,
-	type PasswordUserDefinition,
+	type PasswordUserReference,
 	type PasswordAuthenticationResult,
 	type PasswordLogoutResult,
 } from './index.js'
 
 const AppUser = PasswordUserSchema.define({
 	className: 'User',
-	fields: (field) => ({ displayName: field.string({ required: true }) }),
+	fields: (field) => ({
+		displayName: field.string({ required: true }),
+		nickname: field.string(),
+		locale: field.string({ required: true, default: 'fr' }),
+	}),
 	indexes: [{ fields: ['displayName', 'username'] }],
 })
 
@@ -23,9 +27,9 @@ test('types class authentication results against the exact User and rejects extr
 		username: 'Ada',
 		password: 'correct horse battery staple',
 	}
-	expectTypeOf(AppUser.signUp(credentials)).toEqualTypeOf<
-		Promise<PasswordAuthenticationResult<typeof AppUser>>
-	>()
+	expectTypeOf(
+		AppUser.signUp({ ...credentials, displayName: 'Ada Lovelace' }),
+	).toEqualTypeOf<Promise<PasswordAuthenticationResult<typeof AppUser>>>()
 	expectTypeOf(AppUser.login(credentials)).toEqualTypeOf<
 		Promise<PasswordAuthenticationResult<typeof AppUser>>
 	>()
@@ -38,6 +42,18 @@ test('types class authentication results against the exact User and rejects extr
 	expectTypeOf(PasswordUser.signUp(credentials)).toEqualTypeOf<
 		Promise<PasswordAuthenticationResult<typeof PasswordUser>>
 	>()
+	// @ts-expect-error -- Required profile fields are mandatory for signup.
+	void AppUser.signUp(credentials)
+	// @ts-expect-error -- Profile values retain their declared types.
+	void AppUser.signUp({ ...credentials, displayName: 42 })
+	// @ts-expect-error -- Login never accepts profile fields.
+	void AppUser.login({ ...credentials, displayName: 'Ada' })
+	void AppUser.signUp({
+		...credentials,
+		displayName: 'Ada',
+		// @ts-expect-error -- Unknown profile fields are rejected.
+		unknownField: true,
+	})
 	// @ts-expect-error -- Credentials require both username and password.
 	void AppUser.signUp({ username: 'Ada' })
 	// @ts-expect-error -- Session objects cannot replace the exact raw token.
@@ -49,8 +65,8 @@ test('types class authentication results against the exact User and rejects extr
 })
 
 test('retains nominal User and principal typing', () => {
-	expectTypeOf(AppUser).toExtend<PasswordUserDefinition>()
-	expectTypeOf(PasswordUser).toExtend<PasswordUserDefinition>()
+	expectTypeOf(AppUser).toExtend<PasswordUserReference>()
+	expectTypeOf(PasswordUser).toExtend<PasswordUserReference>()
 	expectTypeOf(
 		passwordAuthPlugin({ user: AppUser }),
 	).toEqualTypeOf<PasswordAuthPlugin>()
@@ -93,4 +109,26 @@ test('keeps password configuration exact and bounded at runtime', () => {
 			algorithm: 'scrypt',
 		},
 	})
+})
+
+test('uses ordinary nested-create commands for relationship fields', () => {
+	const Team = Schema.define({
+		className: 'Team',
+		fields: (field) => ({ name: field.string() }),
+	})
+	const User = PasswordUserSchema.define({
+		className: 'User',
+		fields: (field) => ({
+			team: field.pointer({ target: 'Team', required: true }),
+		}),
+	})
+	const credentials = {
+		username: 'Ada',
+		password: 'correct horse battery staple',
+	}
+	void User.signUp({ ...credentials, team: { connect: 'team-id' } })
+	// @ts-expect-error -- A required relationship must be provided on signup.
+	void User.signUp(credentials)
+	// @ts-expect-error -- Creation uses commands rather than materialized pointers.
+	void User.signUp({ ...credentials, team: Team.pointer('team-id') })
 })

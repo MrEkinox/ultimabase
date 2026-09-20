@@ -45,7 +45,7 @@ import {
 import {
 	PasswordUser,
 	isPasswordUserDefinition,
-	type PasswordUserDefinition,
+	type PasswordUserReference,
 } from './user-schema.js'
 import { normalizePasswordUsername } from './normalization.js'
 import { assertPasswordHashEngineAvailable } from './password-hasher.js'
@@ -135,7 +135,7 @@ export type PasswordAuthPlugin = PluginModuleInstance<
 
 /** Configures the one local User identity domain owned by Password Auth v1. */
 export interface PasswordAuthPluginOptions<
-	TUser extends PasswordUserDefinition = PasswordUserDefinition,
+	TUser extends PasswordUserReference = PasswordUserReference,
 > {
 	/** Selects the exact final User schema created by PasswordUserSchema.define(). */
 	readonly user?: TUser
@@ -252,7 +252,7 @@ const createUsernameInvariant =
 
 /** Installs one application-local User schema and its private credential store. */
 export const passwordAuthPlugin = <
-	const TUser extends PasswordUserDefinition = typeof PasswordUser,
+	const TUser extends PasswordUserReference = typeof PasswordUser,
 >(
 	options?: PasswordAuthPluginOptions<TUser>,
 ): PasswordAuthPlugin => {
@@ -353,7 +353,10 @@ export const passwordAuthPlugin = <
 				schema: user,
 				staticOptions: {
 					identity: 'local-password',
-					variant: user === PasswordUser ? 'default' : 'custom',
+					variant:
+						(user as PasswordUserReference) === PasswordUser
+							? 'default'
+							: 'custom',
 				},
 			})
 			privateStorage.register(credentials)

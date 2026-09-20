@@ -75,7 +75,7 @@ const executeAnonymous = (
 }
 
 const authMutation = (field: 'login' | 'signUp') =>
-	`mutation Auth($input: PasswordAuthCredentialsInput!) {
+	`mutation Auth($input: ${field === 'signUp' ? 'PasswordAuthSignUpInput' : 'PasswordAuthCredentialsInput'}!) {
 		${field}(input: $input) {
 			user { id username displayName secret serial avatar }
 			session { id token expiresAt absoluteExpiresAt }
@@ -99,7 +99,7 @@ describe('Password Auth GraphQL operations with PostgreSQL', () => {
 			className: 'User',
 			fields: (field) => ({
 				avatar: field.binary({ default: new Uint8Array([1, 2, 3]) }),
-				displayName: field.string({ default: 'Ada' }),
+				displayName: field.string({ required: true }),
 				secret: field.string({ default: 'private' }),
 				serial: field.bigint({ default: 9_007_199_254_740_993n }),
 			}),
@@ -188,12 +188,44 @@ describe('Password Auth GraphQL operations with PostgreSQL', () => {
 			expect(obsoleteSelection.errors?.[0]?.message).toContain(
 				'Cannot query field "principal"',
 			)
+			for (const input of [
+				{ password, username: 'graphql-user' },
+				{ password, username: 'graphql-user', displayName: 42 },
+			]) {
+				const rejected = await executeAnonymous(
+					ultimabase.engine,
+					graphql,
+					authMutation('signUp'),
+					'invalid-signup',
+					{ input },
+				)
+				expect(rejected.errors?.length).toBeGreaterThan(0)
+			}
+			const invalidLogin = await executeAnonymous(
+				ultimabase.engine,
+				graphql,
+				authMutation('login'),
+				'invalid-login-fields',
+				{ input: { password, username: 'graphql-user', displayName: 'Ada' } },
+			)
+			expect(invalidLogin.errors?.length).toBeGreaterThan(0)
+			expect(graphql.schema.getMutationType()?.getFields()).not.toHaveProperty(
+				'createUser',
+			)
 			const signedUp = await executeAnonymous(
 				ultimabase.engine,
 				graphql,
 				authMutation('signUp'),
 				'password-graphql-sign-up',
-				{ input: { password, username: 'graphql-user' } },
+				{
+					input: {
+						password,
+						username: 'graphql-user',
+						displayName: 'Ada',
+						serial: '9007199254740993',
+						avatar: 'AQID',
+					},
+				},
 			)
 			expect(signedUp.errors).toBeUndefined()
 			expect(readSessionToken(signedUp.data, 'signUp')).toMatch(/^ub_s1\./u)

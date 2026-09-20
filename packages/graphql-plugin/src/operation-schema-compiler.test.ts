@@ -450,6 +450,19 @@ describe('GraphQL plugin operations', () => {
 
 		for (const [metadata, message] of [
 			[{ ...echoMetadata, extra: true }, 'contains unknown key'],
+			...['MissingSchema', 'GraphqlOperationRecord'].map(
+				(createFieldsFrom) =>
+					[
+						{
+							...echoMetadata,
+							types: [
+								{ ...echoMetadata.types[0], createFieldsFrom },
+								echoMetadata.types[1],
+							],
+						},
+						'cannot use create fields from',
+					] as const,
+			),
 			[
 				{
 					...echoMetadata,

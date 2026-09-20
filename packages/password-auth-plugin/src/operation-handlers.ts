@@ -36,11 +36,10 @@ import {
 	rotatePasswordSession,
 	type PasswordSessionCollection,
 } from './sessions.js'
-import type { PasswordUserDefinition } from './user-schema.js'
+import type { PasswordUserReference } from './user-schema.js'
+import { restorePasswordSignUpValue } from './sign-up-input.js'
 
-interface PasswordOperationHandlerOptions<
-	TUser extends PasswordUserDefinition,
-> {
+interface PasswordOperationHandlerOptions<TUser extends PasswordUserReference> {
 	readonly credentials: PasswordCredentialCollection
 	readonly passwordPolicy: ResolvedPasswordHashPolicy
 	readonly sessionPolicy: ResolvedPasswordSessionPolicy
@@ -59,7 +58,7 @@ const normalizeCredentials = (
 const isValidationFailure = (error: unknown): boolean =>
 	error instanceof FrameworkError && error.code === 'VALIDATION_ERROR'
 
-const readModelPointer = <TUser extends PasswordUserDefinition>(
+const readModelPointer = <TUser extends PasswordUserReference>(
 	user: TUser,
 	model: unknown,
 ): Pointer<TUser> => {
@@ -77,7 +76,7 @@ const readModelPointer = <TUser extends PasswordUserDefinition>(
 	return pointer as Pointer<TUser>
 }
 
-const createSignUpHandler = <TUser extends PasswordUserDefinition>(
+const createSignUpHandler = <TUser extends PasswordUserReference>(
 	options: PasswordOperationHandlerOptions<TUser>,
 ) =>
 	operationHandler({
@@ -95,8 +94,17 @@ const createSignUpHandler = <TUser extends PasswordUserDefinition>(
 			)
 			try {
 				return await engine.transaction(async (transaction) => {
+					// Password material never enters User data, hooks, or field validation.
+					const data = Object.fromEntries(
+						Object.entries(input)
+							.filter(([name]) => name !== 'password' && name !== 'username')
+							.map(([name, value]) => [
+								name,
+								restorePasswordSignUpValue(value),
+							]),
+					)
 					const created = await options.user.createOne(
-						{ data: { username: normalized.username } },
+						{ data: { ...data, username: normalized.username } },
 						transaction.context.access.mode === 'master'
 							? undefined
 							: { useMasterKey: true },
@@ -141,7 +149,7 @@ const unchangedCredential = (
 	left.userId === right.userId &&
 	left.username === right.username
 
-const createLoginHandler = <TUser extends PasswordUserDefinition>(
+const createLoginHandler = <TUser extends PasswordUserReference>(
 	options: PasswordOperationHandlerOptions<TUser>,
 ) =>
 	operationHandler({
@@ -209,7 +217,7 @@ const createLoginHandler = <TUser extends PasswordUserDefinition>(
 	})
 
 const createLogoutHandler = (
-	options: PasswordOperationHandlerOptions<PasswordUserDefinition>,
+	options: PasswordOperationHandlerOptions<PasswordUserReference>,
 ) =>
 	operationHandler({
 		operation: passwordAuthOperations.logout,
@@ -225,7 +233,7 @@ const createLogoutHandler = (
 		},
 	})
 
-const createRefreshHandler = <TUser extends PasswordUserDefinition>(
+const createRefreshHandler = <TUser extends PasswordUserReference>(
 	options: PasswordOperationHandlerOptions<TUser>,
 ) =>
 	operationHandler({
@@ -250,7 +258,7 @@ const createRefreshHandler = <TUser extends PasswordUserDefinition>(
 
 /** Creates the four application-local handlers from one private auth state. */
 export const createPasswordOperationHandlers = <
-	TUser extends PasswordUserDefinition,
+	TUser extends PasswordUserReference,
 >(
 	options: PasswordOperationHandlerOptions<TUser>,
 ): readonly [

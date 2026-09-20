@@ -13,8 +13,9 @@ import {
 import {
 	PasswordUserSchema,
 	passwordAuthPlugin,
+	passwordAuthOperations,
 	passwordPrincipal,
-	type PasswordUserDefinition,
+	type PasswordUserReference,
 } from '@ultimabase/password-auth-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -48,7 +49,7 @@ const createUser = () =>
 		}),
 	})
 const createApplication = (
-	User: PasswordUserDefinition,
+	User: PasswordUserReference,
 	database = getFixture(),
 ) => {
 	let allow = true
@@ -103,6 +104,55 @@ const createApplication = (
 }
 
 describe('Password User authentication methods', () => {
+	it('requires declared signup fields and keeps login limited to credentials', async () => {
+		const User = PasswordUserSchema.define({
+			className: 'User',
+			fields: (field) => ({
+				displayName: field.string({ required: true }),
+				locale: field.string({ required: true, default: 'fr' }),
+				avatar: field.binary(),
+			}),
+		})
+		const { ultimabase } = createApplication(User)
+		await ultimabase.start()
+		try {
+			const credentials = { username: 'schema-signup', password }
+			for (const input of [
+				credentials,
+				{ ...credentials, displayName: 42 },
+				{ ...credentials, displayName: 'Ada', unknownField: true },
+			]) {
+				await expect(
+					ultimabase.operation(passwordAuthOperations.signUp).execute(input),
+				).rejects.toMatchObject({ code: 'PASSWORD_AUTH_SIGN_UP_REJECTED' })
+			}
+			// Reusing the rejected identity proves failed creations left no credential behind.
+			const result = await User.signUp(
+				{
+					...credentials,
+					displayName: 'Ada',
+					avatar: new Uint8Array([4, 5, 6]),
+				},
+				{ ultimabase },
+			)
+			expect(result.user).toMatchObject({
+				displayName: 'Ada',
+				locale: 'fr',
+				avatar: new Uint8Array([4, 5, 6]),
+			})
+			expect(result.user).not.toHaveProperty('password')
+			await expect(
+				User.login(credentials, { ultimabase }),
+			).resolves.toMatchObject({ user: { id: result.user.id } })
+			const extra = { ...credentials, displayName: 'Ada' }
+			await expect(
+				ultimabase.operation(passwordAuthOperations.login).execute(extra),
+			).rejects.toThrow()
+		} finally {
+			await ultimabase.dispose()
+		}
+	})
+
 	it('does not install authentication merely by declaring the User class', async () => {
 		const User = createUser()
 		const ultimabase = new UltimaBase({
@@ -118,7 +168,12 @@ describe('Password User authentication methods', () => {
 				User.signUp({ username: 'uninstalled', password }, { ultimabase }),
 			).rejects.toThrow('Unknown application operation')
 			await expect(User.logout('token', { ultimabase })).rejects.toThrow()
-			await expect(User.count(undefined, { ultimabase })).resolves.toBe(0)
+			await expect(
+				User.count(
+					{ where: { username: { eq: 'uninstalled' } } },
+					{ ultimabase },
+				),
+			).resolves.toBe(0)
 		} finally {
 			await ultimabase.dispose()
 		}

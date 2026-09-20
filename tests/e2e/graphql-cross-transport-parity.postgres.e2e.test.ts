@@ -288,7 +288,7 @@ describe(
 			}
 			const baseUrl = `http://127.0.0.1:${String(address.port)}`
 			const password = 'correct horse battery staple'
-			const signUpMutation = `mutation SignUp($input: PasswordAuthCredentialsInput!) {
+			const signUpMutation = `mutation SignUp($input: PasswordAuthSignUpInput!) {
 			signUp(input: $input) {
 				user { id }
 				session { token }

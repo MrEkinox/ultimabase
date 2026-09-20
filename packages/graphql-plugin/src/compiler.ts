@@ -111,6 +111,7 @@ export const compileGraphqlSchema = (
 	}
 	const bindingTypes = new GraphqlBindingTypeCompiler({
 		fields,
+		inputs: mutations,
 		names,
 		schemas: [...surfaces.keys()],
 	})

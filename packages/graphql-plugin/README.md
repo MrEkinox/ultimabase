@@ -297,6 +297,11 @@ and lifecycle checks. GraphQL never receives a handler, adapter, authority, or
 authentication integration. Declared public plugin failures use the same safe
 GraphQL error extensions as generated schema operations.
 
+A supporting input-object may declare `createFieldsFrom` naming a schema owned
+by the exact operation owner. Its fields reuse ordinary nested-create input
+types and codecs; explicit supporting fields cannot collide with inherited
+fields. This exposes no schema CRUD root and does not replay defaults.
+
 Password Auth supplies compatible `signUp`, `login`, `refresh`, and `logout`
 bindings without GraphQL importing or identifying that package. Its successful
 payload exposes only `user` and `session`; select `user { id }` for the identity.

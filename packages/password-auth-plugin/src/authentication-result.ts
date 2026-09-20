@@ -9,11 +9,11 @@ import {
 	type PasswordAuthenticationResult,
 	type PasswordSession,
 } from './session.js'
-import type { PasswordUserDefinition } from './user-schema.js'
+import type { PasswordUserReference } from './user-schema.js'
 
 /** Reads the profile in the auth transaction with only the newly issued identity. */
 export const readPasswordAuthenticationResult = async (
-	user: PasswordUserDefinition,
+	user: PasswordUserReference,
 	userId: string,
 	session: Readonly<{
 		readonly context: PasswordSession

@@ -320,7 +320,7 @@ curl http://127.0.0.1:1337/graphql \
   --request POST \
   --header 'Content-Type: application/json' \
   --header 'X-UltimaBase-Application-Id: minimal' \
-  --data '{"query":"mutation SignUp($input: PasswordAuthCredentialsInput!) { signUp(input: $input) { user { id } session { token expiresAt } } }","variables":{"input":{"username":"ada","password":"correct horse battery staple"}}}'
+  --data '{"query":"mutation SignUp($input: PasswordAuthSignUpInput!) { signUp(input: $input) { user { id } session { token expiresAt } } }","variables":{"input":{"username":"ada","password":"correct horse battery staple"}}}'
 ```
 
 The response contains a one-time opaque `ub_s1.*` token. Send it with the

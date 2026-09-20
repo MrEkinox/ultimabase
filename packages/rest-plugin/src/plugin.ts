@@ -296,6 +296,7 @@ export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 	const compileOperationRoutes = (
 		owner: Parameters<typeof compileRestOperationRouteFragment>[0]['owner'],
 		planner: ApplicationOperationTransportPlanner,
+		schemas: Parameters<typeof compileRestOperationRouteFragment>[0]['schemas'],
 	) =>
 		compileRestOperationRouteFragment({
 			basePath: normalized.basePath,
@@ -305,6 +306,7 @@ export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 			}),
 			owner,
 			pluginVersion: restPluginModule.version,
+			schemas,
 		})
 	const compileSchemaMutationRoutes = (
 		owner: Parameters<
@@ -331,10 +333,11 @@ export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 	})
 	const operationRouteProvider = provideCapability(restRouteGraphCapability, {
 		contributionId: 'official-rest-operation-routes',
-		create: ({ capabilities: reader, owner }) => ({
+		create: ({ capabilities: reader, owner, schemas }) => ({
 			value: compileOperationRoutes(
 				owner,
 				reader.get(transportPlanningRequirement),
+				schemas,
 			),
 		}),
 	})
@@ -360,6 +363,7 @@ export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 				const operationRoutes = compileOperationRoutes(
 					owner,
 					reader.get(transportPlanningRequirement),
+					schemas,
 				)
 				const schemaMutationRoutes = compileSchemaMutationRoutes(
 					owner,
@@ -407,7 +411,7 @@ export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 				schema: { rest: restSchemaOption },
 			})
 		},
-		setup: ({ capabilities: reader }) => {
+		setup: ({ capabilities: reader, schemas }) => {
 			const routeGraph = reader.get(routeGraphRequirement)
 			const readLimits = immutableRecord({
 				bodyBytes: normalized.bodyLimit,
@@ -422,7 +426,7 @@ export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 			const operationTransport =
 				operationRoutes.length === 0
 					? undefined
-					: createRestOperationTransport(operationRoutes)
+					: createRestOperationTransport(operationRoutes, schemas)
 			const schemaMutationRoutes = routeGraph.routes.filter(
 				(route): route is RestSchemaMutationRouteDefinition =>
 					route.kind === 'rest-schema-mutation-route' &&

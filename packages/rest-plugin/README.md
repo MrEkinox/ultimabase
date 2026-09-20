@@ -100,6 +100,11 @@ are accepted, with a leading slash and no trailing slash. The `classes` and
 queries, fragments, and additional metadata keys are rejected. No old-path
 alias is registered, and collisions fail before startup.
 
+An operation binding may also declare `inputSchema` naming a schema owned by
+that exact plugin. REST then applies the schema's ordinary nested-create field
+codecs to the input before the owner decodes it. This does not expose schema
+CRUD routes or run validation/defaults outside Runtime.
+
 REST reads these inert bindings through Core's existing transport planner
 during route compilation. It validates the complete mapping before transport
 startup and accepts only integer error statuses from 400 through 599.

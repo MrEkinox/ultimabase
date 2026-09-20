@@ -69,7 +69,7 @@ const countStoredSessions = async (): Promise<number> => {
 	return result.rows[0]?.count ?? 0
 }
 
-const createApplication = () => {
+const createApplication = (requiredProfile = false) => {
 	if (fixture === undefined)
 		throw new TypeError('Profile fixture is unavailable')
 	let mode: 'allow' | 'deny' | 'missing' | 'fail' = 'allow'
@@ -81,7 +81,9 @@ const createApplication = () => {
 	const User = PasswordUserSchema.define({
 		className: 'User',
 		fields: (field) => ({
-			displayName: field.string({ default: 'Initial' }),
+			displayName: requiredProfile
+				? field.string({ required: true })
+				: field.string({ default: 'Initial' }),
 			secret: field.string({ default: 'must stay private' }),
 			serial: field.bigint({ default: 9_007_199_254_740_993n }),
 			avatar: field.binary({ default: new Uint8Array([1, 2, 3]) }),
@@ -315,6 +317,43 @@ describe('Password Auth readable profiles', () => {
 			).toBe(404)
 			expect(JSON.stringify(signUp.body)).not.toContain('must stay private')
 			expect(JSON.stringify(signUp.body)).not.toContain('passwordVerifier')
+		} finally {
+			await app.ultimabase.dispose()
+		}
+	})
+
+	it('derives REST signup fields and codecs from User while login stays strict', async () => {
+		const app = createApplication(true)
+		await app.ultimabase.start()
+		try {
+			const credentials = { username: 'rest-required', password }
+			const initialSessions = await countStoredSessions()
+			for (const input of [
+				credentials,
+				{ username: credentials.username, displayName: 'Ada' },
+				{ ...credentials, displayName: 42 },
+				{ ...credentials, displayName: 'Ada', unknownField: true },
+			]) {
+				expect((await app.request('signUp', input)).status).toBe(400)
+			}
+			expect(await countStoredSessions()).toBe(initialSessions)
+			const signedUp = await app.request('signUp', {
+				...credentials,
+				displayName: 'Ada',
+				serial: '42',
+				avatar: { type: 'binary', encoding: 'base64', data: 'BAUG' },
+			})
+			expect(signedUp.status).toBe(200)
+			expect(record(signedUp.body.result).user).toMatchObject({
+				displayName: 'Ada',
+				serial: '42',
+				avatar: { type: 'binary', encoding: 'base64', data: 'BAUG' },
+			})
+			expect((await app.request('login', credentials)).status).toBe(200)
+			expect(
+				(await app.request('login', { ...credentials, displayName: 'Ada' }))
+					.status,
+			).toBe(401)
 		} finally {
 			await app.ultimabase.dispose()
 		}

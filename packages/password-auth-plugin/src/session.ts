@@ -8,7 +8,7 @@ import {
 	isPasswordPrincipal,
 	type PasswordPrincipal,
 } from './principal.js'
-import type { PasswordUserDefinition } from './user-schema.js'
+import type { PasswordUserReference } from './user-schema.js'
 
 declare const passwordSessionBrand: unique symbol
 
@@ -35,7 +35,7 @@ export interface IssuedPasswordSession {
 
 /** Carries the authenticated identity returned by sign-up, login, and refresh. */
 export interface PasswordAuthenticationResult<
-	TUser extends PasswordUserDefinition = PasswordUserDefinition,
+	TUser extends PasswordUserReference = PasswordUserReference,
 > {
 	readonly principal: PasswordPrincipal<TUser>
 	readonly session: IssuedPasswordSession
@@ -107,10 +107,10 @@ export const createPasswordSession = (
 
 /** Creates one immutable principal and session pair from validated state. */
 export const createPasswordAuthenticationResult = (
-	user: PasswordUserDefinition,
+	user: PasswordUserReference,
 	userId: string,
 	session: IssuedPasswordSession,
-	profile: SchemaResult<PasswordUserDefinition>,
+	profile: SchemaResult<PasswordUserReference>,
 ): PasswordAuthenticationResult =>
 	immutableRecord({
 		principal: createPasswordPrincipal(user.pointer(userId)),

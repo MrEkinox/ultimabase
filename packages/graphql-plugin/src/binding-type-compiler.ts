@@ -1,4 +1,5 @@
 import { isDeepStrictEqual } from 'node:util'
+import { isPlainRecord } from '@ultimabase/shared'
 
 import type {
 	PluginSchemaContributionOwner,
@@ -21,6 +22,8 @@ import {
 
 import { GraphqlSchemaCompilationError } from './errors.js'
 import type { GraphqlFieldTypeCompiler } from './field-compiler.js'
+import type { GraphqlMutationInputCompiler } from './mutation-input-compiler.js'
+import { decodeGraphqlMutationData } from './nested-mutation-values.js'
 import { assertGraphqlFieldName, type GraphqlNameRegistry } from './names.js'
 import type {
 	GraphqlOperationNullableTypeReference,
@@ -48,6 +51,7 @@ const enumNamePattern = /^[_A-Za-z][_0-9A-Za-z]*$/u
 export class GraphqlBindingTypeCompiler {
 	readonly #definitions = new Map<string, OwnedDefinition>()
 	readonly #fields: GraphqlFieldTypeCompiler
+	readonly #inputs: GraphqlMutationInputCompiler
 	readonly #names: GraphqlNameRegistry
 	readonly #references: BindingReference[] = []
 	readonly #schemaByClassName: ReadonlyMap<string, SchemaDefinition>
@@ -58,10 +62,12 @@ export class GraphqlBindingTypeCompiler {
 
 	constructor(options: {
 		readonly fields: GraphqlFieldTypeCompiler
+		readonly inputs: GraphqlMutationInputCompiler
 		readonly names: GraphqlNameRegistry
 		readonly schemas: readonly SchemaDefinition[]
 	}) {
 		this.#fields = options.fields
+		this.#inputs = options.inputs
 		this.#names = options.names
 		this.#schemaByClassName = new Map(
 			options.schemas.map((schema) => [schema.className, schema]),
@@ -157,6 +163,44 @@ export class GraphqlBindingTypeCompiler {
 			: this.#nullableOutput(reference)
 	}
 
+	/** Applies existing schema codecs without executing validation or defaults twice. */
+	decodeInput(
+		reference: GraphqlOperationTypeReference,
+		value: unknown,
+	): unknown {
+		if (value === null || value === undefined) return value
+		if (reference.kind === 'non-null')
+			return this.decodeInput(reference.ofType, value)
+		if (reference.kind === 'list')
+			return Array.isArray(value)
+				? value.map((item: unknown) => this.decodeInput(reference.ofType, item))
+				: value
+		if (reference.kind !== 'named' || !isPlainRecord(value)) return value
+		const owned = this.#definitions.get(reference.name)
+		if (owned?.definition.kind !== 'input-object') return value
+		const definition = owned.definition
+		const schema =
+			definition.createFieldsFrom === undefined
+				? undefined
+				: this.#schemaByClassName.get(definition.createFieldsFrom)
+		const decoded =
+			schema === undefined
+				? value
+				: decodeGraphqlMutationData(schema, value, 'create', 'nested')
+		if (!isPlainRecord(decoded)) return decoded
+		return Object.fromEntries(
+			Object.entries(decoded).map(([name, item]) => {
+				const field = definition.fields.find(
+					(candidate) => candidate.name === name,
+				)
+				return [
+					name,
+					field === undefined ? item : this.decodeInput(field.type, item),
+				]
+			}),
+		)
+	}
+
 	#assertFinalized(): void {
 		if (!this.#finalized) {
 			throw new TypeError('GraphQL binding types are not finalized')
@@ -186,6 +230,26 @@ export class GraphqlBindingTypeCompiler {
 			return
 		}
 		const fields = new Set<string>()
+		if (
+			definition.kind === 'input-object' &&
+			definition.createFieldsFrom !== undefined
+		) {
+			const schema = this.#schemaByClassName.get(definition.createFieldsFrom)
+			const schemaOwner = schema?.definition.provenance.schema.owner
+			if (
+				schema === undefined ||
+				schemaOwner?.kind !== 'plugin' ||
+				!isSameOperationOwner(schemaOwner, owner)
+			) {
+				throw new TypeError(
+					`GraphQL binding ${definition.name} cannot use create fields from ${definition.createFieldsFrom}`,
+				)
+			}
+			for (const name of Object.keys(
+				this.#inputs.createInput(schema)?.getFields() ?? {},
+			))
+				fields.add(name)
+		}
 		for (const field of definition.fields) {
 			assertGraphqlFieldName(
 				field.name,
@@ -330,12 +394,21 @@ export class GraphqlBindingTypeCompiler {
 			{ readonly kind: 'input-object' }
 		>,
 	): GraphQLInputFieldConfigMap {
-		return Object.fromEntries(
-			definition.fields.map((field) => [
-				field.name,
-				{ type: this.inputType(field.type) },
-			]),
-		)
+		const schema =
+			definition.createFieldsFrom === undefined
+				? undefined
+				: this.#schemaByClassName.get(definition.createFieldsFrom)
+		return {
+			...(schema === undefined
+				? {}
+				: this.#inputs.createInput(schema)?.getFields()),
+			...Object.fromEntries(
+				definition.fields.map((field) => [
+					field.name,
+					{ type: this.inputType(field.type) },
+				]),
+			),
+		}
 	}
 
 	#outputFields(

@@ -18,7 +18,7 @@ import { postgresPlugin } from '@ultimabase/postgres-plugin'
 const AppUser = PasswordUserSchema.define({
 	className: 'User',
 	fields: (field) => ({
-		displayName: field.string(),
+		displayName: field.string({ required: true }),
 	}),
 })
 
@@ -38,6 +38,7 @@ await ultimabase.start()
 
 const signedUp = await AppUser.signUp(
 	{
+		displayName: 'Ada Lovelace',
 		username: 'Ada',
 		password: 'correct horse battery staple',
 	},
@@ -67,6 +68,15 @@ the application's facade. A conflicting explicit application or a User class
 not installed in that application is rejected before credential work. The
 application must be started. These methods do not store a current user or token
 on the class and do not appear on User model instances.
+
+`signUp` accepts `username`, `password`, and the User's ordinary create fields in
+one flat object. Required fields without defaults must be supplied; optional,
+defaulted, and generated fields may be omitted. The class method infers these
+rules directly from the declaration, without Typegen. User validation, defaults,
+hooks, and the authentication transaction still run through ordinary creation.
+`login` accepts exactly `username` and `password`, rejecting profile fields.
+`PasswordUserReference` identifies a configured User without widening its typed
+`signUp` method.
 
 Refresh and logout validate their explicit token and establish its session
 scope internally. Use `runWithSession()` for other authenticated application
@@ -136,9 +146,13 @@ The public routes are `POST /api/v1/auth/sign-up`, `/api/v1/auth/login`,
 `/api/v1/auth/refresh`, and `/api/v1/auth/logout`. A custom REST `basePath`
 replaces the `/api` prefix. These paths replace the former namespaced
 `/operations/ultimabase.password-auth.*` URLs without aliases. Bodies still
-use `{ "input": credentials }` or `{ "input": null }` for refresh and logout.
+use `{ "input": { username, password, ...userFields } }` for signup,
+`{ "input": { username, password } }` for login, or `{ "input": null }` for refresh and logout.
 
 The same explicit tokens may be passed to `graphqlPlugin({ operations })`.
+`PasswordAuthSignUpInput` derives the User create fields and adds `password: String!`.
+`PasswordAuthCredentialsInput` remains the login-only username/password input.
+
 Password Auth contributes canonical GraphQL metadata and codecs for `signUp`,
 `login`, `refresh`, and `logout` without importing the GraphQL package. The
 GraphQL payload exposes only `session` and a required `user` field using the

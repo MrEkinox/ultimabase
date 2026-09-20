@@ -21,7 +21,7 @@ import {
 	validatePasswordSessionToken,
 	type PasswordSessionCollection,
 } from './sessions.js'
-import type { PasswordUserDefinition } from './user-schema.js'
+import type { PasswordUserReference } from './user-schema.js'
 
 /** Names the four Password Auth-owned secure-cookie routes. */
 export const passwordAuthCookiePaths: Readonly<{
@@ -122,7 +122,7 @@ const assertCookieRequestProof = (
 export const providePasswordHttpSessionResolver = (options: {
 	readonly cookie: ResolvedPasswordAuthCookieOptions | undefined
 	readonly sessions: PasswordSessionCollection
-	readonly user: PasswordUserDefinition
+	readonly user: PasswordUserReference
 }): CapabilityProviderDeclaration<
 	typeof httpContextResolverContributionsCapability
 > =>

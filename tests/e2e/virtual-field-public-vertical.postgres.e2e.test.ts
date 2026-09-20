@@ -312,7 +312,7 @@ describe('public virtual-field vertical', { concurrent: false }, () => {
 			readGraphqlField(
 				await graphqlHttp(
 					requireClient(),
-					`mutation SignUp($input: PasswordAuthCredentialsInput!) {
+					`mutation SignUp($input: PasswordAuthSignUpInput!) {
 						signUp(input: $input) { session { token } }
 					}`,
 					{

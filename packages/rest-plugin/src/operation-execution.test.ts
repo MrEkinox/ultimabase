@@ -294,6 +294,22 @@ describe('REST plugin operation exposure', () => {
 	)
 
 	it('validates complete public error status metadata before startup', async () => {
+		for (const inputSchema of [
+			'',
+			42,
+			'MissingSchema',
+			'RestOperationRecord',
+		]) {
+			await expect(
+				createFixture({
+					bindingMetadata: {
+						errors: { 'fixture.rest-operation.rejected': 409 },
+						inputSchema,
+					},
+				}),
+			).rejects.toThrow(/input schema/u)
+		}
+
 		await expect(
 			createFixture({
 				bindingMetadata: {

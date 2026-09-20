@@ -1,10 +1,16 @@
 import type {
 	ApplicationOperationTransport,
+	CompiledSchemaRegistry,
+	SchemaDefinition,
 	RequestContext,
 } from '@ultimabase/core'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
-import { readRestOperationBindingMetadata } from './binding-metadata.js'
+import {
+	readRestOperationBindingMetadata,
+	resolveRestOperationInputSchema,
+} from './binding-metadata.js'
+import { decodeRestMutationData } from './nested-mutation-values.js'
 import {
 	invalidRestOperation,
 	restOperationErrorCodes,
@@ -41,6 +47,8 @@ export interface RestOperationTransport {
 
 interface RestOperationTransportState {
 	core?: ApplicationOperationTransport<typeof restProtocol>
+	schemas: CompiledSchemaRegistry
+	inputSchemas: ReadonlyMap<string, SchemaDefinition>
 	statuses: ReadonlyMap<string, Readonly<Record<string, number>>>
 }
 
@@ -52,9 +60,16 @@ const transportStates = new WeakMap<
 class CoreRestOperationTransport implements RestOperationTransport {
 	readonly operations: readonly RestPluginOperationRouteDefinition[]
 
-	constructor(operations: readonly RestPluginOperationRouteDefinition[]) {
+	constructor(
+		operations: readonly RestPluginOperationRouteDefinition[],
+		schemas: CompiledSchemaRegistry,
+	) {
 		this.operations = Object.freeze([...operations])
-		transportStates.set(this, { statuses: new Map() })
+		transportStates.set(this, {
+			statuses: new Map(),
+			schemas,
+			inputSchemas: new Map(),
+		})
 		Object.freeze(this)
 	}
 
@@ -67,6 +82,7 @@ class CoreRestOperationTransport implements RestOperationTransport {
 			core.operations.map((item) => [item.name, item]),
 		)
 		const statuses = new Map<string, Readonly<Record<string, number>>>()
+		const inputSchemas = new Map<string, SchemaDefinition>()
 		for (const route of this.operations) {
 			const descriptor = descriptors.get(route.operation)
 			if (descriptor?.version !== route.operationVersion) {
@@ -74,14 +90,18 @@ class CoreRestOperationTransport implements RestOperationTransport {
 					`REST operation route ${route.operation} has no exact Core exposure`,
 				)
 			}
-			statuses.set(
+			const metadata = readRestOperationBindingMetadata(
+				descriptor.metadata,
+				descriptor.errors,
 				route.operation,
-				readRestOperationBindingMetadata(
-					descriptor.metadata,
-					descriptor.errors,
-					route.operation,
-				).errors,
 			)
+			statuses.set(route.operation, metadata.errors)
+			const schema = resolveRestOperationInputSchema(
+				metadata.inputSchema,
+				descriptor,
+				state.schemas,
+			)
+			if (schema !== undefined) inputSchemas.set(route.operation, schema)
 		}
 		if (descriptors.size !== this.operations.length) {
 			throw new TypeError(
@@ -90,6 +110,7 @@ class CoreRestOperationTransport implements RestOperationTransport {
 		}
 		state.core = core
 		state.statuses = statuses
+		state.inputSchemas = inputSchemas
 	}
 
 	/** Executes one already matched operation route through Core's canonical Runtime. */
@@ -121,9 +142,19 @@ class CoreRestOperationTransport implements RestOperationTransport {
 				throw invalidRestOperation()
 			}
 			request.signal.throwIfAborted()
+			const schema = state.inputSchemas.get(route.operation)
 			return await state.core.execute({
 				context,
-				input: body.input,
+				input:
+					schema === undefined
+						? body.input
+						: decodeRestMutationData(
+								schema,
+								body.input,
+								'create',
+								'nested',
+								invalidRestOperation,
+							),
 				operation: route.operation,
 				version: route.operationVersion,
 			})
@@ -143,7 +174,8 @@ class CoreRestOperationTransport implements RestOperationTransport {
 /** @internal Creates an unbound facade during plugin setup. */
 export const createRestOperationTransport = (
 	operations: readonly RestPluginOperationRouteDefinition[],
-): RestOperationTransport => new CoreRestOperationTransport(operations)
+	schemas: CompiledSchemaRegistry,
+): RestOperationTransport => new CoreRestOperationTransport(operations, schemas)
 
 /** @internal Late-binds Core after the application engine exists. */
 export const bindRestOperationTransport = (

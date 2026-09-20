@@ -17,14 +17,18 @@ import {
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 import { isPasswordPrincipal, type PasswordPrincipal } from './principal.js'
-import type { PasswordUserDefinition } from './user-schema.js'
+import {
+	snapshotPasswordSignUpInput,
+	type PasswordSignUpInput,
+} from './sign-up-input.js'
+import type { PasswordUserReference } from './user-schema.js'
 import {
 	isPasswordSessionToken,
 	type PasswordAuthenticationResult,
 	type PasswordLogoutResult,
 } from './session.js'
 
-/** Carries the only credential input accepted by sign-up and login. */
+/** Carries the exact credential input accepted by login. */
 export interface PasswordCredentialsInput {
 	readonly password: string
 	readonly username: string
@@ -45,6 +49,10 @@ const credentialsInputReference = defineTypegenReference({
 	exportName: 'PasswordCredentialsInput',
 	module: '@ultimabase/password-auth-plugin',
 })
+const signUpInputReference = defineTypegenReference({
+	exportName: 'PasswordSignUpInput',
+	module: '@ultimabase/password-auth-plugin',
+})
 const authenticationResultReference = defineTypegenReference({
 	exportName: 'PasswordAuthenticationResult',
 	module: '@ultimabase/password-auth-plugin',
@@ -57,6 +65,7 @@ const logoutResultReference = defineTypegenReference({
 /** Registers the exact public package types referenced by generated declarations. */
 export const passwordAuthTypegenReferences: readonly TypegenReference[] = [
 	credentialsInputReference,
+	signUpInputReference,
 	authenticationResultReference,
 	logoutResultReference,
 ] as const
@@ -84,10 +93,15 @@ const nullInput = defineOperationValue<null>((value, path) => {
 	return null
 })
 
+const signUpInput = defineOperationValue(
+	snapshotPasswordSignUpInput,
+	signUpInputReference,
+)
+
 const isUserProfile = (
 	value: unknown,
 	principal: PasswordPrincipal,
-): value is SchemaResult<PasswordUserDefinition> => {
+): value is SchemaResult<PasswordUserReference> => {
 	if (!(value instanceof principal.user.schema)) return false
 	const prototype: unknown = Reflect.get(principal.user.schema, 'prototype')
 	if (typeof prototype !== 'object' || prototype === null) return false
@@ -194,12 +208,12 @@ const signUpOperation: PluginOperationDefinition<
 	'ultimabase.password-auth.sign-up',
 	'1.0.0',
 	'application',
-	PasswordCredentialsInput,
+	PasswordSignUpInput,
 	PasswordAuthenticationResult,
 	readonly ['PASSWORD_AUTH_SIGN_UP_REJECTED']
 > = defineOperation({
 	errors: [passwordAuthErrorCodes.signUpRejected] as const,
-	input: credentialsInput,
+	input: signUpInput,
 	name: 'ultimabase.password-auth.sign-up',
 	result: authenticationResult,
 	target: 'application',
@@ -244,6 +258,7 @@ const createRestBinding = <TOperation extends PasswordAuthOperation>(
 	status: 400 | 401,
 	decode: (value: unknown) => PluginOperationInput<TOperation>,
 	encode: (value: PluginOperationResult<TOperation>) => unknown,
+	inputSchema?: string,
 ) =>
 	operationTransportBinding({
 		codec: operationWireCodec({
@@ -255,6 +270,7 @@ const createRestBinding = <TOperation extends PasswordAuthOperation>(
 		metadata: immutableRecord({
 			errors: immutableRecord({ [operation.errors[0] as string]: status }),
 			path,
+			...(inputSchema === undefined ? {} : { inputSchema }),
 		}),
 		operation,
 	})
@@ -270,7 +286,15 @@ export const passwordAuthRestBindings: Readonly<
 		passwordAuthOperations.login,
 		'/auth/login',
 		401,
-		(value) => credentialsInput.snapshot(value, 'login.wire-input'),
+		(value) => {
+			try {
+				return credentialsInput.snapshot(value, 'login.wire-input')
+			} catch (error: unknown) {
+				if (!(error instanceof TypeError)) throw error
+				// Invalid public credentials use the declared safe error, never HTTP 500.
+				return rejectPasswordCredentials()
+			}
+		},
 		toPasswordAuthenticationPayload,
 	),
 	logout: createRestBinding(
@@ -291,8 +315,16 @@ export const passwordAuthRestBindings: Readonly<
 		passwordAuthOperations.signUp,
 		'/auth/sign-up',
 		400,
-		(value) => credentialsInput.snapshot(value, 'sign-up.wire-input'),
+		(value) => {
+			try {
+				return signUpInput.snapshot(value, 'sign-up.wire-input')
+			} catch (error: unknown) {
+				if (!(error instanceof TypeError)) throw error
+				return rejectPasswordSignUp()
+			}
+		},
 		toPasswordAuthenticationPayload,
+		'User',
 	),
 })
 

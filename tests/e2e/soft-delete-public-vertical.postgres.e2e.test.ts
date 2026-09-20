@@ -227,7 +227,7 @@ describe('documented official soft-delete public vertical', () => {
 		const sessionToken = readSessionToken(
 			await graphqlHttp(
 				requireClient(),
-				`mutation SignUp($input: PasswordAuthCredentialsInput!) {
+				`mutation SignUp($input: PasswordAuthSignUpInput!) {
 					signUp(input: $input) { session { token } }
 				}`,
 				{

@@ -31,7 +31,9 @@ import { PasswordUserSchema } from '${mode === 'source' ? '../src/index.js' : '@
 import { getCurrentUltimaBase } from '@ultimabase/core'
 const AppUser = PasswordUserSchema.define({ className: 'User', fields: (field) => ({ displayName: field.string({ required: true }) }) })
 const credentials = { username: 'Ada', password: 'correct horse battery staple' }
-AppUser./* methods */signUp(credentials)
+AppUser./* methods */signUp({ ...credentials, displayName: 'Ada Lovelace' })
+// @ts-expect-error -- The editor fixture intentionally requests completions in an unfinished input.
+AppUser.signUp({ /* signup fields */ })
 const result = await AppUser./* hover */login(credentials)
 const displayName: string = result.user./* fields */displayName
 const token: string = result.session.token
@@ -39,7 +41,13 @@ await AppUser.refresh(token, { ultimabase: getCurrentUltimaBase() })
 const logout = await AppUser.logout(token)
 const revoked: true = logout.revoked
 `
-	const service = createLanguageService(fileName, source)
+	const service = createLanguageService(
+		fileName,
+		source.replace(
+			'/* signup fields */',
+			' '.repeat('/* signup fields */'.length),
+		),
+	)
 	try {
 		expect(
 			service
@@ -51,6 +59,7 @@ const revoked: true = logout.revoked
 		for (const [marker, expected] of [
 			['/* methods */', ['signUp', 'login', 'refresh', 'logout']],
 			['/* fields */', ['id', 'username', 'displayName']],
+			['/* signup fields */', ['displayName', 'username', 'password']],
 		] as const) {
 			const names = service
 				.getCompletionsAtPosition(fileName, source.indexOf(marker), {})

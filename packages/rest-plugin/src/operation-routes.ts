@@ -1,12 +1,16 @@
 import {
 	isPluginOperationDefinition,
 	type ApplicationOperationTransportPlan,
+	type CompiledSchemaRegistry,
 	type PluginIdentity,
 	type PluginOperationDefinition,
 } from '@ultimabase/core'
 import { immutableArray, isUnknownArray } from '@ultimabase/shared'
 
-import { readRestOperationBindingMetadata } from './binding-metadata.js'
+import {
+	readRestOperationBindingMetadata,
+	resolveRestOperationInputSchema,
+} from './binding-metadata.js'
 import {
 	createRestRouteFragment,
 	encodeRestPathSegment,
@@ -54,6 +58,7 @@ export const normalizeRestOperations = (
 export const compileRestOperationRouteFragment = (options: {
 	readonly basePath: string
 	readonly plan: ApplicationOperationTransportPlan<typeof restProtocol>
+	readonly schemas: CompiledSchemaRegistry
 	readonly owner: PluginIdentity
 	readonly pluginVersion: string
 }): RestRouteFragmentValue =>
@@ -63,6 +68,11 @@ export const compileRestOperationRouteFragment = (options: {
 				operation.metadata,
 				operation.errors,
 				operation.name,
+			)
+			resolveRestOperationInputSchema(
+				metadata.inputSchema,
+				operation,
+				options.schemas,
 			)
 			return {
 				errors: operation.errors,

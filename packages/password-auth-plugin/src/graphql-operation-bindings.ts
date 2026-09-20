@@ -33,6 +33,15 @@ const credentialsType = immutableRecord({
 	kind: 'input-object',
 	name: 'PasswordAuthCredentialsInput',
 })
+// Schema create fields supply username and application-specific requirements.
+const signUpType = immutableRecord({
+	createFieldsFrom: 'User',
+	fields: immutableArray([
+		graphqlField('password', graphqlNonNull(graphqlNamed('String'))),
+	]),
+	kind: 'input-object',
+	name: 'PasswordAuthSignUpInput',
+})
 const sessionType = immutableRecord({
 	fields: immutableArray([
 		graphqlField('id', graphqlNonNull(graphqlNamed('ID'))),
@@ -75,6 +84,7 @@ const createGraphqlBinding = <TOperation extends PasswordAuthOperation>(
 	input: ReturnType<typeof graphqlNonNull> | undefined,
 	types: readonly (
 		| typeof credentialsType
+		| typeof signUpType
 		| typeof sessionType
 		| typeof payloadType
 		| typeof logoutPayloadType
@@ -147,8 +157,8 @@ export const passwordAuthGraphqlBindings: Readonly<
 	signUp: createGraphqlBinding(
 		passwordAuthOperations.signUp,
 		'signUp',
-		graphqlNonNull(graphqlNamed('PasswordAuthCredentialsInput')),
-		[credentialsType, ...authenticationTypes],
+		graphqlNonNull(graphqlNamed('PasswordAuthSignUpInput')),
+		[signUpType, ...authenticationTypes],
 		graphqlNonNull(graphqlNamed('PasswordAuthPayload')),
 		(value) =>
 			passwordAuthOperations.signUp.input.snapshot(

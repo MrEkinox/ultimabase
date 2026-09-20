@@ -197,7 +197,7 @@ describe('Password Auth operation contracts', () => {
 				field: 'signUp',
 				input: {
 					kind: 'non-null',
-					ofType: { kind: 'named', name: 'PasswordAuthCredentialsInput' },
+					ofType: { kind: 'named', name: 'PasswordAuthSignUpInput' },
 				},
 				kind: 'graphql-operation-binding',
 				result: {

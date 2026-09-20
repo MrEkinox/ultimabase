@@ -19,6 +19,7 @@ import type {
 	PasswordLogoutResult,
 } from './session.js'
 import type { PasswordUserDefinition } from './user-schema.js'
+import type { PasswordSignUpInput } from './sign-up-input.js'
 
 /** Selects the application for a direct Password User authentication call. */
 export interface PasswordUserAuthOptions {
@@ -38,7 +39,7 @@ export interface PasswordUserAuthMethods<
 	 * @example `await AppUser.signUp({ username: 'Ada', password }, { ultimabase })`
 	 */
 	signUp(
-		input: PasswordCredentialsInput,
+		input: PasswordSignUpInput<TFields>,
 		options?: PasswordUserAuthOptions,
 	): Promise<PasswordAuthenticationResult<PasswordUserDefinition<TFields>>>
 	/**
@@ -123,7 +124,7 @@ const selectApplication = (
 /** Creates inert dispatchers before Core freezes the exact schema class. */
 export const createPasswordUserAuthMethods = (
 	schema: SchemaReference<'User'>,
-): PasswordUserAuthMethods => {
+) => {
 	const withSession = <TResult>(
 		token: string,
 		options: PasswordUserAuthOptions | undefined,
@@ -139,19 +140,31 @@ export const createPasswordUserAuthMethods = (
 		return auth.runWithSession(token, () => execute(ultimabase))
 	}
 	return {
-		signUp: async (input, options) =>
+		signUp: async (
+			input: PasswordSignUpInput,
+			options?: PasswordUserAuthOptions,
+		): Promise<PasswordAuthenticationResult> =>
 			selectApplication(schema, options)
 				.operation(passwordAuthOperations.signUp)
 				.execute(input),
-		login: async (input, options) =>
+		login: async (
+			input: PasswordCredentialsInput,
+			options?: PasswordUserAuthOptions,
+		): Promise<PasswordAuthenticationResult> =>
 			selectApplication(schema, options)
 				.operation(passwordAuthOperations.login)
 				.execute(input),
-		refresh: async (token, options) =>
+		refresh: async (
+			token: string,
+			options?: PasswordUserAuthOptions,
+		): Promise<PasswordAuthenticationResult> =>
 			withSession(token, options, (ultimabase) =>
 				ultimabase.operation(passwordAuthOperations.refresh).execute(null),
 			),
-		logout: async (token, options) =>
+		logout: async (
+			token: string,
+			options?: PasswordUserAuthOptions,
+		): Promise<PasswordLogoutResult> =>
 			withSession(token, options, (ultimabase) =>
 				ultimabase.operation(passwordAuthOperations.logout).execute(null),
 			),

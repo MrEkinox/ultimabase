@@ -209,7 +209,7 @@ beforeAll(async () => {
 		readGraphqlField(
 			await graphqlHttp(
 				'anonymous',
-				`mutation SignUp($input: PasswordAuthCredentialsInput!) {
+				`mutation SignUp($input: PasswordAuthSignUpInput!) {
 					signUp(input: $input) { session { token } }
 				}`,
 				{

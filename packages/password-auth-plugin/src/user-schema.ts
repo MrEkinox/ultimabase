@@ -43,6 +43,11 @@ type ReservedPasswordUserFieldCollision<TFields extends object> =
 			? unknown
 			: never
 
+/** Identifies an owned User without erasing its schema-specific command inputs. */
+export type PasswordUserReference = SchemaReference<'User'> & {
+	readonly [passwordUserDefinitionBrand]: SchemaFields
+}
+
 /** Identifies one schema created through the final Password User composition point. */
 export type PasswordUserDefinition<
 	TCustomFields extends SchemaFields = SchemaFields,
@@ -68,7 +73,7 @@ export interface PasswordUserSchemaOptions<
 /** Checks exact package-owned User schema provenance at plugin configuration time. */
 export const isPasswordUserDefinition = (
 	value: unknown,
-): value is PasswordUserDefinition =>
+): value is PasswordUserReference =>
 	typeof value === 'function' && passwordUserSchemas.has(value)
 
 /** Defines final Password Auth User schemas without subclassing or mutation. */

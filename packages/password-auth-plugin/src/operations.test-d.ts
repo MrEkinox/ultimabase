@@ -11,6 +11,7 @@ import {
 	PasswordUserSchema,
 	type PasswordAuthHttpOptions,
 	type PasswordCredentialsInput,
+	type PasswordSignUpInput,
 } from './index.js'
 import type { passwordAuthOperations } from './index.js'
 import type {
@@ -20,8 +21,11 @@ import type {
 
 test('retains exact operation input and result contracts', () => {
 	expectTypeOf<
-		PluginOperationInput<typeof passwordAuthOperations.signUp>
+		PluginOperationInput<typeof passwordAuthOperations.login>
 	>().toEqualTypeOf<PasswordCredentialsInput>()
+	expectTypeOf<
+		PluginOperationInput<typeof passwordAuthOperations.signUp>
+	>().toEqualTypeOf<PasswordSignUpInput>()
 	expectTypeOf<
 		PluginOperationResult<typeof passwordAuthOperations.login>
 	>().toEqualTypeOf<PasswordAuthenticationResult>()

@@ -1,6 +1,7 @@
 export { PasswordUser, PasswordUserSchema } from './user-schema.js'
 export type {
 	PasswordUserDefinition,
+	PasswordUserReference,
 	PasswordUserSchemaOptions,
 	ReservedPasswordUserFieldName,
 } from './user-schema.js'
@@ -14,6 +15,7 @@ export type { PasswordAuthPlugin, PasswordAuthPluginOptions } from './plugin.js'
 export type { PasswordPrincipal } from './principal.js'
 export { passwordAuthErrorCodes, passwordAuthOperations } from './operations.js'
 export type { PasswordCredentialsInput } from './operations.js'
+export type { PasswordSignUpInput } from './sign-up-input.js'
 export { passwordPrincipal, passwordSession } from './session.js'
 export type {
 	IssuedPasswordSession,
