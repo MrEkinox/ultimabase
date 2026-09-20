@@ -4,7 +4,7 @@
 - Milestone: 30
 - Packages: `@ultimabase/core`, `@ultimabase/typegen`, official command-owning plugins
 - Depends on: 3010
-- ADR: decision from issue 3003
+- ADR: ADR-0259
 
 ## Goal
 
@@ -20,7 +20,7 @@ surface registries.
 - [ ] Static class execution follows the single-active-application contract;
       application and model handles remain thin immutable views rather than
       owners of separate command metadata.
-- [ ] Generic Typegen derives operation and schema-command declarations from the
+- [ ] Generic Typegen derives application-operation and schema-mutation declarations from the
       same graph used by JavaScript Runtime execution.
 - [ ] Source and packed autocomplete, hovers, required fields, negative cases,
       application-specific commands, and no-Typegen JavaScript retain current

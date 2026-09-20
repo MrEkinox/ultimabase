@@ -9,6 +9,14 @@ after disposal. Issues 3006 and 3007 will implement it and remove shared-server
 application routing. Until those issues land, the implementation and the
 descriptions below retain the previous concurrent-application contract.
 
+[ADR-0259](docs/adr/0259-smaller-plugin-kernel-and-canonical-commands.md) also
+accepts ten precisely listed extension removals and one private compiled command
+graph. Issues 3004/3005 remove those unused powers while preserving the used
+performance measurements; issues 3008–3013 consolidate application operations
+and schema mutations. Until those implementations land, descriptions below may
+still name the superseded mechanisms. Their presence is not a requirement to
+retain an API explicitly removed by ADR-0259.
+
 ```text
 developer declarations + pure authorized plugin declarations
                               ↓

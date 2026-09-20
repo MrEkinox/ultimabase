@@ -5,18 +5,23 @@
 - Detailed plan: [docs/plans/2026-09-20-pre-feature-architecture-simplification.md](docs/plans/2026-09-20-pre-feature-architecture-simplification.md)
 - Baseline: [docs/plans/2026-09-20-architecture-simplification-baseline.md](docs/plans/2026-09-20-architecture-simplification-baseline.md)
 - Contract matrix: [docs/plans/2026-09-20-architecture-contract-matrix.md](docs/plans/2026-09-20-architecture-contract-matrix.md)
-- Resume point: issue 3003
+- Resume point: issue 3004
 
 ## Objective
 
 Simplify the Core, application, and every existing official plugin before any
 new product feature is started. Preserve every current product behavior and plugin capability by
-default. A capability may disappear only when the inventory proves that it has
-no current runtime consumer, public or community contract, documented promise,
-example or generated-project dependency, or required architecture, security,
-lifecycle, and conformance invariant, and the user explicitly approves its
-removal. The sole approved used-capability exception is D-001 / ADR-0258:
-concurrent initialized applications and shared-server application routing.
+default. The user approved removing capabilities with no concrete current use:
+their own implementation, API exports, documentation, illustrative examples,
+and self-testing fixtures alone do not justify retention. Actual product,
+plugin, application, generated-project, or engineering-tool consumers and
+required architecture, security, lifecycle, and conformance invariants still
+count. Record the exact removal and public impact before implementation; do
+not preserve speculative compatibility layers or recreate unused powers under
+a new API. Reintroduce a capability only when a concrete need arises.
+The approved used-capability exceptions are D-001 / ADR-0258 (concurrent
+initialized applications and shared-server application routing) and the public
+RuntimeCostProbe API, whose performance measurements must be preserved internally.
 Developer, Typegen, REST, and GraphQL surfaces then derive from one
 canonical compiled graph.
 
@@ -67,13 +72,24 @@ the meantime.
 
 ## Current step
 
-Issue 3001 is complete and committed as `b2c10fc2`. Issue 3002 records the user's
-explicit approval and the accepted
-[ADR-0258](docs/adr/0258-single-active-application-lifecycle.md), with the
-[impact and audit inventory](docs/plans/2026-09-20-single-active-application-impact.md).
-After its green audit and dedicated commit, continue with issue 3003's exact
-kernel retention/removal decision. The goal remains issues 3001 through 3014,
-with the existing hard stop after 3014.
+Issue 3001 is complete in `b2c10fc2`, and issue 3002 is audited and committed as
+`481b3723` with accepted
+[ADR-0258](docs/adr/0258-single-active-application-lifecycle.md).
+Issue 3003 records all ten approved removals in
+[ADR-0259](docs/adr/0259-smaller-plugin-kernel-and-canonical-commands.md) and its
+[decision audit](docs/plans/2026-09-20-smaller-kernel-decision-proposal.md).
+R-001–R-007 and the public RuntimeCostProbe exception were approved first;
+the user then explicitly approved the three additional audit findings as
+R-008 (destructive patches), R-009 (generic Core observers), and R-010
+(arbitrary schema/model operation commands). Keep actual Password Auth methods,
+Soft Delete schema mutations, product-owned Hooks/Access events and diagnostics,
+and equivalent internal performance measurements. Do not request these
+approvals again.
+
+Issue 3003 has a green decision audit; its dedicated local commit precedes 3004.
+Issue 3004 removes R-001–R-004/R-009; issue 3005 removes R-005–R-008/R-010.
+No Runtime implementation has changed yet. The goal remains issues 3001 through
+3014, with the existing hard stop after 3014.
 
 The user additionally requested simple runner-independent test lifecycle
 utilities. The proposed callback helper belongs to `@ultimabase/testing` and

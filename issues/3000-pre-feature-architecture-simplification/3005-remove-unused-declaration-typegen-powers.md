@@ -4,22 +4,32 @@
 - Milestone: 30
 - Packages: `@ultimabase/core`, `@ultimabase/plugin-kit`, `@ultimabase/typegen`, official plugins
 - Depends on: 3004
-- ADR: decision from issue 3003
+- ADR: ADR-0259
 
 ## Goal
 
 Remove only declaration, query, command, and Typegen extension levels proven
 unused by issue 3001 and explicitly approved in issue 3003, while preserving
-graph-derived Typegen and every current supported plugin surface.
+graph-derived Typegen and every retained plugin surface. The exact approved
+scope is R-005–R-008 and R-010 in ADR-0259.
 
 ## Acceptance criteria
 
+- [ ] Remove destructive schema field/index/constraint/option patches and the
+      replacement variants of option setters, including `schema:transform`.
+      Retain additive patches, selectors, options, ownership/provenance checks,
+      and duplicate/conflict rejection; never introduce last-writer-wins.
+- [ ] Remove arbitrary schema/model plugin-operation targets, generic
+      `schemaCommands`/`modelCommands`, and their handle/Typegen projections.
+      Retain application operations, Password Auth factory methods, native
+      model CRUD, and actual schema mutations on schema/model handles.
 - [ ] Remove exactly the unused powers selected by issue 3003, including their
       privileges, registrars, IR nodes, snapshot data, generators, public
       exports, examples, documentation, and tests.
-- [ ] If implementation reveals a consumer, supported contract, editor or
-      JavaScript behavior, or required invariant for an approved removal, stop
-      and reopen the decision before deleting it.
+- [ ] If implementation reveals a new actual consumer or retained editor,
+      JavaScript, security, or lifecycle behavior that cannot be preserved,
+      stop and reopen the decision before deleting it. Existing self-tests or
+      documentation of an approved unused API do not require approval again.
 - [ ] Retain graph-derived schema, field, option, operation, schema-mutation,
       model, and transport typing used by current applications.
 - [ ] Retain only manual public type-reference or declaration facts with a

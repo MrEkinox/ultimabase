@@ -11,6 +11,9 @@ The user approved the exact single-active-application compatibility exception
 in issue 3002 / ADR-0258. It retires concurrent initialized applications and
 shared-server application routing while retaining HTTP identity and isolated
 test workers; implementation remains in issues 3006/3007.
+ADR-0259 records the ten approved extension removals, equivalent internal
+performance measurements, and the retained application-operation/schema-mutation
+graph. Issues 3004/3005 perform the removals; 3008–3013 consolidate the graph.
 
 The active implementation contract lives in the
 [pre-feature architecture simplification plan](../../docs/plans/2026-09-20-pre-feature-architecture-simplification.md).
@@ -25,8 +28,8 @@ this milestone.
 
 1. [x] [3001 — Measure and inventory the retained contract](3001-measure-and-inventory-retained-contract.md)
 2. [x] [3002 — Decide the single-active-application contract](3002-single-active-application-decision.md)
-3. [ ] [3003 — Decide the smaller plugin kernel and canonical graph](3003-smaller-plugin-kernel-decision.md)
-4. [ ] [3004 — Remove unused capability replacement powers](3004-remove-unused-capability-replacement.md)
+3. [x] [3003 — Decide the smaller plugin kernel and canonical graph](3003-smaller-plugin-kernel-decision.md)
+4. [ ] [3004 — Remove unused replacement and observer powers](3004-remove-unused-capability-replacement.md)
 5. [ ] [3005 — Remove unused declaration and Typegen powers](3005-remove-unused-declaration-typegen-powers.md)
 6. [ ] [3006 — Enforce one active UltimaBase runtime per process](3006-single-active-ultimabase-runtime.md)
 7. [ ] [3007 — Simplify HTTP and server application ownership](3007-simplify-http-application-ownership.md)

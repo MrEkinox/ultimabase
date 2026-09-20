@@ -4,7 +4,7 @@
 - Milestone: 30
 - Packages: `@ultimabase/core`, `@ultimabase/password-auth-plugin`, `@ultimabase/plugin-kit`
 - Depends on: 3008
-- ADR: decision from issue 3003
+- ADR: ADR-0259
 
 ## Goal
 

@@ -2,6 +2,18 @@
 
 This file is the operational contract for any coding agent working in this repository.
 
+Milestone 30's accepted ADR-0258 and ADR-0259 define the approved migration
+target. ADR-0258 permits one initialized application per JavaScript realm and
+isolated parallel workers. ADR-0259 removes exactly R-001–R-010, preserves used
+plugin behavior and internal performance measurements, and keeps one private
+command graph with application operations and schema mutations. Historical
+replacement/decorator, destructive-patch, generic-observer, arbitrary
+schema/model-operation, and extra Typegen requirements below remain current
+implementation descriptions only until their assigned migration issues land;
+they do not override these accepted removals. Update the corresponding rules
+with the implementation. Do not add substitute public APIs or remove another
+capability without following the architecture stop rule.
+
 ## Read first
 
 Before changing code:

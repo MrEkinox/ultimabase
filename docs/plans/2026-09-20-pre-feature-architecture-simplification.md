@@ -3,7 +3,7 @@
 - Status: active
 - Started: 2026-09-20
 - Milestone: [30 — Pre-feature architecture simplification](../../issues/3000-pre-feature-architecture-simplification/README.md)
-- Resume point: issue 3003
+- Resume point: issue 3004
 - Baseline: [issue 3001 measurements](2026-09-20-architecture-simplification-baseline.md)
 - Preservation ledger: [architecture contract matrix](2026-09-20-architecture-contract-matrix.md)
 
@@ -31,10 +31,10 @@ closes the milestone.
   cancellation, Hooks, Access, ACL, Roles, Validation, Password Auth, Soft
   Delete, REST, network-independent GraphQL, Yoga, Hono, and explorer behavior
   retain their current public outcomes except approved D-001 / ADR-0258 and
-  exact unused architecture-only capabilities approved by a later decision.
+  exact unused architecture-only capabilities selected in ADR-0259.
 - Plugin authors retain every currently supported ability to add schemas, fields,
-  direct options, operations and schema mutations, protected policy,
-  middleware, observers, transport representations, private storage, resources,
+  direct options, application operations and schema mutations, protected policy,
+  middleware, product-owned observers, transport representations, private storage, resources,
   and deterministic application-local contributions.
 - Core remains independent from concrete plugins, databases, HTTP servers,
   REST, GraphQL, Access, Hooks, ACL, Roles, and authentication products.
@@ -50,19 +50,34 @@ The burden of proof is on removal. Every behavior and plugin capability that
 exists at the issue 3001 baseline is retained unless its exact removal is
 approved through issues 3002 or 3003, or through a later architecture stop that
 explicitly reopens and updates the contract matrix. The user approved D-001's
-used-capability exception through ADR-0258. Other removal candidates must have no:
+used-capability exception through ADR-0258. On 2026-09-20, after reviewing the
+issue 3003 removal inventory, the user also approved removing capabilities with
+no concrete current use and adding them back only when needed. Other removal
+candidates must have no:
 
 - production source consumer, official plugin consumer, or current application
   consumer;
-- public export, community-plugin contract, documented promise, example, or
-  generated-project dependency that remains supported;
+- actual engineering-tool or generated-project dependency;
 - required architecture, security, authority, transaction, lifecycle,
   isolation, transport, TypeScript, JavaScript, or conformance invariant.
 
-A test, README, or example alone does not prove a production consumer, but it
-does prove an implemented or promised behavior that must be inventoried and
-cannot be deleted automatically. If evidence is incomplete, contradictory, or
-ambiguous, retain the capability and invoke the architecture stop protocol.
+A capability's own implementation, public exports, documentation, illustrative
+examples, and self-testing fixtures alone do not establish a concrete consumer
+or justify retention. Record their removal and update the website; do not keep
+compatibility wrappers or speculative substitutes. Actual engineering-tool
+usage and tests protecting a retained invariant do count: preserve the need,
+and obtain approval before removing a used public API while moving that need
+elsewhere. If consumer evidence is incomplete, contradictory, or ambiguous,
+retain the capability and invoke the architecture stop protocol.
+
+The [issue 3003 proposal](2026-09-20-smaller-kernel-decision-proposal.md) selects
+all R-001 through R-010 under this rule and the explicitly approved performance
+probe exception: retain its measurements internally and remove its public API.
+The subsequent audit corrected three baseline consumer attributions. The user
+explicitly approved those findings as R-008 through R-010; ADR-0259 records the
+exact additional removals and the retained application-operation/schema-mutation
+graph. No code removal
+starts before issue 3003's final audit and accepted ADR.
 
 Except for the exact approved removals, parity means observable equivalence for
 successful results, public and safe errors, side effects and ordering, Hooks and
@@ -90,13 +105,14 @@ their history.
    result contracts, private execution, surfaces, and transport metadata. Core
    exposes immutable projections of that graph instead of maintaining parallel
    planning and execution registries.
-3. Public capability machinery is retained for current consumers, supported
-   public and community contracts, and required kernel invariants. Generic
+3. Public capability machinery is retained for concrete current consumers and
+   required kernel invariants. Public exposure alone is not a consumer. Generic
    decoration, replacement, compiler replacement, Runtime replacement, Typegen
    contribution levels, query extensions, or command families with no current
    consumer are candidates for removal. Issue 3001 must prove each candidate
-   unused and issue 3003 must obtain explicit user approval for the exact
-   removal list before deletion.
+   unused and issue 3003 must record the exact authorized removal list before
+   deletion. The approved unused-power rule applies to the reviewed inventory;
+   a used-capability exception still requires an explicit user decision.
 4. Typegen derives application declarations from the canonical graph. Plugins
    manually provide only type facts that cannot be derived from that graph and
    have a current production consumer.
@@ -157,7 +173,7 @@ updates from an earlier issue.
 1. [3001 — Measure and inventory the retained contract](../../issues/3000-pre-feature-architecture-simplification/3001-measure-and-inventory-retained-contract.md)
 2. [3002 — Decide the single-active-application contract](../../issues/3000-pre-feature-architecture-simplification/3002-single-active-application-decision.md)
 3. [3003 — Decide the smaller plugin kernel and canonical graph](../../issues/3000-pre-feature-architecture-simplification/3003-smaller-plugin-kernel-decision.md)
-4. [3004 — Remove unused capability replacement powers](../../issues/3000-pre-feature-architecture-simplification/3004-remove-unused-capability-replacement.md)
+4. [3004 — Remove unused replacement and observer powers](../../issues/3000-pre-feature-architecture-simplification/3004-remove-unused-capability-replacement.md)
 5. [3005 — Remove unused declaration and Typegen powers](../../issues/3000-pre-feature-architecture-simplification/3005-remove-unused-declaration-typegen-powers.md)
 6. [3006 — Enforce one active UltimaBase runtime per process](../../issues/3000-pre-feature-architecture-simplification/3006-single-active-ultimabase-runtime.md)
 7. [3007 — Simplify HTTP and server application ownership](../../issues/3000-pre-feature-architecture-simplification/3007-simplify-http-application-ownership.md)
@@ -273,8 +289,9 @@ take precedence.
 ## Stop conditions
 
 - A current production consumer needs a capability classified as unused.
-- A public or community contract, documented behavior, example, generated
-  project, or required invariant needs a capability classified as unused.
+- A concrete community consumer, generated project, engineering tool, or
+  required invariant needs a capability classified as unused. Public exports
+  and documentation alone do not reopen an approved unused-power removal.
 - Evidence is insufficient to prove that a removal candidate is unused.
 - Removing a path would weaken request isolation, Master provenance, monotonic
   policy, transactions, structural validation, or transport safety.

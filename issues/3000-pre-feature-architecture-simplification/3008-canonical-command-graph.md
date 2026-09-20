@@ -4,7 +4,7 @@
 - Milestone: 30
 - Packages: `@ultimabase/core`
 - Depends on: 3007
-- ADR: decision from issue 3003
+- ADR: ADR-0259
 
 ## Goal
 
@@ -16,6 +16,9 @@ developer surfaces, Typegen, and transports can derive least-authority views.
 - [ ] One discriminated command graph represents application operations,
       request-authority schema mutations, and private Master administration
       without merging their distinct execution semantics.
+- [ ] The graph has two closed kinds: application operation and schema
+      mutation. Master administration is a mutation with Master authority;
+      retired arbitrary schema/model operation targets are not reconstructed.
 - [ ] Each command records one canonical identity, owner, version, target,
       authority, payload and result facts, public errors, selected surfaces, and
       transport metadata.
