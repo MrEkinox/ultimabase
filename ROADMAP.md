@@ -91,6 +91,14 @@ TypeScript or JavaScript applications from the official plugin catalog and
 configures Typegen only for TypeScript. The package is not published; the
 general `ultimabase` CLI remains in its deferred backlog.
 
+[Milestone 30](issues/3000-pre-feature-architecture-simplification/README.md) is
+the active blocking objective before any new product capability. It removes
+unused plugin powers, adopts one active application per process while preserving
+concurrent request and parallel-worker isolation, and converges command Runtime,
+developer surfaces, Typegen, REST, and GraphQL on one canonical compiled graph.
+Every issue must pass a repeated implementation, audit, correction, and
+re-audit loop before the next issue begins.
+
 The ACL hardening plan remains paused at issue 432. It is not part of an active
 plan.
 
@@ -370,6 +378,22 @@ plugins with valid composition and honest capability limits, and verify the
 packed initializer and document its intended Quick Start. Publication remains
 a separate decision. The milestone does not implement the deferred general
 `ultimabase` command, Typegen watch mode, or an npm release.
+
+## Milestone 30 — Pre-feature architecture simplification
+
+Preserve current product behavior and production-used plugin capabilities while
+removing dormant extension contracts and parallel internal representations.
+UltimaBase supports one active application per JavaScript process, concurrent
+isolated requests within it, sequential replacement after disposal, and
+parallel applications in isolated test workers or processes. One canonical
+compiled command graph becomes the source for direct TypeScript, JavaScript,
+Typegen, REST, GraphQL, and Runtime execution projections.
+
+The milestone introduces no new product feature. Each issue is sequential and
+must complete a green audit loop with no unresolved finding before the next
+issue starts. The final gate compares behavior, security, public packages,
+coverage locations, code size, change fan-out, startup, memory, and CI cost with
+the measured baseline.
 
 ## First usable release
 

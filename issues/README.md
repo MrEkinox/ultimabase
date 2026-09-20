@@ -87,6 +87,7 @@ consistent without rewriting historical issue prose.
 - [`2700-contextual-relation-filters/`](2700-contextual-relation-filters/README.md)
 - [`2800-public-website-documentation/`](2800-public-website-documentation/README.md)
 - [`2900-interactive-project-initializer/`](2900-interactive-project-initializer/README.md)
+- [`3000-pre-feature-architecture-simplification/`](3000-pre-feature-architecture-simplification/README.md)
 
 ## Assignment prompt
 

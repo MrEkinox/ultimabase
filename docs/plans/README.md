@@ -7,7 +7,9 @@ priority changes.
 
 ## Active
 
-No active multi-issue plan.
+- [Pre-feature architecture simplification](2026-09-20-pre-feature-architecture-simplification.md),
+  resumable at issue 3001. It blocks new product work until its per-issue audit
+  loop and final parity gate complete.
 
 ## Paused
 
