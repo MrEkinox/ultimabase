@@ -239,6 +239,7 @@ Accepted records:
 - [ADR-0255: Password Auth transport payloads](0255-password-auth-transport-payloads.md).
 - [ADR-0256: Short public paths for REST application operations](0256-rest-operation-public-paths.md).
 - [ADR-0257: Schema-derived Password Auth signup inputs](0257-password-auth-signup-inputs.md).
+- [ADR-0258: One active application per JavaScript realm](0258-single-active-application-lifecycle.md), partially superseding the concurrency and shared-hosting contracts named in that record.
 
 Superseded records:
 

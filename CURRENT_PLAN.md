@@ -5,7 +5,7 @@
 - Detailed plan: [docs/plans/2026-09-20-pre-feature-architecture-simplification.md](docs/plans/2026-09-20-pre-feature-architecture-simplification.md)
 - Baseline: [docs/plans/2026-09-20-architecture-simplification-baseline.md](docs/plans/2026-09-20-architecture-simplification-baseline.md)
 - Contract matrix: [docs/plans/2026-09-20-architecture-contract-matrix.md](docs/plans/2026-09-20-architecture-contract-matrix.md)
-- Resume point: issue 3002
+- Resume point: issue 3003
 
 ## Objective
 
@@ -15,7 +15,9 @@ default. A capability may disappear only when the inventory proves that it has
 no current runtime consumer, public or community contract, documented promise,
 example or generated-project dependency, or required architecture, security,
 lifecycle, and conformance invariant, and the user explicitly approves its
-removal. Developer, Typegen, REST, and GraphQL surfaces then derive from one
+removal. The sole approved used-capability exception is D-001 / ADR-0258:
+concurrent initialized applications and shared-server application routing.
+Developer, Typegen, REST, and GraphQL surfaces then derive from one
 canonical compiled graph.
 
 After the Core migration passes its checkpoint, each of the 16 current plugin
@@ -23,11 +25,12 @@ packages receives its own bounded simplification issue. Those issues remove
 plugin-local duplication and obsolete adaptations to the former Core while
 preserving the same public contract by default.
 
-The proposed execution model is one active UltimaBase application per
-JavaScript process, concurrent requests within that application, sequential
-replacement after disposal, and parallel applications in isolated test workers
-or processes. Issue 3002 must expose every observable behavior this would
-remove and receive explicit user approval before accepting the decision.
+The user approved ADR-0258 through issue 3002: one initialized UltimaBase
+application per JavaScript realm, concurrent requests within that application,
+sequential replacement after complete disposal, and parallel applications in
+isolated test workers or processes. HTTP identity is retained; shared Hono
+application hosting and `HttpApplicationMountTable` are removed by issue 3007.
+Issues 3006/3007 implement this accepted target; Runtime is not changed yet.
 
 ## Mandatory issue gate
 
@@ -64,10 +67,18 @@ the meantime.
 
 ## Current step
 
-Issue 3001 is complete. Start issue 3002 by inventorying every current
-same-process multi-application and shared-server behavior. Present the exact
-compatibility differences, migration path, and alternatives, then stop for the
-explicit user approval required before accepting the decision.
+Issue 3001 is complete and committed as `b2c10fc2`. Issue 3002 records the user's
+explicit approval and the accepted
+[ADR-0258](docs/adr/0258-single-active-application-lifecycle.md), with the
+[impact and audit inventory](docs/plans/2026-09-20-single-active-application-impact.md).
+After its green audit and dedicated commit, continue with issue 3003's exact
+kernel retention/removal decision. The goal remains issues 3001 through 3014,
+with the existing hard stop after 3014.
+
+The user additionally requested simple runner-independent test lifecycle
+utilities. The proposed callback helper belongs to `@ultimabase/testing` and
+the issue 3006 test migration, without a test-only activation bypass. Its exact
+public API is still a proposal; it is not part of ADR-0258's accepted contract.
 
 Documentation impact: internal engineering documentation until an issue changes
 a public contract; those issues must update both package and public website

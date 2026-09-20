@@ -3,7 +3,7 @@
 - Status: active
 - Started: 2026-09-20
 - Milestone: [30 — Pre-feature architecture simplification](../../issues/3000-pre-feature-architecture-simplification/README.md)
-- Resume point: issue 3002
+- Resume point: issue 3003
 - Baseline: [issue 3001 measurements](2026-09-20-architecture-simplification-baseline.md)
 - Preservation ledger: [architecture contract matrix](2026-09-20-architecture-contract-matrix.md)
 
@@ -30,8 +30,8 @@ closes the milestone.
 - PostgreSQL, transactions, structural validation, Master authority,
   cancellation, Hooks, Access, ACL, Roles, Validation, Password Auth, Soft
   Delete, REST, network-independent GraphQL, Yoga, Hono, and explorer behavior
-  retain their current public outcomes unless an accepted issue explicitly
-  removes an unused architecture-only capability.
+  retain their current public outcomes except approved D-001 / ADR-0258 and
+  exact unused architecture-only capabilities approved by a later decision.
 - Plugin authors retain every currently supported ability to add schemas, fields,
   direct options, operations and schema mutations, protected policy,
   middleware, observers, transport representations, private storage, resources,
@@ -49,8 +49,8 @@ closes the milestone.
 The burden of proof is on removal. Every behavior and plugin capability that
 exists at the issue 3001 baseline is retained unless its exact removal is
 approved through issues 3002 or 3003, or through a later architecture stop that
-explicitly reopens and updates the contract matrix. A removal candidate must
-have no:
+explicitly reopens and updates the contract matrix. The user approved D-001's
+used-capability exception through ADR-0258. Other removal candidates must have no:
 
 - production source consumer, official plugin consumer, or current application
   consumer;
@@ -80,12 +80,12 @@ Every later issue audits its diff against that same matrix.
 The decision issues must supersede affected accepted ADRs rather than rewriting
 their history.
 
-1. One UltimaBase application may be active in one JavaScript process. Requests
-   within it remain concurrent and isolated. Tests run applications in parallel
-   through existing isolated Vitest workers or processes, and may replace an
-   application sequentially after complete disposal. Issue 3002 must present
-   the exact current same-process and shared-server behavior this removes and
-   receive explicit user approval before this becomes an accepted decision.
+1. Accepted by the user and [ADR-0258](../adr/0258-single-active-application-lifecycle.md):
+   one initialized UltimaBase application per JavaScript realm, concurrent
+   isolated requests, sequential replacement after complete disposal, and
+   parallel isolated test workers. HTTP identity remains; same-process
+   concurrent initialization, shared Hono hosting, and the mount-table API are
+   explicitly retired. Issues 3006/3007 implement this bounded exception.
 2. One canonical compiled command graph owns identity, authority, input and
    result contracts, private execution, surfaces, and transport metadata. Core
    exposes immutable projections of that graph instead of maintaining parallel

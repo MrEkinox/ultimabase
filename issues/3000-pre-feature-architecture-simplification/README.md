@@ -1,14 +1,16 @@
 # Milestone 30 — Pre-feature architecture simplification
 
-- Status: planned
+- Status: in-progress
 
 Simplify the Core-facing architecture and every current official plugin before
 any new product feature begins. Preserve every current product behavior and
 plugin capability by default, remove only exact capabilities proven unused and
 explicitly approved for removal, and derive every public surface from one
 canonical compiled graph.
-The one-active-application-per-process proposal must likewise receive explicit
-approval after its exact compatibility impact is inventoried.
+The user approved the exact single-active-application compatibility exception
+in issue 3002 / ADR-0258. It retires concurrent initialized applications and
+shared-server application routing while retaining HTTP identity and isolated
+test workers; implementation remains in issues 3006/3007.
 
 The active implementation contract lives in the
 [pre-feature architecture simplification plan](../../docs/plans/2026-09-20-pre-feature-architecture-simplification.md).
@@ -22,7 +24,7 @@ this milestone.
 ## Execution order
 
 1. [x] [3001 — Measure and inventory the retained contract](3001-measure-and-inventory-retained-contract.md)
-2. [ ] [3002 — Decide the single-active-application contract](3002-single-active-application-decision.md)
+2. [x] [3002 — Decide the single-active-application contract](3002-single-active-application-decision.md)
 3. [ ] [3003 — Decide the smaller plugin kernel and canonical graph](3003-smaller-plugin-kernel-decision.md)
 4. [ ] [3004 — Remove unused capability replacement powers](3004-remove-unused-capability-replacement.md)
 5. [ ] [3005 — Remove unused declaration and Typegen powers](3005-remove-unused-declaration-typegen-powers.md)

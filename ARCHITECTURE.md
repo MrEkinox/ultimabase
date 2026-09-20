@@ -2,6 +2,13 @@
 
 ## System shape
 
+Milestone 30 has accepted
+[ADR-0258](docs/adr/0258-single-active-application-lifecycle.md): one initialized
+application per JavaScript realm, concurrent requests, and sequential replacement
+after disposal. Issues 3006 and 3007 will implement it and remove shared-server
+application routing. Until those issues land, the implementation and the
+descriptions below retain the previous concurrent-application contract.
+
 ```text
 developer declarations + pure authorized plugin declarations
                               ↓
