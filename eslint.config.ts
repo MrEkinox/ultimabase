@@ -78,6 +78,7 @@ export default defineConfig(
 			'tooling/eslint/**/*.test.ts',
 			'tooling/issues/**/*.ts',
 			'tooling/vitest/optional-product-public-api.ts',
+			'tooling/vitest/password-auth-public-api.ts',
 			'tooling/vitest/typescript-language-service.ts',
 		],
 		languageOptions: {

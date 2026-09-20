@@ -1,3 +1,8 @@
+export {
+	passwordAuthPluginPublicApi,
+	removedPasswordAuthPluginPublicApiNames,
+} from './password-auth-public-api.js'
+
 /** Classifies every deliberate root export of one optional official product. */
 export interface OptionalProductPublicApi {
 	readonly applicationApi: readonly string[]
@@ -212,40 +217,6 @@ export const validationPluginPublicApi = {
 		'MutableFieldContainer',
 		'ValidationPlugin',
 		'validationPlugin',
-	],
-	compatibleProviderContract: [],
-	conformanceSupport: [],
-} as const satisfies OptionalProductPublicApi
-export const passwordAuthPluginPublicApi = {
-	applicationApi: [
-		'IssuedPasswordSession',
-		'PasswordAuthCookieOptions',
-		'PasswordAuthCookieSameSite',
-		'PasswordAuthHttpOptions',
-		'PasswordAuthPlugin',
-		'PasswordAuthPluginExports',
-		'PasswordAuthPluginOptions',
-		'PasswordAuthenticationResult',
-		'PasswordCredentialsInput',
-		'PasswordHashPolicyOptions',
-		'PasswordLogoutResult',
-		'PasswordPrincipal',
-		'PasswordSession',
-		'PasswordSessionPolicyOptions',
-		'PasswordUser',
-		'PasswordUserDefinition',
-		'PasswordUserSchema',
-		'PasswordUserSchemaOptions',
-		'ReservedPasswordUserFieldName',
-		'ResolvedPasswordHashPolicy',
-		'ResolvedPasswordSessionPolicy',
-		'defaultPasswordHashPolicy',
-		'defaultPasswordSessionPolicy',
-		'passwordAuthErrorCodes',
-		'passwordAuthOperations',
-		'passwordAuthPlugin',
-		'passwordPrincipal',
-		'passwordSession',
 	],
 	compatibleProviderContract: [],
 	conformanceSupport: [],
@@ -579,22 +550,4 @@ export const removedGraphiqlPluginPublicApiNames = [
 export const removedApolloSandboxPluginPublicApiNames = [
 	'createApolloSandboxPageResponse',
 	'normalizeApolloSandboxPluginOptions',
-] as const
-
-/** Names credential implementation details deliberately kept owner-private. */
-export const removedPasswordAuthPluginPublicApiNames = [
-	'assertPasswordHashEngineAvailable',
-	'createPasswordCredentialCollection',
-	'createPasswordPrincipal',
-	'createPasswordVerifier',
-	'findPasswordCredentialByUsername',
-	'insertPasswordCredential',
-	'isPasswordPrincipal',
-	'isPasswordUserDefinition',
-	'normalizePasswordInput',
-	'normalizePasswordUsername',
-	'resolvePasswordHashPolicy',
-	'upgradePasswordCredential',
-	'verifyPassword',
-	'verifyPasswordOrDummy',
 ] as const
