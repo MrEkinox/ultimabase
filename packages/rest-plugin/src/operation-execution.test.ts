@@ -1,3 +1,4 @@
+import { onTestFinished } from 'vitest'
 import {
 	MasterAuthority,
 	PluginError,
@@ -208,6 +209,7 @@ const createFixture = async (
 		],
 		schemas: [],
 	})
+	onTestFinished(() => ultimabase.dispose())
 	await ultimabase.start()
 	const rest = ultimabase.application.getPlugin('@ultimabase/rest-plugin')
 	return { rest, ultimabase }
@@ -373,6 +375,7 @@ describe('REST plugin operation exposure', () => {
 				],
 				schemas: [],
 			})
+			onTestFinished(() => ultimabase.dispose())
 			try {
 				if (distinct) {
 					await ultimabase.start()
@@ -451,8 +454,23 @@ describe('REST plugin operation exposure', () => {
 			}
 			return immutableRecord({ message: value.text })
 		})
-		const first = await createFixture({ decode, masterKey: 'first-secret' })
 		const second = await createFixture({ masterKey: 'second-secret' })
+		const foreign = RequestContext.anonymous({
+			requestId: 'foreign',
+			source: 'rest',
+		})
+		second.ultimabase.engine.withContext(foreign)
+		const foreignMasterSource = second.ultimabase.engine.anonymous({
+			requestId: 'foreign-master',
+			source: 'rest',
+		})
+		const foreignMaster = await foreignMasterSource.useMasterKey(
+			second.ultimabase.engine.authorizeMasterKey('second-secret'),
+			'Foreign REST operation test',
+		)
+		await second.ultimabase.dispose()
+		const first = await createFixture({ decode, masterKey: 'first-secret' })
+
 		try {
 			const transport = first.rest.operationTransport
 			const route = transport?.operations[0]
@@ -493,11 +511,6 @@ describe('REST plugin operation exposure', () => {
 				),
 			).toBe(409)
 
-			const foreign = RequestContext.anonymous({
-				requestId: 'foreign',
-				source: 'rest',
-			})
-			second.ultimabase.engine.withContext(foreign)
 			const before = decode.mock.calls.length
 			await expect(
 				transport.execute(
@@ -509,14 +522,6 @@ describe('REST plugin operation exposure', () => {
 			).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
 			expect(decode).toHaveBeenCalledTimes(before)
 
-			const foreignMasterSource = second.ultimabase.engine.anonymous({
-				requestId: 'foreign-master',
-				source: 'rest',
-			})
-			const foreignMaster = await foreignMasterSource.useMasterKey(
-				second.ultimabase.engine.authorizeMasterKey('second-secret'),
-				'Foreign REST operation test',
-			)
 			await expect(
 				transport.execute(
 					foreignMaster.context,

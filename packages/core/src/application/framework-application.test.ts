@@ -1,3 +1,4 @@
+import { applicationFixture } from '../../tests/application-fixture.js'
 import { SchemaRegistry, Schema } from '../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
@@ -19,19 +20,21 @@ describe('FrameworkApplication', () => {
 			className: 'StaticCompilationOnly',
 			fields: (field) => ({ title: field.string() }),
 		})
-		const application = new FrameworkApplication({
-			plugins: [
-				definePlugin({
-					version: '0.0.0',
-					core: '^0.0.0',
-					pluginId: 'fixture.static-only',
-					setup: () => {
-						setupCalls += 1
-					},
-				}),
-			],
-			schemas: [StaticSchema],
-		})
+		const application = applicationFixture(
+			new FrameworkApplication({
+				plugins: [
+					definePlugin({
+						version: '0.0.0',
+						core: '^0.0.0',
+						pluginId: 'fixture.static-only',
+						setup: () => {
+							setupCalls += 1
+						},
+					}),
+				],
+				schemas: [StaticSchema],
+			}),
+		)
 
 		expect(application.compileSchemas()).toBe(application)
 		expect(application.compileSchemas()).toBe(application)
@@ -122,33 +125,35 @@ describe('FrameworkApplication', () => {
 		await application.dispose()
 	})
 
-	it.concurrent(
-		'keeps schemas and plugin exports application-scoped',
-		async () => {
-			let applicationId = 0
-			const plugin = definePlugin({
-				version: '0.0.0',
-				core: '^0.0.0',
-				pluginId: 'fixture.isolation',
-				setup: () => {
-					const marker = { applicationId: applicationId++ }
+	it('keeps schemas and plugin exports application-scoped', async () => {
+		let applicationId = 0
+		const plugin = definePlugin({
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.isolation',
+			setup: () => {
+				const marker = { applicationId: applicationId++ }
 
-					return { marker }
-				},
-			})
+				return { marker }
+			},
+		})
 
-			const [first, second] = await Promise.all([
-				createApplication({ schemas: [applicationSchema], plugins: [plugin] }),
-				createApplication({ schemas: [applicationSchema], plugins: [plugin] }),
-			])
-			const firstExports = first.getPlugin('fixture.isolation')
-			const secondExports = second.getPlugin('fixture.isolation')
+		const first = await createApplication({
+			schemas: [applicationSchema],
+			plugins: [plugin],
+		})
+		const firstExports = first.getPlugin('fixture.isolation')
+		await first.dispose()
+		const second = await createApplication({
+			schemas: [applicationSchema],
+			plugins: [plugin],
+		})
+		const secondExports = second.getPlugin('fixture.isolation')
 
-			expect(first.schemas).not.toBe(second.schemas)
-			expect(firstExports.marker).not.toBe(secondExports.marker)
-			await Promise.all([first.dispose(), second.dispose()])
-		},
-	)
+		expect(first.schemas).not.toBe(second.schemas)
+		expect(firstExports.marker).not.toBe(secondExports.marker)
+		await Promise.all([first.dispose(), second.dispose()])
+	})
 
 	it('isolates repeated plugin instances by structured identity', async () => {
 		const primary = definePlugin({
@@ -200,10 +205,12 @@ describe('FrameworkApplication', () => {
 			className: 'UnknownFixture',
 			fields: (field) => ({ name: field.string() }),
 		})
-		const application = new FrameworkApplication({
-			schemas: [applicationSchema],
-			plugins: [],
-		})
+		const application = applicationFixture(
+			new FrameworkApplication({
+				schemas: [applicationSchema],
+				plugins: [],
+			}),
+		)
 
 		expect(application.ownsSchema(applicationSchema)).toBe(true)
 		expect(application.ownsSchema(matchingClassSchema)).toBe(false)
@@ -251,10 +258,12 @@ describe('FrameworkApplication', () => {
 			pluginId: 'fixture.lazy',
 			setup: () => ({ initialized: true }),
 		})
-		const application = new FrameworkApplication({
-			schemas: [applicationSchema],
-			plugins: [plugin],
-		})
+		const application = applicationFixture(
+			new FrameworkApplication({
+				schemas: [applicationSchema],
+				plugins: [plugin],
+			}),
+		)
 
 		expect(application.state).toBe('idle')
 		expect(() => application.getPlugin('fixture.lazy')).toThrow(
@@ -303,21 +312,25 @@ describe('FrameworkApplication', () => {
 	it('protects JavaScript callers from malformed option containers', () => {
 		expect(() => {
 			// @ts-expect-error -- Runtime validation protects non-object callers.
-			new FrameworkApplication(null)
+			applicationFixture(new FrameworkApplication(null))
 		}).toThrow(new TypeError('application options must be a plain object'))
 		expect(() => {
-			new FrameworkApplication({
-				// @ts-expect-error -- Runtime validation protects non-array schemas.
-				schemas: new SchemaRegistry(),
-				plugins: [],
-			})
+			applicationFixture(
+				new FrameworkApplication({
+					// @ts-expect-error -- Runtime validation protects non-array schemas.
+					schemas: new SchemaRegistry(),
+					plugins: [],
+				}),
+			)
 		}).toThrow(new TypeError('schemas must be an array'))
 		expect(() => {
-			new FrameworkApplication({
-				schemas: [],
-				// @ts-expect-error -- Runtime validation protects non-array plugins.
-				plugins: {},
-			})
+			applicationFixture(
+				new FrameworkApplication({
+					schemas: [],
+					// @ts-expect-error -- Runtime validation protects non-array plugins.
+					plugins: {},
+				}),
+			)
 		}).toThrow(new TypeError('plugins must be an array'))
 	})
 })

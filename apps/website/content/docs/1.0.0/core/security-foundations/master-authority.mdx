@@ -17,6 +17,7 @@ sources:
   - packages/postgres-plugin/README.md
   - docs/adr/0206-application-owned-master-provenance.md
   - docs/adr/0218-master-bypasses-authorization-policies.md
+  - docs/adr/0258-single-active-application-lifecycle.md
   - docs/adr/0224-http-application-rest-and-password-auth-boundaries.md
 ---
 
@@ -86,7 +87,9 @@ call. When a trusted boundary receives a raw key, `MasterAuthority.authorize()`
 verifies it and returns an opaque grant; `RequestEngine.useMasterKey(grant,
 reason)` then audits and binds the elevation to its exact application. A
 grant or Master context from another application is rejected, even if both
-applications share the same authority configuration.
+applications reuse the same `MasterAuthority` object in sequential lifetimes.
+Disposing an application does not make its grants or contexts reusable: obtain
+a fresh grant for its replacement. This does not revoke persisted user sessions.
 
 The optional HTTP Master header works only when explicitly enabled. The
 public application ID selects one application first; only that application's

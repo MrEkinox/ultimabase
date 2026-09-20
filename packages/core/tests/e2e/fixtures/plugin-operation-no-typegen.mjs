@@ -264,12 +264,12 @@ const conformanceSuite = definePluginConformanceSuite({
 		throw new TypeError('JavaScript operation conformance result mismatch')
 	}
 })
+await ultimabase.dispose()
 const conformanceReport = await runPluginConformance(conformanceSuite)
 export const conformanceChecks = conformanceReport.checks.map(
 	({ contract }) => contract,
 )
 
-await ultimabase.dispose()
 process.stdout.write(
 	`${JSON.stringify({ conformanceChecks, directResult, nativeResults, inspection, transportErrorResponse, transportResponse })}\n`,
 )

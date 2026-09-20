@@ -1,3 +1,4 @@
+import { runApplicationWork } from '../../application/active-application.js'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 import { FrameworkError } from '../../errors/framework-error.js'
@@ -136,43 +137,47 @@ export class CoreApplicationOperationTransport<
 		}
 		// Application lifecycle and context provenance must pass before codecs run.
 		const engine = this.createEngine(context)
-		const exposed = this.exposed.get(request.operation)
-		if (exposed === undefined) {
-			throw new FrameworkError(
-				'PLUGIN_OPERATION_INVALID',
-				`Operation ${request.operation} is not exposed through ${this.transport.name}.`,
-				{ publicMessage: 'The requested operation is not available.' },
+		return runApplicationWork(engine.application, async () => {
+			const exposed = this.exposed.get(request.operation)
+			if (exposed === undefined) {
+				throw new FrameworkError(
+					'PLUGIN_OPERATION_INVALID',
+					`Operation ${request.operation} is not exposed through ${this.transport.name}.`,
+					{ publicMessage: 'The requested operation is not available.' },
+				)
+			}
+			if (request.version !== exposed.compiled.operation.version) {
+				throw new FrameworkError(
+					'PLUGIN_PROTOCOL_INCOMPATIBLE',
+					`Operation ${request.operation} version ${request.version} is incompatible with ${exposed.compiled.operation.version}.`,
+					{
+						publicMessage: 'The requested operation version is not available.',
+					},
+				)
+			}
+			const decoded = this.runtime.decode(exposed.binding, request.input)
+			const payload = exposed.compiled.operation.input.snapshot(
+				decoded,
+				`${exposed.compiled.operation.name}.input`,
 			)
-		}
-		if (request.version !== exposed.compiled.operation.version) {
-			throw new FrameworkError(
-				'PLUGIN_PROTOCOL_INCOMPATIBLE',
-				`Operation ${request.operation} version ${request.version} is incompatible with ${exposed.compiled.operation.version}.`,
-				{ publicMessage: 'The requested operation version is not available.' },
+			assertImmutableOperationValue(
+				payload,
+				`${exposed.compiled.operation.name}.input`,
 			)
-		}
-		const decoded = this.runtime.decode(exposed.binding, request.input)
-		const payload = exposed.compiled.operation.input.snapshot(
-			decoded,
-			`${exposed.compiled.operation.name}.input`,
-		)
-		assertImmutableOperationValue(
-			payload,
-			`${exposed.compiled.operation.name}.input`,
-		)
-		const envelope = immutableRecord({
-			kind: 'plugin-operation' as const,
-			name: exposed.compiled.operation.name,
-			payload,
-			target: immutableRecord({ kind: 'application' as const }),
-			transaction: exposed.compiled.operation.transaction,
-			version: exposed.compiled.operation.version,
+			const envelope = immutableRecord({
+				kind: 'plugin-operation' as const,
+				name: exposed.compiled.operation.name,
+				payload,
+				target: immutableRecord({ kind: 'application' as const }),
+				transaction: exposed.compiled.operation.transaction,
+				version: exposed.compiled.operation.version,
+			})
+			const result = await executeRequestPluginOperation(
+				engine,
+				exposed.compiled,
+				envelope,
+			)
+			return this.runtime.encode(exposed.binding, result)
 		})
-		const result = await executeRequestPluginOperation(
-			engine,
-			exposed.compiled,
-			envelope,
-		)
-		return this.runtime.encode(exposed.binding, result)
 	}
 }

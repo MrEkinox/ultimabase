@@ -1,3 +1,4 @@
+import { applicationFixture } from '../../../tests/application-fixture.js'
 import { describe, expect, it } from 'vitest'
 import {
 	UltimaBase,
@@ -9,28 +10,30 @@ import { RecordingDatabaseAdapter } from '../../../tests/runtime/fixtures/record
 import { provideTestDatabaseAdapter } from '../../../tests/runtime/fixtures/database-adapter-capability.js'
 
 const createApplication = () =>
-	new UltimaBase({
-		pluginPrivileges: { logger: false },
-		schemas: [],
-		plugins: [
-			definePlugin({
-				pluginId: 'fixture.current-facade',
-				version: '1.0.0',
-				core: '^0.0.0',
-				capabilities: {
-					provides: [
-						provideTestDatabaseAdapter(new RecordingDatabaseAdapter([], [])),
-					],
-				},
-			}),
-		],
-	})
+	applicationFixture(
+		new UltimaBase({
+			pluginPrivileges: { logger: false },
+			schemas: [],
+			plugins: [
+				definePlugin({
+					pluginId: 'fixture.current-facade',
+					version: '1.0.0',
+					core: '^0.0.0',
+					capabilities: {
+						provides: [
+							provideTestDatabaseAdapter(new RecordingDatabaseAdapter([], [])),
+						],
+					},
+				}),
+			],
+		}),
+	)
 
 describe('current UltimaBase facade', () => {
-	it('selects exact facades across concurrent and nested scopes without a default', async () => {
+	it('selects exact facades across concurrent requests and sequential lifetimes', async () => {
 		const first = createApplication()
 		const second = createApplication()
-		await Promise.all([first.start(), second.start()])
+		await first.start()
 		try {
 			expect(getCurrentUltimaBase).toThrow(
 				expect.objectContaining({ code: 'MISSING_EXECUTION_CONTEXT' }),
@@ -38,20 +41,27 @@ describe('current UltimaBase facade', () => {
 			const scope = (app: typeof first) =>
 				app.engine.anonymous({ requestId: 'facade', source: 'internal' })
 			const observed = await Promise.all(
-				[first, second].map((app) =>
+				[first, first].map((app) =>
 					runWithRequestEngine(scope(app), async () => {
 						await Promise.resolve()
 						expect(getCurrentUltimaBase()).toBe(app)
-						runWithRequestEngine(scope(app === first ? second : first), () => {
-							expect(getCurrentUltimaBase()).toBe(
-								app === first ? second : first,
-							)
+						runWithRequestEngine(scope(app), () => {
+							expect(getCurrentUltimaBase()).toBe(app)
 						})
 						return getCurrentUltimaBase()
 					}),
 				),
 			)
-			expect(observed).toEqual([first, second])
+			expect(observed).toEqual([first, first])
+			const oldRequest = scope(first)
+			await first.dispose()
+			await second.start()
+			expect(runWithRequestEngine(scope(second), getCurrentUltimaBase)).toBe(
+				second,
+			)
+			expect(() =>
+				runWithRequestEngine(oldRequest, getCurrentUltimaBase),
+			).toThrow('initialized active application')
 			expect(getCurrentUltimaBase).toThrow(
 				expect.objectContaining({ code: 'MISSING_EXECUTION_CONTEXT' }),
 			)

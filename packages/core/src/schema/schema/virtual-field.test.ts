@@ -94,11 +94,15 @@ describe('virtual schema fields', () => {
 			}),
 		})
 
-		await createApplication({ plugins: [plugin()], schemas: [Shared] })
+		await (
+			await createApplication({ plugins: [plugin()], schemas: [Shared] })
+		).dispose()
 		const firstField = Shared.virtualFields.slug
 		if (firstField === undefined) throw new TypeError('Expected virtual slug')
 		const firstResolver = getVirtualFieldResolver(firstField)
-		await createApplication({ plugins: [plugin()], schemas: [Shared] })
+		await (
+			await createApplication({ plugins: [plugin()], schemas: [Shared] })
+		).dispose()
 		const secondField = Shared.virtualFields.slug
 		if (secondField === undefined) throw new TypeError('Expected virtual slug')
 

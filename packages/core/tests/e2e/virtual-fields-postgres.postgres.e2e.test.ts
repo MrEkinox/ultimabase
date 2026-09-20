@@ -403,6 +403,7 @@ describe('virtual fields with PostgreSQL', { concurrent: false }, () => {
 		})
 
 		try {
+			await primary.dispose()
 			await isolated.start()
 			const foreign = await Person.createOne(
 				{
@@ -416,12 +417,23 @@ describe('virtual fields with PostgreSQL', { concurrent: false }, () => {
 				},
 				{ ultimabase: isolated },
 			)
+			await isolated.dispose()
+			ultimabase = new UltimaBase({
+				plugins: [
+					postgresPlugin({
+						pool: getApplication().pool,
+						schemaPolicy: 'ignore',
+					}),
+				],
+				schemas,
+			})
+			await ultimabase.start()
 			const local = await Person.findOne(
 				{
 					select: { displayName: true },
 					where: { id: { eq: localRecord.id } },
 				},
-				{ ultimabase: primary },
+				{ ultimabase },
 			)
 
 			expect(foreign.toJSON()).toStrictEqual({

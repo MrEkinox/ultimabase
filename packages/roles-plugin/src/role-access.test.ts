@@ -1,3 +1,4 @@
+import { onTestFinished } from 'vitest'
 import {
 	RequestSubjectReference,
 	Schema,
@@ -225,14 +226,18 @@ describe('stored role Access integration', () => {
 			schemas: [],
 			plugins: [rolesPlugin(), emptyConsumer],
 		})
+		onTestFinished(() => emptyApplication.dispose())
+		const emptyConsumerExports = emptyApplication.getPlugin(
+			'fixture.empty-role-consumer',
+		)
+		await emptyApplication.dispose()
 		const roleApplication = await createApplication({
 			schemas: [Member, AppRole, OtherRole],
 			plugins: [rolesPlugin(), roleConsumer],
 		})
+		onTestFinished(() => roleApplication.dispose())
 
-		expect(
-			typeof emptyApplication.getPlugin('fixture.empty-role-consumer').hasRole,
-		).toBe('function')
+		expect(typeof emptyConsumerExports.hasRole).toBe('function')
 		expect(
 			typeof roleApplication.getPlugin('fixture.role-consumer').hasRole,
 		).toBe('function')
@@ -262,6 +267,7 @@ describe('stored role Access integration', () => {
 			schemas: [],
 			plugins: [communityProvider, consumer],
 		})
+		onTestFinished(() => application.dispose())
 
 		expect(application.getPlugin('fixture.community-role-consumer')).toBe(
 			communityResolver,

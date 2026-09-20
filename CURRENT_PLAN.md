@@ -1,12 +1,12 @@
 # Active plan: pre-feature architecture simplification
 
-- Status: active
+- Status: active — issue 3006 audited; next issue 3007
 - Milestone: [30 — Pre-feature architecture simplification](issues/3000-pre-feature-architecture-simplification/README.md)
 - Detailed plan: [docs/plans/2026-09-20-pre-feature-architecture-simplification.md](docs/plans/2026-09-20-pre-feature-architecture-simplification.md)
 - Baseline: [docs/plans/2026-09-20-architecture-simplification-baseline.md](docs/plans/2026-09-20-architecture-simplification-baseline.md)
 - Contract matrix: [docs/plans/2026-09-20-architecture-contract-matrix.md](docs/plans/2026-09-20-architecture-contract-matrix.md)
 - Removal history: [HISTORIQUE_SUPPRESSIONS.md](HISTORIQUE_SUPPRESSIONS.md)
-- Resume point: issue 3006
+- Resume point: issue 3007
 
 ## Objective
 
@@ -36,8 +36,8 @@ application per JavaScript realm, concurrent requests within that application,
 sequential replacement after complete disposal, and parallel applications in
 isolated test workers or processes. HTTP identity is retained; shared Hono
 application hosting and `HttpApplicationMountTable` are removed by issue 3007.
-Issues 3006/3007 implement this accepted lifecycle target; the one-application
-limit is not enforced yet.
+Issue 3006 enforces the accepted lifecycle target. Issue 3007 removes the
+shared HTTP ownership machinery made unreachable by that limit.
 
 ## Mandatory issue gate
 
@@ -49,6 +49,11 @@ The next issue may begin only after an audit reports no unresolved finding and
 the issue has its dedicated local commit. Update `HISTORIQUE_SUPPRESSIONS.md` in
 that commit with exact removals, preserved behavior, and the delivered issue;
 planned or in-progress work must never be presented as completed.
+
+For every completed issue, report the exact added and deleted line counts from
+its dedicated commit and the net change (`added - deleted`) to the user. Count
+the complete issue diff, including tests, documentation, and generated files;
+do not confuse an in-progress diff with a completed issue's result.
 
 No push is authorized by this plan.
 
@@ -94,20 +99,28 @@ Issue 3003 is audited and committed as `f7e9596b`. Issue 3004 is complete with
 a green removal and behavior audit: the approved replacement/observer machinery
 is removed, equivalent Runtime measurements stay internal, and source, packed,
 PostgreSQL, website, build, typecheck, lint, and constraint checks pass.
-Issue 3004 is committed as `5adb09b3`. Issue 3005 is complete with a green
+Issue 3004 is committed as `5adb09b3`. Issue 3005 is committed as `21bb2e8f` with a green
 removal and retained-behavior audit: R-005–R-008/R-010 are removed, real schema
 mutations and consumed type references remain, and source, packed, PostgreSQL,
 website, build, typecheck, lint, and constraint checks pass. Its dedicated local
 commit delivers the root removal history requested by the user.
 Issue 3004 removes R-001–R-004/R-009; issue 3005 removes R-005–R-008/R-010.
-The Runtime uses direct Core assembly. The next issue is 3006, subject to its
-accepted lifecycle contract and the existing stop gate for any new public API.
+The Runtime uses direct Core assembly. Issue 3006 implements its accepted
+lifecycle contract; the existing stop gate applies to any new public API.
 The goal remains issues 3001 through 3014, with the hard stop after 3014.
 
-The user additionally requested simple runner-independent test lifecycle
-utilities. The proposed callback helper belongs to `@ultimabase/testing` and
-the issue 3006 test migration, without a test-only activation bypass. Its exact
-public API is still a proposal; it is not part of ADR-0258's accepted contract.
+The user approved using the existing lifecycle directly in test suites:
+`beforeAll(() => ultimabase.start())` and
+`afterAll(() => ultimabase.dispose())`, with the hooks returning the promises.
+No `withUltimaBase` helper or additional public testing API is introduced.
+Jest and Vitest suites reuse their application for the suite lifetime; separate
+workers remain isolated and sequential suites dispose before replacement.
+Issue 3006 is complete with a green audit: one initialized owner, draining
+teardown, fail-closed cleanup, stale authority rejection, current-graph mutation
+visibility, isolated workers and sequential fixture migration. All 2,510
+unit/type/performance and 379 integration tests pass, alongside typecheck,
+build, lint, website and constraints. Its dedicated commit precedes issue 3007.
+Continue with issue 3007; do not change the hard stop after issue 3014.
 
 Documentation impact: internal engineering documentation until an issue changes
 a public contract; those issues must update both package and public website

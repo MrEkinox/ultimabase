@@ -13,8 +13,8 @@ and separate GraphiQL and Apollo Sandbox plugins are shipped siblings.
 `httpPlugin({ appId, master, requestTimeoutMs })` materializes one
 application-local route graph. Route
 owners contribute standard `Request` to `Response` handlers through the public
-HTTP capability, while server providers select a mounted application from the
-ordered original `X-UltimaBase-Application-Id` header evidence. External and
+HTTP capability. One initialized application owns the server boundary in each
+JavaScript realm; the provider checks its expected identity against the ordered original `X-UltimaBase-Application-Id` header evidence. External and
 framework-owned providers consume the same graph.
 
 Every selected route starts with one anonymous application-bound Core context.
@@ -26,7 +26,8 @@ values. Fetch cancellation and the optional deadline share the same context
 signal through handlers, Runtime, transactions, and response completion.
 Ambiguous sensitive headers and all other pre-dispatch failures use the safe
 HTTP envelope. HTTP owns the browser policy, while the optional Hono provider
-owns sockets and shared-server lifecycle.
+owns sockets and listener lifecycle. Independent applications run in separate
+processes, workers, or containers.
 
 ## REST
 
@@ -88,8 +89,8 @@ verifies and audits the credential before producing private application-owned
 provenance; flags, shaped contexts, serialized grants, foreign credentials, and
 other request structure never create Master.
 
-Cross-origin browser access is disabled by default. Applications sharing one
-server provider use one identical effective policy, and infrastructure-only
+Cross-origin browser access is disabled by default. The application declares
+one explicit browser policy, and infrastructure-only
 preflight never selects an application or invokes Runtime behavior. The HTTP
 plugin owns safe errors before route dispatch; REST or GraphQL owns later
 protocol errors. A real cross-origin request still supplies its public

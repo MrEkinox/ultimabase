@@ -1,3 +1,4 @@
+import { applicationFixture } from '../application-fixture.js'
 import {
 	FrameworkApplication,
 	increment,
@@ -37,10 +38,12 @@ describe('read terminals and singular schema commands', () => {
 		]
 		const adapter = new RecordingDatabaseAdapter(results, [])
 		const framework = new FrameworkEngine({
-			application: new FrameworkApplication({
-				schemas: [articleSchema],
-				plugins: [],
-			}),
+			application: await applicationFixture(
+				new FrameworkApplication({
+					schemas: [articleSchema],
+					plugins: [],
+				}),
+			).initialize(),
 			pipeline: createRecordingPipeline(adapter, []),
 		})
 		const request = framework.anonymous({
@@ -112,10 +115,12 @@ describe('read terminals and singular schema commands', () => {
 			trace,
 		)
 		const framework = new FrameworkEngine({
-			application: new FrameworkApplication({
-				schemas: [articleSchema],
-				plugins: [],
-			}),
+			application: await applicationFixture(
+				new FrameworkApplication({
+					schemas: [articleSchema],
+					plugins: [],
+				}),
+			).initialize(),
 			pipeline: createRecordingPipeline(adapter, trace),
 		})
 		const request = framework.anonymous({
@@ -229,10 +234,12 @@ describe('read terminals and singular schema commands', () => {
 		]
 		const adapter = new RecordingDatabaseAdapter(results, [])
 		const framework = new FrameworkEngine({
-			application: new FrameworkApplication({
-				schemas: [articleSchema],
-				plugins: [],
-			}),
+			application: await applicationFixture(
+				new FrameworkApplication({
+					schemas: [articleSchema],
+					plugins: [],
+				}),
+			).initialize(),
 			pipeline: createRecordingPipeline(adapter, []),
 		})
 		const request = framework.anonymous({

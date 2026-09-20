@@ -6,9 +6,9 @@ type StaticSchemaMutation = (
 	options?: OperationOptions,
 ) => Promise<unknown>
 
-// The class stays frozen. Only command names are shared across applications;
-// execution always resolves the selected application's compiled surface.
-const staticMutations = new WeakMap<object, Map<string, StaticSchemaMutation>>()
+// Classes remain frozen; visibility lasts only for the current owning application.
+let owner: object | undefined
+let staticMutations = new WeakMap<object, Map<string, StaticSchemaMutation>>()
 
 /** Exposes installed schema mutations without modifying a class or prototype. */
 export const createStaticSchemaMutationView = <
@@ -40,10 +40,17 @@ export const createStaticSchemaMutationView = <
 
 /** Adds one inert class-level dispatcher after its application has started. */
 export const registerStaticSchemaMutation = (
+	application: object,
 	schema: SchemaDefinition,
 	name: string,
 	method: StaticSchemaMutation,
 ): void => {
+	if (owner !== undefined && owner !== application) {
+		throw new TypeError(
+			'Static mutations already belong to another application',
+		)
+	}
+	owner = application
 	let methods = staticMutations.get(schema)
 	if (methods?.has(name) === true) return
 	if (Reflect.has(schema, name)) {
@@ -54,4 +61,11 @@ export const registerStaticSchemaMutation = (
 		staticMutations.set(schema, methods)
 	}
 	methods.set(name, method)
+}
+
+/** Removes visibility without invalidating the identity checks of captured dispatchers. */
+export const releaseStaticSchemaMutations = (application: object): void => {
+	if (owner !== application) return
+	staticMutations = new WeakMap()
+	owner = undefined
 }

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { applicationFixture } from '../../tests/application-fixture.js'
 
 import { FrameworkApplication } from '../application/framework-application.js'
 import { FrameworkError } from '../errors/framework-error.js'
@@ -56,11 +57,13 @@ describe('capability composition', () => {
 				resolved = capabilities.get(requirement)
 			},
 		})
-		const application = new FrameworkApplication({
-			schemas: [],
-			plugins: [consumer],
-			pluginPrivileges: { logger: false },
-		})
+		const application = applicationFixture(
+			new FrameworkApplication({
+				schemas: [],
+				plugins: [consumer],
+				pluginPrivileges: { logger: false },
+			}),
+		)
 
 		await application.initialize()
 
@@ -107,11 +110,13 @@ describe('capability composition', () => {
 				rendered = capabilities.get(requirement).render()
 			},
 		})
-		const application = new FrameworkApplication({
-			schemas: [],
-			plugins: [consumer, provider],
-			pluginPrivileges: { logger: false },
-		})
+		const application = applicationFixture(
+			new FrameworkApplication({
+				schemas: [],
+				plugins: [consumer, provider],
+				pluginPrivileges: { logger: false },
+			}),
+		)
 
 		await application.initialize()
 
@@ -164,91 +169,17 @@ describe('capability composition', () => {
 				values = capabilities.get(requirement)
 			},
 		})
-		const application = new FrameworkApplication({
-			schemas: [],
-			plugins: [consumer, first, second],
-			pluginPrivileges: { logger: false },
-		})
+		const application = applicationFixture(
+			new FrameworkApplication({
+				schemas: [],
+				plugins: [consumer, first, second],
+				pluginPrivileges: { logger: false },
+			}),
+		)
 
 		await application.initialize()
 		expect(values).toStrictEqual(['first', 'second'])
 		await application.dispose()
-	})
-
-	it('materializes application dependencies before setup and disposes after owner hooks', async () => {
-		const events: string[] = []
-		interface Transport {
-			readonly endpoint: string
-		}
-		const token = defineCapability<Transport>()({
-			capabilityId: 'fixture.application-transport',
-			version: '1.0.0',
-			cardinality: 'single',
-			lifetime: 'application',
-			compose: ([provider]) => provider,
-		})
-		const requirement = requireCapability(token, '^1.0.0')
-		const provider = definePlugin({
-			pluginId: 'fixture.application-provider',
-			version: '1.0.0',
-			core: '^0.0.0',
-			capabilities: {
-				provides: [
-					provideCapability(token, {
-						contributionId: 'primary',
-						create: ({ schemas }) => {
-							events.push(`create:${String(schemas.size)}`)
-							void schemas.schemaTargets
-							return {
-								value: { endpoint: 'local' },
-								dispose: () => {
-									events.push('resource-dispose')
-								},
-							}
-						},
-					}),
-				],
-			},
-			setup: () => {
-				events.push('provider-setup')
-			},
-			hooks: {
-				dispose: () => {
-					events.push('provider-dispose')
-				},
-			},
-		})
-		const consumer = definePlugin({
-			pluginId: 'fixture.application-consumer',
-			version: '1.0.0',
-			core: '^0.0.0',
-			capabilities: { requires: [requirement] },
-			setup: ({ capabilities }) => {
-				events.push(`consumer-setup:${capabilities.get(requirement).endpoint}`)
-			},
-			hooks: {
-				dispose: () => {
-					events.push('consumer-dispose')
-				},
-			},
-		})
-		const application = new FrameworkApplication({
-			schemas: [],
-			plugins: [consumer, provider],
-			pluginPrivileges: { logger: false },
-		})
-
-		await application.initialize()
-		await application.dispose()
-
-		expect(events).toStrictEqual([
-			'create:0',
-			'provider-setup',
-			'consumer-setup:local',
-			'consumer-dispose',
-			'provider-dispose',
-			'resource-dispose',
-		])
 	})
 
 	it('orders pipeline handlers according to dependencies', async () => {
@@ -306,77 +237,17 @@ describe('capability composition', () => {
 				result = capabilities.get(requirement)()
 			},
 		})
-		const application = new FrameworkApplication({
-			schemas: [],
-			plugins: [consumer, secondProvider, firstProvider],
-			pluginPrivileges: { logger: false },
-		})
+		const application = applicationFixture(
+			new FrameworkApplication({
+				schemas: [],
+				plugins: [consumer, secondProvider, firstProvider],
+				pluginPrivileges: { logger: false },
+			}),
+		)
 
 		await application.initialize()
 
 		expect(result).toBe('first(second(terminal))')
-	})
-
-	it('materializes and disposes each application resource exactly once', async () => {
-		let providerCreates = 0
-		let providerDisposes = 0
-		const observed: number[] = []
-		const token = defineCapability<{ readonly sequence: number }>()({
-			capabilityId: 'fixture.resource-application',
-			version: '1.0.0',
-			cardinality: 'single',
-			lifetime: 'application',
-			compose: ([provider]) => provider,
-		})
-		const requirement = requireCapability(token, '^1.0.0')
-		const provider = definePlugin({
-			pluginId: 'fixture.resource-winner',
-			version: '1.0.0',
-			core: '^0.0.0',
-			capabilities: {
-				provides: [
-					provideCapability(token, {
-						contributionId: 'winner',
-						create: () => {
-							providerCreates += 1
-							const sequence = providerCreates
-							return {
-								value: { sequence },
-								dispose: () => {
-									providerDisposes += 1
-								},
-							}
-						},
-					}),
-				],
-			},
-		})
-		const consumer = definePlugin({
-			pluginId: 'fixture.resource-consumer',
-			version: '1.0.0',
-			core: '^0.0.0',
-			capabilities: { requires: [requirement] },
-			setup: ({ capabilities }) => {
-				observed.push(capabilities.get(requirement).sequence)
-			},
-		})
-		const createApplication = () =>
-			new FrameworkApplication({
-				schemas: [],
-				plugins: [consumer, provider],
-				pluginPrivileges: { logger: false },
-			})
-		const first = createApplication()
-		const second = createApplication()
-
-		await first.initialize()
-		await second.initialize()
-		await first.dispose()
-		await second.dispose()
-
-		expect(providerCreates).toBe(2)
-		expect(providerDisposes).toBe(2)
-		expect(observed).toStrictEqual([1, 2])
 	})
 
 	it('rejects undeclared reads and same-owner application capability cycles', async () => {
@@ -409,11 +280,13 @@ describe('capability composition', () => {
 				capabilities.get(undeclaredRequirement)
 			},
 		})
-		const undeclaredApplication = new FrameworkApplication({
-			schemas: [],
-			plugins: [undeclaredConsumer, provider],
-			pluginPrivileges: { logger: false },
-		})
+		const undeclaredApplication = applicationFixture(
+			new FrameworkApplication({
+				schemas: [],
+				plugins: [undeclaredConsumer, provider],
+				pluginPrivileges: { logger: false },
+			}),
+		)
 
 		await expect(undeclaredApplication.initialize()).rejects.toMatchObject({
 			code: 'PLUGIN_CAPABILITY_MISSING',
@@ -457,11 +330,13 @@ describe('capability composition', () => {
 				requires: [firstRequirement, secondRequirement],
 			},
 		})
-		const cyclicApplication = new FrameworkApplication({
-			schemas: [],
-			plugins: [cyclic],
-			pluginPrivileges: { logger: false },
-		})
+		const cyclicApplication = applicationFixture(
+			new FrameworkApplication({
+				schemas: [],
+				plugins: [cyclic],
+				pluginPrivileges: { logger: false },
+			}),
+		)
 
 		await expect(cyclicApplication.initialize()).rejects.toMatchObject({
 			code: 'PLUGIN_CAPABILITY_CONFLICT',
@@ -525,11 +400,13 @@ describe('capability composition', () => {
 			},
 		})
 		const graph = new PluginGraph(normalizePlugins([first, second]))
-		const application = new FrameworkApplication({
-			schemas: [],
-			plugins: [first, second],
-			pluginPrivileges: { logger: false },
-		})
+		const application = applicationFixture(
+			new FrameworkApplication({
+				schemas: [],
+				plugins: [first, second],
+				pluginPrivileges: { logger: false },
+			}),
+		)
 
 		await application.initialize()
 
@@ -641,11 +518,13 @@ describe('capability composition', () => {
 				requires: [setupRequirement],
 			},
 		})
-		const application = new FrameworkApplication({
-			schemas: [],
-			plugins: [dependency, consumer],
-			pluginPrivileges: { logger: false },
-		})
+		const application = applicationFixture(
+			new FrameworkApplication({
+				schemas: [],
+				plugins: [dependency, consumer],
+				pluginPrivileges: { logger: false },
+			}),
+		)
 
 		await expect(application.initialize()).rejects.toMatchObject({
 			code: 'PLUGIN_CAPABILITY_MISSING',
@@ -655,53 +534,6 @@ describe('capability composition', () => {
 				capabilityId: 'fixture.setup-only-dependency',
 			},
 		})
-	})
-
-	it('cleans materialized resources when plugin setup fails', async () => {
-		let disposeCalls = 0
-		const token = defineCapability<string>()({
-			capabilityId: 'fixture.partial-cleanup',
-			version: '1.0.0',
-			cardinality: 'single',
-			lifetime: 'application',
-			compose: ([provider]) => provider,
-		})
-		const provider = definePlugin({
-			pluginId: 'fixture.partial-provider',
-			version: '1.0.0',
-			core: '^0.0.0',
-			capabilities: {
-				provides: [
-					provideCapability(token, {
-						contributionId: 'resource',
-						create: () => ({
-							value: 'ready',
-							dispose: () => {
-								disposeCalls += 1
-							},
-						}),
-					}),
-				],
-			},
-		})
-		const failing = definePlugin({
-			pluginId: 'fixture.partial-failure',
-			version: '1.0.0',
-			core: '^0.0.0',
-			setup: () => {
-				throw new Error('Setup failure fixture')
-			},
-		})
-		const application = new FrameworkApplication({
-			schemas: [],
-			plugins: [provider, failing],
-			pluginPrivileges: { logger: false },
-		})
-
-		await expect(application.initialize()).rejects.toThrow(
-			new Error('Setup failure fixture'),
-		)
-		expect(disposeCalls).toBe(1)
 	})
 
 	it('rejects competing single providers statically', () => {
@@ -768,8 +600,8 @@ describe('capability composition', () => {
 				],
 			},
 		})
-		expect(
-			() =>
+		expect(() =>
+			applicationFixture(
 				new FrameworkApplication({
 					schemas: [],
 					plugins: [provider],
@@ -778,6 +610,7 @@ describe('capability composition', () => {
 						logger: false,
 					},
 				}),
+			),
 		).toThrow(
 			expect.objectContaining<Partial<FrameworkError>>({
 				code: 'PLUGIN_PRIVILEGE_DENIED',

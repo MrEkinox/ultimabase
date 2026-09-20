@@ -34,7 +34,7 @@ describe('packed GraphQL explorer composition', () => {
 		await ultimabase.dispose()
 	})
 
-	it('cannot switch explorers across two mounted applications', async () => {
+	it('rejects foreign explorer routes across sequential applications', async () => {
 		const firstConsumer = httpConsumer()
 		const first = new UltimaBase({
 			pluginPrivileges: { logger: false },
@@ -59,23 +59,28 @@ describe('packed GraphQL explorer composition', () => {
 			],
 			schemas: [],
 		})
-		await Promise.all([first.start(), second.start()])
+		await first.start()
 		const firstHttp = readHttpApplication(
 			first.application.getPlugin('fixture.explorer-http-consumer'),
 		)
-		const secondHttp = readHttpApplication(
-			second.application.getPlugin('fixture.explorer-http-consumer'),
-		)
-		const table = mountHttpApplication(firstHttp).mount(secondHttp)
+		const table = mountHttpApplication(firstHttp)
 
 		expect(
 			(await table.fetch(browserRequest('first', '/apollo-sandbox'))).status,
 		).toBe(401)
+		await first.dispose()
+		await second.start()
+		const secondHttp = readHttpApplication(
+			second.application.getPlugin('fixture.explorer-http-consumer'),
+		)
+		const secondTable = mountHttpApplication(secondHttp)
+
 		expect(
-			(await table.fetch(browserRequest('second', '/apollo-sandbox'))).status,
+			(await secondTable.fetch(browserRequest('second', '/apollo-sandbox')))
+				.status,
 		).toBe(200)
 		expect(
-			(await table.fetch(browserRequest('second', '/graphiql'))).status,
+			(await secondTable.fetch(browserRequest('second', '/graphiql'))).status,
 		).toBe(401)
 		await Promise.all([first.dispose(), second.dispose()])
 	})

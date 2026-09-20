@@ -1,3 +1,4 @@
+import { runApplicationWork } from '../../application/active-application.js'
 import type { PluginOperationEnvelope } from '../../application/application-handles.js'
 import type { CompiledPluginOperation } from '../../plugins/application-surface-registry.js'
 import type { RequestEngine } from '../engine/framework-engine.js'
@@ -59,5 +60,7 @@ export const executeRequestPluginOperation = (
 	if (executor === undefined) {
 		throw new TypeError('Request plugin operation execution is unavailable')
 	}
-	return executor(compiled, envelope)
+	return runApplicationWork(engine.application, () =>
+		executor(compiled, envelope),
+	)
 }

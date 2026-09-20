@@ -1,3 +1,4 @@
+import { onTestFinished } from 'vitest'
 import {
 	RequestContextValue,
 	Schema,
@@ -135,6 +136,7 @@ const createFixture = async () => {
 		],
 		schemas: [VirtualRecord],
 	})
+	onTestFinished(() => application.dispose())
 	await application.start()
 	return {
 		adapter,
@@ -235,22 +237,27 @@ describe('GraphQL virtual networkless execution', () => {
 
 	it('keeps virtual resolution bound to one application context', async () => {
 		const first = await createFixture()
-		const second = await createFixture()
 		const firstContext = first.application.engine
 			.anonymous({ requestId: 'graphql-virtual-first', source: 'test' })
 			.context.withValue(viewer, 'first')
+		const document = '{ findOneGraphqlVirtualRecord { displayTitle } }'
+		const firstResult = await first.graphql.execute({
+			context: firstContext,
+			document,
+		})
+		await first.application.dispose()
+		const second = await createFixture()
 		const secondContext = second.application.engine
 			.anonymous({ requestId: 'graphql-virtual-second', source: 'test' })
 			.context.withValue(viewer, 'second')
-		const document = '{ findOneGraphqlVirtualRecord { displayTitle } }'
 
 		await expect(
-			first.graphql.execute({ context: secondContext, document }),
+			second.graphql.execute({ context: firstContext, document }),
 		).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
-		const [firstResult, secondResult] = await Promise.all([
-			first.graphql.execute({ context: firstContext, document }),
-			second.graphql.execute({ context: secondContext, document }),
-		])
+		const secondResult = await second.graphql.execute({
+			context: secondContext,
+			document,
+		})
 		expect(firstResult.data).toEqual({
 			findOneGraphqlVirtualRecord: {
 				displayTitle: 'GRAPHQL VIRTUAL:first',

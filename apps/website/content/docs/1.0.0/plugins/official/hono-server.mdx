@@ -115,13 +115,14 @@ them on your own listener.
 
 ## Behavior and limitations
 
-### Share a managed listener
+### Run one active application
 
-Reuse the **same** `honoServerPlugin()` result in several applications to
-share one listener. Give each application a distinct HTTP `appId` and the same
-effective HTTP browser policy. Stopping one application removes only its
-mount; the listener closes after the last attached application stops. Separate
-factory calls create separate providers, even with identical options.
+One JavaScript realm may initialize one UltimaBase application. A second
+application fails before opening a listener, even if it reuses the same
+`honoServerPlugin()` value. Await complete disposal before replacement.
+Run simultaneous applications in separate processes, workers, or containers.
+An existing Hono app can keep its ordinary routes alongside its single
+UltimaBase application.
 
 ### Choose one browser-policy owner
 
@@ -144,11 +145,12 @@ authentication remain outside this server plugin.
 ## Troubleshooting
 
 If startup reports an address conflict, check whether another listener owns
-the fixed host and port. To share a listener, reuse one server plugin value;
+the fixed host and port. For another simultaneous application, use a separate process and address;
 two independently created managed providers do not share a socket.
 
-If a second application fails to mount, check for a duplicate `appId` or
-different effective browser policies. The existing mount is left unchanged.
+If initialization reports another active application, await that application’s
+`dispose()` before starting its replacement. Use a separate worker or process
+when both applications must run at the same time.
 If an existing Hono app rejects requests before routing, verify its Node
 integration supplies `incoming.rawHeaders` and that CORS has exactly one
 owner. For application selection, credentials, or `HTTP_*` errors, continue at

@@ -73,7 +73,7 @@ perte fonctionnelle doit être expliqué et arbitré avant modification.
 
 ### R-005 — Registre d’extensions de Query
 
-- **État : réalisée**, issue 3005, livrée dans le même commit que ce fichier.
+- **État : réalisée**, issue 3005, commit `21bb2e8f`.
 - **Retrait :** `defineQueryExtension`, `query:extend`, `queries.extend()`,
   extensions attachées aux handles et leurs projections Typegen.
 - **Raison :** pas d’usage concret en dehors des exemples et tests du mécanisme.
@@ -154,7 +154,7 @@ les tests de rejet ; aucune compatibilité silencieuse n’est prévue.
 
 | Décision         | Suppression prévue                                                                                | Raison et comportement conservé                                                                                                                                                                                           | État / issue                  |
 | ---------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
-| D-001 / ADR-0258 | Plusieurs applications initialisées simultanément dans un même environnement JavaScript           | Une seule application active ; requêtes concurrentes isolées ; remplacement après disposal complet ; tests parallèles dans des workers/processus isolés. Une seconde activation échoue avant les effets d’infrastructure. | Approuvée, à réaliser en 3006 |
+| D-001 / ADR-0258 | Plusieurs applications initialisées simultanément dans un même environnement JavaScript           | Une seule application active ; requêtes concurrentes isolées ; remplacement après disposal complet ; tests parallèles dans des workers/processus isolés. Une seconde activation échoue avant les effets d’infrastructure. | Réalisée en 3006              |
 | D-001 / ADR-0258 | Hébergement de plusieurs applications sur un même fournisseur Hono et `HttpApplicationMountTable` | Le serveur appartient à l’application active. L’identifiant HTTP vérifie toujours l’application exacte ; autorité Master, sessions, préflight, politique navigateur et erreurs sûres restent conservés.                   | Approuvée, à réaliser en 3007 |
 
 ## Implémentations internes à remplacer puis supprimer
@@ -180,11 +180,23 @@ au fur et à mesure des migrations et de leurs audits.
 - **3003 — `f7e9596b` :** approbation et périmètre précis des dix retraits dans
   ADR-0259.
 - **3004 — `5adb09b3` :** R-001 à R-004 et R-009 livrés et audités.
-- **3005 — livrée avec ce fichier :** R-005 à R-008 et R-010, après correction
+- **3005 — `21bb2e8f` :** R-005 à R-008 et R-010, après correction
   des constats et audit final sans anomalie restante. Réduction nette de
   **4 479 lignes de production** et **41 exports publics**. Les vérifications
   sont détaillées dans l’issue ; les tests unitaires, E2E, TypeScript, build,
   lint et documentation passent. Ce fichier est créé à la demande de l’utilisateur.
+
+- **3006 — livrée dans ce commit :** retrait des applications initialisées
+  simultanément dans un même environnement JavaScript. L’exécution concurrente
+  des requêtes et les workers indépendants restent autorisés. Le remplacement
+  attend les opérations en cours et la libération complète des ressources ;
+  les anciens handles, contextes et grants Master restent invalides. La
+  visibilité des méthodes de mutation ne cumule plus les anciennes applications.
+  Aucun helper public de test ni mode de contournement n’est ajouté : les suites
+  utilisent `beforeAll(start)` et `afterAll(dispose)`. Audit final sans anomalie
+  restante ; 2 510 tests unitaires/types/performance et 379 intégrations validés.
+  Cette étape ajoute **344 lignes de production** pour le contrôle et la fermeture
+  sûre du cycle de vie. Le retrait de l’hébergement HTTP partagé reste en 3007.
 
 ## Sources de décision
 

@@ -1,3 +1,4 @@
+import { onTestFinished } from 'vitest'
 import {
 	MasterAuthority,
 	RequestContextValue,
@@ -301,6 +302,7 @@ describe('REST read execution', () => {
 			],
 			schemas: [RecordSchema],
 		})
+		onTestFinished(() => ultimabase.dispose())
 		await ultimabase.start()
 		const context = createContext(harness, 'rest-read-session')
 		const where = { title: { eq: 'Visible' } } as const
@@ -392,6 +394,7 @@ describe('REST read execution', () => {
 			],
 			schemas: [RecordSchema],
 		})
+		onTestFinished(() => first.dispose())
 		const second = new UltimaBase({
 			pluginPrivileges: { logger: false },
 			plugins: [
@@ -400,7 +403,8 @@ describe('REST read execution', () => {
 			],
 			schemas: [RecordSchema],
 		})
-		await Promise.all([first.start(), second.start()])
+		onTestFinished(() => second.dispose())
+		await first.start()
 		const anonymous = createContext(firstHarness, 'rest-read-security')
 		const master = await runAsHarness(firstHarness, (executor) =>
 			executor.verifyMasterKey({
@@ -432,16 +436,6 @@ describe('REST read execution', () => {
 			mode: 'master',
 		})
 
-		await expect(
-			runAsHarness(secondHarness, (executor) =>
-				executeRestReadRequest(executor, anonymous, RecordSchema, {
-					operation: 'exists',
-					request: new Request('https://example.test/records/exists'),
-				}),
-			),
-		).rejects.toThrow(/belongs to another application/u)
-		expect(secondAdapter.requests).toHaveLength(0)
-
 		const controller = new AbortController()
 		const cancelled = createContext(
 			firstHarness,
@@ -460,6 +454,17 @@ describe('REST read execution', () => {
 			),
 		).rejects.toBe('client disconnected')
 
+		await first.dispose()
+		await second.start()
+		await expect(
+			runAsHarness(secondHarness, (executor) =>
+				executeRestReadRequest(executor, anonymous, RecordSchema, {
+					operation: 'exists',
+					request: new Request('https://example.test/records/exists'),
+				}),
+			),
+		).rejects.toThrow(/belongs to another application/u)
+		expect(secondAdapter.requests).toHaveLength(0)
 		await Promise.all([first.dispose(), second.dispose()])
 	})
 
@@ -477,6 +482,7 @@ describe('REST read execution', () => {
 			],
 			schemas: [RecordSchema],
 		})
+		onTestFinished(() => ultimabase.dispose())
 		await ultimabase.start()
 		if (capture.current === undefined) {
 			throw new TypeError('REST deadline HTTP application is unavailable')

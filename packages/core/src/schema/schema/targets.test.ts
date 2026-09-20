@@ -1,3 +1,4 @@
+import { applicationFixture } from '../../../tests/application-fixture.js'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -255,11 +256,12 @@ describe('lazy schema targets', () => {
 				},
 			},
 		})
-		const application = await createApplication({
-			schemas: [source, target],
-			plugins: [plugin],
-		})
-
+		const application = applicationFixture(
+			await createApplication({
+				schemas: [source, target],
+				plugins: [plugin],
+			}),
+		)
 		expect(events).toStrictEqual(['setup'])
 		expect(application.schemaTargets.get(source, ['target'])).toBe(target)
 		await application.start()
@@ -293,10 +295,12 @@ describe('lazy schema targets', () => {
 				},
 			},
 		})
-		const application = new FrameworkApplication({
-			schemas: [source],
-			plugins: [plugin],
-		})
+		const application = applicationFixture(
+			new FrameworkApplication({
+				schemas: [source],
+				plugins: [plugin],
+			}),
+		)
 
 		await expect(application.start()).rejects.toMatchObject({
 			code: 'PLUGIN_DECLARATION_INVALID',
@@ -324,10 +328,13 @@ describe('lazy schema targets', () => {
 				className: 'IsolatedSource',
 				fields: () => ({ target: targetField(() => currentTarget) }),
 			})
-			const firstApplication = await createApplication({
-				schemas: [source, firstTarget],
-				plugins: [],
-			})
+			const firstApplication = applicationFixture(
+				await createApplication({
+					schemas: [source, firstTarget],
+					plugins: [],
+				}),
+			)
+			await firstApplication.dispose()
 
 			currentTarget = secondTarget
 			await expect(

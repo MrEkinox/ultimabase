@@ -1,3 +1,4 @@
+import { applicationFixture } from '../../../tests/application-fixture.js'
 import { describe, expect, it } from 'vitest'
 
 import { createApplication, definePlugin } from '../../foundation.js'
@@ -45,10 +46,13 @@ describe('deferred schema compilation', () => {
 			'Before compilation',
 		)
 
-		const application = await createApplication({
-			plugins: [observer],
-			schemas: [DeferredPost],
-		})
+		const application = applicationFixture(
+			await createApplication({
+				plugins: [observer],
+				schemas: [DeferredPost],
+			}),
+		)
+		await application.dispose()
 
 		expect(callbackCalls).toBe(1)
 		expect(events).toStrictEqual(['fields', 'setup:string'])
@@ -90,15 +94,24 @@ describe('deferred schema compilation', () => {
 			},
 		})
 
-		const first = await createApplication({ plugins: [], schemas: [Shared] })
+		const first = applicationFixture(
+			await createApplication({ plugins: [], schemas: [Shared] }),
+		)
+		await first.dispose()
 		const canonicalDefinition = Shared.definition
-		const second = await createApplication({ plugins: [], schemas: [Shared] })
+		const second = applicationFixture(
+			await createApplication({ plugins: [], schemas: [Shared] }),
+		)
+		await second.dispose()
 
 		expect(callbackCalls).toBe(1)
 		expect(Shared.definition).toBe(canonicalDefinition)
 
 		incompatible = true
-		const third = await createApplication({ plugins: [], schemas: [Shared] })
+		const third = applicationFixture(
+			await createApplication({ plugins: [], schemas: [Shared] }),
+		)
+		await third.dispose()
 		expect(callbackCalls).toBe(1)
 		expect(Shared.fields).toHaveProperty('title')
 		expect(Shared.fields).not.toHaveProperty('changed')

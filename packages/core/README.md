@@ -1143,8 +1143,9 @@ Only the application execution shell creates Master contexts. A
 `MasterAuthority` verifies credentials and returns opaque grants, but it has no
 public context-minting method. An explicit Master context is accepted only by
 the exact application and authority that issued it; contexts from another
-application remain invalid even when both applications share one authority
-object. A plugin callback initiating a new elevation must declare the exact
+application remain invalid even when sequential applications reuse one authority
+object. Public grants become bound to their issuing engine or first consuming
+application; obtain a fresh grant for a replacement application. A plugin callback initiating a new elevation must declare the exact
 critical `authority:elevate` privilege. Inheriting a Master context already
 selected by trusted server code does not create another elevation or audit.
 
@@ -1507,8 +1508,9 @@ await application.start()
 ```
 
 Every application owns its schema registry, materialized capabilities, exact
-Core contribution stores, plugin exports, and lifecycle state. No singleton or
-global mutable registry is created. `application.getPlugin('fixture.database')` resolves the setup export
+Core contribution stores, plugin exports, and lifecycle state. One private
+lifecycle slot permits one initialized application per JavaScript realm;
+it is not a default application, schema registry, or request context. `application.getPlugin('fixture.database')` resolves the setup export
 using the configured literal plugin ID; nested plugin definitions participate
 in the same typed lookup. Repeated configurations use the structured
 `{ pluginId, instanceId }` overload instead.
@@ -1527,6 +1529,19 @@ boundaries accidentally.
 It validates static schema and graph configuration synchronously but leaves setup
 lazy until `initialize()` or `start()` is called. A stopped application cannot be
 restarted; disposal permanently releases its plugin and capability resources.
+Initialization claims ownership before capability factories and setup, including
+through `createApplication()`. A second application rejects without affecting
+the incumbent. Pure construction and `compileSchemas()` do not claim ownership.
+Low-level engines require their initialized active owner.
+
+`stop()` retains setup resources and the slot. `dispose()` closes new work,
+waits for admitted Core execution, completes teardown, and only then permits a
+new application. Invoke stop/disposal outside active request callbacks. Failed
+cleanup keeps the slot blocked and repeated disposal preserves the failure;
+there is no force reset. Escaped engines, grants, contexts, and handles retain
+their previous owner. Static plugin mutation visibility is removed on disposal.
+Independent parallel applications use separate workers, processes, or containers.
+Jest/Vitest suites await `start()` in `beforeAll` and `dispose()` in `afterAll`.
 
 ## Framework errors
 

@@ -1,3 +1,4 @@
+import { onTestFinished } from 'vitest'
 import {
 	Schema,
 	UltimaBase,
@@ -52,6 +53,7 @@ describe('REST public protection reporting', () => {
 			plugins: [restPlugin(), databasePlugin],
 			schemas: [PublicSchema],
 		})
+		onTestFinished(() => ultimabase.dispose())
 
 		await ultimabase.start()
 		expect(warning).toHaveBeenCalledOnce()
@@ -73,15 +75,17 @@ describe('REST public protection reporting', () => {
 			],
 			schemas: [PublicSchema],
 		})
+		onTestFinished(() => acknowledged.dispose())
 		const disabled = new UltimaBase({
 			plugins: [restPlugin({ default: false }), databasePlugin],
 			schemas: [PublicSchema],
 		})
+		onTestFinished(() => disabled.dispose())
 
 		await acknowledged.start()
+		await acknowledged.dispose()
 		await disabled.start()
 		expect(warning).not.toHaveBeenCalled()
-		await acknowledged.dispose()
 		await disabled.dispose()
 	})
 })

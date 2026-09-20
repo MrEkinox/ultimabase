@@ -146,6 +146,12 @@ const post = await ultimabase.schema(Post).get({ id: postId })
 await post.archive({ input: { reason: 'superseded' } })
 ```
 
+Static mutation names are visible only while their owning application is active.
+After `dispose()`, those names disappear from the schema class view. A later
+application may reuse the same schema with different mutations; captured
+dispatchers still check its selected graph, and old application/model handles
+remain invalid. No exported class or prototype is mutated.
+
 The model form exists only on persisted application-owned models and omits the
 target `id`. A payload whose generated type is `undefined` also omits `input`.
 Both forms use the ordinary `OperationOptions` as their second argument. The

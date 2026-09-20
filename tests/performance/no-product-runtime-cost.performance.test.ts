@@ -31,12 +31,10 @@ const expectedDatabaseWork = {
 
 describe('optional product Runtime cost', () => {
 	it('compares no product, official Hooks, official Access, and both products', async () => {
-		const [none, hooks, access, both] = await Promise.all([
-			runRuntimeCostScenario('no-product'),
-			runRuntimeCostScenario('hooks'),
-			runRuntimeCostScenario('access'),
-			runRuntimeCostScenario('hooks-and-access'),
-		])
+		const none = await runRuntimeCostScenario('no-product')
+		const hooks = await runRuntimeCostScenario('hooks')
+		const access = await runRuntimeCostScenario('access')
+		const both = await runRuntimeCostScenario('hooks-and-access')
 
 		expect(none.startup).toStrictEqual({
 			startup: {

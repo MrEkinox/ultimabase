@@ -592,13 +592,14 @@ describe(
 		})
 
 		it('keeps cleanup contributions isolated between applications', async () => {
-			const first = getApplication()
+			let first = getApplication()
+			if (fixture === undefined)
+				throw new TypeError('First database fixture is unavailable')
+			const firstUri = fixture.connectionUri
 			const secondFixture = await createPostgresWorkerFixture({
 				prefix: 'ultimabase_acl_reference_isolated',
 			})
-			const second = createApplication(secondFixture.connectionUri, 'override')
-
-			await second.start()
+			let second = createApplication(secondFixture.connectionUri, 'override')
 
 			try {
 				const principal = await new CascadePrincipal({
@@ -614,6 +615,8 @@ describe(
 					},
 					{ ultimabase: first, useMasterKey: true },
 				)
+				await first.dispose()
+				await second.start()
 				const secondRow = await ProtectedPrimary.createOne(
 					{
 						data: {
@@ -624,18 +627,32 @@ describe(
 					{ ultimabase: second, useMasterKey: true },
 				)
 
-				await principal.delete({}, { ultimabase: first, useMasterKey: true })
+				await second.dispose()
+				first = createApplication(firstUri, 'ignore')
+				await first.start()
+				const freshPrincipal = await CascadePrincipal.get(
+					{ id: principal.id },
+					{ ultimabase: first, useMasterKey: true },
+				)
+				await freshPrincipal.delete(
+					{},
+					{ ultimabase: first, useMasterKey: true },
+				)
 				expect(
 					(
 						await readACL(ProtectedPrimary, firstRow.id, first)
 					).permissionsForPrincipal(pointer),
 				).toStrictEqual([])
+				await first.dispose()
+				second = createApplication(secondFixture.connectionUri, 'ignore')
+				await second.start()
 				expect(
 					(
 						await readACL(ProtectedPrimary, secondRow.id, second)
 					).permissionsForPrincipal(pointer),
 				).toStrictEqual(['read'])
 			} finally {
+				await first.dispose()
 				await second.dispose()
 				await secondFixture.dispose()
 			}

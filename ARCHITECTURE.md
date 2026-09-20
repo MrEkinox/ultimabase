@@ -5,9 +5,10 @@
 Milestone 30 has accepted
 [ADR-0258](docs/adr/0258-single-active-application-lifecycle.md): one initialized
 application per JavaScript realm, concurrent requests, and sequential replacement
-after disposal. Issues 3006 and 3007 will implement it and remove shared-server
-application routing. Until those issues land, the implementation and the
-descriptions below retain the previous concurrent-application contract.
+after disposal. Issue 3006 enforces lifecycle ownership before initialization
+and drains admitted Core work before teardown. Cleanup failure retains the slot.
+Issue 3007 removes the now-unreachable shared-server application routing
+machinery; it does not remove HTTP application identity.
 
 [ADR-0259](docs/adr/0259-smaller-plugin-kernel-and-canonical-commands.md) also
 accepts ten precisely listed extension removals and one private compiled command
@@ -205,8 +206,9 @@ adapter or another authority mode. ADR-0235 applies that boundary to Password
 Auth while keeping its public User as an ordinary typed plugin-owned schema.
 
 ADR-0226 keeps browser preflight outside application selection. One HTTP server
-provider has one effective browser policy, and applications sharing that
-provider must request structurally identical policies. The HTTP plugin owns
+provider has one effective browser policy. Under ADR-0258, one initialized
+application owns that provider in each JavaScript realm; the former
+cross-application policy comparison is retired by issue 3007. The HTTP plugin owns
 safe failures before route dispatch; REST, GraphQL, and other protocols own
 only failures raised after their handler begins.
 

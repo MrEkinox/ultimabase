@@ -109,6 +109,7 @@ const harness: ExecutionHarness = {}
 let fixture: PostgresWorkerFixture | undefined
 let anonymous: RequestContext | undefined
 let master: RequestContext | undefined
+let foreign: RequestContext | undefined
 
 const createApplication = (connectionUri: string) =>
 	new UltimaBase({
@@ -177,6 +178,22 @@ const recordAt = (
 
 beforeAll(async () => {
 	fixture = await createPostgresWorkerFixture({ prefix: 'graphql_execution' })
+	const foreignApplication = new UltimaBase({
+		pluginPrivileges: { logger: false },
+		plugins: [
+			postgresPlugin({
+				schemaPolicy: 'ignore',
+				url: fixture.connectionUri,
+			}),
+		],
+		schemas: [],
+	})
+	await foreignApplication.start()
+	foreign = foreignApplication.engine.anonymous({
+		requestId: 'graphql-execution-forged',
+		source: 'ultimabase.graphql',
+	}).context
+	await foreignApplication.dispose()
 	application = createApplication(fixture.connectionUri)
 	await application.start()
 	anonymous = runAsHarness(harness, (executor) =>
@@ -427,27 +444,10 @@ describe('GraphQL generated schema execution with PostgreSQL', () => {
 			execute('{ countGraphqlExecutionPost }', cancelled),
 		).rejects.toMatchObject({ code: 'OPERATION_CANCELLED' })
 
-		if (fixture === undefined) {
-			throw new TypeError('GraphQL PostgreSQL fixture is unavailable')
-		}
-		const foreignApplication = new UltimaBase({
-			pluginPrivileges: { logger: false },
-			plugins: [
-				postgresPlugin({
-					schemaPolicy: 'ignore',
-					url: fixture.connectionUri,
-				}),
-			],
-			schemas: [],
-		})
-		await foreignApplication.start()
-		const foreign = foreignApplication.engine.anonymous({
-			requestId: 'graphql-execution-forged',
-			source: 'ultimabase.graphql',
-		}).context
+		if (foreign === undefined)
+			throw new TypeError('Foreign context is unavailable')
 		await expect(
 			execute('{ countGraphqlExecutionPost }', foreign),
 		).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
-		await foreignApplication.dispose()
 	}, 30_000)
 })

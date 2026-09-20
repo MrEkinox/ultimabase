@@ -490,11 +490,13 @@ describe('Password Auth HTTP session resolution', { concurrent: false }, () => {
 			appId: 'password-second',
 			database: foreignFixture,
 		})
-		await Promise.all([first.ultimabase.start(), second.ultimabase.start()])
+		await first.ultimabase.start()
 		try {
 			const signedUp = await first.ultimabase
 				.operation(passwordAuthOperations.signUp)
 				.execute({ password, username: 'isolated-http-user' })
+			await first.ultimabase.dispose()
+			await second.ultimabase.start()
 			const response = await second.getHttp().fetch(
 				directRequest('password-second', '/context', {
 					headers: [['Authorization', `Bearer ${signedUp.session.token}`]],

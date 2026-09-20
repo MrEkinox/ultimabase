@@ -374,11 +374,13 @@ describe(
 			})
 			const first = createApplication()
 			const second = createApplication({ fixture: foreignFixture })
-			await Promise.all([first.ultimabase.start(), second.ultimabase.start()])
+			await first.ultimabase.start()
 			try {
 				const created = await first.ultimabase
 					.operation(passwordAuthOperations.signUp)
 					.execute({ password, username: 'isolated-user' })
+				await first.ultimabase.dispose()
+				await second.ultimabase.start()
 				const foreignAuth = second.ultimabase.application.getPlugin(
 					'@ultimabase/password-auth-plugin',
 				)

@@ -545,6 +545,7 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 			{ data: { title: 'Provider boundary' } },
 			{ ultimabase: app },
 		)
+		await app.dispose()
 		const missing = createProviderBoundaryApplication(
 			getFixture().connectionUri,
 			'missing',
@@ -591,14 +592,19 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 	})
 
 	it('isolates role capabilities without retaining unused transport metadata', async () => {
-		const first = getApplication()
+		const first = createRoleApplication(getFixture().connectionUri, 'ignore')
+		await first.start()
+		const firstResolver = first.application.getPlugin(
+			roleResolverConsumerPluginName,
+		)
+		await first.dispose()
 		const second = createRoleApplication(getFixture().connectionUri, 'ignore')
 		await second.start()
 
 		try {
 			expect(
 				second.application.getPlugin(roleResolverConsumerPluginName),
-			).not.toBe(first.application.getPlugin(roleResolverConsumerPluginName))
+			).not.toBe(firstResolver)
 			await expect(
 				AppRole.count(undefined, {
 					ultimabase: second,

@@ -1,3 +1,4 @@
+import { applicationFixture } from '../../../tests/application-fixture.js'
 import { createApplication } from '../../foundation.js'
 import { definePlugin } from '../../plugins/definition.js'
 import { readApplicationPluginOwner } from '../../plugins/callback-execution.js'
@@ -45,10 +46,12 @@ describe('generic Runtime behavior composition', () => {
 			className: 'NoRuntimeBehaviorPost',
 			fields: (field) => ({ title: field.string() }),
 		})
-		const application = await createApplication({
-			plugins: [],
-			schemas: [Post],
-		})
+		const application = applicationFixture(
+			await createApplication({
+				plugins: [],
+				schemas: [Post],
+			}),
+		)
 
 		expect(composeRuntimeBehaviors(application)).toBeUndefined()
 		await application.dispose()
@@ -66,11 +69,13 @@ describe('generic Runtime behavior composition', () => {
 		const second = createGuardPlugin('fixture.runtime-guard-second', () => {
 			calls.push(readApplicationPluginOwner(application)?.pluginId ?? 'missing')
 		})
-		const application = await createApplication({
-			pluginPrivileges: { logger: false },
-			plugins: [first, second],
-			schemas: [Post],
-		})
+		const application = applicationFixture(
+			await createApplication({
+				pluginPrivileges: { logger: false },
+				plugins: [first, second],
+				schemas: [Post],
+			}),
+		)
 		const operation: CreateOneOperationAst<typeof Post> = {
 			input: { title: 'guarded' },
 			kind: 'create-one',
@@ -104,11 +109,13 @@ describe('generic Runtime behavior composition', () => {
 		const second = createGuardPlugin('fixture.runtime-guard-skipped', () => {
 			calls.push('skipped')
 		})
-		const application = await createApplication({
-			pluginPrivileges: { logger: false },
-			plugins: [first, second],
-			schemas: [Post],
-		})
+		const application = applicationFixture(
+			await createApplication({
+				pluginPrivileges: { logger: false },
+				plugins: [first, second],
+				schemas: [Post],
+			}),
+		)
 		const operation: CreateOneOperationAst<typeof Post> = {
 			input: { title: 'guarded' },
 			kind: 'create-one',
@@ -166,16 +173,14 @@ describe('generic Runtime behavior composition', () => {
 				],
 			},
 		})
-		const first = await createApplication({
-			pluginPrivileges: { logger: false },
-			plugins: [plugin],
-			schemas: [Post],
-		})
-		const second = await createApplication({
-			pluginPrivileges: { logger: false },
-			plugins: [plugin],
-			schemas: [Post],
-		})
+		const first = applicationFixture(
+			await createApplication({
+				pluginPrivileges: { logger: false },
+				plugins: [plugin],
+				schemas: [Post],
+			}),
+		)
+
 		const operation: CreateOneOperationAst<typeof Post> = {
 			input: { title: 'guarded' },
 			kind: 'create-one',
@@ -188,6 +193,15 @@ describe('generic Runtime behavior composition', () => {
 			operation,
 			target: undefined,
 		})
+		await first.dispose()
+		expect(disposals).toStrictEqual([1])
+		const second = applicationFixture(
+			await createApplication({
+				pluginPrivileges: { logger: false },
+				plugins: [plugin],
+				schemas: [Post],
+			}),
+		)
 		await composeRuntimeBehaviors(second)?.guardMutationInput?.({
 			context,
 			operation,
@@ -195,8 +209,6 @@ describe('generic Runtime behavior composition', () => {
 		})
 		expect(calls).toStrictEqual([1, 2])
 
-		await first.dispose()
-		expect(disposals).toStrictEqual([1])
 		await second.dispose()
 		expect(disposals).toStrictEqual([1, 2])
 	})

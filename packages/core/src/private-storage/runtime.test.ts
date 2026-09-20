@@ -1,3 +1,4 @@
+import { applicationFixture } from '../../tests/application-fixture.js'
 import { describe, expect, it, vi } from 'vitest'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
@@ -442,11 +443,13 @@ const createFixture = async () => {
 		pluginId: 'fixture.private-database',
 		version: '1.0.0',
 	})
-	const ultimabase = new UltimaBase({
-		pluginPrivileges: { logger: false },
-		plugins: [database, plugin],
-		schemas: [PublicRecord],
-	})
+	const ultimabase = applicationFixture(
+		new UltimaBase({
+			pluginPrivileges: { logger: false },
+			plugins: [database, plugin],
+			schemas: [PublicRecord],
+		}),
+	)
 	await ultimabase.start()
 	return { adapter, ultimabase }
 }
@@ -542,12 +545,13 @@ describe('owner-private plugin storage', () => {
 	it('rejects forged tokens and retained handles crossing application boundaries', async () => {
 		retainedStore = undefined
 		const first = await createFixture()
-		const second = await createFixture()
 		expect(
 			await first.ultimabase
 				.operation(privateOperation)
 				.execute({ action: 'capture' }),
 		).toBe('captured')
+		await first.ultimabase.dispose()
+		const second = await createFixture()
 		await expect(
 			second.ultimabase
 				.operation(privateOperation)
@@ -557,7 +561,9 @@ describe('owner-private plugin storage', () => {
 			internalDetails: { kind: 'private-storage-handle-owner-mismatch' },
 		})
 		await expect(
-			first.ultimabase.operation(privateOperation).execute({ action: 'forge' }),
+			second.ultimabase
+				.operation(privateOperation)
+				.execute({ action: 'forge' }),
 		).rejects.toMatchObject({ code: 'PLUGIN_PRIVILEGE_DENIED' })
 		await first.ultimabase.dispose()
 		await second.ultimabase.dispose()
@@ -606,13 +612,14 @@ describe('owner-private plugin storage', () => {
 			pluginId: 'fixture.denied-private-database',
 			version: '1.0.0',
 		})
-		expect(
-			() =>
+		expect(() =>
+			applicationFixture(
 				new UltimaBase({
 					pluginPrivileges: { deny: ['storage:private'], logger: false },
 					plugins: [database, plugin],
 					schemas: [],
 				}),
+			),
 		).toThrow(expect.objectContaining({ code: 'PLUGIN_PRIVILEGE_DENIED' }))
 		expect(declarationEffect).not.toHaveBeenCalled()
 		expect(adapterEffect).not.toHaveBeenCalled()
@@ -634,11 +641,13 @@ describe('owner-private plugin storage', () => {
 			pluginId: 'fixture.private-zero-database',
 			version: '1.0.0',
 		})
-		const ultimabase = new UltimaBase({
-			pluginPrivileges: { logger: false },
-			plugins: [database],
-			schemas: [],
-		})
+		const ultimabase = applicationFixture(
+			new UltimaBase({
+				pluginPrivileges: { logger: false },
+				plugins: [database],
+				schemas: [],
+			}),
+		)
 		await ultimabase.start()
 		expect(adapter.configured).toHaveLength(0)
 		await ultimabase.dispose()

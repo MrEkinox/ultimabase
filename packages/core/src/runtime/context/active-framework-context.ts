@@ -1,3 +1,4 @@
+import { runApplicationWork } from '../../application/active-application.js'
 import { FrameworkError } from '../../foundation.js'
 import type { PluginDefinition } from '../../foundation.js'
 import type { SchemaDefinition } from '../../schema/index.js'
@@ -67,5 +68,7 @@ export const runWithRequestEngine = <
 		throw new TypeError('Active context callback must be a function')
 	}
 
-	return runWithRequestEngineScope(requestEngine, callback)
+	return runApplicationWork(requestEngine.application, () =>
+		runWithRequestEngineScope(requestEngine, callback),
+	)
 }

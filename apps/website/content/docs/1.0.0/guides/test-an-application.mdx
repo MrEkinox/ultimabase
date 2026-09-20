@@ -8,7 +8,7 @@ order: 2
 outcome: Verify a create-and-read path without sharing application or database state between test workers.
 owner: '2814'
 releaseStatus: pre-release
-reviewedAt: 2026-09-17
+reviewedAt: 2026-09-20
 sources:
   - packages/core/README.md
   - packages/postgres-plugin/README.md
@@ -83,7 +83,7 @@ second configuration checks test files without emitting them into `dist/`:
 }
 ```
 
-### Assert one public operation
+### Start once for the suite
 
 Create `tests/task.test.ts`:
 
@@ -94,7 +94,7 @@ import { UltimaBase } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { PostgresTestWorker, readVitestPoolId } from '@ultimabase/testing'
 import { Pool } from 'pg'
-import { expect, it } from 'vitest'
+import { afterAll, beforeAll, expect, it } from 'vitest'
 
 import { Task } from '../src/schema.js'
 
@@ -104,43 +104,34 @@ if (databaseUrl === undefined) {
 	throw new TypeError('TEST_DATABASE_URL is required')
 }
 
-it('creates and reads a Task through one application', async () => {
-	const workerId = readVitestPoolId(process.env.VITEST_POOL_ID)
-	const adminPool = new Pool({ connectionString: databaseUrl })
-	const worker = new PostgresTestWorker({
-		prefix: 'task_app_test',
-		query: (statement) => adminPool.query(statement),
-		workerId,
-	})
-	let pool: Pool | undefined
+const workerId = readVitestPoolId(process.env.VITEST_POOL_ID)
+const adminPool = new Pool({ connectionString: databaseUrl })
+const worker = new PostgresTestWorker({
+	prefix: 'task_app_test',
+	query: (statement) => adminPool.query(statement),
+	workerId,
+})
+const pool = new Pool({
+	connectionString: databaseUrl,
+	options: worker.connectionOptions,
+})
+const ultimabase = new UltimaBase({
+	plugins: [postgresPlugin({ pool, schemaPolicy: 'override' })],
+	schemas: [Task],
+})
 
+beforeAll(async () => {
+	await worker.reset()
+	await ultimabase.start()
+}, 30_000)
+
+afterAll(async () => {
+	// Attempt every owned cleanup even when an earlier cleanup reports an error.
 	try {
-		await worker.reset()
-		pool = new Pool({
-			connectionString: databaseUrl,
-			options: worker.connectionOptions,
-		})
-		const ultimabase = new UltimaBase({
-			plugins: [postgresPlugin({ pool, schemaPolicy: 'override' })],
-			schemas: [Task],
-		})
-
-		try {
-			await ultimabase.start()
-			const created = await Task.createOne(
-				{ data: { title: 'Test the application' } },
-				{ ultimabase },
-			)
-			const saved = await Task.get({ id: created.id }, { ultimabase })
-
-			expect(saved.get('title')).toBe('Test the application')
-			expect(saved.get('done')).toBe(false)
-		} finally {
-			await ultimabase.dispose()
-		}
+		await ultimabase.dispose()
 	} finally {
 		try {
-			await pool?.end()
+			await pool.end()
 		} finally {
 			try {
 				await worker.dispose()
@@ -150,6 +141,26 @@ it('creates and reads a Task through one application', async () => {
 		}
 	}
 }, 30_000)
+
+it('creates and reads a Task through one application', async () => {
+	const created = await Task.createOne(
+		{ data: { title: 'Test the application' } },
+		{ ultimabase },
+	)
+	const saved = await Task.get({ id: created.id }, { ultimabase })
+
+	expect(saved.get('title')).toBe('Test the application')
+	expect(saved.get('done')).toBe(false)
+})
+
+it('stores a completed Task independently of the previous test', async () => {
+	const created = await Task.createOne(
+		{ data: { title: 'Another task', done: true } },
+		{ ultimabase },
+	)
+	const saved = await Task.get({ id: created.id }, { ultimabase })
+	expect(saved.get('done')).toBe(true)
+})
 ```
 
 `worker.reset()` drops and recreates **only its named test schema**; the
@@ -158,6 +169,22 @@ there. The application receives a borrowed pool, so the test closes that pool
 after `ultimabase.dispose()`. The administrative pool then removes the schema
 and closes. No application instance, plugin state, or database schema is
 shared with another worker.
+
+### Use the same lifecycle with Jest
+
+Import the hooks and assertions from `@jest/globals` instead of `vitest`.
+Use `Number(process.env.JEST_WORKER_ID)` for `workerId` and omit
+`readVitestPoolId` from the testing import. `PostgresTestWorker` validates
+that the number is a positive integer. The application setup and teardown
+are unchanged: await `start()` in `beforeAll` and `dispose()` in `afterAll`.
+
+Only one application may be initialized in a JavaScript realm. Separate test
+workers may each run their own. Within a suite, many requests can share the
+same application, but each test should create its own records and avoid
+relying on another test's writes. To replace the application in a test, await
+its disposal before initializing the next one. `stop()` alone does not release
+setup-owned resources or permit replacement. No additional lifecycle helper
+or test-only activation mode is needed.
 
 ## Verify the outcome
 

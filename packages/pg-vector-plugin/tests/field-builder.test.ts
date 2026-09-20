@@ -1,3 +1,4 @@
+import { onTestFinished } from 'vitest'
 import { describe, expect, it } from 'vitest'
 
 import { createApplication, Schema, type FieldBuilder } from '@ultimabase/core'
@@ -37,6 +38,7 @@ describe('pg-vector FieldBuilder method', () => {
 			plugins: [pgVectorPlugin()],
 			schemas: [Document],
 		})
+		onTestFinished(() => application.dispose())
 		const embedding = Document.fields.embedding
 		if (embedding === undefined) {
 			throw new TypeError('Expected the generated vector field')
@@ -126,6 +128,7 @@ describe('pg-vector FieldBuilder method', () => {
 			plugins: [],
 			schemas: [Empty],
 		})
+		onTestFinished(() => application.dispose())
 
 		expect(application.fieldBuilderMethods).toStrictEqual([])
 	})

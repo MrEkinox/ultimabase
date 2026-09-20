@@ -1,3 +1,4 @@
+import { onTestFinished } from 'vitest'
 import {
 	FrameworkApplication,
 	MasterAuthority,
@@ -147,6 +148,7 @@ describe('accessPlugin', () => {
 			plugins: [],
 			schemas: [SecretDocument],
 		})
+		onTestFinished(() => application.dispose())
 
 		await expect(application.initialize()).rejects.toThrow(
 			'Unknown schema option: access',
@@ -161,6 +163,7 @@ describe('accessPlugin', () => {
 			],
 			schemas: [SecretDocument],
 		})
+		onTestFinished(() => ultimabase.dispose())
 
 		try {
 			await ultimabase.start()
@@ -185,6 +188,7 @@ describe('accessPlugin', () => {
 			],
 			schemas: [VirtualDocument],
 		})
+		onTestFinished(() => ultimabase.dispose())
 
 		try {
 			await ultimabase.start()
@@ -215,6 +219,7 @@ describe('accessPlugin', () => {
 			plugins: [accessPlugin(), databasePlugin(new StaticReadAdapter([row]))],
 			schemas: [MasterBypassDocument],
 		})
+		onTestFinished(() => ultimabase.dispose())
 
 		try {
 			await ultimabase.start()
@@ -242,6 +247,7 @@ describe('accessPlugin', () => {
 			],
 			schemas: [PlainDocument],
 		})
+		onTestFinished(() => allowed.dispose())
 		const denied = new UltimaBase({
 			plugins: [
 				accessPlugin(),
@@ -249,12 +255,15 @@ describe('accessPlugin', () => {
 			],
 			schemas: [PlainDocument],
 		})
+		onTestFinished(() => denied.dispose())
 
 		try {
-			await Promise.all([allowed.start(), denied.start()])
+			await allowed.start()
 			await expect(
 				PlainDocument.findMany(undefined, { ultimabase: allowed }),
 			).resolves.toHaveLength(1)
+			await allowed.dispose()
+			await denied.start()
 			await expect(
 				PlainDocument.findMany(undefined, { ultimabase: denied }),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
@@ -284,6 +293,7 @@ describe('accessPlugin', () => {
 			],
 			schemas: [PlainDocument],
 		})
+		onTestFinished(() => ultimabase.dispose())
 
 		try {
 			await ultimabase.start()
@@ -308,6 +318,7 @@ describe('accessPlugin', () => {
 			],
 			schemas: [CountOnlyDocument],
 		})
+		onTestFinished(() => deniedByDefault.dispose())
 		const allowedByConfiguredDefault = new UltimaBase({
 			plugins: [
 				accessPlugin({ default: true }),
@@ -315,12 +326,10 @@ describe('accessPlugin', () => {
 			],
 			schemas: [CountOnlyDocument],
 		})
+		onTestFinished(() => allowedByConfiguredDefault.dispose())
 
 		try {
-			await Promise.all([
-				deniedByDefault.start(),
-				allowedByConfiguredDefault.start(),
-			])
+			await deniedByDefault.start()
 			await expect(
 				CountOnlyDocument.count({}, { ultimabase: deniedByDefault }),
 			).resolves.toBe(1)
@@ -329,6 +338,8 @@ describe('accessPlugin', () => {
 					ultimabase: deniedByDefault,
 				}),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
+			await deniedByDefault.dispose()
+			await allowedByConfiguredDefault.start()
 			await expect(
 				CountOnlyDocument.findMany(undefined, {
 					ultimabase: allowedByConfiguredDefault,
@@ -375,6 +386,7 @@ describe('accessPlugin', () => {
 			],
 			schemas: [CountOnlyDocument, PlainDocument],
 		})
+		onTestFinished(() => ultimabase.dispose())
 
 		try {
 			await ultimabase.start()
@@ -422,6 +434,7 @@ describe('accessPlugin', () => {
 			],
 			schemas: [ObservedDocument],
 		})
+		onTestFinished(() => ultimabase.dispose())
 
 		try {
 			await ultimabase.start()

@@ -1,3 +1,4 @@
+import { applicationFixture } from '../application-fixture.js'
 import { FrameworkApplication } from '../../src/index.js'
 import { Schema } from '../../src/index.js'
 import { isPlainRecord } from '@ultimabase/shared'
@@ -55,7 +56,7 @@ const readCreatedTitle = (operation: unknown): string | undefined => {
 }
 
 /** Binds hook-stage overrides to one real adapter-backed request engine. */
-const createRequest = (
+const createRequest = async (
 	results: readonly QueuedAdapterResult[],
 	trace: string[],
 	behaviorStages: RecordingPipelineBehaviorStages,
@@ -63,10 +64,12 @@ const createRequest = (
 ) => {
 	const adapter = new RecordingDatabaseAdapter(results, trace)
 	const framework = new FrameworkEngine({
-		application: new FrameworkApplication({
-			schemas: [articleSchema],
-			plugins: [],
-		}),
+		application: await applicationFixture(
+			new FrameworkApplication({
+				schemas: [articleSchema],
+				plugins: [],
+			}),
+		).initialize(),
 		...(masterAuthority === undefined ? {} : { masterAuthority }),
 		pipeline: createRecordingPipeline(adapter, trace, behaviorStages),
 	})
@@ -78,7 +81,7 @@ const createRequest = (
 	return { adapter, framework, request }
 }
 
-type FixtureRequest = ReturnType<typeof createRequest>['request']
+type FixtureRequest = Awaited<ReturnType<typeof createRequest>>['request']
 
 interface MutationFixture {
 	readonly adapterResult?: unknown
@@ -213,7 +216,7 @@ describe('automatic mutation transaction scope', () => {
 		async ({ adapterResult, execute, kind, result }) => {
 			const trace: string[] = []
 			const target = createMutationTarget(kind)
-			const { adapter, request } = createRequest(
+			const { adapter, request } = await createRequest(
 				[
 					{
 						status: 'fulfilled',
@@ -254,7 +257,7 @@ describe('automatic mutation transaction scope', () => {
 			const trace: string[] = []
 			const writeError = new Error(`${kind} failed`)
 			const target = createMutationTarget(kind)
-			const { adapter, request } = createRequest(
+			const { adapter, request } = await createRequest(
 				[
 					{
 						error: writeError,
@@ -302,7 +305,7 @@ describe('automatic mutation transaction scope', () => {
 				return undefined
 			},
 		}
-		const { adapter, request } = createRequest(
+		const { adapter, request } = await createRequest(
 			[
 				{ status: 'rejected', error: nestedError },
 				{ status: 'fulfilled', value: storedPrimary },
@@ -345,7 +348,7 @@ describe('automatic mutation transaction scope', () => {
 				return undefined
 			},
 		}
-		const { request } = createRequest(
+		const { request } = await createRequest(
 			[
 				{
 					status: 'fulfilled',
@@ -388,7 +391,7 @@ describe('automatic mutation transaction scope', () => {
 				return input.result
 			},
 		}
-		const { request } = createRequest(
+		const { request } = await createRequest(
 			[
 				{
 					status: 'fulfilled',
@@ -457,7 +460,7 @@ describe('automatic mutation transaction scope', () => {
 				return undefined
 			},
 		}
-		const { adapter, request } = createRequest(
+		const { adapter, request } = await createRequest(
 			[
 				{
 					status: 'fulfilled',

@@ -1,3 +1,4 @@
+import { applicationFixture } from '../../../tests/application-fixture.js'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -21,26 +22,29 @@ describe('plugin field type declarations', () => {
 		const input = validDefinition()
 		const fieldType = definePluginFieldType(input)
 		input.typegen.valueType = 'MutatedValue'
-		const application = await createApplication({
-			plugins: [
-				definePlugin({
-					core: '^0.0.0',
-					declare: ({ fields }) => {
-						fields.declareType(fieldType)
-						return undefined
-					},
-					pluginId: 'fixture.secret-plugin',
-					privileges: [
-						{
-							name: 'schema:declare',
-							reason: 'Declares a patch-only fixture field type.',
+		const application = applicationFixture(
+			await createApplication({
+				plugins: [
+					definePlugin({
+						core: '^0.0.0',
+						declare: ({ fields }) => {
+							fields.declareType(fieldType)
+							return undefined
 						},
-					],
-					version: '0.0.0',
-				}),
-			],
-			schemas: [],
-		})
+						pluginId: 'fixture.secret-plugin',
+						privileges: [
+							{
+								name: 'schema:declare',
+								reason: 'Declares a patch-only fixture field type.',
+							},
+						],
+						version: '0.0.0',
+					}),
+				],
+				schemas: [],
+			}),
+		)
+		await application.dispose()
 
 		expect(application.fieldBuilderMethods).toStrictEqual([])
 		expect(application.pluginFieldTypes).toStrictEqual([

@@ -916,7 +916,7 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		await activeFixture.pool.query(
 			'CREATE TABLE relation_external_notes (note text NOT NULL)',
 		)
-
+		await getUltimaBase().dispose()
 		const verifier = new UltimaBase({
 			plugins: [
 				hooksPlugin(),

@@ -1,3 +1,4 @@
+import { applicationFixture } from '../../../tests/application-fixture.js'
 import { FrameworkApplication } from '../../foundation.js'
 import { RequestContextValue } from '../../access/index.js'
 import { describe, expect, it, vi } from 'vitest'
@@ -17,10 +18,12 @@ import { UltimaBase } from './ultima-base.js'
 describe('applicationRequestExecutionCapability', () => {
 	it('late-binds once, requires completed startup, and expires with the application', async () => {
 		const unboundHarness: RequestExecutionHarness = {}
-		const application = new FrameworkApplication({
-			schemas: [],
-			plugins: [createHarnessPlugin(unboundHarness), createDatabasePlugin()],
-		})
+		const application = applicationFixture(
+			new FrameworkApplication({
+				schemas: [],
+				plugins: [createHarnessPlugin(unboundHarness), createDatabasePlugin()],
+			}),
+		)
 		await application.initialize()
 		expect(() =>
 			runAsHarness(unboundHarness, (executor) =>
@@ -33,13 +36,15 @@ describe('applicationRequestExecutionCapability', () => {
 		await application.dispose()
 
 		const failedHarness: RequestExecutionHarness = {}
-		const failed = new UltimaBase({
-			schemas: [],
-			plugins: [
-				createHarnessPlugin(failedHarness, { failStart: true }),
-				createDatabasePlugin(),
-			],
-		})
+		const failed = applicationFixture(
+			new UltimaBase({
+				schemas: [],
+				plugins: [
+					createHarnessPlugin(failedHarness, { failStart: true }),
+					createDatabasePlugin(),
+				],
+			}),
+		)
 		await expect(failed.start()).rejects.toThrow(
 			/requires a started application; received starting/u,
 		)
@@ -55,10 +60,12 @@ describe('applicationRequestExecutionCapability', () => {
 		)
 
 		const startedHarness: RequestExecutionHarness = {}
-		const started = new UltimaBase({
-			schemas: [],
-			plugins: [createHarnessPlugin(startedHarness), createDatabasePlugin()],
-		})
+		const started = applicationFixture(
+			new UltimaBase({
+				schemas: [],
+				plugins: [createHarnessPlugin(startedHarness), createDatabasePlugin()],
+			}),
+		)
 		await started.start()
 		expect(
 			runAsHarness(startedHarness, (executor) =>
@@ -90,10 +97,12 @@ describe('applicationRequestExecutionCapability', () => {
 
 	it('creates exact anonymous contexts and enters their cancellable request scope', async () => {
 		const harness: RequestExecutionHarness = {}
-		const ultimabase = new UltimaBase({
-			schemas: [],
-			plugins: [createHarnessPlugin(harness), createDatabasePlugin()],
-		})
+		const ultimabase = applicationFixture(
+			new UltimaBase({
+				schemas: [],
+				plugins: [createHarnessPlugin(harness), createDatabasePlugin()],
+			}),
+		)
 		await ultimabase.start()
 		const principal = new RequestContextValue<string>(
 			'fixture.request-principal',
@@ -146,10 +155,12 @@ describe('applicationRequestExecutionCapability', () => {
 
 	it('shares public-protection diagnostics and delegates explicit operation exposure', async () => {
 		const harness: RequestExecutionHarness = {}
-		const ultimabase = new UltimaBase({
-			schemas: [],
-			plugins: [createHarnessPlugin(harness), createDatabasePlugin()],
-		})
+		const ultimabase = applicationFixture(
+			new UltimaBase({
+				schemas: [],
+				plugins: [createHarnessPlugin(harness), createDatabasePlugin()],
+			}),
+		)
 		const protocol = defineOperationTransport({
 			name: 'fixture.application-request-transport',
 			version: '1.0.0',
@@ -183,7 +194,9 @@ describe('applicationRequestExecutionCapability', () => {
 			runAsHarness(harness, (executor) => {
 				executor.reportPublicTransportProtection({ transport: protocol })
 			})
-		}).toThrow(/Framework engine cannot be used while application is stopped/u)
+		}).toThrow(
+			/Framework engine requires its initialized active application; received stopped/u,
+		)
 		warning.mockRestore()
 		await ultimabase.dispose()
 	})
@@ -191,31 +204,37 @@ describe('applicationRequestExecutionCapability', () => {
 	it('rejects contexts from another application before entering the callback', async () => {
 		const firstHarness: RequestExecutionHarness = {}
 		const secondHarness: RequestExecutionHarness = {}
-		const first = new UltimaBase({
-			schemas: [],
-			plugins: [
-				createHarnessPlugin(firstHarness, {
-					pluginId: 'fixture.first-consumer',
-				}),
-				createDatabasePlugin(),
-			],
-		})
-		const second = new UltimaBase({
-			schemas: [],
-			plugins: [
-				createHarnessPlugin(secondHarness, {
-					pluginId: 'fixture.second-consumer',
-				}),
-				createDatabasePlugin(),
-			],
-		})
-		await Promise.all([first.start(), second.start()])
+		const first = applicationFixture(
+			new UltimaBase({
+				schemas: [],
+				plugins: [
+					createHarnessPlugin(firstHarness, {
+						pluginId: 'fixture.first-consumer',
+					}),
+					createDatabasePlugin(),
+				],
+			}),
+		)
+		const second = applicationFixture(
+			new UltimaBase({
+				schemas: [],
+				plugins: [
+					createHarnessPlugin(secondHarness, {
+						pluginId: 'fixture.second-consumer',
+					}),
+					createDatabasePlugin(),
+				],
+			}),
+		)
+		await first.start()
 		const foreignContext = runAsHarness(firstHarness, (executor) =>
 			executor.createAnonymousContext({
 				requestId: 'foreign-context',
 				source: 'fixture',
 			}),
 		)
+		await first.dispose()
+		await second.start()
 		const callback = vi.fn<() => void>()
 		expect(() => {
 			runAsHarness(secondHarness, (executor) => {
@@ -229,19 +248,21 @@ describe('applicationRequestExecutionCapability', () => {
 	it('checks exact owner elevation before verification and returns only an audited Master context', async () => {
 		const deniedHarness: RequestExecutionHarness = {}
 		const deniedAudits = vi.fn()
-		const denied = new UltimaBase({
-			masterAuthority: new MasterAuthority({
-				keys: [{ id: 'denied', value: 'denied-secret' }],
-				onUse: deniedAudits,
-			}),
-			schemas: [],
-			plugins: [
-				createHarnessPlugin(deniedHarness, {
-					pluginId: 'fixture.denied-master-consumer',
+		const denied = applicationFixture(
+			new UltimaBase({
+				masterAuthority: new MasterAuthority({
+					keys: [{ id: 'denied', value: 'denied-secret' }],
+					onUse: deniedAudits,
 				}),
-				createDatabasePlugin(),
-			],
-		})
+				schemas: [],
+				plugins: [
+					createHarnessPlugin(deniedHarness, {
+						pluginId: 'fixture.denied-master-consumer',
+					}),
+					createDatabasePlugin(),
+				],
+			}),
+		)
 		await denied.start()
 		const unboundContext = RequestContext.anonymous({
 			requestId: 'denied-master',
@@ -264,23 +285,27 @@ describe('applicationRequestExecutionCapability', () => {
 		})
 		expect(deniedAudits).not.toHaveBeenCalled()
 
+		await denied.dispose()
+
 		const allowedHarness: RequestExecutionHarness = {}
 		const allowedAudits = vi.fn()
-		const allowed = new UltimaBase({
-			masterAuthority: new MasterAuthority({
-				clock: () => new Date('2026-09-04T10:00:00.000Z'),
-				keys: [{ id: 'browser-tests', value: 'allowed-secret' }],
-				onUse: allowedAudits,
-			}),
-			schemas: [],
-			plugins: [
-				createHarnessPlugin(allowedHarness, {
-					pluginId: 'fixture.allowed-master-consumer',
-					withElevation: true,
+		const allowed = applicationFixture(
+			new UltimaBase({
+				masterAuthority: new MasterAuthority({
+					clock: () => new Date('2026-09-04T10:00:00.000Z'),
+					keys: [{ id: 'browser-tests', value: 'allowed-secret' }],
+					onUse: allowedAudits,
 				}),
-				createDatabasePlugin(),
-			],
-		})
+				schemas: [],
+				plugins: [
+					createHarnessPlugin(allowedHarness, {
+						pluginId: 'fixture.allowed-master-consumer',
+						withElevation: true,
+					}),
+					createDatabasePlugin(),
+				],
+			}),
+		)
 		await allowed.start()
 
 		// The denied attempt did not bind the context to the rejected application.
@@ -334,16 +359,18 @@ describe('applicationRequestExecutionCapability', () => {
 
 	it('rejects missing authority, audit failures, foreign Master, and forged Master before request work', async () => {
 		const missingHarness: RequestExecutionHarness = {}
-		const missing = new UltimaBase({
-			schemas: [],
-			plugins: [
-				createHarnessPlugin(missingHarness, {
-					pluginId: 'fixture.missing-master-consumer',
-					withElevation: true,
-				}),
-				createDatabasePlugin(),
-			],
-		})
+		const missing = applicationFixture(
+			new UltimaBase({
+				schemas: [],
+				plugins: [
+					createHarnessPlugin(missingHarness, {
+						pluginId: 'fixture.missing-master-consumer',
+						withElevation: true,
+					}),
+					createDatabasePlugin(),
+				],
+			}),
+		)
 		await missing.start()
 		const missingContext = runAsHarness(missingHarness, (executor) =>
 			executor.createAnonymousContext({
@@ -361,24 +388,61 @@ describe('applicationRequestExecutionCapability', () => {
 			),
 		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 
+		await missing.dispose()
+
+		const owningHarness: RequestExecutionHarness = {}
+		const owning = applicationFixture(
+			new UltimaBase({
+				masterAuthority: new MasterAuthority({
+					keys: [{ id: 'owning', value: 'owning-secret' }],
+					onUse: () => undefined,
+				}),
+				schemas: [],
+				plugins: [
+					createHarnessPlugin(owningHarness, {
+						pluginId: 'fixture.owning-master-consumer',
+						withElevation: true,
+					}),
+					createDatabasePlugin(),
+				],
+			}),
+		)
+		await owning.start()
+		const owningContext = runAsHarness(owningHarness, (executor) =>
+			executor.createAnonymousContext({
+				requestId: 'owning-master',
+				source: 'fixture',
+			}),
+		)
+		const owningMaster = await runAsHarness(owningHarness, (executor) =>
+			executor.verifyMasterKey({
+				context: owningContext,
+				rawKey: 'owning-secret',
+				reason: 'Owning fixture',
+			}),
+		)
+		await owning.dispose()
+
 		const failingHarness: RequestExecutionHarness = {}
 		const auditFailure = new Error('audit sink unavailable')
-		const failing = new UltimaBase({
-			masterAuthority: new MasterAuthority({
-				keys: [{ id: 'audit', value: 'audit-secret' }],
-				onUse: () => {
-					throw auditFailure
-				},
-			}),
-			schemas: [],
-			plugins: [
-				createHarnessPlugin(failingHarness, {
-					pluginId: 'fixture.failing-audit-consumer',
-					withElevation: true,
+		const failing = applicationFixture(
+			new UltimaBase({
+				masterAuthority: new MasterAuthority({
+					keys: [{ id: 'audit', value: 'audit-secret' }],
+					onUse: () => {
+						throw auditFailure
+					},
 				}),
-				createDatabasePlugin(),
-			],
-		})
+				schemas: [],
+				plugins: [
+					createHarnessPlugin(failingHarness, {
+						pluginId: 'fixture.failing-audit-consumer',
+						withElevation: true,
+					}),
+					createDatabasePlugin(),
+				],
+			}),
+		)
 		await failing.start()
 		const failingContext = runAsHarness(failingHarness, (executor) =>
 			executor.createAnonymousContext({
@@ -396,35 +460,6 @@ describe('applicationRequestExecutionCapability', () => {
 			),
 		).rejects.toBe(auditFailure)
 
-		const owningHarness: RequestExecutionHarness = {}
-		const owning = new UltimaBase({
-			masterAuthority: new MasterAuthority({
-				keys: [{ id: 'owning', value: 'owning-secret' }],
-				onUse: () => undefined,
-			}),
-			schemas: [],
-			plugins: [
-				createHarnessPlugin(owningHarness, {
-					pluginId: 'fixture.owning-master-consumer',
-					withElevation: true,
-				}),
-				createDatabasePlugin(),
-			],
-		})
-		await owning.start()
-		const owningContext = runAsHarness(owningHarness, (executor) =>
-			executor.createAnonymousContext({
-				requestId: 'owning-master',
-				source: 'fixture',
-			}),
-		)
-		const owningMaster = await runAsHarness(owningHarness, (executor) =>
-			executor.verifyMasterKey({
-				context: owningContext,
-				rawKey: 'owning-secret',
-				reason: 'Owning fixture',
-			}),
-		)
 		const callback = vi.fn<() => void>()
 		expect(() => {
 			runAsHarness(failingHarness, (executor) => {
@@ -449,7 +484,7 @@ describe('applicationRequestExecutionCapability', () => {
 			},
 		)
 		expect(() => {
-			runAsHarness(owningHarness, (executor) => {
+			runAsHarness(failingHarness, (executor) => {
 				executor.runWithContext(forgedMaster, callback)
 			})
 		}).toThrow(/master context was not issued by this application authority/iu)

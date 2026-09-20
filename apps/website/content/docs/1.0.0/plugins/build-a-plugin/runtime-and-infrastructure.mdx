@@ -251,9 +251,11 @@ Then verify the behavior beyond conformance:
 
 1. Typecheck the public package export and any generated Typegen contract;
    run one JavaScript application without generated files.
-2. Exercise two applications in parallel and, if supported, two explicit
-   instances in one application. No connection, cache, policy, or handle may
-   cross those boundaries.
+2. Verify rejection of a competing application before resource effects, then
+   dispose the first application and exercise a fresh replacement. Use isolated
+   workers for parallel applications. If supported, also exercise two explicit
+   plugin instances within one application. Connections, caches, policies, and
+   handles must retain their exact owner.
 3. Deny each requested sensitive or critical privilege and claim. Confirm
    failure occurs before effects and partial startup cleans up resources.
 4. Run a real database or network integration test when the plugin owns that

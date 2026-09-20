@@ -271,35 +271,41 @@ describe('Password User authentication methods', () => {
 		}
 	})
 
-	it('isolates the same class across concurrent applications and rejects foreign tokens', async () => {
+	it('isolates the same class across sequential applications and rejects foreign tokens', async () => {
 		const database = await createPostgresWorkerFixture({
 			prefix: 'password_user_foreign',
 		})
 		const User = createUser()
-		const first = createApplication(User).ultimabase
-		const second = createApplication(User, database).ultimabase
-		await Promise.all([first.start(), second.start()])
+		let first = createApplication(User).ultimabase
+		let second = createApplication(User, database).ultimabase
+		await first.start()
 		try {
-			const [left, right] = await Promise.all(
-				[first, second].map((app) =>
-					runWithRequestEngine(
-						app.engine.anonymous({ requestId: 'parallel', source: 'internal' }),
-						() => User.signUp({ username: 'same-name', password }),
-					),
-				),
+			const left = await runWithRequestEngine(
+				first.engine.anonymous({ requestId: 'first', source: 'internal' }),
+				() => User.signUp({ username: 'same-name', password }),
 			)
-			if (left === undefined || right === undefined)
-				throw new TypeError('Both application results are required')
+			await first.dispose()
+			await second.start()
+			const right = await runWithRequestEngine(
+				second.engine.anonymous({ requestId: 'second', source: 'internal' }),
+				() => User.signUp({ username: 'same-name', password }),
+			)
 			expect(left.user.id).not.toBe(right.user.id)
 			await expect(
 				User.refresh(left.session.token, { ultimabase: second }),
 			).rejects.toMatchObject({ code: 'PASSWORD_AUTH_INVALID_SESSION' })
+			await second.dispose()
+			first = createApplication(User).ultimabase
+			await first.start()
 			await expect(
 				User.logout(right.session.token, { ultimabase: first }),
 			).rejects.toMatchObject({ code: 'PASSWORD_AUTH_INVALID_SESSION' })
 			await expect(
 				User.refresh(left.session.token, { ultimabase: first }),
 			).resolves.toMatchObject({ user: { id: left.user.id } })
+			await first.dispose()
+			second = createApplication(User, database).ultimabase
+			await second.start()
 			await expect(
 				User.refresh(right.session.token, { ultimabase: second }),
 			).resolves.toMatchObject({ user: { id: right.user.id } })

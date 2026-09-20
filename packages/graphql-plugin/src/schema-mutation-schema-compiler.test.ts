@@ -1,3 +1,4 @@
+import { onTestFinished } from 'vitest'
 import {
 	MasterAuthority,
 	PluginError,
@@ -286,6 +287,7 @@ const createFixture = async (
 		],
 		schemas: [WorkflowDocument],
 	})
+	onTestFinished(() => application.dispose())
 	await application.start()
 	return {
 		adapter,
@@ -385,8 +387,14 @@ describe('GraphQL schema mutation exposure', () => {
 	})
 
 	it('keeps safe errors, cancellation, and context provenance ahead of codecs', async () => {
-		const first = await createFixture()
 		const second = await createFixture()
+		const foreign = second.application.engine.anonymous({
+			requestId: 'graphql-schema-mutation-foreign',
+			source: 'ultimabase.graphql',
+		}).context
+		await second.application.dispose()
+		const first = await createFixture()
+
 		const document = `mutation Archive($id: ID!, $reason: String!) {
 			archiveDocumentGraphqlWorkflowDocument(input: {
 				id: $id
@@ -413,10 +421,7 @@ describe('GraphQL schema mutation exposure', () => {
 			expect(JSON.stringify(rejected)).not.toContain('private workflow')
 
 			const before = first.decode.mock.calls.length
-			const foreign = second.application.engine.anonymous({
-				requestId: 'graphql-schema-mutation-foreign',
-				source: 'ultimabase.graphql',
-			}).context
+
 			await expect(
 				first.graphql.execute({
 					context: foreign,

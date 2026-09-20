@@ -1,3 +1,4 @@
+import { runApplicationWork } from '../../application/active-application.js'
 import { immutableRecord } from '@ultimabase/shared'
 
 import type { PluginSchemaMutationEnvelope } from '../../application/application-schema-mutations.js'
@@ -116,7 +117,9 @@ export const executeRequestSchemaMutation = (
 	if (executor === undefined) {
 		throw new TypeError('Request schema mutation execution is unavailable')
 	}
-	return executor(command, schema, envelope, options)
+	return runApplicationWork(engine.application, () =>
+		executor(command, schema, envelope, options),
+	)
 }
 
 const assertEnvelope = (

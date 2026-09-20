@@ -1,3 +1,4 @@
+import { applicationFixture } from '../../../tests/application-fixture.js'
 import { FrameworkApplication, FrameworkError } from '../../foundation.js'
 import { Schema } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
@@ -41,15 +42,16 @@ const createPipeline = (): RuntimePipeline => {
 }
 
 /** Creates an isolated application engine for one focused scope test. */
-const createFramework = (): FrameworkEngine<
-	readonly [typeof articleSchema],
-	readonly []
+const createFramework = async (): Promise<
+	FrameworkEngine<readonly [typeof articleSchema], readonly []>
 > =>
 	new FrameworkEngine({
-		application: new FrameworkApplication({
-			schemas: [articleSchema],
-			plugins: [],
-		}),
+		application: await applicationFixture(
+			new FrameworkApplication({
+				schemas: [articleSchema],
+				plugins: [],
+			}),
+		).initialize(),
 		pipeline: createPipeline(),
 	})
 
@@ -77,8 +79,8 @@ describe('active framework context', () => {
 		}
 	})
 
-	it('derives one consistent immutable context from the explicit request engine', () => {
-		const framework = createFramework()
+	it('derives one consistent immutable context from the explicit request engine', async () => {
+		const framework = await createFramework()
 		const requestEngine = framework.anonymous({
 			requestId: 'scope-1',
 			source: requestSources.internal,
@@ -106,8 +108,8 @@ describe('active framework context', () => {
 		expectMissingContext(getCurrentEngine)
 	})
 
-	it('restores a parent scope after nested execution and thrown callbacks', () => {
-		const framework = createFramework()
+	it('restores a parent scope after nested execution and thrown callbacks', async () => {
+		const framework = await createFramework()
 		const parent = framework.anonymous({
 			requestId: 'parent-1',
 			source: 'fixture.parent',
@@ -137,51 +139,48 @@ describe('active framework context', () => {
 		expectMissingContext(getCurrentEngine)
 	})
 
-	it.concurrent(
-		'never leaks engines between parallel asynchronous chains',
-		async () => {
-			const firstFramework = createFramework()
-			const secondFramework = createFramework()
-			const firstEngine = firstFramework.anonymous({
-				requestId: 'parallel-1',
-				source: 'fixture.first',
-			})
-			const secondEngine = secondFramework.anonymous({
-				requestId: 'parallel-2',
-				source: 'fixture.second',
-			})
-			const firstEntered = Promise.withResolvers<undefined>()
-			const secondEntered = Promise.withResolvers<undefined>()
+	it('never leaks engines between parallel asynchronous chains', async () => {
+		const firstFramework = await createFramework()
+		const secondFramework = firstFramework
+		const firstEngine = firstFramework.anonymous({
+			requestId: 'parallel-1',
+			source: 'fixture.first',
+		})
+		const secondEngine = secondFramework.anonymous({
+			requestId: 'parallel-2',
+			source: 'fixture.second',
+		})
+		const firstEntered = Promise.withResolvers<undefined>()
+		const secondEntered = Promise.withResolvers<undefined>()
 
-			const [firstObserved, secondObserved] = await Promise.all([
-				runWithRequestEngine(firstEngine, async () => {
-					firstEntered.resolve(undefined)
-					await secondEntered.promise
+		const [firstObserved, secondObserved] = await Promise.all([
+			runWithRequestEngine(firstEngine, async () => {
+				firstEntered.resolve(undefined)
+				await secondEntered.promise
+				await Promise.resolve()
+
+				return getCurrentEngine()
+			}),
+			(async () => {
+				await firstEntered.promise
+
+				return runWithRequestEngine(secondEngine, async () => {
+					secondEntered.resolve(undefined)
 					await Promise.resolve()
 
 					return getCurrentEngine()
-				}),
-				(async () => {
-					await firstEntered.promise
+				})
+			})(),
+		])
 
-					return runWithRequestEngine(secondEngine, async () => {
-						secondEntered.resolve(undefined)
-						await Promise.resolve()
+		expect(firstObserved).toBe(firstEngine)
+		expect(secondObserved).toBe(secondEngine)
+		expect(firstObserved.application).toBe(secondObserved.application)
+		expectMissingContext(getCurrentEngine)
+	})
 
-						return getCurrentEngine()
-					})
-				})(),
-			])
-
-			expect(firstObserved).toBe(firstEngine)
-			expect(secondObserved).toBe(secondEngine)
-			expect(firstObserved.application).not.toBe(secondObserved.application)
-			expectMissingContext(getCurrentEngine)
-		},
-	)
-
-	it('rejects malformed JavaScript scope boundaries', () => {
-		const requestEngine = createFramework().anonymous({
+	it('rejects malformed JavaScript scope boundaries', async () => {
+		const requestEngine = (await createFramework()).anonymous({
 			requestId: 'boundary-1',
 			source: requestSources.internal,
 		})

@@ -113,8 +113,8 @@ users[0]?.toJSON() // A detached immutable object.
   authorization.
 - That target enters Runtime through a narrow Core request-execution capability
   rather than giving HTTP the application engine. Cross-origin access is
-  explicit, disabled by default, and consistent across applications sharing one
-  server.
+  explicit and disabled by default. One initialized application owns resources
+  per JavaScript realm; independent workers or processes may run in parallel.
 - The framework targets Node.js 24+, ESM, TypeScript, and an Apache-2.0 license.
 
 The shipped authenticated REST, GraphQL, soft-delete, nested-write,

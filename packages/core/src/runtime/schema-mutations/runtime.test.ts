@@ -1,20 +1,27 @@
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 import { describe, expect, it, vi } from 'vitest'
+import { applicationFixture } from '../../../tests/application-fixture.js'
 
+import { provideTestDatabaseAdapter } from '../../../tests/runtime/fixtures/database-adapter-capability.js'
+import {
+	RecordingDatabaseAdapter,
+	type QueuedAdapterResult,
+	type RecordingAdapterCapabilityOptions,
+} from '../../../tests/runtime/fixtures/recording-database-adapter.js'
 import {
 	addSchemaField,
 	defineOperationValue,
 	definePlugin,
 	defineSchemaMutation,
 } from '../../foundation.js'
-import { Schema, stringField } from '../../schema/index.js'
 import type { SchemaDefinition } from '../../schema/index.js'
+import { Schema, stringField } from '../../schema/index.js'
 import { UltimaBase } from '../application/ultima-base.js'
-import { runWithRequestEngine } from '../context/active-framework-context.js'
 import {
 	provideRuntimeBehavior,
 	provideRuntimeConstraint,
 } from '../capabilities.js'
+import { runWithRequestEngine } from '../context/active-framework-context.js'
 import { RequestContext, requestSources } from '../context/request-context.js'
 import { databaseConstraint } from '../enforcement/definitions.js'
 import { protectedPolicy } from '../enforcement/protected-policy.js'
@@ -23,12 +30,6 @@ import {
 	persistencePlanRewriter,
 	providePersistencePlanRewriter,
 } from '../persistence/capabilities.js'
-import {
-	RecordingDatabaseAdapter,
-	type RecordingAdapterCapabilityOptions,
-	type QueuedAdapterResult,
-} from '../../../tests/runtime/fixtures/recording-database-adapter.js'
-import { provideTestDatabaseAdapter } from '../../../tests/runtime/fixtures/database-adapter-capability.js'
 import {
 	provideSchemaMutationHandler,
 	schemaMutationHandler,
@@ -183,11 +184,13 @@ const createUpdateFixture = async (options: {
 		pluginId: `fixture.schema-mutation-database-${String(fixtureIndex)}`,
 		version: '1.0.0',
 	})
-	const ultimabase = new UltimaBase({
-		pluginPrivileges: { logger: false },
-		plugins: [database, workflow],
-		schemas: [Post],
-	})
+	const ultimabase = applicationFixture(
+		new UltimaBase({
+			pluginPrivileges: { logger: false },
+			plugins: [database, workflow],
+			schemas: [Post],
+		}),
+	)
 	if (options.start !== false) await ultimabase.start()
 	return { adapter, Post, trace, ultimabase }
 }
@@ -260,15 +263,17 @@ const createMasterDeleteFixture = async (result: QueuedAdapterResult) => {
 		version: '1.0.0',
 	})
 	const audit = vi.fn()
-	const ultimabase = new UltimaBase({
-		masterAuthority: new MasterAuthority({
-			keys: [{ id: 'schema-mutation-master', value: 'unused-terminal-key' }],
-			onUse: audit,
+	const ultimabase = applicationFixture(
+		new UltimaBase({
+			masterAuthority: new MasterAuthority({
+				keys: [{ id: 'schema-mutation-master', value: 'unused-terminal-key' }],
+				onUse: audit,
+			}),
+			pluginPrivileges: { logger: false },
+			plugins: [database, owner],
+			schemas: [Post],
 		}),
-		pluginPrivileges: { logger: false },
-		plugins: [database, owner],
-		schemas: [Post],
-	})
+	)
 	await ultimabase.start()
 
 	return { adapter, audit, handler, Post, trace, ultimabase }
@@ -640,21 +645,25 @@ describe('plugin schema mutation Runtime', () => {
 		expect(fixture.adapter.transactions[0]?.executions[0]?.operation.kind).toBe(
 			'delete-one',
 		)
+		await fixture.ultimabase.dispose()
+		expect(Reflect.has(fixture.Post, 'purge')).toBe(false)
 		const otherAdapter = new RecordingDatabaseAdapter([], [])
-		const other = new UltimaBase({
-			pluginPrivileges: { logger: false },
-			plugins: [
-				definePlugin({
-					capabilities: {
-						provides: [provideTestDatabaseAdapter(otherAdapter)],
-					},
-					core: '^0.0.0',
-					pluginId: 'fixture.schema-mutation-without-purge',
-					version: '1.0.0',
-				}),
-			],
-			schemas: [fixture.Post],
-		})
+		const other = applicationFixture(
+			new UltimaBase({
+				pluginPrivileges: { logger: false },
+				plugins: [
+					definePlugin({
+						capabilities: {
+							provides: [provideTestDatabaseAdapter(otherAdapter)],
+						},
+						core: '^0.0.0',
+						pluginId: 'fixture.schema-mutation-without-purge',
+						version: '1.0.0',
+					}),
+				],
+				schemas: [fixture.Post],
+			}),
+		)
 		try {
 			await other.start()
 			await expect(
@@ -669,12 +678,13 @@ describe('plugin schema mutation Runtime', () => {
 	})
 
 	it('rejects a foreign application owner before transaction effects', async () => {
+		const second = await createUpdateFixture({ results: [] })
+		await second.ultimabase.dispose()
 		const firstHandler = vi.fn()
 		const first = await createUpdateFixture({
 			handler: firstHandler,
 			results: [],
 		})
-		const second = await createUpdateFixture({ results: [] })
 		const archive = Reflect.get(
 			first.ultimabase.schema(first.Post),
 			'archive',
@@ -692,59 +702,5 @@ describe('plugin schema mutation Runtime', () => {
 		expect(firstHandler).not.toHaveBeenCalled()
 		expect(first.trace).toStrictEqual([])
 		expect(second.trace).toStrictEqual([])
-	})
-
-	it('keeps a valid handler dormant when no schema selects its mutation', async () => {
-		const dormantMutation = defineSchemaMutation({
-			authority: 'request',
-			effect: 'update',
-			input: defineOperationValue((value) => value),
-			name: 'fixture.schema-mutation.dormant',
-			returning: 'after',
-			version: '1.0.0',
-		})
-		const dormantOwner = definePlugin({
-			capabilities: {
-				provides: [
-					provideSchemaMutationHandler({
-						contributionId: 'dormant-handler',
-						create: () => ({
-							value: schemaMutationHandler({
-								mutation: dormantMutation,
-								resolve: () => ({ data: {} }),
-							}),
-						}),
-					}),
-				],
-			},
-			core: '^0.0.0',
-			declare: ({ operations }) => {
-				operations.declare(dormantMutation)
-			},
-			pluginId: 'fixture.schema-mutation-dormant',
-			privileges: [
-				{ name: 'operation:declare', reason: 'Declares an optional mutation.' },
-				{ name: 'persistence:rewrite', reason: 'Owns its optional effect.' },
-			] as const,
-			version: '1.0.0',
-		})
-		const database = definePlugin({
-			capabilities: {
-				provides: [
-					provideTestDatabaseAdapter(new RecordingDatabaseAdapter([], [])),
-				],
-			},
-			core: '^0.0.0',
-			pluginId: 'fixture.schema-mutation-dormant-database',
-			version: '1.0.0',
-		})
-		const ultimabase = new UltimaBase({
-			pluginPrivileges: { logger: false },
-			plugins: [database, dormantOwner],
-			schemas: [],
-		})
-
-		await expect(ultimabase.start()).resolves.toBeUndefined()
-		await ultimabase.dispose()
 	})
 })

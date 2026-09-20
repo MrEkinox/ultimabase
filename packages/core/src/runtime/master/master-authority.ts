@@ -64,6 +64,20 @@ let createMasterKeyGrant: MasterKeyGrantFactory
 let elevateMasterRequestWithAuthority: MasterRequestElevator
 const trustedTerminalGrants = new WeakMap<MasterAuthority, MasterKeyGrant>()
 
+const grantApplications = new WeakMap<MasterKeyGrant, object>()
+
+/** Binds verified public grants to their issuing or first consuming application. */
+export const bindMasterGrantApplication = (
+	grant: MasterKeyGrant,
+	application: object,
+): MasterKeyGrant => {
+	const owner = grantApplications.get(grant)
+	if (owner !== undefined && owner !== application)
+		throw createPermissionDeniedError()
+	grantApplications.set(grant, application)
+	return grant
+}
+
 /** Represents one verified key without exposing a forgeable constructor. */
 export class MasterKeyGrant {
 	// The private type identity prevents structural grants before runtime ownership checks.
@@ -232,6 +246,9 @@ export class MasterAuthority {
 			throw createPermissionDeniedError()
 		}
 
+		// The private terminal grant never escapes; explicit grants retain application provenance.
+		if (grant !== trustedTerminalGrants.get(this))
+			bindMasterGrantApplication(grant, application)
 		assertNonEmptyString(reason, 'Master access reason')
 
 		const occurredAt = this.#clock()

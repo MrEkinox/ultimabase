@@ -202,11 +202,13 @@ describe('optional Hooks engine proof', () => {
 		})
 
 		try {
-			await Promise.all([first.start(), second.start()])
+			await first.start()
 			await Post.findMany(undefined, { ultimabase: first })
 			expect(
 				first.application.getPlugin(alternativeBehaviorPluginId).diagnostics(),
 			).toHaveLength(1)
+			await first.dispose()
+			await second.start()
 			expect(
 				second.application.getPlugin(alternativeBehaviorPluginId).diagnostics(),
 			).toStrictEqual([])

@@ -1,3 +1,4 @@
+import { onTestFinished } from 'vitest'
 import {
 	MasterAuthority,
 	RequestContext,
@@ -281,6 +282,7 @@ describe('schema mutation Hooks', () => {
 			],
 			schemas: [parts.Document, Audit],
 		})
+		onTestFinished(() => ultimabase.dispose())
 
 		try {
 			await ultimabase.start()
@@ -355,6 +357,7 @@ describe('schema mutation Hooks', () => {
 			plugins: [hooksPlugin(), before.owner, before.database],
 			schemas: [before.Document],
 		})
+		onTestFinished(() => beforeApp.dispose())
 		await beforeApp.start()
 		await expect(before.execute(beforeApp)).rejects.toThrow('before rejected')
 		expect(beforeTrace).toStrictEqual([
@@ -378,6 +381,7 @@ describe('schema mutation Hooks', () => {
 			plugins: [hooksPlugin(), after.owner, after.database],
 			schemas: [after.Document],
 		})
+		onTestFinished(() => afterApp.dispose())
 		await afterApp.start()
 		await expect(after.execute(afterApp)).rejects.toThrow('after rejected')
 		expect(afterTrace).toStrictEqual([
@@ -406,6 +410,7 @@ describe('schema mutation Hooks', () => {
 			plugins: [hooksPlugin(), parts.owner, parts.database],
 			schemas: [parts.Document],
 		})
+		onTestFinished(() => ultimabase.dispose())
 
 		try {
 			await ultimabase.start()
@@ -439,6 +444,7 @@ describe('schema mutation Hooks', () => {
 			plugins: [hooksPlugin(), stale.owner, stale.database],
 			schemas: [stale.Document],
 		})
+		onTestFinished(() => staleApp.dispose())
 		await expect(staleApp.start()).rejects.toThrow(
 			'Unknown schema mutation Hook branch',
 		)
@@ -451,6 +457,7 @@ describe('schema mutation Hooks', () => {
 			plugins: [noEngine.owner, noEngine.database],
 			schemas: [noEngine.Document],
 		})
+		onTestFinished(() => noEngineApp.dispose())
 		try {
 			await noEngineApp.start()
 			await expect(noEngine.execute(noEngineApp)).resolves.toMatchObject({
@@ -462,7 +469,7 @@ describe('schema mutation Hooks', () => {
 		}
 	})
 
-	it('isolates exact mutation callbacks between concurrent applications', async () => {
+	it('isolates exact mutation callbacks across sequential applications', async () => {
 		const firstTrace: string[] = []
 		const secondTrace: string[] = []
 		const firstHook = vi.fn()
@@ -478,15 +485,20 @@ describe('schema mutation Hooks', () => {
 			plugins: [hooksPlugin(), first.owner, first.database],
 			schemas: [first.Document],
 		})
+		onTestFinished(() => firstApp.dispose())
 		const secondApp = new UltimaBase({
 			pluginPrivileges: { logger: false },
 			plugins: [hooksPlugin(), second.owner, second.database],
 			schemas: [second.Document],
 		})
+		onTestFinished(() => secondApp.dispose())
 
 		try {
-			await Promise.all([firstApp.start(), secondApp.start()])
-			await Promise.all([first.execute(firstApp), second.execute(secondApp)])
+			await firstApp.start()
+			await first.execute(firstApp)
+			await firstApp.dispose()
+			await secondApp.start()
+			await second.execute(secondApp)
 			expect(firstHook).toHaveBeenCalledOnce()
 			expect(secondHook).toHaveBeenCalledOnce()
 			expect(firstTrace.filter((entry) => entry === 'handler')).toHaveLength(1)
@@ -514,6 +526,7 @@ describe('schema mutation Hooks', () => {
 			plugins: [hooksPlugin(), parts.owner, parts.database],
 			schemas: [parts.Document],
 		})
+		onTestFinished(() => ultimabase.dispose())
 
 		try {
 			await ultimabase.start()

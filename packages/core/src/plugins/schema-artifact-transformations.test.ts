@@ -1,3 +1,4 @@
+import { applicationFixture } from '../../tests/application-fixture.js'
 import { describe, expect, it } from 'vitest'
 import {
 	Schema,
@@ -37,10 +38,13 @@ describe('plugin schema artifact transformations', () => {
 			},
 		})
 
-		const application = await createApplication({
-			plugins: [plugin],
-			schemas: [],
-		})
+		const application = applicationFixture(
+			await createApplication({
+				plugins: [plugin],
+				schemas: [],
+			}),
+		)
+		await application.dispose()
 
 		expect(application.schemaTargets.get(Left, ['right'])).toBe(Right)
 		expect(application.schemaTargets.get(Right, ['left'])).toBe(Left)
@@ -82,10 +86,12 @@ describe('plugin schema artifact transformations', () => {
 					})
 				},
 			})
-		await createApplication({
-			plugins: [contributor(Post.className)],
-			schemas: [Post],
-		})
+		await (
+			await createApplication({
+				plugins: [contributor(Post.className)],
+				schemas: [Post],
+			})
+		).dispose()
 		expect(Post.constraints).toEqual([originalConstraint])
 		expect(Post.provenance.constraints).toMatchObject([
 			{

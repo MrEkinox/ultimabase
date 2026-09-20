@@ -1,3 +1,4 @@
+import { applicationFixture } from '../../../tests/application-fixture.js'
 import { FrameworkApplication, FrameworkError } from '../../foundation.js'
 import {
 	RequestContextValue,
@@ -148,16 +149,18 @@ const createPipeline = (
 	return new RuntimePipeline(stages)
 }
 
-const createFixtureFramework = (
+const createFixtureFramework = async (
 	schema: typeof articleSchema,
 	fixtureResult: unknown = [],
 	contexts: RequestContext[] = [],
 	masterAuthority?: MasterAuthority,
-): FrameworkEngine<readonly [typeof schema], readonly []> => {
-	const application = new FrameworkApplication({
-		schemas: [schema],
-		plugins: [],
-	})
+): Promise<FrameworkEngine<readonly [typeof schema], readonly []>> => {
+	const application = await applicationFixture(
+		new FrameworkApplication({
+			schemas: [schema],
+			plugins: [],
+		}),
+	).initialize()
 
 	return new FrameworkEngine({
 		application,
@@ -170,8 +173,8 @@ const createFixtureFramework = (
 }
 
 describe('FrameworkEngine', () => {
-	it('binds immutable anonymous and plugin-derived request contexts', () => {
-		const framework = createFixtureFramework(articleSchema)
+	it('binds immutable anonymous and plugin-derived request contexts', async () => {
+		const framework = await createFixtureFramework(articleSchema)
 		const anonymous = framework.anonymous({
 			requestId: 'anonymous-1',
 			source: 'fixture.anonymous',
@@ -193,7 +196,7 @@ describe('FrameworkEngine', () => {
 	})
 
 	it('validates immutable query ownership only when a terminal executes', async () => {
-		const framework = createFixtureFramework(articleSchema)
+		const framework = await createFixtureFramework(articleSchema)
 		const request = framework.anonymous({
 			requestId: 'query-1',
 			source: requestSources.internal,
@@ -224,7 +227,11 @@ describe('FrameworkEngine', () => {
 	it('executes normalized operations with the exact request context', async () => {
 		const contexts: RequestContext[] = []
 		const articles = [articleRecord('UltimaBase')]
-		const framework = createFixtureFramework(articleSchema, articles, contexts)
+		const framework = await createFixtureFramework(
+			articleSchema,
+			articles,
+			contexts,
+		)
 		const request = framework.anonymous({
 			requestId: 'execute-1',
 			source: requestSources.internal,
@@ -266,7 +273,10 @@ describe('FrameworkEngine', () => {
 
 	it('executes schema-backed operations through the same owned pipeline', async () => {
 		const createdArticle = articleRecord('Created')
-		const framework = createFixtureFramework(articleSchema, createdArticle)
+		const framework = await createFixtureFramework(
+			articleSchema,
+			createdArticle,
+		)
 		const request = framework.anonymous({
 			requestId: 'create-1',
 			source: requestSources.internal,
@@ -302,10 +312,12 @@ describe('FrameworkEngine', () => {
 			},
 		}
 		const framework = new FrameworkEngine({
-			application: new FrameworkApplication({
-				schemas: [articleSchema],
-				plugins: [],
-			}),
+			application: await applicationFixture(
+				new FrameworkApplication({
+					schemas: [articleSchema],
+					plugins: [],
+				}),
+			).initialize(),
 			pipeline: createPipeline(executor, contexts),
 		})
 		const request = framework.anonymous({
@@ -329,7 +341,7 @@ describe('FrameworkEngine', () => {
 	})
 
 	it('delegates transaction callbacks without losing request identity', async () => {
-		const framework = createFixtureFramework(articleSchema)
+		const framework = await createFixtureFramework(articleSchema)
 		const request = framework.withContext(
 			RequestContext.anonymous({
 				requestId: 'transaction-1',
@@ -366,7 +378,7 @@ describe('FrameworkEngine', () => {
 				events.push(event)
 			},
 		})
-		const framework = createFixtureFramework(
+		const framework = await createFixtureFramework(
 			articleSchema,
 			[],
 			contexts,
@@ -411,7 +423,12 @@ describe('FrameworkEngine', () => {
 	})
 
 	it('rejects raw, forged, and foreign authority input', async () => {
-		const unconfiguredFramework = createFixtureFramework(articleSchema)
+		const unconfiguredFramework = await createFixtureFramework(articleSchema)
+		expect(() => unconfiguredFramework.authorizeMasterKey('raw-input')).toThrow(
+			expect.objectContaining({ code: 'PERMISSION_DENIED' }),
+		)
+		await unconfiguredFramework.application.dispose()
+
 		const firstAuthority = new MasterAuthority({
 			keys: [{ id: 'first', value: 'first-secret' }],
 			onUse: () => undefined,
@@ -420,13 +437,16 @@ describe('FrameworkEngine', () => {
 			keys: [{ id: 'second', value: 'second-secret' }],
 			onUse: () => undefined,
 		})
-		const firstFramework = createFixtureFramework(
+		const firstFramework = await createFixtureFramework(
 			articleSchema,
 			[],
 			[],
 			firstAuthority,
 		)
-		const secondFramework = createFixtureFramework(
+		const foreignGrant = firstFramework.authorizeMasterKey('first-secret')
+		await firstFramework.application.dispose()
+
+		const secondFramework = await createFixtureFramework(
 			articleSchema,
 			[],
 			[],
@@ -437,17 +457,11 @@ describe('FrameworkEngine', () => {
 			source: 'fixture.foreign',
 		})
 
-		expect(() => unconfiguredFramework.authorizeMasterKey('raw-input')).toThrow(
-			expect.objectContaining({ code: 'PERMISSION_DENIED' }),
-		)
 		expect(() => secondFramework.authorizeMasterKey('first-secret')).toThrow(
 			expect.objectContaining({ code: 'PERMISSION_DENIED' }),
 		)
 		await expect(
-			request.useMasterKey(
-				firstFramework.authorizeMasterKey('first-secret'),
-				'foreign grant',
-			),
+			request.useMasterKey(foreignGrant, 'foreign grant'),
 		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 		await expect(
 			request.useMasterKey({ keyId: 'second' } as never, 'forged grant'),
@@ -463,7 +477,7 @@ describe('FrameworkEngine', () => {
 			keys: [{ id: 'foreign', value: 'foreign-secret' }],
 			onUse: () => undefined,
 		})
-		const configured = createFixtureFramework(
+		const configured = await createFixtureFramework(
 			articleSchema,
 			[],
 			[],
@@ -509,111 +523,111 @@ describe('FrameworkEngine', () => {
 		}
 	})
 
-	it('isolates master provenance between applications sharing one authority', async () => {
+	it('isolates master contexts and grants across replacement with one authority', async () => {
 		const audits: unknown[] = []
-		const sharedAuthority = new MasterAuthority({
+		const authority = new MasterAuthority({
 			keys: [{ id: 'shared', value: 'shared-secret' }],
 			onUse: (event) => {
 				audits.push(event)
 			},
 		})
-		const firstContexts: RequestContext[] = []
-		const first = createFixtureFramework(
+		const first = await createFixtureFramework(articleSchema, [], [], authority)
+		const firstRequest = first.anonymous({
+			requestId: 'first',
+			source: 'fixture',
+		})
+		const oldGrant = first.authorizeMasterKey('shared-secret')
+		const firstMaster = await firstRequest.useMasterKey(
+			oldGrant,
+			'first elevation',
+		)
+		const unusedOldGrant = first.authorizeMasterKey('shared-secret')
+		await first.application.dispose()
+		const contexts: RequestContext[] = []
+		const second = await createFixtureFramework(
 			articleSchema,
 			[],
-			firstContexts,
-			sharedAuthority,
+			contexts,
+			authority,
 		)
-		const second = createFixtureFramework(
-			articleSchema,
-			[],
-			[],
-			sharedAuthority,
-		)
-		const firstAnonymous = first.anonymous({
-			requestId: 'first-shared-authority',
-			source: requestSources.internal,
+		const secondRequest = second.anonymous({
+			requestId: 'second',
+			source: 'fixture',
 		})
-		const secondAnonymous = second.anonymous({
-			requestId: 'second-shared-authority',
-			source: requestSources.internal,
-		})
-		const firstMaster = await firstAnonymous.useMasterKey(
-			first.authorizeMasterKey('shared-secret'),
-			'first application elevation',
-		)
-		const secondMaster = await secondAnonymous.useMasterKey(
+		for (const context of [
+			firstMaster.context,
+			firstMaster.context.withValue(principalValue, 'old'),
+		]) {
+			expect(() => second.withContext(context)).toThrow(
+				expect.objectContaining({ code: 'PERMISSION_DENIED' }),
+			)
+		}
+		for (const grant of [oldGrant, unusedOldGrant]) {
+			await expect(
+				secondRequest.useMasterKey(grant, 'foreign grant'),
+			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
+		}
+		const secondMaster = await secondRequest.useMasterKey(
 			second.authorizeMasterKey('shared-secret'),
-			'second application elevation',
+			'second elevation',
 		)
-		const inheritedForeign = secondMaster.context.withValue(
-			principalValue,
-			'second-operator',
-		)
-
-		expect(() => first.withContext(secondMaster.context)).toThrow(
-			expect.objectContaining({ code: 'PERMISSION_DENIED' }),
-		)
-		expect(() => first.withContext(inheritedForeign)).toThrow(
-			expect.objectContaining({ code: 'PERMISSION_DENIED' }),
-		)
-		const rebound = first.withContext(firstMaster.context)
-		await rebound.execute(articleOperation)
-
+		await second.withContext(secondMaster.context).execute(articleOperation)
 		expect(audits).toHaveLength(2)
-		expect(firstContexts).toStrictEqual([firstMaster.context])
+		expect(contexts).toStrictEqual([secondMaster.context])
 	})
 
-	it.concurrent(
-		'isolates parallel applications even when schemas share a class name',
-		async () => {
-			const firstContexts: RequestContext[] = []
-			const secondContexts: RequestContext[] = []
-			const firstFramework = createFixtureFramework(
-				articleSchema,
-				[articleRecord('first')],
-				firstContexts,
-			)
-			const secondFramework = createFixtureFramework(
-				matchingClassSchema,
-				[articleRecord('second')],
-				secondContexts,
-			)
-			const firstRequest = firstFramework.anonymous({
-				requestId: 'parallel-1',
-				source: 'fixture.first',
-			})
-			const secondRequest = secondFramework.anonymous({
-				requestId: 'parallel-2',
-				source: 'fixture.second',
-			})
-			const secondOperation = {
+	it('isolates sequential applications even when schemas share a class name', async () => {
+		const firstContexts: RequestContext[] = []
+		const secondContexts: RequestContext[] = []
+		const firstFramework = await createFixtureFramework(
+			articleSchema,
+			[articleRecord('first')],
+			firstContexts,
+		)
+		const firstRequest = firstFramework.anonymous({
+			requestId: 'parallel-1',
+			source: 'fixture.first',
+		})
+		const firstResult = await firstRequest.execute(articleOperation)
+		await expect(
+			firstRequest.execute({
 				kind: 'find-many',
 				query: new QueryBuilder(matchingClassSchema).ast,
-			} satisfies FindManyOperationAst<typeof matchingClassSchema>
+			}),
+		).rejects.toBeInstanceOf(FrameworkError)
+		await firstFramework.application.dispose()
+		const secondFramework = await createFixtureFramework(
+			matchingClassSchema,
+			[articleRecord('second')],
+			secondContexts,
+		)
+		const secondRequest = secondFramework.anonymous({
+			requestId: 'parallel-2',
+			source: 'fixture.second',
+		})
+		const secondOperation = {
+			kind: 'find-many',
+			query: new QueryBuilder(matchingClassSchema).ast,
+		} satisfies FindManyOperationAst<typeof matchingClassSchema>
 
-			const [firstResult, secondResult] = await Promise.all([
-				firstRequest.execute(articleOperation),
-				secondRequest.execute(secondOperation),
-			])
+		const secondResult = await secondRequest.execute(secondOperation)
 
-			expect(firstResult[0]).toBeInstanceOf(articleSchema)
-			expect(secondResult[0]).toBeInstanceOf(matchingClassSchema)
-			expect(firstResult[0]?.toJSON()).toStrictEqual(articleRecord('first'))
-			expect(secondResult[0]?.toJSON()).toStrictEqual(articleRecord('second'))
-			expect(firstContexts).toStrictEqual([firstRequest.context])
-			expect(secondContexts).toStrictEqual([secondRequest.context])
-			await expect(
-				firstRequest.execute(secondOperation),
-			).rejects.toBeInstanceOf(FrameworkError)
-			await expect(
-				secondRequest.execute(articleOperation),
-			).rejects.toBeInstanceOf(FrameworkError)
-		},
-	)
+		expect(firstResult[0]).toBeInstanceOf(articleSchema)
+		expect(secondResult[0]).toBeInstanceOf(matchingClassSchema)
+		expect(firstResult[0]?.toJSON()).toStrictEqual(articleRecord('first'))
+		expect(secondResult[0]?.toJSON()).toStrictEqual(articleRecord('second'))
+		expect(firstContexts).toStrictEqual([firstRequest.context])
+		expect(secondContexts).toStrictEqual([secondRequest.context])
+		await expect(firstRequest.execute(secondOperation)).rejects.toThrow(
+			'initialized active application',
+		)
+		await expect(
+			secondRequest.execute(articleOperation),
+		).rejects.toBeInstanceOf(FrameworkError)
+	})
 
-	it('rejects malformed low-level JavaScript assembly', () => {
-		const framework = createFixtureFramework(articleSchema)
+	it('rejects malformed low-level JavaScript assembly', async () => {
+		const framework = await createFixtureFramework(articleSchema)
 		const pipeline = createPipeline(new FixtureDatabaseExecutor([]))
 
 		expect(

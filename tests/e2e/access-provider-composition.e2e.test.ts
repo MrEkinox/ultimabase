@@ -420,12 +420,16 @@ describe('Access provider composition', () => {
 		})
 
 		try {
-			await Promise.all([rolesOnly.start(), aclOnly.start(), composed.start()])
+			await rolesOnly.start()
+			expect(rolesOnly.state).toBe('started')
+			await rolesOnly.dispose()
+			await aclOnly.start()
 			await expect(
 				PublicACLPost.findMany(undefined, { ultimabase: aclOnly }),
 			).resolves.toEqual([expect.objectContaining({ title: 'public ACL' })])
-			expect(rolesOnly.state).toBe('started')
 			expect(aclOnly.state).toBe('started')
+			await aclOnly.dispose()
+			await composed.start()
 			expect(composed.state).toBe('started')
 		} finally {
 			await Promise.all([
@@ -487,7 +491,7 @@ describe('Access provider composition', () => {
 		})
 
 		try {
-			await Promise.all([readApplication.start(), writeApplication.start()])
+			await readApplication.start()
 			await expect(
 				CombinedPost.findMany(undefined, { ultimabase: readApplication }),
 			).rejects.toMatchObject({
@@ -495,6 +499,8 @@ describe('Access provider composition', () => {
 			} satisfies Partial<FrameworkError>)
 			expect(readAdapter.requests).toHaveLength(0)
 
+			await readApplication.dispose()
+			await writeApplication.start()
 			roleAwareBusinessHooks = 0
 			await expect(
 				MissingRolePost.createOne(

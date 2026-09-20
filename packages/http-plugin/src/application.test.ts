@@ -1,3 +1,4 @@
+import { onTestFinished } from 'vitest'
 import {
 	FrameworkApplication,
 	RequestContext,
@@ -96,6 +97,7 @@ const initialize = async (plugins: readonly PluginDefinition[]) => {
 		],
 		schemas: [],
 	})
+	onTestFinished(() => application.dispose())
 	await application.start()
 	if (http === undefined)
 		throw new TypeError('HTTP fixture was not materialized')
@@ -214,6 +216,7 @@ describe('HTTP application graph', () => {
 			],
 			schemas: [],
 		})
+		onTestFinished(() => application.dispose())
 
 		await expect(application.initialize()).rejects.toThrow(
 			'HTTP endpoint collision',
@@ -259,6 +262,7 @@ describe('HTTP application graph', () => {
 			],
 			schemas: [],
 		})
+		onTestFinished(() => application.dispose())
 
 		await expect(application.initialize()).rejects.toThrow(
 			'must be created by httpRoute, httpMount, or httpBrowserBootstrapRoute',
@@ -339,18 +343,19 @@ describe('HTTP application graph', () => {
 				],
 			},
 		})
-		expect(
-			() =>
-				new FrameworkApplication({
-					pluginPrivileges: { logger: false },
-					plugins: [
-						httpPlugin({ appId: 'official' }),
-						competing,
-						serverPlugin(seen),
-					],
-					schemas: [],
-				}),
-		).toThrow(expect.objectContaining({ code: 'PLUGIN_CAPABILITY_CONFLICT' }))
+		expect(() => {
+			const application = new FrameworkApplication({
+				pluginPrivileges: { logger: false },
+				plugins: [
+					httpPlugin({ appId: 'official' }),
+					competing,
+					serverPlugin(seen),
+				],
+				schemas: [],
+			})
+			onTestFinished(() => application.dispose())
+			return application
+		}).toThrow(expect.objectContaining({ code: 'PLUGIN_CAPABILITY_CONFLICT' }))
 		expect(seen).not.toHaveBeenCalled()
 	})
 
@@ -361,15 +366,14 @@ describe('HTTP application graph', () => {
 			protocol,
 			handle: () => new Response('shared'),
 		})
-		const [first, second] = await Promise.all([
-			initialize([
-				endpointPlugin('fixture.shared', route),
-				httpPlugin({ appId: 'one' }),
-			]),
-			initialize([
-				endpointPlugin('fixture.shared', route),
-				httpPlugin({ appId: 'two' }),
-			]),
+		const first = await initialize([
+			endpointPlugin('fixture.shared', route),
+			httpPlugin({ appId: 'one' }),
+		])
+		await first.application.dispose()
+		const second = await initialize([
+			endpointPlugin('fixture.shared', route),
+			httpPlugin({ appId: 'two' }),
 		])
 
 		await first.application.dispose()

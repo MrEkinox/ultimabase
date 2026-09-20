@@ -1,3 +1,4 @@
+import { onTestFinished } from 'vitest'
 import {
 	FrameworkApplication,
 	definePlugin,
@@ -78,7 +79,7 @@ describe('honoServerPlugin', () => {
 		})
 	})
 
-	it('mounts only during transport startup and unmounts exact shared apps', async () => {
+	it('mounts only during startup and replaces a disposed application', async () => {
 		const app = new Hono()
 		const server = honoServerPlugin({
 			app,
@@ -89,16 +90,18 @@ describe('honoServerPlugin', () => {
 			plugins: [applicationProvider('fixture.first-http', 'first'), server],
 			schemas: [],
 		})
+		onTestFinished(() => first.dispose())
 		const second = new FrameworkApplication({
 			pluginPrivileges: { logger: false },
 			plugins: [applicationProvider('fixture.second-http', 'second'), server],
 			schemas: [],
 		})
+		onTestFinished(() => second.dispose())
 
 		await first.initialize()
 		expect(app.routes).toHaveLength(0)
 
-		await Promise.all([first.start(), second.start()])
+		await first.start()
 		const rawEnvironment = (appId: string) => ({
 			incoming: {
 				rawHeaders: ['X-UltimaBase-Application-Id', appId],
@@ -112,14 +115,6 @@ describe('honoServerPlugin', () => {
 				)
 			).text(),
 		).toBe('first:/shared')
-		expect(
-			await (
-				await app.fetch(
-					new Request('http://localhost/shared'),
-					rawEnvironment('second'),
-				)
-			).text(),
-		).toBe('second:/shared')
 
 		await first.stop()
 		const removed = await app.fetch(
@@ -127,6 +122,8 @@ describe('honoServerPlugin', () => {
 			rawEnvironment('first'),
 		)
 		expect(removed.status).toBe(401)
+		await first.dispose()
+		await second.start()
 		expect(
 			await (
 				await app.fetch(
@@ -140,18 +137,19 @@ describe('honoServerPlugin', () => {
 	})
 
 	it('fails validation when no HTTP application capability exists', () => {
-		expect(
-			() =>
-				new FrameworkApplication({
-					pluginPrivileges: { logger: false },
-					plugins: [
-						honoServerPlugin({
-							app: new Hono(),
-							browserPolicyOwner: 'ultimabase',
-						}),
-					],
-					schemas: [],
-				}),
-		).toThrow(expect.objectContaining({ code: 'PLUGIN_CAPABILITY_MISSING' }))
+		expect(() => {
+			const application = new FrameworkApplication({
+				pluginPrivileges: { logger: false },
+				plugins: [
+					honoServerPlugin({
+						app: new Hono(),
+						browserPolicyOwner: 'ultimabase',
+					}),
+				],
+				schemas: [],
+			})
+			onTestFinished(() => application.dispose())
+			return application
+		}).toThrow(expect.objectContaining({ code: 'PLUGIN_CAPABILITY_MISSING' }))
 	})
 })

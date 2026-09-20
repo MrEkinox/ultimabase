@@ -96,6 +96,7 @@ export class PluginLifecycleManager {
 	#stopPromise: Promise<void> | undefined
 	#disposePromise: Promise<void> | undefined
 	#state: PluginLifecycleState = 'idle'
+	readonly #cleanupErrors: unknown[] = []
 
 	constructor(
 		graph: PluginGraph,
@@ -118,6 +119,11 @@ export class PluginLifecycleManager {
 
 	get state(): PluginLifecycleState {
 		return this.#state
+	}
+
+	/** Internal proof required before Core can release lifecycle ownership. */
+	get cleanupComplete(): boolean {
+		return this.#state === 'disposed' && this.#cleanupErrors.length === 0
 	}
 
 	/** Runs setup once so callers may validate declarations before connections start. */
@@ -158,8 +164,14 @@ export class PluginLifecycleManager {
 
 	/** Stops infrastructure and releases plugins and services exactly once. */
 	dispose(): Promise<void> {
+		if (this.#disposePromise !== undefined) return this.#disposePromise
 		if (this.#state === 'disposed') {
-			return Promise.resolve()
+			return Promise.resolve().then(() => {
+				throwCleanupErrors(
+					this.#cleanupErrors,
+					'Application cleanup remains unproven.',
+				)
+			})
 		}
 
 		this.#disposePromise ??= this.#performDispose()
@@ -300,7 +312,7 @@ export class PluginLifecycleManager {
 
 			errors.push(...(await this.#disposeInitializedPlugins()))
 			await collectFailure(
-				async (): Promise<void> => this.#capabilities.dispose(),
+				async (): Promise<void> => this.#disposeCapabilities(),
 				errors,
 			)
 			this.#state = 'disposed'
@@ -314,7 +326,7 @@ export class PluginLifecycleManager {
 
 		errors.push(...(await this.#disposeInitializedPlugins()))
 		await collectFailure(
-			async (): Promise<void> => this.#capabilities.dispose(),
+			async (): Promise<void> => this.#disposeCapabilities(),
 			errors,
 		)
 		this.#state = 'disposed'
@@ -347,6 +359,7 @@ export class PluginLifecycleManager {
 		}
 
 		this.#activePlugins.clear()
+		this.#cleanupErrors.push(...errors)
 
 		return errors
 	}
@@ -378,8 +391,18 @@ export class PluginLifecycleManager {
 
 		this.#initializedPlugins.length = 0
 		this.#exportsByDefinition.clear()
+		this.#cleanupErrors.push(...errors)
 
 		return errors
+	}
+
+	async #disposeCapabilities(): Promise<void> {
+		try {
+			await this.#capabilities.dispose()
+		} catch (error: unknown) {
+			this.#cleanupErrors.push(error)
+			throw error
+		}
 	}
 
 	#assertNotDisposed(operation: string): void {

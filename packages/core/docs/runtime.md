@@ -48,9 +48,18 @@ result inference remain exact.
 
 `ultimabase.application` exposes typed plugin setup exports.
 `ultimabase.engine` exposes explicit anonymous, plugin-derived, master, and
-transport request composition after startup. `stop()` closes existing queries and cannot
-be restarted; `dispose()` or `Symbol.asyncDispose` permanently releases every
-owned resource.
+transport request composition after startup. `stop()` rejects new execution,
+drains admitted work, and cannot be restarted; `dispose()` or
+`Symbol.asyncDispose` permanently releases every owned resource. Initialization claims the sole resource-owning application slot
+in its JavaScript realm, including through `createApplication()`. Inert
+construction and pure compilation may coexist. Stop retains that slot; disposal
+closes new execution, waits for admitted requests and transactions, and releases
+it after successful cleanup. Failed cleanup keeps the realm closed to a
+replacement. Call teardown outside an active request callback.
+
+Independent Jest or Vitest workers can each run one application. Within a suite,
+return `app.start()` from `beforeAll` and `app.dispose()` from `afterAll`; finish
+disposal before starting another application in the same realm.
 
 ## Low-level application assembly
 

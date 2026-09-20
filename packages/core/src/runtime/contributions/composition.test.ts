@@ -1,3 +1,4 @@
+import { applicationFixture } from '../../../tests/application-fixture.js'
 import {
 	FrameworkApplication,
 	createApplication,
@@ -70,10 +71,12 @@ const updateTarget = Object.freeze({
 
 describe('composeRuntimeContributionBehavior', () => {
 	it('returns no behavior when the application has no Runtime contributions', async () => {
-		const application = await createApplication({
-			plugins: [],
-			schemas: [articleSchema],
-		})
+		const application = applicationFixture(
+			await createApplication({
+				plugins: [],
+				schemas: [articleSchema],
+			}),
+		)
 
 		expect(composeRuntimeContributionBehavior(application)).toBeUndefined()
 
@@ -87,10 +90,12 @@ describe('composeRuntimeContributionBehavior', () => {
 			),
 		)
 
-		const application = new FrameworkApplication({
-			schemas: [articleSchema],
-			plugins: [],
-		})
+		const application = applicationFixture(
+			new FrameworkApplication({
+				schemas: [articleSchema],
+				plugins: [],
+			}),
+		)
 
 		expect(() => composeRuntimeContributionBehavior(application)).toThrow(
 			new TypeError(
@@ -155,10 +160,12 @@ describe('composeRuntimeContributionBehavior', () => {
 				],
 			},
 		})
-		const application = await createApplication({
-			schemas: [articleSchema],
-			plugins: [plugin],
-		})
+		const application = applicationFixture(
+			await createApplication({
+				schemas: [articleSchema],
+				plugins: [plugin],
+			}),
+		)
 
 		expect(() => composeRuntimeContributionBehavior(application)).toThrow(
 			new TypeError(
@@ -201,10 +208,12 @@ describe('composeRuntimeContributionBehavior', () => {
 				],
 			},
 		})
-		const application = await createApplication({
-			schemas: [articleSchema],
-			plugins: [plugin],
-		})
+		const application = applicationFixture(
+			await createApplication({
+				schemas: [articleSchema],
+				plugins: [plugin],
+			}),
+		)
 		const stages = composeRuntimeContributionBehavior(application)
 		if (stages === undefined) throw new TypeError('Expected Runtime behavior')
 
@@ -256,10 +265,12 @@ describe('composeRuntimeContributionBehavior', () => {
 				],
 			},
 		})
-		const application = await createApplication({
-			plugins: [plugin],
-			schemas: [articleSchema],
-		})
+		const application = applicationFixture(
+			await createApplication({
+				plugins: [plugin],
+				schemas: [articleSchema],
+			}),
+		)
 		const stages = composeRuntimeContributionBehavior(application)
 		if (stages === undefined) throw new TypeError('Expected Runtime behavior')
 
@@ -311,10 +322,12 @@ describe('composeRuntimeContributionBehavior', () => {
 				],
 			},
 		})
-		const application = await createApplication({
-			plugins: [plugin],
-			schemas: [articleSchema],
-		})
+		const application = applicationFixture(
+			await createApplication({
+				plugins: [plugin],
+				schemas: [articleSchema],
+			}),
+		)
 		const stages = composeRuntimeContributionBehavior(application)
 		if (stages === undefined) throw new TypeError('Expected Runtime behavior')
 		const transformPreparedOperation = stages.transformPreparedOperation
@@ -382,10 +395,12 @@ describe('composeRuntimeContributionBehavior', () => {
 					],
 				},
 			})
-			const application = await createApplication({
-				plugins: [plugin],
-				schemas: [articleSchema],
-			})
+			const application = applicationFixture(
+				await createApplication({
+					plugins: [plugin],
+					schemas: [articleSchema],
+				}),
+			)
 
 			await expect(
 				composeRuntimeContributionBehavior(
@@ -396,6 +411,7 @@ describe('composeRuntimeContributionBehavior', () => {
 					target: updateTarget,
 				}),
 			).rejects.toThrow(/prepared-operation contribution/u)
+			await application.dispose()
 		}
 	})
 })

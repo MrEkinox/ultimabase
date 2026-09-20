@@ -1,3 +1,4 @@
+import { applicationFixture } from '../../tests/application-fixture.js'
 import { isPlainRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 import {
@@ -54,7 +55,9 @@ describe('plugin schema declaration registry', () => {
 			},
 		})
 
-		await createApplication({ plugins: [plugin], schemas: [Document] })
+		await (
+			await createApplication({ plugins: [plugin], schemas: [Document] })
+		).dispose()
 
 		const managedState = Document.persistedFields.managedState
 		if (managedState === undefined) {
@@ -160,23 +163,28 @@ describe('plugin schema declaration registry', () => {
 		} as SchemaOptions<'StableReusePost'> & {
 			readonly stable: Readonly<{ readonly enabled: boolean }>
 		})
-		const first = new FrameworkApplication({
-			pluginPrivileges: { logger: false },
-			plugins: [owner],
-			schemas: [Shared],
-		})
+		const first = applicationFixture(
+			new FrameworkApplication({
+				pluginPrivileges: { logger: false },
+				plugins: [owner],
+				schemas: [Shared],
+			}),
+		)
 
 		expect(first.compileSchemas()).toBe(first)
 		expect(first.compileSchemas()).toBe(first)
 		expect(normalizations).toBe(1)
 		await first.initialize()
+		await first.dispose()
 		expect(normalizations).toBe(1)
 
-		await createApplication({
-			pluginPrivileges: { logger: false },
-			plugins: [owner],
-			schemas: [Shared],
-		})
+		await (
+			await createApplication({
+				pluginPrivileges: { logger: false },
+				plugins: [owner],
+				schemas: [Shared],
+			})
+		).dispose()
 		expect(normalizations).toBe(2)
 
 		await expect(
@@ -221,11 +229,13 @@ describe('plugin schema declaration registry', () => {
 			},
 		})
 
-		await createApplication({
-			pluginPrivileges: { logger: false },
-			plugins: [contributor],
-			schemas: [Shared],
-		})
+		await (
+			await createApplication({
+				pluginPrivileges: { logger: false },
+				plugins: [contributor],
+				schemas: [Shared],
+			})
+		).dispose()
 		expect(Shared.fields.externalReference?.kind).toBe('string')
 
 		await expect(
@@ -280,10 +290,12 @@ describe('plugin schema declaration registry', () => {
 				})
 			},
 		})
-		await createApplication({
-			plugins: [optionPlugin(), contributor],
-			schemas: [Post],
-		})
+		await (
+			await createApplication({
+				plugins: [optionPlugin(), contributor],
+				schemas: [Post],
+			})
+		).dispose()
 		expect(Reflect.get(Post.definition, 'workflow')).toEqual({ enabled: true })
 		expect(
 			Reflect.get(requireField(Post.fields.title).options, 'search'),
@@ -374,10 +386,13 @@ describe('plugin schema declaration registry', () => {
 			},
 		})
 
-		const application = await createApplication({
-			plugins: [patcher, schemaProvider],
-			schemas: [Post, Author],
-		})
+		const application = applicationFixture(
+			await createApplication({
+				plugins: [patcher, schemaProvider],
+				schemas: [Post, Author],
+			}),
+		)
+		await application.dispose()
 		additionStaticOptions.channel = 'mutated'
 
 		expect(application.schemas.values()).toEqual([Post, Author, AuditLog])
@@ -442,7 +457,9 @@ describe('plugin schema declaration registry', () => {
 			},
 		})
 
-		await createApplication({ plugins: [plugin], schemas: [] })
+		await (
+			await createApplication({ plugins: [plugin], schemas: [] })
+		).dispose()
 
 		expect(Owned.fields.lateField).toBeUndefined()
 	})
@@ -476,11 +493,14 @@ describe('plugin schema declaration registry', () => {
 				},
 			})
 
-		const application = await createApplication({
-			pluginPrivileges: { logger: false },
-			plugins: [plugin('primary', Primary), plugin('analytics', Analytics)],
-			schemas: [],
-		})
+		const application = applicationFixture(
+			await createApplication({
+				pluginPrivileges: { logger: false },
+				plugins: [plugin('primary', Primary), plugin('analytics', Analytics)],
+				schemas: [],
+			}),
+		)
+		await application.dispose()
 
 		expect(application.schemas.values()).toStrictEqual([Primary, Analytics])
 		expect(Primary.provenance.schema).toMatchObject({
@@ -523,11 +543,13 @@ describe('plugin schema declaration registry', () => {
 				schemas.add({ contributionId: 'duplicate', schema: Second })
 			},
 		})
-		const application = new FrameworkApplication({
-			pluginPrivileges: { logger: false },
-			plugins: [plugin],
-			schemas: [],
-		})
+		const application = applicationFixture(
+			new FrameworkApplication({
+				pluginPrivileges: { logger: false },
+				plugins: [plugin],
+				schemas: [],
+			}),
+		)
 
 		let failure: unknown
 		try {

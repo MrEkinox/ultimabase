@@ -1,3 +1,4 @@
+import { onTestFinished } from 'vitest'
 import {
 	MasterAuthority,
 	RequestContext,
@@ -143,6 +144,7 @@ const startHttpFixture = async (options: StartHttpFixtureOptions) => {
 		],
 		schemas: [],
 	})
+	onTestFinished(() => runtime.dispose())
 	await runtime.start()
 	if (http === undefined)
 		throw new TypeError('HTTP context fixture was not set up')
@@ -574,24 +576,19 @@ describe('HTTP request lifetime', () => {
 					context.withValue(principal, { id: 'second-value' }),
 			}),
 		])
-		const [first, second] = await Promise.all([
-			startHttpFixture({
-				appId: 'first-app',
-				handler: () =>
-					new Response(getCurrentRequest().getValue(principal)?.id),
-				resolvers: [firstResolver],
-			}),
-			startHttpFixture({
-				appId: 'second-app',
-				handler: () =>
-					new Response(getCurrentRequest().getValue(principal)?.id),
-				resolvers: [secondResolver],
-			}),
-		])
-		const [firstResponse, secondResponse] = await Promise.all([
-			first.http.fetch(serverRequest('first-app')),
-			second.http.fetch(serverRequest('second-app')),
-		])
+		const first = await startHttpFixture({
+			appId: 'first-app',
+			handler: () => new Response(getCurrentRequest().getValue(principal)?.id),
+			resolvers: [firstResolver],
+		})
+		const firstResponse = await first.http.fetch(serverRequest('first-app'))
+		await first.runtime.dispose()
+		const second = await startHttpFixture({
+			appId: 'second-app',
+			handler: () => new Response(getCurrentRequest().getValue(principal)?.id),
+			resolvers: [secondResolver],
+		})
+		const secondResponse = await second.http.fetch(serverRequest('second-app'))
 		expect(await firstResponse.text()).toBe('first-value')
 		expect(await secondResponse.text()).toBe('second-value')
 		await Promise.all([first.runtime.dispose(), second.runtime.dispose()])

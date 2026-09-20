@@ -413,7 +413,7 @@ describe('Runtime relation filters', () => {
 		await expect(
 			resolver.resolve(context, operation, relation),
 		).rejects.toThrow(
-			'Framework engine cannot be used while application is disposed',
+			'Framework engine requires its initialized active application; received disposed',
 		)
 		expect(invocations).toBe(1)
 	})

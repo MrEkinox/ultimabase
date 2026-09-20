@@ -1,3 +1,4 @@
+import { onTestFinished } from 'vitest'
 import {
 	QueryBuilder,
 	Schema,
@@ -38,6 +39,7 @@ describe('RoleSchema', () => {
 			schemas: [User, BuilderRole],
 			plugins: [rolesPlugin()],
 		})
+		onTestFinished(() => application.dispose())
 
 		expect(Object.keys(BuilderRole.fields)).toEqual([
 			'description',
@@ -143,6 +145,7 @@ describe('RoleSchema', () => {
 			schemas: [Plain],
 			plugins: [],
 		})
+		onTestFinished(() => plainApplication.dispose())
 
 		await plainApplication.dispose()
 
@@ -233,6 +236,7 @@ describe('RoleSchema', () => {
 			plugins: [rolesPlugin()],
 			schemas: [User, Similar],
 		})
+		onTestFinished(() => application.dispose())
 		expect(application.getPlugin(rolesPluginName).schemas).toStrictEqual([])
 		await application.dispose()
 
@@ -282,24 +286,23 @@ describe('RoleSchema', () => {
 		})
 		const firstPlugin = rolesPlugin()
 		const secondPlugin = rolesPlugin()
-		const [first, second] = await Promise.all([
-			createApplication({
-				schemas: [User, FirstRole],
-				plugins: [firstPlugin] as const,
-			}),
-			createApplication({
-				schemas: [SecondUser, SecondRole],
-				plugins: [secondPlugin] as const,
-			}),
-		])
+		const first = await createApplication({
+			schemas: [User, FirstRole],
+			plugins: [firstPlugin] as const,
+		})
+		const firstSchemas = first.getPlugin(rolesPluginName).schemas
+		await first.dispose()
+		const second = await createApplication({
+			schemas: [SecondUser, SecondRole],
+			plugins: [secondPlugin] as const,
+		})
+		onTestFinished(() => second.dispose())
 
-		expect(first.getPlugin(rolesPluginName).schemas).toStrictEqual([FirstRole])
+		expect(firstSchemas).toStrictEqual([FirstRole])
 		expect(second.getPlugin(rolesPluginName).schemas).toStrictEqual([
 			SecondRole,
 		])
-		expect(first.getPlugin(rolesPluginName).schemas).not.toBe(
-			second.getPlugin(rolesPluginName).schemas,
-		)
+		expect(firstSchemas).not.toBe(second.getPlugin(rolesPluginName).schemas)
 		expect(getRoleSchemaDeclaration(FirstRole)?.memberSchema).toBe(User)
 		expect(getRoleSchemaDeclaration(SecondRole)?.memberSchema).toBe(SecondUser)
 		await Promise.all([first.dispose(), second.dispose()])

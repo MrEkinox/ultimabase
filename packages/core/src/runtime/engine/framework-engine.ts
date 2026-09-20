@@ -1,8 +1,11 @@
 import {
-	FrameworkApplication,
-	FrameworkError,
-	type PluginDefinition,
-} from '../../foundation.js'
+	assertFrameworkEngineOptions,
+	type FrameworkEngineOptions,
+} from './engine-options.js'
+export type { FrameworkEngineOptions } from './engine-options.js'
+import { runApplicationWork } from '../../application/active-application.js'
+import type { FrameworkApplication } from '../../foundation.js'
+import { FrameworkError, type PluginDefinition } from '../../foundation.js'
 import type {
 	AnonymousRequestAccess,
 	MasterRequestAccess,
@@ -39,19 +42,17 @@ import type {
 	DatabaseRowFilterNode,
 } from '../database/contracts.js'
 import {
+	bindMasterGrantApplication,
 	elevateMasterRequest,
 	elevateTrustedMasterRequest,
-	MasterAuthority,
 	type MasterKeyGrant,
 } from '../master/master-authority.js'
 import { getOperationSchema } from '../operations/schema.js'
 import { materializeOperationResult } from '../operations/materialize-result.js'
 import { readRuntimeSchemaModelMetadata } from '../operations/model-metadata.js'
 import type { RuntimeOperationResult } from '../pipeline/contracts.js'
-import {
-	projectRuntimeMutationBatch,
-	RuntimePipeline,
-} from '../pipeline/runtime-pipeline.js'
+import type { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
+import { projectRuntimeMutationBatch } from '../pipeline/runtime-pipeline.js'
 import { runRequestTransaction } from '../transactions/run-transaction.js'
 import { requiresAutomaticMutationTransaction } from '../transactions/automatic-mutation.js'
 import {
@@ -100,53 +101,10 @@ export type RequestTransactionHandler<
 	engine: RequestEngine<TSchemas, TPlugins, TContext>,
 ) => MaybePromise<TResult>
 
-/** Captures every application-owned dependency shared by its request engines. */
-export interface FrameworkEngineOptions<
-	TSchemas extends readonly SchemaDefinition[],
-	TPlugins extends readonly PluginDefinition[],
-> {
-	readonly application: FrameworkApplication<TSchemas, TPlugins>
-	readonly masterAuthority?: MasterAuthority
-	readonly pipeline: RuntimePipeline
-}
-
 /** Retains the effective authority beside one unmaterialized terminal result. */
 interface RuntimeTerminalExecution {
 	readonly context: RequestContext
 	readonly result: unknown
-}
-
-/** Rejects malformed low-level construction before it can bind request state. */
-const assertFrameworkEngineOptions = (
-	options: FrameworkEngineOptions<
-		readonly SchemaDefinition[],
-		readonly PluginDefinition[]
-	>,
-): void => {
-	const untrustedOptions: unknown = options
-
-	if (!isPlainRecord(untrustedOptions)) {
-		throw new TypeError('Framework engine options must be a plain object')
-	}
-
-	if (!(untrustedOptions.application instanceof FrameworkApplication)) {
-		throw new TypeError(
-			'Framework engine application must be a FrameworkApplication',
-		)
-	}
-
-	if (!(untrustedOptions.pipeline instanceof RuntimePipeline)) {
-		throw new TypeError('Framework engine pipeline must be a RuntimePipeline')
-	}
-
-	if (
-		untrustedOptions.masterAuthority !== undefined &&
-		!(untrustedOptions.masterAuthority instanceof MasterAuthority)
-	) {
-		throw new TypeError(
-			'Framework engine masterAuthority must be a MasterAuthority',
-		)
-	}
 }
 
 /**
@@ -164,6 +122,7 @@ export class FrameworkEngine<
 
 	constructor(options: FrameworkEngineOptions<TSchemas, TPlugins>) {
 		assertFrameworkEngineOptions(options)
+		assertApplicationEngineAvailable(options.application)
 		this.application = options.application
 		this.#pipeline = options.pipeline
 
@@ -177,7 +136,10 @@ export class FrameworkEngine<
 	/** Verifies one raw credential without retaining it in framework state. */
 	authorizeMasterKey(rawKey: string): MasterKeyGrant {
 		assertApplicationEngineAvailable(this.application)
-		return getFrameworkMasterAuthority(this).authorize(rawKey)
+		return bindMasterGrantApplication(
+			getFrameworkMasterAuthority(this).authorize(rawKey),
+			this.application,
+		)
 	}
 
 	/** Binds one already validated transport or internal request context. */
@@ -301,12 +263,16 @@ export class RequestEngine<
 				: { transactionLifetime: this.#transactionLifetime }),
 		})
 		registerOperationExecutionHandler(this, (operation, options, scope) =>
-			this.#executeTerminal(operation, options, scope),
+			runApplicationWork(this.application, () =>
+				this.#executeTerminal(operation, options, scope),
+			),
 		)
 		registerOperationBatchExecutionHandler(
 			this,
 			(entries, options, projection) =>
-				this.#executeTerminalBatch(entries, options, projection),
+				runApplicationWork(this.application, () =>
+					this.#executeTerminalBatch(entries, options, projection),
+				),
 		)
 
 		Object.freeze(this)
@@ -568,7 +534,9 @@ export class RequestEngine<
 	async execute<
 		const TOperation extends ExecutableOperationAst<TSchemas[number]>,
 	>(operation: TOperation): Promise<OperationResult<TOperation>> {
-		return this.#executeOperation(operation)
+		return runApplicationWork(this.application, () =>
+			this.#executeOperation(operation),
+		)
 	}
 
 	/** Executes public and framework-scoped operations through one shared lifecycle. */
@@ -725,21 +693,23 @@ export class RequestEngine<
 		this.#transactionLifetime?.assertActive()
 		assertMasterElevationPrivilege(this.application)
 
-		const masterContext = await elevateMasterRequest(
-			getFrameworkMasterAuthority(this.framework),
-			grant,
-			this.context,
-			reason,
-			this.framework.application,
-		)
+		return runApplicationWork(this.application, async () => {
+			const masterContext = await elevateMasterRequest(
+				getFrameworkMasterAuthority(this.framework),
+				grant,
+				this.context,
+				reason,
+				this.framework.application,
+			)
 
-		return new RequestEngine(
-			requestEngineConstructionKey,
-			this.framework,
-			masterContext,
-			this.#pipeline,
-			this.#transactionLifetime,
-		)
+			return new RequestEngine(
+				requestEngineConstructionKey,
+				this.framework,
+				masterContext,
+				this.#pipeline,
+				this.#transactionLifetime,
+			)
+		})
 	}
 
 	/** Opens one adapter transaction while preserving this context and application. */
@@ -765,19 +735,21 @@ export class RequestEngine<
 			throw error
 		}
 
-		return runRequestTransaction(
-			this.#pipeline,
-			(transactionPipeline, lifetime) =>
-				new RequestEngine(
-					requestEngineConstructionKey,
-					this.framework,
-					this.context,
-					transactionPipeline,
-					lifetime,
-				),
-			(transaction) =>
-				runWithRequestEngineScope(transaction, () => handler(transaction)),
-			this.context.signal,
+		return runApplicationWork(this.application, () =>
+			runRequestTransaction(
+				this.#pipeline,
+				(transactionPipeline, lifetime) =>
+					new RequestEngine(
+						requestEngineConstructionKey,
+						this.framework,
+						this.context,
+						transactionPipeline,
+						lifetime,
+					),
+				(transaction) =>
+					runWithRequestEngineScope(transaction, () => handler(transaction)),
+				this.context.signal,
+			),
 		)
 	}
 }

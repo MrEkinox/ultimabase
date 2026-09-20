@@ -1,3 +1,4 @@
+import { onTestFinished } from 'vitest'
 import {
 	MasterAuthority,
 	Schema,
@@ -301,6 +302,7 @@ describe('schema mutation Access', () => {
 			plugins: [accessPlugin(), owner.plugin, databasePlugin(adapter)],
 			schemas: [AccessDocument],
 		})
+		onTestFinished(() => ultimabase.dispose())
 
 		try {
 			await ultimabase.start()
@@ -363,6 +365,7 @@ describe('schema mutation Access', () => {
 			],
 			schemas: [GranularDeniedDocument],
 		})
+		onTestFinished(() => denied.dispose())
 		const allowed = new UltimaBase({
 			pluginPrivileges: { logger: false },
 			plugins: [
@@ -372,6 +375,7 @@ describe('schema mutation Access', () => {
 			],
 			schemas: [GranularAllowedDocument],
 		})
+		onTestFinished(() => allowed.dispose())
 		const booleanAllowed = new UltimaBase({
 			pluginPrivileges: { logger: false },
 			plugins: [
@@ -381,19 +385,20 @@ describe('schema mutation Access', () => {
 			],
 			schemas: [BooleanDefaultDocument],
 		})
+		onTestFinished(() => booleanAllowed.dispose())
 
 		try {
-			await Promise.all([
-				denied.start(),
-				allowed.start(),
-				booleanAllowed.start(),
-			])
+			await denied.start()
 			await expect(
 				executeArchive(denied, GranularDeniedDocument, 'default-deny'),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
+			await denied.dispose()
+			await allowed.start()
 			await expect(
 				executeArchive(allowed, GranularAllowedDocument, 'default-allow'),
 			).resolves.toMatchObject({ workflowState: 'archived' })
+			await allowed.dispose()
+			await booleanAllowed.start()
 			await expect(
 				executeArchive(booleanAllowed, BooleanDefaultDocument, 'boolean-allow'),
 			).resolves.toMatchObject({ workflowState: 'archived' })
@@ -444,6 +449,7 @@ describe('schema mutation Access', () => {
 			],
 			schemas: [ProviderDocument],
 		})
+		onTestFinished(() => ultimabase.dispose())
 
 		try {
 			await ultimabase.start()
@@ -475,6 +481,7 @@ describe('schema mutation Access', () => {
 			plugins: [accessPlugin(), owner.plugin, databasePlugin(adapter)],
 			schemas: [MasterDocument],
 		})
+		onTestFinished(() => ultimabase.dispose())
 
 		try {
 			await ultimabase.start()
@@ -510,6 +517,7 @@ describe('schema mutation Access', () => {
 			plugins: [owner.plugin, databasePlugin(adapter)],
 			schemas: [NoAccessDocument],
 		})
+		onTestFinished(() => ultimabase.dispose())
 
 		try {
 			await ultimabase.start()
@@ -534,6 +542,7 @@ describe('schema mutation Access', () => {
 			plugins: [accessPlugin(), owner.plugin, databasePlugin(adapter)],
 			schemas: [StaleDocument],
 		})
+		onTestFinished(() => ultimabase.dispose())
 
 		await expect(ultimabase.start()).rejects.toThrow(
 			'Unknown request schema mutation Access branch: access.stale',
@@ -555,6 +564,7 @@ describe('schema mutation Access', () => {
 			],
 			schemas: [MasterOnlyDocument],
 		})
+		onTestFinished(() => masterOnly.dispose())
 
 		await expect(masterOnly.start()).rejects.toThrow(
 			'Unknown request schema mutation Access branch: access.purge',

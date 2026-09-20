@@ -2,6 +2,30 @@
 
 Testing utilities and conformance suites for framework applications and plugin authors.
 
+## Application suites
+
+Use the existing application lifecycle with your runner's suite hooks. For an
+existing `app` instance owned by the suite:
+
+```ts
+import { afterAll, beforeAll, it } from 'vitest'
+beforeAll(() => app.start())
+afterAll(() => app.dispose())
+
+it('executes application behavior', async () => {
+	// Create independent records and assert behavior through this application's API.
+})
+```
+
+For Jest, import these hooks from `@jest/globals`. Always return or await the
+lifecycle promises. Core permits one initialized application per JavaScript
+realm, so tests requiring a replacement must await disposal first. Concurrent
+requests in one application and applications in separate workers remain
+supported. An injected database pool belongs to the test: close it after
+application disposal, then remove its worker schema. See the website's
+[Test an Application](../../apps/website/content/docs/1.0.0/guides/test-an-application.mdx)
+for the complete PostgreSQL example. There is no test-only activation bypass.
+
 ## Plugin conformance
 
 `definePluginConformanceSuite()` keeps the exact subject, support-plugin, and
@@ -39,7 +63,8 @@ it('conforms to the public kernel', async () => {
 
 The common suite always verifies the manifest, immutable capability contract,
 static declaration determinism, public provenance, setup/application-capability
-cleanup, and isolation between two applications. It additionally verifies:
+cleanup, rejection of competing activation, and isolation across sequential
+application lifetimes. It additionally verifies:
 
 - two explicit instances when `instances` supplies a factory and distinct IDs;
 - cumulative denial when the subject requests Core privileges;

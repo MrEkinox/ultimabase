@@ -1,4 +1,12 @@
 import {
+	acquireApplication,
+	assertOutsideApplicationWork,
+	closeApplicationExecution,
+	drainApplicationWork,
+	releaseApplication,
+} from './active-application.js'
+import { releaseStaticSchemaMutations } from '../schema/schema/model-static-mutations.js'
+import {
 	Schema,
 	SchemaRegistry,
 	type SchemaDefinition,
@@ -115,7 +123,12 @@ export class FrameworkApplication<
 	#schemaCompilationState: 'compiled' | 'compiling' | 'failed' | 'idle' = 'idle'
 	#schemaCompilationError: FrameworkError | undefined
 	#initializePromise: Promise<this> | undefined
+	#initializeFailed = false
 	#startPromise: Promise<void> | undefined
+	#startFailed = false
+	#stopPromise: Promise<void> | undefined
+	#disposePromise: Promise<void> | undefined
+	#closing: 'stopping' | 'stopped' | 'disposing' | 'disposed' | undefined
 
 	constructor(options: FrameworkApplicationOptions<TSchemas, TPlugins>) {
 		const untrustedOptions: unknown = options
@@ -210,7 +223,7 @@ export class FrameworkApplication<
 	}
 
 	get state(): PluginLifecycleState {
-		return this.#lifecycle.state
+		return this.#closing ?? this.#lifecycle.state
 	}
 
 	/** Reads the immutable application-local relationship graph after static compilation. */
@@ -265,8 +278,25 @@ export class FrameworkApplication<
 		return this.#privateStorage.fingerprint()
 	}
 
-	/** Completes declaration-only plugin setup before the application is returned. */
+	/** Claims exclusive resource ownership before capability materialization and plugin setup. */
 	initialize(): Promise<this> {
+		if (this.#initializeFailed && this.#initializePromise !== undefined)
+			return this.#initializePromise
+		if (this.#closing !== undefined || this.#lifecycle.state === 'disposed') {
+			return Promise.reject(
+				new TypeError('Cannot initialize a closed application'),
+			)
+		}
+		// Competing initialization rejects without disposing or changing its incumbent.
+		try {
+			acquireApplication(this)
+		} catch (error: unknown) {
+			return Promise.reject(
+				error instanceof Error
+					? error
+					: new Error('Application activation failed', { cause: error }),
+			)
+		}
 		this.#initializePromise ??= this.#performInitialize()
 
 		return this.#initializePromise
@@ -314,6 +344,14 @@ export class FrameworkApplication<
 
 	/** Starts infrastructure through the deterministic plugin lifecycle. */
 	start(): Promise<void> {
+		if (this.#startFailed && this.#startPromise !== undefined)
+			return this.#startPromise
+		if (
+			!this.#initializeFailed &&
+			(this.#closing !== undefined || this.#lifecycle.state === 'disposed')
+		) {
+			return Promise.reject(new TypeError('Cannot start a closed application'))
+		}
 		this.#startPromise ??= this.#performStart()
 
 		return this.#startPromise
@@ -321,12 +359,23 @@ export class FrameworkApplication<
 
 	/** Stops active infrastructure without releasing setup-owned state. */
 	stop(): Promise<void> {
-		return this.#lifecycle.stop()
+		assertOutsideApplicationWork(this)
+		if (this.#disposePromise !== undefined) return this.#disposePromise
+		if (this.#startPromise === undefined) return Promise.resolve()
+		closeApplicationExecution(this)
+		this.#closing ??= 'stopping'
+		this.#stopPromise ??= this.#performStop()
+		return this.#stopPromise
 	}
 
-	/** Permanently releases plugin and service resources owned by this application. */
+	/** Drains admitted work and releases ownership only after successful resource cleanup. */
 	dispose(): Promise<void> {
-		return this.#lifecycle.dispose()
+		assertOutsideApplicationWork(this)
+		if (this.#disposePromise !== undefined) return this.#disposePromise
+		closeApplicationExecution(this)
+		this.#closing = 'disposing'
+		this.#disposePromise = this.#performDispose()
+		return this.#disposePromise
 	}
 
 	/** Retrieves one plugin's setup output when its stable ID is unambiguous. */
@@ -355,6 +404,7 @@ export class FrameworkApplication<
 			await this.#lifecycle.setup()
 			return this
 		} catch (error: unknown) {
+			this.#initializeFailed = true
 			if (this.#lifecycle.state !== 'disposed') {
 				try {
 					await this.#lifecycle.dispose()
@@ -367,13 +417,64 @@ export class FrameworkApplication<
 				}
 			}
 
+			this.#releaseIfClean()
 			throw error
 		}
 	}
 
 	async #performStart(): Promise<void> {
-		await this.initialize()
-		await this.#lifecycle.start()
+		try {
+			await this.initialize()
+			await this.#lifecycle.start()
+		} catch (error: unknown) {
+			this.#startFailed = true
+			this.#releaseIfClean()
+			throw error
+		}
+	}
+
+	async #performStop(): Promise<void> {
+		try {
+			await this.#startPromise
+		} catch {
+			return
+		}
+		await drainApplicationWork(this)
+		try {
+			await this.#lifecycle.stop()
+		} finally {
+			if (this.#closing === 'stopping') this.#closing = 'stopped'
+		}
+	}
+
+	async #performDispose(): Promise<void> {
+		// Initialization includes materialization outside PluginLifecycleManager.setup().
+		try {
+			await (this.#startPromise ?? this.#initializePromise)
+		} catch {
+			// The initiating caller retains its startup error; cleanup proof is separate.
+		}
+		if (this.#stopPromise !== undefined) {
+			try {
+				await this.#stopPromise
+			} catch {
+				/* Disposal still visits every resource. */
+			}
+		}
+		await drainApplicationWork(this)
+		try {
+			await this.#lifecycle.dispose()
+		} finally {
+			this.#closing = 'disposed'
+			this.#releaseIfClean()
+		}
+	}
+
+	#releaseIfClean(): void {
+		if (this.#lifecycle.cleanupComplete) {
+			releaseStaticSchemaMutations(this)
+			releaseApplication(this)
+		}
 	}
 
 	#recordSchemaCompilationFailure(error: unknown): FrameworkError {

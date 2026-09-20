@@ -1,3 +1,4 @@
+import { applicationFixture } from '../application-fixture.js'
 import { isPlainRecord } from '@ultimabase/shared'
 import {
 	createApplication,
@@ -275,10 +276,12 @@ const createRequest = async (
 	results: readonly QueuedAdapterResult[],
 	trace: string[],
 ) => {
-	const application = await createApplication({
-		schemas: [articleSchema, foreignSchema],
-		plugins,
-	})
+	const application = applicationFixture(
+		await createApplication({
+			schemas: [articleSchema, foreignSchema],
+			plugins,
+		}),
+	)
 	const adapter = new RecordingDatabaseAdapter(results, trace)
 	const framework = new FrameworkEngine({
 		application,

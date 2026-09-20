@@ -1,3 +1,4 @@
+import { onTestFinished } from 'vitest'
 import { UltimaBase } from '@ultimabase/core'
 import { graphqlPlugin } from '@ultimabase/graphql-plugin'
 import { httpApplicationIdHeader, httpPlugin } from '@ultimabase/http-plugin'
@@ -24,8 +25,8 @@ const createApplication = (
 	value: string,
 	server: ReturnType<typeof honoServerPlugin>,
 	browser = false,
-) =>
-	new UltimaBase({
+) => {
+	const application = new UltimaBase({
 		pluginPrivileges: { logger: false },
 		plugins: [
 			graphqlYogaFixtureDatabasePlugin,
@@ -53,6 +54,9 @@ const createApplication = (
 		],
 		schemas: [],
 	})
+	onTestFinished(() => application.dispose())
+	return application
+}
 
 const rawEnvironment = (appId: string) => ({
 	incoming: {
@@ -68,7 +72,7 @@ const graphqlRequest = (): Request =>
 	})
 
 describe('GraphQL Yoga Hono integration', () => {
-	it('isolates two applications mounted into one existing Hono provider', async () => {
+	it('isolates sequential applications in one existing Hono provider', async () => {
 		const hono = new Hono()
 		const server = honoServerPlugin({
 			app: hono,
@@ -76,12 +80,14 @@ describe('GraphQL Yoga Hono integration', () => {
 		})
 		const first = createApplication('first', 'first-value', server, true)
 		const second = createApplication('second', 'second-value', server, true)
-		await Promise.all([first.start(), second.start()])
+		await first.start()
 
 		const firstResponse = await hono.fetch(
 			graphqlRequest(),
 			rawEnvironment('first'),
 		)
+		await first.dispose()
+		await second.start()
 		const secondResponse = await hono.fetch(
 			graphqlRequest(),
 			rawEnvironment('second'),

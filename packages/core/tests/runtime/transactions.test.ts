@@ -1,3 +1,4 @@
+import { applicationFixture } from '../application-fixture.js'
 import { QueryBuilder, RequestCapability, increment } from '../../src/index.js'
 import { FrameworkApplication, FrameworkError } from '../../src/index.js'
 import { Schema } from '../../src/index.js'
@@ -37,17 +38,19 @@ const articleRecord = (views: number, title: string) => ({
 })
 
 /** Binds one user request to an adapter-backed application fixture. */
-const createRequest = (
+const createRequest = async (
 	results: readonly QueuedAdapterResult[],
 	trace: string[],
 	failures: TransactionFailureOptions = {},
 ) => {
 	const adapter = new RecordingDatabaseAdapter(results, trace, failures)
 	const framework = new FrameworkEngine({
-		application: new FrameworkApplication({
-			schemas: [articleSchema],
-			plugins: [],
-		}),
+		application: await applicationFixture(
+			new FrameworkApplication({
+				schemas: [articleSchema],
+				plugins: [],
+			}),
+		).initialize(),
 		pipeline: createRecordingPipeline(adapter, trace),
 	})
 	const capability = new RequestCapability('article:write')
@@ -66,7 +69,7 @@ describe('RequestEngine transactions', () => {
 		const trace: string[] = []
 		const created = articleRecord(0, 'Created')
 		const updated = articleRecord(1, 'Created')
-		const { adapter, request } = createRequest(
+		const { adapter, request } = await createRequest(
 			[
 				{ status: 'fulfilled', value: created },
 				{ status: 'fulfilled', target: created, value: updated },
@@ -128,7 +131,7 @@ describe('RequestEngine transactions', () => {
 	it('rolls back and preserves the exact error thrown by the callback', async () => {
 		const trace: string[] = []
 		const callbackError = new Error('business rule failed')
-		const { request } = createRequest([], trace)
+		const { request } = await createRequest([], trace)
 
 		const transactionPromise = request.transaction(() => {
 			throw callbackError
@@ -142,7 +145,7 @@ describe('RequestEngine transactions', () => {
 		const trace: string[] = []
 		const created = articleRecord(0, 'Deferred')
 		const deferred = Promise.withResolvers<typeof created>()
-		const { request } = createRequest(
+		const { request } = await createRequest(
 			[{ status: 'fulfilled', value: deferred.promise }],
 			trace,
 		)
@@ -171,7 +174,7 @@ describe('RequestEngine transactions', () => {
 	it('rolls back when an operation fails even if its rejection is caught', async () => {
 		const trace: string[] = []
 		const operationError = new Error('write failed')
-		const { request } = createRequest(
+		const { request } = await createRequest(
 			[{ status: 'rejected', error: operationError }],
 			trace,
 		)
@@ -198,7 +201,7 @@ describe('RequestEngine transactions', () => {
 	it('does not duplicate one awaited operation failure during cleanup', async () => {
 		const trace: string[] = []
 		const operationError = new Error('awaited write failed')
-		const { request } = createRequest(
+		const { request } = await createRequest(
 			[{ status: 'rejected', error: operationError }],
 			trace,
 		)
@@ -218,7 +221,7 @@ describe('RequestEngine transactions', () => {
 
 	it('rejects nested transactions even when the callback catches the violation', async () => {
 		const trace: string[] = []
-		const { request } = createRequest([], trace)
+		const { request } = await createRequest([], trace)
 
 		const transactionPromise = request.transaction(async (transaction) => {
 			try {
@@ -239,7 +242,7 @@ describe('RequestEngine transactions', () => {
 
 	it('closes escaped engines while keeping QueryBuilder branches context-free', async () => {
 		const trace: string[] = []
-		const { request } = createRequest([], trace)
+		const { request } = await createRequest([], trace)
 		let escapedEngine: typeof request | undefined
 		let escapedQuery: QueryBuilder<typeof articleSchema> | undefined
 
@@ -270,7 +273,7 @@ describe('RequestEngine transactions', () => {
 	it('rolls back adapter commit failures without hiding their identity', async () => {
 		const trace: string[] = []
 		const commitError = new Error('commit failed')
-		const { request } = createRequest([], trace, { commit: commitError })
+		const { request } = await createRequest([], trace, { commit: commitError })
 
 		await expect(request.transaction(() => 'result')).rejects.toBe(commitError)
 		expect(trace).toStrictEqual([
@@ -284,7 +287,9 @@ describe('RequestEngine transactions', () => {
 		const trace: string[] = []
 		const callbackError = new Error('callback failed')
 		const rollbackError = new Error('rollback failed')
-		const { request } = createRequest([], trace, { rollback: rollbackError })
+		const { request } = await createRequest([], trace, {
+			rollback: rollbackError,
+		})
 
 		const transactionPromise = request.transaction(() => {
 			throw callbackError

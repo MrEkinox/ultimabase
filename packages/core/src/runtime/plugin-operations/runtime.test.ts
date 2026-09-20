@@ -1,3 +1,4 @@
+import { applicationFixture } from '../../../tests/application-fixture.js'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -150,14 +151,16 @@ const createFixture = async (options: FixtureOptions = {}) => {
 		pluginId: 'fixture.plugin-operation-database',
 		version: '1.0.0',
 	})
-	const ultimabase = new UltimaBase({
-		...(options.masterAuthority === undefined
-			? {}
-			: { masterAuthority: options.masterAuthority }),
-		pluginPrivileges: { logger: false },
-		plugins: [database, plugin],
-		schemas: [Post],
-	})
+	const ultimabase = applicationFixture(
+		new UltimaBase({
+			...(options.masterAuthority === undefined
+				? {}
+				: { masterAuthority: options.masterAuthority }),
+			pluginPrivileges: { logger: false },
+			plugins: [database, plugin],
+			schemas: [Post],
+		}),
+	)
 	await ultimabase.start()
 	return { adapter, trace, ultimabase }
 }
@@ -232,11 +235,13 @@ describe('plugin operation Runtime', () => {
 			] as const,
 			version: '1.0.0',
 		})
-		const ultimabase = new UltimaBase({
-			pluginPrivileges: { logger: false },
-			plugins: [database, operation],
-			schemas: [],
-		})
+		const ultimabase = applicationFixture(
+			new UltimaBase({
+				pluginPrivileges: { logger: false },
+				plugins: [database, operation],
+				schemas: [],
+			}),
+		)
 
 		await ultimabase.start()
 		await expect(
@@ -481,7 +486,6 @@ describe('plugin operation Runtime', () => {
 
 	it('isolates applications and closes stale handles', async () => {
 		const first = await createFixture()
-		const second = await createFixture()
 		const stale = first.ultimabase.operation(applicationOperation)
 		const incompatibleToken = defineOperation({
 			errors: applicationOperation.errors,
@@ -498,8 +502,9 @@ describe('plugin operation Runtime', () => {
 		await expect(stale.execute({ message: 'first' })).resolves.toStrictEqual({
 			accepted: true,
 		})
-		expect(second.trace).toStrictEqual([])
 		await first.ultimabase.dispose()
+		const second = await createFixture()
+		expect(second.trace).toStrictEqual([])
 		await expect(stale.execute({ message: 'stale' })).rejects.toThrow(
 			'Application handle cannot be used after disposal',
 		)
@@ -530,13 +535,14 @@ describe('plugin operation Runtime', () => {
 			version: '1.0.0',
 		})
 
-		expect(
-			() =>
+		expect(() =>
+			applicationFixture(
 				new UltimaBase({
 					pluginPrivileges: { logger: false },
 					plugins: [unprivileged],
 					schemas: [],
 				}),
+			),
 		).toThrow(
 			'must declare active privilege "transport:expose" for capability contribution "unprivileged-binding"',
 		)

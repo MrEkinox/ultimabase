@@ -1,3 +1,4 @@
+import { applicationFixture } from '../../../tests/application-fixture.js'
 import { definePlugin } from '../../foundation.js'
 import { RequestContextValue } from '../../access/index.js'
 import { Schema } from '../../schema/index.js'
@@ -104,18 +105,20 @@ describe('UltimaBase', () => {
 		const trace: string[] = []
 		let observedContext: RequestContext | undefined
 		const validation = { timezone: 'UTC' }
-		const ultimabase = new UltimaBase({
-			schemas: [articleSchema],
-			plugins: [
-				createDatabasePlugin(adapter, {
-					onContext: (context) => {
-						observedContext = context
-					},
-					trace,
-				}),
-			],
-			validation,
-		})
+		const ultimabase = applicationFixture(
+			new UltimaBase({
+				schemas: [articleSchema],
+				plugins: [
+					createDatabasePlugin(adapter, {
+						onContext: (context) => {
+							observedContext = context
+						},
+						trace,
+					}),
+				],
+				validation,
+			}),
+		)
 		validation.timezone = ''
 
 		expect(ultimabase.state).toBe('idle')
@@ -156,7 +159,7 @@ describe('UltimaBase', () => {
 			articleSchema.findMany(escapedQuery.build(), { ultimabase }),
 		).toThrow(
 			new TypeError(
-				'Framework engine cannot be used while application is stopped',
+				'Framework engine requires its initialized active application; received stopped',
 			),
 		)
 		expect(() => ultimabase.start()).toThrow(
@@ -186,19 +189,21 @@ describe('UltimaBase', () => {
 				auditEvents.push(event)
 			},
 		})
-		const ultimabase = new UltimaBase({
-			masterAuthority: authority,
-			schemas: [articleSchema],
-			plugins: [
-				createDatabasePlugin(adapter, {
-					onContext: (context) => {
-						// Runtime callbacks observe immutable request capabilities.
-						observedAccesses.push(context.access)
-						observedPrincipals.push(context.getValue(principalValue))
-					},
-				}),
-			],
-		})
+		const ultimabase = applicationFixture(
+			new UltimaBase({
+				masterAuthority: authority,
+				schemas: [articleSchema],
+				plugins: [
+					createDatabasePlugin(adapter, {
+						onContext: (context) => {
+							// Runtime callbacks observe immutable request capabilities.
+							observedAccesses.push(context.access)
+							observedPrincipals.push(context.getValue(principalValue))
+						},
+					}),
+				],
+			}),
+		)
 		const context = RequestContext.anonymous({
 			requestId: 'plugin-context-1',
 			source: requestSources.internal,
@@ -291,10 +296,12 @@ describe('UltimaBase', () => {
 			],
 			[],
 		)
-		const ultimabase = new UltimaBase({
-			plugins: [createDatabasePlugin(adapter)],
-			schemas: [articleSchema],
-		})
+		const ultimabase = applicationFixture(
+			new UltimaBase({
+				plugins: [createDatabasePlugin(adapter)],
+				schemas: [articleSchema],
+			}),
+		)
 		const draft = new articleSchema({ title: 'Created' })
 		const importedDraft = new articleSchema({ title: 'Imported' })
 
@@ -355,25 +362,29 @@ describe('UltimaBase', () => {
 
 	it('fails before execution when terminal master authority is unavailable', async () => {
 		const missingAdapter = new RecordingDatabaseAdapter([], [])
-		const missing = new UltimaBase({
-			schemas: [articleSchema],
-			plugins: [createDatabasePlugin(missingAdapter)],
-		})
+		const missing = applicationFixture(
+			new UltimaBase({
+				schemas: [articleSchema],
+				plugins: [createDatabasePlugin(missingAdapter)],
+			}),
+		)
 		const auditFailure = new Error('master audit unavailable')
 		const failingAdapter = new RecordingDatabaseAdapter([], [])
-		const failing = new UltimaBase({
-			masterAuthority: new MasterAuthority({
-				keys: [{ id: 'failing-default', value: 'unused-by-terminal' }],
-				onUse: () => {
-					throw auditFailure
-				},
+		const failing = applicationFixture(
+			new UltimaBase({
+				masterAuthority: new MasterAuthority({
+					keys: [{ id: 'failing-default', value: 'unused-by-terminal' }],
+					onUse: () => {
+						throw auditFailure
+					},
+				}),
+				schemas: [articleSchema],
+				plugins: [createDatabasePlugin(failingAdapter)],
 			}),
-			schemas: [articleSchema],
-			plugins: [createDatabasePlugin(failingAdapter)],
-		})
+		)
 
 		try {
-			await Promise.all([missing.start(), failing.start()])
+			await missing.start()
 
 			await expect(
 				articleSchema.findMany(undefined, {
@@ -381,6 +392,8 @@ describe('UltimaBase', () => {
 					useMasterKey: true,
 				}),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
+			await missing.dispose()
+			await failing.start()
 			await expect(
 				articleSchema.findMany(undefined, {
 					ultimabase: failing,
@@ -425,17 +438,21 @@ describe('UltimaBase', () => {
 			fields: (field) => ({ title: field.string() }),
 		})
 		const secondAdapter = new RecordingDatabaseAdapter([], [])
-		const first = new UltimaBase({
-			schemas: [articleSchema],
-			plugins: [createDatabasePlugin(firstAdapter)],
-		})
-		const second = new UltimaBase({
-			schemas: [otherSchema],
-			plugins: [createDatabasePlugin(secondAdapter)],
-		})
+		const first = applicationFixture(
+			new UltimaBase({
+				schemas: [articleSchema],
+				plugins: [createDatabasePlugin(firstAdapter)],
+			}),
+		)
+		const second = applicationFixture(
+			new UltimaBase({
+				schemas: [otherSchema],
+				plugins: [createDatabasePlugin(secondAdapter)],
+			}),
+		)
 
 		try {
-			await Promise.all([first.start(), second.start()])
+			await first.start()
 			const foreignContext = RequestContext.anonymous({
 				requestId: 'foreign-context',
 				source: requestSources.internal,
@@ -455,17 +472,6 @@ describe('UltimaBase', () => {
 			await expect(
 				otherSchema.findMany(undefined, { ultimabase: first }),
 			).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
-			await expect(
-				otherSchema.findMany(undefined, {
-					context: foreignContext,
-					ultimabase: second,
-				}),
-			).rejects.toMatchObject({
-				code: 'VALIDATION_ERROR',
-				internalDetails: {
-					reason: 'operation-context-application-mismatch',
-				},
-			})
 			runWithRequestEngine(
 				first.engine.anonymous({
 					requestId: 'active-first',
@@ -477,6 +483,20 @@ describe('UltimaBase', () => {
 					).toThrow(expect.objectContaining({ code: 'VALIDATION_ERROR' }))
 				},
 			)
+			await first.dispose()
+			await second.start()
+			await expect(
+				otherSchema.findMany(undefined, {
+					context: foreignContext,
+					ultimabase: second,
+				}),
+			).rejects.toMatchObject({
+				code: 'VALIDATION_ERROR',
+				internalDetails: {
+					reason: 'operation-context-application-mismatch',
+				},
+			})
+
 			expect(second.application.ownsSchema(articleSchema)).toBe(false)
 		} finally {
 			await Promise.all([first.dispose(), second.dispose()])
@@ -498,10 +518,12 @@ describe('UltimaBase', () => {
 				},
 			},
 		})
-		const ultimabase = new UltimaBase({
-			schemas: [articleSchema],
-			plugins: [plugin],
-		})
+		const ultimabase = applicationFixture(
+			new UltimaBase({
+				schemas: [articleSchema],
+				plugins: [plugin],
+			}),
+		)
 
 		await expect(ultimabase.start()).rejects.toThrow(
 			new TypeError(
@@ -515,24 +537,26 @@ describe('UltimaBase', () => {
 	it('rejects malformed JavaScript options before plugin setup', () => {
 		expect(() => {
 			// @ts-expect-error -- Runtime validation protects non-object callers.
-			new UltimaBase(null)
+			applicationFixture(new UltimaBase(null))
 		}).toThrow(new TypeError('UltimaBase options must be a plain object'))
-		expect(
-			() =>
+		expect(() =>
+			applicationFixture(
 				new UltimaBase({
 					schemas: [],
 					plugins: [],
 					// @ts-expect-error -- Runtime validation protects unknown options.
 					unknown: true,
 				}),
+			),
 		).toThrow(new TypeError('UltimaBase contains unknown option: unknown'))
-		expect(
-			() =>
+		expect(() =>
+			applicationFixture(
 				new UltimaBase({
 					schemas: [],
 					plugins: [],
 					validation: { timezone: '' },
 				}),
+			),
 		).toThrow(
 			new TypeError('Runtime validation timezone must be a non-empty string'),
 		)

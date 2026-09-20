@@ -1,3 +1,4 @@
+import { onTestFinished } from 'vitest'
 import {
 	Schema,
 	createApplication,
@@ -55,6 +56,7 @@ describe('REST route metadata', () => {
 			plugins: [restPlugin()],
 			schemas: [Post],
 		})
+		onTestFinished(() => application.dispose())
 		const rest = readRest(application)
 
 		expect(summarize(rest)).toMatchInlineSnapshot(`
@@ -167,6 +169,7 @@ describe('REST route metadata', () => {
 			],
 			schemas: [Post],
 		})
+		onTestFinished(() => application.dispose())
 		const routes = summarize(readRest(application))
 
 		expect(routes.map(({ operation }) => operation)).toStrictEqual([
@@ -200,6 +203,7 @@ describe('REST route metadata', () => {
 			plugins: [restPlugin({ default: false })],
 			schemas: [Enabled, Disabled],
 		})
+		onTestFinished(() => application.dispose())
 		const routes = readRest(application).routeGraph.routes.filter(
 			(route) => route.kind === 'rest-schema-route',
 		)
@@ -224,6 +228,7 @@ describe('REST route metadata', () => {
 			plugins: [plugin],
 			schemas: [Post],
 		})
+		onTestFinished(() => application.dispose())
 		const routes = readRest(application).routeGraph.routes
 
 		expect(routes.some(({ operation }) => operation === 'count')).toBe(true)
@@ -275,6 +280,7 @@ describe('REST route metadata', () => {
 			plugins: [storagePlugin(false), restPlugin({ default: true })],
 			schemas: [],
 		})
+		onTestFinished(() => privateApplication.dispose())
 
 		expect(readRest(privateApplication).routeGraph.routes).toStrictEqual([])
 		await privateApplication.dispose()
@@ -319,11 +325,11 @@ describe('REST route metadata', () => {
 				schemas: [Visible],
 			})
 		const first = await compile(true)
+		const firstRoutes = summarize(readRest(first))
+		await first.dispose()
 		const second = await compile(false)
 
-		expect(summarize(readRest(first))).toStrictEqual(
-			summarize(readRest(second)),
-		)
+		expect(firstRoutes).toStrictEqual(summarize(readRest(second)))
 		expect(first.schemas.has('DynamicStorage')).toBe(true)
 		expect(second.schemas.has('DynamicStorage')).toBe(false)
 		await first.dispose()
@@ -340,6 +346,7 @@ describe('REST route metadata', () => {
 			],
 			schemas: [Post],
 		})
+		onTestFinished(() => application.dispose())
 		const publicRest = readRest(application, 'public')
 		const adminRest = readRest(application, 'admin')
 
@@ -377,8 +384,9 @@ describe('REST route metadata', () => {
 				schemas: [Post],
 			})
 		const first = await create()
-		const second = await create()
 		const firstRest = readRest(first)
+		await first.dispose()
+		const second = await create()
 		const secondRest = readRest(second)
 
 		expect(summarize(firstRest)).toStrictEqual(summarize(secondRest))
@@ -435,6 +443,7 @@ describe('REST route metadata', () => {
 			plugins: [restPlugin()],
 			schemas: [define(true)],
 		})
+		onTestFinished(() => application.dispose())
 		expect(readRest(application).routeGraph.routes.length).toBeGreaterThan(0)
 		await application.dispose()
 	})
@@ -460,6 +469,7 @@ describe('REST route metadata', () => {
 			plugins: [restPlugin()],
 			schemas: [Virtual],
 		})
+		onTestFinished(() => application.dispose())
 		const route = readRest(application).routeGraph.routes.find(
 			(candidate) => candidate.kind === 'rest-schema-route',
 		)

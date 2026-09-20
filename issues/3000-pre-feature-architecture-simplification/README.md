@@ -10,7 +10,7 @@ canonical compiled graph.
 The user approved the exact single-active-application compatibility exception
 in issue 3002 / ADR-0258. It retires concurrent initialized applications and
 shared-server application routing while retaining HTTP identity and isolated
-test workers; implementation remains in issues 3006/3007.
+test workers; issue 3006 enforces lifecycle ownership, and issue 3007 removes shared HTTP ownership.
 ADR-0259 records the ten approved extension removals, equivalent internal
 performance measurements, and the retained application-operation/schema-mutation
 graph. Issues 3004/3005 perform the removals; 3008–3013 consolidate the graph.
@@ -31,7 +31,7 @@ this milestone.
 3. [x] [3003 — Decide the smaller plugin kernel and canonical graph](3003-smaller-plugin-kernel-decision.md)
 4. [x] [3004 — Remove unused replacement and observer powers](3004-remove-unused-capability-replacement.md)
 5. [x] [3005 — Remove unused declaration and Typegen powers](3005-remove-unused-declaration-typegen-powers.md)
-6. [ ] [3006 — Enforce one active UltimaBase runtime per process](3006-single-active-ultimabase-runtime.md)
+6. [x] [3006 — Enforce one active UltimaBase runtime per process](3006-single-active-ultimabase-runtime.md)
 7. [ ] [3007 — Simplify HTTP and server application ownership](3007-simplify-http-application-ownership.md)
 8. [ ] [3008 — Compile one canonical command graph](3008-canonical-command-graph.md)
 9. [ ] [3009 — Migrate application operations to the canonical graph](3009-migrate-application-operations.md)

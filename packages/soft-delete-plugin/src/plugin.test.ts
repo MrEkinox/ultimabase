@@ -1,3 +1,4 @@
+import { onTestFinished } from 'vitest'
 import {
 	FrameworkApplication,
 	Schema,
@@ -89,6 +90,7 @@ describe('softDeletePlugin', () => {
 			plugins: [softDeletePlugin({ defaultMode: 'replace-delete' })],
 			schemas: [Explicit, Replace, Inherited, Disabled],
 		})
+		onTestFinished(() => application.dispose())
 
 		await application.initialize()
 		try {
@@ -137,6 +139,7 @@ describe('softDeletePlugin', () => {
 			plugins: [softDeletePlugin({ defaultMode: 'explicit' })],
 			schemas: [Direct, Inherited, Replace, Disabled],
 		})
+		onTestFinished(() => application.dispose())
 
 		await application.initialize()
 		try {
@@ -182,6 +185,7 @@ describe('softDeletePlugin', () => {
 			plugins: [plugin],
 			schemas: [Direct, Inherited, Explicit, Disabled],
 		})
+		onTestFinished(() => application.dispose())
 
 		await application.initialize()
 		try {
@@ -210,13 +214,16 @@ describe('softDeletePlugin', () => {
 			plugins: [replacePlugin],
 			schemas: [ReplaceDocument],
 		})
+		onTestFinished(() => replaceApplication.dispose())
 		const explicitApplication = new FrameworkApplication({
 			pluginPrivileges: { logger: false },
 			plugins: [explicitPlugin],
 			schemas: [ExplicitDocument],
 		})
+		onTestFinished(() => explicitApplication.dispose())
 
 		await replaceApplication.initialize()
+		await replaceApplication.dispose()
 		await explicitApplication.initialize()
 		try {
 			const replacePlan = createSoftDeletePersistenceRewriter(
@@ -244,6 +251,7 @@ describe('softDeletePlugin', () => {
 			plugins: [],
 			schemas: [Document],
 		})
+		onTestFinished(() => application.dispose())
 
 		await expect(application.initialize()).rejects.toThrow(
 			'Unknown schema option: softDelete',
@@ -259,6 +267,7 @@ describe('softDeletePlugin', () => {
 			plugins: [softDeletePlugin({ defaultMode: 'replace-delete' })],
 			schemas: [Explicit, Disabled, Inherited],
 		})
+		onTestFinished(() => application.dispose())
 
 		await application.initialize()
 		expect(
@@ -311,6 +320,7 @@ describe('softDeletePlugin', () => {
 			plugins: [softDeletePlugin()],
 			schemas: [Document],
 		})
+		onTestFinished(() => application.dispose())
 
 		await expect(application.initialize()).rejects.toThrow(
 			'Duplicate schema field: SoftDeleteCollisionDocument.isDeleted',
@@ -331,6 +341,7 @@ describe('softDeletePlugin', () => {
 			plugins: [softDeletePlugin(), observer],
 			schemas: [Invalid],
 		})
+		onTestFinished(() => application.dispose())
 
 		await expect(application.initialize()).rejects.toThrow(
 			'InvalidSoftDeleteDocument.softDelete is invalid for option owner @ultimabase/soft-delete-plugin',
@@ -348,6 +359,7 @@ describe('softDeletePlugin', () => {
 			],
 			schemas: [Document],
 		})
+		onTestFinished(() => application.dispose())
 
 		await expect(application.initialize()).rejects.toThrow(
 			'Ambiguous schema option owner for "softDelete"',

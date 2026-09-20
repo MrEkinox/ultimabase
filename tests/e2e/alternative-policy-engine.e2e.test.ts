@@ -232,11 +232,13 @@ describe('independent protected policy engine', () => {
 		})
 
 		try {
-			await Promise.all([first.start(), second.start()])
+			await first.start()
 			await Document.findMany(undefined, { ultimabase: first })
 			expect(
 				first.application.getPlugin(alternativePolicyPluginId).diagnostics(),
 			).toHaveLength(1)
+			await first.dispose()
+			await second.start()
 			expect(
 				second.application.getPlugin(alternativePolicyPluginId).diagnostics(),
 			).toStrictEqual([])
@@ -346,25 +348,23 @@ describe('independent protected policy engine', () => {
 		})
 
 		try {
-			await Promise.all([
-				noAccess.start(),
-				official.start(),
-				alternative.start(),
-			])
-			const [plainMaster, officialMaster, anonymousAlternative] =
-				await Promise.all([
-					Plain.findMany(undefined, {
-						ultimabase: noAccess,
-						useMasterKey: true,
-					}),
-					Plain.findMany(undefined, {
-						ultimabase: official,
-						useMasterKey: true,
-					}),
-					alternativeFixture.Document.findMany(undefined, {
-						ultimabase: alternative,
-					}),
-				])
+			await noAccess.start()
+			const plainMaster = await Plain.findMany(undefined, {
+				ultimabase: noAccess,
+				useMasterKey: true,
+			})
+			await noAccess.dispose()
+			await official.start()
+			const officialMaster = await Plain.findMany(undefined, {
+				ultimabase: official,
+				useMasterKey: true,
+			})
+			await official.dispose()
+			await alternative.start()
+			const anonymousAlternative = await alternativeFixture.Document.findMany(
+				undefined,
+				{ ultimabase: alternative },
+			)
 			const alternativeMaster = await alternativeFixture.Document.findMany(
 				undefined,
 				{ ultimabase: alternative, useMasterKey: true },

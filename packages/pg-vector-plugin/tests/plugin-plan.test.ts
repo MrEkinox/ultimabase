@@ -1,3 +1,4 @@
+import { onTestFinished } from 'vitest'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -55,6 +56,7 @@ describe('pgVectorPlugin field plans', () => {
 			plugins: [pgVectorPlugin()],
 			schemas: [schema],
 		})
+		onTestFinished(() => application.dispose())
 		const plan = compileValidationPlans(schema).create.fields.embedding
 		const plugin = application.getPlugin('@ultimabase/pg-vector-plugin')
 
@@ -82,6 +84,7 @@ describe('pgVectorPlugin field plans', () => {
 			plugins: [pgVectorPlugin()],
 			schemas: [schema],
 		})
+		onTestFinished(() => application.dispose())
 		const plan = compileValidationPlans(schema).create.fields.embedding
 		const plugin = application.getPlugin('@ultimabase/pg-vector-plugin')
 
@@ -106,6 +109,7 @@ describe('pgVectorPlugin field plans', () => {
 			plugins: [pgVectorPlugin()],
 			schemas: [],
 		})
+		onTestFinished(() => application.dispose())
 		const plugin = application.getPlugin('@ultimabase/pg-vector-plugin')
 		const foreignPlan = {
 			kind: 'scalar',

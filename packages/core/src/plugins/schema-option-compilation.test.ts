@@ -1,3 +1,4 @@
+import { applicationFixture } from '../../tests/application-fixture.js'
 import { describe, expect, it } from 'vitest'
 import {
 	FrameworkApplication,
@@ -276,11 +277,13 @@ describe('plugin schema option compilation', () => {
 			readonly runtimeTag: string
 		})
 
-		const application = new FrameworkApplication({
-			pluginPrivileges: { logger: false },
-			plugins: [owner, provider],
-			schemas: [Post],
-		})
+		const application = applicationFixture(
+			new FrameworkApplication({
+				pluginPrivileges: { logger: false },
+				plugins: [owner, provider],
+				schemas: [Post],
+			}),
+		)
 		application.compileSchemas()
 		expect(events).toEqual([])
 		await application.initialize()
@@ -378,11 +381,13 @@ describe('plugin schema option compilation', () => {
 			readonly runtimeTag: string
 		})
 
-		const application = new FrameworkApplication({
-			pluginPrivileges: { logger: false },
-			plugins: [owner, provider],
-			schemas: [Post],
-		})
+		const application = applicationFixture(
+			new FrameworkApplication({
+				pluginPrivileges: { logger: false },
+				plugins: [owner, provider],
+				schemas: [Post],
+			}),
+		)
 		let failure: unknown
 		try {
 			await application.initialize()
@@ -424,7 +429,9 @@ describe('plugin schema option compilation', () => {
 			readonly workflow: Readonly<{ readonly enabled: boolean }>
 		})
 
-		await createApplication({ plugins: [optionPlugin()], schemas: [Post] })
+		applicationFixture(
+			await createApplication({ plugins: [optionPlugin()], schemas: [Post] }),
+		)
 
 		workflow.enabled = false
 		search.weight = 0
@@ -528,14 +535,16 @@ describe('plugin schema option compilation', () => {
 				},
 			})
 
-		const application = await createApplication({
-			pluginPrivileges: { logger: false },
-			plugins: [
-				plugin('fixture.first-options'),
-				plugin('fixture.second-options'),
-			],
-			schemas: [],
-		})
+		const application = applicationFixture(
+			await createApplication({
+				pluginPrivileges: { logger: false },
+				plugins: [
+					plugin('fixture.first-options'),
+					plugin('fixture.second-options'),
+				],
+				schemas: [],
+			}),
+		)
 
 		expect(normalizations).toBe(0)
 		await application.dispose()
@@ -582,14 +591,16 @@ describe('plugin schema option compilation', () => {
 				},
 			})
 
-		await createApplication({
-			pluginPrivileges: { logger: false },
-			plugins: [
-				plugin('fixture.first-exact-option', First, 'first'),
-				plugin('fixture.second-exact-option', Second, 'second'),
-			],
-			schemas: [],
-		})
+		applicationFixture(
+			await createApplication({
+				pluginPrivileges: { logger: false },
+				plugins: [
+					plugin('fixture.first-exact-option', First, 'first'),
+					plugin('fixture.second-exact-option', Second, 'second'),
+				],
+				schemas: [],
+			}),
+		)
 
 		expect(Reflect.get(First.definition, 'shared')).toBe('first:value')
 		expect(Reflect.get(Second.definition, 'shared')).toBe('second:value')
@@ -645,14 +656,16 @@ describe('plugin schema option compilation', () => {
 				},
 			})
 
-		await createApplication({
-			pluginPrivileges: { logger: false },
-			plugins: [
-				plugin('fixture.first-exact-field-option', First, 'first'),
-				plugin('fixture.second-exact-field-option', Second, 'second'),
-			],
-			schemas: [],
-		})
+		applicationFixture(
+			await createApplication({
+				pluginPrivileges: { logger: false },
+				plugins: [
+					plugin('fixture.first-exact-field-option', First, 'first'),
+					plugin('fixture.second-exact-field-option', Second, 'second'),
+				],
+				schemas: [],
+			}),
+		)
 
 		const firstTitle = requireField(First.fields.title)
 		const secondTitle = requireField(Second.fields.title)

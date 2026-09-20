@@ -1,3 +1,4 @@
+import { onTestFinished } from 'vitest'
 import {
 	FrameworkError,
 	RequestContext,
@@ -83,8 +84,8 @@ const customSchema = (): GraphQLSchema =>
 		}),
 	})
 
-const createFixture = (limits: GraphqlExecutionLimits = {}) =>
-	new UltimaBase({
+const createFixture = (limits: GraphqlExecutionLimits = {}) => {
+	const application = new UltimaBase({
 		pluginPrivileges: { logger: false },
 		plugins: [
 			graphqlPlugin({
@@ -97,6 +98,9 @@ const createFixture = (limits: GraphqlExecutionLimits = {}) =>
 		],
 		schemas: [Hidden],
 	})
+	onTestFinished(() => application.dispose())
+	return application
+}
 
 describe('GraphQL networkless execution', () => {
 	it('executes string and parsed documents in one exact request scope', async () => {
@@ -128,14 +132,17 @@ describe('GraphQL networkless execution', () => {
 	it('rejects foreign, forged, cancelled, stale, and disposed execution', async () => {
 		const first = createFixture()
 		const second = createFixture()
-		await Promise.all([first.start(), second.start()])
-		const graphql = first.application.getPlugin(
-			'@ultimabase/graphql-plugin',
-		) as GraphqlApplication
+		await second.start()
+
 		const foreign = second.engine.anonymous({
 			requestId: 'foreign-context',
 			source: 'test',
 		}).context
+		await second.dispose()
+		await first.start()
+		const graphql = first.application.getPlugin(
+			'@ultimabase/graphql-plugin',
+		) as GraphqlApplication
 		await expect(
 			graphql.execute({ context: foreign, document: '{ context }' }),
 		).rejects.toThrow()

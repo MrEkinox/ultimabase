@@ -78,6 +78,7 @@ describe('official Hooks capability conformance', () => {
 			])
 			expect(successEvidence.database.commits).toBe(1)
 
+			await success.ultimabase.dispose()
 			const rollback = context.createUltimaBase()
 			const rollbackSchema = requireSchema(
 				rollback.schemas[0],
@@ -97,18 +98,21 @@ describe('official Hooks capability conformance', () => {
 				'event:official-hooks.created',
 			)
 
+			await rollback.ultimabase.dispose()
 			const first = context.createUltimaBase()
 			const second = context.createUltimaBase()
 			const firstSchema = requireSchema(first.schemas[0], 'First Hooks')
 			const secondSchema = requireSchema(second.schemas[0], 'Second Hooks')
 			const firstEvidence = getOfficialHooksConformanceEvidence(firstSchema)
 			const secondEvidence = getOfficialHooksConformanceEvidence(secondSchema)
-			await Promise.all([first.ultimabase.start(), second.ultimabase.start()])
+			await first.ultimabase.start()
 			await firstSchema.createOne(
 				{ data: { title: 'first' } },
 				{ ultimabase: first.ultimabase },
 			)
 			expect(firstEvidence.trace).not.toStrictEqual([])
+			await first.ultimabase.dispose()
+			await second.ultimabase.start()
 			expect(secondEvidence.trace).toStrictEqual([])
 		})
 

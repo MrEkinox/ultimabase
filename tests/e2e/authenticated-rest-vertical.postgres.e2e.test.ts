@@ -30,6 +30,7 @@ const authPath = (name: string): string => `/api/v1/auth/${name}`
 let firstFixture: PostgresWorkerFixture | undefined
 let secondFixture: PostgresWorkerFixture | undefined
 let firstApplication: MinimalApplication | undefined
+let createFirstApplication: (() => MinimalApplication) | undefined
 let secondApplication: MinimalApplication | undefined
 let example: MinimalExampleModule | undefined
 let apiServer: ServerType | undefined
@@ -191,14 +192,16 @@ beforeAll(async () => {
 		browserPolicyOwner: 'ultimabase',
 	})
 	const minimal = requireExample()
-	firstApplication = minimal.createMinimalApplication({
-		applicationId: firstAppId,
-		browserOrigin,
-		databaseUrl: createdFirstFixture.connectionUri,
-		masterKey: firstMasterKey,
-		onMasterUse: (event) => firstAudits.push(event),
-		server: sharedServer,
-	})
+	createFirstApplication = () =>
+		minimal.createMinimalApplication({
+			applicationId: firstAppId,
+			browserOrigin,
+			databaseUrl: createdFirstFixture.connectionUri,
+			masterKey: firstMasterKey,
+			onMasterUse: (event) => firstAudits.push(event),
+			server: sharedServer,
+		})
+	firstApplication = createFirstApplication()
 	secondApplication = minimal.createMinimalApplication({
 		applicationId: secondAppId,
 		browserOrigin,
@@ -207,7 +210,7 @@ beforeAll(async () => {
 		onMasterUse: () => undefined,
 		server: sharedServer,
 	})
-	await Promise.all([firstApplication.start(), secondApplication.start()])
+	await firstApplication.start()
 	apiServer = await startApiServer(hono)
 	baseUrl = readOrigin(apiServer)
 }, 30_000)
@@ -372,6 +375,8 @@ describe('authenticated public REST vertical', { concurrent: false }, () => {
 			/correct horse|incorrect password|unknown-user/u,
 		)
 
+		await application.dispose()
+		await requireApplication(secondApplication, 'second').start()
 		const foreign = await requestJson(secondAppId, statusPath, {
 			body: { input: null },
 			method: 'POST',
@@ -428,6 +433,12 @@ describe('authenticated public REST vertical', { concurrent: false }, () => {
 				{ ultimabase: secondApplicationInstance },
 			]),
 		).resolves.toBeNull()
+
+		await secondApplicationInstance.dispose()
+		if (createFirstApplication === undefined)
+			throw new TypeError('First application factory is unavailable')
+		firstApplication = createFirstApplication()
+		await firstApplication.start()
 
 		for (const response of await Promise.all([
 			requestJson(firstAppId, statusPath, {

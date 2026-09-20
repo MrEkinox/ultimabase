@@ -1,3 +1,4 @@
+import { onTestFinished } from 'vitest'
 import {
 	MasterAuthority,
 	PluginError,
@@ -248,6 +249,7 @@ const createFixture = async (
 		],
 		schemas: [WorkflowDocument],
 	})
+	onTestFinished(() => application.dispose())
 	await application.start()
 	if (capture.current === undefined)
 		throw new TypeError('HTTP application missing')
@@ -444,18 +446,21 @@ describe('REST schema mutation exposure', () => {
 	})
 
 	it('keeps application context provenance and cancellation ahead of decoding', async () => {
-		const first = await createFixture()
 		const second = await createFixture()
+		const foreign = second.application.engine.anonymous({
+			requestId: 'foreign',
+			source: 'rest',
+		})
+		await second.application.dispose()
+		const first = await createFixture()
+
 		try {
 			const transport = first.rest.schemaMutationTransport
 			const route = transport?.mutations[0]
 			if (transport === undefined || route === undefined) {
 				throw new TypeError('REST schema mutation transport missing')
 			}
-			const foreign = second.application.engine.anonymous({
-				requestId: 'foreign',
-				source: 'rest',
-			})
+
 			const before = first.decode.mock.calls.length
 			await expect(
 				transport.execute(

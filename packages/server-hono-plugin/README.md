@@ -9,8 +9,8 @@ REST, GraphQL, and the protocol-neutral HTTP package do not depend on them.
 Without an existing app, the plugin creates one Hono application and owns its
 Node listener. The default port is `1337`; `host` is forwarded only when the
 developer configures it. The listener opens only during `startTransports`,
-after the complete application graph has validated, and closes after the last
-attached application stops.
+after the complete application graph has validated, and closes when its
+application stops.
 
 ```ts
 import { UltimaBase } from '@ultimabase/core'
@@ -28,41 +28,18 @@ await application.start()
 ```
 
 Port `0` is accepted for tests that need an operating-system-selected ephemeral
-port. Starting two independently created managed providers on the same fixed
-address produces the normal deterministic Node address-conflict failure.
+port. An independently owned listener on the same fixed address produces the normal
+deterministic Node address-conflict failure.
 
-## Explicit server sharing
+## Application ownership
 
-One exact plugin value identifies one provider. Reuse that value deliberately
-to mount several UltimaBase applications behind one listener. Each application
-must have a unique HTTP `appId`; selection occurs before its immutable route
-graph is dispatched.
-
-```ts
-const server = honoServerPlugin({ port: 1337 })
-
-const publicApi = new UltimaBase({
-	plugins: [httpPlugin({ appId: 'public-api' }), server],
-	schemas: [],
-})
-
-const adminApi = new UltimaBase({
-	plugins: [httpPlugin({ appId: 'admin-api' }), server],
-	schemas: [],
-})
-
-await Promise.all([publicApi.start(), adminApi.start()])
-```
-
-Every application sharing this provider must configure a structurally identical
-HTTP `browser` policy. A mismatch rejects the candidate before the provider
-changes its route table or listener, leaving already mounted applications
-unchanged.
-
-Stopping one application removes only its exact mount. The listener remains
-open while another application is attached. Separate `honoServerPlugin()`
-calls always create separate providers and never communicate through a global
-registry.
+Core permits one initialized application per JavaScript realm. A second
+application fails before setup or listener effects. Complete disposal permits
+a later application; independent simultaneous applications require separate
+workers, processes, or containers. The HTTP `appId` still identifies the exact
+expected application and grants no authority. The provider's former shared-mount
+implementation is being removed by milestone 30 issue 3007; concurrent
+application hosting is already unavailable through Core.
 
 ## Existing Hono application
 

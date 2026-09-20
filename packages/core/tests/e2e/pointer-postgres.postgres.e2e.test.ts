@@ -694,7 +694,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 			schemas: pointerSchemas,
 		})
 
-		await independentApp.application.initialize()
+		independentApp.application.compileSchemas()
 
 		try {
 			const independentGraph = independentApp.application.schemaTargets

@@ -1,3 +1,4 @@
+import { onTestFinished } from 'vitest'
 import {
 	MasterAuthority,
 	Schema,
@@ -80,6 +81,7 @@ describe('soft-delete visibility', () => {
 			plugins: [softDeletePlugin(), databasePlugin(adapter)],
 			schemas: [Document],
 		})
+		onTestFinished(() => ultimabase.dispose())
 
 		try {
 			await ultimabase.start()
@@ -120,6 +122,7 @@ describe('soft-delete visibility', () => {
 			plugins: [softDeletePlugin(), databasePlugin(enabledAdapter)],
 			schemas: [Enabled],
 		})
+		onTestFinished(() => enabled.dispose())
 		const disabledAdapter = new VisibilityReadAdapter([
 			{
 				createdAt: activeRow.createdAt,
@@ -133,14 +136,16 @@ describe('soft-delete visibility', () => {
 			plugins: [softDeletePlugin(), databasePlugin(disabledAdapter)],
 			schemas: [Disabled],
 		})
+		onTestFinished(() => disabled.dispose())
 
 		try {
 			await enabled.start()
-			await disabled.start()
 			await Enabled.findMany(undefined, {
 				ultimabase: enabled,
 				useMasterKey: true,
 			})
+			await enabled.dispose()
+			await disabled.start()
 			await Disabled.findMany(undefined, { ultimabase: disabled })
 
 			expect(enabledAdapter.requests[0]?.rowFilter).toEqual({

@@ -1,3 +1,4 @@
+import { applicationFixture } from '../../../tests/application-fixture.js'
 import {
 	createApplication,
 	definePlugin,
@@ -47,22 +48,28 @@ describe('Runtime relation filter isolation', () => {
 		})
 		const firstAdapter = new RecordingDatabaseAdapter([], [])
 		const secondAdapter = new RecordingDatabaseAdapter([], [])
-		const first = await createApplication({
-			plugins: [
-				databasePlugin('fixture.relation-isolation-first', firstAdapter),
-			],
-			schemas: [Source, Target],
-		})
-		const second = await createApplication({
-			plugins: [
-				databasePlugin('fixture.relation-isolation-second', secondAdapter),
-			],
-			schemas: [Source, Target],
-		})
+		const first = applicationFixture(
+			await createApplication({
+				plugins: [
+					databasePlugin('fixture.relation-isolation-first', firstAdapter),
+				],
+				schemas: [Source, Target],
+			}),
+		)
+
 		const firstRequest = createFrameworkEngine(first).anonymous({
 			requestId: 'relation-isolation-first',
 			source: requestSources.internal,
 		})
+		await first.dispose()
+		const second = applicationFixture(
+			await createApplication({
+				plugins: [
+					databasePlugin('fixture.relation-isolation-second', secondAdapter),
+				],
+				schemas: [Source, Target],
+			}),
+		)
 		const secondRequest = createFrameworkEngine(second).anonymous({
 			requestId: 'relation-isolation-second',
 			source: requestSources.internal,
@@ -73,8 +80,8 @@ describe('Runtime relation filter isolation', () => {
 
 		try {
 			await expect(
-				runWithRequestEngine(firstRequest, () =>
-					relation.count({}, { context: secondRequest.context }),
+				runWithRequestEngine(secondRequest, () =>
+					relation.count({}, { context: firstRequest.context }),
 				),
 			).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
 			expect(invocations).toBe(0)
@@ -106,10 +113,12 @@ describe('Runtime relation filter isolation', () => {
 			}),
 		})
 		const adapter = new RecordingDatabaseAdapter([], [])
-		const application = await createApplication({
-			plugins: [databasePlugin('fixture.relation-cancellation', adapter)],
-			schemas: [Source, Target],
-		})
+		const application = applicationFixture(
+			await createApplication({
+				plugins: [databasePlugin('fixture.relation-cancellation', adapter)],
+				schemas: [Source, Target],
+			}),
+		)
 		const request = createFrameworkEngine(application).anonymous({
 			requestId: 'relation-cancellation',
 			signal: controller.signal,

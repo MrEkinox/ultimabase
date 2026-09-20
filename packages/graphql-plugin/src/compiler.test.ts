@@ -1,3 +1,4 @@
+import { onTestFinished } from 'vitest'
 import {
 	Schema,
 	createApplication,
@@ -79,6 +80,7 @@ describe('GraphQL structural schema compilation', () => {
 			plugins: [pgVectorPlugin(), graphqlPlugin()],
 			schemas: [Author, Post],
 		})
+		onTestFinished(() => application.dispose())
 		const schema = readGraphql(application).schema
 		const post = schema.getType('Post')
 		const author = schema.getType('Author')
@@ -228,6 +230,7 @@ describe('GraphQL structural schema compilation', () => {
 			plugins: [graphqlPlugin()],
 			schemas: [CircularAuthor, CircularPost],
 		})
+		onTestFinished(() => application.dispose())
 		const schema = readGraphql(application).schema
 		const postCreate = schema.getType('CircularPostCreateInput')
 		const pointerUpdate = schema.getType('CircularPostAuthorNestedUpdateInput')
@@ -274,6 +277,7 @@ describe('GraphQL structural schema compilation', () => {
 			plugins: [graphqlPlugin()],
 			schemas: [Entry],
 		})
+		onTestFinished(() => application.dispose())
 		const type = readGraphql(application).schema.getType('EntryState')
 
 		expect(isEnumType(type)).toBe(true)
@@ -312,6 +316,7 @@ describe('GraphQL structural schema compilation', () => {
 			plugins: [provider, graphqlPlugin()],
 			schemas: [Post],
 		})
+		onTestFinished(() => application.dispose())
 		const schema = readGraphql(application).schema
 
 		expect(schema.getType('Audit')).toBeDefined()
@@ -483,13 +488,14 @@ describe('GraphQL structural schema compilation', () => {
 			plugins: [graphqlPlugin()],
 			schemas: [Visible],
 		})
+		onTestFinished(() => application.dispose())
 		const graphql = readGraphql(application)
 		expect(graphql.schema.getType('Visible')).toBeDefined()
 		await application.dispose()
 		expect(() => graphql.schema).toThrow('has been disposed')
 	})
 
-	it('rejects duplicate GraphQL owners and isolates parallel applications', async () => {
+	it('rejects duplicate GraphQL owners and isolates sequential applications', async () => {
 		const Duplicate = Schema.define({
 			className: 'Duplicate',
 			fields: (field) => ({ value: field.string() }),
@@ -516,27 +522,23 @@ describe('GraphQL structural schema compilation', () => {
 				value: field.string(),
 			}),
 		})
-		const [alpha, beta] = await Promise.all([
-			createApplication({
-				pluginPrivileges: { logger: false },
-				plugins: [graphqlPlugin()],
-				schemas: [Alpha],
-			}),
-			createApplication({
-				pluginPrivileges: { logger: false },
-				plugins: [graphqlPlugin()],
-				schemas: [Beta],
-			}),
-		])
+		const alpha = await createApplication({
+			pluginPrivileges: { logger: false },
+			plugins: [graphqlPlugin()],
+			schemas: [Alpha],
+		})
+		const alphaSchema = readGraphql(alpha).schema
+		await alpha.dispose()
+		const beta = await createApplication({
+			pluginPrivileges: { logger: false },
+			plugins: [graphqlPlugin()],
+			schemas: [Beta],
+		})
 
-		expect(readGraphql(alpha).schema.getType('Beta')).toBeUndefined()
+		expect(alphaSchema.getType('Beta')).toBeUndefined()
 		expect(readGraphql(beta).schema.getType('Alpha')).toBeUndefined()
-		expect(
-			readGraphql(alpha).schema.getType('AlphaNextNestedCreateInput'),
-		).toBeDefined()
-		expect(
-			readGraphql(alpha).schema.getType('BetaNextNestedCreateInput'),
-		).toBeUndefined()
+		expect(alphaSchema.getType('AlphaNextNestedCreateInput')).toBeDefined()
+		expect(alphaSchema.getType('BetaNextNestedCreateInput')).toBeUndefined()
 		expect(
 			readGraphql(beta).schema.getType('BetaNextNestedCreateInput'),
 		).toBeDefined()

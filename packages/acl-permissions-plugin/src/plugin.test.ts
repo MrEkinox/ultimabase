@@ -1,3 +1,4 @@
+import { onTestFinished } from 'vitest'
 import type { FrameworkError } from '@ultimabase/core'
 import {
 	RequestSubjectReference,
@@ -248,11 +249,8 @@ const createRoleProviderFixture = (
 			break
 	}
 
-	return {
-		adapter,
-		role,
-		ultimabase: new UltimaBase({ plugins, schemas: [ProtectedPost] }),
-	}
+	const ultimabase = new UltimaBase({ plugins, schemas: [ProtectedPost] })
+	return { adapter, role, ultimabase }
 }
 
 describe('aclPlugin create input resolution', () => {
@@ -280,6 +278,7 @@ describe('aclPlugin create input resolution', () => {
 			schemas: [ProtectedPost],
 			plugins: [aclPlugin()],
 		})
+		onTestFinished(() => application.dispose())
 
 		const protectedSchemas = application.getPlugin('ultimabase.acl').schemas
 		expect(protectedSchemas).toStrictEqual([ProtectedPost])
@@ -378,12 +377,11 @@ describe('aclPlugin create input resolution', () => {
 		).map(([suffix, placement]) => createRoleProviderFixture(suffix, placement))
 
 		try {
-			await Promise.all(fixtures.map(({ ultimabase }) => ultimabase.start()))
-			await Promise.all(
-				fixtures.map(({ ultimabase }) =>
-					ProtectedPost.findMany(undefined, { ultimabase }),
-				),
-			)
+			for (const { ultimabase } of fixtures) {
+				await ultimabase.start()
+				await ProtectedPost.findMany(undefined, { ultimabase })
+				await ultimabase.dispose()
+			}
 
 			for (const { adapter, role } of fixtures) {
 				expect(JSON.stringify(adapter.requests[0]?.rowFilter)).toContain(

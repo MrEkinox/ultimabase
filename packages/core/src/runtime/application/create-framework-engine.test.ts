@@ -584,6 +584,8 @@ describe('createFrameworkEngine', () => {
 			),
 		)
 
+		await missingAdapterApplication.dispose()
+
 		const invalidAdapterPlugin = definePlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
@@ -604,6 +606,7 @@ describe('createFrameworkEngine', () => {
 		)
 
 		const adapter = new RecordingDatabaseAdapter([], [])
+		await invalidAdapterApplication.dispose()
 		const invalidPipelinePlugin = definePlugin({
 			version: '0.0.0',
 			core: '^0.0.0',

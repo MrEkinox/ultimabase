@@ -28,7 +28,7 @@ import {
 } from '@ultimabase/shared'
 
 import { throwIfOperationCancelled } from '../cancellation/operation-cancellation.js'
-import { runWithRequestEngineScope } from '../context/active-framework-storage.js'
+import { runWithRequestEngine } from '../context/active-framework-context.js'
 import type {
 	RequestContext,
 	RequestContextOptions,
@@ -212,7 +212,7 @@ class CoreApplicationRequestExecutor implements ApplicationRequestExecutor {
 		throwIfOperationCancelled(request.context.signal, {
 			phase: 'application-request-execution',
 		})
-		return runWithRequestEngineScope(request, () => callback(context))
+		return runWithRequestEngine(request, () => callback(context))
 	}
 
 	executeRead<const TOperation extends OperationAstNode>(
@@ -226,7 +226,7 @@ class CoreApplicationRequestExecutor implements ApplicationRequestExecutor {
 		throwIfOperationCancelled(request.context.signal, {
 			phase: 'application-request-read-execution',
 		})
-		return runWithRequestEngineScope(request, () =>
+		return runWithRequestEngine(request, () =>
 			executeOperation(operation, normalizeOperationOptions(undefined)),
 		)
 	}
@@ -246,7 +246,7 @@ class CoreApplicationRequestExecutor implements ApplicationRequestExecutor {
 			phase: 'application-request-mutation-execution',
 		})
 
-		return runWithRequestEngineScope(scoped, () =>
+		return runWithRequestEngine(scoped, () =>
 			executeApplicationSchemaMutation(schema, request),
 		)
 	}

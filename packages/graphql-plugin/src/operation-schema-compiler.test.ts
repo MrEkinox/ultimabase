@@ -1,3 +1,4 @@
+import { onTestFinished } from 'vitest'
 import {
 	PluginError,
 	Schema,
@@ -240,6 +241,7 @@ const createStartedFixture = async () => {
 		],
 		schemas: [RecordSchema],
 	})
+	onTestFinished(() => ultimabase.dispose())
 	await ultimabase.start()
 	return ultimabase
 }
@@ -284,6 +286,12 @@ describe('GraphQL plugin operations', () => {
 	})
 
 	it('preserves safe plugin failures, cancellation, and application lifetime', async () => {
+		const foreign = await createStartedFixture()
+		const foreignContext = foreign.engine.anonymous({
+			requestId: 'graphql-operation-foreign',
+			source: 'ultimabase.graphql',
+		}).context
+		await foreign.dispose()
 		const ultimabase = await createStartedFixture()
 		const application = ultimabase.application.getPlugin(
 			'@ultimabase/graphql-plugin',
@@ -326,12 +334,8 @@ describe('GraphQL plugin operations', () => {
 		expect(cancelled.errors?.[0]?.extensions).toMatchObject({
 			requestId: 'graphql-operation-cancelled',
 		})
-		const foreign = await createStartedFixture()
+
 		try {
-			const foreignContext = foreign.engine.anonymous({
-				requestId: 'graphql-operation-foreign',
-				source: 'ultimabase.graphql',
-			}).context
 			const foreignResult = await graphql({
 				contextValue: { request: foreignContext },
 				schema,
@@ -362,23 +366,24 @@ describe('GraphQL plugin operations', () => {
 			'@ultimabase/graphql-plugin',
 			'fixture.graphql-operation-owner',
 		]) {
-			expect(
-				() =>
-					new UltimaBase({
-						pluginPrivileges: {
-							logger: false,
-							plugins: {
-								[pluginId]: { deny: ['transport:expose'] },
-							},
+			expect(() => {
+				const application = new UltimaBase({
+					pluginPrivileges: {
+						logger: false,
+						plugins: {
+							[pluginId]: { deny: ['transport:expose'] },
 						},
-						plugins: [
-							databasePlugin,
-							createOperationPlugin(),
-							graphqlPlugin({ operations: [echoOperation] }),
-						],
-						schemas: [RecordSchema],
-					}),
-			).toThrow('denied 1 active request')
+					},
+					plugins: [
+						databasePlugin,
+						createOperationPlugin(),
+						graphqlPlugin({ operations: [echoOperation] }),
+					],
+					schemas: [RecordSchema],
+				})
+				onTestFinished(() => application.dispose())
+				return application
+			}).toThrow('denied 1 active request')
 		}
 		await expect(
 			new UltimaBase({

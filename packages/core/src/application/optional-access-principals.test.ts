@@ -118,6 +118,10 @@ describe('optional Access principal providers', () => {
 				createProvider('fixture.auth.first-app', firstResolver),
 			],
 		})
+		expect(first.getPlugin('fixture.access.principal-consumer')).toBe(
+			firstResolver,
+		)
+		await first.dispose()
 		const second = await createApplication({
 			schemas: [Principal],
 			plugins: [
@@ -126,9 +130,6 @@ describe('optional Access principal providers', () => {
 			],
 		})
 
-		expect(first.getPlugin('fixture.access.principal-consumer')).toBe(
-			firstResolver,
-		)
 		expect(second.getPlugin('fixture.access.principal-consumer')).toBe(
 			secondResolver,
 		)

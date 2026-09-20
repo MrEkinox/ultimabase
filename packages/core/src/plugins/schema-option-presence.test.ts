@@ -119,16 +119,20 @@ describe('schema option-presence selection', () => {
 			fields: (field) => ({ title: field.string() }),
 		})
 
-		await createApplication({
-			pluginPrivileges: { logger: false },
-			plugins: [documentPlugin],
-			schemas: [Document, Plain],
-		})
-		await createApplication({
-			pluginPrivileges: { logger: false },
-			plugins: [documentPlugin],
-			schemas: [Isolated],
-		})
+		await (
+			await createApplication({
+				pluginPrivileges: { logger: false },
+				plugins: [documentPlugin],
+				schemas: [Document, Plain],
+			})
+		).dispose()
+		await (
+			await createApplication({
+				pluginPrivileges: { logger: false },
+				plugins: [documentPlugin],
+				schemas: [Isolated],
+			})
+		).dispose()
 
 		expect(callbackCalls).toBe(0)
 		expect(compilerInputs).toHaveLength(2)
@@ -220,11 +224,13 @@ describe('schema option-presence selection', () => {
 			readonly mode: 'explicit'
 		})
 
-		await createApplication({
-			pluginPrivileges: { logger: false },
-			plugins: [plugin],
-			schemas: [Omitted, Disabled, Explicit],
-		})
+		await (
+			await createApplication({
+				pluginPrivileges: { logger: false },
+				plugins: [plugin],
+				schemas: [Omitted, Disabled, Explicit],
+			})
+		).dispose()
 
 		expect(Omitted.fields.inheritedMode?.kind).toBe('string')
 		expect(Disabled.fields.inheritedMode).toBeUndefined()

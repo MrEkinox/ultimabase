@@ -142,43 +142,39 @@ describe('PluginConstraintCompilerRegistry', () => {
 		expect(registry.values()).toStrictEqual([])
 	})
 
-	it.concurrent(
-		'keeps identical compiler identities application-isolated',
-		async () => {
-			const plugin = definePlugin({
-				version: '0.0.0',
-				core: '^0.0.0',
-				pluginId: 'fixture.compiler-owner',
-				privileges: [
-					{
-						name: 'adapter:consume',
-						reason: 'Registers a database constraint compiler for tests.',
-					},
-				],
-				setup: ({ constraintCompilers }) => {
-					constraintCompilers.register(tenantCompiler)
-
-					return { constraintCompilers }
+	it('keeps identical compiler identities application-isolated', async () => {
+		const plugin = definePlugin({
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.compiler-owner',
+			privileges: [
+				{
+					name: 'adapter:consume',
+					reason: 'Registers a database constraint compiler for tests.',
 				},
-			})
-			const [first, second] = await Promise.all([
-				createApplication({ schemas: [], plugins: [plugin] }),
-				createApplication({ schemas: [], plugins: [plugin] }),
-			])
+			],
+			setup: ({ constraintCompilers }) => {
+				constraintCompilers.register(tenantCompiler)
 
-			const firstValues = first
-				.getPlugin('fixture.compiler-owner')
-				.constraintCompilers.values()
-			const secondValues = second
-				.getPlugin('fixture.compiler-owner')
-				.constraintCompilers.values()
+				return { constraintCompilers }
+			},
+		})
+		const first = await createApplication({ schemas: [], plugins: [plugin] })
 
-			expect(firstValues).toStrictEqual(secondValues)
-			expect(firstValues).not.toBe(secondValues)
+		const firstValues = first
+			.getPlugin('fixture.compiler-owner')
+			.constraintCompilers.values()
+		await first.dispose()
+		const second = await createApplication({ schemas: [], plugins: [plugin] })
+		const secondValues = second
+			.getPlugin('fixture.compiler-owner')
+			.constraintCompilers.values()
 
-			await Promise.all([first.dispose(), second.dispose()])
-		},
-	)
+		expect(firstValues).toStrictEqual(secondValues)
+		expect(firstValues).not.toBe(secondValues)
+
+		await Promise.all([first.dispose(), second.dispose()])
+	})
 
 	it('fails duplicate application setup before infrastructure starts', async () => {
 		const createCompilerPlugin = (name: string) =>

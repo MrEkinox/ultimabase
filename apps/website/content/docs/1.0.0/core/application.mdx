@@ -22,6 +22,7 @@ sources:
   - docs/adr/0173-generated-schema-authoring.md
   - docs/adr/0190-capability-host-lifecycle-and-legacy-convergence.md
   - docs/adr/0206-application-owned-master-provenance.md
+  - docs/adr/0258-single-active-application-lifecycle.md
 ---
 
 An application is one `UltimaBase` instance. It owns a set of schemas and
@@ -53,8 +54,8 @@ resources. Invalid declarations fail before plugin setup or infrastructure
 effects. [Plugin System](/docs/1.0.0/plugins/overview) explains the checks in
 detail.
 
-The compiled graph is application-local. Two applications in one process do
-not share a mutable schema or plugin registry. Core supplies structural
+The compiled graph is application-local. Several inert definitions may coexist, but only one application may initialize
+in a JavaScript realm (normally one Node.js process). Core supplies structural
 validation and the Runtime pipeline; PostgreSQL, authentication, REST, and
 GraphQL are examples of separately installed capabilities. The constructor
 options are below.
@@ -138,8 +139,8 @@ generators in trusted application setup, not request input.
 Call `start()` before executing operations. It finishes setup, connects the
 installed resources, and starts transports in dependency order. Put `dispose()`
 in `finally` so normal work and failures both release application resources.
-If startup fails, Core cleans up resources already started; disposal is safe
-to call again. If cleanup also fails, startup reports the original failure
+If startup fails, Core attempts cleanup of its initialized resources.
+Repeated disposal shares the same cleanup outcome. If cleanup also fails, startup reports the original failure
 and the cleanup failure in an `AggregateError`.
 
 `app.state` reports the current lifecycle state. `start()`, `stop()`, and
@@ -197,9 +198,24 @@ and [Master Authority](/docs/1.0.0/core/security-foundations/master-authority)
 explain those security boundaries. The [HTTP plugin](/docs/1.0.0/plugins/official/http)
 owns transport selection and deadlines.
 
-Disposing one application does not dispose another, even if both use a shared
-server provider. A schema class may be reused across applications only when
-its separately compiled definition is structurally identical.
+A second application fails during initialization, before its resource factories
+or setup run, while the first remains active. `stop()` retains this ownership;
+only completed `dispose()` permits a replacement. Disposal closes new requests
+and waits for admitted Core work before releasing resources. Call shutdown
+outside an active request callback, so it does not wait for itself.
+
+A cleanup failure keeps ownership blocked because resource release is unproven.
+Report and resolve that failure; another `dispose()` call does not clear it.
+Old request contexts, Master grants, schema handles, and models never rebind
+themselves to the replacement. Static plugin mutation names reflect the current
+application graph and disappear after its disposal.
+
+Use separate processes, workers, or containers for simultaneous applications.
+For tests, see [Test an Application](/docs/1.0.0/guides/test-an-application)
+for `beforeAll` / `afterAll` and separate database schemas per worker.
+A schema class may be reused across sequential applications only when its
+separately compiled definition is structurally identical. Pure compilation
+and Typegen do not activate an application.
 
 ## Next steps
 

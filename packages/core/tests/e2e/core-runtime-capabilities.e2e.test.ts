@@ -64,4 +64,14 @@ describe('packed @ultimabase/core Runtime capabilities', () => {
 			source: 'fixture-http',
 		})
 	})
+	it('keeps real JavaScript worker lifetimes independent without Typegen', async () => {
+		const { stdout } = await executeFile(process.execPath, [
+			path.join(
+				import.meta.dirname,
+				'fixtures/single-active-workers-no-typegen.mjs',
+			),
+		])
+		const output: unknown = JSON.parse(stdout)
+		expect(output).toStrictEqual({ workers: 2, replacement: 'disposed' })
+	})
 })

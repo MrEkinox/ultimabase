@@ -1,3 +1,7 @@
+import {
+	assertApplicationExecution,
+	isRunningApplicationWork,
+} from '../../application/active-application.js'
 import type { FrameworkApplication } from '../../application/framework-application.js'
 import { FrameworkError } from '../../errors/framework-error.js'
 import type { PluginDefinition } from '../../plugins/definition.js'
@@ -18,23 +22,20 @@ type EngineApplication = FrameworkApplication<
 export const assertApplicationEngineAvailable = (
 	application: EngineApplication,
 ): void => {
-	if (
-		application.state === 'stopping' ||
-		application.state === 'stopped' ||
-		application.state === 'disposing' ||
-		application.state === 'disposed'
-	) {
-		throw new TypeError(
-			`Framework engine cannot be used while application is ${application.state}`,
-		)
-	}
+	assertApplicationExecution(application)
 }
 
 /** Prevents public request work until every startup phase completed successfully. */
 export const assertApplicationRequestExecutionAvailable = (
 	application: EngineApplication,
 ): void => {
-	if (application.state !== 'started') {
+	if (
+		application.state !== 'started' &&
+		!(
+			isRunningApplicationWork(application) &&
+			(application.state === 'stopping' || application.state === 'disposing')
+		)
+	) {
 		throw new TypeError(
 			`Application request execution requires a started application; received ${application.state}`,
 		)

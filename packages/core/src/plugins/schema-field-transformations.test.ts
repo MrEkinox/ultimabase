@@ -1,3 +1,4 @@
+import { applicationFixture } from '../../tests/application-fixture.js'
 import { describe, expect, it } from 'vitest'
 import {
 	FrameworkApplication,
@@ -49,7 +50,9 @@ describe('plugin schema field transformations', () => {
 			version: '1.0.0',
 		})
 
-		await createApplication({ plugins: [plugin], schemas: [Document] })
+		await (
+			await createApplication({ plugins: [plugin], schemas: [Document] })
+		).dispose()
 
 		expect(Document.indexes).toEqual(
 			expect.arrayContaining([
@@ -93,11 +96,13 @@ describe('plugin schema field transformations', () => {
 				schemas.add({ contributionId: 'collision', schema: Colliding })
 			},
 		})
-		const registrationApplication = new FrameworkApplication({
-			pluginPrivileges: { logger: false },
-			plugins: [registrationPlugin],
-			schemas: [Existing],
-		})
+		const registrationApplication = applicationFixture(
+			new FrameworkApplication({
+				pluginPrivileges: { logger: false },
+				plugins: [registrationPlugin],
+				schemas: [Existing],
+			}),
+		)
 		expect(() => registrationApplication.compileSchemas()).toThrow(
 			expect.objectContaining({ code: 'PLUGIN_DECLARATION_INVALID' }),
 		)
@@ -140,11 +145,13 @@ describe('plugin schema field transformations', () => {
 				schemas.add({ contributionId: 'invalid', schema: InvalidAddition })
 			},
 		})
-		const optionApplication = new FrameworkApplication({
-			pluginPrivileges: { logger: false },
-			plugins: [optionFailurePlugin],
-			schemas: [],
-		})
+		const optionApplication = applicationFixture(
+			new FrameworkApplication({
+				pluginPrivileges: { logger: false },
+				plugins: [optionFailurePlugin],
+				schemas: [],
+			}),
+		)
 		expect(() => optionApplication.compileSchemas()).toThrow(
 			expect.objectContaining({ code: 'PLUGIN_DECLARATION_INVALID' }),
 		)
@@ -179,11 +186,13 @@ describe('plugin schema field transformations', () => {
 				})
 			},
 		})
-		const patchApplication = new FrameworkApplication({
-			pluginPrivileges: { logger: false },
-			plugins: [patchFailurePlugin],
-			schemas: [PatchTarget],
-		})
+		const patchApplication = applicationFixture(
+			new FrameworkApplication({
+				pluginPrivileges: { logger: false },
+				plugins: [patchFailurePlugin],
+				schemas: [PatchTarget],
+			}),
+		)
 		expect(() => patchApplication.compileSchemas()).toThrow(
 			expect.objectContaining({ code: 'PLUGIN_DECLARATION_INVALID' }),
 		)
@@ -209,11 +218,13 @@ describe('plugin schema field transformations', () => {
 				schemas.add({ contributionId: 'invalid-target', schema: InvalidTarget })
 			},
 		})
-		const finalValidationApplication = new FrameworkApplication({
-			pluginPrivileges: { logger: false },
-			plugins: [finalValidationPlugin],
-			schemas: [],
-		})
+		const finalValidationApplication = applicationFixture(
+			new FrameworkApplication({
+				pluginPrivileges: { logger: false },
+				plugins: [finalValidationPlugin],
+				schemas: [],
+			}),
+		)
 		expect(() => finalValidationApplication.compileSchemas()).toThrow(
 			expect.objectContaining({ code: 'PLUGIN_DECLARATION_INVALID' }),
 		)
@@ -241,11 +252,13 @@ describe('plugin schema field transformations', () => {
 				})
 			},
 		})
-		const selectorApplication = new FrameworkApplication({
-			pluginPrivileges: { logger: false },
-			plugins: [selectorFailurePlugin],
-			schemas: [],
-		})
+		const selectorApplication = applicationFixture(
+			new FrameworkApplication({
+				pluginPrivileges: { logger: false },
+				plugins: [selectorFailurePlugin],
+				schemas: [],
+			}),
+		)
 		let selectorFailure: unknown
 		try {
 			selectorApplication.compileSchemas()
@@ -359,10 +372,12 @@ describe('plugin schema field transformations', () => {
 			},
 		})
 
-		await createApplication({
-			plugins: [provider, patcher],
-			schemas: [Content],
-		})
+		await (
+			await createApplication({
+				plugins: [provider, patcher],
+				schemas: [Content],
+			})
+		).dispose()
 
 		expect(Content.fields.selectedState).toBeUndefined()
 		expect(Audit.fields.selectedState?.kind).toBe('string')

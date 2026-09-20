@@ -1,3 +1,4 @@
+import { applicationFixture } from '../../tests/application-fixture.js'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -101,14 +102,19 @@ describe('PluginDeclarationHost', () => {
 			},
 		})
 
-		const withoutProvider = await createApplication({
-			plugins: [plugin()],
-			schemas: [],
-		})
-		const withProvider = await createApplication({
-			plugins: [plugin(), provider],
-			schemas: [],
-		})
+		const withoutProvider = applicationFixture(
+			await createApplication({
+				plugins: [plugin()],
+				schemas: [],
+			}),
+		)
+		await withoutProvider.dispose()
+		const withProvider = applicationFixture(
+			await createApplication({
+				plugins: [plugin(), provider],
+				schemas: [],
+			}),
+		)
 
 		expect(withoutProvider.fieldBuilderMethods).toStrictEqual([])
 		expect(withProvider.fieldBuilderMethods.map(({ name }) => name)).toEqual([
@@ -161,7 +167,9 @@ describe('PluginDeclarationHost', () => {
 			},
 		})
 
-		await createApplication({ plugins: [consumer, provider], schemas: [] })
+		applicationFixture(
+			await createApplication({ plugins: [consumer, provider], schemas: [] }),
+		)
 
 		expect(observed).toEqual({ label: 'composed' })
 		expect(optionalObserved).toBeUndefined()
@@ -254,13 +262,15 @@ describe('PluginDeclarationHost', () => {
 				},
 			})
 
-		const application = await createApplication({
-			plugins: [
-				createInstance('primary', alphaMethod),
-				createInstance('secondary', betaMethod),
-			],
-			schemas: [],
-		})
+		const application = applicationFixture(
+			await createApplication({
+				plugins: [
+					createInstance('primary', alphaMethod),
+					createInstance('secondary', betaMethod),
+				],
+				schemas: [],
+			}),
+		)
 
 		expect(
 			application.fieldBuilderMethods.map(({ name, owner }) => ({

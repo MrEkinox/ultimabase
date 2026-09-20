@@ -1,3 +1,4 @@
+import { runApplicationWork } from '../../application/active-application.js'
 import {
 	immutableArray,
 	immutableRecord,
@@ -143,51 +144,53 @@ export class CoreApplicationSchemaMutationTransport<
 		}
 		// Context provenance and application lifecycle fail before owner codecs run.
 		const engine = this.createEngine(request.context)
-		const exposed = this.#exposed.get(request.binding)
-		if (exposed?.schema !== request.schema) {
-			throw new FrameworkError(
-				'PLUGIN_OPERATION_INVALID',
-				'Schema mutation transport binding is not exposed by this application.',
-				{ publicMessage: 'The requested operation is not available.' },
+		return runApplicationWork(engine.application, async () => {
+			const exposed = this.#exposed.get(request.binding)
+			if (exposed?.schema !== request.schema) {
+				throw new FrameworkError(
+					'PLUGIN_OPERATION_INVALID',
+					'Schema mutation transport binding is not exposed by this application.',
+					{ publicMessage: 'The requested operation is not available.' },
+				)
+			}
+			if (typeof request.id !== 'string' || request.id.length === 0) {
+				throw new TypeError('schema mutation transport id must be a string')
+			}
+			throwIfOperationCancelled(request.context.signal, {
+				operation: exposed.command.mutation.name,
+				stage: 'transport-input',
+			})
+			const decoded = this.runtime.decodeTransportInput(
+				exposed.binding,
+				request.input,
 			)
-		}
-		if (typeof request.id !== 'string' || request.id.length === 0) {
-			throw new TypeError('schema mutation transport id must be a string')
-		}
-		throwIfOperationCancelled(request.context.signal, {
-			operation: exposed.command.mutation.name,
-			stage: 'transport-input',
+			const source = readPluginSchemaMutationSource(exposed.command.mutation)
+			const payload = source.input.snapshot(decoded, `${source.name}.input`)
+			assertImmutableOperationValue(payload, `${source.name}.input`)
+			const projection = queryFromFindOneInput(request.schema, {
+				...(request.include === undefined ? {} : { include: request.include }),
+				...(request.select === undefined ? {} : { select: request.select }),
+				where: { id: { eq: request.id } },
+			} as never)
+			const envelope: PluginSchemaMutationEnvelope = immutableRecord({
+				command: exposed.commandName,
+				id: request.id,
+				kind: 'plugin-schema-mutation' as const,
+				mutation: exposed.command.mutation,
+				payload,
+				query: projection.ast,
+			})
+			return executeRequestSchemaMutation(
+				engine,
+				exposed.command,
+				request.schema,
+				envelope,
+				immutableRecord({
+					context: undefined,
+					ultimabase: undefined,
+					useMasterKey: false,
+				}),
+			)
 		})
-		const decoded = this.runtime.decodeTransportInput(
-			exposed.binding,
-			request.input,
-		)
-		const source = readPluginSchemaMutationSource(exposed.command.mutation)
-		const payload = source.input.snapshot(decoded, `${source.name}.input`)
-		assertImmutableOperationValue(payload, `${source.name}.input`)
-		const projection = queryFromFindOneInput(request.schema, {
-			...(request.include === undefined ? {} : { include: request.include }),
-			...(request.select === undefined ? {} : { select: request.select }),
-			where: { id: { eq: request.id } },
-		} as never)
-		const envelope: PluginSchemaMutationEnvelope = immutableRecord({
-			command: exposed.commandName,
-			id: request.id,
-			kind: 'plugin-schema-mutation' as const,
-			mutation: exposed.command.mutation,
-			payload,
-			query: projection.ast,
-		})
-		return executeRequestSchemaMutation(
-			engine,
-			exposed.command,
-			request.schema,
-			envelope,
-			immutableRecord({
-				context: undefined,
-				ultimabase: undefined,
-				useMasterKey: false,
-			}),
-		)
 	}
 }

@@ -337,9 +337,27 @@ export const runPluginConformance = async <
 		const first = createApplication(freshFixture())
 		const second = createApplication(freshFixture())
 		try {
-			await Promise.all([first.initialize(), second.initialize()])
+			await first.initialize()
+			let rejected = false
+			try {
+				await second.initialize()
+			} catch (error: unknown) {
+				if (
+					!(error instanceof TypeError) ||
+					!error.message.includes('Another UltimaBase application is active')
+				)
+					throw error
+				rejected = true
+			}
+			assertEqual(rejected, true, 'competing application activation rejection')
+			assertEqual(first.state, 'ready', 'incumbent application lifecycle state')
 			await first.dispose()
-			assertEqual(second.state, 'ready', 'second application lifecycle state')
+			await second.initialize()
+			assertEqual(
+				second.state,
+				'ready',
+				'replacement application lifecycle state',
+			)
 		} finally {
 			await Promise.all([first.dispose(), second.dispose()])
 		}

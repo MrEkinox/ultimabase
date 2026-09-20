@@ -34,6 +34,7 @@ let firstFixture: PostgresWorkerFixture | undefined
 let secondFixture: PostgresWorkerFixture | undefined
 let example: MinimalExampleModule | undefined
 let firstApplication: MinimalApplication | undefined
+let createFirstApplication: (() => MinimalApplication) | undefined
 let secondApplication: MinimalApplication | undefined
 let auditFailureApplication: MinimalApplication | undefined
 let disabledMasterApplication: MinimalApplication | undefined
@@ -113,15 +114,17 @@ beforeAll(async () => {
 		app: hono,
 		browserPolicyOwner: 'ultimabase',
 	})
-	firstApplication = minimal.createMinimalApplication({
-		applicationId: firstAppId,
-		databaseUrl: createdFirstFixture.connectionUri,
-		masterKey: firstMasterKey,
-		onMasterUse: (event) => {
-			firstAudits.push(event)
-		},
-		server: sharedServer,
-	})
+	createFirstApplication = () =>
+		minimal.createMinimalApplication({
+			applicationId: firstAppId,
+			databaseUrl: createdFirstFixture.connectionUri,
+			masterKey: firstMasterKey,
+			onMasterUse: (event) => {
+				firstAudits.push(event)
+			},
+			server: sharedServer,
+		})
+	firstApplication = createFirstApplication()
 	secondApplication = minimal.createMinimalApplication({
 		applicationId: secondAppId,
 		databaseUrl: createdSecondFixture.connectionUri,
@@ -149,9 +152,6 @@ beforeAll(async () => {
 		server: sharedServer,
 	})
 	await firstApplication.start()
-	await secondApplication.start()
-	await auditFailureApplication.start()
-	await disabledMasterApplication.start()
 	listener = await startServer(hono)
 	const address = listener.address()
 	if (typeof address !== 'object' || address === null) {
@@ -496,11 +496,29 @@ describe(
 				result: { authority: 'master', principalId: null },
 			})
 
+			await requireApplication(firstApplication, 'first').dispose()
+			await requireApplication(secondApplication, 'second').start()
 			const secondCreated = await jsonRequest(second, articlePath, 'POST', {
 				slug: 'second-only',
 				title: 'Second only',
 			})
 			expect(secondCreated.status).toBe(201)
+			const foreignMasterRejected = await minimal
+				.createMinimalClient({
+					applicationId: secondAppId,
+					baseUrl,
+					masterKey: firstMasterKey,
+				})
+				.fetch(operationPath, {
+					body: JSON.stringify({ input: null }),
+					headers: { 'Content-Type': 'application/json' },
+					method: 'POST',
+				})
+			await requireApplication(secondApplication, 'second').dispose()
+			if (createFirstApplication === undefined)
+				throw new TypeError('First application factory is unavailable')
+			firstApplication = createFirstApplication()
+			await firstApplication.start()
 			const isolated = await jsonRequest(
 				first,
 				`${articlePath}/query`,
@@ -509,53 +527,6 @@ describe(
 			)
 			expect(await responseJson(isolated)).toStrictEqual({ results: [] })
 			expect(secondAudits).toStrictEqual([])
-
-			const rejectedRequests = [
-				fetch(`${baseUrl}${articlePath}`),
-				fetch(`${baseUrl}${articlePath}`, {
-					headers: { 'X-UltimaBase-Application-Id': 'missing-app' },
-				}),
-				minimal
-					.createMinimalClient({
-						applicationId: firstAppId,
-						baseUrl,
-						masterKey: 'invalid-master-secret',
-					})
-					.fetch(articlePath),
-				minimal
-					.createMinimalClient({
-						applicationId: secondAppId,
-						baseUrl,
-						masterKey: firstMasterKey,
-					})
-					.fetch(operationPath, {
-						body: JSON.stringify({ input: null }),
-						headers: { 'Content-Type': 'application/json' },
-						method: 'POST',
-					}),
-				minimal
-					.createMinimalClient({
-						applicationId: auditFailureAppId,
-						baseUrl,
-						masterKey: 'audit-failure-secret',
-					})
-					.fetch(articlePath),
-				minimal
-					.createMinimalClient({
-						applicationId: disabledMasterAppId,
-						baseUrl,
-						masterKey: 'disabled-master-secret',
-					})
-					.fetch(articlePath),
-			]
-			for (const response of await Promise.all(rejectedRequests)) {
-				const serialized = await response.text()
-				expect(response.status).toBe(401)
-				expect(serialized).toContain('HTTP_APPLICATION_REJECTED')
-				expect(serialized).not.toMatch(
-					/first-rest-master-secret|invalid-master-secret|audit-failure-secret|disabled-master-secret|private audit/u,
-				)
-			}
 
 			const forged = await jsonRequest(first, articlePath, 'POST', {
 				access: { mode: 'master' },
@@ -571,6 +542,60 @@ describe(
 				{ where: { slug: { eq: 'forged-authority' } } },
 			)
 			expect(await responseJson(forgedLookup)).toStrictEqual({ results: [] })
+			const rejectedResponses = await Promise.all([
+				fetch(`${baseUrl}${articlePath}`),
+				fetch(`${baseUrl}${articlePath}`, {
+					headers: { 'X-UltimaBase-Application-Id': 'missing-app' },
+				}),
+				minimal
+					.createMinimalClient({
+						applicationId: firstAppId,
+						baseUrl,
+						masterKey: 'invalid-master-secret',
+					})
+					.fetch(articlePath),
+			])
+			rejectedResponses.push(foreignMasterRejected)
+			await firstApplication.dispose()
+			await requireApplication(auditFailureApplication, 'audit failure').start()
+			rejectedResponses.push(
+				await minimal
+					.createMinimalClient({
+						applicationId: auditFailureAppId,
+						baseUrl,
+						masterKey: 'audit-failure-secret',
+					})
+					.fetch(articlePath),
+			)
+			await requireApplication(
+				auditFailureApplication,
+				'audit failure',
+			).dispose()
+			await requireApplication(
+				disabledMasterApplication,
+				'disabled Master',
+			).start()
+			rejectedResponses.push(
+				await minimal
+					.createMinimalClient({
+						applicationId: disabledMasterAppId,
+						baseUrl,
+						masterKey: 'disabled-master-secret',
+					})
+					.fetch(articlePath),
+			)
+			await requireApplication(
+				disabledMasterApplication,
+				'disabled Master',
+			).dispose()
+			for (const response of rejectedResponses) {
+				const serialized = await response.text()
+				expect(response.status).toBe(401)
+				expect(serialized).toContain('HTTP_APPLICATION_REJECTED')
+				expect(serialized).not.toMatch(
+					/first-rest-master-secret|invalid-master-secret|audit-failure-secret|disabled-master-secret|private audit/u,
+				)
+			}
 		})
 	},
 )

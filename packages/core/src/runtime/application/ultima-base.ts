@@ -366,16 +366,25 @@ export class UltimaBase<
 			)
 
 			await this.application.start()
+			if (this.application.state !== 'started') {
+				throw new TypeError('Application closed during startup')
+			}
 			this.#frameworkEngine = frameworkEngine
 			for (const schema of this.application.schemas.values()) {
 				const surface = this.application.getSchemaSurface(schema.className)
 				for (const name of surface?.schemaMutations.keys() ?? []) {
-					registerStaticSchemaMutation(schema, name, (input, options) =>
-						executeStaticSchemaMutation(schema, name, input, options),
+					registerStaticSchemaMutation(
+						this.application,
+						schema,
+						name,
+						(input, options) =>
+							executeStaticSchemaMutation(schema, name, input, options),
 					)
 				}
 			}
 		} catch (error: unknown) {
+			// Core has already reported startup and cleanup failures for a terminal lifecycle.
+			if (this.application.state === 'disposed') throw error
 			try {
 				await this.application.dispose()
 			} catch (cleanupError: unknown) {

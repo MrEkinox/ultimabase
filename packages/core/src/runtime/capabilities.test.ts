@@ -1,3 +1,4 @@
+import { applicationFixture } from '../../tests/application-fixture.js'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -40,11 +41,13 @@ const runtimeOperation = {
 } as const
 
 const createPluginApplication = (plugin: ReturnType<typeof definePlugin>) =>
-	new FrameworkApplication({
-		pluginPrivileges: { logger: false },
-		plugins: [plugin],
-		schemas: [runtimeSchema],
-	})
+	applicationFixture(
+		new FrameworkApplication({
+			pluginPrivileges: { logger: false },
+			plugins: [plugin],
+			schemas: [runtimeSchema],
+		}),
+	)
 
 interface CapturedFrameworkError {
 	readonly code: unknown
@@ -237,7 +240,7 @@ describe('public Runtime capabilities', () => {
 		})
 		const first = createPluginApplication(plugin)
 		const second = createPluginApplication(plugin)
-		await Promise.all([first.initialize(), second.initialize()])
+		await first.initialize()
 
 		const context = RequestContext.anonymous({
 			requestId: 'runtime-resource',
@@ -247,14 +250,15 @@ describe('public Runtime capabilities', () => {
 			context,
 			operation: runtimeOperation,
 		})
+		await first.dispose()
+		expect(disposals).toStrictEqual([1])
+		await second.initialize()
 		await composeRuntimeContributionBehavior(second)?.beforeOperation?.({
 			context,
 			operation: runtimeOperation,
 		})
 		expect(invocations).toStrictEqual([1, 2])
 
-		await first.dispose()
-		expect(disposals).toStrictEqual([1])
 		await second.dispose()
 		expect(disposals).toStrictEqual([1, 2])
 	})
@@ -293,11 +297,13 @@ describe('public Runtime capabilities', () => {
 			version: '0.0.0',
 			capabilities: { provides: [provideTestDatabaseAdapter(adapter)] },
 		})
-		const application = await createApplication({
-			pluginPrivileges: { logger: false },
-			plugins: [behavior, database],
-			schemas: [runtimeSchema],
-		})
+		const application = applicationFixture(
+			await createApplication({
+				pluginPrivileges: { logger: false },
+				plugins: [behavior, database],
+				schemas: [runtimeSchema],
+			}),
+		)
 		const framework = createFrameworkEngine(application)
 		const controller = new AbortController()
 		controller.abort()

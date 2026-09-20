@@ -1,3 +1,4 @@
+import { applicationFixture } from '../../../tests/application-fixture.js'
 import { describe, expect, it } from 'vitest'
 import { isPlainRecord } from '@ultimabase/shared'
 
@@ -142,7 +143,9 @@ describe('plugin FieldBuilder methods', () => {
 			}),
 		})
 
-		await createApplication({ plugins: [plugin], schemas: [Contextual] })
+		await (
+			await createApplication({ plugins: [plugin], schemas: [Contextual] })
+		).dispose()
 
 		expect(Contextual.fields.root?.kind).toBe('fixture.alpha')
 		const nested = Contextual.fields.value
@@ -218,10 +221,13 @@ describe('plugin FieldBuilder methods', () => {
 			},
 		})
 
-		const application = await createApplication({
-			plugins: [plugin],
-			schemas: [Document],
-		})
+		const application = applicationFixture(
+			await createApplication({
+				plugins: [plugin],
+				schemas: [Document],
+			}),
+		)
+		await application.dispose()
 
 		expect(trace).toStrictEqual(['fields', 'declare', 'setup:fixture.alpha'])
 		expect(Document.fields.value?.options).toMatchObject({ marker: 'ordered' })
@@ -295,18 +301,26 @@ describe('plugin FieldBuilder methods', () => {
 			className: 'IsolatedBetaMethod',
 			fields: (field) => ({ value: fixtureBuilder(field).beta() }),
 		})
-		const alphaApplication = await createApplication({
-			plugins: [alphaPlugin()],
-			schemas: [Alpha],
-		})
-		const betaApplication = await createApplication({
-			plugins: [betaPlugin()],
-			schemas: [Beta],
-		})
-		await createApplication({
-			plugins: [alphaPlugin()],
-			schemas: [Shared],
-		})
+		const alphaApplication = applicationFixture(
+			await createApplication({
+				plugins: [alphaPlugin()],
+				schemas: [Alpha],
+			}),
+		)
+		await alphaApplication.dispose()
+		const betaApplication = applicationFixture(
+			await createApplication({
+				plugins: [betaPlugin()],
+				schemas: [Beta],
+			}),
+		)
+		await betaApplication.dispose()
+		await (
+			await createApplication({
+				plugins: [alphaPlugin()],
+				schemas: [Shared],
+			})
+		).dispose()
 
 		expect(
 			alphaApplication.fieldBuilderMethods.map(({ name }) => name),
@@ -348,10 +362,12 @@ describe('plugin FieldBuilder methods', () => {
 		options.marker = 'mutated'
 		options.nested.label = 'mutated'
 
-		await createApplication({
-			plugins: [alphaPlugin()],
-			schemas: [Snapshot],
-		})
+		await (
+			await createApplication({
+				plugins: [alphaPlugin()],
+				schemas: [Snapshot],
+			})
+		).dispose()
 
 		expect(Snapshot.fields.value?.options).toMatchObject({
 			marker: 'declared',
@@ -499,20 +515,23 @@ describe('plugin FieldBuilder methods', () => {
 		})
 
 		typegen.methodType = 'MutatedMethod'
-		const application = await createApplication({
-			plugins: [
-				definePlugin({
-					version: '0.0.0',
-					core: '^0.0.0',
-					pluginId: 'fixture.snapshot-plugin',
-					privileges: [schemaDeclarePrivilege],
-					declare: ({ fields }) => {
-						fields.register(method)
-					},
-				}),
-			],
-			schemas: [],
-		})
+		const application = applicationFixture(
+			await createApplication({
+				plugins: [
+					definePlugin({
+						version: '0.0.0',
+						core: '^0.0.0',
+						pluginId: 'fixture.snapshot-plugin',
+						privileges: [schemaDeclarePrivilege],
+						declare: ({ fields }) => {
+							fields.register(method)
+						},
+					}),
+				],
+				schemas: [],
+			}),
+		)
+		await application.dispose()
 
 		expect(
 			application.fieldBuilderMethods[0]?.contexts.stored?.typegen.methodType,

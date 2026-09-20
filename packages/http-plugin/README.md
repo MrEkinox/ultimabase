@@ -37,8 +37,8 @@ const ultimabase = new UltimaBase({
 })
 ```
 
-`appId` is required, public, and non-empty. It selects one application on a
-shared server but grants no authority. Every public application request must
+`appId` is required, public, and non-empty. It identifies the expected sole
+active application and grants no authority. Every public application request must
 carry exactly one original occurrence of:
 
 ```http
