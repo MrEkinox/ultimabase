@@ -236,6 +236,7 @@ Accepted records:
 - [ADR-0252: Password Auth returns the readable User profile](0252-password-auth-readable-user-results.md).
 - [ADR-0253: Password Auth requires a readable User](0253-password-auth-required-user.md).
 - [ADR-0254: Authentication methods on Password User classes](0254-password-user-authentication-methods.md).
+- [ADR-0255: Password Auth transport payloads](0255-password-auth-transport-payloads.md).
 
 Superseded records:
 

@@ -290,7 +290,7 @@ describe(
 			const password = 'correct horse battery staple'
 			const signUpMutation = `mutation SignUp($input: PasswordAuthCredentialsInput!) {
 			signUp(input: $input) {
-				principal { userId }
+				user { id }
 				session { token }
 			}
 		}`
@@ -303,12 +303,10 @@ describe(
 				),
 				'GraphQL sign-up',
 			)
-			const principal = readRecord(signedUp.principal, 'GraphQL principal')
+			const user = readRecord(signedUp.user, 'GraphQL user')
+			expect(signedUp).not.toHaveProperty('principal')
 			const session = readRecord(signedUp.session, 'GraphQL session')
-			if (
-				typeof principal.userId !== 'string' ||
-				typeof session.token !== 'string'
-			) {
+			if (typeof user.id !== 'string' || typeof session.token !== 'string') {
 				throw new TypeError('GraphQL sign-up result is incomplete')
 			}
 			const sessionClient = requireExample().createMinimalClient({
@@ -322,19 +320,19 @@ describe(
 				method: 'POST',
 			})
 			expect(await authenticatedRest.json()).toStrictEqual({
-				result: { authority: 'anonymous', principalId: principal.userId },
+				result: { authority: 'anonymous', principalId: user.id },
 			})
 			expect(
 				readGraphqlField(
 					await graphqlHttp(sessionClient, statusQuery),
 					'status',
 				),
-			).toEqual({ authority: 'anonymous', principalId: principal.userId })
+			).toEqual({ authority: 'anonymous', principalId: user.id })
 
 			const invalidLogin = await graphqlHttp(
 				requireClient(),
 				`mutation Login($input: PasswordAuthCredentialsInput!) {
-				login(input: $input) { principal { userId } }
+				login(input: $input) { user { id } }
 			}`,
 				{ input: { password: 'wrong password', username: 'parity-user' } },
 			)
@@ -397,7 +395,7 @@ describe(
 			})
 			expect(readGraphqlField(await cookieStatus.json(), 'status')).toEqual({
 				authority: 'anonymous',
-				principalId: principal.userId,
+				principalId: user.id,
 			})
 
 			const master = requireExample().createMinimalClient({

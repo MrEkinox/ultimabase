@@ -8,8 +8,10 @@ import {
 } from '@ultimabase/core'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
-import { passwordAuthOperations } from './operations.js'
-import type { PasswordAuthenticationResult } from './session.js'
+import {
+	passwordAuthOperations,
+	toPasswordAuthenticationPayload,
+} from './operations.js'
 
 type PasswordAuthOperation =
 	(typeof passwordAuthOperations)[keyof typeof passwordAuthOperations]
@@ -31,13 +33,6 @@ const credentialsType = immutableRecord({
 	kind: 'input-object',
 	name: 'PasswordAuthCredentialsInput',
 })
-const principalType = immutableRecord({
-	fields: immutableArray([
-		graphqlField('userId', graphqlNonNull(graphqlNamed('ID'))),
-	]),
-	kind: 'object',
-	name: 'PasswordAuthPrincipal',
-})
 const sessionType = immutableRecord({
 	fields: immutableArray([
 		graphqlField('id', graphqlNonNull(graphqlNamed('ID'))),
@@ -58,10 +53,6 @@ const payloadType = immutableRecord({
 			}),
 		}),
 		graphqlField(
-			'principal',
-			graphqlNonNull(graphqlNamed('PasswordAuthPrincipal')),
-		),
-		graphqlField(
 			'session',
 			graphqlNonNull(graphqlNamed('PasswordAuthSession')),
 		),
@@ -76,17 +67,7 @@ const logoutPayloadType = immutableRecord({
 	kind: 'object',
 	name: 'PasswordAuthLogoutPayload',
 })
-const authenticationTypes = immutableArray([
-	principalType,
-	sessionType,
-	payloadType,
-])
-const toGraphqlAuthenticationResult = (value: PasswordAuthenticationResult) =>
-	immutableRecord({
-		principal: immutableRecord({ userId: value.principal.user.id }),
-		session: value.session,
-		user: value.user,
-	})
+const authenticationTypes = immutableArray([sessionType, payloadType])
 
 const createGraphqlBinding = <TOperation extends PasswordAuthOperation>(
 	operation: TOperation,
@@ -94,7 +75,6 @@ const createGraphqlBinding = <TOperation extends PasswordAuthOperation>(
 	input: ReturnType<typeof graphqlNonNull> | undefined,
 	types: readonly (
 		| typeof credentialsType
-		| typeof principalType
 		| typeof sessionType
 		| typeof payloadType
 		| typeof logoutPayloadType
@@ -136,7 +116,7 @@ export const passwordAuthGraphqlBindings: Readonly<
 		graphqlNonNull(graphqlNamed('PasswordAuthPayload')),
 		(value) =>
 			passwordAuthOperations.login.input.snapshot(value, 'login.graphql-input'),
-		toGraphqlAuthenticationResult,
+		toPasswordAuthenticationPayload,
 	),
 	logout: createGraphqlBinding(
 		passwordAuthOperations.logout,
@@ -162,7 +142,7 @@ export const passwordAuthGraphqlBindings: Readonly<
 				value,
 				'refresh.graphql-input',
 			),
-		toGraphqlAuthenticationResult,
+		toPasswordAuthenticationPayload,
 	),
 	signUp: createGraphqlBinding(
 		passwordAuthOperations.signUp,
@@ -175,6 +155,6 @@ export const passwordAuthGraphqlBindings: Readonly<
 				value,
 				'sign-up.graphql-input',
 			),
-		toGraphqlAuthenticationResult,
+		toPasswordAuthenticationPayload,
 	),
 })

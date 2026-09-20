@@ -135,9 +135,11 @@ errors to status 400 or 401 without importing REST.
 The same explicit tokens may be passed to `graphqlPlugin({ operations })`.
 Password Auth contributes canonical GraphQL metadata and codecs for `signUp`,
 `login`, `refresh`, and `logout` without importing the GraphQL package. The
-GraphQL payload exposes `principal.userId`, `session`, and a required `user`
-field using the configured User output type. REST exposes the same readable
-profile in `result.user`, beside its existing principal pointer and session.
+GraphQL payload exposes only `session` and a required `user` field using the
+configured User output type. Select `user { id }` for the authenticated identity.
+REST exposes the same readable profile in `result.user`, beside `result.session`.
+REST omits the redundant
+`principal` field; clients read the authenticated identity from `result.user.id`.
 Direct operations return `PasswordAuthenticationResult<TUser>` with
 `user: SchemaResult<TUser>` (custom fields follow the generated User contract).
 

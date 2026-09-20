@@ -299,8 +299,9 @@ GraphQL error extensions as generated schema operations.
 
 Password Auth supplies compatible `signUp`, `login`, `refresh`, and `logout`
 bindings without GraphQL importing or identifying that package. Its successful
-payload exposes `principal.userId` and the one-time session token; passwords,
-verifiers, custom User fields, and private session records are never serialized.
+payload exposes only `user` and `session`; select `user { id }` for the identity.
+Custom User fields follow the profile's read policies. Passwords, verifiers,
+and private session records are never serialized.
 
 ## Relay connections
 

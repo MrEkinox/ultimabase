@@ -77,7 +77,6 @@ const executeAnonymous = (
 const authMutation = (field: 'login' | 'signUp') =>
 	`mutation Auth($input: PasswordAuthCredentialsInput!) {
 		${field}(input: $input) {
-			principal { userId }
 			user { id username displayName secret serial avatar }
 			session { id token expiresAt absoluteExpiresAt }
 		}
@@ -176,6 +175,19 @@ describe('Password Auth GraphQL operations with PostgreSQL', () => {
 					? payload.getFields().user?.type.toString()
 					: undefined,
 			).toBe('User!')
+			expect(
+				isObjectType(payload) ? Object.keys(payload.getFields()).sort() : [],
+			).toEqual(['session', 'user'])
+			expect(graphql.schema.getType('PasswordAuthPrincipal')).toBeUndefined()
+			const obsoleteSelection = await executeAnonymous(
+				ultimabase.engine,
+				graphql,
+				'mutation { refresh { principal { userId } } }',
+				'password-graphql-obsolete-principal',
+			)
+			expect(obsoleteSelection.errors?.[0]?.message).toContain(
+				'Cannot query field "principal"',
+			)
 			const signedUp = await executeAnonymous(
 				ultimabase.engine,
 				graphql,
@@ -267,7 +279,7 @@ describe('Password Auth GraphQL operations with PostgreSQL', () => {
 				return graphql.execute({
 					context: loginContext,
 					document:
-						'mutation { refresh { user { displayName secret } principal { userId } session { token } } }',
+						'mutation { refresh { user { displayName secret } session { token } } }',
 				})
 			})
 			expect(refreshed.errors).toBeUndefined()

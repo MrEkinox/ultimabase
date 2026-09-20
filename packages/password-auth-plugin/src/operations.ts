@@ -228,9 +228,12 @@ const restProtocol = defineOperationTransport({
 	version: '1.0.0',
 })
 
-const toWireAuthenticationResult = (value: PasswordAuthenticationResult) =>
+/** Keeps REST and GraphQL identity data on the same required readable profile. */
+export const toPasswordAuthenticationPayload = (
+	value: PasswordAuthenticationResult,
+): Pick<PasswordAuthenticationResult, 'session' | 'user'> =>
 	immutableRecord({
-		principal: immutableRecord({ user: value.principal.user.toJSON() }),
+		// The readable profile already carries the public user identity.
 		session: value.session,
 		user: value.user,
 	})
@@ -265,7 +268,7 @@ export const passwordAuthRestBindings: Readonly<
 		passwordAuthOperations.login,
 		401,
 		(value) => credentialsInput.snapshot(value, 'login.wire-input'),
-		toWireAuthenticationResult,
+		toPasswordAuthenticationPayload,
 	),
 	logout: createRestBinding(
 		passwordAuthOperations.logout,
@@ -277,13 +280,13 @@ export const passwordAuthRestBindings: Readonly<
 		passwordAuthOperations.refresh,
 		401,
 		(value) => nullInput.snapshot(value, 'refresh.wire-input'),
-		toWireAuthenticationResult,
+		toPasswordAuthenticationPayload,
 	),
 	signUp: createRestBinding(
 		passwordAuthOperations.signUp,
 		400,
 		(value) => credentialsInput.snapshot(value, 'sign-up.wire-input'),
-		toWireAuthenticationResult,
+		toPasswordAuthenticationPayload,
 	),
 })
 

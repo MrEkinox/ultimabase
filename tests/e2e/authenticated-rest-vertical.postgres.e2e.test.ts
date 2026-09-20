@@ -138,11 +138,8 @@ const readAuthentication = async (
 		Reflect.get(body, 'result'),
 		'authentication result',
 	)
-	const principal = readObject(
-		Reflect.get(result, 'principal'),
-		'authentication principal',
-	)
-	const user = readObject(Reflect.get(principal, 'user'), 'principal user')
+	const user = readObject(Reflect.get(result, 'user'), 'authenticated user')
+	expect(result).not.toHaveProperty('principal')
 	const session = readObject(
 		Reflect.get(result, 'session'),
 		'authentication session',

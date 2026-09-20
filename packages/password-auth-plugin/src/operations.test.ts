@@ -11,6 +11,7 @@ import {
 	rejectPasswordCredentials,
 	rejectPasswordSession,
 	rejectPasswordSignUp,
+	toPasswordAuthenticationPayload,
 } from './operations.js'
 import { passwordAuthGraphqlBindings } from './graphql-operation-bindings.js'
 import { createPasswordPrincipal } from './principal.js'
@@ -47,6 +48,12 @@ describe('Password Auth operation contracts', () => {
 		expect(snapshot.user).toBe(profile)
 		expect(Object.isFrozen(snapshot)).toBe(true)
 		expect(Object.isFrozen(snapshot.session)).toBe(true)
+		// Wire responses share one profile identity while direct server results retain principal.
+		const payload = toPasswordAuthenticationPayload(snapshot)
+		expect(payload).toStrictEqual({ session: snapshot.session, user: profile })
+		expect(Object.isFrozen(payload)).toBe(true)
+		expect(payload).not.toHaveProperty('principal')
+		expect(snapshot.principal.user.id).toBe(id)
 		for (const invalid of [
 			null,
 			{ ...result, extra: true },

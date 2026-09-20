@@ -463,10 +463,9 @@ describe(
 					rest.readLimits,
 				)
 				expect(result).toMatchObject({
-					principal: {
-						user: { className: 'User', type: 'pointer' },
-					},
+					user: { username: 'rest-user' },
 				})
+				expect(result).not.toHaveProperty('principal')
 				expect(JSON.stringify(result)).toMatch(/"token":"ub_s1\./u)
 			} finally {
 				await ultimabase.dispose()

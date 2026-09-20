@@ -269,6 +269,13 @@ describe('Password Auth readable profiles', () => {
 			const loginToken = sessionToken(record(login.body.result))
 			const refresh = await app.request('refresh', null, loginToken, true)
 			expect(refresh.status).toBe(200)
+			// Every REST authentication transition exposes only the profile and session.
+			for (const response of [signUp, login, refresh]) {
+				expect(Object.keys(record(response.body.result)).sort()).toEqual([
+					'session',
+					'user',
+				])
+			}
 			expect(record(refresh.body.result).user).toMatchObject({
 				id: user.id,
 				displayName: 'Updated',
