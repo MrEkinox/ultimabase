@@ -433,3 +433,19 @@ Bilan de production : **788 → 738 lignes (−50)**, huit fichiers, cinq export
 et types publics équivalents. Les 274 contrôles source et d’intégration et les
 23 intégrations construites passent sans perte de couverture conservée. Audit
 final vert. Le stash des fonctionnalités Soft Delete suspendues reste intact.
+
+## PostgreSQL — issue 3022 réalisée
+
+Les trois anciens lecteurs scalaires, déjà contournés par le compilateur
+relationnel pour toutes les lectures, disparaissent avec leurs branches mortes.
+Les mutations singulières et les upserts partagent le même verrouillage privé
+sans modifier leurs requêtes, contraintes, transactions ou garanties SQL. Une
+closure de compilation n'est plus créée sur le chemin qui ne l'utilisait pas.
+
+Bilan de production : **10 891 → 10 794 lignes (−97)**, 65 fichiers, 39 exports
+et déclarations publiques identiques. Un fichier repasse sous 600 lignes.
+Les 2 778 contrôles fonctionnels de couverture et les 383 intégrations construites
+passent sans perte de couverture conservée ; l'unique échec de métadonnée du
+premier passage a été corrigé et les neuf contrôles du backlog repassent au vert.
+Le README décrit désormais correctement les transactions et cibles manquantes
+déjà en place. Audit final vert, sans changement du contrat public.

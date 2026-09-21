@@ -8,7 +8,7 @@ priority changes.
 ## Active
 
 - [Pre-feature architecture simplification](2026-09-20-pre-feature-architecture-simplification.md),
-  resumed; next issue 3022 after the completed [3014 checkpoint](2026-09-21-core-kernel-simplification-checkpoint.md), with its
+  resumed; next issue 3023 after the completed [3014 checkpoint](2026-09-21-core-kernel-simplification-checkpoint.md), with its
   [baseline](2026-09-20-architecture-simplification-baseline.md) and
   [contract matrix](2026-09-20-architecture-contract-matrix.md). It blocks new product work until its Core and
   per-plugin audit loops, public website reconciliation, and final parity gate

@@ -26,8 +26,7 @@ import {
 	executeDeleteMany,
 	executeUpdateMany,
 	lockPostgresSetBasedMutationTargets,
-	lockPostgresSingularMutationTarget,
-	lockPostgresUpsertTarget,
+	lockPostgresMutationTarget,
 	tryCreatePostgresUpsert,
 } from './operation-executor.js'
 import type { PostgresDrizzleClient } from './client.js'
@@ -254,7 +253,7 @@ const executeUpsertItem = async (
 	constraint: SQL | undefined,
 	relationCompiler?: PostgresRelationPredicateCompiler,
 ): Promise<PersistedMutationItem> => {
-	let previous = await lockPostgresUpsertTarget(
+	let previous = await lockPostgresMutationTarget(
 		client,
 		schema,
 		item.query,
@@ -281,7 +280,7 @@ const executeUpsertItem = async (
 		}
 
 		// A concurrent insert may win after the initial absent-target snapshot.
-		previous = await lockPostgresUpsertTarget(
+		previous = await lockPostgresMutationTarget(
 			client,
 			schema,
 			item.query,
@@ -401,10 +400,10 @@ const prepareLockedSingular = async (
 	relationCompiler?: PostgresRelationPredicateCompiler,
 ): Promise<PreparedDatabaseOperation<RuntimeLockedOperation>> => {
 	const previous = await runPreparedMutationStep(operation.kind, () =>
-		lockPostgresSingularMutationTarget(
+		lockPostgresMutationTarget(
 			client,
 			schema,
-			operation,
+			operation.query,
 			constraint,
 			relationCompiler,
 		),
@@ -552,7 +551,7 @@ const prepareUpsertOne = async (
 	>
 > => {
 	const previous = await runPreparedMutationStep(operation.kind, () =>
-		lockPostgresUpsertTarget(
+		lockPostgresMutationTarget(
 			client,
 			schema,
 			operation.query,

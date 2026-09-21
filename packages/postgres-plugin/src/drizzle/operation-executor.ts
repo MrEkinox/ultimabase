@@ -7,7 +7,7 @@ import type {
 } from '@ultimabase/core'
 import type { SchemaDefinition } from '@ultimabase/core'
 import { isPlainRecord } from '@ultimabase/shared'
-import { and, asc, count, eq, inArray, type SQL } from 'drizzle-orm'
+import { and, asc, count, inArray, type SQL } from 'drizzle-orm'
 import { getTableConfig, type PgColumn } from 'drizzle-orm/pg-core'
 
 import type { CompiledPostgresSchema } from '../schema/contracts.js'
@@ -41,7 +41,7 @@ interface SelectOverrides {
 }
 
 export const readBuiltInQuery = (query: QueryAst): RuntimeQuery => {
-	// Runtime currently normalizes built-in QueryBuilder nodes; plugin expressions need an owning compiler later.
+	// Core normalizes the supported built-in filter nodes before adapter execution.
 	return query as RuntimeQuery
 }
 
@@ -85,58 +85,6 @@ const decodeRows = (
 	rows: readonly unknown[],
 ): readonly Readonly<Record<string, unknown>>[] =>
 	rows.map((row) => readPostgresRecord(schema, row))
-
-const executeFindMany = async (
-	client: PostgresDrizzleClient,
-	schema: CompiledPostgresSchema,
-	operation: Extract<RuntimeOperation, { readonly kind: 'find-many' }>,
-	constraint: SQL | undefined,
-	relationCompiler?: PostgresRelationPredicateCompiler,
-): Promise<readonly Readonly<Record<string, unknown>>[]> => {
-	const query = readBuiltInQuery(operation.query)
-	const clauses = compilePostgresQueryClauses(query, schema, relationCompiler)
-	const rows = await buildSelect(client, schema, clauses.selection, clauses, {
-		constraint,
-	})
-
-	return decodeRows(schema, rows)
-}
-
-const executeFindOne = async (
-	client: PostgresDrizzleClient,
-	schema: CompiledPostgresSchema,
-	operation: Extract<RuntimeOperation, { readonly kind: 'find-one' }>,
-	constraint: SQL | undefined,
-	relationCompiler?: PostgresRelationPredicateCompiler,
-): Promise<Readonly<Record<string, unknown>> | null> => {
-	const query = readBuiltInQuery(operation.query)
-	const clauses = compilePostgresQueryClauses(query, schema, relationCompiler)
-	const [row] = await buildSelect(client, schema, clauses.selection, clauses, {
-		constraint,
-		limit: 1,
-	})
-
-	return row === undefined ? null : readPostgresRecord(schema, row)
-}
-
-const executeGet = async (
-	client: PostgresDrizzleClient,
-	schema: CompiledPostgresSchema,
-	operation: Extract<RuntimeOperation, { readonly kind: 'get' }>,
-	constraint: SQL | undefined,
-	relationCompiler?: PostgresRelationPredicateCompiler,
-): Promise<Readonly<Record<string, unknown>> | null> => {
-	const query = readBuiltInQuery(operation.query)
-	const clauses = compilePostgresQueryClauses(query, schema, relationCompiler)
-	const id = resolveCompiledPostgresField(schema, 'id')
-	const [row] = await buildSelect(client, schema, clauses.selection, clauses, {
-		constraint,
-		limit: 1,
-		where: eq(id.column, operation.id),
-	})
-
-	return row === undefined ? null : readPostgresRecord(schema, row)
-}
 
 const executeCount = async (
 	client: PostgresDrizzleClient,
@@ -387,8 +335,8 @@ export const executeDeleteMany = async (
 	return rows.map((row) => readPostgresRecord(schema, row))
 }
 
-/** Locks one complete unique target so upsert hooks can observe an exact branch. */
-export const lockPostgresUpsertTarget = async (
+/** Locks one complete target for singular mutation and upsert preparation. */
+export const lockPostgresMutationTarget = async (
 	client: PostgresDrizzleClient,
 	schema: CompiledPostgresSchema,
 	query: QueryAst,
@@ -460,30 +408,6 @@ export const tryCreatePostgresUpsert = async (
 	return row === undefined ? null : readPostgresRecord(schema, row)
 }
 
-/** Locks one full deterministic target without exposing a physical row token. */
-export const lockPostgresSingularMutationTarget = async (
-	client: PostgresDrizzleClient,
-	schema: CompiledPostgresSchema,
-	operation: Extract<
-		RuntimeOperation,
-		{ readonly kind: 'delete-one' | 'update-one' }
-	>,
-	constraint: SQL | undefined,
-	relationCompiler?: PostgresRelationPredicateCompiler,
-): Promise<Readonly<Record<string, unknown>> | null> => {
-	const query = readBuiltInQuery(operation.query)
-	const clauses = compilePostgresQueryClauses(query, schema, relationCompiler)
-	const [row] = await buildSelect(
-		client,
-		schema,
-		compilePostgresSelection(schema),
-		clauses,
-		{ constraint, limit: 1 },
-	).for('update')
-
-	return row === undefined ? null : readPostgresRecord(schema, row)
-}
-
 /** Locks complete set-based targets in one stable order for item hooks. */
 export const lockPostgresSetBasedMutationTargets = async (
 	client: PostgresDrizzleClient,
@@ -526,40 +450,19 @@ const createPendingOperationError = (
 		},
 	)
 
-/** Executes every operation owned by the singular PostgreSQL CRUD milestone. */
+/** Executes aggregate reads and mutations; object reads use the relational executor. */
 export const executePostgresOperation = async (
 	client: PostgresDrizzleClient,
 	schema: CompiledPostgresSchema,
-	operation: RuntimeOperation,
+	operation: Exclude<
+		RuntimeOperation,
+		{ readonly kind: 'find-many' | 'find-one' | 'get' }
+	>,
 	constraint?: SQL,
 	relationCompiler?: PostgresRelationPredicateCompiler,
 ): Promise<unknown> => {
 	try {
 		switch (operation.kind) {
-			case 'find-many':
-				return await executeFindMany(
-					client,
-					schema,
-					operation,
-					constraint,
-					relationCompiler,
-				)
-			case 'find-one':
-				return await executeFindOne(
-					client,
-					schema,
-					operation,
-					constraint,
-					relationCompiler,
-				)
-			case 'get':
-				return await executeGet(
-					client,
-					schema,
-					operation,
-					constraint,
-					relationCompiler,
-				)
 			case 'count':
 				return await executeCount(
 					client,

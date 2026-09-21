@@ -70,9 +70,9 @@ const readPostgresObjectIdentity = (
 ): unknown => readPostgresRelationalObjectIdentity(record)
 
 const isPostgresRelationalRead = (
-	operation: DatabaseOperationAst,
+	operation: ReturnType<typeof readPostgresPersistenceOperation>,
 ): operation is Extract<
-	DatabaseOperationAst,
+	ReturnType<typeof readPostgresPersistenceOperation>,
 	{ readonly kind: 'find-many' | 'find-one' | 'get' }
 > =>
 	operation.kind === 'find-many' ||
@@ -176,11 +176,6 @@ const executePostgresRequest = async <
 	request: DatabaseOperationRequest<TOperation>,
 ): Promise<DatabaseOperationResult<TOperation>> => {
 	const schema = schemas.get(readPlanSchema(request))
-	const relationPredicateCompiler = createPostgresRelationPredicateCompiler(
-		schemas,
-		constraintCompilers,
-		request.relationPredicates ?? [],
-	)
 	const operation = readPostgresPersistenceOperation(
 		request.operation,
 		request.plan,
@@ -190,7 +185,8 @@ const executePostgresRequest = async <
 		request.constraints.length > 0 || request.rowFilter !== undefined,
 	)
 
-	if (isPostgresRelationalRead(request.operation)) {
+	// Object reads have one compiler, including their ordinary scalar-only form.
+	if (isPostgresRelationalRead(operation)) {
 		return (await executePostgresRelationalRead(
 			client,
 			schemas,
@@ -199,6 +195,11 @@ const executePostgresRequest = async <
 		)) as DatabaseOperationResult<TOperation>
 	}
 
+	const relationPredicateCompiler = createPostgresRelationPredicateCompiler(
+		schemas,
+		constraintCompilers,
+		request.relationPredicates ?? [],
+	)
 	const constraintPredicate = compilePostgresRequestConstraint(
 		constraintCompilers,
 		schema,

@@ -1,12 +1,12 @@
 # Active plan: pre-feature architecture simplification
 
-- Status: active — plugin wave explicitly resumed; next issue 3022
+- Status: active — plugin wave explicitly resumed; next issue 3023
 - Milestone: [30 — Pre-feature architecture simplification](issues/3000-pre-feature-architecture-simplification/README.md)
 - Detailed plan: [docs/plans/2026-09-20-pre-feature-architecture-simplification.md](docs/plans/2026-09-20-pre-feature-architecture-simplification.md)
 - Baseline: [docs/plans/2026-09-20-architecture-simplification-baseline.md](docs/plans/2026-09-20-architecture-simplification-baseline.md)
 - Contract matrix: [docs/plans/2026-09-20-architecture-contract-matrix.md](docs/plans/2026-09-20-architecture-contract-matrix.md)
 - Removal history: [HISTORIQUE_SUPPRESSIONS.md](HISTORIQUE_SUPPRESSIONS.md)
-- Resume point: issue 3022; continue sequentially through issue 3034
+- Resume point: issue 3023; continue sequentially through issue 3034
 
 ## Objective
 
@@ -303,3 +303,11 @@ types. The 274 source checks and 23 built integrations pass, with no retained
 coverage loss. Modes, visibility, logical identities, private Master
 administration and the suspended stash are unchanged. Continue with issue 3022
 after the dedicated 3021 commit.
+
+Issue 3021 is committed as `56f88b28`: +126 / -97 lines, net +29, including
+engineering records. Issue 3022 is complete with a green audit: PostgreSQL
+removes 97 production lines, retaining its 39 exports and byte-identical
+declarations. The full coverage run passes 2,778 tests; its only failure was
+issue-status spelling, corrected with all nine backlog checks passing. No
+retained PostgreSQL coverage is lost. All 383 built integrations and 66 website
+checks pass. Continue with issue 3023 after the dedicated 3022 commit.

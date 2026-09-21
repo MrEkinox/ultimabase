@@ -81,14 +81,17 @@ not re-exported by this package.
 The plugin materializes Core's canonical `databaseAdapterCapability` from the
 configured query client and keeps Drizzle private. This means an application using
 `postgresPlugin` is assembled automatically by the `UltimaBase` facade. The
-lower-level engine remains available for transports and advanced composition:
+lower-level engine remains available to trusted server code:
 
 ```ts
 const framework = ultimabase.engine
 ```
 
+Transports use Core's narrow application request execution capability; they
+never receive this engine or the PostgreSQL adapter.
+
 The Drizzle client remains inside `@ultimabase/postgres-plugin`; neither plugin exports
-nor public declarations expose it. Pool clients borrowed for future
+nor public declarations expose it. Pool clients borrowed for
 transactions use the same internal wrapper.
 
 Singular CRUD, bulk operations, upserts, and explicit Runtime transactions
@@ -249,8 +252,8 @@ const post = await request.transaction(async () => {
 ```
 
 Nested explicit transactions remain unsupported because the portable Runtime
-contract does not imply PostgreSQL savepoints. Automatic transaction ownership
-for every mutation is introduced separately by Core issue 329.
+contract does not imply PostgreSQL savepoints. Core owns one automatic
+transaction for every mutation and its nested database work.
 
 Inside that transaction, singular mutations use Core's prepared-mutation
 protocol. Creates defer their write until the prepared handle executes. Updates
@@ -362,10 +365,11 @@ nodes compile to PostgreSQL range predicates with both bounds retained as
 driver parameters.
 
 Runtime generates UUID v7 identifiers and automatic timestamps once; the
-adapter persists those exact normalized values. `findOne`, `get`, `updateOne`,
-and `deleteOne` return `null` when no row matches. Update and delete select their
-deterministic first target inside the mutation statement, avoiding a separate
-read race.
+adapter persists those exact normalized values. Adapter-level singular reads
+and writes return `null` when no row matches; Core applies the public command's
+missing-target contract. Strict schema mutations fail with `NOT_FOUND`.
+Prepared updates and deletes lock their selected target before writing through
+its retained identity on the same transaction client.
 
 This public flow is implemented and covered by the root worker-isolated
 Testcontainers scenario. PostgreSQL temporal text is normalized back to
@@ -512,7 +516,7 @@ tables, columns, defaults, identities, indexes, and constraints. Exact table
 names from the compiled application catalog distinguish managed tables from
 unrelated database structures.
 
-Unsupported live features are reported explicitly to the upcoming schema
+Unsupported live features are reported explicitly to the selected schema
 policy instead of being approximated. This includes views, foreign or
 partitioned tables, unknown column types, generated columns, specialized
 indexes, and unsupported constraint kinds.
