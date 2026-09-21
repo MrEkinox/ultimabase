@@ -66,7 +66,7 @@ foundational package:
   physical persistence plans, transactions, master authority, and generic
   middleware.
 - official plugins provide Hooks, Access, database, transport, HTTP server,
-  migrations, and policy implementations through the same public kernel as
+  and policy implementations through the same public kernel as
   community plugins.
 
 ADRs 0186 through 0205 define this package boundary. Core contains no built-in
@@ -218,7 +218,7 @@ selected operation roots from that plan and later binds the matching executable
 allowlist through the ordinary request executor.
 
 ADR-0234 adds exact owner-private plugin records for data such as password and
-session verifiers that must participate in typed transactions and migrations
+session verifiers that must participate in typed transactions and schema preparation
 without becoming application schemas. Private collections remain outside
 Query, Typegen, generated transports, Hooks, Access, application validators,
 Runtime observers, and events. The critical `storage:private` privilege grants
@@ -644,17 +644,23 @@ product.
 
 Drizzle and PostgreSQL imports exist only inside PostgreSQL packages.
 
-Without a migration plugin, `postgresPlugin` follows a configurable schema policy: `override`, `fail`, or `ignore`.
+`postgresPlugin` follows the existing explicit `schemaPolicy`: `override`,
+`fail`, or `ignore`, with unchanged default and synchronization behavior.
+`renamedFrom` remains a supported data-preserving direct synchronization input.
+Use `ignore` when an external tool owns schema changes.
 
-With `postgresMigrationPlugin`, startup schema preparation is claimed by the migration plugin. It owns `_ultimabase_schema`, migration history, snapshots, SQL generation, destructive policies, and drift detection.
+ADR-0266 removes migration-only support/intent/planning protocols, the
+`migration:contribute` privilege, PostgreSQL's preparation marker and migration
+metadata, and `FakeAdapterMigrationHistory`. No migration product, history
+storage, SQL runner or replacement integration is introduced. Future migration
+work must decide its integration against the then-current kernel.
 
-Persisted schemas, fields, indexes, codecs, and physical contributions retain
-their plugin and instance owner, package and protocol version, stable
-contribution ID, and normalized static options in snapshots and migration
-plans. Plugin upgrades contribute explicit logical migration intent. Removing a
-plugin produces orphaned provenance and never implies an automatic drop;
-destructive cleanup remains an explicit migration decision whose artifact can
-be reviewed after the plugin package is absent.
+Physical contribution snapshots retain every field: actual plugin/instance
+identity, package/protocol versions, contribution and adapter IDs, family,
+normalized static options and payload. Private storage descriptors, fingerprints,
+codecs, transaction leases and lifecycle preparation remain unchanged. Removing
+a plugin does not authorize a destructive drop; existing synchronization keeps
+unmatched columns and private/orphaned storage for explicit external review.
 
 ## HTTP and GraphQL
 

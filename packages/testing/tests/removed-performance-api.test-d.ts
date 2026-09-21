@@ -17,3 +17,7 @@ type RemovedSnapshot = testing.RuntimeCostSnapshot
 type RemovedOptions = testing.RuntimeCostProbeOptions
 void (undefined as unknown as RemovedSnapshot)
 void (undefined as unknown as RemovedOptions)
+
+// @ts-expect-error ADR-0266 retires the migration planning helper and its type.
+type RemovedMigrationHistory = testing.FakeAdapterMigrationHistory
+void (undefined as unknown as RemovedMigrationHistory)

@@ -1,8 +1,4 @@
-import {
-	createApplication,
-	definePlugin,
-	provideCapability,
-} from '@ultimabase/core'
+import { createApplication } from '@ultimabase/core'
 import { createFrameworkEngine } from '@ultimabase/core'
 import { Schema } from '@ultimabase/core'
 import { Pool } from 'pg'
@@ -12,7 +8,6 @@ import type {
 	PostgresPool,
 	PostgresPoolClient,
 } from '../connection/contracts.js'
-import { postgresSchemaPreparationCapability } from '../schema-preparation-capability.js'
 import { postgresPlugin } from './postgres-plugin.js'
 
 /** Supplies a pg-compatible boundary so lifecycle behavior stays focused. */
@@ -176,37 +171,6 @@ describe('postgresPlugin', () => {
 		const application = await createApplication({
 			schemas: [],
 			plugins: [plugin],
-		})
-
-		await application.start()
-		await application.dispose()
-
-		expect(pool.queryCalls).toBe(0)
-	})
-
-	it('defers to a plugin that claims PostgreSQL schema preparation', async () => {
-		const pool = new FixturePool()
-		const migrationPlugin = definePlugin({
-			version: '0.0.0',
-			core: '^0.0.0',
-			pluginId: 'fixture.postgres-migrations',
-			capabilities: {
-				provides: [
-					provideCapability(postgresSchemaPreparationCapability, {
-						contributionId: 'migration-owned-preparation',
-						value: { kind: 'postgres-schema-preparation' },
-					}),
-				],
-			},
-		})
-		const application = await createApplication({
-			schemas: [
-				Schema.define({
-					className: 'MigratedArticle',
-					fields: (field) => ({ title: field.string() }),
-				}),
-			],
-			plugins: [postgresPlugin({ pool }), migrationPlugin],
 		})
 
 		await application.start()

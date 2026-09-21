@@ -117,5 +117,5 @@ export type PostgresSchemaChange =
 			readonly table: string
 	  }
 
-/** Selects the built-in behavior when no migration plugin claims preparation. */
+/** Selects the explicit policy for direct PostgreSQL schema preparation. */
 export type PostgresSchemaPolicy = 'fail' | 'ignore' | 'override'

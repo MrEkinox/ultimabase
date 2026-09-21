@@ -44,3 +44,7 @@ test('requires exactly one typed connection source', () => {
 		schemaPolicy: 'unsafe',
 	})
 })
+
+// @ts-expect-error The preparation marker is no longer part of the public package.
+import type { PostgresSchemaPreparationCapability } from '../index.js'
+void (undefined as unknown as PostgresSchemaPreparationCapability)

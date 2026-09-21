@@ -50,7 +50,6 @@ export type PluginPrivilegeFacade =
 	| 'authority'
 	| 'capability'
 	| 'event'
-	| 'migration'
 	| 'model'
 	| 'operation'
 	| 'persistence'
@@ -84,7 +83,6 @@ export type PluginPrivilege =
 	| 'adapter:raw'
 	| 'authority:elevate'
 	| 'event:publish'
-	| 'migration:contribute'
 	| 'model:extend'
 	| 'operation:declare'
 	| 'persistence:rewrite'
@@ -113,7 +111,6 @@ export const pluginPrivilegeMetadata: Readonly<
 	'persistence:rewrite': privilegeMetadata('persistence', 'sensitive'),
 	'adapter:consume': privilegeMetadata('adapter', 'standard'),
 	'adapter:raw': privilegeMetadata('adapter', 'critical'),
-	'migration:contribute': privilegeMetadata('migration', 'sensitive'),
 	'transport:expose': privilegeMetadata('transport', 'sensitive'),
 	'event:publish': privilegeMetadata('event', 'standard'),
 	'typegen:reference': privilegeMetadata('typegen', 'standard'),

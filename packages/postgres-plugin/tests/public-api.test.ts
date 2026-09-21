@@ -8,14 +8,11 @@ describe('@ultimabase/postgres-plugin public entry point', () => {
 			'postgresAdapterId',
 			'postgresConnectionCapability',
 			'postgresConstraintCompiler',
-			'postgresMigrationContributionCapability',
 			'postgresPhysicalColumn',
 			'postgresPhysicalSchemaContributionCapability',
 			'postgresPlugin',
 			'postgresPluginName',
 			'postgresRawAdapterCapability',
-			'postgresSchemaPreparationCapability',
-			'postgresUpgrade',
 		])
 		expect(publicApi).not.toHaveProperty('Pool')
 		expect(publicApi).not.toHaveProperty('drizzle')

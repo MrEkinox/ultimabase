@@ -6,13 +6,11 @@ import {
 	UltimaBase,
 } from '@ultimabase/core'
 import { providePluginOperation } from '@ultimabase/plugin-kit'
-import { immutableRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 
 import {
 	postgresPhysicalColumn,
 	postgresRawAdapterCapability,
-	postgresUpgrade,
 	type PostgresRawAdapterFacade,
 } from './adapter-capabilities.js'
 import type {
@@ -178,16 +176,6 @@ describe('PostgreSQL adapter capabilities', () => {
 						normalizedStaticOptions: { indexed: false },
 						table: 'workflow_items',
 					}),
-					postgresUpgrade({
-						contributionId: 'workflow-upgrade',
-						from: '^1.0.0',
-						intent: immutableRecord({ rename: 'state-to-workflow-state' }),
-						target: {
-							contributionId: 'workflow-column',
-							pluginId: 'fixture.workflow',
-						},
-						to: '2.0.0',
-					}),
 				],
 			},
 			core: '^0.0.0',
@@ -197,10 +185,6 @@ describe('PostgreSQL adapter capabilities', () => {
 				{
 					name: 'adapter:consume',
 					reason: 'Adds PostgreSQL physical metadata.',
-				},
-				{
-					name: 'migration:contribute',
-					reason: 'Adds explicit upgrade intent.',
 				},
 			] as const,
 			version: '2.0.0',
@@ -231,10 +215,7 @@ describe('PostgreSQL adapter capabilities', () => {
 			packageVersion: '2.0.0',
 			pluginId: 'fixture.workflow-postgres',
 		})
-		expect(metadata.migrations[0]).toMatchObject({
-			contributionId: 'workflow-upgrade',
-			pluginId: 'fixture.workflow-postgres',
-		})
+		expect(metadata).not.toHaveProperty('migrations')
 		await ultimabase.dispose()
 		expect(pool.ended).toBe(false)
 	})

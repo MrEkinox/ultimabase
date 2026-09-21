@@ -1,12 +1,12 @@
 # Active plan: residual complexity simplification
 
-- Status: in-progress — 3109 complete; next 3110
+- Status: in-progress — 3110 complete; next 3111
 - Milestone: [31 — Residual complexity simplification](issues/3100-residual-complexity-simplification/README.md)
 - Detailed plan: [execution and audit contract](docs/plans/2026-09-21-residual-complexity-simplification.md)
 - Evidence: [candidate inventory](docs/plans/2026-09-21-residual-complexity-inventory.md)
 - Measurements and retained IDs: [3101 baseline](docs/plans/2026-09-21-residual-complexity-baseline.md)
 - Baseline source: `265b54c909404f9690a666bdf39ace01ccee466e`
-- Current issue: [3110](issues/3100-residual-complexity-simplification/3110-remove-unused-migration-anticipation.md)
+- Next issue: [3111](issues/3100-residual-complexity-simplification/3111-reconcile-public-website-documentation.md)
 - Hard stop: after issue 3112 and its dedicated local commit
 
 ## Current authorization
@@ -73,6 +73,8 @@ Stop expressly after the final 3112 audit and commit; no automatic continuation.
 
 - 3108: `86a629a7`, +267 / -418 = -151 lines; production -223.
 
+- 3109: `21094201`, +226 / -145 = +81 lines; production -42.
+
 ## Exact resume point
 
 3101–3106 and the separately approved private Core resolver cleanup are committed.
@@ -93,6 +95,9 @@ no retained coverage regression. Its dedicated commit is `86a629a7`; the tree wa
 3109 implements RC-05: -42 production lines and exactly two approved exports
 removed; 2,794 coverage tests and 384 built/packed/PostgreSQL tests pass, with
 no retained coverage loss and identical generated artifacts. Its dedicated
-commit must precede 3110. RC-06 remains approved and unimplemented; execute
-3110 within ADR-0266, with its own validation/audit loop and commit. Then audit the website in 3111 and complete the
-final parity audit in 3112. Stop expressly after 3112; no push is authorized.
+commit is `21094201`; the tree was clean before 3110. 3110 implements RC-06 with -445 production lines and exactly 14 approved
+exports removed. All 2,777 coverage tests and 384 built/packed/PostgreSQL tests
+pass with no retained coverage loss. The physical metadata, SQL, direct
+synchronization/renames and private storage remain intact. Record its dedicated
+commit and counts before starting 3111. Then audit the website in 3111 and
+complete the final parity audit in 3112. Stop expressly after 3112; no push.

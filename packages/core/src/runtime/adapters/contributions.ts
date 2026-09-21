@@ -17,7 +17,7 @@ import {
 } from '../../schema/fields/builtins/json.js'
 
 /** Names the persisted metadata families owned by adapter-specific bridges. */
-export type AdapterContributionFamily = 'migration' | 'physical-schema'
+export type AdapterContributionFamily = 'physical-schema'
 
 /** Carries deterministic adapter metadata before Core attaches its real owner. */
 export interface AdapterContributionDefinition<
@@ -65,7 +65,7 @@ const contributionCapabilities = new WeakMap<
 >()
 const contributionProviders = new WeakSet<object>()
 
-/** Configures one adapter-specific physical or migration contribution protocol. */
+/** Configures one adapter-specific physical contribution protocol. */
 export interface DefineAdapterContributionCapabilityOptions<
 	TCapabilityId extends string,
 	TVersion extends string,
@@ -93,10 +93,8 @@ export const defineAdapterContributionCapability =
 	): AdapterContributionCapabilityToken<TPayload, TCapabilityId, TVersion> => {
 		assertAdapterId(options.adapterId)
 		const family: unknown = options.family
-		if (family !== 'migration' && family !== 'physical-schema') {
-			throw new TypeError(
-				'adapter contribution family must be migration or physical-schema',
-			)
+		if (family !== 'physical-schema') {
+			throw new TypeError('adapter contribution family must be physical-schema')
 		}
 		const token = defineCapability<
 			AdapterContributionDefinition<TPayload>,
@@ -183,10 +181,7 @@ export const adapterContributionPrivileges = (
 	if (metadata === undefined) return undefined
 	return immutableRecord({
 		consumer: 'adapter:consume' as const,
-		provider:
-			metadata.family === 'migration'
-				? ('migration:contribute' as const)
-				: ('adapter:consume' as const),
+		provider: 'adapter:consume' as const,
 	})
 }
 

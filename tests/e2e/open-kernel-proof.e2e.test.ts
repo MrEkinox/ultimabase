@@ -19,7 +19,6 @@ import {
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import {
-	FakeAdapterMigrationHistory,
 	FakePublicOperationTransport,
 	createPluginConformanceFixture,
 	definePluginConformanceSuite,
@@ -268,7 +267,7 @@ describe('open-kernel workflow proof', () => {
 	})
 })
 
-describe('open-kernel Typegen and migration proof', () => {
+describe('open-kernel Typegen and physical metadata proof', () => {
 	it('runs the value and soft-delete fixtures through public conformance', async () => {
 		const createValueFixture = () => {
 			const Ledger = Schema.define({
@@ -460,7 +459,7 @@ describe('open-kernel Typegen and migration proof', () => {
 		expect(diagnostics).toStrictEqual([])
 	})
 
-	it('retains two instances, one upgrade, and one orphan without destruction', async () => {
+	it('preserves physical provenance across configured provider changes', async () => {
 		const First = Schema.define({
 			className: 'OpenKernelMigrationFirst',
 			postgres: { table: 'open_kernel_migration_first' },
@@ -473,7 +472,6 @@ describe('open-kernel Typegen and migration proof', () => {
 		})
 		const createMetadata = async (version: '1.0.0' | '2.0.0') => {
 			const first = createValuePostgresPlugin({
-				includeUpgrade: version === '2.0.0',
 				instanceId: 'first',
 				table: 'open_kernel_migration_first',
 				version,
@@ -487,7 +485,7 @@ describe('open-kernel Typegen and migration proof', () => {
 				plugins: [
 					postgresPlugin({ url: 'postgresql://fixture.invalid/proof' }),
 					first,
-					second,
+					...(version === '1.0.0' ? [second] : []),
 				],
 				schemas: [First, Second],
 			})
@@ -503,43 +501,35 @@ describe('open-kernel Typegen and migration proof', () => {
 		expect(
 			previous.physicalSchema.map(({ instanceId }) => instanceId),
 		).toStrictEqual(['first', 'second'])
-		const history = new FakeAdapterMigrationHistory(previous.physicalSchema)
-		const plan = history.plan(
-			current.physicalSchema.filter(({ instanceId }) => instanceId === 'first'),
-			current.migrations,
-		)
-		expect({
-			orphaned: plan.orphaned.map(({ previous: value }) => value.instanceId),
-			upgrades: plan.upgrades.map(({ current: value, intent }) => ({
-				contributionId: value.contributionId,
-				instanceId: value.instanceId,
-				intent: intent.payload,
-			})),
-		}).toMatchInlineSnapshot(`
+		// Inspect configured metadata only; applied migrations and orphan planning are retired.
+		const first = previous.physicalSchema[0]
+		expect(first).toStrictEqual({
+			adapterId: 'ultimabase.postgres',
+			contributionId: 'decimal-sort-key',
+			family: 'physical-schema',
+			instanceId: 'first',
+			normalizedStaticOptions: { format: 'numeric-v1' },
+			packageVersion: '1.0.0',
+			payload: {
+				column: { name: 'amount_sort_key', nullable: true, type: 'numeric' },
+				kind: 'column',
+				table: 'open_kernel_migration_first',
+			},
+			pluginId: 'fixture.open-kernel-value-postgres',
+			protocolVersion: 1,
+		})
+		expect(current.physicalSchema).toStrictEqual([
 			{
-			  "orphaned": [
-			    "second",
-			  ],
-			  "upgrades": [
-			    {
-			      "contributionId": "decimal-sort-key",
-			      "instanceId": "first",
-			      "intent": {
-			        "from": "^1.0.0",
-			        "intent": {
-			          "strategy": "recompute-decimal-sort-key",
-			        },
-			        "kind": "upgrade",
-			        "target": {
-			          "contributionId": "decimal-sort-key",
-			          "instanceId": "first",
-			          "pluginId": "fixture.open-kernel-value-postgres",
-			        },
-			        "to": "2.0.0",
-			      },
-			    },
-			  ],
-			}
-		`)
+				...first,
+				normalizedStaticOptions: { format: 'numeric-v2' },
+				packageVersion: '2.0.0',
+			},
+		])
+		expect(previous.physicalSchema).toHaveLength(2)
+		expect(Object.isFrozen(previous.physicalSchema)).toBe(true)
+		expect(Object.isFrozen(first)).toBe(true)
+		expect(Object.isFrozen(first?.normalizedStaticOptions)).toBe(true)
+		expect(Object.isFrozen(first?.payload)).toBe(true)
+		expect(current).not.toHaveProperty('migrations')
 	})
 })

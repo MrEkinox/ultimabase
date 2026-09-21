@@ -136,3 +136,7 @@ void (undefined as unknown as InspectedCapability)
 void (undefined as unknown as InspectedPolicy)
 void (undefined as unknown as InspectedReport)
 void (undefined as unknown as InspectedDeclarationContext)
+
+// @ts-expect-error ADR-0266 removes migration intent from the public privilege vocabulary.
+const removedMigrationPrivilege: PluginPrivilege = 'migration:contribute'
+void removedMigrationPrivilege

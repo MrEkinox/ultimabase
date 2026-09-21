@@ -23,7 +23,6 @@ describe('packed @ultimabase/core plugin manifests', () => {
 			'adapter:raw',
 			'authority:elevate',
 			'event:publish',
-			'migration:contribute',
 			'model:extend',
 			'operation:declare',
 			'persistence:rewrite',

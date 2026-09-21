@@ -15,6 +15,7 @@ sources:
   - packages/testing/README.md
   - packages/http-plugin/README.md
   - docs/adr/0264-remove-unused-runtime-stage-contributions.md
+  - docs/adr/0266-defer-migration-only-protocols.md
   - docs/adr/0190-capability-host-lifecycle-and-legacy-convergence.md
   - docs/adr/0191-plugin-privilege-taxonomy-and-diagnostics.md
   - docs/adr/0195-setup-phase-capability-requirements.md
@@ -143,14 +144,18 @@ weaken your protected policy or make transport input select Master.
 
 ## Data and infrastructure boundaries
 
-### Adapter and migration integration
+### Adapter integration
 
-Portable adapter work requires the exact Core adapter capability rather than
-a direct import of a database implementation. `adapter:consume` covers
-adapter capability and contribution consumption. Physical schema and migration
-providers are adapter-specific and versioned; an upgrade intent separately
-requires `migration:contribute`. A changed prior contribution without an
-explicit versioned upgrade intent fails instead of guessing a rename or drop.
+Portable adapter work requires the exact Core adapter capability.
+`adapter:consume` covers adapter support and attributed physical contributions;
+physical providers are adapter-specific and versioned. Their snapshots retain
+actual ownership, instance, versions, normalized options and payload.
+
+Migration intent, Core migration planning, the `migration:contribute` privilege
+and `FakeAdapterMigrationHistory` are removed. PostgreSQL preparation follows
+its explicit `schemaPolicy`; use existing `ignore` when external tooling manages
+the schema. Direct synchronization and `renamedFrom` remain available, without
+automatically dropping unmatched plugin or private storage.
 
 `adapter:raw` is critical and different from `adapter:consume`. It requires
 the adapter package's nominal raw token and Core's revocable `withRaw()` lease.
@@ -219,23 +224,22 @@ privilege needs a human-readable reason, appears in the startup report, and
 may be denied globally, by plugin ID, or by exact instance. A dependency's
 privilege never transfers to your plugin.
 
-| Privilege              | Use only for                                                       |
-| ---------------------- | ------------------------------------------------------------------ |
-| `schema:declare`       | Schema, field, option, additive patch, or index declarations.      |
-| `model:extend`         | Schema-mutation methods on application-owned schema/model handles. |
-| `operation:declare`    | Namespaced operation or schema-mutation tokens.                    |
-| `typegen:reference`    | Registered public package type references.                         |
-| `runtime:observe`      | Product event consumers and diagnostics.                           |
-| `runtime:intercept`    | Mutable request behavior at an allowed stage.                      |
-| `runtime:constrain`    | Deny-only or narrowing protected constraints.                      |
-| `persistence:rewrite`  | Physical plan rewrite without logical-policy changes.              |
-| `adapter:consume`      | Adapter capability or attributed physical contribution.            |
-| `adapter:raw`          | Exact revocable adapter-specific raw lease.                        |
-| `migration:contribute` | Explicit attributed adapter migration intent.                      |
-| `storage:private`      | Owner-private persistent collections.                              |
-| `transport:expose`     | HTTP routes, public operation bindings, or GraphQL contributions.  |
-| `event:publish`        | Core-checked transactional event publication.                      |
-| `authority:elevate`    | Audited Core Master elevation, never transport-shaped input.       |
+| Privilege             | Use only for                                                       |
+| --------------------- | ------------------------------------------------------------------ |
+| `schema:declare`      | Schema, field, option, additive patch, or index declarations.      |
+| `model:extend`        | Schema-mutation methods on application-owned schema/model handles. |
+| `operation:declare`   | Namespaced operation or schema-mutation tokens.                    |
+| `typegen:reference`   | Registered public package type references.                         |
+| `runtime:observe`     | Product event consumers and diagnostics.                           |
+| `runtime:intercept`   | Mutable request behavior at an allowed stage.                      |
+| `runtime:constrain`   | Deny-only or narrowing protected constraints.                      |
+| `persistence:rewrite` | Physical plan rewrite without logical-policy changes.              |
+| `adapter:consume`     | Adapter capability or attributed physical contribution.            |
+| `adapter:raw`         | Exact revocable adapter-specific raw lease.                        |
+| `storage:private`     | Owner-private persistent collections.                              |
+| `transport:expose`    | HTTP routes, public operation bindings, or GraphQL contributions.  |
+| `event:publish`       | Core-checked transactional event publication.                      |
+| `authority:elevate`   | Audited Core Master elevation, never transport-shaped input.       |
 
 The direct environment claims are `environment:filesystem`,
 `environment:network`, `environment:process`, and

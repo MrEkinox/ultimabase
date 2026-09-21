@@ -13,6 +13,13 @@ schema/model operations, and manual Typegen declarations/extra outputs.
 Their used product counterparts remain intact. Do not add substitute public
 APIs or remove another capability without following the architecture stop rule.
 
+Milestone 31's accepted ADR-0266 removes only migration support, upgrade intent,
+planning/history helpers and PostgreSQL preparation claims. Physical metadata,
+all owner/version/options/payload snapshot fields, direct synchronization and
+`renamedFrom`, private storage and transaction-bound raw access remain. No
+migration privilege or replacement protocol exists; future migrations require
+an explicit architecture decision before implementation.
+
 ## Read first
 
 Before changing code:
@@ -176,7 +183,7 @@ Run or update `yarn constraints` when dependency constraints exist. If a request
   immutable patches, model surfaces, operations, Typegen declarations, Runtime
   middleware, protected constraints, and persistence-plan rewrites. Static
   contributions remain pure, synchronous, deterministic, and infrastructure-free.
-- Product-owned Runtime observation, migration intent, and filesystem claims
+- Product-owned Runtime observation and filesystem claims
   retain their exact privilege or claim boundaries; broader neighboring powers
   never imply them. Query extension registrars and destructive schema patches
   are removed. Typegen derives declarations from the graph and registered public

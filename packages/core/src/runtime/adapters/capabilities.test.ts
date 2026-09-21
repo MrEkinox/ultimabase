@@ -8,7 +8,7 @@ import {
 } from '../../plugins/capabilities.js'
 import { definePlugin } from '../../plugins/definition.js'
 import {
-	adapterMigrationCapability,
+	adapterPhysicalSchemaCapability,
 	adapterPersistencePlanCapability,
 	adapterConstraintCapability,
 	adapterSupport,
@@ -39,7 +39,7 @@ describe('adapter capabilities', () => {
 		expect(() =>
 			adapterSupport({
 				adapterId: 'unqualified',
-				family: 'migration',
+				family: 'physical-schema',
 				protocolVersion: 1,
 			}),
 		).toThrow('namespaced adapter identifier')
@@ -55,11 +55,11 @@ describe('adapter capabilities', () => {
 			}),
 		).toThrow('formats must contain json')
 		expect(() =>
-			provideAdapterCapability(adapterMigrationCapability, {
+			provideAdapterCapability(adapterPhysicalSchemaCapability, {
 				contributionId: 'invalid-version',
 				value: {
 					adapterId: 'fixture.database',
-					family: 'migration',
+					family: 'physical-schema',
 					// @ts-expect-error -- Runtime validation protects protocol facts.
 					protocolVersion: 2,
 				},
@@ -71,7 +71,7 @@ describe('adapter capabilities', () => {
 				value: {
 					adapterId: 'fixture.database',
 					// @ts-expect-error -- Runtime validation protects capability families.
-					family: 'migration',
+					family: 'physical-schema',
 					protocolVersion: 1,
 				},
 			}),
@@ -94,10 +94,10 @@ describe('adapter capabilities', () => {
 				adapterId: 'fixture.database',
 				capabilityId: 'fixture.invalid-family',
 				// @ts-expect-error -- Runtime validation protects untyped family metadata.
-				family: 'storage',
+				family: 'migration',
 				version: '1.0.0',
 			}),
-		).toThrow('family must be migration or physical-schema')
+		).toThrow('family must be physical-schema')
 		const physical = defineAdapterContributionCapability<
 			Readonly<{ readonly column: string }>
 		>()({
@@ -209,20 +209,20 @@ describe('adapter capabilities', () => {
 		).toThrow(expect.objectContaining({ code: 'PLUGIN_CAPABILITY_CONFLICT' }))
 	})
 
-	it('injects exact owner provenance and enforces migration privilege separately', async () => {
-		const migrationCapability = defineAdapterContributionCapability<
-			Readonly<{ readonly kind: 'upgrade' }>
+	it('injects exact physical owner provenance and enforces adapter privilege', async () => {
+		const physicalCapability = defineAdapterContributionCapability<
+			Readonly<{ readonly kind: 'column' }>
 		>()({
 			adapterId: 'fixture.database',
-			capabilityId: 'fixture.database-migrations',
-			family: 'migration',
+			capabilityId: 'fixture.database-physical',
+			family: 'physical-schema',
 			version: '1.0.0',
 		})
-		const requirement = requireCapability(migrationCapability, '^1.0.0')
-		const contribution = provideAdapterContribution(migrationCapability, {
-			contributionId: 'upgrade',
+		const requirement = requireCapability(physicalCapability, '^1.0.0')
+		const contribution = provideAdapterContribution(physicalCapability, {
+			contributionId: 'column',
 			normalizedStaticOptions: immutableRecord({ mode: 'safe' }),
-			payload: immutableRecord({ kind: 'upgrade' as const }),
+			payload: immutableRecord({ kind: 'column' as const }),
 			protocolVersion: 3,
 		})
 		const unauthorizedProvider = definePlugin({
@@ -246,8 +246,8 @@ describe('adapter capabilities', () => {
 			pluginId: 'fixture.database-bridge',
 			privileges: [
 				{
-					name: 'migration:contribute',
-					reason: 'Contributes explicit upgrade intent.',
+					name: 'adapter:consume',
+					reason: 'Contributes physical schema metadata.',
 				},
 			] as const,
 			version: '2.0.0',
@@ -257,7 +257,7 @@ describe('adapter capabilities', () => {
 			core: '^0.0.0',
 			pluginId: 'fixture.database-adapter',
 			privileges: [
-				{ name: 'adapter:consume', reason: 'Compiles migration intent.' },
+				{ name: 'adapter:consume', reason: 'Compiles physical metadata.' },
 			] as const,
 			setup: ({ capabilities }) => capabilities.get(requirement),
 			version: '1.0.0',
@@ -272,12 +272,12 @@ describe('adapter capabilities', () => {
 		expect(application.getPlugin('fixture.database-adapter')).toStrictEqual([
 			{
 				adapterId: 'fixture.database',
-				contributionId: 'upgrade',
-				family: 'migration',
+				contributionId: 'column',
+				family: 'physical-schema',
 				instanceId: 'primary',
 				normalizedStaticOptions: { mode: 'safe' },
 				packageVersion: '2.0.0',
-				payload: { kind: 'upgrade' },
+				payload: { kind: 'column' },
 				pluginId: 'fixture.database-bridge',
 				protocolVersion: 3,
 			},

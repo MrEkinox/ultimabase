@@ -1,6 +1,5 @@
 export {
 	adapterConstraintCapability,
-	adapterMigrationCapability,
 	adapterPersistencePlanCapability,
 	adapterPhysicalSchemaCapability,
 	adapterSupport,
@@ -12,7 +11,6 @@ export type {
 	AdapterCapabilityRequirement,
 	AdapterCapabilitySupportBase,
 	AdapterConstraintSupport,
-	AdapterMigrationSupport,
 	AdapterPersistencePlanSupport,
 	AdapterPhysicalSchemaSupport,
 	AdapterValueStorageSupport,
@@ -27,14 +25,6 @@ export type {
 	AdapterContributionFamily,
 	AdapterContributionSnapshot,
 } from './contributions.js'
-export { adapterUpgradeIntent, planAdapterMigrations } from './migration.js'
-export type {
-	AdapterMigrationPlan,
-	AdapterUpgradeIntentPayload,
-	AdapterUpgradeTarget,
-	OrphanedAdapterContribution,
-	PlannedAdapterUpgrade,
-} from './migration.js'
 export {
 	defineAdapterRawCapability,
 	provideAdapterRawCapability,

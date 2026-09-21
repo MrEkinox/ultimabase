@@ -58,6 +58,9 @@ it('generates and packs exact PostgreSQL option autocomplete', async () => {
 	const fieldMarker = '/* postgres-field */'
 	const sourceWithMarkers = `${generated.contents}
 import { Schema } from '@ultimabase/core'
+import type { PostgresAdapterMetadata } from '@ultimabase/postgres-plugin'
+// @ts-expect-error Migration metadata was removed by ADR-0266.
+void (undefined as unknown as PostgresAdapterMetadata).migrations
 declare const postgresField: Plugin0_PostgresFieldOption
 declare const postgresSchema: Plugin0_PostgresSchemaOption
 const GeneratedPost = Schema.define({
@@ -104,6 +107,10 @@ void GeneratedPost
   postgresTable,
   type PostgresColumnExtension,
   type PostgresTableExtension,
+  postgresMigrationContributionCapability,
+  postgresUpgrade,
+  postgresSchemaPreparationCapability,
+  type PostgresSchemaPreparationCapability,
 } from '@ultimabase/postgres-plugin'`
 	const removedDiagnostics = createLanguageService(
 		fileName.replace('.ts', '.removed.ts'),
@@ -117,6 +124,10 @@ void GeneratedPost
 		'postgresTable',
 		'PostgresColumnExtension',
 		'PostgresTableExtension',
+		'postgresMigrationContributionCapability',
+		'postgresUpgrade',
+		'postgresSchemaPreparationCapability',
+		'PostgresSchemaPreparationCapability',
 	]) {
 		expect(
 			removedDiagnostics.some((message) => message.includes(removed)),

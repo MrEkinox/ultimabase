@@ -23,7 +23,7 @@ Create `_ultimabase_schema`, versioned normalized snapshots, and applied-migrati
 ## Architecture prerequisite after milestone 31
 
 Accepted [ADR-0266](../../docs/adr/0266-defer-migration-only-protocols.md)
-removes the preinstalled migration protocols in issue 3110. This future feature
+is implemented by issue 3110: the preinstalled migration protocols are removed. This future feature
 must first decide its integration against the current public kernel; it cannot
 assume `adapterMigrationCapability`, upgrade-intent helpers or
 `postgresSchemaPreparationCapability` remain available. Current direct

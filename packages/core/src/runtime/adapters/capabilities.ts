@@ -18,7 +18,6 @@ import type { DatabasePersistencePlanKind } from '../persistence/contracts.js'
 /** Names the independently negotiated portable adapter protocol families. */
 export type AdapterCapabilityFamily =
 	| 'constraint'
-	| 'migration'
 	| 'persistence-plan'
 	| 'physical-schema'
 	| 'raw'
@@ -53,14 +52,8 @@ export interface AdapterPhysicalSchemaSupport extends AdapterCapabilitySupportBa
 	readonly protocolVersion: 1
 }
 
-/** Advertises explicit upgrade and orphaned-removal migration planning. */
-export interface AdapterMigrationSupport extends AdapterCapabilitySupportBase<'migration'> {
-	readonly protocolVersion: 1
-}
-
 type AdapterSupport =
 	| AdapterConstraintSupport
-	| AdapterMigrationSupport
 	| AdapterPersistencePlanSupport
 	| AdapterPhysicalSchemaSupport
 	| AdapterValueStorageSupport
@@ -122,13 +115,6 @@ export const adapterPhysicalSchemaCapability: AdapterSupportToken<AdapterPhysica
 	defineSupportCapability<AdapterPhysicalSchemaSupport>(
 		'ultimabase.adapter-physical-schema',
 		'physical-schema',
-	)
-
-/** Negotiates explicit upgrade and orphaned-removal migration intent. */
-export const adapterMigrationCapability: AdapterSupportToken<AdapterMigrationSupport> =
-	defineSupportCapability<AdapterMigrationSupport>(
-		'ultimabase.adapter-migration',
-		'migration',
 	)
 
 const assertAdapterId: (

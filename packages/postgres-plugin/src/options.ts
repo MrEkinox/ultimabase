@@ -19,7 +19,7 @@ export interface PostgresSchemaOption {
 	readonly table: string
 }
 
-/** Configures migration metadata owned by one persisted PostgreSQL field. */
+/** Configures direct synchronization metadata for one persisted PostgreSQL field. */
 export interface PostgresFieldOption {
 	/** Names the previous physical column used by a data-preserving rename. */
 	readonly renamedFrom: string
@@ -81,7 +81,7 @@ export const postgresSchemaOption: SchemaOptionDefinition<PostgresSchemaOption> 
 		},
 	})
 
-/** Owns the direct field `postgres` namespace as portable migration metadata. */
+/** Owns the direct field `postgres` namespace as data-preserving rename metadata. */
 export const postgresFieldOption: FieldOptionDefinition<PostgresFieldOption> =
 	definePluginFieldOption({
 		contexts: ['stored'],

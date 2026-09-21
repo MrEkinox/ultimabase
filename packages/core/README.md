@@ -1609,28 +1609,25 @@ typed setup export.
 
 ### Adapter bridge capabilities
 
-Portable plugins negotiate adapter behavior through five independent Core
+Portable plugins negotiate adapter behavior through four independent Core
 tokens: `adapterValueStorageCapability`, `adapterConstraintCapability`,
-`adapterPersistencePlanCapability`, `adapterPhysicalSchemaCapability`, and
-`adapterMigrationCapability`. Requiring one of these capabilities needs
-`adapter:consume` and fails during application assembly when no compatible
-provider exists. A provider must use `provideAdapterCapability()` so a generic
-capability declaration cannot present itself as adapter support.
+`adapterPersistencePlanCapability`, and `adapterPhysicalSchemaCapability`.
+Requiring one needs `adapter:consume` and fails during application assembly
+when no compatible provider exists. Providers use `provideAdapterCapability()`;
+a generic capability declaration cannot present itself as adapter support.
 
-Database-specific packages define their own physical-schema and migration
-contribution tokens with `defineAdapterContributionCapability()`. Core replaces
-each provider value with an attributed snapshot before composition. The
-snapshot contains the real plugin and instance IDs, package and protocol
-versions, stable contribution ID, adapter family, and normalized static
-options; a provider cannot claim another owner. Physical contributions require
-`adapter:consume`, while upgrade intent independently requires
-`migration:contribute`.
+Database-specific packages define physical-schema contribution tokens with
+`defineAdapterContributionCapability()`. Core attaches the actual plugin and
+instance IDs, package/protocol versions, contribution ID, adapter family,
+normalized static options and payload before composition. Providers cannot
+claim another owner. Both providing and consuming physical metadata require
+`adapter:consume`; all physical snapshot fields remain available.
 
-`planAdapterMigrations(previous, current, intents)` separates new, unchanged,
-explicitly upgraded, and orphaned physical contributions. A changed prior
-contribution without a matching versioned intent fails instead of inferring a
-rename, drop, or other destructive operation. Removed metadata remains an
-orphan for a database migration plugin to review.
+ADR-0266 removes migration support/intent tokens, `planAdapterMigrations`,
+its exclusive types and `migration:contribute`. Core no longer classifies
+contribution upgrades or orphans. This does not authorize destructive storage
+cleanup: current PostgreSQL synchronization preserves unmatched storage.
+A future database migration product must decide its integration separately.
 
 Raw integration is deliberately adapter-specific. The adapter package exports
 a nominal token created with `defineAdapterRawCapability()`, and the consumer
@@ -2036,7 +2033,7 @@ persistence.
 
 An additive patch may set `mutationInput: 'forbidden'` when the contributing
 plugin alone owns every write to a stored field. The field remains selectable
-and participates in persistence, filtering, migration intent, and output
+and participates in persistence, filtering, schema preparation, and output
 validation, while Core omits it from create, update, bulk, upsert, nested,
 Typegen, and transport mutation inputs. Defaults still materialize on create,
 and plugin-owned schema-mutation effects may write the field through their

@@ -29,7 +29,7 @@ retained invariant, regression evidence and delivered issue.
 | RC-03 | Canonical compiler IR round trip                 | Live internal machinery, 21 production files/3,648 lines; originally motivated by replacement compilation               | 3105–3106     | ADR-0263 accepted in 3105; direct compilation delivered by 3106 |
 | RC-04 | Runtime normalization/commit stage contributions | No current production caller of runtimePipelineStage; ordinary interceptors are used                                    | 3107–3108     | ADR-0264 delivered by 3108; -223 production lines               |
 | RC-05 | Typegen emitter marker                           | One production provider; availability consumed by conditional-privilege fixtures; no generation dispatcher              | 3107/3109     | ADR-0265 delivered by 3109; -42 production lines                |
-| RC-06 | Migration anticipation                           | Planning has a real testing consumer; no shipped migration plugin executes this path                                    | 3107/3110     | ADR-0266 accepted; implementation 3110 pending                  |
+| RC-06 | Migration anticipation                           | Planning has a real testing consumer; no shipped migration plugin executes this path                                    | 3107/3110     | ADR-0266 delivered by 3110; -445 production lines               |
 
 ## RC-01 exact private-function inventory
 
@@ -138,9 +138,9 @@ generic capability checks stay intact. No replacement marker is proposed.
 
 ## RC-06: distinguish future migration support from actual persistence
 
-[planAdapterMigrations](../../packages/core/src/runtime/adapters/migration.ts)
+`planAdapterMigrations` (former `packages/core/src/runtime/adapters/migration.ts` at `21094201`)
 is consumed by
-[FakeAdapterMigrationHistory](../../packages/testing/src/adapters/fake-migration-history.ts).
+`FakeAdapterMigrationHistory` (former `packages/testing/src/adapters/fake-migration-history.ts` at `21094201`).
 PostgreSQL declares migration contribution and schema-preparation capabilities,
 but currently only test fixtures provide the migration/preparation paths; the
 migration plugin itself is future backlog, not a shipped package.
@@ -278,3 +278,25 @@ locations with no retained loss; unmapped locations are marker-only. Exports
 fall exactly from 1,721 to 1,719; only Core and Typegen declarations change.
 Public Typegen/plugin-authoring guidance and both READMEs follow the approved
 retirement. RC-06 alone remains for the 3110 implementation gate.
+
+### RC-06 delivery in 3110
+
+ADR-0266 is implemented: retire only the migration support/intent/planner,
+exclusive equality helper, privilege, PostgreSQL migration/preparation tokens,
+upgrade helper and metadata field, and the expressly approved public testing
+history helper. No migration replacement or storage format is introduced.
+Core physical snapshots/materialization remain intact; PostgreSQL follows its
+existing explicit policy, including direct `renamedFrom`. Current SQL, desired
+state, private data, leases and ownership remain protected by unchanged
+implementation and real database tests. Future 513–515 retain their dependency
+chain and require an integration decision before implementation.
+
+Exactly 14 package-root export names disappear (Core 9, PostgreSQL 4, testing 1),
+leaving 1,705 with no additions; the other 20 declarations are byte-identical.
+Production decreases by 445 lines, tests/support by 322. Source tests: 2,533;
+built/packed/PostgreSQL: 384; full coverage: 2,777. No retained coverage loss
+across 675 identical maps and 466 mapped retained locations; changed guards and
+removed migration-only branches are manually reconciled. The website and
+engineering contracts change in the same issue. See the complete
+[3110 handoff](../../issues/3100-residual-complexity-simplification/3110-remove-unused-migration-anticipation.md).
+All six candidates are resolved; 3111 and 3112 own the final audits.

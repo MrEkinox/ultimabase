@@ -19,7 +19,6 @@ describe('plugin manifests', () => {
 			'persistence:rewrite',
 			'adapter:consume',
 			'adapter:raw',
-			'migration:contribute',
 			'transport:expose',
 			'event:publish',
 			'typegen:reference',
@@ -185,6 +184,29 @@ describe('plugin manifests', () => {
 		).toThrow(
 			new TypeError('Duplicate plugin privilege request: runtime:observe'),
 		)
+	})
+
+	it('rejects the removed migration privilege before declaration effects', () => {
+		const effects: string[] = []
+		expect(() =>
+			definePlugin({
+				pluginId: 'fixture.removed-migration-privilege',
+				version: '1.0.0',
+				core: '^0.0.0',
+				privileges: [
+					// ADR-0266 removes this privilege from typed and untyped manifests.
+					// @ts-expect-error Migration contribution is no longer a Core power.
+					{ name: 'migration:contribute', reason: 'Former migration fixture.' },
+				],
+				declare: () => {
+					effects.push('declare')
+				},
+				setup: () => {
+					effects.push('setup')
+				},
+			}),
+		).toThrow('must be a concrete PluginPrivilege')
+		expect(effects).toStrictEqual([])
 	})
 
 	it('rejects unknown and duplicate environmental claims independently', () => {

@@ -7,7 +7,7 @@ transactions; introspection; direct schema synchronization; indexes; and
 database constraints. Permission behavior and ACL storage remain independent
 plugins rather than PostgreSQL Runtime stages.
 
-Without a migration plugin, `schemaPolicy` is `override`, `fail`, or `ignore`. No Drizzle type or builder is exported publicly.
+The explicit `schemaPolicy` is `override`, `fail`, or `ignore`. No Drizzle type or builder is exported publicly.
 
 The plugin declares `environment:network` because it creates or drives
 PostgreSQL pools and connections directly. Applications may deny that claim
@@ -132,21 +132,21 @@ boundary.
 ## Adapter bridge capabilities
 
 `postgresPlugin` advertises PostgreSQL support separately for portable JSON
-value codecs, opaque constraints, persistence-plan kinds, physical schema, and
-migration intent. A logical plugin can require the corresponding neutral Core
-token without importing this package. PostgreSQL remains the package that owns
-Drizzle compilation, physical column types, and database effects.
+value codecs, opaque constraints, persistence-plan kinds and physical schema.
+A logical plugin can require the corresponding neutral Core token without
+importing this package. PostgreSQL owns Drizzle compilation, physical column
+types and database effects.
 
-PostgreSQL-specific bridge packages may contribute columns with
-`postgresPhysicalColumn()` and explicit upgrade intent with
-`postgresUpgrade()`. The first requires `adapter:consume`; the second requires
-the separate `migration:contribute` privilege. The PostgreSQL setup export
-exposes their Core-attributed, immutable metadata at `adapterMetadata` so a
-database migration implementation receives the real plugin ID, optional
-instance ID, package version, protocol version, contribution ID, and normalized
-static options. Direct schema preparation compiles current physical column
-contributions into PostgreSQL desired state; migration intent remains inert
-metadata until a migration owner reviews and applies it.
+Database-specific bridge plugins contribute columns with
+`postgresPhysicalColumn()` under `adapter:consume`. The setup export exposes
+Core-attributed immutable snapshots at `adapterMetadata.physicalSchema`,
+including the actual plugin/instance identity, package/protocol versions,
+contribution ID, normalized options and payload. Direct preparation compiles
+these columns into desired state without changing their provenance.
+
+ADR-0266 removes `postgresUpgrade()`, the migration contribution protocol and
+`adapterMetadata.migrations`; no migration planner or history is shipped.
+Physical metadata and direct synchronization remain available.
 
 Adapter-specific queries require the nominal
 `postgresRawAdapterCapability` and `adapter:raw`. The setup lease reports only
@@ -527,7 +527,7 @@ prepares the configured schemas.
 
 ## Direct schema policies
 
-Without a migration plugin, `postgresPlugin` synchronizes registered schemas
+`postgresPlugin` synchronizes registered schemas according to `schemaPolicy`
 through the `prepareSchema` lifecycle phase. The default `override` policy
 creates missing tables and transactionally applies supported column, primary
 key, default, identity, nullability, and index changes:
@@ -575,10 +575,11 @@ const ArticleSchema = Schema.define({
 })
 ```
 
-An official migration plugin provides the single declaration capability
-`postgresSchemaPreparationCapability`. PostgreSQL then suppresses direct
-synchronization so exactly one database-specific implementation owns the
-preparation phase.
+The former `postgresSchemaPreparationCapability` marker and its type are
+removed by ADR-0266. Direct preparation always follows `schemaPolicy`; use
+existing `ignore` when external tooling manages the schema. No migration
+runner or replacement preparation claim is installed. `renamedFrom` remains
+part of direct synchronization and preserves data as shown above.
 
 ## Pointer storage
 

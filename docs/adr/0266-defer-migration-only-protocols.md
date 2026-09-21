@@ -24,8 +24,9 @@ versioned upgrade and orphan metadata, using initialized applications without
 connecting to PostgreSQL. It does not prove an applied migration or preserved
 rows in a database. Its removal is the specific engineering exception accepted here.
 
-Sources: [Core planner](../../packages/core/src/runtime/adapters/migration.ts),
-[testing helper](../../packages/testing/src/adapters/fake-migration-history.ts),
+Sources: former Core planner `packages/core/src/runtime/adapters/migration.ts`
+and testing helper `packages/testing/src/adapters/fake-migration-history.ts`
+at commit `21094201`,
 [proof](../../tests/e2e/open-kernel-proof.e2e.test.ts),
 [PostgreSQL bridge](../../packages/postgres-plugin/src/adapter-capabilities.ts),
 [startup](../../packages/postgres-plugin/src/plugin/postgres-plugin.ts).

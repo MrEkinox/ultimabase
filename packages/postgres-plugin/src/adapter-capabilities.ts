@@ -1,10 +1,8 @@
 import {
 	adapterConstraintCapability,
-	adapterMigrationCapability,
 	adapterPersistencePlanCapability,
 	adapterPhysicalSchemaCapability,
 	adapterSupport,
-	adapterUpgradeIntent,
 	adapterValueStorageCapability,
 	databasePersistencePlanCapability,
 	defineAdapterContributionCapability,
@@ -14,7 +12,6 @@ import {
 	type AdapterContributionSnapshot,
 	type AdapterContributionCapabilityToken,
 	type AdapterRawCapabilityToken,
-	type AdapterUpgradeIntentPayload,
 	type CapabilityProviderDeclaration,
 	type JsonObject,
 	type JsonValue,
@@ -88,17 +85,6 @@ export const postgresPhysicalSchemaContributionCapability: AdapterContributionCa
 	version: '1.0.0',
 })
 
-export const postgresMigrationContributionCapability: AdapterContributionCapabilityToken<
-	AdapterUpgradeIntentPayload,
-	'ultimabase.postgres-migration-contribution',
-	'1.0.0'
-> = defineAdapterContributionCapability<AdapterUpgradeIntentPayload>()({
-	adapterId: postgresAdapterId,
-	capabilityId: 'ultimabase.postgres-migration-contribution',
-	family: 'migration',
-	version: '1.0.0',
-})
-
 /** Carries PostgreSQL-specific physical metadata with Core-attributed provenance. */
 export const postgresPhysicalColumn = (
 	options: Readonly<{
@@ -137,34 +123,6 @@ export const postgresPhysicalColumn = (
 		},
 	)
 }
-
-/** Declares explicit logical upgrade intent without embedding PostgreSQL SQL. */
-export const postgresUpgrade = (
-	options: Readonly<{
-		readonly contributionId: string
-		readonly from: string
-		readonly intent: JsonValue
-		readonly normalizedStaticOptions?: Readonly<Record<string, JsonValue>>
-		readonly target: AdapterUpgradeIntentPayload['target']
-		readonly to: string
-	}>,
-): CapabilityProviderDeclaration<
-	typeof postgresMigrationContributionCapability
-> =>
-	provideAdapterContribution(postgresMigrationContributionCapability, {
-		contributionId: options.contributionId,
-		...(options.normalizedStaticOptions === undefined
-			? {}
-			: { normalizedStaticOptions: options.normalizedStaticOptions }),
-		payload: adapterUpgradeIntent({
-			from: options.from,
-			intent: options.intent,
-			kind: 'upgrade',
-			target: options.target,
-			to: options.to,
-		}),
-		protocolVersion: 1,
-	})
 
 const postgresRawFacadeBrand: unique symbol = Symbol(
 	'@ultimabase/postgres-plugin/raw-facade',
@@ -236,9 +194,6 @@ export interface PostgresAdapterSupportProviders {
 	readonly constraint: CapabilityProviderDeclaration<
 		typeof adapterConstraintCapability
 	>
-	readonly migration: CapabilityProviderDeclaration<
-		typeof adapterMigrationCapability
-	>
 	readonly persistencePlan: CapabilityProviderDeclaration<
 		typeof adapterPersistencePlanCapability
 	>
@@ -257,14 +212,6 @@ export const postgresAdapterSupportProviders: PostgresAdapterSupportProviders =
 			value: adapterSupport({
 				adapterId: postgresAdapterId,
 				family: 'constraint',
-				protocolVersion: 1,
-			}),
-		}),
-		migration: provideAdapterCapability(adapterMigrationCapability, {
-			contributionId: 'postgres-migration-support',
-			value: adapterSupport({
-				adapterId: postgresAdapterId,
-				family: 'migration',
 				protocolVersion: 1,
 			}),
 		}),
@@ -300,7 +247,6 @@ export const postgresAdapterSupportProviders: PostgresAdapterSupportProviders =
 
 /** Reports current bridge metadata through the safe PostgreSQL plugin export. */
 export interface PostgresAdapterMetadata {
-	readonly migrations: readonly AdapterContributionSnapshot<AdapterUpgradeIntentPayload>[]
 	readonly physicalSchema: readonly AdapterContributionSnapshot<PostgresPhysicalColumnPayload>[]
 }
 

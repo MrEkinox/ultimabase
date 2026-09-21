@@ -10,8 +10,9 @@ order: 3
 outcome: Configure the PostgreSQL plugin, choose a direct schema policy, and diagnose startup failures.
 owner: '2813'
 releaseStatus: pre-release
-reviewedAt: 2026-09-17
+reviewedAt: 2026-09-21
 sources:
+  - docs/adr/0266-defer-migration-only-protocols.md
   - packages/postgres-plugin/README.md
   - packages/postgres-plugin/src/plugin/postgres-plugin.ts
   - packages/postgres-plugin/src/options.ts
@@ -31,6 +32,12 @@ a raw database client.
 The plugin can prepare a database schema directly at startup. It does **not**
 ship a migration runner. Importing the package alone does not install the
 provider; add `postgresPlugin()` to the application's plugin list.
+
+Preparation always follows the configured `schemaPolicy`. The former
+`postgresSchemaPreparationCapability` marker is removed; select `ignore`
+explicitly if external tooling manages schema changes. `renamedFrom` remains
+available for direct synchronization, and removing plugin metadata never
+implies an automatic drop of unmatched columns or private storage.
 
 ## Installation
 

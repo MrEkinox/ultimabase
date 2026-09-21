@@ -1,11 +1,9 @@
 export { postgresConnectionCapability } from './connection/contracts.js'
 export {
 	postgresAdapterId,
-	postgresMigrationContributionCapability,
 	postgresPhysicalColumn,
 	postgresPhysicalSchemaContributionCapability,
 	postgresRawAdapterCapability,
-	postgresUpgrade,
 } from './adapter-capabilities.js'
 export type {
 	PostgresAdapterMetadata,
@@ -34,8 +32,6 @@ export type {
 	PostgresConstraintSqlTag,
 } from './constraints/definition.js'
 export { postgresPlugin } from './plugin/postgres-plugin.js'
-export { postgresSchemaPreparationCapability } from './schema-preparation-capability.js'
-export type { PostgresSchemaPreparationCapability } from './schema-preparation-capability.js'
 
 export type { PostgresFieldOption, PostgresSchemaOption } from './options.js'
 

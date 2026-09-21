@@ -149,10 +149,10 @@ running an optional package-specific assertion.
 
 For JavaScript, import the same helpers and select `javascript-operation`; no
 generated declarations or Typegen import is required. Transport checks can use
-`FakePublicOperationTransport`. Migration checks can use
-`FakeAdapterMigrationHistory` to cover upgrades and orphaned contributions;
-adapter checks can deliberately install a failing public capability provider.
-Those fakes remain opt-in, so the common suite has no database or transport
+`FakePublicOperationTransport`; adapter checks can deliberately install a
+failing public capability provider. The existing `migration` check label is
+only a category for a plugin's own verifier, not a bundled migration planner.
+These helpers remain opt-in, so the common suite has no database or transport
 dependency.
 
 `PluginConformanceError` exposes `pluginId`, the exact failed `contract`, and
@@ -226,20 +226,10 @@ rejects foreign, forged, stale, and wrong-authority Master contexts before the
 operation codec or handler runs. The fake never parses credentials or creates
 authority from wire-shaped input.
 
-## Fake adapter migration history
+## Retired migration testing helper
 
-`FakeAdapterMigrationHistory` retains one immutable set of attributed adapter
-contribution snapshots. `plan(current, intents)` uses Core's real migration
-planner, including explicit upgrade requirements and inert orphan reporting;
-`accept(current)` returns a new history so tests do not share mutable state:
-
-```ts
-const previous = new FakeAdapterMigrationHistory(previousSnapshots)
-const plan = previous.plan(currentSnapshots, upgradeIntents)
-
-expect(plan.orphaned).toHaveLength(1)
-const next = previous.accept(currentSnapshots)
-```
-
-This fake contains no database driver, DDL renderer, or automatic destructive
-synchronization behavior.
+ADR-0266 removes `FakeAdapterMigrationHistory` and its `snapshots`, `plan` and
+`accept` surfaces together with Core's migration-only planner. Tests can still
+inspect the existing attributed physical metadata and run real database
+checks; there is no replacement planning helper. The generic `migration`
+conformance category remains available for an explicit plugin-owned verifier.

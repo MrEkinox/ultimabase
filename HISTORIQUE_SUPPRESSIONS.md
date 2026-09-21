@@ -8,10 +8,10 @@ validation et audit sans anomalie restante.
 
 Dernière mise à jour : **21 septembre 2026**. Le jalon 30 est terminé et reste
 historique. L’utilisateur a autorisé l’exécution autonome du jalon 31 avec
-boucle d’audit et commit par issue ; les issues 3101–3109 sont livrées.
+boucle d’audit et commit par issue ; les issues 3101–3110 sont livrées.
 Le changement ciblé des sélecteurs de l’ADR-0263 est accepté et livré ; les
 trois retraits publics de la 3107 sont approuvés. RC-04 et RC-05 sont livrés
-en 3108/3109 ; RC-06 reste à réaliser dans la 3110.
+en 3108/3109 et RC-06 en 3110.
 Aucun push n’est autorisé. L’arrêt après la 3014, puis la reprise autorisée jusqu’à la 3034,
 restent consignés dans le journal archivé du jalon 30.
 
@@ -629,7 +629,7 @@ portent les preuves, décisions et critères de conservation. Les anciens R-001
 | RC-03 : aller-retour du compilateur via une représentation intermédiaire | 3105–3106 | Livré en 3106 : −2 256 lignes de production                       | Validation, ordre, ownership, relations et publication atomique |
 | RC-04 : extension Runtime normalization/commit inutilisée                | 3107–3108 | Retiré en 3108 ; -223 lignes de production                        | Interceptors utilisés par ACL, transactions et hooks de commit  |
 | RC-05 : marqueur Typegen, usages conditionnels en tests                  | 3107/3109 | Retiré en 3109 ; -42 lignes de production                         | Génération automatique, types et empreintes déterministes       |
-| RC-06 : anticipation des migrations                                      | 3107/3110 | ADR-0266 acceptée ; réalisation en 3110                           | Synchronisation PostgreSQL, stockage privé et provenance utile  |
+| RC-06 : anticipation des migrations                                      | 3107/3110 | Retiré en 3110 ; -445 lignes de production                        | Synchronisation PostgreSQL, stockage privé et provenance utile  |
 
 Une proposition ne devient « approuvée » qu’après la décision nécessaire, puis
 « réalisée » après son implémentation, sa validation et son audit sans anomalie
@@ -787,3 +787,26 @@ avec couverture passent**. Aucun emplacement conservé ne perd sa couverture.
 Les exports passent exactement de 1 721 à 1 719 ; seuls les contrats Core et
 Typegen changent. Les guides du site et les README suivent la suppression.
 Audit final sans anomalie ; la 3110 reste à réaliser avant le bilan du jalon.
+
+### Issue 3110 — anticipation des migrations retirée
+
+Retrait exact de l’ADR-0266 : protocoles de support et d’intention, planificateur
+Core et types exclusifs, privilège `migration:contribute`, marqueurs PostgreSQL,
+`postgresUpgrade()`, métadonnées `migrations` et `FakeAdapterMigrationHistory`.
+Ce dernier était utilisé par les preuves de test : sa suppression et celle des
+classifications d’upgrade/orphelin ont été explicitement approuvées. Aucun
+planificateur de remplacement n’a été déplacé dans les tests.
+
+**445 lignes de production supprimées nettes** (Core 297, PostgreSQL 111,
+testing 37), **322 lignes de tests/support en moins**. Quatorze exports retirés
+exactement, aucun ajouté. Les neuf champs des snapshots physiques, leur
+provenance, la synchronisation `override`/`fail`/`ignore`, `renamedFrom`, les
+credentials/sessions privés et les transactions restent conservés. Les fichiers
+SQL, de compilation physique et de synchronisation sont inchangés hors JSDoc.
+
+Validation : **2 533 tests source**, **384 tests compilés/archives/PostgreSQL**,
+**2 777 tests avec couverture**, sans perte de couverture conservée ; site,
+types, build, lint et contraintes vérifiés. L’audit corrige trois anciens
+commentaires de migration ; l’historique des issues 513–515 reste futur et
+nécessite une décision d’intégration. Les détails et limites sont dans la
+[3110](issues/3100-residual-complexity-simplification/3110-remove-unused-migration-anticipation.md).

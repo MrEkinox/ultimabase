@@ -41,6 +41,9 @@ it('keeps retired kernel and measurement APIs out of published JavaScript', asyn
 	const testing = await import('@ultimabase/testing')
 	// Packed consumers must see the same removals as source consumers.
 	for (const name of [
+		'adapterMigrationCapability',
+		'adapterUpgradeIntent',
+		'planAdapterMigrations',
 		'decorateCapability',
 		'replaceCapability',
 		'replaceSchemaCompiler',
@@ -63,6 +66,7 @@ it('keeps retired kernel and measurement APIs out of published JavaScript', asyn
 	])
 		expect(core).not.toHaveProperty(name)
 	for (const name of [
+		'FakeAdapterMigrationHistory',
 		'RuntimeCostProbe',
 		'assertNoOptionalRuntimeCost',
 		'diffRuntimeCostSnapshots',
@@ -74,6 +78,14 @@ it('keeps retired kernel and measurement APIs out of published JavaScript', asyn
 		'utf8',
 	)
 	expect(declarations).not.toMatch(/\bRuntimeCost(?:ProbeOptions|Snapshot)\b/u)
+	expect(declarations).not.toContain('FakeAdapterMigrationHistory')
+	const postgres = await import('@ultimabase/postgres-plugin')
+	for (const name of [
+		'postgresMigrationContributionCapability',
+		'postgresUpgrade',
+		'postgresSchemaPreparationCapability',
+	])
+		expect(postgres).not.toHaveProperty(name)
 })
 
 const consumerRequire = createRequire(import.meta.url)

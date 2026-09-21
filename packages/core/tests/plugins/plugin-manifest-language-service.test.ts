@@ -78,7 +78,6 @@ describe('plugin manifest source language service', () => {
 			'adapter:raw',
 			'authority:elevate',
 			'event:publish',
-			'migration:contribute',
 			'model:extend',
 			'operation:declare',
 			'persistence:rewrite',

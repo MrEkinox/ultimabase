@@ -205,3 +205,36 @@ void core.typegenEmitterCapability
 // @ts-expect-error The inert marker interface has no remaining public contract.
 type RemovedTypegenEmitter = core.TypegenEmitterCapability
 void (undefined as unknown as RemovedTypegenEmitter)
+
+// ADR-0266 removes migration-only authoring while physical metadata remains.
+// @ts-expect-error Migration-only runtime exports are retired.
+void core.adapterMigrationCapability
+// @ts-expect-error Migration-only runtime exports are retired.
+void core.adapterUpgradeIntent
+// @ts-expect-error Migration-only runtime exports are retired.
+void core.planAdapterMigrations
+// @ts-expect-error Migration-only type contracts are retired.
+type RemovedMigration0 = core.AdapterMigrationSupport
+void (undefined as unknown as RemovedMigration0)
+// @ts-expect-error Migration-only type contracts are retired.
+type RemovedMigration1 = core.AdapterMigrationPlan
+void (undefined as unknown as RemovedMigration1)
+// @ts-expect-error Migration-only type contracts are retired.
+type RemovedMigration2 = core.AdapterUpgradeIntentPayload
+void (undefined as unknown as RemovedMigration2)
+// @ts-expect-error Migration-only type contracts are retired.
+type RemovedMigration3 = core.AdapterUpgradeTarget
+void (undefined as unknown as RemovedMigration3)
+// @ts-expect-error Migration-only type contracts are retired.
+type RemovedMigration4 = core.OrphanedAdapterContribution
+void (undefined as unknown as RemovedMigration4)
+// @ts-expect-error Migration-only type contracts are retired.
+type RemovedMigration5 = core.PlannedAdapterUpgrade
+void (undefined as unknown as RemovedMigration5)
+// @ts-expect-error Migration is no longer an adapter support family.
+const removedAdapterFamily: core.AdapterCapabilityFamily = 'migration'
+// @ts-expect-error Migration is no longer a contribution family.
+const removedContributionFamily: core.AdapterContributionFamily = 'migration'
+// @ts-expect-error Migration no longer names a privilege facade.
+const removedMigrationFacade: core.PluginPrivilegeFacade = 'migration'
+void [removedAdapterFamily, removedContributionFamily, removedMigrationFacade]

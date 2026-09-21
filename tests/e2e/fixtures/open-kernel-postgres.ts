@@ -2,7 +2,6 @@ import { definePlugin, type SchemaDefinition } from '@ultimabase/core'
 import {
 	postgresConstraintCompiler,
 	postgresPhysicalColumn,
-	postgresUpgrade,
 } from '@ultimabase/postgres-plugin'
 import { isPlainRecord } from '@ultimabase/shared'
 
@@ -51,13 +50,12 @@ export const createSoftDeletePostgresPlugin = (
 }
 
 export interface ValuePostgresOptions {
-	readonly includeUpgrade?: boolean
 	readonly instanceId: string
 	readonly table: string
 	readonly version: '1.0.0' | '2.0.0'
 }
 
-/** Contributes inspectable physical metadata and optional explicit upgrade intent. */
+/** Contributes inspectable physical metadata with exact instance and version attribution. */
 export const createValuePostgresPlugin = (options: ValuePostgresOptions) => {
 	const table = assertIdentifier(options.table, 'value metadata table')
 	const physical = postgresPhysicalColumn({
@@ -68,37 +66,15 @@ export const createValuePostgresPlugin = (options: ValuePostgresOptions) => {
 		},
 		table,
 	})
-	const upgrade = postgresUpgrade({
-		contributionId: 'decimal-sort-key-v2',
-		from: '^1.0.0',
-		intent: { strategy: 'recompute-decimal-sort-key' },
-		target: {
-			contributionId: 'decimal-sort-key',
-			instanceId: options.instanceId,
-			pluginId: 'fixture.open-kernel-value-postgres',
-		},
-		to: '2.0.0',
-	})
 	return definePlugin({
 		capabilities: {
-			provides: [
-				physical,
-				...(options.includeUpgrade === true ? [upgrade] : []),
-			],
+			provides: [physical],
 		},
 		core: '^0.0.0',
 		instanceId: options.instanceId,
 		pluginId: 'fixture.open-kernel-value-postgres',
 		privileges: [
 			{ name: 'adapter:consume', reason: 'Adds decimal physical metadata.' },
-			...(options.includeUpgrade === true
-				? ([
-						{
-							name: 'migration:contribute',
-							reason: 'Declares the decimal metadata upgrade.',
-						},
-					] as const)
-				: []),
 		] as const,
 		version: options.version,
 	})
