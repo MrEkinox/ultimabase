@@ -419,3 +419,17 @@ et déclarations publiques identiques. Après correction de l’isolation d’un
 nouvelle fixture, les 318 tests source ciblés et d’intégration ainsi que les
 106 contrôles sur packages construits passent. Aucun chemin conservé ne perd
 sa couverture ; le garde d’upsert gagne un cas couvert. Audit final vert.
+
+## Soft Delete — issue 3021 réalisée
+
+Suppression des objets intermédiaires du plan de visibilité : un ensemble privé
+conserve les mêmes identités de schémas et les mêmes contrôles de propriétaire.
+Les trois commandes partagent leur validateur existant sans payload. Les types
+du manifeste se déduisent de ses valeurs littérales immuables au lieu de recopier
+chaque privilège et sa justification. Les modes, filtres, commandes, transports,
+transactions et opérations privées Master restent inchangés.
+
+Bilan de production : **788 → 738 lignes (−50)**, huit fichiers, cinq exports
+et types publics équivalents. Les 274 contrôles source et d’intégration et les
+23 intégrations construites passent sans perte de couverture conservée. Audit
+final vert. Le stash des fonctionnalités Soft Delete suspendues reste intact.

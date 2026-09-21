@@ -52,7 +52,7 @@ this milestone.
 18. [x] [3018 — Simplify the Roles plugin](3018-simplify-roles-plugin.md)
 19. [x] [3019 — Simplify the ACL Permissions plugin](3019-simplify-acl-permissions-plugin.md)
 20. [x] [3020 — Simplify the Password Auth plugin](3020-simplify-password-auth-plugin.md)
-21. [ ] [3021 — Simplify the Soft Delete plugin](3021-simplify-soft-delete-plugin.md)
+21. [x] [3021 — Simplify the Soft Delete plugin](3021-simplify-soft-delete-plugin.md)
 22. [ ] [3022 — Simplify the PostgreSQL plugin](3022-simplify-postgres-plugin.md)
 23. [ ] [3023 — Simplify the PostgreSQL Vector plugin](3023-simplify-pg-vector-plugin.md)
 24. [ ] [3024 — Simplify the HTTP plugin](3024-simplify-http-plugin.md)
@@ -91,7 +91,7 @@ decision, then an update to the affected pages under
 the final cross-page website review; package READMEs do not replace it.
 
 The [3014 checkpoint](../../docs/plans/2026-09-21-core-kernel-simplification-checkpoint.md)
-is complete with a green clean-checkout audit. Issues 3015–3020 are complete; the plugin wave resumes at 3021
+is complete with a green clean-checkout audit. Issues 3015–3021 are complete; the plugin wave resumes at 3022
 under the later explicit user authorization; milestone 30 remains open.
 
 ## Completion boundary

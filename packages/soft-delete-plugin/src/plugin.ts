@@ -49,36 +49,7 @@ const softDeletePluginModule: PluginModule<
 	version: '0.0.0',
 })
 
-const softDeletePluginPrivileges: readonly [
-	Readonly<{
-		readonly name: 'schema:declare'
-		readonly reason: 'Declares the direct soft-delete schema option.'
-	}>,
-	Readonly<{
-		readonly name: 'runtime:constrain'
-		readonly reason: 'Keeps tombstoned rows outside ordinary operations.'
-	}>,
-	Readonly<{
-		readonly name: 'persistence:rewrite'
-		readonly reason: 'Persists soft-delete effects as atomic tombstone updates.'
-	}>,
-	Readonly<{
-		readonly name: 'operation:declare'
-		readonly reason: 'Declares soft-delete and administration mutations.'
-	}>,
-	Readonly<{
-		readonly name: 'model:extend'
-		readonly reason: 'Adds soft-delete commands to enabled schema handles.'
-	}>,
-	Readonly<{
-		readonly name: 'transport:expose'
-		readonly reason: 'Binds explicit soft delete to REST and GraphQL.'
-	}>,
-	Readonly<{
-		readonly name: 'typegen:reference'
-		readonly reason: 'Preserves payload-free soft-delete commands in Typegen.'
-	}>,
-] = [
+const softDeletePluginPrivileges = [
 	{
 		name: 'schema:declare',
 		reason: 'Declares the direct soft-delete schema option.',
@@ -107,7 +78,7 @@ const softDeletePluginPrivileges: readonly [
 		name: 'typegen:reference',
 		reason: 'Preserves payload-free soft-delete commands in Typegen.',
 	},
-]
+] as const
 
 type SoftDeletePluginCapabilities = Readonly<{
 	readonly provides: readonly [

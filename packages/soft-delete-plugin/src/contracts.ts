@@ -1,4 +1,9 @@
-import { defineTypegenReference, type TypegenReference } from '@ultimabase/core'
+import {
+	defineOperationValue,
+	defineTypegenReference,
+	type PluginOperationValueContract,
+	type TypegenReference,
+} from '@ultimabase/core'
 
 /** Selects the application-wide fallback used when a schema omits `softDelete`. */
 export type SoftDeleteMode = 'disabled' | 'explicit' | 'replace-delete'
@@ -36,3 +41,12 @@ export const softDeleteNoInputTypegen: TypegenReference<
 	exportName: 'PluginSchemaMutationNoInput',
 	module: '@ultimabase/core',
 })
+
+/** @internal All three mutations reject payloads through the same unit contract. */
+export const softDeleteNoInput: PluginOperationValueContract<undefined> =
+	defineOperationValue((value, path): undefined => {
+		if (value !== undefined) {
+			throw new TypeError(`${path} must be undefined`)
+		}
+		return undefined
+	}, softDeleteNoInputTypegen)

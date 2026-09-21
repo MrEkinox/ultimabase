@@ -1,6 +1,5 @@
 import {
 	defineOperationTransport,
-	defineOperationValue,
 	defineSchemaMutation,
 	provideSchemaMutationHandler,
 	provideSchemaMutationTransportBinding,
@@ -12,15 +11,8 @@ import {
 	type pluginSchemaMutationHandlerCapability,
 } from '@ultimabase/core'
 
-import { softDeleteNoInputTypegen } from './contracts.js'
+import { softDeleteNoInput } from './contracts.js'
 import { softDeleteTombstoneFieldName } from './visibility.js'
-
-const softDeleteInput = defineOperationValue((value, path): undefined => {
-	if (value !== undefined) {
-		throw new TypeError(`${path} must be undefined`)
-	}
-	return undefined
-}, softDeleteNoInputTypegen)
 
 /** @internal Defines the one logical command shared by every explicit schema. */
 export const softDeleteMutation: PluginSchemaMutationDefinition<
@@ -34,7 +26,7 @@ export const softDeleteMutation: PluginSchemaMutationDefinition<
 > = defineSchemaMutation({
 	authority: 'request',
 	effect: 'update',
-	input: softDeleteInput,
+	input: softDeleteNoInput,
 	name: 'ultimabase.soft-delete.soft-delete',
 	returning: 'after',
 	version: '1.0.0',
@@ -51,7 +43,7 @@ const graphqlProtocol = defineOperationTransport({
 })
 
 const decodeUnitInput = (value: unknown): undefined => {
-	softDeleteInput.snapshot(value, 'softDelete input')
+	softDeleteNoInput.snapshot(value, 'softDelete input')
 	return undefined
 }
 

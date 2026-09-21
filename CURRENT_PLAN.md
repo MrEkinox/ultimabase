@@ -1,12 +1,12 @@
 # Active plan: pre-feature architecture simplification
 
-- Status: active — plugin wave explicitly resumed; next issue 3021
+- Status: active — plugin wave explicitly resumed; next issue 3022
 - Milestone: [30 — Pre-feature architecture simplification](issues/3000-pre-feature-architecture-simplification/README.md)
 - Detailed plan: [docs/plans/2026-09-20-pre-feature-architecture-simplification.md](docs/plans/2026-09-20-pre-feature-architecture-simplification.md)
 - Baseline: [docs/plans/2026-09-20-architecture-simplification-baseline.md](docs/plans/2026-09-20-architecture-simplification-baseline.md)
 - Contract matrix: [docs/plans/2026-09-20-architecture-contract-matrix.md](docs/plans/2026-09-20-architecture-contract-matrix.md)
 - Removal history: [HISTORIQUE_SUPPRESSIONS.md](HISTORIQUE_SUPPRESSIONS.md)
-- Resume point: issue 3021; continue sequentially through issue 3034
+- Resume point: issue 3022; continue sequentially through issue 3034
 
 ## Objective
 
@@ -295,3 +295,11 @@ declarations. All 318 package/boundary/source-integration tests and 106 built
 integration/archive checks pass, with no lost retained coverage. The new batch
 test's fixture isolation was corrected before the final successful audit.
 Continue with issue 3021 after the dedicated 3020 commit.
+
+Issue 3020 is committed as `72abe7a0`: +205 / -142 lines, net +63, including
+tests and documentation. Issue 3021 is complete with a green audit: Soft Delete
+removes 50 production lines and retains its five exports with equivalent public
+types. The 274 source checks and 23 built integrations pass, with no retained
+coverage loss. Modes, visibility, logical identities, private Master
+administration and the suspended stash are unchanged. Continue with issue 3022
+after the dedicated 3021 commit.

@@ -7,11 +7,7 @@ import {
 	type ProtectedPolicyDefinition,
 	type SchemaDefinition,
 } from '@ultimabase/core'
-import {
-	immutableArray,
-	immutableRecord,
-	isPlainRecord,
-} from '@ultimabase/shared'
+import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 import { purgeMutationName, restoreMutationName } from './contracts.js'
 
@@ -30,10 +26,6 @@ const tombstonedRowFilter: DatabaseRowFilterNode = immutableRecord({
 	kind: 'equal',
 	value: true,
 })
-
-interface SoftDeleteVisibilityPlan {
-	readonly schema: SchemaDefinition
-}
 
 const isOwnedAdministration = (
 	operation: unknown,
@@ -73,33 +65,22 @@ export const isSoftDeleteTombstoneOwner = (
 	)
 }
 
-const compileVisibilityPlan = (
-	schemas: CompiledSchemaRegistry,
-	owner: PluginIdentity,
-): readonly SoftDeleteVisibilityPlan[] =>
-	immutableArray(
-		schemas
-			.values()
-			.filter((schema) => isSoftDeleteTombstoneOwner(schema, owner))
-			.map((schema) =>
-				immutableRecord({
-					schema,
-				}),
-			),
-	)
-
 /** Creates the private application-local visibility plan for enabled schemas. */
 export const createSoftDeleteVisibilityPolicy = (
 	schemas: CompiledSchemaRegistry,
 	owner: PluginIdentity,
 ): ProtectedPolicyDefinition => {
-	const plans = compileVisibilityPlan(schemas, owner)
+	// Only exact compiled schemas with this instance's tombstone enter the policy.
+	const targets = new Set<unknown>(
+		schemas
+			.values()
+			.filter((schema) => isSoftDeleteTombstoneOwner(schema, owner)),
+	)
 
 	return protectedPolicy({
 		evaluate: ({ operation }) => {
 			const operationSchema = getOperationSchema(operation)
-			const plan = plans.find(({ schema }) => schema === operationSchema)
-			if (plan === undefined) return undefined
+			if (!targets.has(operationSchema)) return undefined
 
 			if (operation.kind === 'create-one' || operation.kind === 'create-many') {
 				return undefined

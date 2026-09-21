@@ -1,5 +1,4 @@
 import {
-	defineOperationValue,
 	defineSchemaMutation,
 	provideSchemaMutationHandler,
 	schemaMutationHandler,
@@ -11,16 +10,9 @@ import {
 import {
 	purgeMutationName,
 	restoreMutationName,
-	softDeleteNoInputTypegen,
+	softDeleteNoInput,
 } from './contracts.js'
 import { softDeleteTombstoneFieldName } from './visibility.js'
-
-const administrationInput = defineOperationValue((value, path): undefined => {
-	if (value !== undefined) {
-		throw new TypeError(`${path} must be undefined`)
-	}
-	return undefined
-}, softDeleteNoInputTypegen)
 
 /** @internal Restores one exact tombstoned item without exposing a public route. */
 export const restoreMutation: PluginSchemaMutationDefinition<
@@ -34,7 +26,7 @@ export const restoreMutation: PluginSchemaMutationDefinition<
 > = defineSchemaMutation({
 	authority: 'master',
 	effect: 'update',
-	input: administrationInput,
+	input: softDeleteNoInput,
 	name: restoreMutationName,
 	returning: 'after',
 	version: '1.0.0',
@@ -52,7 +44,7 @@ export const purgeMutation: PluginSchemaMutationDefinition<
 > = defineSchemaMutation({
 	authority: 'master',
 	effect: 'delete',
-	input: administrationInput,
+	input: softDeleteNoInput,
 	name: purgeMutationName,
 	returning: 'before',
 	version: '1.0.0',
