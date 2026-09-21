@@ -1,6 +1,6 @@
 # 513: Add PostgreSQL migration snapshots and history
 
-- Status: ready
+- Status: blocked
 - Milestone: 5
 - Packages: `@ultimabase/postgres-migrations-plugin`
 - Depends on: 204, 208, 511
@@ -19,3 +19,14 @@ Create `_ultimabase_schema`, versioned normalized snapshots, and applied-migrati
 ## Tests
 
 - [ ] Fresh, existing, and incompatible metadata versions.
+
+## Architecture prerequisite after milestone 31
+
+Accepted [ADR-0266](../../docs/adr/0266-defer-migration-only-protocols.md)
+removes the preinstalled migration protocols in issue 3110. This future feature
+must first decide its integration against the current public kernel; it cannot
+assume `adapterMigrationCapability`, upgrade-intent helpers or
+`postgresSchemaPreparationCapability` remain available. Current direct
+synchronization, physical provenance and private storage remain supported.
+The original dependency chain stays intact. No replacement extension point or
+migration implementation is authorized by milestone 31.

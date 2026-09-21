@@ -1,12 +1,12 @@
 # Active plan: residual complexity simplification
 
-- Status: in-progress — 3106 complete; next 3107 decision preparation
+- Status: in-progress — 3107 decisions accepted; next 3108
 - Milestone: [31 — Residual complexity simplification](issues/3100-residual-complexity-simplification/README.md)
 - Detailed plan: [execution and audit contract](docs/plans/2026-09-21-residual-complexity-simplification.md)
 - Evidence: [candidate inventory](docs/plans/2026-09-21-residual-complexity-inventory.md)
 - Measurements and retained IDs: [3101 baseline](docs/plans/2026-09-21-residual-complexity-baseline.md)
 - Baseline source: `265b54c909404f9690a666bdf39ace01ccee466e`
-- Current issue: [3107](issues/3100-residual-complexity-simplification/3107-decide-unused-public-protocols.md)
+- Current issue: [3108](issues/3100-residual-complexity-simplification/3108-remove-unused-runtime-stage-contributions.md)
 - Hard stop: after issue 3112 and its dedicated local commit
 
 ## Current authorization
@@ -15,8 +15,9 @@ The user explicitly authorized autonomous execution of milestone 31 on
 2026-09-21, with one dedicated commit per completed issue and the full
 validation/audit/correction loop. Stop for questions, architectural decisions
 or blockers and explain them before continuing. The exact compiler decision in 3105 was explicitly accepted on 2026-09-21,
-including the selector delta and separate Core resolver cleanup. The three
-public protocol decisions in 3107 still require their specified approval.
+including the selector delta and separate Core resolver cleanup. The user explicitly accepted the three separately presented public protocol
+removals in 3107 on 2026-09-21, including the Typegen fixture convention and
+used public migration-testing helper exceptions.
 No push, later milestone or paused feature is authorized.
 
 Milestone 30 stays completed. Its [final audit](docs/plans/2026-09-21-milestone-30-final-audit.md)
@@ -45,7 +46,7 @@ every dependency. For each issue:
    reductions. Only then may the next issue start. Do not push.
 
 Preserve current functionality and used plugin capabilities. Issue 3105 records its accepted decision;
-3107 still requires explicit decisions before its dependent public removals.
+3107 records the accepted ADR-0264/0265/0266 decisions for the dependent removals.
 A retained candidate explicitly supersedes its removal issue; a pending decision
 blocks it. No generic replacement API or private official-plugin escape hatch.
 An explicitly superseded removal is resolved by its decision issue's audited
@@ -66,16 +67,23 @@ Stop expressly after the final 3112 audit and commit; no automatic continuation.
 
 - 3102 follow-up: `75ed6561`, +39 / -65 = -26 lines; production -61.
 
+- 3106: `a539cfc8`, +2,335 / -4,349 = -2,014 lines; production -2,256.
+
 ## Exact resume point
 
-3101–3105 and the separately approved private Core resolver cleanup are committed.
-Issue 3106 has completed its audit loop: direct compilation removes 2,256
+3101–3106 and the separately approved private Core resolver cleanup are committed.
+Issue 3106 completed its audit loop: direct compilation removes 2,256
 production lines, preserves public exports and retained coverage, and passes
 2,795 coverage tests plus 384 built/packed/PostgreSQL tests. Its dedicated
-commit is reported after creation and recorded at the next issue handoff.
+commit is `a539cfc8`. The tree was clean before 3107 preparation.
 
-Next, prepare 3107's three independent public protocol decisions. They remain
-pending: present exact removals, retained behavior, public/documentation impact
-and the real migration-testing consumer, then stop for the user's decision.
-No 3108–3110 implementation is authorized before those decisions. The hard stop
-after 3112 and no-push rule remain.
+3107 records three independently presented and explicitly accepted decisions:
+
+- RC-04: [ADR-0264](docs/adr/0264-remove-unused-runtime-stage-contributions.md), remove only normalization/commit plugin stage definitions.
+- RC-05: [ADR-0265](docs/adr/0265-remove-typegen-emitter-marker.md), remove the emitter marker, including its conditional-privilege fixture use and uniqueness convention.
+- RC-06: [ADR-0266](docs/adr/0266-defer-migration-only-protocols.md), remove the exact migration scaffold and public `FakeAdapterMigrationHistory`; preserve physical provenance, direct synchronization/renames and private storage.
+
+All three removals are approved, not yet implemented. After the dedicated 3107
+commit, execute 3108, 3109 and 3110 in order, with a separate validation/audit
+loop and commit per issue. Then audit the website in 3111 and complete the
+final parity audit in 3112. Stop expressly after 3112; no push is authorized.

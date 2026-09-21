@@ -27,3 +27,14 @@ snapshots from PostgreSQL schema differences.
 - [ ] Golden files for representative migrations.
 - [ ] Runtime tests cover immutability, empty plans, operation ordering, descriptions, and repeated deterministic generation.
 - [ ] Compile-time and language-service tests cover operation narrowing, autocomplete, and QuickInfo.
+
+## Architecture prerequisite after milestone 31
+
+Accepted [ADR-0266](../../docs/adr/0266-defer-migration-only-protocols.md)
+removes the preinstalled migration protocols in issue 3110. This future feature
+must first decide its integration against the current public kernel; it cannot
+assume `adapterMigrationCapability`, upgrade-intent helpers or
+`postgresSchemaPreparationCapability` remain available. Current direct
+synchronization, physical provenance and private storage remain supported.
+The original dependency chain stays intact. No replacement extension point or
+migration implementation is authorized by milestone 31.

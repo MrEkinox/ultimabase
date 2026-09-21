@@ -1,6 +1,6 @@
 # Residual complexity simplification
 
-- Status: in-progress — 3105 decision accepted; separate Core cleanup before 3106
+- Status: in-progress — 3107 decisions accepted; next 3108
 - Prepared: 2026-09-21
 - Milestone: [31 — Residual complexity simplification](../../issues/3100-residual-complexity-simplification/README.md)
 - Baseline revision: `265b54c909404f9690a666bdf39ace01ccee466e`
@@ -20,7 +20,8 @@ measurements remain historical evidence; this plan does not reopen or rewrite
 their completed issues. Milestone 31 establishes its own baseline and decision
 delta. On 2026-09-21, after the preparation commit, the user explicitly authorized
 this milestone's autonomous execution with the per-issue audit loop and commit
-rule. The decision gates in 3105/3107 remain; no push is authorized.
+rule. The 3105 decision is accepted and delivered; the three independently presented 3107 decisions were explicitly accepted on
+2026-09-21, including their engineering-consumer exceptions. No push is authorized.
 
 The user requested the audit/correction loop and one dedicated local commit per
 issue. This is an execution protocol using existing repository tools, not a new
@@ -77,7 +78,7 @@ pre-release contract decisions, not claims that no third-party user exists.
 | 3106  | Simplify the canonical compiler and remove superseded plumbing                 | Only the accepted 3105 design                   |
 | 3107  | Decide unused Runtime-stage, Typegen-marker and migration contracts separately | Explicit decision for each candidate            |
 | 3108  | Remove the unused Runtime stage contribution branch, if approved               | Exact 3107 scope                                |
-| 3109  | Remove the unread Typegen emitter marker, if approved                          | Exact 3107 scope                                |
+| 3109  | Remove the Typegen emitter marker, if approved                                 | Exact 3107 scope                                |
 | 3110  | Remove migration anticipation, if approved                                     | Exact 3107 scope; preserve actual storage needs |
 | 3111  | Reconcile the complete affected public website journeys                        | Same-issue documentation already current        |
 | 3112  | Final parity, removal, coverage and measurement audit                          | Hard stop after its commit                      |

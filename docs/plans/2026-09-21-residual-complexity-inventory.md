@@ -16,20 +16,20 @@ proof of whole-program reachability. Issue 3101 refreshed this evidence at
 the actual implementation baseline and recorded the exact validation commands.
 
 Every row remains retained until its implementation issue has completed the
-audit loop. The three public protocol decisions below are pending; none is authorized
-by the old R-001–R-010 removal list. Keep milestone 30's final
+audit loop. The three public protocol decisions below were explicitly accepted in 3107 on
+2026-09-21; the old R-001–R-010 removal list was not used as authorization. Keep milestone 30's final
 [contract matrix](2026-09-20-architecture-contract-matrix.md) unchanged and record
 milestone 31 decision deltas here, with accepted ADR, exact public difference,
 retained invariant, regression evidence and delivered issue.
 
-| ID    | Candidate                                        | Initial evidence and important limit                                                                                    | Planned issue | Decision/delivery                                                         |
-| ----- | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- | ------------- | ------------------------------------------------------------------------- |
-| RC-01 | Private dead helpers                             | 14 functions, 304 declaration-body lines; no caller found and no package-root export                                    | 3102–3104     | Core/Access/Hooks delivered (3102–3104)                                   |
-| RC-02 | Hooks field-path duplication                     | 143-line file duplicates Core's public types; private resolver has only its own test and differs in field-map selection | 3104          | Delivered by 3104; public type/editor parity verified                     |
-| RC-03 | Canonical compiler IR round trip                 | Live internal machinery, 21 production files/3,648 lines; originally motivated by replacement compilation               | 3105–3106     | ADR-0263 accepted in 3105; direct compilation delivered by 3106           |
-| RC-04 | Runtime normalization/commit stage contributions | No current production caller of runtimePipelineStage; ordinary interceptors are used                                    | 3107–3108     | Public decision pending; retain used C-035 behavior                       |
-| RC-05 | Typegen emitter marker                           | One provider, no reader found; generic single-provider conflict and inspection effects remain                           | 3107/3109     | Public decision pending; reopen C-039 explicitly                          |
-| RC-06 | Migration anticipation                           | Planning has a real testing consumer; no shipped migration plugin executes this path                                    | 3107/3110     | Public/engineering decision pending; reopen exact P-016/C-023/C-026 scope |
+| ID    | Candidate                                        | Initial evidence and important limit                                                                                    | Planned issue | Decision/delivery                                               |
+| ----- | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- | ------------- | --------------------------------------------------------------- |
+| RC-01 | Private dead helpers                             | 14 functions, 304 declaration-body lines; no caller found and no package-root export                                    | 3102–3104     | Core/Access/Hooks delivered (3102–3104)                         |
+| RC-02 | Hooks field-path duplication                     | 143-line file duplicates Core's public types; private resolver has only its own test and differs in field-map selection | 3104          | Delivered by 3104; public type/editor parity verified           |
+| RC-03 | Canonical compiler IR round trip                 | Live internal machinery, 21 production files/3,648 lines; originally motivated by replacement compilation               | 3105–3106     | ADR-0263 accepted in 3105; direct compilation delivered by 3106 |
+| RC-04 | Runtime normalization/commit stage contributions | No current production caller of runtimePipelineStage; ordinary interceptors are used                                    | 3107–3108     | ADR-0264 accepted; implementation 3108 pending                  |
+| RC-05 | Typegen emitter marker                           | One production provider; availability consumed by conditional-privilege fixtures; no generation dispatcher              | 3107/3109     | ADR-0265 accepted; implementation 3109 pending                  |
+| RC-06 | Migration anticipation                           | Planning has a real testing consumer; no shipped migration plugin executes this path                                    | 3107/3110     | ADR-0266 accepted; implementation 3110 pending                  |
 
 ## RC-01 exact private-function inventory
 
@@ -114,18 +114,25 @@ Tests exercise this API, but no official production producer was found.
 
 ACL does use provideRuntimeInterceptor with preparedOperation. Ordinary
 normalization, transactions, beforeCommit/afterCommit, callback attribution and
-all used interceptors remain. The proposed removal targets only the unused
-stage-contribution branch, not C-035 as a whole.
+all used interceptors remain. The accepted removal targets only the unused
+stage-contribution branch, not C-035 as a whole. Accepted
+[ADR-0264](../adr/0264-remove-unused-runtime-stage-contributions.md) lists the
+five public exports and exact retained Runtime contracts; approved 2026-09-21, not yet implemented.
 
 ## RC-05: a marker has observable semantics
 
 [Typegen's setup](../../packages/typegen/src/plugin.ts) directly generates and
 writes declarations. The inert
 [typegenEmitterCapability](../../packages/core/src/plugins/capability-token.ts)
-has a provider but no reader in the current repository.
+has no production generation dispatcher. The 3107 audit corrected the initial
+"no reader" claim: optional requirements in Core and open-kernel fixtures use
+its availability to condition `typegen:reference`. Those are actual engineering
+consumers; generic single-provider conflicts and inspection also have effects.
 
 Removing it also removes its specific public require/inspection and
-single-provider conflict convention. That delta must be accepted explicitly.
+single-provider conflict and conditional-privilege conventions. Those deltas and
+fixture adaptations are explicitly accepted in
+[ADR-0265](../adr/0265-remove-typegen-emitter-marker.md).
 Typegen generation, timing, fingerprints, current options and remaining
 generic capability checks stay intact. No replacement marker is proposed.
 
@@ -138,12 +145,17 @@ PostgreSQL declares migration contribution and schema-preparation capabilities,
 but currently only test fixtures provide the migration/preparation paths; the
 migration plugin itself is future backlog, not a shipped package.
 
-This is not "no consumer": issue 3107 must resolve the testing contract and every
-provenance/snapshot dependency before proposing exact deletions. Keep existing
+This is not "no consumer": issue 3107 resolved the testing API exception and
+provenance/snapshot boundary explicitly. Keep existing
 PostgreSQL synchronization, physical schema contributions, owner-private
 password/session records, ownership checks and raw-driver lease safety. Future
 migration issues may need updated assumptions after an accepted removal; they
-do not become authorized implementation work.
+do not become authorized implementation work. Accepted
+[ADR-0266](../adr/0266-defer-migration-only-protocols.md) lists the exact
+exports, privilege, metadata and used testing API exception. It retains every
+physical snapshot field, live `renamedFrom` synchronization, private storage
+and the generic conformance harness. The testing API exception was accepted
+on 2026-09-21; removal remains the separate 3110 implementation.
 
 ## Rejected shortcuts
 
@@ -170,14 +182,14 @@ The additional declaration-target helper correction is recorded above. No
 namespace or dynamic import of its module was found. The AST scan is a discovery
 aid, not a proof of exhaustive dead-code detection or external community usage.
 
-| Candidate | Current owner/consumer evidence                                                                                                                                       | Required preservation and regression proof                                                                                                    | Public/site impact and decision                                                                                                                                    |
-| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| RC-01     | Core/Access/Hooks; no callers for the initial functions, reader wrappers or isolated declaration-target module                                                        | Existing schema/declaration, option normalization and provider tests; identical source/built/packed exports                                   | Internal cleanup only; website Access/Hooks/Core contracts remain accurate; Core/Access/Hooks delivered by 3102–3104                                               |
-| RC-02     | Hooks duplicates Core public types; private Hooks resolver is used only by field-paths.test.ts                                                                        | Source and built type/language-service checks; nested path validity/depth and documented field-map distinction                                | Hooks root names retained; consolidation delivered by 3104                                                                                                         |
-| RC-03     | SchemaDeclarationRegistry and compileCommandGraph consume canonical compiler output; selectors and option/provenance checks are live                                  | Complete compilation, malformed-declaration, atomic publication, Soft Delete patch, Typegen and transport suites                              | ADR-0263 delivered by 3106; invariants verified and affected website page updated                                                                                  |
-| RC-04     | Core factory/tests/root exports only; ACL separately uses provideRuntimeInterceptor/preparedOperation                                                                 | Runtime order, transactions/rollback, attribution, ACL and no-product performance counters                                                    | Public decision pending in 3107; Runtime/plugin-authoring guidance must follow any approved removal                                                                |
-| RC-05     | Typegen provides an inert marker but setup directly calls generation/writing; generic single-provider checks still apply                                              | Startup ordering, deterministic declarations/fingerprints, generated-project and editor tests                                                 | Public uniqueness/inspection change pending in 3107; Typegen/plugin-authoring documentation reviewed in 3109                                                       |
-| RC-06     | planAdapterMigrations -> FakeAdapterMigrationHistory -> tests/e2e/open-kernel-proof.e2e.test.ts; PostgreSQL migration metadata/preparation providers are fixture-only | Resolve that real testing use explicitly; preserve current sync policies, physical contributions, private storage, raw leases and attribution | Public/engineering decision pending in 3107, including P-016 adapterMigrationCapability; PostgreSQL/testing/plugin-authoring guidance follows exact accepted scope |
+| Candidate | Current owner/consumer evidence                                                                                                                                       | Required preservation and regression proof                                                                                                    | Public/site impact and decision                                                                                                                                               |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| RC-01     | Core/Access/Hooks; no callers for the initial functions, reader wrappers or isolated declaration-target module                                                        | Existing schema/declaration, option normalization and provider tests; identical source/built/packed exports                                   | Internal cleanup only; website Access/Hooks/Core contracts remain accurate; Core/Access/Hooks delivered by 3102–3104                                                          |
+| RC-02     | Hooks duplicates Core public types; private Hooks resolver is used only by field-paths.test.ts                                                                        | Source and built type/language-service checks; nested path validity/depth and documented field-map distinction                                | Hooks root names retained; consolidation delivered by 3104                                                                                                                    |
+| RC-03     | SchemaDeclarationRegistry and compileCommandGraph consume canonical compiler output; selectors and option/provenance checks are live                                  | Complete compilation, malformed-declaration, atomic publication, Soft Delete patch, Typegen and transport suites                              | ADR-0263 delivered by 3106; invariants verified and affected website page updated                                                                                             |
+| RC-04     | Core factory/tests/root exports only; ACL separately uses provideRuntimeInterceptor/preparedOperation                                                                 | Runtime order, transactions/rollback, attribution, ACL and no-product performance counters                                                    | ADR-0264 accepted in 3107; Runtime/plugin-authoring guidance must follow any approved removal                                                                                 |
+| RC-05     | Typegen directly generates/writes; conditional-privilege fixtures consume marker availability; generic single-provider checks apply                                   | Startup ordering, deterministic declarations/fingerprints, generated-project and editor tests                                                 | ADR-0265 delta accepted in 3107; Typegen/plugin-authoring documentation reviewed in 3109                                                                                      |
+| RC-06     | planAdapterMigrations -> FakeAdapterMigrationHistory -> tests/e2e/open-kernel-proof.e2e.test.ts; PostgreSQL migration metadata/preparation providers are fixture-only | Resolve that real testing use explicitly; preserve current sync policies, physical contributions, private storage, raw leases and attribution | ADR-0266 public/engineering exception accepted in 3107, including P-016 adapterMigrationCapability; PostgreSQL/testing/plugin-authoring guidance follows exact accepted scope |
 
 Later decision issues record each accepted ADR/retention outcome here, and
 implementation issues add actual removals and preserved regression evidence.
@@ -226,3 +238,10 @@ the moved provenance validator, have no regression. Current production is
 124,178 lines / Core 66,129; tests/support 130,979; tooling 2,119.
 The public plugin-authoring page, Core README, schema examples and architecture
 are updated. RC-04/05/06 still require the separate decisions in 3107.
+
+## 3107 accepted decisions
+
+The user accepted RC-04, RC-05 and RC-06 after separate presentation on
+2026-09-21. ADR-0264/0265/0266 own the exact removal scopes, retained invariants
+and engineering exceptions. Earlier pending statements above describe the
+3104/3106 checkpoints. No public implementation is removed by 3107 itself.

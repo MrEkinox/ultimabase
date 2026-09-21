@@ -246,6 +246,10 @@ Accepted records:
 - [ADR-0262: Descriptive Typegen command inspection](0262-descriptive-typegen-command-inspection.md)
 - [ADR-0263: Direct private schema compilation](0263-direct-private-schema-compilation.md)
 
+- [ADR-0264: Remove unused Runtime stage contributions](0264-remove-unused-runtime-stage-contributions.md)
+- [ADR-0265: Remove the Typegen emitter marker](0265-remove-typegen-emitter-marker.md)
+- [ADR-0266: Defer migration-only protocols until a migration product exists](0266-defer-migration-only-protocols.md)
+
 Superseded records:
 
 - [ADR-0002: Static schemas and typed extensions](0002-static-schemas-and-typed-extensions.md), superseded by ADR-0213.

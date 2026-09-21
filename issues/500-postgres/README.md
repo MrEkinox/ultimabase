@@ -37,3 +37,13 @@ native-hook PostgreSQL verification in issue 335.
 Issue 514 represents generated differences with an immutable `MigrationPlan`
 class. The plan is inspectable and deterministic, while connection ownership,
 application, locking, and destructive policy remain plugin responsibilities.
+
+## Migration backlog prerequisite
+
+Issues 513–515 remain future work. Accepted
+[ADR-0266](../../docs/adr/0266-defer-migration-only-protocols.md) schedules the
+removal of migration-only scaffolding in 3110. Before starting this backlog,
+agree on integration with the current kernel; do not rely on the removed
+preparation token or introduce speculative replacement APIs. Issue 513 is
+blocked on that future architecture decision; the original issue dependencies
+and database-specific ownership remain unchanged.

@@ -6,6 +6,7 @@
 - Depends on: 3107
 - Execution contract: [milestone 31 plan](../../docs/plans/2026-09-21-residual-complexity-simplification.md)
 - Evidence: [candidate inventory](../../docs/plans/2026-09-21-residual-complexity-inventory.md)
+- Accepted decision: [ADR-0264](../../docs/adr/0264-remove-unused-runtime-stage-contributions.md), accepted 2026-09-21
 
 ## Goal
 
@@ -43,4 +44,5 @@ Removing all interceptors, changing commit semantics or eliminating retained int
 
 ## Handoff
 
-Not started. The preparation request does not authorize implementation.
+Not started. The exact decision was accepted in 3107; follow issue dependencies
+and the per-issue validation/audit/commit gate.
