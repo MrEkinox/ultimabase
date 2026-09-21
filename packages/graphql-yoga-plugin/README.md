@@ -12,22 +12,41 @@ The package does not install GraphQL, HTTP, authentication, or a server. The
 application must configure those sibling plugins explicitly:
 
 ```ts
-import { UltimaBase } from '@ultimabase/core'
+import { Schema, UltimaBase } from '@ultimabase/core'
 import { graphqlPlugin } from '@ultimabase/graphql-plugin'
 import { graphqlYogaPlugin } from '@ultimabase/graphql-yoga-plugin'
 import { httpPlugin } from '@ultimabase/http-plugin'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { honoServerPlugin } from '@ultimabase/server-hono-plugin'
+
+const Post = Schema.define({
+	className: 'Post',
+	fields: (field) => ({ title: field.string({ required: true }) }),
+	graphql: { operations: { get: true, findMany: true } },
+})
+
+const databaseUrl = process.env.DATABASE_URL
+if (!databaseUrl) throw new Error('DATABASE_URL is required')
 
 const ultimabase = new UltimaBase({
 	plugins: [
+		postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
 		httpPlugin({ appId: 'notes' }),
-		graphqlPlugin(),
+		graphqlPlugin({ acknowledgeUnverifiedProtection: true, default: false }),
 		graphqlYogaPlugin(),
-		honoServerPlugin(),
+		honoServerPlugin({ host: '127.0.0.1', port: 1337 }),
 	],
-	schemas: [],
+	schemas: [Post],
 })
+
+await ultimabase.start()
 ```
+
+This local example exposes two reads and needs a disposable PostgreSQL database;
+`override` may create or alter tables. The acknowledgement does not grant access.
+Configure and review authorization before public deployment. The
+[website GraphQL guide](../../apps/website/content/docs/1.0.0/plugins/official/graphql.mdx)
+includes the complete installation and matching HTTP request.
 
 `graphqlYogaPlugin()` mounts `POST /graphql` by default. It accepts only UTF-8
 JSON GraphQL requests, rejects batching, uploads, subscriptions, SSE, and the

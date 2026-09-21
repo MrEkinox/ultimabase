@@ -1,12 +1,12 @@
 # Active plan: pre-feature architecture simplification
 
-- Status: active — plugin wave explicitly resumed; next issue 3028
+- Status: active — plugin wave explicitly resumed; next issue 3029
 - Milestone: [30 — Pre-feature architecture simplification](issues/3000-pre-feature-architecture-simplification/README.md)
 - Detailed plan: [docs/plans/2026-09-20-pre-feature-architecture-simplification.md](docs/plans/2026-09-20-pre-feature-architecture-simplification.md)
 - Baseline: [docs/plans/2026-09-20-architecture-simplification-baseline.md](docs/plans/2026-09-20-architecture-simplification-baseline.md)
 - Contract matrix: [docs/plans/2026-09-20-architecture-contract-matrix.md](docs/plans/2026-09-20-architecture-contract-matrix.md)
 - Removal history: [HISTORIQUE_SUPPRESSIONS.md](HISTORIQUE_SUPPRESSIONS.md)
-- Resume point: issue 3028; continue sequentially through issue 3034
+- Resume point: issue 3029; continue sequentially through issue 3034
 
 ## Objective
 
@@ -349,3 +349,11 @@ All 2,779 full-coverage tests and 383 built integrations pass. Global thresholds
 remain unchanged and no retained GraphQL coverage is lost. SDL, cursors,
 composition, ownership and disposal keep their contracts. Continue with issue
 3028 after the dedicated 3027 commit.
+
+Issue 3027 is committed as `fb0a2a15`: +161 / -118 lines, net +43, including
+engineering records. Issue 3028 is complete with a green audit: Yoga already
+retains the necessary HTTP adapter boundaries, so no production reduction is
+forced. Its 815 lines/four exports and GraphQL HTTP's 82 lines/three exports
+remain identical. The README example is corrected; all 51 final source/type,
+52 built/archive and 66 website checks pass. Continue with issue 3029 after
+the dedicated 3028 commit.

@@ -521,3 +521,18 @@ et 383 intégrations construites passent. Aucun seuil, exclusion ou assertion
 n'est affaibli ; aucune couverture conservée n'est perdue. Le schéma public,
 les erreurs, les capacités des plugins et la fermeture restent identiques.
 Audit final vert.
+
+## GraphQL Yoga — issue 3028 auditée sans suppression
+
+L'audit confirme que les validations HTTP, les limites GraphQL et la projection
+du protocole répondent à des contrats distincts. Les deux essais de simplification
+ont été retirés après contrôle : la projection du protocole est nécessaire et le
+regroupement des erreurs n'offrait pas de gain net utile en préservant tous leurs
+diagnostics. Aucun élargissement d'API n'a été ajouté.
+
+**815 lignes de production et quatre exports Yoga conservés, delta nul** ;
+le contrat GraphQL HTTP conserve ses 82 lignes et trois exports. L'exemple du
+README définit maintenant un schéma interrogeable et un démarrage complet.
+Les 51 contrôles source/types, 52 intégrations construites/archives et 66 contrôles
+documentaires passent. Le code final est identique à celui de la couverture
+complète précédente. Audit final vert, sans nouvelle fonctionnalité.
