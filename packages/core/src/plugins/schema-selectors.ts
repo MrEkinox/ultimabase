@@ -8,10 +8,6 @@ import {
 
 import { snapshotJsonValue } from '../schema/fields/builtins/json.js'
 
-import type { PreparedSchemaCompilation } from '../schema/schema/definition.js'
-
-import { areSchemaDeclarationValuesCompatible } from '../schema/schema/definition.js'
-
 import type {
 	CapabilityRequirement,
 	CapabilityToken,
@@ -210,79 +206,4 @@ export const sameOwner = (
 		owner.pluginId === reference.pluginId &&
 		owner.instanceId === reference.instanceId
 	)
-}
-
-const readOptionPath = (value: unknown, path: readonly string[]): unknown => {
-	let current = value
-	for (const segment of path) {
-		if (!isPlainRecord(current) || !Object.hasOwn(current, segment)) {
-			return undefined
-		}
-		current = current[segment]
-	}
-	return current
-}
-
-export const readPlainRecordValue = (
-	value: object,
-	key: string,
-	path: string,
-): unknown => {
-	const untrustedValue: unknown = value
-	if (!isPlainRecord(untrustedValue)) {
-		throw new TypeError(`${path} must be a plain object`)
-	}
-
-	return untrustedValue[key]
-}
-
-export const matchesSelector = (
-	candidate: PreparedSchemaCompilation,
-	owner: SchemaContributionOwner,
-	selector: SchemaSelectorOptions,
-): boolean => {
-	if (
-		selector.className !== undefined &&
-		candidate.schema.className !== selector.className
-	) {
-		return false
-	}
-
-	if (selector.owner !== undefined && !sameOwner(owner, selector.owner)) {
-		return false
-	}
-
-	if (selector.field !== undefined) {
-		const field = candidate.definition.persistedFields[selector.field.name]
-		if (
-			field === undefined ||
-			(selector.field.kind !== undefined && field.kind !== selector.field.kind)
-		) {
-			return false
-		}
-	}
-
-	if (selector.option !== undefined) {
-		const hasOption = Object.hasOwn(candidate.definition, selector.option.name)
-		if (selector.option.present === false) {
-			if (hasOption) return false
-		} else if (!hasOption) {
-			return false
-		}
-		if (selector.option.equals !== undefined) {
-			const value = readPlainRecordValue(
-				candidate.definition,
-				selector.option.name,
-				candidate.schema.className,
-			)
-			const selected = readOptionPath(value, selector.option.path ?? [])
-			if (
-				!areSchemaDeclarationValuesCompatible(selected, selector.option.equals)
-			) {
-				return false
-			}
-		}
-	}
-
-	return true
 }

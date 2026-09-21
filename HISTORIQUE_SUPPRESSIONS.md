@@ -8,7 +8,7 @@ validation et audit sans anomalie restante.
 
 Dernière mise à jour : **21 septembre 2026**. Le jalon 30 est terminé et reste
 historique. L’utilisateur a autorisé l’exécution autonome du jalon 31 avec
-boucle d’audit et commit par issue ; la baseline 3101 est validée. Aucun
+boucle d’audit et commit par issue ; la baseline 3101 et le nettoyage Core 3102 sont validés. Aucun
 nouveau retrait public n’est encore accepté et aucun push n’est autorisé. L’arrêt après la 3014, puis la reprise autorisée jusqu’à la 3034,
 restent consignés dans le journal archivé du jalon 30.
 
@@ -612,21 +612,21 @@ sépare les mesures locales des performances et d'une CI hébergée non relancé
 Aucun nouveau pouvoir public ni fonctionnalité suspendue n'est ajouté.
 Le plan est archivé et l'exécution s'arrête après 3034, sans push.
 
-## Jalon 31 — candidats préparés, aucune suppression livrée
+## Jalon 31 — livraisons et candidats restants
 
 Le [plan](docs/plans/2026-09-21-residual-complexity-simplification.md) et
 l’[inventaire initial](docs/plans/2026-09-21-residual-complexity-inventory.md)
 portent les preuves, décisions et critères de conservation. Les anciens R-001
 à R-010 n’autorisent pas ces nouveaux retraits publics.
 
-| Candidat                                                                 | Issues    | État actuel                                                                     | À conserver                                                     |
-| ------------------------------------------------------------------------ | --------- | ------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| RC-01 : fonctions privées inutilisées et registres Access/Hooks vides    | 3101–3104 | 14 fonctions / 304 lignes confirmées ; un petit helper supplémentaire identifié | Déclarations actuelles, provenance et API publiques             |
-| RC-02 : chemins de champs recopiés dans Hooks                            | 3104      | Réutilisation des types Core proposée ; fichier de 143 lignes                   | Imports publics Hooks, inférence et aide de l’éditeur           |
-| RC-03 : aller-retour du compilateur via une représentation intermédiaire | 3105–3106 | Décision d’architecture en attente                                              | Validation, ordre, ownership, relations et publication atomique |
-| RC-04 : extension Runtime normalization/commit inutilisée                | 3107–3108 | Décision publique en attente                                                    | Interceptors utilisés par ACL, transactions et hooks de commit  |
-| RC-05 : marqueur Typegen sans lecteur                                    | 3107/3109 | Décision publique en attente, y compris son effet d’unicité                     | Génération automatique, types et empreintes déterministes       |
-| RC-06 : anticipation des migrations                                      | 3107/3110 | Décision publique et usages de test à trancher                                  | Synchronisation PostgreSQL, stockage privé et provenance utile  |
+| Candidat                                                                 | Issues    | État actuel                                                         | À conserver                                                     |
+| ------------------------------------------------------------------------ | --------- | ------------------------------------------------------------------- | --------------------------------------------------------------- |
+| RC-01 : fonctions privées inutilisées et registres Access/Hooks vides    | 3101–3104 | Core réalisé en 3102 : −334 lignes ; Access/Hooks restent à traiter | Déclarations actuelles, provenance et API publiques             |
+| RC-02 : chemins de champs recopiés dans Hooks                            | 3104      | Réutilisation des types Core proposée ; fichier de 143 lignes       | Imports publics Hooks, inférence et aide de l’éditeur           |
+| RC-03 : aller-retour du compilateur via une représentation intermédiaire | 3105–3106 | Décision d’architecture en attente                                  | Validation, ordre, ownership, relations et publication atomique |
+| RC-04 : extension Runtime normalization/commit inutilisée                | 3107–3108 | Décision publique en attente                                        | Interceptors utilisés par ACL, transactions et hooks de commit  |
+| RC-05 : marqueur Typegen sans lecteur                                    | 3107/3109 | Décision publique en attente, y compris son effet d’unicité         | Génération automatique, types et empreintes déterministes       |
+| RC-06 : anticipation des migrations                                      | 3107/3110 | Décision publique et usages de test à trancher                      | Synchronisation PostgreSQL, stockage privé et provenance utile  |
 
 Une proposition ne devient « approuvée » qu’après la décision nécessaire, puis
 « réalisée » après son implémentation, sa validation et son audit sans anomalie
@@ -643,3 +643,17 @@ est entièrement inutilisé, y compris son petit helper initialement omis.
 Son retrait reste réservé à la 3102. **Delta de production nul** ; aucun retrait
 public supplémentaire n’est accepté. Deux passes d’audit, aucune anomalie
 restante.
+
+### Issue 3102 — helpers privés Core supprimés
+
+**−334 lignes de production**, sans ajout : 11 fonctions initiales, le petit
+helper supplémentaire et le module declaration-targets.ts isolé, avec leurs
+imports et lecteurs exclusifs. Les 63 déclarations conservées dans les fichiers
+restants sont identiques. Les 17 corps instrumentés retirés n’étaient jamais
+exécutés dans la couverture de référence ; aucun test ni seuil n’est retiré.
+
+Les 1 726 exports et les déclarations complètes des 23 packages sont inchangés.
+Les tests source/types, le build et 33 contrôles d’archives passent. Le refus
+initial d’ouverture de ports par la sandbox a été résolu par une relance ciblée
+avec accès local. Deux passes d’audit, aucune anomalie restante. Aucune capacité
+publique ni contrôle de provenance actif n’est supprimé.

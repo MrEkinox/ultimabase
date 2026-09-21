@@ -416,18 +416,3 @@ export const executeFieldBuilderCallback = (
 		fieldMethods,
 		resolveTarget,
 	)
-
-/** Executes the canonical map-returning schema declaration. */
-export const executeSchemaFieldsCallback = (
-	declaration: unknown,
-	path: string,
-	fieldMethods?: FieldBuilderMethodResolver,
-	resolveTarget?: FieldBuilderTargetResolver,
-): SchemaDeclaredFields =>
-	executeFieldBuilderCallback(
-		declaration,
-		path,
-		false,
-		fieldMethods,
-		resolveTarget,
-	)

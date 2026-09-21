@@ -168,23 +168,6 @@ export const normalizeDecimalValue = (value: unknown, path: string): string => {
 	return value
 }
 
-/** Compares two already normalized exact decimals without numeric coercion. */
-export const compareDecimalValues = (left: string, right: string): number => {
-	const leftDecimal = parseDecimal(left)
-	const rightDecimal = parseDecimal(right)
-	const commonScale = Math.max(leftDecimal.scale, rightDecimal.scale)
-	const leftCoefficient =
-		leftDecimal.coefficient * 10n ** BigInt(commonScale - leftDecimal.scale)
-	const rightCoefficient =
-		rightDecimal.coefficient * 10n ** BigInt(commonScale - rightDecimal.scale)
-
-	return leftCoefficient < rightCoefficient
-		? -1
-		: leftCoefficient > rightCoefficient
-			? 1
-			: 0
-}
-
 /** Applies one exact decimal delta without converting either operand to a number. */
 export const applyDecimalDelta = (
 	current: string,

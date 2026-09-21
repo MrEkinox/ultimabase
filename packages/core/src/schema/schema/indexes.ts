@@ -167,21 +167,6 @@ const normalizeCompositeIndex = (
 	})
 }
 
-/** Validates one plugin-contributed composite index against the transformed fields. */
-export const normalizeContributedSchemaIndex = (
-	fields: SchemaFields,
-	index: SchemaIndexOptions,
-): SchemaIndexDefinition =>
-	normalizeCompositeIndex(
-		index,
-		new Set([
-			...Object.entries(fields)
-				.filter(([, field]) => field.kind !== 'relation')
-				.map(([fieldName]) => fieldName),
-			...reservedSystemFieldNames,
-		]),
-	)
-
 /**
  * Collects field-level indexes first, then composite declarations in configuration order.
  */

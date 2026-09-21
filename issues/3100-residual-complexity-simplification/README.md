@@ -16,7 +16,7 @@ completed; its metrics and accepted decisions are the historical baseline.
 ## Authorization
 
 The user authorized autonomous execution on 2026-09-21, with the audit/correction
-loop and one commit per completed issue. Issue 3101 is complete; 3102 is next. Compiler
+loop and one commit per completed issue. Issues 3101–3102 are complete; 3103 is next. Compiler
 redesign and new public removals retain their exact decision gates; stop for
 questions or blockers and explain them before continuing. No push, deployment,
 paused feature or later milestone is authorized.
@@ -24,7 +24,7 @@ paused feature or later milestone is authorized.
 ## Execution order
 
 - [x] [3101 — Refresh the baseline and residual-complexity inventory](3101-baseline-and-consumer-inventory.md)
-- [ ] [3102 — Remove proven unused private Core helpers](3102-remove-unused-private-core-helpers.md)
+- [x] [3102 — Remove proven unused private Core helpers](3102-remove-unused-private-core-helpers.md)
 - [ ] [3103 — Remove the unused Access declaration circuit](3103-remove-unused-access-declaration-circuit.md)
 - [ ] [3104 — Consolidate Hooks declarations and field-path types](3104-consolidate-hooks-declarations-and-field-paths.md)
 - [ ] [3105 — Decide the internal schema compilation boundary](3105-decide-direct-internal-schema-compilation.md)

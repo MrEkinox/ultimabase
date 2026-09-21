@@ -12,12 +12,6 @@ import {
 
 import { snapshotCapturedOptionValue } from '../schema/schema/captured-options.js'
 
-import {
-	applicationSchemaContributionOwner,
-	coreSchemaContributionOwner,
-	type SchemaContributionOwnerReference,
-} from '../schema/schema/provenance.js'
-
 import { assertKnownKeys } from './schema-option-definitions.js'
 
 import {
@@ -86,48 +80,6 @@ export const addSchemaIndex = (
 	schemaPatchOperations.add(operation)
 
 	return operation
-}
-
-export const normalizeOwnerReference = (
-	owner: unknown,
-	path: string,
-): SchemaContributionOwnerReference => {
-	const untrustedOwner: unknown = owner
-	if (!isPlainRecord(untrustedOwner)) {
-		throw new TypeError(`${path} must be a plain object`)
-	}
-
-	if (untrustedOwner.kind === 'application') {
-		assertKnownKeys(untrustedOwner, new Set(['kind']), path)
-		return applicationSchemaContributionOwner
-	}
-
-	if (untrustedOwner.kind === 'core') {
-		assertKnownKeys(untrustedOwner, new Set(['kind']), path)
-		return coreSchemaContributionOwner
-	}
-
-	if (untrustedOwner.kind !== 'plugin') {
-		throw new TypeError(`${path}.kind must be application, core, or plugin`)
-	}
-
-	assertKnownKeys(
-		untrustedOwner,
-		new Set(['instanceId', 'kind', 'pluginId']),
-		path,
-	)
-	assertNonEmptyString(untrustedOwner.pluginId, `${path}.pluginId`)
-	if (untrustedOwner.instanceId !== undefined) {
-		assertNonEmptyString(untrustedOwner.instanceId, `${path}.instanceId`)
-	}
-
-	return immutableRecord({
-		kind: 'plugin',
-		pluginId: untrustedOwner.pluginId,
-		...(untrustedOwner.instanceId === undefined
-			? {}
-			: { instanceId: untrustedOwner.instanceId }),
-	})
 }
 
 const defineOptionOperation = <

@@ -101,12 +101,3 @@ export const appendCompilerPatchProvenance = (
 		]),
 	})
 }
-
-export const replaceNamedNode = <
-	TNode extends Readonly<{ readonly name: string }>,
->(
-	nodes: readonly TNode[],
-	name: string,
-	replacement: TNode,
-): readonly TNode[] =>
-	immutableArray(nodes.map((node) => (node.name === name ? replacement : node)))

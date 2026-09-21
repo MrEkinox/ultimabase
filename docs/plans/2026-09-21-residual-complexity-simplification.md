@@ -1,6 +1,6 @@
 # Residual complexity simplification
 
-- Status: in-progress — autonomous execution authorized; 3101 complete, 3102 next
+- Status: in-progress — autonomous execution authorized; 3101–3102 complete, 3103 next
 - Prepared: 2026-09-21
 - Milestone: [31 — Residual complexity simplification](../../issues/3100-residual-complexity-simplification/README.md)
 - Baseline revision: `265b54c909404f9690a666bdf39ace01ccee466e`
