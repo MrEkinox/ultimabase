@@ -562,3 +562,12 @@ et déclarations publiques identiques. Les 20 contrôles source/HTTP et
 52 intégrations construites/archives passent avec une couverture identique.
 Le HTML, les assets, le hook de requête, l'URL fixe et les règles de production
 restent inchangés. Audit final vert ; la revue des 16 plugins est terminée.
+
+## Documentation Core et création de plugins — issue 3031 réalisée
+
+La revue couvre 44 pages du site et corrige 12 pages : parcours d'installation,
+application unique et workers, Typegen, tests et publication des commandes.
+Une présentation en double et des formulations devenues ambiguës sont retirées.
+Aucune API ni fonctionnalité supplémentaire n'est supprimée. **Delta de
+production nul**. Les 66 contrôles de contenu et 38 contrôles Chromium passent,
+ainsi que typage, lint et build du site. Audit final vert.

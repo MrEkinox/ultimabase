@@ -8,7 +8,7 @@ order: 2
 outcome: Verify a create-and-read path without sharing application or database state between test workers.
 owner: '2814'
 releaseStatus: pre-release
-reviewedAt: 2026-09-20
+reviewedAt: 2026-09-21
 sources:
   - packages/core/README.md
   - packages/postgres-plugin/README.md
@@ -79,7 +79,7 @@ second configuration checks test files without emitting them into `dist/`:
 		"noEmit": true,
 		"rootDir": "."
 	},
-	"include": ["src", "tests"]
+	"include": ["src", "tests", ".ultimabase/**/*.d.ts"]
 }
 ```
 
@@ -205,7 +205,8 @@ pnpm test:typecheck
 pnpm test
 ```
 
-The test should pass after creating and reading one `Task`. Temporarily
+Both tests should pass, each creating and reading its own `Task`. If you use
+Typegen, the test configuration also includes its generated declarations. Temporarily
 change the expected title to confirm that the assertion fails, then restore
 it. If startup fails, check the test database URL and the test user's schema
 permissions before changing `schemaPolicy`.

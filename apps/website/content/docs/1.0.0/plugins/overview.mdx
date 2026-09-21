@@ -10,7 +10,7 @@ order: 1
 outcome: Decide whether a feature belongs in the application plugin list and know what Core validates.
 owner: '2810'
 releaseStatus: pre-release
-reviewedAt: 2026-09-17
+reviewedAt: 2026-09-21
 sources:
   - packages/core/README.md
   - packages/plugin-kit/README.md
@@ -23,8 +23,8 @@ sources:
 
 Core owns schemas, queries, application assembly, and the Runtime. Optional
 behavior—such as database persistence, Hooks, authentication, or an HTTP
-server—comes from plugins. Each application chooses its own set; importing a
-package does not change every application in the process.
+server—comes from plugins. The application chooses its own set; importing a
+package does not install behavior.
 
 ## Mental model
 
@@ -81,7 +81,10 @@ before consumers. Configuration position breaks ties between ready plugins,
 and registration order breaks ties within one plugin.
 
 One stable plugin ID may have multiple configurations only with explicit,
-distinct instance IDs. Each application owns its compiled graph and resources;
+distinct instance IDs. This allows repeated plugin configurations within one
+application, not simultaneous initialized applications in one JavaScript realm.
+See [Application boundaries](/docs/1.0.0/core/application#application-boundaries)
+for disposal and isolated test workers. Each application owns its compiled graph and resources;
 installing a plugin in one application does not install it in another. Core
 enforces declared privileges, but environmental claims such as network or
 filesystem access are disclosures, not an operating-system sandbox. For

@@ -1,12 +1,12 @@
 # Active plan: pre-feature architecture simplification
 
-- Status: active — plugin wave explicitly resumed; next issue 3031
+- Status: active — plugin wave explicitly resumed; next issue 3032
 - Milestone: [30 — Pre-feature architecture simplification](issues/3000-pre-feature-architecture-simplification/README.md)
 - Detailed plan: [docs/plans/2026-09-20-pre-feature-architecture-simplification.md](docs/plans/2026-09-20-pre-feature-architecture-simplification.md)
 - Baseline: [docs/plans/2026-09-20-architecture-simplification-baseline.md](docs/plans/2026-09-20-architecture-simplification-baseline.md)
 - Contract matrix: [docs/plans/2026-09-20-architecture-contract-matrix.md](docs/plans/2026-09-20-architecture-contract-matrix.md)
 - Removal history: [HISTORIQUE_SUPPRESSIONS.md](HISTORIQUE_SUPPRESSIONS.md)
-- Resume point: issue 3031; continue sequentially through issue 3034
+- Resume point: issue 3032; continue sequentially through issue 3034
 
 ## Objective
 
@@ -372,3 +372,10 @@ removes two production lines of retained option state, keeping five exports
 and byte-identical declarations. All 20 source/HTTP and 52 built/archive checks
 pass with identical coverage. The 16-plugin wave is complete; continue with
 website reconciliation in issue 3031 after the dedicated 3030 commit.
+
+Issue 3030 is committed as `267c33c7`: +75 / -20 lines, net +55, including
+engineering records. Issue 3031 is complete: 44 public pages reviewed and
+12 corrected, with no production change. All 66 content and 38 Chromium
+checks pass, alongside website typecheck, lint and build. The documentation
+now consistently explains local evaluation, one active application, Typegen,
+conformance and command publication. Continue with issue 3032 after its commit.

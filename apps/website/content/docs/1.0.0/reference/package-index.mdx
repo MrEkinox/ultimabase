@@ -10,7 +10,7 @@ order: 1
 outcome: Choose the packages you need and verify their runtime and plugin compatibility.
 owner: '2816'
 releaseStatus: pre-release
-reviewedAt: 2026-09-18
+reviewedAt: 2026-09-21
 sources:
   - README.md
   - package.json
@@ -22,7 +22,7 @@ sources:
 ---
 
 Use this page to choose package roots, not to configure each plugin. The
-[Manual Installation](/docs/1.0.0/manual-installation) guide builds a working
+[Manual Installation](/docs/1.0.0/manual-installation) guide explains a complete
 application; the linked plugin pages own their setup, options, and limitations.
 
 ## Platform and version compatibility
@@ -104,8 +104,9 @@ compilation or startup rather than silently enabling substitute behavior.
 
 ## Install the smallest set
 
-For an application using PostgreSQL, install Core and that plugin. Use the
-package manager of your application:
+After package publication, an application using PostgreSQL needs Core and that
+plugin. Until then, use the [repository example](https://github.com/MrEkinox/ultimadatabase/blob/main/examples/minimal/README.md)
+with locally built packages. These are the intended registry commands:
 
 ```bash tab="npm" tab-group="package-manager"
 npm install @ultimabase/core @ultimabase/postgres-plugin

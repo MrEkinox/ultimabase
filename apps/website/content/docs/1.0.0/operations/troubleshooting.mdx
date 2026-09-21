@@ -10,10 +10,11 @@ order: 2
 outcome: Identify the failed startup boundary and repair it without bypassing a safety check.
 owner: '2817'
 releaseStatus: pre-release
-reviewedAt: 2026-09-17
+reviewedAt: 2026-09-21
 sources:
   - packages/core/src/errors/framework-error.ts
   - packages/core/README.md
+  - packages/core/src/application/active-application.ts
   - packages/plugin-kit/README.md
   - SECURITY.md
 ---
@@ -96,6 +97,22 @@ recovery step.
 Reduce the failure to the smallest graph of schemas and plugins that still
 reproduces it. Record the first error code, stage, and whether cleanup also
 failed. Remove secrets before following [Report a problem](#report-a-problem).
+
+## Another application is already active
+
+A `TypeError` beginning with `Another UltimaBase application is active` means
+a previous application still owns this JavaScript realm. It occurs before the
+new application materializes resources. Await the previous application's
+`dispose()` before initializing a replacement; `stop()` alone keeps ownership.
+
+For test suites, await `start()` in `beforeAll` and `dispose()` in `afterAll`,
+as in [Test an Application](/docs/1.0.0/guides/test-an-application). Separate
+workers may run their own applications. Do not dispose from an active request
+callback: shutdown would wait for the work that is asking it to shut down.
+
+If disposal failed, resolve that cleanup failure before retrying in a fresh
+process. Repeating disposal does not erase a failed cleanup or release its
+ownership. See [Application boundaries](/docs/1.0.0/core/application#application-boundaries).
 
 ## Find the failing capability
 

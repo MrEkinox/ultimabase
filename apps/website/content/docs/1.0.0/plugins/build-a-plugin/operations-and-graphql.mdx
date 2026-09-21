@@ -7,7 +7,7 @@ contentType: guide
 outcome: Declare executable plugin behavior and choose its exact public transport surface.
 owner: '2810'
 releaseStatus: pre-release
-reviewedAt: 2026-09-20
+reviewedAt: 2026-09-21
 sources:
   - packages/core/README.md
   - packages/plugin-kit/README.md
@@ -358,7 +358,8 @@ mutations with both REST and GraphQL bindings.
   grant from an HTTP header or shaped object.
 
 For a standalone Fetch route, provide the HTTP endpoint capability. This
-example is deliberately infrastructure-only and reads no application data:
+example reads no application data; it still belongs to the selected HTTP
+application and requires its identity header:
 
 ```ts title="src/status-route.ts"
 import { definePlugin } from '@ultimabase/core'
@@ -392,13 +393,28 @@ export const statusRoutePlugin = () =>
 
 The application must also install the HTTP plugin and a server provider to
 listen on a socket. Route collisions fail during application materialization.
-If a route handles application data, it must use the selected request context
+Even this status route requires `X-UltimaBase-Application-Id`; only configured
+browser preflight can omit application identity. If a route handles application data, it must use the selected request context
 and Core's public request-execution facade rather than bypassing Runtime.
 
 Transport exposure is not authorization. Check Access, ACL, request identity,
 browser policy, and the `UNVERIFIED_PUBLIC_TRANSPORT_PROTECTION` startup
 diagnostic for the actual public route. See the official [REST](/docs/1.0.0/plugins/official/rest)
 and [HTTP](/docs/1.0.0/plugins/official/http) guides for complete application configuration.
+
+## Schema-derived operation inputs
+
+For an operation that creates a plugin-owned schema, REST binding metadata can
+set `inputSchema` to its class name. REST applies the ordinary nested-create
+field codecs before the operation owner's decoder runs. The schema must belong
+to that exact plugin owner; declaring it exposes no CRUD routes.
+
+A GraphQL supporting input-object can similarly declare `createFieldsFrom`.
+Its fields inherit the schema's create types, requiredness, and codecs. Explicit
+supporting fields may add operation-only values, but cannot replace inherited
+fields. Password Auth uses this for `PasswordAuthSignUpInput`, adding `password`
+to the User create fields. Login retains a separate credentials-only input.
+Defaults and validation still run once through the ordinary Runtime creation.
 
 ## Verify
 
@@ -417,17 +433,3 @@ If the command needs durable state or policy, continue with
 [Runtime and Infrastructure](/docs/1.0.0/plugins/build-a-plugin/runtime-and-infrastructure). If its public
 TypeScript shape is not inferred from the compiled operation, continue with
 [Schemas and Typegen](/docs/1.0.0/plugins/build-a-plugin/schemas-and-typegen#contribute-to-typegen).
-
-### Schema-derived operation inputs
-
-For an operation that creates a plugin-owned schema, REST binding metadata can
-set `inputSchema` to its class name. REST applies the ordinary nested-create
-field codecs before the operation owner's decoder runs. The schema must belong
-to that exact plugin owner; declaring it exposes no CRUD routes.
-
-A GraphQL supporting input-object can similarly declare `createFieldsFrom`.
-Its fields inherit the schema's create types, requiredness, and codecs. Explicit
-supporting fields may add operation-only values, but cannot replace inherited
-fields. Password Auth uses this for `PasswordAuthSignUpInput`, adding `password`
-to the User create fields. Login retains a separate credentials-only input.
-Defaults and validation still run once through the ordinary Runtime creation.

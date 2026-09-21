@@ -9,7 +9,7 @@ order: 1
 outcome: Understand the generated project's first-run path and use manual installation until packages are published.
 owner: '2908'
 releaseStatus: pre-release
-reviewedAt: 2026-09-20
+reviewedAt: 2026-09-21
 sources:
   - docs/adr/0249-interactive-project-initializer.md
   - packages/create-app/README.md
@@ -24,9 +24,11 @@ sources:
 
 <Callout type="warn" title="The initializer is not published">
 	These commands show the intended release experience. They cannot install
-	UltimaBase from the npm registry today. To run an application now, follow
-	[Manual Installation](/docs/1.0.0/manual-installation) or the [repository
-	example](https://github.com/MrEkinox/ultimadatabase/blob/main/examples/minimal/README.md).
+	UltimaBase from the npm registry today. Run the [repository
+	example](https://github.com/MrEkinox/ultimadatabase/blob/main/examples/minimal/README.md)
+	with locally built packages. [Manual
+	Installation](/docs/1.0.0/manual-installation) explains the project files and
+	intended package setup.
 </Callout>
 
 ## What you will build
@@ -281,7 +283,7 @@ Authentication](/docs/1.0.0/plugins/official/password-authentication),
 
 - Edit `src/schema.ts` or `src/schema.js` to define your model, then
   `src/ultimabase.ts` or `src/ultimabase.js` to choose plugins.
-- Before publication, use [Manual Installation](/docs/1.0.0/manual-installation)
-  to build a working project.
+- Before publication, run the [repository example](https://github.com/MrEkinox/ultimadatabase/blob/main/examples/minimal/README.md).
+  Use [Manual Installation](/docs/1.0.0/manual-installation) to understand the project setup.
 - Before exposing an API beyond your machine, read [Before Exposing Your
   Application](/docs/1.0.0/operations/before-exposing-your-application).

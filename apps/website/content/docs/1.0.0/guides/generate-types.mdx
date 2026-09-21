@@ -8,7 +8,7 @@ order: 7
 outcome: Generate and verify replaceable declarations for one configured UltimaBase application.
 owner: '2824'
 releaseStatus: pre-release
-reviewedAt: 2026-09-18
+reviewedAt: 2026-09-21
 sources:
   - packages/typegen/README.md
   - packages/typegen/src/plugin.ts
@@ -87,9 +87,12 @@ export const ultimabase = new UltimaBase({
 This activates conditional public type references from installed plugins. It
 also regenerates the files whenever this application starts, before PostgreSQL
 connects. The separate build step below makes those types available **before**
-TypeScript checks your source. The default application ID is `main`; choose
-another ID and output path for each additional application, and keep them in
-sync with the build script below.
+TypeScript checks your source. The default application ID is `main`; keep it and the output path in sync
+with the build script below. Static generation does not initialize an
+application. If your repository builds separate applications, give each its own
+output and TypeScript project so their generated registries do not collide.
+Only one application may initialize per JavaScript realm; see
+[Application boundaries](/docs/1.0.0/core/application#application-boundaries).
 
 ### Include the generated declarations
 

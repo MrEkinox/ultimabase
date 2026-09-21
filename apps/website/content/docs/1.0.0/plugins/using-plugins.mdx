@@ -9,7 +9,7 @@ order: 2
 outcome: Add the smallest compatible plugin set and verify its application-local behavior.
 owner: '2824'
 releaseStatus: pre-release
-reviewedAt: 2026-09-17
+reviewedAt: 2026-09-21
 sources:
   - packages/core/README.md
   - packages/plugin-kit/README.md
@@ -27,7 +27,7 @@ sources:
 Add Hooks and Validation to the `Task` application from
 [Manual Installation](/docs/1.0.0/manual-installation). The field Hook trims a
 title; Validation rejects it if the result is empty. Both behaviors belong to
-this application, not to every UltimaBase application in the process.
+the application that installs these plugins.
 
 ## Prerequisites
 
@@ -166,8 +166,8 @@ try {
 }
 ```
 
-Run the updated scripts. Each regenerates Typegen after the plugin and schema
-changes but before TypeScript checks the new options:
+Run the updated scripts. Typecheck and build regenerate Typegen after the
+plugin and schema changes, before TypeScript checks the new options:
 
 ```bash tab="npm" tab-group="package-manager"
 npm run typecheck
