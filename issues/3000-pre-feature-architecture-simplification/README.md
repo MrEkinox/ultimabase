@@ -46,7 +46,7 @@ this milestone.
 12. [x] [3012 — Derive REST and GraphQL transport projections](3012-derive-transport-projections.md)
 13. [x] [3013 — Delete legacy paths and consolidate verification](3013-delete-legacy-paths-consolidate-verification.md)
 14. [x] [3014 — Audit the Core and kernel simplification checkpoint](3014-core-kernel-simplification-checkpoint.md)
-15. [ ] [3015 — Simplify the Access plugin](3015-simplify-access-plugin.md)
+15. [x] [3015 — Simplify the Access plugin](3015-simplify-access-plugin.md)
 16. [ ] [3016 — Simplify the Hooks plugin](3016-simplify-hooks-plugin.md)
 17. [ ] [3017 — Simplify the Validation plugin](3017-simplify-validation-plugin.md)
 18. [ ] [3018 — Simplify the Roles plugin](3018-simplify-roles-plugin.md)
@@ -71,9 +71,11 @@ Every issue depends on the previous issue's green audit. Implementation,
 correction, and complete re-audit repeat until no finding remains inside the
 issue scope. Only then may the issue be completed and the next one started.
 
-Issue 3014 is a hard stop for the currently authorized run. After its green
-audit and dedicated commit, report the Core checkpoint and do not inspect or
-start issue 3015 without a later explicit user request.
+The original run stopped after issue 3014. The user then explicitly authorized
+autonomous continuation through issues 3015–3034, with a local commit and green
+audit before each next issue. Stop for an architectural question or decision.
+The final 3034 audit is the new execution stop; no later milestone or push is
+authorized.
 
 Every issue also inherits the plan's architecture stop protocol. An uncertain
 consumer, unapproved behavior loss, architectural contradiction, or need for a
@@ -89,8 +91,8 @@ decision, then an update to the affected pages under
 the final cross-page website review; package READMEs do not replace it.
 
 The [3014 checkpoint](../../docs/plans/2026-09-21-core-kernel-simplification-checkpoint.md)
-is complete with a green clean-checkout audit. The authorized run is paused at
-this boundary. The plugin wave is not started; milestone 30 remains open.
+is complete with a green clean-checkout audit. Issue 3015 is complete; the plugin wave resumes at 3016
+under the later explicit user authorization; milestone 30 remains open.
 
 ## Completion boundary
 

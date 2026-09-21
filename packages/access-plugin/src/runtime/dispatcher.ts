@@ -5,12 +5,10 @@ import type {
 	DatabaseOperationAst,
 	DatabaseOperationOutcome,
 	ProtectedPolicyEffects,
-	QueryRelationFilterNode,
 	RuntimeMutationOutcomeStageInput,
 	RuntimeOperationStageInput,
 	RuntimePreparedMutationStageInput,
 	RuntimeRelationEnforcementStageInput,
-	SchemaDefinition,
 } from '@ultimabase/core'
 import { allowUndeclaredFieldAccess } from '../authoring/plan.js'
 import type { AccessPlan, SchemaAccessPlan } from '../authoring/plan.js'
@@ -74,45 +72,38 @@ export class AccessRuntime {
 		const accessRequest = request as unknown as AccessRuntimeRequest
 		const schemaPlan = this.#readSchemaPlan(accessRequest.operation)
 
-		if (isSchemaMutationAccessRequest(accessRequest)) {
-			const rowFilter = await evaluateSchemaMutationAccess(
-				this.#runtime,
-				accessRequest,
-				this.#plan,
-				schemaPlan,
-			)
-			const permitted = computeAccessStaticSelection(schemaPlan)
-			assertAccessExplicitSelection(
-				accessRequest,
-				this.#plan,
-				schemaPlan,
-				permitted,
-			)
-			return immutableRecord({
-				...(rowFilter === undefined ? {} : { rowFilter }),
-				...(permitted === undefined ? {} : { selectionFields: permitted }),
-			})
-		}
+		const schemaMutation = isSchemaMutationAccessRequest(accessRequest)
+		const rowFilter = schemaMutation
+			? await evaluateSchemaMutationAccess(
+					this.#runtime,
+					accessRequest,
+					this.#plan,
+					schemaPlan,
+				)
+			: await evaluateAccessOperationAndFilter(
+					this.#runtime,
+					request,
+					this.#plan,
+					schemaPlan,
+				)
 
-		const rowFilter = await evaluateAccessOperationAndFilter(
-			this.#runtime,
-			request,
-			this.#plan,
-			schemaPlan,
-		)
-		await evaluateAccessFieldReferenceRules(
-			this.#runtime,
-			request,
-			this.#plan,
-			schemaPlan,
-		)
-		await evaluateAccessMutationFieldRules(
-			this.#runtime,
-			request,
-			this.#plan,
-			schemaPlan,
-		)
-		await evaluateAccessCreateItems(this.#runtime, request, schemaPlan)
+		// Custom schema mutations keep their logical rules and item enforcement;
+		// native field transitions and create-item checks belong only to CRUD.
+		if (!schemaMutation) {
+			await evaluateAccessFieldReferenceRules(
+				this.#runtime,
+				request,
+				this.#plan,
+				schemaPlan,
+			)
+			await evaluateAccessMutationFieldRules(
+				this.#runtime,
+				request,
+				this.#plan,
+				schemaPlan,
+			)
+			await evaluateAccessCreateItems(this.#runtime, request, schemaPlan)
+		}
 
 		const permitted = computeAccessStaticSelection(schemaPlan)
 		assertAccessExplicitSelection(request, this.#plan, schemaPlan, permitted)
@@ -144,36 +135,7 @@ export class AccessRuntime {
 	async enforceRelationRead(
 		request: RuntimeRelationEnforcementStageInput,
 	): Promise<void> {
-		return this.#enforceRelationFieldRead(
-			request,
-			request.relation.source,
-			request.relation.fieldPath,
-		)
-	}
-
-	/** Enforces relationship traversal declared inside one public where filter. */
-	async enforceRelationPredicateRead(
-		request: RuntimeOperationStageInput<DatabaseOperationAst>,
-		predicate: QueryRelationFilterNode,
-	): Promise<void> {
-		const sourceField = predicate.source.definition.fields[predicate.field]
-
-		if (sourceField?.kind === 'pointer') {
-			return
-		}
-
-		return this.#enforceRelationFieldRead(
-			request,
-			predicate.source.definition,
-			[predicate.field],
-		)
-	}
-
-	async #enforceRelationFieldRead(
-		request: RuntimeOperationStageInput<DatabaseOperationAst>,
-		source: SchemaDefinition,
-		fieldPath: readonly string[],
-	): Promise<void> {
+		const { source, fieldPath } = request.relation
 		const field = this.#plan.getField(source, fieldPath)
 
 		// Pointer predicates are checked through their ordinary `where` channel;

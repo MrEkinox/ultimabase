@@ -5,14 +5,16 @@ multi-issue objective. This directory preserves paused and completed plans so
 architectural context and verified developer flows are not lost when execution
 priority changes.
 
-## Paused
+## Active
 
 - [Pre-feature architecture simplification](2026-09-20-pre-feature-architecture-simplification.md),
-  paused after the completed [3014 checkpoint](2026-09-21-core-kernel-simplification-checkpoint.md), with its
+  resumed; next issue 3016 after the completed [3014 checkpoint](2026-09-21-core-kernel-simplification-checkpoint.md), with its
   [baseline](2026-09-20-architecture-simplification-baseline.md) and
   [contract matrix](2026-09-20-architecture-contract-matrix.md). It blocks new product work until its Core and
   per-plugin audit loops, public website reconciliation, and final parity gate
-  complete. Issue 3015 requires a later explicit user request.
+  complete. The current authorization extends through issue 3034.
+
+## Paused
 
 - [ACL hardening and developer-experience consolidation](paused/acl-hardening-and-developer-experience-consolidation.md),
   resumable at issue 432 only after explicit user direction.

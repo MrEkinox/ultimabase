@@ -1,9 +1,9 @@
 # Pre-feature architecture simplification
 
-- Status: paused — Core checkpoint complete; awaiting explicit continuation
+- Status: active — plugin wave resumed by explicit user request
 - Started: 2026-09-20
 - Milestone: [30 — Pre-feature architecture simplification](../../issues/3000-pre-feature-architecture-simplification/README.md)
-- Resume point: none authorized; issue 3015 requires a later explicit request
+- Resume point: issue 3016; authorized through the final audit in 3034
 - Baseline: [issue 3001 measurements](2026-09-20-architecture-simplification-baseline.md)
 - Preservation ledger: [architecture contract matrix](2026-09-20-architecture-contract-matrix.md)
 
@@ -219,10 +219,10 @@ updates from an earlier issue.
 Dependencies are deliberately sequential. A later issue may not begin while an
 earlier issue has an unresolved audit finding.
 
-Issue 3014 is also an explicit execution stop. Its green audit and dedicated
-commit complete the currently authorized Core/kernel run. The agent must report
-that checkpoint and must not inspect, start, or implement issue 3015 until the
-user explicitly resumes the plugin simplification wave.
+Issue 3014 completed the originally authorized Core/kernel run and its explicit
+stop was observed. The user subsequently authorized issues 3015–3034. The current
+execution stops after the final milestone audit; architectural decisions still
+require an explicit stop and user review.
 
 ## Mandatory audit loop
 
@@ -328,6 +328,14 @@ audit.
 Issues 3001–3014 are complete and independently committed after their audit
 loops. The [3014 report](2026-09-21-core-kernel-simplification-checkpoint.md)
 records retained contracts, approved differences, clean-checkout verification,
-measured reductions and baselines for the 16 later plugin audits. The current
-run is paused here. No plugin-local issue is inspected or started, no new
-feature resumes, and nothing is pushed. Milestone 30 is not complete.
+measured reductions and baselines for the 16 later plugin audits. The Core run
+paused here as requested. The plugin wave is now explicitly resumed below; no
+new feature resumes and nothing is pushed. Milestone 30 is not complete.
+
+## Explicit resumption after the Core checkpoint
+
+The user authorized autonomous continuation through issues 3015–3034 after
+reviewing the Core simplification outcome. The original 3014 stop was observed.
+The same per-issue audit loop, dedicated local commits, architecture stop and
+public website obligations apply. Stop after 3034; do not create or implement
+a later simplification milestone. No push is authorized.

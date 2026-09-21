@@ -183,7 +183,8 @@ const normalizeDefaults = (
 	})
 }
 
-const returnsDenied = async (run: () => Promise<void>): Promise<boolean> => {
+// Only authorization denials become policy decisions; other failures propagate.
+const returnsDenied = async (run: () => Promise<unknown>): Promise<boolean> => {
 	try {
 		await run()
 		return true
@@ -275,15 +276,10 @@ export const accessPlugin = (
 					evaluate: (input) => evaluatesDenied(() => runtime.evaluate(input)),
 					master: 'bypass',
 					mutationOutcome: (input) =>
-						returnsDenied(() =>
-							runtime.enforceMutationOutcome(input).then(() => undefined),
-						),
+						returnsDenied(() => runtime.enforceMutationOutcome(input)),
 					preparedMutation: (input) =>
 						returnsDenied(() => runtime.enforcePreparedMutation(input)),
-					reevaluate: (input) =>
-						returnsDenied(() =>
-							runtime.reevaluate(input).then(() => undefined),
-						),
+					reevaluate: (input) => returnsDenied(() => runtime.reevaluate(input)),
 					relation: (input) =>
 						returnsDenied(() => runtime.enforceRelationRead(input)),
 					requiresPreparedMutationItems: (operation) =>

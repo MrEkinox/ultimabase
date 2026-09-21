@@ -6,7 +6,9 @@ chaque issue : une suppression en cours ne devient « réalisée » qu’après
 validation et audit sans anomalie restante.
 
 Dernière mise à jour : **21 septembre 2026**. Périmètre de l’exécution autorisée :
-**3001 à 3014 incluses**, puis arrêt avant la simplification individuelle des plugins.
+**3001 à 3034 incluses**. L’arrêt après la 3014 a été respecté ; l’utilisateur
+a ensuite autorisé explicitement la simplification des plugins et la clôture
+du jalon 30. Aucun jalon suivant ni push n’est autorisé.
 
 ## Règle commune
 
@@ -324,3 +326,19 @@ stash Soft Delete et aucun push. Le jalon reste ouvert pour une reprise explicit
 - [ADR-0262 : inspection Typegen descriptive](docs/adr/0262-descriptive-typegen-command-inspection.md)
 - [Matrice des contrats à préserver](docs/plans/2026-09-20-architecture-contract-matrix.md)
 - [Inventaire et audit des décisions](docs/plans/2026-09-20-smaller-kernel-decision-proposal.md)
+
+## Reprise des plugins — issue 3015 réalisée
+
+Après l’arrêt respecté au checkpoint Core, l’utilisateur a autorisé les issues
+3015 à 3034. Access retire sa méthode interne de prédicats relationnels sans
+appelant, son relais privé devenu inutile, une finalisation de sélection
+répétée et deux callbacks qui ne faisaient qu’ignorer un résultat réussi.
+Le contrôle relationnel actif de Core, les règles métier, les erreurs, les
+capabilities et les 79 exports restent inchangés. La compilation des règles
+reste nécessaire et n’a pas été remaniée artificiellement.
+
+Bilan de production Access : **5 227 → 5 185 lignes (−42)**, 29 fichiers.
+Un test supplémentaire couvre le refus d’une sélection interdite sur une
+mutation personnalisée. Les 2 778 tests de couverture et les 381 intégrations
+sur exports construits passent, sans perte de couverture des chemins conservés.
+Audit final sans anomalie restante ; aucun retrait public supplémentaire.

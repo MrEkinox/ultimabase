@@ -291,6 +291,39 @@ const executeArchive = (
 }
 
 describe('schema mutation Access', () => {
+	it('rejects a forbidden selection before preparing a custom mutation', async () => {
+		const Restricted = Schema.define({
+			className: 'AccessSchemaMutationRestrictedSelection',
+			fields: (field) => ({
+				secret: field.string({ access: { read: false } }),
+				title: field.string(),
+			}),
+		})
+		const adapter = new SchemaMutationAdapter()
+		const owner = createMutationOwner(Restricted)
+		const ultimabase = new UltimaBase({
+			pluginPrivileges: { logger: false },
+			plugins: [
+				accessPlugin({ default: true }),
+				owner.plugin,
+				databasePlugin(adapter),
+			],
+			schemas: [Restricted],
+		})
+		onTestFinished(() => ultimabase.dispose())
+		await ultimabase.start()
+
+		// An allowed command cannot turn an explicit forbidden field into a projection.
+		await expect(
+			executeArchive(ultimabase, Restricted, 'allow'),
+		).rejects.toMatchObject({
+			code: 'PERMISSION_DENIED',
+		})
+		expect(owner.handler).not.toHaveBeenCalled()
+		expect(adapter.transactions).toHaveLength(1)
+		expect(adapter.transactions[0]?.preparations).toHaveLength(0)
+	})
+
 	it('keeps custom operation, filter, item, and output rules independent', async () => {
 		operationInputs.length = 0
 		filterInputs.length = 0

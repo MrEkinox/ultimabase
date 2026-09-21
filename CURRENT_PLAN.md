@@ -1,12 +1,12 @@
-# Paused plan: pre-feature architecture simplification
+# Active plan: pre-feature architecture simplification
 
-- Status: paused — issue 3014 complete; authorized stopping point reached
+- Status: active — plugin wave explicitly resumed; issue 3016 ready
 - Milestone: [30 — Pre-feature architecture simplification](issues/3000-pre-feature-architecture-simplification/README.md)
 - Detailed plan: [docs/plans/2026-09-20-pre-feature-architecture-simplification.md](docs/plans/2026-09-20-pre-feature-architecture-simplification.md)
 - Baseline: [docs/plans/2026-09-20-architecture-simplification-baseline.md](docs/plans/2026-09-20-architecture-simplification-baseline.md)
 - Contract matrix: [docs/plans/2026-09-20-architecture-contract-matrix.md](docs/plans/2026-09-20-architecture-contract-matrix.md)
 - Removal history: [HISTORIQUE_SUPPRESSIONS.md](HISTORIQUE_SUPPRESSIONS.md)
-- Resume point: none authorized; wait for an explicit request before issue 3015
+- Resume point: issue 3016; continue sequentially through issue 3034
 
 ## Objective
 
@@ -58,9 +58,12 @@ do not confuse an in-progress diff with a completed issue's result.
 
 No push is authorized by this plan.
 
-Issue 3014 is a hard stop. After its green audit and dedicated commit, stop the
-active run and report the Core checkpoint to the user. Do not inspect, start,
-or implement issue 3015 without a later explicit user request.
+The original stop after issue 3014 was observed. The user has now explicitly
+authorized autonomous continuation through the remaining milestone 30 issues
+3015–3034. Keep the per-issue correction/audit loop and dedicated local commit.
+Stop for any architectural question or decision and explain it before changing
+the boundary. Stop after the final milestone audit in 3034. A possible later
+simplification milestone is a future discussion, not authorized work.
 
 Any issue that changes public behavior, configuration, exports, errors, or
 examples must update the affected pages under `apps/website/content/docs` in
@@ -80,7 +83,14 @@ continue safely, present the smallest options and their impact, and wait for the
 user to decide. Do not code around the problem or broaden the architecture in
 the meantime.
 
-## Current step
+## Current authorization
+
+Resume the 16 plugin audits, then the three public website reconciliation
+issues and final milestone audit. Preserve all used functionality and plugin
+capabilities. No push is authorized. The Core-run records below are historical;
+their 3014 stop statements do not cancel this later explicit resumption.
+
+## Historical Core run
 
 Issue 3001 is complete in `b2c10fc2`, and issue 3002 is audited and committed as
 `481b3723` with accepted
@@ -232,3 +242,16 @@ Milestone 30 remains open. Do not inspect or start issue 3015, resume a paused
 feature, or push without a later explicit user request. Editor settings and the
 suspended Soft Delete stash remain untouched. The exact commit line counts are
 reported to the user after committing.
+
+## Plugin wave execution
+
+Issue 3015 starts from the audited `23b75027` checkpoint. The user explicitly
+authorized completing milestone 30 in autonomy, stopping for questions or
+architecture decisions. Preserve the unrelated editor settings and suspended
+Soft Delete stash; no new product work or subsequent milestone is authorized.
+
+Issue 3015 is complete with a green audit: Access loses 42 production lines by
+removing dead relation dispatch, duplicate selection finalization and two
+result-discard callbacks. Its 79 exports and built declarations are unchanged.
+All 2,778 source coverage tests and 381 built integrations pass, with no retained
+coverage regression. Continue with issue 3016 after the dedicated 3015 commit.
