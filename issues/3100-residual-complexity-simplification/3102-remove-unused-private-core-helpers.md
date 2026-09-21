@@ -96,3 +96,26 @@ Measured production: 127,093 -> 126,759 lines; Core: 68,780 -> 68,446 lines.
 Tests/support remain 130,820 lines and tooling 2,119. The dedicated local commit
 will be inspected and its complete line counts reported before starting 3103.
 No push is authorized.
+
+### Approved follow-up after 3105
+
+The user's 2026-09-21 approval includes the Core path resolver orphan discovered
+in 3104. Removed `resolveSchemaFieldPath`, `hasChildFields`, their private type
+and exclusive imports from schema/fields/paths.ts: **61 production lines**, no
+production addition or test removal. This is a separate bounded correction,
+not part of the compiler redesign. Both removed function counters are zero in
+the 3104 full coverage report. All retained type declarations/JSDoc and the
+complete built Core declaration file are byte-identical.
+
+Audit pass 1 rechecked all references and the schema barrel: only the two public
+types have consumers. Pass 2 reviewed the final diff, ownership boundaries,
+examples, coverage and exports; no unresolved finding. The earlier documentation
+classification also covers this follow-up. Schema examples and website fields/
+Hooks contracts remain accurate because no reachable behavior or public type
+changes. No file-size baseline applies.
+
+Validation: root typecheck and all-package build pass, as do 382 focused Core
+schema/plugin/type and Hooks editor tests, two built selector/editor tests,
+targeted lint, constraints, formatting, metadata and diff checks. No coverage
+configuration changes; full coverage is repeated in 3106. Production becomes
+126,434 lines, Core 68,385. No push.

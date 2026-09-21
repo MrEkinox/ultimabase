@@ -699,3 +699,11 @@ explicitement acceptée. **Aucune ligne de production retirée dans cette issue*
 la 3106 doit réaliser et vérifier ces changements. Le dernier résolveur privé
 Core inutilisé sera retiré avant cela dans un commit correctif séparé de la 3102.
 Les trois décisions publiques de la 3107 restent en attente.
+
+### Correctif séparé de la 3102 — résolveur Core orphelin
+
+**−61 lignes de production** : dernier résolveur privé de chemins, prédicat,
+type auxiliaire et imports exclusifs. Les types publics et leurs commentaires
+restent identiques, comme les déclarations Core construites. Aucun test retiré ;
+382 tests ciblés et deux contrôles construits passent. Les deux fonctions
+retirées avaient une couverture d’exécution nulle. Audit final vert.

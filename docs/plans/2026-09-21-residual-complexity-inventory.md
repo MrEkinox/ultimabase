@@ -204,4 +204,6 @@ separate resolver with the same name. The Core file still owns used public
 `SchemaFieldPath`/`FieldAtPath` types, which must remain. Core source is unchanged
 in 3104. The user approved this bounded cleanup at the 3105 stop. Deliver it in a
 separate audited 3102 follow-up commit before 3106; preserve the public types.
-The helper remains present until that follow-up is complete.
+The follow-up is now delivered: -61 production lines, with identical retained
+types/JSDoc and built Core declarations. Both deleted function bodies were
+unexecuted in the 3104 full coverage; 382 focused and two built tests pass.

@@ -1,6 +1,6 @@
 # Active plan: residual complexity simplification
 
-- Status: in-progress — 3105 accepted; bounded Core cleanup then 3106
+- Status: in-progress — approved Core follow-up complete; 3106 next
 - Milestone: [31 — Residual complexity simplification](issues/3100-residual-complexity-simplification/README.md)
 - Detailed plan: [execution and audit contract](docs/plans/2026-09-21-residual-complexity-simplification.md)
 - Evidence: [candidate inventory](docs/plans/2026-09-21-residual-complexity-inventory.md)
@@ -62,12 +62,14 @@ Stop expressly after the final 3112 audit and commit; no automatic continuation.
 - 3103: `4759aef3`, +177 / -164 = +13 lines; production -100.
 - 3104: `ddeea4de`, +288 / -259 = +29 lines; production -164.
 
+- 3105: `5bc6c90b`, +289 / -39 = +250 lines; production delta 0.
+
 ## Exact resume point
 
 3101–3104 are committed locally with green audits. The user explicitly accepted
 [ADR-0263](docs/adr/0263-direct-private-schema-compilation.md) and the separate
-private Core resolver cleanup. Finish the 3105 decision commit, then perform
-the bounded 3102 follow-up cleanup in its own audited commit, then implement 3106.
+private Core resolver cleanup. The 3105 decision is committed. The bounded
+3102 follow-up is validated and audited; commit it separately, then implement 3106.
 The follow-up preserves the used Core path types and adds no public change.
 
 3107's three public protocol decisions remain separate and pending. Stop there

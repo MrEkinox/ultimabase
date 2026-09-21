@@ -1,11 +1,4 @@
-import {
-	assertNonEmptyString,
-	isPlainRecord,
-	isUnknownArray,
-} from '@ultimabase/shared'
-
 import type { GenericField } from './base/contract.js'
-import { assertFieldDefinition } from './base/definition.js'
 import type { SchemaDefinition } from '../schema/definition.js'
 
 type FieldMap = Readonly<Record<string, GenericField>>
@@ -85,57 +78,3 @@ export type FieldAtPath<
 > = string extends keyof TSchema['fields']
 	? GenericField
 	: ResolveFieldAtPath<TSchema['fields'], TPath>
-
-interface RuntimeObjectField extends GenericField {
-	readonly kind: 'object'
-	readonly options: Readonly<{
-		readonly fields: FieldMap
-	}>
-}
-
-const hasChildFields = (field: GenericField): field is RuntimeObjectField =>
-	field.kind === 'object' &&
-	'fields' in field.options &&
-	isPlainRecord(field.options.fields)
-
-/** Resolves one immutable declaration path without parsing or joining segments. */
-export const resolveSchemaFieldPath = (
-	schema: SchemaDefinition,
-	path: readonly string[],
-): GenericField => {
-	const runtimePath: unknown = path
-
-	if (!isUnknownArray(runtimePath) || runtimePath.length === 0) {
-		throw new TypeError('field path must be a non-empty segment list')
-	}
-
-	let fields: FieldMap = schema.persistedFields
-
-	for (const [index, segment] of runtimePath.entries()) {
-		assertNonEmptyString(segment, `field path[${String(index)}]`)
-
-		if (!Object.hasOwn(fields, segment)) {
-			throw new TypeError(
-				`Unknown field path segment ${JSON.stringify(segment)} at index ${String(index)} in schema ${JSON.stringify(schema.className)}`,
-			)
-		}
-
-		const field: unknown = fields[segment]
-		assertFieldDefinition(field, `field path[${String(index)}]`)
-
-		if (index === runtimePath.length - 1) {
-			return field
-		}
-
-		if (!hasChildFields(field)) {
-			throw new TypeError(
-				`Field path segment ${JSON.stringify(segment)} at index ${String(index)} is not an object field`,
-			)
-		}
-
-		fields = field.options.fields
-	}
-
-	// Runtime length validation makes this fallback unreachable.
-	throw new TypeError('field path must contain a terminal segment')
-}
