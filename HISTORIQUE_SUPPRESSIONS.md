@@ -1,14 +1,17 @@
 # Historique des suppressions — simplification d’UltimaBase
 
-Ce fichier répertorie les suppressions décidées pour le jalon 30, leur raison,
-leur impact et leur livraison effective. Il sera mis à jour dans le commit de
+Ce fichier conserve les suppressions livrées au jalon 30 et, dans une section
+séparée, les candidats du jalon 31. Il indique leur raison, leur impact et leur
+livraison effective. Il sera mis à jour dans le commit de
 chaque issue : une suppression en cours ne devient « réalisée » qu’après
 validation et audit sans anomalie restante.
 
-Dernière mise à jour : **21 septembre 2026**. Périmètre de l’exécution autorisée :
-**3001 à 3034 incluses**. L’arrêt après la 3014 a été respecté ; l’utilisateur
-a ensuite autorisé explicitement la simplification des plugins et la clôture
-du jalon 30. Aucun jalon suivant ni push n’est autorisé.
+Dernière mise à jour : **21 septembre 2026**. Le jalon 30 est terminé et reste
+historique. Le jalon 31 est préparé à la demande de l’utilisateur ; aucune de
+ses issues n’a démarré et aucun nouveau retrait public n’est accepté à ce stade.
+Le lancement de l’implémentation et tout nouveau push attendent une autorisation
+explicite. L’arrêt après la 3014, puis la reprise autorisée jusqu’à la 3034,
+restent consignés dans le journal archivé du jalon 30.
 
 ## Règle commune
 
@@ -23,9 +26,10 @@ simultanément dans un même environnement JavaScript, l’API publique de mesur
 `typegenGraph` (ADR-0262). Les tests parallèles isolés, les mesures internes,
 les déclarations générées et les API d’exécution restent conservés.
 
-Les lignes ci-dessous recensent des décisions approuvées, pas de nouvelles
-propositions. Tout autre retrait présentant un consommateur incertain ou une
-perte fonctionnelle doit être expliqué et arbitré avant modification.
+Les sections du jalon 30 ci-dessous recensent des décisions approuvées.
+La section finale du jalon 31 distingue les nouvelles propositions non livrées.
+Tout autre retrait présentant un consommateur incertain ou une perte
+fonctionnelle doit être expliqué et arbitré avant modification.
 
 ## Capacités publiques retirées
 
@@ -608,3 +612,24 @@ dont trois de formatage. Les 1 726 exports publics restent identiques depuis 301
 sépare les mesures locales des performances et d'une CI hébergée non relancée.
 Aucun nouveau pouvoir public ni fonctionnalité suspendue n'est ajouté.
 Le plan est archivé et l'exécution s'arrête après 3034, sans push.
+
+## Jalon 31 — candidats préparés, aucune suppression livrée
+
+Le [plan](docs/plans/2026-09-21-residual-complexity-simplification.md) et
+l’[inventaire initial](docs/plans/2026-09-21-residual-complexity-inventory.md)
+portent les preuves, décisions et critères de conservation. Les anciens R-001
+à R-010 n’autorisent pas ces nouveaux retraits publics.
+
+| Candidat                                                                 | Issues    | État actuel                                                                    | À conserver                                                     |
+| ------------------------------------------------------------------------ | --------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------- |
+| RC-01 : fonctions privées inutilisées et registres Access/Hooks vides    | 3101–3104 | Nettoyage proposé ; 14 fonctions / 304 lignes de corps recensées, à revérifier | Déclarations actuelles, provenance et API publiques             |
+| RC-02 : chemins de champs recopiés dans Hooks                            | 3104      | Réutilisation des types Core proposée ; fichier de 143 lignes                  | Imports publics Hooks, inférence et aide de l’éditeur           |
+| RC-03 : aller-retour du compilateur via une représentation intermédiaire | 3105–3106 | Décision d’architecture en attente                                             | Validation, ordre, ownership, relations et publication atomique |
+| RC-04 : extension Runtime normalization/commit inutilisée                | 3107–3108 | Décision publique en attente                                                   | Interceptors utilisés par ACL, transactions et hooks de commit  |
+| RC-05 : marqueur Typegen sans lecteur                                    | 3107/3109 | Décision publique en attente, y compris son effet d’unicité                    | Génération automatique, types et empreintes déterministes       |
+| RC-06 : anticipation des migrations                                      | 3107/3110 | Décision publique et usages de test à trancher                                 | Synchronisation PostgreSQL, stockage privé et provenance utile  |
+
+Une proposition ne devient « approuvée » qu’après la décision nécessaire, puis
+« réalisée » après son implémentation, sa validation et son audit sans anomalie
+restante. Chaque issue livrée complète cet historique dans son commit dédié.
+Les nombres ci-dessus sont des mesures de candidats, pas des gains réalisés.

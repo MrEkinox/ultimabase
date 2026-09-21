@@ -99,8 +99,13 @@ and GraphQL on one canonical compiled command graph. All 16 official plugins
 were audited independently, and the public website journeys were reconciled.
 The [final audit](docs/plans/2026-09-21-milestone-30-final-audit.md) records the
 retained contracts, measured reductions and complete clean-checkout validation.
-No later feature or simplification milestone is active or authorized by that
-completed run; the next objective requires a separate decision.
+[Milestone 31](issues/3100-residual-complexity-simplification/README.md) is now
+prepared as a separate second pass. It covers proven private dead code,
+duplicated Hooks/Access machinery, and explicit decisions about residual
+compiler and unused public-protocol infrastructure. Its
+[plan](docs/plans/2026-09-21-residual-complexity-simplification.md) preserves the
+per-issue audit/correction loop and dedicated commits. Preparation does not
+start implementation or accept public removals; those boundaries remain explicit.
 
 The ACL hardening plan remains paused at issue 432. It is not part of an active
 plan.
@@ -404,6 +409,23 @@ must complete a green audit loop with no unresolved finding before the next
 issue starts. The final gate compares behavior, security, public packages,
 coverage locations, code size, change fan-out, startup, memory, and CI cost with
 the measured baseline.
+
+## Milestone 31 — Residual complexity simplification
+
+Prepared after milestone 30 without reopening its completed issues. Establish
+an updated baseline, remove proven unused private Core/Access/Hooks code and
+reuse existing field-path types. Decide the internal compiler boundary and the
+exact unused Runtime-stage, Typegen-marker and migration contracts before any
+conditional removal. Preserve current functionality, used plugin capabilities,
+security, inference, lifecycle and data behavior.
+
+Issues 3101–3112 run sequentially after explicit start authorization. Each issue
+requires validation, a complete audit/correction loop until no finding remains,
+then its dedicated local commit and exact line-count report. Architectural
+questions and blocked verification stop for user direction. Public changes
+update the documentation site in the same issue, followed by a complete journey
+review and final parity/coverage/measurement audit. Stop after 3112; no push or
+later feature follows automatically.
 
 ## First usable release
 

@@ -7,7 +7,14 @@ priority changes.
 
 ## Active
 
-None. Milestone 30 is complete; no next implementation objective is authorized.
+None. Implementation of the prepared milestone 31 awaits explicit start authorization.
+
+## Prepared
+
+- [Residual complexity simplification](2026-09-21-residual-complexity-simplification.md),
+  milestone 31, issues 3101–3112. Preparation only; the
+  [candidate inventory](2026-09-21-residual-complexity-inventory.md) distinguishes
+  internal cleanup from pending compiler and public-contract decisions.
 
 ## Paused
 
@@ -19,9 +26,11 @@ None. Milestone 30 is complete; no next implementation objective is authorized.
 - [Pre-feature architecture simplification](2026-09-20-pre-feature-architecture-simplification.md),
   archived in place after issue 3034 with its
   [final audit](2026-09-21-milestone-30-final-audit.md),
-  [baseline](2026-09-20-architecture-simplification-baseline.md) and
-  [contract matrix](2026-09-20-architecture-contract-matrix.md). All Core,
-  plugin and public website audit loops are complete; no later milestone starts.
+  [baseline](2026-09-20-architecture-simplification-baseline.md),
+  [contract matrix](2026-09-20-architecture-contract-matrix.md) and
+  [execution log](completed/pre-feature-architecture-simplification-execution-log.md). All Core,
+  plugin and public website audit loops are complete; that run authorizes no
+  later milestone.
 - [Interactive project initializer](completed/interactive-project-initializer.md)
 - [Public website and documentation foundation](completed/public-website-and-documentation-foundation.md)
 - [Contextual relation filters](completed/contextual-relation-filters.md)

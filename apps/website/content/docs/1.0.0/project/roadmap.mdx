@@ -15,6 +15,7 @@ sources:
   - ROADMAP.md
   - CURRENT_PLAN.md
   - issues/README.md
+  - issues/3100-residual-complexity-simplification/README.md
   - issues/500-postgres/513-migration-snapshot-history.md
   - issues/500-postgres/514-migration-diff-sql.md
   - issues/500-postgres/515-migration-startup-lock-drift.md
@@ -61,14 +62,14 @@ import {
 UltimaBase already has schemas, typed data operations, PostgreSQL, and optional
 REST, GraphQL, and password authentication in the repository. See
 [Release Status](./release-status) for what you can evaluate today. The cards
-below show proposed product directions after the completed Core and plugin simplification milestone.
+below show proposed product directions after the next planned simplification pass.
 
-<Callout type="info" title="Simplification milestone completed">
-	The Core, existing plugins, and documentation have completed their
-	simplification and compatibility audit. Used product behavior is retained with
-	the documented application lifecycle and approved unused-extension removals.
-	Future features and any further simplification are separate work. Files and
-	caching remain planned and still need design work.
+<Callout type="info" title="Further simplification planned">
+	The first Core, plugin, and documentation simplification milestone is
+	complete. A second pass is planned before new features, with current
+	functionality and used plugin capabilities preserved by default. Any further
+	public removals still require a specific decision; none has shipped from this
+	new plan. Files and caching remain planned and still need design work.
 </Callout>
 
 ## Next priorities

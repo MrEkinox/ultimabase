@@ -88,6 +88,7 @@ consistent without rewriting historical issue prose.
 - [`2800-public-website-documentation/`](2800-public-website-documentation/README.md)
 - [`2900-interactive-project-initializer/`](2900-interactive-project-initializer/README.md)
 - [`3000-pre-feature-architecture-simplification/`](3000-pre-feature-architecture-simplification/README.md)
+- [`3100-residual-complexity-simplification/`](3100-residual-complexity-simplification/README.md)
 
 ## Assignment prompt
 
