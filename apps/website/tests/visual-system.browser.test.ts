@@ -75,6 +75,18 @@ describe('website visual system', () => {
 			path: '/docs/1.0.0',
 			width: 375,
 		},
+		{
+			colorScheme: 'dark' as const,
+			customShell: false,
+			path: '/docs/1.0.0/plugins/official/soft-delete',
+			width: 375,
+		},
+		{
+			colorScheme: 'dark' as const,
+			customShell: false,
+			path: '/docs/1.0.0/plugins/official/password-authentication',
+			width: 375,
+		},
 	])(
 		'keeps the $colorScheme $path shell accessible',
 		async ({ colorScheme, customShell, path, width }) => {
@@ -112,6 +124,22 @@ describe('website visual system', () => {
 				})
 				if (customShell) expect(focusOutlineWidth).toBeGreaterThanOrEqual(3)
 				expect(await accessibilityViolations(page)).toEqual([])
+				if (path.endsWith('/password-authentication')) {
+					// Exercise keyboard scrolling, not only the focusability attribute.
+					const table = page
+						.getByRole('region', { name: 'Scrollable table' })
+						.first()
+					expect(
+						await table.evaluate(
+							(element) => element.scrollWidth > element.clientWidth,
+						),
+					).toBe(true)
+					await table.focus()
+					await page.keyboard.press('ArrowRight')
+					await expect
+						.poll(() => table.evaluate((element) => element.scrollLeft))
+						.toBeGreaterThan(0)
+				}
 			} finally {
 				await context.close()
 			}

@@ -7,7 +7,7 @@ contentType: concept
 outcome: Decide when application validation belongs in the Validation plugin rather than Core or Hooks.
 owner: '2824'
 releaseStatus: pre-release
-reviewedAt: 2026-09-17
+reviewedAt: 2026-09-21
 sources:
   - packages/validation-plugin/README.md
   - packages/validation-plugin/src/field-validation.ts
@@ -79,9 +79,12 @@ export const ultimabase = new UltimaBase({
 	schemas: [Article],
 	plugins: [postgresPlugin({ url: databaseUrl }), validationPlugin()],
 })
-
-await ultimabase.start()
 ```
+
+Keep startup in the existing entry point from
+[Manual Installation](/docs/1.0.0/manual-installation#start-and-verify): await
+`ultimabase.start()` there and always await `dispose()` when the process finishes.
+This configuration module stays safe to load for static Typegen generation.
 
 `validationPlugin()` takes no options. For TypeScript authoring, regenerate
 application declarations after adding it so the `validation` option appears on

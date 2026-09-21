@@ -8,7 +8,7 @@ contentType: concept
 outcome: Declare a dimension-safe vector field and recognize the current physical storage limit.
 owner: '2824'
 releaseStatus: pre-release
-reviewedAt: 2026-09-17
+reviewedAt: 2026-09-21
 sources:
   - packages/pg-vector-plugin/README.md
   - packages/pg-vector-plugin/src/index.ts
@@ -56,7 +56,7 @@ see [Generate TypeScript Types](/docs/1.0.0/guides/generate-types).
 Add `pgVectorPlugin()` to the application and declare a stored vector field:
 
 ```ts title="src/document.ts"
-import { Schema, createApplication } from '@ultimabase/core'
+import { FrameworkApplication, Schema } from '@ultimabase/core'
 import { pgVectorPlugin } from '@ultimabase/pg-vector-plugin'
 
 const Document = Schema.define({
@@ -66,13 +66,16 @@ const Document = Schema.define({
 	}),
 })
 
-export const application = await createApplication({
+const application = new FrameworkApplication({
 	plugins: [pgVectorPlugin()],
 	schemas: [Document],
 })
+
+application.compileSchemas()
 ```
 
-This compiles a schema without starting a database-backed application. It does
+This performs pure schema compilation without initializing an application or
+claiming the active-application slot. It does
 not prove that you can create, query, or synchronize a `Document` with a vector
 column. `pgVectorPlugin()` takes no factory options.
 

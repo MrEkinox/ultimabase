@@ -9,7 +9,7 @@ contentType: concept
 outcome: Choose and configure the right Hook phase for input, mutation, or post-commit behavior.
 owner: '2824'
 releaseStatus: pre-release
-reviewedAt: 2026-09-17
+reviewedAt: 2026-09-21
 sources:
   - packages/hooks-plugin/README.md
   - packages/hooks-plugin/src/authoring/contracts.ts
@@ -121,9 +121,12 @@ export const ultimabase = new UltimaBase({
 	schemas: [Post, PostTitleChange],
 	plugins: [postgresPlugin({ url: databaseUrl }), hooksPlugin()],
 })
-
-await ultimabase.start()
 ```
+
+Keep startup in the existing entry point from
+[Manual Installation](/docs/1.0.0/manual-installation#start-and-verify): await
+`ultimabase.start()` there and always await `dispose()` when the process finishes.
+This configuration module stays safe to load for static Typegen generation.
 
 `hooksPlugin()` has no factory options. Regenerate your application types after
 adding it so the schema and field `hooks` options appear in TypeScript. An

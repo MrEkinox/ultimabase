@@ -240,3 +240,8 @@ html:not(.dark) .shiki span[style*='--shiki-light:#D73A49'] {
 html:not(.dark) .shiki span[style*='--shiki-light:#E36209'] {
 	--shiki-light: #923b00 !important;
 }
+
+/* GitHub Dark's comment gray needs more contrast on docs and raised surfaces. */
+html.dark .shiki span[style*='--shiki-dark:#6A737D'] {
+	--shiki-dark: #a5b0c3 !important;
+}

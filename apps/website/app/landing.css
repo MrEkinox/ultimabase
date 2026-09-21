@@ -772,11 +772,6 @@ html.dark .ub-landing {
 	}
 }
 
-/* GitHub Dark's comment gray needs more contrast on the landing's raised surface. */
-html.dark .ub-landing .shiki span[style*='--shiki-dark:#6A737D'] {
-	--shiki-dark: #a5b0c3 !important;
-}
-
 @media (max-width: 64rem) {
 	.ub-transaction-proof {
 		gap: 2rem;

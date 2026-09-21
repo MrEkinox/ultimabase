@@ -571,3 +571,14 @@ Une présentation en double et des formulations devenues ambiguës sont retirée
 Aucune API ni fonctionnalité supplémentaire n'est supprimée. **Delta de
 production nul**. Les 66 contrôles de contenu et 38 contrôles Chromium passent,
 ainsi que typage, lint et build du site. Audit final vert.
+
+## Documentation données et sécurité — issue 3032 réalisée
+
+La revue couvre 26 pages et corrige neuf pages, dont un exemple Roles vérifié
+sur PostgreSQL avec les déclarations Typegen réelles. Les démarrages implicites
+dans les modules de configuration et une fausse mention de hooks de lecture
+sont retirés. Les limites de visibilité Soft Delete restent explicites. Deux
+défauts d'accessibilité du site sont corrigés et protégés par les tests navigateur.
+Aucune API ni fonctionnalité supplémentaire n'est supprimée ; **delta de
+production des packages nul**. Les 66 contrôles de contenu, 31 tests navigateur
+et 12 combinaisons page/thème/écran passent. Audit final vert.

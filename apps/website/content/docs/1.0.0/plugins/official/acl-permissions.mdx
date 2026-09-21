@@ -8,7 +8,7 @@ order: 6
 outcome: Protect individual objects with public, principal, and role permissions.
 owner: '2811'
 releaseStatus: pre-release
-reviewedAt: 2026-09-17
+reviewedAt: 2026-09-21
 sources:
   - packages/acl-permissions-plugin/README.md
   - packages/acl-permissions-plugin/src/acl-access.ts
@@ -89,9 +89,12 @@ export const ultimabase = new UltimaBase({
 	schemas: [Post],
 	plugins: [postgresPlugin({ url: databaseUrl }), aclPlugin()],
 })
-
-await ultimabase.start()
 ```
+
+Keep startup in the existing entry point from
+[Manual Installation](/docs/1.0.0/manual-installation#start-and-verify): await
+`ultimabase.start()` there and always await `dispose()` when the process finishes.
+This configuration module stays safe to load for static Typegen generation.
 
 The plugin adds the reserved, required stored `acl` field; do not declare it
 manually. Without an `acl.default`, it starts as an empty ACL, denying all

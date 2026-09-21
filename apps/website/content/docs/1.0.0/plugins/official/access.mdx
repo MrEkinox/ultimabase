@@ -9,7 +9,7 @@ order: 4
 outcome: Define fail-closed authorization that can only narrow as policies compose.
 owner: '2811'
 releaseStatus: pre-release
-reviewedAt: 2026-09-17
+reviewedAt: 2026-09-21
 sources:
   - packages/access-plugin/README.md
   - packages/access-plugin/src/authoring/contracts.ts
@@ -95,9 +95,12 @@ export const ultimabase = new UltimaBase({
 	schemas: [Article],
 	plugins: [postgresPlugin({ url: databaseUrl }), accessPlugin()],
 })
-
-await ultimabase.start()
 ```
+
+Keep startup in the existing entry point from
+[Manual Installation](/docs/1.0.0/manual-installation#start-and-verify): await
+`ultimabase.start()` there and always await `dispose()` when the process finishes.
+This configuration module stays safe to load for static Typegen generation.
 
 The installed engine denies operations without an exact schema decision by
 default. In this example, `read.allow: true` covers all four read capabilities;

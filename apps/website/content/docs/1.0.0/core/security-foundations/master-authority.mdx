@@ -9,7 +9,7 @@ order: 7
 outcome: Run and verify one audited Master command without exposing a client-side bypass.
 owner: '2811'
 releaseStatus: pre-release
-reviewedAt: 2026-09-16
+reviewedAt: 2026-09-21
 sources:
   - packages/core/README.md
   - packages/core/docs/runtime.md
@@ -67,10 +67,21 @@ export const ultimabase = new UltimaBase({
 	schemas: [Post],
 })
 
-await ultimabase.start()
-
 export const createMaintenancePost = (title: string) =>
 	Post.createOne({ data: { title } }, { ultimabase, useMasterKey: true })
+```
+
+Run that command from an entry point that owns startup and cleanup:
+
+```ts title="src/run-maintenance.ts"
+import { createMaintenancePost, ultimabase } from './maintenance.js'
+
+try {
+	await ultimabase.start()
+	await createMaintenancePost('Rebuild complete')
+} finally {
+	await ultimabase.dispose()
+}
 ```
 
 Calling `createMaintenancePost('Rebuild complete')` from trusted server code

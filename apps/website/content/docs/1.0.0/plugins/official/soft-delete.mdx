@@ -8,11 +8,12 @@ order: 8
 outcome: Soft-delete a record, verify that ordinary reads hide it, and restore it from trusted server code.
 owner: '2809'
 releaseStatus: pre-release
-reviewedAt: 2026-09-20
+reviewedAt: 2026-09-21
 sources:
   - packages/soft-delete-plugin/README.md
   - packages/soft-delete-plugin/src/plugin.ts
   - packages/soft-delete-plugin/src/visibility.ts
+  - packages/soft-delete-plugin/tests/e2e/soft-delete-visibility.postgres.e2e.test.ts
   - packages/soft-delete-plugin/src/explicit.ts
   - packages/soft-delete-plugin/src/administration.ts
   - packages/rest-plugin/README.md
@@ -51,7 +52,7 @@ delete calls instead.
 
 Start from a working UltimaBase application with a database provider. Packages
 are pre-release; follow [Manual Installation](/docs/1.0.0/manual-installation)
-for the current repository workflow. These are the intended registry commands
+for the project layout and the linked repository example. These are the intended registry commands
 once the package is published:
 
 ```bash tab="npm" tab-group="package-manager"
@@ -459,7 +460,11 @@ a rejected item rolls back earlier tombstones in the batch.
 ### Visibility, permissions, and limits
 
 The plugin owns `isDeleted`. Do not declare it yourself or write it through
-create, update, nested commands, REST, or GraphQL. You may select it in results.
+create, update, nested commands, REST, or GraphQL. You may select it in results
+and filter it like an ordinary boolean, subject to installed field policy.
+A filter such as `where: { isDeleted: { eq: true } }` still returns no tombstones:
+the plugin always combines ordinary reads with its private `isDeleted: false`
+constraint. Filtering is not an include-deleted permission.
 
 Tombstones are hidden from ordinary reads, counts, existence checks, pointer
 and relation traversal, eager loading, and ordinary update or delete targets.

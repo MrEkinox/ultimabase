@@ -11,6 +11,9 @@ releaseStatus: pre-release
 reviewedAt: 2026-09-21
 sources:
   - packages/roles-plugin/README.md
+  - packages/access-plugin/README.md
+  - packages/create-app/src/security-template.ts
+  - packages/password-auth-plugin/src/authentication-result.ts
   - packages/roles-plugin/src/role-access.ts
   - packages/roles-plugin/src/role-deletion.ts
   - packages/roles-plugin/src/role-reference.ts
@@ -27,8 +30,7 @@ sources:
 `@ultimabase/roles-plugin` stores roles as ordinary application schemas with
 typed members and parent–child hierarchy. You define the role schema and its
 exact member schema; the plugin supplies membership commands and a request
-resolver. A role reference identifies a role, but neither the reference nor
-membership grants permission by itself.
+resolver. A role reference identifies a role.
 A role, a role hierarchy, and an authenticated principal
 grant nothing by themselves.
 
@@ -107,6 +109,73 @@ export const Post = Schema.define({
 })
 ```
 
+### Permit the session owner to read its profile
+
+Password Authentication must read the newly authenticated User before it can
+issue a session. The built-in User is plugin-owned, so configure its Access
+policy through an attributed contribution rather than adding an inline option.
+This policy keeps the Post and Role reads declared above, narrows User reads
+to the current session owner, and denies reads of any other schema:
+
+```ts title="src/profile-access.ts"
+import {
+	provideAccessContributions,
+	schemaAccess,
+} from '@ultimabase/access-plugin'
+import { definePlugin } from '@ultimabase/core'
+import {
+	PasswordUser,
+	passwordPrincipal,
+} from '@ultimabase/password-auth-plugin'
+
+import { AppRole, Post } from './roles.js'
+
+export const profilePolicy = definePlugin({
+	pluginId: 'app.profile-policy',
+	version: '1.0.0',
+	core: '^0.0.0',
+	privileges: [
+		{
+			name: 'runtime:constrain',
+			reason: 'Restricts reads to the intended subjects and schemas.',
+		},
+	],
+	capabilities: {
+		provides: [
+			provideAccessContributions('read-policy', ({ schemas }) =>
+				schemas.values().map((schema) =>
+					schema === PasswordUser
+						? schemaAccess(PasswordUser, {
+								read: {
+									where: ({ context, where }) => {
+										const principal = context.getValue(passwordPrincipal)
+										return where.in(
+											'id',
+											principal === undefined ? [] : [principal.user.id],
+										)
+									},
+								},
+							})
+						: schemaAccess(schema, {
+								read: schema === AppRole || schema === Post,
+							}),
+				),
+			),
+		],
+	},
+})
+```
+
+The configuration below enables the read fallback and installs this narrowing
+policy together. A compatible provider cannot grant a read that the base Access
+decision denied. Keep both entries: omitting the provider would broaden the
+read fallback, while omitting the fallback would prevent User profile reads.
+Other native operations retain their deny default unless the schema grants
+one explicitly. The Core range matches the current pre-release packages;
+check the installed range when updating.
+
+### Assemble the application
+
 Install the identity, policy, and role plugins in one application. The User
 schema is contributed by Password Authentication; `AppRole` and `Post` are
 developer schemas:
@@ -118,6 +187,7 @@ import { passwordAuthPlugin } from '@ultimabase/password-auth-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { rolesPlugin } from '@ultimabase/roles-plugin'
 import { AppRole, Post } from './roles.js'
+import { profilePolicy } from './profile-access.js'
 
 const databaseUrl = process.env.DATABASE_URL
 const masterKey = process.env.ULTIMABASE_MASTER_KEY
@@ -133,14 +203,18 @@ export const ultimabase = new UltimaBase({
 	plugins: [
 		postgresPlugin({ url: databaseUrl }),
 		passwordAuthPlugin(),
-		accessPlugin(),
+		accessPlugin({ default: { read: true } }),
+		profilePolicy,
 		rolesPlugin(),
 	],
 	schemas: [AppRole, Post],
 })
-
-await ultimabase.start()
 ```
+
+Keep startup in the existing entry point from
+[Manual Installation](/docs/1.0.0/manual-installation#start-and-verify): await
+`ultimabase.start()` there and always await `dispose()` when the process finishes.
+This configuration module stays safe to load for static Typegen generation.
 
 Use a disposable database or a reviewed PostgreSQL schema policy while
 developing. Replace the console audit with a reliable sink before deployment;
