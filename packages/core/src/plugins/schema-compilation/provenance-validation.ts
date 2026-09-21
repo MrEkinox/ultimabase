@@ -218,7 +218,7 @@ export function assertSchemaCompilationProvenance(
 }
 
 /** Lists every exact owner identity a compiler is allowed to attribute. */
-export const collectSchemaCompilerOwnerIdentities = (
+export const collectCompilationOwnerIdentities = (
 	input: Readonly<{
 		readonly declarations: readonly Readonly<{
 			readonly owner: PluginSchemaContributionOwner

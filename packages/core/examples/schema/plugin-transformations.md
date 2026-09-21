@@ -158,3 +158,14 @@ selectors, and additive patches, then validates the complete graph before
 publication. Plugins cannot replace the compiler. Opaque artifacts retain exact
 identity and ownership; Typegen reads the resulting inert facts without running
 application callbacks.
+
+## Portable and opaque option selection
+
+Use `{ option: { name: 'workflow', path: ['enabled'], equals: true } }` when the
+normalized option is portable JSON. Presence (`{ option: { name: 'workflow' } }`)
+and absence (`{ option: { name: 'workflow', present: false } }`) also work for
+opaque values. If the value contains a callback, equality and path selectors do
+not match it; they never inspect the callback, its surrounding object or any
+internal marker. This depends on the normalized value, not solely on the option
+contract's `valueKind` setting. Core preserves the same frozen selection targets
+and validates the complete graph before publishing any schema contributions.

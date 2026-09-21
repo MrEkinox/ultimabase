@@ -7,7 +7,7 @@ contentType: guide
 outcome: Choose a schema contribution and publish its correct application-specific TypeScript types.
 owner: '2810'
 releaseStatus: pre-release
-reviewedAt: 2026-09-20
+reviewedAt: 2026-09-21
 sources:
   - packages/core/README.md
   - packages/plugin-kit/README.md
@@ -15,6 +15,8 @@ sources:
   - packages/core/src/plugins/typegen-declarations.test.ts
   - packages/core/src/plugins/typegen-declarations.ts
   - docs/adr/0262-descriptive-typegen-command-inspection.md
+  - docs/adr/0263-direct-private-schema-compilation.md
+  - packages/core/src/plugins/schema-compilation/opaque-selectors.test.ts
   - docs/concepts/open-plugin-authoring.md
   - docs/adr/0208-enforceable-plugin-powers-and-environment-truth.md
 ---
@@ -128,6 +130,18 @@ permission rule for reading the field. To let developers write it, remove that
 setting and define the intended input behavior. The selector matches the
 presence of `workflow`, including an explicitly false-like value; inspect a
 normalized path/value only when the plugin's contract needs it.
+
+Use `{ option: { name: 'workflow', path: ['enabled'], equals: true } }` to match
+portable JSON structurally. Object key order does not matter; array order does.
+`{ option: { name: 'workflow', present: false } }` matches an omitted option,
+not an explicitly stored `false`.
+
+An option containing a callback or another nonportable value supports presence
+and absence, but equality/path selectors do not match its contents. They never
+invoke the callback or expose an internal marker. A normalized value that is
+portable JSON still supports equality even if its definition permits opaque
+values. Each plugin's selection targets are frozen before its own additions and
+patches; later contributions cannot make that selection grow.
 
 Generic Typegen sees the final field, index, and direct option occurrence. It
 derives the application-specific field and input contracts automatically. You

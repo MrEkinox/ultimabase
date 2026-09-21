@@ -2,7 +2,7 @@
 
 - Recorded: 2026-09-21
 - Source revision: `265b54c909404f9690a666bdf39ace01ccee466e`
-- Status: refreshed by 3101; Core/Access/Hooks private cleanup delivered in 3102–3104
+- Status: refreshed by 3101; private cleanup and direct compilation delivered through 3106
 - Owner: [issue 3101](../../issues/3100-residual-complexity-simplification/3101-baseline-and-consumer-inventory.md)
 - Execution rules: [plan](2026-09-21-residual-complexity-simplification.md)
 - Measured baseline and retained IDs: [3101 baseline](2026-09-21-residual-complexity-baseline.md)
@@ -16,7 +16,7 @@ proof of whole-program reachability. Issue 3101 refreshed this evidence at
 the actual implementation baseline and recorded the exact validation commands.
 
 Every row remains retained until its implementation issue has completed the
-audit loop. The public contract decisions below are pending; none is authorized
+audit loop. The three public protocol decisions below are pending; none is authorized
 by the old R-001–R-010 removal list. Keep milestone 30's final
 [contract matrix](2026-09-20-architecture-contract-matrix.md) unchanged and record
 milestone 31 decision deltas here, with accepted ADR, exact public difference,
@@ -26,7 +26,7 @@ retained invariant, regression evidence and delivered issue.
 | ----- | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- | ------------- | ------------------------------------------------------------------------- |
 | RC-01 | Private dead helpers                             | 14 functions, 304 declaration-body lines; no caller found and no package-root export                                    | 3102–3104     | Core/Access/Hooks delivered (3102–3104)                                   |
 | RC-02 | Hooks field-path duplication                     | 143-line file duplicates Core's public types; private resolver has only its own test and differs in field-map selection | 3104          | Delivered by 3104; public type/editor parity verified                     |
-| RC-03 | Canonical compiler IR round trip                 | Live internal machinery, 21 production files/3,648 lines; originally motivated by replacement compilation               | 3105–3106     | ADR-0263 accepted in 3105; implementation pending in 3106                 |
+| RC-03 | Canonical compiler IR round trip                 | Live internal machinery, 21 production files/3,648 lines; originally motivated by replacement compilation               | 3105–3106     | ADR-0263 accepted in 3105; direct compilation delivered by 3106           |
 | RC-04 | Runtime normalization/commit stage contributions | No current production caller of runtimePipelineStage; ordinary interceptors are used                                    | 3107–3108     | Public decision pending; retain used C-035 behavior                       |
 | RC-05 | Typegen emitter marker                           | One provider, no reader found; generic single-provider conflict and inspection effects remain                           | 3107/3109     | Public decision pending; reopen C-039 explicitly                          |
 | RC-06 | Migration anticipation                           | Planning has a real testing consumer; no shipped migration plugin executes this path                                    | 3107/3110     | Public/engineering decision pending; reopen exact P-016/C-023/C-026 scope |
@@ -51,7 +51,7 @@ counted.
 | Core    | executeSchemaFieldsCallback              | [field-builder.ts](../../packages/core/src/schema/schema/field-builder.ts)                           |    13 |
 | Core    | normalizeContributedSchemaIndex          | [indexes.ts](../../packages/core/src/schema/schema/indexes.ts)                                       |    13 |
 | Core    | createPluginFieldKindTarget              | `declaration-targets.ts` (3101 source)                                                               |    10 |
-| Core    | replaceNamedNode                         | [canonical-state.ts](../../packages/core/src/plugins/schema-compiler-ir/canonical-state.ts)          |     8 |
+| Core    | replaceNamedNode                         | `canonical-state.ts` (3101 source)                                                                   |     8 |
 | Access  | normalizeRelationFieldAccessDeclarations | [field-declarations.ts](../../packages/access-plugin/src/authoring/field-declarations.ts)            |    44 |
 | Access  | declareSchemaAccess                      | [declarations.ts](../../packages/access-plugin/src/authoring/declarations.ts)                        |    12 |
 | Hooks   | declareSchemaHooks                       | [declarations.ts](../../packages/hooks-plugin/src/authoring/declarations.ts)                         |    10 |
@@ -86,9 +86,10 @@ the unused runtime implementation; do not substitute live resolvers blindly.
 
 ## RC-03: live compiler machinery requires a design decision
 
-[compileSchemaDeclarations](../../packages/core/src/plugins/compiled-schema-declarations.ts)
-encodes the input, invokes the canonical compiler, validates the output and
-decodes it through a private artifact session.
+Before 3106, [compileSchemaDeclarations](../../packages/core/src/plugins/compiled-schema-declarations.ts)
+encoded input, invoked the canonical compiler, validated output and decoded it
+through a private artifact session. The direct implementation now keeps prepared
+domain objects, frozen selection results and mandatory final validation.
 [ADR-0196](../adr/0196-callback-free-schema-compiler-ir.md) records the original
 public compiler boundary.
 
@@ -101,7 +102,7 @@ retained invariant to the proposed direct internal path before user approval.
 concrete flow, consumer migration and required regressions. The user accepted it on 2026-09-21.
 It includes the explicitly accepted removal of accidental selector access to
 private opaque-option markers, verified through a built public-package probe;
-portable matching and opaque presence/absence remain. No compiler implementation is delivered yet.
+portable matching and opaque presence/absence remain. The direct path is delivered by 3106 with no additional public delta.
 
 ## RC-04: keep used Runtime integrations
 
@@ -173,7 +174,7 @@ aid, not a proof of exhaustive dead-code detection or external community usage.
 | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | RC-01     | Core/Access/Hooks; no callers for the initial functions, reader wrappers or isolated declaration-target module                                                        | Existing schema/declaration, option normalization and provider tests; identical source/built/packed exports                                   | Internal cleanup only; website Access/Hooks/Core contracts remain accurate; Core/Access/Hooks delivered by 3102–3104                                               |
 | RC-02     | Hooks duplicates Core public types; private Hooks resolver is used only by field-paths.test.ts                                                                        | Source and built type/language-service checks; nested path validity/depth and documented field-map distinction                                | Hooks root names retained; consolidation delivered by 3104                                                                                                         |
-| RC-03     | SchemaDeclarationRegistry and compileCommandGraph consume canonical compiler output; selectors and option/provenance checks are live                                  | Complete compilation, malformed-declaration, atomic publication, Soft Delete patch, Typegen and transport suites                              | ADR-0263 accepted in 3105; 3106 must preserve invariants and update affected website pages                                                                         |
+| RC-03     | SchemaDeclarationRegistry and compileCommandGraph consume canonical compiler output; selectors and option/provenance checks are live                                  | Complete compilation, malformed-declaration, atomic publication, Soft Delete patch, Typegen and transport suites                              | ADR-0263 delivered by 3106; invariants verified and affected website page updated                                                                                  |
 | RC-04     | Core factory/tests/root exports only; ACL separately uses provideRuntimeInterceptor/preparedOperation                                                                 | Runtime order, transactions/rollback, attribution, ACL and no-product performance counters                                                    | Public decision pending in 3107; Runtime/plugin-authoring guidance must follow any approved removal                                                                |
 | RC-05     | Typegen provides an inert marker but setup directly calls generation/writing; generic single-provider checks still apply                                              | Startup ordering, deterministic declarations/fingerprints, generated-project and editor tests                                                 | Public uniqueness/inspection change pending in 3107; Typegen/plugin-authoring documentation reviewed in 3109                                                       |
 | RC-06     | planAdapterMigrations -> FakeAdapterMigrationHistory -> tests/e2e/open-kernel-proof.e2e.test.ts; PostgreSQL migration metadata/preparation providers are fixture-only | Resolve that real testing use explicitly; preserve current sync policies, physical contributions, private storage, raw leases and attribution | Public/engineering decision pending in 3107, including P-016 adapterMigrationCapability; PostgreSQL/testing/plugin-authoring guidance follows exact accepted scope |
@@ -207,3 +208,21 @@ separate audited 3102 follow-up commit before 3106; preserve the public types.
 The follow-up is now delivered: -61 production lines, with identical retained
 types/JSDoc and built Core declarations. Both deleted function bodies were
 unexecuted in the 3104 full coverage; 382 focused and two built tests pass.
+
+### RC-03 delivery in 3106
+
+Direct private compilation removes 2,256 production lines. The old 21-file /
+3,639-line IR directory becomes seven files / 1,368 lines; required provenance,
+nominal membership, ordering, completeness and publication checks remain.
+The artifact/session transport, IDs, encoder/decoder, format-only validation
+and exclusive self-tests are gone, with live scenarios moved to the current
+boundary. No new public API replaces them. The only public delta is the
+explicitly accepted removal of opaque marker matching.
+
+All 1,726 exports and callable declarations remain. The final 2,795 coverage
+tests and 384 built/packed/PostgreSQL tests pass, including the unchanged
+committed Typegen output/fingerprint. Retained coverage locations, including
+the moved provenance validator, have no regression. Current production is
+124,178 lines / Core 66,129; tests/support 130,979; tooling 2,119.
+The public plugin-authoring page, Core README, schema examples and architecture
+are updated. RC-04/05/06 still require the separate decisions in 3107.

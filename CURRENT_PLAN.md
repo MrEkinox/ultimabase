@@ -1,12 +1,12 @@
 # Active plan: residual complexity simplification
 
-- Status: in-progress — approved Core follow-up complete; 3106 next
+- Status: in-progress — 3106 complete; next 3107 decision preparation
 - Milestone: [31 — Residual complexity simplification](issues/3100-residual-complexity-simplification/README.md)
 - Detailed plan: [execution and audit contract](docs/plans/2026-09-21-residual-complexity-simplification.md)
 - Evidence: [candidate inventory](docs/plans/2026-09-21-residual-complexity-inventory.md)
 - Measurements and retained IDs: [3101 baseline](docs/plans/2026-09-21-residual-complexity-baseline.md)
 - Baseline source: `265b54c909404f9690a666bdf39ace01ccee466e`
-- Current issue: [3105](issues/3100-residual-complexity-simplification/3105-decide-direct-internal-schema-compilation.md)
+- Current issue: [3107](issues/3100-residual-complexity-simplification/3107-decide-unused-public-protocols.md)
 - Hard stop: after issue 3112 and its dedicated local commit
 
 ## Current authorization
@@ -64,13 +64,18 @@ Stop expressly after the final 3112 audit and commit; no automatic continuation.
 
 - 3105: `5bc6c90b`, +289 / -39 = +250 lines; production delta 0.
 
+- 3102 follow-up: `75ed6561`, +39 / -65 = -26 lines; production -61.
+
 ## Exact resume point
 
-3101–3104 are committed locally with green audits. The user explicitly accepted
-[ADR-0263](docs/adr/0263-direct-private-schema-compilation.md) and the separate
-private Core resolver cleanup. The 3105 decision is committed. The bounded
-3102 follow-up is validated and audited; commit it separately, then implement 3106.
-The follow-up preserves the used Core path types and adds no public change.
+3101–3105 and the separately approved private Core resolver cleanup are committed.
+Issue 3106 has completed its audit loop: direct compilation removes 2,256
+production lines, preserves public exports and retained coverage, and passes
+2,795 coverage tests plus 384 built/packed/PostgreSQL tests. Its dedicated
+commit is reported after creation and recorded at the next issue handoff.
 
-3107's three public protocol decisions remain separate and pending. Stop there
-for the concrete decisions. The hard stop after 3112 and no-push rule remain.
+Next, prepare 3107's three independent public protocol decisions. They remain
+pending: present exact removals, retained behavior, public/documentation impact
+and the real migration-testing consumer, then stop for the user's decision.
+No 3108–3110 implementation is authorized before those decisions. The hard stop
+after 3112 and no-push rule remain.

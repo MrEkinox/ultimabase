@@ -97,7 +97,7 @@ export interface SchemaOptionDefinition<
 	 * compiler marker out of generated schema and field option completion.
 	 */
 	readonly typegen: SchemaOptionTypegenDescriptor | false
-	/** Keeps executable or nominal declarations application-local and opaque to the compiler IR. */
+	/** Keeps executable or nominal option values application-local; selectors only compare portable values. */
 	readonly valueKind?: 'json' | 'opaque'
 }
 

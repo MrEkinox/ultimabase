@@ -16,8 +16,9 @@ completed; its metrics and accepted decisions are the historical baseline.
 ## Authorization
 
 The user authorized autonomous execution on 2026-09-21, with the audit/correction
-loop and one commit per completed issue. Issues 3101–3103 are complete; 3104 is next. Compiler
-redesign and new public removals retain their exact decision gates; stop for
+loop and one commit per completed issue. Issues 3101–3106 and the
+separate 3102 follow-up are complete; 3106 delivers accepted ADR-0263.
+The three public protocol removals retain their 3107 decision gates; stop for
 questions or blockers and explain them before continuing. No push, deployment,
 paused feature or later milestone is authorized.
 
@@ -28,7 +29,7 @@ paused feature or later milestone is authorized.
 - [x] [3103 — Remove the unused Access declaration circuit](3103-remove-unused-access-declaration-circuit.md)
 - [x] [3104 — Consolidate Hooks declarations and field-path types](3104-consolidate-hooks-declarations-and-field-paths.md)
 - [x] [3105 — Decide the internal schema compilation boundary](3105-decide-direct-internal-schema-compilation.md)
-- [ ] [3106 — Simplify canonical schema compilation](3106-simplify-canonical-schema-compilation.md)
+- [x] [3106 — Simplify canonical schema compilation](3106-simplify-canonical-schema-compilation.md)
 - [ ] [3107 — Decide the three unused public protocol candidates](3107-decide-unused-public-protocols.md)
 - [ ] [3108 — Remove unused Runtime stage contributions if approved](3108-remove-unused-runtime-stage-contributions.md)
 - [ ] [3109 — Remove the unread Typegen emitter marker if approved](3109-remove-unread-typegen-emitter-marker.md)

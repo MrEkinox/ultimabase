@@ -343,9 +343,9 @@ only when an occurrence needs an exact owner.
 
 Plugin schema selectors can match direct-option presence, portable structural
 equality, or the exact absence form `{ option: { name, present: false } }`.
-Absence is distinct from an explicit `false`, crosses the versioned
-callback-free compiler IR, and still requires one exact option-definition
-owner. Plugin manifests remain the smallest fixed truthful set of potential
+Absence is distinct from an explicit `false` and still requires one exact
+option-definition owner. Equality and paths inspect only portable normalized
+values; opaque values expose neither their contents nor internal markers. Plugin manifests remain the smallest fixed truthful set of potential
 powers evaluated before schema compilation; effective declarations may compile
 to an empty application-local plan without creating a second capability graph.
 
@@ -492,12 +492,15 @@ returned through an application are transparent immutable views of the original
 schema instance: generated plugin commands are directly callable on the result,
 while ownership, command lookup, and disposal remain local to that application.
 
-Complete logical compilation crosses one versioned callback-free IR. Portable
-facts remain visible, while schema classes and Runtime-bearing field and option
-artifacts use nominal references owned by one private application
-session. Core invokes its canonical compiler directly and revalidates the
-returned graph before publishing it. The compiler protocol is internal; plugins
-extend compilation through authorized declarations.
+Core's canonical compiler applies normalized contributions directly to private
+immutable prepared schemas (ADR-0263). Domain objects retain exact nominal
+identity; portable options remain detached snapshots and opaque callbacks are
+never invoked by selectors or patch application. Final validation checks input
+membership, ownership, provenance, protected fields and complete selection
+results before command compilation and atomic registry publication. No compiler
+transport, artifact-session lookup or replacement API remains. Public tooling
+and transport projections stay inert; plugins extend compilation only through
+authorized declarations.
 
 Milestone 14 removed string slots, the plugin service registry, and generic
 named setup contribution registries. Versioned capabilities are the only public

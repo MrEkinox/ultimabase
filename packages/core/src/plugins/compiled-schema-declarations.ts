@@ -18,16 +18,19 @@ import {
 	collectOptionDefinitions,
 	collectRuntimeCompilations,
 } from './schema-runtime-options.js'
-import type { SchemaCompilerOutput } from './schema-compiler-ir/contracts.js'
-import { decodeSchemaCompilerOutput } from './schema-compiler-ir/decoder.js'
-import { encodeSchemaCompilerInput } from './schema-compiler-ir/input-encoder.js'
-import { compileCanonicalSchemaCompilerIr } from './schema-compiler-ir/canonical-compiler.js'
-import { assertSchemaCompilerOutput } from './schema-compiler-ir/validation.js'
+import type { CompiledSchemaSelection } from './schema-compilation/contracts.js'
+import { compileCanonicalSchemas } from './schema-compilation/compiler.js'
+import {
+	prepareSchemaBatches,
+	snapshotPreparedSchema,
+} from './schema-compilation/preparation.js'
+import { SchemaCompilationValues } from './schema-compilation/values.js'
+import { assertSchemaCompilationResult } from './schema-compilation/validation.js'
 
 /** Contains every artifact produced by one successful static schema compilation. */
 export interface CompiledSchemaDeclarations {
 	readonly candidates: readonly PreparedSchemaCompilation[]
-	readonly output: SchemaCompilerOutput
+	readonly selections: readonly CompiledSchemaSelection[]
 	readonly provenance: ReadonlyMap<string, SchemaCompilationProvenance>
 	readonly runtimeCompilations: readonly PendingSchemaOptionRuntimeCompilation[]
 }
@@ -45,7 +48,7 @@ export const compileSchemaDeclarations = (
 			additionsBySchema.set(addition.schema, addition)
 		}
 	}
-	let candidates = prepared.map((candidate) => {
+	const initial = prepared.map((candidate) => {
 		const addition = additionsBySchema.get(candidate.schema)
 		try {
 			const resolved = resolveCandidateOptions(
@@ -69,23 +72,34 @@ export const compileSchemaDeclarations = (
 			)
 		}
 	})
-	const encoded = encodeSchemaCompilerInput(candidates, batches, {
-		definitions: optionDefinitions,
+	const values = new SchemaCompilationValues()
+	const candidates = immutableArray(
+		initial.map((candidate) => snapshotPreparedSchema(candidate, values)),
+	)
+	const declarations = prepareSchemaBatches(
+		candidates,
+		batches,
+		optionDefinitions,
 		resolvedFields,
-	})
-	const output = compileCanonicalSchemaCompilerIr(encoded.input)
-	assertSchemaCompilerOutput(encoded.input, output, encoded.session)
-	candidates = [...decodeSchemaCompilerOutput(output, encoded.session)]
+		values,
+	)
+	const output = compileCanonicalSchemas(
+		candidates,
+		declarations,
+		optionDefinitions,
+		values,
+	)
+	assertSchemaCompilationResult(candidates, declarations, output, values)
 
 	return immutableRecord({
-		candidates: immutableArray(candidates),
-		output,
+		candidates: output.candidates,
+		selections: output.selections,
 		provenance: new Map(
-			candidates.map((candidate) => [
+			output.candidates.map((candidate) => [
 				candidate.schema.className,
 				candidate.definition.provenance,
 			]),
 		),
-		runtimeCompilations: collectRuntimeCompilations(batches, candidates),
+		runtimeCompilations: collectRuntimeCompilations(batches, output.candidates),
 	})
 }

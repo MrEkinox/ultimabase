@@ -18,7 +18,7 @@ boundary. Compilation, validation and immutable publication are still used.
 The 21 production files / 3,648 baseline lines in the IR directory include
 necessary rules. They are not a removal estimate. No speedup is promised.
 
-## Current flow and ownership
+## Previous flow and ownership
 
 1. The declaration host checks privileges and captures owner-scoped schema,
    option, selection, additive patch and surface declarations. Plugin-owned
@@ -49,9 +49,8 @@ necessary rules. They are not a removal estimate. No speedup is promised.
 
 Concrete sources: [orchestration](../../packages/core/src/plugins/compiled-schema-declarations.ts),
 [registry](../../packages/core/src/plugins/schema-declaration-registry.ts),
-[IR contracts](../../packages/core/src/plugins/schema-compiler-ir/contracts.ts),
-[compiler](../../packages/core/src/plugins/schema-compiler-ir/canonical-compiler.ts),
-[final validation](../../packages/core/src/plugins/schema-compiler-ir/validation.ts),
+the former `schema-compiler-ir/contracts.ts`, `canonical-compiler.ts` and
+`validation.ts` under Core plugins at commit `5bc6c90b`,
 [publication](../../packages/core/src/schema/schema/registry.ts).
 
 ## Decision
@@ -176,3 +175,9 @@ A separate Core path-resolver orphan found in 3104 is recorded in the inventory.
 It is not part of this compiler design. The same user approval authorizes its
 bounded cleanup in a separate 3102 follow-up commit, after 3105 and before 3106.
 Keep the used public path types, and record validation and exact line counts.
+
+Implementation source mapping: [direct compiler](../../packages/core/src/plugins/schema-compilation/compiler.ts),
+[private preparation](../../packages/core/src/plugins/schema-compilation/preparation.ts),
+[final validation](../../packages/core/src/plugins/schema-compilation/validation.ts).
+These links update the implementation evidence without changing the accepted
+preservation requirements or historical decision.

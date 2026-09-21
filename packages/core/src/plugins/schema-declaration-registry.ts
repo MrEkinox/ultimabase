@@ -332,7 +332,7 @@ export class SchemaDeclarationRegistry {
 		return immutableArray(schemas)
 	}
 
-	/** Compiles declarations through IR and publishes one complete registry atomically. */
+	/** Compiles private declarations and publishes one complete registry atomically. */
 	compileSchemaRegistry(
 		registry: SchemaRegistry,
 		fieldMethods: FieldBuilderMethodResolver,
@@ -347,7 +347,7 @@ export class SchemaDeclarationRegistry {
 		this.#compiledProvenance = compiled.provenance
 		const commands = compileCommandGraph(
 			this.#batches.map(({ surfaces: declarations }) => declarations),
-			compiled.output,
+			compiled,
 			staging.registry,
 		)
 		const targets = publishSchemaRegistryCompilation(

@@ -302,7 +302,11 @@ values without exposing or invoking them. `{ option: { name, present: false } }`
 selects only schemas that omit that direct option; an explicit `false` remains
 present and does not match. `{ option: { name, path?, equals } }` keeps
 structural JSON equality: object key order is irrelevant, while array order and
-primitive identity remain exact. `present: true`, combinations of `present`
+primitive identity remain exact. If the normalized value is nonportable (for
+example, an object containing a callback), equality/path selectors do not match;
+use presence or absence instead. They cannot inspect opaque contents or internal
+markers. A portable normalized value still supports equality even when its
+option definition permits opaque values. `present: true`, combinations of `present`
 with equality or paths, and general selector negation are rejected. The option
 name must still resolve to one exact definition. Contribution IDs are local to
 the full `{ pluginId, instanceId? }` identity, so two explicit instances may
@@ -376,8 +380,9 @@ does not reconstruct local field-map inference. Regeneration through
 contract.
 
 Core compiles developer schemas and authorized plugin contributions directly.
-Its internal immutable representation retains exact contribution owners,
-selectors, patches, and opaque artifact references. Before publishing the graph,
+Its private immutable prepared schemas retain exact contribution owners,
+selectors, additive patches and nominal domain objects without an intermediate
+transport format. Before publishing the graph,
 Core validates completeness, stable schema identity, provenance, portability,
 application ownership, protected fields, and final relationships. Invalid or
 mutable compilation output fails before plugin setup.
@@ -837,7 +842,7 @@ Relation shaping is always combined with the caller's filter through logical
 `AND`; it never grants access or replaces Access, ACL, or protected constraints.
 Master does not bypass it unless the declaration explicitly returns an empty
 filter for Master. The callback remains private Runtime behavior and never
-enters Typegen, compiler IR, adapter requests, or transport metadata.
+enters Typegen, adapter requests, or transport metadata.
 
 Reads may explicitly include the collection with an independently shaped target
 query:

@@ -707,3 +707,25 @@ type auxiliaire et imports exclusifs. Les types publics et leurs commentaires
 restent identiques, comme les déclarations Core construites. Aucun test retiré ;
 382 tests ciblés et deux contrôles construits passent. Les deux fonctions
 retirées avaient une couverture d’exécution nulle. Audit final vert.
+
+### Issue 3106 — compilation privée directe
+
+**−2 256 lignes de production**. Le compilateur utilise directement les schémas
+préparés : retrait du transport IR, de ses identifiants et tables de correspondance,
+des encodeurs/décodeurs et des contrôles propres à ce format. Le répertoire passe
+de 21 fichiers / 3 639 lignes à 7 fichiers / 1 368 lignes. Les contrôles d’identité,
+de provenance, d’ordre, de complétude et de publication atomique restent présents.
+
+Aucune méthode publique n’est retirée et aucune API de remplacement n’est ajoutée.
+Seul l’accès accidentel des sélecteurs aux marqueurs privés d’options opaques
+est supprimé, conformément à l’accord explicite de la 3105. La présence/absence
+opaque et les comparaisons de valeurs portables restent disponibles.
+
+Les 2 795 tests avec couverture et 384 tests construits/archives/PostgreSQL passent.
+Aucune perte de couverture sur le code conservé, y compris le validateur de
+provenance déplacé. Les 1 726 exports et les signatures sont conservés ; Typegen,
+REST, GraphQL et les plugins existants passent leurs tests. Les scénarios utiles
+des anciens tests IR ont été transférés, avec corrections sur les getters opaques,
+les noms hérités du prototype, l’ordre et l’attribution des champs protégés.
+Le site de documentation, le README Core et les exemples suivent le changement.
+Les trois retraits publics proposés pour la 3107 restent en attente de décision.

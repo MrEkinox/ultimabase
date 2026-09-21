@@ -16,11 +16,7 @@ import {
 	defineFieldOption,
 	defineSchemaOption,
 } from '../schema-option-definitions.js'
-import { compileCanonicalSchemaCompilerIr } from './canonical-compiler.js'
-import { decodeSchemaCompilerOutput } from './decoder.js'
-import { encodeSchemaCompilerInput } from './input-encoder.js'
-import { assertSchemaCompilerPatchOperation } from './operation-validation.js'
-import { assertSchemaCompilerOutput } from './validation.js'
+import { compileSchemaDeclarations } from '../compiled-schema-declarations.js'
 
 const owner = immutableRecord({
 	kind: 'plugin' as const,
@@ -28,19 +24,7 @@ const owner = immutableRecord({
 	version: '1.0.0',
 })
 
-describe('canonical schema compiler IR', () => {
-	it('rejects malformed additive indexes before compilation', () => {
-		const encoded = encodeSchemaCompilerInput([], [])
-		// Removing destructive patches must preserve the additive input boundary.
-		expect(() => {
-			assertSchemaCompilerPatchOperation(
-				{ contributionId: 'invalid-index', kind: 'index:add', index: null },
-				encoded.session,
-				'patch',
-			)
-		}).toThrow('patch.index must be a portable index')
-	})
-
+describe('direct canonical schema compilation', () => {
 	it('normalizes declarations once, freezes selectors, and compiles deterministically', () => {
 		let normalizations = 0
 		const portableOption = defineSchemaOption({
@@ -62,7 +46,14 @@ describe('canonical schema compiler IR', () => {
 		})
 		const Existing = Schema.define({
 			className: 'CanonicalCompilerExisting',
-			fields: (field) => ({ title: field.string() }),
+			fields: (field) => ({
+				title: field.string(),
+				summary: field.virtual({
+					output: (output) => output.string(),
+					select: { title: true },
+					resolve: () => 'summary',
+				}),
+			}),
 		})
 		const Added = Schema.define({
 			className: 'CanonicalCompilerAdded',
@@ -135,54 +126,28 @@ describe('canonical schema compiler IR', () => {
 			prepareSchemaCompilation(Existing),
 			prepareSchemaCompilation(Added),
 		])
-		const encoded = encodeSchemaCompilerInput(prepared, [batch])
-
+		const first = compileSchemaDeclarations(prepared, [batch])
 		expect(normalizations).toBe(2)
-		const first = compileCanonicalSchemaCompilerIr(encoded.input)
-		const repeated = compileCanonicalSchemaCompilerIr(encoded.input)
-		expect(normalizations).toBe(2)
+		const repeated = compileSchemaDeclarations(prepared, [batch])
+		expect(normalizations).toBe(4)
 		expect(repeated).toStrictEqual(first)
 		expect(Object.isFrozen(first)).toBe(true)
-		expect(Object.isFrozen(first.schemas)).toBe(true)
-		expect(() => {
-			assertSchemaCompilerOutput(encoded.input, first, encoded.session)
-		}).not.toThrow()
-
-		const existing = first.schemas.find(
-			({ className }) => className === Existing.className,
-		)
-		const added = first.schemas.find(
-			({ className }) => className === Added.className,
-		)
-		expect(existing?.fields.map(({ name }) => name)).toContain('portableField')
-		expect(existing?.options.map(({ name }) => name)).toContain('portable')
-		expect(added?.fields.map(({ name }) => name)).not.toContain('portableField')
-		expect(added?.options.map(({ name }) => name)).not.toContain('portable')
-
-		const decoded = decodeSchemaCompilerOutput(first, encoded.session)
-		expect(
-			decoded.find(({ schema }) => schema === Existing)?.definition.fields
-				.portableField,
-		).toBeDefined()
-	})
-
-	it('requires canonical output to pass the public completeness validator', () => {
-		const Post = Schema.define({
-			className: 'CanonicalCompilerValidation',
-			fields: (field) => ({ title: field.string() }),
-		})
-		const encoded = encodeSchemaCompilerInput(
-			[prepareSchemaCompilation(Post)],
-			[],
-		)
-		const output = compileCanonicalSchemaCompilerIr(encoded.input)
-		const incomplete = immutableRecord({
-			...output,
-			schemas: immutableArray([]),
-		})
-
-		expect(() => {
-			assertSchemaCompilerOutput(encoded.input, incomplete, encoded.session)
-		}).toThrow('Schema compiler output must contain the complete schema graph')
+		expect(Object.isFrozen(first.candidates)).toBe(true)
+		const existing = first.candidates.find(({ schema }) => schema === Existing)
+		const added = first.candidates.find(({ schema }) => schema === Added)
+		expect(existing?.definition.fields.portableField).toBeDefined()
+		// Physical fields retain their order before virtual fields, including later additions.
+		expect(Object.keys(existing?.definition.fields ?? {}).slice(-2)).toEqual([
+			'portableField',
+			'summary',
+		])
+		expect(Object.keys(existing?.developerFields ?? {})).toEqual([
+			'title',
+			'portableField',
+		])
+		expect(existing?.definition).toHaveProperty('portable')
+		expect(added?.definition.fields.portableField).toBeUndefined()
+		expect(added?.definition).not.toHaveProperty('portable')
+		expect(first.selections[0]?.classNames).toEqual([Existing.className])
 	})
 })

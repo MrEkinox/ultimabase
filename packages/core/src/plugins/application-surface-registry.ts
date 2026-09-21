@@ -15,10 +15,8 @@ import {
 	compilePluginSchemaMutationDefinition,
 	type CompiledPluginSchemaMutationDefinition,
 } from './plugin-schema-mutations.js'
-import type {
-	SchemaCompilerOutput,
-	SchemaCompilerSchemaNode,
-} from './schema-compiler-ir/contracts.js'
+import type { SchemaMetadata } from '../schema/schema/definition.js'
+import type { SchemaCompilationResult } from './schema-compilation/contracts.js'
 import {
 	attachPluginDeclarationDiagnostic,
 	samePluginOwner,
@@ -33,12 +31,12 @@ export type {
 const assertMutationSelection = (
 	name: string,
 	mutation: CompiledPluginSchemaMutationDefinition,
-	schema: SchemaCompilerSchemaNode,
+	schema: SchemaMetadata,
 ): void => {
 	for (const fieldName of Object.keys(mutation.select)) {
-		const field = schema.fields.find(
-			({ name: candidate }) => candidate === fieldName,
-		)
+		const field = Object.hasOwn(schema.persistedFields, fieldName)
+			? schema.persistedFields[fieldName]
+			: undefined
 		if (field === undefined || field.kind === 'relation') {
 			throw new TypeError(
 				`Schema mutation ${name} selects unavailable persisted field: ${fieldName}`,
@@ -50,7 +48,7 @@ const assertMutationSelection = (
 /** Compiles one immutable command graph before any schema state is published. */
 export const compileCommandGraph = (
 	declarations: readonly ApplicationSurfaceDeclarations[],
-	output: SchemaCompilerOutput,
+	output: SchemaCompilationResult,
 	registry: SchemaRegistry,
 ): CompiledCommandGraph => {
 	const entries = new Map<string, CommandEntry>()
@@ -102,7 +100,10 @@ export const compileCommandGraph = (
 		]),
 	)
 	const outputSchemas = new Map(
-		output.schemas.map((schema) => [schema.className, schema]),
+		output.candidates.map(({ definition }) => [
+			definition.className,
+			definition,
+		]),
 	)
 	const targetClassNames = (
 		target: ApplicationSurfaceDeclarations['modelSurfaces'][number]['target'],
@@ -146,8 +147,8 @@ export const compileCommandGraph = (
 						)
 					}
 					const fieldNames = new Set([
-						...outputSchema.fields.map(({ name }) => name),
-						...outputSchema.virtualFields.map(({ name }) => name),
+						...Object.keys(outputSchema.persistedFields),
+						...Object.keys(outputSchema.virtualFields),
 					])
 					for (const [name, binding] of Object.entries(
 						surface.schemaMutations,

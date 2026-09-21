@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import {
 	Schema,
@@ -13,15 +13,11 @@ import {
 	type SchemaOptions,
 } from '../index.js'
 import { jsonObjectOption } from '../../tests/plugins/schema-declarations.fixtures.js'
-import * as canonical from './schema-compiler-ir/canonical-compiler.js'
-import { isSchemaCompilerArtifactReference } from './schema-compiler-ir/artifacts.js'
-afterEach(() => vi.restoreAllMocks())
 
 describe('schema option-presence selection', () => {
-	it('applies ordinary isolated field and index patches without exposing opaque values', async () => {
+	it('applies isolated field and index patches without executing opaque values', async () => {
 		let callbackCalls = 0
 		let absenceSelection: SchemaSelection | undefined
-		const compilerInputs: string[] = []
 		const transform = (value: string): string => {
 			callbackCalls += 1
 			return value.toUpperCase()
@@ -84,25 +80,6 @@ describe('schema option-presence selection', () => {
 				})
 			},
 		})
-		const compile = canonical.compileCanonicalSchemaCompilerIr
-		vi.spyOn(canonical, 'compileCanonicalSchemaCompilerIr').mockImplementation(
-			(input) => {
-				const document = input.schemas.find(
-					({ className }) => className === 'OpaqueOptionDocument',
-				)
-				const value = document?.options.find(
-					({ name }) => name === 'document',
-				)?.value
-				if (
-					document !== undefined &&
-					!isSchemaCompilerArtifactReference(value)
-				) {
-					throw new TypeError('Opaque option escaped its compiler artifact')
-				}
-				compilerInputs.push(JSON.stringify(input))
-				return compile(input)
-			},
-		)
 		const Document = Schema.define({
 			className: 'OpaqueOptionDocument',
 			document: transform,
@@ -135,10 +112,6 @@ describe('schema option-presence selection', () => {
 		).dispose()
 
 		expect(callbackCalls).toBe(0)
-		expect(compilerInputs).toHaveLength(2)
-		expect(compilerInputs[0]).toContain('"artifactKind":"option-value"')
-		expect(compilerInputs[0]).toContain('"present":false')
-		expect(compilerInputs[0]).not.toContain('toUpperCase')
 		expect(absenceSelection).toBeDefined()
 		expect(Object.isFrozen(absenceSelection)).toBe(true)
 		expect(Object.isFrozen(absenceSelection?.selector)).toBe(true)
@@ -252,6 +225,11 @@ describe('schema option-presence selection', () => {
 			'present plus path',
 			{ option: { name: 'workflow', path: ['enabled'], present: false } },
 			'option.present cannot be combined',
+		],
+		[
+			'path without equals',
+			{ option: { name: 'workflow', path: ['enabled'] } },
+			'option.path requires option.equals',
 		],
 		[
 			'callback',

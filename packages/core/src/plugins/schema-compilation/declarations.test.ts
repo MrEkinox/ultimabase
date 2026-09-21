@@ -20,7 +20,7 @@ import {
 	defineFieldOption,
 	defineSchemaOption,
 } from '../schema-option-definitions.js'
-import { encodeSchemaCompilerInput } from './input-encoder.js'
+import { compileSchemaDeclarations } from '../compiled-schema-declarations.js'
 
 const owner = immutableRecord({
 	kind: 'plugin' as const,
@@ -28,8 +28,8 @@ const owner = immutableRecord({
 	version: '2.0.0',
 })
 
-describe('schema compiler declaration encoding', () => {
-	it('encodes additions, options, selectors, and every patch family', () => {
+describe('direct schema compilation provenance', () => {
+	it('preserves additions, normalized options and all five additive patch families', () => {
 		const originalConstraint = defineSchemaConstraint({
 			kind: 'fixture.compiler-original',
 			value: { enabled: true },
@@ -145,32 +145,46 @@ describe('schema compiler declaration encoding', () => {
 			}),
 		})
 
-		const encoded = encodeSchemaCompilerInput(prepared, [batch])
-		const declaration = encoded.input.declarations[0]
-		const patch = declaration?.patches[0]
-
-		expect(encoded.input.schemas.map(({ className }) => className)).toEqual([
-			Post.className,
-		])
-		expect(declaration?.additions).toMatchObject([
-			{
-				contributionId: 'added-schema',
-				schema: { className: Added.className },
-				staticOptions: { tenant: 'main' },
-			},
-		])
-		expect(declaration?.optionDefinitions[0]).toMatchObject({
-			name: 'workflow',
-			protocolVersion: 2,
+		const compiled = compileSchemaDeclarations(prepared, [batch])
+		const post = compiled.candidates[0]?.definition
+		const added = compiled.candidates[1]?.definition
+		expect(post?.fields.state?.kind).toBe('string')
+		expect(post?.constraints).toEqual([originalConstraint])
+		expect(post?.constraints[0]).toBe(originalConstraint)
+		expect(post?.indexes).toContainEqual({
+			fields: ['state', 'createdAt'],
+			unique: false,
 		})
-		expect(declaration?.optionDefinitions[1]).toMatchObject({
-			contexts: ['stored'],
-			name: 'search',
-		})
-		expect(patch?.operations.map(({ kind }) => kind)).toEqual(
+		expect(post).toHaveProperty('workflow', true)
+		expect(post?.fields.title?.options).toHaveProperty('search', { weight: 10 })
+		expect(post?.provenance.patches.map(({ kind }) => kind)).toEqual(
 			operations.map(({ kind }) => kind),
 		)
-		expect(JSON.stringify(encoded.input)).not.toContain('"normalize":')
-		expect(JSON.stringify(encoded.input)).not.toContain('SchemaDefinition')
+		expect(post?.provenance.options.workflow).toMatchObject({
+			definition: {
+				owner,
+				contributionId: 'workflow-option:schema:workflow',
+				protocolVersion: 2,
+				normalizedStaticOptions: { source: 'fixture' },
+			},
+			value: {
+				owner,
+				contributionId: 'schema-option-set',
+				normalizedStaticOptions: { release: 2 },
+			},
+		})
+		expect(post?.provenance.fieldOptions.title?.search).toMatchObject({
+			definition: { owner, contributionId: 'search-option:field:search' },
+			value: { owner, contributionId: 'field-option-set' },
+		})
+		expect(added?.provenance.schema).toEqual({
+			owner,
+			contributionId: 'added-schema',
+			normalizedStaticOptions: { tenant: 'main' },
+			protocolVersion: 1,
+		})
+		expect(compiled.selections).toEqual([
+			{ selectionId: 'selection:0', classNames: [Post.className] },
+		])
 	})
 })
