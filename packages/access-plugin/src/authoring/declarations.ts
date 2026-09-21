@@ -4,8 +4,6 @@ import {
 	isPlainRecord,
 } from '@ultimabase/shared'
 
-import type { SchemaDefinition } from '@ultimabase/core'
-import type { SchemaAccess } from './contracts.js'
 import {
 	normalizeAccessRule,
 	normalizeAccessRuleOrMap,
@@ -74,8 +72,6 @@ export interface SchemaAccessDeclarations {
 		Record<string, SchemaMutationAccessDeclarations>
 	>
 }
-
-const schemaAccessDeclarations = new WeakMap<object, SchemaAccessDeclarations>()
 
 type MutableSchemaOperationAccessDeclarations = {
 	-readonly [
@@ -327,22 +323,3 @@ export const normalizeSchemaAccessDeclarations = (
 			: { mutations: normalizedMutations }),
 	})
 }
-
-/** Attaches one normalized declaration to the exact Schema identity. */
-export const declareSchemaAccess = <
-	TDeclarationSchema extends SchemaDefinition,
->(
-	schema: SchemaDefinition,
-	access: SchemaAccess<TDeclarationSchema> | undefined,
-): void => {
-	const declarations = normalizeSchemaAccessDeclarations(access)
-
-	if (declarations !== undefined) {
-		schemaAccessDeclarations.set(schema, declarations)
-	}
-}
-
-/** Resolves private declarations for the Access compiler only. */
-export const getSchemaAccessDeclarations = (
-	schema: SchemaDefinition,
-): SchemaAccessDeclarations | undefined => schemaAccessDeclarations.get(schema)

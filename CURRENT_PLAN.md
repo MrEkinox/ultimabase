@@ -1,12 +1,12 @@
 # Active plan: residual complexity simplification
 
-- Status: in-progress — 3102 complete; next issue 3103
+- Status: in-progress — 3103 complete; next issue 3104
 - Milestone: [31 — Residual complexity simplification](issues/3100-residual-complexity-simplification/README.md)
 - Detailed plan: [execution and audit contract](docs/plans/2026-09-21-residual-complexity-simplification.md)
 - Evidence: [candidate inventory](docs/plans/2026-09-21-residual-complexity-inventory.md)
 - Measurements and retained IDs: [3101 baseline](docs/plans/2026-09-21-residual-complexity-baseline.md)
 - Baseline source: `265b54c909404f9690a666bdf39ace01ccee466e`
-- Next issue: [3103](issues/3100-residual-complexity-simplification/3103-remove-unused-access-declaration-circuit.md)
+- Next issue: [3104](issues/3100-residual-complexity-simplification/3104-consolidate-hooks-declarations-and-field-paths.md)
 - Hard stop: after issue 3112 and its dedicated local commit
 
 ## Current authorization
@@ -57,3 +57,4 @@ Stop expressly after the final 3112 audit and commit; no automatic continuation.
 ## Completed issue commits
 
 - 3101: `4df180bc`, +391 / -69 = +322 lines; production delta 0.
+- 3102: `040e7df1`, +114 / -372 = -258 lines; production -334.

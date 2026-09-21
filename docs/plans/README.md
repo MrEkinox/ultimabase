@@ -9,7 +9,7 @@ priority changes.
 
 - [Residual complexity simplification](2026-09-21-residual-complexity-simplification.md),
   milestone 31, issues 3101–3112, authorized for autonomous execution with
-  per-issue audits and commits. 3101–3102 are complete; next issue: 3103. The
+  per-issue audits and commits. 3101–3103 are complete; next issue: 3104. The
   [candidate inventory](2026-09-21-residual-complexity-inventory.md) distinguishes
   internal cleanup from pending compiler and public-contract decisions.
 

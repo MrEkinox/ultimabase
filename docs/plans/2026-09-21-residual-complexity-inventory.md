@@ -2,7 +2,7 @@
 
 - Recorded: 2026-09-21
 - Source revision: `265b54c909404f9690a666bdf39ace01ccee466e`
-- Status: refreshed by 3101; Core private cleanup delivered in 3102
+- Status: refreshed by 3101; Core/Access private cleanup delivered in 3102/3103
 - Owner: [issue 3101](../../issues/3100-residual-complexity-simplification/3101-baseline-and-consumer-inventory.md)
 - Execution rules: [plan](2026-09-21-residual-complexity-simplification.md)
 - Measured baseline and retained IDs: [3101 baseline](2026-09-21-residual-complexity-baseline.md)
@@ -24,7 +24,7 @@ retained invariant, regression evidence and delivered issue.
 
 | ID    | Candidate                                        | Initial evidence and important limit                                                                                    | Planned issue | Decision/delivery                                                            |
 | ----- | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- | ------------- | ---------------------------------------------------------------------------- |
-| RC-01 | Private dead helpers                             | 14 functions, 304 declaration-body lines; no caller found and no package-root export                                    | 3102–3104     | Core cleanup delivered (3102); Access/Hooks pending                          |
+| RC-01 | Private dead helpers                             | 14 functions, 304 declaration-body lines; no caller found and no package-root export                                    | 3102–3104     | Core/Access delivered (3102/3103); Hooks pending                             |
 | RC-02 | Hooks field-path duplication                     | 143-line file duplicates Core's public types; private resolver has only its own test and differs in field-map selection | 3104          | Internal consolidation proposed; type/editor parity required                 |
 | RC-03 | Canonical compiler IR round trip                 | Live internal machinery, 21 production files/3,648 lines; originally motivated by replacement compilation               | 3105–3106     | Architecture decision pending; directory size is not removable-line estimate |
 | RC-04 | Runtime normalization/commit stage contributions | No current production caller of runtimePipelineStage; ordinary interceptors are used                                    | 3107–3108     | Public decision pending; retain used C-035 behavior                          |
@@ -166,7 +166,7 @@ aid, not a proof of exhaustive dead-code detection or external community usage.
 
 | Candidate | Current owner/consumer evidence                                                                                                                                       | Required preservation and regression proof                                                                                                    | Public/site impact and decision                                                                                                                                    |
 | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| RC-01     | Core/Access/Hooks; no callers for the initial functions, reader wrappers or isolated declaration-target module                                                        | Existing schema/declaration, option normalization and provider tests; identical source/built/packed exports                                   | Internal cleanup only; website Access/Hooks/Core contracts remain accurate; Core delivered by 3102; Access/Hooks pending                                           |
+| RC-01     | Core/Access/Hooks; no callers for the initial functions, reader wrappers or isolated declaration-target module                                                        | Existing schema/declaration, option normalization and provider tests; identical source/built/packed exports                                   | Internal cleanup only; website Access/Hooks/Core contracts remain accurate; Core/Access delivered by 3102/3103; Hooks pending                                      |
 | RC-02     | Hooks duplicates Core public types; private Hooks resolver is used only by field-paths.test.ts                                                                        | Source and built type/language-service checks; nested path validity/depth and documented field-map distinction                                | Keep Hooks root names; no new public abstraction; no removal delivered                                                                                             |
 | RC-03     | SchemaDeclarationRegistry and compileCommandGraph consume canonical compiler output; selectors and option/provenance checks are live                                  | Complete compilation, malformed-declaration, atomic publication, Soft Delete patch, Typegen and transport suites                              | Architecture decision pending in 3105; review Core/schema and plugin-authoring website pages                                                                       |
 | RC-04     | Core factory/tests/root exports only; ACL separately uses provideRuntimeInterceptor/preparedOperation                                                                 | Runtime order, transactions/rollback, attribution, ACL and no-product performance counters                                                    | Public decision pending in 3107; Runtime/plugin-authoring guidance must follow any approved removal                                                                |
@@ -180,5 +180,9 @@ the isolated declaration-target module and exclusive helpers/imports. All 63
 retained definitions in the six surviving files are unchanged, all removed
 function bodies were unexecuted in the full baseline, and source/type tests
 plus 33 packed scenarios pass. All 23 public roots retain identical exports
-and declaration hashes. No public difference or ADR is required. Access/Hooks
-RC-01 and RC-02 remain pending; all public decisions remain pending.
+and declaration hashes. No public difference or ADR is required. Access RC-01 cleanup is delivered by 3103: -100 production lines. Its three
+obsolete helper self-tests are replaced by three current-path regression cases
+(+35 test lines), with unchanged public declarations and green source/packed/
+PostgreSQL conformance. Full coverage comparison against 3101 finds no retained
+location regression. Hooks RC-01 and RC-02 remain pending; all public decisions
+remain pending.

@@ -118,52 +118,6 @@ export const normalizeFieldAccessDeclarations = (
 		: immutableRecord(declarations)
 }
 
-/** Normalizes handle-only relation rules into the private field plan channels. */
-export const normalizeRelationFieldAccessDeclarations = (
-	access: unknown,
-): FieldAccessDeclarations | undefined => {
-	if (access === undefined) {
-		return undefined
-	}
-
-	if (!isPlainRecord(access)) {
-		throw new TypeError('access must be a plain object')
-	}
-
-	const allowedCapabilities = new Set(['read', 'write'])
-	const declarations: {
-		-readonly [
-			TKey in keyof FieldAccessDeclarations
-		]?: FieldAccessDeclarations[TKey]
-	} = {}
-
-	for (const key of Reflect.ownKeys(access)) {
-		if (typeof key !== 'string') {
-			throw new TypeError('access contains an unsupported symbol key')
-		}
-
-		if (!allowedCapabilities.has(key)) {
-			throw new TypeError(`Unknown relation Access rule: access.${key}`)
-		}
-
-		const rule = normalizeAccessRule(access[key], `access.${key}`)
-
-		if (key === 'read') {
-			declarations.read = immutableRecord({
-				filter: rule,
-				item: rule,
-				order: rule,
-			})
-		} else {
-			declarations.relationWrite = rule
-		}
-	}
-
-	return Reflect.ownKeys(declarations).length === 0
-		? undefined
-		: immutableRecord(declarations)
-}
-
 /** Keeps the public field type tied to its normalized private declaration. */
 export const declareFieldAccess = <TField extends GenericField>(
 	access: FieldAccess<TField> | undefined,

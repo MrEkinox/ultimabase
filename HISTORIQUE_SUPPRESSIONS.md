@@ -8,7 +8,7 @@ validation et audit sans anomalie restante.
 
 Dernière mise à jour : **21 septembre 2026**. Le jalon 30 est terminé et reste
 historique. L’utilisateur a autorisé l’exécution autonome du jalon 31 avec
-boucle d’audit et commit par issue ; la baseline 3101 et le nettoyage Core 3102 sont validés. Aucun
+boucle d’audit et commit par issue ; les issues 3101–3103 sont validées. Aucun
 nouveau retrait public n’est encore accepté et aucun push n’est autorisé. L’arrêt après la 3014, puis la reprise autorisée jusqu’à la 3034,
 restent consignés dans le journal archivé du jalon 30.
 
@@ -619,14 +619,14 @@ l’[inventaire initial](docs/plans/2026-09-21-residual-complexity-inventory.md)
 portent les preuves, décisions et critères de conservation. Les anciens R-001
 à R-010 n’autorisent pas ces nouveaux retraits publics.
 
-| Candidat                                                                 | Issues    | État actuel                                                         | À conserver                                                     |
-| ------------------------------------------------------------------------ | --------- | ------------------------------------------------------------------- | --------------------------------------------------------------- |
-| RC-01 : fonctions privées inutilisées et registres Access/Hooks vides    | 3101–3104 | Core réalisé en 3102 : −334 lignes ; Access/Hooks restent à traiter | Déclarations actuelles, provenance et API publiques             |
-| RC-02 : chemins de champs recopiés dans Hooks                            | 3104      | Réutilisation des types Core proposée ; fichier de 143 lignes       | Imports publics Hooks, inférence et aide de l’éditeur           |
-| RC-03 : aller-retour du compilateur via une représentation intermédiaire | 3105–3106 | Décision d’architecture en attente                                  | Validation, ordre, ownership, relations et publication atomique |
-| RC-04 : extension Runtime normalization/commit inutilisée                | 3107–3108 | Décision publique en attente                                        | Interceptors utilisés par ACL, transactions et hooks de commit  |
-| RC-05 : marqueur Typegen sans lecteur                                    | 3107/3109 | Décision publique en attente, y compris son effet d’unicité         | Génération automatique, types et empreintes déterministes       |
-| RC-06 : anticipation des migrations                                      | 3107/3110 | Décision publique et usages de test à trancher                      | Synchronisation PostgreSQL, stockage privé et provenance utile  |
+| Candidat                                                                 | Issues    | État actuel                                                    | À conserver                                                     |
+| ------------------------------------------------------------------------ | --------- | -------------------------------------------------------------- | --------------------------------------------------------------- |
+| RC-01 : fonctions privées inutilisées et registres Access/Hooks vides    | 3101–3104 | Core −334 lignes et Access −100 livrés ; Hooks reste à traiter | Déclarations actuelles, provenance et API publiques             |
+| RC-02 : chemins de champs recopiés dans Hooks                            | 3104      | Réutilisation des types Core proposée ; fichier de 143 lignes  | Imports publics Hooks, inférence et aide de l’éditeur           |
+| RC-03 : aller-retour du compilateur via une représentation intermédiaire | 3105–3106 | Décision d’architecture en attente                             | Validation, ordre, ownership, relations et publication atomique |
+| RC-04 : extension Runtime normalization/commit inutilisée                | 3107–3108 | Décision publique en attente                                   | Interceptors utilisés par ACL, transactions et hooks de commit  |
+| RC-05 : marqueur Typegen sans lecteur                                    | 3107/3109 | Décision publique en attente, y compris son effet d’unicité    | Génération automatique, types et empreintes déterministes       |
+| RC-06 : anticipation des migrations                                      | 3107/3110 | Décision publique et usages de test à trancher                 | Synchronisation PostgreSQL, stockage privé et provenance utile  |
 
 Une proposition ne devient « approuvée » qu’après la décision nécessaire, puis
 « réalisée » après son implémentation, sa validation et son audit sans anomalie
@@ -657,3 +657,18 @@ Les tests source/types, le build et 33 contrôles d’archives passent. Le refus
 initial d’ouverture de ports par la sandbox a été résolu par une relance ciblée
 avec accès local. Deux passes d’audit, aucune anomalie restante. Aucune capacité
 publique ni contrôle de provenance actif n’est supprimé.
+
+### Issue 3103 — circuit Access inutilisé supprimé
+
+**−100 lignes de production** : registre privé vide, accès en écriture/lecture
+à ce registre, ancien normaliseur de relations et helper de séparation des
+options. Les 34 définitions conservées sont identiques ; les règles réelles
+continuent de passer par leurs options et leurs fournisseurs actuels.
+
+Les trois scénarios utiles du helper sont reportés sur le chemin public actuel
+(+35 lignes de tests). Les 2 536 tests source, les 2 779 tests avec couverture
+et les 13 contrôles construits/PostgreSQL passent. Aucune régression de
+couverture sur les emplacements conservés depuis 3101 ; aucune modification
+des 1 726 exports ou des déclarations des 23 packages. Trois passes d’audit,
+aucune anomalie restante. Aucun nouveau vocabulaire de permission ou couplage
+avec un autre plugin.
