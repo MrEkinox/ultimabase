@@ -8,7 +8,7 @@ validation et audit sans anomalie restante.
 
 Dernière mise à jour : **21 septembre 2026**. Le jalon 30 est terminé et reste
 historique. L’utilisateur a autorisé l’exécution autonome du jalon 31 avec
-boucle d’audit et commit par issue ; les issues 3101–3110 sont livrées.
+boucle d’audit et commit par issue ; les issues 3101–3111 sont livrées.
 Le changement ciblé des sélecteurs de l’ADR-0263 est accepté et livré ; les
 trois retraits publics de la 3107 sont approuvés. RC-04 et RC-05 sont livrés
 en 3108/3109 et RC-06 en 3110.
@@ -810,3 +810,17 @@ types, build, lint et contraintes vérifiés. L’audit corrige trois anciens
 commentaires de migration ; l’historique des issues 513–515 reste futur et
 nécessite une décision d’intégration. Les détails et limites sont dans la
 [3110](issues/3100-residual-complexity-simplification/3110-remove-unused-migration-anticipation.md).
+
+### Issue 3111 — parcours documentaire réconcilié
+
+Audit du site, des imports et des exemples contre les contrats conservés.
+Trois pages corrigées : Typegen (références issues du graphe), PostgreSQL
+(préparation contrôlée uniquement par `schemaPolicy`) et roadmap (retraits
+validés effectivement livrés). Deux phrases obsolètes avaient échappé aux
+revues des issues d’implémentation ; elles sont maintenant corrigées.
+
+Aucune ligne de production supprimée ou ajoutée. Les exemples littéraux
+Core/Hooks/Access/Auth/Soft Delete/Typegen et de contribution de schéma
+compilent ; les parcours REST/GraphQL et permissions passent sur PostgreSQL.
+Les imports des 57 pages correspondent aux exports construits. Les limites
+actuelles de Soft Delete et le statut non publié des paquets restent explicites.

@@ -300,3 +300,15 @@ removed migration-only branches are manually reconciled. The website and
 engineering contracts change in the same issue. See the complete
 [3110 handoff](../../issues/3100-residual-complexity-simplification/3110-remove-unused-migration-anticipation.md).
 All six candidates are resolved; 3111 and 3112 own the final audits.
+
+### Documentation reconciliation in 3111
+
+The complete affected website journey and all public snippet imports were
+reviewed. Correct stale Typegen conditional-activation and PostgreSQL
+preparation-claim prose, and update Roadmap's obsolete no-removal statement.
+Literal samples are verified with current built exports, generated types and
+PostgreSQL; current REST/GraphQL, Auth and Soft Delete behavior stays intact.
+This documentation issue changes no package source or public API. The
+[3111 handoff](../../issues/3100-residual-complexity-simplification/3111-reconcile-public-website-documentation.md)
+records the page inventory, corrections, validation and reused evidence.
+Only the final 3112 parity/measurement/closure gate remains.

@@ -16,9 +16,9 @@ completed; its metrics and accepted decisions are the historical baseline.
 ## Authorization
 
 The user authorized autonomous execution on 2026-09-21, with the audit/correction
-loop and one commit per completed issue. Issues 3101–3110 and the
+loop and one commit per completed issue. Issues 3101–3111 and the
 separate 3102 follow-up are complete; 3106 delivers accepted ADR-0263.
-The user accepted all three separately presented ADRs (0264, 0265, 0266) in 3107. RC-04/05/06 are delivered in 3108/3109/3110; the final documentation and parity audits remain. Stop for
+The user accepted all three separately presented ADRs (0264, 0265, 0266) in 3107. RC-04/05/06 are delivered in 3108/3109/3110; the documentation audit is complete and the final parity audit remains. Stop for
 questions or blockers and explain them before continuing. No push, deployment,
 paused feature or later milestone is authorized.
 
@@ -34,7 +34,7 @@ paused feature or later milestone is authorized.
 - [x] [3108 — Remove unused Runtime stage contributions if approved](3108-remove-unused-runtime-stage-contributions.md)
 - [x] [3109 — Remove the Typegen emitter marker if approved](3109-remove-unread-typegen-emitter-marker.md)
 - [x] [3110 — Remove unused migration anticipation if approved](3110-remove-unused-migration-anticipation.md)
-- [ ] [3111 — Reconcile the affected public website journeys](3111-reconcile-public-website-documentation.md)
+- [x] [3111 — Reconcile the affected public website journeys](3111-reconcile-public-website-documentation.md)
 - [ ] [3112 — Run the final parity and simplification audit](3112-final-parity-and-simplification-audit.md)
 
 Issues execute sequentially. Each must complete implementation -> validation ->

@@ -33,12 +33,6 @@ The plugin can prepare a database schema directly at startup. It does **not**
 ship a migration runner. Importing the package alone does not install the
 provider; add `postgresPlugin()` to the application's plugin list.
 
-Preparation always follows the configured `schemaPolicy`. The former
-`postgresSchemaPreparationCapability` marker is removed; select `ignore`
-explicitly if external tooling manages schema changes. `renamedFrom` remains
-available for direct synchronization, and removing plugin metadata never
-implies an automatic drop of unmatched columns or private storage.
-
 ## Installation
 
 You need Node.js 24+, a reachable PostgreSQL database, and an UltimaBase
@@ -154,9 +148,13 @@ nullability, default, identity, primary-key, foreign-key, and index changes.
 It does not infer that unmatched tables or columns should be dropped. Removed
 fields and plugin-owned storage need an explicit migration plan. Unsupported
 structures on a managed table stop direct preparation rather than being
-approximated. An official migration provider can claim schema preparation;
-when one does, this plugin suppresses direct synchronization. No official
-migration runner is shipped yet.
+approximated. No official migration runner is shipped yet.
+
+Preparation always follows the configured `schemaPolicy`. Select `ignore`
+explicitly when external tooling manages schema changes. The former
+`postgresSchemaPreparationCapability` marker is removed; it cannot suppress
+direct synchronization. `renamedFrom` still applies explicit column renames
+under `override`, as shown above.
 
 ### Index preparation
 

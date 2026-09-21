@@ -86,8 +86,8 @@ export const ultimabase = new UltimaBase({
 })
 ```
 
-This activates conditional public type references from installed plugins. It
-also regenerates the files whenever this application starts, before PostgreSQL
+Typegen reads the public type references registered by installed plugins and
+used by the compiled graph. It regenerates files at startup, before PostgreSQL
 connects. The separate build step below makes those types available **before**
 TypeScript checks your source. The default application ID is `main`; keep it and the output path in sync
 with the build script below. Static generation does not initialize an
