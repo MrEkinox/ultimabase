@@ -1,6 +1,6 @@
 # Milestone 31 — Residual complexity simplification
 
-- Status: in-progress
+- Status: completed
 
 A second bounded simplification pass after the completed milestone 30: remove
 proven private dead code and duplicated Hooks/Access machinery, then decide
@@ -10,17 +10,19 @@ Preserve current product behavior, stability and used plugin capabilities.
 The [detailed plan](../../docs/plans/2026-09-21-residual-complexity-simplification.md)
 owns the preservation contract, validation and mandatory audit loop.
 The [candidate inventory](../../docs/plans/2026-09-21-residual-complexity-inventory.md)
-records initial evidence and explicitly pending decisions. Milestone 30 remains
+records initial evidence, accepted decisions and delivered removals. Milestone 30 remains
 completed; its metrics and accepted decisions are the historical baseline.
 
 ## Authorization
 
 The user authorized autonomous execution on 2026-09-21, with the audit/correction
-loop and one commit per completed issue. Issues 3101–3111 and the
-separate 3102 follow-up are complete; 3106 delivers accepted ADR-0263.
-The user accepted all three separately presented ADRs (0264, 0265, 0266) in 3107. RC-04/05/06 are delivered in 3108/3109/3110; the documentation audit is complete and the final parity audit remains. Stop for
-questions or blockers and explain them before continuing. No push, deployment,
-paused feature or later milestone is authorized.
+loop and one commit per completed issue. Issues 3101–3112 and the separate
+3102 follow-up are complete. The explicitly accepted ADR-0263/0264/0265/0266
+changes are delivered; documentation and final parity audits are green.
+The [final report](../../docs/plans/2026-09-21-milestone-31-final-audit.md)
+records measurements, retained contracts and validation. This authorization
+ends at the 3112 local commit. No push, deployment, paused feature or later
+milestone is authorized. Resume point: none.
 
 ## Execution order
 
@@ -35,7 +37,7 @@ paused feature or later milestone is authorized.
 - [x] [3109 — Remove the Typegen emitter marker if approved](3109-remove-unread-typegen-emitter-marker.md)
 - [x] [3110 — Remove unused migration anticipation if approved](3110-remove-unused-migration-anticipation.md)
 - [x] [3111 — Reconcile the affected public website journeys](3111-reconcile-public-website-documentation.md)
-- [ ] [3112 — Run the final parity and simplification audit](3112-final-parity-and-simplification-audit.md)
+- [x] [3112 — Run the final parity and simplification audit](3112-final-parity-and-simplification-audit.md)
 
 Issues execute sequentially. Each must complete implementation -> validation ->
 complete audit -> corrections -> validation -> complete audit, repeated until

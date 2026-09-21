@@ -824,3 +824,26 @@ Core/Hooks/Access/Auth/Soft Delete/Typegen et de contribution de schéma
 compilent ; les parcours REST/GraphQL et permissions passent sur PostgreSQL.
 Les imports des 57 pages correspondent aux exports construits. Les limites
 actuelles de Soft Delete et le statut non publié des paquets restent explicites.
+
+### Issue 3112 — clôture et audit final du jalon 31
+
+Les douze issues et le suivi séparé de la 3102 sont terminés. Audit des 74
+contrats hérités, des exports, des scénarios conservés et des changements
+explicitement approuvés : aucune anomalie non résolue. Le compilateur privé
+passe de 21 fichiers / 3 648 lignes à 7 fichiers / 1 368 lignes, en conservant
+les validations et leur attribution. Aucun mécanisme public de remplacement.
+
+Bilan du jalon : **−3 625 lignes de production**, dont **−3 196 dans Core**,
+**−22 fichiers de production**, **−219 lignes de tests/support** et **21 exports
+retirés exactement selon les décisions validées**. Les fichiers générés,
+les dépendances, les seuils de couverture et le tooling restent inchangés.
+Les 2 777 tests avec couverture et 384 tests compilés/archives/PostgreSQL
+passent sur l’implémentation finale. La comparaison vérifie 652 cartes de
+couverture identiques, 2 069 emplacements conservés et le validateur déplacé ;
+les invariants réécrits du compilateur sont réconciliés séparément.
+
+Le démarrage du petit scénario local mesuré est plus court ; aucune amélioration
+générale de débit, de mémoire ou de CI n’est revendiquée. La 3112 ajoute
+uniquement le bilan et les archives d’exécution. Le
+[rapport final](docs/plans/2026-09-21-milestone-31-final-audit.md) précise les
+mesures et validations réutilisées. Arrêt après son commit local, sans push.

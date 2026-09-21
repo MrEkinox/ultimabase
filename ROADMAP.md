@@ -99,13 +99,14 @@ and GraphQL on one canonical compiled command graph. All 16 official plugins
 were audited independently, and the public website journeys were reconciled.
 The [final audit](docs/plans/2026-09-21-milestone-30-final-audit.md) records the
 retained contracts, measured reductions and complete clean-checkout validation.
-[Milestone 31](issues/3100-residual-complexity-simplification/README.md) is now
-active as a separate second pass. It covers proven private dead code,
-duplicated Hooks/Access machinery, and explicit decisions about residual
-compiler and unused public-protocol infrastructure. Its
-[plan](docs/plans/2026-09-21-residual-complexity-simplification.md) preserves the
-per-issue audit/correction loop and dedicated commits. Autonomous execution is
-authorized; compiler and public-removal decisions retain their explicit stops.
+[Milestone 31](issues/3100-residual-complexity-simplification/README.md) is also
+complete. The second pass removes proven private dead code, duplicated
+Hooks/Access machinery, the obsolete compiler serialization boundary and the
+exact approved unused public protocols. Its
+[final audit](docs/plans/2026-09-21-milestone-31-final-audit.md) records 3,625
+fewer production lines, preserved contracts and complete validation. The
+per-issue audit/correction loop and dedicated commits are complete. Execution
+stops after 3112; no later work or push is authorized.
 
 The ACL hardening plan remains paused at issue 432. It is not part of an active
 plan.
@@ -412,20 +413,17 @@ the measured baseline.
 
 ## Milestone 31 — Residual complexity simplification
 
-Started after milestone 30 without reopening its completed issues. Establish
-an updated baseline, remove proven unused private Core/Access/Hooks code and
-reuse existing field-path types. Decide the internal compiler boundary and the
-exact unused Runtime-stage, Typegen-marker and migration contracts before any
-conditional removal. Preserve current functionality, used plugin capabilities,
-security, inference, lifecycle and data behavior.
+Completed after milestone 30 without reopening its issues. The pass removes
+proven private Core/Access/Hooks dead code, reuses existing field-path types,
+simplifies direct internal compilation and delivers the exact approved
+Runtime-stage, Typegen-marker and migration-scaffold retirements. Existing
+product functionality and used plugin behavior remain protected.
 
-Issues 3101–3112 run sequentially under the explicit execution authorization. Each issue
-requires validation, a complete audit/correction loop until no finding remains,
-then its dedicated local commit and exact line-count report. Architectural
-questions and blocked verification stop for user direction. Public changes
-update the documentation site in the same issue, followed by a complete journey
-review and final parity/coverage/measurement audit. Stop after 3112; no push or
-later feature follows automatically.
+Issues 3101–3112 have a complete audit/correction loop and dedicated local
+commits, including public documentation updates and final example/coverage
+reconciliation. The [final report](docs/plans/2026-09-21-milestone-31-final-audit.md)
+records the preserved contracts, accepted exceptions, measurements and limits.
+Resume point: none. No push or later feature follows automatically.
 
 ## First usable release
 

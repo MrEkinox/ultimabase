@@ -2,7 +2,7 @@
 
 - Recorded: 2026-09-21
 - Source revision: `265b54c909404f9690a666bdf39ace01ccee466e`
-- Status: refreshed by 3101; private cleanup and direct compilation delivered through 3106
+- Status: completed — all six candidates delivered; final audit 3112 passed
 - Owner: [issue 3101](../../issues/3100-residual-complexity-simplification/3101-baseline-and-consumer-inventory.md)
 - Execution rules: [plan](2026-09-21-residual-complexity-simplification.md)
 - Measured baseline and retained IDs: [3101 baseline](2026-09-21-residual-complexity-baseline.md)
@@ -312,3 +312,12 @@ This documentation issue changes no package source or public API. The
 [3111 handoff](../../issues/3100-residual-complexity-simplification/3111-reconcile-public-website-documentation.md)
 records the page inventory, corrections, validation and reused evidence.
 Only the final 3112 parity/measurement/closure gate remains.
+
+## Final reconciliation in 3112
+
+All six candidates are resolved and the milestone is complete. The
+[final audit](2026-09-21-milestone-31-final-audit.md) reconciles the 74 inherited
+IDs and exact ADR-0263/0264/0265/0266 deltas. Final production is 123,468 lines
+(-3,625), including Core at 65,584 (-3,196), with 1,705 public exports and no
+unapproved removal or retained coverage regression. Documentation is current;
+no further work or push is authorized after the 3112 local commit.

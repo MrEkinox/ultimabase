@@ -1,13 +1,13 @@
 # Residual complexity simplification
 
-- Status: in-progress — 3111 complete; next 3112
+- Status: completed — 3101–3112 audited; resume point none
 - Prepared: 2026-09-21
 - Milestone: [31 — Residual complexity simplification](../../issues/3100-residual-complexity-simplification/README.md)
 - Baseline revision: `265b54c909404f9690a666bdf39ace01ccee466e`
 - Initial evidence: [candidate inventory](2026-09-21-residual-complexity-inventory.md)
 - Execution baseline: [issue 3101](2026-09-21-residual-complexity-baseline.md)
 - Previous delivery: [milestone 30 final audit](2026-09-21-milestone-30-final-audit.md)
-- Current authorization: execute 3101–3112 autonomously, stopping at unresolved decisions or blockers; no push
+- Authorization concluded: stop after the 3112 local commit; no push or further issue
 
 ## Objective and authorization
 
@@ -255,3 +255,12 @@ No package implementation, test, tooling, accepted ADR or milestone 30 issue
 changed. Package runtime/PostgreSQL/coverage suites were not rerun for this
 planning and roadmap-copy change; 3101 owns the future measured baseline.
 No push or implementation is part of this preparation commit.
+
+## Completed execution
+
+All twelve issues and the separately approved 3102 follow-up are completed.
+The [final audit](2026-09-21-milestone-31-final-audit.md) records exact removals,
+retained contracts, coverage, validation and measurements. The
+[execution log](completed/residual-complexity-simplification-execution-log.md)
+preserves each checkpoint. The preparation audit above is historical; this
+plan has no active resume point. Stop after the 3112 local commit.
