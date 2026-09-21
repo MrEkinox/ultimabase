@@ -46,7 +46,7 @@ export type PasswordCredentialCollection = PrivateCollection<
 	]
 >
 
-/** Carries the secret-free identity needed to create one credential record. */
+/** Carries the private verifier and identity needed to create one credential record. */
 export interface CreatePasswordCredentialInput {
 	readonly passwordVerifier: string
 	readonly policyVersion: number
@@ -95,12 +95,7 @@ export const findPasswordCredentialByUsername = (
 /** Replaces an unchanged verifier while rejecting concurrent credential updates. */
 export const upgradePasswordCredential = (
 	collection: PasswordCredentialCollection,
-	current: Readonly<{
-		readonly passwordVerifier: string
-		readonly policyVersion: number
-		readonly userId: string
-		readonly username: string
-	}>,
+	current: CreatePasswordCredentialInput,
 	next: Readonly<{
 		readonly passwordVerifier: string
 		readonly policyVersion: number

@@ -1,7 +1,6 @@
 import { argon2id, hash, needsRehash, verify, type HashOptions } from 'argon2'
 import { immutableRecord } from '@ultimabase/shared'
 
-import { normalizePasswordInput } from './normalization.js'
 import type { ResolvedPasswordHashPolicy } from './password-policy.js'
 
 /** Retains only the encoded verifier and its monotonic policy identity. */
@@ -22,14 +21,6 @@ const dummyPasswordVerifier: PasswordVerifier = immutableRecord({
 		'$argon2id$v=19$m=65536,p=4,t=3$VWx0aW1hQmFzZUR1bW15IQ$DrGfRuKZHfoRqH5kK09Up6MQ+pVBH3zt2tVOLkBa3H4',
 	policyVersion: 0,
 })
-
-const withPasswordBytes = async <TResult>(
-	password: unknown,
-	use: (bytes: Buffer) => Promise<TResult>,
-): Promise<TResult> => {
-	const normalized = normalizePasswordInput(password)
-	return withNormalizedPasswordBytes(normalized, use)
-}
 
 const withNormalizedPasswordBytes = async <TResult>(
 	password: string,
@@ -62,18 +53,6 @@ export const assertPasswordHashEngineAvailable = (): void => {
 		throw new TypeError('Password Auth Argon2id engine is unavailable')
 	}
 }
-
-/** Hashes one normalized password through the configured Argon2id policy. */
-export const createPasswordVerifier = (
-	password: unknown,
-	policy: ResolvedPasswordHashPolicy,
-): Promise<PasswordVerifier> =>
-	withPasswordBytes(password, async (bytes) =>
-		immutableRecord({
-			encoded: await hash(bytes, toArgon2Options(policy)),
-			policyVersion: policy.policyVersion,
-		}),
-	)
 
 /** Hashes a password already normalized by the operation boundary. */
 export const createNormalizedPasswordVerifier = (
@@ -115,32 +94,6 @@ const verifyNormalizedPassword = async (
 		matches,
 		requiresUpgrade: matches && verifier.policyVersion < policy.policyVersion,
 	})
-}
-
-/** Verifies one PHC credential and reports a monotonic policy upgrade. */
-export const verifyPassword = async (
-	password: unknown,
-	verifier: PasswordVerifier,
-	policy: ResolvedPasswordHashPolicy,
-): Promise<PasswordVerification> => {
-	const normalized = normalizePasswordInput(password)
-	return verifyNormalizedPassword(normalized, verifier, policy)
-}
-
-/** Equalizes an absent credential with one real Argon2id verification attempt. */
-export const verifyPasswordOrDummy = async (
-	password: unknown,
-	verifier: PasswordVerifier | null,
-	policy: ResolvedPasswordHashPolicy,
-): Promise<PasswordVerification> => {
-	const result = await verifyPassword(
-		password,
-		verifier ?? dummyPasswordVerifier,
-		policy,
-	)
-	return verifier === null
-		? immutableRecord({ matches: false, requiresUpgrade: false })
-		: result
 }
 
 /** Verifies an operation-normalized password and preserves the dummy path. */

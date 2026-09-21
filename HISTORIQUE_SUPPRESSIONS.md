@@ -403,3 +403,19 @@ Bilan de production : **3 725 → 3 581 lignes (−144)**, 19 → 18 fichiers,
 et d’intégration passent, avec les mêmes chemins et appels ACL couverts que le
 rapport global précédent ; les 43 intégrations construites passent également.
 Audit final vert, sans modification du Core ou d’Access.
+
+## Password Authentication — issue 3020 réalisée
+
+Le contrôle des usernames lit le schéma via le helper existant du Core au lieu
+de redécrire les huit formes de mutation. Les wrappers privés de hachage qui
+n’avaient que des tests pour consommateurs disparaissent ; ces tests exercent
+désormais le chemin normalisé réellement utilisé par les opérations. Le type
+privé de credential est réutilisé pour sa comparaison et sa mise à niveau.
+Les méthodes AppUser, champs de signup, sessions, transactions, politiques,
+Argon2id, payloads et erreurs restent inchangés.
+
+Bilan de production : **3 329 → 3 234 lignes (−95)**, 21 fichiers, 32 exports
+et déclarations publiques identiques. Après correction de l’isolation d’une
+nouvelle fixture, les 318 tests source ciblés et d’intégration ainsi que les
+106 contrôles sur packages construits passent. Aucun chemin conservé ne perd
+sa couverture ; le garde d’upsert gagne un cas couvert. Audit final vert.

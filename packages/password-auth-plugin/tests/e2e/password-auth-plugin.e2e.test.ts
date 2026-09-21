@@ -26,7 +26,7 @@ it('publishes the reviewed Password Auth native hashing implementation', async (
 	)
 	expect(
 		implementation.some((surface) =>
-			surface.includes('createPasswordVerifier'),
+			surface.includes('createNormalizedPasswordVerifier'),
 		),
 	).toBe(true)
 	expect(implementation.some((surface) => surface.includes('ub_s1.'))).toBe(

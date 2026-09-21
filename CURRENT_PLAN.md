@@ -1,12 +1,12 @@
 # Active plan: pre-feature architecture simplification
 
-- Status: active — plugin wave explicitly resumed; next issue 3020
+- Status: active — plugin wave explicitly resumed; next issue 3021
 - Milestone: [30 — Pre-feature architecture simplification](issues/3000-pre-feature-architecture-simplification/README.md)
 - Detailed plan: [docs/plans/2026-09-20-pre-feature-architecture-simplification.md](docs/plans/2026-09-20-pre-feature-architecture-simplification.md)
 - Baseline: [docs/plans/2026-09-20-architecture-simplification-baseline.md](docs/plans/2026-09-20-architecture-simplification-baseline.md)
 - Contract matrix: [docs/plans/2026-09-20-architecture-contract-matrix.md](docs/plans/2026-09-20-architecture-contract-matrix.md)
 - Removal history: [HISTORIQUE_SUPPRESSIONS.md](HISTORIQUE_SUPPRESSIONS.md)
-- Resume point: issue 3020; continue sequentially through issue 3034
+- Resume point: issue 3021; continue sequentially through issue 3034
 
 ## Objective
 
@@ -287,3 +287,11 @@ and declarations remain identical. The 333 package/boundary/source-integration
 checks and 43 built integration checks pass, with no lost retained ACL coverage
 against the full 3018 baseline. Core and Access remain unchanged. Continue with
 issue 3020 after the dedicated 3019 commit.
+
+Issue 3019 is committed as `129132a8`: +127 / -195 lines, net -68, including
+tests and documentation. Issue 3020 is complete with a green audit: Password
+Auth removes 95 production lines, retaining 32 exports and byte-identical
+declarations. All 318 package/boundary/source-integration tests and 106 built
+integration/archive checks pass, with no lost retained coverage. The new batch
+test's fixture isolation was corrected before the final successful audit.
+Continue with issue 3021 after the dedicated 3020 commit.

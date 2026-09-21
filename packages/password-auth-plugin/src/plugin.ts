@@ -1,5 +1,6 @@
 import {
 	applicationRequestExecutionCapability,
+	getOperationSchema,
 	provideCapability,
 	provideOperationHandler,
 	provideOperationTransportBinding,
@@ -13,12 +14,8 @@ import {
 	type DatabaseMutationOperationAst,
 	type RuntimeFinalMutationGuardStage,
 	type SchemaDefinition,
-	type UpdateManyOperationAst,
-	type UpdateOneOperationAst,
 	type UpsertManyOperationAst,
 	type UpsertOneOperationAst,
-	type DeleteManyOperationAst,
-	type DeleteOneOperationAst,
 } from '@ultimabase/core'
 import {
 	definePluginModule,
@@ -171,43 +168,6 @@ const normalizePluginOptions = (value: unknown): PasswordAuthPluginOptions => {
 	return value
 }
 
-const readOperationSchema = (
-	operation: DatabaseMutationOperationAst,
-): SchemaDefinition => {
-	switch (operation.kind) {
-		case 'create-one':
-			return (operation as unknown as CreateOneOperationAst<SchemaDefinition>)
-				.schema.definition
-		case 'create-many':
-			return (operation as unknown as CreateManyOperationAst<SchemaDefinition>)
-				.schema.definition
-		case 'update-one':
-			return (operation as unknown as UpdateOneOperationAst<SchemaDefinition>)
-				.query.schema.definition
-		case 'update-many':
-			return (operation as unknown as UpdateManyOperationAst<SchemaDefinition>)
-				.query.schema.definition
-		case 'upsert-one':
-			return (operation as unknown as UpsertOneOperationAst<SchemaDefinition>)
-				.query.schema.definition
-		case 'delete-one':
-			return (operation as unknown as DeleteOneOperationAst<SchemaDefinition>)
-				.query.schema.definition
-		case 'delete-many':
-			return (operation as unknown as DeleteManyOperationAst<SchemaDefinition>)
-				.query.schema.definition
-		case 'upsert-many': {
-			const first = (
-				operation as unknown as UpsertManyOperationAst<SchemaDefinition>
-			).items[0]
-			if (first === undefined) {
-				throw new TypeError('Password User bulk upsert has no schema')
-			}
-			return first.query.schema.definition
-		}
-	}
-}
-
 const readCreateInputs = (
 	operation: DatabaseMutationOperationAst,
 ): readonly Readonly<Record<string, unknown>>[] => {
@@ -236,7 +196,8 @@ const readCreateInputs = (
 const createUsernameInvariant =
 	(user: SchemaDefinition): RuntimeFinalMutationGuardStage =>
 	({ operation }) => {
-		if (readOperationSchema(operation) !== user) return
+		// Core retains the same schema identity for every normalized mutation.
+		if (getOperationSchema(operation) !== user) return
 		for (const input of readCreateInputs(operation)) {
 			const username = input.username
 			if (

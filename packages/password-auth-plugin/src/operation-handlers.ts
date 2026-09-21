@@ -11,6 +11,7 @@ import {
 	insertPasswordCredential,
 	upgradePasswordCredential,
 	type PasswordCredentialCollection,
+	type CreatePasswordCredentialInput,
 } from './credentials.js'
 import {
 	normalizePasswordInput,
@@ -136,12 +137,7 @@ const createSignUpHandler = <TUser extends PasswordUserReference>(
 	})
 
 const unchangedCredential = (
-	left: Readonly<{
-		readonly passwordVerifier: string
-		readonly policyVersion: number
-		readonly userId: string
-		readonly username: string
-	}>,
+	left: CreatePasswordCredentialInput,
 	right: typeof left,
 ): boolean =>
 	left.passwordVerifier === right.passwordVerifier &&

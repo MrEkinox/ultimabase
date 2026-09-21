@@ -8,6 +8,7 @@ import {
 } from '@ultimabase/core'
 import {
 	PasswordUser,
+	PasswordUserSchema,
 	passwordAuthPlugin,
 } from '@ultimabase/password-auth-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
@@ -22,10 +23,13 @@ import {
 	upgradePasswordCredential,
 } from '../../src/credentials.js'
 import {
-	createPasswordVerifier,
-	verifyPassword,
+	createNormalizedPasswordVerifier,
+	verifyNormalizedPasswordOrDummy,
 } from '../../src/password-hasher.js'
-import { normalizePasswordUsername } from '../../src/normalization.js'
+import {
+	normalizePasswordInput,
+	normalizePasswordUsername,
+} from '../../src/normalization.js'
 import { resolvePasswordHashPolicy } from '../../src/password-policy.js'
 import {
 	createPostgresWorkerFixture,
@@ -128,6 +132,64 @@ describe('Password identities with PostgreSQL', { concurrent: false }, () => {
 		}
 	})
 
+	it('preserves canonical usernames across atomic creates and upserts', async () => {
+		// This custom User requires a fresh schema, separate from the default User fixture.
+		const isolated = await createPostgresWorkerFixture({
+			prefix: 'password_batches',
+		})
+		const User = PasswordUserSchema.define({
+			className: 'User',
+			fields: (field) => ({ displayName: field.string({ required: true }) }),
+		})
+		const ultimabase = new UltimaBase({
+			pluginPrivileges: { logger: false },
+			plugins: [
+				postgresPlugin({ pool: isolated.pool, schemaPolicy: 'override' }),
+				passwordAuthPlugin({ user: User }),
+			],
+			schemas: [],
+		})
+		try {
+			await ultimabase.start()
+			await expect(
+				User.createMany(
+					{
+						data: [
+							{ username: 'grace', displayName: 'Grace' },
+							{ username: 'Ada', displayName: 'Ada' },
+						],
+					},
+					{ ultimabase },
+				),
+			).rejects.toThrow('canonical representation')
+			// A later invalid item must roll back the earlier valid identity.
+			expect(await User.count({}, { ultimabase })).toBe(0)
+			const input = {
+				where: { username: { eq: 'ada' } },
+				create: { username: 'ada', displayName: 'Ada' },
+				update: { displayName: 'Ada Lovelace' },
+			}
+			const created = await User.upsertOne(input, { ultimabase })
+			const updated = await User.upsertMany({ data: [input] }, { ultimabase })
+			expect(updated[0]?.id).toBe(created.id)
+			expect(updated[0]?.displayName).toBe('Ada Lovelace')
+			await expect(
+				User.upsertOne(
+					{
+						where: { username: { eq: 'Grace' } },
+						create: { username: 'Grace', displayName: 'Grace' },
+						update: { displayName: 'Grace Hopper' },
+					},
+					{ ultimabase },
+				),
+			).rejects.toThrow('canonical representation')
+			expect(await User.count({}, { ultimabase })).toBe(1)
+		} finally {
+			await ultimabase.dispose()
+			await isolated.dispose()
+		}
+	})
+
 	it('persists, verifies, upgrades, and cascades owner-private credentials', async () => {
 		const credentials = createPasswordCredentialCollection(
 			PasswordUser,
@@ -139,8 +201,8 @@ describe('Password identities with PostgreSQL', { concurrent: false }, () => {
 				const username = normalizePasswordUsername(input.username)
 				switch (input.action) {
 					case 'insert': {
-						const verifier = await createPasswordVerifier(
-							input.password,
+						const verifier = await createNormalizedPasswordVerifier(
+							normalizePasswordInput(input.password),
 							initialPolicy,
 						)
 						await insertPasswordCredential(credentials, {
@@ -157,8 +219,8 @@ describe('Password identities with PostgreSQL', { concurrent: false }, () => {
 							username,
 						)
 						if (credential === null) return 'missing'
-						const verified = await verifyPassword(
-							input.password,
+						const verified = await verifyNormalizedPasswordOrDummy(
+							normalizePasswordInput(input.password),
 							{
 								encoded: credential.passwordVerifier,
 								policyVersion: credential.policyVersion,
@@ -177,8 +239,8 @@ describe('Password identities with PostgreSQL', { concurrent: false }, () => {
 							username,
 						)
 						if (current === null) return 'missing'
-						const verifier = await createPasswordVerifier(
-							input.password,
+						const verifier = await createNormalizedPasswordVerifier(
+							normalizePasswordInput(input.password),
 							upgradedPolicy,
 						)
 						return (await upgradePasswordCredential(credentials, current, {

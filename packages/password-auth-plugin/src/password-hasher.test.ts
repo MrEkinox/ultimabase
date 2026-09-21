@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-	createPasswordVerifier,
-	verifyPassword,
-	verifyPasswordOrDummy,
+	createNormalizedPasswordVerifier,
+	verifyNormalizedPasswordOrDummy,
 } from './password-hasher.js'
 import { resolvePasswordHashPolicy } from './password-policy.js'
 
@@ -17,25 +16,34 @@ const password = 'correct horse battery staple'
 
 describe('Password Auth Argon2id verifier', () => {
 	it('creates independent PHC verifiers with library-generated salts', async () => {
-		const first = await createPasswordVerifier(password, fastPolicy)
-		const second = await createPasswordVerifier(password, fastPolicy)
+		const first = await createNormalizedPasswordVerifier(password, fastPolicy)
+		const second = await createNormalizedPasswordVerifier(password, fastPolicy)
 
 		expect(first.encoded).toMatch(/^\$argon2id\$v=19\$m=19456,p=1,t=2\$/u)
 		expect(second.encoded).not.toBe(first.encoded)
 		const encodedSalt = first.encoded.split('$')[4]
 		expect(Buffer.from(encodedSalt ?? '', 'base64')).toHaveLength(16)
 		expect(first.policyVersion).toBe(1)
-		expect(await verifyPassword(password, first, fastPolicy)).toStrictEqual({
+		expect(
+			await verifyNormalizedPasswordOrDummy(password, first, fastPolicy),
+		).toStrictEqual({
 			matches: true,
 			requiresUpgrade: false,
 		})
 		expect(
-			await verifyPassword('wrong password value', first, fastPolicy),
+			await verifyNormalizedPasswordOrDummy(
+				'wrong password value',
+				first,
+				fastPolicy,
+			),
 		).toStrictEqual({ matches: false, requiresUpgrade: false })
 	})
 
 	it('requests upgrades only after successful verification by a newer policy', async () => {
-		const verifier = await createPasswordVerifier(password, fastPolicy)
+		const verifier = await createNormalizedPasswordVerifier(
+			password,
+			fastPolicy,
+		)
 		const nextPolicy = resolvePasswordHashPolicy({
 			memoryCostKiB: 19_457,
 			parallelism: 1,
@@ -43,12 +51,14 @@ describe('Password Auth Argon2id verifier', () => {
 			timeCost: 2,
 		})
 
-		expect(await verifyPassword(password, verifier, nextPolicy)).toStrictEqual({
+		expect(
+			await verifyNormalizedPasswordOrDummy(password, verifier, nextPolicy),
+		).toStrictEqual({
 			matches: true,
 			requiresUpgrade: true,
 		})
 		expect(
-			await verifyPassword(
+			await verifyNormalizedPasswordOrDummy(
 				password,
 				{ ...verifier, policyVersion: 3 },
 				nextPolicy,
@@ -57,7 +67,10 @@ describe('Password Auth Argon2id verifier', () => {
 	})
 
 	it('requires a policy version increase when hashing parameters change', async () => {
-		const verifier = await createPasswordVerifier(password, fastPolicy)
+		const verifier = await createNormalizedPasswordVerifier(
+			password,
+			fastPolicy,
+		)
 		const changedPolicy = resolvePasswordHashPolicy({
 			memoryCostKiB: 19_457,
 			parallelism: 1,
@@ -66,13 +79,13 @@ describe('Password Auth Argon2id verifier', () => {
 		})
 
 		await expect(
-			verifyPassword(password, verifier, changedPolicy),
+			verifyNormalizedPasswordOrDummy(password, verifier, changedPolicy),
 		).rejects.toThrow('require a higher policyVersion')
 	})
 
 	it('rejects verifier algorithms outside the accepted protocol', async () => {
 		await expect(
-			verifyPassword(
+			verifyNormalizedPasswordOrDummy(
 				password,
 				{ encoded: '$argon2i$v=19$invalid', policyVersion: 1 },
 				fastPolicy,
@@ -82,7 +95,7 @@ describe('Password Auth Argon2id verifier', () => {
 
 	it('runs a fixed valid verifier while keeping absent identities rejected', async () => {
 		expect(
-			await verifyPasswordOrDummy(
+			await verifyNormalizedPasswordOrDummy(
 				'ultimabase dummy password verifier',
 				null,
 				fastPolicy,
