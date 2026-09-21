@@ -619,14 +619,14 @@ l’[inventaire initial](docs/plans/2026-09-21-residual-complexity-inventory.md)
 portent les preuves, décisions et critères de conservation. Les anciens R-001
 à R-010 n’autorisent pas ces nouveaux retraits publics.
 
-| Candidat                                                                 | Issues    | État actuel                                                    | À conserver                                                     |
-| ------------------------------------------------------------------------ | --------- | -------------------------------------------------------------- | --------------------------------------------------------------- |
-| RC-01 : fonctions privées inutilisées et registres Access/Hooks vides    | 3101–3104 | Core −334 lignes et Access −100 livrés ; Hooks reste à traiter | Déclarations actuelles, provenance et API publiques             |
-| RC-02 : chemins de champs recopiés dans Hooks                            | 3104      | Réutilisation des types Core proposée ; fichier de 143 lignes  | Imports publics Hooks, inférence et aide de l’éditeur           |
-| RC-03 : aller-retour du compilateur via une représentation intermédiaire | 3105–3106 | Décision d’architecture en attente                             | Validation, ordre, ownership, relations et publication atomique |
-| RC-04 : extension Runtime normalization/commit inutilisée                | 3107–3108 | Décision publique en attente                                   | Interceptors utilisés par ACL, transactions et hooks de commit  |
-| RC-05 : marqueur Typegen sans lecteur                                    | 3107/3109 | Décision publique en attente, y compris son effet d’unicité    | Génération automatique, types et empreintes déterministes       |
-| RC-06 : anticipation des migrations                                      | 3107/3110 | Décision publique et usages de test à trancher                 | Synchronisation PostgreSQL, stockage privé et provenance utile  |
+| Candidat                                                                 | Issues    | État actuel                                                       | À conserver                                                     |
+| ------------------------------------------------------------------------ | --------- | ----------------------------------------------------------------- | --------------------------------------------------------------- |
+| RC-01 : fonctions privées inutilisées et registres Access/Hooks vides    | 3101–3104 | Core −334, Access −100 et Hooks −21 lignes livrés                 | Déclarations actuelles, provenance et API publiques             |
+| RC-02 : chemins de champs recopiés dans Hooks                            | 3104      | Livré : types Core réutilisés, copie privée de 143 lignes retirée | Imports publics Hooks, inférence et aide de l’éditeur           |
+| RC-03 : aller-retour du compilateur via une représentation intermédiaire | 3105–3106 | Décision d’architecture en attente                                | Validation, ordre, ownership, relations et publication atomique |
+| RC-04 : extension Runtime normalization/commit inutilisée                | 3107–3108 | Décision publique en attente                                      | Interceptors utilisés par ACL, transactions et hooks de commit  |
+| RC-05 : marqueur Typegen sans lecteur                                    | 3107/3109 | Décision publique en attente, y compris son effet d’unicité       | Génération automatique, types et empreintes déterministes       |
+| RC-06 : anticipation des migrations                                      | 3107/3110 | Décision publique et usages de test à trancher                    | Synchronisation PostgreSQL, stockage privé et provenance utile  |
 
 Une proposition ne devient « approuvée » qu’après la décision nécessaire, puis
 « réalisée » après son implémentation, sa validation et son audit sans anomalie
@@ -672,3 +672,19 @@ couverture sur les emplacements conservés depuis 3101 ; aucune modification
 des 1 726 exports ou des déclarations des 23 packages. Trois passes d’audit,
 aucune anomalie restante. Aucun nouveau vocabulaire de permission ou couplage
 avec un autre plugin.
+
+### Issue 3104 — Hooks et types de chemins consolidés
+
+**−164 lignes de production** : registre privé inutilisé (21 lignes) et copie
+des types/résolveur de chemins (143 lignes). Hooks réexporte les deux types Core
+existants sous les mêmes noms. Aucune logique active de résolution n’est remplacée.
+Les scénarios utiles passent par les vraies contributions ; des tests d’éditeur
+sur les sources et packages construits protègent inférence, profondeur,
+autocomplétion et documentation (+89 lignes de tests/support).
+
+Les 2 536 tests source, 2 780 tests avec couverture et 38 contrôles construits/
+PostgreSQL passent. Aucun emplacement conservé ne perd sa couverture. Les
+1 726 exports restent présents ; les déclarations Hooks réutilisent Core,
+soit −2 244 octets construits. Deux passes d’audit et corrections des fixtures
+et de l’ordre des validations ; audit final vert. Un résolveur privé Core
+orphelin supplémentaire est signalé dans l’inventaire, sans retrait hors périmètre.

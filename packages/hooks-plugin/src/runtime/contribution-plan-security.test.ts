@@ -1,6 +1,8 @@
 import {
+	objectField,
 	Schema,
 	SchemaRegistry,
+	stringField,
 	type GenericField,
 	type SchemaDefinition,
 } from '@ultimabase/core'
@@ -44,6 +46,55 @@ const Article = Schema.define({
 const articleTitle = requireField(Article.fields.title)
 
 describe('Hook contribution security plan', () => {
+	it('keeps listed object paths, dotted names and system fields distinct', () => {
+		const email = stringField()
+		const dotted = stringField()
+		const Nested = Schema.define({
+			className: 'HookNestedPathBoundary',
+			fields: () => ({
+				profile: objectField({ fields: { email }, list: true }),
+				'profile.email': dotted,
+			}),
+		})
+		const id = requireField(Nested.fields.id)
+		const paths = [
+			{ field: email, path: ['profile', 'email'] },
+			{ field: dotted, path: ['profile.email'] },
+			{ field: id, path: ['id'] },
+		] as const
+		const plan = compileHookContributionPlan(
+			registryFor(Nested),
+			paths.map(({ field, path }, index) =>
+				owned(
+					String(index),
+					fieldHooks(Nested, field, path, {
+						resolveInput: () => undefined,
+					}),
+				),
+			),
+		)
+
+		// Contributions must resolve exact identities without joining dotted segments.
+		for (const { field, path } of paths) {
+			expect(plan.getField(Nested, path)?.field).toBe(field)
+		}
+	})
+
+	it('rejects malformed, missing and scalar-traversing contribution paths', () => {
+		for (const path of [[], [0], ['missing'], ['title', 'nested']]) {
+			expect(() =>
+				compileHookContributionPlan(registryFor(Article), [
+					owned(
+						'invalid-path',
+						fieldHooks(Article, articleTitle, path as never, {
+							resolveInput: () => undefined,
+						}),
+					),
+				]),
+			).toThrow('resolved an inconsistent field target')
+		}
+	})
+
 	it('preserves global, schema, and field ownership in reversible order', () => {
 		const beforeGlobal = () => undefined
 		const beforeSchema = () => undefined

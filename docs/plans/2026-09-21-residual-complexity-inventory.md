@@ -2,7 +2,7 @@
 
 - Recorded: 2026-09-21
 - Source revision: `265b54c909404f9690a666bdf39ace01ccee466e`
-- Status: refreshed by 3101; Core/Access private cleanup delivered in 3102/3103
+- Status: refreshed by 3101; Core/Access/Hooks private cleanup delivered in 3102–3104
 - Owner: [issue 3101](../../issues/3100-residual-complexity-simplification/3101-baseline-and-consumer-inventory.md)
 - Execution rules: [plan](2026-09-21-residual-complexity-simplification.md)
 - Measured baseline and retained IDs: [3101 baseline](2026-09-21-residual-complexity-baseline.md)
@@ -24,8 +24,8 @@ retained invariant, regression evidence and delivered issue.
 
 | ID    | Candidate                                        | Initial evidence and important limit                                                                                    | Planned issue | Decision/delivery                                                            |
 | ----- | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- | ------------- | ---------------------------------------------------------------------------- |
-| RC-01 | Private dead helpers                             | 14 functions, 304 declaration-body lines; no caller found and no package-root export                                    | 3102–3104     | Core/Access delivered (3102/3103); Hooks pending                             |
-| RC-02 | Hooks field-path duplication                     | 143-line file duplicates Core's public types; private resolver has only its own test and differs in field-map selection | 3104          | Internal consolidation proposed; type/editor parity required                 |
+| RC-01 | Private dead helpers                             | 14 functions, 304 declaration-body lines; no caller found and no package-root export                                    | 3102–3104     | Core/Access/Hooks delivered (3102–3104)                                      |
+| RC-02 | Hooks field-path duplication                     | 143-line file duplicates Core's public types; private resolver has only its own test and differs in field-map selection | 3104          | Delivered by 3104; public type/editor parity verified                        |
 | RC-03 | Canonical compiler IR round trip                 | Live internal machinery, 21 production files/3,648 lines; originally motivated by replacement compilation               | 3105–3106     | Architecture decision pending; directory size is not removable-line estimate |
 | RC-04 | Runtime normalization/commit stage contributions | No current production caller of runtimePipelineStage; ordinary interceptors are used                                    | 3107–3108     | Public decision pending; retain used C-035 behavior                          |
 | RC-05 | Typegen emitter marker                           | One provider, no reader found; generic single-provider conflict and inspection effects remain                           | 3107/3109     | Public decision pending; reopen C-039 explicitly                             |
@@ -74,7 +74,7 @@ scenario that still protects the live option path.
 
 ## RC-02: reuse existing Core types
 
-[Hooks field paths](../../packages/hooks-plugin/src/authoring/field-paths.ts)
+Hooks field paths (`packages/hooks-plugin/src/authoring/field-paths.ts` at 3101)
 and [Core field paths](../../packages/core/src/schema/fields/paths.ts) repeat
 the type recursion for SchemaFieldPath and FieldAtPath. Core already exports
 these types and Hooks already depends on Core.
@@ -166,8 +166,8 @@ aid, not a proof of exhaustive dead-code detection or external community usage.
 
 | Candidate | Current owner/consumer evidence                                                                                                                                       | Required preservation and regression proof                                                                                                    | Public/site impact and decision                                                                                                                                    |
 | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| RC-01     | Core/Access/Hooks; no callers for the initial functions, reader wrappers or isolated declaration-target module                                                        | Existing schema/declaration, option normalization and provider tests; identical source/built/packed exports                                   | Internal cleanup only; website Access/Hooks/Core contracts remain accurate; Core/Access delivered by 3102/3103; Hooks pending                                      |
-| RC-02     | Hooks duplicates Core public types; private Hooks resolver is used only by field-paths.test.ts                                                                        | Source and built type/language-service checks; nested path validity/depth and documented field-map distinction                                | Keep Hooks root names; no new public abstraction; no removal delivered                                                                                             |
+| RC-01     | Core/Access/Hooks; no callers for the initial functions, reader wrappers or isolated declaration-target module                                                        | Existing schema/declaration, option normalization and provider tests; identical source/built/packed exports                                   | Internal cleanup only; website Access/Hooks/Core contracts remain accurate; Core/Access/Hooks delivered by 3102–3104                                               |
+| RC-02     | Hooks duplicates Core public types; private Hooks resolver is used only by field-paths.test.ts                                                                        | Source and built type/language-service checks; nested path validity/depth and documented field-map distinction                                | Hooks root names retained; consolidation delivered by 3104                                                                                                         |
 | RC-03     | SchemaDeclarationRegistry and compileCommandGraph consume canonical compiler output; selectors and option/provenance checks are live                                  | Complete compilation, malformed-declaration, atomic publication, Soft Delete patch, Typegen and transport suites                              | Architecture decision pending in 3105; review Core/schema and plugin-authoring website pages                                                                       |
 | RC-04     | Core factory/tests/root exports only; ACL separately uses provideRuntimeInterceptor/preparedOperation                                                                 | Runtime order, transactions/rollback, attribution, ACL and no-product performance counters                                                    | Public decision pending in 3107; Runtime/plugin-authoring guidance must follow any approved removal                                                                |
 | RC-05     | Typegen provides an inert marker but setup directly calls generation/writing; generic single-provider checks still apply                                              | Startup ordering, deterministic declarations/fingerprints, generated-project and editor tests                                                 | Public uniqueness/inspection change pending in 3107; Typegen/plugin-authoring documentation reviewed in 3109                                                       |
@@ -184,5 +184,19 @@ and declaration hashes. No public difference or ADR is required. Access RC-01 cl
 obsolete helper self-tests are replaced by three current-path regression cases
 (+35 test lines), with unchanged public declarations and green source/packed/
 PostgreSQL conformance. Full coverage comparison against 3101 finds no retained
-location regression. Hooks RC-01 and RC-02 remain pending; all public decisions
-remain pending.
+location regression. Hooks RC-01/RC-02 are delivered by 3104: -164 production lines; ten remaining
+declarations are identical, current-path/editor tests preserve behavior, and
+2,780 coverage plus 38 built/PostgreSQL tests pass. All 1,726 export names remain;
+only Hooks declaration text changes to reuse Core types (-2,244 bytes overall).
+No retained coverage location regresses. All public removal decisions remain
+pending.
+
+### Additional private orphan noticed during 3104
+
+Core's `resolveSchemaFieldPath` and its exclusive `hasChildFields` helper in
+`packages/core/src/schema/fields/paths.ts` have no remaining caller after removal
+of declaration-targets.ts in 3102. The initial name scan was obscured by Hooks'
+separate resolver with the same name. The Core file still owns used public
+`SchemaFieldPath`/`FieldAtPath` types, which must remain. Core source is unchanged
+in 3104. Request a bounded follow-up scope decision at the 3105 stop; do not
+claim the orphan removed or broaden the compiler change silently.

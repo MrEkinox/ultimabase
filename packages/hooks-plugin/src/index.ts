@@ -83,7 +83,7 @@ export { fieldHookPhases } from './authoring/field-declarations.js'
 export type { FieldHookPhase } from './authoring/field-declarations.js'
 export { schemaHookPhases } from './authoring/declarations.js'
 export type { SchemaHookPhase } from './authoring/declarations.js'
-export type { FieldAtPath, SchemaFieldPath } from './authoring/field-paths.js'
+export type { FieldAtPath, SchemaFieldPath } from '@ultimabase/core'
 export type {
 	HookContextIdentity,
 	HookContextOwner,

@@ -1,7 +1,5 @@
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
-import type { SchemaDefinition } from '@ultimabase/core'
-import type { SchemaHooks } from './contracts.js'
 import { saveHookFamilies } from './family-keys.js'
 import {
 	normalizeHookDeclarations,
@@ -164,8 +162,6 @@ export type SchemaHookDeclarations =
 			>
 		}>
 
-const schemaHookDeclarations = new WeakMap<object, SchemaHookDeclarations>()
-
 /** Copies and validates one schema hook declaration without attaching it. */
 export const normalizeSchemaHookDeclarations = (
 	hooks: unknown,
@@ -220,20 +216,3 @@ export const normalizeSchemaHookDeclarations = (
 			: { mutations: normalizedMutations }),
 	})
 }
-
-/** Attaches one normalized declaration to the exact Schema identity. */
-export const declareSchemaHooks = <TDeclarationSchema extends SchemaDefinition>(
-	schema: SchemaDefinition,
-	hooks: SchemaHooks<TDeclarationSchema> | undefined,
-): void => {
-	const declarations = normalizeSchemaHookDeclarations(hooks)
-
-	if (declarations !== undefined) {
-		schemaHookDeclarations.set(schema, declarations)
-	}
-}
-
-/** Resolves private declarations for Core's Runtime domain only. */
-export const getSchemaHookDeclarations = (
-	schema: SchemaDefinition,
-): SchemaHookDeclarations | undefined => schemaHookDeclarations.get(schema)
