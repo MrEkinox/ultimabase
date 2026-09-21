@@ -75,9 +75,6 @@ interface ACLApplicationStateReaderOptions {
 		typeof requestPrincipalResolverCapability,
 		true
 	>
-	readonly readMutationItems: Parameters<
-		typeof createACLApplicationState
-	>[0]['readMutationItems']
 	readonly readProtectedSchemas: (
 		schemas: CompiledSchemaRegistry,
 	) => readonly Parameters<
@@ -116,7 +113,6 @@ export const createAttributedACLApplicationStateReader = (
 				callbacks,
 			),
 			protectedSchemas: options.readProtectedSchemas(schemas),
-			readMutationItems: options.readMutationItems,
 			roleResolver: attributeRoleResolver(
 				capabilities.contributions(options.roleRequirement)[0],
 				callbacks,

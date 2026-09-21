@@ -13,7 +13,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { ACL } from './acl.js'
 import {
 	createACLPermissionRowFilter,
-	requiredACLPermissions,
+	requiredACLPermission,
 	resolveACLAccessSubjects,
 } from './acl-access.js'
 
@@ -132,26 +132,22 @@ describe('ACL Access contributions', () => {
 			operations: [{ field: 'acl', kind: 'set', value: new ACL() }],
 		} as const
 
-		expect(requiredACLPermissions({ kind: 'find-many', query })).toStrictEqual([
-			'read',
-		])
-		expect(requiredACLPermissions({ kind: 'delete-one', query })).toStrictEqual(
-			['delete'],
-		)
+		expect(requiredACLPermission({ kind: 'find-many', query })).toBe('read')
+		expect(requiredACLPermission({ kind: 'delete-one', query })).toBe('delete')
 		expect(
-			requiredACLPermissions({
+			requiredACLPermission({
 				kind: 'update-one',
 				query,
 				update: aclUpdate,
 			}),
-		).toStrictEqual(['update'])
+		).toBe('update')
 		expect(
-			requiredACLPermissions({
+			requiredACLPermission({
 				input: { name: 'created' },
 				kind: 'create-one',
 				selection: { fields: [], kind: 'selection' },
 				schema,
 			}),
-		).toStrictEqual([])
+		).toBeUndefined()
 	})
 })

@@ -5,6 +5,7 @@ import {
 	requestRoleResolverCapability,
 	getCurrentEngine,
 	getCurrentRequest,
+	type DatabaseMutationMaterializationSource,
 	type RequestSubjectContext,
 	type RequestPrincipalResolver,
 	type RequestRoleResolver,
@@ -34,11 +35,6 @@ export type PersistentRoleResolver = NonNullable<
 	RequestRoleResolver['resolvePersistentRole']
 >
 
-interface ACLMutationItemPair {
-	readonly originalItem: Readonly<Record<string, unknown>> | null
-	readonly item: Readonly<Record<string, unknown>> | null
-}
-
 interface CreateACLApplicationStateOptions {
 	readonly schemas: CompiledSchemaRegistry
 	readonly protectedSchemas: readonly SchemaDefinition[]
@@ -46,10 +42,6 @@ interface CreateACLApplicationStateOptions {
 	readonly principalResolver: RequestPrincipalResolver | undefined
 	readonly roleResolver: RequestRoleResolver | undefined
 	readonly hasStaticRoleGrant: (config: NormalizedACLSchemaOption) => boolean
-	readonly readMutationItems: (
-		schema: SchemaDefinition,
-		input: unknown,
-	) => readonly ACLMutationItemPair[]
 	readonly snapshotACL: (value: unknown, path: string) => ACL
 }
 
@@ -58,7 +50,7 @@ export interface ACLApplicationState {
 		context: RequestSubjectContext,
 		schema: SchemaDefinition,
 		kind: ACLChangedOperation,
-		input: unknown,
+		input: DatabaseMutationMaterializationSource,
 	) => Promise<readonly ACLChangedEvent[]>
 	readonly protectedSchemas: readonly SchemaDefinition[]
 	readonly protectedSchemaSet: ReadonlySet<SchemaDefinition>
@@ -78,7 +70,6 @@ export const createACLApplicationState = (
 		pluginLimits,
 		principalResolver,
 		protectedSchemas,
-		readMutationItems,
 		roleResolver,
 		schemas,
 		snapshotACL,
@@ -146,17 +137,19 @@ export const createACLApplicationState = (
 		context: RequestSubjectContext,
 		schema: SchemaDefinition,
 		kind: ACLChangedOperation,
-		input: unknown,
+		input: DatabaseMutationMaterializationSource,
 	): Promise<readonly ACLChangedEvent[]> => {
 		const events: ACLChangedEvent[] = []
-		for (const { item, originalItem } of readMutationItems(schema, input)) {
-			if (item === null) continue
+		// Core has already validated and frozen these complete mutation snapshots.
+		for (const materialization of input.materializations) {
+			if (materialization.kind === 'delete') continue
 
+			const item = materialization.current
 			const current = snapshotACL(item[aclFieldName], 'current acl')
 			const previous =
-				originalItem === null
+				materialization.kind === 'create'
 					? emptyACLChangeValue
-					: snapshotACL(originalItem[aclFieldName], 'previous acl')
+					: snapshotACL(materialization.previous[aclFieldName], 'previous acl')
 
 			if (isDeepStrictEqual(previous.toJSON(), current.toJSON())) continue
 			const itemId: unknown = item.id

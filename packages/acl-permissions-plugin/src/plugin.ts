@@ -47,7 +47,6 @@ import {
 	removeACLReference,
 	type ACLReferenceSubject,
 } from './acl-reference-cleanup.js'
-import { normalizeACLPermissions, type ACLPermission } from './acl-contracts.js'
 import {
 	assertACLEntryLimits,
 	defaultACLEntryLimits,
@@ -63,7 +62,6 @@ import {
 	type ACLPlugin,
 	type ACLPluginOptions,
 } from './plugin-contracts.js'
-import { readACLMutationItems } from './mutation-items.js'
 import {
 	aclFieldName,
 	aclPluginName,
@@ -249,31 +247,14 @@ const resolvePersistentACLRoles = async (
 			}
 
 			return immutableRecord({
+				kind: 'role' as const,
 				permissions: entry.permissions,
 				value: resolved.value,
 			})
 		}),
 	)
-	const permissionsByRole = new Map<string, readonly ACLPermission[]>()
-
-	for (const entry of resolvedEntries) {
-		permissionsByRole.set(
-			entry.value,
-			normalizeACLPermissions([
-				...(permissionsByRole.get(entry.value) ?? []),
-				...entry.permissions,
-			]),
-		)
-	}
-
-	return ACL.fromJSON({
-		...document,
-		roles: [...permissionsByRole.entries()].map(([role, permissions]) => ({
-			kind: 'role' as const,
-			permissions,
-			value: role,
-		})),
-	})
+	// Canonical parsing already unions aliases that resolve to the same role.
+	return ACL.fromJSON({ ...document, roles: resolvedEntries })
 }
 
 /** Applies every adapter-neutral invariant to one accepted ACL value. */
@@ -670,7 +651,6 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 		hasStaticRoleGrant,
 		pluginLimits,
 		principalRequirement: optionalPrincipalResolver,
-		readMutationItems: readACLMutationItems,
 		readProtectedSchemas,
 		roleRequirement: optionalRoleResolver,
 		snapshotACL: snapshotResolvedACL,

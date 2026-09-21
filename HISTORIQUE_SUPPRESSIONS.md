@@ -387,3 +387,19 @@ et déclarations publiques identiques. Les 2 778 tests de couverture, 22
 intégrations ciblées et 66 contrôles du site passent sans perte de couverture
 conservée. Le README et le site corrigent leur description périmée de
 `deleteMany()` ; aucune politique de suppression ne change. Audit final vert.
+
+## ACL — issue 3019 réalisée
+
+Les événements lisent directement les snapshots validés par le Core : l’ancien
+adaptateur de résultats, ses formats hérités et ses relais privés disparaissent.
+La fusion des permissions après résolution des rôles repose sur le parseur ACL
+canonique existant. Le choix du droit requis par une opération ne construit
+plus une liste intermédiaire et une combinaison qui ne pouvaient pas servir.
+La composition restrictive des politiques, la gestion Master, les limites,
+les codecs et le nettoyage transactionnel restent inchangés.
+
+Bilan de production : **3 725 → 3 581 lignes (−144)**, 19 → 18 fichiers,
+42 exports et déclarations publiques identiques. Les 333 tests source ciblés
+et d’intégration passent, avec les mêmes chemins et appels ACL couverts que le
+rapport global précédent ; les 43 intégrations construites passent également.
+Audit final vert, sans modification du Core ou d’Access.

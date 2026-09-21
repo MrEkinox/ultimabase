@@ -109,30 +109,28 @@ export const createACLPermissionRowFilter = (
 	})
 }
 
-/** Maps one terminal to every ACL right its database predicate must require. */
-export const requiredACLPermissions = <TSchema extends SchemaDefinition>(
+/** Maps each terminal to its one object-level right; creation grants no ACL authority. */
+export const requiredACLPermission = <TSchema extends SchemaDefinition>(
 	operation: ExecutableOperationAst<TSchema>,
-): readonly ACLPermission[] => {
+): ACLPermission | undefined => {
 	switch (operation.kind) {
 		case 'count':
 		case 'exists':
 		case 'find-many':
 		case 'find-one':
 		case 'get':
-			return immutableArray(['read'])
+			return 'read'
 		case 'delete-many':
 		case 'delete-one':
-			return immutableArray(['delete'])
+			return 'delete'
 		case 'update-many':
 		case 'update-one':
-			return immutableArray(['update'])
 		case 'upsert-one':
-			return immutableArray(['update'])
 		case 'upsert-many':
-			return immutableArray(['update'])
+			return 'update'
 		case 'create-many':
 		case 'create-one':
-			return immutableArray([])
+			return undefined
 	}
 }
 
@@ -141,16 +139,8 @@ export const createACLRowFilter = <TSchema extends SchemaDefinition>(
 	operation: ExecutableOperationAst<TSchema>,
 	subjects: ACLAccessSubjects,
 ): DatabaseRowFilterNode | undefined => {
-	const filters = requiredACLPermissions(operation).map((permission) =>
-		createACLPermissionRowFilter(permission, subjects),
-	)
-	const [first, ...rest] = filters
-
-	if (first === undefined) return undefined
-	if (rest.length === 0) return first
-
-	return immutableRecord({
-		expressions: immutableArray([first, ...rest]),
-		kind: 'and' as const,
-	})
+	const permission = requiredACLPermission(operation)
+	return permission === undefined
+		? undefined
+		: createACLPermissionRowFilter(permission, subjects)
 }

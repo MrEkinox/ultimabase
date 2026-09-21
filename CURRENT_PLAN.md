@@ -1,12 +1,12 @@
 # Active plan: pre-feature architecture simplification
 
-- Status: active — plugin wave explicitly resumed; next issue 3019
+- Status: active — plugin wave explicitly resumed; next issue 3020
 - Milestone: [30 — Pre-feature architecture simplification](issues/3000-pre-feature-architecture-simplification/README.md)
 - Detailed plan: [docs/plans/2026-09-20-pre-feature-architecture-simplification.md](docs/plans/2026-09-20-pre-feature-architecture-simplification.md)
 - Baseline: [docs/plans/2026-09-20-architecture-simplification-baseline.md](docs/plans/2026-09-20-architecture-simplification-baseline.md)
 - Contract matrix: [docs/plans/2026-09-20-architecture-contract-matrix.md](docs/plans/2026-09-20-architecture-contract-matrix.md)
 - Removal history: [HISTORIQUE_SUPPRESSIONS.md](HISTORIQUE_SUPPRESSIONS.md)
-- Resume point: issue 3019; continue sequentially through issue 3034
+- Resume point: issue 3020; continue sequentially through issue 3034
 
 ## Objective
 
@@ -279,3 +279,11 @@ unchanged. All 2,778 coverage tests, 22 affected built integrations and 66
 website checks pass, with no lost retained coverage. Documentation now matches
 the existing ADR-0164 atomic deletion behavior. Continue with issue 3019 after
 the dedicated 3018 commit.
+
+Issue 3018 is committed as `e6ba1934`: +173 / -146 lines, net +27, including
+tests and documentation. Issue 3019 is complete with a green audit: ACL removes
+144 production lines and one obsolete internal result adapter. Its 42 exports
+and declarations remain identical. The 333 package/boundary/source-integration
+checks and 43 built integration checks pass, with no lost retained ACL coverage
+against the full 3018 baseline. Core and Access remain unchanged. Continue with
+issue 3020 after the dedicated 3019 commit.
