@@ -237,27 +237,6 @@ export const defineCapability =
 		>
 	}
 
-/** Marks the one plugin responsible for emitting generated application contracts. */
-export interface TypegenEmitterCapability {
-	readonly kind: 'typegen-emitter'
-}
-
-/** Replaces the legacy schema-typegen string slot with one nominal protocol. */
-export const typegenEmitterCapability: CapabilityToken<
-	TypegenEmitterCapability,
-	TypegenEmitterCapability,
-	'ultimabase.typegen-emitter',
-	'1.0.0',
-	'single',
-	'declaration'
-> = defineCapability<TypegenEmitterCapability>()({
-	capabilityId: 'ultimabase.typegen-emitter',
-	version: '1.0.0',
-	cardinality: 'single',
-	lifetime: 'declaration',
-	compose: ([provider]) => provider,
-})
-
 /** Runs the trusted token-owned composition without exposing it through inspection. */
 export const composeCapability = <TToken extends CapabilityToken>(
 	token: TToken,

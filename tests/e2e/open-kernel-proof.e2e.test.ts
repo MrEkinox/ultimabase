@@ -13,7 +13,6 @@ import {
 	getPluginFieldStorageCodec,
 	provideAdapterCapability,
 	provideCapability,
-	typegenEmitterCapability,
 	type PluginPrivilege,
 	type SchemaOptions,
 } from '@ultimabase/core'
@@ -82,10 +81,6 @@ const createKernelSupportPlugin = () =>
 						kinds: ['update-one', 'delete-one'],
 						protocolVersion: 1,
 					},
-				}),
-				provideCapability(typegenEmitterCapability, {
-					contributionId: 'typegen',
-					value: { kind: 'typegen-emitter' },
 				}),
 			],
 		},

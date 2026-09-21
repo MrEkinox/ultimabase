@@ -1,12 +1,6 @@
 import path from 'node:path'
 
-import {
-	definePlugin,
-	provideCapability,
-	typegenEmitterCapability,
-	type CapabilityProviderDeclaration,
-	type FrameworkPlugin,
-} from '@ultimabase/core'
+import { definePlugin, type FrameworkPlugin } from '@ultimabase/core'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 import { generateApplicationTypesFromSnapshot } from './generator.js'
@@ -16,13 +10,6 @@ import { writeGeneratedTypeFiles } from './writer.js'
 const typegenPluginName = '@ultimabase/typegen' as const
 const defaultApplicationId = 'main'
 const defaultOutputPath = '.ultimabase/schema.generated.d.ts'
-const typegenEmitterProvider: CapabilityProviderDeclaration<
-	typeof typegenEmitterCapability
-> = provideCapability(typegenEmitterCapability, {
-	contributionId: 'emitter',
-	value: { kind: 'typegen-emitter' },
-})
-
 /** Configures automatic full type generation during application startup. */
 export interface TypegenPluginOptions {
 	/** Identifies this application in its generated fingerprint. @default "main" */
@@ -54,8 +41,7 @@ export type TypegenPlugin = FrameworkPlugin<
 	'0.0.0',
 	'^0.0.0',
 	undefined,
-	readonly ['environment:filesystem'],
-	Readonly<{ readonly provides: readonly [typeof typegenEmitterProvider] }>
+	readonly ['environment:filesystem']
 >
 
 const normalizeOptions = (
@@ -96,9 +82,6 @@ const createTypegenPlugin = (
 		core: '^0.0.0',
 		pluginId: typegenPluginName,
 		environment: ['environment:filesystem'],
-		capabilities: {
-			provides: [typegenEmitterProvider],
-		},
 		setup: async ({
 			fieldBuilderMethods,
 			pluginFieldTypes,

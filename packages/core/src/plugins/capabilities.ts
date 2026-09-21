@@ -33,7 +33,6 @@ export {
 	assertCapabilityToken,
 	composeCapability,
 	defineCapability,
-	typegenEmitterCapability,
 } from './capability-token.js'
 export type {
 	CapabilityCardinality,
@@ -45,5 +44,4 @@ export type {
 	CapabilityToken,
 	DefineCapabilityFactory,
 	DefineCapabilityOptions,
-	TypegenEmitterCapability,
 } from './capability-token.js'

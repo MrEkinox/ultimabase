@@ -240,7 +240,6 @@ describe('@ultimabase/core public entry point', () => {
 			'stringField',
 			'timeField',
 			'traverseQueryExpression',
-			'typegenEmitterCapability',
 			'unset',
 			'uuidField',
 		])

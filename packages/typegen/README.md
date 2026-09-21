@@ -36,6 +36,13 @@ infrastructure. `applicationId` and `outputPath` remain configurable for
 multi-application repositories. Core receives only a neutral read-only static
 graph and never depends on this tooling package.
 
+Generation runs directly in plugin setup. There is no emitter-selection
+capability: ADR-0265 removes Core's `typegenEmitterCapability` marker and its
+interface. Install the official plugin once; duplicate plugin identities remain
+errors. Core does not arbitrate output paths between unrelated generators.
+Plugins requesting `typegen:reference` register their consumed public types
+independently of whether automatic Typegen generation is installed.
+
 The lower-level API remains available for build integrations and for the future
 manual CLI:
 

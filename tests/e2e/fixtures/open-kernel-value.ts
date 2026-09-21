@@ -4,14 +4,12 @@ import {
 	defineFieldOption,
 	definePluginField,
 	defineSchemaOption,
-	optionalCapability,
 	requireCapability,
 	type FieldOptions,
 	type JsonObject,
 	type PluginDefinition,
 	type PluginFieldDefinition,
 	type SchemaDefinition,
-	typegenEmitterCapability,
 } from '@ultimabase/core'
 import {
 	definePluginModule,
@@ -137,7 +135,6 @@ const decimalBuilderMethod = defineFieldBuilderMethod({
 	},
 })
 const storage = requireCapability(adapterValueStorageCapability, '^1.0.0')
-const emitter = optionalCapability(typegenEmitterCapability, '^1.0.0')
 const valueModule = definePluginModule({
 	core: '^0.0.0',
 	pluginId: 'fixture.open-kernel-value',
@@ -154,7 +151,7 @@ export const createValuePlugin = (
 	options: ValuePluginOptions,
 ): PluginDefinition =>
 	valueModule.plugin({
-		capabilities: { optional: [emitter], requires: [storage] },
+		capabilities: { requires: [storage] },
 		declare: ({ fields, schemas, typegenReferences }) => {
 			fields.register(decimalBuilderMethod)
 			schemas.defineOptions({
@@ -175,9 +172,8 @@ export const createValuePlugin = (
 					}),
 				}),
 			)
-			if (typegenReferences !== undefined) {
-				typegenReferences.register(valueTypes.reference('DecimalValue'))
-			}
+			// The compiled graph retains its reference even without startup generation.
+			typegenReferences.register(valueTypes.reference('DecimalValue'))
 		},
 		instanceId: options.instanceId,
 		privileges: [
@@ -189,7 +185,6 @@ export const createValuePlugin = (
 			{
 				name: 'typegen:reference',
 				reason: 'References the exact public decimal value.',
-				when: emitter,
 			},
 		] as const,
 	})

@@ -75,7 +75,6 @@ export {
 	optionalCapability,
 	provideCapability,
 	requireCapability,
-	typegenEmitterCapability,
 } from './plugins/capabilities.js'
 export type {
 	ApplicationCapabilityFactory,
@@ -96,7 +95,6 @@ export type {
 	PluginCapabilityDeclarationOptions,
 	PluginCapabilityDeclarations,
 	PluginCapabilityReader,
-	TypegenEmitterCapability,
 } from './plugins/capabilities.js'
 export type { ApplicationCallbackExecutor } from './plugins/callback-execution.js'
 export { CapabilityInventory } from './plugins/capability-inventory.js'

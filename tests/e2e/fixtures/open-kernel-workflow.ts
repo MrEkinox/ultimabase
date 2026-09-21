@@ -7,10 +7,8 @@ import {
 	intField,
 	operationTransportBinding,
 	operationWireCodec,
-	optionalCapability,
 	provideOperationTransportBinding,
 	stringField,
-	typegenEmitterCapability,
 	type JsonObject,
 	type SchemaDefinition,
 } from '@ultimabase/core'
@@ -130,7 +128,6 @@ const workflowModule = definePluginModule({
 	pluginId: 'fixture.open-kernel-workflow',
 	version: '1.0.0',
 })
-const emitter = optionalCapability(typegenEmitterCapability, '^1.0.0')
 
 export interface WorkflowPluginOptions {
 	readonly instanceId: string
@@ -150,7 +147,6 @@ export const createWorkflowPlugin = (options: WorkflowPluginOptions) => {
 	const plugin = workflowModule.plugin({
 		peers: [{ pluginId: '@ultimabase/hooks-plugin', version: '^0.0.0' }],
 		capabilities: {
-			optional: [emitter],
 			provides: [
 				providePluginOperation({
 					contributionId: 'inspect-handler',
@@ -227,10 +223,9 @@ export const createWorkflowPlugin = (options: WorkflowPluginOptions) => {
 				}),
 			)
 			operations.declare(inspectWorkflow)
-			if (typegenReferences !== undefined) {
-				typegenReferences.register(transitionInputReference)
-				typegenReferences.register(transitionResultReference)
-			}
+			// Public references belong to the declaration, independent of installed tooling.
+			typegenReferences.register(transitionInputReference)
+			typegenReferences.register(transitionResultReference)
 		},
 		instanceId: options.instanceId,
 		privileges: [
@@ -251,7 +246,6 @@ export const createWorkflowPlugin = (options: WorkflowPluginOptions) => {
 			{
 				name: 'typegen:reference',
 				reason: 'References workflow public types.',
-				when: emitter,
 			},
 		] as const,
 	})

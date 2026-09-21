@@ -61,7 +61,9 @@ yarn add @ultimabase/typegen
 pnpm add @ultimabase/typegen
 ```
 
-Add `typegenPlugin()` to the existing application, not to a separate copy:
+Add `typegenPlugin()` once to the existing application. It generates directly
+during setup, before infrastructure connects. Repeating this plugin is a
+duplicate plugin identity error.
 
 ```ts title="src/ultimabase.ts"
 import { UltimaBase } from '@ultimabase/core'

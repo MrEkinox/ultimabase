@@ -28,7 +28,7 @@ retained invariant, regression evidence and delivered issue.
 | RC-02 | Hooks field-path duplication                     | 143-line file duplicates Core's public types; private resolver has only its own test and differs in field-map selection | 3104          | Delivered by 3104; public type/editor parity verified           |
 | RC-03 | Canonical compiler IR round trip                 | Live internal machinery, 21 production files/3,648 lines; originally motivated by replacement compilation               | 3105–3106     | ADR-0263 accepted in 3105; direct compilation delivered by 3106 |
 | RC-04 | Runtime normalization/commit stage contributions | No current production caller of runtimePipelineStage; ordinary interceptors are used                                    | 3107–3108     | ADR-0264 delivered by 3108; -223 production lines               |
-| RC-05 | Typegen emitter marker                           | One production provider; availability consumed by conditional-privilege fixtures; no generation dispatcher              | 3107/3109     | ADR-0265 accepted; implementation 3109 pending                  |
+| RC-05 | Typegen emitter marker                           | One production provider; availability consumed by conditional-privilege fixtures; no generation dispatcher              | 3107/3109     | ADR-0265 delivered by 3109; -42 production lines                |
 | RC-06 | Migration anticipation                           | Planning has a real testing consumer; no shipped migration plugin executes this path                                    | 3107/3110     | ADR-0266 accepted; implementation 3110 pending                  |
 
 ## RC-01 exact private-function inventory
@@ -188,7 +188,7 @@ aid, not a proof of exhaustive dead-code detection or external community usage.
 | RC-02     | Hooks duplicates Core public types; private Hooks resolver is used only by field-paths.test.ts                                                                        | Source and built type/language-service checks; nested path validity/depth and documented field-map distinction                                | Hooks root names retained; consolidation delivered by 3104                                                                                                                    |
 | RC-03     | SchemaDeclarationRegistry and compileCommandGraph consume canonical compiler output; selectors and option/provenance checks are live                                  | Complete compilation, malformed-declaration, atomic publication, Soft Delete patch, Typegen and transport suites                              | ADR-0263 delivered by 3106; invariants verified and affected website page updated                                                                                             |
 | RC-04     | Core factory/tests/root exports only; ACL separately uses provideRuntimeInterceptor/preparedOperation                                                                 | Runtime order, transactions/rollback, attribution, ACL and no-product performance counters                                                    | ADR-0264 delivered in 3108; Runtime/plugin-authoring guidance updated with the exact removal                                                                                  |
-| RC-05     | Typegen directly generates/writes; conditional-privilege fixtures consume marker availability; generic single-provider checks apply                                   | Startup ordering, deterministic declarations/fingerprints, generated-project and editor tests                                                 | ADR-0265 delta accepted in 3107; Typegen/plugin-authoring documentation reviewed in 3109                                                                                      |
+| RC-05     | Typegen directly generates/writes; conditional-privilege fixtures consume marker availability; generic single-provider checks apply                                   | Startup ordering, deterministic declarations/fingerprints, generated-project and editor tests                                                 | ADR-0265 delivered by 3109; automatic generation retained and public guidance updated                                                                                         |
 | RC-06     | planAdapterMigrations -> FakeAdapterMigrationHistory -> tests/e2e/open-kernel-proof.e2e.test.ts; PostgreSQL migration metadata/preparation providers are fixture-only | Resolve that real testing use explicitly; preserve current sync policies, physical contributions, private storage, raw leases and attribution | ADR-0266 public/engineering exception accepted in 3107, including P-016 adapterMigrationCapability; PostgreSQL/testing/plugin-authoring guidance follows exact accepted scope |
 
 Later decision issues record each accepted ADR/retention outcome here, and
@@ -261,3 +261,20 @@ branch audit; no retained coverage loss. Public exports decrease exactly from
 1,726 to 1,721 and other packages' declarations are byte-identical. Core and
 plugin-authoring website guidance follow the removal. RC-05/06 remain approved
 for the separate 3109/3110 implementation and commit gates.
+
+### RC-05 delivery in 3109
+
+The emitter token/interface, Typegen provider/tuple and marker fixtures are
+removed: -42 production lines. Workflow/value proofs register their existing
+public references under an explicit privilege without a generator marker;
+generic conditional privileges, cardinality, requirements and denial checks
+remain unchanged. Core no longer designates an emitter; duplicate official
+plugin identities still fail. Setup generation, file writes, options and
+fingerprints are unchanged, including committed generated examples.
+
+All 2,550 source/type tests, 384 built/packed/PostgreSQL tests and 2,794 coverage
+tests pass. Coverage comparison checks 682 unchanged maps and 121 mapped
+locations with no retained loss; unmapped locations are marker-only. Exports
+fall exactly from 1,721 to 1,719; only Core and Typegen declarations change.
+Public Typegen/plugin-authoring guidance and both READMEs follow the approved
+retirement. RC-06 alone remains for the 3110 implementation gate.

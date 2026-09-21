@@ -14,6 +14,7 @@ sources:
   - packages/typegen/README.md
   - packages/core/src/plugins/typegen-declarations.test.ts
   - packages/core/src/plugins/typegen-declarations.ts
+  - docs/adr/0265-remove-typegen-emitter-marker.md
   - docs/adr/0262-descriptive-typegen-command-inspection.md
   - docs/adr/0263-direct-private-schema-compilation.md
   - packages/core/src/plugins/schema-compilation/opaque-selectors.test.ts
@@ -205,6 +206,12 @@ plugin requests `typegen:reference` and registers that exact reference with
 reference ownership before emitting the import. Registration alone adds no
 standalone alias or Runtime behavior. The input snapshot still runs without
 Typegen, including in JavaScript applications.
+
+Request this privilege directly: reference registration belongs to your
+plugin's declaration, even when the application does not install Typegen.
+The former `typegenEmitterCapability` and `TypegenEmitterCapability` marker
+contracts are removed. Automatic generation still runs in `typegenPlugin()`
+setup; no emitter-selection capability is needed.
 
 Plugin Kit's `defineTypegenModule()` groups nominal references to the same
 package. Field and option definitions retain their own structured `typegen`

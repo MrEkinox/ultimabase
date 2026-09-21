@@ -13,7 +13,6 @@ import {
 	databasePluginFieldStructuralContainsCapability,
 	definePlugin,
 	provideCapability,
-	typegenEmitterCapability,
 	type DatabaseAdapter,
 	type DatabaseOperationAst,
 	type DatabaseOperationRequest,
@@ -75,10 +74,6 @@ const createSupportPlugin = (adapter: DatabaseAdapter) =>
 				provideCapability(databaseAdapterCapability, {
 					contributionId: 'database-adapter',
 					create: () => ({ value: adapter }),
-				}),
-				provideCapability(typegenEmitterCapability, {
-					contributionId: 'typegen',
-					value: { kind: 'typegen-emitter' },
 				}),
 			],
 		},

@@ -1745,6 +1745,13 @@ privilege. Typegen retains `typegen:reference` for consumed public package
 types. Generated declarations derive from the compiled graph; plugins cannot
 register arbitrary declarations or extra output files.
 
+ADR-0265 removes `typegenEmitterCapability` and `TypegenEmitterCapability`.
+Reference declarations request `typegen:reference` directly; they do not depend
+on an installed generator marker. Typegen generates from its setup callback.
+Generic capability conflicts, requirements and conditional privileges remain;
+Core no longer designates a unique emitter through a shared token. Repeating
+the official Typegen plugin still conflicts on its plugin identity.
+
 Manifest literals and setup exports retain their exact types for plugin lookup.
 Setup, declaration, and lifecycle callbacks remain private to Core and do not
 run during manifest inspection. Required dependencies, optional dependencies,

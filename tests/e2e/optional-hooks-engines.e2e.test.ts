@@ -9,7 +9,6 @@ import {
 	databasePersistencePlanCapability,
 	definePlugin,
 	provideCapability,
-	typegenEmitterCapability,
 	type DatabaseAdapter,
 	type DatabaseOperationAst,
 	type DatabaseOperationResult,
@@ -70,10 +69,6 @@ const createBehaviorSupportPlugin = () =>
 				provideCapability(databaseAdapterCapability, {
 					contributionId: 'empty-database',
 					create: () => ({ value: new EmptyReadAdapter() }),
-				}),
-				provideCapability(typegenEmitterCapability, {
-					contributionId: 'typegen',
-					value: { kind: 'typegen-emitter' },
 				}),
 			],
 		},

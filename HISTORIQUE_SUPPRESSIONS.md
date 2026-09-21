@@ -8,10 +8,10 @@ validation et audit sans anomalie restante.
 
 Dernière mise à jour : **21 septembre 2026**. Le jalon 30 est terminé et reste
 historique. L’utilisateur a autorisé l’exécution autonome du jalon 31 avec
-boucle d’audit et commit par issue ; les issues 3101–3108 sont livrées.
+boucle d’audit et commit par issue ; les issues 3101–3109 sont livrées.
 Le changement ciblé des sélecteurs de l’ADR-0263 est accepté et livré ; les
-trois retraits publics de la 3107 sont approuvés. RC-04 est livré en 3108 ;
-RC-05 et RC-06 restent à réaliser dans les issues 3109–3110.
+trois retraits publics de la 3107 sont approuvés. RC-04 et RC-05 sont livrés
+en 3108/3109 ; RC-06 reste à réaliser dans la 3110.
 Aucun push n’est autorisé. L’arrêt après la 3014, puis la reprise autorisée jusqu’à la 3034,
 restent consignés dans le journal archivé du jalon 30.
 
@@ -628,7 +628,7 @@ portent les preuves, décisions et critères de conservation. Les anciens R-001
 | RC-02 : chemins de champs recopiés dans Hooks                            | 3104      | Livré : types Core réutilisés, copie privée de 143 lignes retirée | Imports publics Hooks, inférence et aide de l’éditeur           |
 | RC-03 : aller-retour du compilateur via une représentation intermédiaire | 3105–3106 | Livré en 3106 : −2 256 lignes de production                       | Validation, ordre, ownership, relations et publication atomique |
 | RC-04 : extension Runtime normalization/commit inutilisée                | 3107–3108 | Retiré en 3108 ; -223 lignes de production                        | Interceptors utilisés par ACL, transactions et hooks de commit  |
-| RC-05 : marqueur Typegen, usages conditionnels en tests                  | 3107/3109 | ADR-0265 acceptée ; réalisation en 3109                           | Génération automatique, types et empreintes déterministes       |
+| RC-05 : marqueur Typegen, usages conditionnels en tests                  | 3107/3109 | Retiré en 3109 ; -42 lignes de production                         | Génération automatique, types et empreintes déterministes       |
 | RC-06 : anticipation des migrations                                      | 3107/3110 | ADR-0266 acceptée ; réalisation en 3110                           | Synchronisation PostgreSQL, stockage privé et provenance utile  |
 
 Une proposition ne devient « approuvée » qu’après la décision nécessaire, puis
@@ -771,3 +771,19 @@ La suite construite utilise deux workers après des dépassements de délai à l
 concurrence par défaut ; aucun délai ni assertion n’est assoupli. Aucune perte
 de couverture sur le code conservé. Documentation du site et contrats Core
 mis à jour, audit final sans anomalie. RC-05 et RC-06 restent à réaliser.
+
+### Issue 3109 — marqueur Typegen retiré
+
+**−42 lignes de production** : jeton/interface `typegenEmitterCapability` /
+`TypegenEmitterCapability`, fournisseur inerte et tuple de capacités du plugin.
+Les fixtures déclarent directement leur privilège `typegen:reference`, comme
+accepté dans l’ADR-0265 ; aucune capacité de remplacement n’est introduite.
+L’unicité par identité du plugin reste contrôlée. Le code de génération,
+les écritures atomiques, les options, les empreintes et les fichiers générés
+restent identiques. Un test vérifie leur disponibilité avant toute connexion.
+
+**2 550 tests source, 384 tests construits/archives/PostgreSQL et 2 794 tests
+avec couverture passent**. Aucun emplacement conservé ne perd sa couverture.
+Les exports passent exactement de 1 721 à 1 719 ; seuls les contrats Core et
+Typegen changent. Les guides du site et les README suivent la suppression.
+Audit final sans anomalie ; la 3110 reste à réaliser avant le bilan du jalon.

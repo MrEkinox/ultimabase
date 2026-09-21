@@ -198,3 +198,10 @@ provideRuntimeInterceptor({
 		value: { stage: 'commit' },
 	}),
 })
+
+// ADR-0265 removes marker-based selection; Typegen still generates directly.
+// @ts-expect-error The emitter marker is no longer a public capability.
+void core.typegenEmitterCapability
+// @ts-expect-error The inert marker interface has no remaining public contract.
+type RemovedTypegenEmitter = core.TypegenEmitterCapability
+void (undefined as unknown as RemovedTypegenEmitter)
