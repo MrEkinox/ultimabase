@@ -449,3 +449,14 @@ passent sans perte de couverture conservée ; l'unique échec de métadonnée du
 premier passage a été corrigé et les neuf contrôles du backlog repassent au vert.
 Le README décrit désormais correctement les transactions et cibles manquantes
 déjà en place. Audit final vert, sans changement du contrat public.
+
+## PostgreSQL Vector — issue 3023 auditée sans suppression
+
+Le plugin possède déjà un validateur partagé, une factory et une déclaration
+de méthode sans plan parallèle. L'audit ne justifie aucune suppression interne :
+**246 lignes de production et 11 exports conservés, delta nul**. Une phrase du
+README et un JSDoc périmé sont corrigés. Le stockage physique PostgreSQL reste
+explicitement non livré, comme avant ; aucun nouveau mécanisme n'est ajouté.
+Les 56 contrôles source/types et huit contrôles construits passent. Le code
+exécutable et la structure des types sont identiques, avec la couverture
+complète du passage précédent conservée. Audit final vert.

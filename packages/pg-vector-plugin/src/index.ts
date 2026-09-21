@@ -105,7 +105,7 @@ export interface VectorFieldBuilderMethod {
 export type VectorFieldValidationPlan = ScalarValidationPlan<VectorField>
 
 /**
- * Defines the static field-plan capability that Core will later register globally.
+ * Exposes the vector plan helpers through this application's plugin lookup.
  */
 export interface PgVectorPluginExports {
 	readonly fieldKind: typeof vectorFieldKind

@@ -1,12 +1,12 @@
 # Active plan: pre-feature architecture simplification
 
-- Status: active — plugin wave explicitly resumed; next issue 3023
+- Status: active — plugin wave explicitly resumed; next issue 3024
 - Milestone: [30 — Pre-feature architecture simplification](issues/3000-pre-feature-architecture-simplification/README.md)
 - Detailed plan: [docs/plans/2026-09-20-pre-feature-architecture-simplification.md](docs/plans/2026-09-20-pre-feature-architecture-simplification.md)
 - Baseline: [docs/plans/2026-09-20-architecture-simplification-baseline.md](docs/plans/2026-09-20-architecture-simplification-baseline.md)
 - Contract matrix: [docs/plans/2026-09-20-architecture-contract-matrix.md](docs/plans/2026-09-20-architecture-contract-matrix.md)
 - Removal history: [HISTORIQUE_SUPPRESSIONS.md](HISTORIQUE_SUPPRESSIONS.md)
-- Resume point: issue 3023; continue sequentially through issue 3034
+- Resume point: issue 3024; continue sequentially through issue 3034
 
 ## Objective
 
@@ -311,3 +311,11 @@ declarations. The full coverage run passes 2,778 tests; its only failure was
 issue-status spelling, corrected with all nine backlog checks passing. No
 retained PostgreSQL coverage is lost. All 383 built integrations and 66 website
 checks pass. Continue with issue 3023 after the dedicated 3022 commit.
+
+Issue 3022 is committed as `581828e9`: +154 / -149 lines, net +5, including
+engineering records. Issue 3023 is complete with a green audit: the Vector
+plugin already has one shared implementation and needs no forced reduction.
+Its 246 production lines and 11 exports are retained. Only a JSDoc and README
+explanation are corrected; executable code and public type structure are
+identical. All 56 focused source/type checks and eight built checks pass.
+Continue with issue 3024 after the dedicated 3023 commit.

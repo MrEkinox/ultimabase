@@ -57,9 +57,9 @@ const application = await createApplication({
 The plugin registers the runtime method before static schema compilation. The
 generated application contract adds its exact `VectorFieldBuilderMethod` type
 to that application's builder; Core deliberately does not expose `vector` when
-the plugin is absent. The PostgreSQL package will later consume the plugin's
-database compiler to produce a real pgvector column. Until that milestone is
-implemented, this package deliberately contains no Drizzle or SQL dependency.
+the plugin is absent. No PostgreSQL column compiler is shipped for this field:
+the plugin currently provides the logical value contract and GraphQL codec only.
+It contains no Drizzle or SQL dependency and cannot persist vector fields yet.
 The combined generated Hooks, Access, and vector editor contract is exercised
 by
 [`generator-language-service.test.ts`](../typegen/src/generator-language-service.test.ts).
