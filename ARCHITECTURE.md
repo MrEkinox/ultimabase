@@ -527,6 +527,10 @@ Core owns the logical operation pipeline, structural validation, generic
 behavior composition, protected monotonic constraints, transactions,
 cancellation, persistence plans, result materialization, and post-commit
 observer boundaries. It installs no concrete behavior or policy engine.
+ADR-0264 removes plugin contribution of normalization/commit stages; Core owns
+these assembly boundaries. Logical before/after/prepared-operation interceptors
+retain their nominal capability, privileges, deterministic order and exact
+callback owner, as do Hook transaction callbacks and post-commit delivery.
 
 `@ultimabase/hooks-plugin` owns the official schema and field `hooks` option
 namespaces, callback context, lifecycle phases, event delivery, diagnostics,

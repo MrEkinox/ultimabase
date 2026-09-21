@@ -23,7 +23,8 @@ creates these definitions. In particular, ACL uses `preparedOperation` through
 `RuntimePipelineStages` is a separate, used contract, including for internal
 performance measurements.
 
-Sources: [factory](../../packages/core/src/runtime/pipeline/definitions.ts),
+Sources: former factory `packages/core/src/runtime/pipeline/definitions.ts`
+at commit `adbefbad`,
 [interceptor union and validation](../../packages/core/src/runtime/capabilities.ts),
 [assembly](../../packages/core/src/runtime/application/create-framework-engine.ts).
 

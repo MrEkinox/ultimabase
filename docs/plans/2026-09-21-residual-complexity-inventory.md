@@ -27,7 +27,7 @@ retained invariant, regression evidence and delivered issue.
 | RC-01 | Private dead helpers                             | 14 functions, 304 declaration-body lines; no caller found and no package-root export                                    | 3102–3104     | Core/Access/Hooks delivered (3102–3104)                         |
 | RC-02 | Hooks field-path duplication                     | 143-line file duplicates Core's public types; private resolver has only its own test and differs in field-map selection | 3104          | Delivered by 3104; public type/editor parity verified           |
 | RC-03 | Canonical compiler IR round trip                 | Live internal machinery, 21 production files/3,648 lines; originally motivated by replacement compilation               | 3105–3106     | ADR-0263 accepted in 3105; direct compilation delivered by 3106 |
-| RC-04 | Runtime normalization/commit stage contributions | No current production caller of runtimePipelineStage; ordinary interceptors are used                                    | 3107–3108     | ADR-0264 accepted; implementation 3108 pending                  |
+| RC-04 | Runtime normalization/commit stage contributions | No current production caller of runtimePipelineStage; ordinary interceptors are used                                    | 3107–3108     | ADR-0264 delivered by 3108; -223 production lines               |
 | RC-05 | Typegen emitter marker                           | One production provider; availability consumed by conditional-privilege fixtures; no generation dispatcher              | 3107/3109     | ADR-0265 accepted; implementation 3109 pending                  |
 | RC-06 | Migration anticipation                           | Planning has a real testing consumer; no shipped migration plugin executes this path                                    | 3107/3110     | ADR-0266 accepted; implementation 3110 pending                  |
 
@@ -106,8 +106,8 @@ portable matching and opaque presence/absence remain. The direct path is deliver
 
 ## RC-04: keep used Runtime integrations
 
-[runtimePipelineStage](../../packages/core/src/runtime/pipeline/definitions.ts)
-contributes handlers only to normalization and commit. Collection/composition
+The former `runtimePipelineStage` factory (`packages/core/src/runtime/pipeline/definitions.ts`
+at commit `adbefbad`) contributes handlers only to normalization and commit. Collection/composition
 lives in
 [create-framework-engine.ts](../../packages/core/src/runtime/application/create-framework-engine.ts).
 Tests exercise this API, but no official production producer was found.
@@ -187,7 +187,7 @@ aid, not a proof of exhaustive dead-code detection or external community usage.
 | RC-01     | Core/Access/Hooks; no callers for the initial functions, reader wrappers or isolated declaration-target module                                                        | Existing schema/declaration, option normalization and provider tests; identical source/built/packed exports                                   | Internal cleanup only; website Access/Hooks/Core contracts remain accurate; Core/Access/Hooks delivered by 3102–3104                                                          |
 | RC-02     | Hooks duplicates Core public types; private Hooks resolver is used only by field-paths.test.ts                                                                        | Source and built type/language-service checks; nested path validity/depth and documented field-map distinction                                | Hooks root names retained; consolidation delivered by 3104                                                                                                                    |
 | RC-03     | SchemaDeclarationRegistry and compileCommandGraph consume canonical compiler output; selectors and option/provenance checks are live                                  | Complete compilation, malformed-declaration, atomic publication, Soft Delete patch, Typegen and transport suites                              | ADR-0263 delivered by 3106; invariants verified and affected website page updated                                                                                             |
-| RC-04     | Core factory/tests/root exports only; ACL separately uses provideRuntimeInterceptor/preparedOperation                                                                 | Runtime order, transactions/rollback, attribution, ACL and no-product performance counters                                                    | ADR-0264 accepted in 3107; Runtime/plugin-authoring guidance must follow any approved removal                                                                                 |
+| RC-04     | Core factory/tests/root exports only; ACL separately uses provideRuntimeInterceptor/preparedOperation                                                                 | Runtime order, transactions/rollback, attribution, ACL and no-product performance counters                                                    | ADR-0264 delivered in 3108; Runtime/plugin-authoring guidance updated with the exact removal                                                                                  |
 | RC-05     | Typegen directly generates/writes; conditional-privilege fixtures consume marker availability; generic single-provider checks apply                                   | Startup ordering, deterministic declarations/fingerprints, generated-project and editor tests                                                 | ADR-0265 delta accepted in 3107; Typegen/plugin-authoring documentation reviewed in 3109                                                                                      |
 | RC-06     | planAdapterMigrations -> FakeAdapterMigrationHistory -> tests/e2e/open-kernel-proof.e2e.test.ts; PostgreSQL migration metadata/preparation providers are fixture-only | Resolve that real testing use explicitly; preserve current sync policies, physical contributions, private storage, raw leases and attribution | ADR-0266 public/engineering exception accepted in 3107, including P-016 adapterMigrationCapability; PostgreSQL/testing/plugin-authoring guidance follows exact accepted scope |
 
@@ -245,3 +245,19 @@ The user accepted RC-04, RC-05 and RC-06 after separate presentation on
 2026-09-21. ADR-0264/0265/0266 own the exact removal scopes, retained invariants
 and engineering exceptions. Earlier pending statements above describe the
 3104/3106 checkpoints. No public implementation is removed by 3107 itself.
+
+### RC-04 delivery in 3108
+
+The approved normalization/commit stage factory, four authoring types, private
+registry and assembly branches are removed: -223 production lines. Core keeps
+normalization, commit, all logical interceptors, exact ownership/privileges,
+ACL prepared operations, Hook transaction callbacks and post-commit events.
+No replacement API appears. Only the two factory-exclusive test files retire;
+assembly invariants and negative source/packed export checks remain covered.
+
+All 2,793 coverage tests and 384 built/packed/PostgreSQL tests pass. Comparison
+with 3106 checks 681 unchanged maps and 456 retained locations, plus the changed
+branch audit; no retained coverage loss. Public exports decrease exactly from
+1,726 to 1,721 and other packages' declarations are byte-identical. Core and
+plugin-authoring website guidance follow the removal. RC-05/06 remain approved
+for the separate 3109/3110 implementation and commit gates.

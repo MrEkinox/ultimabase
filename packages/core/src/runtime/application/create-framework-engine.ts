@@ -3,11 +3,7 @@ import {
 	type PluginDefinition,
 } from '../../foundation.js'
 import type { SchemaDefinition } from '../../schema/index.js'
-import {
-	immutableArray,
-	immutableRecord,
-	isPlainRecord,
-} from '@ultimabase/shared'
+import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 import {
 	databasePersistencePlanVersion,
@@ -18,11 +14,7 @@ import {
 	databasePointerCapabilityVersion,
 	type DatabaseAdapter,
 } from '../database/contracts.js'
-import {
-	readApplicationCapability,
-	readApplicationCapabilityContributions,
-} from '../../plugins/application-capability-access.js'
-import { runWithApplicationPluginOwner } from '../../plugins/callback-execution.js'
+import { readApplicationCapability } from '../../plugins/application-capability-access.js'
 import { FrameworkEngine } from '../engine/framework-engine.js'
 import { createEnforcementStages } from '../enforcement/dispatcher.js'
 import type {
@@ -30,7 +22,6 @@ import type {
 	RuntimePipelineStages,
 	RuntimeResultEffectStage,
 } from '../pipeline/contracts.js'
-import { getRuntimePipelineStageImplementation } from '../pipeline/definitions.js'
 import { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
 import {
 	createRuntimeValidationStage,
@@ -39,7 +30,6 @@ import {
 } from '../validation/runtime-validation.js'
 import { createFinalMutationValidationStage } from '../validation/final-mutation-validation.js'
 import { MasterAuthority } from '../master/master-authority.js'
-import { runtimeInterceptorCapability } from '../capabilities.js'
 import { createPersistencePlanRewriteStage } from '../persistence/rewriter-stage.js'
 import { composeRuntimeBehaviors } from '../behaviors/composition.js'
 import {
@@ -68,11 +58,6 @@ export interface CreateFrameworkEngineOptions {
 	 * @example `validation: { timezone: "Europe/Paris" }`
 	 */
 	readonly validation?: RuntimeValidationOptions
-}
-
-interface CollectedRuntimePipelineStages {
-	readonly normalization: readonly RuntimeOperationTransformStage[]
-	readonly commit: readonly RuntimeResultEffectStage[]
 }
 
 const createFrameworkEngineOptionKeys = new Set([
@@ -235,89 +220,6 @@ const assertRequiredAdapterCapabilities = (
 	}
 }
 
-/** Validates and groups plugin stages while retaining contribution order. */
-const collectRuntimePipelineStages = (
-	application: FrameworkApplication<
-		readonly SchemaDefinition[],
-		readonly PluginDefinition[]
-	>,
-): CollectedRuntimePipelineStages => {
-	const normalization: RuntimeOperationTransformStage[] = []
-	const commit: RuntimeResultEffectStage[] = []
-
-	for (const contribution of readApplicationCapabilityContributions(
-		application,
-		runtimeInterceptorCapability,
-	)) {
-		const implementation = getRuntimePipelineStageImplementation(
-			contribution.value,
-		)
-		if (implementation === undefined) continue
-
-		switch (implementation.stage) {
-			case 'normalization':
-				normalization.push((input) =>
-					runWithApplicationPluginOwner(application, contribution.owner, () =>
-						implementation.handler(input),
-					),
-				)
-				break
-			case 'commit':
-				commit.push((input) =>
-					runWithApplicationPluginOwner(application, contribution.owner, () =>
-						implementation.handler(input),
-					),
-				)
-				break
-		}
-	}
-
-	return immutableRecord({
-		normalization: immutableArray(normalization),
-		commit: immutableArray(commit),
-	})
-}
-
-const composeNormalizationStage = (
-	handlers: readonly RuntimeOperationTransformStage[],
-): RuntimeOperationTransformStage => {
-	if (handlers.length === 0) {
-		return neutralNormalization
-	}
-
-	return async (input) => {
-		let operation = input.operation
-
-		for (const handler of handlers) {
-			operation = await handler(
-				immutableRecord({
-					context: input.context,
-					...(input.nestedWrite === undefined
-						? {}
-						: { nestedWrite: input.nestedWrite }),
-					operation,
-				}),
-			)
-		}
-
-		return operation
-	}
-}
-
-const composeCommitStage = (
-	handlers: readonly RuntimeResultEffectStage[],
-): RuntimeResultEffectStage => {
-	if (handlers.length === 0) {
-		return neutralCommit
-	}
-
-	return async (input) => {
-		for (const handler of handlers) {
-			await handler(input)
-		}
-	}
-}
-
 /** Builds the mandatory Runtime pipeline from one initialized application. */
 export const createFrameworkEngine = <
 	const TSchemas extends readonly SchemaDefinition[],
@@ -345,7 +247,6 @@ export const createFrameworkEngine = <
 	assertDatabaseAdapter(databaseAdapter)
 	assertRequiredAdapterCapabilities(application, databaseAdapter)
 
-	const contributedStages = collectRuntimePipelineStages(application)
 	const enforcement = createEnforcementStages(application)
 	const persistencePlanRewrite = createPersistencePlanRewriteStage(application)
 	const behaviors = composeRuntimeBehaviors(application)
@@ -354,16 +255,16 @@ export const createFrameworkEngine = <
 			? createRuntimeValidationStage()
 			: createRuntimeValidationStage(normalizedOptions.validation)
 	const stages: RuntimePipelineStages = {
-		normalization: composeNormalizationStage(contributedStages.normalization),
+		normalization: neutralNormalization,
 		structuralValidation,
 		finalMutationValidation: createFinalMutationValidationStage(),
 		databaseOperation: databaseAdapter,
-		commit: composeCommitStage(contributedStages.commit),
+		commit: neutralCommit,
 		...(behaviors === undefined ? {} : { behaviors }),
 		...(enforcement === undefined ? {} : { enforcement }),
 		...(persistencePlanRewrite === undefined ? {} : { persistencePlanRewrite }),
 	}
-	// Core constructs the mandatory pipeline directly; plugins contribute its authorized stages.
+	// Assembly owns normalization and commit; plugins contribute only the supported behavior boundaries.
 	const pipeline = new RuntimePipeline(stages)
 	bindRuntimeVirtualFields(pipeline, application)
 	bindRuntimeRelationFilters(pipeline, application)

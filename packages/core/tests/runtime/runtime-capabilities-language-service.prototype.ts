@@ -175,3 +175,26 @@ void (undefined as unknown as Removed12)
 // @ts-expect-error The unused kernel contract was removed by ADR-0259.
 type Removed6 = core.ReplaceSchemaCompilerOptions
 void (undefined as unknown as Removed6)
+
+// ADR-0264 removes stage contributions from source and packed authoring contracts.
+// @ts-expect-error Only the supported logical interceptors remain.
+void core.runtimePipelineStage
+// @ts-expect-error Former low-level plugin stage names are no longer public.
+type RemovedStageName = core.RuntimePipelineStageName
+// @ts-expect-error Former low-level plugin stage definitions are no longer public.
+type RemovedStageDefinition = core.RuntimePipelineStageDefinition
+// @ts-expect-error Former low-level plugin stage handlers are no longer public.
+type RemovedStageHandler = core.RuntimePipelineStageHandler<'commit'>
+// @ts-expect-error Former low-level plugin stage options are no longer public.
+type RemovedStageOptions = core.RuntimePipelineStageOptions<'commit'>
+void (undefined as unknown as RemovedStageName)
+void (undefined as unknown as RemovedStageDefinition)
+void (undefined as unknown as RemovedStageHandler)
+void (undefined as unknown as RemovedStageOptions)
+provideRuntimeInterceptor({
+	contributionId: 'removed-stage',
+	create: () => ({
+		// @ts-expect-error A stage-shaped object is not a logical interceptor definition.
+		value: { stage: 'commit' },
+	}),
+})

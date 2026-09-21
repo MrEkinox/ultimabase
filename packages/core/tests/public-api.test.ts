@@ -228,7 +228,6 @@ describe('@ultimabase/core public entry point', () => {
 			'runtimeBehaviorCapability',
 			'runtimeConstraintCapability',
 			'runtimeInterceptorCapability',
-			'runtimePipelineStage',
 			'schemaMutationHandler',
 			'schemaMutationTransportBinding',
 			'schemaMutationWireCodec',

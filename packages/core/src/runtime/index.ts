@@ -293,13 +293,6 @@ export type {
 } from './master/master-authority.js'
 // The engine assembles these neutral stages once and every transport uses them.
 export { RuntimePipeline } from './pipeline/runtime-pipeline.js'
-export { runtimePipelineStage } from './pipeline/definitions.js'
-export type {
-	RuntimePipelineStageDefinition,
-	RuntimePipelineStageHandler,
-	RuntimePipelineStageName,
-	RuntimePipelineStageOptions,
-} from './pipeline/definitions.js'
 export type {
 	RuntimeBehaviorStages,
 	RuntimeEnforcementEvaluationStage,

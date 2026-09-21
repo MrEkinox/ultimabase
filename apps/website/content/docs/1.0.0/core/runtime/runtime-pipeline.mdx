@@ -10,11 +10,11 @@ order: 2
 outcome: Identify when Core validates, enforces policy, writes, and commits.
 owner: '2821'
 releaseStatus: pre-release
-reviewedAt: 2026-09-16
+reviewedAt: 2026-09-21
 sources:
   - ARCHITECTURE.md
   - packages/core/docs/runtime.md
-  - docs/adr/0064-mandatory-runtime-pipeline.md
+  - docs/adr/0264-remove-unused-runtime-stage-contributions.md
   - docs/adr/0200-protected-rewritable-persistence-plans.md
   - docs/adr/0205-protected-policy-contributions.md
 ---
@@ -23,6 +23,11 @@ Direct TypeScript commands and the REST and GraphQL transports enter the same
 Core Runtime. A transport converts its input into a logical operation; it does
 not run its own database or authorization pipeline. Core fixes the execution
 order, while installed plugins contribute behavior at declared boundaries.
+Core owns normalization and transaction commit. Plugin authors can contribute
+logical before/after-operation behavior and prepared-target transforms;
+`runtimePipelineStage()` and its normalization/commit contribution types are
+no longer exposed. Hook `beforeCommit`/`afterCommit` callbacks and post-commit
+events keep their existing behavior.
 
 ## Mutation path
 

@@ -8,10 +8,10 @@ validation et audit sans anomalie restante.
 
 Dernière mise à jour : **21 septembre 2026**. Le jalon 30 est terminé et reste
 historique. L’utilisateur a autorisé l’exécution autonome du jalon 31 avec
-boucle d’audit et commit par issue ; les issues 3101–3106 sont livrées.
+boucle d’audit et commit par issue ; les issues 3101–3108 sont livrées.
 Le changement ciblé des sélecteurs de l’ADR-0263 est accepté et livré ; les
-trois retraits publics de la 3107 sont maintenant approuvés, à réaliser dans
-les issues 3108–3110.
+trois retraits publics de la 3107 sont approuvés. RC-04 est livré en 3108 ;
+RC-05 et RC-06 restent à réaliser dans les issues 3109–3110.
 Aucun push n’est autorisé. L’arrêt après la 3014, puis la reprise autorisée jusqu’à la 3034,
 restent consignés dans le journal archivé du jalon 30.
 
@@ -627,7 +627,7 @@ portent les preuves, décisions et critères de conservation. Les anciens R-001
 | RC-01 : fonctions privées inutilisées et registres Access/Hooks vides    | 3101–3104 | Core −334, Access −100 et Hooks −21 lignes livrés                 | Déclarations actuelles, provenance et API publiques             |
 | RC-02 : chemins de champs recopiés dans Hooks                            | 3104      | Livré : types Core réutilisés, copie privée de 143 lignes retirée | Imports publics Hooks, inférence et aide de l’éditeur           |
 | RC-03 : aller-retour du compilateur via une représentation intermédiaire | 3105–3106 | Livré en 3106 : −2 256 lignes de production                       | Validation, ordre, ownership, relations et publication atomique |
-| RC-04 : extension Runtime normalization/commit inutilisée                | 3107–3108 | ADR-0264 acceptée ; réalisation en 3108                           | Interceptors utilisés par ACL, transactions et hooks de commit  |
+| RC-04 : extension Runtime normalization/commit inutilisée                | 3107–3108 | Retiré en 3108 ; -223 lignes de production                        | Interceptors utilisés par ACL, transactions et hooks de commit  |
 | RC-05 : marqueur Typegen, usages conditionnels en tests                  | 3107/3109 | ADR-0265 acceptée ; réalisation en 3109                           | Génération automatique, types et empreintes déterministes       |
 | RC-06 : anticipation des migrations                                      | 3107/3110 | ADR-0266 acceptée ; réalisation en 3110                           | Synchronisation PostgreSQL, stockage privé et provenance utile  |
 
@@ -754,3 +754,20 @@ La 3106 est commitée dans `a539cfc8` : **+2 335 / −4 349 = −2 014 lignes**.
 La 3107 enregistre ces décisions après audit. Les issues 3108–3110 réalisent
 les retraits approuvés avec leurs propres tests, audits, documentation publique
 et commits. Aucun changement d’API n’est déjà réalisé dans ce commit de décision.
+
+### Issue 3108 — contributions Runtime inutilisées retirées
+
+**−223 lignes de production** : factory `runtimePipelineStage`, ses quatre
+types publics, registre privé et assemblage des contributions
+`normalization`/`commit`. Les transactions, les intercepteurs logiques utilisés
+par ACL, les callbacks Hooks et leur attribution restent présents.
+Aucune API de remplacement. Les 22 autres packages gardent des déclarations
+identiques ; les exports passent de 1 726 à 1 721, exactement selon l’ADR-0264.
+
+Les deux fichiers de tests exclusifs à l’ancienne factory sont retirés ; les
+scénarios conservés et le rejet des anciennes définitions restent vérifiés.
+**2 793 tests avec couverture et 384 tests construits/archives/PostgreSQL passent**.
+La suite construite utilise deux workers après des dépassements de délai à la
+concurrence par défaut ; aucun délai ni assertion n’est assoupli. Aucune perte
+de couverture sur le code conservé. Documentation du site et contrats Core
+mis à jour, audit final sans anomalie. RC-05 et RC-06 restent à réaliser.

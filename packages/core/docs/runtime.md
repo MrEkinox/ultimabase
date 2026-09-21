@@ -95,9 +95,12 @@ its exact schema and plugin tuples. A missing or malformed database adapter,
 invalid pipeline contribution, or unusable application state fails
 during assembly, before any operation can execute.
 
-Plugins materialize `runtimePipelineStage()` only for the general
-`normalization` and `commit` positions. Policies provide protected enforcement
-definitions through the exact `provideRuntimeConstraint()` facade:
+Core owns normalization and transaction commit. Plugins contribute logical
+`beforeOperation`, `afterOperation` and `preparedOperation` definitions through
+`provideRuntimeInterceptor()`; the former `runtimePipelineStage()` factory and
+its types are removed by ADR-0264. Hook `beforeCommit`/`afterCommit` and
+post-commit delivery retain their existing boundaries. Policies provide
+protected definitions through the exact `provideRuntimeConstraint()` facade:
 
 ```ts
 const tenantPlugin = (tenantId: string) =>

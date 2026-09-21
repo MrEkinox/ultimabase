@@ -7,13 +7,14 @@ contentType: guide
 outcome: Select the correct lifecycle, Runtime, storage, and security boundary for an advanced plugin.
 owner: '2810'
 releaseStatus: pre-release
-reviewedAt: 2026-09-17
+reviewedAt: 2026-09-21
 sources:
   - packages/core/README.md
   - packages/core/src/plugins/manifest.ts
   - packages/plugin-kit/README.md
   - packages/testing/README.md
   - packages/http-plugin/README.md
+  - docs/adr/0264-remove-unused-runtime-stage-contributions.md
   - docs/adr/0190-capability-host-lifecycle-and-legacy-convergence.md
   - docs/adr/0191-plugin-privilege-taxonomy-and-diagnostics.md
   - docs/adr/0195-setup-phase-capability-requirements.md
@@ -113,7 +114,13 @@ Core never guesses it from options.
 ## Choose a Runtime boundary
 
 Core constructs the Runtime directly. Plugins contribute behavior, policies,
-and persistence rewrites through these supported boundaries.
+and persistence rewrites through these supported boundaries. Normalization and
+transaction commit stay owned by Core; the former `runtimePipelineStage()`
+factory and its types are removed. For logical interception, use
+`provideRuntimeInterceptor()` with `beforeOperation`, `afterOperation` or
+`preparedOperation` under `runtime:intercept`. Callback ownership and ordering
+remain enforced; Hook `beforeCommit`/`afterCommit` still run at their documented
+transaction boundaries.
 
 | Goal                                  | Public contribution                                                            | Privilege             | Invariant                                                         |
 | ------------------------------------- | ------------------------------------------------------------------------------ | --------------------- | ----------------------------------------------------------------- |

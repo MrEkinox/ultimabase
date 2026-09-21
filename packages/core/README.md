@@ -1942,7 +1942,7 @@ Milestone 14 maps the removed generic paths as follows:
 - exclusive string slots become canonical `single` capabilities;
 - public service tokens become application capabilities;
 - optional Hooks and Access use application capabilities owned by their packages;
-- low-level behavior, policy enforcement, and fixed pipeline stages use
+- low-level behavior, policy enforcement, and logical operation interceptors use
   `provideRuntimeBehavior()`, `provideRuntimeConstraint()`, and
   `provideRuntimeInterceptor()`;
 - product event and diagnostic capabilities retain their own `runtime:observe`
@@ -1959,6 +1959,13 @@ Milestone 14 maps the removed generic paths as follows:
   provenance; and
 - unused operator, generator, and transport registry categories are removed
   without replacement.
+
+Core owns normalization and transaction commit. Plugins use
+`beforeOperation`, `afterOperation` or `preparedOperation` with
+`provideRuntimeInterceptor()` under `runtime:intercept`; they cannot contribute
+normalization/commit stages. ADR-0264 removes `runtimePipelineStage()` and its
+four authoring types. Transactions, Hook `beforeCommit`/`afterCommit`, callback
+ownership and post-commit delivery retain their existing behavior.
 
 Persistence plan protocol version 2 keeps logical operations immutable while
 separating plugin-owned schema-mutation identity from its Core-compiled

@@ -15,9 +15,11 @@ import {
 	guard,
 	restrictSelection,
 } from '../enforcement/definitions.js'
-import { beforeOperation } from '../contributions/definitions.js'
+import {
+	afterOperation,
+	beforeOperation,
+} from '../contributions/definitions.js'
 import { MasterAuthority } from '../master/master-authority.js'
-import { runtimePipelineStage } from '../pipeline/definitions.js'
 import { RecordingDatabaseAdapter } from '../../../tests/runtime/fixtures/recording-database-adapter.js'
 import { provideTestDatabaseAdapter } from '../../../tests/runtime/fixtures/database-adapter-capability.js'
 import {
@@ -87,22 +89,19 @@ describe('createFrameworkEngine', () => {
 			capabilities: {
 				provides: [
 					provideTestRuntimeInterceptor(
-						'fixture.dependency-normalization',
-						runtimePipelineStage({
-							stage: 'normalization',
-							handler: (input) => {
-								trace.push('normalization:dependency')
-
-								return input.operation
+						'fixture.dependency-before',
+						beforeOperation({
+							handler: () => {
+								trace.push('before:dependency')
 							},
 						}),
 					),
 					provideTestRuntimeInterceptor(
-						'fixture.dependency-commit',
-						runtimePipelineStage({
-							stage: 'commit',
-							handler: () => {
-								trace.push('commit:dependency')
+						'fixture.dependency-after',
+						afterOperation({
+							handler: ({ result }) => {
+								trace.push('after:dependency')
+								return { result }
 							},
 						}),
 					),
@@ -125,22 +124,19 @@ describe('createFrameworkEngine', () => {
 			capabilities: {
 				provides: [
 					provideTestRuntimeInterceptor(
-						'fixture.consumer-normalization',
-						runtimePipelineStage({
-							stage: 'normalization',
-							handler: (input) => {
-								trace.push('normalization:consumer')
-
-								return input.operation
+						'fixture.consumer-before',
+						beforeOperation({
+							handler: () => {
+								trace.push('before:consumer')
 							},
 						}),
 					),
 					provideTestRuntimeInterceptor(
-						'fixture.consumer-commit',
-						runtimePipelineStage({
-							stage: 'commit',
-							handler: () => {
-								trace.push('commit:consumer')
+						'fixture.consumer-after',
+						afterOperation({
+							handler: ({ result }) => {
+								trace.push('after:consumer')
+								return { result }
 							},
 						}),
 					),
@@ -284,13 +280,15 @@ describe('createFrameworkEngine', () => {
 		})
 		expect(trace).toStrictEqual([
 			'adapter:begin',
-			'normalization:dependency',
-			'normalization:consumer',
 			'enforcement:guard',
 			'enforcement:constraint',
+			'before:dependency',
+			'before:consumer',
 			'hook:before',
 			'prepare:create-one',
 			'execute:create-one',
+			'after:dependency',
+			'after:consumer',
 			'adapter:commit',
 			'event:post-commit',
 		])

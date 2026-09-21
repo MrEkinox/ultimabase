@@ -22,19 +22,13 @@ import {
 } from './enforcement/protected-policy.js'
 import { getRuntimeContributionImplementation } from './contributions/definitions.js'
 import type { RuntimeBehaviorStages } from './pipeline/contracts.js'
-import {
-	getRuntimePipelineStageImplementation,
-	type RuntimePipelineStageName,
-} from './pipeline/definitions.js'
 
 /** Lists the public logical boundaries that authorized middleware may intercept. */
-export type RuntimeInterceptorDefinition =
-	| Readonly<{
-			kind: 'after-operation' | 'before-operation' | 'prepared-operation'
-			operations: readonly OperationKind[] | undefined
-			schema: SchemaDefinition | undefined
-	  }>
-	| Readonly<{ stage: RuntimePipelineStageName }>
+export type RuntimeInterceptorDefinition = Readonly<{
+	kind: 'after-operation' | 'before-operation' | 'prepared-operation'
+	operations: readonly OperationKind[] | undefined
+	schema: SchemaDefinition | undefined
+}>
 
 /** Lists the monotonic definitions that can only narrow protected execution. */
 export type RuntimeConstraintDefinition =
@@ -150,10 +144,7 @@ const assertRuntimeInterceptorDefinition = (
 	definition: unknown,
 ): RuntimeInterceptorDefinition => {
 	const contribution = getRuntimeContributionImplementation(definition)
-	if (
-		getRuntimePipelineStageImplementation(definition) !== undefined ||
-		contribution !== undefined
-	) {
+	if (contribution !== undefined) {
 		return definition as RuntimeInterceptorDefinition
 	}
 

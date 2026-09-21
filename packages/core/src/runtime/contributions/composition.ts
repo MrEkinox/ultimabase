@@ -249,8 +249,10 @@ const readContributions = (
 		const implementation = getRuntimeContributionImplementation(
 			contribution.value,
 		)
-		// Fixed-position pipeline interceptors are assembled separately.
-		if (implementation === undefined) continue
+		// A missing implementation must never silently discard an interceptor.
+		if (implementation === undefined) {
+			throw new TypeError('Runtime interceptor implementation is unavailable')
+		}
 
 		if (
 			implementation.schema !== undefined &&

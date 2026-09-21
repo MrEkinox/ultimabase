@@ -132,6 +132,48 @@ describe('public Runtime capabilities', () => {
 		).toMatchObject({ kind: 'runtime-capability-provider-factory' })
 	})
 
+	it.each(['normalization', 'commit'] as const)(
+		'rejects a forged former %s stage before plugin setup',
+		async (stage) => {
+			const effects: string[] = []
+			const plugin = definePlugin({
+				core: '^0.0.0',
+				pluginId: 'fixture.removed-runtime-stage',
+				version: '0.0.0',
+				privileges: [
+					{
+						name: 'runtime:intercept',
+						reason: 'Tests the removed stage boundary.',
+					},
+				],
+				capabilities: {
+					provides: [
+						provideRuntimeInterceptor({
+							contributionId: 'removed-stage',
+							create: () => ({
+								// Untyped plugins cannot restore a removed stage with a shaped object.
+								value: {
+									stage,
+									handler: () => {
+										effects.push('handler')
+									},
+								} as never,
+							}),
+						}),
+					],
+				},
+				setup: () => {
+					effects.push('setup')
+				},
+			})
+			const application = createPluginApplication(plugin)
+			await expect(application.initialize()).rejects.toThrow(
+				'runtime interceptor factories must return a definition created by an interceptor factory',
+			)
+			expect(effects).toStrictEqual([])
+		},
+	)
+
 	it('requires Runtime interception privilege and validates mutation guards', async () => {
 		const missingPrivilege = definePlugin({
 			core: '^0.0.0',

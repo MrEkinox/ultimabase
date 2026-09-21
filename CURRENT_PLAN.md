@@ -1,12 +1,12 @@
 # Active plan: residual complexity simplification
 
-- Status: in-progress — 3107 decisions accepted; next 3108
+- Status: in-progress — 3108 complete; next 3109
 - Milestone: [31 — Residual complexity simplification](issues/3100-residual-complexity-simplification/README.md)
 - Detailed plan: [execution and audit contract](docs/plans/2026-09-21-residual-complexity-simplification.md)
 - Evidence: [candidate inventory](docs/plans/2026-09-21-residual-complexity-inventory.md)
 - Measurements and retained IDs: [3101 baseline](docs/plans/2026-09-21-residual-complexity-baseline.md)
 - Baseline source: `265b54c909404f9690a666bdf39ace01ccee466e`
-- Current issue: [3108](issues/3100-residual-complexity-simplification/3108-remove-unused-runtime-stage-contributions.md)
+- Current issue: [3109](issues/3100-residual-complexity-simplification/3109-remove-unread-typegen-emitter-marker.md)
 - Hard stop: after issue 3112 and its dedicated local commit
 
 ## Current authorization
@@ -69,6 +69,8 @@ Stop expressly after the final 3112 audit and commit; no automatic continuation.
 
 - 3106: `a539cfc8`, +2,335 / -4,349 = -2,014 lines; production -2,256.
 
+- 3107: `adbefbad`, +534 / -73 = +461 lines; production delta 0.
+
 ## Exact resume point
 
 3101–3106 and the separately approved private Core resolver cleanup are committed.
@@ -83,7 +85,9 @@ commit is `a539cfc8`. The tree was clean before 3107 preparation.
 - RC-05: [ADR-0265](docs/adr/0265-remove-typegen-emitter-marker.md), remove the emitter marker, including its conditional-privilege fixture use and uniqueness convention.
 - RC-06: [ADR-0266](docs/adr/0266-defer-migration-only-protocols.md), remove the exact migration scaffold and public `FakeAdapterMigrationHistory`; preserve physical provenance, direct synchronization/renames and private storage.
 
-All three removals are approved, not yet implemented. After the dedicated 3107
-commit, execute 3108, 3109 and 3110 in order, with a separate validation/audit
-loop and commit per issue. Then audit the website in 3111 and complete the
+3108 implements RC-04: -223 production lines, exactly five approved exports
+removed, 2,793 coverage tests and 384 built/packed/PostgreSQL tests pass, with
+no retained coverage regression. Its dedicated commit must precede 3109.
+RC-05/06 are approved and remain unimplemented. Execute 3109 and 3110 in order,
+with a separate validation/audit loop and commit per issue. Then audit the website in 3111 and complete the
 final parity audit in 3112. Stop expressly after 3112; no push is authorized.

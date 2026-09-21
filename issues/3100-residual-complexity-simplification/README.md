@@ -31,7 +31,7 @@ paused feature or later milestone is authorized.
 - [x] [3105 — Decide the internal schema compilation boundary](3105-decide-direct-internal-schema-compilation.md)
 - [x] [3106 — Simplify canonical schema compilation](3106-simplify-canonical-schema-compilation.md)
 - [x] [3107 — Decide the three unused public protocol candidates](3107-decide-unused-public-protocols.md)
-- [ ] [3108 — Remove unused Runtime stage contributions if approved](3108-remove-unused-runtime-stage-contributions.md)
+- [x] [3108 — Remove unused Runtime stage contributions if approved](3108-remove-unused-runtime-stage-contributions.md)
 - [ ] [3109 — Remove the Typegen emitter marker if approved](3109-remove-unread-typegen-emitter-marker.md)
 - [ ] [3110 — Remove unused migration anticipation if approved](3110-remove-unused-migration-anticipation.md)
 - [ ] [3111 — Reconcile the affected public website journeys](3111-reconcile-public-website-documentation.md)
