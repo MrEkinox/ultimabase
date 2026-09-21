@@ -48,7 +48,7 @@ this milestone.
 14. [x] [3014 — Audit the Core and kernel simplification checkpoint](3014-core-kernel-simplification-checkpoint.md)
 15. [x] [3015 — Simplify the Access plugin](3015-simplify-access-plugin.md)
 16. [x] [3016 — Simplify the Hooks plugin](3016-simplify-hooks-plugin.md)
-17. [ ] [3017 — Simplify the Validation plugin](3017-simplify-validation-plugin.md)
+17. [x] [3017 — Simplify the Validation plugin](3017-simplify-validation-plugin.md)
 18. [ ] [3018 — Simplify the Roles plugin](3018-simplify-roles-plugin.md)
 19. [ ] [3019 — Simplify the ACL Permissions plugin](3019-simplify-acl-permissions-plugin.md)
 20. [ ] [3020 — Simplify the Password Auth plugin](3020-simplify-password-auth-plugin.md)
@@ -91,7 +91,7 @@ decision, then an update to the affected pages under
 the final cross-page website review; package READMEs do not replace it.
 
 The [3014 checkpoint](../../docs/plans/2026-09-21-core-kernel-simplification-checkpoint.md)
-is complete with a green clean-checkout audit. Issues 3015–3016 are complete; the plugin wave resumes at 3017
+is complete with a green clean-checkout audit. Issues 3015–3017 are complete; the plugin wave resumes at 3018
 under the later explicit user authorization; milestone 30 remains open.
 
 ## Completion boundary

@@ -83,7 +83,8 @@ projections run Core structural snapshots only and never replay application
 validators.
 
 Each `validationPlugin()` installation owns an application-local plan cache.
-Applications in one process can use different validators, or omit the plugin,
-without sharing callbacks or option ownership. The plugin intentionally exposes
-no global default, schema-wide validator, provider registry, or implicit
-installation behavior.
+Sequential applications in one JavaScript realm can use different validators,
+or omit the plugin, without sharing callbacks or option ownership. Dispose the
+active application before starting its replacement; parallel test workers stay
+isolated. The plugin intentionally exposes no global default, schema-wide
+validator, provider registry, or implicit installation behavior.

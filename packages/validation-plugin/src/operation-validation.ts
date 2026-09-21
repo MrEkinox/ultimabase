@@ -11,6 +11,7 @@ import {
 	type DatabaseMutationOperationAst,
 	type GenericField,
 	type RuntimePreparedMutationStageInput,
+	type SchemaDefinition,
 	type SchemaValidationPlans,
 	type UpdateExpressionNode,
 } from '@ultimabase/core'
@@ -159,25 +160,16 @@ const unavailableTargetIssues = (
 	)
 
 const validateTargetProjection = (
-	operation: DatabaseMutationOperationAst,
+	schema: SchemaDefinition,
 	plans: SchemaValidationPlans,
-	update: unknown,
+	update: UpdateExpressionNode,
 	fields: readonly ArithmeticFieldOccurrence[],
 	target: Readonly<Record<string, unknown>>,
 	targetPath: readonly (number | string)[],
 	callbacks: ApplicationCallbackExecutor,
 ): readonly FieldValidationIssue[] => {
-	const schema = getOperationSchema(operation)
-	if (!Schema.is(schema)) {
-		throw new TypeError('Projected arithmetic requires a schema definition')
-	}
-
 	const stableTarget = snapshotRuntimeResultRecord(plans, target, targetPath)
-	const projection = applyUpdateExpressionToRecord(
-		schema,
-		stableTarget,
-		createProjectableUpdate(update),
-	)
+	const projection = applyUpdateExpressionToRecord(schema, stableTarget, update)
 	const stableProjection = snapshotRuntimeResultRecord(
 		plans,
 		projection,
@@ -230,12 +222,14 @@ const collectArithmeticIssues = (
 					'Validated bulk arithmetic requires complete prepared targets',
 				)
 			}
+			// Every prepared target shares this mutation's immutable projection expression.
+			const projectableUpdate = createProjectableUpdate(update)
 			return immutableArray(
 				input.targets.flatMap((target, index) =>
 					validateTargetProjection(
-						input.operation,
+						schema,
 						plans,
-						update,
+						projectableUpdate,
 						fields,
 						target,
 						['targets', index],
@@ -256,9 +250,9 @@ const collectArithmeticIssues = (
 			)
 		}
 		return validateTargetProjection(
-			input.operation,
+			schema,
 			plans,
-			update,
+			createProjectableUpdate(update),
 			fields,
 			input.target,
 			['target'],
@@ -269,7 +263,6 @@ const collectArithmeticIssues = (
 	switch (operation.kind) {
 		case 'update-one':
 		case 'update-many':
-			return validate(operation.kind, operation.update, ['update'])
 		case 'upsert-one':
 			return validate(operation.kind, operation.update, ['update'])
 		case 'upsert-many': {

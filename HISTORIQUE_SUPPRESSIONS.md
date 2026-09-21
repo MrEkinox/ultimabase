@@ -357,3 +357,18 @@ Bilan de production Hooks : **5 620 → 5 528 lignes (−92)**, 33 fichiers,
 38 intégrations ciblées sur les exports construits passent sans perte de
 couverture conservée. Audit final sans anomalie ; correction de deux précisions
 documentaires existantes, sans changement public supplémentaire.
+
+## Validation — issue 3017 réalisée
+
+La projection arithmétique réutilise le schéma déjà vérifié et prépare une seule
+fois l’expression commune aux cibles. Le dispatch des mises à jour est regroupé.
+Deux validateurs de fixture sans import ni export public sont supprimés. Les
+snapshots, les erreurs, l’ordre des validateurs et les deltas atomiques restent
+conservés ; aucune capacité de validation ne disparaît.
+
+Bilan : **787 → 757 lignes (−30)** selon la mesure constante du jalon, dont
+23 lignes de fixtures inutilisées et 7 de logique exécutable. Les neuf exports
+et déclarations construites restent identiques. Les 2 778 tests de couverture
+passent sans perte sur les chemins conservés ; après suppression de la fixture,
+les 41 tests du package et les deux intégrations construites passent aussi.
+Audit final sans anomalie restante.
