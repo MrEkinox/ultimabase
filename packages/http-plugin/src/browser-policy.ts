@@ -5,7 +5,11 @@ import {
 	isUnknownArray,
 } from '@ultimabase/shared'
 
-import { httpApplicationIdHeader, httpMasterKeyHeader } from './constants.js'
+import {
+	httpApplicationIdHeader,
+	httpMasterKeyHeader,
+	httpMethods,
+} from './constants.js'
 import type { HttpMethod } from './endpoints.js'
 import {
 	HttpPreDispatchFailure,
@@ -44,15 +48,6 @@ export interface EnabledHttpBrowserPolicy extends HttpBrowserPolicyOptions {
 export type HttpBrowserPolicy =
 	DisabledHttpBrowserPolicy | EnabledHttpBrowserPolicy
 
-const supportedMethods = new Set<HttpMethod>([
-	'DELETE',
-	'GET',
-	'HEAD',
-	'OPTIONS',
-	'PATCH',
-	'POST',
-	'PUT',
-])
 const headerNamePattern = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/u
 const corsResponseHeaderNames = [
 	'Access-Control-Allow-Credentials',
@@ -125,10 +120,7 @@ const snapshotMethods = (value: unknown): readonly HttpMethod[] => {
 	const methods: HttpMethod[] = []
 	const unique = new Set<HttpMethod>()
 	for (const method of value) {
-		if (
-			typeof method !== 'string' ||
-			!supportedMethods.has(method as HttpMethod)
-		) {
+		if (typeof method !== 'string' || !httpMethods.has(method as HttpMethod)) {
 			throw new TypeError(
 				'HTTP browser policy allowedMethods contains an unsupported method',
 			)
@@ -345,7 +337,7 @@ export const dispatchHttpBrowserRequest = async (
 		)
 		const accepted =
 			isAllowedOrigin(policy, origin) &&
-			supportedMethods.has(requestedMethod as HttpMethod) &&
+			httpMethods.has(requestedMethod as HttpMethod) &&
 			policy.allowedMethods.includes(requestedMethod as HttpMethod) &&
 			requestedHeaders.every((header) =>
 				allowedHeaderNames.has(header.toLowerCase()),

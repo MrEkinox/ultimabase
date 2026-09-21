@@ -115,9 +115,7 @@ const ownEndpoint = (
 	const handle: HttpRequestHandler = (request) =>
 		invokeHandler(definition.handle, request, contribution.owner, callbacks)
 
-	return definition.kind === 'route'
-		? immutableRecord({ ...definition, handle, provenance })
-		: immutableRecord({ ...definition, handle, provenance })
+	return immutableRecord({ ...definition, handle, provenance })
 }
 
 /** @internal Compiles deterministic routes while retaining exact callback owners. */

@@ -118,7 +118,7 @@ const snapshotOriginalHeaders = (
 		throw new HttpPreDispatchFailure(httpPreDispatchErrorCodes.badRequest)
 	}
 	const headers: HttpOriginalHeader[] = []
-	const sensitiveCounts = new Map<string, number>()
+	const seenSensitiveNames = new Set<string>()
 
 	for (const header of value) {
 		if (
@@ -133,11 +133,10 @@ const snapshotOriginalHeaders = (
 		headers.push(pair)
 		const normalizedName = header[0].toLowerCase()
 		if (sensitiveHeaderNames.has(normalizedName)) {
-			const count = (sensitiveCounts.get(normalizedName) ?? 0) + 1
-			if (count > 1) {
+			if (seenSensitiveNames.has(normalizedName)) {
 				throw new HttpPreDispatchFailure(httpPreDispatchErrorCodes.badRequest)
 			}
-			sensitiveCounts.set(normalizedName, count)
+			seenSensitiveNames.add(normalizedName)
 		}
 	}
 

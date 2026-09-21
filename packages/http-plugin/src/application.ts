@@ -78,17 +78,9 @@ interface HttpApplicationState {
 	readonly browserPolicy: HttpBrowserPolicy
 	readonly callbacks: ApplicationCallbackExecutor
 	readonly contextResolvers: ReturnType<typeof compileHttpContextResolvers>
-	disposed: boolean
-	readonly masterEnabled: boolean
 	readonly owner: PluginIdentity
 	requestExecution: ApplicationRequestExecutor | undefined
-	readonly requestTimeoutMs: number | undefined
 }
-
-const httpApplicationStates = new WeakMap<
-	HttpApplication,
-	HttpApplicationState
->()
 interface HttpRequestSignals {
 	readonly deadline: AbortSignal | undefined
 	readonly signal: AbortSignal
@@ -190,10 +182,10 @@ const invokeSelectedEndpoint = async (
 
 const dispatchPreparedRequest = async (
 	application: HttpApplication,
+	state: HttpApplicationState,
 	prepared: PreparedHttpServerRequest,
 ): Promise<Response> => {
-	const state = httpApplicationStates.get(application)
-	if (state === undefined || state.disposed) {
+	if (state.requestExecution === undefined) {
 		return createHttpPreDispatchErrorResponse(
 			httpPreDispatchErrorCodes.internalError,
 			prepared.requestId,
@@ -223,7 +215,7 @@ const dispatchPreparedRequest = async (
 		prepared.originalHeaders,
 		httpMasterKeyHeader,
 	)
-	if (masterKey !== undefined && !state.masterEnabled) {
+	if (masterKey !== undefined && !application.authority.master.enabled) {
 		return createHttpPreDispatchErrorResponse(
 			httpPreDispatchErrorCodes.applicationRejected,
 			prepared.requestId,
@@ -232,7 +224,7 @@ const dispatchPreparedRequest = async (
 
 	const signals = createRequestSignals(
 		prepared.input.request,
-		state.requestTimeoutMs,
+		application.requestTimeoutMs,
 	)
 	const resolverRequest = withoutHttpCredentialHeaders(
 		prepared.input.request,
@@ -350,26 +342,21 @@ export const createHttpApplicationResource = (
 						: httpPreDispatchErrorCodes.internalError
 				return createHttpPreDispatchErrorResponse(code, fallbackRequestId)
 			}
-			return dispatchPreparedRequest(application, prepared)
+			return dispatchPreparedRequest(application, state, prepared)
 		},
 	})
-	httpApplicationStates.set(application, {
+	// Fetch and disposal share this resource's state without an application lookup table.
+	const state: HttpApplicationState = {
 		browserPolicy: options.browserPolicy,
 		callbacks: options.callbacks,
 		contextResolvers,
-		disposed: false,
-		masterEnabled: options.masterEnabled,
 		owner: immutableRecord(options.owner),
 		requestExecution: options.requestExecution,
-		requestTimeoutMs: options.requestTimeoutMs,
-	})
+	}
 
 	return immutableRecord({
 		value: application,
 		dispose: () => {
-			const state = httpApplicationStates.get(application)
-			if (state === undefined) return
-			state.disposed = true
 			state.requestExecution = undefined
 		},
 	})

@@ -1,12 +1,12 @@
 # Active plan: pre-feature architecture simplification
 
-- Status: active — plugin wave explicitly resumed; next issue 3024
+- Status: active — plugin wave explicitly resumed; next issue 3025
 - Milestone: [30 — Pre-feature architecture simplification](issues/3000-pre-feature-architecture-simplification/README.md)
 - Detailed plan: [docs/plans/2026-09-20-pre-feature-architecture-simplification.md](docs/plans/2026-09-20-pre-feature-architecture-simplification.md)
 - Baseline: [docs/plans/2026-09-20-architecture-simplification-baseline.md](docs/plans/2026-09-20-architecture-simplification-baseline.md)
 - Contract matrix: [docs/plans/2026-09-20-architecture-contract-matrix.md](docs/plans/2026-09-20-architecture-contract-matrix.md)
 - Removal history: [HISTORIQUE_SUPPRESSIONS.md](HISTORIQUE_SUPPRESSIONS.md)
-- Resume point: issue 3024; continue sequentially through issue 3034
+- Resume point: issue 3025; continue sequentially through issue 3034
 
 ## Objective
 
@@ -319,3 +319,11 @@ Its 246 production lines and 11 exports are retained. Only a JSDoc and README
 explanation are corrected; executable code and public type structure are
 identical. All 56 focused source/type checks and eight built checks pass.
 Continue with issue 3024 after the dedicated 3023 commit.
+
+Issue 3023 is committed as `32b6dec0`: +91 / -20 lines, net +71, including
+engineering records. Issue 3024 is complete with a green audit: HTTP removes
+18 production lines, the redundant state lookup and duplicate configuration
+copies, preserving all 64 exports and declaration text apart from region order.
+The GraphQL HTTP contract remains unchanged. All 364 source/boundary checks
+and 383 built integrations pass with no retained coverage loss. Continue with
+issue 3025 after the dedicated 3024 commit.

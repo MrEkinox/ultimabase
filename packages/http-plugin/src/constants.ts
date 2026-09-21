@@ -1,3 +1,5 @@
+import type { HttpMethod } from './endpoints.js'
+
 /** Selects one exact public HTTP application without granting authority. */
 export const httpApplicationIdHeader = 'X-UltimaBase-Application-Id'
 /** Reserves the only path namespace allowed to bootstrap one browser UI. */
@@ -14,3 +16,14 @@ export const httpApplicationProtocolVersion = '1.0.0'
 
 /** Requires evidence captured before Fetch combines repeated header fields. */
 export const httpOriginalHeaderMode = 'ordered-pairs'
+
+/** @internal Shares the supported vocabulary between routes and browser policy. */
+export const httpMethods: ReadonlySet<HttpMethod> = new Set([
+	'DELETE',
+	'GET',
+	'HEAD',
+	'OPTIONS',
+	'PATCH',
+	'POST',
+	'PUT',
+])

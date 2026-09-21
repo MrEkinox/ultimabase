@@ -16,6 +16,8 @@ import {
 	type MaybePromise,
 } from '@ultimabase/shared'
 
+import { httpMethods } from './constants.js'
+
 /** Names one protocol whose handler owns response and post-dispatch errors. */
 export interface HttpEndpointProtocol<
 	TName extends string = string,
@@ -106,15 +108,6 @@ export interface HttpBrowserBootstrapRouteOptions<
 	readonly handle: HttpRequestHandler
 }
 
-const httpMethods = new Set<HttpMethod>([
-	'DELETE',
-	'GET',
-	'HEAD',
-	'OPTIONS',
-	'PATCH',
-	'POST',
-	'PUT',
-])
 const endpointDefinitions = new WeakSet<object>()
 const routeOptionKeys = new Set(['handle', 'method', 'path', 'protocol'])
 const mountOptionKeys = new Set(['handle', 'path', 'protocol'])
@@ -282,7 +275,7 @@ const assertEndpointDefinition: (
 	}
 }
 
-/** @internal Revalidates every materialized provider, including replacements. */
+/** @internal Validates every materialized provider before route composition. */
 export const assertHttpEndpointDefinitions: (
 	definitions: unknown,
 	path: string,

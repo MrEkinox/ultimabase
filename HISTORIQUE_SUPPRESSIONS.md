@@ -460,3 +460,19 @@ explicitement non livré, comme avant ; aucun nouveau mécanisme n'est ajouté.
 Les 56 contrôles source/types et huit contrôles construits passent. Le code
 exécutable et la structure des types sont identiques, avec la couverture
 complète du passage précédent conservée. Audit final vert.
+
+## HTTP — issue 3024 réalisée
+
+La ressource HTTP conserve directement son état privé : la table de recherche
+par application, le booléen de fermeture et deux copies de configuration
+disparaissent. Le retrait de l'exécuteur ferme toujours les requêtes et reste
+vérifié après les étapes asynchrones. Une branche aux deux résultats identiques
+est supprimée ; routes et CORS partagent leur liste de méthodes. Les headers
+sensibles sont mémorisés dans un ensemble au lieu d'un compteur toujours limité
+à une occurrence, avec les mêmes rejets de doublons.
+
+Bilan de production HTTP : **2 517 → 2 499 lignes (−18)**, 14 fichiers et
+64 exports conservés. Le contrat GraphQL HTTP reste inchangé (82 lignes).
+Les 364 contrôles source et 383 intégrations construites passent, sans perte
+de couverture conservée. Credentials, provenance, Master, CORS, erreurs,
+timeouts et disposal gardent leur comportement. Audit final vert.

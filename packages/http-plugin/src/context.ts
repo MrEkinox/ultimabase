@@ -229,7 +229,7 @@ const httpContextLineage = new RequestContextValue<HttpContextLineage>(
 	},
 )
 
-/** @internal Retains exact owners across replacements and resolver ordering. */
+/** @internal Retains exact owners and validates the ordered resolver contributions. */
 export const compileHttpContextResolvers = (
 	contributions: readonly CapabilityProviderContribution<HttpContextResolverContributionsCapability>[],
 	browserPolicy: HttpBrowserPolicy,
