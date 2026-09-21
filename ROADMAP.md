@@ -92,21 +92,21 @@ configures Typegen only for TypeScript. The package is not published; the
 general `ultimabase` CLI remains in its deferred backlog.
 
 [Milestone 30](issues/3000-pre-feature-architecture-simplification/README.md) is
-the active blocking objective before any new product capability. It removes
-unused plugin powers, adopts one active application per JavaScript realm while preserving
-concurrent request and parallel-worker isolation, and converges command Runtime,
-developer surfaces, Typegen, REST, and GraphQL on one canonical compiled graph.
-After the Core checkpoint it separately audits and simplifies all 16 current
-official plugins, then reconciles the public Fumadocs site across its Core,
-plugin-authoring, data, security, persistence, HTTP, and transport journeys.
-Every issue must pass a repeated implementation, audit, correction, and
-re-audit loop before the next issue begins.
+complete. It removed the explicitly approved unused plugin powers, retained
+concurrent requests and parallel-worker isolation with one active application
+per JavaScript realm, and converged Runtime, developer surfaces, Typegen, REST
+and GraphQL on one canonical compiled command graph. All 16 official plugins
+were audited independently, and the public website journeys were reconciled.
+The [final audit](docs/plans/2026-09-21-milestone-30-final-audit.md) records the
+retained contracts, measured reductions and complete clean-checkout validation.
+No later feature or simplification milestone is active or authorized by that
+completed run; the next objective requires a separate decision.
 
 The ACL hardening plan remains paused at issue 432. It is not part of an active
 plan.
 
-Completed cross-milestone plans are retained under
-[`docs/plans/completed/`](docs/plans/completed/) so their decisions remain
+Completed cross-milestone plans are indexed in
+[`docs/plans/`](docs/plans/) so their decisions and original links remain
 available.
 
 Milestone numbers continue to describe architectural ownership rather than a
@@ -387,7 +387,7 @@ a separate decision. The milestone does not implement the deferred general
 Preserve current product behavior and plugin capabilities while removing only
 explicitly approved unused extension contracts and parallel internal
 representations.
-UltimaBase supports one active application per JavaScript process, concurrent
+UltimaBase supports one active application per JavaScript realm, concurrent
 isolated requests within it, sequential replacement after disposal, and
 parallel applications in isolated test workers or processes. One canonical
 compiled command graph becomes the source for direct TypeScript, JavaScript,

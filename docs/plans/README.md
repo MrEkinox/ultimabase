@@ -7,12 +7,7 @@ priority changes.
 
 ## Active
 
-- [Pre-feature architecture simplification](2026-09-20-pre-feature-architecture-simplification.md),
-  resumed; next issue 3034 after the completed [3014 checkpoint](2026-09-21-core-kernel-simplification-checkpoint.md), with its
-  [baseline](2026-09-20-architecture-simplification-baseline.md) and
-  [contract matrix](2026-09-20-architecture-contract-matrix.md). It blocks new product work until its Core and
-  per-plugin audit loops, public website reconciliation, and final parity gate
-  complete. The current authorization extends through issue 3034.
+None. Milestone 30 is complete; no next implementation objective is authorized.
 
 ## Paused
 
@@ -21,6 +16,12 @@ priority changes.
 
 ## Completed
 
+- [Pre-feature architecture simplification](2026-09-20-pre-feature-architecture-simplification.md),
+  archived in place after issue 3034 with its
+  [final audit](2026-09-21-milestone-30-final-audit.md),
+  [baseline](2026-09-20-architecture-simplification-baseline.md) and
+  [contract matrix](2026-09-20-architecture-contract-matrix.md). All Core,
+  plugin and public website audit loops are complete; no later milestone starts.
 - [Interactive project initializer](completed/interactive-project-initializer.md)
 - [Public website and documentation foundation](completed/public-website-and-documentation-foundation.md)
 - [Contextual relation filters](completed/contextual-relation-filters.md)

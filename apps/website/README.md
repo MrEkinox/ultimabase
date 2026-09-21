@@ -220,7 +220,7 @@ schema with its computed result, and Standard Schema validation with Zod.
 Identity coverage describes local password authentication, session rotation and
 revocation, operation/row/field policies, object ACLs, and roles. Soft deletion
 keeps its private Master-only restore/purge boundary visible. Plugin authoring
-covers custom operations, fields, model/query extensions, middleware, and
+covers custom operations, fields, schema/model mutations, middleware, and
 application-specific Typegen declarations. Every capability links to its
 existing owning documentation; these guides remain the detailed contract.
 Compact section links lead to the detailed capability examples, whose labels

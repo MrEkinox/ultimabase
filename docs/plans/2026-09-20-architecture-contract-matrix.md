@@ -187,3 +187,14 @@ For every later issue, reviewers must:
 3. map each intentional difference to an approved D row;
 4. stop if a new dependency or consumer makes a removal claim ambiguous;
 5. add a new ID instead of silently widening an existing row.
+
+## Final reconciliation — issue 3034
+
+The [final audit](2026-09-21-milestone-30-final-audit.md) reconciles all 89 stable
+IDs individually against final source, public roots, regression families and
+the reviewed website journeys. B-001–B-012, P-001–P-023, C-001–C-039,
+R-001–R-010 and D-001–D-005 all remain in this ledger. The 36 retained protocols
+still have production declarations; only the three explicitly removed tokens
+are absent. No additional public capability or behavior difference was approved
+or introduced during the plugin wave. Historical baseline descriptions above
+remain historical, with their exact accepted dispositions preserved.

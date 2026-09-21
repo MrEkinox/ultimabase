@@ -1,9 +1,9 @@
 # Pre-feature architecture simplification
 
-- Status: active — plugin wave resumed by explicit user request
+- Status: completed — archived in place after the final 3034 audit
 - Started: 2026-09-20
 - Milestone: [30 — Pre-feature architecture simplification](../../issues/3000-pre-feature-architecture-simplification/README.md)
-- Resume point: issue 3034; authorized through the final audit in 3034
+- Resume point: none; the authorized run stopped after issue 3034
 - Baseline: [issue 3001 measurements](2026-09-20-architecture-simplification-baseline.md)
 - Preservation ledger: [architecture contract matrix](2026-09-20-architecture-contract-matrix.md)
 
@@ -339,3 +339,13 @@ reviewing the Core simplification outcome. The original 3014 stop was observed.
 The same per-issue audit loop, dedicated local commits, architecture stop and
 public website obligations apply. Stop after 3034; do not create or implement
 a later simplification milestone. No push is authorized.
+
+## Final closure — issue 3034
+
+Milestone 30 is complete. The [final audit](2026-09-21-milestone-30-final-audit.md)
+reconciles all 89 contract IDs, original and checkpoint measurements, every
+plugin, the public website and complete clean-checkout validation. The 3014 stop
+and later 3015–3034 resumption above are retained as historical authorization.
+This plan is archived in place to preserve existing links. It is no longer an
+active objective. No feature, paused plan, subsequent simplification milestone
+or push is authorized. Stop after the dedicated final issue commit.

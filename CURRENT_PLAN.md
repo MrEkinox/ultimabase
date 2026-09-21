@@ -1,12 +1,12 @@
-# Active plan: pre-feature architecture simplification
+# Completed plan: pre-feature architecture simplification
 
-- Status: active — plugin wave explicitly resumed; next issue 3034
+- Status: completed — final issue 3034 audited; execution stopped
 - Milestone: [30 — Pre-feature architecture simplification](issues/3000-pre-feature-architecture-simplification/README.md)
 - Detailed plan: [docs/plans/2026-09-20-pre-feature-architecture-simplification.md](docs/plans/2026-09-20-pre-feature-architecture-simplification.md)
 - Baseline: [docs/plans/2026-09-20-architecture-simplification-baseline.md](docs/plans/2026-09-20-architecture-simplification-baseline.md)
 - Contract matrix: [docs/plans/2026-09-20-architecture-contract-matrix.md](docs/plans/2026-09-20-architecture-contract-matrix.md)
 - Removal history: [HISTORIQUE_SUPPRESSIONS.md](HISTORIQUE_SUPPRESSIONS.md)
-- Resume point: issue 3034; continue sequentially through issue 3034
+- Resume point: none; no later work or push is authorized
 
 ## Objective
 
@@ -85,10 +85,13 @@ the meantime.
 
 ## Current authorization
 
-Resume the 16 plugin audits, then the three public website reconciliation
-issues and final milestone audit. Preserve all used functionality and plugin
-capabilities. No push is authorized. The Core-run records below are historical;
-their 3014 stop statements do not cancel this later explicit resumption.
+The authorized run is complete through issue 3034. Stop here. No feature,
+paused objective, later simplification milestone or push is authorized.
+The plan is [archived in place](docs/plans/2026-09-20-pre-feature-architecture-simplification.md)
+to preserve existing issue and ADR links. The
+[final audit](docs/plans/2026-09-21-milestone-30-final-audit.md) owns the final
+contracts, measurements and verification evidence. Historical continuation
+statements below do not authorize another issue.
 
 ## Historical Core run
 
@@ -394,3 +397,13 @@ configurations, Typegen, PostgreSQL, REST, GraphQL and shutdown flows pass.
 All 66 content, 32 browser checks and 24 further theme/viewport combinations
 pass. Package production delta is zero. Continue with final audit 3034 after
 this issue's dedicated commit, then stop; no push or later milestone is authorized.
+
+Issue 3033 is committed as `0e199514`: +337 / -81 lines, net +256, including
+website corrections, browser regression and engineering records. Issue 3034
+closes milestone 30 after the complete clean-checkout audit. Every retained
+contract is reconciled; no new public capability is removed. Production totals
+127,093 lines (-7,011 from the original baseline, -790 after the Core checkpoint),
+including three formatting-only lines in the final audit. Core remains 68,780.
+The final report records complete gates and their limits. The public roadmap
+now reflects completion. Commit this issue separately, then stop; nothing is
+pushed and no later milestone starts.

@@ -1,6 +1,6 @@
 # Milestone 30 — Pre-feature architecture simplification
 
-- Status: in-progress
+- Status: completed
 
 Simplify the Core-facing architecture and every current official plugin before
 any new product feature begins. Preserve every current product behavior and
@@ -65,7 +65,7 @@ this milestone.
 31. [x] [3031 — Reconcile the Core and plugin-authoring website journey](3031-reconcile-core-plugin-authoring-website-docs.md)
 32. [x] [3032 — Reconcile the data, security, and persistence website journey](3032-reconcile-data-security-persistence-website-docs.md)
 33. [x] [3033 — Reconcile the HTTP and transport website journey](3033-reconcile-http-transport-website-docs.md)
-34. [ ] [3034 — Run the final simplification and parity audit](3034-final-simplification-audit.md)
+34. [x] [3034 — Run the final simplification and parity audit](3034-final-simplification-audit.md)
 
 Every issue depends on the previous issue's green audit. Implementation,
 correction, and complete re-audit repeat until no finding remains inside the
@@ -91,8 +91,9 @@ decision, then an update to the affected pages under
 the final cross-page website review; package READMEs do not replace it.
 
 The [3014 checkpoint](../../docs/plans/2026-09-21-core-kernel-simplification-checkpoint.md)
-is complete with a green clean-checkout audit. Issues 3015–3033 are complete; the final audit resumes at 3034
-under the later explicit user authorization; milestone 30 remains open.
+and [final 3034 audit](../../docs/plans/2026-09-21-milestone-30-final-audit.md) are
+complete. Every issue is completed after its audit loop. The plan is archived;
+no subsequent feature, paused objective, milestone or push is authorized.
 
 ## Completion boundary
 

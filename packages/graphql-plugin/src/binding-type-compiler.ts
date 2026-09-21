@@ -272,10 +272,7 @@ export class GraphqlBindingTypeCompiler {
 			return
 		}
 		if (reference.kind === 'schema') {
-			if (
-				mode === 'input' ||
-				!this.#schemas.has(reference.className)
-			) {
+			if (mode === 'input' || !this.#schemas.has(reference.className)) {
 				throw new TypeError(
 					`GraphQL binding schema reference ${reference.className} is unavailable as ${mode}`,
 				)

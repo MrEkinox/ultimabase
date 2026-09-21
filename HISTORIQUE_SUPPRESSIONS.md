@@ -555,7 +555,7 @@ restent inchangés. Audit final vert.
 
 Comme pour GraphiQL, l'environnement est consommé par la normalisation puis
 retiré de l'état conservé. Les exports existants réutilisent directement les
-deux propriétés normalisées : `enabled` et `path`. Aucun contrat public change.
+deux propriétés normalisées : `enabled` et `path`. Aucun contrat public ne change.
 
 Bilan de production : **293 → 291 lignes (−2)**, quatre fichiers, cinq exports
 et déclarations publiques identiques. Les 20 contrôles source/HTTP et
@@ -592,3 +592,19 @@ PostgreSQL qui leur manquait. Les routes, formats, erreurs, permissions et
 capacités des plugins restent inchangés ; **delta de production nul**.
 Les parcours réels REST/GraphQL, Typegen et PostgreSQL passent, avec 66 contrôles
 de contenu, 32 tests navigateur et 24 combinaisons page/thème/écran. Audit vert.
+
+## Audit final — issue 3034 réalisée, jalon 30 terminé
+
+La matrice conserve ses 89 identifiants. Les 36 protocoles retenus et les usages
+publics restent présents ; les seules suppressions de capacités sont celles
+déjà validées. Les 16 plugins ont été audités, dont deux sans réduction forcée.
+La vérification complète part d'une copie Git propre. Un défaut de formatage
+GraphQL retire trois lignes sans changer le JavaScript canonique ; la roadmap
+et une ancienne mention des extensions Query sont corrigées.
+
+Bilan final : **134 104 → 127 093 lignes de production (−7 011)**, dont
+**73 748 → 68 780 dans Core (−4 968)**. Après le point 3014 : **−790 lignes**,
+dont trois de formatage. Les 1 726 exports publics restent identiques depuis 3014. La couverture conservée ne perd aucun emplacement ; le rapport final
+sépare les mesures locales des performances et d'une CI hébergée non relancée.
+Aucun nouveau pouvoir public ni fonctionnalité suspendue n'est ajouté.
+Le plan est archivé et l'exécution s'arrête après 3034, sans push.
