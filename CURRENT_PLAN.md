@@ -1,19 +1,22 @@
-# Prepared plan: residual complexity simplification
+# Active plan: residual complexity simplification
 
-- Status: planned — preparation complete; implementation not started
+- Status: in-progress — 3101 complete; next issue 3102
 - Milestone: [31 — Residual complexity simplification](issues/3100-residual-complexity-simplification/README.md)
 - Detailed plan: [execution and audit contract](docs/plans/2026-09-21-residual-complexity-simplification.md)
 - Evidence: [candidate inventory](docs/plans/2026-09-21-residual-complexity-inventory.md)
+- Measurements and retained IDs: [3101 baseline](docs/plans/2026-09-21-residual-complexity-baseline.md)
 - Baseline source: `265b54c909404f9690a666bdf39ace01ccee466e`
-- Next issue after explicit start authorization: [3101](issues/3100-residual-complexity-simplification/3101-baseline-and-consumer-inventory.md)
+- Next issue: [3102](issues/3100-residual-complexity-simplification/3102-remove-unused-private-core-helpers.md)
 - Hard stop: after issue 3112 and its dedicated local commit
 
 ## Current authorization
 
-The user authorized preparing the new milestone, its issues and the mandatory
-per-issue audit/correction loop. This preparation does not start implementation,
-accept compiler/public-contract decisions, authorize a push or resume any feature.
-Wait for explicit authorization before starting 3101.
+The user explicitly authorized autonomous execution of milestone 31 on
+2026-09-21, with one dedicated commit per completed issue and the full
+validation/audit/correction loop. Stop for questions, architectural decisions
+or blockers and explain them before continuing. The exact compiler and public
+protocol decisions in 3105/3107 still require their specified approval.
+No push, later milestone or paused feature is authorized.
 
 Milestone 30 stays completed. Its [final audit](docs/plans/2026-09-21-milestone-30-final-audit.md)
 and [archived execution log](docs/plans/completed/pre-feature-architecture-simplification-execution-log.md)
@@ -23,7 +26,7 @@ Soft Delete work remain untouched.
 
 ## Mandatory execution gate
 
-After start authorization, execute 3101 through 3112 sequentially and respect
+Execute 3101 through 3112 sequentially and respect
 every dependency. For each issue:
 
 1. Implement only its approved scope and necessary tests/documentation.

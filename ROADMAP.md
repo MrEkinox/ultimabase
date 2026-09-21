@@ -100,12 +100,12 @@ were audited independently, and the public website journeys were reconciled.
 The [final audit](docs/plans/2026-09-21-milestone-30-final-audit.md) records the
 retained contracts, measured reductions and complete clean-checkout validation.
 [Milestone 31](issues/3100-residual-complexity-simplification/README.md) is now
-prepared as a separate second pass. It covers proven private dead code,
+active as a separate second pass. It covers proven private dead code,
 duplicated Hooks/Access machinery, and explicit decisions about residual
 compiler and unused public-protocol infrastructure. Its
 [plan](docs/plans/2026-09-21-residual-complexity-simplification.md) preserves the
-per-issue audit/correction loop and dedicated commits. Preparation does not
-start implementation or accept public removals; those boundaries remain explicit.
+per-issue audit/correction loop and dedicated commits. Autonomous execution is
+authorized; compiler and public-removal decisions retain their explicit stops.
 
 The ACL hardening plan remains paused at issue 432. It is not part of an active
 plan.
@@ -412,14 +412,14 @@ the measured baseline.
 
 ## Milestone 31 — Residual complexity simplification
 
-Prepared after milestone 30 without reopening its completed issues. Establish
+Started after milestone 30 without reopening its completed issues. Establish
 an updated baseline, remove proven unused private Core/Access/Hooks code and
 reuse existing field-path types. Decide the internal compiler boundary and the
 exact unused Runtime-stage, Typegen-marker and migration contracts before any
 conditional removal. Preserve current functionality, used plugin capabilities,
 security, inference, lifecycle and data behavior.
 
-Issues 3101–3112 run sequentially after explicit start authorization. Each issue
+Issues 3101–3112 run sequentially under the explicit execution authorization. Each issue
 requires validation, a complete audit/correction loop until no finding remains,
 then its dedicated local commit and exact line-count report. Architectural
 questions and blocked verification stop for user direction. Public changes

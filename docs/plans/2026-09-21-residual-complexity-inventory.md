@@ -2,17 +2,18 @@
 
 - Recorded: 2026-09-21
 - Source revision: `265b54c909404f9690a666bdf39ace01ccee466e`
-- Status: initial audit evidence; no removal delivered by milestone 31
+- Status: refreshed by 3101 at 1f04e5e3; no removal delivered by milestone 31
 - Owner: [issue 3101](../../issues/3100-residual-complexity-simplification/3101-baseline-and-consumer-inventory.md)
 - Execution rules: [plan](2026-09-21-residual-complexity-simplification.md)
+- Measured baseline and retained IDs: [3101 baseline](2026-09-21-residual-complexity-baseline.md)
 
 ## Evidence and decision rules
 
 The initial audit combined identifier/reference searches with source and built
 package-root export checks, production/test/example consumers and targeted
 comparison of implementations. It is a starting inventory, not an exhaustive
-proof of whole-program reachability. Issue 3101 must refresh this evidence at
-the actual implementation baseline and record the exact validation commands.
+proof of whole-program reachability. Issue 3101 refreshed this evidence at
+the actual implementation baseline and recorded the exact validation commands.
 
 Every row remains retained until its implementation issue has completed the
 audit loop. The public contract decisions below are pending; none is authorized
@@ -57,8 +58,15 @@ counted.
 
 Access's schemaAccessDeclarations and Hooks' schemaHookDeclarations are private
 WeakMaps whose writer/reader wrappers have no current caller. The actual option
-and provider normalization paths remain. Keep runPluginDeclarationFactory in
-Core's declaration-targets.ts; it is live.
+and provider normalization paths remain.
+
+The 3101 refresh corrects the initial claim that runPluginDeclarationFactory
+was live. Its four-line declaration fell below the initial five-line scan
+threshold, and declaration-targets.ts has no importing module at all. No built
+package root exports the helper. The whole private module is an RC-01 cleanup
+candidate; the initial fourteen-function/304-line count excludes this additional
+helper and its exclusive types/state. This is a corrected reachability finding,
+not a public-capability removal or a claim of exhaustive dead-code detection.
 
 Access splitFieldAccessOptions has its own test and is outside the 14-function
 count. Issue 3103 must distinguish obsolete implementation testing from any
@@ -149,6 +157,22 @@ do not become authorized implementation work.
 
 ## Decision and delivery ledger
 
-Issue 3101 extends this ledger with refreshed evidence. Decision issues record
-each accepted ADR/retention outcome here, and implementation issues add their
-actual removals and preserved regression evidence. No row is delivered yet.
+Issue 3101 refreshed references across tracked source, tests, applications,
+initializer templates and examples, and resolved exports from all 23 canonical
+built package entries. The initial 14 functions remain unused and non-public.
+The additional declaration-target helper correction is recorded above. No
+namespace or dynamic import of its module was found. The AST scan is a discovery
+aid, not a proof of exhaustive dead-code detection or external community usage.
+
+| Candidate | Current owner/consumer evidence                                                                                                                                       | Required preservation and regression proof                                                                                                    | Public/site impact and decision                                                                                                                                    |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| RC-01     | Core/Access/Hooks; no callers for the initial functions, reader wrappers or isolated declaration-target module                                                        | Existing schema/declaration, option normalization and provider tests; identical source/built/packed exports                                   | Internal cleanup only; website Access/Hooks/Core contracts remain accurate; no removal delivered                                                                   |
+| RC-02     | Hooks duplicates Core public types; private Hooks resolver is used only by field-paths.test.ts                                                                        | Source and built type/language-service checks; nested path validity/depth and documented field-map distinction                                | Keep Hooks root names; no new public abstraction; no removal delivered                                                                                             |
+| RC-03     | SchemaDeclarationRegistry and compileCommandGraph consume canonical compiler output; selectors and option/provenance checks are live                                  | Complete compilation, malformed-declaration, atomic publication, Soft Delete patch, Typegen and transport suites                              | Architecture decision pending in 3105; review Core/schema and plugin-authoring website pages                                                                       |
+| RC-04     | Core factory/tests/root exports only; ACL separately uses provideRuntimeInterceptor/preparedOperation                                                                 | Runtime order, transactions/rollback, attribution, ACL and no-product performance counters                                                    | Public decision pending in 3107; Runtime/plugin-authoring guidance must follow any approved removal                                                                |
+| RC-05     | Typegen provides an inert marker but setup directly calls generation/writing; generic single-provider checks still apply                                              | Startup ordering, deterministic declarations/fingerprints, generated-project and editor tests                                                 | Public uniqueness/inspection change pending in 3107; Typegen/plugin-authoring documentation reviewed in 3109                                                       |
+| RC-06     | planAdapterMigrations -> FakeAdapterMigrationHistory -> tests/e2e/open-kernel-proof.e2e.test.ts; PostgreSQL migration metadata/preparation providers are fixture-only | Resolve that real testing use explicitly; preserve current sync policies, physical contributions, private storage, raw leases and attribution | Public/engineering decision pending in 3107, including P-016 adapterMigrationCapability; PostgreSQL/testing/plugin-authoring guidance follows exact accepted scope |
+
+Later decision issues record each accepted ADR/retention outcome here, and
+implementation issues add actual removals and preserved regression evidence.
+No row is delivered yet; all public decisions remain pending.

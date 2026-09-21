@@ -1,12 +1,13 @@
 # Residual complexity simplification
 
-- Status: planned — preparation only; implementation has not started
+- Status: in-progress — autonomous execution authorized; 3101 complete, 3102 next
 - Prepared: 2026-09-21
 - Milestone: [31 — Residual complexity simplification](../../issues/3100-residual-complexity-simplification/README.md)
 - Baseline revision: `265b54c909404f9690a666bdf39ace01ccee466e`
 - Initial evidence: [candidate inventory](2026-09-21-residual-complexity-inventory.md)
+- Execution baseline: [issue 3101](2026-09-21-residual-complexity-baseline.md)
 - Previous delivery: [milestone 30 final audit](2026-09-21-milestone-30-final-audit.md)
-- Current authorization: prepare the milestone, issues and execution rules only
+- Current authorization: execute 3101–3112 autonomously, stopping at unresolved decisions or blockers; no push
 
 ## Objective and authorization
 
@@ -17,8 +18,9 @@ Preserve current functionality, stability and used plugin capabilities.
 Milestone 30 remains completed. Its accepted ADRs, contract matrix, audit and
 measurements remain historical evidence; this plan does not reopen or rewrite
 their completed issues. Milestone 31 establishes its own baseline and decision
-delta. The previous completed run and push do not authorize this implementation
-or another push. Wait for explicit user authorization before starting 3101.
+delta. On 2026-09-21, after the preparation commit, the user explicitly authorized
+this milestone's autonomous execution with the per-issue audit loop and commit
+rule. The decision gates in 3105/3107 remain; no push is authorized.
 
 The user requested the audit/correction loop and one dedicated local commit per
 issue. This is an execution protocol using existing repository tools, not a new
@@ -67,7 +69,7 @@ pre-release contract decisions, not claims that no third-party user exists.
 
 | Issue | Work                                                                           | Additional gate                                 |
 | ----- | ------------------------------------------------------------------------------ | ----------------------------------------------- |
-| 3101  | Refresh baseline, consumers, invariants and exact removal candidates           | Start authorization                             |
+| 3101  | Refresh baseline, consumers, invariants and exact removal candidates           | Completed; baseline validated                   |
 | 3102  | Remove proven unused private Core helpers                                      | Unchanged public contract                       |
 | 3103  | Remove the unused Access declaration circuit                                   | Unchanged public contract                       |
 | 3104  | Remove the unused Hooks circuit and duplicate field-path implementation        | Type/editor parity                              |

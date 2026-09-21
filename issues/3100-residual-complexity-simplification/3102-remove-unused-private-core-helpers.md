@@ -13,8 +13,8 @@ Delete the private Core functions proven unreachable by 3101 while retaining the
 
 ## Acceptance criteria
 
-- [ ] Recheck the 11 Core functions listed under RC-01 immediately before deletion. Remove their exclusive imports, private state and obsolete branches only where no live consumer remains.
-- [ ] Keep runPluginDeclarationFactory in declaration-targets.ts and the live compiler selector, option normalization, field provenance, structural validation, index and decimal behavior.
+- [ ] Recheck the 11 initially listed Core functions plus the additional private helper identified by the 3101 refresh immediately before deletion. Remove their exclusive imports, private state and obsolete branches only where no live consumer remains.
+- [ ] The 3101 refresh corrects the initial runPluginDeclarationFactory attribution: this four-line helper and declaration-targets.ts have no importing module or public export. Remove that isolated module after rechecking its reachability; keep the live compiler selector, option normalization, field provenance, structural validation, index and decimal behavior.
 - [ ] Keep source and built public export sets, inferred types, errors and runtime behavior unchanged. A newly discovered public or invariant consumer invokes the stop gate.
 - [ ] Review packages/core/examples/schema for every schema-domain edit; update examples only if needed to keep the existing contract truthful.
 - [ ] Record delivered removals and exact production deltas in the inventory and root history. Do not include compiler redesign or public protocol removal.
