@@ -85,12 +85,9 @@ export const honoServerPlugin = <
 		options as HonoServerPluginOptions,
 	)
 	const provider = new HonoServerProvider(normalized)
-	const readApplication = (
-		context: HonoServerLifecycleContext,
-	): HttpApplication => context.capabilities.get(applicationRequirement)
-	const readBrowserPolicy = (
-		context: HonoServerLifecycleContext,
-	): HttpBrowserPolicy => context.capabilities.get(browserPolicyRequirement)
+	// Stop and disposal release the same exact owner, including failed-startup cleanup.
+	const stop = (context: HonoServerLifecycleContext): Promise<void> =>
+		provider.stop(context.capabilities.get(applicationRequirement))
 
 	return honoServerPluginModule.plugin({
 		capabilities: {
@@ -98,10 +95,13 @@ export const honoServerPlugin = <
 		},
 		environment: ['environment:network'],
 		hooks: {
-			startTransports: (context) =>
-				provider.start(readApplication(context), readBrowserPolicy(context)),
-			stop: (context) => provider.stop(readApplication(context)),
-			dispose: (context) => provider.dispose(readApplication(context)),
+			startTransports: ({ capabilities }) =>
+				provider.start(
+					capabilities.get(applicationRequirement),
+					capabilities.get(browserPolicyRequirement),
+				),
+			stop,
+			dispose: stop,
 		},
 	})
 }

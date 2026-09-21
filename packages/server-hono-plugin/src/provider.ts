@@ -93,10 +93,6 @@ export class HonoServerProvider {
 		return this.#serialize(() => this.#stop(application))
 	}
 
-	dispose(application: HttpApplication): Promise<void> {
-		return this.stop(application)
-	}
-
 	#mountDispatcher(): void {
 		if (this.#dispatcherMounted) return
 		this.#app.all('*', (context) => {
@@ -141,7 +137,7 @@ export class HonoServerProvider {
 		this.#acceptingRequests = true
 
 		try {
-			if (this.#ownership === 'framework' && this.#server === undefined) {
+			if (this.#ownership === 'framework') {
 				this.#server = await this.#openServer()
 			}
 		} catch (error: unknown) {
@@ -212,7 +208,8 @@ export class HonoServerProvider {
 	}
 
 	#serialize(operation: () => Promise<void>): Promise<void> {
-		const result = this.#queue.then(operation, operation)
+		// The queue absorbs earlier failures; callers still receive their own result.
+		const result = this.#queue.then(operation)
 		this.#queue = result.catch(() => undefined)
 		return result
 	}

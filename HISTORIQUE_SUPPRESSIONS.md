@@ -476,3 +476,17 @@ Bilan de production HTTP : **2 517 → 2 499 lignes (−18)**, 14 fichiers et
 Les 364 contrôles source et 383 intégrations construites passent, sans perte
 de couverture conservée. Credentials, provenance, Master, CORS, erreurs,
 timeouts et disposal gardent leur comportement. Audit final vert.
+
+## Hono Server — issue 3025 réalisée
+
+Les hooks publics `stop` et `dispose` partagent le même arrêt privé. Deux relais
+de lecture de capabilities et l'alias privé `dispose` du provider disparaissent.
+La file d'attente et la propriété du listener rendent deux conditions redondantes,
+qui sont supprimées. L'admission des requêtes, le nettoyage après échec,
+la fermeture progressive et la protection contre les anciens propriétaires restent
+intacts.
+
+Bilan de production : **495 → 492 lignes (−3)**, cinq fichiers, six exports
+et déclarations publiques identiques. Les 277 contrôles source et 147 intégrations
+construites passent sans perte de couverture conservée, avec les scénarios réseau
+et Chromium. Les assertions des tests sont conservées. Audit final vert.

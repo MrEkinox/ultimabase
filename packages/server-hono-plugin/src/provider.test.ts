@@ -199,7 +199,7 @@ describe('HonoServerProvider', () => {
 			)
 			expect(onFetch).toHaveBeenCalledOnce()
 		} finally {
-			await provider.dispose(application)
+			await provider.stop(application)
 		}
 	})
 
@@ -257,7 +257,7 @@ describe('HonoServerProvider', () => {
 			expect(rejected.headers.has('Access-Control-Allow-Origin')).toBe(false)
 			expect(onFetch).toHaveBeenCalledTimes(2)
 		} finally {
-			await provider.dispose(application)
+			await provider.stop(application)
 		}
 	})
 
@@ -282,7 +282,7 @@ describe('HonoServerProvider', () => {
 			})
 			expect(await response.text()).toBe('accepted:/stable')
 		} finally {
-			await provider.dispose(accepted)
+			await provider.stop(accepted)
 		}
 	})
 
@@ -325,7 +325,7 @@ describe('HonoServerProvider', () => {
 		expect(response.headers.get('Access-Control-Allow-Origin')).toBe(
 			'https://owner.example',
 		)
-		await provider.dispose(application)
+		await provider.stop(application)
 	})
 
 	it('reuses the provider sequentially and ignores stale-owner disposal', async () => {
@@ -337,20 +337,20 @@ describe('HonoServerProvider', () => {
 		const first = createHttpApplication('first')
 		const second = createHttpApplication('second')
 		await provider.start(first)
-		await provider.dispose(first)
+		await provider.stop(first)
 		expect(provider.address).toBeUndefined()
 		await provider.start(second)
 		const address = provider.address
 		if (address === undefined) throw new TypeError('Missing listener address')
 		try {
-			await provider.dispose(first)
+			await provider.stop(first)
 			expect(provider.address).toStrictEqual(address)
 			const response = await fetch(listenerUrl(address, '/new'), {
 				headers: { 'X-UltimaBase-Application-Id': 'second' },
 			})
 			expect(await response.text()).toBe('second:/new')
 		} finally {
-			await provider.dispose(second)
+			await provider.stop(second)
 		}
 	})
 
@@ -375,7 +375,7 @@ describe('HonoServerProvider', () => {
 			})
 			expect(await response.text()).toBe('duplicate:/stable')
 		} finally {
-			await provider.dispose(accepted)
+			await provider.stop(accepted)
 		}
 	})
 
@@ -404,7 +404,7 @@ describe('HonoServerProvider', () => {
 			})
 			expect(await mounted.text()).toBe('external:/external')
 
-			await provider.dispose(application)
+			await provider.stop(application)
 			const stopped = await fetch(listenerUrl(address, '/external'), {
 				headers: {
 					'X-UltimaBase-Application-Id': 'external',
@@ -455,7 +455,7 @@ describe('HonoServerProvider', () => {
 
 		await provider.start(application)
 		expect(provider.address?.port).toBe(blockerAddress.port)
-		await provider.dispose(application)
+		await provider.stop(application)
 	})
 
 	it('serializes repeated and aborted lifecycle operations', async () => {
@@ -472,7 +472,7 @@ describe('HonoServerProvider', () => {
 		])
 		expect(provider.address).toBeUndefined()
 		await provider.stop(application)
-		await provider.dispose(application)
+		await provider.stop(application)
 	})
 
 	it('supports parallel independent providers on ephemeral ports', async () => {
@@ -495,9 +495,7 @@ describe('HonoServerProvider', () => {
 		const ports = providers.map((provider) => provider.address?.port)
 		expect(new Set(ports).size).toBe(providers.length)
 		await Promise.all(
-			fixtures.map(({ application, provider }) =>
-				provider.dispose(application),
-			),
+			fixtures.map(({ application, provider }) => provider.stop(application)),
 		)
 	})
 })

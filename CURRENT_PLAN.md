@@ -1,12 +1,12 @@
 # Active plan: pre-feature architecture simplification
 
-- Status: active — plugin wave explicitly resumed; next issue 3025
+- Status: active — plugin wave explicitly resumed; next issue 3026
 - Milestone: [30 — Pre-feature architecture simplification](issues/3000-pre-feature-architecture-simplification/README.md)
 - Detailed plan: [docs/plans/2026-09-20-pre-feature-architecture-simplification.md](docs/plans/2026-09-20-pre-feature-architecture-simplification.md)
 - Baseline: [docs/plans/2026-09-20-architecture-simplification-baseline.md](docs/plans/2026-09-20-architecture-simplification-baseline.md)
 - Contract matrix: [docs/plans/2026-09-20-architecture-contract-matrix.md](docs/plans/2026-09-20-architecture-contract-matrix.md)
 - Removal history: [HISTORIQUE_SUPPRESSIONS.md](HISTORIQUE_SUPPRESSIONS.md)
-- Resume point: issue 3025; continue sequentially through issue 3034
+- Resume point: issue 3026; continue sequentially through issue 3034
 
 ## Objective
 
@@ -327,3 +327,10 @@ copies, preserving all 64 exports and declaration text apart from region order.
 The GraphQL HTTP contract remains unchanged. All 364 source/boundary checks
 and 383 built integrations pass with no retained coverage loss. Continue with
 issue 3025 after the dedicated 3024 commit.
+
+Issue 3024 is committed as `e059251e`: +141 / -70 lines, net +71, including
+engineering records. Issue 3025 is complete with a green audit: Hono removes
+private lifecycle relays and redundant conditions (-3 production lines), keeping
+all six exports and byte-identical declarations. All 277 source checks and
+147 affected built integrations pass, including Chromium and cleanup failures,
+with no retained coverage loss. Continue with issue 3026 after its commit.

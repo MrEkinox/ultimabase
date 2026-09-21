@@ -255,7 +255,7 @@ describe('HTTP browser boundary in Chromium', () => {
 			await context.close()
 			await browser.close()
 			if (targetServer !== undefined) await closeServer(targetServer)
-			await provider.dispose(application)
+			await provider.stop(application)
 			await fixture.dispose()
 			await Promise.all([
 				closeServer(allowedServer),
@@ -310,7 +310,7 @@ describe('HTTP browser boundary in Chromium', () => {
 			await context.close()
 			await browser.close()
 			await closeServer(targetServer)
-			await provider.dispose(application)
+			await provider.stop(application)
 			await fixture.dispose()
 			await closeServer(originServer)
 		}

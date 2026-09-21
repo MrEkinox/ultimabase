@@ -50,9 +50,9 @@ it('retains failed-startup resources until exact-owner disposal succeeds', async
 	await expect(provider.start(replacement)).rejects.toThrow(
 		'already owns an application',
 	)
-	await provider.dispose(replacement)
+	await provider.stop(replacement)
 	expect(close).toHaveBeenCalledTimes(1)
-	await expect(provider.dispose(first)).rejects.toBe(cleanupError)
+	await expect(provider.stop(first)).rejects.toBe(cleanupError)
 	await expect(provider.start(replacement)).rejects.toThrow(
 		'already owns an application',
 	)
@@ -60,6 +60,6 @@ it('retains failed-startup resources until exact-owner disposal succeeds', async
 		callback?.()
 		return listener
 	})
-	await provider.dispose(first)
+	await provider.stop(first)
 	expect(close).toHaveBeenCalledTimes(3)
 })
