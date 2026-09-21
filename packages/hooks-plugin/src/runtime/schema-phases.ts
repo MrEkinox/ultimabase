@@ -8,7 +8,6 @@ import type {
 	RuntimePreparedMutationStageInput,
 } from '@ultimabase/core'
 
-import type { SchemaHookPhase } from '../authoring/declarations.js'
 import { runHookEffects, runHookTransformChain } from './composition.js'
 import type { HookContributionPlan } from './contribution-plan.js'
 import {
@@ -33,15 +32,14 @@ import {
 } from './materializations.js'
 import { getNativeHookPhaseOrder } from './phase-order.js'
 
-export const runSchemaTransformPhases = async <
+/** Resolves schema input through the sole transform phase, in before order. */
+export const runSchemaResolveInput = async <
 	const TOperation extends DatabaseMutationOperationAst,
 >(
 	boundaries: RuntimeBehaviorBoundaries,
 	plan: HookContributionPlan,
 	runtime: HookExecutionRuntime,
 	input: RuntimePreparedMutationStageInput<TOperation>,
-	phases: readonly SchemaHookPhase[],
-	direction: 'after' | 'before',
 ): Promise<TOperation> => {
 	const schemaPlan = plan.getSchema(
 		requireDeclaredOperationSchema(input.operation),
@@ -56,46 +54,37 @@ export const runSchemaTransformPhases = async <
 		schemaPlan.schema,
 		input.target,
 	)
-	let operation: TOperation = input.operation
+	const handlers = collectNestedHookHandlers(
+		schemaPlan.contributions,
+		'before',
+		'resolveInput',
+		input.operation.kind,
+		createSchemaHookTarget(schemaPlan.schema.className),
+		family,
+	)
 
-	for (const phase of phases) {
-		const handlers = collectNestedHookHandlers(
-			schemaPlan.contributions,
-			direction,
-			phase,
-			input.operation.kind,
-			createSchemaHookTarget(schemaPlan.schema.className),
-			family,
-		)
+	return runHookTransformChain(
+		handlers,
+		input.operation,
+		async (handler, current) => {
+			const replacement = await invokeErasedHook<unknown>(
+				runtime,
+				handler,
+				input.context,
+				(context) =>
+					createSchemaResolveInput(
+						current,
+						context,
+						originalItem,
+						input.nestedWrite?.graph,
+					),
+			)
 
-		operation = await runHookTransformChain(
-			handlers,
-			operation,
-			async (handler, current) => {
-				const replacement = await invokeErasedHook<unknown>(
-					runtime,
-					handler,
-					input.context,
-					(context) =>
-						createSchemaResolveInput(
-							current,
-							context,
-							originalItem,
-							input.nestedWrite?.graph,
-						),
-				)
-
-				return replacement === undefined
-					? undefined
-					: boundaries.snapshotPreparedOperationReplacement(
-							current,
-							replacement,
-						)
-			},
-		)
-	}
-
-	return operation
+			return replacement === undefined
+				? undefined
+				: boundaries.snapshotPreparedOperationReplacement(current, replacement)
+		},
+	)
 }
 
 /** Runs mutation before-hooks after Runtime has prepared any reliable preimage. */

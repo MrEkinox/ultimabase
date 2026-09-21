@@ -342,3 +342,18 @@ Un test supplémentaire couvre le refus d’une sélection interdite sur une
 mutation personnalisée. Les 2 778 tests de couverture et les 381 intégrations
 sur exports construits passent, sans perte de couverture des chemins conservés.
 Audit final sans anomalie restante ; aucun retrait public supplémentaire.
+
+## Hooks — issue 3016 réalisée
+
+Suppression de deux listes privées de champs jamais lues à l’exécution, de
+l’ancien helper d’observateurs sans appelant, de paramètres internes inutilisés,
+de plans de phases dupliqués et de relais de résolution d’entrée. La résolution
+de schéma exécute directement son unique phase réelle, `resolveInput`.
+L’ordre des callbacks, leur propriétaire, les snapshots, les transactions,
+l’annulation, les diagnostics et les événements après commit restent conservés.
+
+Bilan de production Hooks : **5 620 → 5 528 lignes (−92)**, 33 fichiers,
+102 exports inchangés. Les 2 778 tests de couverture, 83 tests du package et
+38 intégrations ciblées sur les exports construits passent sans perte de
+couverture conservée. Audit final sans anomalie ; correction de deux précisions
+documentaires existantes, sans changement public supplémentaire.

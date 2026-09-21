@@ -175,6 +175,8 @@ export const resolveFieldInputs = async <
 ): Promise<TOperation> => {
 	const { operation } = input
 	const order = getNativeHookPhaseOrder(operation.kind)
+	// Reads and deletes have no input to resolve; preserve their original operation.
+	if (order.family === 'delete' || order.family === 'read') return operation
 	const schema = requireDeclaredOperationSchema(operation)
 
 	if (

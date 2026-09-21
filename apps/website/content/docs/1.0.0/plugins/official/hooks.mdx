@@ -329,7 +329,7 @@ transaction ID, cancellation signal, source, authority, and hook identity.
 It can inspect registered request values or capability tokens and emit events,
 but it exposes no adapter, raw credential, or transaction controls. Do not
 retain it for later work: its capabilities close when the callback settles.
-Re-entering the same Hook recursively fails with `HOOK_RECURSION`; an observed
+Re-entering the same Hook recursively fails with `RUNTIME_CALLBACK_RECURSION`; an observed
 cancellation prevents later pre-commit handlers from starting. Master bypasses
 authorization policy, not Hooks.
 
@@ -347,4 +347,4 @@ authorization policy, not Hooks.
   transaction is not supported.
 - **A write rolls back:** inspect the first thrown Hook or nested operation.
   Business `afterOperation` runs before commit and may abort the whole batch;
-  `HOOK_RECURSION` points to a Hook that entered itself through nested work.
+  `RUNTIME_CALLBACK_RECURSION` points to a Hook that entered itself through nested work.

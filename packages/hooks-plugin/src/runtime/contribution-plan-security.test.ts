@@ -95,8 +95,8 @@ describe('Hook contribution security plan', () => {
 			localName: 'field',
 			targetKind: 'field',
 		})
-		expect(schemaPlan?.fieldsBefore).toStrictEqual([fieldPlan])
-		expect(schemaPlan?.fieldsAfter).toStrictEqual([fieldPlan])
+		expect(fieldPlan?.path).toStrictEqual(['title'])
+		expect(Object.isFrozen(fieldPlan)).toBe(true)
 		expect(Object.isFrozen(plan.schemas)).toBe(true)
 	})
 

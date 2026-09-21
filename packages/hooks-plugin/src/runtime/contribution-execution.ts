@@ -154,37 +154,12 @@ export const invokeErasedHook = <TResult>(
 	descriptor: HookExecutionDescriptor,
 	request: RequestContext,
 	createInput: (context: HookContext) => unknown,
-	options?: Readonly<{ readonly cancellable?: boolean }>,
 ): Promise<TResult> =>
 	runtime.invoke(
 		descriptor,
 		request,
 		(context) => descriptor.handler(createInput(context) as never) as TResult,
-		options,
 	)
-
-/** Executes observers best-effort and returns their failures in stable order. */
-export const runHookObservers = async (
-	runtime: HookExecutionRuntime,
-	handlers: readonly HookExecutionDescriptor[],
-	request: RequestContext,
-	createInput: (context: HookContext) => unknown,
-): Promise<readonly unknown[]> => {
-	const failures: unknown[] = []
-
-	for (const handler of handlers) {
-		try {
-			await invokeErasedHook(runtime, handler, request, createInput, {
-				cancellable: false,
-			})
-		} catch (error: unknown) {
-			// Finalization observers cannot prevent sibling observers from receiving state.
-			failures.push(error)
-		}
-	}
-
-	return immutableArray(failures)
-}
 
 /** Creates the compact public shape shared by schema operation hooks. */
 export const createSchemaOperationHookInput = <

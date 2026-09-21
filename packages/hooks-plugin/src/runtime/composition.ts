@@ -7,13 +7,12 @@ export const runHookTransformChain = async <THandler, TValue>(
 	invoke: (
 		handler: THandler,
 		value: TValue,
-		index: number,
 	) => MaybePromise<TValue | undefined>,
 ): Promise<TValue> => {
 	let value = initialValue
 
-	for (const [index, handler] of handlers.entries()) {
-		const replacement = await invoke(handler, value, index)
+	for (const handler of handlers) {
+		const replacement = await invoke(handler, value)
 
 		// An observer-style transform keeps the current value by returning undefined.
 		if (replacement !== undefined) {
@@ -27,9 +26,9 @@ export const runHookTransformChain = async <THandler, TValue>(
 /** Executes effects sequentially so declaration order remains observable and deterministic. */
 export const runHookEffects = async <THandler>(
 	handlers: readonly THandler[],
-	invoke: (handler: THandler, index: number) => MaybePromise<void>,
+	invoke: (handler: THandler) => MaybePromise<void>,
 ): Promise<void> => {
-	for (const [index, handler] of handlers.entries()) {
-		await invoke(handler, index)
+	for (const handler of handlers) {
+		await invoke(handler)
 	}
 }

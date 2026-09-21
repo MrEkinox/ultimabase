@@ -1,12 +1,12 @@
 # Active plan: pre-feature architecture simplification
 
-- Status: active — plugin wave explicitly resumed; issue 3016 ready
+- Status: active — plugin wave explicitly resumed; issue 3017 ready
 - Milestone: [30 — Pre-feature architecture simplification](issues/3000-pre-feature-architecture-simplification/README.md)
 - Detailed plan: [docs/plans/2026-09-20-pre-feature-architecture-simplification.md](docs/plans/2026-09-20-pre-feature-architecture-simplification.md)
 - Baseline: [docs/plans/2026-09-20-architecture-simplification-baseline.md](docs/plans/2026-09-20-architecture-simplification-baseline.md)
 - Contract matrix: [docs/plans/2026-09-20-architecture-contract-matrix.md](docs/plans/2026-09-20-architecture-contract-matrix.md)
 - Removal history: [HISTORIQUE_SUPPRESSIONS.md](HISTORIQUE_SUPPRESSIONS.md)
-- Resume point: issue 3016; continue sequentially through issue 3034
+- Resume point: issue 3017; continue sequentially through issue 3034
 
 ## Objective
 
@@ -255,3 +255,10 @@ removing dead relation dispatch, duplicate selection finalization and two
 result-discard callbacks. Its 79 exports and built declarations are unchanged.
 All 2,778 source coverage tests and 381 built integrations pass, with no retained
 coverage regression. Continue with issue 3016 after the dedicated 3015 commit.
+
+Issue 3015 is committed as `4d6faa2a`: +242 / -107 lines, net +135, including
+tests and documentation. Issue 3016 is complete with a green audit: Hooks loses
+92 production lines, retains its 102 exports and byte-identical declarations,
+and passes all 2,778 source coverage tests plus 38 affected built integrations.
+Website/README corrections follow existing runtime behavior. Continue with
+issue 3017 after the dedicated 3016 commit.

@@ -157,9 +157,10 @@ lend the mutation owner's privileges.
 Field `resolveInput` receives a structurally valid immutable value after Core's
 initial type and presence checks. It may explicitly normalize that value. Once
 all field, schema, and prepared-operation transformations finish, Core runs one
-mandatory structural and Standard Schema validation pass before
-value-dependent enforcement, observers, or persistence. Hooks providers do not
-register or own that revalidation boundary.
+mandatory structural validation pass. When installed, the optional Validation
+plugin then runs Standard Schema field validators through the final mutation
+input guard, before value-dependent enforcement, observers, or persistence.
+Hooks providers do not register or own either validation boundary.
 
 A provider declares Hooks as a peer rather than a lifecycle dependency,
 because the Hooks engine consumes the provider's contribution capability:

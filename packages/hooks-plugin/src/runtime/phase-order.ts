@@ -23,35 +23,15 @@ const createPhaseOrder = (
 		schemaBefore,
 	})
 
-type SaveBeforePhase = 'beforeCreate' | 'beforeUpdate'
-type SaveAfterPhase = 'afterCreate' | 'afterUpdate' | 'afterUpsert'
-
-/** Builds the repeated save nesting once so schema and field orders cannot drift. */
-const createSavePhaseOrder = (
-	family: Extract<HookOperationFamily, 'create' | 'update' | 'upsert'>,
-	exactBefore: SaveBeforePhase,
-	exactAfter: SaveAfterPhase,
-): NativeHookPhaseOrder =>
-	createPhaseOrder(
-		family,
-		immutableArray([exactBefore]),
-		immutableArray([exactAfter]),
-	)
-
-const createOrder = createSavePhaseOrder(
+const createOrder = createPhaseOrder(
 	'create',
-	'beforeCreate',
-	'afterCreate',
+	immutableArray(['beforeCreate']),
+	immutableArray(['afterCreate']),
 )
-const updateOneOrder = createSavePhaseOrder(
+const updateOrder = createPhaseOrder(
 	'update',
-	'beforeUpdate',
-	'afterUpdate',
-)
-const updateManyOrder = createPhaseOrder(
-	'update',
-	updateOneOrder.schemaBefore,
-	updateOneOrder.schemaAfter,
+	immutableArray(['beforeUpdate']),
+	immutableArray(['afterUpdate']),
 )
 // Atomic upserts expose their resolved create/update branch only after persistence.
 const upsertOrder = createPhaseOrder(
@@ -59,15 +39,10 @@ const upsertOrder = createPhaseOrder(
 	immutableArray([]),
 	immutableArray(['afterUpsert']),
 )
-const deleteOneOrder = createPhaseOrder(
+const deleteOrder = createPhaseOrder(
 	'delete',
 	immutableArray(['beforeDelete']),
 	immutableArray(['afterDelete']),
-)
-const deleteManyOrder = createPhaseOrder(
-	'delete',
-	deleteOneOrder.schemaBefore,
-	deleteOneOrder.schemaAfter,
 )
 const readOrder = createPhaseOrder(
 	'read',
@@ -80,14 +55,14 @@ const nativeHookPhaseOrders = immutableRecord({
 	count: readOrder,
 	'create-many': createOrder,
 	'create-one': createOrder,
-	'delete-many': deleteManyOrder,
-	'delete-one': deleteOneOrder,
+	'delete-many': deleteOrder,
+	'delete-one': deleteOrder,
 	exists: readOrder,
 	'find-many': readOrder,
 	'find-one': readOrder,
 	get: readOrder,
-	'update-many': updateManyOrder,
-	'update-one': updateOneOrder,
+	'update-many': updateOrder,
+	'update-one': updateOrder,
 	'upsert-many': upsertOrder,
 	'upsert-one': upsertOrder,
 } satisfies Readonly<Record<OperationKind, NativeHookPhaseOrder>>)

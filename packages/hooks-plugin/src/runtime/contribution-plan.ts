@@ -50,8 +50,6 @@ export interface FieldHookContributionPlan {
 
 export interface SchemaHookContributionPlan {
 	readonly contributions: HookContributionNesting<SchemaHookDeclarations>
-	readonly fieldsAfter: readonly FieldHookContributionPlan[]
-	readonly fieldsBefore: readonly FieldHookContributionPlan[]
 	readonly schema: SchemaDefinition
 	readonly schemaMutations: ReadonlyMap<
 		string,
@@ -178,16 +176,14 @@ const createContributionNesting = <TDeclarations extends object>(
 			? undefined
 			: immutableRecord({ declarations: developer, kind: 'developer' as const })
 	const before: HookContribution<TDeclarations>[] = [...plugins]
-	const after: HookContribution<TDeclarations>[] = []
 
 	if (declared !== undefined) {
 		before.push(declared)
-		after.push(declared)
 	}
-	for (const contribution of plugins.toReversed()) after.push(contribution)
 
 	return immutableRecord({
-		after: immutableArray(after),
+		// After hooks unwind the exact before nesting, retaining each owner.
+		after: immutableArray(before.toReversed()),
 		before: immutableArray(before),
 	})
 }
@@ -284,7 +280,6 @@ const applyPluginContributions = (
 }
 
 const finalizeSchemaPlan = (draft: MutableSchemaPlan): SchemaPlanLookup => {
-	const fields: FieldHookContributionPlan[] = []
 	const fieldsByPath = new Map<string, FieldHookContributionPlan>()
 
 	for (const candidate of draft.fields) {
@@ -302,11 +297,9 @@ const finalizeSchemaPlan = (draft: MutableSchemaPlan): SchemaPlanLookup => {
 			field: candidate.field,
 			path: candidate.path,
 		})
-		fields.push(field)
 		fieldsByPath.set(encodeFieldPath(field.path), field)
 	}
 
-	const fieldsBefore = immutableArray(fields)
 	const developer = readSchemaDeclarations(draft.schema)
 	if (developer !== undefined) {
 		assertApplicationOwnedInlineHooks(
@@ -328,8 +321,6 @@ const finalizeSchemaPlan = (draft: MutableSchemaPlan): SchemaPlanLookup => {
 		fieldsByPath,
 		plan: immutableRecord({
 			contributions: nesting,
-			fieldsAfter: immutableArray(fieldsBefore.toReversed()),
-			fieldsBefore,
 			schema: draft.schema,
 			schemaMutations: draft.schemaMutations,
 		}),

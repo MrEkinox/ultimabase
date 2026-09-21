@@ -3,7 +3,7 @@
 - Status: active — plugin wave resumed by explicit user request
 - Started: 2026-09-20
 - Milestone: [30 — Pre-feature architecture simplification](../../issues/3000-pre-feature-architecture-simplification/README.md)
-- Resume point: issue 3016; authorized through the final audit in 3034
+- Resume point: issue 3017; authorized through the final audit in 3034
 - Baseline: [issue 3001 measurements](2026-09-20-architecture-simplification-baseline.md)
 - Preservation ledger: [architecture contract matrix](2026-09-20-architecture-contract-matrix.md)
 

@@ -1,18 +1,15 @@
-import { immutableArray, immutableRecord } from '@ultimabase/shared'
+import { immutableRecord } from '@ultimabase/shared'
 import {
 	createRuntimeBehaviorBoundaries,
 	type DatabaseMutationOperationAst,
-	type DatabaseOperationAst,
 	type RuntimeBehaviorBoundaries,
 	type RuntimeBehaviorStages,
-	type RuntimeOperationStageInput,
 	type RuntimePreparedMutationStageInput,
 } from '@ultimabase/core'
 
 import type { HookContributionPlan } from './contribution-plan.js'
 import type { HookExecutionRuntime } from './execution-runtime.js'
 import { resolveFieldInputs } from './input-resolution.js'
-import { getNativeHookPhaseOrder } from './phase-order.js'
 import {
 	isSchemaMutationHookRequest,
 	runSchemaMutationAfterHooks,
@@ -21,23 +18,10 @@ import {
 import {
 	runSchemaPreparedPhases,
 	runSchemaResultPhases,
-	runSchemaTransformPhases,
+	runSchemaResolveInput,
 } from './schema-phases.js'
 
-const resolveInput = async <const TOperation extends DatabaseOperationAst>(
-	plan: HookContributionPlan,
-	runtime: HookExecutionRuntime,
-	input: RuntimeOperationStageInput<TOperation>,
-): Promise<TOperation> => {
-	const order = getNativeHookPhaseOrder(input.operation.kind)
-	if (order.family === 'delete' || order.family === 'read') {
-		return input.operation
-	}
-
-	return resolveFieldInputs(plan, runtime, input)
-}
-
-/** Runs schema input resolution only after Access has hidden and locked the target. */
+/** Runs schema input resolution only after the visible target is prepared and locked. */
 const resolveSchemaInput = async <
 	const TOperation extends DatabaseMutationOperationAst,
 >(
@@ -56,14 +40,7 @@ const resolveSchemaInput = async <
 		return input.operation
 	}
 
-	return runSchemaTransformPhases(
-		boundaries,
-		plan,
-		runtime,
-		input,
-		immutableArray(['resolveInput']),
-		'before',
-	)
+	return runSchemaResolveInput(boundaries, plan, runtime, input)
 }
 
 /** Compiles official declarations into Core's generic behavior boundaries. */
@@ -85,7 +62,7 @@ export const createHookBehavior = (
 						input.outcome,
 						input.selectedFieldsOverride,
 					),
-		transformInput: (input) => resolveInput(plan, runtime, input),
+		transformInput: (input) => resolveFieldInputs(plan, runtime, input),
 		transformResult: (input) =>
 			isSchemaMutationHookRequest(input)
 				? runSchemaMutationAfterHooks(plan, runtime, input)
