@@ -9,7 +9,7 @@ order: 2
 outcome: Configure the HTTP application boundary, browser policy, and pre-dispatch request handling.
 owner: '2812'
 releaseStatus: pre-release
-reviewedAt: 2026-09-20
+reviewedAt: 2026-09-21
 sources:
   - packages/http-plugin/README.md
   - packages/http-plugin/src/request-boundary.ts
@@ -30,6 +30,10 @@ X-UltimaBase-Application-Id: blog
 ```
 
 ## Installation
+
+These packages are pre-release. Use the locally built repository example linked
+from [Manual Installation](/docs/1.0.0/manual-installation) to evaluate the
+current code; the registry commands below describe installation after publication.
 
 Install the application HTTP boundary:
 
@@ -96,7 +100,7 @@ verification, timeout, and request correlation run before a protocol handler. Th
 failures use the safe `HTTP_*` boundary. Once REST or GraphQL begins, that protocol
 owns its response.
 
-Enable the canonical Master header only with `master: { enabled: true }` and a
+Enable the canonical `X-UltimaBase-Master-Key` header only with `master: { enabled: true }` and a
 configured `MasterAuthority`. The selected application's authority verifies the raw
 key and must complete its audit before dispatch. Alternative headers, body flags,
 foreign credentials, contexts, and grants cannot select Master.

@@ -1,12 +1,12 @@
 # Active plan: pre-feature architecture simplification
 
-- Status: active — plugin wave explicitly resumed; next issue 3033
+- Status: active — plugin wave explicitly resumed; next issue 3034
 - Milestone: [30 — Pre-feature architecture simplification](issues/3000-pre-feature-architecture-simplification/README.md)
 - Detailed plan: [docs/plans/2026-09-20-pre-feature-architecture-simplification.md](docs/plans/2026-09-20-pre-feature-architecture-simplification.md)
 - Baseline: [docs/plans/2026-09-20-architecture-simplification-baseline.md](docs/plans/2026-09-20-architecture-simplification-baseline.md)
 - Contract matrix: [docs/plans/2026-09-20-architecture-contract-matrix.md](docs/plans/2026-09-20-architecture-contract-matrix.md)
 - Removal history: [HISTORIQUE_SUPPRESSIONS.md](HISTORIQUE_SUPPRESSIONS.md)
-- Resume point: issue 3033; continue sequentially through issue 3034
+- Resume point: issue 3034; continue sequentially through issue 3034
 
 ## Objective
 
@@ -386,3 +386,11 @@ and two accessibility defects fixed with browser regressions. Literal Roles
 examples pass Typegen, built typing and PostgreSQL execution. All 66 content,
 31 browser checks and 12 additional viewport/theme combinations pass. Package
 production delta is zero. Continue with issue 3033 after its dedicated commit.
+
+Issue 3032 is committed as `60a6d2ce`: +286 / -50 lines, net +236, including
+the website accessibility fixes and engineering records. Issue 3033 is complete:
+15 pages reviewed, six corrected and two README examples repaired. Literal
+configurations, Typegen, PostgreSQL, REST, GraphQL and shutdown flows pass.
+All 66 content, 32 browser checks and 24 further theme/viewport combinations
+pass. Package production delta is zero. Continue with final audit 3034 after
+this issue's dedicated commit, then stop; no push or later milestone is authorized.

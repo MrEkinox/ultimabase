@@ -582,3 +582,13 @@ défauts d'accessibilité du site sont corrigés et protégés par les tests nav
 Aucune API ni fonctionnalité supplémentaire n'est supprimée ; **delta de
 production des packages nul**. Les 66 contrôles de contenu, 31 tests navigateur
 et 12 combinaisons page/thème/écran passent. Audit final vert.
+
+## Documentation HTTP et transports — issue 3033 réalisée
+
+La revue couvre 15 pages et corrige six pages ainsi que deux exemples de README.
+Le démarrage est retiré des configurations réutilisables et la fermeture des
+listeners est documentée. Les exemples Hono et GraphQL reçoivent le fournisseur
+PostgreSQL qui leur manquait. Les routes, formats, erreurs, permissions et
+capacités des plugins restent inchangés ; **delta de production nul**.
+Les parcours réels REST/GraphQL, Typegen et PostgreSQL passent, avec 66 contrôles
+de contenu, 32 tests navigateur et 24 combinaisons page/thème/écran. Audit vert.

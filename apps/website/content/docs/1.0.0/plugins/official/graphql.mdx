@@ -9,13 +9,15 @@ order: 4
 outcome: Install the GraphQL packages you need, configure execution, and understand HTTP and explorer boundaries.
 owner: '2812'
 releaseStatus: pre-release
-reviewedAt: 2026-09-17
+reviewedAt: 2026-09-21
 sources:
   - packages/graphql-plugin/README.md
   - packages/graphql-plugin/src/options.ts
   - packages/graphql-plugin/src/surfaces.ts
   - packages/graphql-plugin/src/compiler.test.ts
   - packages/graphql-yoga-plugin/README.md
+  - packages/graphql-yoga-plugin/src/errors.ts
+  - packages/graphql-http/README.md
   - packages/graphiql-plugin/README.md
   - packages/apollo-sandbox-plugin/README.md
   - docs/adr/0238-graphql-v1-contract.md
@@ -27,6 +29,10 @@ sources:
 browser explorers are independent, optional plugins. None installs its siblings.
 
 ## Installation
+
+These packages are pre-release. Use the locally built repository example linked
+from [Manual Installation](/docs/1.0.0/manual-installation) to evaluate the
+current code; the registry commands below describe installation after publication.
 
 For direct GraphQL execution, install the schema plugin:
 
@@ -86,7 +92,7 @@ is not a working generated API. This local example exposes only `getPost` and
 `findManyPost`. Use a disposable development database: PostgreSQL's `override`
 policy may create or alter tables.
 
-```ts title="src/main.ts"
+```ts title="src/ultimabase.ts"
 import { Schema, UltimaBase } from '@ultimabase/core'
 import { graphqlPlugin } from '@ultimabase/graphql-plugin'
 import { graphqlYogaPlugin } from '@ultimabase/graphql-yoga-plugin'
@@ -103,7 +109,7 @@ const Post = Schema.define({
 const databaseUrl = process.env.DATABASE_URL
 if (databaseUrl === undefined) throw new TypeError('DATABASE_URL is required')
 
-export const application = new UltimaBase({
+export const ultimabase = new UltimaBase({
 	plugins: [
 		postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
 		httpPlugin({ appId: 'notes' }),
@@ -116,9 +122,11 @@ export const application = new UltimaBase({
 	],
 	schemas: [Post],
 })
-
-await application.start()
 ```
+
+Start this configuration from the [managed listener entry point](./hono-server#start-and-stop-the-managed-listener).
+It serves until Ctrl+C and then awaits disposal. Keep startup out of
+`src/ultimabase.ts` so Typegen and the direct scripts below can load it safely.
 
 `default: false` disables generated operations unless a schema opts in; it also
 disables plugin-defined schema mutations. The acknowledgement lets this
@@ -145,7 +153,7 @@ tables below use `Post` as the GraphQL type name. GraphQL does not pluralize
 or case-fold the schema's `className`; a custom `typeName` changes these field
 suffixes.
 
-The `src/main.ts` example above deliberately exposes **only** `getPost` and
+The `src/ultimabase.ts` example above deliberately exposes **only** `getPost` and
 `findManyPost`. The "default" column describes what a schema would expose
 without that example's `default: false` setting. A disabled field is absent
 from the endpoint's schema, even for Master.
@@ -237,14 +245,20 @@ Exact application operations appear only when selected through
 [Soft Delete](./soft-delete) can contribute a schema-specific `softDeletePost`
 mutation when enabled. Custom GraphQL schemas may add other root fields.
 
-To inspect what **your** started application actually exposes, use the
-GraphQL plugin's deterministic `printSchema()` output:
+To inspect what **your** application exposes, run this standalone script
+instead of the server entry point. It starts the same configuration, prints
+the GraphQL plugin's deterministic schema, then releases its resources:
 
 ```ts title="src/print-graphql-schema.ts"
-import { application } from './main.js'
+import { ultimabase } from './ultimabase.js'
 
-const graphql = application.application.getPlugin('@ultimabase/graphql-plugin')
-console.log(graphql.printSchema())
+try {
+	await ultimabase.start()
+	const graphql = ultimabase.application.getPlugin('@ultimabase/graphql-plugin')
+	console.log(graphql.printSchema())
+} finally {
+	await ultimabase.dispose()
+}
 ```
 
 For browser schema discovery through Yoga, enable introspection only in the
@@ -263,24 +277,31 @@ The context is application-bound. Direct execution needs no HTTP server, but it
 still passes generated operations through the same Core request executor as an
 HTTP call.
 
-For example, import the started application from `src/main.ts`. If you only
-execute directly, omit the HTTP, Yoga, and Hono plugins from that file:
+For a standalone direct script, remove HTTP, Yoga and Hono from the
+`src/ultimabase.ts` configuration, keeping PostgreSQL and GraphQL. The script
+owns startup and cleanup; run it in its own process, not alongside another
+initialized application in the same realm:
 
 ```ts title="src/direct-graphql.ts"
 import { randomUUID } from 'node:crypto'
-import { application } from './main.js'
+import { ultimabase } from './ultimabase.js'
 
-const graphql = application.application.getPlugin('@ultimabase/graphql-plugin')
-const context = application.engine.anonymous({
-	requestId: randomUUID(),
-	source: 'internal',
-}).context
+try {
+	await ultimabase.start()
+	const graphql = ultimabase.application.getPlugin('@ultimabase/graphql-plugin')
+	const context = ultimabase.engine.anonymous({
+		requestId: randomUUID(),
+		source: 'internal',
+	}).context
 
-const result = await graphql.execute({
-	context,
-	document: '{ findManyPost(first: 10) { nodes { id title } } }',
-})
-console.log(result.data)
+	const result = await graphql.execute({
+		context,
+		document: '{ findManyPost(first: 10) { nodes { id title } } }',
+	})
+	console.log(result.data)
+} finally {
+	await ultimabase.dispose()
+}
 ```
 
 Generated reads, mutations, nested writes, virtual fields, and explicitly selected
@@ -345,6 +366,13 @@ On a fresh database, expect HTTP `200` with an empty `nodes` array inside
 HTTP before Yoga executes the query. Introspection remains off in this
 example; turn it on explicitly only if a development explorer needs it.
 
+A successful HTTP status is not enough to decide whether a GraphQL operation
+succeeded: inspect `errors` as well as `data`. GraphQL errors carry safe
+`extensions.code`, `requestId`, and `retryable` values, plus approved details
+when available. HTTP identity failures happen before Yoga and retain the HTTP
+envelope. See [API Errors](/docs/1.0.0/core/runtime/api-errors) for the common
+public error contract.
+
 ### Choose a development explorer
 
 Explorers are optional, independent plugins. Add one only if you need a browser
@@ -364,6 +392,13 @@ import { apolloSandboxPlugin } from '@ultimabase/apollo-sandbox-plugin'
 const graphiql = graphiqlPlugin({ environment: 'development' })
 const apolloSandbox = apolloSandboxPlugin({ environment: 'development' })
 ```
+
+Add the chosen value (`graphiql` or `apolloSandbox`) to `plugins` in
+`src/ultimabase.ts`, and replace `graphqlYogaPlugin()` there with
+`graphqlYogaPlugin({ introspection: true })` for this development setup.
+Restart the application and open the corresponding URL from the table on
+`http://127.0.0.1:1337`. These bootstrap page URLs work in the browser address
+bar; their GraphQL requests still send the application header.
 
 Each explorer targets the installed GraphQL HTTP endpoint and attaches the
 public application ID. GraphiQL has no application or endpoint switcher.

@@ -9,7 +9,7 @@ order: 3
 outcome: Call generated REST routes while preserving the same Runtime semantics as TypeScript.
 owner: '2812'
 releaseStatus: pre-release
-reviewedAt: 2026-09-20
+reviewedAt: 2026-09-21
 sources:
   - packages/rest-plugin/README.md
   - packages/rest-plugin/src/schema-routes.ts
@@ -32,6 +32,10 @@ Importing the package does not expose routes. Add `restPlugin()` and the
 separate [HTTP](./http) application boundary to the same application.
 
 ## Installation
+
+These packages are pre-release. Use the locally built repository example linked
+from [Manual Installation](/docs/1.0.0/manual-installation) to evaluate the
+current code; the registry commands below describe installation after publication.
 
 Install REST in an UltimaBase project:
 
@@ -60,7 +64,7 @@ example exposes only `find` and `get`; it does not install authentication or
 authorization. Use a disposable development database and keep the listener on
 `127.0.0.1`.
 
-```ts title="src/main.ts"
+```ts title="src/ultimabase.ts"
 import { Schema, UltimaBase } from '@ultimabase/core'
 import { httpPlugin } from '@ultimabase/http-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
@@ -78,7 +82,7 @@ const Post = Schema.define({
 const databaseUrl = process.env.DATABASE_URL
 if (!databaseUrl) throw new Error('DATABASE_URL is required')
 
-const ultimabase = new UltimaBase({
+export const ultimabase = new UltimaBase({
 	plugins: [
 		postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
 		httpPlugin({ appId: 'blog' }),
@@ -90,9 +94,11 @@ const ultimabase = new UltimaBase({
 	],
 	schemas: [Post],
 })
-
-await ultimabase.start()
 ```
+
+Start this configuration from the [managed listener entry point](./hono-server#start-and-stop-the-managed-listener).
+It keeps serving until Ctrl+C and awaits disposal. The exported configuration
+can also be loaded by Typegen without opening a database or listener.
 
 `default: false` disables every route unless the schema opts in, including
 plugin-defined schema mutations. The schema above enables only reads. The
@@ -200,12 +206,26 @@ schema-command-shaped JSON bodies. REST decodes input, then Core applies
 structural validation and any installed Validation, Access, ACL, and Hooks
 behavior. A public route is not itself a permission rule.
 
+Application operation bodies use exactly `{ "input": value }`, unlike ordinary
+create/update field bodies. The Password Auth guide shows each concrete input.
+
 Application operations use `POST /api/v1/operations/{name}` by default. Their
 owner may declare a short static path in the REST binding. For example,
 [Password Auth](./password-authentication) uses `/api/v1/auth/login` and its
 three sibling authentication routes. The configured `basePath` applies to
 these routes too. A declared path replaces the default URL; it does not create
 an alias or expose an unselected operation.
+
+### Read errors at the correct boundary
+
+After REST dispatch, errors use
+`{ error: { code, message, retryable, requestId, details? } }`.
+Permission failures return 403, hidden or missing targets return 404, and
+validation failures return 422. Unexpected exceptions become a safe
+`REST_INTERNAL_ERROR` response rather than exposing internal diagnostics.
+The response carries `X-UltimaBase-Request-Id`; keep it with the safe code when
+reporting a failure. Earlier application identity or credential failures retain
+the HTTP plugin's envelope and never enter REST.
 
 ## Troubleshooting
 

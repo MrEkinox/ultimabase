@@ -15,17 +15,30 @@ application stops.
 ```ts
 import { UltimaBase } from '@ultimabase/core'
 import { httpPlugin } from '@ultimabase/http-plugin'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { honoServerPlugin } from '@ultimabase/server-hono-plugin'
 
+const databaseUrl = process.env.DATABASE_URL
+if (!databaseUrl) throw new Error('DATABASE_URL is required')
 const server = honoServerPlugin({ host: '127.0.0.1', port: 1337 })
 
 const application = new UltimaBase({
-	plugins: [httpPlugin({ appId: 'blog' }), server],
+	plugins: [
+		postgresPlugin({ url: databaseUrl }),
+		httpPlugin({ appId: 'blog' }),
+		server,
+	],
 	schemas: [],
 })
 
 await application.start()
 ```
+
+`UltimaBase.start()` requires a database provider even with no application
+schemas. These examples use PostgreSQL and `DATABASE_URL`; the provider is a
+sibling dependency, not installed by Hono. Keep configuration separate from
+startup when loading it for Typegen. The [website guide](../../apps/website/content/docs/1.0.0/plugins/official/hono-server.mdx)
+shows the managed entry point and awaited shutdown for both ownership modes.
 
 Port `0` is accepted for tests that need an operating-system-selected ephemeral
 port. An independently owned listener on the same fixed address produces the normal
@@ -62,7 +75,11 @@ const server = honoServerPlugin({
 	browserPolicyOwner: 'ultimabase',
 })
 const application = new UltimaBase({
-	plugins: [httpPlugin({ appId: 'blog' }), server],
+	plugins: [
+		postgresPlugin({ url: databaseUrl }),
+		httpPlugin({ appId: 'blog' }),
+		server,
+	],
 	schemas: [],
 })
 
@@ -82,7 +99,11 @@ const server = honoServerPlugin({
 })
 
 const application = new UltimaBase({
-	plugins: [httpPlugin({ appId: 'blog' }), server],
+	plugins: [
+		postgresPlugin({ url: databaseUrl }),
+		httpPlugin({ appId: 'blog' }),
+		server,
+	],
 	schemas: [],
 })
 ```

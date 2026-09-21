@@ -5,30 +5,47 @@ Network-independent GraphQL schema generation for UltimaBase applications.
 ```ts
 import { Schema, UltimaBase } from '@ultimabase/core'
 import { graphqlPlugin } from '@ultimabase/graphql-plugin'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
 
 const Post = Schema.define({
 	className: 'Post',
 	fields: (field) => ({ title: field.string({ required: true }) }),
-	graphql: true,
+	graphql: { operations: { findMany: true } },
 })
+const databaseUrl = process.env.DATABASE_URL
+if (!databaseUrl) throw new Error('DATABASE_URL is required')
 
 const application = new UltimaBase({
 	schemas: [Post],
-	plugins: [graphqlPlugin()],
+	plugins: [
+		postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
+		graphqlPlugin({ acknowledgeUnverifiedProtection: true, default: false }),
+	],
 })
-await application.start()
-
-const graphql = application.application.getPlugin('@ultimabase/graphql-plugin')
-const context = application.engine.anonymous({
-	requestId: crypto.randomUUID(),
-	source: 'internal',
-}).context
-
-await graphql.execute({
-	context,
-	document: '{ findManyPost(first: 10) { nodes { id title } } }',
-})
+try {
+	await application.start()
+	const graphql = application.application.getPlugin(
+		'@ultimabase/graphql-plugin',
+	)
+	const context = application.engine.anonymous({
+		requestId: crypto.randomUUID(),
+		source: 'internal',
+	}).context
+	console.log(
+		await graphql.execute({
+			context,
+			document: '{ findManyPost(first: 10) { nodes { id title } } }',
+		}),
+	)
+} finally {
+	await application.dispose()
+}
 ```
+
+Use a disposable database: `override` may create or alter tables. This example
+exposes one read without authorization; the acknowledgement does not add policy.
+Configure and review protection before public exposure. The [website guide](../../apps/website/content/docs/1.0.0/plugins/official/graphql.mdx)
+separates reusable configuration, direct execution, HTTP serving and explorers.
 
 The plugin compiles one application-local executable `GraphQLSchema` after the
 complete Core schema graph exists. Importing the package installs no behavior.

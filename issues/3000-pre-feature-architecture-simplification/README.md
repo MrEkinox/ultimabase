@@ -64,7 +64,7 @@ this milestone.
 30. [x] [3030 — Simplify the Apollo Sandbox plugin](3030-simplify-apollo-sandbox-plugin.md)
 31. [x] [3031 — Reconcile the Core and plugin-authoring website journey](3031-reconcile-core-plugin-authoring-website-docs.md)
 32. [x] [3032 — Reconcile the data, security, and persistence website journey](3032-reconcile-data-security-persistence-website-docs.md)
-33. [ ] [3033 — Reconcile the HTTP and transport website journey](3033-reconcile-http-transport-website-docs.md)
+33. [x] [3033 — Reconcile the HTTP and transport website journey](3033-reconcile-http-transport-website-docs.md)
 34. [ ] [3034 — Run the final simplification and parity audit](3034-final-simplification-audit.md)
 
 Every issue depends on the previous issue's green audit. Implementation,
@@ -91,7 +91,7 @@ decision, then an update to the affected pages under
 the final cross-page website review; package READMEs do not replace it.
 
 The [3014 checkpoint](../../docs/plans/2026-09-21-core-kernel-simplification-checkpoint.md)
-is complete with a green clean-checkout audit. Issues 3015–3032 are complete; the website review resumes at 3033
+is complete with a green clean-checkout audit. Issues 3015–3033 are complete; the final audit resumes at 3034
 under the later explicit user authorization; milestone 30 remains open.
 
 ## Completion boundary

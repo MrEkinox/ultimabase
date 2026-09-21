@@ -209,7 +209,9 @@ For a local walkthrough of both APIs, install the HTTP, REST, GraphQL, Yoga,
 and Hono packages described in [REST setup](./rest) and
 [GraphQL with Yoga](./graphql#serve-graphql-over-http-with-yoga). Add the following
 plugins to the existing application with `...apiPlugins` before starting it;
-import `apiPlugins` from `./api-plugins.js` in `ultimabase.ts`.
+import `apiPlugins` from `./api-plugins.js` in `ultimabase.ts`. Use
+[Hono's server entry point](./hono-server#start-and-stop-the-managed-listener)
+so the API keeps serving between the requests below.
 
 ```ts title="src/api-plugins.ts"
 import { graphqlPlugin } from '@ultimabase/graphql-plugin'
@@ -220,8 +222,8 @@ import { honoServerPlugin } from '@ultimabase/server-hono-plugin'
 
 export const apiPlugins = [
 	httpPlugin({ appId: 'blog' }),
-	restPlugin(),
-	graphqlPlugin(),
+	restPlugin({ acknowledgeUnverifiedProtection: true }),
+	graphqlPlugin({ acknowledgeUnverifiedProtection: true }),
 	graphqlYogaPlugin(),
 	honoServerPlugin({ host: '127.0.0.1', port: 1337 }),
 ] as const
@@ -231,8 +233,9 @@ This local example exposes the schema's default read and write operations
 without an authorization policy. Keep it on loopback with disposable data.
 Before public exposure, configure [Access](./access) or [Object ACLs](./acl-permissions)
 and review [public transport protection](/docs/1.0.0/operations/before-exposing-your-application).
-`UNVERIFIED_PUBLIC_TRANSPORT_PROTECTION` signals that policy coverage has not
-been acknowledged; acknowledging it does not add protection.
+The example explicitly acknowledges unverified protection for this local
+walkthrough. Removing that acknowledgement produces
+`UNVERIFIED_PUBLIC_TRANSPORT_PROTECTION`; acknowledging it does not add policy.
 
 If your policy requires an authenticated caller, configure
 [Password Authentication](./password-authentication) and send that caller's

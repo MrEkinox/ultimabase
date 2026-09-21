@@ -9,7 +9,7 @@ order: 3
 outcome: Run an UltimaBase HTTP application on a managed or existing Hono server without mixing listener and browser-policy ownership.
 owner: '2812'
 releaseStatus: pre-release
-reviewedAt: 2026-09-20
+reviewedAt: 2026-09-21
 sources:
   - packages/server-hono-plugin/README.md
   - packages/server-hono-plugin/src/options.ts
@@ -28,6 +28,10 @@ GraphQL routes. Install a [REST](./rest) or [GraphQL](./graphql) transport when
 you need one.
 
 ## Installation
+
+These packages are pre-release. Use the locally built repository example linked
+from [Manual Installation](/docs/1.0.0/manual-installation) to evaluate the
+current code; the registry commands below describe installation after publication.
 
 Install the Hono server provider alongside the [HTTP plugin](./http):
 
@@ -60,22 +64,31 @@ pnpm add hono @hono/node-server
 
 ## Configuration
 
+Start from the database setup in [Manual Installation](/docs/1.0.0/manual-installation).
+`UltimaBase.start()` requires a database provider even when `schemas` is empty;
+the examples below use PostgreSQL and `DATABASE_URL`.
+
 Choose one listener owner. With no `app`, UltimaBase creates and starts a Node
 listener after the application graph validates:
 
-```ts title="src/server.ts"
+```ts title="src/ultimabase.ts"
 import { UltimaBase } from '@ultimabase/core'
 import { httpPlugin } from '@ultimabase/http-plugin'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { honoServerPlugin } from '@ultimabase/server-hono-plugin'
 
+const databaseUrl = process.env.DATABASE_URL
+if (!databaseUrl) throw new Error('DATABASE_URL is required')
 const server = honoServerPlugin({ host: '127.0.0.1', port: 1337 })
 
-const application = new UltimaBase({
-	plugins: [httpPlugin({ appId: 'blog' }), server],
+export const ultimabase = new UltimaBase({
+	plugins: [
+		postgresPlugin({ url: databaseUrl }),
+		httpPlugin({ appId: 'blog' }),
+		server,
+	],
 	schemas: [],
 })
-
-await application.start()
 ```
 
 This starts the HTTP boundary, not an API route. Add a transport plugin to
@@ -83,6 +96,33 @@ serve REST or GraphQL. Without `port`, the managed listener uses `1337`. The
 optional `host` is forwarded only when you set it; the loopback value above is
 appropriate for local development. Port `0` lets the operating system choose
 an ephemeral port for tests.
+
+### Start and stop the managed listener
+
+Keep the exported configuration free of startup effects so Typegen can load it.
+The REST and GraphQL examples use the same `ultimabase` export and entry point:
+
+```ts title="src/main.ts"
+import { once } from 'node:events'
+import { ultimabase } from './ultimabase.js'
+
+// Register before startup so Ctrl+C during startup is also observed.
+const interrupted = once(process, 'SIGINT')
+try {
+	await ultimabase.start()
+	await interrupted
+} finally {
+	await ultimabase.dispose()
+}
+```
+
+Run the project's typecheck, build and start scripts after configuring
+`DATABASE_URL` when using PostgreSQL. The process keeps serving until Ctrl+C;
+then it awaits application cleanup, including the managed listener and database.
+For deployment, wire the host's shutdown mechanism (often SIGTERM) to the same
+awaited disposal. Do not start another application before that cleanup completes.
+
+### Join an existing Hono listener
 
 To join an existing Hono app instead, pass that `app` and name the browser
 policy owner. You start and stop the listener yourself:
@@ -92,13 +132,17 @@ import { serve } from '@hono/node-server'
 import { Hono } from 'hono'
 import { UltimaBase } from '@ultimabase/core'
 import { httpPlugin } from '@ultimabase/http-plugin'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { honoServerPlugin } from '@ultimabase/server-hono-plugin'
 
+const databaseUrl = process.env.DATABASE_URL
+if (!databaseUrl) throw new Error('DATABASE_URL is required')
 const app = new Hono()
 app.get('/health', (context) => context.text('ok'))
 
 const application = new UltimaBase({
 	plugins: [
+		postgresPlugin({ url: databaseUrl }),
 		httpPlugin({ appId: 'blog' }),
 		honoServerPlugin({ app, browserPolicyOwner: 'ultimabase' }),
 	],
@@ -113,6 +157,20 @@ Here `/health` is an ordinary Hono route. UltimaBase application routes still
 require a transport plugin and an `X-UltimaBase-Application-Id` header. In
 existing-app mode, `host` and `port` are not Hono plugin options; configure
 them on your own listener.
+
+To stop only UltimaBase, await `application.dispose()`; `/health` and the
+externally owned listener stay available. When the whole process shuts down,
+also close your listener from the same entry point:
+
+```ts
+try {
+	await application.dispose()
+} finally {
+	await new Promise<void>((resolve, reject) => {
+		listener.close((error) => (error ? reject(error) : resolve()))
+	})
+}
+```
 
 ## Behavior and limitations
 

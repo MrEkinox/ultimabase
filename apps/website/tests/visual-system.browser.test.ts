@@ -87,6 +87,12 @@ describe('website visual system', () => {
 			path: '/docs/1.0.0/plugins/official/password-authentication',
 			width: 375,
 		},
+		{
+			colorScheme: 'light' as const,
+			customShell: false,
+			path: '/docs/1.0.0/plugins/official/graphql',
+			width: 375,
+		},
 	])(
 		'keeps the $colorScheme $path shell accessible',
 		async ({ colorScheme, customShell, path, width }) => {
