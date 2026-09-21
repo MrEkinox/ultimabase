@@ -1,12 +1,12 @@
 # Active plan: residual complexity simplification
 
-- Status: in-progress — 3104 complete; 3105 architecture proposal next
+- Status: in-progress — 3105 accepted; bounded Core cleanup then 3106
 - Milestone: [31 — Residual complexity simplification](issues/3100-residual-complexity-simplification/README.md)
 - Detailed plan: [execution and audit contract](docs/plans/2026-09-21-residual-complexity-simplification.md)
 - Evidence: [candidate inventory](docs/plans/2026-09-21-residual-complexity-inventory.md)
 - Measurements and retained IDs: [3101 baseline](docs/plans/2026-09-21-residual-complexity-baseline.md)
 - Baseline source: `265b54c909404f9690a666bdf39ace01ccee466e`
-- Next issue: [3105](issues/3100-residual-complexity-simplification/3105-decide-direct-internal-schema-compilation.md)
+- Current issue: [3105](issues/3100-residual-complexity-simplification/3105-decide-direct-internal-schema-compilation.md)
 - Hard stop: after issue 3112 and its dedicated local commit
 
 ## Current authorization
@@ -14,8 +14,9 @@
 The user explicitly authorized autonomous execution of milestone 31 on
 2026-09-21, with one dedicated commit per completed issue and the full
 validation/audit/correction loop. Stop for questions, architectural decisions
-or blockers and explain them before continuing. The exact compiler and public
-protocol decisions in 3105/3107 still require their specified approval.
+or blockers and explain them before continuing. The exact compiler decision in 3105 was explicitly accepted on 2026-09-21,
+including the selector delta and separate Core resolver cleanup. The three
+public protocol decisions in 3107 still require their specified approval.
 No push, later milestone or paused feature is authorized.
 
 Milestone 30 stays completed. Its [final audit](docs/plans/2026-09-21-milestone-30-final-audit.md)
@@ -43,8 +44,8 @@ every dependency. For each issue:
    line counts, including tests/docs/generated files and separate production
    reductions. Only then may the next issue start. Do not push.
 
-Preserve current functionality and used plugin capabilities. Issues 3105 and
-3107 require explicit decisions before their dependent compiler/public removals.
+Preserve current functionality and used plugin capabilities. Issue 3105 records its accepted decision;
+3107 still requires explicit decisions before its dependent public removals.
 A retained candidate explicitly supersedes its removal issue; a pending decision
 blocks it. No generic replacement API or private official-plugin escape hatch.
 An explicitly superseded removal is resolved by its decision issue's audited
@@ -59,6 +60,15 @@ Stop expressly after the final 3112 audit and commit; no automatic continuation.
 - 3101: `4df180bc`, +391 / -69 = +322 lines; production delta 0.
 - 3102: `040e7df1`, +114 / -372 = -258 lines; production -334.
 - 3103: `4759aef3`, +177 / -164 = +13 lines; production -100.
+- 3104: `ddeea4de`, +288 / -259 = +29 lines; production -164.
 
-3104 is complete with a green audit: -164 production lines, unchanged public
-exports and no retained-coverage loss. Its dedicated commit must precede 3105.
+## Exact resume point
+
+3101–3104 are committed locally with green audits. The user explicitly accepted
+[ADR-0263](docs/adr/0263-direct-private-schema-compilation.md) and the separate
+private Core resolver cleanup. Finish the 3105 decision commit, then perform
+the bounded 3102 follow-up cleanup in its own audited commit, then implement 3106.
+The follow-up preserves the used Core path types and adds no public change.
+
+3107's three public protocol decisions remain separate and pending. Stop there
+for the concrete decisions. The hard stop after 3112 and no-push rule remain.

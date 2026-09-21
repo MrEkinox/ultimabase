@@ -623,7 +623,7 @@ portent les preuves, décisions et critères de conservation. Les anciens R-001
 | ------------------------------------------------------------------------ | --------- | ----------------------------------------------------------------- | --------------------------------------------------------------- |
 | RC-01 : fonctions privées inutilisées et registres Access/Hooks vides    | 3101–3104 | Core −334, Access −100 et Hooks −21 lignes livrés                 | Déclarations actuelles, provenance et API publiques             |
 | RC-02 : chemins de champs recopiés dans Hooks                            | 3104      | Livré : types Core réutilisés, copie privée de 143 lignes retirée | Imports publics Hooks, inférence et aide de l’éditeur           |
-| RC-03 : aller-retour du compilateur via une représentation intermédiaire | 3105–3106 | Décision d’architecture en attente                                | Validation, ordre, ownership, relations et publication atomique |
+| RC-03 : aller-retour du compilateur via une représentation intermédiaire | 3105–3106 | ADR-0263 acceptée ; implémentation 3106 à venir                   | Validation, ordre, ownership, relations et publication atomique |
 | RC-04 : extension Runtime normalization/commit inutilisée                | 3107–3108 | Décision publique en attente                                      | Interceptors utilisés par ACL, transactions et hooks de commit  |
 | RC-05 : marqueur Typegen sans lecteur                                    | 3107/3109 | Décision publique en attente, y compris son effet d’unicité       | Génération automatique, types et empreintes déterministes       |
 | RC-06 : anticipation des migrations                                      | 3107/3110 | Décision publique et usages de test à trancher                    | Synchronisation PostgreSQL, stockage privé et provenance utile  |
@@ -688,3 +688,14 @@ PostgreSQL passent. Aucun emplacement conservé ne perd sa couverture. Les
 soit −2 244 octets construits. Deux passes d’audit et corrections des fixtures
 et de l’ordre des validations ; audit final vert. Un résolveur privé Core
 orphelin supplémentaire est signalé dans l’inventaire, sans retrait hors périmètre.
+
+### Issue 3105 — compilation directe validée, retrait non encore livré
+
+L’utilisateur valide l’ADR-0263 : supprimer le transport intermédiaire du
+compilateur en conservant les contrôles finaux, les identités, les options,
+la provenance, l’ordre et la publication atomique. La suppression de l’accès
+accidentel des sélecteurs aux marqueurs internes des options opaques est
+explicitement acceptée. **Aucune ligne de production retirée dans cette issue** ;
+la 3106 doit réaliser et vérifier ces changements. Le dernier résolveur privé
+Core inutilisé sera retiré avant cela dans un commit correctif séparé de la 3102.
+Les trois décisions publiques de la 3107 restent en attente.

@@ -22,14 +22,14 @@ by the old R-001–R-010 removal list. Keep milestone 30's final
 milestone 31 decision deltas here, with accepted ADR, exact public difference,
 retained invariant, regression evidence and delivered issue.
 
-| ID    | Candidate                                        | Initial evidence and important limit                                                                                    | Planned issue | Decision/delivery                                                            |
-| ----- | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- | ------------- | ---------------------------------------------------------------------------- |
-| RC-01 | Private dead helpers                             | 14 functions, 304 declaration-body lines; no caller found and no package-root export                                    | 3102–3104     | Core/Access/Hooks delivered (3102–3104)                                      |
-| RC-02 | Hooks field-path duplication                     | 143-line file duplicates Core's public types; private resolver has only its own test and differs in field-map selection | 3104          | Delivered by 3104; public type/editor parity verified                        |
-| RC-03 | Canonical compiler IR round trip                 | Live internal machinery, 21 production files/3,648 lines; originally motivated by replacement compilation               | 3105–3106     | Architecture decision pending; directory size is not removable-line estimate |
-| RC-04 | Runtime normalization/commit stage contributions | No current production caller of runtimePipelineStage; ordinary interceptors are used                                    | 3107–3108     | Public decision pending; retain used C-035 behavior                          |
-| RC-05 | Typegen emitter marker                           | One provider, no reader found; generic single-provider conflict and inspection effects remain                           | 3107/3109     | Public decision pending; reopen C-039 explicitly                             |
-| RC-06 | Migration anticipation                           | Planning has a real testing consumer; no shipped migration plugin executes this path                                    | 3107/3110     | Public/engineering decision pending; reopen exact P-016/C-023/C-026 scope    |
+| ID    | Candidate                                        | Initial evidence and important limit                                                                                    | Planned issue | Decision/delivery                                                         |
+| ----- | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- | ------------- | ------------------------------------------------------------------------- |
+| RC-01 | Private dead helpers                             | 14 functions, 304 declaration-body lines; no caller found and no package-root export                                    | 3102–3104     | Core/Access/Hooks delivered (3102–3104)                                   |
+| RC-02 | Hooks field-path duplication                     | 143-line file duplicates Core's public types; private resolver has only its own test and differs in field-map selection | 3104          | Delivered by 3104; public type/editor parity verified                     |
+| RC-03 | Canonical compiler IR round trip                 | Live internal machinery, 21 production files/3,648 lines; originally motivated by replacement compilation               | 3105–3106     | ADR-0263 accepted in 3105; implementation pending in 3106                 |
+| RC-04 | Runtime normalization/commit stage contributions | No current production caller of runtimePipelineStage; ordinary interceptors are used                                    | 3107–3108     | Public decision pending; retain used C-035 behavior                       |
+| RC-05 | Typegen emitter marker                           | One provider, no reader found; generic single-provider conflict and inspection effects remain                           | 3107/3109     | Public decision pending; reopen C-039 explicitly                          |
+| RC-06 | Migration anticipation                           | Planning has a real testing consumer; no shipped migration plugin executes this path                                    | 3107/3110     | Public/engineering decision pending; reopen exact P-016/C-023/C-026 scope |
 
 ## RC-01 exact private-function inventory
 
@@ -97,6 +97,11 @@ ADR-0259 removed replacement, but current compilation still needs selection
 facts, field/schema identity, option ownership and command-surface derivation.
 Do not remove the directory or validation wholesale. Issue 3105 maps each
 retained invariant to the proposed direct internal path before user approval.
+[ADR-0263](../adr/0263-direct-private-schema-compilation.md) now records that
+concrete flow, consumer migration and required regressions. The user accepted it on 2026-09-21.
+It includes the explicitly accepted removal of accidental selector access to
+private opaque-option markers, verified through a built public-package probe;
+portable matching and opaque presence/absence remain. No compiler implementation is delivered yet.
 
 ## RC-04: keep used Runtime integrations
 
@@ -168,7 +173,7 @@ aid, not a proof of exhaustive dead-code detection or external community usage.
 | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | RC-01     | Core/Access/Hooks; no callers for the initial functions, reader wrappers or isolated declaration-target module                                                        | Existing schema/declaration, option normalization and provider tests; identical source/built/packed exports                                   | Internal cleanup only; website Access/Hooks/Core contracts remain accurate; Core/Access/Hooks delivered by 3102–3104                                               |
 | RC-02     | Hooks duplicates Core public types; private Hooks resolver is used only by field-paths.test.ts                                                                        | Source and built type/language-service checks; nested path validity/depth and documented field-map distinction                                | Hooks root names retained; consolidation delivered by 3104                                                                                                         |
-| RC-03     | SchemaDeclarationRegistry and compileCommandGraph consume canonical compiler output; selectors and option/provenance checks are live                                  | Complete compilation, malformed-declaration, atomic publication, Soft Delete patch, Typegen and transport suites                              | Architecture decision pending in 3105; review Core/schema and plugin-authoring website pages                                                                       |
+| RC-03     | SchemaDeclarationRegistry and compileCommandGraph consume canonical compiler output; selectors and option/provenance checks are live                                  | Complete compilation, malformed-declaration, atomic publication, Soft Delete patch, Typegen and transport suites                              | ADR-0263 accepted in 3105; 3106 must preserve invariants and update affected website pages                                                                         |
 | RC-04     | Core factory/tests/root exports only; ACL separately uses provideRuntimeInterceptor/preparedOperation                                                                 | Runtime order, transactions/rollback, attribution, ACL and no-product performance counters                                                    | Public decision pending in 3107; Runtime/plugin-authoring guidance must follow any approved removal                                                                |
 | RC-05     | Typegen provides an inert marker but setup directly calls generation/writing; generic single-provider checks still apply                                              | Startup ordering, deterministic declarations/fingerprints, generated-project and editor tests                                                 | Public uniqueness/inspection change pending in 3107; Typegen/plugin-authoring documentation reviewed in 3109                                                       |
 | RC-06     | planAdapterMigrations -> FakeAdapterMigrationHistory -> tests/e2e/open-kernel-proof.e2e.test.ts; PostgreSQL migration metadata/preparation providers are fixture-only | Resolve that real testing use explicitly; preserve current sync policies, physical contributions, private storage, raw leases and attribution | Public/engineering decision pending in 3107, including P-016 adapterMigrationCapability; PostgreSQL/testing/plugin-authoring guidance follows exact accepted scope |
@@ -188,8 +193,7 @@ location regression. Hooks RC-01/RC-02 are delivered by 3104: -164 production li
 declarations are identical, current-path/editor tests preserve behavior, and
 2,780 coverage plus 38 built/PostgreSQL tests pass. All 1,726 export names remain;
 only Hooks declaration text changes to reuse Core types (-2,244 bytes overall).
-No retained coverage location regresses. All public removal decisions remain
-pending.
+No retained coverage location regresses. The three public protocol decisions in 3107 remain pending.
 
 ### Additional private orphan noticed during 3104
 
@@ -198,5 +202,6 @@ Core's `resolveSchemaFieldPath` and its exclusive `hasChildFields` helper in
 of declaration-targets.ts in 3102. The initial name scan was obscured by Hooks'
 separate resolver with the same name. The Core file still owns used public
 `SchemaFieldPath`/`FieldAtPath` types, which must remain. Core source is unchanged
-in 3104. Request a bounded follow-up scope decision at the 3105 stop; do not
-claim the orphan removed or broaden the compiler change silently.
+in 3104. The user approved this bounded cleanup at the 3105 stop. Deliver it in a
+separate audited 3102 follow-up commit before 3106; preserve the public types.
+The helper remains present until that follow-up is complete.

@@ -244,6 +244,7 @@ Accepted records:
 - [ADR-0260: Single-owner HTTP dispatch](0260-single-owner-http-dispatch.md)
 - [ADR-0261: Command compilation and binding phases](0261-command-compilation-and-binding-phases.md)
 - [ADR-0262: Descriptive Typegen command inspection](0262-descriptive-typegen-command-inspection.md)
+- [ADR-0263: Direct private schema compilation](0263-direct-private-schema-compilation.md)
 
 Superseded records:
 
