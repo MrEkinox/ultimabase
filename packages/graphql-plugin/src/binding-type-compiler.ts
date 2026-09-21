@@ -3,7 +3,7 @@ import { isPlainRecord } from '@ultimabase/shared'
 
 import type {
 	PluginSchemaContributionOwner,
-	SchemaDefinition,
+	CompiledSchemaRegistry,
 } from '@ultimabase/core'
 import {
 	GraphQLEnumType,
@@ -54,9 +54,8 @@ export class GraphqlBindingTypeCompiler {
 	readonly #inputs: GraphqlMutationInputCompiler
 	readonly #names: GraphqlNameRegistry
 	readonly #references: BindingReference[] = []
-	readonly #schemaByClassName: ReadonlyMap<string, SchemaDefinition>
+	readonly #schemas: CompiledSchemaRegistry
 	readonly #types = new Map<string, GraphQLNamedType>()
-	readonly #typeOrder: string[] = []
 	readonly #visited = new Set<string>()
 	#finalized = false
 
@@ -64,19 +63,17 @@ export class GraphqlBindingTypeCompiler {
 		readonly fields: GraphqlFieldTypeCompiler
 		readonly inputs: GraphqlMutationInputCompiler
 		readonly names: GraphqlNameRegistry
-		readonly schemas: readonly SchemaDefinition[]
+		readonly schemas: CompiledSchemaRegistry
 	}) {
 		this.#fields = options.fields
 		this.#inputs = options.inputs
 		this.#names = options.names
-		this.#schemaByClassName = new Map(
-			options.schemas.map((schema) => [schema.className, schema]),
-		)
+		this.#schemas = options.schemas
 	}
 
 	get types(): readonly GraphQLNamedType[] {
 		this.#assertFinalized()
-		return this.#typeOrder.map((name) => {
+		return [...this.#definitions.keys()].map((name) => {
 			const type = this.#types.get(name)
 			if (type === undefined) {
 				throw new TypeError(`GraphQL binding type ${name} is unavailable`)
@@ -127,7 +124,6 @@ export class GraphqlBindingTypeCompiler {
 				definition,
 				owner: options.owner,
 			})
-			this.#typeOrder.push(definition.name)
 		}
 		this.#references.push(...options.references)
 	}
@@ -146,7 +142,7 @@ export class GraphqlBindingTypeCompiler {
 			)
 		}
 		this.#finalized = true
-		for (const name of this.#typeOrder) this.#supportingType(name)
+		for (const name of this.#definitions.keys()) this.#supportingType(name)
 	}
 
 	inputType(reference: GraphqlOperationTypeReference): GraphQLInputType {
@@ -182,7 +178,7 @@ export class GraphqlBindingTypeCompiler {
 		const schema =
 			definition.createFieldsFrom === undefined
 				? undefined
-				: this.#schemaByClassName.get(definition.createFieldsFrom)
+				: this.#schemas.get(definition.createFieldsFrom)
 		const decoded =
 			schema === undefined
 				? value
@@ -234,7 +230,7 @@ export class GraphqlBindingTypeCompiler {
 			definition.kind === 'input-object' &&
 			definition.createFieldsFrom !== undefined
 		) {
-			const schema = this.#schemaByClassName.get(definition.createFieldsFrom)
+			const schema = this.#schemas.get(definition.createFieldsFrom)
 			const schemaOwner = schema?.definition.provenance.schema.owner
 			if (
 				schema === undefined ||
@@ -278,7 +274,7 @@ export class GraphqlBindingTypeCompiler {
 		if (reference.kind === 'schema') {
 			if (
 				mode === 'input' ||
-				!this.#schemaByClassName.has(reference.className)
+				!this.#schemas.has(reference.className)
 			) {
 				throw new TypeError(
 					`GraphQL binding schema reference ${reference.className} is unavailable as ${mode}`,
@@ -369,7 +365,7 @@ export class GraphqlBindingTypeCompiler {
 			return new GraphQLList(this.outputType(reference.ofType))
 		}
 		if (reference.kind === 'schema') {
-			const schema = this.#schemaByClassName.get(reference.className)
+			const schema = this.#schemas.get(reference.className)
 			if (schema === undefined) {
 				throw new TypeError(
 					`Unknown GraphQL binding schema ${reference.className}`,
@@ -397,7 +393,7 @@ export class GraphqlBindingTypeCompiler {
 		const schema =
 			definition.createFieldsFrom === undefined
 				? undefined
-				: this.#schemaByClassName.get(definition.createFieldsFrom)
+				: this.#schemas.get(definition.createFieldsFrom)
 		return {
 			...(schema === undefined
 				? {}

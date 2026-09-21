@@ -30,12 +30,11 @@ export interface GraphqlApplication {
 }
 
 interface GraphqlApplicationState {
-	connections: GraphqlConnectionRuntime | undefined
-	disposed: boolean
-	networkless: GraphqlNetworklessExecution | undefined
-	operations: GraphqlOperationExecution | undefined
-	schemaMutations: GraphqlSchemaMutationExecution | undefined
-	schema: GraphQLSchema | undefined
+	readonly connections: GraphqlConnectionRuntime
+	readonly networkless: GraphqlNetworklessExecution
+	readonly operations: GraphqlOperationExecution
+	readonly schemaMutations: GraphqlSchemaMutationExecution
+	readonly schema: GraphQLSchema
 }
 
 const graphqlApplicationStates = new WeakMap<object, GraphqlApplicationState>()
@@ -50,7 +49,6 @@ class GraphqlApplicationResource implements GraphqlApplication {
 	) {
 		graphqlApplicationStates.set(this, {
 			connections,
-			disposed: false,
 			networkless,
 			operations,
 			schemaMutations,
@@ -61,7 +59,7 @@ class GraphqlApplicationResource implements GraphqlApplication {
 
 	get schema(): GraphQLSchema {
 		const state = graphqlApplicationStates.get(this)
-		if (state === undefined || state.disposed || state.schema === undefined) {
+		if (state === undefined) {
 			throw new TypeError('GraphQL application has been disposed')
 		}
 		return state.schema
@@ -69,7 +67,7 @@ class GraphqlApplicationResource implements GraphqlApplication {
 
 	execute(options: GraphqlExecuteOptions): Promise<ExecutionResult> {
 		const state = graphqlApplicationStates.get(this)
-		if (state?.disposed !== false || state.networkless === undefined) {
+		if (state === undefined) {
 			return Promise.reject(
 				new TypeError('GraphQL application has been disposed'),
 			)
@@ -140,15 +138,11 @@ export const createGraphqlApplicationResource = (
 		dispose: (): void => {
 			const state = graphqlApplicationStates.get(value)
 			if (state !== undefined) {
-				state.connections?.dispose()
-				state.operations?.dispose()
-				state.schemaMutations?.dispose()
-				state.connections = undefined
-				state.networkless = undefined
-				state.operations = undefined
-				state.schemaMutations = undefined
-				state.disposed = true
-				state.schema = undefined
+				state.connections.dispose()
+				state.operations.dispose()
+				state.schemaMutations.dispose()
+				// Removing the sole live state invalidates every facade and releases its graph.
+				graphqlApplicationStates.delete(value)
 			}
 		},
 	}
@@ -160,7 +154,7 @@ export const bindGraphqlOperationTransport = (
 	transport: ApplicationOperationTransport,
 ): void => {
 	const state = graphqlApplicationStates.get(application)
-	if (state?.disposed !== false || state.operations === undefined) {
+	if (state === undefined) {
 		throw new TypeError('GraphQL application has been disposed')
 	}
 	state.operations.bind(transport)
@@ -172,7 +166,7 @@ export const bindGraphqlSchemaMutationTransport = (
 	transport: ApplicationSchemaMutationTransport<typeof graphqlProtocol>,
 ): void => {
 	const state = graphqlApplicationStates.get(application)
-	if (state?.disposed !== false || state.schemaMutations === undefined) {
+	if (state === undefined) {
 		throw new TypeError('GraphQL application has been disposed')
 	}
 	state.schemaMutations.bind(transport)
@@ -183,7 +177,7 @@ export const readGraphqlConnectionRuntime = (
 	application: GraphqlApplication,
 ): GraphqlConnectionRuntime => {
 	const state = graphqlApplicationStates.get(application)
-	if (state?.disposed !== false || state.connections === undefined) {
+	if (state === undefined) {
 		throw new TypeError('GraphQL application has been disposed')
 	}
 	return state.connections

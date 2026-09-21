@@ -1,12 +1,12 @@
 # Active plan: pre-feature architecture simplification
 
-- Status: active — plugin wave explicitly resumed; next issue 3027
+- Status: active — plugin wave explicitly resumed; next issue 3028
 - Milestone: [30 — Pre-feature architecture simplification](issues/3000-pre-feature-architecture-simplification/README.md)
 - Detailed plan: [docs/plans/2026-09-20-pre-feature-architecture-simplification.md](docs/plans/2026-09-20-pre-feature-architecture-simplification.md)
 - Baseline: [docs/plans/2026-09-20-architecture-simplification-baseline.md](docs/plans/2026-09-20-architecture-simplification-baseline.md)
 - Contract matrix: [docs/plans/2026-09-20-architecture-contract-matrix.md](docs/plans/2026-09-20-architecture-contract-matrix.md)
 - Removal history: [HISTORIQUE_SUPPRESSIONS.md](HISTORIQUE_SUPPRESSIONS.md)
-- Resume point: issue 3027; continue sequentially through issue 3034
+- Resume point: issue 3028; continue sequentially through issue 3034
 
 ## Objective
 
@@ -341,3 +341,11 @@ engineering records. Issue 3026 is complete with a green audit: REST removes
 All 358 source/boundary checks and 383 built integrations pass with no retained
 coverage loss. Wire paths, payloads, errors, codecs and security checks remain
 unchanged. Continue with issue 3027 after the dedicated 3026 commit.
+
+Issue 3026 is committed as `3aa4f59e`: +180 / -182 lines, net -2, including
+engineering records. Issue 3027 is complete with a green audit: GraphQL removes
+48 production lines, retaining 33 exports and byte-identical declarations.
+All 2,779 full-coverage tests and 383 built integrations pass. Global thresholds
+remain unchanged and no retained GraphQL coverage is lost. SDL, cursors,
+composition, ownership and disposal keep their contracts. Continue with issue
+3028 after the dedicated 3027 commit.

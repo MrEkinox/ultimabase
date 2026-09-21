@@ -43,8 +43,9 @@ export const graphqlOperationBuiltInTypes: ReadonlyMap<
 	['UUID', GraphqlUUID],
 ])
 
-export const operationOwnerFor = (
-	descriptor: ExposedOperationTransportBinding,
+/** Projects exact Core ownership for both retained binding families. */
+export const bindingOwnerFor = (
+	descriptor: Pick<ExposedOperationTransportBinding, 'owner'>,
 ): PluginSchemaContributionOwner => ({
 	kind: 'plugin',
 	...(descriptor.owner.instanceId === undefined

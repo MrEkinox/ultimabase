@@ -7,7 +7,6 @@ import type {
 
 interface GraphqlOperationExecutionState {
 	core: ApplicationOperationTransport | undefined
-	disposed: boolean
 	operations: ReadonlyMap<string, ExposedOperationTransportBinding>
 	plan: ApplicationOperationTransportPlan
 }
@@ -22,7 +21,6 @@ export class GraphqlOperationExecution {
 	constructor(plan: ApplicationOperationTransportPlan) {
 		executionStates.set(this, {
 			core: undefined,
-			disposed: false,
 			operations: new Map(plan.operations.map((item) => [item.name, item])),
 			plan,
 		})
@@ -31,7 +29,7 @@ export class GraphqlOperationExecution {
 
 	bind(core: ApplicationOperationTransport): void {
 		const state = executionStates.get(this)
-		if (state === undefined || state.disposed) {
+		if (state === undefined) {
 			throw new TypeError('GraphQL operation execution is unavailable')
 		}
 		if (state.core !== undefined) {
@@ -58,9 +56,7 @@ export class GraphqlOperationExecution {
 	): Promise<unknown> {
 		const state = executionStates.get(this)
 		if (
-			state === undefined ||
-			state.disposed ||
-			state.core === undefined ||
+			state?.core === undefined ||
 			state.operations.get(operation.name) !== operation
 		) {
 			throw new TypeError('GraphQL operation execution is unavailable')
@@ -74,9 +70,7 @@ export class GraphqlOperationExecution {
 	}
 
 	dispose(): void {
-		const state = executionStates.get(this)
-		if (state === undefined || state.disposed) return
-		state.core = undefined
-		state.disposed = true
+		// A disposed bridge cannot execute or bind again, including an unbound one.
+		executionStates.delete(this)
 	}
 }

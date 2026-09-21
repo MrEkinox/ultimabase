@@ -113,7 +113,7 @@ export const compileGraphqlSchema = (
 		fields,
 		inputs: mutations,
 		names,
-		schemas: [...surfaces.keys()],
+		schemas: options.schemas,
 	})
 	const operationCompiler = new GraphqlOperationSchemaCompiler({
 		execution: options.execution,
@@ -126,6 +126,7 @@ export const compileGraphqlSchema = (
 		names,
 		plan: options.schemaMutationPlan,
 		schemaMutations: options.schemaMutations,
+		schemas: options.schemas,
 		surfaces,
 		types: bindingTypes,
 	})
@@ -142,7 +143,7 @@ export const compileGraphqlSchema = (
 		Object.keys(mutationFields).length === 0
 			? undefined
 			: new GraphQLObjectType({ name: 'Mutation', fields: mutationFields })
-	reads.materialize()
+	filters.materialize()
 	mutations.materialize()
 	mutationOperations.materialize()
 	fields.materialize()
@@ -154,7 +155,7 @@ export const compileGraphqlSchema = (
 			...mutations.types,
 			...mutationOperations.types,
 			...bindingTypes.types,
-			...reads.types,
+			...filters.types,
 		],
 	})
 	const errors = validateSchema(schema)

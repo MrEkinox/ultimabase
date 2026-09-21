@@ -58,7 +58,7 @@ this milestone.
 24. [x] [3024 — Simplify the HTTP plugin](3024-simplify-http-plugin.md)
 25. [x] [3025 — Simplify the Hono Server plugin](3025-simplify-server-hono-plugin.md)
 26. [x] [3026 — Simplify the REST plugin](3026-simplify-rest-plugin.md)
-27. [ ] [3027 — Simplify the GraphQL plugin](3027-simplify-graphql-plugin.md)
+27. [x] [3027 — Simplify the GraphQL plugin](3027-simplify-graphql-plugin.md)
 28. [ ] [3028 — Simplify the GraphQL Yoga plugin](3028-simplify-graphql-yoga-plugin.md)
 29. [ ] [3029 — Simplify the GraphiQL plugin](3029-simplify-graphiql-plugin.md)
 30. [ ] [3030 — Simplify the Apollo Sandbox plugin](3030-simplify-apollo-sandbox-plugin.md)
@@ -91,7 +91,7 @@ decision, then an update to the affected pages under
 the final cross-page website review; package READMEs do not replace it.
 
 The [3014 checkpoint](../../docs/plans/2026-09-21-core-kernel-simplification-checkpoint.md)
-is complete with a green clean-checkout audit. Issues 3015–3026 are complete; the plugin wave resumes at 3027
+is complete with a green clean-checkout audit. Issues 3015–3027 are complete; the plugin wave resumes at 3028
 under the later explicit user authorization; milestone 30 remains open.
 
 ## Completion boundary

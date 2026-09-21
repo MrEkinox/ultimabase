@@ -13,7 +13,7 @@ import {
 	normalizeGraphqlOperationBindingMetadata,
 	type GraphqlOperationBindingMetadata,
 } from './operation-metadata.js'
-import { operationOwnerFor } from './operation-schema-types.js'
+import { bindingOwnerFor } from './operation-schema-types.js'
 
 interface CompiledBinding {
 	readonly descriptor: ExposedOperationTransportBinding
@@ -43,7 +43,7 @@ export class GraphqlOperationSchemaCompiler {
 			),
 		}))
 		for (const binding of this.#bindings) {
-			const owner = operationOwnerFor(binding.descriptor)
+			const owner = bindingOwnerFor(binding.descriptor)
 			this.#types.register({
 				definitions: binding.metadata.types,
 				description: `operation ${binding.descriptor.name}`,
@@ -64,7 +64,7 @@ export class GraphqlOperationSchemaCompiler {
 	): void {
 		for (const binding of this.#bindings) {
 			const fields = binding.metadata.root === 'query' ? query : mutation
-			const owner = operationOwnerFor(binding.descriptor)
+			const owner = bindingOwnerFor(binding.descriptor)
 			assertGraphqlFieldName(
 				binding.metadata.field,
 				`operation ${binding.descriptor.name}`,

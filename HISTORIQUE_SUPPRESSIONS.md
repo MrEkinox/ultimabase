@@ -504,3 +504,20 @@ Bilan de production : **4 955 → 4 875 lignes (−80)**, 27 fichiers, 45 export
 et déclarations publiques identiques. Les 358 contrôles source et 383 intégrations
 construites passent sans perte de couverture conservée. Aucun contrat public
 ni assertion de test ne change. Audit final vert.
+
+## GraphQL — issue 3027 réalisée
+
+La fermeture retire l'état privé complet au lieu de maintenir trois indicateurs
+et des états partiellement vidés. Deux index de schémas reconstruits sont
+remplacés par le registre compilé existant. L'ordre des types vient de leur
+registre de déclaration, sans tableau parallèle. Le calcul du propriétaire et
+celui des noms de types sont partagés ; deux relais vers le compilateur de
+filtres disparaissent. Les validations de composition, sélections de commandes,
+caches récursifs et signatures de curseurs sont conservés.
+
+Bilan de production : **8 710 → 8 662 lignes (−48)**, 52 fichiers, 33 exports
+et déclarations publiques identiques. Les 2 779 tests de couverture complète
+et 383 intégrations construites passent. Aucun seuil, exclusion ou assertion
+n'est affaibli ; aucune couverture conservée n'est perdue. Le schéma public,
+les erreurs, les capacités des plugins et la fermeture restent identiques.
+Audit final vert.

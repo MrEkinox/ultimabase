@@ -262,12 +262,7 @@ export class GraphqlFieldTypeCompiler {
 		const pathKey = this.#fieldPathKey(schema, path)
 		const existing = this.#enums.get(pathKey)
 		if (existing !== undefined) return existing
-		const explicit =
-			'typeName' in field.options ? field.options.typeName : undefined
-		const name =
-			typeof explicit === 'string'
-				? explicit
-				: `${this.#surface(schema).typeName}${path.map(graphqlFieldTypeSegment).join('')}`
+		const name = this.#fieldTypeName(field, schema, path)
 		this.#claimGenerated(name, schema, path)
 		const values: Record<string, { readonly value: string }> = {}
 		for (const value of readGraphqlEnumValues(field)) {
@@ -289,7 +284,7 @@ export class GraphqlFieldTypeCompiler {
 		this.#namedTypes.push(result)
 		return result
 	}
-	#embeddedName(
+	#fieldTypeName(
 		field: GenericField,
 		schema: SchemaDefinition,
 		path: readonly string[],
@@ -309,7 +304,7 @@ export class GraphqlFieldTypeCompiler {
 		const pathKey = this.#fieldPathKey(schema, path)
 		const existing = this.#embeddedOutputs.get(pathKey)
 		if (existing !== undefined) return existing
-		const name = this.#embeddedName(field, schema, path)
+		const name = this.#fieldTypeName(field, schema, path)
 		this.#claimGenerated(name, schema, path)
 		const result = new GraphQLObjectType({
 			name,
@@ -329,7 +324,7 @@ export class GraphqlFieldTypeCompiler {
 		const pathKey = this.#fieldPathKey(schema, path)
 		const existing = this.#embeddedInputs.get(pathKey)
 		if (existing !== undefined) return existing
-		const name = `${this.#embeddedName(field, schema, path)}Input`
+		const name = `${this.#fieldTypeName(field, schema, path)}Input`
 		this.#claimGenerated(name, schema, path)
 		const result = new GraphQLInputObjectType({
 			name,

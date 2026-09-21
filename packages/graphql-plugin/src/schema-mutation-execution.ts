@@ -10,7 +10,6 @@ import type { graphqlProtocol } from './protocol.js'
 
 interface GraphqlSchemaMutationExecutionState {
 	core: ApplicationSchemaMutationTransport<typeof graphqlProtocol> | undefined
-	disposed: boolean
 	plan: ApplicationSchemaMutationTransportPlan<typeof graphqlProtocol>
 	selected: Set<ExposedSchemaMutationTransportBinding>
 }
@@ -27,7 +26,6 @@ export class GraphqlSchemaMutationExecution {
 	) {
 		states.set(this, {
 			core: undefined,
-			disposed: false,
 			plan,
 			selected: new Set(),
 		})
@@ -37,11 +35,7 @@ export class GraphqlSchemaMutationExecution {
 	/** @internal Records only descriptors that produced a public GraphQL field. */
 	select(descriptor: ExposedSchemaMutationTransportBinding): void {
 		const state = states.get(this)
-		if (
-			state === undefined ||
-			state.disposed ||
-			!state.plan.mutations.includes(descriptor)
-		) {
+		if (!state?.plan.mutations.includes(descriptor)) {
 			throw new TypeError('GraphQL schema mutation selection is unavailable')
 		}
 		state.selected.add(descriptor)
@@ -49,7 +43,7 @@ export class GraphqlSchemaMutationExecution {
 
 	bind(core: ApplicationSchemaMutationTransport<typeof graphqlProtocol>): void {
 		const state = states.get(this)
-		if (state === undefined || state.disposed) {
+		if (state === undefined) {
 			throw new TypeError('GraphQL schema mutation execution is unavailable')
 		}
 		if (state.core !== undefined) {
@@ -94,10 +88,7 @@ export class GraphqlSchemaMutationExecution {
 	}
 
 	dispose(): void {
-		const state = states.get(this)
-		if (state === undefined || state.disposed) return
-		state.core = undefined
-		state.disposed = true
-		state.selected.clear()
+		// The selected descriptors and executable view have the same lifetime.
+		states.delete(this)
 	}
 }

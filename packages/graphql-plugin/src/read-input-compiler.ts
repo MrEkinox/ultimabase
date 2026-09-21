@@ -10,7 +10,6 @@ import {
 import type {
 	GraphQLFieldConfigArgumentMap,
 	GraphQLFieldConfigMap,
-	GraphQLNamedType,
 } from 'graphql'
 
 import type { GraphqlFieldTypeCompiler } from './field-compiler.js'
@@ -42,10 +41,6 @@ export class GraphqlReadInputCompiler {
 		this.#fields = options.fields
 		this.#filters = options.filters
 		this.#surfaces = options.surfaces
-	}
-
-	get types(): readonly GraphQLNamedType[] {
-		return this.#filters.types
 	}
 
 	#orderList(
@@ -116,9 +111,5 @@ export class GraphqlReadInputCompiler {
 			})
 		}
 		return fields
-	}
-
-	materialize(): void {
-		this.#filters.materialize()
 	}
 }

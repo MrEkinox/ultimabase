@@ -1,5 +1,6 @@
 import type {
 	ApplicationSchemaMutationTransportPlan,
+	CompiledSchemaRegistry,
 	ExposedSchemaMutationTransportBinding,
 	PluginSchemaContributionOwner,
 	SchemaDefinition,
@@ -25,6 +26,7 @@ import {
 	type GraphqlSchemaMutationBindingMetadata,
 } from './operation-metadata.js'
 import type { graphqlProtocol } from './protocol.js'
+import { bindingOwnerFor } from './operation-schema-types.js'
 import type { GraphqlSchemaMutationExecution } from './schema-mutation-execution.js'
 import type { GraphqlSchemaSurface } from './surfaces.js'
 
@@ -35,17 +37,6 @@ interface CompiledSchemaMutationBinding {
 	readonly schema: SchemaDefinition
 	readonly surface: GraphqlSchemaSurface
 }
-
-const ownerFor = (
-	descriptor: ExposedSchemaMutationTransportBinding,
-): PluginSchemaContributionOwner => ({
-	kind: 'plugin',
-	...(descriptor.owner.instanceId === undefined
-		? {}
-		: { instanceId: descriptor.owner.instanceId }),
-	pluginId: descriptor.owner.pluginId,
-	version: descriptor.owner.version,
-})
 
 /** Compiles schema-local mutation bindings without accepting owner-chosen roots. */
 export class GraphqlSchemaMutationSchemaCompiler {
@@ -63,6 +54,7 @@ export class GraphqlSchemaMutationSchemaCompiler {
 			typeof graphqlProtocol
 		>
 		readonly schemaMutations: GraphqlSchemaMutationExecution
+		readonly schemas: CompiledSchemaRegistry
 		readonly surfaces: ReadonlyMap<SchemaDefinition, GraphqlSchemaSurface>
 		readonly types: GraphqlBindingTypeCompiler
 	}) {
@@ -70,13 +62,10 @@ export class GraphqlSchemaMutationSchemaCompiler {
 		this.#fieldTypes = options.fieldTypes
 		this.#names = options.names
 		this.#types = options.types
-		const schemas = new Map(
-			[...options.surfaces.keys()].map((schema) => [schema.className, schema]),
-		)
 		const bindings: CompiledSchemaMutationBinding[] = []
 		for (const descriptor of options.plan.mutations) {
 			if (descriptor.authority !== 'request') continue
-			const schema = schemas.get(descriptor.schema)
+			const schema = options.schemas.get(descriptor.schema)
 			const surface = schema && options.surfaces.get(schema)
 			if (schema === undefined || surface === undefined) {
 				throw new TypeError(
@@ -90,7 +79,7 @@ export class GraphqlSchemaMutationSchemaCompiler {
 				descriptor.metadata,
 				descriptor.mutation,
 			)
-			const owner = ownerFor(descriptor)
+			const owner = bindingOwnerFor(descriptor)
 			this.#types.register({
 				definitions: metadata.types,
 				description: `schema mutation ${descriptor.mutation}`,
