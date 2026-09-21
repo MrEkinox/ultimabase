@@ -490,3 +490,17 @@ Bilan de production : **495 → 492 lignes (−3)**, cinq fichiers, six exports
 et déclarations publiques identiques. Les 277 contrôles source et 147 intégrations
 construites passent sans perte de couverture conservée, avec les scénarios réseau
 et Chromium. Les assertions des tests sont conservées. Audit final vert.
+
+## REST — issue 3026 réalisée
+
+Le registre privé de provenance sans consommateur et les deux blocs `catch`
+qui relançaient toujours la même erreur disparaissent. Les projections des
+champs virtuels partagent une fonction privée ; la table d'identité des noms
+d'opération et les branches déjà traitées de la sélection HTTP sont retirées.
+Les contrôles réels des routes, propriétaires, commandes, limites et erreurs
+restent en place, ainsi que tous les codecs et contrats REST v1.
+
+Bilan de production : **4 955 → 4 875 lignes (−80)**, 27 fichiers, 45 exports
+et déclarations publiques identiques. Les 358 contrôles source et 383 intégrations
+construites passent sans perte de couverture conservée. Aucun contrat public
+ni assertion de test ne change. Audit final vert.

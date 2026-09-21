@@ -13,7 +13,6 @@ import { restFieldProtocol } from './field-codecs.js'
 import {
 	readRestSchemaRoutes,
 	type RestBulkRoutes,
-	type RestSchemaRoutes,
 	type RestSchemaRoutesOption,
 } from './options.js'
 import {
@@ -51,20 +50,6 @@ const readBulkValue = (
 	return selection.bulk[operation]
 }
 
-const operationOptionNames = {
-	count: 'count',
-	create: 'create',
-	delete: 'delete',
-	exists: 'exists',
-	find: 'find',
-	first: 'first',
-	get: 'get',
-	update: 'update',
-	upsert: 'upsert',
-} as const satisfies Readonly<
-	Record<Exclude<RestSchemaOperation, `bulk${string}`>, keyof RestSchemaRoutes>
->
-
 const bulkOperationOptionNames = {
 	bulkCreate: 'create',
 	bulkDelete: 'delete',
@@ -87,7 +72,7 @@ const readSelection = (
 	if (isBulkOperation(operation)) {
 		return readBulkValue(selection, bulkOperationOptionNames[operation])
 	}
-	return selection?.[operationOptionNames[operation]]
+	return selection?.[operation]
 }
 
 const isEnabled = (
@@ -208,18 +193,26 @@ const assertRestOutputDescriptors = (
 	}
 }
 
-/** Validates the complete schema-result codec used by native and custom routes. */
-export const assertRestSchemaResultCodecs = (
+/** @internal Projects only inert outputs, never resolvers or their private dependencies. */
+export const readRestVirtualFields = (
 	schema: SchemaDefinition,
-): void => {
-	assertRestFieldCodecs(schema.persistedFields, `${schema.className}.fields`)
-	assertRestOutputDescriptors(
+): Readonly<Record<string, GenericOutputDescriptor>> =>
+	immutableRecord(
 		Object.fromEntries(
 			Object.entries(schema.virtualFields).map(([name, field]) => [
 				name,
 				field.output,
 			]),
 		),
+	)
+
+/** Validates the complete schema-result codec used by native and custom routes. */
+export const assertRestSchemaResultCodecs = (
+	schema: SchemaDefinition,
+): void => {
+	assertRestFieldCodecs(schema.persistedFields, `${schema.className}.fields`)
+	assertRestOutputDescriptors(
+		readRestVirtualFields(schema),
 		`${schema.className}.virtualFields`,
 	)
 }
@@ -261,14 +254,7 @@ export const compileRestRouteFragment = (
 		) {
 			assertRestSchemaResultCodecs(schema)
 		}
-		const virtualFields = immutableRecord(
-			Object.fromEntries(
-				Object.entries(schema.virtualFields).map(([name, field]) => [
-					name,
-					field.output,
-				]),
-			),
-		)
+		const virtualFields = readRestVirtualFields(schema)
 
 		const classPath = `${options.basePath}/classes/${encodeRestPathSegment(schema.className, `REST schema className ${schema.className}`)}`
 		for (const template of routeTemplates) {

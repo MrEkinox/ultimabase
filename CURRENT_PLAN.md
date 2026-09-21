@@ -1,12 +1,12 @@
 # Active plan: pre-feature architecture simplification
 
-- Status: active — plugin wave explicitly resumed; next issue 3026
+- Status: active — plugin wave explicitly resumed; next issue 3027
 - Milestone: [30 — Pre-feature architecture simplification](issues/3000-pre-feature-architecture-simplification/README.md)
 - Detailed plan: [docs/plans/2026-09-20-pre-feature-architecture-simplification.md](docs/plans/2026-09-20-pre-feature-architecture-simplification.md)
 - Baseline: [docs/plans/2026-09-20-architecture-simplification-baseline.md](docs/plans/2026-09-20-architecture-simplification-baseline.md)
 - Contract matrix: [docs/plans/2026-09-20-architecture-contract-matrix.md](docs/plans/2026-09-20-architecture-contract-matrix.md)
 - Removal history: [HISTORIQUE_SUPPRESSIONS.md](HISTORIQUE_SUPPRESSIONS.md)
-- Resume point: issue 3026; continue sequentially through issue 3034
+- Resume point: issue 3027; continue sequentially through issue 3034
 
 ## Objective
 
@@ -334,3 +334,10 @@ private lifecycle relays and redundant conditions (-3 production lines), keeping
 all six exports and byte-identical declarations. All 277 source checks and
 147 affected built integrations pass, including Chromium and cleanup failures,
 with no retained coverage loss. Continue with issue 3026 after its commit.
+
+Issue 3025 is committed as `c9d79ffc`: +126 / -51 lines, net +75, including
+engineering records. Issue 3026 is complete with a green audit: REST removes
+80 production lines, retaining 45 exports and byte-identical declarations.
+All 358 source/boundary checks and 383 built integrations pass with no retained
+coverage loss. Wire paths, payloads, errors, codecs and security checks remain
+unchanged. Continue with issue 3027 after the dedicated 3026 commit.

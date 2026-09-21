@@ -124,45 +124,39 @@ class CoreRestOperationTransport implements RestOperationTransport {
 		if (state?.core === undefined || !this.operations.includes(route)) {
 			throw new TypeError('REST operation route is not owned by this transport')
 		}
-		try {
-			request.signal.throwIfAborted()
-			if (request.method !== 'POST' || new URL(request.url).search !== '') {
-				throw invalidRestOperation()
-			}
-			const body = await readRestJsonBody(
-				request,
-				limits.bodyBytes,
-				operationBodyErrors,
-			)
-			if (
-				!isPlainRecord(body) ||
-				Object.keys(body).length !== 1 ||
-				!Object.hasOwn(body, 'input')
-			) {
-				throw invalidRestOperation()
-			}
-			request.signal.throwIfAborted()
-			const schema = state.inputSchemas.get(route.operation)
-			return await state.core.execute({
-				context,
-				input:
-					schema === undefined
-						? body.input
-						: decodeRestMutationData(
-								schema,
-								body.input,
-								'create',
-								'nested',
-								invalidRestOperation,
-							),
-				operation: route.operation,
-				version: route.operationVersion,
-			})
-		} catch (error) {
-			if (error instanceof RestOperationNormalizationError) throw error
-			if (request.signal.aborted) throw error
-			throw error
+		request.signal.throwIfAborted()
+		if (request.method !== 'POST' || new URL(request.url).search !== '') {
+			throw invalidRestOperation()
 		}
+		const body = await readRestJsonBody(
+			request,
+			limits.bodyBytes,
+			operationBodyErrors,
+		)
+		if (
+			!isPlainRecord(body) ||
+			Object.keys(body).length !== 1 ||
+			!Object.hasOwn(body, 'input')
+		) {
+			throw invalidRestOperation()
+		}
+		request.signal.throwIfAborted()
+		const schema = state.inputSchemas.get(route.operation)
+		return await state.core.execute({
+			context,
+			input:
+				schema === undefined
+					? body.input
+					: decodeRestMutationData(
+							schema,
+							body.input,
+							'create',
+							'nested',
+							invalidRestOperation,
+						),
+			operation: route.operation,
+			version: route.operationVersion,
+		})
 	}
 
 	/** Reads the statically validated status for one declared public plugin error. */

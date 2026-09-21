@@ -1,7 +1,6 @@
 import type {
 	ApplicationSchemaMutationTransportPlan,
 	CompiledSchemaRegistry,
-	GenericOutputDescriptor,
 	PluginIdentity,
 } from '@ultimabase/core'
 import { immutableRecord } from '@ultimabase/shared'
@@ -17,6 +16,7 @@ import {
 import {
 	areRestSchemaMutationsEnabled,
 	assertRestSchemaResultCodecs,
+	readRestVirtualFields,
 } from './schema-routes.js'
 
 const commandPath = (command: string): string => {
@@ -31,17 +31,6 @@ const commandPath = (command: string): string => {
 	}
 	return encodeRestPathSegment(path, `REST schema mutation ${command}`)
 }
-
-const virtualFieldsFor = (
-	fields: Readonly<
-		Record<string, Readonly<{ readonly output: GenericOutputDescriptor }>>
-	>,
-): Readonly<Record<string, GenericOutputDescriptor>> =>
-	immutableRecord(
-		Object.fromEntries(
-			Object.entries(fields).map(([name, field]) => [name, field.output]),
-		),
-	)
 
 /** Compiles request-authority mutation bindings for exposed application schemas. */
 export const compileRestSchemaMutationRouteFragment = (options: {
@@ -90,7 +79,7 @@ export const compileRestSchemaMutationRouteFragment = (options: {
 				protocol: restProtocol,
 				schema: schema.className,
 				schemaProvenance: schema.provenance.schema,
-				virtualFields: virtualFieldsFor(schema.virtualFields),
+				virtualFields: readRestVirtualFields(schema),
 			}),
 		)
 	}

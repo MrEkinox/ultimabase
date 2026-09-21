@@ -31,7 +31,6 @@ import {
 	restProtocol,
 	type RestRouteDefinition,
 	type RestRouteGraph,
-	type RestSchemaOperation,
 	type RestSchemaRouteDefinition,
 } from './routes.js'
 import {
@@ -64,14 +63,6 @@ const ownerStates = new WeakMap<
 const ownerKey = (owner: PluginIdentity): string =>
 	`${owner.pluginId}\0${owner.instanceId ?? ''}`
 
-const routeOwner = (route: RestRouteDefinition): PluginIdentity =>
-	immutableRecord({
-		pluginId: route.provenance.plugin.pluginId,
-		...(route.provenance.plugin.instanceId === undefined
-			? {}
-			: { instanceId: route.provenance.plugin.instanceId }),
-	})
-
 /** @internal Attaches setup-owned routes and operation exposure to one HTTP mount. */
 export const configureRestHttpOwner = (
 	executor: ApplicationRequestExecutor,
@@ -81,9 +72,10 @@ export const configureRestHttpOwner = (
 	operationTransport: RestOperationTransport | undefined,
 	schemaMutationTransport: RestSchemaMutationTransport | undefined,
 ): void => {
-	const state = ownerStates.get(executor)?.get(ownerKey(owner))
+	const key = ownerKey(owner)
+	const state = ownerStates.get(executor)?.get(key)
 	const routes = graph.routes.filter(
-		(route) => ownerKey(routeOwner(route)) === ownerKey(owner),
+		(route) => ownerKey(route.provenance.plugin) === key,
 	)
 	if (state === undefined) {
 		if (routes.length > 0)
@@ -142,38 +134,15 @@ export const createRestSchemaSuccessResponse = (
 	)
 }
 
-const mutationOperation = (
-	operation: RestSchemaOperation,
-):
-	| 'bulk-create'
-	| 'bulk-delete'
-	| 'bulk-update'
-	| 'bulk-upsert'
-	| 'create'
-	| 'delete'
-	| 'update'
-	| 'upsert' => {
-	switch (operation) {
-		case 'bulkCreate':
-			return 'bulk-create'
-		case 'bulkDelete':
-			return 'bulk-delete'
-		case 'bulkUpdate':
-			return 'bulk-update'
-		case 'bulkUpsert':
-			return 'bulk-upsert'
-		case 'create':
-			return 'create'
-		case 'delete':
-			return 'delete'
-		case 'update':
-			return 'update'
-		case 'upsert':
-			return 'upsert'
-		default:
-			throw new TypeError('REST route is not a mutation')
-	}
-}
+// Item mutations are handled before this collection/create dispatch table.
+const mutationOperations = {
+	bulkCreate: 'bulk-create',
+	bulkDelete: 'bulk-delete',
+	bulkUpdate: 'bulk-update',
+	bulkUpsert: 'bulk-upsert',
+	create: 'create',
+	upsert: 'upsert',
+} as const
 
 const executeSchemaRoute = async (
 	route: RestSchemaRouteDefinition,
@@ -215,15 +184,11 @@ const executeSchemaRoute = async (
 			limits,
 		)
 	} else {
-		const operation = mutationOperation(route.operation)
-		if (operation === 'update' || operation === 'delete') {
-			throw new TypeError('REST item mutation requires an object identifier')
-		}
 		result = await executeRestMutationRequest(
 			executor,
 			context,
 			schema,
-			{ operation, request },
+			{ operation: mutationOperations[route.operation], request },
 			limits,
 		)
 	}

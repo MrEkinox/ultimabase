@@ -131,37 +131,31 @@ class CoreRestSchemaMutationTransport implements RestSchemaMutationTransport {
 				'REST schema mutation route is not owned by this transport',
 			)
 		}
-		try {
-			request.signal.throwIfAborted()
-			if (
-				request.method !== 'POST' ||
-				new URL(request.url).search !== '' ||
-				!isUuidV7(id)
-			) {
-				throw invalidRestMutation()
-			}
-			const body = await readRestJsonBody(request, limits.bodyBytes, bodyErrors)
-			if (!isPlainRecord(body)) throw invalidRestMutation()
-			for (const key of Object.keys(body)) {
-				if (!bodyKeys.has(key)) throw invalidRestMutation()
-			}
-			request.signal.throwIfAborted()
-			return await state.core.execute({
-				binding: descriptor,
-				context,
-				id,
-				...(Object.hasOwn(body, 'include')
-					? { include: decodeRestInclude(schema, body.include, limits) }
-					: {}),
-				input: body.input,
-				schema,
-				...(Object.hasOwn(body, 'select') ? { select: body.select } : {}),
-			})
-		} catch (error) {
-			if (error instanceof RestMutationNormalizationError) throw error
-			if (request.signal.aborted) throw error
-			throw error
+		request.signal.throwIfAborted()
+		if (
+			request.method !== 'POST' ||
+			new URL(request.url).search !== '' ||
+			!isUuidV7(id)
+		) {
+			throw invalidRestMutation()
 		}
+		const body = await readRestJsonBody(request, limits.bodyBytes, bodyErrors)
+		if (!isPlainRecord(body)) throw invalidRestMutation()
+		for (const key of Object.keys(body)) {
+			if (!bodyKeys.has(key)) throw invalidRestMutation()
+		}
+		request.signal.throwIfAborted()
+		return await state.core.execute({
+			binding: descriptor,
+			context,
+			id,
+			...(Object.hasOwn(body, 'include')
+				? { include: decodeRestInclude(schema, body.include, limits) }
+				: {}),
+			input: body.input,
+			schema,
+			...(Object.hasOwn(body, 'select') ? { select: body.select } : {}),
+		})
 	}
 
 	statusFor(operation: string, code: string): number | undefined {

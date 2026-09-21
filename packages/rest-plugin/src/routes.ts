@@ -195,7 +195,6 @@ export interface RestRouteFragmentValue {
 }
 
 const routeFragmentValues = new WeakSet<object>()
-const applicationProvenances = new WeakSet<object>()
 
 /** @internal Brands one immutable fragment produced by an official compiler. */
 export const createRestRouteFragment = (
@@ -330,7 +329,6 @@ const composeRouteGraph = (
 ): RestRouteGraph => {
 	assertRouteFragments(fragments)
 	const application = immutableRecord({ kind: 'application' as const })
-	applicationProvenances.add(application)
 	const accepted = new Map<string, RestRouteCandidate>()
 	const routes: RestRouteDefinition[] = []
 
@@ -386,9 +384,3 @@ export const encodeRestPathSegment = (value: string, label: string): string => {
 		(character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`,
 	)
 }
-
-/** Confirms two routes came from the same exact application compilation. */
-export const isRestApplicationProvenance = (
-	value: unknown,
-): value is RestApplicationProvenance =>
-	isPlainRecord(value) && applicationProvenances.has(value)
