@@ -550,3 +550,15 @@ et déclarations publiques identiques. Les 20 contrôles source/HTTP et
 54 intégrations construites/archives passent avec une couverture identique.
 Le HTML, les assets, la politique de sécurité et les règles d'environnement
 restent inchangés. Audit final vert.
+
+## Apollo Sandbox — issue 3030 réalisée
+
+Comme pour GraphiQL, l'environnement est consommé par la normalisation puis
+retiré de l'état conservé. Les exports existants réutilisent directement les
+deux propriétés normalisées : `enabled` et `path`. Aucun contrat public change.
+
+Bilan de production : **293 → 291 lignes (−2)**, quatre fichiers, cinq exports
+et déclarations publiques identiques. Les 20 contrôles source/HTTP et
+52 intégrations construites/archives passent avec une couverture identique.
+Le HTML, les assets, le hook de requête, l'URL fixe et les règles de production
+restent inchangés. Audit final vert ; la revue des 16 plugins est terminée.

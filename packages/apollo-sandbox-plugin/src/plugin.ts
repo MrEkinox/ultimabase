@@ -84,8 +84,8 @@ export const apolloSandboxPlugin = (
 	options: ApolloSandboxPluginOptions,
 ): ApolloSandboxPlugin => {
 	const normalized = normalizeApolloSandboxPluginOptions(options)
-	const setup = (): ApolloSandboxPluginExports =>
-		immutableRecord({ enabled: normalized.enabled, path: normalized.path })
+	// Normalization consumes the environment and retains only the public route decision.
+	const setup = (): ApolloSandboxPluginExports => immutableRecord(normalized)
 	if (!normalized.enabled) {
 		const disabled = module.plugin({ setup } satisfies DisabledDefinition)
 		return disabled

@@ -15,7 +15,6 @@ export interface ApolloSandboxPluginOptions {
 
 export interface NormalizedApolloSandboxPluginOptions {
 	readonly enabled: boolean
-	readonly environment: ApolloSandboxEnvironment
 	readonly path: string
 }
 
@@ -90,7 +89,6 @@ export const normalizeApolloSandboxPluginOptions = (
 	return {
 		enabled:
 			value.environment === 'development' || value.allowInProduction === true,
-		environment: value.environment,
 		path: normalizePath(value.path),
 	}
 }
