@@ -2,6 +2,7 @@ import {
 	RequestContext,
 	requestSources,
 	runWithRequestEngine,
+	type OperationOptions,
 	type RequestRoleResolver,
 } from '@ultimabase/core'
 import {
@@ -537,6 +538,45 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 			),
 		).resolves.toBe(true)
 		expect(committedRoleEvents).toContain('ultimabase.roles.deleted')
+	})
+
+	it('applies each role deletion policy and rolls back the complete collection', async () => {
+		const app = getApplication()
+		const options: OperationOptions = { ultimabase: app, useMasterKey: true }
+		const first = await FailRole.createOne(
+			{ data: { name: 'batch-first' } },
+			options,
+		)
+		const second = await FailRole.createOne(
+			{ data: { name: 'batch-second' } },
+			options,
+		)
+		const member = requireMember(alice, 'Alice')
+		await second.addMember(member, options)
+		const where = [first, second].map(({ id }) => ({ id: { eq: id } }))
+		const eventCount = committedRoleEvents.length
+
+		// A later item's policy failure must undo the earlier deletion and its event.
+		await expect(FailRole.deleteMany({ where }, options)).rejects.toMatchObject(
+			{
+				code: 'ROLE_DELETE_REFERENCED',
+			},
+		)
+		for (const target of where) {
+			await expect(FailRole.exists({ where: target }, options)).resolves.toBe(
+				true,
+			)
+		}
+		expect(committedRoleEvents).toHaveLength(eventCount)
+
+		await second.removeMember(member, options)
+		const eventsBeforeDelete = committedRoleEvents.length
+		const deleted = await FailRole.deleteMany({ where }, options)
+		expect(deleted.map(({ id }) => id)).toStrictEqual([first.id, second.id])
+		expect(committedRoleEvents.slice(eventsBeforeDelete)).toStrictEqual([
+			'ultimabase.roles.deleted',
+			'ultimabase.roles.deleted',
+		])
 	})
 
 	it('keeps the neutral provider boundary fail-closed and community-extensible', async () => {

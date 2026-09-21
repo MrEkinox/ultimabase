@@ -100,20 +100,6 @@ interface RoleHierarchyTraversalLimits {
 
 type ReadChildRoles = (role: unknown) => Promise<readonly unknown[]>
 
-/** Distinguishes one direct child from a role reached through inheritance. */
-export interface ResolvedRoleHierarchyEntry {
-	readonly depth: number
-	readonly id: string
-	readonly role: unknown
-}
-
-/** Retains one duplicate-free transitive role graph for later membership checks. */
-export interface ResolvedRoleHierarchy {
-	readonly all: readonly ResolvedRoleHierarchyEntry[]
-	readonly direct: readonly ResolvedRoleHierarchyEntry[]
-	readonly inherited: readonly ResolvedRoleHierarchyEntry[]
-}
-
 export const readPersistedRoleId = (value: unknown): string => {
 	if (typeof value !== 'object' || value === null) {
 		throw new TypeError('Role hierarchy result must be a persisted model')
@@ -167,15 +153,13 @@ const readChildRoles = async (role: unknown): Promise<readonly unknown[]> =>
  * The active recursion stack distinguishes cycles from duplicate diamond paths;
  * the completed set prevents repeated traversal of the same valid subtree.
  */
-export const resolveRoleHierarchyGraph = async (
+export const assertRoleHierarchyAcyclicGraph = async (
 	rootRole: unknown,
 	readChildren: ReadChildRoles,
 	limits: RoleHierarchyTraversalLimits,
-): Promise<ResolvedRoleHierarchy> => {
+): Promise<void> => {
 	const activeRoleIds = new Set<string>()
 	const completedRoleIds = new Set<string>()
-	const childrenByRoleId = new Map<string, readonly unknown[]>()
-	const rolesById = new Map<string, unknown>()
 	let visitedRoles = 0
 
 	const visit = async (role: unknown, depth: number): Promise<void> => {
@@ -207,9 +191,7 @@ export const resolveRoleHierarchyGraph = async (
 		}
 
 		activeRoleIds.add(roleId)
-		rolesById.set(roleId, role)
 		const children = await readChildren(role)
-		childrenByRoleId.set(roleId, children)
 
 		for (const childRole of children) {
 			await visit(childRole, depth + 1)
@@ -220,61 +202,11 @@ export const resolveRoleHierarchyGraph = async (
 	}
 
 	await visit(rootRole, 0)
-	const rootRoleId = readPersistedRoleId(rootRole)
-	const minimumDepthByRoleId = new Map<string, number>()
-	const pending: Readonly<{ depth: number; role: unknown }>[] = (
-		childrenByRoleId.get(rootRoleId) ?? []
-	).map((role) => ({ depth: 1, role }))
-
-	for (const entry of pending) {
-		const roleId = readPersistedRoleId(entry.role)
-		const knownDepth = minimumDepthByRoleId.get(roleId)
-
-		if (knownDepth !== undefined && knownDepth <= entry.depth) {
-			continue
-		}
-
-		minimumDepthByRoleId.set(roleId, entry.depth)
-
-		for (const child of childrenByRoleId.get(roleId) ?? []) {
-			pending.push({ depth: entry.depth + 1, role: child })
-		}
-	}
-
-	const all = [...minimumDepthByRoleId.entries()]
-		.sort(([leftId], [rightId]) => leftId.localeCompare(rightId))
-		.map(([id, depth]) => Object.freeze({ depth, id, role: rolesById.get(id) }))
-	const direct = all.filter(({ depth }) => depth === 1)
-	const inherited = all.filter(({ depth }) => depth > 1)
-
-	return Object.freeze({
-		all: Object.freeze(all),
-		direct: Object.freeze(direct),
-		inherited: Object.freeze(inherited),
-	})
-}
-
-/** Validates a supplied graph reader without exposing database execution. */
-export const assertRoleHierarchyAcyclicGraph = async (
-	rootRole: unknown,
-	readChildren: ReadChildRoles,
-	limits: RoleHierarchyTraversalLimits,
-): Promise<void> => {
-	await resolveRoleHierarchyGraph(rootRole, readChildren, limits)
 }
 
 /** Uses live role relations while preserving the request's active transaction. */
 export const assertRoleHierarchyAcyclic = (rootRole: unknown): Promise<void> =>
 	assertRoleHierarchyAcyclicGraph(rootRole, readChildRoles, {
-		maxDepth: roleHierarchyMaxDepth,
-		maxVisitedRoles: roleHierarchyMaxVisitedRoles,
-	})
-
-/** Resolves direct and inherited child roles through live relation queries. */
-export const resolveRoleHierarchy = (
-	rootRole: unknown,
-): Promise<ResolvedRoleHierarchy> =>
-	resolveRoleHierarchyGraph(rootRole, readChildRoles, {
 		maxDepth: roleHierarchyMaxDepth,
 		maxVisitedRoles: roleHierarchyMaxVisitedRoles,
 	})

@@ -218,17 +218,3 @@ export const applyRoleDeletionPolicy = async (
 		roleId,
 	})
 }
-
-/** Rejects set-based deletion because it cannot preserve per-role policy hooks. */
-export const assertSingularRoleDeletion = (operation: unknown): void => {
-	if (
-		typeof operation === 'object' &&
-		operation !== null &&
-		Reflect.get(operation, 'kind') === 'delete-many'
-	) {
-		throw new RoleDeletionError(
-			'ROLE_DELETE_BULK_UNSUPPORTED',
-			'Role deletion must target one materialized role at a time',
-		)
-	}
-}

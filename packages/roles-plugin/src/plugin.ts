@@ -302,12 +302,10 @@ const normalizeRoleOperation = <const TOperation extends DatabaseOperationAst>(
 /** Queues audit-ready data for delivery only after Runtime confirms the commit. */
 const emitRoleRelationChanges = (
 	context: RequestContext,
-	operation: unknown,
+	changes: readonly RoleRelationChange[],
 	item: unknown,
 	events: PluginEventDispatcher,
 ): void => {
-	const changes = readRoleRelationChanges(operation)
-
 	if (changes.length === 0) {
 		return
 	}
@@ -390,7 +388,7 @@ const createRoleRuntimeBehavior = (
 				if (changes.some(({ field }) => field === 'roles')) {
 					await assertRoleHierarchyAcyclic(item)
 				}
-				emitRoleRelationChanges(input.context, input.operation, item, events)
+				emitRoleRelationChanges(input.context, changes, item, events)
 			}
 			return input.result
 		},

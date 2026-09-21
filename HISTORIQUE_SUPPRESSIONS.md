@@ -372,3 +372,18 @@ et déclarations construites restent identiques. Les 2 778 tests de couverture
 passent sans perte sur les chemins conservés ; après suppression de la fixture,
 les 41 tests du package et les deux intégrations construites passent aussi.
 Audit final sans anomalie restante.
+
+## Roles — issue 3018 réalisée
+
+Le contrôle des cycles ne construit plus un second graphe et un résultat dont
+aucun appelant produit ne se servait. Les appartenances directes et héritées
+utilisées par Access restent calculées et mémorisées. Les événements réutilisent
+les changements de relations déjà lus. Le garde privé des anciennes suppressions
+en bloc, débranché lors de l’ADR-0164, disparaît avec son test isolé ; une
+intégration vérifie le contrat actuel des lots atomiques et leur rollback.
+
+Bilan de production : **2 397 → 2 313 lignes (−84)**, 12 fichiers, 40 exports
+et déclarations publiques identiques. Les 2 778 tests de couverture, 22
+intégrations ciblées et 66 contrôles du site passent sans perte de couverture
+conservée. Le README et le site corrigent leur description périmée de
+`deleteMany()` ; aucune politique de suppression ne change. Audit final vert.

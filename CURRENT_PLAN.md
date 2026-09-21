@@ -1,12 +1,12 @@
 # Active plan: pre-feature architecture simplification
 
-- Status: active — plugin wave explicitly resumed; next issue 3018
+- Status: active — plugin wave explicitly resumed; next issue 3019
 - Milestone: [30 — Pre-feature architecture simplification](issues/3000-pre-feature-architecture-simplification/README.md)
 - Detailed plan: [docs/plans/2026-09-20-pre-feature-architecture-simplification.md](docs/plans/2026-09-20-pre-feature-architecture-simplification.md)
 - Baseline: [docs/plans/2026-09-20-architecture-simplification-baseline.md](docs/plans/2026-09-20-architecture-simplification-baseline.md)
 - Contract matrix: [docs/plans/2026-09-20-architecture-contract-matrix.md](docs/plans/2026-09-20-architecture-contract-matrix.md)
 - Removal history: [HISTORIQUE_SUPPRESSIONS.md](HISTORIQUE_SUPPRESSIONS.md)
-- Resume point: issue 3018; continue sequentially through issue 3034
+- Resume point: issue 3019; continue sequentially through issue 3034
 
 ## Objective
 
@@ -270,3 +270,12 @@ fixture, retains its nine exports and byte-identical declarations. All 2,778
 source coverage tests pass with no retained coverage regression; final package,
 root typecheck, build, lint and both built integrations pass after fixture
 removal. Continue with issue 3018 after the dedicated 3017 commit.
+
+Issue 3017 is committed as `0f5fe233`: +112 / -60 lines, net +52, including
+tests and documentation. Issue 3018 is complete with a green audit: Roles
+removes 84 production lines, including a discarded hierarchy snapshot and an
+obsolete private bulk-deletion guard. Its 40 exports and declarations are
+unchanged. All 2,778 coverage tests, 22 affected built integrations and 66
+website checks pass, with no lost retained coverage. Documentation now matches
+the existing ADR-0164 atomic deletion behavior. Continue with issue 3019 after
+the dedicated 3018 commit.

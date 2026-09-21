@@ -121,10 +121,11 @@ edges, or references reported by another plugin. `preserve` deletes the role
 and leaves external references inert. `cascade` requires master authority,
 clears role-owned edges, and invokes only explicit provider-neutral cleanup
 contributions inside the same transaction. Successful deletion emits
-`ultimabase.roles.deleted` after commit. Set-based `deleteMany()` is rejected;
-ordinary `role.delete({}, options)` and
-`AppRole.deleteOne({ where: { id: { eq: id } } })` both execute the
-complete policy.
+`ultimabase.roles.deleted` after commit. Both `role.delete({}, options)` and
+`AppRole.deleteOne({ where: { id: { eq: id } } })` execute the complete policy.
+`AppRole.deleteMany({ where: [...] })` executes the same policy for each unique
+target, in input order, inside one transaction. A failure rolls back the whole
+collection, including its cleanup and post-commit notifications.
 
 `hasRole(reference)` is an ordinary official Access decision. Using it requires
 `accessPlugin()` in the application. It resolves the application-local
@@ -151,5 +152,6 @@ Persisted roles also expose distinct `addRole()` and `removeRole()` commands.
 inherited members belong to Administrator. The plugin checks the complete
 post-update graph inside the active transaction, rejects self or indirect
 cycles before commit, handles diamond paths once, and fails explicitly beyond
-64 levels or 10,000 visited roles. Direct and inherited child roles remain
-separate in the internal immutable resolution snapshot used by Access.
+64 levels or 10,000 visited roles. Direct membership and membership inherited
+from parent roles remain separate in the internal immutable resolution snapshot
+used by Access.

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
 	assertRoleHierarchyAcyclicGraph,
-	resolveRoleHierarchyGraph,
+	readPersistedRoleId,
 } from './role-hierarchy.js'
 import type { RoleHierarchyError } from './role-hierarchy.js'
 
@@ -44,23 +44,24 @@ describe('role hierarchy traversal', () => {
 		).resolves.toBeUndefined()
 	})
 
-	it('distinguishes direct and inherited roles by their shortest path', async () => {
+	it('reads each shared subtree once when direct and indirect paths overlap', async () => {
 		const leaf = role('leaf')
 		const direct = role('direct', [leaf])
 		const root = role('root', [direct, leaf])
-		const resolution = await resolveRoleHierarchyGraph(
+		const reads: string[] = []
+
+		await assertRoleHierarchyAcyclicGraph(
 			root,
-			readChildren,
+			(value) => {
+				// The graph reader records work without coupling the guard to storage.
+				const children = readChildren(value)
+				reads.push(readPersistedRoleId(value))
+				return children
+			},
 			generousLimits,
 		)
 
-		expect(resolution.direct.map(({ id }) => id)).toStrictEqual([
-			'direct',
-			'leaf',
-		])
-		expect(resolution.inherited).toStrictEqual([])
-		expect(resolution.all.map(({ id }) => id)).toStrictEqual(['direct', 'leaf'])
-		expect(Object.isFrozen(resolution)).toBe(true)
+		expect(reads).toStrictEqual(['root', 'direct', 'leaf'])
 	})
 
 	it('rejects self and indirect cycles deterministically', async () => {

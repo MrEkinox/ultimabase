@@ -8,7 +8,7 @@ order: 5
 outcome: Compose role membership with Access or ACL without treating membership as a grant.
 owner: '2811'
 releaseStatus: pre-release
-reviewedAt: 2026-09-17
+reviewedAt: 2026-09-21
 sources:
   - packages/roles-plugin/README.md
   - packages/roles-plugin/src/role-access.ts
@@ -18,6 +18,7 @@ sources:
   - packages/roles-plugin/tests/e2e/roles-postgres.postgres.e2e.test.ts
   - examples/minimal/src/schema.ts
   - docs/adr/0119-developer-defined-role-schemas.md
+  - docs/adr/0164-atomic-item-oriented-mutation-hooks.md
   - docs/adr/0205-protected-policy-contributions.md
 ---
 
@@ -247,9 +248,11 @@ subject boundary; role membership alone still grants nothing. See
 | `preserve`            | Deletes the role and leaves external references inert; choose this only when the dangling-reference behavior is intentional  |
 | `cascade`             | Requires Master, clears role edges, and invokes explicit cleanup contributions from reference owners in the same transaction |
 
-Role deletion is singular: `role.delete()` or `AppRole.deleteOne()` applies
-the policy, while `deleteMany()` is rejected. Do not switch to `cascade` just
-to silence `ROLE_DELETE_REFERENCED`; review every reference owner first.
+Both `role.delete()` and `AppRole.deleteOne()` apply the policy.
+`AppRole.deleteMany({ where: [{ id: { eq: firstId } }, { id: { eq: secondId } }] })`
+applies it to each unique target in order, within one transaction. If a target
+is missing or a policy fails, all deletions, cleanup and queued events roll back.
+Do not switch to `cascade` just to silence `ROLE_DELETE_REFERENCED`; review every reference owner first.
 
 Membership, hierarchy, and deletion events are optional post-commit
 notifications. They are not delivered on rollback, and the Roles plugin does
@@ -270,5 +273,5 @@ it exceeds 64 levels or 10,000 visited roles.
   role-resolver provider. Install `rolesPlugin()` or an intentional compatible
   provider in that application.
 - **Role deletion fails:** inspect direct members, child and parent roles,
-  and external references under the schema's deletion policy. Use a singular
-  deletion; `deleteMany()` cannot run per-role cleanup.
+  and external references under the schema's deletion policy. For `deleteMany()`,
+  each target must satisfy that policy; a failure rolls back the whole batch.
