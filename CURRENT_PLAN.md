@@ -1,12 +1,12 @@
 # Active plan: pre-feature architecture simplification
 
-- Status: active — plugin wave explicitly resumed; next issue 3029
+- Status: active — plugin wave explicitly resumed; next issue 3030
 - Milestone: [30 — Pre-feature architecture simplification](issues/3000-pre-feature-architecture-simplification/README.md)
 - Detailed plan: [docs/plans/2026-09-20-pre-feature-architecture-simplification.md](docs/plans/2026-09-20-pre-feature-architecture-simplification.md)
 - Baseline: [docs/plans/2026-09-20-architecture-simplification-baseline.md](docs/plans/2026-09-20-architecture-simplification-baseline.md)
 - Contract matrix: [docs/plans/2026-09-20-architecture-contract-matrix.md](docs/plans/2026-09-20-architecture-contract-matrix.md)
 - Removal history: [HISTORIQUE_SUPPRESSIONS.md](HISTORIQUE_SUPPRESSIONS.md)
-- Resume point: issue 3029; continue sequentially through issue 3034
+- Resume point: issue 3030; continue sequentially through issue 3034
 
 ## Objective
 
@@ -357,3 +357,11 @@ forced. Its 815 lines/four exports and GraphQL HTTP's 82 lines/three exports
 remain identical. The README example is corrected; all 51 final source/type,
 52 built/archive and 66 website checks pass. Continue with issue 3029 after
 the dedicated 3028 commit.
+
+Issue 3028 is committed as `d3a910d8`: +116 / -20 lines, net +96, including
+the corrected README and engineering audit. Issue 3029 is complete with a green
+audit: GraphiQL removes two production lines of retained option state, keeping
+five exports and byte-identical declarations. All 20 source/HTTP checks and
+54 built/archive checks pass with identical coverage. HTML, assets, identity
+and environment gating remain unchanged. Continue with issue 3030 after the
+dedicated 3029 commit.

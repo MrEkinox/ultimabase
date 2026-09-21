@@ -81,8 +81,8 @@ export const graphiqlPlugin = (
 	options: GraphiqlPluginOptions,
 ): GraphiqlPlugin => {
 	const normalized = normalizeGraphiqlPluginOptions(options)
-	const setup = (): GraphiqlPluginExports =>
-		immutableRecord({ enabled: normalized.enabled, path: normalized.path })
+	// Normalization consumes the environment and retains only the public route decision.
+	const setup = (): GraphiqlPluginExports => immutableRecord(normalized)
 	if (!normalized.enabled) {
 		const disabled = module.plugin({ setup } satisfies DisabledDefinition)
 		return disabled

@@ -15,7 +15,6 @@ export interface GraphiqlPluginOptions {
 
 export interface NormalizedGraphiqlPluginOptions {
 	readonly enabled: boolean
-	readonly environment: GraphiqlEnvironment
 	readonly path: string
 }
 
@@ -90,7 +89,6 @@ export const normalizeGraphiqlPluginOptions = (
 	return {
 		enabled:
 			value.environment === 'development' || value.allowInProduction === true,
-		environment: value.environment,
 		path: normalizePath(value.path),
 	}
 }

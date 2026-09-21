@@ -536,3 +536,17 @@ README définit maintenant un schéma interrogeable et un démarrage complet.
 Les 51 contrôles source/types, 52 intégrations construites/archives et 66 contrôles
 documentaires passent. Le code final est identique à celui de la couverture
 complète précédente. Audit final vert, sans nouvelle fonctionnalité.
+
+## GraphiQL — issue 3029 réalisée
+
+L'environnement de déploiement n'est plus conservé après le calcul de
+l'activation. Le résultat normalisé contient seulement les deux propriétés
+publiques existantes : `enabled` et `path`. Les variables intermédiaires de la
+factory sont conservées : leur retrait dégradait l'inférence des manifestes.
+Aucun cast ni nouveau mécanisme de typage n'a été ajouté.
+
+Bilan de production : **280 → 278 lignes (−2)**, quatre fichiers, cinq exports
+et déclarations publiques identiques. Les 20 contrôles source/HTTP et
+54 intégrations construites/archives passent avec une couverture identique.
+Le HTML, les assets, la politique de sécurité et les règles d'environnement
+restent inchangés. Audit final vert.
