@@ -57,8 +57,9 @@ it('decodes packed nested writes from JavaScript without Typegen', async () => {
 	})
 })
 
+// The child TypeScript check can exceed the default timeout under parallel E2E load.
 it('keeps the generated minimal REST declarations aligned', async () => {
 	await expect(
 		executeFile(process.execPath, [generatedTypesCheckPath]),
 	).resolves.toBeDefined()
-})
+}, 20_000)
