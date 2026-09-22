@@ -267,16 +267,11 @@ Runtime; an absent policy plugin contributes nothing.
 
 - Handwritten production TypeScript files warn above 400 lines and fail above
   600 lines.
-- Handwritten test TypeScript files warn above 600 lines and fail above 750
+- Handwritten test TypeScript files warn above 600 lines and fail above 700
   lines.
 - Generated artifacts are excluded by repository path patterns rather than
   inline lint suppressions.
-- Pre-existing oversized files are listed only in the centralized baseline in
-  `tooling/eslint/file-line-budget.ts`. A baseline value must never increase.
-  When a file shrinks, lower its baseline in the same change; remove the entry
-  as soon as the file fits its hard limit.
-- New files and files split by a maintenance issue receive no baseline
-  exception. Do not add local disables for the line-budget rules.
+- There are no per-file exceptions or local disables for the line-budget rules.
 
 ## Testing requirements
 

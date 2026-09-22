@@ -4,17 +4,13 @@ import { dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import tseslint from 'typescript-eslint'
 
-import {
-	createFileLineBudgetRule,
-	handwrittenFileLineBaseline,
-} from './tooling/eslint/file-line-budget.js'
+import { createFileLineBudgetRule } from './tooling/eslint/file-line-budget.js'
 
 const configDirectory = dirname(fileURLToPath(import.meta.url))
 const repositoryFileLineBudget = createFileLineBudgetRule({
-	baseline: handwrittenFileLineBaseline,
 	productionMaximum: 600,
 	repositoryRoot: configDirectory,
-	testMaximum: 750,
+	testMaximum: 700,
 })
 
 export default defineConfig(
@@ -90,6 +86,16 @@ export default defineConfig(
 				tsconfigRootDir: configDirectory,
 			},
 		},
+	},
+	{
+		// Keep advisory warnings aligned with the hard rule's test classification.
+		files: [
+			'**/{test,tests}/**/*.{ts,tsx}',
+			'**/*.test.ts',
+			'**/*.test-d.ts',
+			'tooling/prototypes/generated-schema-authoring/**/*.{ts,tsx}',
+			'tooling/vitest/typescript-language-service.ts',
+		],
 		rules: {
 			'max-lines': ['warn', { max: 600 }],
 		},
