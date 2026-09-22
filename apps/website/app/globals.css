@@ -27,6 +27,11 @@
 	color: var(--color-fd-foreground);
 }
 
+/* Keep the mobile TOC labels opaque while they swap; a fade makes their text unreadable mid-transition. */
+[data-toc-popover] [data-toc-popover-trigger] > span > span {
+	transition-property: translate, color;
+}
+
 .ub-brand-link {
 	color: var(--ub-foreground);
 	text-decoration: none;

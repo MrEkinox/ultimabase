@@ -129,6 +129,18 @@ describe('website visual system', () => {
 					return Number.parseFloat(getComputedStyle(activeElement).outlineWidth)
 				})
 				if (customShell) expect(focusOutlineWidth).toBeGreaterThanOrEqual(3)
+				if (path.endsWith('/graphql')) {
+					// Both TOC labels must stay readable while the active section changes.
+					const transitions = await page
+						.locator('[data-toc-popover-trigger] > span > span')
+						.evaluateAll((elements) =>
+							elements.map(
+								(element) => getComputedStyle(element).transitionProperty,
+							),
+						)
+					expect(transitions).toHaveLength(2)
+					expect(transitions.join(',')).not.toMatch(/\bopacity\b/u)
+				}
 				expect(await accessibilityViolations(page)).toEqual([])
 				if (path.endsWith('/password-authentication')) {
 					// Exercise keyboard scrolling, not only the focusability attribute.
