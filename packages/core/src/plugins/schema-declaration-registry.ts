@@ -51,11 +51,7 @@ import {
 	type PluginOperationDeclarationRegistrar,
 	snapshotApplicationSurfaceDeclarations,
 } from './application-surface-declarations.js'
-import {
-	compileCommandGraph,
-	type CompiledApplicationSchemaSurface,
-	type CompiledPluginOperation,
-} from './application-surface-registry.js'
+import { compileCommandGraph } from './application-surface-registry.js'
 import type { CompiledCommandGraph } from './command-graph.js'
 import { compileSchemaDeclarations } from './compiled-schema-declarations.js'
 import { createCompiledTypegenGraph } from './compiled-typegen-graph.js'
@@ -366,14 +362,6 @@ export class SchemaDeclarationRegistry {
 		return this.#commands
 	}
 
-	/** Resolves one final operation declaration after static compilation. */
-	operation(name: string): CompiledPluginOperation | undefined {
-		if (this.#commands === undefined) {
-			throw new TypeError('Application operations have not been compiled')
-		}
-		return this.#commands.operation(name)
-	}
-
 	/** Reads the complete immutable graph after successful compilation. */
 	typegenGraph(): CompiledTypegenGraph {
 		if (this.#commands === undefined) {
@@ -383,16 +371,6 @@ export class SchemaDeclarationRegistry {
 			batches: this.#batches,
 			commands: this.#commands,
 		})
-	}
-
-	/** Resolves one final application schema surface after static compilation. */
-	schemaSurface(
-		className: string,
-	): CompiledApplicationSchemaSurface | undefined {
-		if (this.#commands === undefined) {
-			throw new TypeError('Application schema surfaces have not been compiled')
-		}
-		return this.#commands.schemaSurface(className)
 	}
 
 	diagnoseFailure(error: unknown): PluginDeclarationFailureDiagnostic {

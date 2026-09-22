@@ -261,13 +261,13 @@ export class FrameworkApplication<
 		className: string,
 	): CompiledApplicationSchemaSurface | undefined {
 		this.compileSchemas()
-		return this.#schemaDeclarations.schemaSurface(className)
+		return this.#schemaDeclarations.commandGraph().schemaSurface(className)
 	}
 
 	/** Resolves one inert custom operation declaration by its namespaced name. */
 	getOperation(name: string): CompiledPluginOperation | undefined {
 		this.compileSchemas()
-		return this.#schemaDeclarations.operation(name)
+		return this.#schemaDeclarations.commandGraph().operation(name)
 	}
 
 	/** Reads the complete callback-free graph used by declaration tooling. */
