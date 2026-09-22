@@ -100,6 +100,29 @@ const attributeRuntimeBehavior = (
 	})
 }
 
+/** Preserves the current operation and target context across ordered transforms. */
+const composePreparedMutationTransforms =
+	(
+		transforms: readonly RuntimePreparedMutationTransformStage[],
+	): RuntimePreparedMutationTransformStage =>
+	async (input) => {
+		let operation = input.operation
+		for (const transform of transforms) {
+			operation = await transform(
+				immutableRecord({
+					context: input.context,
+					...(input.nestedWrite === undefined
+						? {}
+						: { nestedWrite: input.nestedWrite }),
+					operation,
+					target: input.target,
+					...(input.targets === undefined ? {} : { targets: input.targets }),
+				}),
+			)
+		}
+		return operation
+	}
+
 /** Composes only installed behavior providers in deterministic graph order. */
 export const composeRuntimeBehaviors = (
 	application: FrameworkApplication<
@@ -186,43 +209,12 @@ export const composeRuntimeBehaviors = (
 		}
 		return operation
 	}
-	const transformPreparedInput: RuntimePreparedMutationTransformStage = async (
-		input,
-	) => {
-		let operation = input.operation
-		for (const transform of preparedInputTransforms) {
-			operation = await transform(
-				immutableRecord({
-					context: input.context,
-					...(input.nestedWrite === undefined
-						? {}
-						: { nestedWrite: input.nestedWrite }),
-					operation,
-					target: input.target,
-					...(input.targets === undefined ? {} : { targets: input.targets }),
-				}),
-			)
-		}
-		return operation
-	}
-	const transformPreparedOperation: RuntimePreparedMutationTransformStage =
-		async (input) => {
-			let operation = input.operation
-			for (const transform of preparedOperationTransforms) {
-				operation = await transform(
-					immutableRecord({
-						context: input.context,
-						...(input.nestedWrite === undefined
-							? {}
-							: { nestedWrite: input.nestedWrite }),
-						operation,
-						target: input.target,
-						...(input.targets === undefined ? {} : { targets: input.targets }),
-					}),
-				)
-			}
-			return operation
-		}
+	const transformPreparedInput = composePreparedMutationTransforms(
+		preparedInputTransforms,
+	)
+	const transformPreparedOperation = composePreparedMutationTransforms(
+		preparedOperationTransforms,
+	)
 	const beforeOperation: RuntimeOperationGuardStage = async (input) => {
 		for (const observe of beforeObservers) await observe(input)
 	}
