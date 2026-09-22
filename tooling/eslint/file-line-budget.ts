@@ -12,8 +12,6 @@ export interface FileLineBudgetPolicy {
 /** Records only pre-existing handwritten exceptions and must never be increased. */
 export const handwrittenFileLineBaseline: Readonly<Record<string, number>> =
 	Object.freeze({
-		'packages/core/tests/e2e/relation-postgres.postgres.e2e.test.ts': 943,
-		'packages/core/tests/e2e/runtime-postgres.postgres.e2e.test.ts': 1139,
 	})
 
 const generatedArtifactPattern =

@@ -1,14 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 
-import {
-	defineFieldBuilderMethod,
-	definePlugin,
-	definePluginField,
-	FrameworkApplication,
-	Schema,
-	type FieldBuilder,
-} from '@ultimabase/core'
+import { FrameworkApplication } from '@ultimabase/core'
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { aclPlugin } from '@ultimabase/acl-permissions-plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
@@ -17,12 +10,7 @@ import * as Typegen from '@ultimabase/typegen'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { rolesPlugin } from '@ultimabase/roles-plugin'
 import { validationPlugin } from '@ultimabase/validation-plugin'
-import {
-	pgVectorPlugin,
-	type VectorFieldBuilderMethod,
-	type VectorFieldOptions,
-	type VectorValue,
-} from '@ultimabase/pg-vector-plugin'
+
 import * as ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 
@@ -31,479 +19,40 @@ import {
 	TodoRole,
 	TodoUser,
 } from '../../../../examples/todo-backend/src/schema.js'
-import { createLanguageService } from '../../../../tooling/vitest/typescript-language-service.js'
 
-type PackedFieldBuilder = FieldBuilder & {
-	readonly contained: VectorFieldBuilderMethod
-	readonly vector: VectorFieldBuilderMethod
-}
-
-const selectMarker = '/* packed-generated-select */'
-const publicSelectMarker = '/* packed-public-select */'
-const accessMarker = '/* packed-access-item */'
-const fieldHookMarker = '/* packed-field-hook */'
-const schemaHookMarker = '/* packed-schema-hook */'
-const schemaHookItemMarker = '/* packed-schema-hook-item */'
-const pluginHookRegistryMarker = '/* packed-plugin-hook-registry */'
-const pluginHookItemMarker = '/* packed-plugin-hook-item */'
-const pointerMarker = '/* packed-pointer-where */'
-const relationMarker = '/* packed-relation-where */'
-const hoverMarker = '/* packed-generated-hover */'
-const optionsMarker = '/* packed-typegen-options */'
-const pluginOptionsMarker = '/* packed-typegen-plugin-options */'
-const pluginHoverMarker = '/* packed-typegen-plugin-hover */'
-const createOneOptionsMarker = '/* packed-create-one-options */'
-const createManyOptionsMarker = '/* packed-create-many-options */'
-const updateOneOptionsMarker = '/* packed-update-one-options */'
-const updateManyOptionsMarker = '/* packed-update-many-options */'
-const updateOneTargetMarker = '/* packed-update-one-target */'
-const deleteOneTargetMarker = '/* packed-delete-one-target */'
-const updateOneHoverMarker = '/* packed-update-one-hover */'
-const containmentMarker = '/* packed-containment-operand */'
-const validationMarker = '/* packed-validation-option */'
-
-const snapshotPackedVector = (value: unknown): VectorValue => {
-	if (!Array.isArray(value)) throw new TypeError('vector must be an array')
-	return Object.freeze(
-		value.map((item) => {
-			if (typeof item !== 'number') {
-				throw new TypeError('vector items must be numbers')
-			}
-			return item
-		}),
-	)
-}
-const containedVectorField = () =>
-	definePluginField(
-		'fixture.packed.contained-vector',
-		{},
-		{
-			snapshotValue: snapshotPackedVector,
-			storageCodec: {
-				decode: snapshotPackedVector,
-				encode: (value) => value,
-				format: 'json',
-				version: 1,
-			},
-			structuralContains: {
-				snapshotOperand: (value: unknown): VectorFieldOptions => {
-					if (
-						typeof value !== 'object' ||
-						value === null ||
-						!('dimensions' in value) ||
-						typeof value.dimensions !== 'number'
-					) {
-						throw new TypeError('operand must contain dimensions')
-					}
-					return { dimensions: value.dimensions }
-				},
-			},
-		},
-	)
-const containedVectorMethod = defineFieldBuilderMethod({
-	name: 'contained',
-	contexts: {
-		stored: {
-			factory: containedVectorField,
-			fieldKind: 'fixture.packed.contained-vector',
-			typegen: {
-				methodType: 'VectorFieldBuilderMethod',
-				module: '@ultimabase/pg-vector-plugin',
-				structuralContainsType: 'VectorFieldOptions',
-				valueType: 'VectorValue',
-			},
-		},
-	},
-})
-const containedVectorPlugin = definePlugin({
-	core: '^0.0.0',
-	declare: ({ fields }) => {
-		fields.register(containedVectorMethod)
-		return undefined
-	},
-	pluginId: 'fixture.packed-contained-vector-plugin',
-	privileges: [
-		{ name: 'schema:declare', reason: 'Declares packed containment types.' },
-	],
-	version: '0.0.0',
-})
-
-const Owner = Schema.define({
-	className: 'PackedGeneratedOwner',
-	fields: (field) => ({
-		documents: field.relation({ target: 'PackedGeneratedDocument' }),
-		name: field.string({ required: true }),
-	}),
-})
-const Document = Schema.define({
-	className: 'PackedGeneratedDocument',
-	fields: (field) => {
-		const generatedField = field as PackedFieldBuilder
-		return {
-			contained: containedVectorField(),
-			embedding: generatedField.vector({ dimensions: 3 }),
-			owner: field.pointer({
-				target: 'PackedGeneratedOwner',
-				required: true,
-			}),
-			related: field.relation({
-				target: 'PackedGeneratedDocument',
-			}),
-			status: field.enum({
-				typeName: 'PackedDocumentStatus',
-				values: ['draft', 'published'],
-			}),
-			summary: field.string(),
-			title: field.string({ required: true }),
-		}
-	},
-})
-const application = new FrameworkApplication({
-	plugins: [
-		accessPlugin(),
-		containedVectorPlugin,
-		hooksPlugin(),
-		pgVectorPlugin(),
-		validationPlugin(),
-	],
-	schemas: [Owner, Document],
-})
-const generated = generateApplicationTypes({
-	application,
-	applicationId: 'fixture.packed-typegen',
-})
-const sourceWithMarkers = `${generated.contents}
-import { generateApplicationTypes as generatePackedApplicationTypes, typegenPlugin as packedTypegenPlugin } from '@ultimabase/typegen'
-import { Schema, definePlugin } from '@ultimabase/core'
-import * as Hooks from '@ultimabase/hooks-plugin'
-import type { FrameworkApplication, PluginDefinition, SchemaDefinition } from '@ultimabase/core'
-import type { GenerateApplicationTypesOptions, TypegenPluginOptions } from '@ultimabase/typegen'
-
-declare const packedApplication: FrameworkApplication<readonly SchemaDefinition[], readonly PluginDefinition[]>
-declare const packedOwner: Core.PointerValue
-declare const packedTitleValidator: import('@standard-schema/spec').StandardSchemaV1<string>
-
-const PackedGeneratedOwner = Schema.define({
-  className: 'PackedGeneratedOwner',
-  fields: (field) => ({
-    documents: field.relation({ target: 'PackedGeneratedDocument' }),
-    name: field.string({ required: true }),
-  }),
-})
-const PackedGeneratedDocument = Schema.define({
-  className: 'PackedGeneratedDocument',
-  fields: (field) => ({
-    contained: field.contained({ dimensions: 3 }),
-    embedding: field.vector({ dimensions: 3 }),
-    owner: field.pointer({
-      target: 'PackedGeneratedOwner',
-      required: true,
-    }),
-    related: field.relation({ target: 'PackedGeneratedDocument' }),
-    status: field.enum({ values: ['draft', 'published'] }),
-		summary: field.string({ ${validationMarker} }),
-    title: field.string({
-      hooks: {
-        ${fieldHookMarker}resolveInput: ({ value }) => value?.trim() ?? null,
-      },
-      required: true,
-      validation: packedTitleValidator,
-    }),
-  }),
-  access: {
-    update: {
-      item: ({ item }) => {
-        item.${accessMarker}embedding
-        return item.status === 'published'
-      },
-    },
-  },
-  hooks: {
-    ${schemaHookMarker}beforeOperation: {
-      update: ({ item, originalItem }) => {
-        item.${schemaHookItemMarker}embedding
-        originalItem.status
-      },
-    },
-  },
-})
-const packedHookPlugin = definePlugin({
-  pluginId: 'fixture.packed-generated-hooks',
-  version: '0.0.0',
-  core: '^0.0.0',
-  peers: [{ pluginId: '@ultimabase/hooks-plugin', version: '^0.0.0' }],
-  privileges: [{
-    name: 'runtime:intercept',
-    reason: 'Contributes the packed Hook type fixture.',
-  }],
-  capabilities: {
-    provides: [Hooks.provideHookContributions('document-update', () =>
-      Hooks.${pluginHookRegistryMarker}schemaHooks(
-      PackedGeneratedDocument,
-      {
-        beforeOperation: {
-          update: ({ item }) => {
-            item.${pluginHookItemMarker}title
-          },
-        },
-      },
-    ))],
-  },
-})
-
-// @ts-expect-error -- The intentionally incomplete object drives option completion.
-const packedCompletionOptions: GenerateApplicationTypesOptions = {
-  ${optionsMarker}
-  application: packedApplication,
-}
-const apiGenerated = generatePackedApplicationTypes({
-  application: packedApplication,
-  applicationId: 'packed',
-})
-const packedPluginOptions: TypegenPluginOptions = {
-  ${pluginOptionsMarker}
-}
-const packedTypegen = ${pluginHoverMarker}packedTypegenPlugin(packedPluginOptions)
-const where: ${hoverMarker}PackedGeneratedDocumentWhereInput = {
-  contained: {
-    // @ts-expect-error -- The incomplete operand drives packed completion.
-    contains: { ${containmentMarker} },
-  },
-	status: { eq: 'draft' },
-  title: { contains: 'Generated' },
-}
-const invalidContainment: PackedGeneratedDocumentWhereInput = {
-  contained: {
-    // @ts-expect-error -- Packed containment retains the owner operand type.
-    contains: [1, 2, 3],
-  },
-}
-const select: PackedGeneratedDocumentSelect = { ${selectMarker} }
-const create: PackedGeneratedDocumentCreateInput = {
-  owner: packedOwner,
-  title: 'Packed',
-}
-const publicRead = PackedGeneratedDocument.findMany({
-  where: { status: { eq: 'draft' } },
-  select: { ${publicSelectMarker}title: true },
-})
-publicRead.then((documents) => {
-  const document = documents[0]
-  if (document === undefined) return
-  const id: string = document.id
-  const title: string = document.title
-  void id
-  void title
-})
-const invalidIdentifierSelection: PackedGeneratedDocumentSelect = {
-  // @ts-expect-error -- Stable model identifiers cannot be omitted.
-  id: false,
-}
-declare const packedItem: PackedGeneratedDocumentItem
-const ownerRead = packedItem.owner.findOne({
-  where: { ${pointerMarker}name: { startsWith: 'A' } },
-})
-type PackedLoadedDocument = NonNullable<Awaited<ReturnType<typeof PackedGeneratedDocument.findOne>>>
-declare const packedLoadedDocument: PackedLoadedDocument
-const relatedRead = packedLoadedDocument.relation('related').findMany({
-  where: { ${relationMarker}status: { eq: 'published' } },
-})
-const projectedCreate = PackedGeneratedDocument.createOne({
-  data: { owner: { connect: 'owner-1' }, title: 'Created projection' },
-  select: { title: true },
-  include: { owner: { select: { name: true } } },
-})
-const projectedCreates = PackedGeneratedDocument.createMany({
-  data: [{ owner: packedOwner, title: 'Created collection projection' }],
-  select: { title: true },
-  include: { owner: { select: { name: true } } },
-})
-const projectedUpdate = PackedGeneratedDocument.${updateOneHoverMarker}updateOne({
-  id: 'document-1',
-  data: { title: 'Updated projection' },
-  select: { title: true },
-  include: { owner: { select: { name: true } } },
-})
-const projectedDelete = PackedGeneratedDocument.deleteOne({
-  id: 'document-1',
-  select: { title: true },
-})
-const projectedUpdates = PackedGeneratedDocument.updateMany({
-  data: [{
-    where: { id: { eq: 'document-1' } },
-    data: { title: 'Updated collection projection' },
-  }],
-  include: { owner: { select: { name: true } } },
-})
-projectedCreate.then((document) => {
-  if (document.owner === null) return
-	const id: string = document.id
-  const title: string = document.title
-	const ownerId: string = document.owner.id
-  const ownerName: string = document.owner.name
-  // @ts-expect-error -- Packed mutation projections exclude unselected scalars.
-  document.status
-	void id
-  void ownerName
-	void ownerId
-  void title
-})
-projectedCreates.then((documents) => {
-  const document = documents[0]
-  if (document === undefined || document.owner === null) return
-	const id: string = document.id
-  const title: string = document.title
-	const ownerId: string = document.owner.id
-  const ownerName: string = document.owner.name
-	void id
-  void ownerName
-	void ownerId
-  void title
-})
-projectedUpdate.then((document) => {
-  if (document === null || document.owner === null) return
-	const id: string = document.id
-	const ownerId: string = document.owner.id
-  const ownerName: string = document.owner.name
-	void id
-	void ownerId
-  void ownerName
-})
-projectedUpdates.then((documents) => {
-  const document = documents[0]
-  if (document === undefined || document.owner === null) return
-  const id: string = document.id
-	const ownerId: string = document.owner.id
-  const ownerName: string = document.owner.name
-  // @ts-expect-error -- Packed updateMany keeps its default scalar id projection.
-  document.title
-  void id
-	void ownerId
-  void ownerName
-})
-PackedGeneratedDocument.createOne({
-  data: { owner: { connect: 'owner-1' }, title: 'Create completion' },
-  ${createOneOptionsMarker}
-})
-PackedGeneratedDocument.createMany({
-  data: [{ owner: packedOwner, title: 'Create collection completion' }],
-  ${createManyOptionsMarker}
-})
-PackedGeneratedDocument.updateOne({
-  id: 'document-1',
-  data: { title: 'Update completion' },
-  ${updateOneOptionsMarker}
-})
-// @ts-expect-error -- The incomplete target drives both singular target completions.
-PackedGeneratedDocument.updateOne({
-  ${updateOneTargetMarker}
-  data: { title: 'Target completion' },
-})
-// @ts-expect-error -- The incomplete target drives both singular target completions.
-PackedGeneratedDocument.deleteOne({ ${deleteOneTargetMarker} })
-PackedGeneratedDocument.updateMany({
-  data: [{
-    where: { id: { eq: 'document-1' } },
-    data: { title: 'Update collection completion' },
-  }],
-  ${updateManyOptionsMarker}
-})
-
-// @ts-expect-error -- Packed singular targets remain mutually exclusive.
-PackedGeneratedDocument.updateOne({
-  id: 'document-1',
-  where: { id: { eq: 'document-1' } },
-  data: { title: 'Invalid target' },
-})
-// @ts-expect-error -- Packed singular targets remain mutually exclusive.
-PackedGeneratedDocument.deleteOne({
-  id: 'document-1',
-  where: { id: { eq: 'document-1' } },
-})
-
-// @ts-expect-error -- The packed generator retains exact enum literals.
-const invalidStatus: PackedDocumentStatus = 'archived'
-
-void create
-void apiGenerated
-void packedCompletionOptions
-void packedTypegen
-void invalidStatus
-void invalidIdentifierSelection
-void invalidContainment
-void ownerRead
-void packedHookPlugin
-void publicRead
-void relatedRead
-void projectedCreate
-void projectedCreates
-void projectedUpdate
-void projectedUpdates
-void projectedDelete
-void select
-void where
-`
-const selectPosition = sourceWithMarkers.indexOf(selectMarker)
-const publicSelectPosition = sourceWithMarkers.indexOf(publicSelectMarker)
-const accessPosition = sourceWithMarkers.indexOf(accessMarker)
-const fieldHookPosition = sourceWithMarkers.indexOf(fieldHookMarker)
-const schemaHookPosition = sourceWithMarkers.indexOf(schemaHookMarker)
-const schemaHookItemPosition = sourceWithMarkers.indexOf(schemaHookItemMarker)
-const pluginHookRegistryPosition = sourceWithMarkers.indexOf(
-	pluginHookRegistryMarker,
-)
-const pluginHookItemPosition = sourceWithMarkers.indexOf(pluginHookItemMarker)
-const pointerPosition = sourceWithMarkers.indexOf(pointerMarker)
-const relationPosition = sourceWithMarkers.indexOf(relationMarker)
-const hoverPosition = sourceWithMarkers.indexOf(hoverMarker)
-const optionsPosition = sourceWithMarkers.indexOf(optionsMarker)
-const pluginOptionsPosition = sourceWithMarkers.indexOf(pluginOptionsMarker)
-const pluginHoverPosition = sourceWithMarkers.indexOf(pluginHoverMarker)
-const mutationOptionPositions = [
+import {
+	fieldHookMarker,
+	schemaHookMarker,
+	hoverMarker,
+	pluginHoverMarker,
 	createOneOptionsMarker,
 	createManyOptionsMarker,
 	updateOneOptionsMarker,
 	updateManyOptionsMarker,
-].map((marker) => sourceWithMarkers.indexOf(marker))
-const mutationTargetPositions = [
-	updateOneTargetMarker,
-	deleteOneTargetMarker,
-].map((marker) => sourceWithMarkers.indexOf(marker))
-const updateOneHoverPosition = sourceWithMarkers.indexOf(updateOneHoverMarker)
-const containmentPosition = sourceWithMarkers.indexOf(containmentMarker)
-const validationPosition = sourceWithMarkers.indexOf(validationMarker)
-const source = sourceWithMarkers
-	.replace(selectMarker, ' '.repeat(selectMarker.length))
-	.replace(publicSelectMarker, ' '.repeat(publicSelectMarker.length))
-	.replace(accessMarker, ' '.repeat(accessMarker.length))
-	.replace(fieldHookMarker, ' '.repeat(fieldHookMarker.length))
-	.replace(schemaHookMarker, ' '.repeat(schemaHookMarker.length))
-	.replace(schemaHookItemMarker, ' '.repeat(schemaHookItemMarker.length))
-	.replace(
-		pluginHookRegistryMarker,
-		' '.repeat(pluginHookRegistryMarker.length),
-	)
-	.replace(pluginHookItemMarker, ' '.repeat(pluginHookItemMarker.length))
-	.replace(pointerMarker, ' '.repeat(pointerMarker.length))
-	.replace(relationMarker, ' '.repeat(relationMarker.length))
-	.replace(hoverMarker, ' '.repeat(hoverMarker.length))
-	.replace(optionsMarker, ' '.repeat(optionsMarker.length))
-	.replace(pluginOptionsMarker, ' '.repeat(pluginOptionsMarker.length))
-	.replace(pluginHoverMarker, ' '.repeat(pluginHoverMarker.length))
-	.replace(createOneOptionsMarker, ' '.repeat(createOneOptionsMarker.length))
-	.replace(createManyOptionsMarker, ' '.repeat(createManyOptionsMarker.length))
-	.replace(updateOneOptionsMarker, ' '.repeat(updateOneOptionsMarker.length))
-	.replace(updateManyOptionsMarker, ' '.repeat(updateManyOptionsMarker.length))
-	.replace(updateOneTargetMarker, ' '.repeat(updateOneTargetMarker.length))
-	.replace(deleteOneTargetMarker, ' '.repeat(deleteOneTargetMarker.length))
-	.replace(updateOneHoverMarker, ' '.repeat(updateOneHoverMarker.length))
-	.replace(containmentMarker, ' '.repeat(containmentMarker.length))
-	.replace(validationMarker, ' '.repeat(validationMarker.length))
-const fileName = path.join(
-	import.meta.dirname,
-	'typegen-generated-types.packed.fixture.ts',
-)
-const service = createLanguageService(fileName, source)
+	updateOneHoverMarker,
+	generated,
+	selectPosition,
+	publicSelectPosition,
+	accessPosition,
+	fieldHookPosition,
+	schemaHookPosition,
+	schemaHookItemPosition,
+	pluginHookRegistryPosition,
+	pluginHookItemPosition,
+	pointerPosition,
+	relationPosition,
+	hoverPosition,
+	optionsPosition,
+	pluginOptionsPosition,
+	pluginHoverPosition,
+	mutationOptionPositions,
+	mutationTargetPositions,
+	updateOneHoverPosition,
+	containmentPosition,
+	validationPosition,
+	fileName,
+	service,
+} from './typegen-generated-types-fixture.js'
 
 describe('packed @ultimabase/typegen generated contracts', () => {
 	it('exports the Typegen identity and no former plugin alias', () => {

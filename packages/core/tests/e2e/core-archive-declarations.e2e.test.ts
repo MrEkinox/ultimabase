@@ -11,11 +11,19 @@ interface DeclarationQuickInfo {
 // Inspect built declarations and bundles, never source aliases.
 const repositoryRoot = path.resolve(import.meta.dirname, '../../../..')
 const packagesDirectory = path.join(repositoryRoot, 'packages')
-const schemaFixtureFile = path.join(
-	repositoryRoot,
-	'packages/core/tests/e2e/runtime-postgres.postgres.e2e.test.ts',
+// Keep editor probes aligned with the fixture's original declaration order.
+const schemaFixtureFiles = [
+	'runtime-postgres-fixture.ts',
+	'register-runtime-bulk-tests.ts',
+	'runtime-postgres.postgres.e2e.test.ts',
+].map((file) => path.join(import.meta.dirname, file))
+const schemaFixtureSources = new Map(
+	await Promise.all(
+		schemaFixtureFiles.map(
+			async (file) => [file, await readFile(file, 'utf8')] as const,
+		),
+	),
 )
-const schemaFixtureSource = await readFile(schemaFixtureFile, 'utf8')
 const schemaLanguageServiceHost: ts.LanguageServiceHost = {
 	fileExists: (fileName) => ts.sys.fileExists(fileName),
 	getCompilationSettings: () => ({
@@ -27,12 +35,10 @@ const schemaLanguageServiceHost: ts.LanguageServiceHost = {
 	}),
 	getCurrentDirectory: () => repositoryRoot,
 	getDefaultLibFileName: (options) => ts.getDefaultLibFilePath(options),
-	getScriptFileNames: () => [schemaFixtureFile],
+	getScriptFileNames: () => schemaFixtureFiles,
 	getScriptSnapshot: (fileName) => {
 		const contents =
-			fileName === schemaFixtureFile
-				? schemaFixtureSource
-				: ts.sys.readFile(fileName)
+			schemaFixtureSources.get(fileName) ?? ts.sys.readFile(fileName)
 
 		return contents === undefined
 			? undefined
@@ -46,15 +52,20 @@ const schemaLanguageService = ts.createLanguageService(
 )
 
 const readFixtureQuickInfo = (propertySource: string): DeclarationQuickInfo => {
-	const position = schemaFixtureSource.indexOf(propertySource)
+	const match = schemaFixtureFiles
+		.map((file) => ({
+			file,
+			position: schemaFixtureSources.get(file)?.indexOf(propertySource) ?? -1,
+		}))
+		.find(({ position }) => position >= 0)
 
-	if (position < 0) {
+	if (match === undefined) {
 		throw new TypeError(`Missing schema hover fixture: ${propertySource}`)
 	}
 
 	const quickInfo = schemaLanguageService.getQuickInfoAtPosition(
-		schemaFixtureFile,
-		position,
+		match.file,
+		match.position,
 	)
 
 	return {

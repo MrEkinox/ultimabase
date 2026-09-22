@@ -17,22 +17,10 @@ import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from '../../../../tests/fixtures/postgres-worker-fixture.js'
+import { generatePointerId, queuedPointerIds } from './pointer-id-fixture.js'
 
 const pointerTrace: string[] = []
 const pointerRollbackError = new Error('pointer update rollback fixture')
-const queuedPointerIds: string[] = []
-let generatedPointerId = 0
-
-const generatePointerId = (): string => {
-	const queued = queuedPointerIds.shift()
-
-	if (queued !== undefined) return queued
-
-	generatedPointerId += 1
-
-	return `0198a43e-2431-7000-8000-${generatedPointerId.toString(16).padStart(12, '0')}`
-}
-
 const User = Schema.define({
 	className: 'PointerE2EUser',
 	fields: (field) => ({
