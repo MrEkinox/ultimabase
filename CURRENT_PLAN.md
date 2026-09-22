@@ -1,12 +1,20 @@
-# Current plan: none
+# Current plan: remove file-line budget exceptions
 
-Milestone 31 is completed through issue 3112. Its final audit and dedicated
-local commit conclude the authorized work. No automatic continuation or push
-is authorized; paused ACL work and the suspended Soft Delete stash stay paused.
+The user authorized repository-wide remediation on 2026-09-22. Keep the
+production hard limit at 600 lines, set the test hard limit to 700 lines, and
+retain the advisory warnings at 400/600. Split by existing responsibility;
+never compress code or weaken tests merely to satisfy a count. Preserve all
+public behavior, package exports, test assertions, coverage thresholds, and
+generated-artifact exclusions.
 
-- [Final audit and measurements](docs/plans/2026-09-21-milestone-31-final-audit.md)
-- [Completed execution log](docs/plans/completed/residual-complexity-simplification-execution-log.md)
-- [Milestone 31](issues/3100-residual-complexity-simplification/README.md)
-- [Execution contract](docs/plans/2026-09-21-residual-complexity-simplification.md)
+Work through [milestone 32](issues/3200-file-line-budget-remediation/README.md)
+in order. After each issue, run focused tests, audit the complete diff and
+relevant API/coverage implications, correct findings, and repeat until the
+audit is clean. Then make one dedicated local commit and report added/deleted
+lines. Run the full validation and compare test counts and coverage before
+marking the final issue complete. Never push without a separate request.
 
-Resume point: **none**. A new task requires a new user instruction.
+Stop and explain if a split requires an unapproved architecture change, loses
+public behavior or coverage, or required validation cannot be completed.
+
+Resume point: issue 3202.

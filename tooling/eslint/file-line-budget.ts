@@ -14,10 +14,6 @@ export const handwrittenFileLineBaseline: Readonly<Record<string, number>> =
 	Object.freeze({
 		'packages/acl-permissions-plugin/src/plugin.test.ts': 1034,
 		'packages/acl-permissions-plugin/src/plugin.ts': 858,
-		'packages/core/src/query/filters/factory.ts': 662,
-		'packages/core/src/query/filters/where.ts': 1603,
-		'packages/core/src/query/query/input.ts': 792,
-		'packages/core/src/query/query/query.ts': 700,
 		'packages/core/src/runtime/enforcement/dispatcher.test.ts': 895,
 		'packages/core/src/runtime/engine/framework-engine.ts': 755,
 		'packages/core/src/runtime/behaviors/validation-boundaries.ts': 949,
@@ -25,7 +21,6 @@ export const handwrittenFileLineBaseline: Readonly<Record<string, number>> =
 		'packages/core/src/runtime/pipeline/runtime-pipeline.test.ts': 1127,
 		'packages/core/src/runtime/validation/runtime-validation.test.ts': 807,
 		'packages/core/src/runtime/validation/runtime-validation.ts': 1314,
-		'packages/core/src/schema/schema/definition.ts': 851,
 		'packages/postgres-plugin/src/drizzle/adapter.test.ts': 1634,
 		'packages/postgres-plugin/src/drizzle/prepared-operation.ts': 720,
 		'packages/postgres-plugin/src/query/filter-compiler.test.ts': 804,

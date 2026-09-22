@@ -1,17 +1,11 @@
 import {
 	assertNonEmptyString,
-	immutableArray,
 	immutableRecord,
 	isPlainRecord,
 } from '@ultimabase/shared'
 
 import type { GenericField } from '../fields/base/contract.js'
-import { assertFieldDefinition } from '../fields/base/definition.js'
-import {
-	assertVirtualFieldDefinition,
-	getVirtualFieldResolver,
-	type GenericVirtualField,
-} from './virtual-field.js'
+import type { GenericVirtualField } from './virtual-field.js'
 import { OutputBuilderMethodUnavailableError } from '../output/builder.js'
 import type { Pointer } from '../relations/pointer.js'
 import {
@@ -24,29 +18,19 @@ import {
 	type SchemaResultCapabilityCarrier,
 } from './model.js'
 import {
-	normalizeSchemaIndexes,
 	snapshotSchemaIndexOptions,
 	type SchemaFieldName,
 	type SchemaIndexDefinition,
 	type SchemaIndexOptions,
 } from './indexes.js'
-import {
-	reservedSystemFieldNames,
-	systemFields,
-	type SystemFields,
-} from './system-fields.js'
+import type { SystemFields } from './system-fields.js'
 import {
 	captureFieldBuilderCallback,
 	FieldBuilderDeclarationExecutionError,
 	FieldBuilderMethodUnavailableError,
 	FieldBuilderTargetUnavailableError,
-	resolveCapturedFieldMap,
-	type FieldBuilderTargetResolver,
 	type SchemaFieldBuilderDeclaration,
 } from './field-builder.js'
-import { snapshotCapturedOptionValue } from './captured-options.js'
-import { areSchemaDeclarationValuesCompatible } from './declaration-compatibility.js'
-import type { FieldBuilderMethodResolver } from './field-builder-methods.js'
 import type {
 	BaseSchemaTypeInfo,
 	SchemaTypeInfo,
@@ -55,16 +39,30 @@ import type {
 	UltimaBaseGeneratedSchemaOptions,
 } from '../type-info.js'
 import type { SchemaAPI } from './schema-api.js'
-import {
-	isReservedQueryLogicalFieldName,
-	isReservedSchemaModelFieldName,
-	type ReservedSchemaFieldCollision,
-} from './reserved-field-names.js'
-import {
-	createInitialSchemaProvenance,
-	type SchemaCompilationProvenance,
-} from './provenance.js'
+import type { ReservedSchemaFieldCollision } from './reserved-field-names.js'
+import type { SchemaCompilationProvenance } from './provenance.js'
 import type { SchemaConstraintDefinition } from './constraints.js'
+
+import {
+	prepareSchemaCompilation,
+	snapshotUnresolvedSchemaOptions,
+} from './definition-compilation.js'
+import { SchemaCompilationError } from './definition-error.js'
+import {
+	storeCompiledSchemaRecord,
+	readCompiledSchemaRecord,
+	storeSchemaDeclaration,
+	schemaDefinitionMarker,
+	type NormalizedSchemaDeclaration,
+} from './definition-state.js'
+
+export {
+	finalizeSchemaCompilation,
+	prepareSchemaCompilation,
+	validateSchemaCompilation,
+} from './definition-compilation.js'
+export { SchemaCompilationError } from './definition-error.js'
+export type { SchemaCompilationFailureReason } from './definition-error.js'
 
 export type { BaseItem } from '../type-info.js'
 export type { SchemaAPI } from './schema-api.js'
@@ -189,51 +187,6 @@ export type SchemaClassCapabilityFactory<
 	context: SchemaModelCapabilityContext<TSchema>,
 ) => SchemaClassCapabilities<TStatics, TResults>
 
-// A versioned global symbol preserves constructor provenance across package copies.
-const schemaDefinitionMarker = Symbol.for(
-	'@ultimabase/core/schema-definition/v1',
-)
-
-/** Explains why a deferred schema cannot expose its final runtime definition. */
-export type SchemaCompilationFailureReason =
-	| 'callback-threw'
-	| 'incompatible-definition'
-	| 'invalid-result'
-	| 'not-compiled'
-
-/** Reports one deterministic static schema-compilation failure. */
-export class SchemaCompilationError extends Error {
-	readonly code = 'SCHEMA_COMPILATION_FAILED' as const
-	readonly className: string
-	readonly reason: SchemaCompilationFailureReason
-
-	constructor(
-		reason: SchemaCompilationFailureReason,
-		className: string,
-		message: string,
-		options?: ErrorOptions,
-	) {
-		super(message, options)
-		this.name = 'SchemaCompilationError'
-		this.className = className
-		this.reason = reason
-		Object.freeze(this)
-	}
-}
-
-interface NormalizedSchemaDeclaration {
-	readonly className: string
-	readonly fields: Readonly<Record<string, unknown>>
-	readonly indexes: readonly SchemaIndexOptions[] | undefined
-	readonly options: Readonly<Record<string, unknown>>
-}
-
-interface CompiledSchemaRecord {
-	readonly definition: SchemaMetadata
-	readonly developerFields: SchemaFields
-	readonly targets: readonly SchemaCompiledTargetIdentity[] | undefined
-}
-
 /** Retains one resolved target without coupling compilation to the target graph implementation. */
 export interface SchemaCompiledTargetIdentity {
 	readonly fieldPath: readonly string[]
@@ -245,31 +198,6 @@ export interface PreparedSchemaCompilation {
 	readonly definition: SchemaMetadata
 	readonly developerFields: SchemaFields
 	readonly schema: SchemaDefinition
-}
-
-const schemaDeclarations = new WeakMap<
-	SchemaDefinition,
-	NormalizedSchemaDeclaration
->()
-const compiledSchemaRecords = new WeakMap<
-	SchemaDefinition,
-	CompiledSchemaRecord
->()
-
-const readCompiledSchemaRecord = (
-	schema: SchemaDefinition,
-): CompiledSchemaRecord => {
-	const record = compiledSchemaRecords.get(schema)
-
-	if (record === undefined) {
-		throw new SchemaCompilationError(
-			'not-compiled',
-			schema.className,
-			`Schema ${schema.className} has not been compiled by an application`,
-		)
-	}
-
-	return record
 }
 
 const defineSchemaStaticCapabilities = <
@@ -306,269 +234,6 @@ const defineSchemaStaticCapabilities = <
 	}
 
 	return schema as TSchema & TCapabilities
-}
-
-const assertSchemaFields: (
-	fields: unknown,
-	className: string,
-) => asserts fields is SchemaDeclaredFields = (fields, className) => {
-	if (!isPlainRecord(fields)) {
-		throw new SchemaCompilationError(
-			'invalid-result',
-			className,
-			`Schema ${className} fields declaration must return a plain object`,
-		)
-	}
-
-	assertNoReservedFieldCollision(fields)
-
-	for (const [name, field] of Object.entries(fields)) {
-		assertNonEmptyString(name, `${className} schema field name`)
-		if (
-			typeof field === 'object' &&
-			field !== null &&
-			'kind' in field &&
-			field.kind === 'virtual'
-		) {
-			assertVirtualFieldDefinition(field, `${className}.fields.${name}`)
-		} else {
-			assertFieldDefinition(field, `${className}.fields.${name}`)
-		}
-	}
-}
-
-const compileSchemaRecord = (
-	declaration: NormalizedSchemaDeclaration,
-	developerFieldsInput: unknown,
-): CompiledSchemaRecord => {
-	assertSchemaFields(developerFieldsInput, declaration.className)
-	const developerFields = immutableRecord(developerFieldsInput)
-	const declaredFields = developerFields
-	const persistedDeveloperFields = immutableRecord(
-		Object.fromEntries(
-			Object.entries(developerFields).filter(
-				([, field]) => field.kind !== 'virtual',
-			),
-		),
-	) as SchemaFields
-	const virtualFields = immutableRecord(
-		Object.fromEntries(
-			Object.entries(developerFields).filter(
-				([, field]) => field.kind === 'virtual',
-			),
-		),
-	) as SchemaVirtualFields
-	const fields = immutableRecord({
-		...declaredFields,
-		...systemFields,
-	})
-	const persistedFields = immutableRecord({
-		...persistedDeveloperFields,
-		...systemFields,
-	})
-	const indexes = normalizeSchemaIndexes(
-		persistedDeveloperFields,
-		declaration.indexes,
-	)
-	const provenance = createInitialSchemaProvenance(
-		declaration.className,
-		Object.keys(declaredFields),
-		fields,
-		indexes,
-		Object.keys(declaration.options),
-	)
-	const definition = immutableRecord({
-		...declaration.options,
-		className: declaration.className,
-		constraints: immutableArray([]),
-		fields,
-		indexes,
-		persistedFields,
-		provenance,
-		virtualFields,
-	})
-
-	return immutableRecord({
-		definition,
-		developerFields: persistedDeveloperFields,
-		targets: undefined,
-	})
-}
-
-const coreSchemaOptionKeys = new Set(['className', 'fields', 'indexes'])
-
-/** Detaches direct plugin options while leaving their validation to the application graph. */
-const snapshotUnresolvedSchemaOptions = (
-	options: Readonly<Record<string, unknown>>,
-): Readonly<Record<string, unknown>> => {
-	const unresolved: Record<string, unknown> = {}
-
-	for (const key of Reflect.ownKeys(options)) {
-		if (typeof key !== 'string') {
-			throw new TypeError(`Unknown schema option: ${String(key)}`)
-		}
-
-		if (!coreSchemaOptionKeys.has(key)) {
-			unresolved[key] = snapshotCapturedOptionValue(options[key])
-		}
-	}
-
-	return immutableRecord(unresolved)
-}
-
-const executeSchemaFieldDeclaration = (
-	declaration: NormalizedSchemaDeclaration,
-	fieldMethods?: FieldBuilderMethodResolver,
-	resolveTarget?: FieldBuilderTargetResolver,
-): unknown => {
-	try {
-		return resolveCapturedFieldMap(
-			declaration.fields,
-			`${declaration.className}.fields`,
-			false,
-			fieldMethods,
-			resolveTarget,
-		)
-	} catch (cause: unknown) {
-		throw new SchemaCompilationError(
-			'callback-threw',
-			declaration.className,
-			`Schema ${declaration.className} fields declaration could not be resolved`,
-			{
-				cause:
-					cause instanceof FieldBuilderDeclarationExecutionError
-						? cause.cause
-						: cause,
-			},
-		)
-	}
-}
-
-const assertCompatibleTargets = (
-	className: string,
-	canonical: readonly SchemaCompiledTargetIdentity[],
-	candidate: readonly SchemaCompiledTargetIdentity[],
-): void => {
-	const compatible =
-		canonical.length === candidate.length &&
-		canonical.every((target, index) => {
-			const candidateTarget = candidate[index]
-
-			if (candidateTarget === undefined) {
-				return false
-			}
-
-			return (
-				target.target === candidateTarget.target &&
-				areSchemaDeclarationValuesCompatible(
-					target.fieldPath,
-					candidateTarget.fieldPath,
-				)
-			)
-		})
-
-	if (!compatible) {
-		throw new SchemaCompilationError(
-			'incompatible-definition',
-			className,
-			`Schema ${className} compiled differently in another application`,
-		)
-	}
-}
-
-/** Resolves one application-local candidate without publishing partial metadata. */
-export const prepareSchemaCompilation = (
-	schema: SchemaDefinition,
-	fieldMethods?: FieldBuilderMethodResolver,
-	resolveTarget?: FieldBuilderTargetResolver,
-): PreparedSchemaCompilation => {
-	const declaration = schemaDeclarations.get(schema)
-
-	if (declaration === undefined) {
-		throw new TypeError('schema must be a class created by Schema.define')
-	}
-
-	const candidate = compileSchemaRecord(
-		declaration,
-		executeSchemaFieldDeclaration(declaration, fieldMethods, resolveTarget),
-	)
-
-	return immutableRecord({
-		definition: candidate.definition,
-		developerFields: candidate.developerFields,
-		schema,
-	})
-}
-
-/** Publishes one candidate only after the complete application graph validates. */
-export const validateSchemaCompilation = (
-	prepared: PreparedSchemaCompilation,
-	targets: readonly SchemaCompiledTargetIdentity[],
-): void => {
-	const existingRecord = compiledSchemaRecords.get(prepared.schema)
-	const resolverCompatible =
-		existingRecord?.targets === undefined ||
-		Object.entries(existingRecord.definition.virtualFields).every(
-			([name, field]) => {
-				const candidate = prepared.definition.virtualFields[name]
-				return (
-					candidate !== undefined &&
-					getVirtualFieldResolver(candidate) === getVirtualFieldResolver(field)
-				)
-			},
-		)
-
-	if (
-		existingRecord?.targets !== undefined &&
-		(!resolverCompatible ||
-			!areSchemaDeclarationValuesCompatible(
-				existingRecord.definition,
-				prepared.definition,
-			))
-	) {
-		throw new SchemaCompilationError(
-			'incompatible-definition',
-			prepared.schema.className,
-			`Schema ${prepared.schema.className} compiled differently in another application`,
-		)
-	}
-
-	if (existingRecord?.targets !== undefined) {
-		assertCompatibleTargets(
-			prepared.schema.className,
-			existingRecord.targets,
-			targets,
-		)
-	}
-}
-
-/** Publishes one candidate only after the complete application graph validates. */
-export const finalizeSchemaCompilation = (
-	prepared: PreparedSchemaCompilation,
-	targets: readonly SchemaCompiledTargetIdentity[],
-): void => {
-	validateSchemaCompilation(prepared, targets)
-	const existingRecord = compiledSchemaRecords.get(prepared.schema)
-	const immutableTargets = immutableArray(
-		targets.map((target) =>
-			immutableRecord({
-				fieldPath: immutableArray(target.fieldPath),
-				target: target.target,
-			}),
-		),
-	)
-
-	if (existingRecord?.targets === undefined) {
-		compiledSchemaRecords.set(
-			prepared.schema,
-			immutableRecord({
-				definition: prepared.definition,
-				developerFields: prepared.developerFields,
-				targets: immutableTargets,
-			}),
-		)
-		return
-	}
 }
 
 const defineSchemaModel = <
@@ -638,7 +303,7 @@ const defineSchemaModel = <
 		},
 	})
 	schemaIdentity = schema
-	schemaDeclarations.set(schema, declaration)
+	storeSchemaDeclaration(schema, declaration)
 
 	// Keep provenance out of public enumeration while sharing it across package copies.
 	Object.defineProperty(schema, schemaDefinitionMarker, {
@@ -650,7 +315,7 @@ const defineSchemaModel = <
 	try {
 		const prepared = prepareSchemaCompilation(schema)
 
-		compiledSchemaRecords.set(
+		storeCompiledSchemaRecord(
 			schema,
 			immutableRecord({
 				definition: prepared.definition,
@@ -670,26 +335,6 @@ const defineSchemaModel = <
 	}
 
 	return schema
-}
-
-const assertNoReservedFieldCollision = (
-	fields: Readonly<Record<string, unknown>>,
-): void => {
-	for (const name of reservedSystemFieldNames) {
-		if (Object.hasOwn(fields, name)) {
-			throw new TypeError(`Reserved schema field: ${name}`)
-		}
-	}
-
-	for (const name of Object.keys(fields)) {
-		if (isReservedQueryLogicalFieldName(name)) {
-			throw new TypeError(`Reserved schema field: ${name}`)
-		}
-
-		if (isReservedSchemaModelFieldName(name)) {
-			throw new TypeError(`Reserved schema model field: ${name}`)
-		}
-	}
 }
 
 /**
