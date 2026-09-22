@@ -35,7 +35,7 @@
 		"playwright": "1.63.0",
 		"playwright-core": "1.63.0",
 		"tailwindcss": "4.3.3",
-		"vitest": "4.1.10",
+		"vitest": "4.1.11",
 		"zod": "4.4.3"
 	},
 	"engines": {
