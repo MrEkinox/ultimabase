@@ -24,18 +24,9 @@ import {
 import { planCapabilityProviders } from './capability-provider-planning.js'
 import { isAdapterCapability } from '../runtime/adapters/capabilities.js'
 import { isAdapterContributionCapability } from '../runtime/adapters/contributions.js'
-import {
-	applicationRequestExecutionCapability,
-	canonicalApplicationRequestExecutionFoundation,
-} from '../runtime/application/application-request-execution.js'
-import {
-	applicationOperationTransportPlanningCapability,
-	canonicalApplicationOperationTransportPlanningFoundation,
-} from '../runtime/application/application-operation-transport-planning.js'
-import {
-	applicationSchemaMutationSurfaceCapability,
-	canonicalApplicationSchemaMutationSurfaceFoundation,
-} from '../runtime/application/application-schema-mutation-surface.js'
+import { canonicalApplicationRequestExecutionFoundation } from '../runtime/application/application-request-execution.js'
+import { canonicalApplicationOperationTransportPlanningFoundation } from '../runtime/application/application-operation-transport-planning.js'
+import { canonicalApplicationSchemaMutationSurfaceFoundation } from '../runtime/application/application-schema-mutation-surface.js'
 
 /** Reports one provider without exposing its value or factory. */
 export interface CapabilityProviderInspection {
@@ -217,38 +208,21 @@ export class CapabilityInventory implements Iterable<CapabilityInventoryEntry> {
 		const entriesById = new Map<string, Map<string, MutableCapabilityEntry>>()
 		const orderedEntries: MutableCapabilityEntry[] = []
 
-		const consumesApplicationRequests = plugins.some((plugin) => {
-			const capabilities = plugin.definition.manifest.capabilities
-			return [...capabilities.requires, ...capabilities.optional].some(
-				(requirement) =>
-					requirement.token === applicationRequestExecutionCapability,
-			)
-		})
-		const consumesOperationTransportPlanning = plugins.some((plugin) => {
-			const capabilities = plugin.definition.manifest.capabilities
-			return [...capabilities.requires, ...capabilities.optional].some(
-				(requirement) =>
-					requirement.token === applicationOperationTransportPlanningCapability,
-			)
-		})
-		const consumesSchemaMutationSurface = plugins.some((plugin) => {
-			const capabilities = plugin.definition.manifest.capabilities
-			return [...capabilities.requires, ...capabilities.optional].some(
-				(requirement) =>
-					requirement.token === applicationSchemaMutationSurfaceCapability,
-			)
-		})
+		// One requirement inventory selects only the Core foundations a plugin consumes.
+		const consumedTokens = new Set(
+			plugins.flatMap((plugin) => {
+				const capabilities = plugin.definition.manifest.capabilities
+				return [...capabilities.requires, ...capabilities.optional].map(
+					({ token }) => token,
+				)
+			}),
+		)
 		for (const foundation of [
-			...(consumesApplicationRequests
-				? [canonicalApplicationRequestExecutionFoundation]
-				: []),
-			...(consumesOperationTransportPlanning
-				? [canonicalApplicationOperationTransportPlanningFoundation]
-				: []),
-			...(consumesSchemaMutationSurface
-				? [canonicalApplicationSchemaMutationSurfaceFoundation]
-				: []),
+			canonicalApplicationRequestExecutionFoundation,
+			canonicalApplicationOperationTransportPlanningFoundation,
+			canonicalApplicationSchemaMutationSurfaceFoundation,
 		]) {
+			if (!consumedTokens.has(foundation.declaration.token)) continue
 			registerToken(
 				entriesById,
 				orderedEntries,
