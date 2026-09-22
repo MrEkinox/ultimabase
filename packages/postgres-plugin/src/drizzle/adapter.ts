@@ -358,16 +358,12 @@ class DrizzlePostgresTransactionAdapter implements DatabaseTransactionAdapter {
 			request.constraints.length > 0 || request.rowFilter !== undefined,
 		)
 
-		return preparePostgresMutation(
-			this.#drizzle,
-			schema,
-			request.operation,
-			request.plan,
-			and(constraintPredicate, scopedTargetPredicate),
-			() => {
+		return preparePostgresMutation({
+			assertActive: () => {
 				this.#assertActive()
 			},
-			(execution) => {
+			client: this.#drizzle,
+			compileConstraint: (execution) => {
 				if (
 					execution.plan.target.schema.definition !==
 					request.plan.target.schema.definition
@@ -400,10 +396,14 @@ class DrizzlePostgresTransactionAdapter implements DatabaseTransactionAdapter {
 					scopedTargetPredicate,
 				)
 			},
-			request.prepareMutationItems === true,
+			constraint: and(constraintPredicate, scopedTargetPredicate),
+			operation: request.operation,
+			plan: request.plan,
+			prepareMutationItems: request.prepareMutationItems === true,
 			relation,
-			relationPredicateCompiler,
-		)
+			relationCompiler: relationPredicateCompiler,
+			schema,
+		})
 	}
 
 	async commit(): Promise<void> {

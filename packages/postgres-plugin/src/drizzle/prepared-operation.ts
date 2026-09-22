@@ -6,13 +6,11 @@ import {
 	type DatabaseLogicalRecord,
 	type DatabaseMutationMaterialization,
 	type DatabaseMutationOperationAst,
-	type DatabaseOperationOutcome,
 	type DatabasePersistencePlan,
 	type ExecutableOperationAst,
 	type PreparedDatabaseOperation,
-	type PreparedDatabaseOperationExecution,
 } from '@ultimabase/core'
-import { immutableArray, immutableRecord } from '@ultimabase/shared'
+import { immutableRecord } from '@ultimabase/shared'
 import type { SQL } from 'drizzle-orm'
 
 import type {
@@ -40,6 +38,10 @@ import {
 } from './result-projection.js'
 import { readPostgresPreparedOperation as readPlan } from './persistence-plan.js'
 import {
+	createPreparedMutationHandle,
+	type PreparedMutationConstraintCompiler,
+} from './prepared-mutation-handle.js'
+import {
 	createPostgresMutationOutcome,
 	createRetainedMutationTarget,
 	executeRetainedSetBasedMutation,
@@ -63,84 +65,6 @@ interface RuntimeUpsertItem {
 interface PersistedMutationItem {
 	readonly materialization: DatabaseMutationMaterialization
 	readonly record: DatabaseLogicalRecord
-}
-type PreparedMutationExecution<
-	TOperation extends DatabaseMutationOperationAst,
-> = (
-	operation: TOperation,
-	plan: DatabasePersistencePlan,
-	constraint: SQL | undefined,
-) => Promise<DatabaseOperationOutcome<TOperation>>
-type PreparedMutationConstraintCompiler<
-	TOperation extends DatabaseMutationOperationAst,
-> = (request: PreparedDatabaseOperationExecution<TOperation>) => SQL | undefined
-
-interface PreparedMutationHandleOptions<
-	TOperation extends DatabaseMutationOperationAst,
-> {
-	readonly assertActive: () => void
-	readonly compileConstraint: PreparedMutationConstraintCompiler<TOperation>
-	readonly initialConstraint: SQL | undefined
-	readonly operation: TOperation
-	readonly plan: DatabasePersistencePlan
-	readonly target?: DatabaseLogicalRecord | null
-	readonly targets?: readonly DatabaseLogicalRecord[]
-	readonly execute: PreparedMutationExecution<TOperation>
-}
-
-/** Creates one transaction-bound handle that consumes its target on first use. */
-const createPreparedMutationHandle = <
-	const TOperation extends DatabaseMutationOperationAst,
->({
-	assertActive,
-	compileConstraint,
-	initialConstraint,
-	operation,
-	plan,
-	target,
-	targets,
-	execute,
-}: PreparedMutationHandleOptions<TOperation>): PreparedDatabaseOperation<TOperation> => {
-	let attempted = false
-	const handle = {
-		...(target === undefined ? {} : { target }),
-		...(targets === undefined ? {} : { targets: immutableArray(targets) }),
-		execute: async (
-			request?: PreparedDatabaseOperationExecution<TOperation>,
-		): Promise<DatabaseOperationOutcome<TOperation>> => {
-			if (attempted) {
-				throw new TypeError(
-					'PostgreSQL prepared mutation has already been executed',
-				)
-			}
-
-			// Failed and expired attempts consume the retained target as well.
-			attempted = true
-			assertActive()
-			const resolvedOperation = request?.operation ?? operation
-			const resolvedPlan = request?.plan ?? plan
-
-			if (
-				resolvedPlan.target.schema.definition !== plan.target.schema.definition
-			) {
-				throw new TypeError(
-					'PostgreSQL prepared plan changed its target schema',
-				)
-			}
-			const physicalOperation = readPlan(resolvedOperation, resolvedPlan)
-
-			return execute(
-				physicalOperation as unknown as TOperation,
-				resolvedPlan,
-				request === undefined ? initialConstraint : compileConstraint(request),
-			)
-		},
-	}
-
-	// Runtime narrowing restores the exact conditional target contract.
-	return Object.freeze(
-		handle,
-	) as unknown as PreparedDatabaseOperation<TOperation>
 }
 
 /** Reuses PostgreSQL error sanitization for preparation and execution steps. */
@@ -665,6 +589,21 @@ const prepareUpsertMany = (
 		},
 	})
 
+interface PreparePostgresMutationOptions<
+	TOperation extends DatabaseMutationOperationAst,
+> {
+	readonly assertActive: () => void
+	readonly client: PostgresDrizzleClient
+	readonly compileConstraint: PreparedMutationConstraintCompiler<TOperation>
+	readonly constraint: SQL | undefined
+	readonly operation: TOperation
+	readonly plan: DatabasePersistencePlan<TOperation>
+	readonly prepareMutationItems: boolean
+	readonly relation: CompiledPostgresRelation | undefined
+	readonly relationCompiler: PostgresRelationPredicateCompiler | undefined
+	readonly schema: CompiledPostgresSchema
+}
+
 /**
  * Prepares one mutation inside its existing PostgreSQL transaction.
  *
@@ -673,18 +612,20 @@ const prepareUpsertMany = (
  */
 export const preparePostgresMutation = async <
 	const TOperation extends DatabaseMutationOperationAst,
->(
-	client: PostgresDrizzleClient,
-	schema: CompiledPostgresSchema,
-	operation: TOperation,
-	plan: DatabasePersistencePlan<TOperation>,
-	constraint: SQL | undefined,
-	assertActive: () => void,
-	compileConstraint: PreparedMutationConstraintCompiler<TOperation>,
-	prepareMutationItems = false,
-	relation?: CompiledPostgresRelation,
-	relationCompiler?: PostgresRelationPredicateCompiler,
-): Promise<PreparedDatabaseOperation<TOperation>> => {
+>({
+	assertActive,
+	client,
+	compileConstraint,
+	constraint,
+	operation,
+	plan,
+	prepareMutationItems,
+	relation,
+	relationCompiler,
+	schema,
+}: PreparePostgresMutationOptions<TOperation>): Promise<
+	PreparedDatabaseOperation<TOperation>
+> => {
 	const runtimeOperation = readPlan(operation, plan) as RuntimeMutationOperation
 	const runtimePlan = plan as unknown as DatabasePersistencePlan
 	const runtimeCompileConstraint =
