@@ -354,9 +354,3 @@ export const rejectPasswordSession = (): never => {
 		{ publicMessage: 'Invalid session.' },
 	)
 }
-
-/** Retains the operation union without widening handler declarations. */
-export type PasswordAuthOperationDefinition = PluginOperationDefinition<
-	PasswordAuthOperation['name'],
-	'1.0.0'
->

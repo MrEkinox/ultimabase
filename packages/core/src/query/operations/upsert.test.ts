@@ -7,8 +7,6 @@ import {
 	normalizeUniqueUpsertTarget,
 	readUniqueUpsertTargetValues,
 	normalizeUpsertInput,
-	normalizeUpsertItem,
-	normalizeUpsertItems,
 } from './upsert.js'
 
 const accountSchema = Schema.define({
@@ -201,80 +199,5 @@ describe('bulk upsert items', () => {
 		expect(() =>
 			normalizeUpsertInput(accountSchema, { update: updateInput } as never),
 		).toThrow(new TypeError('upsert input must contain key: create'))
-	})
-
-	it('normalizes updates and preserves ordered query targets', () => {
-		const firstQuery = new QueryBuilder(accountSchema).where((where) =>
-			where.eq('email', 'dev@ultimabase.dev'),
-		)
-		const secondQuery = new QueryBuilder(accountSchema)
-			.where((where) => where.eq('tenantId', 'tenant-1'))
-			.where((where) => where.eq('handle', 'dev'))
-		const inputs = [
-			{ query: firstQuery, create: createInput, update: updateInput },
-			{ query: secondQuery, create: createInput, update: updateInput },
-		]
-		const items = normalizeUpsertItems(accountSchema, inputs)
-
-		inputs.reverse()
-
-		expect(items.map((item) => item.target.fields)).toStrictEqual([
-			['email'],
-			['tenantId', 'handle'],
-		])
-		expect(items[0]?.update).toStrictEqual({
-			kind: 'update-expression',
-			operations: [{ kind: 'increment', field: 'visits', value: 1 }],
-		})
-		expect(Object.isFrozen(items)).toBe(true)
-		expect(Object.isFrozen(items[0])).toBe(true)
-	})
-
-	it('rejects selected queries and malformed item wrappers', () => {
-		const selected = new QueryBuilder(accountSchema)
-			.where((where) => where.eq('email', 'dev@ultimabase.dev'))
-			.select({ email: true })
-
-		expect(() =>
-			normalizeUpsertItem(accountSchema, {
-				query: selected,
-				create: createInput,
-				update: updateInput,
-			}),
-		).toThrow(new TypeError('bulk upsert query cannot select fields'))
-		expect(() => normalizeUpsertItem(accountSchema, null as never)).toThrow(
-			new TypeError('upsert item must be an object'),
-		)
-		expect(() =>
-			normalizeUpsertItem(accountSchema, {
-				query: new QueryBuilder(accountSchema),
-				create: createInput,
-				update: updateInput,
-				extra: true,
-			} as never),
-		).toThrow(new TypeError('upsert item contains unknown key: extra'))
-		expect(() =>
-			normalizeUpsertItem(accountSchema, {
-				query: null,
-				create: createInput,
-				update: updateInput,
-			} as never),
-		).toThrow(new TypeError('upsert item query must expose an AST'))
-		expect(() =>
-			normalizeUpsertItem(accountSchema, {
-				query: { ast: null },
-				create: createInput,
-				update: updateInput,
-			} as never),
-		).toThrow(new TypeError('upsert item query must expose a query AST'))
-		expect(() =>
-			normalizeUpsertItem(accountSchema, {
-				create: createInput,
-				update: updateInput,
-			} as never),
-		).toThrow(new TypeError('upsert item must contain key: query'))
-		expect(() => normalizeUpsertItems(accountSchema, {} as never)).toThrow(
-			new TypeError('bulk upsert items must be an array'),
-		)
 	})
 })

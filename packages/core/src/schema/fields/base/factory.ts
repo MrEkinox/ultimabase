@@ -260,59 +260,6 @@ export interface CompactScalarFieldFactory<
 	>
 }
 
-/** Reuses compact scalar option inference for one name-first builder method. */
-export interface CompactScalarFieldBuilderMethod<
-	TValue,
-	TOptions extends FieldOptions<TValue>,
-> {
-	/**
-	 * Declares one scalar field with the existing factory options.
-	 *
-	 * @param name Stable logical field name within its containing schema or object.
-	 * @param options Existing factory options, including generated plugin namespaces.
-	 * @example `field.string({ default: 'Untitled' })`
-	 */
-	<
-		const TRequired extends boolean = false,
-		const TList extends FieldListOption = false,
-		const TImmutable extends boolean = false,
-	>(
-		/** Stable logical field name within its containing schema or object. */
-		name: string,
-		/** Existing factory options, including generated plugin namespaces. */
-		options: DefaultedCompactScalarFieldOptions<
-			TOptions,
-			TValue,
-			TRequired,
-			TList,
-			TImmutable
-		>,
-	): void
-	/**
-	 * Declares one scalar field without a default value.
-	 *
-	 * @param name Stable logical field name within its containing schema or object.
-	 * @param options Existing factory options, including generated plugin namespaces.
-	 * @example `field.string()`
-	 */
-	<
-		const TRequired extends boolean = false,
-		const TList extends FieldListOption = false,
-		const TImmutable extends boolean = false,
-	>(
-		/** Stable logical field name within its containing schema or object. */
-		name: string,
-		/** Existing factory options, including generated plugin namespaces. */
-		options?: NonDefaultedCompactScalarFieldOptions<
-			TOptions,
-			TValue,
-			TRequired,
-			TList,
-			TImmutable
-		>,
-	): void
-}
-
 /** Preserves one adapter-generated option in addition to common scalar state. */
 export interface GeneratedCompactScalarFieldFactory<
 	TKind extends string,
@@ -373,69 +320,6 @@ export interface GeneratedCompactScalarFieldFactory<
 		false,
 		THasGeneratedValue
 	>
-}
-
-/** Reuses generated scalar option inference for one name-first builder method. */
-export interface GeneratedCompactScalarFieldBuilderMethod<
-	TValue,
-	TOptions extends FieldOptions<TValue>,
-	TGenerationKey extends keyof TOptions & string,
-	TExclusiveGeneration extends boolean,
-> {
-	/**
-	 * Declares one generated-capable scalar field with an explicit default.
-	 *
-	 * @param name Stable logical field name within its containing schema or object.
-	 * @param options Existing factory options, including generated plugin namespaces.
-	 * @example `field.int({ default: 0 })`
-	 */
-	<
-		const TRequired extends boolean = false,
-		const TList extends FieldListOption = false,
-		const TImmutable extends boolean = false,
-		const THasGeneratedValue extends boolean = false,
-	>(
-		/** Stable logical field name within its containing schema or object. */
-		name: string,
-		/** Existing factory options, including generated plugin namespaces. */
-		options: DefaultedGeneratedScalarFieldOptions<
-			TOptions,
-			TValue,
-			TRequired,
-			TList,
-			TImmutable,
-			TGenerationKey,
-			THasGeneratedValue,
-			TExclusiveGeneration
-		>,
-	): void
-	/**
-	 * Declares one generated-capable scalar field without an explicit default.
-	 *
-	 * @param name Stable logical field name within its containing schema or object.
-	 * @param options Existing factory options, including generated plugin namespaces.
-	 * @example `field.int({ autoIncrement: true })`
-	 */
-	<
-		const TRequired extends boolean = false,
-		const TList extends FieldListOption = false,
-		const TImmutable extends boolean = false,
-		const THasGeneratedValue extends boolean = false,
-	>(
-		/** Stable logical field name within its containing schema or object. */
-		name: string,
-		/** Existing factory options, including generated plugin namespaces. */
-		options?: NonDefaultedGeneratedScalarFieldOptions<
-			TOptions,
-			TValue,
-			TRequired,
-			TList,
-			TImmutable,
-			TGenerationKey,
-			THasGeneratedValue,
-			TExclusiveGeneration
-		>,
-	): void
 }
 
 /** Shares compact runtime construction across regular and generated contracts. */

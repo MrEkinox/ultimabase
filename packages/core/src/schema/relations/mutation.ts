@@ -9,7 +9,6 @@ import type {
 	UpdateExpressionNode,
 	UpdateOperationNode,
 } from '../../query/updates/contracts.js'
-import type { RelationField } from '../fields/builtins/relation.js'
 import type { SchemaDefinition } from '../schema/definition.js'
 import { Pointer } from './pointer.js'
 import type {
@@ -161,7 +160,3 @@ export const createRelationUpdateExpression = <
 		operations: immutableArray([operation]),
 	})
 }
-
-/** Recovers the target type retained only by a declared relation field. */
-export type RelationFieldTarget<TField extends RelationField> =
-	TField extends RelationField<infer TTarget> ? TTarget : never

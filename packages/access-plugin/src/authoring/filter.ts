@@ -9,10 +9,6 @@ import {
 	type WhereInput,
 } from '@ultimabase/core'
 
-/** Names every typed predicate value accepted from one Access filter callback. */
-export type AccessWhereResult<TSchema extends SchemaDefinition> =
-	WhereBuilder<TSchema> | WhereInput<TSchema> | undefined
-
 /** Creates one immutable builder whose branch remains private until returned. */
 export const createAccessWhere = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,

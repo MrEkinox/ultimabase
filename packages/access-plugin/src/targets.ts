@@ -6,8 +6,6 @@ import type {
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 import type { FieldAccess } from './authoring/contracts.js'
-import type { FieldAccessDeclarations } from './authoring/field-declarations.js'
-import type { SchemaAccessDeclarations } from './authoring/declarations.js'
 
 export interface FieldKindAccessTargetContext<TField extends GenericField> {
 	readonly field: TField
@@ -72,6 +70,3 @@ interface ErasedFieldKindAccessContributionDefinition {
 
 export type AccessTargetContributionDefinition =
 	ErasedFieldKindAccessContributionDefinition
-
-export type ResolvedAccessTargetDeclarations =
-	FieldAccessDeclarations | SchemaAccessDeclarations

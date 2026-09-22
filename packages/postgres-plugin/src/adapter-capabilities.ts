@@ -19,7 +19,6 @@ import {
 import { immutableRecord } from '@ultimabase/shared'
 
 import type {
-	PostgresPool,
 	PostgresPoolClient,
 	PostgresQueryResult,
 } from './connection/contracts.js'
@@ -249,6 +248,3 @@ export const postgresAdapterSupportProviders: PostgresAdapterSupportProviders =
 export interface PostgresAdapterMetadata {
 	readonly physicalSchema: readonly AdapterContributionSnapshot<PostgresPhysicalColumnPayload>[]
 }
-
-/** @internal Keeps the pool type local to the raw provider factory. */
-export type PostgresRawProviderSource = () => PostgresPool

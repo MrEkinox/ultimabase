@@ -13,10 +13,7 @@ import type {
 	UpdateExpressionInput,
 } from '../updates/contracts.js'
 import { normalizeUpdateExpression } from '../updates/normalize.js'
-import type {
-	UniqueUpsertTargetNode,
-	UpsertOperationItem,
-} from './contracts.js'
+import type { UniqueUpsertTargetNode } from './contracts.js'
 
 /** Accepts QueryBuilder and compatible immutable query holders without importing QueryBuilder at runtime. */
 export interface UpsertTargetQuery<TSchema extends SchemaDefinition> {
@@ -141,7 +138,6 @@ function assertExactUpsertKeys(
 }
 
 const upsertInputKeys = new Set(['create', 'update'])
-const upsertItemKeys = new Set(['query', ...upsertInputKeys])
 
 /** Normalizes the shared create-or-update values used by singular and bulk upserts. */
 export const normalizeUpsertInput = <const TSchema extends SchemaDefinition>(
@@ -226,61 +222,4 @@ export const normalizeUniqueUpsertTarget = <
 	}
 
 	return createUniqueUpsertTarget<TSchema>(fields)
-}
-
-/** Normalizes one public bulk item without retaining its mutable wrapper object. */
-export const normalizeUpsertItem = <const TSchema extends SchemaDefinition>(
-	schema: TSchema,
-	input: UpsertManyItemInput<TSchema>,
-): UpsertOperationItem<TSchema, UpdateExpression<TSchema>> => {
-	const untrustedInput: unknown = input
-	assertExactUpsertKeys(untrustedInput, upsertItemKeys, 'upsert item')
-
-	if (
-		typeof untrustedInput.query !== 'object' ||
-		untrustedInput.query === null ||
-		!('ast' in untrustedInput.query)
-	) {
-		throw new TypeError('upsert item query must expose an AST')
-	}
-
-	const query: unknown = untrustedInput.query.ast
-
-	if (!isPlainRecord(query) || query.kind !== 'query') {
-		throw new TypeError('upsert item query must expose a query AST')
-	}
-
-	const typedQuery: QueryAst<TSchema, QueryFilterNode<TSchema>> = input.query
-		.ast
-
-	if (typedQuery.selection.fields.length > 0) {
-		throw new TypeError('bulk upsert query cannot select fields')
-	}
-
-	const normalizedInput = normalizeUpsertInput(schema, {
-		create: input.create,
-		update: input.update,
-	})
-
-	return immutableRecord({
-		query: typedQuery,
-		target: normalizeUniqueUpsertTarget(schema, typedQuery),
-		...normalizedInput,
-	})
-}
-
-/** Preserves developer item order while isolating later collection mutation. */
-export const normalizeUpsertItems = <const TSchema extends SchemaDefinition>(
-	schema: TSchema,
-	inputs: readonly UpsertManyItemInput<TSchema>[],
-): readonly UpsertOperationItem<TSchema, UpdateExpression<TSchema>>[] => {
-	const untrustedInputs: unknown = inputs
-
-	if (!isUnknownArray(untrustedInputs)) {
-		throw new TypeError('bulk upsert items must be an array')
-	}
-
-	return immutableArray(
-		inputs.map((input) => normalizeUpsertItem(schema, input)),
-	)
 }

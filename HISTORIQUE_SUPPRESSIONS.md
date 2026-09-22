@@ -847,3 +847,44 @@ générale de débit, de mémoire ou de CI n’est revendiquée. La 3112 ajoute
 uniquement le bilan et les archives d’exécution. Le
 [rapport final](docs/plans/2026-09-21-milestone-31-final-audit.md) précise les
 mesures et validations réutilisées. Arrêt après son commit local, sans push.
+
+### Nettoyage ciblé du 22 septembre 2026, après le jalon 31
+
+Une recherche des références dans les sources, les tests et les exports compilés
+repère des déclarations privées sans consommateur : quatre anciens types de
+méthodes de construction de champs, ainsi que de petits alias et relais internes
+dans Core, Access, Password Auth et PostgreSQL. Ils sont retirés sans modifier
+les méthodes publiques de construction des champs.
+
+Le helper `snapshotCreateInputs` et les anciens normaliseurs
+`normalizeUpsertItem`/`normalizeUpsertItems` ne sont appelés que par leurs
+propres tests. Les commandes actuelles `createMany` et `upsertMany` passent par
+`schema-command-execution.ts` ; les assertions utiles sur les entrées invalides
+sont placées à cette frontière. Les scénarios PostgreSQL existants vérifient
+l'ordre, l'atomicité et les résultats des commandes actuelles. Les deux types
+d'upsert encore publiquement exportés restent présents : ce nettoyage ne décide
+pas de retirer une API publique.
+
+Impact documentaire : documentation interne uniquement. Aucun comportement,
+export ou exemple public du site n'est modifié. Les fichiers de support de tests
+et les helpers PostgreSQL/GraphQL employés par les tests conservent leur rôle.
+
+Bilan mesuré avec le même outil que pour le jalon 31 : **−274 lignes de
+production**, dont **−246 dans Core**, et un fichier de production en moins.
+Les tests/support diminuent de **61 lignes nettes** et d'un fichier. Le tooling
+reste identique. Les **1 705 noms exportés** par les 23 packages construits sont
+inchangés ; les sections de déclarations Core sont identiques malgré leur
+réordonnancement dans le bundle, et seul un commentaire de type privé change
+dans le bundle Access.
+
+Audit et validation : le premier test ciblé a révélé un import encore utilisé
+par la validation des filtres d'upsert ; le typage a révélé un import de type
+orphelin. Les deux corrections ont été revérifiées. Typage, compilation
+canonique avec vérification des archives, lint et contraintes passent. Les
+**384 tests compilés/archives/PostgreSQL** et **2 775 tests avec couverture**
+passent. La comparaison de couverture compte **670 fichiers instrumentés
+inchangés** et **504 emplacements conservés comparables** sans perte ; les
+anciens helpers supprimés expliquent les emplacements retirés. Une première
+suite source avait échoué sur trois fichiers de serveurs à cause du refus
+`EPERM` d'écouter sur `127.0.0.1` ; les trois fichiers passent avec l'accès
+local, et la suite complète avec couverture passe également.

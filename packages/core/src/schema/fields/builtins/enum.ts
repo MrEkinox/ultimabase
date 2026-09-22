@@ -148,29 +148,6 @@ type NonDefaultedEnumField<
 	TImmutable extends boolean,
 > = ResolvedEnumField<TValues, TRequired, TList, TImmutable, false>
 
-/**
- * Declares one closed string domain while preserving its exact values.
- *
- * @example `status: field.enum({ values: ['draft', 'published'] })`
- */
-export type EnumFieldBuilderMethod = <
-	const TValues extends EnumValues,
-	const TRequired extends boolean = false,
-	const TList extends FieldListOption = false,
-	const TImmutable extends boolean = false,
-	const TExtensionOptions extends object = object,
->(
-	/** Stable logical field name within its containing schema or object. */
-	name: string,
-	/** Declares the exact enum domain and existing field options. */
-	options: CompatibleFieldOptionsExtension<
-		| DefaultedEnumFieldOptions<TValues, TRequired, TList, TImmutable>
-		| NonDefaultedEnumFieldOptions<TValues, TRequired, TList, TImmutable>,
-		TExtensionOptions,
-		EnumValue<TValues>
-	>,
-) => void
-
 const isString = (value: unknown): value is string => typeof value === 'string'
 
 const assertUniqueValues = (values: readonly string[]): void => {

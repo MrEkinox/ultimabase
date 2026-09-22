@@ -185,33 +185,6 @@ export type NamedPointerFieldBuilderMethod = <
 	>,
 ) => ResolvedPointerField<SchemaReference<TTargetName>, TRequired, TImmutable>
 
-/**
- * Declares one exact lazy schema reference.
- *
- * @example `author: field.pointer({ target: () => User })`
- */
-export type PointerFieldBuilderMethod = <
-	const TTarget extends SchemaDefinition,
-	const TRequired extends boolean = false,
-	const TImmutable extends boolean = false,
-	const TOnDelete extends PointerReferentialAction = PointerReferentialAction,
-	const TExtensionOptions extends object = object,
->(
-	/** Stable logical field name within the containing schema. */
-	name: string,
-	/** Declares the exact lazy target and pointer behavior. */
-	options: CompatibleFieldOptionsExtension<
-		CompatibleCompactPointerFieldOptions<
-			TTarget,
-			TRequired,
-			TImmutable,
-			TOnDelete
-		>,
-		TExtensionOptions,
-		Pointer<TTarget>
-	>,
-) => void
-
 interface PointerFieldMetadataInput extends FieldOptionsBase<false, Pointer> {
 	readonly onDelete?: PointerReferentialAction
 }

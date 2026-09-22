@@ -198,4 +198,40 @@ describe('schema command execution boundaries', () => {
 			}),
 		).toThrow(new TypeError('selection.missing must reference a schema field'))
 	})
+
+	it('rejects malformed collection inputs before starting execution', () => {
+		// These checks run at the public command boundary before an application is required.
+		expect(() => createSchemaRecords(Post, { data: {} as never })).toThrow(
+			new TypeError('schema createMany data must be an array'),
+		)
+		expect(() => upsertSchemaRecords(Post, { data: {} as never })).toThrow(
+			new TypeError('schema upsertMany data must be an array'),
+		)
+		expect(() =>
+			upsertSchemaRecords(Post, {
+				data: [
+					{
+						where: { id: { eq: 'post-1' } },
+						create: { title: 'Created' },
+						update: { title: 'Updated' },
+						extra: true,
+					},
+				] as never,
+			}),
+		).toThrow(
+			new TypeError('schema upsertMany data[0] contains unknown key: extra'),
+		)
+		expect(() =>
+			upsertSchemaRecords(Post, {
+				data: [
+					{
+						create: { title: 'Created' },
+						update: { title: 'Updated' },
+					},
+				] as never,
+			}),
+		).toThrow(
+			new TypeError('schema upsertMany data[0] must contain key: where'),
+		)
+	})
 })

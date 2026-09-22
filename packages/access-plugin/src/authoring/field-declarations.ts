@@ -1,4 +1,3 @@
-import type { FieldAccess } from './contracts.js'
 import {
 	normalizeAccessRule,
 	normalizeRequiredAccessRuleMap,
@@ -6,7 +5,6 @@ import {
 	type NormalizedRequiredAccessRuleMap,
 } from './normalization.js'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
-import type { GenericField } from '@ultimabase/core'
 
 /** Lists field capabilities once so declaration validation stays exhaustive. */
 export const fieldAccessCapabilities = ['read', 'write'] as const
@@ -14,8 +12,7 @@ export const fieldReadAccessChannels = ['item', 'filter', 'order'] as const
 export const fieldWriteAccessTransitions = ['fill', 'replace', 'clear'] as const
 const publicFieldReadAccessChannels = ['output', 'where', 'orderBy'] as const
 
-/** Identifies every inline field Access capability. */
-export type FieldAccessCapability = (typeof fieldAccessCapabilities)[number]
+/** Names the private channels for field-level read and write rules. */
 export type FieldReadAccessChannel = (typeof fieldReadAccessChannels)[number]
 export type FieldWriteAccessTransition =
 	(typeof fieldWriteAccessTransitions)[number]
@@ -117,9 +114,3 @@ export const normalizeFieldAccessDeclarations = (
 		? undefined
 		: immutableRecord(declarations)
 }
-
-/** Keeps the public field type tied to its normalized private declaration. */
-export const declareFieldAccess = <TField extends GenericField>(
-	access: FieldAccess<TField> | undefined,
-): FieldAccessDeclarations | undefined =>
-	normalizeFieldAccessDeclarations(access)
