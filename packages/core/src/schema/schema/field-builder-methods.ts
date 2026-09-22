@@ -7,7 +7,10 @@ import {
 
 import type { GenericField } from '../fields/base/contract.js'
 import type { GenericOutputDescriptor } from '../output/contracts.js'
-import { assertPluginFieldKind } from '../fields/base/kinds.js'
+import {
+	assertPluginFieldKind,
+	builtInFieldKinds,
+} from '../fields/base/kinds.js'
 import {
 	assertPluginFieldTypeDefinition,
 	normalizePluginFieldTypegen,
@@ -22,26 +25,11 @@ import {
 } from './field-contexts.js'
 
 /** Names every Core method that a plugin can never replace. */
-export const coreFieldBuilderMethodNames = [
+export const coreFieldBuilderMethodNames: readonly [
 	'add',
-	'bigint',
-	'binary',
-	'boolean',
-	'date',
-	'dateTime',
-	'decimal',
-	'enum',
-	'float',
-	'int',
-	'json',
-	'object',
-	'pointer',
-	'relation',
-	'string',
-	'time',
-	'uuid',
+	...typeof builtInFieldKinds,
 	'virtual',
-] as const
+] = ['add', ...builtInFieldKinds, 'virtual']
 
 const coreFieldBuilderMethodNameSet: ReadonlySet<string> = new Set(
 	coreFieldBuilderMethodNames,
