@@ -90,6 +90,22 @@ const BulkDocument = Schema.define({
 	},
 })
 
+const UpsertDecisionDocument = Schema.define({
+	className: 'NativeAccessUpsertDecisionE2E',
+	fields: (field) => ({
+		key: field.string({ indexed: 'unique', required: true }),
+		score: field.int({ default: 0 }),
+	}),
+	access: {
+		create: false,
+		read: true,
+		upsert: {
+			allow: true,
+			item: ({ item }) => typeof item.score === 'number' && item.score < 5,
+		},
+	},
+})
+
 const pluginVisibility = definePlugin({
 	version: '0.0.0',
 	core: '^0.0.0',
@@ -117,7 +133,12 @@ const pluginVisibility = definePlugin({
 let fixture: PostgresWorkerFixture | undefined
 let ultimabase:
 	| UltimaBase<
-			readonly [typeof AccessArticle, typeof AccessAudit, typeof BulkDocument],
+			readonly [
+				typeof AccessArticle,
+				typeof AccessAudit,
+				typeof BulkDocument,
+				typeof UpsertDecisionDocument,
+			],
 			readonly [typeof pluginVisibility, ReturnType<typeof postgresPlugin>]
 	  >
 	| undefined
@@ -147,7 +168,7 @@ beforeAll(async () => {
 			pluginVisibility,
 			postgresPlugin({ schemaPolicy: 'override', url: fixture.connectionUri }),
 		],
-		schemas: [AccessArticle, AccessAudit, BulkDocument],
+		schemas: [AccessArticle, AccessAudit, BulkDocument, UpsertDecisionDocument],
 		validation: {
 			clock: () => new Date('2026-08-03T12:00:00.000Z'),
 			timezone: 'UTC',
@@ -413,5 +434,43 @@ describe('Access plugin with PostgreSQL', () => {
 				{ ultimabase: app },
 			),
 		).resolves.toBe(false)
+	})
+
+	it('rolls back a bulk upsert when an item rule rejects its create branch', async () => {
+		const app = getUltimaBase()
+		const existing = await UpsertDecisionDocument.createOne(
+			{ data: { key: 'existing', score: 1 } },
+			{ ultimabase: app, useMasterKey: true },
+		)
+
+		// The earlier update must not commit if a later create is denied.
+		await expect(
+			UpsertDecisionDocument.upsertMany(
+				{
+					data: [
+						{
+							where: { key: { eq: 'existing' } },
+							create: { key: 'existing', score: 1 },
+							update: { score: 3 },
+						},
+						{
+							where: { key: { eq: 'denied' } },
+							create: { key: 'denied', score: 9 },
+							update: { score: 9 },
+						},
+					],
+				},
+				{ ultimabase: app },
+			),
+		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
+		await expect(
+			UpsertDecisionDocument.get({ id: existing.id }, { ultimabase: app }),
+		).resolves.toMatchObject({ score: 1 })
+		await expect(
+			UpsertDecisionDocument.findOne(
+				{ where: { key: { eq: 'denied' } } },
+				{ ultimabase: app },
+			),
+		).resolves.toBeNull()
 	})
 })
