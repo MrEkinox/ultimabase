@@ -301,17 +301,3 @@ export const compilePostgresSchemas = (
 
 	return immutableArray(prepared.map(finalizePostgresSchema))
 }
-
-/** Compiles one static schema into the private Drizzle plan shared by PostgreSQL stages. */
-export const compilePostgresSchema = (
-	schema: SchemaDefinition,
-	targets?: SchemaTargetGraph,
-): CompiledPostgresSchema => {
-	const compiled = compilePostgresSchemas([schema], targets)[0]
-
-	if (compiled === undefined) {
-		throw new TypeError('PostgreSQL schema compilation returned no schema')
-	}
-
-	return compiled
-}

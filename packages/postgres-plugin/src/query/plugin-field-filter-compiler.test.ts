@@ -9,7 +9,7 @@ import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 import { PgDialect } from 'drizzle-orm/pg-core'
 import { describe, expect, it } from 'vitest'
 
-import { compilePostgresSchema } from '../schema/schema-compiler.js'
+import { compilePostgresSchema } from '../schema/schema-compiler.test-support.js'
 import { compilePostgresFilter } from './filter-compiler.js'
 
 const snapshotPortableCode = (

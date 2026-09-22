@@ -9,7 +9,7 @@ import { SQL } from 'drizzle-orm'
 import { PgDialect } from 'drizzle-orm/pg-core'
 import { describe, expect, it } from 'vitest'
 
-import { compilePostgresSchema } from '../schema/schema-compiler.js'
+import { compilePostgresSchema } from '../schema/schema-compiler.test-support.js'
 import { createPostgresPointerFixture } from '../schema/pointer-fixture.test-support.js'
 import { compilePostgresUpdate } from './update-compiler.js'
 

@@ -2,7 +2,7 @@ import { Schema } from '@ultimabase/core'
 import { getTableConfig } from 'drizzle-orm/pg-core'
 import { describe, expect, it } from 'vitest'
 
-import { compilePostgresSchema } from './schema-compiler.js'
+import { compilePostgresSchema } from './schema-compiler.test-support.js'
 import { createStoredPluginField } from './storage-codec-fixture.test-support.js'
 
 const readIndexColumnName = (column: unknown): string => {

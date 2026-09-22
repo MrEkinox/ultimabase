@@ -8,8 +8,27 @@ import {
 	stringField,
 	type GenericOutputDescriptor,
 } from '../../index.js'
-import { FieldBuilderMethodRegistry } from '../schema/field-builder-methods.js'
-import { resolveOutputBuilder } from './builder.js'
+import {
+	FieldBuilderMethodRegistry,
+	type FieldBuilderMethodResolver,
+} from '../schema/field-builder-methods.js'
+import type { OutputBuilder } from './contracts.js'
+import {
+	captureOutputBuilderCallback,
+	resolveCapturedOutputDescriptor,
+} from './builder.js'
+
+/** Exercises the production capture and resolution stages together. */
+const resolveOutputBuilder = <TOutput extends GenericOutputDescriptor>(
+	declaration: (output: OutputBuilder) => TOutput,
+	path: string,
+	fieldMethods?: FieldBuilderMethodResolver,
+): TOutput =>
+	resolveCapturedOutputDescriptor(
+		captureOutputBuilderCallback(declaration, path),
+		path,
+		fieldMethods,
+	) as TOutput
 
 describe('OutputBuilder', () => {
 	it('uses only output-context plugin methods and validates their descriptors', () => {

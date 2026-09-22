@@ -13,7 +13,7 @@ import {
 	mapPostgresColumnFromDriver,
 	mapPostgresColumnToDriver,
 } from './column-value.test-support.js'
-import { compilePostgresSchema } from './schema-compiler.js'
+import { compilePostgresSchema } from './schema-compiler.test-support.js'
 import { createPostgresPointerFixture } from './pointer-fixture.test-support.js'
 
 const indexColumns = (

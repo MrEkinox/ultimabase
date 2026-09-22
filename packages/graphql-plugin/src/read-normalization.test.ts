@@ -16,10 +16,8 @@ import {
 	type GraphqlSchemaExposureOption,
 } from './index.js'
 import { readGraphqlConnectionRuntime } from './application.js'
-import {
-	normalizeGraphqlCollectionArguments,
-	normalizeGraphqlReadOperation,
-} from './read-normalization.js'
+import { normalizeGraphqlCollectionArguments } from './read-normalization.js'
+import { normalizeGraphqlReadOperation } from './read-normalization.test-support.js'
 
 declare module '@ultimabase/core' {
 	interface UltimaBaseGeneratedSchemaOptions {

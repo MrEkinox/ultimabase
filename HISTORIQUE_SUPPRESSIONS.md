@@ -888,3 +888,36 @@ anciens helpers supprimés expliquent les emplacements retirés. Une première
 suite source avait échoué sur trois fichiers de serveurs à cause du refus
 `EPERM` d'écouter sur `127.0.0.1` ; les trois fichiers passent avec l'accès
 local, et la suite complète avec couverture passe également.
+
+### Second nettoyage ciblé du 22 septembre 2026
+
+Les tableaux `mutationHookFamilies` et `operationHookFamilies`, construits au
+chargement alors que seul leur type était utilisé, sont remplacés par une union
+de types. Le tableau `saveHookFamilies`, réellement utilisé par Hooks, reste
+immuable. L'alias privé `whereLogicalKeys` est supprimé ; la déclaration
+canonique des noms réservés et ses vérifications demeurent.
+
+Trois wrappers appelés uniquement par des tests quittent leurs modules de
+production : `resolveOutputBuilder`, `normalizeGraphqlReadOperation` et
+`compilePostgresSchema`. Les tests exercent toujours les chemins réels de
+capture/résolution, de préparation GraphQL et de compilation PostgreSQL. La
+configuration TypeScript des packages inclut les tests dans `src` ; les deux
+wrappers partagés résident donc dans des fichiers `*.test-support.ts` à côté
+de leurs modules, selon la convention du dépôt. Aucun de ces helpers n'entre
+dans les bundles publics.
+
+Documentation impact: internal engineering documentation. Les API, les exemples
+et les parcours du site restent exacts, sans changement public. La revue des
+exemples de schéma Core ne relève aucun comportement de champ modifié. Les 1 705
+exports et le volume total des déclarations compilées sont identiques. La
+mesure du dépôt compte les fichiers `*.test-support.ts` placés sous `src` comme
+production : elle indique 123 194 → 123 170 lignes, soit **−24 lignes nettes**
+malgré deux fichiers de support supplémentaires, et **−26 lignes dans Core**.
+Le budget du grand fichier Core `where.ts` est abaissé de 1 610 à 1 603 lignes.
+
+Le typage, le build, les contraintes et le lint passent. Les 15 fichiers et
+78 tests ciblés passent, ainsi que les **599 fichiers et 2 775 tests** de la
+suite complète avec couverture et les **98 fichiers et 384 tests** des packages
+compilés et de PostgreSQL. Les 674 cartes de couverture inchangées et les
+emplacements comparables des cinq fichiers modifiés ne présentent aucune perte ;
+les emplacements supprimés correspondent aux wrappers, alias et tableaux retirés.

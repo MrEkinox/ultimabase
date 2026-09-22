@@ -8,7 +8,7 @@ import {
 	postgresConstraintCompiler,
 } from './definition.js'
 import { Schema } from '@ultimabase/core'
-import { compilePostgresSchema } from '../schema/schema-compiler.js'
+import { compilePostgresSchema } from '../schema/schema-compiler.test-support.js'
 
 const schema = compilePostgresSchema(
 	Schema.define({

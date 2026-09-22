@@ -12,10 +12,7 @@ import type {
 	SchemaTypeInfoSource,
 	SchemaTypeValue,
 } from '../../schema/type-info.js'
-import {
-	reservedQueryLogicalFieldNames,
-	type ReservedQueryLogicalFieldName,
-} from '../../schema/schema/reserved-field-names.js'
+import type { ReservedQueryLogicalFieldName } from '../../schema/schema/reserved-field-names.js'
 import {
 	immutableArray,
 	immutableRecord,
@@ -72,10 +69,6 @@ import type {
 	QueryStringFilterNode,
 	QueryStructuralContainmentFilterNode,
 } from './primitive.js'
-
-/** Reserves transport-friendly logical names outside schema field space. */
-export const whereLogicalKeys: typeof reservedQueryLogicalFieldNames =
-	reservedQueryLogicalFieldNames
 
 export type WhereLogicalKey = ReservedQueryLogicalFieldName
 

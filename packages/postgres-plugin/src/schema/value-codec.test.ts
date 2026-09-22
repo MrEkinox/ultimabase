@@ -5,7 +5,7 @@ import {
 	mapPostgresColumnFromDriver,
 	mapPostgresColumnToDriver,
 } from './column-value.test-support.js'
-import { compilePostgresSchema } from './schema-compiler.js'
+import { compilePostgresSchema } from './schema-compiler.test-support.js'
 import { createStoredPluginField } from './storage-codec-fixture.test-support.js'
 import {
 	normalizePostgresDriverLocalDateTime,

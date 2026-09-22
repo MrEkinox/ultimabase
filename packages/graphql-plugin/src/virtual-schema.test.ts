@@ -19,7 +19,7 @@ import { describe, expect, it } from 'vitest'
 
 import { graphqlPlugin, type GraphqlApplication } from './index.js'
 import { readGraphqlConnectionRuntime } from './application.js'
-import { normalizeGraphqlReadOperation } from './read-normalization.js'
+import { normalizeGraphqlReadOperation } from './read-normalization.test-support.js'
 import { graphqlFixtureDatabasePlugin } from './test-application.test-support.js'
 
 const outputOnly = { graphql: true }

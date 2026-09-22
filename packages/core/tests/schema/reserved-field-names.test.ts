@@ -3,7 +3,6 @@ import * as ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 
 import { createLanguageService } from '../../../../tooling/vitest/typescript-language-service.js'
-import { whereLogicalKeys } from '../../src/query/filters/where.js'
 import {
 	reservedQueryLogicalFieldNames,
 	reservedSchemaModelFieldNames,
@@ -44,7 +43,6 @@ Schema.define({
 
 describe('reserved schema field names in the public language service', () => {
 	it('derives immutable runtime categories from their canonical declarations', () => {
-		expect(whereLogicalKeys).toBe(reservedQueryLogicalFieldNames)
 		expect(Object.isFrozen(reservedSystemFieldNames)).toBe(true)
 		expect(Object.isFrozen(reservedQueryLogicalFieldNames)).toBe(true)
 		expect(Object.isFrozen(reservedSchemaModelFieldNames)).toBe(true)

@@ -547,22 +547,3 @@ export const captureOutputBuilderCallback = (
 		createCapturedOutputBuilder(path),
 	)
 }
-
-/** @internal Resolves one output callback exactly once for virtual compilation. */
-export const resolveOutputBuilder = <
-	const TOutput extends GenericOutputDescriptor,
->(
-	declaration: (output: OutputBuilder) => TOutput,
-	path: string,
-	fieldMethods?: FieldBuilderMethodResolver,
-): TOutput => {
-	if (typeof declaration !== 'function') {
-		throw new TypeError(`${path} must be an output callback`)
-	}
-
-	return resolveCapturedOutputDescriptor(
-		captureOutputBuilderCallback(declaration, path),
-		path,
-		fieldMethods,
-	) as TOutput
-}

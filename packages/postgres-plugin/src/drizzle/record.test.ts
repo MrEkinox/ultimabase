@@ -4,7 +4,7 @@ import { Pointer, Schema } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
 import { createPostgresPointerFixture } from '../schema/pointer-fixture.test-support.js'
-import { compilePostgresSchema } from '../schema/schema-compiler.js'
+import { compilePostgresSchema } from '../schema/schema-compiler.test-support.js'
 import {
 	mapPostgresColumnFromDriver,
 	mapPostgresColumnToDriver,

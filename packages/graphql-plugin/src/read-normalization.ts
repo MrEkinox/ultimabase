@@ -191,16 +191,3 @@ export const prepareGraphqlReadOperation = <
 		...(page === undefined ? {} : { page }),
 	})
 }
-
-/** Normalizes GraphQL arguments and selections into a transport-free Core AST. */
-export const normalizeGraphqlReadOperation = <
-	const TSchema extends SchemaDefinition,
-	const TOperation extends GraphqlReadOperation,
->(
-	schema: TSchema,
-	operation: TOperation,
-	args: unknown,
-	info: GraphQLResolveInfo | undefined,
-	context: GraphqlReadNormalizationContext,
-): GraphqlReadOperationAst<TSchema, TOperation> =>
-	prepareGraphqlReadOperation(schema, operation, args, info, context).operation
