@@ -105,7 +105,8 @@ users[0]?.toJSON() // A detached immutable object.
 - Owner-private plugin records retain typed transactional persistence and
   migration provenance without becoming application schemas, Query or Typegen
   surfaces, generated transport routes, or application behavior inputs.
-- PostgreSQL synchronization and PostgreSQL migrations are separate capabilities.
+- PostgreSQL synchronization is available today. Migration support is not shipped;
+  a future migration product would own reviewed DDL and history separately.
 - Milestone 23 delivers HTTP application identity,
   Fetch-compatible route composition, and request context resolution in an
   optional HTTP plugin. Hono only provides the server, REST and GraphQL remain
