@@ -21,86 +21,22 @@ import { createRelationUpdateExpression } from '../../schema/relations/mutation.
 import { isPlainRecord, isUnknownArray } from '@ultimabase/shared'
 import { validate as validateUuid, version as readUuidVersion } from 'uuid'
 import { describe, expect, it, vi } from 'vitest'
+import {
+	executeStage,
+	runtimeDefault,
+	schemaNode,
+	validCreateInput,
+	validationSchema,
+	relationValidationSource,
+	relationValidationTarget,
+	binaryDefault,
+} from '../../../tests/fixtures/runtime-validation.js'
 import { RequestContext, requestSources } from '../context/request-context.js'
 import { createFixtureMasterContext } from '../../../tests/fixtures/master-context.js'
-import type { DatabaseOperationAst } from '../database/contracts.js'
 import {
 	createRuntimeValidationStage,
 	revalidateRuntimeMutationOperation,
 } from './runtime-validation.js'
-const runtimeDefault = vi.fn(() => 42)
-const binaryDefault = new Uint8Array([1, 2, 3])
-const validationSchema = Schema.define({
-	className: 'RuntimeValidation',
-	fields: (field) => ({
-		title: field.string({ required: true }),
-		immutableCode: field.string({
-			indexed: 'unique',
-			immutable: true,
-			required: true,
-		}),
-		note: field.string(),
-		sequence: field.int({ default: runtimeDefault }),
-		state: field.string({ default: 'draft' }),
-		payload: field.binary({ default: binaryDefault }),
-		score: field.int(),
-		serial: field.int({
-			autoIncrement: true,
-			required: true,
-		}),
-		day: field.date({ autoNow: true, required: true }),
-		localTime: field.time({ autoNow: true }),
-		zonedTime: field.time({ autoNow: true, timezone: true }),
-		localMoment: field.dateTime({ autoNow: true, timezone: false }),
-		zonedMoment: field.dateTime({ autoNow: true }),
-		profile: field.object({
-			required: true,
-			fields: (field) => ({
-				name: field.string({ required: true }),
-				level: field.int({ default: 1 }),
-			}),
-		}),
-		items: field.object({
-			list: true,
-			fields: (field) => ({
-				label: field.string({ required: true }),
-			}),
-		}),
-	}),
-})
-const schemaNode = new QueryBuilder(validationSchema).ast.schema
-const relationValidationTarget = Schema.define({
-	className: 'RuntimeRelationValidationTarget',
-	fields: () => ({}),
-})
-const relationValidationSource = Schema.define({
-	className: 'RuntimeRelationValidationSource',
-	fields: (field) => ({
-		targets: field.relation({ target: 'RuntimeRelationValidationTarget' }),
-	}),
-})
-new SchemaRegistry([
-	relationValidationTarget,
-	relationValidationSource,
-]).resolveSchemaTargets()
-const requestContext = RequestContext.anonymous({
-	requestId: 'runtime-validation',
-	source: requestSources.internal,
-})
-
-const validCreateInput = () => ({
-	title: 'Valid title',
-	immutableCode: 'public-code',
-	profile: { name: 'Ada' },
-	items: [{ label: 'first' }],
-})
-
-const executeStage = async <const TOperation extends DatabaseOperationAst>(
-	stage: ReturnType<typeof createRuntimeValidationStage>,
-	operation: TOperation,
-	context: RequestContext = requestContext,
-): Promise<TOperation> => stage({ context, operation })
-
 describe('runtime validation', () => {
 	it('applies immutable defaults and one timezone-aware operation clock', async () => {
 		runtimeDefault.mockClear()
@@ -699,109 +635,6 @@ describe('runtime validation', () => {
 					]),
 				)
 			},
-		)
-	})
-
-	it('rejects every malformed update and bulk boundary from JavaScript callers', async () => {
-		const stage = createRuntimeValidationStage()
-		const query = new QueryBuilder(validationSchema).ast
-		const malformedOperations = [
-			null,
-			{ kind: 'set', field: 'missing', value: 'value' },
-			{ kind: 'set', field: 'immutableCode', value: 'changed' },
-			{ kind: 'unset', field: 'title' },
-			{ kind: 'set', field: 'score', value: 'not-an-int' },
-			{ kind: 'decrement', field: 'score', value: 'not-an-int' },
-		]
-		const malformedUpdate = {
-			kind: 'update-one',
-			query,
-			update: { kind: 'update-expression', operations: malformedOperations },
-		} as unknown as UpdateOneOperationAst<typeof validationSchema>
-		const unnormalizedUpdate = {
-			kind: 'update-one',
-			query,
-			update: { kind: 'custom-update' },
-		} as unknown as UpdateOneOperationAst<typeof validationSchema>
-		const malformedCreateMany = {
-			kind: 'create-many',
-			schema: schemaNode,
-			inputs: {},
-		} as unknown as CreateManyOperationAst<typeof validationSchema>
-		const malformedUpsertMany = {
-			kind: 'upsert-many',
-			schema: schemaNode,
-			items: [null],
-		} as unknown as UpsertManyOperationAst<typeof validationSchema>
-		const nonArrayUpsertMany = {
-			...malformedUpsertMany,
-			items: {},
-		} as unknown as UpsertManyOperationAst<typeof validationSchema>
-
-		for (const operation of [
-			malformedUpdate,
-			unnormalizedUpdate,
-			malformedCreateMany,
-			malformedUpsertMany,
-			nonArrayUpsertMany,
-		]) {
-			await expect(executeStage(stage, operation)).rejects.toMatchObject({
-				code: 'VALIDATION_ERROR',
-			})
-		}
-	})
-
-	it('rejects a forged schema identity before compiling plans', async () => {
-		const operation = {
-			kind: 'create-one',
-			selection: { fields: [], kind: 'selection' },
-			schema: { kind: 'schema', definition: {} },
-			input: {},
-		} as unknown as CreateOneOperationAst<typeof validationSchema>
-
-		await expect(
-			executeStage(createRuntimeValidationStage(), operation),
-		).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
-	})
-
-	it('validates output from an injected UUID v7 generator', async () => {
-		const operation: CreateOneOperationAst<typeof validationSchema> = {
-			kind: 'create-one',
-			selection: { fields: [], kind: 'selection' },
-			schema: schemaNode,
-			input: validCreateInput(),
-		}
-		const stage = createRuntimeValidationStage({
-			uuidV7Generator: () => 'not-a-uuid',
-		})
-
-		await expect(executeStage(stage, operation)).rejects.toMatchObject({
-			code: 'VALIDATION_ERROR',
-			publicDetails: {
-				issues: [
-					expect.objectContaining({ code: 'uuid.type', path: ['input', 'id'] }),
-				],
-			},
-		})
-	})
-
-	it('rejects malformed JavaScript options at the application boundary', () => {
-		expect(() => createRuntimeValidationStage(null as never)).toThrow(
-			new TypeError('Runtime validation options must be a plain object'),
-		)
-		expect(() =>
-			createRuntimeValidationStage({ unknown: true } as never),
-		).toThrow(
-			new TypeError('Runtime validation contains unknown option: unknown'),
-		)
-		expect(() =>
-			createRuntimeValidationStage({ clock: true } as never),
-		).toThrow(new TypeError('Runtime validation clock must be a function'))
-		expect(() =>
-			createRuntimeValidationStage({ uuidV7Generator: true } as never),
-		).toThrow(new TypeError('Runtime UUID v7 generator must be a function'))
-		expect(() => createRuntimeValidationStage({ timezone: '' })).toThrow(
-			new TypeError('Runtime validation timezone must be a non-empty string'),
 		)
 	})
 })

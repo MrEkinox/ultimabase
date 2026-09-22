@@ -8,7 +8,6 @@ import { Schema } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
 import { runWithRequestEngine } from '../context/active-framework-context.js'
-import { type DatabaseAdapter } from '../database/contracts.js'
 import {
 	constraint,
 	databaseConstraint,
@@ -27,25 +26,10 @@ import {
 	provideTestRuntimeInterceptor,
 } from '../../../tests/runtime/fixtures/runtime-capabilities.js'
 import { createFrameworkEngine } from './create-framework-engine.js'
-
-const articleSchema = Schema.define({
-	className: 'AssembledArticle',
-	fields: (field) => ({
-		title: field.string({
-			required: true,
-		}),
-	}),
-})
-
-const databasePlugin = (adapter: DatabaseAdapter) =>
-	definePlugin({
-		version: '0.0.0',
-		core: '^0.0.0',
-		pluginId: 'fixture.assembled-database',
-		capabilities: {
-			provides: [provideTestDatabaseAdapter(adapter)],
-		},
-	})
+import {
+	articleSchema,
+	databasePlugin,
+} from '../../../tests/fixtures/create-framework-engine.js'
 
 describe('createFrameworkEngine', () => {
 	it('assembles validation, ordered middleware, enforcement, and events', async () => {

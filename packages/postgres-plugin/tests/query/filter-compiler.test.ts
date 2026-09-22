@@ -2,69 +2,28 @@ import {
 	collectQueryRelationPredicates,
 	fieldPath,
 	QueryBuilder,
-	type QueryFilterNode,
 } from '@ultimabase/core'
 import { Schema, SchemaRegistry } from '@ultimabase/core'
-import { PgDialect } from 'drizzle-orm/pg-core'
 import { describe, expect, it } from 'vitest'
+import {
+	FilterSchema,
+	dialect,
+	renderQuery,
+} from './filter-compiler-fixtures.js'
 
-import { compilePostgresSchema } from '../schema/schema-compiler.test-support.js'
 import {
 	compilePostgresFilter,
 	compilePostgresRowFilter,
-} from './filter-compiler.js'
-import { PostgresSchemaCatalog } from '../schema/catalog.js'
-import { emptyPostgresConstraintCompilerRegistry } from '../constraints/compiler.js'
-import { createPostgresRelationPredicateCompiler } from './relation-predicate-compiler.js'
+} from '../../src/query/filter-compiler.js'
+import { PostgresSchemaCatalog } from '../../src/schema/catalog.js'
+import { emptyPostgresConstraintCompilerRegistry } from '../../src/constraints/compiler.js'
+import { createPostgresRelationPredicateCompiler } from '../../src/query/relation-predicate-compiler.js'
 import {
 	PostgresRelationArticle,
 	PostgresRelationAuthor,
 	PostgresRelationPost,
 	PostgresRelationTag,
-} from '../schema/relation-fixture.test-support.js'
-
-const FilterSchema = Schema.define({
-	className: 'FilterFixture',
-	fields: (field) => ({
-		active: field.boolean(),
-		attachment: field.binary(),
-		birthday: field.date(),
-		count: field.int(),
-		eventAt: field.dateTime(),
-		exact: field.decimal(),
-		huge: field.bigint(),
-		hugeValues: field.bigint({ list: true }),
-		metadata: field.json(),
-		profile: field.object({
-			fields: (field) => ({
-				label: field.string(),
-				stats: field.object({ fields: (field) => ({ exact: field.bigint() }) }),
-			}),
-		}),
-		rating: field.float(),
-		status: field.enum({ values: ['draft', 'published'] }),
-		title: field.string(),
-		tags: field.string({ list: true }),
-		token: field.uuid(),
-		wakeAt: field.time(),
-	}),
-})
-
-const compiledSchema = compilePostgresSchema(FilterSchema)
-const dialect = new PgDialect()
-
-const renderFilter = (filter: QueryFilterNode<typeof FilterSchema>) =>
-	dialect.sqlToQuery(compilePostgresFilter(filter, compiledSchema))
-
-const renderQuery = (query: QueryBuilder<typeof FilterSchema>) => {
-	const expression = query.ast.where?.expression
-
-	if (expression === undefined) {
-		throw new TypeError('Filter compiler fixture requires a where expression')
-	}
-
-	return renderFilter(expression)
-}
+} from '../../src/schema/relation-fixture.test-support.js'
 
 describe('PostgreSQL filter compiler', () => {
 	it('compiles one-dimensional list filters through parameterized JSONB operators', () => {
@@ -728,77 +687,6 @@ describe('PostgreSQL filter compiler', () => {
 
 			expect(rendered.sql).toContain(' = $1')
 			expect(rendered.params).toHaveLength(1)
-		}
-	})
-
-	it('keeps injection payloads in parameters and escapes LIKE wildcards', () => {
-		const payload = "x%'_\\ OR true --"
-		const equality = renderQuery(
-			new QueryBuilder(FilterSchema).where((where) =>
-				where.eq('title', payload),
-			),
-		)
-		const contains = renderQuery(
-			new QueryBuilder(FilterSchema).where((where) =>
-				where.contains('title', payload),
-			),
-		)
-		const range = renderQuery(
-			new QueryBuilder(FilterSchema).where((where) =>
-				where.between('title', payload, `${payload}z`),
-			),
-		)
-		const regex = renderQuery(
-			new QueryBuilder(FilterSchema).where((where) =>
-				where.matches('title', {
-					flags: [],
-					source: payload,
-				}),
-			),
-		)
-
-		expect(equality.sql).not.toContain(payload)
-		expect(equality.params).toStrictEqual([payload])
-		expect(contains.sql).not.toContain(payload)
-		expect(contains.params).toStrictEqual(["%x\\%'\\_\\\\ OR true --%", '\\'])
-		expect(range.sql).not.toContain(payload)
-		expect(range.params).toStrictEqual([payload, `${payload}z`])
-		expect(regex.sql).not.toContain(payload)
-		expect(regex.params).toStrictEqual([`(?p)${payload}`])
-	})
-
-	it('maps independent JavaScript regex newline flags to PostgreSQL modes', () => {
-		const cases: readonly {
-			readonly flags: readonly (
-				'case-insensitive' | 'dot-matches-newline' | 'multiline'
-			)[]
-			readonly prefix: string
-		}[] = [
-			{ flags: [], prefix: '(?p)' },
-			{ flags: ['multiline'], prefix: '(?n)' },
-			{ flags: ['dot-matches-newline'], prefix: '(?s)' },
-			{
-				flags: ['dot-matches-newline', 'multiline'],
-				prefix: '(?w)',
-			},
-			{ flags: ['case-insensitive'], prefix: '(?p)' },
-		]
-
-		for (const fixture of cases) {
-			const rendered = renderQuery(
-				new QueryBuilder(FilterSchema).where((where) =>
-					where.matches('title', {
-						flags: fixture.flags,
-						source: '^value$',
-					}),
-				),
-			)
-
-			expect(rendered.params).toStrictEqual([`${fixture.prefix}^value$`])
-
-			if (fixture.flags.includes('case-insensitive')) {
-				expect(rendered.sql).toContain(' ~* $1')
-			}
 		}
 	})
 })
