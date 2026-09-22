@@ -61,7 +61,7 @@
 		"publint": "^0.3.22",
 		"tsdown": "^0.22.14",
 		"typescript": "^6.0.3",
-		"typescript-eslint": "^8.65.0",
+		"typescript-eslint": "8.65.0",
 		"valibot": "^1.4.2",
 		"vitest": "4.1.11",
 		"zod": "^4.4.3"
