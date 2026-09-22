@@ -1,4 +1,4 @@
-import { immutableArray, immutableRecord } from '@ultimabase/shared'
+import { immutableArray } from '@ultimabase/shared'
 import {
 	assertFieldOptions,
 	type CompatibleFieldOptionsInput,
@@ -104,20 +104,6 @@ export interface VectorFieldBuilderMethod {
  */
 export type VectorFieldValidationPlan = ScalarValidationPlan<VectorField>
 
-/**
- * Exposes the vector plan helpers through this application's plugin lookup.
- */
-export interface PgVectorPluginExports {
-	readonly fieldKind: typeof vectorFieldKind
-	readonly handles: (
-		plan: FieldValidationPlan,
-	) => plan is VectorFieldValidationPlan
-	readonly validate: (
-		value: unknown,
-		plan: VectorFieldValidationPlan,
-	) => readonly number[]
-}
-
 function assertValidDimensions(
 	dimensions: unknown,
 ): asserts dimensions is number {
@@ -211,13 +197,6 @@ const vectorFieldBuilderMethod = definePluginFieldBuilderMethod({
 	},
 })
 
-const pgVectorPluginExports: Readonly<PgVectorPluginExports> = immutableRecord({
-	fieldKind: vectorFieldKind,
-	handles: isVectorFieldValidationPlan,
-	validate: (value, plan) =>
-		snapshotVector(value, 'value', plan.field.options.dimensions),
-})
-
 const pgVectorPluginPrivileges = [
 	{
 		name: 'schema:declare',
@@ -226,7 +205,6 @@ const pgVectorPluginPrivileges = [
 ] as const
 type PgVectorPluginDefinition = Readonly<{
 	readonly privileges: typeof pgVectorPluginPrivileges
-	readonly setup: () => Readonly<PgVectorPluginExports>
 }>
 
 /** Names the exact configured plugin contract retained by application lookup. */
@@ -235,12 +213,11 @@ export type PgVectorPlugin = PluginModuleInstance<
 	PgVectorPluginDefinition
 >
 
-/** Declares the vector builder method before returning its validation handler. */
+/** Declares the vector builder method without a separate setup output. */
 export const pgVectorPlugin = (): PgVectorPlugin =>
 	pgVectorPluginModule.plugin({
 		privileges: pgVectorPluginPrivileges,
 		declare: ({ fields }) => {
 			fields.register(vectorFieldBuilderMethod)
 		},
-		setup: () => pgVectorPluginExports,
 	})

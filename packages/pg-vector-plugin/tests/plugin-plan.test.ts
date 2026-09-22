@@ -58,59 +58,20 @@ describe('pgVectorPlugin field plans', () => {
 		})
 		onTestFinished(() => application.dispose())
 		const plan = compileValidationPlans(schema).create.fields.embedding
-		const plugin = application.getPlugin('@ultimabase/pg-vector-plugin')
 
-		expect(plugin.fieldKind).toBe(vectorFieldKind)
+		expect(field.kind).toBe(vectorFieldKind)
 		expect(plan).toStrictEqual({
 			kind: 'scalar',
 			field,
 			presence: 'required',
 			nullable: false,
 		})
-		expect(plan === undefined ? false : plugin.handles(plan)).toBe(true)
 		expect(plan === undefined ? false : isVectorFieldValidationPlan(plan)).toBe(
 			true,
 		)
 	})
 
-	it('validates runtime values through the associated plugin definition', async () => {
-		const schema = Schema.define({
-			className: 'Document',
-			fields: () => ({
-				embedding: vectorField({ dimensions: 2 }),
-			}),
-		})
-		const application = await createApplication({
-			plugins: [pgVectorPlugin()],
-			schemas: [schema],
-		})
-		onTestFinished(() => application.dispose())
-		const plan = compileValidationPlans(schema).create.fields.embedding
-		const plugin = application.getPlugin('@ultimabase/pg-vector-plugin')
-
-		if (plan === undefined || !plugin.handles(plan)) {
-			throw new TypeError('Expected Schema to preserve the vector plugin plan')
-		}
-
-		const source = [1, 2]
-		const value = plugin.validate(source, plan)
-
-		source[0] = 9
-
-		expect(value).toStrictEqual([1, 2])
-		expect(Object.isFrozen(value)).toBe(true)
-		expect(() => plugin.validate([1], plan)).toThrow(
-			new RangeError('value must contain exactly 2 values'),
-		)
-	})
-
-	it('does not claim another plugin field kind', async () => {
-		const application = await createApplication({
-			plugins: [pgVectorPlugin()],
-			schemas: [],
-		})
-		onTestFinished(() => application.dispose())
-		const plugin = application.getPlugin('@ultimabase/pg-vector-plugin')
+	it('does not claim another plugin field kind', () => {
 		const foreignPlan = {
 			kind: 'scalar',
 			field: { kind: 'fixture.foreign', options: {} },
@@ -118,6 +79,6 @@ describe('pgVectorPlugin field plans', () => {
 			nullable: false,
 		} as const
 
-		expect(plugin.handles(foreignPlan)).toBe(false)
+		expect(isVectorFieldValidationPlan(foreignPlan)).toBe(false)
 	})
 })

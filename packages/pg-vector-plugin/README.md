@@ -8,8 +8,9 @@ The package proves the complete custom-field boundary:
   `field.vector({ dimensions })` declaration method;
 - `vectorField({ dimensions })` remains its immutable field-factory foundation;
 - `@ultimabase/core` retains it through the common scalar validation plan;
-- `pgVectorPlugin()` narrows `plan.field.kind`, then reads and validates the
-  exact vector field without Schema understanding vector configuration;
+- `isVectorFieldValidationPlan()` narrows the preserved scalar plan, while
+  Core's `snapshotScalarFieldValue()` validates the exact vector value without
+  Schema understanding vector configuration;
 - `VectorValue` remains an immutable `readonly number[]` snapshot.
 
 The public `field.vector(...)` method currently supports stored schema fields
@@ -60,6 +61,7 @@ to that application's builder; Core deliberately does not expose `vector` when
 the plugin is absent. No PostgreSQL column compiler is shipped for this field:
 the plugin currently provides the logical value contract and GraphQL codec only.
 It contains no Drizzle or SQL dependency and cannot persist vector fields yet.
+The plugin has no setup output. Value checks use Core's scalar snapshot boundary.
 The combined generated Hooks, Access, and vector editor contract is exercised
 by
 [`generator-language-service.test.ts`](../typegen/src/generator-language-service.test.ts).

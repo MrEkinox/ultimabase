@@ -8,7 +8,7 @@ contentType: concept
 outcome: Declare a dimension-safe vector field and recognize the current physical storage limit.
 owner: '2824'
 releaseStatus: pre-release
-reviewedAt: 2026-09-21
+reviewedAt: 2026-09-22
 sources:
   - packages/pg-vector-plugin/README.md
   - packages/pg-vector-plugin/src/index.ts
@@ -110,7 +110,8 @@ console.log(value) // [0.1, 0.2, 0.3]
 The returned array is a frozen copy; changing the original input later does
 not change it. A non-array value, an array of the wrong length, or a `NaN` or
 infinite component fails validation. This is a **logical-value check**, not a
-database write.
+database write. `pgVectorPlugin()` adds the field builder without a separate
+validation facade; this Core boundary is the value-checking API.
 
 ### Wire and storage boundaries
 

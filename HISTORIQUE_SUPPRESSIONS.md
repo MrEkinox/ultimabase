@@ -6,7 +6,7 @@ livraison effective. Il sera mis à jour dans le commit de
 chaque issue : une suppression en cours ne devient « réalisée » qu’après
 validation et audit sans anomalie restante.
 
-Dernière mise à jour : **21 septembre 2026**. Le jalon 30 est terminé et reste
+Dernière mise à jour : **22 septembre 2026**. Le jalon 30 est terminé et reste
 historique. L’utilisateur a autorisé l’exécution autonome du jalon 31 avec
 boucle d’audit et commit par issue ; les issues 3101–3111 sont livrées.
 Le changement ciblé des sélecteurs de l’ADR-0263 est accepté et livré ; les
@@ -921,3 +921,17 @@ suite complète avec couverture et les **98 fichiers et 384 tests** des packages
 compilés et de PostgreSQL. Les 674 cartes de couverture inchangées et les
 emplacements comparables des cinq fichiers modifiés ne présentent aucune perte ;
 les emplacements supprimés correspondent aux wrappers, alias et tableaux retirés.
+
+### Façade de validation du plugin vectoriel — 22 septembre 2026
+
+L'utilisateur a validé le retrait de la sortie de `setup` du plugin vectoriel :
+`application.getPlugin('@ultimabase/pg-vector-plugin')` ne fournit plus
+`fieldKind`, `handles` et `validate`, et le type `PgVectorPluginExports` disparaît.
+Cette façade n'avait de consommateurs identifiés que dans les tests du package.
+La validation des valeurs passe déjà par `snapshotScalarFieldValue()` de Core ;
+`isVectorFieldValidationPlan()` reste disponible pour lire un plan compilé.
+
+Le plugin, `field.vector()`, `vectorField()`, le codec GraphQL, les déclarations
+Typegen et les tests de conformité sont conservés. Le site de documentation et
+le README du package décrivent le chemin de validation restant. Ce retrait
+ciblé ne fait pas partie des jalons 30 et 31.
