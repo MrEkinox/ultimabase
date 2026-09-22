@@ -1,7 +1,14 @@
-import { Schema } from '@ultimabase/core'
+import { Schema, type PluginExports } from '@ultimabase/core'
 import { expectTypeOf, test } from 'vitest'
 
 import { RoleSchema, hasRole } from './index.js'
+import type { rolesPlugin } from './index.js'
+
+test('does not expose the application-local setup value', () => {
+	expectTypeOf<PluginExports<ReturnType<typeof rolesPlugin>>>().toEqualTypeOf<
+		ReturnType<() => void>
+	>()
+})
 
 const User = Schema.define({
 	className: 'TypedRoleUser',

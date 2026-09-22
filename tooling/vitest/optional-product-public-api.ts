@@ -388,7 +388,6 @@ export const graphqlPluginPublicApi = {
 export const graphqlYogaPluginPublicApi = {
 	applicationApi: [
 		'GraphqlYogaPlugin',
-		'GraphqlYogaPluginExports',
 		'GraphqlYogaPluginOptions',
 		'graphqlYogaPlugin',
 	],
@@ -410,7 +409,6 @@ export const graphiqlPluginPublicApi = {
 	applicationApi: [
 		'GraphiqlEnvironment',
 		'GraphiqlPlugin',
-		'GraphiqlPluginExports',
 		'GraphiqlPluginOptions',
 		'graphiqlPlugin',
 	],
@@ -422,7 +420,6 @@ export const apolloSandboxPluginPublicApi = {
 	applicationApi: [
 		'ApolloSandboxEnvironment',
 		'ApolloSandboxPlugin',
-		'ApolloSandboxPluginExports',
 		'ApolloSandboxPluginOptions',
 		'apolloSandboxPlugin',
 	],
@@ -529,6 +526,7 @@ export const removedGraphqlPluginPublicApiNames = [
 
 /** Names GraphQL Yoga protocol internals deliberately kept private. */
 export const removedGraphqlYogaPluginPublicApiNames = [
+	'GraphqlYogaPluginExports',
 	'createGraphqlYogaMountResource',
 	'normalizeGraphqlYogaPluginOptions',
 	'parseGraphqlRequestBody',
@@ -543,12 +541,14 @@ export const removedGraphqlHttpPublicApiNames = [
 
 /** Names GraphiQL browser implementation details kept private. */
 export const removedGraphiqlPluginPublicApiNames = [
+	'GraphiqlPluginExports',
 	'createGraphiqlPageResponse',
 	'normalizeGraphiqlPluginOptions',
 ] as const
 
 /** Names Apollo Sandbox browser implementation details kept private. */
 export const removedApolloSandboxPluginPublicApiNames = [
+	'ApolloSandboxPluginExports',
 	'createApolloSandboxPageResponse',
 	'normalizeApolloSandboxPluginOptions',
 ] as const

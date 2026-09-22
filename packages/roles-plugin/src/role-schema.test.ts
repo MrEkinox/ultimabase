@@ -11,11 +11,7 @@ import type { FrameworkError } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
 import { rolesPlugin } from './plugin.js'
-import {
-	getRoleSchemaDeclaration,
-	RoleSchema,
-	rolesPluginName,
-} from './role-schema.js'
+import { getRoleSchemaDeclaration, RoleSchema } from './role-schema.js'
 import { roleSchemaIdentityOptionName } from './role-schema-identity.js'
 
 const User = Schema.define({
@@ -237,7 +233,7 @@ describe('RoleSchema', () => {
 			schemas: [User, Similar],
 		})
 		onTestFinished(() => application.dispose())
-		expect(application.getPlugin(rolesPluginName).schemas).toStrictEqual([])
+		expect(getRoleSchemaDeclaration(Similar)).toBeUndefined()
 		await application.dispose()
 
 		const FirstRole = RoleSchema.define({
@@ -290,7 +286,7 @@ describe('RoleSchema', () => {
 			schemas: [User, FirstRole],
 			plugins: [firstPlugin] as const,
 		})
-		const firstSchemas = first.getPlugin(rolesPluginName).schemas
+		expect(first.schemas.get(FirstRole.className)).toBe(FirstRole)
 		await first.dispose()
 		const second = await createApplication({
 			schemas: [SecondUser, SecondRole],
@@ -298,11 +294,7 @@ describe('RoleSchema', () => {
 		})
 		onTestFinished(() => second.dispose())
 
-		expect(firstSchemas).toStrictEqual([FirstRole])
-		expect(second.getPlugin(rolesPluginName).schemas).toStrictEqual([
-			SecondRole,
-		])
-		expect(firstSchemas).not.toBe(second.getPlugin(rolesPluginName).schemas)
+		expect(second.schemas.get(SecondRole.className)).toBe(SecondRole)
 		expect(getRoleSchemaDeclaration(FirstRole)?.memberSchema).toBe(User)
 		expect(getRoleSchemaDeclaration(SecondRole)?.memberSchema).toBe(SecondUser)
 		await Promise.all([first.dispose(), second.dispose()])

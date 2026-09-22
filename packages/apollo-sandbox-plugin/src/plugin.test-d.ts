@@ -1,10 +1,9 @@
-import type { PluginDefinition } from '@ultimabase/core'
+import type { PluginDefinition, PluginExports } from '@ultimabase/core'
 import { expectTypeOf } from 'vitest'
 
 import {
 	apolloSandboxPlugin,
 	type ApolloSandboxPlugin,
-	type ApolloSandboxPluginExports,
 	type ApolloSandboxPluginOptions,
 } from './index.js'
 
@@ -13,6 +12,4 @@ const plugin = apolloSandboxPlugin(options)
 
 expectTypeOf(plugin).toEqualTypeOf<ApolloSandboxPlugin>()
 expectTypeOf(plugin).toExtend<PluginDefinition>()
-expectTypeOf<ApolloSandboxPluginExports>().toEqualTypeOf<
-	Readonly<{ readonly enabled: boolean; readonly path: string }>
->()
+expectTypeOf<PluginExports<typeof plugin>>().toEqualTypeOf<undefined>()

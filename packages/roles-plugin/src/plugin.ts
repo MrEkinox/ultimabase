@@ -133,11 +133,6 @@ const roleBehaviorProvider: CapabilityProviderDeclaration<
 	},
 })
 
-/** Exposes the application-local role domains discovered during setup. */
-export interface RolesPluginExports {
-	readonly schemas: readonly SchemaDefinition[]
-}
-
 interface RoleRelationChange {
 	readonly action: RelationMutationAction
 	readonly field: 'members' | 'roles'
@@ -430,7 +425,7 @@ type RolesPluginDefinition = Readonly<{
 	readonly capabilities: typeof rolesPluginCapabilities
 	readonly declare: () => undefined
 	readonly privileges: typeof rolesPluginPrivileges
-	readonly setup: () => RolesPluginExports
+	readonly setup: () => void
 }>
 
 /** Represents the exact option-light official stored-role provider. */
@@ -458,13 +453,12 @@ export const rolesPlugin = (): RolesPlugin =>
 			})
 		},
 		setup: ({ capabilities, schemas }) => {
+			// Setup still binds reference cleanup contributions for this application.
 			referenceCleanupsBySchemas.set(
 				schemas,
 				collectRoleReferenceCleanups(
 					capabilities.get(optionalReferenceCleanups) ?? [],
 				),
 			)
-			const roleSchemas = readRoleSchemas(schemas)
-			return Object.freeze({ schemas: Object.freeze(roleSchemas) })
 		},
 	})

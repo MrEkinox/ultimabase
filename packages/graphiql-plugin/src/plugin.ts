@@ -14,7 +14,6 @@ import {
 	type PluginModule,
 	type PluginModuleInstance,
 } from '@ultimabase/plugin-kit'
-import { immutableRecord } from '@ultimabase/shared'
 
 import {
 	normalizeGraphiqlPluginOptions,
@@ -43,12 +42,6 @@ const privileges = [
 	},
 ] as const
 
-/** Reports the route decision without exposing application identity. */
-export interface GraphiqlPluginExports {
-	readonly enabled: boolean
-	readonly path: string
-}
-
 type EnabledDefinition = Readonly<{
 	readonly capabilities: Readonly<{
 		readonly provides: readonly [
@@ -64,12 +57,9 @@ type EnabledDefinition = Readonly<{
 		}>,
 	]
 	readonly privileges: typeof privileges
-	readonly setup: () => GraphiqlPluginExports
 }>
 
-type DisabledDefinition = Readonly<{
-	readonly setup: () => GraphiqlPluginExports
-}>
+type DisabledDefinition = Readonly<{ readonly setup?: never }>
 
 /** Names one independently configured GraphiQL UI plugin. */
 export type GraphiqlPlugin =
@@ -81,10 +71,8 @@ export const graphiqlPlugin = (
 	options: GraphiqlPluginOptions,
 ): GraphiqlPlugin => {
 	const normalized = normalizeGraphiqlPluginOptions(options)
-	// Normalization consumes the environment and retains only the public route decision.
-	const setup = (): GraphiqlPluginExports => immutableRecord(normalized)
 	if (!normalized.enabled) {
-		const disabled = module.plugin({ setup } satisfies DisabledDefinition)
+		const disabled = module.plugin({} satisfies DisabledDefinition)
 		return disabled
 	}
 
@@ -104,7 +92,6 @@ export const graphiqlPlugin = (
 		environment: ['environment:network'],
 		peers: [{ pluginId: '@ultimabase/http-plugin', version: '^0.0.0' }],
 		privileges,
-		setup,
 	} satisfies EnabledDefinition)
 	return enabled
 }

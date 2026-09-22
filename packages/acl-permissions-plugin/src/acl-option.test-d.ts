@@ -1,8 +1,15 @@
-import { type PointerValue, Schema } from '@ultimabase/core'
+import { type PluginExports, type PointerValue, Schema } from '@ultimabase/core'
 import { expectTypeOf, test } from 'vitest'
 
 import type { ACLSchemaOption } from './acl-option.js'
 import { ACL } from './acl.js'
+import type { aclPlugin } from './plugin.js'
+
+test('does not expose a redundant application-local setup value', () => {
+	expectTypeOf<
+		PluginExports<ReturnType<typeof aclPlugin>>
+	>().toEqualTypeOf<undefined>()
+})
 
 declare module '@ultimabase/core' {
 	interface UltimaBaseGeneratedSchemaOptions {

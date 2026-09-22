@@ -280,10 +280,10 @@ describe('aclPlugin create input resolution', () => {
 		})
 		onTestFinished(() => application.dispose())
 
-		const protectedSchemas = application.getPlugin('ultimabase.acl').schemas
-		expect(protectedSchemas).toStrictEqual([ProtectedPost])
-		expect(protectedSchemas[0]?.fields.acl?.kind).toBe('ultimabase.acl')
-		expect(protectedSchemas[0]?.provenance.fields.acl?.owner).toMatchObject({
+		const protectedSchema = application.schemas.get(ProtectedPost.className)
+		expect(protectedSchema).toBe(ProtectedPost)
+		expect(protectedSchema?.fields.acl?.kind).toBe('ultimabase.acl')
+		expect(protectedSchema?.provenance.fields.acl?.owner).toMatchObject({
 			kind: 'plugin',
 			pluginId: 'ultimabase.acl',
 		})

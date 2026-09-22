@@ -20,6 +20,9 @@ reference-maintenance queries. Ordinary policy evaluation does not elevate,
 and neither a subject resolver nor another policy plugin inherits this
 privilege through ACL.
 
+`aclPlugin()` returns no application setup value through `getPlugin()`. Inspect
+the configured schemas through `application.schemas` when needed.
+
 PostgreSQL stores the ACL as non-null indexed JSONB on the protected row through
 the field's portable versioned codec. Object and ACL writes are therefore one
 atomic row mutation with no generated ACL table. Logical role names resolve to

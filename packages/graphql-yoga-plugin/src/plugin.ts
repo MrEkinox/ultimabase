@@ -59,15 +59,7 @@ type GraphqlYogaPluginDefinition = Readonly<{
 	}>
 	readonly peers: typeof graphqlYogaPeers
 	readonly privileges: typeof graphqlYogaPrivileges
-	readonly setup: () => GraphqlYogaPluginExports
 }>
-
-/** Exposes only the normalized public adapter configuration. */
-export interface GraphqlYogaPluginExports {
-	readonly bodyLimit: number
-	readonly introspection: boolean
-	readonly path: string
-}
 
 /** Names the single official GraphQL-over-HTTP adapter. */
 export type GraphqlYogaPlugin = PluginModuleInstance<
@@ -112,6 +104,5 @@ export const graphqlYogaPlugin = (
 		},
 		peers: graphqlYogaPeers,
 		privileges: graphqlYogaPrivileges,
-		setup: () => immutableRecord(normalized),
 	})
 }

@@ -7,18 +7,12 @@ import type {
 	runtimeBehaviorCapability,
 	runtimeConstraintCapability,
 	runtimeInterceptorCapability,
-	SchemaDefinition,
 } from '@ultimabase/core'
 import type { PluginModule, PluginModuleInstance } from '@ultimabase/plugin-kit'
 
 import type { aclChangedEventsCapability } from './acl-events.js'
 import type { ACLEntryLimits } from './acl-limits.js'
 import type { aclPluginName } from './acl-option.js'
-
-/** Exposes ACL-enabled schemas discovered in one application. */
-export interface ACLPluginExports {
-	readonly schemas: readonly SchemaDefinition[]
-}
 
 /** Configures application-wide defaults for persisted ACL size. */
 export interface ACLPluginOptions {
@@ -113,7 +107,6 @@ type ACLPluginDefinition = Readonly<{
 		]
 	}>
 	readonly privileges: ACLPluginPrivileges
-	readonly setup: () => ACLPluginExports
 }>
 
 /** Represents the exact optional ACL provider configured for one application. */

@@ -7,6 +7,7 @@ Fetch application from `@ultimabase/http-plugin`.
 It also provides `graphqlHttpEndpointCapability` from
 `@ultimabase/graphql-http`. Provider-neutral developer tools can discover the
 configured path without importing Yoga or choosing among endpoints.
+The Yoga plugin itself returns no setup value through `getPlugin()`.
 
 The package does not install GraphQL, HTTP, authentication, or a server. The
 application must configure those sibling plugins explicitly:

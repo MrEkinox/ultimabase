@@ -12,6 +12,9 @@ hierarchy, and deletion maintenance initiate audited internal Master queries.
 Caller-selected Master execution is merely inherited; no dependency, peer, or
 policy consumer receives this privilege from Roles.
 
+`rolesPlugin()` keeps its application-local setup work but returns no value
+through `getPlugin()`; registered role schemas remain in `application.schemas`.
+
 ```ts
 import { Schema, UltimaBase } from '@ultimabase/core'
 import { accessPlugin } from '@ultimabase/access-plugin'

@@ -935,3 +935,18 @@ Le plugin, `field.vector()`, `vectorField()`, le codec GraphQL, les déclaration
 Typegen et les tests de conformité sont conservés. Le site de documentation et
 le README du package décrivent le chemin de validation restant. Ce retrait
 ciblé ne fait pas partie des jalons 30 et 31.
+
+### Sorties `setup` inutilisées de cinq plugins — 22 septembre 2026
+
+Après validation explicite, les résultats de `setup` et les types publics
+`ACLPluginExports`, `RolesPluginExports`, `GraphqlYogaPluginExports`,
+`GraphiqlPluginExports` et `ApolloSandboxPluginExports` sont retirés. Leurs
+consommateurs identifiés étaient des assertions de tests, pas des parcours
+produit. Le plugin Roles conserve son `setup` : il lie les contributions de
+nettoyage de références à l'application, sans retourner de valeur. Les quatre
+autres plugins n'exécutent plus un `setup` dédié à ces façades.
+
+Les capacités ACL, Roles, Yoga et les deux explorateurs, leurs routes et
+leurs politiques restent inchangées. `getPlugin()` et les résultats utiles
+d'autres plugins restent disponibles. Les pages du site ne documentaient pas
+ces cinq résultats ; les README des packages précisent désormais leur absence.

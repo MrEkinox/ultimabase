@@ -854,10 +854,5 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 			],
 		},
 		declare: declareACLSchema,
-		setup: ({ schemas }) => {
-			return Object.freeze({
-				schemas: Object.freeze(readProtectedSchemas(schemas)),
-			})
-		},
 	})
 }

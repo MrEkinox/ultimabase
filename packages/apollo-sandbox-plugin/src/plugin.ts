@@ -14,7 +14,6 @@ import {
 	type PluginModule,
 	type PluginModuleInstance,
 } from '@ultimabase/plugin-kit'
-import { immutableRecord } from '@ultimabase/shared'
 
 import {
 	normalizeApolloSandboxPluginOptions,
@@ -46,12 +45,6 @@ const privileges = [
 	},
 ] as const
 
-/** Reports the route decision without exposing application identity. */
-export interface ApolloSandboxPluginExports {
-	readonly enabled: boolean
-	readonly path: string
-}
-
 type EnabledDefinition = Readonly<{
 	readonly capabilities: Readonly<{
 		readonly provides: readonly [
@@ -67,12 +60,9 @@ type EnabledDefinition = Readonly<{
 		}>,
 	]
 	readonly privileges: typeof privileges
-	readonly setup: () => ApolloSandboxPluginExports
 }>
 
-type DisabledDefinition = Readonly<{
-	readonly setup: () => ApolloSandboxPluginExports
-}>
+type DisabledDefinition = Readonly<{ readonly setup?: never }>
 
 /** Names one independently configured Apollo Sandbox UI plugin. */
 export type ApolloSandboxPlugin =
@@ -84,10 +74,8 @@ export const apolloSandboxPlugin = (
 	options: ApolloSandboxPluginOptions,
 ): ApolloSandboxPlugin => {
 	const normalized = normalizeApolloSandboxPluginOptions(options)
-	// Normalization consumes the environment and retains only the public route decision.
-	const setup = (): ApolloSandboxPluginExports => immutableRecord(normalized)
 	if (!normalized.enabled) {
-		const disabled = module.plugin({ setup } satisfies DisabledDefinition)
+		const disabled = module.plugin({} satisfies DisabledDefinition)
 		return disabled
 	}
 
@@ -110,7 +98,6 @@ export const apolloSandboxPlugin = (
 		environment: ['environment:network'],
 		peers: [{ pluginId: '@ultimabase/http-plugin', version: '^0.0.0' }],
 		privileges,
-		setup,
 	} satisfies EnabledDefinition)
 	return enabled
 }
