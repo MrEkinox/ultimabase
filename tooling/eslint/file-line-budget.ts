@@ -13,14 +13,11 @@ export interface FileLineBudgetPolicy {
 export const handwrittenFileLineBaseline: Readonly<Record<string, number>> =
 	Object.freeze({
 		'packages/acl-permissions-plugin/src/plugin.test.ts': 1034,
-		'packages/acl-permissions-plugin/src/plugin.ts': 858,
 		'packages/core/src/runtime/enforcement/dispatcher.test.ts': 895,
 		'packages/core/src/runtime/pipeline/runtime-pipeline.test.ts': 1127,
 		'packages/core/src/runtime/validation/runtime-validation.test.ts': 807,
 		'packages/postgres-plugin/src/drizzle/adapter.test.ts': 1634,
-		'packages/postgres-plugin/src/drizzle/prepared-operation.ts': 720,
 		'packages/postgres-plugin/src/query/filter-compiler.test.ts': 804,
-		'packages/postgres-plugin/src/query/filter-compiler.ts': 650,
 		'packages/typegen/src/generator-language-service.test.ts': 864,
 		'packages/core/tests/e2e/relation-postgres.postgres.e2e.test.ts': 943,
 		'packages/core/tests/e2e/runtime-postgres.postgres.e2e.test.ts': 1139,

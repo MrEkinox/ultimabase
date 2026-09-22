@@ -1,7 +1,6 @@
 import type {
 	DatabaseRowFilterNode,
 	FieldValidationPlan,
-	QueryFilterExpression,
 	QueryFilterNode,
 	QueryRelationFilterNode,
 	QueryRegexFlag,
@@ -38,95 +37,19 @@ import {
 } from '../schema/value-codec.js'
 import { compilePostgresPluginFieldContains } from './plugin-field-containment-compiler.js'
 import { stringifyPostgresJsonbParameter } from './jsonb-parameter.js'
-
-interface RuntimeFilterTarget {
-	readonly field: string
-	readonly path?: readonly string[]
-}
-
-type RuntimeEqualityFilter = RuntimeFilterTarget &
-	Readonly<{ kind: 'equal' | 'not-equal'; value: unknown }>
-
-type RuntimeComparisonFilter = RuntimeFilterTarget &
-	Readonly<{
-		kind:
-			| 'greater-than'
-			| 'greater-than-or-equal'
-			| 'less-than'
-			| 'less-than-or-equal'
-		value: unknown
-	}>
-
-type RuntimeRangeFilter = RuntimeFilterTarget &
-	Readonly<{
-		kind: 'between' | 'not-between'
-		lower: unknown
-		upper: unknown
-	}>
-
-type RuntimeMembershipFilter = RuntimeFilterTarget &
-	Readonly<{ kind: 'in' | 'not-in'; values: readonly unknown[] }>
-
-type RuntimeListFilter = RuntimeFilterTarget &
-	Readonly<
-		| { kind: 'list-empty' }
-		| { kind: 'list-has'; value: unknown }
-		| {
-				kind: 'list-has-every' | 'list-has-some'
-				values: readonly unknown[]
-		  }
-	>
-
-type RuntimeStringOrContainmentFilter = RuntimeFilterTarget &
-	Readonly<{
-		kind: 'contained-by' | 'contains' | 'ends-with' | 'starts-with'
-		value: unknown
-	}>
-
-type RuntimeKeyFilter = RuntimeFilterTarget &
-	Readonly<{ kind: 'has-key'; value: string }>
-
-type RuntimeKeysFilter = RuntimeFilterTarget &
-	Readonly<{
-		kind: 'has-all-keys' | 'has-any-keys'
-		keys: readonly string[]
-	}>
-
-type RuntimeJsonPathFilter = RuntimeFilterTarget &
-	Readonly<{
-		kind: 'json-path-exists' | 'json-path-matches'
-		source: string
-		variables?: Readonly<Record<string, unknown>>
-	}>
-
-type RuntimeRegexFilter = RuntimeFilterTarget &
-	Readonly<{
-		kind: 'regex'
-		pattern: Readonly<{
-			flags: readonly QueryRegexFlag[]
-			source: string
-		}>
-	}>
-
-type RuntimeNullFilter = RuntimeFilterTarget &
-	Readonly<{ kind: 'null'; isNull: boolean }>
-
-type RuntimePrimitiveFilter =
-	| RuntimeComparisonFilter
-	| RuntimeEqualityFilter
-	| RuntimeJsonPathFilter
-	| RuntimeKeyFilter
-	| RuntimeKeysFilter
-	| RuntimeListFilter
-	| RuntimeMembershipFilter
-	| RuntimeNullFilter
-	| RuntimeRangeFilter
-	| RuntimeRegexFilter
-	| RuntimeStringOrContainmentFilter
-
-type RuntimeFilter = QueryFilterExpression<
-	RuntimePrimitiveFilter | QueryRelationFilterNode
->
+import type {
+	RuntimeEqualityFilter,
+	RuntimeFilter,
+	RuntimeJsonPathFilter,
+	RuntimeKeyFilter,
+	RuntimeKeysFilter,
+	RuntimeListFilter,
+	RuntimeMembershipFilter,
+	RuntimePrimitiveFilter,
+	RuntimeRangeFilter,
+	RuntimeRegexFilter,
+	RuntimeStringOrContainmentFilter,
+} from './filter-contracts.js'
 
 /** Compiles one correlated relation leaf against the current source alias. */
 export type PostgresRelationPredicateCompiler = (

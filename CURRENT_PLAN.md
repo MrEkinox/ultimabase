@@ -17,4 +17,4 @@ marking the final issue complete. Never push without a separate request.
 Stop and explain if a split requires an unapproved architecture change, loses
 public behavior or coverage, or required validation cannot be completed.
 
-Resume point: issue 3203.
+Resume point: issue 3204.
