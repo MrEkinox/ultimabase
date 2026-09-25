@@ -2,113 +2,15 @@
 
 Public authoring helpers for official and community UltimaBase plugins.
 
-`plugin-kit` is not a plugin and installs no Runtime behavior. It removes common
-declaration boilerplate while delegating owner attribution, privilege checks,
-capability storage, schema validation, lifecycle, adapters, and Master authority
-to `@ultimabase/core`.
+`plugin-kit` is not a plugin and installs no Runtime behavior. Core now owns
+package identity, configured plugin instances, public plugin typing, provenance,
+privilege checks, capability storage, lifecycle, adapters, and Master authority.
+Use Core's `definePluginModule()` and `PluginModuleInstance` directly.
 
-## Define one package once
-
-Bind the stable package facts once, then create as many explicit instances as
-the application needs:
-
-```ts
-import { definePluginModule } from '@ultimabase/plugin-kit'
-
-const workflow = definePluginModule({
-	pluginId: 'community.workflow',
-	version: '1.0.0',
-	core: '^1.0.0',
-})
-
-export const workflowPlugin = (instanceId?: string) =>
-	workflow.plugin({
-		...(instanceId === undefined ? {} : { instanceId }),
-		privileges: [
-			{
-				name: 'operation:declare',
-				reason: 'Declares workflow operations.',
-			},
-		] as const,
-		setup: () => ({ ready: true as const }),
-	})
-```
-
-The module cannot override or grant a privilege. Its `plugin(...)` method calls
-Core's public `definePlugin(...)`, which validates the complete manifest and
-binds the real `{ pluginId, instanceId? }` owner. Keep using Core directly when
-one file contains a single definition and binding the three stable package facts
-would not improve consistency.
-
-Transport authors also use Core directly for
-`applicationRequestExecutionCapability`. Declare its exact requirement, then
-capture the resulting facade, application callback executor, and owner inside
-the transport's own application capability factory. Plugin Kit intentionally
-adds no wrapper that could obscure request attribution, Master elevation, or
-the Core-owned lifecycle boundary.
-
-Owner-private collections likewise use Core's `definePrivateCollection()` and
-`privateStore()` directly. Plugin Kit deliberately adds no repository wrapper:
-the visible collection token and Core's attributed callback preserve exact
-application and plugin-instance ownership. `definePluginModule()` may still
-remove repeated package identity fields from plugins requesting the critical
-`storage:private` privilege.
-
-`plugin(...)` also forwards Core's structured `peers` option. Use it when an
-addon requires a compatible engine but the engine consumes the addon's
-capability, so no lifecycle edge should be introduced.
-
-Keep every definition in the application's flat `plugins` list. Use
-`dependencies` for required identity plus provider-first lifecycle order,
-`optionalDependencies` for that order only when the provider is installed,
-`peers` for compatible identity without order, and capabilities for versioned
-behavior that may have interchangeable providers.
-
-### Name an exact public plugin type
-
-Packages compiled with TypeScript `isolatedDeclarations` cannot always publish
-the inferred return type of a plugin factory. `PluginModuleInstance` maps a
-module plus a named, property-based definition contract to the same exact
-`FrameworkPlugin` type without repeating its positional generic tuple:
-
-```ts
-import {
-	definePluginModule,
-	type PluginModuleInstance,
-} from '@ultimabase/plugin-kit'
-
-const workflow = definePluginModule({
-	pluginId: 'community.workflow',
-	version: '1.0.0',
-	core: '^1.0.0',
-})
-const privileges = [
-	{
-		name: 'runtime:observe',
-		reason: 'Records workflow timing.',
-	},
-] as const
-type WorkflowDefinition = Readonly<{
-	readonly instanceId: 'editorial'
-	readonly privileges: typeof privileges
-	readonly setup: () => Readonly<{ readonly ready: true }>
-}>
-
-export type WorkflowPlugin = PluginModuleInstance<
-	typeof workflow,
-	WorkflowDefinition
->
-export const workflowPlugin = (): WorkflowPlugin =>
-	workflow.plugin({
-		instanceId: 'editorial',
-		privileges,
-		setup: () => ({ ready: true as const }),
-	})
-```
-
-The definition contract names only real Core manifest properties. Privilege
-names and reasons, capability IDs, peers, and instance identity remain visible;
-the utility is type-only and does not install or validate anything itself.
+Plugin Kit is reserved for optional higher-level composition such as events,
+option parsing, contextual fields, and immutable schema-patch builders. Its
+temporary milestone-33 re-export of the Core module API exists only while
+official packages migrate and is not a second supported authoring path.
 
 ## Publish typed post-commit events
 

@@ -1604,6 +1604,54 @@ includes only its code, retryability, `publicMessage`, and `publicDetails`.
 Transports map that payload to their protocol-specific error formats without
 adding transport metadata to Core.
 
+## Author plugin packages
+
+Core owns the canonical package-level authoring entry point. Bind the package
+identity once, then create configured instances without repeating it:
+
+```ts
+import {
+	definePluginModule,
+	type PluginModuleInstance,
+} from '@ultimabase/core'
+
+const workflow = definePluginModule({
+	pluginId: 'community.workflow',
+	version: '1.0.0',
+	core: '^1.0.0',
+})
+
+const privileges = [
+	{
+		name: 'operation:declare',
+		reason: 'Declares workflow operations.',
+	},
+] as const
+
+type WorkflowDefinition = Readonly<{
+	readonly instanceId?: string
+	readonly privileges: typeof privileges
+	readonly setup: () => Readonly<{ readonly ready: true }>
+}>
+
+export type WorkflowPlugin = PluginModuleInstance<
+	typeof workflow,
+	WorkflowDefinition
+>
+
+export const workflowPlugin = (instanceId?: string): WorkflowPlugin =>
+	workflow.plugin({
+		...(instanceId === undefined ? {} : { instanceId }),
+		privileges,
+		setup: () => ({ ready: true as const }),
+	})
+```
+
+`PluginModuleInstance` derives the exact plugin type from named definition
+properties, so published packages do not spell `FrameworkPlugin`'s positional
+generic tuple. `plugin(...)` accepts every Core definition option and cannot
+override the module's immutable `pluginId`, `version`, or Core range.
+
 ## Cross-plugin integration
 
 Versioned capabilities are the only public cross-plugin integration host.

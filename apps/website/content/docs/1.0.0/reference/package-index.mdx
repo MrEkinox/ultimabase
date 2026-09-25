@@ -10,7 +10,7 @@ order: 1
 outcome: Choose the packages you need and verify their runtime and plugin compatibility.
 owner: '2816'
 releaseStatus: pre-release
-reviewedAt: 2026-09-21
+reviewedAt: 2026-09-25
 sources:
   - README.md
   - package.json
@@ -19,6 +19,7 @@ sources:
   - packages/*/src/index.ts
   - docs/RELEASING.md
   - apps/website/lib/docs-versions.ts
+  - docs/adr/0269-core-native-plugin-authoring.md
 ---
 
 Use this page to choose package roots, not to configure each plugin. The
@@ -63,7 +64,7 @@ behavior; add its factory to your application graph.
 | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `@ultimabase/core`       | Schema, Query, application, and Runtime API. Start with [Application](/docs/1.0.0/core/application).                                                                                            |
 | `@ultimabase/shared`     | Foundation contracts used by packages; most applications do not need a direct import.                                                                                                           |
-| `@ultimabase/plugin-kit` | Public helpers for [plugin authors](/docs/1.0.0/plugins/build-a-plugin).                                                                                                                        |
+| `@ultimabase/plugin-kit` | Optional composition helpers for events, options, contextual fields, and schema patches. Start plugin authoring with [Core](/docs/1.0.0/plugins/build-a-plugin).                                  |
 | `@ultimabase/create-app` | Unpublished [project initializer](/docs/1.0.0/quick-start); its packed local executable generates TypeScript or JavaScript applications with the official plugin choices described there.       |
 | `@ultimabase/typegen`    | Optional [generated TypeScript declarations](/docs/1.0.0/guides/generate-types), not a Runtime client.                                                                                          |
 | `@ultimabase/testing`    | Public application-test isolation and plugin conformance utilities; see [Test an Application](/docs/1.0.0/guides/test-an-application) and [Build a Plugin](/docs/1.0.0/plugins/build-a-plugin). |

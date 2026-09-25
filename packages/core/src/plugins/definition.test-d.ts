@@ -90,7 +90,7 @@ test('unwraps asynchronous setup exports and preserves relationships', () => {
 		peers: [{ pluginId: 'fixture.protocol', version: '^1.0.0' }] as const,
 	})
 
-	expectTypeOf(child).toHaveProperty('setup')
+	expectTypeOf(child).not.toHaveProperty('setup')
 	expectTypeOf<PluginExports<typeof child>>().toEqualTypeOf<{
 		readonly ready: true
 	}>()

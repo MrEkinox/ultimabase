@@ -8,7 +8,7 @@ order: 4
 outcome: Export a reusable plugin factory and verify its application-local setup result.
 owner: '2810'
 releaseStatus: pre-release
-reviewedAt: 2026-09-21
+reviewedAt: 2026-09-25
 sources:
   - packages/core/README.md
   - packages/plugin-kit/README.md
@@ -17,6 +17,7 @@ sources:
   - docs/adr/0190-capability-host-lifecycle-and-legacy-convergence.md
   - docs/adr/0191-plugin-privilege-taxonomy-and-diagnostics.md
   - docs/adr/0208-enforceable-plugin-powers-and-environment-truth.md
+  - docs/adr/0269-core-native-plugin-authoring.md
 ---
 
 ## Outcome
@@ -39,26 +40,27 @@ plugin does not add schema fields, operations, or Runtime behavior yet.
 
 ## Steps
 
-### Install the authoring packages
+### Install Core
 
-Install Core and the optional Plugin Kit helper in your plugin package:
+Install Core in your plugin package:
 
 ```bash tab="npm" tab-group="package-manager"
-npm install @ultimabase/core @ultimabase/plugin-kit
+npm install @ultimabase/core
 ```
 
 ```bash tab="yarn"
-yarn add @ultimabase/core @ultimabase/plugin-kit
+yarn add @ultimabase/core
 ```
 
 ```bash tab="pnpm"
-pnpm add @ultimabase/core @ultimabase/plugin-kit
+pnpm add @ultimabase/core
 ```
 
-Plugin Kit removes repeated package identity fields.
-It is not a plugin, registry, service locator, or permission bypass.
-It installs no Runtime behavior. If one file contains only one definition,
-calling Core's `definePlugin()` directly is equally valid.
+Plugin Kit is optional. Install it later only when an event, option parser,
+contextual-field helper, or immutable patch builder helps the plugin. Package
+identity and configured plugin definitions belong directly to Core.
+It provides no generic registry, service locator, privilege shortcut, or
+alternate plugin-registration path.
 
 ### Export a static factory
 
@@ -66,7 +68,7 @@ Export the factory at the package root so consumers never need a `src/`
 deep import:
 
 ```ts title="src/index.ts"
-import { definePluginModule } from '@ultimabase/plugin-kit'
+import { definePluginModule } from '@ultimabase/core'
 
 const workflow = definePluginModule({
 	core: '^1.0.0',

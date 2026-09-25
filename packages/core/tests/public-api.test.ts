@@ -112,6 +112,7 @@ describe('@ultimabase/core public entry point', () => {
 			'definePluginField',
 			'definePluginFieldType',
 			'definePluginFieldWireProtocol',
+			'definePluginModule',
 			'definePluginOutputDescriptor',
 			'definePrivateCollection',
 			'defineRequestSubjectReferenceCleanup',

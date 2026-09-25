@@ -1,22 +1,18 @@
-# Current plan: remove file-line budget exceptions
+# Current plan: simplify Core-native plugin authoring
 
-The user authorized repository-wide remediation on 2026-09-22. Keep the
-production hard limit at 600 lines, set the test hard limit to 700 lines, and
-retain the advisory warnings at 400/600. Split by existing responsibility;
-never compress code or weaken tests merely to satisfy a count. Preserve all
-public behavior, package exports, test assertions, coverage thresholds, and
-generated-artifact exclusions.
+The user authorized the complete milestone on 2026-09-25. Creating a plugin
+through `@ultimabase/core` must be the shortest canonical path. Plugin Kit may
+retain optional domain helpers, but it must not be required to hide Core
+registration, capability, operation, Typegen, or public typing boilerplate.
 
-Work through [milestone 32](issues/3200-file-line-budget-remediation/README.md)
-in order. After each issue, run focused tests, audit the complete diff and
-relevant API/coverage implications, correct findings, and repeat until the
-audit is clean. Then make one dedicated local commit and report added/deleted
-lines. Run the full validation and compare test counts and coverage before
-marking the final issue complete. Never push without a separate request.
+Work through
+[milestone 33](issues/3300-core-plugin-authoring-simplification/README.md) in
+order. Preserve every current plugin capability, option, privilege, lifecycle,
+transport, Typegen, schema, private-storage, and Runtime behavior. This is an
+authoring-form migration, not permission to weaken provenance, security,
+explicit transport selection, or application isolation.
 
-Stop and explain if a split requires an unapproved architecture change, loses
-public behavior or coverage, or required validation cannot be completed.
-
-Milestone 32 is complete. All six issues have dedicated local commits and their
-handoffs record validation, audit corrections, line counts, and documentation
-impact. No push has been requested.
+Each issue receives focused runtime and type tests, a complete diff audit, one
+dedicated local commit, and a documentation-impact classification. Temporary
+bridges may exist only between consecutive milestone commits and must be gone
+before the final audit. Do not push without a separate request.

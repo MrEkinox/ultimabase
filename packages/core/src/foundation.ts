@@ -33,6 +33,13 @@ export type {
 } from './errors/framework-error.js'
 export type { PluginErrorPayload } from './errors/plugin-error.js'
 export { definePlugin } from './plugins/definition.js'
+export { definePluginModule } from './plugins/plugin-module.js'
+export type {
+	DefinePluginModuleOptions,
+	PluginModule,
+	PluginModuleDefinitionOptions,
+	PluginModuleInstance,
+} from './plugins/plugin-module.js'
 export {
 	defineOperation,
 	defineOperationValue,

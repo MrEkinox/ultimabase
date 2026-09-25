@@ -89,6 +89,8 @@ consistent without rewriting historical issue prose.
 - [`2900-interactive-project-initializer/`](2900-interactive-project-initializer/README.md)
 - [`3000-pre-feature-architecture-simplification/`](3000-pre-feature-architecture-simplification/README.md)
 - [`3100-residual-complexity-simplification/`](3100-residual-complexity-simplification/README.md)
+- [`3200-file-line-budget-remediation/`](3200-file-line-budget-remediation/README.md)
+- [`3300-core-plugin-authoring-simplification/`](3300-core-plugin-authoring-simplification/README.md)
 
 ## Assignment prompt
 

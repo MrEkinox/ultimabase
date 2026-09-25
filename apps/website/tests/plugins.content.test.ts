@@ -126,7 +126,7 @@ describe('plugin documentation contracts', () => {
 		}
 	})
 
-	it('states explicit installation and preserves Plugin Kit boundaries', async () => {
+	it('states explicit installation and keeps Core authoring independent from Plugin Kit', async () => {
 		const pages = await Promise.all(
 			['overview.mdx', 'using-plugins.mdx', 'build-a-plugin/index.mdx'].map(
 				(relativePath) =>
@@ -141,9 +141,14 @@ describe('plugin documentation contracts', () => {
 		expect(documentation).toContain(
 			'Importing a plugin package never installs it.',
 		)
+		expect(documentation).toContain('Plugin Kit is optional.')
 		expect(documentation).toContain(
-			'not a plugin, registry, service locator, or permission bypass',
+			'identity and configured plugin definitions belong directly to Core.',
 		)
+		expect(documentation).toContain(
+			'no generic registry, service locator,',
+		)
+		expect(documentation).toContain('privilege shortcut')
 	})
 
 	it('keeps official and community ownership visibly separate', async () => {
