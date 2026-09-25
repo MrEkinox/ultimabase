@@ -1,17 +1,17 @@
 import {
 	FrameworkApplication,
 	Schema,
+	contributeOperation,
 	defineOperation,
 	defineOperationValue,
+	definePluginModule,
+	defineTypegenReference,
 	stringField,
 } from '@ultimabase/core'
 import {
 	SchemaPatchBuilder,
-	definePluginModule,
 	definePluginOptionsParser,
-	defineTypegenModule,
 	patchSchemas,
-	providePluginOperation,
 	schemaPatch,
 } from '@ultimabase/plugin-kit'
 import { describe, expect, it } from 'vitest'
@@ -33,7 +33,10 @@ describe('packed @ultimabase/plugin-kit', () => {
 			}),
 		})
 		const standardNormalized = parseStandardOptions({ mode: 'publish' })
-		const types = defineTypegenModule('@fixture/packed-plugin')
+		const echoInput = defineTypegenReference({
+			exportName: 'EchoInput',
+			module: '@fixture/packed-plugin',
+		})
 		const patch = schemaPatch().addField({
 			contributionId: 'state',
 			field: stringField(),
@@ -48,8 +51,7 @@ describe('packed @ultimabase/plugin-kit', () => {
 			transaction: 'forbidden',
 			version: '1.0.0',
 		})
-		const operationProvider = providePluginOperation({
-			contributionId: 'echo',
+		const operationContribution = contributeOperation({
 			execute: ({ input }) => input,
 			operation: echo,
 		})
@@ -63,9 +65,8 @@ describe('packed @ultimabase/plugin-kit', () => {
 			version: '1.0.0',
 		})
 		const plugin = module.plugin({
-			capabilities: { provides: [operationProvider] },
-			declare: ({ operations, schemas }) => {
-				operations.declare(echo)
+			operations: [operationContribution],
+			declare: ({ schemas }) => {
 				schemas.patch(
 					patchSchemas({
 						patch,
@@ -95,7 +96,7 @@ describe('packed @ultimabase/plugin-kit', () => {
 		expect(Object.isFrozen(standardNormalized)).toBe(true)
 		expect(patch).toBeInstanceOf(SchemaPatchBuilder)
 		expect(Target.definition.fields).toHaveProperty('state')
-		expect(types.reference('EchoInput')).toMatchObject({
+		expect(echoInput).toMatchObject({
 			exportName: 'EchoInput',
 			module: '@fixture/packed-plugin',
 		})

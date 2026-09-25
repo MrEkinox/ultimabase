@@ -8,13 +8,15 @@ const fileName = path.join(
 	'plugin-kit-authoring.fixture.ts',
 )
 const source = `
-import { stringField } from '@ultimabase/core'
-import { z } from 'zod'
 import {
   definePluginModule,
+  stringField,
+  type PluginModuleInstance,
+} from '@ultimabase/core'
+import { z } from 'zod'
+import {
   definePluginOptionsParser,
   schemaPatch,
-  type PluginModuleInstance,
 } from '../src/index.js'
 
 const workflow = definePluginModule({

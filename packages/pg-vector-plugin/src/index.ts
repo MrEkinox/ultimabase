@@ -4,18 +4,16 @@ import {
 	type CompatibleFieldOptionsInput,
 	definePluginField,
 	definePluginFieldWireProtocol,
+	definePluginModule,
 	type FieldListOption,
 	type FieldOptions,
 	type FieldValidationPlan,
 	type PluginFieldDefinition,
-	type ScalarValidationPlan,
-} from '@ultimabase/core'
-import {
-	definePluginFieldBuilderMethod,
-	definePluginModule,
 	type PluginModule,
 	type PluginModuleInstance,
-} from '@ultimabase/plugin-kit'
+	type ScalarValidationPlan,
+} from '@ultimabase/core'
+import { definePluginFieldBuilderMethod } from '@ultimabase/plugin-kit'
 
 /** Names the immutable logical value shared by generation and runtime. */
 export type VectorValue = readonly number[]

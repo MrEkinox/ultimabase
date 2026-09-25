@@ -15,26 +15,12 @@ export {
 	type PluginEventObserver,
 } from './plugin-events.js'
 export {
-	definePluginModule,
-	type DefinePluginModuleOptions,
-	type PluginModule,
-	type PluginModuleDefinitionOptions,
-	type PluginModuleInstance,
-} from './plugin-module.js'
-export {
 	definePluginOptionsParser,
 	type DefinePluginOptionsParserOptions,
 	type DefineStandardSchemaPluginOptionsParserOptions,
 	type PluginOptionsParser,
 	type PluginOptionValues,
 } from './plugin-options.js'
-export {
-	providePluginOperation,
-	type DirectPluginOperationProviderOptions,
-	type PluginOperationHandlerResource,
-	type PluginOperationProviderOptions,
-	type ResourcePluginOperationProviderOptions,
-} from './plugin-operation.js'
 export {
 	patchSchemas,
 	schemaPatch,
@@ -47,7 +33,6 @@ export {
 	type SetPatchFieldOptionOptions,
 	type SetPatchSchemaOptionOptions,
 } from './schema-patch.js'
-export { defineTypegenModule, type TypegenModule } from './typegen-module.js'
 export {
 	defineOutputDescriptor,
 	definePluginFieldBuilderMethod,

@@ -3,7 +3,9 @@ import {
 	defineFieldBuilderMethod,
 	defineFieldOption,
 	definePluginField,
+	definePluginModule,
 	defineSchemaOption,
+	defineTypegenReference,
 	requireCapability,
 	type FieldOptions,
 	type JsonObject,
@@ -11,12 +13,7 @@ import {
 	type PluginFieldDefinition,
 	type SchemaDefinition,
 } from '@ultimabase/core'
-import {
-	definePluginModule,
-	defineTypegenModule,
-	patchSchemas,
-	schemaPatch,
-} from '@ultimabase/plugin-kit'
+import { patchSchemas, schemaPatch } from '@ultimabase/plugin-kit'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 /** Exact logical decimal representation used by Runtime, Typegen, and adapters. */
@@ -119,7 +116,10 @@ export const decimalField = (): DecimalField =>
 /** Generated FieldBuilder contract for the logical decimal field. */
 export type DecimalFieldBuilderMethod = () => DecimalField
 
-const valueTypes = defineTypegenModule('@fixture/open-kernel')
+const decimalValueType = defineTypegenReference({
+	exportName: 'DecimalValue',
+	module: '@fixture/open-kernel',
+})
 const decimalBuilderMethod = defineFieldBuilderMethod({
 	name: 'preciseDecimal',
 	contexts: {
@@ -128,7 +128,7 @@ const decimalBuilderMethod = defineFieldBuilderMethod({
 			fieldKind: decimalFieldKind,
 			typegen: {
 				methodType: 'DecimalFieldBuilderMethod',
-				module: valueTypes.module,
+				module: decimalValueType.module,
 				valueType: 'DecimalValue',
 			},
 		},
@@ -151,7 +151,7 @@ export const createValuePlugin = (
 	options: ValuePluginOptions,
 ): PluginDefinition =>
 	valueModule.plugin({
-		capabilities: { requires: [storage] },
+		capabilities: [storage],
 		declare: ({ fields, schemas, typegenReferences }) => {
 			fields.register(decimalBuilderMethod)
 			schemas.defineOptions({
@@ -173,7 +173,7 @@ export const createValuePlugin = (
 				}),
 			)
 			// The compiled graph retains its reference even without startup generation.
-			typegenReferences.register(valueTypes.reference('DecimalValue'))
+			typegenReferences.register(decimalValueType)
 		},
 		instanceId: options.instanceId,
 		privileges: [

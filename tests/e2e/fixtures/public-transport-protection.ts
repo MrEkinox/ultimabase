@@ -1,13 +1,11 @@
 import {
+	contributeOperation,
 	defineOperation,
 	defineOperationTransport,
 	defineOperationValue,
 	definePlugin,
-	operationHandler,
 	operationTransportBinding,
 	operationWireCodec,
-	provideOperationHandler,
-	provideOperationTransportBinding,
 } from '@ultimabase/core'
 
 const emptyValue = defineOperationValue((value, path): null => {
@@ -43,27 +41,14 @@ const binding = operationTransportBinding({
 /** Declares one public operation and wire binding through package-root APIs. */
 export const createPublicTransportDiagnosticPlugin = () =>
 	definePlugin({
-		capabilities: {
-			provides: [
-				provideOperationHandler({
-					contributionId: 'handler',
-					create: () => ({
-						value: operationHandler({
-							execute: () => null,
-							operation: publicTransportDiagnosticOperation,
-						}),
-					}),
-				}),
-				provideOperationTransportBinding({
-					contributionId: 'binding',
-					create: () => ({ value: binding }),
-				}),
-			],
-		},
 		core: '^0.0.0',
-		declare: ({ operations }) => {
-			operations.declare(publicTransportDiagnosticOperation)
-		},
+		operations: [
+			contributeOperation({
+				bindings: [binding],
+				execute: () => null,
+				operation: publicTransportDiagnosticOperation,
+			}),
+		],
 		pluginId: 'fixture.public-transport-protection.operations',
 		privileges: [
 			{

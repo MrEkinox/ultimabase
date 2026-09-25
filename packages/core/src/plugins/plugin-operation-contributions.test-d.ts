@@ -3,14 +3,20 @@ import { expectTypeOf, test } from 'vitest'
 import {
 	contributeOperation,
 	contributeOperationBinding,
+	contributeSchemaMutation,
+	contributeSchemaMutationBinding,
 	defineOperation,
 	defineOperationTransport,
 	defineOperationValue,
 	definePluginModule,
+	defineSchemaMutation,
 	operationTransportBinding,
 	operationWireCodec,
+	schemaMutationTransportBinding,
+	schemaMutationWireCodec,
 	type ApplicationCapabilityFactoryContext,
 	type PluginOperationContribution,
+	type PluginSchemaMutationContribution,
 } from '../index.js'
 
 const input = defineOperationValue((value) => String(value))
@@ -34,6 +40,23 @@ const codec = operationWireCodec({
 	transport,
 })
 const binding = operationTransportBinding({ codec, operation: inspect })
+const archive = defineSchemaMutation({
+	authority: 'request',
+	effect: 'update',
+	input,
+	name: 'fixture.contribution.archive',
+	returning: 'after',
+	version: '1.0.0',
+})
+const mutationCodec = schemaMutationWireCodec({
+	decode: (value: { readonly text: string }) => value.text,
+	mutation: archive,
+	transport,
+})
+const mutationBinding = schemaMutationTransportBinding({
+	codec: mutationCodec,
+	mutation: archive,
+})
 
 test('infers direct, resource-backed, and binding-only contributions', () => {
 	const direct = contributeOperation({
@@ -84,6 +107,34 @@ test('accepts operation contributions directly in the Core plugin factory', () =
 	expectTypeOf(
 		plugin.manifest.identity.pluginId,
 	).toEqualTypeOf<'fixture.operation-module'>()
+})
+
+test('infers schema-mutation contributions through the same Core factory', () => {
+	const direct = contributeSchemaMutation({
+		bindings: [mutationBinding],
+		mutation: archive,
+		resolve: () => ({ data: { workflowState: 'archived' } }),
+	})
+	const resource = contributeSchemaMutation({
+		create: (context) => {
+			expectTypeOf(context).toEqualTypeOf<ApplicationCapabilityFactoryContext>()
+			return {
+				dispose: () => undefined,
+				resolve: () => ({ data: { workflowState: 'archived' } }),
+			}
+		},
+		mutation: archive,
+	})
+	const externalBinding = contributeSchemaMutationBinding(mutationBinding)
+
+	expectTypeOf(direct).toEqualTypeOf<
+		PluginSchemaMutationContribution<
+			typeof archive,
+			readonly [typeof mutationBinding]
+		>
+	>()
+	expectTypeOf(resource.mutation).toEqualTypeOf<typeof archive>()
+	expectTypeOf(externalBinding.binding).toEqualTypeOf<typeof mutationBinding>()
 })
 
 test('rejects handlers whose results do not match the operation', () => {

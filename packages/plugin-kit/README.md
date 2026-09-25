@@ -5,12 +5,10 @@ Public authoring helpers for official and community UltimaBase plugins.
 `plugin-kit` is not a plugin and installs no Runtime behavior. Core now owns
 package identity, configured plugin instances, public plugin typing, provenance,
 privilege checks, capability storage, lifecycle, adapters, and Master authority.
-Use Core's `definePluginModule()` and `PluginModuleInstance` directly.
-
-Plugin Kit is reserved for optional higher-level composition such as events,
-option parsing, contextual fields, and immutable schema-patch builders. Its
-temporary milestone-33 re-export of the Core module API exists only while
-official packages migrate and is not a second supported authoring path.
+Use Core's `definePluginModule()`, operation contributions, and nominal Typegen
+references directly. Plugin Kit is reserved for optional higher-level
+composition such as events, option parsing, contextual fields, and immutable
+schema-patch builders.
 
 ## Publish typed post-commit events
 
@@ -282,33 +280,15 @@ Keeping these Core calls visible preserves exact owner attribution, the
 `operation:declare` and `model:extend` privilege split, target freezing,
 collision checks, and the callback-free compilation boundary.
 
-## Group Typegen references
-
-Use one module object when several public types come from the same package:
-
-```ts
-import { defineTypegenModule } from '@ultimabase/plugin-kit'
-
-const workflowTypes = defineTypegenModule('@example/workflow-plugin')
-
-export const publishInputType = workflowTypes.reference('PublishInput')
-export const publishResultType = workflowTypes.reference('PublishResult')
-```
-
-Every reference still crosses Core's nominal `defineTypegenReference(...)`
-boundary. Registering it requires `typegen:reference`; generated contracts come
-from the compiled graph. Typegen produces inert
-declarations only; this helper cannot emit JavaScript or create a Runtime client.
-
 ## Static and Runtime boundaries
 
-| Concern                        | Static declaration                      | Application/Runtime                            |
-| ------------------------------ | --------------------------------------- | ---------------------------------------------- |
-| Plugin identity and privileges | `definePluginModule` + `module.plugin`  | Core validates before effects                  |
-| Option fingerprint facts       | plugin-owned normalized safe values     | secrets and resources stay out                 |
-| Schema patches                 | `schemaPatch` + `patchSchemas`          | Core applies owner-attributed operations       |
-| Operations                     | token and provider declaration          | handler materializes and executes through Core |
-| Typegen                        | nominal references and structured facts | no executable generated client                 |
+| Concern                        | Static declaration                           | Application/Runtime                            |
+| ------------------------------ | -------------------------------------------- | ---------------------------------------------- |
+| Plugin identity and privileges | Core `definePluginModule` + `module.plugin`  | Core validates before effects                  |
+| Option fingerprint facts       | plugin-owned normalized safe values          | secrets and resources stay out                 |
+| Schema patches                 | `schemaPatch` + `patchSchemas`               | Core applies owner-attributed operations       |
+| Operations                     | Core-owned operation contribution            | handler materializes and executes through Core |
+| Typegen                        | Core nominal references and structured facts | no executable generated client                 |
 
 ## When to use Core directly
 

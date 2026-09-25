@@ -3,6 +3,7 @@ import {
 	booleanField,
 	constraint,
 	databaseConstraint,
+	definePluginModule,
 	normalizeUpdateExpression,
 	persistencePlanRewriter,
 	providePersistencePlanRewriter,
@@ -12,11 +13,7 @@ import {
 	type PluginDefinition,
 	type SchemaDefinition,
 } from '@ultimabase/core'
-import {
-	definePluginModule,
-	patchSchemas,
-	schemaPatch,
-} from '@ultimabase/plugin-kit'
+import { patchSchemas, schemaPatch } from '@ultimabase/plugin-kit'
 
 export const softDeleteVisibilityConstraintKind =
 	'fixture.open-kernel.soft-delete-visible' as const
@@ -59,19 +56,17 @@ export const createSoftDeletePlugin = (
 	})
 
 	return softDeleteModule.plugin({
-		capabilities: {
-			provides: [
-				provideRuntimeConstraint({
-					contributionId: 'visible-rows',
-					create: () => ({ value: visible }),
-				}),
-				providePersistencePlanRewriter({
-					contributionId: 'logical-delete',
-					create: () => ({ value: rewriter }),
-				}),
-			],
-			requires: [persistence],
-		},
+		capabilities: [
+			provideRuntimeConstraint({
+				contributionId: 'visible-rows',
+				create: () => ({ value: visible }),
+			}),
+			providePersistencePlanRewriter({
+				contributionId: 'logical-delete',
+				create: () => ({ value: rewriter }),
+			}),
+			persistence,
+		],
 		declare: ({ schemas }) => {
 			schemas.patch(
 				patchSchemas({

@@ -25,6 +25,7 @@ import {
 	type PluginOperationContributionCapabilities,
 } from './plugin-operation-contributions.js'
 import type { PluginOperationDefinition } from './plugin-operations.js'
+import type { PluginSchemaMutationDefinition } from './plugin-schema-mutations.js'
 import {
 	assertPluginId,
 	formatPluginIdentity,
@@ -73,7 +74,9 @@ export type PluginLifecyclePhase = keyof PluginLifecycleHooks<unknown>
 
 interface PluginStaticDefinition {
 	readonly declare: PluginDeclaration | undefined
-	readonly operations: readonly PluginOperationDefinition[]
+	readonly operations: readonly (
+		PluginOperationDefinition | PluginSchemaMutationDefinition
+	)[]
 }
 
 interface PluginRuntimeDefinition {

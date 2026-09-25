@@ -1,24 +1,18 @@
 import {
 	booleanField,
+	definePluginModule,
 	providePersistencePlanRewriter,
 	provideRuntimeConstraint,
 	type CapabilityProviderDeclaration,
-	type persistencePlanRewriterCapability,
-	type pluginSchemaMutationHandlerCapability,
-	type runtimeConstraintCapability,
-} from '@ultimabase/core'
-import {
-	definePluginModule,
-	patchSchemas,
-	schemaPatch,
 	type PluginModule,
 	type PluginModuleInstance,
-} from '@ultimabase/plugin-kit'
+	type PluginOperationAuthoringContribution,
+	type persistencePlanRewriterCapability,
+	type runtimeConstraintCapability,
+} from '@ultimabase/core'
+import { patchSchemas, schemaPatch } from '@ultimabase/plugin-kit'
 
-import {
-	softDeleteNoInputTypegen,
-	type SoftDeletePluginOptions,
-} from './contracts.js'
+import type { SoftDeletePluginOptions } from './contracts.js'
 import {
 	normalizeSoftDeletePluginOptions,
 	softDeleteSchemaOption,
@@ -30,11 +24,11 @@ import {
 } from './visibility.js'
 import { createSoftDeletePersistenceRewriter } from './replace-delete.js'
 import {
-	createExplicitSoftDeleteProviders,
+	createExplicitSoftDeleteContribution,
 	softDeleteMutation,
 } from './explicit.js'
 import {
-	createSoftDeleteAdministrationProviders,
+	createSoftDeleteAdministrationContributions,
 	purgeMutation,
 	restoreMutation,
 } from './administration.js'
@@ -80,21 +74,15 @@ const softDeletePluginPrivileges = [
 	},
 ] as const
 
-type SoftDeletePluginCapabilities = Readonly<{
-	readonly provides: readonly [
-		CapabilityProviderDeclaration<typeof runtimeConstraintCapability>,
-		CapabilityProviderDeclaration<typeof persistencePlanRewriterCapability>,
-		CapabilityProviderDeclaration<typeof pluginSchemaMutationHandlerCapability>,
-		CapabilityProviderDeclaration,
-		CapabilityProviderDeclaration,
-		CapabilityProviderDeclaration<typeof pluginSchemaMutationHandlerCapability>,
-		CapabilityProviderDeclaration<typeof pluginSchemaMutationHandlerCapability>,
-	]
-}>
+type SoftDeletePluginCapabilities = readonly [
+	CapabilityProviderDeclaration<typeof runtimeConstraintCapability>,
+	CapabilityProviderDeclaration<typeof persistencePlanRewriterCapability>,
+]
 
 type SoftDeletePluginDefinition = Readonly<{
 	readonly capabilities: SoftDeletePluginCapabilities
 	readonly instanceId?: string
+	readonly operations: readonly PluginOperationAuthoringContribution[]
 	readonly privileges: typeof softDeletePluginPrivileges
 }>
 
@@ -135,8 +123,9 @@ export const softDeletePlugin = (
 			),
 		}),
 	})
-	const explicitProviders = createExplicitSoftDeleteProviders()
-	const administrationProviders = createSoftDeleteAdministrationProviders()
+	const explicitContribution = createExplicitSoftDeleteContribution()
+	const administrationContributions =
+		createSoftDeleteAdministrationContributions()
 	const tombstonePatch = schemaPatch().addField({
 		contributionId: softDeleteTombstoneContributionId,
 		field: booleanField({ default: false, required: true }),
@@ -149,19 +138,9 @@ export const softDeletePlugin = (
 			? {}
 			: { instanceId: normalized.instanceId }),
 		privileges: softDeletePluginPrivileges,
-		capabilities: {
-			provides: [
-				visibilityProvider,
-				replaceDeleteProvider,
-				...explicitProviders,
-				...administrationProviders,
-			],
-		},
-		declare: ({ models, operations, schemas, typegenReferences }) => {
-			typegenReferences.register(softDeleteNoInputTypegen)
-			operations.declare(softDeleteMutation)
-			operations.declare(restoreMutation)
-			operations.declare(purgeMutation)
+		capabilities: [visibilityProvider, replaceDeleteProvider],
+		operations: [explicitContribution, ...administrationContributions],
+		declare: ({ models, schemas }) => {
 			schemas.defineOptions({
 				contributionId: 'official-soft-delete-schema-option',
 				schema: { softDelete: softDeleteSchemaOption },

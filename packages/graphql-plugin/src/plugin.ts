@@ -1,20 +1,18 @@
 import {
 	applicationOperationTransportPlanningCapability,
 	applicationRequestExecutionCapability,
+	definePluginModule,
 	optionalCapability,
 	provideCapability,
 	requireCapability,
 	type CapabilityProviderDeclaration,
 	type CapabilityRequirement,
-	type PluginOperationDefinition,
 	type CapabilityProviderContribution,
-} from '@ultimabase/core'
-import {
-	definePluginModule,
-	definePluginOptionsParser,
 	type PluginModule,
 	type PluginModuleInstance,
-} from '@ultimabase/plugin-kit'
+	type PluginOperationDefinition,
+} from '@ultimabase/core'
+import { definePluginOptionsParser } from '@ultimabase/plugin-kit'
 import { immutableArray, isUnknownArray } from '@ultimabase/shared'
 import { GraphQLSchema } from 'graphql'
 
@@ -178,22 +176,19 @@ const graphqlPluginPrivileges = [
 	},
 ] as const
 
-type GraphqlPluginCapabilities = Readonly<{
-	readonly optional: readonly [typeof optionalSchemaContributions]
-	readonly provides: readonly [
-		CapabilityProviderDeclaration<typeof graphqlApplicationCapability>,
-	]
-	readonly requires: readonly [
-		CapabilityRequirement<
-			typeof applicationRequestExecutionCapability,
-			false,
-			'^1.0.0',
-			'materialization'
-		>,
-		typeof operationPlanningRequirement,
-		typeof graphqlApplicationRequirement,
-	]
-}>
+type GraphqlPluginCapabilities = readonly [
+	typeof optionalSchemaContributions,
+	CapabilityProviderDeclaration<typeof graphqlApplicationCapability>,
+
+	CapabilityRequirement<
+		typeof applicationRequestExecutionCapability,
+		false,
+		'^1.0.0',
+		'materialization'
+	>,
+	typeof operationPlanningRequirement,
+	typeof graphqlApplicationRequirement,
+]
 
 const pluginSchemaSources = (
 	contributions: readonly CapabilityProviderContribution<
@@ -312,15 +307,13 @@ export const graphqlPlugin = (
 			}
 		},
 	})
-	const capabilities: GraphqlPluginCapabilities = {
-		optional: [optionalSchemaContributions],
-		provides: [applicationProvider],
-		requires: [
-			requestExecutionRequirement,
-			operationPlanningRequirement,
-			graphqlApplicationRequirement,
-		],
-	}
+	const capabilities: GraphqlPluginCapabilities = [
+		optionalSchemaContributions,
+		applicationProvider,
+		requestExecutionRequirement,
+		operationPlanningRequirement,
+		graphqlApplicationRequirement,
+	]
 
 	return graphqlPluginModule.plugin({
 		capabilities,

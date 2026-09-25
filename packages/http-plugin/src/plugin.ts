@@ -1,17 +1,15 @@
 import {
 	applicationRequestExecutionCapability,
+	definePluginModule,
 	optionalCapability,
 	provideCapability,
 	requireCapability,
 	type CapabilityProviderDeclaration,
 	type CapabilityRequirement,
-} from '@ultimabase/core'
-import {
-	definePluginModule,
-	definePluginOptionsParser,
 	type PluginModule,
 	type PluginModuleInstance,
-} from '@ultimabase/plugin-kit'
+} from '@ultimabase/core'
+import { definePluginOptionsParser } from '@ultimabase/plugin-kit'
 import {
 	assertNonEmptyString,
 	immutableRecord,
@@ -128,17 +126,13 @@ const masterPrivileges = [
 ] as const
 type HttpPluginPrivileges = readonly [] | typeof masterPrivileges
 
-type HttpPluginCapabilities = Readonly<{
-	readonly optional: readonly [
-		typeof optionalContextResolverContributions,
-		typeof optionalEndpointContributions,
-	]
-	readonly provides: readonly [
-		CapabilityProviderDeclaration<typeof httpApplicationCapability>,
-		CapabilityProviderDeclaration<typeof httpBrowserPolicyCapability>,
-	]
-	readonly requires: readonly [typeof requestExecutionRequirement]
-}>
+type HttpPluginCapabilities = readonly [
+	typeof optionalContextResolverContributions,
+	typeof optionalEndpointContributions,
+	CapabilityProviderDeclaration<typeof httpApplicationCapability>,
+	CapabilityProviderDeclaration<typeof httpBrowserPolicyCapability>,
+	typeof requestExecutionRequirement,
+]
 
 type HttpPluginDefinition = Readonly<{
 	readonly capabilities: HttpPluginCapabilities
@@ -178,14 +172,13 @@ export const httpPlugin = (options: HttpPluginOptions): HttpPlugin => {
 		contributionId: 'official-http-browser-policy',
 		create: () => ({ value: normalized.browser }),
 	})
-	const capabilities: HttpPluginCapabilities = {
-		optional: [
-			optionalContextResolverContributions,
-			optionalEndpointContributions,
-		],
-		provides: [applicationProvider, browserPolicyProvider],
-		requires: [requestExecutionRequirement],
-	}
+	const capabilities: HttpPluginCapabilities = [
+		optionalContextResolverContributions,
+		optionalEndpointContributions,
+		applicationProvider,
+		browserPolicyProvider,
+		requestExecutionRequirement,
+	]
 	const privileges: HttpPluginPrivileges = normalized.masterEnabled
 		? masterPrivileges
 		: []

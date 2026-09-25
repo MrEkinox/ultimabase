@@ -44,6 +44,19 @@ export {
 	contributeOperation,
 	contributeOperationBinding,
 } from './plugins/plugin-operation-contributions.js'
+export {
+	contributeSchemaMutation,
+	contributeSchemaMutationBinding,
+} from './plugins/plugin-schema-mutation-contributions.js'
+export type {
+	DirectPluginSchemaMutationContributionOptions,
+	PluginSchemaMutationAuthoringContribution,
+	PluginSchemaMutationBindingContribution,
+	PluginSchemaMutationContribution,
+	PluginSchemaMutationContributionOptions,
+	PluginSchemaMutationResource,
+	ResourcePluginSchemaMutationContributionOptions,
+} from './plugins/plugin-schema-mutation-contributions.js'
 export type {
 	DirectPluginOperationContributionOptions,
 	PluginOperationAuthoringContribution,

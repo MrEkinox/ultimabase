@@ -73,6 +73,8 @@ describe('@ultimabase/core public entry point', () => {
 			'constraint',
 			'contributeOperation',
 			'contributeOperationBinding',
+			'contributeSchemaMutation',
+			'contributeSchemaMutationBinding',
 			'createApplication',
 			'createDatabasePersistencePlan',
 			'createFinalMutationValidationStage',

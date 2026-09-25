@@ -11,7 +11,6 @@ import {
 	type PluginOperationDefinition,
 	type PluginOperationInput,
 	type PluginOperationResult,
-	type TypegenReference,
 	type SchemaResult,
 } from '@ultimabase/core'
 import {
@@ -82,16 +81,6 @@ const passwordChangeResultReference = defineTypegenReference({
 	exportName: 'PasswordChangeResult',
 	module: '@ultimabase/password-auth-plugin',
 })
-
-/** Registers the exact public package types referenced by generated declarations. */
-export const passwordAuthTypegenReferences: readonly TypegenReference[] = [
-	credentialsInputReference,
-	passwordChangeInputReference,
-	signUpInputReference,
-	authenticationResultReference,
-	logoutResultReference,
-	passwordChangeResultReference,
-] as const
 
 const credentialsInput = defineOperationValue<PasswordCredentialsInput>(
 	(value, path) => {

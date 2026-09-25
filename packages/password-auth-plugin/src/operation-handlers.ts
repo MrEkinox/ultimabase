@@ -1,8 +1,8 @@
 import {
 	FrameworkError,
 	Pointer,
-	operationHandler,
-	type PluginOperationHandlerDefinition,
+	contributeOperation,
+	type PluginOperationContribution,
 } from '@ultimabase/core'
 import { immutableRecord } from '@ultimabase/shared'
 
@@ -90,7 +90,7 @@ const readModelPointer = <TUser extends PasswordUserReference>(
 const createSignUpHandler = <TUser extends PasswordUserReference>(
 	options: PasswordOperationHandlerOptions<TUser>,
 ) =>
-	operationHandler({
+	contributeOperation({
 		operation: passwordAuthOperations.signUp,
 		execute: async ({ engine, input }) => {
 			let normalized: ReturnType<typeof normalizeCredentials>
@@ -161,7 +161,7 @@ const unchangedCredential = (
 const createLoginHandler = <TUser extends PasswordUserReference>(
 	options: PasswordOperationHandlerOptions<TUser>,
 ) =>
-	operationHandler({
+	contributeOperation({
 		operation: passwordAuthOperations.login,
 		execute: async ({ engine, input }) => {
 			let normalized: ReturnType<typeof normalizeCredentials>
@@ -229,7 +229,7 @@ const createLoginHandler = <TUser extends PasswordUserReference>(
 const createLogoutHandler = (
 	options: PasswordOperationHandlerOptions<PasswordUserReference>,
 ) =>
-	operationHandler({
+	contributeOperation({
 		operation: passwordAuthOperations.logout,
 		execute: async ({ context }) => {
 			const session = context.getValue(passwordSession)
@@ -246,7 +246,7 @@ const createLogoutHandler = (
 const createLogoutEverywhereHandler = (
 	options: PasswordOperationHandlerOptions<PasswordUserReference>,
 ) =>
-	operationHandler({
+	contributeOperation({
 		operation: passwordAuthOperations.logoutEverywhere,
 		execute: async ({ context }) => {
 			const principal = context.getValue(passwordPrincipal)
@@ -278,7 +278,7 @@ const createLogoutEverywhereHandler = (
 const createChangePasswordHandler = (
 	options: PasswordOperationHandlerOptions<PasswordUserReference>,
 ) =>
-	operationHandler({
+	contributeOperation({
 		operation: passwordAuthOperations.changePassword,
 		execute: async ({ context, engine, input }) => {
 			const principal = context.getValue(passwordPrincipal)
@@ -348,7 +348,7 @@ const createChangePasswordHandler = (
 const createRefreshHandler = <TUser extends PasswordUserReference>(
 	options: PasswordOperationHandlerOptions<TUser>,
 ) =>
-	operationHandler({
+	contributeOperation({
 		operation: passwordAuthOperations.refresh,
 		execute: async ({ context }) => {
 			const principal = context.getValue(passwordPrincipal)
@@ -394,16 +394,12 @@ export const createPasswordOperationHandlers = <
 >(
 	options: PasswordOperationHandlerOptions<TUser>,
 ): readonly [
-	PluginOperationHandlerDefinition<typeof passwordAuthOperations.signUp>,
-	PluginOperationHandlerDefinition<typeof passwordAuthOperations.login>,
-	PluginOperationHandlerDefinition<typeof passwordAuthOperations.logout>,
-	PluginOperationHandlerDefinition<
-		typeof passwordAuthOperations.logoutEverywhere
-	>,
-	PluginOperationHandlerDefinition<
-		typeof passwordAuthOperations.changePassword
-	>,
-	PluginOperationHandlerDefinition<typeof passwordAuthOperations.refresh>,
+	PluginOperationContribution<typeof passwordAuthOperations.signUp>,
+	PluginOperationContribution<typeof passwordAuthOperations.login>,
+	PluginOperationContribution<typeof passwordAuthOperations.logout>,
+	PluginOperationContribution<typeof passwordAuthOperations.logoutEverywhere>,
+	PluginOperationContribution<typeof passwordAuthOperations.changePassword>,
+	PluginOperationContribution<typeof passwordAuthOperations.refresh>,
 ] => [
 	createSignUpHandler(options),
 	createLoginHandler(options),

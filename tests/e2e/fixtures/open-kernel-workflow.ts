@@ -1,13 +1,15 @@
 import {
 	Schema,
+	contributeOperation,
 	defineOperation,
 	defineOperationTransport,
 	defineOperationValue,
+	definePluginModule,
 	defineSchemaOption,
+	defineTypegenReference,
 	intField,
 	operationTransportBinding,
 	operationWireCodec,
-	provideOperationTransportBinding,
 	stringField,
 	type JsonObject,
 	type SchemaDefinition,
@@ -19,13 +21,7 @@ import {
 	provideHookEvent,
 	schemaHooks,
 } from '@ultimabase/hooks-plugin'
-import {
-	definePluginModule,
-	defineTypegenModule,
-	patchSchemas,
-	providePluginOperation,
-	schemaPatch,
-} from '@ultimabase/plugin-kit'
+import { patchSchemas, schemaPatch } from '@ultimabase/plugin-kit'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 export interface WorkflowSchemaOption extends JsonObject {
@@ -51,13 +47,14 @@ export const workflowCommittedEvent = defineEvent<WorkflowCommittedPayload>()(
 	{ delivery: 'required' },
 )
 
-const workflowTypes = defineTypegenModule('@fixture/open-kernel')
-const transitionInputReference = workflowTypes.reference(
-	'WorkflowTransitionInput',
-)
-const transitionResultReference = workflowTypes.reference(
-	'WorkflowTransitionResult',
-)
+const transitionInputReference = defineTypegenReference({
+	exportName: 'WorkflowTransitionInput',
+	module: '@fixture/open-kernel',
+})
+const transitionResultReference = defineTypegenReference({
+	exportName: 'WorkflowTransitionResult',
+	module: '@fixture/open-kernel',
+})
 const workflowOption = defineSchemaOption<WorkflowSchemaOption>({
 	normalize: (value, path) => {
 		if (
@@ -70,7 +67,7 @@ const workflowOption = defineSchemaOption<WorkflowSchemaOption>({
 	},
 	protocolVersion: 1,
 	typegen: {
-		module: workflowTypes.module,
+		module: '@fixture/open-kernel',
 		type: 'WorkflowSchemaOption',
 	},
 })
@@ -146,50 +143,43 @@ export const createWorkflowPlugin = (options: WorkflowPluginOptions) => {
 	})
 	const plugin = workflowModule.plugin({
 		peers: [{ pluginId: '@ultimabase/hooks-plugin', version: '^0.0.0' }],
-		capabilities: {
-			provides: [
-				providePluginOperation({
-					contributionId: 'inspect-handler',
-					execute: () =>
-						immutableRecord({
-							schema: 'application',
-							state: 'application' as const,
-						}),
-					operation: inspectWorkflow,
-				}),
-
-				provideOperationTransportBinding({
-					contributionId: 'fake-transport',
-					create: () => ({ value: workflowTransportBinding }),
-				}),
-				provideHookContributions('workflow-audit-hooks', () =>
-					schemaHooks(DynamicAudit, {
-						afterOperation: {
-							create: ({ context, item }) => {
-								const action = item.action
-								if (typeof action !== 'string') {
-									throw new TypeError('Workflow audit action must be a string')
-								}
-								context.emit(workflowCommittedEvent, {
-									action,
-									auditId: item.id,
-								})
-							},
+		capabilities: [
+			provideHookContributions('workflow-audit-hooks', () =>
+				schemaHooks(DynamicAudit, {
+					afterOperation: {
+						create: ({ context, item }) => {
+							const action = item.action
+							if (typeof action !== 'string') {
+								throw new TypeError('Workflow audit action must be a string')
+							}
+							context.emit(workflowCommittedEvent, {
+								action,
+								auditId: item.id,
+							})
 						},
+					},
+				}),
+			),
+			provideHookEvent(
+				'committed-events',
+				onEvent<typeof workflowCommittedEvent.name, WorkflowCommittedPayload>({
+					handler: ({ event }) => options.onCommitted?.(event.payload),
+					name: workflowCommittedEvent.name,
+				}),
+			),
+		],
+		operations: [
+			contributeOperation({
+				bindings: [workflowTransportBinding],
+				execute: () =>
+					immutableRecord({
+						schema: 'application',
+						state: 'application' as const,
 					}),
-				),
-				provideHookEvent(
-					'committed-events',
-					onEvent<typeof workflowCommittedEvent.name, WorkflowCommittedPayload>(
-						{
-							handler: ({ event }) => options.onCommitted?.(event.payload),
-							name: workflowCommittedEvent.name,
-						},
-					),
-				),
-			],
-		},
-		declare: ({ operations, schemas, typegenReferences }) => {
+				operation: inspectWorkflow,
+			}),
+		],
+		declare: ({ schemas }) => {
 			schemas.defineOptions({
 				contributionId: 'workflow-options',
 				schema: { workflow: workflowOption },
@@ -222,10 +212,6 @@ export const createWorkflowPlugin = (options: WorkflowPluginOptions) => {
 					}),
 				}),
 			)
-			operations.declare(inspectWorkflow)
-			// Public references belong to the declaration, independent of installed tooling.
-			typegenReferences.register(transitionInputReference)
-			typegenReferences.register(transitionResultReference)
 		},
 		instanceId: options.instanceId,
 		privileges: [

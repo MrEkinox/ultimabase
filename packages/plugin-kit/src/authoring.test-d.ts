@@ -1,26 +1,25 @@
 import {
+	contributeOperation,
 	defineOperation,
 	defineOperationValue,
+	definePluginModule,
+	defineTypegenReference,
 	type FrameworkPlugin,
 	type JsonObject,
+	type PluginModule,
+	type PluginModuleInstance,
 	type PluginExports,
-	type TypegenReference,
 } from '@ultimabase/core'
 import { expectTypeOf } from 'vitest'
 import { z } from 'zod'
 
 import {
 	defineOutputDescriptor,
-	definePluginModule,
 	definePluginFieldOption,
 	definePluginEvent,
 	observePluginEvent,
 	definePluginOptionsParser,
-	defineTypegenModule,
-	providePluginOperation,
 	schemaPatch,
-	type PluginModule,
-	type PluginModuleInstance,
 	type PluginOptionsParser,
 	type SchemaPatchBuilder,
 	type PluginEventObserver,
@@ -82,9 +81,7 @@ expectTypeOf(plugin).toExtend<
 >()
 
 type WorkflowPluginDefinition = Readonly<{
-	readonly capabilities: Readonly<{
-		readonly provides: readonly []
-	}>
+	readonly capabilities: readonly []
 	readonly instanceId: 'editorial'
 	readonly peers: readonly [
 		Readonly<{
@@ -105,7 +102,7 @@ type DerivedWorkflowPlugin = PluginModuleInstance<
 	WorkflowPluginDefinition
 >
 const derivedWorkflowPlugin: DerivedWorkflowPlugin = module.plugin({
-	capabilities: { provides: [] },
+	capabilities: [],
 	instanceId: 'editorial',
 	peers: [{ pluginId: 'community.protocol', version: '^1.0.0' }],
 	privileges: [{ name: 'runtime:observe', reason: 'Records workflow timing.' }],
@@ -157,10 +154,11 @@ expectTypeOf(parseStandardOptions({})).toEqualTypeOf<
 // @ts-expect-error -- Plugin option schemas must produce an object root.
 definePluginOptionsParser({ name: 'primitive options', schema: z.string() })
 
-const types = defineTypegenModule('@example/workflow-plugin')
-expectTypeOf(types.reference('PublishInput')).toEqualTypeOf<
-	TypegenReference<'@example/workflow-plugin', 'PublishInput'>
->()
+const publishInputReference = defineTypegenReference({
+	exportName: 'PublishInput',
+	module: '@example/workflow-plugin',
+})
+expectTypeOf(publishInputReference.exportName).toEqualTypeOf<'PublishInput'>()
 
 expectTypeOf(schemaPatch()).toEqualTypeOf<SchemaPatchBuilder>()
 
@@ -196,8 +194,7 @@ const operation = defineOperation({
 	transaction: 'forbidden',
 	version: '1.0.0',
 })
-providePluginOperation({
-	contributionId: 'publish',
+contributeOperation({
 	execute: ({ input }) => {
 		expectTypeOf(input).toEqualTypeOf<string>()
 		return input
@@ -209,8 +206,7 @@ module.plugin({
 	// @ts-expect-error -- Package facts cannot be replaced per instance.
 	pluginId: 'community.forged',
 })
-providePluginOperation({
-	contributionId: 'invalid',
+contributeOperation({
 	// @ts-expect-error -- Handler results remain correlated with the operation token.
 	execute: () => 42,
 	operation,

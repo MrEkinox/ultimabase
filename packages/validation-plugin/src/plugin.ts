@@ -1,13 +1,11 @@
 import {
+	definePluginModule,
 	provideRuntimeBehavior,
 	type CapabilityProviderDeclaration,
-	type runtimeBehaviorCapability,
-} from '@ultimabase/core'
-import {
-	definePluginModule,
 	type PluginModule,
 	type PluginModuleInstance,
-} from '@ultimabase/plugin-kit'
+	type runtimeBehaviorCapability,
+} from '@ultimabase/core'
 
 import { fieldValidationOption } from './options.js'
 import {
@@ -39,11 +37,9 @@ const validationPluginPrivileges = [
 ] as const
 
 type ValidationPluginDefinition = Readonly<{
-	readonly capabilities: Readonly<{
-		readonly provides: readonly [
-			CapabilityProviderDeclaration<typeof runtimeBehaviorCapability>,
-		]
-	}>
+	readonly capabilities: readonly [
+		CapabilityProviderDeclaration<typeof runtimeBehaviorCapability>,
+	]
 	readonly privileges: typeof validationPluginPrivileges
 }>
 
@@ -72,7 +68,7 @@ export const validationPlugin = (): ValidationPlugin => {
 
 	return validationPluginModule.plugin({
 		privileges: validationPluginPrivileges,
-		capabilities: { provides: [runtimeProvider] },
+		capabilities: [runtimeProvider],
 		declare: ({ schemas }) => {
 			schemas.defineOptions({
 				contributionId: 'official-field-validation-option',

@@ -1,19 +1,17 @@
 import {
 	FrameworkError,
 	applicationSchemaMutationSurfaceCapability,
+	definePluginModule,
 	optionalCapability,
 	provideRuntimeConstraint,
 	protectedPolicy,
 	requireCapability,
 	type CapabilityProviderDeclaration,
 	type CapabilityRequirement,
-	type runtimeConstraintCapability,
-} from '@ultimabase/core'
-import {
-	definePluginModule,
 	type PluginModule,
 	type PluginModuleInstance,
-} from '@ultimabase/plugin-kit'
+	type runtimeConstraintCapability,
+} from '@ultimabase/core'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 import type { AccessDefaultPolicy } from './authoring/plan.js'
@@ -219,16 +217,12 @@ const accessPluginPrivileges = [
 		reason: 'Applies official Access through protected Runtime policy.',
 	},
 ] as const
-type AccessPluginCapabilities = Readonly<{
-	readonly optional: readonly [
-		typeof optionalAccessContributions,
-		typeof optionalAccessDiagnostics,
-	]
-	readonly provides: readonly [
-		CapabilityProviderDeclaration<typeof runtimeConstraintCapability>,
-	]
-	readonly requires: readonly [typeof schemaMutationSurfaceRequirement]
-}>
+type AccessPluginCapabilities = readonly [
+	typeof optionalAccessContributions,
+	typeof optionalAccessDiagnostics,
+	CapabilityProviderDeclaration<typeof runtimeConstraintCapability>,
+	typeof schemaMutationSurfaceRequirement,
+]
 type AccessPluginDefinition = Readonly<{
 	readonly capabilities: AccessPluginCapabilities
 	readonly privileges: typeof accessPluginPrivileges
@@ -292,11 +286,12 @@ export const accessPlugin = (
 
 	return accessPluginModule.plugin({
 		privileges: accessPluginPrivileges,
-		capabilities: {
-			optional: [optionalAccessContributions, optionalAccessDiagnostics],
-			provides: [runtimeProvider],
-			requires: [schemaMutationSurfaceRequirement],
-		},
+		capabilities: [
+			optionalAccessContributions,
+			optionalAccessDiagnostics,
+			runtimeProvider,
+			schemaMutationSurfaceRequirement,
+		],
 		declare: ({ schemas }) => {
 			schemas.defineOptions({
 				contributionId: 'official-access-options',

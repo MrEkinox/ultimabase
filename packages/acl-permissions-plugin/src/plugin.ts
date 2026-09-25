@@ -3,6 +3,7 @@ import {
 	requestPrincipalResolverCapability,
 	requestRoleResolverCapability,
 	FrameworkError,
+	definePluginModule,
 	guard,
 	optionalCapability,
 	preparedOperation,
@@ -20,7 +21,6 @@ import {
 } from '@ultimabase/core'
 import {
 	createPluginEventDispatcher,
-	definePluginModule,
 	definePluginOptionsParser,
 } from '@ultimabase/plugin-kit'
 import {
@@ -387,23 +387,19 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 
 	return aclPluginModule.plugin({
 		privileges: aclPluginPrivileges,
-		capabilities: {
-			optional: [
-				optionalPrincipalResolver,
-				optionalRoleResolver,
-				optionalACLChangedEvents,
-			],
-			provides: [
-				principalReferenceCleanupProvider,
-				roleReferenceCleanupProvider,
-				replacementShapeProvider,
-				fieldPolicyProvider,
-				inputProvider,
-				referenceRowsProvider,
-				rowsProvider,
-				behaviorProvider,
-			],
-		},
+		capabilities: [
+			optionalPrincipalResolver,
+			optionalRoleResolver,
+			optionalACLChangedEvents,
+			principalReferenceCleanupProvider,
+			roleReferenceCleanupProvider,
+			replacementShapeProvider,
+			fieldPolicyProvider,
+			inputProvider,
+			referenceRowsProvider,
+			rowsProvider,
+			behaviorProvider,
+		],
 		declare: declareACLSchema,
 	})
 }

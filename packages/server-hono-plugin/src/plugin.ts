@@ -1,15 +1,16 @@
-import { requireCapability, type CapabilityRequirement } from '@ultimabase/core'
+import {
+	definePluginModule,
+	requireCapability,
+	type CapabilityRequirement,
+	type PluginModule,
+	type PluginModuleInstance,
+} from '@ultimabase/core'
 import {
 	httpApplicationCapability,
 	httpBrowserPolicyCapability,
 	type HttpApplication,
 	type HttpBrowserPolicy,
 } from '@ultimabase/http-plugin'
-import {
-	definePluginModule,
-	type PluginModule,
-	type PluginModuleInstance,
-} from '@ultimabase/plugin-kit'
 import type { Env, Schema } from 'hono'
 
 import {
@@ -44,12 +45,10 @@ const browserPolicyRequirement: CapabilityRequirement<
 })
 
 type HonoServerPluginDefinition = Readonly<{
-	readonly capabilities: Readonly<{
-		readonly requires: readonly [
-			typeof applicationRequirement,
-			typeof browserPolicyRequirement,
-		]
-	}>
+	readonly capabilities: readonly [
+		typeof applicationRequirement,
+		typeof browserPolicyRequirement,
+	]
 	readonly environment: readonly ['environment:network']
 	readonly hooks: Readonly<{
 		readonly dispose: (context: HonoServerLifecycleContext) => Promise<void>
@@ -90,9 +89,7 @@ export const honoServerPlugin = <
 		provider.stop(context.capabilities.get(applicationRequirement))
 
 	return honoServerPluginModule.plugin({
-		capabilities: {
-			requires: [applicationRequirement, browserPolicyRequirement],
-		},
+		capabilities: [applicationRequirement, browserPolicyRequirement],
 		environment: ['environment:network'],
 		hooks: {
 			startTransports: ({ capabilities }) =>

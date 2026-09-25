@@ -1,21 +1,19 @@
 import {
 	applicationOperationTransportPlanningCapability,
 	applicationRequestExecutionCapability,
+	definePluginModule,
 	provideCapability,
 	requireCapability,
 	type ApplicationOperationTransportPlanner,
 	type ApplicationRequestExecutor,
 	type CapabilityProviderDeclaration,
 	type CapabilityRequirement,
+	type PluginModule,
+	type PluginModuleInstance,
 	type PluginOperationDefinition,
 } from '@ultimabase/core'
 import { httpEndpointContributionsCapability } from '@ultimabase/http-plugin'
-import {
-	definePluginModule,
-	definePluginOptionsParser,
-	type PluginModule,
-	type PluginModuleInstance,
-} from '@ultimabase/plugin-kit'
+import { definePluginOptionsParser } from '@ultimabase/plugin-kit'
 import { immutableRecord } from '@ultimabase/shared'
 
 import {
@@ -236,19 +234,15 @@ const restPluginPrivileges = [
 	},
 ] as const
 
-type RestPluginCapabilities = Readonly<{
-	readonly provides: readonly [
-		CapabilityProviderDeclaration<typeof restRouteGraphCapability>,
-		CapabilityProviderDeclaration<typeof restRouteGraphCapability>,
-		CapabilityProviderDeclaration<typeof restRouteGraphCapability>,
-		CapabilityProviderDeclaration<typeof httpEndpointContributionsCapability>,
-	]
-	readonly requires: readonly [
-		typeof routeGraphRequirement,
-		typeof requestExecutionRequirement,
-		typeof transportPlanningRequirement,
-	]
-}>
+type RestPluginCapabilities = readonly [
+	CapabilityProviderDeclaration<typeof restRouteGraphCapability>,
+	CapabilityProviderDeclaration<typeof restRouteGraphCapability>,
+	CapabilityProviderDeclaration<typeof restRouteGraphCapability>,
+	CapabilityProviderDeclaration<typeof httpEndpointContributionsCapability>,
+	typeof routeGraphRequirement,
+	typeof requestExecutionRequirement,
+	typeof transportPlanningRequirement,
+]
 
 type RestPluginDefinition = Readonly<{
 	readonly capabilities: RestPluginCapabilities
@@ -385,19 +379,15 @@ export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 			},
 		},
 	)
-	const capabilities: RestPluginCapabilities = {
-		provides: [
-			routeProvider,
-			operationRouteProvider,
-			schemaMutationRouteProvider,
-			httpEndpointProvider,
-		],
-		requires: [
-			routeGraphRequirement,
-			requestExecutionRequirement,
-			transportPlanningRequirement,
-		],
-	}
+	const capabilities: RestPluginCapabilities = [
+		routeProvider,
+		operationRouteProvider,
+		schemaMutationRouteProvider,
+		httpEndpointProvider,
+		routeGraphRequirement,
+		requestExecutionRequirement,
+		transportPlanningRequirement,
+	]
 
 	return restPluginModule.plugin({
 		...(normalized.instanceId === undefined

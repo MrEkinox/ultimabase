@@ -1,11 +1,11 @@
 import {
+	contributeOperation,
 	defineOperation,
 	defineOperationValue,
 	definePlugin,
 	requireCapability,
 	UltimaBase,
 } from '@ultimabase/core'
-import { providePluginOperation } from '@ultimabase/plugin-kit'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -86,7 +86,7 @@ describe('PostgreSQL adapter capabilities', () => {
 			'^1.0.0',
 		)
 		const setupConsumer = definePlugin({
-			capabilities: { requires: [rawRequirement] },
+			capabilities: [rawRequirement],
 			core: '^0.0.0',
 			pluginId: 'fixture.postgres-raw-setup-consumer',
 			privileges: [
@@ -136,26 +136,20 @@ describe('PostgreSQL adapter capabilities', () => {
 		})
 		let escaped: PostgresRawAdapterFacade | undefined
 		const operationPlugin = definePlugin({
-			capabilities: {
-				provides: [
-					providePluginOperation({
-						contributionId: 'raw-operation',
-						execute: ({ adapters }) =>
-							adapters.withRaw(rawRequirement, async (raw) => {
-								escaped = raw
-								if (raw.scope !== 'transaction') return false
-								const result = await raw.query('SELECT 1')
-								return result.rows.length === 1
-							}),
-						operation: rawOperation,
-					}),
-				],
-				requires: [rawRequirement],
-			},
+			capabilities: [rawRequirement],
 			core: '^0.0.0',
-			declare: ({ operations }) => {
-				operations.declare(rawOperation)
-			},
+			operations: [
+				contributeOperation({
+					execute: ({ adapters }) =>
+						adapters.withRaw(rawRequirement, async (raw) => {
+							escaped = raw
+							if (raw.scope !== 'transaction') return false
+							const result = await raw.query('SELECT 1')
+							return result.rows.length === 1
+						}),
+					operation: rawOperation,
+				}),
+			],
 			pluginId: 'fixture.postgres-raw-consumer',
 			privileges: [
 				{ name: 'adapter:raw', reason: 'Runs one raw transaction query.' },
@@ -164,20 +158,18 @@ describe('PostgreSQL adapter capabilities', () => {
 			version: '1.0.0',
 		})
 		const bridgePlugin = definePlugin({
-			capabilities: {
-				provides: [
-					postgresPhysicalColumn({
-						column: {
-							name: 'workflow_state',
-							nullable: true,
-							type: 'text',
-						},
-						contributionId: 'workflow-column',
-						normalizedStaticOptions: { indexed: false },
-						table: 'workflow_items',
-					}),
-				],
-			},
+			capabilities: [
+				postgresPhysicalColumn({
+					column: {
+						name: 'workflow_state',
+						nullable: true,
+						type: 'text',
+					},
+					contributionId: 'workflow-column',
+					normalizedStaticOptions: { indexed: false },
+					table: 'workflow_items',
+				}),
+			],
 			core: '^0.0.0',
 			instanceId: 'primary',
 			pluginId: 'fixture.workflow-postgres',

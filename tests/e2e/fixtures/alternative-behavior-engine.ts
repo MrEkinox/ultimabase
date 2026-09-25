@@ -1,6 +1,7 @@
 import {
 	Schema,
 	defineCapability,
+	definePluginModule,
 	defineSchemaOption,
 	getOperationSchema,
 	provideCapability,
@@ -15,7 +16,6 @@ import {
 	createPluginEventDispatcher,
 	definePluginEvent,
 	definePluginEventCapability,
-	definePluginModule,
 	observePluginEvent,
 	optionalPluginEvents,
 	providePluginEvent,

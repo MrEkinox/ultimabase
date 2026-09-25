@@ -15,13 +15,14 @@ Typegen reference names the public TypeScript type without copying executable
 code into generated output:
 
 ```ts
-const workflowTypes = defineTypegenModule('@community/workflow-plugin')
-const transitionInputReference = workflowTypes.reference(
-	'WorkflowTransitionInput',
-)
-const transitionResultReference = workflowTypes.reference(
-	'WorkflowTransitionResult',
-)
+const transitionInputReference = defineTypegenReference({
+	exportName: 'WorkflowTransitionInput',
+	module: '@community/workflow-plugin',
+})
+const transitionResultReference = defineTypegenReference({
+	exportName: 'WorkflowTransitionResult',
+	module: '@community/workflow-plugin',
+})
 
 const transitionInput = defineOperationValue(
 	(value, path) => validateTransitionInput(value, path),
@@ -47,15 +48,14 @@ provider receives the validated `input`, resolved `target`, immutable request
 `context`, `engine`, capability `adapters`, and exact contribution `owner`:
 
 ```ts
-const publishProvider = providePluginOperation({
-	contributionId: 'publish-post',
+const publishContribution = contributeOperation({
 	operation: publishPost,
 	execute: async ({ adapters, context, engine, input, owner, target }) =>
 		executePublish({ adapters, context, engine, input, owner, target }),
 })
 ```
 
-Use the provider's `create` form when its handler owns an application-local
+Use the contribution's `create` form when its handler owns an application-local
 resource. `create` receives capability readers and returns
 `{ execute, dispose? }`; Core guarantees cleanup and still owns operation
 validation and Runtime execution.
@@ -75,7 +75,7 @@ const workflowOption = defineSchemaOption<WorkflowSchemaOption>({
 	},
 })
 
-declare: ({ operations, schemas, typegenReferences }) => {
+declare: ({ schemas }) => {
 	schemas.defineOptions({
 		contributionId: 'workflow-options',
 		schema: { workflow: workflowOption },
@@ -94,20 +94,17 @@ declare: ({ operations, schemas, typegenReferences }) => {
 			targets,
 		}),
 	)
-
-	operations.declare(publishPost)
-	typegenReferences?.register(transitionInputReference)
-	typegenReferences?.register(transitionResultReference)
 }
 ```
 
-`schemas.add`, `schemas.claim`, `schemas.defineOptions`, `schemas.patch`, `schemas.select`,
-`operations.declare`, and `typegenReferences.register` are the registrars used
-here. `schemas.claim` assigns plugin ownership to an exact class already listed
+`schemas.add`, `schemas.claim`, `schemas.defineOptions`, `schemas.patch`, and
+`schemas.select` are the registrars used here. `schemas.claim` assigns plugin
+ownership to an exact class already listed
 at the application root without implicitly registering it. Patches are additive
-and require `schema:declare`; operations require
-`operation:declare`; public references require `typegen:reference`. Typegen
-derives declarations from the graph, without a manual output registry.
+and require `schema:declare`. Core derives operation declarations and reachable
+Typegen references from owned contributions; these still require
+`operation:declare` and `typegen:reference`. Typegen derives declarations from
+the graph, without a manual output registry.
 
 For item-oriented updates or deletes, declare a `defineSchemaMutation` token
 and attach its `schemaMutations` with `models.extend` under `model:extend`.
@@ -128,7 +125,7 @@ const workflow = definePluginModule({
 export const workflowPlugin = (options: WorkflowPluginOptions) =>
 	workflow.plugin({
 		instanceId: options.instanceId,
-		capabilities: { provides: [publishProvider] },
+		operations: [publishContribution],
 		declare: workflowDeclaration,
 		privileges: [
 			{
@@ -165,7 +162,7 @@ definePlugin({
 	pluginId: 'community.audit-consumer',
 	version: '1.0.0',
 	core: '^0.0.0',
-	capabilities: { requires: [auditRequirement] },
+	capabilities: [auditRequirement],
 	setup: ({ capabilities }) => {
 		const audit = capabilities.get(auditRequirement)
 		return { audit }
@@ -214,7 +211,7 @@ logger; the detached report remains available through
 ## Use the installed surface
 
 Typegen derives the application operation's exact input and result from its
-registered references. Execute the installed token through the application:
+owned references. Execute the installed token through the application:
 
 ```ts
 await ultimabase
@@ -229,8 +226,8 @@ ownership, capability versions, and application lifetime are validated at Runtim
 ## Adapter, transport, and community helpers
 
 A portable plugin declares logical values and operations independently. A
-database bridge contributes codecs, constraints, persistence plans, physical
-schema metadata, or migrations through versioned adapter capabilities. A
+database bridge contributes codecs, constraints, persistence plans, or physical
+schema metadata through versioned adapter capabilities. A
 transport bridge contributes an explicit wire codec and exposure binding.
 Installing the logical plugin alone exposes neither raw adapter access nor a
 public endpoint.

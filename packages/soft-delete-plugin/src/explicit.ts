@@ -1,14 +1,11 @@
 import {
+	contributeSchemaMutation,
 	defineOperationTransport,
 	defineSchemaMutation,
-	provideSchemaMutationHandler,
-	provideSchemaMutationTransportBinding,
-	schemaMutationHandler,
 	schemaMutationTransportBinding,
 	schemaMutationWireCodec,
-	type CapabilityProviderDeclaration,
+	type PluginSchemaMutationContribution,
 	type PluginSchemaMutationDefinition,
-	type pluginSchemaMutationHandlerCapability,
 } from '@ultimabase/core'
 
 import { softDeleteNoInput } from './contracts.js'
@@ -47,28 +44,16 @@ const decodeUnitInput = (value: unknown): undefined => {
 	return undefined
 }
 
-/** @internal Creates instance-owned execution and transport providers. */
-export const createExplicitSoftDeleteProviders = (): readonly [
-	CapabilityProviderDeclaration<typeof pluginSchemaMutationHandlerCapability>,
-	CapabilityProviderDeclaration,
-	CapabilityProviderDeclaration,
-] =>
-	[
-		provideSchemaMutationHandler({
-			contributionId: 'official-soft-delete-handler',
-			create: () => ({
-				value: schemaMutationHandler({
-					mutation: softDeleteMutation,
-					resolve: () => ({
-						data: { [softDeleteTombstoneFieldName]: true },
-					}),
-				}),
+/** @internal Creates one owned mutation contribution with both wire bindings. */
+export const createExplicitSoftDeleteContribution =
+	(): PluginSchemaMutationContribution<typeof softDeleteMutation> =>
+		contributeSchemaMutation({
+			mutation: softDeleteMutation,
+			resolve: () => ({
+				data: { [softDeleteTombstoneFieldName]: true },
 			}),
-		}),
-		provideSchemaMutationTransportBinding({
-			contributionId: 'official-soft-delete-rest-binding',
-			create: () => ({
-				value: schemaMutationTransportBinding({
+			bindings: [
+				schemaMutationTransportBinding({
 					codec: schemaMutationWireCodec({
 						decode: decodeUnitInput,
 						mutation: softDeleteMutation,
@@ -77,12 +62,7 @@ export const createExplicitSoftDeleteProviders = (): readonly [
 					metadata: { errors: {} },
 					mutation: softDeleteMutation,
 				}),
-			}),
-		}),
-		provideSchemaMutationTransportBinding({
-			contributionId: 'official-soft-delete-graphql-binding',
-			create: () => ({
-				value: schemaMutationTransportBinding({
+				schemaMutationTransportBinding({
 					codec: schemaMutationWireCodec({
 						decode: decodeUnitInput,
 						mutation: softDeleteMutation,
@@ -94,6 +74,5 @@ export const createExplicitSoftDeleteProviders = (): readonly [
 					},
 					mutation: softDeleteMutation,
 				}),
-			}),
-		}),
-	] as const
+			] as const,
+		})

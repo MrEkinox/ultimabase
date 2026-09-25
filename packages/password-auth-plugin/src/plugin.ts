@@ -1,13 +1,16 @@
 import {
 	applicationRequestExecutionCapability,
+	contributeOperationBinding,
+	definePluginModule,
 	getOperationSchema,
 	provideCapability,
-	provideOperationHandler,
-	provideOperationTransportBinding,
 	provideRuntimeBehavior,
 	requestPrincipalResolverCapability,
 	requireCapability,
 	type PluginCapabilityDeclaration,
+	type PluginModule,
+	type PluginModuleInstance,
+	type PluginOperationAuthoringContribution,
 	type CreateManyOperationAst,
 	type CreateOneOperationAst,
 	type DatabaseMutationOperationAst,
@@ -16,11 +19,6 @@ import {
 	type UpsertManyOperationAst,
 	type UpsertOneOperationAst,
 } from '@ultimabase/core'
-import {
-	definePluginModule,
-	type PluginModule,
-	type PluginModuleInstance,
-} from '@ultimabase/plugin-kit'
 import { isPlainRecord } from '@ultimabase/shared'
 
 import { createPasswordCredentialCollection } from './credentials.js'
@@ -46,11 +44,7 @@ import {
 import { normalizePasswordUsername } from './normalization.js'
 import { assertPasswordHashEngineAvailable } from './password-hasher.js'
 import { passwordAuthGraphqlBindings } from './graphql-operation-bindings.js'
-import {
-	passwordAuthOperationList,
-	passwordAuthRestBindings,
-	passwordAuthTypegenReferences,
-} from './operations.js'
+import { passwordAuthRestBindings } from './operations.js'
 import { createPasswordOperationHandlers } from './operation-handlers.js'
 import {
 	resolvePasswordSessionPolicy,
@@ -114,6 +108,7 @@ const requestExecutionRequirement = requireCapability(
 type PasswordAuthPluginDefinition = Readonly<{
 	readonly capabilities: readonly PluginCapabilityDeclaration[]
 	readonly environment: typeof passwordAuthPluginEnvironment
+	readonly operations: readonly PluginOperationAuthoringContribution[]
 	readonly peers: readonly [] | typeof passwordAuthHttpPeers
 	readonly privileges: typeof passwordAuthPluginPrivileges
 	readonly setup: () => PasswordAuthPluginExports
@@ -271,24 +266,12 @@ export const passwordAuthPlugin = <
 		sessions,
 		user,
 	})
-	const handlerProviders = handlers.map((handler, index) =>
-		provideOperationHandler({
-			contributionId: `password-operation-${String(index)}`,
-			create: () => ({ value: handler }),
-		}),
-	)
-	const bindingProviders = [
-		...Object.entries(passwordAuthRestBindings).map(([name, binding]) =>
-			provideOperationTransportBinding({
-				contributionId: `password-rest-${name}`,
-				create: () => ({ value: binding }),
-			}),
+	const bindingContributions = [
+		...Object.values(passwordAuthRestBindings).map((binding) =>
+			contributeOperationBinding(binding),
 		),
-		...Object.entries(passwordAuthGraphqlBindings).map(([name, binding]) =>
-			provideOperationTransportBinding({
-				contributionId: `password-graphql-${name}`,
-				create: () => ({ value: binding }),
-			}),
+		...Object.values(passwordAuthGraphqlBindings).map((binding) =>
+			contributeOperationBinding(binding),
 		),
 	]
 
@@ -297,15 +280,14 @@ export const passwordAuthPlugin = <
 			usernameInvariant,
 			principalResolver,
 			httpSessionResolver,
-			...handlerProviders,
-			...bindingProviders,
 			...(httpCookieIntegration?.providers ?? []),
 			requestExecutionRequirement,
 		],
+		operations: [...handlers, ...bindingContributions],
 		environment: passwordAuthPluginEnvironment,
 		peers: cookie === undefined ? [] : passwordAuthHttpPeers,
 		privileges: passwordAuthPluginPrivileges,
-		declare: ({ operations, privateStorage, schemas, typegenReferences }) => {
+		declare: ({ privateStorage, schemas }) => {
 			const userSchemaDeclaration = {
 				contributionId: 'password-user',
 				schema: user,
@@ -321,12 +303,6 @@ export const passwordAuthPlugin = <
 			}
 			privateStorage.register(credentials)
 			privateStorage.register(sessions)
-			for (const operation of passwordAuthOperationList) {
-				operations.declare(operation)
-			}
-			for (const reference of passwordAuthTypegenReferences) {
-				typegenReferences.register(reference)
-			}
 			return undefined
 		},
 		setup: () => {

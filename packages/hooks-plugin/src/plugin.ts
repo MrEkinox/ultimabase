@@ -1,17 +1,15 @@
 import {
 	applicationSchemaMutationSurfaceCapability,
+	definePluginModule,
 	optionalCapability,
 	provideRuntimeBehavior,
 	requireCapability,
 	type CapabilityProviderDeclaration,
 	type CapabilityRequirement,
-	type runtimeBehaviorCapability,
-} from '@ultimabase/core'
-import {
-	definePluginModule,
 	type PluginModule,
 	type PluginModuleInstance,
-} from '@ultimabase/plugin-kit'
+	type runtimeBehaviorCapability,
+} from '@ultimabase/core'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import { hookContributionsCapability } from './contributions.js'
@@ -129,23 +127,19 @@ const hooksPluginPrivileges = [
 		reason: 'Runs official Hooks through the public Runtime behavior kernel.',
 	},
 ] as const
-const hooksPluginCapabilities: Readonly<{
-	readonly optional: readonly [
-		typeof optionalHookContributions,
-		typeof optionalHookEvents,
-		typeof optionalHookDiagnostics,
-	]
-	readonly provides: readonly [typeof hooksRuntimeProvider]
-	readonly requires: readonly [typeof schemaMutationSurfaceRequirement]
-}> = {
-	optional: [
-		optionalHookContributions,
-		optionalHookEvents,
-		optionalHookDiagnostics,
-	],
-	provides: [hooksRuntimeProvider],
-	requires: [schemaMutationSurfaceRequirement],
-} as const
+const hooksPluginCapabilities: readonly [
+	typeof optionalHookContributions,
+	typeof optionalHookEvents,
+	typeof optionalHookDiagnostics,
+	typeof hooksRuntimeProvider,
+	typeof schemaMutationSurfaceRequirement,
+] = [
+	optionalHookContributions,
+	optionalHookEvents,
+	optionalHookDiagnostics,
+	hooksRuntimeProvider,
+	schemaMutationSurfaceRequirement,
+]
 type HooksPluginDefinition = Readonly<{
 	readonly capabilities: typeof hooksPluginCapabilities
 	readonly privileges: typeof hooksPluginPrivileges

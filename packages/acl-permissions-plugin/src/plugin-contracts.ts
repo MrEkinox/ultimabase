@@ -1,6 +1,8 @@
 import type {
 	CapabilityProviderDeclaration,
 	CapabilityRequirement,
+	PluginModule,
+	PluginModuleInstance,
 	requestPrincipalResolverCapability,
 	requestRoleResolverCapability,
 	requestSubjectReferenceCleanupCapability,
@@ -8,7 +10,6 @@ import type {
 	runtimeConstraintCapability,
 	runtimeInterceptorCapability,
 } from '@ultimabase/core'
-import type { PluginModule, PluginModuleInstance } from '@ultimabase/plugin-kit'
 
 import type { aclChangedEventsCapability } from './acl-events.js'
 import type { ACLEntryLimits } from './acl-limits.js'
@@ -70,42 +71,39 @@ export const aclPluginPrivileges: ACLPluginPrivileges = [
 ]
 
 type ACLPluginDefinition = Readonly<{
-	readonly capabilities: Readonly<{
-		readonly optional: readonly [
-			CapabilityRequirement<
-				typeof requestPrincipalResolverCapability,
-				true,
-				'^1.0.0',
-				'materialization'
-			>,
-			CapabilityRequirement<
-				typeof requestRoleResolverCapability,
-				true,
-				'^1.0.0',
-				'materialization'
-			>,
-			CapabilityRequirement<
-				typeof aclChangedEventsCapability,
-				true,
-				'^1.0.0',
-				'materialization'
-			>,
-		]
-		readonly provides: readonly [
-			CapabilityProviderDeclaration<
-				typeof requestSubjectReferenceCleanupCapability
-			>,
-			CapabilityProviderDeclaration<
-				typeof requestSubjectReferenceCleanupCapability
-			>,
-			CapabilityProviderDeclaration<typeof runtimeConstraintCapability>,
-			CapabilityProviderDeclaration<typeof runtimeConstraintCapability>,
-			CapabilityProviderDeclaration<typeof runtimeInterceptorCapability>,
-			CapabilityProviderDeclaration<typeof runtimeConstraintCapability>,
-			CapabilityProviderDeclaration<typeof runtimeConstraintCapability>,
-			CapabilityProviderDeclaration<typeof runtimeBehaviorCapability>,
-		]
-	}>
+	readonly capabilities: readonly [
+		CapabilityRequirement<
+			typeof requestPrincipalResolverCapability,
+			true,
+			'^1.0.0',
+			'materialization'
+		>,
+		CapabilityRequirement<
+			typeof requestRoleResolverCapability,
+			true,
+			'^1.0.0',
+			'materialization'
+		>,
+		CapabilityRequirement<
+			typeof aclChangedEventsCapability,
+			true,
+			'^1.0.0',
+			'materialization'
+		>,
+
+		CapabilityProviderDeclaration<
+			typeof requestSubjectReferenceCleanupCapability
+		>,
+		CapabilityProviderDeclaration<
+			typeof requestSubjectReferenceCleanupCapability
+		>,
+		CapabilityProviderDeclaration<typeof runtimeConstraintCapability>,
+		CapabilityProviderDeclaration<typeof runtimeConstraintCapability>,
+		CapabilityProviderDeclaration<typeof runtimeInterceptorCapability>,
+		CapabilityProviderDeclaration<typeof runtimeConstraintCapability>,
+		CapabilityProviderDeclaration<typeof runtimeConstraintCapability>,
+		CapabilityProviderDeclaration<typeof runtimeBehaviorCapability>,
+	]
 	readonly privileges: ACLPluginPrivileges
 }>
 

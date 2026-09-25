@@ -1,18 +1,16 @@
 import {
 	databaseAdapterCapability,
+	definePluginModule,
 	optionalCapability,
 	provideAdapterRawCapability,
 	provideCapability,
 	requireCapability,
 	type CapabilityProviderDeclaration,
 	type CapabilityRequirement,
-} from '@ultimabase/core'
-import {
-	definePluginModule,
-	definePluginOptionsParser,
 	type PluginModule,
 	type PluginModuleInstance,
-} from '@ultimabase/plugin-kit'
+} from '@ultimabase/core'
+import { definePluginOptionsParser } from '@ultimabase/plugin-kit'
 import { immutableRecord } from '@ultimabase/shared'
 import { Pool } from 'pg'
 
@@ -202,19 +200,17 @@ const postgresPluginPrivileges = [
 			'Compiles protected database constraints for the PostgreSQL adapter.',
 	},
 ] as const
-type PostgresPluginCapabilities = Readonly<{
-	readonly optional: readonly [typeof optionalPhysicalSchemaContributions]
-	readonly provides: readonly [
-		CapabilityProviderDeclaration<typeof postgresConnectionCapability>,
-		CapabilityProviderDeclaration<typeof databaseAdapterCapability>,
-		typeof postgresAdapterSupportProviders.valueStorage,
-		typeof postgresAdapterSupportProviders.constraint,
-		typeof postgresAdapterSupportProviders.persistencePlan,
-		typeof postgresAdapterSupportProviders.physicalSchema,
-		CapabilityProviderDeclaration<typeof postgresRawAdapterCapability>,
-	]
-	readonly requires: readonly [typeof connectionRequirement]
-}>
+type PostgresPluginCapabilities = readonly [
+	typeof optionalPhysicalSchemaContributions,
+	CapabilityProviderDeclaration<typeof postgresConnectionCapability>,
+	CapabilityProviderDeclaration<typeof databaseAdapterCapability>,
+	typeof postgresAdapterSupportProviders.valueStorage,
+	typeof postgresAdapterSupportProviders.constraint,
+	typeof postgresAdapterSupportProviders.persistencePlan,
+	typeof postgresAdapterSupportProviders.physicalSchema,
+	CapabilityProviderDeclaration<typeof postgresRawAdapterCapability>,
+	typeof connectionRequirement,
+]
 type PostgresPluginDefinition = Readonly<{
 	readonly capabilities: PostgresPluginCapabilities
 	readonly environment: typeof postgresPluginEnvironment
@@ -295,19 +291,17 @@ export const postgresPlugin = (
 	return postgresPluginModule.plugin({
 		environment: postgresPluginEnvironment,
 		privileges: postgresPluginPrivileges,
-		capabilities: {
-			optional: [optionalPhysicalSchemaContributions],
-			provides: [
-				connectionProvider,
-				adapterProvider,
-				postgresAdapterSupportProviders.valueStorage,
-				postgresAdapterSupportProviders.constraint,
-				postgresAdapterSupportProviders.persistencePlan,
-				postgresAdapterSupportProviders.physicalSchema,
-				rawAdapterProvider,
-			],
-			requires: [connectionRequirement],
-		},
+		capabilities: [
+			optionalPhysicalSchemaContributions,
+			connectionProvider,
+			adapterProvider,
+			postgresAdapterSupportProviders.valueStorage,
+			postgresAdapterSupportProviders.constraint,
+			postgresAdapterSupportProviders.persistencePlan,
+			postgresAdapterSupportProviders.physicalSchema,
+			rawAdapterProvider,
+			connectionRequirement,
+		],
 		declare: ({ schemas }) => {
 			schemas.defineOptions({
 				contributionId: 'postgres-options',

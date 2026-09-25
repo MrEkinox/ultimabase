@@ -29,6 +29,14 @@ import type {
 	OperationTransportBindingDefinition,
 	PluginOperationHandler,
 } from '../runtime/plugin-operations/contracts.js'
+import type { PluginSchemaMutationDefinition } from './plugin-schema-mutations.js'
+import {
+	compilePluginSchemaMutationContribution,
+	isPluginSchemaMutationBindingContribution,
+	isPluginSchemaMutationContribution,
+	type PluginSchemaMutationAuthoringContribution,
+	type SchemaMutationProtocolCapabilityProvider,
+} from './plugin-schema-mutation-contributions.js'
 
 /** Owns one materialized operation handler and its deterministic cleanup. */
 export interface PluginOperationHandlerResource<
@@ -102,11 +110,14 @@ export interface PluginOperationBindingContribution<
 }
 
 export type PluginOperationAuthoringContribution =
-	PluginOperationContribution | PluginOperationBindingContribution
+	| PluginOperationContribution
+	| PluginOperationBindingContribution
+	| PluginSchemaMutationAuthoringContribution
 
 type OperationProtocolCapabilityProvider =
 	| CapabilityProviderDeclaration<typeof pluginOperationHandlerCapability>
 	| CapabilityProviderDeclaration<typeof operationTransportBindingCapability>
+	| SchemaMutationProtocolCapabilityProvider
 
 /** Adds Core-derived operation providers to an author's explicit capabilities. */
 export type PluginOperationContributionCapabilities<
@@ -120,7 +131,9 @@ export type PluginOperationContributionCapabilities<
 
 interface CompiledPluginOperationContributions {
 	readonly capabilities: readonly OperationProtocolCapabilityProvider[]
-	readonly operations: readonly PluginOperationDefinition[]
+	readonly operations: readonly (
+		PluginOperationDefinition | PluginSchemaMutationDefinition
+	)[]
 }
 
 type OperationContributionRuntime = Readonly<{
@@ -294,11 +307,13 @@ export const compilePluginOperationContributions = (
 	}
 
 	const capabilities: OperationProtocolCapabilityProvider[] = []
-	const operations: PluginOperationDefinition[] = []
+	const operations: (
+		PluginOperationDefinition | PluginSchemaMutationDefinition
+	)[] = []
 	for (const [index, contribution] of untrustedContributions.entries()) {
 		if (!isPlainRecord(contribution)) {
 			throw new TypeError(
-				`operations[${String(index)}] must be created by contributeOperation or contributeOperationBinding`,
+				`operations[${String(index)}] must be created by a Core operation contribution factory`,
 			)
 		}
 
@@ -346,8 +361,18 @@ export const compilePluginOperationContributions = (
 			continue
 		}
 
+		if (
+			isPluginSchemaMutationContribution(contribution) ||
+			isPluginSchemaMutationBindingContribution(contribution)
+		) {
+			const compiled = compilePluginSchemaMutationContribution(contribution)
+			capabilities.push(...compiled.capabilities)
+			if (compiled.mutation !== undefined) operations.push(compiled.mutation)
+			continue
+		}
+
 		throw new TypeError(
-			`operations[${String(index)}] must be created by contributeOperation or contributeOperationBinding`,
+			`operations[${String(index)}] must be created by a Core operation contribution factory`,
 		)
 	}
 

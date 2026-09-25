@@ -1,12 +1,16 @@
 import {
 	FrameworkApplication,
 	Schema,
+	contributeOperation,
 	defineOperation,
 	defineOperationValue,
 	definePlugin,
+	definePluginModule,
 	defineSchemaConstraint,
 	defineSchemaOption,
+	defineTypegenReference,
 	stringField,
+	type ResourcePluginOperationContributionOptions,
 	type SchemaOptions,
 } from '@ultimabase/core'
 import type { StandardSchemaV1 } from '@standard-schema/spec'
@@ -15,15 +19,11 @@ import { z } from 'zod'
 
 import {
 	defineOutputDescriptor,
-	definePluginModule,
 	definePluginFieldBuilderMethod,
 	definePluginFieldOption,
 	definePluginOptionsParser,
-	defineTypegenModule,
 	patchSchemas,
-	providePluginOperation,
 	schemaPatch,
-	type ResourcePluginOperationProviderOptions,
 } from './index.js'
 
 const fixtureModule = definePluginModule({
@@ -331,9 +331,14 @@ describe('plugin authoring helpers', () => {
 	})
 
 	it('groups exact nominal Typegen references under one module', () => {
-		const types = defineTypegenModule('@fixture/workflow-plugin')
-		const input = types.reference('PublishInput')
-		const result = types.reference('PublishResult')
+		const input = defineTypegenReference({
+			exportName: 'PublishInput',
+			module: '@fixture/workflow-plugin',
+		})
+		const result = defineTypegenReference({
+			exportName: 'PublishResult',
+			module: '@fixture/workflow-plugin',
+		})
 
 		expect(input).toMatchObject({
 			exportName: 'PublishInput',
@@ -343,7 +348,7 @@ describe('plugin authoring helpers', () => {
 			exportName: 'PublishResult',
 			module: '@fixture/workflow-plugin',
 		})
-		expect(Object.isFrozen(types)).toBe(true)
+		expect(Object.isFrozen(input)).toBe(true)
 	})
 
 	it('builds immutable additive schema patches accepted by Core', () => {
@@ -464,11 +469,12 @@ describe('plugin authoring helpers', () => {
 		})
 		const trace: string[] = []
 		const providerOptions: {
-			contributionId: string
-			create: ResourcePluginOperationProviderOptions<typeof inspect>['create']
+			create: ResourcePluginOperationContributionOptions<
+				typeof inspect,
+				readonly []
+			>['create']
 			operation: typeof inspect
 		} = {
-			contributionId: 'inspect',
 			create: () => {
 				trace.push('create')
 				return {
@@ -480,16 +486,13 @@ describe('plugin authoring helpers', () => {
 			},
 			operation: inspect,
 		}
-		const provider = providePluginOperation(providerOptions)
+		const provider = contributeOperation(providerOptions)
 		providerOptions.create = () => {
 			trace.push('mutated-create')
 			return { execute: ({ input }) => input }
 		}
 		const plugin = fixtureModule.plugin({
-			capabilities: { provides: [provider] },
-			declare: ({ operations }) => {
-				operations.declare(inspect)
-			},
+			operations: [provider],
 			privileges: [
 				{
 					name: 'operation:declare',
@@ -519,16 +522,12 @@ describe('plugin authoring helpers', () => {
 			transaction: 'forbidden',
 			version: '1.0.0',
 		})
-		const provider = providePluginOperation({
-			contributionId: 'echo',
+		const provider = contributeOperation({
 			execute: ({ input }) => input,
 			operation: echo,
 		})
 		const plugin = fixtureModule.plugin({
-			capabilities: { provides: [provider] },
-			declare: ({ operations }) => {
-				operations.declare(echo)
-			},
+			operations: [provider],
 			privileges: [
 				{ name: 'operation:declare', reason: 'Declares the echo operation.' },
 			] as const,
@@ -543,22 +542,19 @@ describe('plugin authoring helpers', () => {
 		await application.dispose()
 		expect(Object.isFrozen(provider)).toBe(true)
 
-		const callUntyped = providePluginOperation as (options: unknown) => unknown
+		const callUntyped = contributeOperation as (options: unknown) => unknown
 		expect(() => callUntyped(null)).toThrow(
-			'plugin operation provider must be a plain object',
+			'plugin operation contribution must be a plain object',
 		)
-		expect(() =>
-			callUntyped({ contributionId: 'invalid', operation: echo }),
-		).toThrow(
-			'plugin operation provider requires exactly one of create or execute',
+		expect(() => callUntyped({ operation: echo })).toThrow(
+			'plugin operation contribution requires exactly one of create or execute',
 		)
 		expect(() =>
 			callUntyped({
-				contributionId: 'invalid',
 				execute: () => undefined,
 				operation: {},
 			}),
-		).toThrow('plugin operation provider requires an operation token')
+		).toThrow('plugin operation contribution requires an operation')
 	})
 
 	it('rejects schema bindings that could bypass the nominal builder', () => {

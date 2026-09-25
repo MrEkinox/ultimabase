@@ -1,5 +1,6 @@
 import {
 	Pointer,
+	definePluginModule,
 	requestSubjectReferenceCleanupCapability,
 	requestRoleResolverCapability,
 	materializeSchemaModel,
@@ -12,6 +13,8 @@ import {
 	type CompiledSchemaRegistry,
 	type DatabaseOperationAst,
 	type ExecutableOperationAst,
+	type PluginModule,
+	type PluginModuleInstance,
 	type RelationMutationAction,
 	type RequestContext,
 	type RuntimeBehaviorStages,
@@ -19,10 +22,7 @@ import {
 } from '@ultimabase/core'
 import {
 	createPluginEventDispatcher,
-	definePluginModule,
 	type PluginEventDispatcher,
-	type PluginModule,
-	type PluginModuleInstance,
 } from '@ultimabase/plugin-kit'
 import {
 	immutableArray,
@@ -405,19 +405,17 @@ const rolesPluginPrivileges = [
 		reason: 'Publishes committed role membership and hierarchy changes.',
 	},
 ] as const
-const rolesPluginCapabilities: Readonly<{
-	readonly optional: readonly [
-		typeof optionalReferenceCleanups,
-		typeof optionalRoleEvents,
-	]
-	readonly provides: readonly [
-		typeof roleResolverProvider,
-		typeof roleBehaviorProvider,
-	]
-}> = {
-	optional: [optionalReferenceCleanups, optionalRoleEvents],
-	provides: [roleResolverProvider, roleBehaviorProvider],
-}
+const rolesPluginCapabilities: readonly [
+	typeof optionalReferenceCleanups,
+	typeof optionalRoleEvents,
+	typeof roleResolverProvider,
+	typeof roleBehaviorProvider,
+] = [
+	optionalReferenceCleanups,
+	optionalRoleEvents,
+	roleResolverProvider,
+	roleBehaviorProvider,
+]
 type RolesPluginDefinition = Readonly<{
 	readonly capabilities: typeof rolesPluginCapabilities
 	readonly declare: () => undefined

@@ -1,10 +1,8 @@
 import {
+	contributeSchemaMutation,
 	defineSchemaMutation,
-	provideSchemaMutationHandler,
-	schemaMutationHandler,
-	type CapabilityProviderDeclaration,
+	type PluginSchemaMutationContribution,
 	type PluginSchemaMutationDefinition,
-	type pluginSchemaMutationHandlerCapability,
 } from '@ultimabase/core'
 
 import {
@@ -50,30 +48,20 @@ export const purgeMutation: PluginSchemaMutationDefinition<
 	version: '1.0.0',
 })
 
-/** @internal Creates only direct execution providers; administration has no transport binding. */
-export const createSoftDeleteAdministrationProviders = (): readonly [
-	CapabilityProviderDeclaration<typeof pluginSchemaMutationHandlerCapability>,
-	CapabilityProviderDeclaration<typeof pluginSchemaMutationHandlerCapability>,
+/** @internal Creates private administration contributions without wire bindings. */
+export const createSoftDeleteAdministrationContributions = (): readonly [
+	PluginSchemaMutationContribution<typeof restoreMutation>,
+	PluginSchemaMutationContribution<typeof purgeMutation>,
 ] =>
 	[
-		provideSchemaMutationHandler({
-			contributionId: 'official-soft-delete-restore-handler',
-			create: () => ({
-				value: schemaMutationHandler({
-					mutation: restoreMutation,
-					resolve: () => ({
-						data: { [softDeleteTombstoneFieldName]: false },
-					}),
-				}),
+		contributeSchemaMutation({
+			mutation: restoreMutation,
+			resolve: () => ({
+				data: { [softDeleteTombstoneFieldName]: false },
 			}),
 		}),
-		provideSchemaMutationHandler({
-			contributionId: 'official-soft-delete-purge-handler',
-			create: () => ({
-				value: schemaMutationHandler({
-					mutation: purgeMutation,
-					resolve: (): undefined => undefined,
-				}),
-			}),
+		contributeSchemaMutation({
+			mutation: purgeMutation,
+			resolve: (): undefined => undefined,
 		}),
 	] as const

@@ -9,12 +9,14 @@ const fileName = path.join(
 	'plugin-kit-authoring.packed.fixture.ts',
 )
 const source = `
-import { type PluginExports } from '@ultimabase/core'
+import {
+  definePluginModule,
+  type PluginExports,
+  type PluginModuleInstance,
+} from '@ultimabase/core'
 import { z } from 'zod'
 import {
   definePluginOptionsParser,
-  definePluginModule,
-  type PluginModuleInstance,
 } from '@ultimabase/plugin-kit'
 
 const module = definePluginModule({
@@ -23,9 +25,7 @@ const module = definePluginModule({
   core: '^1.0.0',
 })
 type PackedDefinition = Readonly<{
-  readonly capabilities: Readonly<{
-    readonly provides: readonly []
-  }>
+  readonly capabilities: readonly []
   readonly instanceId: 'editorial'
   readonly peers: readonly [{
     readonly pluginId: 'community.protocol'
@@ -35,7 +35,7 @@ type PackedDefinition = Readonly<{
 }>
 type PackedPlugin = PluginModuleInstance<typeof module, PackedDefinition>
 const plugin: PackedPlugin = module.plugin({
-  capabilities: { provides: [] },
+  capabilities: [],
   instanceId: 'editorial',
   peers: [{ pluginId: 'community.protocol', version: '^1.0.0' }],
   setup: () => ({ ready: true as const }),

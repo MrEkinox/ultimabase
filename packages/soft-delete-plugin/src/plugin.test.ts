@@ -37,11 +37,24 @@ describe('softDeletePlugin', () => {
 					{
 						contributionId: 'official-soft-delete-replace-delete',
 					},
-					{ contributionId: 'official-soft-delete-handler' },
-					{ contributionId: 'official-soft-delete-rest-binding' },
-					{ contributionId: 'official-soft-delete-graphql-binding' },
-					{ contributionId: 'official-soft-delete-restore-handler' },
-					{ contributionId: 'official-soft-delete-purge-handler' },
+					{
+						contributionId:
+							'schema-mutation:ultimabase.soft-delete.soft-delete',
+					},
+					{
+						contributionId:
+							'schema-mutation:ultimabase.soft-delete.soft-delete:transport:ultimabase.rest',
+					},
+					{
+						contributionId:
+							'schema-mutation:ultimabase.soft-delete.soft-delete:transport:ultimabase.graphql',
+					},
+					{
+						contributionId: 'schema-mutation:ultimabase.soft-delete.restore',
+					},
+					{
+						contributionId: 'schema-mutation:ultimabase.soft-delete.purge',
+					},
 				],
 				requires: [],
 			},

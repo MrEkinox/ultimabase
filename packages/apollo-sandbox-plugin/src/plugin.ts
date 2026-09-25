@@ -1,7 +1,10 @@
 import {
+	definePluginModule,
 	requireCapability,
 	type CapabilityProviderDeclaration,
 	type CapabilityRequirement,
+	type PluginModule,
+	type PluginModuleInstance,
 } from '@ultimabase/core'
 import { graphqlHttpEndpointCapability } from '@ultimabase/graphql-http'
 import {
@@ -9,11 +12,6 @@ import {
 	provideHttpEndpoints,
 	type httpEndpointContributionsCapability,
 } from '@ultimabase/http-plugin'
-import {
-	definePluginModule,
-	type PluginModule,
-	type PluginModuleInstance,
-} from '@ultimabase/plugin-kit'
 
 import {
 	normalizeApolloSandboxPluginOptions,
@@ -46,12 +44,10 @@ const privileges = [
 ] as const
 
 type EnabledDefinition = Readonly<{
-	readonly capabilities: Readonly<{
-		readonly provides: readonly [
-			CapabilityProviderDeclaration<typeof httpEndpointContributionsCapability>,
-		]
-		readonly requires: readonly [typeof endpointRequirement]
-	}>
+	readonly capabilities: readonly [
+		CapabilityProviderDeclaration<typeof httpEndpointContributionsCapability>,
+		typeof endpointRequirement,
+	]
 	readonly environment: readonly ['environment:network']
 	readonly peers: readonly [
 		Readonly<{
@@ -94,7 +90,7 @@ export const apolloSandboxPlugin = (
 		},
 	})
 	const enabled = module.plugin({
-		capabilities: { provides: [routes], requires: [endpointRequirement] },
+		capabilities: [routes, endpointRequirement],
 		environment: ['environment:network'],
 		peers: [{ pluginId: '@ultimabase/http-plugin', version: '^0.0.0' }],
 		privileges,
