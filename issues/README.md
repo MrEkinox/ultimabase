@@ -95,6 +95,7 @@ consistent without rewriting historical issue prose.
 - [`3500-native-contribution-plugin-plan/`](3500-native-contribution-plugin-plan/README.md)
 - [`3600-native-command-and-application-simplification/`](3600-native-command-and-application-simplification/README.md)
 - [`3700-capability-host-simplification/`](3700-capability-host-simplification/README.md)
+- [`3800-password-auth-option-simplification/`](3800-password-auth-option-simplification/README.md)
 
 ## Assignment prompt
 

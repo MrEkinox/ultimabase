@@ -19,7 +19,7 @@ import {
 	type UpsertManyOperationAst,
 	type UpsertOneOperationAst,
 } from '@ultimabase/core'
-import { isPlainRecord } from '@ultimabase/shared'
+import { definePluginOptionsParser } from '@ultimabase/plugin-kit'
 
 import { createPasswordCredentialCollection } from './credentials.js'
 import { createPasswordHttpCookieIntegration } from './http-cookie-routes.js'
@@ -46,6 +46,7 @@ import { assertPasswordHashEngineAvailable } from './password-hasher.js'
 import { passwordAuthGraphqlBindings } from './graphql-operation-bindings.js'
 import { passwordAuthRestBindings } from './operations.js'
 import { createPasswordOperationHandlers } from './operation-handlers.js'
+import { defaultUndefinedOptions } from './policy-options.js'
 import {
 	resolvePasswordSessionPolicy,
 	type PasswordSessionPolicyOptions,
@@ -103,29 +104,15 @@ export interface PasswordAuthPluginOptions<
 	readonly http?: PasswordAuthHttpOptions
 }
 
-const assertPluginOptions: (
+const normalizePluginOptions: (
 	value: unknown,
-) => asserts value is PasswordAuthPluginOptions = (value) => {
-	if (!isPlainRecord(value)) {
-		throw new TypeError('passwordAuthPlugin options must be a plain object')
-	}
-	for (const key of Object.keys(value)) {
-		if (
-			key !== 'http' &&
-			key !== 'password' &&
-			key !== 'session' &&
-			key !== 'user'
-		) {
-			throw new TypeError(`passwordAuthPlugin contains unknown option: ${key}`)
-		}
-	}
-}
-
-const normalizePluginOptions = (value: unknown): PasswordAuthPluginOptions => {
-	if (value === undefined) return {}
-	assertPluginOptions(value)
-	return value
-}
+) => Readonly<PasswordAuthPluginOptions> = definePluginOptionsParser({
+	name: 'passwordAuthPlugin options',
+	keys: ['http', 'password', 'session', 'user'] as const,
+	formatUnknownKey: (key) =>
+		`passwordAuthPlugin contains unknown option: ${String(key)}`,
+	normalize: (options) => options as PasswordAuthPluginOptions,
+})
 
 const readCreateInputs = (
 	operation: DatabaseMutationOperationAst,
@@ -176,7 +163,7 @@ export const passwordAuthPlugin = <
 >(
 	options?: PasswordAuthPluginOptions<TUser>,
 ): PasswordAuthPlugin => {
-	const untrusted = normalizePluginOptions(options)
+	const untrusted = normalizePluginOptions(defaultUndefinedOptions(options))
 	assertPasswordHashEngineAvailable()
 	const usesDefaultUser = untrusted.user === undefined
 	const user = (untrusted.user ?? PasswordUser) as TUser

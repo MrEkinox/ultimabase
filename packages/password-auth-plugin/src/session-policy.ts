@@ -1,4 +1,9 @@
-import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
+import { definePluginOptionsParser } from '@ultimabase/plugin-kit'
+import { immutableRecord } from '@ultimabase/shared'
+import {
+	defaultUndefinedOptions,
+	resolveBoundedInteger,
+} from './policy-options.js'
 
 const minute = 60_000
 const day = 24 * 60 * minute
@@ -24,61 +29,39 @@ export const defaultPasswordSessionPolicy: ResolvedPasswordSessionPolicy =
 		expiresInMs: 7 * day,
 	})
 
-const policyKeys = new Set(['absoluteExpiresInMs', 'expiresInMs'])
-
-const boundedInteger = (
-	value: unknown,
-	fallback: number,
-	minimum: number,
-	maximum: number,
-	path: string,
-): number => {
-	const resolved = value ?? fallback
-	if (
-		typeof resolved !== 'number' ||
-		!Number.isSafeInteger(resolved) ||
-		resolved < minimum ||
-		resolved > maximum
-	) {
-		throw new TypeError(
-			`${path} must be a safe integer from ${String(minimum)} through ${String(maximum)}`,
+const parsePasswordSessionPolicy: (
+	options: unknown,
+) => ResolvedPasswordSessionPolicy = definePluginOptionsParser({
+	name: 'passwordAuthPlugin session',
+	keys: ['absoluteExpiresInMs', 'expiresInMs'] as const,
+	formatUnknownKey: (key) =>
+		`passwordAuthPlugin session contains unknown option: ${String(key)}`,
+	normalize: (options) => {
+		const expiresInMs = resolveBoundedInteger(
+			options.expiresInMs,
+			defaultPasswordSessionPolicy.expiresInMs,
+			5 * minute,
+			30 * day,
+			'passwordAuthPlugin session.expiresInMs',
 		)
-	}
-	return resolved
-}
+		const absoluteExpiresInMs = resolveBoundedInteger(
+			options.absoluteExpiresInMs,
+			defaultPasswordSessionPolicy.absoluteExpiresInMs,
+			day,
+			365 * day,
+			'passwordAuthPlugin session.absoluteExpiresInMs',
+		)
+		if (absoluteExpiresInMs < expiresInMs) {
+			throw new TypeError(
+				'passwordAuthPlugin session.absoluteExpiresInMs must be at least expiresInMs',
+			)
+		}
+		return { absoluteExpiresInMs, expiresInMs }
+	},
+})
 
 /** Validates one application-local session lifetime policy. */
 export const resolvePasswordSessionPolicy = (
 	options: PasswordSessionPolicyOptions | undefined,
-): ResolvedPasswordSessionPolicy => {
-	if (options !== undefined && !isPlainRecord(options)) {
-		throw new TypeError('passwordAuthPlugin session must be a plain object')
-	}
-	for (const key of Object.keys(options ?? {})) {
-		if (!policyKeys.has(key)) {
-			throw new TypeError(
-				`passwordAuthPlugin session contains unknown option: ${key}`,
-			)
-		}
-	}
-	const expiresInMs = boundedInteger(
-		options?.expiresInMs,
-		defaultPasswordSessionPolicy.expiresInMs,
-		5 * minute,
-		30 * day,
-		'passwordAuthPlugin session.expiresInMs',
-	)
-	const absoluteExpiresInMs = boundedInteger(
-		options?.absoluteExpiresInMs,
-		defaultPasswordSessionPolicy.absoluteExpiresInMs,
-		day,
-		365 * day,
-		'passwordAuthPlugin session.absoluteExpiresInMs',
-	)
-	if (absoluteExpiresInMs < expiresInMs) {
-		throw new TypeError(
-			'passwordAuthPlugin session.absoluteExpiresInMs must be at least expiresInMs',
-		)
-	}
-	return immutableRecord({ absoluteExpiresInMs, expiresInMs })
-}
+): ResolvedPasswordSessionPolicy =>
+	parsePasswordSessionPolicy(defaultUndefinedOptions(options))

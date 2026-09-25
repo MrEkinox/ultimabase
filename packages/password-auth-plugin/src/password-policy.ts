@@ -1,4 +1,9 @@
-import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
+import { definePluginOptionsParser } from '@ultimabase/plugin-kit'
+import { immutableRecord } from '@ultimabase/shared'
+import {
+	defaultUndefinedOptions,
+	resolveBoundedInteger,
+} from './policy-options.js'
 
 /** Configures the versioned Argon2id password policy. */
 export interface PasswordHashPolicyOptions {
@@ -35,80 +40,50 @@ export const defaultPasswordHashPolicy: ResolvedPasswordHashPolicy =
 		version: 19,
 	})
 
-const policyOptionNames = new Set([
-	'memoryCostKiB',
-	'parallelism',
-	'policyVersion',
-	'timeCost',
-])
-
-const readBoundedInteger = (
-	value: unknown,
-	defaultValue: number,
-	minimum: number,
-	maximum: number,
-	path: string,
-): number => {
-	const resolved = value ?? defaultValue
-	if (
-		typeof resolved !== 'number' ||
-		!Number.isSafeInteger(resolved) ||
-		resolved < minimum ||
-		resolved > maximum
-	) {
-		throw new TypeError(
-			`${path} must be a safe integer from ${String(minimum)} through ${String(maximum)}`,
-		)
-	}
-	return resolved
-}
-
-/** Validates and snapshots an application password policy. */
-export const resolvePasswordHashPolicy = (
-	options: PasswordHashPolicyOptions | undefined,
-): ResolvedPasswordHashPolicy => {
-	if (options !== undefined && !isPlainRecord(options)) {
-		throw new TypeError('passwordAuthPlugin password must be a plain object')
-	}
-	for (const key of Object.keys(options ?? {})) {
-		if (!policyOptionNames.has(key)) {
-			throw new TypeError(
-				`passwordAuthPlugin password contains unknown option: ${key}`,
-			)
-		}
-	}
-
-	return immutableRecord({
+const parsePasswordHashPolicy: (
+	options: unknown,
+) => ResolvedPasswordHashPolicy = definePluginOptionsParser({
+	name: 'passwordAuthPlugin password',
+	keys: ['memoryCostKiB', 'parallelism', 'policyVersion', 'timeCost'] as const,
+	formatUnknownKey: (key) =>
+		`passwordAuthPlugin password contains unknown option: ${String(key)}`,
+	normalize: ({ memoryCostKiB, parallelism, policyVersion, timeCost }) => ({
 		algorithm: 'argon2id',
 		hashLength: 32,
-		memoryCostKiB: readBoundedInteger(
-			options?.memoryCostKiB,
+		memoryCostKiB: resolveBoundedInteger(
+			memoryCostKiB,
 			defaultPasswordHashPolicy.memoryCostKiB,
 			19_456,
 			1_048_576,
 			'passwordAuthPlugin password.memoryCostKiB',
 		),
-		parallelism: readBoundedInteger(
-			options?.parallelism,
+		parallelism: resolveBoundedInteger(
+			parallelism,
 			defaultPasswordHashPolicy.parallelism,
 			1,
 			16,
 			'passwordAuthPlugin password.parallelism',
 		),
-		policyVersion: readBoundedInteger(
-			options?.policyVersion,
+		policyVersion: resolveBoundedInteger(
+			policyVersion,
 			defaultPasswordHashPolicy.policyVersion,
 			1,
 			Number.MAX_SAFE_INTEGER,
 			'passwordAuthPlugin password.policyVersion',
 		),
-		timeCost: readBoundedInteger(
-			options?.timeCost,
+		timeCost: resolveBoundedInteger(
+			timeCost,
 			defaultPasswordHashPolicy.timeCost,
 			2,
 			10,
 			'passwordAuthPlugin password.timeCost',
 		),
 		version: 19,
-	})
-}
+	}),
+})
+
+/** Validates and snapshots an application password policy. */
+export const resolvePasswordHashPolicy = (
+	options: PasswordHashPolicyOptions | undefined,
+): ResolvedPasswordHashPolicy =>
+	parsePasswordHashPolicy(defaultUndefinedOptions(options))
