@@ -13,8 +13,12 @@ Issue 3601 is complete. Operation and schema-mutation contributions are native,
 the approved provider APIs are removed, and command, lifecycle, security,
 transport, Typegen, and cleanup behavior retain parity.
 
-Issue 3602 is active. It consolidates application-owned state and removes
-redundant bind/read bridges without exposing new public authority.
+Issue 3602 is complete. One private kernel state now replaces the independent
+command, capability, privilege, private-storage, plugin-export, and callback
+side tables without exposing new public authority.
+
+Issue 3603 is active. It removes the static schema-mutation startup registry
+and resolves immutable schema/model commands from compiled application handles.
 
 Later issues consolidate application state, remove static mutation
 registration, reduce official option and identity duplication, audit graph and

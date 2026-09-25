@@ -11,7 +11,7 @@ import {
 	type PluginOperationEnvelope,
 } from '../../application/application-handles.js'
 import { bindApplicationSchemaModel } from '../../application/application-model-views.js'
-import { getApplicationPluginExports } from '../../application/framework-application.js'
+import { readApplicationKernelState } from '../../application/application-kernel-state.js'
 import {
 	FrameworkApplication,
 	type FrameworkApplicationOptions,
@@ -333,8 +333,7 @@ export class UltimaBase<
 	plugin<const TPlugin extends PluginDefinition>(
 		plugin: TPlugin,
 	): PluginExports<TPlugin> {
-		return getApplicationPluginExports(
-			this.application,
+		return readApplicationKernelState(this.application).pluginExports(
 			plugin,
 		) as PluginExports<TPlugin>
 	}

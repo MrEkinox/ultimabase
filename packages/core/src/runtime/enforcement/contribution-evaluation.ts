@@ -3,7 +3,7 @@ import type {
 	PluginDefinition,
 } from '../../foundation.js'
 import type { OwnedPluginContribution } from '../../plugins/setup-registries.js'
-import { readApplicationCapabilityContributions } from '../../plugins/application-capability-access.js'
+import { readApplicationKernelState } from '../../application/application-kernel-state.js'
 import { runWithApplicationPluginOwner } from '../../plugins/callback-execution.js'
 import type { PluginIdentity } from '../../plugins/manifest.js'
 import { Schema, type SchemaDefinition } from '../../schema/index.js'
@@ -160,19 +160,18 @@ export const readEnforcementContributions = (
 ): readonly OwnedEnforcementContribution[] => {
 	const contributions: OwnedEnforcementContribution[] = []
 
-	const capabilityContributions = readApplicationCapabilityContributions(
-		application,
-		runtimeConstraintCapability,
-	).map(({ contributionId, owner, value }) =>
-		immutableRecord({
-			name: contributionId,
-			ownerPlugin: owner.pluginId,
-			...(owner.instanceId === undefined
-				? {}
-				: { ownerInstanceId: owner.instanceId }),
-			value,
-		}),
-	)
+	const capabilityContributions = readApplicationKernelState(application)
+		.capabilityContributions(runtimeConstraintCapability)
+		.map(({ contributionId, owner, value }) =>
+			immutableRecord({
+				name: contributionId,
+				ownerPlugin: owner.pluginId,
+				...(owner.instanceId === undefined
+					? {}
+					: { ownerInstanceId: owner.instanceId }),
+				value,
+			}),
+		)
 
 	for (const contribution of capabilityContributions) {
 		const selectedImplementation =

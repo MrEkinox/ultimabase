@@ -1,6 +1,6 @@
 import { FrameworkError } from '../../errors/framework-error.js'
+import { readApplicationKernelState } from '../../application/application-kernel-state.js'
 import { readApplicationPluginOwner } from '../../plugins/callback-execution.js'
-import { assertApplicationPluginPrivilege } from '../../plugins/setup-registries.js'
 import type { MasterAuthority } from '../master/master-authority.js'
 
 const masterAuthorities = new WeakMap<object, MasterAuthority>()
@@ -40,6 +40,9 @@ export const assertMasterElevationPrivilege = (application: object): void => {
 	const owner = readApplicationPluginOwner(application)
 
 	if (owner !== undefined) {
-		assertApplicationPluginPrivilege(application, owner, 'authority:elevate')
+		readApplicationKernelState(application).assertPrivilege(
+			owner,
+			'authority:elevate',
+		)
 	}
 }

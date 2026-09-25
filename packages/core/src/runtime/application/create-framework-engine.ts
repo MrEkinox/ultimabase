@@ -14,7 +14,7 @@ import {
 	databasePointerCapabilityVersion,
 	type DatabaseAdapter,
 } from '../database/contracts.js'
-import { readApplicationCapability } from '../../plugins/application-capability-access.js'
+import { readApplicationKernelState } from '../../application/application-kernel-state.js'
 import { FrameworkEngine } from '../engine/framework-engine.js'
 import { createEnforcementStages } from '../enforcement/dispatcher.js'
 import type {
@@ -239,10 +239,9 @@ export const createFrameworkEngine = <
 	const normalizedOptions = normalizeCreateFrameworkEngineOptions(options)
 	assertApplicationIsUsable(application)
 
-	const databaseAdapter: unknown = readApplicationCapability(
+	const databaseAdapter: unknown = readApplicationKernelState(
 		application,
-		databaseAdapterCapability,
-	)
+	).capability(databaseAdapterCapability)
 
 	assertDatabaseAdapter(databaseAdapter)
 	assertRequiredAdapterCapabilities(application, databaseAdapter)
@@ -287,8 +286,7 @@ export const createFrameworkEngine = <
 	const framework = new FrameworkEngine(engineOptions)
 	bindFrameworkSchemaMutationRuntime(framework)
 	bindApplicationRequestExecutor(
-		readApplicationCapability(
-			application,
+		readApplicationKernelState(application).capability(
 			applicationRequestExecutionCapability,
 		),
 		framework,

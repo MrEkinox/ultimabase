@@ -10,7 +10,7 @@ import type {
 	FrameworkApplication,
 	PluginDefinition,
 } from '../../foundation.js'
-import { readApplicationCommandGraph } from '../../plugins/application-command-graph.js'
+import { readApplicationKernelState } from '../../application/application-kernel-state.js'
 import type {
 	CompiledCommandGraph,
 	CompiledOperationCommand,
@@ -65,7 +65,7 @@ export class PluginOperationRuntime {
 		>,
 	) {
 		// Binding ownership is decided once during application materialization.
-		this.#graph = readApplicationCommandGraph(application)
+		this.#graph = readApplicationKernelState(application).commands
 	}
 
 	/** Invokes one handler and enforces its result and public error contracts. */

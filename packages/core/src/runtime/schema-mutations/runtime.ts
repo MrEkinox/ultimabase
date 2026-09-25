@@ -7,7 +7,7 @@ import type {
 	FrameworkApplication,
 	PluginDefinition,
 } from '../../foundation.js'
-import { readApplicationCommandGraph } from '../../plugins/application-command-graph.js'
+import { readApplicationKernelState } from '../../application/application-kernel-state.js'
 import type { CommandBindings } from '../commands/bindings.js'
 import { runWithApplicationPluginOwner } from '../../plugins/callback-execution.js'
 import type { CompiledMutationCommand } from '../../plugins/command-graph.js'
@@ -54,7 +54,7 @@ export class PluginSchemaMutationRuntime {
 			readonly PluginDefinition[]
 		>,
 	) {
-		const graph = readApplicationCommandGraph(application)
+		const graph = readApplicationKernelState(application).commands
 		this.#bindings = graph.bindings
 		// Missing selected resolvers still fail when Runtime is assembled, not in pure compilation.
 		for (const command of graph.commands) {

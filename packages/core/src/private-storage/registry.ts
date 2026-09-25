@@ -236,26 +236,3 @@ export class PrivateStorageRegistry {
 		return createHash('sha256').update(JSON.stringify(snapshot)).digest('hex')
 	}
 }
-
-const registries = new WeakMap<object, PrivateStorageRegistry>()
-
-/** @internal Binds one non-public registry to its exact application identity. */
-export const bindPrivateStorageRegistry = (
-	application: object,
-	registry: PrivateStorageRegistry,
-): void => {
-	if (registries.has(application)) {
-		throw new TypeError('Private storage registry is already bound')
-	}
-	registries.set(application, registry)
-}
-
-/** @internal Reads private metadata only from Core-owned execution paths. */
-export const readPrivateStorageRegistry = (
-	application: object,
-): PrivateStorageRegistry => {
-	const registry = registries.get(application)
-	if (registry === undefined)
-		throw new TypeError('Private storage registry is unavailable')
-	return registry
-}

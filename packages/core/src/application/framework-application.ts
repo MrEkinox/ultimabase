@@ -1,4 +1,3 @@
-import { bindApplicationCommandGraph } from '../plugins/application-command-graph.js'
 import {
 	acquireApplication,
 	assertOutsideApplicationWork,
@@ -20,7 +19,6 @@ import { composeDeclarationCapabilities } from '../plugins/capability-inventory.
 import { ApplicationCapabilityHost } from '../plugins/capability-host.js'
 import { PluginDeclarationHost } from '../plugins/declaration-host.js'
 import { SchemaDeclarationRegistry } from '../plugins/schema-declarations.js'
-import { bindApplicationCapabilityHost } from '../plugins/application-capability-access.js'
 import { FrameworkError } from '../errors/framework-error.js'
 import { PluginGraph } from '../plugins/graph.js'
 import {
@@ -33,10 +31,7 @@ import {
 	type PluginIdentity,
 	type PluginPrivilege,
 } from '../plugins/manifest.js'
-import {
-	bindApplicationPluginPrivilegeAssertion,
-	PluginSetupRegistries,
-} from '../plugins/setup-registries.js'
+import { PluginSetupRegistries } from '../plugins/setup-registries.js'
 import {
 	FieldBuilderMethodRegistry,
 	type OwnedFieldBuilderMethod,
@@ -59,29 +54,14 @@ import type {
 	CompiledPluginOperation,
 } from '../plugins/application-surface-registry.js'
 import type { CompiledTypegenGraph } from '../plugins/typegen-declarations.js'
-import {
-	bindPrivateStorageRegistry,
-	PrivateStorageRegistry,
-} from '../private-storage/registry.js'
+import { PrivateStorageRegistry } from '../private-storage/registry.js'
 import { configureApplicationPrivateStorage } from '../private-storage/runtime.js'
 import { compileStaticRelationWhereDeclarations } from '../query/filters/relation-where-declaration.js'
-
-const pluginDefinitionLookups = new WeakMap<
-	object,
-	(plugin: PluginDefinition) => unknown
->()
-
-/** @internal Resolves exports for an exact configured plugin definition. */
-export const getApplicationPluginExports = (
-	application: object,
-	plugin: PluginDefinition,
-): unknown => {
-	const lookup = pluginDefinitionLookups.get(application)
-	if (lookup === undefined) {
-		throw new TypeError('Framework application plugin lookup is unavailable')
-	}
-	return lookup(plugin)
-}
+import {
+	ApplicationKernelState,
+	bindApplicationKernelState,
+	readApplicationKernelState,
+} from './application-kernel-state.js'
 
 /** Captures every static input needed to construct one isolated application. */
 export interface FrameworkApplicationOptions<
@@ -170,7 +150,6 @@ export class FrameworkApplication<
 			this.#schemaDeclarations,
 			this.#privateStorage,
 		)
-		bindPrivateStorageRegistry(this, this.#privateStorage)
 		const capabilityHostReference: {
 			current: ApplicationCapabilityHost | undefined
 		} = { current: undefined }
@@ -228,8 +207,6 @@ export class FrameworkApplication<
 		)
 		this.#capabilityHost = capabilityHost
 		capabilityHostReference.current = capabilityHost
-		bindApplicationCapabilityHost(this, capabilityHost)
-		bindApplicationPluginPrivilegeAssertion(this, assertPluginPrivilege)
 		this.#setupRegistries = setupRegistries
 
 		this.#lifecycle = new PluginLifecycleManager(
@@ -238,8 +215,14 @@ export class FrameworkApplication<
 			capabilityHost,
 			this,
 		)
-		pluginDefinitionLookups.set(this, (plugin) =>
-			this.#lifecycle.getPluginExports(plugin),
+		bindApplicationKernelState(
+			this,
+			new ApplicationKernelState({
+				assertPrivilege: assertPluginPrivilege,
+				capabilities: capabilityHost,
+				pluginExports: (plugin) => this.#lifecycle.getPluginExports(plugin),
+				privateStorage: this.#privateStorage,
+			}),
 		)
 
 		// Public application identity is stable while private lifecycle state may advance.
@@ -358,7 +341,9 @@ export class FrameworkApplication<
 			)
 			compileStaticRelationWhereDeclarations(this.schemas)
 			this.#privateStorage.close(this.schemas)
-			bindApplicationCommandGraph(this, this.#schemaDeclarations.commandGraph())
+			readApplicationKernelState(this).publishCommands(
+				this.#schemaDeclarations.commandGraph(),
+			)
 			this.#schemaCompilationState = 'compiled'
 
 			return this

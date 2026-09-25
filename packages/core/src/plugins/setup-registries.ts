@@ -316,38 +316,3 @@ export class PluginSetupRegistries {
 		return context
 	}
 }
-
-const pluginPrivilegeAssertionsByApplication = new WeakMap<
-	object,
-	(owner: PluginIdentity, privilege: PluginPrivilege) => void
->()
-
-/** @internal Binds Runtime privilege checks without retaining setup registries. */
-export const bindApplicationPluginPrivilegeAssertion = (
-	application: object,
-	assertPrivilege: (owner: PluginIdentity, privilege: PluginPrivilege) => void,
-): void => {
-	if (pluginPrivilegeAssertionsByApplication.has(application)) {
-		throw new TypeError(
-			'Application plugin privilege assertion is already bound',
-		)
-	}
-
-	pluginPrivilegeAssertionsByApplication.set(application, assertPrivilege)
-}
-
-/** @internal Enforces one exact plugin-instance privilege during Runtime work. */
-export const assertApplicationPluginPrivilege = (
-	application: object,
-	owner: PluginIdentity,
-	privilege: PluginPrivilege,
-): void => {
-	const assertPrivilege =
-		pluginPrivilegeAssertionsByApplication.get(application)
-
-	if (assertPrivilege === undefined) {
-		throw new TypeError('Application plugin privilege assertion is unavailable')
-	}
-
-	assertPrivilege(owner, privilege)
-}

@@ -14,6 +14,7 @@ import {
 
 import type { RequestContext } from '../context/request-context.js'
 import { throwIfOperationCancelled } from '../cancellation/operation-cancellation.js'
+import { readApplicationRuntimeKernelState } from '../../application/application-kernel-state.js'
 
 /** Identifies one callback without retaining request values or callback inputs. */
 export interface RuntimeCallbackDescriptor {
@@ -131,16 +132,11 @@ export class RuntimeCallbackExecutor {
 	}
 }
 
-const executorsByApplication = new WeakMap<object, RuntimeCallbackExecutor>()
-
 /** Reuses one executor so recursion remains visible across callback categories. */
 export const getApplicationRuntimeCallbackExecutor = (
 	application: object,
 ): RuntimeCallbackExecutor => {
-	const existing = executorsByApplication.get(application)
-	if (existing !== undefined) return existing
-
-	const executor = new RuntimeCallbackExecutor(application)
-	executorsByApplication.set(application, executor)
-	return executor
+	const state = readApplicationRuntimeKernelState(application)
+	state.runtimeCallbacks ??= new RuntimeCallbackExecutor(application)
+	return state.runtimeCallbacks
 }

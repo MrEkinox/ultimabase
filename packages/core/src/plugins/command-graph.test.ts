@@ -9,7 +9,7 @@ import {
 	operationTransportBinding,
 	operationWireCodec,
 } from '../runtime/plugin-operations/capabilities.js'
-import { readApplicationCommandGraph } from './application-command-graph.js'
+import { readApplicationKernelState } from '../application/application-kernel-state.js'
 import {
 	readMutationCommand,
 	readOperationCommand,
@@ -167,7 +167,7 @@ describe('canonical command graph', () => {
 			}),
 		)
 		application.compileSchemas()
-		const graph = readApplicationCommandGraph(application)
+		const graph = readApplicationKernelState(application).commands
 		const inspection = application.typegenGraph
 		const operation = inspection.operations[0]?.operation
 		expect(operation).toBe(graph.get(owned.operation.name)?.definition)
@@ -215,7 +215,7 @@ describe('canonical command graph', () => {
 		)
 		const graphs = applications.map((application) => {
 			application.compileSchemas()
-			return readApplicationCommandGraph(application)
+			return readApplicationKernelState(application).commands
 		})
 		const [first, second] = graphs
 		if (first === undefined || second === undefined)
@@ -265,7 +265,7 @@ describe('canonical command graph', () => {
 			}),
 		)
 		application.compileSchemas()
-		const graph = readApplicationCommandGraph(application)
+		const graph = readApplicationKernelState(application).commands
 		expect(graph.commands.map(({ kind }) => kind)).toEqual([
 			'operation',
 			'mutation',
@@ -319,7 +319,7 @@ describe('canonical command graph', () => {
 			}),
 		)
 		application.compileSchemas()
-		const graph = readApplicationCommandGraph(application)
+		const graph = readApplicationKernelState(application).commands
 		const command = requireCommand(graph, owned.operation)
 		const before = fingerprint(graph.commands)
 		expect(graph.bindings.handler(command)).toBeUndefined()
@@ -355,7 +355,7 @@ describe('canonical command graph', () => {
 			}),
 		)
 		application.compileSchemas()
-		const graph = readApplicationCommandGraph(application)
+		const graph = readApplicationKernelState(application).commands
 		const firstCommand = requireCommand(graph, first.operation)
 		const secondCommand = requireCommand(graph, second.operation)
 		const equivalent = new FrameworkApplication({
@@ -365,7 +365,7 @@ describe('canonical command graph', () => {
 		})
 		equivalent.compileSchemas()
 		expect(fingerprint(graph.commands)).toBe(
-			fingerprint(readApplicationCommandGraph(equivalent).commands),
+			fingerprint(readApplicationKernelState(equivalent).commands.commands),
 		)
 		await equivalent.dispose()
 		await application.initialize()
@@ -415,7 +415,7 @@ describe('canonical command graph', () => {
 		expect(() => application.compileSchemas()).toThrow(
 			'Duplicate plugin operation name',
 		)
-		expect(() => readApplicationCommandGraph(application)).toThrow(
+		expect(() => readApplicationKernelState(application).commands).toThrow(
 			'have not been compiled',
 		)
 		expect(owned.create).not.toHaveBeenCalled()
@@ -431,7 +431,7 @@ describe('canonical command graph', () => {
 			}),
 		)
 		application.compileSchemas()
-		const graph = readApplicationCommandGraph(application)
+		const graph = readApplicationKernelState(application).commands
 		const command = requireCommand(graph, owned.operation)
 		const contribution = {
 			contributionId: 'first',
@@ -503,9 +503,9 @@ describe('canonical command graph', () => {
 		expect(owned.create).not.toHaveBeenCalled()
 		expect(owned.cleanup).not.toHaveBeenCalled()
 		expect(() =>
-			readApplicationCommandGraph(application).bindings.transport(
+			readApplicationKernelState(application).commands.bindings.transport(
 				requireCommand(
-					readApplicationCommandGraph(application),
+					readApplicationKernelState(application).commands,
 					owned.operation,
 				),
 				transport,

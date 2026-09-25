@@ -2,8 +2,8 @@ import { immutableRecord } from '@ultimabase/shared'
 
 import { FrameworkError } from '../errors/framework-error.js'
 import { readApplicationPluginOwner } from '../plugins/callback-execution.js'
-import { assertApplicationPluginPrivilege } from '../plugins/setup-registries.js'
-import { readApplicationCapability } from '../plugins/application-capability-access.js'
+import { readApplicationKernelState } from '../application/application-kernel-state.js'
+import type { PluginIdentity } from '../plugins/manifest.js'
 import {
 	databaseAdapterCapability,
 	type DatabaseAdapter,
@@ -22,10 +22,7 @@ import type {
 	PrivateStorageOperationRequest,
 } from './adapter.js'
 import { readRegisteredPrivateStorageAdapter } from './adapter.js'
-import {
-	readPrivateStorageRegistry,
-	type PrivateStorageRegistry,
-} from './registry.js'
+import type { PrivateStorageRegistry } from './registry.js'
 import {
 	normalizePrivateStorageRequest,
 	snapshotPrivateStorageResult,
@@ -87,7 +84,9 @@ const executeOnRequest = async (
 	context.transactionLifetime?.assertActive()
 	const database =
 		context.transactionLifetime === undefined
-			? readApplicationCapability(engine.application, databaseAdapterCapability)
+			? readApplicationKernelState(engine.application).capability(
+					databaseAdapterCapability,
+				)
 			: readPipelineTransactionAdapter(context.pipeline)
 	const executor = assertPrivateExecutor(
 		database === undefined
@@ -131,8 +130,7 @@ export const configureApplicationPrivateStorage = async (
 	registry: PrivateStorageRegistry,
 ): Promise<void> => {
 	if (registry.size === 0) return
-	const adapter = readApplicationCapability(
-		application,
+	const adapter = readApplicationKernelState(application).capability(
 		databaseAdapterCapability,
 	)
 	if (adapter === undefined) {
@@ -149,7 +147,7 @@ export const configureApplicationPrivateStorage = async (
 
 const executeOwned = (
 	application: object,
-	owner: Parameters<typeof assertApplicationPluginPrivilege>[1],
+	owner: PluginIdentity,
 	collection: PrivateCollection,
 	kind: PrivateStorageOperationKind,
 	options: unknown,
@@ -174,11 +172,13 @@ const executeOwned = (
 			{ internalDetails: { kind: 'private-storage-handle-owner-mismatch' } },
 		)
 	}
-	assertApplicationPluginPrivilege(application, owner, 'storage:private')
-	const descriptor = readPrivateStorageRegistry(active.application).resolve(
-		collection,
+	readApplicationKernelState(application).assertPrivilege(
 		owner,
+		'storage:private',
 	)
+	const descriptor = readApplicationKernelState(
+		active.application,
+	).privateStorage.resolve(collection, owner)
 	return executeOnRequest(
 		active.requestEngine,
 		normalizePrivateStorageRequest(descriptor, kind, options),
@@ -205,8 +205,9 @@ export const privateStore = <const TCollection extends PrivateCollection>(
 			{ internalDetails: { kind: 'private-storage-handle-owner-missing' } },
 		)
 	}
-	assertApplicationPluginPrivilege(active.application, owner, 'storage:private')
-	readPrivateStorageRegistry(active.application).resolve(collection, owner)
+	const state = readApplicationKernelState(active.application)
+	state.assertPrivilege(owner, 'storage:private')
+	state.privateStorage.resolve(collection, owner)
 	const application = active.application
 	return immutableRecord({
 		findUnique: (options) =>

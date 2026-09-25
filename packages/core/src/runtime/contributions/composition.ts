@@ -2,7 +2,7 @@ import {
 	FrameworkApplication,
 	type PluginDefinition,
 } from '../../foundation.js'
-import { readApplicationCapabilityContributions } from '../../plugins/application-capability-access.js'
+import { readApplicationKernelState } from '../../application/application-kernel-state.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import {
 	immutableArray,
@@ -231,19 +231,18 @@ const readContributions = (
 ): readonly OwnedRuntimeContribution[] => {
 	const ownedContributions: OwnedRuntimeContribution[] = []
 
-	const contributions = readApplicationCapabilityContributions(
-		application,
-		runtimeInterceptorCapability,
-	).map(({ contributionId, owner, value }) =>
-		immutableRecord({
-			name: contributionId,
-			ownerPlugin: owner.pluginId,
-			...(owner.instanceId === undefined
-				? {}
-				: { ownerInstanceId: owner.instanceId }),
-			value,
-		}),
-	)
+	const contributions = readApplicationKernelState(application)
+		.capabilityContributions(runtimeInterceptorCapability)
+		.map(({ contributionId, owner, value }) =>
+			immutableRecord({
+				name: contributionId,
+				ownerPlugin: owner.pluginId,
+				...(owner.instanceId === undefined
+					? {}
+					: { ownerInstanceId: owner.instanceId }),
+				value,
+			}),
+		)
 
 	for (const contribution of contributions) {
 		const implementation = getRuntimeContributionImplementation(

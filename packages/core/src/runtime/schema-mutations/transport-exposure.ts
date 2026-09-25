@@ -1,4 +1,4 @@
-import { readApplicationCommandGraph } from '../../plugins/application-command-graph.js'
+import { readApplicationKernelState } from '../../application/application-kernel-state.js'
 import { projectSchemaMutationTransports } from '../commands/transport-projection.js'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
@@ -50,7 +50,7 @@ export const exposeFrameworkSchemaMutations = <
 		typeof CoreApplicationSchemaMutationTransport<TTransport>
 	>[1][number][] = []
 	for (const entry of projectSchemaMutationTransports(
-		readApplicationCommandGraph(framework.application),
+		readApplicationKernelState(framework.application).commands,
 		options.transport,
 	)) {
 		const schema = framework.application.schemas.get(entry.descriptor.schema)

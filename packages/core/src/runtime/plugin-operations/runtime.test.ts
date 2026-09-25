@@ -8,7 +8,7 @@ import {
 	type QueuedAdapterResult,
 } from '../../../tests/runtime/fixtures/recording-database-adapter.js'
 import { FrameworkApplication } from '../../application/framework-application.js'
-import { readApplicationCommandGraph } from '../../plugins/application-command-graph.js'
+import { readApplicationKernelState } from '../../application/application-kernel-state.js'
 import { executeRequestPluginOperation } from './request-execution.js'
 import { PluginError } from '../../errors/plugin-error.js'
 import { requireCapability } from '../../plugins/capabilities.js'
@@ -212,7 +212,7 @@ describe('plugin operation Runtime', () => {
 
 	it('rejects copied commands and forged envelope facts before entering a transaction', async () => {
 		const { ultimabase, trace } = await createFixture()
-		const graph = readApplicationCommandGraph(ultimabase.application)
+		const graph = readApplicationKernelState(ultimabase.application).commands
 		const command = graph.fromSource(applicationOperation)
 		if (command?.kind !== 'operation')
 			throw new Error('Missing operation fixture')

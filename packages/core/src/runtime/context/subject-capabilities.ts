@@ -3,7 +3,7 @@ import {
 	type RequestRoleResolver,
 } from '../../access/index.js'
 import { FrameworkError } from '../../errors/framework-error.js'
-import { readApplicationCapabilityContributions } from '../../plugins/application-capability-access.js'
+import { readApplicationKernelState } from '../../application/application-kernel-state.js'
 import { runWithApplicationPluginOwner } from '../../plugins/callback-execution.js'
 import { immutableRecord } from '@ultimabase/shared'
 import { getCurrentApplication } from './active-framework-context.js'
@@ -16,10 +16,9 @@ export const requireCurrentRequestRoleResolver = (): RequestRoleResolver => {
 	const existing = attributedRoleResolvers.get(application)
 	if (existing !== undefined) return existing
 
-	const contribution = readApplicationCapabilityContributions(
+	const contribution = readApplicationKernelState(
 		application,
-		requestRoleResolverCapability,
-	)[0]
+	).capabilityContributions(requestRoleResolverCapability)[0]
 	if (contribution !== undefined) {
 		const resolver = contribution.value
 		const resolvePersistentRole = resolver.resolvePersistentRole?.bind(resolver)

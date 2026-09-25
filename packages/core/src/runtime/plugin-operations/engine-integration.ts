@@ -1,4 +1,4 @@
-import { readApplicationCommandGraph } from '../../plugins/application-command-graph.js'
+import { readApplicationKernelState } from '../../application/application-kernel-state.js'
 import {
 	immutableRecord,
 	isPlainRecord,
@@ -7,7 +7,6 @@ import {
 
 import type { PluginOperationEnvelope } from '../../application/application-handles.js'
 import { FrameworkError } from '../../errors/framework-error.js'
-import { readApplicationCapabilityContributions } from '../../plugins/application-capability-access.js'
 import type { CompiledOperationCommand } from '../../plugins/command-graph.js'
 import { throwIfOperationCancelled } from '../cancellation/operation-cancellation.js'
 import { runtimeConstraintCapability } from '../capabilities.js'
@@ -52,13 +51,12 @@ const publicTransportProtectionKeys: ReadonlySet<string> = new Set([
 const protectedPolicyProviderPresence = (
 	framework: FrameworkEngine,
 ): 'none' | 'present' =>
-	readApplicationCapabilityContributions(
-		framework.application,
-		runtimeConstraintCapability,
-	).some(
-		(contribution) =>
-			getProtectedPolicyImplementation(contribution.value) !== undefined,
-	)
+	readApplicationKernelState(framework.application)
+		.capabilityContributions(runtimeConstraintCapability)
+		.some(
+			(contribution) =>
+				getProtectedPolicyImplementation(contribution.value) !== undefined,
+		)
 		? 'present'
 		: 'none'
 
@@ -189,7 +187,7 @@ export const exposeFrameworkOperations = <
 				'operation transport exposure entries must be tokens or names',
 			)
 		}
-		const graph = readApplicationCommandGraph(framework.application)
+		const graph = readApplicationKernelState(framework.application).commands
 		const compiled =
 			typeof tokenOrName === 'string'
 				? graph.get(name)
@@ -245,7 +243,7 @@ export const executePluginOperationRequest = async (
 	const { compiled, engine, envelope, transactionLifetime } = request
 	const targetKind: unknown = envelope.target.kind
 	if (
-		readApplicationCommandGraph(engine.application).get(
+		readApplicationKernelState(engine.application).commands.get(
 			compiled.definition.name,
 		) !== compiled ||
 		envelope.name !== compiled.definition.name ||

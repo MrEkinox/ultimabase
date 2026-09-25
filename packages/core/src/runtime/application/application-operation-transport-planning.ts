@@ -6,7 +6,7 @@ import {
 } from '@ultimabase/shared'
 
 import { FrameworkError } from '../../errors/framework-error.js'
-import { readApplicationCommandGraph } from '../../plugins/application-command-graph.js'
+import { readApplicationKernelState } from '../../application/application-kernel-state.js'
 import { describeOperationTransport } from '../commands/transport-projection.js'
 import {
 	defineCapability,
@@ -20,7 +20,6 @@ import {
 	isPluginOperationDefinition,
 	type PluginOperationDefinition,
 } from '../../plugins/plugin-operations.js'
-import { assertApplicationPluginPrivilege } from '../../plugins/setup-registries.js'
 import { isOperationTransportProtocol } from '../plugin-operations/capabilities.js'
 import type { OperationTransportProtocol } from '../plugin-operations/contracts.js'
 import type { ExposedOperationTransportBinding } from '../plugin-operations/transport.js'
@@ -83,7 +82,7 @@ const descriptorFor = (
 	transport: OperationTransportProtocol,
 	application: object,
 ): ExposedOperationTransportBinding => {
-	const graph = readApplicationCommandGraph(application)
+	const graph = readApplicationKernelState(application).commands
 	const command = graph.fromSource(operation)
 	if (command?.kind !== 'operation') {
 		throw operationFailure(
@@ -125,8 +124,7 @@ class CoreApplicationOperationTransportPlanner implements ApplicationOperationTr
 				{ internalDetails: { kind: 'operation-planning-owner-missing' } },
 			)
 		}
-		assertApplicationPluginPrivilege(
-			state.application,
+		readApplicationKernelState(state.application).assertPrivilege(
 			owner,
 			'transport:expose',
 		)
@@ -195,8 +193,7 @@ class CoreApplicationOperationTransportPlanner implements ApplicationOperationTr
 				},
 			)
 		}
-		assertApplicationPluginPrivilege(
-			state.application,
+		readApplicationKernelState(state.application).assertPrivilege(
 			owner,
 			'transport:expose',
 		)
@@ -216,7 +213,7 @@ class CoreApplicationOperationTransportPlanner implements ApplicationOperationTr
 			}
 		}
 		return planApplicationSchemaMutations(
-			readApplicationCommandGraph(state.application),
+			readApplicationKernelState(state.application).commands,
 			options,
 		)
 	}

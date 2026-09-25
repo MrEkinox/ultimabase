@@ -4,7 +4,7 @@ import type {
 	FrameworkApplication,
 	PluginDefinition,
 } from '../../foundation.js'
-import { readApplicationCapabilityContributions } from '../../plugins/application-capability-access.js'
+import { readApplicationKernelState } from '../../application/application-kernel-state.js'
 import { runWithApplicationPluginOwner } from '../../plugins/callback-execution.js'
 import type { PluginIdentity } from '../../plugins/manifest.js'
 import type { SchemaDefinition } from '../../schema/index.js'
@@ -130,12 +130,11 @@ export const composeRuntimeBehaviors = (
 		readonly PluginDefinition[]
 	>,
 ): RuntimeBehaviorStages | undefined => {
-	const behaviors = readApplicationCapabilityContributions(
-		application,
-		runtimeBehaviorCapability,
-	).map(({ owner, value }) =>
-		attributeRuntimeBehavior(application, owner, value),
-	)
+	const behaviors = readApplicationKernelState(application)
+		.capabilityContributions(runtimeBehaviorCapability)
+		.map(({ owner, value }) =>
+			attributeRuntimeBehavior(application, owner, value),
+		)
 	const contributionBehavior = composeRuntimeContributionBehavior(application)
 
 	if (behaviors.length === 0 && contributionBehavior === undefined)

@@ -5,7 +5,7 @@ import { isPlainRecord } from '@ultimabase/shared'
 import { FrameworkError } from '../../errors/framework-error.js'
 import type { CompiledOperationCommand } from '../../plugins/command-graph.js'
 import { prepareOperationEnvelope } from '../../application/operation-envelope.js'
-import { readApplicationCommandGraph } from '../../plugins/application-command-graph.js'
+import { readApplicationKernelState } from '../../application/application-kernel-state.js'
 import type { PluginOperationDefinition } from '../../plugins/plugin-operations.js'
 import type { JsonValue } from '../../schema/index.js'
 import { RequestContext } from '../context/request-context.js'
@@ -147,7 +147,7 @@ export class CoreApplicationOperationTransport<
 			}
 			const decoded = this.runtime.decode(exposed.binding, request.input)
 			const envelope = prepareOperationEnvelope(
-				readApplicationCommandGraph(engine.application),
+				readApplicationKernelState(engine.application).commands,
 				exposed.compiled,
 				decoded,
 			)

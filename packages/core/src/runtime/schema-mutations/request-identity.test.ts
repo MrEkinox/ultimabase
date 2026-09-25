@@ -12,7 +12,7 @@ import {
 	contributeSchemaMutation,
 	defineSchemaMutation,
 } from '../../foundation.js'
-import { readApplicationCommandGraph } from '../../plugins/application-command-graph.js'
+import { readApplicationKernelState } from '../../application/application-kernel-state.js'
 import { normalizeOperationOptions } from '../../query/operations/execution.js'
 import { Schema } from '../../schema/index.js'
 import { UltimaBase } from '../application/ultima-base.js'
@@ -116,7 +116,7 @@ describe('canonical mutation request identity', () => {
 			}),
 		)
 		await ultimabase.start()
-		const graph = readApplicationCommandGraph(ultimabase.application)
+		const graph = readApplicationKernelState(ultimabase.application).commands
 		const command = graph.fromSource(archive)
 		if (command?.kind !== 'mutation')
 			throw new Error('Missing mutation fixture')

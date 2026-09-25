@@ -4,7 +4,7 @@ import type {
 	PluginDefinition,
 } from '../../foundation.js'
 import type { SchemaDefinition } from '../../schema/index.js'
-import { readApplicationCapabilityContributions } from '../../plugins/application-capability-access.js'
+import { readApplicationKernelState } from '../../application/application-kernel-state.js'
 import { runWithApplicationPluginOwner } from '../../plugins/callback-execution.js'
 import { formatPluginIdentity } from '../../plugins/manifest.js'
 import {
@@ -21,28 +21,27 @@ export const createPersistencePlanRewriteStage = (
 		readonly PluginDefinition[]
 	>,
 ): RuntimePersistencePlanRewriteStage | undefined => {
-	const contributions = readApplicationCapabilityContributions(
-		application,
-		persistencePlanRewriterCapability,
-	).map((contribution) => {
-		const handler = getPersistencePlanRewriteHandler(contribution.value)
+	const contributions = readApplicationKernelState(application)
+		.capabilityContributions(persistencePlanRewriterCapability)
+		.map((contribution) => {
+			const handler = getPersistencePlanRewriteHandler(contribution.value)
 
-		if (handler === undefined) {
-			throw new FrameworkError(
-				'PLUGIN_CAPABILITY_CONFLICT',
-				`Plugin "${formatPluginIdentity(contribution.owner)}" materialized an invalid persistence plan rewriter.`,
-				{
-					internalDetails: {
-						kind: 'persistence-plan-rewriter-invalid',
-						plugin: formatPluginIdentity(contribution.owner),
-						contributionId: contribution.contributionId,
+			if (handler === undefined) {
+				throw new FrameworkError(
+					'PLUGIN_CAPABILITY_CONFLICT',
+					`Plugin "${formatPluginIdentity(contribution.owner)}" materialized an invalid persistence plan rewriter.`,
+					{
+						internalDetails: {
+							kind: 'persistence-plan-rewriter-invalid',
+							plugin: formatPluginIdentity(contribution.owner),
+							contributionId: contribution.contributionId,
+						},
 					},
-				},
-			)
-		}
+				)
+			}
 
-		return { ...contribution, handler }
-	})
+			return { ...contribution, handler }
+		})
 
 	if (contributions.length === 0) return undefined
 

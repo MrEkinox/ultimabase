@@ -1,4 +1,4 @@
-import { readApplicationCommandGraph } from '../../plugins/application-command-graph.js'
+import { readApplicationKernelState } from '../../application/application-kernel-state.js'
 import { runApplicationWork } from '../../application/active-application.js'
 import { immutableRecord } from '@ultimabase/shared'
 
@@ -129,7 +129,7 @@ const assertEnvelope = (
 	schema: SchemaDefinition,
 	envelope: PluginSchemaMutationEnvelope,
 ): void => {
-	const graph = readApplicationCommandGraph(host.engine.application)
+	const graph = readApplicationKernelState(host.engine.application).commands
 	const envelopeKind: unknown = envelope.kind
 	if (
 		!host.engine.application.ownsSchema(schema) ||

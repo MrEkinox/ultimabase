@@ -6,7 +6,7 @@ import {
 } from '@ultimabase/shared'
 
 import { prepareSchemaMutationEnvelope } from '../../application/schema-mutation-envelope.js'
-import { readApplicationCommandGraph } from '../../plugins/application-command-graph.js'
+import { readApplicationKernelState } from '../../application/application-kernel-state.js'
 import type { CompiledMutationCommand } from '../../plugins/command-graph.js'
 import { FrameworkError } from '../../errors/framework-error.js'
 import type { CompiledSchemaMutationCommand } from '../../plugins/application-surface-registry.js'
@@ -149,7 +149,7 @@ export class CoreApplicationSchemaMutationTransport<
 				request.input,
 			)
 			const envelope = prepareSchemaMutationEnvelope({
-				graph: readApplicationCommandGraph(engine.application),
+				graph: readApplicationKernelState(engine.application).commands,
 				command: exposed.command,
 				schema: request.schema,
 				name: exposed.commandName,
