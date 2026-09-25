@@ -10,12 +10,14 @@ import {
 	passwordAuthPlugin,
 	PasswordUserSchema,
 	type PasswordAuthHttpOptions,
+	type PasswordChangeInput,
 	type PasswordCredentialsInput,
 	type PasswordSignUpInput,
 } from './index.js'
 import type { passwordAuthOperations } from './index.js'
 import type {
 	PasswordAuthenticationResult,
+	PasswordChangeResult,
 	PasswordLogoutResult,
 } from './session.js'
 
@@ -34,6 +36,15 @@ test('retains exact operation input and result contracts', () => {
 	>().toEqualTypeOf<null>()
 	expectTypeOf<
 		PluginOperationResult<typeof passwordAuthOperations.logout>
+	>().toEqualTypeOf<PasswordLogoutResult>()
+	expectTypeOf<
+		PluginOperationInput<typeof passwordAuthOperations.changePassword>
+	>().toEqualTypeOf<PasswordChangeInput>()
+	expectTypeOf<
+		PluginOperationResult<typeof passwordAuthOperations.changePassword>
+	>().toEqualTypeOf<PasswordChangeResult>()
+	expectTypeOf<
+		PluginOperationResult<typeof passwordAuthOperations.logoutEverywhere>
 	>().toEqualTypeOf<PasswordLogoutResult>()
 })
 

@@ -2,22 +2,28 @@ import {
 	FrameworkError,
 	UltimaBase,
 	getCurrentApplication,
+	getCurrentRequest,
 	getCurrentUltimaBase,
 	type OperationOptions,
 	type SchemaFields,
 	type SchemaReference,
+	type SchemaResult,
 } from '@ultimabase/core'
 import { isPlainRecord } from '@ultimabase/shared'
 
 import type { PasswordAuthPluginExports } from './application-api.js'
 import {
 	passwordAuthOperations,
+	rejectPasswordSession,
+	type PasswordChangeInput,
 	type PasswordCredentialsInput,
 } from './operations.js'
 import type {
 	PasswordAuthenticationResult,
+	PasswordChangeResult,
 	PasswordLogoutResult,
 } from './session.js'
+import { passwordPrincipal } from './session.js'
 import type { PasswordUserDefinition } from './user-schema.js'
 import type { PasswordSignUpInput } from './sign-up-input.js'
 
@@ -34,6 +40,21 @@ export interface PasswordUserAuthOptions {
 export interface PasswordUserAuthMethods<
 	TFields extends SchemaFields = SchemaFields,
 > {
+	/**
+	 * Reads the currently authenticated User through the ordinary authorization pipeline.
+	 * @example `const me = await AppUser.current()`
+	 */
+	current(
+		options?: PasswordUserAuthOptions,
+	): Promise<SchemaResult<PasswordUserDefinition<TFields>>>
+	/**
+	 * Replaces the current User's password and revokes every other session.
+	 * @example `await AppUser.changePassword({ currentPassword, newPassword })`
+	 */
+	changePassword(
+		input: PasswordChangeInput,
+		options?: PasswordUserAuthOptions,
+	): Promise<PasswordChangeResult>
 	/**
 	 * Creates a User, credential, and session atomically, with a required readable profile.
 	 * @example `await AppUser.signUp({ username: 'Ada', password }, { ultimabase })`
@@ -65,6 +86,13 @@ export interface PasswordUserAuthMethods<
 	 */
 	logout(
 		token: string,
+		options?: PasswordUserAuthOptions,
+	): Promise<PasswordLogoutResult>
+	/**
+	 * Revokes every session owned by the currently authenticated User.
+	 * @example `await AppUser.logoutEverywhere()`
+	 */
+	logoutEverywhere(
 		options?: PasswordUserAuthOptions,
 	): Promise<PasswordLogoutResult>
 }
@@ -121,9 +149,28 @@ const selectApplication = (
 	return ultimabase
 }
 
+const readCurrentProfile = async <TSchema extends SchemaReference<'User'>>(
+	schema: TSchema,
+	userId: string,
+): Promise<SchemaResult<TSchema>> => {
+	const profile = await schema.pointer(userId).findOne()
+	if (profile === null) {
+		throw new FrameworkError(
+			'NOT_FOUND',
+			'Password Auth User is not readable.',
+			{
+				publicMessage: 'The requested object was not found.',
+			},
+		)
+	}
+	return profile as unknown as SchemaResult<TSchema>
+}
+
 /** Creates inert dispatchers before Core freezes the exact schema class. */
-export const createPasswordUserAuthMethods = (
-	schema: SchemaReference<'User'>,
+export const createPasswordUserAuthMethods = <
+	TSchema extends SchemaReference<'User'>,
+>(
+	schema: TSchema,
 ) => {
 	const withSession = <TResult>(
 		token: string,
@@ -139,7 +186,40 @@ export const createPasswordUserAuthMethods = (
 		// The existing session helper validates ownership and installs anonymous authority.
 		return auth.runWithSession(token, () => execute(ultimabase))
 	}
+	const currentPrincipal = () => {
+		try {
+			return getCurrentRequest().getValue(passwordPrincipal)
+		} catch (error: unknown) {
+			if (
+				error instanceof FrameworkError &&
+				error.code === 'MISSING_EXECUTION_CONTEXT'
+			) {
+				return undefined
+			}
+			throw error
+		}
+	}
 	return {
+		current: async (
+			options?: PasswordUserAuthOptions,
+		): Promise<SchemaResult<TSchema>> => {
+			selectApplication(schema, options)
+			const principal = currentPrincipal()
+			if (principal === undefined) {
+				return rejectPasswordSession()
+			}
+			if (!Object.is(principal.user.schema, schema)) {
+				return rejectPasswordSession()
+			}
+			return readCurrentProfile(schema, principal.user.id)
+		},
+		changePassword: async (
+			input: PasswordChangeInput,
+			options?: PasswordUserAuthOptions,
+		): Promise<PasswordChangeResult> =>
+			selectApplication(schema, options)
+				.operation(passwordAuthOperations.changePassword)
+				.execute(input),
 		signUp: async (
 			input: PasswordSignUpInput,
 			options?: PasswordUserAuthOptions,
@@ -168,5 +248,11 @@ export const createPasswordUserAuthMethods = (
 			withSession(token, options, (ultimabase) =>
 				ultimabase.operation(passwordAuthOperations.logout).execute(null),
 			),
+		logoutEverywhere: async (
+			options?: PasswordUserAuthOptions,
+		): Promise<PasswordLogoutResult> =>
+			selectApplication(schema, options)
+				.operation(passwordAuthOperations.logoutEverywhere)
+				.execute(null),
 	}
 }

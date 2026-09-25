@@ -242,6 +242,81 @@ describe('Password User authentication methods', () => {
 		).rejects.toThrow('started UltimaBase')
 	})
 
+	it('reads the current User, changes its password, and revokes account sessions', async () => {
+		const User = createUser()
+		const { ultimabase } = createApplication(User)
+		await ultimabase.start()
+		try {
+			const signedUp = await User.signUp(
+				{ username: 'account-security', password },
+				{ ultimabase },
+			)
+			const current = await User.login(
+				{ username: 'account-security', password },
+				{ ultimabase },
+			)
+			const other = await User.login(
+				{ username: 'account-security', password },
+				{ ultimabase },
+			)
+			const auth = ultimabase.application.getPlugin(
+				'@ultimabase/password-auth-plugin',
+			)
+			await expect(User.current({ ultimabase })).rejects.toMatchObject({
+				code: 'PASSWORD_AUTH_INVALID_SESSION',
+			})
+			await auth.runWithSession(current.session.token, async () => {
+				await expect(User.current()).resolves.toMatchObject({
+					id: signedUp.user.id,
+					username: 'account-security',
+				})
+				await expect(
+					User.changePassword({
+						currentPassword: 'incorrect password value',
+						newPassword: 'replacement password value',
+					}),
+				).rejects.toMatchObject({
+					code: 'PASSWORD_AUTH_PASSWORD_CHANGE_REJECTED',
+				})
+				await expect(
+					User.changePassword({
+						currentPassword: password,
+						newPassword: 'replacement password value',
+					}),
+				).resolves.toEqual({ changed: true })
+			})
+			await expect(
+				auth.runWithSession(signedUp.session.token, () => undefined),
+			).rejects.toMatchObject({ code: 'PASSWORD_AUTH_INVALID_SESSION' })
+			await expect(
+				auth.runWithSession(other.session.token, () => undefined),
+			).rejects.toMatchObject({ code: 'PASSWORD_AUTH_INVALID_SESSION' })
+			await expect(
+				auth.runWithSession(current.session.token, () => 'current'),
+			).resolves.toBe('current')
+			await expect(
+				User.login({ username: 'account-security', password }, { ultimabase }),
+			).rejects.toMatchObject({ code: 'PASSWORD_AUTH_INVALID_CREDENTIALS' })
+			const replacement = await User.login(
+				{
+					username: 'account-security',
+					password: 'replacement password value',
+				},
+				{ ultimabase },
+			)
+			await auth.runWithSession(current.session.token, () =>
+				User.logoutEverywhere(),
+			)
+			for (const token of [current.session.token, replacement.session.token]) {
+				await expect(
+					auth.runWithSession(token, () => undefined),
+				).rejects.toMatchObject({ code: 'PASSWORD_AUTH_INVALID_SESSION' })
+			}
+		} finally {
+			await ultimabase.dispose()
+		}
+	})
+
 	it('requires the exact configured User and rejects a foreign active application', async () => {
 		const User = createUser()
 		const OtherUser = createUser()

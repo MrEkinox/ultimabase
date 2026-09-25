@@ -252,6 +252,71 @@ describe(
 			}
 		})
 
+		it('serializes refresh against account-wide session revocation', async () => {
+			const application = createApplication()
+			await application.ultimabase.start()
+			try {
+				const created = await application.ultimabase
+					.operation(passwordAuthOperations.signUp)
+					.execute({ password, username: 'global-revocation' })
+				const auth = application.ultimabase.application.getPlugin(
+					'@ultimabase/password-auth-plugin',
+				)
+				let arrivals = 0
+				let release: (() => void) | undefined
+				const barrier = new Promise<void>((resolve) => {
+					release = resolve
+				})
+				const enter = async <TResult>(handler: () => Promise<TResult>) => {
+					arrivals += 1
+					if (arrivals === 2) release?.()
+					await barrier
+					return handler()
+				}
+				const refresh = auth.runWithSession(created.session.token, () =>
+					enter(() =>
+						application.ultimabase
+							.operation(passwordAuthOperations.refresh)
+							.execute(null),
+					),
+				)
+				const logoutEverywhere = auth.runWithSession(
+					created.session.token,
+					() =>
+						enter(() =>
+							application.ultimabase
+								.operation(passwordAuthOperations.logoutEverywhere)
+								.execute(null),
+						),
+				)
+				const [refreshOutcome, logoutOutcome] = await Promise.allSettled([
+					refresh,
+					logoutEverywhere,
+				])
+				expect(logoutOutcome).toMatchObject({
+					status: 'fulfilled',
+					value: { revoked: true },
+				})
+				await expect(
+					auth.runWithSession(created.session.token, () => undefined),
+				).rejects.toMatchObject({ code: 'PASSWORD_AUTH_INVALID_SESSION' })
+				if (refreshOutcome.status === 'fulfilled') {
+					await expect(
+						auth.runWithSession(
+							refreshOutcome.value.session.token,
+							() => undefined,
+						),
+					).rejects.toMatchObject({ code: 'PASSWORD_AUTH_INVALID_SESSION' })
+				} else {
+					expect(refreshOutcome.reason).toMatchObject({
+						code: 'PASSWORD_AUTH_INVALID_SESSION',
+					})
+				}
+			} finally {
+				await application.ultimabase.dispose()
+			}
+		})
+
 		it('stores digests rather than raw bearer tokens', async () => {
 			const application = createApplication()
 			await application.ultimabase.start()

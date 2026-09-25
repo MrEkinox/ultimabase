@@ -7,8 +7,12 @@ import {
 import { immutableRecord } from '@ultimabase/shared'
 
 import {
+	advancePasswordSessionGeneration,
+	changePasswordCredential,
+	findPasswordCredentialByUserId,
 	findPasswordCredentialByUsername,
 	insertPasswordCredential,
+	retainPasswordSessionGeneration,
 	upgradePasswordCredential,
 	type PasswordCredentialCollection,
 	type CreatePasswordCredentialInput,
@@ -19,6 +23,7 @@ import {
 } from './normalization.js'
 import {
 	passwordAuthOperations,
+	rejectPasswordChange,
 	rejectPasswordCredentials,
 	rejectPasswordSession,
 	rejectPasswordSignUp,
@@ -28,10 +33,15 @@ import {
 	verifyNormalizedPasswordOrDummy,
 } from './password-hasher.js'
 import type { ResolvedPasswordHashPolicy } from './password-policy.js'
-import { passwordSession } from './session.js'
+import {
+	passwordPrincipal,
+	passwordSession,
+	readPasswordSessionGeneration,
+} from './session.js'
 import { readPasswordAuthenticationResult } from './authentication-result.js'
 import type { ResolvedPasswordSessionPolicy } from './session-policy.js'
 import {
+	advanceCurrentPasswordSessionGeneration,
 	issuePasswordSession,
 	revokePasswordSession,
 	rotatePasswordSession,
@@ -114,12 +124,14 @@ const createSignUpHandler = <TUser extends PasswordUserReference>(
 					await insertPasswordCredential(options.credentials, {
 						passwordVerifier: verifier.encoded,
 						policyVersion: verifier.policyVersion,
+						sessionGeneration: 0,
 						userId: pointer.id,
 						username: normalized.username,
 					})
 					const session = await issuePasswordSession(
 						options.sessions,
 						pointer.id,
+						0,
 						options.sessionPolicy,
 					)
 					return readPasswordAuthenticationResult(
@@ -142,6 +154,7 @@ const unchangedCredential = (
 ): boolean =>
 	left.passwordVerifier === right.passwordVerifier &&
 	left.policyVersion === right.policyVersion &&
+	left.sessionGeneration === right.sessionGeneration &&
 	left.userId === right.userId &&
 	left.username === right.username
 
@@ -200,6 +213,7 @@ const createLoginHandler = <TUser extends PasswordUserReference>(
 				const session = await issuePasswordSession(
 					options.sessions,
 					current.userId,
+					current.sessionGeneration,
 					options.sessionPolicy,
 				)
 				return readPasswordAuthenticationResult(
@@ -229,14 +243,136 @@ const createLogoutHandler = (
 		},
 	})
 
+const createLogoutEverywhereHandler = (
+	options: PasswordOperationHandlerOptions<PasswordUserReference>,
+) =>
+	operationHandler({
+		operation: passwordAuthOperations.logoutEverywhere,
+		execute: async ({ context }) => {
+			const principal = context.getValue(passwordPrincipal)
+			const session = context.getValue(passwordSession)
+			if (principal === undefined || session === undefined) {
+				return rejectPasswordSession()
+			}
+			const credential = await findPasswordCredentialByUserId(
+				options.credentials,
+				principal.user.id,
+			)
+			if (
+				credential?.sessionGeneration !== readPasswordSessionGeneration(session)
+			) {
+				return rejectPasswordSession()
+			}
+			if (
+				(await advancePasswordSessionGeneration(
+					options.credentials,
+					credential,
+				)) === null
+			) {
+				return rejectPasswordSession()
+			}
+			return immutableRecord({ revoked: true as const })
+		},
+	})
+
+const createChangePasswordHandler = (
+	options: PasswordOperationHandlerOptions<PasswordUserReference>,
+) =>
+	operationHandler({
+		operation: passwordAuthOperations.changePassword,
+		execute: async ({ context, engine, input }) => {
+			const principal = context.getValue(passwordPrincipal)
+			const session = context.getValue(passwordSession)
+			if (principal === undefined || session === undefined) {
+				return rejectPasswordSession()
+			}
+			let currentPassword: string
+			let newPassword: string
+			try {
+				currentPassword = normalizePasswordInput(input.currentPassword)
+				newPassword = normalizePasswordInput(input.newPassword)
+			} catch {
+				return rejectPasswordChange()
+			}
+			const credential = await findPasswordCredentialByUserId(
+				options.credentials,
+				principal.user.id,
+			)
+			if (
+				credential?.sessionGeneration !== readPasswordSessionGeneration(session)
+			) {
+				return rejectPasswordSession()
+			}
+			const verification = await verifyNormalizedPasswordOrDummy(
+				currentPassword,
+				{
+					encoded: credential.passwordVerifier,
+					policyVersion: credential.policyVersion,
+				},
+				options.passwordPolicy,
+			)
+			if (!verification.matches) return rejectPasswordChange()
+			const verifier = await createNormalizedPasswordVerifier(
+				newPassword,
+				options.passwordPolicy,
+			)
+			return engine.transaction(async () => {
+				const current = await findPasswordCredentialByUserId(
+					options.credentials,
+					credential.userId,
+				)
+				if (current?.sessionGeneration !== credential.sessionGeneration) {
+					return rejectPasswordSession()
+				}
+				if (!unchangedCredential(current, credential)) {
+					return rejectPasswordChange()
+				}
+				if (
+					(await changePasswordCredential(options.credentials, current, {
+						passwordVerifier: verifier.encoded,
+						policyVersion: verifier.policyVersion,
+					})) === null ||
+					!(await advanceCurrentPasswordSessionGeneration(
+						options.sessions,
+						session,
+						current.sessionGeneration + 1,
+					))
+				) {
+					return rejectPasswordSession()
+				}
+				return immutableRecord({ changed: true as const })
+			})
+		},
+	})
+
 const createRefreshHandler = <TUser extends PasswordUserReference>(
 	options: PasswordOperationHandlerOptions<TUser>,
 ) =>
 	operationHandler({
 		operation: passwordAuthOperations.refresh,
 		execute: async ({ context }) => {
+			const principal = context.getValue(passwordPrincipal)
 			const session = context.getValue(passwordSession)
-			if (session === undefined) return rejectPasswordSession()
+			if (principal === undefined || session === undefined) {
+				return rejectPasswordSession()
+			}
+			const credential = await findPasswordCredentialByUserId(
+				options.credentials,
+				principal.user.id,
+			)
+			if (
+				credential?.sessionGeneration !== readPasswordSessionGeneration(session)
+			) {
+				return rejectPasswordSession()
+			}
+			if (
+				(await retainPasswordSessionGeneration(
+					options.credentials,
+					credential,
+				)) === null
+			) {
+				return rejectPasswordSession()
+			}
 			const rotated = await rotatePasswordSession(
 				options.sessions,
 				session,
@@ -252,7 +388,7 @@ const createRefreshHandler = <TUser extends PasswordUserReference>(
 		},
 	})
 
-/** Creates the four application-local handlers from one private auth state. */
+/** Creates the six application-local handlers from one private auth state. */
 export const createPasswordOperationHandlers = <
 	TUser extends PasswordUserReference,
 >(
@@ -261,10 +397,18 @@ export const createPasswordOperationHandlers = <
 	PluginOperationHandlerDefinition<typeof passwordAuthOperations.signUp>,
 	PluginOperationHandlerDefinition<typeof passwordAuthOperations.login>,
 	PluginOperationHandlerDefinition<typeof passwordAuthOperations.logout>,
+	PluginOperationHandlerDefinition<
+		typeof passwordAuthOperations.logoutEverywhere
+	>,
+	PluginOperationHandlerDefinition<
+		typeof passwordAuthOperations.changePassword
+	>,
 	PluginOperationHandlerDefinition<typeof passwordAuthOperations.refresh>,
 ] => [
 	createSignUpHandler(options),
 	createLoginHandler(options),
 	createLogoutHandler(options),
+	createLogoutEverywhereHandler(options),
+	createChangePasswordHandler(options),
 	createRefreshHandler(options),
 ]

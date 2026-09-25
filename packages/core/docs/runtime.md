@@ -57,6 +57,23 @@ closes new execution, waits for admitted requests and transactions, and releases
 it after successful cleanup. Failed cleanup keeps the realm closed to a
 replacement. Call teardown outside an active request callback.
 
+For scripts, tests, and other scopes that construct and finish one application
+locally, `await using` invokes the existing `Symbol.asyncDispose` boundary even
+when the scope throws:
+
+```ts
+await using ultimabase = new UltimaBase({
+	schemas: [ArticleSchema],
+	plugins: [databasePlugin()],
+})
+
+await ultimabase.start()
+```
+
+The application is disposed when the enclosing async scope exits. Long-lived
+servers and exported application singletons should retain explicit graceful
+shutdown handling because their lifetime is not one lexical block.
+
 Independent Jest or Vitest workers can each run one application. Within a suite,
 return `app.start()` from `beforeAll` and `app.dispose()` from `afterAll`; finish
 disposal before starting another application in the same realm.

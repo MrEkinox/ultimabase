@@ -1580,6 +1580,9 @@ there is no force reset. Escaped engines, grants, contexts, and handles retain
 their previous owner. Static plugin mutation visibility is removed on disposal.
 Independent parallel applications use separate workers, processes, or containers.
 Jest/Vitest suites await `start()` in `beforeAll` and `dispose()` in `afterAll`.
+Locally scoped scripts and tests may instead declare
+`await using ultimabase = new UltimaBase(options)`; the facade implements
+`Symbol.asyncDispose` and awaits `dispose()` when the async scope exits.
 
 ## Framework errors
 

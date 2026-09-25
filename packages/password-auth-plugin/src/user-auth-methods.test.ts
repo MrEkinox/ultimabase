@@ -18,7 +18,15 @@ describe('Password User static authentication boundary', () => {
 			expect(Object.isFrozen(schema)).toBe(true)
 			const draft = new schema({ username: 'ada' })
 			expect(draft).toBeInstanceOf(schema)
-			for (const method of ['signUp', 'login', 'refresh', 'logout']) {
+			for (const method of [
+				'changePassword',
+				'current',
+				'logout',
+				'logoutEverywhere',
+				'login',
+				'refresh',
+				'signUp',
+			]) {
 				expect(Object.getOwnPropertyDescriptor(schema, method)).toMatchObject({
 					enumerable: false,
 					writable: false,
@@ -32,13 +40,11 @@ describe('Password User static authentication boundary', () => {
 		await expect(PasswordUser.signUp(credentials)).rejects.toMatchObject({
 			code: 'MISSING_EXECUTION_CONTEXT',
 		})
-		const ultimabase = new UltimaBase({ schemas: [], plugins: [] })
-		try {
+		await using ultimabase = new UltimaBase({ schemas: [], plugins: [] })
+		{
 			await expect(
 				PasswordUser.login(credentials, { ultimabase }),
 			).rejects.toThrow('started UltimaBase')
-		} finally {
-			await ultimabase.dispose()
 		}
 		await expect(PasswordUser.refresh('token', { ultimabase })).rejects.toThrow(
 			'started UltimaBase',
@@ -58,6 +64,9 @@ describe('Password User static authentication boundary', () => {
 		}
 		await expect(
 			PasswordUser.logout('token', { ultimabase: {} as never }),
+		).rejects.toThrow('UltimaBase instance')
+		await expect(
+			PasswordUser.logoutEverywhere({ ultimabase: {} as never }),
 		).rejects.toThrow('UltimaBase instance')
 	})
 })

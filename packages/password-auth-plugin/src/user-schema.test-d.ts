@@ -1,4 +1,4 @@
-import { Schema, type Pointer } from '@ultimabase/core'
+import { Schema, type Pointer, type SchemaResult } from '@ultimabase/core'
 import { expectTypeOf, test } from 'vitest'
 
 import {
@@ -9,6 +9,7 @@ import {
 	type PasswordPrincipal,
 	type PasswordUserReference,
 	type PasswordAuthenticationResult,
+	type PasswordChangeResult,
 	type PasswordLogoutResult,
 } from './index.js'
 
@@ -39,6 +40,18 @@ test('types class authentication results against the exact User and rejects extr
 	expectTypeOf(AppUser.logout('token')).toEqualTypeOf<
 		Promise<PasswordLogoutResult>
 	>()
+	expectTypeOf(AppUser.logoutEverywhere()).toEqualTypeOf<
+		Promise<PasswordLogoutResult>
+	>()
+	expectTypeOf(
+		AppUser.changePassword({
+			currentPassword: credentials.password,
+			newPassword: 'another correct horse battery staple',
+		}),
+	).toEqualTypeOf<Promise<PasswordChangeResult>>()
+	expectTypeOf(AppUser.current()).toEqualTypeOf<
+		Promise<SchemaResult<typeof AppUser>>
+	>()
 	expectTypeOf(PasswordUser.signUp(credentials)).toEqualTypeOf<
 		Promise<PasswordAuthenticationResult<typeof PasswordUser>>
 	>()
@@ -62,6 +75,10 @@ test('types class authentication results against the exact User and rejects extr
 	void AppUser.login(credentials, { useMasterKey: true })
 	// @ts-expect-error -- The token is explicit even inside an authenticated request.
 	void AppUser.logout()
+	// @ts-expect-error -- Password replacement requires both secrets.
+	void AppUser.changePassword({ currentPassword: credentials.password })
+	// @ts-expect-error -- Account-scoped methods accept no target User identity.
+	void AppUser.logoutEverywhere({ userId: 'another-user' })
 })
 
 test('retains nominal User and principal typing', () => {

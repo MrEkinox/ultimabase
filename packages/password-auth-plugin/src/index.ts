@@ -18,12 +18,16 @@ export {
 	passwordAuthOperationList,
 	passwordAuthOperations,
 } from './operations.js'
-export type { PasswordCredentialsInput } from './operations.js'
+export type {
+	PasswordChangeInput,
+	PasswordCredentialsInput,
+} from './operations.js'
 export type { PasswordSignUpInput } from './sign-up-input.js'
 export { passwordPrincipal, passwordSession } from './session.js'
 export type {
 	IssuedPasswordSession,
 	PasswordAuthenticationResult,
+	PasswordChangeResult,
 	PasswordLogoutResult,
 	PasswordSession,
 } from './session.js'

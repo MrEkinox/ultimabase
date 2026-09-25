@@ -10,6 +10,7 @@ import { type CapabilityProviderDeclaration } from '@ultimabase/core'
 import { immutableRecord } from '@ultimabase/shared'
 
 import type { ResolvedPasswordAuthCookieOptions } from './http-options.js'
+import type { PasswordCredentialCollection } from './credentials.js'
 import { rejectPasswordSession } from './operations.js'
 import { createPasswordPrincipal } from './principal.js'
 import {
@@ -23,15 +24,19 @@ import {
 } from './sessions.js'
 import type { PasswordUserReference } from './user-schema.js'
 
-/** Names the four Password Auth-owned secure-cookie routes. */
+/** Names the six Password Auth-owned secure-cookie routes. */
 export const passwordAuthCookiePaths: Readonly<{
+	readonly changePassword: '/auth/v1/change-password'
 	readonly login: '/auth/v1/login'
 	readonly logout: '/auth/v1/logout'
+	readonly logoutEverywhere: '/auth/v1/logout-everywhere'
 	readonly refresh: '/auth/v1/refresh'
 	readonly signUp: '/auth/v1/sign-up'
 }> = immutableRecord({
+	changePassword: '/auth/v1/change-password',
 	login: '/auth/v1/login',
 	logout: '/auth/v1/logout',
+	logoutEverywhere: '/auth/v1/logout-everywhere',
 	refresh: '/auth/v1/refresh',
 	signUp: '/auth/v1/sign-up',
 } as const)
@@ -121,6 +126,7 @@ const assertCookieRequestProof = (
 /** Provides the default Bearer resolver and optional strict cookie resolution. */
 export const providePasswordHttpSessionResolver = (options: {
 	readonly cookie: ResolvedPasswordAuthCookieOptions | undefined
+	readonly credentials: PasswordCredentialCollection
 	readonly sessions: PasswordSessionCollection
 	readonly user: PasswordUserReference
 }): CapabilityProviderDeclaration<
@@ -187,6 +193,7 @@ export const providePasswordHttpSessionResolver = (options: {
 					if (token === undefined) return context
 					const validated = await validatePasswordSessionToken(
 						options.sessions,
+						options.credentials,
 						token,
 					)
 					if (validated === undefined) return rejectPasswordSession()

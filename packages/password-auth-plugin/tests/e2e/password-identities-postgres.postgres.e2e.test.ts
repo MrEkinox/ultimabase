@@ -208,6 +208,7 @@ describe('Password identities with PostgreSQL', { concurrent: false }, () => {
 						await insertPasswordCredential(credentials, {
 							passwordVerifier: verifier.encoded,
 							policyVersion: verifier.policyVersion,
+							sessionGeneration: 0,
 							userId: input.userId,
 							username,
 						})

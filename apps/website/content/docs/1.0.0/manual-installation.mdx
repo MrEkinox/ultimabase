@@ -9,7 +9,7 @@ order: 2
 outcome: Start and verify a minimal schema-backed PostgreSQL application from a manually configured project.
 owner: '2806'
 releaseStatus: pre-release
-reviewedAt: 2026-09-21
+reviewedAt: 2026-09-25
 sources:
   - README.md
   - package.json
@@ -273,6 +273,19 @@ try {
 	await ultimabase.dispose()
 }
 ```
+
+This example imports a shared application, so its lifetime is explicit. When a
+script constructs the application locally, `await using` provides the same
+guarantee without a handwritten `finally` block:
+
+```ts
+await using ultimabase = new UltimaBase(options)
+await ultimabase.start()
+// `dispose()` is awaited automatically when this async scope exits.
+```
+
+Use explicit shutdown handling for long-running servers whose application must
+remain alive beyond one lexical scope.
 
 Run the complete local check:
 

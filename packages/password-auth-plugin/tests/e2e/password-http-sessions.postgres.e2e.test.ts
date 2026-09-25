@@ -452,10 +452,70 @@ describe('Password Auth HTTP session resolution', { concurrent: false }, () => {
 			expect(recovered.status).toBe(200)
 			const recoveredCookie = readCookiePair(recovered)
 			expect(recoveredCookie).not.toBe(firstCookie)
+			const changePassword = await http.fetch(
+				directRequest('password-cookie', '/auth/v1/change-password', {
+					body: JSON.stringify({
+						currentPassword: password,
+						newPassword: 'replacement password value',
+					}),
+					headers: [...proofHeaders, ['Cookie', recoveredCookie]],
+					method: 'POST',
+				}),
+			)
+			expect(changePassword.status).toBe(200)
+			expect(await readJson(changePassword)).toStrictEqual({
+				result: { changed: true },
+			})
+			const revokedOtherSession = await http.fetch(
+				directRequest('password-cookie', '/context', {
+					headers: [['Cookie', rotatedCookie]],
+				}),
+			)
+			expect(revokedOtherSession.status).toBe(401)
+			const replacementLogin = await http.fetch(
+				directRequest('password-cookie', '/auth/v1/login', {
+					body: JSON.stringify({
+						password: 'replacement password value',
+						username: 'cookie-user',
+					}),
+					headers: proofHeaders,
+					method: 'POST',
+				}),
+			)
+			expect(replacementLogin.status).toBe(200)
+			const replacementCookie = readCookiePair(replacementLogin)
+			const logoutEverywhere = await http.fetch(
+				directRequest('password-cookie', '/auth/v1/logout-everywhere', {
+					headers: [...proofHeaders, ['Cookie', recoveredCookie]],
+					method: 'POST',
+				}),
+			)
+			expect(logoutEverywhere.status).toBe(200)
+			expect(logoutEverywhere.headers.get('Set-Cookie')).toContain('Max-Age=0')
+			expect(await readJson(logoutEverywhere)).toStrictEqual({
+				result: { revoked: true },
+			})
+			const globallyRevoked = await http.fetch(
+				directRequest('password-cookie', '/context', {
+					headers: [['Cookie', replacementCookie]],
+				}),
+			)
+			expect(globallyRevoked.status).toBe(401)
+			const finalLogin = await http.fetch(
+				directRequest('password-cookie', '/auth/v1/login', {
+					body: JSON.stringify({
+						password: 'replacement password value',
+						username: 'cookie-user',
+					}),
+					headers: proofHeaders,
+					method: 'POST',
+				}),
+			)
+			const finalCookie = readCookiePair(finalLogin)
 
 			const logout = await http.fetch(
 				directRequest('password-cookie', '/auth/v1/logout', {
-					headers: [...proofHeaders, ['Cookie', recoveredCookie]],
+					headers: [...proofHeaders, ['Cookie', finalCookie]],
 					method: 'POST',
 				}),
 			)

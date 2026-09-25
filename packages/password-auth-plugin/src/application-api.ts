@@ -11,6 +11,7 @@ import {
 import { immutableRecord, type MaybePromise } from '@ultimabase/shared'
 
 import { createPasswordPrincipal } from './principal.js'
+import type { PasswordCredentialCollection } from './credentials.js'
 import { passwordPrincipal, passwordSession } from './session.js'
 import {
 	validatePasswordSessionToken,
@@ -31,6 +32,7 @@ export interface PasswordAuthPluginExports {
 /** Creates the setup export while retaining exact plugin callback attribution. */
 export const createPasswordAuthPluginExports = (options: {
 	readonly callbacks: ApplicationCallbackExecutor
+	readonly credentials: PasswordCredentialCollection
 	readonly executor: ApplicationRequestExecutor
 	readonly owner: PluginIdentity
 	readonly sessions: PasswordSessionCollection
@@ -54,6 +56,7 @@ export const createPasswordAuthPluginExports = (options: {
 				options.executor.runWithContext(anonymous, async () => {
 					const validated = await validatePasswordSessionToken(
 						options.sessions,
+						options.credentials,
 						token,
 					)
 					if (validated === undefined) return rejectPasswordSession()

@@ -127,8 +127,9 @@ option, schema-aware read and mutation normalization, response encoding, route
 dispatch, and logical delegation through Core's narrow application request
 executor. Password Auth owns its typed
 User identity, owner-private credential and session records, authentication
-operations, and HTTP session integration through the HTTP package's public
-resolver and endpoint capabilities.
+operations, generation-based account-wide session invalidation, and HTTP
+session integration through the HTTP package's public resolver and endpoint
+capabilities.
 `graphql-plugin` compiles one application-local generated and custom schema,
 accepts ordered plugin-owned schemas through its own multiple capability, and
 executes bounded documents with an exact application-bound `RequestContext`.

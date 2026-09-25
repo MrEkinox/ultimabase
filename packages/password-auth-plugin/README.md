@@ -3,7 +3,7 @@
 Optional local username and password identity for UltimaBase applications.
 
 The plugin owns the public `User` identity schema, canonical usernames,
-Argon2id password verifiers, opaque revocable sessions, and four
+Argon2id password verifiers, opaque revocable sessions, and six
 transport-neutral operations. Password and session verifiers remain in
 owner-private storage rather than application schemas.
 
@@ -54,12 +54,36 @@ await AppUser.logout(refreshed.session.token, { ultimabase })
 const auth = ultimabase.plugin(authPlugin)
 await auth.runWithSession(
 	signedUp.session.token,
-	() => AppUser.findMany(), // Queries inherit the authenticated request context.
+	() => AppUser.current(), // Queries inherit the authenticated request context.
 )
 ```
 
-`AppUser.signUp()`, `login()`, `refresh()`, and `logout()` execute the existing
-application operations. The default `PasswordUser` exposes the same methods.
+Account-scoped helpers use that same authenticated request:
+
+```ts
+await auth.runWithSession(loggedIn.session.token, async () => {
+	const currentUser = await AppUser.current()
+	await AppUser.changePassword({
+		currentPassword: 'correct horse battery staple',
+		newPassword: 'another correct horse battery staple',
+	})
+	console.info(currentUser.id)
+})
+
+await auth.runWithSession(loggedIn.session.token, () =>
+	AppUser.logoutEverywhere(),
+)
+```
+
+Password change keeps the session that performs the operation usable and
+invalidates every other session. Logout everywhere invalidates every session,
+including the one that performs it. Neither method accepts a User ID; an
+administrative session-revocation API is intentionally not exposed.
+
+`AppUser.signUp()`, `login()`, `refresh()`, `logout()`, `changePassword()`, and
+`logoutEverywhere()` execute the corresponding application operations.
+`AppUser.current()` reads the authenticated profile through ordinary Query.
+The default `PasswordUser` exposes the same methods.
 Pass `{ ultimabase }` in scripts; inside an active request, omit it to inherit
 the application's facade. A conflicting explicit application or a User class
 not installed in that application is rejected before credential work. The
@@ -80,8 +104,10 @@ hooks, and the authentication transaction still run through ordinary creation.
 `signUp` method.
 
 Refresh and logout validate their explicit token and establish its session
-scope internally. Use `runWithSession()` for other authenticated application
-work. The class methods accept no caller Master or context override.
+scope internally. `current`, `changePassword`, and `logoutEverywhere` use the
+active authenticated request and accept no target User. In scripts, call them
+inside `runWithSession()`. The class methods accept no caller Master or context
+override.
 
 `username` is injected as a required, unique, immutable field. Custom User
 schemas cannot redeclare it or add `password`, `passwordHash`, `credential`, or
@@ -89,7 +115,11 @@ schemas cannot redeclare it or add `password`, `passwordHash`, `credential`, or
 schema Typegen fields, request values, events, diagnostics, or serialized data.
 Direct trusted User creation accepts only the canonical stored representation.
 `signUp` and `login` normalize public credentials. `logout` revokes only the
-current session, while `refresh` atomically rotates its token. Sign-up requires
+current session, while `refresh` atomically rotates its token.
+`changePassword` verifies the current password, replaces it, preserves the
+current session, and revokes every other session. `logoutEverywhere` revokes
+every session owned by the authenticated User, including the current one.
+Sign-up requires
 configured Master authority and audits one temporary elevation before creating
 the User; authentication never changes Core authority from `anonymous`.
 
@@ -138,9 +168,9 @@ application-owned async request scope. The context contains only the nominal
 token, password, verifier, grant, role, or authorization decision. Access and
 ACL plugins remain solely responsible for authorization.
 
-The four operations remain private until explicitly included in a transport.
+The six operations remain private until explicitly included in a transport.
 For REST v1, pass the exact operation tokens to `restPlugin({ operations })`.
-Password Auth contributes the compatible codecs and maps its three public
+Password Auth contributes the compatible codecs and maps its four public
 errors to status 400 or 401 without importing REST.
 
 ```ts
@@ -149,23 +179,27 @@ import {
 	passwordAuthOperations,
 } from '@ultimabase/password-auth-plugin'
 
-restPlugin({ operations: passwordAuthOperationList }) // Expose all four.
+restPlugin({ operations: passwordAuthOperationList }) // Expose all six.
 restPlugin({ operations: [passwordAuthOperations.login] }) // Or a subset.
 ```
 
 The public routes are `POST /api/v1/auth/sign-up`, `/api/v1/auth/login`,
-`/api/v1/auth/refresh`, and `/api/v1/auth/logout`. A custom REST `basePath`
+`/api/v1/auth/refresh`, `/api/v1/auth/logout`,
+`/api/v1/auth/change-password`, and `/api/v1/auth/logout-everywhere`. A custom REST `basePath`
 replaces the `/api` prefix. These paths replace the former namespaced
 `/operations/ultimabase.password-auth.*` URLs without aliases. Bodies still
 use `{ "input": { username, password, ...userFields } }` for signup,
-`{ "input": { username, password } }` for login, or `{ "input": null }` for refresh and logout.
+`{ "input": { username, password } }` for login,
+`{ "input": { currentPassword, newPassword } }` for password change, or
+`{ "input": null }` for refresh, logout, and logout everywhere.
 
 The same explicit tokens may be passed to `graphqlPlugin({ operations })`.
 `PasswordAuthSignUpInput` derives the User create fields and adds `password: String!`.
 `PasswordAuthCredentialsInput` remains the login-only username/password input.
 
 Password Auth contributes canonical GraphQL metadata and codecs for `signUp`,
-`login`, `refresh`, and `logout` without importing the GraphQL package. The
+`login`, `refresh`, `logout`, `changePassword`, and `logoutEverywhere` without
+importing the GraphQL package. The
 GraphQL payload exposes only `session` and a required `user` field using the
 configured User output type. Select `user { id }` for the authenticated identity.
 REST exposes the same readable profile in `result.user`, beside `result.session`.
@@ -228,11 +262,12 @@ passwordAuthPlugin({
 ```
 
 Cookie mode exposes `POST /auth/v1/sign-up`, `/auth/v1/login`,
-`/auth/v1/logout`, and `/auth/v1/refresh`. These routes execute the same four
-transport-neutral operations. Successful sign-up, login, and refresh responses
+`/auth/v1/logout`, `/auth/v1/logout-everywhere`, `/auth/v1/change-password`,
+and `/auth/v1/refresh`. These routes execute the same six transport-neutral
+operations. Successful sign-up, login, and refresh responses
 set a `Secure`, `HttpOnly`, `Path=/`, host-only cookie whose expiration matches
-the rolling session; their JSON omits the raw token. Logout revokes the current
-session and expires the cookie.
+the rolling session; their JSON omits the raw token. Password change preserves
+the current cookie. Logout and logout everywhere expire it.
 
 The application's HTTP browser policy must enable credentials for explicit
 origins and allow `POST`, `Content-Type`, and

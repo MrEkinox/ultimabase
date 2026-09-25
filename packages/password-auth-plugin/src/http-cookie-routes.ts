@@ -23,11 +23,13 @@ import { passwordAuthCookiePaths } from './http-session-resolver.js'
 import {
 	passwordAuthErrorCodes,
 	passwordAuthOperations,
+	rejectPasswordChange,
 	rejectPasswordCredentials,
 	rejectPasswordSignUp,
 } from './operations.js'
 import type {
 	PasswordAuthenticationResult,
+	PasswordChangeResult,
 	PasswordLogoutResult,
 } from './session.js'
 
@@ -59,8 +61,13 @@ const createHttpBinding = <TOperation extends PluginOperationDefinition>(
 	})
 
 const operationBindings = [
+	['change-password', createHttpBinding(passwordAuthOperations.changePassword)],
 	['login', createHttpBinding(passwordAuthOperations.login)],
 	['logout', createHttpBinding(passwordAuthOperations.logout)],
+	[
+		'logout-everywhere',
+		createHttpBinding(passwordAuthOperations.logoutEverywhere),
+	],
 	['refresh', createHttpBinding(passwordAuthOperations.refresh)],
 	['sign-up', createHttpBinding(passwordAuthOperations.signUp)],
 ] as const
@@ -147,6 +154,7 @@ const errorResponse = (error: unknown): Response => {
 					{ status: 401 },
 				)
 			case passwordAuthErrorCodes.signUpRejected:
+			case passwordAuthErrorCodes.passwordChangeRejected:
 				return Response.json(
 					{ error: { ...error.toJSON(), requestId } },
 					{ status: 400 },
@@ -252,14 +260,49 @@ const refreshRoute = (
 		protocol: passwordAuthHttpEndpointProtocol,
 	})
 
+const changePasswordRoute = (
+	executor: PasswordHttpOperationExecutor,
+): HttpEndpointDefinition =>
+	httpRoute({
+		handle: async (request) => {
+			try {
+				const operation = passwordAuthOperations.changePassword
+				let input: unknown
+				try {
+					input = operation.input.snapshot(
+						await request.json(),
+						`${operation.name}.http-input`,
+					)
+				} catch {
+					return rejectPasswordChange()
+				}
+				const result: PasswordChangeResult = operation.result.snapshot(
+					await executor.execute(operation, input),
+					`${operation.name}.http-result`,
+				)
+				return Response.json({ result })
+			} catch (error: unknown) {
+				return errorResponse(error)
+			}
+		},
+		method: 'POST',
+		path: passwordAuthCookiePaths.changePassword,
+		protocol: passwordAuthHttpEndpointProtocol,
+	})
+
 const logoutRoute = (
+	operation:
+		| typeof passwordAuthOperations.logout
+		| typeof passwordAuthOperations.logoutEverywhere,
+	path:
+		| typeof passwordAuthCookiePaths.logout
+		| typeof passwordAuthCookiePaths.logoutEverywhere,
 	executor: PasswordHttpOperationExecutor,
 	cookie: ResolvedPasswordAuthCookieOptions,
 ): HttpEndpointDefinition =>
 	httpRoute({
 		handle: async () => {
 			try {
-				const operation = passwordAuthOperations.logout
 				const result: PasswordLogoutResult = operation.result.snapshot(
 					await executor.execute(operation, null),
 					`${operation.name}.http-result`,
@@ -273,7 +316,7 @@ const logoutRoute = (
 			}
 		},
 		method: 'POST',
-		path: passwordAuthCookiePaths.logout,
+		path,
 		protocol: passwordAuthHttpEndpointProtocol,
 	})
 
@@ -298,13 +341,25 @@ export const createPasswordHttpCookieIntegration = (
 					executor,
 					cookie,
 				),
+				changePasswordRoute(executor),
 				authenticationRoute(
 					passwordAuthCookiePaths.login,
 					passwordAuthOperations.login,
 					executor,
 					cookie,
 				),
-				logoutRoute(executor, cookie),
+				logoutRoute(
+					passwordAuthOperations.logout,
+					passwordAuthCookiePaths.logout,
+					executor,
+					cookie,
+				),
+				logoutRoute(
+					passwordAuthOperations.logoutEverywhere,
+					passwordAuthCookiePaths.logoutEverywhere,
+					executor,
+					cookie,
+				),
 				refreshRoute(executor, cookie),
 			]),
 	})

@@ -248,6 +248,7 @@ export const passwordAuthPlugin = <
 		create: ({ callbacks, capabilities, owner }) => {
 			pluginExports = createPasswordAuthPluginExports({
 				callbacks,
+				credentials,
 				executor: capabilities.get(requestExecutionRequirement),
 				owner,
 				sessions,
@@ -270,6 +271,7 @@ export const passwordAuthPlugin = <
 	)
 	const httpSessionResolver = providePasswordHttpSessionResolver({
 		cookie,
+		credentials,
 		sessions,
 		user,
 	})

@@ -11,6 +11,7 @@ import {
 	passwordAuthOperations,
 	passwordAuthRestBindings,
 	rejectPasswordCredentials,
+	rejectPasswordChange,
 	rejectPasswordSession,
 	rejectPasswordSignUp,
 	toPasswordAuthenticationPayload,
@@ -27,10 +28,12 @@ import {
 describe('Password Auth operation contracts', () => {
 	it('owns short REST paths independently from internal operation names', () => {
 		for (const [name, path] of [
+			['changePassword', '/auth/change-password'],
 			['signUp', '/auth/sign-up'],
 			['login', '/auth/login'],
 			['refresh', '/auth/refresh'],
 			['logout', '/auth/logout'],
+			['logoutEverywhere', '/auth/logout-everywhere'],
 		] as const) {
 			expect(passwordAuthRestBindings[name].metadata).toMatchObject({ path })
 			expect(passwordAuthRestBindings[name].operation).toBe(
@@ -123,6 +126,8 @@ describe('Password Auth operation contracts', () => {
 			passwordAuthOperations.login,
 			passwordAuthOperations.refresh,
 			passwordAuthOperations.logout,
+			passwordAuthOperations.logoutEverywhere,
+			passwordAuthOperations.changePassword,
 		])
 		expect(Object.isFrozen(passwordAuthOperationList)).toBe(true)
 		expect(passwordAuthOperations.signUp).toMatchObject({
@@ -143,6 +148,17 @@ describe('Password Auth operation contracts', () => {
 		expect(passwordAuthOperations.refresh).toMatchObject({
 			errors: [passwordAuthErrorCodes.invalidSession],
 			transaction: 'required',
+		})
+		expect(passwordAuthOperations.logoutEverywhere).toMatchObject({
+			errors: [passwordAuthErrorCodes.invalidSession],
+			transaction: 'required',
+		})
+		expect(passwordAuthOperations.changePassword).toMatchObject({
+			errors: [
+				passwordAuthErrorCodes.invalidSession,
+				passwordAuthErrorCodes.passwordChangeRejected,
+			],
+			transaction: 'forbidden',
 		})
 		for (const operation of Object.values(passwordAuthOperations)) {
 			expect(Object.isFrozen(operation)).toBe(true)
@@ -166,6 +182,23 @@ describe('Password Auth operation contracts', () => {
 		expect(() =>
 			passwordAuthOperations.refresh.input.snapshot({}, 'refresh'),
 		).toThrow('must be null')
+		const passwordChange = passwordAuthOperations.changePassword.input.snapshot(
+			{
+				currentPassword: 'current password value',
+				newPassword: 'replacement password value',
+			},
+			'change-password',
+		)
+		expect(passwordChange).toStrictEqual({
+			currentPassword: 'current password value',
+			newPassword: 'replacement password value',
+		})
+		expect(() =>
+			passwordAuthOperations.changePassword.input.snapshot(
+				{ currentPassword: 'missing replacement' },
+				'change-password',
+			),
+		).toThrow('exactly currentPassword and newPassword')
 		// A result acknowledgement must not accept null or contradictory state either.
 		for (const result of [
 			null,
@@ -174,14 +207,15 @@ describe('Password Auth operation contracts', () => {
 		]) {
 			expect(() =>
 				passwordAuthOperations.logout.result.snapshot(result, 'logout'),
-			).toThrow('must acknowledge one revoked session')
+			).toThrow('must acknowledge session revocation')
 		}
 	})
 
-	it('creates only the three uniform public failures', () => {
+	it('creates only the four uniform public failures', () => {
 		for (const [create, code] of [
 			[rejectPasswordSignUp, passwordAuthErrorCodes.signUpRejected],
 			[rejectPasswordCredentials, passwordAuthErrorCodes.invalidCredentials],
+			[rejectPasswordChange, passwordAuthErrorCodes.passwordChangeRejected],
 			[rejectPasswordSession, passwordAuthErrorCodes.invalidSession],
 		] as const) {
 			try {
@@ -195,8 +229,10 @@ describe('Password Auth operation contracts', () => {
 
 	it('owns deterministic callback-free GraphQL bindings for every operation', () => {
 		expect(Object.keys(passwordAuthGraphqlBindings).sort()).toStrictEqual([
+			'changePassword',
 			'login',
 			'logout',
+			'logoutEverywhere',
 			'refresh',
 			'signUp',
 		])

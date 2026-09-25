@@ -26,6 +26,7 @@ type RequiredFieldState<TImmutable extends boolean> = ScalarFieldTypegenState<
 type PasswordCredentialFields = Readonly<{
 	readonly passwordVerifier: StringField<RequiredFieldState<false>>
 	readonly policyVersion: IntField<RequiredFieldState<false>>
+	readonly sessionGeneration: IntField<RequiredFieldState<false>>
 	readonly userId: UuidField<RequiredFieldState<true>>
 	readonly username: StringField<RequiredFieldState<true>>
 }>
@@ -33,6 +34,7 @@ type PasswordCredentialFields = Readonly<{
 const createCredentialFields = (): PasswordCredentialFields => ({
 	passwordVerifier: stringField({ required: true }),
 	policyVersion: intField({ required: true }),
+	sessionGeneration: intField({ required: true }),
 	userId: uuidField({ immutable: true, required: true }),
 	username: stringField({ immutable: true, required: true }),
 })
@@ -50,6 +52,7 @@ export type PasswordCredentialCollection = PrivateCollection<
 export interface CreatePasswordCredentialInput {
 	readonly passwordVerifier: string
 	readonly policyVersion: number
+	readonly sessionGeneration: number
 	readonly userId: string
 	readonly username: string
 }
@@ -74,7 +77,7 @@ export const createPasswordCredentialCollection = (
 				version: policy.version,
 			},
 		},
-		protocolVersion: 1,
+		protocolVersion: 2,
 		references: [{ field: 'userId', onDelete: 'cascade', target: user }],
 	})
 
@@ -92,6 +95,13 @@ export const findPasswordCredentialByUsername = (
 ): Promise<PrivateCollectionRecord<PasswordCredentialCollection> | null> =>
 	privateStore(collection).findUnique({ where: { username } })
 
+/** Finds one verifier by its exact Password User identity. */
+export const findPasswordCredentialByUserId = (
+	collection: PasswordCredentialCollection,
+	userId: string,
+): Promise<PrivateCollectionRecord<PasswordCredentialCollection> | null> =>
+	privateStore(collection).findUnique({ where: { userId } })
+
 /** Replaces an unchanged verifier while rejecting concurrent credential updates. */
 export const upgradePasswordCredential = (
 	collection: PasswordCredentialCollection,
@@ -106,6 +116,59 @@ export const upgradePasswordCredential = (
 		expected: {
 			passwordVerifier: current.passwordVerifier,
 			policyVersion: current.policyVersion,
+			sessionGeneration: current.sessionGeneration,
+		},
+		where: { userId: current.userId },
+	})
+
+/** Serializes a session transition against the current account generation. */
+export const retainPasswordSessionGeneration = (
+	collection: PasswordCredentialCollection,
+	current: CreatePasswordCredentialInput,
+): Promise<PrivateCollectionRecord<PasswordCredentialCollection> | null> =>
+	privateStore(collection).compareAndSwap({
+		data: { sessionGeneration: current.sessionGeneration },
+		expected: {
+			passwordVerifier: current.passwordVerifier,
+			policyVersion: current.policyVersion,
+			sessionGeneration: current.sessionGeneration,
+		},
+		where: { userId: current.userId },
+	})
+
+/** Invalidates every session issued under the current account generation. */
+export const advancePasswordSessionGeneration = (
+	collection: PasswordCredentialCollection,
+	current: CreatePasswordCredentialInput,
+): Promise<PrivateCollectionRecord<PasswordCredentialCollection> | null> =>
+	privateStore(collection).compareAndSwap({
+		data: { sessionGeneration: current.sessionGeneration + 1 },
+		expected: {
+			passwordVerifier: current.passwordVerifier,
+			policyVersion: current.policyVersion,
+			sessionGeneration: current.sessionGeneration,
+		},
+		where: { userId: current.userId },
+	})
+
+/** Replaces one unchanged verifier and advances its session generation atomically. */
+export const changePasswordCredential = (
+	collection: PasswordCredentialCollection,
+	current: CreatePasswordCredentialInput,
+	next: Readonly<{
+		readonly passwordVerifier: string
+		readonly policyVersion: number
+	}>,
+): Promise<PrivateCollectionRecord<PasswordCredentialCollection> | null> =>
+	privateStore(collection).compareAndSwap({
+		data: {
+			...next,
+			sessionGeneration: current.sessionGeneration + 1,
+		},
+		expected: {
+			passwordVerifier: current.passwordVerifier,
+			policyVersion: current.policyVersion,
+			sessionGeneration: current.sessionGeneration,
 		},
 		where: { userId: current.userId },
 	})

@@ -140,6 +140,7 @@ describe('passwordAuthPlugin identity declaration', () => {
 			'credentials',
 			'passwordVerifier',
 			'policyVersion',
+			'sessionGeneration',
 			'sessions',
 			'tokenDigest',
 			'revokedAt',

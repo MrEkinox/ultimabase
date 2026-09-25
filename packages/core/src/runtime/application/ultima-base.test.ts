@@ -174,6 +174,28 @@ describe('UltimaBase', () => {
 		expect(trace).toStrictEqual(['setup', 'connect', 'stop', 'dispose'])
 	})
 
+	it('disposes a scoped application through await using', async () => {
+		const trace: string[] = []
+		const adapter = new RecordingDatabaseAdapter([], [])
+		let scoped:
+			| UltimaBase<
+					readonly [typeof articleSchema],
+					readonly [ReturnType<typeof createDatabasePlugin>]
+			  >
+			| undefined
+		{
+			await using ultimabase = new UltimaBase({
+				schemas: [articleSchema],
+				plugins: [createDatabasePlugin(adapter, { trace })],
+			})
+			scoped = ultimabase
+			await ultimabase.start()
+			expect(ultimabase.state).toBe('started')
+		}
+		expect(scoped.state).toBe('disposed')
+		expect(trace).toStrictEqual(['setup', 'connect', 'stop', 'dispose'])
+	})
+
 	it('executes explicit plugin contexts and audited master operation options', async () => {
 		const adapter = new RecordingDatabaseAdapter(
 			[

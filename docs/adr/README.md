@@ -250,6 +250,7 @@ Accepted records:
 - [ADR-0265: Remove the Typegen emitter marker](0265-remove-typegen-emitter-marker.md)
 - [ADR-0266: Defer migration-only protocols until a migration product exists](0266-defer-migration-only-protocols.md)
 - [ADR-0267: Flat plugin configuration and uniform access](0267-flat-plugin-configuration-and-uniform-access.md)
+- [ADR-0268: Password account methods and generation-based session revocation](0268-password-account-session-management.md)
 
 Superseded records:
 

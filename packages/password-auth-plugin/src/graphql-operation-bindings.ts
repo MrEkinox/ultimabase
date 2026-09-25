@@ -33,6 +33,14 @@ const credentialsType = immutableRecord({
 	kind: 'input-object',
 	name: 'PasswordAuthCredentialsInput',
 })
+const passwordChangeType = immutableRecord({
+	fields: immutableArray([
+		graphqlField('currentPassword', graphqlNonNull(graphqlNamed('String'))),
+		graphqlField('newPassword', graphqlNonNull(graphqlNamed('String'))),
+	]),
+	kind: 'input-object',
+	name: 'PasswordAuthChangePasswordInput',
+})
 // Schema create fields supply username and application-specific requirements.
 const signUpType = immutableRecord({
 	createFieldsFrom: 'User',
@@ -76,18 +84,33 @@ const logoutPayloadType = immutableRecord({
 	kind: 'object',
 	name: 'PasswordAuthLogoutPayload',
 })
+const passwordChangePayloadType = immutableRecord({
+	fields: immutableArray([
+		graphqlField('changed', graphqlNonNull(graphqlNamed('Boolean'))),
+	]),
+	kind: 'object',
+	name: 'PasswordAuthChangePasswordPayload',
+})
 const authenticationTypes = immutableArray([sessionType, payloadType])
 
 const createGraphqlBinding = <TOperation extends PasswordAuthOperation>(
 	operation: TOperation,
-	field: 'login' | 'logout' | 'refresh' | 'signUp',
+	field:
+		| 'changePassword'
+		| 'login'
+		| 'logout'
+		| 'logoutEverywhere'
+		| 'refresh'
+		| 'signUp',
 	input: ReturnType<typeof graphqlNonNull> | undefined,
 	types: readonly (
 		| typeof credentialsType
+		| typeof passwordChangeType
 		| typeof signUpType
 		| typeof sessionType
 		| typeof payloadType
 		| typeof logoutPayloadType
+		| typeof passwordChangePayloadType
 	)[],
 	result: ReturnType<typeof graphqlNonNull>,
 	decode: (value: unknown) => PluginOperationInput<TOperation>,
@@ -118,6 +141,19 @@ export const passwordAuthGraphqlBindings: Readonly<
 		OperationTransportBindingDefinition
 	>
 > = immutableRecord({
+	changePassword: createGraphqlBinding(
+		passwordAuthOperations.changePassword,
+		'changePassword',
+		graphqlNonNull(graphqlNamed('PasswordAuthChangePasswordInput')),
+		[passwordChangeType, passwordChangePayloadType],
+		graphqlNonNull(graphqlNamed('PasswordAuthChangePasswordPayload')),
+		(value) =>
+			passwordAuthOperations.changePassword.input.snapshot(
+				value,
+				'change-password.graphql-input',
+			),
+		(value) => value,
+	),
 	login: createGraphqlBinding(
 		passwordAuthOperations.login,
 		'login',
@@ -138,6 +174,19 @@ export const passwordAuthGraphqlBindings: Readonly<
 			passwordAuthOperations.logout.input.snapshot(
 				value,
 				'logout.graphql-input',
+			),
+		(value) => value,
+	),
+	logoutEverywhere: createGraphqlBinding(
+		passwordAuthOperations.logoutEverywhere,
+		'logoutEverywhere',
+		undefined,
+		[logoutPayloadType],
+		graphqlNonNull(graphqlNamed('PasswordAuthLogoutPayload')),
+		(value) =>
+			passwordAuthOperations.logoutEverywhere.input.snapshot(
+				value,
+				'logout-everywhere.graphql-input',
 			),
 		(value) => value,
 	),

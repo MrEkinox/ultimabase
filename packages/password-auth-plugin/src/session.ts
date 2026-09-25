@@ -13,6 +13,7 @@ import type { PasswordUserReference } from './user-schema.js'
 declare const passwordSessionBrand: unique symbol
 
 const passwordSessions = new WeakSet<object>()
+const passwordSessionGenerations = new WeakMap<object, number>()
 const rawTokenPattern = /^ub_s1\.[A-Za-z0-9_-]{43}$/u
 
 /** Carries the safe, revocable session identity retained by a request context. */
@@ -46,6 +47,11 @@ export interface PasswordAuthenticationResult<
 /** Carries the exact successful logout acknowledgement. */
 export interface PasswordLogoutResult {
 	readonly revoked: true
+}
+
+/** Carries the exact successful password-change acknowledgement. */
+export interface PasswordChangeResult {
+	readonly changed: true
 }
 
 /** Identifies Password Auth principal state by nominal token identity. */
@@ -99,10 +105,23 @@ export const createPasswordSessionId = (): string => randomUUID()
 /** Creates one immutable package-owned context session. */
 export const createPasswordSession = (
 	value: Omit<PasswordSession, typeof passwordSessionBrand>,
+	sessionGeneration: number,
 ): PasswordSession => {
 	const session = immutableRecord(value) as PasswordSession
 	passwordSessions.add(session)
+	passwordSessionGenerations.set(session, sessionGeneration)
 	return session
+}
+
+/** Reads package-private account invalidation state from one nominal session. */
+export const readPasswordSessionGeneration = (
+	session: PasswordSession,
+): number => {
+	const generation = passwordSessionGenerations.get(session)
+	if (generation === undefined) {
+		throw new TypeError('Password Auth session generation is unavailable')
+	}
+	return generation
 }
 
 /** Creates one immutable principal and session pair from validated state. */
