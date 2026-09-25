@@ -3,7 +3,8 @@ import { describe, expect, it } from 'vitest'
 import {
 	defineCapability,
 	defineOperationValue,
-	definePlugin,
+	plugin as createPlugin,
+	contributeDeclarations,
 	defineSchemaMutation,
 	provideCapability,
 	requireCapability,
@@ -45,26 +46,37 @@ const defineFixture = (suffix: string) => {
 		returning: 'after',
 		version: '1.0.0',
 	})
-	const owner = definePlugin({
+	const owner = createPlugin({
 		core: '^0.0.0',
-		pluginId: `fixture.surface-owner-${suffix}`,
-		privileges: [
-			{ name: 'model:extend', reason: 'Adds the fixture mutation.' },
-			{ name: 'operation:declare', reason: 'Declares the fixture mutation.' },
-		] as const,
-		version: '1.0.0',
-		declare: ({ models, operations }) => {
-			operations.declare(archive)
-			models.extend(Post, {
-				contributionId: 'archive-surface',
-				schemaMutations: {
-					archive: { mutation: archive, surfaces: ['schema', 'model'] },
-				},
-			})
+		id: `fixture.surface-owner-${suffix}`,
+		permissions: {
+			'model:extend': 'Adds the fixture mutation.',
+			'operation:declare': 'Declares the fixture mutation.',
 		},
+		version: '1.0.0',
+		contributions: [
+			contributeDeclarations({
+				operations: ({ operations }) => {
+					operations.declare(archive)
+					return undefined
+				},
+				models: ({ models }) => {
+					models.extend(Post, {
+						contributionId: 'archive-surface',
+						schemaMutations: {
+							archive: { mutation: archive, surfaces: ['schema', 'model'] },
+						},
+					})
+					return undefined
+				},
+			}),
+		],
 	})
-	const inspector = definePlugin({
-		capabilities: [
+	const inspector = createPlugin({
+		core: '^0.0.0',
+		id: `fixture.surface-inspector-${suffix}`,
+		version: '1.0.0',
+		contributions: [
 			provideCapability(inspectedSurfaceCapability, {
 				contributionId: 'inspection',
 				create: ({ capabilities, schemas }) => {
@@ -78,9 +90,6 @@ const defineFixture = (suffix: string) => {
 			}),
 			mutationSurfaceRequirement,
 		],
-		core: '^0.0.0',
-		pluginId: `fixture.surface-inspector-${suffix}`,
-		version: '1.0.0',
 	})
 
 	return { archive, inspector, owner, Post, read: () => inspected }
@@ -125,11 +134,11 @@ describe('application schema mutation surface capability', () => {
 		]
 
 		for (const declaration of declarations) {
-			const plugin = definePlugin({
-				capabilities: [declaration],
+			const plugin = createPlugin({
 				core: '^0.0.0',
-				pluginId: `fixture.surface-forgery-${declaration.kind}`,
+				id: `fixture.surface-forgery-${declaration.kind}`,
 				version: '1.0.0',
+				contributions: [declaration],
 			})
 
 			expect(

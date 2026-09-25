@@ -5,7 +5,10 @@ import {
 	addSchemaField,
 	addSchemaIndex,
 	createApplication,
-	definePlugin,
+	plugin as createPlugin,
+	contributeApplication,
+	contributeDeclarations,
+	withPluginPrivileges,
 	defineSchemaOption,
 	stringField,
 	type SchemaSelectorOptions,
@@ -36,49 +39,53 @@ describe('schema option-presence selection', () => {
 			},
 			valueKind: 'opaque',
 		})
-		const documentPlugin = definePlugin({
+		const documentPlugin = createPlugin({
 			core: '^0.0.0',
-			pluginId: 'community.document',
-			privileges: [
-				{
-					name: 'schema:declare',
-					reason: 'Adds document state to schemas using the direct option.',
-				},
-			] as const,
-			version: '1.0.0',
-			declare: ({ schemas }) => {
-				schemas.defineOptions({
-					contributionId: 'document-options',
-					schema: { document: documentOption },
-				})
-				schemas.patch({
-					operations: [
-						addSchemaField({
-							contributionId: 'document-state',
-							field: stringField(),
-							name: 'documentState',
-						}),
-						addSchemaIndex({
-							contributionId: 'document-state-index',
-							fields: ['documentState', 'createdAt'],
-						}),
-					],
-					targets: schemas.select({ option: { name: 'document' } }),
-				})
-				absenceSelection = schemas.select({
-					option: { name: 'document', present: false },
-				})
-				schemas.patch({
-					operations: [
-						addSchemaField({
-							contributionId: 'non-document-state',
-							field: stringField(),
-							name: 'nonDocumentState',
-						}),
-					],
-					targets: absenceSelection,
-				})
+			id: 'community.document',
+			permissions: {
+				'schema:declare':
+					'Adds document state to schemas using the direct option.',
 			},
+			version: '1.0.0',
+			contributions: [
+				contributeDeclarations({
+					schema: ({ schemas }) => {
+						schemas.defineOptions({
+							contributionId: 'document-options',
+							schema: { document: documentOption },
+						})
+						schemas.patch({
+							operations: [
+								addSchemaField({
+									contributionId: 'document-state',
+									field: stringField(),
+									name: 'documentState',
+								}),
+								addSchemaIndex({
+									contributionId: 'document-state-index',
+									fields: ['documentState', 'createdAt'],
+								}),
+							],
+							targets: schemas.select({ option: { name: 'document' } }),
+						})
+						absenceSelection = schemas.select({
+							option: { name: 'document', present: false },
+						})
+						schemas.patch({
+							operations: [
+								addSchemaField({
+									contributionId: 'non-document-state',
+									field: stringField(),
+									name: 'nonDocumentState',
+								}),
+							],
+							targets: absenceSelection,
+						})
+
+						return undefined
+					},
+				}),
+			],
 		})
 		const Document = Schema.define({
 			className: 'OpaqueOptionDocument',
@@ -151,34 +158,37 @@ describe('schema option-presence selection', () => {
 			protocolVersion: 1,
 			typegen: false,
 		})
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.absent-option',
-			privileges: [
-				{
-					name: 'schema:declare',
-					reason: 'Selects schemas that omit the direct mode option.',
-				},
-			] as const,
-			version: '1.0.0',
-			declare: ({ schemas }) => {
-				schemas.defineOptions({
-					contributionId: 'mode-options',
-					schema: { mode: modeOption },
-				})
-				schemas.patch({
-					operations: [
-						addSchemaField({
-							contributionId: 'inherited-mode-field',
-							field: stringField(),
-							name: 'inheritedMode',
-						}),
-					],
-					targets: schemas.select({
-						option: { name: 'mode', present: false },
-					}),
-				})
+			id: 'fixture.absent-option',
+			permissions: {
+				'schema:declare': 'Selects schemas that omit the direct mode option.',
 			},
+			version: '1.0.0',
+			contributions: [
+				contributeDeclarations({
+					schema: ({ schemas }) => {
+						schemas.defineOptions({
+							contributionId: 'mode-options',
+							schema: { mode: modeOption },
+						})
+						schemas.patch({
+							operations: [
+								addSchemaField({
+									contributionId: 'inherited-mode-field',
+									field: stringField(),
+									name: 'inheritedMode',
+								}),
+							],
+							targets: schemas.select({
+								option: { name: 'mode', present: false },
+							}),
+						})
+
+						return undefined
+					},
+				}),
+			],
 		})
 		const Omitted = Schema.define({
 			className: 'AbsentOptionOmitted',
@@ -244,19 +254,22 @@ describe('schema option-presence selection', () => {
 	] as const)(
 		'rejects invalid absence selector form: %s',
 		async (_, selector, message) => {
-			const plugin = definePlugin({
+			const plugin = createPlugin({
 				core: '^0.0.0',
-				pluginId: 'fixture.invalid-absence-selector',
-				privileges: [
-					{
-						name: 'schema:declare',
-						reason: 'Exercises absence selector validation.',
-					},
-				] as const,
-				version: '1.0.0',
-				declare: ({ schemas }) => {
-					schemas.select(selector as SchemaSelectorOptions)
+				id: 'fixture.invalid-absence-selector',
+				permissions: {
+					'schema:declare': 'Exercises absence selector validation.',
 				},
+				version: '1.0.0',
+				contributions: [
+					contributeDeclarations({
+						schema: ({ schemas }) => {
+							schemas.select(selector as SchemaSelectorOptions)
+
+							return undefined
+						},
+					}),
+				],
 			})
 
 			await expect(
@@ -272,51 +285,64 @@ describe('schema option-presence selection', () => {
 	it('rejects unknown and ambiguous option owners before setup', async () => {
 		let setups = 0
 		const patcher = (pluginId: string, optionName: string) =>
-			definePlugin({
+			createPlugin({
 				core: '^0.0.0',
-				pluginId,
-				privileges: [
-					{
-						name: 'schema:declare',
-						reason: 'Exercises option selector owner validation.',
-					},
-				] as const,
-				setup: () => {
-					setups += 1
+				id: pluginId,
+				permissions: {
+					'schema:declare': 'Exercises option selector owner validation.',
 				},
 				version: '1.0.0',
-				declare: ({ schemas }) => {
-					schemas.patch({
-						operations: [
-							addSchemaField({
-								contributionId: 'selected-field',
-								field: stringField(),
-								name: 'selectedField',
-							}),
-						],
-						targets: schemas.select({
-							option: { name: optionName, present: false },
+				contributions: [
+					contributeDeclarations({
+						schema: ({ schemas }) => {
+							schemas.patch({
+								operations: [
+									addSchemaField({
+										contributionId: 'selected-field',
+										field: stringField(),
+										name: 'selectedField',
+									}),
+								],
+								targets: schemas.select({
+									option: { name: optionName, present: false },
+								}),
+							})
+
+							return undefined
+						},
+					}),
+					withPluginPrivileges(
+						contributeApplication((context) => {
+							setups += 1
+							const exports = undefined
+							const lifecycleContext = { ...context, pluginExports: exports }
+							void lifecycleContext
+							return { exports }
 						}),
-					})
-				},
+						['schema:declare'],
+					),
+				],
 			})
 		const optionProvider = (pluginId: string) =>
-			definePlugin({
+			createPlugin({
 				core: '^0.0.0',
-				pluginId,
-				privileges: [
-					{
-						name: 'schema:declare',
-						reason: 'Declares one colliding selector option.',
-					},
-				] as const,
-				version: '1.0.0',
-				declare: ({ schemas }) => {
-					schemas.defineOptions({
-						contributionId: 'shared-option',
-						schema: { shared: jsonObjectOption },
-					})
+				id: pluginId,
+				permissions: {
+					'schema:declare': 'Declares one colliding selector option.',
 				},
+				version: '1.0.0',
+				contributions: [
+					contributeDeclarations({
+						schema: ({ schemas }) => {
+							schemas.defineOptions({
+								contributionId: 'shared-option',
+								schema: { shared: jsonObjectOption },
+							})
+
+							return undefined
+						},
+					}),
+				],
 			})
 
 		await expect(

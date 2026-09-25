@@ -6,7 +6,10 @@ import {
 	createApplication,
 	defineCapability,
 	defineFieldOption,
-	definePlugin,
+	plugin as createPlugin,
+	contributeApplication,
+	contributeDeclarations,
+	withPluginPrivileges,
 	defineSchemaOption,
 	provideCapability,
 	requireCapability,
@@ -14,12 +17,10 @@ import {
 	type SchemaOptionRuntimeCompilationContext,
 	type SchemaOptions,
 } from '../index.js'
-
 import {
 	requireField,
 	optionPlugin,
 } from '../../tests/plugins/schema-declarations.fixtures.js'
-
 describe('plugin schema option compilation', () => {
 	it('normalizes closed field contexts and rejects contextual reuse before setup', async () => {
 		const option = defineFieldOption({
@@ -57,22 +58,30 @@ describe('plugin schema option compilation', () => {
 			protocolVersion: 1,
 			typegen: false,
 		})
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			core: '^0.0.0',
-			declare: ({ schemas }) => {
-				schemas.defineOptions({
-					contributionId: 'contextual-options',
-					field: { contextual: storedOnly },
-				})
-			},
-			pluginId: 'fixture.contextual-option-plugin',
-			privileges: [
-				{ name: 'schema:declare', reason: 'Declares a contextual option.' },
-			],
-			setup: () => {
-				setup.push('setup')
-			},
+			id: 'fixture.contextual-option-plugin',
+			permissions: { 'schema:declare': 'Declares a contextual option.' },
 			version: '1.0.0',
+			contributions: [
+				contributeDeclarations({
+					schema: ({ schemas }) => {
+						schemas.defineOptions({
+							contributionId: 'contextual-options',
+							field: { contextual: storedOnly },
+						})
+
+						return undefined
+					},
+				}),
+				withPluginPrivileges(
+					contributeApplication(() => {
+						setup.push('setup')
+						return { exports: undefined }
+					}),
+					['schema:declare'],
+				),
+			],
 		})
 		const shared = stringField({ contextual: true } as never)
 		const Reused = Schema.define({
@@ -202,8 +211,11 @@ describe('plugin schema option compilation', () => {
 			...runtimeOptionDefinition,
 			contexts: ['stored'],
 		})
-		const provider = definePlugin({
-			capabilities: [
+		const provider = createPlugin({
+			core: '^0.0.0',
+			id: 'fixture.schema-option-runtime-provider',
+			version: '1.0.0',
+			contributions: [
 				provideCapability(token, {
 					contributionId: 'runtime-registry',
 					create: () => {
@@ -218,16 +230,13 @@ describe('plugin schema option compilation', () => {
 						}
 					},
 				}),
+				contributeApplication(() => {
+					events.push('provider:setup')
+					return { exports: undefined }
+				}),
 			],
-			core: '^0.0.0',
-			pluginId: 'fixture.schema-option-runtime-provider',
-			setup: () => {
-				events.push('provider:setup')
-			},
-			version: '1.0.0',
 		})
-		const owner = definePlugin({
-			capabilities: [requirement],
+		const owner = createPlugin({
 			core: '^0.0.0',
 			dependencies: [
 				{
@@ -235,30 +244,38 @@ describe('plugin schema option compilation', () => {
 					version: '^1.0.0',
 				},
 			],
-			pluginId: 'fixture.schema-option-runtime-owner',
-			privileges: [
-				{
-					name: 'schema:declare',
-					reason: 'Declares options with Runtime compilation.',
-				},
-			] as const,
-			setup: () => {
-				events.push('owner:setup')
+			id: 'fixture.schema-option-runtime-owner',
+			permissions: {
+				'schema:declare': 'Declares options with Runtime compilation.',
 			},
 			version: '1.0.0',
-			declare: ({ schemas }) => {
-				schemas.defineOptions({
-					contributionId: 'runtime-options',
-					field: {
-						runtimeTag: runtimeFieldOption,
-						unusedRuntimeTag: runtimeFieldOption,
+			contributions: [
+				requirement,
+				contributeDeclarations({
+					schema: ({ schemas }) => {
+						schemas.defineOptions({
+							contributionId: 'runtime-options',
+							field: {
+								runtimeTag: runtimeFieldOption,
+								unusedRuntimeTag: runtimeFieldOption,
+							},
+							schema: {
+								runtimeTag: runtimeOption,
+								unusedRuntimeTag: runtimeOption,
+							},
+						})
+
+						return undefined
 					},
-					schema: {
-						runtimeTag: runtimeOption,
-						unusedRuntimeTag: runtimeOption,
-					},
-				})
-			},
+				}),
+				withPluginPrivileges(
+					contributeApplication(() => {
+						events.push('owner:setup')
+						return { exports: undefined }
+					}),
+					['schema:declare'],
+				),
+			],
 		})
 		const Post = Schema.define({
 			className: 'RuntimeOptionPost',
@@ -321,8 +338,11 @@ describe('plugin schema option compilation', () => {
 				type: 'FailingRuntimeOption',
 			},
 		})
-		const provider = definePlugin({
-			capabilities: [
+		const provider = createPlugin({
+			core: '^0.0.0',
+			id: 'fixture.failing-schema-option-runtime-provider',
+			version: '1.0.0',
+			contributions: [
 				provideCapability(token, {
 					contributionId: 'runtime-registry',
 					create: () => {
@@ -335,16 +355,13 @@ describe('plugin schema option compilation', () => {
 						}
 					},
 				}),
+				contributeApplication(() => {
+					events.push('provider:setup')
+					return { exports: undefined }
+				}),
 			],
-			core: '^0.0.0',
-			pluginId: 'fixture.failing-schema-option-runtime-provider',
-			setup: () => {
-				events.push('provider:setup')
-			},
-			version: '1.0.0',
 		})
-		const owner = definePlugin({
-			capabilities: [requirement],
+		const owner = createPlugin({
 			core: '^0.0.0',
 			dependencies: [
 				{
@@ -352,20 +369,22 @@ describe('plugin schema option compilation', () => {
 					version: '^1.0.0',
 				},
 			],
-			pluginId: 'fixture.failing-schema-option-runtime-owner',
-			privileges: [
-				{
-					name: 'schema:declare',
-					reason: 'Declares one failing Runtime option.',
-				},
-			] as const,
+			id: 'fixture.failing-schema-option-runtime-owner',
+			permissions: { 'schema:declare': 'Declares one failing Runtime option.' },
 			version: '1.0.0',
-			declare: ({ schemas }) => {
-				schemas.defineOptions({
-					contributionId: 'runtime-options',
-					schema: { runtimeTag: runtimeOption },
-				})
-			},
+			contributions: [
+				requirement,
+				contributeDeclarations({
+					schema: ({ schemas }) => {
+						schemas.defineOptions({
+							contributionId: 'runtime-options',
+							schema: { runtimeTag: runtimeOption },
+						})
+
+						return undefined
+					},
+				}),
+			],
 		})
 		const Post = Schema.define({
 			className: 'FailingRuntimeOptionPost',
@@ -510,23 +529,27 @@ describe('plugin schema option compilation', () => {
 			contexts: ['stored'],
 		})
 		const plugin = (pluginId: string) =>
-			definePlugin({
+			createPlugin({
 				core: '^0.0.0',
-				pluginId,
-				privileges: [
-					{
-						name: 'schema:declare',
-						reason: 'Declares one deliberately shared unused option name.',
-					},
-				] as const,
-				version: '1.0.0',
-				declare: ({ schemas }) => {
-					schemas.defineOptions({
-						contributionId: 'shared-options',
-						field: { shared: unusedFieldOption },
-						schema: { shared: unusedOption },
-					})
+				id: pluginId,
+				permissions: {
+					'schema:declare':
+						'Declares one deliberately shared unused option name.',
 				},
+				version: '1.0.0',
+				contributions: [
+					contributeDeclarations({
+						schema: ({ schemas }) => {
+							schemas.defineOptions({
+								contributionId: 'shared-options',
+								field: { shared: unusedFieldOption },
+								schema: { shared: unusedOption },
+							})
+
+							return undefined
+						},
+					}),
+				],
 			})
 
 		const application = applicationFixture(
@@ -560,29 +583,33 @@ describe('plugin schema option compilation', () => {
 			schema: typeof First | typeof Second,
 			prefix: string,
 		) =>
-			definePlugin({
+			createPlugin({
 				core: '^0.0.0',
-				pluginId,
-				privileges: [
-					{ name: 'schema:declare', reason: 'Owns one direct option.' },
-				] as const,
+				id: pluginId,
+				permissions: { 'schema:declare': 'Owns one direct option.' },
 				version: '1.0.0',
-				declare: ({ schemas }) => {
-					schemas.defineOptions({
-						contributionId: 'options',
-						schema: {
-							shared: defineSchemaOption({
-								normalize: (value) => `${prefix}:${String(value)}`,
-								protocolVersion: 1,
-								typegen: {
-									module: '@fixture/exact-option-owner',
-									type: 'SharedOption',
+				contributions: [
+					contributeDeclarations({
+						schema: ({ schemas }) => {
+							schemas.defineOptions({
+								contributionId: 'options',
+								schema: {
+									shared: defineSchemaOption({
+										normalize: (value) => `${prefix}:${String(value)}`,
+										protocolVersion: 1,
+										typegen: {
+											module: '@fixture/exact-option-owner',
+											type: 'SharedOption',
+										},
+									}),
 								},
-							}),
+							})
+							schemas.add({ contributionId: 'schema', schema })
+
+							return undefined
 						},
-					})
-					schemas.add({ contributionId: 'schema', schema })
-				},
+					}),
+				],
 			})
 
 		applicationFixture(
@@ -624,30 +651,34 @@ describe('plugin schema option compilation', () => {
 			schema: typeof First | typeof Second,
 			prefix: string,
 		) =>
-			definePlugin({
+			createPlugin({
 				core: '^0.0.0',
-				pluginId,
-				privileges: [
-					{ name: 'schema:declare', reason: 'Owns one direct field option.' },
-				] as const,
+				id: pluginId,
+				permissions: { 'schema:declare': 'Owns one direct field option.' },
 				version: '1.0.0',
-				declare: ({ schemas }) => {
-					schemas.defineOptions({
-						contributionId: 'options',
-						field: {
-							shared: defineFieldOption({
-								contexts: ['stored'],
-								normalize: (value) => `${prefix}:${String(value)}`,
-								protocolVersion: 1,
-								typegen: {
-									module: '@fixture/exact-field-option-owner',
-									type: 'SharedFieldOption',
+				contributions: [
+					contributeDeclarations({
+						schema: ({ schemas }) => {
+							schemas.defineOptions({
+								contributionId: 'options',
+								field: {
+									shared: defineFieldOption({
+										contexts: ['stored'],
+										normalize: (value) => `${prefix}:${String(value)}`,
+										protocolVersion: 1,
+										typegen: {
+											module: '@fixture/exact-field-option-owner',
+											type: 'SharedFieldOption',
+										},
+									}),
 								},
-							}),
+							})
+							schemas.add({ contributionId: 'schema', schema })
+
+							return undefined
 						},
-					})
-					schemas.add({ contributionId: 'schema', schema })
-				},
+					}),
+				],
 			})
 
 		applicationFixture(

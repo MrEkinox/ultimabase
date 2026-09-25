@@ -8,7 +8,13 @@ import {
 } from '../foundation.js'
 import { QueryBuilder } from '../query/index.js'
 import { Schema } from '../schema/index.js'
-import { definePlugin } from '../plugins/definition.js'
+import { plugin as createPlugin } from '../plugins/plugin.js'
+import type { PluginDefinition } from '../plugins/definition.js'
+import {
+	contributeApplication,
+	withPluginPrivileges,
+} from '../plugins/plugin-contributions.js'
+
 import { PluginGraph } from '../plugins/graph.js'
 import { normalizePlugins } from '../plugins/normalization.js'
 import {
@@ -40,7 +46,7 @@ const runtimeOperation = {
 	query: new QueryBuilder(runtimeSchema).ast,
 } as const
 
-const createPluginApplication = (plugin: ReturnType<typeof definePlugin>) =>
+const createPluginApplication = (plugin: PluginDefinition) =>
 	applicationFixture(
 		new FrameworkApplication({
 			pluginPrivileges: { logger: false },
@@ -88,34 +94,26 @@ describe('public Runtime capabilities', () => {
 
 	it('rejects missing privileges and generic Runtime capability facades', () => {
 		const definition = beforeOperation({ handler: () => undefined })
-		const missingPrivilege = definePlugin({
-			core: '^0.0.0',
-			pluginId: 'fixture.runtime-missing-privilege',
-			version: '0.0.0',
-			capabilities: [
-				provideRuntimeInterceptor({
-					contributionId: 'interceptor',
-					create: () => ({ value: definition }),
-				}),
-			],
-		})
-		const missingPrivilegeError = captureFrameworkError(() =>
-			createPluginApplication(missingPrivilege),
-		)
-		expect(missingPrivilegeError.code).toBe('PLUGIN_CAPABILITY_CONFLICT')
-		expect(missingPrivilegeError.internalDetails).toMatchObject({
-			kind: 'capability-privilege-missing',
-			privilege: 'runtime:intercept',
-		})
+		expect(() =>
+			createPlugin({
+				core: '^0.0.0',
+				id: 'fixture.runtime-missing-privilege',
+				version: '0.0.0',
+				contributions: [
+					provideRuntimeInterceptor({
+						contributionId: 'interceptor',
+						create: () => ({ value: definition }),
+					}),
+				],
+			}),
+		).toThrow('Missing plugin permission reason: runtime:intercept')
 
-		const genericProvider = definePlugin({
+		const genericProvider = createPlugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.runtime-generic-provider',
+			id: 'fixture.runtime-generic-provider',
 			version: '0.0.0',
-			privileges: [
-				{ name: 'runtime:intercept', reason: 'Exercises exact facades.' },
-			],
-			capabilities: [
+			permissions: { 'runtime:intercept': 'Exercises exact facades.' },
+			contributions: [
 				provideCapability(runtimeInterceptorCapability, {
 					contributionId: 'generic',
 					create: () => ({ value: definition }),
@@ -132,17 +130,14 @@ describe('public Runtime capabilities', () => {
 		'rejects a forged former %s stage before plugin setup',
 		async (stage) => {
 			const effects: string[] = []
-			const plugin = definePlugin({
+			const plugin = createPlugin({
 				core: '^0.0.0',
-				pluginId: 'fixture.removed-runtime-stage',
+				id: 'fixture.removed-runtime-stage',
 				version: '0.0.0',
-				privileges: [
-					{
-						name: 'runtime:intercept',
-						reason: 'Tests the removed stage boundary.',
-					},
-				],
-				capabilities: [
+				permissions: {
+					'runtime:intercept': 'Tests the removed stage boundary.',
+				},
+				contributions: [
 					provideRuntimeInterceptor({
 						contributionId: 'removed-stage',
 						create: () => ({
@@ -155,10 +150,17 @@ describe('public Runtime capabilities', () => {
 							} as never,
 						}),
 					}),
+					withPluginPrivileges(
+						contributeApplication((context) => {
+							effects.push('setup')
+							const exports = undefined
+							const lifecycleContext = { ...context, pluginExports: exports }
+							void lifecycleContext
+							return { exports }
+						}),
+						['runtime:intercept'],
+					),
 				],
-				setup: () => {
-					effects.push('setup')
-				},
 			})
 			const application = createPluginApplication(plugin)
 			await expect(application.initialize()).rejects.toThrow(
@@ -169,38 +171,30 @@ describe('public Runtime capabilities', () => {
 	)
 
 	it('requires Runtime interception privilege and validates mutation guards', async () => {
-		const missingPrivilege = definePlugin({
-			core: '^0.0.0',
-			pluginId: 'fixture.runtime-guard-no-privilege',
-			version: '0.0.0',
-			capabilities: [
-				provideRuntimeBehavior({
-					contributionId: 'final-mutation-guard',
-					create: () => ({
-						value: { guardMutationInput: () => undefined },
+		expect(() =>
+			createPlugin({
+				core: '^0.0.0',
+				id: 'fixture.runtime-guard-no-privilege',
+				version: '0.0.0',
+				contributions: [
+					provideRuntimeBehavior({
+						contributionId: 'final-mutation-guard',
+						create: () => ({
+							value: { guardMutationInput: () => undefined },
+						}),
 					}),
-				}),
-			],
-		})
-		expect(
-			captureFrameworkError(() => createPluginApplication(missingPrivilege))
-				.internalDetails,
-		).toMatchObject({
-			kind: 'capability-privilege-missing',
-			privilege: 'runtime:intercept',
-		})
+				],
+			}),
+		).toThrow('Missing plugin permission reason: runtime:intercept')
 
-		const malformed = definePlugin({
+		const malformed = createPlugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.runtime-guard-malformed',
+			id: 'fixture.runtime-guard-malformed',
 			version: '0.0.0',
-			privileges: [
-				{
-					name: 'runtime:intercept',
-					reason: 'Exercises Runtime behavior validation.',
-				},
-			],
-			capabilities: [
+			permissions: {
+				'runtime:intercept': 'Exercises Runtime behavior validation.',
+			},
+			contributions: [
 				provideRuntimeBehavior({
 					contributionId: 'malformed-final-mutation-guard',
 					create: () => ({
@@ -224,11 +218,13 @@ describe('public Runtime capabilities', () => {
 	})
 
 	it('forbids inspection of protected Runtime protocols', () => {
-		const inspectingPlugin = definePlugin({
+		const inspectingPlugin = createPlugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.runtime-constraint-inspection',
+			id: 'fixture.runtime-constraint-inspection',
 			version: '0.0.0',
-			capabilities: [optionalCapability(runtimeConstraintCapability, '^1.0.0')],
+			contributions: [
+				optionalCapability(runtimeConstraintCapability, '^1.0.0'),
+			],
 		})
 		expect(
 			captureFrameworkError(() => createPluginApplication(inspectingPlugin))
@@ -240,14 +236,12 @@ describe('public Runtime capabilities', () => {
 		let nextId = 0
 		const invocations: number[] = []
 		const disposals: number[] = []
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.runtime-resource',
+			id: 'fixture.runtime-resource',
 			version: '0.0.0',
-			privileges: [
-				{ name: 'runtime:intercept', reason: 'Exercises resource isolation.' },
-			],
-			capabilities: [
+			permissions: { 'runtime:intercept': 'Exercises resource isolation.' },
+			contributions: [
 				provideRuntimeInterceptor({
 					contributionId: 'resource',
 					create: () => {
@@ -294,17 +288,15 @@ describe('public Runtime capabilities', () => {
 	it('keeps cancellation ahead of mutation guards and automatic transactions', async () => {
 		let guardCalls = 0
 		const adapter = new RecordingDatabaseAdapter([], [])
-		const behavior = definePlugin({
+		const behavior = createPlugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.runtime-guard',
+			id: 'fixture.runtime-guard',
 			version: '0.0.0',
-			privileges: [
-				{
-					name: 'runtime:intercept',
-					reason: 'Proves cancellation prevents mutation guards from running.',
-				},
-			],
-			capabilities: [
+			permissions: {
+				'runtime:intercept':
+					'Proves cancellation prevents mutation guards from running.',
+			},
+			contributions: [
 				provideRuntimeBehavior({
 					contributionId: 'final-mutation-guard',
 					create: () => ({
@@ -317,11 +309,11 @@ describe('public Runtime capabilities', () => {
 				}),
 			],
 		})
-		const database = definePlugin({
+		const database = createPlugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.runtime-database',
+			id: 'fixture.runtime-database',
 			version: '0.0.0',
-			capabilities: [provideTestDatabaseAdapter(adapter)],
+			contributions: [provideTestDatabaseAdapter(adapter)],
 		})
 		const application = applicationFixture(
 			await createApplication({

@@ -13,8 +13,8 @@ list while preserving the complete open plugin kernel.
 
 - [x] [3401 — Introduce the contribution-first Core factory](3401-contribution-first-core-factory.md)
 - [x] [3402 — Prove representative plugin migrations](3402-representative-plugin-migrations.md)
-- [ ] [3403 — Migrate every production plugin](3403-production-plugin-migration.md)
-- [ ] [3404 — Remove legacy authoring paths](3404-remove-legacy-authoring.md)
+- [x] [3403 — Migrate every production plugin](3403-production-plugin-migration.md)
+- [x] [3404 — Remove legacy authoring paths](3404-remove-legacy-authoring.md)
 - [ ] [3405 — Audit behavior, documentation, and DX](3405-parity-and-dx-audit.md)
 
 The migration changes authoring form only. Plugin identity and instances,

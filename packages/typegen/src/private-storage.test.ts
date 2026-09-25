@@ -1,5 +1,6 @@
 import {
-	definePlugin,
+	plugin,
+	contributeDeclarations,
 	definePrivateCollection,
 	FrameworkApplication,
 	stringField,
@@ -16,17 +17,19 @@ const createPrivatePlugin = (fieldName: 'digest' | 'verifier') => {
 		},
 		indexes: [{ fields: [fieldName] }],
 	})
-	return definePlugin({
+	return plugin({
 		core: '^0.0.0',
-		declare: ({ privateStorage }) => {
-			privateStorage.register(collection)
-			return undefined
-		},
-		pluginId: 'fixture.typegen-private',
-		privileges: [
-			{ name: 'storage:private', reason: 'Declares private verifier storage.' },
-		] as const,
+		id: 'fixture.typegen-private',
+		permissions: { 'storage:private': 'Declares private verifier storage.' },
 		version: '1.0.0',
+		contributions: [
+			contributeDeclarations({
+				privateStorage: ({ privateStorage }) => {
+					privateStorage.register(collection)
+					return undefined
+				},
+			}),
+		],
 	})
 }
 

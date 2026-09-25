@@ -1,7 +1,8 @@
 import {
 	UltimaBase,
 	MasterAuthority,
-	definePlugin,
+	plugin,
+	contributeApplication,
 	getCurrentRequest,
 	requireCapability,
 } from '@ultimabase/core'
@@ -57,17 +58,14 @@ export const createBrowserApplication = async (
 						}
 					: {}),
 			}),
-			definePlugin({
-				pluginId: 'fixture.browser',
+			plugin({
+				id: 'fixture.browser',
 				version: '1.0.0',
 				core: '^0.0.0',
-				privileges: [
-					{
-						name: 'transport:expose',
-						reason: 'Expose browser fixture responses.',
-					},
-				],
-				capabilities: [
+				permissions: {
+					'transport:expose': 'Expose browser fixture responses.',
+				},
+				contributions: [
 					provideHttpContextResolvers({
 						contributionId: 'credentials',
 						create: () =>
@@ -99,10 +97,12 @@ export const createBrowserApplication = async (
 							}),
 					}),
 					requirement,
+					contributeApplication(({ capabilities }) => {
+						http = capabilities.get(requirement)
+						const exports = undefined
+						return { exports }
+					}),
 				],
-				setup: ({ capabilities }) => {
-					http = capabilities.get(requirement)
-				},
 			}),
 		],
 	})

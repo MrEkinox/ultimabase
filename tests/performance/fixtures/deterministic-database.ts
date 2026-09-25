@@ -1,7 +1,7 @@
 import {
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
-	definePlugin,
+	plugin,
 	provideCapability,
 	type DatabaseAdapter,
 	type DatabaseAdapterCapabilities,
@@ -13,6 +13,7 @@ import {
 	type DatabaseOperationResult,
 	type DatabaseTransactionAdapter,
 	type PreparedDatabaseOperation,
+	type PluginDefinition,
 } from '@ultimabase/core'
 
 const capabilities: DatabaseAdapterCapabilities = Object.freeze({
@@ -145,12 +146,12 @@ export class DeterministicDatabaseAdapter implements DatabaseAdapter {
 /** Installs one fixture adapter through the same public capability as real databases. */
 export const deterministicDatabasePlugin = (
 	adapter: DatabaseAdapter,
-): ReturnType<typeof definePlugin> =>
-	definePlugin({
-		pluginId: 'fixture.performance-database',
+): PluginDefinition =>
+	plugin({
+		id: 'fixture.performance-database',
 		version: '0.0.0',
 		core: '^0.0.0',
-		capabilities: [
+		contributions: [
 			provideCapability(databaseAdapterCapability, {
 				contributionId: 'deterministic-database',
 				create: () => ({ value: adapter }),

@@ -1,9 +1,10 @@
 import {
 	applicationRequestExecutionCapability,
 	defineCapability,
-	definePlugin,
+	plugin,
 	provideCapability,
 	requireCapability,
+	withPluginPrivileges,
 	type ApplicationCallbackExecutor,
 	type ApplicationRequestExecutor,
 	type PluginIdentity,
@@ -31,28 +32,29 @@ const harnessCapability = defineCapability<Readonly<{ ready: true }>>()({
 export const createRestMutationExecutionHarnessPlugin = (
 	harness: RestMutationExecutionHarness,
 ) =>
-	definePlugin({
+	plugin({
 		core: '^0.0.0',
-		pluginId: 'fixture.rest-mutation-postgres-harness',
+		id: 'fixture.rest-mutation-postgres-harness',
 		version: '1.0.0',
-		privileges: [
-			{
-				name: 'authority:elevate',
-				reason: 'Verifies the REST mutation PostgreSQL Master fixture.',
-			},
-		],
-		capabilities: [
-			provideCapability(harnessCapability, {
-				contributionId: 'capture',
-				create: ({ callbacks, capabilities, owner }) => {
-					harness.callbacks = callbacks
-					harness.executor = capabilities.get(
-						restMutationRequestExecutionRequirement,
-					)
-					harness.owner = owner
-					return { value: { ready: true } }
-				},
-			}),
+		permissions: {
+			'authority:elevate':
+				'Verifies the REST mutation PostgreSQL Master fixture.',
+		},
+		contributions: [
+			withPluginPrivileges(
+				provideCapability(harnessCapability, {
+					contributionId: 'capture',
+					create: ({ callbacks, capabilities, owner }) => {
+						harness.callbacks = callbacks
+						harness.executor = capabilities.get(
+							restMutationRequestExecutionRequirement,
+						)
+						harness.owner = owner
+						return { value: { ready: true } }
+					},
+				}),
+				['authority:elevate'],
+			),
 			restMutationRequestExecutionRequirement,
 		],
 	})

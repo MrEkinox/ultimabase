@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { definePlugin, pluginPrivilegeMetadata } from '../../src/index.js'
+import { plugin, pluginPrivilegeMetadata } from '../../src/index.js'
 
 describe('removed kernel powers', () => {
 	it.each(['decorates', 'replaces'])(
@@ -7,13 +7,13 @@ describe('removed kernel powers', () => {
 		(group) => {
 			// Runtime validation must reject old configuration even when TypeScript is absent.
 			expect(() =>
-				definePlugin({
-					pluginId: 'fixture.retired-group',
+				plugin({
+					id: 'fixture.retired-group',
 					version: '1.0.0',
 					core: '^0.0.0',
-					capabilities: { [group]: [] } as never,
+					contributions: { [group]: [] } as never,
 				}),
-			).toThrow('capabilities must be an array')
+			).toThrow('plugin contributions must be an array')
 		},
 	)
 	it.each([
@@ -23,13 +23,12 @@ describe('removed kernel powers', () => {
 		'runtime:replace',
 	])('rejects the retired %s privilege', (name) => {
 		expect(() =>
-			definePlugin({
-				pluginId: 'fixture.retired-privilege',
+			plugin({
+				id: 'fixture.retired-privilege',
 				version: '1.0.0',
 				core: '^0.0.0',
-				privileges: [
-					{ name: name as never, reason: 'Invalid retired privilege.' },
-				],
+				contributions: [],
+				permissions: { [name]: 'Invalid retired privilege.' } as never,
 			}),
 		).toThrow()
 		expect(pluginPrivilegeMetadata).not.toHaveProperty(name)

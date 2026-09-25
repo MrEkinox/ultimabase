@@ -2,7 +2,8 @@ import {
 	FrameworkApplication,
 	defineOperation,
 	defineOperationValue,
-	definePlugin,
+	plugin,
+	contributeDeclarations,
 	defineTypegenReference,
 } from '@ultimabase/core'
 import { expect, it } from 'vitest'
@@ -25,38 +26,55 @@ it.each(['missing', 'foreign', 'owner'] as const)(
 			transaction: 'forbidden',
 			version: '1.0.0',
 		})
-		const owner = definePlugin({
+		const owner = plugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.reference-owner',
+			id: 'fixture.reference-owner',
 			version: '1.0.0',
-			privileges: [
-				{ name: 'operation:declare', reason: 'Declares a typed operation.' },
+			permissions: {
+				'operation:declare': 'Declares a typed operation.',
 				...(registration === 'owner'
-					? ([
-							{
-								name: 'typegen:reference',
-								reason: 'Owns the public type used by its operation.',
-							},
-						] as const)
+					? {
+							'typegen:reference':
+								'Owns the public type used by its operation.',
+						}
+					: {}),
+			},
+			contributions: [
+				contributeDeclarations({
+					operations: ({ operations }) => {
+						operations.declare(operation)
+						return undefined
+					},
+				}),
+				...(registration === 'owner'
+					? [
+							contributeDeclarations({
+								typegen: ({ typegenReferences }) => {
+									typegenReferences.register(reference)
+									return undefined
+								},
+							}),
+						]
 					: []),
 			],
-			declare: ({ operations }) => {
-				operations.declare(operation)
-			},
 		})
-		const foreign = definePlugin({
+		const foreign = plugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.foreign-reference',
+			id: 'fixture.foreign-reference',
 			version: '1.0.0',
-			privileges: [
-				{
-					name: 'typegen:reference',
-					reason: 'Exercises exact reference ownership.',
-				},
-			],
-			declare: ({ typegenReferences }) => {
-				if (registration === 'foreign') typegenReferences.register(reference)
+			permissions: {
+				'typegen:reference': 'Exercises exact reference ownership.',
 			},
+			contributions: [
+				contributeDeclarations({
+					typegen: ({ typegenReferences }) => {
+						if (registration === 'foreign')
+							typegenReferences.register(reference)
+
+						return undefined
+					},
+				}),
+			],
 		})
 		const application = new FrameworkApplication({
 			pluginPrivileges: { logger: false },

@@ -5,7 +5,7 @@ import {
 	provideHookEvent,
 	schemaHooks,
 } from '@ultimabase/hooks-plugin'
-import { definePlugin, Schema, type SchemaDefinition } from '@ultimabase/core'
+import { plugin, Schema, type SchemaDefinition } from '@ultimabase/core'
 import { createPluginConformanceFixture } from '@ultimabase/testing'
 import {
 	OfficialConformanceDatabase,
@@ -73,8 +73,8 @@ export const createOfficialHooksConformanceFixture = () => {
 			},
 		},
 	})
-	const compatibleProvider = definePlugin({
-		capabilities: [
+	const compatibleProvider = plugin({
+		contributions: [
 			provideHookContributions('article-lifecycle', () =>
 				schemaHooks(Article, {
 					afterOperation: {
@@ -102,17 +102,11 @@ export const createOfficialHooksConformanceFixture = () => {
 		core: '^0.0.0',
 		instanceId: 'primary',
 		peers: [{ pluginId: '@ultimabase/hooks-plugin', version: '^0.0.0' }],
-		pluginId: 'community.official-hooks-conformance',
-		privileges: [
-			{
-				name: 'runtime:intercept',
-				reason: 'Contributes official Hooks conformance handlers.',
-			},
-			{
-				name: 'runtime:observe',
-				reason: 'Observes official Hooks conformance events.',
-			},
-		],
+		id: 'community.official-hooks-conformance',
+		permissions: {
+			'runtime:intercept': 'Contributes official Hooks conformance handlers.',
+			'runtime:observe': 'Observes official Hooks conformance events.',
+		},
 		version: '1.0.0',
 	})
 
@@ -142,8 +136,8 @@ export const createInvalidHooksProviderFixture = () => {
 		className: 'InvalidHooksConformanceOutside',
 		fields: (field) => ({ title: field.string() }),
 	})
-	const provider = definePlugin({
-		capabilities: [
+	const provider = plugin({
+		contributions: [
 			provideHookContributions('outside-schema', () =>
 				schemaHooks(Outside, {
 					beforeOperation: { create: () => undefined },
@@ -152,13 +146,10 @@ export const createInvalidHooksProviderFixture = () => {
 		],
 		core: '^0.0.0',
 		peers: [{ pluginId: '@ultimabase/hooks-plugin', version: '^0.0.0' }],
-		pluginId: 'community.invalid-hooks-provider',
-		privileges: [
-			{
-				name: 'runtime:intercept',
-				reason: 'Exercises official Hooks target diagnostics.',
-			},
-		],
+		id: 'community.invalid-hooks-provider',
+		permissions: {
+			'runtime:intercept': 'Exercises official Hooks target diagnostics.',
+		},
 		version: '1.0.0',
 	})
 

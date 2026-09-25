@@ -1,7 +1,8 @@
 import {
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
-	definePlugin,
+	plugin,
+	contributeApplication,
 	provideCapability,
 	requireCapability,
 	type DatabaseAdapter,
@@ -34,11 +35,11 @@ class GraphqlYogaFixtureDatabase implements DatabaseAdapter {
 	}
 }
 
-export const graphqlYogaFixtureDatabasePlugin: PluginDefinition = definePlugin({
+export const graphqlYogaFixtureDatabasePlugin: PluginDefinition = plugin({
 	core: '^0.0.0',
-	pluginId: 'fixture.graphql-yoga-database',
+	id: 'fixture.graphql-yoga-database',
 	version: '1.0.0',
-	capabilities: [
+	contributions: [
 		provideCapability(databaseAdapterCapability, {
 			contributionId: 'database',
 			create: () => ({ value: new GraphqlYogaFixtureDatabase() }),
@@ -52,14 +53,18 @@ const httpApplicationRequirement = requireCapability(
 	{ phase: 'setup' },
 )
 
-export const graphqlYogaFixtureHttpConsumer: PluginDefinition = definePlugin({
+export const graphqlYogaFixtureHttpConsumer: PluginDefinition = plugin({
 	core: '^0.0.0',
-	pluginId: 'fixture.graphql-yoga-http-consumer',
+	id: 'fixture.graphql-yoga-http-consumer',
 	version: '1.0.0',
-	capabilities: [httpApplicationRequirement],
-	setup: ({ capabilities }) => ({
-		http: capabilities.get(httpApplicationRequirement),
-	}),
+	contributions: [
+		httpApplicationRequirement,
+		contributeApplication(({ capabilities }) => ({
+			exports: {
+				http: capabilities.get(httpApplicationRequirement),
+			},
+		})),
+	],
 })
 
 const isHttpApplication = (value: unknown): value is HttpApplication =>

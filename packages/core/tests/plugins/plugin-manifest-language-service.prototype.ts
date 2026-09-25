@@ -1,10 +1,12 @@
 import {
 	defineCapability,
-	definePlugin,
+	plugin as createPlugin,
+	contributeApplication,
 	defineSchemaOption,
 	FrameworkApplication,
 	provideCapability,
 	requireCapability,
+	withPluginPrivileges,
 	type CapabilityToken,
 	type PluginEnvironmentClaim,
 	type PluginDeclarationContext,
@@ -58,11 +60,12 @@ defineSchemaOption({
 		type: 'RuntimeOption',
 	},
 })
-const policyPlugin = definePlugin({
-	pluginId: 'fixture.policy-language-service',
+const policyPlugin = createPlugin({
+	id: 'fixture.policy-language-service',
 	instanceId: 'editorial',
 	version: '1.0.0',
 	core: '^0.0.0',
+	contributions: [],
 })
 
 const policyApplication = new FrameworkApplication({
@@ -89,17 +92,18 @@ const policyInstanceApplication = new FrameworkApplication({
 	},
 })
 
-const plugin = definePlugin({
-	pluginId: 'fixture.language-service',
+const plugin = createPlugin({
+	id: 'fixture.language-service',
 	version: '1.0.0',
 	core: '^0.0.0',
-	privileges: [
-		{
-			name: 'runtime:observe',
-			reason: 'Verifies privilege completion.',
-		},
-	],
+	permissions: { 'runtime:observe': 'Verifies privilege completion.' },
 	environment: ['environment:network'],
+	contributions: [
+		withPluginPrivileges(
+			contributeApplication(() => ({ exports: undefined })),
+			['runtime:observe'],
+		),
+	],
 })
 
 const privilege: PluginPrivilege = /* completion:privilege */ 'runtime:observe'

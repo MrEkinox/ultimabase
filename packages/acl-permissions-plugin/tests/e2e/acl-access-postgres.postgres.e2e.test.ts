@@ -1,7 +1,7 @@
 import { ACL, aclPlugin } from '@ultimabase/acl-permissions-plugin'
 import {
 	RequestSubjectReference,
-	definePlugin,
+	plugin,
 	MasterAuthority,
 	RequestContext,
 	RequestContextValue,
@@ -50,11 +50,11 @@ const currentRoleIds = new RequestContextValue<readonly string[]>(
 		return immutableArray(value)
 	},
 )
-const identityPlugin = definePlugin({
+const identityPlugin = plugin({
 	version: '0.0.0',
 	core: '^0.0.0',
-	pluginId: 'fixture.acl-identity',
-	capabilities: [
+	id: 'fixture.acl-identity',
+	contributions: [
 		provideTestPrincipalResolver({
 			resolveCurrent: ({ context }) => {
 				const principalId = context.getValue(currentPrincipalId)

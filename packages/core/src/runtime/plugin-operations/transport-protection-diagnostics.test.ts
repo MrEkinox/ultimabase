@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { definePlugin } from '../../plugins/definition.js'
+import { plugin as createPlugin } from '../../plugins/plugin.js'
+import { contributeDeclarations } from '../../plugins/plugin-contributions.js'
 import {
 	defineOperation,
 	defineOperationValue,
@@ -52,8 +53,15 @@ const createBinding = (
 	return operationTransportBinding({ codec, operation: diagnosticOperation })
 }
 
-const operationPlugin = definePlugin({
-	capabilities: [
+const operationPlugin = createPlugin({
+	core: '^0.0.0',
+	id: 'fixture.transport-diagnostic.operations',
+	permissions: {
+		'operation:declare': 'Declares the diagnostic fixture operation.',
+		'transport:expose': 'Binds the diagnostic fixture transports.',
+	},
+	version: '1.0.0',
+	contributions: [
 		provideOperationHandler({
 			contributionId: 'handler',
 			create: () => ({
@@ -71,37 +79,34 @@ const operationPlugin = definePlugin({
 			contributionId: 'secondary-binding',
 			create: () => ({ value: createBinding(secondaryTransport) }),
 		}),
+		contributeDeclarations({
+			operations: ({ operations }) => {
+				operations.declare(diagnosticOperation)
+
+				return undefined
+			},
+		}),
 	],
-	core: '^0.0.0',
-	declare: ({ operations }) => {
-		operations.declare(diagnosticOperation)
-	},
-	pluginId: 'fixture.transport-diagnostic.operations',
-	privileges: [
-		{
-			name: 'operation:declare',
-			reason: 'Declares the diagnostic fixture operation.',
-		},
-		{
-			name: 'transport:expose',
-			reason: 'Binds the diagnostic fixture transports.',
-		},
-	],
-	version: '1.0.0',
 })
 
-const databasePlugin = definePlugin({
-	capabilities: [
+const databasePlugin = createPlugin({
+	core: '^0.0.0',
+	id: 'fixture.transport-diagnostic.database',
+	version: '1.0.0',
+	contributions: [
 		provideTestDatabaseAdapter(new RecordingDatabaseAdapter([], [])),
 	],
-	core: '^0.0.0',
-	pluginId: 'fixture.transport-diagnostic.database',
-	version: '1.0.0',
 })
 
 const createPolicyPlugin = (mode: 'no-op' | 'unrelated') =>
-	definePlugin({
-		capabilities: [
+	createPlugin({
+		core: '^0.0.0',
+		id: `fixture.transport-diagnostic.${mode}`,
+		permissions: {
+			'runtime:constrain': 'Exercises provider-presence diagnostics.',
+		},
+		version: '1.0.0',
+		contributions: [
 			provideRuntimeConstraint({
 				contributionId: 'policy',
 				create: () => ({
@@ -115,15 +120,6 @@ const createPolicyPlugin = (mode: 'no-op' | 'unrelated') =>
 				}),
 			}),
 		],
-		core: '^0.0.0',
-		pluginId: `fixture.transport-diagnostic.${mode}`,
-		privileges: [
-			{
-				name: 'runtime:constrain',
-				reason: 'Exercises provider-presence diagnostics.',
-			},
-		],
-		version: '1.0.0',
 	})
 
 const createFixture = async (

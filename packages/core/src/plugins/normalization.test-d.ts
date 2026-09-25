@@ -1,16 +1,17 @@
 import { expectTypeOf, test } from 'vitest'
 
 import {
-	definePlugin,
+	plugin as createPlugin,
 	normalizePlugins,
 	type NormalizedPlugin,
 } from '../index.js'
 
 test('exposes immutable normalized plugin metadata', () => {
-	const plugin = definePlugin({
+	const plugin = createPlugin({
 		version: '0.0.0',
 		core: '^0.0.0',
-		pluginId: 'fixture.database',
+		id: 'fixture.database',
+		contributions: [],
 	})
 	const normalized = normalizePlugins([plugin])
 

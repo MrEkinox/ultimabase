@@ -6,7 +6,7 @@ import {
 } from '@ultimabase/access-plugin'
 import {
 	MasterAuthority,
-	definePlugin,
+	plugin,
 	Schema,
 	UltimaBase,
 	getCurrentRequest,
@@ -104,17 +104,14 @@ describe('Password Auth GraphQL operations with PostgreSQL', () => {
 				serial: field.bigint({ default: 9_007_199_254_740_993n }),
 			}),
 		})
-		const profilePolicy = definePlugin({
-			pluginId: 'fixture.graphql-profile-policy',
+		const profilePolicy = plugin({
+			id: 'fixture.graphql-profile-policy',
 			version: '1.0.0',
 			core: '^0.0.0',
-			privileges: [
-				{
-					name: 'runtime:constrain',
-					reason: 'Verify authenticated profile reads.',
-				},
-			],
-			capabilities: [
+			permissions: {
+				'runtime:constrain': 'Verify authenticated profile reads.',
+			},
+			contributions: [
 				provideAccessContributions('profile', () => {
 					const secretField = User.persistedFields.secret
 					if (secretField === undefined)

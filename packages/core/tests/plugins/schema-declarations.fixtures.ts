@@ -1,5 +1,6 @@
 import {
-	definePlugin,
+	plugin as createPlugin,
+	contributeDeclarations,
 	defineFieldOption,
 	defineSchemaOption,
 	type FieldOptionDefinition,
@@ -43,21 +44,22 @@ export const requireField = (field: GenericField | undefined): GenericField => {
 export const optionPlugin = (
 	pluginId = 'fixture.schema-options',
 ): PluginDefinition =>
-	definePlugin({
+	createPlugin({
 		core: '^0.0.0',
-		pluginId,
-		privileges: [
-			{
-				name: 'schema:declare',
-				reason: 'Declares direct test options.',
-			},
-		] as const,
+		id: pluginId,
+		permissions: { 'schema:declare': 'Declares direct test options.' },
 		version: '1.2.3',
-		declare: ({ schemas }) => {
-			schemas.defineOptions({
-				contributionId: 'fixture-options',
-				field: { search: jsonObjectFieldOption },
-				schema: { workflow: jsonObjectOption },
-			})
-		},
+		contributions: [
+			contributeDeclarations({
+				schema: ({ schemas }) => {
+					schemas.defineOptions({
+						contributionId: 'fixture-options',
+						field: { search: jsonObjectFieldOption },
+						schema: { workflow: jsonObjectOption },
+					})
+
+					return undefined
+				},
+			}),
+		],
 	})

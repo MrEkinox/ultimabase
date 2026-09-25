@@ -1,4 +1,9 @@
-import { definePlugin, type SchemaDefinition } from '@ultimabase/core'
+import {
+	contributeApplication,
+	plugin,
+	withPluginPrivileges,
+	type SchemaDefinition,
+} from '@ultimabase/core'
 import {
 	postgresConstraintCompiler,
 	postgresPhysicalColumn,
@@ -35,16 +40,22 @@ export const createSoftDeletePostgresPlugin = (
 		kind: softDeleteVisibilityConstraintKind,
 		version: 1,
 	})
-	return definePlugin({
+	return plugin({
 		core: '^0.0.0',
 		instanceId: options.instanceId,
-		pluginId: 'fixture.open-kernel-soft-delete-postgres',
-		privileges: [
-			{ name: 'adapter:consume', reason: 'Compiles tombstone visibility.' },
-		] as const,
-		setup: ({ constraintCompilers }) => {
-			constraintCompilers.register(compiler)
+		id: 'fixture.open-kernel-soft-delete-postgres',
+		permissions: {
+			'adapter:consume': 'Compiles tombstone visibility.',
 		},
+		contributions: [
+			withPluginPrivileges(
+				contributeApplication(({ constraintCompilers }) => {
+					constraintCompilers.register(compiler)
+					return { exports: undefined }
+				}),
+				['adapter:consume'],
+			),
+		],
 		version: '1.0.0',
 	})
 }
@@ -66,14 +77,14 @@ export const createValuePostgresPlugin = (options: ValuePostgresOptions) => {
 		},
 		table,
 	})
-	return definePlugin({
-		capabilities: [physical],
+	return plugin({
+		contributions: [physical],
 		core: '^0.0.0',
 		instanceId: options.instanceId,
-		pluginId: 'fixture.open-kernel-value-postgres',
-		privileges: [
-			{ name: 'adapter:consume', reason: 'Adds decimal physical metadata.' },
-		] as const,
+		id: 'fixture.open-kernel-value-postgres',
+		permissions: {
+			'adapter:consume': 'Adds decimal physical metadata.',
+		},
 		version: options.version,
 	})
 }

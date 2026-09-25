@@ -1,8 +1,9 @@
-import { onTestFinished } from 'vitest'
+import { onTestFinished, describe, expect, it } from 'vitest'
 import {
 	Schema,
 	createApplication,
-	definePlugin,
+	plugin,
+	contributeDeclarations,
 	definePluginField,
 	definePluginFieldType,
 } from '@ultimabase/core'
@@ -13,7 +14,6 @@ import {
 	isObjectType,
 	printSchema,
 } from 'graphql'
-import { describe, expect, it } from 'vitest'
 
 import {
 	graphqlPlugin,
@@ -300,16 +300,20 @@ describe('GraphQL structural schema compilation', () => {
 			className: 'Audit',
 			fields: (field) => ({ message: field.string() }),
 		})
-		const provider = definePlugin({
+		const provider = plugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.audit-schema',
-			privileges: [
-				{ name: 'schema:declare', reason: 'Adds the audit fixture schema.' },
-			] as const,
+			id: 'fixture.audit-schema',
+			permissions: { 'schema:declare': 'Adds the audit fixture schema.' },
 			version: '1.0.0',
-			declare: ({ schemas }) => {
-				schemas.add({ contributionId: 'audit', schema: Audit })
-			},
+			contributions: [
+				contributeDeclarations({
+					schema: ({ schemas }) => {
+						schemas.add({ contributionId: 'audit', schema: Audit })
+
+						return undefined
+					},
+				}),
+			],
 		})
 		const application = await createApplication({
 			pluginPrivileges: { logger: false },
@@ -341,16 +345,20 @@ describe('GraphQL structural schema compilation', () => {
 			fields: (field) => ({ secret: field.string() }),
 			graphql: false,
 		})
-		const provider = definePlugin({
+		const provider = plugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.private-schema',
-			privileges: [
-				{ name: 'schema:declare', reason: 'Adds a private fixture schema.' },
-			] as const,
+			id: 'fixture.private-schema',
+			permissions: { 'schema:declare': 'Adds a private fixture schema.' },
 			version: '1.0.0',
-			declare: ({ schemas }) => {
-				schemas.add({ contributionId: 'private', schema: Private })
-			},
+			contributions: [
+				contributeDeclarations({
+					schema: ({ schemas }) => {
+						schemas.add({ contributionId: 'private', schema: Private })
+
+						return undefined
+					},
+				}),
+			],
 		})
 
 		await expect(
@@ -404,17 +412,19 @@ describe('GraphQL structural schema compilation', () => {
 			fieldKind: 'fixture.missing-codec',
 			typegen: { module: '@fixture/missing-codec', valueType: 'MissingValue' },
 		})
-		const owner = definePlugin({
+		const owner = plugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.missing-codec',
-			privileges: [
-				{ name: 'schema:declare', reason: 'Declares a codec fixture field.' },
-			] as const,
+			id: 'fixture.missing-codec',
+			permissions: { 'schema:declare': 'Declares a codec fixture field.' },
 			version: '1.0.0',
-			declare: ({ fields }) => {
-				fields.declareType(fieldType)
-				return undefined
-			},
+			contributions: [
+				contributeDeclarations({
+					schema: ({ fields }) => {
+						fields.declareType(fieldType)
+						return undefined
+					},
+				}),
+			],
 		})
 		await expect(
 			createApplication({

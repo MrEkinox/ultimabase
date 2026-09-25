@@ -8,7 +8,8 @@ import {
 	FrameworkError,
 	MasterAuthority,
 	UltimaBase,
-	definePlugin,
+	plugin,
+	contributeApplication,
 	requireCapability,
 } from '@ultimabase/core'
 import {
@@ -89,17 +90,14 @@ const createApplication = (requiredProfile = false) => {
 			avatar: field.binary({ default: new Uint8Array([1, 2, 3]) }),
 		}),
 	})
-	const policy = definePlugin({
-		pluginId: 'fixture.password-profile-policy',
+	const policy = plugin({
+		id: 'fixture.password-profile-policy',
 		version: '1.0.0',
 		core: '^0.0.0',
-		privileges: [
-			{
-				name: 'runtime:constrain',
-				reason: 'Verify User profile authorization and rollback.',
-			},
-		],
-		capabilities: [
+		permissions: {
+			'runtime:constrain': 'Verify User profile authorization and rollback.',
+		},
+		contributions: [
 			provideAccessContributions('profile', () => {
 				const secretField = User.persistedFields.secret
 				if (secretField === undefined)
@@ -142,14 +140,18 @@ const createApplication = (requiredProfile = false) => {
 	const requirement = requireCapability(httpApplicationCapability, '^1.0.0', {
 		phase: 'setup',
 	})
-	const capture = definePlugin({
-		pluginId: 'fixture.profile-http',
+	const capture = plugin({
+		id: 'fixture.profile-http',
 		version: '1.0.0',
 		core: '^0.0.0',
-		capabilities: [requirement],
-		setup: ({ capabilities }) => {
-			http = capabilities.get(requirement)
-		},
+		contributions: [
+			requirement,
+			contributeApplication(({ capabilities }) => {
+				http = capabilities.get(requirement)
+				const exports = undefined
+				return { exports }
+			}),
+		],
 	})
 	const fetchRequest = (path: string, init: RequestInit) => {
 		if (http === undefined) throw new TypeError('HTTP fixture unavailable')

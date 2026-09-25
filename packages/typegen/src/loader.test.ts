@@ -32,16 +32,16 @@ afterEach(async () => {
 describe('loadTypegenApplication', () => {
 	it('transpiles an unresolved plugin method and never runs plugin setup', async () => {
 		const sourcePath = await createTypeScriptModule(`
-import { definePlugin, Schema, UltimaBase } from '@ultimabase/core'
+import { contributeApplication, plugin, Schema, UltimaBase } from '@ultimabase/core'
 import { pgVectorPlugin } from '@ultimabase/pg-vector-plugin'
 
-const SetupGuard = definePlugin({
-  pluginId: 'fixture.loader-setup-guard',
+const SetupGuard = plugin({
+  id: 'fixture.loader-setup-guard',
   version: '0.0.0',
   core: '^0.0.0',
-  setup() {
+  contributions: [contributeApplication(() => {
     throw new TypeError('typegen loader must not run plugin setup')
-  },
+  })],
 })
 
 const Document = Schema.define({

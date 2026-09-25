@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest'
 
-import { definePlugin } from '../plugins/definition.js'
+import { plugin as createPlugin } from '../plugins/plugin.js'
+import { contributeApplication } from '../plugins/plugin-contributions.js'
 import { FrameworkApplication } from './framework-application.js'
 import { UltimaBase } from '../runtime/application/ultima-base.js'
 import { RecordingDatabaseAdapter } from '../../tests/runtime/fixtures/recording-database-adapter.js'
@@ -14,22 +15,30 @@ it('retains original and cleanup failures and never releases unproven resources'
 	const app = new UltimaBase({
 		schemas: [],
 		plugins: [
-			definePlugin({
-				pluginId: 'fixture.failed-cleanup',
-				capabilities: [
-					provideTestDatabaseAdapter(new RecordingDatabaseAdapter([], [])),
-				],
+			createPlugin({
+				id: 'fixture.failed-cleanup',
 				version: '0.0.0',
 				core: '^0.0.0',
-				hooks: {
-					connect: () => {
-						throw startupError
-					},
-					dispose: () => {
-						disposals += 1
-						throw cleanupError
-					},
-				},
+				contributions: [
+					provideTestDatabaseAdapter(new RecordingDatabaseAdapter([], [])),
+					contributeApplication((context) => {
+						const exports = undefined
+						const lifecycleContext = { ...context, pluginExports: exports }
+						void lifecycleContext
+						return {
+							exports,
+							connect: () =>
+								(() => {
+									throw startupError
+								})(),
+							dispose: () =>
+								(() => {
+									disposals += 1
+									throw cleanupError
+								})(),
+						}
+					}),
+				],
 			}),
 		],
 	})

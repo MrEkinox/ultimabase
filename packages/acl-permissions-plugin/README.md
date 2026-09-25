@@ -178,22 +178,19 @@ import {
 	onACLChange,
 	provideACLChangeObserver,
 } from '@ultimabase/acl-permissions-plugin'
-import { definePlugin } from '@ultimabase/core'
+import { plugin } from '@ultimabase/core'
 
-const aclAuditPlugin = definePlugin({
-	pluginId: 'app.acl-audit',
+const aclAuditPlugin = plugin({
+	id: 'app.acl-audit',
 	version: '1.0.0',
 	core: '^0.0.0',
 	peers: [
 		{ pluginId: '@ultimabase/acl-permissions-plugin', version: '^0.0.0' },
 	],
-	privileges: [
-		{
-			name: 'runtime:observe',
-			reason: 'Records committed ACL changes.',
-		},
-	],
-	capabilities: [
+	permissions: {
+		'runtime:observe': 'Records committed ACL changes.',
+	},
+	contributions: [
 		provideACLChangeObserver(
 			'record-acl-change',
 			onACLChange(({ event }) => {

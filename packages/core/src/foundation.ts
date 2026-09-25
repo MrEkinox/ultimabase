@@ -32,8 +32,6 @@ export type {
 	FrameworkErrorPayload,
 } from './errors/framework-error.js'
 export type { PluginErrorPayload } from './errors/plugin-error.js'
-export { definePlugin } from './plugins/definition.js'
-export { definePluginModule } from './plugins/plugin-module.js'
 export { plugin } from './plugins/plugin.js'
 export type { PluginInstance, PluginOptions } from './plugins/plugin.js'
 export {
@@ -60,12 +58,6 @@ export type {
 	PluginPermissionReason,
 	PluginPermissionReasons,
 } from './plugins/plugin-permissions.js'
-export type {
-	DefinePluginModuleOptions,
-	PluginModule,
-	PluginModuleDefinitionOptions,
-	PluginModuleInstance,
-} from './plugins/plugin-module.js'
 export {
 	contributeOperation,
 	contributeOperationBinding,
@@ -173,17 +165,10 @@ export type {
 	PluginConstraintCompilerRegistry,
 } from './plugins/constraint-compilers.js'
 export type {
-	DefinePluginOptions,
 	FrameworkPlugin,
 	PluginDefinition,
 	PluginExports,
-	PluginLifecycleContext,
-	PluginLifecycleHook,
-	PluginLifecycleHooks,
-	PluginLifecyclePhase,
-	PluginSetup,
 	PluginSetupContext,
-	PluginSetupExports,
 } from './plugins/definition.js'
 export type {
 	PluginDeclaration,

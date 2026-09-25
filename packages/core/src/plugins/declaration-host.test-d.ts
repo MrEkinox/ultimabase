@@ -2,7 +2,8 @@ import { expectTypeOf, test } from 'vitest'
 
 import {
 	defineCapability,
-	definePlugin,
+	plugin as createPlugin,
+	contributeDeclarations,
 	optionalCapability,
 	requireCapability,
 	type FieldBuilderMethodRegistrar,
@@ -27,69 +28,59 @@ const optionalStatic = optionalCapability(staticCapability, '^1.0.0')
 const optionalApplication = optionalCapability(applicationCapability, '^1.0.0')
 
 test('selects exact declaration facades from privileges and requirements', () => {
-	definePlugin({
-		pluginId: 'fixture.no-schema-authority',
+	createPlugin({
+		id: 'fixture.schema-authority',
 		version: '1.0.0',
 		core: '^0.0.0',
-		declare: (context) => {
-			expectTypeOf(context).not.toHaveProperty('fields')
-			expectTypeOf(context).not.toHaveProperty('schemas')
-			expectTypeOf(context).not.toHaveProperty('services')
-			expectTypeOf(context).not.toHaveProperty('adapters')
-			expectTypeOf(context).not.toHaveProperty('request')
-		},
+		permissions: { 'schema:declare': 'Protects the exact fields facade.' },
+		contributions: [
+			contributeDeclarations({
+				requires: [requiredStatic, optionalStatic],
+				schema: ({ capabilities, fields }) => {
+					expectTypeOf(fields).toEqualTypeOf<FieldBuilderMethodRegistrar>()
+					expectTypeOf(capabilities.get(requiredStatic)).toEqualTypeOf<{
+						readonly label: 'static'
+					}>()
+					expectTypeOf(capabilities.get(optionalStatic)).toEqualTypeOf<
+						{ readonly label: 'static' } | undefined
+					>()
+					// @ts-expect-error -- Application resources are unavailable during declaration.
+					capabilities.get(optionalApplication)
+				},
+			}),
+		],
 	})
 
-	definePlugin({
-		pluginId: 'fixture.schema-authority',
+	createPlugin({
+		id: 'fixture.conditional-schema-authority',
 		version: '1.0.0',
 		core: '^0.0.0',
-		privileges: [
-			{
-				name: 'schema:declare',
-				reason: 'Protects the exact fields facade.',
-			},
-		] as const,
-		capabilities: [requiredStatic, optionalStatic, optionalApplication],
-		declare: ({ capabilities, fields }) => {
-			expectTypeOf(fields).toEqualTypeOf<FieldBuilderMethodRegistrar>()
-			expectTypeOf(capabilities.get(requiredStatic)).toEqualTypeOf<{
-				readonly label: 'static'
-			}>()
-			expectTypeOf(capabilities.get(optionalStatic)).toEqualTypeOf<
-				{ readonly label: 'static' } | undefined
-			>()
-			// @ts-expect-error -- Application resources are unavailable during declaration.
-			capabilities.get(optionalApplication)
-		},
-	})
-
-	definePlugin({
-		pluginId: 'fixture.conditional-schema-authority',
-		version: '1.0.0',
-		core: '^0.0.0',
-		capabilities: [optionalStatic],
-		privileges: [
-			{
-				name: 'schema:declare',
+		permissions: {
+			'schema:declare': {
 				reason: 'Declares fields only with the optional protocol.',
 				when: optionalStatic,
 			},
-		] as const,
-		declare: ({ fields }) => {
-			expectTypeOf(fields).toEqualTypeOf<
-				FieldBuilderMethodRegistrar | undefined
-			>()
 		},
+		contributions: [
+			optionalStatic,
+			contributeDeclarations({
+				schema: ({ fields }) => {
+					expectTypeOf(fields).toEqualTypeOf<FieldBuilderMethodRegistrar>()
+
+					return undefined
+				},
+			}),
+		],
 	})
 })
 
 test('removes the superseded declaration callback', () => {
-	definePlugin({
-		pluginId: 'fixture.legacy-declaration',
+	createPlugin({
+		id: 'fixture.legacy-declaration',
 		version: '1.0.0',
 		core: '^0.0.0',
-		// @ts-expect-error -- Static declarations use the canonical declare callback.
+		// @ts-expect-error -- Phase-specific callbacks are no longer plugin options.
 		declareFields: () => undefined,
+		contributions: [],
 	})
 })

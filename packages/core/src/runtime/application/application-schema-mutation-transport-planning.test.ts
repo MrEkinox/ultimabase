@@ -3,12 +3,14 @@ import { describe, expect, it } from 'vitest'
 
 import {
 	createApplication,
+	contributeDeclarations,
 	defineCapability,
 	defineOperationValue,
-	definePlugin,
+	plugin as createPlugin,
 	defineSchemaMutation,
 	provideCapability,
 	requireCapability,
+	withPluginPrivileges,
 	type ApplicationCallbackExecutor,
 	type PluginIdentity,
 } from '../../foundation.js'
@@ -53,9 +55,20 @@ const binding = schemaMutationTransportBinding({
 })
 
 const createOwnerPlugin = (bindingCount = 1, selected = true) =>
-	definePlugin({
-		capabilities:
-			bindingCount > 0
+	createPlugin({
+		id: 'fixture.schema-mutation-planning.owner',
+		core: '^0.0.0',
+		version: '1.0.0',
+		permissions: {
+			'model:extend': 'Attaches archive.',
+			'operation:declare': 'Declares archive.',
+			'schema:declare': 'Adds workflow state.',
+			...(bindingCount > 0
+				? { 'transport:expose': 'Binds the transport.' }
+				: {}),
+		},
+		contributions: [
+			...(bindingCount > 0
 				? [
 						provideSchemaMutationTransportBinding({
 							contributionId: 'rest-binding',
@@ -70,36 +83,34 @@ const createOwnerPlugin = (bindingCount = 1, selected = true) =>
 								]
 							: []),
 					]
-				: [],
-		core: '^0.0.0',
-		declare: ({ models, operations, schemas }) => {
-			operations.declare(archive)
-			schemas.patch({
-				operations: [
-					addSchemaField({
-						contributionId: 'workflow-state',
-						field: stringField(),
-						name: 'workflowState',
-					}),
-				],
-				targets: schemas.select({ className: Document.className }),
-			})
-			if (selected)
-				models.extend(Document, {
-					contributionId: 'archive',
-					schemaMutations: {
-						archive: { mutation: archive, surfaces: ['schema'] },
-					},
-				})
-		},
-		pluginId: 'fixture.schema-mutation-planning.owner',
-		privileges: [
-			{ name: 'model:extend', reason: 'Attaches archive.' },
-			{ name: 'operation:declare', reason: 'Declares archive.' },
-			{ name: 'schema:declare', reason: 'Adds workflow state.' },
-			{ name: 'transport:expose', reason: 'Binds the transport.' },
-		] as const,
-		version: '1.0.0',
+				: []),
+			contributeDeclarations({
+				operations: ({ operations }) => {
+					operations.declare(archive)
+				},
+				schema: ({ schemas }) => {
+					schemas.patch({
+						operations: [
+							addSchemaField({
+								contributionId: 'workflow-state',
+								field: stringField(),
+								name: 'workflowState',
+							}),
+						],
+						targets: schemas.select({ className: Document.className }),
+					})
+				},
+				models: ({ models }) => {
+					if (selected)
+						models.extend(Document, {
+							contributionId: 'archive',
+							schemaMutations: {
+								archive: { mutation: archive, surfaces: ['schema'] },
+							},
+						})
+				},
+			}),
+		],
 	})
 
 const planningRequirement = requireCapability(
@@ -121,25 +132,26 @@ interface Harness {
 	planner?: ApplicationOperationTransportPlanner
 }
 const consumerPlugin = (harness: Harness) =>
-	definePlugin({
-		capabilities: [
-			provideCapability(harnessCapability, {
-				contributionId: 'harness',
-				create: ({ callbacks, capabilities, owner }) => {
-					harness.callbacks = callbacks
-					harness.owner = owner
-					harness.planner = capabilities.get(planningRequirement)
-					return { value: immutableRecord({ ready: true as const }) }
-				},
-			}),
+	createPlugin({
+		core: '^0.0.0',
+		id: 'fixture.schema-mutation-planning.consumer',
+		permissions: { 'transport:expose': 'Plans the fixture transport.' },
+		version: '1.0.0',
+		contributions: [
+			withPluginPrivileges(
+				provideCapability(harnessCapability, {
+					contributionId: 'harness',
+					create: ({ callbacks, capabilities, owner }) => {
+						harness.callbacks = callbacks
+						harness.owner = owner
+						harness.planner = capabilities.get(planningRequirement)
+						return { value: immutableRecord({ ready: true as const }) }
+					},
+				}),
+				['transport:expose'],
+			),
 			planningRequirement,
 		],
-		core: '^0.0.0',
-		pluginId: 'fixture.schema-mutation-planning.consumer',
-		privileges: [
-			{ name: 'transport:expose', reason: 'Plans the fixture transport.' },
-		],
-		version: '1.0.0',
 	})
 
 const runPlanning = (harness: Harness) => {
@@ -203,19 +215,17 @@ describe('application schema mutation transport planning', () => {
 	})
 
 	it('rejects an owner mismatch before transport startup', async () => {
-		const foreign = definePlugin({
-			capabilities: [
+		const foreign = createPlugin({
+			core: '^0.0.0',
+			id: 'fixture.schema-mutation-planning.foreign',
+			permissions: { 'transport:expose': 'Exercises owner validation.' },
+			version: '1.0.0',
+			contributions: [
 				provideSchemaMutationTransportBinding({
 					contributionId: 'foreign-binding',
 					create: () => ({ value: binding }),
 				}),
 			],
-			core: '^0.0.0',
-			pluginId: 'fixture.schema-mutation-planning.foreign',
-			privileges: [
-				{ name: 'transport:expose', reason: 'Exercises owner validation.' },
-			],
-			version: '1.0.0',
 		})
 		const harness: Harness = {}
 		// Ownership now fails at materialization, before a transport can obtain its planner.

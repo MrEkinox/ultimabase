@@ -9,7 +9,7 @@ import {
 	adapterPersistencePlanCapability,
 	adapterValueStorageCapability,
 	databaseAdapterCapability,
-	definePlugin,
+	plugin,
 	getPluginFieldStorageCodec,
 	provideAdapterCapability,
 	provideCapability,
@@ -57,8 +57,8 @@ const database = {
 	kind: 'database-adapter' as const,
 }
 const createKernelSupportPlugin = () =>
-	definePlugin({
-		capabilities: [
+	plugin({
+		contributions: [
 			provideCapability(databaseAdapterCapability, {
 				contributionId: 'database',
 				create: () => ({ value: database }),
@@ -82,7 +82,7 @@ const createKernelSupportPlugin = () =>
 			}),
 		],
 		core: '^0.0.0',
-		pluginId: 'fixture.open-kernel-support',
+		id: 'fixture.open-kernel-support',
 		version: '1.0.0',
 	})
 

@@ -3,7 +3,7 @@ import {
 	applicationOperationTransportPlanningCapability,
 	applicationRequestExecutionCapability,
 	beforeOperation,
-	definePlugin,
+	plugin,
 	guard,
 	requireCapability,
 	provideRuntimeBehavior,
@@ -82,15 +82,15 @@ const operationPlanning = requireCapability(
 	'^1.0.0',
 )
 
-definePlugin({
-	pluginId: 'fixture.packed-runtime-capabilities',
+plugin({
+	id: 'fixture.packed-runtime-capabilities',
 	version: '0.0.0',
 	core: '^0.0.0',
-	privileges: [
-		{ name: 'runtime:constrain', reason: 'Exercises the packed facade.' },
-		{ name: 'runtime:intercept', reason: 'Exercises the packed facade.' },
-	],
-	capabilities: [
+	permissions: {
+		'runtime:constrain': 'Exercises the packed facade.',
+		'runtime:intercept': 'Exercises the packed facade.',
+	},
+	contributions: [
 		behavior,
 		interceptor,
 		constraint,

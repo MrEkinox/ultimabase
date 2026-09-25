@@ -1,7 +1,7 @@
 import {
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
-	definePlugin,
+	plugin,
 	provideCapability,
 	type DatabaseAdapter,
 	type DatabaseOperationAst,
@@ -29,11 +29,11 @@ class GraphqlFixtureDatabase implements DatabaseAdapter {
 	}
 }
 
-export const graphqlFixtureDatabasePlugin: PluginDefinition = definePlugin({
+export const graphqlFixtureDatabasePlugin: PluginDefinition = plugin({
 	core: '^0.0.0',
-	pluginId: 'fixture.graphql-database',
+	id: 'fixture.graphql-database',
 	version: '1.0.0',
-	capabilities: [
+	contributions: [
 		provideCapability(databaseAdapterCapability, {
 			contributionId: 'database',
 			create: () => ({ value: new GraphqlFixtureDatabase() }),

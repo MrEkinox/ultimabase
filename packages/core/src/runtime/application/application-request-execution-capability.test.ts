@@ -1,5 +1,5 @@
 import {
-	definePlugin,
+	plugin,
 	FrameworkApplication,
 	provideCapability,
 	requireCapability,
@@ -17,11 +17,11 @@ const requestExecutionRequirement = requireCapability(
 	applicationRequestExecutionCapability,
 	'^1.0.0',
 )
-const consumer = definePlugin({
+const consumer = plugin({
 	core: '^0.0.0',
-	pluginId: 'fixture.application-request-consumer',
+	id: 'fixture.application-request-consumer',
 	version: '0.0.0',
-	capabilities: [requestExecutionRequirement],
+	contributions: [requestExecutionRequirement],
 })
 
 describe('application request execution capability ownership', () => {
@@ -74,11 +74,11 @@ describe('application request execution capability ownership', () => {
 					new FrameworkApplication({
 						schemas: [],
 						plugins: [
-							definePlugin({
+							plugin({
 								core: '^0.0.0',
-								pluginId: `fixture.${declaration.contributionId}`,
+								id: `fixture.${declaration.contributionId}`,
 								version: '0.0.0',
-								capabilities: [declaration, requestExecutionRequirement],
+								contributions: [declaration, requestExecutionRequirement],
 							}),
 						],
 					}),

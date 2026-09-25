@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
 	Schema,
 	createApplication,
-	definePlugin,
+	plugin as createPlugin,
+	contributeDeclarations,
 	type SchemaOptions,
 } from '../index.js'
 import {
@@ -40,39 +41,45 @@ describe('plugin schema option ownership rejection', () => {
 	})
 
 	it('rejects plugin option names reserved by Core contracts', async () => {
-		const schemaCollision = definePlugin({
+		const schemaCollision = createPlugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.schema-option-collision',
-			privileges: [
-				{
-					name: 'schema:declare',
-					reason: 'Exercises Core schema option collision rejection.',
-				},
-			] as const,
-			version: '1.0.0',
-			declare: ({ schemas }) => {
-				schemas.defineOptions({
-					contributionId: 'collision',
-					schema: { fields: jsonObjectOption },
-				})
+			id: 'fixture.schema-option-collision',
+			permissions: {
+				'schema:declare': 'Exercises Core schema option collision rejection.',
 			},
+			version: '1.0.0',
+			contributions: [
+				contributeDeclarations({
+					schema: ({ schemas }) => {
+						schemas.defineOptions({
+							contributionId: 'collision',
+							schema: { fields: jsonObjectOption },
+						})
+
+						return undefined
+					},
+				}),
+			],
 		})
-		const fieldCollision = definePlugin({
+		const fieldCollision = createPlugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.field-option-collision',
-			privileges: [
-				{
-					name: 'schema:declare',
-					reason: 'Exercises Core field option collision rejection.',
-				},
-			] as const,
-			version: '1.0.0',
-			declare: ({ schemas }) => {
-				schemas.defineOptions({
-					contributionId: 'collision',
-					field: { required: jsonObjectFieldOption },
-				})
+			id: 'fixture.field-option-collision',
+			permissions: {
+				'schema:declare': 'Exercises Core field option collision rejection.',
 			},
+			version: '1.0.0',
+			contributions: [
+				contributeDeclarations({
+					schema: ({ schemas }) => {
+						schemas.defineOptions({
+							contributionId: 'collision',
+							field: { required: jsonObjectFieldOption },
+						})
+
+						return undefined
+					},
+				}),
+			],
 		})
 
 		await expect(

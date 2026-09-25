@@ -2,7 +2,8 @@ import {
 	addSchemaField,
 	RequestContextValue,
 	createApplication,
-	definePlugin,
+	plugin as createPlugin,
+	contributeDeclarations,
 	relationField,
 	type RelationWhereResolver,
 	Schema,
@@ -40,11 +41,11 @@ const principalValue = new RequestContextValue<Readonly<{ id: string }>>(
 )
 
 const databasePlugin = (adapter: RecordingDatabaseAdapter) =>
-	definePlugin({
+	createPlugin({
 		core: '^0.0.0',
-		pluginId: 'fixture.relation-filter-database',
+		id: 'fixture.relation-filter-database',
 		version: '0.0.0',
-		capabilities: [provideTestDatabaseAdapter(adapter)],
+		contributions: [provideTestDatabaseAdapter(adapter)],
 	})
 
 describe('Runtime relation filters', () => {
@@ -296,17 +297,14 @@ describe('Runtime relation filters', () => {
 			[{ status: 'fulfilled', value: [] }],
 			trace,
 		)
-		const policy = definePlugin({
+		const policy = createPlugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.relation-filter-policy',
+			id: 'fixture.relation-filter-policy',
 			version: '0.0.0',
-			privileges: [
-				{
-					name: 'runtime:constrain',
-					reason: 'Proves monotonic relation-filter ordering.',
-				},
-			],
-			capabilities: [
+			permissions: {
+				'runtime:constrain': 'Proves monotonic relation-filter ordering.',
+			},
+			contributions: [
 				provideTestRuntimeConstraint(
 					'ordered-relation-policy',
 					protectedPolicy({
@@ -516,35 +514,38 @@ describe('Runtime relation filters', () => {
 			[],
 		)
 		let observedOwner: unknown
-		const contributor = definePlugin({
+		const contributor = createPlugin({
 			core: '^0.0.0',
 			instanceId: 'primary',
-			pluginId: 'fixture.relation-filter-contributor',
+			id: 'fixture.relation-filter-contributor',
 			version: '0.0.0',
-			privileges: [
-				{
-					name: 'schema:declare',
-					reason: 'Adds the attributed relation field under test.',
-				},
-			],
-			declare: ({ schemas }) => {
-				schemas.patch({
-					operations: [
-						addSchemaField({
-							contributionId: 'visible-targets',
-							field: relationField({
-								target: () => Target,
-								where: ({ where }) => {
-									observedOwner = readApplicationPluginOwner(application)
-									return where.eq('visible', true)
-								},
-							}),
-							name: 'targets',
-						}),
-					],
-					targets: schemas.select({ className: Source.className }),
-				})
+			permissions: {
+				'schema:declare': 'Adds the attributed relation field under test.',
 			},
+			contributions: [
+				contributeDeclarations({
+					schema: ({ schemas }) => {
+						schemas.patch({
+							operations: [
+								addSchemaField({
+									contributionId: 'visible-targets',
+									field: relationField({
+										target: () => Target,
+										where: ({ where }) => {
+											observedOwner = readApplicationPluginOwner(application)
+											return where.eq('visible', true)
+										},
+									}),
+									name: 'targets',
+								}),
+							],
+							targets: schemas.select({ className: Source.className }),
+						})
+
+						return undefined
+					},
+				}),
+			],
 		})
 		const application = await createApplication({
 			plugins: [contributor, databasePlugin(adapter)],

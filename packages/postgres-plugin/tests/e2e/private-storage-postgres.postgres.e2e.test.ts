@@ -4,7 +4,8 @@ import {
 	contributeOperation,
 	defineOperation,
 	defineOperationValue,
-	definePlugin,
+	plugin,
+	contributeDeclarations,
 	definePrivateCollection,
 	privateStore,
 	stringField,
@@ -135,21 +136,25 @@ describe('PostgreSQL owner-private storage', { concurrent: false }, () => {
 				throw new Error('rollback both stores')
 			},
 		})
-		const privatePlugin = definePlugin({
+		const privatePlugin = plugin({
 			core: '^0.0.0',
-			declare: ({ privateStorage }) => {
-				privateStorage.register(sessions)
+			id: 'fixture.private-postgres',
+			permissions: {
+				'operation:declare': 'Declares private storage fixtures.',
+				'storage:private': 'Stores private session fixtures.',
 			},
-			operations: [sessionContribution, atomicContribution],
-			pluginId: 'fixture.private-postgres',
-			privileges: [
-				{
-					name: 'operation:declare',
-					reason: 'Declares private storage fixtures.',
-				},
-				{ name: 'storage:private', reason: 'Stores private session fixtures.' },
-			] as const,
 			version: '1.0.0',
+			contributions: [
+				sessionContribution,
+				atomicContribution,
+				contributeDeclarations({
+					privateStorage: ({ privateStorage }) => {
+						privateStorage.register(sessions)
+
+						return undefined
+					},
+				}),
+			],
 		})
 		const ultimabase = new UltimaBase({
 			pluginPrivileges: { logger: false },
@@ -231,17 +236,19 @@ describe('PostgreSQL owner-private storage', { concurrent: false }, () => {
 			collection: typeof v1Collection | typeof v2Collection,
 			version: '1.0.0' | '2.0.0',
 		) =>
-			definePlugin({
+			plugin({
 				core: '^0.0.0',
-				declare: ({ privateStorage }) => {
-					privateStorage.register(collection)
-					return undefined
-				},
-				pluginId: 'fixture.private-postgres-upgrade',
-				privileges: [
-					{ name: 'storage:private', reason: 'Tests private schema upgrades.' },
-				] as const,
+				id: 'fixture.private-postgres-upgrade',
+				permissions: { 'storage:private': 'Tests private schema upgrades.' },
 				version,
+				contributions: [
+					contributeDeclarations({
+						privateStorage: ({ privateStorage }) => {
+							privateStorage.register(collection)
+							return undefined
+						},
+					}),
+				],
 			})
 		const readPrivateTables = async (): Promise<readonly string[]> => {
 			const result = await getFixture().pool.query<{

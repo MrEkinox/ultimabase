@@ -4,7 +4,8 @@ import { optionPlugin } from '../../tests/plugins/schema-declarations.fixtures.j
 import {
 	FrameworkApplication,
 	Schema,
-	definePlugin,
+	plugin as createPlugin,
+	contributeDeclarations,
 	setSchemaFieldOption,
 	setSchemaOption,
 } from '../index.js'
@@ -17,32 +18,36 @@ describe('additive option patch boundaries', () => {
 				className: `DuplicateOption${scope}`,
 				fields: (field) => ({ title: field.string() }),
 			})
-			const patcher = definePlugin({
+			const patcher = createPlugin({
 				core: '^0.0.0',
-				pluginId: 'fixture.duplicate-option-values',
+				id: 'fixture.duplicate-option-values',
 				version: '1.0.0',
-				privileges: [
-					{ name: 'schema:declare', reason: 'Exercises additive conflicts.' },
+				permissions: { 'schema:declare': 'Exercises additive conflicts.' },
+				contributions: [
+					contributeDeclarations({
+						schema: ({ schemas }) => {
+							schemas.patch({
+								targets: schemas.select({ className: Post.className }),
+								operations: ['first', 'second'].map((contributionId) =>
+									scope === 'schema'
+										? setSchemaOption({
+												contributionId,
+												name: 'workflow',
+												value: { enabled: true },
+											})
+										: setSchemaFieldOption({
+												contributionId,
+												field: 'title',
+												name: 'search',
+												value: { weight: 1 },
+											}),
+								),
+							})
+
+							return undefined
+						},
+					}),
 				],
-				declare: ({ schemas }) => {
-					schemas.patch({
-						targets: schemas.select({ className: Post.className }),
-						operations: ['first', 'second'].map((contributionId) =>
-							scope === 'schema'
-								? setSchemaOption({
-										contributionId,
-										name: 'workflow',
-										value: { enabled: true },
-									})
-								: setSchemaFieldOption({
-										contributionId,
-										field: 'title',
-										name: 'search',
-										value: { weight: 1 },
-									}),
-						),
-					})
-				},
 			})
 			const application = new FrameworkApplication({
 				pluginPrivileges: { logger: false },

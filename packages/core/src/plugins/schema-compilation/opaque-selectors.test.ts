@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 
 import { FrameworkApplication } from '../../application/framework-application.js'
 import { Schema, type SchemaOptions } from '../../schema/schema/definition.js'
-import { definePlugin } from '../definition.js'
+import { plugin as createPlugin } from '../plugin.js'
+import { contributeDeclarations } from '../plugin-contributions.js'
 import { defineSchemaOption } from '../schema-option-definitions.js'
 import { addSchemaField } from '../schema-field-patch-operations.js'
 import { stringField } from '../../schema/fields/builtins/string.js'
@@ -65,45 +66,48 @@ describe('opaque option selection boundary', () => {
 			typegen: false,
 			valueKind: 'opaque',
 		})
-		const plugin = definePlugin({
-			pluginId: 'fixture.opaque-selectors',
+		const plugin = createPlugin({
+			id: 'fixture.opaque-selectors',
 			version: '1.0.0',
 			core: '^0.0.0',
-			privileges: [
-				{
-					name: 'schema:declare',
-					reason: 'Checks portable and opaque selection boundaries.',
-				},
-			],
-			declare: ({ schemas }) => {
-				schemas.defineOptions({
-					contributionId: 'options',
-					schema: {
-						opaque: defineSchemaOption({
-							...option,
-							normalize: () => ({
-								get enabled() {
-									opaqueReads += 1
-									return true
-								},
-								callback,
-							}),
-						}),
-						portable: option,
-					},
-				})
-				for (const [name, selector] of Object.entries(selectors))
-					schemas.patch({
-						targets: schemas.select(selector),
-						operations: [
-							addSchemaField({
-								contributionId: name,
-								name,
-								field: stringField(),
-							}),
-						],
-					})
+			permissions: {
+				'schema:declare': 'Checks portable and opaque selection boundaries.',
 			},
+			contributions: [
+				contributeDeclarations({
+					schema: ({ schemas }) => {
+						schemas.defineOptions({
+							contributionId: 'options',
+							schema: {
+								opaque: defineSchemaOption({
+									...option,
+									normalize: () => ({
+										get enabled() {
+											opaqueReads += 1
+											return true
+										},
+										callback,
+									}),
+								}),
+								portable: option,
+							},
+						})
+						for (const [name, selector] of Object.entries(selectors))
+							schemas.patch({
+								targets: schemas.select(selector),
+								operations: [
+									addSchemaField({
+										contributionId: name,
+										name,
+										field: stringField(),
+									}),
+								],
+							})
+
+						return undefined
+					},
+				}),
+			],
 		})
 		const application = new FrameworkApplication({
 			schemas: [Target],

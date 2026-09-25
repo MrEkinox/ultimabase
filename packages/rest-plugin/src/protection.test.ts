@@ -1,13 +1,12 @@
-import { onTestFinished } from 'vitest'
+import { onTestFinished, afterEach, describe, expect, it, vi } from 'vitest'
 import {
 	Schema,
 	UltimaBase,
 	databaseAdapterCapability,
-	definePlugin,
+	plugin,
 	provideCapability,
 	type DatabaseAdapter,
 } from '@ultimabase/core'
-import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { restPlugin } from './plugin.js'
 
@@ -21,11 +20,11 @@ const unavailableAdapter: DatabaseAdapter = {
 	},
 }
 
-const databasePlugin = definePlugin({
+const databasePlugin = plugin({
 	core: '^0.0.0',
-	pluginId: 'fixture.rest-database',
+	id: 'fixture.rest-database',
 	version: '1.0.0',
-	capabilities: [
+	contributions: [
 		provideCapability(databaseAdapterCapability, {
 			contributionId: 'database',
 			create: () => ({ value: unavailableAdapter }),

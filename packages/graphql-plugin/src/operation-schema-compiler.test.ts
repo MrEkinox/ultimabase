@@ -1,4 +1,4 @@
-import { onTestFinished } from 'vitest'
+import { onTestFinished, describe, expect, it } from 'vitest'
 import {
 	PluginError,
 	Schema,
@@ -10,7 +10,7 @@ import {
 	defineOperation,
 	defineOperationTransport,
 	defineOperationValue,
-	definePlugin,
+	plugin,
 	operationTransportBinding,
 	operationWireCodec,
 	provideCapability,
@@ -24,7 +24,6 @@ import {
 } from '@ultimabase/core'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 import { graphql, printSchema } from 'graphql'
-import { describe, expect, it } from 'vitest'
 
 import { graphqlPlugin } from './plugin.js'
 import { graphqlOperationProtocol } from './protocol.js'
@@ -47,16 +46,16 @@ class OperationDatabase implements DatabaseAdapter {
 	}
 }
 
-const databasePlugin = definePlugin({
-	capabilities: [
+const databasePlugin = plugin({
+	core: '^0.0.0',
+	id: 'fixture.graphql-operation-database',
+	version: '1.0.0',
+	contributions: [
 		provideCapability(databaseAdapterCapability, {
 			contributionId: 'database',
 			create: () => ({ value: new OperationDatabase() }),
 		}),
 	],
-	core: '^0.0.0',
-	pluginId: 'fixture.graphql-operation-database',
-	version: '1.0.0',
 })
 
 const input = defineOperationValue((value: unknown, path) => {
@@ -162,8 +161,17 @@ const createOperationPlugin = (
 	} = {},
 ) => {
 	const binding = options.binding ?? createBinding()
-	return definePlugin({
-		operations: [
+	return plugin({
+		core: '^0.0.0',
+		id: 'fixture.graphql-operation-owner',
+		permissions: {
+			'operation:declare': 'Declares fixture operations.',
+			...(binding === false
+				? {}
+				: { 'transport:expose': 'Binds the GraphQL fixture.' }),
+		},
+		version: '1.0.0',
+		contributions: [
 			contributeOperation({
 				bindings: binding === false ? [] : [binding],
 				execute: ({ context, input: operationInput }) => {
@@ -182,13 +190,6 @@ const createOperationPlugin = (
 				operation: echoOperation,
 			}),
 		],
-		core: '^0.0.0',
-		pluginId: 'fixture.graphql-operation-owner',
-		privileges: [
-			{ name: 'operation:declare', reason: 'Declares fixture operations.' },
-			{ name: 'transport:expose', reason: 'Binds the GraphQL fixture.' },
-		] as const,
-		version: '1.0.0',
 	})
 }
 
@@ -367,14 +368,12 @@ describe('GraphQL plugin operations', () => {
 		).rejects.toThrow('requires one exact binding')
 
 		const ownerWithoutBinding = createOperationPlugin({ binding: false })
-		const foreignBinding = definePlugin({
-			operations: [contributeOperationBinding(createBinding())],
+		const foreignBinding = plugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.graphql-operation-foreign',
-			privileges: [
-				{ name: 'transport:expose', reason: 'Exercises owner rejection.' },
-			] as const,
+			id: 'fixture.graphql-operation-foreign',
+			permissions: { 'transport:expose': 'Exercises owner rejection.' },
 			version: '1.0.0',
+			contributions: [contributeOperationBinding(createBinding())],
 		})
 		await expect(
 			new UltimaBase({

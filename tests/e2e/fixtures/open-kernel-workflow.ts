@@ -1,15 +1,16 @@
 import {
 	Schema,
+	contributeDeclarations,
 	contributeOperation,
 	defineOperation,
 	defineOperationTransport,
 	defineOperationValue,
-	definePluginModule,
 	defineSchemaOption,
 	defineTypegenReference,
 	intField,
 	operationTransportBinding,
 	operationWireCodec,
+	plugin as createPlugin,
 	stringField,
 	type JsonObject,
 	type SchemaDefinition,
@@ -120,12 +121,6 @@ const workflowTransportBinding = operationTransportBinding({
 	operation: inspectWorkflow,
 })
 
-const workflowModule = definePluginModule({
-	core: '^0.0.0',
-	pluginId: 'fixture.open-kernel-workflow',
-	version: '1.0.0',
-})
-
 export interface WorkflowPluginOptions {
 	readonly instanceId: string
 	readonly onCommitted?: (payload: WorkflowCommittedPayload) => void
@@ -141,9 +136,12 @@ export const createWorkflowPlugin = (options: WorkflowPluginOptions) => {
 			action: field.string({ required: true }),
 		}),
 	})
-	const plugin = workflowModule.plugin({
+	const plugin = createPlugin({
+		core: '^0.0.0',
+		id: 'fixture.open-kernel-workflow',
+		version: '1.0.0',
 		peers: [{ pluginId: '@ultimabase/hooks-plugin', version: '^0.0.0' }],
-		capabilities: [
+		contributions: [
 			provideHookContributions('workflow-audit-hooks', () =>
 				schemaHooks(DynamicAudit, {
 					afterOperation: {
@@ -167,8 +165,6 @@ export const createWorkflowPlugin = (options: WorkflowPluginOptions) => {
 					name: workflowCommittedEvent.name,
 				}),
 			),
-		],
-		operations: [
 			contributeOperation({
 				bindings: [workflowTransportBinding],
 				execute: () =>
@@ -178,62 +174,52 @@ export const createWorkflowPlugin = (options: WorkflowPluginOptions) => {
 					}),
 				operation: inspectWorkflow,
 			}),
-		],
-		declare: ({ schemas }) => {
-			schemas.defineOptions({
-				contributionId: 'workflow-options',
-				schema: { workflow: workflowOption },
-			})
-			schemas.add({
-				contributionId: 'workflow-audit-schema',
-				schema: DynamicAudit,
-				staticOptions: { instanceId: options.instanceId },
-			})
-			schemas.patch(
-				patchSchemas({
-					patch: schemaPatch()
-						.addField({
-							contributionId: 'workflow-state',
-							field: stringField({ default: 'draft' }),
-							name: 'workflowState',
-						})
-						.addField({
-							contributionId: 'workflow-revision',
-							field: intField({ default: 0 }),
-							name: 'workflowRevision',
-						})
-						.setSchemaOption({
-							contributionId: 'workflow-config',
-							name: 'workflow',
-							value: { initialState: 'draft' },
+			contributeDeclarations({
+				schema: ({ schemas }) => {
+					schemas.defineOptions({
+						contributionId: 'workflow-options',
+						schema: { workflow: workflowOption },
+					})
+					schemas.add({
+						contributionId: 'workflow-audit-schema',
+						schema: DynamicAudit,
+						staticOptions: { instanceId: options.instanceId },
+					})
+					schemas.patch(
+						patchSchemas({
+							patch: schemaPatch()
+								.addField({
+									contributionId: 'workflow-state',
+									field: stringField({ default: 'draft' }),
+									name: 'workflowState',
+								})
+								.addField({
+									contributionId: 'workflow-revision',
+									field: intField({ default: 0 }),
+									name: 'workflowRevision',
+								})
+								.setSchemaOption({
+									contributionId: 'workflow-config',
+									name: 'workflow',
+									value: { initialState: 'draft' },
+								}),
+							targets: schemas.select({
+								className: options.stableSchema.className,
+							}),
 						}),
-					targets: schemas.select({
-						className: options.stableSchema.className,
-					}),
-				}),
-			)
-		},
+					)
+				},
+			}),
+		],
 		instanceId: options.instanceId,
-		privileges: [
-			{ name: 'schema:declare', reason: 'Adds workflow schema declarations.' },
-			{ name: 'operation:declare', reason: 'Declares workflow operations.' },
-			{
-				name: 'transport:expose',
-				reason: 'Binds the explicit fake transport.',
-			},
-			{
-				name: 'runtime:intercept',
-				reason: 'Contributes the workflow audit lifecycle.',
-			},
-			{
-				name: 'runtime:observe',
-				reason: 'Consumes committed workflow events.',
-			},
-			{
-				name: 'typegen:reference',
-				reason: 'References workflow public types.',
-			},
-		] as const,
+		permissions: {
+			'schema:declare': 'Adds workflow schema declarations.',
+			'operation:declare': 'Declares workflow operations.',
+			'transport:expose': 'Binds the explicit fake transport.',
+			'runtime:intercept': 'Contributes the workflow audit lifecycle.',
+			'runtime:observe': 'Consumes committed workflow events.',
+			'typegen:reference': 'References workflow public types.',
+		},
 	})
 
 	return immutableRecord({ DynamicAudit, plugin })

@@ -3,9 +3,10 @@ import path from 'node:path'
 import {
 	FrameworkApplication,
 	Schema,
+	contributeDeclarations,
 	defineOperation,
 	defineOperationValue,
-	definePlugin,
+	plugin as createPlugin,
 	defineSchemaMutation,
 	defineTypegenReference,
 } from '@ultimabase/core'
@@ -70,35 +71,48 @@ const createGeneratedRegistry = (): string => {
 		returning: 'after',
 		version: '1.0.0',
 	})
-	const plugin = definePlugin({
+	const plugin = createPlugin({
 		core: '^0.0.0',
-		pluginId: 'fixture.semantic-surfaces',
+		id: 'fixture.semantic-surfaces',
 		version: '1.0.0',
-		privileges: [
-			{ name: 'schema:declare', reason: 'Declares the dynamic schema.' },
-			{ name: 'operation:declare', reason: 'Declares publish.' },
-			{ name: 'model:extend', reason: 'Adds publish.' },
-			{ name: 'typegen:reference', reason: 'References public Core types.' },
-		],
-		declare: ({ models, operations, schemas, typegenReferences }) => {
-			typegenReferences.register(inputReference)
-			typegenReferences.register(resultReference)
-			typegenReferences.register(noInputReference)
-			schemas.add({ contributionId: 'dynamic', schema: Dynamic })
-			operations.declare(publish)
-			operations.declare(archive)
-			operations.declare(softDelete)
-			models.extend(Dynamic, {
-				contributionId: 'publish',
-				schemaMutations: {
-					archive: { mutation: archive, surfaces: ['schema', 'model'] },
-					softDelete: {
-						mutation: softDelete,
-						surfaces: ['schema', 'model'],
-					},
-				},
-			})
+		permissions: {
+			'schema:declare': 'Declares the dynamic schema.',
+			'operation:declare': 'Declares publish.',
+			'model:extend': 'Adds publish.',
+			'typegen:reference': 'References public Core types.',
 		},
+		contributions: [
+			contributeDeclarations({
+				schema: ({ schemas }) => {
+					schemas.add({ contributionId: 'dynamic', schema: Dynamic })
+				},
+				operations: ({ operations }) => {
+					operations.declare(publish)
+					operations.declare(archive)
+					operations.declare(softDelete)
+				},
+				models: ({ models }) => {
+					models.extend(Dynamic, {
+						contributionId: 'publish',
+						schemaMutations: {
+							archive: {
+								mutation: archive,
+								surfaces: ['schema', 'model'],
+							},
+							softDelete: {
+								mutation: softDelete,
+								surfaces: ['schema', 'model'],
+							},
+						},
+					})
+				},
+				typegen: ({ typegenReferences }) => {
+					typegenReferences.register(inputReference)
+					typegenReferences.register(resultReference)
+					typegenReferences.register(noInputReference)
+				},
+			}),
+		],
 	})
 	return generateApplicationTypes({
 		application: new FrameworkApplication({

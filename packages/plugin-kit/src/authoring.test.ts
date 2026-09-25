@@ -1,11 +1,11 @@
 import {
 	FrameworkApplication,
 	Schema,
+	contributeDeclarations,
 	contributeOperation,
 	defineOperation,
 	defineOperationValue,
-	definePlugin,
-	definePluginModule,
+	plugin,
 	defineSchemaConstraint,
 	defineSchemaOption,
 	defineTypegenReference,
@@ -25,12 +25,6 @@ import {
 	patchSchemas,
 	schemaPatch,
 } from './index.js'
-
-const fixtureModule = definePluginModule({
-	core: '^0.0.0',
-	pluginId: 'fixture.plugin-kit',
-	version: '1.2.3',
-})
 
 describe('plugin authoring helpers', () => {
 	it('preserves Core provenance for contextual field helpers', () => {
@@ -59,22 +53,30 @@ describe('plugin authoring helpers', () => {
 			protocolVersion: 1,
 			typegen: false,
 		})
-		const plugin = fixtureModule.plugin({
-			declare: ({ fields, schemas }) => {
-				fields.register(method)
-				schemas.defineOptions({
-					contributionId: 'label-option',
-					field: { label: option },
-				})
-			},
-			privileges: [
-				{ name: 'schema:declare', reason: 'Declares contextual fixtures.' },
+		const definition = plugin({
+			id: 'fixture.plugin-kit',
+			version: '1.2.3',
+			core: '^0.0.0',
+			contributions: [
+				contributeDeclarations({
+					schema: ({ fields, schemas }) => {
+						fields.register(method)
+						schemas.defineOptions({
+							contributionId: 'label-option',
+							field: { label: option },
+						})
+						return undefined
+					},
+				}),
 			],
+			permissions: {
+				'schema:declare': 'Declares contextual fixtures.',
+			},
 		})
 
 		expect(() =>
 			new FrameworkApplication({
-				plugins: [plugin],
+				plugins: [definition],
 				schemas: [],
 			}).compileSchemas(),
 		).not.toThrow()
@@ -83,89 +85,6 @@ describe('plugin authoring helpers', () => {
 			options: { list: false, nullable: false },
 		})
 		expect(Object.isFrozen(output.options)).toBe(true)
-	})
-
-	it('binds immutable package facts across explicit plugin instances', () => {
-		const first = fixtureModule.plugin({
-			instanceId: 'first',
-			setup: () => ({ ready: true as const }),
-		})
-		const second = fixtureModule.plugin({ instanceId: 'second' })
-
-		expect(fixtureModule).toMatchObject({
-			core: '^0.0.0',
-			pluginId: 'fixture.plugin-kit',
-			version: '1.2.3',
-		})
-		expect(Object.isFrozen(fixtureModule)).toBe(true)
-		expect(first.manifest.identity).toStrictEqual({
-			instanceId: 'first',
-			pluginId: 'fixture.plugin-kit',
-		})
-		expect(second.manifest.identity).toStrictEqual({
-			instanceId: 'second',
-			pluginId: 'fixture.plugin-kit',
-		})
-
-		const mutableFacts = {
-			core: '^0.0.0',
-			pluginId: 'fixture.mutable-module',
-			version: '1.0.0',
-		}
-		const isolatedModule = definePluginModule(mutableFacts)
-		mutableFacts.pluginId = 'fixture.mutated-after-definition'
-		expect(isolatedModule.plugin({}).manifest.identity.pluginId).toBe(
-			'fixture.mutable-module',
-		)
-	})
-
-	it('keeps Core-owned module facts non-overridable at runtime', () => {
-		const untypedPlugin = (options: unknown): unknown =>
-			(fixtureModule.plugin as (input: unknown) => unknown)(options)
-
-		expect(() => definePluginModule(null as never)).toThrow(
-			'plugin module options must be a plain object',
-		)
-		expect(() => untypedPlugin(null)).toThrow(
-			'plugin module definition must be a plain object',
-		)
-		expect(() => untypedPlugin({ pluginId: 'fixture.forged' })).toThrow(
-			'cannot override package-owned pluginId',
-		)
-		expect(() =>
-			definePluginModule({
-				core: '^0.0.0',
-				pluginId: 'fixture.invalid-module-option',
-				version: '1.0.0',
-				// @ts-expect-error -- Runtime validation protects JavaScript callers.
-				extra: true,
-			}),
-		).toThrow('Unknown plugin module option')
-	})
-
-	it('delegates manifest ownership and conflicts to Core unchanged', () => {
-		const definition = {
-			conflicts: ['fixture.legacy-workflow'],
-			instanceId: 'editorial',
-			peers: [{ pluginId: 'fixture.protocol', version: '^1.0.0' }],
-			privileges: [
-				{
-					name: 'runtime:observe' as const,
-					reason: 'Records workflow timing.',
-				},
-			],
-		} as const
-		const fromModule = fixtureModule.plugin(definition)
-		const fromCore = definePlugin({
-			...definition,
-			core: '^0.0.0',
-			pluginId: 'fixture.plugin-kit',
-			version: '1.2.3',
-		})
-
-		expect(fromModule.manifest).toStrictEqual(fromCore.manifest)
-		expect(fromModule.conflicts).toStrictEqual(fromCore.conflicts)
-		expect(fromModule.peers).toStrictEqual(fromCore.peers)
 	})
 
 	it('validates option roots once and freezes normalized results', () => {
@@ -412,37 +331,45 @@ describe('plugin authoring helpers', () => {
 		])
 		expect(Object.isFrozen(patch)).toBe(true)
 
-		const plugin = fixtureModule.plugin({
-			declare: ({ schemas }) => {
-				schemas.defineOptions({
-					contributionId: 'workflow-options',
-					schema: { workflow: workflowOption },
-				})
-				schemas.patch(
-					patchSchemas({
-						patch: schemaPatch()
-							.addField({
-								contributionId: 'state',
-								field: stringField(),
-								name: 'state',
-							})
-							.addIndex({
-								contributionId: 'state-index',
-								fields: ['state', 'createdAt'],
+		const definition = plugin({
+			id: 'fixture.plugin-kit',
+			version: '1.2.3',
+			core: '^0.0.0',
+			contributions: [
+				contributeDeclarations({
+					schema: ({ schemas }) => {
+						schemas.defineOptions({
+							contributionId: 'workflow-options',
+							schema: { workflow: workflowOption },
+						})
+						schemas.patch(
+							patchSchemas({
+								patch: schemaPatch()
+									.addField({
+										contributionId: 'state',
+										field: stringField(),
+										name: 'state',
+									})
+									.addIndex({
+										contributionId: 'state-index',
+										fields: ['state', 'createdAt'],
+									}),
+								targets: schemas.select({
+									option: { name: 'workflow' },
+								}),
 							}),
-						targets: schemas.select({
-							option: { name: 'workflow' },
-						}),
-					}),
-				)
+						)
+						return undefined
+					},
+				}),
+			],
+			permissions: {
+				'schema:declare': 'Adds fixture schema metadata.',
 			},
-			privileges: [
-				{ name: 'schema:declare', reason: 'Adds fixture schema metadata.' },
-			] as const,
 		})
 		const application = new FrameworkApplication({
 			pluginPrivileges: { logger: false },
-			plugins: [plugin],
+			plugins: [definition],
 			schemas: [Target],
 		})
 
@@ -491,18 +418,18 @@ describe('plugin authoring helpers', () => {
 			trace.push('mutated-create')
 			return { execute: ({ input }) => input }
 		}
-		const plugin = fixtureModule.plugin({
-			operations: [provider],
-			privileges: [
-				{
-					name: 'operation:declare',
-					reason: 'Declares the fixture operation.',
-				},
-			] as const,
+		const definition = plugin({
+			id: 'fixture.plugin-kit',
+			version: '1.2.3',
+			core: '^0.0.0',
+			contributions: [provider],
+			permissions: {
+				'operation:declare': 'Declares the fixture operation.',
+			},
 		})
 		const application = new FrameworkApplication({
 			pluginPrivileges: { logger: false },
-			plugins: [plugin],
+			plugins: [definition],
 			schemas: [],
 		})
 
@@ -526,15 +453,18 @@ describe('plugin authoring helpers', () => {
 			execute: ({ input }) => input,
 			operation: echo,
 		})
-		const plugin = fixtureModule.plugin({
-			operations: [provider],
-			privileges: [
-				{ name: 'operation:declare', reason: 'Declares the echo operation.' },
-			] as const,
+		const definition = plugin({
+			id: 'fixture.plugin-kit',
+			version: '1.2.3',
+			core: '^0.0.0',
+			contributions: [provider],
+			permissions: {
+				'operation:declare': 'Declares the echo operation.',
+			},
 		})
 		const application = new FrameworkApplication({
 			pluginPrivileges: { logger: false },
-			plugins: [plugin],
+			plugins: [definition],
 			schemas: [],
 		})
 

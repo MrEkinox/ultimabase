@@ -7,7 +7,11 @@ import {
 	provideCapability,
 	requireCapability,
 } from './capabilities.js'
-import { definePlugin } from './definition.js'
+import { plugin as createPlugin } from './plugin.js'
+import {
+	contributeApplication,
+	withPluginPrivileges,
+} from './plugin-contributions.js'
 import { PluginGraph } from './graph.js'
 import { normalizePlugins } from './normalization.js'
 
@@ -49,11 +53,11 @@ describe('capability declarations', () => {
 		const required = requireCapability(declarationToken, '^1.0.0')
 		const optional = optionalCapability(declarationToken, '^1.0.0')
 		const declarations = [optional, provider, required]
-		const plugin = definePlugin({
-			pluginId: 'fixture.flat-capabilities',
+		const plugin = createPlugin({
+			id: 'fixture.flat-capabilities',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: declarations,
+			contributions: declarations,
 		})
 
 		declarations.length = 0
@@ -73,13 +77,13 @@ describe('capability declarations', () => {
 		})
 
 		expect(() =>
-			definePlugin({
-				capabilities: { provides: [provider] } as never,
+			createPlugin({
+				contributions: { provides: [provider] } as never,
 				core: '^0.0.0',
-				pluginId: 'fixture.grouped-capabilities',
+				id: 'fixture.grouped-capabilities',
 				version: '1.0.0',
 			}),
-		).toThrow('capabilities must be an array')
+		).toThrow('plugin contributions must be an array')
 	})
 
 	it('creates frozen serializable metadata for every cardinality and lifetime', () => {
@@ -237,11 +241,11 @@ describe('CapabilityInventory', () => {
 			first: ReturnType<typeof createDeclaration>,
 			second: ReturnType<typeof createDeclaration>,
 		) =>
-			definePlugin({
-				pluginId: 'fixture.repeated-audit',
+			createPlugin({
+				id: 'fixture.repeated-audit',
 				version: '1.0.0',
 				core: '^0.0.0',
-				capabilities: [first, second],
+				contributions: [first, second],
 			})
 
 		expect(
@@ -273,12 +277,12 @@ describe('CapabilityInventory', () => {
 			value: { endpoint: 'https://audit.example' },
 		})
 		const provider = (instanceId: string, duplicate = false) =>
-			definePlugin({
-				pluginId: 'fixture.instanced-audit',
+			createPlugin({
+				id: 'fixture.instanced-audit',
 				instanceId,
 				version: '1.0.0',
 				core: '^0.0.0',
-				capabilities: duplicate ? [declaration, declaration] : [declaration],
+				contributions: duplicate ? [declaration, declaration] : [declaration],
 			})
 		// A local contribution ID is reusable by another explicit instance, never twice by its owner.
 		const graph = new PluginGraph(
@@ -300,34 +304,34 @@ describe('CapabilityInventory', () => {
 
 	it('validates providers, optional requirements, and conditional privileges statically', () => {
 		const optionalAudit = optionalCapability(declarationToken, '^1.0.0')
-		const provider = definePlugin({
-			pluginId: 'fixture.audit-provider',
+		const provider = createPlugin({
+			id: 'fixture.audit-provider',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: [
+			contributions: [
 				provideCapability(declarationToken, {
 					contributionId: 'primary',
 					value: { endpoint: 'https://audit.example' },
 				}),
 			],
 		})
-		const consumer = definePlugin({
-			pluginId: 'fixture.audit-consumer',
+		const consumer = createPlugin({
+			id: 'fixture.audit-consumer',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: [optionalAudit],
-			privileges: [
-				{
-					name: 'event:publish',
+			permissions: {
+				'event:publish': {
 					reason: 'Forwards records when the audit sink is installed.',
 					when: optionalAudit,
 				},
-			],
+			},
+			contributions: [withPluginPrivileges(optionalAudit, ['event:publish'])],
 		})
 
 		const present = new PluginGraph(normalizePlugins([consumer, provider]))
 		const absent = new PluginGraph(normalizePlugins([consumer]))
 		const [privilege] = consumer.manifest.privileges
+		if (privilege === undefined) throw new TypeError('Missing test privilege')
 
 		expect(present.capabilities.entries).toHaveLength(1)
 		expect(
@@ -358,14 +362,20 @@ describe('CapabilityInventory', () => {
 
 	it('rejects missing required capabilities before plugin callbacks run', () => {
 		let setupCalls = 0
-		const consumer = definePlugin({
-			pluginId: 'fixture.required-consumer',
+		const consumer = createPlugin({
+			id: 'fixture.required-consumer',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: [requireCapability(applicationToken, '^2.0.0')],
-			setup: () => {
-				setupCalls += 1
-			},
+			contributions: [
+				requireCapability(applicationToken, '^2.0.0'),
+				contributeApplication((context) => {
+					setupCalls += 1
+					const exports = undefined
+					const lifecycleContext = { ...context, pluginExports: exports }
+					void lifecycleContext
+					return { exports }
+				}),
+			],
 		})
 
 		expect(() => new PluginGraph(normalizePlugins([consumer]))).toThrow(
@@ -384,22 +394,22 @@ describe('CapabilityInventory', () => {
 			lifetime: 'declaration',
 			compose: (providers) => providers[0] ?? { endpoint: 'absent' },
 		})
-		const first = definePlugin({
-			pluginId: 'fixture.first-provider',
+		const first = createPlugin({
+			id: 'fixture.first-provider',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: [
+			contributions: [
 				provideCapability(declarationToken, {
 					contributionId: 'first',
 					value: { endpoint: 'first' },
 				}),
 			],
 		})
-		const second = definePlugin({
-			pluginId: 'fixture.second-provider',
+		const second = createPlugin({
+			id: 'fixture.second-provider',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: [
+			contributions: [
 				provideCapability(duplicateToken, {
 					contributionId: 'second',
 					value: { endpoint: 'second' },
@@ -429,18 +439,17 @@ describe('CapabilityInventory', () => {
 		const other = optionalCapability(declarationToken, '^1.0.0')
 
 		expect(() =>
-			definePlugin({
-				pluginId: 'fixture.invalid-condition',
+			createPlugin({
+				id: 'fixture.invalid-condition',
 				version: '1.0.0',
 				core: '^0.0.0',
-				capabilities: [declared],
-				privileges: [
-					{
-						name: 'event:publish',
+				permissions: {
+					'event:publish': {
 						reason: 'Invalid detached condition.',
 						when: other,
 					},
-				],
+				},
+				contributions: [withPluginPrivileges(declared, ['event:publish'])],
 			}),
 		).toThrow(
 			new TypeError(

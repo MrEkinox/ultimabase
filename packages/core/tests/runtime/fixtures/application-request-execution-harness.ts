@@ -1,8 +1,10 @@
 import {
 	defineCapability,
-	definePlugin,
+	plugin as createPlugin,
+	contributeApplication,
 	provideCapability,
 	requireCapability,
+	withPluginPrivileges,
 	type ApplicationCallbackExecutor,
 	type PluginIdentity,
 } from '../../../src/foundation.js'
@@ -44,56 +46,62 @@ export const createRequestExecutionHarnessPlugin = (
 		pluginId?: string
 		withElevation?: boolean
 	}> = {},
-) =>
-	definePlugin({
+) => {
+	const provider = provideCapability(harnessCapability, {
+		contributionId: 'request-execution-harness',
+		create: ({ callbacks, capabilities, owner }) => {
+			harness.callbacks = callbacks
+			harness.executor = capabilities.get(requestExecutionRequirement)
+			harness.owner = owner
+			return { value: { ready: true } }
+		},
+	})
+	return createPlugin({
 		core: '^0.0.0',
-		pluginId: options.pluginId ?? 'fixture.application-request-consumer',
+		id: options.pluginId ?? 'fixture.application-request-consumer',
 		...(options.instanceId === undefined
 			? {}
 			: { instanceId: options.instanceId }),
 		version: '0.0.0',
-		privileges: options.withElevation
-			? [
-					{
-						name: 'authority:elevate',
-						reason: 'Verifies transport Master credentials in the fixture.',
-					},
-				]
-			: [],
-		capabilities: [
-			provideCapability(harnessCapability, {
-				contributionId: 'request-execution-harness',
-				create: ({ callbacks, capabilities, owner }) => {
-					harness.callbacks = callbacks
-					harness.executor = capabilities.get(requestExecutionRequirement)
-					harness.owner = owner
-					return { value: { ready: true } }
-				},
-			}),
+		permissions:
+			options.withElevation === true
+				? {
+						'authority:elevate':
+							'Verifies transport Master credentials in the fixture.',
+					}
+				: undefined,
+		contributions: [
+			options.withElevation === true
+				? withPluginPrivileges(provider, ['authority:elevate'])
+				: provider,
 			requestExecutionRequirement,
+			...(options.failStart === true
+				? [
+						contributeApplication(() => ({
+							exports: undefined,
+							startRuntime: () => {
+								runAsRequestExecutionHarness(harness, (executor) =>
+									executor.createAnonymousContext({
+										requestId: 'during-startup',
+										source: 'fixture',
+									}),
+								)
+							},
+						})),
+					]
+				: []),
 		],
-		hooks: options.failStart
-			? {
-					startRuntime: () => {
-						runAsRequestExecutionHarness(harness, (executor) =>
-							executor.createAnonymousContext({
-								requestId: 'during-startup',
-								source: 'fixture',
-							}),
-						)
-					},
-				}
-			: {},
 	})
+}
 
 export const createRequestExecutionDatabasePlugin = (
 	adapter = new RecordingDatabaseAdapter([], []),
 ) =>
-	definePlugin({
+	createPlugin({
 		core: '^0.0.0',
-		pluginId: 'fixture.application-request-database',
+		id: 'fixture.application-request-database',
 		version: '0.0.0',
-		capabilities: [provideTestDatabaseAdapter(adapter)],
+		contributions: [provideTestDatabaseAdapter(adapter)],
 	})
 
 export const readRequestExecutionHarness = (

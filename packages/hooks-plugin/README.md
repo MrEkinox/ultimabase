@@ -166,12 +166,13 @@ A provider declares Hooks as a peer rather than a lifecycle dependency,
 because the Hooks engine consumes the provider's contribution capability:
 
 ```ts
-definePlugin({
-	pluginId: 'community.workflow-hooks',
+plugin({
+	id: 'community.workflow-hooks',
 	version: '1.0.0',
 	core: '^0.0.0',
 	peers: [{ pluginId: '@ultimabase/hooks-plugin', version: '^0.0.0' }],
-	// privileges and hook contribution capabilities...
+	permissions: { 'runtime:intercept': 'Contributes workflow Hooks.' },
+	contributions: [provideHookContributions(/* ... */)],
 })
 ```
 

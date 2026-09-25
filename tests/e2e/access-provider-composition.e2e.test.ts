@@ -12,7 +12,7 @@ import {
 	databaseAdapterCapability,
 	databasePluginFieldStructuralContainsCapability,
 	databasePersistencePlanCapability,
-	definePlugin,
+	plugin,
 	provideCapability,
 	type DatabaseAdapter,
 	type DatabaseAdapterCapabilities,
@@ -138,11 +138,11 @@ class CompositionWriteAdapter implements DatabaseAdapter {
 }
 
 const databasePlugin = (adapter: DatabaseAdapter) =>
-	definePlugin({
+	plugin({
 		version: '0.0.0',
 		core: '^0.0.0',
-		pluginId: 'fixture.composition.database',
-		capabilities: [
+		id: 'fixture.composition.database',
+		contributions: [
 			provideCapability(databaseAdapterCapability, {
 				contributionId: 'database-adapter',
 				create: () => ({ value: adapter }),
@@ -208,11 +208,11 @@ const CombinedPost = Schema.define({
 })
 
 const createRoleProvider = (allowed: boolean) =>
-	definePlugin({
+	plugin({
 		version: '0.0.0',
 		core: '^0.0.0',
-		pluginId: 'community.composition.roles',
-		capabilities: [
+		id: 'community.composition.roles',
+		contributions: [
 			provideCapability(requestRoleResolverCapability, {
 				contributionId: 'role-resolver',
 				create: () => ({
@@ -226,18 +226,15 @@ const createRoleProvider = (allowed: boolean) =>
 		],
 	})
 
-const communityPolicy = definePlugin({
+const communityPolicy = plugin({
 	version: '0.0.0',
 	core: '^0.0.0',
-	pluginId: 'community.composition.policy',
+	id: 'community.composition.policy',
 	peers: [{ pluginId: '@ultimabase/access-plugin', version: '^0.0.0' }],
-	privileges: [
-		{
-			name: 'runtime:constrain',
-			reason: 'Contributes one monotonic community Access policy.',
-		},
-	],
-	capabilities: [
+	permissions: {
+		'runtime:constrain': 'Contributes one monotonic community Access policy.',
+	},
+	contributions: [
 		provideAccessContributions('community-scope', () =>
 			schemaAccess(CombinedPost, {
 				read: {

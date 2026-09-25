@@ -7,7 +7,7 @@ import {
 	MasterAuthority,
 	Schema,
 	UltimaBase,
-	definePlugin,
+	plugin,
 	preparedOperation,
 	provideRuntimeBehavior,
 	provideRuntimeInterceptor,
@@ -75,8 +75,15 @@ const ReplaceRecord = Schema.define({
 	readonly softDelete: 'replace-delete'
 })
 
-const replaceDeleteObserver = definePlugin({
-	capabilities: [
+const replaceDeleteObserver = plugin({
+	core: '^0.0.0',
+	id: 'fixture.soft-delete-logical-observer',
+	permissions: {
+		'runtime:intercept':
+			'Proves post-commit observers retain logical delete identity.',
+	},
+	version: '1.0.0',
+	contributions: [
 		provideRuntimeBehavior({
 			contributionId: 'replace-delete-logical-observer',
 			create: () => ({
@@ -94,29 +101,17 @@ const replaceDeleteObserver = definePlugin({
 			}),
 		}),
 	],
-	core: '^0.0.0',
-	pluginId: 'fixture.soft-delete-logical-observer',
-	privileges: [
-		{
-			name: 'runtime:intercept',
-			reason: 'Proves post-commit observers retain logical delete identity.',
-		},
-	] as const,
-	version: '1.0.0',
 })
 
-const staleTombstoneWriter = definePlugin({
+const staleTombstoneWriter = plugin({
 	core: '^0.0.0',
-	pluginId: 'fixture.soft-delete-stale-tombstone-writer',
-	privileges: [
-		{
-			name: 'runtime:intercept',
-			reason:
-				'Proves final structural validation protects plugin-owned fields.',
-		},
-	] as const,
+	id: 'fixture.soft-delete-stale-tombstone-writer',
+	permissions: {
+		'runtime:intercept':
+			'Proves final structural validation protects plugin-owned fields.',
+	},
 	version: '1.0.0',
-	capabilities: [
+	contributions: [
 		provideRuntimeInterceptor({
 			contributionId: 'stale-tombstone-write',
 			create: () => ({

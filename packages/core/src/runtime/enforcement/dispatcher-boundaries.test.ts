@@ -1,4 +1,4 @@
-import { createApplication, definePlugin } from '../../foundation.js'
+import { createApplication, plugin as createPlugin } from '../../foundation.js'
 import { QueryBuilder, type ExecutableOperationAst } from '../../query/index.js'
 import { describe, expect, it, vi } from 'vitest'
 import { createTestRuntimeConstraints } from '../../../tests/runtime/fixtures/runtime-capabilities.js'
@@ -20,12 +20,15 @@ import { createEnforcementStages } from './dispatcher.js'
 
 describe('createEnforcementStages mutation boundaries', () => {
 	it('rejects excluded input across every create, update, and upsert shape', async () => {
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.all-mutation-inputs',
-			privileges: runtimeConstrainPrivileges,
-			capabilities: createTestRuntimeConstraints((provide) => {
+			id: 'fixture.all-mutation-inputs',
+			permissions: {
+				[runtimeConstrainPrivileges[0].name]:
+					runtimeConstrainPrivileges[0].reason,
+			},
+			contributions: createTestRuntimeConstraints((provide) => {
 				provide(
 					'fixture.title-only',
 					restrictInput({
@@ -124,12 +127,15 @@ describe('createEnforcementStages mutation boundaries', () => {
 	] as const)(
 		'rejects invalid %s from JavaScript plugins',
 		async (_label, definition, message) => {
-			const plugin = definePlugin({
+			const plugin = createPlugin({
 				version: '0.0.0',
 				core: '^0.0.0',
-				pluginId: 'fixture.invalid-enforcement',
-				privileges: runtimeConstrainPrivileges,
-				capabilities: createTestRuntimeConstraints((provide) => {
+				id: 'fixture.invalid-enforcement',
+				permissions: {
+					[runtimeConstrainPrivileges[0].name]:
+						runtimeConstrainPrivileges[0].reason,
+				},
+				contributions: createTestRuntimeConstraints((provide) => {
 					provide('fixture.invalid', definition)
 				}),
 			})
@@ -150,12 +156,15 @@ describe('createEnforcementStages mutation boundaries', () => {
 	)
 
 	it('rejects foreign schema scopes during application assembly', async () => {
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.foreign-enforcement',
-			privileges: runtimeConstrainPrivileges,
-			capabilities: createTestRuntimeConstraints((provide) => {
+			id: 'fixture.foreign-enforcement',
+			permissions: {
+				[runtimeConstrainPrivileges[0].name]:
+					runtimeConstrainPrivileges[0].reason,
+			},
+			contributions: createTestRuntimeConstraints((provide) => {
 				provide(
 					'fixture.foreign',
 					guard({ schema: foreignSchema, handler: vi.fn() }),

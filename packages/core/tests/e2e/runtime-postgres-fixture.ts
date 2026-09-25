@@ -1,8 +1,8 @@
 import {
 	databaseAdapterCapability,
-	definePlugin,
+	plugin as createPlugin,
+	contributeApplication,
 	requireCapability,
-	type DatabaseAdapter,
 	Schema,
 	QueryBuilder,
 	type RequestContext,
@@ -20,13 +20,16 @@ export const databaseAdapterRequirement = requireCapability(
 	databaseAdapterCapability,
 	'^1.0.0',
 )
-export const databaseAdapterConsumerPlugin = definePlugin({
+export const databaseAdapterConsumerPlugin = createPlugin({
 	version: '0.0.0',
 	core: '^0.0.0',
-	pluginId: 'fixture.runtime-postgres.adapter-consumer',
-	capabilities: [databaseAdapterRequirement],
-	setup: ({ capabilities }): DatabaseAdapter =>
-		capabilities.get(databaseAdapterRequirement),
+	id: 'fixture.runtime-postgres.adapter-consumer',
+	contributions: [
+		databaseAdapterRequirement,
+		contributeApplication(({ capabilities }) => ({
+			exports: capabilities.get(databaseAdapterRequirement),
+		})),
+	],
 })
 export const PostSchema = Schema.define({
 	className: 'RuntimePost',

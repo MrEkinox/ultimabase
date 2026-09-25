@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
 import { FrameworkApplication } from '../../../application/framework-application.js'
-import { definePlugin } from '../../../plugins/definition.js'
+import { plugin as createPlugin } from '../../../plugins/plugin.js'
+import { contributeApplication } from '../../../plugins/plugin-contributions.js'
 import { getCompiledStaticRelationWhere } from '../../../query/filters/relation-where-declaration.js'
 import {
 	compileValidationPlans,
@@ -382,18 +383,26 @@ describe('relationField', () => {
 				}),
 			}),
 		})
-		const infrastructure = definePlugin({
+		const infrastructure = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.relation-infrastructure',
-			setup: () => {
-				events.push('setup')
-			},
-			hooks: {
-				connect: () => {
-					events.push('connect')
-				},
-			},
+			id: 'fixture.relation-infrastructure',
+			contributions: [
+				contributeApplication((context) => {
+					events.push('setup')
+					const exports = undefined
+					const lifecycleContext = { ...context, pluginExports: exports }
+					void lifecycleContext
+					return {
+						exports,
+						connect: () => {
+							;(() => {
+								events.push('connect')
+							})()
+						},
+					}
+				}),
+			],
 		})
 		const application = new FrameworkApplication({
 			plugins: [infrastructure],

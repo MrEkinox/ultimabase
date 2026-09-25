@@ -12,7 +12,8 @@ import { readApplicationCommandGraph } from '../../plugins/application-command-g
 import { executeRequestPluginOperation } from './request-execution.js'
 import { PluginError } from '../../errors/plugin-error.js'
 import { requireCapability } from '../../plugins/capabilities.js'
-import { definePlugin } from '../../plugins/definition.js'
+import { plugin as createPlugin } from '../../plugins/plugin.js'
+import { contributeDeclarations } from '../../plugins/plugin-contributions.js'
 import {
 	contributeOperation,
 	contributeOperationBinding,
@@ -104,9 +105,15 @@ const createFixture = async (options: FixtureOptions = {}) => {
 		options.adapterResults ?? [],
 		trace,
 	)
-	const plugin = definePlugin({
+	const plugin = createPlugin({
 		core: '^0.0.0',
-		operations: [
+		id: 'fixture.plugin-operations',
+		permissions: {
+			'operation:declare': 'Declares operation test tokens.',
+			'transport:expose': 'Binds the fake public protocol.',
+		},
+		version: '1.0.0',
+		contributions: [
 			contributeOperation({
 				execute: ({ context, engine, input, target }) => {
 					trace.push(`application:${context.requestId}:${target.kind}`)
@@ -123,18 +130,12 @@ const createFixture = async (options: FixtureOptions = {}) => {
 				operation: forbiddenOperation,
 			}),
 		],
-		pluginId: 'fixture.plugin-operations',
-		privileges: [
-			{ name: 'operation:declare', reason: 'Declares operation test tokens.' },
-			{ name: 'transport:expose', reason: 'Binds the fake public protocol.' },
-		] as const,
-		version: '1.0.0',
 	})
-	const database = definePlugin({
-		capabilities: [provideTestDatabaseAdapter(adapter)],
+	const database = createPlugin({
 		core: '^0.0.0',
-		pluginId: 'fixture.plugin-operation-database',
+		id: 'fixture.plugin-operation-database',
 		version: '1.0.0',
+		contributions: [provideTestDatabaseAdapter(adapter)],
 	})
 	const ultimabase = applicationFixture(
 		new UltimaBase({
@@ -263,8 +264,11 @@ describe('plugin operation Runtime', () => {
 			transaction: 'required',
 			version: '1.0.0',
 		})
-		const database = definePlugin({
-			capabilities: [
+		const database = createPlugin({
+			core: '^0.0.0',
+			id: 'fixture.operation-raw-database',
+			version: '1.0.0',
+			contributions: [
 				provideTestDatabaseAdapter(adapter),
 				provideAdapterRawCapability(rawCapability, {
 					contributionId: 'raw-adapter',
@@ -275,15 +279,18 @@ describe('plugin operation Runtime', () => {
 					}),
 				}),
 			],
-			core: '^0.0.0',
-			pluginId: 'fixture.operation-raw-database',
-			version: '1.0.0',
 		})
 		let resourceDisposals = 0
-		const operation = definePlugin({
-			capabilities: [rawRequirement],
+		const operation = createPlugin({
 			core: '^0.0.0',
-			operations: [
+			id: 'fixture.operation-raw-consumer',
+			permissions: {
+				'adapter:raw': 'Uses an exact transaction facade.',
+				'operation:declare': 'Declares the raw operation.',
+			},
+			version: '1.0.0',
+			contributions: [
+				rawRequirement,
 				contributeOperation({
 					create: () => ({
 						dispose: () => {
@@ -300,12 +307,6 @@ describe('plugin operation Runtime', () => {
 					operation: rawOperation,
 				}),
 			],
-			pluginId: 'fixture.operation-raw-consumer',
-			privileges: [
-				{ name: 'adapter:raw', reason: 'Uses an exact transaction facade.' },
-				{ name: 'operation:declare', reason: 'Declares the raw operation.' },
-			] as const,
-			version: '1.0.0',
 		})
 		const ultimabase = applicationFixture(
 			new UltimaBase({
@@ -585,55 +586,38 @@ describe('plugin operation Runtime', () => {
 	})
 
 	it('requires transport exposure privilege on the exact binding owner', () => {
-		const unprivileged = definePlugin({
-			core: '^0.0.0',
-			declare: ({ operations }) => {
-				operations.declare(applicationOperation)
-			},
-			operations: [contributeOperationBinding(fakeBinding)],
-			pluginId: 'fixture.unprivileged-operation-transport',
-			privileges: [
-				{
-					name: 'operation:declare',
-					reason: 'Declares the fixture operation.',
-				},
-			] as const,
-			version: '1.0.0',
-		})
-
 		expect(() =>
-			applicationFixture(
-				new UltimaBase({
-					pluginPrivileges: { logger: false },
-					plugins: [unprivileged],
-					schemas: [],
-				}),
-			),
-		).toThrow(
-			`must declare active privilege "transport:expose" for capability contribution "operation:${applicationOperation.name}:transport:${fakeProtocol.name}"`,
-		)
+			createPlugin({
+				core: '^0.0.0',
+				id: 'fixture.unprivileged-operation-transport',
+				permissions: { 'operation:declare': 'Declares the fixture operation.' },
+				version: '1.0.0',
+				contributions: [
+					contributeOperationBinding(fakeBinding),
+					contributeDeclarations({
+						operations: ({ operations }) => {
+							operations.declare(applicationOperation)
+							return undefined
+						},
+					}),
+				],
+			}),
+		).toThrow('Missing plugin permission reason: transport:expose')
 	})
 
 	it('requires operation declaration privilege for owned contributions', () => {
-		const unprivileged = definePlugin({
-			core: '^0.0.0',
-			operations: [
-				contributeOperation({
-					execute: () => immutableRecord({ accepted: true }),
-					operation: applicationOperation,
-				}),
-			],
-			pluginId: 'fixture.unprivileged-operation-owner',
-			version: '1.0.0',
-		})
-
-		const ultimabase = new UltimaBase({
-			pluginPrivileges: { logger: false },
-			plugins: [unprivileged],
-			schemas: [],
-		})
-		expect(() => ultimabase.operation(applicationOperation)).toThrow(
-			'requires operation:declare for its operation contributions',
-		)
+		expect(() =>
+			createPlugin({
+				core: '^0.0.0',
+				id: 'fixture.unprivileged-operation-owner',
+				version: '1.0.0',
+				contributions: [
+					contributeOperation({
+						execute: () => immutableRecord({ accepted: true }),
+						operation: applicationOperation,
+					}),
+				],
+			}),
+		).toThrow('Missing plugin permission reason: operation:declare')
 	})
 })

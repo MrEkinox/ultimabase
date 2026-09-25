@@ -43,13 +43,6 @@ export type PluginSetup<TExports = unknown> = (
 	context: PluginSetupContext,
 ) => MaybePromise<TExports>
 
-/** Resolves synchronous and asynchronous setup results without running setup. */
-export type PluginSetupExports<TSetup> = TSetup extends (
-	...arguments_: never[]
-) => infer TResult
-	? Awaited<TResult>
-	: undefined
-
 /** Supplies one lifecycle phase with setup registries and resolved exports. */
 export interface PluginLifecycleContext<TExports> extends PluginSetupContext {
 	readonly pluginExports: TExports
@@ -164,7 +157,7 @@ export type PluginExports<TPlugin> = TPlugin extends PluginDefinition
 	? TPlugin[typeof pluginSetupExportsBrand]
 	: never
 
-export interface DefinePluginOptions<
+interface CompiledPluginDefinitionOptions<
 	TPluginId extends string,
 	TSetupResult,
 	TDependencies extends readonly PluginDependency[] | undefined,
@@ -222,7 +215,7 @@ const lifecycleHookNames = [
 ] as const
 
 const declaredPlugins = new WeakSet<object>()
-const definePluginOptionKeys = new Set([
+const compiledPluginDefinitionOptionKeys = new Set([
 	'capabilities',
 	'conflicts',
 	'core',
@@ -318,7 +311,7 @@ export const assertPluginDefinition: (
 	path: string,
 ) => asserts value is PluginDefinition = (value, path) => {
 	if (!isPlainRecord(value) || !declaredPlugins.has(value)) {
-		throw new TypeError(`${path} must be created by definePlugin`)
+		throw new TypeError(`${path} must be created by plugin()`)
 	}
 }
 
@@ -403,7 +396,7 @@ const normalizeLifecycleHooks = <const THooks extends object>(
 }
 
 /** Creates immutable plugin metadata without initializing its runtime work. */
-export const definePlugin = <
+export const compilePluginDefinition = <
 	const TPluginId extends string,
 	const TSetupResult = undefined,
 	const TDependencies extends readonly PluginDependency[] | undefined =
@@ -424,7 +417,7 @@ export const definePlugin = <
 	const TOperations extends
 		readonly PluginOperationAuthoringContribution[] | undefined = undefined,
 >(
-	options: DefinePluginOptions<
+	options: CompiledPluginDefinitionOptions<
 		TPluginId,
 		TSetupResult,
 		TDependencies,
@@ -460,7 +453,7 @@ export const definePlugin = <
 	}
 
 	for (const key of Object.keys(untrustedOptions)) {
-		if (!definePluginOptionKeys.has(key)) {
+		if (!compiledPluginDefinitionOptionKeys.has(key)) {
 			throw new TypeError(`plugin options contain unknown option: ${key}`)
 		}
 	}

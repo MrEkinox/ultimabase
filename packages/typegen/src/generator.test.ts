@@ -1,9 +1,11 @@
 import {
 	addSchemaField,
+	contributeApplication,
 	defineFieldBuilderMethod,
 	defineOperation,
 	defineOperationValue,
-	definePlugin,
+	plugin as createPlugin,
+	contributeDeclarations,
 	definePluginField,
 	defineSchemaOption,
 	defineTypegenReference,
@@ -32,13 +34,16 @@ const fixtureFieldBuilder = (field: FieldBuilder): FixtureFieldBuilder =>
 
 const createFixture = (reverseOrder = false) => {
 	let setupCalls = 0
-	const setupGuard = definePlugin({
+	const setupGuard = createPlugin({
 		version: '0.0.0',
 		core: '^0.0.0',
-		pluginId: 'fixture.typegen-setup-guard',
-		setup: () => {
-			setupCalls += 1
-		},
+		id: 'fixture.typegen-setup-guard',
+		contributions: [
+			contributeApplication(() => {
+				setupCalls += 1
+				return { exports: undefined }
+			}),
+		],
 	})
 	const Author = Schema.define({
 		className: 'TypegenAuthor',
@@ -113,28 +118,31 @@ describe('generateApplicationTypes', () => {
 			className: 'CompiledTypegenTarget',
 			fields: (field) => ({ title: field.string() }),
 		})
-		const contribution = definePlugin({
+		const contribution = createPlugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.typegen-schema-compiler',
-			privileges: [
-				{
-					name: 'schema:declare',
-					reason: 'Adds a field shared by Runtime and Typegen.',
-				},
-			] as const,
-			version: '1.0.0',
-			declare: ({ schemas }) => {
-				schemas.patch({
-					operations: [
-						addSchemaField({
-							contributionId: 'canonical-only',
-							field: stringField(),
-							name: 'canonicalOnly',
-						}),
-					],
-					targets: schemas.select({ className: Target.className }),
-				})
+			id: 'fixture.typegen-schema-compiler',
+			permissions: {
+				'schema:declare': 'Adds a field shared by Runtime and Typegen.',
 			},
+			version: '1.0.0',
+			contributions: [
+				contributeDeclarations({
+					schema: ({ schemas }) => {
+						schemas.patch({
+							operations: [
+								addSchemaField({
+									contributionId: 'canonical-only',
+									field: stringField(),
+									name: 'canonicalOnly',
+								}),
+							],
+							targets: schemas.select({ className: Target.className }),
+						})
+
+						return undefined
+					},
+				}),
+			],
 		})
 		const application = new FrameworkApplication({
 			pluginPrivileges: { logger: false },
@@ -486,33 +494,39 @@ describe('generateApplicationTypes', () => {
 				},
 			},
 		})
-		const firstPlugin = definePlugin({
+		const firstPlugin = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.first-shared-plugin',
-			privileges: [
-				{
-					name: 'schema:declare',
-					reason: 'Declares the first shared FieldBuilder method.',
-				},
-			],
-			declare: ({ fields }) => {
-				fields.register(firstMethod)
+			id: 'fixture.first-shared-plugin',
+			permissions: {
+				'schema:declare': 'Declares the first shared FieldBuilder method.',
 			},
+			contributions: [
+				contributeDeclarations({
+					schema: ({ fields }) => {
+						fields.register(firstMethod)
+
+						return undefined
+					},
+				}),
+			],
 		})
-		const secondPlugin = definePlugin({
+		const secondPlugin = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.second-shared-plugin',
-			privileges: [
-				{
-					name: 'schema:declare',
-					reason: 'Declares the second shared FieldBuilder method.',
-				},
-			],
-			declare: ({ fields }) => {
-				fields.register(secondMethod)
+			id: 'fixture.second-shared-plugin',
+			permissions: {
+				'schema:declare': 'Declares the second shared FieldBuilder method.',
 			},
+			contributions: [
+				contributeDeclarations({
+					schema: ({ fields }) => {
+						fields.register(secondMethod)
+
+						return undefined
+					},
+				}),
+			],
 		})
 		const Empty = Schema.define({
 			className: 'TypegenPluginContributionConflict',
@@ -577,27 +591,32 @@ describe('generateApplicationTypes', () => {
 			fields: (field) => ({ title: field.string() }),
 			workflow: 'editorial',
 		} as SchemaOptions<'TypegenWorkflowPost'> & { readonly workflow: string })
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.workflow-typegen',
+			id: 'fixture.workflow-typegen',
 			version: '4.2.0',
-			privileges: [
-				{ name: 'schema:declare', reason: 'Declares the workflow option.' },
-				{ name: 'operation:declare', reason: 'Declares publish.' },
-				{
-					name: 'typegen:reference',
-					reason: 'References public workflow types.',
-				},
-			],
-			declare: ({ operations, schemas, typegenReferences }) => {
-				typegenReferences.register(inputReference)
-				typegenReferences.register(resultReference)
-				schemas.defineOptions({
-					contributionId: 'workflow-options',
-					schema: { workflow: workflowOption },
-				})
-				operations.declare(publish)
+			permissions: {
+				'schema:declare': 'Declares the workflow option.',
+				'operation:declare': 'Declares publish.',
+				'typegen:reference': 'References public workflow types.',
 			},
+			contributions: [
+				contributeDeclarations({
+					schema: ({ schemas }) => {
+						schemas.defineOptions({
+							contributionId: 'workflow-options',
+							schema: { workflow: workflowOption },
+						})
+					},
+					operations: ({ operations }) => {
+						operations.declare(publish)
+					},
+					typegen: ({ typegenReferences }) => {
+						typegenReferences.register(inputReference)
+						typegenReferences.register(resultReference)
+					},
+				}),
+			],
 		})
 		const application = new FrameworkApplication({
 			plugins: [plugin],

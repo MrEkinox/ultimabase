@@ -7,7 +7,8 @@ import {
 	provideCapability,
 	requireCapability,
 } from './capabilities.js'
-import { definePlugin } from './definition.js'
+import { plugin as createPlugin } from './plugin.js'
+import { contributeApplication } from './plugin-contributions.js'
 
 // Resource cleanup runs under the same exclusive application lifecycle as production.
 describe('application capability resources', () => {
@@ -24,11 +25,11 @@ describe('application capability resources', () => {
 			compose: ([provider]) => provider,
 		})
 		const requirement = requireCapability(token, '^1.0.0')
-		const provider = definePlugin({
-			pluginId: 'fixture.application-provider',
+		const provider = createPlugin({
+			id: 'fixture.application-provider',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: [
+			contributions: [
 				provideCapability(token, {
 					contributionId: 'primary',
 					create: ({ schemas }) => {
@@ -42,29 +43,46 @@ describe('application capability resources', () => {
 						}
 					},
 				}),
+				contributeApplication((context) => {
+					events.push('provider-setup')
+					const exports = undefined
+					const lifecycleContext = { ...context, pluginExports: exports }
+					void lifecycleContext
+					return {
+						exports,
+						dispose: () => {
+							;(() => {
+								events.push('provider-dispose')
+							})()
+						},
+					}
+				}),
 			],
-			setup: () => {
-				events.push('provider-setup')
-			},
-			hooks: {
-				dispose: () => {
-					events.push('provider-dispose')
-				},
-			},
 		})
-		const consumer = definePlugin({
-			pluginId: 'fixture.application-consumer',
+		const consumer = createPlugin({
+			id: 'fixture.application-consumer',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: [requirement],
-			setup: ({ capabilities }) => {
-				events.push(`consumer-setup:${capabilities.get(requirement).endpoint}`)
-			},
-			hooks: {
-				dispose: () => {
-					events.push('consumer-dispose')
-				},
-			},
+			contributions: [
+				requirement,
+				contributeApplication((context) => {
+					const { capabilities } = context
+					events.push(
+						`consumer-setup:${capabilities.get(requirement).endpoint}`,
+					)
+					const exports = undefined
+					const lifecycleContext = { ...context, pluginExports: exports }
+					void lifecycleContext
+					return {
+						exports,
+						dispose: () => {
+							;(() => {
+								events.push('consumer-dispose')
+							})()
+						},
+					}
+				}),
+			],
 		})
 		const application = applicationFixture(
 			new FrameworkApplication({
@@ -99,11 +117,11 @@ describe('application capability resources', () => {
 			compose: ([provider]) => provider,
 		})
 		const requirement = requireCapability(token, '^1.0.0')
-		const provider = definePlugin({
-			pluginId: 'fixture.resource-winner',
+		const provider = createPlugin({
+			id: 'fixture.resource-winner',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: [
+			contributions: [
 				provideCapability(token, {
 					contributionId: 'winner',
 					create: () => {
@@ -119,14 +137,18 @@ describe('application capability resources', () => {
 				}),
 			],
 		})
-		const consumer = definePlugin({
-			pluginId: 'fixture.resource-consumer',
+		const consumer = createPlugin({
+			id: 'fixture.resource-consumer',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: [requirement],
-			setup: ({ capabilities }) => {
-				observed.push(capabilities.get(requirement).sequence)
-			},
+			contributions: [
+				requirement,
+				contributeApplication(({ capabilities }) => {
+					observed.push(capabilities.get(requirement).sequence)
+					const exports = undefined
+					return { exports }
+				}),
+			],
 		})
 		const createApplication = () =>
 			applicationFixture(
@@ -158,11 +180,11 @@ describe('application capability resources', () => {
 			lifetime: 'application',
 			compose: ([provider]) => provider,
 		})
-		const provider = definePlugin({
-			pluginId: 'fixture.partial-provider',
+		const provider = createPlugin({
+			id: 'fixture.partial-provider',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: [
+			contributions: [
 				provideCapability(token, {
 					contributionId: 'resource',
 					create: () => ({
@@ -174,13 +196,15 @@ describe('application capability resources', () => {
 				}),
 			],
 		})
-		const failing = definePlugin({
-			pluginId: 'fixture.partial-failure',
+		const failing = createPlugin({
+			id: 'fixture.partial-failure',
 			version: '1.0.0',
 			core: '^0.0.0',
-			setup: () => {
-				throw new Error('Setup failure fixture')
-			},
+			contributions: [
+				contributeApplication(() => {
+					throw new Error('Setup failure fixture')
+				}),
+			],
 		})
 		const application = applicationFixture(
 			new FrameworkApplication({

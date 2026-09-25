@@ -1,6 +1,6 @@
 import { accessPlugin } from '@ultimabase/access-plugin'
 import {
-	definePlugin,
+	plugin,
 	provideRuntimeBehavior,
 	Schema,
 	UltimaBase,
@@ -36,17 +36,15 @@ export interface RuntimeCostScenarioResult {
 }
 
 const neutralBehaviorPlugin = (): PluginDefinition =>
-	definePlugin({
-		pluginId: 'fixture.neutral-runtime-behavior',
+	plugin({
+		id: 'fixture.neutral-runtime-behavior',
 		version: '0.0.0',
 		core: '^0.0.0',
-		privileges: [
-			{
-				name: 'runtime:intercept',
-				reason: 'Proves the performance fixture detects one neutral stage.',
-			},
-		],
-		capabilities: [
+		permissions: {
+			'runtime:intercept':
+				'Proves the performance fixture detects one neutral stage.',
+		},
+		contributions: [
 			provideRuntimeBehavior({
 				contributionId: 'neutral-stage',
 				create: () => ({

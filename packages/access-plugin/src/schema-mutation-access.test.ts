@@ -1,13 +1,14 @@
-import { onTestFinished } from 'vitest'
+import { onTestFinished, describe, expect, it, vi } from 'vitest'
 import {
 	MasterAuthority,
 	Schema,
 	UltimaBase,
 	addSchemaField,
+	contributeDeclarations,
 	contributeSchemaMutation,
 	databaseAdapterCapability,
 	defineOperationValue,
-	definePlugin,
+	plugin,
 	defineSchemaMutation,
 	provideCapability,
 	stringField,
@@ -17,7 +18,6 @@ import {
 	type SchemaDefinition,
 } from '@ultimabase/core'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
-import { describe, expect, it, vi } from 'vitest'
 
 import {
 	accessPlugin,
@@ -164,39 +164,45 @@ const createMutationOwner = (schema: SchemaDefinition) => {
 	const handler = vi.fn(() => ({ data: { workflowState: 'archived' } }))
 	return {
 		handler,
-		plugin: definePlugin({
-			operations: [
+		plugin: plugin({
+			contributions: [
 				contributeSchemaMutation({ mutation: archive, resolve: handler }),
+				contributeDeclarations({
+					schema: ({ schemas }) => {
+						schemas.patch({
+							operations: [
+								addSchemaField({
+									contributionId: 'workflow-state',
+									field: stringField(),
+									name: 'workflowState',
+								}),
+							],
+							targets: schemas.select({ className: schema.className }),
+						})
+						return undefined
+					},
+					models: ({ models }) => {
+						models.extend(
+							{ className: schema.className },
+							{
+								contributionId: 'archive-surface',
+								schemaMutations: {
+									archive: { mutation: archive, surfaces: ['schema'] },
+								},
+							},
+						)
+						return undefined
+					},
+				}),
 			],
 			core: '^0.0.0',
-			declare: ({ models, schemas }) => {
-				schemas.patch({
-					operations: [
-						addSchemaField({
-							contributionId: 'workflow-state',
-							field: stringField(),
-							name: 'workflowState',
-						}),
-					],
-					targets: schemas.select({ className: schema.className }),
-				})
-				models.extend(
-					{ className: schema.className },
-					{
-						contributionId: 'archive-surface',
-						schemaMutations: {
-							archive: { mutation: archive, surfaces: ['schema'] },
-						},
-					},
-				)
+			id: `fixture.access-schema-mutation-${String(pluginIndex)}`,
+			permissions: {
+				'model:extend': 'Adds archive.',
+				'operation:declare': 'Declares archive.',
+				'persistence:rewrite': 'Persists archive.',
+				'schema:declare': 'Adds workflow state.',
 			},
-			pluginId: `fixture.access-schema-mutation-${String(pluginIndex)}`,
-			privileges: [
-				{ name: 'model:extend', reason: 'Adds archive.' },
-				{ name: 'operation:declare', reason: 'Declares archive.' },
-				{ name: 'persistence:rewrite', reason: 'Persists archive.' },
-				{ name: 'schema:declare', reason: 'Adds workflow state.' },
-			] as const,
 			version: '1.0.0',
 		}),
 	}
@@ -204,45 +210,48 @@ const createMutationOwner = (schema: SchemaDefinition) => {
 
 const createMasterMutationOwner = (schema: SchemaDefinition) => {
 	pluginIndex += 1
-	return definePlugin({
-		operations: [
+	return plugin({
+		contributions: [
 			contributeSchemaMutation({
 				mutation: purge,
 				resolve: () => undefined,
 			}),
+			contributeDeclarations({
+				models: ({ models }) => {
+					models.extend(
+						{ className: schema.className },
+						{
+							contributionId: 'purge-surface',
+							schemaMutations: {
+								purge: { mutation: purge, surfaces: ['schema'] },
+							},
+						},
+					)
+					return undefined
+				},
+			}),
 		],
 		core: '^0.0.0',
-		declare: ({ models }) => {
-			models.extend(
-				{ className: schema.className },
-				{
-					contributionId: 'purge-surface',
-					schemaMutations: {
-						purge: { mutation: purge, surfaces: ['schema'] },
-					},
-				},
-			)
+		id: `fixture.access-schema-master-mutation-${String(pluginIndex)}`,
+		permissions: {
+			'model:extend': 'Adds purge.',
+			'operation:declare': 'Declares purge.',
+			'persistence:rewrite': 'Persists purge.',
 		},
-		pluginId: `fixture.access-schema-master-mutation-${String(pluginIndex)}`,
-		privileges: [
-			{ name: 'model:extend', reason: 'Adds purge.' },
-			{ name: 'operation:declare', reason: 'Declares purge.' },
-			{ name: 'persistence:rewrite', reason: 'Persists purge.' },
-		] as const,
 		version: '1.0.0',
 	})
 }
 
 const databasePlugin = (adapter: DatabaseAdapter) =>
-	definePlugin({
-		capabilities: [
+	plugin({
+		contributions: [
 			provideCapability(databaseAdapterCapability, {
 				contributionId: 'database-adapter',
 				create: () => ({ value: adapter }),
 			}),
 		],
 		core: '^0.0.0',
-		pluginId: `fixture.access-schema-mutation-database-${String(pluginIndex)}`,
+		id: `fixture.access-schema-mutation-database-${String(pluginIndex)}`,
 		version: '1.0.0',
 	})
 
@@ -432,8 +441,8 @@ describe('schema mutation Access', () => {
 			({ input }: { readonly input: Readonly<{ readonly reason: string }> }) =>
 				input.reason !== 'provider-deny',
 		)
-		const provider = definePlugin({
-			capabilities: [
+		const provider = plugin({
+			contributions: [
 				provideAccessContributions('archive-policy', () =>
 					schemaAccess(ProviderDocument, {
 						archive: providerRule,
@@ -442,10 +451,10 @@ describe('schema mutation Access', () => {
 			],
 			core: '^0.0.0',
 			peers: [{ pluginId: '@ultimabase/access-plugin', version: '^0.0.0' }],
-			pluginId: 'fixture.access-schema-mutation-provider',
-			privileges: [
-				{ name: 'runtime:constrain', reason: 'Narrows archive policy.' },
-			] as const,
+			id: 'fixture.access-schema-mutation-provider',
+			permissions: {
+				'runtime:constrain': 'Narrows archive policy.',
+			},
 			version: '1.0.0',
 		})
 		const ultimabase = new UltimaBase({

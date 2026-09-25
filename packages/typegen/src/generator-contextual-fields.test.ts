@@ -1,7 +1,8 @@
 import {
 	defineFieldBuilderMethod,
 	defineFieldOption,
-	definePlugin,
+	plugin,
+	contributeDeclarations,
 	FrameworkApplication,
 	stringField,
 } from '@ultimabase/core'
@@ -75,35 +76,43 @@ describe('contextual Typegen declarations', () => {
 				type: 'SecondContextualOption',
 			},
 		})
-		const firstPlugin = definePlugin({
+		const firstPlugin = plugin({
 			core: '^0.0.0',
-			declare: ({ fields, schemas }) => {
-				fields.register(firstMethod)
-				schemas.defineOptions({
-					contributionId: 'firstOption-declaration',
-					field: { firstOption },
-				})
-			},
-			pluginId: 'fixture.first-contextual-plugin',
-			privileges: [
-				{ name: 'schema:declare', reason: 'Declares contextual fixtures.' },
-			],
+			id: 'fixture.first-contextual-plugin',
+			permissions: { 'schema:declare': 'Declares contextual fixtures.' },
 			version: '1.0.0',
+			contributions: [
+				contributeDeclarations({
+					schema: ({ fields, schemas }) => {
+						fields.register(firstMethod)
+						schemas.defineOptions({
+							contributionId: 'firstOption-declaration',
+							field: { firstOption },
+						})
+
+						return undefined
+					},
+				}),
+			],
 		})
-		const secondPlugin = definePlugin({
+		const secondPlugin = plugin({
 			core: '^0.0.0',
-			declare: ({ fields, schemas }) => {
-				fields.register(secondMethod)
-				schemas.defineOptions({
-					contributionId: 'secondOption-declaration',
-					field: { secondOption },
-				})
-			},
-			pluginId: 'fixture.second-contextual-plugin',
-			privileges: [
-				{ name: 'schema:declare', reason: 'Declares contextual fixtures.' },
-			],
+			id: 'fixture.second-contextual-plugin',
+			permissions: { 'schema:declare': 'Declares contextual fixtures.' },
 			version: '1.0.0',
+			contributions: [
+				contributeDeclarations({
+					schema: ({ fields, schemas }) => {
+						fields.register(secondMethod)
+						schemas.defineOptions({
+							contributionId: 'secondOption-declaration',
+							field: { secondOption },
+						})
+
+						return undefined
+					},
+				}),
+			],
 		})
 		const application = new FrameworkApplication({
 			plugins: [firstPlugin, secondPlugin],

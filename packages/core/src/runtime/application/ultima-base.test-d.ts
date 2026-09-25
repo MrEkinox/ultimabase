@@ -1,4 +1,7 @@
-import { definePlugin } from '../../foundation.js'
+import {
+	plugin as createPlugin,
+	contributeApplication,
+} from '../../foundation.js'
 import { Schema } from '../../schema/index.js'
 import { expectTypeOf, test } from 'vitest'
 
@@ -15,14 +18,16 @@ const otherSchema = Schema.define({
 	fields: (field) => ({ name: field.string() }),
 })
 declare const adapter: DatabaseAdapter
-const databasePlugin = definePlugin({
+const databasePlugin = createPlugin({
 	version: '0.0.0',
 	core: '^0.0.0',
-	pluginId: 'fixture.typed-ultimabase-database',
-	capabilities: [provideTestDatabaseAdapter(adapter)],
-	setup: () => {
-		return { dialect: 'fixture' as const }
-	},
+	id: 'fixture.typed-ultimabase-database',
+	contributions: [
+		provideTestDatabaseAdapter(adapter),
+		contributeApplication(() => ({
+			exports: { dialect: 'fixture' as const },
+		})),
+	],
 })
 
 test('preserves exact schema and plugin tuples behind the concise facade', () => {

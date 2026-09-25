@@ -1,7 +1,8 @@
 import {
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
-	definePlugin,
+	plugin,
+	contributeApplication,
 	provideCapability,
 	requireCapability,
 	type DatabaseAdapter,
@@ -40,11 +41,11 @@ class ExplorerFixtureDatabase implements DatabaseAdapter {
 }
 
 export const databasePlugin = (): PluginDefinition =>
-	definePlugin({
+	plugin({
 		core: '^0.0.0',
-		pluginId: 'fixture.explorer-database',
+		id: 'fixture.explorer-database',
 		version: '1.0.0',
-		capabilities: [
+		contributions: [
 			provideCapability(databaseAdapterCapability, {
 				contributionId: 'database',
 				create: () => ({ value: new ExplorerFixtureDatabase() }),
@@ -53,11 +54,11 @@ export const databasePlugin = (): PluginDefinition =>
 	})
 
 export const graphqlHttpProvider = (): PluginDefinition =>
-	definePlugin({
+	plugin({
 		core: '^0.0.0',
-		pluginId: 'fixture.graphql-http-provider',
+		id: 'fixture.graphql-http-provider',
 		version: '1.0.0',
-		capabilities: [
+		contributions: [
 			provideCapability(graphqlHttpEndpointCapability, {
 				contributionId: 'endpoint',
 				create: () => ({ value: { path: '/custom-graphql' } }),
@@ -72,14 +73,16 @@ const applicationRequirement = requireCapability(
 )
 
 export const httpConsumer = () =>
-	definePlugin({
+	plugin({
 		core: '^0.0.0',
-		pluginId: 'fixture.explorer-http-consumer',
+		id: 'fixture.explorer-http-consumer',
 		version: '1.0.0',
-		capabilities: [applicationRequirement],
-		setup: ({ capabilities }) => ({
-			http: capabilities.get(applicationRequirement),
-		}),
+		contributions: [
+			applicationRequirement,
+			contributeApplication(({ capabilities }) => ({
+				exports: { http: capabilities.get(applicationRequirement) },
+			})),
+		],
 	})
 
 export const readHttpApplication = (value: unknown): HttpApplication => {

@@ -1,15 +1,15 @@
-import { onTestFinished } from 'vitest'
+import { onTestFinished, describe, expect, it, vi, type Mock } from 'vitest'
 import {
 	RequestSubjectReference,
 	Schema,
 	requestRoleResolverCapability,
 	createApplication,
-	definePlugin,
+	plugin,
+	contributeApplication,
 	provideCapability,
 	requireCapability,
 } from '@ultimabase/core'
 import type { AccessContext } from '@ultimabase/access-plugin'
-import { describe, expect, it, vi, type Mock } from 'vitest'
 
 import {
 	createStoredRoleResolver,
@@ -28,12 +28,16 @@ const roleResolverRequirement = requireCapability(
 const roleResolverConsumer = <const TPluginId extends string>(
 	pluginId: TPluginId,
 ) =>
-	definePlugin({
+	plugin({
 		version: '0.0.0',
 		core: '^0.0.0',
-		pluginId,
-		capabilities: [roleResolverRequirement],
-		setup: ({ capabilities }) => capabilities.get(roleResolverRequirement),
+		id: pluginId,
+		contributions: [
+			roleResolverRequirement,
+			contributeApplication(({ capabilities }) => ({
+				exports: capabilities.get(roleResolverRequirement),
+			})),
+		],
 	})
 
 const Member = Schema.define({
@@ -249,11 +253,11 @@ describe('stored role Access integration', () => {
 		const communityResolver = {
 			hasRole: () => true,
 		}
-		const communityProvider = definePlugin({
+		const communityProvider = plugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.community-role-provider',
-			capabilities: [
+			id: 'fixture.community-role-provider',
+			contributions: [
 				provideCapability(requestRoleResolverCapability, {
 					contributionId: 'community-role-resolver',
 					create: () => ({ value: communityResolver }),

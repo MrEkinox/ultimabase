@@ -1,6 +1,7 @@
 import {
 	FrameworkApplication,
-	definePlugin,
+	plugin,
+	contributeApplication,
 	requireCapability,
 } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
@@ -15,14 +16,18 @@ const applicationRequirement = requireCapability(
 )
 
 const consumerPlugin = () =>
-	definePlugin({
-		pluginId: 'fixture.http-consumer',
+	plugin({
+		id: 'fixture.http-consumer',
 		version: '1.0.0',
 		core: '^0.0.0',
-		capabilities: [applicationRequirement],
-		setup: ({ capabilities }) => ({
-			application: capabilities.get(applicationRequirement),
-		}),
+		contributions: [
+			applicationRequirement,
+			contributeApplication(({ capabilities }) => ({
+				exports: {
+					application: capabilities.get(applicationRequirement),
+				},
+			})),
+		],
 	})
 
 describe('httpPlugin', () => {

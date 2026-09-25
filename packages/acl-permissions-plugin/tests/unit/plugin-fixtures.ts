@@ -7,7 +7,7 @@ import {
 	databaseAdapterCapability,
 	databasePluginFieldStructuralContainsCapability,
 	databasePersistencePlanCapability as planCapability,
-	definePlugin,
+	plugin,
 	provideCapability,
 	UltimaBase,
 	type DatabaseAdapter,
@@ -190,11 +190,11 @@ export const createRoleProviderFixture = (
 			updatedAt: '2026-08-04T00:00:00.000Z',
 		},
 	])
-	const roleProvider = definePlugin({
+	const roleProvider = plugin({
 		version: '0.0.0',
 		core: '^0.0.0',
-		pluginId: `fixture.acl-role-provider.${suffix}`,
-		capabilities: [
+		id: `fixture.acl-role-provider.${suffix}`,
+		contributions: [
 			roleResolverProvider({
 				hasRole: ({ role: candidate }) => candidate.value === role.value,
 				resolveCurrentRoles: () => [role],
@@ -202,11 +202,11 @@ export const createRoleProviderFixture = (
 			}),
 		],
 	})
-	const databaseProvider = definePlugin({
+	const databaseProvider = plugin({
 		version: '0.0.0',
 		core: '^0.0.0',
-		pluginId: `fixture.acl-role-database.${suffix}`,
-		capabilities: [databaseAdapterProvider(adapter)],
+		id: `fixture.acl-role-database.${suffix}`,
+		contributions: [databaseAdapterProvider(adapter)],
 	})
 	const aclProvider = aclPlugin()
 	let plugins: readonly PluginDefinition[]

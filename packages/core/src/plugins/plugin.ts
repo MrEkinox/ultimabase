@@ -1,6 +1,6 @@
 import { isPlainRecord } from '@ultimabase/shared'
 
-import { definePlugin, type FrameworkPlugin } from './definition.js'
+import { compilePluginDefinition, type FrameworkPlugin } from './definition.js'
 import type { PluginCapabilityDeclarationOptions } from './capabilities.js'
 import type {
 	PluginDependency,
@@ -248,7 +248,7 @@ export const plugin = <
 		options.contributions,
 		options.permissions,
 	)
-	return definePlugin({
+	return compilePluginDefinition({
 		pluginId: options.id,
 		version: options.version,
 		core: options.core,

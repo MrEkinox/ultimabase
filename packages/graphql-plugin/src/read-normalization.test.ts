@@ -1,7 +1,8 @@
 import {
 	Schema,
 	createApplication,
-	definePlugin,
+	plugin,
+	contributeDeclarations,
 	definePluginField,
 	definePluginFieldType,
 	normalizeReadOperation,
@@ -92,24 +93,28 @@ const RecordSchema = Schema.define({
 	graphql: { operations: { count: true } },
 })
 
-const fieldOwner = definePlugin({
+const fieldOwner = plugin({
 	core: '^0.0.0',
-	pluginId: 'fixture.graphql-code',
-	privileges: [
-		{ name: 'schema:declare', reason: 'Declares the portable code field.' },
-	] as const,
+	id: 'fixture.graphql-code',
+	permissions: { 'schema:declare': 'Declares the portable code field.' },
 	version: '1.0.0',
-	declare: ({ fields }) => {
-		fields.declareType(
-			definePluginFieldType({
-				fieldKind: 'fixture.graphql-code',
-				typegen: {
-					module: '@fixture/graphql-code',
-					valueType: 'PortableCode',
-				},
-			}),
-		)
-	},
+	contributions: [
+		contributeDeclarations({
+			schema: ({ fields }) => {
+				fields.declareType(
+					definePluginFieldType({
+						fieldKind: 'fixture.graphql-code',
+						typegen: {
+							module: '@fixture/graphql-code',
+							valueType: 'PortableCode',
+						},
+					}),
+				)
+
+				return undefined
+			},
+		}),
+	],
 })
 
 const createFixture = async () => {

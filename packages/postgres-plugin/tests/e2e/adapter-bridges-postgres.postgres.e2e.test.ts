@@ -3,7 +3,7 @@ import {
 	contributeOperation,
 	defineOperation,
 	defineOperationValue,
-	definePlugin,
+	plugin,
 	definePluginField,
 	requireCapability,
 	Schema,
@@ -115,17 +115,20 @@ describe('PostgreSQL adapter bridges', { concurrent: false }, () => {
 			postgresRawAdapterCapability,
 			'^1.0.0',
 		)
-		const logicalPlugin = definePlugin({
-			capabilities: [storageRequirement],
+		const logicalPlugin = plugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.portable-stored-value',
-			privileges: [
-				{ name: 'adapter:consume', reason: 'Requires JSON value storage.' },
-			] as const,
+			id: 'fixture.portable-stored-value',
+			permissions: { 'adapter:consume': 'Requires JSON value storage.' },
 			version: '1.0.0',
+			contributions: [storageRequirement],
 		})
-		const physicalBridge = definePlugin({
-			capabilities: [
+		const physicalBridge = plugin({
+			core: '^0.0.0',
+			instanceId: 'primary',
+			id: 'fixture.workflow-postgres',
+			permissions: { 'adapter:consume': 'Adds one physical column.' },
+			version: '1.0.0',
+			contributions: [
 				postgresPhysicalColumn({
 					column: {
 						name: 'workflow_state',
@@ -137,18 +140,17 @@ describe('PostgreSQL adapter bridges', { concurrent: false }, () => {
 					table: 'adapter_bridge_items',
 				}),
 			],
-			core: '^0.0.0',
-			instanceId: 'primary',
-			pluginId: 'fixture.workflow-postgres',
-			privileges: [
-				{ name: 'adapter:consume', reason: 'Adds one physical column.' },
-			] as const,
-			version: '1.0.0',
 		})
-		const rawPlugin = definePlugin({
-			capabilities: [rawRequirement],
+		const rawPlugin = plugin({
 			core: '^0.0.0',
-			operations: [
+			id: 'fixture.postgres-raw-rollback',
+			permissions: {
+				'adapter:raw': 'Exercises PostgreSQL rollback.',
+				'operation:declare': 'Declares the rollback operation.',
+			},
+			version: '1.0.0',
+			contributions: [
+				rawRequirement,
 				contributeOperation({
 					execute: ({ adapters, input }) =>
 						adapters.withRaw(rawRequirement, async (raw) => {
@@ -164,15 +166,6 @@ describe('PostgreSQL adapter bridges', { concurrent: false }, () => {
 					operation: rollbackOperation,
 				}),
 			],
-			pluginId: 'fixture.postgres-raw-rollback',
-			privileges: [
-				{ name: 'adapter:raw', reason: 'Exercises PostgreSQL rollback.' },
-				{
-					name: 'operation:declare',
-					reason: 'Declares the rollback operation.',
-				},
-			] as const,
-			version: '1.0.0',
 		})
 		const ultimabase = new UltimaBase({
 			plugins: [

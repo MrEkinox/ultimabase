@@ -233,20 +233,17 @@ import {
 	provideAccessContributions,
 	schemaAccess,
 } from '@ultimabase/access-plugin'
-import { definePlugin } from '@ultimabase/core'
+import { plugin } from '@ultimabase/core'
 
-export const editorialPolicyPlugin = definePlugin({
+export const editorialPolicyPlugin = plugin({
 	version: '1.0.0',
 	core: '^0.0.0',
-	pluginId: 'community.editorial-policy',
+	id: 'community.editorial-policy',
 	peers: [{ pluginId: '@ultimabase/access-plugin', version: '^0.0.0' }],
-	privileges: [
-		{
-			name: 'runtime:constrain',
-			reason: 'Contributes official Access policy.',
-		},
-	],
-	capabilities: [
+	permissions: {
+		'runtime:constrain': 'Contributes official Access policy.',
+	},
+	contributions: [
 		provideAccessContributions('published-posts', () =>
 			schemaAccess(Post, {
 				read: {

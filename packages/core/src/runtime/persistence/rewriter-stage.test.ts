@@ -6,7 +6,7 @@ import {
 	createApplication,
 } from '../../foundation.js'
 import { provideCapability } from '../../plugins/capabilities.js'
-import { definePlugin } from '../../plugins/definition.js'
+import { plugin as createPlugin } from '../../plugins/plugin.js'
 import { QueryBuilder, normalizeUpdateExpression } from '../../query/index.js'
 import { Schema } from '../../schema/index.js'
 import {
@@ -53,21 +53,19 @@ const captureFrameworkError = (run: () => unknown): unknown => {
 }
 
 const defineRewriterPlugin = (pluginId: string, withPrivilege = true) =>
-	definePlugin({
+	createPlugin({
 		core: '^0.0.0',
-		pluginId,
+		id: pluginId,
 		version: '1.0.0',
 		...(withPrivilege
 			? {
-					privileges: [
-						{
-							name: 'persistence:rewrite' as const,
-							reason: 'Exercises the protected persistence boundary.',
-						},
-					],
+					permissions: {
+						'persistence:rewrite':
+							'Exercises the protected persistence boundary.',
+					},
 				}
 			: {}),
-		capabilities: [
+		contributions: [
 			providePersistencePlanRewriter({
 				contributionId: 'soft-delete',
 				create: () => ({ value: definition }),
@@ -92,28 +90,16 @@ describe('persistence plan rewriter capability', () => {
 	})
 
 	it('requires the exact facade and persistence privilege', () => {
-		const privilegeFailure = captureFrameworkError(
-			() =>
-				new FrameworkApplication({
-					plugins: [
-						defineRewriterPlugin('fixture.persistence-unprivileged', false),
-					],
-					schemas: [articleSchema],
-				}),
-		)
-		expect(privilegeFailure).toMatchObject({
-			code: 'PLUGIN_CAPABILITY_CONFLICT',
-			internalDetails: { privilege: 'persistence:rewrite' },
-		})
+		expect(() =>
+			defineRewriterPlugin('fixture.persistence-unprivileged', false),
+		).toThrow('Missing plugin permission reason: persistence:rewrite')
 
-		const generic = definePlugin({
+		const generic = createPlugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.persistence-generic',
+			id: 'fixture.persistence-generic',
 			version: '1.0.0',
-			privileges: [
-				{ name: 'persistence:rewrite', reason: 'Exercises exact facades.' },
-			],
-			capabilities: [
+			permissions: { 'persistence:rewrite': 'Exercises exact facades.' },
+			contributions: [
 				provideCapability(persistencePlanRewriterCapability, {
 					contributionId: 'generic',
 					create: () => ({ value: definition }),
@@ -184,14 +170,12 @@ describe('persistence plan rewriter capability', () => {
 			},
 			schemas: [articleSchema],
 		})
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.persistence-schema-collection',
+			id: 'fixture.persistence-schema-collection',
 			version: '1.0.0',
-			privileges: [
-				{ name: 'persistence:rewrite', reason: 'Exercises exact targeting.' },
-			],
-			capabilities: [
+			permissions: { 'persistence:rewrite': 'Exercises exact targeting.' },
+			contributions: [
 				providePersistencePlanRewriter({
 					contributionId: 'targeted-delete',
 					create: () => ({ value: collectionDefinition }),
@@ -242,14 +226,12 @@ describe('persistence plan rewriter capability', () => {
 					target: { schema: new QueryBuilder(otherSchema).ast.schema },
 				}) as never,
 		})
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.persistence-malformed',
+			id: 'fixture.persistence-malformed',
 			version: '1.0.0',
-			privileges: [
-				{ name: 'persistence:rewrite', reason: 'Exercises diagnostics.' },
-			],
-			capabilities: [
+			permissions: { 'persistence:rewrite': 'Exercises diagnostics.' },
+			contributions: [
 				providePersistencePlanRewriter({
 					contributionId: 'cross-schema',
 					create: () => ({ value: malformed }),

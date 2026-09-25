@@ -5,7 +5,8 @@ import {
 	contributeSchemaMutation,
 	databaseAdapterCapability,
 	defineOperationValue,
-	definePlugin,
+	plugin,
+	contributeDeclarations,
 	defineSchemaMutation,
 	provideCapability,
 } from '@ultimabase/core'
@@ -65,8 +66,16 @@ it('runs Master-only delete mutations through their custom branch', async () => 
 		}),
 		...(inlineHooks === undefined ? {} : { hooks: inlineHooks as never }),
 	})
-	const owner = definePlugin({
-		operations: [
+	const owner = plugin({
+		core: '^0.0.0',
+		id: 'fixture.schema-mutation-purge-owner',
+		permissions: {
+			'model:extend': 'Adds purge.',
+			'operation:declare': 'Declares purge.',
+			'persistence:rewrite': 'Persists purge.',
+		},
+		version: '1.0.0',
+		contributions: [
 			contributeSchemaMutation({
 				mutation: purge,
 				resolve: (): undefined => {
@@ -74,35 +83,31 @@ it('runs Master-only delete mutations through their custom branch', async () => 
 					return undefined
 				},
 			}),
-		],
-		core: '^0.0.0',
-		declare: ({ models }) => {
-			models.extend(Document, {
-				contributionId: 'purge-surface',
-				schemaMutations: {
-					purge: { mutation: purge, surfaces: ['schema'] },
+			contributeDeclarations({
+				models: ({ models }) => {
+					models.extend(Document, {
+						contributionId: 'purge-surface',
+						schemaMutations: {
+							purge: { mutation: purge, surfaces: ['schema'] },
+						},
+					})
+
+					return undefined
 				},
-			})
-		},
-		pluginId: 'fixture.schema-mutation-purge-owner',
-		privileges: [
-			{ name: 'model:extend', reason: 'Adds purge.' },
-			{ name: 'operation:declare', reason: 'Declares purge.' },
-			{ name: 'persistence:rewrite', reason: 'Persists purge.' },
-		] as const,
-		version: '1.0.0',
+			}),
+		],
 	})
 	const adapter = new SchemaMutationHookAdapter(trace)
-	const database = definePlugin({
-		capabilities: [
+	const database = plugin({
+		core: '^0.0.0',
+		id: 'fixture.schema-mutation-purge-database',
+		version: '1.0.0',
+		contributions: [
 			provideCapability(databaseAdapterCapability, {
 				contributionId: 'database-adapter',
 				create: () => ({ value: adapter }),
 			}),
 		],
-		core: '^0.0.0',
-		pluginId: 'fixture.schema-mutation-purge-database',
-		version: '1.0.0',
 	})
 	const audit = vi.fn()
 	const ultimabase = new UltimaBase({

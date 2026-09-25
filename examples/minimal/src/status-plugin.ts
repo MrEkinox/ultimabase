@@ -2,7 +2,7 @@ import {
 	defineOperation,
 	defineOperationTransport,
 	defineOperationValue,
-	definePlugin,
+	plugin,
 	contributeOperation,
 	operationTransportBinding,
 	operationWireCodec,
@@ -120,8 +120,8 @@ const statusGraphqlBinding = operationTransportBinding({
 })
 
 /** Owns the operation handler and its explicit REST v1 binding. */
-export const exampleStatusPlugin = definePlugin({
-	operations: [
+export const exampleStatusPlugin = plugin({
+	contributions: [
 		contributeOperation({
 			bindings: [
 				operationTransportBinding({
@@ -140,14 +140,11 @@ export const exampleStatusPlugin = definePlugin({
 		}),
 	],
 	core: '^0.0.0',
-	pluginId: 'example.status-plugin',
-	privileges: [
-		{ name: 'operation:declare', reason: 'Declares the status operation.' },
-		{
-			name: 'transport:expose',
-			reason:
-				'Exposes status through the selected REST and GraphQL transports.',
-		},
-	],
+	id: 'example.status-plugin',
+	permissions: {
+		'operation:declare': 'Declares the status operation.',
+		'transport:expose':
+			'Exposes status through the selected REST and GraphQL transports.',
+	},
 	version: '1.0.0',
 })

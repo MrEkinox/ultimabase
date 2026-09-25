@@ -2,11 +2,13 @@ import { applicationFixture } from '../application-fixture.js'
 import { isPlainRecord } from '@ultimabase/shared'
 import {
 	createApplication,
-	definePlugin,
+	plugin as createPlugin,
 	type FrameworkApplication,
 	type PluginDefinition,
+	Schema,
+	type SchemaDefinition,
 } from '../../src/index.js'
-import { Schema, type SchemaDefinition } from '../../src/index.js'
+
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -78,17 +80,15 @@ const createStoredArticle = (title: string) => ({
 })
 
 const createOrderedPlugins = (trace: string[]) => {
-	const dependency = definePlugin({
+	const dependency = createPlugin({
 		version: '0.0.0',
 		core: '^0.0.0',
-		pluginId: 'fixture.contributions.dependency',
-		privileges: [
-			{
-				name: 'runtime:intercept',
-				reason: 'Registers low-level Runtime contributions for tests.',
-			},
-		],
-		capabilities: createTestRuntimeContributions((intercept, postCommit) => {
+		id: 'fixture.contributions.dependency',
+		permissions: {
+			'runtime:intercept':
+				'Registers low-level Runtime contributions for tests.',
+		},
+		contributions: createTestRuntimeContributions((intercept, postCommit) => {
 			intercept(
 				'fixture.dependency.global-before',
 				beforeOperation({
@@ -171,20 +171,18 @@ const createOrderedPlugins = (trace: string[]) => {
 			)
 		}),
 	})
-	const consumer = definePlugin({
+	const consumer = createPlugin({
 		version: '0.0.0',
 		core: '^0.0.0',
-		pluginId: 'fixture.contributions.consumer',
-		privileges: [
-			{
-				name: 'runtime:intercept',
-				reason: 'Registers low-level Runtime contributions for tests.',
-			},
-		],
+		id: 'fixture.contributions.consumer',
+		permissions: {
+			'runtime:intercept':
+				'Registers low-level Runtime contributions for tests.',
+		},
 		dependencies: [
 			{ pluginId: 'fixture.contributions.dependency', version: '^0.0.0' },
 		],
-		capabilities: createTestRuntimeContributions((intercept, postCommit) => {
+		contributions: createTestRuntimeContributions((intercept, postCommit) => {
 			intercept(
 				'fixture.consumer.global-before',
 				beforeOperation({
@@ -363,17 +361,14 @@ describe('Runtime contributions and post-commit events', () => {
 	it('rolls back when an after-hook aborts and never delivers its event', async () => {
 		const trace: string[] = []
 		const hookError = new Error('business after-hook rejected the write')
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.contributions.abort',
-			privileges: [
-				{
-					name: 'runtime:intercept',
-					reason: 'Registers a low-level Runtime hook for tests.',
-				},
-			],
-			capabilities: createTestRuntimeContributions((intercept, postCommit) => {
+			id: 'fixture.contributions.abort',
+			permissions: {
+				'runtime:intercept': 'Registers a low-level Runtime hook for tests.',
+			},
+			contributions: createTestRuntimeContributions((intercept, postCommit) => {
 				intercept(
 					'fixture.abort.after',
 					afterOperation({

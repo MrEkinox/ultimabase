@@ -1,10 +1,19 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-	definePlugin,
+	plugin as createPlugin,
+	contributeApplication,
+	contributeDeclarations,
 	pluginEnvironmentClaimMetadata,
 	pluginPrivilegeMetadata,
+	withPluginPrivileges,
 } from '../index.js'
+
+const observeContribution = () =>
+	withPluginPrivileges(
+		contributeApplication(() => ({ exports: undefined })),
+		['runtime:observe'],
+	)
 
 describe('plugin manifests', () => {
 	it('publishes the complete privilege vocabulary with facade ownership and severity', () => {
@@ -45,16 +54,22 @@ describe('plugin manifests', () => {
 	])('rejects the retired %s privilege before declaration', (name) => {
 		let declared = false
 		expect(() =>
-			definePlugin({
+			createPlugin({
 				core: '^0.0.0',
-				pluginId: 'fixture.retired-declaration-power',
+				id: 'fixture.retired-declaration-power',
 				version: '1.0.0',
-				privileges: [
-					{ name: name as never, reason: 'Exercises a removed privilege.' },
+				permissions: {
+					[name]: 'Exercises a removed privilege.',
+				} as never,
+				contributions: [
+					withPluginPrivileges(
+						contributeApplication(() => {
+							declared = true
+							return { exports: undefined }
+						}),
+						[name as never],
+					),
 				],
-				declare: () => {
-					declared = true
-				},
 			}),
 		).toThrow()
 		expect(declared).toBe(false)
@@ -86,21 +101,23 @@ describe('plugin manifests', () => {
 	})
 
 	it('keeps separate manifests and privilege requests owner-scoped', () => {
-		const child = definePlugin({
-			pluginId: 'fixture.child',
+		const child = createPlugin({
+			id: 'fixture.child',
 			version: '2.0.0',
 			core: '^0.0.0',
-			privileges: [
-				{ name: 'runtime:observe', reason: 'Records child activity.' },
-			] as const,
+			permissions: { 'runtime:observe': 'Records child activity.' },
+			contributions: [observeContribution()],
 		})
-		const parent = definePlugin({
-			pluginId: 'fixture.parent',
+		const parent = createPlugin({
+			id: 'fixture.parent',
 			version: '1.0.0',
 			core: '^0.0.0',
-			privileges: [
-				{ name: 'schema:declare', reason: 'Declares parent schemas.' },
-			] as const,
+			permissions: { 'schema:declare': 'Declares parent schemas.' },
+			contributions: [
+				contributeDeclarations({
+					schema: () => undefined,
+				}),
+			],
 		})
 
 		expect(parent.manifest.privileges).toStrictEqual([
@@ -113,12 +130,12 @@ describe('plugin manifests', () => {
 
 	it.each([
 		[
-			{ pluginId: 'unnamespaced', version: '1.0.0', core: '^0.0.0' },
+			{ id: 'unnamespaced', version: '1.0.0', core: '^0.0.0' },
 			'pluginId must be a namespaced plugin identifier',
 		],
 		[
 			{
-				pluginId: 'fixture.plugin',
+				id: 'fixture.plugin',
 				instanceId: '',
 				version: '1.0.0',
 				core: '^0.0.0',
@@ -126,82 +143,77 @@ describe('plugin manifests', () => {
 			'instanceId must be a non-empty string',
 		],
 		[
-			{ pluginId: 'fixture.plugin', version: 'v1.0.0', core: '^0.0.0' },
+			{ id: 'fixture.plugin', version: 'v1.0.0', core: '^0.0.0' },
 			'version must be a canonical semantic version',
 		],
 		[
-			{ pluginId: 'fixture.plugin', version: '1.0.0', core: 'later' },
+			{ id: 'fixture.plugin', version: '1.0.0', core: 'later' },
 			'core must be a valid semantic version range',
 		],
 	] as const)(
 		'rejects malformed identity and SemVer metadata',
 		(options, message) => {
-			expect(() => definePlugin(options)).toThrow(new TypeError(message))
+			expect(() => createPlugin({ ...options, contributions: [] })).toThrow(
+				new TypeError(message),
+			)
 		},
 	)
 
-	it('rejects malformed, duplicate, wildcard, and unexplained privilege requests', () => {
+	it('rejects malformed, wildcard, and unexplained permission reasons', () => {
 		const base = {
-			pluginId: 'fixture.plugin',
+			id: 'fixture.plugin',
 			version: '1.0.0',
 			core: '^0.0.0',
 		} as const
 
 		expect(() =>
-			definePlugin({
+			createPlugin({
 				...base,
 				// @ts-expect-error -- Runtime validation protects JavaScript callers.
-				privileges: 'runtime:observe',
+				permissions: 'runtime:observe',
+				contributions: [observeContribution()],
 			}),
-		).toThrow(new TypeError('privileges must be an array'))
+		).toThrow(new TypeError('plugin permissions must be a plain object'))
 		expect(() =>
-			definePlugin({
+			createPlugin({
 				...base,
-				privileges: [
-					// @ts-expect-error -- Wildcards are not concrete privileges.
-					{ name: 'runtime:*', reason: 'Too broad.' },
-				],
+				permissions: { 'runtime:*': 'Too broad.' } as never,
+				contributions: [observeContribution()],
+			}),
+		).toThrow(new TypeError('Unknown plugin permission reason: runtime:*'))
+		expect(() =>
+			createPlugin({
+				...base,
+				permissions: { 'runtime:observe': '' },
+				contributions: [observeContribution()],
 			}),
 		).toThrow(
-			new TypeError('privileges[0].name must be a concrete PluginPrivilege'),
-		)
-		expect(() =>
-			definePlugin({
-				...base,
-				privileges: [{ name: 'runtime:observe', reason: '' }],
-			}),
-		).toThrow(new TypeError('privileges[0].reason must be a non-empty string'))
-		expect(() =>
-			definePlugin({
-				...base,
-				privileges: [
-					{ name: 'runtime:observe', reason: 'First request.' },
-					{ name: 'runtime:observe', reason: 'Duplicate request.' },
-				],
-			}),
-		).toThrow(
-			new TypeError('Duplicate plugin privilege request: runtime:observe'),
+			new TypeError(
+				'plugin permissions.runtime:observe must be a non-empty string',
+			),
 		)
 	})
 
 	it('rejects the removed migration privilege before declaration effects', () => {
 		const effects: string[] = []
 		expect(() =>
-			definePlugin({
-				pluginId: 'fixture.removed-migration-privilege',
+			createPlugin({
+				id: 'fixture.removed-migration-privilege',
 				version: '1.0.0',
 				core: '^0.0.0',
-				privileges: [
-					// ADR-0266 removes this privilege from typed and untyped manifests.
-					// @ts-expect-error Migration contribution is no longer a Core power.
-					{ name: 'migration:contribute', reason: 'Former migration fixture.' },
+				permissions: {
+					'migration:contribute': 'Former migration fixture.',
+				} as never,
+				contributions: [
+					withPluginPrivileges(
+						contributeApplication(() => {
+							effects.push('setup')
+							return { exports: undefined }
+						}),
+						// ADR-0266 removes this privilege from typed and untyped manifests.
+						['migration:contribute' as never],
+					),
 				],
-				declare: () => {
-					effects.push('declare')
-				},
-				setup: () => {
-					effects.push('setup')
-				},
 			}),
 		).toThrow('must be a concrete PluginPrivilege')
 		expect(effects).toStrictEqual([])
@@ -209,24 +221,26 @@ describe('plugin manifests', () => {
 
 	it('rejects unknown and duplicate environmental claims independently', () => {
 		const base = {
-			pluginId: 'fixture.plugin',
+			id: 'fixture.plugin',
 			version: '1.0.0',
 			core: '^0.0.0',
 		} as const
 
 		expect(() =>
-			definePlugin({
+			createPlugin({
 				...base,
 				// @ts-expect-error -- Runtime validation protects JavaScript callers.
 				environment: ['environment:camera'],
+				contributions: [],
 			}),
 		).toThrow(
 			new TypeError('environment[0] must be a concrete PluginEnvironmentClaim'),
 		)
 		expect(() =>
-			definePlugin({
+			createPlugin({
 				...base,
 				environment: ['environment:network', 'environment:network'],
+				contributions: [],
 			}),
 		).toThrow(
 			new TypeError('Duplicate plugin environment claim: environment:network'),

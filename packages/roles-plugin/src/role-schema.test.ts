@@ -1,14 +1,14 @@
-import { onTestFinished } from 'vitest'
+import { onTestFinished, describe, expect, it } from 'vitest'
 import {
 	QueryBuilder,
 	Schema,
 	createApplication,
-	definePlugin,
+	plugin,
+	contributeApplication,
 	stringField,
 	type SchemaOptions,
 } from '@ultimabase/core'
 import type { FrameworkError } from '@ultimabase/core'
-import { describe, expect, it } from 'vitest'
 
 import { rolesPlugin } from './plugin.js'
 import { getRoleSchemaDeclaration, RoleSchema } from './role-schema.js'
@@ -151,12 +151,15 @@ describe('RoleSchema', () => {
 			fields: () => ({}),
 		})
 		let infrastructureStarted = false
-		const infrastructure = definePlugin({
+		const infrastructure = plugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.roles.missing-plugin-infrastructure',
-			setup: () => {
-				infrastructureStarted = true
-			},
+			id: 'fixture.roles.missing-plugin-infrastructure',
+			contributions: [
+				contributeApplication(() => {
+					infrastructureStarted = true
+					return { exports: undefined }
+				}),
+			],
 			version: '0.0.0',
 		})
 
@@ -200,12 +203,15 @@ describe('RoleSchema', () => {
 
 		for (const [index, schema] of [CopiedRole, ForeignRole].entries()) {
 			let infrastructureStarted = false
-			const infrastructure = definePlugin({
+			const infrastructure = plugin({
 				core: '^0.0.0',
-				pluginId: `fixture.roles.infrastructure-${String(index)}`,
-				setup: () => {
-					infrastructureStarted = true
-				},
+				id: `fixture.roles.infrastructure-${String(index)}`,
+				contributions: [
+					contributeApplication(() => {
+						infrastructureStarted = true
+						return { exports: undefined }
+					}),
+				],
 				version: '0.0.0',
 			})
 
@@ -247,12 +253,15 @@ describe('RoleSchema', () => {
 			fields: () => ({}),
 		})
 		let infrastructureStarted = false
-		const infrastructure = definePlugin({
+		const infrastructure = plugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.roles.duplicate-infrastructure',
-			setup: () => {
-				infrastructureStarted = true
-			},
+			id: 'fixture.roles.duplicate-infrastructure',
+			contributions: [
+				contributeApplication(() => {
+					infrastructureStarted = true
+					return { exports: undefined }
+				}),
+			],
 			version: '0.0.0',
 		})
 

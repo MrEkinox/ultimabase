@@ -1,14 +1,15 @@
-import { onTestFinished } from 'vitest'
+import { onTestFinished, describe, expect, it, vi } from 'vitest'
 import {
 	MasterAuthority,
 	RequestContext,
 	Schema,
 	UltimaBase,
 	addSchemaField,
+	contributeDeclarations,
 	contributeSchemaMutation,
 	databaseAdapterCapability,
 	defineOperationValue,
-	definePlugin,
+	plugin,
 	defineSchemaMutation,
 	provideCapability,
 	requestSources,
@@ -18,7 +19,6 @@ import {
 	type SchemaDefinition,
 } from '@ultimabase/core'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
-import { describe, expect, it, vi } from 'vitest'
 
 import {
 	hooksPlugin,
@@ -48,16 +48,16 @@ interface RuntimeMutationHookInput {
 let fixtureIndex = 0
 
 const databasePlugin = (adapter: DatabaseAdapter, id: number) =>
-	definePlugin({
-		capabilities: [
+	plugin({
+		core: '^0.0.0',
+		id: `fixture.schema-mutation-hook-database-${String(id)}`,
+		version: '1.0.0',
+		contributions: [
 			provideCapability(databaseAdapterCapability, {
 				contributionId: 'database-adapter',
 				create: () => ({ value: adapter }),
 			}),
 		],
-		core: '^0.0.0',
-		pluginId: `fixture.schema-mutation-hook-database-${String(id)}`,
-		version: '1.0.0',
 	})
 
 const createArchiveParts = (trace: string[], hooks?: unknown) => {
@@ -82,8 +82,17 @@ const createArchiveParts = (trace: string[], hooks?: unknown) => {
 		fields: (field) => ({ title: field.string() }),
 		...(hooks === undefined ? {} : { hooks: hooks as never }),
 	})
-	const owner = definePlugin({
-		operations: [
+	const owner = plugin({
+		id: `fixture.schema-mutation-hook-owner-${String(id)}`,
+		core: '^0.0.0',
+		version: '1.0.0',
+		permissions: {
+			'model:extend': 'Adds archive.',
+			'operation:declare': 'Declares archive.',
+			'persistence:rewrite': 'Persists archive.',
+			'schema:declare': 'Adds workflow state.',
+		},
+		contributions: [
 			contributeSchemaMutation({
 				mutation: archive,
 				resolve: () => {
@@ -91,37 +100,32 @@ const createArchiveParts = (trace: string[], hooks?: unknown) => {
 					return { data: { workflowState: 'archived' } }
 				},
 			}),
-		],
-		core: '^0.0.0',
-		declare: ({ models, schemas }) => {
-			schemas.patch({
-				operations: [
-					addSchemaField({
-						contributionId: 'workflow-state',
-						field: stringField(),
-						name: 'workflowState',
-					}),
-				],
-				targets: schemas.select({ className: Document.className }),
-			})
-			models.extend(
-				{ className: Document.className },
-				{
-					contributionId: 'archive-surface',
-					schemaMutations: {
-						archive: { mutation: archive, surfaces: ['schema'] },
-					},
+			contributeDeclarations({
+				schema: ({ schemas }) => {
+					schemas.patch({
+						operations: [
+							addSchemaField({
+								contributionId: 'workflow-state',
+								field: stringField(),
+								name: 'workflowState',
+							}),
+						],
+						targets: schemas.select({ className: Document.className }),
+					})
 				},
-			)
-		},
-		pluginId: `fixture.schema-mutation-hook-owner-${String(id)}`,
-		privileges: [
-			{ name: 'model:extend', reason: 'Adds archive.' },
-			{ name: 'operation:declare', reason: 'Declares archive.' },
-			{ name: 'persistence:rewrite', reason: 'Persists archive.' },
-			{ name: 'schema:declare', reason: 'Adds workflow state.' },
-		] as const,
-		version: '1.0.0',
+				models: ({ models }) => {
+					models.extend(
+						{ className: Document.className },
+						{
+							contributionId: 'archive-surface',
+							schemaMutations: {
+								archive: { mutation: archive, surfaces: ['schema'] },
+							},
+						},
+					)
+				},
+			}),
+		],
 	})
 	const adapter = new SchemaMutationHookAdapter(trace)
 	const database = databasePlugin(adapter, id)
@@ -154,19 +158,17 @@ const createHookProvider = (
 	schema: SchemaDefinition,
 	hooks: unknown,
 ) =>
-	definePlugin({
-		capabilities: [
+	plugin({
+		core: '^0.0.0',
+		peers: [{ pluginId: '@ultimabase/hooks-plugin', version: '^0.0.0' }],
+		id: id,
+		permissions: { 'runtime:intercept': 'Observes archive lifecycle.' },
+		version: '1.0.0',
+		contributions: [
 			provideHookContributions(`${id}-contribution`, () =>
 				schemaHooks(schema, hooks as never),
 			),
 		],
-		core: '^0.0.0',
-		peers: [{ pluginId: '@ultimabase/hooks-plugin', version: '^0.0.0' }],
-		pluginId: id,
-		privileges: [
-			{ name: 'runtime:intercept', reason: 'Observes archive lifecycle.' },
-		] as const,
-		version: '1.0.0',
 	})
 
 describe('schema mutation Hooks', () => {
@@ -236,8 +238,12 @@ describe('schema mutation Hooks', () => {
 				beforeOperation: { archive: () => trace.push('second:before') },
 			},
 		)
-		const events = definePlugin({
-			capabilities: [
+		const events = plugin({
+			core: '^0.0.0',
+			id: 'fixture.schema-hook-events',
+			permissions: { 'runtime:observe': 'Consumes committed events.' },
+			version: '1.0.0',
+			contributions: [
 				provideHookEvent(
 					'archive-events',
 					onEvent({
@@ -248,12 +254,6 @@ describe('schema mutation Hooks', () => {
 					}),
 				),
 			],
-			core: '^0.0.0',
-			pluginId: 'fixture.schema-hook-events',
-			privileges: [
-				{ name: 'runtime:observe', reason: 'Consumes committed events.' },
-			] as const,
-			version: '1.0.0',
 		})
 		const ultimabase = new UltimaBase({
 			pluginPrivileges: { logger: false },

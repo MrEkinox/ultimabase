@@ -1,13 +1,14 @@
 import {
 	adapterPersistencePlanCapability,
 	booleanField,
+	contributeDeclarations,
 	constraint,
 	databaseConstraint,
-	definePluginModule,
 	normalizeUpdateExpression,
 	persistencePlanRewriter,
 	providePersistencePlanRewriter,
 	provideRuntimeConstraint,
+	plugin,
 	requireCapability,
 	rewriteDeletePersistencePlan,
 	type PluginDefinition,
@@ -18,11 +19,6 @@ import { patchSchemas, schemaPatch } from '@ultimabase/plugin-kit'
 export const softDeleteVisibilityConstraintKind =
 	'fixture.open-kernel.soft-delete-visible' as const
 
-const softDeleteModule = definePluginModule({
-	core: '^0.0.0',
-	pluginId: 'fixture.open-kernel-soft-delete',
-	version: '1.0.0',
-})
 const persistence = requireCapability(
 	adapterPersistencePlanCapability,
 	'^1.0.0',
@@ -55,8 +51,11 @@ export const createSoftDeletePlugin = (
 		schema: options.target,
 	})
 
-	return softDeleteModule.plugin({
-		capabilities: [
+	return plugin({
+		core: '^0.0.0',
+		id: 'fixture.open-kernel-soft-delete',
+		version: '1.0.0',
+		contributions: [
 			provideRuntimeConstraint({
 				contributionId: 'visible-rows',
 				create: () => ({ value: visible }),
@@ -66,25 +65,29 @@ export const createSoftDeletePlugin = (
 				create: () => ({ value: rewriter }),
 			}),
 			persistence,
+			contributeDeclarations({
+				schema: ({ schemas }) => {
+					schemas.patch(
+						patchSchemas({
+							patch: schemaPatch().addField({
+								contributionId: 'tombstone',
+								field: booleanField({ default: false }),
+								name: 'isDeleted',
+							}),
+							targets: schemas.select({
+								className: options.target.className,
+							}),
+						}),
+					)
+				},
+			}),
 		],
-		declare: ({ schemas }) => {
-			schemas.patch(
-				patchSchemas({
-					patch: schemaPatch().addField({
-						contributionId: 'tombstone',
-						field: booleanField({ default: false }),
-						name: 'isDeleted',
-					}),
-					targets: schemas.select({ className: options.target.className }),
-				}),
-			)
-		},
 		instanceId: options.instanceId,
-		privileges: [
-			{ name: 'adapter:consume', reason: 'Requires delete-plan support.' },
-			{ name: 'schema:declare', reason: 'Adds tombstone metadata.' },
-			{ name: 'runtime:constrain', reason: 'Hides tombstones privately.' },
-			{ name: 'persistence:rewrite', reason: 'Rewrites logical deletes.' },
-		] as const,
+		permissions: {
+			'adapter:consume': 'Requires delete-plan support.',
+			'schema:declare': 'Adds tombstone metadata.',
+			'runtime:constrain': 'Hides tombstones privately.',
+			'persistence:rewrite': 'Rewrites logical deletes.',
+		},
 	})
 }

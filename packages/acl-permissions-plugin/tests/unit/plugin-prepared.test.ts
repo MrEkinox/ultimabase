@@ -4,7 +4,7 @@ import {
 	QueryBuilder,
 	Schema,
 	createApplication,
-	definePlugin,
+	plugin,
 	UltimaBase,
 } from '@ultimabase/core'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
@@ -166,11 +166,11 @@ describe('aclPlugin prepared input resolution', () => {
 			title: 'Existing',
 			updatedAt: '2026-08-04T00:00:00.000Z',
 		})
-		const databaseProvider = definePlugin({
+		const databaseProvider = plugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.acl-replacement-write-database',
-			capabilities: [databaseAdapterProvider(adapter)],
+			id: 'fixture.acl-replacement-write-database',
+			contributions: [databaseAdapterProvider(adapter)],
 		})
 		const ultimabase = new UltimaBase({
 			masterAuthority: new MasterAuthority({

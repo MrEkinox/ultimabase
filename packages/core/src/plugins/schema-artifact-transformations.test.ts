@@ -4,7 +4,8 @@ import {
 	Schema,
 	addSchemaConstraint,
 	createApplication,
-	definePlugin,
+	plugin as createPlugin,
+	contributeDeclarations,
 	defineSchemaConstraint,
 } from '../index.js'
 
@@ -22,20 +23,21 @@ describe('plugin schema artifact transformations', () => {
 				left: field.pointer({ target: 'PluginCircularLeft' }),
 			}),
 		})
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.circular-schemas',
-			privileges: [
-				{
-					name: 'schema:declare',
-					reason: 'Declares two circular test schemas.',
-				},
-			] as const,
+			id: 'fixture.circular-schemas',
+			permissions: { 'schema:declare': 'Declares two circular test schemas.' },
 			version: '1.0.0',
-			declare: ({ schemas }) => {
-				schemas.add({ contributionId: 'left', schema: Left })
-				schemas.add({ contributionId: 'right', schema: Right })
-			},
+			contributions: [
+				contributeDeclarations({
+					schema: ({ schemas }) => {
+						schemas.add({ contributionId: 'left', schema: Left })
+						schemas.add({ contributionId: 'right', schema: Right })
+
+						return undefined
+					},
+				}),
+			],
 		})
 
 		const application = applicationFixture(
@@ -64,27 +66,30 @@ describe('plugin schema artifact transformations', () => {
 			}),
 		})
 		const contributor = (className: string) =>
-			definePlugin({
+			createPlugin({
 				core: '^0.0.0',
-				pluginId: 'fixture.constraint-contributor',
-				privileges: [
-					{
-						name: 'schema:declare',
-						reason: 'Adds one portable logical constraint.',
-					},
-				] as const,
-				version: '1.0.0',
-				declare: ({ schemas }) => {
-					schemas.patch({
-						operations: [
-							addSchemaConstraint({
-								constraint: originalConstraint,
-								contributionId: 'search-index',
-							}),
-						],
-						targets: schemas.select({ className }),
-					})
+				id: 'fixture.constraint-contributor',
+				permissions: {
+					'schema:declare': 'Adds one portable logical constraint.',
 				},
+				version: '1.0.0',
+				contributions: [
+					contributeDeclarations({
+						schema: ({ schemas }) => {
+							schemas.patch({
+								operations: [
+									addSchemaConstraint({
+										constraint: originalConstraint,
+										contributionId: 'search-index',
+									}),
+								],
+								targets: schemas.select({ className }),
+							})
+
+							return undefined
+						},
+					}),
+				],
 			})
 		await (
 			await createApplication({

@@ -1,11 +1,11 @@
-import { onTestFinished } from 'vitest'
+import { onTestFinished, describe, expect, it } from 'vitest'
 import {
 	MasterAuthority,
 	Schema,
 	UltimaBase,
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
-	definePlugin,
+	plugin,
 	provideCapability,
 	type DatabaseAdapter,
 	type DatabaseOperationAst,
@@ -13,7 +13,6 @@ import {
 	type DatabaseOperationResult,
 	type DatabaseTransactionAdapter,
 } from '@ultimabase/core'
-import { describe, expect, it } from 'vitest'
 
 import type { SoftDeleteSchemaOption } from './contracts.js'
 import { softDeletePlugin } from './plugin.js'
@@ -40,11 +39,11 @@ class VisibilityReadAdapter implements DatabaseAdapter {
 }
 
 const databasePlugin = (adapter: DatabaseAdapter) =>
-	definePlugin({
+	plugin({
 		core: '^0.0.0',
-		pluginId: 'fixture.soft-delete-database',
+		id: 'fixture.soft-delete-database',
 		version: '1.0.0',
-		capabilities: [
+		contributions: [
 			provideCapability(databaseAdapterCapability, {
 				contributionId: 'database-adapter',
 				create: () => ({ value: adapter }),

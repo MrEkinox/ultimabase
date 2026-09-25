@@ -11,7 +11,7 @@ import {
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
 	databasePluginFieldStructuralContainsCapability,
-	definePlugin,
+	plugin,
 	provideCapability,
 	type DatabaseAdapter,
 	type DatabaseOperationAst,
@@ -68,15 +68,15 @@ class AlternativeReadAdapter implements DatabaseAdapter {
 }
 
 const createSupportPlugin = (adapter: DatabaseAdapter) =>
-	definePlugin({
-		capabilities: [
+	plugin({
+		contributions: [
 			provideCapability(databaseAdapterCapability, {
 				contributionId: 'database-adapter',
 				create: () => ({ value: adapter }),
 			}),
 		],
 		core: '^0.0.0',
-		pluginId: 'fixture.alternative-policy-support',
+		id: 'fixture.alternative-policy-support',
 		version: '1.0.0',
 	})
 

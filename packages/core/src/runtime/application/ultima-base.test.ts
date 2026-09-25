@@ -1,5 +1,9 @@
 import { applicationFixture } from '../../../tests/application-fixture.js'
-import { definePlugin } from '../../foundation.js'
+import {
+	plugin as createPlugin,
+	contributeApplication,
+	withPluginPrivileges,
+} from '../../foundation.js'
 import { RequestContextValue } from '../../access/index.js'
 import { Schema } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
@@ -43,17 +47,14 @@ const createDatabasePlugin = (
 		readonly trace?: string[]
 	} = {},
 ) =>
-	definePlugin({
+	createPlugin({
 		version: '0.0.0',
 		core: '^0.0.0',
-		pluginId: 'fixture.ultimabase-database',
-		privileges: [
-			{
-				name: 'runtime:intercept',
-				reason: 'Exercises low-level request context observation.',
-			},
-		],
-		capabilities: [
+		id: 'fixture.ultimabase-database',
+		permissions: {
+			'runtime:intercept': 'Exercises low-level request context observation.',
+		},
+		contributions: [
 			provideTestDatabaseAdapter(adapter),
 			...(options.onContext === undefined
 				? []
@@ -69,21 +70,34 @@ const createDatabasePlugin = (
 							}),
 						),
 					]),
+			withPluginPrivileges(
+				contributeApplication((context) => {
+					options.trace?.push('setup')
+					const exports = undefined
+					const lifecycleContext = { ...context, pluginExports: exports }
+					void lifecycleContext
+					return {
+						exports,
+						connect: () => {
+							;(() => {
+								options.trace?.push('connect')
+							})()
+						},
+						stop: () => {
+							;(() => {
+								options.trace?.push('stop')
+							})()
+						},
+						dispose: () => {
+							;(() => {
+								options.trace?.push('dispose')
+							})()
+						},
+					}
+				}),
+				['runtime:intercept'],
+			),
 		],
-		setup: () => {
-			options.trace?.push('setup')
-		},
-		hooks: {
-			connect: () => {
-				options.trace?.push('connect')
-			},
-			stop: () => {
-				options.trace?.push('stop')
-			},
-			dispose: () => {
-				options.trace?.push('dispose')
-			},
-		},
 	})
 
 describe('UltimaBase', () => {
@@ -528,18 +542,26 @@ describe('UltimaBase', () => {
 
 	it('cleans initialized plugins when Runtime assembly fails', async () => {
 		const trace: string[] = []
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.ultimabase-missing-adapter',
-			setup: () => {
-				trace.push('setup')
-			},
-			hooks: {
-				dispose: () => {
-					trace.push('dispose')
-				},
-			},
+			id: 'fixture.ultimabase-missing-adapter',
+			contributions: [
+				contributeApplication((context) => {
+					trace.push('setup')
+					const exports = undefined
+					const lifecycleContext = { ...context, pluginExports: exports }
+					void lifecycleContext
+					return {
+						exports,
+						dispose: () => {
+							;(() => {
+								trace.push('dispose')
+							})()
+						},
+					}
+				}),
+			],
 		})
 		const ultimabase = applicationFixture(
 			new UltimaBase({

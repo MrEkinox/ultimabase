@@ -2,7 +2,8 @@ import {
 	contributeOperation,
 	defineOperation,
 	defineOperationValue,
-	definePlugin,
+	plugin,
+	contributeApplication,
 	requireCapability,
 	UltimaBase,
 } from '@ultimabase/core'
@@ -85,20 +86,21 @@ describe('PostgreSQL adapter capabilities', () => {
 			postgresRawAdapterCapability,
 			'^1.0.0',
 		)
-		const setupConsumer = definePlugin({
-			capabilities: [rawRequirement],
+		const setupConsumer = plugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.postgres-raw-setup-consumer',
-			privileges: [
-				{ name: 'adapter:raw', reason: 'Reads inert setup identity.' },
-			] as const,
-			setup: ({ adapters }) =>
-				adapters.withRaw(rawRequirement, (raw) => ({
-					clientsDuringSetup: pool.clients.length,
-					dialect: raw.dialect,
-					scope: raw.scope,
-				})),
+			id: 'fixture.postgres-raw-setup-consumer',
+			permissions: { 'adapter:raw': 'Reads inert setup identity.' },
 			version: '1.0.0',
+			contributions: [
+				rawRequirement,
+				contributeApplication(async ({ adapters }) => ({
+					exports: await adapters.withRaw(rawRequirement, (raw) => ({
+						clientsDuringSetup: pool.clients.length,
+						dialect: raw.dialect,
+						scope: raw.scope,
+					})),
+				})),
+			],
 		})
 		const ultimabase = new UltimaBase({
 			pluginPrivileges: { logger: false },
@@ -135,10 +137,16 @@ describe('PostgreSQL adapter capabilities', () => {
 			version: '1.0.0',
 		})
 		let escaped: PostgresRawAdapterFacade | undefined
-		const operationPlugin = definePlugin({
-			capabilities: [rawRequirement],
+		const operationPlugin = plugin({
 			core: '^0.0.0',
-			operations: [
+			id: 'fixture.postgres-raw-consumer',
+			permissions: {
+				'adapter:raw': 'Runs one raw transaction query.',
+				'operation:declare': 'Declares the raw operation.',
+			},
+			version: '1.0.0',
+			contributions: [
+				rawRequirement,
 				contributeOperation({
 					execute: ({ adapters }) =>
 						adapters.withRaw(rawRequirement, async (raw) => {
@@ -150,15 +158,14 @@ describe('PostgreSQL adapter capabilities', () => {
 					operation: rawOperation,
 				}),
 			],
-			pluginId: 'fixture.postgres-raw-consumer',
-			privileges: [
-				{ name: 'adapter:raw', reason: 'Runs one raw transaction query.' },
-				{ name: 'operation:declare', reason: 'Declares the raw operation.' },
-			] as const,
-			version: '1.0.0',
 		})
-		const bridgePlugin = definePlugin({
-			capabilities: [
+		const bridgePlugin = plugin({
+			core: '^0.0.0',
+			instanceId: 'primary',
+			id: 'fixture.workflow-postgres',
+			permissions: { 'adapter:consume': 'Adds PostgreSQL physical metadata.' },
+			version: '2.0.0',
+			contributions: [
 				postgresPhysicalColumn({
 					column: {
 						name: 'workflow_state',
@@ -170,16 +177,6 @@ describe('PostgreSQL adapter capabilities', () => {
 					table: 'workflow_items',
 				}),
 			],
-			core: '^0.0.0',
-			instanceId: 'primary',
-			pluginId: 'fixture.workflow-postgres',
-			privileges: [
-				{
-					name: 'adapter:consume',
-					reason: 'Adds PostgreSQL physical metadata.',
-				},
-			] as const,
-			version: '2.0.0',
 		})
 		const database = postgresPlugin({ pool, schemaPolicy: 'ignore' })
 		const ultimabase = new UltimaBase({

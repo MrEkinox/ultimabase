@@ -2,7 +2,8 @@ import { serve, type ServerType } from '@hono/node-server'
 import {
 	MasterAuthority,
 	UltimaBase,
-	definePlugin,
+	plugin,
+	contributeApplication,
 	getCurrentRequest,
 	requireCapability,
 	type MasterAccessEvent,
@@ -56,14 +57,12 @@ beforeAll(async () => {
 afterAll(async () => {
 	await fixture?.dispose()
 })
-const contextRoutes = definePlugin({
-	pluginId: 'fixture.password-http-context',
+const contextRoutes = plugin({
+	id: 'fixture.password-http-context',
 	version: '1.0.0',
 	core: '^0.0.0',
-	privileges: [
-		{ name: 'transport:expose', reason: 'Exposes HTTP auth context evidence.' },
-	],
-	capabilities: [
+	permissions: { 'transport:expose': 'Exposes HTTP auth context evidence.' },
+	contributions: [
 		provideHttpEndpoints({
 			contributionId: 'password-context',
 			create: () =>
@@ -104,14 +103,18 @@ const createPasswordHttpApplication = (
 	options: PasswordHttpApplicationOptions,
 ) => {
 	let http: HttpApplication | undefined
-	const capture = definePlugin({
-		pluginId: `fixture.password-http-capture.${options.appId}`,
+	const capture = plugin({
+		id: `fixture.password-http-capture.${options.appId}`,
 		version: '1.0.0',
 		core: '^0.0.0',
-		capabilities: [applicationRequirement],
-		setup: ({ capabilities }) => {
-			http = capabilities.get(applicationRequirement)
-		},
+		contributions: [
+			applicationRequirement,
+			contributeApplication(({ capabilities }) => {
+				http = capabilities.get(applicationRequirement)
+				const exports = undefined
+				return { exports }
+			}),
+		],
 	})
 	const browser =
 		options.cookie === true

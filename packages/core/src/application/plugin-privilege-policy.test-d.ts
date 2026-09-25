@@ -1,28 +1,35 @@
 import { expectTypeOf, test } from 'vitest'
 
 import {
-	definePlugin,
+	contributeApplication,
+	plugin,
 	FrameworkApplication,
 	UltimaBase,
 	type PluginEnvironmentClaim,
 	type PluginPrivilege,
 	type PluginPrivilegeReport,
+	withPluginPrivileges,
 } from '../index.js'
 
-const primary = definePlugin({
-	pluginId: 'fixture.typed-policy',
+const primary = plugin({
+	id: 'fixture.typed-policy',
 	instanceId: 'primary',
 	version: '1.0.0',
 	core: '^0.0.0',
-	privileges: [
-		{ name: 'runtime:observe', reason: 'Verifies exact policy types.' },
+	permissions: { 'runtime:observe': 'Verifies exact policy types.' },
+	contributions: [
+		withPluginPrivileges(
+			contributeApplication(() => ({ exports: undefined })),
+			['runtime:observe'],
+		),
 	],
 })
-const secondary = definePlugin({
-	pluginId: 'fixture.typed-policy',
+const secondary = plugin({
+	id: 'fixture.typed-policy',
 	instanceId: 'secondary',
 	version: '1.0.0',
 	core: '^0.0.0',
+	contributions: [],
 })
 
 test('infers exact plugin and instance policy targets on both application facades', () => {

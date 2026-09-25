@@ -1,15 +1,17 @@
-import { onTestFinished } from 'vitest'
+import { onTestFinished, describe, expect, it, vi } from 'vitest'
 import {
 	MasterAuthority,
 	PluginError,
 	Schema,
 	UltimaBase,
 	addSchemaField,
+	contributeDeclarations,
 	contributeSchemaMutation,
 	databaseAdapterCapability,
 	defineOperationTransport,
 	defineOperationValue,
-	definePlugin,
+	plugin,
+	contributeApplication,
 	defineSchemaMutation,
 	provideCapability,
 	requireCapability,
@@ -26,7 +28,6 @@ import {
 	type HttpOriginalHeader,
 } from '@ultimabase/http-plugin'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
-import { describe, expect, it, vi } from 'vitest'
 
 import { restPlugin } from './plugin.js'
 import {
@@ -76,8 +77,18 @@ const createMutationPlugin = (
 		errors: { 'fixture.rest-schema-mutation.conflict': 409 },
 	},
 ) =>
-	definePlugin({
-		operations: [
+	plugin({
+		id: 'fixture.rest-schema-mutation-owner',
+		core: '^0.0.0',
+		version: '1.0.0',
+		permissions: {
+			'model:extend': 'Adds workflow commands.',
+			'operation:declare': 'Declares workflow mutations.',
+			'persistence:rewrite': 'Persists workflow state.',
+			'schema:declare': 'Adds workflow state.',
+			'transport:expose': 'Binds REST v1.',
+		},
+		contributions: [
 			contributeSchemaMutation({
 				bindings: [
 					schemaMutationTransportBinding({
@@ -118,69 +129,69 @@ const createMutationPlugin = (
 				mutation: masterMutation,
 				resolve: () => undefined,
 			}),
-		],
-		core: '^0.0.0',
-		declare: ({ models, schemas }) => {
-			schemas.patch({
-				operations: [
-					addSchemaField({
-						contributionId: 'workflow-state',
-						field: stringField(),
-						name: 'workflowState',
-					}),
-				],
-				targets: schemas.select({ className: WorkflowDocument.className }),
-			})
-			models.extend(WorkflowDocument, {
-				contributionId: 'workflow-mutations',
-				schemaMutations: {
-					archiveDocument: {
-						mutation: archiveMutation,
-						surfaces: ['schema'],
-					},
-					purgeDocument: {
-						mutation: masterMutation,
-						surfaces: ['schema'],
-					},
+			contributeDeclarations({
+				schema: ({ schemas }) => {
+					schemas.patch({
+						operations: [
+							addSchemaField({
+								contributionId: 'workflow-state',
+								field: stringField(),
+								name: 'workflowState',
+							}),
+						],
+						targets: schemas.select({
+							className: WorkflowDocument.className,
+						}),
+					})
 				},
-			})
-		},
-		pluginId: 'fixture.rest-schema-mutation-owner',
-		privileges: [
-			{ name: 'model:extend', reason: 'Adds workflow commands.' },
-			{ name: 'operation:declare', reason: 'Declares workflow mutations.' },
-			{ name: 'persistence:rewrite', reason: 'Persists workflow state.' },
-			{ name: 'schema:declare', reason: 'Adds workflow state.' },
-			{ name: 'transport:expose', reason: 'Binds REST v1.' },
-		] as const,
-		version: '1.0.0',
+				models: ({ models }) => {
+					models.extend(WorkflowDocument, {
+						contributionId: 'workflow-mutations',
+						schemaMutations: {
+							archiveDocument: {
+								mutation: archiveMutation,
+								surfaces: ['schema'],
+							},
+							purgeDocument: {
+								mutation: masterMutation,
+								surfaces: ['schema'],
+							},
+						},
+					})
+				},
+			}),
+		],
 	})
 
 const databasePlugin = (adapter: DatabaseAdapter) =>
-	definePlugin({
-		capabilities: [
+	plugin({
+		core: '^0.0.0',
+		id: 'fixture.rest-schema-mutation-database',
+		version: '1.0.0',
+		contributions: [
 			provideCapability(databaseAdapterCapability, {
 				contributionId: 'database',
 				create: () => ({ value: adapter }),
 			}),
 		],
-		core: '^0.0.0',
-		pluginId: 'fixture.rest-schema-mutation-database',
-		version: '1.0.0',
 	})
 
 const httpRequirement = requireCapability(httpApplicationCapability, '^1.0.0', {
 	phase: 'setup',
 })
 const capturePlugin = (capture: { current?: HttpApplication }) =>
-	definePlugin({
-		capabilities: [httpRequirement],
+	plugin({
 		core: '^0.0.0',
-		pluginId: 'fixture.rest-schema-mutation-http-capture',
-		setup: ({ capabilities }) => {
-			capture.current = capabilities.get(httpRequirement)
-		},
+		id: 'fixture.rest-schema-mutation-http-capture',
 		version: '1.0.0',
+		contributions: [
+			httpRequirement,
+			contributeApplication(({ capabilities }) => {
+				capture.current = capabilities.get(httpRequirement)
+				const exports = undefined
+				return { exports }
+			}),
+		],
 	})
 
 const createFixture = async (

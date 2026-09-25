@@ -163,20 +163,21 @@ const vectorMethod = defineFieldBuilderMethod({
 	},
 })
 
-const plugin = definePlugin({
-	pluginId: '@ultimabase/pg-vector-plugin',
+const vectorPlugin = plugin({
+	id: '@ultimabase/pg-vector-plugin',
 	version: '1.0.0',
 	core: '^0.0.0',
-	privileges: [
-		{
-			name: 'schema:declare',
-			reason: 'Declares the vector FieldBuilder method.',
-		},
-	],
-	declare({ fields }) {
-		fields.register(vectorMethod)
+	permissions: {
+		'schema:declare': 'Declares the vector FieldBuilder method.',
 	},
-	setup: () => ({ ready: true }),
+	contributions: [
+		contributeDeclarations({
+			schema: ({ fields }) => {
+				fields.register(vectorMethod)
+			},
+		}),
+		contributeApplication(() => ({ exports: { ready: true } })),
+	],
 })
 ```
 
@@ -252,41 +253,42 @@ const workflowOption = defineSchemaOption({
 	},
 })
 
-const workflowPlugin = definePlugin({
-	pluginId: '@example/workflow-plugin',
+const workflowPlugin = plugin({
+	id: '@example/workflow-plugin',
 	version: '1.0.0',
 	core: '^0.0.0',
-	privileges: [
-		{
-			name: 'schema:declare',
-			reason: 'Declares workflow options and logical schema fields.',
-		},
-	],
-	declare({ schemas }) {
-		schemas.defineOptions({
-			contributionId: 'workflow-options',
-			schema: { workflow: workflowOption },
-		})
-
-		const workflowSchemas = schemas.select({
-			option: { name: 'workflow' },
-		})
-
-		schemas.patch({
-			targets: workflowSchemas,
-			operations: [
-				addSchemaField({
-					contributionId: 'workflow-state',
-					name: 'workflowState',
-					field: stringField({ required: true }),
-				}),
-				addSchemaIndex({
-					contributionId: 'workflow-state-index',
-					fields: ['workflowState', 'createdAt'],
-				}),
-			],
-		})
+	permissions: {
+		'schema:declare': 'Declares workflow options and logical schema fields.',
 	},
+	contributions: [
+		contributeDeclarations({
+			schema: ({ schemas }) => {
+				schemas.defineOptions({
+					contributionId: 'workflow-options',
+					schema: { workflow: workflowOption },
+				})
+
+				const workflowSchemas = schemas.select({
+					option: { name: 'workflow' },
+				})
+
+				schemas.patch({
+					targets: workflowSchemas,
+					operations: [
+						addSchemaField({
+							contributionId: 'workflow-state',
+							name: 'workflowState',
+							field: stringField({ required: true }),
+						}),
+						addSchemaIndex({
+							contributionId: 'workflow-state-index',
+							fields: ['workflowState', 'createdAt'],
+						}),
+					],
+				})
+			},
+		}),
+	],
 })
 ```
 
@@ -447,33 +449,27 @@ const publishPost = defineOperation({
 	result: defineOperationValue(snapshotPublishResult),
 })
 
-const workflow = definePluginModule({
-	core: '^0.0.0',
-	pluginId: 'community.workflow',
-	version: '1.0.0',
-})
-
 export const workflowPlugin = () =>
-	workflow.plugin({
-		operations: [
+	plugin({
+		id: 'community.workflow',
+		core: '^0.0.0',
+		version: '1.0.0',
+		contributions: [
 			contributeOperation({
 				execute: ({ input }) => publish(input),
 				operation: publishPost,
 			}),
 		],
-		privileges: [
-			{
-				name: 'operation:declare',
-				reason: 'Declares the publish operation.',
-			},
-		],
+		permissions: {
+			'operation:declare': 'Declares the publish operation.',
+		},
 	})
 ```
 
 `contributeOperation()` correlates the token, direct or resource-backed handler,
 and optional wire bindings. Core derives the static registrar call, nominal
 capability providers, owner-local identifiers, and deterministic cleanup.
-`operation:declare` remains explicit and required. Then call
+Core derives `operation:declare`; the author supplies its explicit reason. Then call
 `ultimabase.operation(publishPost).execute(input)`. Generic operations target
 the application. Item-specific commands use the schema-mutation contract below.
 
@@ -519,18 +515,28 @@ const archiveContribution = contributeSchemaMutation({
 	resolve: () => ({ data: { workflowState: 'archived' } }),
 })
 
-declare({ models }) {
-	models.extend(PostSchema, {
-		contributionId: 'workflow-mutations',
-		schemaMutations: {
-			archive: { mutation: archive, surfaces: ['schema', 'model'] },
-		},
-	})
-}
-
-const workflowPlugin = definePlugin({
-	// ...identity and privileges...
-	operations: [archiveContribution],
+const workflowPlugin = plugin({
+	id: 'community.workflow',
+	version: '1.0.0',
+	core: '^1.0.0',
+	permissions: {
+		'model:extend': 'Adds the archive model command.',
+		'operation:declare': 'Declares archive.',
+		'persistence:rewrite': 'Persists the archive effect.',
+	},
+	contributions: [
+		archiveContribution,
+		contributeDeclarations({
+			models: ({ models }) => {
+				models.extend(PostSchema, {
+					contributionId: 'workflow-mutations',
+					schemaMutations: {
+						archive: { mutation: archive, surfaces: ['schema', 'model'] },
+					},
+				})
+			},
+		}),
+	],
 })
 ```
 
@@ -1497,17 +1503,14 @@ Definitions are materialized through the exact privilege-scoped
 
 ```ts
 const tenantPlugin = (tenantId: string) =>
-	definePlugin({
-		pluginId: 'example.tenant',
+	plugin({
+		id: 'example.tenant',
 		version: '1.0.0',
 		core: '^0.0.0',
-		privileges: [
-			{
-				name: 'runtime:constrain',
-				reason: 'Applies tenant row and field restrictions.',
-			},
-		],
-		capabilities: [
+		permissions: {
+			'runtime:constrain': 'Applies tenant row and field restrictions.',
+		},
+		contributions: [
 			provideRuntimeConstraint({
 				contributionId: 'tenant-row-filter',
 				create: () => ({
@@ -1737,16 +1740,20 @@ const sessions = definePrivateCollection({
 	indexes: [{ fields: ['secret'] }] as const,
 })
 
-definePlugin({
-	pluginId: 'example.sessions',
+plugin({
+	id: 'example.sessions',
 	version: '1.0.0',
 	core: '^1.0.0',
-	privileges: [
-		{ name: 'storage:private', reason: 'Stores revocable session verifiers.' },
-	] as const,
-	declare: ({ privateStorage }) => {
-		privateStorage.register(sessions)
+	permissions: {
+		'storage:private': 'Stores revocable session verifiers.',
 	},
+	contributions: [
+		contributeDeclarations({
+			privateStorage: ({ privateStorage }) => {
+				privateStorage.register(sessions)
+			},
+		}),
+	],
 })
 ```
 
@@ -1765,8 +1772,8 @@ no declaration perform no private adapter configuration.
 
 ## Plugin definitions
 
-`definePlugin(options)` creates immutable metadata without executing setup or
-lifecycle work:
+`plugin(options)` creates immutable metadata from one ordered contribution list
+without executing application resources:
 
 ```ts
 const dialectCapability = defineCapability<{
@@ -1780,25 +1787,22 @@ const dialectCapability = defineCapability<{
 })
 
 export const databasePlugin = () =>
-	definePlugin({
-		pluginId: 'fixture.database',
+	plugin({
+		id: 'fixture.database',
 		version: '1.0.0',
 		core: '^0.0.0',
-		privileges: [
-			{
-				name: 'adapter:consume',
-				reason: 'Uses the configured database adapter.',
-			},
-		],
+		permissions: { 'adapter:consume': 'Uses the configured database adapter.' },
 		environment: ['environment:network'],
 		dependencies: [{ pluginId: 'fixture.config', version: '^1.0.0' }],
-		capabilities: [
+		contributions: [
 			provideCapability(dialectCapability, {
 				contributionId: 'postgres',
 				value: { dialect: 'postgres' },
 			}),
+			contributeApplication(() => ({
+				exports: { dialect: 'postgres' as const },
+			})),
 		],
-		setup: () => ({ dialect: 'postgres' as const }),
 	})
 ```
 
@@ -1822,9 +1826,9 @@ Core no longer designates a unique emitter through a shared token. Repeating
 the official Typegen plugin still conflicts on its plugin identity.
 
 Manifest literals and setup exports retain their exact types for plugin lookup.
-Setup, declaration, and lifecycle callbacks remain private to Core and do not
-run during manifest inspection. Required dependencies, optional dependencies,
-conflicts, and hooks are copied and frozen. Every installed definition appears
+Application resources and declaration callbacks do not run during manifest
+inspection. Required dependencies, optional dependencies, conflicts, and
+contributions are copied and frozen. Every installed definition appears
 once in the application's flat `plugins` list; plugin relationships are
 declared explicitly.
 
@@ -1836,18 +1840,17 @@ capability requirement when several packages can provide the same behavior:
 ```ts
 const auditRequirement = optionalCapability(auditSinkCapability, '^1.0.0')
 
-const consumer = definePlugin({
-	pluginId: 'fixture.audit-consumer',
+const consumer = plugin({
+	id: 'fixture.audit-consumer',
 	version: '1.0.0',
 	core: '^0.0.0',
-	capabilities: [auditRequirement],
-	privileges: [
-		{
-			name: 'event:publish',
+	permissions: {
+		'event:publish': {
 			reason: 'Publishes audit records when a sink is installed.',
 			when: auditRequirement,
 		},
-	],
+	},
+	contributions: [auditRequirement],
 })
 ```
 
@@ -1867,7 +1870,7 @@ repeated providers of the same `multiple` or `pipeline` token from one owner.
 Dependency order and configuration position determine provider order. A
 `single` token rejects competing providers; `multiple` and `pipeline` tokens
 retain their ordered providers. Authors put providers and requirements in one
-`capabilities` list; each nominal declaration already records whether it
+`contributions` list; each nominal declaration already records whether it
 provides, requires, or optionally consumes a capability. The inspected
 manifest retains the normalized `provides`, `requires`, and `optional` groups.
 
@@ -1877,15 +1880,16 @@ Plugins read only the exact `requireCapability(...)` or
 ```ts
 const auditRequirement = requireCapability(auditCapability, '^1.0.0')
 
-definePlugin({
-	pluginId: 'fixture.audit-consumer',
+plugin({
+	id: 'fixture.audit-consumer',
 	version: '1.0.0',
 	core: '^0.0.0',
-	capabilities: [auditRequirement],
-	setup: ({ capabilities }) => {
-		const audit = capabilities.get(auditRequirement)
-		return { audit }
-	},
+	contributions: [
+		auditRequirement,
+		contributeApplication(({ capabilities }) => ({
+			exports: { audit: capabilities.get(auditRequirement) },
+		})),
+	],
 })
 ```
 
@@ -1924,11 +1928,12 @@ When a plugin only requires another plugin's compatible public protocol, use a
 non-ordering peer instead of a dependency:
 
 ```ts
-definePlugin({
-	pluginId: 'community.workflow-addon',
+plugin({
+	id: 'community.workflow-addon',
 	version: '1.0.0',
 	core: '^1.0.0',
 	peers: [{ pluginId: 'community.workflow-engine', version: '^2.0.0' }],
+	contributions: [],
 })
 ```
 

@@ -1,7 +1,8 @@
 import { expectTypeOf, test } from 'vitest'
 
 import {
-	definePlugin,
+	plugin as createPlugin,
+	contributeDeclarations,
 	definePrivateCollection,
 	privateStore,
 	stringField,
@@ -55,29 +56,19 @@ test('derives the exact private record and operation surface', () => {
 })
 
 test('exposes declarations only under the exact critical privilege', () => {
-	definePlugin({
+	createPlugin({
 		core: '^0.0.0',
-		pluginId: 'fixture.private-contracts',
-		privileges: [
-			{
-				name: 'storage:private',
-				reason: 'Declares private credential storage.',
-			},
-		] as const,
+		id: 'fixture.private-contracts',
+		permissions: { 'storage:private': 'Declares private credential storage.' },
 		version: '1.0.0',
-		declare: ({ privateStorage }) => {
-			privateStorage.register(credentials)
-			return undefined
-		},
-	})
-
-	definePlugin({
-		core: '^0.0.0',
-		pluginId: 'fixture.no-private-contracts',
-		version: '1.0.0',
-		declare: (context) => {
-			expectTypeOf(context).not.toHaveProperty('privateStorage')
-		},
+		contributions: [
+			contributeDeclarations({
+				privateStorage: ({ privateStorage }) => {
+					privateStorage.register(credentials)
+					return undefined
+				},
+			}),
+		],
 	})
 
 	definePrivateCollection({

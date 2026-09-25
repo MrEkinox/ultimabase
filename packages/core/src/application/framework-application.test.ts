@@ -2,7 +2,8 @@ import { applicationFixture } from '../../tests/application-fixture.js'
 import { SchemaRegistry, Schema } from '../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
-import { definePlugin } from '../plugins/definition.js'
+import { plugin as createPlugin } from '../plugins/plugin.js'
+import { contributeApplication } from '../plugins/plugin-contributions.js'
 import {
 	createApplication,
 	FrameworkApplication,
@@ -23,13 +24,19 @@ describe('FrameworkApplication', () => {
 		const application = applicationFixture(
 			new FrameworkApplication({
 				plugins: [
-					definePlugin({
+					createPlugin({
 						version: '0.0.0',
 						core: '^0.0.0',
-						pluginId: 'fixture.static-only',
-						setup: () => {
-							setupCalls += 1
-						},
+						id: 'fixture.static-only',
+						contributions: [
+							contributeApplication((context) => {
+								setupCalls += 1
+								const exports = undefined
+								const lifecycleContext = { ...context, pluginExports: exports }
+								void lifecycleContext
+								return { exports }
+							}),
+						],
 					}),
 				],
 				schemas: [StaticSchema],
@@ -64,36 +71,48 @@ describe('FrameworkApplication', () => {
 
 	it('initializes a flat dependency graph without starting infrastructure', async () => {
 		const events: string[] = []
-		const child = definePlugin({
+		const child = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.child',
+			id: 'fixture.child',
 			dependencies: [{ pluginId: 'fixture.parent', version: '^0.0.0' }],
-			setup: () => {
-				events.push('setup:child')
-
-				return { ready: true as const }
-			},
-			hooks: {
-				startTransports: () => {
-					events.push('transport:child')
-				},
-			},
+			contributions: [
+				contributeApplication((context) => {
+					events.push('setup:child')
+					const exports = { ready: true as const }
+					const lifecycleContext = { ...context, pluginExports: exports }
+					void lifecycleContext
+					return {
+						exports,
+						startTransports: () => {
+							;(() => {
+								events.push('transport:child')
+							})()
+						},
+					}
+				}),
+			],
 		})
-		const parent = definePlugin({
+		const parent = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.parent',
-			setup: () => {
-				events.push('setup:parent')
-
-				return { configured: true as const }
-			},
-			hooks: {
-				startTransports: () => {
-					events.push('transport:parent')
-				},
-			},
+			id: 'fixture.parent',
+			contributions: [
+				contributeApplication((context) => {
+					events.push('setup:parent')
+					const exports = { configured: true as const }
+					const lifecycleContext = { ...context, pluginExports: exports }
+					void lifecycleContext
+					return {
+						exports,
+						startTransports: () => {
+							;(() => {
+								events.push('transport:parent')
+							})()
+						},
+					}
+				}),
+			],
 		})
 
 		const application = await createApplication({
@@ -127,15 +146,19 @@ describe('FrameworkApplication', () => {
 
 	it('keeps schemas and plugin exports application-scoped', async () => {
 		let applicationId = 0
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.isolation',
-			setup: () => {
-				const marker = { applicationId: applicationId++ }
-
-				return { marker }
-			},
+			id: 'fixture.isolation',
+			contributions: [
+				contributeApplication((context) => {
+					const marker = { applicationId: applicationId++ }
+					const exports = { marker }
+					const lifecycleContext = { ...context, pluginExports: exports }
+					void lifecycleContext
+					return { exports }
+				}),
+			],
 		})
 
 		const first = await createApplication({
@@ -156,19 +179,33 @@ describe('FrameworkApplication', () => {
 	})
 
 	it('isolates repeated plugin instances by structured identity', async () => {
-		const primary = definePlugin({
-			pluginId: 'fixture.repeated',
+		const primary = createPlugin({
+			id: 'fixture.repeated',
 			instanceId: 'primary',
 			version: '1.0.0',
 			core: '^0.0.0',
-			setup: () => ({ instance: 'primary' as const }),
+			contributions: [
+				contributeApplication((context) => {
+					const exports = { instance: 'primary' as const }
+					const lifecycleContext = { ...context, pluginExports: exports }
+					void lifecycleContext
+					return { exports }
+				}),
+			],
 		})
-		const analytics = definePlugin({
-			pluginId: 'fixture.repeated',
+		const analytics = createPlugin({
+			id: 'fixture.repeated',
 			instanceId: 'analytics',
 			version: '1.0.0',
 			core: '^0.0.0',
-			setup: () => ({ instance: 'analytics' as const }),
+			contributions: [
+				contributeApplication((context) => {
+					const exports = { instance: 'analytics' as const }
+					const lifecycleContext = { ...context, pluginExports: exports }
+					void lifecycleContext
+					return { exports }
+				}),
+			],
 		})
 		const application = await createApplication({
 			schemas: [],
@@ -220,19 +257,27 @@ describe('FrameworkApplication', () => {
 
 	it('validates graph configuration before plugin setup or transports', async () => {
 		const events: string[] = []
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.invalid',
+			id: 'fixture.invalid',
 			dependencies: [{ pluginId: 'fixture.missing', version: '^0.0.0' }],
-			setup: () => {
-				events.push('setup')
-			},
-			hooks: {
-				startTransports: () => {
-					events.push('transport')
-				},
-			},
+			contributions: [
+				contributeApplication((context) => {
+					events.push('setup')
+					const exports = undefined
+					const lifecycleContext = { ...context, pluginExports: exports }
+					void lifecycleContext
+					return {
+						exports,
+						startTransports: () => {
+							;(() => {
+								events.push('transport')
+							})()
+						},
+					}
+				}),
+			],
 		})
 
 		await expect(
@@ -252,11 +297,18 @@ describe('FrameworkApplication', () => {
 	})
 
 	it('supports direct construction while keeping setup lazy until requested', async () => {
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.lazy',
-			setup: () => ({ initialized: true }),
+			id: 'fixture.lazy',
+			contributions: [
+				contributeApplication((context) => {
+					const exports = { initialized: true }
+					const lifecycleContext = { ...context, pluginExports: exports }
+					void lifecycleContext
+					return { exports }
+				}),
+			],
 		})
 		const application = applicationFixture(
 			new FrameworkApplication({
@@ -278,27 +330,39 @@ describe('FrameworkApplication', () => {
 
 	it('retains dependency-first setup order', async () => {
 		const order: string[] = []
-		const dependency = definePlugin({
+		const dependency = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.contribution-dependency',
-			setup: () => {
-				order.push('dependency')
-			},
+			id: 'fixture.contribution-dependency',
+			contributions: [
+				contributeApplication((context) => {
+					order.push('dependency')
+					const exports = undefined
+					const lifecycleContext = { ...context, pluginExports: exports }
+					void lifecycleContext
+					return { exports }
+				}),
+			],
 		})
-		const consumer = definePlugin({
+		const consumer = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.contribution-consumer',
+			id: 'fixture.contribution-consumer',
 			dependencies: [
 				{
 					pluginId: 'fixture.contribution-dependency',
 					version: '^0.0.0',
 				},
 			],
-			setup: () => {
-				order.push('consumer')
-			},
+			contributions: [
+				contributeApplication((context) => {
+					order.push('consumer')
+					const exports = undefined
+					const lifecycleContext = { ...context, pluginExports: exports }
+					void lifecycleContext
+					return { exports }
+				}),
+			],
 		})
 		const application = await createApplication({
 			schemas: [applicationSchema],

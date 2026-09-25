@@ -7,7 +7,7 @@ import {
 	UltimaBase,
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
-	definePlugin,
+	plugin,
 	provideCapability,
 	type DatabaseAdapter,
 	type DatabaseOperationAst,
@@ -60,11 +60,11 @@ class EmptyReadAdapter implements DatabaseAdapter {
 }
 
 const createBehaviorSupportPlugin = () =>
-	definePlugin({
-		pluginId: 'fixture.alternative-behavior-support',
+	plugin({
+		id: 'fixture.alternative-behavior-support',
 		version: '1.0.0',
 		core: '^0.0.0',
-		capabilities: [
+		contributions: [
 			provideCapability(databaseAdapterCapability, {
 				contributionId: 'empty-database',
 				create: () => ({ value: new EmptyReadAdapter() }),

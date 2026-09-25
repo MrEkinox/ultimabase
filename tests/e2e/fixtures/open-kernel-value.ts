@@ -1,12 +1,13 @@
 import {
 	adapterValueStorageCapability,
+	contributeDeclarations,
 	defineFieldBuilderMethod,
 	defineFieldOption,
 	definePluginField,
-	definePluginModule,
 	defineSchemaOption,
 	defineTypegenReference,
 	requireCapability,
+	plugin,
 	type FieldOptions,
 	type JsonObject,
 	type PluginDefinition,
@@ -135,11 +136,6 @@ const decimalBuilderMethod = defineFieldBuilderMethod({
 	},
 })
 const storage = requireCapability(adapterValueStorageCapability, '^1.0.0')
-const valueModule = definePluginModule({
-	core: '^0.0.0',
-	pluginId: 'fixture.open-kernel-value',
-	version: '1.0.0',
-})
 
 export interface ValuePluginOptions {
 	readonly instanceId: string
@@ -150,41 +146,44 @@ export interface ValuePluginOptions {
 export const createValuePlugin = (
 	options: ValuePluginOptions,
 ): PluginDefinition =>
-	valueModule.plugin({
-		capabilities: [storage],
-		declare: ({ fields, schemas, typegenReferences }) => {
-			fields.register(decimalBuilderMethod)
-			schemas.defineOptions({
-				contributionId: 'decimal-options',
-				field: { decimalLabel: decimalLabelOption },
-				schema: { decimalLedger: decimalLedgerOption },
-			})
-			schemas.patch(
-				patchSchemas({
-					patch: schemaPatch().addField({
-						contributionId: 'decimal-amount',
-						field: decimalField(),
-						name: 'amount',
-					}),
-					targets: schemas.select({
-						className: options.target.className,
-						option: { name: 'decimalLedger' },
-					}),
-				}),
-			)
-			// The compiled graph retains its reference even without startup generation.
-			typegenReferences.register(decimalValueType)
-		},
+	plugin({
+		core: '^0.0.0',
+		id: 'fixture.open-kernel-value',
+		version: '1.0.0',
+		contributions: [
+			storage,
+			contributeDeclarations({
+				schema: ({ fields, schemas }) => {
+					fields.register(decimalBuilderMethod)
+					schemas.defineOptions({
+						contributionId: 'decimal-options',
+						field: { decimalLabel: decimalLabelOption },
+						schema: { decimalLedger: decimalLedgerOption },
+					})
+					schemas.patch(
+						patchSchemas({
+							patch: schemaPatch().addField({
+								contributionId: 'decimal-amount',
+								field: decimalField(),
+								name: 'amount',
+							}),
+							targets: schemas.select({
+								className: options.target.className,
+								option: { name: 'decimalLedger' },
+							}),
+						}),
+					)
+				},
+				typegen: ({ typegenReferences }) => {
+					// The compiled graph retains its reference without startup generation.
+					typegenReferences.register(decimalValueType)
+				},
+			}),
+		],
 		instanceId: options.instanceId,
-		privileges: [
-			{
-				name: 'adapter:consume',
-				reason: 'Requires portable JSON value storage.',
-			},
-			{ name: 'schema:declare', reason: 'Adds the decimal field and builder.' },
-			{
-				name: 'typegen:reference',
-				reason: 'References the exact public decimal value.',
-			},
-		] as const,
+		permissions: {
+			'adapter:consume': 'Requires portable JSON value storage.',
+			'schema:declare': 'Adds the decimal field and builder.',
+			'typegen:reference': 'References the exact public decimal value.',
+		},
 	})

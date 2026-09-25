@@ -4,7 +4,7 @@ import {
 	provideAccessContributions,
 	schemaAccess,
 } from '@ultimabase/access-plugin'
-import { definePlugin, Schema, type SchemaDefinition } from '@ultimabase/core'
+import { plugin, Schema, type SchemaDefinition } from '@ultimabase/core'
 import { createPluginConformanceFixture } from '@ultimabase/testing'
 import {
 	OfficialConformanceDatabase,
@@ -25,8 +25,8 @@ const createAccessProvider = (
 	instanceId: string,
 	mode: AccessCommunityMode,
 ) =>
-	definePlugin({
-		capabilities: [
+	plugin({
+		contributions: [
 			provideAccessContributions(`document-policy-${instanceId}`, () =>
 				schemaAccess(schema, { read: mode === 'allow' }),
 			),
@@ -34,13 +34,11 @@ const createAccessProvider = (
 		core: '^0.0.0',
 		instanceId,
 		peers: [{ pluginId: '@ultimabase/access-plugin', version: '^0.0.0' }],
-		pluginId: 'community.official-access-conformance',
-		privileges: [
-			{
-				name: 'runtime:constrain',
-				reason: 'Contributes one official Access conformance policy.',
-			},
-		],
+		id: 'community.official-access-conformance',
+		permissions: {
+			'runtime:constrain':
+				'Contributes one official Access conformance policy.',
+		},
 		version: '1.0.0',
 	})
 
@@ -138,21 +136,18 @@ export const createInvalidAccessProviderFixture = () => {
 	if (outsideTitle === undefined) {
 		throw new TypeError('Invalid Access fixture field is unavailable')
 	}
-	const provider = definePlugin({
-		capabilities: [
+	const provider = plugin({
+		contributions: [
 			provideAccessContributions('outside-field', () =>
 				fieldAccess(Inside, outsideTitle, ['title'], { read: false }),
 			),
 		],
 		core: '^0.0.0',
 		peers: [{ pluginId: '@ultimabase/access-plugin', version: '^0.0.0' }],
-		pluginId: 'community.invalid-access-provider',
-		privileges: [
-			{
-				name: 'runtime:constrain',
-				reason: 'Exercises official Access target diagnostics.',
-			},
-		],
+		id: 'community.invalid-access-provider',
+		permissions: {
+			'runtime:constrain': 'Exercises official Access target diagnostics.',
+		},
 		version: '1.0.0',
 	})
 

@@ -1,8 +1,9 @@
 import {
 	FrameworkApplication,
 	Schema,
+	contributeDeclarations,
 	defineOperationValue,
-	definePlugin,
+	plugin as createPlugin,
 	defineSchemaMutation,
 	defineTypegenReference,
 } from '@ultimabase/core'
@@ -37,25 +38,36 @@ describe('schema mutation Typegen', () => {
 			select: { workflowState: true },
 			version: '1.1.0',
 		})
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.schema-mutation-typegen',
-			privileges: [
-				{ name: 'model:extend', reason: 'Adds archive methods.' },
-				{ name: 'operation:declare', reason: 'Declares archive.' },
-				{ name: 'typegen:reference', reason: 'References archive input.' },
-			] as const,
-			version: '1.0.0',
-			declare: ({ models, operations, typegenReferences }) => {
-				typegenReferences.register(inputReference)
-				operations.declare(archive)
-				models.extend(Post, {
-					contributionId: 'workflow-mutations',
-					schemaMutations: {
-						archive: { mutation: archive, surfaces: ['schema', 'model'] },
-					},
-				})
+			id: 'fixture.schema-mutation-typegen',
+			permissions: {
+				'model:extend': 'Adds archive methods.',
+				'operation:declare': 'Declares archive.',
+				'typegen:reference': 'References archive input.',
 			},
+			version: '1.0.0',
+			contributions: [
+				contributeDeclarations({
+					models: ({ models }) => {
+						models.extend(Post, {
+							contributionId: 'workflow-mutations',
+							schemaMutations: {
+								archive: {
+									mutation: archive,
+									surfaces: ['schema', 'model'],
+								},
+							},
+						})
+					},
+					operations: ({ operations }) => {
+						operations.declare(archive)
+					},
+					typegen: ({ typegenReferences }) => {
+						typegenReferences.register(inputReference)
+					},
+				}),
+			],
 		})
 		const application = new FrameworkApplication({
 			pluginPrivileges: { logger: false },

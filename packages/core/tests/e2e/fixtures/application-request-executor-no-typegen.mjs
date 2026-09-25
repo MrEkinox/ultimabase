@@ -5,7 +5,7 @@ import {
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
 	defineCapability,
-	definePlugin,
+	plugin,
 	getCurrentRequest,
 	provideCapability,
 	requireCapability,
@@ -25,8 +25,8 @@ const captureCapability = defineCapability()({
 })
 const captured = {}
 
-const transportPlugin = definePlugin({
-	capabilities: [
+const transportPlugin = plugin({
+	contributions: [
 		provideCapability(captureCapability, {
 			contributionId: 'capture-request-executor',
 			create: ({ callbacks, capabilities, owner }) => {
@@ -39,15 +39,15 @@ const transportPlugin = definePlugin({
 		requestExecution,
 	],
 	core: '^0.0.0',
-	pluginId: 'fixture.javascript-request-transport',
+	id: 'fixture.javascript-request-transport',
 	version: '1.0.0',
 })
 
 const unsupported = () => {
 	throw new TypeError('Database execution is not expected in this fixture')
 }
-const databasePlugin = definePlugin({
-	capabilities: [
+const databasePlugin = plugin({
+	contributions: [
 		provideCapability(databaseAdapterCapability, {
 			contributionId: 'javascript-request-database',
 			create: () => ({
@@ -63,7 +63,7 @@ const databasePlugin = definePlugin({
 		}),
 	],
 	core: '^0.0.0',
-	pluginId: 'fixture.javascript-request-database',
+	id: 'fixture.javascript-request-database',
 	version: '1.0.0',
 })
 

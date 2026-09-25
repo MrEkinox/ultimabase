@@ -102,7 +102,7 @@ credential-only request view, then returns an immutable derivative made with
 `withValue()`:
 
 ```ts
-import { RequestContextValue, definePlugin } from '@ultimabase/core'
+import { RequestContextValue, plugin } from '@ultimabase/core'
 import {
 	httpContextResolver,
 	provideHttpContextResolvers,
@@ -115,11 +115,11 @@ const principal = new RequestContextValue('example.principal', (value) => {
 	return Object.freeze(value)
 })
 
-const credentials = definePlugin({
-	pluginId: 'example.credentials',
+const credentials = plugin({
+	id: 'example.credentials',
 	version: '1.0.0',
 	core: '^0.0.0',
-	capabilities: [
+	contributions: [
 		provideHttpContextResolvers({
 			contributionId: 'bearer',
 			create: () =>
@@ -173,7 +173,7 @@ capability. Every provider requests `transport:expose`; Core retains its exact
 plugin and optional instance identity:
 
 ```ts
-import { definePlugin } from '@ultimabase/core'
+import { plugin } from '@ultimabase/core'
 import {
 	httpMount,
 	httpRoute,
@@ -197,17 +197,14 @@ const routes = provideHttpEndpoints({
 	],
 })
 
-const statusPlugin = definePlugin({
-	pluginId: 'example.status',
+const statusPlugin = plugin({
+	id: 'example.status',
 	version: '1.0.0',
 	core: '^0.0.0',
-	privileges: [
-		{
-			name: 'transport:expose',
-			reason: 'Exposes the selected status routes over HTTP.',
-		},
-	],
-	capabilities: [routes],
+	permissions: {
+		'transport:expose': 'Exposes the selected status routes over HTTP.',
+	},
+	contributions: [routes],
 })
 ```
 

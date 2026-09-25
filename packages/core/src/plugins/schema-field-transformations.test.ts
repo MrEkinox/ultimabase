@@ -5,7 +5,8 @@ import {
 	Schema,
 	addSchemaField,
 	createApplication,
-	definePlugin,
+	plugin as createPlugin,
+	contributeDeclarations,
 	defineSchemaOption,
 	stringField,
 	type SchemaOptions,
@@ -19,35 +20,36 @@ describe('plugin schema field transformations', () => {
 			className: 'PatchedFieldIndexDocument',
 			fields: (field) => ({ title: field.string() }),
 		})
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			core: '^0.0.0',
-			declare: ({ schemas }) => {
-				schemas.patch({
-					operations: [
-						addSchemaField({
-							contributionId: 'search-token',
-							field: stringField({ indexed: true }),
-							name: 'searchToken',
-						}),
-						addSchemaField({
-							contributionId: 'external-key',
-							field: stringField({ indexed: 'unique' }),
-							name: 'externalKey',
-						}),
-					],
-					targets: schemas.select({
-						className: 'PatchedFieldIndexDocument',
-					}),
-				})
-			},
-			pluginId: 'fixture.patched-field-index-plugin',
-			privileges: [
-				{
-					name: 'schema:declare',
-					reason: 'Adds indexed fixture fields.',
-				},
-			] as const,
+			id: 'fixture.patched-field-index-plugin',
+			permissions: { 'schema:declare': 'Adds indexed fixture fields.' },
 			version: '1.0.0',
+			contributions: [
+				contributeDeclarations({
+					schema: ({ schemas }) => {
+						schemas.patch({
+							operations: [
+								addSchemaField({
+									contributionId: 'search-token',
+									field: stringField({ indexed: true }),
+									name: 'searchToken',
+								}),
+								addSchemaField({
+									contributionId: 'external-key',
+									field: stringField({ indexed: 'unique' }),
+									name: 'externalKey',
+								}),
+							],
+							targets: schemas.select({
+								className: 'PatchedFieldIndexDocument',
+							}),
+						})
+
+						return undefined
+					},
+				}),
+			],
 		})
 
 		await (
@@ -85,16 +87,20 @@ describe('plugin schema field transformations', () => {
 			className: 'AtomicRegistrationCollision',
 			fields: (field) => ({ other: field.string() }),
 		})
-		const registrationPlugin = definePlugin({
+		const registrationPlugin = createPlugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.atomic-registration',
-			privileges: [
-				{ name: 'schema:declare', reason: 'Exercises registration rollback.' },
-			] as const,
+			id: 'fixture.atomic-registration',
+			permissions: { 'schema:declare': 'Exercises registration rollback.' },
 			version: '1.0.0',
-			declare: ({ schemas }) => {
-				schemas.add({ contributionId: 'collision', schema: Colliding })
-			},
+			contributions: [
+				contributeDeclarations({
+					schema: ({ schemas }) => {
+						schemas.add({ contributionId: 'collision', schema: Colliding })
+
+						return undefined
+					},
+				}),
+			],
 		})
 		const registrationApplication = applicationFixture(
 			new FrameworkApplication({
@@ -129,21 +135,25 @@ describe('plugin schema field transformations', () => {
 		} as SchemaOptions<'AtomicOptionInvalidAddition'> & {
 			readonly broken: boolean
 		})
-		const optionFailurePlugin = definePlugin({
+		const optionFailurePlugin = createPlugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.atomic-option',
-			privileges: [
-				{ name: 'schema:declare', reason: 'Exercises option rollback.' },
-			] as const,
+			id: 'fixture.atomic-option',
+			permissions: { 'schema:declare': 'Exercises option rollback.' },
 			version: '1.0.0',
-			declare: ({ schemas }) => {
-				schemas.defineOptions({
-					contributionId: 'options',
-					schema: { broken: invalidOption },
-				})
-				schemas.add({ contributionId: 'valid', schema: ValidAddition })
-				schemas.add({ contributionId: 'invalid', schema: InvalidAddition })
-			},
+			contributions: [
+				contributeDeclarations({
+					schema: ({ schemas }) => {
+						schemas.defineOptions({
+							contributionId: 'options',
+							schema: { broken: invalidOption },
+						})
+						schemas.add({ contributionId: 'valid', schema: ValidAddition })
+						schemas.add({ contributionId: 'invalid', schema: InvalidAddition })
+
+						return undefined
+					},
+				}),
+			],
 		})
 		const optionApplication = applicationFixture(
 			new FrameworkApplication({
@@ -165,26 +175,30 @@ describe('plugin schema field transformations', () => {
 			className: 'AtomicPatchAddition',
 			fields: () => ({}),
 		})
-		const patchFailurePlugin = definePlugin({
+		const patchFailurePlugin = createPlugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.atomic-patch',
-			privileges: [
-				{ name: 'schema:declare', reason: 'Exercises patch rollback.' },
-			] as const,
+			id: 'fixture.atomic-patch',
+			permissions: { 'schema:declare': 'Exercises patch rollback.' },
 			version: '1.0.0',
-			declare: ({ schemas }) => {
-				schemas.add({ contributionId: 'addition', schema: PatchAddition })
-				schemas.patch({
-					operations: [
-						addSchemaField({
-							contributionId: 'duplicate-title',
-							field: stringField(),
-							name: 'title',
-						}),
-					],
-					targets: schemas.select({ className: 'AtomicPatchTarget' }),
-				})
-			},
+			contributions: [
+				contributeDeclarations({
+					schema: ({ schemas }) => {
+						schemas.add({ contributionId: 'addition', schema: PatchAddition })
+						schemas.patch({
+							operations: [
+								addSchemaField({
+									contributionId: 'duplicate-title',
+									field: stringField(),
+									name: 'title',
+								}),
+							],
+							targets: schemas.select({ className: 'AtomicPatchTarget' }),
+						})
+
+						return undefined
+					},
+				}),
+			],
 		})
 		const patchApplication = applicationFixture(
 			new FrameworkApplication({
@@ -204,19 +218,23 @@ describe('plugin schema field transformations', () => {
 				missing: field.pointer({ target: 'AtomicMissingTarget' }),
 			}),
 		})
-		const finalValidationPlugin = definePlugin({
+		const finalValidationPlugin = createPlugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.atomic-final-validation',
-			privileges: [
-				{
-					name: 'schema:declare',
-					reason: 'Exercises final validation rollback.',
-				},
-			] as const,
+			id: 'fixture.atomic-final-validation',
+			permissions: { 'schema:declare': 'Exercises final validation rollback.' },
 			version: '1.0.0',
-			declare: ({ schemas }) => {
-				schemas.add({ contributionId: 'invalid-target', schema: InvalidTarget })
-			},
+			contributions: [
+				contributeDeclarations({
+					schema: ({ schemas }) => {
+						schemas.add({
+							contributionId: 'invalid-target',
+							schema: InvalidTarget,
+						})
+
+						return undefined
+					},
+				}),
+			],
 		})
 		const finalValidationApplication = applicationFixture(
 			new FrameworkApplication({
@@ -234,23 +252,30 @@ describe('plugin schema field transformations', () => {
 			className: 'AtomicSelectorAddition',
 			fields: () => ({}),
 		})
-		const selectorFailurePlugin = definePlugin({
+		const selectorFailurePlugin = createPlugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.atomic-selector',
-			privileges: [
-				{ name: 'schema:declare', reason: 'Exercises selector rollback.' },
-			] as const,
+			id: 'fixture.atomic-selector',
+			permissions: { 'schema:declare': 'Exercises selector rollback.' },
 			version: '1.0.0',
-			declare: ({ schemas }) => {
-				schemas.add({ contributionId: 'addition', schema: SelectorAddition })
-				schemas.select({
-					// @ts-expect-error -- Runtime rejects values outside portable JSON.
-					option: {
-						equals: undefined,
-						name: 'invalid',
+			contributions: [
+				contributeDeclarations({
+					schema: ({ schemas }) => {
+						schemas.add({
+							contributionId: 'addition',
+							schema: SelectorAddition,
+						})
+						schemas.select({
+							// @ts-expect-error -- Runtime rejects values outside portable JSON.
+							option: {
+								equals: undefined,
+								name: 'invalid',
+							},
+						})
+
+						return undefined
 					},
-				})
-			},
+				}),
+			],
 		})
 		const selectorApplication = applicationFixture(
 			new FrameworkApplication({
@@ -296,80 +321,86 @@ describe('plugin schema field transformations', () => {
 				readonly stages: readonly string[]
 			}>
 		})
-		const provider = definePlugin({
+		const provider = createPlugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.workflow-schema-provider',
-			privileges: [
-				{
-					name: 'schema:declare',
-					reason: 'Provides one workflow-enabled schema.',
-				},
-			] as const,
-			version: '1.0.0',
-			declare: ({ schemas }) => {
-				schemas.defineOptions({
-					contributionId: 'workflow',
-					schema: { workflow: jsonObjectOption },
-				})
-				schemas.add({ contributionId: 'workflow-audit', schema: Audit })
+			id: 'fixture.workflow-schema-provider',
+			permissions: {
+				'schema:declare': 'Provides one workflow-enabled schema.',
 			},
+			version: '1.0.0',
+			contributions: [
+				contributeDeclarations({
+					schema: ({ schemas }) => {
+						schemas.defineOptions({
+							contributionId: 'workflow',
+							schema: { workflow: jsonObjectOption },
+						})
+						schemas.add({ contributionId: 'workflow-audit', schema: Audit })
+
+						return undefined
+					},
+				}),
+			],
 		})
-		const patcher = definePlugin({
+		const patcher = createPlugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.workflow-owner-selector',
-			privileges: [
-				{
-					name: 'schema:declare',
-					reason: 'Patches only a prior plugin-owned workflow schema.',
-				},
-			] as const,
-			version: '1.0.0',
-			declare: ({ schemas }) => {
-				schemas.patch({
-					operations: [
-						addSchemaField({
-							contributionId: 'selected-state',
-							field: stringField(),
-							name: 'selectedState',
-						}),
-					],
-					targets: schemas.select({
-						option: {
-							equals: {
-								stages: ['draft', 'published'],
-								enabled: true,
-							},
-							name: 'workflow',
-						},
-						owner: {
-							kind: 'plugin',
-							pluginId: 'fixture.workflow-schema-provider',
-						},
-					}),
-				})
-				schemas.patch({
-					operations: [
-						addSchemaField({
-							contributionId: 'wrong-array-order',
-							field: stringField(),
-							name: 'wrongArrayOrder',
-						}),
-					],
-					targets: schemas.select({
-						option: {
-							equals: {
-								enabled: true,
-								stages: ['published', 'draft'],
-							},
-							name: 'workflow',
-						},
-						owner: {
-							kind: 'plugin',
-							pluginId: 'fixture.workflow-schema-provider',
-						},
-					}),
-				})
+			id: 'fixture.workflow-owner-selector',
+			permissions: {
+				'schema:declare': 'Patches only a prior plugin-owned workflow schema.',
 			},
+			version: '1.0.0',
+			contributions: [
+				contributeDeclarations({
+					schema: ({ schemas }) => {
+						schemas.patch({
+							operations: [
+								addSchemaField({
+									contributionId: 'selected-state',
+									field: stringField(),
+									name: 'selectedState',
+								}),
+							],
+							targets: schemas.select({
+								option: {
+									equals: {
+										stages: ['draft', 'published'],
+										enabled: true,
+									},
+									name: 'workflow',
+								},
+								owner: {
+									kind: 'plugin',
+									pluginId: 'fixture.workflow-schema-provider',
+								},
+							}),
+						})
+						schemas.patch({
+							operations: [
+								addSchemaField({
+									contributionId: 'wrong-array-order',
+									field: stringField(),
+									name: 'wrongArrayOrder',
+								}),
+							],
+							targets: schemas.select({
+								option: {
+									equals: {
+										enabled: true,
+										stages: ['published', 'draft'],
+									},
+									name: 'workflow',
+								},
+								owner: {
+									kind: 'plugin',
+									pluginId: 'fixture.workflow-schema-provider',
+								},
+							}),
+						})
+
+						return undefined
+					},
+				}),
+			],
 		})
 
 		await (

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { createApplication } from '../application/framework-application.js'
 import { defineCapability, provideCapability } from './capabilities.js'
 import type { ApplicationCallbackExecutor } from './callback-execution.js'
-import { definePlugin } from './definition.js'
+import { plugin } from './plugin.js'
 import { readApplicationPluginOwner } from './callback-execution.js'
 
 const callbackExecutorCapability = defineCapability<true>()({
@@ -17,11 +17,11 @@ const callbackExecutorCapability = defineCapability<true>()({
 describe('application callback execution attribution', () => {
 	it('replaces nested owners, retains async scope, and restores the parent owner', async () => {
 		let callbacks: ApplicationCallbackExecutor | undefined
-		const host = definePlugin({
+		const host = plugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.callback-host',
+			id: 'fixture.callback-host',
 			version: '0.0.0',
-			capabilities: [
+			contributions: [
 				provideCapability(callbackExecutorCapability, {
 					contributionId: 'capture-executor',
 					create: (context) => {
@@ -31,11 +31,12 @@ describe('application callback execution attribution', () => {
 				}),
 			],
 		})
-		const worker = definePlugin({
+		const worker = plugin({
 			core: '^0.0.0',
 			instanceId: 'worker',
-			pluginId: 'fixture.callback-worker',
+			id: 'fixture.callback-worker',
 			version: '0.0.0',
+			contributions: [],
 		})
 		const application = await createApplication({
 			pluginPrivileges: { logger: false },
@@ -76,11 +77,11 @@ describe('application callback execution attribution', () => {
 
 	it('rejects an unknown exact instance before its callback begins', async () => {
 		let callbacks: ApplicationCallbackExecutor | undefined
-		const host = definePlugin({
+		const host = plugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.callback-owner-validation',
+			id: 'fixture.callback-owner-validation',
 			version: '0.0.0',
-			capabilities: [
+			contributions: [
 				provideCapability(callbackExecutorCapability, {
 					contributionId: 'capture-executor',
 					create: (context) => {

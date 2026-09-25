@@ -7,7 +7,8 @@ import { FrameworkApplication } from '../../application/framework-application.js
 import { prepareSchemaMutationEnvelope } from '../../application/schema-mutation-envelope.js'
 import {
 	defineOperationValue,
-	definePlugin,
+	plugin as createPlugin,
+	contributeDeclarations,
 	defineSchemaMutation,
 } from '../../foundation.js'
 import { readApplicationCommandGraph } from '../../plugins/application-command-graph.js'
@@ -61,38 +62,17 @@ describe('canonical mutation request identity', () => {
 			trace,
 		)
 		const resolve = vi.fn(() => ({ data: {} }))
-		const owner = definePlugin({
-			pluginId: 'fixture.canonical-mutation.owner',
+		const owner = createPlugin({
+			id: 'fixture.canonical-mutation.owner',
 			core: '^0.0.0',
 			version: '1.0.0',
-			privileges: [
-				{
-					name: 'transport:expose',
-					reason: 'Checks the payload boundary over a wire facade.',
-				},
-				{ name: 'operation:declare', reason: 'Declares the mutation fixture.' },
-				{
-					name: 'model:extend',
-					reason: 'Selects different aliases per schema.',
-				},
-				{ name: 'persistence:rewrite', reason: 'Owns the mutation effect.' },
-			] as const,
-			declare: ({ models, operations }) => {
-				operations.declare(archive)
-				models.extend(Post, {
-					contributionId: 'post',
-					schemaMutations: {
-						archive: { mutation: archive, surfaces: ['schema', 'model'] },
-					},
-				})
-				models.extend(Other, {
-					contributionId: 'other',
-					schemaMutations: {
-						close: { mutation: archive, surfaces: ['schema'] },
-					},
-				})
+			permissions: {
+				'transport:expose': 'Checks the payload boundary over a wire facade.',
+				'operation:declare': 'Declares the mutation fixture.',
+				'model:extend': 'Selects different aliases per schema.',
+				'persistence:rewrite': 'Owns the mutation effect.',
 			},
-			capabilities: [
+			contributions: [
 				provideSchemaMutationTransportBinding({
 					contributionId: 'wire',
 					create: () => ({
@@ -112,13 +92,34 @@ describe('canonical mutation request identity', () => {
 						value: schemaMutationHandler({ mutation: archive, resolve }),
 					}),
 				}),
+				contributeDeclarations({
+					operations: ({ operations }) => {
+						operations.declare(archive)
+						return undefined
+					},
+					models: ({ models }) => {
+						models.extend(Post, {
+							contributionId: 'post',
+							schemaMutations: {
+								archive: { mutation: archive, surfaces: ['schema', 'model'] },
+							},
+						})
+						models.extend(Other, {
+							contributionId: 'other',
+							schemaMutations: {
+								close: { mutation: archive, surfaces: ['schema'] },
+							},
+						})
+						return undefined
+					},
+				}),
 			],
 		})
-		const database = definePlugin({
-			pluginId: 'fixture.canonical-mutation.database',
+		const database = createPlugin({
+			id: 'fixture.canonical-mutation.database',
 			core: '^0.0.0',
 			version: '1.0.0',
-			capabilities: [provideTestDatabaseAdapter(adapter)],
+			contributions: [provideTestDatabaseAdapter(adapter)],
 		})
 		const ultimabase = applicationFixture(
 			new UltimaBase({

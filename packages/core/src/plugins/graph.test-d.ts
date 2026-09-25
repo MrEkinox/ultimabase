@@ -1,17 +1,18 @@
 import { expectTypeOf, test } from 'vitest'
 
 import {
-	definePlugin,
+	plugin as createPlugin,
 	normalizePlugins,
 	PluginGraph,
 	type NormalizedPlugin,
 } from '../index.js'
 
 test('exposes immutable ordered graph metadata', () => {
-	const plugin = definePlugin({
+	const plugin = createPlugin({
 		version: '0.0.0',
 		core: '^0.0.0',
-		pluginId: 'fixture.plugin',
+		id: 'fixture.plugin',
+		contributions: [],
 	})
 	const graph = new PluginGraph(normalizePlugins([plugin]))
 

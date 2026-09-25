@@ -4,7 +4,8 @@ import {
 	FrameworkApplication,
 	defineOperation,
 	defineOperationValue,
-	definePlugin,
+	plugin as createPlugin,
+	contributeDeclarations,
 	defineTypegenReference,
 } from '../index.js'
 
@@ -14,19 +15,22 @@ const publicReference = defineTypegenReference({
 })
 
 const createContributor = () =>
-	definePlugin({
+	createPlugin({
 		core: '^0.0.0',
-		pluginId: 'fixture.typegen-contributor',
+		id: 'fixture.typegen-contributor',
 		version: '2.1.0',
-		privileges: [
-			{
-				name: 'typegen:reference',
-				reason: 'References the public workflow state.',
-			},
-		],
-		declare: ({ typegenReferences }) => {
-			typegenReferences.register(publicReference)
+		permissions: {
+			'typegen:reference': 'References the public workflow state.',
 		},
+		contributions: [
+			contributeDeclarations({
+				typegen: ({ typegenReferences }) => {
+					typegenReferences.register(publicReference)
+
+					return undefined
+				},
+			}),
+		],
 	})
 
 describe('Typegen declaration facades', () => {
@@ -71,25 +75,26 @@ describe('Typegen declaration facades', () => {
 		})
 		const application = new FrameworkApplication({
 			plugins: [
-				definePlugin({
+				createPlugin({
 					core: '^0.0.0',
-					pluginId: 'fixture.typegen-operation',
+					id: 'fixture.typegen-operation',
 					version: '1.0.0',
-					privileges: [
-						{
-							name: 'operation:declare',
-							reason: 'Declares the typed operation.',
-						},
-						{
-							name: 'typegen:reference',
-							reason: 'References the public workflow state.',
-						},
-					],
-					declare: ({ operations, typegenReferences }) => {
-						operations.declare(operation)
-						// The temporary explicit registration path is an idempotent bridge.
-						typegenReferences.register(publicReference)
+					permissions: {
+						'operation:declare': 'Declares the typed operation.',
+						'typegen:reference': 'References the public workflow state.',
 					},
+					contributions: [
+						contributeDeclarations({
+							operations: ({ operations }) => {
+								operations.declare(operation)
+								return undefined
+							},
+							typegen: ({ typegenReferences }) => {
+								typegenReferences.register(publicReference)
+								return undefined
+							},
+						}),
+					],
 				}),
 			],
 			schemas: [],

@@ -5,7 +5,11 @@ import {
 	readApplicationPluginOwner,
 	runWithApplicationPluginOwner,
 } from '../../plugins/callback-execution.js'
-import { createApplication, definePlugin } from '../../index.js'
+import {
+	createApplication,
+	plugin as createPlugin,
+	contributeDeclarations,
+} from '../../index.js'
 import { QueryBuilder, type ExecutableOperationAst } from '../../query/index.js'
 import { Pointer, Schema, SchemaRegistry } from '../../schema/index.js'
 import type {
@@ -190,20 +194,23 @@ describe('Runtime virtual fields', () => {
 				}),
 			}),
 		})
-		const provider = definePlugin({
+		const provider = createPlugin({
 			core: '^0.0.0',
 			instanceId: 'primary',
-			pluginId: 'fixture.virtual-schema',
-			privileges: [
-				{
-					name: 'schema:declare',
-					reason: 'Provides a virtual audit schema for attribution.',
-				},
-			] as const,
-			version: '1.0.0',
-			declare: ({ schemas }) => {
-				schemas.add({ contributionId: 'audit', schema: Audit })
+			id: 'fixture.virtual-schema',
+			permissions: {
+				'schema:declare': 'Provides a virtual audit schema for attribution.',
 			},
+			version: '1.0.0',
+			contributions: [
+				contributeDeclarations({
+					schema: ({ schemas }) => {
+						schemas.add({ contributionId: 'audit', schema: Audit })
+
+						return undefined
+					},
+				}),
+			],
 		})
 		const compiled = await createApplication({
 			plugins: [provider],

@@ -1,4 +1,4 @@
-import { onTestFinished } from 'vitest'
+import { onTestFinished, describe, expect, it, vi } from 'vitest'
 import type { FrameworkError } from '@ultimabase/core'
 import {
 	RequestSubjectReference,
@@ -7,10 +7,10 @@ import {
 	QueryBuilder,
 	Schema,
 	createApplication,
-	definePlugin,
+	plugin,
+	contributeApplication,
 	UltimaBase,
 } from '@ultimabase/core'
-import { describe, expect, it, vi } from 'vitest'
 
 import { ACL } from '../../src/acl.js'
 import {
@@ -88,21 +88,21 @@ describe('aclPlugin create input resolution', () => {
 			},
 		])
 		const resolveCurrent = vi.fn(() => currentPrincipal)
-		const identityProvider = definePlugin({
+		const identityProvider = plugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.acl-principal-provider',
-			capabilities: [
+			id: 'fixture.acl-principal-provider',
+			contributions: [
 				principalResolverProvider({
 					resolveCurrent,
 				}),
 			],
 		})
-		const databaseProvider = definePlugin({
+		const databaseProvider = plugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.acl-read-database',
-			capabilities: [databaseAdapterProvider(adapter)],
+			id: 'fixture.acl-read-database',
+			contributions: [databaseAdapterProvider(adapter)],
 		})
 		const ultimabase = new UltimaBase({
 			masterAuthority: new MasterAuthority({
@@ -180,15 +180,18 @@ describe('aclPlugin create input resolution', () => {
 			},
 		})
 		let infrastructureStarted = false
-		const infrastructure = definePlugin({
+		const infrastructure = plugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.acl-static-role-infrastructure',
-			hooks: {
-				connect: () => {
-					infrastructureStarted = true
-				},
-			},
+			id: 'fixture.acl-static-role-infrastructure',
+			contributions: [
+				contributeApplication(() => ({
+					exports: undefined,
+					connect: () => {
+						infrastructureStarted = true
+					},
+				})),
+			],
 		})
 		const ultimabase = new UltimaBase({
 			plugins: [aclPlugin(), infrastructure],
@@ -204,11 +207,11 @@ describe('aclPlugin create input resolution', () => {
 		} satisfies Partial<FrameworkError>)
 		expect(infrastructureStarted).toBe(false)
 
-		const roleProvider = definePlugin({
+		const roleProvider = plugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.acl-static-role-provider',
-			capabilities: [
+			id: 'fixture.acl-static-role-provider',
+			contributions: [
 				roleResolverProvider({
 					hasRole: () => false,
 					resolveCurrentRoles: () => [],
@@ -238,11 +241,11 @@ describe('aclPlugin create input resolution', () => {
 			},
 		})
 		const adapter = new ACLRejectedWriteAdapter()
-		const databaseProvider = definePlugin({
+		const databaseProvider = plugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.acl-dynamic-role-database',
-			capabilities: [databaseAdapterProvider(adapter)],
+			id: 'fixture.acl-dynamic-role-database',
+			contributions: [databaseAdapterProvider(adapter)],
 		})
 		const ultimabase = new UltimaBase({
 			plugins: [aclPlugin(), databaseProvider],
@@ -409,11 +412,11 @@ describe('aclPlugin create input resolution', () => {
 			},
 		})
 		const adapter = new ACLRejectedWriteAdapter()
-		const databaseProvider = definePlugin({
+		const databaseProvider = plugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.acl-limit-write-database',
-			capabilities: [databaseAdapterProvider(adapter)],
+			id: 'fixture.acl-limit-write-database',
+			contributions: [databaseAdapterProvider(adapter)],
 		})
 		const ultimabase = new UltimaBase({
 			plugins: [aclPlugin({ limits: { maxPrincipals: 1 } }), databaseProvider],

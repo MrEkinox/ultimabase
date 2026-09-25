@@ -1,6 +1,7 @@
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
 
-import { definePlugin } from '../plugins/definition.js'
+import { plugin as createPlugin } from '../plugins/plugin.js'
+import { contributeApplication } from '../plugins/plugin-contributions.js'
 import { Schema } from '../schema/index.js'
 import { UltimaBase } from '../runtime/application/ultima-base.js'
 import { runWithRequestEngine } from '../runtime/context/active-framework-context.js'
@@ -21,16 +22,26 @@ const createFixture = (value: unknown) => {
 	const app = new UltimaBase({
 		schemas: [Post],
 		plugins: [
-			definePlugin({
-				pluginId: 'fixture.draining',
+			createPlugin({
+				id: 'fixture.draining',
 				version: '0.0.0',
 				core: '^0.0.0',
-				capabilities: [provideTestDatabaseAdapter(adapter)],
-				hooks: {
-					dispose: () => {
-						trace.push('dispose')
-					},
-				},
+				contributions: [
+					provideTestDatabaseAdapter(adapter),
+					contributeApplication((context) => {
+						const exports = undefined
+						const lifecycleContext = { ...context, pluginExports: exports }
+						void lifecycleContext
+						return {
+							exports,
+							dispose: () => {
+								;(() => {
+									trace.push('dispose')
+								})()
+							},
+						}
+					}),
+				],
 			}),
 		],
 	})

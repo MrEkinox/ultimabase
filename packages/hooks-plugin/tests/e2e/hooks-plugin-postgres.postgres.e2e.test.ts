@@ -4,13 +4,15 @@ import {
 	UltimaBase,
 	constraint,
 	databaseConstraint,
-	definePlugin,
+	plugin,
+	contributeApplication,
 	definePluginField,
 	guard,
 	requestSources,
 	restrictOutput,
 	restrictSelection,
 	runWithRequestEngine,
+	withPluginPrivileges,
 } from '@ultimabase/core'
 import { accessPlugin } from '@ultimabase/access-plugin'
 import {
@@ -217,21 +219,16 @@ const scopeConstraintCompiler = postgresConstraintCompiler({
 
 // This optional fixture models one generic row scope; Runtime and PostgreSQL
 // know only the opaque constraint contract contributed by this plugin.
-const scopePolicyPlugin = definePlugin({
+const scopePolicyPlugin = plugin({
 	version: '0.0.0',
 	core: '^0.0.0',
-	pluginId: 'fixture.hooks-plugin-scope-policy',
-	privileges: [
-		{
-			name: 'adapter:consume',
-			reason: 'Compiles the fixture PostgreSQL scope constraint.',
-		},
-		{
-			name: 'runtime:constrain',
-			reason: 'Applies the fixture scope guard and narrowing restrictions.',
-		},
-	],
-	capabilities: [
+	id: 'fixture.hooks-plugin-scope-policy',
+	permissions: {
+		'adapter:consume': 'Compiles the fixture PostgreSQL scope constraint.',
+		'runtime:constrain':
+			'Applies the fixture scope guard and narrowing restrictions.',
+	},
+	contributions: [
 		provideTestRuntimeConstraint(
 			'fixture.hooks-plugin-guard',
 			guard({
@@ -287,31 +284,31 @@ const scopePolicyPlugin = definePlugin({
 				schema: HookArticleSchema,
 			}),
 		),
+		withPluginPrivileges(
+			contributeApplication(({ constraintCompilers }) => {
+				constraintCompilers.register(scopeConstraintCompiler)
+				const exports = undefined
+				return { exports }
+			}),
+			['adapter:consume'],
+		),
 	],
-	setup: ({ constraintCompilers }) => {
-		constraintCompilers.register(scopeConstraintCompiler)
-	},
 })
 
-const behaviorPlugin = definePlugin({
+const behaviorPlugin = plugin({
 	version: '0.0.0',
 	core: '^0.0.0',
-	pluginId: 'fixture.hooks-plugin-behavior',
+	id: 'fixture.hooks-plugin-behavior',
 	peers: [
 		{ pluginId: '@ultimabase/hooks-plugin', version: '^0.0.0' },
 		{ pluginId: 'fixture.hooks-plugin-scope-policy', version: '^0.0.0' },
 	],
-	privileges: [
-		{
-			name: 'runtime:intercept',
-			reason: 'Registers the fixture schema lifecycle hooks.',
-		},
-		{
-			name: 'runtime:observe',
-			reason: 'Observes committed hooks-plugin events for the E2E fixture.',
-		},
-	],
-	capabilities: [
+	permissions: {
+		'runtime:intercept': 'Registers the fixture schema lifecycle hooks.',
+		'runtime:observe':
+			'Observes committed hooks-plugin events for the E2E fixture.',
+	},
+	contributions: [
 		provideHookContributions('article-lifecycle', () =>
 			schemaHooks(HookArticleSchema, {
 				afterOperation: {

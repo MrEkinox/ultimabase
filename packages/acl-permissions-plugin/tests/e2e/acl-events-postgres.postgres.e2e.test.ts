@@ -6,12 +6,7 @@ import {
 	type ACLChangedEvent,
 	type aclChangedEvent,
 } from '@ultimabase/acl-permissions-plugin'
-import {
-	MasterAuthority,
-	Schema,
-	UltimaBase,
-	definePlugin,
-} from '@ultimabase/core'
+import { MasterAuthority, Schema, UltimaBase, plugin } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import type { PluginEventHandlerInput } from '@ultimabase/plugin-kit'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
@@ -64,20 +59,17 @@ const getFixture = (): PostgresWorkerFixture => {
 }
 
 /** Captures the public event and proves its row is visible only after commit. */
-const eventObserverPlugin = definePlugin({
+const eventObserverPlugin = plugin({
 	version: '0.0.0',
 	core: '^0.0.0',
 	peers: [
 		{ pluginId: '@ultimabase/acl-permissions-plugin', version: '^0.0.0' },
 	],
-	pluginId: 'fixture.acl-change-events',
-	privileges: [
-		{
-			name: 'runtime:observe',
-			reason: 'Observes committed ACL changes for the E2E fixture.',
-		},
-	],
-	capabilities: [
+	id: 'fixture.acl-change-events',
+	permissions: {
+		'runtime:observe': 'Observes committed ACL changes for the E2E fixture.',
+	},
+	contributions: [
 		provideACLChangeObserver(
 			'fixture.capture-acl-change',
 			onACLChange(async ({ event }: ACLChangeHandlerInput) => {

@@ -1,6 +1,6 @@
 import {
 	databaseAdapterCapability,
-	definePlugin,
+	plugin,
 	provideCapability,
 	registerPrivateStorageAdapter,
 	type DatabaseAdapter,
@@ -35,15 +35,15 @@ const createDatabaseSupport = () => {
 		configurePrivateStorage: () => undefined,
 		executePrivateStorage: unavailable,
 	})
-	return definePlugin({
-		capabilities: [
+	return plugin({
+		contributions: [
 			provideCapability(databaseAdapterCapability, {
 				contributionId: 'conformance-database',
 				create: () => ({ value: adapter }),
 			}),
 		],
 		core: '^0.0.0',
-		pluginId: 'fixture.password-auth-database',
+		id: 'fixture.password-auth-database',
 		version: '1.0.0',
 	})
 }

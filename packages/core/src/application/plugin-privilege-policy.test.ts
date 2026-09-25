@@ -6,7 +6,11 @@ import {
 	optionalCapability,
 	provideCapability,
 } from '../plugins/capabilities.js'
-import { definePlugin } from '../plugins/definition.js'
+import { plugin as createPlugin } from '../plugins/plugin.js'
+import {
+	contributeApplication,
+	withPluginPrivileges,
+} from '../plugins/plugin-contributions.js'
 import {
 	pluginPrivilegeMetadata,
 	type PluginPrivilege,
@@ -52,15 +56,21 @@ describe('plugin privilege policy', () => {
 	it.each(Object.keys(pluginPrivilegeMetadata) as PluginPrivilege[])(
 		'blocks retained privilege %s before plugin effects',
 		(privilege) => {
-			const declaration = vi.fn()
 			const setup = vi.fn()
-			const plugin = definePlugin({
+			const plugin = createPlugin({
 				core: '^0.0.0',
-				pluginId: `fixture.denied-${privilege.replace(':', '-')}`,
-				privileges: [{ name: privilege, reason: 'Boundary denial fixture.' }],
+				id: `fixture.denied-${privilege.replace(':', '-')}`,
+				permissions: { [privilege]: 'Boundary denial fixture.' },
 				version: '1.0.0',
-				declare: declaration,
-				setup,
+				contributions: [
+					withPluginPrivileges(
+						contributeApplication(() => {
+							setup()
+							return { exports: undefined }
+						}),
+						[privilege],
+					),
+				],
 			})
 
 			expect(
@@ -71,18 +81,21 @@ describe('plugin privilege policy', () => {
 						schemas: [],
 					}),
 			).toThrow(expect.objectContaining({ code: 'PLUGIN_PRIVILEGE_DENIED' }))
-			expect(declaration).not.toHaveBeenCalled()
 			expect(setup).not.toHaveBeenCalled()
 		},
 	)
 
 	it('forwards the same policy and report through UltimaBase', () => {
-		const plugin = definePlugin({
-			pluginId: 'fixture.ultimabase-policy',
+		const plugin = createPlugin({
+			id: 'fixture.ultimabase-policy',
 			version: '1.0.0',
 			core: '^0.0.0',
-			privileges: [
-				{ name: 'runtime:observe', reason: 'Facade forwarding fixture.' },
+			permissions: { 'runtime:observe': 'Facade forwarding fixture.' },
+			contributions: [
+				withPluginPrivileges(
+					contributeApplication(() => ({ exports: undefined })),
+					['runtime:observe'],
+				),
 			],
 		})
 		const ultimabase = new UltimaBase({
@@ -99,30 +112,32 @@ describe('plugin privilege policy', () => {
 
 	it('allows requested privileges by default and exposes one detached ordered report', () => {
 		const reports: PluginPrivilegeReport[] = []
-		const dependency = definePlugin({
-			pluginId: 'fixture.policy-dependency',
+		const dependency = createPlugin({
+			id: 'fixture.policy-dependency',
 			version: '2.1.0',
 			core: '^0.0.0',
-			privileges: [
-				{
-					name: 'runtime:observe',
-					reason: 'Records safe operation timings.',
-				},
-			],
+			permissions: { 'runtime:observe': 'Records safe operation timings.' },
 			environment: ['environment:process'],
+			contributions: [
+				withPluginPrivileges(
+					contributeApplication(() => ({ exports: undefined })),
+					['runtime:observe'],
+				),
+			],
 		})
-		const consumer = definePlugin({
-			pluginId: 'fixture.policy-consumer',
+		const consumer = createPlugin({
+			id: 'fixture.policy-consumer',
 			version: '1.0.0',
 			core: '^0.0.0',
 			dependencies: [
 				{ pluginId: 'fixture.policy-dependency', version: '^2.0.0' },
 			],
-			privileges: [
-				{
-					name: 'transport:expose',
-					reason: 'Publishes the configured endpoint.',
-				},
+			permissions: { 'transport:expose': 'Publishes the configured endpoint.' },
+			contributions: [
+				withPluginPrivileges(
+					contributeApplication(() => ({ exports: undefined })),
+					['transport:expose'],
+				),
 			],
 		})
 		const logger: PluginPrivilegeLogger = {
@@ -198,30 +213,38 @@ describe('plugin privilege policy', () => {
 				deniedReports.push(report)
 			}),
 		}
-		const primary = definePlugin({
-			pluginId: 'fixture.policy-database',
+		const primary = createPlugin({
+			id: 'fixture.policy-database',
 			instanceId: 'primary',
 			version: '1.0.0',
 			core: '^0.0.0',
-			privileges: [
-				{ name: 'runtime:observe', reason: 'Global denial fixture.' },
-				{ name: 'adapter:raw', reason: 'Instance denial fixture.' },
-			],
+			permissions: {
+				'runtime:observe': 'Global denial fixture.',
+				'adapter:raw': 'Instance denial fixture.',
+			},
 			environment: ['environment:network'],
-			declare: () => {
-				declarationCalls += 1
-			},
-			setup: () => {
-				setupCalls += 1
-			},
+			contributions: [
+				withPluginPrivileges(
+					contributeApplication(() => {
+						declarationCalls += 1
+						setupCalls += 1
+						return { exports: undefined }
+					}),
+					['runtime:observe', 'adapter:raw'],
+				),
+			],
 		})
-		const secondary = definePlugin({
-			pluginId: 'fixture.policy-database',
+		const secondary = createPlugin({
+			id: 'fixture.policy-database',
 			instanceId: 'secondary',
 			version: '1.0.0',
 			core: '^0.0.0',
-			privileges: [
-				{ name: 'runtime:observe', reason: 'Second global denial fixture.' },
+			permissions: { 'runtime:observe': 'Second global denial fixture.' },
+			contributions: [
+				withPluginPrivileges(
+					contributeApplication(() => ({ exports: undefined })),
+					['runtime:observe'],
+				),
 			],
 		})
 
@@ -313,17 +336,18 @@ describe('plugin privilege policy', () => {
 
 	it('reports denied inactive conditional privileges without failing', () => {
 		const optionalAudit = optionalCapability(optionalAuditToken, '^1.0.0')
-		const plugin = definePlugin({
-			pluginId: 'fixture.conditional-typegen',
+		const plugin = createPlugin({
+			id: 'fixture.conditional-typegen',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: [optionalAudit],
-			privileges: [
-				{
-					name: 'typegen:reference',
+			permissions: {
+				'typegen:reference': {
 					reason: 'References audit declarations when installed.',
 					when: optionalAudit,
 				},
+			},
+			contributions: [
+				withPluginPrivileges(optionalAudit, ['typegen:reference']),
 			],
 		})
 
@@ -350,11 +374,11 @@ describe('plugin privilege policy', () => {
 
 	it('enforces a conditional privilege when its optional capability is present', () => {
 		const optionalAudit = optionalCapability(optionalAuditToken, '^1.0.0')
-		const provider = definePlugin({
-			pluginId: 'fixture.audit-provider',
+		const provider = createPlugin({
+			id: 'fixture.audit-provider',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: [
+			contributions: [
 				provideCapability(optionalAuditToken, {
 					contributionId: 'primary',
 					create: () => ({
@@ -363,17 +387,18 @@ describe('plugin privilege policy', () => {
 				}),
 			],
 		})
-		const consumer = definePlugin({
-			pluginId: 'fixture.active-conditional-typegen',
+		const consumer = createPlugin({
+			id: 'fixture.active-conditional-typegen',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: [optionalAudit],
-			privileges: [
-				{
-					name: 'typegen:reference',
+			permissions: {
+				'typegen:reference': {
 					reason: 'References the installed audit protocol.',
 					when: optionalAudit,
 				},
+			},
+			contributions: [
+				withPluginPrivileges(optionalAudit, ['typegen:reference']),
 			],
 		})
 
@@ -393,13 +418,17 @@ describe('plugin privilege policy', () => {
 	})
 
 	it('targets exact plugin instances from the flat graph', () => {
-		const child = definePlugin({
-			pluginId: 'fixture.nested-policy',
+		const child = createPlugin({
+			id: 'fixture.nested-policy',
 			instanceId: 'editorial',
 			version: '1.0.0',
 			core: '^0.0.0',
-			privileges: [
-				{ name: 'transport:expose', reason: 'Nested instance fixture.' },
+			permissions: { 'transport:expose': 'Nested instance fixture.' },
+			contributions: [
+				withPluginPrivileges(
+					contributeApplication(() => ({ exports: undefined })),
+					['transport:expose'],
+				),
 			],
 		})
 		const error = captureFrameworkError(
@@ -468,11 +497,12 @@ describe('plugin privilege policy', () => {
 	] as const)(
 		'rejects policy configuration typos',
 		(pluginPrivileges, message) => {
-			const plugin = definePlugin({
-				pluginId: 'fixture.known-policy',
+			const plugin = createPlugin({
+				id: 'fixture.known-policy',
 				instanceId: 'primary',
 				version: '1.0.0',
 				core: '^0.0.0',
+				contributions: [],
 			})
 
 			expect(
@@ -489,12 +519,16 @@ describe('plugin privilege policy', () => {
 	it('uses the default result channel and isolates custom logger failures', async () => {
 		const info = vi.spyOn(console, 'info').mockImplementation(() => undefined)
 		const error = vi.spyOn(console, 'error').mockImplementation(() => undefined)
-		const plugin = definePlugin({
-			pluginId: 'fixture.console-report',
+		const plugin = createPlugin({
+			id: 'fixture.console-report',
 			version: '1.0.0',
 			core: '^0.0.0',
-			privileges: [
-				{ name: 'runtime:observe', reason: 'Console reporting fixture.' },
+			permissions: { 'runtime:observe': 'Console reporting fixture.' },
+			contributions: [
+				withPluginPrivileges(
+					contributeApplication(() => ({ exports: undefined })),
+					['runtime:observe'],
+				),
 			],
 		})
 

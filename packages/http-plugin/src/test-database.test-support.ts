@@ -1,6 +1,6 @@
 import {
 	databaseAdapterCapability,
-	definePlugin,
+	plugin,
 	provideCapability,
 	type DatabaseAdapter,
 	type DatabaseOperationAst,
@@ -27,11 +27,11 @@ class EmptyHttpTestDatabaseAdapter implements DatabaseAdapter {
 
 /** Creates the inert adapter required to start a request-execution test fixture. */
 export const httpTestDatabasePlugin = (): PluginDefinition =>
-	definePlugin({
-		pluginId: 'fixture.http-database',
+	plugin({
+		id: 'fixture.http-database',
 		version: '1.0.0',
 		core: '^0.0.0',
-		capabilities: [
+		contributions: [
 			provideCapability(databaseAdapterCapability, {
 				contributionId: 'empty-http-test-adapter',
 				create: () => ({ value: new EmptyHttpTestDatabaseAdapter() }),

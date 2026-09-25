@@ -1,21 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
 import { createApplication } from '../application/framework-application.js'
-import { FrameworkError } from '../errors/framework-error.js'
 import { defineCapability, provideCapability } from './capabilities.js'
-import { definePlugin } from './definition.js'
+import { plugin as createPlugin } from './plugin.js'
+import { withPluginPrivileges } from './plugin-contributions.js'
 import { PluginGraph } from './graph.js'
 import { normalizePlugins } from './normalization.js'
-
-const captureFrameworkErrorDetails = (operation: () => unknown): unknown => {
-	try {
-		operation()
-	} catch (error: unknown) {
-		if (error instanceof FrameworkError) return error.internalDetails
-		throw error
-	}
-	throw new TypeError('Expected a FrameworkError')
-}
 
 describe('application capability factory context', () => {
 	it('enforces token-owned provider privileges before composition', () => {
@@ -28,23 +18,21 @@ describe('application capability factory context', () => {
 			compose: (providers) => providers.join(','),
 		})
 		const provider = (privileged: boolean) =>
-			definePlugin({
-				pluginId: privileged
+			createPlugin({
+				id: privileged
 					? 'fixture.privileged-provider'
 					: 'fixture.unprivileged-provider',
 				version: '1.0.0',
 				core: '^0.0.0',
 				...(privileged
 					? {
-							privileges: [
-								{
-									name: 'runtime:intercept' as const,
-									reason: 'Provides the privileged fixture protocol.',
-								},
-							],
+							permissions: {
+								'runtime:intercept':
+									'Provides the privileged fixture protocol.',
+							},
 						}
 					: {}),
-				capabilities: [
+				contributions: [
 					provideCapability(token, {
 						contributionId: 'fixture',
 						value: 'value',
@@ -52,14 +40,9 @@ describe('application capability factory context', () => {
 				],
 			})
 
-		expect(
-			captureFrameworkErrorDetails(
-				() => new PluginGraph(normalizePlugins([provider(false)])),
-			),
-		).toMatchObject({
-			kind: 'capability-privilege-missing',
-			privilege: 'runtime:intercept',
-		})
+		expect(() => provider(false)).toThrow(
+			'Missing plugin permission reason: runtime:intercept',
+		)
 		expect(
 			() => new PluginGraph(normalizePlugins([provider(true)])),
 		).not.toThrow()
@@ -75,31 +58,31 @@ describe('application capability factory context', () => {
 		})
 		let observedOwner: unknown
 		let denied: unknown
-		const plugin = definePlugin({
-			pluginId: 'fixture.factory-context-owner',
+		const plugin = createPlugin({
+			id: 'fixture.factory-context-owner',
 			instanceId: 'primary',
 			version: '1.0.0',
 			core: '^0.0.0',
-			privileges: [
-				{
-					name: 'event:publish',
-					reason: 'Publishes the factory-context fixture event.',
-				},
-			],
-			capabilities: [
-				provideCapability(token, {
-					contributionId: 'factory-context',
-					create: ({ assertPrivilege, owner }) => {
-						observedOwner = owner
-						assertPrivilege('event:publish')
-						try {
-							assertPrivilege('adapter:raw')
-						} catch (error: unknown) {
-							denied = error
-						}
-						return { value: 'ready' }
-					},
-				}),
+			permissions: {
+				'event:publish': 'Publishes the factory-context fixture event.',
+			},
+			contributions: [
+				withPluginPrivileges(
+					provideCapability(token, {
+						contributionId: 'factory-context',
+						create: ({ assertPrivilege, owner }) => {
+							observedOwner = owner
+							assertPrivilege('event:publish')
+							try {
+								assertPrivilege('adapter:raw')
+							} catch (error: unknown) {
+								denied = error
+							}
+							return { value: 'ready' }
+						},
+					}),
+					['event:publish'],
+				),
 			],
 		})
 

@@ -1,8 +1,9 @@
 import { provideRuntimeBehavior } from '../capabilities.js'
 import {
 	createApplication,
-	definePlugin,
+	plugin as createPlugin,
 	FrameworkApplication,
+	withPluginPrivileges,
 } from '../../foundation.js'
 import { Schema } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
@@ -60,17 +61,14 @@ describe('createFrameworkEngine', () => {
 			],
 			trace,
 		)
-		const dependency = definePlugin({
+		const dependency = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.pipeline-dependency',
-			privileges: [
-				{
-					name: 'runtime:intercept',
-					reason: 'Exercises ordered Runtime pipeline handlers.',
-				},
-			],
-			capabilities: [
+			id: 'fixture.pipeline-dependency',
+			permissions: {
+				'runtime:intercept': 'Exercises ordered Runtime pipeline handlers.',
+			},
+			contributions: [
 				provideTestRuntimeInterceptor(
 					'fixture.dependency-before',
 					beforeOperation({
@@ -90,20 +88,17 @@ describe('createFrameworkEngine', () => {
 				),
 			],
 		})
-		const consumer = definePlugin({
+		const consumer = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.pipeline-consumer',
+			id: 'fixture.pipeline-consumer',
 			dependencies: [
 				{ pluginId: 'fixture.pipeline-dependency', version: '^0.0.0' },
 			],
-			privileges: [
-				{
-					name: 'runtime:intercept',
-					reason: 'Exercises ordered Runtime pipeline handlers.',
-				},
-			],
-			capabilities: [
+			permissions: {
+				'runtime:intercept': 'Exercises ordered Runtime pipeline handlers.',
+			},
+			contributions: [
 				provideTestRuntimeInterceptor(
 					'fixture.consumer-before',
 					beforeOperation({
@@ -123,17 +118,14 @@ describe('createFrameworkEngine', () => {
 				),
 			],
 		})
-		const automation = definePlugin({
+		const automation = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.assembled-automation',
-			privileges: [
-				{
-					name: 'runtime:intercept',
-					reason: 'Exercises low-level before-operation hooks.',
-				},
-			],
-			capabilities: [
+			id: 'fixture.assembled-automation',
+			permissions: {
+				'runtime:intercept': 'Exercises low-level before-operation hooks.',
+			},
+			contributions: [
 				provideTestRuntimeInterceptor(
 					'fixture.trim-title',
 					beforeOperation({
@@ -156,17 +148,14 @@ describe('createFrameworkEngine', () => {
 				}),
 			],
 		})
-		const enforcement = definePlugin({
+		const enforcement = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.assembled-enforcement',
-			privileges: [
-				{
-					name: 'runtime:constrain',
-					reason: 'Exercises monotonic Runtime enforcement.',
-				},
-			],
-			capabilities: [
+			id: 'fixture.assembled-enforcement',
+			permissions: {
+				'runtime:constrain': 'Exercises monotonic Runtime enforcement.',
+			},
+			contributions: [
 				provideTestRuntimeConstraint(
 					'fixture.create-guard',
 					guard({
@@ -290,17 +279,15 @@ describe('createFrameworkEngine', () => {
 			],
 			trace,
 		)
-		const policy = definePlugin({
+		const policy = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.assembled-read-policy',
-			privileges: [
-				{
-					name: 'runtime:constrain',
-					reason: 'Exercises read constraints and selection narrowing.',
-				},
-			],
-			capabilities: [
+			id: 'fixture.assembled-read-policy',
+			permissions: {
+				'runtime:constrain':
+					'Exercises read constraints and selection narrowing.',
+			},
+			contributions: [
 				provideTestRuntimeConstraint(
 					'fixture.read-constraint',
 					constraint({
@@ -386,41 +373,40 @@ describe('createFrameworkEngine', () => {
 			pluginId: string,
 			withPrivilege: boolean,
 			requestElevation: boolean,
-		) =>
-			definePlugin({
-				core: '^0.0.0',
-				pluginId,
-				version: '0.0.0',
-				privileges: [
-					{
-						name: 'runtime:intercept',
-						reason: 'Exercises attributed Runtime callbacks.',
+		) => {
+			const interceptor = provideTestRuntimeInterceptor(
+				'nested-master-query',
+				beforeOperation({
+					handler: async () => {
+						await articleSchema.count(
+							{},
+							requestElevation ? { useMasterKey: true } : undefined,
+						)
 					},
+					operations: ['find-many'],
+					schema: articleSchema,
+				}),
+			)
+			return createPlugin({
+				core: '^0.0.0',
+				id: pluginId,
+				version: '0.0.0',
+				permissions: {
+					'runtime:intercept': 'Exercises attributed Runtime callbacks.',
 					...(withPrivilege
-						? [
-								{
-									name: 'authority:elevate' as const,
-									reason: 'Exercises audited nested Master elevation.',
-								},
-							]
-						: []),
-				],
-				capabilities: [
-					provideTestRuntimeInterceptor(
-						'nested-master-query',
-						beforeOperation({
-							handler: async () => {
-								await articleSchema.count(
-									{},
-									requestElevation ? { useMasterKey: true } : undefined,
-								)
-							},
-							operations: ['find-many'],
-							schema: articleSchema,
-						}),
-					),
+						? {
+								'authority:elevate':
+									'Exercises audited nested Master elevation.',
+							}
+						: {}),
+				},
+				contributions: [
+					withPrivilege
+						? withPluginPrivileges(interceptor, ['authority:elevate'])
+						: interceptor,
 				],
 			})
+		}
 		const deniedAudits: unknown[] = []
 		const deniedAdapter = new RecordingDatabaseAdapter([], [])
 		const deniedAuthority = new MasterAuthority({
@@ -556,11 +542,11 @@ describe('createFrameworkEngine', () => {
 
 		await missingAdapterApplication.dispose()
 
-		const invalidAdapterPlugin = definePlugin({
+		const invalidAdapterPlugin = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.invalid-adapter',
-			capabilities: [provideTestDatabaseAdapter({} as never)],
+			id: 'fixture.invalid-adapter',
+			contributions: [provideTestDatabaseAdapter({} as never)],
 		})
 		const invalidAdapterApplication = await createApplication({
 			schemas: [articleSchema],
@@ -575,17 +561,14 @@ describe('createFrameworkEngine', () => {
 
 		const adapter = new RecordingDatabaseAdapter([], [])
 		await invalidAdapterApplication.dispose()
-		const invalidPipelinePlugin = definePlugin({
+		const invalidPipelinePlugin = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.invalid-pipeline',
-			privileges: [
-				{
-					name: 'runtime:intercept',
-					reason: 'Exercises forged Runtime pipeline rejection.',
-				},
-			],
-			capabilities: [
+			id: 'fixture.invalid-pipeline',
+			permissions: {
+				'runtime:intercept': 'Exercises forged Runtime pipeline rejection.',
+			},
+			contributions: [
 				provideTestRuntimeInterceptor('fixture.forged-stage', {
 					stage: 'unknown',
 				} as never),

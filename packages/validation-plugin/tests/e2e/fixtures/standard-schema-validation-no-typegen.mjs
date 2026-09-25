@@ -1,6 +1,6 @@
 import {
 	databaseAdapterCapability,
-	definePlugin,
+	plugin,
 	provideCapability,
 	Schema,
 	UltimaBase,
@@ -30,8 +30,8 @@ const unsupported = () => {
 	throw new TypeError('Validation must reject before database execution')
 }
 
-const databasePlugin = definePlugin({
-	capabilities: [
+const databasePlugin = plugin({
+	contributions: [
 		provideCapability(databaseAdapterCapability, {
 			contributionId: 'javascript-validation-database',
 			create: () => ({
@@ -52,7 +52,7 @@ const databasePlugin = definePlugin({
 		}),
 	],
 	core: '^0.0.0',
-	pluginId: 'fixture.javascript-validation-database',
+	id: 'fixture.javascript-validation-database',
 	version: '1.0.0',
 })
 

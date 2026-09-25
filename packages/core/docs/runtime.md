@@ -121,17 +121,17 @@ protected definitions through the exact `provideRuntimeConstraint()` facade:
 
 ```ts
 const tenantPlugin = (tenantId: string) =>
-	definePlugin({
-		pluginId: 'example.tenant-access',
+	plugin({
+		id: 'example.tenant-access',
 		version: '1.0.0',
 		core: '^0.0.0',
-		privileges: [
+		permissions: [
 			{
 				name: 'runtime:constrain',
 				reason: 'Applies tenant row and selection restrictions.',
 			},
 		],
-		capabilities: [
+		contributions: [
 			provideRuntimeConstraint({
 				contributionId: 'example.tenant-constraint',
 				create: () => ({

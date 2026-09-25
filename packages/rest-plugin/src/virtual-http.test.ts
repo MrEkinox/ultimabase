@@ -5,7 +5,8 @@ import {
 	UltimaBase,
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
-	definePlugin,
+	plugin,
+	contributeApplication,
 	provideCapability,
 	requireCapability,
 	type DatabaseAdapter,
@@ -133,11 +134,11 @@ class VirtualDatabase implements DatabaseAdapter {
 }
 
 const databasePlugin = (adapter: DatabaseAdapter) =>
-	definePlugin({
+	plugin({
 		core: '^0.0.0',
-		pluginId: 'fixture.rest-virtual-http-database',
+		id: 'fixture.rest-virtual-http-database',
 		version: '1.0.0',
-		capabilities: [
+		contributions: [
 			provideCapability(databaseAdapterCapability, {
 				contributionId: 'database',
 				create: () => ({ value: adapter }),
@@ -150,21 +151,25 @@ const httpRequirement = requireCapability(httpApplicationCapability, '^1.0.0', {
 })
 
 const capturePlugin = (capture: { current?: HttpApplication }) =>
-	definePlugin({
+	plugin({
 		core: '^0.0.0',
-		pluginId: 'fixture.rest-virtual-http-capture',
+		id: 'fixture.rest-virtual-http-capture',
 		version: '1.0.0',
-		capabilities: [httpRequirement],
-		setup: ({ capabilities }) => {
-			capture.current = capabilities.get(httpRequirement)
-		},
+		contributions: [
+			httpRequirement,
+			contributeApplication(({ capabilities }) => {
+				capture.current = capabilities.get(httpRequirement)
+				const exports = undefined
+				return { exports }
+			}),
+		],
 	})
 
-const contextPlugin = definePlugin({
+const contextPlugin = plugin({
 	core: '^0.0.0',
-	pluginId: 'fixture.rest-virtual-http-context',
+	id: 'fixture.rest-virtual-http-context',
 	version: '1.0.0',
-	capabilities: [
+	contributions: [
 		provideHttpContextResolvers({
 			contributionId: 'viewer',
 			create: () => [

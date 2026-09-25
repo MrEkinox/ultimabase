@@ -2,7 +2,8 @@ import { SchemaRegistry } from '../schema/index.js'
 import { expectTypeOf, test } from 'vitest'
 
 import {
-	definePlugin,
+	plugin as createPlugin,
+	contributeApplication,
 	normalizePlugins,
 	PluginGraph,
 	type PluginLifecycleState,
@@ -11,11 +12,18 @@ import { PluginLifecycleManager } from './lifecycle-manager.js'
 import { PluginSetupRegistries } from './setup-registries.js'
 
 test('exposes promise-based lifecycle operations and unknown runtime exports', () => {
-	const plugin = definePlugin({
+	const plugin = createPlugin({
 		version: '0.0.0',
 		core: '^0.0.0',
-		pluginId: 'fixture.plugin',
-		setup: () => ({ ready: true as const }),
+		id: 'fixture.plugin',
+		contributions: [
+			contributeApplication((context) => {
+				const exports = { ready: true as const }
+				const lifecycleContext = { ...context, pluginExports: exports }
+				void lifecycleContext
+				return { exports }
+			}),
+		],
 	})
 	const lifecycle = new PluginLifecycleManager(
 		new PluginGraph(normalizePlugins([plugin])),

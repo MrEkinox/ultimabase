@@ -3,7 +3,7 @@ import {
 	UltimaBase,
 	getCurrentRequest,
 	runWithRequestEngine,
-	definePlugin,
+	plugin,
 } from '@ultimabase/core'
 import {
 	accessPlugin,
@@ -53,17 +53,15 @@ const createApplication = (
 	database = getFixture(),
 ) => {
 	let allow = true
-	const policy = definePlugin({
-		pluginId: 'fixture.password-user-method-policy',
+	const policy = plugin({
+		id: 'fixture.password-user-method-policy',
 		version: '1.0.0',
 		core: '^0.0.0',
-		privileges: [
-			{
-				name: 'runtime:constrain',
-				reason: 'Verify required profile reads through static auth methods.',
-			},
-		],
-		capabilities: [
+		permissions: {
+			'runtime:constrain':
+				'Verify required profile reads through static auth methods.',
+		},
+		contributions: [
 			provideAccessContributions('profile', () => [
 				schemaAccess(User, {
 					read: {

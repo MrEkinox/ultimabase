@@ -4,7 +4,7 @@ import {
 	RequestContext,
 	RequestContextValue,
 	UltimaBase,
-	definePlugin,
+	plugin,
 	getCurrentRequest,
 } from '@ultimabase/core'
 import {
@@ -50,11 +50,11 @@ const sessionPrincipal = new RequestContextValue<
 	return Object.freeze({ id: value.id })
 })
 
-const sessionResolverPlugin = definePlugin({
+const sessionResolverPlugin = plugin({
 	core: '^0.0.0',
-	pluginId: 'fixture.graphql-yoga-session',
+	id: 'fixture.graphql-yoga-session',
 	version: '1.0.0',
-	capabilities: [
+	contributions: [
 		provideHttpContextResolvers({
 			contributionId: 'fixture-session',
 			create: () =>

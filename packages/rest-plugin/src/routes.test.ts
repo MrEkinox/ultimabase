@@ -1,12 +1,12 @@
-import { onTestFinished } from 'vitest'
+import { onTestFinished, describe, expect, it } from 'vitest'
 import {
 	Schema,
 	createApplication,
-	definePlugin,
+	plugin,
+	contributeDeclarations,
 	definePluginField,
 	definePluginOutputDescriptor,
 } from '@ultimabase/core'
-import { describe, expect, it } from 'vitest'
 
 import { restFieldCodec, restPlugin, type RestPluginExports } from './index.js'
 
@@ -256,24 +256,27 @@ describe('REST route metadata', () => {
 	it('keeps plugin-owned storage private and rejects misleading route options', async () => {
 		const Internal = defineRestSchema('CredentialStore')
 		const storagePlugin = (withRest: boolean) =>
-			definePlugin({
+			plugin({
 				core: '^0.0.0',
-				pluginId: 'fixture.credentials',
+				id: 'fixture.credentials',
 				version: '1.0.0',
-				privileges: [
-					{
-						name: 'schema:declare',
-						reason: 'Declares fixture credential storage.',
-					},
-				] as const,
-				declare: ({ schemas }) => {
-					schemas.add({
-						contributionId: 'credential-storage',
-						schema: withRest
-							? defineRestSchema('CredentialStoreWithRest', true)
-							: Internal,
-					})
+				permissions: {
+					'schema:declare': 'Declares fixture credential storage.',
 				},
+				contributions: [
+					contributeDeclarations({
+						schema: ({ schemas }) => {
+							schemas.add({
+								contributionId: 'credential-storage',
+								schema: withRest
+									? defineRestSchema('CredentialStoreWithRest', true)
+									: Internal,
+							})
+
+							return undefined
+						},
+					}),
+				],
 			})
 		const privateApplication = await createApplication({
 			pluginPrivileges: { logger: false },
@@ -298,24 +301,27 @@ describe('REST route metadata', () => {
 
 	it('rebuilds from each complete graph without stale dynamic schemas', async () => {
 		const pluginWithSchema = (enabled: boolean) =>
-			definePlugin({
+			plugin({
 				core: '^0.0.0',
-				pluginId: 'fixture.dynamic-schema',
+				id: 'fixture.dynamic-schema',
 				version: '1.0.0',
-				privileges: [
-					{
-						name: 'schema:declare',
-						reason: 'Conditionally declares one storage schema.',
-					},
-				] as const,
-				declare: ({ schemas }) => {
-					if (enabled) {
-						schemas.add({
-							contributionId: 'dynamic',
-							schema: defineRestSchema('DynamicStorage'),
-						})
-					}
+				permissions: {
+					'schema:declare': 'Conditionally declares one storage schema.',
 				},
+				contributions: [
+					contributeDeclarations({
+						schema: ({ schemas }) => {
+							if (enabled) {
+								schemas.add({
+									contributionId: 'dynamic',
+									schema: defineRestSchema('DynamicStorage'),
+								})
+							}
+
+							return undefined
+						},
+					}),
+				],
 			})
 		const Visible = defineRestSchema('Visible')
 		const compile = (withDynamicSchema: boolean) =>

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { immutableRecord } from '@ultimabase/shared'
 
-import { definePlugin } from '../../plugins/definition.js'
+import { plugin } from '../../plugins/plugin.js'
 import type { CreateOneOperationAst } from '../../query/operations/contracts.js'
 import { Schema } from '../../schema/schema/definition.js'
 import { Pointer } from '../../schema/relations/pointer.js'
@@ -60,17 +60,15 @@ const record = (
 
 /** Installs one focused behavior without giving the fixture any other privilege. */
 const createNestedBehaviorPlugin = (value: RuntimeBehaviorStages) =>
-	definePlugin({
+	plugin({
 		core: '^0.0.0',
-		pluginId: 'fixture.nested-runtime-behavior',
+		id: 'fixture.nested-runtime-behavior',
 		version: '0.0.0',
-		privileges: [
-			{
-				name: 'runtime:intercept',
-				reason: 'Verifies nested request inheritance and pointer binding.',
-			},
-		],
-		capabilities: [
+		permissions: {
+			'runtime:intercept':
+				'Verifies nested request inheritance and pointer binding.',
+		},
+		contributions: [
 			provideRuntimeBehavior({
 				contributionId: 'nested-runtime-observation',
 				create: () => ({ value }),

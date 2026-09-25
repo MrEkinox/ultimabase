@@ -1,14 +1,14 @@
-import { onTestFinished } from 'vitest'
+import { onTestFinished, describe, expect, it, vi } from 'vitest'
 import {
 	FrameworkApplication,
 	Schema,
 	compileValidationPlans,
-	definePlugin,
+	contributeApplication,
+	plugin,
 	readFieldTypegenState,
 	type SchemaOptions,
 } from '@ultimabase/core'
 import { generateApplicationTypes } from '@ultimabase/typegen'
-import { describe, expect, it, vi } from 'vitest'
 
 import type { SoftDeleteSchemaOption } from './contracts.js'
 import { softDeletePlugin } from './plugin.js'
@@ -342,11 +342,16 @@ describe('softDeletePlugin', () => {
 
 	it('rejects stale invalid schema values before setup effects', async () => {
 		const setup = vi.fn()
-		const observer = definePlugin({
+		const observer = plugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.soft-delete-setup-observer',
-			setup,
+			id: 'fixture.soft-delete-setup-observer',
 			version: '1.0.0',
+			contributions: [
+				contributeApplication((context) => {
+					setup(context)
+					return { exports: undefined }
+				}),
+			],
 		})
 		const Invalid = documentSchema('InvalidSoftDeleteDocument', 'disabled')
 		const application = new FrameworkApplication({

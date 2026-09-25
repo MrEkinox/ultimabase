@@ -6,7 +6,11 @@ import {
 	provideCapability,
 	requireCapability,
 } from '../../plugins/capabilities.js'
-import { definePlugin } from '../../plugins/definition.js'
+import { plugin as createPlugin } from '../../plugins/plugin.js'
+import {
+	contributeApplication,
+	withPluginPrivileges,
+} from '../../plugins/plugin-contributions.js'
 import {
 	adapterPhysicalSchemaCapability,
 	adapterPersistencePlanCapability,
@@ -132,14 +136,12 @@ describe('adapter capabilities', () => {
 
 	it('uses a dedicated missing-capability diagnostic before initialization', () => {
 		const requirement = requireCapability(adapterConstraintCapability, '^1.0.0')
-		const consumer = definePlugin({
-			capabilities: [requirement],
+		const consumer = createPlugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.adapter-consumer',
-			privileges: [
-				{ name: 'adapter:consume', reason: 'Requires constraint support.' },
-			] as const,
+			id: 'fixture.adapter-consumer',
+			permissions: { 'adapter:consume': 'Requires constraint support.' },
 			version: '1.0.0',
+			contributions: [requirement],
 		})
 
 		expect(
@@ -156,43 +158,29 @@ describe('adapter capabilities', () => {
 
 	it('requires adapter consumption authority and the exact provider factory', () => {
 		const requirement = requireCapability(adapterConstraintCapability, '^1.0.0')
-		const provider = definePlugin({
-			capabilities: [
-				provideAdapterCapability(adapterConstraintCapability, {
-					contributionId: 'constraints',
-					value: constraintSupport,
-				}),
-			],
-			core: '^0.0.0',
-			pluginId: 'fixture.adapter-provider',
-			version: '1.0.0',
-		})
-		const unauthorized = definePlugin({
-			capabilities: [requirement],
-			core: '^0.0.0',
-			pluginId: 'fixture.adapter-unauthorized',
-			version: '1.0.0',
-		})
+		expect(() =>
+			createPlugin({
+				core: '^0.0.0',
+				id: 'fixture.adapter-unauthorized',
+				version: '1.0.0',
+				contributions: [requirement],
+			}),
+		).toThrow('Missing plugin permission reason: adapter:consume')
 
-		expect(
-			() =>
-				new FrameworkApplication({
-					pluginPrivileges: { logger: false },
-					plugins: [provider, unauthorized],
-					schemas: [],
-				}),
-		).toThrow(expect.objectContaining({ code: 'PLUGIN_CAPABILITY_CONFLICT' }))
-
-		const forgedProvider = definePlugin({
-			capabilities: [
-				provideCapability(adapterConstraintCapability, {
-					contributionId: 'forged',
-					value: constraintSupport,
-				}),
-			],
+		const forgedProvider = createPlugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.adapter-forged',
+			id: 'fixture.adapter-forged',
+			permissions: { 'adapter:consume': 'Exercises exact provider facades.' },
 			version: '1.0.0',
+			contributions: [
+				withPluginPrivileges(
+					provideCapability(adapterConstraintCapability, {
+						contributionId: 'forged',
+						value: constraintSupport,
+					}),
+					['adapter:consume'],
+				),
+			],
 		})
 
 		expect(
@@ -221,42 +209,35 @@ describe('adapter capabilities', () => {
 			payload: immutableRecord({ kind: 'column' as const }),
 			protocolVersion: 3,
 		})
-		const unauthorizedProvider = definePlugin({
-			capabilities: [contribution],
-			core: '^0.0.0',
-			pluginId: 'fixture.database-bridge-unauthorized',
-			version: '2.0.0',
-		})
-		expect(
-			() =>
-				new FrameworkApplication({
-					pluginPrivileges: { logger: false },
-					plugins: [unauthorizedProvider],
-					schemas: [],
-				}),
-		).toThrow(expect.objectContaining({ code: 'PLUGIN_CAPABILITY_CONFLICT' }))
-		const provider = definePlugin({
-			capabilities: [contribution],
+		expect(() =>
+			createPlugin({
+				core: '^0.0.0',
+				id: 'fixture.database-bridge-unauthorized',
+				version: '2.0.0',
+				contributions: [contribution],
+			}),
+		).toThrow('Missing plugin permission reason: adapter:consume')
+		const provider = createPlugin({
 			core: '^0.0.0',
 			instanceId: 'primary',
-			pluginId: 'fixture.database-bridge',
-			privileges: [
-				{
-					name: 'adapter:consume',
-					reason: 'Contributes physical schema metadata.',
-				},
-			] as const,
+			id: 'fixture.database-bridge',
+			permissions: {
+				'adapter:consume': 'Contributes physical schema metadata.',
+			},
 			version: '2.0.0',
+			contributions: [contribution],
 		})
-		const consumer = definePlugin({
-			capabilities: [requirement],
+		const consumer = createPlugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.database-adapter',
-			privileges: [
-				{ name: 'adapter:consume', reason: 'Compiles physical metadata.' },
-			] as const,
-			setup: ({ capabilities }) => capabilities.get(requirement),
+			id: 'fixture.database-adapter',
+			permissions: { 'adapter:consume': 'Compiles physical metadata.' },
 			version: '1.0.0',
+			contributions: [
+				requirement,
+				contributeApplication(({ capabilities }) => ({
+					exports: capabilities.get(requirement),
+				})),
+			],
 		})
 		const application = new FrameworkApplication({
 			pluginPrivileges: { logger: false },
@@ -298,29 +279,25 @@ describe('adapter capabilities', () => {
 			family: 'physical-schema',
 			version: '2.0.0',
 		})
-		const provider = definePlugin({
-			capabilities: [
+		const provider = createPlugin({
+			core: '^0.0.0',
+			id: 'fixture.database-physical-v1',
+			permissions: { 'adapter:consume': 'Provides physical metadata.' },
+			version: '1.0.0',
+			contributions: [
 				provideAdapterContribution(versionOne, {
 					contributionId: 'column',
 					payload: { column: 'state' },
 					protocolVersion: 1,
 				}),
 			],
-			core: '^0.0.0',
-			pluginId: 'fixture.database-physical-v1',
-			privileges: [
-				{ name: 'adapter:consume', reason: 'Provides physical metadata.' },
-			] as const,
-			version: '1.0.0',
 		})
-		const consumer = definePlugin({
-			capabilities: [requireCapability(versionTwo, '^2.0.0')],
+		const consumer = createPlugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.database-physical-v2-consumer',
-			privileges: [
-				{ name: 'adapter:consume', reason: 'Consumes physical metadata.' },
-			] as const,
+			id: 'fixture.database-physical-v2-consumer',
+			permissions: { 'adapter:consume': 'Consumes physical metadata.' },
 			version: '1.0.0',
+			contributions: [requireCapability(versionTwo, '^2.0.0')],
 		})
 
 		expect(

@@ -2,7 +2,7 @@ import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import {
 	afterOperation,
 	beforeOperation,
-	definePlugin,
+	plugin,
 	normalizeUpdateExpression,
 	persistencePlanRewriter,
 	providePersistencePlanRewriter,
@@ -62,21 +62,15 @@ describe(
 					)
 				},
 			})
-			const softDeleteFixture = definePlugin({
+			const softDeleteFixture = plugin({
 				core: '^0.0.0',
-				pluginId: 'fixture.postgres-persistence-rewrite',
+				id: 'fixture.postgres-persistence-rewrite',
 				version: '0.0.0',
-				privileges: [
-					{
-						name: 'persistence:rewrite',
-						reason: 'Exercises physical delete rewriting.',
-					},
-					{
-						name: 'runtime:intercept',
-						reason: 'Observes preserved logical delete semantics.',
-					},
-				],
-				capabilities: [
+				permissions: {
+					'persistence:rewrite': 'Exercises physical delete rewriting.',
+					'runtime:intercept': 'Observes preserved logical delete semantics.',
+				},
+				contributions: [
 					providePersistencePlanRewriter({
 						contributionId: 'soft-delete',
 						create: () => ({ value: rewriter }),

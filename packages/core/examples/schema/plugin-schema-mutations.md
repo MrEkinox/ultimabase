@@ -7,11 +7,12 @@ product vocabulary to Core or mutating an exported schema class.
 import {
 	Schema,
 	addSchemaField,
+	contributeDeclarations,
 	contributeSchemaMutation,
 	defineOperationValue,
 	defineOperationTransport,
-	definePlugin,
 	defineSchemaMutation,
+	plugin,
 	schemaMutationTransportBinding,
 	schemaMutationWireCodec,
 	stringField,
@@ -53,8 +54,8 @@ const restV1 = defineOperationTransport({
 	version: '1.0.0',
 })
 
-export const workflowPlugin = definePlugin({
-	operations: [
+export const workflowPlugin = plugin({
+	contributions: [
 		contributeSchemaMutation({
 			bindings: [
 				schemaMutationTransportBinding({
@@ -76,10 +77,32 @@ export const workflowPlugin = definePlugin({
 				return { data: { workflowState: 'archived' } }
 			},
 		}),
+		contributeDeclarations({
+			models: ({ models }) => {
+				models.extend(Post, {
+					contributionId: 'workflow-mutations',
+					schemaMutations: {
+						archive: { mutation: archive, surfaces: ['schema', 'model'] },
+					},
+				})
+			},
+			schema: ({ schemas }) => {
+				schemas.patch({
+					operations: [
+						addSchemaField({
+							contributionId: 'workflow-state',
+							field: stringField(),
+							name: 'workflowState',
+						}),
+					],
+					targets: schemas.select({ className: Post.className }),
+				})
+			},
+		}),
 	],
 	core: '^0.0.0',
-	pluginId: 'community.workflow',
-	privileges: [
+	id: 'community.workflow',
+	permissions: [
 		{ name: 'operation:declare', reason: 'Declares archive.' },
 		{ name: 'model:extend', reason: 'Adds direct archive methods.' },
 		{ name: 'persistence:rewrite', reason: 'Persists the archive state.' },
@@ -87,24 +110,6 @@ export const workflowPlugin = definePlugin({
 		{ name: 'transport:expose', reason: 'Binds archive to REST v1.' },
 	],
 	version: '1.0.0',
-	declare: ({ models, schemas }) => {
-		schemas.patch({
-			operations: [
-				addSchemaField({
-					contributionId: 'workflow-state',
-					field: stringField(),
-					name: 'workflowState',
-				}),
-			],
-			targets: schemas.select({ className: Post.className }),
-		})
-		models.extend(Post, {
-			contributionId: 'workflow-mutations',
-			schemaMutations: {
-				archive: { mutation: archive, surfaces: ['schema', 'model'] },
-			},
-		})
-	},
 })
 ```
 

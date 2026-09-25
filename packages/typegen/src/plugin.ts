@@ -1,6 +1,10 @@
 import path from 'node:path'
 
-import { definePlugin, type FrameworkPlugin } from '@ultimabase/core'
+import {
+	contributeApplication,
+	plugin,
+	type PluginInstance,
+} from '@ultimabase/core'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 import { generateApplicationTypesFromSnapshot } from './generator.js'
@@ -30,15 +34,15 @@ interface NormalizedTypegenPluginOptions {
 }
 
 /** Represents automatic startup generation for one application registry. */
-export type TypegenPlugin = FrameworkPlugin<
+export type TypegenPlugin = PluginInstance<
 	typeof typegenPluginName,
-	Promise<Readonly<TypegenPluginExports>>,
-	undefined,
-	undefined,
-	undefined,
+	Readonly<TypegenPluginExports>,
 	undefined,
 	'0.0.0',
 	'^0.0.0',
+	undefined,
+	undefined,
+	undefined,
 	undefined,
 	readonly ['environment:filesystem']
 >
@@ -75,13 +79,9 @@ const normalizeOptions = (
 
 const createTypegenPlugin = (
 	normalized: NormalizedTypegenPluginOptions,
-): TypegenPlugin =>
-	definePlugin({
-		version: '0.0.0',
-		core: '^0.0.0',
-		pluginId: typegenPluginName,
-		environment: ['environment:filesystem'],
-		setup: async ({
+): TypegenPlugin => {
+	const application = contributeApplication(
+		async ({
 			fieldBuilderMethods,
 			pluginFieldTypes,
 			schemas,
@@ -107,12 +107,23 @@ const createTypegenPlugin = (
 				},
 			])
 
-			return immutableRecord({
-				fingerprint: generated.fingerprint,
-				outputPath: normalized.outputPath,
-			}) satisfies TypegenPluginExports
+			return {
+				exports: immutableRecord({
+					fingerprint: generated.fingerprint,
+					outputPath: normalized.outputPath,
+				}) satisfies TypegenPluginExports,
+			}
 		},
+	)
+	const instance = plugin({
+		id: typegenPluginName,
+		version: '0.0.0',
+		core: '^0.0.0',
+		environment: ['environment:filesystem'],
+		contributions: [application],
 	})
+	return instance
+}
 
 /**
  * Regenerates the complete application declaration before infrastructure starts.

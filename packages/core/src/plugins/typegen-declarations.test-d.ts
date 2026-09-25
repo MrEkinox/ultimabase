@@ -1,18 +1,19 @@
 import { expectTypeOf } from 'vitest'
 
 import {
-	definePlugin,
+	plugin as createPlugin,
+	contributeDeclarations,
 	defineTypegenReference,
 	type PluginDeclarationContext,
 	type CompiledTypegenGraph,
 	type TypegenReferenceRegistrar,
 } from '../index.js'
 
-const privileges = [
-	{ name: 'typegen:reference', reason: 'References one public type.' },
-] as const
+type TypegenPrivileges = readonly [
+	{ name: 'typegen:reference'; reason: 'References one public type.' },
+]
 
-type Context = PluginDeclarationContext<typeof privileges>
+type Context = PluginDeclarationContext<TypegenPrivileges>
 expectTypeOf<
 	Context['typegenReferences']
 >().toEqualTypeOf<TypegenReferenceRegistrar>()
@@ -25,14 +26,20 @@ const reference = defineTypegenReference({
 	module: '@fixture/public-plugin',
 })
 
-definePlugin({
+createPlugin({
 	core: '^0.0.0',
-	pluginId: 'fixture.typegen-types',
+	id: 'fixture.typegen-types',
 	version: '1.0.0',
-	privileges,
-	declare: ({ typegenReferences }) => {
-		typegenReferences.register(reference)
-	},
+	permissions: { 'typegen:reference': 'References one public type.' },
+	contributions: [
+		contributeDeclarations({
+			typegen: ({ typegenReferences }) => {
+				typegenReferences.register(reference)
+
+				return undefined
+			},
+		}),
+	],
 })
 
 type NoPrivileges = PluginDeclarationContext<readonly []>

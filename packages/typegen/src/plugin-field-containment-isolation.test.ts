@@ -1,6 +1,7 @@
 import {
 	defineFieldBuilderMethod,
-	definePlugin,
+	plugin as createPlugin,
+	contributeDeclarations,
 	definePluginField,
 	FrameworkApplication,
 	QueryBuilder,
@@ -49,17 +50,19 @@ const createFixture = (suffix: 'Alpha' | 'Beta', operandKey: string) => {
 			},
 		},
 	})
-	const plugin = definePlugin({
+	const plugin = createPlugin({
 		core: '^0.0.0',
-		declare: ({ fields }) => {
-			fields.register(method)
-			return undefined
-		},
-		pluginId: `fixture.${suffix.toLowerCase()}-plugin`,
-		privileges: [
-			{ name: 'schema:declare', reason: `Declares ${suffix} fields.` },
-		],
+		id: `fixture.${suffix.toLowerCase()}-plugin`,
+		permissions: { 'schema:declare': `Declares ${suffix} fields.` },
 		version: '0.0.0',
+		contributions: [
+			contributeDeclarations({
+				schema: ({ fields }) => {
+					fields.register(method)
+					return undefined
+				},
+			}),
+		],
 	})
 	const Document = Schema.define({
 		className: `Isolated${suffix}Document`,

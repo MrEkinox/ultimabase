@@ -1,7 +1,7 @@
 import { expectTypeOf, test } from 'vitest'
 
 import {
-	definePlugin,
+	plugin as createPlugin,
 	normalizeUpdateExpression,
 	persistencePlanRewriter,
 	providePersistencePlanRewriter,
@@ -41,12 +41,12 @@ test('preserves logical delete correlation across one physical update plan', () 
 			return rewritten
 		},
 	})
-	const plugin = definePlugin({
+	const plugin = createPlugin({
 		core: '^0.0.0',
-		pluginId: 'fixture.persistence-types',
+		id: 'fixture.persistence-types',
 		version: '0.0.0',
-		privileges: [{ name: 'persistence:rewrite', reason: 'Type fixture.' }],
-		capabilities: [
+		permissions: { 'persistence:rewrite': 'Type fixture.' },
+		contributions: [
 			providePersistencePlanRewriter({
 				contributionId: 'soft-delete',
 				create: () => ({ value: definition }),

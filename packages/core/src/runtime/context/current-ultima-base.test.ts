@@ -2,7 +2,7 @@ import { applicationFixture } from '../../../tests/application-fixture.js'
 import { describe, expect, it } from 'vitest'
 import {
 	UltimaBase,
-	definePlugin,
+	plugin,
 	getCurrentUltimaBase,
 	runWithRequestEngine,
 } from '../../index.js'
@@ -15,11 +15,11 @@ const createApplication = () =>
 			pluginPrivileges: { logger: false },
 			schemas: [],
 			plugins: [
-				definePlugin({
-					pluginId: 'fixture.current-facade',
+				plugin({
+					id: 'fixture.current-facade',
 					version: '1.0.0',
 					core: '^0.0.0',
-					capabilities: [
+					contributions: [
 						provideTestDatabaseAdapter(new RecordingDatabaseAdapter([], [])),
 					],
 				}),

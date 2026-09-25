@@ -2,7 +2,7 @@ import {
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
 	databaseRelationCapability,
-	definePlugin,
+	plugin,
 	getOperationSchema,
 	provideCapability,
 	type DatabaseAdapter,
@@ -177,14 +177,14 @@ export class OfficialConformanceDatabase implements DatabaseAdapter {
 export const officialConformanceDatabasePlugin = (
 	database: OfficialConformanceDatabase,
 ) =>
-	definePlugin({
-		capabilities: [
+	plugin({
+		contributions: [
 			provideCapability(databaseAdapterCapability, {
 				contributionId: 'official-conformance-database',
 				create: () => ({ value: database }),
 			}),
 		],
 		core: '^0.0.0',
-		pluginId: 'fixture.official-conformance-database',
+		id: 'fixture.official-conformance-database',
 		version: '1.0.0',
 	})

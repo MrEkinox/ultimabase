@@ -112,35 +112,22 @@ Core preserves the selected item's policy, locked target, and transaction.
 
 ## Build the plugin
 
-`definePluginModule` keeps the manifest identity stable across configured
-instances. Multiple instances require distinct explicit `instanceId` values:
+`plugin()` declares stable manifest identity and every owned contribution in
+one place. Multiple instances require distinct explicit `instanceId` values:
 
 ```ts
-const workflow = definePluginModule({
-	core: '^0.0.0',
-	pluginId: 'community.workflow',
-	version: '1.0.0',
-})
-
 export const workflowPlugin = (options: WorkflowPluginOptions) =>
-	workflow.plugin({
+	plugin({
+		id: 'community.workflow',
+		core: '^0.0.0',
+		version: '1.0.0',
 		instanceId: options.instanceId,
-		operations: [publishContribution],
-		declare: workflowDeclaration,
-		privileges: [
-			{
-				name: 'schema:declare',
-				reason: 'Adds workflow options and fields.',
-			},
-			{
-				name: 'operation:declare',
-				reason: 'Declares the publish operation.',
-			},
-			{
-				name: 'typegen:reference',
-				reason: 'References public workflow types.',
-			},
-		],
+		contributions: [publishContribution, workflowDeclaration],
+		permissions: {
+			'schema:declare': 'Adds workflow options and fields.',
+			'operation:declare': 'Declares the publish operation.',
+			'typegen:reference': 'References public workflow types.',
+		},
 	})
 ```
 
@@ -158,11 +145,11 @@ materialization or setup:
 ```ts
 const auditRequirement = requireCapability(auditCapability, '^1.0.0')
 
-definePlugin({
-	pluginId: 'community.audit-consumer',
+plugin({
+	id: 'community.audit-consumer',
 	version: '1.0.0',
 	core: '^0.0.0',
-	capabilities: [auditRequirement],
+	contributions: [auditRequirement],
 	setup: ({ capabilities }) => {
 		const audit = capabilities.get(auditRequirement)
 		return { audit }

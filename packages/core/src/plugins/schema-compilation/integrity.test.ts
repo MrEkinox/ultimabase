@@ -8,7 +8,11 @@ import {
 	type PreparedSchemaCompilation,
 } from '../../schema/schema/definition.js'
 import { defineSchemaConstraint } from '../../schema/schema/constraints.js'
-import { definePlugin } from '../definition.js'
+import { plugin as createPlugin } from '../plugin.js'
+import {
+	contributeApplication,
+	contributeDeclarations,
+} from '../plugin-contributions.js'
 import { addSchemaIndex } from '../schema-field-patch-operations.js'
 import * as canonical from './compiler.js'
 import type { SchemaCompilationResult } from './contracts.js'
@@ -71,20 +75,26 @@ const fixture = () => {
 		schemas: [Target],
 		pluginPrivileges: { logger: false },
 		plugins: [
-			definePlugin({
-				pluginId: 'fixture.compiler-integrity',
+			createPlugin({
+				id: 'fixture.compiler-integrity',
 				version: '1.0.0',
 				core: '^0.0.0',
-				setup,
-				privileges: [
-					{
-						name: 'schema:declare',
-						reason: 'Exercises frozen selection validation.',
-					},
-				],
-				declare: ({ schemas }) => {
-					schemas.patch({ targets: schemas.select({}), operations: [] })
+				permissions: {
+					'schema:declare': 'Exercises frozen selection validation.',
 				},
+				contributions: [
+					contributeApplication((context) => {
+						setup(context)
+						return { exports: undefined }
+					}),
+					contributeDeclarations({
+						schema: ({ schemas }) => {
+							schemas.patch({ targets: schemas.select({}), operations: [] })
+
+							return undefined
+						},
+					}),
+				],
 			}),
 		],
 	})
@@ -484,26 +494,30 @@ describe('mandatory direct compilation integrity', () => {
 			schemas: [],
 			pluginPrivileges: { logger: false },
 			plugins: [
-				definePlugin({
-					pluginId: 'fixture.empty-selection',
+				createPlugin({
+					id: 'fixture.empty-selection',
 					version: '1.0.0',
 					core: '^0.0.0',
-					privileges: [
-						{ name: 'schema:declare', reason: 'Checks unused declarations.' },
+					permissions: { 'schema:declare': 'Checks unused declarations.' },
+					contributions: [
+						contributeDeclarations({
+							schema: ({ schemas }) => {
+								schemas.patch({
+									targets: schemas.select({ className: 'Missing' }),
+									operations: [
+										addSchemaIndex({
+											contributionId: 'invalid-index',
+											fields: ['first', 'second'],
+											// @ts-expect-error -- JavaScript callers must not hide executable index data.
+											unique: callback,
+										}),
+									],
+								})
+
+								return undefined
+							},
+						}),
 					],
-					declare: ({ schemas }) => {
-						schemas.patch({
-							targets: schemas.select({ className: 'Missing' }),
-							operations: [
-								addSchemaIndex({
-									contributionId: 'invalid-index',
-									fields: ['first', 'second'],
-									// @ts-expect-error -- JavaScript callers must not hide executable index data.
-									unique: callback,
-								}),
-							],
-						})
-					},
 				}),
 			],
 		})

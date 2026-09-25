@@ -5,7 +5,7 @@ import {
 	FrameworkApplication,
 	FrameworkError,
 	defineOperationValue,
-	definePlugin,
+	plugin,
 	defineSchemaMutation,
 	provideCapability,
 } from '../../foundation.js'
@@ -76,39 +76,30 @@ describe('schema mutation transport binding capability', () => {
 	})
 
 	it('requires the protected provider facade and transport privilege', () => {
-		const withoutPrivilege = definePlugin({
-			capabilities: [
-				provideSchemaMutationTransportBinding({
-					contributionId: 'binding',
-					create: () => ({ value: binding }),
-				}),
-			],
-			core: '^0.0.0',
-			pluginId: 'fixture.schema-mutation-transport-no-privilege',
-			version: '1.0.0',
-		})
-		expect(
-			captureFrameworkError(
-				() =>
-					new FrameworkApplication({
-						plugins: [withoutPrivilege],
-						schemas: [],
+		expect(() =>
+			plugin({
+				contributions: [
+					provideSchemaMutationTransportBinding({
+						contributionId: 'binding',
+						create: () => ({ value: binding }),
 					}),
-			).internalDetails,
-		).toMatchObject({ privilege: 'transport:expose' })
+				],
+				core: '^0.0.0',
+				id: 'fixture.schema-mutation-transport-no-privilege',
+				version: '1.0.0',
+			}),
+		).toThrow('Missing plugin permission reason: transport:expose')
 
-		const generic = definePlugin({
-			capabilities: [
+		const generic = plugin({
+			contributions: [
 				provideCapability(schemaMutationTransportBindingCapability, {
 					contributionId: 'generic',
 					create: () => ({ value: binding }),
 				}),
 			],
 			core: '^0.0.0',
-			pluginId: 'fixture.schema-mutation-transport-generic',
-			privileges: [
-				{ name: 'transport:expose', reason: 'Exercises facade enforcement.' },
-			],
+			id: 'fixture.schema-mutation-transport-generic',
+			permissions: { 'transport:expose': 'Exercises facade enforcement.' },
 			version: '1.0.0',
 		})
 		expect(

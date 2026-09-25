@@ -5,7 +5,8 @@ import { provideTestDatabaseAdapter } from '../../../tests/runtime/fixtures/data
 import { RecordingDatabaseAdapter } from '../../../tests/runtime/fixtures/recording-database-adapter.js'
 import {
 	defineOperationValue,
-	definePlugin,
+	plugin as createPlugin,
+	contributeDeclarations,
 	defineSchemaMutation,
 } from '../../foundation.js'
 import { UltimaBase } from '../application/ultima-base.js'
@@ -24,8 +25,15 @@ it('keeps a valid handler dormant when no schema selects its mutation', async ()
 		returning: 'after',
 		version: '1.0.0',
 	})
-	const dormantOwner = definePlugin({
-		capabilities: [
+	const dormantOwner = createPlugin({
+		core: '^0.0.0',
+		id: 'fixture.schema-mutation-dormant',
+		permissions: {
+			'operation:declare': 'Declares an optional mutation.',
+			'persistence:rewrite': 'Owns its optional effect.',
+		},
+		version: '1.0.0',
+		contributions: [
 			provideSchemaMutationHandler({
 				contributionId: 'dormant-handler',
 				create: () => ({
@@ -35,25 +43,22 @@ it('keeps a valid handler dormant when no schema selects its mutation', async ()
 					}),
 				}),
 			}),
+			contributeDeclarations({
+				operations: ({ operations }) => {
+					operations.declare(dormantMutation)
+
+					return undefined
+				},
+			}),
 		],
-		core: '^0.0.0',
-		declare: ({ operations }) => {
-			operations.declare(dormantMutation)
-		},
-		pluginId: 'fixture.schema-mutation-dormant',
-		privileges: [
-			{ name: 'operation:declare', reason: 'Declares an optional mutation.' },
-			{ name: 'persistence:rewrite', reason: 'Owns its optional effect.' },
-		] as const,
-		version: '1.0.0',
 	})
-	const database = definePlugin({
-		capabilities: [
+	const database = createPlugin({
+		core: '^0.0.0',
+		id: 'fixture.schema-mutation-dormant-database',
+		version: '1.0.0',
+		contributions: [
 			provideTestDatabaseAdapter(new RecordingDatabaseAdapter([], [])),
 		],
-		core: '^0.0.0',
-		pluginId: 'fixture.schema-mutation-dormant-database',
-		version: '1.0.0',
 	})
 	const ultimabase = applicationFixture(
 		new UltimaBase({

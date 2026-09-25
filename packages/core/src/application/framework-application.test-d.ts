@@ -3,7 +3,8 @@ import { expectTypeOf, test } from 'vitest'
 
 import {
 	createApplication,
-	definePlugin,
+	plugin as createPlugin,
+	contributeApplication,
 	type ConfiguredPluginExports,
 	type ConfiguredPluginId,
 	type ConfiguredPluginIdentity,
@@ -17,11 +18,15 @@ test('infers schemas and top-level plugin exports from application options', asy
 		className: 'TypedApplication',
 		fields: (field) => ({ name: field.string() }),
 	})
-	const plugin = definePlugin({
+	const plugin = createPlugin({
 		version: '0.0.0',
 		core: '^0.0.0',
-		pluginId: 'fixture.database',
-		setup: () => Promise.resolve({ dialect: 'postgres' as const }),
+		id: 'fixture.database',
+		contributions: [
+			contributeApplication(() => ({
+				exports: { dialect: 'postgres' as const },
+			})),
+		],
 	})
 	const application = await createApplication({
 		schemas: [schema],
@@ -41,23 +46,26 @@ test('infers schemas and top-level plugin exports from application options', asy
 		expectTypeOf(unknownSchema).toEqualTypeOf<typeof schema>()
 	}
 	expectTypeOf(application.getPlugin('fixture.database')).toEqualTypeOf<{
-		dialect: 'postgres'
+		readonly dialect: 'postgres'
 	}>()
 	// @ts-expect-error -- Only configured literal plugin IDs are addressable.
 	application.getPlugin('fixture.missing')
 })
 
 test('includes every flat configured plugin in typed lookup', async () => {
-	const child = definePlugin({
+	const child = createPlugin({
 		version: '0.0.0',
 		core: '^0.0.0',
-		pluginId: 'fixture.child',
-		setup: () => ({ child: true as const }),
+		id: 'fixture.child',
+		contributions: [
+			contributeApplication(() => ({ exports: { child: true as const } })),
+		],
 	})
-	const parent = definePlugin({
+	const parent = createPlugin({
 		version: '0.0.0',
 		core: '^0.0.0',
-		pluginId: 'fixture.parent',
+		id: 'fixture.parent',
+		contributions: [],
 	})
 	const application = await createApplication({
 		schemas: [],
@@ -92,19 +100,27 @@ test('keeps widened plugin collections safe at runtime boundaries', () => {
 })
 
 test('infers setup exports from exact repeated plugin identities', async () => {
-	const primary = definePlugin({
-		pluginId: 'fixture.repeated',
+	const primary = createPlugin({
+		id: 'fixture.repeated',
 		instanceId: 'primary',
 		version: '1.0.0',
 		core: '^0.0.0',
-		setup: () => ({ connection: 'primary' as const }),
+		contributions: [
+			contributeApplication(() => ({
+				exports: { connection: 'primary' as const },
+			})),
+		],
 	})
-	const analytics = definePlugin({
-		pluginId: 'fixture.repeated',
+	const analytics = createPlugin({
+		id: 'fixture.repeated',
 		instanceId: 'analytics',
 		version: '1.0.0',
 		core: '^0.0.0',
-		setup: () => ({ connection: 'analytics' as const }),
+		contributions: [
+			contributeApplication(() => ({
+				exports: { connection: 'analytics' as const },
+			})),
+		],
 	})
 	const application = await createApplication({
 		schemas: [],

@@ -5,7 +5,8 @@ import {
 	addSchemaField,
 	addSchemaIndex,
 	defineCapability,
-	definePlugin,
+	plugin as createPlugin,
+	contributeDeclarations,
 	defineSchemaOption,
 	requireCapability,
 	stringField,
@@ -100,95 +101,98 @@ test('types Runtime option compilation from the exact capability requirement', (
 })
 
 test('types schema declarations from exact active privileges', () => {
-	definePlugin({
+	createPlugin({
 		core: '^0.0.0',
-		pluginId: 'fixture.schema-contracts',
-		privileges: [
-			{
-				name: 'schema:declare',
-				reason: 'Exercises typed additions.',
-			},
-		] as const,
+		id: 'fixture.schema-contracts',
+		permissions: { 'schema:declare': 'Exercises typed additions.' },
 		version: '1.0.0',
-		declare: ({ schemas }) => {
-			expectTypeOf(schemas).toEqualTypeOf<PluginSchemaDeclarationRegistrar>()
+		contributions: [
+			contributeDeclarations({
+				schema: ({ schemas }) => {
+					expectTypeOf(
+						schemas,
+					).toEqualTypeOf<PluginSchemaDeclarationRegistrar>()
 
-			schemas.defineOptions({
-				contributionId: 'workflow-options',
-				schema: { workflow: workflowOption },
-			})
-			const selected = schemas.select({
-				field: { kind: 'string', name: 'title' },
-				option: {
-					equals: true,
-					name: 'workflow',
-					path: ['enabled'],
-				},
-				owner: { kind: 'application' },
-			})
-			expectTypeOf(selected).toEqualTypeOf<SchemaSelection>()
-			const present = schemas.select({ option: { name: 'workflow' } })
-			expectTypeOf(present).toEqualTypeOf<SchemaSelection>()
-			const absenceSelector: SchemaOptionAbsenceSelector = {
-				name: 'workflow',
-				present: false,
-			}
-			const absent = schemas.select({ option: absenceSelector })
-			expectTypeOf(absent).toEqualTypeOf<SchemaSelection>()
-			schemas.select({
-				option: {
-					name: 'workflow',
-					// @ts-expect-error -- Absence is the only supported present flag.
-					present: true,
-				},
-			})
-			schemas.select({
-				option: {
-					equals: false,
-					name: 'workflow',
-					// @ts-expect-error -- Absence cannot be combined with equality.
-					present: false,
-				},
-			})
-			schemas.select({
-				option: {
-					name: 'workflow',
-					path: ['enabled'],
-					// @ts-expect-error -- Absence cannot be combined with a path.
-					present: false,
-				},
-			})
-			schemas.select({
-				// @ts-expect-error -- Paths belong only to equality selectors.
-				option: {
-					name: 'workflow',
-					path: ['enabled'],
-				},
-			})
-			schemas.select({
-				option: {
-					// @ts-expect-error -- Equality selector values must be portable JSON.
-					equals: () => true,
-					name: 'workflow',
-				},
-			})
+					schemas.defineOptions({
+						contributionId: 'workflow-options',
+						schema: { workflow: workflowOption },
+					})
+					const selected = schemas.select({
+						field: { kind: 'string', name: 'title' },
+						option: {
+							equals: true,
+							name: 'workflow',
+							path: ['enabled'],
+						},
+						owner: { kind: 'application' },
+					})
+					expectTypeOf(selected).toEqualTypeOf<SchemaSelection>()
+					const present = schemas.select({ option: { name: 'workflow' } })
+					expectTypeOf(present).toEqualTypeOf<SchemaSelection>()
+					const absenceSelector: SchemaOptionAbsenceSelector = {
+						name: 'workflow',
+						present: false,
+					}
+					const absent = schemas.select({ option: absenceSelector })
+					expectTypeOf(absent).toEqualTypeOf<SchemaSelection>()
+					schemas.select({
+						option: {
+							name: 'workflow',
+							// @ts-expect-error -- Absence is the only supported present flag.
+							present: true,
+						},
+					})
+					schemas.select({
+						option: {
+							equals: false,
+							name: 'workflow',
+							// @ts-expect-error -- Absence cannot be combined with equality.
+							present: false,
+						},
+					})
+					schemas.select({
+						option: {
+							name: 'workflow',
+							path: ['enabled'],
+							// @ts-expect-error -- Absence cannot be combined with a path.
+							present: false,
+						},
+					})
+					schemas.select({
+						// @ts-expect-error -- Paths belong only to equality selectors.
+						option: {
+							name: 'workflow',
+							path: ['enabled'],
+						},
+					})
+					schemas.select({
+						option: {
+							// @ts-expect-error -- Equality selector values must be portable JSON.
+							equals: () => true,
+							name: 'workflow',
+						},
+					})
 
-			schemas.patch({
-				operations: [
-					addSchemaField({
-						contributionId: 'state',
-						field: stringField(),
-						mutationInput: 'forbidden',
-						name: 'state',
-					}),
-					addSchemaIndex({
-						contributionId: 'state-index',
-						fields: ['state', 'createdAt'],
-					}),
-				],
-				targets: selected,
-			})
-		},
+					schemas.patch({
+						operations: [
+							addSchemaField({
+								contributionId: 'state',
+								field: stringField(),
+								mutationInput: 'forbidden',
+								name: 'state',
+							}),
+							addSchemaIndex({
+								contributionId: 'state-index',
+								fields: ['state', 'createdAt'],
+							}),
+						],
+						targets: selected,
+					})
+
+					return undefined
+				},
+			}),
+		],
 	})
 })
 
@@ -197,21 +201,25 @@ test('requires nominal additive patch operations', () => {
 		className: 'TypedSchemaAddition',
 		fields: (fieldBuilder) => ({ title: fieldBuilder.string() }),
 	})
-	definePlugin({
+	createPlugin({
 		core: '^0.0.0',
-		pluginId: 'fixture.typed-schema-addition',
-		privileges: [
-			{
-				name: 'schema:declare',
-				reason: 'Adds one stable schema.',
-			},
-		] as const,
+		id: 'fixture.typed-schema-addition',
+		permissions: { 'schema:declare': 'Adds one stable schema.' },
 		version: '1.0.0',
-		declare: ({ schemas }) => {
-			schemas.add({ contributionId: 'post', schema: Post })
-			// @ts-expect-error -- Arbitrary callback patches are not a public escape hatch.
-			schemas.patch({ operations: [() => Post], targets: schemas.select({}) })
-		},
+		contributions: [
+			contributeDeclarations({
+				schema: ({ schemas }) => {
+					schemas.add({ contributionId: 'post', schema: Post })
+					schemas.patch({
+						// @ts-expect-error -- Arbitrary callback patches are not a public escape hatch.
+						operations: [() => Post],
+						targets: schemas.select({}),
+					})
+
+					return undefined
+				},
+			}),
+		],
 	})
 })
 
@@ -220,18 +228,22 @@ test('types exact application schema claims', () => {
 		className: 'TypedClaimedUser',
 		fields: () => ({}),
 	})
-	definePlugin({
+	createPlugin({
 		core: '^0.0.0',
-		pluginId: 'fixture.typed-schema-claim',
-		privileges: [
-			{ name: 'schema:declare', reason: 'Claims one selected User schema.' },
-		] as const,
+		id: 'fixture.typed-schema-claim',
+		permissions: { 'schema:declare': 'Claims one selected User schema.' },
 		version: '1.0.0',
-		declare: ({ schemas }) => {
-			schemas.claim({ contributionId: 'user', schema: User })
-			// @ts-expect-error -- Claims accept only genuine schema definitions.
-			schemas.claim({ contributionId: 'invalid', schema: {} })
-		},
+		contributions: [
+			contributeDeclarations({
+				schema: ({ schemas }) => {
+					schemas.claim({ contributionId: 'user', schema: User })
+					// @ts-expect-error -- Claims accept only genuine schema definitions.
+					schemas.claim({ contributionId: 'invalid', schema: {} })
+
+					return undefined
+				},
+			}),
+		],
 	})
 })
 

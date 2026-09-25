@@ -9,7 +9,7 @@ import { applicationFixture } from '../../../tests/application-fixture.js'
 
 import { provideTestDatabaseAdapter } from '../../../tests/runtime/fixtures/database-adapter-capability.js'
 import { RecordingDatabaseAdapter } from '../../../tests/runtime/fixtures/recording-database-adapter.js'
-import { definePlugin } from '../../foundation.js'
+import { plugin } from '../../foundation.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import { UltimaBase } from '../application/ultima-base.js'
 import { runWithRequestEngine } from '../context/active-framework-context.js'
@@ -388,10 +388,10 @@ describe('plugin schema mutation Runtime', () => {
 			new UltimaBase({
 				pluginPrivileges: { logger: false },
 				plugins: [
-					definePlugin({
-						capabilities: [provideTestDatabaseAdapter(otherAdapter)],
+					plugin({
+						contributions: [provideTestDatabaseAdapter(otherAdapter)],
 						core: '^0.0.0',
-						pluginId: 'fixture.schema-mutation-without-purge',
+						id: 'fixture.schema-mutation-without-purge',
 						version: '1.0.0',
 					}),
 				],

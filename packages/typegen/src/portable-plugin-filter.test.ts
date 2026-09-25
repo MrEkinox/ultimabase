@@ -1,6 +1,7 @@
 import {
 	defineFieldBuilderMethod,
-	definePlugin,
+	plugin as createPlugin,
+	contributeDeclarations,
 	definePluginField,
 	FrameworkApplication,
 	Schema,
@@ -43,17 +44,19 @@ describe('portable plugin field filters', () => {
 				},
 			},
 		})
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			core: '^0.0.0',
-			declare: ({ fields }) => {
-				fields.register(method)
-				return undefined
-			},
-			pluginId: 'fixture.portable-plugin',
-			privileges: [
-				{ name: 'schema:declare', reason: 'Declares the portable field.' },
-			],
+			id: 'fixture.portable-plugin',
+			permissions: { 'schema:declare': 'Declares the portable field.' },
 			version: '0.0.0',
+			contributions: [
+				contributeDeclarations({
+					schema: ({ fields }) => {
+						fields.register(method)
+						return undefined
+					},
+				}),
+			],
 		})
 		const Portable = Schema.define({
 			className: 'TypegenPortablePluginField',

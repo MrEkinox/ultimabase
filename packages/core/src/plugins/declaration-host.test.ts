@@ -5,7 +5,8 @@ import {
 	createApplication,
 	defineCapability,
 	defineFieldBuilderMethod,
-	definePlugin,
+	plugin as createPlugin,
+	contributeDeclarations,
 	optionalCapability,
 	provideCapability,
 	requireCapability,
@@ -72,27 +73,35 @@ describe('PluginDeclarationHost', () => {
 			'^1.0.0',
 		)
 		const plugin = () =>
-			definePlugin({
-				pluginId: 'fixture.conditional-declarer',
+			createPlugin({
+				id: 'fixture.conditional-declarer',
 				version: '1.0.0',
 				core: '^0.0.0',
-				capabilities: [conditionalRequirement],
-				privileges: [
-					{
-						name: 'schema:declare',
+				permissions: {
+					'schema:declare': {
 						reason: 'Declares alpha when the static protocol is present.',
 						when: conditionalRequirement,
 					},
-				],
-				declare: ({ fields }) => {
-					fields?.register(alphaMethod)
 				},
+				contributions: [
+					conditionalRequirement,
+					contributeDeclarations({
+						schema: ({ fields }) => {
+							const availableFields: unknown = fields
+							if (availableFields !== undefined) {
+								;(availableFields as typeof fields).register(alphaMethod)
+							}
+
+							return undefined
+						},
+					}),
+				],
 			})
-		const provider = definePlugin({
-			pluginId: 'fixture.static-provider',
+		const provider = createPlugin({
+			id: 'fixture.static-provider',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: [
+			contributions: [
 				provideCapability(declarationCapability, {
 					contributionId: 'fixture',
 					value: { label: 'available' },
@@ -139,27 +148,32 @@ describe('PluginDeclarationHost', () => {
 					readonly [typeof required, typeof absent]
 			  >
 			| undefined
-		const provider = definePlugin({
-			pluginId: 'fixture.reader-provider',
+		const provider = createPlugin({
+			id: 'fixture.reader-provider',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: [
+			contributions: [
 				provideCapability(declarationCapability, {
 					contributionId: 'fixture',
 					value: { label: 'composed' },
 				}),
 			],
 		})
-		const consumer = definePlugin({
-			pluginId: 'fixture.reader-consumer',
+		const consumer = createPlugin({
+			id: 'fixture.reader-consumer',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: [required, absent],
-			declare: ({ capabilities }) => {
-				captured = capabilities
-				observed = capabilities.get(required)
-				optionalObserved = capabilities.get(absent)
-			},
+			permissions: { 'schema:declare': 'Reads declaration capabilities.' },
+			contributions: [
+				contributeDeclarations({
+					requires: [required, absent],
+					schema: ({ capabilities }) => {
+						captured = capabilities
+						observed = capabilities.get(required)
+						optionalObserved = capabilities.get(absent)
+					},
+				}),
+			],
 		})
 
 		applicationFixture(
@@ -188,31 +202,30 @@ describe('PluginDeclarationHost', () => {
 					get(requirement: CapabilityRequirement): unknown
 				}>
 			).get(requirement)
-		const undeclaredPlugin = definePlugin({
-			pluginId: 'fixture.undeclared-reader',
+		const undeclaredPlugin = createPlugin({
+			id: 'fixture.undeclared-reader',
 			version: '1.0.0',
 			core: '^0.0.0',
-			declare: ({ capabilities }) => {
-				readThroughRuntimeBoundary(capabilities, undeclared)
-			},
-		})
-		const applicationPlugin = definePlugin({
-			pluginId: 'fixture.application-reader',
-			version: '1.0.0',
-			core: '^0.0.0',
-			capabilities: [applicationRequirement],
-			declare: ({ capabilities }) => {
-				readThroughRuntimeBoundary(capabilities, applicationRequirement)
-			},
+			permissions: { 'schema:declare': 'Exercises undeclared reads.' },
+			contributions: [
+				contributeDeclarations({
+					schema: ({ capabilities }) => {
+						readThroughRuntimeBoundary(capabilities, undeclared)
+					},
+				}),
+			],
 		})
 
 		await expect(
 			createApplication({ plugins: [undeclaredPlugin], schemas: [] }),
 		).rejects.toThrow('attempted to read an undeclared capability requirement')
-		await expect(
-			createApplication({ plugins: [applicationPlugin], schemas: [] }),
-		).rejects.toThrow(
-			'attempted to read application capability "fixture.application-declaration" during static declaration',
+		expect(() =>
+			contributeDeclarations({
+				requires: [applicationRequirement],
+				schema: () => undefined,
+			}),
+		).toThrow(
+			'plugin declaration contributions may require only declaration capabilities',
 		)
 	})
 
@@ -241,20 +254,23 @@ describe('PluginDeclarationHost', () => {
 			instanceId: 'primary' | 'secondary',
 			method: typeof alphaMethod | typeof betaMethod,
 		) =>
-			definePlugin({
-				pluginId: 'fixture.repeated-declarer',
+			createPlugin({
+				id: 'fixture.repeated-declarer',
 				instanceId,
 				version: '1.0.0',
 				core: '^0.0.0',
-				privileges: [
-					{
-						name: 'schema:declare',
-						reason: `Declares the ${method.name} fixture method.`,
-					},
-				],
-				declare: ({ fields }) => {
-					fields.register(method)
+				permissions: {
+					'schema:declare': `Declares the ${method.name} fixture method.`,
 				},
+				contributions: [
+					contributeDeclarations({
+						schema: ({ fields }) => {
+							fields.register(method)
+
+							return undefined
+						},
+					}),
+				],
 			})
 
 		const application = applicationFixture(

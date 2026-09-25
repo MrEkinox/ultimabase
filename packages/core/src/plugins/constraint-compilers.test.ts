@@ -2,7 +2,11 @@ import { SchemaRegistry } from '../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
 import { createApplication } from '../application/framework-application.js'
-import { definePlugin } from './definition.js'
+import { plugin as createPlugin } from './plugin.js'
+import {
+	contributeApplication,
+	withPluginPrivileges,
+} from './plugin-contributions.js'
 import {
 	defineDatabaseConstraintCompiler,
 	isDatabaseConstraintCompilerDefinition,
@@ -143,21 +147,24 @@ describe('PluginConstraintCompilerRegistry', () => {
 	})
 
 	it('keeps identical compiler identities application-isolated', async () => {
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.compiler-owner',
-			privileges: [
-				{
-					name: 'adapter:consume',
-					reason: 'Registers a database constraint compiler for tests.',
-				},
-			],
-			setup: ({ constraintCompilers }) => {
-				constraintCompilers.register(tenantCompiler)
-
-				return { constraintCompilers }
+			id: 'fixture.compiler-owner',
+			permissions: {
+				'adapter:consume':
+					'Registers a database constraint compiler for tests.',
 			},
+			contributions: [
+				withPluginPrivileges(
+					contributeApplication(({ constraintCompilers }) => {
+						constraintCompilers.register(tenantCompiler)
+						const exports = { constraintCompilers }
+						return { exports }
+					}),
+					['adapter:consume'],
+				),
+			],
 		})
 		const first = await createApplication({ schemas: [], plugins: [plugin] })
 
@@ -178,19 +185,23 @@ describe('PluginConstraintCompilerRegistry', () => {
 
 	it('fails duplicate application setup before infrastructure starts', async () => {
 		const createCompilerPlugin = (name: string) =>
-			definePlugin({
+			createPlugin({
 				version: '0.0.0',
 				core: '^0.0.0',
-				pluginId: name,
-				privileges: [
-					{
-						name: 'adapter:consume',
-						reason: 'Registers a database constraint compiler for tests.',
-					},
-				],
-				setup: ({ constraintCompilers }) => {
-					constraintCompilers.register(tenantCompiler)
+				id: name,
+				permissions: {
+					'adapter:consume':
+						'Registers a database constraint compiler for tests.',
 				},
+				contributions: [
+					withPluginPrivileges(
+						contributeApplication(({ constraintCompilers }) => {
+							constraintCompilers.register(tenantCompiler)
+							return { exports: undefined }
+						}),
+						['adapter:consume'],
+					),
+				],
 			})
 
 		await expect(

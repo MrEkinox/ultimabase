@@ -5,7 +5,8 @@ import {
 	Schema,
 	requestPrincipalResolverCapability,
 	createApplication,
-	definePlugin,
+	plugin as createPlugin,
+	contributeApplication,
 	optionalCapability,
 	provideCapability,
 	type RequestPrincipalResolver,
@@ -22,23 +23,27 @@ const optionalPrincipalResolver = optionalCapability(
 	'^1.0.0',
 )
 
-const optionalConsumer = definePlugin({
+const optionalConsumer = createPlugin({
 	version: '0.0.0',
 	core: '^0.0.0',
-	pluginId: 'fixture.access.principal-consumer',
-	capabilities: [optionalPrincipalResolver],
-	setup: ({ capabilities }) => capabilities.get(optionalPrincipalResolver),
+	id: 'fixture.access.principal-consumer',
+	contributions: [
+		optionalPrincipalResolver,
+		contributeApplication(({ capabilities }) => ({
+			exports: capabilities.get(optionalPrincipalResolver),
+		})),
+	],
 })
 
 const createProvider = <const TName extends string>(
 	name: TName,
 	resolver: RequestPrincipalResolver,
 ) =>
-	definePlugin({
+	createPlugin({
 		version: '0.0.0',
 		core: '^0.0.0',
-		pluginId: name,
-		capabilities: [
+		id: name,
+		contributions: [
 			provideCapability(requestPrincipalResolverCapability, {
 				contributionId: 'principal-resolver',
 				create: () => ({ value: resolver }),

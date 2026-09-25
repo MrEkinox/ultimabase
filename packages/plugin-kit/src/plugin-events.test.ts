@@ -1,8 +1,4 @@
-import {
-	createApplication,
-	definePlugin,
-	type JsonObject,
-} from '@ultimabase/core'
+import { createApplication, plugin, type JsonObject } from '@ultimabase/core'
 import { describe, expect, it, vi } from 'vitest'
 
 import {
@@ -45,28 +41,21 @@ describe('plugin event authoring helpers', () => {
 	it('keeps observer execution behind runtime:observe provider privilege', async () => {
 		const observer = observePluginEvent(published, () => undefined)
 		const provider = providePluginEvent(events, 'fixture-observer', observer)
-		const unauthorized = definePlugin({
-			pluginId: 'fixture.unauthorized-event-observer',
+		expect(() =>
+			plugin({
+				id: 'fixture.unauthorized-event-observer',
+				version: '1.0.0',
+				core: '^0.0.0',
+				contributions: [provider],
+			}),
+		).toThrow('Missing plugin permission reason: runtime:observe')
+
+		const authorized = plugin({
+			id: 'fixture.authorized-event-observer',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: [provider],
-		})
-
-		await expect(
-			createApplication({ plugins: [unauthorized], schemas: [] }),
-		).rejects.toMatchObject({ code: 'PLUGIN_CAPABILITY_CONFLICT' })
-
-		const authorized = definePlugin({
-			pluginId: 'fixture.authorized-event-observer',
-			version: '1.0.0',
-			core: '^0.0.0',
-			privileges: [
-				{
-					name: 'runtime:observe',
-					reason: 'Observes committed fixture events.',
-				},
-			],
-			capabilities: [provider],
+			permissions: { 'runtime:observe': 'Observes committed fixture events.' },
+			contributions: [provider],
 		})
 		const application = await createApplication({
 			plugins: [authorized],

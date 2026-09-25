@@ -5,12 +5,16 @@ import { isPlainRecord } from '@ultimabase/shared'
 import {
 	createApplication,
 	defineFieldBuilderMethod,
-	definePlugin,
+	plugin as createPlugin,
+	contributeApplication,
+	contributeDeclarations,
+	withPluginPrivileges,
 	definePluginField,
 	Schema,
 	type FieldBuilder,
 	type FieldBuilderMethodDefinition,
 	type FieldOptions,
+	type PluginSchemaContributionContext,
 } from '../../index.js'
 
 interface FixtureFieldOptions extends FieldOptions<string> {
@@ -76,25 +80,41 @@ const schemaDeclarePrivilege = {
 } as const
 
 const alphaPlugin = () =>
-	definePlugin({
+	createPlugin({
 		version: '0.0.0',
 		core: '^0.0.0',
-		pluginId: 'fixture.alpha-plugin',
-		privileges: [schemaDeclarePrivilege],
-		declare: ({ fields }) => {
-			fields.register(alphaMethod)
+		id: 'fixture.alpha-plugin',
+		permissions: {
+			[schemaDeclarePrivilege.name]: schemaDeclarePrivilege.reason,
 		},
+		contributions: [
+			contributeDeclarations({
+				schema: ({ fields }) => {
+					fields.register(alphaMethod)
+
+					return undefined
+				},
+			}),
+		],
 	})
 
 const betaPlugin = () =>
-	definePlugin({
+	createPlugin({
 		version: '0.0.0',
 		core: '^0.0.0',
-		pluginId: 'fixture.beta-plugin',
-		privileges: [schemaDeclarePrivilege],
-		declare: ({ fields }) => {
-			fields.register(betaMethod)
+		id: 'fixture.beta-plugin',
+		permissions: {
+			[schemaDeclarePrivilege.name]: schemaDeclarePrivilege.reason,
 		},
+		contributions: [
+			contributeDeclarations({
+				schema: ({ fields }) => {
+					fields.register(betaMethod)
+
+					return undefined
+				},
+			}),
+		],
 	})
 
 describe('plugin FieldBuilder methods', () => {
@@ -114,14 +134,22 @@ describe('plugin FieldBuilder methods', () => {
 				},
 			},
 		})
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			core: '^0.0.0',
-			declare: ({ fields }) => {
-				fields.register(contextualMethod)
+			id: 'fixture.contextual-plugin',
+			permissions: {
+				[schemaDeclarePrivilege.name]: schemaDeclarePrivilege.reason,
 			},
-			pluginId: 'fixture.contextual-plugin',
-			privileges: [schemaDeclarePrivilege],
 			version: '1.0.0',
+			contributions: [
+				contributeDeclarations({
+					schema: ({ fields }) => {
+						fields.register(contextualMethod)
+
+						return undefined
+					},
+				}),
+			],
 		})
 		const Contextual = Schema.define({
 			className: 'ContextualPluginMethod',
@@ -196,20 +224,35 @@ describe('plugin FieldBuilder methods', () => {
 
 	it('declares owned methods before schema compilation and plugin setup', async () => {
 		const trace: string[] = []
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.ordered-plugin',
-			privileges: [schemaDeclarePrivilege],
-			declare: ({ fields }) => {
-				trace.push('declare')
-				fields.register(alphaMethod)
+			id: 'fixture.ordered-plugin',
+			permissions: {
+				[schemaDeclarePrivilege.name]: schemaDeclarePrivilege.reason,
 			},
-			setup: ({ schemas }) => {
-				const schema = schemas.get('PluginMethodDocument')
+			contributions: [
+				contributeDeclarations({
+					schema: ({ fields }) => {
+						trace.push('declare')
+						fields.register(alphaMethod)
 
-				trace.push(`setup:${schema?.fields.value?.kind ?? 'missing'}`)
-			},
+						return undefined
+					},
+				}),
+				withPluginPrivileges(
+					contributeApplication((context) => {
+						const { schemas } = context
+						const schema = schemas.get('PluginMethodDocument')
+						trace.push(`setup:${schema?.fields.value?.kind ?? 'missing'}`)
+						const exports = undefined
+						const lifecycleContext = { ...context, pluginExports: exports }
+						void lifecycleContext
+						return { exports }
+					}),
+					[schemaDeclarePrivilege.name],
+				),
+			],
 		})
 		const Document = Schema.define({
 			className: 'PluginMethodDocument',
@@ -398,14 +441,22 @@ describe('plugin FieldBuilder methods', () => {
 			name: 'string',
 			contexts: { stored: alphaMethod.contexts.stored },
 		})
-		const overridePlugin = definePlugin({
+		const overridePlugin = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.override-plugin',
-			privileges: [schemaDeclarePrivilege],
-			declare: ({ fields }) => {
-				fields.register(override)
+			id: 'fixture.override-plugin',
+			permissions: {
+				[schemaDeclarePrivilege.name]: schemaDeclarePrivilege.reason,
 			},
+			contributions: [
+				contributeDeclarations({
+					schema: ({ fields }) => {
+						fields.register(override)
+
+						return undefined
+					},
+				}),
+			],
 		})
 
 		await expect(
@@ -419,14 +470,22 @@ describe('plugin FieldBuilder methods', () => {
 			createApplication({
 				plugins: [
 					alphaPlugin(),
-					definePlugin({
+					createPlugin({
 						version: '0.0.0',
 						core: '^0.0.0',
-						pluginId: 'fixture.duplicate-plugin',
-						privileges: [schemaDeclarePrivilege],
-						declare: ({ fields }) => {
-							fields.register(alphaMethod)
+						id: 'fixture.duplicate-plugin',
+						permissions: {
+							[schemaDeclarePrivilege.name]: schemaDeclarePrivilege.reason,
 						},
+						contributions: [
+							contributeDeclarations({
+								schema: ({ fields }) => {
+									fields.register(alphaMethod)
+
+									return undefined
+								},
+							}),
+						],
 					}),
 				],
 				schemas: [Unresolved],
@@ -452,14 +511,22 @@ describe('plugin FieldBuilder methods', () => {
 				},
 			},
 		})
-		const incompatiblePlugin = definePlugin({
+		const incompatiblePlugin = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.incompatible-plugin',
-			privileges: [schemaDeclarePrivilege],
-			declare: ({ fields }) => {
-				fields.register(incompatibleMethod)
+			id: 'fixture.incompatible-plugin',
+			permissions: {
+				[schemaDeclarePrivilege.name]: schemaDeclarePrivilege.reason,
 			},
+			contributions: [
+				contributeDeclarations({
+					schema: ({ fields }) => {
+						fields.register(incompatibleMethod)
+
+						return undefined
+					},
+				}),
+			],
 		})
 
 		await expect(
@@ -478,22 +545,29 @@ describe('plugin FieldBuilder methods', () => {
 			},
 		})
 
-		const asynchronousPlugin = definePlugin({
+		const asynchronousPlugin = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.async-plugin',
-			privileges: [schemaDeclarePrivilege],
-			// @ts-expect-error -- Runtime still rejects declarations loaded from JavaScript.
-			declare: async ({ fields }) => {
-				fields.register(alphaMethod)
-				await Promise.resolve()
+			id: 'fixture.async-plugin',
+			permissions: {
+				[schemaDeclarePrivilege.name]: schemaDeclarePrivilege.reason,
 			},
+			contributions: [
+				contributeDeclarations({
+					schema: (async ({ fields }: PluginSchemaContributionContext) => {
+						fields.register(alphaMethod)
+						await Promise.resolve()
+
+						return undefined
+					}) as never,
+				}),
+			],
 		})
 
 		await expect(
 			createApplication({ plugins: [asynchronousPlugin], schemas: [] }),
 		).rejects.toThrow(
-			'Plugin "fixture.async-plugin" declare must be synchronous and return nothing',
+			'plugin declaration contribution callbacks must return nothing',
 		)
 	})
 
@@ -518,14 +592,22 @@ describe('plugin FieldBuilder methods', () => {
 		const application = applicationFixture(
 			await createApplication({
 				plugins: [
-					definePlugin({
+					createPlugin({
 						version: '0.0.0',
 						core: '^0.0.0',
-						pluginId: 'fixture.snapshot-plugin',
-						privileges: [schemaDeclarePrivilege],
-						declare: ({ fields }) => {
-							fields.register(method)
+						id: 'fixture.snapshot-plugin',
+						permissions: {
+							[schemaDeclarePrivilege.name]: schemaDeclarePrivilege.reason,
 						},
+						contributions: [
+							contributeDeclarations({
+								schema: ({ fields }) => {
+									fields.register(method)
+
+									return undefined
+								},
+							}),
+						],
 					}),
 				],
 				schemas: [],
@@ -542,25 +624,33 @@ describe('plugin FieldBuilder methods', () => {
 			),
 		).toBe(true)
 
-		const untrustedPlugin = definePlugin({
+		const untrustedPlugin = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.untrusted-plugin',
-			privileges: [schemaDeclarePrivilege],
-			declare: ({ fields }) => {
-				const untrusted = {
-					contexts: {
-						stored: {
-							factory: alphaField,
-							fieldKind: 'fixture.alpha',
-							typegen,
-						},
-					},
-					name: 'untrusted',
-				} as FieldBuilderMethodDefinition
-
-				fields.register(untrusted)
+			id: 'fixture.untrusted-plugin',
+			permissions: {
+				[schemaDeclarePrivilege.name]: schemaDeclarePrivilege.reason,
 			},
+			contributions: [
+				contributeDeclarations({
+					schema: ({ fields }) => {
+						const untrusted = {
+							contexts: {
+								stored: {
+									factory: alphaField,
+									fieldKind: 'fixture.alpha',
+									typegen,
+								},
+							},
+							name: 'untrusted',
+						} as FieldBuilderMethodDefinition
+
+						fields.register(untrusted)
+
+						return undefined
+					},
+				}),
+			],
 		})
 
 		await expect(

@@ -2,8 +2,9 @@ import { describe, expect, it, vi } from 'vitest'
 
 import {
 	addSchemaField,
+	contributeDeclarations,
 	defineOperationValue,
-	definePlugin,
+	plugin as createPlugin,
 	defineSchemaMutation,
 } from '../../foundation.js'
 import { Schema, stringField } from '../../schema/index.js'
@@ -38,47 +39,53 @@ const createWorkflowInstance = (
 		version: '1.0.0',
 	})
 	const resolve = vi.fn(() => ({ data: { [field]: `handled-${instanceId}` } }))
-	const plugin = definePlugin({
-		capabilities: [
+	const plugin = createPlugin({
+		id: 'fixture.schema-mutation-instances',
+		instanceId,
+		core: '^0.0.0',
+		version: '1.0.0',
+		permissions: {
+			'model:extend': 'Adds one instance-owned command.',
+			'operation:declare': 'Declares one instance mutation.',
+			'persistence:rewrite': 'Persists its owned field.',
+			'schema:declare': 'Adds one instance-owned field.',
+		},
+		contributions: [
 			provideSchemaMutationHandler({
 				contributionId: `${command}-handler`,
 				create: () => ({
 					value: schemaMutationHandler({ mutation, resolve }),
 				}),
 			}),
-		],
-		core: '^0.0.0',
-		declare: ({ models, operations, schemas }) => {
-			operations.declare(mutation)
-			schemas.patch({
-				operations: [
-					addSchemaField({
-						contributionId: `${field}-field`,
-						field: stringField(),
-						name: field,
-					}),
-				],
-				targets: schemas.select({ className: Post.className }),
-			})
-			models.extend(
-				{ className: Post.className },
-				{
-					contributionId: `${command}-surface`,
-					schemaMutations: {
-						[command]: { mutation, surfaces: ['schema'] },
-					},
+			contributeDeclarations({
+				operations: ({ operations }) => {
+					operations.declare(mutation)
 				},
-			)
-		},
-		instanceId,
-		pluginId: 'fixture.schema-mutation-instances',
-		privileges: [
-			{ name: 'model:extend', reason: 'Adds one instance-owned command.' },
-			{ name: 'operation:declare', reason: 'Declares one instance mutation.' },
-			{ name: 'persistence:rewrite', reason: 'Persists its owned field.' },
-			{ name: 'schema:declare', reason: 'Adds one instance-owned field.' },
-		] as const,
-		version: '1.0.0',
+				schema: ({ schemas }) => {
+					schemas.patch({
+						operations: [
+							addSchemaField({
+								contributionId: `${field}-field`,
+								field: stringField(),
+								name: field,
+							}),
+						],
+						targets: schemas.select({ className: Post.className }),
+					})
+				},
+				models: ({ models }) => {
+					models.extend(
+						{ className: Post.className },
+						{
+							contributionId: `${command}-surface`,
+							schemaMutations: {
+								[command]: { mutation, surfaces: ['schema'] },
+							},
+						},
+					)
+				},
+			}),
+		],
 	})
 
 	return { plugin, resolve }
@@ -124,11 +131,11 @@ describe('schema mutation instance ownership', () => {
 			],
 			[],
 		)
-		const database = definePlugin({
-			capabilities: [provideTestDatabaseAdapter(adapter)],
+		const database = createPlugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.schema-mutation-instances-database',
+			id: 'fixture.schema-mutation-instances-database',
 			version: '1.0.0',
+			contributions: [provideTestDatabaseAdapter(adapter)],
 		})
 		const ultimabase = new UltimaBase({
 			pluginPrivileges: { logger: false },

@@ -1,9 +1,10 @@
-import { onTestFinished } from 'vitest'
+import { onTestFinished, describe, expect, it, vi } from 'vitest'
 import {
 	FrameworkApplication,
 	RequestContext,
 	UltimaBase,
-	definePlugin,
+	plugin,
+	contributeApplication,
 	provideCapability,
 	requireCapability,
 	type ApplicationCallbackExecutor,
@@ -12,7 +13,6 @@ import {
 	type PluginIdentity,
 	type PluginDefinition,
 } from '@ultimabase/core'
-import { describe, expect, it, vi } from 'vitest'
 
 import {
 	createHttpApplicationResource,
@@ -52,18 +52,16 @@ const endpointPlugin = (
 		ReturnType<typeof httpRoute> | readonly ReturnType<typeof httpRoute>[],
 	instanceId?: string,
 ) =>
-	definePlugin({
-		pluginId,
+	plugin({
+		id: pluginId,
 		...(instanceId === undefined ? {} : { instanceId }),
 		version: '1.0.0',
 		core: '^0.0.0',
-		privileges: [
-			{
-				name: 'transport:expose',
-				reason: 'Exposes fixture routes through the HTTP application.',
-			},
-		],
-		capabilities: [
+		permissions: {
+			'transport:expose':
+				'Exposes fixture routes through the HTTP application.',
+		},
+		contributions: [
 			provideHttpEndpoints({
 				contributionId: 'fixture-routes',
 				create: () => definitions,
@@ -72,16 +70,19 @@ const endpointPlugin = (
 	})
 
 const serverPlugin = (capture?: (application: HttpApplication) => void) =>
-	definePlugin({
-		pluginId: 'fixture.http-server',
+	plugin({
+		id: 'fixture.http-server',
 		version: '1.0.0',
 		core: '^0.0.0',
-		capabilities: [applicationRequirement],
-		setup: ({ capabilities }) => {
-			const application = capabilities.get(applicationRequirement)
-			capture?.(application)
-			return { application }
-		},
+		contributions: [
+			applicationRequirement,
+			contributeApplication(({ capabilities }) => {
+				const application = capabilities.get(applicationRequirement)
+				capture?.(application)
+				const exports = { application }
+				return { exports }
+			}),
+		],
 	})
 
 const initialize = async (plugins: readonly PluginDefinition[]) => {
@@ -168,14 +169,12 @@ describe('HTTP application graph', () => {
 			protocol,
 			handle: (request) => new Response(new URL(request.url).pathname),
 		})
-		const mountOwner = definePlugin({
-			pluginId: 'fixture.mount',
+		const mountOwner = plugin({
+			id: 'fixture.mount',
 			version: '1.0.0',
 			core: '^0.0.0',
-			privileges: [
-				{ name: 'transport:expose', reason: 'Exposes the fixture mount.' },
-			],
-			capabilities: [
+			permissions: { 'transport:expose': 'Exposes the fixture mount.' },
+			contributions: [
 				provideHttpEndpoints({
 					contributionId: 'mount',
 					create: () => mount,
@@ -223,14 +222,12 @@ describe('HTTP application graph', () => {
 
 	it('rejects forged provider values before server setup', async () => {
 		const seen = vi.fn()
-		const provider = definePlugin({
-			pluginId: 'fixture.forged-provider',
+		const provider = plugin({
+			id: 'fixture.forged-provider',
 			version: '1.0.0',
 			core: '^0.0.0',
-			privileges: [
-				{ name: 'transport:expose', reason: 'Provides provider routes.' },
-			],
-			capabilities: [
+			permissions: { 'transport:expose': 'Provides provider routes.' },
+			contributions: [
 				provideCapability(httpEndpointContributionsCapability, {
 					contributionId: 'forged',
 					create: () => ({
@@ -272,15 +269,13 @@ describe('HTTP application graph', () => {
 			protocol,
 			handle: () => new Response('provider'),
 		})
-		const provider = definePlugin({
-			pluginId: 'fixture.valid-provider',
+		const provider = plugin({
+			id: 'fixture.valid-provider',
 			instanceId: 'green',
 			version: '1.0.0',
 			core: '^0.0.0',
-			privileges: [
-				{ name: 'transport:expose', reason: 'Exposes the provider route.' },
-			],
-			capabilities: [
+			permissions: { 'transport:expose': 'Exposes the provider route.' },
+			contributions: [
 				provideCapability(httpEndpointContributionsCapability, {
 					contributionId: 'provider-routes',
 					create: () => ({ value: [providerRoute] }),
@@ -307,11 +302,11 @@ describe('HTTP application graph', () => {
 
 	it('rejects competing HTTP application providers before server setup', () => {
 		const seen = vi.fn()
-		const competing = definePlugin({
-			pluginId: 'fixture.competing-http-application',
+		const competing = plugin({
+			id: 'fixture.competing-http-application',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: [
+			contributions: [
 				provideCapability(httpApplicationCapability, {
 					contributionId: 'competing-http-application',
 					create: () => ({

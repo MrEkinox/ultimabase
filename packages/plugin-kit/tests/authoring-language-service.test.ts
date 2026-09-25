@@ -9,9 +9,9 @@ const fileName = path.join(
 )
 const source = `
 import {
-  definePluginModule,
+  contributeApplication,
+  plugin,
   stringField,
-  type PluginModuleInstance,
 } from '@ultimabase/core'
 import { z } from 'zod'
 import {
@@ -19,35 +19,17 @@ import {
   schemaPatch,
 } from '../src/index.js'
 
-const workflow = definePluginModule({
-  pluginId: 'community.workflow',
+export const definition = plugin({
+  id: 'community.workflow',
   version: '1.0.0',
   core: '^1.0.0',
-})
-
-export const plugin = workflow.plugin({
-  instanceId: 'editorial',
-  setup: () => ({ ready: true as const }),
-})
-
-type WorkflowDefinition = Readonly<{
-  readonly instanceId: 'editorial'
-  readonly peers: readonly [{
-    readonly pluginId: 'community.protocol'
-    readonly version: '^1.0.0'
-  }]
-  readonly setup: () => Readonly<{ readonly ready: true }>
-}>
-type ExactWorkflowPlugin = PluginModuleInstance<
-  typeof workflow,
-  WorkflowDefinition
->
-export const exactPlugin: ExactWorkflowPlugin = workflow.plugin({
   instanceId: 'editorial',
   peers: [{ pluginId: 'community.protocol', version: '^1.0.0' }],
-  setup: () => ({ ready: true as const }),
+  contributions: [
+    contributeApplication(() => ({ exports: { ready: true as const } })),
+  ],
 })
-export const exactInstance = exactPlugin.manifest.identity.instanceId
+export const exactInstance = definition.manifest.identity.instanceId
 
 const parse = definePluginOptionsParser({
   name: 'workflow options',
@@ -93,12 +75,12 @@ const readQuickInfo = (
 describe('@ultimabase/plugin-kit authoring language service', () => {
 	it('preserves exact instance, option, and patch autocomplete', () => {
 		expect(service.getSemanticDiagnostics(fileName)).toStrictEqual([])
-		expect(
-			readQuickInfo('workflow.plugin', 'workflow.'.length).display,
-		).toContain('PluginModule<"community.workflow", "1.0.0", "^1.0.0">.plugin')
-		expect(
-			readQuickInfo('workflow.plugin', 'workflow.'.length).documentation,
-		).toContain('Creates one immutable Core plugin definition')
+		expect(readQuickInfo('plugin({').display).toContain(
+			'plugin<"community.workflow"',
+		)
+		expect(readQuickInfo('plugin({').documentation).toContain(
+			'Compiles one contribution-first definition',
+		)
 		expect(readQuickInfo('options =').display).toContain('enabled: boolean;')
 		expect(readQuickInfo('standardOptions =').display).toContain(
 			'mode?: "review" | "publish" | undefined;',
@@ -106,8 +88,8 @@ describe('@ultimabase/plugin-kit authoring language service', () => {
 		expect(readQuickInfo('schema: z.strictObject').documentation).toContain(
 			'Validates, defaults, and transforms options',
 		)
-		expect(readQuickInfo('PluginModuleInstance').documentation).toContain(
-			'Derives one exact plugin type',
+		expect(readQuickInfo('contributeApplication').documentation).toContain(
+			'Creates one application-local export',
 		)
 		expect(readQuickInfo('exactInstance =').display).toContain('"editorial"')
 		expect(readQuickInfo('addField').documentation).toContain(

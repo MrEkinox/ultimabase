@@ -122,7 +122,7 @@ import {
 	provideAccessContributions,
 	schemaAccess,
 } from '@ultimabase/access-plugin'
-import { definePlugin } from '@ultimabase/core'
+import { plugin } from '@ultimabase/core'
 import {
 	PasswordUser,
 	passwordPrincipal,
@@ -130,17 +130,17 @@ import {
 
 import { AppRole, Post } from './roles.js'
 
-export const profilePolicy = definePlugin({
-	pluginId: 'app.profile-policy',
+export const profilePolicy = plugin({
+	id: 'app.profile-policy',
 	version: '1.0.0',
 	core: '^0.0.0',
-	privileges: [
+	permissions: [
 		{
 			name: 'runtime:constrain',
 			reason: 'Restricts reads to the intended subjects and schemas.',
 		},
 	],
-	capabilities: [
+	contributions: [
 		provideAccessContributions('read-policy', ({ schemas }) =>
 			schemas.values().map((schema) =>
 				schema === PasswordUser

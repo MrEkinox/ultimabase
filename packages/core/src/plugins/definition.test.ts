@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
-import { definePlugin } from '../index.js'
+import { compilePluginDefinition } from './definition.js'
 
-describe('definePlugin', () => {
+describe('compilePluginDefinition', () => {
 	it('creates immutable static definitions without running callbacks', () => {
 		let declarationCalls = 0
 		let setupCalls = 0
@@ -21,7 +21,7 @@ describe('definePlugin', () => {
 				hookCalls += 1
 			},
 		}
-		const plugin = definePlugin({
+		const plugin = compilePluginDefinition({
 			core: '^0.0.0',
 			pluginId: 'fixture.database',
 			version: '1.0.0',
@@ -92,13 +92,17 @@ describe('definePlugin', () => {
 	it('protects JavaScript callers from malformed plugin metadata', () => {
 		expect(() => {
 			// @ts-expect-error -- Runtime coverage protects null plugin options.
-			definePlugin(null)
+			compilePluginDefinition(null)
 		}).toThrow(new TypeError('plugin options must be a plain object'))
 		expect(() =>
-			definePlugin({ version: '0.0.0', core: '^0.0.0', pluginId: '' }),
+			compilePluginDefinition({
+				version: '0.0.0',
+				core: '^0.0.0',
+				pluginId: '',
+			}),
 		).toThrow(new TypeError('pluginId must be a non-empty string'))
 		expect(() =>
-			definePlugin({
+			compilePluginDefinition({
 				version: '0.0.0',
 				core: '^0.0.0',
 				pluginId: 'fixture.plugin',
@@ -107,10 +111,14 @@ describe('definePlugin', () => {
 			}),
 		).toThrow(new TypeError('plugin options contain unknown option: slot'))
 		expect(() =>
-			definePlugin({ core: '^0.0.0', pluginId: 'fixture.plugin', version: '' }),
+			compilePluginDefinition({
+				core: '^0.0.0',
+				pluginId: 'fixture.plugin',
+				version: '',
+			}),
 		).toThrow(new TypeError('version must be a non-empty string'))
 		expect(() => {
-			definePlugin({
+			compilePluginDefinition({
 				version: '0.0.0',
 				core: '^0.0.0',
 				pluginId: 'fixture.plugin',
@@ -119,7 +127,7 @@ describe('definePlugin', () => {
 			})
 		}).toThrow(new TypeError('declare must be a function'))
 		expect(() => {
-			definePlugin({
+			compilePluginDefinition({
 				version: '0.0.0',
 				core: '^0.0.0',
 				pluginId: 'fixture.plugin',
@@ -128,7 +136,7 @@ describe('definePlugin', () => {
 			})
 		}).toThrow(new TypeError('setup must be a function'))
 		expect(() => {
-			definePlugin({
+			compilePluginDefinition({
 				version: '0.0.0',
 				core: '^0.0.0',
 				pluginId: 'fixture.plugin',
@@ -137,7 +145,7 @@ describe('definePlugin', () => {
 			})
 		}).toThrow(new TypeError('dependencies must be an array'))
 		expect(() => {
-			definePlugin({
+			compilePluginDefinition({
 				version: '0.0.0',
 				core: '^0.0.0',
 				pluginId: 'fixture.plugin',
@@ -150,7 +158,7 @@ describe('definePlugin', () => {
 			),
 		)
 		expect(() => {
-			definePlugin({
+			compilePluginDefinition({
 				version: '0.0.0',
 				core: '^0.0.0',
 				pluginId: 'fixture.plugin',
@@ -159,7 +167,7 @@ describe('definePlugin', () => {
 			})
 		}).toThrow(new TypeError('conflicts[0] must be a non-empty string'))
 		expect(() => {
-			definePlugin({
+			compilePluginDefinition({
 				version: '0.0.0',
 				core: '^0.0.0',
 				pluginId: 'fixture.plugin',
@@ -168,7 +176,7 @@ describe('definePlugin', () => {
 			})
 		}).toThrow(new TypeError('hooks must be a plain object'))
 		expect(() => {
-			definePlugin({
+			compilePluginDefinition({
 				version: '0.0.0',
 				core: '^0.0.0',
 				pluginId: 'fixture.plugin',
@@ -177,7 +185,7 @@ describe('definePlugin', () => {
 			})
 		}).toThrow(new TypeError('Unknown plugin lifecycle hook: initialize'))
 		expect(() => {
-			definePlugin({
+			compilePluginDefinition({
 				version: '0.0.0',
 				core: '^0.0.0',
 				pluginId: 'fixture.plugin',
@@ -186,7 +194,7 @@ describe('definePlugin', () => {
 			})
 		}).toThrow(new TypeError('hooks.connect must be a function'))
 		expect(() => {
-			definePlugin({
+			compilePluginDefinition({
 				version: '0.0.0',
 				core: '^0.0.0',
 				pluginId: 'fixture.plugin',

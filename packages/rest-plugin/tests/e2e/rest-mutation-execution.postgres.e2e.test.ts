@@ -4,7 +4,8 @@ import {
 	MasterAuthority,
 	Schema,
 	UltimaBase,
-	definePlugin,
+	plugin,
+	contributeApplication,
 	getCurrentRequest,
 	requireCapability,
 	type RequestContext,
@@ -95,17 +96,14 @@ const httpApplicationRequirement = requireCapability(
 	{ phase: 'setup' },
 )
 const createDeadlineRoutePlugin = () =>
-	definePlugin({
+	plugin({
 		core: '^0.0.0',
-		pluginId: 'fixture.rest-mutation-deadline-route',
+		id: 'fixture.rest-mutation-deadline-route',
 		version: '1.0.0',
-		privileges: [
-			{
-				name: 'transport:expose',
-				reason: 'Exposes the REST mutation deadline fixture.',
-			},
-		],
-		capabilities: [
+		permissions: {
+			'transport:expose': 'Exposes the REST mutation deadline fixture.',
+		},
+		contributions: [
 			provideHttpEndpoints({
 				contributionId: 'rest-mutation-deadline',
 				create: ({ capabilities }) => {
@@ -131,14 +129,18 @@ const createDeadlineRoutePlugin = () =>
 	})
 
 const createHttpCapturePlugin = (capture: { current?: HttpApplication }) =>
-	definePlugin({
+	plugin({
 		core: '^0.0.0',
-		pluginId: 'fixture.rest-mutation-http-capture',
+		id: 'fixture.rest-mutation-http-capture',
 		version: '1.0.0',
-		capabilities: [httpApplicationRequirement],
-		setup: ({ capabilities }) => {
-			capture.current = capabilities.get(httpApplicationRequirement)
-		},
+		contributions: [
+			httpApplicationRequirement,
+			contributeApplication(({ capabilities }) => {
+				capture.current = capabilities.get(httpApplicationRequirement)
+				const exports = undefined
+				return { exports }
+			}),
+		],
 	})
 
 const jsonRequest = (

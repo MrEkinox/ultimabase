@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 
 import { FrameworkApplication } from '../../application/framework-application.js'
 import { requireCapability } from '../../plugins/capabilities.js'
-import { definePlugin } from '../../plugins/definition.js'
+import { plugin as createPlugin } from '../../plugins/plugin.js'
+import { contributeApplication } from '../../plugins/plugin-contributions.js'
 import {
 	defineAdapterRawCapability,
 	provideAdapterRawCapability,
@@ -19,17 +20,17 @@ const rawCapability = defineAdapterRawCapability<FixtureRawFacade>()({
 
 describe('raw adapter setup leases', () => {
 	it('rejects malformed raw providers before setup access', async () => {
-		const malformed = definePlugin({
-			capabilities: [
+		const malformed = createPlugin({
+			core: '^0.0.0',
+			id: 'fixture.database-malformed-provider',
+			version: '1.0.0',
+			contributions: [
 				provideAdapterRawCapability(rawCapability, {
 					contributionId: 'malformed',
 					// @ts-expect-error -- Runtime validation protects untyped factories.
 					create: () => ({ unknown: true }),
 				}),
 			],
-			core: '^0.0.0',
-			pluginId: 'fixture.database-malformed-provider',
-			version: '1.0.0',
 		})
 		const application = new FrameworkApplication({
 			pluginPrivileges: { logger: false },
@@ -45,18 +46,24 @@ describe('raw adapter setup leases', () => {
 
 	it('reports unsupported setup scope and non-object facades', async () => {
 		const requirement = requireCapability(rawCapability, '^1.0.0')
-		const consumer = definePlugin({
-			capabilities: [requirement],
+		const consumer = createPlugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.raw-validation-consumer',
-			privileges: [
-				{ name: 'adapter:raw', reason: 'Validates raw setup failures.' },
-			] as const,
-			setup: ({ adapters }) => adapters.withRaw(requirement, () => undefined),
+			id: 'fixture.raw-validation-consumer',
+			permissions: { 'adapter:raw': 'Validates raw setup failures.' },
 			version: '1.0.0',
+			contributions: [
+				requirement,
+				contributeApplication(async ({ adapters }) => {
+					await adapters.withRaw(requirement, () => Promise.resolve())
+					return { exports: undefined }
+				}),
+			],
 		})
-		const transactionOnly = definePlugin({
-			capabilities: [
+		const transactionOnly = createPlugin({
+			core: '^0.0.0',
+			id: 'fixture.database-transaction-only',
+			version: '1.0.0',
+			contributions: [
 				provideAdapterRawCapability(rawCapability, {
 					contributionId: 'transaction-only',
 					create: () => ({
@@ -64,9 +71,6 @@ describe('raw adapter setup leases', () => {
 					}),
 				}),
 			],
-			core: '^0.0.0',
-			pluginId: 'fixture.database-transaction-only',
-			version: '1.0.0',
 		})
 		const unsupported = new FrameworkApplication({
 			pluginPrivileges: { logger: false },
@@ -78,8 +82,11 @@ describe('raw adapter setup leases', () => {
 		})
 		await unsupported.dispose()
 
-		const primitiveProvider = definePlugin({
-			capabilities: [
+		const primitiveProvider = createPlugin({
+			core: '^0.0.0',
+			id: 'fixture.database-primitive-provider',
+			version: '1.0.0',
+			contributions: [
 				provideAdapterRawCapability(rawCapability, {
 					contributionId: 'primitive',
 					create: () => ({
@@ -88,9 +95,6 @@ describe('raw adapter setup leases', () => {
 					}),
 				}),
 			],
-			core: '^0.0.0',
-			pluginId: 'fixture.database-primitive-provider',
-			version: '1.0.0',
 		})
 		const primitive = new FrameworkApplication({
 			pluginPrivileges: { logger: false },
@@ -105,43 +109,38 @@ describe('raw adapter setup leases', () => {
 
 	it('does not let portable adapter consumption authority resolve raw access', () => {
 		const requirement = requireCapability(rawCapability, '^1.0.0')
-		const provider = definePlugin({
-			capabilities: [
+		const provider = createPlugin({
+			core: '^0.0.0',
+			id: 'fixture.database-provider-portable',
+			version: '1.0.0',
+			contributions: [
 				provideAdapterRawCapability(rawCapability, {
 					contributionId: 'raw',
 					create: () => ({ setup: () => ({ read: () => 'ready' }) }),
 				}),
 			],
-			core: '^0.0.0',
-			pluginId: 'fixture.database-provider-portable',
-			version: '1.0.0',
 		})
-		const consumer = definePlugin({
-			capabilities: [requirement],
-			core: '^0.0.0',
-			pluginId: 'fixture.raw-portable-consumer',
-			privileges: [
-				{ name: 'adapter:consume', reason: 'Consumes portable behavior only.' },
-			] as const,
-			version: '1.0.0',
-		})
-
-		expect(
-			() =>
-				new FrameworkApplication({
-					pluginPrivileges: { logger: false },
-					plugins: [provider, consumer],
-					schemas: [],
-				}),
-		).toThrow(expect.objectContaining({ code: 'PLUGIN_CAPABILITY_CONFLICT' }))
+		expect(() =>
+			createPlugin({
+				core: '^0.0.0',
+				id: 'fixture.raw-portable-consumer',
+				permissions: { 'adapter:consume': 'Consumes portable behavior only.' },
+				version: '1.0.0',
+				contributions: [requirement],
+			}),
+		).toThrow('Unused plugin permission reason: adapter:consume')
+		void provider
 	})
 
 	it('revokes captured facades when setup returns', async () => {
 		const requirement = requireCapability(rawCapability, '^1.0.0')
 		let escaped: FixtureRawFacade | undefined
 		let observedKeys: readonly PropertyKey[] = []
-		const provider = definePlugin({
-			capabilities: [
+		const provider = createPlugin({
+			core: '^0.0.0',
+			id: 'fixture.database-provider',
+			version: '1.0.0',
+			contributions: [
 				provideAdapterRawCapability(rawCapability, {
 					contributionId: 'raw',
 					create: () => ({
@@ -149,24 +148,22 @@ describe('raw adapter setup leases', () => {
 					}),
 				}),
 			],
-			core: '^0.0.0',
-			pluginId: 'fixture.database-provider',
-			version: '1.0.0',
 		})
-		const consumer = definePlugin({
-			capabilities: [requirement],
+		const consumer = createPlugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.raw-consumer',
-			privileges: [
-				{ name: 'adapter:raw', reason: 'Exercises the setup lease.' },
-			] as const,
-			setup: async ({ adapters }) =>
-				adapters.withRaw(requirement, (facade) => {
-					escaped = facade
-					observedKeys = Reflect.ownKeys(facade)
-					return facade.read()
-				}),
+			id: 'fixture.raw-consumer',
+			permissions: { 'adapter:raw': 'Exercises the setup lease.' },
 			version: '1.0.0',
+			contributions: [
+				requirement,
+				contributeApplication(async ({ adapters }) => ({
+					exports: await adapters.withRaw(requirement, (facade) => {
+						escaped = facade
+						observedKeys = Reflect.ownKeys(facade)
+						return facade.read()
+					}),
+				})),
+			],
 		})
 		const application = new FrameworkApplication({
 			pluginPrivileges: { logger: false },

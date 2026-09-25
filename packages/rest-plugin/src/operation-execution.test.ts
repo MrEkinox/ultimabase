@@ -1,4 +1,4 @@
-import { onTestFinished } from 'vitest'
+import { onTestFinished, describe, expect, it, vi } from 'vitest'
 import {
 	MasterAuthority,
 	PluginError,
@@ -10,7 +10,7 @@ import {
 	defineOperation,
 	defineOperationTransport,
 	defineOperationValue,
-	definePlugin,
+	plugin,
 	operationTransportBinding,
 	operationWireCodec,
 	provideCapability,
@@ -19,7 +19,6 @@ import {
 	type OperationTransportProtocol,
 } from '@ultimabase/core'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
-import { describe, expect, it, vi } from 'vitest'
 
 import { restPlugin } from './plugin.js'
 
@@ -101,8 +100,17 @@ const createOperationPlugin = (options: {
 			}),
 		operation: inspectOperation,
 	})
-	return definePlugin({
-		operations: [
+	return plugin({
+		core: '^0.0.0',
+		id: 'fixture.rest-operation.owner',
+		permissions: {
+			'operation:declare': 'Declares the fixture operation.',
+			...(options.omitBinding === true
+				? {}
+				: { 'transport:expose': 'Binds REST v1 explicitly.' }),
+		},
+		version: '1.0.0',
+		contributions: [
 			contributeOperation({
 				bindings: options.omitBinding === true ? [] : [binding],
 				execute: ({ context, input }) => {
@@ -123,26 +131,19 @@ const createOperationPlugin = (options: {
 				operation: inspectOperation,
 			}),
 		],
-		core: '^0.0.0',
-		pluginId: 'fixture.rest-operation.owner',
-		privileges: [
-			{ name: 'operation:declare', reason: 'Declares the fixture operation.' },
-			{ name: 'transport:expose', reason: 'Binds REST v1 explicitly.' },
-		] as const,
-		version: '1.0.0',
 	})
 }
 
-const databasePlugin = definePlugin({
-	capabilities: [
+const databasePlugin = plugin({
+	core: '^0.0.0',
+	id: 'fixture.rest-operation.database',
+	version: '1.0.0',
+	contributions: [
 		provideCapability(databaseAdapterCapability, {
 			contributionId: 'database',
 			create: () => ({ value: unavailableAdapter }),
 		}),
 	],
-	core: '^0.0.0',
-	pluginId: 'fixture.rest-operation.database',
-	version: '1.0.0',
 })
 
 const createFixture = async (

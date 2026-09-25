@@ -2,7 +2,7 @@ import { applicationFixture } from '../../../tests/application-fixture.js'
 import {
 	FrameworkApplication,
 	createApplication,
-	definePlugin,
+	plugin as createPlugin,
 } from '../../foundation.js'
 import { QueryBuilder } from '../../query/index.js'
 import { Schema } from '../../schema/index.js'
@@ -106,17 +106,14 @@ describe('composeRuntimeContributionBehavior', () => {
 	})
 
 	it('rejects values not created by Runtime contribution factories', async () => {
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.invalid-contribution',
-			privileges: [
-				{
-					name: 'runtime:intercept',
-					reason: 'Exercises malformed interceptor materialization.',
-				},
-			],
-			capabilities: [
+			id: 'fixture.invalid-contribution',
+			permissions: {
+				'runtime:intercept': 'Exercises malformed interceptor materialization.',
+			},
+			contributions: [
 				provideTestRuntimeInterceptor(
 					'fixture.invalid',
 					(() => undefined) as never,
@@ -136,17 +133,15 @@ describe('composeRuntimeContributionBehavior', () => {
 	})
 
 	it('rejects schema scopes outside the owning application', async () => {
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.foreign-contribution',
-			privileges: [
-				{
-					name: 'runtime:intercept',
-					reason: 'Registers low-level Runtime contributions for tests.',
-				},
-			],
-			capabilities: [
+			id: 'fixture.foreign-contribution',
+			permissions: {
+				'runtime:intercept':
+					'Registers low-level Runtime contributions for tests.',
+			},
+			contributions: [
 				provideTestRuntimeInterceptor(
 					'fixture.foreign',
 					beforeOperation({
@@ -171,17 +166,15 @@ describe('composeRuntimeContributionBehavior', () => {
 	})
 
 	it('requires before observers to return nothing and exact after replacements', async () => {
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.invalid-output',
-			privileges: [
-				{
-					name: 'runtime:intercept',
-					reason: 'Registers low-level Runtime contributions for tests.',
-				},
-			],
-			capabilities: [
+			id: 'fixture.invalid-output',
+			permissions: {
+				'runtime:intercept':
+					'Registers low-level Runtime contributions for tests.',
+			},
+			contributions: [
 				provideTestRuntimeInterceptor(
 					'fixture.invalid-before-output',
 					beforeOperation({
@@ -233,17 +226,15 @@ describe('composeRuntimeContributionBehavior', () => {
 	})
 
 	it('rejects every attempted low-level before-operation replacement', async () => {
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.before-replacement',
-			privileges: [
-				{
-					name: 'runtime:intercept',
-					reason: 'Registers low-level Runtime contributions for tests.',
-				},
-			],
-			capabilities: [
+			id: 'fixture.before-replacement',
+			permissions: {
+				'runtime:intercept':
+					'Registers low-level Runtime contributions for tests.',
+			},
+			contributions: [
 				provideTestRuntimeInterceptor(
 					'fixture.before-replacement',
 					beforeOperation({
@@ -275,17 +266,15 @@ describe('composeRuntimeContributionBehavior', () => {
 
 	it('resolves only update values against one locked singular target', async () => {
 		const handler = vi.fn()
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.prepared-value',
-			privileges: [
-				{
-					name: 'runtime:intercept',
-					reason: 'Registers low-level Runtime contributions for tests.',
-				},
-			],
-			capabilities: [
+			id: 'fixture.prepared-value',
+			permissions: {
+				'runtime:intercept':
+					'Registers low-level Runtime contributions for tests.',
+			},
+			contributions: [
 				provideTestRuntimeInterceptor(
 					'fixture.prepared-value',
 					preparedOperation({
@@ -361,17 +350,15 @@ describe('composeRuntimeContributionBehavior', () => {
 		] as const
 
 		for (const [index, replacement] of invalidReplacements.entries()) {
-			const plugin = definePlugin({
+			const plugin = createPlugin({
 				version: '0.0.0',
 				core: '^0.0.0',
-				pluginId: `fixture.invalid-prepared-${String(index)}`,
-				privileges: [
-					{
-						name: 'runtime:intercept',
-						reason: 'Registers low-level Runtime contributions for tests.',
-					},
-				],
-				capabilities: [
+				id: `fixture.invalid-prepared-${String(index)}`,
+				permissions: {
+					'runtime:intercept':
+						'Registers low-level Runtime contributions for tests.',
+				},
+				contributions: [
 					provideTestRuntimeInterceptor(
 						'fixture.invalid-prepared',
 						preparedOperation({

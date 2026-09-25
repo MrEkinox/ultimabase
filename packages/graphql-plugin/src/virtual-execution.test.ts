@@ -1,11 +1,11 @@
-import { onTestFinished } from 'vitest'
+import { onTestFinished, describe, expect, it } from 'vitest'
 import {
 	RequestContextValue,
 	Schema,
 	UltimaBase,
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
-	definePlugin,
+	plugin,
 	provideCapability,
 	type DatabaseAdapter,
 	type DatabaseOperationAst,
@@ -13,7 +13,6 @@ import {
 	type DatabaseOperationResult,
 	type DatabaseTransactionAdapter,
 } from '@ultimabase/core'
-import { describe, expect, it } from 'vitest'
 
 import { graphqlPlugin } from './index.js'
 
@@ -112,11 +111,11 @@ class VirtualDatabase implements DatabaseAdapter {
 }
 
 const databasePlugin = (adapter: DatabaseAdapter) =>
-	definePlugin({
+	plugin({
 		core: '^0.0.0',
-		pluginId: 'fixture.graphql-virtual-database',
+		id: 'fixture.graphql-virtual-database',
 		version: '1.0.0',
-		capabilities: [
+		contributions: [
 			provideCapability(databaseAdapterCapability, {
 				contributionId: 'database',
 				create: () => ({ value: adapter }),

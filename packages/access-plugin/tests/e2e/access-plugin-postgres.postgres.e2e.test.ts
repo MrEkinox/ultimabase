@@ -8,7 +8,7 @@ import {
 	MasterAuthority,
 	Schema,
 	UltimaBase,
-	definePlugin,
+	plugin,
 	increment,
 } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
@@ -106,18 +106,16 @@ const UpsertDecisionDocument = Schema.define({
 	},
 })
 
-const pluginVisibility = definePlugin({
+const pluginVisibility = plugin({
 	version: '0.0.0',
 	core: '^0.0.0',
-	pluginId: 'fixture.access-plugin-visibility',
+	id: 'fixture.access-plugin-visibility',
 	peers: [{ pluginId: '@ultimabase/access-plugin', version: '^0.0.0' }],
-	privileges: [
-		{
-			name: 'runtime:constrain',
-			reason: 'Contributes a monotonic visibility policy for the E2E fixture.',
-		},
-	],
-	capabilities: [
+	permissions: {
+		'runtime:constrain':
+			'Contributes a monotonic visibility policy for the E2E fixture.',
+	},
+	contributions: [
 		provideAccessContributions('hide-plugin-rows', () =>
 			schemaAccess(AccessArticle, {
 				read: {

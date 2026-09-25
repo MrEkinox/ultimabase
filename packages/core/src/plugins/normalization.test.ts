@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
 import { FrameworkError } from '../errors/framework-error.js'
-import { definePlugin } from './definition.js'
+import { plugin as createPlugin } from './plugin.js'
+import { contributeApplication } from './plugin-contributions.js'
+
 import { normalizePlugins } from './normalization.js'
 
 const captureFrameworkError = (operation: () => unknown): unknown => {
@@ -34,24 +36,32 @@ const expectFrameworkError = (
 describe('normalizePlugins', () => {
 	it('snapshots a flat list while preserving source order and dependencies', () => {
 		let setupCalls = 0
-		const leaf = definePlugin({
+		const leaf = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.leaf',
+			id: 'fixture.leaf',
 			dependencies: [{ pluginId: 'fixture.child', version: '^0.0.0' }],
-			setup: () => {
-				setupCalls += 1
-			},
+			contributions: [
+				contributeApplication((context) => {
+					setupCalls += 1
+					const exports = undefined
+					const lifecycleContext = { ...context, pluginExports: exports }
+					void lifecycleContext
+					return { exports }
+				}),
+			],
 		})
-		const child = definePlugin({
+		const child = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.child',
+			id: 'fixture.child',
+			contributions: [],
 		})
-		const root = definePlugin({
+		const root = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.root',
+			id: 'fixture.root',
+			contributions: [],
 		})
 
 		const normalized = normalizePlugins([root, child, leaf])
@@ -74,10 +84,11 @@ describe('normalizePlugins', () => {
 	})
 
 	it('deduplicates a repeated exact definition from the flat list', () => {
-		const shared = definePlugin({
+		const shared = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.shared',
+			id: 'fixture.shared',
+			contributions: [],
 		})
 		const normalized = normalizePlugins([shared, shared])
 		const sharedPlugin = normalized.find(
@@ -92,16 +103,24 @@ describe('normalizePlugins', () => {
 	})
 
 	it('rejects separate definitions sharing one structured identity', () => {
-		const first = definePlugin({
+		const first = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.database',
+			id: 'fixture.database',
+			contributions: [],
 		})
-		const second = definePlugin({
+		const second = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.database',
-			setup: () => ({ dialect: 'other' }),
+			id: 'fixture.database',
+			contributions: [
+				contributeApplication((context) => {
+					const exports = { dialect: 'other' }
+					const lifecycleContext = { ...context, pluginExports: exports }
+					void lifecycleContext
+					return { exports }
+				}),
+			],
 		})
 
 		const error = expectFrameworkError(
@@ -116,62 +135,70 @@ describe('normalizePlugins', () => {
 	})
 
 	it('accepts repeated plugins only through distinct explicit instance IDs', () => {
-		const first = definePlugin({
+		const first = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.database',
+			id: 'fixture.database',
 			instanceId: 'primary',
+			contributions: [],
 		})
-		const second = definePlugin({
+		const second = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.database',
+			id: 'fixture.database',
 			instanceId: 'analytics',
+			contributions: [],
 		})
 
 		expect(normalizePlugins([first, second])).toHaveLength(2)
 		expect(() =>
 			normalizePlugins([
-				definePlugin({
+				createPlugin({
 					version: '0.0.0',
 					core: '^0.0.0',
-					pluginId: 'fixture.cache',
+					id: 'fixture.cache',
+					contributions: [],
 				}),
-				definePlugin({
+				createPlugin({
 					version: '0.0.0',
 					core: '^0.0.0',
-					pluginId: 'fixture.cache',
+					id: 'fixture.cache',
 					instanceId: 'secondary',
+					contributions: [],
 				}),
 			]),
 		).toThrow(FrameworkError)
 	})
 
 	it('does not infer exclusivity from unrelated plugin identities', () => {
-		const postgres = definePlugin({
+		const postgres = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.postgres',
+			id: 'fixture.postgres',
+			contributions: [],
 		})
-		const sql = definePlugin({
+		const sql = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.sql',
+			id: 'fixture.sql',
+			contributions: [],
 		})
 
 		expect(normalizePlugins([postgres, sql])).toHaveLength(2)
 	})
 
 	it('accepts independent plugin identities', () => {
-		const database = definePlugin({
+		const database = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.database',
+			id: 'fixture.database',
+			contributions: [],
 		})
-		const transport = definePlugin({
+		const transport = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.transport',
+			id: 'fixture.transport',
+			contributions: [],
 		})
 
 		expect(normalizePlugins([database, transport])).toHaveLength(2)
@@ -185,6 +212,6 @@ describe('normalizePlugins', () => {
 		expect(() => {
 			// @ts-expect-error -- Only definitions created by Core have valid provenance.
 			normalizePlugins([{ name: 'fixture.forged' }])
-		}).toThrow(new TypeError('plugins[0] must be created by definePlugin'))
+		}).toThrow(new TypeError('plugins[0] must be created by plugin()'))
 	})
 })

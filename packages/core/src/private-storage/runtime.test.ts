@@ -2,7 +2,13 @@ import { applicationFixture } from '../../tests/application-fixture.js'
 import { describe, expect, it, vi } from 'vitest'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
-import { definePlugin } from '../plugins/definition.js'
+import { plugin as createPlugin } from '../plugins/plugin.js'
+import {
+	contributeDeclarations,
+	contributeApplication,
+	withPluginPrivileges,
+} from '../plugins/plugin-contributions.js'
+
 import {
 	defineOperation,
 	defineOperationValue,
@@ -21,6 +27,7 @@ import {
 	type DatabaseOperationResult,
 	type DatabaseTransactionAdapter,
 	type PreparedDatabaseOperation,
+	databasePersistencePlanCapability,
 } from '../runtime/database/contracts.js'
 import { provideCapability } from '../plugins/capabilities.js'
 import { stringField } from '../schema/fields/builtins/string.js'
@@ -28,7 +35,7 @@ import { uuidField } from '../schema/fields/builtins/uuid.js'
 import { FrameworkError } from '../errors/framework-error.js'
 import { QueryBuilder, type CreateOneOperationAst } from '../query/index.js'
 import { Schema } from '../schema/schema/definition.js'
-import { databasePersistencePlanCapability } from '../runtime/database/contracts.js'
+
 import { createPreparedOperationFixture } from '../../tests/runtime/fixtures/recording-database-adapter.js'
 import type { PrivateCollectionHandle } from './contracts.js'
 import type {
@@ -404,8 +411,15 @@ const createFixture = async () => {
 			return 'unknown'
 		},
 	})
-	const plugin = definePlugin({
-		capabilities: [
+	const plugin = createPlugin({
+		core: '^0.0.0',
+		id: 'fixture.private-storage',
+		permissions: {
+			'operation:declare': 'Declares the fixture operation.',
+			'storage:private': 'Stores fixture private records.',
+		},
+		version: '1.0.0',
+		contributions: [
 			provideOperationHandler({
 				contributionId: 'private-handler',
 				create: () => ({ value: handler }),
@@ -414,30 +428,29 @@ const createFixture = async () => {
 				contributionId: 'optional-private-handler',
 				create: () => ({ value: optionalHandler }),
 			}),
+			contributeDeclarations({
+				privateStorage: ({ privateStorage }) => {
+					privateStorage.register(collection)
+					return undefined
+				},
+				operations: ({ operations }) => {
+					operations.declare(privateOperation)
+					operations.declare(optionalPrivateOperation)
+					return undefined
+				},
+			}),
 		],
-		core: '^0.0.0',
-		declare: ({ operations, privateStorage }) => {
-			privateStorage.register(collection)
-			operations.declare(privateOperation)
-			operations.declare(optionalPrivateOperation)
-		},
-		pluginId: 'fixture.private-storage',
-		privileges: [
-			{ name: 'operation:declare', reason: 'Declares the fixture operation.' },
-			{ name: 'storage:private', reason: 'Stores fixture private records.' },
-		] as const,
-		version: '1.0.0',
 	})
-	const database = definePlugin({
-		capabilities: [
+	const database = createPlugin({
+		core: '^0.0.0',
+		id: 'fixture.private-database',
+		version: '1.0.0',
+		contributions: [
 			provideCapability(databaseAdapterCapability, {
 				contributionId: 'database',
 				create: () => ({ value: adapter }),
 			}),
 		],
-		core: '^0.0.0',
-		pluginId: 'fixture.private-database',
-		version: '1.0.0',
 	})
 	const ultimabase = applicationFixture(
 		new UltimaBase({
@@ -575,25 +588,36 @@ describe('owner-private plugin storage', () => {
 		const declarationEffect = vi.fn()
 		const adapterEffect = vi.fn()
 		const setupEffect = vi.fn()
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			core: '^0.0.0',
-			declare: ({ privateStorage }) => {
-				declarationEffect()
-				privateStorage.register(collection)
-				return undefined
-			},
-			pluginId: 'fixture.private-storage-denied',
-			privileges: [
-				{ name: 'storage:private', reason: 'Tests denial.' },
-			] as const,
-			setup: () => {
-				setupEffect()
-				return undefined
-			},
+			id: 'fixture.private-storage-denied',
+			permissions: { 'storage:private': 'Tests denial.' },
 			version: '1.0.0',
+			contributions: [
+				contributeDeclarations({
+					privateStorage: ({ privateStorage }) => {
+						declarationEffect()
+						privateStorage.register(collection)
+						return undefined
+					},
+				}),
+				withPluginPrivileges(
+					contributeApplication((context) => {
+						setupEffect()
+						const exports = undefined
+						const lifecycleContext = { ...context, pluginExports: exports }
+						void lifecycleContext
+						return { exports }
+					}),
+					['storage:private'],
+				),
+			],
 		})
-		const database = definePlugin({
-			capabilities: [
+		const database = createPlugin({
+			core: '^0.0.0',
+			id: 'fixture.denied-private-database',
+			version: '1.0.0',
+			contributions: [
 				provideCapability(databaseAdapterCapability, {
 					contributionId: 'database',
 					create: () => {
@@ -602,9 +626,6 @@ describe('owner-private plugin storage', () => {
 					},
 				}),
 			],
-			core: '^0.0.0',
-			pluginId: 'fixture.denied-private-database',
-			version: '1.0.0',
 		})
 		expect(() =>
 			applicationFixture(
@@ -622,16 +643,16 @@ describe('owner-private plugin storage', () => {
 
 	it('keeps applications without private declarations compatible with older adapters', async () => {
 		const adapter = new MemoryPrivateAdapter()
-		const database = definePlugin({
-			capabilities: [
+		const database = createPlugin({
+			core: '^0.0.0',
+			id: 'fixture.private-zero-database',
+			version: '1.0.0',
+			contributions: [
 				provideCapability(databaseAdapterCapability, {
 					contributionId: 'database',
 					create: () => ({ value: adapter }),
 				}),
 			],
-			core: '^0.0.0',
-			pluginId: 'fixture.private-zero-database',
-			version: '1.0.0',
 		})
 		const ultimabase = applicationFixture(
 			new UltimaBase({

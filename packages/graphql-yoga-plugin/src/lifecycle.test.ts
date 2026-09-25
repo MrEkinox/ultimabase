@@ -1,4 +1,9 @@
-import { UltimaBase, definePlugin, requireCapability } from '@ultimabase/core'
+import {
+	UltimaBase,
+	plugin,
+	contributeApplication,
+	requireCapability,
+} from '@ultimabase/core'
 import { graphqlPlugin } from '@ultimabase/graphql-plugin'
 import { graphqlHttpEndpointCapability } from '@ultimabase/graphql-http'
 import {
@@ -51,10 +56,11 @@ describe('GraphQL Yoga plugin graph', () => {
 	})
 
 	it('requires the real GraphQL application capability, not an ID lookalike', () => {
-		const lookalike = definePlugin({
+		const lookalike = plugin({
 			core: '^0.0.0',
-			pluginId: '@ultimabase/graphql-plugin',
+			id: '@ultimabase/graphql-plugin',
 			version: '0.0.0',
+			contributions: [],
 		})
 		expect(
 			() =>
@@ -72,12 +78,16 @@ describe('GraphQL Yoga plugin graph', () => {
 	})
 
 	it('provides the configured path through the provider-neutral capability', async () => {
-		const consumer = definePlugin({
+		const consumer = plugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.graphql-http-endpoint-consumer',
+			id: 'fixture.graphql-http-endpoint-consumer',
 			version: '1.0.0',
-			capabilities: [endpointRequirement],
-			setup: ({ capabilities }) => capabilities.get(endpointRequirement),
+			contributions: [
+				endpointRequirement,
+				contributeApplication(({ capabilities }) => ({
+					exports: capabilities.get(endpointRequirement),
+				})),
+			],
 		})
 		const application = new UltimaBase({
 			pluginPrivileges: { logger: false },
@@ -101,14 +111,12 @@ describe('GraphQL Yoga plugin graph', () => {
 	})
 
 	it('participates in deterministic HTTP mount collision detection', async () => {
-		const collision = definePlugin({
+		const collision = plugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.graphql-yoga-collision',
+			id: 'fixture.graphql-yoga-collision',
 			version: '1.0.0',
-			privileges: [
-				{ name: 'transport:expose', reason: 'Creates a collision fixture.' },
-			],
-			capabilities: [
+			permissions: { 'transport:expose': 'Creates a collision fixture.' },
+			contributions: [
 				provideHttpEndpoints({
 					contributionId: 'collision',
 					create: () =>

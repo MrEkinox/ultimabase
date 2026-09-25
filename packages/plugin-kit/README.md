@@ -5,7 +5,7 @@ Public authoring helpers for official and community UltimaBase plugins.
 `plugin-kit` is not a plugin and installs no Runtime behavior. Core now owns
 package identity, configured plugin instances, public plugin typing, provenance,
 privilege checks, capability storage, lifecycle, adapters, and Master authority.
-Use Core's `definePluginModule()`, operation contributions, and nominal Typegen
+Use Core's `plugin()`, contribution list, and nominal Typegen
 references directly. Plugin Kit is reserved for optional higher-level
 composition such as events, option parsing, contextual fields, and immutable
 schema-patch builders.
@@ -244,8 +244,7 @@ invalid.
 ## Declare schema mutations without another wrapper
 
 Use Core's `defineSchemaMutation()` and `contributeSchemaMutation()` directly.
-`definePluginModule()` removes repeated package identity fields, while Core
-derives the mutation declaration and handler provider from one contribution:
+Core derives the mutation declaration and handler provider from one contribution:
 
 ```ts
 const archive = defineSchemaMutation({
@@ -258,24 +257,31 @@ const archive = defineSchemaMutation({
 	version: '1.0.0',
 })
 
-workflow.plugin({
-	operations: [
+plugin({
+	id: 'community.workflow',
+	version: '1.0.0',
+	core: '^0.0.0',
+	contributions: [
 		contributeSchemaMutation({
 			mutation: archive,
 			resolve: () => ({ data: { workflowState: 'archived' } }),
 		}),
 	],
-	privileges: [
-		{ name: 'operation:declare', reason: 'Declares archive.' },
-		{ name: 'model:extend', reason: 'Adds archive methods.' },
-	],
-	declare: ({ models }) => {
-		models.extend(Post, {
-			contributionId: 'workflow-mutations',
-			schemaMutations: {
-				archive: { mutation: archive, surfaces: ['schema', 'model'] },
+		contributeDeclarations({
+			models: ({ models }) => {
+				models.extend(Post, {
+					contributionId: 'workflow-mutations',
+					schemaMutations: {
+						archive: { mutation: archive, surfaces: ['schema', 'model'] },
+					},
+				})
+				return undefined
 			},
-		})
+		}),
+	],
+	permissions: {
+		'operation:declare': 'Declares archive.',
+		'model:extend': 'Adds archive methods.',
 	},
 })
 ```
@@ -287,13 +293,13 @@ the operation registry or capability-provider plumbing.
 
 ## Static and Runtime boundaries
 
-| Concern                        | Static declaration                           | Application/Runtime                            |
-| ------------------------------ | -------------------------------------------- | ---------------------------------------------- |
-| Plugin identity and privileges | Core `definePluginModule` + `module.plugin`  | Core validates before effects                  |
-| Option fingerprint facts       | plugin-owned normalized safe values          | secrets and resources stay out                 |
-| Schema patches                 | `schemaPatch` + `patchSchemas`               | Core applies owner-attributed operations       |
-| Operations                     | Core-owned operation contribution            | handler materializes and executes through Core |
-| Typegen                        | Core nominal references and structured facts | no executable generated client                 |
+| Concern                         | Static declaration                           | Application/Runtime                            |
+| ------------------------------- | -------------------------------------------- | ---------------------------------------------- |
+| Plugin identity and permissions | Core `plugin()` + one contribution list      | Core validates before effects                  |
+| Option fingerprint facts        | plugin-owned normalized safe values          | secrets and resources stay out                 |
+| Schema patches                  | `schemaPatch` + `patchSchemas`               | Core applies owner-attributed operations       |
+| Operations                      | Core-owned operation contribution            | handler materializes and executes through Core |
+| Typegen                         | Core nominal references and structured facts | no executable generated client                 |
 
 ## When to use Core directly
 

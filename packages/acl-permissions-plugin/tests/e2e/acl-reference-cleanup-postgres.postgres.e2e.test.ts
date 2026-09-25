@@ -13,8 +13,10 @@ import {
 	UltimaBase,
 	requestSubjectReferenceCleanupCapability,
 	createRequestPrincipalReference,
-	definePlugin,
+	plugin,
+	contributeApplication,
 	optionalCapability,
+	withPluginPrivileges,
 	type RequestSubjectContext,
 	type RequestSubjectReferenceCleanup,
 	type NamedRequestSubjectReferenceCleanup,
@@ -176,62 +178,66 @@ const applyPrincipalPolicy = async (
 }
 
 /** Emulates a future auth provider while owning principal deletion policy. */
-const principalOwnerPlugin = definePlugin({
+const principalOwnerPlugin = plugin({
 	version: '0.0.0',
 	core: '^0.0.0',
 	peers: [
 		{ pluginId: '@ultimabase/hooks-plugin', version: '^0.0.0' },
 		{ pluginId: '@ultimabase/acl-permissions-plugin', version: '^0.0.0' },
 	],
-	pluginId: 'fixture.acl-principal-owner',
-	privileges: [
-		{
-			name: 'authority:elevate',
-			reason: 'Executes ACL reference cleanup as trusted server-side work.',
-		},
-		{
-			name: 'runtime:intercept',
-			reason: 'Enforces principal reference deletion policies in schema hooks.',
-		},
-		{
-			name: 'runtime:observe',
-			reason: 'Observes committed ACL changes for the E2E fixture.',
-		},
-	],
-	capabilities: [
+	id: 'fixture.acl-principal-owner',
+	permissions: {
+		'authority:elevate':
+			'Executes ACL reference cleanup as trusted server-side work.',
+		'runtime:intercept':
+			'Enforces principal reference deletion policies in schema hooks.',
+		'runtime:observe': 'Observes committed ACL changes for the E2E fixture.',
+	},
+	contributions: [
 		provideACLChangeObserver(
 			'fixture.observe:acl-change',
 			onACLChange(({ event }: ACLChangeHandlerInput) => {
 				committedACLChanges.push(event.payload)
 			}),
 		),
-		provideHookContributions('principal-reference-deletion', ({ schemas }) => {
-			const readCleanups = () => principalCleanupsBySchemas.get(schemas) ?? []
+		withPluginPrivileges(
+			provideHookContributions(
+				'principal-reference-deletion',
+				({ schemas }) => {
+					const readCleanups = () =>
+						principalCleanupsBySchemas.get(schemas) ?? []
 
-			return principalPolicies.map(({ policy, schema }) =>
-				schemaHooks(schema, {
-					beforeOperation: {
-						delete: async (input) => {
-							await applyPrincipalPolicy(
-								input.context,
-								schema,
-								input.originalItem.id,
-								policy,
-								readCleanups(),
-							)
-						},
-					},
-				}),
-			)
-		}),
+					return principalPolicies.map(({ policy, schema }) =>
+						schemaHooks(schema, {
+							beforeOperation: {
+								delete: async (input) => {
+									await applyPrincipalPolicy(
+										input.context,
+										schema,
+										input.originalItem.id,
+										policy,
+										readCleanups(),
+									)
+								},
+							},
+						}),
+					)
+				},
+			),
+			['authority:elevate'],
+		),
 		optionalReferenceCleanups,
+		contributeApplication(({ capabilities, schemas }) => {
+			principalCleanupsBySchemas.set(
+				schemas,
+				readPrincipalCleanups(
+					capabilities.get(optionalReferenceCleanups) ?? [],
+				),
+			)
+			const exports = undefined
+			return { exports }
+		}),
 	],
-	setup: ({ capabilities, schemas }) => {
-		principalCleanupsBySchemas.set(
-			schemas,
-			readPrincipalCleanups(capabilities.get(optionalReferenceCleanups) ?? []),
-		)
-	},
 })
 
 const schemas = immutableArray([

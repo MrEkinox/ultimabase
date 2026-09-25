@@ -15,7 +15,8 @@ import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
 import {
 	Schema,
 	UltimaBase,
-	definePlugin,
+	contributeApplication,
+	plugin,
 	requireCapability,
 	type SchemaOptions,
 } from '@ultimabase/core'
@@ -92,13 +93,16 @@ const httpRequirement = requireCapability(httpApplicationCapability, '^1.0.0', {
 	phase: 'setup',
 })
 const capture: { current?: HttpApplication } = {}
-const capturePlugin = definePlugin({
-	capabilities: [httpRequirement],
+const capturePlugin = plugin({
+	contributions: [
+		httpRequirement,
+		contributeApplication(({ capabilities }) => {
+			capture.current = capabilities.get(httpRequirement)
+			return { exports: undefined }
+		}),
+	],
 	core: '^0.0.0',
-	pluginId: 'fixture.soft-delete-transport-capture',
-	setup: ({ capabilities }) => {
-		capture.current = capabilities.get(httpRequirement)
-	},
+	id: 'fixture.soft-delete-transport-capture',
 	version: '1.0.0',
 })
 

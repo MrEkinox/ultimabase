@@ -3,7 +3,9 @@ import { describe, expect, it } from 'vitest'
 import { FrameworkApplication } from '../../application/framework-application.js'
 import { Schema } from '../../schema/schema/definition.js'
 import { stringField } from '../../schema/fields/builtins/string.js'
-import { definePlugin } from '../definition.js'
+import { plugin as createPlugin } from '../plugin.js'
+import { contributeDeclarations } from '../plugin-contributions.js'
+
 import { defineFieldOption } from '../schema-option-definitions.js'
 import { defineOperationValue } from '../plugin-operations.js'
 import { defineSchemaMutation } from '../plugin-schema-mutations.js'
@@ -25,28 +27,31 @@ describe.each(['constructor', 'toString', 'valueOf'])(
 				schemas: [Target],
 				pluginPrivileges: { logger: false },
 				plugins: [
-					definePlugin({
-						pluginId: 'fixture.own-field-selector',
+					createPlugin({
+						id: 'fixture.own-field-selector',
 						version: '1.0.0',
 						core: '^0.0.0',
-						privileges: [
-							{
-								name: 'schema:declare',
-								reason: 'Checks selector field ownership.',
-							},
-						],
-						declare: ({ schemas }) => {
-							schemas.patch({
-								targets: schemas.select({ field: { name } }),
-								operations: [
-									addSchemaField({
-										contributionId: 'selected',
-										name: 'selected',
-										field: stringField(),
-									}),
-								],
-							})
+						permissions: {
+							'schema:declare': 'Checks selector field ownership.',
 						},
+						contributions: [
+							contributeDeclarations({
+								schema: ({ schemas }) => {
+									schemas.patch({
+										targets: schemas.select({ field: { name } }),
+										operations: [
+											addSchemaField({
+												contributionId: 'selected',
+												name: 'selected',
+												field: stringField(),
+											}),
+										],
+									})
+
+									return undefined
+								},
+							}),
+						],
 					}),
 				],
 			})
@@ -61,40 +66,41 @@ describe.each(['constructor', 'toString', 'valueOf'])(
 				],
 				pluginPrivileges: { logger: false },
 				plugins: [
-					definePlugin({
-						pluginId: 'fixture.own-field-patch',
+					createPlugin({
+						id: 'fixture.own-field-patch',
 						version: '1.0.0',
 						core: '^0.0.0',
-						privileges: [
-							{
-								name: 'schema:declare',
-								reason: 'Checks patch field ownership.',
-							},
-						],
-						declare: ({ schemas }) => {
-							schemas.defineOptions({
-								contributionId: 'flag',
-								field: {
-									flag: defineFieldOption({
-										contexts: ['stored'],
-										normalize: (value) => Boolean(value),
-										protocolVersion: 1,
-										typegen: false,
-									}),
+						permissions: { 'schema:declare': 'Checks patch field ownership.' },
+						contributions: [
+							contributeDeclarations({
+								schema: ({ schemas }) => {
+									schemas.defineOptions({
+										contributionId: 'flag',
+										field: {
+											flag: defineFieldOption({
+												contexts: ['stored'],
+												normalize: (value) => Boolean(value),
+												protocolVersion: 1,
+												typegen: false,
+											}),
+										},
+									})
+									schemas.patch({
+										targets: schemas.select({}),
+										operations: [
+											setSchemaFieldOption({
+												contributionId: 'flag-value',
+												field: name,
+												name: 'flag',
+												value: true,
+											}),
+										],
+									})
+
+									return undefined
 								},
-							})
-							schemas.patch({
-								targets: schemas.select({}),
-								operations: [
-									setSchemaFieldOption({
-										contributionId: 'flag-value',
-										field: name,
-										name: 'flag',
-										value: true,
-									}),
-								],
-							})
-						},
+							}),
+						],
 					}),
 				],
 			})
@@ -121,27 +127,31 @@ describe.each(['constructor', 'toString', 'valueOf'])(
 				schemas: [Target],
 				pluginPrivileges: { logger: false },
 				plugins: [
-					definePlugin({
-						pluginId: 'fixture.own-mutation-selection',
+					createPlugin({
+						id: 'fixture.own-mutation-selection',
 						version: '1.0.0',
 						core: '^0.0.0',
-						privileges: [
-							{
-								name: 'operation:declare',
-								reason: 'Declares a mutation selection.',
-							},
-							{
-								name: 'model:extend',
-								reason: 'Attaches the mutation to its schema.',
-							},
-						],
-						declare: ({ operations, models }) => {
-							operations.declare(mutation)
-							models.extend(Target, {
-								contributionId: 'update',
-								schemaMutations: { update: { mutation, surfaces: ['schema'] } },
-							})
+						permissions: {
+							'operation:declare': 'Declares a mutation selection.',
+							'model:extend': 'Attaches the mutation to its schema.',
 						},
+						contributions: [
+							contributeDeclarations({
+								operations: ({ operations }) => {
+									operations.declare(mutation)
+									return undefined
+								},
+								models: ({ models }) => {
+									models.extend(Target, {
+										contributionId: 'update',
+										schemaMutations: {
+											update: { mutation, surfaces: ['schema'] },
+										},
+									})
+									return undefined
+								},
+							}),
+						],
 					}),
 				],
 			})

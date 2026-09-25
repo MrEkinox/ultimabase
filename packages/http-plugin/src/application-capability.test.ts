@@ -1,6 +1,7 @@
 import {
 	FrameworkApplication,
-	definePlugin,
+	plugin,
+	contributeApplication,
 	provideCapability,
 	requireCapability,
 } from '@ultimabase/core'
@@ -38,11 +39,11 @@ describe('HTTP application capability compatibility', () => {
 				schemas: [],
 				pluginPrivileges: { logger: false },
 				plugins: [
-					definePlugin({
-						pluginId: 'fixture.http-provider',
+					plugin({
+						id: 'fixture.http-provider',
 						version: '1.0.0',
 						core: '^0.0.0',
-						capabilities: [
+						contributions: [
 							provideCapability(httpApplicationCapability, {
 								contributionId: 'http',
 								create: () => ({
@@ -65,12 +66,17 @@ describe('HTTP application capability compatibility', () => {
 							}),
 						],
 					}),
-					definePlugin({
-						pluginId: 'fixture.server',
+					plugin({
+						id: 'fixture.server',
 						version: '1.0.0',
 						core: '^0.0.0',
-						capabilities: [requirement],
-						setup: seen,
+						contributions: [
+							requirement,
+							contributeApplication((context) => {
+								seen(context)
+								return { exports: undefined }
+							}),
+						],
 					}),
 				],
 			})

@@ -1,12 +1,14 @@
 import {
 	Schema,
+	contributeApplication,
+	contributeDeclarations,
 	defineCapability,
-	definePlugin,
 	defineSchemaOption,
 	getOperationSchema,
 	protectedPolicy,
 	provideCapability,
 	provideRuntimeConstraint,
+	plugin as createPlugin,
 	requireCapability,
 	resolveWhereInput,
 	type CompiledSchemaRegistry,
@@ -209,32 +211,35 @@ export const createAlternativePolicyEngine = (
 			}
 		},
 	})
-	const plugin = definePlugin({
+	const plugin = createPlugin({
 		...(options.instanceId === undefined
 			? {}
 			: { instanceId: options.instanceId }),
-		capabilities: [stateProvider, policyProvider, alternativePolicyEngine],
-		core: '^0.0.0',
-		declare: ({ schemas }) => {
-			schemas.defineOptions({
-				contributionId: 'alternative-policy-option',
-				schema: { alternativePolicy: alternativePolicySchemaOption },
-			})
-		},
-		pluginId: alternativePolicyPluginId,
-		privileges: [
-			{
-				name: 'schema:declare',
-				reason: 'Declares the alternative policy schema option.',
-			},
-			{
-				name: 'runtime:constrain',
-				reason: 'Contributes independent tenant and field restrictions.',
-			},
+		contributions: [
+			stateProvider,
+			policyProvider,
+			alternativePolicyEngine,
+			contributeDeclarations({
+				schema: ({ schemas }) => {
+					schemas.defineOptions({
+						contributionId: 'alternative-policy-option',
+						schema: { alternativePolicy: alternativePolicySchemaOption },
+					})
+				},
+			}),
+			contributeApplication(({ capabilities }) => {
+				const state = capabilities.get(alternativePolicyEngine)
+				return {
+					exports: immutableRecord({ diagnostics: () => state.snapshot() }),
+				}
+			}),
 		],
-		setup: ({ capabilities }) => {
-			const state = capabilities.get(alternativePolicyEngine)
-			return immutableRecord({ diagnostics: () => state.snapshot() })
+		core: '^0.0.0',
+		id: alternativePolicyPluginId,
+		permissions: {
+			'schema:declare': 'Declares the alternative policy schema option.',
+			'runtime:constrain':
+				'Contributes independent tenant and field restrictions.',
 		},
 		version: '1.0.0',
 	})

@@ -1,6 +1,5 @@
-import { definePlugin } from '../../src/index.js'
-import { Schema } from '../../src/index.js'
-import { UltimaBase } from '../../src/index.js'
+import { plugin as createPlugin, Schema, UltimaBase } from '../../src/index.js'
+
 import { describe, expect, it } from 'vitest'
 
 import { RecordingDatabaseAdapter } from './fixtures/recording-database-adapter.js'
@@ -26,11 +25,11 @@ describe('public application Runtime assembly', () => {
 			[{ status: 'fulfilled', value: rows }],
 			[],
 		)
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.public-assembled-database',
-			capabilities: [provideTestDatabaseAdapter(adapter)],
+			id: 'fixture.public-assembled-database',
+			contributions: [provideTestDatabaseAdapter(adapter)],
 		})
 		const ultimabase = new UltimaBase({
 			schemas: [publicArticleSchema],

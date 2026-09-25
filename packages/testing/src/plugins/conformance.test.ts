@@ -3,15 +3,18 @@ import {
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
 	databaseRelationCapability,
+	contributeApplication,
 	contributeOperation,
 	contributeSchemaMutation,
 	defineCapability,
 	defineOperation,
 	defineOperationValue,
-	definePlugin,
+	plugin as createPlugin,
+	contributeDeclarations,
 	defineSchemaMutation,
 	defineTypegenReference,
 	provideCapability,
+	withPluginPrivileges,
 	Schema,
 	stringField,
 	type DatabaseAdapter,
@@ -87,27 +90,29 @@ describe('plugin conformance suite', () => {
 			},
 		})
 		const fixturePlugin = (instanceId: string) =>
-			definePlugin({
-				capabilities: [provider],
+			createPlugin({
 				core: '^0.0.0',
 				environment: ['environment:network'],
-				hooks: {
-					dispose: () => {
-						disposals += 1
-					},
-				},
 				instanceId,
-				pluginId: 'fixture.conformance',
-				privileges: [
-					{
-						name: 'runtime:observe',
-						reason: 'Verifies cumulative privilege denial.',
-					},
-				],
-				setup: () => {
-					setups += 1
-					return Object.freeze({ ready: true })
+				id: 'fixture.conformance',
+				permissions: {
+					'runtime:observe': 'Verifies cumulative privilege denial.',
 				},
+				contributions: [
+					provider,
+					withPluginPrivileges(
+						contributeApplication(() => {
+							setups += 1
+							return {
+								exports: Object.freeze({ ready: true }),
+								dispose: () => {
+									disposals += 1
+								},
+							}
+						}),
+						['runtime:observe'],
+					),
+				],
 				version: '0.0.0',
 			})
 
@@ -175,24 +180,28 @@ describe('plugin conformance suite', () => {
 			className: 'ConformanceSurfacePost',
 			fields: (field) => ({ title: field.string() }),
 		})
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			core: '^0.0.0',
-			declare: ({ typegenReferences }) => {
-				typegenReferences.register(publicState)
-			},
 			instanceId: 'main',
-			operations: [
+			id: 'fixture.snapshot-surfaces',
+			permissions: {
+				'operation:declare': 'Declares public operations.',
+				'typegen:reference': 'References one public type.',
+			},
+			version: '1.0.0',
+			contributions: [
 				contributeOperation({
 					execute: ({ input }) => input,
 					operation: inspect,
 				}),
+				contributeDeclarations({
+					typegen: ({ typegenReferences }) => {
+						typegenReferences.register(publicState)
+
+						return undefined
+					},
+				}),
 			],
-			pluginId: 'fixture.snapshot-surfaces',
-			privileges: [
-				{ name: 'operation:declare', reason: 'Declares public operations.' },
-				{ name: 'typegen:reference', reason: 'References one public type.' },
-			],
-			version: '1.0.0',
 		})
 		const suite = definePluginConformanceSuite({
 			createFixture: () =>
@@ -226,42 +235,49 @@ describe('plugin conformance suite', () => {
 			select: { title: true },
 			version: '1.0.0',
 		})
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			core: '^0.0.0',
-			declare: ({ models, schemas }) => {
-				schemas.patch({
-					operations: [
-						addSchemaField({
-							contributionId: 'workflow-state',
-							field: stringField(),
-							name: 'workflowState',
-						}),
-					],
-					targets: schemas.select({ className: Post.className }),
-				})
-				models.extend(
-					{ className: Post.className },
-					{
-						contributionId: 'archive-surface',
-						schemaMutations: {
-							archive: { mutation: archive, surfaces: ['schema', 'model'] },
-						},
-					},
-				)
+			id: 'fixture.conformance-schema-mutation',
+			permissions: {
+				'model:extend': 'Adds a neutral mutation surface.',
+				'operation:declare': 'Declares a neutral mutation.',
+				'persistence:rewrite': 'Owns its narrow effect.',
+				'schema:declare': 'Adds its owned state field.',
 			},
-			operations: [
+			contributions: [
 				contributeSchemaMutation({
 					mutation: archive,
 					resolve: () => ({ data: { workflowState: 'archived' } }),
 				}),
+				contributeDeclarations({
+					schema: ({ schemas }) => {
+						schemas.patch({
+							operations: [
+								addSchemaField({
+									contributionId: 'workflow-state',
+									field: stringField(),
+									name: 'workflowState',
+								}),
+							],
+							targets: schemas.select({ className: Post.className }),
+						})
+					},
+					models: ({ models }) => {
+						models.extend(
+							{ className: Post.className },
+							{
+								contributionId: 'archive-surface',
+								schemaMutations: {
+									archive: {
+										mutation: archive,
+										surfaces: ['schema', 'model'],
+									},
+								},
+							},
+						)
+					},
+				}),
 			],
-			pluginId: 'fixture.conformance-schema-mutation',
-			privileges: [
-				{ name: 'model:extend', reason: 'Adds a neutral mutation surface.' },
-				{ name: 'operation:declare', reason: 'Declares a neutral mutation.' },
-				{ name: 'persistence:rewrite', reason: 'Owns its narrow effect.' },
-				{ name: 'schema:declare', reason: 'Adds its owned state field.' },
-			] as const,
 			version: '1.0.0',
 		})
 		const suite = definePluginConformanceSuite({
@@ -351,16 +367,16 @@ describe('plugin conformance suite', () => {
 				}),
 			})
 			latestAdapter = adapter
-			const plugin = definePlugin({
-				capabilities: [
+			const plugin = createPlugin({
+				core: '^0.0.0',
+				id: 'fixture.conformance-relation-read',
+				version: '0.0.0',
+				contributions: [
 					provideCapability(databaseAdapterCapability, {
 						contributionId: 'relation-read-adapter',
 						create: () => ({ value: adapter }),
 					}),
 				],
-				core: '^0.0.0',
-				pluginId: 'fixture.conformance-relation-read',
-				version: '0.0.0',
 			})
 
 			return createPluginConformanceFixture({
@@ -412,15 +428,17 @@ describe('plugin conformance suite', () => {
 	it('attributes an optional failure to its exact contract', async () => {
 		let disposals = 0
 		let expectedDisposals = 0
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			core: '^0.0.0',
-			hooks: {
-				dispose: () => {
-					disposals += 1
-				},
-			},
-			pluginId: 'fixture.failure',
-			setup: () => Object.freeze({ ready: true }),
+			id: 'fixture.failure',
+			contributions: [
+				contributeApplication(() => ({
+					exports: Object.freeze({ ready: true }),
+					dispose: () => {
+						disposals += 1
+					},
+				})),
+			],
 			version: '0.0.0',
 		})
 		const suite = definePluginConformanceSuite({
@@ -453,10 +471,11 @@ describe('plugin conformance suite', () => {
 	})
 
 	it('keeps suite builders immutable and rejects duplicate checks', () => {
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.builder',
+			id: 'fixture.builder',
 			version: '0.0.0',
+			contributions: [],
 		})
 		const suite = definePluginConformanceSuite({
 			createFixture: () =>
@@ -478,10 +497,11 @@ describe('plugin conformance suite', () => {
 	})
 
 	it('reports every optional domain module under its stable contract', async () => {
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.optional-modules',
+			id: 'fixture.optional-modules',
 			version: '0.0.0',
+			contributions: [],
 		})
 		let suite = definePluginConformanceSuite({
 			createFixture: () =>

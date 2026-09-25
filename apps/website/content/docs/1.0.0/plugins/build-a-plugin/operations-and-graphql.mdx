@@ -90,27 +90,24 @@ static declaration, handler provider, owner-local identifier, and lifecycle
 resource boundary:
 
 ```ts title="src/plugin.ts"
-import { contributeOperation, definePluginModule } from '@ultimabase/core'
+import { contributeOperation, plugin } from '@ultimabase/core'
 
 import { formatWorkflow } from './operations.js'
 
-const workflow = definePluginModule({
-	core: '^1.0.0',
-	pluginId: 'community.workflow',
-	version: '1.0.0',
-})
-
 export const workflowPlugin = () =>
-	workflow.plugin({
-		operations: [
+	plugin({
+		id: 'community.workflow',
+		core: '^1.0.0',
+		version: '1.0.0',
+		contributions: [
 			contributeOperation({
 				execute: ({ input }) => input.trim(),
 				operation: formatWorkflow,
 			}),
 		],
-		privileges: [
-			{ name: 'operation:declare', reason: 'Declares formatWorkflow.' },
-		] as const,
+		permissions: {
+			'operation:declare': 'Declares formatWorkflow.',
+		},
 	})
 ```
 
@@ -196,39 +193,33 @@ Replace the previous plugin definition with the version that installs both
 providers under the same owner and requests the additional privilege:
 
 ```ts title="src/plugin.ts"
-import { contributeOperation, definePluginModule } from '@ultimabase/core'
+import { contributeOperation, plugin } from '@ultimabase/core'
 
 import { formatGraphqlBinding } from './graphql-binding.js'
 import { formatWorkflow } from './operations.js'
 
-const workflow = definePluginModule({
-	core: '^1.0.0',
-	pluginId: 'community.workflow',
-	version: '1.0.0',
-})
-
 export const workflowPlugin = () =>
-	workflow.plugin({
-		operations: [
+	plugin({
+		id: 'community.workflow',
+		core: '^1.0.0',
+		version: '1.0.0',
+		contributions: [
 			contributeOperation({
 				bindings: [formatGraphqlBinding],
 				execute: ({ input }) => input.trim(),
 				operation: formatWorkflow,
 			}),
 		],
-		privileges: [
-			{ name: 'operation:declare', reason: 'Declares formatWorkflow.' },
-			{
-				name: 'transport:expose',
-				reason: 'Exposes formatWorkflow in GraphQL.',
-			},
-		] as const,
+		permissions: {
+			'operation:declare': 'Declares formatWorkflow.',
+			'transport:expose': 'Exposes formatWorkflow in GraphQL.',
+		},
 	})
 ```
 
 The operation owner can instead add
 `contributeOperationBinding(formatGraphqlBinding)` separately to the same
-plugin's `operations` list. This keeps handler and transport modules separate
+plugin's `contributions` list. This keeps handler and transport modules separate
 without weakening exact ownership; a foreign plugin cannot publish the
 operation. The binding still requires `transport:expose`.
 
@@ -283,7 +274,7 @@ pnpm add graphql @ultimabase/graphql-plugin
 ```
 
 ```ts title="src/graphql-addon.ts"
-import { definePlugin } from '@ultimabase/core'
+import { plugin } from '@ultimabase/core'
 import { provideGraphqlSchemas } from '@ultimabase/graphql-plugin'
 import { GraphQLObjectType, GraphQLSchema, GraphQLString } from 'graphql'
 
@@ -300,8 +291,8 @@ const health = new GraphQLSchema({
 })
 
 export const workflowGraphqlAddon = () =>
-	definePlugin({
-		capabilities: [
+	plugin({
+		contributions: [
 			provideGraphqlSchemas({
 				contributionId: 'workflow-health',
 				create: () => health,
@@ -309,10 +300,10 @@ export const workflowGraphqlAddon = () =>
 		],
 		core: '^1.0.0',
 		peers: [{ pluginId: '@ultimabase/graphql-plugin', version: '^1.0.0' }],
-		pluginId: 'community.workflow-graphql',
-		privileges: [
-			{ name: 'transport:expose', reason: 'Adds workflowHealth to GraphQL.' },
-		] as const,
+		id: 'community.workflow-graphql',
+		permissions: {
+			'transport:expose': 'Adds workflowHealth to GraphQL.',
+		},
 		version: '1.0.0',
 	})
 ```
@@ -370,12 +361,12 @@ example reads no application data; it still belongs to the selected HTTP
 application and requires its identity header:
 
 ```ts title="src/status-route.ts"
-import { definePlugin } from '@ultimabase/core'
+import { plugin } from '@ultimabase/core'
 import { httpRoute, provideHttpEndpoints } from '@ultimabase/http-plugin'
 
 export const statusRoutePlugin = () =>
-	definePlugin({
-		capabilities: [
+	plugin({
+		contributions: [
 			provideHttpEndpoints({
 				contributionId: 'status-route',
 				create: () => [
@@ -389,10 +380,10 @@ export const statusRoutePlugin = () =>
 			}),
 		],
 		core: '^1.0.0',
-		pluginId: 'community.status-route',
-		privileges: [
-			{ name: 'transport:expose', reason: 'Adds the GET /status route.' },
-		] as const,
+		id: 'community.status-route',
+		permissions: {
+			'transport:expose': 'Adds the GET /status route.',
+		},
 		version: '1.0.0',
 	})
 ```

@@ -2,7 +2,8 @@ import path from 'node:path'
 
 import {
 	defineFieldBuilderMethod,
-	definePlugin,
+	plugin as createPlugin,
+	contributeDeclarations,
 	definePluginField,
 	FrameworkApplication,
 	Schema,
@@ -45,17 +46,19 @@ const createGeneratedRegistry = (): string => {
 			},
 		},
 	})
-	const plugin = definePlugin({
+	const plugin = createPlugin({
 		core: '^0.0.0',
-		declare: ({ fields }) => {
-			fields.register(method)
-			return undefined
-		},
-		pluginId: 'fixture.semantic-containment-plugin',
-		privileges: [
-			{ name: 'schema:declare', reason: 'Declares the fixture field.' },
-		],
+		id: 'fixture.semantic-containment-plugin',
+		permissions: { 'schema:declare': 'Declares the fixture field.' },
 		version: '0.0.0',
+		contributions: [
+			contributeDeclarations({
+				schema: ({ fields }) => {
+					fields.register(method)
+					return undefined
+				},
+			}),
+		],
 	})
 	const Document = Schema.define({
 		className: 'SemanticContainedDocument',

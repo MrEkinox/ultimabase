@@ -1,10 +1,11 @@
-import { onTestFinished } from 'vitest'
+import { onTestFinished, describe, expect, it, vi } from 'vitest'
 import {
 	MasterAuthority,
 	RequestContext,
 	RequestContextValue,
 	UltimaBase,
-	definePlugin,
+	plugin,
+	contributeApplication,
 	getCurrentRequest,
 	requireCapability,
 	type MasterAccessEvent,
@@ -12,7 +13,6 @@ import {
 	type PluginPrivilegePolicy,
 } from '@ultimabase/core'
 import { isUnknownArray } from '@ultimabase/shared'
-import { describe, expect, it, vi } from 'vitest'
 
 import {
 	httpApplicationCapability,
@@ -65,11 +65,11 @@ const resolverPlugin = (
 	pluginId: string,
 	definitions: readonly HttpContextResolverDefinition[],
 ) =>
-	definePlugin({
-		pluginId,
+	plugin({
+		id: pluginId,
 		version: '1.0.0',
 		core: '^0.0.0',
-		capabilities: [
+		contributions: [
 			provideHttpContextResolvers({
 				contributionId: 'fixture-context',
 				create: () => definitions,
@@ -89,14 +89,12 @@ interface StartHttpFixtureOptions {
 
 const startHttpFixture = async (options: StartHttpFixtureOptions) => {
 	let http: HttpApplication | undefined
-	const routeOwner = definePlugin({
-		pluginId: 'fixture.http-context-route',
+	const routeOwner = plugin({
+		id: 'fixture.http-context-route',
 		version: '1.0.0',
 		core: '^0.0.0',
-		privileges: [
-			{ name: 'transport:expose', reason: 'Exposes the HTTP context fixture.' },
-		],
-		capabilities: [
+		permissions: { 'transport:expose': 'Exposes the HTTP context fixture.' },
+		contributions: [
 			provideHttpEndpoints({
 				contributionId: 'context-route',
 				create: () =>
@@ -109,14 +107,18 @@ const startHttpFixture = async (options: StartHttpFixtureOptions) => {
 			}),
 		],
 	})
-	const server = definePlugin({
-		pluginId: 'fixture.http-context-server',
+	const server = plugin({
+		id: 'fixture.http-context-server',
 		version: '1.0.0',
 		core: '^0.0.0',
-		capabilities: [applicationRequirement],
-		setup: ({ capabilities }) => {
-			http = capabilities.get(applicationRequirement)
-		},
+		contributions: [
+			applicationRequirement,
+			contributeApplication(({ capabilities }) => {
+				http = capabilities.get(applicationRequirement)
+				const exports = undefined
+				return { exports }
+			}),
+		],
 	})
 	const runtime = new UltimaBase({
 		...(options.masterAuthority === undefined

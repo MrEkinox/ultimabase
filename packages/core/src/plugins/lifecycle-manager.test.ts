@@ -1,7 +1,10 @@
 import { SchemaRegistry } from '../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
-import { definePlugin, type PluginDefinition } from './definition.js'
+import { type PluginDefinition } from './definition.js'
+import { plugin as createPlugin } from './plugin.js'
+import { contributeApplication } from './plugin-contributions.js'
+
 import { PluginGraph } from './graph.js'
 import { PluginLifecycleManager } from './lifecycle-manager.js'
 import { normalizePlugins } from './normalization.js'
@@ -18,67 +21,99 @@ const createLifecycle = (
 describe('PluginLifecycleManager', () => {
 	it('runs every phase in dependency order and teardown in reverse order', async () => {
 		const events: string[] = []
-		const dependency = definePlugin({
+		const dependency = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.dependency',
-			setup: () => {
-				events.push('setup:dependency')
-
-				return { name: 'dependency' }
-			},
-			hooks: {
-				connect: ({ pluginExports }) => {
-					events.push(`connect:${pluginExports.name}`)
-				},
-				prepareSchema: ({ pluginExports }) => {
-					events.push(`prepareSchema:${pluginExports.name}`)
-				},
-				startRuntime: ({ pluginExports }) => {
-					events.push(`startRuntime:${pluginExports.name}`)
-				},
-				startTransports: ({ pluginExports }) => {
-					events.push(`startTransports:${pluginExports.name}`)
-				},
-				stop: ({ pluginExports }) => {
-					events.push(`stop:${pluginExports.name}`)
-				},
-				dispose: ({ pluginExports }) => {
-					events.push(`dispose:${pluginExports.name}`)
-				},
-			},
+			id: 'fixture.dependency',
+			contributions: [
+				contributeApplication((context) => {
+					events.push('setup:dependency')
+					const exports = { name: 'dependency' }
+					const lifecycleContext = { ...context, pluginExports: exports }
+					void lifecycleContext
+					return {
+						exports,
+						connect: () => {
+							;(({ pluginExports }: typeof lifecycleContext) => {
+								events.push(`connect:${pluginExports.name}`)
+							})(lifecycleContext)
+						},
+						prepareSchema: () => {
+							;(({ pluginExports }: typeof lifecycleContext) => {
+								events.push(`prepareSchema:${pluginExports.name}`)
+							})(lifecycleContext)
+						},
+						startRuntime: () => {
+							;(({ pluginExports }: typeof lifecycleContext) => {
+								events.push(`startRuntime:${pluginExports.name}`)
+							})(lifecycleContext)
+						},
+						startTransports: () => {
+							;(({ pluginExports }: typeof lifecycleContext) => {
+								events.push(`startTransports:${pluginExports.name}`)
+							})(lifecycleContext)
+						},
+						stop: () => {
+							;(({ pluginExports }: typeof lifecycleContext) => {
+								events.push(`stop:${pluginExports.name}`)
+							})(lifecycleContext)
+						},
+						dispose: () => {
+							;(({ pluginExports }: typeof lifecycleContext) => {
+								events.push(`dispose:${pluginExports.name}`)
+							})(lifecycleContext)
+						},
+					}
+				}),
+			],
 		})
-		const consumer = definePlugin({
+		const consumer = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.consumer',
+			id: 'fixture.consumer',
 			dependencies: [{ pluginId: 'fixture.dependency', version: '^0.0.0' }],
-			setup: async () => {
-				await Promise.resolve()
-				events.push('setup:consumer')
-
-				return { name: 'consumer' }
-			},
-			hooks: {
-				connect: ({ pluginExports }) => {
-					events.push(`connect:${pluginExports.name}`)
-				},
-				prepareSchema: ({ pluginExports }) => {
-					events.push(`prepareSchema:${pluginExports.name}`)
-				},
-				startRuntime: ({ pluginExports }) => {
-					events.push(`startRuntime:${pluginExports.name}`)
-				},
-				startTransports: ({ pluginExports }) => {
-					events.push(`startTransports:${pluginExports.name}`)
-				},
-				stop: ({ pluginExports }) => {
-					events.push(`stop:${pluginExports.name}`)
-				},
-				dispose: ({ pluginExports }) => {
-					events.push(`dispose:${pluginExports.name}`)
-				},
-			},
+			contributions: [
+				contributeApplication(async (context) => {
+					await Promise.resolve()
+					events.push('setup:consumer')
+					const exports = { name: 'consumer' }
+					const lifecycleContext = { ...context, pluginExports: exports }
+					void lifecycleContext
+					return {
+						exports,
+						connect: () => {
+							;(({ pluginExports }: typeof lifecycleContext) => {
+								events.push(`connect:${pluginExports.name}`)
+							})(lifecycleContext)
+						},
+						prepareSchema: () => {
+							;(({ pluginExports }: typeof lifecycleContext) => {
+								events.push(`prepareSchema:${pluginExports.name}`)
+							})(lifecycleContext)
+						},
+						startRuntime: () => {
+							;(({ pluginExports }: typeof lifecycleContext) => {
+								events.push(`startRuntime:${pluginExports.name}`)
+							})(lifecycleContext)
+						},
+						startTransports: () => {
+							;(({ pluginExports }: typeof lifecycleContext) => {
+								events.push(`startTransports:${pluginExports.name}`)
+							})(lifecycleContext)
+						},
+						stop: () => {
+							;(({ pluginExports }: typeof lifecycleContext) => {
+								events.push(`stop:${pluginExports.name}`)
+							})(lifecycleContext)
+						},
+						dispose: () => {
+							;(({ pluginExports }: typeof lifecycleContext) => {
+								events.push(`dispose:${pluginExports.name}`)
+							})(lifecycleContext)
+						},
+					}
+				}),
+			],
 		})
 		// Reversed configuration proves dependencies, not input position, lead setup.
 		const lifecycle = createLifecycle([consumer, dependency])
@@ -109,27 +144,37 @@ describe('PluginLifecycleManager', () => {
 	it('keeps setup, start, stop, and dispose idempotent', async () => {
 		const calls = { setup: 0, connect: 0, stop: 0, dispose: 0 }
 		const exportedValue = { port: 1337 }
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.server',
-			setup: () => {
-				calls.setup += 1
-
-				return exportedValue
-			},
-			hooks: {
-				connect: ({ pluginExports }) => {
-					expect(pluginExports).toBe(exportedValue)
-					calls.connect += 1
-				},
-				stop: () => {
-					calls.stop += 1
-				},
-				dispose: () => {
-					calls.dispose += 1
-				},
-			},
+			id: 'fixture.server',
+			contributions: [
+				contributeApplication((context) => {
+					calls.setup += 1
+					const exports = exportedValue
+					const lifecycleContext = { ...context, pluginExports: exports }
+					void lifecycleContext
+					return {
+						exports,
+						connect: () => {
+							;(({ pluginExports }: typeof lifecycleContext) => {
+								expect(pluginExports).toBe(exportedValue)
+								calls.connect += 1
+							})(lifecycleContext)
+						},
+						stop: () => {
+							;(() => {
+								calls.stop += 1
+							})()
+						},
+						dispose: () => {
+							;(() => {
+								calls.dispose += 1
+							})()
+						},
+					}
+				}),
+			],
 		})
 		const lifecycle = createLifecycle([plugin])
 		const setup = lifecycle.setup()
@@ -162,45 +207,68 @@ describe('PluginLifecycleManager', () => {
 
 	it('cleans a partial start in reverse order before rejecting', async () => {
 		const events: string[] = []
-		const first = definePlugin({
+		const first = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.first',
-			setup: () => {
-				events.push('setup:first')
-			},
-			hooks: {
-				connect: () => {
-					events.push('connect:first')
-				},
-				stop: () => {
-					events.push('stop:first')
-				},
-				dispose: () => {
-					events.push('dispose:first')
-				},
-			},
+			id: 'fixture.first',
+			contributions: [
+				contributeApplication((context) => {
+					events.push('setup:first')
+					const exports = undefined
+					const lifecycleContext = { ...context, pluginExports: exports }
+					void lifecycleContext
+					return {
+						exports,
+						connect: () => {
+							;(() => {
+								events.push('connect:first')
+							})()
+						},
+						stop: () => {
+							;(() => {
+								events.push('stop:first')
+							})()
+						},
+						dispose: () => {
+							;(() => {
+								events.push('dispose:first')
+							})()
+						},
+					}
+				}),
+			],
 		})
-		const second = definePlugin({
+		const second = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.second',
+			id: 'fixture.second',
 			dependencies: [{ pluginId: 'fixture.first', version: '^0.0.0' }],
-			setup: () => {
-				events.push('setup:second')
-			},
-			hooks: {
-				connect: () => {
-					events.push('connect:second')
-					throw new Error('connection failed')
-				},
-				stop: () => {
-					events.push('stop:second')
-				},
-				dispose: () => {
-					events.push('dispose:second')
-				},
-			},
+			contributions: [
+				contributeApplication((context) => {
+					events.push('setup:second')
+					const exports = undefined
+					const lifecycleContext = { ...context, pluginExports: exports }
+					void lifecycleContext
+					return {
+						exports,
+						connect: () =>
+							(() => {
+								events.push('connect:second')
+								throw new Error('connection failed')
+							})(),
+						stop: () => {
+							;(() => {
+								events.push('stop:second')
+							})()
+						},
+						dispose: () => {
+							;(() => {
+								events.push('dispose:second')
+							})()
+						},
+					}
+				}),
+			],
 		})
 		const lifecycle = createLifecycle([first, second])
 
@@ -220,24 +288,35 @@ describe('PluginLifecycleManager', () => {
 
 	it('disposes completed setup when later setup fails', async () => {
 		const events: string[] = []
-		const first = definePlugin({
+		const first = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.first',
-			setup: () => ({ ready: true }),
-			hooks: {
-				dispose: () => {
-					events.push('dispose:first')
-				},
-			},
+			id: 'fixture.first',
+			contributions: [
+				contributeApplication((context) => {
+					const exports = { ready: true }
+					const lifecycleContext = { ...context, pluginExports: exports }
+					void lifecycleContext
+					return {
+						exports,
+						dispose: () => {
+							;(() => {
+								events.push('dispose:first')
+							})()
+						},
+					}
+				}),
+			],
 		})
-		const second = definePlugin({
+		const second = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.second',
-			setup: () => {
-				throw new Error('setup failed')
-			},
+			id: 'fixture.second',
+			contributions: [
+				contributeApplication(() => {
+					throw new Error('setup failed')
+				}),
+			],
 		})
 		const lifecycle = createLifecycle([first, second])
 
@@ -253,13 +332,18 @@ describe('PluginLifecycleManager', () => {
 		const connection = new Promise<void>((_resolve, reject) => {
 			rejectConnection = reject
 		})
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.concurrent',
-			hooks: {
-				connect: async () => connection,
-			},
+			id: 'fixture.concurrent',
+			contributions: [
+				contributeApplication((context) => {
+					const exports = undefined
+					const lifecycleContext = { ...context, pluginExports: exports }
+					void lifecycleContext
+					return { exports, connect: () => (async () => connection)() }
+				}),
+			],
 		})
 		const lifecycle = createLifecycle([plugin])
 		const start = lifecycle.start()
@@ -279,13 +363,18 @@ describe('PluginLifecycleManager', () => {
 		const connection = new Promise<void>((_resolve, reject) => {
 			rejectConnection = reject
 		})
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.concurrent-disposal',
-			hooks: {
-				connect: async () => connection,
-			},
+			id: 'fixture.concurrent-disposal',
+			contributions: [
+				contributeApplication((context) => {
+					const exports = undefined
+					const lifecycleContext = { ...context, pluginExports: exports }
+					void lifecycleContext
+					return { exports, connect: () => (async () => connection)() }
+				}),
+			],
 		})
 		const lifecycle = createLifecycle([plugin])
 		const start = lifecycle.start()
@@ -305,19 +394,27 @@ describe('PluginLifecycleManager', () => {
 			completeSetup = resolve
 		})
 		const events: string[] = []
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.concurrent-setup',
-			setup: async () => {
-				await setupBarrier
-				events.push('setup')
-			},
-			hooks: {
-				dispose: () => {
-					events.push('dispose')
-				},
-			},
+			id: 'fixture.concurrent-setup',
+			contributions: [
+				contributeApplication(async (context) => {
+					await setupBarrier
+					events.push('setup')
+					const exports = undefined
+					const lifecycleContext = { ...context, pluginExports: exports }
+					void lifecycleContext
+					return {
+						exports,
+						dispose: () => {
+							;(() => {
+								events.push('dispose')
+							})()
+						},
+					}
+				}),
+			],
 		})
 		const lifecycle = createLifecycle([plugin])
 		const setup = lifecycle.setup()
@@ -331,28 +428,47 @@ describe('PluginLifecycleManager', () => {
 	})
 
 	it('continues reverse cleanup and reports hook failures', async () => {
-		const first = definePlugin({
+		const first = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.first',
-			hooks: {
-				stop: () => {
-					throw new Error('stop failed')
-				},
-				dispose: () => {
-					throw new Error('first dispose failed')
-				},
-			},
+			id: 'fixture.first',
+			contributions: [
+				contributeApplication((context) => {
+					const exports = undefined
+					const lifecycleContext = { ...context, pluginExports: exports }
+					void lifecycleContext
+					return {
+						exports,
+						stop: () =>
+							(() => {
+								throw new Error('stop failed')
+							})(),
+						dispose: () =>
+							(() => {
+								throw new Error('first dispose failed')
+							})(),
+					}
+				}),
+			],
 		})
-		const second = definePlugin({
+		const second = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.second',
-			hooks: {
-				dispose: () => {
-					throw new Error('second dispose failed')
-				},
-			},
+			id: 'fixture.second',
+			contributions: [
+				contributeApplication((context) => {
+					const exports = undefined
+					const lifecycleContext = { ...context, pluginExports: exports }
+					void lifecycleContext
+					return {
+						exports,
+						dispose: () =>
+							(() => {
+								throw new Error('second dispose failed')
+							})(),
+					}
+				}),
+			],
 		})
 		const lifecycle = createLifecycle([first, second])
 
@@ -373,18 +489,30 @@ describe('PluginLifecycleManager', () => {
 
 	it('disposes setup-only plugins without invoking stop', async () => {
 		const events: string[] = []
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.setup-only',
-			hooks: {
-				stop: () => {
-					events.push('stop')
-				},
-				dispose: () => {
-					events.push('dispose')
-				},
-			},
+			id: 'fixture.setup-only',
+			contributions: [
+				contributeApplication((context) => {
+					const exports = undefined
+					const lifecycleContext = { ...context, pluginExports: exports }
+					void lifecycleContext
+					return {
+						exports,
+						stop: () => {
+							;(() => {
+								events.push('stop')
+							})()
+						},
+						dispose: () => {
+							;(() => {
+								events.push('dispose')
+							})()
+						},
+					}
+				}),
+			],
 		})
 		const lifecycle = createLifecycle([plugin])
 
@@ -401,18 +529,28 @@ describe('PluginLifecycleManager', () => {
 	})
 
 	it('aggregates cleanup failures without hiding the startup failure', async () => {
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.unstable',
-			hooks: {
-				connect: () => {
-					throw new Error('start failed')
-				},
-				dispose: () => {
-					throw new Error('dispose failed')
-				},
-			},
+			id: 'fixture.unstable',
+			contributions: [
+				contributeApplication((context) => {
+					const exports = undefined
+					const lifecycleContext = { ...context, pluginExports: exports }
+					void lifecycleContext
+					return {
+						exports,
+						connect: () =>
+							(() => {
+								throw new Error('start failed')
+							})(),
+						dispose: () =>
+							(() => {
+								throw new Error('dispose failed')
+							})(),
+					}
+				}),
+			],
 		})
 		const lifecycle = createLifecycle([plugin])
 
@@ -430,10 +568,11 @@ describe('PluginLifecycleManager', () => {
 	})
 
 	it('allows a no-op stop before startup and rejects restart after stop', async () => {
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.plugin',
+			id: 'fixture.plugin',
+			contributions: [],
 		})
 		const lifecycle = createLifecycle([plugin])
 

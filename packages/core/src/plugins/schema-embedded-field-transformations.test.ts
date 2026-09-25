@@ -6,7 +6,8 @@ import {
 	FrameworkError,
 	Schema,
 	addSchemaField,
-	definePlugin,
+	plugin as createPlugin,
+	contributeDeclarations,
 	objectField,
 	stringField,
 } from '../index.js'
@@ -26,30 +27,33 @@ describe('plugin embedded-field transformations', () => {
 				}),
 			}),
 		)
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			core: '^0.0.0',
-			declare: ({ schemas }) => {
-				schemas.patch({
-					operations: [
-						addSchemaField({
-							contributionId: 'profile',
-							field: invalidObject,
-							name: 'profile',
-						}),
-					],
-					targets: schemas.select({
-						className: 'PatchedEmbeddedMetadataTarget',
-					}),
-				})
+			id: 'fixture.invalid-embedded-field-patch',
+			permissions: {
+				'schema:declare': 'Exercises final embedded-field validation.',
 			},
-			pluginId: 'fixture.invalid-embedded-field-patch',
-			privileges: [
-				{
-					name: 'schema:declare',
-					reason: 'Exercises final embedded-field validation.',
-				},
-			] as const,
 			version: '1.0.0',
+			contributions: [
+				contributeDeclarations({
+					schema: ({ schemas }) => {
+						schemas.patch({
+							operations: [
+								addSchemaField({
+									contributionId: 'profile',
+									field: invalidObject,
+									name: 'profile',
+								}),
+							],
+							targets: schemas.select({
+								className: 'PatchedEmbeddedMetadataTarget',
+							}),
+						})
+
+						return undefined
+					},
+				}),
+			],
 		})
 		const application = new FrameworkApplication({
 			pluginPrivileges: { logger: false },

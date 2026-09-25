@@ -9,7 +9,12 @@ import {
 	provideCapability,
 	requireCapability,
 } from './capabilities.js'
-import { definePlugin } from './definition.js'
+import { plugin as createPlugin } from './plugin.js'
+import {
+	contributeApplication,
+	withPluginPrivileges,
+} from './plugin-contributions.js'
+
 import { PluginGraph } from './graph.js'
 import { normalizePlugins } from './normalization.js'
 
@@ -48,14 +53,18 @@ describe('capability composition', () => {
 		})
 		const requirement = optionalCapability(token, '^1.0.0')
 		let resolved: string | undefined = 'unread'
-		const consumer = definePlugin({
-			pluginId: 'fixture.optional-declaration-consumer',
+		const consumer = createPlugin({
+			id: 'fixture.optional-declaration-consumer',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: [requirement],
-			setup: ({ capabilities }) => {
-				resolved = capabilities.get(requirement)
-			},
+			contributions: [
+				requirement,
+				contributeApplication(({ capabilities }) => {
+					resolved = capabilities.get(requirement)
+					const exports = undefined
+					return { exports }
+				}),
+			],
 		})
 		const application = applicationFixture(
 			new FrameworkApplication({
@@ -86,12 +95,12 @@ describe('capability composition', () => {
 			compose: ([provider]) => ({ render: () => provider.name }),
 		})
 		const requirement = requireCapability(token, '^1.0.0')
-		const provider = definePlugin({
-			pluginId: 'fixture.format-provider',
+		const provider = createPlugin({
+			id: 'fixture.format-provider',
 			instanceId: 'primary',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: [
+			contributions: [
 				provideCapability(token, {
 					contributionId: 'format',
 					value: { name: 'original' },
@@ -99,14 +108,18 @@ describe('capability composition', () => {
 			],
 		})
 		let rendered: string | undefined
-		const consumer = definePlugin({
-			pluginId: 'fixture.format-consumer',
+		const consumer = createPlugin({
+			id: 'fixture.format-consumer',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: [requirement],
-			setup: ({ capabilities }) => {
-				rendered = capabilities.get(requirement).render()
-			},
+			contributions: [
+				requirement,
+				contributeApplication(({ capabilities }) => {
+					rendered = capabilities.get(requirement).render()
+					const exports = undefined
+					return { exports }
+				}),
+			],
 		})
 		const application = applicationFixture(
 			new FrameworkApplication({
@@ -131,22 +144,22 @@ describe('capability composition', () => {
 			compose: (providers) => providers,
 		})
 		const requirement = requireCapability(token, '^1.0.0')
-		const first = definePlugin({
-			pluginId: 'fixture.multiple-first',
+		const first = createPlugin({
+			id: 'fixture.multiple-first',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: [
+			contributions: [
 				provideCapability(token, {
 					contributionId: 'first',
 					value: 'first',
 				}),
 			],
 		})
-		const second = definePlugin({
-			pluginId: 'fixture.multiple-second',
+		const second = createPlugin({
+			id: 'fixture.multiple-second',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: [
+			contributions: [
 				provideCapability(token, {
 					contributionId: 'second',
 					value: 'second',
@@ -154,14 +167,18 @@ describe('capability composition', () => {
 			],
 		})
 		let values: readonly string[] = []
-		const consumer = definePlugin({
-			pluginId: 'fixture.multiple-consumer',
+		const consumer = createPlugin({
+			id: 'fixture.multiple-consumer',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: [requirement],
-			setup: ({ capabilities }) => {
-				values = capabilities.get(requirement)
-			},
+			contributions: [
+				requirement,
+				contributeApplication(({ capabilities }) => {
+					values = capabilities.get(requirement)
+					const exports = undefined
+					return { exports }
+				}),
+			],
 		})
 		const application = applicationFixture(
 			new FrameworkApplication({
@@ -190,11 +207,11 @@ describe('capability composition', () => {
 				),
 		})
 		const requirement = requireCapability(token, '^1.0.0')
-		const firstProvider = definePlugin({
-			pluginId: 'fixture.pipeline-first',
+		const firstProvider = createPlugin({
+			id: 'fixture.pipeline-first',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: [
+			contributions: [
 				provideCapability(token, {
 					contributionId: 'first',
 					create: () => ({
@@ -203,12 +220,12 @@ describe('capability composition', () => {
 				}),
 			],
 		})
-		const secondProvider = definePlugin({
-			pluginId: 'fixture.pipeline-second',
+		const secondProvider = createPlugin({
+			id: 'fixture.pipeline-second',
 			version: '1.0.0',
 			core: '^0.0.0',
 			dependencies: [{ pluginId: 'fixture.pipeline-first', version: '^1.0.0' }],
-			capabilities: [
+			contributions: [
 				provideCapability(token, {
 					contributionId: 'second',
 					create: () => ({
@@ -218,14 +235,18 @@ describe('capability composition', () => {
 			],
 		})
 		let result: string | undefined
-		const consumer = definePlugin({
-			pluginId: 'fixture.pipeline-consumer',
+		const consumer = createPlugin({
+			id: 'fixture.pipeline-consumer',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: [requirement],
-			setup: ({ capabilities }) => {
-				result = capabilities.get(requirement)()
-			},
+			contributions: [
+				requirement,
+				contributeApplication(({ capabilities }) => {
+					result = capabilities.get(requirement)()
+					const exports = undefined
+					return { exports }
+				}),
+			],
 		})
 		const application = applicationFixture(
 			new FrameworkApplication({
@@ -249,24 +270,28 @@ describe('capability composition', () => {
 			compose: ([provider]) => provider,
 		})
 		const undeclaredRequirement = requireCapability(undeclaredToken, '^1.0.0')
-		const provider = definePlugin({
-			pluginId: 'fixture.undeclared-provider',
+		const provider = createPlugin({
+			id: 'fixture.undeclared-provider',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: [
+			contributions: [
 				provideCapability(undeclaredToken, {
 					contributionId: 'value',
 					value: 'value',
 				}),
 			],
 		})
-		const undeclaredConsumer = definePlugin({
-			pluginId: 'fixture.undeclared-consumer',
+		const undeclaredConsumer = createPlugin({
+			id: 'fixture.undeclared-consumer',
 			version: '1.0.0',
 			core: '^0.0.0',
-			setup: ({ capabilities }) => {
-				capabilities.get(undeclaredRequirement)
-			},
+			contributions: [
+				contributeApplication(({ capabilities }) => {
+					capabilities.get(undeclaredRequirement)
+					const exports = undefined
+					return { exports }
+				}),
+			],
 		})
 		const undeclaredApplication = applicationFixture(
 			new FrameworkApplication({
@@ -296,11 +321,11 @@ describe('capability composition', () => {
 		})
 		const firstRequirement = requireCapability(firstToken, '^1.0.0')
 		const secondRequirement = requireCapability(secondToken, '^1.0.0')
-		const cyclic = definePlugin({
-			pluginId: 'fixture.same-owner-cycle',
+		const cyclic = createPlugin({
+			id: 'fixture.same-owner-cycle',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: [
+			contributions: [
 				provideCapability(firstToken, {
 					contributionId: 'first',
 					create: ({ capabilities }) => ({
@@ -352,35 +377,39 @@ describe('capability composition', () => {
 			phase: 'setup',
 		})
 		const observed: string[] = []
-		const first = definePlugin({
-			pluginId: 'fixture.peer-first-plugin',
+		const first = createPlugin({
+			id: 'fixture.peer-first-plugin',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: [
+			contributions: [
 				provideCapability(firstToken, {
 					contributionId: 'first',
 					create: () => ({ value: 'first' }),
 				}),
 				firstReadsSecond,
+				contributeApplication(({ capabilities }) => {
+					observed.push(`first:${capabilities.get(firstReadsSecond)}`)
+					const exports = undefined
+					return { exports }
+				}),
 			],
-			setup: ({ capabilities }) => {
-				observed.push(`first:${capabilities.get(firstReadsSecond)}`)
-			},
 		})
-		const second = definePlugin({
-			pluginId: 'fixture.peer-second-plugin',
+		const second = createPlugin({
+			id: 'fixture.peer-second-plugin',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: [
+			contributions: [
 				provideCapability(secondToken, {
 					contributionId: 'second',
 					create: () => ({ value: 'second' }),
 				}),
 				secondReadsFirst,
+				contributeApplication(({ capabilities }) => {
+					observed.push(`second:${capabilities.get(secondReadsFirst)}`)
+					const exports = undefined
+					return { exports }
+				}),
 			],
-			setup: ({ capabilities }) => {
-				observed.push(`second:${capabilities.get(secondReadsFirst)}`)
-			},
 		})
 		const graph = new PluginGraph(normalizePlugins([first, second]))
 		const application = applicationFixture(
@@ -417,11 +446,11 @@ describe('capability composition', () => {
 			lifetime: 'application',
 			compose: ([value]) => value,
 		})
-		const first = definePlugin({
-			pluginId: 'fixture.materialization-cycle-first-plugin',
+		const first = createPlugin({
+			id: 'fixture.materialization-cycle-first-plugin',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: [
+			contributions: [
 				provideCapability(firstToken, {
 					contributionId: 'first',
 					create: () => ({ value: 'first' }),
@@ -429,11 +458,11 @@ describe('capability composition', () => {
 				requireCapability(secondToken, '^1.0.0'),
 			],
 		})
-		const second = definePlugin({
-			pluginId: 'fixture.materialization-cycle-second-plugin',
+		const second = createPlugin({
+			id: 'fixture.materialization-cycle-second-plugin',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: [
+			contributions: [
 				provideCapability(secondToken, {
 					contributionId: 'second',
 					create: () => ({ value: 'second' }),
@@ -467,22 +496,22 @@ describe('capability composition', () => {
 		const setupRequirement = requireCapability(dependencyToken, '^1.0.0', {
 			phase: 'setup',
 		})
-		const dependency = definePlugin({
-			pluginId: 'fixture.setup-only-provider',
+		const dependency = createPlugin({
+			id: 'fixture.setup-only-provider',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: [
+			contributions: [
 				provideCapability(dependencyToken, {
 					contributionId: 'dependency',
 					create: () => ({ value: 'dependency' }),
 				}),
 			],
 		})
-		const consumer = definePlugin({
-			pluginId: 'fixture.setup-only-factory',
+		const consumer = createPlugin({
+			id: 'fixture.setup-only-factory',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: [
+			contributions: [
 				provideCapability(consumerToken, {
 					contributionId: 'consumer',
 					create: ({ capabilities }) => ({
@@ -520,11 +549,11 @@ describe('capability composition', () => {
 			compose: ([value]) => value,
 		})
 		const createProvider = (pluginId: string, contributionId: string) =>
-			definePlugin({
-				pluginId,
+			createPlugin({
+				id: pluginId,
 				version: '1.0.0',
 				core: '^0.0.0',
-				capabilities: [
+				contributions: [
 					provideCapability(token, {
 						contributionId,
 						value: contributionId,
@@ -554,21 +583,26 @@ describe('capability composition', () => {
 				return provider
 			},
 		})
-		const provider = definePlugin({
-			pluginId: 'fixture.denied-provider',
+		const provider = createPlugin({
+			id: 'fixture.denied-provider',
 			version: '1.0.0',
 			core: '^0.0.0',
-			privileges: [
-				{ name: 'event:publish', reason: 'Denied provider fixture.' },
-			],
-			setup: () => {
-				setupCalls += 1
-			},
-			capabilities: [
+			permissions: { 'event:publish': 'Denied provider fixture.' },
+			contributions: [
 				provideCapability(token, {
 					contributionId: 'provider',
 					value: 'provider',
 				}),
+				withPluginPrivileges(
+					contributeApplication((context) => {
+						setupCalls += 1
+						const exports = undefined
+						const lifecycleContext = { ...context, pluginExports: exports }
+						void lifecycleContext
+						return { exports }
+					}),
+					['event:publish'],
+				),
 			],
 		})
 		expect(() =>

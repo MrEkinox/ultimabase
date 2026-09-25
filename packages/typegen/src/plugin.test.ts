@@ -6,7 +6,8 @@ import {
 	FrameworkApplication,
 	Schema,
 	PluginGraph,
-	definePlugin,
+	plugin,
+	contributeApplication,
 	normalizePlugins,
 } from '@ultimabase/core'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -96,16 +97,19 @@ describe('typegenPlugin', () => {
 		const application = new FrameworkApplication({
 			plugins: [
 				// Setup must finish for every plugin before even an earlier plugin connects.
-				definePlugin({
+				plugin({
 					core: '^0.0.0',
-					pluginId: 'fixture.typegen-startup-order',
+					id: 'fixture.typegen-startup-order',
 					version: '0.0.0',
 					environment: ['environment:filesystem'],
-					hooks: {
-						connect: async () => {
-							contentsAtConnect = await readFile(outputPath, 'utf8')
-						},
-					},
+					contributions: [
+						contributeApplication(() => ({
+							exports: undefined,
+							connect: async () => {
+								contentsAtConnect = await readFile(outputPath, 'utf8')
+							},
+						})),
+					],
 				}),
 				typegenPlugin({
 					applicationId: 'fixture.todo',

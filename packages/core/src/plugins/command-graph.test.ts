@@ -21,7 +21,12 @@ import {
 	type CommandSource,
 	type CompiledCommand,
 } from './command-graph.js'
-import { definePlugin } from './definition.js'
+import { plugin as createPlugin } from './plugin.js'
+import {
+	contributeDeclarations,
+	contributeApplication,
+} from './plugin-contributions.js'
+
 import { defineOperation, defineOperationValue } from './plugin-operations.js'
 import { defineSchemaMutation } from './plugin-schema-mutations.js'
 
@@ -92,50 +97,52 @@ const fixture = (instanceId = 'one') => {
 		}),
 	)
 	const handler = operationHandler({ operation, execute })
-	const plugin = definePlugin({
-		pluginId: 'fixture.command-graph.owner',
+	const plugin = createPlugin({
+		id: 'fixture.command-graph.owner',
 		instanceId,
 		core: '^0.0.0',
 		version: '1.0.0',
-		privileges: [
-			{
-				name: 'operation:declare',
-				reason: 'Declares the closed command kinds.',
-			},
-			{ name: 'model:extend', reason: 'Attaches schema and model aliases.' },
-			{ name: 'transport:expose', reason: 'Owns an inert wire description.' },
-		] as const,
-		capabilities: [
+		permissions: {
+			'operation:declare': 'Declares the closed command kinds.',
+			'model:extend': 'Attaches schema and model aliases.',
+			'transport:expose': 'Owns an inert wire description.',
+		},
+		contributions: [
 			provideOperationHandler({
 				contributionId: 'handler',
 				create: () => ({ value: handler }),
 			}),
 			provideOperationTransportBinding({ contributionId: 'binding', create }),
+			contributeDeclarations({
+				operations: ({ operations }) => {
+					operations.declare(operation)
+					operations.declare(mutation)
+					operations.declare(privateMutation)
+					return undefined
+				},
+				models: ({ models }) => {
+					models.extend(Document, {
+						contributionId: 'private',
+						schemaMutations: {
+							[`purge_${instanceId}`]: {
+								mutation: privateMutation,
+								surfaces: ['schema'],
+							},
+						},
+					})
+					models.extend(Document, {
+						contributionId: 'public',
+						schemaMutations: {
+							[`archive_${instanceId}`]: {
+								mutation,
+								surfaces: ['schema', 'model'],
+							},
+						},
+					})
+					return undefined
+				},
+			}),
 		],
-		declare: ({ models, operations }) => {
-			operations.declare(operation)
-			operations.declare(mutation)
-			operations.declare(privateMutation)
-			// Surface order is deliberately different from declaration order.
-			models.extend(Document, {
-				contributionId: 'private',
-				schemaMutations: {
-					[`purge_${instanceId}`]: {
-						mutation: privateMutation,
-						surfaces: ['schema'],
-					},
-				},
-			})
-			models.extend(Document, {
-				contributionId: 'public',
-				schemaMutations: {
-					[`archive_${instanceId}`]: {
-						mutation,
-						surfaces: ['schema', 'model'],
-					},
-				},
-			})
-		},
 	})
 	return {
 		cleanup,
@@ -391,19 +398,22 @@ describe('canonical command graph', () => {
 			returning: 'after',
 			version: '1.0.0',
 		})
-		const duplicate = definePlugin({
+		const duplicate = createPlugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.command-graph.duplicate',
+			id: 'fixture.command-graph.duplicate',
 			version: '1.0.0',
-			privileges: [
-				{
-					name: 'operation:declare',
-					reason: 'Exercises atomic collision failure.',
-				},
-			] as const,
-			declare: ({ operations }) => {
-				operations.declare(collision)
+			permissions: {
+				'operation:declare': 'Exercises atomic collision failure.',
 			},
+			contributions: [
+				contributeDeclarations({
+					operations: ({ operations }) => {
+						operations.declare(collision)
+
+						return undefined
+					},
+				}),
+			],
 		})
 		const application = applicationFixture(
 			new FrameworkApplication({
@@ -474,17 +484,18 @@ describe('canonical command graph', () => {
 		const owned = fixture()
 		const dispose = vi.fn()
 		const setup = vi.fn()
-		const foreign = definePlugin({
+		const foreign = createPlugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.command-graph.foreign',
+			id: 'fixture.command-graph.foreign',
 			version: '1.0.0',
-			privileges: [
-				{
-					name: 'transport:expose',
-					reason: 'Exercises exact ownership rejection.',
-				},
-			] as const,
-			capabilities: [
+			permissions: {
+				'transport:expose': 'Exercises exact ownership rejection.',
+			},
+			contributions: [
+				contributeApplication((context) => {
+					setup(context)
+					return { exports: undefined }
+				}),
 				provideOperationTransportBinding({
 					contributionId: 'foreign-binding',
 					create: async () => ({
@@ -493,7 +504,6 @@ describe('canonical command graph', () => {
 					}),
 				}),
 			],
-			setup,
 		})
 		const application = applicationFixture(
 			new FrameworkApplication({

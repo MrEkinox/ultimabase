@@ -4,7 +4,7 @@ import {
 	FrameworkApplication,
 	FrameworkError,
 	defineOperationValue,
-	definePlugin,
+	plugin,
 	defineSchemaMutation,
 	provideCapability,
 } from '../../foundation.js'
@@ -54,40 +54,30 @@ describe('schema mutation handler capability', () => {
 	})
 
 	it('requires the protected facade and persistence privilege', () => {
-		const withoutPrivilege = definePlugin({
-			capabilities: [
-				provideSchemaMutationHandler({
-					contributionId: 'archive',
-					create: () => ({ value: handler }),
-				}),
-			],
-			core: '^0.0.0',
-			pluginId: 'fixture.schema-mutation-no-privilege',
-			version: '1.0.0',
-		})
-		const privilegeFailure = captureFrameworkError(
-			() =>
-				new FrameworkApplication({ plugins: [withoutPrivilege], schemas: [] }),
-		)
-		expect(privilegeFailure).toMatchObject({
-			internalDetails: { privilege: 'persistence:rewrite' },
-		})
+		expect(() =>
+			plugin({
+				contributions: [
+					provideSchemaMutationHandler({
+						contributionId: 'archive',
+						create: () => ({ value: handler }),
+					}),
+				],
+				core: '^0.0.0',
+				id: 'fixture.schema-mutation-no-privilege',
+				version: '1.0.0',
+			}),
+		).toThrow('Missing plugin permission reason: persistence:rewrite')
 
-		const generic = definePlugin({
-			capabilities: [
+		const generic = plugin({
+			contributions: [
 				provideCapability(pluginSchemaMutationHandlerCapability, {
 					contributionId: 'generic',
 					create: () => ({ value: handler }),
 				}),
 			],
 			core: '^0.0.0',
-			pluginId: 'fixture.schema-mutation-generic-provider',
-			privileges: [
-				{
-					name: 'persistence:rewrite',
-					reason: 'Exercises facade enforcement.',
-				},
-			],
+			id: 'fixture.schema-mutation-generic-provider',
+			permissions: { 'persistence:rewrite': 'Exercises facade enforcement.' },
 			version: '1.0.0',
 		})
 		const facadeFailure = captureFrameworkError(

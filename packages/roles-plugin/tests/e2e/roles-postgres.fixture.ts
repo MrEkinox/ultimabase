@@ -6,13 +6,18 @@ import {
 	requestSubjectReferenceCleanupCapability,
 	requestRoleResolverCapability,
 	defineRequestSubjectReferenceCleanup,
-	definePlugin,
+	plugin,
+	contributeApplication,
 	provideCapability,
 	requireCapability,
-	type RequestRoleResolver,
 } from '@ultimabase/core'
-import { allMutations, allOf, not } from '@ultimabase/access-plugin'
-import { accessPlugin } from '@ultimabase/access-plugin'
+import {
+	allMutations,
+	allOf,
+	not,
+	accessPlugin,
+} from '@ultimabase/access-plugin'
+
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import {
 	postgresPlugin,
@@ -230,18 +235,15 @@ const externalRoleReferenceCleanup = defineRequestSubjectReferenceCleanup({
 })
 
 /** Owns external-reference cleanup without importing a roles implementation. */
-export const externalRoleReferencePlugin = definePlugin({
+export const externalRoleReferencePlugin = plugin({
 	version: '0.0.0',
 	core: '^0.0.0',
-	pluginId: 'fixture.external-role-references',
+	id: 'fixture.external-role-references',
 	peers: [{ pluginId: '@ultimabase/roles-plugin', version: '^0.0.0' }],
-	privileges: [
-		{
-			name: 'runtime:observe',
-			reason: 'Observes committed role events for the E2E fixture.',
-		},
-	],
-	capabilities: [
+	permissions: {
+		'runtime:observe': 'Observes committed role events for the E2E fixture.',
+	},
+	contributions: [
 		provideCapability(requestSubjectReferenceCleanupCapability, {
 			contributionId: 'external-role-reference-cleanup',
 			create: () => ({
@@ -278,13 +280,16 @@ const roleResolverRequirement = requireCapability(
 )
 export const roleResolverConsumerPluginName =
 	'fixture.roles.resolver-consumer' as const
-const roleResolverConsumerPlugin = definePlugin({
+const roleResolverConsumerPlugin = plugin({
 	version: '0.0.0',
 	core: '^0.0.0',
-	pluginId: roleResolverConsumerPluginName,
-	capabilities: [roleResolverRequirement],
-	setup: ({ capabilities }): RequestRoleResolver =>
-		capabilities.get(roleResolverRequirement),
+	id: roleResolverConsumerPluginName,
+	contributions: [
+		roleResolverRequirement,
+		contributeApplication(({ capabilities }) => ({
+			exports: capabilities.get(roleResolverRequirement),
+		})),
+	],
 })
 
 export const roleSchemas = [
@@ -329,11 +334,11 @@ export const createProviderBoundaryApplication = (
 	connectionUri: string,
 	provider: 'community' | 'missing',
 ) => {
-	const communityProvider = definePlugin({
+	const communityProvider = plugin({
 		version: '0.0.0',
 		core: '^0.0.0',
-		pluginId: 'fixture.community-role-provider-e2e',
-		capabilities: [
+		id: 'fixture.community-role-provider-e2e',
+		contributions: [
 			provideCapability(requestRoleResolverCapability, {
 				contributionId: 'community-role-resolver',
 				create: () => ({ value: { hasRole: () => true } }),

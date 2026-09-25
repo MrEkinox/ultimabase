@@ -4,8 +4,9 @@ import { accessPlugin } from '@ultimabase/access-plugin'
 import {
 	FrameworkApplication,
 	Schema,
+	contributeDeclarations,
 	defineOperationValue,
-	definePlugin,
+	plugin,
 	defineSchemaMutation,
 	defineTypegenReference,
 } from '@ultimabase/core'
@@ -48,26 +49,34 @@ it('composes installed Access, Hooks, and Validation authoring contracts', () =>
 		returning: 'before',
 		version: '1.0.0',
 	})
-	const mutationOwner = definePlugin({
+	const mutationOwner = plugin({
 		core: '^0.0.0',
-		declare: ({ models, operations, typegenReferences }) => {
-			typegenReferences.register(inputReference)
-			operations.declare(archive)
-			operations.declare(purge)
-			models.extend(Document, {
-				contributionId: 'document-mutations',
-				schemaMutations: {
-					archive: { mutation: archive, surfaces: ['schema'] },
-					purge: { mutation: purge, surfaces: ['schema'] },
-				},
-			})
+		id: 'fixture.official-options-mutations',
+		permissions: {
+			'model:extend': 'Adds typed schema mutations.',
+			'operation:declare': 'Declares schema mutations.',
+			'typegen:reference': 'References the input type.',
 		},
-		pluginId: 'fixture.official-options-mutations',
-		privileges: [
-			{ name: 'model:extend', reason: 'Adds typed schema mutations.' },
-			{ name: 'operation:declare', reason: 'Declares schema mutations.' },
-			{ name: 'typegen:reference', reason: 'References the input type.' },
-		] as const,
+		contributions: [
+			contributeDeclarations({
+				models: ({ models }) => {
+					models.extend(Document, {
+						contributionId: 'document-mutations',
+						schemaMutations: {
+							archive: { mutation: archive, surfaces: ['schema'] },
+							purge: { mutation: purge, surfaces: ['schema'] },
+						},
+					})
+				},
+				operations: ({ operations }) => {
+					operations.declare(archive)
+					operations.declare(purge)
+				},
+				typegen: ({ typegenReferences }) => {
+					typegenReferences.register(inputReference)
+				},
+			}),
+		],
 		version: '1.0.0',
 	})
 	const generated = generateApplicationTypes({

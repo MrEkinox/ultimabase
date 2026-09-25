@@ -4,8 +4,9 @@ import process from 'node:process'
 
 import {
 	UltimaBase,
+	contributeApplication,
 	databaseAdapterCapability,
-	definePlugin,
+	plugin,
 	provideCapability,
 	requireCapability,
 } from '@ultimabase/core'
@@ -21,17 +22,14 @@ const protocol = Object.freeze({
 	name: 'fixture.javascript-http',
 	version: '1',
 })
-const routeOwner = definePlugin({
-	pluginId: 'fixture.javascript-http-route',
+const routeOwner = plugin({
+	id: 'fixture.javascript-http-route',
 	version: '1.0.0',
 	core: '^0.0.0',
-	privileges: [
-		{
-			name: 'transport:expose',
-			reason: 'Exposes the JavaScript fixture route.',
-		},
-	],
-	capabilities: [
+	permissions: {
+		'transport:expose': 'Exposes the JavaScript fixture route.',
+	},
+	contributions: [
 		provideHttpEndpoints({
 			contributionId: 'javascript-route',
 			create: () =>
@@ -47,18 +45,22 @@ const routeOwner = definePlugin({
 const requirement = requireCapability(httpApplicationCapability, '^1.0.0', {
 	phase: 'setup',
 })
-const server = definePlugin({
-	pluginId: 'fixture.javascript-http-server',
+const server = plugin({
+	id: 'fixture.javascript-http-server',
 	version: '1.0.0',
 	core: '^0.0.0',
-	capabilities: [requirement],
-	setup: ({ capabilities }) => ({ http: capabilities.get(requirement) }),
+	contributions: [
+		requirement,
+		contributeApplication(({ capabilities }) => ({
+			exports: { http: capabilities.get(requirement) },
+		})),
+	],
 })
-const database = definePlugin({
-	pluginId: 'fixture.javascript-http-database',
+const database = plugin({
+	id: 'fixture.javascript-http-database',
 	version: '1.0.0',
 	core: '^0.0.0',
-	capabilities: [
+	contributions: [
 		provideCapability(databaseAdapterCapability, {
 			contributionId: 'javascript-http-adapter',
 			create: () => ({

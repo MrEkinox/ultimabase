@@ -4,7 +4,9 @@ import { UltimaBase } from '../runtime/application/ultima-base.js'
 import { bindApplicationSchemaModel } from '../application/application-model-views.js'
 import { materializeSchemaModel } from '../schema/schema/model-materialization.js'
 import { Schema } from '../schema/schema/definition.js'
-import { definePlugin } from './definition.js'
+import { plugin as createPlugin } from './plugin.js'
+import { contributeDeclarations } from './plugin-contributions.js'
+
 import { defineOperationValue } from './plugin-operations.js'
 import { defineSchemaMutation } from './plugin-schema-mutations.js'
 
@@ -32,23 +34,31 @@ const archive = defineSchemaMutation({
 	version: '1.0.0',
 })
 
-const workflowPlugin = definePlugin({
+const workflowPlugin = createPlugin({
 	core: '^0.0.0',
-	pluginId: 'fixture.schema-mutation-workflow',
-	privileges: [
-		{ name: 'model:extend', reason: 'Adds the archive mutation.' },
-		{ name: 'operation:declare', reason: 'Declares the archive mutation.' },
-	] as const,
-	version: '1.0.0',
-	declare: ({ models, operations }) => {
-		operations.declare(archive)
-		models.extend(WorkflowPost, {
-			contributionId: 'workflow-mutations',
-			schemaMutations: {
-				archive: { mutation: archive, surfaces: ['schema', 'model'] },
-			},
-		})
+	id: 'fixture.schema-mutation-workflow',
+	permissions: {
+		'model:extend': 'Adds the archive mutation.',
+		'operation:declare': 'Declares the archive mutation.',
 	},
+	version: '1.0.0',
+	contributions: [
+		contributeDeclarations({
+			operations: ({ operations }) => {
+				operations.declare(archive)
+				return undefined
+			},
+			models: ({ models }) => {
+				models.extend(WorkflowPost, {
+					contributionId: 'workflow-mutations',
+					schemaMutations: {
+						archive: { mutation: archive, surfaces: ['schema', 'model'] },
+					},
+				})
+				return undefined
+			},
+		}),
+	],
 })
 
 describe('application-owned schema mutations', () => {
@@ -134,26 +144,34 @@ describe('application-owned schema mutations', () => {
 			returning: 'after',
 			version: '1.0.0',
 		})
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			core: '^0.0.0',
-			declare: ({ models, operations }) => {
-				operations.declare(mutation)
-				models.extend(
-					{ className: Document.className },
-					{
-						contributionId: 'selected-relation-mutation',
-						schemaMutations: {
-							mutate: { mutation, surfaces: ['model'] },
-						},
-					},
-				)
+			id: 'fixture.schema-mutation-compilation-order',
+			permissions: {
+				'model:extend': 'Adds the model mutation.',
+				'operation:declare': 'Declares the mutation.',
 			},
-			pluginId: 'fixture.schema-mutation-compilation-order',
-			privileges: [
-				{ name: 'model:extend', reason: 'Adds the model mutation.' },
-				{ name: 'operation:declare', reason: 'Declares the mutation.' },
-			] as const,
 			version: '1.0.0',
+			contributions: [
+				contributeDeclarations({
+					operations: ({ operations }) => {
+						operations.declare(mutation)
+						return undefined
+					},
+					models: ({ models }) => {
+						models.extend(
+							{ className: Document.className },
+							{
+								contributionId: 'selected-relation-mutation',
+								schemaMutations: {
+									mutate: { mutation, surfaces: ['model'] },
+								},
+							},
+						)
+						return undefined
+					},
+				}),
+			],
 		})
 		const ultimabase = new UltimaBase({
 			pluginPrivileges: { logger: false },
@@ -169,34 +187,38 @@ describe('application-owned schema mutations', () => {
 	})
 
 	it('rejects foreign owners, unavailable dependencies, and duplicate aliases', () => {
-		const declaringPlugin = definePlugin({
+		const declaringPlugin = createPlugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.schema-mutation-owner',
-			privileges: [
-				{ name: 'operation:declare', reason: 'Declares archive.' },
-			] as const,
+			id: 'fixture.schema-mutation-owner',
+			permissions: { 'operation:declare': 'Declares archive.' },
 			version: '1.0.0',
-			declare: ({ operations }) => {
-				operations.declare(archive)
-				return undefined
-			},
-		})
-		const foreignSurface = definePlugin({
-			core: '^0.0.0',
-			pluginId: 'fixture.schema-mutation-foreign',
-			privileges: [
-				{ name: 'model:extend', reason: 'Exercises ownership checks.' },
-			] as const,
-			version: '1.0.0',
-			declare: ({ models }) => {
-				models.extend(WorkflowPost, {
-					contributionId: 'foreign',
-					schemaMutations: {
-						archive: { mutation: archive, surfaces: ['schema'] },
+			contributions: [
+				contributeDeclarations({
+					operations: ({ operations }) => {
+						operations.declare(archive)
+						return undefined
 					},
-				})
-				return undefined
-			},
+				}),
+			],
+		})
+		const foreignSurface = createPlugin({
+			core: '^0.0.0',
+			id: 'fixture.schema-mutation-foreign',
+			permissions: { 'model:extend': 'Exercises ownership checks.' },
+			version: '1.0.0',
+			contributions: [
+				contributeDeclarations({
+					models: ({ models }) => {
+						models.extend(WorkflowPost, {
+							contributionId: 'foreign',
+							schemaMutations: {
+								archive: { mutation: archive, surfaces: ['schema'] },
+							},
+						})
+						return undefined
+					},
+				}),
+			],
 		})
 		const foreignApplication = new UltimaBase({
 			pluginPrivileges: { logger: false },
@@ -217,23 +239,31 @@ describe('application-owned schema mutations', () => {
 			select: { removedField: true },
 			version: archive.version,
 		})
-		const invalidSelection = definePlugin({
+		const invalidSelection = createPlugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.schema-mutation-invalid-selection',
-			privileges: [
-				{ name: 'model:extend', reason: 'Adds one invalid mutation.' },
-				{ name: 'operation:declare', reason: 'Declares one invalid mutation.' },
-			] as const,
-			version: '1.0.0',
-			declare: ({ models, operations }) => {
-				operations.declare(missingField)
-				models.extend(WorkflowPost, {
-					contributionId: 'missing-field',
-					schemaMutations: {
-						archive: { mutation: missingField, surfaces: ['schema'] },
-					},
-				})
+			id: 'fixture.schema-mutation-invalid-selection',
+			permissions: {
+				'model:extend': 'Adds one invalid mutation.',
+				'operation:declare': 'Declares one invalid mutation.',
 			},
+			version: '1.0.0',
+			contributions: [
+				contributeDeclarations({
+					operations: ({ operations }) => {
+						operations.declare(missingField)
+						return undefined
+					},
+					models: ({ models }) => {
+						models.extend(WorkflowPost, {
+							contributionId: 'missing-field',
+							schemaMutations: {
+								archive: { mutation: missingField, surfaces: ['schema'] },
+							},
+						})
+						return undefined
+					},
+				}),
+			],
 		})
 		expect(() =>
 			new UltimaBase({
@@ -243,29 +273,37 @@ describe('application-owned schema mutations', () => {
 			}).schema(WorkflowPost),
 		).toThrow('selects unavailable persisted field: removedField')
 
-		const duplicate = definePlugin({
+		const duplicate = createPlugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.schema-mutation-duplicate',
-			privileges: [
-				{ name: 'model:extend', reason: 'Exercises alias conflicts.' },
-				{ name: 'operation:declare', reason: 'Declares archive.' },
-			] as const,
-			version: '1.0.0',
-			declare: ({ models, operations }) => {
-				operations.declare(archive)
-				models.extend(WorkflowPost, {
-					contributionId: 'first',
-					schemaMutations: {
-						archive: { mutation: archive, surfaces: ['schema'] },
-					},
-				})
-				models.extend(WorkflowPost, {
-					contributionId: 'second',
-					schemaMutations: {
-						archive: { mutation: archive, surfaces: ['model'] },
-					},
-				})
+			id: 'fixture.schema-mutation-duplicate',
+			permissions: {
+				'model:extend': 'Exercises alias conflicts.',
+				'operation:declare': 'Declares archive.',
 			},
+			version: '1.0.0',
+			contributions: [
+				contributeDeclarations({
+					operations: ({ operations }) => {
+						operations.declare(archive)
+						return undefined
+					},
+					models: ({ models }) => {
+						models.extend(WorkflowPost, {
+							contributionId: 'first',
+							schemaMutations: {
+								archive: { mutation: archive, surfaces: ['schema'] },
+							},
+						})
+						models.extend(WorkflowPost, {
+							contributionId: 'second',
+							schemaMutations: {
+								archive: { mutation: archive, surfaces: ['model'] },
+							},
+						})
+						return undefined
+					},
+				}),
+			],
 		})
 		expect(() =>
 			new UltimaBase({
@@ -291,27 +329,32 @@ describe('application-owned schema mutations', () => {
 				select: archive.select,
 				version: archive.version,
 			})
-			return definePlugin({
+			return createPlugin({
 				core: '^0.0.0',
 				instanceId,
-				pluginId: 'fixture.schema-mutation-instance',
-				privileges: [
-					{ name: 'model:extend', reason: 'Adds an instance mutation.' },
-					{
-						name: 'operation:declare',
-						reason: 'Declares an instance mutation.',
-					},
-				] as const,
-				version: '1.0.0',
-				declare: ({ models, operations }) => {
-					operations.declare(mutation)
-					models.extend(WorkflowPost, {
-						contributionId: 'workflow-mutations',
-						schemaMutations: {
-							[command]: { mutation, surfaces: ['schema'] },
-						},
-					})
+				id: 'fixture.schema-mutation-instance',
+				permissions: {
+					'model:extend': 'Adds an instance mutation.',
+					'operation:declare': 'Declares an instance mutation.',
 				},
+				version: '1.0.0',
+				contributions: [
+					contributeDeclarations({
+						operations: ({ operations }) => {
+							operations.declare(mutation)
+							return undefined
+						},
+						models: ({ models }) => {
+							models.extend(WorkflowPost, {
+								contributionId: 'workflow-mutations',
+								schemaMutations: {
+									[command]: { mutation, surfaces: ['schema'] },
+								},
+							})
+							return undefined
+						},
+					}),
+				],
 			})
 		}
 		const application = new UltimaBase({

@@ -1,6 +1,6 @@
 import {
 	createApplication,
-	definePlugin,
+	plugin,
 	RequestContextValue,
 	Schema,
 	type RelationWhereResolver,
@@ -33,11 +33,11 @@ const principalId = new RequestContextValue<string>(
 )
 
 const databasePlugin = (adapter: RecordingDatabaseAdapter) =>
-	definePlugin({
+	plugin({
 		core: '^0.0.0',
-		pluginId: 'fixture.relation-inclusion-database',
+		id: 'fixture.relation-inclusion-database',
 		version: '0.0.0',
-		capabilities: [provideTestDatabaseAdapter(adapter)],
+		contributions: [provideTestDatabaseAdapter(adapter)],
 	})
 
 describe('Runtime relation-filter inclusions', () => {
@@ -124,17 +124,14 @@ describe('Runtime relation-filter inclusions', () => {
 			],
 			trace,
 		)
-		const policy = definePlugin({
+		const policy = plugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.relation-inclusion-policy',
+			id: 'fixture.relation-inclusion-policy',
 			version: '0.0.0',
-			privileges: [
-				{
-					name: 'runtime:constrain',
-					reason: 'Proves nested inclusion constraint composition.',
-				},
-			],
-			capabilities: [
+			permissions: {
+				'runtime:constrain': 'Proves nested inclusion constraint composition.',
+			},
+			contributions: [
 				provideTestRuntimeConstraint(
 					'fixture.included-room-policy',
 					protectedPolicy({

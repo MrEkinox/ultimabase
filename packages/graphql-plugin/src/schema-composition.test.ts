@@ -1,7 +1,7 @@
 import {
 	Schema,
 	UltimaBase,
-	definePlugin,
+	plugin,
 	RequestContext,
 	type PluginIdentity,
 } from '@ultimabase/core'
@@ -46,17 +46,15 @@ const schemaProvider = (
 	field: string,
 	value: string,
 ) =>
-	definePlugin({
+	plugin({
 		core: '^0.0.0',
-		pluginId: identity.pluginId,
+		id: identity.pluginId,
 		...(identity.instanceId === undefined
 			? {}
 			: { instanceId: identity.instanceId }),
 		version: '1.0.0',
-		privileges: [
-			{ name: 'transport:expose', reason: 'Adds a public GraphQL fixture.' },
-		] as const,
-		capabilities: [
+		permissions: { 'transport:expose': 'Adds a public GraphQL fixture.' },
+		contributions: [
 			provideGraphqlSchemas({
 				contributionId: `schema-${field}`,
 				create: () => schemaWithQuery(field, value),
@@ -291,25 +289,19 @@ describe('GraphQL schema composition', () => {
 	)
 
 	it('enforces transport privilege on every schema provider', () => {
-		const denied = definePlugin({
-			core: '^0.0.0',
-			pluginId: 'fixture.denied-graphql-provider',
-			version: '1.0.0',
-			capabilities: [
-				provideGraphqlSchemas({
-					contributionId: 'denied',
-					create: () => schemaWithQuery('denied', 'no'),
-				}),
-			],
-		})
-		expect(
-			() =>
-				new UltimaBase({
-					pluginPrivileges: { logger: false },
-					plugins: [denied, graphqlPlugin(), graphqlFixtureDatabasePlugin],
-					schemas: [Hidden],
-				}),
-		).toThrow(expect.objectContaining({ code: 'PLUGIN_CAPABILITY_CONFLICT' }))
+		expect(() =>
+			plugin({
+				core: '^0.0.0',
+				id: 'fixture.denied-graphql-provider',
+				version: '1.0.0',
+				contributions: [
+					provideGraphqlSchemas({
+						contributionId: 'denied',
+						create: () => schemaWithQuery('denied', 'no'),
+					}),
+				],
+			}),
+		).toThrow('Missing plugin permission reason: transport:expose')
 	})
 
 	it('rejects subscription roots outside the v1 contract', async () => {

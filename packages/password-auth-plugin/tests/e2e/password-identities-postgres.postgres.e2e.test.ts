@@ -3,7 +3,8 @@ import {
 	contributeOperation,
 	defineOperation,
 	defineOperationValue,
-	definePlugin,
+	plugin,
+	contributeDeclarations,
 } from '@ultimabase/core'
 import {
 	PasswordUser,
@@ -255,19 +256,25 @@ describe('Password identities with PostgreSQL', { concurrent: false }, () => {
 				}
 			},
 		})
-		const fixturePlugin = definePlugin({
+		const fixturePlugin = plugin({
 			core: '^0.0.0',
-			declare: ({ privateStorage }) => {
-				privateStorage.register(credentials)
-			},
 			environment: ['environment:native-code'],
-			operations: [credentialContribution],
-			pluginId: '@ultimabase/password-auth-credential-fixture',
-			privileges: [
-				{ name: 'storage:private', reason: 'Stores credential verifiers.' },
-				{ name: 'operation:declare', reason: 'Declares credential fixtures.' },
-			] as const,
+			id: '@ultimabase/password-auth-credential-fixture',
+			permissions: {
+				'storage:private': 'Stores credential verifiers.',
+				'operation:declare': 'Declares credential fixtures.',
+			},
 			version: '0.0.0',
+			contributions: [
+				credentialContribution,
+				contributeDeclarations({
+					privateStorage: ({ privateStorage }) => {
+						privateStorage.register(credentials)
+
+						return undefined
+					},
+				}),
+			],
 		})
 		const ultimabase = new UltimaBase({
 			pluginPrivileges: { logger: false },

@@ -4,9 +4,11 @@ import {
 	defineCapability,
 	defineOperation,
 	defineOperationValue,
-	definePlugin,
+	plugin as createPlugin,
+	contributeDeclarations,
 	provideCapability,
 	requireCapability,
+	withPluginPrivileges,
 	type ApplicationCallbackExecutor,
 	type PluginIdentity,
 } from '../../foundation.js'
@@ -53,24 +55,26 @@ const binding = operationTransportBinding({
 	metadata: { field: 'inspect' },
 	operation,
 })
-const ownerPlugin = definePlugin({
-	capabilities: [
+const ownerPlugin = createPlugin({
+	core: '^0.0.0',
+	id: 'fixture.operation-planning.owner',
+	permissions: {
+		'operation:declare': 'Declares the planning fixture.',
+		'transport:expose': 'Binds the planning fixture.',
+	},
+	version: '1.0.0',
+	contributions: [
 		provideOperationTransportBinding({
 			contributionId: 'binding',
 			create: () => ({ value: binding }),
 		}),
+		contributeDeclarations({
+			operations: ({ operations }) => {
+				operations.declare(operation)
+				return undefined
+			},
+		}),
 	],
-	core: '^0.0.0',
-	declare: ({ operations }) => {
-		operations.declare(operation)
-		return undefined
-	},
-	pluginId: 'fixture.operation-planning.owner',
-	privileges: [
-		{ name: 'operation:declare', reason: 'Declares the planning fixture.' },
-		{ name: 'transport:expose', reason: 'Binds the planning fixture.' },
-	] as const,
-	version: '1.0.0',
 })
 
 const planningRequirement = requireCapability(
@@ -94,25 +98,26 @@ interface PlanningHarness {
 }
 
 const consumerPlugin = (harness: PlanningHarness) =>
-	definePlugin({
-		capabilities: [
-			provideCapability(harnessCapability, {
-				contributionId: 'harness',
-				create: ({ callbacks, capabilities, owner }) => {
-					harness.callbacks = callbacks
-					harness.owner = owner
-					harness.planner = capabilities.get(planningRequirement)
-					return { value: immutableRecord({ ready: true as const }) }
-				},
-			}),
+	createPlugin({
+		core: '^0.0.0',
+		id: 'fixture.operation-planning.consumer',
+		permissions: { 'transport:expose': 'Compiles the fixture transport.' },
+		version: '1.0.0',
+		contributions: [
+			withPluginPrivileges(
+				provideCapability(harnessCapability, {
+					contributionId: 'harness',
+					create: ({ callbacks, capabilities, owner }) => {
+						harness.callbacks = callbacks
+						harness.owner = owner
+						harness.planner = capabilities.get(planningRequirement)
+						return { value: immutableRecord({ ready: true as const }) }
+					},
+				}),
+				['transport:expose'],
+			),
 			planningRequirement,
 		],
-		core: '^0.0.0',
-		pluginId: 'fixture.operation-planning.consumer',
-		privileges: [
-			{ name: 'transport:expose', reason: 'Compiles the fixture transport.' },
-		] as const,
-		version: '1.0.0',
 	})
 
 const runPlanning = <TResult>(
@@ -239,11 +244,11 @@ describe('application operation transport planning', () => {
 				() =>
 					new FrameworkApplication({
 						plugins: [
-							definePlugin({
-								capabilities: [declaration],
+							createPlugin({
 								core: '^0.0.0',
-								pluginId: `fixture.${declaration.contributionId}`,
+								id: `fixture.${declaration.contributionId}`,
 								version: '1.0.0',
+								contributions: [declaration],
 							}),
 						],
 						schemas: [],

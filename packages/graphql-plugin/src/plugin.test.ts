@@ -5,7 +5,7 @@ import {
 	databasePersistencePlanCapability,
 	defineOperation,
 	defineOperationValue,
-	definePlugin,
+	plugin,
 	provideCapability,
 	type DatabaseAdapter,
 	type DatabaseOperationAst,
@@ -49,11 +49,11 @@ class ProtectionDatabase implements DatabaseAdapter {
 	}
 }
 
-const protectionDatabasePlugin = definePlugin({
+const protectionDatabasePlugin = plugin({
 	core: '^0.0.0',
-	pluginId: 'fixture.graphql-protection-database',
+	id: 'fixture.graphql-protection-database',
 	version: '1.0.0',
-	capabilities: [
+	contributions: [
 		provideCapability(databaseAdapterCapability, {
 			contributionId: 'database',
 			create: () => ({ value: new ProtectionDatabase() }),

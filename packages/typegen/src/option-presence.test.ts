@@ -5,7 +5,8 @@ import {
 	Schema,
 	addSchemaField,
 	defineFieldOption,
-	definePlugin,
+	plugin as createPlugin,
+	contributeDeclarations,
 	defineSchemaOption,
 	stringField,
 	type SchemaOptions,
@@ -59,36 +60,39 @@ describe('option-presence Typegen', () => {
 			typegen: false,
 			valueKind: 'opaque',
 		})
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.typegen-document',
-			privileges: [
-				{
-					name: 'schema:declare',
-					reason: 'Adds a generated field for the direct option.',
-				},
-			] as const,
-			version: '1.0.0',
-			declare: ({ schemas }) => {
-				schemas.defineOptions({
-					contributionId: 'document-options',
-					field: { checked: checkedFieldOption },
-					schema: {
-						document: documentOption,
-						'fixture.internal-marker': internalOption,
-					},
-				})
-				schemas.patch({
-					operations: [
-						addSchemaField({
-							contributionId: 'document-state',
-							field: stringField(),
-							name: 'documentState',
-						}),
-					],
-					targets: schemas.select({ option: { name: 'document' } }),
-				})
+			id: 'fixture.typegen-document',
+			permissions: {
+				'schema:declare': 'Adds a generated field for the direct option.',
 			},
+			version: '1.0.0',
+			contributions: [
+				contributeDeclarations({
+					schema: ({ schemas }) => {
+						schemas.defineOptions({
+							contributionId: 'document-options',
+							field: { checked: checkedFieldOption },
+							schema: {
+								document: documentOption,
+								'fixture.internal-marker': internalOption,
+							},
+						})
+						schemas.patch({
+							operations: [
+								addSchemaField({
+									contributionId: 'document-state',
+									field: stringField(),
+									name: 'documentState',
+								}),
+							],
+							targets: schemas.select({ option: { name: 'document' } }),
+						})
+
+						return undefined
+					},
+				}),
+			],
 		})
 		const Document = Schema.define({
 			className: 'TypegenOptionPresenceDocument',

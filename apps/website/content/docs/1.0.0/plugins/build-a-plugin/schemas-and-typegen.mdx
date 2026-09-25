@@ -70,8 +70,9 @@ This separate example gives application-owned schemas that opt in to
 import {
 	addSchemaField,
 	addSchemaIndex,
-	definePlugin,
+	contributeDeclarations,
 	defineSchemaOption,
+	plugin,
 	stringField,
 } from '@ultimabase/core'
 
@@ -97,38 +98,42 @@ const workflowOption = defineSchemaOption<WorkflowSchemaOption>({
 })
 
 export const workflowPlugin = () =>
-	definePlugin({
+	plugin({
+		contributions: [
+			contributeDeclarations({
+				schema({ schemas }) {
+					schemas.defineOptions({
+						contributionId: 'workflow-option',
+						schema: { workflow: workflowOption },
+					})
+					const targets = schemas.select({ option: { name: 'workflow' } })
+					schemas.patch({
+						targets,
+						operations: [
+							addSchemaField({
+								contributionId: 'workflow-state',
+								name: 'workflowState',
+								field: stringField({ default: 'pending', required: true }),
+								mutationInput: 'forbidden',
+							}),
+							addSchemaIndex({
+								contributionId: 'workflow-state-index',
+								fields: ['workflowState', 'createdAt'],
+							}),
+						],
+					})
+				},
+			}),
+		],
 		core: '^1.0.0',
-		pluginId: 'community.workflow',
+		id: 'community.workflow',
 		version: '1.0.0',
-		privileges: [
+		permissions: [
 			{
 				name: 'schema:declare',
 				reason: 'Adds the workflow option, state field, and index.',
 			},
 		] as const,
-		declare({ schemas }) {
-			schemas.defineOptions({
-				contributionId: 'workflow-option',
-				schema: { workflow: workflowOption },
-			})
-			const targets = schemas.select({ option: { name: 'workflow' } })
-			schemas.patch({
-				targets,
-				operations: [
-					addSchemaField({
-						contributionId: 'workflow-state',
-						name: 'workflowState',
-						field: stringField({ default: 'pending', required: true }),
-						mutationInput: 'forbidden',
-					}),
-					addSchemaIndex({
-						contributionId: 'workflow-state-index',
-						fields: ['workflowState', 'createdAt'],
-					}),
-				],
-			})
-		},
 	})
 ```
 

@@ -2,7 +2,7 @@ import { expectTypeOf, test } from 'vitest'
 
 import {
 	defineCapability,
-	definePlugin,
+	plugin as createPlugin,
 	optionalCapability,
 	provideCapability,
 	requireCapability,
@@ -36,11 +36,11 @@ test('preserves exact provider, consumer, protocol, and manifest types', () => {
 	})
 	const required = requireCapability(token, '^3.0.0')
 	const optional = optionalCapability(token, '^3.1.0')
-	const plugin = definePlugin({
-		pluginId: 'fixture.audit-plugin',
+	const plugin = createPlugin({
+		id: 'fixture.audit-plugin',
 		version: '1.0.0',
 		core: '^0.0.0',
-		capabilities: [provider, required, optional],
+		contributions: [provider, required, optional],
 	})
 
 	expectTypeOf<
@@ -114,11 +114,11 @@ test('exposes only the flat capability authoring shape', () => {
 	})
 	const provider = provideCapability(token, { value: 'ready' })
 
-	definePlugin({
+	createPlugin({
 		// @ts-expect-error -- Provider, required, and optional groups are inspection output only.
-		capabilities: { provides: [provider] },
+		contributions: { provides: [provider] },
 		core: '^0.0.0',
-		pluginId: 'fixture.grouped-capabilities',
+		id: 'fixture.grouped-capabilities',
 		version: '1.0.0',
 	})
 })

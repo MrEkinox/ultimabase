@@ -6,7 +6,7 @@ import {
 	databaseAdapterCapability,
 	databasePointerCapability,
 	databasePersistencePlanCapability,
-	definePlugin,
+	plugin,
 	provideCapability,
 } from '@ultimabase/core'
 import { graphqlPlugin } from '@ultimabase/graphql-plugin'
@@ -66,15 +66,15 @@ const adapter = {
 		Promise.resolve(request.operation.kind === 'find-many' ? [row] : row),
 }
 
-const databasePlugin = definePlugin({
-	capabilities: [
+const databasePlugin = plugin({
+	contributions: [
 		provideCapability(databaseAdapterCapability, {
 			contributionId: 'database',
 			create: () => ({ value: adapter }),
 		}),
 	],
 	core: '^0.0.0',
-	pluginId: 'fixture.javascript-graphql-database',
+	id: 'fixture.javascript-graphql-database',
 	version: '1.0.0',
 })
 

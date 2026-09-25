@@ -5,7 +5,8 @@ import {
 	UltimaBase,
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
-	definePlugin,
+	contributeApplication,
+	plugin,
 	provideCapability,
 	requireCapability,
 } from '@ultimabase/core'
@@ -58,15 +59,15 @@ const adapter = {
 		),
 }
 
-const databasePlugin = definePlugin({
-	capabilities: [
+const databasePlugin = plugin({
+	contributions: [
 		provideCapability(databaseAdapterCapability, {
 			contributionId: 'database',
 			create: () => ({ value: adapter }),
 		}),
 	],
 	core: '^0.0.0',
-	pluginId: 'fixture.javascript-rest-database',
+	id: 'fixture.javascript-rest-database',
 	version: '1.0.0',
 })
 
@@ -74,13 +75,16 @@ const httpRequirement = requireCapability(httpApplicationCapability, '^1.0.0', {
 	phase: 'setup',
 })
 let httpApplication
-const capturePlugin = definePlugin({
-	capabilities: [httpRequirement],
+const capturePlugin = plugin({
+	contributions: [
+		httpRequirement,
+		contributeApplication(({ capabilities }) => {
+			httpApplication = capabilities.get(httpRequirement)
+			return { exports: undefined }
+		}),
+	],
 	core: '^0.0.0',
-	pluginId: 'fixture.javascript-rest-capture',
-	setup: ({ capabilities }) => {
-		httpApplication = capabilities.get(httpRequirement)
-	},
+	id: 'fixture.javascript-rest-capture',
 	version: '1.0.0',
 })
 

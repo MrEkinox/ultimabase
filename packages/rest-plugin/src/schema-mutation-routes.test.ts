@@ -1,7 +1,7 @@
 import {
 	Schema,
 	createApplication,
-	definePlugin,
+	plugin,
 	provideCapability,
 	type ApplicationSchemaMutationTransportPlan,
 	type PluginIdentity,
@@ -134,8 +134,8 @@ describe('REST schema mutation route compilation', () => {
 			],
 		)
 		expect(fragment.routes[0]?.path).toBe(fragment.routes[1]?.path)
-		const collisionPlugin = definePlugin({
-			capabilities: [
+		const collisionPlugin = plugin({
+			contributions: [
 				provideCapability(restRouteGraphCapability, {
 					contributionId: 'colliding-routes',
 					create: () => ({
@@ -144,10 +144,8 @@ describe('REST schema mutation route compilation', () => {
 				}),
 			],
 			core: '^0.0.0',
-			pluginId: 'fixture.rest-mutation-collision',
-			privileges: [
-				{ name: 'transport:expose', reason: 'Exercises route collisions.' },
-			],
+			id: 'fixture.rest-mutation-collision',
+			permissions: { 'transport:expose': 'Exercises route collisions.' },
 			version: '1.0.0',
 		})
 		await expect(

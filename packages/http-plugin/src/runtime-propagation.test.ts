@@ -6,7 +6,8 @@ import {
 	beforeOperation,
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
-	definePlugin,
+	plugin,
+	contributeApplication,
 	getCurrentRequest,
 	provideCapability,
 	provideRuntimeInterceptor,
@@ -109,11 +110,11 @@ describe('HTTP Runtime propagation', () => {
 				readonly PluginDefinition[]
 			>
 		} = {}
-		const database = definePlugin({
-			pluginId: 'fixture.http-runtime-database',
+		const database = plugin({
+			id: 'fixture.http-runtime-database',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: [
+			contributions: [
 				provideCapability(databaseAdapterCapability, {
 					contributionId: 'observed-adapter',
 					create: () => ({
@@ -122,17 +123,14 @@ describe('HTTP Runtime propagation', () => {
 				}),
 			],
 		})
-		const hooks = definePlugin({
-			pluginId: 'fixture.http-runtime-hooks',
+		const hooks = plugin({
+			id: 'fixture.http-runtime-hooks',
 			version: '1.0.0',
 			core: '^0.0.0',
-			privileges: [
-				{
-					name: 'runtime:intercept',
-					reason: 'Observes safe HTTP Runtime propagation.',
-				},
-			],
-			capabilities: [
+			permissions: {
+				'runtime:intercept': 'Observes safe HTTP Runtime propagation.',
+			},
+			contributions: [
 				provideRuntimeInterceptor({
 					contributionId: 'before-read',
 					create: () => ({
@@ -160,14 +158,12 @@ describe('HTTP Runtime propagation', () => {
 				}),
 			],
 		})
-		const routeOwner = definePlugin({
-			pluginId: 'fixture.http-runtime-route',
+		const routeOwner = plugin({
+			id: 'fixture.http-runtime-route',
 			version: '1.0.0',
 			core: '^0.0.0',
-			privileges: [
-				{ name: 'transport:expose', reason: 'Exposes the Runtime probe.' },
-			],
-			capabilities: [
+			permissions: { 'transport:expose': 'Exposes the Runtime probe.' },
+			contributions: [
 				provideHttpEndpoints({
 					contributionId: 'runtime-probe',
 					create: () =>
@@ -200,14 +196,18 @@ describe('HTTP Runtime propagation', () => {
 			'^1.0.0',
 			{ phase: 'setup' },
 		)
-		const server = definePlugin({
-			pluginId: 'fixture.http-runtime-server',
+		const server = plugin({
+			id: 'fixture.http-runtime-server',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: [applicationRequirement],
-			setup: ({ capabilities }) => {
-				http = capabilities.get(applicationRequirement)
-			},
+			contributions: [
+				applicationRequirement,
+				contributeApplication(({ capabilities }) => {
+					http = capabilities.get(applicationRequirement)
+					const exports = undefined
+					return { exports }
+				}),
+			],
 		})
 		const created = new UltimaBase({
 			masterAuthority: new MasterAuthority({

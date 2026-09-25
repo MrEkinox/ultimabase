@@ -6,9 +6,10 @@ import {
 	UltimaBase,
 	applicationRequestExecutionCapability,
 	defineCapability,
-	definePlugin,
+	plugin,
 	provideCapability,
 	requireCapability,
+	withPluginPrivileges,
 	type ApplicationCallbackExecutor,
 	type ApplicationRequestExecutor,
 	type PluginIdentity,
@@ -99,26 +100,26 @@ const harnessCapability = defineCapability<
 })
 
 const createHarnessPlugin = (harness: ExecutionHarness) =>
-	definePlugin({
+	plugin({
 		core: '^0.0.0',
-		pluginId: 'fixture.rest-read-postgres-harness',
+		id: 'fixture.rest-read-postgres-harness',
 		version: '1.0.0',
-		privileges: [
-			{
-				name: 'authority:elevate',
-				reason: 'Verifies the REST PostgreSQL Master fixture.',
-			},
-		],
-		capabilities: [
-			provideCapability(harnessCapability, {
-				contributionId: 'capture',
-				create: ({ callbacks, capabilities, owner }) => {
-					harness.callbacks = callbacks
-					harness.executor = capabilities.get(requestExecutionRequirement)
-					harness.owner = owner
-					return { value: { ready: true } }
-				},
-			}),
+		permissions: {
+			'authority:elevate': 'Verifies the REST PostgreSQL Master fixture.',
+		},
+		contributions: [
+			withPluginPrivileges(
+				provideCapability(harnessCapability, {
+					contributionId: 'capture',
+					create: ({ callbacks, capabilities, owner }) => {
+						harness.callbacks = callbacks
+						harness.executor = capabilities.get(requestExecutionRequirement)
+						harness.owner = owner
+						return { value: { ready: true } }
+					},
+				}),
+				['authority:elevate'],
+			),
 			requestExecutionRequirement,
 		],
 	})

@@ -1,7 +1,8 @@
 import { expectTypeOf, test } from 'vitest'
 
+import { compilePluginDefinition } from './definition.js'
+
 import {
-	definePlugin,
 	defineFieldBuilderMethod,
 	stringField,
 	type PluginExports,
@@ -23,7 +24,7 @@ test('preserves literal manifests and synchronous setup exports', () => {
 			},
 		},
 	})
-	const plugin = definePlugin({
+	const plugin = compilePluginDefinition({
 		version: '0.0.0',
 		core: '^0.0.0',
 		pluginId: 'fixture.database',
@@ -76,13 +77,13 @@ test('preserves literal manifests and synchronous setup exports', () => {
 })
 
 test('unwraps asynchronous setup exports and preserves relationships', () => {
-	const child = definePlugin({
+	const child = compilePluginDefinition({
 		version: '0.0.0',
 		core: '^0.0.0',
 		pluginId: 'fixture.child',
 		setup: () => Promise.resolve({ ready: true } as const),
 	})
-	const parent = definePlugin({
+	const parent = compilePluginDefinition({
 		version: '0.0.0',
 		core: '^0.0.0',
 		pluginId: 'fixture.parent',
@@ -114,7 +115,7 @@ test('unwraps asynchronous setup exports and preserves relationships', () => {
 })
 
 test('keeps definitions immutable and rejects incompatible metadata', () => {
-	const plugin = definePlugin({
+	const plugin = compilePluginDefinition({
 		version: '0.0.0',
 		core: '^0.0.0',
 		pluginId: 'fixture.plugin',
@@ -122,28 +123,28 @@ test('keeps definitions immutable and rejects incompatible metadata', () => {
 
 	// @ts-expect-error -- Plugin identities remain immutable after declaration.
 	plugin.manifest.identity.pluginId = 'fixture.changed'
-	definePlugin({
+	compilePluginDefinition({
 		version: '0.0.0',
 		core: '^0.0.0',
 		pluginId: 'fixture.invalid',
 		// @ts-expect-error -- Privilege requests accept only the closed vocabulary.
 		privileges: [{ name: 'runtime:*', reason: 'Invalid wildcard.' }],
 	})
-	definePlugin({
+	compilePluginDefinition({
 		version: '0.0.0',
 		core: '^0.0.0',
 		pluginId: 'fixture.invalid',
 		// @ts-expect-error -- Named dependencies require structured identity and range metadata.
 		dependencies: [42],
 	})
-	definePlugin({
+	compilePluginDefinition({
 		version: '0.0.0',
 		core: '^0.0.0',
 		pluginId: 'fixture.invalid',
 		// @ts-expect-error -- Setup must remain callable.
 		setup: true,
 	})
-	definePlugin({
+	compilePluginDefinition({
 		version: '0.0.0',
 		core: '^0.0.0',
 		pluginId: 'fixture.invalid',

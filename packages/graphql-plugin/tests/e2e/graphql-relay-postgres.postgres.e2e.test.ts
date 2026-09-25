@@ -3,7 +3,7 @@ import {
 	UltimaBase,
 	applicationRequestExecutionCapability,
 	defineCapability,
-	definePlugin,
+	plugin,
 	provideCapability,
 	requireCapability,
 	type ApplicationCallbackExecutor,
@@ -58,11 +58,11 @@ const harnessCapability = defineCapability<
 })
 
 const createHarnessPlugin = (harness: ExecutionHarness) =>
-	definePlugin({
+	plugin({
 		core: '^0.0.0',
-		pluginId: 'fixture.graphql-relay-postgres-harness',
+		id: 'fixture.graphql-relay-postgres-harness',
 		version: '1.0.0',
-		capabilities: [
+		contributions: [
 			provideCapability(harnessCapability, {
 				contributionId: 'capture',
 				create: ({ callbacks, capabilities, owner }) => {

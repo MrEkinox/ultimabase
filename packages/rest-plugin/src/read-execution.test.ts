@@ -1,4 +1,4 @@
-import { onTestFinished } from 'vitest'
+import { onTestFinished, describe, expect, it } from 'vitest'
 import {
 	MasterAuthority,
 	RequestContextValue,
@@ -8,10 +8,12 @@ import {
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
 	defineCapability,
-	definePlugin,
+	plugin,
+	contributeApplication,
 	getCurrentRequest,
 	provideCapability,
 	requireCapability,
+	withPluginPrivileges,
 	type ApplicationCallbackExecutor,
 	type ApplicationRequestExecutor,
 	type AnonymousRequestAccess,
@@ -30,7 +32,6 @@ import {
 	provideHttpEndpoints,
 	type HttpApplication,
 } from '@ultimabase/http-plugin'
-import { describe, expect, it } from 'vitest'
 
 import { executeRestReadRequest } from './read-execution.js'
 import { restPlugin } from './plugin.js'
@@ -161,36 +162,36 @@ const harnessCapability = defineCapability<
 })
 
 const createHarnessPlugin = (harness: RequestHarness) =>
-	definePlugin({
+	plugin({
 		core: '^0.0.0',
-		pluginId: 'fixture.rest-read-execution',
+		id: 'fixture.rest-read-execution',
 		version: '1.0.0',
-		privileges: [
-			{
-				name: 'authority:elevate',
-				reason: 'Verifies the REST Master execution fixture.',
-			},
-		],
-		capabilities: [
-			provideCapability(harnessCapability, {
-				contributionId: 'harness',
-				create: ({ callbacks, capabilities, owner }) => {
-					harness.callbacks = callbacks
-					harness.executor = capabilities.get(requestExecutionRequirement)
-					harness.owner = owner
-					return { value: { ready: true } }
-				},
-			}),
+		permissions: {
+			'authority:elevate': 'Verifies the REST Master execution fixture.',
+		},
+		contributions: [
+			withPluginPrivileges(
+				provideCapability(harnessCapability, {
+					contributionId: 'harness',
+					create: ({ callbacks, capabilities, owner }) => {
+						harness.callbacks = callbacks
+						harness.executor = capabilities.get(requestExecutionRequirement)
+						harness.owner = owner
+						return { value: { ready: true } }
+					},
+				}),
+				['authority:elevate'],
+			),
 			requestExecutionRequirement,
 		],
 	})
 
 const databasePlugin = (adapter: DatabaseAdapter) =>
-	definePlugin({
+	plugin({
 		core: '^0.0.0',
-		pluginId: 'fixture.rest-read-database',
+		id: 'fixture.rest-read-database',
 		version: '1.0.0',
-		capabilities: [
+		contributions: [
 			provideCapability(databaseAdapterCapability, {
 				contributionId: 'database',
 				create: () => ({ value: adapter }),
@@ -199,17 +200,14 @@ const databasePlugin = (adapter: DatabaseAdapter) =>
 	})
 
 const createDeadlineRoutePlugin = () =>
-	definePlugin({
+	plugin({
 		core: '^0.0.0',
-		pluginId: 'fixture.rest-read-deadline-route',
+		id: 'fixture.rest-read-deadline-route',
 		version: '1.0.0',
-		privileges: [
-			{
-				name: 'transport:expose',
-				reason: 'Exposes the REST read deadline fixture.',
-			},
-		],
-		capabilities: [
+		permissions: {
+			'transport:expose': 'Exposes the REST read deadline fixture.',
+		},
+		contributions: [
 			provideHttpEndpoints({
 				contributionId: 'rest-read-deadline',
 				create: ({ capabilities }) => {
@@ -235,14 +233,18 @@ const createDeadlineRoutePlugin = () =>
 	})
 
 const createHttpCapturePlugin = (capture: { current?: HttpApplication }) =>
-	definePlugin({
+	plugin({
 		core: '^0.0.0',
-		pluginId: 'fixture.rest-read-http-capture',
+		id: 'fixture.rest-read-http-capture',
 		version: '1.0.0',
-		capabilities: [httpApplicationRequirement],
-		setup: ({ capabilities }) => {
-			capture.current = capabilities.get(httpApplicationRequirement)
-		},
+		contributions: [
+			httpApplicationRequirement,
+			contributeApplication(({ capabilities }) => {
+				capture.current = capabilities.get(httpApplicationRequirement)
+				const exports = undefined
+				return { exports }
+			}),
+		],
 	})
 
 const readHarness = (harness: RequestHarness) => {

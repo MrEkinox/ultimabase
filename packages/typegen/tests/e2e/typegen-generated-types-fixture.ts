@@ -2,7 +2,8 @@ import path from 'node:path'
 
 import {
 	defineFieldBuilderMethod,
-	definePlugin,
+	plugin,
+	contributeDeclarations,
 	definePluginField,
 	FrameworkApplication,
 	Schema,
@@ -105,17 +106,19 @@ export const containedVectorMethod = defineFieldBuilderMethod({
 		},
 	},
 })
-export const containedVectorPlugin = definePlugin({
+export const containedVectorPlugin = plugin({
 	core: '^0.0.0',
-	declare: ({ fields }) => {
-		fields.register(containedVectorMethod)
-		return undefined
-	},
-	pluginId: 'fixture.packed-contained-vector-plugin',
-	privileges: [
-		{ name: 'schema:declare', reason: 'Declares packed containment types.' },
-	],
+	id: 'fixture.packed-contained-vector-plugin',
+	permissions: { 'schema:declare': 'Declares packed containment types.' },
 	version: '0.0.0',
+	contributions: [
+		contributeDeclarations({
+			schema: ({ fields }) => {
+				fields.register(containedVectorMethod)
+				return undefined
+			},
+		}),
+	],
 })
 
 export const Owner = Schema.define({
@@ -164,7 +167,7 @@ export const generated = generateApplicationTypes({
 })
 export const sourceWithMarkers = `${generated.contents}
 import { generateApplicationTypes as generatePackedApplicationTypes, typegenPlugin as packedTypegenPlugin } from '@ultimabase/typegen'
-import { Schema, definePlugin } from '@ultimabase/core'
+import { Schema, plugin } from '@ultimabase/core'
 import * as Hooks from '@ultimabase/hooks-plugin'
 import type { FrameworkApplication, PluginDefinition, SchemaDefinition } from '@ultimabase/core'
 import type { GenerateApplicationTypesOptions, TypegenPluginOptions } from '@ultimabase/typegen'
@@ -217,16 +220,15 @@ const PackedGeneratedDocument = Schema.define({
     },
   },
 })
-const packedHookPlugin = definePlugin({
-  pluginId: 'fixture.packed-generated-hooks',
+const packedHookPlugin = plugin({
+  id: 'fixture.packed-generated-hooks',
   version: '0.0.0',
   core: '^0.0.0',
   peers: [{ pluginId: '@ultimabase/hooks-plugin', version: '^0.0.0' }],
-  privileges: [{
-    name: 'runtime:intercept',
-    reason: 'Contributes the packed Hook type fixture.',
-  }],
-  capabilities: [Hooks.provideHookContributions('document-update', () =>
+  permissions: {
+    'runtime:intercept': 'Contributes the packed Hook type fixture.',
+  },
+  contributions: [Hooks.provideHookContributions('document-update', () =>
       Hooks.${pluginHookRegistryMarker}schemaHooks(
       PackedGeneratedDocument,
       {

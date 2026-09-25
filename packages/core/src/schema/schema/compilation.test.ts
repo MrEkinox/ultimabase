@@ -1,7 +1,11 @@
 import { applicationFixture } from '../../../tests/application-fixture.js'
 import { describe, expect, it } from 'vitest'
 
-import { createApplication, definePlugin } from '../../foundation.js'
+import {
+	createApplication,
+	plugin as createPlugin,
+	contributeApplication,
+} from '../../foundation.js'
 import {
 	Schema,
 	SchemaRegistry,
@@ -24,19 +28,21 @@ describe('deferred schema compilation', () => {
 			},
 			indexes: [{ fields: ['title', 'createdAt'] }],
 		})
-		const observer = definePlugin({
+		const observer = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.compiled-schema-observer',
-			setup: ({ schemas }) => {
-				const compiledSchema = schemas.get('DeferredPost')
-
-				if (compiledSchema === undefined) {
-					throw new TypeError('DeferredPost must be compiled before setup')
-				}
-
-				events.push(`setup:${compiledSchema.fields.title?.kind ?? 'missing'}`)
-			},
+			id: 'fixture.compiled-schema-observer',
+			contributions: [
+				contributeApplication(({ schemas }) => {
+					const compiledSchema = schemas.get('DeferredPost')
+					if (compiledSchema === undefined) {
+						throw new TypeError('DeferredPost must be compiled before setup')
+					}
+					events.push(`setup:${compiledSchema.fields.title?.kind ?? 'missing'}`)
+					const exports = undefined
+					return { exports }
+				}),
+			],
 		})
 
 		expect(callbackCalls).toBe(1)

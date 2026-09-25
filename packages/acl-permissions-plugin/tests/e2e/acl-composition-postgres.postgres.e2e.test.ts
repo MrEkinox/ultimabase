@@ -6,7 +6,7 @@ import {
 	RequestContextValue,
 	Schema,
 	UltimaBase,
-	definePlugin,
+	plugin,
 	requestSources,
 } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
@@ -49,11 +49,11 @@ const principalSchema = new RequestContextValue<'a' | 'b'>(
 	},
 )
 
-const identityPlugin = definePlugin({
+const identityPlugin = plugin({
 	version: '0.0.0',
 	core: '^0.0.0',
-	pluginId: 'fixture.acl-composition.identity',
-	capabilities: [
+	id: 'fixture.acl-composition.identity',
+	contributions: [
 		provideTestPrincipalResolver({
 			resolveCurrent: ({ context }) => {
 				const id = context.getValue(principalId)

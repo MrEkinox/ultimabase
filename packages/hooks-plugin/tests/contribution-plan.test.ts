@@ -1,6 +1,7 @@
 import {
 	createApplication,
-	definePlugin,
+	plugin,
+	contributeDeclarations,
 	Schema,
 	type SchemaDefinition,
 } from '@ultimabase/core'
@@ -13,25 +14,27 @@ const hooksDependency = {
 	version: '^0.0.0',
 } as const
 
-const schemaDeclarationPrivilege = {
-	name: 'schema:declare',
-	reason: 'Adds the schema used by the provenance regression fixture.',
-} as const
-
 const createSchemaProvider = (schema: SchemaDefinition) =>
-	definePlugin({
+	plugin({
 		core: '^0.0.0',
 		dependencies: [hooksDependency],
-		pluginId: 'fixture.inline-hooks-provider',
-		privileges: [schemaDeclarationPrivilege],
-		version: '1.0.0',
-		declare: ({ schemas }) => {
-			schemas.add({
-				contributionId: 'owned-schema',
-				schema,
-				staticOptions: {},
-			})
+		id: 'fixture.inline-hooks-provider',
+		permissions: {
+			'schema:declare':
+				'Adds the schema used by the provenance regression fixture.',
 		},
+		version: '1.0.0',
+		contributions: [
+			contributeDeclarations({
+				schema: ({ schemas }) => {
+					schemas.add({
+						contributionId: 'owned-schema',
+						schema,
+						staticOptions: {},
+					})
+				},
+			}),
+		],
 	})
 
 describe('Hook contribution provenance', () => {

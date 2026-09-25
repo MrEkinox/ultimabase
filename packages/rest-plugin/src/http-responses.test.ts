@@ -9,7 +9,8 @@ import {
 	defineOperationTransport,
 	defineOperationValue,
 	databasePersistencePlanCapability,
-	definePlugin,
+	plugin,
+	contributeApplication,
 	operationTransportBinding,
 	operationWireCodec,
 	provideCapability,
@@ -81,8 +82,15 @@ const operationCodec = operationWireCodec({
 		version: '1.0.0',
 	}),
 })
-const operationPlugin = definePlugin({
-	operations: [
+const operationPlugin = plugin({
+	core: '^0.0.0',
+	id: 'fixture.rest-http-operation',
+	permissions: {
+		'operation:declare': 'Declares the fixture operation.',
+		'transport:expose': 'Binds the fixture to REST.',
+	},
+	version: '1.0.0',
+	contributions: [
 		contributeOperation({
 			bindings: [
 				operationTransportBinding({
@@ -107,13 +115,6 @@ const operationPlugin = definePlugin({
 			operation: httpOperation,
 		}),
 	],
-	core: '^0.0.0',
-	pluginId: 'fixture.rest-http-operation',
-	privileges: [
-		{ name: 'operation:declare', reason: 'Declares the fixture operation.' },
-		{ name: 'transport:expose', reason: 'Binds the fixture to REST.' },
-	],
-	version: '1.0.0',
 })
 
 class ResponseDatabase implements DatabaseAdapter {
@@ -154,11 +155,11 @@ class ResponseDatabase implements DatabaseAdapter {
 }
 
 const databasePlugin = (adapter: DatabaseAdapter) =>
-	definePlugin({
+	plugin({
 		core: '^0.0.0',
-		pluginId: 'fixture.rest-http-database',
+		id: 'fixture.rest-http-database',
 		version: '1.0.0',
-		capabilities: [
+		contributions: [
 			provideCapability(databaseAdapterCapability, {
 				contributionId: 'database',
 				create: () => ({ value: adapter }),
@@ -171,14 +172,18 @@ const httpRequirement = requireCapability(httpApplicationCapability, '^1.0.0', {
 })
 
 const capturePlugin = (capture: { current?: HttpApplication }) =>
-	definePlugin({
+	plugin({
 		core: '^0.0.0',
-		pluginId: 'fixture.rest-http-capture',
+		id: 'fixture.rest-http-capture',
 		version: '1.0.0',
-		capabilities: [httpRequirement],
-		setup: ({ capabilities }) => {
-			capture.current = capabilities.get(httpRequirement)
-		},
+		contributions: [
+			httpRequirement,
+			contributeApplication(({ capabilities }) => {
+				capture.current = capabilities.get(httpRequirement)
+				const exports = undefined
+				return { exports }
+			}),
+		],
 	})
 
 const createFixture = async () => {

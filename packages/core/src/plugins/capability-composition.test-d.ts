@@ -2,7 +2,8 @@ import { expectTypeOf, test } from 'vitest'
 
 import {
 	defineCapability,
-	definePlugin,
+	plugin as createPlugin,
+	contributeApplication,
 	optionalCapability,
 	provideCapability,
 	requireCapability,
@@ -45,20 +46,27 @@ test('preserves exact provider, factory, and reader types', () => {
 			return { value: { write: () => Promise.resolve() } }
 		},
 	})
-	const plugin = definePlugin({
-		pluginId: 'fixture.typed-plugin',
+	const plugin = createPlugin({
+		id: 'fixture.typed-plugin',
 		version: '1.0.0',
 		core: '^0.0.0',
-		capabilities: [provider, required, optional, setupOptional],
-		setup: ({ capabilities }) => {
-			expectTypeOf(capabilities.get(required)).toEqualTypeOf<Consumer>()
-			expectTypeOf(capabilities.get(optional)).toEqualTypeOf<
-				Consumer | undefined
-			>()
-			expectTypeOf(capabilities.get(setupOptional)).toEqualTypeOf<
-				Consumer | undefined
-			>()
-		},
+		contributions: [
+			provider,
+			required,
+			optional,
+			setupOptional,
+			contributeApplication(({ capabilities }) => {
+				expectTypeOf(capabilities.get(required)).toEqualTypeOf<Consumer>()
+				expectTypeOf(capabilities.get(optional)).toEqualTypeOf<
+					Consumer | undefined
+				>()
+				expectTypeOf(capabilities.get(setupOptional)).toEqualTypeOf<
+					Consumer | undefined
+				>()
+				const exports = undefined
+				return { exports }
+			}),
+		],
 	})
 	expectTypeOf(plugin.manifest.capabilities.provides[0]).toEqualTypeOf<
 		typeof provider

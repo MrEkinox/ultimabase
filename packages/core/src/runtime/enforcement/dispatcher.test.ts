@@ -1,6 +1,6 @@
 import {
 	createApplication,
-	definePlugin,
+	plugin as createPlugin,
 	FrameworkError,
 } from '../../foundation.js'
 import {
@@ -36,16 +36,16 @@ import {
 	requireEnforcementStages,
 	runtimeConstrainPrivileges,
 } from '../../../tests/fixtures/enforcement-dispatcher.js'
-
+const constrainReason = runtimeConstrainPrivileges[0].reason
 describe('createEnforcementStages', () => {
 	it('skips only contributions that explicitly declare trusted master bypass', async () => {
 		const trace: string[] = []
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.enforcement-master-behavior',
-			privileges: runtimeConstrainPrivileges,
-			capabilities: createTestRuntimeConstraints((provide) => {
+			id: 'fixture.enforcement-master-behavior',
+			permissions: { 'runtime:constrain': constrainReason },
+			contributions: createTestRuntimeConstraints((provide) => {
 				provide(
 					'fixture.master-bypassed',
 					guard({
@@ -129,12 +129,12 @@ describe('createEnforcementStages', () => {
 
 	it('preserves configuration order across independent policy plugins', async () => {
 		const createPolicyPlugin = (name: string, value: string) =>
-			definePlugin({
+			createPlugin({
 				version: '0.0.0',
 				core: '^0.0.0',
-				pluginId: name,
-				privileges: runtimeConstrainPrivileges,
-				capabilities: createTestRuntimeConstraints((provide) => {
+				id: name,
+				permissions: { 'runtime:constrain': constrainReason },
+				contributions: createTestRuntimeConstraints((provide) => {
 					provide(
 						`${name}.constraint`,
 						constraint({
@@ -184,12 +184,12 @@ describe('createEnforcementStages', () => {
 		const trace: string[] = []
 		const observedInputs: unknown[] = []
 		const observedOutputInputs: unknown[] = []
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.monotonic-enforcement',
-			privileges: runtimeConstrainPrivileges,
-			capabilities: createTestRuntimeConstraints((provide) => {
+			id: 'fixture.monotonic-enforcement',
+			permissions: { 'runtime:constrain': constrainReason },
+			contributions: createTestRuntimeConstraints((provide) => {
 				provide(
 					'fixture.guard',
 					guard({
@@ -349,12 +349,12 @@ describe('createEnforcementStages', () => {
 	})
 
 	it('rejects restricted mutation input with a stable permission error', async () => {
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.input-enforcement',
-			privileges: runtimeConstrainPrivileges,
-			capabilities: createTestRuntimeConstraints((provide) => {
+			id: 'fixture.input-enforcement',
+			permissions: { 'runtime:constrain': constrainReason },
+			contributions: createTestRuntimeConstraints((provide) => {
 				provide(
 					'fixture.only-title',
 					restrictInput({ handler: () => ['title'] }),
@@ -387,12 +387,12 @@ describe('createEnforcementStages', () => {
 	})
 
 	it('materializes the intersection over explicit query selections', async () => {
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.selection-enforcement',
-			privileges: runtimeConstrainPrivileges,
-			capabilities: createTestRuntimeConstraints((provide) => {
+			id: 'fixture.selection-enforcement',
+			permissions: { 'runtime:constrain': constrainReason },
+			contributions: createTestRuntimeConstraints((provide) => {
 				provide(
 					'fixture.selection-broad',
 					restrictSelection({
@@ -513,12 +513,12 @@ describe('createEnforcementStages', () => {
 			'Fixture policy denied the operation',
 		)
 		const laterHandler = vi.fn()
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.denied-enforcement',
-			privileges: runtimeConstrainPrivileges,
-			capabilities: createTestRuntimeConstraints((provide) => {
+			id: 'fixture.denied-enforcement',
+			permissions: { 'runtime:constrain': constrainReason },
+			contributions: createTestRuntimeConstraints((provide) => {
 				provide(
 					'fixture.denied',
 					guard({
@@ -549,12 +549,12 @@ describe('createEnforcementStages', () => {
 	it('stops later enforcement hooks when request cancellation is observed', async () => {
 		const controller = new AbortController()
 		const laterHandler = vi.fn()
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.cancelled-enforcement',
-			privileges: runtimeConstrainPrivileges,
-			capabilities: createTestRuntimeConstraints((provide) => {
+			id: 'fixture.cancelled-enforcement',
+			permissions: { 'runtime:constrain': constrainReason },
+			contributions: createTestRuntimeConstraints((provide) => {
 				provide(
 					'fixture.cancel-request',
 					guard({
@@ -597,12 +597,12 @@ describe('createEnforcementStages', () => {
 		const stagesReference: { current: RuntimeEnforcementStages | undefined } = {
 			current: undefined,
 		}
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.recursive-enforcement',
-			privileges: runtimeConstrainPrivileges,
-			capabilities: createTestRuntimeConstraints((provide) => {
+			id: 'fixture.recursive-enforcement',
+			permissions: { 'runtime:constrain': constrainReason },
+			contributions: createTestRuntimeConstraints((provide) => {
 				provide(
 					'fixture.recursive-guard',
 					guard({
@@ -636,12 +636,12 @@ describe('createEnforcementStages', () => {
 	})
 
 	it('retains pre-transform constraints when reevaluating transformed values', async () => {
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.value-derived-enforcement',
-			privileges: runtimeConstrainPrivileges,
-			capabilities: createTestRuntimeConstraints((provide) => {
+			id: 'fixture.value-derived-enforcement',
+			permissions: { 'runtime:constrain': constrainReason },
+			contributions: createTestRuntimeConstraints((provide) => {
 				provide(
 					'fixture.title-constraint',
 					constraint({

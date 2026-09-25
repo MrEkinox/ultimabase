@@ -173,7 +173,7 @@ application setup. PostgreSQL combines every resulting predicate with the
 developer query using parameterized logical `AND`:
 
 ```ts
-import { definePlugin } from '@ultimabase/core'
+import { contributeApplication, plugin } from '@ultimabase/core'
 import { postgresConstraintCompiler } from '@ultimabase/postgres-plugin'
 
 const tenantRows = postgresConstraintCompiler({
@@ -195,13 +195,16 @@ const tenantRows = postgresConstraintCompiler({
 		sql`${field('tenantId')} = ${payload.tenantId}`,
 })
 
-const tenantPostgresPlugin = definePlugin({
-	pluginId: 'example.tenant-postgres',
+const tenantPostgresPlugin = plugin({
+	id: 'example.tenant-postgres',
 	version: '1.0.0',
 	core: '^0.0.0',
-	setup: ({ constraintCompilers }) => {
-		constraintCompilers.register(tenantRows)
-	},
+	contributions: [
+		contributeApplication(({ constraintCompilers }) => {
+			constraintCompilers.register(tenantRows)
+			return { exports: undefined }
+		}),
+	],
 })
 ```
 

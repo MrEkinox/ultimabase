@@ -7,9 +7,10 @@ snapshot is a separate partial contract:
 
 ```ts
 import {
+	contributeDeclarations,
 	defineFieldBuilderMethod,
-	definePlugin,
 	definePluginField,
+	plugin,
 	type FieldOptions,
 } from '@ultimabase/core'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
@@ -87,17 +88,21 @@ const method = defineFieldBuilderMethod({
 })
 
 export const searchDocumentPlugin = () =>
-	definePlugin({
-		pluginId: '@community/search-document-plugin',
+	plugin({
+		id: '@community/search-document-plugin',
 		version: '1.0.0',
 		core: '^0.0.0',
-		privileges: [
+		permissions: [
 			{ name: 'schema:declare', reason: 'Adds the search document field.' },
 		],
-		declare: ({ fields }) => {
-			fields.register(method)
-			return undefined
-		},
+		contributions: [
+			contributeDeclarations({
+				fields: ({ fields }) => {
+					fields.register(method)
+					return undefined
+				},
+			}),
+		],
 	})
 ```
 

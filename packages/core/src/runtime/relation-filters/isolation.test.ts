@@ -1,7 +1,7 @@
 import { applicationFixture } from '../../../tests/application-fixture.js'
 import {
 	createApplication,
-	definePlugin,
+	plugin,
 	Schema,
 	type RelationWhereResolver,
 } from '../../index.js'
@@ -18,10 +18,10 @@ import { requestSources } from '../context/request-context.js'
 const sourceId = '0198f090-2a50-7000-8000-000000000094'
 
 const databasePlugin = (pluginId: string, adapter: RecordingDatabaseAdapter) =>
-	definePlugin({
-		capabilities: [provideTestDatabaseAdapter(adapter)],
+	plugin({
+		contributions: [provideTestDatabaseAdapter(adapter)],
 		core: '^0.0.0',
-		pluginId,
+		id: pluginId,
 		version: '0.0.0',
 	})
 

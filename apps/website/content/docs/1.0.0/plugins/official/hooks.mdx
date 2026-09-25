@@ -193,7 +193,7 @@ commit. The provider ranges below target this `1.0.0` documentation line.
 The event contract and its consumer can live in one module:
 
 ```ts title="src/post-created-event.ts"
-import { definePlugin } from '@ultimabase/core'
+import { plugin } from '@ultimabase/core'
 import {
 	defineEvent,
 	onEvent,
@@ -207,18 +207,18 @@ export const postCreated = defineEvent<{ postId: string }>()('post.created', {
 // This in-memory sink makes post-commit delivery observable in this example.
 export const committedPostIds: string[] = []
 
-export const postCreatedConsumer = definePlugin({
-	pluginId: 'example.post-created-consumer',
+export const postCreatedConsumer = plugin({
+	id: 'example.post-created-consumer',
 	version: '1.0.0',
 	core: '^1.0.0',
 	peers: [{ pluginId: '@ultimabase/hooks-plugin', version: '^1.0.0' }],
-	privileges: [
+	permissions: [
 		{
 			name: 'runtime:observe',
 			reason: 'Deliver post.created after commit.',
 		},
 	],
-	capabilities: [
+	contributions: [
 		provideHookEvent(
 			'post-created',
 			onEvent<typeof postCreated.name, { postId: string }>({
@@ -280,22 +280,22 @@ lend its own. A compatible provider needs `runtime:intercept` and can declare
 the Hooks plugin as a peer:
 
 ```ts title="src/post-rules-plugin.ts"
-import { definePlugin } from '@ultimabase/core'
+import { plugin } from '@ultimabase/core'
 import { provideHookContributions, schemaHooks } from '@ultimabase/hooks-plugin'
 import { Post } from './post.js'
 
-export const postRulesPlugin = definePlugin({
-	pluginId: 'example.post-rules',
+export const postRulesPlugin = plugin({
+	id: 'example.post-rules',
 	version: '1.0.0',
 	core: '^1.0.0',
 	peers: [{ pluginId: '@ultimabase/hooks-plugin', version: '^1.0.0' }],
-	privileges: [
+	permissions: [
 		{
 			name: 'runtime:intercept',
 			reason: 'Reject deletion of published posts.',
 		},
 	],
-	capabilities: [
+	contributions: [
 		provideHookContributions('published-post-rule', () =>
 			schemaHooks(Post, {
 				beforeOperation: {

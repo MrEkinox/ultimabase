@@ -8,7 +8,8 @@ import {
 	addSchemaIndex,
 	compileValidationPlans,
 	createApplication,
-	definePlugin,
+	plugin as createPlugin,
+	contributeDeclarations,
 	defineSchemaOption,
 	pointerField,
 	readFieldTypegenState,
@@ -30,19 +31,22 @@ describe('plugin schema declaration registry', () => {
 			className: 'ClaimedApplicationUser',
 			fields: (field) => ({ name: field.string() }),
 		})
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.schema-claim',
-			privileges: [
-				{
-					name: 'schema:declare',
-					reason: 'Owns one application-selected identity schema.',
-				},
-			] as const,
-			version: '1.0.0',
-			declare: ({ schemas }) => {
-				schemas.claim({ contributionId: 'identity-user', schema: User })
+			id: 'fixture.schema-claim',
+			permissions: {
+				'schema:declare': 'Owns one application-selected identity schema.',
 			},
+			version: '1.0.0',
+			contributions: [
+				contributeDeclarations({
+					schema: ({ schemas }) => {
+						schemas.claim({ contributionId: 'identity-user', schema: User })
+
+						return undefined
+					},
+				}),
+			],
 		})
 
 		const application = await createApplication({
@@ -63,19 +67,22 @@ describe('plugin schema declaration registry', () => {
 			className: 'MissingClaimedApplicationUser',
 			fields: () => ({}),
 		})
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.missing-schema-claim',
-			privileges: [
-				{
-					name: 'schema:declare',
-					reason: 'Exercises exact schema claim validation.',
-				},
-			] as const,
-			version: '1.0.0',
-			declare: ({ schemas }) => {
-				schemas.claim({ contributionId: 'identity-user', schema: User })
+			id: 'fixture.missing-schema-claim',
+			permissions: {
+				'schema:declare': 'Exercises exact schema claim validation.',
 			},
+			version: '1.0.0',
+			contributions: [
+				contributeDeclarations({
+					schema: ({ schemas }) => {
+						schemas.claim({ contributionId: 'identity-user', schema: User })
+
+						return undefined
+					},
+				}),
+			],
 		})
 
 		await expect(
@@ -90,29 +97,32 @@ describe('plugin schema declaration registry', () => {
 			className: 'PluginManagedFieldDocument',
 			fields: (field) => ({ title: field.string() }),
 		})
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.plugin-managed-field',
-			privileges: [
-				{
-					name: 'schema:declare',
-					reason: 'Adds one plugin-managed stored field.',
-				},
-			] as const,
-			version: '1.0.0',
-			declare: ({ schemas }) => {
-				schemas.patch({
-					operations: [
-						addSchemaField({
-							contributionId: 'managed-state',
-							field: stringField({ default: 'ready', required: true }),
-							mutationInput: 'forbidden',
-							name: 'managedState',
-						}),
-					],
-					targets: schemas.select({ className: Document.className }),
-				})
+			id: 'fixture.plugin-managed-field',
+			permissions: {
+				'schema:declare': 'Adds one plugin-managed stored field.',
 			},
+			version: '1.0.0',
+			contributions: [
+				contributeDeclarations({
+					schema: ({ schemas }) => {
+						schemas.patch({
+							operations: [
+								addSchemaField({
+									contributionId: 'managed-state',
+									field: stringField({ default: 'ready', required: true }),
+									mutationInput: 'forbidden',
+									name: 'managedState',
+								}),
+							],
+							targets: schemas.select({ className: Document.className }),
+						})
+
+						return undefined
+					},
+				}),
+			],
 		})
 
 		await (
@@ -141,33 +151,36 @@ describe('plugin schema declaration registry', () => {
 			fields: (field) => ({ title: field.string() }),
 		})
 		const contributor = (pluginId: string, dependency?: string) =>
-			definePlugin({
+			createPlugin({
 				core: '^0.0.0',
 				...(dependency === undefined
 					? {}
 					: {
 							dependencies: [{ pluginId: dependency, version: '^1.0.0' }],
 						}),
-				pluginId,
-				privileges: [
-					{
-						name: 'schema:declare',
-						reason: 'Exercises duplicate field rejection.',
-					},
-				] as const,
-				version: '1.0.0',
-				declare: ({ schemas }) => {
-					schemas.patch({
-						operations: [
-							addSchemaField({
-								contributionId: 'state',
-								field: stringField(),
-								name: 'state',
-							}),
-						],
-						targets: schemas.select({ className: 'AdditionPrivilegePost' }),
-					})
+				id: pluginId,
+				permissions: {
+					'schema:declare': 'Exercises duplicate field rejection.',
 				},
+				version: '1.0.0',
+				contributions: [
+					contributeDeclarations({
+						schema: ({ schemas }) => {
+							schemas.patch({
+								operations: [
+									addSchemaField({
+										contributionId: 'state',
+										field: stringField(),
+										name: 'state',
+									}),
+								],
+								targets: schemas.select({ className: 'AdditionPrivilegePost' }),
+							})
+
+							return undefined
+						},
+					}),
+				],
 			})
 
 		await expect(
@@ -198,22 +211,23 @@ describe('plugin schema declaration registry', () => {
 			},
 		})
 		const plugin = (pluginId: string) =>
-			definePlugin({
+			createPlugin({
 				core: '^0.0.0',
-				pluginId,
-				privileges: [
-					{
-						name: 'schema:declare',
-						reason: 'Declares one stable direct option.',
-					},
-				] as const,
+				id: pluginId,
+				permissions: { 'schema:declare': 'Declares one stable direct option.' },
 				version: '1.0.0',
-				declare: ({ schemas }) => {
-					schemas.defineOptions({
-						contributionId: 'stable-option',
-						schema: { stable: stableOption },
-					})
-				},
+				contributions: [
+					contributeDeclarations({
+						schema: ({ schemas }) => {
+							schemas.defineOptions({
+								contributionId: 'stable-option',
+								schema: { stable: stableOption },
+							})
+
+							return undefined
+						},
+					}),
+				],
 			})
 		const owner = plugin('fixture.stable-option-owner')
 		const Shared = Schema.define({
@@ -263,30 +277,31 @@ describe('plugin schema declaration registry', () => {
 			className: 'RemovedContributionPost',
 			fields: (field) => ({ title: field.string() }),
 		})
-		const contributor = definePlugin({
+		const contributor = createPlugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.removed-contribution',
-			privileges: [
-				{
-					name: 'schema:declare',
-					reason: 'Adds one persisted logical field.',
-				},
-			] as const,
+			id: 'fixture.removed-contribution',
+			permissions: { 'schema:declare': 'Adds one persisted logical field.' },
 			version: '1.0.0',
-			declare: ({ schemas }) => {
-				schemas.patch({
-					operations: [
-						addSchemaField({
-							contributionId: 'external-reference',
-							field: stringField(),
-							name: 'externalReference',
-						}),
-					],
-					targets: schemas.select({
-						className: 'RemovedContributionPost',
-					}),
-				})
-			},
+			contributions: [
+				contributeDeclarations({
+					schema: ({ schemas }) => {
+						schemas.patch({
+							operations: [
+								addSchemaField({
+									contributionId: 'external-reference',
+									field: stringField(),
+									name: 'externalReference',
+								}),
+							],
+							targets: schemas.select({
+								className: 'RemovedContributionPost',
+							}),
+						})
+
+						return undefined
+					},
+				}),
+			],
 		})
 
 		await (
@@ -315,40 +330,43 @@ describe('plugin schema declaration registry', () => {
 			className: 'OptionAndIndexAdditionPost',
 			fields: (field) => ({ title: field.string(), summary: field.string() }),
 		})
-		const contributor = definePlugin({
+		const contributor = createPlugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.option-index-addition',
+			id: 'fixture.option-index-addition',
 			version: '1.0.0',
 			dependencies: [{ pluginId: 'fixture.schema-options', version: '^1.2.3' }],
-			privileges: [
-				{
-					name: 'schema:declare',
-					reason: 'Adds owned option values and indexes.',
-				},
-			],
-			declare: ({ schemas }) => {
-				schemas.patch({
-					targets: schemas.select({ className: Post.className }),
-					operations: [
-						setSchemaOption({
-							contributionId: 'workflow-value',
-							name: 'workflow',
-							value: { enabled: true },
-						}),
-						setSchemaFieldOption({
-							contributionId: 'search-value',
-							field: 'title',
-							name: 'search',
-							value: { weight: 30 },
-						}),
-						addSchemaIndex({
-							contributionId: 'title-index',
-							fields: ['title', 'summary'],
-							unique: true,
-						}),
-					],
-				})
+			permissions: {
+				'schema:declare': 'Adds owned option values and indexes.',
 			},
+			contributions: [
+				contributeDeclarations({
+					schema: ({ schemas }) => {
+						schemas.patch({
+							targets: schemas.select({ className: Post.className }),
+							operations: [
+								setSchemaOption({
+									contributionId: 'workflow-value',
+									name: 'workflow',
+									value: { enabled: true },
+								}),
+								setSchemaFieldOption({
+									contributionId: 'search-value',
+									field: 'title',
+									name: 'search',
+									value: { weight: 30 },
+								}),
+								addSchemaIndex({
+									contributionId: 'title-index',
+									fields: ['title', 'summary'],
+									unique: true,
+								}),
+							],
+						})
+
+						return undefined
+					},
+				}),
+			],
 		})
 		await (
 			await createApplication({
@@ -386,64 +404,68 @@ describe('plugin schema declaration registry', () => {
 			className: 'LaterAuditLog',
 			fields: (field) => ({ message: field.string() }),
 		})
-		const patcher = definePlugin({
+		const patcher = createPlugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.schema-patcher',
-			privileges: [
-				{
-					name: 'schema:declare',
-					reason: 'Adds fields and indexes to prior schemas.',
-				},
-			] as const,
-			version: '1.0.0',
-			declare: ({ schemas }) => {
-				const priorSchemas = schemas.select({})
-				const posts = schemas.select({ className: 'SelectedPost' })
-				schemas.patch({
-					operations: [
-						addSchemaField({
-							contributionId: 'workflow-state',
-							field: stringField(),
-							name: 'workflowState',
-						}),
-						addSchemaIndex({
-							contributionId: 'workflow-state-index',
-							fields: ['workflowState', 'createdAt'],
-						}),
-					],
-					targets: priorSchemas,
-				})
-				schemas.patch({
-					operations: [
-						addSchemaField({
-							contributionId: 'author-pointer',
-							field: pointerField({ target: () => Author }),
-							name: 'author',
-						}),
-					],
-					targets: posts,
-				})
+			id: 'fixture.schema-patcher',
+			permissions: {
+				'schema:declare': 'Adds fields and indexes to prior schemas.',
 			},
+			version: '1.0.0',
+			contributions: [
+				contributeDeclarations({
+					schema: ({ schemas }) => {
+						const priorSchemas = schemas.select({})
+						const posts = schemas.select({ className: 'SelectedPost' })
+						schemas.patch({
+							operations: [
+								addSchemaField({
+									contributionId: 'workflow-state',
+									field: stringField(),
+									name: 'workflowState',
+								}),
+								addSchemaIndex({
+									contributionId: 'workflow-state-index',
+									fields: ['workflowState', 'createdAt'],
+								}),
+							],
+							targets: priorSchemas,
+						})
+						schemas.patch({
+							operations: [
+								addSchemaField({
+									contributionId: 'author-pointer',
+									field: pointerField({ target: () => Author }),
+									name: 'author',
+								}),
+							],
+							targets: posts,
+						})
+
+						return undefined
+					},
+				}),
+			],
 		})
 		const additionStaticOptions = { channel: 'audit' }
-		const schemaProvider = definePlugin({
+		const schemaProvider = createPlugin({
 			core: '^0.0.0',
 			instanceId: 'audit',
-			pluginId: 'fixture.schema-provider',
-			privileges: [
-				{
-					name: 'schema:declare',
-					reason: 'Adds an audit schema.',
-				},
-			] as const,
+			id: 'fixture.schema-provider',
+			permissions: { 'schema:declare': 'Adds an audit schema.' },
 			version: '2.0.0',
-			declare: ({ schemas }) => {
-				schemas.add({
-					contributionId: 'audit-log-schema',
-					schema: AuditLog,
-					staticOptions: additionStaticOptions,
-				})
-			},
+			contributions: [
+				contributeDeclarations({
+					schema: ({ schemas }) => {
+						schemas.add({
+							contributionId: 'audit-log-schema',
+							schema: AuditLog,
+							staticOptions: additionStaticOptions,
+						})
+
+						return undefined
+					},
+				}),
+			],
 		})
 
 		const application = applicationFixture(
@@ -491,30 +513,31 @@ describe('plugin schema declaration registry', () => {
 			className: 'SelfExpansionGuard',
 			fields: (field) => ({ title: field.string() }),
 		})
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.self-expansion',
-			privileges: [
-				{
-					name: 'schema:declare',
-					reason: 'Proves selector snapshot behavior.',
-				},
-			] as const,
+			id: 'fixture.self-expansion',
+			permissions: { 'schema:declare': 'Proves selector snapshot behavior.' },
 			version: '1.0.0',
-			declare: ({ schemas }) => {
-				const prior = schemas.select({})
-				schemas.add({ contributionId: 'owned', schema: Owned })
-				schemas.patch({
-					operations: [
-						addSchemaField({
-							contributionId: 'late-field',
-							field: stringField(),
-							name: 'lateField',
-						}),
-					],
-					targets: prior,
-				})
-			},
+			contributions: [
+				contributeDeclarations({
+					schema: ({ schemas }) => {
+						const prior = schemas.select({})
+						schemas.add({ contributionId: 'owned', schema: Owned })
+						schemas.patch({
+							operations: [
+								addSchemaField({
+									contributionId: 'late-field',
+									field: stringField(),
+									name: 'lateField',
+								}),
+							],
+							targets: prior,
+						})
+
+						return undefined
+					},
+				}),
+			],
 		})
 
 		await (
@@ -537,20 +560,23 @@ describe('plugin schema declaration registry', () => {
 			instanceId: string,
 			schema: typeof Primary | typeof Analytics,
 		) =>
-			definePlugin({
+			createPlugin({
 				core: '^0.0.0',
 				instanceId,
-				pluginId: 'fixture.repeated-schema-owner',
-				privileges: [
-					{
-						name: 'schema:declare',
-						reason: 'Declares one instance-local schema contribution.',
-					},
-				] as const,
-				version: '1.0.0',
-				declare: ({ schemas }) => {
-					schemas.add({ contributionId: 'owned-schema', schema })
+				id: 'fixture.repeated-schema-owner',
+				permissions: {
+					'schema:declare': 'Declares one instance-local schema contribution.',
 				},
+				version: '1.0.0',
+				contributions: [
+					contributeDeclarations({
+						schema: ({ schemas }) => {
+							schemas.add({ contributionId: 'owned-schema', schema })
+
+							return undefined
+						},
+					}),
+				],
 			})
 
 		const application = applicationFixture(
@@ -588,20 +614,23 @@ describe('plugin schema declaration registry', () => {
 			className: 'AtomicDuplicateSecond',
 			fields: (field) => ({ title: field.string() }),
 		})
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.atomic-duplicate-schema',
-			privileges: [
-				{
-					name: 'schema:declare',
-					reason: 'Exercises atomic duplicate contribution rejection.',
-				},
-			] as const,
-			version: '1.0.0',
-			declare: ({ schemas }) => {
-				schemas.add({ contributionId: 'duplicate', schema: First })
-				schemas.add({ contributionId: 'duplicate', schema: Second })
+			id: 'fixture.atomic-duplicate-schema',
+			permissions: {
+				'schema:declare': 'Exercises atomic duplicate contribution rejection.',
 			},
+			version: '1.0.0',
+			contributions: [
+				contributeDeclarations({
+					schema: ({ schemas }) => {
+						schemas.add({ contributionId: 'duplicate', schema: First })
+						schemas.add({ contributionId: 'duplicate', schema: Second })
+
+						return undefined
+					},
+				}),
+			],
 		})
 		const application = applicationFixture(
 			new FrameworkApplication({

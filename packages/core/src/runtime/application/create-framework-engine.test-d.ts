@@ -1,4 +1,4 @@
-import { definePlugin, type FrameworkApplication } from '../../foundation.js'
+import { plugin, type FrameworkApplication } from '../../foundation.js'
 import { Schema } from '../../schema/index.js'
 import { expectTypeOf, test } from 'vitest'
 
@@ -12,11 +12,11 @@ const schema = Schema.define({
 	fields: (field) => ({ title: field.string() }),
 })
 declare const adapter: DatabaseAdapter
-const databasePlugin = definePlugin({
+const databasePlugin = plugin({
 	version: '0.0.0',
 	core: '^0.0.0',
-	pluginId: 'fixture.assembled-database',
-	capabilities: [provideTestDatabaseAdapter(adapter)],
+	id: 'fixture.assembled-database',
+	contributions: [provideTestDatabaseAdapter(adapter)],
 })
 
 declare const application: FrameworkApplication<

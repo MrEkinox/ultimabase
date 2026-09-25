@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
-import { definePlugin } from '../plugins/definition.js'
+import { plugin as createPlugin } from '../plugins/plugin.js'
+import { contributeApplication } from '../plugins/plugin-contributions.js'
+
 import { defineCapability, provideCapability } from '../plugins/capabilities.js'
 import { FrameworkEngine } from '../runtime/engine/framework-engine.js'
 import { RuntimePipeline } from '../runtime/pipeline/runtime-pipeline.js'
@@ -43,11 +45,11 @@ describe('single active application ownership', () => {
 			lifetime: 'application',
 			compose: ([value]) => value,
 		})
-		const plugin = definePlugin({
-			pluginId: 'fixture.activation',
+		const plugin = createPlugin({
+			id: 'fixture.activation',
 			version: '0.0.0',
 			core: '^0.0.0',
-			capabilities: [
+			contributions: [
 				provideCapability(token, {
 					contributionId: 'resource',
 					create: async () => {
@@ -170,18 +172,29 @@ describe('single active application ownership', () => {
 		const failed = new FrameworkApplication({
 			schemas: [],
 			plugins: [
-				definePlugin({
-					pluginId: 'fixture.failed-start',
+				createPlugin({
+					id: 'fixture.failed-start',
 					version: '0.0.0',
 					core: '^0.0.0',
-					hooks: {
-						connect: () => {
-							throw failure
-						},
-						dispose: () => {
-							cleaned += 1
-						},
-					},
+					contributions: [
+						contributeApplication((context) => {
+							const exports = undefined
+							const lifecycleContext = { ...context, pluginExports: exports }
+							void lifecycleContext
+							return {
+								exports,
+								connect: () =>
+									(() => {
+										throw failure
+									})(),
+								dispose: () => {
+									;(() => {
+										cleaned += 1
+									})()
+								},
+							}
+						}),
+					],
 				}),
 			],
 		})
@@ -205,23 +218,36 @@ describe('single active application ownership', () => {
 		const app = new FrameworkApplication({
 			schemas: [],
 			plugins: [
-				definePlugin({
-					pluginId: 'fixture.overlap',
+				createPlugin({
+					id: 'fixture.overlap',
 					version: '0.0.0',
 					core: '^0.0.0',
-					hooks: {
-						connect: async () => {
-							entered.resolve(undefined)
-							await resume.promise
-							events.push('connect')
-						},
-						stop: () => {
-							events.push('stop')
-						},
-						dispose: () => {
-							events.push('dispose')
-						},
-					},
+					contributions: [
+						contributeApplication((context) => {
+							const exports = undefined
+							const lifecycleContext = { ...context, pluginExports: exports }
+							void lifecycleContext
+							return {
+								exports,
+								connect: () =>
+									(async () => {
+										entered.resolve(undefined)
+										await resume.promise
+										events.push('connect')
+									})(),
+								stop: () => {
+									;(() => {
+										events.push('stop')
+									})()
+								},
+								dispose: () => {
+									;(() => {
+										events.push('dispose')
+									})()
+								},
+							}
+						}),
+					],
 				}),
 			],
 		})

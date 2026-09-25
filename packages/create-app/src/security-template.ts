@@ -107,7 +107,7 @@ export const securityApplicationImports = (
 		: []),
 	...(has(plan, 'access-plugin') && has(plan, 'password-auth-plugin')
 		? [
-				"import { definePlugin } from '@ultimabase/core'",
+				"import { plugin } from '@ultimabase/core'",
 				"import { passwordPrincipal } from '@ultimabase/password-auth-plugin'",
 			]
 		: []),
@@ -145,13 +145,13 @@ export const securityPluginEntries = (
 export const securityPolicySource = (plan: InitializerPlan): string =>
 	has(plan, 'access-plugin') && has(plan, 'password-auth-plugin')
 		? `// Allow only the current session's profile; all other schema reads remain denied.
-const profilePolicy = definePlugin({
-  pluginId: 'app.profile-policy',
+const profilePolicy = plugin({
+  id: 'app.profile-policy',
   version: '1.0.0',
   core: '^0.0.0',
   peers: [{ pluginId: '@ultimabase/access-plugin', version: '^0.0.0' }],
-  privileges: [{ name: 'runtime:constrain', reason: 'Restrict reads to the current session owner.' }],
-  capabilities: [provideAccessContributions('own-profile', ({ schemas }) =>
+  permissions: { 'runtime:constrain': 'Restrict reads to the current session owner.' },
+  contributions: [provideAccessContributions('own-profile', ({ schemas }) =>
       schemas.values().map((schema) => schema === AppUser
         ? schemaAccess(AppUser, {
             read: {

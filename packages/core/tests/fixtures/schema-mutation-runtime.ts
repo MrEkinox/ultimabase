@@ -11,7 +11,8 @@ import {
 import {
 	addSchemaField,
 	defineOperationValue,
-	definePlugin,
+	contributeDeclarations,
+	plugin as createPlugin,
 	defineSchemaMutation,
 } from '../../src/foundation.js'
 import type { SchemaDefinition } from '../../src/schema/index.js'
@@ -89,8 +90,21 @@ export const createUpdateFixture = async (options: {
 			}) as { readonly data: Readonly<Record<string, unknown>> }
 		},
 	})
-	const workflow = definePlugin({
-		capabilities: [
+	const workflow = createPlugin({
+		id: `fixture.schema-mutation-runtime-${String(fixtureIndex)}`,
+		core: '^0.0.0',
+		version: '1.0.0',
+		permissions: {
+			'model:extend': 'Adds the archive command.',
+			'operation:declare': 'Declares archive.',
+			'persistence:rewrite': 'Persists the owner effect.',
+			'runtime:intercept': 'Observes logical identity.',
+			...(options.protectedConstraint === true
+				? { 'runtime:constrain': 'Narrows protected execution.' }
+				: {}),
+			'schema:declare': 'Adds the owned workflow field.',
+		},
+		contributions: [
 			...(options.omitHandler === true
 				? []
 				: [
@@ -139,46 +153,44 @@ export const createUpdateFixture = async (options: {
 						}),
 					]
 				: []),
-		],
-		core: '^0.0.0',
-		declare: ({ models, operations, schemas }) => {
-			operations.declare(archive)
-			schemas.patch({
-				operations: [
-					addSchemaField({
-						contributionId: 'workflow-state',
-						field: stringField(),
-						name: 'workflowState',
-					}),
-				],
-				targets: schemas.select({ className: Post.className }),
-			})
-			models.extend(
-				{ className: Post.className },
-				{
-					contributionId: 'workflow-mutations',
-					schemaMutations: {
-						archive: { mutation: archive, surfaces: ['schema', 'model'] },
-					},
+			contributeDeclarations({
+				operations: ({ operations }) => {
+					operations.declare(archive)
 				},
-			)
-		},
-		pluginId: `fixture.schema-mutation-runtime-${String(fixtureIndex)}`,
-		privileges: [
-			{ name: 'model:extend', reason: 'Adds the archive command.' },
-			{ name: 'operation:declare', reason: 'Declares archive.' },
-			{ name: 'persistence:rewrite', reason: 'Persists the owner effect.' },
-			{ name: 'runtime:intercept', reason: 'Observes logical identity.' },
-			{ name: 'runtime:constrain', reason: 'Narrows protected execution.' },
-			{ name: 'schema:declare', reason: 'Adds the owned workflow field.' },
-		] as const,
-		version: '1.0.0',
+				schema: ({ schemas }) => {
+					schemas.patch({
+						operations: [
+							addSchemaField({
+								contributionId: 'workflow-state',
+								field: stringField(),
+								name: 'workflowState',
+							}),
+						],
+						targets: schemas.select({ className: Post.className }),
+					})
+				},
+				models: ({ models }) => {
+					models.extend(
+						{ className: Post.className },
+						{
+							contributionId: 'workflow-mutations',
+							schemaMutations: {
+								archive: {
+									mutation: archive,
+									surfaces: ['schema', 'model'],
+								},
+							},
+						},
+					)
+				},
+			}),
+		],
 	})
-	const database = definePlugin({
-		capabilities: [provideTestDatabaseAdapter(adapter)],
+	const database = createPlugin({
 		core: '^0.0.0',
-		pluginId: `fixture.schema-mutation-database-${String(fixtureIndex)}`,
+		id: `fixture.schema-mutation-database-${String(fixtureIndex)}`,
 		version: '1.0.0',
+		contributions: [provideTestDatabaseAdapter(adapter)],
 	})
 	const ultimabase = applicationFixture(
 		new UltimaBase({
@@ -222,41 +234,47 @@ export const createMasterDeleteFixture = async (
 	const trace: string[] = []
 	const adapter = new RecordingDatabaseAdapter([result], trace)
 	const handler = vi.fn(() => undefined)
-	const owner = definePlugin({
-		capabilities: [
+	const owner = createPlugin({
+		core: '^0.0.0',
+		id: `fixture.schema-mutation-master-${String(fixtureIndex)}`,
+		permissions: {
+			'model:extend': 'Adds the purge command.',
+			'operation:declare': 'Declares purge.',
+			'persistence:rewrite': 'Persists the delete effect.',
+		},
+		version: '1.0.0',
+		contributions: [
 			provideSchemaMutationHandler({
 				contributionId: 'purge-handler',
 				create: () => ({
 					value: schemaMutationHandler({ mutation: purge, resolve: handler }),
 				}),
 			}),
-		],
-		core: '^0.0.0',
-		declare: ({ models, operations }) => {
-			operations.declare(purge)
-			models.extend(
-				{ className: Post.className },
-				{
-					contributionId: 'purge-surface',
-					schemaMutations: {
-						purge: { mutation: purge, surfaces: ['schema'] },
-					},
+			contributeDeclarations({
+				operations: ({ operations }) => {
+					operations.declare(purge)
+					return undefined
 				},
-			)
-		},
-		pluginId: `fixture.schema-mutation-master-${String(fixtureIndex)}`,
-		privileges: [
-			{ name: 'model:extend', reason: 'Adds the purge command.' },
-			{ name: 'operation:declare', reason: 'Declares purge.' },
-			{ name: 'persistence:rewrite', reason: 'Persists the delete effect.' },
-		] as const,
-		version: '1.0.0',
+				models: ({ models }) => {
+					models.extend(
+						{ className: Post.className },
+						{
+							contributionId: 'purge-surface',
+							schemaMutations: {
+								purge: { mutation: purge, surfaces: ['schema'] },
+							},
+						},
+					)
+					return undefined
+				},
+			}),
+		],
 	})
-	const database = definePlugin({
-		capabilities: [provideTestDatabaseAdapter(adapter)],
+	const database = createPlugin({
 		core: '^0.0.0',
-		pluginId: `fixture.schema-mutation-master-database-${String(fixtureIndex)}`,
+		id: `fixture.schema-mutation-master-database-${String(fixtureIndex)}`,
 		version: '1.0.0',
+		contributions: [provideTestDatabaseAdapter(adapter)],
 	})
 	const audit = vi.fn()
 	const ultimabase = applicationFixture(

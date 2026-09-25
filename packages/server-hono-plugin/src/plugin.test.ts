@@ -1,7 +1,7 @@
-import { onTestFinished } from 'vitest'
+import { onTestFinished, describe, expect, it } from 'vitest'
 import {
 	FrameworkApplication,
-	definePlugin,
+	plugin,
 	provideCapability,
 	type PluginDefinition,
 } from '@ultimabase/core'
@@ -13,7 +13,6 @@ import {
 	type HttpApplication,
 } from '@ultimabase/http-plugin'
 import { Hono } from 'hono'
-import { describe, expect, it } from 'vitest'
 
 import { honoServerPlugin } from './plugin.js'
 
@@ -21,11 +20,11 @@ const applicationProvider = (
 	pluginId: string,
 	appId: string,
 ): PluginDefinition =>
-	definePlugin({
+	plugin({
 		core: '^0.0.0',
-		pluginId,
+		id: pluginId,
 		version: '1.0.0',
-		capabilities: [
+		contributions: [
 			provideCapability(httpApplicationCapability, {
 				contributionId: 'fixture-http-application',
 				create: () => ({

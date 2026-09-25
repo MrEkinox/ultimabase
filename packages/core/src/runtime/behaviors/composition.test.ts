@@ -1,6 +1,6 @@
 import { applicationFixture } from '../../../tests/application-fixture.js'
 import { createApplication } from '../../foundation.js'
-import { definePlugin } from '../../plugins/definition.js'
+import { plugin as createPlugin } from '../../plugins/plugin.js'
 import { readApplicationPluginOwner } from '../../plugins/callback-execution.js'
 import { QueryBuilder, type CreateOneOperationAst } from '../../query/index.js'
 import { Schema } from '../../schema/index.js'
@@ -20,17 +20,15 @@ const createGuardPlugin = (
 	pluginId: string,
 	guardMutationInput: RuntimeFinalMutationGuardStage,
 ) =>
-	definePlugin({
+	createPlugin({
 		core: '^0.0.0',
-		pluginId,
+		id: pluginId,
 		version: '0.0.0',
-		privileges: [
-			{
-				name: 'runtime:intercept',
-				reason: 'Guards final mutation input in a composition fixture.',
-			},
-		],
-		capabilities: [
+		permissions: {
+			'runtime:intercept':
+				'Guards final mutation input in a composition fixture.',
+		},
+		contributions: [
 			provideRuntimeBehavior({
 				contributionId: 'final-mutation-guard',
 				create: () => ({ value: { guardMutationInput } }),
@@ -140,17 +138,14 @@ describe('generic Runtime behavior composition', () => {
 		let nextId = 0
 		const calls: number[] = []
 		const disposals: number[] = []
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.runtime-guard-isolation',
+			id: 'fixture.runtime-guard-isolation',
 			version: '0.0.0',
-			privileges: [
-				{
-					name: 'runtime:intercept',
-					reason: 'Exercises application-local guard resources.',
-				},
-			],
-			capabilities: [
+			permissions: {
+				'runtime:intercept': 'Exercises application-local guard resources.',
+			},
+			contributions: [
 				provideRuntimeBehavior({
 					contributionId: 'isolated-final-mutation-guard',
 					create: () => {

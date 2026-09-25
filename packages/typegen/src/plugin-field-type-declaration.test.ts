@@ -1,5 +1,6 @@
 import {
-	definePlugin,
+	plugin as createPlugin,
+	contributeDeclarations,
 	definePluginField,
 	definePluginFieldType,
 	FrameworkApplication,
@@ -35,20 +36,21 @@ describe('plugin field type declarations', () => {
 				valueType: 'SecretValue',
 			},
 		})
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			core: '^0.0.0',
-			declare: ({ fields }) => {
-				fields.declareType(secretType)
-				return undefined
+			id: 'fixture.secret-plugin',
+			permissions: {
+				'schema:declare': 'Declares one patch-only field value contract.',
 			},
-			pluginId: 'fixture.secret-plugin',
-			privileges: [
-				{
-					name: 'schema:declare',
-					reason: 'Declares one patch-only field value contract.',
-				},
-			],
 			version: '0.0.0',
+			contributions: [
+				contributeDeclarations({
+					schema: ({ fields }) => {
+						fields.declareType(secretType)
+						return undefined
+					},
+				}),
+			],
 		})
 		const Document = Schema.define({
 			className: 'TypegenSecretDocument',

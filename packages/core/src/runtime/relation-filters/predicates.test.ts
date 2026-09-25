@@ -1,7 +1,7 @@
 import {
 	collectQueryRelationPredicates,
 	createApplication,
-	definePlugin,
+	plugin,
 	MasterAuthority,
 	normalizeWhereInput,
 	QueryBuilder,
@@ -32,11 +32,11 @@ const tenant = new RequestContextValue<string>(
 )
 
 const databasePlugin = (adapter: RecordingDatabaseAdapter) =>
-	definePlugin({
+	plugin({
 		core: '^0.0.0',
-		pluginId: 'fixture.relation-predicate-filter-database',
+		id: 'fixture.relation-predicate-filter-database',
 		version: '0.0.0',
-		capabilities: [provideTestDatabaseAdapter(adapter)],
+		contributions: [provideTestDatabaseAdapter(adapter)],
 	})
 
 describe('Runtime relation-filter predicates', () => {
@@ -162,17 +162,14 @@ describe('Runtime relation-filter predicates', () => {
 			],
 			trace,
 		)
-		const policy = definePlugin({
+		const policy = plugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.relation-predicate-filter-policy',
+			id: 'fixture.relation-predicate-filter-policy',
 			version: '0.0.0',
-			privileges: [
-				{
-					name: 'runtime:constrain',
-					reason: 'Proves private target policy composition.',
-				},
-			],
-			capabilities: [
+			permissions: {
+				'runtime:constrain': 'Proves private target policy composition.',
+			},
+			contributions: [
 				provideTestRuntimeConstraint(
 					'fixture.filtered-predicate-target-policy',
 					protectedPolicy({

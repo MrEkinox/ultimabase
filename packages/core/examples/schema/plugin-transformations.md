@@ -1,16 +1,17 @@
 # Additive plugin schema contributions
 
-Plugins extend the logical application graph during the pure synchronous
-`declare` phase. They receive no adapter, request, clock, service, or setup
-resource at this boundary.
+Plugins extend the logical application graph through a pure synchronous
+declaration contribution. It receives no adapter, request, clock, service, or
+application resource at this boundary.
 
 ```ts
 import {
 	Schema,
 	addSchemaField,
 	addSchemaIndex,
-	definePlugin,
+	contributeDeclarations,
 	defineSchemaOption,
+	plugin,
 	stringField,
 } from '@ultimabase/core'
 
@@ -39,48 +40,52 @@ const AuditLog = Schema.define({
 	fields: (field) => ({ message: field.string() }),
 })
 
-export const workflowPlugin = definePlugin({
-	pluginId: '@example/workflow-plugin',
+export const workflowPlugin = plugin({
+	id: '@example/workflow-plugin',
 	version: '1.0.0',
 	core: '^0.0.0',
-	privileges: [
+	permissions: [
 		{
 			name: 'schema:declare',
 			reason: 'Adds workflow metadata and logical fields.',
 		},
 	],
-	declare({ schemas }) {
-		schemas.defineOptions({
-			contributionId: 'workflow-options',
-			schema: { workflow: workflowOption },
-		})
+	contributions: [
+		contributeDeclarations({
+			schema({ schemas }) {
+				schemas.defineOptions({
+					contributionId: 'workflow-options',
+					schema: { workflow: workflowOption },
+				})
 
-		schemas.add({
-			contributionId: 'workflow-audit-log',
-			schema: AuditLog,
-		})
+				schemas.add({
+					contributionId: 'workflow-audit-log',
+					schema: AuditLog,
+				})
 
-		const contentSchemas = schemas.select({
-			option: { name: 'workflow', path: ['enabled'], equals: true },
-			owner: { kind: 'application' },
-		})
+				const contentSchemas = schemas.select({
+					option: { name: 'workflow', path: ['enabled'], equals: true },
+					owner: { kind: 'application' },
+				})
 
-		schemas.patch({
-			targets: contentSchemas,
-			operations: [
-				addSchemaField({
-					contributionId: 'workflow-state',
-					name: 'workflowState',
-					field: stringField({ default: 'pending', required: true }),
-					mutationInput: 'forbidden',
-				}),
-				addSchemaIndex({
-					contributionId: 'workflow-state-index',
-					fields: ['workflowState', 'createdAt'],
-				}),
-			],
-		})
-	},
+				schemas.patch({
+					targets: contentSchemas,
+					operations: [
+						addSchemaField({
+							contributionId: 'workflow-state',
+							name: 'workflowState',
+							field: stringField({ default: 'pending', required: true }),
+							mutationInput: 'forbidden',
+						}),
+						addSchemaIndex({
+							contributionId: 'workflow-state-index',
+							fields: ['workflowState', 'createdAt'],
+						}),
+					],
+				})
+			},
+		}),
+	],
 })
 ```
 

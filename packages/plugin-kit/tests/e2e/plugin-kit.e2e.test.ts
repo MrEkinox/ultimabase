@@ -1,10 +1,11 @@
 import {
 	FrameworkApplication,
 	Schema,
+	contributeDeclarations,
 	contributeOperation,
 	defineOperation,
 	defineOperationValue,
-	definePluginModule,
+	plugin,
 	defineTypegenReference,
 	stringField,
 } from '@ultimabase/core'
@@ -59,29 +60,32 @@ describe('packed @ultimabase/plugin-kit', () => {
 			className: 'PackedPluginKitTarget',
 			fields: (field) => ({ title: field.string() }),
 		})
-		const module = definePluginModule({
+		const definition = plugin({
+			id: 'fixture.packed-plugin',
 			core: '^0.0.0',
-			pluginId: 'fixture.packed-plugin',
 			version: '1.0.0',
-		})
-		const plugin = module.plugin({
-			operations: [operationContribution],
-			declare: ({ schemas }) => {
-				schemas.patch(
-					patchSchemas({
-						patch,
-						targets: schemas.select({ className: Target.className }),
-					}),
-				)
+			contributions: [
+				operationContribution,
+				contributeDeclarations({
+					schema: ({ schemas }) => {
+						schemas.patch(
+							patchSchemas({
+								patch,
+								targets: schemas.select({ className: Target.className }),
+							}),
+						)
+						return undefined
+					},
+				}),
+			],
+			permissions: {
+				'operation:declare': 'Declares packed operation.',
+				'schema:declare': 'Adds packed schema metadata.',
 			},
-			privileges: [
-				{ name: 'operation:declare', reason: 'Declares packed operation.' },
-				{ name: 'schema:declare', reason: 'Adds packed schema metadata.' },
-			] as const,
 		})
 		const application = new FrameworkApplication({
 			pluginPrivileges: { logger: false },
-			plugins: [plugin],
+			plugins: [definition],
 			schemas: [Target],
 		})
 
@@ -100,7 +104,7 @@ describe('packed @ultimabase/plugin-kit', () => {
 			exportName: 'EchoInput',
 			module: '@fixture/packed-plugin',
 		})
-		expect(Object.isFrozen(module)).toBe(true)
+		expect(Object.isFrozen(definition)).toBe(true)
 
 		await application.dispose()
 	})

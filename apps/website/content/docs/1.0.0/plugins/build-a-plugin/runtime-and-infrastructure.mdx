@@ -46,8 +46,9 @@ on this token rather than looking up a global service by string:
 
 ```ts title="src/format-capability.ts"
 import {
+	contributeApplication,
 	defineCapability,
-	definePlugin,
+	plugin,
 	provideCapability,
 	requireCapability,
 } from '@ultimabase/core'
@@ -64,22 +65,26 @@ export const formatCapability = defineCapability<{
 
 const format = requireCapability(formatCapability, '^1.0.0')
 
-export const formatProvider = definePlugin({
-	capabilities: [
+export const formatProvider = plugin({
+	contributions: [
 		provideCapability(formatCapability, {
 			value: { format: 'compact' },
 		}),
 	],
 	core: '^1.0.0',
-	pluginId: 'community.workflow-format',
+	id: 'community.workflow-format',
 	version: '1.0.0',
 })
 
-export const formatConsumer = definePlugin({
-	capabilities: [format],
+export const formatConsumer = plugin({
+	contributions: [
+		format,
+		contributeApplication(({ capabilities }) => ({
+			exports: { format: capabilities.get(format).format },
+		})),
+	],
 	core: '^1.0.0',
-	pluginId: 'community.workflow-consumer',
-	setup: ({ capabilities }) => ({ format: capabilities.get(format).format }),
+	id: 'community.workflow-consumer',
 	version: '1.0.0',
 })
 ```
@@ -175,8 +180,9 @@ Typegen schema:
 
 ```ts title="src/private-sessions.ts"
 import {
-	definePlugin,
+	contributeDeclarations,
 	definePrivateCollection,
+	plugin,
 	stringField,
 } from '@ultimabase/core'
 
@@ -189,11 +195,15 @@ const sessions = definePrivateCollection({
 	indexes: [{ fields: ['secret'] }] as const,
 })
 
-export const sessionPlugin = definePlugin({
+export const sessionPlugin = plugin({
+	contributions: [
+		contributeDeclarations({
+			privateStorage: ({ privateStorage }) => privateStorage.register(sessions),
+		}),
+	],
 	core: '^1.0.0',
-	declare: ({ privateStorage }) => privateStorage.register(sessions),
-	pluginId: 'community.sessions',
-	privileges: [
+	id: 'community.sessions',
+	permissions: [
 		{ name: 'storage:private', reason: 'Stores revocable session verifiers.' },
 	] as const,
 	version: '1.0.0',

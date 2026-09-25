@@ -1,8 +1,4 @@
-import {
-	createApplication,
-	definePlugin,
-	provideCapability,
-} from '@ultimabase/core'
+import { createApplication, plugin, provideCapability } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
 import { hooksPlugin } from '../plugin.js'
@@ -12,8 +8,8 @@ describe('hookDiagnosticsObserverCapability', () => {
 	it('materializes the selected application observer once', async () => {
 		const observer = () => undefined
 		let materializations = 0
-		const provider = definePlugin({
-			capabilities: [
+		const provider = plugin({
+			contributions: [
 				provideCapability(hookDiagnosticsObserverCapability, {
 					contributionId: 'test-observer',
 					create: () => {
@@ -23,7 +19,7 @@ describe('hookDiagnosticsObserverCapability', () => {
 				}),
 			],
 			core: '^0.0.0',
-			pluginId: 'fixture.hooks-diagnostics',
+			id: 'fixture.hooks-diagnostics',
 			version: '0.0.0',
 		})
 		const application = await createApplication({

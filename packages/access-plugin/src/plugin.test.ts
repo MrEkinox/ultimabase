@@ -1,4 +1,4 @@
-import { onTestFinished } from 'vitest'
+import { onTestFinished, describe, expect, it } from 'vitest'
 import {
 	FrameworkApplication,
 	MasterAuthority,
@@ -6,7 +6,7 @@ import {
 	UltimaBase,
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
-	definePlugin,
+	plugin,
 	provideCapability,
 	type DatabaseAdapter,
 	type DatabaseOperationAst,
@@ -14,7 +14,6 @@ import {
 	type DatabaseOperationResult,
 	type DatabaseTransactionAdapter,
 } from '@ultimabase/core'
-import { describe, expect, it } from 'vitest'
 
 import {
 	accessPlugin,
@@ -60,11 +59,11 @@ class StaticReadAdapter implements DatabaseAdapter {
 }
 
 const databasePlugin = (adapter: DatabaseAdapter) =>
-	definePlugin({
+	plugin({
 		version: '0.0.0',
 		core: '^0.0.0',
-		pluginId: 'fixture.access.database',
-		capabilities: [
+		id: 'fixture.access.database',
+		contributions: [
 			provideCapability(databaseAdapterCapability, {
 				contributionId: 'database-adapter',
 				create: () => ({ value: adapter }),
@@ -352,18 +351,15 @@ describe('accessPlugin', () => {
 	})
 
 	it('keeps provider contributions deny-only after schema and default decisions', async () => {
-		const peer = definePlugin({
+		const peer = plugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.access.peer',
+			id: 'fixture.access.peer',
 			peers: [{ pluginId: '@ultimabase/access-plugin', version: '^0.0.0' }],
-			privileges: [
-				{
-					name: 'runtime:constrain',
-					reason: 'Contributes a deny-only official Access policy.',
-				},
-			],
-			capabilities: [
+			permissions: {
+				'runtime:constrain': 'Contributes a deny-only official Access policy.',
+			},
+			contributions: [
 				provideAccessContributions('monotonic-read-policies', () => [
 					schemaAccess(CountOnlyDocument, {
 						read: { allow: { count: false } },
@@ -399,17 +395,14 @@ describe('accessPlugin', () => {
 
 	it('owns callback diagnostics without depending on the Hooks plugin', async () => {
 		const events: string[] = []
-		const observer = definePlugin({
+		const observer = plugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.access.diagnostics',
-			privileges: [
-				{
-					name: 'runtime:observe',
-					reason: 'Observes official Access callback diagnostics.',
-				},
-			],
-			capabilities: [
+			id: 'fixture.access.diagnostics',
+			permissions: {
+				'runtime:observe': 'Observes official Access callback diagnostics.',
+			},
+			contributions: [
 				provideCapability(accessDiagnosticsObserverCapability, {
 					contributionId: 'access-diagnostics',
 					create: () => ({

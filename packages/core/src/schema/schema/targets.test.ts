@@ -6,7 +6,8 @@ import {
 	FrameworkApplication,
 	pointerField,
 } from '../../index.js'
-import { definePlugin } from '../../plugins/definition.js'
+import { plugin as createPlugin } from '../../plugins/plugin.js'
+import { contributeApplication } from '../../plugins/plugin-contributions.js'
 import { objectField } from '../fields/builtins/object.js'
 import { Schema } from './definition.js'
 import type { SchemaDefinition } from './definition.js'
@@ -242,19 +243,28 @@ describe('lazy schema targets', () => {
 			className: 'PluginSource',
 			fields: () => ({ target: targetField(() => target) }),
 		})
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.schema-observer',
-			setup: ({ schemas }) => {
-				events.push('setup')
-				expect(schemas.schemaTargets.get(source, ['target'])).toBe(target)
-			},
-			hooks: {
-				connect: () => {
-					events.push('connect')
-				},
-			},
+			id: 'fixture.schema-observer',
+			contributions: [
+				contributeApplication((context) => {
+					const { schemas } = context
+					events.push('setup')
+					expect(schemas.schemaTargets.get(source, ['target'])).toBe(target)
+					const exports = undefined
+					const lifecycleContext = { ...context, pluginExports: exports }
+					void lifecycleContext
+					return {
+						exports,
+						connect: () => {
+							;(() => {
+								events.push('connect')
+							})()
+						},
+					}
+				}),
+			],
 		})
 		const application = applicationFixture(
 			await createApplication({
@@ -279,21 +289,31 @@ describe('lazy schema targets', () => {
 			className: 'FailingSource',
 			fields: () => ({ target: targetField(() => missing) }),
 		})
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.target-failure',
-			setup: () => {
-				events.push('setup')
-			},
-			hooks: {
-				connect: () => {
-					events.push('connect')
-				},
-				dispose: () => {
-					events.push('dispose')
-				},
-			},
+			id: 'fixture.target-failure',
+			contributions: [
+				contributeApplication((context) => {
+					events.push('setup')
+					const exports = undefined
+					const lifecycleContext = { ...context, pluginExports: exports }
+					void lifecycleContext
+					return {
+						exports,
+						connect: () => {
+							;(() => {
+								events.push('connect')
+							})()
+						},
+						dispose: () => {
+							;(() => {
+								events.push('dispose')
+							})()
+						},
+					}
+				}),
+			],
 		})
 		const application = applicationFixture(
 			new FrameworkApplication({

@@ -1,7 +1,7 @@
 import {
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
-	definePlugin,
+	plugin,
 	provideCapability,
 	provideRuntimeBehavior,
 	Schema,
@@ -14,8 +14,8 @@ const unsupported = () => {
 	throw new TypeError('Mutation guard must reject before database preparation')
 }
 
-const behaviorPlugin = definePlugin({
-	capabilities: [
+const behaviorPlugin = plugin({
+	contributions: [
 		provideRuntimeBehavior({
 			contributionId: 'javascript-final-mutation-guard',
 			create: () => ({
@@ -29,18 +29,16 @@ const behaviorPlugin = definePlugin({
 		}),
 	],
 	core: '^0.0.0',
-	pluginId: 'fixture.javascript-final-mutation-guard',
-	privileges: [
-		{
-			name: 'runtime:intercept',
-			reason: 'Exercises the public JavaScript mutation guard protocol.',
-		},
-	],
+	id: 'fixture.javascript-final-mutation-guard',
+	permissions: {
+		'runtime:intercept':
+			'Exercises the public JavaScript mutation guard protocol.',
+	},
 	version: '1.0.0',
 })
 
-const databasePlugin = definePlugin({
-	capabilities: [
+const databasePlugin = plugin({
+	contributions: [
 		provideCapability(databaseAdapterCapability, {
 			contributionId: 'javascript-guard-database',
 			create: () => ({
@@ -68,7 +66,7 @@ const databasePlugin = definePlugin({
 		}),
 	],
 	core: '^0.0.0',
-	pluginId: 'fixture.javascript-guard-database',
+	id: 'fixture.javascript-guard-database',
 	version: '1.0.0',
 })
 

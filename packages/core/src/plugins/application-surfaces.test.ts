@@ -6,7 +6,9 @@ import { UltimaBase } from '../runtime/application/ultima-base.js'
 import { beforeOperation } from '../runtime/contributions/definitions.js'
 import { Schema } from '../schema/schema/definition.js'
 import { materializeSchemaModel } from '../schema/schema/model-materialization.js'
-import { definePlugin } from './definition.js'
+import { plugin as createPlugin } from './plugin.js'
+import { contributeDeclarations } from './plugin-contributions.js'
+
 import { defineOperation, defineOperationValue } from './plugin-operations.js'
 
 const snapshotMessage = defineOperationValue((value, path) => {
@@ -42,33 +44,30 @@ const createSurfacePlugin = (dynamicName: string) => {
 	})
 	return {
 		DynamicSchema,
-		plugin: definePlugin({
+		plugin: createPlugin({
 			core: '^0.0.0',
-			pluginId: `fixture.surface.${dynamicName.toLowerCase()}`,
-			privileges: [
-				{
-					name: 'schema:declare',
-					reason: 'Declares one configuration-dependent schema.',
-				},
-				{
-					name: 'model:extend',
-					reason: 'Adds schema and immutable model command aliases.',
-				},
-
-				{
-					name: 'operation:declare',
-					reason: 'Declares inert operation contracts.',
-				},
-			] as const,
-			version: '1.0.0',
-			declare: ({ operations, schemas }) => {
-				schemas.add({
-					contributionId: 'dynamic-schema',
-					schema: DynamicSchema,
-					staticOptions: { source: dynamicName },
-				})
-				operations.declare(applicationOperation)
+			id: `fixture.surface.${dynamicName.toLowerCase()}`,
+			permissions: {
+				'schema:declare': 'Declares one configuration-dependent schema.',
+				'operation:declare': 'Declares inert operation contracts.',
 			},
+			version: '1.0.0',
+			contributions: [
+				contributeDeclarations({
+					schema: ({ schemas }) => {
+						schemas.add({
+							contributionId: 'dynamic-schema',
+							schema: DynamicSchema,
+							staticOptions: { source: dynamicName },
+						})
+						return undefined
+					},
+					operations: ({ operations }) => {
+						operations.declare(applicationOperation)
+						return undefined
+					},
+				}),
+			],
 		}),
 	}
 }
@@ -157,20 +156,23 @@ describe('application-owned plugin surfaces', () => {
 			second.DynamicSchema,
 		)
 
-		const duplicate = definePlugin({
+		const duplicate = createPlugin({
 			core: '^0.0.0',
-			pluginId: 'fixture.duplicate-operation',
-			privileges: [
-				{
-					name: 'operation:declare',
-					reason: 'Exercises operation declaration conflicts.',
-				},
-			] as const,
-			version: '1.0.0',
-			declare: ({ operations }) => {
-				operations.declare(applicationOperation)
-				operations.declare(applicationOperation)
+			id: 'fixture.duplicate-operation',
+			permissions: {
+				'operation:declare': 'Exercises operation declaration conflicts.',
 			},
+			version: '1.0.0',
+			contributions: [
+				contributeDeclarations({
+					operations: ({ operations }) => {
+						operations.declare(applicationOperation)
+						operations.declare(applicationOperation)
+
+						return undefined
+					},
+				}),
+			],
 		})
 		const duplicateApplication = new UltimaBase({
 			pluginPrivileges: { logger: false },
@@ -187,34 +189,26 @@ describe('application-owned plugin surfaces', () => {
 			className: 'ApplicationSurfaceNoRuntimePrivilege',
 			fields: (field) => ({ title: field.string() }),
 		})
-		const plugin = definePlugin({
-			core: '^0.0.0',
-			pluginId: 'fixture.surface-no-runtime-privilege',
-			privileges: [
-				{ name: 'model:extend', reason: 'Declares one model surface.' },
-				{ name: 'operation:declare', reason: 'Declares its operation token.' },
-			] as const,
-			version: '1.0.0',
-
-			capabilities: [
-				provideTestRuntimeInterceptor(
-					'forged-interceptor',
-					beforeOperation({
-						handler: () => undefined,
-						operations: ['find-many'],
-						schema: LocalSchema,
-					}),
-				),
-			],
-		})
-
-		expect(
-			() =>
-				new UltimaBase({
-					pluginPrivileges: { logger: false },
-					plugins: [plugin],
-					schemas: [LocalSchema],
-				}),
-		).toThrow(expect.objectContaining({ code: 'PLUGIN_CAPABILITY_CONFLICT' }))
+		expect(() =>
+			createPlugin({
+				core: '^0.0.0',
+				id: 'fixture.surface-no-runtime-privilege',
+				permissions: {
+					'model:extend': 'Declares one model surface.',
+					'operation:declare': 'Declares its operation token.',
+				},
+				version: '1.0.0',
+				contributions: [
+					provideTestRuntimeInterceptor(
+						'forged-interceptor',
+						beforeOperation({
+							handler: () => undefined,
+							operations: ['find-many'],
+							schema: LocalSchema,
+						}),
+					),
+				],
+			}),
+		).toThrow('Unused plugin permission reason: model:extend')
 	})
 })

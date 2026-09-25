@@ -3,7 +3,8 @@ import { describe, expect, it } from 'vitest'
 
 import {
 	createApplication,
-	definePlugin,
+	plugin as createPlugin,
+	contributeDeclarations,
 	definePluginFieldType,
 	type PluginFieldTypeDefinition,
 } from '../../index.js'
@@ -25,20 +26,21 @@ describe('plugin field type declarations', () => {
 		const application = applicationFixture(
 			await createApplication({
 				plugins: [
-					definePlugin({
+					createPlugin({
 						core: '^0.0.0',
-						declare: ({ fields }) => {
-							fields.declareType(fieldType)
-							return undefined
+						id: 'fixture.secret-plugin',
+						permissions: {
+							'schema:declare': 'Declares a patch-only fixture field type.',
 						},
-						pluginId: 'fixture.secret-plugin',
-						privileges: [
-							{
-								name: 'schema:declare',
-								reason: 'Declares a patch-only fixture field type.',
-							},
-						],
 						version: '0.0.0',
+						contributions: [
+							contributeDeclarations({
+								schema: ({ fields }) => {
+									fields.declareType(fieldType)
+									return undefined
+								},
+							}),
+						],
 					}),
 				],
 				schemas: [],
@@ -80,20 +82,21 @@ describe('plugin field type declarations', () => {
 		)
 
 		const forged = validDefinition() as PluginFieldTypeDefinition
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			core: '^0.0.0',
-			declare: ({ fields }) => {
-				fields.declareType(forged)
-				return undefined
+			id: 'fixture.forged-field-type-plugin',
+			permissions: {
+				'schema:declare': 'Exercises forged declaration rejection.',
 			},
-			pluginId: 'fixture.forged-field-type-plugin',
-			privileges: [
-				{
-					name: 'schema:declare',
-					reason: 'Exercises forged declaration rejection.',
-				},
-			],
 			version: '0.0.0',
+			contributions: [
+				contributeDeclarations({
+					schema: ({ fields }) => {
+						fields.declareType(forged)
+						return undefined
+					},
+				}),
+			],
 		})
 
 		await expect(

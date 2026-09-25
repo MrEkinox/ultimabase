@@ -1,13 +1,11 @@
 import {
+	contributeApplication,
 	contributeOperation,
 	defineOperation,
 	defineOperationValue,
-	definePluginModule,
+	plugin,
 	defineTypegenReference,
-	type FrameworkPlugin,
 	type JsonObject,
-	type PluginModule,
-	type PluginModuleInstance,
 	type PluginExports,
 } from '@ultimabase/core'
 import { expectTypeOf } from 'vitest'
@@ -34,12 +32,6 @@ expectTypeOf(ratingOutput.kind).toEqualTypeOf<'community.rating'>()
 // @ts-expect-error -- Plugin-owned output descriptor kinds must be namespaced.
 defineOutputDescriptor('rating', { list: false, nullable: false }, Number)
 
-const module = definePluginModule({
-	core: '^2.0.0',
-	pluginId: 'community.workflow',
-	version: '1.4.0',
-})
-
 const contextualOption = definePluginFieldOption({
 	contexts: ['stored', 'embedded'],
 	normalize: (value: unknown) => String(value),
@@ -49,75 +41,32 @@ const contextualOption = definePluginFieldOption({
 expectTypeOf(contextualOption.contexts).toEqualTypeOf<
 	readonly ('stored' | 'embedded' | 'virtual' | 'output')[]
 >()
-expectTypeOf(module).toEqualTypeOf<
-	PluginModule<'community.workflow', '1.4.0', '^2.0.0'>
->()
-
-const plugin = module.plugin({
+const workflowPlugin = plugin({
+	id: 'community.workflow',
+	version: '1.4.0',
+	core: '^2.0.0',
 	instanceId: 'editorial',
 	peers: [{ pluginId: 'community.protocol', version: '^1.0.0' }] as const,
-	setup: () => ({ ready: true as const }),
+	contributions: [
+		contributeApplication(() => ({
+			exports: { ready: true as const },
+		})),
+	],
 })
-expectTypeOf(plugin).toExtend<
-	FrameworkPlugin<
-		'community.workflow',
-		Readonly<{ readonly ready: true }>,
-		undefined,
-		undefined,
-		undefined,
-		'editorial',
-		'1.4.0',
-		'^2.0.0',
-		undefined,
-		undefined,
-		undefined,
-		readonly [
-			{
-				readonly pluginId: 'community.protocol'
-				readonly version: '^1.0.0'
-			},
-		]
-	>
->()
+expectTypeOf(
+	workflowPlugin.manifest.identity.pluginId,
+).toEqualTypeOf<'community.workflow'>()
 
-type WorkflowPluginDefinition = Readonly<{
-	readonly capabilities: readonly []
-	readonly instanceId: 'editorial'
-	readonly peers: readonly [
-		Readonly<{
-			readonly pluginId: 'community.protocol'
-			readonly version: '^1.0.0'
-		}>,
-	]
-	readonly privileges: readonly [
-		Readonly<{
-			readonly name: 'runtime:observe'
-			readonly reason: 'Records workflow timing.'
-		}>,
-	]
-	readonly setup: () => Readonly<{ readonly ready: true }>
-}>
-type DerivedWorkflowPlugin = PluginModuleInstance<
-	typeof module,
-	WorkflowPluginDefinition
->
-const derivedWorkflowPlugin: DerivedWorkflowPlugin = module.plugin({
-	capabilities: [],
-	instanceId: 'editorial',
-	peers: [{ pluginId: 'community.protocol', version: '^1.0.0' }],
-	privileges: [{ name: 'runtime:observe', reason: 'Records workflow timing.' }],
-	setup: () => ({ ready: true as const }),
-})
-expectTypeOf(derivedWorkflowPlugin.manifest.identity.instanceId).toEqualTypeOf<
+expectTypeOf(workflowPlugin.manifest.identity.instanceId).toEqualTypeOf<
 	'editorial' | undefined
 >()
-expectTypeOf(
-	derivedWorkflowPlugin.manifest.capabilities.provides,
-).toEqualTypeOf<readonly []>()
-expectTypeOf(derivedWorkflowPlugin.peers?.[0]?.pluginId).toEqualTypeOf<
+expectTypeOf(workflowPlugin.manifest.capabilities.provides).toEqualTypeOf<
+	readonly []
+>()
+expectTypeOf(workflowPlugin.peers?.[0]?.pluginId).toEqualTypeOf<
 	'community.protocol' | undefined
 >()
-expectTypeOf<PluginExports<DerivedWorkflowPlugin>>().toEqualTypeOf<
+expectTypeOf<PluginExports<typeof workflowPlugin>>().toEqualTypeOf<
 	Readonly<{ readonly ready: true }>
 >()
 
@@ -202,9 +151,13 @@ contributeOperation({
 	operation,
 })
 
-module.plugin({
-	// @ts-expect-error -- Package facts cannot be replaced per instance.
+plugin({
+	// @ts-expect-error -- The canonical identity key is id.
 	pluginId: 'community.forged',
+	id: 'community.workflow',
+	version: '1.4.0',
+	core: '^2.0.0',
+	contributions: [],
 })
 contributeOperation({
 	// @ts-expect-error -- Handler results remain correlated with the operation token.

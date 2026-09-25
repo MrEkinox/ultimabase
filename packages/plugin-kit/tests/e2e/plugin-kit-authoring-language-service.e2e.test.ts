@@ -10,40 +10,29 @@ const fileName = path.join(
 )
 const source = `
 import {
-  definePluginModule,
+  contributeApplication,
+  plugin,
   type PluginExports,
-  type PluginModuleInstance,
 } from '@ultimabase/core'
 import { z } from 'zod'
 import {
   definePluginOptionsParser,
 } from '@ultimabase/plugin-kit'
 
-const module = definePluginModule({
-  pluginId: 'community.packed',
+const definition = plugin({
+  id: 'community.packed',
   version: '1.0.0',
   core: '^1.0.0',
-})
-type PackedDefinition = Readonly<{
-  readonly capabilities: readonly []
-  readonly instanceId: 'editorial'
-  readonly peers: readonly [{
-    readonly pluginId: 'community.protocol'
-    readonly version: '^1.0.0'
-  }]
-  readonly setup: () => Readonly<{ ready: true }>
-}>
-type PackedPlugin = PluginModuleInstance<typeof module, PackedDefinition>
-const plugin: PackedPlugin = module.plugin({
-  capabilities: [],
   instanceId: 'editorial',
   peers: [{ pluginId: 'community.protocol', version: '^1.0.0' }],
-  setup: () => ({ ready: true as const }),
+  contributions: [
+    contributeApplication(() => ({ exports: { ready: true as const } })),
+  ],
 })
-export const packedInstance = plugin.manifest.identity.instanceId
-export const packedCapabilities = plugin.manifest.capabilities.provides
-export const packedPeer = plugin.peers?.[0]?.pluginId
-declare const packedExports: PluginExports<PackedPlugin>
+export const packedInstance = definition.manifest.identity.instanceId
+export const packedCapabilities = definition.manifest.capabilities.provides
+export const packedPeer = definition.peers?.[0]?.pluginId
+declare const packedExports: PluginExports<typeof definition>
 export const packedReady = packedExports.ready
 
 const parseStandard = definePluginOptionsParser({

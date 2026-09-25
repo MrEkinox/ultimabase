@@ -1,4 +1,9 @@
-import { UltimaBase, definePlugin, requireCapability } from '@ultimabase/core'
+import {
+	UltimaBase,
+	plugin,
+	contributeApplication,
+	requireCapability,
+} from '@ultimabase/core'
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
 import {
 	httpApplicationCapability,
@@ -32,17 +37,14 @@ describe('application-owned HTTP identity and browser bootstrap', () => {
 			plugins: [
 				httpTestDatabasePlugin(),
 				httpPlugin({ appId: 'notes/team' }),
-				definePlugin({
-					pluginId: 'fixture.bootstrap',
+				plugin({
+					id: 'fixture.bootstrap',
 					version: '1.0.0',
 					core: '^0.0.0',
-					privileges: [
-						{
-							name: 'transport:expose',
-							reason: 'Expose fixture bootstrap and ordinary routes.',
-						},
-					],
-					capabilities: [
+					permissions: {
+						'transport:expose': 'Expose fixture bootstrap and ordinary routes.',
+					},
+					contributions: [
 						provideHttpEndpoints({
 							contributionId: 'routes',
 							create: () => [
@@ -60,10 +62,12 @@ describe('application-owned HTTP identity and browser bootstrap', () => {
 							],
 						}),
 						requirement,
+						contributeApplication(({ capabilities }) => {
+							http = capabilities.get(requirement)
+							const exports = undefined
+							return { exports }
+						}),
 					],
-					setup: ({ capabilities }) => {
-						http = capabilities.get(requirement)
-					},
 				}),
 			],
 		})

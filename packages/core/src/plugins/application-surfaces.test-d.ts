@@ -8,7 +8,8 @@ import type {
 } from '../application/application-handles.js'
 import { UltimaBase } from '../runtime/application/ultima-base.js'
 import { Schema } from '../schema/schema/definition.js'
-import { definePlugin } from './definition.js'
+import { plugin as createPlugin } from './plugin.js'
+import { contributeDeclarations } from './plugin-contributions.js'
 import {
 	defineOperation,
 	defineOperationValue,
@@ -38,16 +39,20 @@ const Post = Schema.define({
 	className: 'ApplicationSurfaceTypePost',
 	fields: (field) => ({ title: field.string() }),
 })
-const plugin = definePlugin({
+const plugin = createPlugin({
 	core: '^0.0.0',
-	pluginId: 'fixture.application-surface-types',
-	privileges: [
-		{ name: 'operation:declare', reason: 'Declares typed operations.' },
-	] as const,
+	id: 'fixture.application-surface-types',
+	permissions: { 'operation:declare': 'Declares typed operations.' },
 	version: '1.0.0',
-	declare: ({ operations }) => {
-		operations.declare(inspect)
-	},
+	contributions: [
+		contributeDeclarations({
+			operations: ({ operations }) => {
+				operations.declare(inspect)
+
+				return undefined
+			},
+		}),
+	],
 })
 
 test('preserves exact operation descriptors and bootstrap handles', () => {
@@ -89,19 +94,7 @@ test('preserves exact operation descriptors and bootstrap handles', () => {
 	).toEqualTypeOf<'UnknownAtBootstrap'>()
 })
 
-test('exposes declaration facades only for their exact privileges', () => {
-	definePlugin({
-		core: '^0.0.0',
-		pluginId: 'fixture.no-surface-privilege',
-		version: '1.0.0',
-		declare: (context) => {
-			expectTypeOf(context).not.toHaveProperty('models')
-			expectTypeOf(context).not.toHaveProperty('queries')
-			expectTypeOf(context).not.toHaveProperty('operations')
-			expectTypeOf(context).not.toHaveProperty('runtime')
-		},
-	})
-
+test('exposes declaration facades only through exact contributions', () => {
 	const detached = defineOperationValue((value: unknown) =>
 		immutableRecord({ value }),
 	)

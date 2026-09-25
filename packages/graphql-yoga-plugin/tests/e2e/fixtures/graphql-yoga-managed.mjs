@@ -5,10 +5,11 @@ import {
 	databasePersistencePlanCapability,
 	addSchemaField,
 	booleanField,
+	contributeDeclarations,
 	contributeSchemaMutation,
 	defineOperationTransport,
 	defineOperationValue,
-	definePlugin,
+	plugin,
 	provideCapability,
 	schemaMutationTransportBinding,
 	schemaMutationWireCodec,
@@ -85,11 +86,11 @@ class GraphqlYogaE2eDatabase {
 	}
 }
 
-const databasePlugin = definePlugin({
+const databasePlugin = plugin({
 	core: '^0.0.0',
-	pluginId: 'fixture.graphql-yoga-e2e-database',
+	id: 'fixture.graphql-yoga-e2e-database',
 	version: '1.0.0',
-	capabilities: [
+	contributions: [
 		provideCapability(databaseAdapterCapability, {
 			contributionId: 'database',
 			create: () => ({ value: new GraphqlYogaE2eDatabase() }),
@@ -147,8 +148,30 @@ const graphqlProtocol = defineOperationTransport({
 	name: 'ultimabase.graphql',
 	version: '1.0.0',
 })
-const workflowPlugin = definePlugin({
-	operations: [
+const workflowPlugin = plugin({
+	contributions: [
+		contributeDeclarations({
+			models: ({ models }) => {
+				models.extend(ManagedVirtual, {
+					contributionId: 'workflow-mutation',
+					schemaMutations: {
+						archive: { mutation: archiveMutation, surfaces: ['schema'] },
+					},
+				})
+			},
+			schema: ({ schemas }) => {
+				schemas.patch({
+					operations: [
+						addSchemaField({
+							contributionId: 'workflow-archived',
+							field: booleanField(),
+							name: 'workflowArchived',
+						}),
+					],
+					targets: schemas.select({ className: ManagedVirtual.className }),
+				})
+			},
+		}),
 		contributeSchemaMutation({
 			bindings: [
 				schemaMutationTransportBinding({
@@ -170,32 +193,14 @@ const workflowPlugin = definePlugin({
 		}),
 	],
 	core: '^0.0.0',
-	declare: ({ models, schemas }) => {
-		schemas.patch({
-			operations: [
-				addSchemaField({
-					contributionId: 'workflow-archived',
-					field: booleanField(),
-					name: 'workflowArchived',
-				}),
-			],
-			targets: schemas.select({ className: ManagedVirtual.className }),
-		})
-		models.extend(ManagedVirtual, {
-			contributionId: 'workflow-mutation',
-			schemaMutations: {
-				archive: { mutation: archiveMutation, surfaces: ['schema'] },
-			},
-		})
+	id: 'fixture.graphql-yoga-workflow',
+	permissions: {
+		'model:extend': 'Adds archive.',
+		'operation:declare': 'Declares archive.',
+		'persistence:rewrite': 'Persists archive.',
+		'schema:declare': 'Adds workflow state.',
+		'transport:expose': 'Binds GraphQL v1.',
 	},
-	pluginId: 'fixture.graphql-yoga-workflow',
-	privileges: [
-		{ name: 'model:extend', reason: 'Adds archive.' },
-		{ name: 'operation:declare', reason: 'Declares archive.' },
-		{ name: 'persistence:rewrite', reason: 'Persists archive.' },
-		{ name: 'schema:declare', reason: 'Adds workflow state.' },
-		{ name: 'transport:expose', reason: 'Binds GraphQL v1.' },
-	],
 	version: '1.0.0',
 })
 const schema = new GraphQLSchema({

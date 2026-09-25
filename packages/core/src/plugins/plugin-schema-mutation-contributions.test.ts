@@ -9,7 +9,7 @@ import {
 	schemaMutationTransportBinding,
 	schemaMutationWireCodec,
 } from '../runtime/schema-mutations/transport-capabilities.js'
-import { definePlugin } from './definition.js'
+import { plugin as createPlugin } from './plugin.js'
 import { defineOperation, defineOperationValue } from './plugin-operations.js'
 import {
 	contributeSchemaMutation,
@@ -47,15 +47,16 @@ describe('plugin schema-mutation contributions', () => {
 			mutation: archive,
 			resolve: () => ({ data: { workflowState: 'archived' } }),
 		})
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			core: '^0.0.0',
-			operations: [contribution],
-			pluginId: 'fixture.schema-mutation-contribution',
-			privileges: [
-				{ name: 'operation:declare', reason: 'Declares archive.' },
-				{ name: 'transport:expose', reason: 'Exposes archive.' },
-			] as const,
+			id: 'fixture.schema-mutation-contribution',
+			permissions: {
+				'operation:declare': 'Declares archive.',
+				'persistence:rewrite': 'Persists archive.',
+				'transport:expose': 'Exposes archive.',
+			},
 			version: '1.0.0',
+			contributions: [contribution],
 		})
 
 		expect(contribution).toStrictEqual({
@@ -91,15 +92,16 @@ describe('plugin schema-mutation contributions', () => {
 			mutation: archive,
 		})
 		const externalBinding = contributeSchemaMutationBinding(binding)
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			core: '^0.0.0',
-			operations: [resource, externalBinding],
-			pluginId: 'fixture.schema-mutation-resource',
-			privileges: [
-				{ name: 'operation:declare', reason: 'Declares archive.' },
-				{ name: 'transport:expose', reason: 'Exposes archive.' },
-			] as const,
+			id: 'fixture.schema-mutation-resource',
+			permissions: {
+				'operation:declare': 'Declares archive.',
+				'persistence:rewrite': 'Persists archive.',
+				'transport:expose': 'Exposes archive.',
+			},
 			version: '1.0.0',
+			contributions: [resource, externalBinding],
 		})
 
 		expect(plugin.manifest.capabilities.provides).toHaveLength(2)

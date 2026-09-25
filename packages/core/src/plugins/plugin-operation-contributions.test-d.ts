@@ -8,7 +8,7 @@ import {
 	defineOperation,
 	defineOperationTransport,
 	defineOperationValue,
-	definePluginModule,
+	plugin,
 	defineSchemaMutation,
 	operationTransportBinding,
 	operationWireCodec,
@@ -84,28 +84,23 @@ test('infers direct, resource-backed, and binding-only contributions', () => {
 })
 
 test('accepts operation contributions directly in the Core plugin factory', () => {
-	const module = definePluginModule({
+	const definition = plugin({
 		core: '^0.0.0',
-		pluginId: 'fixture.operation-module',
+		id: 'fixture.operation-module',
 		version: '1.0.0',
-	})
-	const plugin = module.plugin({
-		operations: [
+		contributions: [
 			contributeOperation({
 				execute: ({ input: operationInput }) => operationInput.length > 0,
 				operation: inspect,
 			}),
 		],
-		privileges: [
-			{
-				name: 'operation:declare',
-				reason: 'Declares the fixture operation.',
-			},
-		],
+		permissions: {
+			'operation:declare': 'Declares the fixture operation.',
+		},
 	})
 
 	expectTypeOf(
-		plugin.manifest.identity.pluginId,
+		definition.manifest.identity.pluginId,
 	).toEqualTypeOf<'fixture.operation-module'>()
 })
 

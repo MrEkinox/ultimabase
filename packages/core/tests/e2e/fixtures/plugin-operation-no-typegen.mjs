@@ -8,11 +8,12 @@ import {
 	UltimaBase,
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
+	contributeDeclarations,
 	contributeOperation,
 	defineOperation,
 	defineOperationTransport,
 	defineOperationValue,
-	definePlugin,
+	plugin,
 	defineSchemaOption,
 	operationTransportBinding,
 	operationWireCodec,
@@ -91,26 +92,28 @@ const codec = operationWireCodec({
 })
 const binding = operationTransportBinding({ codec, operation: inspect })
 const createOperationPlugin = () =>
-	definePlugin({
+	plugin({
 		core: '^0.0.0',
-		declare: ({ schemas }) => {
-			schemas.defineOptions({
-				contributionId: 'javascript-document-options',
-				schema: { document: opaqueDocumentOption },
-			})
-			schemas.patch({
-				operations: [
-					addSchemaField({
-						contributionId: 'javascript-document-state',
-						field: stringField(),
-						name: 'documentState',
-					}),
-				],
-				targets: schemas.select({ option: { name: 'document' } }),
-			})
-			schemas.add({ contributionId: 'dynamic-post', schema: DynamicPost })
-		},
-		operations: [
+		contributions: [
+			contributeDeclarations({
+				schema: ({ schemas }) => {
+					schemas.defineOptions({
+						contributionId: 'javascript-document-options',
+						schema: { document: opaqueDocumentOption },
+					})
+					schemas.patch({
+						operations: [
+							addSchemaField({
+								contributionId: 'javascript-document-state',
+								field: stringField(),
+								name: 'documentState',
+							}),
+						],
+						targets: schemas.select({ option: { name: 'document' } }),
+					})
+					schemas.add({ contributionId: 'dynamic-post', schema: DynamicPost })
+				},
+			}),
 			contributeOperation({
 				bindings: [binding],
 				execute: ({ input: value }) => {
@@ -129,15 +132,12 @@ const createOperationPlugin = () =>
 				operation: inspect,
 			}),
 		],
-		pluginId: 'fixture.javascript-operations',
-		privileges: [
-			{
-				name: 'schema:declare',
-				reason: 'Declares the dynamic JavaScript schema.',
-			},
-			{ name: 'operation:declare', reason: 'Declares the JavaScript fixture.' },
-			{ name: 'transport:expose', reason: 'Exposes the fake fixture binding.' },
-		],
+		id: 'fixture.javascript-operations',
+		permissions: {
+			'schema:declare': 'Declares the dynamic JavaScript schema.',
+			'operation:declare': 'Declares the JavaScript fixture.',
+			'transport:expose': 'Exposes the fake fixture binding.',
+		},
 		version: '1.0.0',
 	})
 const transaction = {
@@ -160,15 +160,15 @@ const adapter = {
 	beginTransaction: () => Promise.resolve(transaction),
 }
 const createDatabasePlugin = () =>
-	definePlugin({
-		capabilities: [
+	plugin({
+		contributions: [
 			provideCapability(databaseAdapterCapability, {
 				contributionId: 'adapter',
 				create: () => ({ value: adapter }),
 			}),
 		],
 		core: '^0.0.0',
-		pluginId: 'fixture.javascript-database',
+		id: 'fixture.javascript-database',
 		version: '1.0.0',
 	})
 const ultimabase = new UltimaBase({

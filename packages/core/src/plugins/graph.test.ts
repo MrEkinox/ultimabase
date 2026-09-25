@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
 import { FrameworkError } from '../errors/framework-error.js'
-import { definePlugin, type PluginDefinition } from './definition.js'
+import { type PluginDefinition } from './definition.js'
+import { plugin as createPlugin } from './plugin.js'
+import { contributeApplication } from './plugin-contributions.js'
+
 import { PluginGraph } from './graph.js'
 import { normalizePlugins, type NormalizedPlugin } from './normalization.js'
 import {
@@ -47,30 +50,39 @@ const normalize = (
 describe('PluginGraph', () => {
 	it('orders dependencies first and uses configuration position for ties', () => {
 		let setupCalls = 0
-		const base = definePlugin({
+		const base = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.base',
+			id: 'fixture.base',
+			contributions: [],
 		})
-		const firstConsumer = definePlugin({
+		const firstConsumer = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.first-consumer',
+			id: 'fixture.first-consumer',
 			dependencies: [{ pluginId: 'fixture.base', version: '^0.0.0' }],
-			setup: () => {
-				setupCalls += 1
-			},
+			contributions: [
+				contributeApplication((context) => {
+					setupCalls += 1
+					const exports = undefined
+					const lifecycleContext = { ...context, pluginExports: exports }
+					void lifecycleContext
+					return { exports }
+				}),
+			],
 		})
-		const secondConsumer = definePlugin({
+		const secondConsumer = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.second-consumer',
+			id: 'fixture.second-consumer',
 			dependencies: [{ pluginId: 'fixture.base', version: '^0.0.0' }],
+			contributions: [],
 		})
-		const independent = definePlugin({
+		const independent = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.independent',
+			id: 'fixture.independent',
+			contributions: [],
 		})
 		const normalized = normalize([
 			firstConsumer,
@@ -100,21 +112,23 @@ describe('PluginGraph', () => {
 	})
 
 	it('uses present optional dependencies and ignores absent ones', () => {
-		const cache = definePlugin({
+		const cache = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.cache',
+			id: 'fixture.cache',
+			contributions: [],
 		})
-		const consumer = definePlugin({
+		const consumer = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.consumer',
+			id: 'fixture.consumer',
 			dependencies: [{ pluginId: 'fixture.cache', version: '^0.0.0' }],
 			optionalDependencies: [
 				{ pluginId: 'fixture.cache', version: '^0.0.0' },
 				{ pluginId: 'fixture.telemetry', version: '^0.0.0' },
 			],
 			conflicts: ['fixture.absent-conflict'],
+			contributions: [],
 		})
 
 		const graph = new PluginGraph(normalize([consumer, cache]))
@@ -126,16 +140,18 @@ describe('PluginGraph', () => {
 	})
 
 	it('validates peers without adding an ordering edge', () => {
-		const protocol = definePlugin({
-			pluginId: 'fixture.protocol',
+		const protocol = createPlugin({
+			id: 'fixture.protocol',
 			version: '1.2.0',
 			core: '^0.0.0',
+			contributions: [],
 		})
-		const extension = definePlugin({
-			pluginId: 'fixture.extension',
+		const extension = createPlugin({
+			id: 'fixture.extension',
 			version: '1.0.0',
 			core: '^0.0.0',
 			peers: [{ pluginId: 'fixture.protocol', version: '^1.0.0' }],
+			contributions: [],
 		})
 
 		const graph = new PluginGraph(normalize([extension, protocol]))
@@ -147,21 +163,23 @@ describe('PluginGraph', () => {
 	})
 
 	it('rejects missing or incompatible peers', () => {
-		const missingPeer = definePlugin({
-			pluginId: 'fixture.extension',
+		const missingPeer = createPlugin({
+			id: 'fixture.extension',
 			version: '1.0.0',
 			core: '^0.0.0',
 			peers: [{ pluginId: 'fixture.protocol', version: '^1.0.0' }],
+			contributions: [],
 		})
 		const missingError = expectFrameworkError(
 			captureFrameworkError(() => new PluginGraph(normalize([missingPeer]))),
 		)
 		expect(missingError.code).toBe('PLUGIN_DEPENDENCY_MISSING')
 
-		const incompatibleProtocol = definePlugin({
-			pluginId: 'fixture.protocol',
+		const incompatibleProtocol = createPlugin({
+			id: 'fixture.protocol',
 			version: '2.0.0',
 			core: '^0.0.0',
+			contributions: [],
 		})
 		const incompatibleError = expectFrameworkError(
 			captureFrameworkError(
@@ -180,18 +198,18 @@ describe('PluginGraph', () => {
 			compose: (providers) => providers,
 		})
 		const extensions = optionalCapability(extensionToken, '^1.0.0')
-		const engine = definePlugin({
-			pluginId: 'fixture.peer-engine',
+		const engine = createPlugin({
+			id: 'fixture.peer-engine',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: [extensions],
+			contributions: [extensions],
 		})
-		const extension = definePlugin({
-			pluginId: 'fixture.peer-extension',
+		const extension = createPlugin({
+			id: 'fixture.peer-extension',
 			version: '1.0.0',
 			core: '^0.0.0',
 			peers: [{ pluginId: 'fixture.peer-engine', version: '^1.0.0' }],
-			capabilities: [
+			contributions: [
 				provideCapability(extensionToken, {
 					contributionId: 'extension',
 					create: () => ({ value: 'extension' }),
@@ -203,18 +221,19 @@ describe('PluginGraph', () => {
 			pluginIds(new PluginGraph(normalize([engine, extension]))),
 		).toStrictEqual(['fixture.peer-extension', 'fixture.peer-engine'])
 
-		const secondEngine = definePlugin({
-			pluginId: 'fixture.peer-engine',
+		const secondEngine = createPlugin({
+			id: 'fixture.peer-engine',
 			instanceId: 'secondary',
 			version: '1.0.0',
 			core: '^0.0.0',
+			contributions: [],
 		})
-		const exactEngine = definePlugin({
-			pluginId: 'fixture.peer-engine',
+		const exactEngine = createPlugin({
+			id: 'fixture.peer-engine',
 			instanceId: 'primary',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: [extensions],
+			contributions: [extensions],
 		})
 		const error = expectFrameworkError(
 			captureFrameworkError(
@@ -226,20 +245,22 @@ describe('PluginGraph', () => {
 	})
 
 	it('supports semantic ranges and exact repeated-plugin instances', () => {
-		const primary = definePlugin({
-			pluginId: 'fixture.cache',
+		const primary = createPlugin({
+			id: 'fixture.cache',
 			instanceId: 'primary',
 			version: '1.4.0',
 			core: '^0.0.0',
+			contributions: [],
 		})
-		const analytics = definePlugin({
-			pluginId: 'fixture.cache',
+		const analytics = createPlugin({
+			id: 'fixture.cache',
 			instanceId: 'analytics',
 			version: '2.0.0',
 			core: '^0.0.0',
+			contributions: [],
 		})
-		const consumer = definePlugin({
-			pluginId: 'fixture.consumer',
+		const consumer = createPlugin({
+			id: 'fixture.consumer',
 			version: '1.0.0',
 			core: '^0.0.0',
 			dependencies: [
@@ -249,6 +270,7 @@ describe('PluginGraph', () => {
 					version: '^1.0.0',
 				},
 			],
+			contributions: [],
 		})
 
 		expect(
@@ -257,16 +279,18 @@ describe('PluginGraph', () => {
 	})
 
 	it('rejects incompatible named dependency versions with protocol diagnostics', () => {
-		const cache = definePlugin({
-			pluginId: 'fixture.cache',
+		const cache = createPlugin({
+			id: 'fixture.cache',
 			version: '2.0.0',
 			core: '^0.0.0',
+			contributions: [],
 		})
-		const consumer = definePlugin({
-			pluginId: 'fixture.consumer',
+		const consumer = createPlugin({
+			id: 'fixture.consumer',
 			version: '1.0.0',
 			core: '^0.0.0',
 			dependencies: [{ pluginId: 'fixture.cache', version: '^1.0.0' }],
+			contributions: [],
 		})
 
 		const error = expectFrameworkError(
@@ -286,23 +310,26 @@ describe('PluginGraph', () => {
 	})
 
 	it('requires exact targeting when a named dependency has repeated instances', () => {
-		const primary = definePlugin({
-			pluginId: 'fixture.cache',
+		const primary = createPlugin({
+			id: 'fixture.cache',
 			instanceId: 'primary',
 			version: '1.0.0',
 			core: '^0.0.0',
+			contributions: [],
 		})
-		const secondary = definePlugin({
-			pluginId: 'fixture.cache',
+		const secondary = createPlugin({
+			id: 'fixture.cache',
 			instanceId: 'secondary',
 			version: '1.0.0',
 			core: '^0.0.0',
+			contributions: [],
 		})
-		const consumer = definePlugin({
-			pluginId: 'fixture.consumer',
+		const consumer = createPlugin({
+			id: 'fixture.consumer',
 			version: '1.0.0',
 			core: '^0.0.0',
 			dependencies: [{ pluginId: 'fixture.cache', version: '^1.0.0' }],
+			contributions: [],
 		})
 
 		const error = expectFrameworkError(
@@ -320,15 +347,17 @@ describe('PluginGraph', () => {
 	})
 
 	it('uses input order when separately normalized positions are equal', () => {
-		const first = definePlugin({
+		const first = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.first',
+			id: 'fixture.first',
+			contributions: [],
 		})
-		const second = definePlugin({
+		const second = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.second',
+			id: 'fixture.second',
+			contributions: [],
 		})
 		const separatelyNormalized = [...normalize([first]), ...normalize([second])]
 
@@ -339,11 +368,12 @@ describe('PluginGraph', () => {
 	})
 
 	it('rejects a missing required dependency', () => {
-		const consumer = definePlugin({
+		const consumer = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.consumer',
+			id: 'fixture.consumer',
 			dependencies: [{ pluginId: 'fixture.database', version: '^0.0.0' }],
+			contributions: [],
 		})
 
 		const error = expectFrameworkError(
@@ -358,16 +388,18 @@ describe('PluginGraph', () => {
 	})
 
 	it('rejects explicit plugin conflicts', () => {
-		const database = definePlugin({
+		const database = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.database',
+			id: 'fixture.database',
 			conflicts: ['fixture.other-database'],
+			contributions: [],
 		})
-		const otherDatabase = definePlugin({
+		const otherDatabase = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.other-database',
+			id: 'fixture.other-database',
+			contributions: [],
 		})
 
 		const error = expectFrameworkError(
@@ -384,10 +416,11 @@ describe('PluginGraph', () => {
 	})
 
 	it('rejects repeated normalized entries', () => {
-		const plugin = definePlugin({
+		const plugin = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.plugin',
+			id: 'fixture.plugin',
+			contributions: [],
 		})
 		// One declared plugin always produces one normalized entry.
 		const [normalizedPlugin] = normalize([plugin]) as readonly [
@@ -408,15 +441,17 @@ describe('PluginGraph', () => {
 	})
 
 	it('composes unrelated plugins without implicit string slots', () => {
-		const postgres = definePlugin({
+		const postgres = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.postgres',
+			id: 'fixture.postgres',
+			contributions: [],
 		})
-		const sql = definePlugin({
+		const sql = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.sql',
+			id: 'fixture.sql',
+			contributions: [],
 		})
 
 		const graph = new PluginGraph([
@@ -431,31 +466,35 @@ describe('PluginGraph', () => {
 	})
 
 	it('reports a deterministic dependency cycle path', () => {
-		const first = definePlugin({
+		const first = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.first',
+			id: 'fixture.first',
 			dependencies: [
 				{ pluginId: 'fixture.resolved', version: '^0.0.0' },
 				{ pluginId: 'fixture.second', version: '^0.0.0' },
 			],
+			contributions: [],
 		})
-		const second = definePlugin({
+		const second = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.second',
+			id: 'fixture.second',
 			dependencies: [{ pluginId: 'fixture.third', version: '^0.0.0' }],
+			contributions: [],
 		})
-		const third = definePlugin({
+		const third = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.third',
+			id: 'fixture.third',
 			dependencies: [{ pluginId: 'fixture.first', version: '^0.0.0' }],
+			contributions: [],
 		})
-		const resolved = definePlugin({
+		const resolved = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.resolved',
+			id: 'fixture.resolved',
+			contributions: [],
 		})
 
 		const error = expectFrameworkError(
@@ -481,10 +520,11 @@ describe('PluginGraph', () => {
 			new PluginGraph('fixture')
 		}).toThrow(new TypeError('plugins must be an array'))
 
-		const definition = definePlugin({
+		const definition = createPlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
-			pluginId: 'fixture.forged',
+			id: 'fixture.forged',
+			contributions: [],
 		})
 
 		expect(() => {

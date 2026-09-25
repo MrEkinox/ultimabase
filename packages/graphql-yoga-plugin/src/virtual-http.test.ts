@@ -5,7 +5,7 @@ import {
 	UltimaBase,
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
-	definePlugin,
+	plugin,
 	provideCapability,
 	type DatabaseAdapter,
 	type DatabaseOperationAst,
@@ -109,11 +109,11 @@ class VirtualYogaDatabase implements DatabaseAdapter {
 	}
 }
 
-const databasePlugin = definePlugin({
+const databasePlugin = plugin({
 	core: '^0.0.0',
-	pluginId: 'fixture.graphql-yoga-virtual-database',
+	id: 'fixture.graphql-yoga-virtual-database',
 	version: '1.0.0',
-	capabilities: [
+	contributions: [
 		provideCapability(databaseAdapterCapability, {
 			contributionId: 'database',
 			create: () => ({ value: new VirtualYogaDatabase() }),
@@ -121,11 +121,11 @@ const databasePlugin = definePlugin({
 	],
 })
 
-const contextPlugin = definePlugin({
+const contextPlugin = plugin({
 	core: '^0.0.0',
-	pluginId: 'fixture.graphql-yoga-virtual-context',
+	id: 'fixture.graphql-yoga-virtual-context',
 	version: '1.0.0',
-	capabilities: [
+	contributions: [
 		provideHttpContextResolvers({
 			contributionId: 'viewer',
 			create: () =>

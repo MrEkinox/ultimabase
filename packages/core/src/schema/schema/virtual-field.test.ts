@@ -3,7 +3,8 @@ import { describe, expect, it } from 'vitest'
 import {
 	createApplication,
 	defineFieldBuilderMethod,
-	definePlugin,
+	plugin as createPlugin,
+	contributeDeclarations,
 	definePluginOutputDescriptor,
 	type OutputBuilder,
 } from '../../index.js'
@@ -62,19 +63,20 @@ describe('virtual schema fields', () => {
 			},
 		})
 		const plugin = () =>
-			definePlugin({
+			createPlugin({
 				core: '^0.0.0',
-				declare: ({ fields }) => {
-					fields.register(method)
-				},
-				pluginId: 'fixture.virtual-slug-plugin',
-				privileges: [
-					{
-						name: 'schema:declare',
-						reason: 'Declares a fixture virtual output.',
-					},
-				],
+				id: 'fixture.virtual-slug-plugin',
+				permissions: { 'schema:declare': 'Declares a fixture virtual output.' },
 				version: '1.0.0',
+				contributions: [
+					contributeDeclarations({
+						schema: ({ fields }) => {
+							fields.register(method)
+
+							return undefined
+						},
+					}),
+				],
 			})
 		const Shared = Schema.define({
 			className: 'SharedPluginVirtual',

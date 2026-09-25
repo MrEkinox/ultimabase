@@ -1,4 +1,8 @@
-import { definePlugin, requireCapability } from '@ultimabase/core'
+import {
+	plugin,
+	contributeApplication,
+	requireCapability,
+} from '@ultimabase/core'
 import {
 	createPluginConformanceFixture,
 	definePluginConformanceSuite,
@@ -21,14 +25,12 @@ const applicationRequirement = requireCapability(
 )
 
 const createFixture = () => {
-	const routes = definePlugin({
-		pluginId: 'fixture.http-conformance-routes',
+	const routes = plugin({
+		id: 'fixture.http-conformance-routes',
 		version: '1.0.0',
 		core: '^0.0.0',
-		privileges: [
-			{ name: 'transport:expose', reason: 'Exposes the conformance route.' },
-		],
-		capabilities: [
+		permissions: { 'transport:expose': 'Exposes the conformance route.' },
+		contributions: [
 			provideHttpEndpoints({
 				contributionId: 'conformance-route',
 				create: () =>
@@ -41,14 +43,18 @@ const createFixture = () => {
 			}),
 		],
 	})
-	const server = definePlugin({
-		pluginId: 'fixture.http-conformance-server',
+	const server = plugin({
+		id: 'fixture.http-conformance-server',
 		version: '1.0.0',
 		core: '^0.0.0',
-		capabilities: [applicationRequirement],
-		setup: ({ capabilities }) => ({
-			http: capabilities.get(applicationRequirement),
-		}),
+		contributions: [
+			applicationRequirement,
+			contributeApplication(({ capabilities }) => ({
+				exports: {
+					http: capabilities.get(applicationRequirement),
+				},
+			})),
+		],
 	})
 
 	return createPluginConformanceFixture({

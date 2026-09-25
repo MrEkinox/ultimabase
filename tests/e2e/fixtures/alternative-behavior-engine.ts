@@ -1,12 +1,15 @@
 import {
 	Schema,
+	contributeApplication,
+	contributeDeclarations,
 	defineCapability,
-	definePluginModule,
 	defineSchemaOption,
 	getOperationSchema,
 	provideCapability,
 	provideRuntimeBehavior,
+	plugin as createPlugin,
 	requireCapability,
+	withPluginPrivileges,
 	type CompiledSchemaRegistry,
 	type JsonObject,
 	type OperationKind,
@@ -86,12 +89,6 @@ const runtimeStateCapability =
 		compose: ([state]) => state,
 	})
 const runtimeState = requireCapability(runtimeStateCapability, '^1.0.0')
-
-const alternativeModule = definePluginModule({
-	core: '^0.0.0',
-	pluginId: alternativeBehaviorPluginId,
-	version: '1.0.0',
-})
 
 const mutationKinds: ReadonlySet<OperationKind> = new Set([
 	'create-many',
@@ -255,45 +252,46 @@ export const createAlternativeBehaviorEngine = (
 			})
 		},
 	})
-	const plugin = alternativeModule.plugin({
+	const plugin = createPlugin({
+		core: '^0.0.0',
+		id: alternativeBehaviorPluginId,
+		version: '1.0.0',
 		...(options.instanceId === undefined
 			? {}
 			: { instanceId: options.instanceId }),
-		capabilities: [
+		contributions: [
 			stateProvider,
-			behaviorProvider,
+			withPluginPrivileges(behaviorProvider, ['event:publish']),
 			runtimeState,
 			optionalDiagnostics,
+			contributeDeclarations({
+				schema: ({ schemas }) => {
+					schemas.defineOptions({
+						contributionId: 'alternative-behavior-option',
+						schema: {
+							alternativeBehavior: alternativeBehaviorSchemaOption,
+						},
+					})
+					schemas.add({
+						contributionId: 'audit-schema',
+						schema: Audit,
+						staticOptions: { instanceId: options.instanceId ?? 'default' },
+					})
+				},
+			}),
+			contributeApplication(({ capabilities }) => {
+				const state = capabilities.get(runtimeState)
+				return {
+					exports: immutableRecord({ diagnostics: () => state.snapshot() }),
+				}
+			}),
 		],
-		declare: ({ schemas }) => {
-			schemas.defineOptions({
-				contributionId: 'alternative-behavior-option',
-				schema: { alternativeBehavior: alternativeBehaviorSchemaOption },
-			})
-			schemas.add({
-				contributionId: 'audit-schema',
-				schema: Audit,
-				staticOptions: { instanceId: options.instanceId ?? 'default' },
-			})
-		},
-		privileges: [
-			{
-				name: 'schema:declare',
-				reason:
-					'Declares the alternative behavior schema option and audit schema.',
-			},
-			{
-				name: 'runtime:intercept',
-				reason: 'Runs the independent declarative behavior lifecycle.',
-			},
-			{
-				name: 'event:publish',
-				reason: 'Publishes committed alternative behavior diagnostics.',
-			},
-		],
-		setup: ({ capabilities }) => {
-			const state = capabilities.get(runtimeState)
-			return immutableRecord({ diagnostics: () => state.snapshot() })
+		permissions: {
+			'schema:declare':
+				'Declares the alternative behavior schema option and audit schema.',
+			'runtime:intercept':
+				'Runs the independent declarative behavior lifecycle.',
+			'event:publish': 'Publishes committed alternative behavior diagnostics.',
 		},
 	})
 
@@ -307,37 +305,32 @@ export const createAlternativeBehaviorDiagnosticObserver = (
 		AlternativeBehaviorDiagnosticPayload
 	>,
 ) =>
-	definePluginModule({
+	createPlugin({
 		core: '^0.0.0',
-		pluginId: 'fixture.alternative-behavior-diagnostic-observer',
+		id: 'fixture.alternative-behavior-diagnostic-observer',
 		version: '1.0.0',
-	}).plugin({
 		peers: [{ pluginId: alternativeBehaviorPluginId, version: '^1.0.0' }],
-		capabilities: [
+		contributions: [
 			providePluginEvent(
 				alternativeBehaviorDiagnosticCapability,
 				'committed-diagnostics',
 				observePluginEvent(alternativeBehaviorDiagnosticEvent, handler),
 			),
 		],
-		privileges: [
-			{
-				name: 'runtime:observe',
-				reason: 'Observes committed alternative behavior diagnostics.',
-			},
-		],
+		permissions: {
+			'runtime:observe': 'Observes committed alternative behavior diagnostics.',
+		},
 	})
 
 /** Proves generic middleware can compose with no lifecycle engine at all. */
 export const createSharedRuntimeMiddleware = (
 	onResult: (schema: string) => void,
 ) =>
-	definePluginModule({
+	createPlugin({
 		core: '^0.0.0',
-		pluginId: 'fixture.shared-runtime-middleware',
+		id: 'fixture.shared-runtime-middleware',
 		version: '1.0.0',
-	}).plugin({
-		capabilities: [
+		contributions: [
 			provideRuntimeBehavior({
 				contributionId: 'result-observer',
 				create: () => ({
@@ -351,10 +344,8 @@ export const createSharedRuntimeMiddleware = (
 				}),
 			}),
 		],
-		privileges: [
-			{
-				name: 'runtime:intercept',
-				reason: 'Observes results through the shared low-level boundary.',
-			},
-		],
+		permissions: {
+			'runtime:intercept':
+				'Observes results through the shared low-level boundary.',
+		},
 	})
