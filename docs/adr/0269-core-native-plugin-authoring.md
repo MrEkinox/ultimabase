@@ -41,10 +41,10 @@ Application operations become first-class owned contributions. One contribution
 correlates the operation token with its direct or resource-backed handler and
 optional nominal transport bindings. Core derives the private handler and
 binding providers, operation declaration, deterministic identities, and
-reachable Typegen references. A transport plugin may still contribute a
-binding for another owner's operation through a binding-only contribution.
-Bindings never imply public exposure: the application must continue to select
-the exact operation for each transport.
+reachable Typegen references. The exact operation owner may still contribute a
+binding separately from its handler through a binding-only contribution.
+Foreign binding owners remain invalid. Bindings never imply public exposure:
+the application must continue to select the exact operation for each transport.
 
 Core derives a contribution identifier when exact owner plus nominal identity
 already makes the contribution unique. An explicit identifier remains required

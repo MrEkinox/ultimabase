@@ -446,10 +446,34 @@ const publishPost = defineOperation({
 	input: defineOperationValue(snapshotPublishInput),
 	result: defineOperationValue(snapshotPublishResult),
 })
+
+const workflow = definePluginModule({
+	core: '^0.0.0',
+	pluginId: 'community.workflow',
+	version: '1.0.0',
+})
+
+export const workflowPlugin = () =>
+	workflow.plugin({
+		operations: [
+			contributeOperation({
+				execute: ({ input }) => publish(input),
+				operation: publishPost,
+			}),
+		],
+		privileges: [
+			{
+				name: 'operation:declare',
+				reason: 'Declares the publish operation.',
+			},
+		],
+	})
 ```
 
-`operation:declare` exposes the static operation registrar. Declare the token
-under its handler's exact plugin owner, then call
+`contributeOperation()` correlates the token, direct or resource-backed handler,
+and optional wire bindings. Core derives the static registrar call, nominal
+capability providers, owner-local identifiers, and deterministic cleanup.
+`operation:declare` remains explicit and required. Then call
 `ultimabase.operation(publishPost).execute(input)`. Generic operations target
 the application. Item-specific commands use the schema-mutation contract below.
 
@@ -462,8 +486,8 @@ checks. Transports continue to use their narrow request-execution capability.
 
 `prepare()` validates one immutable logical envelope without I/O; `execute()`
 enters the active `RequestEngine`, enforces cancellation and transaction policy,
-invokes the exact owner handler, and validates the result. Handlers are separate
-application capability contributions and may throw only declared `PluginError`
+invokes the exact owner handler, and validates the result. The compiled handler
+remains a separate application capability internally and may throw only declared `PluginError`
 codes as public domain failures. Codes use either a namespaced lowercase form
 such as `community.workflow.rejected` or a stable constant identifier such as
 `PASSWORD_AUTH_INVALID_SESSION`:

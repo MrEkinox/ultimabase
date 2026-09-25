@@ -7,7 +7,7 @@ contentType: guide
 outcome: Declare executable plugin behavior and choose its exact public transport surface.
 owner: '2810'
 releaseStatus: pre-release
-reviewedAt: 2026-09-21
+reviewedAt: 2026-09-25
 sources:
   - packages/core/README.md
   - packages/plugin-kit/README.md
@@ -18,6 +18,7 @@ sources:
   - packages/soft-delete-plugin/src/explicit.ts
   - docs/adr/0240-static-operation-transport-planning.md
   - docs/adr/0261-command-compilation-and-binding-phases.md
+  - docs/adr/0269-core-native-plugin-authoring.md
   - packages/core/src/runtime/application/application-schema-mutation-transport-planning.test.ts
   - docs/adr/0256-rest-operation-public-paths.md
 ---
@@ -40,10 +41,10 @@ its TypeScript types, and publishing it on a transport are separate decisions.
 
 ## Pick the executable surface
 
-| Requirement            | Declare                                                                 | Implement                                                              | Expose                                                           |
-| ---------------------- | ----------------------------------------------------------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| App-wide command       | `defineOperation({ target: 'application' })` and `operations.declare()` | `provideOperationHandler()` or Plugin Kit's `providePluginOperation()` | Optional exact GraphQL or REST binding and application allowlist |
-| Item-oriented mutation | `defineSchemaMutation()` plus `models.extend({ schemaMutations })`      | `provideSchemaMutationHandler()`                                       | Optional separate schema-mutation binding for REST or GraphQL    |
+| Requirement            | Declare                                                            | Implement                  | Expose                                                           |
+| ---------------------- | ------------------------------------------------------------------ | -------------------------- | ---------------------------------------------------------------- |
+| App-wide command       | `defineOperation({ target: 'application' })`                       | `contributeOperation()`    | Optional exact GraphQL or REST binding and application allowlist |
+| Item-oriented mutation | `defineSchemaMutation()` plus `models.extend({ schemaMutations })` | Schema-mutation capability | Optional separate schema-mutation binding for REST or GraphQL    |
 
 `operation:declare` covers both token kinds. `model:extend` attaches
 schema-mutation methods to schema and model handles. Every command uses an exact namespaced name and semantic version.
@@ -61,12 +62,11 @@ created. Keep resource cleanup in the provider's `dispose` callback.
 ## Declare and implement an operation
 
 Here is one complete, intentionally simple app-wide operation. It has no
-database work, so it forbids a transaction. Plugin Kit only shortens the
-handler provider wrapper; Core still owns execution and validation:
+database work, so it forbids a transaction. The token stays independently
+exportable; its Core contribution correlates declaration and execution:
 
 ```ts title="src/operations.ts"
 import { defineOperation, defineOperationValue } from '@ultimabase/core'
-import { providePluginOperation } from '@ultimabase/plugin-kit'
 
 const text = defineOperationValue((value, path): string => {
 	if (typeof value !== 'string') {
@@ -83,31 +83,34 @@ export const formatWorkflow = defineOperation({
 	transaction: 'forbidden',
 	version: '1.0.0',
 })
-
-export const formatHandler = providePluginOperation({
-	contributionId: 'format-handler',
-	execute: ({ input }) => input.trim(),
-	operation: formatWorkflow,
-})
 ```
 
-Install the token and its handler under one plugin owner:
+Install the token and its handler under one plugin owner. Core derives the
+static declaration, handler provider, owner-local identifier, and lifecycle
+resource boundary:
 
 ```ts title="src/plugin.ts"
-import { definePlugin } from '@ultimabase/core'
+import { contributeOperation, definePluginModule } from '@ultimabase/core'
 
-import { formatHandler, formatWorkflow } from './operations.js'
+import { formatWorkflow } from './operations.js'
+
+const workflow = definePluginModule({
+	core: '^1.0.0',
+	pluginId: 'community.workflow',
+	version: '1.0.0',
+})
 
 export const workflowPlugin = () =>
-	definePlugin({
-		capabilities: { provides: [formatHandler] },
-		core: '^1.0.0',
-		declare: ({ operations }) => operations.declare(formatWorkflow),
-		pluginId: 'community.workflow',
+	workflow.plugin({
+		operations: [
+			contributeOperation({
+				execute: ({ input }) => input.trim(),
+				operation: formatWorkflow,
+			}),
+		],
 		privileges: [
 			{ name: 'operation:declare', reason: 'Declares formatWorkflow.' },
 		] as const,
-		version: '1.0.0',
 	})
 ```
 
@@ -154,7 +157,6 @@ import {
 	defineOperationTransport,
 	operationTransportBinding,
 	operationWireCodec,
-	provideOperationTransportBinding,
 } from '@ultimabase/core'
 
 import { formatWorkflow } from './operations.js'
@@ -164,34 +166,29 @@ const graphqlOperations = defineOperationTransport({
 	version: '1.0.0',
 })
 
-export const formatGraphqlBinding = provideOperationTransportBinding({
-	contributionId: 'format-graphql',
-	create: () => ({
-		value: operationTransportBinding({
-			codec: operationWireCodec({
-				decode: (value: unknown) =>
-					formatWorkflow.input.snapshot(value, 'formatWorkflow input'),
-				encode: (value) => value,
-				operation: formatWorkflow,
-				transport: graphqlOperations,
-			}),
-			metadata: {
-				field: 'formatWorkflow',
-				input: {
-					kind: 'non-null',
-					ofType: { kind: 'named', name: 'String' },
-				},
-				kind: 'graphql-operation-binding',
-				result: {
-					kind: 'non-null',
-					ofType: { kind: 'named', name: 'String' },
-				},
-				root: 'query',
-				types: [],
-			},
-			operation: formatWorkflow,
-		}),
+export const formatGraphqlBinding = operationTransportBinding({
+	codec: operationWireCodec({
+		decode: (value: unknown) =>
+			formatWorkflow.input.snapshot(value, 'formatWorkflow input'),
+		encode: (value) => value,
+		operation: formatWorkflow,
+		transport: graphqlOperations,
 	}),
+	metadata: {
+		field: 'formatWorkflow',
+		input: {
+			kind: 'non-null',
+			ofType: { kind: 'named', name: 'String' },
+		},
+		kind: 'graphql-operation-binding',
+		result: {
+			kind: 'non-null',
+			ofType: { kind: 'named', name: 'String' },
+		},
+		root: 'query',
+		types: [],
+	},
+	operation: formatWorkflow,
 })
 ```
 
@@ -199,19 +196,26 @@ Replace the previous plugin definition with the version that installs both
 providers under the same owner and requests the additional privilege:
 
 ```ts title="src/plugin.ts"
-import { definePlugin } from '@ultimabase/core'
+import { contributeOperation, definePluginModule } from '@ultimabase/core'
 
 import { formatGraphqlBinding } from './graphql-binding.js'
-import { formatHandler, formatWorkflow } from './operations.js'
+import { formatWorkflow } from './operations.js'
+
+const workflow = definePluginModule({
+	core: '^1.0.0',
+	pluginId: 'community.workflow',
+	version: '1.0.0',
+})
 
 export const workflowPlugin = () =>
-	definePlugin({
-		capabilities: {
-			provides: [formatHandler, formatGraphqlBinding],
-		},
-		core: '^1.0.0',
-		declare: ({ operations }) => operations.declare(formatWorkflow),
-		pluginId: 'community.workflow',
+	workflow.plugin({
+		operations: [
+			contributeOperation({
+				bindings: [formatGraphqlBinding],
+				execute: ({ input }) => input.trim(),
+				operation: formatWorkflow,
+			}),
+		],
 		privileges: [
 			{ name: 'operation:declare', reason: 'Declares formatWorkflow.' },
 			{
@@ -219,9 +223,14 @@ export const workflowPlugin = () =>
 				reason: 'Exposes formatWorkflow in GraphQL.',
 			},
 		] as const,
-		version: '1.0.0',
 	})
 ```
+
+The operation owner can instead add
+`contributeOperationBinding(formatGraphqlBinding)` separately to the same
+plugin's `operations` list. This keeps handler and transport modules separate
+without weakening exact ownership; a foreign plugin cannot publish the
+operation. The binding still requires `transport:expose`.
 
 The package root should re-export `workflowPlugin` and `formatWorkflow`.
 In the application, install the plugin and explicitly select the operation:

@@ -41,6 +41,20 @@ export type {
 	PluginModuleInstance,
 } from './plugins/plugin-module.js'
 export {
+	contributeOperation,
+	contributeOperationBinding,
+} from './plugins/plugin-operation-contributions.js'
+export type {
+	DirectPluginOperationContributionOptions,
+	PluginOperationAuthoringContribution,
+	PluginOperationBindingContribution,
+	PluginOperationContribution,
+	PluginOperationContributionCapabilities,
+	PluginOperationContributionOptions,
+	PluginOperationHandlerResource,
+	ResourcePluginOperationContributionOptions,
+} from './plugins/plugin-operation-contributions.js'
+export {
 	defineOperation,
 	defineOperationValue,
 	isPluginOperationDefinition,
@@ -100,6 +114,7 @@ export type {
 	DefineCapabilityFactory,
 	DefineCapabilityOptions,
 	PluginCapabilityDeclarationOptions,
+	PluginCapabilityDeclaration,
 	PluginCapabilityDeclarations,
 	PluginCapabilityReader,
 } from './plugins/capabilities.js'

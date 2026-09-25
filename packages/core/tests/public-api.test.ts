@@ -71,6 +71,8 @@ describe('@ultimabase/core public entry point', () => {
 			'collectRecordFieldValues',
 			'compileValidationPlans',
 			'constraint',
+			'contributeOperation',
+			'contributeOperationBinding',
 			'createApplication',
 			'createDatabasePersistencePlan',
 			'createFinalMutationValidationStage',

@@ -7,8 +7,7 @@ import {
 	provideRuntimeBehavior,
 	requestPrincipalResolverCapability,
 	requireCapability,
-	type CapabilityProviderDeclaration,
-	type CapabilityRequirement,
+	type PluginCapabilityDeclaration,
 	type CreateManyOperationAst,
 	type CreateOneOperationAst,
 	type DatabaseMutationOperationAst,
@@ -113,10 +112,7 @@ const requestExecutionRequirement = requireCapability(
 )
 
 type PasswordAuthPluginDefinition = Readonly<{
-	readonly capabilities: Readonly<{
-		readonly provides: readonly CapabilityProviderDeclaration[]
-		readonly requires: readonly CapabilityRequirement[]
-	}>
+	readonly capabilities: readonly PluginCapabilityDeclaration[]
 	readonly environment: typeof passwordAuthPluginEnvironment
 	readonly peers: readonly [] | typeof passwordAuthHttpPeers
 	readonly privileges: typeof passwordAuthPluginPrivileges
@@ -297,17 +293,15 @@ export const passwordAuthPlugin = <
 	]
 
 	return passwordAuthPluginModule.plugin({
-		capabilities: {
-			provides: [
-				usernameInvariant,
-				principalResolver,
-				httpSessionResolver,
-				...handlerProviders,
-				...bindingProviders,
-				...(httpCookieIntegration?.providers ?? []),
-			],
-			requires: [requestExecutionRequirement],
-		},
+		capabilities: [
+			usernameInvariant,
+			principalResolver,
+			httpSessionResolver,
+			...handlerProviders,
+			...bindingProviders,
+			...(httpCookieIntegration?.providers ?? []),
+			requestExecutionRequirement,
+		],
 		environment: passwordAuthPluginEnvironment,
 		peers: cookie === undefined ? [] : passwordAuthHttpPeers,
 		privileges: passwordAuthPluginPrivileges,

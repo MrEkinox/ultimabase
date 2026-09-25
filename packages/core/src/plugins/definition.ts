@@ -8,6 +8,7 @@ import {
 } from '@ultimabase/shared'
 import { validRange } from 'semver'
 
+import type { PluginOperationDeclarationRegistrar } from './application-surface-declarations.js'
 import type {
 	NormalizedPluginCapabilityDeclarations,
 	PluginCapabilityDeclarationOptions,
@@ -17,6 +18,13 @@ import type {
 	PluginDeclarationContext,
 } from './declaration-host.js'
 import type { PluginSetupContext } from './setup-registries.js'
+import {
+	compilePluginOperationContributions,
+	mergePluginOperationCapabilities,
+	type PluginOperationAuthoringContribution,
+	type PluginOperationContributionCapabilities,
+} from './plugin-operation-contributions.js'
+import type { PluginOperationDefinition } from './plugin-operations.js'
 import {
 	assertPluginId,
 	formatPluginIdentity,
@@ -65,6 +73,7 @@ export type PluginLifecyclePhase = keyof PluginLifecycleHooks<unknown>
 
 interface PluginStaticDefinition {
 	readonly declare: PluginDeclaration | undefined
+	readonly operations: readonly PluginOperationDefinition[]
 }
 
 interface PluginRuntimeDefinition {
@@ -74,6 +83,14 @@ interface PluginRuntimeDefinition {
 		context: PluginLifecycleContext<unknown>,
 	): MaybePromise<void>
 }
+
+const hasOperationRegistrar = (
+	context: PluginDeclarationContext,
+): context is PluginDeclarationContext &
+	Readonly<{ operations: PluginOperationDeclarationRegistrar }> =>
+	'operations' in context &&
+	isPlainRecord(context.operations) &&
+	typeof context.operations.declare === 'function'
 
 declare const pluginDefinitionBrand: unique symbol
 declare const pluginSetupExportsBrand: unique symbol
@@ -157,6 +174,8 @@ export interface DefinePluginOptions<
 	TEnvironment extends readonly PluginEnvironmentClaim[] | undefined,
 	TCapabilities extends PluginCapabilityDeclarationOptions | undefined,
 	TPeers extends readonly PluginDependency[] | undefined,
+	TOperations extends
+		readonly PluginOperationAuthoringContribution[] | undefined = undefined,
 > {
 	/** Stable namespaced identity shared by every configured instance. @example "community.workflow" */
 	readonly pluginId: TPluginId
@@ -172,6 +191,8 @@ export interface DefinePluginOptions<
 	readonly environment?: TEnvironment
 	/** Declares inert typed providers and explicit required or optional capability uses. */
 	readonly capabilities?: TCapabilities
+	/** Correlates owned operation handlers and independent transport bindings. */
+	readonly operations?: TOperations
 	/** Orders this plugin after required providers during declaration and lifecycle. */
 	readonly dependencies?: TDependencies
 	/** Adds the same ordering only when the compatible provider is installed. */
@@ -208,6 +229,7 @@ const definePluginOptionKeys = new Set([
 	'hooks',
 	'instanceId',
 	'optionalDependencies',
+	'operations',
 	'peers',
 	'pluginId',
 	'privileges',
@@ -316,7 +338,19 @@ export const runPluginDeclaration = (
 	plugin: PluginDefinition,
 	context: PluginDeclarationContext,
 ): void => {
-	const declaration = getPluginStaticDefinition(plugin).declare
+	const staticDefinition = getPluginStaticDefinition(plugin)
+	if (staticDefinition.operations.length > 0) {
+		if (!hasOperationRegistrar(context)) {
+			throw new TypeError(
+				`Plugin "${formatPluginIdentity(plugin.manifest.identity)}" requires operation:declare for its operation contributions`,
+			)
+		}
+		for (const operation of staticDefinition.operations) {
+			context.operations.declare(operation)
+		}
+	}
+
+	const declaration = staticDefinition.declare
 
 	if (declaration === undefined) {
 		return
@@ -384,6 +418,8 @@ export const definePlugin = <
 	const TCapabilities extends PluginCapabilityDeclarationOptions | undefined =
 		undefined,
 	const TPeers extends readonly PluginDependency[] | undefined = undefined,
+	const TOperations extends
+		readonly PluginOperationAuthoringContribution[] | undefined = undefined,
 >(
 	options: DefinePluginOptions<
 		TPluginId,
@@ -397,7 +433,8 @@ export const definePlugin = <
 		TPrivileges,
 		TEnvironment,
 		TCapabilities,
-		TPeers
+		TPeers,
+		TOperations
 	>,
 ): FrameworkPlugin<
 	TPluginId,
@@ -410,7 +447,7 @@ export const definePlugin = <
 	TCoreRange,
 	TPrivileges,
 	TEnvironment,
-	TCapabilities,
+	PluginOperationContributionCapabilities<TCapabilities, TOperations>,
 	TPeers
 > => {
 	const untrustedOptions: unknown = options
@@ -425,6 +462,13 @@ export const definePlugin = <
 		}
 	}
 
+	const operationContributions = compilePluginOperationContributions(
+		options.operations,
+	)
+	const capabilities = mergePluginOperationCapabilities(
+		options.capabilities,
+		operationContributions.capabilities,
+	)
 	const manifest = normalizePluginManifest({
 		pluginId: options.pluginId,
 		...(options.instanceId === undefined
@@ -438,9 +482,7 @@ export const definePlugin = <
 		...(options.environment === undefined
 			? {}
 			: { environment: options.environment }),
-		...(options.capabilities === undefined
-			? {}
-			: { capabilities: options.capabilities }),
+		capabilities,
 	})
 
 	if (options.setup !== undefined && typeof options.setup !== 'function') {
@@ -458,6 +500,7 @@ export const definePlugin = <
 
 	const staticDefinition = immutableRecord({
 		declare: options.declare,
+		operations: operationContributions.operations,
 	})
 	const runtimeDefinition = immutableRecord({
 		setup: options.setup,
@@ -521,7 +564,7 @@ export const definePlugin = <
 		TCoreRange,
 		TPrivileges,
 		TEnvironment,
-		TCapabilities,
+		PluginOperationContributionCapabilities<TCapabilities, TOperations>,
 		TPeers
 	>
 }

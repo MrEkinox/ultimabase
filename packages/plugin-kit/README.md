@@ -194,15 +194,18 @@ builder. A stored representation does not automatically grant embedded or
 output behavior, and Core rejects unsupported use before setup even when
 JavaScript or a stale generated declaration bypasses autocomplete.
 
-## Provide an operation without wrapper nesting
+## Contribute operations through Core
 
-Core keeps operation tokens, capability ownership, Runtime execution, and
-transport exposure separate. `providePluginOperation(...)` only flattens the
-common capability resource and handler wrappers:
+Operation authoring is foundational and no longer requires Plugin Kit. Core's
+`contributeOperation()` correlates the token, handler, optional resource
+cleanup, and optional wire bindings in one definition:
 
 ```ts
-import { defineOperation, defineOperationValue } from '@ultimabase/core'
-import { providePluginOperation } from '@ultimabase/plugin-kit'
+import {
+	contributeOperation,
+	defineOperation,
+	defineOperationValue,
+} from '@ultimabase/core'
 
 const text = defineOperationValue((value, path): string => {
 	if (typeof value !== 'string') throw new TypeError(`${path} must be text`)
@@ -218,26 +221,27 @@ export const publish = defineOperation({
 	result: text,
 })
 
-const publishProvider = providePluginOperation({
-	contributionId: 'publish',
+const publishContribution = contributeOperation({
 	operation: publish,
 	execute: ({ input }) => input,
 })
 ```
 
-Add the provider to `capabilities.provides`, declare the token through the
-owner-bound `operations` facade, and request `operation:declare`. The helper
-also accepts `create(context) => ({ execute, dispose? })` when the handler needs
-application capabilities or a resource. It never exposes a connection, raw
-adapter, protected constraints, transport, or authority that the handler did
-not already receive through Core.
+Add the contribution to the Core plugin definition's `operations` list and
+request `operation:declare`. Core derives the static declaration, application
+provider, and owner-local identifier. The contribution also accepts
+`create(context) => ({ execute, dispose? })` when the handler needs application
+capabilities or a resource.
 
 When an operation declares `transaction: 'required'`, Core supplies the
 transactional request engine; the handler must not open a redundant nested
 transaction.
 
-Transport publication remains a separate explicit binding and still requires
-`transport:expose`.
+Transport publication remains explicit: a binding inside the contribution
+still requires `transport:expose`, and application configuration must select
+the operation. `contributeOperationBinding()` keeps a binding separate from its
+handler under the same exact operation owner; foreign binding owners remain
+invalid.
 
 ## Declare schema mutations without another wrapper
 

@@ -1,0 +1,95 @@
+import { expectTypeOf, test } from 'vitest'
+
+import {
+	contributeOperation,
+	contributeOperationBinding,
+	defineOperation,
+	defineOperationTransport,
+	defineOperationValue,
+	definePluginModule,
+	operationTransportBinding,
+	operationWireCodec,
+	type ApplicationCapabilityFactoryContext,
+	type PluginOperationContribution,
+} from '../index.js'
+
+const input = defineOperationValue((value) => String(value))
+const result = defineOperationValue((value) => Boolean(value))
+const inspect = defineOperation({
+	input,
+	name: 'fixture.contribution.inspect',
+	result,
+	target: 'application',
+	transaction: 'forbidden',
+	version: '1.0.0',
+})
+const transport = defineOperationTransport({
+	name: 'fixture.contribution.transport',
+	version: '1.0.0',
+})
+const codec = operationWireCodec({
+	decode: (value: { readonly text: string }) => value.text,
+	encode: (value) => ({ accepted: value }),
+	operation: inspect,
+	transport,
+})
+const binding = operationTransportBinding({ codec, operation: inspect })
+
+test('infers direct, resource-backed, and binding-only contributions', () => {
+	const direct = contributeOperation({
+		bindings: [binding],
+		execute: ({ input: operationInput }) => operationInput.length > 0,
+		operation: inspect,
+	})
+	const resource = contributeOperation({
+		create: (context) => {
+			expectTypeOf(context).toEqualTypeOf<ApplicationCapabilityFactoryContext>()
+			return {
+				dispose: () => undefined,
+				execute: ({ input: operationInput }) => operationInput.length > 0,
+			}
+		},
+		operation: inspect,
+	})
+	const externalBinding = contributeOperationBinding(binding)
+
+	expectTypeOf(direct).toEqualTypeOf<
+		PluginOperationContribution<typeof inspect, readonly [typeof binding]>
+	>()
+	expectTypeOf(resource.operation).toEqualTypeOf<typeof inspect>()
+	expectTypeOf(externalBinding.binding).toEqualTypeOf<typeof binding>()
+})
+
+test('accepts operation contributions directly in the Core plugin factory', () => {
+	const module = definePluginModule({
+		core: '^0.0.0',
+		pluginId: 'fixture.operation-module',
+		version: '1.0.0',
+	})
+	const plugin = module.plugin({
+		operations: [
+			contributeOperation({
+				execute: ({ input: operationInput }) => operationInput.length > 0,
+				operation: inspect,
+			}),
+		],
+		privileges: [
+			{
+				name: 'operation:declare',
+				reason: 'Declares the fixture operation.',
+			},
+		],
+	})
+
+	expectTypeOf(
+		plugin.manifest.identity.pluginId,
+	).toEqualTypeOf<'fixture.operation-module'>()
+})
+
+test('rejects handlers whose results do not match the operation', () => {
+	contributeOperation({
+		// @ts-expect-error -- The handler must return the exact logical result.
+		execute: () => 'invalid',
+		operation: inspect,
+	})
+})

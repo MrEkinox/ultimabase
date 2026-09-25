@@ -14,6 +14,10 @@ import { PluginError } from '../../errors/plugin-error.js'
 import { requireCapability } from '../../plugins/capabilities.js'
 import { definePlugin } from '../../plugins/definition.js'
 import {
+	contributeOperation,
+	contributeOperationBinding,
+} from '../../plugins/plugin-operation-contributions.js'
+import {
 	defineOperation,
 	defineOperationValue,
 } from '../../plugins/plugin-operations.js'
@@ -32,11 +36,8 @@ import {
 } from '../master/master-authority.js'
 import {
 	defineOperationTransport,
-	operationHandler,
 	operationTransportBinding,
 	operationWireCodec,
-	provideOperationHandler,
-	provideOperationTransportBinding,
 } from './capabilities.js'
 
 const messageValue = defineOperationValue((value, path) => {
@@ -103,44 +104,25 @@ const createFixture = async (options: FixtureOptions = {}) => {
 		options.adapterResults ?? [],
 		trace,
 	)
-	const applicationHandler = operationHandler({
-		operation: applicationOperation,
-		execute: ({ context, engine, input, target }) => {
-			trace.push(`application:${context.requestId}:${target.kind}`)
-			return (options.applicationHandler?.(input.message, engine) ??
-				immutableRecord({ accepted: true })) as Readonly<{
-				readonly accepted: boolean
-			}>
-		},
-	})
-	const forbiddenHandler = operationHandler({
-		operation: forbiddenOperation,
-		execute: () => immutableRecord({ accepted: true }),
-	})
 	const plugin = definePlugin({
-		capabilities: {
-			provides: [
-				provideOperationHandler({
-					contributionId: 'application-handler',
-					create: () => ({ value: applicationHandler }),
-				}),
-
-				provideOperationHandler({
-					contributionId: 'forbidden-handler',
-					create: () => ({ value: forbiddenHandler }),
-				}),
-
-				provideOperationTransportBinding({
-					contributionId: 'fake-binding',
-					create: () => ({ value: fakeBinding }),
-				}),
-			],
-		},
 		core: '^0.0.0',
-		declare: ({ operations }) => {
-			operations.declare(applicationOperation)
-			operations.declare(forbiddenOperation)
-		},
+		operations: [
+			contributeOperation({
+				execute: ({ context, engine, input, target }) => {
+					trace.push(`application:${context.requestId}:${target.kind}`)
+					return (options.applicationHandler?.(input.message, engine) ??
+						immutableRecord({ accepted: true })) as Readonly<{
+						readonly accepted: boolean
+					}>
+				},
+				operation: applicationOperation,
+			}),
+			contributeOperationBinding(fakeBinding),
+			contributeOperation({
+				execute: () => immutableRecord({ accepted: true }),
+				operation: forbiddenOperation,
+			}),
+		],
 		pluginId: 'fixture.plugin-operations',
 		privileges: [
 			{ name: 'operation:declare', reason: 'Declares operation test tokens.' },
@@ -299,31 +281,27 @@ describe('plugin operation Runtime', () => {
 			pluginId: 'fixture.operation-raw-database',
 			version: '1.0.0',
 		})
+		let resourceDisposals = 0
 		const operation = definePlugin({
-			capabilities: {
-				provides: [
-					provideOperationHandler({
-						contributionId: 'raw-handler',
-						create: () => ({
-							value: operationHandler({
-								execute: ({ adapters }) =>
-									adapters.withRaw(rawRequirement, (raw) => {
-										escaped = raw
-										return immutableRecord({
-											accepted: raw.kind() === 'database-transaction-adapter',
-										})
-									}),
-								operation: rawOperation,
-							}),
-						}),
-					}),
-				],
-				requires: [rawRequirement],
-			},
+			capabilities: [rawRequirement],
 			core: '^0.0.0',
-			declare: ({ operations }) => {
-				operations.declare(rawOperation)
-			},
+			operations: [
+				contributeOperation({
+					create: () => ({
+						dispose: () => {
+							resourceDisposals += 1
+						},
+						execute: ({ adapters }) =>
+							adapters.withRaw(rawRequirement, (raw) => {
+								escaped = raw
+								return immutableRecord({
+									accepted: raw.kind() === 'database-transaction-adapter',
+								})
+							}),
+					}),
+					operation: rawOperation,
+				}),
+			],
 			pluginId: 'fixture.operation-raw-consumer',
 			privileges: [
 				{ name: 'adapter:raw', reason: 'Uses an exact transaction facade.' },
@@ -347,6 +325,7 @@ describe('plugin operation Runtime', () => {
 			expect.objectContaining({ code: 'TRANSACTION_ERROR' }),
 		)
 		await ultimabase.dispose()
+		expect(resourceDisposals).toBe(1)
 	})
 
 	it('executes application targets through handles', async () => {
@@ -390,7 +369,7 @@ describe('plugin operation Runtime', () => {
 			code: 'PLUGIN_OPERATION_INVALID',
 			cause: failure,
 			internalDetails: {
-				contributionId: 'application-handler',
+				contributionId: `operation:${applicationOperation.name}`,
 				kind: 'operation-handler-failed',
 			},
 		})
@@ -609,18 +588,11 @@ describe('plugin operation Runtime', () => {
 
 	it('requires transport exposure privilege on the exact binding owner', () => {
 		const unprivileged = definePlugin({
-			capabilities: {
-				provides: [
-					provideOperationTransportBinding({
-						contributionId: 'unprivileged-binding',
-						create: () => ({ value: fakeBinding }),
-					}),
-				],
-			},
 			core: '^0.0.0',
 			declare: ({ operations }) => {
 				operations.declare(applicationOperation)
 			},
+			operations: [contributeOperationBinding(fakeBinding)],
 			pluginId: 'fixture.unprivileged-operation-transport',
 			privileges: [
 				{
@@ -640,7 +612,30 @@ describe('plugin operation Runtime', () => {
 				}),
 			),
 		).toThrow(
-			'must declare active privilege "transport:expose" for capability contribution "unprivileged-binding"',
+			`must declare active privilege "transport:expose" for capability contribution "operation:${applicationOperation.name}:transport:${fakeProtocol.name}"`,
+		)
+	})
+
+	it('requires operation declaration privilege for owned contributions', () => {
+		const unprivileged = definePlugin({
+			core: '^0.0.0',
+			operations: [
+				contributeOperation({
+					execute: () => immutableRecord({ accepted: true }),
+					operation: applicationOperation,
+				}),
+			],
+			pluginId: 'fixture.unprivileged-operation-owner',
+			version: '1.0.0',
+		})
+
+		const ultimabase = new UltimaBase({
+			pluginPrivileges: { logger: false },
+			plugins: [unprivileged],
+			schemas: [],
+		})
+		expect(() => ultimabase.operation(applicationOperation)).toThrow(
+			'requires operation:declare for its operation contributions',
 		)
 	})
 })

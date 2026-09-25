@@ -15,6 +15,10 @@ import type {
 	PluginEnvironmentClaim,
 	PluginPrivilegeRequest,
 } from './manifest.js'
+import type {
+	PluginOperationAuthoringContribution,
+	PluginOperationContributionCapabilities,
+} from './plugin-operation-contributions.js'
 
 /** Fixes the package-owned manifest facts shared by every configured instance. */
 export interface DefinePluginModuleOptions<
@@ -44,6 +48,8 @@ export type PluginModuleDefinitionOptions<
 	TEnvironment extends readonly PluginEnvironmentClaim[] | undefined,
 	TCapabilities extends PluginCapabilityDeclarationOptions | undefined,
 	TPeers extends readonly PluginDependency[] | undefined,
+	TOperations extends
+		readonly PluginOperationAuthoringContribution[] | undefined,
 > = Omit<
 	DefinePluginOptions<
 		TPluginId,
@@ -57,7 +63,8 @@ export type PluginModuleDefinitionOptions<
 		TPrivileges,
 		TEnvironment,
 		TCapabilities,
-		TPeers
+		TPeers,
+		TOperations
 	>,
 	'core' | 'pluginId' | 'version'
 >
@@ -87,6 +94,8 @@ export interface PluginModule<
 		const TCapabilities extends PluginCapabilityDeclarationOptions | undefined =
 			undefined,
 		const TPeers extends readonly PluginDependency[] | undefined = undefined,
+		const TOperations extends
+			readonly PluginOperationAuthoringContribution[] | undefined = undefined,
 	>(
 		options: PluginModuleDefinitionOptions<
 			TPluginId,
@@ -100,7 +109,8 @@ export interface PluginModule<
 			TPrivileges,
 			TEnvironment,
 			TCapabilities,
-			TPeers
+			TPeers,
+			TOperations
 		>,
 	): FrameworkPlugin<
 		TPluginId,
@@ -113,7 +123,7 @@ export interface PluginModule<
 		TCoreRange,
 		TPrivileges,
 		TEnvironment,
-		TCapabilities,
+		PluginOperationContributionCapabilities<TCapabilities, TOperations>,
 		TPeers
 	>
 }
@@ -121,8 +131,10 @@ export interface PluginModule<
 const moduleOptionKeys = new Set(['core', 'pluginId', 'version'])
 const fixedDefinitionKeys = new Set(['core', 'pluginId', 'version'])
 
-type DefinitionProperty<TDefinition, TKey extends PropertyKey> =
-	TKey extends keyof TDefinition ? TDefinition[TKey] : undefined
+type DefinitionProperty<
+	TDefinition,
+	TKey extends PropertyKey,
+> = TKey extends keyof TDefinition ? TDefinition[TKey] : undefined
 
 type DefinitionSetupResult<TDefinition> =
 	TDefinition extends Readonly<{
@@ -130,6 +142,24 @@ type DefinitionSetupResult<TDefinition> =
 	}>
 		? TResult
 		: undefined
+
+type DefinitionCapabilities<TDefinition> =
+	DefinitionProperty<
+		TDefinition,
+		'capabilities'
+	> extends infer TCapabilities extends
+		PluginCapabilityDeclarationOptions | undefined
+		? TCapabilities
+		: PluginCapabilityDeclarationOptions | undefined
+
+type DefinitionOperations<TDefinition> =
+	DefinitionProperty<
+		TDefinition,
+		'operations'
+	> extends infer TOperations extends
+		readonly PluginOperationAuthoringContribution[] | undefined
+		? TOperations
+		: readonly PluginOperationAuthoringContribution[] | undefined
 
 /**
  * Derives one exact plugin type from property-based definition facts.
@@ -173,9 +203,9 @@ export type PluginModuleInstance<
 					DefinitionProperty<TDefinition, 'environment'>,
 					readonly PluginEnvironmentClaim[] | undefined
 				>,
-				Extract<
-					DefinitionProperty<TDefinition, 'capabilities'>,
-					PluginCapabilityDeclarationOptions | undefined
+				PluginOperationContributionCapabilities<
+					DefinitionCapabilities<TDefinition>,
+					DefinitionOperations<TDefinition>
 				>,
 				Extract<
 					DefinitionProperty<TDefinition, 'peers'>,
