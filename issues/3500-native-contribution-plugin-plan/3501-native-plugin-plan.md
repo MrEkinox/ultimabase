@@ -31,5 +31,4 @@ plan and let the lifecycle manager own the resulting application resource.
 - `PluginInstance` and `FrameworkPlugin` now use one named contract instead of
   positional internal-bucket generics; official plugin aliases retain their
   exact identity, exports, environment, peer, privilege, and capability types.
-- Focused runtime and type tests pass. Full validation is recorded by issue
-  3502.
+- Focused runtime and type tests pass. Full validation is recorded by issue 3502.
