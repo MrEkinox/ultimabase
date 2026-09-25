@@ -348,6 +348,7 @@ export const createSchemaModelClass = <
 	// signature deliberately remains private to this composition boundary.
 	const schema = createStaticSchemaMutationView(
 		DefinedSchemaModel,
+		reader.className,
 	) as unknown as SchemaReference<TClassName>
 	const readDefinedSchema = (): SchemaReference<TClassName> => schema
 	const readDefinedSchemaClass = (): SchemaClass => schema as SchemaClass

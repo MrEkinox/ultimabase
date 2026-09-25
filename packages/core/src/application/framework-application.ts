@@ -5,7 +5,6 @@ import {
 	drainApplicationWork,
 	releaseApplication,
 } from './active-application.js'
-import { releaseStaticSchemaMutations } from '../schema/schema/model-static-mutations.js'
 import {
 	Schema,
 	SchemaRegistry,
@@ -482,7 +481,6 @@ export class FrameworkApplication<
 
 	#releaseIfClean(): void {
 		if (this.#lifecycle.cleanupComplete) {
-			releaseStaticSchemaMutations(this)
 			releaseApplication(this)
 		}
 	}

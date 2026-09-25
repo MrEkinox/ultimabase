@@ -17,11 +17,15 @@ Issue 3602 is complete. One private kernel state now replaces the independent
 command, capability, privilege, private-storage, plugin-export, and callback
 side tables without exposing new public authority.
 
-Issue 3603 is active. It removes the static schema-mutation startup registry
-and resolves immutable schema/model commands from compiled application handles.
+Issue 3603 is complete. Schema-class mutation aliases now resolve from the sole
+active compiled command graph, with no startup copy, secondary registry, or
+disposal reset.
 
-Later issues consolidate application state, remove static mutation
-registration, reduce official option and identity duplication, audit graph and
-Access/Hooks shells, and close with complete parity and line measurements.
+Issue 3604 is active. It reduces repeated official-plugin option boundaries and
+identity declarations, retaining only helpers with a negative production-line
+delta and exact diagnostic, inference, and package-contract parity.
+
+Later issues audit graph and Access/Hooks shells, then close with complete
+parity and line measurements.
 
 No push is authorized.

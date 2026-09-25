@@ -1,20 +1,31 @@
+import { readActiveApplicationOwner } from '../../application/active-application.js'
+import { readApplicationKernelState } from '../../application/application-kernel-state.js'
+import { executeStaticSchemaMutation } from '../../query/operations/execution.js'
 import type { OperationOptions } from '../../query/operations/options.js'
 import type { SchemaDefinition } from './definition.js'
 
-type StaticSchemaMutation = (
-	input: unknown,
-	options?: OperationOptions,
-) => Promise<unknown>
+const resolveStaticMutation = (
+	schema: SchemaDefinition,
+	className: string,
+	name: string,
+) => {
+	const application = readActiveApplicationOwner()
+	if (
+		application === undefined ||
+		!['started', 'stopping', 'stopped', 'disposing'].includes(application.state)
+	)
+		return undefined
+	const surface =
+		readApplicationKernelState(application).commands.schemaSurface(className)
+	return surface?.schema === schema && surface.schemaMutations.has(name)
+}
 
-// Classes remain frozen; visibility lasts only for the current owning application.
-let owner: object | undefined
-let staticMutations = new WeakMap<object, Map<string, StaticSchemaMutation>>()
-
-/** Exposes installed schema mutations without modifying a class or prototype. */
+/** Resolves class-level mutations from the sole active compiled application. */
 export const createStaticSchemaMutationView = <
 	TSchema extends new (input: unknown) => object,
 >(
 	target: TSchema,
+	className: string,
 ): TSchema => {
 	const view: TSchema = new Proxy(target, {
 		construct: (constructor, arguments_, newTarget): object =>
@@ -24,48 +35,32 @@ export const createStaticSchemaMutationView = <
 				newTarget === view ? constructor : newTarget,
 			) as object,
 		get: (constructor, property, receiver): unknown => {
-			if (typeof property === 'string') {
-				const method = staticMutations.get(view)?.get(property)
-				if (method !== undefined) return method
-			}
+			if (typeof property !== 'string' || Reflect.has(constructor, property))
+				return Reflect.get(constructor, property, receiver)
+			if (
+				resolveStaticMutation(
+					view as unknown as SchemaDefinition,
+					className,
+					property,
+				) === true
+			)
+				return (input: unknown, options?: OperationOptions) =>
+					executeStaticSchemaMutation(
+						view as unknown as SchemaDefinition,
+						property,
+						input,
+						options,
+					)
 			return Reflect.get(constructor, property, receiver)
 		},
 		has: (constructor, property): boolean =>
+			Reflect.has(constructor, property) ||
 			(typeof property === 'string' &&
-				staticMutations.get(view)?.has(property) === true) ||
-			Reflect.has(constructor, property),
+				resolveStaticMutation(
+					view as unknown as SchemaDefinition,
+					className,
+					property,
+				) !== undefined),
 	})
 	return view
-}
-
-/** Adds one inert class-level dispatcher after its application has started. */
-export const registerStaticSchemaMutation = (
-	application: object,
-	schema: SchemaDefinition,
-	name: string,
-	method: StaticSchemaMutation,
-): void => {
-	if (owner !== undefined && owner !== application) {
-		throw new TypeError(
-			'Static mutations already belong to another application',
-		)
-	}
-	owner = application
-	let methods = staticMutations.get(schema)
-	if (methods?.has(name) === true) return
-	if (Reflect.has(schema, name)) {
-		throw new TypeError(`Reserved schema static mutation: ${name}`)
-	}
-	if (methods === undefined) {
-		methods = new Map()
-		staticMutations.set(schema, methods)
-	}
-	methods.set(name, method)
-}
-
-/** Removes visibility without invalidating the identity checks of captured dispatchers. */
-export const releaseStaticSchemaMutations = (application: object): void => {
-	if (owner !== application) return
-	staticMutations = new WeakMap()
-	owner = undefined
 }

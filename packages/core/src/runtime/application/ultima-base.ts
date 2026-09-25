@@ -24,7 +24,6 @@ import {
 } from '../../plugins/command-graph.js'
 import type { PluginOperationDefinition } from '../../plugins/plugin-operations.js'
 import {
-	executeStaticSchemaMutation,
 	normalizeOperationOptions,
 	registerQueryExecutionOwner,
 } from '../../query/operations/execution.js'
@@ -32,7 +31,6 @@ import type { OperationOptions } from '../../query/operations/options.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import { Schema } from '../../schema/index.js'
 import { findSchemaModelRecord } from '../../schema/schema/model-state.js'
-import { registerStaticSchemaMutation } from '../../schema/schema/model-static-mutations.js'
 
 import type { PluginSchemaMutationEnvelope } from '../../application/application-schema-mutations.js'
 import type { CompiledSchemaMutationCommand } from '../../plugins/application-surface-registry.js'
@@ -209,7 +207,6 @@ export class UltimaBase<
 				return requestEngine
 			},
 		})
-
 		// Public facade identity is stable while private lifecycle state may advance.
 		registerApplicationFacade(this)
 		Object.freeze(this)
@@ -384,18 +381,6 @@ export class UltimaBase<
 				throw new TypeError('Application closed during startup')
 			}
 			this.#frameworkEngine = frameworkEngine
-			for (const schema of this.application.schemas.values()) {
-				const surface = this.application.getSchemaSurface(schema.className)
-				for (const name of surface?.schemaMutations.keys() ?? []) {
-					registerStaticSchemaMutation(
-						this.application,
-						schema,
-						name,
-						(input, options) =>
-							executeStaticSchemaMutation(schema, name, input, options),
-					)
-				}
-			}
 		} catch (error: unknown) {
 			// Core has already reported startup and cleanup failures for a terminal lifecycle.
 			if (this.application.state === 'disposed') throw error

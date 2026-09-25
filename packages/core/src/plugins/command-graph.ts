@@ -162,6 +162,11 @@ export class CompiledCommandGraph {
 			for (const kind of surface.surfaces) {
 				const index =
 					kind === 'schema' ? target.schemaMutations : target.modelMutations
+				if (kind === 'schema' && Reflect.has(target.schema, surface.name)) {
+					throw new TypeError(
+						`Reserved schema static mutation: ${surface.name}`,
+					)
+				}
 				index.set(surface.name, view)
 			}
 		}

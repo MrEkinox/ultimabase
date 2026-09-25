@@ -21,9 +21,9 @@ without losing a current capability.
 
 ## Execution order
 
-- [ ] [3601 — Make command contributions native](3601-native-command-contributions.md)
-- [ ] [3602 — Consolidate application-owned private state](3602-application-kernel-state.md)
-- [ ] [3603 — Remove static mutation registration](3603-static-mutation-resolution.md)
+- [x] [3601 — Make command contributions native](3601-native-command-contributions.md)
+- [x] [3602 — Consolidate application-owned private state](3602-application-kernel-state.md)
+- [x] [3603 — Remove static mutation registration](3603-static-mutation-resolution.md)
 - [ ] [3604 — Simplify official plugin option and identity authoring](3604-plugin-authoring-reduction.md)
 - [ ] [3605 — Audit graph planning and shared plugin shells](3605-graph-and-plugin-shell-audit.md)
 - [ ] [3606 — Prove parity and measure the final reduction](3606-parity-and-reduction-audit.md)

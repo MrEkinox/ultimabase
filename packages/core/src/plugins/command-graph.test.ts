@@ -378,6 +378,57 @@ describe('canonical command graph', () => {
 		)
 	})
 
+	it('rejects a schema mutation alias that shadows an existing static member', () => {
+		const mutation = defineSchemaMutation({
+			authority: 'request',
+			effect: 'update',
+			input: value,
+			name: 'fixture.command-graph.reserved',
+			returning: 'after',
+			version: '1.0.0',
+		})
+		const reserved = createPlugin({
+			core: '^0.0.0',
+			id: 'fixture.command-graph.reserved',
+			version: '1.0.0',
+			permissions: {
+				'model:extend': 'Exercises static schema member protection.',
+				'operation:declare': 'Declares the colliding mutation.',
+			},
+			contributions: [
+				contributeDeclarations({
+					operations: ({ operations }) => {
+						operations.declare(mutation)
+						return undefined
+					},
+					models: ({ models }) => {
+						models.extend(Document, {
+							contributionId: 'reserved',
+							schemaMutations: {
+								className: { mutation, surfaces: ['schema'] },
+							},
+						})
+						return undefined
+					},
+				}),
+			],
+		})
+		const application = applicationFixture(
+			new FrameworkApplication({
+				schemas: [Document],
+				plugins: [reserved],
+				pluginPrivileges: { logger: false },
+			}),
+		)
+
+		expect(() => application.compileSchemas()).toThrow(
+			'Reserved schema static mutation: className',
+		)
+		expect(() => readApplicationKernelState(application).commands).toThrow(
+			'have not been compiled',
+		)
+	})
+
 	it('publishes no command graph on a cross-kind name collision', () => {
 		const owned = fixture()
 		const collision = defineSchemaMutation({

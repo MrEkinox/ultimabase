@@ -38,6 +38,10 @@ const hasActiveScope = (application: ActiveApplication): boolean => {
 export const isRunningApplicationWork = (owner: ApplicationOwner): boolean =>
 	active?.owner === owner && hasActiveScope(active)
 
+/** Reads the sole lifecycle owner without selecting request authority. */
+export const readActiveApplicationOwner = (): ApplicationOwner | undefined =>
+	active?.owner
+
 /** Rejects inert and stale engines, including callbacks escaped from completed work. */
 export const assertApplicationExecution = (owner: ApplicationOwner): void => {
 	if (
