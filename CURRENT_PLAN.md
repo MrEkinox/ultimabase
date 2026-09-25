@@ -1,26 +1,22 @@
-# Current plan: simplify Core-native plugin authoring
+# Current plan: contribution-first plugin authoring
 
-- Status: completed on 2026-09-25
+- Status: in-progress
 
-The user authorized the complete milestone on 2026-09-25. Creating a plugin
-through `@ultimabase/core` must be the shortest canonical path. Plugin Kit may
-retain optional domain helpers, but it must not be required to hide Core
-registration, capability, operation, Typegen, or public typing boilerplate.
+The user authorized this complete authoring-form migration on 2026-09-25.
+Creating a plugin must require one Core factory and one ordered contribution
+list. Core derives internal phases, capability buckets, operation declarations,
+and required privilege names from those contributions; authors keep explicit
+human-readable privilege reasons.
 
 Work through
-[milestone 33](issues/3300-core-plugin-authoring-simplification/README.md) in
+[milestone 34](issues/3400-contribution-first-plugin-authoring/README.md) in
 order. Preserve every current plugin capability, option, privilege, lifecycle,
-transport, Typegen, schema, private-storage, and Runtime behavior. This is an
-authoring-form migration, not permission to weaken provenance, security,
-explicit transport selection, or application isolation.
+transport, Typegen, schema, private-storage, and Runtime behavior. The public
+surface may change, but the compiled application graph and its security
+boundaries may not.
 
-Each issue receives focused runtime and type tests, a complete diff audit, one
-dedicated local commit, and a documentation-impact classification. Temporary
-bridges may exist only between consecutive milestone commits and must be gone
-before the final audit. Do not push without a separate request.
-
-Milestone 33 is complete. Core now owns the foundational factory, flat
-capability list, operation and schema-mutation contributions, derived operation
-and Typegen registrations, and compact public plugin type. Plugin Kit retains
-only optional higher-level authoring patterns. The final parity measurements and
-validation evidence are recorded in issue 3306.
+Each issue receives focused runtime and type tests, one dedicated local commit,
+and a documentation-impact classification. Temporary compatibility inside the
+branch may exist only between consecutive milestone commits; the final state
+has one public `plugin()` factory and no public legacy authoring path. Do not
+push without a separate request.

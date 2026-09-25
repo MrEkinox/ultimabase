@@ -1637,48 +1637,35 @@ adding transport metadata to Core.
 
 ## Author plugin packages
 
-Core owns the canonical package-level authoring entry point. Bind the package
-identity once, then create configured instances without repeating it:
+Core owns one package-level authoring entry point. A package factory returns one
+direct `plugin()` call with stable facts and one ordered contribution list:
 
 ```ts
-import { definePluginModule, type PluginModuleInstance } from '@ultimabase/core'
+import { contributeApplication, plugin } from '@ultimabase/core'
 
-const workflow = definePluginModule({
-	pluginId: 'community.workflow',
-	version: '1.0.0',
-	core: '^1.0.0',
-})
-
-const privileges = [
-	{
-		name: 'operation:declare',
-		reason: 'Declares workflow operations.',
-	},
-] as const
-
-type WorkflowDefinition = Readonly<{
-	readonly instanceId?: string
-	readonly privileges: typeof privileges
-	readonly setup: () => Readonly<{ readonly ready: true }>
-}>
-
-export type WorkflowPlugin = PluginModuleInstance<
-	typeof workflow,
-	WorkflowDefinition
->
-
-export const workflowPlugin = (instanceId?: string): WorkflowPlugin =>
-	workflow.plugin({
+export const workflowPlugin = (instanceId?: string) =>
+	plugin({
+		id: 'community.workflow',
+		version: '1.0.0',
+		core: '^1.0.0',
 		...(instanceId === undefined ? {} : { instanceId }),
-		privileges,
-		setup: () => ({ ready: true as const }),
+		contributions: [
+			contributeApplication(() => ({
+				exports: { ready: true as const },
+			})),
+		],
 	})
+
+export type WorkflowPlugin = ReturnType<typeof workflowPlugin>
 ```
 
-`PluginModuleInstance` derives the exact plugin type from named definition
-properties, so published packages do not spell `FrameworkPlugin`'s positional
-generic tuple. `plugin(...)` accepts every Core definition option and cannot
-override the module's immutable `pluginId`, `version`, or Core range.
+Capability providers and requirements, operations, static declarations, and
+the optional application resource all enter `contributions`. Core retains the
+separate compilation and lifecycle phases internally. It derives required
+privilege names from the contribution types; `permissions` supplies only their
+reviewable reasons. A callback that needs an additional privileged facade uses
+`withPluginPrivileges()` around that exact contribution, keeping the power next
+to the code that consumes it.
 
 ## Cross-plugin integration
 

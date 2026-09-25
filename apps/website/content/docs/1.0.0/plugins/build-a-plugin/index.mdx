@@ -68,19 +68,22 @@ Export the factory at the package root so consumers never need a `src/`
 deep import:
 
 ```ts title="src/index.ts"
-import { definePluginModule } from '@ultimabase/core'
-
-const workflow = definePluginModule({
-	core: '^1.0.0',
-	pluginId: 'community.workflow',
-	version: '1.0.0',
-})
+import { contributeApplication, plugin } from '@ultimabase/core'
 
 export const workflowPlugin = (instanceId?: string) =>
-	workflow.plugin({
+	plugin({
+		id: 'community.workflow',
+		core: '^1.0.0',
+		version: '1.0.0',
 		...(instanceId === undefined ? {} : { instanceId }),
-		setup: () => ({ ready: true as const }),
+		contributions: [
+			contributeApplication(() => ({
+				exports: { ready: true as const },
+			})),
+		],
 	})
+
+export type WorkflowPlugin = ReturnType<typeof workflowPlugin>
 ```
 
 The factory returns an inert, typed definition. Constructing it must not
@@ -88,6 +91,12 @@ connect to a database, read files, or start a listener. Its `ready` export is
 only a learning example, not workflow functionality. Importing a plugin
 package or calling its factory does not install behavior: the definition must
 enter one application's `plugins` array.
+
+Every capability, operation, static declaration, and application resource goes
+into `contributions`. Core keeps their execution phases separate internally and
+derives the required privilege names. Authors add only the corresponding
+human-readable `permissions` reasons; missing and unused reasons fail while the
+definition is still inert.
 
 ### Install test tooling
 

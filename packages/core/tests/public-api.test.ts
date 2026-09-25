@@ -71,6 +71,8 @@ describe('@ultimabase/core public entry point', () => {
 			'collectRecordFieldValues',
 			'compileValidationPlans',
 			'constraint',
+			'contributeApplication',
+			'contributeDeclarations',
 			'contributeOperation',
 			'contributeOperationBinding',
 			'contributeSchemaMutation',
@@ -181,6 +183,7 @@ describe('@ultimabase/core public entry point', () => {
 			'parseRequestPrincipalReference',
 			'persistencePlanRewriter',
 			'persistencePlanRewriterCapability',
+			'plugin',
 			'pluginEnvironmentClaimMetadata',
 			'pluginEnvironmentClaims',
 			'pluginFieldStructuralContainsProtocolVersion',
@@ -237,6 +240,7 @@ describe('@ultimabase/core public entry point', () => {
 			'traverseQueryExpression',
 			'unset',
 			'uuidField',
+			'withPluginPrivileges',
 		])
 	})
 })

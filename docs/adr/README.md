@@ -252,6 +252,7 @@ Accepted records:
 - [ADR-0267: Flat plugin configuration and uniform access](0267-flat-plugin-configuration-and-uniform-access.md)
 - [ADR-0268: Password account methods and generation-based session revocation](0268-password-account-session-management.md)
 - [ADR-0269: Core-native declarative plugin authoring](0269-core-native-plugin-authoring.md)
+- [ADR-0270: Contribution-first plugin authoring](0270-contribution-first-plugin-authoring.md)
 
 Superseded records:
 

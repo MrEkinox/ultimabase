@@ -91,6 +91,7 @@ consistent without rewriting historical issue prose.
 - [`3100-residual-complexity-simplification/`](3100-residual-complexity-simplification/README.md)
 - [`3200-file-line-budget-remediation/`](3200-file-line-budget-remediation/README.md)
 - [`3300-core-plugin-authoring-simplification/`](3300-core-plugin-authoring-simplification/README.md)
+- [`3400-contribution-first-plugin-authoring/`](3400-contribution-first-plugin-authoring/README.md)
 
 ## Assignment prompt
 

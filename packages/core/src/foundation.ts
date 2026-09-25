@@ -34,6 +34,32 @@ export type {
 export type { PluginErrorPayload } from './errors/plugin-error.js'
 export { definePlugin } from './plugins/definition.js'
 export { definePluginModule } from './plugins/plugin-module.js'
+export { plugin } from './plugins/plugin.js'
+export type { PluginInstance, PluginOptions } from './plugins/plugin.js'
+export {
+	contributeApplication,
+	contributeDeclarations,
+	withPluginPrivileges,
+} from './plugins/plugin-contributions.js'
+export type {
+	PluginApplicationContribution,
+	PluginApplicationFactory,
+	PluginApplicationResource,
+	PluginContribution,
+	PluginDeclarationContribution,
+	PluginDeclarationContributionOptions,
+	PluginDeclarationRequirements,
+	PluginModelContributionContext,
+	PluginOperationDeclarationContributionContext,
+	PluginPrivateStorageContributionContext,
+	PluginPrivilegedContribution,
+	PluginSchemaContributionContext,
+	PluginTypegenContributionContext,
+} from './plugins/plugin-contributions.js'
+export type {
+	PluginPermissionReason,
+	PluginPermissionReasons,
+} from './plugins/plugin-contribution-compiler.js'
 export type {
 	DefinePluginModuleOptions,
 	PluginModule,
