@@ -14,6 +14,7 @@ import {
 } from './normalization.js'
 import { createDuplicatePluginError } from './plugin-errors.js'
 import { CapabilityInventory } from './capability-inventory.js'
+import type { CapabilityToken } from './capability-token.js'
 
 interface GraphNode {
 	readonly plugin: NormalizedPlugin
@@ -25,14 +26,15 @@ interface GraphNode {
 
 type GraphNodesByPluginId = Map<string, GraphNode[]>
 
+interface GraphNodes {
+	readonly all: readonly GraphNode[]
+	readonly byPluginId: GraphNodesByPluginId
+	readonly providersByToken: ReadonlyMap<CapabilityToken, readonly GraphNode[]>
+}
+
 const compareConfigurationOrder = (left: GraphNode, right: GraphNode): number =>
 	left.plugin.configurationIndex - right.plugin.configurationIndex ||
 	left.inputIndex - right.inputIndex
-
-const allGraphNodes = (
-	nodesByPluginId: ReadonlyMap<string, readonly GraphNode[]>,
-): readonly GraphNode[] =>
-	[...nodesByPluginId.values()].flatMap((nodes) => nodes)
 
 const throwMissingDependency = (
 	pluginIdentity: PluginIdentity,
@@ -53,20 +55,6 @@ const throwMissingDependency = (
 			},
 		},
 	)
-}
-
-const assertRequiredDependency: (
-	dependency: GraphNode | undefined,
-	pluginIdentity: PluginIdentity,
-	dependencyId: string,
-) => asserts dependency is GraphNode = (
-	dependency,
-	pluginIdentity,
-	dependencyId,
-) => {
-	if (dependency === undefined) {
-		throwMissingDependency(pluginIdentity, dependencyId)
-	}
 }
 
 const throwAmbiguousDependency = (
@@ -155,44 +143,45 @@ const throwDependencyCycle = (unresolvedNodes: readonly GraphNode[]): never => {
 	)
 }
 
-const createGraphNodes = (
-	plugins: readonly NormalizedPlugin[],
-): GraphNodesByPluginId => {
+const createGraphNodes = (plugins: readonly NormalizedPlugin[]): GraphNodes => {
 	const nodesByPluginId: GraphNodesByPluginId = new Map()
 
 	for (const [inputIndex, plugin] of plugins.entries()) {
 		const identity = plugin.definition.manifest.identity
 		const configuredInstances = nodesByPluginId.get(identity.pluginId) ?? []
-		const duplicate = configuredInstances.some(({ plugin: candidate }) =>
-			isSamePluginIdentity(candidate.definition.manifest.identity, identity),
-		)
+		const duplicate = configuredInstances.some(({ plugin: candidate }) => {
+			const candidateIdentity = candidate.definition.manifest.identity
+			return (
+				isSamePluginIdentity(candidateIdentity, identity) ||
+				identity.instanceId === undefined ||
+				candidateIdentity.instanceId === undefined
+			)
+		})
+		if (duplicate) throw createDuplicatePluginError(identity, 'graph')
 
-		if (duplicate) {
-			throw createDuplicatePluginError(identity, 'graph')
-		}
-
-		if (
-			configuredInstances.length > 0 &&
-			(identity.instanceId === undefined ||
-				configuredInstances.some(
-					({ plugin: candidate }) =>
-						candidate.definition.manifest.identity.instanceId === undefined,
-				))
-		) {
-			throw createDuplicatePluginError(identity, 'graph')
-		}
-
-		configuredInstances.push({
+		const node: GraphNode = {
 			plugin,
 			inputIndex,
 			dependencies: [],
 			dependents: [],
 			indegree: 0,
-		})
+		}
+		configuredInstances.push(node)
 		nodesByPluginId.set(identity.pluginId, configuredInstances)
 	}
 
-	return nodesByPluginId
+	const all = [...nodesByPluginId.values()].flatMap((nodes) => nodes)
+	const providersByToken = new Map<CapabilityToken, GraphNode[]>()
+	for (const node of all) {
+		for (const { token } of node.plugin.definition.manifest.capabilities
+			.provides) {
+			const providers = providersByToken.get(token) ?? []
+			providers.push(node)
+			providersByToken.set(token, providers)
+		}
+	}
+
+	return { all, byPluginId: nodesByPluginId, providersByToken }
 }
 
 const resolveNamedDependency = (
@@ -259,38 +248,31 @@ const connectDependency = (node: GraphNode, dependency: GraphNode): void => {
 	node.indegree += 1
 }
 
-const connectGraphNodes = (
-	nodesByPluginId: ReadonlyMap<string, readonly GraphNode[]>,
-): void => {
-	const nodes = allGraphNodes(nodesByPluginId)
-	for (const node of nodes) {
+const connectGraphNodes = (graph: GraphNodes): void => {
+	for (const node of graph.all) {
 		const identity = node.plugin.definition.manifest.identity
 
 		for (const conflictId of node.plugin.definition.conflicts ?? []) {
-			if (nodesByPluginId.has(conflictId)) {
+			if (graph.byPluginId.has(conflictId)) {
 				throwExplicitConflict(identity, conflictId)
 			}
 		}
 
 		for (const dependencyDeclaration of node.plugin.dependencies) {
-			const dependency = resolveNamedDependency(
-				nodesByPluginId,
-				identity,
-				dependencyDeclaration,
-				true,
-			)
-			assertRequiredDependency(
-				dependency,
-				identity,
-				dependencyDeclaration.pluginId,
-			)
+			const dependency =
+				resolveNamedDependency(
+					graph.byPluginId,
+					identity,
+					dependencyDeclaration,
+					true,
+				) ?? throwMissingDependency(identity, dependencyDeclaration.pluginId)
 			connectDependency(node, dependency)
 		}
 
 		for (const optionalDependency of node.plugin.definition
 			.optionalDependencies ?? []) {
 			const dependency = resolveNamedDependency(
-				nodesByPluginId,
+				graph.byPluginId,
 				identity,
 				optionalDependency,
 				false,
@@ -301,11 +283,11 @@ const connectGraphNodes = (
 		for (const peer of node.plugin.definition.peers ?? []) {
 			// A peer proves presence and protocol compatibility only. Capability
 			// requirements remain solely responsible for any necessary ordering.
-			resolveNamedDependency(nodesByPluginId, identity, peer, true)
+			resolveNamedDependency(graph.byPluginId, identity, peer, true)
 		}
 	}
 
-	for (const consumer of nodes) {
+	for (const consumer of graph.all) {
 		const requirements = [
 			...consumer.plugin.definition.manifest.capabilities.requires,
 			...consumer.plugin.definition.manifest.capabilities.optional,
@@ -314,24 +296,17 @@ const connectGraphNodes = (
 		for (const requirement of requirements) {
 			if (requirement.phase === 'setup') continue
 
-			for (const provider of nodes) {
+			for (const provider of graph.providersByToken.get(requirement.token) ??
+				[]) {
 				if (provider === consumer) continue
-
-				const capabilities = provider.plugin.definition.manifest.capabilities
-				const providesToken = capabilities.provides.some(
-					({ token }) => token === requirement.token,
-				)
-				if (providesToken) connectDependency(consumer, provider)
+				connectDependency(consumer, provider)
 			}
 		}
 	}
 }
 
-const orderGraphNodes = (
-	nodesByPluginId: ReadonlyMap<string, readonly GraphNode[]>,
-): readonly NormalizedPlugin[] => {
-	const nodes = allGraphNodes(nodesByPluginId)
-	const readyNodes = nodes
+const orderGraphNodes = (graph: GraphNodes): readonly NormalizedPlugin[] => {
+	const readyNodes = graph.all
 		.filter(({ indegree }) => indegree === 0)
 		.sort(compareConfigurationOrder)
 	const orderedPlugins: NormalizedPlugin[] = []
@@ -352,11 +327,10 @@ const orderGraphNodes = (
 		}
 	}
 
-	if (orderedPlugins.length !== nodes.length) {
-		const unresolvedNodes = nodes.filter((node) => !orderedNodes.has(node)) as [
-			GraphNode,
-			...GraphNode[],
-		]
+	if (orderedPlugins.length !== graph.all.length) {
+		const unresolvedNodes = graph.all.filter(
+			(node) => !orderedNodes.has(node),
+		) as [GraphNode, ...GraphNode[]]
 
 		throwDependencyCycle(unresolvedNodes)
 	}
@@ -381,22 +355,15 @@ export class PluginGraph implements Iterable<NormalizedPlugin> {
 			assertNormalizedPlugin(plugin, `plugins[${String(pluginIndex)}]`)
 		}
 
-		const nodesByPluginId = createGraphNodes(plugins)
+		const graph = createGraphNodes(plugins)
 
-		connectGraphNodes(nodesByPluginId)
-		this.plugins = orderGraphNodes(nodesByPluginId)
+		connectGraphNodes(graph)
+		this.plugins = orderGraphNodes(graph)
 		this.capabilities = new CapabilityInventory(this.plugins)
-		const pluginsById = new Map<string, NormalizedPlugin[]>()
-		for (const plugin of this.plugins) {
-			const pluginId = plugin.definition.manifest.identity.pluginId
-			const instances = pluginsById.get(pluginId) ?? []
-			instances.push(plugin)
-			pluginsById.set(pluginId, instances)
-		}
 		this.#pluginsById = new Map(
-			[...pluginsById].map(([pluginId, instances]) => [
+			[...graph.byPluginId].map(([pluginId, nodes]) => [
 				pluginId,
-				immutableArray(instances),
+				immutableArray(nodes.map(({ plugin }) => plugin)),
 			]),
 		)
 

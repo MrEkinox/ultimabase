@@ -1,6 +1,6 @@
 # 3606: Prove parity and measure the final reduction
 
-- Status: planned
+- Status: in-progress
 - Milestone: 36
 - Depends on: 3602, 3603, 3604, 3605
 

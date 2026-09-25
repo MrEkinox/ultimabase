@@ -26,9 +26,14 @@ option boundary, Apollo Sandbox and GraphiQL no longer repeat package identity
 facts, and HTTP owns their reusable browser-bootstrap path normalizer. The
 result removes 80 production lines while retaining exact public contracts.
 
-Issue 3605 is active. It audits graph planning and the shared Access/Hooks
-shells, implementing only reductions that preserve ordering, privilege,
-ownership, and product-specific semantics. Issue 3606 then closes with complete
-parity and line measurements.
+Issue 3605 is complete. The plugin graph now indexes exact capability providers
+once, reuses its plugin-ID nodes, and validates repeated instances in one pass.
+It removes 33 production lines and brings the graph source below its warning
+budget. The Access/Hooks shell was not abstracted because the helper would add
+more code and couple distinct product semantics.
+
+Issue 3606 is active. It closes the milestone with complete parity, public-name
+reconciliation, and final production, test, documentation, export, and
+declaration measurements.
 
 No push is authorized.

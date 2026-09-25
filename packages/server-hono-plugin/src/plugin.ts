@@ -35,7 +35,7 @@ const browserPolicyRequirement: CapabilityRequirement<
 /** Names one exact Hono server provider definition. */
 export type HonoServerPlugin = PluginInstance<{
 	readonly id: '@ultimabase/server-hono-plugin'
-	readonly exports: undefined
+	readonly exports: ReturnType<() => void>
 	readonly version: '0.0.0'
 	readonly core: '^0.0.0'
 	readonly environment: readonly ['environment:network']

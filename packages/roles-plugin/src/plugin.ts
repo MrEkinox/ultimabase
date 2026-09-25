@@ -393,7 +393,7 @@ const rolesPluginPermissions = {
 /** Represents the exact option-light official stored-role provider. */
 export type RolesPlugin = PluginInstance<{
 	readonly id: typeof rolesPluginId
-	readonly exports: undefined
+	readonly exports: ReturnType<() => void>
 	readonly version: '0.0.0'
 	readonly core: '^0.0.0'
 }>
