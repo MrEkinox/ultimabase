@@ -291,7 +291,7 @@ const normalizePrivilegeRequests = (
 				)
 				if (!optionalCapabilities.includes(request.when)) {
 					throw new TypeError(
-						`privileges[${String(index)}].when must reference a requirement from capabilities.optional`,
+						`privileges[${String(index)}].when must reference an optional capability requirement declared by the plugin`,
 					)
 				}
 			}

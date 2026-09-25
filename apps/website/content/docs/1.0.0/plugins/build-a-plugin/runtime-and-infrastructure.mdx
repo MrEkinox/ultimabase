@@ -7,7 +7,7 @@ contentType: guide
 outcome: Select the correct lifecycle, Runtime, storage, and security boundary for an advanced plugin.
 owner: '2810'
 releaseStatus: pre-release
-reviewedAt: 2026-09-21
+reviewedAt: 2026-09-25
 sources:
   - packages/core/README.md
   - packages/core/src/plugins/manifest.ts
@@ -16,6 +16,7 @@ sources:
   - packages/http-plugin/README.md
   - docs/adr/0264-remove-unused-runtime-stage-contributions.md
   - docs/adr/0266-defer-migration-only-protocols.md
+  - docs/adr/0269-core-native-plugin-authoring.md
   - docs/adr/0190-capability-host-lifecycle-and-legacy-convergence.md
   - docs/adr/0191-plugin-privilege-taxonomy-and-diagnostics.md
   - docs/adr/0195-setup-phase-capability-requirements.md
@@ -64,21 +65,19 @@ export const formatCapability = defineCapability<{
 const format = requireCapability(formatCapability, '^1.0.0')
 
 export const formatProvider = definePlugin({
-	capabilities: {
-		provides: [
-			provideCapability(formatCapability, {
-				contributionId: 'compact-format',
-				value: { format: 'compact' },
-			}),
-		],
-	},
+	capabilities: [
+		provideCapability(formatCapability, {
+			contributionId: 'compact-format',
+			value: { format: 'compact' },
+		}),
+	],
 	core: '^1.0.0',
 	pluginId: 'community.workflow-format',
 	version: '1.0.0',
 })
 
 export const formatConsumer = definePlugin({
-	capabilities: { requires: [format] },
+	capabilities: [format],
 	core: '^1.0.0',
 	pluginId: 'community.workflow-consumer',
 	setup: ({ capabilities }) => ({ format: capabilities.get(format).format }),
@@ -88,8 +87,10 @@ export const formatConsumer = definePlugin({
 
 `single` allows one provider; `multiple` retains ordered independent values;
 `pipeline` composes ordered handlers. Every provider retains its exact owner;
-competing `single` providers fail during graph validation. The manifest groups
-are `provides`, `requires`, and `optional`. Declaration values are
+competing `single` providers fail during graph validation. Authors use one flat
+list because each declaration already knows whether it provides, requires, or
+optionally consumes a capability. Inspection still reports the normalized
+`provides`, `requires`, and `optional` groups. Declaration values are
 deeply frozen, serializable facts. They must contain no secret, connection, or
 callback. For a live client, use an `application` lifetime token with a
 `create` factory returning `{ value, dispose? }`; Core materializes it once

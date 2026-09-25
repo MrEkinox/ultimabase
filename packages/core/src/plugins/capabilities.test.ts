@@ -42,6 +42,31 @@ const applicationToken = defineCapability<
 })
 
 describe('capability declarations', () => {
+	it('classifies one flat authoring list into stable inspection buckets', () => {
+		const provider = provideCapability(declarationToken, {
+			contributionId: 'primary',
+			value: { endpoint: 'https://audit.example' },
+		})
+		const required = requireCapability(declarationToken, '^1.0.0')
+		const optional = optionalCapability(declarationToken, '^1.0.0')
+		const declarations = [optional, provider, required]
+		const plugin = definePlugin({
+			pluginId: 'fixture.flat-capabilities',
+			version: '1.0.0',
+			core: '^0.0.0',
+			capabilities: declarations,
+		})
+
+		declarations.length = 0
+
+		expect(plugin.manifest.capabilities).toStrictEqual({
+			provides: [provider],
+			requires: [required],
+			optional: [optional],
+		})
+		expect(Object.isFrozen(plugin.manifest.capabilities.provides)).toBe(true)
+	})
+
 	it('creates frozen serializable metadata for every cardinality and lifetime', () => {
 		const singleToken = defineCapability<string>()({
 			capabilityId: 'fixture.primary-store',
@@ -198,9 +223,7 @@ describe('CapabilityInventory', () => {
 				instanceId,
 				version: '1.0.0',
 				core: '^0.0.0',
-				capabilities: {
-					provides: duplicate ? [declaration, declaration] : [declaration],
-				},
+				capabilities: duplicate ? [declaration, declaration] : [declaration],
 			})
 		// A local contribution ID is reusable by another explicit instance, never twice by its owner.
 		const graph = new PluginGraph(
@@ -226,20 +249,18 @@ describe('CapabilityInventory', () => {
 			pluginId: 'fixture.audit-provider',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: {
-				provides: [
-					provideCapability(declarationToken, {
-						contributionId: 'primary',
-						value: { endpoint: 'https://audit.example' },
-					}),
-				],
-			},
+			capabilities: [
+				provideCapability(declarationToken, {
+					contributionId: 'primary',
+					value: { endpoint: 'https://audit.example' },
+				}),
+			],
 		})
 		const consumer = definePlugin({
 			pluginId: 'fixture.audit-consumer',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: { optional: [optionalAudit] },
+			capabilities: [optionalAudit],
 			privileges: [
 				{
 					name: 'event:publish',
@@ -286,9 +307,7 @@ describe('CapabilityInventory', () => {
 			pluginId: 'fixture.required-consumer',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: {
-				requires: [requireCapability(applicationToken, '^2.0.0')],
-			},
+			capabilities: [requireCapability(applicationToken, '^2.0.0')],
 			setup: () => {
 				setupCalls += 1
 			},
@@ -314,27 +333,23 @@ describe('CapabilityInventory', () => {
 			pluginId: 'fixture.first-provider',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: {
-				provides: [
-					provideCapability(declarationToken, {
-						contributionId: 'first',
-						value: { endpoint: 'first' },
-					}),
-				],
-			},
+			capabilities: [
+				provideCapability(declarationToken, {
+					contributionId: 'first',
+					value: { endpoint: 'first' },
+				}),
+			],
 		})
 		const second = definePlugin({
 			pluginId: 'fixture.second-provider',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: {
-				provides: [
-					provideCapability(duplicateToken, {
-						contributionId: 'second',
-						value: { endpoint: 'second' },
-					}),
-				],
-			},
+			capabilities: [
+				provideCapability(duplicateToken, {
+					contributionId: 'second',
+					value: { endpoint: 'second' },
+				}),
+			],
 		})
 
 		expect(() => new PluginGraph(normalizePlugins([first, second]))).toThrow(
@@ -363,7 +378,7 @@ describe('CapabilityInventory', () => {
 				pluginId: 'fixture.invalid-condition',
 				version: '1.0.0',
 				core: '^0.0.0',
-				capabilities: { optional: [declared] },
+				capabilities: [declared],
 				privileges: [
 					{
 						name: 'event:publish',
@@ -374,7 +389,7 @@ describe('CapabilityInventory', () => {
 			}),
 		).toThrow(
 			new TypeError(
-				'privileges[0].when must reference a requirement from capabilities.optional',
+				'privileges[0].when must reference an optional capability requirement declared by the plugin',
 			),
 		)
 	})

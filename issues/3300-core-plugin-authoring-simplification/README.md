@@ -12,7 +12,7 @@ patterns that are not foundational plugin registration.
 ## Execution order
 
 - [x] [3301 — Introduce the Core plugin factory and compact public type](3301-core-plugin-factory.md)
-- [ ] [3302 — Flatten capability authoring](3302-flat-capability-authoring.md)
+- [x] [3302 — Flatten capability authoring](3302-flat-capability-authoring.md)
 - [ ] [3303 — Unify application-operation contributions](3303-operation-contributions.md)
 - [ ] [3304 — Remove redundant static registrations](3304-static-registration-deduplication.md)
 - [ ] [3305 — Migrate official plugins and shrink Plugin Kit](3305-official-plugin-migration.md)

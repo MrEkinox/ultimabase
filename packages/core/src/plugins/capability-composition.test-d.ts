@@ -50,11 +50,7 @@ test('preserves exact provider, factory, and reader types', () => {
 		pluginId: 'fixture.typed-plugin',
 		version: '1.0.0',
 		core: '^0.0.0',
-		capabilities: {
-			provides: [provider],
-			requires: [required],
-			optional: [optional, setupOptional],
-		},
+		capabilities: [provider, required, optional, setupOptional],
 		setup: ({ capabilities }) => {
 			expectTypeOf(capabilities.get(required)).toEqualTypeOf<Consumer>()
 			expectTypeOf(capabilities.get(optional)).toEqualTypeOf<

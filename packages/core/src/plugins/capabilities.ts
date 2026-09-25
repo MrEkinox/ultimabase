@@ -1,6 +1,7 @@
 export { normalizeCapabilityDeclarations } from './capability-declaration-normalization.js'
 export type {
 	NormalizedPluginCapabilityDeclarations,
+	PluginCapabilityDeclaration,
 	PluginCapabilityDeclarationOptions,
 	PluginCapabilityDeclarations,
 } from './capability-declarations.js'

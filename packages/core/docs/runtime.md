@@ -131,30 +131,28 @@ const tenantPlugin = (tenantId: string) =>
 				reason: 'Applies tenant row and selection restrictions.',
 			},
 		],
-		capabilities: {
-			provides: [
-				provideRuntimeConstraint({
-					contributionId: 'example.tenant-constraint',
-					create: () => ({
-						value: constraint({
-							schema: ArticleSchema,
-							operations: ['find-many', 'find-one', 'get'],
-							handler: () =>
-								databaseConstraint('example.tenant', 1, { tenantId }),
-						}),
+		capabilities: [
+			provideRuntimeConstraint({
+				contributionId: 'example.tenant-constraint',
+				create: () => ({
+					value: constraint({
+						schema: ArticleSchema,
+						operations: ['find-many', 'find-one', 'get'],
+						handler: () =>
+							databaseConstraint('example.tenant', 1, { tenantId }),
 					}),
 				}),
-				provideRuntimeConstraint({
-					contributionId: 'example.tenant-selection',
-					create: () => ({
-						value: restrictSelection({
-							schema: ArticleSchema,
-							handler: () => ['id', 'title'],
-						}),
+			}),
+			provideRuntimeConstraint({
+				contributionId: 'example.tenant-selection',
+				create: () => ({
+					value: restrictSelection({
+						schema: ArticleSchema,
+						handler: () => ['id', 'title'],
 					}),
 				}),
-			],
-		},
+			}),
+		],
 	})
 ```
 
@@ -207,45 +205,43 @@ immutable `SchemaPreparedDraft`; update and delete branches receive a persisted
 mode is known.
 
 ```ts
-capabilities: {
-	provides: [
-		provideRuntimeConstraint({
-			contributionId: 'articles.guard-create',
-			create: () => ({
-				value: guard({
-					schema: ArticleSchema,
-					operations: ['create-one', 'create-many'],
-					handler: ({ context }) => {
-						if (context.getValue(authenticatedPrincipal) === undefined) {
-							throw new FrameworkError(
-								'PERMISSION_DENIED',
-								'Authentication required',
-							)
-						}
-					},
-				}),
+capabilities: [
+	provideRuntimeConstraint({
+		contributionId: 'articles.guard-create',
+		create: () => ({
+			value: guard({
+				schema: ArticleSchema,
+				operations: ['create-one', 'create-many'],
+				handler: ({ context }) => {
+					if (context.getValue(authenticatedPrincipal) === undefined) {
+						throw new FrameworkError(
+							'PERMISSION_DENIED',
+							'Authentication required',
+						)
+					}
+				},
 			}),
 		}),
-		provideRuntimeConstraint({
-			contributionId: 'articles.visible-fields',
-			create: () => ({
-				value: restrictSelection({
-					schema: ArticleSchema,
-					handler: () => ['id', 'title', 'published'],
-				}),
+	}),
+	provideRuntimeConstraint({
+		contributionId: 'articles.visible-fields',
+		create: () => ({
+			value: restrictSelection({
+				schema: ArticleSchema,
+				handler: () => ['id', 'title', 'published'],
 			}),
 		}),
-		provideRuntimeConstraint({
-			contributionId: 'articles.safe-output',
-			create: () => ({
-				value: restrictOutput({
-					schema: ArticleSchema,
-					handler: () => ['id', 'title'],
-				}),
+	}),
+	provideRuntimeConstraint({
+		contributionId: 'articles.safe-output',
+		create: () => ({
+			value: restrictOutput({
+				schema: ArticleSchema,
+				handler: () => ['id', 'title'],
 			}),
 		}),
-	],
-}
+	}),
+]
 ```
 
 `guard` allows by returning nothing and denies by throwing; it has no

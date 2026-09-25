@@ -9,44 +9,75 @@ import type {
 	PluginCapabilityDeclarationOptions,
 	PluginCapabilityDeclarations,
 } from './capability-declarations.js'
-import { assertCapabilityProviderDeclaration } from './capability-providers.js'
+import {
+	assertCapabilityProviderDeclaration,
+	type CapabilityProviderDeclaration,
+} from './capability-providers.js'
 import {
 	assertCapabilityRequirement,
+	assertOptionalCapabilityRequirement,
 	type CapabilityRequirement,
 } from './capability-requirements.js'
+import type { CapabilityToken } from './capability-token.js'
 
-const normalizeCapabilityArray = <TValue>(
-	values: readonly TValue[] | undefined,
-	path: string,
-	assertValue: (value: unknown, path: string) => void,
-): readonly TValue[] => {
-	if (values === undefined) return immutableArray([])
-
-	const untrustedValues: unknown = values
-	if (!isUnknownArray(untrustedValues)) {
-		throw new TypeError(`${path} must be an array`)
-	}
-
-	for (const [index, value] of untrustedValues.entries()) {
-		assertValue(value, `${path}[${String(index)}]`)
-	}
-
-	return immutableArray(values)
-}
-
-const assertRequirementOptionality = (
-	requirement: CapabilityRequirement,
-	optional: boolean,
-	path: string,
-): void => {
-	if (requirement.optional !== optional) {
-		throw new TypeError(
-			`${path} must be created by ${optional ? 'optionalCapability' : 'requireCapability'}`,
-		)
+const assertRequiredCapabilityRequirement: (
+	value: CapabilityRequirement,
+) => asserts value is CapabilityRequirement<CapabilityToken, false> = (
+	value,
+) => {
+	if (value.optional) {
+		throw new TypeError('required capability declaration cannot be optional')
 	}
 }
 
-/** Snapshots capability arrays without selecting providers or materializing values. */
+const normalizeGroupedDeclarations = (
+	options: Readonly<Record<string, unknown>>,
+): PluginCapabilityDeclarations => {
+	for (const key of Object.keys(options)) {
+		if (key !== 'provides' && key !== 'requires' && key !== 'optional') {
+			throw new TypeError(`capabilities contains unknown option: ${key}`)
+		}
+	}
+
+	const provides: CapabilityProviderDeclaration[] = []
+	const requires: CapabilityRequirement<CapabilityToken, false>[] = []
+	const optional: CapabilityRequirement<CapabilityToken, true>[] = []
+	for (const [property, values] of [
+		['provides', options.provides],
+		['requires', options.requires],
+		['optional', options.optional],
+	] as const) {
+		if (values === undefined) continue
+		if (!isUnknownArray(values)) {
+			throw new TypeError(`capabilities.${property} must be an array`)
+		}
+		for (const [index, declaration] of values.entries()) {
+			const path = `capabilities.${property}[${String(index)}]`
+			if (property === 'provides') {
+				assertCapabilityProviderDeclaration(declaration, path)
+				provides.push(declaration)
+				continue
+			}
+
+			assertCapabilityRequirement(declaration, path)
+			if (property === 'optional') {
+				assertOptionalCapabilityRequirement(declaration, path)
+				optional.push(declaration)
+			} else {
+				assertRequiredCapabilityRequirement(declaration)
+				requires.push(declaration)
+			}
+		}
+	}
+
+	return immutableRecord({
+		provides: immutableArray(provides),
+		requires: immutableArray(requires),
+		optional: immutableArray(optional),
+	})
+}
+
+/** Snapshots one flat capability list into the stable inspection buckets. */
 export const normalizeCapabilityDeclarations = (
 	options: PluginCapabilityDeclarationOptions | undefined,
 ): PluginCapabilityDeclarations => {
@@ -59,51 +90,49 @@ export const normalizeCapabilityDeclarations = (
 	}
 
 	const untrustedOptions: unknown = options
-	if (!isPlainRecord(untrustedOptions)) {
-		throw new TypeError('capabilities must be a plain object')
+	if (isPlainRecord(untrustedOptions)) {
+		return normalizeGroupedDeclarations(untrustedOptions)
+	}
+	if (!isUnknownArray(untrustedOptions)) {
+		throw new TypeError('capabilities must be an array')
 	}
 
-	for (const key of Object.keys(untrustedOptions)) {
-		if (key !== 'provides' && key !== 'requires' && key !== 'optional') {
-			throw new TypeError(`capabilities contains unknown option: ${key}`)
+	const provides: CapabilityProviderDeclaration[] = []
+	const requires: CapabilityRequirement<CapabilityToken, false>[] = []
+	const optional: CapabilityRequirement<CapabilityToken, true>[] = []
+	for (const [index, declaration] of untrustedOptions.entries()) {
+		const path = `capabilities[${String(index)}]`
+		if (!isPlainRecord(declaration)) {
+			throw new TypeError(
+				`${path} must be created by provideCapability, requireCapability, or optionalCapability`,
+			)
 		}
-	}
 
-	const provides = normalizeCapabilityArray(
-		options.provides,
-		'capabilities.provides',
-		assertCapabilityProviderDeclaration,
-	)
-	const requires = normalizeCapabilityArray(
-		options.requires,
-		'capabilities.requires',
-		assertCapabilityRequirement,
-	)
-	const optional = normalizeCapabilityArray(
-		options.optional,
-		'capabilities.optional',
-		assertCapabilityRequirement,
-	)
+		if (declaration.kind === 'capability-provider') {
+			assertCapabilityProviderDeclaration(declaration, path)
+			provides.push(declaration)
+			continue
+		}
+		if (declaration.kind === 'capability-requirement') {
+			assertCapabilityRequirement(declaration, path)
+			if (declaration.optional) {
+				assertOptionalCapabilityRequirement(declaration, path)
+				optional.push(declaration)
+			} else {
+				assertRequiredCapabilityRequirement(declaration)
+				requires.push(declaration)
+			}
+			continue
+		}
 
-	for (const [index, requirement] of requires.entries()) {
-		assertRequirementOptionality(
-			requirement,
-			false,
-			`capabilities.requires[${String(index)}]`,
-		)
-	}
-
-	for (const [index, requirement] of optional.entries()) {
-		assertRequirementOptionality(
-			requirement,
-			true,
-			`capabilities.optional[${String(index)}]`,
+		throw new TypeError(
+			`${path} must be created by provideCapability, requireCapability, or optionalCapability`,
 		)
 	}
 
 	return immutableRecord({
-		provides,
-		requires,
-		optional,
+		provides: immutableArray(provides),
+		requires: immutableArray(requires),
+		optional: immutableArray(optional),
 	})
 }

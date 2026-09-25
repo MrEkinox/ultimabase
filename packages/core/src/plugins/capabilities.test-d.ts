@@ -40,11 +40,7 @@ test('preserves exact provider, consumer, protocol, and manifest types', () => {
 		pluginId: 'fixture.audit-plugin',
 		version: '1.0.0',
 		core: '^0.0.0',
-		capabilities: {
-			provides: [provider] as const,
-			requires: [required] as const,
-			optional: [optional] as const,
-		},
+		capabilities: [provider, required, optional],
 	})
 
 	expectTypeOf<

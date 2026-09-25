@@ -1474,29 +1474,27 @@ const tenantPlugin = (tenantId: string) =>
 				reason: 'Applies tenant row and field restrictions.',
 			},
 		],
-		capabilities: {
-			provides: [
-				provideRuntimeConstraint({
-					contributionId: 'tenant-row-filter',
-					create: () => ({
-						value: constraint({
-							schema: PostSchema,
-							handler: () =>
-								databaseConstraint('example.tenant', 1, { tenantId }),
-						}),
+		capabilities: [
+			provideRuntimeConstraint({
+				contributionId: 'tenant-row-filter',
+				create: () => ({
+					value: constraint({
+						schema: PostSchema,
+						handler: () =>
+							databaseConstraint('example.tenant', 1, { tenantId }),
 					}),
 				}),
-				provideRuntimeConstraint({
-					contributionId: 'tenant-visible-fields',
-					create: () => ({
-						value: restrictSelection({
-							schema: PostSchema,
-							handler: () => ['id', 'title'],
-						}),
+			}),
+			provideRuntimeConstraint({
+				contributionId: 'tenant-visible-fields',
+				create: () => ({
+					value: restrictSelection({
+						schema: PostSchema,
+						handler: () => ['id', 'title'],
 					}),
 				}),
-			],
-		},
+			}),
+		],
 	})
 ```
 
@@ -1610,10 +1608,7 @@ Core owns the canonical package-level authoring entry point. Bind the package
 identity once, then create configured instances without repeating it:
 
 ```ts
-import {
-	definePluginModule,
-	type PluginModuleInstance,
-} from '@ultimabase/core'
+import { definePluginModule, type PluginModuleInstance } from '@ultimabase/core'
 
 const workflow = definePluginModule({
 	pluginId: 'community.workflow',
@@ -1777,14 +1772,12 @@ export const databasePlugin = () =>
 		],
 		environment: ['environment:network'],
 		dependencies: [{ pluginId: 'fixture.config', version: '^1.0.0' }],
-		capabilities: {
-			provides: [
-				provideCapability(dialectCapability, {
-					contributionId: 'postgres',
-					value: { dialect: 'postgres' },
-				}),
-			],
-		},
+		capabilities: [
+			provideCapability(dialectCapability, {
+				contributionId: 'postgres',
+				value: { dialect: 'postgres' },
+			}),
+		],
 		setup: () => ({ dialect: 'postgres' as const }),
 	})
 ```
@@ -1827,7 +1820,7 @@ const consumer = definePlugin({
 	pluginId: 'fixture.audit-consumer',
 	version: '1.0.0',
 	core: '^0.0.0',
-	capabilities: { optional: [auditRequirement] },
+	capabilities: [auditRequirement],
 	privileges: [
 		{
 			name: 'event:publish',
@@ -1851,7 +1844,10 @@ Every provider has one stable owner-local `contributionId`, recorded together
 with its exact plugin and instance in `PluginGraph.capabilities`. Dependency
 order and configuration position determine provider order. A `single` token
 rejects competing providers; `multiple` and `pipeline` tokens retain their
-ordered providers. The manifest accepts `provides`, `requires`, and `optional`.
+ordered providers. Authors put providers and requirements in one
+`capabilities` list; each nominal declaration already records whether it
+provides, requires, or optionally consumes a capability. The inspected
+manifest retains the normalized `provides`, `requires`, and `optional` groups.
 
 Plugins read only the exact `requireCapability(...)` or
 `optionalCapability(...)` objects listed in their manifest:
@@ -1863,7 +1859,7 @@ definePlugin({
 	pluginId: 'fixture.audit-consumer',
 	version: '1.0.0',
 	core: '^0.0.0',
-	capabilities: { requires: [auditRequirement] },
+	capabilities: [auditRequirement],
 	setup: ({ capabilities }) => {
 		const audit = capabilities.get(auditRequirement)
 		return { audit }
