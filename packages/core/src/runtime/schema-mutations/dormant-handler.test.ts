@@ -6,14 +6,10 @@ import { RecordingDatabaseAdapter } from '../../../tests/runtime/fixtures/record
 import {
 	defineOperationValue,
 	plugin as createPlugin,
-	contributeDeclarations,
+	contributeSchemaMutation,
 	defineSchemaMutation,
 } from '../../foundation.js'
 import { UltimaBase } from '../application/ultima-base.js'
-import {
-	provideSchemaMutationHandler,
-	schemaMutationHandler,
-} from './capabilities.js'
 
 // An unselected declaration must not demand a schema or execute its handler.
 it('keeps a valid handler dormant when no schema selects its mutation', async () => {
@@ -34,21 +30,9 @@ it('keeps a valid handler dormant when no schema selects its mutation', async ()
 		},
 		version: '1.0.0',
 		contributions: [
-			provideSchemaMutationHandler({
-				contributionId: 'dormant-handler',
-				create: () => ({
-					value: schemaMutationHandler({
-						mutation: dormantMutation,
-						resolve: () => ({ data: {} }),
-					}),
-				}),
-			}),
-			contributeDeclarations({
-				operations: ({ operations }) => {
-					operations.declare(dormantMutation)
-
-					return undefined
-				},
+			contributeSchemaMutation({
+				mutation: dormantMutation,
+				resolve: () => ({ data: {} }),
 			}),
 		],
 	})

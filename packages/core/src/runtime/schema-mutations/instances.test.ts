@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
 	addSchemaField,
 	contributeDeclarations,
+	contributeSchemaMutation,
 	defineOperationValue,
 	plugin as createPlugin,
 	defineSchemaMutation,
@@ -11,10 +12,6 @@ import { Schema, stringField } from '../../schema/index.js'
 import { UltimaBase } from '../application/ultima-base.js'
 import { RecordingDatabaseAdapter } from '../../../tests/runtime/fixtures/recording-database-adapter.js'
 import { provideTestDatabaseAdapter } from '../../../tests/runtime/fixtures/database-adapter-capability.js'
-import {
-	provideSchemaMutationHandler,
-	schemaMutationHandler,
-} from './capabilities.js'
 
 const Post = Schema.define({
 	className: 'SchemaMutationInstancePost',
@@ -51,16 +48,8 @@ const createWorkflowInstance = (
 			'schema:declare': 'Adds one instance-owned field.',
 		},
 		contributions: [
-			provideSchemaMutationHandler({
-				contributionId: `${command}-handler`,
-				create: () => ({
-					value: schemaMutationHandler({ mutation, resolve }),
-				}),
-			}),
+			contributeSchemaMutation({ mutation, resolve }),
 			contributeDeclarations({
-				operations: ({ operations }) => {
-					operations.declare(mutation)
-				},
 				schema: ({ schemas }) => {
 					schemas.patch({
 						operations: [

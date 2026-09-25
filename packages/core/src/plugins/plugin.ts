@@ -25,10 +25,6 @@ import type {
 	PluginDeclarationContribution,
 	PluginPrivilegedContribution,
 } from './plugin-contributions.js'
-import type {
-	PluginOperationAuthoringContribution,
-	PluginOperationContributionCapabilities,
-} from './plugin-operation-contributions.js'
 import {
 	normalizePluginPermissionRequests,
 	type PluginPermissionReasons,
@@ -78,31 +74,9 @@ type CollectContributionCapabilities<
 		]
 	: readonly []
 
-type ContributionOperations<TContribution> =
-	UnwrapContribution<TContribution> extends infer TUnwrapped
-		? TUnwrapped extends PluginOperationAuthoringContribution
-			? readonly [TUnwrapped]
-			: readonly []
-		: readonly []
-
-type CollectContributionOperations<
-	TContributions extends readonly PluginContribution[],
-> = TContributions extends readonly [
-	infer THead extends PluginContribution,
-	...infer TTail extends readonly PluginContribution[],
-]
-	? readonly [
-			...ContributionOperations<THead>,
-			...CollectContributionOperations<TTail>,
-		]
-	: readonly []
-
 type ContributionCapabilityOptions<
 	TContributions extends readonly PluginContribution[],
-> = PluginOperationContributionCapabilities<
-	CollectContributionCapabilities<TContributions>,
-	CollectContributionOperations<TContributions>
->
+> = CollectContributionCapabilities<TContributions>
 
 type PermissionRequest<TPermissions, TName extends PluginPrivilege> = Readonly<{
 	readonly name: TName
@@ -253,8 +227,8 @@ export const plugin = <
 		manifest,
 		plan: {
 			applicationFactory: compiled.applicationFactory,
+			commands: compiled.commands,
 			declare: compiled.declare,
-			operations: compiled.operations,
 		},
 		...(options.dependencies === undefined
 			? {}

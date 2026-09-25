@@ -1,17 +1,23 @@
-# Current plan: native contribution-first plugin plan
+# Current plan: native command and application simplification
 
-- Status: completed
+- Status: active
+- Milestone: 36
+- Baseline: `aeb53cab42c9cb3a8487612d5c7be38add3a37c1`
 
-The user authorized the internal alignment on 2026-09-25 after milestone 34's
-audit showed that the public contribution-first form still translated through
-Core's older phase-bucket definition compiler.
+The user authorized repository-wide continuation of the native-model
+simplification on 2026-09-25 and explicitly approved contribution-only command
+authoring after the architecture stop identified four public low-level command
+provider protocols.
 
-Milestone 35 is complete. Contributions are Core's native immutable plugin
-plan, each operation and normalized graph fact is compiled once, and the
-lifecycle manager owns application resources directly. Every current plugin
-capability, option, privilege, lifecycle, transport, Typegen, schema,
-private-storage, Runtime, and cleanup behavior remains covered.
+Issue 3601 is complete. Operation and schema-mutation contributions are native,
+the approved provider APIs are removed, and command, lifecycle, security,
+transport, Typegen, and cleanup behavior retain parity.
 
-The final state keeps one public `plugin()` factory and has no internal phase
-bridge. The complete reduction and parity report is recorded in issue 3502. No
-push was performed.
+Issue 3602 is active. It consolidates application-owned state and removes
+redundant bind/read bridges without exposing new public authority.
+
+Later issues consolidate application state, remove static mutation
+registration, reduce official option and identity duplication, audit graph and
+Access/Hooks shells, and close with complete parity and line measurements.
+
+No push is authorized.

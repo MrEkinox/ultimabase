@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import {
 	createApplication,
 	contributeDeclarations,
+	contributeSchemaMutationBinding,
 	defineCapability,
 	defineOperationValue,
 	plugin as createPlugin,
@@ -18,7 +19,6 @@ import { addSchemaField } from '../../plugins/schema-field-patch-operations.js'
 import { Schema, stringField } from '../../schema/index.js'
 import { defineOperationTransport } from '../plugin-operations/capabilities.js'
 import {
-	provideSchemaMutationTransportBinding,
 	schemaMutationTransportBinding,
 	schemaMutationWireCodec,
 } from '../schema-mutations/transport-capabilities.js'
@@ -70,17 +70,9 @@ const createOwnerPlugin = (bindingCount = 1, selected = true) =>
 		contributions: [
 			...(bindingCount > 0
 				? [
-						provideSchemaMutationTransportBinding({
-							contributionId: 'rest-binding',
-							create: () => ({ value: binding }),
-						}),
+						contributeSchemaMutationBinding(binding),
 						...(bindingCount > 1
-							? [
-									provideSchemaMutationTransportBinding({
-										contributionId: 'duplicate-rest-binding',
-										create: () => ({ value: binding }),
-									}),
-								]
+							? [contributeSchemaMutationBinding(binding)]
 							: []),
 					]
 				: []),
@@ -220,12 +212,7 @@ describe('application schema mutation transport planning', () => {
 			id: 'fixture.schema-mutation-planning.foreign',
 			permissions: { 'transport:expose': 'Exercises owner validation.' },
 			version: '1.0.0',
-			contributions: [
-				provideSchemaMutationTransportBinding({
-					contributionId: 'foreign-binding',
-					create: () => ({ value: binding }),
-				}),
-			],
+			contributions: [contributeSchemaMutationBinding(binding)],
 		})
 		const harness: Harness = {}
 		// Ownership now fails at materialization, before a transport can obtain its planner.

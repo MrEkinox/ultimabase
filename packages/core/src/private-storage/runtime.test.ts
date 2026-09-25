@@ -8,15 +8,12 @@ import {
 	contributeApplication,
 	withPluginPrivileges,
 } from '../plugins/plugin-contributions.js'
+import { contributeOperation } from '../plugins/plugin-operation-contributions.js'
 
 import {
 	defineOperation,
 	defineOperationValue,
 } from '../plugins/plugin-operations.js'
-import {
-	operationHandler,
-	provideOperationHandler,
-} from '../runtime/plugin-operations/capabilities.js'
 import { UltimaBase } from '../runtime/application/ultima-base.js'
 import {
 	databaseAdapterCapability,
@@ -294,123 +291,120 @@ let retainedStore: PrivateCollectionHandle<typeof collection> | undefined
 
 const createFixture = async () => {
 	const adapter = new MemoryPrivateAdapter()
-	const handler = operationHandler({
-		operation: privateOperation,
-		execute: async ({ engine, input }) => {
-			const store = privateStore(collection)
-			switch (input.action) {
-				case 'insert':
-					await store.insert({
-						data: {
-							id: '0198c000-0000-7000-8000-000000000001',
-							secret: 'digest-a',
-							version: '1',
-						},
-					})
-					return 'inserted'
-				case 'read':
-					return (
-						(await store.findUnique({ where: { secret: 'digest-a' } }))
-							?.version ?? 'missing'
-					)
-				case 'swap':
-					return (
-						(
-							await store.compareAndSwap({
-								data: { version: '2' },
-								expected: { version: '1' },
-								where: { secret: 'digest-a' },
-							})
-						)?.version ?? 'conflict'
-					)
-				case 'update':
-					return (
-						(
-							await store.update({
-								data: { version: '3' },
-								where: { secret: 'digest-a' },
-							})
-						)?.version ?? 'missing'
-					)
-				case 'delete':
-					return (await store.delete({ where: { secret: 'digest-a' } })) ===
-						null
-						? 'missing'
-						: 'deleted'
-				case 'rollback':
-					await store.insert({
-						data: {
-							id: '0198c000-0000-7000-8000-000000000002',
-							secret: 'digest-b',
-							version: '1',
-						},
-					})
-					throw new Error('rollback')
-				case 'read-b':
-					return (await store.findUnique({ where: { secret: 'digest-b' } })) ===
-						null
-						? 'missing'
-						: 'present'
-				case 'atomic':
-					await engine.execute(publicCreateOperation('committed'))
-					await store.insert({
-						data: {
-							id: '0198c000-0000-7000-8000-000000000003',
-							secret: 'digest-c',
-							version: '1',
-						},
-					})
-					return 'atomic'
-				case 'atomic-rollback':
-					await engine.execute(publicCreateOperation('rolled-back'))
-					await store.insert({
-						data: {
-							id: '0198c000-0000-7000-8000-000000000004',
-							secret: 'digest-d',
-							version: '1',
-						},
-					})
-					throw new Error('atomic rollback')
-				case 'capture':
-					retainedStore = store
-					return 'captured'
-				case 'use-retained':
-					return (
-						(await retainedStore?.findUnique({ where: { secret: 'digest-a' } }))
-							?.version ?? 'missing'
-					)
-				case 'forge':
-					privateStore({ kind: 'private-collection' } as never)
-					return 'forged'
-				default:
-					return 'unknown'
-			}
-		},
-	})
-	const optionalHandler = operationHandler({
-		operation: optionalPrivateOperation,
-		execute: async ({ input }) => {
-			const store = privateStore(collection)
-			if (input.action === 'read-root') {
-				return (await store.findUnique({
-					where: { secret: 'digest-auto' },
-				})) === null
-					? 'missing'
-					: 'present'
-			}
-			if (input.action === 'insert-auto') {
+	const handler: Parameters<
+		typeof contributeOperation<typeof privateOperation>
+	>[0]['execute'] = async ({ engine, input }) => {
+		const store = privateStore(collection)
+		switch (input.action) {
+			case 'insert':
 				await store.insert({
 					data: {
-						id: '0198c000-0000-7000-8000-000000000005',
-						secret: 'digest-auto',
+						id: '0198c000-0000-7000-8000-000000000001',
+						secret: 'digest-a',
 						version: '1',
 					},
 				})
 				return 'inserted'
-			}
-			return 'unknown'
-		},
-	})
+			case 'read':
+				return (
+					(await store.findUnique({ where: { secret: 'digest-a' } }))
+						?.version ?? 'missing'
+				)
+			case 'swap':
+				return (
+					(
+						await store.compareAndSwap({
+							data: { version: '2' },
+							expected: { version: '1' },
+							where: { secret: 'digest-a' },
+						})
+					)?.version ?? 'conflict'
+				)
+			case 'update':
+				return (
+					(
+						await store.update({
+							data: { version: '3' },
+							where: { secret: 'digest-a' },
+						})
+					)?.version ?? 'missing'
+				)
+			case 'delete':
+				return (await store.delete({ where: { secret: 'digest-a' } })) === null
+					? 'missing'
+					: 'deleted'
+			case 'rollback':
+				await store.insert({
+					data: {
+						id: '0198c000-0000-7000-8000-000000000002',
+						secret: 'digest-b',
+						version: '1',
+					},
+				})
+				throw new Error('rollback')
+			case 'read-b':
+				return (await store.findUnique({ where: { secret: 'digest-b' } })) ===
+					null
+					? 'missing'
+					: 'present'
+			case 'atomic':
+				await engine.execute(publicCreateOperation('committed'))
+				await store.insert({
+					data: {
+						id: '0198c000-0000-7000-8000-000000000003',
+						secret: 'digest-c',
+						version: '1',
+					},
+				})
+				return 'atomic'
+			case 'atomic-rollback':
+				await engine.execute(publicCreateOperation('rolled-back'))
+				await store.insert({
+					data: {
+						id: '0198c000-0000-7000-8000-000000000004',
+						secret: 'digest-d',
+						version: '1',
+					},
+				})
+				throw new Error('atomic rollback')
+			case 'capture':
+				retainedStore = store
+				return 'captured'
+			case 'use-retained':
+				return (
+					(await retainedStore?.findUnique({ where: { secret: 'digest-a' } }))
+						?.version ?? 'missing'
+				)
+			case 'forge':
+				privateStore({ kind: 'private-collection' } as never)
+				return 'forged'
+			default:
+				return 'unknown'
+		}
+	}
+	const optionalHandler: Parameters<
+		typeof contributeOperation<typeof optionalPrivateOperation>
+	>[0]['execute'] = async ({ input }) => {
+		const store = privateStore(collection)
+		if (input.action === 'read-root') {
+			return (await store.findUnique({
+				where: { secret: 'digest-auto' },
+			})) === null
+				? 'missing'
+				: 'present'
+		}
+		if (input.action === 'insert-auto') {
+			await store.insert({
+				data: {
+					id: '0198c000-0000-7000-8000-000000000005',
+					secret: 'digest-auto',
+					version: '1',
+				},
+			})
+			return 'inserted'
+		}
+		return 'unknown'
+	}
 	const plugin = createPlugin({
 		core: '^0.0.0',
 		id: 'fixture.private-storage',
@@ -420,22 +414,14 @@ const createFixture = async () => {
 		},
 		version: '1.0.0',
 		contributions: [
-			provideOperationHandler({
-				contributionId: 'private-handler',
-				create: () => ({ value: handler }),
-			}),
-			provideOperationHandler({
-				contributionId: 'optional-private-handler',
-				create: () => ({ value: optionalHandler }),
+			contributeOperation({ operation: privateOperation, execute: handler }),
+			contributeOperation({
+				operation: optionalPrivateOperation,
+				execute: optionalHandler,
 			}),
 			contributeDeclarations({
 				privateStorage: ({ privateStorage }) => {
 					privateStorage.register(collection)
-					return undefined
-				},
-				operations: ({ operations }) => {
-					operations.declare(privateOperation)
-					operations.declare(optionalPrivateOperation)
 					return undefined
 				},
 			}),

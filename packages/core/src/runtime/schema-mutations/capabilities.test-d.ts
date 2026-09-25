@@ -1,14 +1,11 @@
 import { expectTypeOf, test } from 'vitest'
 
 import {
+	contributeSchemaMutation,
 	defineOperationValue,
 	defineSchemaMutation,
 	type PluginSchemaMutationHandlerInput,
 } from '../../index.js'
-import {
-	provideSchemaMutationHandler,
-	schemaMutationHandler,
-} from './capabilities.js'
 
 const update = defineSchemaMutation({
 	authority: 'request',
@@ -28,7 +25,7 @@ const remove = defineSchemaMutation({
 })
 
 test('preserves exact mutation input and effect result contracts', () => {
-	const updateHandler = schemaMutationHandler({
+	const updateHandler = contributeSchemaMutation({
 		mutation: update,
 		resolve: (input) => {
 			expectTypeOf(input).toEqualTypeOf<
@@ -38,7 +35,7 @@ test('preserves exact mutation input and effect result contracts', () => {
 			return { data: { state: 'archived' } }
 		},
 	})
-	const deleteHandler = schemaMutationHandler({
+	const deleteHandler = contributeSchemaMutation({
 		mutation: remove,
 		resolve: ({ input }) => {
 			expectTypeOf(input).toEqualTypeOf<undefined>()
@@ -46,14 +43,9 @@ test('preserves exact mutation input and effect result contracts', () => {
 		},
 	})
 
-	expectTypeOf(
-		provideSchemaMutationHandler({
-			contributionId: 'update',
-			create: () => ({ value: updateHandler }),
-		}),
-	).not.toBeNever()
+	expectTypeOf(updateHandler).not.toBeNever()
 	expectTypeOf(deleteHandler.mutation).toEqualTypeOf<typeof remove>()
 
 	// @ts-expect-error -- Delete handlers cannot manufacture update effects.
-	schemaMutationHandler({ mutation: remove, resolve: () => ({ data: {} }) })
+	contributeSchemaMutation({ mutation: remove, resolve: () => ({ data: {} }) })
 })

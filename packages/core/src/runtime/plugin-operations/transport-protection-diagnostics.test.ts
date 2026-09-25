@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { plugin as createPlugin } from '../../plugins/plugin.js'
-import { contributeDeclarations } from '../../plugins/plugin-contributions.js'
+import { contributeOperation } from '../../plugins/plugin-operation-contributions.js'
 import {
 	defineOperation,
 	defineOperationValue,
@@ -13,11 +13,8 @@ import { provideTestDatabaseAdapter } from '../../../tests/runtime/fixtures/data
 import { RecordingDatabaseAdapter } from '../../../tests/runtime/fixtures/recording-database-adapter.js'
 import {
 	defineOperationTransport,
-	operationHandler,
 	operationTransportBinding,
 	operationWireCodec,
-	provideOperationHandler,
-	provideOperationTransportBinding,
 } from './capabilities.js'
 
 const emptyValue = defineOperationValue((value, path): null => {
@@ -62,29 +59,13 @@ const operationPlugin = createPlugin({
 	},
 	version: '1.0.0',
 	contributions: [
-		provideOperationHandler({
-			contributionId: 'handler',
-			create: () => ({
-				value: operationHandler({
-					execute: () => null,
-					operation: diagnosticOperation,
-				}),
-			}),
-		}),
-		provideOperationTransportBinding({
-			contributionId: 'primary-binding',
-			create: () => ({ value: createBinding(primaryTransport) }),
-		}),
-		provideOperationTransportBinding({
-			contributionId: 'secondary-binding',
-			create: () => ({ value: createBinding(secondaryTransport) }),
-		}),
-		contributeDeclarations({
-			operations: ({ operations }) => {
-				operations.declare(diagnosticOperation)
-
-				return undefined
-			},
+		contributeOperation({
+			bindings: [
+				createBinding(primaryTransport),
+				createBinding(secondaryTransport),
+			],
+			execute: () => null,
+			operation: diagnosticOperation,
 		}),
 	],
 })

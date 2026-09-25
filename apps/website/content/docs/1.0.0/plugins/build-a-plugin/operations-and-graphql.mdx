@@ -19,6 +19,9 @@ sources:
   - docs/adr/0240-static-operation-transport-planning.md
   - docs/adr/0261-command-compilation-and-binding-phases.md
   - docs/adr/0269-core-native-plugin-authoring.md
+  - docs/adr/0272-native-command-contributions.md
+  - packages/core/src/plugins/plugin-operation-contributions.ts
+  - packages/core/src/plugins/plugin-schema-mutation-contributions.ts
   - packages/core/src/runtime/application/application-schema-mutation-transport-planning.test.ts
   - docs/adr/0256-rest-operation-public-paths.md
 ---
@@ -41,10 +44,10 @@ its TypeScript types, and publishing it on a transport are separate decisions.
 
 ## Pick the executable surface
 
-| Requirement            | Declare                                                            | Implement                  | Expose                                                           |
-| ---------------------- | ------------------------------------------------------------------ | -------------------------- | ---------------------------------------------------------------- |
-| App-wide command       | `defineOperation({ target: 'application' })`                       | `contributeOperation()`    | Optional exact GraphQL or REST binding and application allowlist |
-| Item-oriented mutation | `defineSchemaMutation()` plus `models.extend({ schemaMutations })` | Schema-mutation capability | Optional separate schema-mutation binding for REST or GraphQL    |
+| Requirement            | Declare                                                            | Implement                    | Expose                                                           |
+| ---------------------- | ------------------------------------------------------------------ | ---------------------------- | ---------------------------------------------------------------- |
+| App-wide command       | `defineOperation({ target: 'application' })`                       | `contributeOperation()`      | Optional exact GraphQL or REST binding and application allowlist |
+| Item-oriented mutation | `defineSchemaMutation()` plus `models.extend({ schemaMutations })` | `contributeSchemaMutation()` | Optional exact REST or GraphQL binding                           |
 
 `operation:declare` covers both token kinds. `model:extend` attaches
 schema-mutation methods to schema and model handles. Every command uses an exact namespaced name and semantic version.
@@ -52,12 +55,13 @@ Input and result snapshotters validate untrusted values; declaring an error
 code makes only that `PluginError` safe to publish. Unknown exceptions remain
 internal diagnostics.
 
-Pure schema compilation and Typegen do not call your handler or binding
-providers' `create` factories. Those factories run once during application
-initialization, under their exact plugin owner. Core rejects duplicate active
-handlers or protocol bindings and foreign ownership before plugin setup or
-transport planning. If initialization fails, it disposes the resources already
-created. Keep resource cleanup in the provider's `dispose` callback.
+Pure schema compilation and Typegen do not call a resource-backed handler's
+`create` factory. It runs once during application initialization under the exact
+plugin owner; transport bindings themselves remain inert declarations. Core
+rejects duplicate active handlers or protocol bindings and foreign ownership
+before plugin setup or transport planning. If initialization fails, it disposes
+the resources already created. Return resource cleanup from `create` as
+`dispose`.
 
 ## Declare and implement an operation
 
@@ -85,9 +89,9 @@ export const formatWorkflow = defineOperation({
 })
 ```
 
-Install the token and its handler under one plugin owner. Core derives the
-static declaration, handler provider, owner-local identifier, and lifecycle
-resource boundary:
+Install the token and its handler under one plugin owner. The contribution is
+the single source for the static declaration, executable handler, owner-local
+identifier, optional wire bindings, and lifecycle resource boundary:
 
 ```ts title="src/plugin.ts"
 import { contributeOperation, plugin } from '@ultimabase/core'
@@ -321,8 +325,8 @@ resolver.
 Use `defineSchemaMutation()` when the command acts on one persisted schema
 item and should participate in Core's locked-target, policy, hook, and
 transaction semantics. The owner adds one `contributeSchemaMutation()` entry
-to the plugin's `operations` list; Core derives the token declaration and
-handler provider. `models.extend({ schemaMutations: { ... } })` selects the
+to the plugin's `contributions` list; that one entry owns the token declaration,
+handler, optional bindings, and lifecycle. `models.extend({ schemaMutations: { ... } })` selects the
 schema and model surfaces. Optional GraphQL exposure adds a
 `schemaMutationWireCodec()` binding to that same contribution, or uses
 `contributeSchemaMutationBinding()` under the same owner. It uses the separate

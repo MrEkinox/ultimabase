@@ -18,6 +18,7 @@ import {
 	composeCapability,
 	runApplicationCapabilityFactory,
 	type ApplicationCapabilityResource,
+	type ApplicationCapabilityFactoryContext,
 	type CapabilityConsumerValue,
 	type CapabilityProviderContribution,
 	type CapabilityRequirement,
@@ -31,6 +32,7 @@ import {
 } from './capability-inventory.js'
 import type { PluginGraph } from './graph.js'
 import type { NormalizedPlugin } from './normalization.js'
+import { PluginCommandMaterializer } from './plugin-command-materializer.js'
 import {
 	formatPluginIdentity,
 	isSamePluginIdentity,
@@ -42,9 +44,7 @@ import {
 	bindApplicationOperationTransportPlanner,
 	isApplicationOperationTransportPlanningCapability,
 } from '../runtime/application/application-operation-transport-planning.js'
-import { operationTransportBindingCapability } from '../runtime/plugin-operations/capabilities.js'
 import * as mutation from '../runtime/application/application-schema-mutation-surface.js'
-import { schemaMutationTransportBindingCapability } from '../runtime/schema-mutations/transport-capabilities.js'
 interface MaterializedCapabilityResource {
 	readonly owner: PluginIdentity
 	readonly dispose: () => MaybePromise<void>
@@ -343,12 +343,19 @@ export class ApplicationCapabilityHost {
 	}
 
 	async #performMaterialization(): Promise<void> {
-		this.#commandBindings = this.#commands?.()?.bindings
+		const commands = new PluginCommandMaterializer({
+			application: this.#application,
+			context: (plugin, owner) => this.#factoryContext(plugin, owner),
+			graph: this.#graph,
+			retain: (resource) => this.#resources.push(resource),
+		})
+		this.#commandBindings = commands.bindTransports(this.#commands?.())
 		for (const { entry } of readCapabilityPlans(this.#inventory)) {
 			if (entry.token.lifetime === 'application') {
 				await this.#resolve(entry.token, [])
 			}
 		}
+		await commands.bindHandlers(this.#commandBindings)
 		this.#materialized = true
 	}
 
@@ -372,10 +379,6 @@ export class ApplicationCapabilityHost {
 		}
 
 		const nextStack = [...resolutionStack, token]
-		if (isApplicationOperationTransportPlanningCapability(token)) {
-			await this.#resolve(operationTransportBindingCapability, nextStack)
-			await this.#resolve(schemaMutationTransportBindingCapability, nextStack)
-		}
 		const providers: unknown[] = []
 		const materializedContributions: MaterializedCapabilityContribution[] = []
 		for (const contribution of plan.providers) {
@@ -401,24 +404,7 @@ export class ApplicationCapabilityHost {
 			const createResource = () =>
 				runApplicationCapabilityFactory(
 					contribution.declaration,
-					immutableRecord({
-						assertPrivilege: (privilege: PluginPrivilege): void => {
-							this.#assertPrivilege(contribution.owner, privilege)
-						},
-						callbacks: this.#callbacks,
-						capabilities: this.#readerFor(
-							contribution.owner,
-							'factory',
-							this.#factoryReaders,
-						),
-						constraintCompilers:
-							plugin !== undefined &&
-							this.#canConsumeAdapter(contribution.owner, plugin)
-								? this.#constraintCompilers
-								: createDeniedConstraintCompilerReader(contribution.owner),
-						owner: contribution.owner,
-						schemas: this.#schemas,
-					}),
+					this.#factoryContext(plugin, contribution.owner),
 				)
 			const resource = await (plugin === undefined
 				? createResource()
@@ -463,7 +449,6 @@ export class ApplicationCapabilityHost {
 			}
 		}
 
-		this.#commandBindings?.materialize(token, materializedContributions)
 		const consumer: unknown = composeCapability(token, providers)
 		if (isApplicationOperationTransportPlanningCapability(token)) {
 			bindApplicationOperationTransportPlanner(consumer, this.#application)
@@ -481,6 +466,25 @@ export class ApplicationCapabilityHost {
 		this.#resolvedConsumers.set(token, consumer)
 		this.#resolvedTokens.add(token)
 		return consumer
+	}
+
+	#factoryContext(
+		plugin: NormalizedPlugin | undefined,
+		owner: PluginIdentity,
+	): ApplicationCapabilityFactoryContext {
+		return immutableRecord({
+			assertPrivilege: (privilege: PluginPrivilege): void => {
+				this.#assertPrivilege(owner, privilege)
+			},
+			callbacks: this.#callbacks,
+			capabilities: this.#readerFor(owner, 'factory', this.#factoryReaders),
+			constraintCompilers:
+				plugin !== undefined && this.#canConsumeAdapter(owner, plugin)
+					? this.#constraintCompilers
+					: createDeniedConstraintCompilerReader(owner),
+			owner,
+			schemas: this.#schemas,
+		})
 	}
 
 	#read(

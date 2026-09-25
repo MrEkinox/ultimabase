@@ -64,23 +64,7 @@ describe('plugin schema-mutation contributions', () => {
 			kind: 'plugin-schema-mutation-contribution',
 			mutation: archive,
 		})
-		expect(
-			plugin.manifest.capabilities.provides.map(
-				({ contributionId, token }) => ({
-					capabilityId: token.capabilityId,
-					contributionId,
-				}),
-			),
-		).toStrictEqual([
-			{
-				capabilityId: 'ultimabase.plugin-schema-mutation-handlers',
-				contributionId: `schema-mutation:${archive.name}`,
-			},
-			{
-				capabilityId: 'ultimabase.schema-mutation-transport-bindings',
-				contributionId: `schema-mutation:${archive.name}:transport:${transport.name}`,
-			},
-		])
+		expect(plugin.manifest.capabilities.provides).toStrictEqual([])
 	})
 
 	it('supports resource-backed resolvers and separately owned bindings', () => {
@@ -104,7 +88,7 @@ describe('plugin schema-mutation contributions', () => {
 			contributions: [resource, externalBinding],
 		})
 
-		expect(plugin.manifest.capabilities.provides).toHaveLength(2)
+		expect(plugin.manifest.capabilities.provides).toHaveLength(0)
 		expect(externalBinding).toStrictEqual({
 			binding,
 			kind: 'plugin-schema-mutation-binding-contribution',

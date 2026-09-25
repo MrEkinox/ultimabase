@@ -1,16 +1,5 @@
-import {
-	immutableArray,
-	immutableRecord,
-	isPlainRecord,
-} from '@ultimabase/shared'
+import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
-import {
-	defineCapability,
-	provideCapability,
-	type ApplicationCapabilityFactory,
-	type CapabilityProviderDeclaration,
-	type CapabilityToken,
-} from '../../plugins/capabilities.js'
 import {
 	isPluginSchemaMutationDefinition,
 	type PluginSchemaMutationDefinition,
@@ -33,7 +22,6 @@ const codecImplementations = new WeakMap<
 >()
 const codecs = new WeakSet<object>()
 const bindings = new WeakSet<object>()
-const bindingProviders = new WeakSet<object>()
 
 /** Defines one owner-private payload decoder without exposing a schema result codec. */
 export const schemaMutationWireCodec = <
@@ -113,42 +101,6 @@ export const schemaMutationTransportBinding = <
 	return binding
 }
 
-/** Composes explicit schema-mutation wire bindings without exposing callbacks. */
-export const schemaMutationTransportBindingCapability: CapabilityToken<
-	SchemaMutationTransportBindingDefinition,
-	readonly SchemaMutationTransportBindingDefinition[],
-	'ultimabase.schema-mutation-transport-bindings',
-	'1.0.0',
-	'multiple',
-	'application'
-> = defineCapability<
-	SchemaMutationTransportBindingDefinition,
-	readonly SchemaMutationTransportBindingDefinition[]
->()({
-	capabilityId: 'ultimabase.schema-mutation-transport-bindings',
-	version: '1.0.0',
-	cardinality: 'multiple',
-	lifetime: 'application',
-	compose: (providers) => immutableArray(providers),
-})
-
-/** Provides one binding through the nominal owner-validated facade. */
-export const provideSchemaMutationTransportBinding = <
-	const TDefinition extends SchemaMutationTransportBindingDefinition,
->(options: {
-	readonly contributionId: string
-	readonly create: ApplicationCapabilityFactory<TDefinition>
-}): CapabilityProviderDeclaration<
-	typeof schemaMutationTransportBindingCapability
-> => {
-	const declaration = provideCapability(
-		schemaMutationTransportBindingCapability,
-		options,
-	)
-	bindingProviders.add(declaration)
-	return declaration
-}
-
 /** @internal Reads one decoder only from a nominal codec definition. */
 export const getSchemaMutationWireCodec = (
 	codec: unknown,
@@ -162,8 +114,3 @@ export const isSchemaMutationTransportBinding = (
 	value: unknown,
 ): value is SchemaMutationTransportBindingDefinition =>
 	typeof value === 'object' && value !== null && bindings.has(value)
-
-/** @internal Rejects providers that bypass the privileged helper. */
-export const isAuthorizedSchemaMutationTransportBindingProvider = (
-	declaration: CapabilityProviderDeclaration,
-): boolean => bindingProviders.has(declaration)

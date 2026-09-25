@@ -1,10 +1,7 @@
 export {
 	defineOperationTransport,
-	operationHandler,
 	operationTransportBinding,
 	operationWireCodec,
-	provideOperationHandler,
-	provideOperationTransportBinding,
 } from './capabilities.js'
 export type {
 	OperationTransportBindingDefinition,
@@ -15,7 +12,6 @@ export type {
 	OperationWireCodec,
 	PluginOperationExecutionTarget,
 	PluginOperationHandler,
-	PluginOperationHandlerDefinition,
 	PluginOperationHandlerInput,
 } from './contracts.js'
 export type {

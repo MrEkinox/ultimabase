@@ -6,23 +6,16 @@ import {
 	type MaybePromise,
 } from '@ultimabase/shared'
 
-import {
-	type ApplicationCapabilityFactoryContext,
-	type CapabilityProviderDeclaration,
-	type PluginCapabilityDeclaration,
-} from './capabilities.js'
+import type { ApplicationCapabilityFactoryContext } from './capabilities.js'
+import type {
+	PluginCommandHandlerPlan,
+	PluginCommandTransportPlan,
+} from './plugin-command-plan.js'
 import {
 	isPluginOperationDefinition,
 	type PluginOperationDefinition,
 } from './plugin-operations.js'
-import {
-	isOperationTransportBinding,
-	operationHandler,
-	provideOperationHandler,
-	provideOperationTransportBinding,
-	type operationTransportBindingCapability,
-	type pluginOperationHandlerCapability,
-} from '../runtime/plugin-operations/capabilities.js'
+import { isOperationTransportBinding } from '../runtime/plugin-operations/capabilities.js'
 import type {
 	OperationTransportBindingDefinition,
 	PluginOperationHandler,
@@ -33,7 +26,6 @@ import {
 	isPluginSchemaMutationBindingContribution,
 	isPluginSchemaMutationContribution,
 	type PluginSchemaMutationAuthoringContribution,
-	type SchemaMutationProtocolCapabilityProvider,
 } from './plugin-schema-mutation-contributions.js'
 
 /** Owns one materialized operation handler and its deterministic cleanup. */
@@ -112,28 +104,12 @@ export type PluginOperationAuthoringContribution =
 	| PluginOperationBindingContribution
 	| PluginSchemaMutationAuthoringContribution
 
-type OperationProtocolCapabilityProvider =
-	| CapabilityProviderDeclaration<typeof pluginOperationHandlerCapability>
-	| CapabilityProviderDeclaration<typeof operationTransportBindingCapability>
-	| SchemaMutationProtocolCapabilityProvider
-
-/** Adds Core-derived operation providers to an author's explicit capabilities. */
-export type PluginOperationContributionCapabilities<
-	TCapabilities,
-	TOperations,
-> = TOperations extends readonly []
-	? TCapabilities
-	: TOperations extends readonly PluginOperationAuthoringContribution[]
-		? TCapabilities extends readonly PluginCapabilityDeclaration[]
-			? readonly [...TCapabilities, ...OperationProtocolCapabilityProvider[]]
-			: readonly PluginCapabilityDeclaration[]
-		: TCapabilities
-
 interface CompiledPluginOperationContributions {
-	readonly capabilities: readonly OperationProtocolCapabilityProvider[]
+	readonly handlers: readonly PluginCommandHandlerPlan[]
 	readonly operations: readonly (
 		PluginOperationDefinition | PluginSchemaMutationDefinition
 	)[]
+	readonly transports: readonly PluginCommandTransportPlan[]
 }
 
 type OperationContributionRuntime = Readonly<{
@@ -283,22 +259,25 @@ const bindingContributionId = (
 ): string =>
 	`operation:${binding.operation.name}:transport:${binding.transport.name}`
 
-const provideBinding = (
+const planBinding = (
 	binding: OperationTransportBindingDefinition,
-): OperationProtocolCapabilityProvider =>
-	provideOperationTransportBinding({
+): PluginCommandTransportPlan =>
+	immutableRecord({
+		binding,
 		contributionId: bindingContributionId(binding),
-		create: () => ({ value: binding }),
+		kind: 'operation' as const,
+		source: binding.operation,
 	})
 
-/** @internal Compiles authoring contributions into the existing private protocols. */
+/** @internal Compiles authoring contributions into Core-native command facts. */
 export const compilePluginOperationContributions = (
 	contributions: readonly PluginOperationAuthoringContribution[] | undefined,
 ): CompiledPluginOperationContributions => {
 	if (contributions === undefined) {
 		return immutableRecord({
-			capabilities: immutableArray([]),
+			handlers: immutableArray([]),
 			operations: immutableArray([]),
+			transports: immutableArray([]),
 		})
 	}
 	const untrustedContributions: unknown = contributions
@@ -306,10 +285,11 @@ export const compilePluginOperationContributions = (
 		throw new TypeError('plugin operation contributions must be an array')
 	}
 
-	const capabilities: OperationProtocolCapabilityProvider[] = []
+	const handlers: PluginCommandHandlerPlan[] = []
 	const operations: (
 		PluginOperationDefinition | PluginSchemaMutationDefinition
 	)[] = []
+	const transports: PluginCommandTransportPlan[] = []
 	for (const [index, contribution] of untrustedContributions.entries()) {
 		if (!isPlainRecord(contribution)) {
 			throw new TypeError(
@@ -323,41 +303,38 @@ export const compilePluginOperationContributions = (
 				throw new TypeError('plugin operation contribution lost its runtime')
 			}
 			operations.push(contribution.operation)
-			capabilities.push(
-				provideOperationHandler({
+			handlers.push(
+				immutableRecord({
 					contributionId: `operation:${contribution.operation.name}`,
 					create: async (context) => {
 						if (runtime.execute !== undefined) {
-							return {
-								value: operationHandler({
-									execute: runtime.execute,
-									operation: contribution.operation,
-								}),
-							}
+							return immutableRecord({
+								execute: runtime.execute,
+								kind: 'operation' as const,
+							})
 						}
 
 						const resource = await runtime.create?.(context)
 						assertHandlerResource(resource)
-						return {
-							value: operationHandler({
-								execute: resource.execute,
-								operation: contribution.operation,
-							}),
+						return immutableRecord({
+							execute: resource.execute,
+							kind: 'operation' as const,
 							...(resource.dispose === undefined
 								? {}
 								: { dispose: resource.dispose }),
-						}
+						})
 					},
+					source: contribution.operation,
 				}),
 			)
 			for (const binding of contribution.bindings) {
-				capabilities.push(provideBinding(binding))
+				transports.push(planBinding(binding))
 			}
 			continue
 		}
 
 		if (isPluginOperationBindingContribution(contribution)) {
-			capabilities.push(provideBinding(contribution.binding))
+			transports.push(planBinding(contribution.binding))
 			continue
 		}
 
@@ -366,7 +343,8 @@ export const compilePluginOperationContributions = (
 			isPluginSchemaMutationBindingContribution(contribution)
 		) {
 			const compiled = compilePluginSchemaMutationContribution(contribution)
-			capabilities.push(...compiled.capabilities)
+			if (compiled.handler !== undefined) handlers.push(compiled.handler)
+			transports.push(...compiled.transports)
 			if (compiled.mutation !== undefined) operations.push(compiled.mutation)
 			continue
 		}
@@ -377,7 +355,8 @@ export const compilePluginOperationContributions = (
 	}
 
 	return immutableRecord({
-		capabilities: immutableArray(capabilities),
+		handlers: immutableArray(handlers),
 		operations: immutableArray(operations),
+		transports: immutableArray(transports),
 	})
 }

@@ -84,7 +84,6 @@ export type {
 	PluginOperationAuthoringContribution,
 	PluginOperationBindingContribution,
 	PluginOperationContribution,
-	PluginOperationContributionCapabilities,
 	PluginOperationContributionOptions,
 	PluginOperationHandlerResource,
 	ResourcePluginOperationContributionOptions,

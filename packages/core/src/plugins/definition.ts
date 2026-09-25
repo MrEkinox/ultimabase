@@ -29,18 +29,15 @@ import {
 	type PluginApplicationResource,
 	type PluginApplicationResourceFactory,
 } from './plugin-contributions.js'
-import type { PluginOperationDefinition } from './plugin-operations.js'
-import type { PluginSchemaMutationDefinition } from './plugin-schema-mutations.js'
 import type { PluginSetupContext } from './setup-registries.js'
+import type { PluginCommandPlan } from './plugin-command-plan.js'
 
 export type { PluginSetupContext } from './setup-registries.js'
 
 interface PluginNativePlan {
 	readonly applicationFactory: PluginApplicationResourceFactory | undefined
+	readonly commands: PluginCommandPlan
 	readonly declare: PluginDeclaration | undefined
-	readonly operations: readonly (
-		PluginOperationDefinition | PluginSchemaMutationDefinition
-	)[]
 }
 
 const hasOperationRegistrar = (
@@ -284,19 +281,24 @@ export const createPluginApplication = async (
 		: normalizePluginApplicationResource(await create(context))
 }
 
+/** @internal Reads the already compiled command plan without exposing it publicly. */
+export const readPluginCommandPlan = (
+	plugin: PluginDefinition,
+): PluginCommandPlan => plugin[pluginNativePlan].commands
+
 /** Runs one pure synchronous static declaration before schema compilation. */
 export const runPluginDeclaration = (
 	plugin: PluginDefinition,
 	context: PluginDeclarationContext,
 ): void => {
 	const plan = plugin[pluginNativePlan]
-	if (plan.operations.length > 0) {
+	if (plan.commands.declarations.length > 0) {
 		if (!hasOperationRegistrar(context)) {
 			throw new TypeError(
 				`Plugin "${formatPluginIdentity(plugin.manifest.identity)}" requires operation:declare for its operation contributions`,
 			)
 		}
-		for (const operation of plan.operations) {
+		for (const operation of plan.commands.declarations) {
 			context.operations.declare(operation)
 		}
 	}

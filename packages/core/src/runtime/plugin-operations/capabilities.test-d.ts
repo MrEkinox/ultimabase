@@ -7,17 +7,15 @@ import {
 	defineOperationValue,
 	type PluginOperationErrorCode,
 } from '../../plugins/plugin-operations.js'
+import { contributeOperation } from '../../plugins/plugin-operation-contributions.js'
 import type { JsonValue } from '../../schema/index.js'
 import type { AdapterAccess } from '../adapters/raw-access.js'
 import type { RequestContext } from '../context/request-context.js'
 import type { RequestEngine } from '../engine/framework-engine.js'
 import {
 	defineOperationTransport,
-	operationHandler,
 	operationTransportBinding,
 	operationWireCodec,
-	provideOperationHandler,
-	provideOperationTransportBinding,
 } from './capabilities.js'
 import type {
 	OperationTransportBindingMetadata,
@@ -51,16 +49,22 @@ declare const exposure: ApplicationOperationTransport
 declare const masterContext: RequestContext<MasterRequestAccess>
 
 test('infers exact handler and wire boundary contracts', () => {
-	const handler = operationHandler({
-		operation,
-		execute: ({ adapters, engine, input: value, target }) => {
-			expectTypeOf(adapters).toEqualTypeOf<AdapterAccess>()
-			expectTypeOf(engine).toEqualTypeOf<RequestEngine>()
-			expectTypeOf(value).toEqualTypeOf<string>()
-			expectTypeOf(target.kind).toEqualTypeOf<'application'>()
-			return value.length
-		},
-	})
+	const execute = ({
+		adapters,
+		engine,
+		input: value,
+		target,
+	}: Parameters<
+		NonNullable<
+			Parameters<typeof contributeOperation<typeof operation>>[0]['execute']
+		>
+	>[0]) => {
+		expectTypeOf(adapters).toEqualTypeOf<AdapterAccess>()
+		expectTypeOf(engine).toEqualTypeOf<RequestEngine>()
+		expectTypeOf(value).toEqualTypeOf<string>()
+		expectTypeOf(target.kind).toEqualTypeOf<'application'>()
+		return value.length
+	}
 	const transport = defineOperationTransport({
 		name: 'fixture.typed.transport',
 		version: '1.0.0',
@@ -104,14 +108,7 @@ test('infers exact handler and wire boundary contracts', () => {
 	expectTypeOf<
 		PluginOperationErrorCode<typeof operation>
 	>().toEqualTypeOf<'fixture.typed.rejected'>()
-	provideOperationHandler({
-		contributionId: 'handler',
-		create: () => ({ value: handler }),
-	})
-	provideOperationTransportBinding({
-		contributionId: 'binding',
-		create: () => ({ value: binding }),
-	})
+	contributeOperation({ bindings: [binding], execute, operation })
 	const masterRequest: OperationTransportRequest = {
 		context: masterContext,
 		input: {},

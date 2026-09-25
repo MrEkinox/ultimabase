@@ -21,7 +21,6 @@ import {
 	isAuthorizedPersistencePlanRewriterProvider,
 	persistencePlanRewriterCapability,
 } from '../runtime/persistence/capabilities.js'
-import { assertPluginOperationProtocolEntry } from './plugin-operation-capability-planning.js'
 import { assertCoreCapabilityProviders } from './core-capability-planning.js'
 import { validateAdapterCapabilityEntry } from './adapter-capability-planning.js'
 
@@ -184,13 +183,6 @@ export const planCapabilityProviders = (
 			)
 		}
 	}
-	assertPluginOperationProtocolEntry(entry, {
-		assertPrivilege: (provider, privilege) => {
-			assertContributionPrivilege(entries, entry, provider, privilege)
-		},
-		reject: throwCapabilityConflict,
-	})
-
 	const runtimeProviderPower = runtimeProviderPrivilege(entry.token)
 	if (runtimeProviderPower !== undefined) {
 		for (const provider of entry.providers) {

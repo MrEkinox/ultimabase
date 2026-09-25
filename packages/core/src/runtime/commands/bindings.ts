@@ -1,48 +1,36 @@
-import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
+import { immutableRecord } from '@ultimabase/shared'
 
 import { FrameworkError } from '../../errors/framework-error.js'
-import type {
-	CapabilityProviderContribution,
-	CapabilityToken,
-} from '../../plugins/capabilities.js'
 import type {
 	CommandSource,
 	CompiledCommand,
 } from '../../plugins/command-graph.js'
 import { formatPluginIdentity } from '../../plugins/manifest.js'
-import { isPluginOperationDefinition } from '../../plugins/plugin-operations.js'
-import { isPluginSchemaMutationDefinition } from '../../plugins/plugin-schema-mutations.js'
-import {
-	getPluginOperationHandler,
-	isOperationTransportBinding,
-	operationTransportBindingCapability,
-	pluginOperationHandlerCapability,
-} from '../plugin-operations/capabilities.js'
+import type {
+	PluginCommandHandlerResource,
+	PluginCommandSource,
+	PluginCommandTransportPlan,
+} from '../../plugins/plugin-command-plan.js'
+import type { PluginSchemaContributionOwner } from '../../schema/schema/provenance.js'
 import type {
 	OperationTransportBindingDefinition,
 	OperationTransportProtocol,
 	PluginOperationHandler,
 } from '../plugin-operations/contracts.js'
-import {
-	getPluginSchemaMutationHandler,
-	pluginSchemaMutationHandlerCapability,
-} from '../schema-mutations/capabilities.js'
 import type { PluginSchemaMutationHandler } from '../schema-mutations/contracts.js'
-import {
-	isSchemaMutationTransportBinding,
-	schemaMutationTransportBindingCapability,
-} from '../schema-mutations/transport-capabilities.js'
 import type { SchemaMutationTransportBindingDefinition } from '../schema-mutations/transport-contracts.js'
 
 interface OwnedImplementation {
 	readonly contributionId: string
-	readonly owner: Omit<CompiledCommand['owner'], 'kind'>
+	readonly owner: PluginSchemaContributionOwner
 }
+
 export type CommandHandler = OwnedImplementation &
 	(
 		| Readonly<{ kind: 'operation'; execute: PluginOperationHandler }>
 		| Readonly<{ kind: 'mutation'; resolve: PluginSchemaMutationHandler }>
 	)
+
 export type CommandTransportBinding = OwnedImplementation &
 	(
 		| Readonly<{
@@ -54,6 +42,15 @@ export type CommandTransportBinding = OwnedImplementation &
 				binding: SchemaMutationTransportBindingDefinition
 		  }>
 	)
+
+export interface OwnedCommandHandlerPlan extends OwnedImplementation {
+	readonly resource: PluginCommandHandlerResource
+	readonly source: PluginCommandSource
+}
+
+export type OwnedCommandTransportPlan = PluginCommandTransportPlan &
+	Readonly<{ owner: PluginSchemaContributionOwner }>
+
 interface Implementations {
 	readonly handler?: CommandHandler
 	readonly transports: ReadonlyMap<
@@ -63,7 +60,7 @@ interface Implementations {
 }
 
 const failure = (
-	contribution: CapabilityProviderContribution,
+	plan: OwnedImplementation,
 	kind: string,
 	message: string,
 	operation?: string,
@@ -73,16 +70,33 @@ const failure = (
 		internalDetails: {
 			kind,
 			...(operation === undefined ? {} : { operation }),
-			plugin: formatPluginIdentity(contribution.owner),
-			contributionId: contribution.contributionId,
+			plugin: formatPluginIdentity(plan.owner),
+			contributionId: plan.contributionId,
 		},
 	})
 
-/** Binds only the four retained command protocols to already compiled records. */
+const matchesOwner = (
+	command: CompiledCommand,
+	owner: PluginSchemaContributionOwner,
+): boolean =>
+	command.owner.pluginId === owner.pluginId &&
+	command.owner.instanceId === owner.instanceId &&
+	command.owner.version === owner.version
+
+const isDormantMutation = (
+	source: CommandSource,
+	command: CompiledCommand | undefined,
+): boolean =>
+	source.kind === 'plugin-schema-mutation' &&
+	(command === undefined ||
+		(command.kind === 'mutation' && command.surfaces.length === 0))
+
+/** Binds native command facts to the already compiled application graph. */
 export class CommandBindings {
 	readonly #fromSource: (source: CommandSource) => CompiledCommand | undefined
 	readonly #entries = new Map<CompiledCommand, Implementations>()
-	readonly #bound = new Set<CapabilityToken>()
+	#handlersBound = false
+	#transportsBound = false
 	#disposed = false
 
 	constructor(
@@ -91,144 +105,103 @@ export class CommandBindings {
 		this.#fromSource = fromSource
 	}
 
-	/** Publishes each complete capability batch once, after all owner checks pass. */
-	materialize(
-		token: CapabilityToken,
-		contributions: readonly CapabilityProviderContribution[],
-	): void {
-		const operationHandler = token === pluginOperationHandlerCapability
-		const mutationHandler = token === pluginSchemaMutationHandlerCapability
-		const operationTransport = token === operationTransportBindingCapability
-		const mutationTransport = token === schemaMutationTransportBindingCapability
-		if (
-			!operationHandler &&
-			!mutationHandler &&
-			!operationTransport &&
-			!mutationTransport
-		)
-			return
+	/** Publishes one complete transport batch after every owner check passes. */
+	bindTransports(plans: readonly OwnedCommandTransportPlan[]): void {
 		this.#assertAvailable()
-		if (this.#bound.has(token))
-			throw new TypeError('Command capability is already bound')
+		if (this.#transportsBound)
+			throw new TypeError('Command transports are already bound')
 		const pending = new Map<CompiledCommand, Implementations>()
-		for (const contribution of contributions) {
-			const value = contribution.value
-			const prefix =
-				operationHandler || operationTransport ? 'operation' : 'schema-mutation'
-			const category =
-				operationHandler || mutationHandler ? 'handler' : 'transport'
-			const invalid = () =>
-				failure(
-					contribution,
-					`${prefix}-${category}-owner-invalid`,
-					`Plugin "${formatPluginIdentity(contribution.owner)}" provided an invalid ${prefix} ${category}.`,
+		for (const plan of plans) {
+			const command = this.#fromSource(plan.source)
+			const kind = plan.kind === 'mutation' ? 'schema-mutation' : 'operation'
+			if (isDormantMutation(plan.source, command)) continue
+			if (
+				command === undefined ||
+				!matchesOwner(command, plan.owner) ||
+				(plan.kind === 'operation') !== (command.kind === 'operation') ||
+				(plan.kind === 'operation'
+					? plan.binding.operation !== plan.source
+					: plan.binding.mutation !== plan.source)
+			) {
+				throw failure(
+					plan,
+					`${kind}-transport-owner-invalid`,
+					`Plugin "${formatPluginIdentity(plan.owner)}" provided an invalid ${plan.kind} transport.`,
 				)
-			let source: CommandSource
-			let implementation: CommandHandler | CommandTransportBinding
-			const owner = immutableRecord({
-				pluginId: contribution.owner.pluginId,
-				...(contribution.owner.instanceId === undefined
-					? {}
-					: { instanceId: contribution.owner.instanceId }),
-				version: contribution.pluginVersion,
-			})
-			const provenance = { contributionId: contribution.contributionId, owner }
-			if (operationHandler) {
-				const execute = getPluginOperationHandler(value)
-				if (
-					execute === undefined ||
-					!isPlainRecord(value) ||
-					!isPluginOperationDefinition(value.operation)
-				)
-					throw invalid()
-				source = value.operation
-				implementation = immutableRecord({
-					...provenance,
-					kind: 'operation' as const,
-					execute,
-				})
-			} else if (mutationHandler) {
-				const resolve = getPluginSchemaMutationHandler(value)
-				if (
-					resolve === undefined ||
-					!isPlainRecord(value) ||
-					!isPluginSchemaMutationDefinition(value.mutation)
-				)
-					throw invalid()
-				source = value.mutation
-				implementation = immutableRecord({
-					...provenance,
-					kind: 'mutation' as const,
-					resolve,
-				})
-			} else if (operationTransport) {
-				if (!isOperationTransportBinding(value)) throw invalid()
-				source = value.operation
-				implementation = immutableRecord({
-					...provenance,
-					kind: 'operation' as const,
-					binding: value,
-				})
-			} else {
-				if (!isSchemaMutationTransportBinding(value)) throw invalid()
-				source = value.mutation
-				implementation = immutableRecord({
-					...provenance,
-					kind: 'mutation' as const,
-					binding: value,
-				})
 			}
-			const command = this.#fromSource(source)
-			// Unselected mutation providers remain inert, as with the retained selector contract.
-			if (
-				source.kind === 'plugin-schema-mutation' &&
-				(command === undefined ||
-					(command.kind === 'mutation' && command.surfaces.length === 0))
-			)
-				continue
-			if (
-				command?.owner.pluginId !== owner.pluginId ||
-				command.owner.instanceId !== owner.instanceId ||
-				command.owner.version !== owner.version
-			)
-				throw invalid()
+
 			const prior: Implementations = pending.get(command) ??
-				this.#entries.get(command) ?? {
-					transports: new Map<
-						OperationTransportProtocol,
-						CommandTransportBinding
-					>(),
-				}
-			if ('binding' in implementation) {
-				const transport = implementation.binding.transport
-				if (prior.transports.has(transport))
-					throw failure(
-						contribution,
-						`${prefix}-transport-conflict`,
-						`${command.kind === 'operation' ? 'Operation' : 'Schema mutation'} ${source.name} has duplicate bindings for ${transport.name}.`,
-						source.name,
-					)
-				pending.set(command, {
-					...prior,
-					transports: new Map([
-						...prior.transports,
-						[transport, implementation],
-					]),
-				})
-			} else {
-				if (prior.handler !== undefined)
-					throw failure(
-						contribution,
-						`${prefix}-handler-conflict`,
-						`${command.kind === 'operation' ? 'Operation' : 'Schema mutation'} ${source.name} has multiple handlers.`,
-						source.name,
-					)
-				pending.set(command, { ...prior, handler: implementation })
+				this.#entries.get(command) ?? { transports: new Map() }
+			const protocol = plan.binding.transport
+			if (prior.transports.has(protocol)) {
+				throw failure(
+					plan,
+					`${kind}-transport-conflict`,
+					`${command.kind === 'operation' ? 'Operation' : 'Schema mutation'} ${plan.source.name} has duplicate bindings for ${protocol.name}.`,
+					plan.source.name,
+				)
 			}
+			const implementation = immutableRecord({
+				binding: plan.binding,
+				contributionId: plan.contributionId,
+				kind: plan.kind,
+				owner: plan.owner,
+			}) as CommandTransportBinding
+			pending.set(command, {
+				...prior,
+				transports: new Map([...prior.transports, [protocol, implementation]]),
+			})
 		}
 		for (const [command, implementation] of pending)
 			this.#entries.set(command, implementation)
-		this.#bound.add(token)
+		this.#transportsBound = true
+	}
+
+	/** Publishes one complete handler batch after every owner check passes. */
+	bindHandlers(plans: readonly OwnedCommandHandlerPlan[]): void {
+		this.#assertAvailable()
+		if (this.#handlersBound)
+			throw new TypeError('Command handlers are already bound')
+		const pending = new Map<CompiledCommand, Implementations>()
+		for (const plan of plans) {
+			const command = this.#fromSource(plan.source)
+			const kind =
+				plan.resource.kind === 'mutation' ? 'schema-mutation' : 'operation'
+			if (isDormantMutation(plan.source, command)) continue
+			if (
+				command === undefined ||
+				!matchesOwner(command, plan.owner) ||
+				(plan.resource.kind === 'operation') !== (command.kind === 'operation')
+			) {
+				throw failure(
+					plan,
+					`${kind}-handler-owner-invalid`,
+					`Plugin "${formatPluginIdentity(plan.owner)}" provided an invalid ${plan.resource.kind} handler.`,
+				)
+			}
+
+			const prior: Implementations = pending.get(command) ??
+				this.#entries.get(command) ?? { transports: new Map() }
+			if (prior.handler !== undefined) {
+				throw failure(
+					plan,
+					`${kind}-handler-conflict`,
+					`${command.kind === 'operation' ? 'Operation' : 'Schema mutation'} ${plan.source.name} has multiple handlers.`,
+					plan.source.name,
+				)
+			}
+			const handler = immutableRecord({
+				contributionId: plan.contributionId,
+				owner: plan.owner,
+				...(plan.resource.kind === 'operation'
+					? { execute: plan.resource.execute, kind: 'operation' as const }
+					: { kind: 'mutation' as const, resolve: plan.resource.resolve }),
+			})
+			pending.set(command, { ...prior, handler })
+		}
+		for (const [command, implementation] of pending)
+			this.#entries.set(command, implementation)
+		this.#handlersBound = true
 	}
 
 	/** Reads the exact attributed implementation without accepting registrations. */
@@ -248,7 +221,6 @@ export class CommandBindings {
 	dispose(): void {
 		this.#disposed = true
 		this.#entries.clear()
-		this.#bound.clear()
 	}
 
 	#read(command: CompiledCommand): Implementations | undefined {

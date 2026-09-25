@@ -170,7 +170,6 @@ export type {
 export type {
 	PluginSchemaMutationEffectResult,
 	PluginSchemaMutationHandler,
-	PluginSchemaMutationHandlerDefinition,
 	PluginSchemaMutationHandlerInput,
 	PluginSchemaMutationOperationAst,
 	PluginSchemaMutationTarget,
@@ -193,7 +192,6 @@ export type {
 	OperationWireCodec,
 	PluginOperationExecutionTarget,
 	PluginOperationHandler,
-	PluginOperationHandlerDefinition,
 	PluginOperationHandlerInput,
 	PublicTransportProtectionOptions,
 	PublicTransportProtectionWarning,

@@ -8,10 +8,7 @@ import {
 import { adapterCapabilityPrivilege } from '../runtime/adapters/capabilities.js'
 import { adapterContributionPrivileges } from '../runtime/adapters/contributions.js'
 import { runtimeProviderPrivilege } from '../runtime/capabilities.js'
-import { operationTransportBindingCapability } from '../runtime/plugin-operations/capabilities.js'
 import { persistencePlanRewriterCapability } from '../runtime/persistence/capabilities.js'
-import { pluginSchemaMutationHandlerCapability } from '../runtime/schema-mutations/capabilities.js'
-import { schemaMutationTransportBindingCapability } from '../runtime/schema-mutations/transport-capabilities.js'
 import type {
 	PluginCapabilityDeclaration,
 	PluginCapabilityDeclarations,
@@ -25,7 +22,6 @@ import {
 	compilePluginOperationContributions,
 	type PluginOperationAuthoringContribution,
 } from './plugin-operation-contributions.js'
-import type { PluginOperationDefinition } from './plugin-operations.js'
 import {
 	getPluginApplicationFactory,
 	getPluginDeclarationContribution,
@@ -35,15 +31,13 @@ import {
 	type PluginContribution,
 	type PluginDeclarationContribution,
 } from './plugin-contributions.js'
-import type { PluginSchemaMutationDefinition } from './plugin-schema-mutations.js'
+import type { PluginCommandPlan } from './plugin-command-plan.js'
 
 export interface CompiledPluginContributions {
 	readonly applicationFactory: PluginApplicationResourceFactory | undefined
 	readonly capabilities: readonly PluginCapabilityDeclaration[]
+	readonly commands: PluginCommandPlan
 	readonly declare: PluginDeclaration | undefined
-	readonly operations: readonly (
-		PluginOperationDefinition | PluginSchemaMutationDefinition
-	)[]
 	readonly privileges: readonly PluginPrivilege[]
 }
 
@@ -64,17 +58,8 @@ const appendCapabilityPrivileges = (
 		const token = declaration.token
 		appendPrivilege(privileges, token.providerPrivilege)
 		appendPrivilege(privileges, runtimeProviderPrivilege(token))
-		if (
-			token === persistencePlanRewriterCapability ||
-			token === pluginSchemaMutationHandlerCapability
-		) {
+		if (token === persistencePlanRewriterCapability) {
 			appendPrivilege(privileges, 'persistence:rewrite')
-		}
-		if (
-			token === operationTransportBindingCapability ||
-			token === schemaMutationTransportBindingCapability
-		) {
-			appendPrivilege(privileges, 'transport:expose')
 		}
 		appendPrivilege(privileges, adapterContributionPrivileges(token)?.provider)
 		return
@@ -227,15 +212,26 @@ export const compilePluginContributions = (
 			appendPrivilege(compilation.privileges, 'typegen:reference')
 		}
 	}
+	if (
+		compiledOperations.handlers.some(
+			({ source }) => source.kind === 'plugin-schema-mutation',
+		)
+	) {
+		appendPrivilege(compilation.privileges, 'persistence:rewrite')
+	}
+	if (compiledOperations.transports.length > 0) {
+		appendPrivilege(compilation.privileges, 'transport:expose')
+	}
 
 	return immutableRecord({
 		applicationFactory: compilation.applicationFactories[0],
-		capabilities: immutableArray([
-			...compilation.capabilities,
-			...compiledOperations.capabilities,
-		]),
+		capabilities: immutableArray(compilation.capabilities),
+		commands: immutableRecord({
+			declarations: compiledOperations.operations,
+			handlers: compiledOperations.handlers,
+			transports: compiledOperations.transports,
+		}),
 		declare,
-		operations: compiledOperations.operations,
 		privileges: immutableArray(compilation.privileges),
 	})
 }

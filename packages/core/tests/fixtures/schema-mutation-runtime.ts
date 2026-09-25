@@ -10,6 +10,7 @@ import {
 } from '../runtime/fixtures/recording-database-adapter.js'
 import {
 	addSchemaField,
+	contributeSchemaMutation,
 	defineOperationValue,
 	contributeDeclarations,
 	plugin as createPlugin,
@@ -29,10 +30,7 @@ import {
 	persistencePlanRewriter,
 	providePersistencePlanRewriter,
 } from '../../src/runtime/persistence/capabilities.js'
-import {
-	provideSchemaMutationHandler,
-	schemaMutationHandler,
-} from '../../src/runtime/schema-mutations/capabilities.js'
+import type { PluginSchemaMutationHandler } from '../../src/runtime/schema-mutations/contracts.js'
 
 let fixtureIndex = 0
 const inputContract = defineOperationValue((value, path) => {
@@ -81,15 +79,17 @@ export const createUpdateFixture = async (options: {
 		{},
 		options.persistenceCapabilities,
 	)
-	const handler = schemaMutationHandler({
-		mutation: archive,
-		resolve: ({ context, input, originalItem, target }) => {
-			trace.push('handler')
-			return (options.handler?.({ context, input, originalItem, target }) ?? {
-				data: { workflowState: 'archived' },
-			}) as { readonly data: Readonly<Record<string, unknown>> }
-		},
-	})
+	const handler: PluginSchemaMutationHandler<typeof archive> = ({
+		context,
+		input,
+		originalItem,
+		target,
+	}) => {
+		trace.push('handler')
+		return (options.handler?.({ context, input, originalItem, target }) ?? {
+			data: { workflowState: 'archived' },
+		}) as { readonly data: Readonly<Record<string, unknown>> }
+	}
 	const workflow = createPlugin({
 		id: `fixture.schema-mutation-runtime-${String(fixtureIndex)}`,
 		core: '^0.0.0',
@@ -108,9 +108,9 @@ export const createUpdateFixture = async (options: {
 			...(options.omitHandler === true
 				? []
 				: [
-						provideSchemaMutationHandler({
-							contributionId: 'archive-handler',
-							create: () => ({ value: handler }),
+						contributeSchemaMutation({
+							mutation: archive,
+							resolve: handler,
 						}),
 					]),
 			provideRuntimeBehavior({
@@ -154,9 +154,13 @@ export const createUpdateFixture = async (options: {
 					]
 				: []),
 			contributeDeclarations({
-				operations: ({ operations }) => {
-					operations.declare(archive)
-				},
+				...(options.omitHandler === true
+					? {
+							operations: ({ operations }) => {
+								operations.declare(archive)
+							},
+						}
+					: {}),
 				schema: ({ schemas }) => {
 					schemas.patch({
 						operations: [
@@ -244,17 +248,8 @@ export const createMasterDeleteFixture = async (
 		},
 		version: '1.0.0',
 		contributions: [
-			provideSchemaMutationHandler({
-				contributionId: 'purge-handler',
-				create: () => ({
-					value: schemaMutationHandler({ mutation: purge, resolve: handler }),
-				}),
-			}),
+			contributeSchemaMutation({ mutation: purge, resolve: handler }),
 			contributeDeclarations({
-				operations: ({ operations }) => {
-					operations.declare(purge)
-					return undefined
-				},
 				models: ({ models }) => {
 					models.extend(
 						{ className: Post.className },

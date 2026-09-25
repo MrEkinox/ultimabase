@@ -6,12 +6,8 @@ import { FrameworkApplication } from '../application/framework-application.js'
 import { Schema } from '../schema/schema/definition.js'
 import {
 	defineOperationTransport,
-	operationHandler,
 	operationTransportBinding,
 	operationWireCodec,
-	pluginOperationHandlerCapability,
-	provideOperationHandler,
-	provideOperationTransportBinding,
 } from '../runtime/plugin-operations/capabilities.js'
 import { readApplicationCommandGraph } from './application-command-graph.js'
 import {
@@ -26,6 +22,10 @@ import {
 	contributeDeclarations,
 	contributeApplication,
 } from './plugin-contributions.js'
+import {
+	contributeOperation,
+	contributeOperationBinding,
+} from './plugin-operation-contributions.js'
 
 import { defineOperation, defineOperationValue } from './plugin-operations.js'
 import { defineSchemaMutation } from './plugin-schema-mutations.js'
@@ -81,22 +81,17 @@ const fixture = (instanceId = 'one') => {
 	})
 	const execute = vi.fn(() => 'accepted')
 	const cleanup = vi.fn()
-	const create = vi.fn(() =>
-		Promise.resolve({
-			value: operationTransportBinding({
-				operation,
-				codec: operationWireCodec({
-					operation,
-					transport,
-					decode: (candidate: string) => candidate,
-					encode: (candidate) => candidate,
-				}),
-				metadata: { errors: {}, nested: ['inert'] },
-			}),
-			dispose: cleanup,
+	const binding = operationTransportBinding({
+		operation,
+		codec: operationWireCodec({
+			operation,
+			transport,
+			decode: (candidate: string) => candidate,
+			encode: (candidate) => candidate,
 		}),
-	)
-	const handler = operationHandler({ operation, execute })
+		metadata: { errors: {}, nested: ['inert'] },
+	})
+	const create = vi.fn(() => Promise.resolve({ execute, dispose: cleanup }))
 	const plugin = createPlugin({
 		id: 'fixture.command-graph.owner',
 		instanceId,
@@ -108,14 +103,9 @@ const fixture = (instanceId = 'one') => {
 			'transport:expose': 'Owns an inert wire description.',
 		},
 		contributions: [
-			provideOperationHandler({
-				contributionId: 'handler',
-				create: () => ({ value: handler }),
-			}),
-			provideOperationTransportBinding({ contributionId: 'binding', create }),
+			contributeOperation({ bindings: [binding], create, operation }),
 			contributeDeclarations({
 				operations: ({ operations }) => {
-					operations.declare(operation)
 					operations.declare(mutation)
 					operations.declare(privateMutation)
 					return undefined
@@ -148,7 +138,7 @@ const fixture = (instanceId = 'one') => {
 		cleanup,
 		create,
 		execute,
-		handler,
+		binding,
 		mutation,
 		operation,
 		plugin,
@@ -315,7 +305,7 @@ describe('canonical command graph', () => {
 		expect(owned.create).not.toHaveBeenCalled()
 		await application.dispose()
 		expect(() => {
-			graph.bindings.materialize(pluginOperationHandlerCapability, [])
+			graph.bindings.bindHandlers([])
 		}).toThrow('no longer available')
 	})
 
@@ -446,11 +436,13 @@ describe('canonical command graph', () => {
 		const contribution = {
 			contributionId: 'first',
 			owner: {
+				kind: 'plugin' as const,
 				pluginId: owned.plugin.manifest.identity.pluginId,
 				instanceId: 'one',
+				version: '1.0.0',
 			},
-			pluginVersion: '1.0.0',
-			value: owned.handler,
+			resource: { execute: owned.execute, kind: 'operation' as const },
+			source: owned.operation,
 		}
 		for (const invalid of [
 			{ ...contribution, contributionId: 'duplicate' },
@@ -458,31 +450,28 @@ describe('canonical command graph', () => {
 				...contribution,
 				owner: { ...contribution.owner, instanceId: 'foreign' },
 			},
-			{ ...contribution, pluginVersion: '2.0.0' },
-			{ ...contribution, value: { ...owned.handler } },
+			{ ...contribution, owner: { ...contribution.owner, version: '2.0.0' } },
+			{
+				...contribution,
+				resource: { kind: 'mutation' as const, resolve: () => undefined },
+			},
 		]) {
 			expect(() => {
-				graph.bindings.materialize(pluginOperationHandlerCapability, [
-					contribution,
-					invalid,
-				])
+				graph.bindings.bindHandlers([contribution, invalid])
 			}).toThrow()
 			expect(graph.bindings.handler(command)).toBeUndefined()
 		}
-		graph.bindings.materialize(pluginOperationHandlerCapability, [contribution])
+		graph.bindings.bindHandlers([contribution])
 		expect(graph.bindings.handler(command)).toMatchObject({
 			execute: owned.execute,
 		})
 		expect(() => {
-			graph.bindings.materialize(pluginOperationHandlerCapability, [
-				contribution,
-			])
+			graph.bindings.bindHandlers([contribution])
 		}).toThrow('already bound')
 	})
 
-	it('disposes already-created resources when a later binding fails before setup', async () => {
+	it('rejects a foreign static binding before setup or handler materialization', async () => {
 		const owned = fixture()
-		const dispose = vi.fn()
 		const setup = vi.fn()
 		const foreign = createPlugin({
 			core: '^0.0.0',
@@ -496,13 +485,7 @@ describe('canonical command graph', () => {
 					setup(context)
 					return { exports: undefined }
 				}),
-				provideOperationTransportBinding({
-					contributionId: 'foreign-binding',
-					create: async () => ({
-						value: (await owned.create()).value,
-						dispose,
-					}),
-				}),
+				contributeOperationBinding(owned.binding),
 			],
 		})
 		const application = applicationFixture(
@@ -517,8 +500,8 @@ describe('canonical command graph', () => {
 			internalDetails: { kind: 'operation-transport-owner-invalid' },
 		})
 		expect(setup).not.toHaveBeenCalled()
-		expect(dispose).toHaveBeenCalledTimes(1)
-		expect(owned.cleanup).toHaveBeenCalledTimes(1)
+		expect(owned.create).not.toHaveBeenCalled()
+		expect(owned.cleanup).not.toHaveBeenCalled()
 		expect(() =>
 			readApplicationCommandGraph(application).bindings.transport(
 				requireCommand(

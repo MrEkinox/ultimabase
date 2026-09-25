@@ -6,6 +6,7 @@ import {
 	defineOperationValue,
 	plugin as createPlugin,
 	contributeDeclarations,
+	contributeOperationBinding,
 	provideCapability,
 	requireCapability,
 	withPluginPrivileges,
@@ -21,7 +22,6 @@ import {
 	defineOperationTransport,
 	operationTransportBinding,
 	operationWireCodec,
-	provideOperationTransportBinding,
 } from '../plugin-operations/capabilities.js'
 import {
 	applicationOperationTransportPlanningCapability,
@@ -64,10 +64,7 @@ const ownerPlugin = createPlugin({
 	},
 	version: '1.0.0',
 	contributions: [
-		provideOperationTransportBinding({
-			contributionId: 'binding',
-			create: () => ({ value: binding }),
-		}),
+		contributeOperationBinding(binding),
 		contributeDeclarations({
 			operations: ({ operations }) => {
 				operations.declare(operation)

@@ -6,25 +6,17 @@ import {
 	type MaybePromise,
 } from '@ultimabase/shared'
 
+import type { ApplicationCapabilityFactoryContext } from './capabilities.js'
 import type {
-	ApplicationCapabilityFactoryContext,
-	CapabilityProviderDeclaration,
-} from './capabilities.js'
+	PluginCommandHandlerPlan,
+	PluginCommandTransportPlan,
+} from './plugin-command-plan.js'
 import {
 	isPluginSchemaMutationDefinition,
 	type PluginSchemaMutationDefinition,
 } from './plugin-schema-mutations.js'
-import {
-	provideSchemaMutationHandler,
-	schemaMutationHandler,
-	type pluginSchemaMutationHandlerCapability,
-} from '../runtime/schema-mutations/capabilities.js'
 import type { PluginSchemaMutationHandler } from '../runtime/schema-mutations/contracts.js'
-import {
-	isSchemaMutationTransportBinding,
-	provideSchemaMutationTransportBinding,
-	type schemaMutationTransportBindingCapability,
-} from '../runtime/schema-mutations/transport-capabilities.js'
+import { isSchemaMutationTransportBinding } from '../runtime/schema-mutations/transport-capabilities.js'
 import type { SchemaMutationTransportBindingDefinition } from '../runtime/schema-mutations/transport-contracts.js'
 
 /** Owns one materialized schema-mutation resolver and its cleanup. */
@@ -106,12 +98,6 @@ export interface PluginSchemaMutationBindingContribution<
 
 export type PluginSchemaMutationAuthoringContribution =
 	PluginSchemaMutationContribution | PluginSchemaMutationBindingContribution
-
-export type SchemaMutationProtocolCapabilityProvider =
-	| CapabilityProviderDeclaration<typeof pluginSchemaMutationHandlerCapability>
-	| CapabilityProviderDeclaration<
-			typeof schemaMutationTransportBindingCapability
-	  >
 
 type SchemaMutationContributionRuntime = Readonly<{
 	create?: (
@@ -273,20 +259,23 @@ const bindingContributionId = (
 ): string =>
 	`schema-mutation:${binding.mutation.name}:transport:${binding.transport.name}`
 
-const provideBinding = (
+const planBinding = (
 	binding: SchemaMutationTransportBindingDefinition,
-): SchemaMutationProtocolCapabilityProvider =>
-	provideSchemaMutationTransportBinding({
+): PluginCommandTransportPlan =>
+	immutableRecord({
+		binding,
 		contributionId: bindingContributionId(binding),
-		create: () => ({ value: binding }),
+		kind: 'mutation' as const,
+		source: binding.mutation,
 	})
 
 export interface CompiledPluginSchemaMutationContribution {
-	readonly capabilities: readonly SchemaMutationProtocolCapabilityProvider[]
+	readonly handler?: PluginCommandHandlerPlan
 	readonly mutation?: PluginSchemaMutationDefinition
+	readonly transports: readonly PluginCommandTransportPlan[]
 }
 
-/** @internal Compiles one schema-mutation contribution into private protocols. */
+/** @internal Compiles one schema-mutation contribution into Core-native facts. */
 export const compilePluginSchemaMutationContribution = (
 	contribution: PluginSchemaMutationAuthoringContribution,
 ): CompiledPluginSchemaMutationContribution => {
@@ -297,42 +286,37 @@ export const compilePluginSchemaMutationContribution = (
 				'plugin schema mutation contribution lost its runtime',
 			)
 		}
-		const handler = provideSchemaMutationHandler({
+		const handler: PluginCommandHandlerPlan = immutableRecord({
 			contributionId: `schema-mutation:${contribution.mutation.name}`,
 			create: async (context) => {
 				if (runtime.resolve !== undefined) {
-					return {
-						value: schemaMutationHandler({
-							mutation: contribution.mutation,
-							resolve: runtime.resolve,
-						}),
-					}
+					return immutableRecord({
+						kind: 'mutation' as const,
+						resolve: runtime.resolve,
+					})
 				}
 				const resource = await runtime.create?.(context)
 				assertResource(resource)
-				return {
-					value: schemaMutationHandler({
-						mutation: contribution.mutation,
-						resolve: resource.resolve,
-					}),
+				return immutableRecord({
+					kind: 'mutation' as const,
+					resolve: resource.resolve,
 					...(resource.dispose === undefined
 						? {}
 						: { dispose: resource.dispose }),
-				}
+				})
 			},
+			source: contribution.mutation,
 		})
 		return immutableRecord({
-			capabilities: immutableArray([
-				handler,
-				...contribution.bindings.map(provideBinding),
-			]),
+			handler,
 			mutation: contribution.mutation,
+			transports: immutableArray(contribution.bindings.map(planBinding)),
 		})
 	}
 
 	if (isPluginSchemaMutationBindingContribution(contribution)) {
 		return immutableRecord({
-			capabilities: immutableArray([provideBinding(contribution.binding)]),
+			transports: immutableArray([planBinding(contribution.binding)]),
 		})
 	}
 

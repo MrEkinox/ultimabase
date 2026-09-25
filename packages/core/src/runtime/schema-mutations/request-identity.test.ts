@@ -9,20 +9,16 @@ import {
 	defineOperationValue,
 	plugin as createPlugin,
 	contributeDeclarations,
+	contributeSchemaMutation,
 	defineSchemaMutation,
 } from '../../foundation.js'
 import { readApplicationCommandGraph } from '../../plugins/application-command-graph.js'
 import { normalizeOperationOptions } from '../../query/operations/execution.js'
 import { Schema } from '../../schema/index.js'
 import { UltimaBase } from '../application/ultima-base.js'
-import {
-	provideSchemaMutationHandler,
-	schemaMutationHandler,
-} from './capabilities.js'
 import { executeRequestSchemaMutation } from './request-execution.js'
 import { defineOperationTransport } from '../plugin-operations/capabilities.js'
 import {
-	provideSchemaMutationTransportBinding,
 	schemaMutationTransportBinding,
 	schemaMutationWireCodec,
 } from './transport-capabilities.js'
@@ -73,10 +69,9 @@ describe('canonical mutation request identity', () => {
 				'persistence:rewrite': 'Owns the mutation effect.',
 			},
 			contributions: [
-				provideSchemaMutationTransportBinding({
-					contributionId: 'wire',
-					create: () => ({
-						value: schemaMutationTransportBinding({
+				contributeSchemaMutation({
+					bindings: [
+						schemaMutationTransportBinding({
 							mutation: archive,
 							codec: schemaMutationWireCodec({
 								mutation: archive,
@@ -84,19 +79,11 @@ describe('canonical mutation request identity', () => {
 								decode: (value: undefined) => value,
 							}),
 						}),
-					}),
-				}),
-				provideSchemaMutationHandler({
-					contributionId: 'archive',
-					create: () => ({
-						value: schemaMutationHandler({ mutation: archive, resolve }),
-					}),
+					],
+					mutation: archive,
+					resolve,
 				}),
 				contributeDeclarations({
-					operations: ({ operations }) => {
-						operations.declare(archive)
-						return undefined
-					},
 					models: ({ models }) => {
 						models.extend(Post, {
 							contributionId: 'post',

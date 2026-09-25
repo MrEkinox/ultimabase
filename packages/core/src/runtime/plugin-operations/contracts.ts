@@ -36,14 +36,6 @@ export type PluginOperationHandler<
 	input: PluginOperationHandlerInput<TOperation>,
 ) => MaybePromise<PluginOperationResult<TOperation>>
 
-/** Identifies one handler while keeping its executable callback private. */
-export interface PluginOperationHandlerDefinition<
-	TOperation extends PluginOperationDefinition = PluginOperationDefinition,
-> {
-	readonly kind: 'plugin-operation-handler'
-	readonly operation: TOperation
-}
-
 /** Names one public protocol without coupling Core to a concrete transport. */
 export interface OperationTransportProtocol<
 	TName extends string = string,

@@ -468,7 +468,8 @@ export const workflowPlugin = () =>
 
 `contributeOperation()` correlates the token, direct or resource-backed handler,
 and optional wire bindings. Core derives the static registrar call, nominal
-capability providers, owner-local identifiers, and deterministic cleanup.
+command plan, owner-local identifiers, and deterministic cleanup. Authors do
+not register a separate handler or transport provider.
 Core derives `operation:declare`; the author supplies its explicit reason. Then call
 `ultimabase.operation(publishPost).execute(input)`. Generic operations target
 the application. Item-specific commands use the schema-mutation contract below.

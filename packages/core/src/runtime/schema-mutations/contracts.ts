@@ -50,15 +50,6 @@ export type PluginSchemaMutationHandler<
 	input: PluginSchemaMutationHandlerInput<TMutation>,
 ) => MaybePromise<PluginSchemaMutationEffectResult<TMutation>>
 
-/** Identifies one application-lifetime resolver while keeping its callback private. */
-export interface PluginSchemaMutationHandlerDefinition<
-	TMutation extends PluginSchemaMutationDefinition =
-		PluginSchemaMutationDefinition,
-> {
-	readonly kind: 'plugin-schema-mutation-handler'
-	readonly mutation: TMutation
-}
-
 /** Retains one product-neutral logical mutation independently from its physical plan. */
 export interface PluginSchemaMutationOperationAst {
 	readonly command: string
