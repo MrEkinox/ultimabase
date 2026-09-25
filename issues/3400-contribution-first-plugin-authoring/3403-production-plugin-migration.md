@@ -1,6 +1,6 @@
 # 3403: Migrate every production plugin
 
-- Status: planned
+- Status: ready
 - Milestone: 34
 - Depends on: 3402
 - ADR: ADR-0270

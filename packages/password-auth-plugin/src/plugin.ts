@@ -1,16 +1,16 @@
 import {
 	applicationRequestExecutionCapability,
+	contributeApplication,
+	contributeDeclarations,
 	contributeOperationBinding,
-	definePluginModule,
 	getOperationSchema,
+	plugin,
 	provideCapability,
 	provideRuntimeBehavior,
 	requestPrincipalResolverCapability,
 	requireCapability,
-	type PluginCapabilityDeclaration,
-	type PluginModule,
-	type PluginModuleInstance,
-	type PluginOperationAuthoringContribution,
+	withPluginPrivileges,
+	type PluginInstance,
 	type CreateManyOperationAst,
 	type CreateOneOperationAst,
 	type DatabaseMutationOperationAst,
@@ -53,72 +53,44 @@ import {
 import { passwordPrincipal } from './session.js'
 import { createPasswordSessionCollection } from './sessions.js'
 
-const passwordAuthPluginModule: PluginModule<
-	'@ultimabase/password-auth-plugin',
-	'0.0.0',
-	'^0.0.0'
-> = definePluginModule({
-	core: '^0.0.0',
-	pluginId: '@ultimabase/password-auth-plugin',
-	version: '0.0.0',
-})
-
 const passwordAuthPluginEnvironment = ['environment:native-code'] as const
 const passwordAuthHttpPeers = [
 	{ pluginId: '@ultimabase/http-plugin', version: '^0.0.0' },
 ] as const
-const passwordAuthPluginPrivileges = [
-	{
-		name: 'schema:declare',
-		reason: 'Declares the exact plugin-owned local User identity schema.',
-	},
-	{
-		name: 'storage:private',
-		reason:
-			'Stores password verifiers and session digests outside application schema surfaces.',
-	},
-	{
-		name: 'operation:declare',
-		reason: 'Declares the exact Password Auth identity transition operations.',
-	},
-	{
-		name: 'transport:expose',
-		reason:
-			'Binds Password Auth operations to REST v1, GraphQL v1, and optional owned cookie routes.',
-	},
-	{
-		name: 'typegen:reference',
-		reason: 'References public Password Auth operation input and result types.',
-	},
-	{
-		name: 'authority:elevate',
-		reason: 'Creates a public User through one audited sign-up transaction.',
-	},
-	{
-		name: 'runtime:intercept',
-		reason: 'Preserves the canonical username invariant on direct User writes.',
-	},
-] as const
+const passwordAuthPluginPermissions = {
+	'schema:declare':
+		'Declares the exact plugin-owned local User identity schema.',
+	'storage:private':
+		'Stores password verifiers and session digests outside application schema surfaces.',
+	'operation:declare':
+		'Declares the exact Password Auth identity transition operations.',
+	'transport:expose':
+		'Binds Password Auth operations to REST v1, GraphQL v1, and optional owned cookie routes.',
+	'typegen:reference':
+		'References public Password Auth operation input and result types.',
+	'authority:elevate':
+		'Creates a public User through one audited sign-up transaction.',
+	'runtime:intercept':
+		'Preserves the canonical username invariant on direct User writes.',
+} as const
 
 const requestExecutionRequirement = requireCapability(
 	applicationRequestExecutionCapability,
 	'^1.0.0',
 )
 
-type PasswordAuthPluginDefinition = Readonly<{
-	readonly capabilities: readonly PluginCapabilityDeclaration[]
-	readonly environment: typeof passwordAuthPluginEnvironment
-	readonly operations: readonly PluginOperationAuthoringContribution[]
-	readonly peers: readonly [] | typeof passwordAuthHttpPeers
-	readonly privileges: typeof passwordAuthPluginPrivileges
-	readonly setup: () => PasswordAuthPluginExports
-}>
-
 /** Names the exact official local username and password plugin. */
-export type PasswordAuthPlugin = PluginModuleInstance<
-	typeof passwordAuthPluginModule,
-	Omit<PasswordAuthPluginDefinition, 'setup'> &
-		Readonly<{ readonly setup: () => PasswordAuthPluginExports }>
+export type PasswordAuthPlugin = PluginInstance<
+	'@ultimabase/password-auth-plugin',
+	PasswordAuthPluginExports,
+	undefined,
+	'0.0.0',
+	'^0.0.0',
+	undefined,
+	undefined,
+	readonly [] | typeof passwordAuthHttpPeers,
+	undefined,
+	typeof passwordAuthPluginEnvironment
 >
 
 /** Configures the one local User identity domain owned by Password Auth v1. */
@@ -275,52 +247,60 @@ export const passwordAuthPlugin = <
 		),
 	]
 
-	return passwordAuthPluginModule.plugin({
-		capabilities: [
-			usernameInvariant,
+	return plugin({
+		id: '@ultimabase/password-auth-plugin',
+		version: '0.0.0',
+		core: '^0.0.0',
+		contributions: [
+			withPluginPrivileges(usernameInvariant, ['authority:elevate']),
 			principalResolver,
 			httpSessionResolver,
 			...(httpCookieIntegration?.capabilities ?? []),
 			requestExecutionRequirement,
-		],
-		operations: [
 			...handlers,
 			...bindingContributions,
 			...(httpCookieIntegration?.operations ?? []),
+			contributeDeclarations({
+				schema: ({ schemas }) => {
+					const userSchemaDeclaration = {
+						contributionId: 'password-user',
+						schema: user,
+						staticOptions: {
+							identity: 'local-password',
+							variant: usesDefaultUser ? 'default' : 'custom',
+						},
+					} as const
+					if (usesDefaultUser) {
+						schemas.add(userSchemaDeclaration)
+					} else {
+						schemas.claim(userSchemaDeclaration)
+					}
+					return undefined
+				},
+				privateStorage: ({ privateStorage }) => {
+					privateStorage.register(credentials)
+					privateStorage.register(sessions)
+					return undefined
+				},
+			}),
+			contributeApplication(({ capabilities }) => {
+				if (pluginExports === undefined) {
+					throw new TypeError(
+						'Password Auth application exports are unavailable',
+					)
+				}
+				return {
+					exports: pluginExports,
+					startTransports: () => {
+						httpCookieIntegration?.start(
+							capabilities.get(requestExecutionRequirement),
+						)
+					},
+				}
+			}),
 		],
 		environment: passwordAuthPluginEnvironment,
 		peers: cookie === undefined ? [] : passwordAuthHttpPeers,
-		privileges: passwordAuthPluginPrivileges,
-		declare: ({ privateStorage, schemas }) => {
-			const userSchemaDeclaration = {
-				contributionId: 'password-user',
-				schema: user,
-				staticOptions: {
-					identity: 'local-password',
-					variant: usesDefaultUser ? 'default' : 'custom',
-				},
-			} as const
-			if (usesDefaultUser) {
-				schemas.add(userSchemaDeclaration)
-			} else {
-				schemas.claim(userSchemaDeclaration)
-			}
-			privateStorage.register(credentials)
-			privateStorage.register(sessions)
-			return undefined
-		},
-		setup: () => {
-			if (pluginExports === undefined) {
-				throw new TypeError('Password Auth application exports are unavailable')
-			}
-			return pluginExports
-		},
-		hooks: {
-			startTransports: ({ capabilities }) => {
-				httpCookieIntegration?.start(
-					capabilities.get(requestExecutionRequirement),
-				)
-			},
-		},
+		permissions: passwordAuthPluginPermissions,
 	})
 }

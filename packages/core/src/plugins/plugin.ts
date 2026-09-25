@@ -8,10 +8,7 @@ import type {
 	PluginPrivilege,
 	PluginPrivilegeRequest,
 } from './manifest.js'
-import {
-	compilePluginContributions,
-	type PluginPermissionReasons,
-} from './plugin-contribution-compiler.js'
+import { compilePluginContributions } from './plugin-contribution-compiler.js'
 import type {
 	PluginApplicationContribution,
 	PluginContribution,
@@ -22,6 +19,7 @@ import type {
 	PluginOperationAuthoringContribution,
 	PluginOperationContributionCapabilities,
 } from './plugin-operation-contributions.js'
+import type { PluginPermissionReasons } from './plugin-permissions.js'
 
 type UnwrapContribution<TContribution> =
 	TContribution extends PluginPrivilegedContribution<infer TWrapped>

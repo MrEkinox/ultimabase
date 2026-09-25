@@ -59,7 +59,7 @@ export type {
 export type {
 	PluginPermissionReason,
 	PluginPermissionReasons,
-} from './plugins/plugin-contribution-compiler.js'
+} from './plugins/plugin-permissions.js'
 export type {
 	DefinePluginModuleOptions,
 	PluginModule,

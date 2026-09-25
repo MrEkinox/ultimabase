@@ -1,5 +1,4 @@
 import {
-	assertNonEmptyString,
 	immutableArray,
 	immutableRecord,
 	isPlainRecord,
@@ -16,7 +15,6 @@ import { schemaMutationTransportBindingCapability } from '../runtime/schema-muta
 import {
 	assertCapabilityProviderDeclaration,
 	assertCapabilityRequirement,
-	type CapabilityRequirement,
 	type PluginCapabilityDeclaration,
 } from './capabilities.js'
 import type {
@@ -28,11 +26,7 @@ import type {
 	PluginLifecycleHooks,
 	PluginSetup,
 } from './definition.js'
-import {
-	pluginPrivilegeMetadata,
-	type PluginPrivilege,
-	type PluginPrivilegeRequest,
-} from './manifest.js'
+import type { PluginPrivilege, PluginPrivilegeRequest } from './manifest.js'
 import {
 	compilePluginOperationContributions,
 	type PluginOperationAuthoringContribution,
@@ -48,18 +42,10 @@ import {
 	type PluginContribution,
 	type PluginDeclarationContribution,
 } from './plugin-contributions.js'
-
-/** Keeps reasons explicit while Core derives which names are required. */
-export type PluginPermissionReason =
-	| string
-	| Readonly<{
-			readonly reason: string
-			readonly when?: CapabilityRequirement
-	  }>
-
-export type PluginPermissionReasons = Readonly<
-	Partial<Record<PluginPrivilege, PluginPermissionReason>>
->
+import {
+	normalizePluginPermissionRequests,
+	type PluginPermissionReasons,
+} from './plugin-permissions.js'
 
 export interface CompiledPluginContributions {
 	readonly capabilities: readonly PluginCapabilityDeclaration[]
@@ -164,61 +150,6 @@ const appendCapabilityPrivileges = (
 	)
 }
 
-const normalizePermissionRequests = (
-	permissions: PluginPermissionReasons | undefined,
-	requiredPrivileges: readonly PluginPrivilege[],
-): readonly PluginPrivilegeRequest[] => {
-	const untrustedPermissions: unknown = permissions ?? {}
-	if (!isPlainRecord(untrustedPermissions)) {
-		throw new TypeError('plugin permissions must be a plain object')
-	}
-	for (const key of Reflect.ownKeys(untrustedPermissions)) {
-		if (
-			typeof key !== 'string' ||
-			!Object.hasOwn(pluginPrivilegeMetadata, key)
-		) {
-			throw new TypeError(`Unknown plugin permission reason: ${String(key)}`)
-		}
-		if (!requiredPrivileges.includes(key as PluginPrivilege)) {
-			throw new TypeError(`Unused plugin permission reason: ${key}`)
-		}
-	}
-
-	return immutableArray(
-		requiredPrivileges.map((name) => {
-			const configured = untrustedPermissions[name]
-			if (configured === undefined) {
-				throw new TypeError(`Missing plugin permission reason: ${name}`)
-			}
-			if (typeof configured === 'string') {
-				assertNonEmptyString(configured, `plugin permissions.${name}`)
-				return immutableRecord({ name, reason: configured })
-			}
-			if (!isPlainRecord(configured)) {
-				throw new TypeError(
-					`plugin permissions.${name} must be a reason or conditional reason`,
-				)
-			}
-			for (const key of Reflect.ownKeys(configured)) {
-				if (key !== 'reason' && key !== 'when') {
-					throw new TypeError(
-						`Unknown plugin permissions.${name} option: ${String(key)}`,
-					)
-				}
-			}
-			assertNonEmptyString(
-				configured.reason,
-				`plugin permissions.${name}.reason`,
-			)
-			return immutableRecord({
-				name,
-				reason: configured.reason,
-				...(configured.when === undefined ? {} : { when: configured.when }),
-			})
-		}),
-	)
-}
-
 const isOperationContributionKind = (kind: unknown): boolean =>
 	kind === 'plugin-operation-contribution' ||
 	kind === 'plugin-operation-binding-contribution' ||
@@ -267,10 +198,19 @@ const compileOneContribution = (
 		])
 		for (const capability of compiled.capabilities) {
 			appendCapabilityPrivileges(compilation.privileges, capability)
-			compilation.capabilities.push(capability)
 		}
 		if (compiled.operations.length > 0) {
 			appendPrivilege(compilation.privileges, 'operation:declare')
+			if (
+				compiled.operations.some((operation) =>
+					operation.kind === 'plugin-operation'
+						? operation.input.typegen !== undefined ||
+							operation.result.typegen !== undefined
+						: operation.input.typegen !== undefined,
+				)
+			) {
+				appendPrivilege(compilation.privileges, 'typegen:reference')
+			}
 		}
 		compilation.operations.push(
 			contribution as PluginOperationAuthoringContribution,
@@ -386,7 +326,7 @@ export const compilePluginContributions = (
 		declare,
 		hooks: application.hooks,
 		operations: immutableArray(compilation.operations),
-		privileges: normalizePermissionRequests(
+		privileges: normalizePluginPermissionRequests(
 			permissions,
 			compilation.privileges,
 		),
