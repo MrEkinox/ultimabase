@@ -14,7 +14,7 @@ patterns that are not foundational plugin registration.
 - [x] [3301 — Introduce the Core plugin factory and compact public type](3301-core-plugin-factory.md)
 - [x] [3302 — Flatten capability authoring](3302-flat-capability-authoring.md)
 - [x] [3303 — Unify application-operation contributions](3303-operation-contributions.md)
-- [ ] [3304 — Remove redundant static registrations](3304-static-registration-deduplication.md)
+- [x] [3304 — Remove redundant static registrations](3304-static-registration-deduplication.md)
 - [ ] [3305 — Migrate official plugins and shrink Plugin Kit](3305-official-plugin-migration.md)
 - [ ] [3306 — Audit behavioral and authoring parity](3306-parity-audit.md)
 

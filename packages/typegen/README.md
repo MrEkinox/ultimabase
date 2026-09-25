@@ -83,8 +83,9 @@ Typegen derives application contracts from the compiled graph. Plugins export
 reusable public types from their package root and name them with
 `defineTypegenReference({ module, exportName })`. Operation value contracts use
 that reference as the second argument to `defineOperationValue(snapshot, reference)`.
-The declaring plugin requests `typegen:reference` and registers the exact token
-with `typegenReferences.register(reference)` during `declare`.
+The declaring plugin requests `typegen:reference`; Core collects exact tokens
+reachable from its owned operation and schema-mutation contracts. The explicit
+registrar remains only for references not reachable from an owned command.
 
 References are nominal and owner-scoped. Registering one adds no standalone
 alias. Plugins cannot append arbitrary declarations, schema/model augmentations,

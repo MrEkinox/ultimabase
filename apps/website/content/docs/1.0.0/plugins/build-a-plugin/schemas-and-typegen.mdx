@@ -208,21 +208,22 @@ export const stateValue = defineOperationValue((value, path): WorkflowState => {
 ```
 
 Use `stateValue` as the operation's input or result contract. Its declaring
-plugin requests `typegen:reference` and registers that exact reference with
-`typegenReferences.register(stateReference)` during `declare`. Typegen checks
-reference ownership before emitting the import. Registration alone adds no
-standalone alias or Runtime behavior. The input snapshot still runs without
-Typegen, including in JavaScript applications.
+plugin requests `typegen:reference`; Core then collects the exact references
+reachable from that plugin's owned operation and schema-mutation contracts.
+Typegen checks reference ownership before emitting the import. The reference
+adds no standalone alias or Runtime behavior. The input snapshot still runs
+without Typegen, including in JavaScript applications.
 
-Request this privilege directly: reference registration belongs to your
-plugin's declaration, even when the application does not install Typegen.
+Request this privilege directly: reference ownership belongs to your plugin's
+declaration, even when the application does not install Typegen. Use the
+`typegenReferences` registrar only for a public reference that is not reachable
+from an owned command contract.
 The former `typegenEmitterCapability` and `TypegenEmitterCapability` marker
 contracts are removed. Automatic generation still runs in `typegenPlugin()`
 setup; no emitter-selection capability is needed.
 
-Plugin Kit's `defineTypegenModule()` groups nominal references to the same
-package. Field and option definitions retain their own structured `typegen`
-metadata; they do not need a manual declaration registry. See
+Field and option definitions retain their own structured `typegen` metadata;
+they do not need a manual declaration registry. See
 [Operations and GraphQL](/docs/1.0.0/plugins/build-a-plugin/operations-and-graphql)
 for the complete operation and handler setup.
 

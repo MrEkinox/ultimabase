@@ -34,7 +34,6 @@ test('preserves exact provider, factory, and reader types', () => {
 	expectTypeOf(optional.phase).toEqualTypeOf<'materialization'>()
 	expectTypeOf(setupOptional.phase).toEqualTypeOf<'setup'>()
 	const provider = provideCapability(token, {
-		contributionId: 'primary',
 		create: ({ capabilities, schemas }) => {
 			expectTypeOf(schemas).toEqualTypeOf<CompiledSchemaRegistry>()
 			expectTypeOf(capabilities.get(required)).toEqualTypeOf<Consumer>()

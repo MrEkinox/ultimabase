@@ -136,11 +136,13 @@ type CapabilityDeclarationValue<TValue> = TValue extends JsonValue
 type ProvideCapabilityOptions<TToken extends CapabilityToken> =
 	TToken['lifetime'] extends 'declaration'
 		? Readonly<{
-				contributionId: string
+				/** Distinguishes repeated providers for the same token from one owner. */
+				contributionId?: string
 				value: CapabilityDeclarationValue<CapabilityProviderValue<TToken>>
 			}>
 		: Readonly<{
-				contributionId: string
+				/** Distinguishes repeated providers for the same token from one owner. */
+				contributionId?: string
 				create: ApplicationCapabilityFactory<CapabilityProviderValue<TToken>>
 			}>
 
@@ -155,7 +157,9 @@ export const provideCapability = <const TToken extends CapabilityToken>(
 		throw new TypeError('capability provider options must be a plain object')
 	}
 
-	assertCapabilityContributionId(options.contributionId, 'contributionId')
+	if (options.contributionId !== undefined) {
+		assertCapabilityContributionId(options.contributionId, 'contributionId')
+	}
 
 	if (token.lifetime === 'declaration') {
 		assertCapabilityOptions(
@@ -179,7 +183,7 @@ export const provideCapability = <const TToken extends CapabilityToken>(
 	const provider = immutableRecord({
 		kind: 'capability-provider' as const,
 		token,
-		contributionId: options.contributionId,
+		contributionId: options.contributionId ?? token.capabilityId,
 		...(token.lifetime === 'declaration'
 			? {
 					value: snapshotJsonValue(

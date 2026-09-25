@@ -67,7 +67,6 @@ const format = requireCapability(formatCapability, '^1.0.0')
 export const formatProvider = definePlugin({
 	capabilities: [
 		provideCapability(formatCapability, {
-			contributionId: 'compact-format',
 			value: { format: 'compact' },
 		}),
 	],
@@ -89,7 +88,10 @@ export const formatConsumer = definePlugin({
 `pipeline` composes ordered handlers. Every provider retains its exact owner;
 competing `single` providers fail during graph validation. Authors use one flat
 list because each declaration already knows whether it provides, requires, or
-optionally consumes a capability. Inspection still reports the normalized
+optionally consumes a capability. Core derives a provider's contribution ID
+from the nominal capability ID. Specify `contributionId` only when the same
+plugin contributes the same `multiple` or `pipeline` capability more than once.
+Inspection still reports the normalized
 `provides`, `requires`, and `optional` groups. Declaration values are
 deeply frozen, serializable facts. They must contain no secret, connection, or
 callback. For a live client, use an `application` lifetime token with a

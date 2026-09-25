@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 
 import {
 	FrameworkApplication,
+	defineOperation,
+	defineOperationValue,
 	definePlugin,
 	defineTypegenReference,
 } from '../index.js'
@@ -55,5 +57,51 @@ describe('Typegen declaration facades', () => {
 			version: '2.1.0',
 		})
 		expect(Object.keys(declaration ?? {})).toEqual(['references'])
+	})
+
+	it('collects command references once from the owned operation contract', () => {
+		const value = defineOperationValue((input) => input, publicReference)
+		const operation = defineOperation({
+			input: value,
+			name: 'fixture.typegen.operation',
+			result: value,
+			target: 'application',
+			transaction: 'forbidden',
+			version: '1.0.0',
+		})
+		const application = new FrameworkApplication({
+			plugins: [
+				definePlugin({
+					core: '^0.0.0',
+					pluginId: 'fixture.typegen-operation',
+					version: '1.0.0',
+					privileges: [
+						{
+							name: 'operation:declare',
+							reason: 'Declares the typed operation.',
+						},
+						{
+							name: 'typegen:reference',
+							reason: 'References the public workflow state.',
+						},
+					],
+					declare: ({ operations, typegenReferences }) => {
+						operations.declare(operation)
+						// The temporary explicit registration path is an idempotent bridge.
+						typegenReferences.register(publicReference)
+					},
+				}),
+			],
+			schemas: [],
+		})
+
+		application.compileSchemas()
+
+		const references = application.typegenGraph.declarations.flatMap(
+			(declaration) => declaration.references,
+		)
+		expect(references).toHaveLength(1)
+		expect(references[0]?.reference).toBe(publicReference)
+		expect(references[0]?.owner.pluginId).toBe('fixture.typegen-operation')
 	})
 })

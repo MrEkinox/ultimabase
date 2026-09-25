@@ -31,11 +31,17 @@ it.each(['missing', 'foreign', 'owner'] as const)(
 			version: '1.0.0',
 			privileges: [
 				{ name: 'operation:declare', reason: 'Declares a typed operation.' },
-				{ name: 'typegen:reference', reason: 'Registers its public type.' },
+				...(registration === 'owner'
+					? ([
+							{
+								name: 'typegen:reference',
+								reason: 'Owns the public type used by its operation.',
+							},
+						] as const)
+					: []),
 			],
-			declare: ({ operations, typegenReferences }) => {
+			declare: ({ operations }) => {
 				operations.declare(operation)
-				if (registration === 'owner') typegenReferences.register(reference)
 			},
 		})
 		const foreign = definePlugin({

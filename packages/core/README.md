@@ -1865,10 +1865,12 @@ an inert `create` factory that runs once per application before plugin setup and
 returns `{ value, dispose? }`.
 
 Every provider has one stable owner-local `contributionId`, recorded together
-with its exact plugin and instance in `PluginGraph.capabilities`. Dependency
-order and configuration position determine provider order. A `single` token
-rejects competing providers; `multiple` and `pipeline` tokens retain their
-ordered providers. Authors put providers and requirements in one
+with its exact plugin and instance in `PluginGraph.capabilities`. Core derives
+it from the nominal capability ID by default. Authors set it only to distinguish
+repeated providers of the same `multiple` or `pipeline` token from one owner.
+Dependency order and configuration position determine provider order. A
+`single` token rejects competing providers; `multiple` and `pipeline` tokens
+retain their ordered providers. Authors put providers and requirements in one
 `capabilities` list; each nominal declaration already records whether it
 provides, requires, or optionally consumes a capability. The inspected
 manifest retains the normalized `provides`, `requires`, and `optional` groups.

@@ -44,7 +44,6 @@ const applicationToken = defineCapability<
 describe('capability declarations', () => {
 	it('classifies one flat authoring list into stable inspection buckets', () => {
 		const provider = provideCapability(declarationToken, {
-			contributionId: 'primary',
 			value: { endpoint: 'https://audit.example' },
 		})
 		const required = requireCapability(declarationToken, '^1.0.0')
@@ -65,6 +64,7 @@ describe('capability declarations', () => {
 			optional: [optional],
 		})
 		expect(Object.isFrozen(plugin.manifest.capabilities.provides)).toBe(true)
+		expect(provider.contributionId).toBe('fixture.audit-sink')
 	})
 
 	it('creates frozen serializable metadata for every cardinality and lifetime', () => {
@@ -212,6 +212,46 @@ describe('capability declarations', () => {
 })
 
 describe('CapabilityInventory', () => {
+	it('requires explicit IDs only for repeated providers from one owner', () => {
+		const createDeclaration = (endpoint: string, contributionId?: string) =>
+			provideCapability(declarationToken, {
+				...(contributionId === undefined ? {} : { contributionId }),
+				value: { endpoint },
+			})
+		const createProvider = (
+			first: ReturnType<typeof createDeclaration>,
+			second: ReturnType<typeof createDeclaration>,
+		) =>
+			definePlugin({
+				pluginId: 'fixture.repeated-audit',
+				version: '1.0.0',
+				core: '^0.0.0',
+				capabilities: [first, second],
+			})
+
+		expect(
+			() =>
+				new PluginGraph(
+					normalizePlugins([
+						createProvider(
+							createDeclaration('first'),
+							createDeclaration('second'),
+						),
+					]),
+				),
+		).toThrow(expect.objectContaining({ code: 'PLUGIN_CAPABILITY_CONFLICT' }))
+
+		const graph = new PluginGraph(
+			normalizePlugins([
+				createProvider(
+					createDeclaration('first', 'first'),
+					createDeclaration('second', 'second'),
+				),
+			]),
+		)
+		expect(graph.capabilities.entries[0]?.providers).toHaveLength(2)
+	})
+
 	it('scopes duplicate contribution IDs to the exact plugin instance', () => {
 		const declaration = provideCapability(declarationToken, {
 			contributionId: 'shared-local-id',

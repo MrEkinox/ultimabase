@@ -56,26 +56,52 @@ export interface MutableTypegenDeclarations {
 	readonly references: OwnedTypegenReference[]
 }
 
+interface TypegenReferenceRegistration extends TypegenReferenceRegistrar {
+	/** Adds a reference derived from an owned command without duplicating it. */
+	registerReachable(reference: TypegenReference): void
+}
+
 /** Creates the owner-bound public type-reference registrar for one declaration batch. */
 export const createTypegenReferenceRegistrar = (
 	owner: PluginSchemaContributionOwner,
 	declarations: MutableTypegenDeclarations,
 	assertOpen: () => void,
-): TypegenReferenceRegistrar => {
-	const registeredReferences = new Set<TypegenReference>()
+): TypegenReferenceRegistration => {
+	const manuallyRegistered = new Set<TypegenReference>()
+	const reachableReferences = new Set<TypegenReference>()
+	const append = (reference: TypegenReference): void => {
+		declarations.references.push(immutableRecord({ owner, reference }))
+	}
+	const assertReference = (reference: TypegenReference): void => {
+		if (!isTypegenReference(reference)) {
+			throw new TypeError(
+				'Typegen reference must be created by defineTypegenReference',
+			)
+		}
+	}
 	return immutableRecord({
 		register: (reference): void => {
 			assertOpen()
-			if (!isTypegenReference(reference))
-				throw new TypeError(
-					'Typegen reference must be created by defineTypegenReference',
-				)
-			if (registeredReferences.has(reference))
+			assertReference(reference)
+			if (manuallyRegistered.has(reference)) {
 				throw new TypeError(
 					'Typegen reference is already registered by this plugin',
 				)
-			registeredReferences.add(reference)
-			declarations.references.push(immutableRecord({ owner, reference }))
+			}
+			manuallyRegistered.add(reference)
+			if (!reachableReferences.has(reference)) append(reference)
+		},
+		registerReachable: (reference): void => {
+			assertOpen()
+			assertReference(reference)
+			if (
+				manuallyRegistered.has(reference) ||
+				reachableReferences.has(reference)
+			) {
+				return
+			}
+			reachableReferences.add(reference)
+			append(reference)
 		},
 	})
 }

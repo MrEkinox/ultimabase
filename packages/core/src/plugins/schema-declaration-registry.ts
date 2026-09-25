@@ -147,6 +147,19 @@ export class SchemaDeclarationRegistry {
 			batch.typegen,
 			assertOpen,
 		)
+		const operations: PluginOperationDeclarationRegistrar = immutableRecord({
+			declare: (operation): void => {
+				surfaces.operations.declare(operation)
+				if (!privileges.typegenReference) return
+				const references =
+					operation.kind === 'plugin-operation'
+						? [operation.input.typegen, operation.result.typegen]
+						: [operation.input.typegen]
+				for (const reference of references) {
+					if (reference !== undefined) typegen.registerReachable(reference)
+				}
+			},
+		})
 		const registrar: PluginSchemaDeclarationRegistrar = immutableRecord({
 			add: (options): void => {
 				assertDeclare()
@@ -310,7 +323,7 @@ export class SchemaDeclarationRegistry {
 				)
 			},
 			models: surfaces.models,
-			operations: surfaces.operations,
+			operations,
 			registrar,
 			typegenReferences: typegen,
 		})
